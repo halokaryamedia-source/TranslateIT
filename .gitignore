@@ -19,25 +19,30 @@ DevelopingData/ToolKitData/TranslateITPrototypeEnv/
 
 # Runtime logs
 *.log
-UserData/LogData/
 DevelopingData/Reports/**/*.log
 
 # User/runtime cache data
-UserData/CacheData/
-UserData/CacheData/**
-UserData/LogData/
-UserData/LogData/**
-UserData/SavedData/
-UserData/SavedData/**
-UserData/SavedProject/
-UserData/SavedProject/**
+UserData/CacheData/*
+!UserData/CacheData/
+!UserData/CacheData/README.md
+UserData/LogData/*
+!UserData/LogData/
+!UserData/LogData/README.md
+UserData/SavedData/*
+!UserData/SavedData/
+!UserData/SavedData/README.md
+!UserData/SavedData/CustomVoice/
+UserData/SavedData/CustomVoice/*
+!UserData/SavedData/CustomVoice/README.md
+!UserData/SavedData/SavedTranscript/
+UserData/SavedData/SavedTranscript/*
+!UserData/SavedData/SavedTranscript/README.md
+UserData/SavedProject/*
+!UserData/SavedProject/
+!UserData/SavedProject/README.md
 
 # Keep README placeholders if needed
 !UserData/README.md
-!UserData/LogData/README.md
-!UserData/SavedData/README.md
-!UserData/SavedData/CustomVoice/README.md
-!UserData/SavedData/SavedTranscript/README.md
 
 # Audio/generated runtime files
 *.wav
