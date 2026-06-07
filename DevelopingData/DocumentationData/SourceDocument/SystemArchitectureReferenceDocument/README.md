@@ -8,4 +8,9 @@
 - `TRANSLATEIT_SYSTEM_ARCHITECTURE_AND_ENGINE_REFERENCE.md`
 - `TRANSLATEIT_SYSTEM_ARCHITECTURE_AND_ENGINE_REFERENCE.docx`
 - `TRANSLATEIT_SYSTEM_ARCHITECTURE_MANIFEST.json`
-- `build_reference_artifacts.py`
+
+## Tooling
+- The build script now lives in `DevelopingData/ToolKitData/Scripts/build_reference_artifacts.py`
+
+## Generated output
+- `rendered_qa/` contains generated review artifacts and should stay treated as output, not hand-edited source.
