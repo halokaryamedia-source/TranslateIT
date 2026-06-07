@@ -1,30 +1,22 @@
 # SourceDocument
 
 ## Purpose
-- Hold the master documentation and the detailed project documents that define TranslateIT.
-- Stay clean and easy to scan.
+- Keep the master project documentation and detailed source-of-truth documents.
 
-## Allowed files
-- `README.md`
+## Approved root documents
 - `MASTER_PROJECT_DOCUMENTATION.md`
 - `MASTER_PROJECT_DOCUMENTATION.docx`
-- Approved detailed document subfolders only
-- `ManualTestGuideDocument/`
+
+## Approved subfolders
+- `CodexGuideDocument/`
 - `CudaSetupGuideDocument/`
+- `FeatureSpecificationDocument/`
+- `ManualTestGuideDocument/`
+- `ProjectContextDocument/`
 - `SystemArchitectureReferenceDocument/`
+- `SystemWorkflowDocument/`
+- `TechnicalNotesDocument/`
 
-## Must not be placed here
-- Engine files
-- Cache data
-- Saved user data
-- Extra root-level documentation files
-- Legacy source documents after migration
-
-## Naming rules
-- Use English only.
-- Keep the root limited to the master files listed above.
-- Place all detailed documentation inside the approved subfolders.
-
-## Related documentation path
-- `DevelopingData/DocumentationData/SourceDocument/MASTER_PROJECT_DOCUMENTATION.md`
-- `DevelopingData/DocumentationData/SourceDocument/SystemArchitectureReferenceDocument/TRANSLATEIT_SYSTEM_ARCHITECTURE_AND_ENGINE_REFERENCE.md`
+## Notes
+- Keep the root clean and limited.
+- Put any new detailed document inside an approved subfolder.
