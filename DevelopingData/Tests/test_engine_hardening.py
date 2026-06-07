@@ -1624,6 +1624,7 @@ class EngineHardeningTests(unittest.TestCase):
             AudioNoiseFilter.configure(previous)
 
     def test_audio_settings_persist_custom_voice_actor_fields(self) -> None:
+        from EngineData.LauncherApp.app_config import default_voice_actor_profiles_root
         from EngineData.LauncherApp.audio_settings import AudioSettings, load_audio_settings, save_audio_settings
 
         with tempfile.TemporaryDirectory(prefix="audio-settings-") as temp_dir:
@@ -1631,20 +1632,28 @@ class EngineHardeningTests(unittest.TestCase):
             settings = AudioSettings(
                 use_custom_voice_actor=True,
                 voice_actor_profile_id="marcel",
-                voice_actor_profiles_root="D:\\Work\\AI Stuff\\TranslateIT-ISSUED\\DevelopingPack\\UserData\\SavedData\\profiles\\default\\voices",
+                voice_actor_profiles_root=default_voice_actor_profiles_root(),
             )
             save_audio_settings(settings, path=path)
             restored = load_audio_settings(path=path)
 
         self.assertTrue(restored.use_custom_voice_actor)
         self.assertEqual(restored.voice_actor_profile_id, "marcel")
-        self.assertIn("profiles\\default\\voices", restored.voice_actor_profiles_root)
+        self.assertIn("UserData\\SavedData\\CustomVoice", restored.voice_actor_profiles_root.replace("/", "\\"))
 
     def test_audio_settings_default_to_headset_preset(self) -> None:
-        from EngineData.LauncherApp.audio_settings import AudioSettings
+        from EngineData.LauncherApp.audio_settings import AudioSettings, DEFAULT_VOICE_ACTOR_PROFILES_ROOT
 
         settings = AudioSettings()
         self.assertEqual(settings.input_sensitivity, "Headset")
+        self.assertEqual(settings.voice_actor_profiles_root, DEFAULT_VOICE_ACTOR_PROFILES_ROOT)
+
+    def test_engine_config_defaults_voice_actor_root_to_custom_voice_folder(self) -> None:
+        from EngineData.LauncherApp.app_config import EngineConfig, default_voice_actor_profiles_root
+
+        config = EngineConfig()
+        self.assertEqual(config.voice_actor_profiles_root, default_voice_actor_profiles_root())
+        self.assertIn("UserData\\SavedData\\CustomVoice", config.voice_actor_profiles_root.replace("/", "\\"))
 
     def test_audio_settings_normalize_legacy_sensitivity_to_headset(self) -> None:
         from EngineData.LauncherApp.audio_settings import load_audio_settings
