@@ -1,8 +1,9 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from dataclasses import field
 
-from EngineData.LauncherApp.app_config import EngineConfig
+from EngineData.LauncherApp.app_config import EngineConfig, default_voice_actor_profiles_root
 
 
 @dataclass(slots=True)
@@ -10,7 +11,7 @@ class SettingsViewModel:
     language_focus_mode: str = "ID/EN Focus"
     use_custom_voice_actor: bool = True
     voice_actor_profile_id: str = "marcel"
-    voice_actor_profiles_root: str = r"D:\Work\AI Stuff\TranslateIT-ISSUED\DevelopingPack\UserData\SavedData\profiles\default\voices"
+    voice_actor_profiles_root: str = field(default_factory=default_voice_actor_profiles_root)
     microphone_device_name: str = ""
     source_language: str = "id"
     target_language: str = "en"

@@ -10,13 +10,17 @@ from EngineData.TranscriptEngine.audio_noise_filter import NoiseThresholds
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
 
 
+def default_voice_actor_profiles_root() -> str:
+    return str(PROJECT_ROOT / "UserData" / "SavedData" / "CustomVoice")
+
+
 @dataclass(frozen=True, slots=True)
 class EngineConfig:
     app_name: str = "TranslateIT"
     language_focus_mode: str = "ID/EN Focus"
     use_custom_voice_actor: bool = True
     voice_actor_profile_id: str = "marcel"
-    voice_actor_profiles_root: str = r"D:\Work\AI Stuff\TranslateIT-ISSUED\DevelopingPack\UserData\SavedData\profiles\default\voices"
+    voice_actor_profiles_root: str = field(default_factory=default_voice_actor_profiles_root)
     primary_asr_model: str = "large-v3-turbo"
     backup_asr_model: str = "medium"
     device: str = "cuda"

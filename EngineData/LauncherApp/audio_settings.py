@@ -4,11 +4,11 @@ from dataclasses import asdict, dataclass
 from pathlib import Path
 import json
 
-from EngineData.LauncherApp.app_config import PROJECT_ROOT
+from EngineData.LauncherApp.app_config import PROJECT_ROOT, default_voice_actor_profiles_root
 
 
 SETTINGS_PATH = PROJECT_ROOT / "UserData" / "CacheData" / "audio_settings.json"
-DEFAULT_VOICE_ACTOR_PROFILES_ROOT = r"D:\Work\AI Stuff\TranslateIT-ISSUED\DevelopingPack\UserData\SavedData\profiles\default\voices"
+DEFAULT_VOICE_ACTOR_PROFILES_ROOT = default_voice_actor_profiles_root()
 
 
 @dataclass(slots=True)
@@ -34,22 +34,34 @@ def load_audio_settings(path: Path = SETTINGS_PATH) -> AudioSettings:
         data = json.loads(path.read_text(encoding="utf-8"))
     except Exception:
         return AudioSettings()
+
     def _sanitize_root(value: object) -> str:
         text = str(value or "").strip()
         if not text or text.startswith("<member ") or "AudioSettings' objects>" in text:
             return DEFAULT_VOICE_ACTOR_PROFILES_ROOT
         return text
 
+    def _coerce_bool(value: object, fallback: bool) -> bool:
+        if isinstance(value, bool):
+            return value
+        return fallback
+
+    def _coerce_str(value: object, fallback: str) -> str:
+        text = str(value or "").strip()
+        if text == "Normal" and fallback == "Headset":
+            return fallback
+        return text if text else fallback
+
     raw_use_custom_voice_actor = data.get("use_custom_voice_actor", None)
     settings = AudioSettings(
         input_device_id=data.get("input_device_id") if isinstance(data.get("input_device_id"), int) else None,
         output_device_id=data.get("output_device_id") if isinstance(data.get("output_device_id"), int) else None,
-        input_sensitivity="Headset",
-        show_advanced_devices=False,
-        allow_low_but_usable_input=True,
-        auto_play_out_voice=True,
-        use_custom_voice_actor=bool(raw_use_custom_voice_actor) if isinstance(raw_use_custom_voice_actor, bool) else True,
-        voice_actor_profile_id=str(data.get("voice_actor_profile_id", "") or ""),
+        input_sensitivity=_coerce_str(data.get("input_sensitivity", "Headset"), "Headset"),
+        show_advanced_devices=_coerce_bool(data.get("show_advanced_devices", False), False),
+        allow_low_but_usable_input=_coerce_bool(data.get("allow_low_but_usable_input", True), True),
+        auto_play_out_voice=_coerce_bool(data.get("auto_play_out_voice", True), True),
+        use_custom_voice_actor=_coerce_bool(raw_use_custom_voice_actor, True),
+        voice_actor_profile_id=_coerce_str(data.get("voice_actor_profile_id", ""), ""),
         voice_actor_profiles_root=_sanitize_root(data.get("voice_actor_profiles_root", DEFAULT_VOICE_ACTOR_PROFILES_ROOT)),
     )
     root = Path(settings.voice_actor_profiles_root)

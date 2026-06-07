@@ -2165,13 +2165,13 @@ if PYSIDE_AVAILABLE:  # pragma: no cover - interactive UI path
             self.level_state_label.setWordWrap(True)
 
             self.advanced_devices_toggle = QCheckBox("Show Advanced Devices")
-            self.advanced_devices_toggle.setChecked(False)
+            self.advanced_devices_toggle.setChecked(self.runtime.audio_settings.show_advanced_devices)
             self.advanced_devices_toggle.setVisible(False)
             self.use_anyway_toggle = QCheckBox("Use this microphone anyway if input is low but usable")
-            self.use_anyway_toggle.setChecked(True)
+            self.use_anyway_toggle.setChecked(self.runtime.audio_settings.allow_low_but_usable_input)
             self.use_anyway_toggle.setVisible(False)
             self.auto_play_out_voice_toggle = QCheckBox("Auto-play translation voice after translation")
-            self.auto_play_out_voice_toggle.setChecked(True)
+            self.auto_play_out_voice_toggle.setChecked(self.runtime.audio_settings.auto_play_out_voice)
             self.auto_play_out_voice_toggle.setVisible(False)
 
             grid = QGridLayout()
@@ -2742,7 +2742,7 @@ if PYSIDE_AVAILABLE:  # pragma: no cover - interactive UI path
             if current_index >= 0:
                 self.voice_actor_profiles_combo.setCurrentIndex(current_index)
             elif profiles:
-                preferred_index = next((index for index, profile in enumerate(profiles, start=1) if profile.profile_id.lower() == "marcel"), 1)
+                preferred_index = next((index for index, profile in enumerate(profiles) if profile.profile_id.lower() == "marcel"), 0)
                 self.voice_actor_profiles_combo.setCurrentIndex(preferred_index)
                 self.runtime.audio_settings.voice_actor_profile_id = str(self.voice_actor_profiles_combo.currentData() or "").strip()
                 self.runtime.save_audio_settings()
