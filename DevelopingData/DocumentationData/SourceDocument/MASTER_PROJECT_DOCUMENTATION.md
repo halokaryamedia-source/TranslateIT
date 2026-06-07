@@ -105,9 +105,9 @@ Developing/
 - `DevelopingData/DocumentationData/SourceDocument/ProjectDocuments/SYSTEM_WORKFLOW.md`
 - `DevelopingData/DocumentationData/SourceDocument/ProjectDocuments/FEATURE_SPECIFICATION.md`
 - `DevelopingData/DocumentationData/SourceDocument/ProjectDocuments/TECHNICAL_NOTES.md`
-- `DevelopingData/DocumentationData/SourceDocument/Guides/CODEX_DEVELOPMENT_GUIDE.md`
-- `DevelopingData/DocumentationData/SourceDocument/Guides/MANUAL_TEST_GUIDE.md`
-- `DevelopingData/DocumentationData/SourceDocument/Guides/CUDA_SETUP_GUIDE.md`
+- `DevelopingData/DocumentationData/SourceDocument/ProjectDocuments/CODEX_DEVELOPMENT_GUIDE.md`
+- `DevelopingData/DocumentationData/SourceDocument/ProjectDocuments/MANUAL_TEST_GUIDE.md`
+- `DevelopingData/DocumentationData/SourceDocument/ProjectDocuments/CUDA_SETUP_GUIDE.md`
 - `DevelopingData/DocumentationData/LogData/DEVELOPMENT_LOG.md`
 - `DevelopingData/DocumentationData/LogData/VERSION_HISTORY.md`
 - `DevelopingData/DocumentationData/LogData/CRITICAL_REVISION_LOG.md`
@@ -276,8 +276,9 @@ backup_asr_model = "medium"
 - [System Workflow Document](ProjectDocuments/SYSTEM_WORKFLOW.md)
 - [Feature Specification Document](ProjectDocuments/FEATURE_SPECIFICATION.md)
 - [Technical Notes Document](ProjectDocuments/TECHNICAL_NOTES.md)
-- [Codex Development Guide](Guides/CODEX_DEVELOPMENT_GUIDE.md)
-- [Manual Test Guide](Guides/MANUAL_TEST_GUIDE.md)
+- [Codex Development Guide](ProjectDocuments/CODEX_DEVELOPMENT_GUIDE.md)
+- [Manual Test Guide](ProjectDocuments/MANUAL_TEST_GUIDE.md)
+- [CUDA Setup Guide](ProjectDocuments/CUDA_SETUP_GUIDE.md)
 
 ## 18. Links to LogData documents
 

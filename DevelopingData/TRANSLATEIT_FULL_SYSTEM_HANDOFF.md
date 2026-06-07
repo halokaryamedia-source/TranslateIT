@@ -60,8 +60,6 @@ Experimental/
     TranslateEngine/
   DevelopingData/
     Diagnostics/
-    Docs/
-    Document/
     DocumentationData/
     LauncherHelpers/
     Reports/
@@ -956,9 +954,9 @@ DevelopingData\DocumentationData\SourceDocument\MASTER_PROJECT_DOCUMENTATION.md
 DevelopingData\DocumentationData\SourceDocument\ProjectDocuments\PROJECT_CONTEXT.md
 DevelopingData\DocumentationData\SourceDocument\ProjectDocuments\TRANSLATEIT_SYSTEM_WORKFLOW_DETAILED.md
 DevelopingData\DocumentationData\SourceDocument\ProjectDocuments\TECHNICAL_NOTES.md
-DevelopingData\DocumentationData\SourceDocument\Guides\MANUAL_TEST_GUIDE.md
-DevelopingData\DocumentationData\SourceDocument\Guides\CUDA_SETUP_GUIDE.md
-DevelopingData\DocumentationData\SourceDocument\Guides\CODEX_DEVELOPMENT_GUIDE.md
+DevelopingData\DocumentationData\SourceDocument\ProjectDocuments\MANUAL_TEST_GUIDE.md
+DevelopingData\DocumentationData\SourceDocument\ProjectDocuments\CUDA_SETUP_GUIDE.md
+DevelopingData\DocumentationData\SourceDocument\ProjectDocuments\CODEX_DEVELOPMENT_GUIDE.md
 ```
 
 Recent engineering reports:

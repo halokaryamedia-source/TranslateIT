@@ -1,20 +1,19 @@
 # ProjectDocuments
 
 ## Purpose
-- Hold the core project definition documents for TranslateIT.
-- Keep the high-level project context, workflow, feature scope, and technical notes together.
+- Hold the core project documentation and practical guides for TranslateIT.
+- Keep the high-level project context, workflow, feature scope, technical notes, and developer guides together.
 
 ## Current files
 - `PROJECT_CONTEXT.md`
-- `PROJECT_CONTEXT.docx`
 - `SYSTEM_WORKFLOW.md`
-- `SYSTEM_WORKFLOW.docx`
 - `TRANSLATEIT_SYSTEM_WORKFLOW_DETAILED.md`
 - `FEATURE_SPECIFICATION.md`
-- `FEATURE_SPECIFICATION.docx`
 - `TECHNICAL_NOTES.md`
-- `TECHNICAL_NOTES.docx`
+- `CODEX_DEVELOPMENT_GUIDE.md`
+- `CUDA_SETUP_GUIDE.md`
+- `MANUAL_TEST_GUIDE.md`
 
 ## Notes
-- Keep this folder focused on project definition, not operational tooling.
-- Treat the README here as an index for the core project docs.
+- Keep this folder as the single consolidated documentation hub below `SourceDocument`.
+- Add new narrative docs here only when they belong with the core project record or developer procedures.

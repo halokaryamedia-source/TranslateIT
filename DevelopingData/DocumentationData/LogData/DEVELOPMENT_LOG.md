@@ -1,4 +1,4 @@
-﻿# Development Log
+# Development Log
 
 ## Current entry
 
@@ -76,7 +76,7 @@
 - Reduced VAD speech-frame confirmation thresholds and short-speech duration requirements so normal speaking voice is less likely to be treated as too quiet.
 - Wrote microphone threshold debug logs and latency debug logs from the runtime path so QA can inspect the actual stage timings.
 - Confirmed zero-audio and low-noise smoke tests reject before ASR and do not create accepted transcript cards.
-- Added a manual test guide under `Guides`.
+- Added a manual test guide under `ProjectDocuments`.
 - Added a hidden GUI launcher script so normal double-click launch opens only the app UI.
 - Added single-instance protection so a second launch shows a clean already-running message instead of opening another app copy.
 - Added launcher crash logging so hidden startup failures still write a traceable error report.
@@ -89,7 +89,7 @@
 - Added CTranslate2/Faster-Whisper CUDA capability reporting when APIs are available.
 - Added launcher buttons for CUDA status refresh, CUDA validation, CUDA setup guide, and explicit CPU Degraded Mode.
 - Blocked real ASR modes by default when `CUDA_CORE_PASS` is not achieved.
-- Added CUDA setup guide under `Guides`.
+- Added CUDA setup guide under `ProjectDocuments`.
 - Confirmed `DevelopingData` is build-only and does not hold release-critical runtime models.
 - Migrated the source-document content into the new documentation tree and removed the old root-level legacy documents from the planned final layout.
 
@@ -145,8 +145,8 @@
 - `TranslateIT.bat`
 - `DevelopingData/ToolKitData/Scripts/`
 - `UserData/LogData/`
-- `DevelopingData/DocumentationData/SourceDocument/Guides/`
-- `DevelopingData/DocumentationData/SourceDocument/Guides/`
+- `DevelopingData/DocumentationData/SourceDocument/ProjectDocuments/`
+- `DevelopingData/DocumentationData/SourceDocument/ProjectDocuments/`
 - `EngineData/TranscriptEngine/vad_pipeline.py`
 - `EngineData/TranscriptEngine/ModelData/`
 - `EngineData/TranslateEngine/ModelData/`

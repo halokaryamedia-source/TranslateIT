@@ -5,10 +5,8 @@
 
 ## Approved root documents
 - `MASTER_PROJECT_DOCUMENTATION.md`
-- `MASTER_PROJECT_DOCUMENTATION.docx`
 
 ## Approved subfolders
-- `Guides/`
 - `ProjectDocuments/`
 - `SystemArchitectureReferenceDocument/`
 

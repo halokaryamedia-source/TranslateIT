@@ -3174,7 +3174,7 @@ if PYSIDE_AVAILABLE:  # pragma: no cover - interactive UI path
             self._request_status_refresh()
 
         def handle_open_cuda_guide(self) -> None:
-            guide_path = PROJECT_ROOT / "DevelopingData" / "DocumentationData" / "SourceDocument" / "Guides" / "CUDA_SETUP_GUIDE.md"
+            guide_path = PROJECT_ROOT / "DevelopingData" / "DocumentationData" / "SourceDocument" / "ProjectDocuments" / "CUDA_SETUP_GUIDE.md"
             if guide_path.exists():
                 try:
                     os.startfile(str(guide_path))  # type: ignore[attr-defined]
