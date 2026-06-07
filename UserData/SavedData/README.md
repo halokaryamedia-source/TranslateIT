@@ -3,6 +3,7 @@
 ## Purpose
 - Hold user-approved saved transcript sessions and exported files.
 - Keep permanent user data separate from temporary cache material.
+- Keep anything here user-owned and intentionally retained.
 
 ## Allowed files
 - `README.md`
@@ -10,6 +11,10 @@
 - Exported files
 - Saved replay audio only when the user chooses to save the session
 - Approved subfolders such as `CustomVoice/` and `SavedTranscript/`
+
+## Current subfolders
+- `CustomVoice/` - reserved for approved custom voice assets
+- `SavedTranscript/` - reserved for saved transcript bundles and exports
 
 ## Must not be placed here
 - Temporary cache files
@@ -24,4 +29,3 @@
 
 ## Related documentation path
 - `../../DevelopingData/DocumentationData/SourceDocument/MASTER_PROJECT_DOCUMENTATION.md`
-

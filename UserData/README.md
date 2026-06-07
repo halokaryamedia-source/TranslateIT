@@ -1,7 +1,7 @@
 # UserData
 
 ## Purpose
-- Hold temporary cache material and user-approved saved data.
+- Hold runtime cache, operational logs, and user-approved saved data.
 - Keep user-facing persistence separate from development documentation and engine code.
 
 ## Allowed files
@@ -10,11 +10,17 @@
 - `LogData/`
 - `SavedData/`
 
+## Current sections
+- `CacheData/` - disposable runtime cache, audio segments, and session state
+- `LogData/` - runtime logs, diagnostics, and validation reports
+- `SavedData/` - user-approved saved sessions and persistent exports
+
 ## Must not be placed here
 - Engine source files
 - Project documentation
 - Random developer scratch files
 - Unapproved root-level folders
+- Private user documents outside the approved runtime layout
 
 ## Naming rules
 - Use English only.
