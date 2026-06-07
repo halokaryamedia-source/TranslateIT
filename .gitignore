@@ -1,44 +1,82 @@
-# Git metadata
-.git/
-
-# User data, logs, caches, and runtime artifacts
-UserData/
-DevelopingData/ToolKitData/rt/
-DevelopingData/ToolKitData/TranslateITPrototypeEnv/
-DevelopingData/ToolKitData/ModelCache/
-
-# Generated/model-heavy data
-EngineData/**/ModelData/
-
-# Python and build artifacts
+# Python cache
 **/__pycache__/
-*.pyc
+*.py[cod]
 *.pyo
 *.pyd
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+
+# Virtual environments
+.venv/
+venv/
+env/
+ENV/
+DevelopingData/ToolKitData/rt/
+DevelopingData/ToolKitData/TranslateITPrototypeEnv/
+
+# Runtime logs
 *.log
-*.tmp
-*.cache
+UserData/LogData/
+DevelopingData/Reports/**/*.log
 
-# Archives and packaged outputs
-*.zip
-*.7z
-*.rar
-*.tar
-*.gz
+# User/runtime cache data
+UserData/CacheData/
+UserData/CacheData/**
+UserData/LogData/
+UserData/LogData/**
+UserData/SavedData/
+UserData/SavedData/**
+UserData/SavedProject/
+UserData/SavedProject/**
 
-# Local environment and secrets
+# Keep README placeholders if needed
+!UserData/README.md
+!UserData/LogData/README.md
+!UserData/SavedData/README.md
+!UserData/SavedData/CustomVoice/README.md
+!UserData/SavedData/SavedTranscript/README.md
+
+# Audio/generated runtime files
+*.wav
+*.mp3
+*.flac
+*.ogg
+
+# Local model/cache data
+DevelopingData/ToolKitData/ModelCache/
+DevelopingData/ToolKitData/ModelCache/HuggingFaceHome/
+EngineData/**/ModelCache/
+EngineData/**/models/
+EngineData/**/ModelData/
+*.bin
+*.safetensors
+*.gguf
+*.onnx
+*.pt
+*.pth
+
+# Secrets and local config
 .env
 .env.*
-*.key
 *.pem
-*.p12
-*.pfx
+*.key
 *.crt
+secrets.json
+config.local.json
 
-# IDE/editor noise
+# Windows/editor files
+Thumbs.db
+Desktop.ini
 .vscode/
 .idea/
 
-# Windows thumbnails and temporary files
-Thumbs.db
-Desktop.ini
+# Build/dist output
+dist/
+build/
+*.spec
+
+# Misc source package imports not needed in GitHub
+GitReadThisFirst/
