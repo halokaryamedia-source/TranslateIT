@@ -262,7 +262,7 @@ The following commands were run during the audit:
 ```powershell
 python -m compileall -q .\EngineData .\DevelopingData\Diagnostics .\DevelopingData\Tests
 python -m unittest discover -s .\DevelopingData\Tests
-D:\Work\AI Stuff\TranslateIT\DevelopingVersion\Experimental\DevelopingData\ToolKitData\rt\Scripts\python.exe -m EngineData.LauncherApp.launcher_bootstrap --self-test
+D:\Work\AI Stuff\TranslateIT\Developing\Experimental\DevelopingData\ToolKitData\rt\Scripts\python.exe -m EngineData.LauncherApp.launcher_bootstrap --self-test
 ```
 
 ### Results

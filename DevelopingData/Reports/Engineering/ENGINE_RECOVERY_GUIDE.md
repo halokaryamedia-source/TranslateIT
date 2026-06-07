@@ -55,8 +55,8 @@
 ## Validation Commands Run
 - `python -m compileall -q Experimental\EngineData`
 - `python -m unittest discover -s Experimental\DevelopingData\Tests`
-- `D:\Work\AI Stuff\TranslateIT\DevelopingVersion\Experimental\DevelopingData\ToolKitData\rt\Scripts\python.exe -m EngineData.LauncherApp.launcher_bootstrap --self-test`
-- `D:\Work\AI Stuff\TranslateIT\DevelopingVersion\Experimental\DevelopingData\Diagnostics\input_output_latency_probe.py`
+- `D:\Work\AI Stuff\TranslateIT\Developing\Experimental\DevelopingData\ToolKitData\rt\Scripts\python.exe -m EngineData.LauncherApp.launcher_bootstrap --self-test`
+- `D:\Work\AI Stuff\TranslateIT\Developing\Experimental\DevelopingData\Diagnostics\input_output_latency_probe.py`
 
 ## Validation Status
 - Compilation passed.

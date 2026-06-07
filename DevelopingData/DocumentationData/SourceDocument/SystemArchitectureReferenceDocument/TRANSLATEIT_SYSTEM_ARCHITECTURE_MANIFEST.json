@@ -1,7 +1,7 @@
 {
   "project": {
     "name": "TranslateIT",
-    "root": "D:\\Work\\AI Stuff\\TranslateIT\\DevelopingVersion\\Experimental",
+    "root": "D:\\Work\\AI Stuff\\TranslateIT\\Developing\\Experimental",
     "generated_utc": "2026-06-07T09:04:49+00:00"
   },
   "document": {
@@ -229,12 +229,12 @@
         "thread_ident": 24104,
         "details": "unavailable",
         "context": {
-          "python_executable": "D:\\Work\\AI Stuff\\TranslateIT\\DevelopingVersion\\Experimental\\DevelopingData\\ToolKitData\\rt\\Scripts\\pythonw.exe",
+          "python_executable": "D:\\Work\\AI Stuff\\TranslateIT\\Developing\\Experimental\\DevelopingData\\ToolKitData\\rt\\Scripts\\pythonw.exe",
           "python_version": "3.12.13 (main, Mar  3 2026, 15:01:35) [MSC v.1944 64 bit (AMD64)]",
-          "cwd": "D:\\Work\\AI Stuff\\TranslateIT\\DevelopingVersion\\Experimental",
-          "project_root": "D:\\Work\\AI Stuff\\TranslateIT\\DevelopingVersion\\Experimental",
+          "cwd": "D:\\Work\\AI Stuff\\TranslateIT\\Developing\\Experimental",
+          "project_root": "D:\\Work\\AI Stuff\\TranslateIT\\Developing\\Experimental",
           "sys_path_head": [
-            "D:\\Work\\AI Stuff\\TranslateIT\\DevelopingVersion\\Experimental",
+            "D:\\Work\\AI Stuff\\TranslateIT\\Developing\\Experimental",
             "C:\\Users\\Administrator\\.cache\\codex-runtimes\\codex-primary-runtime\\dependencies\\python\\python312.zip",
             "C:\\Users\\Administrator\\.cache\\codex-runtimes\\codex-primary-runtime\\dependencies\\python\\DLLs",
             "C:\\Users\\Administrator\\.cache\\codex-runtimes\\codex-primary-runtime\\dependencies\\python\\Lib",
@@ -243,300 +243,300 @@
           "backend": "sapi_direct_async",
           "engine_data_exists": true,
           "app_main_exists": true,
-          "app_main_path": "D:\\Work\\AI Stuff\\TranslateIT\\DevelopingVersion\\Experimental\\EngineData\\LauncherApp\\app_main.py",
+          "app_main_path": "D:\\Work\\AI Stuff\\TranslateIT\\Developing\\Experimental\\EngineData\\LauncherApp\\app_main.py",
           "hook": "sys.excepthook",
           "exc_type": "AttributeError"
         },
         "exception_type": "AttributeError",
         "exception_message": "'TranslateITWindow' object has no attribute 'developer_toggle'",
-        "traceback": "Traceback (most recent call last):\n  File \"D:\\Work\\AI Stuff\\TranslateIT\\DevelopingVersion\\Experimental\\EngineData\\LauncherApp\\app_main.py\", line 3999, in handle_primary_start_stop\n    self.handle_start_capture()\n  File \"D:\\Work\\AI Stuff\\TranslateIT\\DevelopingVersion\\Experimental\\EngineData\\LauncherApp\\app_main.py\", line 4165, in handle_start_capture\n    developer_mode=self.developer_toggle.isChecked(),\n                   ^^^^^^^^^^^^^^^^^^^^^\nAttributeError: 'TranslateITWindow' object has no attribute 'developer_toggle'"
+        "traceback": "Traceback (most recent call last):\n  File \"D:\\Work\\AI Stuff\\TranslateIT\\Developing\\Experimental\\EngineData\\LauncherApp\\app_main.py\", line 3999, in handle_primary_start_stop\n    self.handle_start_capture()\n  File \"D:\\Work\\AI Stuff\\TranslateIT\\Developing\\Experimental\\EngineData\\LauncherApp\\app_main.py\", line 4165, in handle_start_capture\n    developer_mode=self.developer_toggle.isChecked(),\n                   ^^^^^^^^^^^^^^^^^^^^^\nAttributeError: 'TranslateITWindow' object has no attribute 'developer_toggle'"
       }
     }
   },
   "source_files": [
     {
       "path": "EngineData/LauncherApp/app_config.py",
-      "absolute_path": "D:\\Work\\AI Stuff\\TranslateIT\\DevelopingVersion\\Experimental\\EngineData\\LauncherApp\\app_config.py",
+      "absolute_path": "D:\\Work\\AI Stuff\\TranslateIT\\Developing\\Experimental\\EngineData\\LauncherApp\\app_config.py",
       "bytes": 4850,
       "sha256": "bbd6f56531a2119e19897faa4c3e8a2890e6414041c628227db41b17036be553",
       "modified_utc": "2026-06-05T18:01:44+00:00"
     },
     {
       "path": "EngineData/LauncherApp/app_logger.py",
-      "absolute_path": "D:\\Work\\AI Stuff\\TranslateIT\\DevelopingVersion\\Experimental\\EngineData\\LauncherApp\\app_logger.py",
+      "absolute_path": "D:\\Work\\AI Stuff\\TranslateIT\\Developing\\Experimental\\EngineData\\LauncherApp\\app_logger.py",
       "bytes": 17847,
       "sha256": "2c34018ff65a50b947165ff3645d4296cf52c12f5a7d3d18b2f5a433cfcc98a5",
       "modified_utc": "2026-06-03T18:03:18+00:00"
     },
     {
       "path": "EngineData/LauncherApp/app_main.py",
-      "absolute_path": "D:\\Work\\AI Stuff\\TranslateIT\\DevelopingVersion\\Experimental\\EngineData\\LauncherApp\\app_main.py",
+      "absolute_path": "D:\\Work\\AI Stuff\\TranslateIT\\Developing\\Experimental\\EngineData\\LauncherApp\\app_main.py",
       "bytes": 344462,
       "sha256": "5227cb670b0f28d8582cde0ea0b9a04d10867e50d16e9a0a936eb2b6c9831987",
       "modified_utc": "2026-06-07T08:43:17+00:00"
     },
     {
       "path": "EngineData/LauncherApp/audio_playback.py",
-      "absolute_path": "D:\\Work\\AI Stuff\\TranslateIT\\DevelopingVersion\\Experimental\\EngineData\\LauncherApp\\audio_playback.py",
+      "absolute_path": "D:\\Work\\AI Stuff\\TranslateIT\\Developing\\Experimental\\EngineData\\LauncherApp\\audio_playback.py",
       "bytes": 17130,
       "sha256": "af1463968b9effb045693f886d3f51a8bfa8cef68cea1e6c979fa1987cd5376b",
       "modified_utc": "2026-06-01T13:44:39+00:00"
     },
     {
       "path": "EngineData/LauncherApp/audio_settings.py",
-      "absolute_path": "D:\\Work\\AI Stuff\\TranslateIT\\DevelopingVersion\\Experimental\\EngineData\\LauncherApp\\audio_settings.py",
+      "absolute_path": "D:\\Work\\AI Stuff\\TranslateIT\\Developing\\Experimental\\EngineData\\LauncherApp\\audio_settings.py",
       "bytes": 2958,
       "sha256": "ee933db05ef32a8c6d4b57fd9de0e9302bafb0341a1d40957570884c158ea17f",
       "modified_utc": "2026-06-06T03:38:20+00:00"
     },
     {
       "path": "EngineData/LauncherApp/cuda_validation.py",
-      "absolute_path": "D:\\Work\\AI Stuff\\TranslateIT\\DevelopingVersion\\Experimental\\EngineData\\LauncherApp\\cuda_validation.py",
+      "absolute_path": "D:\\Work\\AI Stuff\\TranslateIT\\Developing\\Experimental\\EngineData\\LauncherApp\\cuda_validation.py",
       "bytes": 11781,
       "sha256": "654f46a6e00b01ba6d010f2fadd7f9c412c078151c3ff91263e96f95d93b327a",
       "modified_utc": "2026-05-27T03:15:44+00:00"
     },
     {
       "path": "EngineData/LauncherApp/language_routing.py",
-      "absolute_path": "D:\\Work\\AI Stuff\\TranslateIT\\DevelopingVersion\\Experimental\\EngineData\\LauncherApp\\language_routing.py",
+      "absolute_path": "D:\\Work\\AI Stuff\\TranslateIT\\Developing\\Experimental\\EngineData\\LauncherApp\\language_routing.py",
       "bytes": 6322,
       "sha256": "cf9594ff914a7815c15a76b5f211b8adad82acc96ba5c52fd31f5c15c99e73b7",
       "modified_utc": "2026-06-04T07:47:14+00:00"
     },
     {
       "path": "EngineData/LauncherApp/latency_meter.py",
-      "absolute_path": "D:\\Work\\AI Stuff\\TranslateIT\\DevelopingVersion\\Experimental\\EngineData\\LauncherApp\\latency_meter.py",
+      "absolute_path": "D:\\Work\\AI Stuff\\TranslateIT\\Developing\\Experimental\\EngineData\\LauncherApp\\latency_meter.py",
       "bytes": 10612,
       "sha256": "64b2bbae34b03d4b54c49cc780706ad51bcdffe0d67cea5bd16de6c981fd4556",
       "modified_utc": "2026-06-02T04:19:29+00:00"
     },
     {
       "path": "EngineData/LauncherApp/latency_profile.py",
-      "absolute_path": "D:\\Work\\AI Stuff\\TranslateIT\\DevelopingVersion\\Experimental\\EngineData\\LauncherApp\\latency_profile.py",
+      "absolute_path": "D:\\Work\\AI Stuff\\TranslateIT\\Developing\\Experimental\\EngineData\\LauncherApp\\latency_profile.py",
       "bytes": 1786,
       "sha256": "a06fae927288cae826f691727eeb802d0e4336e458b45b03ba82498d58086814",
       "modified_utc": "2026-06-02T13:58:56+00:00"
     },
     {
       "path": "EngineData/LauncherApp/latency_report_reader.py",
-      "absolute_path": "D:\\Work\\AI Stuff\\TranslateIT\\DevelopingVersion\\Experimental\\EngineData\\LauncherApp\\latency_report_reader.py",
+      "absolute_path": "D:\\Work\\AI Stuff\\TranslateIT\\Developing\\Experimental\\EngineData\\LauncherApp\\latency_report_reader.py",
       "bytes": 16795,
       "sha256": "2b482d93c03e62def4bc6260dbde698d8ccf543e20bafd61770e1ef50207b367",
       "modified_utc": "2026-06-06T04:05:11+00:00"
     },
     {
       "path": "EngineData/LauncherApp/launcher_bootstrap.py",
-      "absolute_path": "D:\\Work\\AI Stuff\\TranslateIT\\DevelopingVersion\\Experimental\\EngineData\\LauncherApp\\launcher_bootstrap.py",
+      "absolute_path": "D:\\Work\\AI Stuff\\TranslateIT\\Developing\\Experimental\\EngineData\\LauncherApp\\launcher_bootstrap.py",
       "bytes": 5021,
       "sha256": "8fa0d47f008519d730d41bdf3d59d5717ca0db728009426030a75bfe0e27a6e4",
       "modified_utc": "2026-06-03T18:03:36+00:00"
     },
     {
       "path": "EngineData/LauncherApp/live_pipeline.py",
-      "absolute_path": "D:\\Work\\AI Stuff\\TranslateIT\\DevelopingVersion\\Experimental\\EngineData\\LauncherApp\\live_pipeline.py",
+      "absolute_path": "D:\\Work\\AI Stuff\\TranslateIT\\Developing\\Experimental\\EngineData\\LauncherApp\\live_pipeline.py",
       "bytes": 88844,
       "sha256": "d634804702d9810e1458a375600d1b6082a0bbfc0ff89ee156c2c1a41c4f1d9c",
       "modified_utc": "2026-06-05T19:37:01+00:00"
     },
     {
       "path": "EngineData/LauncherApp/microphone_cli.py",
-      "absolute_path": "D:\\Work\\AI Stuff\\TranslateIT\\DevelopingVersion\\Experimental\\EngineData\\LauncherApp\\microphone_cli.py",
+      "absolute_path": "D:\\Work\\AI Stuff\\TranslateIT\\Developing\\Experimental\\EngineData\\LauncherApp\\microphone_cli.py",
       "bytes": 2695,
       "sha256": "82af33b0da5b85eb4fa6eb590d1ea6ac4450965c2f5d3346109cfcb242c036f9",
       "modified_utc": "2026-05-20T08:12:03+00:00"
     },
     {
       "path": "EngineData/LauncherApp/README.md",
-      "absolute_path": "D:\\Work\\AI Stuff\\TranslateIT\\DevelopingVersion\\Experimental\\EngineData\\LauncherApp\\README.md",
+      "absolute_path": "D:\\Work\\AI Stuff\\TranslateIT\\Developing\\Experimental\\EngineData\\LauncherApp\\README.md",
       "bytes": 678,
       "sha256": "bcacc50fe63e93f1e1c7ae54ca2696db9cb7cc65bbf4aa75a3b6a59cc1152a64",
       "modified_utc": "2026-05-20T03:34:53+00:00"
     },
     {
       "path": "EngineData/LauncherApp/replay_controller.py",
-      "absolute_path": "D:\\Work\\AI Stuff\\TranslateIT\\DevelopingVersion\\Experimental\\EngineData\\LauncherApp\\replay_controller.py",
+      "absolute_path": "D:\\Work\\AI Stuff\\TranslateIT\\Developing\\Experimental\\EngineData\\LauncherApp\\replay_controller.py",
       "bytes": 1278,
       "sha256": "de5a8eb0b945ba019f662c4125f4605b45861659d457d994ead572ff17bfb02f",
       "modified_utc": "2026-05-20T16:42:53+00:00"
     },
     {
       "path": "EngineData/LauncherApp/runtime_validation.py",
-      "absolute_path": "D:\\Work\\AI Stuff\\TranslateIT\\DevelopingVersion\\Experimental\\EngineData\\LauncherApp\\runtime_validation.py",
+      "absolute_path": "D:\\Work\\AI Stuff\\TranslateIT\\Developing\\Experimental\\EngineData\\LauncherApp\\runtime_validation.py",
       "bytes": 5838,
       "sha256": "42dff3fa4fa0616ae596107cbd37d2ed1be9a0f51db0a75b1de66dff5d86b863",
       "modified_utc": "2026-05-20T08:29:19+00:00"
     },
     {
       "path": "EngineData/LauncherApp/session_reporting.py",
-      "absolute_path": "D:\\Work\\AI Stuff\\TranslateIT\\DevelopingVersion\\Experimental\\EngineData\\LauncherApp\\session_reporting.py",
+      "absolute_path": "D:\\Work\\AI Stuff\\TranslateIT\\Developing\\Experimental\\EngineData\\LauncherApp\\session_reporting.py",
       "bytes": 35660,
       "sha256": "a65ad8875a16e79113f267e5e6f3b4aa0902a32afb9aacab291c696a7a066b20",
       "modified_utc": "2026-06-05T20:45:11+00:00"
     },
     {
       "path": "EngineData/LauncherApp/settings_view.py",
-      "absolute_path": "D:\\Work\\AI Stuff\\TranslateIT\\DevelopingVersion\\Experimental\\EngineData\\LauncherApp\\settings_view.py",
+      "absolute_path": "D:\\Work\\AI Stuff\\TranslateIT\\Developing\\Experimental\\EngineData\\LauncherApp\\settings_view.py",
       "bytes": 1899,
       "sha256": "48cfc3b0fedcab5b4bf7d5510022edd57283789880ec3f0c6fc24e34b30ac0e9",
       "modified_utc": "2026-06-02T19:25:40+00:00"
     },
     {
       "path": "EngineData/LauncherApp/single_instance.py",
-      "absolute_path": "D:\\Work\\AI Stuff\\TranslateIT\\DevelopingVersion\\Experimental\\EngineData\\LauncherApp\\single_instance.py",
+      "absolute_path": "D:\\Work\\AI Stuff\\TranslateIT\\Developing\\Experimental\\EngineData\\LauncherApp\\single_instance.py",
       "bytes": 3429,
       "sha256": "c9871b4c3c147b09409a1f323caf82df3885bc036ff554112b7a7aa5b45cef61",
       "modified_utc": "2026-05-26T19:08:00+00:00"
     },
     {
       "path": "EngineData/LauncherApp/transcript_view.py",
-      "absolute_path": "D:\\Work\\AI Stuff\\TranslateIT\\DevelopingVersion\\Experimental\\EngineData\\LauncherApp\\transcript_view.py",
+      "absolute_path": "D:\\Work\\AI Stuff\\TranslateIT\\Developing\\Experimental\\EngineData\\LauncherApp\\transcript_view.py",
       "bytes": 5130,
       "sha256": "edda2e0a51b582537889c608922f981d2fec98da453de5aa53d5f52ffb23b23b",
       "modified_utc": "2026-06-05T18:10:30+00:00"
     },
     {
       "path": "EngineData/LauncherApp/ui_state.py",
-      "absolute_path": "D:\\Work\\AI Stuff\\TranslateIT\\DevelopingVersion\\Experimental\\EngineData\\LauncherApp\\ui_state.py",
+      "absolute_path": "D:\\Work\\AI Stuff\\TranslateIT\\Developing\\Experimental\\EngineData\\LauncherApp\\ui_state.py",
       "bytes": 454,
       "sha256": "a11402dc80a8da816c88a3961196d14ab9d90e8737a9155ef39a60733bc9391d",
       "modified_utc": "2026-05-25T09:11:51+00:00"
     },
     {
       "path": "EngineData/LauncherApp/ui_theme.py",
-      "absolute_path": "D:\\Work\\AI Stuff\\TranslateIT\\DevelopingVersion\\Experimental\\EngineData\\LauncherApp\\ui_theme.py",
+      "absolute_path": "D:\\Work\\AI Stuff\\TranslateIT\\Developing\\Experimental\\EngineData\\LauncherApp\\ui_theme.py",
       "bytes": 6535,
       "sha256": "6f1fd85afee9c724133e8b62afca9c237d1530fb80774cec817a40b3181f1e8e",
       "modified_utc": "2026-06-06T06:05:34+00:00"
     },
     {
       "path": "EngineData/README.md",
-      "absolute_path": "D:\\Work\\AI Stuff\\TranslateIT\\DevelopingVersion\\Experimental\\EngineData\\README.md",
+      "absolute_path": "D:\\Work\\AI Stuff\\TranslateIT\\Developing\\Experimental\\EngineData\\README.md",
       "bytes": 642,
       "sha256": "18d8269c53802a86551733932872e4b6d437c4c21288780549b5f93cd62cdb5f",
       "modified_utc": "2026-05-19T17:15:39+00:00"
     },
     {
       "path": "EngineData/TranscriptEngine/asr_model_loader.py",
-      "absolute_path": "D:\\Work\\AI Stuff\\TranslateIT\\DevelopingVersion\\Experimental\\EngineData\\TranscriptEngine\\asr_model_loader.py",
+      "absolute_path": "D:\\Work\\AI Stuff\\TranslateIT\\Developing\\Experimental\\EngineData\\TranscriptEngine\\asr_model_loader.py",
       "bytes": 28236,
       "sha256": "2e3bcdae4d0e1366fcd96c6e18b682a6a80fe4735cf45e84acf4ee03aca9ea2e",
       "modified_utc": "2026-06-05T07:58:11+00:00"
     },
     {
       "path": "EngineData/TranscriptEngine/asr_quality_filter.py",
-      "absolute_path": "D:\\Work\\AI Stuff\\TranslateIT\\DevelopingVersion\\Experimental\\EngineData\\TranscriptEngine\\asr_quality_filter.py",
+      "absolute_path": "D:\\Work\\AI Stuff\\TranslateIT\\Developing\\Experimental\\EngineData\\TranscriptEngine\\asr_quality_filter.py",
       "bytes": 29779,
       "sha256": "51a4f966163387b4f40e5a2bd0465d2647c71481d0cb91cc88bbe6fff285e13f",
       "modified_utc": "2026-06-05T18:42:10+00:00"
     },
     {
       "path": "EngineData/TranscriptEngine/audio_calibration.py",
-      "absolute_path": "D:\\Work\\AI Stuff\\TranslateIT\\DevelopingVersion\\Experimental\\EngineData\\TranscriptEngine\\audio_calibration.py",
+      "absolute_path": "D:\\Work\\AI Stuff\\TranslateIT\\Developing\\Experimental\\EngineData\\TranscriptEngine\\audio_calibration.py",
       "bytes": 5083,
       "sha256": "70c4e46de0195ff0349297c3ff05f20c07052dc95b6bd61ecff6c5667f73dc83",
       "modified_utc": "2026-06-05T18:54:09+00:00"
     },
     {
       "path": "EngineData/TranscriptEngine/audio_capture.py",
-      "absolute_path": "D:\\Work\\AI Stuff\\TranslateIT\\DevelopingVersion\\Experimental\\EngineData\\TranscriptEngine\\audio_capture.py",
+      "absolute_path": "D:\\Work\\AI Stuff\\TranslateIT\\Developing\\Experimental\\EngineData\\TranscriptEngine\\audio_capture.py",
       "bytes": 11452,
       "sha256": "faab9b19a1ab5577a282e8fdeb765cc8942aa4da707ea7884d84b2bb9fb547f8",
       "modified_utc": "2026-06-02T13:12:23+00:00"
     },
     {
       "path": "EngineData/TranscriptEngine/audio_noise_filter.py",
-      "absolute_path": "D:\\Work\\AI Stuff\\TranslateIT\\DevelopingVersion\\Experimental\\EngineData\\TranscriptEngine\\audio_noise_filter.py",
+      "absolute_path": "D:\\Work\\AI Stuff\\TranslateIT\\Developing\\Experimental\\EngineData\\TranscriptEngine\\audio_noise_filter.py",
       "bytes": 6064,
       "sha256": "2f92724227c1d889c332698bf4a5fa992b1e32a41963be5094999f217e1d519f",
       "modified_utc": "2026-06-05T18:01:17+00:00"
     },
     {
       "path": "EngineData/TranscriptEngine/audio_preprocessing.py",
-      "absolute_path": "D:\\Work\\AI Stuff\\TranslateIT\\DevelopingVersion\\Experimental\\EngineData\\TranscriptEngine\\audio_preprocessing.py",
+      "absolute_path": "D:\\Work\\AI Stuff\\TranslateIT\\Developing\\Experimental\\EngineData\\TranscriptEngine\\audio_preprocessing.py",
       "bytes": 6382,
       "sha256": "4715948fe387c0a6c980194662409203ed2a2959cdb09eaaf53c235626d0658a",
       "modified_utc": "2026-05-28T10:41:03+00:00"
     },
     {
       "path": "EngineData/TranscriptEngine/benchmark_metrics.py",
-      "absolute_path": "D:\\Work\\AI Stuff\\TranslateIT\\DevelopingVersion\\Experimental\\EngineData\\TranscriptEngine\\benchmark_metrics.py",
+      "absolute_path": "D:\\Work\\AI Stuff\\TranslateIT\\Developing\\Experimental\\EngineData\\TranscriptEngine\\benchmark_metrics.py",
       "bytes": 4978,
       "sha256": "109ed4f43c6a71468bdf4e0560886951280a9cdca822d568867d2083968e632b",
       "modified_utc": "2026-06-02T03:48:36+00:00"
     },
     {
       "path": "EngineData/TranscriptEngine/microphone_diagnostic.py",
-      "absolute_path": "D:\\Work\\AI Stuff\\TranslateIT\\DevelopingVersion\\Experimental\\EngineData\\TranscriptEngine\\microphone_diagnostic.py",
+      "absolute_path": "D:\\Work\\AI Stuff\\TranslateIT\\Developing\\Experimental\\EngineData\\TranscriptEngine\\microphone_diagnostic.py",
       "bytes": 9829,
       "sha256": "766539c8506aa431512e47ae5dd63ee6d71505e3636f4edf6c0f3b8eb69328ec",
       "modified_utc": "2026-06-05T18:56:05+00:00"
     },
     {
       "path": "EngineData/TranscriptEngine/README.md",
-      "absolute_path": "D:\\Work\\AI Stuff\\TranslateIT\\DevelopingVersion\\Experimental\\EngineData\\TranscriptEngine\\README.md",
+      "absolute_path": "D:\\Work\\AI Stuff\\TranslateIT\\Developing\\Experimental\\EngineData\\TranscriptEngine\\README.md",
       "bytes": 828,
       "sha256": "6b14c6c68af85d1d62a28e104a923093cf9ef4054540c979eae892b58738f4b2",
       "modified_utc": "2026-05-20T04:07:47+00:00"
     },
     {
       "path": "EngineData/TranscriptEngine/segment_builder.py",
-      "absolute_path": "D:\\Work\\AI Stuff\\TranslateIT\\DevelopingVersion\\Experimental\\EngineData\\TranscriptEngine\\segment_builder.py",
+      "absolute_path": "D:\\Work\\AI Stuff\\TranslateIT\\Developing\\Experimental\\EngineData\\TranscriptEngine\\segment_builder.py",
       "bytes": 2655,
       "sha256": "a48b029c282d42c16a0fdbb1351b103daeed9fddba327d96409cca0ffd0ab303",
       "modified_utc": "2026-06-01T17:12:36+00:00"
     },
     {
       "path": "EngineData/TranscriptEngine/transcript_segment.py",
-      "absolute_path": "D:\\Work\\AI Stuff\\TranslateIT\\DevelopingVersion\\Experimental\\EngineData\\TranscriptEngine\\transcript_segment.py",
+      "absolute_path": "D:\\Work\\AI Stuff\\TranslateIT\\Developing\\Experimental\\EngineData\\TranscriptEngine\\transcript_segment.py",
       "bytes": 12898,
       "sha256": "24241d0c92790a6c6788e049ac7c444fe2cb9cfe965fa48abcbd8b7b2f3d310e",
       "modified_utc": "2026-06-01T19:09:08+00:00"
     },
     {
       "path": "EngineData/TranscriptEngine/transcript_session.py",
-      "absolute_path": "D:\\Work\\AI Stuff\\TranslateIT\\DevelopingVersion\\Experimental\\EngineData\\TranscriptEngine\\transcript_session.py",
+      "absolute_path": "D:\\Work\\AI Stuff\\TranslateIT\\Developing\\Experimental\\EngineData\\TranscriptEngine\\transcript_session.py",
       "bytes": 8025,
       "sha256": "19708077ea8acd02778f8f7d49bc5e67497e09c79c17a6a2d2ef1d5b687420f6",
       "modified_utc": "2026-06-05T12:32:10+00:00"
     },
     {
       "path": "EngineData/TranscriptEngine/vad_pipeline.py",
-      "absolute_path": "D:\\Work\\AI Stuff\\TranslateIT\\DevelopingVersion\\Experimental\\EngineData\\TranscriptEngine\\vad_pipeline.py",
+      "absolute_path": "D:\\Work\\AI Stuff\\TranslateIT\\Developing\\Experimental\\EngineData\\TranscriptEngine\\vad_pipeline.py",
       "bytes": 8878,
       "sha256": "b955f77d641d39f7d2b1927957399b9f9f809cde9c7c3f24ae0737b64a914532",
       "modified_utc": "2026-06-05T19:37:10+00:00"
     },
     {
       "path": "EngineData/TranslateEngine/README.md",
-      "absolute_path": "D:\\Work\\AI Stuff\\TranslateIT\\DevelopingVersion\\Experimental\\EngineData\\TranslateEngine\\README.md",
+      "absolute_path": "D:\\Work\\AI Stuff\\TranslateIT\\Developing\\Experimental\\EngineData\\TranslateEngine\\README.md",
       "bytes": 717,
       "sha256": "9977f373a03e77be643c551a4b4c6762c90c6c48957740dd3e065731ffe6fc14",
       "modified_utc": "2026-05-20T04:07:43+00:00"
     },
     {
       "path": "EngineData/TranslateEngine/translation_context.py",
-      "absolute_path": "D:\\Work\\AI Stuff\\TranslateIT\\DevelopingVersion\\Experimental\\EngineData\\TranslateEngine\\translation_context.py",
+      "absolute_path": "D:\\Work\\AI Stuff\\TranslateIT\\Developing\\Experimental\\EngineData\\TranslateEngine\\translation_context.py",
       "bytes": 863,
       "sha256": "06bb4db4d6d55caceb50eb71b126630ffe53023194fee0355b85630633b230c4",
       "modified_utc": "2026-05-19T18:06:43+00:00"
     },
     {
       "path": "EngineData/TranslateEngine/translation_engine.py",
-      "absolute_path": "D:\\Work\\AI Stuff\\TranslateIT\\DevelopingVersion\\Experimental\\EngineData\\TranslateEngine\\translation_engine.py",
+      "absolute_path": "D:\\Work\\AI Stuff\\TranslateIT\\Developing\\Experimental\\EngineData\\TranslateEngine\\translation_engine.py",
       "bytes": 27408,
       "sha256": "b8d3313cead7cc88d2f59eecd9af738160010e9170e04669fbab1a426530a52b",
       "modified_utc": "2026-06-05T07:53:44+00:00"
     },
     {
       "path": "EngineData/TranslateEngine/tts_placeholder.py",
-      "absolute_path": "D:\\Work\\AI Stuff\\TranslateIT\\DevelopingVersion\\Experimental\\EngineData\\TranslateEngine\\tts_placeholder.py",
+      "absolute_path": "D:\\Work\\AI Stuff\\TranslateIT\\Developing\\Experimental\\EngineData\\TranslateEngine\\tts_placeholder.py",
       "bytes": 74688,
       "sha256": "0b5f401307d512bb81ff0f4c1f7405a560eeac1f69072e8d5decf505ee270faa",
       "modified_utc": "2026-06-05T12:29:17+00:00"
     },
     {
       "path": "EngineData/TranslateEngine/voice_provider_selection.py",
-      "absolute_path": "D:\\Work\\AI Stuff\\TranslateIT\\DevelopingVersion\\Experimental\\EngineData\\TranslateEngine\\voice_provider_selection.py",
+      "absolute_path": "D:\\Work\\AI Stuff\\TranslateIT\\Developing\\Experimental\\EngineData\\TranslateEngine\\voice_provider_selection.py",
       "bytes": 20088,
       "sha256": "e311aabad0d198b20076bacc11f6a92a250217dff9493ada247f77ed89cb653a",
       "modified_utc": "2026-06-02T20:14:29+00:00"
@@ -544,183 +544,183 @@
   ],
   "documentation_files": [
     {
-      "path": "DevelopingData/DocumentationData/SourceDocument/CodexGuideDocument/CODEX_DEVELOPMENT_GUIDE.docx",
-      "absolute_path": "D:\\Work\\AI Stuff\\TranslateIT\\DevelopingVersion\\Experimental\\DevelopingData\\DocumentationData\\SourceDocument\\CodexGuideDocument\\CODEX_DEVELOPMENT_GUIDE.docx",
+      "path": "DevelopingData/DocumentationData/SourceDocument/Guides/CODEX_DEVELOPMENT_GUIDE.docx",
+      "absolute_path": "D:\\Work\\AI Stuff\\TranslateIT\\Developing\\Experimental\\DevelopingData\\DocumentationData\\SourceDocument\\Guides\\CODEX_DEVELOPMENT_GUIDE.docx",
       "bytes": 37112,
       "sha256": "2d5d6a959f62d3ac4fb0fa56c96fc1e162e33057df0e3274c47b0b5142dde9dd",
       "modified_utc": "2026-05-20T04:18:15+00:00"
     },
     {
-      "path": "DevelopingData/DocumentationData/SourceDocument/CodexGuideDocument/CODEX_DEVELOPMENT_GUIDE.md",
-      "absolute_path": "D:\\Work\\AI Stuff\\TranslateIT\\DevelopingVersion\\Experimental\\DevelopingData\\DocumentationData\\SourceDocument\\CodexGuideDocument\\CODEX_DEVELOPMENT_GUIDE.md",
+      "path": "DevelopingData/DocumentationData/SourceDocument/Guides/CODEX_DEVELOPMENT_GUIDE.md",
+      "absolute_path": "D:\\Work\\AI Stuff\\TranslateIT\\Developing\\Experimental\\DevelopingData\\DocumentationData\\SourceDocument\\Guides\\CODEX_DEVELOPMENT_GUIDE.md",
       "bytes": 891,
       "sha256": "5879623afbdb07429ed674e64763022e3259d774f8040e06c22064b0bedcfcd1",
       "modified_utc": "2026-05-19T17:14:11+00:00"
     },
     {
-      "path": "DevelopingData/DocumentationData/SourceDocument/CodexGuideDocument/README.md",
-      "absolute_path": "D:\\Work\\AI Stuff\\TranslateIT\\DevelopingVersion\\Experimental\\DevelopingData\\DocumentationData\\SourceDocument\\CodexGuideDocument\\README.md",
+      "path": "DevelopingData/DocumentationData/SourceDocument/Guides/README.md",
+      "absolute_path": "D:\\Work\\AI Stuff\\TranslateIT\\Developing\\Experimental\\DevelopingData\\DocumentationData\\SourceDocument\\Guides\\README.md",
       "bytes": 515,
       "sha256": "aafc03242145ec697688fc04a84bf1744002c26a5830372276e9647aa01f08ca",
       "modified_utc": "2026-05-19T17:14:10+00:00"
     },
     {
-      "path": "DevelopingData/DocumentationData/SourceDocument/CudaSetupGuideDocument/CUDA_SETUP_GUIDE.md",
-      "absolute_path": "D:\\Work\\AI Stuff\\TranslateIT\\DevelopingVersion\\Experimental\\DevelopingData\\DocumentationData\\SourceDocument\\CudaSetupGuideDocument\\CUDA_SETUP_GUIDE.md",
+      "path": "DevelopingData/DocumentationData/SourceDocument/Guides/CUDA_SETUP_GUIDE.md",
+      "absolute_path": "D:\\Work\\AI Stuff\\TranslateIT\\Developing\\Experimental\\DevelopingData\\DocumentationData\\SourceDocument\\Guides\\CUDA_SETUP_GUIDE.md",
       "bytes": 3673,
       "sha256": "ff036aa9c81d6545ec77f78a4ead887f4d5db3743eca3aa4275a024547741030",
       "modified_utc": "2026-05-20T09:01:34+00:00"
     },
     {
-      "path": "DevelopingData/DocumentationData/SourceDocument/CudaSetupGuideDocument/README.md",
-      "absolute_path": "D:\\Work\\AI Stuff\\TranslateIT\\DevelopingVersion\\Experimental\\DevelopingData\\DocumentationData\\SourceDocument\\CudaSetupGuideDocument\\README.md",
+      "path": "DevelopingData/DocumentationData/SourceDocument/Guides/README.md",
+      "absolute_path": "D:\\Work\\AI Stuff\\TranslateIT\\Developing\\Experimental\\DevelopingData\\DocumentationData\\SourceDocument\\Guides\\README.md",
       "bytes": 386,
       "sha256": "ffe480b1f45548e7ad26da9671f94bf4e7484cdf417cefa21dab55bd3954a1c4",
       "modified_utc": "2026-05-20T07:54:10+00:00"
     },
     {
-      "path": "DevelopingData/DocumentationData/SourceDocument/FeatureSpecificationDocument/FEATURE_SPECIFICATION.docx",
-      "absolute_path": "D:\\Work\\AI Stuff\\TranslateIT\\DevelopingVersion\\Experimental\\DevelopingData\\DocumentationData\\SourceDocument\\FeatureSpecificationDocument\\FEATURE_SPECIFICATION.docx",
+      "path": "DevelopingData/DocumentationData/SourceDocument/ProjectDocuments/FEATURE_SPECIFICATION.docx",
+      "absolute_path": "D:\\Work\\AI Stuff\\TranslateIT\\Developing\\Experimental\\DevelopingData\\DocumentationData\\SourceDocument\\ProjectDocuments\\FEATURE_SPECIFICATION.docx",
       "bytes": 39005,
       "sha256": "61906cde45c9cbfe8c5fb599947f3b8edaf9e12acbaaa75eddd3430e617a2a9d",
       "modified_utc": "2026-05-20T05:10:27+00:00"
     },
     {
-      "path": "DevelopingData/DocumentationData/SourceDocument/FeatureSpecificationDocument/FEATURE_SPECIFICATION.md",
-      "absolute_path": "D:\\Work\\AI Stuff\\TranslateIT\\DevelopingVersion\\Experimental\\DevelopingData\\DocumentationData\\SourceDocument\\FeatureSpecificationDocument\\FEATURE_SPECIFICATION.md",
+      "path": "DevelopingData/DocumentationData/SourceDocument/ProjectDocuments/FEATURE_SPECIFICATION.md",
+      "absolute_path": "D:\\Work\\AI Stuff\\TranslateIT\\Developing\\Experimental\\DevelopingData\\DocumentationData\\SourceDocument\\ProjectDocuments\\FEATURE_SPECIFICATION.md",
       "bytes": 7753,
       "sha256": "b984a9e8d6df145bffce7eb8e4b76f485a80e46fb02622eb8300efeed7f9b280",
       "modified_utc": "2026-05-20T15:43:52+00:00"
     },
     {
-      "path": "DevelopingData/DocumentationData/SourceDocument/FeatureSpecificationDocument/README.md",
-      "absolute_path": "D:\\Work\\AI Stuff\\TranslateIT\\DevelopingVersion\\Experimental\\DevelopingData\\DocumentationData\\SourceDocument\\FeatureSpecificationDocument\\README.md",
+      "path": "DevelopingData/DocumentationData/SourceDocument/ProjectDocuments/README.md",
+      "absolute_path": "D:\\Work\\AI Stuff\\TranslateIT\\Developing\\Experimental\\DevelopingData\\DocumentationData\\SourceDocument\\ProjectDocuments\\README.md",
       "bytes": 581,
       "sha256": "2dbff64f70a0b88e854de1616b2a292a9521f76c3a12887edbafb8503027e4af",
       "modified_utc": "2026-05-19T17:14:10+00:00"
     },
     {
-      "path": "DevelopingData/DocumentationData/SourceDocument/ManualTestGuideDocument/MANUAL_TEST_GUIDE.md",
-      "absolute_path": "D:\\Work\\AI Stuff\\TranslateIT\\DevelopingVersion\\Experimental\\DevelopingData\\DocumentationData\\SourceDocument\\ManualTestGuideDocument\\MANUAL_TEST_GUIDE.md",
+      "path": "DevelopingData/DocumentationData/SourceDocument/Guides/MANUAL_TEST_GUIDE.md",
+      "absolute_path": "D:\\Work\\AI Stuff\\TranslateIT\\Developing\\Experimental\\DevelopingData\\DocumentationData\\SourceDocument\\Guides\\MANUAL_TEST_GUIDE.md",
       "bytes": 6947,
       "sha256": "7c16260b7899304d7e1585dde2c6f7da3a847cd4cd8d2aef7b5c5fd56bff93be",
       "modified_utc": "2026-06-05T19:23:15+00:00"
     },
     {
-      "path": "DevelopingData/DocumentationData/SourceDocument/ManualTestGuideDocument/README.md",
-      "absolute_path": "D:\\Work\\AI Stuff\\TranslateIT\\DevelopingVersion\\Experimental\\DevelopingData\\DocumentationData\\SourceDocument\\ManualTestGuideDocument\\README.md",
+      "path": "DevelopingData/DocumentationData/SourceDocument/Guides/README.md",
+      "absolute_path": "D:\\Work\\AI Stuff\\TranslateIT\\Developing\\Experimental\\DevelopingData\\DocumentationData\\SourceDocument\\Guides\\README.md",
       "bytes": 371,
       "sha256": "b151b9eb44cfe2a587a0f7b4d11bd4edfc33e3600d5d63f51bd1920057fbf208",
       "modified_utc": "2026-05-20T07:16:13+00:00"
     },
     {
       "path": "DevelopingData/DocumentationData/SourceDocument/MASTER_PROJECT_DOCUMENTATION.docx",
-      "absolute_path": "D:\\Work\\AI Stuff\\TranslateIT\\DevelopingVersion\\Experimental\\DevelopingData\\DocumentationData\\SourceDocument\\MASTER_PROJECT_DOCUMENTATION.docx",
+      "absolute_path": "D:\\Work\\AI Stuff\\TranslateIT\\Developing\\Experimental\\DevelopingData\\DocumentationData\\SourceDocument\\MASTER_PROJECT_DOCUMENTATION.docx",
       "bytes": 41542,
       "sha256": "a53dd568f3cbee479ac05d8517f73f622025f2facc95c769d6aa6ecdcce372cb",
       "modified_utc": "2026-05-20T05:10:27+00:00"
     },
     {
       "path": "DevelopingData/DocumentationData/SourceDocument/MASTER_PROJECT_DOCUMENTATION.md",
-      "absolute_path": "D:\\Work\\AI Stuff\\TranslateIT\\DevelopingVersion\\Experimental\\DevelopingData\\DocumentationData\\SourceDocument\\MASTER_PROJECT_DOCUMENTATION.md",
+      "absolute_path": "D:\\Work\\AI Stuff\\TranslateIT\\Developing\\Experimental\\DevelopingData\\DocumentationData\\SourceDocument\\MASTER_PROJECT_DOCUMENTATION.md",
       "bytes": 16694,
       "sha256": "2411f42bc532c909243893b07321fb6fd8d11591320201a16e4f4c9ec23c348f",
       "modified_utc": "2026-06-05T18:07:32+00:00"
     },
     {
-      "path": "DevelopingData/DocumentationData/SourceDocument/ProjectContextDocument/PROJECT_CONTEXT.docx",
-      "absolute_path": "D:\\Work\\AI Stuff\\TranslateIT\\DevelopingVersion\\Experimental\\DevelopingData\\DocumentationData\\SourceDocument\\ProjectContextDocument\\PROJECT_CONTEXT.docx",
+      "path": "DevelopingData/DocumentationData/SourceDocument/ProjectDocuments/PROJECT_CONTEXT.docx",
+      "absolute_path": "D:\\Work\\AI Stuff\\TranslateIT\\Developing\\Experimental\\DevelopingData\\DocumentationData\\SourceDocument\\ProjectDocuments\\PROJECT_CONTEXT.docx",
       "bytes": 37738,
       "sha256": "9a5438020d56ae178daacc9a4ec33f0ee480cce4a1d9f4003883840615d2b996",
       "modified_utc": "2026-05-20T05:10:27+00:00"
     },
     {
-      "path": "DevelopingData/DocumentationData/SourceDocument/ProjectContextDocument/PROJECT_CONTEXT.md",
-      "absolute_path": "D:\\Work\\AI Stuff\\TranslateIT\\DevelopingVersion\\Experimental\\DevelopingData\\DocumentationData\\SourceDocument\\ProjectContextDocument\\PROJECT_CONTEXT.md",
+      "path": "DevelopingData/DocumentationData/SourceDocument/ProjectDocuments/PROJECT_CONTEXT.md",
+      "absolute_path": "D:\\Work\\AI Stuff\\TranslateIT\\Developing\\Experimental\\DevelopingData\\DocumentationData\\SourceDocument\\ProjectDocuments\\PROJECT_CONTEXT.md",
       "bytes": 2287,
       "sha256": "c733b1d182c7716903b0d68899cca64d9afb6d2f65d35bcde2503d0ea37578ab",
       "modified_utc": "2026-05-20T05:01:16+00:00"
     },
     {
-      "path": "DevelopingData/DocumentationData/SourceDocument/ProjectContextDocument/README.md",
-      "absolute_path": "D:\\Work\\AI Stuff\\TranslateIT\\DevelopingVersion\\Experimental\\DevelopingData\\DocumentationData\\SourceDocument\\ProjectContextDocument\\README.md",
+      "path": "DevelopingData/DocumentationData/SourceDocument/ProjectDocuments/README.md",
+      "absolute_path": "D:\\Work\\AI Stuff\\TranslateIT\\Developing\\Experimental\\DevelopingData\\DocumentationData\\SourceDocument\\ProjectDocuments\\README.md",
       "bytes": 514,
       "sha256": "b4d002dd4a766e4c86f29db6fb6ab58f47aa2dbdb412848b6917f40c72d40eb1",
       "modified_utc": "2026-05-19T17:14:10+00:00"
     },
     {
       "path": "DevelopingData/DocumentationData/SourceDocument/README.md",
-      "absolute_path": "D:\\Work\\AI Stuff\\TranslateIT\\DevelopingVersion\\Experimental\\DevelopingData\\DocumentationData\\SourceDocument\\README.md",
+      "absolute_path": "D:\\Work\\AI Stuff\\TranslateIT\\Developing\\Experimental\\DevelopingData\\DocumentationData\\SourceDocument\\README.md",
       "bytes": 977,
       "sha256": "0dc724a90252936d3ca8a24b4cf3c44f9ae53a2b7b2e3288b389f9b9eb7cb30e",
       "modified_utc": "2026-06-07T08:49:25+00:00"
     },
     {
       "path": "DevelopingData/DocumentationData/SourceDocument/SystemArchitectureReferenceDocument/README.md",
-      "absolute_path": "D:\\Work\\AI Stuff\\TranslateIT\\DevelopingVersion\\Experimental\\DevelopingData\\DocumentationData\\SourceDocument\\SystemArchitectureReferenceDocument\\README.md",
+      "absolute_path": "D:\\Work\\AI Stuff\\TranslateIT\\Developing\\Experimental\\DevelopingData\\DocumentationData\\SourceDocument\\SystemArchitectureReferenceDocument\\README.md",
       "bytes": 334,
       "sha256": "dfe8dfbed1ae200994259d1d08d885e01b725de355de792de705ff349502eb72",
       "modified_utc": "2026-06-07T08:49:14+00:00"
     },
     {
       "path": "DevelopingData/DocumentationData/SourceDocument/SystemArchitectureReferenceDocument/TRANSLATEIT_SYSTEM_ARCHITECTURE_AND_ENGINE_REFERENCE.docx",
-      "absolute_path": "D:\\Work\\AI Stuff\\TranslateIT\\DevelopingVersion\\Experimental\\DevelopingData\\DocumentationData\\SourceDocument\\SystemArchitectureReferenceDocument\\TRANSLATEIT_SYSTEM_ARCHITECTURE_AND_ENGINE_REFERENCE.docx",
+      "absolute_path": "D:\\Work\\AI Stuff\\TranslateIT\\Developing\\Experimental\\DevelopingData\\DocumentationData\\SourceDocument\\SystemArchitectureReferenceDocument\\TRANSLATEIT_SYSTEM_ARCHITECTURE_AND_ENGINE_REFERENCE.docx",
       "bytes": 50819,
       "sha256": "5c126810b1660eb087a564a388740487ffb41eb41c88b06ac105589c842c2aa8",
       "modified_utc": "2026-06-07T09:04:49+00:00"
     },
     {
       "path": "DevelopingData/DocumentationData/SourceDocument/SystemArchitectureReferenceDocument/TRANSLATEIT_SYSTEM_ARCHITECTURE_AND_ENGINE_REFERENCE.md",
-      "absolute_path": "D:\\Work\\AI Stuff\\TranslateIT\\DevelopingVersion\\Experimental\\DevelopingData\\DocumentationData\\SourceDocument\\SystemArchitectureReferenceDocument\\TRANSLATEIT_SYSTEM_ARCHITECTURE_AND_ENGINE_REFERENCE.md",
+      "absolute_path": "D:\\Work\\AI Stuff\\TranslateIT\\Developing\\Experimental\\DevelopingData\\DocumentationData\\SourceDocument\\SystemArchitectureReferenceDocument\\TRANSLATEIT_SYSTEM_ARCHITECTURE_AND_ENGINE_REFERENCE.md",
       "bytes": 27816,
       "sha256": "e77a65741676323ef02a388f4eeb4353efe1f9b2696d2c7cc325161243ae560d",
       "modified_utc": "2026-06-07T08:57:07+00:00"
     },
     {
-      "path": "DevelopingData/DocumentationData/SourceDocument/SystemWorkflowDocument/README.md",
-      "absolute_path": "D:\\Work\\AI Stuff\\TranslateIT\\DevelopingVersion\\Experimental\\DevelopingData\\DocumentationData\\SourceDocument\\SystemWorkflowDocument\\README.md",
+      "path": "DevelopingData/DocumentationData/SourceDocument/ProjectDocuments/README.md",
+      "absolute_path": "D:\\Work\\AI Stuff\\TranslateIT\\Developing\\Experimental\\DevelopingData\\DocumentationData\\SourceDocument\\ProjectDocuments\\README.md",
       "bytes": 598,
       "sha256": "9d9a79c151c52712f995fba7e153a39e0c5a6707ef700627cf0301ef6f4bed79",
       "modified_utc": "2026-05-28T05:13:31+00:00"
     },
     {
-      "path": "DevelopingData/DocumentationData/SourceDocument/SystemWorkflowDocument/SYSTEM_WORKFLOW.docx",
-      "absolute_path": "D:\\Work\\AI Stuff\\TranslateIT\\DevelopingVersion\\Experimental\\DevelopingData\\DocumentationData\\SourceDocument\\SystemWorkflowDocument\\SYSTEM_WORKFLOW.docx",
+      "path": "DevelopingData/DocumentationData/SourceDocument/ProjectDocuments/SYSTEM_WORKFLOW.docx",
+      "absolute_path": "D:\\Work\\AI Stuff\\TranslateIT\\Developing\\Experimental\\DevelopingData\\DocumentationData\\SourceDocument\\ProjectDocuments\\SYSTEM_WORKFLOW.docx",
       "bytes": 38826,
       "sha256": "ef4525df54bb25490e52115a75ad14365be5b360a9847672b992984c11be5266",
       "modified_utc": "2026-05-20T05:10:27+00:00"
     },
     {
-      "path": "DevelopingData/DocumentationData/SourceDocument/SystemWorkflowDocument/SYSTEM_WORKFLOW.md",
-      "absolute_path": "D:\\Work\\AI Stuff\\TranslateIT\\DevelopingVersion\\Experimental\\DevelopingData\\DocumentationData\\SourceDocument\\SystemWorkflowDocument\\SYSTEM_WORKFLOW.md",
+      "path": "DevelopingData/DocumentationData/SourceDocument/ProjectDocuments/SYSTEM_WORKFLOW.md",
+      "absolute_path": "D:\\Work\\AI Stuff\\TranslateIT\\Developing\\Experimental\\DevelopingData\\DocumentationData\\SourceDocument\\ProjectDocuments\\SYSTEM_WORKFLOW.md",
       "bytes": 5818,
       "sha256": "bd49361ffca0009409923190fea2ffadfc80bbc1aa10671f5cff4fbbf45d2a00",
       "modified_utc": "2026-06-05T18:10:23+00:00"
     },
     {
-      "path": "DevelopingData/DocumentationData/SourceDocument/SystemWorkflowDocument/TRANSLATEIT_SYSTEM_WORKFLOW_DETAILED.md",
-      "absolute_path": "D:\\Work\\AI Stuff\\TranslateIT\\DevelopingVersion\\Experimental\\DevelopingData\\DocumentationData\\SourceDocument\\SystemWorkflowDocument\\TRANSLATEIT_SYSTEM_WORKFLOW_DETAILED.md",
+      "path": "DevelopingData/DocumentationData/SourceDocument/ProjectDocuments/TRANSLATEIT_SYSTEM_WORKFLOW_DETAILED.md",
+      "absolute_path": "D:\\Work\\AI Stuff\\TranslateIT\\Developing\\Experimental\\DevelopingData\\DocumentationData\\SourceDocument\\ProjectDocuments\\TRANSLATEIT_SYSTEM_WORKFLOW_DETAILED.md",
       "bytes": 10797,
       "sha256": "790063e6ae1124cb063f886228abbeaa8f1852426e545726abb8ec059ff29b52",
       "modified_utc": "2026-05-28T05:13:31+00:00"
     },
     {
-      "path": "DevelopingData/DocumentationData/SourceDocument/TechnicalNotesDocument/README.md",
-      "absolute_path": "D:\\Work\\AI Stuff\\TranslateIT\\DevelopingVersion\\Experimental\\DevelopingData\\DocumentationData\\SourceDocument\\TechnicalNotesDocument\\README.md",
+      "path": "DevelopingData/DocumentationData/SourceDocument/ProjectDocuments/README.md",
+      "absolute_path": "D:\\Work\\AI Stuff\\TranslateIT\\Developing\\Experimental\\DevelopingData\\DocumentationData\\SourceDocument\\ProjectDocuments\\README.md",
       "bytes": 528,
       "sha256": "1402613c644bac692a3152152c576543c9ec36799a965c2c0fdfc9ad739eddf3",
       "modified_utc": "2026-05-19T17:14:10+00:00"
     },
     {
-      "path": "DevelopingData/DocumentationData/SourceDocument/TechnicalNotesDocument/TECHNICAL_NOTES.docx",
-      "absolute_path": "D:\\Work\\AI Stuff\\TranslateIT\\DevelopingVersion\\Experimental\\DevelopingData\\DocumentationData\\SourceDocument\\TechnicalNotesDocument\\TECHNICAL_NOTES.docx",
+      "path": "DevelopingData/DocumentationData/SourceDocument/ProjectDocuments/TECHNICAL_NOTES.docx",
+      "absolute_path": "D:\\Work\\AI Stuff\\TranslateIT\\Developing\\Experimental\\DevelopingData\\DocumentationData\\SourceDocument\\ProjectDocuments\\TECHNICAL_NOTES.docx",
       "bytes": 41554,
       "sha256": "ca56ad653e54fcc512012929b1d31d1c43f6b5ca31055320277cc9434e85891e",
       "modified_utc": "2026-05-20T05:10:27+00:00"
     },
     {
-      "path": "DevelopingData/DocumentationData/SourceDocument/TechnicalNotesDocument/TECHNICAL_NOTES.md",
-      "absolute_path": "D:\\Work\\AI Stuff\\TranslateIT\\DevelopingVersion\\Experimental\\DevelopingData\\DocumentationData\\SourceDocument\\TechnicalNotesDocument\\TECHNICAL_NOTES.md",
+      "path": "DevelopingData/DocumentationData/SourceDocument/ProjectDocuments/TECHNICAL_NOTES.md",
+      "absolute_path": "D:\\Work\\AI Stuff\\TranslateIT\\Developing\\Experimental\\DevelopingData\\DocumentationData\\SourceDocument\\ProjectDocuments\\TECHNICAL_NOTES.md",
       "bytes": 19113,
       "sha256": "53afbd974cf75498b52becbf1d46d34a202839b15d6c96be8413dae0e80dec0a",
       "modified_utc": "2026-06-05T18:10:15+00:00"
@@ -729,511 +729,511 @@
   "log_files": [
     {
       "path": "UserData/LogData/app_crash_fatal.log",
-      "absolute_path": "D:\\Work\\AI Stuff\\TranslateIT\\DevelopingVersion\\Experimental\\UserData\\LogData\\app_crash_fatal.log",
+      "absolute_path": "D:\\Work\\AI Stuff\\TranslateIT\\Developing\\Experimental\\UserData\\LogData\\app_crash_fatal.log",
       "bytes": 20747,
       "sha256": "f2be1a233ae7f0b0ef64ccd45454d062d6d1a99d1d99f7d0a1792f5e38b66e80",
       "modified_utc": "2026-06-04T17:31:19+00:00"
     },
     {
       "path": "UserData/LogData/app_crash_latest.json",
-      "absolute_path": "D:\\Work\\AI Stuff\\TranslateIT\\DevelopingVersion\\Experimental\\UserData\\LogData\\app_crash_latest.json",
+      "absolute_path": "D:\\Work\\AI Stuff\\TranslateIT\\Developing\\Experimental\\UserData\\LogData\\app_crash_latest.json",
       "bytes": 2201,
       "sha256": "ec024a8a009ff018599660421937a0a548cd979bc0aaac42f2566d365cedfb13",
       "modified_utc": "2026-06-07T08:35:44+00:00"
     },
     {
       "path": "UserData/LogData/app_crash_latest.log",
-      "absolute_path": "D:\\Work\\AI Stuff\\TranslateIT\\DevelopingVersion\\Experimental\\UserData\\LogData\\app_crash_latest.log",
+      "absolute_path": "D:\\Work\\AI Stuff\\TranslateIT\\Developing\\Experimental\\UserData\\LogData\\app_crash_latest.log",
       "bytes": 2057,
       "sha256": "cb4cd215a82eef79d3ee826c49fd570c233e2c857b6586d9b017c9e59c809c0d",
       "modified_utc": "2026-06-07T08:35:44+00:00"
     },
     {
       "path": "UserData/LogData/benchmark_latest.json",
-      "absolute_path": "D:\\Work\\AI Stuff\\TranslateIT\\DevelopingVersion\\Experimental\\UserData\\LogData\\benchmark_latest.json",
+      "absolute_path": "D:\\Work\\AI Stuff\\TranslateIT\\Developing\\Experimental\\UserData\\LogData\\benchmark_latest.json",
       "bytes": 4661,
       "sha256": "a87df1a51a9e5ac11845a2e579026e9672920e4a60cbf634aab8f73e4ba13ebc",
       "modified_utc": "2026-06-01T11:59:49+00:00"
     },
     {
       "path": "UserData/LogData/benchmark_latest.txt",
-      "absolute_path": "D:\\Work\\AI Stuff\\TranslateIT\\DevelopingVersion\\Experimental\\UserData\\LogData\\benchmark_latest.txt",
+      "absolute_path": "D:\\Work\\AI Stuff\\TranslateIT\\Developing\\Experimental\\UserData\\LogData\\benchmark_latest.txt",
       "bytes": 445,
       "sha256": "093dfc3b3c72b0fe0c517472b3b35ccf58d39f4ebcfaa73545148bce49975b04",
       "modified_utc": "2026-06-01T11:59:49+00:00"
     },
     {
       "path": "UserData/LogData/cache_session_guard_latest.json",
-      "absolute_path": "D:\\Work\\AI Stuff\\TranslateIT\\DevelopingVersion\\Experimental\\UserData\\LogData\\cache_session_guard_latest.json",
+      "absolute_path": "D:\\Work\\AI Stuff\\TranslateIT\\Developing\\Experimental\\UserData\\LogData\\cache_session_guard_latest.json",
       "bytes": 52,
       "sha256": "a4be7073ade0c19c08a3841b25f4f8c688720feb53857fb64e4185a3de7eb0a0",
       "modified_utc": "2026-06-02T14:45:42+00:00"
     },
     {
       "path": "UserData/LogData/capture_health_latest.json",
-      "absolute_path": "D:\\Work\\AI Stuff\\TranslateIT\\DevelopingVersion\\Experimental\\UserData\\LogData\\capture_health_latest.json",
+      "absolute_path": "D:\\Work\\AI Stuff\\TranslateIT\\Developing\\Experimental\\UserData\\LogData\\capture_health_latest.json",
       "bytes": 961,
       "sha256": "3be1654ce30251f70065ceb7fcb469ae6bf2977246195bf611c563ea690b4991",
       "modified_utc": "2026-06-07T09:01:55+00:00"
     },
     {
       "path": "UserData/LogData/cuda_setup_latest.txt",
-      "absolute_path": "D:\\Work\\AI Stuff\\TranslateIT\\DevelopingVersion\\Experimental\\UserData\\LogData\\cuda_setup_latest.txt",
+      "absolute_path": "D:\\Work\\AI Stuff\\TranslateIT\\Developing\\Experimental\\UserData\\LogData\\cuda_setup_latest.txt",
       "bytes": 4547,
       "sha256": "affd2b548398dc99006da95523e3ad3b1ea6346ba6075cd46449a642894dfe5c",
       "modified_utc": "2026-05-20T08:35:15+00:00"
     },
     {
       "path": "UserData/LogData/cuda_validation_latest.json",
-      "absolute_path": "D:\\Work\\AI Stuff\\TranslateIT\\DevelopingVersion\\Experimental\\UserData\\LogData\\cuda_validation_latest.json",
+      "absolute_path": "D:\\Work\\AI Stuff\\TranslateIT\\Developing\\Experimental\\UserData\\LogData\\cuda_validation_latest.json",
       "bytes": 1270,
       "sha256": "d76e75f7ee973d0cffd195ae5535bcd9762bfae9e6be17ea2507922a1c2532e4",
       "modified_utc": "2026-06-07T09:01:24+00:00"
     },
     {
       "path": "UserData/LogData/cuda_validation_latest.txt",
-      "absolute_path": "D:\\Work\\AI Stuff\\TranslateIT\\DevelopingVersion\\Experimental\\UserData\\LogData\\cuda_validation_latest.txt",
+      "absolute_path": "D:\\Work\\AI Stuff\\TranslateIT\\Developing\\Experimental\\UserData\\LogData\\cuda_validation_latest.txt",
       "bytes": 831,
       "sha256": "39dc40519d505a029314a80f090c89cd2f959c369e2ad2f119165e53c7a5ea77",
       "modified_utc": "2026-06-07T09:01:24+00:00"
     },
     {
       "path": "UserData/LogData/engine_health_latest.json",
-      "absolute_path": "D:\\Work\\AI Stuff\\TranslateIT\\DevelopingVersion\\Experimental\\UserData\\LogData\\engine_health_latest.json",
+      "absolute_path": "D:\\Work\\AI Stuff\\TranslateIT\\Developing\\Experimental\\UserData\\LogData\\engine_health_latest.json",
       "bytes": 1258,
       "sha256": "2792cd6f777ce31e7a3056e370f54529d234975e0407b97d99a2ae73b7cc5d2f",
       "modified_utc": "2026-06-05T20:09:11+00:00"
     },
     {
       "path": "UserData/LogData/engine_readiness_latest.json",
-      "absolute_path": "D:\\Work\\AI Stuff\\TranslateIT\\DevelopingVersion\\Experimental\\UserData\\LogData\\engine_readiness_latest.json",
+      "absolute_path": "D:\\Work\\AI Stuff\\TranslateIT\\Developing\\Experimental\\UserData\\LogData\\engine_readiness_latest.json",
       "bytes": 823,
       "sha256": "722dacfae37423c9a0a1fa34aacef9c48cd4a66440194dad3c5866ca7102bb4f",
       "modified_utc": "2026-06-07T09:01:55+00:00"
     },
     {
       "path": "UserData/LogData/engine_stability_audit_latest.json",
-      "absolute_path": "D:\\Work\\AI Stuff\\TranslateIT\\DevelopingVersion\\Experimental\\UserData\\LogData\\engine_stability_audit_latest.json",
+      "absolute_path": "D:\\Work\\AI Stuff\\TranslateIT\\Developing\\Experimental\\UserData\\LogData\\engine_stability_audit_latest.json",
       "bytes": 171,
       "sha256": "189da0ec2c3ac0233d0e33af4678ba88e0c14c7e549a80e1a5df200b81f85ea0",
       "modified_utc": "2026-06-05T20:09:11+00:00"
     },
     {
       "path": "UserData/LogData/engine_stability_audit_latest.txt",
-      "absolute_path": "D:\\Work\\AI Stuff\\TranslateIT\\DevelopingVersion\\Experimental\\UserData\\LogData\\engine_stability_audit_latest.txt",
+      "absolute_path": "D:\\Work\\AI Stuff\\TranslateIT\\Developing\\Experimental\\UserData\\LogData\\engine_stability_audit_latest.txt",
       "bytes": 2,
       "sha256": "7eb70257593da06f682a3ddda54a9d260d4fc514f645237f5ca74b08f8da61a6",
       "modified_utc": "2026-06-02T14:44:08+00:00"
     },
     {
       "path": "UserData/LogData/engine_stability_validation_latest.json",
-      "absolute_path": "D:\\Work\\AI Stuff\\TranslateIT\\DevelopingVersion\\Experimental\\UserData\\LogData\\engine_stability_validation_latest.json",
+      "absolute_path": "D:\\Work\\AI Stuff\\TranslateIT\\Developing\\Experimental\\UserData\\LogData\\engine_stability_validation_latest.json",
       "bytes": 2001,
       "sha256": "a677e138af4e94f751c8bb5936942654e98e2e77c1b6a238a78d36f36370cd14",
       "modified_utc": "2026-05-31T15:59:42+00:00"
     },
     {
       "path": "UserData/LogData/engine_stability_validation_latest.txt",
-      "absolute_path": "D:\\Work\\AI Stuff\\TranslateIT\\DevelopingVersion\\Experimental\\UserData\\LogData\\engine_stability_validation_latest.txt",
+      "absolute_path": "D:\\Work\\AI Stuff\\TranslateIT\\Developing\\Experimental\\UserData\\LogData\\engine_stability_validation_latest.txt",
       "bytes": 1089,
       "sha256": "7c9f739403354ba5a879e81e9a277694dadf6a52ac5d2684f19b3b6ffde3854d",
       "modified_utc": "2026-05-31T15:59:42+00:00"
     },
     {
       "path": "UserData/LogData/error_health_latest.json",
-      "absolute_path": "D:\\Work\\AI Stuff\\TranslateIT\\DevelopingVersion\\Experimental\\UserData\\LogData\\error_health_latest.json",
+      "absolute_path": "D:\\Work\\AI Stuff\\TranslateIT\\Developing\\Experimental\\UserData\\LogData\\error_health_latest.json",
       "bytes": 48,
       "sha256": "1b4fedf7f29d1037d3ae8deebf1afc14c81ab9d5f14c490412c3f473e57df714",
       "modified_utc": "2026-06-02T06:55:53+00:00"
     },
     {
       "path": "UserData/LogData/forensic_latency_trace_latest.json",
-      "absolute_path": "D:\\Work\\AI Stuff\\TranslateIT\\DevelopingVersion\\Experimental\\UserData\\LogData\\forensic_latency_trace_latest.json",
+      "absolute_path": "D:\\Work\\AI Stuff\\TranslateIT\\Developing\\Experimental\\UserData\\LogData\\forensic_latency_trace_latest.json",
       "bytes": 6591,
       "sha256": "3762d88e609d092a12320fb80f4291dc6743c9a7236789c06279f32ff0339e55",
       "modified_utc": "2026-06-01T13:49:34+00:00"
     },
     {
       "path": "UserData/LogData/forensic_metric_trace_latest.json",
-      "absolute_path": "D:\\Work\\AI Stuff\\TranslateIT\\DevelopingVersion\\Experimental\\UserData\\LogData\\forensic_metric_trace_latest.json",
+      "absolute_path": "D:\\Work\\AI Stuff\\TranslateIT\\Developing\\Experimental\\UserData\\LogData\\forensic_metric_trace_latest.json",
       "bytes": 6522,
       "sha256": "27fb4d05872162f833ea9fc4e40d948f8b17905513ea216fc4bfbf2dcc582b3e",
       "modified_utc": "2026-06-07T08:45:52+00:00"
     },
     {
       "path": "UserData/LogData/input_output_latency_probe_latest.json",
-      "absolute_path": "D:\\Work\\AI Stuff\\TranslateIT\\DevelopingVersion\\Experimental\\UserData\\LogData\\input_output_latency_probe_latest.json",
+      "absolute_path": "D:\\Work\\AI Stuff\\TranslateIT\\Developing\\Experimental\\UserData\\LogData\\input_output_latency_probe_latest.json",
       "bytes": 1825,
       "sha256": "5beee39f5a42a5731109de5d2772a523720a9288e9c92f1e1e1b99ae11b06190",
       "modified_utc": "2026-06-02T16:26:23+00:00"
     },
     {
       "path": "UserData/LogData/input_output_latency_probe_latest.md",
-      "absolute_path": "D:\\Work\\AI Stuff\\TranslateIT\\DevelopingVersion\\Experimental\\UserData\\LogData\\input_output_latency_probe_latest.md",
+      "absolute_path": "D:\\Work\\AI Stuff\\TranslateIT\\Developing\\Experimental\\UserData\\LogData\\input_output_latency_probe_latest.md",
       "bytes": 1832,
       "sha256": "f6c378bedfbd9b910e8be7580a1ae2cbb4c915c6faf5bec7eb34d35772bda31c",
       "modified_utc": "2026-06-02T16:26:23+00:00"
     },
     {
       "path": "UserData/LogData/input_output_latency_probe_sample.json",
-      "absolute_path": "D:\\Work\\AI Stuff\\TranslateIT\\DevelopingVersion\\Experimental\\UserData\\LogData\\input_output_latency_probe_sample.json",
+      "absolute_path": "D:\\Work\\AI Stuff\\TranslateIT\\Developing\\Experimental\\UserData\\LogData\\input_output_latency_probe_sample.json",
       "bytes": 1696,
       "sha256": "38282aabc31df5d9a45e9797bbb9cb2b3fbe364bff862cf5b7883ffb63cf1f3f",
       "modified_utc": "2026-06-02T04:24:03+00:00"
     },
     {
       "path": "UserData/LogData/input_output_latency_probe_sample.md",
-      "absolute_path": "D:\\Work\\AI Stuff\\TranslateIT\\DevelopingVersion\\Experimental\\UserData\\LogData\\input_output_latency_probe_sample.md",
+      "absolute_path": "D:\\Work\\AI Stuff\\TranslateIT\\Developing\\Experimental\\UserData\\LogData\\input_output_latency_probe_sample.md",
       "bytes": 1675,
       "sha256": "3f3e2e9bfa8f040e4eeaa63c37a813743ddde3d4634afef19645be89d9dec9a4",
       "modified_utc": "2026-06-02T04:24:03+00:00"
     },
     {
       "path": "UserData/LogData/latency_debug_latest.json",
-      "absolute_path": "D:\\Work\\AI Stuff\\TranslateIT\\DevelopingVersion\\Experimental\\UserData\\LogData\\latency_debug_latest.json",
+      "absolute_path": "D:\\Work\\AI Stuff\\TranslateIT\\Developing\\Experimental\\UserData\\LogData\\latency_debug_latest.json",
       "bytes": 15541,
       "sha256": "04a236275209183827dacf6d9ee8bab17c99f94c76e6ad26d46abb90367b3987",
       "modified_utc": "2026-06-07T09:01:39+00:00"
     },
     {
       "path": "UserData/LogData/latency_optimizer_review_latest.json",
-      "absolute_path": "D:\\Work\\AI Stuff\\TranslateIT\\DevelopingVersion\\Experimental\\UserData\\LogData\\latency_optimizer_review_latest.json",
+      "absolute_path": "D:\\Work\\AI Stuff\\TranslateIT\\Developing\\Experimental\\UserData\\LogData\\latency_optimizer_review_latest.json",
       "bytes": 1935,
       "sha256": "87b5c6e513a7af29e71b7535dcdeae00438ba5aca5ad7a2afae19ee4247a4eed",
       "modified_utc": "2026-06-02T17:11:13+00:00"
     },
     {
       "path": "UserData/LogData/latency_optimizer_review_latest.md",
-      "absolute_path": "D:\\Work\\AI Stuff\\TranslateIT\\DevelopingVersion\\Experimental\\UserData\\LogData\\latency_optimizer_review_latest.md",
+      "absolute_path": "D:\\Work\\AI Stuff\\TranslateIT\\Developing\\Experimental\\UserData\\LogData\\latency_optimizer_review_latest.md",
       "bytes": 1893,
       "sha256": "8b7f69be9615a0362c74c75121c50503c30fa81c8024f219c9bbdc6931abeb25",
       "modified_utc": "2026-06-02T17:11:13+00:00"
     },
     {
       "path": "UserData/LogData/launcher_crash_latest.log",
-      "absolute_path": "D:\\Work\\AI Stuff\\TranslateIT\\DevelopingVersion\\Experimental\\UserData\\LogData\\launcher_crash_latest.log",
+      "absolute_path": "D:\\Work\\AI Stuff\\TranslateIT\\Developing\\Experimental\\UserData\\LogData\\launcher_crash_latest.log",
       "bytes": 394,
       "sha256": "716cdfd3b86fa7db4424a2fc7ac8742e32ed5594edb315777b1aa4fb832e21ef",
       "modified_utc": "2026-05-26T17:01:31+00:00"
     },
     {
       "path": "UserData/LogData/launcher_latest.log",
-      "absolute_path": "D:\\Work\\AI Stuff\\TranslateIT\\DevelopingVersion\\Experimental\\UserData\\LogData\\launcher_latest.log",
+      "absolute_path": "D:\\Work\\AI Stuff\\TranslateIT\\Developing\\Experimental\\UserData\\LogData\\launcher_latest.log",
       "bytes": 2181503,
       "sha256": "6c20dcb52019f50bf59b69db8f19ad741402ba470b69490a0b992759ec900a1d",
       "modified_utc": "2026-06-07T09:01:55+00:00"
     },
     {
       "path": "UserData/LogData/launcher_log_write_failure.log",
-      "absolute_path": "D:\\Work\\AI Stuff\\TranslateIT\\DevelopingVersion\\Experimental\\UserData\\LogData\\launcher_log_write_failure.log",
+      "absolute_path": "D:\\Work\\AI Stuff\\TranslateIT\\Developing\\Experimental\\UserData\\LogData\\launcher_log_write_failure.log",
       "bytes": 4777,
       "sha256": "45d7a918c516ebdfb9a82cb2e55645592cafd3f3cf2e2621cce28af94aa7c37d",
       "modified_utc": "2026-05-20T08:43:39+00:00"
     },
     {
       "path": "UserData/LogData/live_capture_debug_latest.json",
-      "absolute_path": "D:\\Work\\AI Stuff\\TranslateIT\\DevelopingVersion\\Experimental\\UserData\\LogData\\live_capture_debug_latest.json",
+      "absolute_path": "D:\\Work\\AI Stuff\\TranslateIT\\Developing\\Experimental\\UserData\\LogData\\live_capture_debug_latest.json",
       "bytes": 662,
       "sha256": "ca5bd2e6d9a2c206692decf07f100ab746984a989965445609cd694358404e63",
       "modified_utc": "2026-06-07T09:01:55+00:00"
     },
     {
       "path": "UserData/LogData/live_capture_debug_latest.txt",
-      "absolute_path": "D:\\Work\\AI Stuff\\TranslateIT\\DevelopingVersion\\Experimental\\UserData\\LogData\\live_capture_debug_latest.txt",
+      "absolute_path": "D:\\Work\\AI Stuff\\TranslateIT\\Developing\\Experimental\\UserData\\LogData\\live_capture_debug_latest.txt",
       "bytes": 549,
       "sha256": "8e7ab5e6749ea03624e5e3cfcbce28d14f17ec84f391daad1adaf4a72119c2dd",
       "modified_utc": "2026-06-07T09:01:55+00:00"
     },
     {
       "path": "UserData/LogData/live_input_latest.json",
-      "absolute_path": "D:\\Work\\AI Stuff\\TranslateIT\\DevelopingVersion\\Experimental\\UserData\\LogData\\live_input_latest.json",
+      "absolute_path": "D:\\Work\\AI Stuff\\TranslateIT\\Developing\\Experimental\\UserData\\LogData\\live_input_latest.json",
       "bytes": 985,
       "sha256": "75c9af9b8005c441495f651ee2a8fe3a957911bc414cd63438a3f21c204fe19f",
       "modified_utc": "2026-05-28T04:28:06+00:00"
     },
     {
       "path": "UserData/LogData/live_input_latest.txt",
-      "absolute_path": "D:\\Work\\AI Stuff\\TranslateIT\\DevelopingVersion\\Experimental\\UserData\\LogData\\live_input_latest.txt",
+      "absolute_path": "D:\\Work\\AI Stuff\\TranslateIT\\Developing\\Experimental\\UserData\\LogData\\live_input_latest.txt",
       "bytes": 828,
       "sha256": "6511504bd4806e629c54df48a55f6638716525be57ca8bf471f2492684b30dbd",
       "modified_utc": "2026-05-28T04:28:06+00:00"
     },
     {
       "path": "UserData/LogData/live_mic_qa_latest.txt",
-      "absolute_path": "D:\\Work\\AI Stuff\\TranslateIT\\DevelopingVersion\\Experimental\\UserData\\LogData\\live_mic_qa_latest.txt",
+      "absolute_path": "D:\\Work\\AI Stuff\\TranslateIT\\Developing\\Experimental\\UserData\\LogData\\live_mic_qa_latest.txt",
       "bytes": 828,
       "sha256": "6511504bd4806e629c54df48a55f6638716525be57ca8bf471f2492684b30dbd",
       "modified_utc": "2026-05-28T04:28:06+00:00"
     },
     {
       "path": "UserData/LogData/long_speech_debug_latest.json",
-      "absolute_path": "D:\\Work\\AI Stuff\\TranslateIT\\DevelopingVersion\\Experimental\\UserData\\LogData\\long_speech_debug_latest.json",
+      "absolute_path": "D:\\Work\\AI Stuff\\TranslateIT\\Developing\\Experimental\\UserData\\LogData\\long_speech_debug_latest.json",
       "bytes": 858,
       "sha256": "e150de777c2db69a87f3e6d46f3451c4eb13c1506f98a4a5d84354de24a00ea5",
       "modified_utc": "2026-05-28T04:28:06+00:00"
     },
     {
       "path": "UserData/LogData/long_speech_runtime_test_latest.json",
-      "absolute_path": "D:\\Work\\AI Stuff\\TranslateIT\\DevelopingVersion\\Experimental\\UserData\\LogData\\long_speech_runtime_test_latest.json",
+      "absolute_path": "D:\\Work\\AI Stuff\\TranslateIT\\Developing\\Experimental\\UserData\\LogData\\long_speech_runtime_test_latest.json",
       "bytes": 560,
       "sha256": "3c65d7034e7c60d74618fc2076d8b808c8ceff604fcc8de4c3079efb2bae00f9",
       "modified_utc": "2026-05-28T04:28:06+00:00"
     },
     {
       "path": "UserData/LogData/long_turn_safety_latest.json",
-      "absolute_path": "D:\\Work\\AI Stuff\\TranslateIT\\DevelopingVersion\\Experimental\\UserData\\LogData\\long_turn_safety_latest.json",
+      "absolute_path": "D:\\Work\\AI Stuff\\TranslateIT\\Developing\\Experimental\\UserData\\LogData\\long_turn_safety_latest.json",
       "bytes": 62,
       "sha256": "a16e3f2e8f5695911436fff08f527c84f46d5521632303b6cf59ff852d404e1f",
       "modified_utc": "2026-06-07T09:01:39+00:00"
     },
     {
       "path": "UserData/LogData/manual_latency_review_latest.json",
-      "absolute_path": "D:\\Work\\AI Stuff\\TranslateIT\\DevelopingVersion\\Experimental\\UserData\\LogData\\manual_latency_review_latest.json",
+      "absolute_path": "D:\\Work\\AI Stuff\\TranslateIT\\Developing\\Experimental\\UserData\\LogData\\manual_latency_review_latest.json",
       "bytes": 1411,
       "sha256": "5c61389998fd83f9eab792f40a0f7be66085232163c3248608e4926722766de7",
       "modified_utc": "2026-06-02T16:26:23+00:00"
     },
     {
       "path": "UserData/LogData/manual_latency_review_latest.md",
-      "absolute_path": "D:\\Work\\AI Stuff\\TranslateIT\\DevelopingVersion\\Experimental\\UserData\\LogData\\manual_latency_review_latest.md",
+      "absolute_path": "D:\\Work\\AI Stuff\\TranslateIT\\Developing\\Experimental\\UserData\\LogData\\manual_latency_review_latest.md",
       "bytes": 1806,
       "sha256": "dced403a738f49d120717efce4089f84e4731c1426d2fad71b6171131ab28332",
       "modified_utc": "2026-06-02T16:26:23+00:00"
     },
     {
       "path": "UserData/LogData/manual_latency_review_sample.json",
-      "absolute_path": "D:\\Work\\AI Stuff\\TranslateIT\\DevelopingVersion\\Experimental\\UserData\\LogData\\manual_latency_review_sample.json",
+      "absolute_path": "D:\\Work\\AI Stuff\\TranslateIT\\Developing\\Experimental\\UserData\\LogData\\manual_latency_review_sample.json",
       "bytes": 1295,
       "sha256": "2939dcbcc6b6ad30b64023db94efc86565e727044d261103105d5b665b0910a2",
       "modified_utc": "2026-06-02T04:24:03+00:00"
     },
     {
       "path": "UserData/LogData/manual_latency_review_sample.log",
-      "absolute_path": "D:\\Work\\AI Stuff\\TranslateIT\\DevelopingVersion\\Experimental\\UserData\\LogData\\manual_latency_review_sample.log",
+      "absolute_path": "D:\\Work\\AI Stuff\\TranslateIT\\Developing\\Experimental\\UserData\\LogData\\manual_latency_review_sample.log",
       "bytes": 927,
       "sha256": "cf08f640f0fc01e1df1fcdb9cc3d75bac96b679c83886005540b949789622196",
       "modified_utc": "2026-06-02T04:23:51+00:00"
     },
     {
       "path": "UserData/LogData/manual_latency_review_sample.md",
-      "absolute_path": "D:\\Work\\AI Stuff\\TranslateIT\\DevelopingVersion\\Experimental\\UserData\\LogData\\manual_latency_review_sample.md",
+      "absolute_path": "D:\\Work\\AI Stuff\\TranslateIT\\Developing\\Experimental\\UserData\\LogData\\manual_latency_review_sample.md",
       "bytes": 1664,
       "sha256": "8bb342a309a6c7d72a866ebac2f1aaccb660bb2c81e5502ea452dd4e4703bec7",
       "modified_utc": "2026-06-02T04:24:03+00:00"
     },
     {
       "path": "UserData/LogData/manual_latency_review_sample_report.json",
-      "absolute_path": "D:\\Work\\AI Stuff\\TranslateIT\\DevelopingVersion\\Experimental\\UserData\\LogData\\manual_latency_review_sample_report.json",
+      "absolute_path": "D:\\Work\\AI Stuff\\TranslateIT\\Developing\\Experimental\\UserData\\LogData\\manual_latency_review_sample_report.json",
       "bytes": 1521,
       "sha256": "1c882318627cd5f438750d4a858fb06161260b37252c44856fbf390d6334bc93",
       "modified_utc": "2026-06-02T04:23:51+00:00"
     },
     {
       "path": "UserData/LogData/microphone_diagnostic_latest.json",
-      "absolute_path": "D:\\Work\\AI Stuff\\TranslateIT\\DevelopingVersion\\Experimental\\UserData\\LogData\\microphone_diagnostic_latest.json",
+      "absolute_path": "D:\\Work\\AI Stuff\\TranslateIT\\Developing\\Experimental\\UserData\\LogData\\microphone_diagnostic_latest.json",
       "bytes": 676,
       "sha256": "b1238dac76d9cffabebf56708f006ca6de8360d7a50ad65ebbb4c246fce7e898",
       "modified_utc": "2026-05-21T01:00:48+00:00"
     },
     {
       "path": "UserData/LogData/microphone_diagnostic_latest.txt",
-      "absolute_path": "D:\\Work\\AI Stuff\\TranslateIT\\DevelopingVersion\\Experimental\\UserData\\LogData\\microphone_diagnostic_latest.txt",
+      "absolute_path": "D:\\Work\\AI Stuff\\TranslateIT\\Developing\\Experimental\\UserData\\LogData\\microphone_diagnostic_latest.txt",
       "bytes": 1665,
       "sha256": "bc5f8e277d9d5e9cd69df8562588943b1b887d200cb5769be3407c13015e1026",
       "modified_utc": "2026-05-20T08:22:48+00:00"
     },
     {
       "path": "UserData/LogData/microphone_threshold_debug_latest.json",
-      "absolute_path": "D:\\Work\\AI Stuff\\TranslateIT\\DevelopingVersion\\Experimental\\UserData\\LogData\\microphone_threshold_debug_latest.json",
+      "absolute_path": "D:\\Work\\AI Stuff\\TranslateIT\\Developing\\Experimental\\UserData\\LogData\\microphone_threshold_debug_latest.json",
       "bytes": 532,
       "sha256": "a2523d6ea12eba807a04b5ede6fcc8cef008a4550d9f37827d1fb1d6d6e3d52e",
       "modified_utc": "2026-06-07T08:45:34+00:00"
     },
     {
       "path": "UserData/LogData/model_runtime_optimization_latest.json",
-      "absolute_path": "D:\\Work\\AI Stuff\\TranslateIT\\DevelopingVersion\\Experimental\\UserData\\LogData\\model_runtime_optimization_latest.json",
+      "absolute_path": "D:\\Work\\AI Stuff\\TranslateIT\\Developing\\Experimental\\UserData\\LogData\\model_runtime_optimization_latest.json",
       "bytes": 2327,
       "sha256": "625710f9249c87de4a570e9bfa3cdfd0bff569ffb2eee57aacd3a705a8bff371",
       "modified_utc": "2026-06-07T09:01:46+00:00"
     },
     {
       "path": "UserData/LogData/playback_health_latest.json",
-      "absolute_path": "D:\\Work\\AI Stuff\\TranslateIT\\DevelopingVersion\\Experimental\\UserData\\LogData\\playback_health_latest.json",
+      "absolute_path": "D:\\Work\\AI Stuff\\TranslateIT\\Developing\\Experimental\\UserData\\LogData\\playback_health_latest.json",
       "bytes": 1698,
       "sha256": "979afeab4248f284cd051f9aedfadc0b02cd0e2f364068d7d58a7cf1e7da9dc4",
       "modified_utc": "2026-06-07T08:46:10+00:00"
     },
     {
       "path": "UserData/LogData/README.md",
-      "absolute_path": "D:\\Work\\AI Stuff\\TranslateIT\\DevelopingVersion\\Experimental\\UserData\\LogData\\README.md",
+      "absolute_path": "D:\\Work\\AI Stuff\\TranslateIT\\Developing\\Experimental\\UserData\\LogData\\README.md",
       "bytes": 606,
       "sha256": "6b31256e153574b57d106ea007295319df5da91dc983038de71b205faf26b313",
       "modified_utc": "2026-05-20T07:16:13+00:00"
     },
     {
       "path": "UserData/LogData/real_latency_breakdown_latest.json",
-      "absolute_path": "D:\\Work\\AI Stuff\\TranslateIT\\DevelopingVersion\\Experimental\\UserData\\LogData\\real_latency_breakdown_latest.json",
+      "absolute_path": "D:\\Work\\AI Stuff\\TranslateIT\\Developing\\Experimental\\UserData\\LogData\\real_latency_breakdown_latest.json",
       "bytes": 2817,
       "sha256": "1cb42d05980e8922b62615a1465d4dd2f014f7dbe2cf3364221694c80ecb826e",
       "modified_utc": "2026-06-05T17:32:15+00:00"
     },
     {
       "path": "UserData/LogData/realtime_regression_root_cause_latest.txt",
-      "absolute_path": "D:\\Work\\AI Stuff\\TranslateIT\\DevelopingVersion\\Experimental\\UserData\\LogData\\realtime_regression_root_cause_latest.txt",
+      "absolute_path": "D:\\Work\\AI Stuff\\TranslateIT\\Developing\\Experimental\\UserData\\LogData\\realtime_regression_root_cause_latest.txt",
       "bytes": 467,
       "sha256": "cf64b27cbd2d225a31d0c0c8ecea5cd43356720bf918649bb6ecc527c97eb9a5",
       "modified_utc": "2026-05-28T04:28:06+00:00"
     },
     {
       "path": "UserData/LogData/runtime_pipeline_latest.log",
-      "absolute_path": "D:\\Work\\AI Stuff\\TranslateIT\\DevelopingVersion\\Experimental\\UserData\\LogData\\runtime_pipeline_latest.log",
+      "absolute_path": "D:\\Work\\AI Stuff\\TranslateIT\\Developing\\Experimental\\UserData\\LogData\\runtime_pipeline_latest.log",
       "bytes": 12050427,
       "sha256": "705276f7a88492397263dba1d5f2a4ba1a482aa63a0c393a7f6dd14d5f760dd4",
       "modified_utc": "2026-06-07T09:01:48+00:00"
     },
     {
       "path": "UserData/LogData/runtime_validation_latest.json",
-      "absolute_path": "D:\\Work\\AI Stuff\\TranslateIT\\DevelopingVersion\\Experimental\\UserData\\LogData\\runtime_validation_latest.json",
+      "absolute_path": "D:\\Work\\AI Stuff\\TranslateIT\\Developing\\Experimental\\UserData\\LogData\\runtime_validation_latest.json",
       "bytes": 3730,
       "sha256": "83fddaf210085cbafa734eb375aad41b9ed891ca63664ed24dcdf842dcb48a7a",
       "modified_utc": "2026-05-21T01:25:02+00:00"
     },
     {
       "path": "UserData/LogData/runtime_validation_latest.txt",
-      "absolute_path": "D:\\Work\\AI Stuff\\TranslateIT\\DevelopingVersion\\Experimental\\UserData\\LogData\\runtime_validation_latest.txt",
+      "absolute_path": "D:\\Work\\AI Stuff\\TranslateIT\\Developing\\Experimental\\UserData\\LogData\\runtime_validation_latest.txt",
       "bytes": 1854,
       "sha256": "354b21c9eff53dfece696fa7236072c93c901a35e29b2c6790e746975a623b93",
       "modified_utc": "2026-05-21T01:25:08+00:00"
     },
     {
       "path": "UserData/LogData/setup_runtime_latest.txt",
-      "absolute_path": "D:\\Work\\AI Stuff\\TranslateIT\\DevelopingVersion\\Experimental\\UserData\\LogData\\setup_runtime_latest.txt",
+      "absolute_path": "D:\\Work\\AI Stuff\\TranslateIT\\Developing\\Experimental\\UserData\\LogData\\setup_runtime_latest.txt",
       "bytes": 567,
       "sha256": "42f2b7939fee68877387915ef23c10722cd9b43755725c51df3493851d7d1749",
       "modified_utc": "2026-05-20T08:22:48+00:00"
     },
     {
       "path": "UserData/LogData/short_path_guard_latest.json",
-      "absolute_path": "D:\\Work\\AI Stuff\\TranslateIT\\DevelopingVersion\\Experimental\\UserData\\LogData\\short_path_guard_latest.json",
+      "absolute_path": "D:\\Work\\AI Stuff\\TranslateIT\\Developing\\Experimental\\UserData\\LogData\\short_path_guard_latest.json",
       "bytes": 62,
       "sha256": "a16e3f2e8f5695911436fff08f527c84f46d5521632303b6cf59ff852d404e1f",
       "modified_utc": "2026-06-07T09:01:39+00:00"
     },
     {
       "path": "UserData/LogData/short_utterance_debug_latest.json",
-      "absolute_path": "D:\\Work\\AI Stuff\\TranslateIT\\DevelopingVersion\\Experimental\\UserData\\LogData\\short_utterance_debug_latest.json",
+      "absolute_path": "D:\\Work\\AI Stuff\\TranslateIT\\Developing\\Experimental\\UserData\\LogData\\short_utterance_debug_latest.json",
       "bytes": 117,
       "sha256": "8dcec1ad3ee9d7b493ecb53a71396dd5676561f907204a3e5871a90f1d2d4cb5",
       "modified_utc": "2026-06-07T09:01:39+00:00"
     },
     {
       "path": "UserData/LogData/short_utterance_regression_latest.json",
-      "absolute_path": "D:\\Work\\AI Stuff\\TranslateIT\\DevelopingVersion\\Experimental\\UserData\\LogData\\short_utterance_regression_latest.json",
+      "absolute_path": "D:\\Work\\AI Stuff\\TranslateIT\\Developing\\Experimental\\UserData\\LogData\\short_utterance_regression_latest.json",
       "bytes": 588,
       "sha256": "62e4b35aba284e5c659994436f89f931fb84ed844509cfb486f0d022213d14ef",
       "modified_utc": "2026-05-28T04:28:06+00:00"
     },
     {
       "path": "UserData/LogData/simple_latency_breakdown_latest.json",
-      "absolute_path": "D:\\Work\\AI Stuff\\TranslateIT\\DevelopingVersion\\Experimental\\UserData\\LogData\\simple_latency_breakdown_latest.json",
+      "absolute_path": "D:\\Work\\AI Stuff\\TranslateIT\\Developing\\Experimental\\UserData\\LogData\\simple_latency_breakdown_latest.json",
       "bytes": 391,
       "sha256": "2f99537075f09c35de79f1c84004086f2847bf205714e14a18ee19b4de87be27",
       "modified_utc": "2026-06-05T17:32:15+00:00"
     },
     {
       "path": "UserData/LogData/simple_latency_trace_latest.json",
-      "absolute_path": "D:\\Work\\AI Stuff\\TranslateIT\\DevelopingVersion\\Experimental\\UserData\\LogData\\simple_latency_trace_latest.json",
+      "absolute_path": "D:\\Work\\AI Stuff\\TranslateIT\\Developing\\Experimental\\UserData\\LogData\\simple_latency_trace_latest.json",
       "bytes": 7146,
       "sha256": "f0c467eef0ba133f2e0729fdbfc6c7ed09d8fbc56ac609f68062c392169169ed",
       "modified_utc": "2026-06-01T13:49:36+00:00"
     },
     {
       "path": "UserData/LogData/simple_metric_trace_latest.json",
-      "absolute_path": "D:\\Work\\AI Stuff\\TranslateIT\\DevelopingVersion\\Experimental\\UserData\\LogData\\simple_metric_trace_latest.json",
+      "absolute_path": "D:\\Work\\AI Stuff\\TranslateIT\\Developing\\Experimental\\UserData\\LogData\\simple_metric_trace_latest.json",
       "bytes": 6571,
       "sha256": "21b6095e79ea87fc07bb442ffb7181c9249512df62ac4f0099951c9d29787a4b",
       "modified_utc": "2026-06-07T08:45:52+00:00"
     },
     {
       "path": "UserData/LogData/stable_streaming_turn_latest.json",
-      "absolute_path": "D:\\Work\\AI Stuff\\TranslateIT\\DevelopingVersion\\Experimental\\UserData\\LogData\\stable_streaming_turn_latest.json",
+      "absolute_path": "D:\\Work\\AI Stuff\\TranslateIT\\Developing\\Experimental\\UserData\\LogData\\stable_streaming_turn_latest.json",
       "bytes": 1980,
       "sha256": "ad2385ff7bbe1181e543ecf0f7da6beff587fb3bd1663fa37a62ecfc9bf6a684",
       "modified_utc": "2026-05-28T04:28:06+00:00"
     },
     {
       "path": "UserData/LogData/start_stop_lifecycle_latest.json",
-      "absolute_path": "D:\\Work\\AI Stuff\\TranslateIT\\DevelopingVersion\\Experimental\\UserData\\LogData\\start_stop_lifecycle_latest.json",
+      "absolute_path": "D:\\Work\\AI Stuff\\TranslateIT\\Developing\\Experimental\\UserData\\LogData\\start_stop_lifecycle_latest.json",
       "bytes": 52,
       "sha256": "a4be7073ade0c19c08a3841b25f4f8c688720feb53857fb64e4185a3de7eb0a0",
       "modified_utc": "2026-06-02T14:44:09+00:00"
     },
     {
       "path": "UserData/LogData/stopwatch_alignment_latest.json",
-      "absolute_path": "D:\\Work\\AI Stuff\\TranslateIT\\DevelopingVersion\\Experimental\\UserData\\LogData\\stopwatch_alignment_latest.json",
+      "absolute_path": "D:\\Work\\AI Stuff\\TranslateIT\\Developing\\Experimental\\UserData\\LogData\\stopwatch_alignment_latest.json",
       "bytes": 349,
       "sha256": "b3f007a3a3e48c5e42043fe1e52c5404947375105743c50f03ad7fe8a56ef74d",
       "modified_utc": "2026-06-02T19:27:50+00:00"
     },
     {
       "path": "UserData/LogData/streaming_turn_debug_latest.json",
-      "absolute_path": "D:\\Work\\AI Stuff\\TranslateIT\\DevelopingVersion\\Experimental\\UserData\\LogData\\streaming_turn_debug_latest.json",
+      "absolute_path": "D:\\Work\\AI Stuff\\TranslateIT\\Developing\\Experimental\\UserData\\LogData\\streaming_turn_debug_latest.json",
       "bytes": 1289,
       "sha256": "98323c79a5e716935d974c76e1838c932bd4b1c9c348e95f43b7a51a6c936bb4",
       "modified_utc": "2026-05-28T04:28:06+00:00"
     },
     {
       "path": "UserData/LogData/stt_debug_latest.json",
-      "absolute_path": "D:\\Work\\AI Stuff\\TranslateIT\\DevelopingVersion\\Experimental\\UserData\\LogData\\stt_debug_latest.json",
+      "absolute_path": "D:\\Work\\AI Stuff\\TranslateIT\\Developing\\Experimental\\UserData\\LogData\\stt_debug_latest.json",
       "bytes": 1659,
       "sha256": "9e6c911466c7a5ee7d81e4cfe4fe05e3e34e9df24ec2e70a3c48814fea25824c",
       "modified_utc": "2026-06-05T17:32:39+00:00"
     },
     {
       "path": "UserData/LogData/stt_optimization_latest.json",
-      "absolute_path": "D:\\Work\\AI Stuff\\TranslateIT\\DevelopingVersion\\Experimental\\UserData\\LogData\\stt_optimization_latest.json",
+      "absolute_path": "D:\\Work\\AI Stuff\\TranslateIT\\Developing\\Experimental\\UserData\\LogData\\stt_optimization_latest.json",
       "bytes": 1691,
       "sha256": "03a89b811611513ab7120314a87f7205e442f9fee3b38fc20d8218de586e0d54",
       "modified_utc": "2026-06-05T16:49:13+00:00"
     },
     {
       "path": "UserData/LogData/text_latency_breakdown_latest.json",
-      "absolute_path": "D:\\Work\\AI Stuff\\TranslateIT\\DevelopingVersion\\Experimental\\UserData\\LogData\\text_latency_breakdown_latest.json",
+      "absolute_path": "D:\\Work\\AI Stuff\\TranslateIT\\Developing\\Experimental\\UserData\\LogData\\text_latency_breakdown_latest.json",
       "bytes": 370,
       "sha256": "4ac33f5050e6924b23807d4a704d8fe93c3a29f8b9ce613a7bb86ec33bb42bf4",
       "modified_utc": "2026-06-05T17:32:15+00:00"
     },
     {
       "path": "UserData/LogData/text_latency_latest.json",
-      "absolute_path": "D:\\Work\\AI Stuff\\TranslateIT\\DevelopingVersion\\Experimental\\UserData\\LogData\\text_latency_latest.json",
+      "absolute_path": "D:\\Work\\AI Stuff\\TranslateIT\\Developing\\Experimental\\UserData\\LogData\\text_latency_latest.json",
       "bytes": 1344,
       "sha256": "6aa035c8c6119fced078f5ee0352ed5470e24065e52a7615238dc37048d0c993",
       "modified_utc": "2026-06-05T17:32:15+00:00"
     },
     {
       "path": "UserData/LogData/ui_interaction_health_latest.json",
-      "absolute_path": "D:\\Work\\AI Stuff\\TranslateIT\\DevelopingVersion\\Experimental\\UserData\\LogData\\ui_interaction_health_latest.json",
+      "absolute_path": "D:\\Work\\AI Stuff\\TranslateIT\\Developing\\Experimental\\UserData\\LogData\\ui_interaction_health_latest.json",
       "bytes": 62,
       "sha256": "5316c7d135507b5b47b1ff357e20ecb19d64ecd4cbc10ab16fb9ea3d956469cd",
       "modified_utc": "2026-06-07T08:47:41+00:00"
     },
     {
       "path": "UserData/LogData/ui_operator_smoke.png",
-      "absolute_path": "D:\\Work\\AI Stuff\\TranslateIT\\DevelopingVersion\\Experimental\\UserData\\LogData\\ui_operator_smoke.png",
+      "absolute_path": "D:\\Work\\AI Stuff\\TranslateIT\\Developing\\Experimental\\UserData\\LogData\\ui_operator_smoke.png",
       "bytes": 13345,
       "sha256": "f1f4a52ca8471bde62a173db8734e745991df027ef9da3e4c3b5e5152481352b",
       "modified_utc": "2026-05-20T09:02:57+00:00"
     },
     {
       "path": "UserData/LogData/version_snapshot_latest.txt",
-      "absolute_path": "D:\\Work\\AI Stuff\\TranslateIT\\DevelopingVersion\\Experimental\\UserData\\LogData\\version_snapshot_latest.txt",
+      "absolute_path": "D:\\Work\\AI Stuff\\TranslateIT\\Developing\\Experimental\\UserData\\LogData\\version_snapshot_latest.txt",
       "bytes": 92,
       "sha256": "103eca4daf653c94df915408de54dbabd9a64b0ba168ed012c0c01211e69de03",
       "modified_utc": "2026-05-27T03:51:32+00:00"
     },
     {
       "path": "UserData/LogData/worker_health_latest.json",
-      "absolute_path": "D:\\Work\\AI Stuff\\TranslateIT\\DevelopingVersion\\Experimental\\UserData\\LogData\\worker_health_latest.json",
+      "absolute_path": "D:\\Work\\AI Stuff\\TranslateIT\\Developing\\Experimental\\UserData\\LogData\\worker_health_latest.json",
       "bytes": 1363,
       "sha256": "9ce71045ddcf5a920112d612edaede7735b020416b11c2f89e62621617642235",
       "modified_utc": "2026-06-07T09:01:55+00:00"

@@ -49,10 +49,10 @@ The following commands were run during this pass:
 ```powershell
 python -m compileall -q .\EngineData .\DevelopingData\Diagnostics .\DevelopingData\Tests
 python -m unittest discover -s .\DevelopingData\Tests
-D:\Work\AI Stuff\TranslateIT\DevelopingVersion\Experimental\DevelopingData\ToolKitData\rt\Scripts\python.exe -m EngineData.LauncherApp.launcher_bootstrap --self-test
-D:\Work\AI Stuff\TranslateIT\DevelopingVersion\Experimental\DevelopingData\ToolKitData\rt\Scripts\python.exe .\DevelopingData\Diagnostics\manual_latency_review_helper.py --report .\UserData\LogData\manual_latency_review_sample_report.json --output-md .\UserData\LogData\manual_latency_review_sample.md --output-json .\UserData\LogData\manual_latency_review_sample.json
-D:\Work\AI Stuff\TranslateIT\DevelopingVersion\Experimental\DevelopingData\ToolKitData\rt\Scripts\python.exe .\DevelopingData\Diagnostics\input_output_latency_probe.py --report .\UserData\LogData\manual_latency_review_sample_report.json --log .\UserData\LogData\manual_latency_review_sample.log --output-md .\UserData\LogData\input_output_latency_probe_sample.md --output-json .\UserData\LogData\input_output_latency_probe_sample.json
-D:\Work\AI Stuff\TranslateIT\DevelopingVersion\Experimental\DevelopingData\ToolKitData\rt\Scripts\python.exe .\DevelopingData\Diagnostics\input_output_latency_probe.py
+D:\Work\AI Stuff\TranslateIT\Developing\Experimental\DevelopingData\ToolKitData\rt\Scripts\python.exe -m EngineData.LauncherApp.launcher_bootstrap --self-test
+D:\Work\AI Stuff\TranslateIT\Developing\Experimental\DevelopingData\ToolKitData\rt\Scripts\python.exe .\DevelopingData\Diagnostics\manual_latency_review_helper.py --report .\UserData\LogData\manual_latency_review_sample_report.json --output-md .\UserData\LogData\manual_latency_review_sample.md --output-json .\UserData\LogData\manual_latency_review_sample.json
+D:\Work\AI Stuff\TranslateIT\Developing\Experimental\DevelopingData\ToolKitData\rt\Scripts\python.exe .\DevelopingData\Diagnostics\input_output_latency_probe.py --report .\UserData\LogData\manual_latency_review_sample_report.json --log .\UserData\LogData\manual_latency_review_sample.log --output-md .\UserData\LogData\input_output_latency_probe_sample.md --output-json .\UserData\LogData\input_output_latency_probe_sample.json
+D:\Work\AI Stuff\TranslateIT\Developing\Experimental\DevelopingData\ToolKitData\rt\Scripts\python.exe .\DevelopingData\Diagnostics\input_output_latency_probe.py
 ```
 
 ### Results

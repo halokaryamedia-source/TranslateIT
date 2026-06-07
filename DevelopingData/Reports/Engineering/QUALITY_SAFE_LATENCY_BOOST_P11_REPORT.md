@@ -112,8 +112,8 @@ The following checks must pass before this pass is considered complete:
 
 1. `python -m compileall -q .\EngineData .\DevelopingData\Diagnostics .\DevelopingData\Tests`
 2. `python -m unittest discover -s .\DevelopingData\Tests`
-3. `D:\Work\AI Stuff\TranslateIT\DevelopingVersion\Experimental\DevelopingData\ToolKitData\rt\Scripts\python.exe -m EngineData.LauncherApp.launcher_bootstrap --self-test`
-4. `D:\Work\AI Stuff\TranslateIT\DevelopingVersion\Experimental\DevelopingData\ToolKitData\rt\Scripts\python.exe .\DevelopingData\Diagnostics\latency_optimizer_review.py`
+3. `D:\Work\AI Stuff\TranslateIT\Developing\Experimental\DevelopingData\ToolKitData\rt\Scripts\python.exe -m EngineData.LauncherApp.launcher_bootstrap --self-test`
+4. `D:\Work\AI Stuff\TranslateIT\Developing\Experimental\DevelopingData\ToolKitData\rt\Scripts\python.exe .\DevelopingData\Diagnostics\latency_optimizer_review.py`
 
 ## Validation Results
 
@@ -122,10 +122,10 @@ The following commands were run during this pass:
 ```powershell
 python -m compileall -q .\EngineData .\DevelopingData\Diagnostics .\DevelopingData\Tests
 python -m unittest discover -s .\DevelopingData\Tests
-& "D:\Work\AI Stuff\TranslateIT\DevelopingVersion\Experimental\DevelopingData\ToolKitData\rt\Scripts\python.exe" -m EngineData.LauncherApp.launcher_bootstrap --self-test
-& "D:\Work\AI Stuff\TranslateIT\DevelopingVersion\Experimental\DevelopingData\ToolKitData\rt\Scripts\python.exe" .\DevelopingData\Diagnostics\manual_latency_review_helper.py
-& "D:\Work\AI Stuff\TranslateIT\DevelopingVersion\Experimental\DevelopingData\ToolKitData\rt\Scripts\python.exe" .\DevelopingData\Diagnostics\input_output_latency_probe.py
-& "D:\Work\AI Stuff\TranslateIT\DevelopingVersion\Experimental\DevelopingData\ToolKitData\rt\Scripts\python.exe" .\DevelopingData\Diagnostics\latency_optimizer_review.py
+& "D:\Work\AI Stuff\TranslateIT\Developing\Experimental\DevelopingData\ToolKitData\rt\Scripts\python.exe" -m EngineData.LauncherApp.launcher_bootstrap --self-test
+& "D:\Work\AI Stuff\TranslateIT\Developing\Experimental\DevelopingData\ToolKitData\rt\Scripts\python.exe" .\DevelopingData\Diagnostics\manual_latency_review_helper.py
+& "D:\Work\AI Stuff\TranslateIT\Developing\Experimental\DevelopingData\ToolKitData\rt\Scripts\python.exe" .\DevelopingData\Diagnostics\input_output_latency_probe.py
+& "D:\Work\AI Stuff\TranslateIT\Developing\Experimental\DevelopingData\ToolKitData\rt\Scripts\python.exe" .\DevelopingData\Diagnostics\latency_optimizer_review.py
 ```
 
 Observed results:

@@ -26,11 +26,11 @@
 - `TranslateIT.vbs`
 
 ## Exact Root Launcher Path
-- `D:\Work\AI Stuff\TranslateIT\DevelopingVersion\Experimental\TranslateIT.vbs`
+- `D:\Work\AI Stuff\TranslateIT\Developing\Experimental\TranslateIT.vbs`
 
 ## Exact Packaged Python Runtime Path
-- `D:\Work\AI Stuff\TranslateIT\DevelopingVersion\Experimental\DevelopingData\ToolKitData\rt\Scripts\pythonw.exe`
-- `D:\Work\AI Stuff\TranslateIT\DevelopingVersion\Experimental\DevelopingData\ToolKitData\rt\Scripts\python.exe`
+- `D:\Work\AI Stuff\TranslateIT\Developing\Experimental\DevelopingData\ToolKitData\rt\Scripts\pythonw.exe`
+- `D:\Work\AI Stuff\TranslateIT\Developing\Experimental\DevelopingData\ToolKitData\rt\Scripts\python.exe`
 
 ## Exact App Entrypoint
 - `EngineData.LauncherApp.launcher_bootstrap`
@@ -40,7 +40,7 @@
 - `sapi_direct_async`
 
 ## Debug Launcher Path
-- `D:\Work\AI Stuff\TranslateIT\DevelopingVersion\Experimental\DevelopingData\LauncherHelpers\TranslateIT_Debug.bat`
+- `D:\Work\AI Stuff\TranslateIT\Developing\Experimental\DevelopingData\LauncherHelpers\TranslateIT_Debug.bat`
 
 ## Debug Launcher Command
 - `DevelopingData\LauncherHelpers\TranslateIT_Debug.bat`

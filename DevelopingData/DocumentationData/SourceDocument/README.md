@@ -8,14 +8,9 @@
 - `MASTER_PROJECT_DOCUMENTATION.docx`
 
 ## Approved subfolders
-- `CodexGuideDocument/`
-- `CudaSetupGuideDocument/`
-- `FeatureSpecificationDocument/`
-- `ManualTestGuideDocument/`
-- `ProjectContextDocument/`
+- `Guides/`
+- `ProjectDocuments/`
 - `SystemArchitectureReferenceDocument/`
-- `SystemWorkflowDocument/`
-- `TechnicalNotesDocument/`
 
 ## Notes
 - Keep the root clean and limited.

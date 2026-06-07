@@ -60,7 +60,7 @@ If the requested VAD value is unsafe, the runtime replaces it with `Headset`.
 Run the optimizer review helper:
 
 ```powershell
-D:\Work\AI Stuff\TranslateIT\DevelopingVersion\Experimental\DevelopingData\ToolKitData\rt\Scripts\python.exe .\DevelopingData\Diagnostics\latency_optimizer_review.py
+D:\Work\AI Stuff\TranslateIT\Developing\Experimental\DevelopingData\ToolKitData\rt\Scripts\python.exe .\DevelopingData\Diagnostics\latency_optimizer_review.py
 ```
 
 The review output should tell you:

@@ -81,7 +81,7 @@ The first target product scope preserves the original Indonesian transcript, the
 ## 5. Main folder structure
 
 ```text
-DevelopingVersion/
+Developing/
 |-- DevelopingData/
 |   |-- DocumentationData/
 |   |   |-- LogData/
@@ -101,13 +101,13 @@ DevelopingVersion/
 
 ## 6. Documentation map
 
-- `DevelopingData/DocumentationData/SourceDocument/ProjectContextDocument/PROJECT_CONTEXT.md`
-- `DevelopingData/DocumentationData/SourceDocument/SystemWorkflowDocument/SYSTEM_WORKFLOW.md`
-- `DevelopingData/DocumentationData/SourceDocument/FeatureSpecificationDocument/FEATURE_SPECIFICATION.md`
-- `DevelopingData/DocumentationData/SourceDocument/TechnicalNotesDocument/TECHNICAL_NOTES.md`
-- `DevelopingData/DocumentationData/SourceDocument/CodexGuideDocument/CODEX_DEVELOPMENT_GUIDE.md`
-- `DevelopingData/DocumentationData/SourceDocument/ManualTestGuideDocument/MANUAL_TEST_GUIDE.md`
-- `DevelopingData/DocumentationData/SourceDocument/CudaSetupGuideDocument/CUDA_SETUP_GUIDE.md`
+- `DevelopingData/DocumentationData/SourceDocument/ProjectDocuments/PROJECT_CONTEXT.md`
+- `DevelopingData/DocumentationData/SourceDocument/ProjectDocuments/SYSTEM_WORKFLOW.md`
+- `DevelopingData/DocumentationData/SourceDocument/ProjectDocuments/FEATURE_SPECIFICATION.md`
+- `DevelopingData/DocumentationData/SourceDocument/ProjectDocuments/TECHNICAL_NOTES.md`
+- `DevelopingData/DocumentationData/SourceDocument/Guides/CODEX_DEVELOPMENT_GUIDE.md`
+- `DevelopingData/DocumentationData/SourceDocument/Guides/MANUAL_TEST_GUIDE.md`
+- `DevelopingData/DocumentationData/SourceDocument/Guides/CUDA_SETUP_GUIDE.md`
 - `DevelopingData/DocumentationData/LogData/DEVELOPMENT_LOG.md`
 - `DevelopingData/DocumentationData/LogData/VERSION_HISTORY.md`
 - `DevelopingData/DocumentationData/LogData/CRITICAL_REVISION_LOG.md`
@@ -272,15 +272,16 @@ backup_asr_model = "medium"
 
 ## 17. Links to detailed documents
 
-- [Project Context Document](ProjectContextDocument/PROJECT_CONTEXT.md)
-- [System Workflow Document](SystemWorkflowDocument/SYSTEM_WORKFLOW.md)
-- [Feature Specification Document](FeatureSpecificationDocument/FEATURE_SPECIFICATION.md)
-- [Technical Notes Document](TechnicalNotesDocument/TECHNICAL_NOTES.md)
-- [Codex Development Guide](CodexGuideDocument/CODEX_DEVELOPMENT_GUIDE.md)
-- [Manual Test Guide](ManualTestGuideDocument/MANUAL_TEST_GUIDE.md)
+- [Project Context Document](ProjectDocuments/PROJECT_CONTEXT.md)
+- [System Workflow Document](ProjectDocuments/SYSTEM_WORKFLOW.md)
+- [Feature Specification Document](ProjectDocuments/FEATURE_SPECIFICATION.md)
+- [Technical Notes Document](ProjectDocuments/TECHNICAL_NOTES.md)
+- [Codex Development Guide](Guides/CODEX_DEVELOPMENT_GUIDE.md)
+- [Manual Test Guide](Guides/MANUAL_TEST_GUIDE.md)
 
 ## 18. Links to LogData documents
 
 - [Development Log](../LogData/DEVELOPMENT_LOG.md)
 - [Version History](../LogData/VERSION_HISTORY.md)
 - [Critical Revision Log](../LogData/CRITICAL_REVISION_LOG.md)
+

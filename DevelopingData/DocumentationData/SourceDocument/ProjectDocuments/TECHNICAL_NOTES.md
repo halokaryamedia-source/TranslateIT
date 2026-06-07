@@ -1,4 +1,4 @@
-# Technical Notes
+﻿# Technical Notes
 
 ## 1. Technical rules
 
@@ -115,8 +115,8 @@
 ## 6. Related files or folders
 
 - `DevelopingData/DocumentationData/SourceDocument/MASTER_PROJECT_DOCUMENTATION.md`
-- `DevelopingData/DocumentationData/SourceDocument/ProjectContextDocument/PROJECT_CONTEXT.md`
-- `DevelopingData/DocumentationData/SourceDocument/SystemWorkflowDocument/SYSTEM_WORKFLOW.md`
+- `DevelopingData/DocumentationData/SourceDocument/ProjectDocuments/PROJECT_CONTEXT.md`
+- `DevelopingData/DocumentationData/SourceDocument/ProjectDocuments/SYSTEM_WORKFLOW.md`
 - `EngineData/TranscriptEngine/`
 - `EngineData/TranslateEngine/`
 - `EngineData/LauncherApp/`
@@ -234,3 +234,4 @@
 - Launcher log: `UserData/LogData/launcher_latest.log`
 - Microphone diagnostic: `UserData/LogData/microphone_diagnostic_latest.json`
 - Benchmark summary: `UserData/LogData/benchmark_latest.json` and `benchmark_latest.txt`
+

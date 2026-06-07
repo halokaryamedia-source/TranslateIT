@@ -3,7 +3,7 @@
 ## Document Control
 
 - Project: TranslateIT
-- Working root: `D:\Work\AI Stuff\TranslateIT\DevelopingVersion\Experimental`
+- Working root: `D:\Work\AI Stuff\TranslateIT\Developing\Experimental`
 - Purpose: complete technical reference for the current app, launcher, engines, data flow, runtime state machine, and planning constraints
 - Audience: AI Research, engineering planning, and implementation follow-up
 - Status: living reference for the current Experimental baseline
@@ -54,7 +54,7 @@ The system is built to prioritize:
 The active development root is:
 
 ```text
-D:\Work\AI Stuff\TranslateIT\DevelopingVersion\Experimental
+D:\Work\AI Stuff\TranslateIT\Developing\Experimental
 ```
 
 Top-level structure:

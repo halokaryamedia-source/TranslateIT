@@ -9,14 +9,14 @@ This document is a complete handoff note for continuing TranslateIT development 
 The active development root is:
 
 ```text
-D:\Work\AI Stuff\TranslateIT\DevelopingVersion\Experimental
+D:\Work\AI Stuff\TranslateIT\Developing\Experimental
 ```
 
 The parent folder also contains:
 
 ```text
-D:\Work\AI Stuff\TranslateIT\DevelopingVersion\Current-Project
-D:\Work\AI Stuff\TranslateIT\DevelopingVersion\MainBackup
+D:\Work\AI Stuff\TranslateIT\Developing\Current-Project
+D:\Work\AI Stuff\TranslateIT\Developing\MainBackup
 ```
 
 Important meaning:
@@ -115,7 +115,7 @@ If using the bundled runtime, run from `Experimental` so `EngineData` resolves c
 .\DevelopingData\ToolKitData\rt\Scripts\python.exe -m EngineData.LauncherApp.launcher_bootstrap --self-test
 ```
 
-Do not run module commands from the parent `DevelopingVersion` root unless `PYTHONPATH` is adjusted, because `EngineData` lives under `Experimental`.
+Do not run module commands from the parent `Developing` root unless `PYTHONPATH` is adjusted, because `EngineData` lives under `Experimental`.
 
 ## Engine Overview
 
@@ -743,7 +743,7 @@ Main broad test file:
 Experimental\DevelopingData\Tests\test_engine_hardening.py
 ```
 
-Useful validation commands from `D:\Work\AI Stuff\TranslateIT\DevelopingVersion`:
+Useful validation commands from `D:\Work\AI Stuff\TranslateIT\Developing`:
 
 ```powershell
 python -m compileall -q Experimental\EngineData Experimental\DevelopingData\Diagnostics Experimental\DevelopingData\Tests
@@ -953,12 +953,12 @@ Core docs:
 
 ```text
 DevelopingData\DocumentationData\SourceDocument\MASTER_PROJECT_DOCUMENTATION.md
-DevelopingData\DocumentationData\SourceDocument\ProjectContextDocument\PROJECT_CONTEXT.md
-DevelopingData\DocumentationData\SourceDocument\SystemWorkflowDocument\TRANSLATEIT_SYSTEM_WORKFLOW_DETAILED.md
-DevelopingData\DocumentationData\SourceDocument\TechnicalNotesDocument\TECHNICAL_NOTES.md
-DevelopingData\DocumentationData\SourceDocument\ManualTestGuideDocument\MANUAL_TEST_GUIDE.md
-DevelopingData\DocumentationData\SourceDocument\CudaSetupGuideDocument\CUDA_SETUP_GUIDE.md
-DevelopingData\DocumentationData\SourceDocument\CodexGuideDocument\CODEX_DEVELOPMENT_GUIDE.md
+DevelopingData\DocumentationData\SourceDocument\ProjectDocuments\PROJECT_CONTEXT.md
+DevelopingData\DocumentationData\SourceDocument\ProjectDocuments\TRANSLATEIT_SYSTEM_WORKFLOW_DETAILED.md
+DevelopingData\DocumentationData\SourceDocument\ProjectDocuments\TECHNICAL_NOTES.md
+DevelopingData\DocumentationData\SourceDocument\Guides\MANUAL_TEST_GUIDE.md
+DevelopingData\DocumentationData\SourceDocument\Guides\CUDA_SETUP_GUIDE.md
+DevelopingData\DocumentationData\SourceDocument\Guides\CODEX_DEVELOPMENT_GUIDE.md
 ```
 
 Recent engineering reports:
@@ -990,3 +990,4 @@ DeveloperData\TechnicalDocumentation\VoiceLabResearch\VoiceLab_Research_Brief.md
 - Always validate with unit tests and launcher self-test after code changes.
 - For UI state bugs, verify the visible text and the underlying engine state separately.
 - For audio hallucination bugs, use general audio/text confidence signals, not only phrase blocklists.
+

@@ -88,17 +88,17 @@
   - `tts_completed_or_failed`
 
 ## Files Changed
-- [`EngineData/LauncherApp/app_logger.py`](/D:/Work/AI%20Stuff/TranslateIT/DevelopingVersion/Experimental/EngineData/LauncherApp/app_logger.py)
-- [`EngineData/LauncherApp/app_main.py`](/D:/Work/AI%20Stuff/TranslateIT/DevelopingVersion/Experimental/EngineData/LauncherApp/app_main.py)
-- [`EngineData/LauncherApp/live_pipeline.py`](/D:/Work/AI%20Stuff/TranslateIT/DevelopingVersion/Experimental/EngineData/LauncherApp/live_pipeline.py)
-- [`EngineData/LauncherApp/session_reporting.py`](/D:/Work/AI%20Stuff/TranslateIT/DevelopingVersion/Experimental/EngineData/LauncherApp/session_reporting.py)
-- [`EngineData/LauncherApp/transcript_view.py`](/D:/Work/AI%20Stuff/TranslateIT/DevelopingVersion/Experimental/EngineData/LauncherApp/transcript_view.py)
-- [`EngineData/TranscriptEngine/transcript_segment.py`](/D:/Work/AI%20Stuff/TranslateIT/DevelopingVersion/Experimental/EngineData/TranscriptEngine/transcript_segment.py)
-- [`EngineData/TranscriptEngine/segment_builder.py`](/D:/Work/AI%20Stuff/TranslateIT/DevelopingVersion/Experimental/EngineData/TranscriptEngine/segment_builder.py)
-- [`EngineData/TranslateEngine/tts_placeholder.py`](/D:/Work/AI%20Stuff/TranslateIT/DevelopingVersion/Experimental/EngineData/TranslateEngine/tts_placeholder.py)
-- [`DevelopingData/Diagnostics/tts_direct_async_probe.py`](/D:/Work/AI%20Stuff/TranslateIT/DevelopingVersion/Experimental/DevelopingData/Diagnostics/tts_direct_async_probe.py)
-- [`DevelopingData/Diagnostics/segment_ui_contract_probe.py`](/D:/Work/AI%20Stuff/TranslateIT/DevelopingVersion/Experimental/DevelopingData/Diagnostics/segment_ui_contract_probe.py)
-- [`DevelopingData/Tests/test_engine_hardening.py`](/D:/Work/AI%20Stuff/TranslateIT/DevelopingVersion/Experimental/DevelopingData/Tests/test_engine_hardening.py)
+- [`EngineData/LauncherApp/app_logger.py`](/D:/Work/AI%20Stuff/TranslateIT/Developing/Experimental/EngineData/LauncherApp/app_logger.py)
+- [`EngineData/LauncherApp/app_main.py`](/D:/Work/AI%20Stuff/TranslateIT/Developing/Experimental/EngineData/LauncherApp/app_main.py)
+- [`EngineData/LauncherApp/live_pipeline.py`](/D:/Work/AI%20Stuff/TranslateIT/Developing/Experimental/EngineData/LauncherApp/live_pipeline.py)
+- [`EngineData/LauncherApp/session_reporting.py`](/D:/Work/AI%20Stuff/TranslateIT/Developing/Experimental/EngineData/LauncherApp/session_reporting.py)
+- [`EngineData/LauncherApp/transcript_view.py`](/D:/Work/AI%20Stuff/TranslateIT/Developing/Experimental/EngineData/LauncherApp/transcript_view.py)
+- [`EngineData/TranscriptEngine/transcript_segment.py`](/D:/Work/AI%20Stuff/TranslateIT/Developing/Experimental/EngineData/TranscriptEngine/transcript_segment.py)
+- [`EngineData/TranscriptEngine/segment_builder.py`](/D:/Work/AI%20Stuff/TranslateIT/Developing/Experimental/EngineData/TranscriptEngine/segment_builder.py)
+- [`EngineData/TranslateEngine/tts_placeholder.py`](/D:/Work/AI%20Stuff/TranslateIT/Developing/Experimental/EngineData/TranslateEngine/tts_placeholder.py)
+- [`DevelopingData/Diagnostics/tts_direct_async_probe.py`](/D:/Work/AI%20Stuff/TranslateIT/Developing/Experimental/DevelopingData/Diagnostics/tts_direct_async_probe.py)
+- [`DevelopingData/Diagnostics/segment_ui_contract_probe.py`](/D:/Work/AI%20Stuff/TranslateIT/Developing/Experimental/DevelopingData/Diagnostics/segment_ui_contract_probe.py)
+- [`DevelopingData/Tests/test_engine_hardening.py`](/D:/Work/AI%20Stuff/TranslateIT/Developing/Experimental/DevelopingData/Tests/test_engine_hardening.py)
 
 ## Diagnostics Added
 - `DevelopingData/Diagnostics/tts_direct_async_probe.py`
@@ -128,7 +128,7 @@
   - confirm the accepted segment still appears even if benchmark/report generation lags or fails
 
 ## Runtime Log Path
-- [`UserData/LogData/runtime_pipeline_latest.log`](/D:/Work/AI%20Stuff/TranslateIT/DevelopingVersion/Experimental/UserData/LogData/runtime_pipeline_latest.log)
+- [`UserData/LogData/runtime_pipeline_latest.log`](/D:/Work/AI%20Stuff/TranslateIT/Developing/Experimental/UserData/LogData/runtime_pipeline_latest.log)
 
 ## Last 50 Relevant Log Lines
 ```text
