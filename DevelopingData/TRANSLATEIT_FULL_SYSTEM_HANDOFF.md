@@ -975,8 +975,8 @@ DevelopingData\Reports\Engineering\ENGINE_ROUTE_MAP.md
 Voice/custom actor research:
 
 ```text
-DeveloperData\TechnicalDocumentation\VoiceLab_Research_Notes.md
-DeveloperData\TechnicalDocumentation\VoiceLab_Research_Brief.md
+DeveloperData\TechnicalDocumentation\VoiceLabResearch\VoiceLab_Research_Notes.md
+DeveloperData\TechnicalDocumentation\VoiceLabResearch\VoiceLab_Research_Brief.md
 ```
 
 ## Engineering Principles For This Project
@@ -990,4 +990,3 @@ DeveloperData\TechnicalDocumentation\VoiceLab_Research_Brief.md
 - Always validate with unit tests and launcher self-test after code changes.
 - For UI state bugs, verify the visible text and the underlying engine state separately.
 - For audio hallucination bugs, use general audio/text confidence signals, not only phrase blocklists.
-
