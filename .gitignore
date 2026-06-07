@@ -1,0 +1,44 @@
+# Git metadata
+.git/
+
+# User data, logs, caches, and runtime artifacts
+UserData/
+DevelopingData/ToolKitData/rt/
+DevelopingData/ToolKitData/TranslateITPrototypeEnv/
+DevelopingData/ToolKitData/ModelCache/
+
+# Generated/model-heavy data
+EngineData/**/ModelData/
+
+# Python and build artifacts
+**/__pycache__/
+*.pyc
+*.pyo
+*.pyd
+*.log
+*.tmp
+*.cache
+
+# Archives and packaged outputs
+*.zip
+*.7z
+*.rar
+*.tar
+*.gz
+
+# Local environment and secrets
+.env
+.env.*
+*.key
+*.pem
+*.p12
+*.pfx
+*.crt
+
+# IDE/editor noise
+.vscode/
+.idea/
+
+# Windows thumbnails and temporary files
+Thumbs.db
+Desktop.ini
