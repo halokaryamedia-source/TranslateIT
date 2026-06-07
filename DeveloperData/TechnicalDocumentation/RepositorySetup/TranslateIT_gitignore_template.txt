@@ -1,5 +1,5 @@
 # Python cache
-**/__pycache__/
+__pycache__/
 *.py[cod]
 *.pyo
 *.pyd
@@ -14,35 +14,20 @@ htmlcov/
 venv/
 env/
 ENV/
-DevelopingData/ToolKitData/rt/
-DevelopingData/ToolKitData/TranslateITPrototypeEnv/
 
 # Runtime logs
 *.log
+UserData/LogData/
 DevelopingData/Reports/**/*.log
 
 # User/runtime cache data
-UserData/CacheData/*
-!UserData/CacheData/
-!UserData/CacheData/README.md
-UserData/LogData/*
-!UserData/LogData/
-!UserData/LogData/README.md
-UserData/SavedData/*
-!UserData/SavedData/
-!UserData/SavedData/README.md
-!UserData/SavedData/CustomVoice/
-UserData/SavedData/CustomVoice/*
-!UserData/SavedData/CustomVoice/README.md
-!UserData/SavedData/SavedTranscript/
-UserData/SavedData/SavedTranscript/*
-!UserData/SavedData/SavedTranscript/README.md
-UserData/SavedProject/*
-!UserData/SavedProject/
-!UserData/SavedProject/README.md
+UserData/CacheData/
+UserData/SavedData/
+UserData/SavedProject/
 
 # Keep README placeholders if needed
 !UserData/README.md
+!UserData/**/README.md
 
 # Audio/generated runtime files
 *.wav
@@ -51,11 +36,9 @@ UserData/SavedProject/*
 *.ogg
 
 # Local model/cache data
-DevelopingData/ToolKitData/ModelCache/
 DevelopingData/ToolKitData/ModelCache/HuggingFaceHome/
 EngineData/**/ModelCache/
 EngineData/**/models/
-EngineData/**/ModelData/
 *.bin
 *.safetensors
 *.gguf

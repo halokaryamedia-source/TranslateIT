@@ -4,6 +4,7 @@ TranslateIT is a local speech-to-text, translation, and voice-output application
 
 ## Root Layout
 
+- `DeveloperData/` - technical documentation and setup references
 - `DevelopingData/` - documentation, diagnostics, tests, and developer tooling
 - `EngineData/` - launcher, transcript, and translation engine code
 - `UserData/` - runtime cache, logs, and saved user data
