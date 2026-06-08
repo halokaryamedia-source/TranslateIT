@@ -606,13 +606,6 @@
                                     "modified_utc":  "2026-06-05T18:07:32+00:00"
                                 },
                                 {
-                                    "path":  "DevelopingData/DocumentationData/SourceDocument/ProjectDocuments/PROJECT_CONTEXT.md",
-                                    "absolute_path":  "D:\\Work\\AI Stuff\\TranslateIT\\Developing\\Experimental\\DevelopingData\\DocumentationData\\SourceDocument\\ProjectDocuments\\PROJECT_CONTEXT.md",
-                                    "bytes":  2287,
-                                    "sha256":  "c733b1d182c7716903b0d68899cca64d9afb6d2f65d35bcde2503d0ea37578ab",
-                                    "modified_utc":  "2026-05-20T05:01:16+00:00"
-                                },
-                                {
                                     "path":  "DevelopingData/DocumentationData/SourceDocument/ProjectDocuments/README.md",
                                     "absolute_path":  "D:\\Work\\AI Stuff\\TranslateIT\\Developing\\Experimental\\DevelopingData\\DocumentationData\\SourceDocument\\ProjectDocuments\\README.md",
                                     "bytes":  514,
@@ -653,13 +646,6 @@
                                     "bytes":  5818,
                                     "sha256":  "bd49361ffca0009409923190fea2ffadfc80bbc1aa10671f5cff4fbbf45d2a00",
                                     "modified_utc":  "2026-06-05T18:10:23+00:00"
-                                },
-                                {
-                                    "path":  "DevelopingData/DocumentationData/SourceDocument/ProjectDocuments/TRANSLATEIT_SYSTEM_WORKFLOW_DETAILED.md",
-                                    "absolute_path":  "D:\\Work\\AI Stuff\\TranslateIT\\Developing\\Experimental\\DevelopingData\\DocumentationData\\SourceDocument\\ProjectDocuments\\TRANSLATEIT_SYSTEM_WORKFLOW_DETAILED.md",
-                                    "bytes":  10797,
-                                    "sha256":  "790063e6ae1124cb063f886228abbeaa8f1852426e545726abb8ec059ff29b52",
-                                    "modified_utc":  "2026-05-28T05:13:31+00:00"
                                 },
                                 {
                                     "path":  "DevelopingData/DocumentationData/SourceDocument/ProjectDocuments/README.md",

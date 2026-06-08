@@ -101,7 +101,6 @@ Developing/
 
 ## 6. Documentation map
 
-- `DevelopingData/DocumentationData/SourceDocument/ProjectDocuments/PROJECT_CONTEXT.md`
 - `DevelopingData/DocumentationData/SourceDocument/ProjectDocuments/SYSTEM_WORKFLOW.md`
 - `DevelopingData/DocumentationData/SourceDocument/ProjectDocuments/FEATURE_SPECIFICATION.md`
 - `DevelopingData/DocumentationData/SourceDocument/ProjectDocuments/TECHNICAL_NOTES.md`
@@ -270,9 +269,8 @@ backup_asr_model = "medium"
 
 ## 17. Links to detailed documents
 
-- [Project Context Document](ProjectDocuments/PROJECT_CONTEXT.md)
-- [System Workflow Document](ProjectDocuments/SYSTEM_WORKFLOW.md)
 - [Feature Specification Document](ProjectDocuments/FEATURE_SPECIFICATION.md)
+- [System Workflow Document](ProjectDocuments/SYSTEM_WORKFLOW.md)
 - [Technical Notes Document](ProjectDocuments/TECHNICAL_NOTES.md)
 - [Codex Development Guide](ProjectDocuments/CODEX_DEVELOPMENT_GUIDE.md)
 - [Manual Test Guide](ProjectDocuments/MANUAL_TEST_GUIDE.md)

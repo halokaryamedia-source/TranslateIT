@@ -115,3 +115,88 @@
 - Add auto speak mode later only if echo protection is reliable.
 - Add developer-only raw audio debug mode later.
 - Add optional cloud mode only after explicit approval.
+
+## 12. Detailed live workflow notes
+
+The following notes absorb the former detailed workflow document so the project keeps one workflow source of truth.
+
+### 12.1 Normal startup
+
+1. Reset session state for the new live run.
+2. Clear active runtime buffers and old turn state.
+3. Reset ASR context and translation context.
+4. Activate live-input cache guards so stale sample data cannot leak in.
+5. Check CUDA readiness.
+6. Confirm the ASR model is loaded and ready on CUDA `float16`.
+7. Confirm the translation model is loaded.
+8. Initialize TTS only if it is needed by the current settings.
+9. Open the selected microphone stream.
+10. Wait for real callback frames from the audio device.
+11. Show `Ready to Listen` only after the stream is actually live.
+
+### 12.2 Live capture and validation
+
+- Read frames from the selected microphone.
+- Keep the capture loop non-blocking.
+- Convert audio to the expected format for the downstream pipeline.
+- Track frame timing and buffer growth.
+- Detect silence, clipped speech, or low-energy audio.
+- Reject invalid frames before they reach ASR.
+- Never reuse sample WAV input, replay simulation data, or stale cached audio as live microphone input.
+
+### 12.3 Audio validation before ASR
+
+- Validate signal energy, peak level, silence ratio, speech-to-noise ratio, duration, minimum voiced-frame coverage, and duplicate-audio protection.
+- Reject weak, silent, or noisy audio early rather than allowing it to become transcript text.
+- Keep the validation layer responsible for preventing cached audio from being mistaken for live input.
+
+### 12.4 ASR flow
+
+- Accepted audio is passed to Faster-Whisper Large V3 Turbo on CUDA with `float16`.
+- The ASR output should represent the actual captured speech, not a prompt or old context.
+- CPU fallback is only for explicit CPU Degraded Mode.
+- Previous transcript context should not poison the next live session.
+
+### 12.5 Transcript quality filtering
+
+- Reject hallucinated outro-like phrases, low-confidence fragments, silence-based false positives, and generic phrases that do not match the audio.
+- Use both audio evidence and text evidence.
+- Do not rely only on a phrase blacklist.
+- Keep names and real short phrases valid unless they clearly look like noise.
+
+### 12.6 Stable streaming turn behavior
+
+- Keep one active speaking turn.
+- Accumulate the full turn audio in memory.
+- Detect stable phrase boundaries inside the turn.
+- Process stable chunks before the user finishes speaking.
+- Append chunk results to the same card.
+- Run final correction only after the turn ends.
+- Keep stable chunk audio intermediate and full-turn audio final.
+
+### 12.7 Short and long utterances
+
+- Short speech should finalize as soon as the endpoint is confidently detected.
+- Long speech should preserve the beginning, middle, and end of the sentence.
+- For long speech, emit stable phrase chunks when safe, then run final correction on the complete turn.
+
+### 12.8 TTS policy
+
+- Stable chunk TTS is off by default.
+- Final TTS is allowed after final correction if enabled.
+- Speaking unstable text out loud should be avoided.
+
+### 12.9 Manual QA focus
+
+When testing the normal live app, verify:
+
+1. Start resets the session cleanly.
+2. Ready to Listen appears only after mic frames are confirmed.
+3. Short phrases stay fast.
+4. Long phrases begin translating before the sentence fully ends.
+5. One turn usually stays in one card.
+6. The beginning of long speech is not lost.
+7. The output is not duplicated.
+8. Hallucinated outro phrases are rejected.
+9. Final correction still runs.
+10. TTS stays final-only by default.

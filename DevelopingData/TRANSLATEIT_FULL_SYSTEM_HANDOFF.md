@@ -951,8 +951,8 @@ Core docs:
 
 ```text
 DevelopingData\DocumentationData\SourceDocument\MASTER_PROJECT_DOCUMENTATION.md
-DevelopingData\DocumentationData\SourceDocument\ProjectDocuments\PROJECT_CONTEXT.md
-DevelopingData\DocumentationData\SourceDocument\ProjectDocuments\TRANSLATEIT_SYSTEM_WORKFLOW_DETAILED.md
+DevelopingData\DocumentationData\SourceDocument\ProjectDocuments\FEATURE_SPECIFICATION.md
+DevelopingData\DocumentationData\SourceDocument\ProjectDocuments\SYSTEM_WORKFLOW.md
 DevelopingData\DocumentationData\SourceDocument\ProjectDocuments\TECHNICAL_NOTES.md
 DevelopingData\DocumentationData\SourceDocument\ProjectDocuments\MANUAL_TEST_GUIDE.md
 DevelopingData\DocumentationData\SourceDocument\ProjectDocuments\CUDA_SETUP_GUIDE.md

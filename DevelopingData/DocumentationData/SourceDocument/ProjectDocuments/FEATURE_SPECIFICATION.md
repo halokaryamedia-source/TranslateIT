@@ -1,5 +1,48 @@
 # Feature Specification
 
+## Project context
+
+TranslateIT is a local-first desktop application for Indonesian microphone speech input translated into English text.
+The first target product scope preserves the original Indonesian transcript, the English translation, timestamps, latency indicators, quality status, and replay support for each accepted speech segment.
+
+Project goals:
+
+- Convert spoken Indonesian into readable English text with clear traceability.
+- Preserve both the original transcript and the translation for debugging and review.
+- Keep the first implementation practical, local-first, and suitable for the target desktop hardware.
+
+Project scope:
+
+- In scope: microphone input, calibration, VAD, ASR, translation, transcript display, replay, cache, and save flow.
+- In scope: local-first behavior and simple developer diagnostics.
+- Out of scope for the first stable implementation: cloud upload, direct speech-to-English-only mode, aggressive noise processing, and always-on TTS.
+
+Development direction:
+
+- Build a balanced local-first prototype.
+- Keep the engine stack split across capture, transcription, translation, and UI layers.
+- Keep the first working path simple enough to benchmark and debug.
+
+Important context:
+
+- Preserve both the Indonesian transcript and the English translation.
+- Only translate finalized accepted speech segments by default.
+- Keep TTS disabled until the core text flow is stable.
+- Keep the root folder structure unchanged.
+- Read the master documentation before making project edits.
+- Keep transcript session persistence explicit so save and cache behavior stay easy to audit.
+- Keep live capture in a background worker so the UI stays responsive.
+- Keep replay protected from active microphone capture.
+
+Do not change without approval:
+
+- The approved root folder layout.
+- The local-first default.
+- The cascaded ASR then translation pipeline.
+- The default ASR model choice.
+- The cache versus saved-data separation.
+- The requirement to keep documentation in English.
+
 ## Status vocabulary
 
 - Planned

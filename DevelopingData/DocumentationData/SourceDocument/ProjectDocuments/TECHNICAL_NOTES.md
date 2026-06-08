@@ -115,7 +115,7 @@
 ## 6. Related files or folders
 
 - `DevelopingData/DocumentationData/SourceDocument/MASTER_PROJECT_DOCUMENTATION.md`
-- `DevelopingData/DocumentationData/SourceDocument/ProjectDocuments/PROJECT_CONTEXT.md`
+- `DevelopingData/DocumentationData/SourceDocument/ProjectDocuments/FEATURE_SPECIFICATION.md`
 - `DevelopingData/DocumentationData/SourceDocument/ProjectDocuments/SYSTEM_WORKFLOW.md`
 - `EngineData/TranscriptEngine/`
 - `EngineData/TranslateEngine/`
