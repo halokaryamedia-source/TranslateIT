@@ -17,7 +17,7 @@
 - `EngineData/LauncherApp/session_reporting.py`
 - `EngineData/TranscriptEngine/benchmark_metrics.py`
 - `DevelopingData/LauncherHelpers/TranslateIT_Debug.bat`
-- `DevelopingData/Docs/ROOT_STRUCTURE.md`
+- `DevelopingData/README.md`
 
 ## Final Root Tree
 - `DevelopingData/`

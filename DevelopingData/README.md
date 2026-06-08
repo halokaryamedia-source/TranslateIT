@@ -7,7 +7,6 @@
 
 ## Allowed files
 - `README.md`
-- `Docs/`
 - `DocumentationData/`
 - `LauncherHelpers/`
 - `Reports/`
@@ -19,7 +18,6 @@
 ## Current sections
 - `Diagnostics/` - ad hoc probes and runtime investigation helpers
 - `DocumentationData/` - formal project documentation and log history
-- `Docs/` - short structure guides and folder maps
 - `LauncherHelpers/` - launcher and debug scripts
 - `Reports/` - engineering and validation reports
 - `SampleData/` - safe sample inputs and references
@@ -40,3 +38,20 @@
 
 ## Related documentation path
 - `DevelopingData/DocumentationData/SourceDocument/MASTER_PROJECT_DOCUMENTATION.md`
+
+## Root structure
+
+- `DevelopingData/` is the development-only workspace for shared docs, diagnostics, reports, tests, and tooling.
+- The root should stay limited to the approved folders above.
+- Keep engine code in `EngineData/` and user data in `UserData/`.
+
+## Version snapshots
+
+- `V1` is the stable fallback snapshot.
+- `Experimental` is the active development snapshot.
+- Snapshot refreshes write a verification log to `UserData/LogData/version_snapshot_latest.txt`.
+- `Experimental` should not contain nested `.git`, `V1`, or `Experimental` folders.
+
+## Launch note
+
+- The supported root launcher remains `TranslateIT.vbs`.
