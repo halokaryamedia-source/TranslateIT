@@ -182,9 +182,9 @@ class AudioCapture:
     def build_level_state(self, rms: float, peak: float, noise_floor_rms: float = 0.0) -> str:
         if peak >= 0.99:
             return LEVEL_TOO_LOUD
-        if rms <= max(0.002, noise_floor_rms * 0.35):
+        if rms <= max(0.0008, noise_floor_rms * 0.45) and peak <= max(0.0030, noise_floor_rms * 1.8):
             return LEVEL_TOO_QUIET
-        if rms <= max(0.012, noise_floor_rms * 0.95):
+        if rms <= max(0.0045, noise_floor_rms * 1.20) and peak <= max(0.0100, noise_floor_rms * 2.2):
             return LEVEL_BACKGROUND_NOISE
         return LEVEL_GOOD
 

@@ -15,7 +15,7 @@ If Not fso.FolderExists(projectRoot & "\UserData") Then fso.CreateFolder(project
 If Not fso.FolderExists(logDir) Then fso.CreateFolder(logDir)
 
 logFile = logDir & "\launcher_latest.log"
-pythonwPath = projectRoot & "\DevelopingData\ToolKitData\rt\Scripts\pythonw.exe"
+pythonwPath = projectRoot & "\DevelopingData\Tools\rt\Scripts\pythonw.exe"
 
 AppendLog logFile, "INFO", "root_vbs_launch_requested", "project_root=" & projectRoot
 AppendLog logFile, "INFO", "pythonw_path", pythonwPath

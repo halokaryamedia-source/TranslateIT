@@ -78,13 +78,13 @@ class AudioCalibration:
             return "Too Loud / Clipping"
         if peak_level < 0.0025 and speech_rms < 0.0015:
             return "No Signal"
-        if speech_rms <= max(0.0018, noise_floor_rms * 0.55) and peak_level < 0.008 and speech_gap < 0.0010:
+        if speech_rms <= max(0.0009, noise_floor_rms * 0.45) and peak_level < 0.0055 and speech_gap < 0.0005:
             return "Too Quiet"
-        if speech_to_noise_ratio >= 1.05 or speech_gap >= 0.0009 or peak_level >= 0.005:
-            if speech_rms <= max(0.0048, noise_floor_rms * 1.02):
+        if speech_to_noise_ratio >= 1.08 or speech_gap >= 0.0005 or peak_level >= 0.0038:
+            if speech_rms <= max(0.0028, noise_floor_rms * 1.10):
                 return "Input low but usable"
             return "Good"
-        if speech_rms <= max(0.0055, noise_floor_rms * 1.02):
+        if speech_rms <= max(0.0038, noise_floor_rms * 1.10):
             return "Background Noise High"
         return "Good"
 
@@ -109,10 +109,10 @@ class AudioCalibration:
         speech_to_noise_ratio = speech_rms / max(noise_floor_rms, 0.0005)
         voiced_frame_ratio = 1.0 if speech_rms > noise_floor_rms * 1.15 else 0.0
         final_vad_threshold = {
-            "Low": max(0.0022, noise_floor_rms * 1.05),
-            "Normal": max(0.0016, noise_floor_rms * 0.98),
-            "High": max(0.0011, noise_floor_rms * 0.92),
-        }.get(sensitivity, max(0.0016, noise_floor_rms * 0.98))
+        "Low": max(0.0015, noise_floor_rms * 1.00),
+        "Normal": max(0.0010, noise_floor_rms * 0.92),
+        "High": max(0.0008, noise_floor_rms * 0.88),
+        }.get(sensitivity, max(0.0010, noise_floor_rms * 0.92))
         return CalibrationResult(
             noise_floor_rms=noise_floor_rms,
             speech_rms=speech_rms,

@@ -1,4 +1,4 @@
-# TranslateIT Engine Stability Baseline
+﻿# TranslateIT Engine Stability Baseline
 
 Workspace: `D:\Work\AI Stuff\TranslateIT\Developing\Experimental`
 
@@ -48,7 +48,7 @@ This note records the guardrail baseline we want to preserve before any future l
 
 Use the validation script before future patches:
 
-`D:\Work\AI Stuff\TranslateIT\Developing\Experimental\DevelopingData\ToolKitData\validate_engine_stability.py`
+`D:\Work\AI Stuff\TranslateIT\Developing\Experimental\DevelopingData\Tools\validate_engine_stability.py`
 
 It should verify:
 
@@ -56,4 +56,5 @@ It should verify:
 - the engine tree imports cleanly
 - the engine compiles
 - the log folder is writable
+
 

@@ -104,11 +104,20 @@ class ASRQualityFilter:
         "i'm going to say",
         "i'm going to use the same language",
         "i'm not sure what i'm saying",
+        "i'm a writer of the book",
+        "i am a writer of the book",
+        "im a writer of the book",
+        "i'm a writer of the",
+        "i am a writer of the",
+        "im a writer of the",
     }
     strict_hallucinations = {
         "i'm going to say",
         "i'm going to use the same language",
         "i'm not sure what i'm saying",
+        "i'm a writer of the book",
+        "i am a writer of the book",
+        "im a writer of the book",
     }
 
     common_context_tokens = {
@@ -595,20 +604,21 @@ class ASRQualityFilter:
     def _reject_noise_assessment(self, report: ASRQualityReport, noise_assessment: object, *, tokens: list[str]) -> ASRQualityDecision | None:
         category = getattr(noise_assessment, "category", "")
         reason = getattr(noise_assessment, "reason", "")
-        if category == "impulse":
+        if category in {"impulse", "impact"}:
+            is_impact = category == "impact"
             weak_audio_signal = self._noise_signal_is_weak(
                 average_log_probability=float(report.average_log_probability or 0.0),
                 no_speech_probability=float(report.no_speech_probability or 0.0),
                 voiced_frame_ratio=float(report.voiced_frame_ratio or 0.0),
                 audio_rms=float(report.audio_rms or 0.0),
                 compression_ratio=float(report.compression_ratio or 0.0),
-                log_prob_limit=-0.10,
-                no_speech_limit=0.08,
-                voiced_limit=0.12,
-                rms_limit=0.02,
-                compression_limit=1.08,
+                log_prob_limit=-0.08 if is_impact else -0.10,
+                no_speech_limit=0.06 if is_impact else 0.08,
+                voiced_limit=0.10 if is_impact else 0.12,
+                rms_limit=0.018 if is_impact else 0.02,
+                compression_limit=1.06 if is_impact else 1.08,
             )
-            if weak_audio_signal and len(tokens) >= 4 and not self._looks_like_proper_noun_phrase(report, tokens):
+            if weak_audio_signal and len(tokens) >= (3 if is_impact else 4) and not self._looks_like_proper_noun_phrase(report, tokens):
                 return ASRQualityDecision(False, True, f"{reason}: {report.transcript_text}")
         elif category == "stationary":
             weak_stationary_signal = self._noise_signal_is_weak(
@@ -662,6 +672,17 @@ class ASRQualityFilter:
                     return ASRQualityDecision(False, True, f"{reason}: {report.transcript_text}")
         return None
 
+    @classmethod
+    def _looks_like_writer_of_the_book_hallucination(cls, normalized_text: str) -> bool:
+        return normalized_text in {
+            "i'm a writer of the book",
+            "i am a writer of the book",
+            "im a writer of the book",
+            "i'm a writer of the",
+            "i am a writer of the",
+            "im a writer of the",
+        }
+
     def evaluate(self, report: ASRQualityReport) -> ASRQualityDecision:
         if not report.language_ok:
             return ASRQualityDecision(False, True, "Wrong language detection")
@@ -680,6 +701,8 @@ class ASRQualityFilter:
         normalized = report.transcript_text.strip().lower().strip(".!?")
         if normalized in self.strict_hallucinations:
             return ASRQualityDecision(False, True, f"Hallucination/no-speech candidate: {report.transcript_text}")
+        if self._looks_like_writer_of_the_book_hallucination(normalized):
+            return ASRQualityDecision(False, True, f"Hallucination template candidate: {report.transcript_text}")
         phrase_is_known_hallucination = normalized in {phrase.strip(".!?") for phrase in self.known_silence_hallucinations}
         low_audio_evidence = (
             report.audio_rms < 0.012

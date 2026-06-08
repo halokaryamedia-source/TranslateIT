@@ -6,6 +6,17 @@ from typing import Any
 
 @dataclass(slots=True)
 class NoiseThresholds:
+    impact_dur_min_ms: int = 40
+    impact_dur_max_ms: int = 2600
+    impact_pr_min: float = 6.0
+    impact_peak_min: float = 0.014
+    impact_gap_max: float = 0.014
+    impact_energy_min: float = 0.58
+    impact_active_max: float = 0.32
+    impact_edge_min: float = 0.035
+    impact_zcr_max: float = 0.18
+    impact_voiced_max: float = 0.14
+
     imp_dur_min_ms: int = 180
     imp_dur_max_ms: int = 2600
     imp_pr_min: float = 5.0
@@ -64,6 +75,7 @@ class AudioNoiseAssessment:
     @property
     def label(self) -> str:
         return {
+            "impact": "Impact",
             "impulse": "Impulse",
             "stationary": "Stationary",
             "breath_handling": "Breath",
@@ -103,6 +115,22 @@ class AudioNoiseFilter:
         no_speech_probability = cls._get(report, "no_speech_probability", 0.0)
 
         t = cls.thresholds
+        if (
+            duration_ms >= t.impact_dur_min_ms
+            and duration_ms <= t.impact_dur_max_ms
+            and peak_to_rms_ratio >= t.impact_pr_min
+            and audio_peak >= t.impact_peak_min
+            and speech_to_noise_gap <= t.impact_gap_max
+            and frame_energy_concentration >= t.impact_energy_min
+            and frame_active_ratio <= t.impact_active_max
+            and (
+                impulse_edge_ratio >= t.impact_edge_min
+                or zero_crossing_rate <= t.impact_zcr_max
+                or voiced_frame_ratio <= t.impact_voiced_max
+            )
+        ):
+            return AudioNoiseAssessment(True, "impact", "Impact")
+
         if (
             duration_ms >= t.imp_dur_min_ms
             and duration_ms <= t.imp_dur_max_ms

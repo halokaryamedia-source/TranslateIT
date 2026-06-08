@@ -112,13 +112,12 @@ class AudioPreprocessor:
         target_rate: int | None = None,
         gate_multiplier: float = 1.8,
     ) -> PreprocessingResult:
+        """Prepare audio for non-ASR use without altering input gain."""
         mono = self.to_mono(samples)
         resampled = self.resample(mono, source_rate=source_rate, target_rate=target_rate)
-        normalized = self.soft_normalize(resampled)
-        gated = self.noise_gate(normalized, floor_rms=floor_rms, gate_multiplier=gate_multiplier)
-        stats = self.analyze(gated, sample_rate=target_rate or self.target_sample_rate, floor_rms=floor_rms)
-        threshold = max(0.005, float(floor_rms) * gate_multiplier)
-        return PreprocessingResult(samples=gated, stats=stats, noise_gate_threshold=threshold)
+        stats = self.analyze(resampled, sample_rate=target_rate or self.target_sample_rate, floor_rms=floor_rms)
+        threshold = max(0.0, float(floor_rms) * gate_multiplier)
+        return PreprocessingResult(samples=resampled, stats=stats, noise_gate_threshold=threshold)
 
     def prepare_for_vad(
         self,
@@ -146,21 +145,20 @@ class AudioPreprocessor:
         target_rate: int | None = None,
         collect_stats: bool = True,
     ) -> PreprocessingResult:
-        """Prepare already-accepted speech for ASR."""
+        """Prepare already-accepted speech for ASR without software gain."""
         mono = self.to_mono(samples)
         resampled = self.resample(mono, source_rate=source_rate, target_rate=target_rate)
-        normalized = self.soft_normalize(resampled, target_peak=0.80)
         if collect_stats:
-            stats = self.analyze(normalized, sample_rate=target_rate or self.target_sample_rate)
+            stats = self.analyze(resampled, sample_rate=target_rate or self.target_sample_rate)
         else:
             sample_rate = target_rate or self.target_sample_rate
             stats = AudioFrameStats(
                 sample_rate=sample_rate,
-                frame_count=int(normalized.size),
-                duration_ms=int(round((normalized.size / max(1, sample_rate)) * 1000.0)),
+                frame_count=int(resampled.size),
+                duration_ms=int(round((resampled.size / max(1, sample_rate)) * 1000.0)),
                 rms=0.0,
                 peak=0.0,
                 clipping=False,
                 input_state="Prepared",
             )
-        return PreprocessingResult(samples=normalized, stats=stats, noise_gate_threshold=0.0)
+        return PreprocessingResult(samples=resampled, stats=stats, noise_gate_threshold=0.0)

@@ -35,6 +35,9 @@ class MicrophoneDiagnosticResult:
     usable_input: bool
     input_state: str
     selected_sensitivity: str = "Normal"
+    diagnostic_code: str = "unknown"
+    diagnostic_label: str = "Unknown"
+    recommendation: str = ""
     report_path: Path | None = None
 
     def to_dict(self) -> dict[str, Any]:
@@ -58,8 +61,66 @@ class MicrophoneDiagnosticResult:
             "usable_input": self.usable_input,
             "input_state": self.input_state,
             "selected_sensitivity": self.selected_sensitivity,
+            "diagnostic_code": self.diagnostic_code,
+            "diagnostic_label": self.diagnostic_label,
+            "recommendation": self.recommendation,
             "report_path": str(self.report_path) if self.report_path else None,
         }
+
+
+def classify_microphone_diagnostic(result: MicrophoneDiagnosticResult) -> tuple[str, str, str]:
+    device_name = str(result.device_name or "").lower()
+    if result.clipping:
+        return (
+            "clipping",
+            "Input clipping",
+            "Lower the microphone gain or move slightly farther from the capsule.",
+        )
+    if result.device_id is None or any(token in device_name for token in ["loopback", "stereo mix", "virtual", "output"]):
+        return (
+            "wrong_device",
+            "Wrong device or no speech detected",
+            "Select the physical microphone input instead of loopback, stereo mix, or virtual audio devices.",
+        )
+    if result.input_state in {"No Signal", "No input detected"} or (
+        result.rms < 0.001 and result.peak < 0.002 and result.voiced_frame_ratio <= 0.01
+    ):
+        return (
+            "wrong_device",
+            "Wrong device or no speech detected",
+            "Check the selected microphone, then speak directly into it and verify the input meter moves.",
+        )
+    if result.input_state == "Too Quiet" or (
+        result.rms < max(result.final_vad_threshold * 0.90, 0.0018)
+        and result.speech_to_noise_ratio < 1.8
+        and result.voiced_frame_ratio < 0.20
+    ):
+        return (
+            "too_quiet",
+            "Input too quiet",
+            "Increase microphone gain, move closer to the mic, or lower background noise in the room.",
+        )
+    if result.input_state == "Background Noise High" or (
+        result.speech_to_noise_ratio < 1.8
+        and result.voiced_frame_ratio < 0.15
+        and result.rms >= 0.002
+    ):
+        return (
+            "noise_only",
+            "Background noise only",
+            "Use the physical microphone, reduce room noise, or try a headset mic with the Headset preset.",
+        )
+    if result.usable_input:
+        return (
+            "usable",
+            "Microphone usable",
+            "Your microphone signal is usable. If noise still leaks through, rerun calibration in a quieter room.",
+        )
+    return (
+        "needs_review",
+        "Needs review",
+        "Repeat the diagnostic and check the selected device, gain level, and nearby noise sources.",
+    )
 
 
 def run_microphone_diagnostic(
@@ -223,6 +284,10 @@ def run_microphone_diagnostic(
         input_state=calibration_result.input_state,
         selected_sensitivity=display_sensitivity,
     )
+    diagnosis_code, diagnosis_label, recommendation = classify_microphone_diagnostic(result)
+    result.diagnostic_code = diagnosis_code
+    result.diagnostic_label = diagnosis_label
+    result.recommendation = recommendation
     if write_report:
         result.report_path = write_json_report("microphone_diagnostic_latest.json", result.to_dict())
         write_json_report(
@@ -241,8 +306,11 @@ def run_microphone_diagnostic(
                 "selected_sensitivity": display_sensitivity,
                 "final_vad_threshold": final_vad_threshold,
                 "final_classification": calibration_result.input_state,
+                "diagnostic_code": diagnosis_code,
+                "diagnostic_label": diagnosis_label,
                 "capture_allowed": usable,
                 "vad_reason_if_rejected": "" if usable else calibration_result.input_state,
+                "recommendation": recommendation,
                 "audio_scale_min_max": [-1.0, 1.0],
             },
         )
