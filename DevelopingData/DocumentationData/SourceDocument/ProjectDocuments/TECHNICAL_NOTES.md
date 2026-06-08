@@ -235,3 +235,41 @@
 - Microphone diagnostic: `UserData/LogData/microphone_diagnostic_latest.json`
 - Benchmark summary: `UserData/LogData/benchmark_latest.json` and `benchmark_latest.txt`
 
+## 17. Improvement guide
+
+- The improvement guidance is now folded into this document to keep the documentation tree smaller.
+- Use this section for structured improvement planning instead of creating a new one-file folder.
+
+### 17.1 Goal
+
+- Keep latency, quality, and safety improvements in one place.
+- Prefer changes that reduce user confusion, reduce runtime risk, or reduce duplicate documentation.
+
+### 17.2 Working phases
+
+1. Identify the exact bottleneck or confusion point.
+2. Measure the current behavior with real runtime data when possible.
+3. Make one focused change set instead of several unrelated changes.
+4. Re-test the affected path before expanding the scope.
+5. Record the result in `LogData` only if the change is important or critical.
+
+### 17.3 Priority order
+
+- Safety first: do not weaken no-speech rejection, privacy, or runtime isolation.
+- Clarity second: remove duplicate docs, duplicate controls, and ambiguous folder roles.
+- Performance third: improve latency only after the behavior is stable.
+- Convenience fourth: add automation only when the stable path is already clear.
+
+### 17.4 Measurement checklist
+
+- Measure the affected stage before and after the change.
+- Record which input, device, and runtime mode were used.
+- Keep a note of whether the change was interactive or synthetic.
+- Keep the measurement format consistent so later comparisons are valid.
+
+### 17.5 Documentation rule
+
+- If a note, guide, or reference is only useful during development, keep it in `DevelopingData`.
+- If it affects the runtime behavior or the user-facing product story, move it into `SourceDocument`.
+- If it is only a one-off planning note, prefer folding it into an existing relevant document instead of creating a new folder.
+

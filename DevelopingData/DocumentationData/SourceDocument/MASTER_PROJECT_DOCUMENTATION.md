@@ -5,7 +5,7 @@
 - Project name: TranslateIT
 - Current version: 0.4.7-latency-replay-vad-fix
 - Status: Latency instrumentation, async translation voice, CUDA enforcement, and silence hallucination rejection patch
-- Last updated: 2026-05-20
+- Last updated: 2026-06-08
 - Single source of truth: Yes
 
 ## 1. Project overview
@@ -108,9 +108,7 @@ Developing/
 - `DevelopingData/DocumentationData/SourceDocument/ProjectDocuments/CODEX_DEVELOPMENT_GUIDE.md`
 - `DevelopingData/DocumentationData/SourceDocument/ProjectDocuments/MANUAL_TEST_GUIDE.md`
 - `DevelopingData/DocumentationData/SourceDocument/ProjectDocuments/CUDA_SETUP_GUIDE.md`
-- `DevelopingData/DocumentationData/LogData/DEVELOPMENT_LOG.md`
-- `DevelopingData/DocumentationData/LogData/VERSION_HISTORY.md`
-- `DevelopingData/DocumentationData/LogData/CRITICAL_REVISION_LOG.md`
+- `DevelopingData/DocumentationData/LogData/PROJECT_HISTORY.md`
 
 ## 7. Engine overview
 
@@ -282,7 +280,5 @@ backup_asr_model = "medium"
 
 ## 18. Links to LogData documents
 
-- [Development Log](../LogData/DEVELOPMENT_LOG.md)
-- [Version History](../LogData/VERSION_HISTORY.md)
-- [Critical Revision Log](../LogData/CRITICAL_REVISION_LOG.md)
+- [Project History](../LogData/PROJECT_HISTORY.md)
 

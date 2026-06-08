@@ -22,4 +22,3 @@
 
 ## Related documentation path
 - `DevelopingData/DocumentationData/SourceDocument/MASTER_PROJECT_DOCUMENTATION.md`
-
