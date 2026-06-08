@@ -150,18 +150,41 @@ def _audio_evidence(samples: np.ndarray, noise_floor_rms: float, sensitivity: st
         frame_active_ratio = float(np.count_nonzero(frame_energy >= active_threshold) / max(1, frame_energy.size))
     min_peak = {"Low": 0.0085, "Normal": 0.0055, "High": 0.0040}.get(sensitivity, 0.0055)
     min_rms = {"Low": 0.0019, "Normal": 0.0010, "High": 0.0008}.get(sensitivity, 0.0010)
-    min_voiced = {"Low": 0.040, "Normal": 0.016, "High": 0.009}.get(sensitivity, 0.016)
+    min_voiced = {"Low": 0.040, "Normal": 0.020, "High": 0.012}.get(sensitivity, 0.020)
     gap = rms - noise_floor_rms
-    strong_voiced_speech = sensitivity == "High" and voiced_ratio >= 0.16 and gap >= -0.0003 and peak >= max(min_peak * 0.80, 0.0042)
+    strong_voiced_speech = sensitivity == "High" and voiced_ratio >= 0.16 and gap >= -0.0002 and peak >= max(min_peak * 0.80, 0.0042)
     reason = ""
     if peak < 0.002 and rms < 0.001:
         reason = "rejected_silence"
     elif rms < min_rms and peak < min_peak and not strong_voiced_speech:
         reason = "rejected_low_energy"
-    elif gap < 0.0012 and peak < min_peak:
+    elif gap < max(0.0010, noise_floor_rms * 0.18) and peak < max(min_peak * 1.20, 0.010):
         reason = "rejected_low_snr"
-    elif voiced_ratio < min_voiced and peak < max(min_peak * 1.15, 0.01) and not strong_voiced_speech:
+    elif voiced_ratio < min_voiced and peak < max(min_peak * 1.10, 0.009) and not strong_voiced_speech:
         reason = "rejected_unconfirmed_speech"
+    elif array.size >= 320 and (
+        (
+            peak_to_rms_ratio >= 6.0
+            and voiced_ratio <= 0.14
+            and gap <= max(0.014, noise_floor_rms * 0.30)
+            and frame_energy_concentration >= 0.58
+            and frame_active_ratio <= 0.32
+            and (
+                impulse_edge_ratio >= 0.035
+                or zero_crossing_rate <= 0.18
+                or voiced_ratio <= 0.08
+            )
+        )
+        or (
+            peak_to_rms_ratio >= 7.2
+            and voiced_ratio <= 0.10
+            and gap <= max(0.012, noise_floor_rms * 0.25)
+            and frame_energy_concentration >= 0.68
+            and frame_active_ratio <= 0.24
+            and impulse_edge_ratio >= 0.03
+        )
+    ) and not strong_voiced_speech:
+        reason = "rejected_noise_like_impact"
     elif array.size >= 640 and (
         (
             peak_to_rms_ratio >= 7.0
@@ -212,6 +235,8 @@ def _reject_reason_code(reason: str) -> str:
         return "rejected_focus"
     if "energy" in lowered or "threshold" in lowered:
         return "rejected_low_energy"
+    if "impact" in lowered:
+        return "rejected_noise_like_impact"
     if "snr" in lowered or "noise" in lowered:
         return "rejected_low_snr"
     if "short" in lowered:
@@ -229,7 +254,7 @@ def _rejection_status_for_reason(reason: str) -> str:
         return "Rejected Content"
     if "focus" in lowered:
         return "Rejected Focus"
-    if "silence" in lowered or "energy" in lowered or "snr" in lowered or "noise" in lowered or "unconfirmed" in lowered:
+    if "silence" in lowered or "energy" in lowered or "snr" in lowered or "noise" in lowered or "impact" in lowered or "unconfirmed" in lowered:
         return "Rejected Silence"
     return "Rejected Content"
 
@@ -332,16 +357,21 @@ def _now_iso() -> str:
     return datetime.now().astimezone().isoformat(timespec="milliseconds")
 
 
-def _speech_frame_confirmed(rms: float, peak: float, noise_floor_rms: float, sensitivity: str) -> bool:
+def _speech_frame_confirmed(
+    rms: float,
+    peak: float,
+    noise_floor_rms: float,
+    sensitivity: str,
+) -> bool:
     sensitivity = normalize_input_sensitivity(sensitivity)
-    min_rms = {"Low": 0.0012, "Normal": 0.0008, "High": 0.0006}.get(sensitivity, 0.0008)
-    min_peak = {"Low": 0.0045, "Normal": 0.003, "High": 0.002}.get(sensitivity, 0.003)
+    min_rms = {"Low": 0.0009, "Normal": 0.0006, "High": 0.00045}.get(sensitivity, 0.0006)
+    min_peak = {"Low": 0.0035, "Normal": 0.0022, "High": 0.0018}.get(sensitivity, 0.0022)
     snr_gap = rms - noise_floor_rms
-    snr_ratio = rms / max(noise_floor_rms, 0.00035)
+    snr_ratio = rms / max(noise_floor_rms, 0.00025)
     return (
-        rms >= max(min_rms, noise_floor_rms * 1.005)
+        rms >= max(min_rms, noise_floor_rms * 1.002)
         and peak >= min_peak
-        and (snr_gap >= max(0.00005, noise_floor_rms * 0.01) or snr_ratio >= 1.005)
+        and (snr_gap >= max(0.00003, noise_floor_rms * 0.006) or snr_ratio >= 1.003)
     )
 
 
@@ -1403,7 +1433,7 @@ class LivePipelineThread(QThread):
                     f"Calibration ready. Noise floor {calibration.noise_floor_rms:.4f}, preset {calibration.recommended_preset}."
                 )
                 self.status_changed.emit(UIState.READY_TO_LISTEN.value)
-                self.message.emit("Ready.")
+                self.message.emit("Ready to listen.")
                 input_sensitivity = normalize_input_sensitivity(getattr(self.runtime.audio_settings, "input_sensitivity", "Headset"))
                 capture_stabilization_ms = 220
                 pre_roll_frames = deque(maxlen=max(1, int(self.runtime.vad.preset.pre_roll_audio_ms / frame_ms)))
@@ -1439,6 +1469,7 @@ class LivePipelineThread(QThread):
                 callback_count_after_2s = 0
                 frames_received_after_2s = 0
                 health_snapshot_captured = False
+                ready_to_listen_emitted = False
                 while not self.stop_requested:
                     try:
                         data = audio_queue.get(timeout=2.0)
@@ -1485,13 +1516,13 @@ class LivePipelineThread(QThread):
                     self._emit_monitor(stats.rms, stats.peak, noise_floor_rms)
                     pre_roll_frames.append(prepared.samples)
                     adaptive_energy_threshold = max(
-                        noise_floor_rms * 1.015,
-                        {"Low": 0.0028, "Normal": 0.0014, "High": 0.00095}.get(
+                        noise_floor_rms * 1.008,
+                        {"Low": 0.0018, "Normal": 0.0011, "High": 0.00075}.get(
                             input_sensitivity,
-                            0.0014,
+                            0.0011,
                         ),
                     )
-                    energy_above_noise = stats.rms >= adaptive_energy_threshold or stats.peak >= max(adaptive_energy_threshold * 2.0, 0.006)
+                    energy_above_noise = stats.rms >= adaptive_energy_threshold or stats.peak >= max(adaptive_energy_threshold * 1.8, 0.0045)
                     if energy_above_noise and not first_energy_above_noise_time:
                         first_energy_above_noise_perf = perf_counter()
                         first_energy_above_noise_time = _now_iso()
@@ -1565,7 +1596,7 @@ class LivePipelineThread(QThread):
                         consecutive_speech_frames = 0
                     silence_ms = total_elapsed_ms - last_speech_ms
                     duration_ms = total_elapsed_ms - segment_start_ms
-                    voiced_ratio = min(1.0, max(0.0, stats.rms / max(noise_floor_rms * 2.0, 0.00035)))
+                    voiced_ratio = min(1.0, max(0.0, stats.rms / max(noise_floor_rms * 1.6, 0.00025)))
                     endpoint_silence_target = _adaptive_endpoint_target_ms(
                         speech_duration_ms=duration_ms,
                         rms=stats.rms,

@@ -239,6 +239,40 @@ def _delta_ms_from_iso(start_iso: object, end_iso: object) -> int | None:
     return int(max(0, (end_dt - start_dt).total_seconds() * 1000))
 
 
+def _capture_start_transition_in_progress(
+    *,
+    engine_startup_ready: bool,
+    current_status: UIState,
+    live_thread_running: bool,
+    startup_worker_running: bool,
+    pending_start_after_ready: bool,
+) -> bool:
+    return bool(
+        engine_startup_ready
+        and current_status == UIState.PREPARING
+        and not live_thread_running
+        and not startup_worker_running
+        and not pending_start_after_ready
+    )
+
+
+def _startup_warmup_is_ready(
+    *,
+    asr_loaded: bool,
+    asr_warmup_loaded: bool,
+    translation_loaded: bool,
+    translation_warmup_loaded: bool,
+    tts_warmup_loaded: bool,
+) -> bool:
+    del tts_warmup_loaded
+    return bool(
+        asr_loaded
+        and asr_warmup_loaded
+        and translation_loaded
+        and translation_warmup_loaded
+    )
+
+
 def _build_latency_details_view_model(segment: TranscriptSegment) -> dict[str, object]:
     groups = build_metric_groups(segment)
     audio_verify_group = build_audio_verify_breakdown(segment)
@@ -731,15 +765,23 @@ if PYSIDE_AVAILABLE:  # pragma: no cover - interactive UI path
                     self.message.emit("Translation already warm. Reusing resident state.")
 
                 if sys.platform.startswith("win"):
-                    self.message.emit("Warming voice engine.")
+                    self.message.emit("Queueing voice engine warmup in background.")
                     tts_warm_started = perf_counter()
-                    tts_warmup = self.runtime.tts.warmup_engine()
-                    result["tts_warmup_loaded"] = bool(tts_warmup.get("loaded", False))
-                    result["tts_warmup_message"] = tts_warmup.get("message", "")
-                    result["tts_warmup_reused"] = bool(tts_warmup.get("reused", False))
+                    begin_background_warmup = getattr(self.runtime.tts, "begin_background_warmup", None)
+                    background_started = False
+                    if callable(begin_background_warmup):
+                        try:
+                            background_started = bool(begin_background_warmup())
+                        except Exception:
+                            background_started = False
+                    result["tts_warmup_loaded"] = bool(getattr(self.runtime.tts, "_warmup_cached_success", None))
+                    result["tts_warmup_message"] = (
+                        "Voice engine warmup queued in background."
+                        if background_started
+                        else "Voice engine warmup deferred."
+                    )
+                    result["tts_warmup_reused"] = bool(getattr(self.runtime.tts, "_warmup_cached_success", None))
                     result["tts_warmup_ms"] = int((perf_counter() - tts_warm_started) * 1000)
-                    if result["tts_warmup_reused"]:
-                        self.message.emit("Custom voice already warm. Reusing resident state.")
 
                 self.finished_result.emit(result)
             except Exception as exc:
@@ -2685,11 +2727,12 @@ if PYSIDE_AVAILABLE:  # pragma: no cover - interactive UI path
                 )
 
         def handle_sensitivity_changed(self, value: str | None = None) -> None:
-            self.runtime.audio_settings.input_sensitivity = "Headset"
+            if value is not None:
+                self.runtime.audio_settings.input_sensitivity = value
             if hasattr(self, "sensitivity_value_label"):
-                self.sensitivity_value_label.setText("Headset")
+                self.sensitivity_value_label.setText(self.runtime.audio_settings.input_sensitivity)
             self.runtime.save_audio_settings()
-            self.log_event("INFO", "Microphone fixed to Headset.")
+            self.log_event("INFO", f"Microphone sensitivity preserved as {self.runtime.audio_settings.input_sensitivity}.")
 
         def handle_advanced_devices_changed(self, checked: bool) -> None:
             self.runtime.audio_settings.show_advanced_devices = checked
@@ -2868,15 +2911,6 @@ if PYSIDE_AVAILABLE:  # pragma: no cover - interactive UI path
             voice_actor_warming = bool(getattr(self.runtime.tts, "_warmup_in_progress", False))
             startup_worker = getattr(self, "startup_worker", None)
             startup_worker_running = bool(startup_worker is not None and callable(getattr(startup_worker, "isRunning", None)) and startup_worker.isRunning())
-            runtime_tts = getattr(self.runtime, "tts", None)
-            runtime_tts_idle = True
-            if runtime_tts is not None:
-                is_runtime_idle = getattr(runtime_tts, "is_runtime_idle", None)
-                if callable(is_runtime_idle):
-                    try:
-                        runtime_tts_idle = bool(is_runtime_idle())
-                    except Exception:
-                        runtime_tts_idle = True
             if voice_actor_profile_id:
                 voice_actor_text = (
                     f"{'enabled' if voice_actor_enabled else 'disabled'} | {voice_actor_profile_id} | {voice_actor_root} | "
@@ -2889,18 +2923,20 @@ if PYSIDE_AVAILABLE:  # pragma: no cover - interactive UI path
                 )
             set_text_if_changed(_status_widget_for(self, "voice"), voice_actor_text)
             set_text_if_changed(_status_widget_for(self, "mic"), self.device_combo.currentText() or "No microphone")
-            if (
-                self.engine_startup_ready
-                and self.runtime.current_status == UIState.PREPARING
-                and self.live_thread is None
-                and not startup_worker_running
-                and not bool(getattr(self, "_pending_start_after_ready", False))
-                and runtime_tts_idle
-            ):
-                self.runtime.current_status = UIState.READY
+            capture_start_transition = _capture_start_transition_in_progress(
+                engine_startup_ready=self.engine_startup_ready,
+                current_status=self.runtime.current_status,
+                live_thread_running=bool(
+                    self.live_thread is not None
+                    and callable(getattr(self.live_thread, "isRunning", None))
+                    and self.live_thread.isRunning()
+                ),
+                startup_worker_running=startup_worker_running,
+                pending_start_after_ready=bool(getattr(self, "_pending_start_after_ready", False)),
+            )
             capture_status_text = {
                 UIState.READY: "Ready",
-                UIState.READY_TO_LISTEN: "Ready",
+                UIState.READY_TO_LISTEN: "Ready to listen",
                 UIState.LISTENING: "Listening",
                 UIState.SPEECH_DETECTED: "Processing",
                 UIState.TRANSCRIBING: "Processing",
@@ -2911,6 +2947,8 @@ if PYSIDE_AVAILABLE:  # pragma: no cover - interactive UI path
                 UIState.ERROR: "Error",
                 UIState.IDLE: "Idle",
             }.get(self.runtime.current_status, self.runtime.current_status.value)
+            if capture_start_transition:
+                capture_status_text = "Preparing"
             set_text_if_changed(_status_widget_for(self, "capture"), capture_status_text)
             if self.live_thread is not None:
                 capture_worker_state = "running" if self.live_thread.isRunning() else "stopped"
@@ -3002,7 +3040,7 @@ if PYSIDE_AVAILABLE:  # pragma: no cover - interactive UI path
             elif state == UIState.READY:
                 status_text, status_state = "Ready", "ready"
             elif state == UIState.READY_TO_LISTEN:
-                status_text, status_state = "Ready", "ready"
+                status_text, status_state = "Ready to listen", "ready"
             elif state == UIState.LISTENING:
                 status_text, status_state = "Listening", "ready"
             elif state in {UIState.SPEECH_DETECTED, UIState.TRANSCRIBING, UIState.TRANSLATING}:
@@ -3133,7 +3171,11 @@ if PYSIDE_AVAILABLE:  # pragma: no cover - interactive UI path
                 mic_text, mic_state = "Not detected", "warning"
             set_badge("mic", mic_text, mic_state)
 
-            if self.engine_startup_ready and self.runtime.current_status not in {UIState.ERROR, UIState.PREPARING, UIState.STREAM_CHECK}:
+            if self.runtime.current_status == UIState.READY_TO_LISTEN:
+                capture_text, capture_state = "Ready to listen", "ready"
+            elif self.runtime.current_status == UIState.LISTENING:
+                capture_text, capture_state = "Listening", "ready"
+            elif self.engine_startup_ready and self.runtime.current_status not in {UIState.ERROR, UIState.PREPARING, UIState.STREAM_CHECK}:
                 capture_text, capture_state = "Ready", "ready"
             elif self.runtime.current_status == UIState.ERROR:
                 capture_text, capture_state = "Error", "error"
@@ -3604,6 +3646,16 @@ if PYSIDE_AVAILABLE:  # pragma: no cover - interactive UI path
                 self.start_button.style().polish(self.start_button)
             return
         if state in {UIState.PREPARING, UIState.STREAM_CHECK}:
+            if self.engine_startup_ready and not startup_worker_running and not pending_start_after_ready and not running:
+                set_text_if_changed(self.start_button, "Start")
+                self.start_button.setProperty("runState", "idle")
+                self.start_button.setEnabled(True)
+                start_button_signature = (self.start_button.text(), self.start_button.property("runState"), self.start_button.isEnabled())
+                if getattr(self, "_start_button_signature", None) != start_button_signature:
+                    self._start_button_signature = start_button_signature
+                    self.start_button.style().unpolish(self.start_button)
+                    self.start_button.style().polish(self.start_button)
+                return
             set_text_if_changed(self.start_button, "Preparing")
             self.start_button.setProperty("runState", "processing")
             self.start_button.setEnabled(False)
@@ -3748,12 +3800,6 @@ if PYSIDE_AVAILABLE:  # pragma: no cover - interactive UI path
             except Exception:
                 self._launch_pending_start_after_ready()
             return
-        if not self._runtime_tts_is_idle():
-            try:
-                QTimer.singleShot(150, self._launch_pending_start_after_ready)
-            except Exception:
-                self._launch_pending_start_after_ready()
-            return
         try:
             self.handle_start_capture()
         except Exception as exc:
@@ -3779,7 +3825,8 @@ if PYSIDE_AVAILABLE:  # pragma: no cover - interactive UI path
                 self.runtime.tts.cancel_active_speech()
             except Exception:
                 pass
-        reset_replay_state = getattr(self.runtime.replay, "reset_runtime_state", None)
+        replay_runtime = getattr(self.runtime, "replay", None)
+        reset_replay_state = getattr(replay_runtime, "reset_runtime_state", None)
         try:
             if callable(reset_replay_state):
                 reset_replay_state()
@@ -3825,12 +3872,12 @@ if PYSIDE_AVAILABLE:  # pragma: no cover - interactive UI path
             translation_loaded = bool(result.get("translation_loaded", False))
             translation_warmup_loaded = bool(result.get("translation_warmup_loaded", False))
             tts_warmup_loaded = bool(result.get("tts_warmup_loaded", False))
-            warmup_ready = bool(
-                asr_loaded
-                and asr_warmup_loaded
-                and translation_loaded
-                and translation_warmup_loaded
-                and tts_warmup_loaded
+            warmup_ready = _startup_warmup_is_ready(
+                asr_loaded=asr_loaded,
+                asr_warmup_loaded=asr_warmup_loaded,
+                translation_loaded=translation_loaded,
+                translation_warmup_loaded=translation_warmup_loaded,
+                tts_warmup_loaded=tts_warmup_loaded,
             )
             self.log_event(
                 "INFO",
@@ -3879,13 +3926,23 @@ if PYSIDE_AVAILABLE:  # pragma: no cover - interactive UI path
                         tts_warmup_ms=int(result.get("tts_warmup_ms", 0) or 0),
                         tts_warmup_reused=bool(result.get("tts_warmup_reused", False)),
                         warmup_note=(
-                            "Startup warmup is complete." if warmup_ready else "Startup warmup is partial; the engine remains in preparing state."
+                            "Startup warmup is complete for capture." if warmup_ready else "Startup warmup is partial; the engine remains in preparing state."
                         ),
                     ),
                 )
             except Exception as exc:
                 self.log_event("WARN", "Could not write runtime optimization report.", exc)
-            if not warmup_ready and self.runtime.current_status in {UIState.PREPARING, UIState.STREAM_CHECK}:
+            if warmup_ready:
+                live_thread = getattr(self, "live_thread", None)
+                live_thread_running = bool(
+                    live_thread is not None
+                    and callable(getattr(live_thread, "isRunning", None))
+                    and live_thread.isRunning()
+                )
+                pending_start_after_ready = bool(getattr(self, "_pending_start_after_ready", False))
+                if not live_thread_running and not pending_start_after_ready:
+                    self.set_status(UIState.READY)
+            elif self.runtime.current_status in {UIState.PREPARING, UIState.STREAM_CHECK}:
                 self.log_event("WARN", "Engine warmup is not complete yet; retrying until the engine is ready.")
                 try:
                     schedule_rewarm = getattr(self, "_begin_post_stop_warmup", None)
@@ -3897,11 +3954,8 @@ if PYSIDE_AVAILABLE:  # pragma: no cover - interactive UI path
                         schedule_rewarm()
         else:
             self.engine_startup_ready = False
-        if self.runtime.current_status in {UIState.PREPARING, UIState.STREAM_CHECK}:
-            if warmup_ready and not bool(getattr(self, "_pending_start_after_ready", False)):
-                self.set_status(UIState.READY)
-            else:
-                self.set_status(UIState.PREPARING)
+        if not warmup_ready and self.runtime.current_status in {UIState.PREPARING, UIState.STREAM_CHECK}:
+            self.set_status(UIState.PREPARING)
         if warmup_attempted and not warmup_ready and bool(getattr(self, "_pending_start_after_ready", False)):
             self.log_event("WARN", "Engine warmup is not complete yet; start remains queued.")
         if warmup_ready and bool(getattr(self, "_pending_start_after_ready", False)):
@@ -4044,32 +4098,32 @@ QFrame#panel {
         self.diagnostic_worker.start()
 
     def handle_diagnostic_result(self, result: MicrophoneDiagnosticResult) -> None:
-        if result.usable_input or self.runtime.audio_settings.allow_low_but_usable_input:
-            calibration = self.runtime.calibration.run_first_run_calibration(
-                silent_samples=[],
-                speech_samples=[result.rms],
-                sensitivity=self.runtime.audio_settings.input_sensitivity,
-            )
+        diagnosis_line = f"{result.diagnostic_label} ({result.diagnostic_code})" if result.diagnostic_code else result.diagnostic_label
+        recommendation = result.recommendation or "No recommendation available."
+        can_reuse_for_calibration = result.diagnostic_code in {"usable", "too_quiet"}
+        if can_reuse_for_calibration and (result.usable_input or self.runtime.audio_settings.allow_low_but_usable_input):
+            recommended_preset = self.runtime.calibration.recommend_preset(result.rms, result.noise_floor_rms, result.peak)
             self.runtime.current_calibration = CalibrationResult(
                 noise_floor_rms=result.noise_floor_rms,
-                speech_rms=result.rms,
-                peak_level=result.peak,
+                speech_rms=result.speech_rms,
+                peak_level=result.speech_peak,
                 clipping_risk=1.0 if result.clipping else result.peak,
                 speech_to_noise_gap=result.speech_to_noise_gap,
                 speech_to_noise_ratio=result.speech_to_noise_ratio,
                 voiced_frame_ratio=result.voiced_frame_ratio,
                 final_vad_threshold=result.final_vad_threshold,
-                recommended_preset=calibration.recommended_preset,
+                recommended_preset=recommended_preset,
                 input_state=result.input_state,
                 capture_allowed=result.usable_input or self.runtime.audio_settings.allow_low_but_usable_input,
             )
         self.calibration_result_label.setText(
-            f"{result.message} | noise floor {result.noise_floor_rms:.5f} | "
+            f"{result.message} | {diagnosis_line} | noise floor {result.noise_floor_rms:.5f} | "
             f"RMS {result.rms:.5f} | peak {result.peak:.3f} | clipping {result.clipping} | "
-            f"usable {'yes' if result.usable_input else 'no'}"
+            f"usable {'yes' if result.usable_input else 'no'} | {recommendation}"
         )
         self.level_bar.setValue(int(max(0.0, min(1.0, result.peak)) * 100))
-        self.log_event("INFO" if result.usable_input else "WARN", "Microphone diagnostic completed.", result.to_dict())
+        log_message = f"Microphone diagnostic completed: {diagnosis_line}."
+        self.log_event("INFO" if result.usable_input else "WARN", log_message, result.to_dict())
         self._request_status_refresh()
 
     def handle_start_capture(self) -> None:
@@ -4105,25 +4159,6 @@ QFrame#panel {
                         self.handle_start_capture()
                     return
         self._startup_warmup_cancel_requested = False
-        runtime_tts = getattr(self.runtime, "tts", None)
-        if runtime_tts is not None:
-            is_runtime_idle = getattr(runtime_tts, "is_runtime_idle", None)
-            if callable(is_runtime_idle):
-                try:
-                    if not bool(is_runtime_idle()):
-                        self.log_event("WARN", "Runtime is still settling. Please wait.")
-                        self._request_pending_start_after_ready("runtime still settling")
-                        self.set_status(UIState.PREPARING)
-                        self._request_status_refresh()
-                        launch_pending_start = getattr(self, "_launch_pending_start_after_ready", None)
-                        if callable(launch_pending_start):
-                            try:
-                                QTimer.singleShot(150, launch_pending_start)
-                            except Exception:
-                                launch_pending_start()
-                        return
-                except Exception:
-                    pass
         if self.live_thread is not None and self.live_thread.isRunning():
             self.log_event("WARN", "Capture is already active.")
             return
@@ -4277,7 +4312,6 @@ QFrame#panel {
         if self.live_thread is not None and self.live_thread.isRunning():
             self._stop_in_progress = True
             self._clear_pending_start_after_ready()
-            self.engine_startup_ready = False
             self._stop_requested_time = datetime.now().astimezone().isoformat(timespec="milliseconds")
             self._stale_callbacks_rejected = int(getattr(self.live_thread, "stale_callbacks_rejected_count", 0))
             self._reset_tts_dispatch_state()
