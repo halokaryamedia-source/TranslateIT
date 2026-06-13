@@ -17,6 +17,7 @@ This checklist defines what must be verified at the end of the Rust/Tauri conver
 python .\DevelopingData\ToolKitData\Scripts\Execution\check_rust_app.py
 python .\DevelopingData\ToolKitData\Scripts\Execution\check_rust_runtime_boundaries.py
 python .\DevelopingData\ToolKitData\Scripts\Execution\check_rust_output_boundary.py
+python .\DevelopingData\ToolKitData\Scripts\Execution\check_rust_model_boundary.py
 ```
 
 ## Required Tauri command checks
