@@ -2,16 +2,16 @@
 
 ## Current entry
 
-- Version: `0.7.6-ci-validation-workflow`
+- Version: `0.8.0-active-rustapp-launcher-cleanup`
 - Date: `2026-06-14`
 - Branch: `ChatGPT-ConvertEngine`
-- Status: CI validation workflow added for RustApp final validation
+- Status: Active LauncherApp Python files removed and root launcher pointed to RustApp
 - Root baseline: `Developing` commit `f412ba06bace37f6c0118eb20a6a2f91f0a63e76`
 - Observed commit: `76139bc13bd0b8f59f4307d98703a5f335460470`
 
 ## Summary
 
-The Rust/Tauri branch includes audio, calibration, backend check, ASR, text, output, and model-check boundaries. Diagnostics surfaces backend validation details. A local final validation runner and a GitHub Actions workflow are now available. The app still does not claim full runtime readiness.
+The active `EngineData/LauncherApp` folder now uses the Rust/Tauri `RustApp` launcher path. Previous Python launcher modules have been removed from the active launcher folder on this branch. The root `TranslateIT.vbs` now points to `RustApp`. The app still does not claim full runtime readiness until validation passes.
 
 ## Changes made
 
@@ -36,10 +36,12 @@ The Rust/Tauri branch includes audio, calibration, backend check, ASR, text, out
 - Added model boundary checker to final validation checklist.
 - Added final validation runner script.
 - Added RustApp validation GitHub Actions workflow.
+- Removed active Python launcher files from `EngineData/LauncherApp`.
+- Updated `TranslateIT.vbs` to launch `EngineData/LauncherApp/RustApp`.
 
 ## Important decision
 
-The final target is full Rust runtime ownership. Python is allowed only as a behavior reference during migration. Runtime readiness must remain false until real validation is complete.
+The final target is full Rust runtime ownership. Python is allowed only as a historical behavior reference through git history. Runtime readiness must remain false until real validation is complete.
 
 ## Testing status
 
