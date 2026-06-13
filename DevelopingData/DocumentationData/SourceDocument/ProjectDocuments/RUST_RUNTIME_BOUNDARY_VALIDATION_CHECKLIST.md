@@ -47,6 +47,7 @@ translate_text
 
 - The app must not report full runtime Ready while model loading is still pending.
 - CUDA readiness must remain false until native model validation succeeds.
+- `validate_native_cuda_backend` must return dependency checks and file requirements.
 - Start must report Rust input preparation status.
 - Audio payload analysis must report buffer/evidence/VAD status.
 - Calibration save must write under `UserData/CacheData`.
