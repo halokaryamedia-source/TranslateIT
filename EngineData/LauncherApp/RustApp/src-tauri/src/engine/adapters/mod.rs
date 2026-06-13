@@ -1,4 +1,5 @@
 pub mod asr;
+pub mod asr_dry_run;
 pub mod translation;
 pub mod tts;
 
