@@ -33,7 +33,7 @@ pub fn run_language_logic(request: LanguageLogicRequest) -> LanguageLogicReport 
         normalized_source: source.clone(),
         normalized_target: target.clone(),
         normalized_detected: detected.clone(),
-        should_translate: should_translate_segment(Some(&detected), &source, &target),
+        should_translate: should_translate_segment(Some(detected.as_str()), &source, &target),
         inferred_language_bias: bias,
         normalized_short_source_text: normalized_text,
     }
@@ -74,7 +74,7 @@ fn normalize_short_id_text(tokens: &[String], original: &str, source: &str, targ
     let mut out = Vec::new();
     for token in tokens {
         let value = replacement(token).unwrap_or(token.as_str());
-        if value != token { changed = true; }
+        if value != token.as_str() { changed = true; }
         out.extend(value.split_whitespace().map(|part| part.to_string()));
     }
     if changed { out.join(" ") } else { trimmed }
