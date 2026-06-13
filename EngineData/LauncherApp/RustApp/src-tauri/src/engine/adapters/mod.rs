@@ -8,6 +8,7 @@ pub mod pipeline_logic;
 pub mod session_logic;
 pub mod text_dry_run;
 pub mod translation;
+pub mod translation_logic;
 pub mod tts;
 
 pub const ADAPTER_RULE: &str = "Adapters must expose truthful readiness and deterministic error reporting.";
