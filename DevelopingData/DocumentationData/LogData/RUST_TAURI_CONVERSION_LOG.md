@@ -2,16 +2,16 @@
 
 ## Current entry
 
-- Version: `0.7.1-validation-checklist-update`
+- Version: `0.7.2-active-file-requirements`
 - Date: `2026-06-14`
 - Branch: `ChatGPT-ConvertEngine`
-- Status: Boundary checker list updated
+- Status: Backend validation now returns file requirements
 - Root baseline: `Developing` commit `f412ba06bace37f6c0118eb20a6a2f91f0a63e76`
 - Observed commit: `76139bc13bd0b8f59f4307d98703a5f335460470`
 
 ## Summary
 
-The Rust/Tauri branch includes audio, calibration, native check, ASR, text, and output boundaries. The app still does not claim full runtime readiness.
+The Rust/Tauri branch includes audio, calibration, backend check, ASR, text, and output boundaries. The backend validation report now also includes required native runtime files. The app still does not claim full runtime readiness.
 
 ## Changes made
 
@@ -24,6 +24,7 @@ The Rust/Tauri branch includes audio, calibration, native check, ASR, text, and 
 - Added calibration flow status and calibration profile save command.
 - Added backend visibility check module.
 - Exposed `validate_native_cuda_backend` command.
+- Added required native file list to backend validation output.
 - Added ASR dry check module and command.
 - Added text dry check module and command.
 - Added output plan module and command.
@@ -41,5 +42,5 @@ No final runtime test was run in this step. This is intentional because the requ
 
 ## Next conversion target
 
-- Retry inference module registration later.
 - Add final test execution after milestone completion.
+- Add real model-load validation boundary when native runtime files are present.
