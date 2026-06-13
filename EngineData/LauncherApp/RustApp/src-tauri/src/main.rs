@@ -1,8 +1,9 @@
 mod engine;
 
-use engine::audio::buffer::{planned_buffer_status, AudioBufferStatus};
+use engine::audio::buffer::{inspect_frame, planned_buffer_status, AudioBufferStatus, AudioFrameInspectionReport};
 use engine::audio::calibration_flow::CalibrationFlowStatus;
 use engine::audio::input::InputPreparationStatus;
+use engine::audio::AudioFrame;
 use engine::diagnostics::RuntimeDiagnostics;
 use engine::settings::RuntimeSettings;
 use engine::state::{CommandResult, EngineStatus};
@@ -25,6 +26,11 @@ fn get_input_status() -> InputPreparationStatus {
 #[tauri::command]
 fn get_audio_buffer_status() -> AudioBufferStatus {
     planned_buffer_status()
+}
+
+#[tauri::command]
+fn analyze_audio_payload(frame: AudioFrame) -> AudioFrameInspectionReport {
+    inspect_frame(frame)
 }
 
 #[tauri::command]
@@ -63,6 +69,7 @@ fn main() {
         get_runtime_diagnostics,
         get_input_status,
         get_audio_buffer_status,
+        analyze_audio_payload,
         get_calibration_flow_status,
         load_runtime_settings,
         save_default_runtime_settings,
