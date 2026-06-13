@@ -4,9 +4,9 @@
 
 - Project: TranslateIT
 - Branch: `ChatGPT-ConvertEngine`
-- Conversion version: `0.6.3-rust-device-calibration-inference-contracts`
+- Conversion version: `0.6.4-native-device-cuda-probe-adapter-plans`
 - Date: `2026-06-14`
-- Status: Full-Rust target with runtime support, audio gate, device/calibration contracts, and native inference backend selection boundary
+- Status: Full-Rust target with native audio device discovery, calibration profile status, CUDA probe boundary, and ASR/translation adapter plans
 - Root baseline used: `Developing` commit `f412ba06bace37f6c0118eb20a6a2f91f0a63e76`
 - Observed commit: `76139bc13bd0b8f59f4307d98703a5f335460470`
 
@@ -63,13 +63,14 @@ EngineData/LauncherApp/RustApp/
   src-tauri/src/engine/audio/vad.rs
   src-tauri/src/engine/inference/mod.rs
   src-tauri/src/engine/inference/backend.rs
+  src-tauri/src/engine/inference/cuda_probe.rs
   src-tauri/src/engine/adapters/mod.rs
   src-tauri/src/engine/adapters/asr.rs
   src-tauri/src/engine/adapters/translation.rs
   src-tauri/src/engine/adapters/tts.rs
 ```
 
-The scaffold includes a clean frontend shell, a Rust command bridge, runtime state contracts, config contracts, path discovery, settings persistence, logging, diagnostics, audio device/calibration/evidence/VAD contracts, native inference backend selection records, CUDA policy contracts, and explicit pending-state responses.
+The scaffold includes a clean frontend shell, Rust command bridge, runtime state contracts, config contracts, path discovery, settings persistence, logging, diagnostics, native audio device discovery through `cpal`, calibration profile status, audio evidence/VAD contracts, native inference backend records, CUDA probe boundary, ASR/translation adapter plans, CUDA policy contracts, and explicit pending-state responses.
 
 ## Observed commit handling
 
@@ -102,12 +103,12 @@ Tauri Frontend
      -> Rust Config and Path Layer
      -> Rust Settings Persistence
      -> Rust Runtime Logging and Diagnostics
-     -> Rust Audio Device Discovery
+     -> Native Rust Audio Device Discovery
      -> Rust Audio Calibration
      -> Rust Audio Evidence Gate
      -> Rust VAD
-     -> Native ASR Adapter
-     -> Native Translation Adapter
+     -> Native ASR Adapter Plan
+     -> Native Translation Adapter Plan
      -> Native TTS and Output Adapter
      -> Native CUDA Inference Backend
      -> UserData Cache, Log, and Save Writers
@@ -118,12 +119,14 @@ Tauri Frontend
 | Area | Risk | Control |
 | --- | --- | --- |
 | CUDA translation | Rust alone does not guarantee faster CUDA inference | Use native CUDA-capable backend through Rust-owned adapter |
+| CUDA status | `nvidia-smi` may exist but inference backend may still not be ready | Keep CUDA runtime ready false until native backend validation exists |
 | Native inference selection | Wrong backend can break quality, latency, or packaging | Record candidate backend and reason before implementation |
 | NLLB and Marian tokenizer parity | Output can change if tokenizer behavior differs | Treat Python output as reference until parity QA passes |
 | ASR parity | Faster-Whisper behavior can change if backend differs | Preserve model, decode profile, prompt, and confidence rules |
 | CPU fallback | App can feel working but no longer meets target performance | CUDA must be visibly validated before Ready |
 | Audio gate | Silence/noise could reach ASR if capture is ported too directly | Rust audio evidence and VAD gate must reject weak input before ASR |
 | Audio device selection | Wrong input/output route can make app look broken | Device discovery and calibration must be explicit and logged |
+| Calibration | Missing calibration can make VAD too strict or too loose | Keep calibration profile status visible and stored under `UserData/CacheData` |
 | TTS/custom voice | Easy to regress into default voice or double playback | Adapter must report provider, fallback, cache, and cancel behavior |
 | Packaging | Windows DLL/runtime packaging can break CUDA at user launch | Validate native dependencies only in the final milestone gate |
 
@@ -169,7 +172,8 @@ Status: Started.
 - Port 16 kHz mono pipeline.
 - Preserve raw-audio VAD behavior.
 - Rust audio evidence and VAD gate baseline is now present.
-- Audio device and calibration contracts are now present.
+- Native audio device discovery through `cpal` is now present.
+- Calibration profile status is now present at `UserData/CacheData/rust_calibration_profile.json`.
 
 ### Phase 4 — ASR adapter parity
 
@@ -179,7 +183,8 @@ Status: Boundary started.
 - Preserve Medium fallback behavior.
 - Preserve CUDA-first validation.
 - Final adapter must not require Python.
-- Native inference backend selection record is now present.
+- Native inference backend selection record is present.
+- ASR adapter plan now consumes native backend selection plus CUDA probe.
 
 ### Phase 5 — Translation adapter parity
 
@@ -189,7 +194,8 @@ Status: Boundary started.
 - Preserve Marian Indonesian-English fallback behavior.
 - Preserve deterministic short-phrase handling.
 - Final adapter must not require Python.
-- Native inference backend selection record is now present.
+- Native inference backend selection record is present.
+- Translation adapter plan now consumes native backend selection plus CUDA probe.
 
 ### Phase 6 — TTS/output parity
 
@@ -229,4 +235,4 @@ EngineData/LauncherApp/RustApp/README.md
 
 ## Current implementation truth
 
-This branch currently contains a Rust/Tauri scaffold, Rust runtime support modules, audio device/calibration/evidence/VAD gate modules, native inference backend selection contracts, CUDA policy boundary, adapter contracts, and migration documentation. The runtime engine itself is not fully converted yet.
+This branch currently contains a Rust/Tauri scaffold, Rust runtime support modules, native audio device discovery, audio calibration/evidence/VAD gate modules, native inference backend selection contracts, CUDA probe boundary, ASR/translation adapter plans, CUDA policy boundary, adapter contracts, and migration documentation. The runtime engine itself is not fully converted yet.
