@@ -22,7 +22,11 @@
 - `Reports/` - engineering and validation reports
 - `SampleData/` - safe sample inputs and references
 - `Tests/` - automated regression tests
-- `ToolKitData/` - tooling, model download helpers, and validation utilities
+- `ToolKitData/` - tooling, model download helpers, validation utilities, and RustApp scaffold checks
+
+## Rust/Tauri conversion tooling
+- RustApp scaffold check: `ToolKitData/Scripts/Execution/check_rust_app.py`
+- The observed RustApp check-script commit is represented through the approved `ToolKitData` tooling tree, not a separate top-level tools tree.
 
 ## Must not be placed here
 - Engine code
@@ -38,6 +42,7 @@
 
 ## Related documentation path
 - `DevelopingData/DocumentationData/SourceDocument/MASTER_PROJECT_DOCUMENTATION.md`
+- `DevelopingData/DocumentationData/SourceDocument/ProjectDocuments/RUST_TAURI_ENGINE_CONVERSION_PLAN.md`
 
 ## Root structure
 
@@ -54,4 +59,4 @@
 
 ## Launch note
 
-- The supported root launcher remains `TranslateIT.vbs`.
+- The supported root launcher remains `TranslateIT.vbs` until the Rust/Tauri desktop launcher reaches final parity.
