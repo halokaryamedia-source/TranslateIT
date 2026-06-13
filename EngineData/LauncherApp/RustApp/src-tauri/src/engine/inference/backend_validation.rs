@@ -35,6 +35,7 @@ pub struct NativeCudaBackendValidationReport {
     pub compute_type: String,
     pub nvidia_smi_available: bool,
     pub dependency_checks: Vec<NativeBackendFileCheck>,
+    pub file_requirements: NativeRuntimeFileRequirementList,
     pub ready: bool,
     pub blocker: String,
 }
@@ -79,6 +80,7 @@ impl NativeCudaBackendValidationReport {
             compute_type: "float16".to_string(),
             nvidia_smi_available: cuda_probe.nvidia_smi_available,
             dependency_checks,
+            file_requirements: NativeRuntimeFileRequirementList::ctranslate2_cuda_candidate(),
             ready,
             blocker: if ready {
                 "Native dependency files are visible. Real model load validation is still required before reporting inference Ready.".to_string()
