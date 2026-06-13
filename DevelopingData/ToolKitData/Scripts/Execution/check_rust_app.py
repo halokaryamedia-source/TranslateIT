@@ -10,6 +10,7 @@ def main() -> int:
     required = [
         RUST_APP / "README.md",
         RUST_APP / "package.json",
+        RUST_APP / "tsconfig.json",
         RUST_APP / "index.html",
         RUST_APP / "src" / "main.ts",
         RUST_APP / "src" / "styles.css",
