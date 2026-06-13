@@ -6,10 +6,12 @@ pub mod evidence;
 pub mod input;
 pub mod vad;
 
+use serde::{Deserialize, Serialize};
+
 pub const TARGET_SAMPLE_RATE_HZ: u32 = 16_000;
 pub const TARGET_CHANNELS: u16 = 1;
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct AudioFrame {
     pub sample_rate_hz: u32,
     pub channels: u16,
