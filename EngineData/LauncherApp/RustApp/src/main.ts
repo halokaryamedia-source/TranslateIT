@@ -54,6 +54,45 @@ type CalibrationFlowStatus = {
   note: string;
 };
 
+type NativeBackendFileCheck = {
+  file_name: string;
+  found: boolean;
+  found_at: string | null;
+};
+
+type NativeRuntimeFileRequirement = {
+  file_name: string;
+  required: boolean;
+  purpose: string;
+};
+
+type NativeRuntimeFileRequirementList = {
+  backend_id: string;
+  device: string;
+  compute_type: string;
+  final_runtime_allows_python: boolean;
+  files: NativeRuntimeFileRequirement[];
+  note: string;
+};
+
+type ModelDirectoryCheck = {
+  label: string;
+  path: string;
+  exists: boolean;
+};
+
+type NativeCudaBackendValidationReport = {
+  backend_id: string;
+  device: string;
+  compute_type: string;
+  nvidia_smi_available: boolean;
+  dependency_checks: NativeBackendFileCheck[];
+  file_requirements: NativeRuntimeFileRequirementList;
+  model_directories: ModelDirectoryCheck[];
+  ready: boolean;
+  blocker: string;
+};
+
 type RuntimeDiagnostics = {
   project_paths: {
     project_root: string;
@@ -94,6 +133,7 @@ type RuntimeDiagnostics = {
     note: string;
   };
   cuda_probe: CudaProbeReport;
+  backend_validation: NativeCudaBackendValidationReport;
   native_inference_candidates: NativeInferenceBackendSelection[];
   asr_adapter_plan: AdapterPlan;
   translation_adapter_plan: AdapterPlan;
@@ -293,6 +333,17 @@ function renderDiagnostics(
     `CUDA nvidia-smi: ${diagnostics.cuda_probe.nvidia_smi_available}`,
     `CUDA GPU: ${diagnostics.cuda_probe.gpu_summary ?? "not detected"}`,
     `CUDA runtime ready: ${diagnostics.cuda_probe.cuda_runtime_ready}`,
+    `Backend validation ready: ${diagnostics.backend_validation.ready}`,
+    `Backend blocker: ${diagnostics.backend_validation.blocker}`,
+    ...diagnostics.backend_validation.dependency_checks.map(
+      (check) => `Dependency: ${check.file_name} found=${check.found} at=${check.found_at ?? "not found"}`,
+    ),
+    ...diagnostics.backend_validation.file_requirements.files.map(
+      (file) => `Required native file: ${file.file_name} required=${file.required} purpose=${file.purpose}`,
+    ),
+    ...diagnostics.backend_validation.model_directories.map(
+      (check) => `Model dir: ${check.label} exists=${check.exists} path=${check.path}`,
+    ),
     `Final runtime allows Python: ${diagnostics.final_runtime_allows_python}`,
     `Settings: ${settings.source_language} -> ${settings.target_language}, voice=${settings.voice_actor_profile_id}`,
     backendSummary("ASR adapter plan", diagnostics.asr_adapter_plan),
