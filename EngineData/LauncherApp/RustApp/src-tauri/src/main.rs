@@ -1,5 +1,7 @@
 mod engine;
 
+use engine::audio::buffer::{planned_buffer_status, AudioBufferStatus};
+use engine::audio::calibration_flow::CalibrationFlowStatus;
 use engine::audio::input::InputPreparationStatus;
 use engine::diagnostics::RuntimeDiagnostics;
 use engine::settings::RuntimeSettings;
@@ -18,6 +20,16 @@ fn get_runtime_diagnostics() -> RuntimeDiagnostics {
 #[tauri::command]
 fn get_input_status() -> InputPreparationStatus {
     InputPreparationStatus::inspect_default_input()
+}
+
+#[tauri::command]
+fn get_audio_buffer_status() -> AudioBufferStatus {
+    planned_buffer_status()
+}
+
+#[tauri::command]
+fn get_calibration_flow_status() -> CalibrationFlowStatus {
+    CalibrationFlowStatus::current()
 }
 
 #[tauri::command]
@@ -50,6 +62,8 @@ fn main() {
         get_engine_status,
         get_runtime_diagnostics,
         get_input_status,
+        get_audio_buffer_status,
+        get_calibration_flow_status,
         load_runtime_settings,
         save_default_runtime_settings,
         start_capture,
