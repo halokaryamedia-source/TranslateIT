@@ -11,13 +11,15 @@ The goal is to migrate TranslateIT from the current Python/PySide6 launcher and 
 - Rust-owned runtime state and lifecycle control,
 - Rust-owned configuration, cache, log, and saved-data paths,
 - Rust-owned audio evidence, calibration, and VAD gates,
+- native Rust audio device discovery,
 - Rust-owned native inference backend selection records,
+- Rust-owned CUDA probe and adapter planning boundaries,
 - Rust-owned adapter boundaries for ASR, translation, and TTS,
 - and a documented path for replacing the current Python engine modules without silently changing model behavior.
 
 ## Current status
 
-Status: `runtime support and adapter boundary baseline`.
+Status: `native diagnostics and adapter plan baseline`.
 
 This folder does not claim feature parity with the existing Python application yet. The current Rust commands intentionally return migration/scaffold status instead of pretending that ASR, translation, TTS, CUDA, or microphone capture are already converted.
 
@@ -59,6 +61,7 @@ RustApp/
         inference/
           mod.rs
           backend.rs
+          cuda_probe.rs
         adapters/
           mod.rs
           asr.rs
@@ -74,6 +77,7 @@ RustApp/
 - Final runtime must not depend on Python.
 - Do not silently replace Faster-Whisper, NLLB, MarianMT, custom voice, CUDA policy, or latency semantics.
 - Do not silently fall back from CUDA to CPU.
+- Do not report CUDA inference as ready just because `nvidia-smi` is present.
 - Every conversion step must update the related documentation in `DevelopingData/DocumentationData/SourceDocument/`.
 - Final testing is intentionally collected for the end of the conversion milestone, following the user's requested workflow.
 
@@ -86,10 +90,12 @@ Tauri WebView Frontend
      -> Rust config and path layer
      -> Rust settings persistence
      -> Rust logging and diagnostics
-     -> Rust audio device, calibration, evidence, and VAD layer
+     -> Native Rust audio device discovery
+     -> Rust audio calibration, evidence, and VAD layer
      -> Rust native inference backend selector
-     -> Rust ASR adapter
-     -> Rust translation adapter
+     -> Rust CUDA probe boundary
+     -> Rust ASR adapter plan
+     -> Rust translation adapter plan
      -> Rust TTS/output adapter
      -> UserData cache/log/save writers
 ```
@@ -108,6 +114,20 @@ The current scaffold exposes these Tauri commands:
 
 They are placeholders or support commands with explicit migration-state responses. They exist to stabilize the frontend/backend contract before replacing Python runtime behavior.
 
+## Current diagnostics coverage
+
+Diagnostics now reports:
+
+- project paths,
+- UserData paths,
+- native audio backend and discovered device count,
+- calibration profile status at `UserData/CacheData/rust_calibration_profile.json`,
+- `nvidia-smi` probe result,
+- native inference backend candidates,
+- ASR adapter plan,
+- translation adapter plan,
+- and current blockers.
+
 ## Validation script
 
 The scaffold presence check lives at:
@@ -116,4 +136,4 @@ The scaffold presence check lives at:
 DevelopingData/ToolKitData/Scripts/Execution/check_rust_app.py
 ```
 
-The script verifies that the RustApp scaffold, runtime support modules, audio gate modules, inference boundary modules, and engine contract files exist without running final runtime tests early.
+The script verifies that the RustApp scaffold, runtime support modules, audio gate modules, inference boundary modules, CUDA probe module, and engine contract files exist without running final runtime tests early.
