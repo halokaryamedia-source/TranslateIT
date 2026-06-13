@@ -4,9 +4,9 @@
 
 - Project: TranslateIT
 - Branch: `ChatGPT-ConvertEngine`
-- Conversion version: `0.6.2-rust-runtime-support-and-audio-gate`
+- Conversion version: `0.6.3-rust-device-calibration-inference-contracts`
 - Date: `2026-06-14`
-- Status: Full-Rust target with runtime support, native CUDA adapter boundaries, and Rust audio evidence gate baseline
+- Status: Full-Rust target with runtime support, audio gate, device/calibration contracts, and native inference backend selection boundary
 - Root baseline used: `Developing` commit `f412ba06bace37f6c0118eb20a6a2f91f0a63e76`
 - Observed commit: `76139bc13bd0b8f59f4307d98703a5f335460470`
 
@@ -57,15 +57,19 @@ EngineData/LauncherApp/RustApp/
   src-tauri/src/engine/models.rs
   src-tauri/src/engine/diagnostics.rs
   src-tauri/src/engine/audio/mod.rs
+  src-tauri/src/engine/audio/device.rs
+  src-tauri/src/engine/audio/calibration.rs
   src-tauri/src/engine/audio/evidence.rs
   src-tauri/src/engine/audio/vad.rs
+  src-tauri/src/engine/inference/mod.rs
+  src-tauri/src/engine/inference/backend.rs
   src-tauri/src/engine/adapters/mod.rs
   src-tauri/src/engine/adapters/asr.rs
   src-tauri/src/engine/adapters/translation.rs
   src-tauri/src/engine/adapters/tts.rs
 ```
 
-The scaffold includes a clean frontend shell, a Rust command bridge, runtime state contracts, config contracts, path discovery, settings persistence, logging, diagnostics, audio evidence/VAD gate baseline, CUDA policy contracts, and explicit pending-state responses.
+The scaffold includes a clean frontend shell, a Rust command bridge, runtime state contracts, config contracts, path discovery, settings persistence, logging, diagnostics, audio device/calibration/evidence/VAD contracts, native inference backend selection records, CUDA policy contracts, and explicit pending-state responses.
 
 ## Observed commit handling
 
@@ -98,12 +102,14 @@ Tauri Frontend
      -> Rust Config and Path Layer
      -> Rust Settings Persistence
      -> Rust Runtime Logging and Diagnostics
-     -> Rust Audio Capture and Calibration
+     -> Rust Audio Device Discovery
+     -> Rust Audio Calibration
      -> Rust Audio Evidence Gate
      -> Rust VAD
      -> Native ASR Adapter
      -> Native Translation Adapter
      -> Native TTS and Output Adapter
+     -> Native CUDA Inference Backend
      -> UserData Cache, Log, and Save Writers
 ```
 
@@ -112,10 +118,12 @@ Tauri Frontend
 | Area | Risk | Control |
 | --- | --- | --- |
 | CUDA translation | Rust alone does not guarantee faster CUDA inference | Use native CUDA-capable backend through Rust-owned adapter |
+| Native inference selection | Wrong backend can break quality, latency, or packaging | Record candidate backend and reason before implementation |
 | NLLB and Marian tokenizer parity | Output can change if tokenizer behavior differs | Treat Python output as reference until parity QA passes |
 | ASR parity | Faster-Whisper behavior can change if backend differs | Preserve model, decode profile, prompt, and confidence rules |
 | CPU fallback | App can feel working but no longer meets target performance | CUDA must be visibly validated before Ready |
 | Audio gate | Silence/noise could reach ASR if capture is ported too directly | Rust audio evidence and VAD gate must reject weak input before ASR |
+| Audio device selection | Wrong input/output route can make app look broken | Device discovery and calibration must be explicit and logged |
 | TTS/custom voice | Easy to regress into default voice or double playback | Adapter must report provider, fallback, cache, and cancel behavior |
 | Packaging | Windows DLL/runtime packaging can break CUDA at user launch | Validate native dependencies only in the final milestone gate |
 
@@ -161,20 +169,27 @@ Status: Started.
 - Port 16 kHz mono pipeline.
 - Preserve raw-audio VAD behavior.
 - Rust audio evidence and VAD gate baseline is now present.
+- Audio device and calibration contracts are now present.
 
 ### Phase 4 — ASR adapter parity
+
+Status: Boundary started.
 
 - Preserve Faster-Whisper Large V3 Turbo behavior unless a replacement is explicitly approved.
 - Preserve Medium fallback behavior.
 - Preserve CUDA-first validation.
 - Final adapter must not require Python.
+- Native inference backend selection record is now present.
 
 ### Phase 5 — Translation adapter parity
+
+Status: Boundary started.
 
 - Preserve local NLLB primary behavior.
 - Preserve Marian Indonesian-English fallback behavior.
 - Preserve deterministic short-phrase handling.
 - Final adapter must not require Python.
+- Native inference backend selection record is now present.
 
 ### Phase 6 — TTS/output parity
 
@@ -214,4 +229,4 @@ EngineData/LauncherApp/RustApp/README.md
 
 ## Current implementation truth
 
-This branch currently contains a Rust/Tauri scaffold, Rust runtime support modules, audio evidence and VAD gate modules, CUDA policy boundary, adapter contracts, and migration documentation. The runtime engine itself is not fully converted yet.
+This branch currently contains a Rust/Tauri scaffold, Rust runtime support modules, audio device/calibration/evidence/VAD gate modules, native inference backend selection contracts, CUDA policy boundary, adapter contracts, and migration documentation. The runtime engine itself is not fully converted yet.
