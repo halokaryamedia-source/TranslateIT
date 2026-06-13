@@ -1,4 +1,7 @@
 use serde::{Deserialize, Serialize};
+use std::fs;
+use std::io;
+use std::path::Path;
 
 use super::evidence::AudioEvidenceReport;
 
@@ -39,5 +42,19 @@ impl CalibrationProfile {
                 "Calibration is not usable yet. Speech evidence is too close to quiet noise floor or peak is too low.".to_string()
             },
         }
+    }
+
+    pub fn load(path: &Path) -> Option<Self> {
+        let raw = fs::read_to_string(path).ok()?;
+        serde_json::from_str::<Self>(&raw).ok()
+    }
+
+    pub fn save_pretty(&self, path: &Path) -> io::Result<()> {
+        if let Some(parent) = path.parent() {
+            fs::create_dir_all(parent)?;
+        }
+        let body = serde_json::to_string_pretty(self)
+            .map_err(|error| io::Error::new(io::ErrorKind::InvalidData, error))?;
+        fs::write(path, body)
     }
 }
