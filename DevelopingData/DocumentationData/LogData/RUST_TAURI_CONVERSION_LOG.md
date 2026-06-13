@@ -2,16 +2,16 @@
 
 ## Current entry
 
-- Version: `0.6.3-rust-device-calibration-inference-contracts`
+- Version: `0.6.4-native-device-cuda-probe-adapter-plans`
 - Date: `2026-06-14`
 - Branch: `ChatGPT-ConvertEngine`
-- Status: Full-Rust target documented; device/calibration and native inference backend contracts added
+- Status: Native audio discovery, calibration status, CUDA probe, and adapter backend plans added
 - Root baseline: `Developing` commit `f412ba06bace37f6c0118eb20a6a2f91f0a63e76`
 - Observed commit: `76139bc13bd0b8f59f4307d98703a5f335460470`
 
 ## Summary
 
-Created the professional Rust/Tauri conversion baseline, extended it with Rust-owned runtime contracts, added runtime support modules, added audio evidence/VAD gate baseline, and added native device/calibration plus inference backend selection contracts. The final target remains full Rust ownership of the runtime without a Python dependency in the final application.
+Created the professional Rust/Tauri conversion baseline, extended it with Rust-owned runtime contracts, added runtime support modules, added audio evidence/VAD gate baseline, added native device/calibration plus inference backend contracts, then advanced diagnostics with concrete native audio discovery, CUDA host probing, and ASR/translation backend plans. The final target remains full Rust ownership of the runtime without a Python dependency in the final application.
 
 ## Changes made
 
@@ -40,9 +40,15 @@ Created the professional Rust/Tauri conversion baseline, extended it with Rust-o
 - Added Rust audio evidence calculation.
 - Added Rust VAD gate contract.
 - Added Rust audio device discovery contract.
+- Added native Rust audio device discovery using `cpal`.
 - Added Rust calibration profile contract.
+- Added Rust calibration profile status path under `UserData/CacheData/rust_calibration_profile.json`.
 - Added Rust native inference backend selection contract.
-- Extended the scaffold checker to validate runtime support, audio gate, device/calibration, and inference files.
+- Added native CUDA host probe boundary using `nvidia-smi`.
+- Added ASR adapter plan that consumes native backend selection and CUDA probe.
+- Added translation adapter plan that consumes native backend selection and CUDA probe.
+- Updated frontend diagnostics to show native audio, CUDA, calibration, and adapter-plan information.
+- Extended the scaffold checker to validate runtime support, audio gate, device/calibration, inference, and CUDA probe files.
 
 ## Important decision
 
@@ -62,8 +68,8 @@ No final runtime test was run in this step. This is intentional because the requ
 
 ## Next conversion target
 
-- Add concrete native Rust microphone backend choice.
-- Add calibration save/load file path.
-- Add CUDA backend probe boundary.
-- Add ASR and translation adapter skeletons that consume the native inference backend selection record.
+- Add real Rust microphone capture worker boundary using the selected audio backend.
+- Add calibration command flow when real microphone capture is available.
+- Add concrete CUDA backend validation for the chosen native inference path.
+- Add ASR and translation adapter execution skeletons after backend selection is finalized.
 - Preserve CUDA-first behavior, ASR behavior, translation behavior, TTS/output visibility, and `UserData` path rules.
