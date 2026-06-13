@@ -2,16 +2,16 @@
 
 ## Current entry
 
-- Version: `0.6.2-rust-runtime-support-and-audio-gate`
+- Version: `0.6.3-rust-device-calibration-inference-contracts`
 - Date: `2026-06-14`
 - Branch: `ChatGPT-ConvertEngine`
-- Status: Full-Rust target documented; runtime support and Rust audio evidence gate baseline added
+- Status: Full-Rust target documented; device/calibration and native inference backend contracts added
 - Root baseline: `Developing` commit `f412ba06bace37f6c0118eb20a6a2f91f0a63e76`
 - Observed commit: `76139bc13bd0b8f59f4307d98703a5f335460470`
 
 ## Summary
 
-Created the professional Rust/Tauri conversion baseline, extended it with Rust-owned runtime contracts, then added runtime support modules and the first Rust audio evidence/VAD gate baseline. The final target remains full Rust ownership of the runtime without a Python dependency in the final application.
+Created the professional Rust/Tauri conversion baseline, extended it with Rust-owned runtime contracts, added runtime support modules, added audio evidence/VAD gate baseline, and added native device/calibration plus inference backend selection contracts. The final target remains full Rust ownership of the runtime without a Python dependency in the final application.
 
 ## Changes made
 
@@ -39,7 +39,10 @@ Created the professional Rust/Tauri conversion baseline, extended it with Rust-o
 - Added Rust audio target format contract.
 - Added Rust audio evidence calculation.
 - Added Rust VAD gate contract.
-- Extended the scaffold checker to validate runtime support and audio gate files.
+- Added Rust audio device discovery contract.
+- Added Rust calibration profile contract.
+- Added Rust native inference backend selection contract.
+- Extended the scaffold checker to validate runtime support, audio gate, device/calibration, and inference files.
 
 ## Important decision
 
@@ -59,8 +62,8 @@ No final runtime test was run in this step. This is intentional because the requ
 
 ## Next conversion target
 
-- Add native Rust microphone device discovery plan and module boundary.
-- Add Rust calibration data contract.
-- Add native ASR backend selection record.
-- Add native translation backend selection record.
+- Add concrete native Rust microphone backend choice.
+- Add calibration save/load file path.
+- Add CUDA backend probe boundary.
+- Add ASR and translation adapter skeletons that consume the native inference backend selection record.
 - Preserve CUDA-first behavior, ASR behavior, translation behavior, TTS/output visibility, and `UserData` path rules.
