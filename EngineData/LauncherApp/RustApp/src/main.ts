@@ -60,6 +60,12 @@ type RuntimeDiagnostics = {
     }>;
     blocker: string | null;
   };
+  calibration_profile_status: {
+    path: string;
+    present: boolean;
+    profile: unknown | null;
+    note: string;
+  };
   cuda_probe: CudaProbeReport;
   native_inference_candidates: NativeInferenceBackendSelection[];
   asr_adapter_plan: AdapterPlan;
@@ -243,6 +249,7 @@ function renderDiagnostics(diagnostics: RuntimeDiagnostics, settings: RuntimeSet
     `Translation models: ${diagnostics.project_paths.translation_model_dir}`,
     `Audio backend: ${diagnostics.audio_device_discovery.backend_id}`,
     `Audio devices discovered: ${diagnostics.audio_device_discovery.devices.length}`,
+    `Calibration profile: ${diagnostics.calibration_profile_status.present} | ${diagnostics.calibration_profile_status.path}`,
     `CUDA nvidia-smi: ${diagnostics.cuda_probe.nvidia_smi_available}`,
     `CUDA GPU: ${diagnostics.cuda_probe.gpu_summary ?? "not detected"}`,
     `CUDA runtime ready: ${diagnostics.cuda_probe.cuda_runtime_ready}`,
