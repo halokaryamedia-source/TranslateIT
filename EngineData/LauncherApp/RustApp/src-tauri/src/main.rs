@@ -5,6 +5,7 @@ use engine::adapters::language_logic::{run_language_logic, LanguageLogicReport, 
 use engine::adapters::latency_logic::{build_latency_logic, build_vad_profile, LatencyLogicReport, LatencyLogicRequest, VadProfileReport, VadProfileRequest};
 use engine::adapters::model_check::{check_model_request, ModelCheckRequest, ModelCheckResult};
 use engine::adapters::output_dry_run::{run_output_dry_check, OutputDryRunRequest, OutputDryRunResult};
+use engine::adapters::session_logic::{build_session_metric_report, build_worker_health, SessionMetricReport, SessionMetricRequest, WorkerHealthReport, WorkerHealthRequest};
 use engine::adapters::text_dry_run::{run_text_dry_check, TextDryRunRequest, TextDryRunResult};
 use engine::audio::buffer::{inspect_frame, planned_buffer_status, AudioBufferStatus, AudioFrameInspectionReport};
 use engine::audio::calibration_flow::{save_calibration_from_evidence, CalibrationFlowStatus, CalibrationSaveResult};
@@ -49,6 +50,16 @@ fn analyze_language_logic(request: LanguageLogicRequest) -> LanguageLogicReport 
 #[tauri::command]
 fn analyze_latency_logic(request: LatencyLogicRequest) -> LatencyLogicReport {
     build_latency_logic(request)
+}
+
+#[tauri::command]
+fn analyze_session_metrics(request: SessionMetricRequest) -> SessionMetricReport {
+    build_session_metric_report(request)
+}
+
+#[tauri::command]
+fn analyze_worker_health(request: WorkerHealthRequest) -> WorkerHealthReport {
+    build_worker_health(request)
 }
 
 #[tauri::command]
@@ -129,6 +140,8 @@ fn main() {
         analyze_audio_payload,
         analyze_language_logic,
         analyze_latency_logic,
+        analyze_session_metrics,
+        analyze_worker_health,
         resolve_vad_profile,
         get_calibration_flow_status,
         save_calibration_profile,
