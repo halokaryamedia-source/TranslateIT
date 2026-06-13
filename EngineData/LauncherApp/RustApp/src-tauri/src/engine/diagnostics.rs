@@ -26,6 +26,7 @@ impl RuntimeDiagnostics {
         let asr = AsrAdapterContract::default();
         let translation = TranslationAdapterContract::default();
         let tts = TtsAdapterContract::default();
+        let audio_device_discovery = AudioDeviceDiscoveryReport::discover_native();
 
         let native_inference_candidates = vec![
             NativeInferenceBackendSelection::ctranslate2_candidate(),
@@ -41,7 +42,7 @@ impl RuntimeDiagnostics {
             format!("native-tensorrt-adapter: {}", CudaBackendStrategy::NativeTensorRtAdapter.risk_note()),
         ];
 
-        let blockers = vec![
+        let mut blockers = vec![
             asr.blocker_note().to_string(),
             translation.blocker_note().to_string(),
             tts.blocker_note().to_string(),
@@ -50,11 +51,15 @@ impl RuntimeDiagnostics {
             path_note("User saved", &project_paths.user_saved_dir),
         ];
 
+        if let Some(blocker) = &audio_device_discovery.blocker {
+            blockers.push(blocker.clone());
+        }
+
         Self {
             project_paths,
             rust_runtime_target: APPROVED_FULL_RUST_DIRECTION.to_string(),
             final_runtime_allows_python: false,
-            audio_device_discovery: AudioDeviceDiscoveryReport::pending_native_backend(),
+            audio_device_discovery,
             native_inference_candidates,
             cuda_backend_candidates,
             blockers,
