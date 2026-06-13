@@ -4,9 +4,9 @@
 
 - Project: TranslateIT
 - Branch: `ChatGPT-ConvertEngine`
-- Conversion version: `0.6.1-rust-engine-contract-baseline`
+- Conversion version: `0.6.2-rust-runtime-support-and-audio-gate`
 - Date: `2026-06-14`
-- Status: Full-Rust target with native CUDA adapter boundaries
+- Status: Full-Rust target with runtime support, native CUDA adapter boundaries, and Rust audio evidence gate baseline
 - Root baseline used: `Developing` commit `f412ba06bace37f6c0118eb20a6a2f91f0a63e76`
 - Observed commit: `76139bc13bd0b8f59f4307d98703a5f335460470`
 
@@ -24,6 +24,8 @@ The final target is a Rust-owned runtime. Python remains only a behavior referen
 - Rust command bridge.
 - Rust lifecycle state.
 - Rust configuration and path ownership.
+- Rust runtime settings persistence.
+- Rust runtime logging and diagnostics.
 - Rust audio capture, calibration, and VAD.
 - Rust-owned adapter boundaries for ASR, translation, and TTS.
 - No Python runtime dependency in the final app.
@@ -49,13 +51,21 @@ EngineData/LauncherApp/RustApp/
   src-tauri/src/engine/state.rs
   src-tauri/src/engine/config.rs
   src-tauri/src/engine/cuda_policy.rs
+  src-tauri/src/engine/paths.rs
+  src-tauri/src/engine/settings.rs
+  src-tauri/src/engine/logging.rs
+  src-tauri/src/engine/models.rs
+  src-tauri/src/engine/diagnostics.rs
+  src-tauri/src/engine/audio/mod.rs
+  src-tauri/src/engine/audio/evidence.rs
+  src-tauri/src/engine/audio/vad.rs
   src-tauri/src/engine/adapters/mod.rs
   src-tauri/src/engine/adapters/asr.rs
   src-tauri/src/engine/adapters/translation.rs
   src-tauri/src/engine/adapters/tts.rs
 ```
 
-The scaffold includes a clean frontend shell, a Rust command bridge, runtime state contracts, config contracts, CUDA policy contracts, and explicit pending-state responses.
+The scaffold includes a clean frontend shell, a Rust command bridge, runtime state contracts, config contracts, path discovery, settings persistence, logging, diagnostics, audio evidence/VAD gate baseline, CUDA policy contracts, and explicit pending-state responses.
 
 ## Observed commit handling
 
@@ -86,7 +96,10 @@ Tauri Frontend
   -> Rust Command API
      -> Rust Lifecycle State
      -> Rust Config and Path Layer
+     -> Rust Settings Persistence
+     -> Rust Runtime Logging and Diagnostics
      -> Rust Audio Capture and Calibration
+     -> Rust Audio Evidence Gate
      -> Rust VAD
      -> Native ASR Adapter
      -> Native Translation Adapter
@@ -102,6 +115,7 @@ Tauri Frontend
 | NLLB and Marian tokenizer parity | Output can change if tokenizer behavior differs | Treat Python output as reference until parity QA passes |
 | ASR parity | Faster-Whisper behavior can change if backend differs | Preserve model, decode profile, prompt, and confidence rules |
 | CPU fallback | App can feel working but no longer meets target performance | CUDA must be visibly validated before Ready |
+| Audio gate | Silence/noise could reach ASR if capture is ported too directly | Rust audio evidence and VAD gate must reject weak input before ASR |
 | TTS/custom voice | Easy to regress into default voice or double playback | Adapter must report provider, fallback, cache, and cancel behavior |
 | Packaging | Windows DLL/runtime packaging can break CUDA at user launch | Validate native dependencies only in the final milestone gate |
 
@@ -124,23 +138,29 @@ Status: Started.
 - Match the clean main UI direction.
 - Stabilize frontend/backend command payloads.
 - Keep pending features clearly labeled.
+- Expose diagnostics and settings commands without claiming runtime parity.
 
 ### Phase 2 — Rust runtime state and config
 
 Status: Started.
 
 - Port config models.
+- Port path discovery.
 - Port audio settings persistence.
+- Port runtime logging.
 - Port lifecycle transitions.
 - Preserve `UserData` paths.
 - Keep Python only as reference.
 
 ### Phase 3 — Audio capture and VAD
 
+Status: Started.
+
 - Port microphone discovery.
 - Port calibration.
 - Port 16 kHz mono pipeline.
 - Preserve raw-audio VAD behavior.
+- Rust audio evidence and VAD gate baseline is now present.
 
 ### Phase 4 — ASR adapter parity
 
@@ -194,4 +214,4 @@ EngineData/LauncherApp/RustApp/README.md
 
 ## Current implementation truth
 
-This branch currently contains a Rust/Tauri scaffold, Rust runtime contract modules, CUDA policy boundary, adapter contracts, and migration documentation. The runtime engine itself is not fully converted yet.
+This branch currently contains a Rust/Tauri scaffold, Rust runtime support modules, audio evidence and VAD gate modules, CUDA policy boundary, adapter contracts, and migration documentation. The runtime engine itself is not fully converted yet.
