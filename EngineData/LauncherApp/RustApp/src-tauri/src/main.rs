@@ -1,5 +1,6 @@
 mod engine;
 
+use engine::audio::input::InputPreparationStatus;
 use engine::diagnostics::RuntimeDiagnostics;
 use engine::settings::RuntimeSettings;
 use engine::state::{CommandResult, EngineStatus};
@@ -12,6 +13,11 @@ fn get_engine_status() -> EngineStatus {
 #[tauri::command]
 fn get_runtime_diagnostics() -> RuntimeDiagnostics {
     engine::runtime_diagnostics()
+}
+
+#[tauri::command]
+fn get_input_status() -> InputPreparationStatus {
+    InputPreparationStatus::inspect_default_input()
 }
 
 #[tauri::command]
@@ -43,6 +49,7 @@ fn main() {
     let app = tauri::Builder::default().invoke_handler(tauri::generate_handler![
         get_engine_status,
         get_runtime_diagnostics,
+        get_input_status,
         load_runtime_settings,
         save_default_runtime_settings,
         start_capture,
