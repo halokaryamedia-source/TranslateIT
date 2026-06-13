@@ -12,6 +12,37 @@ type EngineStatus = {
   notes: string[];
 };
 
+type RuntimeDiagnostics = {
+  project_paths: {
+    project_root: string;
+    user_cache_dir: string;
+    user_log_dir: string;
+    user_saved_dir: string;
+    asr_model_dir: string;
+    translation_model_dir: string;
+    discovery_note: string;
+  };
+  rust_runtime_target: string;
+  final_runtime_allows_python: boolean;
+  cuda_backend_candidates: string[];
+  blockers: string[];
+};
+
+type RuntimeSettings = {
+  schema_version: number;
+  language_focus_mode: string;
+  source_language: string;
+  target_language: string;
+  voice_actor_profile_id: string;
+  audio: {
+    input_device_id: string | null;
+    output_device_id: string | null;
+    sensitivity: number;
+    allow_cpu_degraded_mode: boolean;
+    auto_play_translation_voice: boolean;
+  };
+};
+
 type CommandResult = {
   ok: boolean;
   state: string;
@@ -70,6 +101,8 @@ app.innerHTML = `
           <button id="startButton" class="primary" type="button">Start</button>
           <button id="stopButton" class="secondary" type="button">Stop</button>
           <button id="translateButton" class="secondary" type="button">Translate Text</button>
+          <button id="diagnosticsButton" class="secondary" type="button">Diagnostics</button>
+          <button id="saveSettingsButton" class="secondary" type="button">Save Settings</button>
         </div>
       </section>
 
@@ -106,6 +139,8 @@ const translationOutput = document.querySelector<HTMLParagraphElement>("#transla
 const startButton = document.querySelector<HTMLButtonElement>("#startButton");
 const stopButton = document.querySelector<HTMLButtonElement>("#stopButton");
 const translateButton = document.querySelector<HTMLButtonElement>("#translateButton");
+const diagnosticsButton = document.querySelector<HTMLButtonElement>("#diagnosticsButton");
+const saveSettingsButton = document.querySelector<HTMLButtonElement>("#saveSettingsButton");
 
 function requireElement<T extends Element>(element: T | null, name: string): T {
   if (!element) {
@@ -126,19 +161,47 @@ const ui = {
   startButton: requireElement(startButton, "start button"),
   stopButton: requireElement(stopButton, "stop button"),
   translateButton: requireElement(translateButton, "translate button"),
+  diagnosticsButton: requireElement(diagnosticsButton, "diagnostics button"),
+  saveSettingsButton: requireElement(saveSettingsButton, "save settings button"),
 };
+
+function renderList(items: string[]): void {
+  ui.statusNotes.innerHTML = "";
+  for (const item of items) {
+    const li = document.createElement("li");
+    li.textContent = item;
+    ui.statusNotes.append(li);
+  }
+}
 
 function renderStatus(status: EngineStatus): void {
   ui.stageBadge.textContent = `Stage: ${status.runtime_stage}`;
   ui.cudaBadge.textContent = `CUDA: ${status.cuda_policy}`;
   ui.lifecycleBadge.textContent = `State: ${status.lifecycle_state}`;
   ui.statusMessage.textContent = `${status.asr_engine} / ${status.translation_engine} / ${status.tts_engine}`;
-  ui.statusNotes.innerHTML = status.notes.map((note) => `<li>${note}</li>`).join("");
+  renderList(status.notes);
 }
 
 function renderCommandResult(result: CommandResult): void {
   ui.lifecycleBadge.textContent = `State: ${result.state}`;
   ui.statusMessage.textContent = result.message;
+}
+
+function renderDiagnostics(diagnostics: RuntimeDiagnostics, settings: RuntimeSettings): void {
+  ui.lifecycleBadge.textContent = "State: diagnostics";
+  ui.statusMessage.textContent = diagnostics.rust_runtime_target;
+  renderList([
+    `Project root: ${diagnostics.project_paths.project_root}`,
+    `Cache: ${diagnostics.project_paths.user_cache_dir}`,
+    `Logs: ${diagnostics.project_paths.user_log_dir}`,
+    `Saved: ${diagnostics.project_paths.user_saved_dir}`,
+    `ASR models: ${diagnostics.project_paths.asr_model_dir}`,
+    `Translation models: ${diagnostics.project_paths.translation_model_dir}`,
+    `Final runtime allows Python: ${diagnostics.final_runtime_allows_python}`,
+    `Settings: ${settings.source_language} -> ${settings.target_language}, voice=${settings.voice_actor_profile_id}`,
+    ...diagnostics.cuda_backend_candidates,
+    ...diagnostics.blockers,
+  ]);
 }
 
 async function refreshStatus(): Promise<void> {
@@ -163,6 +226,19 @@ ui.translateButton.addEventListener("click", async () => {
   ui.originalOutput.classList.toggle("muted-text", !source);
   ui.translationOutput.textContent = result.message;
   ui.translationOutput.classList.remove("muted-text");
+  renderCommandResult(result);
+});
+
+ui.diagnosticsButton.addEventListener("click", async () => {
+  const [diagnostics, settings] = await Promise.all([
+    invoke<RuntimeDiagnostics>("get_runtime_diagnostics"),
+    invoke<RuntimeSettings>("load_runtime_settings"),
+  ]);
+  renderDiagnostics(diagnostics, settings);
+});
+
+ui.saveSettingsButton.addEventListener("click", async () => {
+  const result = await invoke<CommandResult>("save_default_runtime_settings");
   renderCommandResult(result);
 });
 
