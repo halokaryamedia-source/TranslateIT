@@ -11,6 +11,12 @@
 
 This checklist defines what must be verified at the end of the Rust/Tauri conversion milestone. It does not mark the runtime as ready.
 
+## One-command validation runner
+
+```powershell
+.\DevelopingData\ToolKitData\Scripts\Execution\run_rustapp_final_validation.ps1
+```
+
 ## Required script checks
 
 ```powershell
