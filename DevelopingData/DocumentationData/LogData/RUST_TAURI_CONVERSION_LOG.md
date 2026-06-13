@@ -2,16 +2,16 @@
 
 ## Current entry
 
-- Version: `0.6.8-native-validation-boundaries`
+- Version: `0.6.9-output-plan-boundary`
 - Date: `2026-06-14`
 - Branch: `ChatGPT-ConvertEngine`
-- Status: Native validation and adapter boundary commands added
+- Status: Output plan boundary added
 - Root baseline: `Developing` commit `f412ba06bace37f6c0118eb20a6a2f91f0a63e76`
 - Observed commit: `76139bc13bd0b8f59f4307d98703a5f335460470`
 
 ## Summary
 
-The Rust/Tauri branch now includes native audio boundaries, calibration profile flow, native dependency visibility checks, and adapter boundary commands. The app still does not claim full runtime readiness.
+The Rust/Tauri branch includes native audio boundaries, calibration profile flow, native dependency checks, ASR/text boundary commands, and output plan boundary. The app still does not claim full runtime readiness.
 
 ## Changes made
 
@@ -26,7 +26,8 @@ The Rust/Tauri branch now includes native audio boundaries, calibration profile 
 - Exposed `validate_native_cuda_backend` command.
 - Added ASR dry check module and command.
 - Added text dry check module and command.
-- Added `check_rust_runtime_boundaries.py` for focused boundary file checks.
+- Added output plan module and command.
+- Added focused runtime boundary checker.
 
 ## Important decision
 
@@ -38,6 +39,6 @@ No final runtime test was run in this step. This is intentional because the requ
 
 ## Next conversion target
 
-- Add output adapter boundary.
 - Add native packaging manifest for selected backend files.
 - Add final validation checklist for Rust boundary commands.
+- Prepare final milestone test command list.
