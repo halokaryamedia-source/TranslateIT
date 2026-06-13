@@ -12,6 +12,23 @@ pub struct NativeBackendFileCheck {
 }
 
 #[derive(Debug, Clone, Serialize)]
+pub struct NativeRuntimeFileRequirement {
+    pub file_name: String,
+    pub required: bool,
+    pub purpose: String,
+}
+
+#[derive(Debug, Clone, Serialize)]
+pub struct NativeRuntimeFileRequirementList {
+    pub backend_id: String,
+    pub device: String,
+    pub compute_type: String,
+    pub final_runtime_allows_python: bool,
+    pub files: Vec<NativeRuntimeFileRequirement>,
+    pub note: String,
+}
+
+#[derive(Debug, Clone, Serialize)]
 pub struct NativeCudaBackendValidationReport {
     pub backend_id: String,
     pub device: String,
@@ -20,6 +37,24 @@ pub struct NativeCudaBackendValidationReport {
     pub dependency_checks: Vec<NativeBackendFileCheck>,
     pub ready: bool,
     pub blocker: String,
+}
+
+impl NativeRuntimeFileRequirementList {
+    pub fn ctranslate2_cuda_candidate() -> Self {
+        Self {
+            backend_id: "native-ctranslate2-cuda-ffi".to_string(),
+            device: "cuda".to_string(),
+            compute_type: "float16".to_string(),
+            final_runtime_allows_python: false,
+            files: vec![
+                runtime_file("ctranslate2.dll", true, "model runtime"),
+                runtime_file("cudart64_12.dll", true, "cuda runtime"),
+                runtime_file("cublas64_12.dll", true, "cuda math"),
+                runtime_file("cublasLt64_12.dll", true, "cuda math lt"),
+            ],
+            note: "Requirement list only. Real model validation is still required before Ready.".to_string(),
+        }
+    }
 }
 
 impl NativeCudaBackendValidationReport {
@@ -51,6 +86,14 @@ impl NativeCudaBackendValidationReport {
                 "Native CTranslate2 CUDA dependency visibility is incomplete. Do not report CUDA inference Ready.".to_string()
             },
         }
+    }
+}
+
+fn runtime_file(file_name: &str, required: bool, purpose: &str) -> NativeRuntimeFileRequirement {
+    NativeRuntimeFileRequirement {
+        file_name: file_name.to_string(),
+        required,
+        purpose: purpose.to_string(),
     }
 }
 
