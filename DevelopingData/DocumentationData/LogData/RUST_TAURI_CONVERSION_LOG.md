@@ -2,16 +2,16 @@
 
 ## Current entry
 
-- Version: `0.6.6-audio-buffer-calibration-flow-boundary`
+- Version: `0.6.7-audio-payload-analysis-calibration-save`
 - Date: `2026-06-14`
 - Branch: `ChatGPT-ConvertEngine`
-- Status: Audio buffer boundary and calibration flow status commands added
+- Status: Audio payload analysis and calibration profile save commands added
 - Root baseline: `Developing` commit `f412ba06bace37f6c0118eb20a6a2f91f0a63e76`
 - Observed commit: `76139bc13bd0b8f59f4307d98703a5f335460470`
 
 ## Summary
 
-Created the Rust/Tauri conversion baseline and added Rust-owned runtime contracts, diagnostics, native audio discovery, input preparation, CUDA probe, ASR and translation adapter plans, audio buffer status, and calibration flow status.
+Created the Rust/Tauri conversion baseline and advanced the Rust audio pipeline boundary. The app can now analyze an audio payload against buffer, evidence, and VAD rules, and it can save a calibration profile from quiet and speech evidence.
 
 ## Changes made
 
@@ -23,8 +23,12 @@ Created the Rust/Tauri conversion baseline and added Rust-owned runtime contract
 - Exposed direct `get_input_status` Tauri command.
 - Added Rust audio buffer boundary.
 - Exposed direct `get_audio_buffer_status` Tauri command.
+- Added Rust audio payload analysis through buffer, evidence, and VAD rules.
+- Exposed direct `analyze_audio_payload` Tauri command.
 - Added Rust calibration flow status.
 - Exposed direct `get_calibration_flow_status` Tauri command.
+- Added calibration profile save flow from quiet and speech evidence.
+- Exposed direct `save_calibration_profile` Tauri command.
 - Added calibration profile status path under `UserData/CacheData/rust_calibration_profile.json`.
 - Added native CUDA host probe boundary using `nvidia-smi`.
 - Added ASR and translation adapter plans that consume native backend selection and CUDA probe.
@@ -42,7 +46,6 @@ No final runtime test was run in this step. This is intentional because the requ
 
 ## Next conversion target
 
-- Add real buffer population after input preparation.
-- Add calibration profile save flow from real quiet and speech evidence.
 - Add concrete CUDA backend validation for the chosen native inference path.
 - Add ASR and translation adapter execution skeletons after backend selection is finalized.
+- Add TTS/output adapter execution boundary.
