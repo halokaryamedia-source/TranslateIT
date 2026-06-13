@@ -6,6 +6,7 @@ use engine::adapters::latency_logic::{build_latency_logic, build_vad_profile, La
 use engine::adapters::model_check::{check_model_request, ModelCheckRequest, ModelCheckResult};
 use engine::adapters::output_dry_run::{run_output_dry_check, OutputDryRunRequest, OutputDryRunResult};
 use engine::adapters::pipeline_logic::{check_stale_job, decide_pipeline, PipelineDecisionReport, PipelineDecisionRequest, StaleJobGuardReport, StaleJobGuardRequest};
+use engine::adapters::playback_logic::{plan_playback, PlaybackLogicRequest, PlaybackLogicResult};
 use engine::adapters::session_logic::{build_session_metric_report, build_worker_health, SessionMetricReport, SessionMetricRequest, WorkerHealthReport, WorkerHealthRequest};
 use engine::adapters::text_dry_run::{run_text_dry_check, TextDryRunRequest, TextDryRunResult};
 use engine::adapters::translation_logic::{run_translation_logic, TranslationLogicRequest, TranslationLogicResult};
@@ -83,6 +84,11 @@ fn check_stale_job_guard(request: StaleJobGuardRequest) -> StaleJobGuardReport {
 #[tauri::command]
 fn plan_translation_logic(request: TranslationLogicRequest) -> TranslationLogicResult {
     run_translation_logic(request)
+}
+
+#[tauri::command]
+fn plan_playback_logic(request: PlaybackLogicRequest) -> PlaybackLogicResult {
+    plan_playback(request)
 }
 
 #[tauri::command]
@@ -169,6 +175,7 @@ fn main() {
         decide_pipeline_step,
         check_stale_job_guard,
         plan_translation_logic,
+        plan_playback_logic,
         resolve_vad_profile,
         get_calibration_flow_status,
         save_calibration_profile,
