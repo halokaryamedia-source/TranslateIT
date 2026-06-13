@@ -1,6 +1,7 @@
 mod engine;
 
 use engine::adapters::asr_dry_run::{run_asr_dry_check, AsrDryRunRequest, AsrDryRunResult};
+use engine::adapters::model_check::{check_model_request, ModelCheckRequest, ModelCheckResult};
 use engine::adapters::output_dry_run::{run_output_dry_check, OutputDryRunRequest, OutputDryRunResult};
 use engine::adapters::text_dry_run::{run_text_dry_check, TextDryRunRequest, TextDryRunResult};
 use engine::audio::buffer::{inspect_frame, planned_buffer_status, AudioBufferStatus, AudioFrameInspectionReport};
@@ -73,6 +74,11 @@ fn check_output_plan(request: OutputDryRunRequest) -> OutputDryRunResult {
 }
 
 #[tauri::command]
+fn check_model_plan(request: ModelCheckRequest) -> ModelCheckResult {
+    check_model_request(request)
+}
+
+#[tauri::command]
 fn load_runtime_settings() -> RuntimeSettings {
     engine::load_settings()
 }
@@ -110,6 +116,7 @@ fn main() {
         run_asr_dry_run,
         run_text_dry_run,
         check_output_plan,
+        check_model_plan,
         load_runtime_settings,
         save_default_runtime_settings,
         start_capture,
