@@ -1,5 +1,7 @@
 use serde::Serialize;
 
+use super::evidence::AudioEvidenceReport;
+use super::vad::{evaluate_vad_gate, VadGateConfig, VadGateResult};
 use super::{AudioFrame, TARGET_CHANNELS, TARGET_SAMPLE_RATE_HZ};
 
 #[derive(Debug, Clone, Serialize)]
@@ -10,6 +12,15 @@ pub struct AudioBufferStatus {
     pub current_frames: usize,
     pub ready_for_calibration: bool,
     pub ready_for_vad: bool,
+    pub note: String,
+}
+
+#[derive(Debug, Clone, Serialize)]
+pub struct AudioFrameInspectionReport {
+    pub accepted_by_buffer: bool,
+    pub buffer_status: AudioBufferStatus,
+    pub evidence: AudioEvidenceReport,
+    pub vad_result: VadGateResult,
     pub note: String,
 }
 
@@ -68,4 +79,24 @@ impl Default for AudioBufferStatus {
 
 pub fn planned_buffer_status() -> AudioBufferStatus {
     AudioFrameBuffer::new(32).status()
+}
+
+pub fn inspect_frame(frame: AudioFrame) -> AudioFrameInspectionReport {
+    let evidence = AudioEvidenceReport::from_samples(&frame.samples);
+    let vad_result = evaluate_vad_gate(evidence.clone(), &VadGateConfig::default());
+    let mut buffer = AudioFrameBuffer::new(32);
+    let accepted_by_buffer = buffer.push(frame).is_ok();
+    let note = if accepted_by_buffer {
+        "Audio frame passed target-format buffer validation."
+    } else {
+        "Audio frame failed target-format buffer validation."
+    };
+
+    AudioFrameInspectionReport {
+        accepted_by_buffer,
+        buffer_status: buffer.status(),
+        evidence,
+        vad_result,
+        note: note.to_string(),
+    }
 }
