@@ -9,6 +9,7 @@ use super::audio::device::AudioDeviceDiscoveryReport;
 use super::audio::input::InputPreparationStatus;
 use super::cuda_policy::{CudaBackendStrategy, APPROVED_FULL_RUST_DIRECTION};
 use super::inference::backend::NativeInferenceBackendSelection;
+use super::inference::backend_validation::NativeCudaBackendValidationReport;
 use super::inference::cuda_probe::CudaProbeReport;
 use super::paths::ProjectPaths;
 
@@ -21,6 +22,7 @@ pub struct RuntimeDiagnostics {
     pub input_preparation_status: InputPreparationStatus,
     pub calibration_profile_status: CalibrationProfileStatus,
     pub cuda_probe: CudaProbeReport,
+    pub backend_validation: NativeCudaBackendValidationReport,
     pub native_inference_candidates: Vec<NativeInferenceBackendSelection>,
     pub asr_adapter_plan: AsrAdapterPlan,
     pub translation_adapter_plan: TranslationAdapterPlan,
@@ -40,6 +42,7 @@ impl RuntimeDiagnostics {
             &PathBuf::from(&project_paths.user_cache_dir).join("rust_calibration_profile.json"),
         );
         let cuda_probe = CudaProbeReport::probe_host();
+        let backend_validation = NativeCudaBackendValidationReport::validate_ctranslate2_cuda_candidate();
         let ctranslate2_candidate = NativeInferenceBackendSelection::ctranslate2_candidate();
 
         let native_inference_candidates = vec![
@@ -63,6 +66,7 @@ impl RuntimeDiagnostics {
             asr.blocker_note().to_string(),
             translation.blocker_note().to_string(),
             tts.blocker_note().to_string(),
+            backend_validation.blocker.clone(),
             path_note("User cache", &project_paths.user_cache_dir),
             path_note("User log", &project_paths.user_log_dir),
             path_note("User saved", &project_paths.user_saved_dir),
@@ -85,6 +89,7 @@ impl RuntimeDiagnostics {
             input_preparation_status,
             calibration_profile_status,
             cuda_probe,
+            backend_validation,
             native_inference_candidates,
             asr_adapter_plan,
             translation_adapter_plan,
