@@ -1,6 +1,7 @@
 mod engine;
 
 use engine::adapters::asr_dry_run::{run_asr_dry_check, AsrDryRunRequest, AsrDryRunResult};
+use engine::adapters::asr_model_logic::{build_asr_profile_plan, AsrProfilePlan, AsrProfileRequest};
 use engine::adapters::asr_quality_logic::{evaluate_asr_quality, AsrQualityLogicDecision, AsrQualityLogicRequest};
 use engine::adapters::language_logic::{run_language_logic, LanguageLogicReport, LanguageLogicRequest};
 use engine::adapters::latency_logic::{build_latency_logic, build_vad_profile, LatencyLogicReport, LatencyLogicRequest, VadProfileReport, VadProfileRequest};
@@ -50,6 +51,11 @@ fn analyze_audio_payload(frame: AudioFrame) -> AudioFrameInspectionReport {
 #[tauri::command]
 fn analyze_vad_segment(request: VadSegmentDecisionRequest) -> VadDecisionReport {
     evaluate_segment_decision(request)
+}
+
+#[tauri::command]
+fn plan_asr_profile(request: AsrProfileRequest) -> AsrProfilePlan {
+    build_asr_profile_plan(request)
 }
 
 #[tauri::command]
@@ -174,6 +180,7 @@ fn main() {
         get_audio_buffer_status,
         analyze_audio_payload,
         analyze_vad_segment,
+        plan_asr_profile,
         analyze_asr_quality,
         analyze_language_logic,
         analyze_latency_logic,
