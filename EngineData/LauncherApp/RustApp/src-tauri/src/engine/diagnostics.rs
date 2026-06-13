@@ -1,8 +1,8 @@
 use serde::Serialize;
 use std::path::Path;
 
-use super::adapters::asr::AsrAdapterContract;
-use super::adapters::translation::TranslationAdapterContract;
+use super::adapters::asr::{AsrAdapterContract, AsrAdapterPlan};
+use super::adapters::translation::{TranslationAdapterContract, TranslationAdapterPlan};
 use super::adapters::tts::TtsAdapterContract;
 use super::audio::device::AudioDeviceDiscoveryReport;
 use super::cuda_policy::{CudaBackendStrategy, APPROVED_FULL_RUST_DIRECTION};
@@ -18,6 +18,8 @@ pub struct RuntimeDiagnostics {
     pub audio_device_discovery: AudioDeviceDiscoveryReport,
     pub cuda_probe: CudaProbeReport,
     pub native_inference_candidates: Vec<NativeInferenceBackendSelection>,
+    pub asr_adapter_plan: AsrAdapterPlan,
+    pub translation_adapter_plan: TranslationAdapterPlan,
     pub cuda_backend_candidates: Vec<String>,
     pub blockers: Vec<String>,
 }
@@ -30,14 +32,18 @@ impl RuntimeDiagnostics {
         let tts = TtsAdapterContract::default();
         let audio_device_discovery = AudioDeviceDiscoveryReport::discover_native();
         let cuda_probe = CudaProbeReport::probe_host();
+        let ctranslate2_candidate = NativeInferenceBackendSelection::ctranslate2_candidate();
 
         let native_inference_candidates = vec![
-            NativeInferenceBackendSelection::ctranslate2_candidate(),
+            ctranslate2_candidate.clone(),
             NativeInferenceBackendSelection::onnxruntime_candidate(),
             NativeInferenceBackendSelection::pending_cuda_selection(
                 "No native CUDA inference backend has been selected yet. Selection must be based on parity and final packaging validation.",
             ),
         ];
+
+        let asr_adapter_plan = asr.plan_with_backend(ctranslate2_candidate.clone(), cuda_probe.clone());
+        let translation_adapter_plan = translation.plan_with_backend(ctranslate2_candidate, cuda_probe.clone());
 
         let cuda_backend_candidates = vec![
             format!("native-ctranslate2-ffi: {}", CudaBackendStrategy::NativeCTranslate2Ffi.risk_note()),
@@ -68,6 +74,8 @@ impl RuntimeDiagnostics {
             audio_device_discovery,
             cuda_probe,
             native_inference_candidates,
+            asr_adapter_plan,
+            translation_adapter_plan,
             cuda_backend_candidates,
             blockers,
         }
