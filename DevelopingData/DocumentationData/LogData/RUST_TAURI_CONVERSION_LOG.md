@@ -2,16 +2,16 @@
 
 ## Current entry
 
-- Version: `0.7.5-model-command-ready-for-validation`
+- Version: `0.7.6-ci-validation-workflow`
 - Date: `2026-06-14`
 - Branch: `ChatGPT-ConvertEngine`
-- Status: Model check command exposed and final validation checklist updated
+- Status: CI validation workflow added for RustApp final validation
 - Root baseline: `Developing` commit `f412ba06bace37f6c0118eb20a6a2f91f0a63e76`
 - Observed commit: `76139bc13bd0b8f59f4307d98703a5f335460470`
 
 ## Summary
 
-The Rust/Tauri branch includes audio, calibration, backend check, ASR, text, output, and model-check boundaries. Diagnostics surfaces backend validation details, and a final validation runner script is available. The app still does not claim full runtime readiness.
+The Rust/Tauri branch includes audio, calibration, backend check, ASR, text, output, and model-check boundaries. Diagnostics surfaces backend validation details. A local final validation runner and a GitHub Actions workflow are now available. The app still does not claim full runtime readiness.
 
 ## Changes made
 
@@ -35,6 +35,7 @@ The Rust/Tauri branch includes audio, calibration, backend check, ASR, text, out
 - Added output boundary checker.
 - Added model boundary checker to final validation checklist.
 - Added final validation runner script.
+- Added RustApp validation GitHub Actions workflow.
 
 ## Important decision
 
@@ -42,9 +43,9 @@ The final target is full Rust runtime ownership. Python is allowed only as a beh
 
 ## Testing status
 
-No final runtime test was run in this step. The validation runner is now available, but it still needs to be executed in the repository environment.
+No final runtime test was executed in this chat. Validation can now be run locally with the PowerShell runner or in GitHub Actions.
 
 ## Next conversion target
 
-- Execute final validation in the repository environment.
-- Fix any compile or packaging issues found by the validation runner.
+- Run RustApp validation workflow.
+- Fix any compile or packaging issues found by validation.
