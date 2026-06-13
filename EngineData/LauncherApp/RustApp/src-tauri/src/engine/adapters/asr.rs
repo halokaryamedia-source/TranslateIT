@@ -1,9 +1,9 @@
-use serde::{Deserialize, Serialize};
+use serde::Serialize;
 
 use crate::engine::inference::backend::NativeInferenceBackendSelection;
 use crate::engine::inference::cuda_probe::CudaProbeReport;
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize)]
 pub struct AsrAdapterContract {
     pub adapter_id: &'static str,
     pub reference_model: &'static str,
@@ -12,7 +12,7 @@ pub struct AsrAdapterContract {
     pub final_runtime_allows_python: bool,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize)]
 pub struct AsrAdapterPlan {
     pub adapter_id: String,
     pub selected_backend: NativeInferenceBackendSelection,
