@@ -42,6 +42,7 @@ validate_native_cuda_backend
 run_asr_dry_run
 run_text_dry_run
 check_output_plan
+check_model_plan
 load_runtime_settings
 save_default_runtime_settings
 start_capture
@@ -54,6 +55,7 @@ translate_text
 - The app must not report full runtime Ready while model loading is still pending.
 - CUDA readiness must remain false until native model validation succeeds.
 - `validate_native_cuda_backend` must return dependency checks, file requirements, and model directory checks.
+- `check_model_plan` must stay pending until real model loading is implemented.
 - Start must report Rust input preparation status.
 - Audio payload analysis must report buffer/evidence/VAD status.
 - Calibration save must write under `UserData/CacheData`.
