@@ -2,16 +2,16 @@
 
 ## Current entry
 
-- Version: `0.6.9-output-plan-boundary`
+- Version: `0.7.1-validation-checklist-update`
 - Date: `2026-06-14`
 - Branch: `ChatGPT-ConvertEngine`
-- Status: Output plan boundary added
+- Status: Boundary checker list updated
 - Root baseline: `Developing` commit `f412ba06bace37f6c0118eb20a6a2f91f0a63e76`
 - Observed commit: `76139bc13bd0b8f59f4307d98703a5f335460470`
 
 ## Summary
 
-The Rust/Tauri branch includes native audio boundaries, calibration profile flow, native dependency checks, ASR/text boundary commands, and output plan boundary. The app still does not claim full runtime readiness.
+The Rust/Tauri branch includes audio, calibration, native check, ASR, text, and output boundaries. The app still does not claim full runtime readiness.
 
 ## Changes made
 
@@ -22,16 +22,18 @@ The Rust/Tauri branch includes native audio boundaries, calibration profile flow
 - Routed `start_capture` through Rust input preparation status.
 - Added audio buffer status and audio payload analysis.
 - Added calibration flow status and calibration profile save command.
-- Added native backend visibility check module.
+- Added backend visibility check module.
 - Exposed `validate_native_cuda_backend` command.
 - Added ASR dry check module and command.
 - Added text dry check module and command.
 - Added output plan module and command.
 - Added focused runtime boundary checker.
+- Added output boundary checker.
+- Added model boundary checker to final validation checklist.
 
 ## Important decision
 
-The final target is full Rust runtime ownership. Python is allowed only as a behavior reference during migration. Native CUDA-capable libraries may be used through Rust-owned boundaries, but readiness must remain false until real model validation is complete.
+The final target is full Rust runtime ownership. Python is allowed only as a behavior reference during migration. Runtime readiness must remain false until real validation is complete.
 
 ## Testing status
 
@@ -39,6 +41,5 @@ No final runtime test was run in this step. This is intentional because the requ
 
 ## Next conversion target
 
-- Add native packaging manifest for selected backend files.
-- Add final validation checklist for Rust boundary commands.
-- Prepare final milestone test command list.
+- Retry inference module registration later.
+- Add final test execution after milestone completion.
