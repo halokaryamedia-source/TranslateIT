@@ -3,6 +3,7 @@ pub mod audio;
 pub mod config;
 pub mod cuda_policy;
 pub mod diagnostics;
+pub mod inference;
 pub mod logging;
 pub mod models;
 pub mod paths;
