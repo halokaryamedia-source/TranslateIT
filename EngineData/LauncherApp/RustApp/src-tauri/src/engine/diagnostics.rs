@@ -1,9 +1,10 @@
 use serde::Serialize;
-use std::path::Path;
+use std::path::{Path, PathBuf};
 
 use super::adapters::asr::{AsrAdapterContract, AsrAdapterPlan};
 use super::adapters::translation::{TranslationAdapterContract, TranslationAdapterPlan};
 use super::adapters::tts::TtsAdapterContract;
+use super::audio::calibration::CalibrationProfileStatus;
 use super::audio::device::AudioDeviceDiscoveryReport;
 use super::cuda_policy::{CudaBackendStrategy, APPROVED_FULL_RUST_DIRECTION};
 use super::inference::backend::NativeInferenceBackendSelection;
@@ -16,6 +17,7 @@ pub struct RuntimeDiagnostics {
     pub rust_runtime_target: String,
     pub final_runtime_allows_python: bool,
     pub audio_device_discovery: AudioDeviceDiscoveryReport,
+    pub calibration_profile_status: CalibrationProfileStatus,
     pub cuda_probe: CudaProbeReport,
     pub native_inference_candidates: Vec<NativeInferenceBackendSelection>,
     pub asr_adapter_plan: AsrAdapterPlan,
@@ -31,6 +33,9 @@ impl RuntimeDiagnostics {
         let translation = TranslationAdapterContract::default();
         let tts = TtsAdapterContract::default();
         let audio_device_discovery = AudioDeviceDiscoveryReport::discover_native();
+        let calibration_profile_status = CalibrationProfileStatus::from_path(
+            &PathBuf::from(&project_paths.user_cache_dir).join("rust_calibration_profile.json"),
+        );
         let cuda_probe = CudaProbeReport::probe_host();
         let ctranslate2_candidate = NativeInferenceBackendSelection::ctranslate2_candidate();
 
@@ -58,6 +63,7 @@ impl RuntimeDiagnostics {
             path_note("User cache", &project_paths.user_cache_dir),
             path_note("User log", &project_paths.user_log_dir),
             path_note("User saved", &project_paths.user_saved_dir),
+            calibration_profile_status.note.clone(),
         ];
 
         if let Some(blocker) = &audio_device_discovery.blocker {
@@ -72,6 +78,7 @@ impl RuntimeDiagnostics {
             rust_runtime_target: APPROVED_FULL_RUST_DIRECTION.to_string(),
             final_runtime_allows_python: false,
             audio_device_discovery,
+            calibration_profile_status,
             cuda_probe,
             native_inference_candidates,
             asr_adapter_plan,
