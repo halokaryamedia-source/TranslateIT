@@ -1,6 +1,7 @@
 pub mod calibration;
 pub mod device;
 pub mod evidence;
+pub mod input;
 pub mod vad;
 
 pub const TARGET_SAMPLE_RATE_HZ: u32 = 16_000;
