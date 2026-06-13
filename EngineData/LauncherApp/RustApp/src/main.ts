@@ -12,6 +12,30 @@ type EngineStatus = {
   notes: string[];
 };
 
+type NativeInferenceBackendSelection = {
+  backend: string;
+  device: string;
+  compute_type: string;
+  final_runtime_allows_python: boolean;
+  selected: boolean;
+  reason: string;
+};
+
+type CudaProbeReport = {
+  nvidia_smi_available: boolean;
+  gpu_summary: string | null;
+  cuda_runtime_ready: boolean;
+  blocker: string | null;
+};
+
+type AdapterPlan = {
+  adapter_id: string;
+  selected_backend: NativeInferenceBackendSelection;
+  cuda_probe: CudaProbeReport;
+  ready: boolean;
+  blocker: string;
+};
+
 type RuntimeDiagnostics = {
   project_paths: {
     project_root: string;
@@ -24,6 +48,22 @@ type RuntimeDiagnostics = {
   };
   rust_runtime_target: string;
   final_runtime_allows_python: boolean;
+  audio_device_discovery: {
+    backend_id: string;
+    devices: Array<{
+      id: string;
+      name: string;
+      is_default: boolean;
+      max_input_channels: number;
+      max_output_channels: number;
+      supports_target_format: boolean;
+    }>;
+    blocker: string | null;
+  };
+  cuda_probe: CudaProbeReport;
+  native_inference_candidates: NativeInferenceBackendSelection[];
+  asr_adapter_plan: AdapterPlan;
+  translation_adapter_plan: AdapterPlan;
   cuda_backend_candidates: string[];
   blockers: string[];
 };
@@ -187,6 +227,10 @@ function renderCommandResult(result: CommandResult): void {
   ui.statusMessage.textContent = result.message;
 }
 
+function backendSummary(label: string, plan: AdapterPlan): string {
+  return `${label}: backend=${plan.selected_backend.backend}, device=${plan.selected_backend.device}, compute=${plan.selected_backend.compute_type}, ready=${plan.ready}`;
+}
+
 function renderDiagnostics(diagnostics: RuntimeDiagnostics, settings: RuntimeSettings): void {
   ui.lifecycleBadge.textContent = "State: diagnostics";
   ui.statusMessage.textContent = diagnostics.rust_runtime_target;
@@ -197,8 +241,18 @@ function renderDiagnostics(diagnostics: RuntimeDiagnostics, settings: RuntimeSet
     `Saved: ${diagnostics.project_paths.user_saved_dir}`,
     `ASR models: ${diagnostics.project_paths.asr_model_dir}`,
     `Translation models: ${diagnostics.project_paths.translation_model_dir}`,
+    `Audio backend: ${diagnostics.audio_device_discovery.backend_id}`,
+    `Audio devices discovered: ${diagnostics.audio_device_discovery.devices.length}`,
+    `CUDA nvidia-smi: ${diagnostics.cuda_probe.nvidia_smi_available}`,
+    `CUDA GPU: ${diagnostics.cuda_probe.gpu_summary ?? "not detected"}`,
+    `CUDA runtime ready: ${diagnostics.cuda_probe.cuda_runtime_ready}`,
     `Final runtime allows Python: ${diagnostics.final_runtime_allows_python}`,
     `Settings: ${settings.source_language} -> ${settings.target_language}, voice=${settings.voice_actor_profile_id}`,
+    backendSummary("ASR adapter plan", diagnostics.asr_adapter_plan),
+    backendSummary("Translation adapter plan", diagnostics.translation_adapter_plan),
+    ...diagnostics.native_inference_candidates.map(
+      (candidate) => `Inference candidate: ${candidate.backend} | ${candidate.reason}`,
+    ),
     ...diagnostics.cuda_backend_candidates,
     ...diagnostics.blockers,
   ]);
