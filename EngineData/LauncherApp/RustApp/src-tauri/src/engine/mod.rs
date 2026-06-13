@@ -1,15 +1,27 @@
 pub mod adapters;
 pub mod config;
 pub mod cuda_policy;
+pub mod diagnostics;
+pub mod logging;
+pub mod models;
+pub mod paths;
+pub mod settings;
 pub mod state;
+
+use std::path::PathBuf;
 
 use config::EngineConfig;
 use cuda_policy::CudaPolicyReport;
+use diagnostics::RuntimeDiagnostics;
+use logging::{write_jsonl_event, RuntimeLogEvent};
+use paths::ProjectPaths;
+use settings::RuntimeSettings;
 use state::{CommandResult, EngineStatus, LifecycleState, RuntimeStage};
 
 pub fn current_status() -> EngineStatus {
     let config = EngineConfig::default();
     let cuda_report = CudaPolicyReport::strict_pending();
+    let project_paths = ProjectPaths::discover();
 
     EngineStatus {
         app_version: config.app_version,
@@ -24,12 +36,60 @@ pub fn current_status() -> EngineStatus {
             "Final target is full Rust ownership of app lifecycle and runtime orchestration.".to_string(),
             "Python runtime remains only as behavior reference until native Rust parity is implemented.".to_string(),
             "CUDA inference must be implemented through native CUDA-capable backends, not false Rust-only placeholders.".to_string(),
+            format!("Runtime logs path: {}", project_paths.user_log_dir),
             cuda_report.operator_note,
         ],
     }
 }
 
+pub fn runtime_diagnostics() -> RuntimeDiagnostics {
+    RuntimeDiagnostics::collect()
+}
+
+pub fn load_settings() -> RuntimeSettings {
+    let project_paths = ProjectPaths::discover();
+    let settings_path = PathBuf::from(project_paths.user_cache_dir).join("rust_runtime_settings.json");
+    RuntimeSettings::load_or_default(&settings_path)
+}
+
+pub fn save_default_settings() -> CommandResult {
+    let project_paths = ProjectPaths::discover();
+    let settings_path = PathBuf::from(&project_paths.user_cache_dir).join("rust_runtime_settings.json");
+    let settings = RuntimeSettings::default();
+
+    match settings.save_pretty(&settings_path) {
+        Ok(()) => {
+            let _ = write_jsonl_event(
+                &PathBuf::from(project_paths.user_log_dir),
+                "rust_runtime_latest.jsonl",
+                &RuntimeLogEvent::info(
+                    "settings",
+                    format!("Default Rust runtime settings saved to {}", settings_path.to_string_lossy()),
+                ),
+            );
+            CommandResult::ok(
+                LifecycleState::Idle,
+                format!("Default Rust runtime settings saved to {}", settings_path.to_string_lossy()),
+            )
+        }
+        Err(error) => CommandResult::blocked(
+            LifecycleState::Error,
+            format!("Failed to save Rust runtime settings: {error}"),
+        ),
+    }
+}
+
 pub fn start_capture() -> CommandResult {
+    let project_paths = ProjectPaths::discover();
+    let _ = write_jsonl_event(
+        &PathBuf::from(project_paths.user_log_dir),
+        "rust_runtime_latest.jsonl",
+        &RuntimeLogEvent::warning(
+            "capture",
+            "Start requested before native Rust audio capture is implemented.",
+        ),
+    );
+
     CommandResult::blocked(
         LifecycleState::ConversionPending,
         "Start was received by Rust runtime, but native Rust audio capture is not implemented yet.",
