@@ -1,6 +1,7 @@
 mod engine;
 
 use engine::adapters::asr_dry_run::{run_asr_dry_check, AsrDryRunRequest, AsrDryRunResult};
+use engine::adapters::output_dry_run::{run_output_dry_check, OutputDryRunRequest, OutputDryRunResult};
 use engine::adapters::text_dry_run::{run_text_dry_check, TextDryRunRequest, TextDryRunResult};
 use engine::audio::buffer::{inspect_frame, planned_buffer_status, AudioBufferStatus, AudioFrameInspectionReport};
 use engine::audio::calibration_flow::{save_calibration_from_evidence, CalibrationFlowStatus, CalibrationSaveResult};
@@ -67,6 +68,11 @@ fn run_text_dry_run(request: TextDryRunRequest) -> TextDryRunResult {
 }
 
 #[tauri::command]
+fn check_output_plan(request: OutputDryRunRequest) -> OutputDryRunResult {
+    run_output_dry_check(request)
+}
+
+#[tauri::command]
 fn load_runtime_settings() -> RuntimeSettings {
     engine::load_settings()
 }
@@ -103,6 +109,7 @@ fn main() {
         validate_native_cuda_backend,
         run_asr_dry_run,
         run_text_dry_run,
+        check_output_plan,
         load_runtime_settings,
         save_default_runtime_settings,
         start_capture,
