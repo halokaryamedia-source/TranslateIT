@@ -2,6 +2,8 @@ use serde::Serialize;
 use std::env;
 use std::path::{Path, PathBuf};
 
+use crate::engine::paths::ProjectPaths;
+
 use super::cuda_probe::CudaProbeReport;
 
 #[derive(Debug, Clone, Serialize)]
@@ -29,6 +31,13 @@ pub struct NativeRuntimeFileRequirementList {
 }
 
 #[derive(Debug, Clone, Serialize)]
+pub struct ModelDirectoryCheck {
+    pub label: String,
+    pub path: String,
+    pub exists: bool,
+}
+
+#[derive(Debug, Clone, Serialize)]
 pub struct NativeCudaBackendValidationReport {
     pub backend_id: String,
     pub device: String,
@@ -36,6 +45,7 @@ pub struct NativeCudaBackendValidationReport {
     pub nvidia_smi_available: bool,
     pub dependency_checks: Vec<NativeBackendFileCheck>,
     pub file_requirements: NativeRuntimeFileRequirementList,
+    pub model_directories: Vec<ModelDirectoryCheck>,
     pub ready: bool,
     pub blocker: String,
 }
@@ -61,6 +71,7 @@ impl NativeRuntimeFileRequirementList {
 impl NativeCudaBackendValidationReport {
     pub fn validate_ctranslate2_cuda_candidate() -> Self {
         let cuda_probe = CudaProbeReport::probe_host();
+        let project_paths = ProjectPaths::discover();
         let dependency_names = [
             "ctranslate2.dll",
             "cudart64_12.dll",
@@ -72,7 +83,12 @@ impl NativeCudaBackendValidationReport {
             .map(|name| check_file_on_path(name))
             .collect::<Vec<_>>();
         let deps_ready = dependency_checks.iter().all(|check| check.found);
-        let ready = cuda_probe.nvidia_smi_available && deps_ready;
+        let model_directories = vec![
+            model_dir("asr_model_dir", &project_paths.asr_model_dir),
+            model_dir("translation_model_dir", &project_paths.translation_model_dir),
+        ];
+        let model_dirs_ready = model_directories.iter().all(|check| check.exists);
+        let ready = cuda_probe.nvidia_smi_available && deps_ready && model_dirs_ready;
 
         Self {
             backend_id: "native-ctranslate2-cuda-ffi".to_string(),
@@ -81,11 +97,12 @@ impl NativeCudaBackendValidationReport {
             nvidia_smi_available: cuda_probe.nvidia_smi_available,
             dependency_checks,
             file_requirements: NativeRuntimeFileRequirementList::ctranslate2_cuda_candidate(),
+            model_directories,
             ready,
             blocker: if ready {
-                "Native dependency files are visible. Real model load validation is still required before reporting inference Ready.".to_string()
+                "Native dependency files and model directories are visible. Real model load validation is still required before reporting inference Ready.".to_string()
             } else {
-                "Native CTranslate2 CUDA dependency visibility is incomplete. Do not report CUDA inference Ready.".to_string()
+                "Native dependency or model directory visibility is incomplete. Do not report CUDA inference Ready.".to_string()
             },
         }
     }
@@ -96,6 +113,14 @@ fn runtime_file(file_name: &str, required: bool, purpose: &str) -> NativeRuntime
         file_name: file_name.to_string(),
         required,
         purpose: purpose.to_string(),
+    }
+}
+
+fn model_dir(label: &str, path: &str) -> ModelDirectoryCheck {
+    ModelDirectoryCheck {
+        label: label.to_string(),
+        path: path.to_string(),
+        exists: Path::new(path).is_dir(),
     }
 }
 
