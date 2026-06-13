@@ -8,8 +8,14 @@ pub struct AudioSettings {
     pub input_device_id: Option<String>,
     pub output_device_id: Option<String>,
     pub sensitivity: f32,
+    pub input_sensitivity: String,
+    pub show_advanced_devices: bool,
+    pub allow_low_but_usable_input: bool,
     pub allow_cpu_degraded_mode: bool,
     pub auto_play_translation_voice: bool,
+    pub auto_play_out_voice: bool,
+    pub use_custom_voice_actor: bool,
+    pub voice_actor_profiles_root: String,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -25,7 +31,7 @@ pub struct RuntimeSettings {
 impl Default for RuntimeSettings {
     fn default() -> Self {
         Self {
-            schema_version: 1,
+            schema_version: 2,
             language_focus_mode: "id-en-focus".to_string(),
             source_language: "id".to_string(),
             target_language: "en".to_string(),
@@ -33,8 +39,14 @@ impl Default for RuntimeSettings {
                 input_device_id: None,
                 output_device_id: None,
                 sensitivity: 1.0,
+                input_sensitivity: "Headset".to_string(),
+                show_advanced_devices: false,
+                allow_low_but_usable_input: true,
                 allow_cpu_degraded_mode: false,
-                auto_play_translation_voice: false,
+                auto_play_translation_voice: true,
+                auto_play_out_voice: true,
+                use_custom_voice_actor: true,
+                voice_actor_profiles_root: "EngineData/VoiceActorProfiles".to_string(),
             },
             voice_actor_profile_id: "marcel".to_string(),
         }
@@ -44,7 +56,9 @@ impl Default for RuntimeSettings {
 impl RuntimeSettings {
     pub fn load_or_default(path: &Path) -> Self {
         match fs::read_to_string(path) {
-            Ok(raw) => serde_json::from_str::<Self>(&raw).unwrap_or_default(),
+            Ok(raw) => serde_json::from_str::<Self>(&raw)
+                .map(|settings| settings.sanitized())
+                .unwrap_or_default(),
             Err(_) => Self::default(),
         }
     }
@@ -53,8 +67,42 @@ impl RuntimeSettings {
         if let Some(parent) = path.parent() {
             fs::create_dir_all(parent)?;
         }
-        let body = serde_json::to_string_pretty(self)
+        let body = serde_json::to_string_pretty(&self.sanitized())
             .map_err(|error| io::Error::new(io::ErrorKind::InvalidData, error))?;
         fs::write(path, body)
+    }
+
+    pub fn sanitized(mut self) -> Self {
+        self.source_language = sanitize_language(&self.source_language, "id");
+        self.target_language = sanitize_language(&self.target_language, "en");
+        if self.audio.input_sensitivity.trim().is_empty() || self.audio.input_sensitivity == "Normal" {
+            self.audio.input_sensitivity = "Headset".to_string();
+        }
+        self.audio.sensitivity = self.audio.sensitivity.clamp(0.1, 3.0);
+        self.audio.voice_actor_profiles_root = sanitize_voice_root(&self.audio.voice_actor_profiles_root);
+        self.voice_actor_profile_id = sanitize_text(&self.voice_actor_profile_id);
+        self.audio.use_custom_voice_actor = !self.voice_actor_profile_id.trim().is_empty();
+        self.audio.auto_play_translation_voice = self.audio.auto_play_out_voice;
+        self
+    }
+}
+
+fn sanitize_language(value: &str, fallback: &str) -> String {
+    let text = value.trim().to_lowercase();
+    if text.starts_with("ind") || text.starts_with("id") { return "id".to_string(); }
+    if text.starts_with("eng") || text.starts_with("en") { return "en".to_string(); }
+    if text.is_empty() { fallback.to_string() } else { text.chars().take(2).collect() }
+}
+
+fn sanitize_text(value: &str) -> String {
+    value.trim().to_string()
+}
+
+fn sanitize_voice_root(value: &str) -> String {
+    let text = value.trim();
+    if text.is_empty() || text.starts_with("<member ") || text.contains("AudioSettings' objects>") {
+        "EngineData/VoiceActorProfiles".to_string()
+    } else {
+        text.to_string()
     }
 }
