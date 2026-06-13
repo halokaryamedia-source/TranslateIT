@@ -12,6 +12,7 @@ pub mod state;
 
 use std::path::PathBuf;
 
+use audio::input::InputPreparationStatus;
 use config::EngineConfig;
 use cuda_policy::CudaPolicyReport;
 use diagnostics::RuntimeDiagnostics;
@@ -83,25 +84,25 @@ pub fn save_default_settings() -> CommandResult {
 
 pub fn start_capture() -> CommandResult {
     let project_paths = ProjectPaths::discover();
+    let input_status = InputPreparationStatus::inspect_default_input();
+    let message = format!(
+        "Rust input preparation: prepared={}, running={}, note={}",
+        input_status.prepared, input_status.running, input_status.note
+    );
+
     let _ = write_jsonl_event(
         &PathBuf::from(project_paths.user_log_dir),
         "rust_runtime_latest.jsonl",
-        &RuntimeLogEvent::warning(
-            "capture",
-            "Start requested before native Rust audio capture is implemented.",
-        ),
+        &RuntimeLogEvent::warning("input", message.clone()),
     );
 
-    CommandResult::blocked(
-        LifecycleState::ConversionPending,
-        "Start was received by Rust runtime, but native Rust audio capture is not implemented yet.",
-    )
+    CommandResult::blocked(LifecycleState::ConversionPending, message)
 }
 
 pub fn stop_capture() -> CommandResult {
     CommandResult::ok(
         LifecycleState::Stopped,
-        "Stop was received by Rust runtime. No native Rust capture worker is active yet.",
+        "Stop was received by Rust runtime. No Rust input session is active yet.",
     )
 }
 
