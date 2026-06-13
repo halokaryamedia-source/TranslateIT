@@ -1,4 +1,5 @@
 pub mod adapters;
+pub mod audio;
 pub mod config;
 pub mod cuda_policy;
 pub mod diagnostics;
