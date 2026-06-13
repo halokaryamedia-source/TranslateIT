@@ -1,8 +1,8 @@
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 
 use crate::engine::inference::backend_validation::NativeCudaBackendValidationReport;
 
-#[derive(Debug, Clone, Serialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct AsrDryRunRequest {
     pub source_label: Option<String>,
     pub language_hint: String,
