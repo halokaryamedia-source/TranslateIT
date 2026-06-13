@@ -1,8 +1,8 @@
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 
 use crate::engine::inference::backend_validation::NativeCudaBackendValidationReport;
 
-#[derive(Debug, Clone, Serialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct TextDryRunRequest {
     pub source_text: String,
     pub source_language: String,
@@ -23,9 +23,6 @@ pub fn run_text_dry_check(request: TextDryRunRequest) -> TextDryRunResult {
         ok: false,
         output_preview: None,
         backend_validation,
-        message: format!(
-            "Text dry check accepted length={} language_pair={}->{}. Native text adapter remains pending.",
-            request.source_text.chars().count(), request.source_language, request.target_language
-        ),
+        message: format!("Text boundary pending. chars={}", request.source_text.chars().count()),
     }
 }
