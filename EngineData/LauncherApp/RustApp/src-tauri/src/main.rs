@@ -1,6 +1,8 @@
 mod engine;
 
 use engine::adapters::asr_dry_run::{run_asr_dry_check, AsrDryRunRequest, AsrDryRunResult};
+use engine::adapters::language_logic::{run_language_logic, LanguageLogicReport, LanguageLogicRequest};
+use engine::adapters::latency_logic::{build_latency_logic, build_vad_profile, LatencyLogicReport, LatencyLogicRequest, VadProfileReport, VadProfileRequest};
 use engine::adapters::model_check::{check_model_request, ModelCheckRequest, ModelCheckResult};
 use engine::adapters::output_dry_run::{run_output_dry_check, OutputDryRunRequest, OutputDryRunResult};
 use engine::adapters::text_dry_run::{run_text_dry_check, TextDryRunRequest, TextDryRunResult};
@@ -37,6 +39,21 @@ fn get_audio_buffer_status() -> AudioBufferStatus {
 #[tauri::command]
 fn analyze_audio_payload(frame: AudioFrame) -> AudioFrameInspectionReport {
     inspect_frame(frame)
+}
+
+#[tauri::command]
+fn analyze_language_logic(request: LanguageLogicRequest) -> LanguageLogicReport {
+    run_language_logic(request)
+}
+
+#[tauri::command]
+fn analyze_latency_logic(request: LatencyLogicRequest) -> LatencyLogicReport {
+    build_latency_logic(request)
+}
+
+#[tauri::command]
+fn resolve_vad_profile(request: VadProfileRequest) -> VadProfileReport {
+    build_vad_profile(request)
 }
 
 #[tauri::command]
@@ -110,6 +127,9 @@ fn main() {
         get_input_status,
         get_audio_buffer_status,
         analyze_audio_payload,
+        analyze_language_logic,
+        analyze_latency_logic,
+        resolve_vad_profile,
         get_calibration_flow_status,
         save_calibration_profile,
         validate_native_cuda_backend,
