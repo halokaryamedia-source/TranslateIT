@@ -36,6 +36,24 @@ type AdapterPlan = {
   blocker: string;
 };
 
+type AudioBufferStatus = {
+  target_sample_rate_hz: number;
+  target_channels: number;
+  max_frames: number;
+  current_frames: number;
+  ready_for_calibration: boolean;
+  ready_for_vad: boolean;
+  note: string;
+};
+
+type CalibrationFlowStatus = {
+  output_path: string;
+  requires_quiet_sample: boolean;
+  requires_speech_sample: boolean;
+  ready_to_save_profile: boolean;
+  note: string;
+};
+
 type RuntimeDiagnostics = {
   project_paths: {
     project_root: string;
@@ -246,7 +264,12 @@ function backendSummary(label: string, plan: AdapterPlan): string {
   return `${label}: backend=${plan.selected_backend.backend}, device=${plan.selected_backend.device}, compute=${plan.selected_backend.compute_type}, ready=${plan.ready}`;
 }
 
-function renderDiagnostics(diagnostics: RuntimeDiagnostics, settings: RuntimeSettings): void {
+function renderDiagnostics(
+  diagnostics: RuntimeDiagnostics,
+  settings: RuntimeSettings,
+  bufferStatus: AudioBufferStatus,
+  calibrationFlow: CalibrationFlowStatus,
+): void {
   ui.lifecycleBadge.textContent = "State: diagnostics";
   ui.statusMessage.textContent = diagnostics.rust_runtime_target;
   renderList([
@@ -261,6 +284,11 @@ function renderDiagnostics(diagnostics: RuntimeDiagnostics, settings: RuntimeSet
     `Input prepared: ${diagnostics.input_preparation_status.prepared}`,
     `Input device: ${diagnostics.input_preparation_status.input_device_name ?? "not selected"}`,
     `Input note: ${diagnostics.input_preparation_status.note}`,
+    `Audio buffer frames: ${bufferStatus.current_frames}/${bufferStatus.max_frames}`,
+    `Audio buffer VAD ready: ${bufferStatus.ready_for_vad}`,
+    `Audio buffer calibration ready: ${bufferStatus.ready_for_calibration}`,
+    `Calibration flow output: ${calibrationFlow.output_path}`,
+    `Calibration flow ready: ${calibrationFlow.ready_to_save_profile}`,
     `Calibration profile: ${diagnostics.calibration_profile_status.present} | ${diagnostics.calibration_profile_status.path}`,
     `CUDA nvidia-smi: ${diagnostics.cuda_probe.nvidia_smi_available}`,
     `CUDA GPU: ${diagnostics.cuda_probe.gpu_summary ?? "not detected"}`,
@@ -274,6 +302,8 @@ function renderDiagnostics(diagnostics: RuntimeDiagnostics, settings: RuntimeSet
     ),
     ...diagnostics.cuda_backend_candidates,
     ...diagnostics.blockers,
+    bufferStatus.note,
+    calibrationFlow.note,
   ]);
 }
 
@@ -303,11 +333,13 @@ ui.translateButton.addEventListener("click", async () => {
 });
 
 ui.diagnosticsButton.addEventListener("click", async () => {
-  const [diagnostics, settings] = await Promise.all([
+  const [diagnostics, settings, bufferStatus, calibrationFlow] = await Promise.all([
     invoke<RuntimeDiagnostics>("get_runtime_diagnostics"),
     invoke<RuntimeSettings>("load_runtime_settings"),
+    invoke<AudioBufferStatus>("get_audio_buffer_status"),
+    invoke<CalibrationFlowStatus>("get_calibration_flow_status"),
   ]);
-  renderDiagnostics(diagnostics, settings);
+  renderDiagnostics(diagnostics, settings, bufferStatus, calibrationFlow);
 });
 
 ui.saveSettingsButton.addEventListener("click", async () => {
