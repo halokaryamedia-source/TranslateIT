@@ -5,6 +5,7 @@ pub mod latency_logic;
 pub mod model_check;
 pub mod output_dry_run;
 pub mod pipeline_logic;
+pub mod playback_logic;
 pub mod session_logic;
 pub mod text_dry_run;
 pub mod translation;
