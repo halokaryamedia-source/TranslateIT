@@ -2,16 +2,16 @@
 
 ## Current entry
 
-- Version: `0.7.4-final-validation-runner`
+- Version: `0.7.5-model-command-ready-for-validation`
 - Date: `2026-06-14`
 - Branch: `ChatGPT-ConvertEngine`
-- Status: Final validation runner added and diagnostics expanded
+- Status: Model check command exposed and final validation checklist updated
 - Root baseline: `Developing` commit `f412ba06bace37f6c0118eb20a6a2f91f0a63e76`
 - Observed commit: `76139bc13bd0b8f59f4307d98703a5f335460470`
 
 ## Summary
 
-The Rust/Tauri branch includes audio, calibration, backend check, ASR, text, and output boundaries. Diagnostics now surfaces backend validation details, and a final validation runner script is available. The app still does not claim full runtime readiness.
+The Rust/Tauri branch includes audio, calibration, backend check, ASR, text, output, and model-check boundaries. Diagnostics surfaces backend validation details, and a final validation runner script is available. The app still does not claim full runtime readiness.
 
 ## Changes made
 
@@ -30,6 +30,7 @@ The Rust/Tauri branch includes audio, calibration, backend check, ASR, text, and
 - Added ASR dry check module and command.
 - Added text dry check module and command.
 - Added output plan module and command.
+- Exposed `check_model_plan` command.
 - Added focused runtime boundary checker.
 - Added output boundary checker.
 - Added model boundary checker to final validation checklist.
