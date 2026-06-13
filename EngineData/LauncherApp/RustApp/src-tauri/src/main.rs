@@ -1,7 +1,8 @@
 mod engine;
 
 use engine::audio::buffer::{inspect_frame, planned_buffer_status, AudioBufferStatus, AudioFrameInspectionReport};
-use engine::audio::calibration_flow::CalibrationFlowStatus;
+use engine::audio::calibration_flow::{save_calibration_from_evidence, CalibrationFlowStatus, CalibrationSaveResult};
+use engine::audio::evidence::AudioEvidenceReport;
 use engine::audio::input::InputPreparationStatus;
 use engine::audio::AudioFrame;
 use engine::diagnostics::RuntimeDiagnostics;
@@ -39,6 +40,15 @@ fn get_calibration_flow_status() -> CalibrationFlowStatus {
 }
 
 #[tauri::command]
+fn save_calibration_profile(
+    input_device_id: Option<String>,
+    quiet: AudioEvidenceReport,
+    speech: AudioEvidenceReport,
+) -> CalibrationSaveResult {
+    save_calibration_from_evidence(input_device_id, quiet, speech)
+}
+
+#[tauri::command]
 fn load_runtime_settings() -> RuntimeSettings {
     engine::load_settings()
 }
@@ -71,6 +81,7 @@ fn main() {
         get_audio_buffer_status,
         analyze_audio_payload,
         get_calibration_flow_status,
+        save_calibration_profile,
         load_runtime_settings,
         save_default_runtime_settings,
         start_capture,
