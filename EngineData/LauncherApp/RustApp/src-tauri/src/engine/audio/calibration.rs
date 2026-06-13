@@ -17,6 +17,14 @@ pub struct CalibrationProfile {
     pub message: String,
 }
 
+#[derive(Debug, Clone, Serialize)]
+pub struct CalibrationProfileStatus {
+    pub path: String,
+    pub present: bool,
+    pub profile: Option<CalibrationProfile>,
+    pub note: String,
+}
+
 impl CalibrationProfile {
     pub fn from_quiet_and_speech(
         input_device_id: Option<String>,
@@ -56,5 +64,22 @@ impl CalibrationProfile {
         let body = serde_json::to_string_pretty(self)
             .map_err(|error| io::Error::new(io::ErrorKind::InvalidData, error))?;
         fs::write(path, body)
+    }
+}
+
+impl CalibrationProfileStatus {
+    pub fn from_path(path: &Path) -> Self {
+        let profile = CalibrationProfile::load(path);
+        let present = profile.is_some();
+        Self {
+            path: path.to_string_lossy().replace('\\', "/"),
+            present,
+            profile,
+            note: if present {
+                "Rust calibration profile was found.".to_string()
+            } else {
+                "Rust calibration profile is not available yet. Real calibration must create this file later.".to_string()
+            },
+        }
     }
 }
