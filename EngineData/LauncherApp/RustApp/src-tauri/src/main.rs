@@ -6,6 +6,7 @@ use engine::audio::evidence::AudioEvidenceReport;
 use engine::audio::input::InputPreparationStatus;
 use engine::audio::AudioFrame;
 use engine::diagnostics::RuntimeDiagnostics;
+use engine::inference::backend_validation::NativeCudaBackendValidationReport;
 use engine::settings::RuntimeSettings;
 use engine::state::{CommandResult, EngineStatus};
 
@@ -49,6 +50,11 @@ fn save_calibration_profile(
 }
 
 #[tauri::command]
+fn validate_native_cuda_backend() -> NativeCudaBackendValidationReport {
+    NativeCudaBackendValidationReport::validate_ctranslate2_cuda_candidate()
+}
+
+#[tauri::command]
 fn load_runtime_settings() -> RuntimeSettings {
     engine::load_settings()
 }
@@ -82,6 +88,7 @@ fn main() {
         analyze_audio_payload,
         get_calibration_flow_status,
         save_calibration_profile,
+        validate_native_cuda_backend,
         load_runtime_settings,
         save_default_runtime_settings,
         start_capture,
