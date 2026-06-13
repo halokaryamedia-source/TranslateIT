@@ -36,6 +36,7 @@ def main() -> int:
         ENGINE_SRC / "audio" / "vad.rs",
         ENGINE_SRC / "inference" / "mod.rs",
         ENGINE_SRC / "inference" / "backend.rs",
+        ENGINE_SRC / "inference" / "cuda_probe.rs",
         ENGINE_SRC / "adapters" / "mod.rs",
         ENGINE_SRC / "adapters" / "asr.rs",
         ENGINE_SRC / "adapters" / "translation.rs",
@@ -47,7 +48,7 @@ def main() -> int:
         for item in missing:
             print("-", item)
         return 1
-    print("PASS: RustApp scaffold, runtime support, audio gate, inference, and engine contract files are present")
+    print("PASS: RustApp scaffold, runtime support, audio gate, inference, CUDA probe, and engine contract files are present")
     print("RUST_APP:", RUST_APP.relative_to(ROOT))
     print("ENTRYPOINT:", (TAURI_SRC / "main.rs").relative_to(ROOT))
     return 0
