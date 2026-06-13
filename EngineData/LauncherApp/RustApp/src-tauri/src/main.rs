@@ -11,6 +11,7 @@ use engine::audio::buffer::{inspect_frame, planned_buffer_status, AudioBufferSta
 use engine::audio::calibration_flow::{save_calibration_from_evidence, CalibrationFlowStatus, CalibrationSaveResult};
 use engine::audio::evidence::AudioEvidenceReport;
 use engine::audio::input::InputPreparationStatus;
+use engine::audio::vad::{evaluate_segment_decision, VadDecisionReport, VadSegmentDecisionRequest};
 use engine::audio::AudioFrame;
 use engine::diagnostics::RuntimeDiagnostics;
 use engine::inference::backend_validation::NativeCudaBackendValidationReport;
@@ -40,6 +41,11 @@ fn get_audio_buffer_status() -> AudioBufferStatus {
 #[tauri::command]
 fn analyze_audio_payload(frame: AudioFrame) -> AudioFrameInspectionReport {
     inspect_frame(frame)
+}
+
+#[tauri::command]
+fn analyze_vad_segment(request: VadSegmentDecisionRequest) -> VadDecisionReport {
+    evaluate_segment_decision(request)
 }
 
 #[tauri::command]
@@ -138,6 +144,7 @@ fn main() {
         get_input_status,
         get_audio_buffer_status,
         analyze_audio_payload,
+        analyze_vad_segment,
         analyze_language_logic,
         analyze_latency_logic,
         analyze_session_metrics,
