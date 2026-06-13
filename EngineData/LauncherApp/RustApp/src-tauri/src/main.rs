@@ -1,10 +1,27 @@
 mod engine;
 
+use engine::diagnostics::RuntimeDiagnostics;
+use engine::settings::RuntimeSettings;
 use engine::state::{CommandResult, EngineStatus};
 
 #[tauri::command]
 fn get_engine_status() -> EngineStatus {
     engine::current_status()
+}
+
+#[tauri::command]
+fn get_runtime_diagnostics() -> RuntimeDiagnostics {
+    engine::runtime_diagnostics()
+}
+
+#[tauri::command]
+fn load_runtime_settings() -> RuntimeSettings {
+    engine::load_settings()
+}
+
+#[tauri::command]
+fn save_default_runtime_settings() -> CommandResult {
+    engine::save_default_settings()
 }
 
 #[tauri::command]
@@ -25,6 +42,9 @@ fn translate_text(source: String) -> CommandResult {
 fn main() {
     let app = tauri::Builder::default().invoke_handler(tauri::generate_handler![
         get_engine_status,
+        get_runtime_diagnostics,
+        load_runtime_settings,
+        save_default_runtime_settings,
         start_capture,
         stop_capture,
         translate_text,
