@@ -2,16 +2,16 @@
 
 ## Current entry
 
-- Version: `0.6.1-rust-engine-contract-baseline`
+- Version: `0.6.2-rust-runtime-support-and-audio-gate`
 - Date: `2026-06-14`
 - Branch: `ChatGPT-ConvertEngine`
-- Status: Full-Rust target documented; Rust engine contract baseline added
+- Status: Full-Rust target documented; runtime support and Rust audio evidence gate baseline added
 - Root baseline: `Developing` commit `f412ba06bace37f6c0118eb20a6a2f91f0a63e76`
 - Observed commit: `76139bc13bd0b8f59f4307d98703a5f335460470`
 
 ## Summary
 
-Created the first professional Rust/Tauri conversion baseline and then extended it with Rust-owned runtime contracts. The final target is full Rust ownership of the runtime without a Python dependency in the final application.
+Created the professional Rust/Tauri conversion baseline, extended it with Rust-owned runtime contracts, then added runtime support modules and the first Rust audio evidence/VAD gate baseline. The final target remains full Rust ownership of the runtime without a Python dependency in the final application.
 
 ## Changes made
 
@@ -30,7 +30,16 @@ Created the first professional Rust/Tauri conversion baseline and then extended 
 - Added Rust CUDA policy contract.
 - Added Rust adapter contracts for ASR, translation, and TTS.
 - Rewired Tauri commands so `main.rs` delegates to the Rust engine module.
-- Extended the scaffold checker to validate engine contract files.
+- Added Rust project path discovery.
+- Added Rust runtime settings load/save model.
+- Added Rust runtime JSONL logging helper.
+- Added Rust transcript, latency, quality, and saved-session data models.
+- Added Rust runtime diagnostics payload.
+- Added frontend Diagnostics and Save Settings command wiring.
+- Added Rust audio target format contract.
+- Added Rust audio evidence calculation.
+- Added Rust VAD gate contract.
+- Extended the scaffold checker to validate runtime support and audio gate files.
 
 ## Important decision
 
@@ -50,7 +59,8 @@ No final runtime test was run in this step. This is intentional because the requ
 
 ## Next conversion target
 
-- Port runtime path resolution and persisted settings into Rust.
-- Add native Rust logging/report writing under `UserData/LogData`.
-- Add Rust data models for transcript, translation, latency, and saved-session payloads.
+- Add native Rust microphone device discovery plan and module boundary.
+- Add Rust calibration data contract.
+- Add native ASR backend selection record.
+- Add native translation backend selection record.
 - Preserve CUDA-first behavior, ASR behavior, translation behavior, TTS/output visibility, and `UserData` path rules.
