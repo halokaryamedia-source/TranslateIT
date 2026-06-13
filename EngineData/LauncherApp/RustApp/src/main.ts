@@ -60,6 +60,15 @@ type RuntimeDiagnostics = {
     }>;
     blocker: string | null;
   };
+  input_preparation_status: {
+    backend_id: string;
+    input_device_name: string | null;
+    target_sample_rate_hz: number;
+    target_channels: number;
+    prepared: boolean;
+    running: boolean;
+    note: string;
+  };
   calibration_profile_status: {
     path: string;
     present: boolean;
@@ -249,6 +258,9 @@ function renderDiagnostics(diagnostics: RuntimeDiagnostics, settings: RuntimeSet
     `Translation models: ${diagnostics.project_paths.translation_model_dir}`,
     `Audio backend: ${diagnostics.audio_device_discovery.backend_id}`,
     `Audio devices discovered: ${diagnostics.audio_device_discovery.devices.length}`,
+    `Input prepared: ${diagnostics.input_preparation_status.prepared}`,
+    `Input device: ${diagnostics.input_preparation_status.input_device_name ?? "not selected"}`,
+    `Input note: ${diagnostics.input_preparation_status.note}`,
     `Calibration profile: ${diagnostics.calibration_profile_status.present} | ${diagnostics.calibration_profile_status.path}`,
     `CUDA nvidia-smi: ${diagnostics.cuda_probe.nvidia_smi_available}`,
     `CUDA GPU: ${diagnostics.cuda_probe.gpu_summary ?? "not detected"}`,
