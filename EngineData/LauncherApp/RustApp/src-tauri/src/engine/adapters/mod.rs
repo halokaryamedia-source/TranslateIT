@@ -7,6 +7,7 @@ pub mod context_logic;
 pub mod language_logic;
 pub mod latency_logic;
 pub mod model_check;
+pub mod native_execution_bridge_logic;
 pub mod orchestration_logic;
 pub mod output_dry_run;
 pub mod pipeline_logic;
