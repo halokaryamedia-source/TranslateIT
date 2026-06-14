@@ -3,21 +3,14 @@ import {
   blockedClosureGateRequest,
   getRuntimeStatusBundle,
   type MigrationClosureGateReport,
+  type NativeCaptureGateReport,
   type RuntimeStatusBundleReport,
 } from "./runtimeLifecycle";
-
-type CaptureGateSummary = {
-  ready_for_capture_start: boolean;
-  stream_open_requested: boolean;
-  stream_open_performed: boolean;
-  blockers: string[];
-  note: string;
-};
 
 export type RuntimePretestingReadiness = {
   status: RuntimeStatusBundleReport;
   closure: MigrationClosureGateReport;
-  captureGate: CaptureGateSummary | null;
+  captureGate: NativeCaptureGateReport;
   readyForTestingPhase: boolean;
   mustRemainDraft: boolean;
   blockers: string[];
@@ -27,23 +20,23 @@ export type RuntimePretestingReadiness = {
 export async function loadRuntimePretestingReadiness(): Promise<RuntimePretestingReadiness> {
   const status = await getRuntimeStatusBundle();
   const closure = await analyzeMigrationClosure(blockedClosureGateRequest);
-  const captureGate = readCaptureGate(status);
+  const captureGate = status.capture_gate;
   const blockers = [
     ...status.readiness.blockers,
     ...closure.blockers,
-    ...(captureGate?.blockers ?? []),
+    ...captureGate.blockers,
   ].filter(Boolean);
   const uniqueBlockers = [...new Set(blockers)];
   const readyForTestingPhase = Boolean(
     status.readiness.handoff_state.has_snapshot ||
       status.readiness.session_state.has_active_session ||
-      captureGate,
+      captureGate.ready_for_capture_start,
   );
   const mustRemainDraft = !closure.ready_for_review;
   const notes = [
     status.summary,
     status.readiness.note,
-    captureGate?.note ?? "Capture gate was not included in the runtime status bundle.",
+    captureGate.note,
     closure.note,
     "This helper prepares the pre-testing handoff only; it does not run build, tests, CI, or final validation.",
   ];
@@ -57,8 +50,4 @@ export async function loadRuntimePretestingReadiness(): Promise<RuntimePretestin
     blockers: uniqueBlockers,
     notes,
   };
-}
-
-function readCaptureGate(status: RuntimeStatusBundleReport): CaptureGateSummary | null {
-  return (status as unknown as { capture_gate?: CaptureGateSummary }).capture_gate ?? null;
 }
