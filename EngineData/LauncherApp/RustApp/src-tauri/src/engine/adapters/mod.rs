@@ -14,6 +14,7 @@ pub mod live_pipeline_compact_status_logic;
 pub mod live_runtime_pipeline_gate_logic;
 pub mod live_translation_boundary_logic;
 pub mod live_tts_boundary_logic;
+pub mod local_worker_manifest_logic;
 pub mod migration_closure_gate_logic;
 pub mod model_check;
 pub mod native_asr_decoder_logic;
