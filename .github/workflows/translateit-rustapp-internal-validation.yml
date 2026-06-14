@@ -25,10 +25,14 @@ jobs:
       - name: Run internal validation runner
         run: .\DevelopingData\ToolKitData\Scripts\Execution\run_rustapp_final_validation.ps1
 
-      - name: Upload internal validation evidence
+      - name: Upload internal validation evidence bundle
         if: always()
         uses: actions/upload-artifact@v4
         with:
           name: rustapp-internal-validation-evidence
-          path: UserData/LogData/RustAppValidation/latest_validation_evidence.json
+          path: |
+            UserData/LogData/RustAppValidation/latest_validation_evidence.json
+            UserData/LogData/RustAppValidation/latest_readiness_summary.json
+            UserData/LogData/RustAppValidation/latest_local_worker_smoke_evidence.json
+            UserData/LogData/launcher_latest.log
           if-no-files-found: warn
