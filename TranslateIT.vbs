@@ -39,7 +39,7 @@ End If
 
 If IsProcessRunning(appProcessName) Then
     AppendLog logFile, "INFO", "app_already_running", appProcessName
-    shell.AppActivate "TranslateIT"
+    TryActivate "TranslateIT"
     WScript.Quit 0
 End If
 
@@ -76,6 +76,13 @@ WScript.Quit 1
 
 Sub EnsureFolder(folderPath)
     If Not fso.FolderExists(folderPath) Then fso.CreateFolder(folderPath)
+End Sub
+
+Sub TryActivate(windowTitle)
+    On Error Resume Next
+    shell.AppActivate windowTitle
+    Err.Clear
+    On Error GoTo 0
 End Sub
 
 Function CommandExists(commandName)
