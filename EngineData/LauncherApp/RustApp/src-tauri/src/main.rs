@@ -3,6 +3,7 @@ mod engine;
 use engine::adapters::asr_dry_run::{run_asr_dry_check, AsrDryRunRequest, AsrDryRunResult};
 use engine::adapters::asr_model_logic::{build_asr_profile_plan, AsrProfilePlan, AsrProfileRequest};
 use engine::adapters::asr_quality_logic::{evaluate_asr_quality, AsrQualityLogicDecision, AsrQualityLogicRequest};
+use engine::adapters::calibration_logic::{run_calibration_logic, CalibrationLogicRequest, CalibrationLogicResult};
 use engine::adapters::context_logic::{update_translation_context, TranslationContextReport, TranslationContextRequest};
 use engine::adapters::language_logic::{run_language_logic, LanguageLogicReport, LanguageLogicRequest};
 use engine::adapters::latency_logic::{build_latency_logic, build_vad_profile, LatencyLogicReport, LatencyLogicRequest, VadProfileReport, VadProfileRequest};
@@ -59,6 +60,11 @@ fn preprocess_audio_payload(request: AudioPreprocessRequest) -> PreprocessingRes
 #[tauri::command]
 fn classify_audio_noise(request: NoiseAssessmentRequest) -> AudioNoiseAssessment {
     classify_noise(request)
+}
+
+#[tauri::command]
+fn run_mic_calibration_logic(request: CalibrationLogicRequest) -> CalibrationLogicResult {
+    run_calibration_logic(request)
 }
 
 #[tauri::command]
@@ -199,6 +205,7 @@ fn main() {
         analyze_audio_payload,
         preprocess_audio_payload,
         classify_audio_noise,
+        run_mic_calibration_logic,
         analyze_vad_segment,
         plan_asr_profile,
         analyze_asr_quality,
