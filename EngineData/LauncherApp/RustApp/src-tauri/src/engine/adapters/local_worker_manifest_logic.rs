@@ -8,6 +8,10 @@ pub struct LocalWorkerManifestReport {
     pub ok: bool,
     pub worker_script_path: String,
     pub worker_script_exists: bool,
+    pub requirements_path: String,
+    pub requirements_exists: bool,
+    pub stack_manifest_path: String,
+    pub stack_manifest_exists: bool,
     pub asr_model_path: String,
     pub asr_model_ready: bool,
     pub realtime_translation_model_path: String,
@@ -24,11 +28,10 @@ pub struct LocalWorkerManifestReport {
 pub fn analyze_local_worker_manifest() -> LocalWorkerManifestReport {
     let project_paths = ProjectPaths::discover();
     let root = PathBuf::from(&project_paths.project_root);
-    let worker_script = root
-        .join("EngineData")
-        .join("LauncherApp")
-        .join("Workers")
-        .join("realtime_local_worker.py");
+    let worker_root = root.join("EngineData").join("LauncherApp").join("Workers");
+    let worker_script = worker_root.join("realtime_local_worker.py");
+    let requirements = worker_root.join("requirements-realtime.txt");
+    let stack_manifest = worker_root.join("realtime_stack_manifest.json");
     let asr_model = root
         .join("EngineData")
         .join("TranscriptEngine")
@@ -50,6 +53,8 @@ pub fn analyze_local_worker_manifest() -> LocalWorkerManifestReport {
         .join("Piper");
 
     let worker_script_exists = worker_script.is_file();
+    let requirements_exists = requirements.is_file();
+    let stack_manifest_exists = stack_manifest.is_file();
     let asr_model_ready = asr_model.join("model.bin").is_file();
     let realtime_translation_model_ready = realtime_translation_model.is_dir();
     let quality_translation_model_ready = quality_translation_model.is_dir();
@@ -58,6 +63,12 @@ pub fn analyze_local_worker_manifest() -> LocalWorkerManifestReport {
     let mut blockers = Vec::new();
     if !worker_script_exists {
         blockers.push("local_worker:script_missing".to_string());
+    }
+    if !requirements_exists {
+        blockers.push("local_worker:requirements_missing".to_string());
+    }
+    if !stack_manifest_exists {
+        blockers.push("local_worker:stack_manifest_missing".to_string());
     }
     if !asr_model_ready {
         blockers.push("model:faster_whisper_large_v3_turbo_missing".to_string());
@@ -77,6 +88,10 @@ pub fn analyze_local_worker_manifest() -> LocalWorkerManifestReport {
         ok,
         worker_script_path: normalize(&worker_script),
         worker_script_exists,
+        requirements_path: normalize(&requirements),
+        requirements_exists,
+        stack_manifest_path: normalize(&stack_manifest),
+        stack_manifest_exists,
         asr_model_path: normalize(&asr_model),
         asr_model_ready,
         realtime_translation_model_path: normalize(&realtime_translation_model),
@@ -90,7 +105,7 @@ pub fn analyze_local_worker_manifest() -> LocalWorkerManifestReport {
         note: if ok {
             "Local realtime worker manifest is ready for dependency and runtime preload validation.".to_string()
         } else {
-            "Local realtime worker manifest is incomplete. Missing local model or worker assets must be installed before real inference can run.".to_string()
+            "Local realtime worker manifest is incomplete. Missing local model, worker, requirements, stack manifest, or voice assets must be installed before real inference can run.".to_string()
         },
     }
 }
