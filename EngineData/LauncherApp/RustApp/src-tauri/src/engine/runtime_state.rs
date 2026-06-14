@@ -58,6 +58,24 @@ pub fn latest_runtime_handoff_state() -> RuntimeHandoffStateReport {
         .lock()
         .ok()
         .and_then(|guard| guard.as_ref().cloned());
+    build_state_report(snapshot)
+}
+
+pub fn clear_runtime_handoff_state() -> RuntimeHandoffStateReport {
+    let store = RUNTIME_HANDOFF_STATE.get_or_init(|| Mutex::new(None));
+    if let Ok(mut guard) = store.lock() {
+        *guard = None;
+    }
+    RuntimeHandoffStateReport {
+        has_snapshot: false,
+        snapshot: None,
+        ready_for_start: false,
+        blocker: "handoff:cleared".to_string(),
+        note: "Realtime handoff snapshot was cleared. Run Realtime Handoff again before Start.".to_string(),
+    }
+}
+
+fn build_state_report(snapshot: Option<RuntimeHandoffSnapshot>) -> RuntimeHandoffStateReport {
     match snapshot {
         Some(snapshot) => {
             let ready_for_start = snapshot.ready_for_realtime_handoff;
