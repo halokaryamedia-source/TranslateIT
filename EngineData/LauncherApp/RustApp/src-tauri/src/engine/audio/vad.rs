@@ -24,6 +24,60 @@ impl Default for VadGateConfig {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct RuntimeVadProfile {
+    pub name: String,
+    pub pre_roll_audio_ms: u32,
+    pub minimum_speech_duration_ms: u32,
+    pub minimum_silence_duration_ms: u32,
+    pub target_chunk_min_ms: u32,
+    pub target_chunk_max_ms: u32,
+    pub maximum_segment_duration_ms: u32,
+    pub partial_asr_enabled: bool,
+    pub gate: VadGateConfig,
+}
+
+pub fn resolve_runtime_vad_profile(name: &str) -> RuntimeVadProfile {
+    let normalized = name.trim().to_lowercase();
+    if normalized.contains("quality") {
+        RuntimeVadProfile {
+            name: "Quality".to_string(),
+            pre_roll_audio_ms: 240,
+            minimum_speech_duration_ms: 220,
+            minimum_silence_duration_ms: 220,
+            target_chunk_min_ms: 700,
+            target_chunk_max_ms: 1_200,
+            maximum_segment_duration_ms: 3_000,
+            partial_asr_enabled: true,
+            gate: VadGateConfig {
+                min_rms: 0.006,
+                min_peak: 0.022,
+                min_active_frame_ratio: 0.06,
+                max_clipping_ratio: 0.02,
+                min_speech_ms: 180,
+            },
+        }
+    } else {
+        RuntimeVadProfile {
+            name: "Realtime".to_string(),
+            pre_roll_audio_ms: 140,
+            minimum_speech_duration_ms: 140,
+            minimum_silence_duration_ms: 100,
+            target_chunk_min_ms: 320,
+            target_chunk_max_ms: 700,
+            maximum_segment_duration_ms: 1_500,
+            partial_asr_enabled: true,
+            gate: VadGateConfig {
+                min_rms: 0.007,
+                min_peak: 0.024,
+                min_active_frame_ratio: 0.06,
+                max_clipping_ratio: 0.025,
+                min_speech_ms: 120,
+            },
+        }
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct VadPresetConfig {
     pub name: String,
     pub pre_roll_audio_ms: u32,
