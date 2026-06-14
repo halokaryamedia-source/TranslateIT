@@ -10,7 +10,7 @@ TranslateIT
 
 ## Current conversion status
 
-The active `EngineData/LauncherApp` Python launcher files have been removed from the Rust conversion branch and the root launcher is redirected to RustApp. Core logic has been ported into Rust modules for audio preprocessing, noise filtering, VAD, ASR model planning, ASR quality filtering, language routing, latency reporting, pipeline decisions, translation planning, playback planning, session metrics, session store payloads, native execution planning, and native runner contracts.
+The active `EngineData/LauncherApp` Python launcher files have been removed from the Rust conversion branch and the root launcher is redirected to RustApp. Core logic has been ported into Rust modules for audio preprocessing, noise filtering, VAD, ASR model planning, ASR quality filtering, language routing, latency reporting, pipeline decisions, translation planning, playback planning, session metrics, session store payloads, native execution planning, native runner contracts, and transcript segment parity models.
 
 ## Work not yet complete
 
@@ -83,12 +83,14 @@ Current state:
 Still needed:
 
 - fully port `segment_builder.py`
-- fully port `transcript_segment.py`
 - fully port `transcript_session.py`
 - ensure saved transcript JSON matches the intended session structure
+- connect transcript segment parity model to runtime session store
 
 Current state:
 
+- `transcript_segment.py` field shape has been ported into `engine/transcript.rs`
+- transcript segment summary helper exists
 - session payload models exist
 - session save preview/save helper exists
 - session metric logic exists
