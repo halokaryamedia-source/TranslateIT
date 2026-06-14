@@ -1,0 +1,68 @@
+{
+  "schema": "translateit.local_realtime_stack.v1",
+  "default_mode": "Realtime",
+  "modes": {
+    "Realtime": {
+      "target_latency_ms": 1000,
+      "asr": {
+        "model_id": "faster-whisper-large-v3-turbo",
+        "model_path": "EngineData/TranscriptEngine/ModelData/faster-whisper-large-v3-turbo",
+        "device": "cuda",
+        "compute_type": "int8_float16",
+        "beam_size": 1,
+        "language": "id",
+        "task": "transcribe",
+        "vad_filter": true
+      },
+      "translation": {
+        "model_id": "marianmt-id-en",
+        "model_path": "EngineData/TranslateEngine/ModelData/marianmt-id-en",
+        "device": "cuda",
+        "compute_type": "int8_float16",
+        "max_new_tokens": 32
+      },
+      "tts": {
+        "engine_id": "piper",
+        "root": "EngineData/VoiceEngine/Piper",
+        "voice_mode": "fast"
+      }
+    },
+    "Quality": {
+      "target_latency_ms": 2500,
+      "asr": {
+        "model_id": "faster-whisper-large-v3-turbo",
+        "model_path": "EngineData/TranscriptEngine/ModelData/faster-whisper-large-v3-turbo",
+        "device": "cuda",
+        "compute_type": "float16",
+        "beam_size": 1,
+        "language": "id",
+        "task": "transcribe",
+        "vad_filter": true
+      },
+      "translation": {
+        "model_id": "nllb-200-distilled-600M",
+        "model_path": "EngineData/TranslateEngine/ModelData/nllb-200-distilled-600M",
+        "device": "cuda",
+        "compute_type": "float16",
+        "max_new_tokens": 64
+      },
+      "tts": {
+        "engine_id": "piper",
+        "root": "EngineData/VoiceEngine/Piper",
+        "voice_mode": "quality"
+      }
+    }
+  },
+  "truth_policy": {
+    "no_api": true,
+    "local_only": true,
+    "do_not_claim_ready_until_smoke_tests_pass": true,
+    "required_smoke_tests": [
+      "microphone_capture_smoke_test",
+      "asr_transcript_smoke_test",
+      "translation_smoke_test",
+      "tts_playback_smoke_test",
+      "launcher_package_open_test"
+    ]
+  }
+}
