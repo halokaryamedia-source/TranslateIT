@@ -81,6 +81,13 @@ export type RuntimeReadinessBundleReport = {
   note: string;
 };
 
+export type RuntimeStatusBundleReport = {
+  engine_status: unknown;
+  readiness: RuntimeReadinessBundleReport;
+  next_action: string;
+  summary: string;
+};
+
 export type MigrationClosureGateRequest = {
   manual_build_validation_passed: boolean;
   manual_runtime_smoke_passed: boolean;
@@ -135,6 +142,10 @@ export async function analyzeStopGate(): Promise<RuntimeLifecycleGateReport> {
 
 export async function analyzeRuntimeReadiness(): Promise<RuntimeReadinessBundleReport> {
   return invoke<RuntimeReadinessBundleReport>("analyze_runtime_readiness");
+}
+
+export async function getRuntimeStatusBundle(): Promise<RuntimeStatusBundleReport> {
+  return invoke<RuntimeStatusBundleReport>("get_runtime_status_bundle");
 }
 
 export async function analyzeMigrationClosure(
@@ -241,6 +252,16 @@ export function summarizeReadinessBundle(report: RuntimeReadinessBundleReport): 
     allowed: report.ready_for_start_command,
     lifecycle_state: report.ready_for_user_facing_runtime ? "ready" : "blocked",
     details,
+  };
+}
+
+export function summarizeRuntimeStatusBundle(report: RuntimeStatusBundleReport): RuntimeLifecycleSummary {
+  const readiness = summarizeReadinessBundle(report.readiness);
+  return {
+    label: `status: ${report.next_action}`,
+    allowed: readiness.allowed,
+    lifecycle_state: readiness.lifecycle_state,
+    details: [report.summary, `Next action: ${report.next_action}`, ...readiness.details],
   };
 }
 
