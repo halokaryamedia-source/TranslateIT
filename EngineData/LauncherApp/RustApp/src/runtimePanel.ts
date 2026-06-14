@@ -18,6 +18,7 @@ export type RuntimePanelModel = {
   canStart: boolean;
   canStop: boolean;
   canPrepareCaptureStream: boolean;
+  captureGateReady: boolean;
   hasTargetInputConfig: boolean;
   selectedCaptureRateHz: number | null;
   selectedCaptureChannels: number | null;
@@ -38,6 +39,7 @@ export async function loadRuntimePanelModel(): Promise<RuntimePanelModel> {
   const canStart = status.readiness.ready_for_start_command && !status.readiness.session_state.has_active_session;
   const canStop = status.readiness.ready_for_stop_command || status.readiness.session_state.has_active_session;
   const canPrepareCaptureStream = status.readiness.ready_for_capture_stream_creation;
+  const captureGateReady = status.capture_gate.ready_for_capture_start;
   const hasTargetInputConfig = status.readiness.capture_bridge.input_config_probe.supports_target_format;
   const canMoveToReview = closure.ready_for_review;
   const visibleWarnings = buildVisibleWarnings(status, closure);
@@ -51,6 +53,7 @@ export async function loadRuntimePanelModel(): Promise<RuntimePanelModel> {
     canStart,
     canStop,
     canPrepareCaptureStream,
+    captureGateReady,
     hasTargetInputConfig,
     selectedCaptureRateHz: streamPlan.selected_sample_rate_hz,
     selectedCaptureChannels: streamPlan.selected_channels,
@@ -68,6 +71,7 @@ export function renderRuntimePanelText(model: RuntimePanelModel): string {
     `Can start: ${model.canStart}`,
     `Can stop: ${model.canStop}`,
     `Can prepare capture stream: ${model.canPrepareCaptureStream}`,
+    `Capture gate ready: ${model.captureGateReady}`,
     `Has target input config: ${model.hasTargetInputConfig}`,
     `Selected capture rate: ${model.selectedCaptureRateHz ?? "none"}`,
     `Selected capture channels: ${model.selectedCaptureChannels ?? "none"}`,
@@ -79,6 +83,7 @@ export function renderRuntimePanelText(model: RuntimePanelModel): string {
     model.status.readiness.capture_bridge.input_config_probe.note,
     model.status.readiness.capture_bridge.stream_plan.note,
     model.status.readiness.capture_bridge.note,
+    model.status.capture_gate.note,
     model.status.readiness.note,
     model.closure.note,
     ...model.visibleWarnings.map((warning) => `Warning: ${warning}`),
@@ -93,6 +98,7 @@ function buildVisibleWarnings(
 ): string[] {
   const warnings = [
     ...status.readiness.blockers,
+    ...status.capture_gate.blockers,
     ...closure.blockers,
   ];
   const inputConfig = status.readiness.capture_bridge.input_config_probe;
@@ -106,6 +112,9 @@ function buildVisibleWarnings(
   }
   if (!status.readiness.ready_for_capture_stream_creation) {
     warnings.push(`Capture bridge blocked: ${status.readiness.capture_bridge.note}`);
+  }
+  if (!status.capture_gate.ready_for_capture_start) {
+    warnings.push(`Capture gate blocked: ${status.capture_gate.note}`);
   }
   if (!status.readiness.ready_for_user_facing_runtime) {
     warnings.push("User-facing runtime is not ready; real capture/inference/output work remains.");
