@@ -3,8 +3,7 @@ $ErrorActionPreference = "Continue"
 $Root = Resolve-Path (Join-Path $PSScriptRoot "..\..\..\..")
 $Tooling = Join-Path $Root "DevelopingData\Tooling\Scripts\Execution"
 $RustApp = Join-Path $Root "EngineData\LauncherApp\RustApp"
-$EvidenceWriter = Join-Path $Tooling "write_rustapp_validation_evidence.py"
-$ReadinessSummary = Join-Path $Tooling "summarize_translateit_readiness.py"
+$NodeTooling = Join-Path $Tooling "translateit_tooling.mjs"
 $ValidationFailed = $false
 
 function Invoke-ValidationStep {
@@ -23,9 +22,9 @@ function Invoke-ValidationStep {
 }
 
 function Invoke-ReadinessSummary {
-    if (Test-Path $ReadinessSummary) {
+    if (Test-Path $NodeTooling) {
         Write-Host "[summary] Writing evidence-based readiness summary"
-        python $ReadinessSummary
+        node $NodeTooling summarize-readiness
         if ($LASTEXITCODE -ne 0) { Write-Warning "Readiness summary reports remaining blockers." }
     }
 }
@@ -36,14 +35,14 @@ Write-Host "RustApp: $RustApp"
 Write-Host "Tooling: $Tooling"
 Write-Host "Status: internal validation only. Do not mark Ready without manual runtime evidence."
 
-Invoke-ValidationStep "Root professional cleanliness" { python (Join-Path $Tooling "check_root_professional_cleanliness.py") } | Out-Null
-Invoke-ValidationStep "Engine and DevelopingData structure" { python (Join-Path $Tooling "check_engine_developing_structure.py") } | Out-Null
-Invoke-ValidationStep "Launcher contract" { python (Join-Path $Tooling "check_launcher_contract.py") } | Out-Null
-Invoke-ValidationStep "CI validation workflow contract" { python (Join-Path $Tooling "check_ci_validation_workflow.py") } | Out-Null
-Invoke-ValidationStep "Local release bundle contract" { python (Join-Path $Tooling "check_translateit_local_release_bundle.py") } | Out-Null
-Invoke-ValidationStep "Rust validation evidence boundary" { python (Join-Path $Tooling "check_rust_validation_evidence_boundary.py") } | Out-Null
-Invoke-ValidationStep "Frontend runtime contract" { python (Join-Path $Tooling "check_frontend_runtime_contract.py") } | Out-Null
-$LocalWorkerStackPassed = Invoke-ValidationStep "Local realtime worker stack" { python (Join-Path $Tooling "check_local_realtime_worker_stack.py") }
+Invoke-ValidationStep "Root professional cleanliness" { node $NodeTooling validate-root } | Out-Null
+Invoke-ValidationStep "Engine and DevelopingData structure" { node $NodeTooling validate-structure } | Out-Null
+Invoke-ValidationStep "Launcher contract" { node $NodeTooling validate-launcher } | Out-Null
+Invoke-ValidationStep "CI validation workflow contract" { node $NodeTooling validate-ci } | Out-Null
+Invoke-ValidationStep "Local release bundle contract" { node $NodeTooling validate-release } | Out-Null
+Invoke-ValidationStep "Rust validation evidence boundary" { node $NodeTooling validate-evidence } | Out-Null
+Invoke-ValidationStep "Frontend runtime contract" { node $NodeTooling validate-frontend } | Out-Null
+$LocalWorkerStackPassed = Invoke-ValidationStep "Local realtime worker stack" { node $NodeTooling validate-worker }
 
 $TypecheckPassed = $false
 $RustCheckPassed = $false
@@ -62,7 +61,7 @@ try {
 }
 finally {
     Pop-Location
-    python $EvidenceWriter $RustCheckPassed $TypecheckPassed $FrontendBuildPassed $TauriBuildPassed $PackagingPassed $LocalWorkerStackPassed
+    node $NodeTooling write-validation-evidence $RustCheckPassed $TypecheckPassed $FrontendBuildPassed $TauriBuildPassed $PackagingPassed $LocalWorkerStackPassed
     Invoke-ReadinessSummary
 }
 
