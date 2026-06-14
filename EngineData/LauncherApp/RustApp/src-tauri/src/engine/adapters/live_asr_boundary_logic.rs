@@ -1,6 +1,8 @@
 use serde::Serialize;
 use std::collections::hash_map::DefaultHasher;
 use std::hash::{Hash, Hasher};
+use std::sync::{Mutex, OnceLock};
+use std::time::{SystemTime, UNIX_EPOCH};
 
 use crate::engine::adapters::asr_model_logic::{build_asr_profile_plan, AsrProfilePlan, AsrProfileRequest};
 use crate::engine::audio::live_audio_buffer::{live_target_segment_snapshot, LiveTargetSegmentReport};
@@ -20,6 +22,9 @@ pub struct LiveAsrBoundaryReport {
     pub ready_for_decoder_call: bool,
     pub consume_after_success_only: bool,
     pub duplicate_guard_key: String,
+    pub duplicate_of_last_success: bool,
+    pub last_consumed_segment_id: Option<String>,
+    pub last_consumed_unix_ms: Option<u128>,
     pub target_segment: LiveTargetSegmentReport,
     pub asr_profile_plan: AsrProfilePlan,
     pub backend_validation: NativeCudaBackendValidationReport,
@@ -27,11 +32,34 @@ pub struct LiveAsrBoundaryReport {
     pub note: String,
 }
 
+#[derive(Debug, Clone, Serialize)]
+pub struct AsrConsumeGuardReport {
+    pub consumed: bool,
+    pub segment_id: String,
+    pub duplicate_guard_key: String,
+    pub last_consumed_segment_id: Option<String>,
+    pub note: String,
+}
+
+#[derive(Debug, Clone)]
+struct AsrConsumeState {
+    segment_id: String,
+    duplicate_guard_key: String,
+    consumed_unix_ms: u128,
+}
+
+static ASR_CONSUME_STATE: OnceLock<Mutex<Option<AsrConsumeState>>> = OnceLock::new();
+
 pub fn analyze_live_asr_boundary() -> LiveAsrBoundaryReport {
     let project_paths = ProjectPaths::discover();
     let target_segment = live_target_segment_snapshot();
     let segment_id = segment_id(&target_segment);
     let duplicate_guard_key = duplicate_key(&target_segment);
+    let consume_state = latest_consume_state();
+    let duplicate_of_last_success = consume_state
+        .as_ref()
+        .map(|state| state.duplicate_guard_key == duplicate_guard_key)
+        .unwrap_or(false);
     let backend_validation = NativeCudaBackendValidationReport::validate_ctranslate2_cuda_candidate();
     let asr_profile_plan = build_asr_profile_plan(AsrProfileRequest {
         primary_model: Some("large-v3-turbo".to_string()),
@@ -53,9 +81,11 @@ pub fn analyze_live_asr_boundary() -> LiveAsrBoundaryReport {
     let model_ready = asr_profile_plan.ready_for_native_execution;
     let backend_ready = backend_validation.ready;
     let decoder_connected = false;
-    let ready_for_decoder_call = input_ready && model_ready && backend_ready && decoder_connected;
+    let ready_for_decoder_call = input_ready && model_ready && backend_ready && decoder_connected && !duplicate_of_last_success;
 
-    let blocker = if !input_ready {
+    let blocker = if duplicate_of_last_success {
+        "asr_boundary:duplicate_segment_already_consumed".to_string()
+    } else if !input_ready {
         format!("asr_boundary:input_not_ready:{}", target_segment.blocker)
     } else if !model_ready {
         "asr_boundary:model_not_ready".to_string()
@@ -74,8 +104,8 @@ pub fn analyze_live_asr_boundary() -> LiveAsrBoundaryReport {
         )
     } else {
         format!(
-            "Live ASR boundary is blocked before transcription. segment_id={}, input_ready={}, model_ready={}, backend_ready={}, decoder_connected={}, blocker={}",
-            segment_id, input_ready, model_ready, backend_ready, decoder_connected, blocker
+            "Live ASR boundary is blocked before transcription. segment_id={}, input_ready={}, model_ready={}, backend_ready={}, decoder_connected={}, duplicate={}, blocker={}",
+            segment_id, input_ready, model_ready, backend_ready, decoder_connected, duplicate_of_last_success, blocker
         )
     };
 
@@ -91,12 +121,54 @@ pub fn analyze_live_asr_boundary() -> LiveAsrBoundaryReport {
         ready_for_decoder_call,
         consume_after_success_only: true,
         duplicate_guard_key,
+        duplicate_of_last_success,
+        last_consumed_segment_id: consume_state.as_ref().map(|state| state.segment_id.clone()),
+        last_consumed_unix_ms: consume_state.as_ref().map(|state| state.consumed_unix_ms),
         target_segment,
         asr_profile_plan,
         backend_validation,
         blocker,
         note,
     }
+}
+
+pub fn mark_live_asr_segment_consumed_after_success() -> AsrConsumeGuardReport {
+    let boundary = analyze_live_asr_boundary();
+    if !boundary.ready_for_decoder_call {
+        return AsrConsumeGuardReport {
+            consumed: false,
+            segment_id: boundary.segment_id,
+            duplicate_guard_key: boundary.duplicate_guard_key,
+            last_consumed_segment_id: boundary.last_consumed_segment_id,
+            note: format!("ASR segment was not consumed because decoder call is not ready. blocker={}", boundary.blocker),
+        };
+    }
+
+    let state = AsrConsumeState {
+        segment_id: boundary.segment_id.clone(),
+        duplicate_guard_key: boundary.duplicate_guard_key.clone(),
+        consumed_unix_ms: current_unix_ms(),
+    };
+    let store = ASR_CONSUME_STATE.get_or_init(|| Mutex::new(None));
+    if let Ok(mut guard) = store.lock() {
+        *guard = Some(state.clone());
+    }
+
+    AsrConsumeGuardReport {
+        consumed: true,
+        segment_id: state.segment_id,
+        duplicate_guard_key: state.duplicate_guard_key,
+        last_consumed_segment_id: Some(boundary.segment_id),
+        note: "ASR segment consume guard was updated after successful decoder execution.".to_string(),
+    }
+}
+
+fn latest_consume_state() -> Option<AsrConsumeState> {
+    ASR_CONSUME_STATE
+        .get_or_init(|| Mutex::new(None))
+        .lock()
+        .ok()
+        .and_then(|guard| guard.as_ref().cloned())
 }
 
 fn segment_id(segment: &LiveTargetSegmentReport) -> String {
@@ -145,4 +217,11 @@ fn hash_segment(segment: &LiveTargetSegmentReport) -> u64 {
         }
     }
     hasher.finish()
+}
+
+fn current_unix_ms() -> u128 {
+    SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .map(|duration| duration.as_millis())
+        .unwrap_or(0)
 }
