@@ -30,6 +30,7 @@ REQUIRED_TERMS = {
         "validate:full",
         "validate:ci-workflow",
         "validate:launcher",
+        "validate:bundle",
         "validate:worker",
         "validate:models",
         "validate:evidence",
@@ -43,6 +44,11 @@ REQUIRED_TERMS = {
         "tts_preflight",
         "synthesize",
         "torch_cuda_available",
+        "resolve_worker_path",
+        "ALLOWED_INPUT_ROOTS",
+        "ALLOWED_OUTPUT_ROOTS",
+        "device_note",
+        "cuda_fallback",
     ],
     ROOT / "DevelopingData" / "ToolKitData" / "Scripts" / "Execution" / "run_local_realtime_worker_smoke_tests.py": [
         "persistent_worker",
@@ -95,7 +101,7 @@ def main() -> int:
             print("-", item)
         return 1
 
-    print("PASS: TranslateIT local release bundle contains launcher, RustApp, worker, smoke, evidence, readiness, and CI validation contracts")
+    print("PASS: TranslateIT local release bundle contains launcher, RustApp, guarded worker, smoke, evidence, readiness, and CI validation contracts")
     return 0
 
 
