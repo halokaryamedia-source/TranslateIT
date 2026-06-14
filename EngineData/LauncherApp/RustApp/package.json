@@ -1,7 +1,7 @@
 {
   "name": "translateit-rustapp",
   "private": true,
-  "version": "0.8.7-local-realtime-cleanup",
+  "version": "0.8.8-local-preflight-shortcuts",
   "type": "module",
   "scripts": {
     "dev": "tauri dev",
@@ -10,6 +10,8 @@
     "build:frontend": "vite build",
     "typecheck": "tsc --noEmit",
     "check:rust": "cargo check --manifest-path src-tauri/Cargo.toml",
+    "setup:worker": "powershell -ExecutionPolicy Bypass -File ../Workers/setup_realtime_worker.ps1",
+    "smoke:worker": "powershell -ExecutionPolicy Bypass -File ../Workers/run_realtime_worker_smoke.ps1",
     "validate:worker": "python ../../../DevelopingData/ToolKitData/Scripts/Execution/check_local_realtime_worker_stack.py",
     "validate:models": "python ../../../DevelopingData/ToolKitData/Scripts/Execution/check_local_runtime_models.py",
     "validate:internal": "npm run validate:worker && npm run typecheck && npm run check:rust && npm run build:frontend",
