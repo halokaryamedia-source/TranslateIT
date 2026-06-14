@@ -9,17 +9,10 @@ param(
 )
 
 $Root = Resolve-Path (Join-Path $PSScriptRoot "..\..\..")
-$SmokeScript = Join-Path $Root "DevelopingData\Tooling\Scripts\Execution\run_local_realtime_worker_smoke_tests.py"
-$WorkerPython = Join-Path $PSScriptRoot ".venv\Scripts\python.exe"
+$NodeTooling = Join-Path $Root "DevelopingData\Tooling\Scripts\Execution\translateit_tooling.mjs"
 
-if (-not (Test-Path $SmokeScript)) {
-    throw "Missing smoke test script: $SmokeScript"
-}
-
-if (Test-Path $WorkerPython) {
-    $Python = $WorkerPython
-} else {
-    $Python = "python"
+if (-not (Test-Path $NodeTooling)) {
+    throw "Missing Node tooling script: $NodeTooling"
 }
 
 Write-Host "TranslateIT local realtime worker smoke test"
@@ -28,11 +21,6 @@ Write-Host "Mode: $Mode"
 Write-Host "AudioPath: $AudioPath"
 Write-Host "Persistent worker: true"
 
-$ArgsList = @($SmokeScript, "--mode", $Mode, "--text", $Text, "--tts-text", $TtsText)
-if ($AudioPath -ne "") {
-    $ArgsList += @("--audio-path", $AudioPath)
-}
-
-& $Python @ArgsList
+node $NodeTooling smoke-worker
 
 Write-Host "Smoke test finished. Owner validation remains blocked unless latest_validation_evidence.json and manual runtime evidence are complete."
