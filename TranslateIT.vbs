@@ -1,6 +1,7 @@
 Option Explicit
 
-Dim fso, shell, projectRoot, rustAppDir, logDir, logFile, releaseExe, packageFile, devCommand, commandLine
+Dim fso, shell, projectRoot, rustAppDir, logDir, logFile, releaseExe, packageFile
+Dim commandLine, appProcessName, mode, devRequested
 
 Set fso = CreateObject("Scripting.FileSystemObject")
 Set shell = CreateObject("WScript.Shell")
@@ -10,13 +11,19 @@ rustAppDir = projectRoot & "\EngineData\LauncherApp\RustApp"
 logDir = projectRoot & "\UserData\LogData"
 releaseExe = rustAppDir & "\src-tauri\target\release\translateit_rustapp.exe"
 packageFile = rustAppDir & "\package.json"
-devCommand = "npm.cmd run dev"
+appProcessName = "translateit_rustapp.exe"
+devRequested = False
 
-If Not fso.FolderExists(projectRoot & "\UserData") Then fso.CreateFolder(projectRoot & "\UserData")
-If Not fso.FolderExists(logDir) Then fso.CreateFolder(logDir)
+If WScript.Arguments.Count > 0 Then
+    mode = LCase(Trim(WScript.Arguments.Item(0)))
+    If mode = "dev" Or mode = "/dev" Or mode = "--dev" Then devRequested = True
+End If
+
+EnsureFolder projectRoot & "\UserData"
+EnsureFolder logDir
 
 logFile = logDir & "\launcher_latest.log"
-AppendLog logFile, "INFO", "rustapp_requested", rustAppDir
+AppendLog logFile, "INFO", "launcher_start", "release_first=true; dev_requested=" & CStr(devRequested)
 
 If Not fso.FolderExists(rustAppDir) Then
     AppendLog logFile, "ERROR", "rustapp_missing", rustAppDir
@@ -30,25 +37,46 @@ If Not fso.FileExists(packageFile) Then
     WScript.Quit 1
 End If
 
+If IsProcessRunning(appProcessName) Then
+    AppendLog logFile, "INFO", "app_already_running", appProcessName
+    shell.AppActivate "TranslateIT"
+    WScript.Quit 0
+End If
+
 shell.CurrentDirectory = rustAppDir
 
 If fso.FileExists(releaseExe) Then
     commandLine = Chr(34) & releaseExe & Chr(34)
     AppendLog logFile, "INFO", "launch_release_exe", commandLine
-Else
-    If Not CommandExists("npm.cmd") Then
-        AppendLog logFile, "ERROR", "release_exe_missing_and_npm_missing", releaseExe
-        MsgBox "TranslateIT release app is not built yet and npm was not found." & vbCrLf & vbCrLf & _
-            "Please build/package the app first or install Node.js for development mode." & vbCrLf & vbCrLf & _
-            "Expected release app:" & vbCrLf & releaseExe, vbCritical, "TranslateIT"
-        WScript.Quit 1
-    End If
-    commandLine = devCommand
-    AppendLog logFile, "WARN", "release_exe_missing_using_dev_mode", releaseExe
-    AppendLog logFile, "INFO", "launch_dev_command", commandLine
+    shell.Run commandLine, 1, False
+    WScript.Quit 0
 End If
 
-shell.Run commandLine, 1, False
+If devRequested Then
+    If Not CommandExists("npm.cmd") Then
+        AppendLog logFile, "ERROR", "dev_requested_but_npm_missing", rustAppDir
+        MsgBox "TranslateIT development mode was requested, but npm was not found." & vbCrLf & vbCrLf & _
+            "Install Node.js or build the release app first.", vbCritical, "TranslateIT"
+        WScript.Quit 1
+    End If
+
+    commandLine = "npm.cmd run dev"
+    AppendLog logFile, "WARN", "launch_dev_mode_explicit", commandLine
+    shell.Run commandLine, 1, False
+    WScript.Quit 0
+End If
+
+AppendLog logFile, "ERROR", "release_exe_missing", releaseExe
+MsgBox "TranslateIT release app is not built yet." & vbCrLf & vbCrLf & _
+    "For normal use, build/package the Rust/Tauri app first." & vbCrLf & vbCrLf & _
+    "Expected app:" & vbCrLf & releaseExe & vbCrLf & vbCrLf & _
+    "Developer mode is available only with:" & vbCrLf & _
+    "wscript TranslateIT.vbs --dev", vbExclamation, "TranslateIT"
+WScript.Quit 1
+
+Sub EnsureFolder(folderPath)
+    If Not fso.FolderExists(folderPath) Then fso.CreateFolder(folderPath)
+End Sub
 
 Function CommandExists(commandName)
     Dim exitCode
@@ -59,6 +87,20 @@ Function CommandExists(commandName)
         Err.Clear
     Else
         CommandExists = (exitCode = 0)
+    End If
+    On Error GoTo 0
+End Function
+
+Function IsProcessRunning(processName)
+    Dim service, processes
+    On Error Resume Next
+    Set service = GetObject("winmgmts:\\.\root\cimv2")
+    Set processes = service.ExecQuery("SELECT Name FROM Win32_Process WHERE Name='" & processName & "'")
+    If Err.Number <> 0 Then
+        IsProcessRunning = False
+        Err.Clear
+    Else
+        IsProcessRunning = (processes.Count > 0)
     End If
     On Error GoTo 0
 End Function
