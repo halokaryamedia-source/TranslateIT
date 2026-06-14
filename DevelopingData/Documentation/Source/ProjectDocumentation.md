@@ -8,7 +8,7 @@ The current app direction is Rust/Tauri desktop shell plus a local AI worker for
 
 ## Current professional readiness position
 
-Current repo structure and documentation readiness is around `±87%`.
+Current repo structure and documentation readiness is around `±88%`.
 
 Actual application/client readiness remains lower until these are proven locally:
 
@@ -36,11 +36,12 @@ EngineData/
   README.md
   LauncherApp/
     README.md
-    RustApp/       # active desktop app shell and Rust/Tauri runtime
-    Workers/       # approved local AI worker for ASR, translation, and TTS
-  TranscriptEngine/ # local ASR model asset slot only
-  TranslateEngine/  # local translation model asset slot only
-  VoiceEngine/      # local Piper runtime asset slot only
+    RustApp/        # active desktop app shell and Rust/Tauri runtime
+    Workers/        # approved local AI worker for ASR, translation, and TTS
+  RuntimeAssets/    # local model, Piper, and runtime asset slots only
+    ASR/
+    Translation/
+    Voice/
 ```
 
 ## Approved Python boundary
@@ -53,11 +54,29 @@ EngineData/LauncherApp/Workers/realtime_local_worker.py
 
 This worker remains because current local inference uses Python ecosystem libraries for Faster Whisper, Transformers/MarianMT/NLLB, and Piper orchestration. It is not the app launcher or UI engine.
 
+## Runtime asset ownership
+
+Local model/runtime assets belong under:
+
+```text
+EngineData/RuntimeAssets/ASR/ModelData/
+EngineData/RuntimeAssets/Translation/ModelData/
+EngineData/RuntimeAssets/Voice/Piper/
+```
+
+Do not recreate the old separated asset roots:
+
+```text
+EngineData/TranscriptEngine/
+EngineData/TranslateEngine/
+EngineData/VoiceEngine/
+```
+
 ## Development ownership
 
 ```text
 DevelopingData/
-  Documentation/   # all documentation, guides, research, reports, templates
+  Documentation/   # current source docs, concise reports, templates
   Quality/         # diagnostics and test references
   Samples/         # safe sample references
   Tooling/         # executable validation and maintenance scripts
@@ -98,7 +117,8 @@ DevelopingData/ToolKitData/
 - Keep root clean.
 - Use English folder and file names.
 - Keep documentation centralized under `DevelopingData/Documentation`.
-- Keep runtime app code under `EngineData`.
+- Keep runtime app code under `EngineData/LauncherApp/RustApp`.
+- Keep runtime model/Piper slots under `EngineData/RuntimeAssets`.
 - Keep user data and generated evidence under `UserData`.
 - Do not add legacy Python app engines under `EngineData`.
 - Do not claim commercial/client readiness without local evidence.
