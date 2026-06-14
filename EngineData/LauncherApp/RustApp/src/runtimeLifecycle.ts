@@ -89,6 +89,38 @@ export type NativeCaptureStreamPlanReport = {
   note: string;
 };
 
+export type NativeCaptureStreamBuildReport = {
+  ready_for_stream_build: boolean;
+  stream_open_allowed: boolean;
+  stream_open_performed: boolean;
+  capture_plan: NativeCaptureStreamPlanReport;
+  callback_plan: {
+    callback_sample_rate_hz: number | null;
+    callback_channels: number | null;
+    callback_sample_format: string | null;
+    target_sample_rate_hz: number;
+    target_channels: number;
+    buffer_capacity_frames: number;
+    requires_resample_to_target: boolean;
+    requires_channel_downmix: boolean;
+    ready_for_callback_wiring: boolean;
+    note: string;
+  };
+  blockers: string[];
+  note: string;
+};
+
+export type NativeCaptureGateReport = {
+  ready_for_capture_start: boolean;
+  stream_open_requested: boolean;
+  stream_open_performed: boolean;
+  active_session_present: boolean;
+  session_safe_to_stop: boolean;
+  build: NativeCaptureStreamBuildReport;
+  blockers: string[];
+  note: string;
+};
+
 export type NativeCaptureBridgeRequest = {
   require_active_session: boolean;
   require_safe_to_stop: boolean;
@@ -165,6 +197,7 @@ export type RuntimeReadinessBundleReport = {
 export type RuntimeStatusBundleReport = {
   engine_status: unknown;
   readiness: RuntimeReadinessBundleReport;
+  capture_gate: NativeCaptureGateReport;
   next_action: string;
   summary: string;
 };
@@ -362,13 +395,39 @@ export function summarizeReadinessBundle(report: RuntimeReadinessBundleReport): 
   };
 }
 
+export function summarizeCaptureGate(report: NativeCaptureGateReport): RuntimeLifecycleSummary {
+  return {
+    label: report.ready_for_capture_start ? "capture gate: ready" : "capture gate: blocked",
+    allowed: report.ready_for_capture_start,
+    lifecycle_state: report.stream_open_performed ? "stream-opened" : "pre-stream",
+    details: [
+      `Ready for capture start: ${report.ready_for_capture_start}`,
+      `Stream open requested: ${report.stream_open_requested}`,
+      `Stream open performed: ${report.stream_open_performed}`,
+      `Active session present: ${report.active_session_present}`,
+      `Session safe to stop: ${report.session_safe_to_stop}`,
+      `Build ready: ${report.build.ready_for_stream_build}`,
+      `Callback wiring ready: ${report.build.callback_plan.ready_for_callback_wiring}`,
+      report.build.note,
+      report.note,
+      ...report.blockers.map((blocker) => `Blocker: ${blocker}`),
+    ],
+  };
+}
+
 export function summarizeRuntimeStatusBundle(report: RuntimeStatusBundleReport): RuntimeLifecycleSummary {
   const readiness = summarizeReadinessBundle(report.readiness);
+  const captureGate = summarizeCaptureGate(report.capture_gate);
   return {
     label: `status: ${report.next_action}`,
-    allowed: readiness.allowed,
-    lifecycle_state: readiness.lifecycle_state,
-    details: [report.summary, `Next action: ${report.next_action}`, ...readiness.details],
+    allowed: readiness.allowed && captureGate.allowed,
+    lifecycle_state: captureGate.allowed ? "pre-stream-ready" : readiness.lifecycle_state,
+    details: [
+      report.summary,
+      `Next action: ${report.next_action}`,
+      ...readiness.details,
+      ...captureGate.details,
+    ],
   };
 }
 
