@@ -4,7 +4,7 @@
 
 `EngineData` is the runtime layer for TranslateIT. It is intentionally split into only two top-level responsibilities:
 
-- `LauncherApp/` - the active desktop app route and approved local AI worker.
+- `LauncherApp/` - the active Rust/Tauri desktop app route and approved local AI worker.
 - `RuntimeAssets/` - local model, Piper, and runtime asset slots that stay out of Git.
 
 ## Current layout
@@ -25,11 +25,13 @@ EngineData/
 
 ## Active runtime route
 
-The only user-facing app route is:
+The user-facing route is the packaged Tauri app generated from:
 
 ```text
-TranslateIT.vbs -> EngineData/LauncherApp/RustApp
+EngineData/LauncherApp/RustApp
 ```
+
+Normal users should open the installed `TranslateIT` app.
 
 The Rust/Tauri app may call the approved local worker:
 
@@ -52,8 +54,6 @@ These local runtime assets are ignored by Git.
 
 ## Retired EngineData root folders
 
-Do not recreate:
-
 ```text
 EngineData/TranscriptEngine/
 EngineData/TranslateEngine/
@@ -69,4 +69,4 @@ Those separate root folders were consolidated into `EngineData/RuntimeAssets/` t
 - Keep `RuntimeAssets` for local model/runtime assets and README ownership only.
 - Keep user data, logs, cache, generated audio, and model binaries out of Git.
 - Add new runtime features inside Rust/Tauri first, then bridge to the worker only when local inference is required.
-- Do not create another app route beside `TranslateIT.vbs -> EngineData/LauncherApp/RustApp`.
+- Keep the user-facing route inside the packaged Rust/Tauri app.
