@@ -9,7 +9,6 @@ const WORKER_ROOT = join(ROOT, "EngineData", "LauncherApp", "Workers");
 const WORKER = join(WORKER_ROOT, "realtime_local_worker.py");
 const RUNTIME_ASSETS = join(ROOT, "EngineData", "RuntimeAssets");
 const EVIDENCE_ROOT = join(ROOT, "UserData", "LogData", "RustAppValidation");
-const ROOT_SHORTCUT = join(ROOT, "TranslateIT.cmd");
 
 function rel(path) { return relative(ROOT, path).split(sep).join("/"); }
 function exists(path) { return existsSync(path); }
@@ -40,9 +39,9 @@ function finish(label, problems) {
 }
 
 function validateRoot() {
-  const allowedRootFiles = new Set([".gitattributes", ".gitignore", "README.md", "TranslateIT.cmd"]);
+  const allowedRootFiles = new Set([".gitattributes", ".gitignore", "README.md"]);
   const allowedRootDirs = new Set([".git", ".github", "DevelopingData", "EngineData", "Launcher", "UserData"]);
-  const forbiddenRootSuffixes = new Set([".py", ".bat", ".ps1", ".vbs", ".log", ".tmp", ".bak", ".old"]);
+  const forbiddenRootSuffixes = new Set([".py", ".bat", ".cmd", ".ps1", ".vbs", ".log", ".tmp", ".bak", ".old"]);
   const problems = [];
   for (const name of readdirSync(ROOT)) {
     const path = join(ROOT, name);
@@ -57,7 +56,6 @@ function validateRoot() {
 
 function validateStructure() {
   const required = [
-    ROOT_SHORTCUT,
     join(ROOT, "DevelopingData", "README.md"),
     join(ROOT, "DevelopingData", "Documentation", "README.md"),
     join(ROOT, "DevelopingData", "Documentation", "Source", "ProjectDocumentation.md"),
@@ -77,12 +75,12 @@ function validateStructure() {
     join(RUNTIME_ASSETS, "Translation", "README.md"),
     join(RUNTIME_ASSETS, "Voice", "README.md"),
     join(ROOT, "Launcher", "README.md"),
-    join(ROOT, "Launcher", "Preview", "TranslateIT_UI_Preview.html"),
   ];
   const retired = [
     "DeveloperData", "DevelopingData/DocumentationData", "DevelopingData/Reports", "DevelopingData/ToolKitData",
     "DevelopingData/Diagnostics", "DevelopingData/Docs", "DevelopingData/LauncherHelpers", "DevelopingData/SampleData",
-    "DevelopingData/Tests", "EngineData/TranscriptEngine", "EngineData/TranslateEngine", "EngineData/VoiceEngine", "TranslateIT.vbs",
+    "DevelopingData/Tests", "EngineData/TranscriptEngine", "EngineData/TranslateEngine", "EngineData/VoiceEngine",
+    "TranslateIT.vbs", "TranslateIT.cmd", "Launcher/Preview",
   ].map((path) => join(ROOT, ...path.split("/")));
   const problems = [...requireFiles(required)];
   for (const path of retired) if (exists(path)) problems.push(`retired path exists: ${rel(path)}`);
@@ -95,20 +93,15 @@ function validateStructure() {
 
 function validateLauncher() {
   const tauriConf = join(RUST_APP, "src-tauri", "tauri.conf.json");
-  const problems = requireFiles([ROOT_SHORTCUT, join(RUST_APP, "package.json"), tauriConf, join(RUST_APP, "src", "main.ts"), join(RUST_APP, "src", "styles.css")]);
-  if (exists(ROOT_SHORTCUT)) {
-    const text = read(ROOT_SHORTCUT);
-    for (const term of ["translateit_rustapp.exe", "bundle\\nsis", "start \"\""]) if (!text.includes(term)) problems.push(`root shortcut missing term: ${term}`);
-    for (const forbidden of ["npm run dev", "npm.cmd run dev", "python", "wscript"]) if (text.toLowerCase().includes(forbidden.toLowerCase())) problems.push(`root shortcut contains forbidden runtime fallback: ${forbidden}`);
-  }
+  const problems = requireFiles([join(RUST_APP, "package.json"), tauriConf, join(RUST_APP, "src", "main.ts"), join(RUST_APP, "src", "styles.css")]);
   if (exists(tauriConf)) {
     const text = read(tauriConf);
     for (const term of ["\"productName\": \"TranslateIT\"", "\"identifier\": \"com.halokaryamedia.translateit\"", "\"targets\": [\"nsis\"]"]) {
       if (!text.includes(term)) problems.push(`tauri bundle config missing term: ${term}`);
     }
   }
-  if (exists(join(ROOT, "TranslateIT.vbs"))) problems.push("retired root VBS launcher still exists: TranslateIT.vbs");
-  finish("LAUNCHER_CONTRACT_INCOMPLETE", problems);
+  for (const retired of ["TranslateIT.vbs", "TranslateIT.cmd"]) if (exists(join(ROOT, retired))) problems.push(`retired root launcher still exists: ${retired}`);
+  finish("EXE_LAUNCHER_CONTRACT_INCOMPLETE", problems);
 }
 
 function validateWorker() {
@@ -150,7 +143,7 @@ function validateCi() {
 function validateFrontend() { finish("FRONTEND_RUNTIME_CONTRACT_INCOMPLETE", requireFiles([join(RUST_APP, "index.html"), join(RUST_APP, "src", "main.ts"), join(RUST_APP, "src", "styles.css"), join(RUST_APP, "src-tauri", "src", "main.rs")])); }
 function validateReleaseBundle() {
   const tauriConf = join(RUST_APP, "src-tauri", "tauri.conf.json");
-  const problems = requireFiles([ROOT_SHORTCUT, join(RUST_APP, "package.json"), tauriConf, join(RUST_APP, "src-tauri", "Cargo.toml")]);
+  const problems = requireFiles([join(RUST_APP, "package.json"), tauriConf, join(RUST_APP, "src-tauri", "Cargo.toml")]);
   if (exists(tauriConf)) {
     const text = read(tauriConf);
     if (!text.includes("\"bundle\"")) problems.push("tauri bundle section is missing");
@@ -159,7 +152,6 @@ function validateReleaseBundle() {
   }
   finish("LOCAL_RELEASE_BUNDLE_INCOMPLETE", problems);
 }
-
 function writeValidationEvidence() {
   mkdirSync(EVIDENCE_ROOT, { recursive: true });
   const [rustCheck, typecheck, frontendBuild, tauriBuild, packaging, workerStack] = process.argv.slice(3).map((value) => value === "True" || value === "true");
@@ -198,7 +190,6 @@ function smokeWorker() {
   console.log(JSON.stringify(payload, null, 2));
   process.exit(payload.ok ? 0 : 1);
 }
-
 const command = process.argv[2] || "help";
 const commands = { "validate-root": validateRoot, "validate-structure": validateStructure, "validate-launcher": validateLauncher, "validate-worker": validateWorker, "validate-models": validateModels, "validate-evidence": validateEvidence, "validate-ci": validateCi, "validate-frontend": validateFrontend, "validate-release": validateReleaseBundle, "write-validation-evidence": writeValidationEvidence, "record-manual-evidence": recordManualEvidence, "summarize-readiness": summarizeReadiness, "smoke-worker": smokeWorker };
 if (!commands[command]) {
