@@ -24,7 +24,7 @@ use cuda_policy::CudaPolicyReport;
 use diagnostics::RuntimeDiagnostics;
 use logging::{write_jsonl_event, RuntimeLogEvent};
 use paths::ProjectPaths;
-use runtime_state::latest_runtime_handoff_state;
+use runtime_state::{clear_runtime_handoff_state, latest_runtime_handoff_state};
 use settings::RuntimeSettings;
 use state::{CommandResult, EngineStatus, LifecycleState, RuntimeStage};
 
@@ -130,10 +130,18 @@ pub fn start_capture() -> CommandResult {
 }
 
 pub fn stop_capture() -> CommandResult {
-    CommandResult::ok(
-        LifecycleState::Stopped,
-        "Stop was received by Rust runtime. No Rust input session is active yet.",
-    )
+    let project_paths = ProjectPaths::discover();
+    let cleared_state = clear_runtime_handoff_state();
+    let message = format!(
+        "Stop was received by Rust runtime. No Rust input session is active yet. {}",
+        cleared_state.note
+    );
+    let _ = write_jsonl_event(
+        &PathBuf::from(project_paths.user_log_dir),
+        "rust_runtime_latest.jsonl",
+        &RuntimeLogEvent::info("stop_gate", message.clone()),
+    );
+    CommandResult::ok(LifecycleState::Stopped, message)
 }
 
 pub fn translate_text(source: String) -> CommandResult {
