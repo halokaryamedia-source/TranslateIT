@@ -3,7 +3,9 @@ $ErrorActionPreference = "Stop"
 param(
     [string]$AudioPath = "",
     [ValidateSet("Realtime", "Quality")]
-    [string]$Mode = "Realtime"
+    [string]$Mode = "Realtime",
+    [string]$Text = "halo",
+    [string]$TtsText = "Hello."
 )
 
 $Root = Resolve-Path (Join-Path $PSScriptRoot "..\..\..")
@@ -24,11 +26,13 @@ Write-Host "TranslateIT local realtime worker smoke test"
 Write-Host "Root: $Root"
 Write-Host "Mode: $Mode"
 Write-Host "AudioPath: $AudioPath"
+Write-Host "Persistent worker: true"
 
+$ArgsList = @($SmokeScript, "--mode", $Mode, "--text", $Text, "--tts-text", $TtsText)
 if ($AudioPath -ne "") {
-    & $Python $SmokeScript --mode $Mode --audio-path $AudioPath
-} else {
-    & $Python $SmokeScript --mode $Mode
+    $ArgsList += @("--audio-path", $AudioPath)
 }
+
+& $Python @ArgsList
 
 Write-Host "Smoke test finished. Owner validation remains blocked unless latest_validation_evidence.json and manual runtime evidence are complete."
