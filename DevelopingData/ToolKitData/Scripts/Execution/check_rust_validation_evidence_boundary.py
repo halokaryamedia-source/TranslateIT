@@ -16,6 +16,7 @@ LOCAL_WORKER_SMOKE = ROOT / "DevelopingData" / "ToolKitData" / "Scripts" / "Exec
 READINESS_SUMMARY = ROOT / "DevelopingData" / "ToolKitData" / "Scripts" / "Execution" / "summarize_translateit_readiness.py"
 CI_WORKFLOW_CHECK = ROOT / "DevelopingData" / "ToolKitData" / "Scripts" / "Execution" / "check_ci_validation_workflow.py"
 LOCAL_RELEASE_BUNDLE_CHECK = ROOT / "DevelopingData" / "ToolKitData" / "Scripts" / "Execution" / "check_translateit_local_release_bundle.py"
+TRUTHFUL_READINESS_CHECK = ROOT / "DevelopingData" / "ToolKitData" / "Scripts" / "Execution" / "check_truthful_readiness_claims.py"
 CI_WORKFLOW = ROOT / ".github" / "workflows" / "translateit-rustapp-internal-validation.yml"
 
 REQUIRED_FILES = [
@@ -30,6 +31,7 @@ REQUIRED_FILES = [
     READINESS_SUMMARY,
     CI_WORKFLOW_CHECK,
     LOCAL_RELEASE_BUNDLE_CHECK,
+    TRUTHFUL_READINESS_CHECK,
     CI_WORKFLOW,
 ]
 
@@ -82,6 +84,8 @@ REQUIRED_TERMS = {
     VALIDATION_RUNNER: [
         "write_rustapp_validation_evidence.py",
         "summarize_translateit_readiness.py",
+        "check_truthful_readiness_claims.py",
+        "Truthful readiness claims",
         "check_ci_validation_workflow.py",
         "check_translateit_local_release_bundle.py",
         "Local release bundle contract",
@@ -103,6 +107,8 @@ REQUIRED_TERMS = {
         "PersistentWorker",
         "threaded_non_blocking_stdout_queue",
         "latency_summary",
+        "resolve_worker_path",
+        "cuda_fallback",
     ],
     LOCAL_WORKER_SMOKE: [
         "PersistentWorker",
@@ -128,10 +134,16 @@ REQUIRED_TERMS = {
     LOCAL_RELEASE_BUNDLE_CHECK: [
         "LOCAL_RELEASE_BUNDLE_FILES_MISSING",
         "LOCAL_RELEASE_BUNDLE_CONTRACT_INCOMPLETE",
-        "TranslateIT.vbs",
-        "realtime_local_worker.py",
-        "run_local_realtime_worker_smoke_tests.py",
+        "check_truthful_readiness_claims.py",
+        "Workers",
+        "README.md",
+        "resolve_worker_path",
         "summarize_translateit_readiness.py",
+    ],
+    TRUTHFUL_READINESS_CHECK: [
+        "TRUTHFUL_READINESS_CLAIMS_INCOMPLETE",
+        "FORBIDDEN_EXACT_TERMS",
+        "no hardcoded pass evidence",
     ],
     CI_WORKFLOW: [
         "run_rustapp_final_validation.ps1",
@@ -164,7 +176,7 @@ def main() -> int:
             print("-", item)
         return 1
 
-    print("PASS: Rust validation evidence boundary, local release bundle checker, CI workflow contract, readiness summary, validation runner summary writer, non-blocking persistent worker smoke evidence, local worker stack gate, and manual runtime evidence recorder are present and wired")
+    print("PASS: Rust validation evidence boundary, truthful readiness checker, local release bundle checker, CI workflow contract, readiness summary, validation runner summary writer, guarded local worker, non-blocking persistent worker smoke evidence, local worker stack gate, and manual runtime evidence recorder are present and wired")
     return 0
 
 
