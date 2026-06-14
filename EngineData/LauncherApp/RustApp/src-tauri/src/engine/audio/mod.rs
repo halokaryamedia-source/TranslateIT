@@ -8,6 +8,7 @@ pub mod input;
 pub mod input_config;
 pub mod noise_filter;
 pub mod preprocess;
+pub mod stream_build;
 pub mod vad;
 
 use serde::{Deserialize, Serialize};
