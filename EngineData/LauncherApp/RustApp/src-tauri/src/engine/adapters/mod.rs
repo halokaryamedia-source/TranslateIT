@@ -16,6 +16,7 @@ pub mod pipeline_logic;
 pub mod playback_logic;
 pub mod segment_flow_logic;
 pub mod session_logic;
+pub mod stream_ownership_logic;
 pub mod text_dry_run;
 pub mod transcript_session_logic;
 pub mod translation;
