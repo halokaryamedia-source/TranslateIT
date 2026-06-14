@@ -5,6 +5,7 @@ pub mod asr_quality_logic;
 pub mod calibration_logic;
 pub mod capture_loop_logic;
 pub mod context_logic;
+pub mod frame_pipeline_logic;
 pub mod language_logic;
 pub mod latency_logic;
 pub mod model_check;
