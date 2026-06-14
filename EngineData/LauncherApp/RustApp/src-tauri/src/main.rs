@@ -15,6 +15,7 @@ use engine::adapters::orchestration_logic::{run_runtime_orchestration, RuntimeOr
 use engine::adapters::output_dry_run::{run_output_dry_check, OutputDryRunRequest, OutputDryRunResult};
 use engine::adapters::pipeline_logic::{check_stale_job, decide_pipeline, PipelineDecisionReport, PipelineDecisionRequest, StaleJobGuardReport, StaleJobGuardRequest};
 use engine::adapters::playback_logic::{plan_playback, PlaybackLogicRequest, PlaybackLogicResult};
+use engine::adapters::realtime_handoff_logic::{analyze_realtime_handoff, RealtimeHandoffReport, RealtimeHandoffRequest};
 use engine::adapters::segment_flow_logic::{analyze_segment_flow, SegmentFlowReport, SegmentFlowRequest};
 use engine::adapters::session_logic::{build_session_metric_report, build_worker_health, SessionMetricReport, SessionMetricRequest, WorkerHealthReport, WorkerHealthRequest};
 use engine::adapters::stream_ownership_logic::{analyze_stream_ownership, StreamOwnershipReport, StreamOwnershipRequest};
@@ -64,6 +65,11 @@ fn analyze_capture_loop_contract() -> CaptureLoopContractReport {
 #[tauri::command]
 fn analyze_stream_ownership_plan(request: StreamOwnershipRequest) -> StreamOwnershipReport {
     analyze_stream_ownership(request)
+}
+
+#[tauri::command]
+fn analyze_realtime_handoff_plan(request: RealtimeHandoffRequest) -> RealtimeHandoffReport {
+    analyze_realtime_handoff(request)
 }
 
 #[tauri::command]
@@ -258,6 +264,7 @@ fn main() {
         get_audio_buffer_status,
         analyze_capture_loop_contract,
         analyze_stream_ownership_plan,
+        analyze_realtime_handoff_plan,
         analyze_frame_pipeline_state,
         analyze_audio_payload,
         preprocess_audio_payload,
