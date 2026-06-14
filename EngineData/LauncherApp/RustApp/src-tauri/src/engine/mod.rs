@@ -7,6 +7,7 @@ pub mod inference;
 pub mod logging;
 pub mod models;
 pub mod native_execution;
+pub mod native_runners;
 pub mod paths;
 pub mod session_store;
 pub mod settings;
