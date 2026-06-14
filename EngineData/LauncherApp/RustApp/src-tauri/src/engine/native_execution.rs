@@ -80,6 +80,9 @@ pub fn plan_native_execution(request: NativeExecutionRequest) -> NativeExecution
     let requested_device = request.device.unwrap_or_else(|| default_device_for_stage(&stage).to_string());
     let requested_compute = request.compute_type.unwrap_or_else(|| default_compute_for_stage(&stage).to_string());
 
+    if stage == "unknown" {
+        return blocked(stage, model_id, requested_device, requested_compute, "unknown_stage");
+    }
     if !request.input_ready {
         return blocked(stage, model_id, requested_device, requested_compute, "input_not_ready");
     }
@@ -119,11 +122,27 @@ pub fn prepare_native_execution_contract(request: NativeExecutionContractRequest
     let input_kind = input_kind(&request.source_text, &request.source_audio_path);
     let input_summary = input_summary(&request.source_text, &request.source_audio_path);
     let output_target = request.output_audio_path.unwrap_or_default();
+    let contract_blocker = contract_blocker(
+        &plan.stage,
+        &request.source_text,
+        &request.source_audio_path,
+        &request.model_path,
+        &output_target,
+        &plan.blocker,
+    );
+    let ready_to_execute = plan.ready && contract_blocker.is_empty();
+    let execution_status = if ready_to_execute {
+        if plan.cpu_degraded { "degraded_prepared" } else { "prepared" }
+    } else {
+        "blocked"
+    }
+    .to_string();
+
     NativeExecutionContractResult {
         segment_id: request.segment_id,
         stage: plan.stage.clone(),
-        ready_to_execute: plan.ready,
-        execution_status: if plan.ready { "prepared".to_string() } else { "blocked".to_string() },
+        ready_to_execute,
+        execution_status,
         selected_model: plan.model_id,
         selected_device: plan.selected_device,
         selected_compute_type: plan.selected_compute_type,
@@ -136,7 +155,7 @@ pub fn prepare_native_execution_contract(request: NativeExecutionContractRequest
         postprocess_ms: 0,
         total_ms: 0,
         error: String::new(),
-        blocker: plan.blocker,
+        blocker: contract_blocker,
     }
 }
 
@@ -179,6 +198,33 @@ fn blocked(stage: String, model_id: String, device: String, compute: String, rea
         status: "blocked".to_string(),
         blocker: reason.to_string(),
     }
+}
+
+fn contract_blocker(
+    stage: &str,
+    source_text: &Option<String>,
+    source_audio_path: &Option<String>,
+    model_path: &Option<String>,
+    output_target: &str,
+    plan_blocker: &str,
+) -> String {
+    if !plan_blocker.trim().is_empty() {
+        return plan_blocker.to_string();
+    }
+    if model_path.as_ref().map(|value| value.trim().is_empty()).unwrap_or(true) && stage != "output" {
+        return "model_path_missing".to_string();
+    }
+    match stage {
+        "asr" if !is_present(source_audio_path.as_deref()) => "asr_audio_input_missing".to_string(),
+        "translation" if !is_present(source_text.as_deref()) => "translation_text_input_missing".to_string(),
+        "output" if !is_present(Some(output_target)) => "output_target_missing".to_string(),
+        "asr" | "translation" | "output" => String::new(),
+        _ => "unknown_stage".to_string(),
+    }
+}
+
+fn is_present(value: Option<&str>) -> bool {
+    value.map(|text| !text.trim().is_empty()).unwrap_or(false)
 }
 
 fn input_kind(source_text: &Option<String>, source_audio_path: &Option<String>) -> String {
