@@ -494,6 +494,39 @@ type NativeExecutionBridgeReport = {
   note: string;
 };
 
+type RealtimeStageReadiness = {
+  stage: string;
+  ready: boolean;
+  blocker_count: number;
+  note: string;
+};
+
+type RealtimeHandoffRequest = {
+  stream: StreamOwnershipRequest;
+  frame: FramePipelineRequest;
+  segment: SegmentFlowRequest;
+  native_execution: NativeExecutionBridgeRequest;
+  transcript_save: TranscriptSessionPlanRequest;
+  require_native_execution_ready: boolean;
+  require_save_plan_ready: boolean;
+};
+
+type RealtimeHandoffReport = {
+  stream: StreamOwnershipReport;
+  frame: FramePipelineReport;
+  segment: SegmentFlowReport;
+  native_execution: NativeExecutionBridgeReport;
+  transcript_save: TranscriptSessionPlanReport;
+  stages: RealtimeStageReadiness[];
+  ready_for_live_capture: boolean;
+  ready_for_segment_runtime: boolean;
+  ready_for_native_execution: boolean;
+  ready_for_safe_save: boolean;
+  ready_for_realtime_handoff: boolean;
+  blockers: string[];
+  note: string;
+};
+
 const app = document.querySelector<HTMLDivElement>("#app");
 
 if (!app) {
@@ -551,6 +584,7 @@ app.innerHTML = `
           <button id="framePipelineButton" class="secondary" type="button">Frame Pipeline</button>
           <button id="sessionStateButton" class="secondary" type="button">Session Check</button>
           <button id="transcriptSavePlanButton" class="secondary" type="button">Save Plan</button>
+          <button id="realtimeHandoffButton" class="secondary" type="button">Realtime Handoff</button>
           <button id="segmentFlowButton" class="secondary" type="button">Segment Flow</button>
           <button id="executionBridgeButton" class="secondary" type="button">Execution Bridge</button>
           <button id="diagnosticsButton" class="secondary" type="button">Diagnostics</button>
@@ -596,6 +630,7 @@ const streamOwnershipButton = document.querySelector<HTMLButtonElement>("#stream
 const framePipelineButton = document.querySelector<HTMLButtonElement>("#framePipelineButton");
 const sessionStateButton = document.querySelector<HTMLButtonElement>("#sessionStateButton");
 const transcriptSavePlanButton = document.querySelector<HTMLButtonElement>("#transcriptSavePlanButton");
+const realtimeHandoffButton = document.querySelector<HTMLButtonElement>("#realtimeHandoffButton");
 const segmentFlowButton = document.querySelector<HTMLButtonElement>("#segmentFlowButton");
 const executionBridgeButton = document.querySelector<HTMLButtonElement>("#executionBridgeButton");
 const diagnosticsButton = document.querySelector<HTMLButtonElement>("#diagnosticsButton");
@@ -625,6 +660,7 @@ const ui = {
   framePipelineButton: requireElement(framePipelineButton, "frame pipeline button"),
   sessionStateButton: requireElement(sessionStateButton, "session state button"),
   transcriptSavePlanButton: requireElement(transcriptSavePlanButton, "transcript save plan button"),
+  realtimeHandoffButton: requireElement(realtimeHandoffButton, "realtime handoff button"),
   segmentFlowButton: requireElement(segmentFlowButton, "segment flow button"),
   executionBridgeButton: requireElement(executionBridgeButton, "execution bridge button"),
   diagnosticsButton: requireElement(diagnosticsButton, "diagnostics button"),
@@ -865,6 +901,59 @@ function buildNativeExecutionBridgeRequest(
   };
 }
 
+function buildRealtimeHandoffRequest(
+  source: string,
+  diagnostics: RuntimeDiagnostics,
+  settings: RuntimeSettings,
+  bufferStatus: AudioBufferStatus,
+  calibrationFlow: CalibrationFlowStatus,
+): RealtimeHandoffRequest {
+  const session = buildDraftTranscriptSession(source);
+  const segment = buildSegmentRequest(session, source);
+  const hasSource = Boolean(source);
+  return {
+    stream: {
+      requested_owner_id: "translateit_frontend_runtime",
+      session_id: session.session_id,
+      allow_takeover: false,
+      current_owner_id: null,
+      capture_loop_active: false,
+      calibration_ready: calibrationFlow.ready_to_save_profile,
+    },
+    frame: buildFramePipelineRequest(source),
+    segment: {
+      capture_ready: hasSource && diagnostics.input_preparation_status.prepared,
+      session_id: session.session_id,
+      next_segment_id: segment.segment_id,
+      segment,
+      vad_accepted: hasSource && bufferStatus.ready_for_vad,
+      asr_ready: diagnostics.asr_adapter_plan.ready,
+      translation_ready: diagnostics.translation_adapter_plan.ready,
+    },
+    native_execution: {
+      segment_id: segment.segment_id,
+      source_text: source || null,
+      source_audio_path: null,
+      output_audio_path: source ? `${diagnostics.project_paths.user_cache_dir}/frontend_handoff_output.wav` : null,
+      asr_model_path: diagnostics.project_paths.asr_model_dir || null,
+      translation_model_path: diagnostics.project_paths.translation_model_dir || null,
+      output_model_path: null,
+      asr_backend_ready: diagnostics.asr_adapter_plan.ready,
+      translation_backend_ready: diagnostics.translation_adapter_plan.ready,
+      output_backend_ready: false,
+      allow_cpu_degraded_mode: settings.audio.allow_cpu_degraded_mode,
+    },
+    transcript_save: {
+      session,
+      cache_root: diagnostics.project_paths.user_cache_dir || null,
+      saved_root: diagnostics.project_paths.user_saved_dir || null,
+      copy_audio: false,
+    },
+    require_native_execution_ready: true,
+    require_save_plan_ready: true,
+  };
+}
+
 function renderCaptureLoopContract(report: CaptureLoopContractReport): void {
   ui.lifecycleBadge.textContent = report.ready_for_stream_loop ? "State: capture-ready" : "State: capture-blocked";
   ui.statusMessage.textContent = report.note;
@@ -961,6 +1050,28 @@ function renderTranscriptSavePlan(report: TranscriptSessionPlanReport): void {
     ...report.paths.planned_save_items.slice(0, 4).map((item) => `Save item: ${item}`),
     report.store_preview.message,
     ...report.paths.guard_blockers.map((blocker) => `Guard blocker: ${blocker}`),
+  ]);
+}
+
+function renderRealtimeHandoff(report: RealtimeHandoffReport): void {
+  ui.lifecycleBadge.textContent = report.ready_for_realtime_handoff ? "State: handoff-ready" : "State: handoff-blocked";
+  ui.statusMessage.textContent = report.note;
+  renderList([
+    `Realtime handoff ready: ${report.ready_for_realtime_handoff}`,
+    `Ready for live capture: ${report.ready_for_live_capture}`,
+    `Ready for segment runtime: ${report.ready_for_segment_runtime}`,
+    `Ready for native execution: ${report.ready_for_native_execution}`,
+    `Ready for safe save: ${report.ready_for_safe_save}`,
+    `Stream owner: ${report.stream.owner_id}`,
+    `Session: ${report.stream.session_id}`,
+    `Frame accepted: ${report.frame.accepted_by_buffer}`,
+    `Frame VAD passed: ${report.frame.vad_passed}`,
+    `Segment ready: ${report.segment.ready_for_runtime_plan}`,
+    `Native ready stages: ${report.native_execution.runner_report.ready_stage_count}`,
+    `Native blocked stages: ${report.native_execution.runner_report.blocked_stage_count}`,
+    `Save preview path: ${report.transcript_save.store_preview.output_path}`,
+    ...report.stages.map((stage) => `Stage ${stage.stage}: ready=${stage.ready}, blockers=${stage.blocker_count}`),
+    ...report.blockers.map((blocker) => `Blocker: ${blocker}`),
   ]);
 }
 
@@ -1125,6 +1236,19 @@ ui.transcriptSavePlanButton.addEventListener("click", async () => {
   const request = buildTranscriptSessionSavePlanRequest(source, diagnostics);
   const report = await invoke<TranscriptSessionPlanReport>("analyze_transcript_session_save_plan", { request });
   renderTranscriptSavePlan(report);
+});
+
+ui.realtimeHandoffButton.addEventListener("click", async () => {
+  const source = ui.sourceText.value.trim();
+  const [diagnostics, settings, bufferStatus, calibrationFlow] = await Promise.all([
+    invoke<RuntimeDiagnostics>("get_runtime_diagnostics"),
+    invoke<RuntimeSettings>("load_runtime_settings"),
+    invoke<AudioBufferStatus>("get_audio_buffer_status"),
+    invoke<CalibrationFlowStatus>("get_calibration_flow_status"),
+  ]);
+  const request = buildRealtimeHandoffRequest(source, diagnostics, settings, bufferStatus, calibrationFlow);
+  const report = await invoke<RealtimeHandoffReport>("analyze_realtime_handoff_plan", { request });
+  renderRealtimeHandoff(report);
 });
 
 ui.segmentFlowButton.addEventListener("click", async () => {
