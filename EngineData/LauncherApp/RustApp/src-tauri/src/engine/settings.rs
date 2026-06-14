@@ -22,6 +22,7 @@ pub struct AudioSettings {
 pub struct RuntimeSettings {
     pub schema_version: u32,
     pub language_focus_mode: String,
+    pub runtime_profile: String,
     pub source_language: String,
     pub target_language: String,
     pub audio: AudioSettings,
@@ -31,15 +32,16 @@ pub struct RuntimeSettings {
 impl Default for RuntimeSettings {
     fn default() -> Self {
         Self {
-            schema_version: 2,
+            schema_version: 3,
             language_focus_mode: "id-en-focus".to_string(),
+            runtime_profile: "Realtime".to_string(),
             source_language: "id".to_string(),
             target_language: "en".to_string(),
             audio: AudioSettings {
                 input_device_id: None,
                 output_device_id: None,
                 sensitivity: 1.0,
-                input_sensitivity: "Headset".to_string(),
+                input_sensitivity: "Realtime".to_string(),
                 show_advanced_devices: false,
                 allow_low_but_usable_input: true,
                 allow_cpu_degraded_mode: false,
@@ -67,23 +69,33 @@ impl RuntimeSettings {
         if let Some(parent) = path.parent() {
             fs::create_dir_all(parent)?;
         }
-        let body = serde_json::to_string_pretty(&self.sanitized())
+        let body = serde_json::to_string_pretty(&self.clone().sanitized())
             .map_err(|error| io::Error::new(io::ErrorKind::InvalidData, error))?;
         fs::write(path, body)
     }
 
     pub fn sanitized(mut self) -> Self {
+        self.schema_version = self.schema_version.max(3);
+        self.runtime_profile = sanitize_runtime_profile(&self.runtime_profile, &self.audio.input_sensitivity);
         self.source_language = sanitize_language(&self.source_language, "id");
         self.target_language = sanitize_language(&self.target_language, "en");
-        if self.audio.input_sensitivity.trim().is_empty() || self.audio.input_sensitivity == "Normal" {
-            self.audio.input_sensitivity = "Headset".to_string();
-        }
+        self.audio.input_sensitivity = self.runtime_profile.clone();
         self.audio.sensitivity = self.audio.sensitivity.clamp(0.1, 3.0);
         self.audio.voice_actor_profiles_root = sanitize_voice_root(&self.audio.voice_actor_profiles_root);
         self.voice_actor_profile_id = sanitize_text(&self.voice_actor_profile_id);
         self.audio.use_custom_voice_actor = !self.voice_actor_profile_id.trim().is_empty();
         self.audio.auto_play_translation_voice = self.audio.auto_play_out_voice;
         self
+    }
+}
+
+fn sanitize_runtime_profile(value: &str, legacy_input_sensitivity: &str) -> String {
+    let text = value.trim().to_lowercase();
+    let legacy = legacy_input_sensitivity.trim().to_lowercase();
+    if text.contains("quality") || legacy.contains("quality") || legacy.contains("noisy") {
+        "Quality".to_string()
+    } else {
+        "Realtime".to_string()
     }
 }
 
