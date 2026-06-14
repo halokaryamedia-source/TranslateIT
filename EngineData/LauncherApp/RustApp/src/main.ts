@@ -72,6 +72,33 @@ type CaptureLoopContractReport = {
   buffer_status: AudioBufferStatus;
 };
 
+type StreamOwnershipRequest = {
+  requested_owner_id: string | null;
+  session_id: string | null;
+  allow_takeover: boolean;
+  current_owner_id: string | null;
+  capture_loop_active: boolean;
+  calibration_ready: boolean;
+};
+
+type StreamOwnershipReport = {
+  owner_id: string;
+  session_id: string;
+  input_prepared: boolean;
+  input_running: boolean;
+  capture_loop_active: boolean;
+  calibration_ready: boolean;
+  buffer_ready_for_vad: boolean;
+  buffer_ready_for_calibration: boolean;
+  ownership_granted: boolean;
+  requires_takeover: boolean;
+  ready_to_start_stream: boolean;
+  blockers: string[];
+  input_status: InputPreparationStatus;
+  buffer_status: AudioBufferStatus;
+  note: string;
+};
+
 type CalibrationFlowStatus = {
   output_path: string;
   requires_quiet_sample: boolean;
@@ -520,6 +547,7 @@ app.innerHTML = `
           <button id="stopButton" class="secondary" type="button">Stop</button>
           <button id="translateButton" class="secondary" type="button">Translate Text</button>
           <button id="captureLoopButton" class="secondary" type="button">Capture Check</button>
+          <button id="streamOwnershipButton" class="secondary" type="button">Stream Owner</button>
           <button id="framePipelineButton" class="secondary" type="button">Frame Pipeline</button>
           <button id="sessionStateButton" class="secondary" type="button">Session Check</button>
           <button id="transcriptSavePlanButton" class="secondary" type="button">Save Plan</button>
@@ -564,6 +592,7 @@ const startButton = document.querySelector<HTMLButtonElement>("#startButton");
 const stopButton = document.querySelector<HTMLButtonElement>("#stopButton");
 const translateButton = document.querySelector<HTMLButtonElement>("#translateButton");
 const captureLoopButton = document.querySelector<HTMLButtonElement>("#captureLoopButton");
+const streamOwnershipButton = document.querySelector<HTMLButtonElement>("#streamOwnershipButton");
 const framePipelineButton = document.querySelector<HTMLButtonElement>("#framePipelineButton");
 const sessionStateButton = document.querySelector<HTMLButtonElement>("#sessionStateButton");
 const transcriptSavePlanButton = document.querySelector<HTMLButtonElement>("#transcriptSavePlanButton");
@@ -592,6 +621,7 @@ const ui = {
   stopButton: requireElement(stopButton, "stop button"),
   translateButton: requireElement(translateButton, "translate button"),
   captureLoopButton: requireElement(captureLoopButton, "capture loop button"),
+  streamOwnershipButton: requireElement(streamOwnershipButton, "stream ownership button"),
   framePipelineButton: requireElement(framePipelineButton, "frame pipeline button"),
   sessionStateButton: requireElement(sessionStateButton, "session state button"),
   transcriptSavePlanButton: requireElement(transcriptSavePlanButton, "transcript save plan button"),
@@ -800,6 +830,18 @@ function buildTranscriptSessionSavePlanRequest(
   };
 }
 
+function buildStreamOwnershipRequest(source: string, calibrationFlow: CalibrationFlowStatus): StreamOwnershipRequest {
+  const session = buildDraftTranscriptSession(source);
+  return {
+    requested_owner_id: "translateit_frontend_runtime",
+    session_id: session.session_id,
+    allow_takeover: false,
+    current_owner_id: null,
+    capture_loop_active: false,
+    calibration_ready: calibrationFlow.ready_to_save_profile,
+  };
+}
+
 function buildNativeExecutionBridgeRequest(
   source: string,
   diagnostics: RuntimeDiagnostics,
@@ -835,6 +877,27 @@ function renderCaptureLoopContract(report: CaptureLoopContractReport): void {
     `Buffer VAD ready: ${report.buffer_ready_for_vad}`,
     `Buffer calibration ready: ${report.buffer_ready_for_calibration}`,
     `Ready for stream loop: ${report.ready_for_stream_loop}`,
+    `Input note: ${report.input_status.note}`,
+    `Buffer note: ${report.buffer_status.note}`,
+    ...report.blockers.map((blocker) => `Blocker: ${blocker}`),
+  ]);
+}
+
+function renderStreamOwnership(report: StreamOwnershipReport): void {
+  ui.lifecycleBadge.textContent = report.ready_to_start_stream ? "State: stream-owner-ready" : "State: stream-owner-blocked";
+  ui.statusMessage.textContent = report.note;
+  renderList([
+    `Owner: ${report.owner_id}`,
+    `Session: ${report.session_id}`,
+    `Input prepared: ${report.input_prepared}`,
+    `Input running: ${report.input_running}`,
+    `Capture loop active: ${report.capture_loop_active}`,
+    `Calibration ready: ${report.calibration_ready}`,
+    `Buffer VAD ready: ${report.buffer_ready_for_vad}`,
+    `Buffer calibration ready: ${report.buffer_ready_for_calibration}`,
+    `Ownership granted: ${report.ownership_granted}`,
+    `Requires takeover: ${report.requires_takeover}`,
+    `Ready to start stream: ${report.ready_to_start_stream}`,
     `Input note: ${report.input_status.note}`,
     `Buffer note: ${report.buffer_status.note}`,
     ...report.blockers.map((blocker) => `Blocker: ${blocker}`),
@@ -1032,6 +1095,14 @@ ui.translateButton.addEventListener("click", async () => {
 ui.captureLoopButton.addEventListener("click", async () => {
   const report = await invoke<CaptureLoopContractReport>("analyze_capture_loop_contract");
   renderCaptureLoopContract(report);
+});
+
+ui.streamOwnershipButton.addEventListener("click", async () => {
+  const source = ui.sourceText.value.trim();
+  const calibrationFlow = await invoke<CalibrationFlowStatus>("get_calibration_flow_status");
+  const request = buildStreamOwnershipRequest(source, calibrationFlow);
+  const report = await invoke<StreamOwnershipReport>("analyze_stream_ownership_plan", { request });
+  renderStreamOwnership(report);
 });
 
 ui.framePipelineButton.addEventListener("click", async () => {
