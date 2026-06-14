@@ -6,7 +6,7 @@ $Venv = Join-Path $WorkerRoot ".venv"
 $Requirements = Join-Path $WorkerRoot "requirements-realtime.txt"
 $PythonExe = Join-Path $Venv "Scripts\python.exe"
 $Worker = Join-Path $WorkerRoot "realtime_local_worker.py"
-$ModelCheck = Join-Path $Root "DevelopingData\Tooling\Scripts\Execution\check_local_runtime_models.py"
+$NodeTooling = Join-Path $Root "DevelopingData\Tooling\Scripts\Execution\translateit_tooling.mjs"
 
 Write-Host "TranslateIT local realtime worker setup"
 Write-Host "Root: $Root"
@@ -33,9 +33,9 @@ Write-Host "Installing local realtime worker dependencies"
 Write-Host "Checking worker dependency/model status"
 '{"command":"status"}' | & $PythonExe $Worker
 
-if (Test-Path $ModelCheck) {
+if (Test-Path $NodeTooling) {
     Write-Host "Checking local runtime model and Piper voice readiness"
-    & $PythonExe $ModelCheck
+    node $NodeTooling validate-models
     if ($LASTEXITCODE -ne 0) {
         Write-Warning "Local worker dependencies were installed, but one or more local model or Piper voice assets are still missing."
     }
