@@ -47,10 +47,38 @@ export type RuntimeReadinessBundleReport = {
   ready_for_native_inference_runtime: boolean;
   ready_for_transcript_persistence: boolean;
   ready_for_user_facing_runtime: boolean;
+  diagnostics?: unknown;
   handoff_state: RuntimeHandoffStateReport;
   start_gate: RuntimeLifecycleGateReport;
   stop_gate: RuntimeLifecycleGateReport;
   stages: RuntimeReadinessStage[];
+  blockers: string[];
+  note: string;
+};
+
+export type MigrationClosureGateRequest = {
+  manual_build_validation_passed: boolean;
+  manual_runtime_smoke_passed: boolean;
+  manual_ui_review_passed: boolean;
+  manual_packaging_review_passed: boolean;
+  explicit_owner_approval: boolean;
+  allow_ready_for_review_transition: boolean;
+  allow_release_candidate_claim: boolean;
+};
+
+export type MigrationClosureStage = {
+  stage: string;
+  passed: boolean;
+  blocker: string;
+  note: string;
+};
+
+export type MigrationClosureGateReport = {
+  runtime: RuntimeReadinessBundleReport;
+  ready_for_review: boolean;
+  ready_for_release_candidate: boolean;
+  ready_for_production_release: boolean;
+  stages: MigrationClosureStage[];
   blockers: string[];
   note: string;
 };
@@ -60,6 +88,16 @@ export type RuntimeLifecycleSummary = {
   allowed: boolean;
   lifecycle_state: string;
   details: string[];
+};
+
+export const blockedClosureGateRequest: MigrationClosureGateRequest = {
+  manual_build_validation_passed: false,
+  manual_runtime_smoke_passed: false,
+  manual_ui_review_passed: false,
+  manual_packaging_review_passed: false,
+  explicit_owner_approval: false,
+  allow_ready_for_review_transition: false,
+  allow_release_candidate_claim: false,
 };
 
 export async function analyzeStartGate(): Promise<RuntimeLifecycleGateReport> {
@@ -72,6 +110,12 @@ export async function analyzeStopGate(): Promise<RuntimeLifecycleGateReport> {
 
 export async function analyzeRuntimeReadiness(): Promise<RuntimeReadinessBundleReport> {
   return invoke<RuntimeReadinessBundleReport>("analyze_runtime_readiness");
+}
+
+export async function analyzeMigrationClosure(
+  request: MigrationClosureGateRequest = blockedClosureGateRequest,
+): Promise<MigrationClosureGateReport> {
+  return invoke<MigrationClosureGateReport>("analyze_migration_closure", { request });
 }
 
 export async function getRuntimeHandoffState(): Promise<RuntimeHandoffStateReport> {
@@ -130,6 +174,29 @@ export function summarizeReadinessBundle(report: RuntimeReadinessBundleReport): 
     label: report.ready_for_user_facing_runtime ? "runtime: user-facing ready" : "runtime: blocked",
     allowed: report.ready_for_start_command,
     lifecycle_state: report.ready_for_user_facing_runtime ? "ready" : "blocked",
+    details,
+  };
+}
+
+export function summarizeMigrationClosure(report: MigrationClosureGateReport): RuntimeLifecycleSummary {
+  const details = [
+    `Ready for review: ${report.ready_for_review}`,
+    `Ready for release candidate: ${report.ready_for_release_candidate}`,
+    `Ready for production release: ${report.ready_for_production_release}`,
+    `Runtime user-facing ready: ${report.runtime.ready_for_user_facing_runtime}`,
+    ...report.stages.map((stage) => `${stage.stage}: passed=${stage.passed}, blocker=${stage.blocker || "none"}`),
+    ...report.blockers.map((blocker) => `Blocker: ${blocker}`),
+    report.note,
+  ];
+
+  return {
+    label: report.ready_for_release_candidate
+      ? "closure: release-candidate allowed"
+      : report.ready_for_review
+        ? "closure: ready-for-review allowed"
+        : "closure: blocked",
+    allowed: report.ready_for_review,
+    lifecycle_state: report.ready_for_production_release ? "production-ready" : "draft-or-review-gated",
     details,
   };
 }
