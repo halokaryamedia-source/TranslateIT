@@ -19,12 +19,13 @@ pub mod transcript_session;
 
 use std::path::PathBuf;
 
+use adapters::runtime_lifecycle_logic::analyze_start_lifecycle_gate;
 use config::EngineConfig;
 use cuda_policy::CudaPolicyReport;
 use diagnostics::RuntimeDiagnostics;
 use logging::{write_jsonl_event, RuntimeLogEvent};
 use paths::ProjectPaths;
-use runtime_state::{clear_runtime_handoff_state, latest_runtime_handoff_state};
+use runtime_state::clear_runtime_handoff_state;
 use settings::RuntimeSettings;
 use state::{CommandResult, EngineStatus, LifecycleState, RuntimeStage};
 
@@ -91,24 +92,28 @@ pub fn save_default_settings() -> CommandResult {
 
 pub fn start_capture() -> CommandResult {
     let project_paths = ProjectPaths::discover();
-    let handoff_state = latest_runtime_handoff_state();
+    let gate = analyze_start_lifecycle_gate();
+    let handoff_state = &gate.handoff_state;
     let message = if let Some(snapshot) = &handoff_state.snapshot {
         format!(
-            "Rust Start gate checked realtime handoff snapshot: session_id={}, owner_id={}, ready={}, blocker_count={}, note={}",
+            "Rust Start gate checked lifecycle preflight: allowed={}, lifecycle_state={}, session_id={}, owner_id={}, age_ms={}, stale={}, blocker={}, note={}",
+            gate.allowed,
+            gate.lifecycle_state,
             snapshot.session_id,
             snapshot.owner_id,
-            handoff_state.ready_for_start,
-            snapshot.blocker_count,
-            handoff_state.note
+            handoff_state.snapshot_age_ms.map_or_else(|| "none".to_string(), |age| age.to_string()),
+            handoff_state.snapshot_stale,
+            gate.blocker,
+            gate.note
         )
     } else {
         format!(
-            "Rust Start gate blocked: {}, note={}",
-            handoff_state.blocker, handoff_state.note
+            "Rust Start gate blocked by lifecycle preflight: allowed={}, lifecycle_state={}, blocker={}, note={}",
+            gate.allowed, gate.lifecycle_state, gate.blocker, gate.note
         )
     };
 
-    let event = if handoff_state.ready_for_start {
+    let event = if gate.allowed {
         RuntimeLogEvent::info("start_gate", message.clone())
     } else {
         RuntimeLogEvent::warning("start_gate", message.clone())
@@ -119,7 +124,7 @@ pub fn start_capture() -> CommandResult {
         &event,
     );
 
-    if handoff_state.ready_for_start {
+    if gate.allowed {
         CommandResult::ok(
             LifecycleState::Preparing,
             format!("{message}. Real microphone stream creation is still deferred to runtime integration."),
