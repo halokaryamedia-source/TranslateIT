@@ -1,9 +1,15 @@
 {
-  "schema": "translateit.local_realtime_stack.v1",
+  "schema": "translateit.local_realtime_stack.v2",
   "default_mode": "Realtime",
   "modes": {
     "Realtime": {
       "target_latency_ms": 1000,
+      "latency_budget_ms": {
+        "vad_chunk": 350,
+        "asr": 450,
+        "translation": 150,
+        "tts": 250
+      },
       "asr": {
         "model_id": "faster-whisper-large-v3-turbo",
         "model_path": "EngineData/TranscriptEngine/ModelData/faster-whisper-large-v3-turbo",
@@ -29,6 +35,12 @@
     },
     "Quality": {
       "target_latency_ms": 2500,
+      "latency_budget_ms": {
+        "vad_chunk": 900,
+        "asr": 800,
+        "translation": 900,
+        "tts": 350
+      },
       "asr": {
         "model_id": "faster-whisper-large-v3-turbo",
         "model_path": "EngineData/TranscriptEngine/ModelData/faster-whisper-large-v3-turbo",
@@ -52,6 +64,15 @@
         "voice_mode": "quality"
       }
     }
+  },
+  "worker_commands": {
+    "status": "preflight local dependencies and model paths",
+    "asr_preload": "load Faster Whisper V3 Turbo into the persistent worker",
+    "transcribe": "run local ASR from a 16 kHz mono WAV segment",
+    "translation_preload": "load Realtime or Quality translation model",
+    "translate": "run local text translation",
+    "tts_preflight": "verify Piper executable and voice assets",
+    "synthesize": "generate local voice output through Piper"
   },
   "truth_policy": {
     "no_api": true,
