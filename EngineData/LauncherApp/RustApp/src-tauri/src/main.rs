@@ -6,6 +6,7 @@ use engine::adapters::asr_quality_logic::{evaluate_asr_quality, AsrQualityLogicD
 use engine::adapters::calibration_logic::{run_calibration_logic, CalibrationLogicRequest, CalibrationLogicResult};
 use engine::adapters::capture_loop_logic::{build_capture_loop_contract, CaptureLoopContractReport};
 use engine::adapters::context_logic::{update_translation_context, TranslationContextReport, TranslationContextRequest};
+use engine::adapters::frame_pipeline_logic::{analyze_frame_pipeline, FramePipelineReport, FramePipelineRequest};
 use engine::adapters::language_logic::{run_language_logic, LanguageLogicReport, LanguageLogicRequest};
 use engine::adapters::latency_logic::{build_latency_logic, build_vad_profile, LatencyLogicReport, LatencyLogicRequest, VadProfileReport, VadProfileRequest};
 use engine::adapters::model_check::{check_model_request, ModelCheckRequest, ModelCheckResult};
@@ -57,6 +58,11 @@ fn get_audio_buffer_status() -> AudioBufferStatus {
 #[tauri::command]
 fn analyze_capture_loop_contract() -> CaptureLoopContractReport {
     build_capture_loop_contract()
+}
+
+#[tauri::command]
+fn analyze_frame_pipeline_state(request: FramePipelineRequest) -> FramePipelineReport {
+    analyze_frame_pipeline(request)
 }
 
 #[tauri::command]
@@ -240,6 +246,7 @@ fn main() {
         get_input_status,
         get_audio_buffer_status,
         analyze_capture_loop_contract,
+        analyze_frame_pipeline_state,
         analyze_audio_payload,
         preprocess_audio_payload,
         classify_audio_noise,
