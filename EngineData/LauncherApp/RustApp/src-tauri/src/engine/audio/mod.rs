@@ -5,6 +5,7 @@ pub mod device;
 pub mod evidence;
 pub mod input;
 pub mod noise_filter;
+pub mod preprocess;
 pub mod vad;
 
 use serde::{Deserialize, Serialize};
