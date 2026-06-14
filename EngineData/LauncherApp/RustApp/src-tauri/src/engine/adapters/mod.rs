@@ -11,6 +11,7 @@ pub mod latency_logic;
 pub mod live_asr_boundary_logic;
 pub mod migration_closure_gate_logic;
 pub mod model_check;
+pub mod native_asr_decoder_logic;
 pub mod native_capture_bridge_logic;
 pub mod native_execution_bridge_logic;
 pub mod orchestration_logic;
