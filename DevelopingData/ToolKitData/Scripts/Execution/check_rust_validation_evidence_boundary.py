@@ -17,6 +17,7 @@ READINESS_SUMMARY = ROOT / "DevelopingData" / "ToolKitData" / "Scripts" / "Execu
 CI_WORKFLOW_CHECK = ROOT / "DevelopingData" / "ToolKitData" / "Scripts" / "Execution" / "check_ci_validation_workflow.py"
 LOCAL_RELEASE_BUNDLE_CHECK = ROOT / "DevelopingData" / "ToolKitData" / "Scripts" / "Execution" / "check_translateit_local_release_bundle.py"
 TRUTHFUL_READINESS_CHECK = ROOT / "DevelopingData" / "ToolKitData" / "Scripts" / "Execution" / "check_truthful_readiness_claims.py"
+ROOT_CLEANLINESS_CHECK = ROOT / "DevelopingData" / "ToolKitData" / "Scripts" / "Execution" / "check_root_professional_cleanliness.py"
 CI_WORKFLOW = ROOT / ".github" / "workflows" / "translateit-rustapp-internal-validation.yml"
 
 REQUIRED_FILES = [
@@ -32,6 +33,7 @@ REQUIRED_FILES = [
     CI_WORKFLOW_CHECK,
     LOCAL_RELEASE_BUNDLE_CHECK,
     TRUTHFUL_READINESS_CHECK,
+    ROOT_CLEANLINESS_CHECK,
     CI_WORKFLOW,
 ]
 
@@ -134,6 +136,7 @@ REQUIRED_TERMS = {
     LOCAL_RELEASE_BUNDLE_CHECK: [
         "LOCAL_RELEASE_BUNDLE_FILES_MISSING",
         "LOCAL_RELEASE_BUNDLE_CONTRACT_INCOMPLETE",
+        "check_root_professional_cleanliness.py",
         "check_truthful_readiness_claims.py",
         "Workers",
         "README.md",
@@ -144,6 +147,12 @@ REQUIRED_TERMS = {
         "TRUTHFUL_READINESS_CLAIMS_INCOMPLETE",
         "FORBIDDEN_EXACT_TERMS",
         "no hardcoded pass evidence",
+    ],
+    ROOT_CLEANLINESS_CHECK: [
+        "ROOT_CLEANLINESS_INCOMPLETE",
+        "FORBIDDEN_ROOT_SUFFIXES",
+        "ALLOWED_ROOT_DIRS",
+        "Repository root is clean",
     ],
     CI_WORKFLOW: [
         "run_rustapp_final_validation.ps1",
@@ -176,7 +185,7 @@ def main() -> int:
             print("-", item)
         return 1
 
-    print("PASS: Rust validation evidence boundary, truthful readiness checker, local release bundle checker, CI workflow contract, readiness summary, validation runner summary writer, guarded local worker, non-blocking persistent worker smoke evidence, local worker stack gate, and manual runtime evidence recorder are present and wired")
+    print("PASS: Rust validation evidence boundary, root cleanliness guard, truthful readiness checker, local release bundle checker, CI workflow contract, readiness summary, validation runner summary writer, guarded local worker, non-blocking persistent worker smoke evidence, local worker stack gate, and manual runtime evidence recorder are present and wired")
     return 0
 
 
