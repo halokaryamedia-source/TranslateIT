@@ -2,28 +2,66 @@
 
 ## Purpose
 
-`RustApp` is the new Tauri-based application shell for the TranslateIT Rust conversion branch.
+`RustApp` is the Tauri-based desktop shell for the TranslateIT local realtime translation application.
 
-The goal is to migrate TranslateIT from the current Python/PySide6 launcher and Python runtime orchestration toward:
+The product direction is local-first:
 
-- a Tauri desktop frontend,
-- a Rust command bridge,
-- Rust-owned runtime state and lifecycle control,
-- Rust-owned configuration, cache, log, and saved-data paths,
-- Rust-owned audio evidence, calibration, and VAD gates,
-- native Rust audio device discovery,
-- Rust-owned native inference backend selection records,
-- Rust-owned CUDA probe and adapter planning boundaries,
-- Rust-owned adapter boundaries for ASR, translation, and TTS,
-- and a documented path for replacing the current Python engine modules without silently changing model behavior.
+- no API translation dependency,
+- no cloud ASR dependency,
+- no browser launcher dependency,
+- one desktop app entry point,
+- clean ChatGPT-like user flow,
+- realtime Indonesian to English speech translation,
+- truthful readiness status before any owner or release-candidate claim.
 
 ## Current status
 
-Status: `native diagnostics and adapter plan baseline`.
+Status: `local realtime worker pre-validation`.
 
-This folder does not claim feature parity with the existing Python application yet. The current Rust commands intentionally return migration/scaffold status instead of pretending that ASR, translation, TTS, CUDA, or microphone capture are already converted.
+This branch is not production-ready yet. The app has local worker commands, model readiness checks, runtime status UI, validation scripts, and smoke-test evidence paths. Real commercial readiness still requires local build validation, installed model assets, microphone smoke tests, ASR smoke tests, translation smoke tests, TTS smoke tests, and launcher package validation.
 
-The final target is a Rust-owned runtime that does not require Python to operate. CUDA inference may use native CUDA-capable libraries through Rust FFI or native bindings.
+## Runtime profiles
+
+Only two user-facing profiles should be shown:
+
+| Profile | Target | Stack |
+| --- | --- | --- |
+| `Realtime` | Short phrase latency around 1000 ms after preload | Faster Whisper Large V3 Turbo + MarianMT ID-EN + Piper |
+| `Quality` | Higher translation quality with slower response | Faster Whisper Large V3 Turbo + NLLB 200 distilled 600M + Piper |
+
+## Required local assets
+
+The app expects these local files and folders before real inference can be marked ready:
+
+```text
+EngineData/TranscriptEngine/ModelData/faster-whisper-large-v3-turbo/model.bin
+EngineData/TranslateEngine/ModelData/marianmt-id-en/
+EngineData/TranslateEngine/ModelData/nllb-200-distilled-600M/
+EngineData/VoiceEngine/Piper/piper.exe
+EngineData/VoiceEngine/Piper/**/*.onnx
+```
+
+The helper checker is:
+
+```text
+DevelopingData/ToolKitData/Scripts/Execution/check_local_runtime_models.py
+```
+
+## Local worker workflow
+
+```powershell
+# Install local worker dependencies and inspect model readiness
+EngineData\LauncherApp\Workers\setup_realtime_worker.ps1
+
+# Validate local worker contracts, model checker, smoke scripts, and stack manifest
+npm run validate:worker
+
+# Validate local model and Piper asset readiness
+npm run validate:models
+
+# Run full app validation after dependencies and assets are ready
+npm run validate:full
+```
 
 ## Folder map
 
@@ -58,82 +96,50 @@ RustApp/
           calibration.rs
           evidence.rs
           vad.rs
+          live_capture.rs
+          live_audio_buffer.rs
+          live_segment_writer.rs
         inference/
           mod.rs
           backend.rs
           cuda_probe.rs
         adapters/
           mod.rs
-          asr.rs
-          translation.rs
-          tts.rs
+          local_worker_manifest_logic.rs
+          internal_validation_gate_logic.rs
+Workers/
+  realtime_local_worker.py
+  requirements-realtime.txt
+  realtime_stack_manifest.json
+  setup_realtime_worker.ps1
+  run_realtime_worker_smoke.ps1
 ```
 
 ## Development rules
 
-- Keep the Tauri frontend clean, minimal, and user-facing.
-- Keep technical diagnostics behind secondary panels or future settings screens.
-- Do not remove the existing Python engine until Rust parity is proven.
-- Final runtime must not depend on Python.
-- Do not silently replace Faster-Whisper, NLLB, MarianMT, custom voice, CUDA policy, or latency semantics.
-- Do not silently fall back from CUDA to CPU.
-- Do not report CUDA inference as ready just because `nvidia-smi` is present.
-- Every conversion step must update the related documentation in `DevelopingData/DocumentationData/SourceDocument/`.
-- Final testing is intentionally collected for the end of the conversion milestone, following the user's requested workflow.
+- Keep the main UI simple and user-facing.
+- Keep detailed diagnostics behind the developer panel.
+- Do not claim production readiness before validation evidence passes.
+- Do not claim CUDA readiness just because GPU hardware is visible.
+- Do not claim realtime latency until ASR, translation, and TTS smoke tests report measured timings.
+- Do not hide CPU fallback; report it clearly when CUDA is unavailable.
+- Keep user-facing runtime choices limited to `Realtime` and `Quality`.
+- Keep model installation and readiness checks explicit.
 
-## Intended architecture
+## Validation gates
 
-```text
-Tauri WebView Frontend
-  -> Rust command API
-     -> Rust runtime lifecycle state
-     -> Rust config and path layer
-     -> Rust settings persistence
-     -> Rust logging and diagnostics
-     -> Native Rust audio device discovery
-     -> Rust audio calibration, evidence, and VAD layer
-     -> Rust native inference backend selector
-     -> Rust CUDA probe boundary
-     -> Rust ASR adapter plan
-     -> Rust translation adapter plan
-     -> Rust TTS/output adapter
-     -> UserData cache/log/save writers
-```
+Owner validation is blocked until all of these are true:
 
-## Initial commands
+- Rust check passed,
+- TypeScript typecheck passed,
+- frontend build passed,
+- Tauri package build passed,
+- local worker stack passed,
+- model assets are present,
+- microphone capture smoke test passed,
+- ASR transcript smoke test passed,
+- translation smoke test passed,
+- TTS/playback smoke test passed,
+- launcher package open test passed.
 
-The current scaffold exposes these Tauri commands:
-
-- `get_engine_status`
-- `get_runtime_diagnostics`
-- `load_runtime_settings`
-- `save_default_runtime_settings`
-- `start_capture`
-- `stop_capture`
-- `translate_text`
-
-They are placeholders or support commands with explicit migration-state responses. They exist to stabilize the frontend/backend contract before replacing Python runtime behavior.
-
-## Current diagnostics coverage
-
-Diagnostics now reports:
-
-- project paths,
-- UserData paths,
-- native audio backend and discovered device count,
-- calibration profile status at `UserData/CacheData/rust_calibration_profile.json`,
-- `nvidia-smi` probe result,
-- native inference backend candidates,
-- ASR adapter plan,
-- translation adapter plan,
-- and current blockers.
-
-## Validation script
-
-The scaffold presence check lives at:
-
-```text
-DevelopingData/ToolKitData/Scripts/Execution/check_rust_app.py
-```
-
-The script verifies that the RustApp scaffold, runtime support modules, audio gate modules, inference boundary modules, CUDA probe module, and engine contract files exist without running final runtime tests early.
+Release-candidate status remains blocked until owner validation is allowed and explicitly promoted.
