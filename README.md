@@ -21,24 +21,32 @@ UserData/
 .gitattributes
 .gitignore
 README.md
+TranslateIT.cmd
 ```
 
 ## Root ownership
 
+- `TranslateIT.cmd` - root Windows shortcut launcher for the packaged app or installer only.
 - `DevelopingData/` - developer documentation, concise reports, samples, quality references, and Node/PowerShell tooling.
 - `EngineData/` - Rust/Tauri app, approved local AI worker, and local model/runtime asset slots.
-- `Launcher/` - reserved packaging and release-launcher assets.
+- `Launcher/` - release-launcher support assets and static UI preview references.
 - `UserData/` - local runtime cache, logs, saved work, and validation evidence.
 
 ## Active app route
 
-The professional entry is the packaged Tauri desktop app generated from:
+The professional entry is still the packaged Tauri desktop app generated from:
 
 ```text
 EngineData/LauncherApp/RustApp
 ```
 
-Normal users should open the installed `TranslateIT` app from the packaged release.
+The root shortcut:
+
+```text
+TranslateIT.cmd
+```
+
+only opens the packaged release executable or the NSIS installer when available. It must not start dev server, browser route, Python UI, or worker directly.
 
 Developer mode remains inside RustApp only:
 
@@ -47,7 +55,15 @@ cd EngineData/LauncherApp/RustApp
 npm run dev
 ```
 
-Root-level script launchers are retired.
+## UI preview
+
+Static design preview for correction:
+
+```text
+Launcher/Preview/TranslateIT_UI_Preview.html
+```
+
+This preview is for visual review only and is not the runtime app route.
 
 ## Approved Python exception
 
@@ -86,7 +102,7 @@ TranslateIT.vbs
 
 ## Safety and cleanliness rules
 
-- Keep root clean: no loose Python files, BAT/CMD/PS1/VBS scripts, logs, cache folders, build output, or duplicate documentation roots.
+- Keep root clean: only `TranslateIT.cmd` is allowed as root launcher shortcut.
 - Runtime cache, logs, local models, and user-generated data stay out of Git.
 - Keep documentation under `DevelopingData/Documentation`.
 - Keep executable validation tooling under `DevelopingData/Tooling`.
