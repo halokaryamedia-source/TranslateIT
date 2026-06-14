@@ -12,6 +12,13 @@ pub struct NativeExecutionRequest {
     pub allow_cpu_degraded_mode: bool,
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct NativeExecutionBatchRequest {
+    pub asr: NativeExecutionRequest,
+    pub translation: NativeExecutionRequest,
+    pub output: NativeExecutionRequest,
+}
+
 #[derive(Debug, Clone, Serialize)]
 pub struct NativeExecutionPlan {
     pub stage: String,
@@ -24,11 +31,21 @@ pub struct NativeExecutionPlan {
     pub blocker: String,
 }
 
+#[derive(Debug, Clone, Serialize)]
+pub struct NativeExecutionBatchPlan {
+    pub asr: NativeExecutionPlan,
+    pub translation: NativeExecutionPlan,
+    pub output: NativeExecutionPlan,
+    pub all_ready: bool,
+    pub any_cpu_degraded: bool,
+    pub blockers: Vec<String>,
+}
+
 pub fn plan_native_execution(request: NativeExecutionRequest) -> NativeExecutionPlan {
     let stage = normalize_stage(&request.stage);
     let model_id = request.model_id.unwrap_or_else(|| default_model_for_stage(&stage).to_string());
     let requested_device = request.device.unwrap_or_else(|| "cuda".to_string());
-    let requested_compute = request.compute_type.unwrap_or_else(|| "float16".to_string());
+    let requested_compute = request.compute_type.unwrap_or_else(|| default_compute_for_stage(&stage).to_string());
 
     if !request.input_ready {
         return blocked(stage, model_id, requested_device, requested_compute, "input_not_ready");
@@ -37,7 +54,7 @@ pub fn plan_native_execution(request: NativeExecutionRequest) -> NativeExecution
         return blocked(stage, model_id, requested_device, requested_compute, "model_not_ready");
     }
     if !request.backend_ready {
-        if request.allow_cpu_degraded_mode {
+        if request.allow_cpu_degraded_mode && stage != "output" {
             return NativeExecutionPlan {
                 stage,
                 model_id,
@@ -61,6 +78,27 @@ pub fn plan_native_execution(request: NativeExecutionRequest) -> NativeExecution
         cpu_degraded: false,
         status: "ready".to_string(),
         blocker: String::new(),
+    }
+}
+
+pub fn plan_native_execution_batch(request: NativeExecutionBatchRequest) -> NativeExecutionBatchPlan {
+    let asr = plan_native_execution(request.asr);
+    let translation = plan_native_execution(request.translation);
+    let output = plan_native_execution(request.output);
+    let all_ready = asr.ready && translation.ready && output.ready;
+    let any_cpu_degraded = asr.cpu_degraded || translation.cpu_degraded || output.cpu_degraded;
+    let blockers = [&asr, &translation, &output]
+        .iter()
+        .filter(|plan| !plan.blocker.is_empty())
+        .map(|plan| format!("{}:{}", plan.stage, plan.blocker))
+        .collect::<Vec<_>>();
+    NativeExecutionBatchPlan {
+        asr,
+        translation,
+        output,
+        all_ready,
+        any_cpu_degraded,
+        blockers,
     }
 }
 
@@ -92,5 +130,12 @@ fn default_model_for_stage(stage: &str) -> &'static str {
         "translation" => "nllb-200-distilled-600M",
         "output" => "marcel",
         _ => "unknown",
+    }
+}
+
+fn default_compute_for_stage(stage: &str) -> &'static str {
+    match stage {
+        "output" => "audio",
+        _ => "float16",
     }
 }
