@@ -22,6 +22,7 @@ pub struct NativeExecutionBridgeRequest {
 #[derive(Debug, Clone, Serialize)]
 pub struct NativeExecutionBridgeReport {
     pub segment_id: String,
+    pub realtime_stack: String,
     pub ready_for_execution: bool,
     pub runner_report: NativeStageRunnerReport,
     pub blockers: Vec<String>,
@@ -45,9 +46,9 @@ pub fn build_native_execution_bridge(request: NativeExecutionBridgeRequest) -> N
         output_audio_path: None,
         plan: NativeExecutionRequest {
             stage: "asr".to_string(),
-            model_id: Some("large-v3-turbo".to_string()),
+            model_id: Some("faster-whisper-large-v3-turbo".to_string()),
             device: Some("cuda".to_string()),
-            compute_type: Some("float16".to_string()),
+            compute_type: Some("int8_float16".to_string()),
             input_ready: asr_input_ready,
             model_ready: asr_model_ready,
             backend_ready: request.asr_backend_ready,
@@ -64,9 +65,9 @@ pub fn build_native_execution_bridge(request: NativeExecutionBridgeRequest) -> N
         output_audio_path: None,
         plan: NativeExecutionRequest {
             stage: "translation".to_string(),
-            model_id: Some("nllb-200-distilled-600M".to_string()),
+            model_id: Some("marianmt-id-en".to_string()),
             device: Some("cuda".to_string()),
-            compute_type: Some("float16".to_string()),
+            compute_type: Some("int8_float16".to_string()),
             input_ready: translation_input_ready,
             model_ready: translation_model_ready,
             backend_ready: request.translation_backend_ready,
@@ -83,9 +84,9 @@ pub fn build_native_execution_bridge(request: NativeExecutionBridgeRequest) -> N
         output_audio_path: request.output_audio_path.clone(),
         plan: NativeExecutionRequest {
             stage: "output".to_string(),
-            model_id: Some("windows-default-output".to_string()),
-            device: Some("windows-default-output".to_string()),
-            compute_type: Some("audio".to_string()),
+            model_id: Some("piper-en-fast".to_string()),
+            device: Some("local-audio-output".to_string()),
+            compute_type: Some("pcm16".to_string()),
             input_ready: output_input_ready,
             model_ready: output_model_ready,
             backend_ready: request.output_backend_ready,
@@ -99,14 +100,16 @@ pub fn build_native_execution_bridge(request: NativeExecutionBridgeRequest) -> N
         output: Some(output),
     });
     let ready_for_execution = runner_report.blockers.is_empty() && runner_report.ready_stage_count == 3;
+    let realtime_stack = "faster-whisper-large-v3-turbo + marianmt-id-en + piper-en-fast".to_string();
     let note = if ready_for_execution {
-        "Native execution bridge is ready to enter real runner integration.".to_string()
+        format!("Native execution bridge is ready to enter local realtime worker integration using {realtime_stack}.")
     } else {
-        "Native execution bridge remains blocked until required inputs, existing model paths, and backend readiness are available.".to_string()
+        format!("Native execution bridge remains blocked until required inputs, model paths, and local worker backend readiness are available. stack={realtime_stack}")
     };
 
     NativeExecutionBridgeReport {
         segment_id: request.segment_id,
+        realtime_stack,
         ready_for_execution,
         blockers: runner_report.blockers.clone(),
         runner_report,
