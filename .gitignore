@@ -43,15 +43,6 @@ UserData/CacheData/*
 UserData/LogData/*
 !UserData/LogData/
 !UserData/LogData/README.md
-UserData/SavedData/*
-!UserData/SavedData/
-!UserData/SavedData/README.md
-!UserData/SavedData/CustomVoice/
-UserData/SavedData/CustomVoice/*
-!UserData/SavedData/CustomVoice/README.md
-!UserData/SavedData/SavedTranscript/
-UserData/SavedData/SavedTranscript/*
-!UserData/SavedData/SavedTranscript/README.md
 UserData/SavedProject/*
 !UserData/SavedProject/
 !UserData/SavedProject/README.md
@@ -69,6 +60,7 @@ UserData/SavedProject/*
 EngineData/**/ModelCache/
 EngineData/**/models/
 EngineData/**/ModelData/
+EngineData/RuntimeAssets/Voice/Piper/*
 *.bin
 *.safetensors
 *.gguf
