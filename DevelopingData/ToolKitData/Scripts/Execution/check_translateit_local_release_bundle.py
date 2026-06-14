@@ -8,10 +8,12 @@ REQUIRED_FILES = [
     ROOT / "TranslateIT.vbs",
     ROOT / ".github" / "workflows" / "translateit-rustapp-internal-validation.yml",
     ROOT / "EngineData" / "LauncherApp" / "RustApp" / "package.json",
+    ROOT / "EngineData" / "LauncherApp" / "Workers" / "README.md",
     ROOT / "EngineData" / "LauncherApp" / "Workers" / "realtime_local_worker.py",
     ROOT / "EngineData" / "LauncherApp" / "Workers" / "requirements-realtime.txt",
     ROOT / "EngineData" / "LauncherApp" / "Workers" / "setup_realtime_worker.ps1",
     ROOT / "EngineData" / "LauncherApp" / "Workers" / "run_realtime_worker_smoke.ps1",
+    ROOT / "DevelopingData" / "ToolKitData" / "Scripts" / "Execution" / "check_truthful_readiness_claims.py",
     ROOT / "DevelopingData" / "ToolKitData" / "Scripts" / "Execution" / "run_rustapp_final_validation.ps1",
     ROOT / "DevelopingData" / "ToolKitData" / "Scripts" / "Execution" / "write_rustapp_validation_evidence.py",
     ROOT / "DevelopingData" / "ToolKitData" / "Scripts" / "Execution" / "record_rustapp_manual_runtime_evidence.py",
@@ -35,6 +37,12 @@ REQUIRED_TERMS = {
         "validate:models",
         "validate:evidence",
         "status:readiness",
+    ],
+    ROOT / "EngineData" / "LauncherApp" / "Workers" / "README.md": [
+        "Runtime contract",
+        "Truth rules",
+        "Owner validation remains blocked",
+        "Input and output files are constrained",
     ],
     ROOT / "EngineData" / "LauncherApp" / "Workers" / "realtime_local_worker.py": [
         "asr_preload",
@@ -71,6 +79,11 @@ REQUIRED_TERMS = {
         "release_ready",
         "blockers",
     ],
+    ROOT / "DevelopingData" / "ToolKitData" / "Scripts" / "Execution" / "check_truthful_readiness_claims.py": [
+        "TRUTHFUL_READINESS_CLAIMS_INCOMPLETE",
+        "FORBIDDEN_EXACT_TERMS",
+        "no hardcoded pass evidence",
+    ],
     ROOT / ".github" / "workflows" / "translateit-rustapp-internal-validation.yml": [
         "run_rustapp_final_validation.ps1",
         "latest_validation_evidence.json",
@@ -101,7 +114,7 @@ def main() -> int:
             print("-", item)
         return 1
 
-    print("PASS: TranslateIT local release bundle contains launcher, RustApp, guarded worker, smoke, evidence, readiness, and CI validation contracts")
+    print("PASS: TranslateIT local release bundle contains launcher, RustApp, guarded worker, worker README, smoke, evidence, readiness, truth, and CI validation contracts")
     return 0
 
 
