@@ -12,6 +12,7 @@ use super::inference::backend::NativeInferenceBackendSelection;
 use super::inference::backend_validation::NativeCudaBackendValidationReport;
 use super::inference::cuda_probe::CudaProbeReport;
 use super::paths::ProjectPaths;
+use super::session_store::{current_session_store_status, SessionStoreStatus};
 
 #[derive(Debug, Clone, Serialize)]
 pub struct RuntimeDiagnostics {
@@ -21,6 +22,7 @@ pub struct RuntimeDiagnostics {
     pub audio_device_discovery: AudioDeviceDiscoveryReport,
     pub input_preparation_status: InputPreparationStatus,
     pub calibration_profile_status: CalibrationProfileStatus,
+    pub session_store_status: SessionStoreStatus,
     pub cuda_probe: CudaProbeReport,
     pub backend_validation: NativeCudaBackendValidationReport,
     pub native_inference_candidates: Vec<NativeInferenceBackendSelection>,
@@ -41,6 +43,7 @@ impl RuntimeDiagnostics {
         let calibration_profile_status = CalibrationProfileStatus::from_path(
             &PathBuf::from(&project_paths.user_cache_dir).join("rust_calibration_profile.json"),
         );
+        let session_store_status = current_session_store_status();
         let cuda_probe = CudaProbeReport::probe_host();
         let backend_validation = NativeCudaBackendValidationReport::validate_ctranslate2_cuda_candidate();
         let ctranslate2_candidate = NativeInferenceBackendSelection::ctranslate2_candidate();
@@ -70,6 +73,7 @@ impl RuntimeDiagnostics {
             path_note("User cache", &project_paths.user_cache_dir),
             path_note("User log", &project_paths.user_log_dir),
             path_note("User saved", &project_paths.user_saved_dir),
+            format!("Session store: {} | ready={}", session_store_status.output_dir, session_store_status.ready),
             calibration_profile_status.note.clone(),
             input_preparation_status.note.clone(),
         ];
@@ -88,6 +92,7 @@ impl RuntimeDiagnostics {
             audio_device_discovery,
             input_preparation_status,
             calibration_profile_status,
+            session_store_status,
             cuda_probe,
             backend_validation,
             native_inference_candidates,
