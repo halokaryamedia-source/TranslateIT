@@ -73,6 +73,8 @@ REQUIRED_TERMS = {
     ],
     VALIDATION_RUNNER: [
         "write_rustapp_validation_evidence.py",
+        "summarize_translateit_readiness.py",
+        "Invoke-ReadinessSummary",
         "check_local_realtime_worker_stack.py",
         "check_frontend_runtime_contract.py",
         "check_launcher_contract.py",
@@ -129,7 +131,7 @@ def main() -> int:
             print("-", item)
         return 1
 
-    print("PASS: Rust validation evidence boundary, readiness summary, non-blocking persistent worker smoke evidence, local worker stack gate, and manual runtime evidence recorder are present and wired")
+    print("PASS: Rust validation evidence boundary, readiness summary, validation runner summary writer, non-blocking persistent worker smoke evidence, local worker stack gate, and manual runtime evidence recorder are present and wired")
     return 0
 
 
