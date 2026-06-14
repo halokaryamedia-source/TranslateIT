@@ -7,6 +7,7 @@ use engine::adapters::calibration_logic::{run_calibration_logic, CalibrationLogi
 use engine::adapters::capture_loop_logic::{build_capture_loop_contract, CaptureLoopContractReport};
 use engine::adapters::context_logic::{update_translation_context, TranslationContextReport, TranslationContextRequest};
 use engine::adapters::frame_pipeline_logic::{analyze_frame_pipeline, FramePipelineReport, FramePipelineRequest};
+use engine::adapters::internal_validation_gate_logic::{analyze_internal_validation_gate, InternalValidationGateReport};
 use engine::adapters::language_logic::{run_language_logic, LanguageLogicReport, LanguageLogicRequest};
 use engine::adapters::latency_logic::{build_latency_logic, build_vad_profile, LatencyLogicReport, LatencyLogicRequest, VadProfileReport, VadProfileRequest};
 use engine::adapters::live_pipeline_compact_status_logic::{build_live_pipeline_compact_status, LivePipelineCompactStatusReport};
@@ -97,6 +98,11 @@ fn analyze_live_pipeline_gate() -> LiveRuntimePipelineGateReport {
 #[tauri::command]
 fn get_live_pipeline_compact_status() -> LivePipelineCompactStatusReport {
     build_live_pipeline_compact_status()
+}
+
+#[tauri::command]
+fn analyze_internal_validation() -> InternalValidationGateReport {
+    analyze_internal_validation_gate()
 }
 
 #[tauri::command]
@@ -352,6 +358,7 @@ fn main() {
         get_runtime_status_bundle,
         analyze_live_pipeline_gate,
         get_live_pipeline_compact_status,
+        analyze_internal_validation,
         analyze_migration_closure,
         probe_native_input_config,
         plan_native_capture_stream_state,
