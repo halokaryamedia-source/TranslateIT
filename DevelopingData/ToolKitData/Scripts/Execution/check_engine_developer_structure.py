@@ -5,13 +5,13 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[4]
 
 REQUIRED_PATHS = [
-    ROOT / "DeveloperData" / "README.md",
-    ROOT / "DeveloperData" / "Guides" / "Repository" / "README.md",
-    ROOT / "DeveloperData" / "Guides" / "Repository" / "GitHubSetupGuide.md",
-    ROOT / "DeveloperData" / "Templates" / "Repository" / "gitignore_template.txt",
-    ROOT / "DeveloperData" / "Research" / "VoiceLab" / "README.md",
-    ROOT / "DeveloperData" / "Research" / "VoiceLab" / "VoiceLabResearchBrief.md",
-    ROOT / "DeveloperData" / "Research" / "VoiceLab" / "VoiceLabResearchNotes.md",
+    ROOT / "DevelopingData" / "README.md",
+    ROOT / "DevelopingData" / "Documentation" / "Guides" / "Repository" / "README.md",
+    ROOT / "DevelopingData" / "Documentation" / "Guides" / "Repository" / "GitHubSetupGuide.md",
+    ROOT / "DevelopingData" / "Documentation" / "Templates" / "Repository" / "gitignore_template.txt",
+    ROOT / "DevelopingData" / "Documentation" / "Research" / "VoiceLab" / "README.md",
+    ROOT / "DevelopingData" / "Documentation" / "Research" / "VoiceLab" / "VoiceLabResearchBrief.md",
+    ROOT / "DevelopingData" / "Documentation" / "Research" / "VoiceLab" / "VoiceLabResearchNotes.md",
     ROOT / "EngineData" / "README.md",
     ROOT / "EngineData" / "LauncherApp" / "README.md",
     ROOT / "EngineData" / "LauncherApp" / "RustApp" / "package.json",
@@ -23,7 +23,7 @@ REQUIRED_PATHS = [
 ]
 
 RETIRED_PATHS = [
-    ROOT / "DeveloperData" / "TechnicalDocumentation",
+    ROOT / "DeveloperData",
     ROOT / "DevelopingData" / "LauncherHelpers" / "TranslateIt.bat",
     ROOT / "DevelopingData" / "LauncherHelpers" / "TranslateIT_Debug.bat",
     ROOT / "DevelopingData" / "LauncherHelpers" / "run_translateit_legacy_tts.bat",
@@ -64,12 +64,12 @@ def main() -> int:
                 problems.append(f"old helper script remains: {path.relative_to(ROOT)}")
 
     if problems:
-        print("ENGINE_DEVELOPER_STRUCTURE_INCOMPLETE")
+        print("ENGINE_DEVELOPING_STRUCTURE_INCOMPLETE")
         for problem in problems:
             print("-", problem)
         return 1
 
-    print("PASS: DeveloperData and EngineData are modular, single-route, and free of old Python engine files except the approved local AI worker")
+    print("PASS: DevelopingData owns developer docs/tooling, DeveloperData is retired, and EngineData is single-route with Python limited to the approved local AI worker")
     return 0
 
 
