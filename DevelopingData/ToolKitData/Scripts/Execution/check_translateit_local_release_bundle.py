@@ -13,6 +13,7 @@ REQUIRED_FILES = [
     ROOT / "EngineData" / "LauncherApp" / "Workers" / "requirements-realtime.txt",
     ROOT / "EngineData" / "LauncherApp" / "Workers" / "setup_realtime_worker.ps1",
     ROOT / "EngineData" / "LauncherApp" / "Workers" / "run_realtime_worker_smoke.ps1",
+    ROOT / "DevelopingData" / "ToolKitData" / "Scripts" / "Execution" / "check_root_professional_cleanliness.py",
     ROOT / "DevelopingData" / "ToolKitData" / "Scripts" / "Execution" / "check_truthful_readiness_claims.py",
     ROOT / "DevelopingData" / "ToolKitData" / "Scripts" / "Execution" / "run_rustapp_final_validation.ps1",
     ROOT / "DevelopingData" / "ToolKitData" / "Scripts" / "Execution" / "write_rustapp_validation_evidence.py",
@@ -57,6 +58,12 @@ REQUIRED_TERMS = {
         "ALLOWED_OUTPUT_ROOTS",
         "device_note",
         "cuda_fallback",
+    ],
+    ROOT / "DevelopingData" / "ToolKitData" / "Scripts" / "Execution" / "check_root_professional_cleanliness.py": [
+        "FORBIDDEN_ROOT_SUFFIXES",
+        ".py",
+        "ROOT_CLEANLINESS_INCOMPLETE",
+        "Repository root is clean",
     ],
     ROOT / "DevelopingData" / "ToolKitData" / "Scripts" / "Execution" / "run_local_realtime_worker_smoke_tests.py": [
         "persistent_worker",
@@ -114,7 +121,7 @@ def main() -> int:
             print("-", item)
         return 1
 
-    print("PASS: TranslateIT local release bundle contains launcher, RustApp, guarded worker, worker README, smoke, evidence, readiness, truth, and CI validation contracts")
+    print("PASS: TranslateIT local release bundle contains clean root guard, launcher, RustApp, guarded worker, worker README, smoke, evidence, readiness, truth, and CI validation contracts")
     return 0
 
 
