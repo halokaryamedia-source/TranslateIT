@@ -1,6 +1,7 @@
 pub mod buffer;
 pub mod calibration;
 pub mod calibration_flow;
+pub mod capture_gate;
 pub mod capture_plan;
 pub mod device;
 pub mod evidence;
