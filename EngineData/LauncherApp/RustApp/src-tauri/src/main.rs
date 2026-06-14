@@ -25,6 +25,7 @@ use engine::audio::vad::{evaluate_segment_decision, VadDecisionReport, VadSegmen
 use engine::audio::AudioFrame;
 use engine::diagnostics::RuntimeDiagnostics;
 use engine::inference::backend_validation::NativeCudaBackendValidationReport;
+use engine::native_execution::{plan_native_execution, NativeExecutionPlan, NativeExecutionRequest};
 use engine::settings::RuntimeSettings;
 use engine::state::{CommandResult, EngineStatus};
 
@@ -134,6 +135,11 @@ fn run_runtime_plan(request: RuntimeOrchestrationRequest) -> RuntimeOrchestratio
 }
 
 #[tauri::command]
+fn plan_native_execution_step(request: NativeExecutionRequest) -> NativeExecutionPlan {
+    plan_native_execution(request)
+}
+
+#[tauri::command]
 fn resolve_vad_profile(request: VadProfileRequest) -> VadProfileReport {
     build_vad_profile(request)
 }
@@ -225,6 +231,7 @@ fn main() {
         plan_translation_logic,
         plan_playback_logic,
         run_runtime_plan,
+        plan_native_execution_step,
         resolve_vad_profile,
         get_calibration_flow_status,
         save_calibration_profile,
