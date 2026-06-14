@@ -12,6 +12,10 @@ REQUIRED_PATHS = [
     ROOT / "DevelopingData" / "Documentation" / "Research" / "VoiceLab" / "README.md",
     ROOT / "DevelopingData" / "Documentation" / "Research" / "VoiceLab" / "VoiceLabResearchBrief.md",
     ROOT / "DevelopingData" / "Documentation" / "Research" / "VoiceLab" / "VoiceLabResearchNotes.md",
+    ROOT / "DevelopingData" / "Documentation" / "Orientation" / "README.md",
+    ROOT / "DevelopingData" / "Quality" / "Diagnostics" / "README.md",
+    ROOT / "DevelopingData" / "Quality" / "Tests" / "README.md",
+    ROOT / "DevelopingData" / "Samples" / "README.md",
     ROOT / "EngineData" / "README.md",
     ROOT / "EngineData" / "LauncherApp" / "README.md",
     ROOT / "EngineData" / "LauncherApp" / "RustApp" / "package.json",
@@ -24,6 +28,11 @@ REQUIRED_PATHS = [
 
 RETIRED_PATHS = [
     ROOT / "DeveloperData",
+    ROOT / "DevelopingData" / "Diagnostics",
+    ROOT / "DevelopingData" / "Docs",
+    ROOT / "DevelopingData" / "LauncherHelpers",
+    ROOT / "DevelopingData" / "SampleData",
+    ROOT / "DevelopingData" / "Tests",
     ROOT / "DevelopingData" / "LauncherHelpers" / "TranslateIt.bat",
     ROOT / "DevelopingData" / "LauncherHelpers" / "TranslateIT_Debug.bat",
     ROOT / "DevelopingData" / "LauncherHelpers" / "run_translateit_legacy_tts.bat",
@@ -57,19 +66,13 @@ def main() -> int:
             if rel_path not in ALLOWED_ENGINE_PYTHON:
                 problems.append(f"unexpected EngineData Python file: {rel_path}")
 
-    helper_dir = ROOT / "DevelopingData" / "LauncherHelpers"
-    if helper_dir.exists():
-        for path in sorted(helper_dir.iterdir()):
-            if path.is_file() and path.suffix.lower() in {".bat", ".cmd", ".ps1", ".vbs"}:
-                problems.append(f"old helper script remains: {path.relative_to(ROOT)}")
-
     if problems:
         print("ENGINE_DEVELOPING_STRUCTURE_INCOMPLETE")
         for problem in problems:
             print("-", problem)
         return 1
 
-    print("PASS: DevelopingData owns developer docs/tooling, DeveloperData is retired, and EngineData is single-route with Python limited to the approved local AI worker")
+    print("PASS: DevelopingData owns developer docs/tooling/quality/samples, DeveloperData and old ad hoc root folders are retired, and EngineData is single-route with Python limited to the approved local AI worker")
     return 0
 
 
