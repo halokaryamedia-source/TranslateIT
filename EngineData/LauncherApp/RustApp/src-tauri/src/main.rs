@@ -29,6 +29,7 @@ use engine::adapters::transcript_session_logic::{analyze_transcript_session_read
 use engine::adapters::translation_logic::{run_translation_logic, TranslationLogicRequest, TranslationLogicResult};
 use engine::audio::buffer::{inspect_frame, planned_buffer_status, AudioBufferStatus, AudioFrameInspectionReport};
 use engine::audio::calibration_flow::{save_calibration_from_evidence, CalibrationFlowStatus, CalibrationSaveResult};
+use engine::audio::capture_plan::{plan_native_capture_stream, NativeCaptureStreamPlanReport, NativeCaptureStreamPlanRequest};
 use engine::audio::evidence::AudioEvidenceReport;
 use engine::audio::input::InputPreparationStatus;
 use engine::audio::input_config::NativeInputConfigProbeReport;
@@ -92,6 +93,11 @@ fn analyze_migration_closure(request: MigrationClosureGateRequest) -> MigrationC
 #[tauri::command]
 fn probe_native_input_config() -> NativeInputConfigProbeReport {
     NativeInputConfigProbeReport::probe_default_input()
+}
+
+#[tauri::command]
+fn plan_native_capture_stream_state(request: NativeCaptureStreamPlanRequest) -> NativeCaptureStreamPlanReport {
+    plan_native_capture_stream(request)
 }
 
 #[tauri::command]
@@ -322,6 +328,7 @@ fn main() {
         get_runtime_status_bundle,
         analyze_migration_closure,
         probe_native_input_config,
+        plan_native_capture_stream_state,
         analyze_native_capture_bridge_state,
         get_input_status,
         get_audio_buffer_status,
