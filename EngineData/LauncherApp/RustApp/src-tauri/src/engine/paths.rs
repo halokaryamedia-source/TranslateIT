@@ -20,7 +20,7 @@ impl ProjectPaths {
 
         let user_cache_dir = root.join("UserData").join("CacheData");
         let user_log_dir = root.join("UserData").join("LogData");
-        let user_saved_dir = root.join("UserData").join("SavedData");
+        let user_saved_dir = root.join("UserData").join("SavedProject");
         let asr_model_dir = root
             .join("EngineData")
             .join("TranscriptEngine")
@@ -37,7 +37,7 @@ impl ProjectPaths {
             user_saved_dir: normalize_path(&user_saved_dir),
             asr_model_dir: normalize_path(&asr_model_dir),
             translation_model_dir: normalize_path(&translation_model_dir),
-            discovery_note: "Project root is discovered by walking upward until EngineData, DevelopingData, and UserData are visible.".to_string(),
+            discovery_note: "Project root discovery requires EngineData, DevelopingData, and UserData. Saved runtime data uses UserData/SavedProject.".to_string(),
         }
     }
 }
