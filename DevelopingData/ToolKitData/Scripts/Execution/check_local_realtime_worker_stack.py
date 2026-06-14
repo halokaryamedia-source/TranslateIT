@@ -44,7 +44,9 @@ REQUIRED_SETUP_TERMS = [
 ]
 
 REQUIRED_SMOKE_TERMS = [
-    "run_local_realtime_worker_smoke_tests.py",
+    "PersistentWorker",
+    "persistent_worker",
+    "latency_summary",
     "latest_local_worker_smoke_evidence.json",
     "asr_transcript_smoke",
     "translation_smoke",
@@ -69,6 +71,16 @@ REQUIRED_MODEL_CHECK_TERMS = [
 ]
 
 
+def require_terms(label: str, text: str, terms: list[str]) -> int:
+    missing = [term for term in terms if term not in text]
+    if missing:
+        print(label)
+        for term in missing:
+            print("-", term)
+        return 1
+    return 0
+
+
 def main() -> int:
     required_files = [WORKER_SCRIPT, REQUIREMENTS, STACK_MANIFEST, SETUP_SCRIPT, SMOKE_LAUNCHER, SMOKE_SCRIPT, MODEL_CHECK_SCRIPT]
     missing = [str(path.relative_to(ROOT)) for path in required_files if not path.exists()]
@@ -78,44 +90,16 @@ def main() -> int:
             print("-", item)
         return 1
 
-    worker_text = WORKER_SCRIPT.read_text(encoding="utf-8")
-    missing_worker_terms = [term for term in REQUIRED_WORKER_TERMS if term not in worker_text]
-    if missing_worker_terms:
-        print("LOCAL_REALTIME_WORKER_RUNTIME_TERMS_MISSING")
-        for term in missing_worker_terms:
-            print("-", term)
+    if require_terms("LOCAL_REALTIME_WORKER_RUNTIME_TERMS_MISSING", WORKER_SCRIPT.read_text(encoding="utf-8"), REQUIRED_WORKER_TERMS):
         return 1
-
-    requirements_text = REQUIREMENTS.read_text(encoding="utf-8")
-    missing_requirements = [term for term in REQUIRED_REQUIREMENTS if term not in requirements_text]
-    if missing_requirements:
-        print("LOCAL_REALTIME_WORKER_REQUIREMENTS_INCOMPLETE")
-        for term in missing_requirements:
-            print("-", term)
+    if require_terms("LOCAL_REALTIME_WORKER_REQUIREMENTS_INCOMPLETE", REQUIREMENTS.read_text(encoding="utf-8"), REQUIRED_REQUIREMENTS):
         return 1
-
-    setup_text = SETUP_SCRIPT.read_text(encoding="utf-8")
-    missing_setup_terms = [term for term in REQUIRED_SETUP_TERMS if term not in setup_text]
-    if missing_setup_terms:
-        print("LOCAL_REALTIME_WORKER_SETUP_INCOMPLETE")
-        for term in missing_setup_terms:
-            print("-", term)
+    if require_terms("LOCAL_REALTIME_WORKER_SETUP_INCOMPLETE", SETUP_SCRIPT.read_text(encoding="utf-8"), REQUIRED_SETUP_TERMS):
         return 1
-
-    model_check_text = MODEL_CHECK_SCRIPT.read_text(encoding="utf-8")
-    missing_model_terms = [term for term in REQUIRED_MODEL_CHECK_TERMS if term not in model_check_text]
-    if missing_model_terms:
-        print("LOCAL_RUNTIME_MODEL_CHECK_INCOMPLETE")
-        for term in missing_model_terms:
-            print("-", term)
+    if require_terms("LOCAL_RUNTIME_MODEL_CHECK_INCOMPLETE", MODEL_CHECK_SCRIPT.read_text(encoding="utf-8"), REQUIRED_MODEL_CHECK_TERMS):
         return 1
-
     smoke_text = SMOKE_SCRIPT.read_text(encoding="utf-8") + "\n" + SMOKE_LAUNCHER.read_text(encoding="utf-8")
-    missing_smoke_terms = [term for term in REQUIRED_SMOKE_TERMS if term not in smoke_text]
-    if missing_smoke_terms:
-        print("LOCAL_REALTIME_WORKER_SMOKE_INCOMPLETE")
-        for term in missing_smoke_terms:
-            print("-", term)
+    if require_terms("LOCAL_REALTIME_WORKER_SMOKE_INCOMPLETE", smoke_text, REQUIRED_SMOKE_TERMS):
         return 1
 
     manifest = json.loads(STACK_MANIFEST.read_text(encoding="utf-8"))
@@ -148,7 +132,7 @@ def main() -> int:
         print("LOCAL_REALTIME_STACK_TRUTH_POLICY_INCOMPLETE")
         return 1
 
-    print("PASS: Local realtime worker stack files, setup script, model checker, smoke scripts, GPU-aware translation worker, latency budgets, commands, dependencies, modes, and truth policy are present")
+    print("PASS: Local realtime worker stack files, setup script, model checker, persistent smoke scripts, GPU-aware translation worker, latency budgets, commands, dependencies, modes, and truth policy are present")
     return 0
 
 
