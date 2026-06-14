@@ -73,13 +73,13 @@ EngineData/VoiceEngine/
 
 ## Python policy
 
-The only approved Python file under `EngineData` is:
+The only approved Python file in the active project runtime is:
 
 ```text
 EngineData/LauncherApp/Workers/realtime_local_worker.py
 ```
 
-All other Python launcher, UI, or engine modules under `EngineData` are retired. Python validation scripts may live under `DevelopingData/Tooling/Scripts/Execution`.
+Rust/Tauri, repository, structure, evidence, and CI checks use Node or PowerShell tooling. Do not add Python validation scripts under `DevelopingData`.
 
 ## Important rule
 
