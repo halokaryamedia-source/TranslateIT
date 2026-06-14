@@ -1,29 +1,35 @@
 # TranscriptEngine
 
+## Status
+
+`TranscriptEngine` is no longer a Python source-engine folder.
+
+The active ASR orchestration route is:
+
+```text
+EngineData/LauncherApp/Workers/realtime_local_worker.py
+```
+
 ## Purpose
-- Hold microphone capture, calibration, VAD, segment building, ASR loading, and transcript quality filtering.
 
-## Allowed files
-- `README.md`
-- Audio capture modules
-- Calibration modules
-- VAD modules
-- Segment builder modules
-- ASR loader and quality filter modules
-- Transcript segment data structures
-- `ModelData/` for local ASR model files required by runtime
+This folder is reserved for local ASR model assets and transcript-engine documentation.
 
-## Must not be placed here
-- UI layout files
-- Translation engine files
-- Translation model files
-- Documentation files
-- User cache or saved-session exports
+## Expected local-only asset slot
 
-## Naming rules
-- Use English only.
-- Keep module names specific to their audio or transcript responsibility.
-- Keep the engine side free of UI code.
+```text
+TranscriptEngine/
+  README.md
+  ModelData/
+    faster-whisper-large-v3-turbo/
+      model.bin
+      ...
+```
 
-## Related documentation path
-- `../../DevelopingData/DocumentationData/SourceDocument/MASTER_PROJECT_DOCUMENTATION.md`
+`ModelData/` is intentionally ignored by Git because local model files can be large.
+
+## Rules
+
+- Do not add Python ASR pipeline source here.
+- Do not add microphone capture, VAD, or transcript session source modules here.
+- Keep local ASR inference orchestration in `LauncherApp/Workers/` until a native Rust implementation replaces it.
+- Keep model binaries out of Git.
