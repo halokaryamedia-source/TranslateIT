@@ -98,6 +98,37 @@ type LiveCaptureStatusReport = {
   note: string;
 };
 
+type LivePipelineGateReport = {
+  ready_for_user_runtime: boolean;
+  microphone_ready: boolean;
+  asr_ready: boolean;
+  translation_ready: boolean;
+  tts_ready: boolean;
+  playback_ready: boolean;
+  completed_stage_count: number;
+  total_stage_count: number;
+  progress_percent: number;
+  blocker: string;
+  note: string;
+};
+
+type InternalValidationGateReport = {
+  ready_for_owner_validation: boolean;
+  ready_for_release_candidate: boolean;
+  tauri_command_status_exposed: boolean;
+  build_validation_passed: boolean;
+  rust_check_passed: boolean;
+  frontend_typecheck_passed: boolean;
+  frontend_build_passed: boolean;
+  packaging_validation_passed: boolean;
+  validation_evidence_path: string;
+  validation_evidence_loaded: boolean;
+  validation_evidence_generated_at_utc: string | null;
+  blockers: string[];
+  progress_percent: number;
+  note: string;
+};
+
 type RuntimeStatusBundleReport = {
   engine_status: EngineStatus;
   readiness: {
@@ -107,6 +138,7 @@ type RuntimeStatusBundleReport = {
     ready_for_live_capture_runtime: boolean;
     ready_for_native_inference_runtime: boolean;
     ready_for_transcript_persistence: boolean;
+    ready_for_end_to_end_pipeline?: boolean;
     ready_for_user_facing_runtime: boolean;
     blockers: string[];
     note: string;
@@ -121,6 +153,8 @@ type RuntimeStatusBundleReport = {
     note: string;
   };
   live_capture: LiveCaptureStatusReport;
+  live_pipeline_gate?: LivePipelineGateReport;
+  internal_validation_gate?: InternalValidationGateReport;
   next_action: string;
   summary: string;
 };
@@ -296,7 +330,7 @@ function userFriendlyBlocker(blocker: string): string {
 }
 
 function firstItems(items: string[], maxItems: number): string[] {
-  return items.slice(0, maxItems).map(userFriendlyBlocker);
+  return items.filter(Boolean).slice(0, maxItems).map(userFriendlyBlocker);
 }
 
 function renderCommandResult(result: CommandResult): void {
@@ -306,23 +340,39 @@ function renderCommandResult(result: CommandResult): void {
 }
 
 function renderStatusBundle(bundle: RuntimeStatusBundleReport): void {
-  const { engine_status, readiness, capture_gate, live_capture } = bundle;
-  const runtimeReady = readiness.ready_for_user_facing_runtime;
+  const { engine_status, readiness, capture_gate, live_capture, live_pipeline_gate, internal_validation_gate } = bundle;
+  const runtimeReady = internal_validation_gate?.ready_for_owner_validation ?? readiness.ready_for_user_facing_runtime;
+  const releaseCandidateReady = internal_validation_gate?.ready_for_release_candidate ?? false;
   const liveCaptureActive = live_capture.stream_active;
   const captureReady = liveCaptureActive || capture_gate.ready_for_capture_start;
   const startReady = readiness.ready_for_start_command;
+  const pipelineProgress = live_pipeline_gate?.progress_percent ?? 0;
+  const internalProgress = internal_validation_gate?.progress_percent ?? pipelineProgress;
   const liveBlockers = live_capture.blocker ? [live_capture.blocker] : [];
+  const pipelineBlockers = live_pipeline_gate?.blocker ? [live_pipeline_gate.blocker] : [];
+  const validationBlockers = internal_validation_gate?.blockers ?? [];
 
   ui.versionText.textContent = `v${engine_status.app_version}`;
-  ui.runtimeText.textContent = runtimeReady ? "Runtime ready" : liveCaptureActive ? "Listening" : "Pre-validation";
+  ui.runtimeText.textContent = releaseCandidateReady
+    ? "RC gate complete"
+    : runtimeReady
+      ? "Owner validation allowed"
+      : liveCaptureActive
+        ? "Listening"
+        : `Internal ${internalProgress}%`;
 
-  setPill(ui.statusPill, engine_status.lifecycle_state, runtimeReady ? "good" : liveCaptureActive ? "good" : startReady ? "warn" : "neutral");
+  setPill(ui.statusPill, engine_status.lifecycle_state, runtimeReady || liveCaptureActive ? "good" : startReady ? "warn" : "neutral");
   setPill(ui.capturePill, liveCaptureActive ? "Mic Active" : captureReady ? "Capture Ready" : "Capture Pending", liveCaptureActive || captureReady ? "good" : "warn");
-  setPill(ui.runtimePill, runtimeReady ? "Runtime Ready" : "Runtime Pending", runtimeReady ? "good" : "warn");
+  setPill(ui.runtimePill, runtimeReady ? "Validation Ready" : `Internal ${internalProgress}%`, runtimeReady ? "good" : "warn");
 
-  const blockers = [...readiness.blockers, ...capture_gate.blockers, ...liveBlockers];
+  const blockers = [...readiness.blockers, ...capture_gate.blockers, ...liveBlockers, ...pipelineBlockers, ...validationBlockers];
   const notes = [
     `Next action: ${bundle.next_action}`,
+    `Pipeline progress: ${pipelineProgress}%`,
+    `Internal validation: ${internalProgress}%`,
+    `Evidence loaded: ${internal_validation_gate?.validation_evidence_loaded ?? false}`,
+    `Owner validation allowed: ${runtimeReady}`,
+    `Release candidate gate: ${releaseCandidateReady}`,
     `ASR: ${engine_status.asr_engine}`,
     `Translation: ${engine_status.translation_engine}`,
     `TTS: ${engine_status.tts_engine}`,
@@ -332,7 +382,9 @@ function renderStatusBundle(bundle: RuntimeStatusBundleReport): void {
     ...firstItems(blockers, 8).map((item) => `Blocker: ${item}`),
   ];
 
-  const message = liveCaptureActive ? live_capture.note : readiness.note || bundle.summary;
+  const message = liveCaptureActive
+    ? live_capture.note
+    : internal_validation_gate?.note || live_pipeline_gate?.note || readiness.note || bundle.summary;
   renderRuntimeMessage(message, notes, runtimeReady || liveCaptureActive ? "good" : blockers.length ? "warn" : "neutral");
 }
 
@@ -375,9 +427,10 @@ async function translateText(): Promise<void> {
 }
 
 async function loadDiagnostics(): Promise<void> {
-  const [diagnostics, liveCapture] = await Promise.all([
+  const [diagnostics, liveCapture, runtimeBundle] = await Promise.all([
     safeInvoke<RuntimeDiagnostics>("get_runtime_diagnostics"),
     safeInvoke<LiveCaptureStatusReport>("get_live_capture_status"),
+    safeInvoke<RuntimeStatusBundleReport>("get_runtime_status_bundle"),
   ]);
   if (!diagnostics) {
     return;
@@ -390,6 +443,9 @@ async function loadDiagnostics(): Promise<void> {
       project_paths: diagnostics.project_paths,
       audio_device: diagnostics.input_preparation_status,
       live_capture: liveCapture,
+      live_pipeline_gate: runtimeBundle?.live_pipeline_gate,
+      internal_validation_gate: runtimeBundle?.internal_validation_gate,
+      next_action: runtimeBundle?.next_action,
       cuda_probe: diagnostics.cuda_probe,
       backend_validation: diagnostics.backend_validation,
       asr_adapter_plan: diagnostics.asr_adapter_plan,
