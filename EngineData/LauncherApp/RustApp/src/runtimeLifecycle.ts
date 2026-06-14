@@ -47,6 +47,35 @@ export type RuntimeSessionStateReport = {
   note: string;
 };
 
+export type NativeCaptureBridgeRequest = {
+  require_active_session: boolean;
+  require_safe_to_stop: boolean;
+  requested_sample_rate_hz: number;
+  requested_channels: number;
+  requested_frame_ms: number;
+};
+
+export type NativeCaptureBridgeReport = {
+  ready_for_stream_creation: boolean;
+  active_session_required: boolean;
+  active_session_present: boolean;
+  safe_to_stop_ready: boolean;
+  requested_sample_rate_hz: number;
+  requested_channels: number;
+  requested_frame_ms: number;
+  backend: string;
+  blockers: string[];
+  note: string;
+};
+
+export const defaultNativeCaptureBridgeRequest: NativeCaptureBridgeRequest = {
+  require_active_session: true,
+  require_safe_to_stop: true,
+  requested_sample_rate_hz: 16000,
+  requested_channels: 1,
+  requested_frame_ms: 20,
+};
+
 export type RuntimeLifecycleGateReport = {
   action: string;
   allowed: boolean;
@@ -67,6 +96,7 @@ export type RuntimeReadinessStage = {
 export type RuntimeReadinessBundleReport = {
   ready_for_start_command: boolean;
   ready_for_stop_command: boolean;
+  ready_for_capture_stream_creation: boolean;
   ready_for_live_capture_runtime: boolean;
   ready_for_native_inference_runtime: boolean;
   ready_for_transcript_persistence: boolean;
@@ -74,6 +104,7 @@ export type RuntimeReadinessBundleReport = {
   diagnostics?: unknown;
   handoff_state: RuntimeHandoffStateReport;
   session_state: RuntimeSessionStateReport;
+  capture_bridge: NativeCaptureBridgeReport;
   start_gate: RuntimeLifecycleGateReport;
   stop_gate: RuntimeLifecycleGateReport;
   stages: RuntimeReadinessStage[];
@@ -142,6 +173,12 @@ export async function analyzeStopGate(): Promise<RuntimeLifecycleGateReport> {
 
 export async function analyzeRuntimeReadiness(): Promise<RuntimeReadinessBundleReport> {
   return invoke<RuntimeReadinessBundleReport>("analyze_runtime_readiness");
+}
+
+export async function analyzeNativeCaptureBridge(
+  request: NativeCaptureBridgeRequest = defaultNativeCaptureBridgeRequest,
+): Promise<NativeCaptureBridgeReport> {
+  return invoke<NativeCaptureBridgeReport>("analyze_native_capture_bridge_state", { request });
 }
 
 export async function getRuntimeStatusBundle(): Promise<RuntimeStatusBundleReport> {
@@ -234,10 +271,12 @@ export function summarizeReadinessBundle(report: RuntimeReadinessBundleReport): 
   const details = [
     `Ready for Start command: ${report.ready_for_start_command}`,
     `Ready for Stop command: ${report.ready_for_stop_command}`,
+    `Ready for capture stream creation: ${report.ready_for_capture_stream_creation}`,
     `Ready for live capture runtime: ${report.ready_for_live_capture_runtime}`,
     `Ready for native inference runtime: ${report.ready_for_native_inference_runtime}`,
     `Ready for transcript persistence: ${report.ready_for_transcript_persistence}`,
     `Ready for user-facing runtime: ${report.ready_for_user_facing_runtime}`,
+    `Capture bridge: ${report.capture_bridge.note}`,
     `Handoff state: ${report.handoff_state.note}`,
     `Session state: ${report.session_state.note}`,
     `Start gate: ${report.start_gate.note}`,
