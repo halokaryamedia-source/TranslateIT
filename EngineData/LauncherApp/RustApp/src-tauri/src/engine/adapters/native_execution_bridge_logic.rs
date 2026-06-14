@@ -1,4 +1,5 @@
 use serde::{Deserialize, Serialize};
+use std::path::Path;
 
 use crate::engine::native_execution::{NativeExecutionContractRequest, NativeExecutionRequest};
 use crate::engine::native_runners::{prepare_native_stage_runners, NativeStageRunnerReport, NativeStageRunnerRequest};
@@ -28,12 +29,12 @@ pub struct NativeExecutionBridgeReport {
 }
 
 pub fn build_native_execution_bridge(request: NativeExecutionBridgeRequest) -> NativeExecutionBridgeReport {
-    let asr_input_ready = request.source_audio_path.as_ref().map(|value| !value.trim().is_empty()).unwrap_or(false);
-    let translation_input_ready = request.source_text.as_ref().map(|value| !value.trim().is_empty()).unwrap_or(false);
-    let output_input_ready = translation_input_ready || request.output_audio_path.as_ref().map(|value| !value.trim().is_empty()).unwrap_or(false);
-    let asr_model_ready = request.asr_model_path.as_ref().map(|value| !value.trim().is_empty()).unwrap_or(false);
-    let translation_model_ready = request.translation_model_path.as_ref().map(|value| !value.trim().is_empty()).unwrap_or(false);
-    let output_model_ready = request.output_model_path.as_ref().map(|value| !value.trim().is_empty()).unwrap_or(true);
+    let asr_input_ready = has_value(&request.source_audio_path);
+    let translation_input_ready = has_value(&request.source_text);
+    let output_input_ready = translation_input_ready || has_value(&request.output_audio_path);
+    let asr_model_ready = path_exists(&request.asr_model_path);
+    let translation_model_ready = path_exists(&request.translation_model_path);
+    let output_model_ready = optional_path_exists(&request.output_model_path);
 
     let asr = NativeExecutionContractRequest {
         stage: "asr".to_string(),
@@ -101,7 +102,7 @@ pub fn build_native_execution_bridge(request: NativeExecutionBridgeRequest) -> N
     let note = if ready_for_execution {
         "Native execution bridge is ready to enter real runner integration.".to_string()
     } else {
-        "Native execution bridge remains blocked until required inputs, model paths, and backend readiness are available.".to_string()
+        "Native execution bridge remains blocked until required inputs, existing model paths, and backend readiness are available.".to_string()
     };
 
     NativeExecutionBridgeReport {
@@ -110,5 +111,24 @@ pub fn build_native_execution_bridge(request: NativeExecutionBridgeRequest) -> N
         blockers: runner_report.blockers.clone(),
         runner_report,
         note,
+    }
+}
+
+fn has_value(value: &Option<String>) -> bool {
+    value.as_ref().map(|text| !text.trim().is_empty()).unwrap_or(false)
+}
+
+fn path_exists(value: &Option<String>) -> bool {
+    value
+        .as_ref()
+        .filter(|path| !path.trim().is_empty())
+        .map(|path| Path::new(path).exists())
+        .unwrap_or(false)
+}
+
+fn optional_path_exists(value: &Option<String>) -> bool {
+    match value.as_ref().filter(|path| !path.trim().is_empty()) {
+        Some(path) => Path::new(path).exists(),
+        None => true,
     }
 }
