@@ -37,7 +37,7 @@ pub fn analyze_frame_pipeline(request: FramePipelineRequest) -> FramePipelineRep
         collect_stats: Some(true),
     });
 
-    let vad_passed = inspection.vad_result.passed;
+    let vad_passed = inspection.vad_result.accepted;
     let mut blockers = Vec::new();
     if !inspection.accepted_by_buffer {
         blockers.push("buffer:rejected_frame_format".to_string());
