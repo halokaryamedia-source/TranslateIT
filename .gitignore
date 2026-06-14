@@ -10,6 +10,7 @@
 /__pycache__/
 /.pytest_cache/
 /.mypy_cache/
+/DeveloperData/
 
 # Python cache
 **/__pycache__/
@@ -27,13 +28,13 @@ htmlcov/
 venv/
 env/
 ENV/
-DevelopingData/ToolKitData/rt/
-DevelopingData/ToolKitData/TranslateITPrototypeEnv/
+DevelopingData/Tooling/Runtime/
+DevelopingData/Tooling/ModelCache/
 EngineData/LauncherApp/Workers/.venv/
 
 # Runtime logs
 *.log
-DevelopingData/Reports/**/*.log
+DevelopingData/Documentation/Reports/**/*.log
 
 # User/runtime cache data
 UserData/CacheData/*
@@ -65,8 +66,6 @@ UserData/SavedProject/*
 *.ogg
 
 # Local model/cache data
-DevelopingData/ToolKitData/ModelCache/
-DevelopingData/ToolKitData/ModelCache/HuggingFaceHome/
 EngineData/**/ModelCache/
 EngineData/**/models/
 EngineData/**/ModelData/
