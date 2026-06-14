@@ -4,6 +4,7 @@ use engine::adapters::asr_dry_run::{run_asr_dry_check, AsrDryRunRequest, AsrDryR
 use engine::adapters::asr_model_logic::{build_asr_profile_plan, AsrProfilePlan, AsrProfileRequest};
 use engine::adapters::asr_quality_logic::{evaluate_asr_quality, AsrQualityLogicDecision, AsrQualityLogicRequest};
 use engine::adapters::calibration_logic::{run_calibration_logic, CalibrationLogicRequest, CalibrationLogicResult};
+use engine::adapters::capture_loop_logic::{build_capture_loop_contract, CaptureLoopContractReport};
 use engine::adapters::context_logic::{update_translation_context, TranslationContextReport, TranslationContextRequest};
 use engine::adapters::language_logic::{run_language_logic, LanguageLogicReport, LanguageLogicRequest};
 use engine::adapters::latency_logic::{build_latency_logic, build_vad_profile, LatencyLogicReport, LatencyLogicRequest, VadProfileReport, VadProfileRequest};
@@ -51,6 +52,11 @@ fn get_input_status() -> InputPreparationStatus {
 #[tauri::command]
 fn get_audio_buffer_status() -> AudioBufferStatus {
     planned_buffer_status()
+}
+
+#[tauri::command]
+fn analyze_capture_loop_contract() -> CaptureLoopContractReport {
+    build_capture_loop_contract()
 }
 
 #[tauri::command]
@@ -233,6 +239,7 @@ fn main() {
         get_runtime_diagnostics,
         get_input_status,
         get_audio_buffer_status,
+        analyze_capture_loop_contract,
         analyze_audio_payload,
         preprocess_audio_payload,
         classify_audio_noise,
