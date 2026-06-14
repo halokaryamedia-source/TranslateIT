@@ -17,6 +17,10 @@ REQUIRED_WORKER_TERMS = [
     "marianmt-id-en",
     "nllb-200-distilled-600M",
     "piper.exe",
+    "torch_cuda_available",
+    "translation_device",
+    "move_inputs_to_device",
+    "nllb_generate_kwargs",
     "transcribe",
     "translate",
     "synthesize",
@@ -26,6 +30,7 @@ REQUIRED_REQUIREMENTS = [
     "faster-whisper",
     "ctranslate2",
     "transformers",
+    "torch",
     "sentencepiece",
 ]
 
@@ -126,7 +131,7 @@ def main() -> int:
         print("LOCAL_REALTIME_STACK_TRUTH_POLICY_INCOMPLETE")
         return 1
 
-    print("PASS: Local realtime worker stack files, setup script, smoke scripts, latency budgets, commands, dependencies, modes, and truth policy are present")
+    print("PASS: Local realtime worker stack files, setup script, smoke scripts, GPU-aware translation worker, latency budgets, commands, dependencies, modes, and truth policy are present")
     return 0
 
 
