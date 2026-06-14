@@ -20,4 +20,4 @@ jobs:
 
       - name: Run RustApp final validation
         shell: pwsh
-        run: .\DevelopingData\ToolKitData\Scripts\Execution\run_rustapp_final_validation.ps1
+        run: .\DevelopingData\Tooling\Scripts\Execution\run_rustapp_final_validation.ps1
