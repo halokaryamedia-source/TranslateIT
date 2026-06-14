@@ -4,22 +4,17 @@
 
 `DevelopingData` is the single development workspace for TranslateIT.
 
-It owns all developer-facing documentation, research, reports, samples, validation scripts, and tooling. There is no separate `DeveloperData`, `DocumentationData`, `Reports`, or `ToolKitData` root.
+It owns current developer-facing documentation, concise reports, safe sample references, quality references, and executable tooling.
 
-## Current professional layout
+## Current layout
 
 ```text
 DevelopingData/
   README.md
   Documentation/
     README.md
-    Guides/
-      Repository/
-    Orientation/
     Reports/
       Engineering/
-    Research/
-      VoiceLab/
     Source/
       README.md
       ProjectDocumentation.md
@@ -51,7 +46,7 @@ All durable documentation must live there. Do not scatter documentation into roo
 DevelopingData/Tooling/Scripts/Execution
 ```
 
-RustApp package scripts and GitHub Actions should point to this path, not to retired `ToolKitData` paths.
+RustApp package scripts and GitHub Actions should point to this path, not retired `ToolKitData` paths.
 
 ## Retired paths
 
@@ -71,7 +66,7 @@ DevelopingData/Tests/
 
 ## Folder rules
 
-- `Documentation/` - all guides, reports, source docs, templates, and research.
+- `Documentation/` - current source docs, concise reports, and templates.
 - `Quality/` - diagnostics and test references only.
 - `Samples/` - safe, small sample references only.
 - `Tooling/` - executable validation and maintenance scripts.
@@ -82,7 +77,7 @@ DevelopingData/Tests/
 - User saved sessions.
 - Runtime cache files.
 - Local model binaries.
-- Loose experiments without a README and owner.
+- Loose experiments without a clear owner.
 - Alternate launcher routes.
 
 ## Naming rules
