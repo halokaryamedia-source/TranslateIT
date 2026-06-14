@@ -17,6 +17,7 @@ export type RuntimePanelModel = {
   primaryAction: string;
   canStart: boolean;
   canStop: boolean;
+  canPrepareCaptureStream: boolean;
   canMoveToReview: boolean;
   visibleWarnings: string[];
 };
@@ -29,6 +30,7 @@ export async function loadRuntimePanelModel(): Promise<RuntimePanelModel> {
   const primaryAction = status.next_action;
   const canStart = status.readiness.ready_for_start_command && !status.readiness.session_state.has_active_session;
   const canStop = status.readiness.ready_for_stop_command || status.readiness.session_state.has_active_session;
+  const canPrepareCaptureStream = status.readiness.ready_for_capture_stream_creation;
   const canMoveToReview = closure.ready_for_review;
   const visibleWarnings = buildVisibleWarnings(status, closure);
 
@@ -40,6 +42,7 @@ export async function loadRuntimePanelModel(): Promise<RuntimePanelModel> {
     primaryAction,
     canStart,
     canStop,
+    canPrepareCaptureStream,
     canMoveToReview,
     visibleWarnings,
   };
@@ -50,8 +53,10 @@ export function renderRuntimePanelText(model: RuntimePanelModel): string {
     `Primary action: ${model.primaryAction}`,
     `Can start: ${model.canStart}`,
     `Can stop: ${model.canStop}`,
+    `Can prepare capture stream: ${model.canPrepareCaptureStream}`,
     `Can move to review: ${model.canMoveToReview}`,
     model.status.summary,
+    model.status.readiness.capture_bridge.note,
     model.status.readiness.note,
     model.closure.note,
     ...model.visibleWarnings.map((warning) => `Warning: ${warning}`),
@@ -69,6 +74,9 @@ function buildVisibleWarnings(
     ...closure.blockers,
   ];
 
+  if (!status.readiness.ready_for_capture_stream_creation) {
+    warnings.push(`Capture bridge blocked: ${status.readiness.capture_bridge.note}`);
+  }
   if (!status.readiness.ready_for_user_facing_runtime) {
     warnings.push("User-facing runtime is not ready; real capture/inference/output work remains.");
   }
