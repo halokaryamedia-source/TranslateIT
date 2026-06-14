@@ -1,6 +1,7 @@
 use serde::{Deserialize, Serialize};
 use std::path::{Component, Path, PathBuf};
 
+use crate::engine::session_store::{preview_transcript_session_save, SessionSavePreview};
 use crate::engine::transcript::TranscriptSegmentRecord;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -50,6 +51,7 @@ pub struct TranscriptSessionSummary {
 pub struct TranscriptSessionPlanReport {
     pub summary: TranscriptSessionSummary,
     pub paths: TranscriptSessionPathPlan,
+    pub store_preview: SessionSavePreview,
     pub ready_to_save: bool,
     pub message: String,
 }
@@ -122,6 +124,7 @@ pub fn summarize_transcript_session(session: &TranscriptSessionRecord) -> Transc
 
 pub fn plan_transcript_session_paths(request: TranscriptSessionPlanRequest) -> TranscriptSessionPlanReport {
     let summary = summarize_transcript_session(&request.session);
+    let store_preview = preview_transcript_session_save(&request.session);
     let cache_root = request.cache_root.unwrap_or_default();
     let saved_root = request.saved_root.unwrap_or_default();
     let cache_session_dir = join_path(&cache_root, &["session_cache", &request.session.session_id]);
@@ -165,16 +168,19 @@ pub fn plan_transcript_session_paths(request: TranscriptSessionPlanRequest) -> T
         planned_save_items,
         guard_blockers,
     };
-    let ready_to_save = !paths.saved_session_json_path.trim().is_empty() && paths.guard_blockers.is_empty();
+    let ready_to_save = !paths.saved_session_json_path.trim().is_empty()
+        && paths.guard_blockers.is_empty()
+        && store_preview.ready;
     let message = if ready_to_save {
-        "Transcript session path plan is ready.".to_string()
+        "Transcript session path plan and store preview are ready.".to_string()
     } else {
-        "Transcript session path plan is blocked by missing or unsafe root/path.".to_string()
+        "Transcript session save preview is blocked by missing or unsafe path planning.".to_string()
     };
 
     TranscriptSessionPlanReport {
         summary,
         paths,
+        store_preview,
         ready_to_save,
         message,
     }
