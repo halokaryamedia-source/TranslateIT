@@ -17,6 +17,7 @@ use engine::audio::calibration_flow::{save_calibration_from_evidence, Calibratio
 use engine::audio::evidence::AudioEvidenceReport;
 use engine::audio::input::InputPreparationStatus;
 use engine::audio::noise_filter::{classify_noise, AudioNoiseAssessment, NoiseAssessmentRequest};
+use engine::audio::preprocess::{preprocess_audio, AudioPreprocessRequest, PreprocessingResult};
 use engine::audio::vad::{evaluate_segment_decision, VadDecisionReport, VadSegmentDecisionRequest};
 use engine::audio::AudioFrame;
 use engine::diagnostics::RuntimeDiagnostics;
@@ -47,6 +48,11 @@ fn get_audio_buffer_status() -> AudioBufferStatus {
 #[tauri::command]
 fn analyze_audio_payload(frame: AudioFrame) -> AudioFrameInspectionReport {
     inspect_frame(frame)
+}
+
+#[tauri::command]
+fn preprocess_audio_payload(request: AudioPreprocessRequest) -> PreprocessingResult {
+    preprocess_audio(request)
 }
 
 #[tauri::command]
@@ -185,6 +191,7 @@ fn main() {
         get_input_status,
         get_audio_buffer_status,
         analyze_audio_payload,
+        preprocess_audio_payload,
         classify_audio_noise,
         analyze_vad_segment,
         plan_asr_profile,
