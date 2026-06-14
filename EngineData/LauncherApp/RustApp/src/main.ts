@@ -336,6 +336,40 @@ type TranscriptSessionReadinessReport = {
   blockers: string[];
 };
 
+type SessionSavePreview = {
+  session_id: string;
+  output_path: string;
+  segment_count: number;
+  ready: boolean;
+  message: string;
+};
+
+type TranscriptSessionPathPlan = {
+  cache_session_dir: string;
+  cache_audio_dir: string;
+  cache_session_json_path: string;
+  saved_session_dir: string;
+  saved_session_json_path: string;
+  planned_cache_items: string[];
+  planned_save_items: string[];
+  guard_blockers: string[];
+};
+
+type TranscriptSessionPlanRequest = {
+  session: TranscriptSessionRecord;
+  cache_root: string | null;
+  saved_root: string | null;
+  copy_audio: boolean;
+};
+
+type TranscriptSessionPlanReport = {
+  summary: TranscriptSessionReadinessReport["summary"];
+  paths: TranscriptSessionPathPlan;
+  store_preview: SessionSavePreview;
+  ready_to_save: boolean;
+  message: string;
+};
+
 type SegmentBuildRequest = {
   segment_id: string;
   session_id: string;
@@ -488,6 +522,7 @@ app.innerHTML = `
           <button id="captureLoopButton" class="secondary" type="button">Capture Check</button>
           <button id="framePipelineButton" class="secondary" type="button">Frame Pipeline</button>
           <button id="sessionStateButton" class="secondary" type="button">Session Check</button>
+          <button id="transcriptSavePlanButton" class="secondary" type="button">Save Plan</button>
           <button id="segmentFlowButton" class="secondary" type="button">Segment Flow</button>
           <button id="executionBridgeButton" class="secondary" type="button">Execution Bridge</button>
           <button id="diagnosticsButton" class="secondary" type="button">Diagnostics</button>
@@ -531,6 +566,7 @@ const translateButton = document.querySelector<HTMLButtonElement>("#translateBut
 const captureLoopButton = document.querySelector<HTMLButtonElement>("#captureLoopButton");
 const framePipelineButton = document.querySelector<HTMLButtonElement>("#framePipelineButton");
 const sessionStateButton = document.querySelector<HTMLButtonElement>("#sessionStateButton");
+const transcriptSavePlanButton = document.querySelector<HTMLButtonElement>("#transcriptSavePlanButton");
 const segmentFlowButton = document.querySelector<HTMLButtonElement>("#segmentFlowButton");
 const executionBridgeButton = document.querySelector<HTMLButtonElement>("#executionBridgeButton");
 const diagnosticsButton = document.querySelector<HTMLButtonElement>("#diagnosticsButton");
@@ -558,6 +594,7 @@ const ui = {
   captureLoopButton: requireElement(captureLoopButton, "capture loop button"),
   framePipelineButton: requireElement(framePipelineButton, "frame pipeline button"),
   sessionStateButton: requireElement(sessionStateButton, "session state button"),
+  transcriptSavePlanButton: requireElement(transcriptSavePlanButton, "transcript save plan button"),
   segmentFlowButton: requireElement(segmentFlowButton, "segment flow button"),
   executionBridgeButton: requireElement(executionBridgeButton, "execution bridge button"),
   diagnosticsButton: requireElement(diagnosticsButton, "diagnostics button"),
@@ -751,6 +788,18 @@ function buildSegmentFlowRequest(
   };
 }
 
+function buildTranscriptSessionSavePlanRequest(
+  source: string,
+  diagnostics: RuntimeDiagnostics,
+): TranscriptSessionPlanRequest {
+  return {
+    session: buildDraftTranscriptSession(source),
+    cache_root: diagnostics.project_paths.user_cache_dir || null,
+    saved_root: diagnostics.project_paths.user_saved_dir || null,
+    copy_audio: false,
+  };
+}
+
 function buildNativeExecutionBridgeRequest(
   source: string,
   diagnostics: RuntimeDiagnostics,
@@ -827,6 +876,28 @@ function renderSessionReadiness(report: TranscriptSessionReadinessReport): void 
     `Completed segments: ${report.summary.completed_segments}`,
     `Errored segments: ${report.summary.errored_segments}`,
     ...report.blockers.map((blocker) => `Blocker: ${blocker}`),
+  ]);
+}
+
+function renderTranscriptSavePlan(report: TranscriptSessionPlanReport): void {
+  ui.lifecycleBadge.textContent = report.ready_to_save ? "State: save-plan-ready" : "State: save-plan-blocked";
+  ui.statusMessage.textContent = report.message;
+  renderList([
+    `Session: ${report.summary.session_id}`,
+    `Segments: ${report.summary.segment_count}`,
+    `Ready to save: ${report.ready_to_save}`,
+    `Store preview ready: ${report.store_preview.ready}`,
+    `Store preview path: ${report.store_preview.output_path}`,
+    `Cache session dir: ${report.paths.cache_session_dir}`,
+    `Cache session JSON: ${report.paths.cache_session_json_path}`,
+    `Saved session dir: ${report.paths.saved_session_dir}`,
+    `Saved session JSON: ${report.paths.saved_session_json_path}`,
+    `Planned cache items: ${report.paths.planned_cache_items.length}`,
+    ...report.paths.planned_cache_items.slice(0, 4).map((item) => `Cache item: ${item}`),
+    `Planned save items: ${report.paths.planned_save_items.length}`,
+    ...report.paths.planned_save_items.slice(0, 4).map((item) => `Save item: ${item}`),
+    report.store_preview.message,
+    ...report.paths.guard_blockers.map((blocker) => `Guard blocker: ${blocker}`),
   ]);
 }
 
@@ -975,6 +1046,14 @@ ui.sessionStateButton.addEventListener("click", async () => {
   const session = buildDraftTranscriptSession(source);
   const report = await invoke<TranscriptSessionReadinessReport>("analyze_transcript_session_state", { session });
   renderSessionReadiness(report);
+});
+
+ui.transcriptSavePlanButton.addEventListener("click", async () => {
+  const source = ui.sourceText.value.trim();
+  const diagnostics = await invoke<RuntimeDiagnostics>("get_runtime_diagnostics");
+  const request = buildTranscriptSessionSavePlanRequest(source, diagnostics);
+  const report = await invoke<TranscriptSessionPlanReport>("analyze_transcript_session_save_plan", { request });
+  renderTranscriptSavePlan(report);
 });
 
 ui.segmentFlowButton.addEventListener("click", async () => {
