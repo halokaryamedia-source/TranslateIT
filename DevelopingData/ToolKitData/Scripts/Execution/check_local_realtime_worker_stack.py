@@ -22,6 +22,11 @@ REQUIRED_WORKER_TERMS = [
     "translation_device",
     "move_inputs_to_device",
     "nllb_generate_kwargs",
+    "resolve_worker_path",
+    "ALLOWED_INPUT_ROOTS",
+    "ALLOWED_OUTPUT_ROOTS",
+    "device_note",
+    "cuda_fallback",
     "transcribe",
     "translate",
     "synthesize",
@@ -136,7 +141,7 @@ def main() -> int:
         print("LOCAL_REALTIME_STACK_TRUTH_POLICY_INCOMPLETE")
         return 1
 
-    print("PASS: Local realtime worker stack files, setup script, model checker, non-blocking persistent smoke scripts, GPU-aware translation worker, latency budgets, commands, dependencies, modes, and truth policy are present")
+    print("PASS: Local realtime worker stack files, setup script, model checker, non-blocking persistent smoke scripts, guarded worker paths, GPU-aware translation fallback, latency budgets, commands, dependencies, modes, and truth policy are present")
     return 0
 
 
