@@ -15,6 +15,7 @@ LOCAL_WORKER_STACK_CHECK = ROOT / "DevelopingData" / "ToolKitData" / "Scripts" /
 LOCAL_WORKER_SMOKE = ROOT / "DevelopingData" / "ToolKitData" / "Scripts" / "Execution" / "run_local_realtime_worker_smoke_tests.py"
 READINESS_SUMMARY = ROOT / "DevelopingData" / "ToolKitData" / "Scripts" / "Execution" / "summarize_translateit_readiness.py"
 CI_WORKFLOW_CHECK = ROOT / "DevelopingData" / "ToolKitData" / "Scripts" / "Execution" / "check_ci_validation_workflow.py"
+LOCAL_RELEASE_BUNDLE_CHECK = ROOT / "DevelopingData" / "ToolKitData" / "Scripts" / "Execution" / "check_translateit_local_release_bundle.py"
 CI_WORKFLOW = ROOT / ".github" / "workflows" / "translateit-rustapp-internal-validation.yml"
 
 REQUIRED_FILES = [
@@ -28,6 +29,7 @@ REQUIRED_FILES = [
     LOCAL_WORKER_SMOKE,
     READINESS_SUMMARY,
     CI_WORKFLOW_CHECK,
+    LOCAL_RELEASE_BUNDLE_CHECK,
     CI_WORKFLOW,
 ]
 
@@ -51,7 +53,9 @@ REQUIRED_TERMS = {
     PACKAGE_JSON: [
         "record:manual-evidence",
         "status:readiness",
+        "validate:bundle",
         "validate:full",
+        "check_translateit_local_release_bundle.py",
         "summarize_translateit_readiness.py",
     ],
     EVIDENCE_WRITER: [
@@ -79,6 +83,8 @@ REQUIRED_TERMS = {
         "write_rustapp_validation_evidence.py",
         "summarize_translateit_readiness.py",
         "check_ci_validation_workflow.py",
+        "check_translateit_local_release_bundle.py",
+        "Local release bundle contract",
         "CI validation workflow contract",
         "Invoke-ReadinessSummary",
         "check_local_realtime_worker_stack.py",
@@ -119,6 +125,14 @@ REQUIRED_TERMS = {
         "latest_readiness_summary.json",
         "latest_local_worker_smoke_evidence.json",
     ],
+    LOCAL_RELEASE_BUNDLE_CHECK: [
+        "LOCAL_RELEASE_BUNDLE_FILES_MISSING",
+        "LOCAL_RELEASE_BUNDLE_CONTRACT_INCOMPLETE",
+        "TranslateIT.vbs",
+        "realtime_local_worker.py",
+        "run_local_realtime_worker_smoke_tests.py",
+        "summarize_translateit_readiness.py",
+    ],
     CI_WORKFLOW: [
         "run_rustapp_final_validation.ps1",
         "latest_validation_evidence.json",
@@ -150,7 +164,7 @@ def main() -> int:
             print("-", item)
         return 1
 
-    print("PASS: Rust validation evidence boundary, CI workflow contract, readiness summary, validation runner summary writer, non-blocking persistent worker smoke evidence, local worker stack gate, and manual runtime evidence recorder are present and wired")
+    print("PASS: Rust validation evidence boundary, local release bundle checker, CI workflow contract, readiness summary, validation runner summary writer, non-blocking persistent worker smoke evidence, local worker stack gate, and manual runtime evidence recorder are present and wired")
     return 0
 
 
