@@ -9,8 +9,9 @@ The product direction is local-first:
 - no API translation dependency,
 - no cloud ASR dependency,
 - no browser launcher dependency,
-- one desktop app entry point,
-- clean ChatGPT-like user flow,
+- one packaged desktop app entry point,
+- startup warmup before the main UI,
+- clean ChatGPT/Discord-like user flow,
 - realtime Indonesian to English speech translation,
 - truthful readiness status before any owner or release-candidate claim.
 
@@ -18,7 +19,7 @@ The product direction is local-first:
 
 Status: `local realtime worker pre-validation`.
 
-This branch is not production-ready yet. The app has local worker commands, model readiness checks, runtime status UI, validation scripts, and smoke-test evidence paths. Real commercial readiness still requires local build validation, installed model assets, microphone smoke tests, ASR smoke tests, translation smoke tests, TTS smoke tests, and launcher package validation.
+This branch has local worker commands, model readiness checks, startup warmup UI, runtime status UI, validation scripts, and smoke-test evidence paths. Real commercial readiness still requires local build validation, installed model assets, microphone smoke tests, ASR smoke tests, translation smoke tests, TTS smoke tests, and package open validation.
 
 ## Runtime profiles
 
@@ -44,22 +45,15 @@ EngineData/RuntimeAssets/Voice/Piper/**/*.onnx
 The helper checker is:
 
 ```text
-DevelopingData/Tooling/Scripts/Execution/check_local_runtime_models.py
+DevelopingData/Tooling/Scripts/Execution/translateit_tooling.mjs validate-models
 ```
 
 ## Local worker workflow
 
 ```powershell
-# Install local worker dependencies and inspect model readiness
 EngineData\LauncherApp\Workers\setup_realtime_worker.ps1
-
-# Validate local worker contracts, model checker, smoke scripts, and stack manifest
 npm run validate:worker
-
-# Validate local model and Piper asset readiness
 npm run validate:models
-
-# Run full app validation after dependencies and assets are ready
 npm run validate:full
 ```
 
@@ -91,22 +85,8 @@ RustApp/
         models.rs
         diagnostics.rs
         audio/
-          mod.rs
-          device.rs
-          calibration.rs
-          evidence.rs
-          vad.rs
-          live_capture.rs
-          live_audio_buffer.rs
-          live_segment_writer.rs
         inference/
-          mod.rs
-          backend.rs
-          cuda_probe.rs
         adapters/
-          mod.rs
-          local_worker_manifest_logic.rs
-          internal_validation_gate_logic.rs
 Workers/
   realtime_local_worker.py
   requirements-realtime.txt
@@ -118,11 +98,10 @@ Workers/
 ## Development rules
 
 - Keep the main UI simple and user-facing.
-- Keep detailed diagnostics behind the developer panel.
-- Do not claim production readiness before validation evidence passes.
-- Do not claim CUDA readiness just because GPU hardware is visible.
-- Do not claim realtime latency until ASR, translation, and TTS smoke tests report measured timings.
-- Do not hide CPU fallback; report it clearly when CUDA is unavailable.
+- Keep detailed diagnostics behind the settings/developer panel.
+- Keep CUDA readiness tied to actual backend evidence.
+- Keep realtime latency tied to measured ASR, translation, and TTS smoke results.
+- Keep CPU fallback visible when CUDA is unavailable.
 - Keep user-facing runtime choices limited to `Realtime` and `Quality`.
 - Keep model installation and readiness checks explicit.
 
@@ -140,6 +119,6 @@ Owner validation is blocked until all of these are true:
 - ASR transcript smoke test passed,
 - translation smoke test passed,
 - TTS/playback smoke test passed,
-- launcher package open test passed.
+- package open test passed.
 
 Release-candidate status remains blocked until owner validation is allowed and explicitly promoted.
