@@ -3,6 +3,7 @@ mod engine;
 use engine::adapters::asr_dry_run::{run_asr_dry_check, AsrDryRunRequest, AsrDryRunResult};
 use engine::adapters::asr_model_logic::{build_asr_profile_plan, AsrProfilePlan, AsrProfileRequest};
 use engine::adapters::asr_quality_logic::{evaluate_asr_quality, AsrQualityLogicDecision, AsrQualityLogicRequest};
+use engine::adapters::context_logic::{update_translation_context, TranslationContextReport, TranslationContextRequest};
 use engine::adapters::language_logic::{run_language_logic, LanguageLogicReport, LanguageLogicRequest};
 use engine::adapters::latency_logic::{build_latency_logic, build_vad_profile, LatencyLogicReport, LatencyLogicRequest, VadProfileReport, VadProfileRequest};
 use engine::adapters::model_check::{check_model_request, ModelCheckRequest, ModelCheckResult};
@@ -83,6 +84,11 @@ fn analyze_language_logic(request: LanguageLogicRequest) -> LanguageLogicReport 
 #[tauri::command]
 fn analyze_latency_logic(request: LatencyLogicRequest) -> LatencyLogicReport {
     build_latency_logic(request)
+}
+
+#[tauri::command]
+fn update_context_window(request: TranslationContextRequest) -> TranslationContextReport {
+    update_translation_context(request)
 }
 
 #[tauri::command]
@@ -198,6 +204,7 @@ fn main() {
         analyze_asr_quality,
         analyze_language_logic,
         analyze_latency_logic,
+        update_context_window,
         analyze_session_metrics,
         analyze_worker_health,
         decide_pipeline_step,
