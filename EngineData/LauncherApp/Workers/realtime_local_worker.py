@@ -13,6 +13,9 @@ ASR_MODEL = ROOT / "EngineData" / "TranscriptEngine" / "ModelData" / "faster-whi
 TRANSLATION_MODEL = ROOT / "EngineData" / "TranslateEngine" / "ModelData" / "marianmt-id-en"
 QUALITY_TRANSLATION_MODEL = ROOT / "EngineData" / "TranslateEngine" / "ModelData" / "nllb-200-distilled-600M"
 PIPER_ROOT = ROOT / "EngineData" / "VoiceEngine" / "Piper"
+CACHE_ROOT = ROOT / "UserData" / "CacheData"
+ALLOWED_INPUT_ROOTS = [ROOT / "UserData" / "CacheData", ROOT / "UserData" / "LogData"]
+ALLOWED_OUTPUT_ROOTS = [ROOT / "UserData" / "CacheData"]
 
 ASR_RUNTIME: Any | None = None
 ASR_RUNTIME_DEVICE = "not_loaded"
@@ -55,6 +58,18 @@ def torch_status() -> tuple[bool, bool]:
         return True, bool(torch.cuda.is_available())
     except Exception:
         return False, False
+
+
+def resolve_worker_path(value: Any, default_path: Path, allowed_roots: list[Path]) -> Path:
+    raw = str(value).strip() if value not in (None, "") else str(default_path)
+    path = Path(raw)
+    if not path.is_absolute():
+        path = ROOT / path
+    resolved = path.resolve()
+    allowed = [root.resolve() for root in allowed_roots]
+    if not any(resolved == root or root in resolved.parents for root in allowed):
+        raise ValueError("worker:path_outside_allowed_roots")
+    return resolved
 
 
 def model_ready(path: Path, marker: str | None = None) -> bool:
@@ -106,7 +121,7 @@ def build_status() -> WorkerStatus:
         torch_import_ready=torch_ready,
         torch_cuda_available=cuda_available,
         blocker=";".join(blockers),
-        note="Local worker can execute only when required dependencies and local model files are present. CUDA is preferred for realtime latency, and CPU fallback is reported truthfully when CUDA is unavailable.",
+        note="Local worker can execute only when required dependencies and local model files are present. CUDA is preferred for realtime latency, CPU fallback is reported truthfully, and file paths are constrained to UserData runtime folders.",
     )
 
 
@@ -139,9 +154,17 @@ def get_asr_runtime() -> Any:
     from faster_whisper import WhisperModel
 
     device, compute_type = asr_runtime_config()
-    ASR_RUNTIME = WhisperModel(str(ASR_MODEL), device=device, compute_type=compute_type)
-    ASR_RUNTIME_DEVICE = device
-    ASR_RUNTIME_COMPUTE = compute_type
+    try:
+        ASR_RUNTIME = WhisperModel(str(ASR_MODEL), device=device, compute_type=compute_type)
+        ASR_RUNTIME_DEVICE = device
+        ASR_RUNTIME_COMPUTE = compute_type
+    except Exception:
+        if device == "cuda":
+            ASR_RUNTIME = WhisperModel(str(ASR_MODEL), device="cpu", compute_type="int8")
+            ASR_RUNTIME_DEVICE = "cpu"
+            ASR_RUNTIME_COMPUTE = "int8"
+        else:
+            raise
     return ASR_RUNTIME
 
 
@@ -160,7 +183,7 @@ def handle_asr_preload(_: dict[str, Any]) -> dict[str, Any]:
             "device": ASR_RUNTIME_DEVICE,
             "compute_type": ASR_RUNTIME_COMPUTE,
             "elapsed_ms": now_ms() - started,
-            "note": "ASR model is loaded and ready for local transcription. CUDA is used only when available; otherwise CPU fallback is explicit.",
+            "note": "ASR model is loaded and ready for local transcription. CUDA is used when available; CPU fallback is explicit.",
         }
     except Exception as exc:
         return {"ok": False, "stage": "asr_preload", "blocker": type(exc).__name__, "note": str(exc)}
@@ -168,9 +191,10 @@ def handle_asr_preload(_: dict[str, Any]) -> dict[str, Any]:
 
 def handle_transcribe(payload: dict[str, Any]) -> dict[str, Any]:
     started = now_ms()
-    audio_path = Path(str(payload.get("audio_path", "")))
-    if not audio_path.is_absolute():
-        audio_path = ROOT / audio_path
+    try:
+        audio_path = resolve_worker_path(payload.get("audio_path", ""), CACHE_ROOT / "audio_segments" / "latest_live_target_segment.wav", ALLOWED_INPUT_ROOTS)
+    except Exception as exc:
+        return {"ok": False, "stage": "transcribe", "blocker": type(exc).__name__, "note": str(exc)}
     if not audio_path.is_file():
         return {"ok": False, "stage": "transcribe", "blocker": "asr:audio_file_missing", "audio_path": str(audio_path)}
     try:
@@ -224,10 +248,16 @@ def get_translation_runtime(mode: str) -> dict[str, Any]:
 
     model_id, model_path = translation_model_for_mode(mode_key)
     device = translation_device()
+    device_note = "cuda_available" if device == "cuda" else "cpu_runtime"
     tokenizer = AutoTokenizer.from_pretrained(str(model_path), local_files_only=True)
     model = AutoModelForSeq2SeqLM.from_pretrained(str(model_path), local_files_only=True)
     if device == "cuda":
-        model = model.to("cuda")
+        try:
+            model = model.to("cuda")
+        except Exception as exc:
+            model = model.to("cpu")
+            device = "cpu"
+            device_note = f"cuda_fallback:{type(exc).__name__}"
     model.eval()
     runtime = {
         "mode": mode_key,
@@ -236,6 +266,7 @@ def get_translation_runtime(mode: str) -> dict[str, Any]:
         "tokenizer": tokenizer,
         "model": model,
         "device": device,
+        "device_note": device_note,
     }
     TRANSLATION_RUNTIME[mode_key] = runtime
     return runtime
@@ -257,6 +288,7 @@ def handle_translation_preload(payload: dict[str, Any]) -> dict[str, Any]:
             "model_id": model_id,
             "mode": runtime["mode"],
             "device": runtime["device"],
+            "device_note": runtime["device_note"],
             "elapsed_ms": now_ms() - started,
             "note": "Translation model is loaded and ready for local execution.",
         }
@@ -309,6 +341,7 @@ def handle_translate(payload: dict[str, Any]) -> dict[str, Any]:
             "mode": runtime["mode"],
             "model_id": runtime["model_id"],
             "device": device,
+            "device_note": runtime["device_note"],
             "translated_text": translated,
             "elapsed_ms": now_ms() - started,
             "blocker": "" if translated else "translation:empty_output",
@@ -343,9 +376,10 @@ def handle_synthesize(payload: dict[str, Any]) -> dict[str, Any]:
         return {"ok": False, "stage": "synthesize", "blocker": "tts:empty_text"}
     executable = PIPER_ROOT / "piper.exe"
     voice = first_piper_voice()
-    output_path = Path(str(payload.get("output_path", ROOT / "UserData" / "CacheData" / "tts_output.wav")))
-    if not output_path.is_absolute():
-        output_path = ROOT / output_path
+    try:
+        output_path = resolve_worker_path(payload.get("output_path", ""), CACHE_ROOT / "tts_output.wav", ALLOWED_OUTPUT_ROOTS)
+    except Exception as exc:
+        return {"ok": False, "stage": "synthesize", "blocker": type(exc).__name__, "note": str(exc), "elapsed_ms": now_ms() - started}
     if not executable.exists() or voice is None:
         return {"ok": False, "stage": "synthesize", "blocker": "tts:piper_executable_or_voice_missing"}
     output_path.parent.mkdir(parents=True, exist_ok=True)
