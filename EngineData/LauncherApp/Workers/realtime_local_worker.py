@@ -15,7 +15,7 @@ QUALITY_TRANSLATION_MODEL = ROOT / "EngineData" / "TranslateEngine" / "ModelData
 PIPER_ROOT = ROOT / "EngineData" / "VoiceEngine" / "Piper"
 
 ASR_RUNTIME: Any | None = None
-TRANSLATION_RUNTIME: dict[str, Any] = {}
+TRANSLATION_RUNTIME: dict[str, dict[str, Any]] = {}
 
 
 @dataclass(slots=True)
@@ -28,6 +28,8 @@ class WorkerStatus:
     piper_ready: bool
     faster_whisper_import_ready: bool
     transformers_import_ready: bool
+    torch_import_ready: bool
+    torch_cuda_available: bool
     blocker: str
     note: str
 
@@ -42,6 +44,15 @@ def import_ready(module_name: str) -> bool:
         return True
     except Exception:
         return False
+
+
+def torch_status() -> tuple[bool, bool]:
+    try:
+        import torch
+
+        return True, bool(torch.cuda.is_available())
+    except Exception:
+        return False, False
 
 
 def model_ready(path: Path, marker: str | None = None) -> bool:
@@ -61,6 +72,7 @@ def piper_ready() -> bool:
 def build_status() -> WorkerStatus:
     faster_whisper_ready = import_ready("faster_whisper")
     transformers_ready = import_ready("transformers")
+    torch_ready, cuda_available = torch_status()
     asr_ready = model_ready(ASR_MODEL, "model.bin")
     translation_ready = model_ready(TRANSLATION_MODEL)
     quality_ready = model_ready(QUALITY_TRANSLATION_MODEL)
@@ -71,6 +83,8 @@ def build_status() -> WorkerStatus:
         blockers.append("dependency:faster_whisper_missing")
     if not transformers_ready:
         blockers.append("dependency:transformers_missing")
+    if not torch_ready:
+        blockers.append("dependency:torch_missing")
     if not asr_ready:
         blockers.append("model:faster_whisper_large_v3_turbo_missing")
     if not translation_ready:
@@ -87,8 +101,10 @@ def build_status() -> WorkerStatus:
         piper_ready=tts_ready,
         faster_whisper_import_ready=faster_whisper_ready,
         transformers_import_ready=transformers_ready,
+        torch_import_ready=torch_ready,
+        torch_cuda_available=cuda_available,
         blocker=";".join(blockers),
-        note="Local worker can execute only when required dependencies and local model files are present.",
+        note="Local worker can execute only when required dependencies and local model files are present. CUDA is preferred for realtime latency but CPU fallback is reported truthfully.",
     )
 
 
@@ -175,6 +191,15 @@ def translation_model_for_mode(mode: str) -> tuple[str, Path]:
     return "marianmt-id-en", TRANSLATION_MODEL
 
 
+def translation_device() -> str:
+    try:
+        import torch
+
+        return "cuda" if torch.cuda.is_available() else "cpu"
+    except Exception:
+        return "cpu"
+
+
 def get_translation_runtime(mode: str) -> dict[str, Any]:
     mode_key = "Quality" if mode.lower() == "quality" else "Realtime"
     if mode_key in TRANSLATION_RUNTIME:
@@ -182,9 +207,20 @@ def get_translation_runtime(mode: str) -> dict[str, Any]:
     from transformers import AutoModelForSeq2SeqLM, AutoTokenizer
 
     model_id, model_path = translation_model_for_mode(mode_key)
+    device = translation_device()
     tokenizer = AutoTokenizer.from_pretrained(str(model_path), local_files_only=True)
     model = AutoModelForSeq2SeqLM.from_pretrained(str(model_path), local_files_only=True)
-    runtime = {"mode": mode_key, "model_id": model_id, "model_path": str(model_path), "tokenizer": tokenizer, "model": model}
+    if device == "cuda":
+        model = model.to("cuda")
+    model.eval()
+    runtime = {
+        "mode": mode_key,
+        "model_id": model_id,
+        "model_path": str(model_path),
+        "tokenizer": tokenizer,
+        "model": model,
+        "device": device,
+    }
     TRANSLATION_RUNTIME[mode_key] = runtime
     return runtime
 
@@ -197,18 +233,36 @@ def handle_translation_preload(payload: dict[str, Any]) -> dict[str, Any]:
     if not status.transformers_import_ready or not model_path.exists():
         return {"ok": False, "stage": "translation_preload", "model_id": model_id, "blocker": status.blocker, "note": status.note}
     try:
-        get_translation_runtime(mode)
+        runtime = get_translation_runtime(mode)
         return {
             "ok": True,
             "stage": "translation_preload",
             "model_path": str(model_path),
             "model_id": model_id,
-            "mode": mode,
+            "mode": runtime["mode"],
+            "device": runtime["device"],
             "elapsed_ms": now_ms() - started,
             "note": "Translation model is loaded and ready for local execution.",
         }
     except Exception as exc:
         return {"ok": False, "stage": "translation_preload", "model_id": model_id, "blocker": type(exc).__name__, "note": str(exc)}
+
+
+def move_inputs_to_device(inputs: Any, device: str) -> Any:
+    if device != "cuda":
+        return inputs
+    return {key: value.to("cuda") for key, value in inputs.items()}
+
+
+def nllb_generate_kwargs(tokenizer: Any, mode: str) -> dict[str, Any]:
+    if mode != "Quality":
+        return {}
+    if hasattr(tokenizer, "src_lang"):
+        tokenizer.src_lang = "ind_Latn"
+    lang_map = getattr(tokenizer, "lang_code_to_id", {}) or {}
+    if "eng_Latn" in lang_map:
+        return {"forced_bos_token_id": lang_map["eng_Latn"]}
+    return {}
 
 
 def handle_translate(payload: dict[str, Any]) -> dict[str, Any]:
@@ -221,14 +275,24 @@ def handle_translate(payload: dict[str, Any]) -> dict[str, Any]:
         runtime = get_translation_runtime(mode)
         tokenizer = runtime["tokenizer"]
         model = runtime["model"]
+        device = runtime["device"]
+        generate_kwargs = nllb_generate_kwargs(tokenizer, runtime["mode"])
         inputs = tokenizer(text, return_tensors="pt", truncation=True, max_length=256)
-        output_tokens = model.generate(**inputs, max_new_tokens=int(payload.get("max_new_tokens", 32)), num_beams=1)
+        inputs = move_inputs_to_device(inputs, device)
+        try:
+            import torch
+
+            with torch.inference_mode():
+                output_tokens = model.generate(**inputs, max_new_tokens=int(payload.get("max_new_tokens", 32)), num_beams=1, **generate_kwargs)
+        except Exception:
+            output_tokens = model.generate(**inputs, max_new_tokens=int(payload.get("max_new_tokens", 32)), num_beams=1, **generate_kwargs)
         translated = tokenizer.batch_decode(output_tokens, skip_special_tokens=True)[0].strip()
         return {
             "ok": bool(translated),
             "stage": "translate",
             "mode": runtime["mode"],
             "model_id": runtime["model_id"],
+            "device": device,
             "translated_text": translated,
             "elapsed_ms": now_ms() - started,
             "blocker": "" if translated else "translation:empty_output",
