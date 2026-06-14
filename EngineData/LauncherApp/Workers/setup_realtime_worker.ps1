@@ -5,6 +5,8 @@ $WorkerRoot = Join-Path $Root "EngineData\LauncherApp\Workers"
 $Venv = Join-Path $WorkerRoot ".venv"
 $Requirements = Join-Path $WorkerRoot "requirements-realtime.txt"
 $PythonExe = Join-Path $Venv "Scripts\python.exe"
+$Worker = Join-Path $WorkerRoot "realtime_local_worker.py"
+$ModelCheck = Join-Path $Root "DevelopingData\ToolKitData\Scripts\Execution\check_local_runtime_models.py"
 
 Write-Host "TranslateIT local realtime worker setup"
 Write-Host "Root: $Root"
@@ -12,6 +14,9 @@ Write-Host "WorkerRoot: $WorkerRoot"
 
 if (-not (Test-Path $Requirements)) {
     throw "Missing requirements file: $Requirements"
+}
+if (-not (Test-Path $Worker)) {
+    throw "Missing local worker script: $Worker"
 }
 
 if (-not (Test-Path $PythonExe)) {
@@ -25,8 +30,15 @@ Write-Host "Upgrading pip"
 Write-Host "Installing local realtime worker dependencies"
 & $PythonExe -m pip install -r $Requirements
 
-Write-Host "Checking worker status command"
-$Worker = Join-Path $WorkerRoot "realtime_local_worker.py"
+Write-Host "Checking worker dependency/model status"
 '{"command":"status"}' | & $PythonExe $Worker
 
-Write-Host "Local realtime worker setup completed. Real ASR/translation/TTS still requires downloaded model files and smoke tests."
+if (Test-Path $ModelCheck) {
+    Write-Host "Checking local runtime model and Piper voice readiness"
+    & $PythonExe $ModelCheck
+    if ($LASTEXITCODE -ne 0) {
+        Write-Warning "Local worker dependencies were installed, but one or more local model or Piper voice assets are still missing."
+    }
+}
+
+Write-Host "Local realtime worker setup completed. Run run_realtime_worker_smoke.ps1 after model files and a microphone WAV sample are ready."
