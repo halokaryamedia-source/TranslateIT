@@ -4,7 +4,7 @@ TranslateIT is a local speech-to-text, translation, and voice-output desktop app
 
 ## Current status
 
-The project is in Rust/Tauri migration and structure-cleanup phase. The source tree is organized around a single desktop runtime route and a single development workspace.
+The project is in Rust/Tauri migration and structure-cleanup phase. The source tree is organized around a packaged desktop runtime route and a single development workspace.
 
 Do not claim the application is professionally ready until local build, packaging, local model readiness, persistent worker smoke, microphone ASR, translation, TTS, and end-to-end latency evidence pass on the target PC.
 
@@ -21,40 +21,33 @@ UserData/
 .gitattributes
 .gitignore
 README.md
-TranslateIT.vbs
 ```
 
 ## Root ownership
 
 - `DevelopingData/` - developer documentation, concise reports, samples, quality references, and Node/PowerShell tooling.
 - `EngineData/` - Rust/Tauri app, approved local AI worker, and local model/runtime asset slots.
-- `Launcher/` - reserved launcher packaging assets.
+- `Launcher/` - reserved packaging and release-launcher assets.
 - `UserData/` - local runtime cache, logs, saved work, and validation evidence.
-- `TranslateIT.vbs` - the only user-facing root launcher entry point.
 
 ## Active app route
 
-Use only:
-
-```text
-TranslateIT.vbs
-```
-
-The launcher resolves to:
+The professional entry is the packaged Tauri desktop app generated from:
 
 ```text
 EngineData/LauncherApp/RustApp
 ```
 
-Launcher behavior:
+Normal users should open the installed `TranslateIT` app from the packaged release.
 
-- Release-first: opens `src-tauri/target/release/translateit_rustapp.exe` when available.
-- Lightweight: does not start `npm dev` automatically.
-- Single-route: does not open a browser or legacy Python UI.
-- Worker-safe: does not start the local AI worker by itself; the Rust/Tauri app controls worker startup when needed.
-- Developer mode is explicit only: `wscript TranslateIT.vbs --dev`.
+Developer mode remains inside RustApp only:
 
-Do not add alternate Python launcher, BAT helper, debug route, browser-only route, or old runtime path.
+```powershell
+cd EngineData/LauncherApp/RustApp
+npm run dev
+```
+
+Root-level script launchers are retired.
 
 ## Approved Python exception
 
@@ -75,8 +68,6 @@ It is not a launcher, UI engine, repository validator, or legacy desktop route.
 
 ## Retired roots and folders
 
-Do not recreate:
-
 ```text
 DeveloperData/
 DevelopingData/DocumentationData/
@@ -90,11 +81,12 @@ DevelopingData/Tests/
 EngineData/TranscriptEngine/
 EngineData/TranslateEngine/
 EngineData/VoiceEngine/
+TranslateIT.vbs
 ```
 
 ## Safety and cleanliness rules
 
-- Keep root clean: no loose Python files, BAT/CMD/PS1 scripts, logs, cache folders, build output, or duplicate documentation roots.
+- Keep root clean: no loose Python files, BAT/CMD/PS1/VBS scripts, logs, cache folders, build output, or duplicate documentation roots.
 - Runtime cache, logs, local models, and user-generated data stay out of Git.
 - Keep documentation under `DevelopingData/Documentation`.
 - Keep executable validation tooling under `DevelopingData/Tooling`.
