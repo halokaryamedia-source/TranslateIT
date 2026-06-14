@@ -54,7 +54,10 @@ pub fn record_realtime_handoff_report(report: &RealtimeHandoffReport) -> Runtime
 
 pub fn latest_runtime_handoff_state() -> RuntimeHandoffStateReport {
     let store = RUNTIME_HANDOFF_STATE.get_or_init(|| Mutex::new(None));
-    let snapshot = store.lock().ok().and_then(|guard| guard.clone());
+    let snapshot = store
+        .lock()
+        .ok()
+        .and_then(|guard| guard.as_ref().cloned());
     match snapshot {
         Some(snapshot) => {
             let ready_for_start = snapshot.ready_for_realtime_handoff;
