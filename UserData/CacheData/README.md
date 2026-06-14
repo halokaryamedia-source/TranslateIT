@@ -1,31 +1,21 @@
 # CacheData
 
 ## Purpose
-- Hold temporary session data, temporary replay media, and debug-only cache material.
-- Keep the entire folder disposable unless the user explicitly saves a session elsewhere.
+
+`CacheData` holds disposable runtime cache, temporary audio segments, temporary TTS output, and current session state.
 
 ## Allowed files
+
 - `README.md`
 - Temporary audio segments
 - Temporary TTS audio
 - Current session cache material
-- Debug captures when debug mode is enabled
+- Debug captures when debug mode is explicitly enabled
 
-## Current subfolders
-- `audio_segments/` - generated segment-level audio and TTS metadata
-- `RuntimeLogs/` - cache-side runtime traces and guard records
-- `session_cache/` - per-session disposable cache material
+## Rules
 
-## Must not be placed here
-- Permanent transcript history
-- User-approved saved sessions
-- Documentation files
-- Engine code
-
-## Naming rules
-- Use English only.
-- Use clear session and segment names.
-- Keep cache material disposable unless a user explicitly saves the session.
-
-## Related documentation path
-- `../../DevelopingData/DocumentationData/SourceDocument/MASTER_PROJECT_DOCUMENTATION.md`
+- Do not place permanent transcript history here.
+- Do not place user-approved saved sessions here.
+- Do not place documentation or engine source files here.
+- Move final user-approved outputs to `UserData/SavedProject`.
+- Keep this folder disposable unless the user explicitly saves a session elsewhere.
