@@ -14,12 +14,13 @@ The goal is to make the migration status explicit without claiming that real mic
 4. Snapshot is valid for 120 seconds.
 5. `start_capture` routes through `analyze_start_lifecycle_gate` before allowing preparation.
 6. If Start is allowed, backend records an active runtime session snapshot in `preparing` phase.
-7. `stop_capture` clears both active runtime session state and stored handoff snapshot.
-8. `get_runtime_session_state` exposes the active runtime session state for frontend/QA.
-9. `analyze_start_gate` and `analyze_stop_gate` expose explicit lifecycle preflight reports.
-10. `analyze_runtime_readiness` exposes a single readiness bundle for dashboard/QA usage and now includes active runtime session state.
-11. `analyze_migration_closure` exposes a final migration closure gate that requires explicit manual validation and owner approval flags.
-12. Runtime diagnostics includes runtime handoff state and handoff blockers.
+7. `analyze_start_gate` now blocks duplicate Start while an active runtime session exists.
+8. `analyze_stop_gate` is session-aware and reports whether it is clearing an active session, a handoff-only state, or nothing useful.
+9. `stop_capture` clears both active runtime session state and stored handoff snapshot.
+10. `get_runtime_session_state` exposes the active runtime session state for frontend/QA.
+11. `analyze_runtime_readiness` exposes a single readiness bundle for dashboard/QA usage and includes active runtime session state.
+12. `analyze_migration_closure` exposes a final migration closure gate that requires explicit manual validation and owner approval flags.
+13. Runtime diagnostics includes runtime handoff state, runtime session state, and their blockers.
 
 ## Important safety boundaries
 
@@ -44,7 +45,9 @@ The current implementation still does not execute:
   - aggregates stream, frame, segment, native execution, and transcript save readiness.
 
 - `engine/adapters/runtime_lifecycle_logic.rs`
-  - exposes Start and Stop lifecycle preflight reports.
+  - exposes Start and Stop lifecycle preflight reports;
+  - Start gate checks both handoff readiness and duplicate active session state;
+  - Stop gate reports active-session, handoff-only, or idle stop state.
 
 - `engine/adapters/runtime_readiness_bundle_logic.rs`
   - bundles diagnostics, handoff state, active session state, Start gate, Stop gate, staged blockers, and readiness booleans;
@@ -55,7 +58,7 @@ The current implementation still does not execute:
   - hard-blocks production release claims by design.
 
 - `engine/diagnostics.rs`
-  - includes runtime handoff state in diagnostic output.
+  - includes runtime handoff state and runtime session state in diagnostic output.
 
 - `src/runtimeLifecycle.ts`
   - mirrors frontend helper types for lifecycle gate, active session state, readiness bundle, and closure gate calls;
@@ -69,6 +72,7 @@ Start is allowed only when:
 - a runtime handoff snapshot exists;
 - the snapshot is not stale;
 - the handoff report is ready;
+- no active runtime session is already recorded;
 - `analyze_start_lifecycle_gate` allows the transition.
 
 When Start is allowed, the backend records a runtime session snapshot with:
@@ -80,7 +84,11 @@ When Start is allowed, the backend records a runtime session snapshot with:
 - `safe_to_stop = true`;
 - explicit note that real microphone stream creation is still pending.
 
-Stop is always allowed and clears both active runtime session state and stored handoff state.
+Stop can clear:
+
+- active runtime session state;
+- stored handoff snapshot state;
+- handoff-only state when no active session exists.
 
 ## Current runtime readiness bundle contract
 
