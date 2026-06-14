@@ -20,6 +20,7 @@ pub mod transcript_session;
 use std::path::PathBuf;
 
 use adapters::runtime_lifecycle_logic::analyze_start_lifecycle_gate;
+use audio::live_capture::{live_capture_status, start_live_capture_runtime, stop_live_capture_runtime, LiveCaptureStatusReport};
 use config::EngineConfig;
 use cuda_policy::CudaPolicyReport;
 use diagnostics::RuntimeDiagnostics;
@@ -33,20 +34,23 @@ pub fn current_status() -> EngineStatus {
     let config = EngineConfig::default();
     let cuda_report = CudaPolicyReport::strict_pending();
     let project_paths = ProjectPaths::discover();
+    let live_capture = live_capture_status();
 
     EngineStatus {
         app_version: config.app_version,
-        runtime_stage: RuntimeStage::RustContractBaseline,
-        lifecycle_state: LifecycleState::Idle,
+        runtime_stage: if live_capture.stream_active { RuntimeStage::AudioPending } else { RuntimeStage::RustContractBaseline },
+        lifecycle_state: if live_capture.stream_active { LifecycleState::Listening } else { LifecycleState::Idle },
         cuda_policy: cuda_report.status_label,
         asr_engine: config.asr.primary_engine_id,
         translation_engine: config.translation.primary_engine_id,
         tts_engine: config.tts.primary_engine_id,
         notes: vec![
             "Rust runtime contract layer is available.".to_string(),
-            "Final target is full Rust ownership of app lifecycle and runtime orchestration.".to_string(),
+            "CPAL live capture ownership is now connected to Start/Stop lifecycle.".to_string(),
+            "ASR, translation, and TTS execution remain pending and must not be claimed as complete.".to_string(),
             "Python runtime remains only as behavior reference until native Rust parity is implemented.".to_string(),
             "CUDA inference must be implemented through native CUDA-capable backends, not false Rust-only placeholders.".to_string(),
+            format!("Live capture active: {}", live_capture.stream_active),
             format!("Runtime logs path: {}", project_paths.user_log_dir),
             cuda_report.operator_note,
         ],
@@ -55,6 +59,10 @@ pub fn current_status() -> EngineStatus {
 
 pub fn runtime_diagnostics() -> RuntimeDiagnostics {
     RuntimeDiagnostics::collect()
+}
+
+pub fn live_capture_runtime_status() -> LiveCaptureStatusReport {
+    live_capture_status()
 }
 
 pub fn load_settings() -> RuntimeSettings {
@@ -130,15 +138,37 @@ pub fn start_capture() -> CommandResult {
             "Runtime session ownership recorded: active={}, ready_for_stop={}, note={}",
             session_state.has_active_session, session_state.ready_for_stop, session_state.note
         );
+        let live_capture = start_live_capture_runtime(session_state.clone());
+        let live_note = format!(
+            "Live capture start result: ok={}, active={}, frames_received={}, note={}",
+            live_capture.ok,
+            live_capture.status.stream_active,
+            live_capture.status.frames_received,
+            live_capture.status.note
+        );
         let _ = write_jsonl_event(
-            &PathBuf::from(project_paths.user_log_dir),
+            &PathBuf::from(&project_paths.user_log_dir),
             "rust_runtime_latest.jsonl",
             &RuntimeLogEvent::info("runtime_session", session_note.clone()),
         );
-        CommandResult::ok(
-            LifecycleState::Preparing,
-            format!("{message}. {session_note}. Real microphone stream creation is still deferred to runtime integration."),
-        )
+        let _ = write_jsonl_event(
+            &PathBuf::from(project_paths.user_log_dir),
+            "rust_runtime_latest.jsonl",
+            &RuntimeLogEvent::info("live_capture", live_note.clone()),
+        );
+
+        if live_capture.ok {
+            CommandResult::ok(
+                LifecycleState::Listening,
+                format!("{message}. {session_note}. {live_note}. ASR, translation, and TTS are still pending stages."),
+            )
+        } else {
+            let cleared_session = clear_runtime_session_state();
+            CommandResult::blocked(
+                LifecycleState::Error,
+                format!("{message}. {session_note}. {live_note}. {}", cleared_session.note),
+            )
+        }
     } else {
         CommandResult::blocked(LifecycleState::ConversionPending, message)
     }
@@ -146,11 +176,12 @@ pub fn start_capture() -> CommandResult {
 
 pub fn stop_capture() -> CommandResult {
     let project_paths = ProjectPaths::discover();
+    let stopped_live_capture = stop_live_capture_runtime();
     let cleared_session = clear_runtime_session_state();
     let cleared_handoff = clear_runtime_handoff_state();
     let message = format!(
-        "Stop was received by Rust runtime. {} {}",
-        cleared_session.note, cleared_handoff.note
+        "Stop was received by Rust runtime. Live capture: {} {} {}",
+        stopped_live_capture.message, cleared_session.note, cleared_handoff.note
     );
     let _ = write_jsonl_event(
         &PathBuf::from(project_paths.user_log_dir),
