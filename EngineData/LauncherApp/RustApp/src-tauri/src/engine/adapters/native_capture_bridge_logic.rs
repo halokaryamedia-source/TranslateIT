@@ -1,5 +1,6 @@
 use serde::{Deserialize, Serialize};
 
+use crate::engine::audio::capture_plan::{plan_native_capture_stream, NativeCaptureStreamPlanReport, NativeCaptureStreamPlanRequest};
 use crate::engine::audio::input_config::NativeInputConfigProbeReport;
 use crate::engine::runtime_state::RuntimeSessionStateReport;
 
@@ -19,6 +20,7 @@ pub struct NativeCaptureBridgeReport {
     pub active_session_present: bool,
     pub safe_to_stop_ready: bool,
     pub input_config_probe: NativeInputConfigProbeReport,
+    pub stream_plan: NativeCaptureStreamPlanReport,
     pub requested_sample_rate_hz: u32,
     pub requested_channels: u16,
     pub requested_frame_ms: u32,
@@ -43,7 +45,12 @@ pub fn analyze_native_capture_bridge(
     request: NativeCaptureBridgeRequest,
     session_state: RuntimeSessionStateReport,
 ) -> NativeCaptureBridgeReport {
-    let input_config_probe = NativeInputConfigProbeReport::probe_default_input();
+    let stream_plan = plan_native_capture_stream(NativeCaptureStreamPlanRequest {
+        allow_non_target_device_rate: false,
+        allow_channel_downmix: true,
+        requested_frame_ms: request.requested_frame_ms,
+    });
+    let input_config_probe = stream_plan.input_config.clone();
     let active_session_present = session_state.has_active_session;
     let safe_to_stop_ready = session_state
         .snapshot
@@ -58,9 +65,8 @@ pub fn analyze_native_capture_bridge(
     if request.require_safe_to_stop && !safe_to_stop_ready {
         blockers.push("capture:session_not_safe_to_stop".to_string());
     }
-    if !input_config_probe.ready_for_capture_bridge {
-        blockers.extend(input_config_probe.blockers.iter().cloned());
-    }
+    blockers.extend(input_config_probe.blockers.iter().cloned());
+    blockers.extend(stream_plan.blockers.iter().cloned());
     if request.requested_sample_rate_hz == 0 {
         blockers.push("capture:invalid_sample_rate".to_string());
     }
@@ -76,12 +82,9 @@ pub fn analyze_native_capture_bridge(
 
     let ready_for_stream_creation = blockers.is_empty();
     let note = if ready_for_stream_creation {
-        "Native capture bridge contract is ready for CPAL stream creation, but the real stream is not opened by this report.".to_string()
+        "Native capture bridge contract is ready for later CPAL stream construction.".to_string()
     } else {
-        format!(
-            "Native capture bridge is blocked before real CPAL stream creation. blocker_count={}",
-            blockers.len()
-        )
+        format!("Native capture bridge remains blocked. blocker_count={}", blockers.len())
     };
 
     NativeCaptureBridgeReport {
@@ -90,6 +93,7 @@ pub fn analyze_native_capture_bridge(
         active_session_present,
         safe_to_stop_ready,
         input_config_probe,
+        stream_plan,
         requested_sample_rate_hz: request.requested_sample_rate_hz,
         requested_channels: request.requested_channels,
         requested_frame_ms: request.requested_frame_ms,
