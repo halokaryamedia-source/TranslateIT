@@ -3,6 +3,7 @@ use serde::{Deserialize, Serialize};
 use crate::engine::audio::noise_filter::{classify_noise, AudioNoiseAssessment, NoiseAssessmentRequest};
 use crate::engine::audio::preprocess::{preprocess_audio, AudioPreprocessRequest, PreprocessingResult};
 use crate::engine::audio::vad::{evaluate_segment_decision, VadDecisionReport, VadSegmentDecisionRequest};
+use crate::engine::native_execution::{plan_native_execution_batch, NativeExecutionBatchPlan, NativeExecutionBatchRequest};
 
 use super::asr_model_logic::{build_asr_profile_plan, AsrProfilePlan, AsrProfileRequest};
 use super::asr_quality_logic::{evaluate_asr_quality, AsrQualityLogicDecision, AsrQualityLogicRequest};
@@ -27,6 +28,7 @@ pub struct RuntimeOrchestrationRequest {
     pub stale_guard: StaleJobGuardRequest,
     pub translation: TranslationLogicRequest,
     pub playback: PlaybackLogicRequest,
+    pub native_execution: NativeExecutionBatchRequest,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -46,6 +48,7 @@ pub struct RuntimeOrchestrationReport {
     pub stale_guard: StaleJobGuardReport,
     pub translation: TranslationLogicResult,
     pub playback: PlaybackLogicResult,
+    pub native_execution: NativeExecutionBatchPlan,
     pub blockers: Vec<String>,
 }
 
@@ -75,11 +78,12 @@ pub fn run_runtime_orchestration(mut request: RuntimeOrchestrationRequest) -> Ru
     let translation = run_translation_logic(translation_request);
 
     let playback = plan_playback(request.playback.clone());
-    let blockers = build_blockers(&noise, &vad, &asr_profile, &asr_quality, &pipeline, &stale_guard, &translation, &playback);
+    let native_execution = plan_native_execution_batch(request.native_execution.clone());
+    let blockers = build_blockers(&noise, &vad, &asr_profile, &asr_quality, &pipeline, &stale_guard, &translation, &playback, &native_execution);
     let accepted = blockers.is_empty();
     let stage = if accepted { "planned" } else { "blocked" }.to_string();
     let summary = if accepted {
-        "Runtime orchestration plan accepted. Native model execution may proceed when adapters are connected.".to_string()
+        "Runtime orchestration plan accepted. Native execution may proceed when adapters are connected.".to_string()
     } else {
         format!("Runtime orchestration blocked by {} guard(s).", blockers.len())
     };
@@ -100,6 +104,7 @@ pub fn run_runtime_orchestration(mut request: RuntimeOrchestrationRequest) -> Ru
         stale_guard,
         translation,
         playback,
+        native_execution,
         blockers,
     }
 }
@@ -113,6 +118,7 @@ fn build_blockers(
     stale_guard: &StaleJobGuardReport,
     translation: &TranslationLogicResult,
     playback: &PlaybackLogicResult,
+    native_execution: &NativeExecutionBatchPlan,
 ) -> Vec<String> {
     let mut blockers = Vec::new();
     if noise.matched {
@@ -138,6 +144,12 @@ fn build_blockers(
     }
     if matches!(playback.status.as_str(), "Unavailable" | "Unsupported") {
         blockers.push(format!("playback:{}", playback.status));
+    }
+    for blocker in &native_execution.blockers {
+        blockers.push(format!("native_execution:{blocker}"));
+    }
+    if native_execution.any_cpu_degraded {
+        blockers.push("native_execution:cpu_degraded_requires_visible_approval".to_string());
     }
     blockers
 }
