@@ -19,13 +19,14 @@ The goal is to make the migration status explicit without claiming that real mic
 9. `get_runtime_session_state` exposes active runtime session state.
 10. `probe_native_input_config` probes the default CPAL input device and supported input config ranges.
 11. `plan_native_capture_stream_state` selects a safe capture stream plan from the probed CPAL config ranges.
-12. `analyze_native_capture_bridge_state` checks the native CPAL capture bridge contract without opening a real stream.
-13. `analyze_runtime_readiness` includes input config, capture stream plan, and capture bridge readiness/blockers.
-14. `get_runtime_status_bundle` exposes engine status, readiness, next action, and summary.
-15. `runtimePanel.ts` converts status and closure data into a UI-ready panel model with input config, stream plan, and capture bridge warnings.
-16. `runtimePanel.css` provides clean compact runtime panel styling.
-17. `analyze_migration_closure` gates review/release claims behind manual validation and owner approval.
-18. Runtime diagnostics includes handoff state, session state, and their blockers.
+12. `plan_native_capture_stream_build_state` prepares the build/callback contract for a later real CPAL stream.
+13. `analyze_native_capture_bridge_state` checks the native CPAL capture bridge contract without opening a real stream.
+14. `analyze_runtime_readiness` includes input config, capture stream plan, and capture bridge readiness/blockers.
+15. `get_runtime_status_bundle` exposes engine status, readiness, next action, and summary.
+16. `runtimePanel.ts` converts status and closure data into a UI-ready panel model with input config, stream plan, and capture bridge warnings.
+17. `runtimePanel.css` provides clean compact runtime panel styling.
+18. `analyze_migration_closure` gates review/release claims behind manual validation and owner approval.
+19. Runtime diagnostics includes handoff state, session state, and their blockers.
 
 ## Important safety boundaries
 
@@ -44,6 +45,7 @@ The current implementation still does not execute:
 - `engine/runtime_state.rs`: handoff snapshot, stale guard, active runtime session state.
 - `engine/audio/input_config.rs`: CPAL default input config probe and supported config ranges.
 - `engine/audio/capture_plan.rs`: capture stream plan selection, selected rate/channel/format, and resample/downmix flags.
+- `engine/audio/stream_build.rs`: capture build/callback contract with buffer capacity and callback wiring readiness.
 - `engine/adapters/native_capture_bridge_logic.rs`: CPAL capture bridge readiness contract without real stream creation.
 - `engine/adapters/runtime_lifecycle_logic.rs`: session-aware Start/Stop gates.
 - `engine/adapters/runtime_readiness_bundle_logic.rs`: readiness bundle with handoff, session, input config, capture stream plan, capture bridge, diagnostics, and blockers.
@@ -55,19 +57,15 @@ The current implementation still does not execute:
 
 ## Current Start/Stop/Capture contract
 
-Start is allowed only when:
+Start is allowed only when a fresh runtime handoff exists, no active session is already recorded, and `analyze_start_lifecycle_gate` allows the transition.
 
-- a runtime handoff snapshot exists;
-- the snapshot is not stale;
-- the handoff report is ready;
-- no active runtime session is already recorded;
-- `analyze_start_lifecycle_gate` allows the transition.
+Input config is ready only when default CPAL input device/config exists and target sample rate/channel requirement can be satisfied.
 
-Input config is considered ready only when default CPAL input device/config exists and target sample rate/channel requirement can be satisfied.
+Capture stream plan is ready only when a compatible input config can be selected and requested frame duration is valid. It reports whether resample or channel downmix would be required.
 
-Capture stream plan is considered ready only when a compatible input config can be selected and requested frame duration is valid. It reports whether resample or channel downmix would be required.
+Capture build contract is ready only when the stream plan is ready, buffer capacity is valid, and no real stream activation is requested by the contract report.
 
-Capture bridge is considered ready only when active session, safe stop state, stream plan, and request parameters are all valid.
+Capture bridge is ready only when active session, safe stop state, stream plan, and request parameters are all valid.
 
 Stop can clear active session state, stored handoff snapshot state, or handoff-only state when no active session exists.
 
@@ -76,7 +74,7 @@ Stop can clear active session state, stored handoff snapshot state, or handoff-o
 - Wire frontend Start button to show status/readiness before calling `start_capture`.
 - Wire frontend Stop button to show `analyze_stop_gate` before calling `stop_capture`.
 - Wire `runtimePanel.ts` and `runtimePanel.css` into the final clean UI shell.
-- Add real CPAL microphone stream creation after input config, stream plan, and capture bridge contract pass.
+- Add real CPAL microphone stream creation after input config, stream plan, build contract, and capture bridge contract pass.
 - Connect real ASR native runner.
 - Connect real translation native runner.
 - Connect real TTS/playback runner.
@@ -85,4 +83,4 @@ Stop can clear active session state, stored handoff snapshot state, or handoff-o
 
 ## Status
 
-Draft migration state. This report documents readiness contracts, runtime state ownership, input config probing, capture stream planning, capture bridge preparation, and UI-ready panel preparation only; it is not a production readiness claim.
+Draft migration state. This report documents readiness contracts, runtime state ownership, input config probing, capture stream planning, build/callback contract preparation, capture bridge preparation, and UI-ready panel preparation only; it is not a production readiness claim.
