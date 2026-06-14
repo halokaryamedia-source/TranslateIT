@@ -36,7 +36,7 @@ use engine::audio::AudioFrame;
 use engine::diagnostics::RuntimeDiagnostics;
 use engine::inference::backend_validation::NativeCudaBackendValidationReport;
 use engine::native_execution::{plan_native_execution, NativeExecutionPlan, NativeExecutionRequest};
-use engine::runtime_state::{latest_runtime_handoff_state, record_realtime_handoff_report, RuntimeHandoffStateReport};
+use engine::runtime_state::{latest_runtime_handoff_state, latest_runtime_session_state, record_realtime_handoff_report, RuntimeHandoffStateReport, RuntimeSessionStateReport};
 use engine::settings::RuntimeSettings;
 use engine::state::{CommandResult, EngineStatus};
 use engine::transcript_session::{plan_transcript_session_paths, TranscriptSessionPlanReport, TranscriptSessionPlanRequest, TranscriptSessionRecord};
@@ -54,6 +54,11 @@ fn get_runtime_diagnostics() -> RuntimeDiagnostics {
 #[tauri::command]
 fn get_runtime_handoff_state() -> RuntimeHandoffStateReport {
     latest_runtime_handoff_state()
+}
+
+#[tauri::command]
+fn get_runtime_session_state() -> RuntimeSessionStateReport {
+    latest_runtime_session_state()
 }
 
 #[tauri::command]
@@ -292,6 +297,7 @@ fn main() {
         get_engine_status,
         get_runtime_diagnostics,
         get_runtime_handoff_state,
+        get_runtime_session_state,
         analyze_start_gate,
         analyze_stop_gate,
         analyze_runtime_readiness,
