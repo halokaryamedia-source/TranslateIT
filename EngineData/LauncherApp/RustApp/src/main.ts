@@ -293,6 +293,57 @@ type SegmentFlowReport = {
   message: string;
 };
 
+type NativeExecutionContractResult = {
+  segment_id: string;
+  stage: string;
+  ready_to_execute: boolean;
+  execution_status: string;
+  selected_model: string;
+  selected_device: string;
+  selected_compute_type: string;
+  input_kind: string;
+  input_summary: string;
+  output_target: string;
+  queue_wait_ms: number;
+  preprocess_ms: number;
+  inference_ms: number;
+  postprocess_ms: number;
+  total_ms: number;
+  error: string;
+  blocker: string;
+};
+
+type NativeStageRunnerReport = {
+  asr: NativeExecutionContractResult | null;
+  translation: NativeExecutionContractResult | null;
+  output: NativeExecutionContractResult | null;
+  ready_stage_count: number;
+  blocked_stage_count: number;
+  blockers: string[];
+};
+
+type NativeExecutionBridgeRequest = {
+  segment_id: string;
+  source_text: string | null;
+  source_audio_path: string | null;
+  output_audio_path: string | null;
+  asr_model_path: string | null;
+  translation_model_path: string | null;
+  output_model_path: string | null;
+  asr_backend_ready: boolean;
+  translation_backend_ready: boolean;
+  output_backend_ready: boolean;
+  allow_cpu_degraded_mode: boolean;
+};
+
+type NativeExecutionBridgeReport = {
+  segment_id: string;
+  ready_for_execution: boolean;
+  runner_report: NativeStageRunnerReport;
+  blockers: string[];
+  note: string;
+};
+
 const app = document.querySelector<HTMLDivElement>("#app");
 
 if (!app) {
@@ -347,6 +398,7 @@ app.innerHTML = `
           <button id="translateButton" class="secondary" type="button">Translate Text</button>
           <button id="sessionStateButton" class="secondary" type="button">Session Check</button>
           <button id="segmentFlowButton" class="secondary" type="button">Segment Flow</button>
+          <button id="executionBridgeButton" class="secondary" type="button">Execution Bridge</button>
           <button id="diagnosticsButton" class="secondary" type="button">Diagnostics</button>
           <button id="saveSettingsButton" class="secondary" type="button">Save Settings</button>
         </div>
@@ -387,6 +439,7 @@ const stopButton = document.querySelector<HTMLButtonElement>("#stopButton");
 const translateButton = document.querySelector<HTMLButtonElement>("#translateButton");
 const sessionStateButton = document.querySelector<HTMLButtonElement>("#sessionStateButton");
 const segmentFlowButton = document.querySelector<HTMLButtonElement>("#segmentFlowButton");
+const executionBridgeButton = document.querySelector<HTMLButtonElement>("#executionBridgeButton");
 const diagnosticsButton = document.querySelector<HTMLButtonElement>("#diagnosticsButton");
 const saveSettingsButton = document.querySelector<HTMLButtonElement>("#saveSettingsButton");
 
@@ -411,6 +464,7 @@ const ui = {
   translateButton: requireElement(translateButton, "translate button"),
   sessionStateButton: requireElement(sessionStateButton, "session state button"),
   segmentFlowButton: requireElement(segmentFlowButton, "segment flow button"),
+  executionBridgeButton: requireElement(executionBridgeButton, "execution bridge button"),
   diagnosticsButton: requireElement(diagnosticsButton, "diagnostics button"),
   saveSettingsButton: requireElement(saveSettingsButton, "save settings button"),
 };
@@ -560,6 +614,29 @@ function buildSegmentFlowRequest(
   };
 }
 
+function buildNativeExecutionBridgeRequest(
+  source: string,
+  diagnostics: RuntimeDiagnostics,
+  settings: RuntimeSettings,
+): NativeExecutionBridgeRequest {
+  const session = buildDraftTranscriptSession(source);
+  const segment = session.segments[0];
+  const segmentId = segment?.segment_id ?? `${session.session_id}_segment_1`;
+  return {
+    segment_id: segmentId,
+    source_text: source || null,
+    source_audio_path: null,
+    output_audio_path: source ? `${diagnostics.project_paths.user_cache_dir}/frontend_bridge_output.wav` : null,
+    asr_model_path: diagnostics.project_paths.asr_model_dir || null,
+    translation_model_path: diagnostics.project_paths.translation_model_dir || null,
+    output_model_path: null,
+    asr_backend_ready: diagnostics.asr_adapter_plan.ready,
+    translation_backend_ready: diagnostics.translation_adapter_plan.ready,
+    output_backend_ready: false,
+    allow_cpu_degraded_mode: settings.audio.allow_cpu_degraded_mode,
+  };
+}
+
 function renderSessionReadiness(report: TranscriptSessionReadinessReport): void {
   ui.lifecycleBadge.textContent = report.ready_for_preview ? "State: session-ready" : "State: session-blocked";
   ui.statusMessage.textContent = `Transcript session readiness: ${report.ready_for_preview}`;
@@ -585,6 +662,35 @@ function renderSegmentFlow(report: SegmentFlowReport): void {
     `Valid duration: ${report.segment.valid_duration}`,
     `Ready for runtime plan: ${report.ready_for_runtime_plan}`,
     `Warning: ${report.segment.warning || "none"}`,
+    ...report.blockers.map((blocker) => `Blocker: ${blocker}`),
+  ]);
+}
+
+function formatBridgeStage(label: string, result: NativeExecutionContractResult | null): string[] {
+  if (!result) {
+    return [`${label}: not requested`];
+  }
+  return [
+    `${label}: ${result.execution_status}`,
+    `${label} ready: ${result.ready_to_execute}`,
+    `${label} model: ${result.selected_model}`,
+    `${label} device: ${result.selected_device}/${result.selected_compute_type}`,
+    `${label} input: ${result.input_kind} ${result.input_summary}`,
+    `${label} blocker: ${result.blocker || "none"}`,
+  ];
+}
+
+function renderNativeExecutionBridge(report: NativeExecutionBridgeReport): void {
+  ui.lifecycleBadge.textContent = report.ready_for_execution ? "State: execution-ready" : "State: execution-blocked";
+  ui.statusMessage.textContent = report.note;
+  renderList([
+    `Segment: ${report.segment_id}`,
+    `Ready for execution: ${report.ready_for_execution}`,
+    `Ready stages: ${report.runner_report.ready_stage_count}`,
+    `Blocked stages: ${report.runner_report.blocked_stage_count}`,
+    ...formatBridgeStage("ASR", report.runner_report.asr),
+    ...formatBridgeStage("Translation", report.runner_report.translation),
+    ...formatBridgeStage("Output", report.runner_report.output),
     ...report.blockers.map((blocker) => `Blocker: ${blocker}`),
   ]);
 }
@@ -685,6 +791,17 @@ ui.segmentFlowButton.addEventListener("click", async () => {
   const request = buildSegmentFlowRequest(source, diagnostics, bufferStatus);
   const report = await invoke<SegmentFlowReport>("analyze_segment_flow_state", { request });
   renderSegmentFlow(report);
+});
+
+ui.executionBridgeButton.addEventListener("click", async () => {
+  const source = ui.sourceText.value.trim();
+  const [diagnostics, settings] = await Promise.all([
+    invoke<RuntimeDiagnostics>("get_runtime_diagnostics"),
+    invoke<RuntimeSettings>("load_runtime_settings"),
+  ]);
+  const request = buildNativeExecutionBridgeRequest(source, diagnostics, settings);
+  const report = await invoke<NativeExecutionBridgeReport>("analyze_native_execution_bridge", { request });
+  renderNativeExecutionBridge(report);
 });
 
 ui.diagnosticsButton.addEventListener("click", async () => {
