@@ -46,13 +46,13 @@ EngineData/
 
 ## Approved Python boundary
 
-The only approved Python file under `EngineData` is:
+The only approved Python file under the active project runtime is:
 
 ```text
 EngineData/LauncherApp/Workers/realtime_local_worker.py
 ```
 
-This worker remains because current local inference uses Python ecosystem libraries for Faster Whisper, Transformers/MarianMT/NLLB, and Piper orchestration. It is not the app launcher or UI engine.
+This worker remains because current local inference uses Python ecosystem libraries for Faster Whisper, Transformers/MarianMT/NLLB, and Piper orchestration. It is not the app launcher, UI engine, or repository validation system.
 
 ## Runtime asset ownership
 
@@ -64,7 +64,7 @@ EngineData/RuntimeAssets/Translation/ModelData/
 EngineData/RuntimeAssets/Voice/Piper/
 ```
 
-Do not recreate the old separated asset roots:
+The old separated asset roots are retired:
 
 ```text
 EngineData/TranscriptEngine/
@@ -79,7 +79,7 @@ DevelopingData/
   Documentation/   # current source docs, concise reports, templates
   Quality/         # diagnostics and test references
   Samples/         # safe sample references
-  Tooling/         # executable validation and maintenance scripts
+  Tooling/         # Node and PowerShell validation/maintenance scripts
 ```
 
 ## Documentation ownership
@@ -90,7 +90,7 @@ All durable docs must be under:
 DevelopingData/Documentation
 ```
 
-Do not restore or recreate:
+Retired documentation roots:
 
 ```text
 DeveloperData/
@@ -106,7 +106,16 @@ All executable validation and maintenance scripts must be under:
 DevelopingData/Tooling/Scripts/Execution
 ```
 
-Do not restore or recreate:
+Current active tooling uses:
+
+```text
+translateit_tooling.mjs
+run_rustapp_final_validation.ps1
+```
+
+Repository, Rust/Tauri, CI, evidence, and structure checks should use Node or PowerShell. Python validation scripts are retired from `DevelopingData`.
+
+Retired tooling root:
 
 ```text
 DevelopingData/ToolKitData/
