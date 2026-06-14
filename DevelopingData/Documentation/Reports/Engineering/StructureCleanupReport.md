@@ -2,7 +2,7 @@
 
 ## Result
 
-TranslateIT development files are now consolidated under:
+TranslateIT development files are consolidated under:
 
 ```text
 DevelopingData/
@@ -17,9 +17,7 @@ Runtime files are isolated under:
 ```text
 EngineData/
   LauncherApp/
-  TranscriptEngine/
-  TranslateEngine/
-  VoiceEngine/
+  RuntimeAssets/
 ```
 
 ## Active routes
@@ -42,6 +40,12 @@ Tooling route:
 DevelopingData/Tooling/Scripts/Execution/
 ```
 
+Runtime asset route:
+
+```text
+EngineData/RuntimeAssets/
+```
+
 Validation evidence route:
 
 ```text
@@ -62,6 +66,9 @@ DevelopingData/Docs/
 DevelopingData/LauncherHelpers/
 DevelopingData/SampleData/
 DevelopingData/Tests/
+EngineData/TranscriptEngine/
+EngineData/TranslateEngine/
+EngineData/VoiceEngine/
 ```
 
 ## Python policy
@@ -72,29 +79,11 @@ The only approved Python file under `EngineData` is:
 EngineData/LauncherApp/Workers/realtime_local_worker.py
 ```
 
-All other Python launcher/UI/engine modules under `EngineData` are retired. Python validation scripts may live under `DevelopingData/Tooling/Scripts/Execution`.
-
-## Root policy
-
-Expected root:
-
-```text
-.github/
-DevelopingData/
-EngineData/
-Launcher/
-UserData/
-.gitattributes
-.gitignore
-README.md
-TranslateIT.vbs
-```
-
-Do not add loose scripts, logs, cache, build output, alternate launcher files, or duplicate documentation roots to the repository root.
+All other Python launcher, UI, or engine modules under `EngineData` are retired. Python validation scripts may live under `DevelopingData/Tooling/Scripts/Execution`.
 
 ## Important rule
 
-Do not create parallel documentation, tooling, or runtime folders. Add future documentation under `DevelopingData/Documentation`, future validation tooling under `DevelopingData/Tooling`, runtime code under `EngineData`, and user/runtime output under `UserData`.
+Do not create parallel documentation, tooling, or runtime folders. Add future documentation under `DevelopingData/Documentation`, future validation tooling under `DevelopingData/Tooling`, runtime app code under `EngineData/LauncherApp/RustApp`, runtime assets under `EngineData/RuntimeAssets`, and user runtime output under `UserData`.
 
 ## Readiness truth
 
