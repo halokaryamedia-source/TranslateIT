@@ -1,9 +1,0 @@
-PySide6
-sounddevice
-faster-whisper
-torch
-transformers
-sentencepiece
-sacremoses
-numpy
-pyttsx3
