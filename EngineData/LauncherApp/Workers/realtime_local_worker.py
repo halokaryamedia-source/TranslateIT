@@ -9,10 +9,11 @@ from pathlib import Path
 from typing import Any
 
 ROOT = Path(__file__).resolve().parents[3]
-ASR_MODEL = ROOT / "EngineData" / "TranscriptEngine" / "ModelData" / "faster-whisper-large-v3-turbo"
-TRANSLATION_MODEL = ROOT / "EngineData" / "TranslateEngine" / "ModelData" / "marianmt-id-en"
-QUALITY_TRANSLATION_MODEL = ROOT / "EngineData" / "TranslateEngine" / "ModelData" / "nllb-200-distilled-600M"
-PIPER_ROOT = ROOT / "EngineData" / "VoiceEngine" / "Piper"
+RUNTIME_ASSETS = ROOT / "EngineData" / "RuntimeAssets"
+ASR_MODEL = RUNTIME_ASSETS / "ASR" / "ModelData" / "faster-whisper-large-v3-turbo"
+TRANSLATION_MODEL = RUNTIME_ASSETS / "Translation" / "ModelData" / "marianmt-id-en"
+QUALITY_TRANSLATION_MODEL = RUNTIME_ASSETS / "Translation" / "ModelData" / "nllb-200-distilled-600M"
+PIPER_ROOT = RUNTIME_ASSETS / "Voice" / "Piper"
 CACHE_ROOT = ROOT / "UserData" / "CacheData"
 ALLOWED_INPUT_ROOTS = [ROOT / "UserData" / "CacheData", ROOT / "UserData" / "LogData"]
 ALLOWED_OUTPUT_ROOTS = [ROOT / "UserData" / "CacheData"]
@@ -218,8 +219,6 @@ def handle_transcribe(payload: dict[str, Any]) -> dict[str, Any]:
             "language_probability": float(getattr(info, "language_probability", 0.0)),
             "device": ASR_RUNTIME_DEVICE,
             "compute_type": ASR_RUNTIME_COMPUTE,
-            "elapsed_ms": now_ms() - started,
-            "blocker": "" if text else "asr:empty_transcript",
         }
     except Exception as exc:
         return {"ok": False, "stage": "transcribe", "blocker": type(exc).__name__, "note": str(exc), "elapsed_ms": now_ms() - started}
@@ -365,7 +364,7 @@ def handle_tts_preflight(_: dict[str, Any]) -> dict[str, Any]:
         "piper_executable": str(executable),
         "voice_path": str(voice) if voice else None,
         "blocker": "" if ok else "tts:piper_executable_or_voice_missing",
-        "note": "Piper local TTS requires piper.exe and at least one .onnx voice file under EngineData/VoiceEngine/Piper.",
+        "note": "Piper local TTS requires piper.exe and at least one .onnx voice file under EngineData/RuntimeAssets/Voice/Piper.",
     }
 
 
