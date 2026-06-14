@@ -15,6 +15,8 @@ QUALITY_TRANSLATION_MODEL = ROOT / "EngineData" / "TranslateEngine" / "ModelData
 PIPER_ROOT = ROOT / "EngineData" / "VoiceEngine" / "Piper"
 
 ASR_RUNTIME: Any | None = None
+ASR_RUNTIME_DEVICE = "not_loaded"
+ASR_RUNTIME_COMPUTE = "not_loaded"
 TRANSLATION_RUNTIME: dict[str, dict[str, Any]] = {}
 
 
@@ -104,7 +106,7 @@ def build_status() -> WorkerStatus:
         torch_import_ready=torch_ready,
         torch_cuda_available=cuda_available,
         blocker=";".join(blockers),
-        note="Local worker can execute only when required dependencies and local model files are present. CUDA is preferred for realtime latency but CPU fallback is reported truthfully.",
+        note="Local worker can execute only when required dependencies and local model files are present. CUDA is preferred for realtime latency, and CPU fallback is reported truthfully when CUDA is unavailable.",
     )
 
 
@@ -112,6 +114,8 @@ def handle_status(_: dict[str, Any]) -> dict[str, Any]:
     status = asdict(build_status())
     status["loaded"] = {
         "asr": ASR_RUNTIME is not None,
+        "asr_device": ASR_RUNTIME_DEVICE,
+        "asr_compute_type": ASR_RUNTIME_COMPUTE,
         "translation_modes": sorted(TRANSLATION_RUNTIME.keys()),
     }
     return status
@@ -121,13 +125,23 @@ def handle_ping(_: dict[str, Any]) -> dict[str, Any]:
     return {"ok": True, "stage": "ping", "unix_ms": now_ms()}
 
 
+def asr_runtime_config() -> tuple[str, str]:
+    _torch_ready, cuda_available = torch_status()
+    if cuda_available:
+        return "cuda", "int8_float16"
+    return "cpu", "int8"
+
+
 def get_asr_runtime() -> Any:
-    global ASR_RUNTIME
+    global ASR_RUNTIME, ASR_RUNTIME_DEVICE, ASR_RUNTIME_COMPUTE
     if ASR_RUNTIME is not None:
         return ASR_RUNTIME
     from faster_whisper import WhisperModel
 
-    ASR_RUNTIME = WhisperModel(str(ASR_MODEL), device="cuda", compute_type="int8_float16")
+    device, compute_type = asr_runtime_config()
+    ASR_RUNTIME = WhisperModel(str(ASR_MODEL), device=device, compute_type=compute_type)
+    ASR_RUNTIME_DEVICE = device
+    ASR_RUNTIME_COMPUTE = compute_type
     return ASR_RUNTIME
 
 
@@ -143,10 +157,10 @@ def handle_asr_preload(_: dict[str, Any]) -> dict[str, Any]:
             "stage": "asr_preload",
             "model_path": str(ASR_MODEL),
             "model_id": "faster-whisper-large-v3-turbo",
-            "device": "cuda",
-            "compute_type": "int8_float16",
+            "device": ASR_RUNTIME_DEVICE,
+            "compute_type": ASR_RUNTIME_COMPUTE,
             "elapsed_ms": now_ms() - started,
-            "note": "ASR model is loaded and ready for local realtime transcription.",
+            "note": "ASR model is loaded and ready for local transcription. CUDA is used only when available; otherwise CPU fallback is explicit.",
         }
     except Exception as exc:
         return {"ok": False, "stage": "asr_preload", "blocker": type(exc).__name__, "note": str(exc)}
@@ -178,6 +192,8 @@ def handle_transcribe(payload: dict[str, Any]) -> dict[str, Any]:
             "transcript_text": text,
             "language": getattr(info, "language", "id"),
             "language_probability": float(getattr(info, "language_probability", 0.0)),
+            "device": ASR_RUNTIME_DEVICE,
+            "compute_type": ASR_RUNTIME_COMPUTE,
             "elapsed_ms": now_ms() - started,
             "blocker": "" if text else "asr:empty_transcript",
         }
