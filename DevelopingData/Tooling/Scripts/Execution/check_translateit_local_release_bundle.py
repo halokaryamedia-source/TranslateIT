@@ -10,12 +10,19 @@ REQUIRED_FILES = [
     ROOT / ".github" / "workflows" / "translateit-rustapp-internal-validation.yml",
     ROOT / "README.md",
     ROOT / "DevelopingData" / "README.md",
+    ROOT / "DevelopingData" / "Documentation" / "README.md",
     ROOT / "DevelopingData" / "Documentation" / "Guides" / "Repository" / "GitHubSetupGuide.md",
+    ROOT / "DevelopingData" / "Documentation" / "Reports" / "Engineering" / "StructureCleanupReport.md",
+    ROOT / "DevelopingData" / "Documentation" / "Source" / "ProjectDocumentation.md",
+    ROOT / "DevelopingData" / "Documentation" / "Source" / "SystemArchitecture.md",
+    ROOT / "DevelopingData" / "Documentation" / "Source" / "ManualTestGuide.md",
+    ROOT / "DevelopingData" / "Documentation" / "Source" / "ProjectHistory.md",
     ROOT / "EngineData" / "README.md",
     ROOT / "EngineData" / "LauncherApp" / "RustApp" / "package.json",
     ROOT / "EngineData" / "LauncherApp" / "Workers" / "README.md",
     ROOT / "EngineData" / "LauncherApp" / "Workers" / "realtime_local_worker.py",
     TOOLING / "check_launcher_contract.py",
+    TOOLING / "check_engine_developing_structure.py",
     TOOLING / "check_local_realtime_worker_stack.py",
     TOOLING / "check_local_runtime_models.py",
     TOOLING / "run_local_realtime_worker_smoke_tests.py",
@@ -25,6 +32,8 @@ REQUIRED_FILES = [
 RETIRED_PATHS = [
     ROOT / "DeveloperData",
     ROOT / "DevelopingData" / "ToolKitData",
+    ROOT / "DevelopingData" / "DocumentationData",
+    ROOT / "DevelopingData" / "Reports",
     ROOT / "DevelopingData" / "Diagnostics",
     ROOT / "DevelopingData" / "Docs",
     ROOT / "DevelopingData" / "LauncherHelpers",
@@ -34,6 +43,7 @@ RETIRED_PATHS = [
 
 REQUIRED_TERMS = {
     ROOT / "README.md": ["DevelopingData/", "EngineData/", "TranslateIT.vbs"],
+    ROOT / "DevelopingData" / "Documentation" / "README.md": ["single documentation hub", "Documentation/", "Source/"],
     ROOT / "EngineData" / "LauncherApp" / "Workers" / "realtime_local_worker.py": ["asr_preload", "translate", "synthesize", "resolve_worker_path", "cuda_fallback"],
     ROOT / "EngineData" / "LauncherApp" / "RustApp" / "package.json": ["DevelopingData/Tooling/Scripts/Execution", "validate:full", "validate:worker"],
 }
