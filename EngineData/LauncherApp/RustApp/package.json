@@ -1,7 +1,7 @@
 {
   "name": "translateit-rustapp",
   "private": true,
-  "version": "0.8.9-validation-shortcuts",
+  "version": "0.8.10-launcher-contract",
   "type": "module",
   "scripts": {
     "dev": "tauri dev",
@@ -12,12 +12,13 @@
     "check:rust": "cargo check --manifest-path src-tauri/Cargo.toml",
     "setup:worker": "powershell -ExecutionPolicy Bypass -File ../Workers/setup_realtime_worker.ps1",
     "smoke:worker": "powershell -ExecutionPolicy Bypass -File ../Workers/run_realtime_worker_smoke.ps1",
+    "validate:launcher": "python ../../../DevelopingData/ToolKitData/Scripts/Execution/check_launcher_contract.py",
     "validate:worker": "python ../../../DevelopingData/ToolKitData/Scripts/Execution/check_local_realtime_worker_stack.py",
     "validate:models": "python ../../../DevelopingData/ToolKitData/Scripts/Execution/check_local_runtime_models.py",
     "validate:frontend-contract": "python ../../../DevelopingData/ToolKitData/Scripts/Execution/check_frontend_runtime_contract.py",
     "validate:evidence": "python ../../../DevelopingData/ToolKitData/Scripts/Execution/check_rust_validation_evidence_boundary.py",
-    "validate:internal": "npm run validate:worker && npm run validate:frontend-contract && npm run validate:evidence && npm run typecheck && npm run check:rust && npm run build:frontend",
-    "validate:full": "npm run validate:worker && npm run validate:models && npm run validate:frontend-contract && npm run validate:evidence && npm run typecheck && npm run check:rust && npm run build:frontend && npm run build"
+    "validate:internal": "npm run validate:launcher && npm run validate:worker && npm run validate:frontend-contract && npm run validate:evidence && npm run typecheck && npm run check:rust && npm run build:frontend",
+    "validate:full": "npm run validate:launcher && npm run validate:worker && npm run validate:models && npm run validate:frontend-contract && npm run validate:evidence && npm run typecheck && npm run check:rust && npm run build:frontend && npm run build"
   },
   "dependencies": {
     "@tauri-apps/api": "^2.0.0"
