@@ -16,17 +16,16 @@ LauncherApp/
 ## Active route
 
 ```text
-TranslateIT.vbs -> EngineData/LauncherApp/RustApp
+EngineData/LauncherApp/RustApp -> Tauri packaged TranslateIT app
 ```
 
 ## Ownership
 
-- `RustApp/` contains the user-facing desktop app, frontend, Rust commands, runtime validation, and packaging scripts.
+- `RustApp/` contains the user-facing desktop app, startup warmup flow, frontend, Rust commands, runtime validation, and packaging scripts.
 - `Workers/` contains only local AI worker logic for ASR, translation, and TTS orchestration.
 
 ## Rules
 
-- Do not add Python UI, Qt, or old launcher modules here.
-- Do not add alternate BAT/CMD launcher helpers here.
 - Keep Rust/Tauri as the single app route.
 - Keep worker changes isolated to `Workers/` and validate them through the RustApp scripts.
+- Keep launcher/package concerns inside RustApp or reserved `Launcher` assets.
