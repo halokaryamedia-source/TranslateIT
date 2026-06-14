@@ -33,7 +33,7 @@ use engine::inference::backend_validation::NativeCudaBackendValidationReport;
 use engine::native_execution::{plan_native_execution, NativeExecutionPlan, NativeExecutionRequest};
 use engine::settings::RuntimeSettings;
 use engine::state::{CommandResult, EngineStatus};
-use engine::transcript_session::TranscriptSessionRecord;
+use engine::transcript_session::{plan_transcript_session_paths, TranscriptSessionPlanReport, TranscriptSessionPlanRequest, TranscriptSessionRecord};
 
 #[tauri::command]
 fn get_engine_status() -> EngineStatus {
@@ -171,6 +171,11 @@ fn analyze_transcript_session_state(session: TranscriptSessionRecord) -> Transcr
 }
 
 #[tauri::command]
+fn analyze_transcript_session_save_plan(request: TranscriptSessionPlanRequest) -> TranscriptSessionPlanReport {
+    plan_transcript_session_paths(request)
+}
+
+#[tauri::command]
 fn resolve_vad_profile(request: VadProfileRequest) -> VadProfileReport {
     build_vad_profile(request)
 }
@@ -268,6 +273,7 @@ fn main() {
         analyze_native_execution_bridge,
         analyze_segment_flow_state,
         analyze_transcript_session_state,
+        analyze_transcript_session_save_plan,
         resolve_vad_profile,
         get_calibration_flow_status,
         save_calibration_profile,
