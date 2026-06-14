@@ -46,6 +46,32 @@ type AudioBufferStatus = {
   note: string;
 };
 
+type InputPreparationStatus = {
+  backend_id: string;
+  input_device_name: string | null;
+  target_sample_rate_hz: number;
+  target_channels: number;
+  prepared: boolean;
+  running: boolean;
+  note: string;
+};
+
+type CaptureLoopContractReport = {
+  backend_id: string;
+  input_device_name: string | null;
+  target_sample_rate_hz: number;
+  target_channels: number;
+  input_prepared: boolean;
+  input_running: boolean;
+  buffer_ready_for_vad: boolean;
+  buffer_ready_for_calibration: boolean;
+  ready_for_stream_loop: boolean;
+  blockers: string[];
+  note: string;
+  input_status: InputPreparationStatus;
+  buffer_status: AudioBufferStatus;
+};
+
 type CalibrationFlowStatus = {
   output_path: string;
   requires_quiet_sample: boolean;
@@ -123,15 +149,7 @@ type RuntimeDiagnostics = {
     }>;
     blocker: string | null;
   };
-  input_preparation_status: {
-    backend_id: string;
-    input_device_name: string | null;
-    target_sample_rate_hz: number;
-    target_channels: number;
-    prepared: boolean;
-    running: boolean;
-    note: string;
-  };
+  input_preparation_status: InputPreparationStatus;
   calibration_profile_status: {
     path: string;
     present: boolean;
@@ -396,6 +414,7 @@ app.innerHTML = `
           <button id="startButton" class="primary" type="button">Start</button>
           <button id="stopButton" class="secondary" type="button">Stop</button>
           <button id="translateButton" class="secondary" type="button">Translate Text</button>
+          <button id="captureLoopButton" class="secondary" type="button">Capture Check</button>
           <button id="sessionStateButton" class="secondary" type="button">Session Check</button>
           <button id="segmentFlowButton" class="secondary" type="button">Segment Flow</button>
           <button id="executionBridgeButton" class="secondary" type="button">Execution Bridge</button>
@@ -437,6 +456,7 @@ const translationOutput = document.querySelector<HTMLParagraphElement>("#transla
 const startButton = document.querySelector<HTMLButtonElement>("#startButton");
 const stopButton = document.querySelector<HTMLButtonElement>("#stopButton");
 const translateButton = document.querySelector<HTMLButtonElement>("#translateButton");
+const captureLoopButton = document.querySelector<HTMLButtonElement>("#captureLoopButton");
 const sessionStateButton = document.querySelector<HTMLButtonElement>("#sessionStateButton");
 const segmentFlowButton = document.querySelector<HTMLButtonElement>("#segmentFlowButton");
 const executionBridgeButton = document.querySelector<HTMLButtonElement>("#executionBridgeButton");
@@ -462,6 +482,7 @@ const ui = {
   startButton: requireElement(startButton, "start button"),
   stopButton: requireElement(stopButton, "stop button"),
   translateButton: requireElement(translateButton, "translate button"),
+  captureLoopButton: requireElement(captureLoopButton, "capture loop button"),
   sessionStateButton: requireElement(sessionStateButton, "session state button"),
   segmentFlowButton: requireElement(segmentFlowButton, "segment flow button"),
   executionBridgeButton: requireElement(executionBridgeButton, "execution bridge button"),
@@ -637,6 +658,24 @@ function buildNativeExecutionBridgeRequest(
   };
 }
 
+function renderCaptureLoopContract(report: CaptureLoopContractReport): void {
+  ui.lifecycleBadge.textContent = report.ready_for_stream_loop ? "State: capture-ready" : "State: capture-blocked";
+  ui.statusMessage.textContent = report.note;
+  renderList([
+    `Backend: ${report.backend_id}`,
+    `Input device: ${report.input_device_name ?? "not selected"}`,
+    `Target format: ${report.target_sample_rate_hz} Hz / ${report.target_channels} channel(s)`,
+    `Input prepared: ${report.input_prepared}`,
+    `Input running: ${report.input_running}`,
+    `Buffer VAD ready: ${report.buffer_ready_for_vad}`,
+    `Buffer calibration ready: ${report.buffer_ready_for_calibration}`,
+    `Ready for stream loop: ${report.ready_for_stream_loop}`,
+    `Input note: ${report.input_status.note}`,
+    `Buffer note: ${report.buffer_status.note}`,
+    ...report.blockers.map((blocker) => `Blocker: ${blocker}`),
+  ]);
+}
+
 function renderSessionReadiness(report: TranscriptSessionReadinessReport): void {
   ui.lifecycleBadge.textContent = report.ready_for_preview ? "State: session-ready" : "State: session-blocked";
   ui.statusMessage.textContent = `Transcript session readiness: ${report.ready_for_preview}`;
@@ -756,6 +795,11 @@ async function refreshStatus(): Promise<void> {
 }
 
 ui.startButton.addEventListener("click", async () => {
+  const contract = await invoke<CaptureLoopContractReport>("analyze_capture_loop_contract");
+  if (!contract.ready_for_stream_loop) {
+    renderCaptureLoopContract(contract);
+    return;
+  }
   const result = await invoke<CommandResult>("start_capture");
   renderCommandResult(result);
 });
@@ -773,6 +817,11 @@ ui.translateButton.addEventListener("click", async () => {
   ui.translationOutput.textContent = result.message;
   ui.translationOutput.classList.remove("muted-text");
   renderCommandResult(result);
+});
+
+ui.captureLoopButton.addEventListener("click", async () => {
+  const report = await invoke<CaptureLoopContractReport>("analyze_capture_loop_contract");
+  renderCaptureLoopContract(report);
 });
 
 ui.sessionStateButton.addEventListener("click", async () => {
