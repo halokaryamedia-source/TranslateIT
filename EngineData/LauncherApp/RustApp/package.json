@@ -1,7 +1,7 @@
 {
   "name": "translateit-rustapp",
   "private": true,
-  "version": "0.8.18-node-tooling",
+  "version": "0.1.0",
   "type": "module",
   "scripts": {
     "dev": "tauri dev",
@@ -10,8 +10,8 @@
     "build:frontend": "vite build",
     "typecheck": "tsc --noEmit",
     "check:rust": "cargo check --manifest-path src-tauri/Cargo.toml",
-    "setup:worker": "powershell -ExecutionPolicy Bypass -File ../Workers/setup_realtime_worker.ps1",
-    "smoke:worker": "powershell -ExecutionPolicy Bypass -File ../Workers/run_realtime_worker_smoke.ps1",
+    "setup:worker": "powershell -NoProfile -File ../Workers/setup_realtime_worker.ps1",
+    "smoke:worker": "powershell -NoProfile -File ../Workers/run_realtime_worker_smoke.ps1",
     "record:manual-evidence": "node ../../../DevelopingData/Tooling/Scripts/Execution/translateit_tooling.mjs record-manual-evidence",
     "status:readiness": "node ../../../DevelopingData/Tooling/Scripts/Execution/translateit_tooling.mjs summarize-readiness",
     "validate:root": "node ../../../DevelopingData/Tooling/Scripts/Execution/translateit_tooling.mjs validate-root",
