@@ -21,7 +21,6 @@ ALLOWED_ROOT_SUFFIXES = {
 ALLOWED_ROOT_DIRS = {
     ".github",
     "DevelopingData",
-    "DeveloperData",
     "EngineData",
     "Launcher",
     "UserData",
@@ -46,6 +45,7 @@ FORBIDDEN_ROOT_DIRS = {
     "dist",
     "build",
     "target",
+    "DeveloperData",
 }
 
 
@@ -70,10 +70,10 @@ def main() -> int:
         print("ROOT_CLEANLINESS_INCOMPLETE")
         for problem in problems:
             print("-", problem)
-        print("Move scripts into DevelopingData/ToolKitData/Scripts, runtime code into EngineData, user outputs into UserData, and keep root limited to the launcher plus repository docs.")
+        print("Move documentation and tooling into DevelopingData, runtime code into EngineData, user outputs into UserData, and keep root limited to the launcher plus repository docs.")
         return 1
 
-    print("PASS: Repository root is clean: no root Python/scripts/cache/build artifacts, and only professional top-level folders/files are present")
+    print("PASS: Repository root is clean: no root Python/scripts/cache/build artifacts, no separate DeveloperData tree, and only professional top-level folders/files are present")
     return 0
 
 
