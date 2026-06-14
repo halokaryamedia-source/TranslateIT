@@ -2,10 +2,11 @@
 
 ## Purpose
 
-This folder is reserved for validation and test references.
+`Tests` is reserved for non-executable test references and local validation notes.
 
 ## Rules
 
-- Keep executable validation scripts under `DevelopingData/ToolKitData/Scripts/Execution` while package references still point there.
-- Do not reintroduce old Python engine hardening tests that depend on retired runtime modules.
-- Prefer Rust/Tauri and worker-smoke validation evidence.
+- Keep executable validation scripts under `DevelopingData/Tooling/Scripts/Execution`.
+- Do not reintroduce retired Python engine tests.
+- Do not store runtime logs, model files, or user data here.
+- Keep local validation evidence under `UserData/LogData`.
