@@ -10,6 +10,7 @@ pub mod native_execution;
 pub mod native_runners;
 pub mod paths;
 pub mod runtime_job;
+pub mod runtime_state;
 pub mod session_store;
 pub mod settings;
 pub mod state;
@@ -18,13 +19,12 @@ pub mod transcript_session;
 
 use std::path::PathBuf;
 
-use audio::input::InputPreparationStatus;
 use config::EngineConfig;
 use cuda_policy::CudaPolicyReport;
 use diagnostics::RuntimeDiagnostics;
 use logging::{write_jsonl_event, RuntimeLogEvent};
 use paths::ProjectPaths;
-use runtime_job::plan_runtime_capture_job;
+use runtime_state::latest_runtime_handoff_state;
 use settings::RuntimeSettings;
 use state::{CommandResult, EngineStatus, LifecycleState, RuntimeStage};
 
@@ -91,27 +91,39 @@ pub fn save_default_settings() -> CommandResult {
 
 pub fn start_capture() -> CommandResult {
     let project_paths = ProjectPaths::discover();
-    let input_status = InputPreparationStatus::inspect_default_input();
-    let plan = plan_runtime_capture_job(input_status.clone());
-    let message = format!(
-        "Rust capture job: job_id={}, session_id={}, next_segment={}, stage={}, ready={}, blocker={}, note={}",
-        plan.job_id,
-        plan.session_id,
-        plan.next_segment_id,
-        plan.stage,
-        plan.ready_for_capture_loop,
-        if plan.blocker.is_empty() { "none" } else { &plan.blocker },
-        plan.note
-    );
+    let handoff_state = latest_runtime_handoff_state();
+    let message = if let Some(snapshot) = &handoff_state.snapshot {
+        format!(
+            "Rust Start gate checked realtime handoff snapshot: session_id={}, owner_id={}, ready={}, blocker_count={}, note={}",
+            snapshot.session_id,
+            snapshot.owner_id,
+            handoff_state.ready_for_start,
+            snapshot.blocker_count,
+            handoff_state.note
+        )
+    } else {
+        format!(
+            "Rust Start gate blocked: {}, note={}",
+            handoff_state.blocker, handoff_state.note
+        )
+    };
 
+    let event = if handoff_state.ready_for_start {
+        RuntimeLogEvent::info("start_gate", message.clone())
+    } else {
+        RuntimeLogEvent::warning("start_gate", message.clone())
+    };
     let _ = write_jsonl_event(
         &PathBuf::from(project_paths.user_log_dir),
         "rust_runtime_latest.jsonl",
-        &RuntimeLogEvent::warning("capture_job", message.clone()),
+        &event,
     );
 
-    if plan.ready_for_capture_loop {
-        CommandResult::ok(LifecycleState::Preparing, message)
+    if handoff_state.ready_for_start {
+        CommandResult::ok(
+            LifecycleState::Preparing,
+            format!("{message}. Real microphone stream creation is still deferred to runtime integration."),
+        )
     } else {
         CommandResult::blocked(LifecycleState::ConversionPending, message)
     }
