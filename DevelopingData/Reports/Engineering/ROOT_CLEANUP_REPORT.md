@@ -1,48 +1,94 @@
-# ROOT CLEANUP REPORT
+# Root Cleanup Report
 
-## Files Moved
-- `ENGINE_HARDENING_REPORT.md`
-- `ENGINE_LATENCY_P1_REPORT.md`
-- `ENGINE_RUNTIME_VALIDATION_P4_REPORT.md`
-- `ENGINE_TTS_BACKEND_P3_REPORT.md`
-- `ENGINE_TTS_PLAYBACK_P2_REPORT.md`
+## Current Direction
+
+TranslateIT has migrated the desktop application shell to Rust/Tauri. The repository root must stay clean and professional.
+
+The root should contain only the top-level launcher, repository metadata, and approved top-level folders. Runtime code belongs in `EngineData`, development and validation scripts belong in `DevelopingData`, user outputs belong in `UserData`, and documentation belongs in the relevant documentation/report folders.
+
+## Root Policy
+
+Allowed root folders:
+
+- `.github/`
+- `DevelopingData/`
+- `DeveloperData/`
+- `EngineData/`
+- `Launcher/`
+- `UserData/`
+
+Allowed root files:
+
+- `.gitattributes`
+- `.gitignore`
 - `README.md`
-- `tests/`
-- `run_translateit_legacy_tts.bat`
-- `run_translateit_sapi_direct_async.bat`
-- `TranslateIt.vbs`
-- `TranslateIt.bat`
+- `TranslateIT.vbs`
 
-## Folders Created
-- `DevelopingData/Reports/Engineering/`
-- `DevelopingData/Reports/Validation/`
-- `DevelopingData/Docs/`
-- `DevelopingData/LauncherHelpers/`
-- `DevelopingData/Tests/`
+Forbidden at root:
 
-## Launcher Behavior
-- Root launcher is now only `TranslateIt.vbs`.
-- The VBS front launcher resolves the project root and calls `DevelopingData/LauncherHelpers/TranslateIt.bat`.
-- The helper BAT defaults `TRANSLATEIT_TTS_BACKEND` to `sapi_direct_async` when the variable is not already set.
-- The helper BAT preserves an existing `TRANSLATEIT_TTS_BACKEND` value if one is present.
-- `legacy_sapi_wav` remains available as internal fallback.
+- `*.py`
+- `*.bat`
+- `*.cmd`
+- `*.ps1`
+- `*.log`
+- `*.tmp`
+- `*.bak`
+- `*.old`
+- `__pycache__/`
+- `.pytest_cache/`
+- `.mypy_cache/`
+- `node_modules/`
+- `dist/`
+- `build/`
+- `target/`
 
-## Test Command Changes
-- Old style:
-  - `python -m unittest discover -s tests`
-- New style:
-  - `python -m unittest discover -s DevelopingData/Tests`
+## Python Usage After Rust Migration
 
-## Validation Commands Run
-- `python -m compileall -q EngineData`
-- `python -m unittest discover -s DevelopingData/Tests`
+Python is no longer the desktop launcher/UI engine.
 
-## Validation Results
-- Compile passed.
-- Unit tests passed.
-- The moved test suite still resolves `EngineData` imports after the path update.
+Python is still intentionally used for:
 
-## Limitations
-- Root cleanup does not change the underlying fact that `sapi_direct_async` is still direct async playback, not true streaming.
-- Audible-start measurement remains a proxy, not an exact hardware callback.
-- Manual microphone/speaker testing is still required later to compare real-world latency.
+- local AI worker execution in `EngineData/LauncherApp/Workers/realtime_local_worker.py`,
+- Faster Whisper local ASR orchestration,
+- Transformers/MarianMT/NLLB local translation orchestration,
+- Piper command orchestration,
+- development-only validation scripts in `DevelopingData/ToolKitData/Scripts/Execution/`.
+
+Python should not appear as loose root files. Legacy root Python launcher files are not part of the RustApp route.
+
+## Cleanup Guard Added
+
+The following checker enforces root cleanliness:
+
+```text
+DevelopingData/ToolKitData/Scripts/Execution/check_root_professional_cleanliness.py
+```
+
+It fails when root contains legacy Python/scripts, cache folders, build output, logs, or unexpected top-level items.
+
+## Git Ignore Guard Added
+
+`.gitignore` now blocks root-level legacy scripts and artifacts:
+
+```text
+/*.py
+/*.bat
+/*.cmd
+/*.ps1
+/*.log
+/*.tmp
+/*.bak
+/*.old
+/__pycache__/
+/.pytest_cache/
+/.mypy_cache/
+```
+
+Nested Python remains allowed where it is intentionally part of the local worker or validation tooling.
+
+## Current Validation Position
+
+- Root Python launcher/UI files are not required for the RustApp route.
+- Python worker files remain required until the ASR/translation/TTS inference layer is rewritten in Rust or packaged through another native runtime.
+- Root cleanliness is now checked by a dedicated validator.
+- Real professional readiness still requires local build/package and runtime smoke evidence.
