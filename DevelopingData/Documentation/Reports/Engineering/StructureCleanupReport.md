@@ -22,6 +22,32 @@ EngineData/
   VoiceEngine/
 ```
 
+## Active routes
+
+Application route:
+
+```text
+TranslateIT.vbs -> EngineData/LauncherApp/RustApp
+```
+
+Documentation route:
+
+```text
+DevelopingData/Documentation/
+```
+
+Tooling route:
+
+```text
+DevelopingData/Tooling/Scripts/Execution/
+```
+
+Validation evidence route:
+
+```text
+UserData/LogData/RustAppValidation/
+```
+
 ## Retired paths
 
 These paths are retired and should not return:
@@ -38,24 +64,38 @@ DevelopingData/SampleData/
 DevelopingData/Tests/
 ```
 
-## Active documentation route
+## Python policy
+
+The only approved Python file under `EngineData` is:
 
 ```text
-DevelopingData/Documentation/
+EngineData/LauncherApp/Workers/realtime_local_worker.py
 ```
 
-## Active tooling route
+All other Python launcher/UI/engine modules under `EngineData` are retired. Python validation scripts may live under `DevelopingData/Tooling/Scripts/Execution`.
+
+## Root policy
+
+Expected root:
 
 ```text
-DevelopingData/Tooling/Scripts/Execution/
+.github/
+DevelopingData/
+EngineData/
+Launcher/
+UserData/
+.gitattributes
+.gitignore
+README.md
+TranslateIT.vbs
 ```
 
-## Active application route
-
-```text
-TranslateIT.vbs -> EngineData/LauncherApp/RustApp
-```
+Do not add loose scripts, logs, cache, build output, alternate launcher files, or duplicate documentation roots to the repository root.
 
 ## Important rule
 
-Do not create parallel documentation or runtime folders. Add future documentation under `DevelopingData/Documentation` and future validation tooling under `DevelopingData/Tooling`.
+Do not create parallel documentation, tooling, or runtime folders. Add future documentation under `DevelopingData/Documentation`, future validation tooling under `DevelopingData/Tooling`, runtime code under `EngineData`, and user/runtime output under `UserData`.
+
+## Readiness truth
+
+The structure is cleaner, but professional application readiness still requires target-PC validation evidence for build, packaging, local model readiness, persistent worker smoke, microphone ASR, translation, TTS, and latency.
