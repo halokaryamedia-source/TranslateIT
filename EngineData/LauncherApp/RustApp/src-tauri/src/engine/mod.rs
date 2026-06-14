@@ -13,6 +13,7 @@ pub mod session_store;
 pub mod settings;
 pub mod state;
 pub mod transcript;
+pub mod transcript_session;
 
 use std::path::PathBuf;
 
