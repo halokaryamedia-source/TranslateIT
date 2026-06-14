@@ -13,7 +13,7 @@
 EngineData/LauncherApp/RustApp/src-tauri/src/engine/native_execution.rs
 ```
 
-The native execution boundary now supports both single-stage and batch planning.
+The native execution boundary now supports single-stage planning, batch planning, and a native execution contract result shape.
 
 ## Single-stage planner
 
@@ -36,6 +36,29 @@ It checks:
 - selected device
 - selected compute type
 - blocker reason
+
+## Native execution contract
+
+```text
+prepare_native_execution_contract
+```
+
+Prepares the stable result shape used before real inference is connected:
+
+- segment id
+- stage
+- ready-to-execute flag
+- selected model
+- selected device
+- selected compute type
+- input kind
+- input summary
+- output target
+- queue/preprocess/inference/postprocess/total timing fields
+- error field
+- blocker field
+
+This prevents the app from reporting fake model execution while still giving the native adapter a stable contract.
 
 ## Batch planner
 
@@ -83,7 +106,7 @@ The single-stage command is already exposed as:
 plan_native_execution_step
 ```
 
-The batch planner is available in Rust backend code but has not been exposed to `main.rs` yet because the current command bridge update is being kept conservative while migration continues.
+The batch planner and native execution contract are available in Rust backend code but have not been exposed to `main.rs` yet because the current command bridge update is being kept conservative while migration continues.
 
 ## Validation policy
 
