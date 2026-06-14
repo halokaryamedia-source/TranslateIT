@@ -4,9 +4,8 @@ TranslateIT is a local speech-to-text, translation, and voice-output desktop app
 
 ## Root Layout
 
-- `DeveloperData/` - technical documentation and setup references
-- `DevelopingData/` - documentation, validation scripts, and developer tooling
-- `EngineData/` - Rust/Tauri app, local AI worker, and local model folders
+- `DevelopingData/` - all developer documentation, research, validation scripts, reports, samples, and tooling
+- `EngineData/` - Rust/Tauri app, local AI worker, and local model/runtime asset folders
 - `Launcher/` - reserved launcher packaging assets
 - `UserData/` - runtime cache, logs, and saved user data
 - `TranslateIT.vbs` - single root launcher entry point
@@ -35,4 +34,4 @@ EngineData/LauncherApp/Workers/realtime_local_worker.py
 
 - Runtime cache, logs, local models, and user-generated data stay out of Git by design.
 - Keep `UserData/`, runtime model folders, and environment folders untracked.
-- Keep root clean: no loose Python files, BAT scripts, logs, cache folders, or build output.
+- Keep root clean: no loose Python files, BAT scripts, logs, cache folders, build output, or separate `DeveloperData` tree.
