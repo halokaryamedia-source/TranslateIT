@@ -4,7 +4,7 @@
 
 `DevelopingData` is the single development workspace for TranslateIT.
 
-It now owns all developer-facing documentation, research, reports, samples, validation scripts, and tooling. There is no separate `DeveloperData` root.
+It owns all developer-facing documentation, research, reports, samples, validation scripts, and tooling. There is no separate `DeveloperData`, `DocumentationData`, `Reports`, or `ToolKitData` root.
 
 ## Professional layout
 
@@ -12,29 +12,53 @@ It now owns all developer-facing documentation, research, reports, samples, vali
 DevelopingData/
   README.md
   Documentation/
+    README.md
     Guides/
+    Orientation/
+    Reports/
     Research/
+    Source/
     Templates/
-  DocumentationData/        # existing formal source documents, pending deeper migration
-  Reports/                  # engineering reports, pending deeper migration
-  SampleData/               # safe sample references
-  Tests/                    # validation/test references
-  ToolKitData/              # active validation/tooling scripts used by RustApp package scripts
+  Quality/
+    Diagnostics/
+    Tests/
+  Samples/
+  Tooling/
+    Scripts/
+      Execution/
 ```
 
 ## Current rule
 
-Keep all development material here. Keep runtime engine code in `EngineData`. Keep user cache/logs/saved work in `UserData`.
+Keep all development material here. Keep runtime engine code in `EngineData`. Keep user cache, logs, and saved work in `UserData`.
+
+## Active documentation route
+
+```text
+DevelopingData/Documentation
+```
 
 ## Active tooling route
 
-The RustApp package scripts currently call validation tools from:
-
 ```text
-DevelopingData/ToolKitData/Scripts/Execution
+DevelopingData/Tooling/Scripts/Execution
 ```
 
-That folder remains active until the full validation path migration is completed. Do not create random top-level tool folders.
+## Retired paths
+
+Do not recreate:
+
+```text
+DeveloperData/
+DevelopingData/DocumentationData/
+DevelopingData/Reports/
+DevelopingData/ToolKitData/
+DevelopingData/Diagnostics/
+DevelopingData/Docs/
+DevelopingData/LauncherHelpers/
+DevelopingData/SampleData/
+DevelopingData/Tests/
+```
 
 ## Must not be placed here
 
@@ -49,5 +73,7 @@ That folder remains active until the full validation path migration is completed
 
 - Use English only.
 - Use clear module names.
-- Prefer `Documentation`, `Reports`, `SampleData`, `Tests`, and `ToolKitData` ownership instead of ad hoc folders.
-- Future cleanup should migrate `DocumentationData` into `Documentation/Source` and reports into `Documentation/Reports` only after all references are updated.
+- Keep documentation under `Documentation`.
+- Keep executable validation tooling under `Tooling`.
+- Keep quality references under `Quality`.
+- Keep safe sample references under `Samples`.
