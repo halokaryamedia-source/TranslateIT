@@ -25,10 +25,11 @@ Actual application/client readiness remains lower until these are proven locally
 ## Active runtime route
 
 ```text
+TranslateIT.cmd -> packaged TranslateIT app or NSIS installer
 EngineData/LauncherApp/RustApp -> Tauri packaged TranslateIT app
 ```
 
-Root script launchers are retired. Developer mode remains inside `EngineData/LauncherApp/RustApp` through npm/Tauri commands.
+`TranslateIT.cmd` is a convenience root shortcut only. It must not start the dev server, browser route, Python UI, or worker directly. Developer mode remains inside `EngineData/LauncherApp/RustApp` through npm/Tauri commands.
 
 ## Engine ownership
 
@@ -127,6 +128,14 @@ DevelopingData/ToolKitData/
 ```text
 TranslateIT.vbs
 ```
+
+## UI preview
+
+```text
+Launcher/Preview/TranslateIT_UI_Preview.html
+```
+
+This preview is for design review only and is not a runtime route.
 
 ## Professional rules
 
