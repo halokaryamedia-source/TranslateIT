@@ -4,6 +4,7 @@ pub mod calibration_flow;
 pub mod device;
 pub mod evidence;
 pub mod input;
+pub mod input_config;
 pub mod noise_filter;
 pub mod preprocess;
 pub mod vad;
