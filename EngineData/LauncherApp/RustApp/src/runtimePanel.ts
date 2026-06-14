@@ -18,6 +18,7 @@ export type RuntimePanelModel = {
   canStart: boolean;
   canStop: boolean;
   canPrepareCaptureStream: boolean;
+  hasTargetInputConfig: boolean;
   canMoveToReview: boolean;
   visibleWarnings: string[];
 };
@@ -31,6 +32,7 @@ export async function loadRuntimePanelModel(): Promise<RuntimePanelModel> {
   const canStart = status.readiness.ready_for_start_command && !status.readiness.session_state.has_active_session;
   const canStop = status.readiness.ready_for_stop_command || status.readiness.session_state.has_active_session;
   const canPrepareCaptureStream = status.readiness.ready_for_capture_stream_creation;
+  const hasTargetInputConfig = status.readiness.capture_bridge.input_config_probe.supports_target_format;
   const canMoveToReview = closure.ready_for_review;
   const visibleWarnings = buildVisibleWarnings(status, closure);
 
@@ -43,6 +45,7 @@ export async function loadRuntimePanelModel(): Promise<RuntimePanelModel> {
     canStart,
     canStop,
     canPrepareCaptureStream,
+    hasTargetInputConfig,
     canMoveToReview,
     visibleWarnings,
   };
@@ -54,8 +57,10 @@ export function renderRuntimePanelText(model: RuntimePanelModel): string {
     `Can start: ${model.canStart}`,
     `Can stop: ${model.canStop}`,
     `Can prepare capture stream: ${model.canPrepareCaptureStream}`,
+    `Has target input config: ${model.hasTargetInputConfig}`,
     `Can move to review: ${model.canMoveToReview}`,
     model.status.summary,
+    model.status.readiness.capture_bridge.input_config_probe.note,
     model.status.readiness.capture_bridge.note,
     model.status.readiness.note,
     model.closure.note,
@@ -73,7 +78,11 @@ function buildVisibleWarnings(
     ...status.readiness.blockers,
     ...closure.blockers,
   ];
+  const inputConfig = status.readiness.capture_bridge.input_config_probe;
 
+  if (!inputConfig.ready_for_capture_bridge) {
+    warnings.push(`Input config blocked: ${inputConfig.note}`);
+  }
   if (!status.readiness.ready_for_capture_stream_creation) {
     warnings.push(`Capture bridge blocked: ${status.readiness.capture_bridge.note}`);
   }
