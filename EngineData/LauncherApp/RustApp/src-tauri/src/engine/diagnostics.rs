@@ -70,6 +70,7 @@ impl RuntimeDiagnostics {
             translation.blocker_note().to_string(),
             tts.blocker_note().to_string(),
             backend_validation.blocker.clone(),
+            "Native execution contract is prepared; real inference backend still must be connected before Ready.".to_string(),
             path_note("User cache", &project_paths.user_cache_dir),
             path_note("User log", &project_paths.user_log_dir),
             path_note("User saved", &project_paths.user_saved_dir),
