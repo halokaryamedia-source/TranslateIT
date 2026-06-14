@@ -1,5 +1,8 @@
 use serde::Serialize;
 
+use crate::engine::adapters::live_asr_boundary_logic::{
+    analyze_live_asr_boundary, LiveAsrBoundaryReport,
+};
 use crate::engine::adapters::runtime_readiness_bundle_logic::{
     analyze_runtime_readiness_bundle, RuntimeReadinessBundleReport,
 };
@@ -22,6 +25,7 @@ pub struct RuntimeStatusBundleReport {
     pub live_capture: LiveCaptureStatusReport,
     pub live_audio_buffer: LiveAudioBufferStatusReport,
     pub live_target_segment: LiveTargetSegmentReport,
+    pub live_asr_boundary: LiveAsrBoundaryReport,
     pub next_action: String,
     pub summary: String,
 }
@@ -36,8 +40,13 @@ pub fn build_runtime_status_bundle() -> RuntimeStatusBundleReport {
     let live_capture = live_capture_status();
     let live_audio_buffer = live_audio_buffer_status();
     let live_target_segment = live_target_segment_snapshot();
-    let next_action = if live_target_segment.ready {
-        "send_target_segment_to_asr_execution".to_string()
+    let live_asr_boundary = analyze_live_asr_boundary();
+    let next_action = if live_asr_boundary.ready_for_decoder_call {
+        "call_native_asr_decoder".to_string()
+    } else if live_asr_boundary.input_ready {
+        "resolve_asr_model_backend_or_decoder".to_string()
+    } else if live_target_segment.ready {
+        "prepare_live_asr_boundary".to_string()
     } else if live_audio_buffer.ready_for_target_asr_frame {
         "extract_target_asr_frame".to_string()
     } else if live_audio_buffer.ready_for_vad {
@@ -56,7 +65,7 @@ pub fn build_runtime_status_bundle() -> RuntimeStatusBundleReport {
         "start_microphone_only_capture".to_string()
     };
     let summary = format!(
-        "start={}, stop={}, active_session={}, capture_gate={}, live_capture={}, frames_received={}, buffer_ms={}, vad={}, target_frame={}, target_samples={}, user_runtime={}, blockers={}",
+        "start={}, stop={}, active_session={}, capture_gate={}, live_capture={}, frames_received={}, buffer_ms={}, vad={}, target_frame={}, asr_input={}, asr_model={}, asr_backend={}, decoder={}, user_runtime={}, blockers={}",
         readiness.ready_for_start_command,
         readiness.ready_for_stop_command,
         readiness.session_state.has_active_session,
@@ -66,13 +75,17 @@ pub fn build_runtime_status_bundle() -> RuntimeStatusBundleReport {
         live_audio_buffer.buffered_duration_ms,
         live_audio_buffer.ready_for_vad,
         live_target_segment.ready,
-        live_target_segment.target_sample_count,
+        live_asr_boundary.input_ready,
+        live_asr_boundary.model_ready,
+        live_asr_boundary.backend_ready,
+        live_asr_boundary.decoder_connected,
         readiness.ready_for_user_facing_runtime,
         readiness.blockers.len()
             + capture_gate.blockers.len()
             + usize::from(!live_capture.blocker.is_empty())
             + usize::from(!live_audio_buffer.blocker.is_empty())
             + usize::from(!live_target_segment.blocker.is_empty())
+            + usize::from(!live_asr_boundary.blocker.is_empty())
     );
 
     RuntimeStatusBundleReport {
@@ -82,6 +95,7 @@ pub fn build_runtime_status_bundle() -> RuntimeStatusBundleReport {
         live_capture,
         live_audio_buffer,
         live_target_segment,
+        live_asr_boundary,
         next_action,
         summary,
     }
