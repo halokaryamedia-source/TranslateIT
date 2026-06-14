@@ -1,0 +1,143 @@
+use serde::{Deserialize, Serialize};
+
+use crate::engine::audio::noise_filter::{classify_noise, AudioNoiseAssessment, NoiseAssessmentRequest};
+use crate::engine::audio::preprocess::{preprocess_audio, AudioPreprocessRequest, PreprocessingResult};
+use crate::engine::audio::vad::{evaluate_segment_decision, VadDecisionReport, VadSegmentDecisionRequest};
+
+use super::asr_model_logic::{build_asr_profile_plan, AsrProfilePlan, AsrProfileRequest};
+use super::asr_quality_logic::{evaluate_asr_quality, AsrQualityLogicDecision, AsrQualityLogicRequest};
+use super::language_logic::{run_language_logic, LanguageLogicReport, LanguageLogicRequest};
+use super::latency_logic::{build_latency_logic, LatencyLogicReport, LatencyLogicRequest};
+use super::pipeline_logic::{check_stale_job, decide_pipeline, PipelineDecisionReport, PipelineDecisionRequest, StaleJobGuardReport, StaleJobGuardRequest};
+use super::playback_logic::{plan_playback, PlaybackLogicRequest, PlaybackLogicResult};
+use super::translation_logic::{run_translation_logic, TranslationLogicRequest, TranslationLogicResult};
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct RuntimeOrchestrationRequest {
+    pub segment_id: String,
+    pub capture_mode: String,
+    pub preprocess: AudioPreprocessRequest,
+    pub noise: NoiseAssessmentRequest,
+    pub vad: VadSegmentDecisionRequest,
+    pub asr_profile: AsrProfileRequest,
+    pub asr_quality: AsrQualityLogicRequest,
+    pub language: LanguageLogicRequest,
+    pub latency: LatencyLogicRequest,
+    pub pipeline: PipelineDecisionRequest,
+    pub stale_guard: StaleJobGuardRequest,
+    pub translation: TranslationLogicRequest,
+    pub playback: PlaybackLogicRequest,
+}
+
+#[derive(Debug, Clone, Serialize)]
+pub struct RuntimeOrchestrationReport {
+    pub segment_id: String,
+    pub accepted: bool,
+    pub stage: String,
+    pub summary: String,
+    pub preprocess: PreprocessingResult,
+    pub noise: AudioNoiseAssessment,
+    pub vad: VadDecisionReport,
+    pub asr_profile: AsrProfilePlan,
+    pub asr_quality: AsrQualityLogicDecision,
+    pub language: LanguageLogicReport,
+    pub latency: LatencyLogicReport,
+    pub pipeline: PipelineDecisionReport,
+    pub stale_guard: StaleJobGuardReport,
+    pub translation: TranslationLogicResult,
+    pub playback: PlaybackLogicResult,
+    pub blockers: Vec<String>,
+}
+
+pub fn run_runtime_orchestration(mut request: RuntimeOrchestrationRequest) -> RuntimeOrchestrationReport {
+    let preprocess = preprocess_audio(request.preprocess.clone());
+    let noise = classify_noise(request.noise.clone());
+    let vad = evaluate_segment_decision(request.vad.clone());
+    let asr_profile = build_asr_profile_plan(request.asr_profile.clone());
+    let asr_quality = evaluate_asr_quality(request.asr_quality.clone());
+    let language = run_language_logic(request.language.clone());
+    let latency = build_latency_logic(request.latency.clone());
+    let stale_guard = check_stale_job(request.stale_guard.clone());
+
+    request.pipeline.vad_accepted = vad.accepted && !noise.matched;
+    request.pipeline.should_translate = language.should_translate;
+    request.pipeline.asr_ready = asr_profile.ready_for_native_execution;
+    request.pipeline.translation_ready = request.translation.backend_ready;
+    let pipeline = decide_pipeline(request.pipeline.clone());
+
+    let mut translation_request = request.translation.clone();
+    translation_request.detected_language = Some(language.inferred_language_bias.clone());
+    translation_request.source_text = if language.normalized_short_source_text.trim().is_empty() {
+        translation_request.source_text
+    } else {
+        language.normalized_short_source_text.clone()
+    };
+    let translation = run_translation_logic(translation_request);
+
+    let playback = plan_playback(request.playback.clone());
+    let blockers = build_blockers(&noise, &vad, &asr_profile, &asr_quality, &pipeline, &stale_guard, &translation, &playback);
+    let accepted = blockers.is_empty();
+    let stage = if accepted { "planned" } else { "blocked" }.to_string();
+    let summary = if accepted {
+        "Runtime orchestration plan accepted. Native model execution may proceed when adapters are connected.".to_string()
+    } else {
+        format!("Runtime orchestration blocked by {} guard(s).", blockers.len())
+    };
+
+    RuntimeOrchestrationReport {
+        segment_id: request.segment_id,
+        accepted,
+        stage,
+        summary,
+        preprocess,
+        noise,
+        vad,
+        asr_profile,
+        asr_quality,
+        language,
+        latency,
+        pipeline,
+        stale_guard,
+        translation,
+        playback,
+        blockers,
+    }
+}
+
+fn build_blockers(
+    noise: &AudioNoiseAssessment,
+    vad: &VadDecisionReport,
+    asr_profile: &AsrProfilePlan,
+    asr_quality: &AsrQualityLogicDecision,
+    pipeline: &PipelineDecisionReport,
+    stale_guard: &StaleJobGuardReport,
+    translation: &TranslationLogicResult,
+    playback: &PlaybackLogicResult,
+) -> Vec<String> {
+    let mut blockers = Vec::new();
+    if noise.matched {
+        blockers.push(format!("noise:{}", noise.category));
+    }
+    if !vad.accepted {
+        blockers.push(format!("vad:{}", vad.reason));
+    }
+    if !asr_profile.ready_for_native_execution {
+        blockers.push("asr_model:not_ready".to_string());
+    }
+    if !asr_quality.accepted {
+        blockers.push(format!("asr_quality:{}", asr_quality.reason));
+    }
+    if !pipeline.accepted || pipeline.asr_status == "blocked" || pipeline.translation_status == "blocked" {
+        blockers.push(format!("pipeline:{}:{}", pipeline.asr_status, pipeline.translation_status));
+    }
+    if stale_guard.stale_job_rejected {
+        blockers.push(format!("stale_job:{}", stale_guard.reason));
+    }
+    if matches!(translation.status.as_str(), "PendingIntegration" | "Error") {
+        blockers.push(format!("translation:{}", translation.status));
+    }
+    if matches!(playback.status.as_str(), "Unavailable" | "Unsupported") {
+        blockers.push(format!("playback:{}", playback.status));
+    }
+    blockers
+}
