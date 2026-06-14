@@ -104,7 +104,7 @@ pub fn clear_runtime_handoff_state() -> RuntimeHandoffStateReport {
         max_snapshot_age_ms: MAX_HANDOFF_SNAPSHOT_AGE_MS,
         ready_for_start: false,
         blocker: "handoff:cleared".to_string(),
-        note: "Realtime handoff snapshot was cleared. Run Realtime Handoff again before Start.".to_string(),
+        note: "Realtime handoff snapshot was cleared. Run Realtime Handoff again before full pipeline Start.".to_string(),
     }
 }
 
@@ -141,15 +141,28 @@ pub fn record_runtime_session_start(handoff_state: &RuntimeHandoffStateReport) -
         native_execution_active: false,
         transcript_persistence_active: false,
         safe_to_stop: true,
-        note: "Runtime session ownership was recorded after Start gate approval. Real microphone stream creation is still pending.".to_string(),
+        note: "Runtime session ownership was recorded after Start gate approval. Live capture stream may now be opened.".to_string(),
     };
 
-    let store = RUNTIME_SESSION_STATE.get_or_init(|| Mutex::new(None));
-    if let Ok(mut guard) = store.lock() {
-        *guard = Some(session_snapshot.clone());
-    }
+    store_runtime_session_snapshot(session_snapshot)
+}
 
-    build_session_state_report(Some(session_snapshot))
+pub fn record_direct_live_capture_session() -> RuntimeSessionStateReport {
+    let now = current_unix_ms();
+    let session_snapshot = RuntimeSessionSnapshot {
+        started_unix_ms: now,
+        owner_id: "translateit_rust_live_capture".to_string(),
+        session_id: format!("live_capture_{now}"),
+        handoff_recorded_unix_ms: now,
+        phase: "live_capture_only".to_string(),
+        live_capture_stream_active: false,
+        native_execution_active: false,
+        transcript_persistence_active: false,
+        safe_to_stop: true,
+        note: "Direct live-capture session was created for microphone stream ownership only. Full ASR/translation/TTS handoff remains pending.".to_string(),
+    };
+
+    store_runtime_session_snapshot(session_snapshot)
 }
 
 pub fn latest_runtime_session_state() -> RuntimeSessionStateReport {
@@ -176,6 +189,15 @@ pub fn clear_runtime_session_state() -> RuntimeSessionStateReport {
     }
 }
 
+fn store_runtime_session_snapshot(session_snapshot: RuntimeSessionSnapshot) -> RuntimeSessionStateReport {
+    let store = RUNTIME_SESSION_STATE.get_or_init(|| Mutex::new(None));
+    if let Ok(mut guard) = store.lock() {
+        *guard = Some(session_snapshot.clone());
+    }
+
+    build_session_state_report(Some(session_snapshot))
+}
+
 fn build_handoff_state_report(snapshot: Option<RuntimeHandoffSnapshot>) -> RuntimeHandoffStateReport {
     match snapshot {
         Some(snapshot) => {
@@ -198,7 +220,7 @@ fn build_handoff_state_report(snapshot: Option<RuntimeHandoffSnapshot>) -> Runti
                 )
             } else if snapshot_stale {
                 format!(
-                    "Latest realtime handoff snapshot is stale. age_ms={}, max_age_ms={}. Run Realtime Handoff again before Start.",
+                    "Latest realtime handoff snapshot is stale. age_ms={}, max_age_ms={}. Run Realtime Handoff again before full pipeline Start.",
                     snapshot_age_ms, MAX_HANDOFF_SNAPSHOT_AGE_MS
                 )
             } else {
@@ -226,7 +248,7 @@ fn build_handoff_state_report(snapshot: Option<RuntimeHandoffSnapshot>) -> Runti
             max_snapshot_age_ms: MAX_HANDOFF_SNAPSHOT_AGE_MS,
             ready_for_start: false,
             blocker: "handoff:no_snapshot".to_string(),
-            note: "No realtime handoff snapshot has been recorded yet. Use Realtime Handoff before Start.".to_string(),
+            note: "No realtime handoff snapshot has been recorded yet. Start can still create a microphone-only live-capture session, but full ASR/translation/TTS handoff remains pending.".to_string(),
         },
     }
 }
@@ -237,11 +259,11 @@ fn build_session_state_report(snapshot: Option<RuntimeSessionSnapshot>) -> Runti
             let active_age_ms = current_unix_ms().saturating_sub(snapshot.started_unix_ms);
             RuntimeSessionStateReport {
                 has_active_session: true,
-                snapshot: Some(snapshot),
+                snapshot: Some(snapshot.clone()),
                 active_age_ms: Some(active_age_ms),
                 ready_for_stop: true,
                 blocker: String::new(),
-                note: format!("Runtime session is active in preparing phase. age_ms={active_age_ms}. Real stream is not active yet."),
+                note: format!("Runtime session is active in {} phase. age_ms={active_age_ms}.", snapshot.phase),
             }
         }
         None => RuntimeSessionStateReport {
