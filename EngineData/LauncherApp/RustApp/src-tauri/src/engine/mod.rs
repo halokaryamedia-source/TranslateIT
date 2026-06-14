@@ -25,7 +25,7 @@ use cuda_policy::CudaPolicyReport;
 use diagnostics::RuntimeDiagnostics;
 use logging::{write_jsonl_event, RuntimeLogEvent};
 use paths::ProjectPaths;
-use runtime_state::clear_runtime_handoff_state;
+use runtime_state::{clear_runtime_handoff_state, clear_runtime_session_state, record_runtime_session_start};
 use settings::RuntimeSettings;
 use state::{CommandResult, EngineStatus, LifecycleState, RuntimeStage};
 
@@ -119,15 +119,25 @@ pub fn start_capture() -> CommandResult {
         RuntimeLogEvent::warning("start_gate", message.clone())
     };
     let _ = write_jsonl_event(
-        &PathBuf::from(project_paths.user_log_dir),
+        &PathBuf::from(&project_paths.user_log_dir),
         "rust_runtime_latest.jsonl",
         &event,
     );
 
     if gate.allowed {
+        let session_state = record_runtime_session_start(handoff_state);
+        let session_note = format!(
+            "Runtime session ownership recorded: active={}, ready_for_stop={}, note={}",
+            session_state.has_active_session, session_state.ready_for_stop, session_state.note
+        );
+        let _ = write_jsonl_event(
+            &PathBuf::from(project_paths.user_log_dir),
+            "rust_runtime_latest.jsonl",
+            &RuntimeLogEvent::info("runtime_session", session_note.clone()),
+        );
         CommandResult::ok(
             LifecycleState::Preparing,
-            format!("{message}. Real microphone stream creation is still deferred to runtime integration."),
+            format!("{message}. {session_note}. Real microphone stream creation is still deferred to runtime integration."),
         )
     } else {
         CommandResult::blocked(LifecycleState::ConversionPending, message)
@@ -136,10 +146,11 @@ pub fn start_capture() -> CommandResult {
 
 pub fn stop_capture() -> CommandResult {
     let project_paths = ProjectPaths::discover();
-    let cleared_state = clear_runtime_handoff_state();
+    let cleared_session = clear_runtime_session_state();
+    let cleared_handoff = clear_runtime_handoff_state();
     let message = format!(
-        "Stop was received by Rust runtime. No Rust input session is active yet. {}",
-        cleared_state.note
+        "Stop was received by Rust runtime. {} {}",
+        cleared_session.note, cleared_handoff.note
     );
     let _ = write_jsonl_event(
         &PathBuf::from(project_paths.user_log_dir),
