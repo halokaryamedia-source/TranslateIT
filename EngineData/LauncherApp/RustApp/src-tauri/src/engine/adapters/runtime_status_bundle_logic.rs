@@ -6,6 +6,9 @@ use crate::engine::adapters::live_asr_boundary_logic::{
 use crate::engine::adapters::live_translation_boundary_logic::{
     analyze_live_translation_boundary, LiveTranslationBoundaryReport,
 };
+use crate::engine::adapters::live_tts_boundary_logic::{
+    analyze_live_tts_boundary, LiveTtsBoundaryReport,
+};
 use crate::engine::adapters::native_asr_decoder_logic::{
     analyze_native_asr_decoder_bridge, NativeAsrDecoderBridgeReport,
 };
@@ -34,6 +37,7 @@ pub struct RuntimeStatusBundleReport {
     pub live_asr_boundary: LiveAsrBoundaryReport,
     pub native_asr_decoder: NativeAsrDecoderBridgeReport,
     pub live_translation_boundary: LiveTranslationBoundaryReport,
+    pub live_tts_boundary: LiveTtsBoundaryReport,
     pub next_action: String,
     pub summary: String,
 }
@@ -51,8 +55,11 @@ pub fn build_runtime_status_bundle() -> RuntimeStatusBundleReport {
     let live_asr_boundary = analyze_live_asr_boundary();
     let native_asr_decoder = analyze_native_asr_decoder_bridge();
     let live_translation_boundary = analyze_live_translation_boundary();
-    let next_action = if live_translation_boundary.ok {
-        "send_translation_to_tts".to_string()
+    let live_tts_boundary = analyze_live_tts_boundary();
+    let next_action = if live_tts_boundary.ok {
+        "play_translated_audio_output".to_string()
+    } else if live_translation_boundary.ok {
+        "call_tts_or_playback_output".to_string()
     } else if native_asr_decoder.ok {
         "call_native_translation_decoder".to_string()
     } else if live_asr_boundary.ready_for_decoder_call {
@@ -79,7 +86,7 @@ pub fn build_runtime_status_bundle() -> RuntimeStatusBundleReport {
         "start_microphone_only_capture".to_string()
     };
     let summary = format!(
-        "start={}, stop={}, active_session={}, capture_gate={}, live_capture={}, frames_received={}, buffer_ms={}, vad={}, target_frame={}, asr_input={}, asr_model={}, asr_backend={}, decoder_connected={}, transcript={}, translation={}, user_runtime={}, blockers={}",
+        "start={}, stop={}, active_session={}, capture_gate={}, live_capture={}, frames_received={}, buffer_ms={}, vad={}, target_frame={}, asr_input={}, asr_model={}, asr_backend={}, decoder_connected={}, transcript={}, translation={}, tts={}, playback={}, user_runtime={}, blockers={}",
         readiness.ready_for_start_command,
         readiness.ready_for_stop_command,
         readiness.session_state.has_active_session,
@@ -95,6 +102,8 @@ pub fn build_runtime_status_bundle() -> RuntimeStatusBundleReport {
         native_asr_decoder.decoder_connected,
         native_asr_decoder.transcript_text.is_some(),
         live_translation_boundary.translated_text.is_some(),
+        live_tts_boundary.output_audio_ready,
+        live_tts_boundary.playback_ready,
         readiness.ready_for_user_facing_runtime,
         readiness.blockers.len()
             + capture_gate.blockers.len()
@@ -104,6 +113,7 @@ pub fn build_runtime_status_bundle() -> RuntimeStatusBundleReport {
             + usize::from(!live_asr_boundary.blocker.is_empty())
             + usize::from(!native_asr_decoder.blocker.is_empty())
             + usize::from(!live_translation_boundary.blocker.is_empty())
+            + usize::from(!live_tts_boundary.blocker.is_empty())
     );
 
     RuntimeStatusBundleReport {
@@ -116,6 +126,7 @@ pub fn build_runtime_status_bundle() -> RuntimeStatusBundleReport {
         live_asr_boundary,
         native_asr_decoder,
         live_translation_boundary,
+        live_tts_boundary,
         next_action,
         summary,
     }
