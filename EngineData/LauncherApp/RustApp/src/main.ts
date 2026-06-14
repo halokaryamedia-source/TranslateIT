@@ -541,17 +541,22 @@ function buildSegmentRequest(session: TranscriptSessionRecord, source: string): 
   };
 }
 
-function buildSegmentFlowRequest(source: string): SegmentFlowRequest {
+function buildSegmentFlowRequest(
+  source: string,
+  diagnostics: RuntimeDiagnostics,
+  bufferStatus: AudioBufferStatus,
+): SegmentFlowRequest {
   const session = buildDraftTranscriptSession(source);
   const segment = buildSegmentRequest(session, source);
+  const hasSource = Boolean(source);
   return {
-    capture_ready: Boolean(source),
+    capture_ready: hasSource && diagnostics.input_preparation_status.prepared,
     session_id: session.session_id,
     next_segment_id: segment.segment_id,
     segment,
-    vad_accepted: Boolean(source),
-    asr_ready: false,
-    translation_ready: false,
+    vad_accepted: hasSource && bufferStatus.ready_for_vad,
+    asr_ready: diagnostics.asr_adapter_plan.ready,
+    translation_ready: diagnostics.translation_adapter_plan.ready,
   };
 }
 
@@ -673,7 +678,11 @@ ui.sessionStateButton.addEventListener("click", async () => {
 
 ui.segmentFlowButton.addEventListener("click", async () => {
   const source = ui.sourceText.value.trim();
-  const request = buildSegmentFlowRequest(source);
+  const [diagnostics, bufferStatus] = await Promise.all([
+    invoke<RuntimeDiagnostics>("get_runtime_diagnostics"),
+    invoke<AudioBufferStatus>("get_audio_buffer_status"),
+  ]);
+  const request = buildSegmentFlowRequest(source, diagnostics, bufferStatus);
   const report = await invoke<SegmentFlowReport>("analyze_segment_flow_state", { request });
   renderSegmentFlow(report);
 });
