@@ -34,6 +34,27 @@ export type RuntimeLifecycleGateReport = {
   note: string;
 };
 
+export type RuntimeReadinessStage = {
+  stage: string;
+  ready: boolean;
+  blocker: string;
+  note: string;
+};
+
+export type RuntimeReadinessBundleReport = {
+  ready_for_start_command: boolean;
+  ready_for_live_capture_runtime: boolean;
+  ready_for_native_inference_runtime: boolean;
+  ready_for_transcript_persistence: boolean;
+  ready_for_user_facing_runtime: boolean;
+  handoff_state: RuntimeHandoffStateReport;
+  start_gate: RuntimeLifecycleGateReport;
+  stop_gate: RuntimeLifecycleGateReport;
+  stages: RuntimeReadinessStage[];
+  blockers: string[];
+  note: string;
+};
+
 export type RuntimeLifecycleSummary = {
   label: string;
   allowed: boolean;
@@ -47,6 +68,10 @@ export async function analyzeStartGate(): Promise<RuntimeLifecycleGateReport> {
 
 export async function analyzeStopGate(): Promise<RuntimeLifecycleGateReport> {
   return invoke<RuntimeLifecycleGateReport>("analyze_stop_gate");
+}
+
+export async function analyzeRuntimeReadiness(): Promise<RuntimeReadinessBundleReport> {
+  return invoke<RuntimeReadinessBundleReport>("analyze_runtime_readiness");
 }
 
 export async function getRuntimeHandoffState(): Promise<RuntimeHandoffStateReport> {
@@ -82,6 +107,29 @@ export function summarizeLifecycleGate(report: RuntimeLifecycleGateReport): Runt
     label: report.allowed ? `${report.action}: allowed` : `${report.action}: blocked`,
     allowed: report.allowed,
     lifecycle_state: report.lifecycle_state,
+    details,
+  };
+}
+
+export function summarizeReadinessBundle(report: RuntimeReadinessBundleReport): RuntimeLifecycleSummary {
+  const details = [
+    `Ready for Start command: ${report.ready_for_start_command}`,
+    `Ready for live capture runtime: ${report.ready_for_live_capture_runtime}`,
+    `Ready for native inference runtime: ${report.ready_for_native_inference_runtime}`,
+    `Ready for transcript persistence: ${report.ready_for_transcript_persistence}`,
+    `Ready for user-facing runtime: ${report.ready_for_user_facing_runtime}`,
+    `Handoff state: ${report.handoff_state.note}`,
+    `Start gate: ${report.start_gate.note}`,
+    `Stop gate: ${report.stop_gate.note}`,
+    ...report.stages.map((stage) => `${stage.stage}: ready=${stage.ready}, blocker=${stage.blocker || "none"}`),
+    ...report.blockers.map((blocker) => `Blocker: ${blocker}`),
+    report.note,
+  ];
+
+  return {
+    label: report.ready_for_user_facing_runtime ? "runtime: user-facing ready" : "runtime: blocked",
+    allowed: report.ready_for_start_command,
+    lifecycle_state: report.ready_for_user_facing_runtime ? "ready" : "blocked",
     details,
   };
 }
