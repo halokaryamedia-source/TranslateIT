@@ -37,6 +37,8 @@ def main() -> int:
         ENGINE_SRC / "audio" / "calibration_flow.rs",
         ENGINE_SRC / "audio" / "evidence.rs",
         ENGINE_SRC / "audio" / "vad.rs",
+        ENGINE_SRC / "audio" / "live_capture.rs",
+        ENGINE_SRC / "audio" / "live_audio_buffer.rs",
         ENGINE_SRC / "inference" / "mod.rs",
         ENGINE_SRC / "inference" / "backend.rs",
         ENGINE_SRC / "inference" / "cuda_probe.rs",
@@ -44,6 +46,13 @@ def main() -> int:
         ENGINE_SRC / "adapters" / "asr.rs",
         ENGINE_SRC / "adapters" / "translation.rs",
         ENGINE_SRC / "adapters" / "tts.rs",
+        ENGINE_SRC / "adapters" / "live_asr_boundary_logic.rs",
+        ENGINE_SRC / "adapters" / "native_asr_decoder_logic.rs",
+        ENGINE_SRC / "adapters" / "live_translation_boundary_logic.rs",
+        ENGINE_SRC / "adapters" / "live_tts_boundary_logic.rs",
+        ENGINE_SRC / "adapters" / "live_runtime_pipeline_gate_logic.rs",
+        ENGINE_SRC / "adapters" / "live_pipeline_compact_status_logic.rs",
+        ENGINE_SRC / "adapters" / "internal_validation_gate_logic.rs",
     ]
     missing = [str(path.relative_to(ROOT)) for path in required if not path.exists()]
     if missing:
@@ -51,7 +60,7 @@ def main() -> int:
         for item in missing:
             print("-", item)
         return 1
-    print("PASS: RustApp scaffold, runtime support, audio input, audio buffer, calibration flow, inference, CUDA probe, and engine contract files are present")
+    print("PASS: RustApp scaffold, runtime support, live capture, live pipeline boundaries, validation gate, inference, CUDA probe, and engine contract files are present")
     print("RUST_APP:", RUST_APP.relative_to(ROOT))
     print("ENTRYPOINT:", (TAURI_SRC / "main.rs").relative_to(ROOT))
     return 0
