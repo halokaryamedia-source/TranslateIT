@@ -12,7 +12,7 @@ use super::inference::backend::NativeInferenceBackendSelection;
 use super::inference::backend_validation::NativeCudaBackendValidationReport;
 use super::inference::cuda_probe::CudaProbeReport;
 use super::paths::ProjectPaths;
-use super::runtime_state::{latest_runtime_handoff_state, RuntimeHandoffStateReport};
+use super::runtime_state::{latest_runtime_handoff_state, latest_runtime_session_state, RuntimeHandoffStateReport, RuntimeSessionStateReport};
 use super::session_store::{current_session_store_status, SessionStoreStatus};
 
 #[derive(Debug, Clone, Serialize)]
@@ -25,6 +25,7 @@ pub struct RuntimeDiagnostics {
     pub calibration_profile_status: CalibrationProfileStatus,
     pub session_store_status: SessionStoreStatus,
     pub runtime_handoff_state: RuntimeHandoffStateReport,
+    pub runtime_session_state: RuntimeSessionStateReport,
     pub cuda_probe: CudaProbeReport,
     pub backend_validation: NativeCudaBackendValidationReport,
     pub native_inference_candidates: Vec<NativeInferenceBackendSelection>,
@@ -47,6 +48,7 @@ impl RuntimeDiagnostics {
         );
         let session_store_status = current_session_store_status();
         let runtime_handoff_state = latest_runtime_handoff_state();
+        let runtime_session_state = latest_runtime_session_state();
         let cuda_probe = CudaProbeReport::probe_host();
         let backend_validation = NativeCudaBackendValidationReport::validate_ctranslate2_cuda_candidate();
         let ctranslate2_candidate = NativeInferenceBackendSelection::ctranslate2_candidate();
@@ -55,7 +57,7 @@ impl RuntimeDiagnostics {
             ctranslate2_candidate.clone(),
             NativeInferenceBackendSelection::onnxruntime_candidate(),
             NativeInferenceBackendSelection::pending_cuda_selection(
-                "Native CUDA inference backend selection is still pending final parity and packaging validation.",
+                "Native CUDA inference backend selection is pending final parity and packaging validation.",
             ),
         ];
 
@@ -75,7 +77,9 @@ impl RuntimeDiagnostics {
             backend_validation.blocker.clone(),
             runtime_handoff_state.blocker.clone(),
             runtime_handoff_state.note.clone(),
-            "Native execution contract is prepared; real inference backend still must be connected before Ready.".to_string(),
+            runtime_session_state.blocker.clone(),
+            runtime_session_state.note.clone(),
+            "Real inference backend is not connected yet.".to_string(),
             path_note("User cache", &project_paths.user_cache_dir),
             path_note("User log", &project_paths.user_log_dir),
             path_note("User saved", &project_paths.user_saved_dir),
@@ -100,6 +104,7 @@ impl RuntimeDiagnostics {
             calibration_profile_status,
             session_store_status,
             runtime_handoff_state,
+            runtime_session_state,
             cuda_probe,
             backend_validation,
             native_inference_candidates,
