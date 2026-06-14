@@ -4,21 +4,22 @@ import json
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[4]
+RUNTIME_ASSETS = ROOT / "EngineData" / "RuntimeAssets"
 MODEL_TARGETS = {
     "asr_faster_whisper_large_v3_turbo": {
-        "path": ROOT / "EngineData" / "TranscriptEngine" / "ModelData" / "faster-whisper-large-v3-turbo",
+        "path": RUNTIME_ASSETS / "ASR" / "ModelData" / "faster-whisper-large-v3-turbo",
         "required_files": ["model.bin"],
     },
     "translation_marianmt_id_en": {
-        "path": ROOT / "EngineData" / "TranslateEngine" / "ModelData" / "marianmt-id-en",
+        "path": RUNTIME_ASSETS / "Translation" / "ModelData" / "marianmt-id-en",
         "required_files": ["config.json"],
     },
     "translation_nllb_200_distilled_600m": {
-        "path": ROOT / "EngineData" / "TranslateEngine" / "ModelData" / "nllb-200-distilled-600M",
+        "path": RUNTIME_ASSETS / "Translation" / "ModelData" / "nllb-200-distilled-600M",
         "required_files": ["config.json"],
     },
     "voice_piper": {
-        "path": ROOT / "EngineData" / "VoiceEngine" / "Piper",
+        "path": RUNTIME_ASSETS / "Voice" / "Piper",
         "required_files": ["piper.exe"],
         "requires_glob": "**/*.onnx",
     },
