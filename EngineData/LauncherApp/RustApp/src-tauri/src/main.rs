@@ -17,6 +17,7 @@ use engine::adapters::pipeline_logic::{check_stale_job, decide_pipeline, Pipelin
 use engine::adapters::playback_logic::{plan_playback, PlaybackLogicRequest, PlaybackLogicResult};
 use engine::adapters::segment_flow_logic::{analyze_segment_flow, SegmentFlowReport, SegmentFlowRequest};
 use engine::adapters::session_logic::{build_session_metric_report, build_worker_health, SessionMetricReport, SessionMetricRequest, WorkerHealthReport, WorkerHealthRequest};
+use engine::adapters::stream_ownership_logic::{analyze_stream_ownership, StreamOwnershipReport, StreamOwnershipRequest};
 use engine::adapters::text_dry_run::{run_text_dry_check, TextDryRunRequest, TextDryRunResult};
 use engine::adapters::transcript_session_logic::{analyze_transcript_session_readiness, TranscriptSessionReadinessReport};
 use engine::adapters::translation_logic::{run_translation_logic, TranslationLogicRequest, TranslationLogicResult};
@@ -58,6 +59,11 @@ fn get_audio_buffer_status() -> AudioBufferStatus {
 #[tauri::command]
 fn analyze_capture_loop_contract() -> CaptureLoopContractReport {
     build_capture_loop_contract()
+}
+
+#[tauri::command]
+fn analyze_stream_ownership_plan(request: StreamOwnershipRequest) -> StreamOwnershipReport {
+    analyze_stream_ownership(request)
 }
 
 #[tauri::command]
@@ -251,6 +257,7 @@ fn main() {
         get_input_status,
         get_audio_buffer_status,
         analyze_capture_loop_contract,
+        analyze_stream_ownership_plan,
         analyze_frame_pipeline_state,
         analyze_audio_payload,
         preprocess_audio_payload,
