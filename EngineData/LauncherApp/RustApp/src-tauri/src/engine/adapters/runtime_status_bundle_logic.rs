@@ -6,6 +6,7 @@ use crate::engine::adapters::runtime_readiness_bundle_logic::{
 use crate::engine::audio::capture_gate::{
     plan_native_capture_gate, NativeCaptureGateReport, NativeCaptureGateRequest,
 };
+use crate::engine::audio::live_capture::{live_capture_status, LiveCaptureStatusReport};
 use crate::engine::runtime_state::latest_runtime_session_state;
 use crate::engine::state::EngineStatus;
 
@@ -14,6 +15,7 @@ pub struct RuntimeStatusBundleReport {
     pub engine_status: EngineStatus,
     pub readiness: RuntimeReadinessBundleReport,
     pub capture_gate: NativeCaptureGateReport,
+    pub live_capture: LiveCaptureStatusReport,
     pub next_action: String,
     pub summary: String,
 }
@@ -25,8 +27,11 @@ pub fn build_runtime_status_bundle() -> RuntimeStatusBundleReport {
         NativeCaptureGateRequest::default(),
         latest_runtime_session_state(),
     );
-    let next_action = if capture_gate.ready_for_capture_start {
-        "capture_gate_ready_wait_for_validated_stream_open".to_string()
+    let live_capture = live_capture_status();
+    let next_action = if live_capture.stream_active {
+        "continue_listening_or_stop".to_string()
+    } else if capture_gate.ready_for_capture_start {
+        "start_live_capture_stream".to_string()
     } else if readiness.session_state.has_active_session {
         "continue_native_runtime_or_stop".to_string()
     } else if readiness.ready_for_start_command {
@@ -37,19 +42,22 @@ pub fn build_runtime_status_bundle() -> RuntimeStatusBundleReport {
         "run_realtime_handoff".to_string()
     };
     let summary = format!(
-        "start={}, stop={}, active_session={}, capture_gate={}, user_runtime={}, blockers={}",
+        "start={}, stop={}, active_session={}, capture_gate={}, live_capture={}, frames_received={}, user_runtime={}, blockers={}",
         readiness.ready_for_start_command,
         readiness.ready_for_stop_command,
         readiness.session_state.has_active_session,
         capture_gate.ready_for_capture_start,
+        live_capture.stream_active,
+        live_capture.frames_received,
         readiness.ready_for_user_facing_runtime,
-        readiness.blockers.len() + capture_gate.blockers.len()
+        readiness.blockers.len() + capture_gate.blockers.len() + usize::from(!live_capture.blocker.is_empty())
     );
 
     RuntimeStatusBundleReport {
         engine_status,
         readiness,
         capture_gate,
+        live_capture,
         next_action,
         summary,
     }
