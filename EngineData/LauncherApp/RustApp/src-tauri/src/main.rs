@@ -9,6 +9,8 @@ use engine::adapters::context_logic::{update_translation_context, TranslationCon
 use engine::adapters::frame_pipeline_logic::{analyze_frame_pipeline, FramePipelineReport, FramePipelineRequest};
 use engine::adapters::language_logic::{run_language_logic, LanguageLogicReport, LanguageLogicRequest};
 use engine::adapters::latency_logic::{build_latency_logic, build_vad_profile, LatencyLogicReport, LatencyLogicRequest, VadProfileReport, VadProfileRequest};
+use engine::adapters::live_pipeline_compact_status_logic::{build_live_pipeline_compact_status, LivePipelineCompactStatusReport};
+use engine::adapters::live_runtime_pipeline_gate_logic::{analyze_live_runtime_pipeline_gate, LiveRuntimePipelineGateReport};
 use engine::adapters::migration_closure_gate_logic::{analyze_migration_closure_gate, MigrationClosureGateReport, MigrationClosureGateRequest};
 use engine::adapters::model_check::{check_model_request, ModelCheckRequest, ModelCheckResult};
 use engine::adapters::native_capture_bridge_logic::{analyze_native_capture_bridge, NativeCaptureBridgeReport, NativeCaptureBridgeRequest};
@@ -85,6 +87,16 @@ fn analyze_runtime_readiness() -> RuntimeReadinessBundleReport {
 #[tauri::command]
 fn get_runtime_status_bundle() -> RuntimeStatusBundleReport {
     build_runtime_status_bundle()
+}
+
+#[tauri::command]
+fn analyze_live_pipeline_gate() -> LiveRuntimePipelineGateReport {
+    analyze_live_runtime_pipeline_gate()
+}
+
+#[tauri::command]
+fn get_live_pipeline_compact_status() -> LivePipelineCompactStatusReport {
+    build_live_pipeline_compact_status()
 }
 
 #[tauri::command]
@@ -338,6 +350,8 @@ fn main() {
         analyze_stop_gate,
         analyze_runtime_readiness,
         get_runtime_status_bundle,
+        analyze_live_pipeline_gate,
+        get_live_pipeline_compact_status,
         analyze_migration_closure,
         probe_native_input_config,
         plan_native_capture_stream_state,
