@@ -1,62 +1,53 @@
 # DevelopingData
 
 ## Purpose
-- Hold project documentation, shared sample data, diagnostics, reports, tests, and toolkit support material.
-- Keep development records separate from engine logic and user content.
-- This folder is development-only and is not intended for public release packaging.
 
-## Allowed files
-- `README.md`
-- `DocumentationData/`
-- `LauncherHelpers/`
-- `Reports/`
-- `SampleData/`
-- `Tests/`
-- `ToolKitData/`
-- `Diagnostics/`
+`DevelopingData` is the single development workspace for TranslateIT.
 
-## Current sections
-- `Diagnostics/` - ad hoc probes and runtime investigation helpers
-- `DocumentationData/` - formal project documentation and log history
-- `LauncherHelpers/` - launcher and debug scripts
-- `Reports/` - engineering and validation reports
-- `SampleData/` - safe sample inputs and references
-- `Tests/` - automated regression tests
-- `ToolKitData/` - tooling, model download helpers, validation utilities, and RustApp scaffold checks
+It now owns all developer-facing documentation, research, reports, samples, validation scripts, and tooling. There is no separate `DeveloperData` root.
 
-## Rust/Tauri conversion tooling
-- RustApp scaffold check: `ToolKitData/Scripts/Execution/check_rust_app.py`
-- The observed RustApp check-script commit is represented through the approved `ToolKitData` tooling tree, not a separate top-level tools tree.
+## Professional layout
+
+```text
+DevelopingData/
+  README.md
+  Documentation/
+    Guides/
+    Research/
+    Templates/
+  DocumentationData/        # existing formal source documents, pending deeper migration
+  Reports/                  # engineering reports, pending deeper migration
+  SampleData/               # safe sample references
+  Tests/                    # validation/test references
+  ToolKitData/              # active validation/tooling scripts used by RustApp package scripts
+```
+
+## Current rule
+
+Keep all development material here. Keep runtime engine code in `EngineData`. Keep user cache/logs/saved work in `UserData`.
+
+## Active tooling route
+
+The RustApp package scripts currently call validation tools from:
+
+```text
+DevelopingData/ToolKitData/Scripts/Execution
+```
+
+That folder remains active until the full validation path migration is completed. Do not create random top-level tool folders.
 
 ## Must not be placed here
-- Engine code
+
+- Runtime engine code
 - User saved sessions
-- Cache files
-- Random experiments
-- Unapproved root folders
+- Runtime cache files
+- Local model binaries
+- Loose experiments without a README and owner
+- Alternate launcher routes
 
 ## Naming rules
+
 - Use English only.
-- Keep folder names stable and readable.
-- Use upper snake case for major documentation files.
-
-## Related documentation path
-- `DevelopingData/DocumentationData/SourceDocument/MASTER_PROJECT_DOCUMENTATION.md`
-- `DevelopingData/DocumentationData/SourceDocument/ProjectDocuments/RUST_TAURI_ENGINE_CONVERSION_PLAN.md`
-
-## Root structure
-
-- `DevelopingData/` is the development-only workspace for shared docs, diagnostics, reports, tests, and tooling.
-- The root should stay limited to the approved folders above.
-- Keep engine code in `EngineData/` and user data in `UserData/`.
-
-## Version snapshots
-
-- `V1` is the stable fallback snapshot.
-- `Experimental` is the active development snapshot.
-- Snapshot refreshes write a verification log to `UserData/LogData/version_snapshot_latest.txt`.
-- `Experimental` should not contain nested `.git`, `V1`, or `Experimental` folders.
-
-## Launch note
-
-- The supported root launcher remains `TranslateIT.vbs` until the Rust/Tauri desktop launcher reaches final parity.
+- Use clear module names.
+- Prefer `Documentation`, `Reports`, `SampleData`, `Tests`, and `ToolKitData` ownership instead of ad hoc folders.
+- Future cleanup should migrate `DocumentationData` into `Documentation/Source` and reports into `Documentation/Reports` only after all references are updated.
