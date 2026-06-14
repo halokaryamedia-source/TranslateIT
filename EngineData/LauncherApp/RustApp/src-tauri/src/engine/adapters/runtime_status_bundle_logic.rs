@@ -1,5 +1,8 @@
 use serde::Serialize;
 
+use crate::engine::adapters::internal_validation_gate_logic::{
+    analyze_internal_validation_gate, InternalValidationGateReport,
+};
 use crate::engine::adapters::live_asr_boundary_logic::{
     analyze_live_asr_boundary, LiveAsrBoundaryReport,
 };
@@ -42,6 +45,7 @@ pub struct RuntimeStatusBundleReport {
     pub live_translation_boundary: LiveTranslationBoundaryReport,
     pub live_tts_boundary: LiveTtsBoundaryReport,
     pub live_pipeline_gate: LiveRuntimePipelineGateReport,
+    pub internal_validation_gate: InternalValidationGateReport,
     pub next_action: String,
     pub summary: String,
 }
@@ -61,8 +65,13 @@ pub fn build_runtime_status_bundle() -> RuntimeStatusBundleReport {
     let live_translation_boundary = analyze_live_translation_boundary();
     let live_tts_boundary = analyze_live_tts_boundary();
     let live_pipeline_gate = analyze_live_runtime_pipeline_gate();
-    let next_action = if live_pipeline_gate.ready_for_user_runtime {
-        "runtime_ready_for_user_validation".to_string()
+    let internal_validation_gate = analyze_internal_validation_gate();
+    let next_action = if internal_validation_gate.ready_for_release_candidate {
+        "release_candidate_gate_complete".to_string()
+    } else if internal_validation_gate.ready_for_owner_validation {
+        "run_release_candidate_packaging_review".to_string()
+    } else if live_pipeline_gate.ready_for_user_runtime {
+        "run_internal_validation_evidence_script".to_string()
     } else if live_tts_boundary.ok {
         "play_translated_audio_output".to_string()
     } else if live_translation_boundary.ok {
@@ -93,7 +102,7 @@ pub fn build_runtime_status_bundle() -> RuntimeStatusBundleReport {
         "start_microphone_only_capture".to_string()
     };
     let summary = format!(
-        "start={}, stop={}, active_session={}, capture_gate={}, live_capture={}, frames_received={}, buffer_ms={}, vad={}, target_frame={}, asr_input={}, asr_model={}, asr_backend={}, decoder_connected={}, transcript={}, translation={}, tts={}, playback={}, pipeline_progress={}%, user_runtime={}, blockers={}",
+        "start={}, stop={}, active_session={}, capture_gate={}, live_capture={}, frames_received={}, buffer_ms={}, vad={}, target_frame={}, asr_input={}, asr_model={}, asr_backend={}, decoder_connected={}, transcript={}, translation={}, tts={}, playback={}, pipeline_progress={}%, internal_validation={}%, owner_ready={}, rc_ready={}, user_runtime={}, blockers={}",
         readiness.ready_for_start_command,
         readiness.ready_for_stop_command,
         readiness.session_state.has_active_session,
@@ -112,6 +121,9 @@ pub fn build_runtime_status_bundle() -> RuntimeStatusBundleReport {
         live_tts_boundary.output_audio_ready,
         live_tts_boundary.playback_ready,
         live_pipeline_gate.progress_percent,
+        internal_validation_gate.progress_percent,
+        internal_validation_gate.ready_for_owner_validation,
+        internal_validation_gate.ready_for_release_candidate,
         readiness.ready_for_user_facing_runtime,
         readiness.blockers.len()
             + capture_gate.blockers.len()
@@ -123,6 +135,7 @@ pub fn build_runtime_status_bundle() -> RuntimeStatusBundleReport {
             + usize::from(!live_translation_boundary.blocker.is_empty())
             + usize::from(!live_tts_boundary.blocker.is_empty())
             + usize::from(!live_pipeline_gate.blocker.is_empty())
+            + internal_validation_gate.blockers.len()
     );
 
     RuntimeStatusBundleReport {
@@ -137,6 +150,7 @@ pub fn build_runtime_status_bundle() -> RuntimeStatusBundleReport {
         live_translation_boundary,
         live_tts_boundary,
         live_pipeline_gate,
+        internal_validation_gate,
         next_action,
         summary,
     }
