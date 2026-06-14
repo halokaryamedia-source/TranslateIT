@@ -1,13 +1,21 @@
 # LauncherHelpers
 
-## Purpose
-- Store helper launch scripts for debug, legacy TTS, and runtime entry flows.
+## Status
 
-## Current scripts
-- `TranslateIt.bat`
-- `TranslateIT_Debug.bat`
-- `run_translateit_legacy_tts.bat`
-- `run_translateit_sapi_direct_async.bat`
+Retired.
 
-## Notes
-- These helpers support development and local validation.
+The legacy helper launchers were removed after the Rust/Tauri migration. Runtime entry must now go through the single root launcher:
+
+```text
+TranslateIT.vbs
+```
+
+That launcher targets the RustApp route:
+
+```text
+EngineData/LauncherApp/RustApp
+```
+
+## Rule
+
+Do not add Python launcher, SAPI helper, debug BAT, or alternate legacy runtime entry files here. All user-facing startup must resolve to the Rust/Tauri app route only.
