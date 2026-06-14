@@ -26,7 +26,7 @@ TranslateIT.vbs
 
 ## Root ownership
 
-- `DevelopingData/` - all developer documentation, research, reports, samples, quality references, validation scripts, and tooling.
+- `DevelopingData/` - developer documentation, concise reports, samples, quality references, and Node/PowerShell tooling.
 - `EngineData/` - Rust/Tauri app, approved local AI worker, and local model/runtime asset slots.
 - `Launcher/` - reserved launcher packaging assets.
 - `UserData/` - local runtime cache, logs, saved work, and validation evidence.
@@ -46,6 +46,14 @@ The launcher resolves to:
 EngineData/LauncherApp/RustApp
 ```
 
+Launcher behavior:
+
+- Release-first: opens `src-tauri/target/release/translateit_rustapp.exe` when available.
+- Lightweight: does not start `npm dev` automatically.
+- Single-route: does not open a browser or legacy Python UI.
+- Worker-safe: does not start the local AI worker by itself; the Rust/Tauri app controls worker startup when needed.
+- Developer mode is explicit only: `wscript TranslateIT.vbs --dev`.
+
 Do not add alternate Python launcher, BAT helper, debug route, browser-only route, or old runtime path.
 
 ## Approved Python exception
@@ -63,7 +71,7 @@ This file is retained because local ASR, translation, and TTS currently use Pyth
 - NLLB for Quality translation.
 - Piper orchestration for TTS.
 
-It is not a launcher, UI engine, or legacy desktop route.
+It is not a launcher, UI engine, repository validator, or legacy desktop route.
 
 ## Retired roots and folders
 
@@ -79,6 +87,9 @@ DevelopingData/Docs/
 DevelopingData/LauncherHelpers/
 DevelopingData/SampleData/
 DevelopingData/Tests/
+EngineData/TranscriptEngine/
+EngineData/TranslateEngine/
+EngineData/VoiceEngine/
 ```
 
 ## Safety and cleanliness rules
@@ -87,5 +98,6 @@ DevelopingData/Tests/
 - Runtime cache, logs, local models, and user-generated data stay out of Git.
 - Keep documentation under `DevelopingData/Documentation`.
 - Keep executable validation tooling under `DevelopingData/Tooling`.
-- Keep runtime app code under `EngineData`.
+- Keep runtime app code under `EngineData/LauncherApp/RustApp`.
+- Keep runtime assets under `EngineData/RuntimeAssets`.
 - Keep user runtime outputs under `UserData`.
