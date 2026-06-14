@@ -37,9 +37,9 @@ pub fn build_runtime_status_bundle() -> RuntimeStatusBundleReport {
     } else if readiness.ready_for_start_command {
         "start_capture".to_string()
     } else if readiness.handoff_state.has_snapshot {
-        "rerun_realtime_handoff".to_string()
+        "rerun_realtime_handoff_for_full_pipeline_or_start_microphone_only".to_string()
     } else {
-        "run_realtime_handoff".to_string()
+        "start_microphone_only_capture".to_string()
     };
     let summary = format!(
         "start={}, stop={}, active_session={}, capture_gate={}, live_capture={}, frames_received={}, user_runtime={}, blockers={}",
