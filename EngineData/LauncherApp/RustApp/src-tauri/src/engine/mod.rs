@@ -9,6 +9,7 @@ pub mod models;
 pub mod native_execution;
 pub mod native_runners;
 pub mod paths;
+pub mod runtime_job;
 pub mod session_store;
 pub mod settings;
 pub mod state;
@@ -23,6 +24,7 @@ use cuda_policy::CudaPolicyReport;
 use diagnostics::RuntimeDiagnostics;
 use logging::{write_jsonl_event, RuntimeLogEvent};
 use paths::ProjectPaths;
+use runtime_job::plan_runtime_capture_job;
 use settings::RuntimeSettings;
 use state::{CommandResult, EngineStatus, LifecycleState, RuntimeStage};
 
@@ -90,18 +92,29 @@ pub fn save_default_settings() -> CommandResult {
 pub fn start_capture() -> CommandResult {
     let project_paths = ProjectPaths::discover();
     let input_status = InputPreparationStatus::inspect_default_input();
+    let plan = plan_runtime_capture_job(input_status.clone());
     let message = format!(
-        "Rust input preparation: prepared={}, running={}, note={}",
-        input_status.prepared, input_status.running, input_status.note
+        "Rust capture job: job_id={}, session_id={}, next_segment={}, stage={}, ready={}, blocker={}, note={}",
+        plan.job_id,
+        plan.session_id,
+        plan.next_segment_id,
+        plan.stage,
+        plan.ready_for_capture_loop,
+        if plan.blocker.is_empty() { "none" } else { &plan.blocker },
+        plan.note
     );
 
     let _ = write_jsonl_event(
         &PathBuf::from(project_paths.user_log_dir),
         "rust_runtime_latest.jsonl",
-        &RuntimeLogEvent::warning("input", message.clone()),
+        &RuntimeLogEvent::warning("capture_job", message.clone()),
     );
 
-    CommandResult::blocked(LifecycleState::ConversionPending, message)
+    if plan.ready_for_capture_loop {
+        CommandResult::ok(LifecycleState::Preparing, message)
+    } else {
+        CommandResult::blocked(LifecycleState::ConversionPending, message)
+    }
 }
 
 pub fn stop_capture() -> CommandResult {
