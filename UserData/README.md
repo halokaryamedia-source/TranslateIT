@@ -1,31 +1,29 @@
 # UserData
 
 ## Purpose
-- Hold runtime cache, operational logs, and user-approved saved data.
-- Keep user-facing persistence separate from development documentation and engine code.
 
-## Allowed files
-- `README.md`
-- `CacheData/`
-- `LogData/`
-- `SavedData/`
+`UserData` holds local runtime cache, operational logs, validation evidence, and user-approved saved project data.
 
-## Current sections
-- `CacheData/` - disposable runtime cache, audio segments, and session state
-- `LogData/` - runtime logs, diagnostics, and validation reports
-- `SavedData/` - user-approved saved sessions and persistent exports
+## Current layout
 
-## Must not be placed here
-- Engine source files
-- Project documentation
-- Random developer scratch files
-- Unapproved root-level folders
-- Private user documents outside the approved runtime layout
+```text
+UserData/
+  README.md
+  CacheData/
+  LogData/
+  SavedProject/
+```
 
-## Naming rules
-- Use English only.
-- Keep user-data paths stable.
-- Separate temporary material from saved material.
+## Folder ownership
 
-## Related documentation path
-- `DevelopingData/DocumentationData/SourceDocument/MASTER_PROJECT_DOCUMENTATION.md`
+- `CacheData/` - disposable runtime cache and temporary session material.
+- `LogData/` - runtime logs, diagnostics, and validation evidence.
+- `SavedProject/` - user-approved saved chat sessions and final work outputs.
+
+## Rules
+
+- Do not store engine source files here.
+- Do not store project documentation here.
+- Do not restore the retired `SavedData` route.
+- Keep temporary material in `CacheData` and final user-visible saved work in `SavedProject`.
+- Keep runtime logs and validation evidence in `LogData`.
