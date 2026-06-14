@@ -16,7 +16,8 @@ The goal is to make the migration status explicit without claiming that real mic
 6. `stop_capture` clears the stored handoff snapshot.
 7. `analyze_start_gate` and `analyze_stop_gate` expose explicit lifecycle preflight reports.
 8. `analyze_runtime_readiness` exposes a single readiness bundle for dashboard/QA usage.
-9. Runtime diagnostics includes runtime handoff state and handoff blockers.
+9. `analyze_migration_closure` exposes a final migration closure gate that requires explicit manual validation and owner approval flags.
+10. Runtime diagnostics includes runtime handoff state and handoff blockers.
 
 ## Important safety boundaries
 
@@ -46,12 +47,17 @@ The current implementation still does not execute:
   - bundles diagnostics, handoff state, Start gate, Stop gate, staged blockers, and readiness booleans;
   - exposes one report for dashboard/QA usage without claiming final runtime readiness.
 
+- `engine/adapters/migration_closure_gate_logic.rs`
+  - gates ready-for-review and release-candidate claims behind manual build validation, runtime smoke validation, UI review, packaging review, explicit owner approval, and transition permissions;
+  - hard-blocks production release claims by design.
+
 - `engine/diagnostics.rs`
   - includes runtime handoff state in diagnostic output.
 
 - `src/runtimeLifecycle.ts`
-  - mirrors frontend helper types for lifecycle gate and readiness bundle calls;
-  - exposes frontend summaries for future UI wiring.
+  - mirrors frontend helper types for lifecycle gate, readiness bundle, and closure gate calls;
+  - exposes frontend summaries for future UI wiring;
+  - defaults closure-gate request flags to blocked/false.
 
 ## Current Start/Stop contract
 
@@ -78,11 +84,30 @@ Stop is always allowed and clears the stored snapshot.
 
 The bundle intentionally keeps `ready_for_user_facing_runtime` false until real capture, native inference, persistence, UI, and final validation are actually complete.
 
+## Current migration closure gate contract
+
+`analyze_migration_closure` requires an explicit request containing:
+
+- manual build validation status;
+- manual runtime smoke status;
+- manual UI review status;
+- manual packaging review status;
+- explicit owner approval;
+- permission to transition ready-for-review;
+- permission to claim release-candidate status.
+
+The default frontend helper request sets all of these flags to `false`.
+
+The gate may allow ready-for-review only when runtime Start gate and required manual checks are explicitly passed. It may allow release-candidate wording only when runtime user-facing readiness, UI review, packaging review, and release-candidate permission are explicitly passed.
+
+Production release remains blocked by design in this migration gate and must not be claimed from this report.
+
 ## Remaining work before ready-for-review
 
 - Wire frontend Start button to show `analyze_start_gate` or `analyze_runtime_readiness` before calling `start_capture`.
 - Wire frontend Stop button to show `analyze_stop_gate` before calling `stop_capture`.
 - Wire frontend Diagnostics dashboard to render `analyze_runtime_readiness`.
+- Wire frontend QA/closure dashboard to render `analyze_migration_closure`.
 - Add real microphone stream ownership and CPAL stream creation.
 - Connect real ASR native runner.
 - Connect real translation native runner.
