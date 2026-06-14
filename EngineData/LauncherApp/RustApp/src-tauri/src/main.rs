@@ -33,6 +33,7 @@ use engine::audio::capture_plan::{plan_native_capture_stream, NativeCaptureStrea
 use engine::audio::evidence::AudioEvidenceReport;
 use engine::audio::input::InputPreparationStatus;
 use engine::audio::input_config::NativeInputConfigProbeReport;
+use engine::audio::live_capture::LiveCaptureStatusReport;
 use engine::audio::noise_filter::{classify_noise, AudioNoiseAssessment, NoiseAssessmentRequest};
 use engine::audio::preprocess::{preprocess_audio, AudioPreprocessRequest, PreprocessingResult};
 use engine::audio::stream_build::{plan_native_capture_stream_build, NativeCaptureStreamBuildReport, NativeCaptureStreamBuildRequest};
@@ -119,6 +120,11 @@ fn get_input_status() -> InputPreparationStatus {
 #[tauri::command]
 fn get_audio_buffer_status() -> AudioBufferStatus {
     planned_buffer_status()
+}
+
+#[tauri::command]
+fn get_live_capture_status() -> LiveCaptureStatusReport {
+    engine::live_capture_runtime_status()
 }
 
 #[tauri::command]
@@ -339,6 +345,7 @@ fn main() {
         analyze_native_capture_bridge_state,
         get_input_status,
         get_audio_buffer_status,
+        get_live_capture_status,
         analyze_capture_loop_contract,
         analyze_stream_ownership_plan,
         analyze_realtime_handoff_plan,
