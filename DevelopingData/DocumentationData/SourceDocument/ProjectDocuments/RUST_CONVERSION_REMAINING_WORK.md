@@ -10,13 +10,13 @@ TranslateIT
 
 ## Current conversion progress estimate
 
-Estimated code-path conversion progress: **72-75%**.
+Estimated code-path conversion progress: **73-76%**.
 
 This percentage measures how much of the Python launcher/runtime logic has been moved into Rust/Tauri code paths and command boundaries. It does **not** mean production readiness yet. Production readiness still depends on real inference execution, live capture integration, and final validation.
 
 ## Current conversion status
 
-The active `EngineData/LauncherApp` Python launcher files have been removed from the Rust conversion branch and the root launcher is redirected to RustApp. Core logic has been ported into Rust modules for audio preprocessing, noise filtering, VAD, ASR model planning, ASR quality filtering, language routing, latency reporting, pipeline decisions, translation planning, playback planning, session metrics, session store payloads, native execution planning, native execution contract hardening, native runner contracts, native execution bridge, model path readiness guard, transcript segment parity models, segment builder parity logic, transcript session planning, runtime capture job planning, segment flow readiness, frontend transcript session readiness wiring, frontend segment flow wiring, and frontend native execution bridge wiring.
+The active `EngineData/LauncherApp` Python launcher files have been removed from the Rust conversion branch and the root launcher is redirected to RustApp. Core logic has been ported into Rust modules for audio preprocessing, noise filtering, VAD, ASR model planning, ASR quality filtering, language routing, latency reporting, pipeline decisions, translation planning, playback planning, session metrics, session store payloads, native execution planning, native execution contract hardening, native runner contracts, native execution bridge, model path readiness guard, transcript segment parity models, segment builder parity logic, transcript session planning, runtime capture job planning, capture loop readiness contract, segment flow readiness, frontend transcript session readiness wiring, frontend segment flow wiring, and frontend native execution bridge wiring.
 
 ## Progress buckets
 
@@ -43,6 +43,7 @@ The active `EngineData/LauncherApp` Python launcher files have been removed from
 - segment builder duration/default parity
 - transcript session planning and store preview bridge
 - runtime capture job planning
+- capture loop readiness adapter and Tauri command
 - segment flow readiness adapter
 - frontend Session Check command wiring
 - frontend Segment Flow command wiring
@@ -140,6 +141,7 @@ Current state:
 - VAD decision exists
 - calibration/status logic exists
 - runtime capture job planning exists
+- capture loop readiness contract exists
 - segment flow readiness exists
 - live capture loop is not fully connected yet
 
@@ -178,6 +180,7 @@ Current state:
 - segment flow readiness wiring exists
 - native execution bridge wiring exists
 - segment flow reads backend readiness from diagnostics instead of hardcoded false values
+- capture loop contract command is exposed to Tauri backend
 - several Tauri commands are already exposed
 
 ### 7. Remaining old Python/reference folders
