@@ -33,6 +33,7 @@ use engine::audio::AudioFrame;
 use engine::diagnostics::RuntimeDiagnostics;
 use engine::inference::backend_validation::NativeCudaBackendValidationReport;
 use engine::native_execution::{plan_native_execution, NativeExecutionPlan, NativeExecutionRequest};
+use engine::runtime_state::{latest_runtime_handoff_state, record_realtime_handoff_report, RuntimeHandoffStateReport};
 use engine::settings::RuntimeSettings;
 use engine::state::{CommandResult, EngineStatus};
 use engine::transcript_session::{plan_transcript_session_paths, TranscriptSessionPlanReport, TranscriptSessionPlanRequest, TranscriptSessionRecord};
@@ -45,6 +46,11 @@ fn get_engine_status() -> EngineStatus {
 #[tauri::command]
 fn get_runtime_diagnostics() -> RuntimeDiagnostics {
     engine::runtime_diagnostics()
+}
+
+#[tauri::command]
+fn get_runtime_handoff_state() -> RuntimeHandoffStateReport {
+    latest_runtime_handoff_state()
 }
 
 #[tauri::command]
@@ -69,7 +75,9 @@ fn analyze_stream_ownership_plan(request: StreamOwnershipRequest) -> StreamOwner
 
 #[tauri::command]
 fn analyze_realtime_handoff_plan(request: RealtimeHandoffRequest) -> RealtimeHandoffReport {
-    analyze_realtime_handoff(request)
+    let report = analyze_realtime_handoff(request);
+    let _ = record_realtime_handoff_report(&report);
+    report
 }
 
 #[tauri::command]
@@ -260,6 +268,7 @@ fn main() {
     let app = tauri::Builder::default().invoke_handler(tauri::generate_handler![
         get_engine_status,
         get_runtime_diagnostics,
+        get_runtime_handoff_state,
         get_input_status,
         get_audio_buffer_status,
         analyze_capture_loop_contract,
