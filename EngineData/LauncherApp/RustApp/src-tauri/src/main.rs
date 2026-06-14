@@ -9,6 +9,7 @@ use engine::adapters::context_logic::{update_translation_context, TranslationCon
 use engine::adapters::frame_pipeline_logic::{analyze_frame_pipeline, FramePipelineReport, FramePipelineRequest};
 use engine::adapters::language_logic::{run_language_logic, LanguageLogicReport, LanguageLogicRequest};
 use engine::adapters::latency_logic::{build_latency_logic, build_vad_profile, LatencyLogicReport, LatencyLogicRequest, VadProfileReport, VadProfileRequest};
+use engine::adapters::migration_closure_gate_logic::{analyze_migration_closure_gate, MigrationClosureGateReport, MigrationClosureGateRequest};
 use engine::adapters::model_check::{check_model_request, ModelCheckRequest, ModelCheckResult};
 use engine::adapters::native_execution_bridge_logic::{build_native_execution_bridge, NativeExecutionBridgeReport, NativeExecutionBridgeRequest};
 use engine::adapters::orchestration_logic::{run_runtime_orchestration, RuntimeOrchestrationReport, RuntimeOrchestrationRequest};
@@ -68,6 +69,11 @@ fn analyze_stop_gate() -> RuntimeLifecycleGateReport {
 #[tauri::command]
 fn analyze_runtime_readiness() -> RuntimeReadinessBundleReport {
     analyze_runtime_readiness_bundle()
+}
+
+#[tauri::command]
+fn analyze_migration_closure(request: MigrationClosureGateRequest) -> MigrationClosureGateReport {
+    analyze_migration_closure_gate(request)
 }
 
 #[tauri::command]
@@ -289,6 +295,7 @@ fn main() {
         analyze_start_gate,
         analyze_stop_gate,
         analyze_runtime_readiness,
+        analyze_migration_closure,
         get_input_status,
         get_audio_buffer_status,
         analyze_capture_loop_contract,
