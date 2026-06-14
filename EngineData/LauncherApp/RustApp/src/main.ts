@@ -93,6 +93,12 @@ type NativeCudaBackendValidationReport = {
   blocker: string;
 };
 
+type SessionStoreStatus = {
+  output_dir: string;
+  ready: boolean;
+  note: string;
+};
+
 type RuntimeDiagnostics = {
   project_paths: {
     project_root: string;
@@ -132,6 +138,7 @@ type RuntimeDiagnostics = {
     profile: unknown | null;
     note: string;
   };
+  session_store_status: SessionStoreStatus;
   cuda_probe: CudaProbeReport;
   backend_validation: NativeCudaBackendValidationReport;
   native_inference_candidates: NativeInferenceBackendSelection[];
@@ -160,6 +167,84 @@ type CommandResult = {
   ok: boolean;
   state: string;
   message: string;
+};
+
+type TranscriptQualityMetrics = {
+  input_quality: string;
+  asr_confidence: number;
+  status: string;
+  no_speech_probability: number;
+  average_log_probability: number;
+  compression_ratio: number;
+  language_ok: boolean;
+  notes: string;
+  raw_rms: number;
+  raw_peak: number;
+  speech_to_noise_gap: number;
+  voiced_frame_ratio: number;
+  tts_status: string;
+  tts_error: string;
+  output_device_name: string;
+  replay_error: string;
+  capture_buffer_ms: number;
+  endpoint_wait_ms: number;
+  silence_accumulation_ms: number;
+  speech_confirmation_ms: number;
+};
+
+type TranscriptReplayPaths = {
+  source_audio_path: string | null;
+  translated_audio_path: string | null;
+  source_replay_available: boolean;
+  target_voice_available: boolean;
+};
+
+type TranscriptSegmentRecord = {
+  segment_id: string;
+  trace_id: string;
+  session_id: string;
+  input_language: string;
+  output_language: string;
+  start_time_ms: number;
+  end_time_ms: number;
+  input_text: string;
+  translated_text: string;
+  pipeline_mode: string;
+  capture_mode: string;
+  asr_model_used: string;
+  asr_device_used: string;
+  asr_compute_type_used: string;
+  translation_engine_used: string;
+  model_fallback_used: boolean;
+  error_message: string;
+  created_at_iso: string;
+  quality: TranscriptQualityMetrics;
+  replay: TranscriptReplayPaths;
+};
+
+type TranscriptSessionRecord = {
+  session_id: string;
+  input_language: string;
+  output_language: string;
+  asr_model: string;
+  translation_engine: string;
+  created_at_iso: string;
+  segments: TranscriptSegmentRecord[];
+};
+
+type TranscriptSessionReadinessReport = {
+  summary: {
+    session_id: string;
+    segment_count: number;
+    source_language: string;
+    target_language: string;
+    source_chars: number;
+    translated_chars: number;
+    completed_segments: number;
+    errored_segments: number;
+  };
+  ready_for_preview: boolean;
+  blockers: string[];
 };
 
 const app = document.querySelector<HTMLDivElement>("#app");
@@ -214,6 +299,7 @@ app.innerHTML = `
           <button id="startButton" class="primary" type="button">Start</button>
           <button id="stopButton" class="secondary" type="button">Stop</button>
           <button id="translateButton" class="secondary" type="button">Translate Text</button>
+          <button id="sessionStateButton" class="secondary" type="button">Session Check</button>
           <button id="diagnosticsButton" class="secondary" type="button">Diagnostics</button>
           <button id="saveSettingsButton" class="secondary" type="button">Save Settings</button>
         </div>
@@ -252,6 +338,7 @@ const translationOutput = document.querySelector<HTMLParagraphElement>("#transla
 const startButton = document.querySelector<HTMLButtonElement>("#startButton");
 const stopButton = document.querySelector<HTMLButtonElement>("#stopButton");
 const translateButton = document.querySelector<HTMLButtonElement>("#translateButton");
+const sessionStateButton = document.querySelector<HTMLButtonElement>("#sessionStateButton");
 const diagnosticsButton = document.querySelector<HTMLButtonElement>("#diagnosticsButton");
 const saveSettingsButton = document.querySelector<HTMLButtonElement>("#saveSettingsButton");
 
@@ -274,6 +361,7 @@ const ui = {
   startButton: requireElement(startButton, "start button"),
   stopButton: requireElement(stopButton, "stop button"),
   translateButton: requireElement(translateButton, "translate button"),
+  sessionStateButton: requireElement(sessionStateButton, "session state button"),
   diagnosticsButton: requireElement(diagnosticsButton, "diagnostics button"),
   saveSettingsButton: requireElement(saveSettingsButton, "save settings button"),
 };
@@ -304,6 +392,96 @@ function backendSummary(label: string, plan: AdapterPlan): string {
   return `${label}: backend=${plan.selected_backend.backend}, device=${plan.selected_backend.device}, compute=${plan.selected_backend.compute_type}, ready=${plan.ready}`;
 }
 
+function defaultQuality(): TranscriptQualityMetrics {
+  return {
+    input_quality: "Unknown",
+    asr_confidence: 0,
+    status: "Planned",
+    no_speech_probability: 0,
+    average_log_probability: 0,
+    compression_ratio: 0,
+    language_ok: true,
+    notes: "frontend readiness draft",
+    raw_rms: 0,
+    raw_peak: 0,
+    speech_to_noise_gap: 0,
+    voiced_frame_ratio: 0,
+    tts_status: "",
+    tts_error: "",
+    output_device_name: "",
+    replay_error: "",
+    capture_buffer_ms: 0,
+    endpoint_wait_ms: 0,
+    silence_accumulation_ms: 0,
+    speech_confirmation_ms: 0,
+  };
+}
+
+function emptyReplay(): TranscriptReplayPaths {
+  return {
+    source_audio_path: null,
+    translated_audio_path: null,
+    source_replay_available: false,
+    target_voice_available: false,
+  };
+}
+
+function buildDraftTranscriptSession(source: string): TranscriptSessionRecord {
+  const sessionId = `frontend_session_${Date.now()}`;
+  const createdAt = new Date().toISOString();
+  const segments: TranscriptSegmentRecord[] = source
+    ? [
+        {
+          segment_id: `${sessionId}_segment_1`,
+          trace_id: "frontend-readiness",
+          session_id: sessionId,
+          input_language: "id",
+          output_language: "en",
+          start_time_ms: 0,
+          end_time_ms: Math.min(8000, Math.max(500, source.length * 40)),
+          input_text: source,
+          translated_text: "",
+          pipeline_mode: "cascaded",
+          capture_mode: "Frontend Session Readiness",
+          asr_model_used: "",
+          asr_device_used: "",
+          asr_compute_type_used: "",
+          translation_engine_used: "",
+          model_fallback_used: false,
+          error_message: "",
+          created_at_iso: createdAt,
+          quality: defaultQuality(),
+          replay: emptyReplay(),
+        },
+      ]
+    : [];
+
+  return {
+    session_id: sessionId,
+    input_language: "id",
+    output_language: "en",
+    asr_model: "large-v3-turbo",
+    translation_engine: "local-nllb-distilled",
+    created_at_iso: createdAt,
+    segments,
+  };
+}
+
+function renderSessionReadiness(report: TranscriptSessionReadinessReport): void {
+  ui.lifecycleBadge.textContent = report.ready_for_preview ? "State: session-ready" : "State: session-blocked";
+  ui.statusMessage.textContent = `Transcript session readiness: ${report.ready_for_preview}`;
+  renderList([
+    `Session: ${report.summary.session_id}`,
+    `Segments: ${report.summary.segment_count}`,
+    `Language: ${report.summary.source_language} -> ${report.summary.target_language}`,
+    `Source chars: ${report.summary.source_chars}`,
+    `Translated chars: ${report.summary.translated_chars}`,
+    `Completed segments: ${report.summary.completed_segments}`,
+    `Errored segments: ${report.summary.errored_segments}`,
+    ...report.blockers.map((blocker) => `Blocker: ${blocker}`),
+  ]);
+}
+
 function renderDiagnostics(
   diagnostics: RuntimeDiagnostics,
   settings: RuntimeSettings,
@@ -317,6 +495,7 @@ function renderDiagnostics(
     `Cache: ${diagnostics.project_paths.user_cache_dir}`,
     `Logs: ${diagnostics.project_paths.user_log_dir}`,
     `Saved: ${diagnostics.project_paths.user_saved_dir}`,
+    `Session store: ${diagnostics.session_store_status.output_dir} ready=${diagnostics.session_store_status.ready}`,
     `ASR models: ${diagnostics.project_paths.asr_model_dir}`,
     `Translation models: ${diagnostics.project_paths.translation_model_dir}`,
     `Audio backend: ${diagnostics.audio_device_discovery.backend_id}`,
@@ -381,6 +560,13 @@ ui.translateButton.addEventListener("click", async () => {
   ui.translationOutput.textContent = result.message;
   ui.translationOutput.classList.remove("muted-text");
   renderCommandResult(result);
+});
+
+ui.sessionStateButton.addEventListener("click", async () => {
+  const source = ui.sourceText.value.trim();
+  const session = buildDraftTranscriptSession(source);
+  const report = await invoke<TranscriptSessionReadinessReport>("analyze_transcript_session_state", { session });
+  renderSessionReadiness(report);
 });
 
 ui.diagnosticsButton.addEventListener("click", async () => {
