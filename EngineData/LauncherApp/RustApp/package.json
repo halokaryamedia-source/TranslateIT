@@ -9,7 +9,8 @@
     "dev:frontend": "vite --host 127.0.0.1 --port 1420",
     "build:frontend": "vite build",
     "typecheck": "tsc --noEmit",
-    "check:rust": "cargo check --manifest-path src-tauri/Cargo.toml"
+    "check:rust": "cargo check --manifest-path src-tauri/Cargo.toml",
+    "validate:internal": "npm run typecheck && npm run check:rust && npm run build:frontend"
   },
   "dependencies": {
     "@tauri-apps/api": "^2.0.0"
