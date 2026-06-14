@@ -1,7 +1,7 @@
 {
   "name": "translateit-rustapp",
   "private": true,
-  "version": "0.8.14-local-release-bundle",
+  "version": "0.8.17-consolidated-tooling",
   "type": "module",
   "scripts": {
     "dev": "tauri dev",
@@ -12,17 +12,16 @@
     "check:rust": "cargo check --manifest-path src-tauri/Cargo.toml",
     "setup:worker": "powershell -ExecutionPolicy Bypass -File ../Workers/setup_realtime_worker.ps1",
     "smoke:worker": "powershell -ExecutionPolicy Bypass -File ../Workers/run_realtime_worker_smoke.ps1",
-    "record:manual-evidence": "python ../../../DevelopingData/ToolKitData/Scripts/Execution/record_rustapp_manual_runtime_evidence.py",
-    "status:readiness": "python ../../../DevelopingData/ToolKitData/Scripts/Execution/summarize_translateit_readiness.py",
-    "validate:launcher": "python ../../../DevelopingData/ToolKitData/Scripts/Execution/check_launcher_contract.py",
-    "validate:ci-workflow": "python ../../../DevelopingData/ToolKitData/Scripts/Execution/check_ci_validation_workflow.py",
-    "validate:bundle": "python ../../../DevelopingData/ToolKitData/Scripts/Execution/check_translateit_local_release_bundle.py",
-    "validate:worker": "python ../../../DevelopingData/ToolKitData/Scripts/Execution/check_local_realtime_worker_stack.py",
-    "validate:models": "python ../../../DevelopingData/ToolKitData/Scripts/Execution/check_local_runtime_models.py",
-    "validate:frontend-contract": "python ../../../DevelopingData/ToolKitData/Scripts/Execution/check_frontend_runtime_contract.py",
-    "validate:evidence": "python ../../../DevelopingData/ToolKitData/Scripts/Execution/check_rust_validation_evidence_boundary.py",
-    "validate:internal": "npm run validate:launcher && npm run validate:ci-workflow && npm run validate:bundle && npm run validate:worker && npm run validate:frontend-contract && npm run validate:evidence && npm run typecheck && npm run check:rust && npm run build:frontend",
-    "validate:full": "npm run validate:launcher && npm run validate:ci-workflow && npm run validate:bundle && npm run validate:worker && npm run validate:models && npm run validate:frontend-contract && npm run validate:evidence && npm run typecheck && npm run check:rust && npm run build:frontend && npm run build && npm run status:readiness"
+    "record:manual-evidence": "python ../../../DevelopingData/Tooling/Scripts/Execution/record_rustapp_manual_runtime_evidence.py",
+    "status:readiness": "python ../../../DevelopingData/Tooling/Scripts/Execution/summarize_translateit_readiness.py",
+    "validate:root": "python ../../../DevelopingData/Tooling/Scripts/Execution/check_root_professional_cleanliness.py",
+    "validate:structure": "python ../../../DevelopingData/Tooling/Scripts/Execution/check_engine_developing_structure.py",
+    "validate:launcher": "python ../../../DevelopingData/Tooling/Scripts/Execution/check_launcher_contract.py",
+    "validate:worker": "python ../../../DevelopingData/Tooling/Scripts/Execution/check_local_realtime_worker_stack.py",
+    "validate:models": "python ../../../DevelopingData/Tooling/Scripts/Execution/check_local_runtime_models.py",
+    "validate:evidence": "python ../../../DevelopingData/Tooling/Scripts/Execution/check_rust_validation_evidence_boundary.py",
+    "validate:internal": "npm run validate:root && npm run validate:structure && npm run validate:launcher && npm run validate:worker && npm run validate:evidence && npm run typecheck && npm run check:rust && npm run build:frontend",
+    "validate:full": "npm run validate:root && npm run validate:structure && npm run validate:launcher && npm run validate:worker && npm run validate:models && npm run validate:evidence && npm run typecheck && npm run check:rust && npm run build:frontend && npm run build && npm run status:readiness"
   },
   "dependencies": {
     "@tauri-apps/api": "^2.0.0"
