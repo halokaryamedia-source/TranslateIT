@@ -38,13 +38,14 @@ pub struct NativeExecutionBatchPlan {
     pub output: NativeExecutionPlan,
     pub all_ready: bool,
     pub any_cpu_degraded: bool,
+    pub cuda_ready_for_core_stages: bool,
     pub blockers: Vec<String>,
 }
 
 pub fn plan_native_execution(request: NativeExecutionRequest) -> NativeExecutionPlan {
     let stage = normalize_stage(&request.stage);
     let model_id = request.model_id.unwrap_or_else(|| default_model_for_stage(&stage).to_string());
-    let requested_device = request.device.unwrap_or_else(|| "cuda".to_string());
+    let requested_device = request.device.unwrap_or_else(|| default_device_for_stage(&stage).to_string());
     let requested_compute = request.compute_type.unwrap_or_else(|| default_compute_for_stage(&stage).to_string());
 
     if !request.input_ready {
@@ -87,6 +88,12 @@ pub fn plan_native_execution_batch(request: NativeExecutionBatchRequest) -> Nati
     let output = plan_native_execution(request.output);
     let all_ready = asr.ready && translation.ready && output.ready;
     let any_cpu_degraded = asr.cpu_degraded || translation.cpu_degraded || output.cpu_degraded;
+    let cuda_ready_for_core_stages = asr.ready
+        && translation.ready
+        && asr.selected_device == "cuda"
+        && translation.selected_device == "cuda"
+        && !asr.cpu_degraded
+        && !translation.cpu_degraded;
     let blockers = [&asr, &translation, &output]
         .iter()
         .filter(|plan| !plan.blocker.is_empty())
@@ -98,6 +105,7 @@ pub fn plan_native_execution_batch(request: NativeExecutionBatchRequest) -> Nati
         output,
         all_ready,
         any_cpu_degraded,
+        cuda_ready_for_core_stages,
         blockers,
     }
 }
@@ -130,6 +138,13 @@ fn default_model_for_stage(stage: &str) -> &'static str {
         "translation" => "nllb-200-distilled-600M",
         "output" => "marcel",
         _ => "unknown",
+    }
+}
+
+fn default_device_for_stage(stage: &str) -> &'static str {
+    match stage {
+        "output" => "windows-default-output",
+        _ => "cuda",
     }
 }
 
