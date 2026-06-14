@@ -70,6 +70,25 @@ export type NativeInputConfigProbeReport = {
   note: string;
 };
 
+export type NativeCaptureStreamPlanRequest = {
+  allow_non_target_device_rate: boolean;
+  allow_channel_downmix: boolean;
+  requested_frame_ms: number;
+};
+
+export type NativeCaptureStreamPlanReport = {
+  ready_for_stream_build: boolean;
+  selected_sample_rate_hz: number | null;
+  selected_channels: number | null;
+  selected_sample_format: string | null;
+  selected_frame_ms: number;
+  requires_resample_to_target: boolean;
+  requires_channel_downmix: boolean;
+  input_config: NativeInputConfigProbeReport;
+  blockers: string[];
+  note: string;
+};
+
 export type NativeCaptureBridgeRequest = {
   require_active_session: boolean;
   require_safe_to_stop: boolean;
@@ -84,12 +103,19 @@ export type NativeCaptureBridgeReport = {
   active_session_present: boolean;
   safe_to_stop_ready: boolean;
   input_config_probe: NativeInputConfigProbeReport;
+  stream_plan: NativeCaptureStreamPlanReport;
   requested_sample_rate_hz: number;
   requested_channels: number;
   requested_frame_ms: number;
   backend: string;
   blockers: string[];
   note: string;
+};
+
+export const defaultNativeCaptureStreamPlanRequest: NativeCaptureStreamPlanRequest = {
+  allow_non_target_device_rate: false,
+  allow_channel_downmix: true,
+  requested_frame_ms: 20,
 };
 
 export const defaultNativeCaptureBridgeRequest: NativeCaptureBridgeRequest = {
@@ -203,6 +229,12 @@ export async function probeNativeInputConfig(): Promise<NativeInputConfigProbeRe
   return invoke<NativeInputConfigProbeReport>("probe_native_input_config");
 }
 
+export async function planNativeCaptureStream(
+  request: NativeCaptureStreamPlanRequest = defaultNativeCaptureStreamPlanRequest,
+): Promise<NativeCaptureStreamPlanReport> {
+  return invoke<NativeCaptureStreamPlanReport>("plan_native_capture_stream_state", { request });
+}
+
 export async function analyzeNativeCaptureBridge(
   request: NativeCaptureBridgeRequest = defaultNativeCaptureBridgeRequest,
 ): Promise<NativeCaptureBridgeReport> {
@@ -296,6 +328,7 @@ export function summarizeSessionState(report: RuntimeSessionStateReport): Runtim
 }
 
 export function summarizeReadinessBundle(report: RuntimeReadinessBundleReport): RuntimeLifecycleSummary {
+  const streamPlan = report.capture_bridge.stream_plan;
   const details = [
     `Ready for Start command: ${report.ready_for_start_command}`,
     `Ready for Stop command: ${report.ready_for_stop_command}`,
@@ -304,7 +337,13 @@ export function summarizeReadinessBundle(report: RuntimeReadinessBundleReport): 
     `Ready for native inference runtime: ${report.ready_for_native_inference_runtime}`,
     `Ready for transcript persistence: ${report.ready_for_transcript_persistence}`,
     `Ready for user-facing runtime: ${report.ready_for_user_facing_runtime}`,
+    `Selected capture rate: ${streamPlan.selected_sample_rate_hz ?? "none"}`,
+    `Selected capture channels: ${streamPlan.selected_channels ?? "none"}`,
+    `Selected capture format: ${streamPlan.selected_sample_format ?? "none"}`,
+    `Needs resample: ${streamPlan.requires_resample_to_target}`,
+    `Needs downmix: ${streamPlan.requires_channel_downmix}`,
     `Input config: ${report.capture_bridge.input_config_probe.note}`,
+    `Capture stream plan: ${streamPlan.note}`,
     `Capture bridge: ${report.capture_bridge.note}`,
     `Handoff state: ${report.handoff_state.note}`,
     `Session state: ${report.session_state.note}`,
