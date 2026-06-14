@@ -45,7 +45,11 @@ REQUIRED_SETUP_TERMS = [
 
 REQUIRED_SMOKE_TERMS = [
     "PersistentWorker",
+    "stream_reader",
+    "threading.Thread",
+    "queue.Queue",
     "persistent_worker",
+    "threaded_non_blocking_stdout_queue",
     "latency_summary",
     "latest_local_worker_smoke_evidence.json",
     "asr_transcript_smoke",
@@ -132,7 +136,7 @@ def main() -> int:
         print("LOCAL_REALTIME_STACK_TRUTH_POLICY_INCOMPLETE")
         return 1
 
-    print("PASS: Local realtime worker stack files, setup script, model checker, persistent smoke scripts, GPU-aware translation worker, latency budgets, commands, dependencies, modes, and truth policy are present")
+    print("PASS: Local realtime worker stack files, setup script, model checker, non-blocking persistent smoke scripts, GPU-aware translation worker, latency budgets, commands, dependencies, modes, and truth policy are present")
     return 0
 
 
