@@ -6,6 +6,7 @@ use crate::engine::adapters::runtime_readiness_bundle_logic::{
 use crate::engine::audio::capture_gate::{
     plan_native_capture_gate, NativeCaptureGateReport, NativeCaptureGateRequest,
 };
+use crate::engine::audio::live_audio_buffer::{live_audio_buffer_status, LiveAudioBufferStatusReport};
 use crate::engine::audio::live_capture::{live_capture_status, LiveCaptureStatusReport};
 use crate::engine::runtime_state::latest_runtime_session_state;
 use crate::engine::state::EngineStatus;
@@ -16,6 +17,7 @@ pub struct RuntimeStatusBundleReport {
     pub readiness: RuntimeReadinessBundleReport,
     pub capture_gate: NativeCaptureGateReport,
     pub live_capture: LiveCaptureStatusReport,
+    pub live_audio_buffer: LiveAudioBufferStatusReport,
     pub next_action: String,
     pub summary: String,
 }
@@ -28,7 +30,12 @@ pub fn build_runtime_status_bundle() -> RuntimeStatusBundleReport {
         latest_runtime_session_state(),
     );
     let live_capture = live_capture_status();
-    let next_action = if live_capture.stream_active {
+    let live_audio_buffer = live_audio_buffer_status();
+    let next_action = if live_audio_buffer.ready_for_segment_pipeline {
+        "feed_live_segment_to_asr_pipeline".to_string()
+    } else if live_audio_buffer.ready_for_vad {
+        "prepare_resample_or_segment_boundary".to_string()
+    } else if live_capture.stream_active {
         "continue_listening_or_stop".to_string()
     } else if capture_gate.ready_for_capture_start {
         "start_live_capture_stream".to_string()
@@ -42,15 +49,21 @@ pub fn build_runtime_status_bundle() -> RuntimeStatusBundleReport {
         "start_microphone_only_capture".to_string()
     };
     let summary = format!(
-        "start={}, stop={}, active_session={}, capture_gate={}, live_capture={}, frames_received={}, user_runtime={}, blockers={}",
+        "start={}, stop={}, active_session={}, capture_gate={}, live_capture={}, frames_received={}, buffer_ms={}, vad={}, segment_ready={}, user_runtime={}, blockers={}",
         readiness.ready_for_start_command,
         readiness.ready_for_stop_command,
         readiness.session_state.has_active_session,
         capture_gate.ready_for_capture_start,
         live_capture.stream_active,
         live_capture.frames_received,
+        live_audio_buffer.buffered_duration_ms,
+        live_audio_buffer.ready_for_vad,
+        live_audio_buffer.ready_for_segment_pipeline,
         readiness.ready_for_user_facing_runtime,
-        readiness.blockers.len() + capture_gate.blockers.len() + usize::from(!live_capture.blocker.is_empty())
+        readiness.blockers.len()
+            + capture_gate.blockers.len()
+            + usize::from(!live_capture.blocker.is_empty())
+            + usize::from(!live_audio_buffer.blocker.is_empty())
     );
 
     RuntimeStatusBundleReport {
@@ -58,6 +71,7 @@ pub fn build_runtime_status_bundle() -> RuntimeStatusBundleReport {
         readiness,
         capture_gate,
         live_capture,
+        live_audio_buffer,
         next_action,
         summary,
     }
