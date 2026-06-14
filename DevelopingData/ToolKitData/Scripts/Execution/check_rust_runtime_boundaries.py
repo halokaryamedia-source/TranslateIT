@@ -10,9 +10,20 @@ def main() -> int:
     required = [
         ENGINE_SRC / "audio" / "buffer.rs",
         ENGINE_SRC / "audio" / "calibration_flow.rs",
+        ENGINE_SRC / "audio" / "live_audio_buffer.rs",
+        ENGINE_SRC / "audio" / "live_capture.rs",
         ENGINE_SRC / "inference" / "backend_validation.rs",
         ENGINE_SRC / "adapters" / "asr_dry_run.rs",
         ENGINE_SRC / "adapters" / "text_dry_run.rs",
+        ENGINE_SRC / "adapters" / "live_asr_boundary_logic.rs",
+        ENGINE_SRC / "adapters" / "native_asr_decoder_logic.rs",
+        ENGINE_SRC / "adapters" / "live_translation_boundary_logic.rs",
+        ENGINE_SRC / "adapters" / "live_tts_boundary_logic.rs",
+        ENGINE_SRC / "adapters" / "live_runtime_pipeline_gate_logic.rs",
+        ENGINE_SRC / "adapters" / "live_pipeline_compact_status_logic.rs",
+        ENGINE_SRC / "adapters" / "internal_validation_gate_logic.rs",
+        ENGINE_SRC / "adapters" / "runtime_status_bundle_logic.rs",
+        ENGINE_SRC / "adapters" / "runtime_readiness_bundle_logic.rs",
     ]
     missing = [str(path.relative_to(ROOT)) for path in required if not path.exists()]
     if missing:
@@ -21,6 +32,7 @@ def main() -> int:
             print("-", item)
         return 1
     print("PASS: Rust runtime boundary files are present")
+    print("PASS: live capture, live buffer, ASR, translation, TTS, pipeline gate, and validation gate boundaries are present")
     return 0
 
 
