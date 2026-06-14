@@ -6,7 +6,9 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[4]
-EVIDENCE_FILE = ROOT / "UserData" / "LogData" / "RustAppValidation" / "latest_validation_evidence.json"
+EVIDENCE_DIR = ROOT / "UserData" / "LogData" / "RustAppValidation"
+EVIDENCE_FILE = EVIDENCE_DIR / "latest_validation_evidence.json"
+WORKER_SMOKE_FILE = EVIDENCE_DIR / "latest_local_worker_smoke_evidence.json"
 
 MANUAL_KEYS = [
     "microphone_capture_smoke_test",
@@ -26,14 +28,51 @@ BUILD_KEYS = [
 ]
 
 
+def read_json(path: Path) -> dict:
+    if not path.exists():
+        return {}
+    try:
+        return json.loads(path.read_text(encoding="utf-8"))
+    except Exception:
+        return {}
+
+
 def load_evidence() -> dict:
-    if EVIDENCE_FILE.exists():
-        return json.loads(EVIDENCE_FILE.read_text(encoding="utf-8"))
+    evidence = read_json(EVIDENCE_FILE)
+    if evidence:
+        return evidence
     return {
-        "schema": "translateit.rustapp.validation_evidence.v2",
+        "schema": "translateit.rustapp.validation_evidence.v3",
         "status": "internal_validation_only",
         "local_worker_stack_passed": False,
+        "owner_validation_allowed": False,
+        "release_candidate_allowed": False,
     }
+
+
+def worker_smoke_summary() -> dict:
+    smoke = read_json(WORKER_SMOKE_FILE)
+    if not smoke:
+        return {
+            "loaded": False,
+            "ok": False,
+            "persistent_worker": False,
+            "evidence_path": str(WORKER_SMOKE_FILE.relative_to(ROOT)).replace("\\", "/"),
+        }
+    return {
+        "loaded": True,
+        "ok": bool(smoke.get("ok", False)),
+        "schema": smoke.get("schema"),
+        "generated_at_utc": smoke.get("generated_at_utc"),
+        "mode": smoke.get("mode"),
+        "persistent_worker": bool(smoke.get("persistent_worker", False)),
+        "latency_summary": smoke.get("latency_summary", {}),
+        "evidence_path": str(WORKER_SMOKE_FILE.relative_to(ROOT)).replace("\\", "/"),
+    }
+
+
+def worker_smoke_passed(summary: dict) -> bool:
+    return bool(summary.get("loaded")) and bool(summary.get("ok")) and bool(summary.get("persistent_worker"))
 
 
 def main() -> int:
@@ -44,26 +83,31 @@ def main() -> int:
     args = parser.parse_args()
 
     evidence = load_evidence()
-    evidence["schema"] = "translateit.rustapp.validation_evidence.v2"
+    evidence["schema"] = "translateit.rustapp.validation_evidence.v3"
     manual = evidence.setdefault("manual_runtime_evidence", {})
     for key in MANUAL_KEYS:
         manual[key] = bool(getattr(args, key)) or bool(manual.get(key, False))
 
+    smoke_summary = worker_smoke_summary()
+    evidence["local_worker_smoke_evidence"] = smoke_summary
+
     all_build = all(bool(evidence.get(key, False)) for key in BUILD_KEYS)
     all_manual = all(bool(manual.get(key, False)) for key in MANUAL_KEYS)
-    owner_allowed = all_build and all_manual
+    smoke_ok = worker_smoke_passed(smoke_summary)
+    owner_allowed = all_build and all_manual and smoke_ok
 
     evidence["manual_evidence_updated_at_utc"] = datetime.now(timezone.utc).isoformat()
     evidence["owner_validation_allowed"] = owner_allowed
     evidence["release_candidate_allowed"] = owner_allowed and bool(args.allow_release_candidate)
     evidence["note"] = (
-        "Manual runtime evidence was updated. Owner validation is allowed only when build/package validation, local worker stack validation, and all manual runtime smoke tests pass."
+        "Manual runtime evidence was updated. Owner validation is allowed only when build/package validation, local worker stack validation, persistent worker smoke evidence, and all manual runtime smoke tests pass."
     )
 
-    EVIDENCE_FILE.parent.mkdir(parents=True, exist_ok=True)
+    EVIDENCE_DIR.mkdir(parents=True, exist_ok=True)
     EVIDENCE_FILE.write_text(json.dumps(evidence, indent=2), encoding="utf-8")
     print("PASS: recorded RustApp manual runtime evidence")
     print(EVIDENCE_FILE.relative_to(ROOT))
+    print("persistent_worker_smoke_passed:", smoke_ok)
     print("owner_validation_allowed:", evidence["owner_validation_allowed"])
     print("release_candidate_allowed:", evidence["release_candidate_allowed"])
     return 0
