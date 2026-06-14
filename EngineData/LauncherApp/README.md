@@ -1,34 +1,32 @@
 # LauncherApp
 
 ## Purpose
-- Hold the desktop launcher, UI state, and settings view logic for TranslateIT.
-- Hold the new Rust/Tauri conversion scaffold while the Python launcher remains the behavior reference.
 
-## Allowed files
-- `README.md`
-- UI entry files
-- State and view-model files
-- Minimal app configuration files
-- Replay controller files
-- `RustApp/`
+`LauncherApp` owns the desktop application route and the local AI worker used by the Rust/Tauri app.
 
-## Current sections
-- Python launcher modules remain the current runtime reference.
-- `RustApp/` contains the Tauri frontend and Rust command bridge scaffold for `ChatGPT-ConvertEngine`.
+## Layout
 
-## Must not be placed here
-- Audio capture implementation that belongs in `TranscriptEngine/`
-- ASR engine code that belongs in `TranscriptEngine/`
-- Translation engine code that belongs in `TranslateEngine/`
-- General project documentation outside folder README files
-- User cache or saved-session data
+```text
+LauncherApp/
+  README.md
+  RustApp/       # active desktop app: Tauri frontend + Rust command layer
+  Workers/       # local AI inference worker and worker validation helpers
+```
 
-## Naming rules
-- Use English only.
-- Keep UI module names clear and direct.
-- Keep the launcher thin and focused on presentation and app coordination.
-- During conversion, keep pending Rust features explicitly labeled instead of reporting false readiness.
+## Active route
 
-## Related documentation path
-- `../../DevelopingData/DocumentationData/SourceDocument/MASTER_PROJECT_DOCUMENTATION.md`
-- `../../DevelopingData/DocumentationData/SourceDocument/ProjectDocuments/RUST_TAURI_ENGINE_CONVERSION_PLAN.md`
+```text
+TranslateIT.vbs -> EngineData/LauncherApp/RustApp
+```
+
+## Ownership
+
+- `RustApp/` contains the user-facing desktop app, frontend, Rust commands, runtime validation, and packaging scripts.
+- `Workers/` contains only local AI worker logic for ASR, translation, and TTS orchestration.
+
+## Rules
+
+- Do not add Python UI, Qt, or old launcher modules here.
+- Do not add alternate BAT/CMD launcher helpers here.
+- Keep Rust/Tauri as the single app route.
+- Keep worker changes isolated to `Workers/` and validate them through the RustApp scripts.
