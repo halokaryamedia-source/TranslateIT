@@ -47,6 +47,29 @@ export type RuntimeSessionStateReport = {
   note: string;
 };
 
+export type InputConfigRangeInfo = {
+  channels: number;
+  min_sample_rate_hz: number;
+  max_sample_rate_hz: number;
+  sample_format: string;
+  supports_target_sample_rate: boolean;
+  supports_target_channels: boolean;
+};
+
+export type NativeInputConfigProbeReport = {
+  backend_id: string;
+  has_default_input: boolean;
+  default_input_name: string | null;
+  default_sample_rate_hz: number | null;
+  default_channels: number | null;
+  default_sample_format: string | null;
+  supports_target_format: boolean;
+  ready_for_capture_bridge: boolean;
+  supported_input_ranges: InputConfigRangeInfo[];
+  blockers: string[];
+  note: string;
+};
+
 export type NativeCaptureBridgeRequest = {
   require_active_session: boolean;
   require_safe_to_stop: boolean;
@@ -60,6 +83,7 @@ export type NativeCaptureBridgeReport = {
   active_session_required: boolean;
   active_session_present: boolean;
   safe_to_stop_ready: boolean;
+  input_config_probe: NativeInputConfigProbeReport;
   requested_sample_rate_hz: number;
   requested_channels: number;
   requested_frame_ms: number;
@@ -175,6 +199,10 @@ export async function analyzeRuntimeReadiness(): Promise<RuntimeReadinessBundleR
   return invoke<RuntimeReadinessBundleReport>("analyze_runtime_readiness");
 }
 
+export async function probeNativeInputConfig(): Promise<NativeInputConfigProbeReport> {
+  return invoke<NativeInputConfigProbeReport>("probe_native_input_config");
+}
+
 export async function analyzeNativeCaptureBridge(
   request: NativeCaptureBridgeRequest = defaultNativeCaptureBridgeRequest,
 ): Promise<NativeCaptureBridgeReport> {
@@ -276,6 +304,7 @@ export function summarizeReadinessBundle(report: RuntimeReadinessBundleReport): 
     `Ready for native inference runtime: ${report.ready_for_native_inference_runtime}`,
     `Ready for transcript persistence: ${report.ready_for_transcript_persistence}`,
     `Ready for user-facing runtime: ${report.ready_for_user_facing_runtime}`,
+    `Input config: ${report.capture_bridge.input_config_probe.note}`,
     `Capture bridge: ${report.capture_bridge.note}`,
     `Handoff state: ${report.handoff_state.note}`,
     `Session state: ${report.session_state.note}`,
