@@ -72,7 +72,7 @@ pub fn analyze_live_asr_boundary() -> LiveAsrBoundaryReport {
         temperature: Some(0),
         beam_size: Some(1),
         condition_on_previous_text: Some(false),
-        vad_filter: Some(false),
+        vad_filter: Some(true),
         word_timestamps: Some(false),
         initial_prompt: None,
     });
@@ -99,12 +99,12 @@ pub fn analyze_live_asr_boundary() -> LiveAsrBoundaryReport {
 
     let note = if ready_for_decoder_call {
         format!(
-            "Live ASR boundary is ready to call the native decoder. segment_id={}, samples={}",
+            "Live ASR boundary is ready to call the native decoder. segment_id={}, samples={}, vad_filter=true",
             segment_id, target_segment.target_sample_count
         )
     } else {
         format!(
-            "Live ASR boundary is blocked before transcription. segment_id={}, input_ready={}, model_ready={}, backend_ready={}, decoder_connected={}, duplicate={}, blocker={}",
+            "Live ASR boundary is blocked before transcription. segment_id={}, input_ready={}, model_ready={}, backend_ready={}, decoder_connected={}, duplicate={}, vad_filter=true, blocker={}",
             segment_id, input_ready, model_ready, backend_ready, decoder_connected, duplicate_of_last_success, blocker
         )
     };
@@ -180,41 +180,21 @@ fn segment_id(segment: &LiveTargetSegmentReport) -> String {
         segment.target_sample_rate_hz,
         segment.target_channels,
         segment.target_sample_count,
-        hash_segment(segment)
+        checksum_samples(segment.frame.as_ref().map(|frame| frame.samples.as_slice()).unwrap_or(&[]))
     )
 }
 
 fn duplicate_key(segment: &LiveTargetSegmentReport) -> String {
-    format!(
-        "{}:{}:{}:{}:{}",
-        segment.ready,
-        segment.source_sample_rate_hz.unwrap_or(0),
-        segment.target_sample_rate_hz,
-        segment.target_sample_count,
-        hash_segment(segment)
-    )
+    if !segment.ready {
+        return "live_segment_pending".to_string();
+    }
+    format!("{}:{}:{}", segment.target_sample_rate_hz, segment.target_sample_count, checksum_samples(segment.frame.as_ref().map(|frame| frame.samples.as_slice()).unwrap_or(&[])))
 }
 
-fn hash_segment(segment: &LiveTargetSegmentReport) -> u64 {
+fn checksum_samples(samples: &[f32]) -> u64 {
     let mut hasher = DefaultHasher::new();
-    segment.ready.hash(&mut hasher);
-    segment.source_sample_rate_hz.hash(&mut hasher);
-    segment.source_channels.hash(&mut hasher);
-    segment.target_sample_rate_hz.hash(&mut hasher);
-    segment.target_channels.hash(&mut hasher);
-    segment.source_duration_ms.hash(&mut hasher);
-    segment.target_duration_ms.hash(&mut hasher);
-    segment.source_sample_count.hash(&mut hasher);
-    segment.target_sample_count.hash(&mut hasher);
-    segment.resampled.hash(&mut hasher);
-    segment.downmixed_to_mono.hash(&mut hasher);
-    if let Some(frame) = &segment.frame {
-        frame.sample_rate_hz.hash(&mut hasher);
-        frame.channels.hash(&mut hasher);
-        frame.samples.len().hash(&mut hasher);
-        for sample in frame.samples.iter().step_by((frame.samples.len() / 64).max(1)) {
-            sample.to_bits().hash(&mut hasher);
-        }
+    for sample in samples.iter().take(64_000) {
+        sample.to_bits().hash(&mut hasher);
     }
     hasher.finish()
 }
