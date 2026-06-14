@@ -27,6 +27,8 @@ REQUIRED_TERMS = {
     INTERNAL_GATE: [
         "ValidationEvidenceFile",
         "ManualRuntimeEvidence",
+        "LocalWorkerSmokeEvidenceSummary",
+        "persistent_worker_smoke_passed",
         "local_worker_stack_passed",
         "LocalWorkerManifestReport",
         "read_validation_evidence",
@@ -70,11 +72,15 @@ REQUIRED_TERMS = {
         "requirements-realtime.txt",
         "realtime_stack_manifest.json",
         "PersistentWorker",
+        "threaded_non_blocking_stdout_queue",
         "latency_summary",
     ],
     LOCAL_WORKER_SMOKE: [
         "PersistentWorker",
+        "stream_reader",
+        "queue.Queue",
         "persistent_worker",
+        "threaded_non_blocking_stdout_queue",
         "latency_summary",
         "latest_local_worker_smoke_evidence.json",
     ],
@@ -102,7 +108,7 @@ def main() -> int:
             print("-", item)
         return 1
 
-    print("PASS: Rust validation evidence boundary, persistent worker smoke evidence, local worker stack gate, and manual runtime evidence recorder are present and wired")
+    print("PASS: Rust validation evidence boundary, non-blocking persistent worker smoke evidence, local worker stack gate, and manual runtime evidence recorder are present and wired")
     return 0
 
 
