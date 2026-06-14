@@ -10,6 +10,7 @@ MAIN_RS = RUST_APP / "src-tauri" / "src" / "main.rs"
 EVIDENCE_WRITER = ROOT / "DevelopingData" / "ToolKitData" / "Scripts" / "Execution" / "write_rustapp_validation_evidence.py"
 MANUAL_EVIDENCE_RECORDER = ROOT / "DevelopingData" / "ToolKitData" / "Scripts" / "Execution" / "record_rustapp_manual_runtime_evidence.py"
 VALIDATION_RUNNER = ROOT / "DevelopingData" / "ToolKitData" / "Scripts" / "Execution" / "run_rustapp_final_validation.ps1"
+LOCAL_WORKER_STACK_CHECK = ROOT / "DevelopingData" / "ToolKitData" / "Scripts" / "Execution" / "check_local_realtime_worker_stack.py"
 
 REQUIRED_FILES = [
     INTERNAL_GATE,
@@ -17,12 +18,15 @@ REQUIRED_FILES = [
     EVIDENCE_WRITER,
     MANUAL_EVIDENCE_RECORDER,
     VALIDATION_RUNNER,
+    LOCAL_WORKER_STACK_CHECK,
 ]
 
 REQUIRED_TERMS = {
     INTERNAL_GATE: [
         "ValidationEvidenceFile",
         "ManualRuntimeEvidence",
+        "local_worker_stack_passed",
+        "LocalWorkerManifestReport",
         "read_validation_evidence",
         "manual_evidence_updated_at_utc",
         "ready_for_owner_validation",
@@ -34,6 +38,7 @@ REQUIRED_TERMS = {
     ],
     EVIDENCE_WRITER: [
         "latest_validation_evidence.json",
+        "local_worker_stack_passed",
         "owner_validation_allowed",
         "release_candidate_allowed",
         "manual_runtime_evidence",
@@ -48,10 +53,17 @@ REQUIRED_TERMS = {
     ],
     VALIDATION_RUNNER: [
         "write_rustapp_validation_evidence.py",
+        "check_local_realtime_worker_stack.py",
+        "$LocalWorkerStackPassed",
         "$RustCheckPassed",
         "$TypecheckPassed",
         "$FrontendBuildPassed",
         "$PackagingPassed",
+    ],
+    LOCAL_WORKER_STACK_CHECK: [
+        "realtime_local_worker.py",
+        "requirements-realtime.txt",
+        "realtime_stack_manifest.json",
     ],
 }
 
@@ -77,7 +89,7 @@ def main() -> int:
             print("-", item)
         return 1
 
-    print("PASS: Rust validation evidence boundary and manual runtime evidence recorder are present and wired")
+    print("PASS: Rust validation evidence boundary, local worker stack gate, and manual runtime evidence recorder are present and wired")
     return 0
 
 
