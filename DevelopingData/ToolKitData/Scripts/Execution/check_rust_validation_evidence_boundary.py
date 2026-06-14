@@ -11,6 +11,7 @@ EVIDENCE_WRITER = ROOT / "DevelopingData" / "ToolKitData" / "Scripts" / "Executi
 MANUAL_EVIDENCE_RECORDER = ROOT / "DevelopingData" / "ToolKitData" / "Scripts" / "Execution" / "record_rustapp_manual_runtime_evidence.py"
 VALIDATION_RUNNER = ROOT / "DevelopingData" / "ToolKitData" / "Scripts" / "Execution" / "run_rustapp_final_validation.ps1"
 LOCAL_WORKER_STACK_CHECK = ROOT / "DevelopingData" / "ToolKitData" / "Scripts" / "Execution" / "check_local_realtime_worker_stack.py"
+LOCAL_WORKER_SMOKE = ROOT / "DevelopingData" / "ToolKitData" / "Scripts" / "Execution" / "run_local_realtime_worker_smoke_tests.py"
 
 REQUIRED_FILES = [
     INTERNAL_GATE,
@@ -19,6 +20,7 @@ REQUIRED_FILES = [
     MANUAL_EVIDENCE_RECORDER,
     VALIDATION_RUNNER,
     LOCAL_WORKER_STACK_CHECK,
+    LOCAL_WORKER_SMOKE,
 ]
 
 REQUIRED_TERMS = {
@@ -39,9 +41,11 @@ REQUIRED_TERMS = {
     EVIDENCE_WRITER: [
         "latest_validation_evidence.json",
         "local_worker_stack_passed",
+        "local_worker_smoke_evidence",
+        "latest_local_worker_smoke_evidence.json",
+        "manual_runtime_evidence",
         "owner_validation_allowed",
         "release_candidate_allowed",
-        "manual_runtime_evidence",
     ],
     MANUAL_EVIDENCE_RECORDER: [
         "microphone_capture_smoke_test",
@@ -54,6 +58,7 @@ REQUIRED_TERMS = {
     VALIDATION_RUNNER: [
         "write_rustapp_validation_evidence.py",
         "check_local_realtime_worker_stack.py",
+        "check_frontend_runtime_contract.py",
         "$LocalWorkerStackPassed",
         "$RustCheckPassed",
         "$TypecheckPassed",
@@ -64,6 +69,14 @@ REQUIRED_TERMS = {
         "realtime_local_worker.py",
         "requirements-realtime.txt",
         "realtime_stack_manifest.json",
+        "PersistentWorker",
+        "latency_summary",
+    ],
+    LOCAL_WORKER_SMOKE: [
+        "PersistentWorker",
+        "persistent_worker",
+        "latency_summary",
+        "latest_local_worker_smoke_evidence.json",
     ],
 }
 
@@ -89,7 +102,7 @@ def main() -> int:
             print("-", item)
         return 1
 
-    print("PASS: Rust validation evidence boundary, local worker stack gate, and manual runtime evidence recorder are present and wired")
+    print("PASS: Rust validation evidence boundary, persistent worker smoke evidence, local worker stack gate, and manual runtime evidence recorder are present and wired")
     return 0
 
 
