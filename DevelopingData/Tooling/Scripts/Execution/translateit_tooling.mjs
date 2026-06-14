@@ -4,7 +4,6 @@ import { spawnSync } from "node:child_process";
 import process from "node:process";
 
 const ROOT = resolve(new URL("../../../../", import.meta.url).pathname.replace(/^\/(.:\/)/, "$1"));
-const TOOLING = join(ROOT, "DevelopingData", "Tooling", "Scripts", "Execution");
 const RUST_APP = join(ROOT, "EngineData", "LauncherApp", "RustApp");
 const WORKER_ROOT = join(ROOT, "EngineData", "LauncherApp", "Workers");
 const WORKER = join(WORKER_ROOT, "realtime_local_worker.py");
@@ -54,16 +53,16 @@ function finish(label, problems) {
 }
 
 function validateRoot() {
-  const allowedRootFiles = new Set([".gitattributes", ".gitignore", "README.md", "TranslateIT.vbs"]);
+  const allowedRootFiles = new Set([".gitattributes", ".gitignore", "README.md"]);
   const allowedRootDirs = new Set([".git", ".github", "DevelopingData", "EngineData", "Launcher", "UserData"]);
-  const forbiddenRootSuffixes = new Set([".py", ".bat", ".ps1", ".cmd", ".log", ".tmp", ".bak", ".old"]);
+  const forbiddenRootSuffixes = new Set([".py", ".bat", ".ps1", ".cmd", ".vbs", ".log", ".tmp", ".bak", ".old"]);
   const problems = [];
   for (const name of readdirSync(ROOT)) {
     const path = join(ROOT, name);
     const isDir = statSync(path).isDirectory();
     const suffix = name.includes(".") ? name.slice(name.lastIndexOf(".")).toLowerCase() : "";
     if (isDir && !allowedRootDirs.has(name)) problems.push(`unexpected root directory: ${name}`);
-    if (!isDir && forbiddenRootSuffixes.has(suffix)) problems.push(`forbidden root file type: ${name}`);
+    if (!isDir && forbiddenRootSuffixes.has(suffix)) problems.push(`forbidden root launcher/helper file: ${name}`);
     if (!isDir && !allowedRootFiles.has(name)) problems.push(`unexpected root file: ${name}`);
   }
   finish("ROOT_CLEANLINESS_INCOMPLETE", problems);
@@ -83,6 +82,7 @@ function validateStructure() {
     join(ROOT, "DevelopingData", "Samples", "README.md"),
     join(ROOT, "EngineData", "README.md"),
     join(ROOT, "EngineData", "LauncherApp", "RustApp", "package.json"),
+    join(ROOT, "EngineData", "LauncherApp", "RustApp", "src-tauri", "tauri.conf.json"),
     WORKER,
     join(RUNTIME_ASSETS, "README.md"),
     join(RUNTIME_ASSETS, "ASR", "README.md"),
@@ -115,18 +115,17 @@ function validateStructure() {
 }
 
 function validateLauncher() {
-  const launcher = join(ROOT, "TranslateIT.vbs");
-  const problems = requireFiles([launcher, join(RUST_APP, "package.json")]);
-  if (exists(launcher)) {
-    const text = read(launcher);
-    for (const term of ["EngineData\\LauncherApp\\RustApp", "npm.cmd run dev", "translateit_rustapp.exe"]) {
-      if (!text.includes(term)) problems.push(`launcher missing term: ${term}`);
-    }
-    for (const forbidden of ["ToolKitData", "LauncherHelpers", "app_main.py", "TranslateIt.bat"]) {
-      if (text.includes(forbidden)) problems.push(`launcher contains retired route: ${forbidden}`);
+  const tauriConf = join(RUST_APP, "src-tauri", "tauri.conf.json");
+  const packageJson = join(RUST_APP, "package.json");
+  const problems = requireFiles([packageJson, tauriConf, join(RUST_APP, "src", "main.ts"), join(RUST_APP, "src", "styles.css")]);
+  if (exists(tauriConf)) {
+    const text = read(tauriConf);
+    for (const term of ["\"productName\": \"TranslateIT\"", "\"identifier\": \"com.halokaryamedia.translateit\"", "\"targets\": [\"nsis\"]"]) {
+      if (!text.includes(term)) problems.push(`tauri bundle config missing term: ${term}`);
     }
   }
-  finish("LAUNCHER_CONTRACT_INCOMPLETE", problems);
+  if (exists(join(ROOT, "TranslateIT.vbs"))) problems.push("retired root VBS launcher still exists: TranslateIT.vbs");
+  finish("TAURI_LAUNCHER_CONTRACT_INCOMPLETE", problems);
 }
 
 function validateWorker() {
@@ -219,7 +218,14 @@ function validateFrontend() {
 }
 
 function validateReleaseBundle() {
-  const problems = requireFiles([join(RUST_APP, "package.json"), join(RUST_APP, "src-tauri", "tauri.conf.json"), join(ROOT, "TranslateIT.vbs")]);
+  const tauriConf = join(RUST_APP, "src-tauri", "tauri.conf.json");
+  const problems = requireFiles([join(RUST_APP, "package.json"), tauriConf, join(RUST_APP, "src-tauri", "Cargo.toml")]);
+  if (exists(tauriConf)) {
+    const text = read(tauriConf);
+    if (!text.includes("\"bundle\"")) problems.push("tauri bundle section is missing");
+    if (!text.includes("\"active\": true")) problems.push("tauri bundle is not active");
+    if (!text.includes("\"nsis\"")) problems.push("Windows NSIS package target is missing");
+  }
   finish("LOCAL_RELEASE_BUNDLE_INCOMPLETE", problems);
 }
 
