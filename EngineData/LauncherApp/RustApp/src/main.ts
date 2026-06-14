@@ -12,218 +12,15 @@ type EngineStatus = {
   notes: string[];
 };
 
-type NativeInferenceBackendSelection = {
-  backend: string;
-  device: string;
-  compute_type: string;
-  final_runtime_allows_python: boolean;
-  selected: boolean;
-  reason: string;
-};
-
-type CudaProbeReport = {
-  nvidia_smi_available: boolean;
-  gpu_summary: string | null;
-  cuda_runtime_ready: boolean;
-  blocker: string | null;
-};
-
-type AdapterPlan = {
-  adapter_id: string;
-  selected_backend: NativeInferenceBackendSelection;
-  cuda_probe: CudaProbeReport;
-  ready: boolean;
-  blocker: string;
-};
-
-type AudioBufferStatus = {
-  target_sample_rate_hz: number;
-  target_channels: number;
-  max_frames: number;
-  current_frames: number;
-  ready_for_calibration: boolean;
-  ready_for_vad: boolean;
-  note: string;
-};
-
-type InputPreparationStatus = {
-  backend_id: string;
-  input_device_name: string | null;
-  target_sample_rate_hz: number;
-  target_channels: number;
-  prepared: boolean;
-  running: boolean;
-  note: string;
-};
-
-type CaptureLoopContractReport = {
-  backend_id: string;
-  input_device_name: string | null;
-  target_sample_rate_hz: number;
-  target_channels: number;
-  input_prepared: boolean;
-  input_running: boolean;
-  buffer_ready_for_vad: boolean;
-  buffer_ready_for_calibration: boolean;
-  ready_for_stream_loop: boolean;
-  blockers: string[];
-  note: string;
-  input_status: InputPreparationStatus;
-  buffer_status: AudioBufferStatus;
-};
-
-type StreamOwnershipRequest = {
-  requested_owner_id: string | null;
-  session_id: string | null;
-  allow_takeover: boolean;
-  current_owner_id: string | null;
-  capture_loop_active: boolean;
-  calibration_ready: boolean;
-};
-
-type StreamOwnershipReport = {
-  owner_id: string;
-  session_id: string;
-  input_prepared: boolean;
-  input_running: boolean;
-  capture_loop_active: boolean;
-  calibration_ready: boolean;
-  buffer_ready_for_vad: boolean;
-  buffer_ready_for_calibration: boolean;
-  ownership_granted: boolean;
-  requires_takeover: boolean;
-  ready_to_start_stream: boolean;
-  blockers: string[];
-  input_status: InputPreparationStatus;
-  buffer_status: AudioBufferStatus;
-  note: string;
-};
-
-type CalibrationFlowStatus = {
-  output_path: string;
-  requires_quiet_sample: boolean;
-  requires_speech_sample: boolean;
-  ready_to_save_profile: boolean;
-  note: string;
-};
-
-type AudioFrame = {
-  sample_rate_hz: number;
-  channels: number;
-  samples: number[];
-};
-
-type AudioEvidenceReport = {
-  reason: string;
-  rms: number;
-  peak: number;
-  mean_abs: number;
-  peak_to_rms_ratio: number;
-  speech_to_noise_gap: number;
-  voiced_frame_ratio: number;
-  zero_crossing_rate: number;
-  frame_energy_concentration: number;
-  frame_active_ratio: number;
-  active_frame_ratio: number;
-  impulse_edge_ratio: number;
-  clipping_ratio: number;
-};
-
-type VadGateResult = {
-  accepted: boolean;
-  reason: string;
-  evidence: AudioEvidenceReport;
-};
-
-type AudioFrameInspectionReport = {
-  accepted_by_buffer: boolean;
-  buffer_status: AudioBufferStatus;
-  evidence: AudioEvidenceReport;
-  vad_result: VadGateResult;
-  note: string;
-};
-
-type AudioFrameStats = {
-  sample_rate: number;
-  frame_count: number;
-  duration_ms: number;
-  rms: number;
-  peak: number;
-  clipping: boolean;
-  input_state: string;
-};
-
-type PreprocessingResult = {
-  samples: number[];
-  stats: AudioFrameStats;
-  noise_gate_threshold: number;
-};
-
-type FramePipelineRequest = {
-  frame: AudioFrame;
-  floor_rms: number | null;
-  require_vad_acceptance: boolean;
-};
-
-type FramePipelineReport = {
-  accepted_by_buffer: boolean;
-  vad_passed: boolean;
-  ready_for_segment_builder: boolean;
-  ready_for_asr_preprocess: boolean;
-  duration_ms: number;
-  input_state: string;
-  blockers: string[];
-  inspection: AudioFrameInspectionReport;
-  asr_preprocess: PreprocessingResult;
-  note: string;
-};
-
-type NativeBackendFileCheck = {
-  file_name: string;
-  found: boolean;
-  found_at: string | null;
-};
-
-type NativeRuntimeFileRequirement = {
-  file_name: string;
-  required: boolean;
-  purpose: string;
-};
-
-type NativeRuntimeFileRequirementList = {
-  backend_id: string;
-  device: string;
-  compute_type: string;
-  final_runtime_allows_python: boolean;
-  files: NativeRuntimeFileRequirement[];
-  note: string;
-};
-
-type ModelDirectoryCheck = {
-  label: string;
-  path: string;
-  exists: boolean;
-};
-
-type NativeCudaBackendValidationReport = {
-  backend_id: string;
-  device: string;
-  compute_type: string;
-  nvidia_smi_available: boolean;
-  dependency_checks: NativeBackendFileCheck[];
-  file_requirements: NativeRuntimeFileRequirementList;
-  model_directories: ModelDirectoryCheck[];
-  ready: boolean;
-  blocker: string;
-};
-
-type SessionStoreStatus = {
-  output_dir: string;
-  ready: boolean;
-  note: string;
+type CommandResult = {
+  ok: boolean;
+  state: string;
+  message: string;
 };
 
 type RuntimeDiagnostics = {
+  rust_runtime_target: string;
+  final_runtime_allows_python: boolean;
   project_paths: {
     project_root: string;
     user_cache_dir: string;
@@ -233,8 +30,6 @@ type RuntimeDiagnostics = {
     translation_model_dir: string;
     discovery_note: string;
   };
-  rust_runtime_target: string;
-  final_runtime_allows_python: boolean;
   audio_device_discovery: {
     backend_id: string;
     devices: Array<{
@@ -247,284 +42,70 @@ type RuntimeDiagnostics = {
     }>;
     blocker: string | null;
   };
-  input_preparation_status: InputPreparationStatus;
-  calibration_profile_status: {
-    path: string;
-    present: boolean;
-    profile: unknown | null;
+  input_preparation_status: {
+    backend_id: string;
+    input_device_name: string | null;
+    target_sample_rate_hz: number;
+    target_channels: number;
+    prepared: boolean;
+    running: boolean;
     note: string;
   };
-  session_store_status: SessionStoreStatus;
-  cuda_probe: CudaProbeReport;
-  backend_validation: NativeCudaBackendValidationReport;
-  native_inference_candidates: NativeInferenceBackendSelection[];
-  asr_adapter_plan: AdapterPlan;
-  translation_adapter_plan: AdapterPlan;
-  cuda_backend_candidates: string[];
-  blockers: string[];
-};
-
-type RuntimeSettings = {
-  schema_version: number;
-  language_focus_mode: string;
-  source_language: string;
-  target_language: string;
-  voice_actor_profile_id: string;
-  audio: {
-    input_device_id: string | null;
-    output_device_id: string | null;
-    sensitivity: number;
-    allow_cpu_degraded_mode: boolean;
-    auto_play_translation_voice: boolean;
+  cuda_probe: {
+    nvidia_smi_available: boolean;
+    gpu_summary: string | null;
+    cuda_runtime_ready: boolean;
+    blocker: string | null;
   };
-};
-
-type CommandResult = {
-  ok: boolean;
-  state: string;
-  message: string;
-};
-
-type TranscriptQualityMetrics = {
-  input_quality: string;
-  asr_confidence: number;
-  status: string;
-  no_speech_probability: number;
-  average_log_probability: number;
-  compression_ratio: number;
-  language_ok: boolean;
-  notes: string;
-  raw_rms: number;
-  raw_peak: number;
-  speech_to_noise_gap: number;
-  voiced_frame_ratio: number;
-  tts_status: string;
-  tts_error: string;
-  output_device_name: string;
-  replay_error: string;
-  capture_buffer_ms: number;
-  endpoint_wait_ms: number;
-  silence_accumulation_ms: number;
-  speech_confirmation_ms: number;
-};
-
-type TranscriptReplayPaths = {
-  source_audio_path: string | null;
-  translated_audio_path: string | null;
-  source_replay_available: boolean;
-  target_voice_available: boolean;
-};
-
-type TranscriptSegmentRecord = {
-  segment_id: string;
-  trace_id: string;
-  session_id: string;
-  input_language: string;
-  output_language: string;
-  start_time_ms: number;
-  end_time_ms: number;
-  input_text: string;
-  translated_text: string;
-  pipeline_mode: string;
-  capture_mode: string;
-  asr_model_used: string;
-  asr_device_used: string;
-  asr_compute_type_used: string;
-  translation_engine_used: string;
-  model_fallback_used: boolean;
-  error_message: string;
-  created_at_iso: string;
-  quality: TranscriptQualityMetrics;
-  replay: TranscriptReplayPaths;
-};
-
-type TranscriptSessionRecord = {
-  session_id: string;
-  input_language: string;
-  output_language: string;
-  asr_model: string;
-  translation_engine: string;
-  created_at_iso: string;
-  segments: TranscriptSegmentRecord[];
-};
-
-type TranscriptSessionReadinessReport = {
-  summary: {
-    session_id: string;
-    segment_count: number;
-    source_language: string;
-    target_language: string;
-    source_chars: number;
-    translated_chars: number;
-    completed_segments: number;
-    errored_segments: number;
+  backend_validation: {
+    backend_id: string;
+    device: string;
+    compute_type: string;
+    ready: boolean;
+    blocker: string;
   };
-  ready_for_preview: boolean;
-  blockers: string[];
-};
-
-type SessionSavePreview = {
-  session_id: string;
-  output_path: string;
-  segment_count: number;
-  ready: boolean;
-  message: string;
-};
-
-type TranscriptSessionPathPlan = {
-  cache_session_dir: string;
-  cache_audio_dir: string;
-  cache_session_json_path: string;
-  saved_session_dir: string;
-  saved_session_json_path: string;
-  planned_cache_items: string[];
-  planned_save_items: string[];
-  guard_blockers: string[];
-};
-
-type TranscriptSessionPlanRequest = {
-  session: TranscriptSessionRecord;
-  cache_root: string | null;
-  saved_root: string | null;
-  copy_audio: boolean;
-};
-
-type TranscriptSessionPlanReport = {
-  summary: TranscriptSessionReadinessReport["summary"];
-  paths: TranscriptSessionPathPlan;
-  store_preview: SessionSavePreview;
-  ready_to_save: boolean;
-  message: string;
-};
-
-type SegmentBuildRequest = {
-  segment_id: string;
-  session_id: string;
-  input_language: string | null;
-  output_language: string | null;
-  start_time_ms: number;
-  end_time_ms: number;
-  input_text: string | null;
-  translated_text: string | null;
-  trace_id: string | null;
-  source_audio_path: string | null;
-  translated_audio_path: string | null;
-  pipeline_mode: string | null;
-  capture_mode: string | null;
-  asr_model_used: string | null;
-  asr_device_used: string | null;
-  asr_compute_type_used: string | null;
-  translation_engine_used: string | null;
-  model_fallback_used: boolean | null;
-  error_message: string | null;
-};
-
-type SegmentFlowRequest = {
-  capture_ready: boolean;
-  session_id: string;
-  next_segment_id: string;
-  segment: SegmentBuildRequest;
-  vad_accepted: boolean;
-  asr_ready: boolean;
-  translation_ready: boolean;
-};
-
-type SegmentFlowReport = {
-  session_id: string;
-  segment_id: string;
-  ready_for_runtime_plan: boolean;
-  segment: {
-    valid_duration: boolean;
-    duration_ms: number;
-    warning: string;
-    segment: TranscriptSegmentRecord;
+  asr_adapter_plan: {
+    adapter_id: string;
+    ready: boolean;
+    blocker: string;
+  };
+  translation_adapter_plan: {
+    adapter_id: string;
+    ready: boolean;
+    blocker: string;
+  };
+  session_store_status: {
+    output_dir: string;
+    ready: boolean;
+    note: string;
   };
   blockers: string[];
-  message: string;
 };
 
-type NativeExecutionContractResult = {
-  segment_id: string;
-  stage: string;
-  ready_to_execute: boolean;
-  execution_status: string;
-  selected_model: string;
-  selected_device: string;
-  selected_compute_type: string;
-  input_kind: string;
-  input_summary: string;
-  output_target: string;
-  queue_wait_ms: number;
-  preprocess_ms: number;
-  inference_ms: number;
-  postprocess_ms: number;
-  total_ms: number;
-  error: string;
-  blocker: string;
-};
-
-type NativeStageRunnerReport = {
-  asr: NativeExecutionContractResult | null;
-  translation: NativeExecutionContractResult | null;
-  output: NativeExecutionContractResult | null;
-  ready_stage_count: number;
-  blocked_stage_count: number;
-  blockers: string[];
-};
-
-type NativeExecutionBridgeRequest = {
-  segment_id: string;
-  source_text: string | null;
-  source_audio_path: string | null;
-  output_audio_path: string | null;
-  asr_model_path: string | null;
-  translation_model_path: string | null;
-  output_model_path: string | null;
-  asr_backend_ready: boolean;
-  translation_backend_ready: boolean;
-  output_backend_ready: boolean;
-  allow_cpu_degraded_mode: boolean;
-};
-
-type NativeExecutionBridgeReport = {
-  segment_id: string;
-  ready_for_execution: boolean;
-  runner_report: NativeStageRunnerReport;
-  blockers: string[];
-  note: string;
-};
-
-type RealtimeStageReadiness = {
-  stage: string;
-  ready: boolean;
-  blocker_count: number;
-  note: string;
-};
-
-type RealtimeHandoffRequest = {
-  stream: StreamOwnershipRequest;
-  frame: FramePipelineRequest;
-  segment: SegmentFlowRequest;
-  native_execution: NativeExecutionBridgeRequest;
-  transcript_save: TranscriptSessionPlanRequest;
-  require_native_execution_ready: boolean;
-  require_save_plan_ready: boolean;
-};
-
-type RealtimeHandoffReport = {
-  stream: StreamOwnershipReport;
-  frame: FramePipelineReport;
-  segment: SegmentFlowReport;
-  native_execution: NativeExecutionBridgeReport;
-  transcript_save: TranscriptSessionPlanReport;
-  stages: RealtimeStageReadiness[];
-  ready_for_live_capture: boolean;
-  ready_for_segment_runtime: boolean;
-  ready_for_native_execution: boolean;
-  ready_for_safe_save: boolean;
-  ready_for_realtime_handoff: boolean;
-  blockers: string[];
-  note: string;
+type RuntimeStatusBundleReport = {
+  engine_status: EngineStatus;
+  readiness: {
+    ready_for_start_command: boolean;
+    ready_for_stop_command: boolean;
+    ready_for_capture_stream_creation: boolean;
+    ready_for_live_capture_runtime: boolean;
+    ready_for_native_inference_runtime: boolean;
+    ready_for_transcript_persistence: boolean;
+    ready_for_user_facing_runtime: boolean;
+    blockers: string[];
+    note: string;
+    diagnostics: RuntimeDiagnostics;
+  };
+  capture_gate: {
+    ready_for_capture_start: boolean;
+    stream_open_requested: boolean;
+    stream_open_performed: boolean;
+    active_session_present: boolean;
+    blockers: string[];
+    note: string;
+  };
+  next_action: string;
+  summary: string;
 };
 
 const app = document.querySelector<HTMLDivElement>("#app");
@@ -534,760 +115,293 @@ if (!app) {
 }
 
 app.innerHTML = `
-  <main class="shell">
+  <main class="app-shell">
     <aside class="sidebar" aria-label="TranslateIT navigation">
-      <section class="brand-block">
-        <div class="brand-mark">T</div>
+      <section class="brand-row">
+        <div class="brand-mark" aria-hidden="true">T</div>
         <div>
           <p class="eyebrow">Local AI Translator</p>
           <h1>TranslateIT</h1>
         </div>
       </section>
-      <button class="sidebar-action" type="button">New Session</button>
-      <nav class="nav-section" aria-label="Workspace">
-        <p>Workspace</p>
-        <button type="button" class="nav-item active">Live Translate</button>
-        <button type="button" class="nav-item">Saved Sessions</button>
-        <button type="button" class="nav-item">Diagnostics</button>
+
+      <button class="sidebar-action" type="button">New Chat</button>
+
+      <nav class="nav-stack" aria-label="Workspace">
+        <p class="nav-heading">Recent Chat</p>
+        <button type="button" class="nav-item active">Unsaved Chat</button>
+        <p class="nav-heading">Workspace</p>
+        <button type="button" class="nav-item">Saved Chat</button>
       </nav>
+
+      <section class="sidebar-footer">
+        <span id="versionText">Rust/Tauri</span>
+        <span id="runtimeText">Pre-validation</span>
+      </section>
     </aside>
 
     <section class="workspace">
       <header class="topbar">
         <div>
-          <p class="eyebrow">Rust/Tauri Conversion Branch</p>
-          <h2>Realtime Translation Console</h2>
+          <p class="eyebrow">Speech to Speech</p>
+          <h2>Realtime Translate Console</h2>
         </div>
-        <div class="badge-row" aria-label="Runtime badges">
-          <span id="stageBadge" class="badge">Stage: Loading</span>
-          <span id="cudaBadge" class="badge muted">CUDA: Checking</span>
-          <span id="lifecycleBadge" class="badge muted">State: Idle</span>
+        <div class="status-pills" aria-label="Runtime status">
+          <span id="statusPill" class="pill neutral">Checking</span>
+          <span id="capturePill" class="pill neutral">Capture Pending</span>
+          <span id="runtimePill" class="pill neutral">Runtime Pending</span>
         </div>
       </header>
 
-      <section class="translator-card" aria-label="Translator controls">
-        <div class="language-row">
-          <button class="language-pill active" type="button">ID</button>
-          <span class="direction">→</span>
-          <button class="language-pill" type="button">EN</button>
+      <section class="translator-card" aria-label="TranslateIT translator">
+        <div class="language-row" aria-label="Language direction">
+          <button id="sourceLanguage" class="language-pill active" type="button">ID</button>
+          <span class="direction" aria-hidden="true">→</span>
+          <button id="targetLanguage" class="language-pill" type="button">EN</button>
         </div>
 
-        <label class="input-label" for="sourceText">Source text</label>
-        <textarea id="sourceText" placeholder="Type Indonesian or English here while Rust engine capture is being converted."></textarea>
+        <label class="input-label" for="sourceText">Input Text</label>
+        <textarea id="sourceText" placeholder="Type text here while speech runtime is still being prepared."></textarea>
 
-        <div class="action-row">
-          <button id="startButton" class="primary" type="button">Start</button>
-          <button id="stopButton" class="secondary" type="button">Stop</button>
-          <button id="translateButton" class="secondary" type="button">Translate Text</button>
-          <button id="captureLoopButton" class="secondary" type="button">Capture Check</button>
-          <button id="streamOwnershipButton" class="secondary" type="button">Stream Owner</button>
-          <button id="framePipelineButton" class="secondary" type="button">Frame Pipeline</button>
-          <button id="sessionStateButton" class="secondary" type="button">Session Check</button>
-          <button id="transcriptSavePlanButton" class="secondary" type="button">Save Plan</button>
-          <button id="realtimeHandoffButton" class="secondary" type="button">Realtime Handoff</button>
-          <button id="segmentFlowButton" class="secondary" type="button">Segment Flow</button>
-          <button id="executionBridgeButton" class="secondary" type="button">Execution Bridge</button>
-          <button id="diagnosticsButton" class="secondary" type="button">Diagnostics</button>
-          <button id="saveSettingsButton" class="secondary" type="button">Save Settings</button>
+        <div class="action-row" aria-label="Primary controls">
+          <button id="startButton" class="icon-button primary" type="button" aria-label="Start recording">🎙</button>
+          <button id="translateButton" class="send-button" type="button" aria-label="Translate text">➜</button>
+          <button id="stopButton" class="soft-button" type="button">Stop</button>
+          <button id="refreshButton" class="soft-button" type="button">Refresh</button>
         </div>
       </section>
 
       <section class="output-grid" aria-label="Translation output">
-        <article class="panel">
+        <article class="output-panel">
           <p class="panel-label">Original</p>
           <p id="originalOutput" class="panel-text muted-text">No input captured yet.</p>
         </article>
-        <article class="panel">
+        <article class="output-panel">
           <p class="panel-label">Translation</p>
-          <p id="translationOutput" class="panel-text muted-text">Rust translation adapter is not connected yet.</p>
+          <p id="translationOutput" class="panel-text muted-text">Translation engine is not connected yet.</p>
         </article>
       </section>
 
-      <section class="status-panel" aria-label="Engine migration status">
+      <section class="runtime-card" aria-label="Runtime readiness">
         <div>
-          <p class="panel-label">Engine Status</p>
-          <p id="statusMessage">Loading Rust command bridge...</p>
+          <p class="panel-label">Runtime Status</p>
+          <p id="messageText" class="runtime-message">Loading runtime status...</p>
         </div>
-        <ul id="statusNotes"></ul>
+        <ul id="readinessList" class="readiness-list"></ul>
       </section>
+
+      <details class="developer-panel">
+        <summary>Developer diagnostics</summary>
+        <div class="developer-actions">
+          <button id="diagnosticsButton" class="soft-button" type="button">Load Diagnostics</button>
+        </div>
+        <pre id="developerOutput">Diagnostics are hidden from the normal user flow.</pre>
+      </details>
     </section>
   </main>
 `;
 
-const stageBadge = document.querySelector<HTMLSpanElement>("#stageBadge");
-const cudaBadge = document.querySelector<HTMLSpanElement>("#cudaBadge");
-const lifecycleBadge = document.querySelector<HTMLSpanElement>("#lifecycleBadge");
-const statusMessage = document.querySelector<HTMLParagraphElement>("#statusMessage");
-const statusNotes = document.querySelector<HTMLUListElement>("#statusNotes");
-const sourceText = document.querySelector<HTMLTextAreaElement>("#sourceText");
-const originalOutput = document.querySelector<HTMLParagraphElement>("#originalOutput");
-const translationOutput = document.querySelector<HTMLParagraphElement>("#translationOutput");
-const startButton = document.querySelector<HTMLButtonElement>("#startButton");
-const stopButton = document.querySelector<HTMLButtonElement>("#stopButton");
-const translateButton = document.querySelector<HTMLButtonElement>("#translateButton");
-const captureLoopButton = document.querySelector<HTMLButtonElement>("#captureLoopButton");
-const streamOwnershipButton = document.querySelector<HTMLButtonElement>("#streamOwnershipButton");
-const framePipelineButton = document.querySelector<HTMLButtonElement>("#framePipelineButton");
-const sessionStateButton = document.querySelector<HTMLButtonElement>("#sessionStateButton");
-const transcriptSavePlanButton = document.querySelector<HTMLButtonElement>("#transcriptSavePlanButton");
-const realtimeHandoffButton = document.querySelector<HTMLButtonElement>("#realtimeHandoffButton");
-const segmentFlowButton = document.querySelector<HTMLButtonElement>("#segmentFlowButton");
-const executionBridgeButton = document.querySelector<HTMLButtonElement>("#executionBridgeButton");
-const diagnosticsButton = document.querySelector<HTMLButtonElement>("#diagnosticsButton");
-const saveSettingsButton = document.querySelector<HTMLButtonElement>("#saveSettingsButton");
-
-function requireElement<T extends Element>(element: T | null, name: string): T {
+function requireElement<T extends Element>(selector: string): T {
+  const element = document.querySelector<T>(selector);
   if (!element) {
-    throw new Error(`${name} was not found.`);
+    throw new Error(`${selector} was not found.`);
   }
   return element;
 }
 
 const ui = {
-  stageBadge: requireElement(stageBadge, "stage badge"),
-  cudaBadge: requireElement(cudaBadge, "CUDA badge"),
-  lifecycleBadge: requireElement(lifecycleBadge, "lifecycle badge"),
-  statusMessage: requireElement(statusMessage, "status message"),
-  statusNotes: requireElement(statusNotes, "status notes"),
-  sourceText: requireElement(sourceText, "source text input"),
-  originalOutput: requireElement(originalOutput, "original output"),
-  translationOutput: requireElement(translationOutput, "translation output"),
-  startButton: requireElement(startButton, "start button"),
-  stopButton: requireElement(stopButton, "stop button"),
-  translateButton: requireElement(translateButton, "translate button"),
-  captureLoopButton: requireElement(captureLoopButton, "capture loop button"),
-  streamOwnershipButton: requireElement(streamOwnershipButton, "stream ownership button"),
-  framePipelineButton: requireElement(framePipelineButton, "frame pipeline button"),
-  sessionStateButton: requireElement(sessionStateButton, "session state button"),
-  transcriptSavePlanButton: requireElement(transcriptSavePlanButton, "transcript save plan button"),
-  realtimeHandoffButton: requireElement(realtimeHandoffButton, "realtime handoff button"),
-  segmentFlowButton: requireElement(segmentFlowButton, "segment flow button"),
-  executionBridgeButton: requireElement(executionBridgeButton, "execution bridge button"),
-  diagnosticsButton: requireElement(diagnosticsButton, "diagnostics button"),
-  saveSettingsButton: requireElement(saveSettingsButton, "save settings button"),
+  statusPill: requireElement<HTMLSpanElement>("#statusPill"),
+  capturePill: requireElement<HTMLSpanElement>("#capturePill"),
+  runtimePill: requireElement<HTMLSpanElement>("#runtimePill"),
+  versionText: requireElement<HTMLSpanElement>("#versionText"),
+  runtimeText: requireElement<HTMLSpanElement>("#runtimeText"),
+  sourceText: requireElement<HTMLTextAreaElement>("#sourceText"),
+  originalOutput: requireElement<HTMLParagraphElement>("#originalOutput"),
+  translationOutput: requireElement<HTMLParagraphElement>("#translationOutput"),
+  messageText: requireElement<HTMLParagraphElement>("#messageText"),
+  readinessList: requireElement<HTMLUListElement>("#readinessList"),
+  startButton: requireElement<HTMLButtonElement>("#startButton"),
+  stopButton: requireElement<HTMLButtonElement>("#stopButton"),
+  translateButton: requireElement<HTMLButtonElement>("#translateButton"),
+  refreshButton: requireElement<HTMLButtonElement>("#refreshButton"),
+  diagnosticsButton: requireElement<HTMLButtonElement>("#diagnosticsButton"),
+  developerOutput: requireElement<HTMLPreElement>("#developerOutput"),
 };
 
+function setBusy(isBusy: boolean): void {
+  for (const button of document.querySelectorAll<HTMLButtonElement>("button")) {
+    button.disabled = isBusy;
+  }
+}
+
+function errorMessage(error: unknown): string {
+  if (error instanceof Error) {
+    return error.message;
+  }
+  return String(error);
+}
+
+async function safeInvoke<T>(command: string, args?: Record<string, unknown>): Promise<T | null> {
+  setBusy(true);
+  try {
+    return args ? await invoke<T>(command, args) : await invoke<T>(command);
+  } catch (error: unknown) {
+    renderRuntimeMessage("Runtime command failed.", [errorMessage(error)], "bad");
+    return null;
+  } finally {
+    setBusy(false);
+  }
+}
+
+function setPill(element: HTMLSpanElement, label: string, state: "good" | "warn" | "bad" | "neutral"): void {
+  element.textContent = label;
+  element.className = `pill ${state}`;
+}
+
 function renderList(items: string[]): void {
-  ui.statusNotes.innerHTML = "";
+  ui.readinessList.innerHTML = "";
   for (const item of items) {
     const li = document.createElement("li");
     li.textContent = item;
-    ui.statusNotes.append(li);
+    ui.readinessList.append(li);
   }
 }
 
-function renderStatus(status: EngineStatus): void {
-  ui.stageBadge.textContent = `Stage: ${status.runtime_stage}`;
-  ui.cudaBadge.textContent = `CUDA: ${status.cuda_policy}`;
-  ui.lifecycleBadge.textContent = `State: ${status.lifecycle_state}`;
-  ui.statusMessage.textContent = `${status.asr_engine} / ${status.translation_engine} / ${status.tts_engine}`;
-  renderList(status.notes);
+function renderRuntimeMessage(message: string, items: string[] = [], state: "good" | "warn" | "bad" | "neutral" = "neutral"): void {
+  ui.messageText.textContent = message;
+  ui.messageText.dataset.state = state;
+  renderList(items);
+}
+
+function userFriendlyBlocker(blocker: string): string {
+  const cleaned = blocker.replaceAll("_", " ").replaceAll(":", " → ");
+  return cleaned.length > 160 ? `${cleaned.slice(0, 157)}...` : cleaned;
+}
+
+function firstItems(items: string[], maxItems: number): string[] {
+  return items.slice(0, maxItems).map(userFriendlyBlocker);
 }
 
 function renderCommandResult(result: CommandResult): void {
-  ui.lifecycleBadge.textContent = `State: ${result.state}`;
-  ui.statusMessage.textContent = result.message;
+  const state = result.ok ? "good" : "warn";
+  setPill(ui.statusPill, result.state, state);
+  renderRuntimeMessage(result.message, [], state);
 }
 
-function backendSummary(label: string, plan: AdapterPlan): string {
-  return `${label}: backend=${plan.selected_backend.backend}, device=${plan.selected_backend.device}, compute=${plan.selected_backend.compute_type}, ready=${plan.ready}`;
-}
+function renderStatusBundle(bundle: RuntimeStatusBundleReport): void {
+  const { engine_status, readiness, capture_gate } = bundle;
+  const runtimeReady = readiness.ready_for_user_facing_runtime;
+  const captureReady = capture_gate.ready_for_capture_start;
+  const startReady = readiness.ready_for_start_command;
 
-function clampSample(value: number): number {
-  return Math.max(-1, Math.min(1, value));
-}
+  ui.versionText.textContent = `v${engine_status.app_version}`;
+  ui.runtimeText.textContent = runtimeReady ? "Runtime ready" : "Pre-validation";
 
-function syntheticSeed(source: string): number {
-  const seedSource = source || "TranslateIT dummy frame";
-  return Array.from(seedSource).reduce((total, char) => total + char.charCodeAt(0), 0);
-}
+  setPill(ui.statusPill, engine_status.lifecycle_state, runtimeReady ? "good" : startReady ? "warn" : "neutral");
+  setPill(ui.capturePill, captureReady ? "Capture Ready" : "Capture Pending", captureReady ? "good" : "warn");
+  setPill(ui.runtimePill, runtimeReady ? "Runtime Ready" : "Runtime Pending", runtimeReady ? "good" : "warn");
 
-function buildSyntheticAudioFrame(source: string): AudioFrame {
-  const seed = syntheticSeed(source.trim());
-  const sampleRate = 16_000;
-  const channels = 1;
-  const durationMs = source.trim() ? Math.min(1_200, Math.max(480, source.trim().length * 32)) : 640;
-  const sampleCount = Math.max(1, Math.round((sampleRate * durationMs) / 1_000));
-  const baseFrequencyHz = 180 + (seed % 160);
-  const modulationHz = 3 + (seed % 5);
-  const amplitude = source.trim() ? 0.14 : 0.09;
-  const samples = Array.from({ length: sampleCount }, (_, index) => {
-    const time = index / sampleRate;
-    const envelope = Math.sin((Math.PI * index) / Math.max(1, sampleCount - 1));
-    const modulation = 0.65 + 0.35 * Math.sin(2 * Math.PI * modulationHz * time);
-    const voicedTone = Math.sin(2 * Math.PI * baseFrequencyHz * time);
-    const harmonic = 0.35 * Math.sin(2 * Math.PI * baseFrequencyHz * 2 * time);
-    return clampSample((voicedTone + harmonic) * amplitude * envelope * modulation);
-  });
-
-  return {
-    sample_rate_hz: sampleRate,
-    channels,
-    samples,
-  };
-}
-
-function buildFramePipelineRequest(source: string): FramePipelineRequest {
-  return {
-    frame: buildSyntheticAudioFrame(source),
-    floor_rms: 0.001,
-    require_vad_acceptance: true,
-  };
-}
-
-function defaultQuality(): TranscriptQualityMetrics {
-  return {
-    input_quality: "Unknown",
-    asr_confidence: 0,
-    status: "Planned",
-    no_speech_probability: 0,
-    average_log_probability: 0,
-    compression_ratio: 0,
-    language_ok: true,
-    notes: "frontend readiness draft",
-    raw_rms: 0,
-    raw_peak: 0,
-    speech_to_noise_gap: 0,
-    voiced_frame_ratio: 0,
-    tts_status: "",
-    tts_error: "",
-    output_device_name: "",
-    replay_error: "",
-    capture_buffer_ms: 0,
-    endpoint_wait_ms: 0,
-    silence_accumulation_ms: 0,
-    speech_confirmation_ms: 0,
-  };
-}
-
-function emptyReplay(): TranscriptReplayPaths {
-  return {
-    source_audio_path: null,
-    translated_audio_path: null,
-    source_replay_available: false,
-    target_voice_available: false,
-  };
-}
-
-function buildDraftTranscriptSession(source: string): TranscriptSessionRecord {
-  const sessionId = `frontend_session_${Date.now()}`;
-  const createdAt = new Date().toISOString();
-  const segments: TranscriptSegmentRecord[] = source
-    ? [
-        {
-          segment_id: `${sessionId}_segment_1`,
-          trace_id: "frontend-readiness",
-          session_id: sessionId,
-          input_language: "id",
-          output_language: "en",
-          start_time_ms: 0,
-          end_time_ms: Math.min(8000, Math.max(500, source.length * 40)),
-          input_text: source,
-          translated_text: "",
-          pipeline_mode: "cascaded",
-          capture_mode: "Frontend Session Readiness",
-          asr_model_used: "",
-          asr_device_used: "",
-          asr_compute_type_used: "",
-          translation_engine_used: "",
-          model_fallback_used: false,
-          error_message: "",
-          created_at_iso: createdAt,
-          quality: defaultQuality(),
-          replay: emptyReplay(),
-        },
-      ]
-    : [];
-
-  return {
-    session_id: sessionId,
-    input_language: "id",
-    output_language: "en",
-    asr_model: "large-v3-turbo",
-    translation_engine: "local-nllb-distilled",
-    created_at_iso: createdAt,
-    segments,
-  };
-}
-
-function buildSegmentRequest(session: TranscriptSessionRecord, source: string): SegmentBuildRequest {
-  const segment = session.segments[0];
-  return {
-    segment_id: segment?.segment_id ?? `${session.session_id}_segment_1`,
-    session_id: session.session_id,
-    input_language: session.input_language,
-    output_language: session.output_language,
-    start_time_ms: segment?.start_time_ms ?? 0,
-    end_time_ms: segment?.end_time_ms ?? Math.min(8000, Math.max(500, source.length * 40)),
-    input_text: source || null,
-    translated_text: null,
-    trace_id: segment?.trace_id ?? "frontend-segment-flow",
-    source_audio_path: null,
-    translated_audio_path: null,
-    pipeline_mode: "cascaded",
-    capture_mode: "Frontend Segment Flow",
-    asr_model_used: "",
-    asr_device_used: "",
-    asr_compute_type_used: "",
-    translation_engine_used: "",
-    model_fallback_used: false,
-    error_message: null,
-  };
-}
-
-function buildSegmentFlowRequest(
-  source: string,
-  diagnostics: RuntimeDiagnostics,
-  bufferStatus: AudioBufferStatus,
-): SegmentFlowRequest {
-  const session = buildDraftTranscriptSession(source);
-  const segment = buildSegmentRequest(session, source);
-  const hasSource = Boolean(source);
-  return {
-    capture_ready: hasSource && diagnostics.input_preparation_status.prepared,
-    session_id: session.session_id,
-    next_segment_id: segment.segment_id,
-    segment,
-    vad_accepted: hasSource && bufferStatus.ready_for_vad,
-    asr_ready: diagnostics.asr_adapter_plan.ready,
-    translation_ready: diagnostics.translation_adapter_plan.ready,
-  };
-}
-
-function buildTranscriptSessionSavePlanRequest(
-  source: string,
-  diagnostics: RuntimeDiagnostics,
-): TranscriptSessionPlanRequest {
-  return {
-    session: buildDraftTranscriptSession(source),
-    cache_root: diagnostics.project_paths.user_cache_dir || null,
-    saved_root: diagnostics.project_paths.user_saved_dir || null,
-    copy_audio: false,
-  };
-}
-
-function buildStreamOwnershipRequest(source: string, calibrationFlow: CalibrationFlowStatus): StreamOwnershipRequest {
-  const session = buildDraftTranscriptSession(source);
-  return {
-    requested_owner_id: "translateit_frontend_runtime",
-    session_id: session.session_id,
-    allow_takeover: false,
-    current_owner_id: null,
-    capture_loop_active: false,
-    calibration_ready: calibrationFlow.ready_to_save_profile,
-  };
-}
-
-function buildNativeExecutionBridgeRequest(
-  source: string,
-  diagnostics: RuntimeDiagnostics,
-  settings: RuntimeSettings,
-): NativeExecutionBridgeRequest {
-  const session = buildDraftTranscriptSession(source);
-  const segment = session.segments[0];
-  const segmentId = segment?.segment_id ?? `${session.session_id}_segment_1`;
-  return {
-    segment_id: segmentId,
-    source_text: source || null,
-    source_audio_path: null,
-    output_audio_path: source ? `${diagnostics.project_paths.user_cache_dir}/frontend_bridge_output.wav` : null,
-    asr_model_path: diagnostics.project_paths.asr_model_dir || null,
-    translation_model_path: diagnostics.project_paths.translation_model_dir || null,
-    output_model_path: null,
-    asr_backend_ready: diagnostics.asr_adapter_plan.ready,
-    translation_backend_ready: diagnostics.translation_adapter_plan.ready,
-    output_backend_ready: false,
-    allow_cpu_degraded_mode: settings.audio.allow_cpu_degraded_mode,
-  };
-}
-
-function buildRealtimeHandoffRequest(
-  source: string,
-  diagnostics: RuntimeDiagnostics,
-  settings: RuntimeSettings,
-  bufferStatus: AudioBufferStatus,
-  calibrationFlow: CalibrationFlowStatus,
-): RealtimeHandoffRequest {
-  const session = buildDraftTranscriptSession(source);
-  const segment = buildSegmentRequest(session, source);
-  const hasSource = Boolean(source);
-  return {
-    stream: {
-      requested_owner_id: "translateit_frontend_runtime",
-      session_id: session.session_id,
-      allow_takeover: false,
-      current_owner_id: null,
-      capture_loop_active: false,
-      calibration_ready: calibrationFlow.ready_to_save_profile,
-    },
-    frame: buildFramePipelineRequest(source),
-    segment: {
-      capture_ready: hasSource && diagnostics.input_preparation_status.prepared,
-      session_id: session.session_id,
-      next_segment_id: segment.segment_id,
-      segment,
-      vad_accepted: hasSource && bufferStatus.ready_for_vad,
-      asr_ready: diagnostics.asr_adapter_plan.ready,
-      translation_ready: diagnostics.translation_adapter_plan.ready,
-    },
-    native_execution: {
-      segment_id: segment.segment_id,
-      source_text: source || null,
-      source_audio_path: null,
-      output_audio_path: source ? `${diagnostics.project_paths.user_cache_dir}/frontend_handoff_output.wav` : null,
-      asr_model_path: diagnostics.project_paths.asr_model_dir || null,
-      translation_model_path: diagnostics.project_paths.translation_model_dir || null,
-      output_model_path: null,
-      asr_backend_ready: diagnostics.asr_adapter_plan.ready,
-      translation_backend_ready: diagnostics.translation_adapter_plan.ready,
-      output_backend_ready: false,
-      allow_cpu_degraded_mode: settings.audio.allow_cpu_degraded_mode,
-    },
-    transcript_save: {
-      session,
-      cache_root: diagnostics.project_paths.user_cache_dir || null,
-      saved_root: diagnostics.project_paths.user_saved_dir || null,
-      copy_audio: false,
-    },
-    require_native_execution_ready: true,
-    require_save_plan_ready: true,
-  };
-}
-
-function renderCaptureLoopContract(report: CaptureLoopContractReport): void {
-  ui.lifecycleBadge.textContent = report.ready_for_stream_loop ? "State: capture-ready" : "State: capture-blocked";
-  ui.statusMessage.textContent = report.note;
-  renderList([
-    `Backend: ${report.backend_id}`,
-    `Input device: ${report.input_device_name ?? "not selected"}`,
-    `Target format: ${report.target_sample_rate_hz} Hz / ${report.target_channels} channel(s)`,
-    `Input prepared: ${report.input_prepared}`,
-    `Input running: ${report.input_running}`,
-    `Buffer VAD ready: ${report.buffer_ready_for_vad}`,
-    `Buffer calibration ready: ${report.buffer_ready_for_calibration}`,
-    `Ready for stream loop: ${report.ready_for_stream_loop}`,
-    `Input note: ${report.input_status.note}`,
-    `Buffer note: ${report.buffer_status.note}`,
-    ...report.blockers.map((blocker) => `Blocker: ${blocker}`),
-  ]);
-}
-
-function renderStreamOwnership(report: StreamOwnershipReport): void {
-  ui.lifecycleBadge.textContent = report.ready_to_start_stream ? "State: stream-owner-ready" : "State: stream-owner-blocked";
-  ui.statusMessage.textContent = report.note;
-  renderList([
-    `Owner: ${report.owner_id}`,
-    `Session: ${report.session_id}`,
-    `Input prepared: ${report.input_prepared}`,
-    `Input running: ${report.input_running}`,
-    `Capture loop active: ${report.capture_loop_active}`,
-    `Calibration ready: ${report.calibration_ready}`,
-    `Buffer VAD ready: ${report.buffer_ready_for_vad}`,
-    `Buffer calibration ready: ${report.buffer_ready_for_calibration}`,
-    `Ownership granted: ${report.ownership_granted}`,
-    `Requires takeover: ${report.requires_takeover}`,
-    `Ready to start stream: ${report.ready_to_start_stream}`,
-    `Input note: ${report.input_status.note}`,
-    `Buffer note: ${report.buffer_status.note}`,
-    ...report.blockers.map((blocker) => `Blocker: ${blocker}`),
-  ]);
-}
-
-function renderFramePipeline(report: FramePipelineReport, source: string): void {
-  ui.lifecycleBadge.textContent = report.ready_for_segment_builder ? "State: frame-ready" : "State: frame-blocked";
-  ui.statusMessage.textContent = report.note;
-  renderList([
-    `Synthetic frame source: ${source ? "source text" : "dummy waveform"}`,
-    `Accepted by buffer: ${report.accepted_by_buffer}`,
-    `VAD passed: ${report.vad_passed}`,
-    `Ready for segment builder: ${report.ready_for_segment_builder}`,
-    `Ready for ASR preprocess: ${report.ready_for_asr_preprocess}`,
-    `Duration: ${report.duration_ms} ms`,
-    `Input state: ${report.input_state}`,
-    `Frame format: ${report.inspection.buffer_status.target_sample_rate_hz} Hz / ${report.inspection.buffer_status.target_channels} channel(s)`,
-    `Inspection note: ${report.inspection.note}`,
-    `VAD reason: ${report.inspection.vad_result.reason || "none"}`,
-    `Evidence RMS: ${report.inspection.evidence.rms.toFixed(5)}`,
-    `Evidence peak: ${report.inspection.evidence.peak.toFixed(5)}`,
-    `Preprocess samples: ${report.asr_preprocess.samples.length}`,
-    `Preprocess RMS: ${report.asr_preprocess.stats.rms.toFixed(5)}`,
-    `Preprocess peak: ${report.asr_preprocess.stats.peak.toFixed(5)}`,
-    ...report.blockers.map((blocker) => `Blocker: ${blocker}`),
-  ]);
-}
-
-function renderSessionReadiness(report: TranscriptSessionReadinessReport): void {
-  ui.lifecycleBadge.textContent = report.ready_for_preview ? "State: session-ready" : "State: session-blocked";
-  ui.statusMessage.textContent = `Transcript session readiness: ${report.ready_for_preview}`;
-  renderList([
-    `Session: ${report.summary.session_id}`,
-    `Segments: ${report.summary.segment_count}`,
-    `Language: ${report.summary.source_language} -> ${report.summary.target_language}`,
-    `Source chars: ${report.summary.source_chars}`,
-    `Translated chars: ${report.summary.translated_chars}`,
-    `Completed segments: ${report.summary.completed_segments}`,
-    `Errored segments: ${report.summary.errored_segments}`,
-    ...report.blockers.map((blocker) => `Blocker: ${blocker}`),
-  ]);
-}
-
-function renderTranscriptSavePlan(report: TranscriptSessionPlanReport): void {
-  ui.lifecycleBadge.textContent = report.ready_to_save ? "State: save-plan-ready" : "State: save-plan-blocked";
-  ui.statusMessage.textContent = report.message;
-  renderList([
-    `Session: ${report.summary.session_id}`,
-    `Segments: ${report.summary.segment_count}`,
-    `Ready to save: ${report.ready_to_save}`,
-    `Store preview ready: ${report.store_preview.ready}`,
-    `Store preview path: ${report.store_preview.output_path}`,
-    `Cache session dir: ${report.paths.cache_session_dir}`,
-    `Cache session JSON: ${report.paths.cache_session_json_path}`,
-    `Saved session dir: ${report.paths.saved_session_dir}`,
-    `Saved session JSON: ${report.paths.saved_session_json_path}`,
-    `Planned cache items: ${report.paths.planned_cache_items.length}`,
-    ...report.paths.planned_cache_items.slice(0, 4).map((item) => `Cache item: ${item}`),
-    `Planned save items: ${report.paths.planned_save_items.length}`,
-    ...report.paths.planned_save_items.slice(0, 4).map((item) => `Save item: ${item}`),
-    report.store_preview.message,
-    ...report.paths.guard_blockers.map((blocker) => `Guard blocker: ${blocker}`),
-  ]);
-}
-
-function renderRealtimeHandoff(report: RealtimeHandoffReport): void {
-  ui.lifecycleBadge.textContent = report.ready_for_realtime_handoff ? "State: handoff-ready" : "State: handoff-blocked";
-  ui.statusMessage.textContent = report.note;
-  renderList([
-    `Realtime handoff ready: ${report.ready_for_realtime_handoff}`,
-    `Ready for live capture: ${report.ready_for_live_capture}`,
-    `Ready for segment runtime: ${report.ready_for_segment_runtime}`,
-    `Ready for native execution: ${report.ready_for_native_execution}`,
-    `Ready for safe save: ${report.ready_for_safe_save}`,
-    `Stream owner: ${report.stream.owner_id}`,
-    `Session: ${report.stream.session_id}`,
-    `Frame accepted: ${report.frame.accepted_by_buffer}`,
-    `Frame VAD passed: ${report.frame.vad_passed}`,
-    `Segment ready: ${report.segment.ready_for_runtime_plan}`,
-    `Native ready stages: ${report.native_execution.runner_report.ready_stage_count}`,
-    `Native blocked stages: ${report.native_execution.runner_report.blocked_stage_count}`,
-    `Save preview path: ${report.transcript_save.store_preview.output_path}`,
-    ...report.stages.map((stage) => `Stage ${stage.stage}: ready=${stage.ready}, blockers=${stage.blocker_count}`),
-    ...report.blockers.map((blocker) => `Blocker: ${blocker}`),
-  ]);
-}
-
-function renderSegmentFlow(report: SegmentFlowReport): void {
-  ui.lifecycleBadge.textContent = report.ready_for_runtime_plan ? "State: segment-ready" : "State: segment-blocked";
-  ui.statusMessage.textContent = report.message;
-  renderList([
-    `Session: ${report.session_id}`,
-    `Segment: ${report.segment_id}`,
-    `Duration: ${report.segment.duration_ms} ms`,
-    `Valid duration: ${report.segment.valid_duration}`,
-    `Ready for runtime plan: ${report.ready_for_runtime_plan}`,
-    `Warning: ${report.segment.warning || "none"}`,
-    ...report.blockers.map((blocker) => `Blocker: ${blocker}`),
-  ]);
-}
-
-function formatBridgeStage(label: string, result: NativeExecutionContractResult | null): string[] {
-  if (!result) {
-    return [`${label}: not requested`];
-  }
-  return [
-    `${label}: ${result.execution_status}`,
-    `${label} ready: ${result.ready_to_execute}`,
-    `${label} model: ${result.selected_model}`,
-    `${label} device: ${result.selected_device}/${result.selected_compute_type}`,
-    `${label} input: ${result.input_kind} ${result.input_summary}`,
-    `${label} blocker: ${result.blocker || "none"}`,
+  const blockers = [...readiness.blockers, ...capture_gate.blockers];
+  const notes = [
+    `Next action: ${bundle.next_action}`,
+    `ASR: ${engine_status.asr_engine}`,
+    `Translation: ${engine_status.translation_engine}`,
+    `TTS: ${engine_status.tts_engine}`,
+    `Capture stream opened: ${capture_gate.stream_open_performed}`,
+    ...firstItems(blockers, 8).map((item) => `Blocker: ${item}`),
   ];
-}
 
-function renderNativeExecutionBridge(report: NativeExecutionBridgeReport): void {
-  ui.lifecycleBadge.textContent = report.ready_for_execution ? "State: execution-ready" : "State: execution-blocked";
-  ui.statusMessage.textContent = report.note;
-  renderList([
-    `Segment: ${report.segment_id}`,
-    `Ready for execution: ${report.ready_for_execution}`,
-    `Ready stages: ${report.runner_report.ready_stage_count}`,
-    `Blocked stages: ${report.runner_report.blocked_stage_count}`,
-    ...formatBridgeStage("ASR", report.runner_report.asr),
-    ...formatBridgeStage("Translation", report.runner_report.translation),
-    ...formatBridgeStage("Output", report.runner_report.output),
-    ...report.blockers.map((blocker) => `Blocker: ${blocker}`),
-  ]);
-}
-
-function renderDiagnostics(
-  diagnostics: RuntimeDiagnostics,
-  settings: RuntimeSettings,
-  bufferStatus: AudioBufferStatus,
-  calibrationFlow: CalibrationFlowStatus,
-): void {
-  ui.lifecycleBadge.textContent = "State: diagnostics";
-  ui.statusMessage.textContent = diagnostics.rust_runtime_target;
-  renderList([
-    `Project root: ${diagnostics.project_paths.project_root}`,
-    `Cache: ${diagnostics.project_paths.user_cache_dir}`,
-    `Logs: ${diagnostics.project_paths.user_log_dir}`,
-    `Saved: ${diagnostics.project_paths.user_saved_dir}`,
-    `Session store: ${diagnostics.session_store_status.output_dir} ready=${diagnostics.session_store_status.ready}`,
-    `ASR models: ${diagnostics.project_paths.asr_model_dir}`,
-    `Translation models: ${diagnostics.project_paths.translation_model_dir}`,
-    `Audio backend: ${diagnostics.audio_device_discovery.backend_id}`,
-    `Audio devices discovered: ${diagnostics.audio_device_discovery.devices.length}`,
-    `Input prepared: ${diagnostics.input_preparation_status.prepared}`,
-    `Input device: ${diagnostics.input_preparation_status.input_device_name ?? "not selected"}`,
-    `Input note: ${diagnostics.input_preparation_status.note}`,
-    `Audio buffer frames: ${bufferStatus.current_frames}/${bufferStatus.max_frames}`,
-    `Audio buffer VAD ready: ${bufferStatus.ready_for_vad}`,
-    `Audio buffer calibration ready: ${bufferStatus.ready_for_calibration}`,
-    `Calibration flow output: ${calibrationFlow.output_path}`,
-    `Calibration flow ready: ${calibrationFlow.ready_to_save_profile}`,
-    `Calibration profile: ${diagnostics.calibration_profile_status.present} | ${diagnostics.calibration_profile_status.path}`,
-    `CUDA nvidia-smi: ${diagnostics.cuda_probe.nvidia_smi_available}`,
-    `CUDA GPU: ${diagnostics.cuda_probe.gpu_summary ?? "not detected"}`,
-    `CUDA runtime ready: ${diagnostics.cuda_probe.cuda_runtime_ready}`,
-    `Backend validation ready: ${diagnostics.backend_validation.ready}`,
-    `Backend blocker: ${diagnostics.backend_validation.blocker}`,
-    ...diagnostics.backend_validation.dependency_checks.map(
-      (check) => `Dependency: ${check.file_name} found=${check.found} at=${check.found_at ?? "not found"}`,
-    ),
-    ...diagnostics.backend_validation.file_requirements.files.map(
-      (file) => `Required native file: ${file.file_name} required=${file.required} purpose=${file.purpose}`,
-    ),
-    ...diagnostics.backend_validation.model_directories.map(
-      (check) => `Model dir: ${check.label} exists=${check.exists} path=${check.path}`,
-    ),
-    `Final runtime allows Python: ${diagnostics.final_runtime_allows_python}`,
-    `Settings: ${settings.source_language} -> ${settings.target_language}, voice=${settings.voice_actor_profile_id}`,
-    backendSummary("ASR adapter plan", diagnostics.asr_adapter_plan),
-    backendSummary("Translation adapter plan", diagnostics.translation_adapter_plan),
-    ...diagnostics.native_inference_candidates.map(
-      (candidate) => `Inference candidate: ${candidate.backend} | ${candidate.reason}`,
-    ),
-    ...diagnostics.cuda_backend_candidates,
-    ...diagnostics.blockers,
-    bufferStatus.note,
-    calibrationFlow.note,
-  ]);
+  renderRuntimeMessage(readiness.note || bundle.summary, notes, runtimeReady ? "good" : blockers.length ? "warn" : "neutral");
 }
 
 async function refreshStatus(): Promise<void> {
-  const status = await invoke<EngineStatus>("get_engine_status");
-  renderStatus(status);
+  const bundle = await safeInvoke<RuntimeStatusBundleReport>("get_runtime_status_bundle");
+  if (bundle) {
+    renderStatusBundle(bundle);
+  }
 }
 
-ui.startButton.addEventListener("click", async () => {
-  const contract = await invoke<CaptureLoopContractReport>("analyze_capture_loop_contract");
-  if (!contract.ready_for_stream_loop) {
-    renderCaptureLoopContract(contract);
-    return;
+async function startRuntime(): Promise<void> {
+  const result = await safeInvoke<CommandResult>("start_capture");
+  if (result) {
+    renderCommandResult(result);
+    await refreshStatus();
   }
-  const result = await invoke<CommandResult>("start_capture");
-  renderCommandResult(result);
-});
+}
 
-ui.stopButton.addEventListener("click", async () => {
-  const result = await invoke<CommandResult>("stop_capture");
-  renderCommandResult(result);
-});
+async function stopRuntime(): Promise<void> {
+  const result = await safeInvoke<CommandResult>("stop_capture");
+  if (result) {
+    renderCommandResult(result);
+    await refreshStatus();
+  }
+}
 
-ui.translateButton.addEventListener("click", async () => {
+async function translateText(): Promise<void> {
   const source = ui.sourceText.value.trim();
-  const result = await invoke<CommandResult>("translate_text", { source });
+  const result = await safeInvoke<CommandResult>("translate_text", { source });
   ui.originalOutput.textContent = source || "No source text provided.";
   ui.originalOutput.classList.toggle("muted-text", !source);
+
+  if (!result) {
+    return;
+  }
+
   ui.translationOutput.textContent = result.message;
   ui.translationOutput.classList.remove("muted-text");
   renderCommandResult(result);
+}
+
+async function loadDiagnostics(): Promise<void> {
+  const diagnostics = await safeInvoke<RuntimeDiagnostics>("get_runtime_diagnostics");
+  if (!diagnostics) {
+    return;
+  }
+
+  ui.developerOutput.textContent = JSON.stringify(
+    {
+      runtime_target: diagnostics.rust_runtime_target,
+      final_runtime_allows_python: diagnostics.final_runtime_allows_python,
+      project_paths: diagnostics.project_paths,
+      audio_device: diagnostics.input_preparation_status,
+      cuda_probe: diagnostics.cuda_probe,
+      backend_validation: diagnostics.backend_validation,
+      asr_adapter_plan: diagnostics.asr_adapter_plan,
+      translation_adapter_plan: diagnostics.translation_adapter_plan,
+      session_store_status: diagnostics.session_store_status,
+      blocker_count: diagnostics.blockers.length,
+      blockers: diagnostics.blockers.slice(0, 20),
+    },
+    null,
+    2,
+  );
+}
+
+ui.startButton.addEventListener("click", () => {
+  void startRuntime();
 });
 
-ui.captureLoopButton.addEventListener("click", async () => {
-  const report = await invoke<CaptureLoopContractReport>("analyze_capture_loop_contract");
-  renderCaptureLoopContract(report);
+ui.stopButton.addEventListener("click", () => {
+  void stopRuntime();
 });
 
-ui.streamOwnershipButton.addEventListener("click", async () => {
-  const source = ui.sourceText.value.trim();
-  const calibrationFlow = await invoke<CalibrationFlowStatus>("get_calibration_flow_status");
-  const request = buildStreamOwnershipRequest(source, calibrationFlow);
-  const report = await invoke<StreamOwnershipReport>("analyze_stream_ownership_plan", { request });
-  renderStreamOwnership(report);
+ui.translateButton.addEventListener("click", () => {
+  void translateText();
 });
 
-ui.framePipelineButton.addEventListener("click", async () => {
-  const source = ui.sourceText.value.trim();
-  const request = buildFramePipelineRequest(source);
-  const report = await invoke<FramePipelineReport>("analyze_frame_pipeline_state", { request });
-  renderFramePipeline(report, source);
+ui.refreshButton.addEventListener("click", () => {
+  void refreshStatus();
 });
 
-ui.sessionStateButton.addEventListener("click", async () => {
-  const source = ui.sourceText.value.trim();
-  const session = buildDraftTranscriptSession(source);
-  const report = await invoke<TranscriptSessionReadinessReport>("analyze_transcript_session_state", { session });
-  renderSessionReadiness(report);
+ui.diagnosticsButton.addEventListener("click", () => {
+  void loadDiagnostics();
 });
 
-ui.transcriptSavePlanButton.addEventListener("click", async () => {
-  const source = ui.sourceText.value.trim();
-  const diagnostics = await invoke<RuntimeDiagnostics>("get_runtime_diagnostics");
-  const request = buildTranscriptSessionSavePlanRequest(source, diagnostics);
-  const report = await invoke<TranscriptSessionPlanReport>("analyze_transcript_session_save_plan", { request });
-  renderTranscriptSavePlan(report);
+ui.sourceText.addEventListener("keydown", (event: KeyboardEvent) => {
+  if ((event.ctrlKey || event.metaKey) && event.key === "Enter") {
+    event.preventDefault();
+    void translateText();
+  }
 });
 
-ui.realtimeHandoffButton.addEventListener("click", async () => {
-  const source = ui.sourceText.value.trim();
-  const [diagnostics, settings, bufferStatus, calibrationFlow] = await Promise.all([
-    invoke<RuntimeDiagnostics>("get_runtime_diagnostics"),
-    invoke<RuntimeSettings>("load_runtime_settings"),
-    invoke<AudioBufferStatus>("get_audio_buffer_status"),
-    invoke<CalibrationFlowStatus>("get_calibration_flow_status"),
-  ]);
-  const request = buildRealtimeHandoffRequest(source, diagnostics, settings, bufferStatus, calibrationFlow);
-  const report = await invoke<RealtimeHandoffReport>("analyze_realtime_handoff_plan", { request });
-  renderRealtimeHandoff(report);
-});
-
-ui.segmentFlowButton.addEventListener("click", async () => {
-  const source = ui.sourceText.value.trim();
-  const [diagnostics, bufferStatus] = await Promise.all([
-    invoke<RuntimeDiagnostics>("get_runtime_diagnostics"),
-    invoke<AudioBufferStatus>("get_audio_buffer_status"),
-  ]);
-  const request = buildSegmentFlowRequest(source, diagnostics, bufferStatus);
-  const report = await invoke<SegmentFlowReport>("analyze_segment_flow_state", { request });
-  renderSegmentFlow(report);
-});
-
-ui.executionBridgeButton.addEventListener("click", async () => {
-  const source = ui.sourceText.value.trim();
-  const [diagnostics, settings] = await Promise.all([
-    invoke<RuntimeDiagnostics>("get_runtime_diagnostics"),
-    invoke<RuntimeSettings>("load_runtime_settings"),
-  ]);
-  const request = buildNativeExecutionBridgeRequest(source, diagnostics, settings);
-  const report = await invoke<NativeExecutionBridgeReport>("analyze_native_execution_bridge", { request });
-  renderNativeExecutionBridge(report);
-});
-
-ui.diagnosticsButton.addEventListener("click", async () => {
-  const [diagnostics, settings, bufferStatus, calibrationFlow] = await Promise.all([
-    invoke<RuntimeDiagnostics>("get_runtime_diagnostics"),
-    invoke<RuntimeSettings>("load_runtime_settings"),
-    invoke<AudioBufferStatus>("get_audio_buffer_status"),
-    invoke<CalibrationFlowStatus>("get_calibration_flow_status"),
-  ]);
-  renderDiagnostics(diagnostics, settings, bufferStatus, calibrationFlow);
-});
-
-ui.saveSettingsButton.addEventListener("click", async () => {
-  const result = await invoke<CommandResult>("save_default_runtime_settings");
-  renderCommandResult(result);
-});
-
-refreshStatus().catch((error: unknown) => {
-  ui.statusMessage.textContent = `Rust command bridge failed: ${String(error)}`;
-});
+void refreshStatus();
