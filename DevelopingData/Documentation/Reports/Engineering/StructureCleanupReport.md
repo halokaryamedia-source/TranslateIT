@@ -25,7 +25,7 @@ EngineData/
 Application route:
 
 ```text
-TranslateIT.vbs -> EngineData/LauncherApp/RustApp
+EngineData/LauncherApp/RustApp -> Tauri packaged TranslateIT app
 ```
 
 Documentation route:
@@ -54,8 +54,6 @@ UserData/LogData/RustAppValidation/
 
 ## Retired paths
 
-These paths are retired and should not return:
-
 ```text
 DeveloperData/
 DevelopingData/DocumentationData/
@@ -69,6 +67,7 @@ DevelopingData/Tests/
 EngineData/TranscriptEngine/
 EngineData/TranslateEngine/
 EngineData/VoiceEngine/
+TranslateIT.vbs
 ```
 
 ## Python policy
@@ -79,7 +78,7 @@ The only approved Python file in the active project runtime is:
 EngineData/LauncherApp/Workers/realtime_local_worker.py
 ```
 
-Rust/Tauri, repository, structure, evidence, and CI checks use Node or PowerShell tooling. Do not add Python validation scripts under `DevelopingData`.
+Rust/Tauri, repository, structure, evidence, and CI checks use Node or PowerShell tooling. Python validation scripts are retired from `DevelopingData`.
 
 ## Important rule
 
