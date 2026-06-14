@@ -82,6 +82,22 @@ type RuntimeDiagnostics = {
   blockers: string[];
 };
 
+type LiveCaptureStatusReport = {
+  stream_active: boolean;
+  owner_id: string | null;
+  session_id: string | null;
+  device_name: string | null;
+  sample_rate_hz: number | null;
+  channels: number | null;
+  sample_format: string | null;
+  active_age_ms: number | null;
+  frames_received: number;
+  callback_error_count: number;
+  latest_callback_error: string | null;
+  blocker: string;
+  note: string;
+};
+
 type RuntimeStatusBundleReport = {
   engine_status: EngineStatus;
   readiness: {
@@ -104,6 +120,7 @@ type RuntimeStatusBundleReport = {
     blockers: string[];
     note: string;
   };
+  live_capture: LiveCaptureStatusReport;
   next_action: string;
   summary: string;
 };
@@ -289,29 +306,34 @@ function renderCommandResult(result: CommandResult): void {
 }
 
 function renderStatusBundle(bundle: RuntimeStatusBundleReport): void {
-  const { engine_status, readiness, capture_gate } = bundle;
+  const { engine_status, readiness, capture_gate, live_capture } = bundle;
   const runtimeReady = readiness.ready_for_user_facing_runtime;
-  const captureReady = capture_gate.ready_for_capture_start;
+  const liveCaptureActive = live_capture.stream_active;
+  const captureReady = liveCaptureActive || capture_gate.ready_for_capture_start;
   const startReady = readiness.ready_for_start_command;
+  const liveBlockers = live_capture.blocker ? [live_capture.blocker] : [];
 
   ui.versionText.textContent = `v${engine_status.app_version}`;
-  ui.runtimeText.textContent = runtimeReady ? "Runtime ready" : "Pre-validation";
+  ui.runtimeText.textContent = runtimeReady ? "Runtime ready" : liveCaptureActive ? "Listening" : "Pre-validation";
 
-  setPill(ui.statusPill, engine_status.lifecycle_state, runtimeReady ? "good" : startReady ? "warn" : "neutral");
-  setPill(ui.capturePill, captureReady ? "Capture Ready" : "Capture Pending", captureReady ? "good" : "warn");
+  setPill(ui.statusPill, engine_status.lifecycle_state, runtimeReady ? "good" : liveCaptureActive ? "good" : startReady ? "warn" : "neutral");
+  setPill(ui.capturePill, liveCaptureActive ? "Mic Active" : captureReady ? "Capture Ready" : "Capture Pending", liveCaptureActive || captureReady ? "good" : "warn");
   setPill(ui.runtimePill, runtimeReady ? "Runtime Ready" : "Runtime Pending", runtimeReady ? "good" : "warn");
 
-  const blockers = [...readiness.blockers, ...capture_gate.blockers];
+  const blockers = [...readiness.blockers, ...capture_gate.blockers, ...liveBlockers];
   const notes = [
     `Next action: ${bundle.next_action}`,
     `ASR: ${engine_status.asr_engine}`,
     `Translation: ${engine_status.translation_engine}`,
     `TTS: ${engine_status.tts_engine}`,
-    `Capture stream opened: ${capture_gate.stream_open_performed}`,
+    `Microphone active: ${live_capture.stream_active}`,
+    `Frames received: ${live_capture.frames_received}`,
+    `Input device: ${live_capture.device_name ?? "not active"}`,
     ...firstItems(blockers, 8).map((item) => `Blocker: ${item}`),
   ];
 
-  renderRuntimeMessage(readiness.note || bundle.summary, notes, runtimeReady ? "good" : blockers.length ? "warn" : "neutral");
+  const message = liveCaptureActive ? live_capture.note : readiness.note || bundle.summary;
+  renderRuntimeMessage(message, notes, runtimeReady || liveCaptureActive ? "good" : blockers.length ? "warn" : "neutral");
 }
 
 async function refreshStatus(): Promise<void> {
@@ -353,7 +375,10 @@ async function translateText(): Promise<void> {
 }
 
 async function loadDiagnostics(): Promise<void> {
-  const diagnostics = await safeInvoke<RuntimeDiagnostics>("get_runtime_diagnostics");
+  const [diagnostics, liveCapture] = await Promise.all([
+    safeInvoke<RuntimeDiagnostics>("get_runtime_diagnostics"),
+    safeInvoke<LiveCaptureStatusReport>("get_live_capture_status"),
+  ]);
   if (!diagnostics) {
     return;
   }
@@ -364,6 +389,7 @@ async function loadDiagnostics(): Promise<void> {
       final_runtime_allows_python: diagnostics.final_runtime_allows_python,
       project_paths: diagnostics.project_paths,
       audio_device: diagnostics.input_preparation_status,
+      live_capture: liveCapture,
       cuda_probe: diagnostics.cuda_probe,
       backend_validation: diagnostics.backend_validation,
       asr_adapter_plan: diagnostics.asr_adapter_plan,
