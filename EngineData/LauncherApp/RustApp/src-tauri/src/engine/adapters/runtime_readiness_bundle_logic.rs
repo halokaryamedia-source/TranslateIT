@@ -3,8 +3,11 @@ use serde::Serialize;
 use crate::engine::adapters::runtime_lifecycle_logic::{
     analyze_start_lifecycle_gate, analyze_stop_lifecycle_gate, RuntimeLifecycleGateReport,
 };
-use crate::engine::diagnostics::{RuntimeDiagnostics};
-use crate::engine::runtime_state::{latest_runtime_handoff_state, RuntimeHandoffStateReport};
+use crate::engine::diagnostics::RuntimeDiagnostics;
+use crate::engine::runtime_state::{
+    latest_runtime_handoff_state, latest_runtime_session_state, RuntimeHandoffStateReport,
+    RuntimeSessionStateReport,
+};
 
 #[derive(Debug, Clone, Serialize)]
 pub struct RuntimeReadinessStage {
@@ -17,12 +20,14 @@ pub struct RuntimeReadinessStage {
 #[derive(Debug, Clone, Serialize)]
 pub struct RuntimeReadinessBundleReport {
     pub ready_for_start_command: bool,
+    pub ready_for_stop_command: bool,
     pub ready_for_live_capture_runtime: bool,
     pub ready_for_native_inference_runtime: bool,
     pub ready_for_transcript_persistence: bool,
     pub ready_for_user_facing_runtime: bool,
     pub diagnostics: RuntimeDiagnostics,
     pub handoff_state: RuntimeHandoffStateReport,
+    pub session_state: RuntimeSessionStateReport,
     pub start_gate: RuntimeLifecycleGateReport,
     pub stop_gate: RuntimeLifecycleGateReport,
     pub stages: Vec<RuntimeReadinessStage>,
@@ -33,11 +38,14 @@ pub struct RuntimeReadinessBundleReport {
 pub fn analyze_runtime_readiness_bundle() -> RuntimeReadinessBundleReport {
     let diagnostics = RuntimeDiagnostics::collect();
     let handoff_state = latest_runtime_handoff_state();
+    let session_state = latest_runtime_session_state();
     let start_gate = analyze_start_lifecycle_gate();
     let stop_gate = analyze_stop_lifecycle_gate();
 
     let ready_for_start_command = start_gate.allowed;
+    let ready_for_stop_command = stop_gate.allowed && session_state.ready_for_stop;
     let ready_for_live_capture_runtime = ready_for_start_command
+        && session_state.has_active_session
         && handoff_state
             .snapshot
             .as_ref()
@@ -61,16 +69,28 @@ pub fn analyze_runtime_readiness_bundle() -> RuntimeReadinessBundleReport {
             note: handoff_state.note.clone(),
         },
         RuntimeReadinessStage {
+            stage: "runtime_session".to_string(),
+            ready: session_state.has_active_session,
+            blocker: session_state.blocker.clone(),
+            note: session_state.note.clone(),
+        },
+        RuntimeReadinessStage {
             stage: "start_gate".to_string(),
             ready: start_gate.allowed,
             blocker: start_gate.blocker.clone(),
             note: start_gate.note.clone(),
         },
         RuntimeReadinessStage {
+            stage: "stop_gate".to_string(),
+            ready: ready_for_stop_command,
+            blocker: if ready_for_stop_command { String::new() } else { session_state.blocker.clone() },
+            note: stop_gate.note.clone(),
+        },
+        RuntimeReadinessStage {
             stage: "live_capture_contract".to_string(),
             ready: ready_for_live_capture_runtime,
             blocker: if ready_for_live_capture_runtime { String::new() } else { "capture:not_runtime_ready".to_string() },
-            note: "Live capture runtime is only considered ready after a fresh accepted handoff snapshot.".to_string(),
+            note: "Live capture runtime is only considered ready after a fresh accepted handoff snapshot and active session ownership.".to_string(),
         },
         RuntimeReadinessStage {
             stage: "native_inference_contract".to_string(),
@@ -110,18 +130,22 @@ pub fn analyze_runtime_readiness_bundle() -> RuntimeReadinessBundleReport {
 
     let note = if ready_for_user_facing_runtime {
         "Runtime readiness bundle reports user-facing readiness. Final validation must still be run before release.".to_string()
+    } else if session_state.has_active_session {
+        "Runtime readiness bundle has an active preparing session but is still blocked for user-facing runtime. Real stream/inference work remains.".to_string()
     } else {
         "Runtime readiness bundle is still blocked. This is expected during migration; no production-ready claim is made.".to_string()
     };
 
     RuntimeReadinessBundleReport {
         ready_for_start_command,
+        ready_for_stop_command,
         ready_for_live_capture_runtime,
         ready_for_native_inference_runtime,
         ready_for_transcript_persistence,
         ready_for_user_facing_runtime,
         diagnostics,
         handoff_state,
+        session_state,
         start_gate,
         stop_gate,
         stages,
