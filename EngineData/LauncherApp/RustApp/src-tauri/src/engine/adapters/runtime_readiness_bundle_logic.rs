@@ -1,5 +1,8 @@
 use serde::Serialize;
 
+use crate::engine::adapters::live_runtime_pipeline_gate_logic::{
+    analyze_live_runtime_pipeline_gate, LiveRuntimePipelineGateReport,
+};
 use crate::engine::adapters::native_capture_bridge_logic::{
     analyze_native_capture_bridge, NativeCaptureBridgeReport, NativeCaptureBridgeRequest,
 };
@@ -28,11 +31,13 @@ pub struct RuntimeReadinessBundleReport {
     pub ready_for_live_capture_runtime: bool,
     pub ready_for_native_inference_runtime: bool,
     pub ready_for_transcript_persistence: bool,
+    pub ready_for_end_to_end_pipeline: bool,
     pub ready_for_user_facing_runtime: bool,
     pub diagnostics: RuntimeDiagnostics,
     pub handoff_state: RuntimeHandoffStateReport,
     pub session_state: RuntimeSessionStateReport,
     pub capture_bridge: NativeCaptureBridgeReport,
+    pub pipeline_gate: LiveRuntimePipelineGateReport,
     pub start_gate: RuntimeLifecycleGateReport,
     pub stop_gate: RuntimeLifecycleGateReport,
     pub stages: Vec<RuntimeReadinessStage>,
@@ -48,6 +53,7 @@ pub fn analyze_runtime_readiness_bundle() -> RuntimeReadinessBundleReport {
         NativeCaptureBridgeRequest::default(),
         session_state.clone(),
     );
+    let pipeline_gate = analyze_live_runtime_pipeline_gate();
     let start_gate = analyze_start_lifecycle_gate();
     let stop_gate = analyze_stop_lifecycle_gate();
 
@@ -65,9 +71,11 @@ pub fn analyze_runtime_readiness_bundle() -> RuntimeReadinessBundleReport {
         && diagnostics.translation_adapter_plan.ready
         && diagnostics.backend_validation.ready;
     let ready_for_transcript_persistence = diagnostics.session_store_status.ready;
+    let ready_for_end_to_end_pipeline = pipeline_gate.ready_for_user_runtime;
     let ready_for_user_facing_runtime = ready_for_live_capture_runtime
         && ready_for_native_inference_runtime
         && ready_for_transcript_persistence
+        && ready_for_end_to_end_pipeline
         && diagnostics.final_runtime_allows_python == false;
 
     let stages = vec![
@@ -120,10 +128,16 @@ pub fn analyze_runtime_readiness_bundle() -> RuntimeReadinessBundleReport {
             note: diagnostics.session_store_status.note.clone(),
         },
         RuntimeReadinessStage {
+            stage: "end_to_end_live_pipeline".to_string(),
+            ready: ready_for_end_to_end_pipeline,
+            blocker: if ready_for_end_to_end_pipeline { String::new() } else { pipeline_gate.blocker.clone() },
+            note: pipeline_gate.note.clone(),
+        },
+        RuntimeReadinessStage {
             stage: "final_user_runtime".to_string(),
             ready: ready_for_user_facing_runtime,
             blocker: if ready_for_user_facing_runtime { String::new() } else { "runtime:not_ready_for_user_facing_claim".to_string() },
-            note: "This bundle does not claim final readiness until real capture, inference, TTS/playback, and final validation are complete.".to_string(),
+            note: "This bundle does not claim final readiness until real capture, ASR, translation, TTS/playback, persistence, and final validation are complete.".to_string(),
         },
     ];
 
@@ -145,8 +159,10 @@ pub fn analyze_runtime_readiness_bundle() -> RuntimeReadinessBundleReport {
 
     let note = if ready_for_user_facing_runtime {
         "Runtime readiness bundle reports user-facing readiness. Final validation must still be run before release.".to_string()
+    } else if ready_for_end_to_end_pipeline {
+        "Runtime pipeline gate is complete, but capture contract, persistence, or validation gates still block final readiness.".to_string()
     } else if ready_for_capture_stream_creation {
-        "Runtime readiness bundle is ready for CPAL stream creation contract, but real stream/inference execution remains pending.".to_string()
+        "Runtime readiness bundle is ready for CPAL stream creation contract, but real end-to-end inference execution remains pending.".to_string()
     } else if session_state.has_active_session {
         "Runtime readiness bundle has an active preparing session but capture bridge or inference is still blocked.".to_string()
     } else {
@@ -160,11 +176,13 @@ pub fn analyze_runtime_readiness_bundle() -> RuntimeReadinessBundleReport {
         ready_for_live_capture_runtime,
         ready_for_native_inference_runtime,
         ready_for_transcript_persistence,
+        ready_for_end_to_end_pipeline,
         ready_for_user_facing_runtime,
         diagnostics,
         handoff_state,
         session_state,
         capture_bridge,
+        pipeline_gate,
         start_gate,
         stop_gate,
         stages,
