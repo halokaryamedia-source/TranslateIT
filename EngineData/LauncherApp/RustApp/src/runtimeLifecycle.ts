@@ -25,6 +25,28 @@ export type RuntimeHandoffStateReport = {
   note: string;
 };
 
+export type RuntimeSessionSnapshot = {
+  started_unix_ms: number;
+  owner_id: string;
+  session_id: string;
+  handoff_recorded_unix_ms: number;
+  phase: string;
+  live_capture_stream_active: boolean;
+  native_execution_active: boolean;
+  transcript_persistence_active: boolean;
+  safe_to_stop: boolean;
+  note: string;
+};
+
+export type RuntimeSessionStateReport = {
+  has_active_session: boolean;
+  snapshot: RuntimeSessionSnapshot | null;
+  active_age_ms: number | null;
+  ready_for_stop: boolean;
+  blocker: string;
+  note: string;
+};
+
 export type RuntimeLifecycleGateReport = {
   action: string;
   allowed: boolean;
@@ -43,12 +65,14 @@ export type RuntimeReadinessStage = {
 
 export type RuntimeReadinessBundleReport = {
   ready_for_start_command: boolean;
+  ready_for_stop_command: boolean;
   ready_for_live_capture_runtime: boolean;
   ready_for_native_inference_runtime: boolean;
   ready_for_transcript_persistence: boolean;
   ready_for_user_facing_runtime: boolean;
   diagnostics?: unknown;
   handoff_state: RuntimeHandoffStateReport;
+  session_state: RuntimeSessionStateReport;
   start_gate: RuntimeLifecycleGateReport;
   stop_gate: RuntimeLifecycleGateReport;
   stages: RuntimeReadinessStage[];
@@ -122,6 +146,10 @@ export async function getRuntimeHandoffState(): Promise<RuntimeHandoffStateRepor
   return invoke<RuntimeHandoffStateReport>("get_runtime_handoff_state");
 }
 
+export async function getRuntimeSessionState(): Promise<RuntimeSessionStateReport> {
+  return invoke<RuntimeSessionStateReport>("get_runtime_session_state");
+}
+
 export function summarizeLifecycleGate(report: RuntimeLifecycleGateReport): RuntimeLifecycleSummary {
   const snapshot = report.handoff_state.snapshot;
   const details = [
@@ -155,14 +183,43 @@ export function summarizeLifecycleGate(report: RuntimeLifecycleGateReport): Runt
   };
 }
 
+export function summarizeSessionState(report: RuntimeSessionStateReport): RuntimeLifecycleSummary {
+  const details = [
+    `Has active session: ${report.has_active_session}`,
+    `Active age: ${report.active_age_ms ?? "none"} ms`,
+    `Ready for stop: ${report.ready_for_stop}`,
+    `Blocker: ${report.blocker || "none"}`,
+    report.note,
+  ];
+
+  if (report.snapshot) {
+    details.push(`Owner: ${report.snapshot.owner_id}`);
+    details.push(`Session: ${report.snapshot.session_id}`);
+    details.push(`Phase: ${report.snapshot.phase}`);
+    details.push(`Live capture stream active: ${report.snapshot.live_capture_stream_active}`);
+    details.push(`Native execution active: ${report.snapshot.native_execution_active}`);
+    details.push(`Transcript persistence active: ${report.snapshot.transcript_persistence_active}`);
+    details.push(`Safe to stop: ${report.snapshot.safe_to_stop}`);
+  }
+
+  return {
+    label: report.has_active_session ? "runtime session: active" : "runtime session: inactive",
+    allowed: report.ready_for_stop,
+    lifecycle_state: report.snapshot?.phase ?? "idle",
+    details,
+  };
+}
+
 export function summarizeReadinessBundle(report: RuntimeReadinessBundleReport): RuntimeLifecycleSummary {
   const details = [
     `Ready for Start command: ${report.ready_for_start_command}`,
+    `Ready for Stop command: ${report.ready_for_stop_command}`,
     `Ready for live capture runtime: ${report.ready_for_live_capture_runtime}`,
     `Ready for native inference runtime: ${report.ready_for_native_inference_runtime}`,
     `Ready for transcript persistence: ${report.ready_for_transcript_persistence}`,
     `Ready for user-facing runtime: ${report.ready_for_user_facing_runtime}`,
     `Handoff state: ${report.handoff_state.note}`,
+    `Session state: ${report.session_state.note}`,
     `Start gate: ${report.start_gate.note}`,
     `Stop gate: ${report.stop_gate.note}`,
     ...report.stages.map((stage) => `${stage.stage}: ready=${stage.ready}, blocker=${stage.blocker || "none"}`),
