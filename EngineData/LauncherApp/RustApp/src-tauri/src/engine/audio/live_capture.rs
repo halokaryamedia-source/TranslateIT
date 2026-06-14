@@ -4,6 +4,10 @@ use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::{Arc, Mutex, OnceLock};
 use std::time::{SystemTime, UNIX_EPOCH};
 
+use super::live_audio_buffer::{
+    append_live_f32_samples, append_live_i16_samples, append_live_u16_samples,
+    clear_live_audio_buffer, reset_live_audio_buffer,
+};
 use crate::engine::runtime_state::RuntimeSessionStateReport;
 
 #[derive(Debug, Clone, Serialize)]
@@ -93,6 +97,8 @@ pub fn start_live_capture_runtime(session_state: RuntimeSessionStateReport) -> L
     let frames_received = Arc::new(AtomicU64::new(0));
     let callback_errors = Arc::new(Mutex::new(Vec::new()));
 
+    reset_live_audio_buffer(sample_rate_hz, channels);
+
     let stream = match build_stream_for_format(
         &device,
         &stream_config,
@@ -102,11 +108,13 @@ pub fn start_live_capture_runtime(session_state: RuntimeSessionStateReport) -> L
     ) {
         Ok(stream) => stream,
         Err(error) => {
+            clear_live_audio_buffer();
             return blocked_start("live_capture:stream_build_failed", &format!("Failed to build live microphone stream: {error}"));
         }
     };
 
     if let Err(error) = stream.play() {
+        clear_live_audio_buffer();
         return blocked_start("live_capture:stream_play_failed", &format!("Failed to start live microphone stream: {error}"));
     }
 
@@ -129,7 +137,7 @@ pub fn start_live_capture_runtime(session_state: RuntimeSessionStateReport) -> L
     LiveCaptureStartReport {
         ok: true,
         status,
-        message: "Live microphone stream started and is owned by the active Rust runtime session. ASR, translation, and TTS are still separate pending stages.".to_string(),
+        message: "Live microphone stream started and is owned by the active Rust runtime session. Audio is now feeding the live rolling buffer. ASR, translation, and TTS are still separate pending stages.".to_string(),
     }
 }
 
@@ -144,6 +152,7 @@ pub fn stop_live_capture_runtime() -> LiveCaptureStopReport {
     };
 
     if guard.is_none() {
+        clear_live_audio_buffer();
         return LiveCaptureStopReport {
             ok: true,
             status: inactive_status("live_capture:not_active", "No live microphone stream was active."),
@@ -152,10 +161,11 @@ pub fn stop_live_capture_runtime() -> LiveCaptureStopReport {
     }
 
     *guard = None;
+    clear_live_audio_buffer();
     LiveCaptureStopReport {
         ok: true,
         status: inactive_status("live_capture:stopped", "Live microphone stream ownership was released."),
-        message: "Live microphone stream stopped and ownership was released.".to_string(),
+        message: "Live microphone stream stopped, rolling buffer cleared, and ownership was released.".to_string(),
     }
 }
 
@@ -175,6 +185,7 @@ fn build_stream_for_format(
     callback_errors: Arc<Mutex<Vec<String>>>,
 ) -> Result<cpal::Stream, String> {
     let channels = config.channels;
+    let sample_rate_hz = config.sample_rate.0;
 
     match sample_format {
         cpal::SampleFormat::F32 => {
@@ -183,7 +194,10 @@ fn build_stream_for_format(
             device
                 .build_input_stream(
                     config,
-                    move |data: &[f32], _| record_frames(data.len(), channels, &frames),
+                    move |data: &[f32], _| {
+                        record_frames(data.len(), channels, &frames);
+                        append_live_f32_samples(data, sample_rate_hz, channels);
+                    },
                     move |error| push_callback_error(&errors, error),
                     None,
                 )
@@ -195,7 +209,10 @@ fn build_stream_for_format(
             device
                 .build_input_stream(
                     config,
-                    move |data: &[i16], _| record_frames(data.len(), channels, &frames),
+                    move |data: &[i16], _| {
+                        record_frames(data.len(), channels, &frames);
+                        append_live_i16_samples(data, sample_rate_hz, channels);
+                    },
                     move |error| push_callback_error(&errors, error),
                     None,
                 )
@@ -207,7 +224,10 @@ fn build_stream_for_format(
             device
                 .build_input_stream(
                     config,
-                    move |data: &[u16], _| record_frames(data.len(), channels, &frames),
+                    move |data: &[u16], _| {
+                        record_frames(data.len(), channels, &frames);
+                        append_live_u16_samples(data, sample_rate_hz, channels);
+                    },
                     move |error| push_callback_error(&errors, error),
                     None,
                 )
@@ -256,7 +276,7 @@ fn build_status_from_guard(runtime: Option<&LiveCaptureRuntime>) -> LiveCaptureS
                 latest_callback_error: errors.last().cloned(),
                 blocker: String::new(),
                 note: format!(
-                    "Live microphone stream is active. age_ms={}, sample_rate_hz={}, channels={}. ASR/translation/TTS remain separate pipeline stages.",
+                    "Live microphone stream is active. age_ms={}, sample_rate_hz={}, channels={}. Audio is feeding the rolling VAD buffer. ASR/translation/TTS remain separate pipeline stages.",
                     active_age_ms, runtime.sample_rate_hz, runtime.channels
                 ),
             }
