@@ -31,6 +31,7 @@ use engine::audio::buffer::{inspect_frame, planned_buffer_status, AudioBufferSta
 use engine::audio::calibration_flow::{save_calibration_from_evidence, CalibrationFlowStatus, CalibrationSaveResult};
 use engine::audio::evidence::AudioEvidenceReport;
 use engine::audio::input::InputPreparationStatus;
+use engine::audio::input_config::NativeInputConfigProbeReport;
 use engine::audio::noise_filter::{classify_noise, AudioNoiseAssessment, NoiseAssessmentRequest};
 use engine::audio::preprocess::{preprocess_audio, AudioPreprocessRequest, PreprocessingResult};
 use engine::audio::vad::{evaluate_segment_decision, VadDecisionReport, VadSegmentDecisionRequest};
@@ -86,6 +87,11 @@ fn get_runtime_status_bundle() -> RuntimeStatusBundleReport {
 #[tauri::command]
 fn analyze_migration_closure(request: MigrationClosureGateRequest) -> MigrationClosureGateReport {
     analyze_migration_closure_gate(request)
+}
+
+#[tauri::command]
+fn probe_native_input_config() -> NativeInputConfigProbeReport {
+    NativeInputConfigProbeReport::probe_default_input()
 }
 
 #[tauri::command]
@@ -315,6 +321,7 @@ fn main() {
         analyze_runtime_readiness,
         get_runtime_status_bundle,
         analyze_migration_closure,
+        probe_native_input_config,
         analyze_native_capture_bridge_state,
         get_input_status,
         get_audio_buffer_status,
