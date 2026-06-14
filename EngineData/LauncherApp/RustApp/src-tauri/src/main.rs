@@ -8,6 +8,7 @@ use engine::adapters::context_logic::{update_translation_context, TranslationCon
 use engine::adapters::language_logic::{run_language_logic, LanguageLogicReport, LanguageLogicRequest};
 use engine::adapters::latency_logic::{build_latency_logic, build_vad_profile, LatencyLogicReport, LatencyLogicRequest, VadProfileReport, VadProfileRequest};
 use engine::adapters::model_check::{check_model_request, ModelCheckRequest, ModelCheckResult};
+use engine::adapters::orchestration_logic::{run_runtime_orchestration, RuntimeOrchestrationReport, RuntimeOrchestrationRequest};
 use engine::adapters::output_dry_run::{run_output_dry_check, OutputDryRunRequest, OutputDryRunResult};
 use engine::adapters::pipeline_logic::{check_stale_job, decide_pipeline, PipelineDecisionReport, PipelineDecisionRequest, StaleJobGuardReport, StaleJobGuardRequest};
 use engine::adapters::playback_logic::{plan_playback, PlaybackLogicRequest, PlaybackLogicResult};
@@ -128,6 +129,11 @@ fn plan_playback_logic(request: PlaybackLogicRequest) -> PlaybackLogicResult {
 }
 
 #[tauri::command]
+fn run_runtime_plan(request: RuntimeOrchestrationRequest) -> RuntimeOrchestrationReport {
+    run_runtime_orchestration(request)
+}
+
+#[tauri::command]
 fn resolve_vad_profile(request: VadProfileRequest) -> VadProfileReport {
     build_vad_profile(request)
 }
@@ -218,6 +224,7 @@ fn main() {
         check_stale_job_guard,
         plan_translation_logic,
         plan_playback_logic,
+        run_runtime_plan,
         resolve_vad_profile,
         get_calibration_flow_status,
         save_calibration_profile,
