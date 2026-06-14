@@ -2,8 +2,10 @@ from __future__ import annotations
 
 import argparse
 import json
+import queue
 import subprocess
 import sys
+import threading
 import time
 from datetime import datetime, timezone
 from pathlib import Path
@@ -23,9 +25,22 @@ def resolve_python() -> str:
     return sys.executable
 
 
+def stream_reader(stream: Any, output: "queue.Queue[str]") -> None:
+    try:
+        for line in iter(stream.readline, ""):
+            if line:
+                output.put(line)
+    except Exception:
+        return
+
+
 class PersistentWorker:
     def __init__(self) -> None:
         self.process: subprocess.Popen[str] | None = None
+        self.stdout_queue: queue.Queue[str] = queue.Queue()
+        self.stderr_queue: queue.Queue[str] = queue.Queue()
+        self.stdout_thread: threading.Thread | None = None
+        self.stderr_thread: threading.Thread | None = None
 
     def start(self) -> dict[str, Any]:
         if not WORKER_SCRIPT.exists():
@@ -38,31 +53,50 @@ class PersistentWorker:
             text=True,
             bufsize=1,
         )
+        if self.process.stdout is not None:
+            self.stdout_thread = threading.Thread(target=stream_reader, args=(self.process.stdout, self.stdout_queue), daemon=True)
+            self.stdout_thread.start()
+        if self.process.stderr is not None:
+            self.stderr_thread = threading.Thread(target=stream_reader, args=(self.process.stderr, self.stderr_queue), daemon=True)
+            self.stderr_thread.start()
         return {"ok": True, "stage": "worker_start", "pid": self.process.pid, "python": resolve_python()}
 
+    def stderr_tail(self, max_items: int = 20) -> str:
+        lines: list[str] = []
+        while not self.stderr_queue.empty() and len(lines) < max_items:
+            lines.append(self.stderr_queue.get_nowait().rstrip())
+        return "\n".join(lines)[-1000:]
+
     def command(self, command: dict[str, Any], timeout_s: int = 60) -> dict[str, Any]:
-        if self.process is None or self.process.stdin is None or self.process.stdout is None:
+        if self.process is None or self.process.stdin is None:
             return {"ok": False, "stage": command.get("command", "unknown"), "blocker": "worker_not_started"}
         started = time.time()
         try:
             self.process.stdin.write(json.dumps(command, ensure_ascii=False) + "\n")
             self.process.stdin.flush()
-            while True:
-                if time.time() - started > timeout_s:
-                    return {"ok": False, "stage": command.get("command", "unknown"), "blocker": "worker_command_timeout", "timeout_s": timeout_s}
-                first_line = self.process.stdout.readline()
-                if first_line:
-                    break
-                if self.process.poll() is not None:
-                    return {"ok": False, "stage": command.get("command", "unknown"), "blocker": "worker_exited", "returncode": self.process.returncode}
+            try:
+                first_line = self.stdout_queue.get(timeout=timeout_s)
+            except queue.Empty:
+                return {
+                    "ok": False,
+                    "stage": command.get("command", "unknown"),
+                    "blocker": "worker_command_timeout",
+                    "timeout_s": timeout_s,
+                    "stderr_tail": self.stderr_tail(),
+                }
+            if self.process.poll() is not None and not first_line:
+                return {"ok": False, "stage": command.get("command", "unknown"), "blocker": "worker_exited", "returncode": self.process.returncode, "stderr_tail": self.stderr_tail()}
             try:
                 payload = json.loads(first_line)
             except json.JSONDecodeError as exc:
-                return {"ok": False, "stage": command.get("command", "unknown"), "blocker": "worker_invalid_json", "note": str(exc), "stdout": first_line[-800:]}
+                return {"ok": False, "stage": command.get("command", "unknown"), "blocker": "worker_invalid_json", "note": str(exc), "stdout": first_line[-800:], "stderr_tail": self.stderr_tail()}
             payload["wall_ms"] = int((time.time() - started) * 1000)
+            stderr_tail = self.stderr_tail()
+            if stderr_tail:
+                payload["stderr_tail"] = stderr_tail
             return payload
         except Exception as exc:
-            return {"ok": False, "stage": command.get("command", "unknown"), "blocker": type(exc).__name__, "note": str(exc)}
+            return {"ok": False, "stage": command.get("command", "unknown"), "blocker": type(exc).__name__, "note": str(exc), "stderr_tail": self.stderr_tail()}
 
     def close(self) -> None:
         if self.process is None:
@@ -92,6 +126,7 @@ def latency_summary(results: dict[str, Any]) -> dict[str, Any]:
         "total_measured_ms": sum(numeric),
         "realtime_target_ms": 1000,
         "quality_target_ms": 2500,
+        "timeout_model": "threaded_non_blocking_stdout_queue",
         "note": "Latency target can be judged only after real ASR audio, translation, and TTS smoke stages all pass in one persistent worker session.",
     }
 
@@ -106,12 +141,13 @@ def main() -> int:
 
     worker = PersistentWorker()
     results: dict[str, Any] = {
-        "schema": "translateit.local_worker_smoke_evidence.v2",
+        "schema": "translateit.local_worker_smoke_evidence.v3",
         "generated_at_utc": datetime.now(timezone.utc).isoformat(),
         "mode": args.mode,
         "worker_script": str(WORKER_SCRIPT.relative_to(ROOT)),
         "python": resolve_python(),
         "persistent_worker": True,
+        "timeout_model": "threaded_non_blocking_stdout_queue",
         "worker_start": worker.start(),
     }
 
