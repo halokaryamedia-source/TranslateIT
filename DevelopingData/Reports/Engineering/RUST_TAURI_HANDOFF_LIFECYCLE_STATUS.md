@@ -14,13 +14,14 @@ The goal is to make the migration status explicit without claiming that real mic
 4. Snapshot is valid for 120 seconds.
 5. `start_capture` routes through `analyze_start_lifecycle_gate` before allowing preparation.
 6. If Start is allowed, backend records an active runtime session snapshot in `preparing` phase.
-7. `analyze_start_gate` now blocks duplicate Start while an active runtime session exists.
+7. `analyze_start_gate` blocks duplicate Start while an active runtime session exists.
 8. `analyze_stop_gate` is session-aware and reports whether it is clearing an active session, a handoff-only state, or nothing useful.
 9. `stop_capture` clears both active runtime session state and stored handoff snapshot.
 10. `get_runtime_session_state` exposes the active runtime session state for frontend/QA.
-11. `analyze_runtime_readiness` exposes a single readiness bundle for dashboard/QA usage and includes active runtime session state.
-12. `analyze_migration_closure` exposes a final migration closure gate that requires explicit manual validation and owner approval flags.
-13. Runtime diagnostics includes runtime handoff state, runtime session state, and their blockers.
+11. `analyze_runtime_readiness` exposes a readiness bundle for dashboard/QA usage and includes active runtime session state.
+12. `get_runtime_status_bundle` exposes a compact status bundle containing engine status, readiness, next action, and summary.
+13. `analyze_migration_closure` exposes a final migration closure gate that requires explicit manual validation and owner approval flags.
+14. Runtime diagnostics includes runtime handoff state, runtime session state, and their blockers.
 
 ## Important safety boundaries
 
@@ -53,6 +54,11 @@ The current implementation still does not execute:
   - bundles diagnostics, handoff state, active session state, Start gate, Stop gate, staged blockers, and readiness booleans;
   - exposes one report for dashboard/QA usage without claiming final runtime readiness.
 
+- `engine/adapters/runtime_status_bundle_logic.rs`
+  - combines `EngineStatus` with runtime readiness;
+  - exposes a single next-action summary for UI/QA;
+  - intentionally does not replace final validation or migration closure approval.
+
 - `engine/adapters/migration_closure_gate_logic.rs`
   - gates ready-for-review and release-candidate claims behind manual build validation, runtime smoke validation, UI review, packaging review, explicit owner approval, and transition permissions;
   - hard-blocks production release claims by design.
@@ -61,7 +67,7 @@ The current implementation still does not execute:
   - includes runtime handoff state and runtime session state in diagnostic output.
 
 - `src/runtimeLifecycle.ts`
-  - mirrors frontend helper types for lifecycle gate, active session state, readiness bundle, and closure gate calls;
+  - mirrors frontend helper types for lifecycle gate, active session state, readiness bundle, runtime status bundle, and closure gate calls;
   - exposes frontend summaries for future UI wiring;
   - defaults closure-gate request flags to blocked/false.
 
@@ -90,7 +96,7 @@ Stop can clear:
 - stored handoff snapshot state;
 - handoff-only state when no active session exists.
 
-## Current runtime readiness bundle contract
+## Current runtime readiness and status contract
 
 `analyze_runtime_readiness` reports:
 
@@ -103,6 +109,13 @@ Stop can clear:
 - user-facing runtime readiness;
 - stage-level blockers;
 - consolidated blockers from diagnostics and runtime gates.
+
+`get_runtime_status_bundle` reports:
+
+- engine status;
+- readiness bundle;
+- compact next action;
+- one-line summary for UI/QA.
 
 The bundle intentionally keeps `ready_for_user_facing_runtime` false until real capture, native inference, persistence, UI, and final validation are actually complete.
 
@@ -126,9 +139,9 @@ Production release remains blocked by design in this migration gate and must not
 
 ## Remaining work before ready-for-review
 
-- Wire frontend Start button to show `analyze_start_gate` or `analyze_runtime_readiness` before calling `start_capture`.
+- Wire frontend Start button to show `analyze_start_gate`, `analyze_runtime_readiness`, or `get_runtime_status_bundle` before calling `start_capture`.
 - Wire frontend Stop button to show `analyze_stop_gate` before calling `stop_capture`.
-- Wire frontend Diagnostics dashboard to render `analyze_runtime_readiness` and active session state.
+- Wire frontend Diagnostics dashboard to render `get_runtime_status_bundle`, `analyze_runtime_readiness`, and active session state.
 - Wire frontend QA/closure dashboard to render `analyze_migration_closure`.
 - Add real microphone stream ownership and CPAL stream creation.
 - Connect real ASR native runner.
