@@ -1,24 +1,37 @@
 # DeveloperData
 
 ## Purpose
-- Hold project development documentation, research notes, and setup references.
-- Keep narrative project records separate from executable engine code and user runtime data.
 
-## Allowed files
-- `README.md`
-- `TechnicalDocumentation/`
+`DeveloperData` stores human-facing developer references only. It must not contain executable runtime code, local models, build output, cache, logs, or user data.
 
-## Current sections
-- `TechnicalDocumentation/RepositorySetup/` - Git and repo onboarding notes
-- `TechnicalDocumentation/VoiceLabResearch/` - custom voice and VoiceLab planning notes
+## Professional layout
 
-## Must not be placed here
-- Engine source files
-- Runtime cache
-- User data
-- Build artifacts
+```text
+DeveloperData/
+  README.md
+  Guides/
+    Repository/
+      README.md
+      GitHubSetupGuide.md
+  Research/
+    VoiceLab/
+      README.md
+      VoiceLabResearchBrief.md
+      VoiceLabResearchNotes.md
+  Templates/
+    Repository/
+      gitignore_template.txt
+```
 
-## Naming rules
-- Use English only.
-- Keep documents descriptive and stable.
-- Prefer topic-specific subfolders when a document group grows.
+## Folder ownership
+
+- `Guides/` - setup, onboarding, and maintenance guides.
+- `Research/` - product or technical research that is not runtime-critical.
+- `Templates/` - reusable reference templates.
+
+## Rules
+
+- Use English folder and file names.
+- Keep documents topic-scoped and stable.
+- Do not add scripts or app runtime code here.
+- Move obsolete research to reports or delete it; do not keep multiple competing directions.
