@@ -22,6 +22,7 @@ BUILD_KEYS = [
     "frontend_build_passed",
     "tauri_build_passed",
     "packaging_validation_passed",
+    "local_worker_stack_passed",
 ]
 
 
@@ -29,8 +30,9 @@ def load_evidence() -> dict:
     if EVIDENCE_FILE.exists():
         return json.loads(EVIDENCE_FILE.read_text(encoding="utf-8"))
     return {
-        "schema": "translateit.rustapp.validation_evidence.v1",
+        "schema": "translateit.rustapp.validation_evidence.v2",
         "status": "internal_validation_only",
+        "local_worker_stack_passed": False,
     }
 
 
@@ -42,6 +44,7 @@ def main() -> int:
     args = parser.parse_args()
 
     evidence = load_evidence()
+    evidence["schema"] = "translateit.rustapp.validation_evidence.v2"
     manual = evidence.setdefault("manual_runtime_evidence", {})
     for key in MANUAL_KEYS:
         manual[key] = bool(getattr(args, key)) or bool(manual.get(key, False))
@@ -54,7 +57,7 @@ def main() -> int:
     evidence["owner_validation_allowed"] = owner_allowed
     evidence["release_candidate_allowed"] = owner_allowed and bool(args.allow_release_candidate)
     evidence["note"] = (
-        "Manual runtime evidence was updated. Owner validation is allowed only when build/package validation and all manual runtime smoke tests pass."
+        "Manual runtime evidence was updated. Owner validation is allowed only when build/package validation, local worker stack validation, and all manual runtime smoke tests pass."
     )
 
     EVIDENCE_FILE.parent.mkdir(parents=True, exist_ok=True)
