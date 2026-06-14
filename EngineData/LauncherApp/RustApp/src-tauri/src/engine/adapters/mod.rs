@@ -9,6 +9,7 @@ pub mod frame_pipeline_logic;
 pub mod language_logic;
 pub mod latency_logic;
 pub mod live_asr_boundary_logic;
+pub mod live_pipeline_compact_status_logic;
 pub mod live_runtime_pipeline_gate_logic;
 pub mod live_translation_boundary_logic;
 pub mod live_tts_boundary_logic;
