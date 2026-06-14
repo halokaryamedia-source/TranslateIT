@@ -44,6 +44,7 @@ Write-Host "Status: internal validation only. Do not mark Ready from this script
 
 Invoke-ValidationStep "Rust app scaffold boundary" { python (Join-Path $Root "DevelopingData\ToolKitData\Scripts\Execution\check_rust_app.py") } | Out-Null
 Invoke-ValidationStep "Launcher contract" { python (Join-Path $Root "DevelopingData\ToolKitData\Scripts\Execution\check_launcher_contract.py") } | Out-Null
+Invoke-ValidationStep "CI validation workflow contract" { python (Join-Path $Root "DevelopingData\ToolKitData\Scripts\Execution\check_ci_validation_workflow.py") } | Out-Null
 Invoke-ValidationStep "Rust runtime boundary" { python (Join-Path $Root "DevelopingData\ToolKitData\Scripts\Execution\check_rust_runtime_boundaries.py") } | Out-Null
 Invoke-ValidationStep "Rust command registration boundary" { python (Join-Path $Root "DevelopingData\ToolKitData\Scripts\Execution\check_rust_runtime_command_registration.py") } | Out-Null
 Invoke-ValidationStep "Rust validation evidence boundary" { python (Join-Path $Root "DevelopingData\ToolKitData\Scripts\Execution\check_rust_validation_evidence_boundary.py") } | Out-Null
@@ -74,7 +75,7 @@ finally {
 }
 
 Write-Host "RustApp final validation commands completed."
-Write-Host "Launcher, local realtime worker stack, frontend runtime contract, validation evidence, and readiness summary boundaries are included, but real inference still requires runtime smoke evidence."
+Write-Host "Launcher, CI workflow, local realtime worker stack, frontend runtime contract, validation evidence, and readiness summary boundaries are included, but real inference still requires runtime smoke evidence."
 Write-Host "Required manual evidence still remains: microphone capture smoke test, ASR transcript smoke test, translation smoke test, TTS/playback smoke test, launcher/package open test."
 Write-Host "Do not mark owner validation, release candidate, or production Ready until those manual runtime checks pass."
 
