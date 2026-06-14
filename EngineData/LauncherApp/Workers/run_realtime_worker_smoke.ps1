@@ -9,7 +9,7 @@ param(
 )
 
 $Root = Resolve-Path (Join-Path $PSScriptRoot "..\..\..")
-$SmokeScript = Join-Path $Root "DevelopingData\ToolKitData\Scripts\Execution\run_local_realtime_worker_smoke_tests.py"
+$SmokeScript = Join-Path $Root "DevelopingData\Tooling\Scripts\Execution\run_local_realtime_worker_smoke_tests.py"
 $WorkerPython = Join-Path $PSScriptRoot ".venv\Scripts\python.exe"
 
 if (-not (Test-Path $SmokeScript)) {
