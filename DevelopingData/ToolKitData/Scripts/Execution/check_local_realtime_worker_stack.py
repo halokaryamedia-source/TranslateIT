@@ -8,6 +8,7 @@ WORKER_ROOT = ROOT / "EngineData" / "LauncherApp" / "Workers"
 WORKER_SCRIPT = WORKER_ROOT / "realtime_local_worker.py"
 REQUIREMENTS = WORKER_ROOT / "requirements-realtime.txt"
 STACK_MANIFEST = WORKER_ROOT / "realtime_stack_manifest.json"
+SETUP_SCRIPT = WORKER_ROOT / "setup_realtime_worker.ps1"
 
 REQUIRED_WORKER_TERMS = [
     "faster-whisper-large-v3-turbo",
@@ -26,9 +27,16 @@ REQUIRED_REQUIREMENTS = [
     "sentencepiece",
 ]
 
+REQUIRED_SETUP_TERMS = [
+    "requirements-realtime.txt",
+    "realtime_local_worker.py",
+    "python -m venv",
+    "pip install",
+]
+
 
 def main() -> int:
-    required_files = [WORKER_SCRIPT, REQUIREMENTS, STACK_MANIFEST]
+    required_files = [WORKER_SCRIPT, REQUIREMENTS, STACK_MANIFEST, SETUP_SCRIPT]
     missing = [str(path.relative_to(ROOT)) for path in required_files if not path.exists()]
     if missing:
         print("LOCAL_REALTIME_WORKER_STACK_MISSING")
@@ -52,6 +60,14 @@ def main() -> int:
             print("-", term)
         return 1
 
+    setup_text = SETUP_SCRIPT.read_text(encoding="utf-8")
+    missing_setup_terms = [term for term in REQUIRED_SETUP_TERMS if term not in setup_text]
+    if missing_setup_terms:
+        print("LOCAL_REALTIME_WORKER_SETUP_INCOMPLETE")
+        for term in missing_setup_terms:
+            print("-", term)
+        return 1
+
     manifest = json.loads(STACK_MANIFEST.read_text(encoding="utf-8"))
     modes = manifest.get("modes", {})
     for mode in ("Realtime", "Quality"):
@@ -69,7 +85,7 @@ def main() -> int:
         print("LOCAL_REALTIME_STACK_TRUTH_POLICY_INCOMPLETE")
         return 1
 
-    print("PASS: Local realtime worker stack files, commands, dependencies, modes, and truth policy are present")
+    print("PASS: Local realtime worker stack files, setup script, commands, dependencies, modes, and truth policy are present")
     return 0
 
 
