@@ -52,6 +52,7 @@ export type RuntimeLifecycleGateReport = {
   allowed: boolean;
   lifecycle_state: string;
   handoff_state: RuntimeHandoffStateReport;
+  session_state: RuntimeSessionStateReport;
   blocker: string;
   note: string;
 };
@@ -151,28 +152,36 @@ export async function getRuntimeSessionState(): Promise<RuntimeSessionStateRepor
 }
 
 export function summarizeLifecycleGate(report: RuntimeLifecycleGateReport): RuntimeLifecycleSummary {
-  const snapshot = report.handoff_state.snapshot;
+  const handoff = report.handoff_state.snapshot;
+  const session = report.session_state.snapshot;
   const details = [
     `Action: ${report.action}`,
     `Allowed: ${report.allowed}`,
     `Lifecycle state: ${report.lifecycle_state}`,
     `Has handoff snapshot: ${report.handoff_state.has_snapshot}`,
-    `Snapshot stale: ${report.handoff_state.snapshot_stale}`,
-    `Snapshot age: ${report.handoff_state.snapshot_age_ms ?? "none"} ms`,
-    `Max snapshot age: ${report.handoff_state.max_snapshot_age_ms} ms`,
+    `Handoff stale: ${report.handoff_state.snapshot_stale}`,
+    `Handoff age: ${report.handoff_state.snapshot_age_ms ?? "none"} ms`,
     `Ready for start: ${report.handoff_state.ready_for_start}`,
-    `Blocker: ${report.blocker || report.handoff_state.blocker || "none"}`,
+    `Has active session: ${report.session_state.has_active_session}`,
+    `Session ready for stop: ${report.session_state.ready_for_stop}`,
+    `Session age: ${report.session_state.active_age_ms ?? "none"} ms`,
+    `Blocker: ${report.blocker || report.handoff_state.blocker || report.session_state.blocker || "none"}`,
     report.note,
   ];
 
-  if (snapshot) {
-    details.push(`Owner: ${snapshot.owner_id}`);
-    details.push(`Session: ${snapshot.session_id}`);
-    details.push(`Live capture ready: ${snapshot.ready_for_live_capture}`);
-    details.push(`Segment runtime ready: ${snapshot.ready_for_segment_runtime}`);
-    details.push(`Native execution ready: ${snapshot.ready_for_native_execution}`);
-    details.push(`Safe save ready: ${snapshot.ready_for_safe_save}`);
-    details.push(...snapshot.blockers.map((blocker) => `Snapshot blocker: ${blocker}`));
+  if (handoff) {
+    details.push(`Handoff owner: ${handoff.owner_id}`);
+    details.push(`Handoff session: ${handoff.session_id}`);
+    details.push(`Live capture ready: ${handoff.ready_for_live_capture}`);
+    details.push(`Native execution ready: ${handoff.ready_for_native_execution}`);
+    details.push(...handoff.blockers.map((blocker) => `Snapshot blocker: ${blocker}`));
+  }
+
+  if (session) {
+    details.push(`Active session owner: ${session.owner_id}`);
+    details.push(`Active session id: ${session.session_id}`);
+    details.push(`Active session phase: ${session.phase}`);
+    details.push(`Safe to stop: ${session.safe_to_stop}`);
   }
 
   return {
