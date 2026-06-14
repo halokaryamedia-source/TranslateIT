@@ -1,7 +1,7 @@
 {
   "name": "translateit-rustapp",
   "private": true,
-  "version": "0.6.0-rust-tauri-conversion",
+  "version": "0.8.6-local-realtime-worker",
   "type": "module",
   "scripts": {
     "dev": "tauri dev",
@@ -10,7 +10,8 @@
     "build:frontend": "vite build",
     "typecheck": "tsc --noEmit",
     "check:rust": "cargo check --manifest-path src-tauri/Cargo.toml",
-    "validate:internal": "npm run typecheck && npm run check:rust && npm run build:frontend"
+    "validate:internal": "npm run typecheck && npm run check:rust && npm run build:frontend",
+    "validate:full": "npm run typecheck && npm run check:rust && npm run build:frontend && npm run build"
   },
   "dependencies": {
     "@tauri-apps/api": "^2.0.0"
