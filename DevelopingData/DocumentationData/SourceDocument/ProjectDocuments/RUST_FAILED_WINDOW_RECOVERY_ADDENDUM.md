@@ -17,11 +17,15 @@ The commits in the recovery window were marked failed because the RustApp final 
 - The final validation workflow was changed to manual dispatch only.
 - The ported Rust modules from the failed window were kept in the branch.
 - A unified Rust runtime orchestration adapter was added so the recovered logic is no longer only a set of isolated modules.
+- A native execution boundary was added for ASR, translation, and output stages.
+- A Rust session store module was added for saved-session JSON payloads under `UserData`.
 
 ## Reworked runtime path
 
 ```text
 EngineData/LauncherApp/RustApp/src-tauri/src/engine/adapters/orchestration_logic.rs
+EngineData/LauncherApp/RustApp/src-tauri/src/engine/native_execution.rs
+EngineData/LauncherApp/RustApp/src-tauri/src/engine/session_store.rs
 ```
 
 The orchestration adapter connects these recovered areas:
@@ -38,10 +42,11 @@ The orchestration adapter connects these recovered areas:
 - translation planning
 - playback planning
 
-## Exposed command
+## Exposed commands
 
 ```text
 run_runtime_plan
+plan_native_execution_step
 ```
 
 ## Validation policy
