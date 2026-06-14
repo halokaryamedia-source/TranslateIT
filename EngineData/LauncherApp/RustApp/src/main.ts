@@ -112,15 +112,18 @@ if (!app) {
 
 const icons = {
   plus: `<svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>`,
-  clock: `<svg viewBox="0 0 24 24"><path d="M12 7v5l3 2"/><circle cx="12" cy="12" r="9"/></svg>`,
-  file: `<svg viewBox="0 0 24 24"><path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"/><path d="M14 3v5h5"/></svg>`,
-  folder: `<svg viewBox="0 0 24 24"><path d="M3 7a2 2 0 0 1 2-2h5l2 2h7a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg>`,
-  chevron: `<svg viewBox="0 0 24 24"><path d="m6 9 6 6 6-6"/></svg>`,
-  mic: `<svg viewBox="0 0 24 24"><path d="M12 3a3 3 0 0 0-3 3v6a3 3 0 0 0 6 0V6a3 3 0 0 0-3-3Z"/><path d="M19 11a7 7 0 0 1-14 0"/><path d="M12 18v3"/><path d="M8 21h8"/></svg>`,
-  headphones: `<svg viewBox="0 0 24 24"><path d="M4 14v-2a8 8 0 0 1 16 0v2"/><path d="M4 14h3v6H5a1 1 0 0 1-1-1z"/><path d="M20 14h-3v6h2a1 1 0 0 0 1-1z"/></svg>`,
-  settings: `<svg viewBox="0 0 24 24"><path d="M12 15.5a3.5 3.5 0 1 0 0-7 3.5 3.5 0 0 0 0 7Z"/><path d="M19.4 15a1.7 1.7 0 0 0 .34 1.88l.04.04a2 2 0 0 1-2.83 2.83l-.04-.04A1.7 1.7 0 0 0 15 19.4a1.7 1.7 0 0 0-1 .6l-.06.07a2 2 0 0 1-3.88 0L10 20a1.7 1.7 0 0 0-1-.6 1.7 1.7 0 0 0-1.88.34l-.04.04a2 2 0 0 1-2.83-2.83l.04-.04A1.7 1.7 0 0 0 4.6 15a1.7 1.7 0 0 0-.6-1l-.07-.06a2 2 0 0 1 0-3.88L4 10a1.7 1.7 0 0 0 .6-1 1.7 1.7 0 0 0-.34-1.88l-.04-.04a2 2 0 0 1 2.83-2.83l.04.04A1.7 1.7 0 0 0 9 4.6a1.7 1.7 0 0 0 1-.6l.06-.07a2 2 0 0 1 3.88 0L14 4a1.7 1.7 0 0 0 1 .6 1.7 1.7 0 0 0 1.88-.34l.04-.04a2 2 0 0 1 2.83 2.83l-.04.04A1.7 1.7 0 0 0 19.4 9c.22.37.43.7.6 1l.07.06a2 2 0 0 1 0 3.88L20 14c-.17.3-.38.63-.6 1Z"/></svg>`,
-  keyboard: `<svg viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="14" rx="3"/><path d="M7 9h.01M11 9h.01M15 9h.01M19 9h.01M7 13h.01M11 13h.01M15 13h.01M8 17h8"/></svg>`,
-  arrowUp: `<svg viewBox="0 0 24 24"><path d="M12 19V5"/><path d="m5 12 7-7 7 7"/></svg>`,
+  clock: `<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="8"/><path d="M12 8v4l3 2"/></svg>`,
+  file: `<svg viewBox="0 0 24 24"><path d="M7 3h7l4 4v14H7z"/><path d="M14 3v5h5"/></svg>`,
+  folder: `<svg viewBox="0 0 24 24"><path d="M3 7h7l2 2h9v9H3z"/></svg>`,
+  shield: `<svg viewBox="0 0 24 24"><path d="M12 3l7 3v5c0 5-3.2 8.3-7 10-3.8-1.7-7-5-7-10V6z"/></svg>`,
+  chevron: `<svg viewBox="0 0 24 24"><path d="M8 10l4 4 4-4"/></svg>`,
+  mic: `<svg viewBox="0 0 24 24"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3M9 21h6"/></svg>`,
+  micOff: `<svg viewBox="0 0 24 24"><path d="M9.5 4.5A3 3 0 0 1 15 6v4.5"/><path d="M9 9.5V12a3 3 0 0 0 4.2 2.75"/><path d="M5 11a7 7 0 0 0 10.4 6.1"/><path d="M19 11a7 7 0 0 1-1.2 3.9"/><path d="M12 18v3M9 21h6M4 4l16 16"/></svg>`,
+  headphones: `<svg viewBox="0 0 24 24"><path d="M4 14v-2a8 8 0 0 1 16 0v2"/><path d="M4 14h4v6H6a2 2 0 0 1-2-2zM20 14h-4v6h2a2 2 0 0 0 2-2z"/></svg>`,
+  headphonesOff: `<svg viewBox="0 0 24 24"><path d="M4 14v-2a8 8 0 0 1 12.4-6.7"/><path d="M20 14v-2c0-1.1-.2-2.1-.6-3"/><path d="M4 14h4v6H6a2 2 0 0 1-2-2z"/><path d="M17 14h3v4"/><path d="M4 4l16 16"/></svg>`,
+  settings: `<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19 12a7 7 0 0 0-.1-1.1l2-1.5-2-3.4-2.4 1a7 7 0 0 0-1.9-1.1L14.3 3h-4.6l-.4 2.9A7 7 0 0 0 7.5 7L5.1 6l-2 3.4 2 1.5A7 7 0 0 0 5 12a7 7 0 0 0 .1 1.1l-2 1.5 2 3.4 2.4-1a7 7 0 0 0 1.9 1.1l.4 2.9h4.6l.4-2.9a7 7 0 0 0 1.9-1.1l2.4 1 2-3.4-2-1.5A7 7 0 0 0 19 12z"/></svg>`,
+  keyboard: `<svg viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="M7 9h.01M11 9h.01M15 9h.01M7 13h.01M11 13h.01M15 13h.01M8 17h8"/></svg>`,
+  arrowUp: `<svg viewBox="0 0 24 24"><path d="M12 19V5M6 11l6-6 6 6"/></svg>`,
   back: `<svg viewBox="0 0 24 24"><path d="M19 12H5"/><path d="m12 19-7-7 7-7"/></svg>`,
 };
 
@@ -169,17 +172,22 @@ app.innerHTML = `
         <div class="nav-divider"></div>
         <p class="nav-heading">Workspace</p>
         <button type="button" class="nav-item">${icon("folder")}<span>Saved Chat</span>${icon("chevron")}</button>
+        <button type="button" class="nav-item">${icon("shield")}<span>Local Data</span>${icon("chevron")}</button>
       </nav>
 
-      <section class="account-card">
-        <div class="avatar">MB</div>
+      <section class="account-card" aria-label="User and audio controls">
+        <div class="avatar">HK</div>
         <div class="account-text">
-          <strong>Local User</strong>
-          <span id="userPresence">Ready</span>
+          <strong>Marcel Berc...</strong>
+          <span id="userPresence">Invisible</span>
         </div>
-        <button id="quickMicButton" class="footer-icon" type="button" aria-label="Microphone">${icon("mic")}</button>
-        <button class="footer-icon" type="button" aria-label="Voice output">${icon("headphones")}</button>
-        <button id="settingsButton" class="footer-icon" type="button" aria-label="Settings">${icon("settings")}</button>
+        <div class="account-actions">
+          <button id="quickMicButton" class="footer-icon danger" type="button" aria-label="Mute microphone">${icon("micOff")}</button>
+          <button class="footer-dropdown danger" type="button" aria-label="Microphone options">${icon("chevron")}</button>
+          <button class="footer-icon danger" type="button" aria-label="Disable voice output">${icon("headphonesOff")}</button>
+          <button class="footer-dropdown danger" type="button" aria-label="Voice output options">${icon("chevron")}</button>
+          <button id="settingsButton" class="footer-icon settings-action" type="button" aria-label="Settings">${icon("settings")}</button>
+        </div>
       </section>
     </aside>
 
@@ -202,14 +210,18 @@ app.innerHTML = `
 
         <div class="feature-grid">
           <article class="feature-card">
-            <div class="feature-icon">${icon("keyboard")}</div>
-            <h4>Text input</h4>
+            <div class="feature-title-row">
+              <div class="feature-icon">${icon("keyboard")}</div>
+              <h4>Text input</h4>
+            </div>
             <p>Type or paste Indonesian text and get an English translation in the conversation.</p>
           </article>
           <article class="feature-card">
-            <div class="feature-icon">${icon("mic")}</div>
-            <h4>Voice input</h4>
-            <p>Press the microphone button. Recording status appears while local capture is active.</p>
+            <div class="feature-title-row">
+              <div class="feature-icon">${icon("mic")}</div>
+              <h4>Voice input</h4>
+            </div>
+            <p>Press the microphone button. A recording indicator appears while voice capture is active.</p>
           </article>
         </div>
 
