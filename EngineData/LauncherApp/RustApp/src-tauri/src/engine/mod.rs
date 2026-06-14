@@ -6,6 +6,7 @@ pub mod diagnostics;
 pub mod inference;
 pub mod logging;
 pub mod models;
+pub mod native_execution;
 pub mod paths;
 pub mod settings;
 pub mod state;
