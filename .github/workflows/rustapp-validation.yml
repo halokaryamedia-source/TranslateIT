@@ -2,14 +2,6 @@ name: RustApp Validation
 
 on:
   workflow_dispatch:
-  pull_request:
-    paths:
-      - "EngineData/LauncherApp/RustApp/**"
-      - "DevelopingData/ToolKitData/Scripts/Execution/check_rust_app.py"
-      - "DevelopingData/ToolKitData/Scripts/Execution/check_rust_runtime_boundaries.py"
-      - "DevelopingData/ToolKitData/Scripts/Execution/check_rust_output_boundary.py"
-      - "DevelopingData/ToolKitData/Scripts/Execution/check_rust_model_boundary.py"
-      - "DevelopingData/ToolKitData/Scripts/Execution/run_rustapp_final_validation.ps1"
 
 jobs:
   validate-rustapp:
