@@ -12,6 +12,7 @@ Write-Host "Status: internal validation only. Do not mark Ready from this script
 python (Join-Path $Root "DevelopingData\ToolKitData\Scripts\Execution\check_rust_app.py")
 python (Join-Path $Root "DevelopingData\ToolKitData\Scripts\Execution\check_rust_runtime_boundaries.py")
 python (Join-Path $Root "DevelopingData\ToolKitData\Scripts\Execution\check_rust_runtime_command_registration.py")
+python (Join-Path $Root "DevelopingData\ToolKitData\Scripts\Execution\check_rust_validation_evidence_boundary.py")
 python (Join-Path $Root "DevelopingData\ToolKitData\Scripts\Execution\check_rust_output_boundary.py")
 python (Join-Path $Root "DevelopingData\ToolKitData\Scripts\Execution\check_rust_model_boundary.py")
 
