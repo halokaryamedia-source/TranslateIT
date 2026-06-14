@@ -4,6 +4,8 @@ use std::time::{SystemTime, UNIX_EPOCH};
 
 use crate::engine::adapters::realtime_handoff_logic::RealtimeHandoffReport;
 
+const MAX_HANDOFF_SNAPSHOT_AGE_MS: u128 = 120_000;
+
 #[derive(Debug, Clone, Serialize)]
 pub struct RuntimeHandoffSnapshot {
     pub recorded_unix_ms: u128,
@@ -23,6 +25,9 @@ pub struct RuntimeHandoffSnapshot {
 pub struct RuntimeHandoffStateReport {
     pub has_snapshot: bool,
     pub snapshot: Option<RuntimeHandoffSnapshot>,
+    pub snapshot_age_ms: Option<u128>,
+    pub snapshot_stale: bool,
+    pub max_snapshot_age_ms: u128,
     pub ready_for_start: bool,
     pub blocker: String,
     pub note: String,
@@ -69,6 +74,9 @@ pub fn clear_runtime_handoff_state() -> RuntimeHandoffStateReport {
     RuntimeHandoffStateReport {
         has_snapshot: false,
         snapshot: None,
+        snapshot_age_ms: None,
+        snapshot_stale: false,
+        max_snapshot_age_ms: MAX_HANDOFF_SNAPSHOT_AGE_MS,
         ready_for_start: false,
         blocker: "handoff:cleared".to_string(),
         note: "Realtime handoff snapshot was cleared. Run Realtime Handoff again before Start.".to_string(),
@@ -78,9 +86,13 @@ pub fn clear_runtime_handoff_state() -> RuntimeHandoffStateReport {
 fn build_state_report(snapshot: Option<RuntimeHandoffSnapshot>) -> RuntimeHandoffStateReport {
     match snapshot {
         Some(snapshot) => {
-            let ready_for_start = snapshot.ready_for_realtime_handoff;
+            let snapshot_age_ms = current_unix_ms().saturating_sub(snapshot.recorded_unix_ms);
+            let snapshot_stale = snapshot_age_ms > MAX_HANDOFF_SNAPSHOT_AGE_MS;
+            let ready_for_start = snapshot.ready_for_realtime_handoff && !snapshot_stale;
             let blocker = if ready_for_start {
                 String::new()
+            } else if snapshot_stale {
+                "handoff:snapshot_stale".to_string()
             } else if snapshot.blockers.is_empty() {
                 "handoff:not_ready".to_string()
             } else {
@@ -88,8 +100,13 @@ fn build_state_report(snapshot: Option<RuntimeHandoffSnapshot>) -> RuntimeHandof
             };
             let note = if ready_for_start {
                 format!(
-                    "Latest realtime handoff snapshot is ready for Start gate. session_id={}, owner_id={}",
-                    snapshot.session_id, snapshot.owner_id
+                    "Latest realtime handoff snapshot is ready for Start gate. session_id={}, owner_id={}, age_ms={}",
+                    snapshot.session_id, snapshot.owner_id, snapshot_age_ms
+                )
+            } else if snapshot_stale {
+                format!(
+                    "Latest realtime handoff snapshot is stale. age_ms={}, max_age_ms={}. Run Realtime Handoff again before Start.",
+                    snapshot_age_ms, MAX_HANDOFF_SNAPSHOT_AGE_MS
                 )
             } else {
                 format!(
@@ -100,6 +117,9 @@ fn build_state_report(snapshot: Option<RuntimeHandoffSnapshot>) -> RuntimeHandof
             RuntimeHandoffStateReport {
                 has_snapshot: true,
                 snapshot: Some(snapshot),
+                snapshot_age_ms: Some(snapshot_age_ms),
+                snapshot_stale,
+                max_snapshot_age_ms: MAX_HANDOFF_SNAPSHOT_AGE_MS,
                 ready_for_start,
                 blocker,
                 note,
@@ -108,6 +128,9 @@ fn build_state_report(snapshot: Option<RuntimeHandoffSnapshot>) -> RuntimeHandof
         None => RuntimeHandoffStateReport {
             has_snapshot: false,
             snapshot: None,
+            snapshot_age_ms: None,
+            snapshot_stale: false,
+            max_snapshot_age_ms: MAX_HANDOFF_SNAPSHOT_AGE_MS,
             ready_for_start: false,
             blocker: "handoff:no_snapshot".to_string(),
             note: "No realtime handoff snapshot has been recorded yet. Use Realtime Handoff before Start.".to_string(),
