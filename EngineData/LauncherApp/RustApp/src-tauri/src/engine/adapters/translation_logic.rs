@@ -42,8 +42,8 @@ pub struct TranslationLogicResult {
 pub fn run_translation_logic(request: TranslationLogicRequest) -> TranslationLogicResult {
     let clean_source_text = request.source_text.trim().to_string();
     let input_chars = clean_source_text.chars().count();
-    let primary = request.primary_engine_name.unwrap_or_else(|| "local-nllb-distilled".to_string());
-    let fallback = request.fallback_engine_name.unwrap_or_else(|| "marianmt-id-en".to_string());
+    let primary = request.primary_engine_name.unwrap_or_else(|| "marianmt-id-en".to_string());
+    let fallback = request.fallback_engine_name.unwrap_or_else(|| "nllb-200-distilled-600M-quality".to_string());
     let context_used = !request.context_window.is_empty();
     let max_new_tokens = max_new_tokens(input_chars);
     if detected_matches_target(request.detected_language.as_deref(), &request.target_language) {
@@ -68,7 +68,7 @@ pub fn run_translation_logic(request: TranslationLogicRequest) -> TranslationLog
             "literal-short-translation".to_string(),
             "literal_short_phrase",
             "Completed",
-            "Deterministic short-phrase translation applied.",
+            "Deterministic short-phrase translation applied before local model execution.",
             input_chars,
             literal.chars().count(),
             false,
@@ -80,10 +80,10 @@ pub fn run_translation_logic(request: TranslationLogicRequest) -> TranslationLog
         return TranslationLogicResult {
             segment_id: request.segment_id,
             translated_text: String::new(),
-            engine_name: fallback,
-            mode: "pending_local_model".to_string(),
+            engine_name: primary,
+            mode: "pending_realtime_local_worker".to_string(),
             status: "PendingIntegration".to_string(),
-            notes: "Native translation model backend is not ready.".to_string(),
+            notes: format!("Realtime local translation worker is not ready. Quality fallback is planned through {fallback}."),
             queue_wait_ms: 0,
             text_prep_ms: 0,
             tokenize_ms: 0,
@@ -92,12 +92,12 @@ pub fn run_translation_logic(request: TranslationLogicRequest) -> TranslationLog
             context_update_ms: 0,
             total_ms: 0,
             device: "cuda".to_string(),
-            dtype: "float16".to_string(),
+            dtype: "int8_float16".to_string(),
             model_loaded_before_segment: false,
             context_used,
             input_chars,
             output_chars: 0,
-            fallback_used: true,
+            fallback_used: false,
             error: String::new(),
             max_new_tokens,
         };
@@ -106,9 +106,9 @@ pub fn run_translation_logic(request: TranslationLogicRequest) -> TranslationLog
         segment_id: request.segment_id,
         translated_text: String::new(),
         engine_name: primary,
-        mode: "native_model_ready_pending_execution".to_string(),
+        mode: "realtime_model_ready_pending_execution".to_string(),
         status: "Planned".to_string(),
-        notes: "Translation request is shaped for native Rust execution.".to_string(),
+        notes: "Translation request is shaped for realtime local MarianMT execution; NLLB remains reserved for Quality mode.".to_string(),
         queue_wait_ms: 0,
         text_prep_ms: 0,
         tokenize_ms: 0,
@@ -117,7 +117,7 @@ pub fn run_translation_logic(request: TranslationLogicRequest) -> TranslationLog
         context_update_ms: 0,
         total_ms: 0,
         device: "cuda".to_string(),
-        dtype: "float16".to_string(),
+        dtype: "int8_float16".to_string(),
         model_loaded_before_segment: true,
         context_used,
         input_chars,
@@ -144,7 +144,7 @@ fn result(segment_id: String, translated_text: String, engine_name: String, mode
         context_update_ms: 0,
         total_ms: 0,
         device: "cuda".to_string(),
-        dtype: "float16".to_string(),
+        dtype: "int8_float16".to_string(),
         model_loaded_before_segment: false,
         context_used,
         input_chars,
