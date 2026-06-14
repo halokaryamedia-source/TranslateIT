@@ -11,6 +11,7 @@ STACK_MANIFEST = WORKER_ROOT / "realtime_stack_manifest.json"
 SETUP_SCRIPT = WORKER_ROOT / "setup_realtime_worker.ps1"
 SMOKE_LAUNCHER = WORKER_ROOT / "run_realtime_worker_smoke.ps1"
 SMOKE_SCRIPT = ROOT / "DevelopingData" / "ToolKitData" / "Scripts" / "Execution" / "run_local_realtime_worker_smoke_tests.py"
+MODEL_CHECK_SCRIPT = ROOT / "DevelopingData" / "ToolKitData" / "Scripts" / "Execution" / "check_local_runtime_models.py"
 
 REQUIRED_WORKER_TERMS = [
     "faster-whisper-large-v3-turbo",
@@ -37,6 +38,7 @@ REQUIRED_REQUIREMENTS = [
 REQUIRED_SETUP_TERMS = [
     "requirements-realtime.txt",
     "realtime_local_worker.py",
+    "check_local_runtime_models.py",
     "python -m venv",
     "pip install",
 ]
@@ -59,9 +61,16 @@ REQUIRED_WORKER_COMMANDS = [
     "synthesize",
 ]
 
+REQUIRED_MODEL_CHECK_TERMS = [
+    "asr_faster_whisper_large_v3_turbo",
+    "translation_marianmt_id_en",
+    "translation_nllb_200_distilled_600m",
+    "voice_piper",
+]
+
 
 def main() -> int:
-    required_files = [WORKER_SCRIPT, REQUIREMENTS, STACK_MANIFEST, SETUP_SCRIPT, SMOKE_LAUNCHER, SMOKE_SCRIPT]
+    required_files = [WORKER_SCRIPT, REQUIREMENTS, STACK_MANIFEST, SETUP_SCRIPT, SMOKE_LAUNCHER, SMOKE_SCRIPT, MODEL_CHECK_SCRIPT]
     missing = [str(path.relative_to(ROOT)) for path in required_files if not path.exists()]
     if missing:
         print("LOCAL_REALTIME_WORKER_STACK_MISSING")
@@ -90,6 +99,14 @@ def main() -> int:
     if missing_setup_terms:
         print("LOCAL_REALTIME_WORKER_SETUP_INCOMPLETE")
         for term in missing_setup_terms:
+            print("-", term)
+        return 1
+
+    model_check_text = MODEL_CHECK_SCRIPT.read_text(encoding="utf-8")
+    missing_model_terms = [term for term in REQUIRED_MODEL_CHECK_TERMS if term not in model_check_text]
+    if missing_model_terms:
+        print("LOCAL_RUNTIME_MODEL_CHECK_INCOMPLETE")
+        for term in missing_model_terms:
             print("-", term)
         return 1
 
@@ -131,7 +148,7 @@ def main() -> int:
         print("LOCAL_REALTIME_STACK_TRUTH_POLICY_INCOMPLETE")
         return 1
 
-    print("PASS: Local realtime worker stack files, setup script, smoke scripts, GPU-aware translation worker, latency budgets, commands, dependencies, modes, and truth policy are present")
+    print("PASS: Local realtime worker stack files, setup script, model checker, smoke scripts, GPU-aware translation worker, latency budgets, commands, dependencies, modes, and truth policy are present")
     return 0
 
 
