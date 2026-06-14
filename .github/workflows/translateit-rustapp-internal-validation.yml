@@ -23,7 +23,7 @@ jobs:
         uses: dtolnay/rust-toolchain@stable
 
       - name: Run internal validation runner
-        run: .\DevelopingData\ToolKitData\Scripts\Execution\run_rustapp_final_validation.ps1
+        run: .\DevelopingData\Tooling\Scripts\Execution\run_rustapp_final_validation.ps1
 
       - name: Upload internal validation evidence bundle
         if: always()
