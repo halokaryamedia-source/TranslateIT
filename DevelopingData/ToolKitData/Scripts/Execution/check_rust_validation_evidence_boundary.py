@@ -14,6 +14,8 @@ VALIDATION_RUNNER = ROOT / "DevelopingData" / "ToolKitData" / "Scripts" / "Execu
 LOCAL_WORKER_STACK_CHECK = ROOT / "DevelopingData" / "ToolKitData" / "Scripts" / "Execution" / "check_local_realtime_worker_stack.py"
 LOCAL_WORKER_SMOKE = ROOT / "DevelopingData" / "ToolKitData" / "Scripts" / "Execution" / "run_local_realtime_worker_smoke_tests.py"
 READINESS_SUMMARY = ROOT / "DevelopingData" / "ToolKitData" / "Scripts" / "Execution" / "summarize_translateit_readiness.py"
+CI_WORKFLOW_CHECK = ROOT / "DevelopingData" / "ToolKitData" / "Scripts" / "Execution" / "check_ci_validation_workflow.py"
+CI_WORKFLOW = ROOT / ".github" / "workflows" / "translateit-rustapp-internal-validation.yml"
 
 REQUIRED_FILES = [
     INTERNAL_GATE,
@@ -25,6 +27,8 @@ REQUIRED_FILES = [
     LOCAL_WORKER_STACK_CHECK,
     LOCAL_WORKER_SMOKE,
     READINESS_SUMMARY,
+    CI_WORKFLOW_CHECK,
+    CI_WORKFLOW,
 ]
 
 REQUIRED_TERMS = {
@@ -74,6 +78,8 @@ REQUIRED_TERMS = {
     VALIDATION_RUNNER: [
         "write_rustapp_validation_evidence.py",
         "summarize_translateit_readiness.py",
+        "check_ci_validation_workflow.py",
+        "CI validation workflow contract",
         "Invoke-ReadinessSummary",
         "check_local_realtime_worker_stack.py",
         "check_frontend_runtime_contract.py",
@@ -107,6 +113,19 @@ REQUIRED_TERMS = {
         "persistent_local_worker_smoke_evidence",
         "release_ready",
     ],
+    CI_WORKFLOW_CHECK: [
+        "check_ci_validation_workflow.py",
+        "FORBIDDEN_TERMS",
+        "latest_readiness_summary.json",
+        "latest_local_worker_smoke_evidence.json",
+    ],
+    CI_WORKFLOW: [
+        "run_rustapp_final_validation.ps1",
+        "latest_validation_evidence.json",
+        "latest_readiness_summary.json",
+        "latest_local_worker_smoke_evidence.json",
+        "launcher_latest.log",
+    ],
 }
 
 
@@ -131,7 +150,7 @@ def main() -> int:
             print("-", item)
         return 1
 
-    print("PASS: Rust validation evidence boundary, readiness summary, validation runner summary writer, non-blocking persistent worker smoke evidence, local worker stack gate, and manual runtime evidence recorder are present and wired")
+    print("PASS: Rust validation evidence boundary, CI workflow contract, readiness summary, validation runner summary writer, non-blocking persistent worker smoke evidence, local worker stack gate, and manual runtime evidence recorder are present and wired")
     return 0
 
 
