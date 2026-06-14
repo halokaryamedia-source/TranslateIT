@@ -11,6 +11,7 @@ use engine::adapters::language_logic::{run_language_logic, LanguageLogicReport, 
 use engine::adapters::latency_logic::{build_latency_logic, build_vad_profile, LatencyLogicReport, LatencyLogicRequest, VadProfileReport, VadProfileRequest};
 use engine::adapters::migration_closure_gate_logic::{analyze_migration_closure_gate, MigrationClosureGateReport, MigrationClosureGateRequest};
 use engine::adapters::model_check::{check_model_request, ModelCheckRequest, ModelCheckResult};
+use engine::adapters::native_capture_bridge_logic::{analyze_native_capture_bridge, NativeCaptureBridgeReport, NativeCaptureBridgeRequest};
 use engine::adapters::native_execution_bridge_logic::{build_native_execution_bridge, NativeExecutionBridgeReport, NativeExecutionBridgeRequest};
 use engine::adapters::orchestration_logic::{run_runtime_orchestration, RuntimeOrchestrationReport, RuntimeOrchestrationRequest};
 use engine::adapters::output_dry_run::{run_output_dry_check, OutputDryRunRequest, OutputDryRunResult};
@@ -85,6 +86,11 @@ fn get_runtime_status_bundle() -> RuntimeStatusBundleReport {
 #[tauri::command]
 fn analyze_migration_closure(request: MigrationClosureGateRequest) -> MigrationClosureGateReport {
     analyze_migration_closure_gate(request)
+}
+
+#[tauri::command]
+fn analyze_native_capture_bridge_state(request: NativeCaptureBridgeRequest) -> NativeCaptureBridgeReport {
+    analyze_native_capture_bridge(request, latest_runtime_session_state())
 }
 
 #[tauri::command]
@@ -309,6 +315,7 @@ fn main() {
         analyze_runtime_readiness,
         get_runtime_status_bundle,
         analyze_migration_closure,
+        analyze_native_capture_bridge_state,
         get_input_status,
         get_audio_buffer_status,
         analyze_capture_loop_contract,
