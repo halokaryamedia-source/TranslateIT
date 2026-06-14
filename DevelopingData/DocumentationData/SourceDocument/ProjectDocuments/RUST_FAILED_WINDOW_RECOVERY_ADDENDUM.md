@@ -19,6 +19,7 @@ The commits in the recovery window were marked failed because the RustApp final 
 - A unified Rust runtime orchestration adapter was added so the recovered logic is no longer only a set of isolated modules.
 - A native execution boundary was added for ASR, translation, and output stages.
 - The native execution boundary now includes a batch planner with separate all-ready and CUDA-ready-for-core-stages flags.
+- The runtime orchestration adapter now calls the native execution batch planner directly.
 - A Rust session store module was added for saved-session JSON payloads under `UserData`.
 
 ## Reworked runtime path
@@ -42,6 +43,7 @@ The orchestration adapter connects these recovered areas:
 - pipeline decision
 - translation planning
 - playback planning
+- native execution batch planning
 
 ## Exposed commands
 
