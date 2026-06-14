@@ -8,6 +8,7 @@ pub mod logging;
 pub mod models;
 pub mod native_execution;
 pub mod paths;
+pub mod session_store;
 pub mod settings;
 pub mod state;
 
