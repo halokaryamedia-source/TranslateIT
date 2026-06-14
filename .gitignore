@@ -1,3 +1,16 @@
+# Root cleanliness guard
+/*.py
+/*.bat
+/*.cmd
+/*.ps1
+/*.log
+/*.tmp
+/*.bak
+/*.old
+/__pycache__/
+/.pytest_cache/
+/.mypy_cache/
+
 # Python cache
 **/__pycache__/
 *.py[cod]
@@ -16,6 +29,7 @@ env/
 ENV/
 DevelopingData/ToolKitData/rt/
 DevelopingData/ToolKitData/TranslateITPrototypeEnv/
+EngineData/LauncherApp/Workers/.venv/
 
 # Runtime logs
 *.log
