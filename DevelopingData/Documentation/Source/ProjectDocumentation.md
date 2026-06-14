@@ -4,16 +4,17 @@
 
 TranslateIT is a local desktop app for speech-to-text, translation, and voice output.
 
-The current app direction is Rust/Tauri desktop shell plus a local AI worker for local inference orchestration. The project is not yet professionally ready until local validation evidence passes on the target PC.
+The current app direction is a Rust/Tauri packaged desktop app plus a local AI worker for local inference orchestration. The project is not yet professionally ready until local validation evidence passes on the target PC.
 
 ## Current professional readiness position
 
-Current repo structure and documentation readiness is around `±88%`.
+Current repo structure and documentation readiness is around `±90%`.
 
 Actual application/client readiness remains lower until these are proven locally:
 
 - Rust/Tauri package build passes.
-- Desktop app opens from `TranslateIT.vbs`.
+- Packaged TranslateIT app opens normally after install/build.
+- Startup warmup screen completes and reports clear readiness state.
 - Local models are installed and detected.
 - Persistent worker smoke test passes.
 - Real microphone ASR works.
@@ -24,10 +25,10 @@ Actual application/client readiness remains lower until these are proven locally
 ## Active runtime route
 
 ```text
-TranslateIT.vbs -> EngineData/LauncherApp/RustApp
+EngineData/LauncherApp/RustApp -> Tauri packaged TranslateIT app
 ```
 
-No alternate Python launcher, BAT helper, debug route, or legacy runtime route is allowed.
+Root script launchers are retired. Developer mode remains inside `EngineData/LauncherApp/RustApp` through npm/Tauri commands.
 
 ## Engine ownership
 
@@ -119,6 +120,12 @@ Retired tooling root:
 
 ```text
 DevelopingData/ToolKitData/
+```
+
+## Retired root launcher
+
+```text
+TranslateIT.vbs
 ```
 
 ## Professional rules
