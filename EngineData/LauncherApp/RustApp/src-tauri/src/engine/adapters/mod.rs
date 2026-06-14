@@ -3,6 +3,7 @@ pub mod asr_dry_run;
 pub mod asr_model_logic;
 pub mod asr_quality_logic;
 pub mod calibration_logic;
+pub mod capture_loop_logic;
 pub mod context_logic;
 pub mod language_logic;
 pub mod latency_logic;
