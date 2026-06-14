@@ -56,6 +56,45 @@ pub struct TranscriptSegmentRecord {
     pub replay: TranscriptReplayPaths,
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct SegmentWindow {
+    pub start_time_ms: i64,
+    pub end_time_ms: i64,
+    pub speech_ms: i64,
+    pub silence_ms: i64,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct SegmentBuildRequest {
+    pub segment_id: String,
+    pub session_id: String,
+    pub input_language: Option<String>,
+    pub output_language: Option<String>,
+    pub start_time_ms: i64,
+    pub end_time_ms: i64,
+    pub input_text: Option<String>,
+    pub translated_text: Option<String>,
+    pub trace_id: Option<String>,
+    pub source_audio_path: Option<String>,
+    pub translated_audio_path: Option<String>,
+    pub pipeline_mode: Option<String>,
+    pub capture_mode: Option<String>,
+    pub asr_model_used: Option<String>,
+    pub asr_device_used: Option<String>,
+    pub asr_compute_type_used: Option<String>,
+    pub translation_engine_used: Option<String>,
+    pub model_fallback_used: Option<bool>,
+    pub error_message: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize)]
+pub struct SegmentBuildReport {
+    pub valid_duration: bool,
+    pub duration_ms: i64,
+    pub segment: TranscriptSegmentRecord,
+    pub warning: String,
+}
+
 #[derive(Debug, Clone, Serialize)]
 pub struct TranscriptSegmentSummary {
     pub segment_id: String,
@@ -104,6 +143,19 @@ impl Default for TranscriptReplayPaths {
     }
 }
 
+impl TranscriptReplayPaths {
+    pub fn from_paths(source_audio_path: Option<String>, translated_audio_path: Option<String>) -> Self {
+        let source_replay_available = source_audio_path.as_ref().map(|value| !value.trim().is_empty()).unwrap_or(false);
+        let target_voice_available = translated_audio_path.as_ref().map(|value| !value.trim().is_empty()).unwrap_or(false);
+        Self {
+            source_audio_path,
+            translated_audio_path,
+            source_replay_available,
+            target_voice_available,
+        }
+    }
+}
+
 impl TranscriptSegmentRecord {
     pub fn duration_ms(&self) -> i64 {
         (self.end_time_ms - self.start_time_ms).max(0)
@@ -125,6 +177,50 @@ impl TranscriptSegmentRecord {
     }
 }
 
+pub fn is_valid_segment_duration(window: &SegmentWindow) -> bool {
+    let duration_ms = (window.end_time_ms - window.start_time_ms).max(0);
+    (500..=8000).contains(&duration_ms)
+}
+
+pub fn build_segment_from_request(request: SegmentBuildRequest) -> SegmentBuildReport {
+    let replay = TranscriptReplayPaths::from_paths(request.source_audio_path.clone(), request.translated_audio_path.clone());
+    let segment = TranscriptSegmentRecord {
+        segment_id: request.segment_id,
+        trace_id: request.trace_id.unwrap_or_default(),
+        session_id: request.session_id,
+        input_language: request.input_language.unwrap_or_else(|| "id".to_string()),
+        output_language: request.output_language.unwrap_or_else(|| "en".to_string()),
+        start_time_ms: request.start_time_ms,
+        end_time_ms: request.end_time_ms,
+        input_text: request.input_text.unwrap_or_default(),
+        translated_text: request.translated_text.unwrap_or_default(),
+        pipeline_mode: request.pipeline_mode.unwrap_or_else(|| "cascaded".to_string()),
+        capture_mode: request.capture_mode.unwrap_or_else(|| "Real ASR + Real Translation".to_string()),
+        asr_model_used: request.asr_model_used.unwrap_or_default(),
+        asr_device_used: request.asr_device_used.unwrap_or_default(),
+        asr_compute_type_used: request.asr_compute_type_used.unwrap_or_default(),
+        translation_engine_used: request.translation_engine_used.unwrap_or_default(),
+        model_fallback_used: request.model_fallback_used.unwrap_or(false),
+        error_message: request.error_message.unwrap_or_default(),
+        created_at_iso: String::new(),
+        quality: TranscriptQualityMetrics::default(),
+        replay,
+    };
+    let duration_ms = segment.duration_ms();
+    let valid_duration = (500..=8000).contains(&duration_ms);
+    let warning = if valid_duration {
+        String::new()
+    } else {
+        format!("segment_duration_out_of_range:{duration_ms}")
+    };
+    SegmentBuildReport {
+        valid_duration,
+        duration_ms,
+        segment,
+        warning,
+    }
+}
+
 pub fn build_transcript_segment(
     segment_id: String,
     session_id: String,
@@ -135,26 +231,26 @@ pub fn build_transcript_segment(
     input_text: String,
     translated_text: String,
 ) -> TranscriptSegmentRecord {
-    TranscriptSegmentRecord {
+    build_segment_from_request(SegmentBuildRequest {
         segment_id,
-        trace_id: String::new(),
         session_id,
-        input_language,
-        output_language,
+        input_language: Some(input_language),
+        output_language: Some(output_language),
         start_time_ms,
         end_time_ms,
-        input_text,
-        translated_text,
-        pipeline_mode: "cascaded".to_string(),
-        capture_mode: "Real ASR + Real Translation".to_string(),
-        asr_model_used: String::new(),
-        asr_device_used: String::new(),
-        asr_compute_type_used: String::new(),
-        translation_engine_used: String::new(),
-        model_fallback_used: false,
-        error_message: String::new(),
-        created_at_iso: String::new(),
-        quality: TranscriptQualityMetrics::default(),
-        replay: TranscriptReplayPaths::default(),
-    }
+        input_text: Some(input_text),
+        translated_text: Some(translated_text),
+        trace_id: None,
+        source_audio_path: None,
+        translated_audio_path: None,
+        pipeline_mode: None,
+        capture_mode: None,
+        asr_model_used: None,
+        asr_device_used: None,
+        asr_compute_type_used: None,
+        translation_engine_used: None,
+        model_fallback_used: None,
+        error_message: None,
+    })
+    .segment
 }
