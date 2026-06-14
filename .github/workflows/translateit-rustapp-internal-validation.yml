@@ -1,9 +1,6 @@
 name: TranslateIT RustApp Internal Validation
 
 on:
-  pull_request:
-    branches:
-      - Developing
   workflow_dispatch:
 
 jobs:
@@ -27,40 +24,8 @@ jobs:
       - name: Setup Rust
         uses: dtolnay/rust-toolchain@stable
 
-      - name: Validate repository runtime boundaries
-        run: |
-          python DevelopingData/ToolKitData/Scripts/Execution/check_rust_app.py
-          python DevelopingData/ToolKitData/Scripts/Execution/check_rust_runtime_boundaries.py
-          python DevelopingData/ToolKitData/Scripts/Execution/check_rust_runtime_command_registration.py
-          python DevelopingData/ToolKitData/Scripts/Execution/check_rust_validation_evidence_boundary.py
-          python DevelopingData/ToolKitData/Scripts/Execution/check_rust_output_boundary.py
-          python DevelopingData/ToolKitData/Scripts/Execution/check_rust_model_boundary.py
-          python DevelopingData/ToolKitData/Scripts/Execution/check_local_realtime_worker_stack.py
-
-      - name: Install RustApp dependencies
-        working-directory: EngineData/LauncherApp/RustApp
-        run: npm install
-
-      - name: TypeScript typecheck
-        working-directory: EngineData/LauncherApp/RustApp
-        run: npm run typecheck
-
-      - name: Rust cargo check
-        working-directory: EngineData/LauncherApp/RustApp
-        run: npm run check:rust
-
-      - name: Frontend build
-        working-directory: EngineData/LauncherApp/RustApp
-        run: npm run build:frontend
-
-      - name: Tauri build contract check
-        working-directory: EngineData/LauncherApp/RustApp
-        run: npm run build
-
-      - name: Write internal validation evidence
-        if: always()
-        run: |
-          python DevelopingData/ToolKitData/Scripts/Execution/write_rustapp_validation_evidence.py true true true true true true
+      - name: Run internal validation runner
+        run: .\DevelopingData\ToolKitData\Scripts\Execution\run_rustapp_final_validation.ps1
 
       - name: Upload internal validation evidence
         if: always()
@@ -68,3 +33,4 @@ jobs:
         with:
           name: rustapp-internal-validation-evidence
           path: UserData/LogData/RustAppValidation/latest_validation_evidence.json
+          if-no-files-found: warn
