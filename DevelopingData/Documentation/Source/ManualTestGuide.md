@@ -6,20 +6,21 @@ This guide defines the evidence needed before TranslateIT can be called professi
 
 ## Required local evidence
 
-TranslateIT must not be marked professionally ready until these checks pass on the target PC:
+Required checks on the target PC:
 
-1. Desktop app opens from `TranslateIT.vbs`.
-2. Rust/Tauri app package build succeeds.
-3. Local worker setup succeeds.
-4. Local model readiness check passes.
-5. Persistent local worker smoke test passes.
-6. Real microphone ASR transcript smoke passes.
-7. Translation smoke passes for Realtime profile.
-8. Translation smoke passes for Quality profile.
-9. Piper TTS output smoke passes.
-10. End-to-end microphone to ASR to translation to TTS flow is usable.
-11. Realtime and Quality latency are measured and documented.
-12. User-facing UI flow is validated after packaging.
+1. Rust/Tauri app package build succeeds.
+2. Packaged TranslateIT app opens normally.
+3. Startup warmup screen completes and reports clear readiness state.
+4. Local worker setup succeeds.
+5. Local model readiness check passes.
+6. Persistent local worker smoke test passes.
+7. Real microphone ASR transcript smoke passes.
+8. Translation smoke passes for Realtime profile.
+9. Translation smoke passes for Quality profile.
+10. Piper TTS output smoke passes.
+11. End-to-end microphone to ASR to translation to TTS flow is usable.
+12. Realtime and Quality latency are measured and documented.
+13. User-facing UI flow is validated after packaging.
 
 ## Validation commands
 
