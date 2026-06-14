@@ -6,6 +6,7 @@ ROOT = Path(__file__).resolve().parents[4]
 RUST_APP = ROOT / "EngineData" / "LauncherApp" / "RustApp"
 TAURI_SRC = RUST_APP / "src-tauri" / "src"
 ENGINE_SRC = TAURI_SRC / "engine"
+WORKER_ROOT = ROOT / "EngineData" / "LauncherApp" / "Workers"
 
 
 def main() -> int:
@@ -39,6 +40,7 @@ def main() -> int:
         ENGINE_SRC / "audio" / "vad.rs",
         ENGINE_SRC / "audio" / "live_capture.rs",
         ENGINE_SRC / "audio" / "live_audio_buffer.rs",
+        ENGINE_SRC / "audio" / "live_segment_writer.rs",
         ENGINE_SRC / "inference" / "mod.rs",
         ENGINE_SRC / "inference" / "backend.rs",
         ENGINE_SRC / "inference" / "cuda_probe.rs",
@@ -52,7 +54,11 @@ def main() -> int:
         ENGINE_SRC / "adapters" / "live_tts_boundary_logic.rs",
         ENGINE_SRC / "adapters" / "live_runtime_pipeline_gate_logic.rs",
         ENGINE_SRC / "adapters" / "live_pipeline_compact_status_logic.rs",
+        ENGINE_SRC / "adapters" / "local_worker_manifest_logic.rs",
         ENGINE_SRC / "adapters" / "internal_validation_gate_logic.rs",
+        WORKER_ROOT / "realtime_local_worker.py",
+        WORKER_ROOT / "requirements-realtime.txt",
+        WORKER_ROOT / "realtime_stack_manifest.json",
     ]
     missing = [str(path.relative_to(ROOT)) for path in required if not path.exists()]
     if missing:
@@ -60,7 +66,7 @@ def main() -> int:
         for item in missing:
             print("-", item)
         return 1
-    print("PASS: RustApp scaffold, runtime support, live capture, live pipeline boundaries, validation gate, inference, CUDA probe, and engine contract files are present")
+    print("PASS: RustApp scaffold, runtime support, live capture, live segment writer, local realtime worker, live pipeline boundaries, validation gate, inference, CUDA probe, and engine contract files are present")
     print("RUST_APP:", RUST_APP.relative_to(ROOT))
     print("ENTRYPOINT:", (TAURI_SRC / "main.rs").relative_to(ROOT))
     return 0
