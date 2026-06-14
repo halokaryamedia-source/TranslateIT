@@ -16,6 +16,7 @@ pub mod pipeline_logic;
 pub mod playback_logic;
 pub mod realtime_handoff_logic;
 pub mod runtime_lifecycle_logic;
+pub mod runtime_readiness_bundle_logic;
 pub mod segment_flow_logic;
 pub mod session_logic;
 pub mod stream_ownership_logic;
