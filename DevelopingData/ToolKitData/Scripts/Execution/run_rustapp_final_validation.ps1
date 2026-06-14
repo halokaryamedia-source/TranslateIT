@@ -3,6 +3,7 @@ $ErrorActionPreference = "Continue"
 $Root = Resolve-Path (Join-Path $PSScriptRoot "..\..\..\..")
 $RustApp = Join-Path $Root "EngineData\LauncherApp\RustApp"
 $EvidenceWriter = Join-Path $Root "DevelopingData\ToolKitData\Scripts\Execution\write_rustapp_validation_evidence.py"
+$ReadinessSummary = Join-Path $Root "DevelopingData\ToolKitData\Scripts\Execution\summarize_translateit_readiness.py"
 $ValidationFailed = $false
 
 function Invoke-ValidationStep {
@@ -23,6 +24,16 @@ function Invoke-ValidationStep {
         Write-Warning $_
         $script:ValidationFailed = $true
         return $false
+    }
+}
+
+function Invoke-ReadinessSummary {
+    if (Test-Path $ReadinessSummary) {
+        Write-Host "[summary] Writing evidence-based readiness summary"
+        python $ReadinessSummary
+        if ($LASTEXITCODE -ne 0) {
+            Write-Warning "Readiness summary reports remaining blockers. This is expected until local runtime evidence is complete."
+        }
     }
 }
 
@@ -59,10 +70,11 @@ try {
 finally {
     Pop-Location
     python $EvidenceWriter $RustCheckPassed $TypecheckPassed $FrontendBuildPassed $TauriBuildPassed $PackagingPassed $LocalWorkerStackPassed
+    Invoke-ReadinessSummary
 }
 
 Write-Host "RustApp final validation commands completed."
-Write-Host "Launcher, local realtime worker stack, frontend runtime contract, and validation evidence boundaries are included, but real inference still requires runtime smoke evidence."
+Write-Host "Launcher, local realtime worker stack, frontend runtime contract, validation evidence, and readiness summary boundaries are included, but real inference still requires runtime smoke evidence."
 Write-Host "Required manual evidence still remains: microphone capture smoke test, ASR transcript smoke test, translation smoke test, TTS/playback smoke test, launcher/package open test."
 Write-Host "Do not mark owner validation, release candidate, or production Ready until those manual runtime checks pass."
 
