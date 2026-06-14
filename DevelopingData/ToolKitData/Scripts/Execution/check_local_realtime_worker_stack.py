@@ -44,6 +44,16 @@ REQUIRED_SMOKE_TERMS = [
     "tts_synthesis_smoke",
 ]
 
+REQUIRED_WORKER_COMMANDS = [
+    "status",
+    "asr_preload",
+    "transcribe",
+    "translation_preload",
+    "translate",
+    "tts_preflight",
+    "synthesize",
+]
+
 
 def main() -> int:
     required_files = [WORKER_SCRIPT, REQUIREMENTS, STACK_MANIFEST, SETUP_SCRIPT, SMOKE_LAUNCHER, SMOKE_SCRIPT]
@@ -98,12 +108,25 @@ def main() -> int:
                 print("LOCAL_REALTIME_STACK_STAGE_MISSING")
                 print("-", mode, stage)
                 return 1
+        budget = modes[mode].get("latency_budget_ms", {})
+        for budget_key in ("vad_chunk", "asr", "translation", "tts"):
+            if not isinstance(budget.get(budget_key), int):
+                print("LOCAL_REALTIME_STACK_LATENCY_BUDGET_MISSING")
+                print("-", mode, budget_key)
+                return 1
+
+    worker_commands = manifest.get("worker_commands", {})
+    for command in REQUIRED_WORKER_COMMANDS:
+        if command not in worker_commands:
+            print("LOCAL_REALTIME_STACK_WORKER_COMMAND_MISSING")
+            print("-", command)
+            return 1
 
     if not manifest.get("truth_policy", {}).get("local_only"):
         print("LOCAL_REALTIME_STACK_TRUTH_POLICY_INCOMPLETE")
         return 1
 
-    print("PASS: Local realtime worker stack files, setup script, smoke scripts, commands, dependencies, modes, and truth policy are present")
+    print("PASS: Local realtime worker stack files, setup script, smoke scripts, latency budgets, commands, dependencies, modes, and truth policy are present")
     return 0
 
 
