@@ -6,6 +6,7 @@ use std::time::{SystemTime, UNIX_EPOCH};
 
 use crate::engine::models::SavedSessionPayload;
 use crate::engine::paths::ProjectPaths;
+use crate::engine::transcript_session::TranscriptSessionRecord;
 
 #[derive(Debug, Clone, Serialize)]
 pub struct SessionSaveResult {
@@ -43,15 +44,12 @@ pub fn current_session_store_status() -> SessionStoreStatus {
 
 pub fn preview_session_save(payload: &SavedSessionPayload) -> SessionSavePreview {
     let session_id = sanitize_session_id(&payload.session_id);
-    let output_path = saved_session_dir().join(format!("{session_id}.json"));
-    let output_label = normalize_path(&output_path);
-    SessionSavePreview {
-        session_id,
-        output_path: output_label.clone(),
-        segment_count: payload.segments.len(),
-        ready: output_path.parent().is_some(),
-        message: format!("Rust session payload will be saved to {output_label}"),
-    }
+    preview_by_parts(session_id, payload.segments.len())
+}
+
+pub fn preview_transcript_session_save(session: &TranscriptSessionRecord) -> SessionSavePreview {
+    let session_id = sanitize_session_id(&session.session_id);
+    preview_by_parts(session_id, session.segments.len())
 }
 
 pub fn save_session_payload(mut payload: SavedSessionPayload) -> SessionSaveResult {
@@ -79,6 +77,18 @@ pub fn save_session_payload(mut payload: SavedSessionPayload) -> SessionSaveResu
             segment_count,
             message: format!("Failed to save Rust session payload: {error}"),
         },
+    }
+}
+
+fn preview_by_parts(session_id: String, segment_count: usize) -> SessionSavePreview {
+    let output_path = saved_session_dir().join(format!("{session_id}.json"));
+    let output_label = normalize_path(&output_path);
+    SessionSavePreview {
+        session_id,
+        output_path: output_label.clone(),
+        segment_count,
+        ready: output_path.parent().is_some(),
+        message: format!("Rust session payload will be saved to {output_label}"),
     }
 }
 
