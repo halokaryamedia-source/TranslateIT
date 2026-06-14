@@ -12,6 +12,7 @@ use engine::adapters::orchestration_logic::{run_runtime_orchestration, RuntimeOr
 use engine::adapters::output_dry_run::{run_output_dry_check, OutputDryRunRequest, OutputDryRunResult};
 use engine::adapters::pipeline_logic::{check_stale_job, decide_pipeline, PipelineDecisionReport, PipelineDecisionRequest, StaleJobGuardReport, StaleJobGuardRequest};
 use engine::adapters::playback_logic::{plan_playback, PlaybackLogicRequest, PlaybackLogicResult};
+use engine::adapters::segment_flow_logic::{analyze_segment_flow, SegmentFlowReport, SegmentFlowRequest};
 use engine::adapters::session_logic::{build_session_metric_report, build_worker_health, SessionMetricReport, SessionMetricRequest, WorkerHealthReport, WorkerHealthRequest};
 use engine::adapters::text_dry_run::{run_text_dry_check, TextDryRunRequest, TextDryRunResult};
 use engine::adapters::transcript_session_logic::{analyze_transcript_session_readiness, TranscriptSessionReadinessReport};
@@ -142,6 +143,11 @@ fn plan_native_execution_step(request: NativeExecutionRequest) -> NativeExecutio
 }
 
 #[tauri::command]
+fn analyze_segment_flow_state(request: SegmentFlowRequest) -> SegmentFlowReport {
+    analyze_segment_flow(request)
+}
+
+#[tauri::command]
 fn analyze_transcript_session_state(session: TranscriptSessionRecord) -> TranscriptSessionReadinessReport {
     analyze_transcript_session_readiness(session)
 }
@@ -239,6 +245,7 @@ fn main() {
         plan_playback_logic,
         run_runtime_plan,
         plan_native_execution_step,
+        analyze_segment_flow_state,
         analyze_transcript_session_state,
         resolve_vad_profile,
         get_calibration_flow_status,
