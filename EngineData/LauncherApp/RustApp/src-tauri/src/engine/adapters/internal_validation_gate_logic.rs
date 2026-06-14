@@ -5,6 +5,9 @@ use std::path::Path;
 use crate::engine::adapters::live_pipeline_compact_status_logic::{
     build_live_pipeline_compact_status, LivePipelineCompactStatusReport,
 };
+use crate::engine::adapters::local_worker_manifest_logic::{
+    analyze_local_worker_manifest, LocalWorkerManifestReport,
+};
 use crate::engine::paths::ProjectPaths;
 
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
@@ -27,6 +30,7 @@ pub struct ValidationEvidenceFile {
     pub frontend_build_passed: Option<bool>,
     pub tauri_build_passed: Option<bool>,
     pub packaging_validation_passed: Option<bool>,
+    pub local_worker_stack_passed: Option<bool>,
     pub manual_runtime_evidence: Option<ManualRuntimeEvidence>,
     pub owner_validation_allowed: Option<bool>,
     pub release_candidate_allowed: Option<bool>,
@@ -38,7 +42,9 @@ pub struct InternalValidationGateReport {
     pub ready_for_owner_validation: bool,
     pub ready_for_release_candidate: bool,
     pub live_pipeline: LivePipelineCompactStatusReport,
+    pub local_worker_manifest: LocalWorkerManifestReport,
     pub tauri_command_status_exposed: bool,
+    pub local_worker_stack_passed: bool,
     pub build_validation_passed: bool,
     pub rust_check_passed: bool,
     pub frontend_typecheck_passed: bool,
@@ -61,6 +67,7 @@ pub struct InternalValidationGateReport {
 
 pub fn analyze_internal_validation_gate() -> InternalValidationGateReport {
     let live_pipeline = build_live_pipeline_compact_status();
+    let local_worker_manifest = analyze_local_worker_manifest();
     let tauri_command_status_exposed = true;
     let project_paths = ProjectPaths::discover();
     let validation_evidence_path = Path::new(&project_paths.user_log_dir)
@@ -78,6 +85,7 @@ pub fn analyze_internal_validation_gate() -> InternalValidationGateReport {
     let frontend_build_passed = evidence_ref.and_then(|value| value.frontend_build_passed).unwrap_or(false);
     let build_validation_passed = evidence_ref.and_then(|value| value.tauri_build_passed).unwrap_or(false);
     let packaging_validation_passed = evidence_ref.and_then(|value| value.packaging_validation_passed).unwrap_or(false);
+    let local_worker_stack_passed = evidence_ref.and_then(|value| value.local_worker_stack_passed).unwrap_or(false) && local_worker_manifest.ok;
     let microphone_capture_smoke_test_passed = manual.microphone_capture_smoke_test.unwrap_or(false);
     let asr_transcript_smoke_test_passed = manual.asr_transcript_smoke_test.unwrap_or(false);
     let translation_smoke_test_passed = manual.translation_smoke_test.unwrap_or(false);
@@ -93,8 +101,14 @@ pub fn analyze_internal_validation_gate() -> InternalValidationGateReport {
     if !live_pipeline.ready_for_user_runtime {
         blockers.push(format!("live_pipeline:{}", live_pipeline.next_blocker));
     }
+    if !local_worker_manifest.ok {
+        blockers.extend(local_worker_manifest.blockers.iter().map(|item| format!("local_worker:{item}")));
+    }
     if !validation_evidence_loaded {
         blockers.push("validation:evidence_file_missing".to_string());
+    }
+    if !local_worker_stack_passed {
+        blockers.push("validation:local_worker_stack_not_passed".to_string());
     }
     if !rust_check_passed {
         blockers.push("validation:rust_check_not_passed".to_string());
@@ -131,8 +145,10 @@ pub fn analyze_internal_validation_gate() -> InternalValidationGateReport {
         && frontend_typecheck_passed
         && frontend_build_passed
         && build_validation_passed
-        && packaging_validation_passed;
+        && packaging_validation_passed
+        && local_worker_stack_passed;
     let ready_for_owner_validation = live_pipeline.ready_for_user_runtime
+        && local_worker_manifest.ok
         && tauri_command_status_exposed
         && build_and_package_passed
         && manual_runtime_passed
@@ -145,15 +161,19 @@ pub fn analyze_internal_validation_gate() -> InternalValidationGateReport {
         95
     } else if build_and_package_passed && manual_runtime_passed {
         94
+    } else if local_worker_manifest.ok {
+        live_pipeline.progress_percent.saturating_add(if validation_evidence_loaded { 6 } else { 4 }).min(93)
     } else {
-        live_pipeline.progress_percent.saturating_add(if validation_evidence_loaded { 4 } else { 2 }).min(93)
+        live_pipeline.progress_percent.saturating_add(if validation_evidence_loaded { 4 } else { 2 }).min(91)
     };
 
     InternalValidationGateReport {
         ready_for_owner_validation,
         ready_for_release_candidate,
         live_pipeline,
+        local_worker_manifest,
         tauri_command_status_exposed,
+        local_worker_stack_passed,
         build_validation_passed,
         rust_check_passed,
         frontend_typecheck_passed,
@@ -169,6 +189,7 @@ pub fn analyze_internal_validation_gate() -> InternalValidationGateReport {
         validation_evidence_generated_at_utc: evidence_ref.and_then(|value| value.generated_at_utc.clone()),
         manual_evidence_updated_at_utc: evidence_ref.and_then(|value| value.manual_evidence_updated_at_utc.clone()),
         required_evidence: vec![
+            "local realtime worker stack validation".to_string(),
             "cargo check --manifest-path src-tauri/Cargo.toml".to_string(),
             "npm run typecheck".to_string(),
             "npm run build:frontend".to_string(),
@@ -182,7 +203,7 @@ pub fn analyze_internal_validation_gate() -> InternalValidationGateReport {
         ],
         blockers,
         progress_percent,
-        note: "Internal validation gate reads build, package, and manual runtime evidence from UserData/LogData and blocks owner validation until every gate is complete.".to_string(),
+        note: "Internal validation gate reads build, package, local realtime worker, and manual runtime evidence from UserData/LogData and blocks owner validation until every gate is complete.".to_string(),
     }
 }
 
