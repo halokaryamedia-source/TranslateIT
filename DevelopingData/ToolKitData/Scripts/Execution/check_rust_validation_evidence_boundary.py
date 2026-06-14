@@ -7,20 +7,24 @@ RUST_APP = ROOT / "EngineData" / "LauncherApp" / "RustApp"
 ENGINE_SRC = RUST_APP / "src-tauri" / "src" / "engine"
 INTERNAL_GATE = ENGINE_SRC / "adapters" / "internal_validation_gate_logic.rs"
 MAIN_RS = RUST_APP / "src-tauri" / "src" / "main.rs"
+PACKAGE_JSON = RUST_APP / "package.json"
 EVIDENCE_WRITER = ROOT / "DevelopingData" / "ToolKitData" / "Scripts" / "Execution" / "write_rustapp_validation_evidence.py"
 MANUAL_EVIDENCE_RECORDER = ROOT / "DevelopingData" / "ToolKitData" / "Scripts" / "Execution" / "record_rustapp_manual_runtime_evidence.py"
 VALIDATION_RUNNER = ROOT / "DevelopingData" / "ToolKitData" / "Scripts" / "Execution" / "run_rustapp_final_validation.ps1"
 LOCAL_WORKER_STACK_CHECK = ROOT / "DevelopingData" / "ToolKitData" / "Scripts" / "Execution" / "check_local_realtime_worker_stack.py"
 LOCAL_WORKER_SMOKE = ROOT / "DevelopingData" / "ToolKitData" / "Scripts" / "Execution" / "run_local_realtime_worker_smoke_tests.py"
+READINESS_SUMMARY = ROOT / "DevelopingData" / "ToolKitData" / "Scripts" / "Execution" / "summarize_translateit_readiness.py"
 
 REQUIRED_FILES = [
     INTERNAL_GATE,
     MAIN_RS,
+    PACKAGE_JSON,
     EVIDENCE_WRITER,
     MANUAL_EVIDENCE_RECORDER,
     VALIDATION_RUNNER,
     LOCAL_WORKER_STACK_CHECK,
     LOCAL_WORKER_SMOKE,
+    READINESS_SUMMARY,
 ]
 
 REQUIRED_TERMS = {
@@ -39,6 +43,12 @@ REQUIRED_TERMS = {
     MAIN_RS: [
         "analyze_internal_validation",
         "InternalValidationGateReport",
+    ],
+    PACKAGE_JSON: [
+        "record:manual-evidence",
+        "status:readiness",
+        "validate:full",
+        "summarize_translateit_readiness.py",
     ],
     EVIDENCE_WRITER: [
         "latest_validation_evidence.json",
@@ -89,6 +99,12 @@ REQUIRED_TERMS = {
         "latency_summary",
         "latest_local_worker_smoke_evidence.json",
     ],
+    READINESS_SUMMARY: [
+        "commercial_readiness_percent",
+        "latest_readiness_summary.json",
+        "persistent_local_worker_smoke_evidence",
+        "release_ready",
+    ],
 }
 
 
@@ -113,7 +129,7 @@ def main() -> int:
             print("-", item)
         return 1
 
-    print("PASS: Rust validation evidence boundary, non-blocking persistent worker smoke evidence, local worker stack gate, and manual runtime evidence recorder are present and wired")
+    print("PASS: Rust validation evidence boundary, readiness summary, non-blocking persistent worker smoke evidence, local worker stack gate, and manual runtime evidence recorder are present and wired")
     return 0
 
 
