@@ -14,6 +14,7 @@ use engine::adapters::pipeline_logic::{check_stale_job, decide_pipeline, Pipelin
 use engine::adapters::playback_logic::{plan_playback, PlaybackLogicRequest, PlaybackLogicResult};
 use engine::adapters::session_logic::{build_session_metric_report, build_worker_health, SessionMetricReport, SessionMetricRequest, WorkerHealthReport, WorkerHealthRequest};
 use engine::adapters::text_dry_run::{run_text_dry_check, TextDryRunRequest, TextDryRunResult};
+use engine::adapters::transcript_session_logic::{analyze_transcript_session_readiness, TranscriptSessionReadinessReport};
 use engine::adapters::translation_logic::{run_translation_logic, TranslationLogicRequest, TranslationLogicResult};
 use engine::audio::buffer::{inspect_frame, planned_buffer_status, AudioBufferStatus, AudioFrameInspectionReport};
 use engine::audio::calibration_flow::{save_calibration_from_evidence, CalibrationFlowStatus, CalibrationSaveResult};
@@ -28,6 +29,7 @@ use engine::inference::backend_validation::NativeCudaBackendValidationReport;
 use engine::native_execution::{plan_native_execution, NativeExecutionPlan, NativeExecutionRequest};
 use engine::settings::RuntimeSettings;
 use engine::state::{CommandResult, EngineStatus};
+use engine::transcript_session::TranscriptSessionRecord;
 
 #[tauri::command]
 fn get_engine_status() -> EngineStatus {
@@ -140,6 +142,11 @@ fn plan_native_execution_step(request: NativeExecutionRequest) -> NativeExecutio
 }
 
 #[tauri::command]
+fn analyze_transcript_session_state(session: TranscriptSessionRecord) -> TranscriptSessionReadinessReport {
+    analyze_transcript_session_readiness(session)
+}
+
+#[tauri::command]
 fn resolve_vad_profile(request: VadProfileRequest) -> VadProfileReport {
     build_vad_profile(request)
 }
@@ -232,6 +239,7 @@ fn main() {
         plan_playback_logic,
         run_runtime_plan,
         plan_native_execution_step,
+        analyze_transcript_session_state,
         resolve_vad_profile,
         get_calibration_flow_status,
         save_calibration_profile,
