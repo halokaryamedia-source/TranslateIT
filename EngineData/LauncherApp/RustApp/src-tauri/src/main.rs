@@ -16,6 +16,7 @@ use engine::adapters::output_dry_run::{run_output_dry_check, OutputDryRunRequest
 use engine::adapters::pipeline_logic::{check_stale_job, decide_pipeline, PipelineDecisionReport, PipelineDecisionRequest, StaleJobGuardReport, StaleJobGuardRequest};
 use engine::adapters::playback_logic::{plan_playback, PlaybackLogicRequest, PlaybackLogicResult};
 use engine::adapters::realtime_handoff_logic::{analyze_realtime_handoff, RealtimeHandoffReport, RealtimeHandoffRequest};
+use engine::adapters::runtime_lifecycle_logic::{analyze_start_lifecycle_gate, analyze_stop_lifecycle_gate, RuntimeLifecycleGateReport};
 use engine::adapters::segment_flow_logic::{analyze_segment_flow, SegmentFlowReport, SegmentFlowRequest};
 use engine::adapters::session_logic::{build_session_metric_report, build_worker_health, SessionMetricReport, SessionMetricRequest, WorkerHealthReport, WorkerHealthRequest};
 use engine::adapters::stream_ownership_logic::{analyze_stream_ownership, StreamOwnershipReport, StreamOwnershipRequest};
@@ -51,6 +52,16 @@ fn get_runtime_diagnostics() -> RuntimeDiagnostics {
 #[tauri::command]
 fn get_runtime_handoff_state() -> RuntimeHandoffStateReport {
     latest_runtime_handoff_state()
+}
+
+#[tauri::command]
+fn analyze_start_gate() -> RuntimeLifecycleGateReport {
+    analyze_start_lifecycle_gate()
+}
+
+#[tauri::command]
+fn analyze_stop_gate() -> RuntimeLifecycleGateReport {
+    analyze_stop_lifecycle_gate()
 }
 
 #[tauri::command]
@@ -269,6 +280,8 @@ fn main() {
         get_engine_status,
         get_runtime_diagnostics,
         get_runtime_handoff_state,
+        analyze_start_gate,
+        analyze_stop_gate,
         get_input_status,
         get_audio_buffer_status,
         analyze_capture_loop_contract,
