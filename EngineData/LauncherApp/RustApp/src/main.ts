@@ -80,6 +80,77 @@ type CalibrationFlowStatus = {
   note: string;
 };
 
+type AudioFrame = {
+  sample_rate_hz: number;
+  channels: number;
+  samples: number[];
+};
+
+type AudioEvidenceReport = {
+  reason: string;
+  rms: number;
+  peak: number;
+  mean_abs: number;
+  peak_to_rms_ratio: number;
+  speech_to_noise_gap: number;
+  voiced_frame_ratio: number;
+  zero_crossing_rate: number;
+  frame_energy_concentration: number;
+  frame_active_ratio: number;
+  active_frame_ratio: number;
+  impulse_edge_ratio: number;
+  clipping_ratio: number;
+};
+
+type VadGateResult = {
+  accepted: boolean;
+  reason: string;
+  evidence: AudioEvidenceReport;
+};
+
+type AudioFrameInspectionReport = {
+  accepted_by_buffer: boolean;
+  buffer_status: AudioBufferStatus;
+  evidence: AudioEvidenceReport;
+  vad_result: VadGateResult;
+  note: string;
+};
+
+type AudioFrameStats = {
+  sample_rate: number;
+  frame_count: number;
+  duration_ms: number;
+  rms: number;
+  peak: number;
+  clipping: boolean;
+  input_state: string;
+};
+
+type PreprocessingResult = {
+  samples: number[];
+  stats: AudioFrameStats;
+  noise_gate_threshold: number;
+};
+
+type FramePipelineRequest = {
+  frame: AudioFrame;
+  floor_rms: number | null;
+  require_vad_acceptance: boolean;
+};
+
+type FramePipelineReport = {
+  accepted_by_buffer: boolean;
+  vad_passed: boolean;
+  ready_for_segment_builder: boolean;
+  ready_for_asr_preprocess: boolean;
+  duration_ms: number;
+  input_state: string;
+  blockers: string[];
+  inspection: AudioFrameInspectionReport;
+  asr_preprocess: PreprocessingResult;
+  note: string;
+};
+
 type NativeBackendFileCheck = {
   file_name: string;
   found: boolean;
@@ -415,6 +486,7 @@ app.innerHTML = `
           <button id="stopButton" class="secondary" type="button">Stop</button>
           <button id="translateButton" class="secondary" type="button">Translate Text</button>
           <button id="captureLoopButton" class="secondary" type="button">Capture Check</button>
+          <button id="framePipelineButton" class="secondary" type="button">Frame Pipeline</button>
           <button id="sessionStateButton" class="secondary" type="button">Session Check</button>
           <button id="segmentFlowButton" class="secondary" type="button">Segment Flow</button>
           <button id="executionBridgeButton" class="secondary" type="button">Execution Bridge</button>
@@ -457,6 +529,7 @@ const startButton = document.querySelector<HTMLButtonElement>("#startButton");
 const stopButton = document.querySelector<HTMLButtonElement>("#stopButton");
 const translateButton = document.querySelector<HTMLButtonElement>("#translateButton");
 const captureLoopButton = document.querySelector<HTMLButtonElement>("#captureLoopButton");
+const framePipelineButton = document.querySelector<HTMLButtonElement>("#framePipelineButton");
 const sessionStateButton = document.querySelector<HTMLButtonElement>("#sessionStateButton");
 const segmentFlowButton = document.querySelector<HTMLButtonElement>("#segmentFlowButton");
 const executionBridgeButton = document.querySelector<HTMLButtonElement>("#executionBridgeButton");
@@ -483,6 +556,7 @@ const ui = {
   stopButton: requireElement(stopButton, "stop button"),
   translateButton: requireElement(translateButton, "translate button"),
   captureLoopButton: requireElement(captureLoopButton, "capture loop button"),
+  framePipelineButton: requireElement(framePipelineButton, "frame pipeline button"),
   sessionStateButton: requireElement(sessionStateButton, "session state button"),
   segmentFlowButton: requireElement(segmentFlowButton, "segment flow button"),
   executionBridgeButton: requireElement(executionBridgeButton, "execution bridge button"),
@@ -514,6 +588,48 @@ function renderCommandResult(result: CommandResult): void {
 
 function backendSummary(label: string, plan: AdapterPlan): string {
   return `${label}: backend=${plan.selected_backend.backend}, device=${plan.selected_backend.device}, compute=${plan.selected_backend.compute_type}, ready=${plan.ready}`;
+}
+
+function clampSample(value: number): number {
+  return Math.max(-1, Math.min(1, value));
+}
+
+function syntheticSeed(source: string): number {
+  const seedSource = source || "TranslateIT dummy frame";
+  return Array.from(seedSource).reduce((total, char) => total + char.charCodeAt(0), 0);
+}
+
+function buildSyntheticAudioFrame(source: string): AudioFrame {
+  const seed = syntheticSeed(source.trim());
+  const sampleRate = 16_000;
+  const channels = 1;
+  const durationMs = source.trim() ? Math.min(1_200, Math.max(480, source.trim().length * 32)) : 640;
+  const sampleCount = Math.max(1, Math.round((sampleRate * durationMs) / 1_000));
+  const baseFrequencyHz = 180 + (seed % 160);
+  const modulationHz = 3 + (seed % 5);
+  const amplitude = source.trim() ? 0.14 : 0.09;
+  const samples = Array.from({ length: sampleCount }, (_, index) => {
+    const time = index / sampleRate;
+    const envelope = Math.sin((Math.PI * index) / Math.max(1, sampleCount - 1));
+    const modulation = 0.65 + 0.35 * Math.sin(2 * Math.PI * modulationHz * time);
+    const voicedTone = Math.sin(2 * Math.PI * baseFrequencyHz * time);
+    const harmonic = 0.35 * Math.sin(2 * Math.PI * baseFrequencyHz * 2 * time);
+    return clampSample((voicedTone + harmonic) * amplitude * envelope * modulation);
+  });
+
+  return {
+    sample_rate_hz: sampleRate,
+    channels,
+    samples,
+  };
+}
+
+function buildFramePipelineRequest(source: string): FramePipelineRequest {
+  return {
+    frame: buildSyntheticAudioFrame(source),
+    floor_rms: 0.001,
+    require_vad_acceptance: true,
+  };
 }
 
 function defaultQuality(): TranscriptQualityMetrics {
@@ -676,6 +792,29 @@ function renderCaptureLoopContract(report: CaptureLoopContractReport): void {
   ]);
 }
 
+function renderFramePipeline(report: FramePipelineReport, source: string): void {
+  ui.lifecycleBadge.textContent = report.ready_for_segment_builder ? "State: frame-ready" : "State: frame-blocked";
+  ui.statusMessage.textContent = report.note;
+  renderList([
+    `Synthetic frame source: ${source ? "source text" : "dummy waveform"}`,
+    `Accepted by buffer: ${report.accepted_by_buffer}`,
+    `VAD passed: ${report.vad_passed}`,
+    `Ready for segment builder: ${report.ready_for_segment_builder}`,
+    `Ready for ASR preprocess: ${report.ready_for_asr_preprocess}`,
+    `Duration: ${report.duration_ms} ms`,
+    `Input state: ${report.input_state}`,
+    `Frame format: ${report.inspection.buffer_status.target_sample_rate_hz} Hz / ${report.inspection.buffer_status.target_channels} channel(s)`,
+    `Inspection note: ${report.inspection.note}`,
+    `VAD reason: ${report.inspection.vad_result.reason || "none"}`,
+    `Evidence RMS: ${report.inspection.evidence.rms.toFixed(5)}`,
+    `Evidence peak: ${report.inspection.evidence.peak.toFixed(5)}`,
+    `Preprocess samples: ${report.asr_preprocess.samples.length}`,
+    `Preprocess RMS: ${report.asr_preprocess.stats.rms.toFixed(5)}`,
+    `Preprocess peak: ${report.asr_preprocess.stats.peak.toFixed(5)}`,
+    ...report.blockers.map((blocker) => `Blocker: ${blocker}`),
+  ]);
+}
+
 function renderSessionReadiness(report: TranscriptSessionReadinessReport): void {
   ui.lifecycleBadge.textContent = report.ready_for_preview ? "State: session-ready" : "State: session-blocked";
   ui.statusMessage.textContent = `Transcript session readiness: ${report.ready_for_preview}`;
@@ -822,6 +961,13 @@ ui.translateButton.addEventListener("click", async () => {
 ui.captureLoopButton.addEventListener("click", async () => {
   const report = await invoke<CaptureLoopContractReport>("analyze_capture_loop_contract");
   renderCaptureLoopContract(report);
+});
+
+ui.framePipelineButton.addEventListener("click", async () => {
+  const source = ui.sourceText.value.trim();
+  const request = buildFramePipelineRequest(source);
+  const report = await invoke<FramePipelineReport>("analyze_frame_pipeline_state", { request });
+  renderFramePipeline(report, source);
 });
 
 ui.sessionStateButton.addEventListener("click", async () => {
