@@ -10,13 +10,13 @@ TranslateIT
 
 ## Current conversion progress estimate
 
-Estimated code-path conversion progress: **68-72%**.
+Estimated code-path conversion progress: **72-75%**.
 
 This percentage measures how much of the Python launcher/runtime logic has been moved into Rust/Tauri code paths and command boundaries. It does **not** mean production readiness yet. Production readiness still depends on real inference execution, live capture integration, and final validation.
 
 ## Current conversion status
 
-The active `EngineData/LauncherApp` Python launcher files have been removed from the Rust conversion branch and the root launcher is redirected to RustApp. Core logic has been ported into Rust modules for audio preprocessing, noise filtering, VAD, ASR model planning, ASR quality filtering, language routing, latency reporting, pipeline decisions, translation planning, playback planning, session metrics, session store payloads, native execution planning, native execution contract hardening, native runner contracts, transcript segment parity models, segment builder parity logic, transcript session planning, runtime capture job planning, segment flow readiness, frontend transcript session readiness wiring, and frontend segment flow wiring.
+The active `EngineData/LauncherApp` Python launcher files have been removed from the Rust conversion branch and the root launcher is redirected to RustApp. Core logic has been ported into Rust modules for audio preprocessing, noise filtering, VAD, ASR model planning, ASR quality filtering, language routing, latency reporting, pipeline decisions, translation planning, playback planning, session metrics, session store payloads, native execution planning, native execution contract hardening, native runner contracts, native execution bridge, model path readiness guard, transcript segment parity models, segment builder parity logic, transcript session planning, runtime capture job planning, segment flow readiness, frontend transcript session readiness wiring, frontend segment flow wiring, and frontend native execution bridge wiring.
 
 ## Progress buckets
 
@@ -46,8 +46,10 @@ The active `EngineData/LauncherApp` Python launcher files have been removed from
 - segment flow readiness adapter
 - frontend Session Check command wiring
 - frontend Segment Flow command wiring
+- frontend Execution Bridge command wiring
 - native execution planning and batch readiness
 - native execution contract blocker hardening
+- native execution bridge with existing-path model guard
 - manual-only validation workflow
 
 ### Partially ported but not production-ready
@@ -84,7 +86,8 @@ Current state:
 
 - model/profile planning exists
 - native execution planning exists
-- native execution contract exists and now blocks missing model/audio input explicitly
+- native execution contract exists and blocks missing model/audio input explicitly
+- native execution bridge now requires the model path to exist before ASR can be marked model-ready
 - real ASR inference is not connected yet
 
 ### 2. Real translation native inference
@@ -103,6 +106,7 @@ Current state:
 - language routing exists
 - context window exists
 - native execution contract blocks missing source text/model path explicitly
+- native execution bridge now requires the translation model path to exist before translation can be marked model-ready
 - real translation inference is not connected yet
 
 ### 3. Real output/TTS execution
@@ -118,6 +122,7 @@ Current state:
 
 - playback planning exists
 - output contract exists
+- output stage is represented in the native execution bridge
 - real output execution is not connected yet
 
 ### 4. Live audio capture runtime
@@ -163,14 +168,15 @@ Current state:
 Still needed:
 
 - expose approval-safe save/export flow
-- expose final native runner contracts where safe
-- show final real inference execution results once native backend is connected
+- expose final real inference execution results once native backend is connected
+- add UI controls for selecting validated ASR/translation/output model paths if needed
 
 Current state:
 
 - diagnostics wiring exists
 - transcript session readiness wiring exists
 - segment flow readiness wiring exists
+- native execution bridge wiring exists
 - segment flow reads backend readiness from diagnostics instead of hardcoded false values
 - several Tauri commands are already exposed
 
