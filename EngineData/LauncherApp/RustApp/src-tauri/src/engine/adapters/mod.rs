@@ -8,6 +8,7 @@ pub mod context_logic;
 pub mod frame_pipeline_logic;
 pub mod language_logic;
 pub mod latency_logic;
+pub mod live_asr_boundary_logic;
 pub mod migration_closure_gate_logic;
 pub mod model_check;
 pub mod native_capture_bridge_logic;
