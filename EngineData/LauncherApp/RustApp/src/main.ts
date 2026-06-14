@@ -247,6 +247,52 @@ type TranscriptSessionReadinessReport = {
   blockers: string[];
 };
 
+type SegmentBuildRequest = {
+  segment_id: string;
+  session_id: string;
+  input_language: string | null;
+  output_language: string | null;
+  start_time_ms: number;
+  end_time_ms: number;
+  input_text: string | null;
+  translated_text: string | null;
+  trace_id: string | null;
+  source_audio_path: string | null;
+  translated_audio_path: string | null;
+  pipeline_mode: string | null;
+  capture_mode: string | null;
+  asr_model_used: string | null;
+  asr_device_used: string | null;
+  asr_compute_type_used: string | null;
+  translation_engine_used: string | null;
+  model_fallback_used: boolean | null;
+  error_message: string | null;
+};
+
+type SegmentFlowRequest = {
+  capture_ready: boolean;
+  session_id: string;
+  next_segment_id: string;
+  segment: SegmentBuildRequest;
+  vad_accepted: boolean;
+  asr_ready: boolean;
+  translation_ready: boolean;
+};
+
+type SegmentFlowReport = {
+  session_id: string;
+  segment_id: string;
+  ready_for_runtime_plan: boolean;
+  segment: {
+    valid_duration: boolean;
+    duration_ms: number;
+    warning: string;
+    segment: TranscriptSegmentRecord;
+  };
+  blockers: string[];
+  message: string;
+};
+
 const app = document.querySelector<HTMLDivElement>("#app");
 
 if (!app) {
@@ -300,6 +346,7 @@ app.innerHTML = `
           <button id="stopButton" class="secondary" type="button">Stop</button>
           <button id="translateButton" class="secondary" type="button">Translate Text</button>
           <button id="sessionStateButton" class="secondary" type="button">Session Check</button>
+          <button id="segmentFlowButton" class="secondary" type="button">Segment Flow</button>
           <button id="diagnosticsButton" class="secondary" type="button">Diagnostics</button>
           <button id="saveSettingsButton" class="secondary" type="button">Save Settings</button>
         </div>
@@ -339,6 +386,7 @@ const startButton = document.querySelector<HTMLButtonElement>("#startButton");
 const stopButton = document.querySelector<HTMLButtonElement>("#stopButton");
 const translateButton = document.querySelector<HTMLButtonElement>("#translateButton");
 const sessionStateButton = document.querySelector<HTMLButtonElement>("#sessionStateButton");
+const segmentFlowButton = document.querySelector<HTMLButtonElement>("#segmentFlowButton");
 const diagnosticsButton = document.querySelector<HTMLButtonElement>("#diagnosticsButton");
 const saveSettingsButton = document.querySelector<HTMLButtonElement>("#saveSettingsButton");
 
@@ -362,6 +410,7 @@ const ui = {
   stopButton: requireElement(stopButton, "stop button"),
   translateButton: requireElement(translateButton, "translate button"),
   sessionStateButton: requireElement(sessionStateButton, "session state button"),
+  segmentFlowButton: requireElement(segmentFlowButton, "segment flow button"),
   diagnosticsButton: requireElement(diagnosticsButton, "diagnostics button"),
   saveSettingsButton: requireElement(saveSettingsButton, "save settings button"),
 };
@@ -467,6 +516,45 @@ function buildDraftTranscriptSession(source: string): TranscriptSessionRecord {
   };
 }
 
+function buildSegmentRequest(session: TranscriptSessionRecord, source: string): SegmentBuildRequest {
+  const segment = session.segments[0];
+  return {
+    segment_id: segment?.segment_id ?? `${session.session_id}_segment_1`,
+    session_id: session.session_id,
+    input_language: session.input_language,
+    output_language: session.output_language,
+    start_time_ms: segment?.start_time_ms ?? 0,
+    end_time_ms: segment?.end_time_ms ?? Math.min(8000, Math.max(500, source.length * 40)),
+    input_text: source || null,
+    translated_text: null,
+    trace_id: segment?.trace_id ?? "frontend-segment-flow",
+    source_audio_path: null,
+    translated_audio_path: null,
+    pipeline_mode: "cascaded",
+    capture_mode: "Frontend Segment Flow",
+    asr_model_used: "",
+    asr_device_used: "",
+    asr_compute_type_used: "",
+    translation_engine_used: "",
+    model_fallback_used: false,
+    error_message: null,
+  };
+}
+
+function buildSegmentFlowRequest(source: string): SegmentFlowRequest {
+  const session = buildDraftTranscriptSession(source);
+  const segment = buildSegmentRequest(session, source);
+  return {
+    capture_ready: Boolean(source),
+    session_id: session.session_id,
+    next_segment_id: segment.segment_id,
+    segment,
+    vad_accepted: Boolean(source),
+    asr_ready: false,
+    translation_ready: false,
+  };
+}
+
 function renderSessionReadiness(report: TranscriptSessionReadinessReport): void {
   ui.lifecycleBadge.textContent = report.ready_for_preview ? "State: session-ready" : "State: session-blocked";
   ui.statusMessage.textContent = `Transcript session readiness: ${report.ready_for_preview}`;
@@ -478,6 +566,20 @@ function renderSessionReadiness(report: TranscriptSessionReadinessReport): void 
     `Translated chars: ${report.summary.translated_chars}`,
     `Completed segments: ${report.summary.completed_segments}`,
     `Errored segments: ${report.summary.errored_segments}`,
+    ...report.blockers.map((blocker) => `Blocker: ${blocker}`),
+  ]);
+}
+
+function renderSegmentFlow(report: SegmentFlowReport): void {
+  ui.lifecycleBadge.textContent = report.ready_for_runtime_plan ? "State: segment-ready" : "State: segment-blocked";
+  ui.statusMessage.textContent = report.message;
+  renderList([
+    `Session: ${report.session_id}`,
+    `Segment: ${report.segment_id}`,
+    `Duration: ${report.segment.duration_ms} ms`,
+    `Valid duration: ${report.segment.valid_duration}`,
+    `Ready for runtime plan: ${report.ready_for_runtime_plan}`,
+    `Warning: ${report.segment.warning || "none"}`,
     ...report.blockers.map((blocker) => `Blocker: ${blocker}`),
   ]);
 }
@@ -567,6 +669,13 @@ ui.sessionStateButton.addEventListener("click", async () => {
   const session = buildDraftTranscriptSession(source);
   const report = await invoke<TranscriptSessionReadinessReport>("analyze_transcript_session_state", { session });
   renderSessionReadiness(report);
+});
+
+ui.segmentFlowButton.addEventListener("click", async () => {
+  const source = ui.sourceText.value.trim();
+  const request = buildSegmentFlowRequest(source);
+  const report = await invoke<SegmentFlowReport>("analyze_segment_flow_state", { request });
+  renderSegmentFlow(report);
 });
 
 ui.diagnosticsButton.addEventListener("click", async () => {
