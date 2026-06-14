@@ -17,6 +17,15 @@ pub struct SessionSaveResult {
 }
 
 #[derive(Debug, Clone, Serialize)]
+pub struct SessionSavePreview {
+    pub session_id: String,
+    pub output_path: String,
+    pub segment_count: usize,
+    pub ready: bool,
+    pub message: String,
+}
+
+#[derive(Debug, Clone, Serialize)]
 pub struct SessionStoreStatus {
     pub output_dir: String,
     pub ready: bool,
@@ -29,6 +38,19 @@ pub fn current_session_store_status() -> SessionStoreStatus {
         output_dir: normalize_path(&output_dir),
         ready: output_dir.parent().is_some(),
         note: "Rust session store path is resolved. Saving writes JSON payloads under UserData.".to_string(),
+    }
+}
+
+pub fn preview_session_save(payload: &SavedSessionPayload) -> SessionSavePreview {
+    let session_id = sanitize_session_id(&payload.session_id);
+    let output_path = saved_session_dir().join(format!("{session_id}.json"));
+    let output_label = normalize_path(&output_path);
+    SessionSavePreview {
+        session_id,
+        output_path: output_label.clone(),
+        segment_count: payload.segments.len(),
+        ready: output_path.parent().is_some(),
+        message: format!("Rust session payload will be saved to {output_label}"),
     }
 }
 
