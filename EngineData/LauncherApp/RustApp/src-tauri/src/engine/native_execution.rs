@@ -19,6 +19,17 @@ pub struct NativeExecutionBatchRequest {
     pub output: NativeExecutionRequest,
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct NativeExecutionContractRequest {
+    pub stage: String,
+    pub segment_id: String,
+    pub source_text: Option<String>,
+    pub source_audio_path: Option<String>,
+    pub model_path: Option<String>,
+    pub output_audio_path: Option<String>,
+    pub plan: NativeExecutionRequest,
+}
+
 #[derive(Debug, Clone, Serialize)]
 pub struct NativeExecutionPlan {
     pub stage: String,
@@ -28,6 +39,27 @@ pub struct NativeExecutionPlan {
     pub ready: bool,
     pub cpu_degraded: bool,
     pub status: String,
+    pub blocker: String,
+}
+
+#[derive(Debug, Clone, Serialize)]
+pub struct NativeExecutionContractResult {
+    pub segment_id: String,
+    pub stage: String,
+    pub ready_to_execute: bool,
+    pub execution_status: String,
+    pub selected_model: String,
+    pub selected_device: String,
+    pub selected_compute_type: String,
+    pub input_kind: String,
+    pub input_summary: String,
+    pub output_target: String,
+    pub queue_wait_ms: i64,
+    pub preprocess_ms: i64,
+    pub inference_ms: i64,
+    pub postprocess_ms: i64,
+    pub total_ms: i64,
+    pub error: String,
     pub blocker: String,
 }
 
@@ -82,6 +114,32 @@ pub fn plan_native_execution(request: NativeExecutionRequest) -> NativeExecution
     }
 }
 
+pub fn prepare_native_execution_contract(request: NativeExecutionContractRequest) -> NativeExecutionContractResult {
+    let plan = plan_native_execution(request.plan);
+    let input_kind = input_kind(&request.source_text, &request.source_audio_path);
+    let input_summary = input_summary(&request.source_text, &request.source_audio_path);
+    let output_target = request.output_audio_path.unwrap_or_default();
+    NativeExecutionContractResult {
+        segment_id: request.segment_id,
+        stage: plan.stage.clone(),
+        ready_to_execute: plan.ready,
+        execution_status: if plan.ready { "prepared".to_string() } else { "blocked".to_string() },
+        selected_model: plan.model_id,
+        selected_device: plan.selected_device,
+        selected_compute_type: plan.selected_compute_type,
+        input_kind,
+        input_summary,
+        output_target,
+        queue_wait_ms: 0,
+        preprocess_ms: 0,
+        inference_ms: 0,
+        postprocess_ms: 0,
+        total_ms: 0,
+        error: String::new(),
+        blocker: plan.blocker,
+    }
+}
+
 pub fn plan_native_execution_batch(request: NativeExecutionBatchRequest) -> NativeExecutionBatchPlan {
     let asr = plan_native_execution(request.asr);
     let translation = plan_native_execution(request.translation);
@@ -121,6 +179,26 @@ fn blocked(stage: String, model_id: String, device: String, compute: String, rea
         status: "blocked".to_string(),
         blocker: reason.to_string(),
     }
+}
+
+fn input_kind(source_text: &Option<String>, source_audio_path: &Option<String>) -> String {
+    if source_audio_path.as_ref().map(|value| !value.trim().is_empty()).unwrap_or(false) {
+        "audio".to_string()
+    } else if source_text.as_ref().map(|value| !value.trim().is_empty()).unwrap_or(false) {
+        "text".to_string()
+    } else {
+        "empty".to_string()
+    }
+}
+
+fn input_summary(source_text: &Option<String>, source_audio_path: &Option<String>) -> String {
+    if let Some(path) = source_audio_path.as_ref().filter(|value| !value.trim().is_empty()) {
+        return format!("audio:{path}");
+    }
+    if let Some(text) = source_text.as_ref().filter(|value| !value.trim().is_empty()) {
+        return format!("text_chars:{}", text.chars().count());
+    }
+    "empty".to_string()
 }
 
 fn normalize_stage(stage: &str) -> String {
