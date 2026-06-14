@@ -6,7 +6,7 @@ $Venv = Join-Path $WorkerRoot ".venv"
 $Requirements = Join-Path $WorkerRoot "requirements-realtime.txt"
 $PythonExe = Join-Path $Venv "Scripts\python.exe"
 $Worker = Join-Path $WorkerRoot "realtime_local_worker.py"
-$ModelCheck = Join-Path $Root "DevelopingData\ToolKitData\Scripts\Execution\check_local_runtime_models.py"
+$ModelCheck = Join-Path $Root "DevelopingData\Tooling\Scripts\Execution\check_local_runtime_models.py"
 
 Write-Host "TranslateIT local realtime worker setup"
 Write-Host "Root: $Root"
