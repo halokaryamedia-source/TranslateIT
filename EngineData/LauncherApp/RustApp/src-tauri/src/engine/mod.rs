@@ -26,7 +26,7 @@ use cuda_policy::CudaPolicyReport;
 use diagnostics::RuntimeDiagnostics;
 use logging::{write_jsonl_event, RuntimeLogEvent};
 use paths::ProjectPaths;
-use runtime_state::{clear_runtime_handoff_state, clear_runtime_session_state, record_runtime_session_start};
+use runtime_state::{clear_runtime_handoff_state, clear_runtime_session_state, record_direct_live_capture_session, record_runtime_session_start};
 use settings::RuntimeSettings;
 use state::{CommandResult, EngineStatus, LifecycleState, RuntimeStage};
 
@@ -116,7 +116,7 @@ pub fn start_capture() -> CommandResult {
         )
     } else {
         format!(
-            "Rust Start gate blocked by lifecycle preflight: allowed={}, lifecycle_state={}, blocker={}, note={}",
+            "Rust Start gate checked lifecycle preflight: allowed={}, lifecycle_state={}, blocker={}, note={}",
             gate.allowed, gate.lifecycle_state, gate.blocker, gate.note
         )
     };
@@ -132,45 +132,57 @@ pub fn start_capture() -> CommandResult {
         &event,
     );
 
-    if gate.allowed {
-        let session_state = record_runtime_session_start(handoff_state);
-        let session_note = format!(
-            "Runtime session ownership recorded: active={}, ready_for_stop={}, note={}",
-            session_state.has_active_session, session_state.ready_for_stop, session_state.note
-        );
-        let live_capture = start_live_capture_runtime(session_state.clone());
-        let live_note = format!(
-            "Live capture start result: ok={}, active={}, frames_received={}, note={}",
-            live_capture.ok,
-            live_capture.status.stream_active,
-            live_capture.status.frames_received,
-            live_capture.status.note
-        );
-        let _ = write_jsonl_event(
-            &PathBuf::from(&project_paths.user_log_dir),
-            "rust_runtime_latest.jsonl",
-            &RuntimeLogEvent::info("runtime_session", session_note.clone()),
-        );
-        let _ = write_jsonl_event(
-            &PathBuf::from(project_paths.user_log_dir),
-            "rust_runtime_latest.jsonl",
-            &RuntimeLogEvent::info("live_capture", live_note.clone()),
-        );
+    if gate.session_state.has_active_session {
+        return CommandResult::blocked(LifecycleState::ConversionPending, message);
+    }
 
-        if live_capture.ok {
-            CommandResult::ok(
-                LifecycleState::Listening,
-                format!("{message}. {session_note}. {live_note}. ASR, translation, and TTS are still pending stages."),
-            )
-        } else {
-            let cleared_session = clear_runtime_session_state();
-            CommandResult::blocked(
-                LifecycleState::Error,
-                format!("{message}. {session_note}. {live_note}. {}", cleared_session.note),
-            )
-        }
+    let session_state = if gate.allowed {
+        record_runtime_session_start(handoff_state)
+    } else if gate.blocker == "handoff:no_snapshot" || gate.blocker == "handoff:snapshot_stale" {
+        record_direct_live_capture_session()
     } else {
-        CommandResult::blocked(LifecycleState::ConversionPending, message)
+        return CommandResult::blocked(LifecycleState::ConversionPending, message);
+    };
+
+    let session_note = format!(
+        "Runtime session ownership recorded: active={}, ready_for_stop={}, note={}",
+        session_state.has_active_session, session_state.ready_for_stop, session_state.note
+    );
+    let live_capture = start_live_capture_runtime(session_state.clone());
+    let live_note = format!(
+        "Live capture start result: ok={}, active={}, frames_received={}, note={}",
+        live_capture.ok,
+        live_capture.status.stream_active,
+        live_capture.status.frames_received,
+        live_capture.status.note
+    );
+    let _ = write_jsonl_event(
+        &PathBuf::from(&project_paths.user_log_dir),
+        "rust_runtime_latest.jsonl",
+        &RuntimeLogEvent::info("runtime_session", session_note.clone()),
+    );
+    let _ = write_jsonl_event(
+        &PathBuf::from(project_paths.user_log_dir),
+        "rust_runtime_latest.jsonl",
+        &RuntimeLogEvent::info("live_capture", live_note.clone()),
+    );
+
+    if live_capture.ok {
+        let mode_note = if gate.allowed {
+            "Full realtime handoff session was used."
+        } else {
+            "Direct microphone-only session was used because full realtime handoff is not ready yet."
+        };
+        CommandResult::ok(
+            LifecycleState::Listening,
+            format!("{message}. {mode_note} {session_note}. {live_note}. ASR, translation, and TTS are still pending stages."),
+        )
+    } else {
+        let cleared_session = clear_runtime_session_state();
+        CommandResult::blocked(
+            LifecycleState::Error,
+            format!("{message}. {session_note}. {live_note}. {}", cleared_session.note),
+        )
     }
 }
 
