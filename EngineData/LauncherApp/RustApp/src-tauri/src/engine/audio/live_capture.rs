@@ -175,58 +175,60 @@ fn build_stream_for_format(
     callback_errors: Arc<Mutex<Vec<String>>>,
 ) -> Result<cpal::Stream, String> {
     let channels = config.channels;
-    let error_log = Arc::clone(&callback_errors);
-    let error_callback = move |error| {
-        if let Ok(mut errors) = error_log.lock() {
-            errors.push(error.to_string());
-            if errors.len() > 20 {
-                errors.remove(0);
-            }
-        }
-    };
 
     match sample_format {
-        cpal::SampleFormat::F32 => device
-            .build_input_stream(
-                config,
-                move |data: &[f32], _| record_f32_frames(data, channels, &frames_received),
-                error_callback,
-                None,
-            )
-            .map_err(|error| error.to_string()),
-        cpal::SampleFormat::I16 => device
-            .build_input_stream(
-                config,
-                move |data: &[i16], _| record_i16_frames(data, channels, &frames_received),
-                error_callback,
-                None,
-            )
-            .map_err(|error| error.to_string()),
-        cpal::SampleFormat::U16 => device
-            .build_input_stream(
-                config,
-                move |data: &[u16], _| record_u16_frames(data, channels, &frames_received),
-                error_callback,
-                None,
-            )
-            .map_err(|error| error.to_string()),
+        cpal::SampleFormat::F32 => {
+            let frames = Arc::clone(&frames_received);
+            let errors = Arc::clone(&callback_errors);
+            device
+                .build_input_stream(
+                    config,
+                    move |data: &[f32], _| record_frames(data.len(), channels, &frames),
+                    move |error| push_callback_error(&errors, error),
+                    None,
+                )
+                .map_err(|error| error.to_string())
+        }
+        cpal::SampleFormat::I16 => {
+            let frames = Arc::clone(&frames_received);
+            let errors = Arc::clone(&callback_errors);
+            device
+                .build_input_stream(
+                    config,
+                    move |data: &[i16], _| record_frames(data.len(), channels, &frames),
+                    move |error| push_callback_error(&errors, error),
+                    None,
+                )
+                .map_err(|error| error.to_string())
+        }
+        cpal::SampleFormat::U16 => {
+            let frames = Arc::clone(&frames_received);
+            let errors = Arc::clone(&callback_errors);
+            device
+                .build_input_stream(
+                    config,
+                    move |data: &[u16], _| record_frames(data.len(), channels, &frames),
+                    move |error| push_callback_error(&errors, error),
+                    None,
+                )
+                .map_err(|error| error.to_string())
+        }
         other => Err(format!("Unsupported default microphone sample format: {other:?}")),
     }
 }
 
-fn record_f32_frames(data: &[f32], channels: u16, frames_received: &Arc<AtomicU64>) {
+fn record_frames(sample_count: usize, channels: u16, frames_received: &Arc<AtomicU64>) {
     let channel_count = usize::from(channels.max(1));
-    frames_received.fetch_add((data.len() / channel_count) as u64, Ordering::Relaxed);
+    frames_received.fetch_add((sample_count / channel_count) as u64, Ordering::Relaxed);
 }
 
-fn record_i16_frames(data: &[i16], channels: u16, frames_received: &Arc<AtomicU64>) {
-    let channel_count = usize::from(channels.max(1));
-    frames_received.fetch_add((data.len() / channel_count) as u64, Ordering::Relaxed);
-}
-
-fn record_u16_frames(data: &[u16], channels: u16, frames_received: &Arc<AtomicU64>) {
-    let channel_count = usize::from(channels.max(1));
-    frames_received.fetch_add((data.len() / channel_count) as u64, Ordering::Relaxed);
+fn push_callback_error(callback_errors: &Arc<Mutex<Vec<String>>>, error: cpal::StreamError) {
+    if let Ok(mut errors) = callback_errors.lock() {
+        errors.push(error.to_string());
+        if errors.len() > 20 {
+            errors.remove(0);
+        }
+    }
 }
 
 fn build_status_from_guard(runtime: Option<&LiveCaptureRuntime>) -> LiveCaptureStatusReport {
