@@ -16,7 +16,7 @@ def bool_arg(value: str) -> bool:
 
 def main() -> int:
     if len(sys.argv) < 6:
-        print("usage: write_rustapp_validation_evidence.py <rust_check> <typecheck> <frontend_build> <tauri_build> <packaging>")
+        print("usage: write_rustapp_validation_evidence.py <rust_check> <typecheck> <frontend_build> <tauri_build> <packaging> [local_worker_stack]")
         return 2
 
     rust_check = bool_arg(sys.argv[1])
@@ -24,9 +24,10 @@ def main() -> int:
     frontend_build = bool_arg(sys.argv[3])
     tauri_build = bool_arg(sys.argv[4])
     packaging = bool_arg(sys.argv[5])
+    local_worker_stack = bool_arg(sys.argv[6]) if len(sys.argv) >= 7 else False
 
     evidence = {
-        "schema": "translateit.rustapp.validation_evidence.v1",
+        "schema": "translateit.rustapp.validation_evidence.v2",
         "generated_at_utc": datetime.now(timezone.utc).isoformat(),
         "branch_context": "ChatGPT-ConvertEngine",
         "status": "internal_validation_only",
@@ -35,6 +36,7 @@ def main() -> int:
         "frontend_build_passed": frontend_build,
         "tauri_build_passed": tauri_build,
         "packaging_validation_passed": packaging,
+        "local_worker_stack_passed": local_worker_stack,
         "manual_runtime_evidence": {
             "microphone_capture_smoke_test": False,
             "asr_transcript_smoke_test": False,
@@ -44,7 +46,7 @@ def main() -> int:
         },
         "owner_validation_allowed": False,
         "release_candidate_allowed": False,
-        "note": "Evidence file is generated for internal validation tracking only. Owner validation remains blocked until runtime smoke tests and package checks pass.",
+        "note": "Evidence file is generated for internal validation tracking only. Owner validation remains blocked until local worker stack, runtime smoke tests, and package checks pass.",
     }
 
     EVIDENCE_DIR.mkdir(parents=True, exist_ok=True)
