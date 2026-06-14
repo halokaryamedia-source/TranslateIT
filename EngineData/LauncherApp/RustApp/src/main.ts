@@ -112,10 +112,30 @@ type LivePipelineGateReport = {
   note: string;
 };
 
+type LocalWorkerManifestReport = {
+  ok: boolean;
+  worker_script_exists: boolean;
+  requirements_exists?: boolean;
+  stack_manifest_exists?: boolean;
+  stack_manifest_schema?: string | null;
+  realtime_target_latency_ms?: number | null;
+  quality_target_latency_ms?: number | null;
+  worker_command_count?: number;
+  asr_model_ready: boolean;
+  realtime_translation_model_ready: boolean;
+  quality_translation_model_ready: boolean;
+  piper_ready: boolean;
+  preferred_stack: string;
+  blockers: string[];
+  note: string;
+};
+
 type InternalValidationGateReport = {
   ready_for_owner_validation: boolean;
   ready_for_release_candidate: boolean;
   tauri_command_status_exposed: boolean;
+  local_worker_stack_passed?: boolean;
+  local_worker_manifest?: LocalWorkerManifestReport;
   build_validation_passed: boolean;
   rust_check_passed: boolean;
   frontend_typecheck_passed: boolean;
@@ -154,6 +174,7 @@ type RuntimeStatusBundleReport = {
   };
   live_capture: LiveCaptureStatusReport;
   live_pipeline_gate?: LivePipelineGateReport;
+  local_worker_manifest?: LocalWorkerManifestReport;
   internal_validation_gate?: InternalValidationGateReport;
   next_action: string;
   summary: string;
@@ -200,6 +221,7 @@ app.innerHTML = `
         <div class="status-pills" aria-label="Runtime status">
           <span id="statusPill" class="pill neutral">Checking</span>
           <span id="capturePill" class="pill neutral">Capture Pending</span>
+          <span id="workerPill" class="pill neutral">Worker Pending</span>
           <span id="runtimePill" class="pill neutral">Runtime Pending</span>
         </div>
       </header>
@@ -263,6 +285,7 @@ function requireElement<T extends Element>(selector: string): T {
 const ui = {
   statusPill: requireElement<HTMLSpanElement>("#statusPill"),
   capturePill: requireElement<HTMLSpanElement>("#capturePill"),
+  workerPill: requireElement<HTMLSpanElement>("#workerPill"),
   runtimePill: requireElement<HTMLSpanElement>("#runtimePill"),
   versionText: requireElement<HTMLSpanElement>("#versionText"),
   runtimeText: requireElement<HTMLSpanElement>("#runtimeText"),
@@ -341,6 +364,7 @@ function renderCommandResult(result: CommandResult): void {
 
 function renderStatusBundle(bundle: RuntimeStatusBundleReport): void {
   const { engine_status, readiness, capture_gate, live_capture, live_pipeline_gate, internal_validation_gate } = bundle;
+  const localWorker = bundle.local_worker_manifest ?? internal_validation_gate?.local_worker_manifest ?? null;
   const runtimeReady = internal_validation_gate?.ready_for_owner_validation ?? readiness.ready_for_user_facing_runtime;
   const releaseCandidateReady = internal_validation_gate?.ready_for_release_candidate ?? false;
   const liveCaptureActive = live_capture.stream_active;
@@ -348,9 +372,11 @@ function renderStatusBundle(bundle: RuntimeStatusBundleReport): void {
   const startReady = readiness.ready_for_start_command;
   const pipelineProgress = live_pipeline_gate?.progress_percent ?? 0;
   const internalProgress = internal_validation_gate?.progress_percent ?? pipelineProgress;
+  const workerReady = Boolean(localWorker?.ok);
   const liveBlockers = live_capture.blocker ? [live_capture.blocker] : [];
   const pipelineBlockers = live_pipeline_gate?.blocker ? [live_pipeline_gate.blocker] : [];
   const validationBlockers = internal_validation_gate?.blockers ?? [];
+  const workerBlockers = localWorker?.blockers ?? [];
 
   ui.versionText.textContent = `v${engine_status.app_version}`;
   ui.runtimeText.textContent = releaseCandidateReady
@@ -363,13 +389,22 @@ function renderStatusBundle(bundle: RuntimeStatusBundleReport): void {
 
   setPill(ui.statusPill, engine_status.lifecycle_state, runtimeReady || liveCaptureActive ? "good" : startReady ? "warn" : "neutral");
   setPill(ui.capturePill, liveCaptureActive ? "Mic Active" : captureReady ? "Capture Ready" : "Capture Pending", liveCaptureActive || captureReady ? "good" : "warn");
+  setPill(ui.workerPill, workerReady ? "Worker Ready" : "Worker Pending", workerReady ? "good" : "warn");
   setPill(ui.runtimePill, runtimeReady ? "Validation Ready" : `Internal ${internalProgress}%`, runtimeReady ? "good" : "warn");
 
-  const blockers = [...readiness.blockers, ...capture_gate.blockers, ...liveBlockers, ...pipelineBlockers, ...validationBlockers];
+  const blockers = [...readiness.blockers, ...capture_gate.blockers, ...liveBlockers, ...pipelineBlockers, ...workerBlockers, ...validationBlockers];
   const notes = [
     `Next action: ${bundle.next_action}`,
     `Pipeline progress: ${pipelineProgress}%`,
     `Internal validation: ${internalProgress}%`,
+    `Local worker stack: ${workerReady}`,
+    `Realtime latency target: ${localWorker?.realtime_target_latency_ms ?? "not loaded"} ms`,
+    `Quality latency target: ${localWorker?.quality_target_latency_ms ?? "not loaded"} ms`,
+    `Worker commands: ${localWorker?.worker_command_count ?? 0}`,
+    `ASR model ready: ${localWorker?.asr_model_ready ?? false}`,
+    `Realtime translate model ready: ${localWorker?.realtime_translation_model_ready ?? false}`,
+    `Quality translate model ready: ${localWorker?.quality_translation_model_ready ?? false}`,
+    `Piper ready: ${localWorker?.piper_ready ?? false}`,
     `Evidence loaded: ${internal_validation_gate?.validation_evidence_loaded ?? false}`,
     `Owner validation allowed: ${runtimeReady}`,
     `Release candidate gate: ${releaseCandidateReady}`,
@@ -384,7 +419,9 @@ function renderStatusBundle(bundle: RuntimeStatusBundleReport): void {
 
   const message = liveCaptureActive
     ? live_capture.note
-    : internal_validation_gate?.note || live_pipeline_gate?.note || readiness.note || bundle.summary;
+    : localWorker && !localWorker.ok
+      ? localWorker.note
+      : internal_validation_gate?.note || live_pipeline_gate?.note || readiness.note || bundle.summary;
   renderRuntimeMessage(message, notes, runtimeReady || liveCaptureActive ? "good" : blockers.length ? "warn" : "neutral");
 }
 
@@ -444,6 +481,7 @@ async function loadDiagnostics(): Promise<void> {
       audio_device: diagnostics.input_preparation_status,
       live_capture: liveCapture,
       live_pipeline_gate: runtimeBundle?.live_pipeline_gate,
+      local_worker_manifest: runtimeBundle?.local_worker_manifest ?? runtimeBundle?.internal_validation_gate?.local_worker_manifest,
       internal_validation_gate: runtimeBundle?.internal_validation_gate,
       next_action: runtimeBundle?.next_action,
       cuda_probe: diagnostics.cuda_probe,
