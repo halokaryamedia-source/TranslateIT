@@ -1,5 +1,6 @@
 use serde::{Deserialize, Serialize};
 
+use crate::engine::audio::input_config::NativeInputConfigProbeReport;
 use crate::engine::runtime_state::RuntimeSessionStateReport;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -17,6 +18,7 @@ pub struct NativeCaptureBridgeReport {
     pub active_session_required: bool,
     pub active_session_present: bool,
     pub safe_to_stop_ready: bool,
+    pub input_config_probe: NativeInputConfigProbeReport,
     pub requested_sample_rate_hz: u32,
     pub requested_channels: u16,
     pub requested_frame_ms: u32,
@@ -41,6 +43,7 @@ pub fn analyze_native_capture_bridge(
     request: NativeCaptureBridgeRequest,
     session_state: RuntimeSessionStateReport,
 ) -> NativeCaptureBridgeReport {
+    let input_config_probe = NativeInputConfigProbeReport::probe_default_input();
     let active_session_present = session_state.has_active_session;
     let safe_to_stop_ready = session_state
         .snapshot
@@ -55,6 +58,9 @@ pub fn analyze_native_capture_bridge(
     if request.require_safe_to_stop && !safe_to_stop_ready {
         blockers.push("capture:session_not_safe_to_stop".to_string());
     }
+    if !input_config_probe.ready_for_capture_bridge {
+        blockers.extend(input_config_probe.blockers.iter().cloned());
+    }
     if request.requested_sample_rate_hz == 0 {
         blockers.push("capture:invalid_sample_rate".to_string());
     }
@@ -64,6 +70,9 @@ pub fn analyze_native_capture_bridge(
     if request.requested_frame_ms == 0 {
         blockers.push("capture:invalid_frame_size".to_string());
     }
+
+    blockers.sort();
+    blockers.dedup();
 
     let ready_for_stream_creation = blockers.is_empty();
     let note = if ready_for_stream_creation {
@@ -80,6 +89,7 @@ pub fn analyze_native_capture_bridge(
         active_session_required: request.require_active_session,
         active_session_present,
         safe_to_stop_ready,
+        input_config_probe,
         requested_sample_rate_hz: request.requested_sample_rate_hz,
         requested_channels: request.requested_channels,
         requested_frame_ms: request.requested_frame_ms,
