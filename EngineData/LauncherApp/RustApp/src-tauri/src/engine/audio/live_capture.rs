@@ -174,6 +174,7 @@ fn build_stream_for_format(
     frames_received: Arc<AtomicU64>,
     callback_errors: Arc<Mutex<Vec<String>>>,
 ) -> Result<cpal::Stream, String> {
+    let channels = config.channels;
     let error_log = Arc::clone(&callback_errors);
     let error_callback = move |error| {
         if let Ok(mut errors) = error_log.lock() {
@@ -188,7 +189,7 @@ fn build_stream_for_format(
         cpal::SampleFormat::F32 => device
             .build_input_stream(
                 config,
-                move |data: &[f32], _| record_f32_frames(data, config.channels, &frames_received),
+                move |data: &[f32], _| record_f32_frames(data, channels, &frames_received),
                 error_callback,
                 None,
             )
@@ -196,7 +197,7 @@ fn build_stream_for_format(
         cpal::SampleFormat::I16 => device
             .build_input_stream(
                 config,
-                move |data: &[i16], _| record_i16_frames(data, config.channels, &frames_received),
+                move |data: &[i16], _| record_i16_frames(data, channels, &frames_received),
                 error_callback,
                 None,
             )
@@ -204,7 +205,7 @@ fn build_stream_for_format(
         cpal::SampleFormat::U16 => device
             .build_input_stream(
                 config,
-                move |data: &[u16], _| record_u16_frames(data, config.channels, &frames_received),
+                move |data: &[u16], _| record_u16_frames(data, channels, &frames_received),
                 error_callback,
                 None,
             )
