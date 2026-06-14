@@ -50,7 +50,16 @@ Plans all runtime stages together:
 - output plan
 - all-ready flag
 - any-CPU-degraded flag
+- CUDA-ready-for-core-stages flag
 - blocker list
+
+## Current hardened behavior
+
+- ASR defaults to CUDA / float16.
+- Translation defaults to CUDA / float16.
+- Output defaults to windows-default-output / audio.
+- CPU degraded mode is allowed only when explicitly requested and not for the output stage.
+- The batch report separates all-ready from CUDA-ready-for-core-stages so the app cannot confuse CPU degraded mode with real CUDA readiness.
 
 ## Tauri exposure status
 
