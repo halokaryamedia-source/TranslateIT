@@ -8,6 +8,7 @@ use engine::adapters::context_logic::{update_translation_context, TranslationCon
 use engine::adapters::language_logic::{run_language_logic, LanguageLogicReport, LanguageLogicRequest};
 use engine::adapters::latency_logic::{build_latency_logic, build_vad_profile, LatencyLogicReport, LatencyLogicRequest, VadProfileReport, VadProfileRequest};
 use engine::adapters::model_check::{check_model_request, ModelCheckRequest, ModelCheckResult};
+use engine::adapters::native_execution_bridge_logic::{build_native_execution_bridge, NativeExecutionBridgeReport, NativeExecutionBridgeRequest};
 use engine::adapters::orchestration_logic::{run_runtime_orchestration, RuntimeOrchestrationReport, RuntimeOrchestrationRequest};
 use engine::adapters::output_dry_run::{run_output_dry_check, OutputDryRunRequest, OutputDryRunResult};
 use engine::adapters::pipeline_logic::{check_stale_job, decide_pipeline, PipelineDecisionReport, PipelineDecisionRequest, StaleJobGuardReport, StaleJobGuardRequest};
@@ -143,6 +144,11 @@ fn plan_native_execution_step(request: NativeExecutionRequest) -> NativeExecutio
 }
 
 #[tauri::command]
+fn analyze_native_execution_bridge(request: NativeExecutionBridgeRequest) -> NativeExecutionBridgeReport {
+    build_native_execution_bridge(request)
+}
+
+#[tauri::command]
 fn analyze_segment_flow_state(request: SegmentFlowRequest) -> SegmentFlowReport {
     analyze_segment_flow(request)
 }
@@ -245,6 +251,7 @@ fn main() {
         plan_playback_logic,
         run_runtime_plan,
         plan_native_execution_step,
+        analyze_native_execution_bridge,
         analyze_segment_flow_state,
         analyze_transcript_session_state,
         resolve_vad_profile,
