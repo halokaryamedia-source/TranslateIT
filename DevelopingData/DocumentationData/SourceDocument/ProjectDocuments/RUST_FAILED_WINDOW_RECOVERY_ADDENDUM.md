@@ -18,6 +18,7 @@ The commits in the recovery window were marked failed because the RustApp final 
 - The ported Rust modules from the failed window were kept in the branch.
 - A unified Rust runtime orchestration adapter was added so the recovered logic is no longer only a set of isolated modules.
 - A native execution boundary was added for ASR, translation, and output stages.
+- The native execution boundary now includes a batch planner with separate all-ready and CUDA-ready-for-core-stages flags.
 - A Rust session store module was added for saved-session JSON payloads under `UserData`.
 
 ## Reworked runtime path
