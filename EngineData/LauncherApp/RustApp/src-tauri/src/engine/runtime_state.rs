@@ -33,7 +33,32 @@ pub struct RuntimeHandoffStateReport {
     pub note: String,
 }
 
+#[derive(Debug, Clone, Serialize)]
+pub struct RuntimeSessionSnapshot {
+    pub started_unix_ms: u128,
+    pub owner_id: String,
+    pub session_id: String,
+    pub handoff_recorded_unix_ms: u128,
+    pub phase: String,
+    pub live_capture_stream_active: bool,
+    pub native_execution_active: bool,
+    pub transcript_persistence_active: bool,
+    pub safe_to_stop: bool,
+    pub note: String,
+}
+
+#[derive(Debug, Clone, Serialize)]
+pub struct RuntimeSessionStateReport {
+    pub has_active_session: bool,
+    pub snapshot: Option<RuntimeSessionSnapshot>,
+    pub active_age_ms: Option<u128>,
+    pub ready_for_stop: bool,
+    pub blocker: String,
+    pub note: String,
+}
+
 static RUNTIME_HANDOFF_STATE: OnceLock<Mutex<Option<RuntimeHandoffSnapshot>>> = OnceLock::new();
+static RUNTIME_SESSION_STATE: OnceLock<Mutex<Option<RuntimeSessionSnapshot>>> = OnceLock::new();
 
 pub fn record_realtime_handoff_report(report: &RealtimeHandoffReport) -> RuntimeHandoffSnapshot {
     let snapshot = RuntimeHandoffSnapshot {
@@ -63,7 +88,7 @@ pub fn latest_runtime_handoff_state() -> RuntimeHandoffStateReport {
         .lock()
         .ok()
         .and_then(|guard| guard.as_ref().cloned());
-    build_state_report(snapshot)
+    build_handoff_state_report(snapshot)
 }
 
 pub fn clear_runtime_handoff_state() -> RuntimeHandoffStateReport {
@@ -83,7 +108,75 @@ pub fn clear_runtime_handoff_state() -> RuntimeHandoffStateReport {
     }
 }
 
-fn build_state_report(snapshot: Option<RuntimeHandoffSnapshot>) -> RuntimeHandoffStateReport {
+pub fn record_runtime_session_start(handoff_state: &RuntimeHandoffStateReport) -> RuntimeSessionStateReport {
+    if !handoff_state.ready_for_start {
+        return RuntimeSessionStateReport {
+            has_active_session: false,
+            snapshot: None,
+            active_age_ms: None,
+            ready_for_stop: false,
+            blocker: handoff_state.blocker.clone(),
+            note: format!("Runtime session start was blocked by handoff state. {}", handoff_state.note),
+        };
+    }
+
+    let Some(handoff_snapshot) = handoff_state.snapshot.as_ref() else {
+        return RuntimeSessionStateReport {
+            has_active_session: false,
+            snapshot: None,
+            active_age_ms: None,
+            ready_for_stop: false,
+            blocker: "runtime_session:no_handoff_snapshot".to_string(),
+            note: "Runtime session start was blocked because no handoff snapshot was available.".to_string(),
+        };
+    };
+
+    let session_snapshot = RuntimeSessionSnapshot {
+        started_unix_ms: current_unix_ms(),
+        owner_id: handoff_snapshot.owner_id.clone(),
+        session_id: handoff_snapshot.session_id.clone(),
+        handoff_recorded_unix_ms: handoff_snapshot.recorded_unix_ms,
+        phase: "preparing".to_string(),
+        live_capture_stream_active: false,
+        native_execution_active: false,
+        transcript_persistence_active: false,
+        safe_to_stop: true,
+        note: "Runtime session ownership was recorded after Start gate approval. Real microphone stream creation is still pending.".to_string(),
+    };
+
+    let store = RUNTIME_SESSION_STATE.get_or_init(|| Mutex::new(None));
+    if let Ok(mut guard) = store.lock() {
+        *guard = Some(session_snapshot.clone());
+    }
+
+    build_session_state_report(Some(session_snapshot))
+}
+
+pub fn latest_runtime_session_state() -> RuntimeSessionStateReport {
+    let store = RUNTIME_SESSION_STATE.get_or_init(|| Mutex::new(None));
+    let snapshot = store
+        .lock()
+        .ok()
+        .and_then(|guard| guard.as_ref().cloned());
+    build_session_state_report(snapshot)
+}
+
+pub fn clear_runtime_session_state() -> RuntimeSessionStateReport {
+    let store = RUNTIME_SESSION_STATE.get_or_init(|| Mutex::new(None));
+    if let Ok(mut guard) = store.lock() {
+        *guard = None;
+    }
+    RuntimeSessionStateReport {
+        has_active_session: false,
+        snapshot: None,
+        active_age_ms: None,
+        ready_for_stop: false,
+        blocker: "runtime_session:cleared".to_string(),
+        note: "Runtime session state was cleared.".to_string(),
+    }
+}
+
+fn build_handoff_state_report(snapshot: Option<RuntimeHandoffSnapshot>) -> RuntimeHandoffStateReport {
     match snapshot {
         Some(snapshot) => {
             let snapshot_age_ms = current_unix_ms().saturating_sub(snapshot.recorded_unix_ms);
@@ -134,6 +227,30 @@ fn build_state_report(snapshot: Option<RuntimeHandoffSnapshot>) -> RuntimeHandof
             ready_for_start: false,
             blocker: "handoff:no_snapshot".to_string(),
             note: "No realtime handoff snapshot has been recorded yet. Use Realtime Handoff before Start.".to_string(),
+        },
+    }
+}
+
+fn build_session_state_report(snapshot: Option<RuntimeSessionSnapshot>) -> RuntimeSessionStateReport {
+    match snapshot {
+        Some(snapshot) => {
+            let active_age_ms = current_unix_ms().saturating_sub(snapshot.started_unix_ms);
+            RuntimeSessionStateReport {
+                has_active_session: true,
+                snapshot: Some(snapshot),
+                active_age_ms: Some(active_age_ms),
+                ready_for_stop: true,
+                blocker: String::new(),
+                note: format!("Runtime session is active in preparing phase. age_ms={active_age_ms}. Real stream is not active yet."),
+            }
+        }
+        None => RuntimeSessionStateReport {
+            has_active_session: false,
+            snapshot: None,
+            active_age_ms: None,
+            ready_for_stop: false,
+            blocker: "runtime_session:no_active_session".to_string(),
+            note: "No runtime session has been started yet.".to_string(),
         },
     }
 }
