@@ -13,11 +13,13 @@ The goal is to make the migration status explicit without claiming that real mic
 3. Backend records the latest handoff result as a runtime snapshot.
 4. Snapshot is valid for 120 seconds.
 5. `start_capture` routes through `analyze_start_lifecycle_gate` before allowing preparation.
-6. `stop_capture` clears the stored handoff snapshot.
-7. `analyze_start_gate` and `analyze_stop_gate` expose explicit lifecycle preflight reports.
-8. `analyze_runtime_readiness` exposes a single readiness bundle for dashboard/QA usage.
-9. `analyze_migration_closure` exposes a final migration closure gate that requires explicit manual validation and owner approval flags.
-10. Runtime diagnostics includes runtime handoff state and handoff blockers.
+6. If Start is allowed, backend records an active runtime session snapshot in `preparing` phase.
+7. `stop_capture` clears both active runtime session state and stored handoff snapshot.
+8. `get_runtime_session_state` exposes the active runtime session state for frontend/QA.
+9. `analyze_start_gate` and `analyze_stop_gate` expose explicit lifecycle preflight reports.
+10. `analyze_runtime_readiness` exposes a single readiness bundle for dashboard/QA usage and now includes active runtime session state.
+11. `analyze_migration_closure` exposes a final migration closure gate that requires explicit manual validation and owner approval flags.
+12. Runtime diagnostics includes runtime handoff state and handoff blockers.
 
 ## Important safety boundaries
 
@@ -35,7 +37,8 @@ The current implementation still does not execute:
 - `engine/runtime_state.rs`
   - stores the latest runtime handoff snapshot;
   - applies the 120-second stale snapshot guard;
-  - exposes latest and clear operations.
+  - stores active runtime session ownership after Start gate approval;
+  - exposes latest and clear operations for handoff and runtime session state.
 
 - `engine/adapters/realtime_handoff_logic.rs`
   - aggregates stream, frame, segment, native execution, and transcript save readiness.
@@ -44,7 +47,7 @@ The current implementation still does not execute:
   - exposes Start and Stop lifecycle preflight reports.
 
 - `engine/adapters/runtime_readiness_bundle_logic.rs`
-  - bundles diagnostics, handoff state, Start gate, Stop gate, staged blockers, and readiness booleans;
+  - bundles diagnostics, handoff state, active session state, Start gate, Stop gate, staged blockers, and readiness booleans;
   - exposes one report for dashboard/QA usage without claiming final runtime readiness.
 
 - `engine/adapters/migration_closure_gate_logic.rs`
@@ -55,7 +58,7 @@ The current implementation still does not execute:
   - includes runtime handoff state in diagnostic output.
 
 - `src/runtimeLifecycle.ts`
-  - mirrors frontend helper types for lifecycle gate, readiness bundle, and closure gate calls;
+  - mirrors frontend helper types for lifecycle gate, active session state, readiness bundle, and closure gate calls;
   - exposes frontend summaries for future UI wiring;
   - defaults closure-gate request flags to blocked/false.
 
@@ -68,13 +71,24 @@ Start is allowed only when:
 - the handoff report is ready;
 - `analyze_start_lifecycle_gate` allows the transition.
 
-Stop is always allowed and clears the stored snapshot.
+When Start is allowed, the backend records a runtime session snapshot with:
+
+- owner id;
+- session id;
+- handoff timestamp;
+- `preparing` phase;
+- `safe_to_stop = true`;
+- explicit note that real microphone stream creation is still pending.
+
+Stop is always allowed and clears both active runtime session state and stored handoff state.
 
 ## Current runtime readiness bundle contract
 
 `analyze_runtime_readiness` reports:
 
 - Start command readiness;
+- Stop command readiness;
+- active runtime session state;
 - live capture runtime readiness;
 - native inference runtime readiness;
 - transcript persistence readiness;
@@ -106,7 +120,7 @@ Production release remains blocked by design in this migration gate and must not
 
 - Wire frontend Start button to show `analyze_start_gate` or `analyze_runtime_readiness` before calling `start_capture`.
 - Wire frontend Stop button to show `analyze_stop_gate` before calling `stop_capture`.
-- Wire frontend Diagnostics dashboard to render `analyze_runtime_readiness`.
+- Wire frontend Diagnostics dashboard to render `analyze_runtime_readiness` and active session state.
 - Wire frontend QA/closure dashboard to render `analyze_migration_closure`.
 - Add real microphone stream ownership and CPAL stream creation.
 - Connect real ASR native runner.
