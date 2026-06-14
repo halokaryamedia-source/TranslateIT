@@ -53,6 +53,20 @@ Plans all runtime stages together:
 - CUDA-ready-for-core-stages flag
 - blocker list
 
+## Session persistence helper
+
+```text
+EngineData/LauncherApp/RustApp/src-tauri/src/engine/session_store.rs
+```
+
+The session store now includes:
+
+- session store status
+- session save preview
+- JSON payload save helper
+
+The preview helper lets the app show the planned file path and segment count before writing a saved transcript.
+
 ## Current hardened behavior
 
 - ASR defaults to CUDA / float16.
