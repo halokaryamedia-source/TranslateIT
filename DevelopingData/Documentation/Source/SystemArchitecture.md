@@ -10,6 +10,24 @@ TranslateIT.vbs -> EngineData/LauncherApp/RustApp
 
 No other launcher route is approved.
 
+## EngineData ownership
+
+`EngineData` now uses two clear top-level areas:
+
+```text
+EngineData/
+  LauncherApp/      # active app route and approved local AI worker
+  RuntimeAssets/    # local model, Piper, and runtime asset slots
+```
+
+Do not restore the older separated root folders:
+
+```text
+EngineData/TranscriptEngine/
+EngineData/TranslateEngine/
+EngineData/VoiceEngine/
+```
+
 ## RustApp ownership
 
 `EngineData/LauncherApp/RustApp` owns:
@@ -41,15 +59,15 @@ User-visible runtime profiles should remain simple:
 
 Do not expose internal model names as confusing user-facing choices unless needed in diagnostics.
 
-## Model asset folders
+## Runtime asset folders
 
 ```text
-EngineData/TranscriptEngine/ModelData/
-EngineData/TranslateEngine/ModelData/
-EngineData/VoiceEngine/Piper/
+EngineData/RuntimeAssets/ASR/ModelData/
+EngineData/RuntimeAssets/Translation/ModelData/
+EngineData/RuntimeAssets/Voice/Piper/
 ```
 
-These folders are local asset slots. They should not contain committed source code or model binaries. Model binaries stay local and ignored by Git.
+These folders are local asset slots. They should not contain committed source code or model binaries. Model binaries, ONNX voice files, Piper executables, and generated audio stay local and ignored by Git.
 
 ## Development and documentation route
 
@@ -91,6 +109,9 @@ DevelopingData/Docs/
 DevelopingData/LauncherHelpers/
 DevelopingData/SampleData/
 DevelopingData/Tests/
+EngineData/TranscriptEngine/
+EngineData/TranslateEngine/
+EngineData/VoiceEngine/
 ```
 
 ## Validation route
