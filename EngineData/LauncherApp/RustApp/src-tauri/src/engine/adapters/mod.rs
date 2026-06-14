@@ -6,6 +6,7 @@ pub mod calibration_logic;
 pub mod capture_loop_logic;
 pub mod context_logic;
 pub mod frame_pipeline_logic;
+pub mod internal_validation_gate_logic;
 pub mod language_logic;
 pub mod latency_logic;
 pub mod live_asr_boundary_logic;
