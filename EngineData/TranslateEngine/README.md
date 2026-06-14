@@ -1,26 +1,38 @@
 # TranslateEngine
 
+## Status
+
+`TranslateEngine` is no longer a Python source-engine folder.
+
+The active translation orchestration route is:
+
+```text
+EngineData/LauncherApp/Workers/realtime_local_worker.py
+```
+
 ## Purpose
-- Hold local translation logic and future TTS placeholder behavior for TranslateIT.
 
-## Allowed files
-- `README.md`
-- Translation engine modules
-- Translation context modules
-- TTS placeholder modules
-- `ModelData/` for local translation model files required by runtime
+This folder is reserved for local translation model assets and translation-engine documentation.
 
-## Must not be placed here
-- UI view files
-- Audio capture files
-- Documentation files
-- User cache or saved-session exports
-- ASR model files
+## Expected local-only asset slots
 
-## Naming rules
-- Use English only.
-- Keep module names direct and descriptive.
-- Keep this folder focused on translation and optional output support.
+```text
+TranslateEngine/
+  README.md
+  ModelData/
+    marianmt-id-en/
+      config.json
+      ...
+    nllb-200-distilled-600M/
+      config.json
+      ...
+```
 
-## Related documentation path
-- `../../DevelopingData/DocumentationData/SourceDocument/MASTER_PROJECT_DOCUMENTATION.md`
+`ModelData/` is intentionally ignored by Git because local model files can be large.
+
+## Rules
+
+- Do not add Python translation source modules here.
+- Do not add TTS placeholder or voice provider source modules here.
+- Keep translation inference orchestration in `LauncherApp/Workers/` until a native Rust implementation replaces it.
+- Keep model binaries out of Git.
