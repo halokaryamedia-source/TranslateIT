@@ -11,6 +11,20 @@ button:focus-visible, input:focus-visible { outline: 2px solid #d6dbe3; outline-
 .feature-card p, .assistant-card p, .hero-panel > p, .composer-help { overflow: hidden; display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 3; }
 .composer input { min-width: 0; }
 .runtime-sinks { contain: strict; }
+@media (max-width: 1500px) {
+  .app-shell { grid-template-columns: clamp(390px, 30vw, 440px) minmax(0, 1fr); }
+  .workspace { padding-inline: clamp(30px, 3vw, 44px); }
+  .topbar { margin-inline: calc(clamp(30px, 3vw, 44px) * -1); padding-inline: clamp(38px, 4vw, 52px); }
+  .hero-panel { width: min(980px, calc(100vw - clamp(520px, 38vw, 610px))); margin-top: clamp(58px, 6vw, 82px); }
+  .feature-grid { gap: clamp(24px, 2.5vw, 36px); margin-top: clamp(82px, 8vw, 118px); }
+  .composer-wrap { width: min(1120px, calc(100vw - clamp(520px, 38vw, 610px))); }
+}
+@media (max-width: 1280px) {
+  .feature-grid { grid-template-columns: 1fr; }
+  .feature-card { min-height: 190px; }
+  .feature-card::before { margin-bottom: 38px; }
+  .feature-card p { margin-top: 34px; }
+}
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation-duration: .01ms !important; animation-iteration-count: 1 !important; scroll-behavior: auto !important; transition-duration: .01ms !important; }
 }
