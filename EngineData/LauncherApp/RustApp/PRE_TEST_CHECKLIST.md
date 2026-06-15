@@ -13,7 +13,10 @@ Use this checklist before manual testing the desktop launcher.
 - Confirm Recent, Unsaved, Saved, and Local Data navigation opens without layout breakage.
 - Confirm Settings opens on General and Back returns to chat.
 - Confirm Save Settings and Save Default do not expose local paths.
+- Confirm Audio > Microphone check disables while running and updates only the microphone label.
 - Confirm Audio > Mic Test start/stop feedback remains visible.
+- Confirm Translate > Source/Target buttons cycle the language pair without duplicating source and target.
+- Confirm Translate > Swap reverses ID > EN and EN > ID correctly.
 - Confirm Developer > Run Checking disables the button while running and then restores it.
 - Confirm Developer logs do not expose local paths.
 
@@ -22,7 +25,7 @@ Use this checklist before manual testing the desktop launcher.
 - Real translation worker/model execution still needs end-to-end validation.
 - Voice pipeline needs ASR > translation > TTS validation.
 - File attachment backend is not connected yet.
-- Source/target language picker is not a full dropdown yet.
+- Source/target language controls are cycle buttons for now, not a full dropdown list.
 - Build/package validation has not been run from this checklist.
 
 ## Pass Criteria For This Testing Round
