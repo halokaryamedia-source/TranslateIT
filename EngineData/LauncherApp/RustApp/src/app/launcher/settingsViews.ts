@@ -1,6 +1,15 @@
 import { icon } from "../shared/icons";
 import type { RuntimeSettings } from "../shared/types";
 
+function escapeHtml(value: string): string {
+  return value
+    .replaceAll("&", "&amp;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;")
+    .replaceAll('"', "&quot;")
+    .replaceAll("'", "&#39;");
+}
+
 function barWidth(value: string): string {
   return /^\d+%$/.test(value) ? value : "0%";
 }
@@ -15,21 +24,21 @@ function safeMarker(value: number): number {
 }
 
 function pageStart(title: string, description: string, minHeight: number): string {
-  return `<div class="settings-final-page" style="position:relative;height:${minHeight}px;"><section class="settings-final-title"><h2>${title}</h2><p>${description}</p></section>`;
+  return `<div class="settings-final-page" style="position:relative;height:${minHeight}px;"><section class="settings-final-title"><h2>${escapeHtml(title)}</h2><p>${escapeHtml(description)}</p></section>`;
 }
 
 function selectField(id: string | null, label: string, value: string, iconName?: "mic" | "speaker" | "pulse" | "monitor" | "chevron"): string {
   const idAttr = id ? ` id="${id}"` : "";
   const iconColumn = iconName ? `${icon(iconName)}` : "";
   const grid = iconName ? "24px minmax(0,1fr) 20px" : "minmax(0,1fr) 20px";
-  return `<section class="settings-field"><h3>${label}</h3><button${idAttr} class="select-field-v22" type="button" style="width:100%;grid-template-columns:${grid};">${iconColumn}<span>${value}</span>${icon("chevron")}</button></section>`;
+  return `<section class="settings-field"><h3>${escapeHtml(label)}</h3><button${idAttr} class="select-field-v22" type="button" style="width:100%;grid-template-columns:${grid};">${iconColumn}<span>${escapeHtml(value)}</span>${icon("chevron")}</button></section>`;
 }
 
 function radioRow(id: string | null, title: string, description: string, active = false, asButton = false): string {
   const idAttr = id ? ` id="${id}"` : "";
   const tag = asButton ? "button" : "label";
   const typeAttr = asButton ? ' type="button"' : "";
-  return `<${tag}${idAttr}${typeAttr} class="radio-row-v22 ${active ? "active" : ""}" ${asButton ? 'style="width:100%;"' : ""}><span></span><strong>${title}</strong><em>${description}</em></${tag}>`;
+  return `<${tag}${idAttr}${typeAttr} class="radio-row-v22 ${active ? "active" : ""}" ${asButton ? 'style="width:100%;"' : ""}><span></span><strong>${escapeHtml(title)}</strong><em>${escapeHtml(description)}</em></${tag}>`;
 }
 
 function togglePill(active: boolean): string {
@@ -86,9 +95,9 @@ export function translateSettingsView(settings: RuntimeSettings, sourceLabel: st
   const voiceEnabled = settings.audio.auto_play_out_voice;
   return `${pageStart("Translate", "Configure language direction, translation speed, and output behavior.", 1340)}
     <article class="settings-card final-card" style="top:118px;height:190px;">
-      <section class="settings-field" style="position:absolute;left:74px;top:48px;width:500px;"><h3>Source Language</h3><button class="select-field-v22" type="button" style="width:100%;grid-template-columns:minmax(0,1fr) 20px;"><span>${sourceLabel}</span>${icon("chevron")}</button></section>
+      <section class="settings-field" style="position:absolute;left:74px;top:48px;width:500px;"><h3>Source Language</h3><button class="select-field-v22" type="button" style="width:100%;grid-template-columns:minmax(0,1fr) 20px;"><span>${escapeHtml(sourceLabel)}</span>${icon("chevron")}</button></section>
       <button id="swapLanguageButton" type="button" class="settings-swap-button" aria-label="Swap languages">${icon("swap")}</button>
-      <section class="settings-field" style="position:absolute;left:746px;top:48px;width:500px;"><h3>Target Language</h3><button class="select-field-v22" type="button" style="width:100%;grid-template-columns:minmax(0,1fr) 20px;"><span>${targetLabel}</span>${icon("chevron")}</button></section>
+      <section class="settings-field" style="position:absolute;left:746px;top:48px;width:500px;"><h3>Target Language</h3><button class="select-field-v22" type="button" style="width:100%;grid-template-columns:minmax(0,1fr) 20px;"><span>${escapeHtml(targetLabel)}</span>${icon("chevron")}</button></section>
       <button id="saveTranslateButton" type="button" style="display:none;">Save</button>
     </article>
     <section class="settings-section-title" style="top:408px;"><h2>Realtime</h2><p>Choose how TranslateIT balances speed and translation quality.</p></section>
@@ -123,6 +132,10 @@ export function developerSettingsView(args: {
 }): string {
   const progress = progressPercent(args.progress);
   const marker = safeMarker(progress);
+  const cpu = escapeHtml(args.cpu);
+  const gpu = escapeHtml(args.gpu);
+  const ram = escapeHtml(args.ram);
+  const gpuStatus = escapeHtml(args.gpuStatus);
   const cpuWidth = barWidth(args.cpu);
   const gpuWidth = barWidth(args.gpu);
   const ramWidth = barWidth(args.ram);
@@ -135,7 +148,7 @@ export function developerSettingsView(args: {
     <section class="settings-section-title" style="top:132px;"><h2>Monitoring</h2><p>Monitor hardware usage and engine health.</p></section>
     <article class="settings-card final-card" style="top:212px;height:330px;">
       <div class="settings-grid-2">
-        <section class="settings-panel-heading">${icon("monitor")}<div><h3>Hardware Usage</h3><p>Track CPU, GPU, RAM, and local worker resource usage.</p></div><div class="settings-bars"><div><strong>CPU</strong><span style="background:linear-gradient(90deg,#d6dbe3 ${cpuWidth},#4b4f5d ${cpuWidth});"></span><em>${args.cpu}</em></div><div><strong>GPU</strong><span style="background:linear-gradient(90deg,#d6dbe3 ${gpuWidth},#4b4f5d ${gpuWidth});"></span><em>${args.gpu}</em></div><div><strong>RAM</strong><span style="background:linear-gradient(90deg,#d6dbe3 ${ramWidth},#4b4f5d ${ramWidth});"></span><em>${args.ram}</em></div></div></section>
+        <section class="settings-panel-heading">${icon("monitor")}<div><h3>Hardware Usage</h3><p>Track CPU, GPU, RAM, and local worker resource usage.</p></div><div class="settings-bars"><div><strong>CPU</strong><span style="background:linear-gradient(90deg,#d6dbe3 ${cpuWidth},#4b4f5d ${cpuWidth});"></span><em>${cpu}</em></div><div><strong>GPU</strong><span style="background:linear-gradient(90deg,#d6dbe3 ${gpuWidth},#4b4f5d ${gpuWidth});"></span><em>${gpu}</em></div><div><strong>RAM</strong><span style="background:linear-gradient(90deg,#d6dbe3 ${ramWidth},#4b4f5d ${ramWidth});"></span><em>${ram}</em></div></div></section>
         <section class="settings-panel-heading">${icon("pulse")}<div><h3>Health Engine</h3><p>Simple status for Launcher and Engine.</p></div><div class="health-list"><section>${icon("monitor")}<div><strong>Launcher</strong><p>Desktop shell and UI route</p></div><span>Good</span></section><section>${icon("pulse")}<div><strong>Engine</strong><p>Translation, transcript, and worker state</p></div><span>${engineStatus}</span></section></div></section>
       </div>
     </article>
