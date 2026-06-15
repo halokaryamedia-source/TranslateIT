@@ -200,8 +200,10 @@ export class LauncherController {
     this.setAssistantNotice("Saving settings...");
     try {
       const result = await runtimeApi.saveSettings(this.currentSettings ?? defaultSettings());
+      this.currentSettings = await runtimeApi.loadSettings() ?? this.currentSettings;
       this.refreshDirectionPill();
       this.setAssistantNotice(result?.message ?? "Save settings command failed.");
+      this.renderSettingsTab(this.activeSettingsTab);
     } finally {
       this.saveSettingsPending = false;
     }
