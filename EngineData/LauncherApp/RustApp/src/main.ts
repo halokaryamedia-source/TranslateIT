@@ -3,4 +3,8 @@ import "./settingsLayout.css";
 import { LauncherController } from "./app/launcher/launcherController";
 
 const app = document.querySelector<HTMLDivElement>("#app");
-if (app) new LauncherController(app).start();
+if (!app) {
+  throw Error("TranslateIT app root was not found.");
+}
+
+new LauncherController(app).start();
