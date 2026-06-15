@@ -36,6 +36,12 @@ impl RuntimeLogEvent {
 }
 
 pub fn write_jsonl_event(log_dir: &Path, file_name: &str, event: &RuntimeLogEvent) -> io::Result<()> {
+    if !is_safe_log_file_name(file_name) {
+        return Err(io::Error::new(
+            io::ErrorKind::InvalidInput,
+            "Unsafe runtime log file name.",
+        ));
+    }
     fs::create_dir_all(log_dir)?;
     let path = log_dir.join(file_name);
     let line = serde_json::to_string(event)
@@ -86,6 +92,17 @@ fn compact_log_field(value: impl Into<String>, max_chars: usize) -> String {
         output.push('…');
     }
     output
+}
+
+fn is_safe_log_file_name(value: &str) -> bool {
+    !value.is_empty()
+        && value.ends_with(".jsonl")
+        && !value.contains('/')
+        && !value.contains('\\')
+        && !value.contains("..")
+        && value
+            .chars()
+            .all(|character| character.is_ascii_alphanumeric() || matches!(character, '_' | '-' | '.'))
 }
 
 fn current_unix_ms() -> u128 {
