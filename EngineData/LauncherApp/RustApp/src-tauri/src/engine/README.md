@@ -8,6 +8,7 @@ This folder contains Rust-side TranslateIT runtime logic.
 - `config.rs`: engine configuration defaults.
 - `paths.rs`: project and user data path resolution.
 - `settings.rs`: runtime settings load/save model.
+- `hardware.rs`: native CPU/RAM usage sampler and honest GPU usage status.
 
 ## Audio runtime
 - `audio/`: microphone input, capture plan, calibration, VAD, buffering, preprocessing, and live capture runtime.
@@ -18,7 +19,8 @@ This folder contains Rust-side TranslateIT runtime logic.
 - `native_execution.rs` and `native_runners.rs`: native execution planning and runtime candidates.
 
 ## Session/data persistence
-- `session_store.rs`: launcher chat persistence and saved transcript JSON output under `UserData/SavedProject`.
+- `session_chat.rs`: launcher chat persistence under `UserData/SavedProject/Chat`.
+- `session_store.rs`: saved transcript JSON output under `UserData/SavedProject/SavedTranscript`.
 - `transcript.rs` and `transcript_session.rs`: transcript/session planning data.
 - `runtime_state.rs` and `runtime_job.rs`: runtime ownership and job/session state.
 
@@ -27,4 +29,4 @@ This folder contains Rust-side TranslateIT runtime logic.
 - `diagnostics.rs`: runtime diagnostics and CUDA/GPU readiness reporting.
 
 ## Maintenance rule
-Keep engine logic here. Do not put translation, audio, or persistence logic directly inside frontend files or the Tauri `main.rs` command registration file.
+Keep engine logic here. Do not put translation, audio, hardware, or persistence logic directly inside frontend files or the Tauri `main.rs` command registration file.
