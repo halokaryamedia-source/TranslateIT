@@ -45,115 +45,76 @@ use engine::audio::AudioFrame;
 use engine::diagnostics::RuntimeDiagnostics;
 use engine::inference::backend_validation::NativeCudaBackendValidationReport;
 use engine::native_execution::{plan_native_execution, NativeExecutionPlan, NativeExecutionRequest};
+use engine::paths::ProjectPaths;
 use engine::runtime_state::{latest_runtime_handoff_state, latest_runtime_session_state, record_realtime_handoff_report, RuntimeHandoffStateReport, RuntimeSessionStateReport};
+use engine::session_store::{LauncherChatActionResult, LauncherChatSession, LauncherChatSummary};
 use engine::settings::RuntimeSettings;
-use engine::state::{CommandResult, EngineStatus};
+use engine::state::{CommandResult, EngineStatus, LifecycleState};
 use engine::transcript_session::{plan_transcript_session_paths, TranscriptSessionPlanReport, TranscriptSessionPlanRequest, TranscriptSessionRecord};
+use std::path::PathBuf;
 
 #[tauri::command]
-fn get_engine_status() -> EngineStatus {
-    engine::current_status()
-}
+fn get_engine_status() -> EngineStatus { engine::current_status() }
 
 #[tauri::command]
-fn get_runtime_diagnostics() -> RuntimeDiagnostics {
-    engine::runtime_diagnostics()
-}
+fn get_runtime_diagnostics() -> RuntimeDiagnostics { engine::runtime_diagnostics() }
 
 #[tauri::command]
-fn get_runtime_handoff_state() -> RuntimeHandoffStateReport {
-    latest_runtime_handoff_state()
-}
+fn get_runtime_handoff_state() -> RuntimeHandoffStateReport { latest_runtime_handoff_state() }
 
 #[tauri::command]
-fn get_runtime_session_state() -> RuntimeSessionStateReport {
-    latest_runtime_session_state()
-}
+fn get_runtime_session_state() -> RuntimeSessionStateReport { latest_runtime_session_state() }
 
 #[tauri::command]
-fn analyze_start_gate() -> RuntimeLifecycleGateReport {
-    analyze_start_lifecycle_gate()
-}
+fn analyze_start_gate() -> RuntimeLifecycleGateReport { analyze_start_lifecycle_gate() }
 
 #[tauri::command]
-fn analyze_stop_gate() -> RuntimeLifecycleGateReport {
-    analyze_stop_lifecycle_gate()
-}
+fn analyze_stop_gate() -> RuntimeLifecycleGateReport { analyze_stop_lifecycle_gate() }
 
 #[tauri::command]
-fn analyze_runtime_readiness() -> RuntimeReadinessBundleReport {
-    analyze_runtime_readiness_bundle()
-}
+fn analyze_runtime_readiness() -> RuntimeReadinessBundleReport { analyze_runtime_readiness_bundle() }
 
 #[tauri::command]
-fn get_runtime_status_bundle() -> RuntimeStatusBundleReport {
-    build_runtime_status_bundle()
-}
+fn get_runtime_status_bundle() -> RuntimeStatusBundleReport { build_runtime_status_bundle() }
 
 #[tauri::command]
-fn analyze_live_pipeline_gate() -> LiveRuntimePipelineGateReport {
-    analyze_live_runtime_pipeline_gate()
-}
+fn analyze_live_pipeline_gate() -> LiveRuntimePipelineGateReport { analyze_live_runtime_pipeline_gate() }
 
 #[tauri::command]
-fn get_live_pipeline_compact_status() -> LivePipelineCompactStatusReport {
-    build_live_pipeline_compact_status()
-}
+fn get_live_pipeline_compact_status() -> LivePipelineCompactStatusReport { build_live_pipeline_compact_status() }
 
 #[tauri::command]
-fn analyze_internal_validation() -> InternalValidationGateReport {
-    analyze_internal_validation_gate()
-}
+fn analyze_internal_validation() -> InternalValidationGateReport { analyze_internal_validation_gate() }
 
 #[tauri::command]
-fn analyze_migration_closure(request: MigrationClosureGateRequest) -> MigrationClosureGateReport {
-    analyze_migration_closure_gate(request)
-}
+fn analyze_migration_closure(request: MigrationClosureGateRequest) -> MigrationClosureGateReport { analyze_migration_closure_gate(request) }
 
 #[tauri::command]
-fn probe_native_input_config() -> NativeInputConfigProbeReport {
-    NativeInputConfigProbeReport::probe_default_input()
-}
+fn probe_native_input_config() -> NativeInputConfigProbeReport { NativeInputConfigProbeReport::probe_default_input() }
 
 #[tauri::command]
-fn plan_native_capture_stream_state(request: NativeCaptureStreamPlanRequest) -> NativeCaptureStreamPlanReport {
-    plan_native_capture_stream(request)
-}
+fn plan_native_capture_stream_state(request: NativeCaptureStreamPlanRequest) -> NativeCaptureStreamPlanReport { plan_native_capture_stream(request) }
 
 #[tauri::command]
-fn plan_native_capture_stream_build_state(request: NativeCaptureStreamBuildRequest) -> NativeCaptureStreamBuildReport {
-    plan_native_capture_stream_build(request)
-}
+fn plan_native_capture_stream_build_state(request: NativeCaptureStreamBuildRequest) -> NativeCaptureStreamBuildReport { plan_native_capture_stream_build(request) }
 
 #[tauri::command]
-fn analyze_native_capture_bridge_state(request: NativeCaptureBridgeRequest) -> NativeCaptureBridgeReport {
-    analyze_native_capture_bridge(request, latest_runtime_session_state())
-}
+fn analyze_native_capture_bridge_state(request: NativeCaptureBridgeRequest) -> NativeCaptureBridgeReport { analyze_native_capture_bridge(request, latest_runtime_session_state()) }
 
 #[tauri::command]
-fn get_input_status() -> InputPreparationStatus {
-    InputPreparationStatus::inspect_default_input()
-}
+fn get_input_status() -> InputPreparationStatus { InputPreparationStatus::inspect_default_input() }
 
 #[tauri::command]
-fn get_audio_buffer_status() -> AudioBufferStatus {
-    planned_buffer_status()
-}
+fn get_audio_buffer_status() -> AudioBufferStatus { planned_buffer_status() }
 
 #[tauri::command]
-fn get_live_capture_status() -> LiveCaptureStatusReport {
-    engine::live_capture_runtime_status()
-}
+fn get_live_capture_status() -> LiveCaptureStatusReport { engine::live_capture_runtime_status() }
 
 #[tauri::command]
-fn analyze_capture_loop_contract() -> CaptureLoopContractReport {
-    build_capture_loop_contract()
-}
+fn analyze_capture_loop_contract() -> CaptureLoopContractReport { build_capture_loop_contract() }
 
 #[tauri::command]
-fn analyze_stream_ownership_plan(request: StreamOwnershipRequest) -> StreamOwnershipReport {
-    analyze_stream_ownership(request)
-}
+fn analyze_stream_ownership_plan(request: StreamOwnershipRequest) -> StreamOwnershipReport { analyze_stream_ownership(request) }
 
 #[tauri::command]
 fn analyze_realtime_handoff_plan(request: RealtimeHandoffRequest) -> RealtimeHandoffReport {
@@ -163,188 +124,131 @@ fn analyze_realtime_handoff_plan(request: RealtimeHandoffRequest) -> RealtimeHan
 }
 
 #[tauri::command]
-fn analyze_frame_pipeline_state(request: FramePipelineRequest) -> FramePipelineReport {
-    analyze_frame_pipeline(request)
+fn analyze_frame_pipeline_state(request: FramePipelineRequest) -> FramePipelineReport { analyze_frame_pipeline(request) }
+
+#[tauri::command]
+fn analyze_audio_payload(frame: AudioFrame) -> AudioFrameInspectionReport { inspect_frame(frame) }
+
+#[tauri::command]
+fn preprocess_audio_payload(request: AudioPreprocessRequest) -> PreprocessingResult { preprocess_audio(request) }
+
+#[tauri::command]
+fn classify_audio_noise(request: NoiseAssessmentRequest) -> AudioNoiseAssessment { classify_noise(request) }
+
+#[tauri::command]
+fn run_mic_calibration_logic(request: CalibrationLogicRequest) -> CalibrationLogicResult { run_calibration_logic(request) }
+
+#[tauri::command]
+fn analyze_vad_segment(request: VadSegmentDecisionRequest) -> VadDecisionReport { evaluate_segment_decision(request) }
+
+#[tauri::command]
+fn plan_asr_profile(request: AsrProfileRequest) -> AsrProfilePlan { build_asr_profile_plan(request) }
+
+#[tauri::command]
+fn analyze_asr_quality(request: AsrQualityLogicRequest) -> AsrQualityLogicDecision { evaluate_asr_quality(request) }
+
+#[tauri::command]
+fn analyze_language_logic(request: LanguageLogicRequest) -> LanguageLogicReport { run_language_logic(request) }
+
+#[tauri::command]
+fn analyze_latency_logic(request: LatencyLogicRequest) -> LatencyLogicReport { build_latency_logic(request) }
+
+#[tauri::command]
+fn update_context_window(request: TranslationContextRequest) -> TranslationContextReport { update_translation_context(request) }
+
+#[tauri::command]
+fn analyze_session_metrics(request: SessionMetricRequest) -> SessionMetricReport { build_session_metric_report(request) }
+
+#[tauri::command]
+fn analyze_worker_health(request: WorkerHealthRequest) -> WorkerHealthReport { build_worker_health(request) }
+
+#[tauri::command]
+fn decide_pipeline_step(request: PipelineDecisionRequest) -> PipelineDecisionReport { decide_pipeline(request) }
+
+#[tauri::command]
+fn check_stale_job_guard(request: StaleJobGuardRequest) -> StaleJobGuardReport { check_stale_job(request) }
+
+#[tauri::command]
+fn plan_translation_logic(request: TranslationLogicRequest) -> TranslationLogicResult { run_translation_logic(request) }
+
+#[tauri::command]
+fn plan_playback_logic(request: PlaybackLogicRequest) -> PlaybackLogicResult { plan_playback(request) }
+
+#[tauri::command]
+fn run_runtime_plan(request: RuntimeOrchestrationRequest) -> RuntimeOrchestrationReport { run_runtime_orchestration(request) }
+
+#[tauri::command]
+fn plan_native_execution_step(request: NativeExecutionRequest) -> NativeExecutionPlan { plan_native_execution(request) }
+
+#[tauri::command]
+fn analyze_native_execution_bridge(request: NativeExecutionBridgeRequest) -> NativeExecutionBridgeReport { build_native_execution_bridge(request) }
+
+#[tauri::command]
+fn analyze_segment_flow_state(request: SegmentFlowRequest) -> SegmentFlowReport { analyze_segment_flow(request) }
+
+#[tauri::command]
+fn analyze_transcript_session_state(session: TranscriptSessionRecord) -> TranscriptSessionReadinessReport { analyze_transcript_session_readiness(session) }
+
+#[tauri::command]
+fn analyze_transcript_session_save_plan(request: TranscriptSessionPlanRequest) -> TranscriptSessionPlanReport { plan_transcript_session_paths(request) }
+
+#[tauri::command]
+fn resolve_vad_profile(request: VadProfileRequest) -> VadProfileReport { build_vad_profile(request) }
+
+#[tauri::command]
+fn get_calibration_flow_status() -> CalibrationFlowStatus { CalibrationFlowStatus::current() }
+
+#[tauri::command]
+fn save_calibration_profile(input_device_id: Option<String>, quiet: AudioEvidenceReport, speech: AudioEvidenceReport) -> CalibrationSaveResult { save_calibration_from_evidence(input_device_id, quiet, speech) }
+
+#[tauri::command]
+fn validate_native_cuda_backend() -> NativeCudaBackendValidationReport { NativeCudaBackendValidationReport::validate_ctranslate2_cuda_candidate() }
+
+#[tauri::command]
+fn run_asr_dry_run(request: AsrDryRunRequest) -> AsrDryRunResult { run_asr_dry_check(request) }
+
+#[tauri::command]
+fn run_text_dry_run(request: TextDryRunRequest) -> TextDryRunResult { run_text_dry_check(request) }
+
+#[tauri::command]
+fn check_output_plan(request: OutputDryRunRequest) -> OutputDryRunResult { run_output_dry_check(request) }
+
+#[tauri::command]
+fn check_model_plan(request: ModelCheckRequest) -> ModelCheckResult { check_model_request(request) }
+
+#[tauri::command]
+fn load_runtime_settings() -> RuntimeSettings { engine::load_settings() }
+
+#[tauri::command]
+fn save_default_runtime_settings() -> CommandResult { engine::save_default_settings() }
+
+#[tauri::command]
+fn save_runtime_settings(settings: RuntimeSettings) -> CommandResult {
+    let project_paths = ProjectPaths::discover();
+    let settings_path = PathBuf::from(project_paths.user_cache_dir).join("rust_runtime_settings.json");
+    match settings.save_pretty(&settings_path) {
+        Ok(()) => CommandResult::ok(LifecycleState::Idle, format!("Runtime settings saved to {}", settings_path.to_string_lossy())),
+        Err(error) => CommandResult::blocked(LifecycleState::Error, format!("Failed to save runtime settings: {error}")),
+    }
 }
 
 #[tauri::command]
-fn analyze_audio_payload(frame: AudioFrame) -> AudioFrameInspectionReport {
-    inspect_frame(frame)
-}
+fn create_chat_session(kind: String) -> LauncherChatSession { engine::session_store::create_launcher_chat(kind) }
 
 #[tauri::command]
-fn preprocess_audio_payload(request: AudioPreprocessRequest) -> PreprocessingResult {
-    preprocess_audio(request)
-}
+fn list_chat_sessions(kind: Option<String>) -> Vec<LauncherChatSummary> { engine::session_store::list_launcher_chats(kind) }
 
 #[tauri::command]
-fn classify_audio_noise(request: NoiseAssessmentRequest) -> AudioNoiseAssessment {
-    classify_noise(request)
-}
+fn append_chat_message(session_id: String, role: String, content: String) -> LauncherChatActionResult { engine::session_store::append_launcher_chat_message(session_id, role, content) }
 
 #[tauri::command]
-fn run_mic_calibration_logic(request: CalibrationLogicRequest) -> CalibrationLogicResult {
-    run_calibration_logic(request)
-}
+fn start_capture() -> CommandResult { engine::start_capture() }
 
 #[tauri::command]
-fn analyze_vad_segment(request: VadSegmentDecisionRequest) -> VadDecisionReport {
-    evaluate_segment_decision(request)
-}
+fn stop_capture() -> CommandResult { engine::stop_capture() }
 
 #[tauri::command]
-fn plan_asr_profile(request: AsrProfileRequest) -> AsrProfilePlan {
-    build_asr_profile_plan(request)
-}
-
-#[tauri::command]
-fn analyze_asr_quality(request: AsrQualityLogicRequest) -> AsrQualityLogicDecision {
-    evaluate_asr_quality(request)
-}
-
-#[tauri::command]
-fn analyze_language_logic(request: LanguageLogicRequest) -> LanguageLogicReport {
-    run_language_logic(request)
-}
-
-#[tauri::command]
-fn analyze_latency_logic(request: LatencyLogicRequest) -> LatencyLogicReport {
-    build_latency_logic(request)
-}
-
-#[tauri::command]
-fn update_context_window(request: TranslationContextRequest) -> TranslationContextReport {
-    update_translation_context(request)
-}
-
-#[tauri::command]
-fn analyze_session_metrics(request: SessionMetricRequest) -> SessionMetricReport {
-    build_session_metric_report(request)
-}
-
-#[tauri::command]
-fn analyze_worker_health(request: WorkerHealthRequest) -> WorkerHealthReport {
-    build_worker_health(request)
-}
-
-#[tauri::command]
-fn decide_pipeline_step(request: PipelineDecisionRequest) -> PipelineDecisionReport {
-    decide_pipeline(request)
-}
-
-#[tauri::command]
-fn check_stale_job_guard(request: StaleJobGuardRequest) -> StaleJobGuardReport {
-    check_stale_job(request)
-}
-
-#[tauri::command]
-fn plan_translation_logic(request: TranslationLogicRequest) -> TranslationLogicResult {
-    run_translation_logic(request)
-}
-
-#[tauri::command]
-fn plan_playback_logic(request: PlaybackLogicRequest) -> PlaybackLogicResult {
-    plan_playback(request)
-}
-
-#[tauri::command]
-fn run_runtime_plan(request: RuntimeOrchestrationRequest) -> RuntimeOrchestrationReport {
-    run_runtime_orchestration(request)
-}
-
-#[tauri::command]
-fn plan_native_execution_step(request: NativeExecutionRequest) -> NativeExecutionPlan {
-    plan_native_execution(request)
-}
-
-#[tauri::command]
-fn analyze_native_execution_bridge(request: NativeExecutionBridgeRequest) -> NativeExecutionBridgeReport {
-    build_native_execution_bridge(request)
-}
-
-#[tauri::command]
-fn analyze_segment_flow_state(request: SegmentFlowRequest) -> SegmentFlowReport {
-    analyze_segment_flow(request)
-}
-
-#[tauri::command]
-fn analyze_transcript_session_state(session: TranscriptSessionRecord) -> TranscriptSessionReadinessReport {
-    analyze_transcript_session_readiness(session)
-}
-
-#[tauri::command]
-fn analyze_transcript_session_save_plan(request: TranscriptSessionPlanRequest) -> TranscriptSessionPlanReport {
-    plan_transcript_session_paths(request)
-}
-
-#[tauri::command]
-fn resolve_vad_profile(request: VadProfileRequest) -> VadProfileReport {
-    build_vad_profile(request)
-}
-
-#[tauri::command]
-fn get_calibration_flow_status() -> CalibrationFlowStatus {
-    CalibrationFlowStatus::current()
-}
-
-#[tauri::command]
-fn save_calibration_profile(
-    input_device_id: Option<String>,
-    quiet: AudioEvidenceReport,
-    speech: AudioEvidenceReport,
-) -> CalibrationSaveResult {
-    save_calibration_from_evidence(input_device_id, quiet, speech)
-}
-
-#[tauri::command]
-fn validate_native_cuda_backend() -> NativeCudaBackendValidationReport {
-    NativeCudaBackendValidationReport::validate_ctranslate2_cuda_candidate()
-}
-
-#[tauri::command]
-fn run_asr_dry_run(request: AsrDryRunRequest) -> AsrDryRunResult {
-    run_asr_dry_check(request)
-}
-
-#[tauri::command]
-fn run_text_dry_run(request: TextDryRunRequest) -> TextDryRunResult {
-    run_text_dry_check(request)
-}
-
-#[tauri::command]
-fn check_output_plan(request: OutputDryRunRequest) -> OutputDryRunResult {
-    run_output_dry_check(request)
-}
-
-#[tauri::command]
-fn check_model_plan(request: ModelCheckRequest) -> ModelCheckResult {
-    check_model_request(request)
-}
-
-#[tauri::command]
-fn load_runtime_settings() -> RuntimeSettings {
-    engine::load_settings()
-}
-
-#[tauri::command]
-fn save_default_runtime_settings() -> CommandResult {
-    engine::save_default_settings()
-}
-
-#[tauri::command]
-fn start_capture() -> CommandResult {
-    engine::start_capture()
-}
-
-#[tauri::command]
-fn stop_capture() -> CommandResult {
-    engine::stop_capture()
-}
-
-#[tauri::command]
-fn translate_text(source: String) -> CommandResult {
-    engine::translate_text(source)
-}
+fn translate_text(source: String) -> CommandResult { engine::translate_text(source) }
 
 fn main() {
     let app = tauri::Builder::default().invoke_handler(tauri::generate_handler![
@@ -403,6 +307,10 @@ fn main() {
         check_model_plan,
         load_runtime_settings,
         save_default_runtime_settings,
+        save_runtime_settings,
+        create_chat_session,
+        list_chat_sessions,
+        append_chat_message,
         start_capture,
         stop_capture,
         translate_text,
