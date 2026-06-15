@@ -136,6 +136,7 @@ export function developerSettingsView(args: {
   const gpu = escapeHtml(args.gpu);
   const ram = escapeHtml(args.ram);
   const gpuStatus = escapeHtml(args.gpuStatus);
+  const note = escapeHtml(args.note);
   const cpuWidth = barWidth(args.cpu);
   const gpuWidth = barWidth(args.gpu);
   const ramWidth = barWidth(args.ram);
@@ -148,14 +149,14 @@ export function developerSettingsView(args: {
     <section class="settings-section-title" style="top:132px;"><h2>Monitoring</h2><p>Monitor hardware usage and engine health.</p></section>
     <article class="settings-card final-card" style="top:212px;height:330px;">
       <div class="settings-grid-2">
-        <section class="settings-panel-heading">${icon("monitor")}<div><h3>Hardware Usage</h3><p>Track CPU, GPU, RAM, and local worker resource usage.</p></div><div class="settings-bars"><div><strong>CPU</strong><span style="background:linear-gradient(90deg,#d6dbe3 ${cpuWidth},#4b4f5d ${cpuWidth});"></span><em>${cpu}</em></div><div><strong>GPU</strong><span style="background:linear-gradient(90deg,#d6dbe3 ${gpuWidth},#4b4f5d ${gpuWidth});"></span><em>${gpu}</em></div><div><strong>RAM</strong><span style="background:linear-gradient(90deg,#d6dbe3 ${ramWidth},#4b4f5d ${ramWidth});"></span><em>${ram}</em></div></div></section>
+        <section class="settings-panel-heading">${icon("monitor")}<div><h3>Hardware Usage</h3><p>${gpuStatus}</p></div><div class="settings-bars"><div><strong>CPU</strong><span style="background:linear-gradient(90deg,#d6dbe3 ${cpuWidth},#4b4f5d ${cpuWidth});"></span><em>${cpu}</em></div><div><strong>GPU</strong><span style="background:linear-gradient(90deg,#d6dbe3 ${gpuWidth},#4b4f5d ${gpuWidth});"></span><em>${gpu}</em></div><div><strong>RAM</strong><span style="background:linear-gradient(90deg,#d6dbe3 ${ramWidth},#4b4f5d ${ramWidth});"></span><em>${ram}</em></div></div></section>
         <section class="settings-panel-heading">${icon("pulse")}<div><h3>Health Engine</h3><p>Simple status for Launcher and Engine.</p></div><div class="health-list"><section>${icon("monitor")}<div><strong>Launcher</strong><p>Desktop shell and UI route</p></div><span>Good</span></section><section>${icon("pulse")}<div><strong>Engine</strong><p>Translation, transcript, and worker state</p></div><span>${engineStatus}</span></section></div></section>
       </div>
     </article>
     <section class="settings-section-title" style="top:626px;"><h2>Diagnostic</h2><p>Run checking, show current progress, and review diagnostic logs in one table.</p></section>
     <article class="settings-card final-card" style="top:706px;height:622px;">
       <section class="diagnostic-head">${icon("check")}<div><h3>Run Diagnostic</h3><p>Check launcher, audio device, translation engine, transcript, and local worker.</p></div><button id="runDiagnosticButton" type="button">Run Checking</button></section>
-      <section class="diagnostic-progress"><div><strong>Checking translation engine</strong><span>Running</span></div><p>Phase: Transcript worker</p><div class="progress-line"><i></i><b style="width:${progress}%;"></b><em style="left:calc(${marker}% - 5px);"></em><strong style="left:calc(${marker}% - 28px);">${progress}%</strong></div></section>
+      <section class="diagnostic-progress"><div><strong>Checking translation engine</strong><span>Running</span></div><p>${note}</p><div class="progress-line"><i></i><b style="width:${progress}%;"></b><em style="left:calc(${marker}% - 5px);"></em><strong style="left:calc(${marker}% - 28px);">${progress}%</strong></div></section>
       <div class="diagnostic-divider"></div>
       <section class="diagnostic-log-title">${icon("logs")}<div><h3>Log Diagnostic</h3><p>Showing the latest 3 diagnostic logs.</p></div></section>
       <section class="diagnostic-log-panel" style="height:${logHeight}px;overflow:${logOverflow};"><header><span><i></i><i></i><i></i></span><strong>developer-log/latest</strong><button id="seeAllLogsButton" type="button">${icon("maximize")}<span>${args.logsExpanded ? "Show Less" : "See All Logs"}</span></button></header><div class="developer-log-body">${styledLogRows}</div></section>
