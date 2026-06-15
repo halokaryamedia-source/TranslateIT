@@ -25,13 +25,13 @@ export function mountAppShell(app: HTMLElement): void {
           <button id="localDataButton" class="nav-item" type="button">${icon("shield")}<span>Local Data</span>${icon("chevron")}</button>
         </nav>
         <section class="account-card">
-          <div class="avatar">HK</div><div class="account-text"><strong>Marcel Berc...</strong><span id="userPresence">Invisible</span></div>
+          <div class="avatar">HK</div><div class="account-text"><strong>Halo Karya</strong><span id="userPresence">Checking</span></div>
           <div class="account-actions">
-            <button id="quickMicButton" class="footer-icon danger" type="button">${icon("micOff")}</button>
-            <button id="micOptionsButton" class="footer-dropdown danger" type="button">${icon("chevron")}</button>
-            <button id="voiceOutputButton" class="footer-icon danger" type="button">${icon("headphonesOff")}</button>
-            <button id="voiceOptionsButton" class="footer-dropdown danger" type="button">${icon("chevron")}</button>
-            <button id="settingsButton" class="footer-icon settings-action" type="button">${icon("settings")}</button>
+            <button id="quickMicButton" class="footer-icon" type="button" aria-label="Toggle microphone">${icon("micOff")}</button>
+            <button id="micOptionsButton" class="footer-dropdown" type="button" aria-label="Open microphone settings">${icon("chevron")}</button>
+            <button id="voiceOutputButton" class="footer-icon" type="button" aria-label="Toggle voice output">${icon("headphonesOff")}</button>
+            <button id="voiceOptionsButton" class="footer-dropdown" type="button" aria-label="Open voice settings">${icon("chevron")}</button>
+            <button id="settingsButton" class="footer-icon settings-action" type="button" aria-label="Open settings">${icon("settings")}</button>
           </div>
         </section>
       </aside>
@@ -44,7 +44,7 @@ export function mountAppShell(app: HTMLElement): void {
           <div id="chatList" class="feature-grid"></div>
           <article class="assistant-card"><div class="mini-brand">T</div><div><strong>TranslateIT</strong><p id="assistantMessage">Startup warmup completed. Local runtime status is being checked.</p></div></article>
         </section>
-        <section class="composer-wrap"><div class="composer"><button id="composerPlusButton" class="composer-icon" type="button">${icon("plus")}</button><input id="messageInput" type="text" placeholder="Ask anything..." autocomplete="off" /><button id="microphoneButton" class="composer-icon emphasis" type="button">${icon("mic")}</button><button id="sendButton" class="send-button" type="button">${icon("arrowUp")}</button></div><p class="composer-help">Type a message, or press the microphone button on the right to record speech locally.</p></section>
+        <section class="composer-wrap"><div class="composer"><button id="composerPlusButton" class="composer-icon" type="button" aria-label="Attachment placeholder">${icon("plus")}</button><input id="messageInput" type="text" placeholder="Type Indonesian text to translate..." autocomplete="off" /><button id="microphoneButton" class="composer-icon emphasis" type="button" aria-label="Start voice recording">${icon("mic")}</button><button id="sendButton" class="send-button" type="button" aria-label="Send text">${icon("arrowUp")}</button></div><p class="composer-help">Type a message, or press the microphone button on the right to record speech locally.</p></section>
       </section>
       <section id="settingsPage" class="settings-page is-hidden">
         <aside class="settings-sidebar"><h2>Settings</h2><nav class="settings-nav-v22"><button class="settings-nav-item active" data-settings-tab="general" type="button">${icon("sliders")}<span>General</span></button><button class="settings-nav-item" data-settings-tab="audio" type="button">${icon("speaker")}<span>Audio</span></button><button class="settings-nav-item" data-settings-tab="translate" type="button">${icon("translate")}<span>Translate</span></button><button class="settings-nav-item" data-settings-tab="developer" type="button">${icon("code")}<span>Developer</span></button></nav></aside>
