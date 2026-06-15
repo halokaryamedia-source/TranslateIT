@@ -33,6 +33,7 @@ export class LauncherController {
   private recordingTogglePending = false;
   private saveSettingsPending = false;
   private diagnosticPending = false;
+  private audioCheckPending = false;
 
   constructor(root: HTMLElement) {
     mountAppShell(root);
@@ -227,10 +228,22 @@ export class LauncherController {
   }
 
   private async checkAudioInput(): Promise<void> {
-    const status = await runtimeApi.getInputStatus();
-    const label = document.getElementById("audioInputLabel");
-    if (label) label.textContent = status?.selected_device_name ?? "Default microphone";
-    this.setAssistantNotice(status?.note ?? status?.blocker ?? "Audio input status checked.");
+    if (this.audioCheckPending) {
+      this.setAssistantNotice("Audio input check is already running. Please wait.");
+      return;
+    }
+    this.audioCheckPending = true;
+    const button = document.getElementById("checkAudioInputButton") as HTMLButtonElement | null;
+    if (button) button.disabled = true;
+    try {
+      const status = await runtimeApi.getInputStatus();
+      const label = document.getElementById("audioInputLabel");
+      if (label) label.textContent = status?.selected_device_name ?? "Default microphone";
+      this.setAssistantNotice(status?.note ?? status?.blocker ?? "Audio input status checked.");
+    } finally {
+      this.audioCheckPending = false;
+      if (button) button.disabled = false;
+    }
   }
 
   private async saveCurrentSettings(): Promise<void> {
