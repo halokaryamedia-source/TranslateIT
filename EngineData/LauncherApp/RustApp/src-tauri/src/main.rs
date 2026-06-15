@@ -51,13 +51,58 @@ use engine::session_store::{LauncherChatActionResult, LauncherChatSession, Launc
 use engine::settings::RuntimeSettings;
 use engine::state::{CommandResult, EngineStatus, LifecycleState};
 use engine::transcript_session::{plan_transcript_session_paths, TranscriptSessionPlanReport, TranscriptSessionPlanRequest, TranscriptSessionRecord};
+use serde::Serialize;
 use std::path::PathBuf;
+use sysinfo::System;
+
+#[derive(Debug, Clone, Serialize)]
+struct HardwareMetric {
+    label: String,
+    percent: Option<f32>,
+    status: String,
+    detail: String,
+}
+
+#[derive(Debug, Clone, Serialize)]
+struct HardwareUsageReport {
+    cpu: HardwareMetric,
+    ram: HardwareMetric,
+    gpu: HardwareMetric,
+    note: String,
+}
+
+fn metric(label: &str, percent: Option<f32>, status: &str, detail: &str) -> HardwareMetric {
+    HardwareMetric {
+        label: label.to_string(),
+        percent: percent.map(|value| value.clamp(0.0, 100.0)),
+        status: status.to_string(),
+        detail: detail.to_string(),
+    }
+}
 
 #[tauri::command]
 fn get_engine_status() -> EngineStatus { engine::current_status() }
 
 #[tauri::command]
 fn get_runtime_diagnostics() -> RuntimeDiagnostics { engine::runtime_diagnostics() }
+
+#[tauri::command]
+fn get_hardware_usage() -> HardwareUsageReport {
+    let mut system = System::new_all();
+    system.refresh_all();
+    let total_memory = system.total_memory();
+    let ram_percent = if total_memory > 0 {
+        Some((system.used_memory() as f32 / total_memory as f32) * 100.0)
+    } else {
+        None
+    };
+    HardwareUsageReport {
+        cpu: metric("CPU", Some(system.global_cpu_info().cpu_usage()), "Connected", "Native sysinfo CPU sampler."),
+        ram: metric("RAM", ram_percent, "Connected", "Native sysinfo RAM sampler."),
+        gpu: metric("GPU", None, "Unavailable", "GPU usage percent is not guessed. CUDA/GPU readiness remains available in runtime diagnostics."),
+        note: "CPU and RAM are sampled natively. GPU percent requires a dedicated native GPU sampler and is intentionally not faked.".to_string(),
+    }
+}
 
 #[tauri::command]
 fn get_runtime_handoff_state() -> RuntimeHandoffStateReport { latest_runtime_handoff_state() }
@@ -117,11 +162,7 @@ fn analyze_capture_loop_contract() -> CaptureLoopContractReport { build_capture_
 fn analyze_stream_ownership_plan(request: StreamOwnershipRequest) -> StreamOwnershipReport { analyze_stream_ownership(request) }
 
 #[tauri::command]
-fn analyze_realtime_handoff_plan(request: RealtimeHandoffRequest) -> RealtimeHandoffReport {
-    let report = analyze_realtime_handoff(request);
-    let _ = record_realtime_handoff_report(&report);
-    report
-}
+fn analyze_realtime_handoff_plan(request: RealtimeHandoffRequest) -> RealtimeHandoffReport { let report = analyze_realtime_handoff(request); let _ = record_realtime_handoff_report(&report); report }
 
 #[tauri::command]
 fn analyze_frame_pipeline_state(request: FramePipelineRequest) -> FramePipelineReport { analyze_frame_pipeline(request) }
@@ -223,14 +264,7 @@ fn load_runtime_settings() -> RuntimeSettings { engine::load_settings() }
 fn save_default_runtime_settings() -> CommandResult { engine::save_default_settings() }
 
 #[tauri::command]
-fn save_runtime_settings(settings: RuntimeSettings) -> CommandResult {
-    let project_paths = ProjectPaths::discover();
-    let settings_path = PathBuf::from(project_paths.user_cache_dir).join("rust_runtime_settings.json");
-    match settings.save_pretty(&settings_path) {
-        Ok(()) => CommandResult::ok(LifecycleState::Idle, format!("Runtime settings saved to {}", settings_path.to_string_lossy())),
-        Err(error) => CommandResult::blocked(LifecycleState::Error, format!("Failed to save runtime settings: {error}")),
-    }
-}
+fn save_runtime_settings(settings: RuntimeSettings) -> CommandResult { let project_paths = ProjectPaths::discover(); let settings_path = PathBuf::from(project_paths.user_cache_dir).join("rust_runtime_settings.json"); match settings.save_pretty(&settings_path) { Ok(()) => CommandResult::ok(LifecycleState::Idle, format!("Runtime settings saved to {}", settings_path.to_string_lossy())), Err(error) => CommandResult::blocked(LifecycleState::Error, format!("Failed to save runtime settings: {error}")), } }
 
 #[tauri::command]
 fn create_chat_session(kind: String) -> LauncherChatSession { engine::session_store::create_launcher_chat(kind) }
@@ -254,6 +288,7 @@ fn main() {
     let app = tauri::Builder::default().invoke_handler(tauri::generate_handler![
         get_engine_status,
         get_runtime_diagnostics,
+        get_hardware_usage,
         get_runtime_handoff_state,
         get_runtime_session_state,
         analyze_start_gate,
