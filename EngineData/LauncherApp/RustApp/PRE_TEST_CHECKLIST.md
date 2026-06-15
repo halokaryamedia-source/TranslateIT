@@ -1,0 +1,34 @@
+# TranslateIT Pre-Test Checklist
+
+Use this checklist before manual testing the desktop launcher.
+
+## Must Check First
+
+- Open the desktop app from the Tauri launcher, not from a browser.
+- Confirm the warmup screen finishes and enters the main chat UI.
+- Confirm Enter sends text once only.
+- Confirm the send button and composer are disabled while text translation is processing.
+- Confirm long text above 2,000 characters is blocked in the UI.
+- Confirm New Chat creates a local unsaved session.
+- Confirm Recent, Unsaved, Saved, and Local Data navigation opens without layout breakage.
+- Confirm Settings opens on General and Back returns to chat.
+- Confirm Save Settings and Save Default do not expose local paths.
+- Confirm Audio > Mic Test start/stop feedback remains visible.
+- Confirm Developer > Run Checking disables the button while running and then restores it.
+- Confirm Developer logs do not expose local paths.
+
+## Known Gaps Before Full Production
+
+- Real translation worker/model execution still needs end-to-end validation.
+- Voice pipeline needs ASR > translation > TTS validation.
+- File attachment backend is not connected yet.
+- Source/target language picker is not a full dropdown yet.
+- Build/package validation has not been run from this checklist.
+
+## Pass Criteria For This Testing Round
+
+- UI opens cleanly.
+- Chat input is stable.
+- Settings pages render without broken layout.
+- Runtime status and diagnostic panels do not show unsafe or stale-looking data.
+- Any backend limitation is shown honestly as not connected, not as a fake success.
