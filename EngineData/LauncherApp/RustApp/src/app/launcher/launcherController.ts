@@ -84,7 +84,7 @@ export class LauncherController {
     this.ui.realtimeStatus.textContent = worker ? this.modelReadyText(worker.asr_model_ready && worker.realtime_translation_model_ready && worker.tts_default_ready) : "Checking";
     this.ui.qualityStatus.textContent = worker ? this.modelReadyText(worker.asr_model_ready && worker.quality_translation_model_ready && worker.tts_default_ready) : "Checking";
     this.ui.gpuStatus.textContent = diagnostics?.cuda_probe.cuda_runtime_ready ? "CUDA ready" : diagnostics?.cuda_probe.gpu_summary ? "GPU detected" : "CPU fallback";
-    this.ui.developerOutput.textContent = JSON.stringify({ app_version: bundle.engine_status.app_version, lifecycle: bundle.engine_status.lifecycle_state, hardware: this.latestHardware, local_worker: worker, recording_active: this.recording, cuda: diagnostics?.cuda_probe, next_action: bundle.next_action, blockers: blockers.slice(0, 12) }, null, 2);
+    this.ui.developerOutput.textContent = `lifecycle=${bundle.engine_status.lifecycle_state}; recording=${this.recording}; blockers=${blockers.length}; next=${bundle.next_action}`;
 
     if (!this.currentSessionId) {
       this.setAssistantNotice(appReady ? "Local runtime warmup completed. You can start typing or record speech." : `Warmup completed, but setup is not fully ready yet. ${blockers[0] ? blockers[0].replaceAll("_", " ") : bundle.next_action}`);
