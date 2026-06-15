@@ -1,7 +1,8 @@
 :root {
   --settings-page-width: 1320px;
-  --settings-sidebar-width: 430px;
-  --settings-left-pad: 230px;
+  --settings-sidebar-width: clamp(340px, 23vw, 430px);
+  --settings-left-pad: clamp(56px, 7vw, 180px);
+  --settings-right-pad: clamp(36px, 4vw, 64px);
   --settings-topbar-height: 96px;
   --settings-card-radius: 26px;
   --settings-card-x: 74px;
@@ -9,13 +10,13 @@
   --settings-grid-gap: 92px;
 }
 
-body.settings-open { min-width: 1920px; }
+body.settings-open { min-width: 1280px; }
 body.settings-open #app, body.settings-open .app-shell, .settings-page, .settings-workspace-v22 { height: 100vh; max-height: 100vh; min-height: 0; }
-.settings-page { min-width: 1920px; grid-template-columns: var(--settings-sidebar-width) minmax(1490px, 1fr) !important; overflow: hidden; }
-.settings-sidebar { width: var(--settings-sidebar-width) !important; min-width: var(--settings-sidebar-width) !important; height: 100vh; overflow: hidden; }
-.settings-workspace-v22 { min-width: 1490px !important; overflow: hidden; grid-template-rows: var(--settings-topbar-height) minmax(0, 1fr) !important; }
+.settings-page { width: 100vw; min-width: 1280px; grid-template-columns: var(--settings-sidebar-width) minmax(0, 1fr) !important; overflow: hidden; }
+.settings-sidebar { width: auto !important; min-width: 0 !important; height: 100vh; overflow: hidden; }
+.settings-workspace-v22 { min-width: 0 !important; overflow: hidden; grid-template-rows: var(--settings-topbar-height) minmax(0, 1fr) !important; }
 .settings-topbar-v22 { height: var(--settings-topbar-height) !important; min-height: var(--settings-topbar-height) !important; }
-.settings-scroll-v22 { height: calc(100vh - var(--settings-topbar-height)) !important; max-height: calc(100vh - var(--settings-topbar-height)) !important; min-height: 0 !important; padding: 99px 64px 90px var(--settings-left-pad) !important; overflow-y: auto !important; overflow-x: auto !important; overscroll-behavior: contain; scrollbar-gutter: stable; }
+.settings-scroll-v22 { height: calc(100vh - var(--settings-topbar-height)) !important; max-height: calc(100vh - var(--settings-topbar-height)) !important; min-height: 0 !important; padding: 99px var(--settings-right-pad) 90px var(--settings-left-pad) !important; overflow-y: auto !important; overflow-x: auto !important; overscroll-behavior: contain; scrollbar-gutter: stable; }
 .settings-scroll-v22 > div, .settings-final-page { width: var(--settings-page-width) !important; min-width: var(--settings-page-width) !important; max-width: var(--settings-page-width) !important; }
 .settings-final-title { position: absolute; left: 0; top: 0; }
 .settings-final-title h2 { margin: 0; color: var(--text); font-size: 38px; font-weight: 850; letter-spacing: -.035em; line-height: 1.08; }
@@ -94,11 +95,11 @@ body.settings-open #app, body.settings-open .app-shell, .settings-page, .setting
 .developer-log-body p { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 
 @media (max-width: 1360px) {
-  body.settings-open, .settings-page { min-width: 1920px !important; }
+  body.settings-open { min-width: 1280px !important; }
   body.settings-open #app, body.settings-open .app-shell, .settings-page, .settings-workspace-v22 { height: 100vh !important; max-height: 100vh !important; min-height: 0 !important; }
-  .settings-page { grid-template-columns: var(--settings-sidebar-width) minmax(1490px, 1fr) !important; overflow: hidden !important; }
-  .settings-workspace-v22 { grid-template-rows: var(--settings-topbar-height) minmax(0, 1fr) !important; }
-  .settings-scroll-v22 { height: calc(100vh - var(--settings-topbar-height)) !important; max-height: calc(100vh - var(--settings-topbar-height)) !important; min-height: 0 !important; padding: 99px 64px 90px var(--settings-left-pad) !important; overflow-y: auto !important; overflow-x: auto !important; }
+  .settings-page { width: 100vw !important; min-width: 1280px !important; grid-template-columns: 340px minmax(0, 1fr) !important; overflow: hidden !important; }
+  .settings-workspace-v22 { min-width: 0 !important; grid-template-rows: var(--settings-topbar-height) minmax(0, 1fr) !important; }
+  .settings-scroll-v22 { height: calc(100vh - var(--settings-topbar-height)) !important; max-height: calc(100vh - var(--settings-topbar-height)) !important; min-height: 0 !important; padding: 99px 36px 90px 56px !important; overflow-y: auto !important; overflow-x: auto !important; }
   .audio-card-v22, .voice-card-v22, .advanced-empty-v22, .settings-card, .settings-scroll-v22 > div, .settings-final-page { width: var(--settings-page-width) !important; min-width: var(--settings-page-width) !important; max-width: var(--settings-page-width) !important; }
   .audio-grid-v22, .voice-grid-v22, .settings-grid-2 { grid-template-columns: var(--settings-grid-col) var(--settings-grid-col) !important; column-gap: var(--settings-grid-gap) !important; }
 }
