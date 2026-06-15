@@ -14,62 +14,99 @@ function safeMarker(value: number): number {
   return Math.max(4, Math.min(96, value));
 }
 
-function panelStart(title: string, description: string, height: number): string {
-  return `<div style="position:relative;width:min(1320px,calc(100vw - 640px));height:${height}px;"><h2 style="position:absolute;left:0;top:0;margin:0;color:var(--text);font-size:38px;font-weight:850;letter-spacing:-.035em;">${title}</h2><p style="position:absolute;left:0;top:56px;margin:0;color:var(--muted);font-size:15px;">${description}</p>`;
+function pageStart(title: string, description: string, minHeight: number): string {
+  return `<div class="settings-final-page" style="position:relative;height:${minHeight}px;"><section class="settings-final-title"><h2>${title}</h2><p>${description}</p></section>`;
 }
 
-function fieldButton(text: string, rightIcon = "chevron"): string {
-  return `<span>${text}</span>${icon(rightIcon as never)}`;
+function selectField(id: string | null, label: string, value: string, iconName?: "mic" | "speaker" | "pulse" | "monitor" | "chevron"): string {
+  const idAttr = id ? ` id="${id}"` : "";
+  const iconColumn = iconName ? `${icon(iconName)}` : "";
+  const grid = iconName ? "24px minmax(0,1fr) 20px" : "minmax(0,1fr) 20px";
+  return `<section class="settings-field"><h3>${label}</h3><button${idAttr} class="select-field-v22" type="button" style="width:100%;grid-template-columns:${grid};">${iconColumn}<span>${value}</span>${icon("chevron")}</button></section>`;
+}
+
+function radioRow(id: string | null, title: string, description: string, active = false, asButton = false): string {
+  const idAttr = id ? ` id="${id}"` : "";
+  const tag = asButton ? "button" : "label";
+  const typeAttr = asButton ? ' type="button"' : "";
+  return `<${tag}${idAttr}${typeAttr} class="radio-row-v22 ${active ? "active" : ""}" ${asButton ? 'style="width:100%;"' : ""}><span></span><strong>${title}</strong><em>${description}</em></${tag}>`;
+}
+
+function togglePill(active: boolean): string {
+  return `<span class="settings-toggle-pill ${active ? "active" : ""}"><i></i></span>`;
 }
 
 export function generalSettingsView(settings: RuntimeSettings, realtimeStatus: string | null, gpuStatus: string | null): string {
-  return `<section class="settings-page-title"><h2>General</h2><p>Basic launcher and local runtime preferences.</p></section><article class="audio-card-v22"><div class="audio-grid-v22"><section class="audio-field-group"><h3>Runtime Profile</h3><button class="select-field-v22" type="button"><span>${settings.runtime_profile}</span>${icon("chevron")}</button></section><section class="audio-field-group"><h3>Language Focus</h3><button class="select-field-v22" type="button"><span>${settings.language_focus_mode}</span>${icon("chevron")}</button></section><section class="audio-field-group"><h3>Realtime Status</h3><button class="select-field-v22" type="button"><span>${realtimeStatus ?? "Checking"}</span>${icon("pulse")}</button></section><section class="audio-field-group"><h3>GPU Status</h3><button class="select-field-v22" type="button"><span>${gpuStatus ?? "Checking"}</span>${icon("monitor")}</button></section></div><button id="saveSettingsButton" class="mic-test-button-v22" type="button">Save Settings</button><button id="resetSettingsButton" class="mic-test-button-v22" type="button" style="margin-left:12px;">Save Default</button></article><section class="settings-page-title secondary"><h2>Advanced General Setting</h2><p>Reserved for future launcher preferences.</p></section><article class="advanced-empty-v22"></article>`;
+  return `${pageStart("General", "Basic launcher and local runtime preferences.", 720)}
+    <article class="settings-card final-card" style="top:118px;height:330px;">
+      <div class="settings-grid-2">
+        ${selectField(null, "Runtime Profile", settings.runtime_profile, "pulse")}
+        ${selectField(null, "Language Focus", settings.language_focus_mode, "chevron")}
+        ${selectField(null, "Realtime Status", realtimeStatus ?? "Checking", "pulse")}
+        ${selectField(null, "GPU Status", gpuStatus ?? "Checking", "monitor")}
+      </div>
+      <button id="saveSettingsButton" class="mic-test-button-v22" type="button" style="position:absolute;left:74px;bottom:46px;width:176px;">Save Settings</button>
+      <button id="resetSettingsButton" class="mic-test-button-v22" type="button" style="position:absolute;left:274px;bottom:46px;width:176px;">Save Default</button>
+    </article>
+    <section class="settings-section-title" style="top:548px;"><h2>Advanced General Setting</h2><p>Reserved for future launcher preferences.</p></section>
+    <article class="advanced-empty-v22" style="position:absolute;left:0;top:638px;height:180px;margin:0;"></article>
+  </div>`;
 }
 
 export function audioSettingsView(settings: RuntimeSettings): string {
   const voiceEnabled = settings.audio.auto_play_out_voice;
   const realtimeActive = settings.runtime_profile !== "Quality";
-  return `${panelStart("Audio", "Manage microphone input, speaker output, volume, and voice behavior.", 1360)}
-    <article class="audio-card-v22" style="position:absolute;left:0;top:94px;width:1320px;height:450px;min-height:0;margin:0;padding:40px 74px;">
-      <section style="position:absolute;left:74px;top:40px;width:540px;"><h3 style="margin:0;color:var(--text);font-size:16.5px;font-weight:850;">Microphone</h3><button id="checkAudioInputButton" class="select-field-v22" type="button" style="margin-top:26px;width:540px;grid-template-columns:24px minmax(0,1fr) 20px;">${icon("mic")}<span id="audioInputLabel">Default microphone</span>${icon("chevron")}</button></section>
-      <section style="position:absolute;left:706px;top:40px;width:540px;"><h3 style="margin:0;color:var(--text);font-size:16.5px;font-weight:850;">Speaker</h3><button id="audioVoiceToggleButton" class="select-field-v22" type="button" style="margin-top:26px;width:540px;grid-template-columns:24px minmax(0,1fr) 20px;">${icon("speaker")}<span>${voiceEnabled ? "TWS (AkLIAM PD6)" : "Speaker disabled"}</span>${icon("chevron")}</button></section>
-      <section style="position:absolute;left:74px;top:196px;width:540px;"><h3 style="margin:0;color:var(--text);font-size:16.5px;font-weight:850;">Microphone Volume</h3><div class="range-v22 mic-range" style="margin-top:28px;width:540px;"><span></span><i></i></div></section>
-      <section style="position:absolute;left:706px;top:196px;width:540px;"><h3 style="margin:0;color:var(--text);font-size:16.5px;font-weight:850;">Speaker Volume</h3><div class="range-v22 speaker-range" style="margin-top:28px;width:540px;"><span></span><i></i></div></section>
-      <button id="micTestButton" class="mic-test-button-v22" type="button" style="position:absolute;left:74px;top:346px;width:176px;height:62px;">Mic Test</button>
-      <div class="meter-v22" style="position:absolute;left:298px;top:354px;width:660px;"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></div>
+  return `${pageStart("Audio", "Manage microphone input, speaker output, volume, and voice behavior.", 1360)}
+    <article class="settings-card final-card" style="top:118px;height:450px;">
+      <div class="settings-grid-2">
+        ${selectField("checkAudioInputButton", "Microphone", "Default microphone", "mic")}
+        ${selectField("audioVoiceToggleButton", "Speaker", voiceEnabled ? "Default speaker" : "Speaker disabled", "speaker")}
+        <section class="settings-field"><h3>Microphone Volume</h3><div class="range-v22 mic-range"><span></span><i></i></div></section>
+        <section class="settings-field"><h3>Speaker Volume</h3><div class="range-v22 speaker-range"><span></span><i></i></div></section>
+      </div>
+      <button id="micTestButton" class="mic-test-button-v22" type="button" style="position:absolute;left:74px;bottom:42px;width:176px;">Mic Test</button>
+      <div class="meter-v22" style="position:absolute;left:298px;right:74px;bottom:50px;">
+        <span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span>
+      </div>
     </article>
-    <h2 style="position:absolute;left:0;top:632px;margin:0;color:var(--text);font-size:30px;font-weight:850;letter-spacing:-.035em;">Voice</h2><p style="position:absolute;left:0;top:666px;margin:0;color:var(--muted);font-size:14px;">Configure voice input behavior and input processing profile.</p>
-    <article class="voice-card-v22" style="position:absolute;left:0;top:712px;width:1320px;height:330px;min-height:0;margin:0;padding:54px 74px;">
-      <section style="position:absolute;left:74px;top:54px;width:540px;"><h3 style="margin:0;color:var(--text);font-size:17px;font-weight:850;">Voice Profile</h3><p style="margin:12px 0 0;color:var(--muted);font-size:13px;">Choose the microphone processing profile.</p><label class="radio-row-v22 active" style="margin-top:40px;"><span></span><strong>Normal</strong><em>Default microphone input without extra noise processing.</em></label><label class="radio-row-v22" style="margin-top:30px;"><span></span><strong>Noise</strong><em>Reduce background noise and prioritize speech clarity.</em></label></section>
-      <section style="position:absolute;left:706px;top:54px;width:540px;"><h3 style="margin:0;color:var(--text);font-size:17px;font-weight:850;">Voice Mode</h3><p style="margin:12px 0 0;color:var(--muted);font-size:13px;">Choose how TranslateIT listens to voice input.</p><button id="audioSensitivityButton" type="button" class="radio-row-v22 ${realtimeActive ? "active" : ""}" style="width:100%;margin-top:40px;text-align:left;background:transparent;"><span></span><strong>Always On</strong><em>Voice input stays ready while the app is active.</em></button><label class="radio-row-v22" style="margin-top:30px;"><span></span><strong>Push to Talk</strong><em>Voice input only activates while holding a selected key.</em></label></section>
+    <section class="settings-section-title" style="top:652px;"><h2>Voice</h2><p>Configure voice input behavior and input processing profile.</p></section>
+    <article class="settings-card final-card" style="top:742px;height:330px;">
+      <div class="settings-grid-2">
+        <section class="settings-field"><h3>Voice Profile</h3><p>Choose the microphone processing profile.</p>${radioRow(null, "Normal", "Default microphone input without extra noise processing.", true)}${radioRow(null, "Noise", "Reduce background noise and prioritize speech clarity.")}</section>
+        <section class="settings-field"><h3>Voice Mode</h3><p>Choose how TranslateIT listens to voice input.</p>${radioRow("audioSensitivityButton", "Always On", "Voice input stays ready while the app is active.", realtimeActive, true)}${radioRow(null, "Push to Talk", "Voice input only activates while holding a selected key.")}</section>
+      </div>
     </article>
-    <h2 style="position:absolute;left:0;top:1128px;margin:0;color:var(--text);font-size:30px;font-weight:850;letter-spacing:-.035em;">Advanced Audio Setting</h2><article class="advanced-empty-v22" style="position:absolute;left:0;top:1178px;width:1320px;height:180px;margin:0;"></article>
+    <section class="settings-section-title" style="top:1162px;"><h2>Advanced Audio Setting</h2><p>Reserved for future audio device options.</p></section>
+    <article class="advanced-empty-v22" style="position:absolute;left:0;top:1252px;height:180px;margin:0;"></article>
   </div>`;
 }
 
 export function translateSettingsView(settings: RuntimeSettings, sourceLabel: string, targetLabel: string): string {
   const realtimeActive = settings.runtime_profile !== "Quality";
   const voiceEnabled = settings.audio.auto_play_out_voice;
-  return `${panelStart("Translate", "Configure language direction, translation speed, and output behavior.", 1298)}
-    <article class="audio-card-v22" style="position:absolute;left:0;top:92px;width:1320px;height:190px;min-height:0;margin:0;padding:0;">
-      <section style="position:absolute;left:74px;top:50px;width:500px;"><h3 style="margin:0;color:var(--text);font-size:16.5px;font-weight:850;">Source Language</h3><button class="select-field-v22" type="button" style="margin-top:30px;width:500px;grid-template-columns:minmax(0,1fr) 20px;"><span>${sourceLabel}</span>${icon("chevron")}</button></section>
-      <button id="swapLanguageButton" type="button" style="position:absolute;left:624px;top:80px;width:72px;height:62px;border:1px solid var(--border-strong);border-radius:18px;background:var(--surface-2);color:var(--text);display:grid;place-items:center;">${icon("swap")}</button>
-      <section style="position:absolute;left:746px;top:50px;width:500px;"><h3 style="margin:0;color:var(--text);font-size:16.5px;font-weight:850;">Target Language</h3><button class="select-field-v22" type="button" style="margin-top:30px;width:500px;grid-template-columns:minmax(0,1fr) 20px;"><span>${targetLabel}</span>${icon("chevron")}</button></section>
+  return `${pageStart("Translate", "Configure language direction, translation speed, and output behavior.", 1340)}
+    <article class="settings-card final-card" style="top:118px;height:190px;">
+      <section class="settings-field" style="position:absolute;left:74px;top:48px;width:500px;"><h3>Source Language</h3><button class="select-field-v22" type="button" style="width:100%;grid-template-columns:minmax(0,1fr) 20px;"><span>${sourceLabel}</span>${icon("chevron")}</button></section>
+      <button id="swapLanguageButton" type="button" class="settings-swap-button" aria-label="Swap languages">${icon("swap")}</button>
+      <section class="settings-field" style="position:absolute;left:746px;top:48px;width:500px;"><h3>Target Language</h3><button class="select-field-v22" type="button" style="width:100%;grid-template-columns:minmax(0,1fr) 20px;"><span>${targetLabel}</span>${icon("chevron")}</button></section>
       <button id="saveTranslateButton" type="button" style="display:none;">Save</button>
     </article>
-    <h2 style="position:absolute;left:0;top:376px;margin:0;color:var(--text);font-size:30px;font-weight:850;letter-spacing:-.035em;">Realtime</h2><p style="position:absolute;left:0;top:410px;margin:0;color:var(--muted);font-size:14px;">Choose how TranslateIT balances speed and translation quality.</p>
-    <article class="voice-card-v22" style="position:absolute;left:0;top:456px;width:1320px;height:166px;min-height:0;margin:0;padding:56px 74px;">
-      <div class="voice-grid-v22">
-        <div id="realtimeModeButton" class="radio-row-v22 ${realtimeActive ? "active" : ""}" role="button" tabindex="0" style="margin-top:0;"><span></span><strong>Fast</strong><em>Prioritize low latency for live voice translation.</em></div>
-        <div id="qualityModeButton" class="radio-row-v22 ${!realtimeActive ? "active" : ""}" role="button" tabindex="0" style="margin-top:0;"><span></span><strong>Quality</strong><em>Prefer better translation quality when response time is less critical.</em></div>
+    <section class="settings-section-title" style="top:408px;"><h2>Realtime</h2><p>Choose how TranslateIT balances speed and translation quality.</p></section>
+    <article class="settings-card final-card" style="top:498px;height:166px;">
+      <div class="settings-grid-2 compact-grid">
+        ${radioRow("realtimeModeButton", "Fast", "Prioritize low latency for live voice translation.", realtimeActive, true)}
+        ${radioRow("qualityModeButton", "Quality", "Prefer better translation quality when response time is less critical.", !realtimeActive, true)}
       </div>
     </article>
-    <h2 style="position:absolute;left:0;top:714px;margin:0;color:var(--text);font-size:30px;font-weight:850;letter-spacing:-.035em;">Translate Output</h2><p style="position:absolute;left:0;top:748px;margin:0;color:var(--muted);font-size:14px;">Choose which output should appear after translation completes.</p>
-    <article class="voice-card-v22" style="position:absolute;left:0;top:794px;width:1320px;height:176px;min-height:0;margin:0;padding:52px 74px;">
-      <section style="position:absolute;left:74px;top:52px;width:540px;"><span style="position:absolute;left:0;top:22px;">${icon("fileText")}</span><h3 style="position:absolute;left:46px;top:2px;margin:0;color:var(--text);font-size:17px;font-weight:850;">Transcript</h3><p style="position:absolute;left:46px;top:42px;margin:0;color:var(--muted);font-size:13px;">Show translated text in the conversation.</p><span style="position:absolute;left:382px;top:16px;width:72px;height:36px;border-radius:18px;background:#d6dbe3;"><i style="position:absolute;right:4px;top:4px;width:28px;height:28px;border-radius:50%;background:#11141a;"></i></span></section>
-      <section style="position:absolute;left:706px;top:52px;width:540px;"><span style="position:absolute;left:0;top:22px;">${icon("speaker")}</span><h3 style="position:absolute;left:46px;top:2px;margin:0;color:var(--text);font-size:17px;font-weight:850;">Voice</h3><p style="position:absolute;left:46px;top:42px;margin:0;color:var(--muted);font-size:13px;">Play translated English voice automatically.</p><span style="position:absolute;left:382px;top:16px;width:72px;height:36px;border-radius:18px;background:${voiceEnabled ? "#d6dbe3" : "#4b4f5d"};"><i style="position:absolute;${voiceEnabled ? "right" : "left"}:4px;top:4px;width:28px;height:28px;border-radius:50%;background:#11141a;"></i></span></section>
+    <section class="settings-section-title" style="top:760px;"><h2>Translate Output</h2><p>Choose which output should appear after translation completes.</p></section>
+    <article class="settings-card final-card" style="top:850px;height:176px;">
+      <div class="settings-grid-2 compact-grid">
+        <section class="settings-output-row">${icon("fileText")}<div><h3>Transcript</h3><p>Show translated text in the conversation.</p></div>${togglePill(true)}</section>
+        <section class="settings-output-row">${icon("speaker")}<div><h3>Voice</h3><p>Play translated English voice automatically.</p></div>${togglePill(voiceEnabled)}</section>
+      </div>
     </article>
-    <h2 style="position:absolute;left:0;top:1078px;margin:0;color:var(--text);font-size:30px;font-weight:850;letter-spacing:-.035em;">Advanced Translate Setting</h2><article class="advanced-empty-v22" style="position:absolute;left:0;top:1128px;width:1320px;height:170px;margin:0;"></article>
+    <section class="settings-section-title" style="top:1120px;"><h2>Advanced Translate Setting</h2><p>Reserved for future translation preferences.</p></section>
+    <article class="advanced-empty-v22" style="position:absolute;left:0;top:1210px;height:170px;margin:0;"></article>
   </div>`;
 }
 
@@ -93,20 +130,24 @@ export function developerSettingsView(args: {
   const logHeight = args.logsExpanded ? 320 : 176;
   const logOverflow = args.logsExpanded ? "auto" : "hidden";
   const styledLogRows = args.logRows.replaceAll("<p>", '<p style="margin:0;color:var(--text);font-size:12.5px;font-weight:750;">').replaceAll("<strong>", '<strong style="display:inline-block;width:64px;color:var(--muted);font-weight:850;">');
-  return `${panelStart("Developer", "Simple tools for monitoring runtime health and fixing common issues.", 1700)}
-    <h2 style="position:absolute;left:0;top:132px;margin:0;color:var(--text);font-size:30px;font-weight:850;letter-spacing:-.035em;">Monitoring</h2><p style="position:absolute;left:0;top:166px;margin:0;color:var(--muted);font-size:14px;">Melacak usage hardware dan health engine.</p>
-    <article class="audio-card-v22" style="position:absolute;left:0;top:212px;width:1320px;height:330px;min-height:0;margin:0;padding:64px 74px 44px;">
-      <section style="position:absolute;left:74px;top:64px;width:540px;"><div style="display:grid;grid-template-columns:22px minmax(0,1fr);column-gap:22px;align-items:center;">${icon("monitor")}<h3 style="margin:0;color:var(--text);font-size:18px;font-weight:850;">Hardware Usage</h3></div><p style="margin:14px 0 0 44px;color:var(--muted);font-size:13px;">Track CPU, GPU, RAM, and local worker resource usage.</p><div style="display:grid;gap:38px;margin-top:45px;"><div style="display:grid;grid-template-columns:64px 1fr 48px;align-items:center;gap:20px;"><strong style="font-size:14px;">CPU</strong><span style="height:5px;border-radius:999px;background:linear-gradient(90deg,#d6dbe3 ${cpuWidth},#4b4f5d ${cpuWidth});"></span><em style="color:var(--muted);font-size:13px;font-style:normal;font-weight:850;">${args.cpu}</em></div><div style="display:grid;grid-template-columns:64px 1fr 48px;align-items:center;gap:20px;"><strong style="font-size:14px;">GPU</strong><span style="height:5px;border-radius:999px;background:linear-gradient(90deg,#d6dbe3 ${gpuWidth},#4b4f5d ${gpuWidth});"></span><em style="color:var(--muted);font-size:13px;font-style:normal;font-weight:850;">${args.gpu}</em></div><div style="display:grid;grid-template-columns:64px 1fr 48px;align-items:center;gap:20px;"><strong style="font-size:14px;">RAM</strong><span style="height:5px;border-radius:999px;background:linear-gradient(90deg,#d6dbe3 ${ramWidth},#4b4f5d ${ramWidth});"></span><em style="color:var(--muted);font-size:13px;font-style:normal;font-weight:850;">${args.ram}</em></div></div></section>
-      <section style="position:absolute;left:706px;top:64px;width:540px;"><div style="display:grid;grid-template-columns:22px minmax(0,1fr);column-gap:22px;align-items:center;">${icon("pulse")}<h3 style="margin:0;color:var(--text);font-size:18px;font-weight:850;">Health Engine</h3></div><p style="margin:14px 0 0 44px;color:var(--muted);font-size:13px;">Simple status for Launcher and Engine.</p><div style="display:grid;gap:18px;margin-top:35px;"><section style="display:grid;grid-template-columns:24px minmax(0,1fr) 88px;align-items:center;column-gap:20px;height:62px;border:1px solid var(--border-strong);border-radius:16px;background:#10141b;padding:0 24px;">${icon("monitor")}<div><strong style="display:block;font-size:15.5px;">Launcher</strong><p style="margin:7px 0 0;color:var(--muted);font-size:11.5px;">Desktop shell and UI route</p></div><span style="display:grid;place-items:center;height:32px;border:1px solid #8d949f;border-radius:12px;background:#151922;font-size:12px;font-weight:900;">Good</span></section><section style="display:grid;grid-template-columns:24px minmax(0,1fr) 88px;align-items:center;column-gap:20px;height:62px;border:1px solid var(--border-strong);border-radius:16px;background:#10141b;padding:0 24px;">${icon("pulse")}<div><strong style="display:block;font-size:15.5px;">Engine</strong><p style="margin:7px 0 0;color:var(--muted);font-size:11.5px;">Translation, transcript, and worker state</p></div><span style="display:grid;place-items:center;height:32px;border:1px solid #8d949f;border-radius:12px;background:#151922;font-size:12px;font-weight:900;">${engineStatus}</span></section></div></section>
+
+  return `${pageStart("Developer", "Simple tools for monitoring runtime health and fixing common issues.", 1710)}
+    <section class="settings-section-title" style="top:132px;"><h2>Monitoring</h2><p>Monitor hardware usage and engine health.</p></section>
+    <article class="settings-card final-card" style="top:212px;height:330px;">
+      <div class="settings-grid-2">
+        <section class="settings-panel-heading">${icon("monitor")}<div><h3>Hardware Usage</h3><p>Track CPU, GPU, RAM, and local worker resource usage.</p></div><div class="settings-bars"><div><strong>CPU</strong><span style="background:linear-gradient(90deg,#d6dbe3 ${cpuWidth},#4b4f5d ${cpuWidth});"></span><em>${args.cpu}</em></div><div><strong>GPU</strong><span style="background:linear-gradient(90deg,#d6dbe3 ${gpuWidth},#4b4f5d ${gpuWidth});"></span><em>${args.gpu}</em></div><div><strong>RAM</strong><span style="background:linear-gradient(90deg,#d6dbe3 ${ramWidth},#4b4f5d ${ramWidth});"></span><em>${args.ram}</em></div></div></section>
+        <section class="settings-panel-heading">${icon("pulse")}<div><h3>Health Engine</h3><p>Simple status for Launcher and Engine.</p></div><div class="health-list"><section>${icon("monitor")}<div><strong>Launcher</strong><p>Desktop shell and UI route</p></div><span>Good</span></section><section>${icon("pulse")}<div><strong>Engine</strong><p>Translation, transcript, and worker state</p></div><span>${engineStatus}</span></section></div></section>
+      </div>
     </article>
-    <h2 style="position:absolute;left:0;top:626px;margin:0;color:var(--text);font-size:30px;font-weight:850;letter-spacing:-.035em;">Diagnostic</h2><p style="position:absolute;left:0;top:660px;margin:0;color:var(--muted);font-size:14px;">Run checking, show current progress, and review diagnostic logs in one table.</p>
-    <article class="audio-card-v22" style="position:absolute;left:0;top:706px;width:1320px;height:622px;min-height:0;margin:0;padding:52px 74px;">
-      <section style="position:absolute;left:74px;top:52px;width:1172px;height:86px;"><div style="display:grid;grid-template-columns:22px minmax(0,1fr);column-gap:22px;align-items:start;">${icon("check")}<div><h3 style="margin:0;color:var(--text);font-size:20px;font-weight:850;">Run Diagnostic</h3><p style="margin:15px 0 0;color:var(--muted);font-size:13px;">Check launcher, audio device, translation engine, transcript, and local worker.</p></div></div><button id="runDiagnosticButton" type="button" style="position:absolute;right:20px;top:2px;width:206px;height:52px;border:1px solid #8d949f;border-radius:15px;color:var(--text);background:#151922;font-size:14px;font-weight:900;">Run Checking</button></section>
-      <section style="position:absolute;left:74px;top:164px;width:1172px;height:112px;border:1px solid var(--border-strong);border-radius:18px;background:#10141b;padding:28px;"><div style="display:flex;align-items:center;justify-content:space-between;gap:24px;"><strong style="font-size:14px;">Checking translation engine</strong><span style="display:grid;place-items:center;width:82px;height:30px;border:1px solid var(--border-strong);border-radius:11px;background:#151922;color:var(--muted);font-size:12px;font-weight:900;">Running</span></div><p style="margin:18px 0 0;color:var(--muted);font-size:12.5px;font-weight:750;">Phase: Transcript worker</p><div style="position:relative;margin-top:20px;height:30px;"><span style="position:absolute;left:0;right:0;top:13px;height:6px;border-radius:999px;background:#4b4f5d;"></span><span style="position:absolute;left:0;top:13px;width:${progress}%;height:6px;border-radius:999px;background:#d6dbe3;"></span><span style="position:absolute;left:calc(${marker}% - 5px);top:8px;width:11px;height:11px;border-radius:50%;background:#d6dbe3;"></span><span style="position:absolute;left:calc(${marker}% - 28px);top:-27px;display:grid;place-items:center;width:56px;height:24px;border:1px solid #4b5563;border-radius:8px;background:#11141a;color:var(--text);font-size:11.5px;font-weight:900;">${progress}%</span></div></section>
-      <div style="position:absolute;left:74px;top:310px;width:1172px;height:1px;background:var(--border);"></div>
-      <section style="position:absolute;left:74px;top:352px;width:1172px;height:86px;"><div style="display:grid;grid-template-columns:22px minmax(0,1fr);column-gap:22px;align-items:start;">${icon("logs")}<div><h3 style="margin:0;color:var(--text);font-size:20px;font-weight:850;">Log Diagnostic</h3><p style="margin:15px 0 0;color:var(--muted);font-size:13px;">Showing the latest 3 diagnostic logs.</p></div></div></section>
-      <section style="position:absolute;left:74px;top:424px;width:1172px;height:${logHeight}px;border:1px solid var(--border-strong);border-radius:18px;background:#080b11;overflow:${logOverflow};"><header style="display:grid;grid-template-columns:78px minmax(0,1fr) 206px;align-items:center;height:48px;border-bottom:1px solid var(--border-strong);background:#0d1017;padding:0 20px 0 26px;position:sticky;top:0;z-index:1;"><span style="display:flex;gap:10px;"><i style="width:10px;height:10px;border-radius:50%;background:#858e9c;"></i><i style="width:10px;height:10px;border-radius:50%;background:#858e9c;"></i><i style="width:10px;height:10px;border-radius:50%;background:#858e9c;"></i></span><strong style="color:var(--muted);font-size:12px;">developer-log/latest</strong><button id="seeAllLogsButton" type="button" style="display:grid;grid-template-columns:22px 1fr;align-items:center;width:206px;height:32px;border:1px solid #8d949f;border-radius:12px;padding:0 18px;color:var(--text);background:#151922;font-size:12px;font-weight:900;">${icon("maximize")}<span>${args.logsExpanded ? "Show Less" : "See All Logs"}</span></button></header><div class="developer-log-body" style="display:grid;gap:20px;padding:32px 26px;">${styledLogRows}</div></section>
+    <section class="settings-section-title" style="top:626px;"><h2>Diagnostic</h2><p>Run checking, show current progress, and review diagnostic logs in one table.</p></section>
+    <article class="settings-card final-card" style="top:706px;height:622px;">
+      <section class="diagnostic-head">${icon("check")}<div><h3>Run Diagnostic</h3><p>Check launcher, audio device, translation engine, transcript, and local worker.</p></div><button id="runDiagnosticButton" type="button">Run Checking</button></section>
+      <section class="diagnostic-progress"><div><strong>Checking translation engine</strong><span>Running</span></div><p>Phase: Transcript worker</p><div class="progress-line"><i></i><b style="width:${progress}%;"></b><em style="left:calc(${marker}% - 5px);"></em><strong style="left:calc(${marker}% - 28px);">${progress}%</strong></div></section>
+      <div class="diagnostic-divider"></div>
+      <section class="diagnostic-log-title">${icon("logs")}<div><h3>Log Diagnostic</h3><p>Showing the latest 3 diagnostic logs.</p></div></section>
+      <section class="diagnostic-log-panel" style="height:${logHeight}px;overflow:${logOverflow};"><header><span><i></i><i></i><i></i></span><strong>developer-log/latest</strong><button id="seeAllLogsButton" type="button">${icon("maximize")}<span>${args.logsExpanded ? "Show Less" : "See All Logs"}</span></button></header><div class="developer-log-body">${styledLogRows}</div></section>
     </article>
-    <h2 style="position:absolute;left:0;top:1450px;margin:0;color:var(--text);font-size:30px;font-weight:850;letter-spacing:-.035em;">Advanced Developer Setting</h2><p style="position:absolute;left:0;top:1484px;margin:0;color:var(--muted);font-size:14px;">Reserved for future developer options.</p><article class="advanced-empty-v22" style="position:absolute;left:0;top:1530px;width:1320px;height:170px;margin:0;"></article>
+    <section class="settings-section-title" style="top:1450px;"><h2>Advanced Developer Setting</h2><p>Reserved for future developer options.</p></section>
+    <article class="advanced-empty-v22" style="position:absolute;left:0;top:1530px;height:170px;margin:0;"></article>
   </div>`;
 }
