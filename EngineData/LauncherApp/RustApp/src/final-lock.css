@@ -1,0 +1,159 @@
+/* TranslateIT final UI render lock
+   Purpose: keep the approved Settings layouts stable in local builds.
+   This file is imported after styles.css, so it overrides broad responsive rules
+   without changing the existing runtime/controller structure. */
+
+:root {
+  --settings-final-sidebar-width: 430px;
+  --settings-final-content-left: 230px;
+  --settings-final-content-right: 64px;
+  --settings-final-card-width: 1320px;
+  --settings-final-workspace-width: 1618px;
+  --settings-final-window-width: 2048px;
+}
+
+body.settings-open {
+  min-width: var(--settings-final-window-width);
+  overflow: hidden;
+}
+
+body.settings-open .app-shell,
+body.settings-open .settings-page {
+  min-width: var(--settings-final-window-width);
+}
+
+body.settings-open .settings-page {
+  grid-template-columns: var(--settings-final-sidebar-width) minmax(var(--settings-final-workspace-width), 1fr) !important;
+}
+
+body.settings-open .settings-sidebar {
+  width: var(--settings-final-sidebar-width);
+  min-width: var(--settings-final-sidebar-width);
+  padding: 64px 34px 0;
+}
+
+body.settings-open .settings-workspace-v22 {
+  min-width: var(--settings-final-workspace-width);
+  overflow: hidden;
+}
+
+body.settings-open .settings-topbar-v22 {
+  min-height: 96px;
+  padding: 0 58px;
+}
+
+body.settings-open .settings-scroll-v22 {
+  width: 100%;
+  min-width: var(--settings-final-workspace-width);
+  overflow-y: auto;
+  overflow-x: hidden;
+  padding: 99px var(--settings-final-content-right) 90px var(--settings-final-content-left) !important;
+  scroll-behavior: auto;
+}
+
+body.settings-open .settings-scroll-v22 > div[style*="position:relative"] {
+  width: var(--settings-final-card-width) !important;
+  min-width: var(--settings-final-card-width) !important;
+  max-width: var(--settings-final-card-width) !important;
+  transform: translateZ(0);
+}
+
+body.settings-open .audio-card-v22,
+body.settings-open .voice-card-v22,
+body.settings-open .advanced-empty-v22 {
+  width: var(--settings-final-card-width) !important;
+  min-width: var(--settings-final-card-width) !important;
+  max-width: var(--settings-final-card-width) !important;
+  box-sizing: border-box;
+}
+
+body.settings-open .audio-grid-v22,
+body.settings-open .voice-grid-v22 {
+  grid-template-columns: 540px 540px !important;
+  column-gap: 92px !important;
+}
+
+body.settings-open .select-field-v22,
+body.settings-open .mic-test-button-v22,
+body.settings-open .settings-back-button,
+body.settings-open .settings-nav-item {
+  flex-shrink: 0;
+  white-space: nowrap;
+}
+
+body.settings-open .select-field-v22 > span,
+body.settings-open .settings-nav-item > span,
+body.settings-open .settings-back-button > span {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+body.settings-open .settings-scroll-v22 h2,
+body.settings-open .settings-scroll-v22 h3,
+body.settings-open .settings-scroll-v22 strong,
+body.settings-open .settings-scroll-v22 em,
+body.settings-open .settings-scroll-v22 p,
+body.settings-open .settings-scroll-v22 span {
+  text-rendering: geometricPrecision;
+}
+
+body.settings-open .settings-scroll-v22 p,
+body.settings-open .settings-scroll-v22 em {
+  max-width: 100%;
+  overflow-wrap: anywhere;
+}
+
+body.settings-open .developer-log-body {
+  max-width: 100%;
+  overflow: hidden;
+}
+
+body.settings-open .developer-log-body p {
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+body.settings-open .range-v22,
+body.settings-open .meter-v22 {
+  overflow: hidden;
+}
+
+body.settings-open .icon,
+body.settings-open svg {
+  flex: 0 0 auto;
+}
+
+@media (max-width: 1360px) {
+  body.settings-open {
+    min-width: var(--settings-final-window-width);
+  }
+
+  body.settings-open .app-shell,
+  body.settings-open .settings-page {
+    min-width: var(--settings-final-window-width);
+  }
+
+  body.settings-open .settings-page {
+    grid-template-columns: var(--settings-final-sidebar-width) minmax(var(--settings-final-workspace-width), 1fr) !important;
+  }
+
+  body.settings-open .settings-scroll-v22 {
+    padding: 99px var(--settings-final-content-right) 90px var(--settings-final-content-left) !important;
+  }
+
+  body.settings-open .audio-card-v22,
+  body.settings-open .voice-card-v22,
+  body.settings-open .advanced-empty-v22 {
+    width: var(--settings-final-card-width) !important;
+  }
+
+  body.settings-open .audio-grid-v22,
+  body.settings-open .voice-grid-v22 {
+    grid-template-columns: 540px 540px !important;
+    column-gap: 92px !important;
+  }
+}
