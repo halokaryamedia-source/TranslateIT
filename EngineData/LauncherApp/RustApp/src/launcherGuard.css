@@ -1,0 +1,10 @@
+.app-shell, .workspace, .settings-page { contain: layout style; }
+.feature-card, .assistant-card, .composer, .topbar, .settings-card { contain: layout paint; }
+button:disabled { pointer-events: none; user-select: none; }
+.feature-card h4, .assistant-card strong, .nav-item span, .new-chat-button span { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.feature-card p, .assistant-card p, .hero-panel > p, .composer-help { overflow: hidden; display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 3; }
+.composer input { min-width: 0; }
+.runtime-sinks { contain: strict; }
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation-duration: .01ms !important; animation-iteration-count: 1 !important; scroll-behavior: auto !important; transition-duration: .01ms !important; }
+}
