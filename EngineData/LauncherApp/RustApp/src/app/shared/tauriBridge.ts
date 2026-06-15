@@ -13,6 +13,16 @@ function compactErrorMessage(error: unknown): string {
     : singleLine;
 }
 
+function rememberCommandError(detail: RuntimeCommandError): void {
+  const latest = recentCommandErrors[0];
+  if (latest?.command === detail.command && latest.message === detail.message) {
+    recentCommandErrors[0] = detail;
+    return;
+  }
+  recentCommandErrors.unshift(detail);
+  recentCommandErrors.splice(MAX_RECENT_COMMAND_ERRORS);
+}
+
 export function getRuntimeCommandErrors(): RuntimeCommandError[] {
   return recentCommandErrors.slice(0, MAX_RECENT_COMMAND_ERRORS);
 }
@@ -27,8 +37,7 @@ export async function runCommand<T>(name: string, args?: Record<string, unknown>
       message: compactErrorMessage(error),
       occurred_at: new Date().toISOString(),
     };
-    recentCommandErrors.unshift(detail);
-    recentCommandErrors.splice(MAX_RECENT_COMMAND_ERRORS);
+    rememberCommandError(detail);
     console.error(`[Tauri command failed] ${name}: ${detail.message}`);
     return null;
   }
