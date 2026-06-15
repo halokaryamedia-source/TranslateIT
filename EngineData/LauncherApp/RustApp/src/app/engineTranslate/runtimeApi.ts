@@ -21,23 +21,55 @@ function singleFlight<T>(key: string, task: () => Promise<T | null>): Promise<T 
   return pending;
 }
 
+function clearRuntimeReads(...keys: string[]): void {
+  keys.forEach((key) => pendingRuntimeReads.delete(key));
+}
+
 function chatListKey(kind?: string): string {
   return `chat-list:${kind ?? "all"}`;
 }
 
+function clearChatReads(kind?: string): void {
+  clearRuntimeReads(chatListKey(), chatListKey("recent"), chatListKey("unsaved"), chatListKey("saved"), chatListKey(kind));
+}
+
 export const runtimeApi = {
   loadSettings: () => singleFlight("runtime-settings", () => runCommand<RuntimeSettings>("load_runtime_settings")),
-  saveSettings: (settings: RuntimeSettings) => runCommand<CommandResult>("save_runtime_settings", { settings }),
-  saveDefaultSettings: () => runCommand<CommandResult>("save_default_runtime_settings"),
+  saveSettings: async (settings: RuntimeSettings) => {
+    const result = await runCommand<CommandResult>("save_runtime_settings", { settings });
+    clearRuntimeReads("runtime-settings", "status-bundle", "diagnostics");
+    return result;
+  },
+  saveDefaultSettings: async () => {
+    const result = await runCommand<CommandResult>("save_default_runtime_settings");
+    clearRuntimeReads("runtime-settings", "status-bundle", "diagnostics");
+    return result;
+  },
   getStatusBundle: () => singleFlight("status-bundle", () => runCommand<RuntimeStatusBundleReport>("get_runtime_status_bundle")),
   getDiagnostics: () => singleFlight("diagnostics", () => runCommand<RuntimeDiagnostics>("get_runtime_diagnostics")),
   getHardwareUsage: () => singleFlight("hardware-usage", () => runCommand<HardwareUsageReport>("get_hardware_usage")),
   getInputStatus: () => singleFlight("input-status", () => runCommand<InputPreparationStatus>("get_input_status")),
-  startCapture: () => runCommand<CommandResult>("start_capture"),
-  stopCapture: () => runCommand<CommandResult>("stop_capture"),
+  startCapture: async () => {
+    const result = await runCommand<CommandResult>("start_capture");
+    clearRuntimeReads("status-bundle", "input-status");
+    return result;
+  },
+  stopCapture: async () => {
+    const result = await runCommand<CommandResult>("stop_capture");
+    clearRuntimeReads("status-bundle", "input-status");
+    return result;
+  },
   translateText: (source: string) => runCommand<CommandResult>("translate_text", { source }),
-  createChatSession: (kind: string) => runCommand<LauncherChatSession>("create_chat_session", { kind }),
+  createChatSession: async (kind: string) => {
+    const result = await runCommand<LauncherChatSession>("create_chat_session", { kind });
+    clearChatReads(kind);
+    return result;
+  },
   listChatSessions: (kind?: string) => singleFlight(chatListKey(kind), () => runCommand<LauncherChatSummary[]>("list_chat_sessions", kind ? { kind } : {})),
-  appendChatMessage: (sessionId: string, role: string, content: string) => runCommand<LauncherChatActionResult>("append_chat_message", { sessionId, role, content }),
+  appendChatMessage: async (sessionId: string, role: string, content: string) => {
+    const result = await runCommand<LauncherChatActionResult>("append_chat_message", { sessionId, role, content });
+    clearChatReads();
+    return result;
+  },
   getCommandErrors: () => getRuntimeCommandErrors(),
 };
