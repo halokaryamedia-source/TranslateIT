@@ -14,6 +14,28 @@ type EngineStatus = {
 
 type CommandResult = { ok: boolean; state: string; message: string };
 
+type RuntimeSettings = {
+  schema_version: number;
+  language_focus_mode: string;
+  runtime_profile: string;
+  source_language: string;
+  target_language: string;
+  audio: {
+    input_device_id: string | null;
+    output_device_id: string | null;
+    sensitivity: number;
+    input_sensitivity: string;
+    show_advanced_devices: boolean;
+    allow_low_but_usable_input: boolean;
+    allow_cpu_degraded_mode: boolean;
+    auto_play_translation_voice: boolean;
+    auto_play_out_voice: boolean;
+    use_custom_voice_actor: boolean;
+    voice_actor_profiles_root: string;
+  };
+  voice_actor_profile_id: string;
+};
+
 type LocalWorkerManifestReport = {
   ok: boolean;
   worker_script_exists: boolean;
@@ -60,8 +82,11 @@ type RuntimeDiagnostics = {
   blockers: string[];
 };
 
+type InputPreparationStatus = { ready: boolean; selected_device_name?: string | null; device_count?: number; blocker?: string; note?: string };
 type WarmupState = "pending" | "active" | "complete" | "warn";
+type SettingsTab = "general" | "audio" | "translate" | "developer";
 type WarmupStep = { id: string; title: string; detail: string; progress: number; run: () => Promise<unknown> };
+type ChatMessage = { role: "user" | "assistant"; content: string };
 
 const app = document.querySelector<HTMLDivElement>("#app");
 if (!app) throw new Error("TranslateIT app root was not found.");
@@ -85,7 +110,6 @@ const icons = {
   translate: `<svg viewBox="0 0 24 24"><path d="M4 5h9M9 5v14M5 9c1.2 3.8 4.1 6.4 8 8"/><path d="M14 19l4-9 4 9M15.5 16h5"/></svg>`,
   code: `<svg viewBox="0 0 24 24"><path d="M8 8l-4 4 4 4M16 8l4 4-4 4M14 4l-4 16"/></svg>`,
   swap: `<svg viewBox="0 0 24 24"><path d="M7 7h12M15 3l4 4-4 4M17 17H5M9 13l-4 4 4 4"/></svg>`,
-  fileText: `<svg viewBox="0 0 24 24"><path d="M7 3h7l4 4v14H7z"/><path d="M14 3v5h5M9 13h6M9 17h6"/></svg>`,
   monitor: `<svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="13" rx="2"/><path d="M8 21h8M12 17v4"/></svg>`,
   pulse: `<svg viewBox="0 0 24 24"><path d="M3 12h4l2-6 4 12 2-6h6"/></svg>`,
   check: `<svg viewBox="0 0 24 24"><path d="M20 6 9 17l-5-5"/></svg>`,
@@ -114,20 +138,20 @@ app.innerHTML = `
       <button id="newChatButton" class="new-chat-button" type="button">${icon("plus")}<span>New Chat</span></button>
       <nav class="nav-stack" aria-label="Workspace">
         <p class="nav-heading">Recent Chat</p>
-        <button type="button" class="nav-item">${icon("clock")}<span>Recent Chat</span>${icon("chevron")}</button>
-        <button type="button" class="nav-item">${icon("file")}<span>Unsaved Chat</span>${icon("chevron")}</button>
+        <button id="recentChatButton" type="button" class="nav-item">${icon("clock")}<span>Recent Chat</span>${icon("chevron")}</button>
+        <button id="unsavedChatButton" type="button" class="nav-item">${icon("file")}<span>Unsaved Chat</span>${icon("chevron")}</button>
         <div class="nav-divider"></div>
         <p class="nav-heading">Workspace</p>
-        <button type="button" class="nav-item">${icon("folder")}<span>Saved Chat</span>${icon("chevron")}</button>
-        <button type="button" class="nav-item">${icon("shield")}<span>Local Data</span>${icon("chevron")}</button>
+        <button id="savedChatButton" type="button" class="nav-item">${icon("folder")}<span>Saved Chat</span>${icon("chevron")}</button>
+        <button id="localDataButton" type="button" class="nav-item">${icon("shield")}<span>Local Data</span>${icon("chevron")}</button>
       </nav>
       <section class="account-card" aria-label="User and audio controls">
         <div class="avatar">HK</div><div class="account-text"><strong>Marcel Berc...</strong><span id="userPresence">Invisible</span></div>
         <div class="account-actions">
           <button id="quickMicButton" class="footer-icon danger" type="button" aria-label="Mute microphone">${icon("micOff")}</button>
-          <button class="footer-dropdown danger" type="button" aria-label="Microphone options">${icon("chevron")}</button>
-          <button class="footer-icon danger" type="button" aria-label="Disable voice output">${icon("headphonesOff")}</button>
-          <button class="footer-dropdown danger" type="button" aria-label="Voice output options">${icon("chevron")}</button>
+          <button id="micOptionsButton" class="footer-dropdown danger" type="button" aria-label="Microphone options">${icon("chevron")}</button>
+          <button id="voiceOutputButton" class="footer-icon danger" type="button" aria-label="Disable voice output">${icon("headphonesOff")}</button>
+          <button id="voiceOptionsButton" class="footer-dropdown danger" type="button" aria-label="Voice output options">${icon("chevron")}</button>
           <button id="settingsButton" class="footer-icon settings-action" type="button" aria-label="Settings">${icon("settings")}</button>
         </div>
       </section>
@@ -145,105 +169,25 @@ app.innerHTML = `
         </div>
         <article id="assistantCard" class="assistant-card"><div class="mini-brand">T</div><div><strong>TranslateIT</strong><p id="assistantMessage">Startup warmup completed. Local runtime status is being checked.</p></div></article>
       </section>
-      <section class="composer-wrap" aria-label="Message composer"><div class="composer"><button class="composer-icon" type="button" aria-label="Add input">${icon("plus")}</button><input id="messageInput" type="text" placeholder="Ask anything..." autocomplete="off" /><button id="microphoneButton" class="composer-icon emphasis" type="button" aria-label="Start voice recording">${icon("mic")}</button><button id="sendButton" class="send-button" type="button" aria-label="Send message">${icon("arrowUp")}</button></div><p class="composer-help">Type a message, or press the microphone button on the right to record speech locally.</p></section>
+      <section class="composer-wrap" aria-label="Message composer"><div class="composer"><button id="composerPlusButton" class="composer-icon" type="button" aria-label="Add input">${icon("plus")}</button><input id="messageInput" type="text" placeholder="Ask anything..." autocomplete="off" /><button id="microphoneButton" class="composer-icon emphasis" type="button" aria-label="Start voice recording">${icon("mic")}</button><button id="sendButton" class="send-button" type="button" aria-label="Send message">${icon("arrowUp")}</button></div><p class="composer-help">Type a message, or press the microphone button on the right to record speech locally.</p></section>
     </section>
 
     <section id="settingsPage" class="settings-page is-hidden" aria-label="TranslateIT settings">
       <aside class="settings-sidebar" aria-label="Settings categories">
         <h2>Settings</h2>
         <nav class="settings-nav-v22">
-          <button type="button" class="settings-nav-item">${icon("sliders")}<span>General</span></button>
-          <button type="button" class="settings-nav-item">${icon("speaker")}<span>Audio</span></button>
-          <button type="button" class="settings-nav-item">${icon("translate")}<span>Translate</span></button>
-          <button type="button" class="settings-nav-item active">${icon("code")}<span>Developer</span></button>
+          <button type="button" class="settings-nav-item" data-settings-tab="general">${icon("sliders")}<span>General</span></button>
+          <button type="button" class="settings-nav-item" data-settings-tab="audio">${icon("speaker")}<span>Audio</span></button>
+          <button type="button" class="settings-nav-item" data-settings-tab="translate">${icon("translate")}<span>Translate</span></button>
+          <button type="button" class="settings-nav-item active" data-settings-tab="developer">${icon("code")}<span>Developer</span></button>
         </nav>
       </aside>
-
       <section class="settings-workspace-v22">
         <header class="settings-topbar-v22"><button id="backHomeButton" class="settings-back-button" type="button">${icon("back")}<span>Back</span></button></header>
-        <div class="settings-scroll-v22" style="padding-top:72px;">
-          <section class="settings-page-title"><h2>Developer</h2><p>Simple tools for monitoring runtime health and fixing common issues.</p></section>
-
-          <section class="settings-page-title secondary" style="margin-top:70px;"><h2>Monitoring</h2><p>Melacak usage hardware dan health engine.</p></section>
-          <article class="audio-card-v22" style="min-height:330px;margin-top:46px;padding:64px 74px 44px;">
-            <div style="display:grid;grid-template-columns:540px 540px;column-gap:92px;align-items:start;">
-              <section>
-                <div style="display:grid;grid-template-columns:22px minmax(0,1fr);column-gap:22px;align-items:center;">
-                  ${icon("monitor")}
-                  <h3 style="margin:0;color:var(--text);font-size:18px;font-weight:850;">Hardware Usage</h3>
-                </div>
-                <p style="margin:14px 0 0 44px;color:var(--muted);font-size:13px;">Track CPU, GPU, RAM, and local worker resource usage.</p>
-                <div style="display:grid;gap:38px;margin-top:45px;">
-                  <div style="display:grid;grid-template-columns:64px 1fr 48px;align-items:center;gap:20px;"><strong style="font-size:14px;">CPU</strong><span style="height:5px;border-radius:999px;background:linear-gradient(90deg,#d6dbe3 25%,#4b4f5d 25%);"></span><em style="color:var(--muted);font-size:13px;font-style:normal;font-weight:850;">25%</em></div>
-                  <div style="display:grid;grid-template-columns:64px 1fr 48px;align-items:center;gap:20px;"><strong style="font-size:14px;">GPU</strong><span style="height:5px;border-radius:999px;background:linear-gradient(90deg,#d6dbe3 32%,#4b4f5d 32%);"></span><em style="color:var(--muted);font-size:13px;font-style:normal;font-weight:850;">32%</em></div>
-                  <div style="display:grid;grid-template-columns:64px 1fr 48px;align-items:center;gap:20px;"><strong style="font-size:14px;">RAM</strong><span style="height:5px;border-radius:999px;background:linear-gradient(90deg,#d6dbe3 46%,#4b4f5d 46%);"></span><em style="color:var(--muted);font-size:13px;font-style:normal;font-weight:850;">46%</em></div>
-                </div>
-              </section>
-
-              <section>
-                <div style="display:grid;grid-template-columns:22px minmax(0,1fr);column-gap:22px;align-items:center;">
-                  ${icon("pulse")}
-                  <h3 style="margin:0;color:var(--text);font-size:18px;font-weight:850;">Health Engine</h3>
-                </div>
-                <p style="margin:14px 0 0 44px;color:var(--muted);font-size:13px;">Simple status for Launcher and Engine.</p>
-                <div style="display:grid;gap:18px;margin-top:35px;">
-                  <section style="display:grid;grid-template-columns:24px minmax(0,1fr) 88px;align-items:center;column-gap:20px;height:62px;border:1px solid var(--border-strong);border-radius:16px;background:#10141b;padding:0 24px;">${icon("monitor")}<div><strong style="display:block;font-size:15.5px;">Launcher</strong><p style="margin:7px 0 0;color:var(--muted);font-size:11.5px;">Desktop shell and UI route</p></div><span style="display:grid;place-items:center;height:32px;border:1px solid #8d949f;border-radius:12px;background:#151922;font-size:12px;font-weight:900;">Good</span></section>
-                  <section style="display:grid;grid-template-columns:24px minmax(0,1fr) 88px;align-items:center;column-gap:20px;height:62px;border:1px solid var(--border-strong);border-radius:16px;background:#10141b;padding:0 24px;">${icon("pulse")}<div><strong style="display:block;font-size:15.5px;">Engine</strong><p style="margin:7px 0 0;color:var(--muted);font-size:11.5px;">Translation, transcript, and worker state</p></div><span style="display:grid;place-items:center;height:32px;border:1px solid #8d949f;border-radius:12px;background:#151922;font-size:12px;font-weight:900;">Good</span></section>
-                </div>
-              </section>
-            </div>
-          </article>
-
-          <section class="settings-page-title secondary" style="margin-top:84px;"><h2>Diagnostic</h2><p>Run checking, show current progress, and review diagnostic logs in one table.</p></section>
-          <article class="audio-card-v22" style="min-height:622px;margin-top:46px;padding:52px 74px;">
-            <section style="position:relative;min-height:86px;">
-              <div style="display:grid;grid-template-columns:22px minmax(0,1fr);column-gap:22px;align-items:start;">
-                ${icon("check")}
-                <div><h3 style="margin:0;color:var(--text);font-size:20px;font-weight:850;">Run Diagnostic</h3><p style="margin:15px 0 0;color:var(--muted);font-size:13px;">Check launcher, audio device, translation engine, transcript, and local worker.</p></div>
-              </div>
-              <button type="button" style="position:absolute;right:20px;top:2px;width:206px;height:52px;border:1px solid #8d949f;border-radius:15px;color:var(--text);background:#151922;font-size:14px;font-weight:900;">Run Checking</button>
-            </section>
-
-            <section style="height:112px;margin-top:26px;border:1px solid var(--border-strong);border-radius:18px;background:#10141b;padding:28px;">
-              <div style="display:flex;align-items:center;justify-content:space-between;gap:24px;"><strong style="font-size:14px;">Checking translation engine</strong><span style="display:grid;place-items:center;width:82px;height:30px;border:1px solid var(--border-strong);border-radius:11px;background:#151922;color:var(--muted);font-size:12px;font-weight:900;">Running</span></div>
-              <p style="margin:18px 0 0;color:var(--muted);font-size:12.5px;font-weight:750;">Phase: Transcript worker</p>
-              <div style="position:relative;margin-top:20px;height:30px;">
-                <span style="position:absolute;left:0;right:0;top:13px;height:6px;border-radius:999px;background:#4b4f5d;"></span>
-                <span style="position:absolute;left:0;top:13px;width:52%;height:6px;border-radius:999px;background:#d6dbe3;"></span>
-                <span style="position:absolute;left:calc(52% - 5px);top:8px;width:11px;height:11px;border-radius:50%;background:#d6dbe3;"></span>
-                <span style="position:absolute;left:calc(52% - 28px);top:-27px;display:grid;place-items:center;width:56px;height:24px;border:1px solid #4b5563;border-radius:8px;background:#11141a;color:var(--text);font-size:11.5px;font-weight:900;">52%</span>
-              </div>
-            </section>
-
-            <div style="height:1px;margin:38px 0;background:var(--border);"></div>
-
-            <section style="position:relative;min-height:86px;">
-              <div style="display:grid;grid-template-columns:22px minmax(0,1fr);column-gap:22px;align-items:start;">
-                ${icon("logs")}
-                <div><h3 style="margin:0;color:var(--text);font-size:20px;font-weight:850;">Log Diagnostic</h3><p style="margin:15px 0 0;color:var(--muted);font-size:13px;">Showing the latest 3 diagnostic logs.</p></div>
-              </div>
-            </section>
-
-            <section style="height:176px;margin-top:0;border:1px solid var(--border-strong);border-radius:18px;background:#080b11;overflow:hidden;">
-              <header style="display:grid;grid-template-columns:78px minmax(0,1fr) 206px;align-items:center;height:48px;border-bottom:1px solid var(--border-strong);background:#0d1017;padding:0 20px 0 26px;">
-                <span style="display:flex;gap:10px;"><i style="width:10px;height:10px;border-radius:50%;background:#858e9c;"></i><i style="width:10px;height:10px;border-radius:50%;background:#858e9c;"></i><i style="width:10px;height:10px;border-radius:50%;background:#858e9c;"></i></span>
-                <strong style="color:var(--muted);font-size:12px;">developer-log/latest</strong>
-                <button type="button" style="display:grid;grid-template-columns:22px 1fr;align-items:center;width:206px;height:32px;border:1px solid #8d949f;border-radius:12px;padding:0 18px;color:var(--text);background:#151922;font-size:12px;font-weight:900;">${icon("maximize")}<span>See All Logs</span></button>
-              </header>
-              <div style="display:grid;gap:20px;padding:32px 26px;">
-                <p style="margin:0;color:var(--text);font-size:12.5px;font-weight:750;"><strong style="display:inline-block;width:64px;color:var(--muted);">[OK]</strong>No critical error detected.</p>
-                <p style="margin:0;color:var(--text);font-size:12.5px;font-weight:750;"><strong style="display:inline-block;width:64px;color:var(--muted);">[INFO]</strong>Launcher route loaded successfully.</p>
-                <p style="margin:0;color:var(--text);font-size:12.5px;font-weight:750;"><strong style="display:inline-block;width:64px;color:var(--muted);">[WAIT]</strong>Waiting for next diagnostic result...</p>
-              </div>
-            </section>
-          </article>
-
-          <section class="settings-page-title secondary"><h2>Advanced Developer Setting</h2><p>Reserved for future developer options.</p></section>
-          <article class="advanced-empty-v22"></article>
-          <div class="runtime-sinks" aria-hidden="true"><span id="realtimeStatus">Checking</span><span id="qualityStatus">Checking</span><span id="gpuStatus">Checking</span><pre id="developerOutput">Runtime status will appear here after warmup.</pre></div>
-        </div>
+        <div id="settingsContent" class="settings-scroll-v22" style="padding-top:72px;"></div>
       </section>
     </section>
+    <div class="runtime-sinks" aria-hidden="true"><span id="realtimeStatus">Checking</span><span id="qualityStatus">Checking</span><span id="gpuStatus">Checking</span><pre id="developerOutput">Runtime status will appear here after warmup.</pre></div>
   </main>
 `;
 
@@ -262,6 +206,7 @@ const ui = {
   mainApp: requireElement<HTMLElement>("#mainApp"),
   homePage: requireElement<HTMLElement>("#homePage"),
   settingsPage: requireElement<HTMLElement>("#settingsPage"),
+  settingsContent: requireElement<HTMLElement>("#settingsContent"),
   settingsButton: requireElement<HTMLButtonElement>("#settingsButton"),
   backHomeButton: requireElement<HTMLButtonElement>("#backHomeButton"),
   messageInput: requireElement<HTMLInputElement>("#messageInput"),
@@ -278,17 +223,57 @@ const ui = {
   gpuStatus: requireElement<HTMLSpanElement>("#gpuStatus"),
   developerOutput: requireElement<HTMLPreElement>("#developerOutput"),
   userPresence: requireElement<HTMLSpanElement>("#userPresence"),
+  newChatButton: requireElement<HTMLButtonElement>("#newChatButton"),
+  composerPlusButton: requireElement<HTMLButtonElement>("#composerPlusButton"),
+  recentChatButton: requireElement<HTMLButtonElement>("#recentChatButton"),
+  unsavedChatButton: requireElement<HTMLButtonElement>("#unsavedChatButton"),
+  savedChatButton: requireElement<HTMLButtonElement>("#savedChatButton"),
+  localDataButton: requireElement<HTMLButtonElement>("#localDataButton"),
+  micOptionsButton: requireElement<HTMLButtonElement>("#micOptionsButton"),
+  voiceOutputButton: requireElement<HTMLButtonElement>("#voiceOutputButton"),
+  voiceOptionsButton: requireElement<HTMLButtonElement>("#voiceOptionsButton"),
+  settingsNavItems: Array.from(document.querySelectorAll<HTMLButtonElement>("[data-settings-tab]")),
+  navItems: Array.from(document.querySelectorAll<HTMLButtonElement>(".nav-item")),
 };
 
 let latestBundle: RuntimeStatusBundleReport | null = null;
 let latestDiagnostics: RuntimeDiagnostics | null = null;
+let currentSettings: RuntimeSettings | null = null;
+let activeSettingsTab: SettingsTab = "developer";
 let recording = false;
+let activeSessionTitle = "New Chat";
+let conversationMessages: ChatMessage[] = [];
+let logsExpanded = false;
 
 function errorMessage(error: unknown): string { return error instanceof Error ? error.message : String(error); }
 
 async function call<T>(command: string, args?: Record<string, unknown>): Promise<T | null> {
   try { return args ? await invoke<T>(command, args) : await invoke<T>(command); }
   catch (error) { console.warn(`TranslateIT command failed: ${command}`, error); return null; }
+}
+
+function defaultSettings(): RuntimeSettings {
+  return {
+    schema_version: 3,
+    language_focus_mode: "id-en-focus",
+    runtime_profile: "Realtime",
+    source_language: "id",
+    target_language: "en",
+    audio: {
+      input_device_id: null,
+      output_device_id: null,
+      sensitivity: 1,
+      input_sensitivity: "Realtime",
+      show_advanced_devices: false,
+      allow_low_but_usable_input: true,
+      allow_cpu_degraded_mode: false,
+      auto_play_translation_voice: true,
+      auto_play_out_voice: true,
+      use_custom_voice_actor: true,
+      voice_actor_profiles_root: "EngineData/VoiceActorProfiles",
+    },
+    voice_actor_profile_id: "marcel",
+  };
 }
 
 function updateWarmup(progress: number, detail: string): void {
@@ -319,6 +304,10 @@ function setRecordingState(active: boolean): void {
   document.body.classList.toggle("is-recording", active);
   ui.recordStatusText.textContent = active ? "Recording" : "Ready";
   ui.microphoneButton.setAttribute("aria-label", active ? "Stop recording" : "Start voice recording");
+}
+
+function setAssistantNotice(message: string): void {
+  ui.assistantMessage.textContent = message;
 }
 
 function renderRuntime(bundle: RuntimeStatusBundleReport | null, diagnostics: RuntimeDiagnostics | null): void {
@@ -352,6 +341,7 @@ function showSettings(): void {
   document.body.classList.add("settings-open");
   ui.homePage.classList.add("is-hidden");
   ui.settingsPage.classList.remove("is-hidden");
+  renderSettingsTab(activeSettingsTab);
 }
 
 function showHome(): void {
@@ -371,16 +361,211 @@ async function submitText(): Promise<void> {
   const source = ui.messageInput.value.trim();
   if (!source) return;
   ui.messageInput.value = "";
+  conversationMessages.push({ role: "user", content: source });
+  if (activeSessionTitle === "New Chat") activeSessionTitle = source.split(/\s+/).slice(0, 8).join(" ");
   ui.assistantMessage.textContent = "Translating text locally...";
   const result = await call<CommandResult>("translate_text", { source });
-  ui.assistantMessage.textContent = result?.message ?? "Translation command failed. Open Settings > Developer for diagnostics.";
+  const response = result?.message ?? "Translation command failed. Open Settings > Developer for diagnostics.";
+  conversationMessages.push({ role: "assistant", content: response });
+  ui.assistantMessage.textContent = response;
+}
+
+async function createNewChat(): Promise<void> {
+  activeSessionTitle = "New Chat";
+  conversationMessages = [];
+  ui.messageInput.value = "";
+  setActiveNav(null);
+  showHome();
+  setAssistantNotice("New chat is ready. Type a message, or press the microphone button to record locally.");
+}
+
+function setActiveNav(activeButton: HTMLButtonElement | null): void {
+  ui.navItems.forEach((button) => button.classList.toggle("active", button === activeButton));
+}
+
+async function showChatCollection(kind: "recent" | "unsaved" | "saved" | "local", button: HTMLButtonElement): Promise<void> {
+  setActiveNav(button);
+  showHome();
+  const status = await call<RuntimeStatusBundleReport>("get_runtime_status_bundle");
+  if (status) renderRuntime(status, latestDiagnostics);
+  const localCount = conversationMessages.length;
+  const label = kind === "local" ? "Local Data" : `${kind.charAt(0).toUpperCase()}${kind.slice(1)} Chat`;
+  setAssistantNotice(localCount > 0 ? `${label} opened. Current session: ${activeSessionTitle} (${localCount} message item(s)).` : `${label} opened. No saved chat list backend is connected yet; current session is ready.`);
+}
+
+function openAudioSettings(): void {
+  activeSettingsTab = "audio";
+  showSettings();
+}
+
+async function toggleVoiceOutput(): Promise<void> {
+  currentSettings = currentSettings ?? defaultSettings();
+  currentSettings.audio.auto_play_out_voice = !currentSettings.audio.auto_play_out_voice;
+  currentSettings.audio.auto_play_translation_voice = currentSettings.audio.auto_play_out_voice;
+  setAssistantNotice(currentSettings.audio.auto_play_out_voice ? "Voice output enabled for this session." : "Voice output disabled for this session.");
+}
+
+function renderSettingsTab(tab: SettingsTab): void {
+  activeSettingsTab = tab;
+  ui.settingsNavItems.forEach((button) => button.classList.toggle("active", button.dataset.settingsTab === tab));
+  if (tab === "general") renderGeneralSettings();
+  if (tab === "audio") renderAudioSettings();
+  if (tab === "translate") renderTranslateSettings();
+  if (tab === "developer") renderDeveloperSettings();
+}
+
+function renderGeneralSettings(): void {
+  const settings = currentSettings ?? defaultSettings();
+  ui.settingsContent.innerHTML = `
+    <section class="settings-page-title"><h2>General</h2><p>Basic launcher and local runtime preferences.</p></section>
+    <section class="settings-page-title secondary"><h2>Runtime</h2><p>Current app version, runtime profile, and safe default settings.</p></section>
+    <article class="audio-card-v22" style="min-height:330px;margin-top:46px;padding:54px 74px;">
+      <div class="audio-grid-v22">
+        <section class="audio-field-group"><h3>Runtime Profile</h3><button class="select-field-v22" type="button"><span>${settings.runtime_profile}</span>${icon("chevron")}</button></section>
+        <section class="audio-field-group"><h3>Language Focus</h3><button class="select-field-v22" type="button"><span>${settings.language_focus_mode}</span>${icon("chevron")}</button></section>
+        <section class="audio-field-group"><h3>Realtime Status</h3><button class="select-field-v22" type="button"><span id="generalRealtimeStatus">${ui.realtimeStatus.textContent}</span>${icon("pulse")}</button></section>
+        <section class="audio-field-group"><h3>GPU Status</h3><button class="select-field-v22" type="button"><span id="generalGpuStatus">${ui.gpuStatus.textContent}</span>${icon("monitor")}</button></section>
+      </div>
+      <button id="resetSettingsButton" class="mic-test-button-v22" type="button" style="margin-top:54px;width:230px;">Save Default</button>
+    </article>
+    <section class="settings-page-title secondary"><h2>Advanced General Setting</h2><p>Reserved for future launcher preferences.</p></section>
+    <article class="advanced-empty-v22"></article>`;
+  requireElement<HTMLButtonElement>("#resetSettingsButton").addEventListener("click", () => void saveDefaultSettings());
+}
+
+function renderAudioSettings(): void {
+  const settings = currentSettings ?? defaultSettings();
+  const voiceEnabled = settings.audio.auto_play_out_voice;
+  ui.settingsContent.innerHTML = `
+    <section class="settings-page-title"><h2>Audio</h2><p>Configure microphone input, voice output, and local capture checks.</p></section>
+    <section class="settings-page-title secondary"><h2>Audio Input</h2><p>Use the selected microphone for local speech capture.</p></section>
+    <article class="audio-card-v22">
+      <div class="audio-grid-v22">
+        <section class="audio-field-group"><h3>Input Device</h3><button id="checkAudioInputButton" class="select-field-v22" type="button"><span id="audioInputLabel">Default microphone</span>${icon("chevron")}</button></section>
+        <section class="audio-field-group"><h3>Input Sensitivity</h3><button id="audioSensitivityButton" class="select-field-v22" type="button"><span>${settings.audio.input_sensitivity}</span>${icon("chevron")}</button></section>
+        <section class="audio-field-group"><h3>Microphone Level</h3><div class="range-v22 mic-range"><span></span><i></i></div></section>
+        <section class="audio-field-group"><h3>Voice Output</h3><button id="audioVoiceToggleButton" class="select-field-v22" type="button"><span>${voiceEnabled ? "Enabled" : "Disabled"}</span>${icon("speaker")}</button></section>
+        <section class="mic-test-row-v22"><button id="micTestButton" class="mic-test-button-v22" type="button">Test Mic</button><div class="meter-v22"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></div></section>
+      </div>
+    </article>
+    <section class="settings-page-title secondary"><h2>Voice Profile</h2><p>Current local voice actor profile for translated speech.</p></section>
+    <article class="voice-card-v22"><div class="voice-grid-v22"><section><h3>Voice Profile</h3><p>${settings.voice_actor_profile_id}</p><div class="radio-row-v22 active"><span></span><strong>Use custom voice actor</strong><em>${settings.audio.voice_actor_profiles_root}</em></div></section><section><h3>Voice Mode</h3><p>Voice output follows Translate Output setting.</p><div class="radio-row-v22 ${voiceEnabled ? "active" : ""}"><span></span><strong>${voiceEnabled ? "Voice enabled" : "Voice disabled"}</strong><em>Can be toggled from account controls or this page.</em></div></section></div></article>
+    <section class="settings-page-title secondary"><h2>Advanced Audio Setting</h2><p>Reserved for future audio device options.</p></section>
+    <article class="advanced-empty-v22"></article>`;
+  requireElement<HTMLButtonElement>("#checkAudioInputButton").addEventListener("click", () => void checkAudioInput());
+  requireElement<HTMLButtonElement>("#micTestButton").addEventListener("click", () => void startOrStopRecording());
+  requireElement<HTMLButtonElement>("#audioVoiceToggleButton").addEventListener("click", () => void toggleVoiceOutput().then(renderAudioSettings));
+  requireElement<HTMLButtonElement>("#audioSensitivityButton").addEventListener("click", () => toggleRuntimeProfile());
+}
+
+function renderTranslateSettings(): void {
+  const settings = currentSettings ?? defaultSettings();
+  const realtimeActive = settings.runtime_profile !== "Quality";
+  ui.settingsContent.innerHTML = `
+    <section class="settings-page-title"><h2>Translate</h2><p>Configure language pair, realtime mode, and output style.</p></section>
+    <section class="settings-page-title secondary"><h2>Language Pair</h2><p>Primary project target is Indonesian to English.</p></section>
+    <article class="audio-card-v22" style="min-height:330px;margin-top:46px;padding:54px 74px;">
+      <div class="audio-grid-v22">
+        <section class="audio-field-group"><h3>Source Language</h3><button class="select-field-v22" type="button"><span>${languageName(settings.source_language)}</span>${icon("translate")}</button></section>
+        <section class="audio-field-group"><h3>Target Language</h3><button class="select-field-v22" type="button"><span>${languageName(settings.target_language)}</span>${icon("translate")}</button></section>
+      </div>
+      <button id="swapLanguageButton" class="mic-test-button-v22" type="button" style="margin-top:54px;width:230px;">Swap</button>
+    </article>
+    <section class="settings-page-title secondary"><h2>Realtime</h2><p>Choose faster response or higher quality translation planning.</p></section>
+    <article class="voice-card-v22"><div class="voice-grid-v22"><section><h3>Mode</h3><div id="realtimeModeButton" class="radio-row-v22 ${realtimeActive ? "active" : ""}" role="button"><span></span><strong>Fast</strong><em>Prioritize realtime latency.</em></div><div id="qualityModeButton" class="radio-row-v22 ${!realtimeActive ? "active" : ""}" role="button"><span></span><strong>Quality</strong><em>Prioritize more careful translation planning.</em></div></section><section><h3>Translate Output</h3><div class="radio-row-v22 active"><span></span><strong>Transcript</strong><em>Always show translated text in the conversation.</em></div><div class="radio-row-v22 ${settings.audio.auto_play_out_voice ? "active" : ""}"><span></span><strong>Voice</strong><em>Play translated voice when local TTS is available.</em></div></section></div></article>
+    <section class="settings-page-title secondary"><h2>Advanced Translate Setting</h2><p>Reserved for future translation preferences.</p></section>
+    <article class="advanced-empty-v22"></article>`;
+  requireElement<HTMLButtonElement>("#swapLanguageButton").addEventListener("click", () => { swapLanguages(); renderTranslateSettings(); });
+  requireElement<HTMLElement>("#realtimeModeButton").addEventListener("click", () => { setRuntimeProfile("Realtime"); renderTranslateSettings(); });
+  requireElement<HTMLElement>("#qualityModeButton").addEventListener("click", () => { setRuntimeProfile("Quality"); renderTranslateSettings(); });
+}
+
+function renderDeveloperSettings(): void {
+  const progress = latestBundle?.internal_validation_gate?.progress_percent ?? latestBundle?.live_pipeline_gate?.progress_percent ?? 52;
+  const safeProgress = Math.max(0, Math.min(100, Math.round(progress)));
+  ui.settingsContent.innerHTML = `
+    <section class="settings-page-title"><h2>Developer</h2><p>Simple tools for monitoring runtime health and fixing common issues.</p></section>
+    <section class="settings-page-title secondary" style="margin-top:70px;"><h2>Monitoring</h2><p>Melacak usage hardware dan health engine.</p></section>
+    <article class="audio-card-v22" style="min-height:330px;margin-top:46px;padding:64px 74px 44px;"><div style="display:grid;grid-template-columns:540px 540px;column-gap:92px;align-items:start;"><section><div style="display:grid;grid-template-columns:22px minmax(0,1fr);column-gap:22px;align-items:center;">${icon("monitor")}<h3 style="margin:0;color:var(--text);font-size:18px;font-weight:850;">Hardware Usage</h3></div><p style="margin:14px 0 0 44px;color:var(--muted);font-size:13px;">Track CPU, GPU, RAM, and local worker resource usage.</p><div style="display:grid;gap:38px;margin-top:45px;">${hardwareRow("CPU", "developerCpuFill", "developerCpuValue")} ${hardwareRow("GPU", "developerGpuFill", "developerGpuValue")} ${hardwareRow("RAM", "developerRamFill", "developerRamValue")}</div></section><section><div style="display:grid;grid-template-columns:22px minmax(0,1fr);column-gap:22px;align-items:center;">${icon("pulse")}<h3 style="margin:0;color:var(--text);font-size:18px;font-weight:850;">Health Engine</h3></div><p style="margin:14px 0 0 44px;color:var(--muted);font-size:13px;">Simple status for Launcher and Engine.</p><div style="display:grid;gap:18px;margin-top:35px;"><section style="display:grid;grid-template-columns:24px minmax(0,1fr) 88px;align-items:center;column-gap:20px;height:62px;border:1px solid var(--border-strong);border-radius:16px;background:#10141b;padding:0 24px;">${icon("monitor")}<div><strong style="display:block;font-size:15.5px;">Launcher</strong><p style="margin:7px 0 0;color:var(--muted);font-size:11.5px;">Desktop shell and UI route</p></div><span style="display:grid;place-items:center;height:32px;border:1px solid #8d949f;border-radius:12px;background:#151922;font-size:12px;font-weight:900;">Good</span></section><section style="display:grid;grid-template-columns:24px minmax(0,1fr) 88px;align-items:center;column-gap:20px;height:62px;border:1px solid var(--border-strong);border-radius:16px;background:#10141b;padding:0 24px;">${icon("pulse")}<div><strong style="display:block;font-size:15.5px;">Engine</strong><p style="margin:7px 0 0;color:var(--muted);font-size:11.5px;">Translation, transcript, and worker state</p></div><span style="display:grid;place-items:center;height:32px;border:1px solid #8d949f;border-radius:12px;background:#151922;font-size:12px;font-weight:900;">${latestBundle ? "Good" : "Check"}</span></section></div></section></div></article>
+    <section class="settings-page-title secondary" style="margin-top:84px;"><h2>Diagnostic</h2><p>Run checking, show current progress, and review diagnostic logs in one table.</p></section>
+    <article class="audio-card-v22" style="min-height:622px;margin-top:46px;padding:52px 74px;"><section style="position:relative;min-height:86px;"><div style="display:grid;grid-template-columns:22px minmax(0,1fr);column-gap:22px;align-items:start;">${icon("check")}<div><h3 style="margin:0;color:var(--text);font-size:20px;font-weight:850;">Run Diagnostic</h3><p style="margin:15px 0 0;color:var(--muted);font-size:13px;">Check launcher, audio device, translation engine, transcript, and local worker.</p></div></div><button id="runDiagnosticButton" type="button" style="position:absolute;right:20px;top:2px;width:206px;height:52px;border:1px solid #8d949f;border-radius:15px;color:var(--text);background:#151922;font-size:14px;font-weight:900;">Run Checking</button></section><section style="height:112px;margin-top:26px;border:1px solid var(--border-strong);border-radius:18px;background:#10141b;padding:28px;"><div style="display:flex;align-items:center;justify-content:space-between;gap:24px;"><strong style="font-size:14px;">Checking translation engine</strong><span id="diagnosticStatus" style="display:grid;place-items:center;width:82px;height:30px;border:1px solid var(--border-strong);border-radius:11px;background:#151922;color:var(--muted);font-size:12px;font-weight:900;">Ready</span></div><p id="diagnosticPhase" style="margin:18px 0 0;color:var(--muted);font-size:12.5px;font-weight:750;">Phase: Waiting for check</p><div style="position:relative;margin-top:20px;height:30px;"><span style="position:absolute;left:0;right:0;top:13px;height:6px;border-radius:999px;background:#4b4f5d;"></span><span id="diagnosticFill" style="position:absolute;left:0;top:13px;width:${safeProgress}%;height:6px;border-radius:999px;background:#d6dbe3;"></span><span id="diagnosticMarker" style="position:absolute;left:calc(${safeProgress}% - 5px);top:8px;width:11px;height:11px;border-radius:50%;background:#d6dbe3;"></span><span id="diagnosticBadge" style="position:absolute;left:calc(${safeProgress}% - 28px);top:-27px;display:grid;place-items:center;width:56px;height:24px;border:1px solid #4b5563;border-radius:8px;background:#11141a;color:var(--text);font-size:11.5px;font-weight:900;">${safeProgress}%</span></div></section><div style="height:1px;margin:38px 0;background:var(--border);"></div><section style="position:relative;min-height:86px;"><div style="display:grid;grid-template-columns:22px minmax(0,1fr);column-gap:22px;align-items:start;">${icon("logs")}<div><h3 style="margin:0;color:var(--text);font-size:20px;font-weight:850;">Log Diagnostic</h3><p style="margin:15px 0 0;color:var(--muted);font-size:13px;">Showing the latest diagnostic logs.</p></div></div></section><section id="diagnosticLogPanel" style="height:${logsExpanded ? 320 : 176}px;margin-top:0;border:1px solid var(--border-strong);border-radius:18px;background:#080b11;overflow:hidden;"><header style="display:grid;grid-template-columns:78px minmax(0,1fr) 206px;align-items:center;height:48px;border-bottom:1px solid var(--border-strong);background:#0d1017;padding:0 20px 0 26px;"><span style="display:flex;gap:10px;"><i style="width:10px;height:10px;border-radius:50%;background:#858e9c;"></i><i style="width:10px;height:10px;border-radius:50%;background:#858e9c;"></i><i style="width:10px;height:10px;border-radius:50%;background:#858e9c;"></i></span><strong style="color:var(--muted);font-size:12px;">developer-log/latest</strong><button id="seeAllLogsButton" type="button" style="display:grid;grid-template-columns:22px 1fr;align-items:center;width:206px;height:32px;border:1px solid #8d949f;border-radius:12px;padding:0 18px;color:var(--text);background:#151922;font-size:12px;font-weight:900;">${icon("maximize")}<span>${logsExpanded ? "Show Less" : "See All Logs"}</span></button></header><div id="diagnosticLogBody" style="display:grid;gap:20px;padding:32px 26px;">${developerLogRows()}</div></section></article>
+    <section class="settings-page-title secondary"><h2>Advanced Developer Setting</h2><p>Reserved for future developer options.</p></section><article class="advanced-empty-v22"></article>`;
+  requireElement<HTMLButtonElement>("#runDiagnosticButton").addEventListener("click", () => void runDeveloperDiagnostic());
+  requireElement<HTMLButtonElement>("#seeAllLogsButton").addEventListener("click", () => { logsExpanded = !logsExpanded; renderDeveloperSettings(); });
+}
+
+function hardwareRow(label: string, fillId: string, valueId: string): string {
+  return `<div style="display:grid;grid-template-columns:64px 1fr 48px;align-items:center;gap:20px;"><strong style="font-size:14px;">${label}</strong><span style="height:5px;border-radius:999px;background:#4b4f5d;overflow:hidden;"><i id="${fillId}" style="display:block;width:0%;height:5px;border-radius:999px;background:#d6dbe3;"></i></span><em id="${valueId}" style="color:var(--muted);font-size:13px;font-style:normal;font-weight:850;">N/A</em></div>`;
+}
+
+function developerLogRows(): string {
+  const rows = [
+    ["[OK]", latestBundle ? "Runtime status bundle loaded." : "Runtime status waiting for diagnostic check."],
+    ["[INFO]", latestDiagnostics?.cuda_probe.gpu_summary ?? "GPU summary not available yet."],
+    ["[WAIT]", latestBundle?.next_action ?? "Waiting for next diagnostic result..."],
+  ];
+  return rows.map(([tag, text]) => `<p style="margin:0;color:var(--text);font-size:12.5px;font-weight:750;"><strong style="display:inline-block;width:64px;color:var(--muted);">${tag}</strong>${text}</p>`).join("");
+}
+
+async function runDeveloperDiagnostic(): Promise<void> {
+  const status = document.getElementById("diagnosticStatus");
+  const phase = document.getElementById("diagnosticPhase");
+  if (status) status.textContent = "Running";
+  if (phase) phase.textContent = "Phase: Runtime diagnostics";
+  const [bundle, diagnostics] = await Promise.all([call<RuntimeStatusBundleReport>("get_runtime_status_bundle"), call<RuntimeDiagnostics>("get_runtime_diagnostics")]);
+  renderRuntime(bundle, diagnostics);
+  latestBundle = bundle;
+  latestDiagnostics = diagnostics;
+  renderDeveloperSettings();
+}
+
+async function checkAudioInput(): Promise<void> {
+  const status = await call<InputPreparationStatus>("get_input_status");
+  const label = document.getElementById("audioInputLabel");
+  if (label) label.textContent = status?.selected_device_name ?? "Default microphone";
+  setAssistantNotice(status?.note ?? status?.blocker ?? "Audio input status checked.");
+}
+
+async function saveDefaultSettings(): Promise<void> {
+  const result = await call<CommandResult>("save_default_runtime_settings");
+  currentSettings = await call<RuntimeSettings>("load_runtime_settings") ?? currentSettings;
+  setAssistantNotice(result?.message ?? "Default settings save command is unavailable.");
+}
+
+function toggleRuntimeProfile(): void {
+  currentSettings = currentSettings ?? defaultSettings();
+  currentSettings.runtime_profile = currentSettings.runtime_profile === "Quality" ? "Realtime" : "Quality";
+  currentSettings.audio.input_sensitivity = currentSettings.runtime_profile;
+  renderAudioSettings();
+  setAssistantNotice(`Runtime profile set to ${currentSettings.runtime_profile} for this session.`);
+}
+
+function setRuntimeProfile(profile: "Realtime" | "Quality"): void {
+  currentSettings = currentSettings ?? defaultSettings();
+  currentSettings.runtime_profile = profile;
+  currentSettings.audio.input_sensitivity = profile;
+  setAssistantNotice(`Translate mode set to ${profile} for this session.`);
+}
+
+function swapLanguages(): void {
+  currentSettings = currentSettings ?? defaultSettings();
+  const source = currentSettings.source_language;
+  currentSettings.source_language = currentSettings.target_language;
+  currentSettings.target_language = source;
+  setAssistantNotice(`Language pair changed to ${currentSettings.source_language.toUpperCase()} > ${currentSettings.target_language.toUpperCase()} for this session.`);
+}
+
+function languageName(code: string): string {
+  if (code.toLowerCase().startsWith("id")) return "Indonesian";
+  if (code.toLowerCase().startsWith("en")) return "English";
+  return code.toUpperCase();
 }
 
 async function runWarmup(): Promise<void> {
   const states = new Map<string, WarmupState>();
   const steps: WarmupStep[] = [
     { id: "shell", title: "Desktop shell", detail: "Starting Rust/Tauri window and local app route.", progress: 12, run: () => call<EngineStatus>("get_engine_status") },
-    { id: "settings", title: "User settings", detail: "Loading local runtime settings without starting heavy engines.", progress: 24, run: () => call("load_runtime_settings") },
+    { id: "settings", title: "User settings", detail: "Loading local runtime settings without starting heavy engines.", progress: 24, run: async () => { currentSettings = await call<RuntimeSettings>("load_runtime_settings") ?? defaultSettings(); return currentSettings; } },
     { id: "audio", title: "Audio devices", detail: "Scanning microphone and playback readiness.", progress: 38, run: () => call("get_runtime_diagnostics") },
     { id: "gpu", title: "GPU policy", detail: "Checking CUDA availability and safe CPU fallback.", progress: 52, run: () => call("validate_native_cuda_backend") },
     { id: "assets", title: "Model assets", detail: "Checking ASR, translation, and Piper asset manifests.", progress: 68, run: () => call("get_runtime_status_bundle") },
@@ -402,6 +587,7 @@ async function runWarmup(): Promise<void> {
 
   const [bundle, diagnostics] = await Promise.all([call<RuntimeStatusBundleReport>("get_runtime_status_bundle"), call<RuntimeDiagnostics>("get_runtime_diagnostics")]);
   renderRuntime(bundle, diagnostics);
+  renderSettingsTab("developer");
   ui.warmupScreen.classList.add("is-hidden");
   ui.mainApp.classList.remove("is-hidden");
 }
@@ -413,6 +599,16 @@ ui.quickMicButton.addEventListener("click", () => void startOrStopRecording());
 ui.recordStatusButton.addEventListener("click", () => void startOrStopRecording());
 ui.sendButton.addEventListener("click", () => void submitText());
 ui.messageInput.addEventListener("keydown", (event) => { if (event.key === "Enter" && !event.shiftKey) { event.preventDefault(); void submitText(); } });
+ui.newChatButton.addEventListener("click", () => void createNewChat());
+ui.composerPlusButton.addEventListener("click", () => { ui.messageInput.focus(); setAssistantNotice("Input is ready. File attachment backend is not connected yet."); });
+ui.recentChatButton.addEventListener("click", () => void showChatCollection("recent", ui.recentChatButton));
+ui.unsavedChatButton.addEventListener("click", () => void showChatCollection("unsaved", ui.unsavedChatButton));
+ui.savedChatButton.addEventListener("click", () => void showChatCollection("saved", ui.savedChatButton));
+ui.localDataButton.addEventListener("click", () => void showChatCollection("local", ui.localDataButton));
+ui.micOptionsButton.addEventListener("click", openAudioSettings);
+ui.voiceOutputButton.addEventListener("click", () => void toggleVoiceOutput());
+ui.voiceOptionsButton.addEventListener("click", openAudioSettings);
+ui.settingsNavItems.forEach((button) => button.addEventListener("click", () => renderSettingsTab(button.dataset.settingsTab as SettingsTab)));
 
 void runWarmup().catch((error: unknown) => {
   updateWarmup(100, `Warmup finished with warning: ${errorMessage(error)}`);
