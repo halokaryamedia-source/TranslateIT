@@ -51,6 +51,7 @@ export class LauncherController {
   private modelReadyText(value: boolean): string { return value ? "Ready" : "Needs setup"; }
   private refreshDirectionPill(): void { const settings = this.currentSettings ?? defaultSettings(); this.ui.directionPill.textContent = `${settings.source_language.toUpperCase()} > ${settings.target_language.toUpperCase()}`; }
   private renderWarmupSteps(activeIndex = -1): void { this.ui.warmupSteps.innerHTML = warmupStepsView(activeIndex); }
+  private escapeHtml(value: string): string { return value.replaceAll("&", "&amp;").replaceAll("<", "&lt;").replaceAll(">", "&gt;").replaceAll('"', "&quot;").replaceAll("'", "&#39;"); }
 
   private resetSettingsScroll(): void {
     this.ui.settingsContent.scrollTop = 0;
@@ -289,30 +290,30 @@ export class LauncherController {
   }
 
   private renderDeveloperSettings(): void {
+    const worker = this.workerManifest(this.latestBundle);
     const progress = this.latestBundle?.internal_validation_gate?.progress_percent ?? this.latestBundle?.live_pipeline_gate?.progress_percent ?? 0;
-    const cpu = percentText(this.latestHardware?.cpu);
-    const ram = percentText(this.latestHardware?.ram);
-    const gpu = percentText(this.latestHardware?.gpu);
-    const gpuStatus = this.latestDiagnostics?.cuda_probe.gpu_summary ?? this.latestHardware?.gpu.detail ?? "GPU status unavailable";
+    const cpu = this.escapeHtml(percentText(this.latestHardware?.cpu));
+    const ram = this.escapeHtml(percentText(this.latestHardware?.ram));
+    const gpu = this.escapeHtml(percentText(this.latestHardware?.gpu));
+    const gpuStatus = this.escapeHtml(this.latestDiagnostics?.cuda_probe.gpu_summary ?? this.latestHardware?.gpu.detail ?? "GPU status unavailable");
+    const nextAction = this.escapeHtml(this.latestBundle?.next_action ?? "Waiting for next diagnostic result.");
     const commandErrors = runtimeApi.getCommandErrors().map((error) => {
-      const message = error.message
-        .replaceAll("&", "&amp;")
-        .replaceAll("<", "&lt;")
-        .replaceAll(">", "&gt;");
-      return `<p><strong>[ERR]</strong>${error.command}: ${message}</p>`;
+      const command = this.escapeHtml(error.command);
+      const message = this.escapeHtml(error.message);
+      return `<p><strong>[ERR]</strong>${command}: ${message}</p>`;
     });
     const logRows = [
       `<p><strong>[OK]</strong>${this.latestBundle ? "Runtime status loaded." : "Waiting for diagnostic check."}</p>`,
       `<p><strong>[HW]</strong>CPU ${cpu} | RAM ${ram} | GPU ${gpu}</p>`,
       `<p><strong>[GPU]</strong>${gpuStatus}</p>`,
-      `<p><strong>[ASR]</strong>Primary ${this.workerManifest(this.latestBundle)?.asr_model_ready ? "ready" : "missing"} | Backup ${this.workerManifest(this.latestBundle)?.asr_backup_model_ready ? "ready" : "missing"}</p>`,
-      `<p><strong>[TR]</strong>Marian ${this.workerManifest(this.latestBundle)?.realtime_translation_model_ready ? "ready" : "missing"} | NLLB ${this.workerManifest(this.latestBundle)?.quality_translation_model_ready ? "ready" : "missing"}</p>`,
-      `<p><strong>[TTS]</strong>${this.workerManifest(this.latestBundle)?.piper_ready ? "Piper ready" : this.workerManifest(this.latestBundle)?.sapi_ready ? "Windows SAPI fallback ready" : "No provider"} | Marcel ${this.workerManifest(this.latestBundle)?.voice_actor_marcel_ready ? "ready" : "missing"}</p>`,
-      `<p><strong>[CUDA]</strong>CTranslate2 ${this.workerManifest(this.latestBundle)?.ctranslate2_cuda_available ? "ready" : "not ready"} | Torch ${this.workerManifest(this.latestBundle)?.torch_cuda_available ? "ready" : "CPU-only"}</p>`,
-      `<p><strong>[WAIT]</strong>${this.latestBundle?.next_action ?? "Waiting for next diagnostic result."}</p>`,
+      `<p><strong>[ASR]</strong>Primary ${worker?.asr_model_ready ? "ready" : "missing"} | Backup ${worker?.asr_backup_model_ready ? "ready" : "missing"}</p>`,
+      `<p><strong>[TR]</strong>Marian ${worker?.realtime_translation_model_ready ? "ready" : "missing"} | NLLB ${worker?.quality_translation_model_ready ? "ready" : "missing"}</p>`,
+      `<p><strong>[TTS]</strong>${worker?.piper_ready ? "Piper ready" : worker?.sapi_ready ? "Windows SAPI fallback ready" : "No provider"} | Marcel ${worker?.voice_actor_marcel_ready ? "ready" : "missing"}</p>`,
+      `<p><strong>[CUDA]</strong>CTranslate2 ${worker?.ctranslate2_cuda_available ? "ready" : "not ready"} | Torch ${worker?.torch_cuda_available ? "ready" : "CPU-only"}</p>`,
+      `<p><strong>[WAIT]</strong>${nextAction}</p>`,
       ...commandErrors,
     ].join("");
-    this.ui.settingsContent.innerHTML = developerSettingsView({ progress, cpu, ram, gpu, gpuStatus, logRows, note: this.latestHardware?.note ?? "Run diagnostic to refresh hardware usage.", logsExpanded: this.logsExpanded, engineGood: Boolean(this.latestBundle) });
+    this.ui.settingsContent.innerHTML = developerSettingsView({ progress, cpu, ram, gpu, gpuStatus, logRows, note: this.escapeHtml(this.latestHardware?.note ?? "Run diagnostic to refresh hardware usage."), logsExpanded: this.logsExpanded, engineGood: Boolean(this.latestBundle) });
     requireElement<HTMLButtonElement>("#runDiagnosticButton").addEventListener("click", () => void this.runDeveloperDiagnostic());
     requireElement<HTMLButtonElement>("#seeAllLogsButton").addEventListener("click", () => { this.logsExpanded = !this.logsExpanded; this.renderDeveloperSettings(); });
   }
