@@ -1,0 +1,5 @@
+:root {
+  --settings-page-width: 1320px;
+}
+.settings-scroll-v22 > div { width: var(--settings-page-width) !important; min-width: var(--settings-page-width) !important; max-width: var(--settings-page-width) !important; }
+.audio-card-v22, .voice-card-v22, .advanced-empty-v22 { width: var(--settings-page-width) !important; min-width: var(--settings-page-width) !important; max-width: var(--settings-page-width) !important; }
