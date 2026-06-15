@@ -164,6 +164,7 @@ export class LauncherController {
     }
     this.textSubmitPending = true;
     this.ui.sendButton.disabled = true;
+    this.ui.messageInput.disabled = true;
     this.ui.messageInput.value = "";
     try {
       await this.saveChatMessage("user", source);
@@ -175,6 +176,8 @@ export class LauncherController {
     } finally {
       this.textSubmitPending = false;
       this.ui.sendButton.disabled = false;
+      this.ui.messageInput.disabled = false;
+      this.ui.messageInput.focus();
     }
   }
 
