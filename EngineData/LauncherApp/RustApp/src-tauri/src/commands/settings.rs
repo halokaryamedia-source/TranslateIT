@@ -16,18 +16,26 @@ pub fn save_default_runtime_settings() -> CommandResult { engine::save_default_s
 pub fn save_runtime_settings(settings: RuntimeSettings) -> CommandResult {
     let project_paths = ProjectPaths::discover();
     let settings_path = PathBuf::from(&project_paths.user_cache_dir).join("rust_runtime_settings.json");
+    let log_dir = PathBuf::from(project_paths.user_log_dir);
     match settings.save_pretty(&settings_path) {
         Ok(()) => {
             let _ = write_jsonl_event(
-                &PathBuf::from(project_paths.user_log_dir),
+                &log_dir,
                 "rust_runtime_latest.jsonl",
-                &RuntimeLogEvent::info(
-                    "settings",
-                    format!("Runtime settings saved to {}", settings_path.to_string_lossy()),
-                ),
+                &RuntimeLogEvent::info("settings", "Runtime settings saved."),
             );
             CommandResult::ok(LifecycleState::Idle, "Runtime settings saved.")
         }
-        Err(error) => CommandResult::blocked(LifecycleState::Error, format!("Failed to save runtime settings: {error}")),
+        Err(_) => {
+            let _ = write_jsonl_event(
+                &log_dir,
+                "rust_runtime_latest.jsonl",
+                &RuntimeLogEvent::warning("settings", "Runtime settings save failed."),
+            );
+            CommandResult::blocked(
+                LifecycleState::Error,
+                "Failed to save runtime settings. Open Developer diagnostics for details.",
+            )
+        }
     }
 }
