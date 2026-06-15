@@ -30,11 +30,22 @@ export type RuntimeDiagnostics = {
 
 export type LocalWorkerManifestReport = {
   ok: boolean;
+  runtime_manifest_exists: boolean;
+  runtime_manifest_valid: boolean;
   asr_model_ready: boolean;
+  asr_backup_model_ready: boolean;
   realtime_translation_model_ready: boolean;
   quality_translation_model_ready: boolean;
   piper_ready: boolean;
+  sapi_ready: boolean;
+  tts_default_ready: boolean;
+  voice_actor_marcel_ready: boolean;
+  voice_actor_path: string | null;
+  torch_cuda_available: boolean;
+  ctranslate2_cuda_available: boolean;
   blockers: string[];
+  warnings: string[];
+  tts_blockers: string[];
   note: string;
 };
 

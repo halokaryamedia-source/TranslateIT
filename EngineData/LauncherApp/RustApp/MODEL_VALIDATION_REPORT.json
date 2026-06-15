@@ -1,0 +1,278 @@
+{
+  "schema_version": 1,
+  "generated_at": "2026-06-15T15:08:38.290693+00:00",
+  "environment": {
+    "os": "Windows-10-10.0.26100-SP0",
+    "python": "3.11.9 (tags/v3.11.9:de54cf5, Apr  2 2024, 10:12:12) [MSC v.1938 64 bit (AMD64)]",
+    "python_executable": "C:\\Users\\Administrator\\AppData\\Local\\Programs\\Python\\Python311\\python.exe",
+    "packages": {
+      "faster-whisper": "1.2.1",
+      "ctranslate2": "4.7.1",
+      "transformers": "4.45.2",
+      "torch": "2.11.0",
+      "onnxruntime": "1.24.4",
+      "sentencepiece": "0.2.1",
+      "sacremoses": "0.1.1",
+      "safetensors": "0.7.0"
+    },
+    "gpu": {
+      "available": true,
+      "summary": [
+        "NVIDIA GeForce RTX 3070, 591.44, 8192"
+      ]
+    },
+    "torch_cuda_available": false
+  },
+  "markers": {
+    "asr_primary": {
+      "path_exists": true,
+      "complete": true,
+      "groups": [
+        {
+          "alternatives": [
+            "model.bin"
+          ],
+          "found": [
+            "model.bin"
+          ],
+          "ok": true
+        },
+        {
+          "alternatives": [
+            "config.json"
+          ],
+          "found": [
+            "config.json"
+          ],
+          "ok": true
+        },
+        {
+          "alternatives": [
+            "tokenizer.json",
+            "tokenizer.model",
+            "vocabulary.json"
+          ],
+          "found": [
+            "tokenizer.json",
+            "vocabulary.json"
+          ],
+          "ok": true
+        }
+      ]
+    },
+    "asr_backup": {
+      "path_exists": true,
+      "complete": true,
+      "groups": [
+        {
+          "alternatives": [
+            "model.bin"
+          ],
+          "found": [
+            "model.bin"
+          ],
+          "ok": true
+        },
+        {
+          "alternatives": [
+            "config.json"
+          ],
+          "found": [
+            "config.json"
+          ],
+          "ok": true
+        },
+        {
+          "alternatives": [
+            "tokenizer.json",
+            "tokenizer.model",
+            "vocabulary.json"
+          ],
+          "found": [
+            "tokenizer.json"
+          ],
+          "ok": true
+        }
+      ]
+    },
+    "translation_primary": {
+      "path_exists": true,
+      "complete": true,
+      "groups": [
+        {
+          "alternatives": [
+            "config.json"
+          ],
+          "found": [
+            "config.json"
+          ],
+          "ok": true
+        },
+        {
+          "alternatives": [
+            "tokenizer_config.json"
+          ],
+          "found": [
+            "tokenizer_config.json"
+          ],
+          "ok": true
+        },
+        {
+          "alternatives": [
+            "sentencepiece.bpe.model",
+            "tokenizer.json",
+            "spiece.model"
+          ],
+          "found": [
+            "sentencepiece.bpe.model",
+            "tokenizer.json"
+          ],
+          "ok": true
+        },
+        {
+          "alternatives": [
+            "*.safetensors",
+            "pytorch_model*.bin"
+          ],
+          "found": [
+            "pytorch_model.bin"
+          ],
+          "ok": true
+        }
+      ]
+    },
+    "translation_fallback": {
+      "path_exists": true,
+      "complete": true,
+      "groups": [
+        {
+          "alternatives": [
+            "config.json"
+          ],
+          "found": [
+            "config.json"
+          ],
+          "ok": true
+        },
+        {
+          "alternatives": [
+            "source.spm",
+            "tokenizer.json",
+            "spiece.model"
+          ],
+          "found": [
+            "source.spm"
+          ],
+          "ok": true
+        },
+        {
+          "alternatives": [
+            "target.spm",
+            "tokenizer.json",
+            "spiece.model"
+          ],
+          "found": [
+            "target.spm"
+          ],
+          "ok": true
+        },
+        {
+          "alternatives": [
+            "*.safetensors",
+            "pytorch_model*.bin"
+          ],
+          "found": [
+            "pytorch_model.bin"
+          ],
+          "ok": true
+        }
+      ]
+    }
+  },
+  "asr": {
+    "primary_cpu_load": {
+      "path": "EngineData/TranscriptEngine/ModelData/faster-whisper-large-v3-turbo",
+      "device": "cpu",
+      "compute_type": "int8",
+      "started_at": "2026-06-15T15:08:44.822323+00:00",
+      "ready": true,
+      "result": "PASS",
+      "notes": "WhisperModel loaded successfully.",
+      "finished_at": "2026-06-15T15:08:48.223427+00:00"
+    },
+    "backup_cpu_load": {
+      "path": "EngineData/TranscriptEngine/ModelData/faster-whisper-medium",
+      "device": "cpu",
+      "compute_type": "int8",
+      "started_at": "2026-06-15T15:08:48.223427+00:00",
+      "ready": true,
+      "result": "PASS",
+      "notes": "WhisperModel loaded successfully.",
+      "finished_at": "2026-06-15T15:08:51.357400+00:00"
+    },
+    "primary_cuda_load": {
+      "path": "EngineData/TranscriptEngine/ModelData/faster-whisper-large-v3-turbo",
+      "device": "cuda",
+      "compute_type": "int8_float16",
+      "started_at": "2026-06-15T15:08:40.448805+00:00",
+      "ready": true,
+      "result": "PASS",
+      "notes": "WhisperModel loaded successfully.",
+      "finished_at": "2026-06-15T15:08:44.822323+00:00"
+    }
+  },
+  "translation": {
+    "primary": {
+      "path": "EngineData/TranslateEngine/ModelData/nllb-200-distilled-600M",
+      "input": "halo coba berbicara",
+      "started_at": "2026-06-15T15:08:51.357400+00:00",
+      "ready": true,
+      "result": "PASS",
+      "output": "Hello, try to talk.",
+      "device": "cpu",
+      "notes": "Local tokenizer/model load and one short generation completed.",
+      "finished_at": "2026-06-15T15:08:55.214830+00:00"
+    },
+    "fallback": {
+      "path": "EngineData/TranslateEngine/ModelData/marianmt-id-en",
+      "input": "halo coba berbicara",
+      "started_at": "2026-06-15T15:08:55.214830+00:00",
+      "ready": true,
+      "result": "PASS",
+      "output": "Hello. Try talking.",
+      "device": "cpu",
+      "notes": "Local tokenizer/model load and one short generation completed.",
+      "finished_at": "2026-06-15T15:08:57.056170+00:00"
+    }
+  },
+  "tts": {
+    "sapi": {
+      "ready": true,
+      "result": "PASS",
+      "voices": [
+        "Microsoft David Desktop - English (United States)",
+        "Microsoft Zira Desktop - English (United States)"
+      ],
+      "provider": "Windows SAPI"
+    },
+    "marcel": {
+      "ready": false,
+      "result": "MISSING",
+      "matches": [],
+      "voice_actor_path": null,
+      "providers_available": [],
+      "blockers": [
+        "voice_actor_marcel_missing"
+      ]
+    }
+  },
+  "overall": {
+    "ready_for_internal_test": true,
+    "ready_for_full_runtime": false,
+    "blockers": [
+      "torch_cuda_unavailable_for_translation",
+      "voice_actor_marcel_missing"
+    ]
+  },
+  "runtime_manifest_path": "EngineData/LauncherApp/RustApp/MODEL_RUNTIME_MANIFEST.json"
+}

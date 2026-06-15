@@ -35,11 +35,12 @@ Only two user-facing profiles should be shown:
 The app expects these local files and folders before real inference can be marked ready:
 
 ```text
-EngineData/RuntimeAssets/ASR/ModelData/faster-whisper-large-v3-turbo/model.bin
-EngineData/RuntimeAssets/Translation/ModelData/marianmt-id-en/
-EngineData/RuntimeAssets/Translation/ModelData/nllb-200-distilled-600M/
-EngineData/RuntimeAssets/Voice/Piper/piper.exe
-EngineData/RuntimeAssets/Voice/Piper/**/*.onnx
+EngineData/TranscriptEngine/ModelData/faster-whisper-large-v3-turbo/model.bin
+EngineData/TranscriptEngine/ModelData/faster-whisper-medium/model.bin
+EngineData/TranslateEngine/ModelData/marianmt-id-en/
+EngineData/TranslateEngine/ModelData/nllb-200-distilled-600M/
+EngineData/VoiceEngine/Piper/piper.exe
+EngineData/VoiceEngine/Piper/**/*.onnx
 ```
 
 The helper checker is:

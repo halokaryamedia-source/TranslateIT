@@ -67,15 +67,16 @@ export class LauncherController {
     }
 
     const worker = this.workerManifest(bundle);
-    const allModelsReady = Boolean(worker?.asr_model_ready && worker.realtime_translation_model_ready && worker.quality_translation_model_ready && worker.piper_ready);
+    const allModelsReady = Boolean(worker?.asr_model_ready && worker.asr_backup_model_ready && worker.realtime_translation_model_ready && worker.quality_translation_model_ready && worker.tts_default_ready);
     const appReady = Boolean(worker?.ok || bundle.readiness.ready_for_user_facing_runtime || allModelsReady);
-    const blockers = [...bundle.readiness.blockers, ...bundle.capture_gate.blockers, ...(worker?.blockers ?? []), ...(bundle.internal_validation_gate?.blockers ?? [])].filter(Boolean);
+    const blockers = [...bundle.readiness.blockers, ...bundle.capture_gate.blockers, ...(worker?.blockers ?? []), ...(worker?.tts_blockers ?? []), ...(worker?.warnings ?? []), ...(bundle.internal_validation_gate?.blockers ?? [])].filter(Boolean);
+    const ttsLabel = worker?.piper_ready ? "Piper" : worker?.sapi_ready ? "SAPI" : "unavailable";
 
-    this.ui.userPresence.textContent = appReady ? "Ready" : "Setup needed";
+    this.ui.userPresence.textContent = appReady ? worker?.voice_actor_marcel_ready ? "Ready" : `Ready (${ttsLabel})` : "Setup needed";
     this.ui.heroTitle.textContent = this.recording ? "Listening locally..." : "How can I help translate today?";
     this.ui.heroSubtitle.textContent = this.recording ? "Speak now. The local capture runtime is active." : "Type a message, or press the microphone button on the right to record speech locally.";
-    this.ui.realtimeStatus.textContent = worker ? this.modelReadyText(worker.asr_model_ready && worker.realtime_translation_model_ready && worker.piper_ready) : "Checking";
-    this.ui.qualityStatus.textContent = worker ? this.modelReadyText(worker.asr_model_ready && worker.quality_translation_model_ready && worker.piper_ready) : "Checking";
+    this.ui.realtimeStatus.textContent = worker ? this.modelReadyText(worker.asr_model_ready && worker.realtime_translation_model_ready && worker.tts_default_ready) : "Checking";
+    this.ui.qualityStatus.textContent = worker ? this.modelReadyText(worker.asr_model_ready && worker.quality_translation_model_ready && worker.tts_default_ready) : "Checking";
     this.ui.gpuStatus.textContent = diagnostics?.cuda_probe.cuda_runtime_ready ? "CUDA ready" : diagnostics?.cuda_probe.gpu_summary ? "GPU detected" : "CPU fallback";
     this.ui.developerOutput.textContent = JSON.stringify({ app_version: bundle.engine_status.app_version, lifecycle: bundle.engine_status.lifecycle_state, hardware: this.latestHardware, local_worker: worker, recording_active: this.recording, cuda: diagnostics?.cuda_probe, next_action: bundle.next_action, blockers: blockers.slice(0, 12) }, null, 2);
 
@@ -214,6 +215,10 @@ export class LauncherController {
       `<p><strong>[OK]</strong>${this.latestBundle ? "Runtime status loaded." : "Waiting for diagnostic check."}</p>`,
       `<p><strong>[HW]</strong>CPU ${cpu} | RAM ${ram} | GPU ${gpu}</p>`,
       `<p><strong>[GPU]</strong>${gpuStatus}</p>`,
+      `<p><strong>[ASR]</strong>Primary ${this.workerManifest(this.latestBundle)?.asr_model_ready ? "ready" : "missing"} | Backup ${this.workerManifest(this.latestBundle)?.asr_backup_model_ready ? "ready" : "missing"}</p>`,
+      `<p><strong>[TR]</strong>Marian ${this.workerManifest(this.latestBundle)?.realtime_translation_model_ready ? "ready" : "missing"} | NLLB ${this.workerManifest(this.latestBundle)?.quality_translation_model_ready ? "ready" : "missing"}</p>`,
+      `<p><strong>[TTS]</strong>${this.workerManifest(this.latestBundle)?.piper_ready ? "Piper ready" : this.workerManifest(this.latestBundle)?.sapi_ready ? "Windows SAPI fallback ready" : "No provider"} | Marcel ${this.workerManifest(this.latestBundle)?.voice_actor_marcel_ready ? "ready" : "missing"}</p>`,
+      `<p><strong>[CUDA]</strong>CTranslate2 ${this.workerManifest(this.latestBundle)?.ctranslate2_cuda_available ? "ready" : "not ready"} | Torch ${this.workerManifest(this.latestBundle)?.torch_cuda_available ? "ready" : "CPU-only"}</p>`,
       `<p><strong>[WAIT]</strong>${this.latestBundle?.next_action ?? "Waiting for next diagnostic result."}</p>`,
       ...commandErrors,
     ].join("");

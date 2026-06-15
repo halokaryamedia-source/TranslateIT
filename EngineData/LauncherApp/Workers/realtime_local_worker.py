@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import os
 import subprocess
 import sys
 import time
@@ -9,11 +10,14 @@ from pathlib import Path
 from typing import Any
 
 ROOT = Path(__file__).resolve().parents[3]
-RUNTIME_ASSETS = ROOT / "EngineData" / "RuntimeAssets"
-ASR_MODEL = RUNTIME_ASSETS / "ASR" / "ModelData" / "faster-whisper-large-v3-turbo"
-TRANSLATION_MODEL = RUNTIME_ASSETS / "Translation" / "ModelData" / "marianmt-id-en"
-QUALITY_TRANSLATION_MODEL = RUNTIME_ASSETS / "Translation" / "ModelData" / "nllb-200-distilled-600M"
-PIPER_ROOT = RUNTIME_ASSETS / "Voice" / "Piper"
+ASR_MODEL_ROOT = ROOT / "EngineData" / "TranscriptEngine" / "ModelData"
+TRANSLATION_MODEL_ROOT = ROOT / "EngineData" / "TranslateEngine" / "ModelData"
+ASR_MODEL = ASR_MODEL_ROOT / "faster-whisper-large-v3-turbo"
+ASR_BACKUP_MODEL = ASR_MODEL_ROOT / "faster-whisper-medium"
+TRANSLATION_MODEL = TRANSLATION_MODEL_ROOT / "marianmt-id-en"
+QUALITY_TRANSLATION_MODEL = TRANSLATION_MODEL_ROOT / "nllb-200-distilled-600M"
+PIPER_ROOT = ROOT / "EngineData" / "VoiceEngine" / "Piper"
+RUNTIME_MANIFEST = ROOT / "EngineData" / "LauncherApp" / "RustApp" / "MODEL_RUNTIME_MANIFEST.json"
 CACHE_ROOT = ROOT / "UserData" / "CacheData"
 ALLOWED_INPUT_ROOTS = [ROOT / "UserData" / "CacheData", ROOT / "UserData" / "LogData"]
 ALLOWED_OUTPUT_ROOTS = [ROOT / "UserData" / "CacheData"]
@@ -22,6 +26,7 @@ ASR_RUNTIME: Any | None = None
 ASR_RUNTIME_DEVICE = "not_loaded"
 ASR_RUNTIME_COMPUTE = "not_loaded"
 TRANSLATION_RUNTIME: dict[str, dict[str, Any]] = {}
+SAPI_STATUS: tuple[bool, list[str], str] | None = None
 
 
 @dataclass(slots=True)
@@ -29,14 +34,19 @@ class WorkerStatus:
     ok: bool
     stage: str
     asr_model_ready: bool
+    asr_backup_model_ready: bool
     translation_model_ready: bool
     quality_translation_model_ready: bool
     piper_ready: bool
+    sapi_ready: bool
+    tts_default_ready: bool
+    voice_actor_marcel_ready: bool
     faster_whisper_import_ready: bool
     transformers_import_ready: bool
     torch_import_ready: bool
     torch_cuda_available: bool
     blocker: str
+    warnings: list[str]
     note: str
 
 
@@ -73,12 +83,30 @@ def resolve_worker_path(value: Any, default_path: Path, allowed_roots: list[Path
     return resolved
 
 
-def model_ready(path: Path, marker: str | None = None) -> bool:
-    if not path.exists():
+def has_any(path: Path, patterns: tuple[str, ...]) -> bool:
+    return path.is_dir() and any(any(item.is_file() for item in path.glob(pattern)) for pattern in patterns)
+
+
+def asr_model_ready(path: Path) -> bool:
+    return (
+        (path / "model.bin").is_file()
+        and (path / "config.json").is_file()
+        and has_any(path, ("tokenizer.json", "tokenizer.model", "vocabulary.json"))
+    )
+
+
+def translation_model_ready(path: Path, nllb: bool = False) -> bool:
+    if not (path / "config.json").is_file():
         return False
-    if marker is None:
-        return True
-    return (path / marker).exists()
+    if not has_any(path, ("*.safetensors", "pytorch_model*.bin")):
+        return False
+    if nllb:
+        return (path / "tokenizer_config.json").is_file() and has_any(
+            path, ("sentencepiece.bpe.model", "tokenizer.json", "spiece.model")
+        )
+    return has_any(path, ("source.spm", "tokenizer.json", "spiece.model")) and has_any(
+        path, ("target.spm", "tokenizer.json", "spiece.model")
+    )
 
 
 def piper_ready() -> bool:
@@ -87,16 +115,63 @@ def piper_ready() -> bool:
     return executable.exists() and bool(voices)
 
 
+def read_runtime_manifest() -> dict[str, Any]:
+    try:
+        return json.loads(RUNTIME_MANIFEST.read_text(encoding="utf-8"))
+    except Exception:
+        return {}
+
+
+def sapi_status() -> tuple[bool, list[str], str]:
+    global SAPI_STATUS
+    if SAPI_STATUS is not None:
+        return SAPI_STATUS
+    if sys.platform != "win32":
+        SAPI_STATUS = (False, [], "tts:windows_sapi_unavailable")
+        return SAPI_STATUS
+    command = (
+        "Add-Type -AssemblyName System.Speech; "
+        "$s = New-Object System.Speech.Synthesis.SpeechSynthesizer; "
+        "$voices = @($s.GetInstalledVoices() | ForEach-Object { $_.VoiceInfo.Name }); "
+        "$s.Dispose(); "
+        "@{ready=($voices.Count -gt 0); voices=$voices} | ConvertTo-Json -Compress"
+    )
+    try:
+        completed = subprocess.run(
+            ["powershell", "-NoProfile", "-NonInteractive", "-Command", command],
+            text=True,
+            capture_output=True,
+            timeout=20,
+            check=False,
+        )
+        if completed.returncode != 0:
+            SAPI_STATUS = (False, [], completed.stderr.strip() or "tts:sapi_probe_failed")
+        else:
+            payload = json.loads(completed.stdout.strip())
+            raw_voices = payload.get("voices", [])
+            voices = [raw_voices] if isinstance(raw_voices, str) else [str(value) for value in raw_voices]
+            SAPI_STATUS = (bool(payload.get("ready")), voices, "")
+    except Exception as exc:
+        SAPI_STATUS = (False, [], f"{type(exc).__name__}:{exc}")
+    return SAPI_STATUS
+
+
 def build_status() -> WorkerStatus:
     faster_whisper_ready = import_ready("faster_whisper")
     transformers_ready = import_ready("transformers")
     torch_ready, cuda_available = torch_status()
-    asr_ready = model_ready(ASR_MODEL, "model.bin")
-    translation_ready = model_ready(TRANSLATION_MODEL)
-    quality_ready = model_ready(QUALITY_TRANSLATION_MODEL)
-    tts_ready = piper_ready()
+    asr_ready = asr_model_ready(ASR_MODEL)
+    asr_backup_ready = asr_model_ready(ASR_BACKUP_MODEL)
+    translation_ready = translation_model_ready(TRANSLATION_MODEL)
+    quality_ready = translation_model_ready(QUALITY_TRANSLATION_MODEL, nllb=True)
+    piper_is_ready = piper_ready()
+    sapi_is_ready, _sapi_voices, _sapi_error = sapi_status()
+    tts_ready = piper_is_ready or sapi_is_ready
+    runtime_manifest = read_runtime_manifest()
+    marcel_ready = bool(runtime_manifest.get("tts", {}).get("voice_actor_ready", False))
 
     blockers: list[str] = []
+    warnings: list[str] = []
     if not faster_whisper_ready:
         blockers.append("dependency:faster_whisper_missing")
     if not transformers_ready:
@@ -105,24 +180,35 @@ def build_status() -> WorkerStatus:
         blockers.append("dependency:torch_missing")
     if not asr_ready:
         blockers.append("model:faster_whisper_large_v3_turbo_missing")
+    if not asr_backup_ready:
+        blockers.append("model:faster_whisper_medium_missing")
     if not translation_ready:
         blockers.append("model:marianmt_id_en_missing")
+    if not quality_ready:
+        blockers.append("model:nllb_quality_model_missing")
     if not tts_ready:
-        blockers.append("model:piper_voice_missing")
+        blockers.append("tts:no_local_provider_available")
+    if not marcel_ready:
+        warnings.append("voice_actor_marcel_missing")
 
     return WorkerStatus(
         ok=not blockers,
         stage="local_realtime_worker_preflight",
         asr_model_ready=asr_ready,
+        asr_backup_model_ready=asr_backup_ready,
         translation_model_ready=translation_ready,
         quality_translation_model_ready=quality_ready,
-        piper_ready=tts_ready,
+        piper_ready=piper_is_ready,
+        sapi_ready=sapi_is_ready,
+        tts_default_ready=tts_ready,
+        voice_actor_marcel_ready=marcel_ready,
         faster_whisper_import_ready=faster_whisper_ready,
         transformers_import_ready=transformers_ready,
         torch_import_ready=torch_ready,
         torch_cuda_available=cuda_available,
         blocker=";".join(blockers),
-        note="Local worker can execute only when required dependencies and local model files are present. CUDA is preferred for realtime latency, CPU fallback is reported truthfully, and file paths are constrained to UserData runtime folders.",
+        warnings=warnings,
+        note="Local worker requires complete project-local model markers. Piper is preferred when installed; Windows SAPI is a real local fallback. CUDA is preferred for realtime latency, and CPU fallback is reported explicitly.",
     )
 
 
@@ -142,7 +228,8 @@ def handle_ping(_: dict[str, Any]) -> dict[str, Any]:
 
 
 def asr_runtime_config() -> tuple[str, str]:
-    _torch_ready, cuda_available = torch_status()
+    runtime_manifest = read_runtime_manifest()
+    cuda_available = bool(runtime_manifest.get("cuda", {}).get("ctranslate2_cuda_available", False))
     if cuda_available:
         return "cuda", "int8_float16"
     return "cpu", "int8"
@@ -357,14 +444,19 @@ def first_piper_voice() -> Path | None:
 def handle_tts_preflight(_: dict[str, Any]) -> dict[str, Any]:
     executable = PIPER_ROOT / "piper.exe"
     voice = first_piper_voice()
-    ok = executable.exists() and voice is not None
+    piper_is_ready = executable.exists() and voice is not None
+    sapi_is_ready, sapi_voices, sapi_error = sapi_status()
+    ok = piper_is_ready or sapi_is_ready
     return {
         "ok": ok,
         "stage": "tts_preflight",
+        "provider": "piper" if piper_is_ready else "windows-sapi" if sapi_is_ready else None,
         "piper_executable": str(executable),
         "voice_path": str(voice) if voice else None,
-        "blocker": "" if ok else "tts:piper_executable_or_voice_missing",
-        "note": "Piper local TTS requires piper.exe and at least one .onnx voice file under EngineData/RuntimeAssets/Voice/Piper.",
+        "sapi_voices": sapi_voices,
+        "blocker": "" if ok else sapi_error or "tts:no_local_provider_available",
+        "warnings": [] if read_runtime_manifest().get("tts", {}).get("voice_actor_ready") else ["voice_actor_marcel_missing"],
+        "note": "Piper uses local ONNX assets when available. Windows SAPI is the local fallback and does not satisfy the custom Marcel voice requirement.",
     }
 
 
@@ -379,25 +471,61 @@ def handle_synthesize(payload: dict[str, Any]) -> dict[str, Any]:
         output_path = resolve_worker_path(payload.get("output_path", ""), CACHE_ROOT / "tts_output.wav", ALLOWED_OUTPUT_ROOTS)
     except Exception as exc:
         return {"ok": False, "stage": "synthesize", "blocker": type(exc).__name__, "note": str(exc), "elapsed_ms": now_ms() - started}
-    if not executable.exists() or voice is None:
-        return {"ok": False, "stage": "synthesize", "blocker": "tts:piper_executable_or_voice_missing"}
     output_path.parent.mkdir(parents=True, exist_ok=True)
+    if executable.exists() and voice is not None:
+        try:
+            completed = subprocess.run(
+                [str(executable), "--model", str(voice), "--output_file", str(output_path)],
+                input=text,
+                text=True,
+                capture_output=True,
+                timeout=10,
+                check=False,
+            )
+            ok = completed.returncode == 0 and output_path.is_file()
+            return {
+                "ok": ok,
+                "stage": "synthesize",
+                "provider": "piper",
+                "output_path": str(output_path),
+                "elapsed_ms": now_ms() - started,
+                "blocker": "" if ok else "tts:piper_failed",
+                "stderr": completed.stderr[-500:],
+            }
+        except Exception as exc:
+            return {"ok": False, "stage": "synthesize", "blocker": type(exc).__name__, "note": str(exc), "elapsed_ms": now_ms() - started}
+
+    sapi_is_ready, sapi_voices, sapi_error = sapi_status()
+    if not sapi_is_ready:
+        return {"ok": False, "stage": "synthesize", "blocker": sapi_error or "tts:no_local_provider_available"}
+    command = (
+        "Add-Type -AssemblyName System.Speech; "
+        "$s = New-Object System.Speech.Synthesis.SpeechSynthesizer; "
+        "$s.SetOutputToWaveFile($env:TRANSLATEIT_TTS_OUTPUT); "
+        "$s.Speak($env:TRANSLATEIT_TTS_TEXT); "
+        "$s.Dispose()"
+    )
     try:
+        environment = os.environ.copy()
+        environment["TRANSLATEIT_TTS_TEXT"] = text
+        environment["TRANSLATEIT_TTS_OUTPUT"] = str(output_path)
         completed = subprocess.run(
-            [str(executable), "--model", str(voice), "--output_file", str(output_path)],
-            input=text,
+            ["powershell", "-NoProfile", "-NonInteractive", "-Command", command],
             text=True,
             capture_output=True,
-            timeout=10,
+            timeout=30,
             check=False,
+            env=environment,
         )
-        ok = completed.returncode == 0 and output_path.is_file()
+        ok = completed.returncode == 0 and output_path.is_file() and output_path.stat().st_size > 44
         return {
             "ok": ok,
             "stage": "synthesize",
+            "provider": "windows-sapi",
+            "sapi_voices": sapi_voices,
             "output_path": str(output_path),
             "elapsed_ms": now_ms() - started,
-            "blocker": "" if ok else "tts:piper_failed",
+            "blocker": "" if ok else "tts:sapi_synthesis_failed",
             "stderr": completed.stderr[-500:],
         }
     except Exception as exc:

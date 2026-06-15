@@ -9,11 +9,19 @@ const RUST_APP = join(ROOT, "EngineData", "LauncherApp", "RustApp");
 const WORKER_ROOT = join(ROOT, "EngineData", "LauncherApp", "Workers");
 const WORKER = join(WORKER_ROOT, "realtime_local_worker.py");
 const RUNTIME_ASSETS = join(ROOT, "EngineData", "RuntimeAssets");
+const ASR_MODEL_ROOT = join(ROOT, "EngineData", "TranscriptEngine", "ModelData");
+const TRANSLATION_MODEL_ROOT = join(ROOT, "EngineData", "TranslateEngine", "ModelData");
+const PIPER_ROOT = join(ROOT, "EngineData", "VoiceEngine", "Piper");
+const MODEL_RUNTIME_MANIFEST = join(RUST_APP, "MODEL_RUNTIME_MANIFEST.json");
 const EVIDENCE_ROOT = join(ROOT, "UserData", "LogData", "RustAppValidation");
 
 function rel(path) { return relative(ROOT, path).split(sep).join("/"); }
 function exists(path) { return existsSync(path); }
 function read(path) { return readFileSync(path, "utf8"); }
+function readJson(path) {
+  if (!exists(path)) return null;
+  try { return JSON.parse(read(path)); } catch { return null; }
+}
 function walk(dir) {
   if (!exists(dir)) return [];
   const entries = [];
@@ -78,16 +86,21 @@ function validateStructure() {
     join(ROOT, "Launcher", "README.md"),
   ];
   const retired = [
-    "DeveloperData", "DevelopingData/DocumentationData", "DevelopingData/Reports", "DevelopingData/ToolKitData",
+    "DeveloperData", "DevelopingData/DocumentationData", "DevelopingData/Reports",
     "DevelopingData/Diagnostics", "DevelopingData/Docs", "DevelopingData/LauncherHelpers", "DevelopingData/SampleData",
-    "DevelopingData/Tests", "EngineData/TranscriptEngine", "EngineData/TranslateEngine", "EngineData/VoiceEngine",
+    "DevelopingData/Tests",
     "TranslateIT.vbs", "TranslateIT.cmd", "Launcher/Preview",
   ].map((path) => join(ROOT, ...path.split("/")));
   const problems = [...requireFiles(required)];
+  const allowedEnginePython = new Set([
+    "EngineData/LauncherApp/Workers/realtime_local_worker.py",
+    "EngineData/LauncherApp/RustApp/scripts/prepare_local_models.py",
+    "EngineData/LauncherApp/RustApp/scripts/validate_local_models.py",
+  ]);
   for (const path of retired) if (exists(path)) problems.push(`retired path exists: ${rel(path)}`);
   for (const path of walk(join(ROOT, "DevelopingData"))) if (path.endsWith(".py")) problems.push(`unexpected DevelopingData Python file: ${rel(path)}`);
   for (const path of walk(join(ROOT, "EngineData"))) {
-    if (path.endsWith(".py") && rel(path) !== "EngineData/LauncherApp/Workers/realtime_local_worker.py") problems.push(`unexpected EngineData Python file: ${rel(path)}`);
+    if (path.endsWith(".py") && !allowedEnginePython.has(rel(path))) problems.push(`unexpected EngineData Python file: ${rel(path)}`);
   }
   finish("STRUCTURE_INCOMPLETE", problems);
 }
@@ -106,28 +119,42 @@ function validateLauncher() {
 }
 
 function validateWorker() {
-  const required = [WORKER, join(WORKER_ROOT, "requirements-realtime.txt"), join(WORKER_ROOT, "realtime_stack_manifest.json"), join(WORKER_ROOT, "setup_realtime_worker.ps1"), join(WORKER_ROOT, "run_realtime_worker_smoke.ps1")];
+  const required = [WORKER, join(WORKER_ROOT, "requirements-realtime.txt"), join(WORKER_ROOT, "realtime_stack_manifest.json"), join(WORKER_ROOT, "setup_realtime_worker.ps1"), join(WORKER_ROOT, "run_realtime_worker_smoke.ps1"), MODEL_RUNTIME_MANIFEST];
   const problems = [...requireFiles(required)];
-  problems.push(...requireText(WORKER, ["RUNTIME_ASSETS", "faster-whisper-large-v3-turbo", "marianmt-id-en", "nllb-200-distilled-600M", "PIPER_ROOT", "ALLOWED_INPUT_ROOTS", "ALLOWED_OUTPUT_ROOTS", "transcribe", "translate", "synthesize"]));
-  problems.push(...requireText(join(WORKER_ROOT, "realtime_stack_manifest.json"), ["EngineData/RuntimeAssets/ASR/ModelData/faster-whisper-large-v3-turbo", "EngineData/RuntimeAssets/Translation/ModelData/marianmt-id-en", "EngineData/RuntimeAssets/Voice/Piper", "local_only"]));
+  problems.push(...requireText(WORKER, ["ASR_MODEL_ROOT", "TRANSLATION_MODEL_ROOT", "faster-whisper-large-v3-turbo", "faster-whisper-medium", "marianmt-id-en", "nllb-200-distilled-600M", "PIPER_ROOT", "sapi_status", "ALLOWED_INPUT_ROOTS", "ALLOWED_OUTPUT_ROOTS", "transcribe", "translate", "synthesize"]));
+  problems.push(...requireText(join(WORKER_ROOT, "realtime_stack_manifest.json"), ["EngineData/TranscriptEngine/ModelData/faster-whisper-large-v3-turbo", "EngineData/TranslateEngine/ModelData/marianmt-id-en", "EngineData/TranslateEngine/ModelData/nllb-200-distilled-600M", "EngineData/VoiceEngine/Piper", "windows-sapi", "local_only"]));
   finish("LOCAL_WORKER_STACK_INCOMPLETE", problems);
 }
 
-function inspectModel(name, path, files = [], globSuffix = "") {
+function inspectModel(name, path, files = []) {
   const missing = [];
   for (const file of files) if (!exists(join(path, file))) missing.push(file);
-  if (globSuffix && !walk(path).some((item) => item.endsWith(globSuffix))) missing.push(`**/*${globSuffix}`);
   return { name, path: rel(path), exists: exists(path), ready: exists(path) && missing.length === 0, missing };
 }
 function validateModels() {
+  const manifest = readJson(MODEL_RUNTIME_MANIFEST);
   const targets = [
-    inspectModel("asr_faster_whisper_large_v3_turbo", join(RUNTIME_ASSETS, "ASR", "ModelData", "faster-whisper-large-v3-turbo"), ["model.bin"]),
-    inspectModel("translation_marianmt_id_en", join(RUNTIME_ASSETS, "Translation", "ModelData", "marianmt-id-en"), ["config.json"]),
-    inspectModel("translation_nllb_200_distilled_600m", join(RUNTIME_ASSETS, "Translation", "ModelData", "nllb-200-distilled-600M"), ["config.json"]),
-    inspectModel("voice_piper", join(RUNTIME_ASSETS, "Voice", "Piper"), ["piper.exe"], ".onnx"),
+    inspectModel("asr_faster_whisper_large_v3_turbo", join(ASR_MODEL_ROOT, "faster-whisper-large-v3-turbo"), ["model.bin", "config.json", "tokenizer.json"]),
+    inspectModel("asr_faster_whisper_medium", join(ASR_MODEL_ROOT, "faster-whisper-medium"), ["model.bin", "config.json", "tokenizer.json"]),
+    inspectModel("translation_marianmt_id_en", join(TRANSLATION_MODEL_ROOT, "marianmt-id-en"), ["config.json", "source.spm", "target.spm", "pytorch_model.bin"]),
+    inspectModel("translation_nllb_200_distilled_600m", join(TRANSLATION_MODEL_ROOT, "nllb-200-distilled-600M"), ["config.json", "tokenizer_config.json", "sentencepiece.bpe.model", "pytorch_model.bin"]),
   ];
-  const ready = targets.every((target) => target.ready);
-  console.log(JSON.stringify({ schema: "translateit.local_runtime_model_readiness.v2", ok: ready, targets, blockers: targets.filter((target) => !target.ready).map((target) => `${target.name}:${target.missing.join(",")}`) }, null, 2));
+  const manifestModelReady = Boolean(
+    manifest?.asr?.primary?.ready
+    && manifest?.asr?.backup?.ready
+    && manifest?.translation?.primary?.ready
+    && manifest?.translation?.fallback?.ready
+    && manifest?.tts?.default_sapi_ready
+  );
+  const ready = targets.every((target) => target.ready) && manifestModelReady;
+  const blockers = targets.filter((target) => !target.ready).map((target) => `${target.name}:${target.missing.join(",")}`);
+  if (!manifest) blockers.push("runtime_manifest:missing_or_invalid");
+  else if (!manifestModelReady) blockers.push("runtime_manifest:validated_model_or_default_tts_not_ready");
+  const warnings = [];
+  if (!manifest?.tts?.voice_actor_ready) warnings.push("voice_actor_marcel_missing");
+  if (!manifest?.cuda?.torch_cuda_available) warnings.push("torch_cuda_unavailable_for_translation");
+  if (!manifest?.cuda?.ctranslate2_cuda_available) warnings.push("ctranslate2_cuda_unavailable_for_asr");
+  console.log(JSON.stringify({ schema: "translateit.local_runtime_model_readiness.v3", ok: ready, manifest_path: rel(MODEL_RUNTIME_MANIFEST), targets, default_tts: manifest?.tts ?? null, cuda: manifest?.cuda ?? null, blockers, warnings }, null, 2));
   process.exit(ready ? 0 : 1);
 }
 function validateEvidence() { finish("EVIDENCE_BOUNDARY_INCOMPLETE", requireFiles([join(ROOT, "UserData", "README.md"), join(ROOT, "UserData", "LogData", "README.md")])); }
