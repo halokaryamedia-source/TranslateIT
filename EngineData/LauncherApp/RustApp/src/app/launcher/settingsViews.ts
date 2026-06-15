@@ -95,9 +95,9 @@ export function translateSettingsView(settings: RuntimeSettings, sourceLabel: st
   const voiceEnabled = settings.audio.auto_play_out_voice;
   return `${pageStart("Translate", "Configure language direction, translation speed, and output behavior.", 1340)}
     <article class="settings-card final-card" style="top:118px;height:190px;">
-      <section class="settings-field" style="position:absolute;left:74px;top:48px;width:500px;"><h3>Source Language</h3><button class="select-field-v22" type="button" style="width:100%;grid-template-columns:minmax(0,1fr) 20px;"><span>${escapeHtml(sourceLabel)}</span>${icon("chevron")}</button></section>
+      <section class="settings-field" style="position:absolute;left:74px;top:48px;width:500px;"><h3>Source Language</h3><button id="sourceLanguageButton" class="select-field-v22" type="button" style="width:100%;grid-template-columns:minmax(0,1fr) 20px;"><span>${escapeHtml(sourceLabel)}</span>${icon("chevron")}</button></section>
       <button id="swapLanguageButton" type="button" class="settings-swap-button" aria-label="Swap languages">${icon("swap")}</button>
-      <section class="settings-field" style="position:absolute;left:746px;top:48px;width:500px;"><h3>Target Language</h3><button class="select-field-v22" type="button" style="width:100%;grid-template-columns:minmax(0,1fr) 20px;"><span>${escapeHtml(targetLabel)}</span>${icon("chevron")}</button></section>
+      <section class="settings-field" style="position:absolute;left:746px;top:48px;width:500px;"><h3>Target Language</h3><button id="targetLanguageButton" class="select-field-v22" type="button" style="width:100%;grid-template-columns:minmax(0,1fr) 20px;"><span>${escapeHtml(targetLabel)}</span>${icon("chevron")}</button></section>
       <button id="saveTranslateButton" type="button" style="display:none;">Save</button>
     </article>
     <section class="settings-section-title" style="top:408px;"><h2>Realtime</h2><p>Choose how TranslateIT balances speed and translation quality.</p></section>
