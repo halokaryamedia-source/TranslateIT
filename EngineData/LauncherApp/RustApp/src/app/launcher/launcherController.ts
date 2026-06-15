@@ -27,6 +27,8 @@ export class LauncherController {
   private logsExpanded = false;
   private textSubmitPending = false;
   private recordingTogglePending = false;
+  private saveSettingsPending = false;
+  private diagnosticPending = false;
 
   constructor(root: HTMLElement) {
     mountAppShell(root);
@@ -189,14 +191,58 @@ export class LauncherController {
     this.setAssistantNotice(status?.note ?? status?.blocker ?? "Audio input status checked.");
   }
 
-  private async saveCurrentSettings(): Promise<void> { const result = await runtimeApi.saveSettings(this.currentSettings ?? defaultSettings()); this.setAssistantNotice(result?.message ?? "Save settings command failed."); }
-  private async saveDefaultSettings(): Promise<void> { const result = await runtimeApi.saveDefaultSettings(); this.currentSettings = await runtimeApi.loadSettings() ?? this.currentSettings; this.refreshDirectionPill(); this.setAssistantNotice(result?.message ?? "Default settings save command failed."); }
+  private async saveCurrentSettings(): Promise<void> {
+    if (this.saveSettingsPending) {
+      this.setAssistantNotice("Settings save is already running. Please wait.");
+      return;
+    }
+    this.saveSettingsPending = true;
+    this.setAssistantNotice("Saving settings...");
+    try {
+      const result = await runtimeApi.saveSettings(this.currentSettings ?? defaultSettings());
+      this.refreshDirectionPill();
+      this.setAssistantNotice(result?.message ?? "Save settings command failed.");
+    } finally {
+      this.saveSettingsPending = false;
+    }
+  }
+
+  private async saveDefaultSettings(): Promise<void> {
+    if (this.saveSettingsPending) {
+      this.setAssistantNotice("Settings save is already running. Please wait.");
+      return;
+    }
+    this.saveSettingsPending = true;
+    this.setAssistantNotice("Restoring default settings...");
+    try {
+      const result = await runtimeApi.saveDefaultSettings();
+      this.currentSettings = await runtimeApi.loadSettings() ?? this.currentSettings;
+      this.refreshDirectionPill();
+      this.setAssistantNotice(result?.message ?? "Default settings save command failed.");
+      this.renderSettingsTab(this.activeSettingsTab);
+    } finally {
+      this.saveSettingsPending = false;
+    }
+  }
 
   private async runDeveloperDiagnostic(): Promise<void> {
-    const [bundle, diagnostics] = await Promise.all([runtimeApi.getStatusBundle(), runtimeApi.getDiagnostics()]);
-    await this.refreshHardwareUsage();
-    this.renderRuntime(bundle, diagnostics);
-    this.renderDeveloperSettings();
+    if (this.diagnosticPending) {
+      this.setAssistantNotice("Diagnostic is already running. Please wait.");
+      return;
+    }
+    this.diagnosticPending = true;
+    const button = document.getElementById("runDiagnosticButton") as HTMLButtonElement | null;
+    if (button) button.disabled = true;
+    this.setAssistantNotice("Running diagnostic...");
+    try {
+      const [bundle, diagnostics] = await Promise.all([runtimeApi.getStatusBundle(), runtimeApi.getDiagnostics()]);
+      await this.refreshHardwareUsage();
+      this.renderRuntime(bundle, diagnostics);
+      this.renderDeveloperSettings();
+    } finally {
+      this.diagnosticPending = false;
+      if (button) button.disabled = false;
+    }
   }
 
   private openAudioSettings(): void { this.activeSettingsTab = "audio"; this.showSettings(); }
