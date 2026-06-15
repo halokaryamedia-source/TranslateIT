@@ -33,6 +33,10 @@ function clearVoiceDependentReads(): void {
   clearRuntimeReads("status-bundle", "diagnostics", "input-status");
 }
 
+function clearTextJobReads(): void {
+  clearRuntimeReads("status-bundle", "diagnostics");
+}
+
 function chatListKey(kind?: string): string {
   return `chat-list:${kind ?? "all"}`;
 }
@@ -69,7 +73,7 @@ export const runtimeApi = {
   },
   translateText: async (source: string) => {
     const result = await runCommand<CommandResult>("translate_text", { source });
-    clearRuntimeReads("status-bundle", "diagnostics");
+    clearTextJobReads();
     return result;
   },
   createChatSession: async (kind: string) => {
