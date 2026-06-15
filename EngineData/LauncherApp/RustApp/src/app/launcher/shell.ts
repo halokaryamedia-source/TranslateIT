@@ -48,7 +48,7 @@ export function mountAppShell(app: HTMLElement): void {
       </section>
       <section id="settingsPage" class="settings-page is-hidden">
         <aside class="settings-sidebar"><h2>Settings</h2><nav class="settings-nav-v22"><button class="settings-nav-item" data-settings-tab="general" type="button">${icon("sliders")}<span>General</span></button><button class="settings-nav-item" data-settings-tab="audio" type="button">${icon("speaker")}<span>Audio</span></button><button class="settings-nav-item" data-settings-tab="translate" type="button">${icon("translate")}<span>Translate</span></button><button class="settings-nav-item active" data-settings-tab="developer" type="button">${icon("code")}<span>Developer</span></button></nav></aside>
-        <section class="settings-workspace-v22"><header class="settings-topbar-v22"><button id="backHomeButton" class="settings-back-button" type="button">${icon("back")}<span>Back</span></button></header><div id="settingsContent" class="settings-scroll-v22" style="padding-top:72px;"></div></section>
+        <section class="settings-workspace-v22"><header class="settings-topbar-v22"><button id="backHomeButton" class="settings-back-button" type="button">${icon("back")}<span>Back</span></button></header><div id="settingsContent" class="settings-scroll-v22"></div></section>
       </section>
       <div class="runtime-sinks" aria-hidden="true"><span id="realtimeStatus">Checking</span><span id="qualityStatus">Checking</span><span id="gpuStatus">Checking</span><pre id="developerOutput">Runtime status will appear here after warmup.</pre></div>
     </main>`;
