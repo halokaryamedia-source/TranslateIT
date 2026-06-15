@@ -8,7 +8,6 @@ import type {
   RuntimeStatusBundleReport,
   SettingsTab,
 } from "../shared/types";
-import { icon } from "../shared/icons";
 import { bindUi, requireElement, type UiRefs } from "./dom";
 import { chatCollectionView } from "./chatViews";
 import { homeDefaultCards, mountAppShell } from "./shell";
@@ -21,7 +20,7 @@ export class LauncherController {
   private latestDiagnostics: RuntimeDiagnostics | null = null;
   private latestHardware: HardwareUsageReport | null = null;
   private currentSettings: RuntimeSettings | null = null;
-  private activeSettingsTab: SettingsTab = "developer";
+  private activeSettingsTab: SettingsTab = "general";
   private recording = false;
   private currentSessionId: string | null = null;
   private activeSessionTitle = "New Chat";
@@ -48,6 +47,11 @@ export class LauncherController {
   private modelReadyText(value: boolean): string { return value ? "Ready" : "Needs setup"; }
   private refreshDirectionPill(): void { const settings = this.currentSettings ?? defaultSettings(); this.ui.directionPill.textContent = `${settings.source_language.toUpperCase()} > ${settings.target_language.toUpperCase()}`; }
   private renderWarmupSteps(activeIndex = -1): void { this.ui.warmupSteps.innerHTML = warmupStepsView(activeIndex); }
+
+  private resetSettingsScroll(): void {
+    this.ui.settingsContent.scrollTop = 0;
+    this.ui.settingsContent.scrollLeft = 0;
+  }
 
   private setRecordingState(active: boolean): void {
     this.recording = active;
@@ -173,6 +177,7 @@ export class LauncherController {
     if (tab === "audio") this.renderAudioSettings();
     if (tab === "translate") this.renderTranslateSettings();
     if (tab === "developer") this.renderDeveloperSettings();
+    this.resetSettingsScroll();
   }
 
   private renderGeneralSettings(): void {
@@ -185,17 +190,17 @@ export class LauncherController {
     this.ui.settingsContent.innerHTML = audioSettingsView(this.currentSettings ?? defaultSettings());
     requireElement<HTMLButtonElement>("#checkAudioInputButton").addEventListener("click", () => void this.checkAudioInput());
     requireElement<HTMLButtonElement>("#micTestButton").addEventListener("click", () => void this.startOrStopRecording());
-    requireElement<HTMLButtonElement>("#audioVoiceToggleButton").addEventListener("click", () => { this.toggleVoiceOutput(); this.renderAudioSettings(); });
-    requireElement<HTMLButtonElement>("#audioSensitivityButton").addEventListener("click", () => { this.setRuntimeProfile((this.currentSettings ?? defaultSettings()).runtime_profile === "Quality" ? "Realtime" : "Quality"); this.renderAudioSettings(); });
+    requireElement<HTMLButtonElement>("#audioVoiceToggleButton").addEventListener("click", () => { this.toggleVoiceOutput(); this.renderAudioSettings(); this.resetSettingsScroll(); });
+    requireElement<HTMLButtonElement>("#audioSensitivityButton").addEventListener("click", () => { this.setRuntimeProfile((this.currentSettings ?? defaultSettings()).runtime_profile === "Quality" ? "Realtime" : "Quality"); this.renderAudioSettings(); this.resetSettingsScroll(); });
   }
 
   private renderTranslateSettings(): void {
     const settings = this.currentSettings ?? defaultSettings();
     this.ui.settingsContent.innerHTML = translateSettingsView(settings, languageName(settings.source_language), languageName(settings.target_language));
-    requireElement<HTMLButtonElement>("#swapLanguageButton").addEventListener("click", () => { this.swapLanguages(); this.renderTranslateSettings(); });
+    requireElement<HTMLButtonElement>("#swapLanguageButton").addEventListener("click", () => { this.swapLanguages(); this.renderTranslateSettings(); this.resetSettingsScroll(); });
     requireElement<HTMLButtonElement>("#saveTranslateButton").addEventListener("click", () => void this.saveCurrentSettings());
-    requireElement<HTMLElement>("#realtimeModeButton").addEventListener("click", () => { this.setRuntimeProfile("Realtime"); this.renderTranslateSettings(); });
-    requireElement<HTMLElement>("#qualityModeButton").addEventListener("click", () => { this.setRuntimeProfile("Quality"); this.renderTranslateSettings(); });
+    requireElement<HTMLElement>("#realtimeModeButton").addEventListener("click", () => { this.setRuntimeProfile("Realtime"); this.renderTranslateSettings(); this.resetSettingsScroll(); });
+    requireElement<HTMLElement>("#qualityModeButton").addEventListener("click", () => { this.setRuntimeProfile("Quality"); this.renderTranslateSettings(); this.resetSettingsScroll(); });
   }
 
   private renderDeveloperSettings(): void {
@@ -239,7 +244,7 @@ export class LauncherController {
     const [bundle, diagnostics] = await Promise.all([runtimeApi.getStatusBundle(), runtimeApi.getDiagnostics()]);
     this.renderHomeCards();
     this.renderRuntime(bundle, diagnostics);
-    this.renderSettingsTab("developer");
+    this.renderSettingsTab("general");
     this.ui.warmupScreen.classList.add("is-hidden");
     this.ui.mainApp.classList.remove("is-hidden");
   }
