@@ -1,10 +1,10 @@
 import "./styles.css";
-import { runCommand } from "./app/tauriBridge";
-import { bindUi, requireElement } from "./app/dom";
-import { icon } from "./app/icons";
-import { homeDefaultCards, mountAppShell } from "./app/shell";
-import { defaultSettings, errorMessage, languageName, percentText } from "./app/state";
-import { audioSettingsView, developerSettingsView, generalSettingsView, translateSettingsView } from "./app/settingsViews";
+import { runtimeApi } from "./app/engineTranslate/runtimeApi";
+import { bindUi, requireElement } from "./app/launcher/dom";
+import { icon } from "./app/shared/icons";
+import { homeDefaultCards, mountAppShell } from "./app/launcher/shell";
+import { defaultSettings, errorMessage, languageName, percentText } from "./app/shared/state";
+import { audioSettingsView, developerSettingsView, generalSettingsView, translateSettingsView } from "./app/launcher/settingsViews";
 import type {
   ChatKind,
   CommandResult,
@@ -17,7 +17,7 @@ import type {
   RuntimeSettings,
   RuntimeStatusBundleReport,
   SettingsTab,
-} from "./app/types";
+} from "./app/shared/types";
 
 const app = document.querySelector<HTMLDivElement>("#app");
 if (!app) throw new Error("TranslateIT app root was not found.");
@@ -79,18 +79,18 @@ function renderRuntime(bundle: RuntimeStatusBundleReport | null, diagnostics: Ru
 
 function showHome(): void { document.body.classList.remove("settings-open"); ui.settingsPage.classList.add("is-hidden"); ui.homePage.classList.remove("is-hidden"); }
 function showSettings(): void { document.body.classList.add("settings-open"); ui.homePage.classList.add("is-hidden"); ui.settingsPage.classList.remove("is-hidden"); renderSettingsTab(activeSettingsTab); }
-async function refreshHardwareUsage(): Promise<void> { latestHardware = await runCommand<HardwareUsageReport>("get_hardware_usage"); }
+async function refreshHardwareUsage(): Promise<void> { latestHardware = await runtimeApi.getHardwareUsage(); }
 
 async function ensureChatSession(): Promise<string | null> {
   if (currentSessionId) return currentSessionId;
-  const session = await runCommand<LauncherChatSession>("create_chat_session", { kind: "unsaved" });
+  const session = await runtimeApi.createChatSession("unsaved");
   currentSessionId = session?.session_id ?? null;
   activeSessionTitle = session?.title ?? "New Chat";
   return currentSessionId;
 }
 
 async function createNewChat(): Promise<void> {
-  const session = await runCommand<LauncherChatSession>("create_chat_session", { kind: "unsaved" });
+  const session = await runtimeApi.createChatSession("unsaved");
   currentSessionId = session?.session_id ?? null;
   activeSessionTitle = session?.title ?? "New Chat";
   ui.messageInput.value = "";
@@ -103,7 +103,7 @@ async function createNewChat(): Promise<void> {
 async function saveChatMessage(role: "user" | "assistant", content: string): Promise<void> {
   const sessionId = await ensureChatSession();
   if (!sessionId) return;
-  const result = await runCommand<LauncherChatActionResult>("append_chat_message", { sessionId, role, content });
+  const result = await runtimeApi.appendChatMessage(sessionId, role, content) as LauncherChatActionResult | null;
   if (result?.ok && role === "user" && activeSessionTitle === "New Chat") activeSessionTitle = content.split(/\s+/).slice(0, 8).join(" ");
 }
 
@@ -111,7 +111,7 @@ async function showChatCollection(kind: ChatKind, button: HTMLButtonElement): Pr
   setActiveNav(button);
   showHome();
   const listKind = kind === "local" ? undefined : kind;
-  const sessions = await runCommand<LauncherChatSummary[]>("list_chat_sessions", listKind ? { kind: listKind } : {});
+  const sessions = await runtimeApi.listChatSessions(listKind) as LauncherChatSummary[] | null;
   const rows = sessions ?? [];
   ui.chatList.innerHTML = rows.length
     ? rows.slice(0, 6).map((item) => `<article class="feature-card"><div class="feature-title-row"><div class="feature-icon">${icon(kind === "saved" ? "folder" : "file")}</div><h4>${item.title}</h4></div><p>${item.kind} · ${item.message_count} message(s)</p></article>`).join("")
@@ -127,31 +127,31 @@ async function submitText(): Promise<void> {
   ui.messageInput.value = "";
   await saveChatMessage("user", source);
   setAssistantNotice("Translating text locally...");
-  const result = await runCommand<CommandResult>("translate_text", { source });
+  const result = await runtimeApi.translateText(source) as CommandResult | null;
   const response = result?.message ?? "Translation command failed. Open Settings > Developer for diagnostics.";
   await saveChatMessage("assistant", response);
   setAssistantNotice(response);
 }
 
 async function startOrStopRecording(): Promise<void> {
-  const result = recording ? await runCommand<CommandResult>("stop_capture") : await runCommand<CommandResult>("start_capture");
+  const result = recording ? await runtimeApi.stopCapture() : await runtimeApi.startCapture();
   setAssistantNotice(result?.message ?? (recording ? "Recording stopped." : "Recording started. Waiting for local capture status."));
-  const bundle = await runCommand<RuntimeStatusBundleReport>("get_runtime_status_bundle");
+  const bundle = await runtimeApi.getStatusBundle();
   renderRuntime(bundle, latestDiagnostics);
 }
 
 async function checkAudioInput(): Promise<void> {
-  const status = await runCommand<InputPreparationStatus>("get_input_status");
+  const status = await runtimeApi.getInputStatus() as InputPreparationStatus | null;
   const label = document.getElementById("audioInputLabel");
   if (label) label.textContent = status?.selected_device_name ?? "Default microphone";
   setAssistantNotice(status?.note ?? status?.blocker ?? "Audio input status checked.");
 }
 
-async function saveCurrentSettings(): Promise<void> { const result = await runCommand<CommandResult>("save_runtime_settings", { settings: currentSettings ?? defaultSettings() }); setAssistantNotice(result?.message ?? "Save settings command failed."); }
-async function saveDefaultSettings(): Promise<void> { const result = await runCommand<CommandResult>("save_default_runtime_settings"); currentSettings = await runCommand<RuntimeSettings>("load_runtime_settings") ?? currentSettings; refreshDirectionPill(); setAssistantNotice(result?.message ?? "Default settings save command failed."); }
+async function saveCurrentSettings(): Promise<void> { const result = await runtimeApi.saveSettings(currentSettings ?? defaultSettings()); setAssistantNotice(result?.message ?? "Save settings command failed."); }
+async function saveDefaultSettings(): Promise<void> { const result = await runtimeApi.saveDefaultSettings(); currentSettings = await runtimeApi.loadSettings() ?? currentSettings; refreshDirectionPill(); setAssistantNotice(result?.message ?? "Default settings save command failed."); }
 
 async function runDeveloperDiagnostic(): Promise<void> {
-  const [bundle, diagnostics] = await Promise.all([runCommand<RuntimeStatusBundleReport>("get_runtime_status_bundle"), runCommand<RuntimeDiagnostics>("get_runtime_diagnostics")]);
+  const [bundle, diagnostics] = await Promise.all([runtimeApi.getStatusBundle(), runtimeApi.getDiagnostics()]);
   await refreshHardwareUsage();
   renderRuntime(bundle, diagnostics);
   renderDeveloperSettings();
@@ -209,10 +209,10 @@ function renderDeveloperSettings(): void {
 async function runWarmup(): Promise<void> {
   const steps = [12, 24, 38, 52, 68, 84, 100];
   for (let i = 0; i < steps.length; i += 1) { renderWarmupSteps(i); updateWarmup(steps[i], "Checking local runtime..."); await new Promise((resolve) => window.setTimeout(resolve, 120)); }
-  currentSettings = await runCommand<RuntimeSettings>("load_runtime_settings") ?? defaultSettings();
+  currentSettings = await runtimeApi.loadSettings() ?? defaultSettings();
   refreshDirectionPill();
   await refreshHardwareUsage();
-  const [bundle, diagnostics] = await Promise.all([runCommand<RuntimeStatusBundleReport>("get_runtime_status_bundle"), runCommand<RuntimeDiagnostics>("get_runtime_diagnostics")]);
+  const [bundle, diagnostics] = await Promise.all([runtimeApi.getStatusBundle(), runtimeApi.getDiagnostics()]);
   renderHomeCards();
   renderRuntime(bundle, diagnostics);
   renderSettingsTab("developer");
