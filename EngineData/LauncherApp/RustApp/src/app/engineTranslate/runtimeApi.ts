@@ -59,7 +59,11 @@ export const runtimeApi = {
     clearRuntimeReads("status-bundle", "input-status");
     return result;
   },
-  translateText: (source: string) => runCommand<CommandResult>("translate_text", { source }),
+  translateText: async (source: string) => {
+    const result = await runCommand<CommandResult>("translate_text", { source });
+    clearRuntimeReads("status-bundle", "diagnostics");
+    return result;
+  },
   createChatSession: async (kind: string) => {
     const result = await runCommand<LauncherChatSession>("create_chat_session", { kind });
     clearChatReads(kind);
