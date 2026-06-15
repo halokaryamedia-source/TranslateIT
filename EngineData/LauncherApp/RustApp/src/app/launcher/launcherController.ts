@@ -312,11 +312,15 @@ export class LauncherController {
   private renderDeveloperSettings(): void {
     const worker = this.workerManifest(this.latestBundle);
     const progress = this.latestBundle?.internal_validation_gate?.progress_percent ?? this.latestBundle?.live_pipeline_gate?.progress_percent ?? 0;
-    const cpu = this.escapeHtml(percentText(this.latestHardware?.cpu));
-    const ram = this.escapeHtml(percentText(this.latestHardware?.ram));
-    const gpu = this.escapeHtml(percentText(this.latestHardware?.gpu));
-    const gpuStatus = this.escapeHtml(this.latestDiagnostics?.cuda_probe.gpu_summary ?? this.latestHardware?.gpu.detail ?? "GPU status unavailable");
+    const cpu = percentText(this.latestHardware?.cpu);
+    const ram = percentText(this.latestHardware?.ram);
+    const gpu = percentText(this.latestHardware?.gpu);
+    const gpuStatus = this.latestDiagnostics?.cuda_probe.gpu_summary ?? this.latestHardware?.gpu.detail ?? "GPU status unavailable";
     const nextAction = this.escapeHtml(this.latestBundle?.next_action ?? "Waiting for next diagnostic result.");
+    const logCpu = this.escapeHtml(cpu);
+    const logRam = this.escapeHtml(ram);
+    const logGpu = this.escapeHtml(gpu);
+    const logGpuStatus = this.escapeHtml(gpuStatus);
     const commandErrors = runtimeApi.getCommandErrors().map((error) => {
       const command = this.escapeHtml(error.command);
       const message = this.escapeHtml(error.message);
@@ -324,8 +328,8 @@ export class LauncherController {
     });
     const logRows = [
       `<p><strong>[OK]</strong>${this.latestBundle ? "Runtime status loaded." : "Waiting for diagnostic check."}</p>`,
-      `<p><strong>[HW]</strong>CPU ${cpu} | RAM ${ram} | GPU ${gpu}</p>`,
-      `<p><strong>[GPU]</strong>${gpuStatus}</p>`,
+      `<p><strong>[HW]</strong>CPU ${logCpu} | RAM ${logRam} | GPU ${logGpu}</p>`,
+      `<p><strong>[GPU]</strong>${logGpuStatus}</p>`,
       `<p><strong>[ASR]</strong>Primary ${worker?.asr_model_ready ? "ready" : "missing"} | Backup ${worker?.asr_backup_model_ready ? "ready" : "missing"}</p>`,
       `<p><strong>[TR]</strong>Marian ${worker?.realtime_translation_model_ready ? "ready" : "missing"} | NLLB ${worker?.quality_translation_model_ready ? "ready" : "missing"}</p>`,
       `<p><strong>[TTS]</strong>${worker?.piper_ready ? "Piper ready" : worker?.sapi_ready ? "Windows SAPI fallback ready" : "No provider"} | Marcel ${worker?.voice_actor_marcel_ready ? "ready" : "missing"}</p>`,
@@ -333,7 +337,7 @@ export class LauncherController {
       `<p><strong>[WAIT]</strong>${nextAction}</p>`,
       ...commandErrors,
     ].join("");
-    this.ui.settingsContent.innerHTML = developerSettingsView({ progress, cpu, ram, gpu, gpuStatus, logRows, note: this.escapeHtml(this.latestHardware?.note ?? "Run diagnostic to refresh hardware usage."), logsExpanded: this.logsExpanded, engineGood: Boolean(this.latestBundle) });
+    this.ui.settingsContent.innerHTML = developerSettingsView({ progress, cpu, ram, gpu, gpuStatus, logRows, note: this.latestHardware?.note ?? "Run diagnostic to refresh hardware usage.", logsExpanded: this.logsExpanded, engineGood: Boolean(this.latestBundle) });
     requireElement<HTMLButtonElement>("#runDiagnosticButton").addEventListener("click", () => void this.runDeveloperDiagnostic());
     requireElement<HTMLButtonElement>("#seeAllLogsButton").addEventListener("click", () => { this.logsExpanded = !this.logsExpanded; this.renderDeveloperSettings(); });
   }
