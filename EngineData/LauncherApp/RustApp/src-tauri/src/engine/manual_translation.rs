@@ -6,9 +6,31 @@ const MAX_MANUAL_TRANSLATION_CHARS: usize = 2_000;
 const SOURCE_PREVIEW_CHARS: usize = 180;
 
 fn preview_source(value: &str) -> String {
-    let compact = value.split_whitespace().collect::<Vec<_>>().join(" ");
-    let mut preview: String = compact.chars().take(SOURCE_PREVIEW_CHARS).collect();
-    if compact.chars().count() > SOURCE_PREVIEW_CHARS {
+    let mut preview = String::new();
+    let mut previous_was_space = false;
+    let mut truncated = false;
+
+    for character in value.chars() {
+        let next_character = if character.is_whitespace() {
+            if previous_was_space {
+                continue;
+            }
+            previous_was_space = true;
+            ' '
+        } else {
+            previous_was_space = false;
+            character
+        };
+
+        if preview.chars().count() >= SOURCE_PREVIEW_CHARS {
+            truncated = true;
+            break;
+        }
+        preview.push(next_character);
+    }
+
+    let mut preview = preview.trim().to_string();
+    if truncated {
         preview.push('…');
     }
     preview
@@ -32,6 +54,7 @@ pub fn translate_text(source: String) -> CommandResult {
 
     let settings = load_settings();
     let quality_mode = settings.runtime_profile.eq_ignore_ascii_case("Quality");
+    let profile_label = if quality_mode { "Quality" } else { "Realtime" };
     let primary_engine_name = if quality_mode {
         "nllb-200-distilled-600M-quality"
     } else {
@@ -65,7 +88,7 @@ pub fn translate_text(source: String) -> CommandResult {
     CommandResult::blocked(
         LifecycleState::TranslationAdapterPending,
         format!(
-            "Realtime local translation worker is not connected yet. Source preview: {}. Planner status: {} / {}",
+            "{profile_label} local translation worker is not connected yet. Source preview: {}. Planner status: {} / {}",
             preview_source(trimmed), result.status, result.mode
         ),
     )
