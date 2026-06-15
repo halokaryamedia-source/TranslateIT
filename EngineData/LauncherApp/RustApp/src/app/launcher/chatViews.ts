@@ -1,6 +1,9 @@
 import { icon } from "../shared/icons";
 import type { ChatKind, LauncherChatSummary } from "../shared/types";
 
+const MAX_CHAT_COLLECTION_CARDS = 6;
+const MAX_CHAT_TITLE_CHARS = 64;
+
 function escapeHtml(value: string): string {
   return value
     .replaceAll("&", "&amp;")
@@ -12,7 +15,14 @@ function escapeHtml(value: string): string {
 
 function compactTitle(value: string): string {
   const clean = value.replace(/\s+/g, " ").trim() || "Untitled Chat";
-  return clean.length > 64 ? `${clean.slice(0, 63)}…` : clean;
+  let compact = "";
+  let count = 0;
+  for (const character of clean) {
+    if (count >= MAX_CHAT_TITLE_CHARS - 1) return `${compact}…`;
+    compact += character;
+    count += 1;
+  }
+  return compact;
 }
 
 function safeMessageCount(value: number): string {
@@ -24,7 +34,7 @@ function safeMessageCount(value: number): string {
 export function chatCollectionView(kind: ChatKind, sessions: LauncherChatSummary[]): string {
   if (!sessions.length) return emptyChatCollectionView(kind);
   return sessions
-    .slice(0, 6)
+    .slice(0, MAX_CHAT_COLLECTION_CARDS)
     .map((item) => {
       const title = escapeHtml(compactTitle(item.title));
       const itemKind = escapeHtml(item.kind);
