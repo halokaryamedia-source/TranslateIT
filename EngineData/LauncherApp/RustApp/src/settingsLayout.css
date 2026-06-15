@@ -1,5 +1,29 @@
 :root {
   --settings-page-width: 1320px;
+  --settings-sidebar-width: 430px;
+  --settings-left-pad: 230px;
 }
-.settings-scroll-v22 > div { width: var(--settings-page-width) !important; min-width: var(--settings-page-width) !important; max-width: var(--settings-page-width) !important; }
-.audio-card-v22, .voice-card-v22, .advanced-empty-v22 { width: var(--settings-page-width) !important; min-width: var(--settings-page-width) !important; max-width: var(--settings-page-width) !important; }
+
+body.settings-open { min-width: 1920px; }
+.settings-page { min-width: 1920px; grid-template-columns: var(--settings-sidebar-width) minmax(1490px, 1fr) !important; }
+.settings-sidebar { width: var(--settings-sidebar-width) !important; min-width: var(--settings-sidebar-width) !important; }
+.settings-workspace-v22 { min-width: 1490px !important; overflow: hidden; }
+.settings-topbar-v22 { height: 96px !important; min-height: 96px !important; }
+.settings-scroll-v22 { padding: 99px 64px 90px var(--settings-left-pad) !important; overflow: auto !important; }
+.settings-scroll-v22 > div, .settings-final-page { width: var(--settings-page-width) !important; min-width: var(--settings-page-width) !important; max-width: var(--settings-page-width) !important; }
+.audio-card-v22, .voice-card-v22, .advanced-empty-v22 { width: var(--settings-page-width) !important; min-width: var(--settings-page-width) !important; max-width: var(--settings-page-width) !important; border-radius: 26px !important; }
+.audio-grid-v22, .voice-grid-v22 { grid-template-columns: 540px 540px !important; column-gap: 92px !important; row-gap: 66px !important; }
+.select-field-v22 { height: 60px !important; min-height: 60px !important; }
+.select-field-v22, .mic-test-button-v22, .settings-back-button { white-space: nowrap; }
+.select-field-v22 span, .settings-scroll-v22 p, .settings-scroll-v22 em, .settings-scroll-v22 strong { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+.developer-log-body p { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.radio-row-v22 { min-width: 0; background: transparent; border: 0; padding: 0; text-align: left; }
+.radio-row-v22 em { display: block; max-width: 420px; white-space: nowrap; }
+
+@media (max-width: 1360px) {
+  body.settings-open, .settings-page { min-width: 1920px !important; }
+  .settings-page { grid-template-columns: var(--settings-sidebar-width) minmax(1490px, 1fr) !important; }
+  .settings-scroll-v22 { padding: 99px 64px 90px var(--settings-left-pad) !important; }
+  .audio-card-v22, .voice-card-v22, .advanced-empty-v22, .settings-scroll-v22 > div, .settings-final-page { width: var(--settings-page-width) !important; min-width: var(--settings-page-width) !important; max-width: var(--settings-page-width) !important; }
+  .audio-grid-v22, .voice-grid-v22 { grid-template-columns: 540px 540px !important; column-gap: 92px !important; }
+}
