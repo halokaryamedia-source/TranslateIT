@@ -25,6 +25,8 @@ export class LauncherController {
   private currentSessionId: string | null = null;
   private activeSessionTitle = "New Chat";
   private logsExpanded = false;
+  private textSubmitPending = false;
+  private recordingTogglePending = false;
 
   constructor(root: HTMLElement) {
     mountAppShell(root);
@@ -138,20 +140,46 @@ export class LauncherController {
   private async submitText(): Promise<void> {
     const source = this.ui.messageInput.value.trim();
     if (!source) return;
+    if (this.textSubmitPending) {
+      this.setAssistantNotice("Translation is already running. Please wait.");
+      return;
+    }
+    this.textSubmitPending = true;
+    this.ui.sendButton.disabled = true;
     this.ui.messageInput.value = "";
-    await this.saveChatMessage("user", source);
-    this.setAssistantNotice("Translating text locally...");
-    const result = await runtimeApi.translateText(source);
-    const response = result?.message ?? "Translation command failed. Open Settings > Developer for diagnostics.";
-    await this.saveChatMessage("assistant", response);
-    this.setAssistantNotice(response);
+    try {
+      await this.saveChatMessage("user", source);
+      this.setAssistantNotice("Translating text locally...");
+      const result = await runtimeApi.translateText(source);
+      const response = result?.message ?? "Translation command failed. Open Settings > Developer for diagnostics.";
+      await this.saveChatMessage("assistant", response);
+      this.setAssistantNotice(response);
+    } finally {
+      this.textSubmitPending = false;
+      this.ui.sendButton.disabled = false;
+    }
   }
 
   private async startOrStopRecording(): Promise<void> {
-    const result = this.recording ? await runtimeApi.stopCapture() : await runtimeApi.startCapture();
-    this.setAssistantNotice(result?.message ?? (this.recording ? "Recording stopped." : "Recording started. Waiting for local capture status."));
-    const bundle = await runtimeApi.getStatusBundle();
-    this.renderRuntime(bundle, this.latestDiagnostics);
+    if (this.recordingTogglePending) {
+      this.setAssistantNotice("Voice capture is already updating. Please wait.");
+      return;
+    }
+    this.recordingTogglePending = true;
+    this.ui.microphoneButton.disabled = true;
+    this.ui.quickMicButton.disabled = true;
+    this.ui.recordStatusButton.disabled = true;
+    try {
+      const result = this.recording ? await runtimeApi.stopCapture() : await runtimeApi.startCapture();
+      this.setAssistantNotice(result?.message ?? (this.recording ? "Recording stopped." : "Recording started. Waiting for local capture status."));
+      const bundle = await runtimeApi.getStatusBundle();
+      this.renderRuntime(bundle, this.latestDiagnostics);
+    } finally {
+      this.recordingTogglePending = false;
+      this.ui.microphoneButton.disabled = false;
+      this.ui.quickMicButton.disabled = false;
+      this.ui.recordStatusButton.disabled = false;
+    }
   }
 
   private async checkAudioInput(): Promise<void> {
