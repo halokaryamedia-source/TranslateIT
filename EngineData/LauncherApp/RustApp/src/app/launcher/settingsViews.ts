@@ -16,7 +16,35 @@ export function generalSettingsView(settings: RuntimeSettings, realtimeStatus: s
 
 export function audioSettingsView(settings: RuntimeSettings): string {
   const voiceEnabled = settings.audio.auto_play_out_voice;
-  return `<section class="settings-page-title"><h2>Audio</h2><p>Configure microphone input, voice output, and local capture checks.</p></section><article class="audio-card-v22"><div class="audio-grid-v22"><section class="audio-field-group"><h3>Input Device</h3><button id="checkAudioInputButton" class="select-field-v22" type="button"><span id="audioInputLabel">Default microphone</span>${icon("chevron")}</button></section><section class="audio-field-group"><h3>Input Sensitivity</h3><button id="audioSensitivityButton" class="select-field-v22" type="button"><span>${settings.audio.input_sensitivity}</span>${icon("chevron")}</button></section><section class="audio-field-group"><h3>Voice Output</h3><button id="audioVoiceToggleButton" class="select-field-v22" type="button"><span>${voiceEnabled ? "Enabled" : "Disabled"}</span>${icon("speaker")}</button></section><section class="mic-test-row-v22"><button id="micTestButton" class="mic-test-button-v22" type="button">Test Mic</button><div class="meter-v22"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></div></section></div></article><section class="settings-page-title secondary"><h2>Advanced Audio Setting</h2><p>Reserved for future audio device options.</p></section><article class="advanced-empty-v22"></article>`;
+  const realtimeActive = settings.runtime_profile !== "Quality";
+  return `<section class="settings-page-title"><h2>Audio</h2><p>Configure microphone input, voice output, and local voice behavior.</p></section>
+
+    <article class="audio-card-v22" style="min-height:450px;margin-top:64px;padding:40px 74px;">
+      <div class="audio-grid-v22">
+        <section class="audio-field-group">
+          <h3>Audio Input</h3>
+          <button id="checkAudioInputButton" class="select-field-v22" type="button"><span id="audioInputLabel">Default microphone</span>${icon("chevron")}</button>
+          <button id="micTestButton" class="mic-test-button-v22" type="button" style="width:176px;margin-top:18px;">Test Mic</button>
+        </section>
+        <section class="audio-field-group">
+          <h3>Voice Output</h3>
+          <button id="audioVoiceToggleButton" class="select-field-v22" type="button"><span>${voiceEnabled ? "Enabled" : "Disabled"}</span>${icon("speaker")}</button>
+          <p style="margin:0;color:var(--muted);font-size:13px;line-height:1.7;">Play translated English voice automatically after translation completes.</p>
+        </section>
+        <section class="audio-field-group">
+          <h3>Voice Profile</h3>
+          <button class="select-field-v22" type="button"><span>Normal</span>${icon("chevron")}</button>
+          <button class="select-field-v22" type="button"><span>Noise Reduced</span>${icon("chevron")}</button>
+        </section>
+        <section class="audio-field-group">
+          <h3>Voice Mode</h3>
+          <button id="audioSensitivityButton" class="select-field-v22" type="button"><span>${realtimeActive ? "Always On" : "Quality First"}</span>${icon("chevron")}</button>
+          <button class="select-field-v22" type="button"><span>Push to Talk</span>${icon("chevron")}</button>
+        </section>
+      </div>
+    </article>
+
+    <section class="settings-page-title secondary"><h2>Advanced Audio Setting</h2><p>Reserved for future audio device options.</p></section><article class="advanced-empty-v22"></article>`;
 }
 
 export function translateSettingsView(settings: RuntimeSettings, sourceLabel: string, targetLabel: string): string {
