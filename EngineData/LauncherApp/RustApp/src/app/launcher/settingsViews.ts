@@ -143,6 +143,7 @@ export function developerSettingsView(args: {
   const engineStatus = args.engineGood ? "Good" : "Check";
   const logHeight = args.logsExpanded ? 320 : 176;
   const logOverflow = args.logsExpanded ? "auto" : "hidden";
+  const logSummary = args.logsExpanded ? "Showing all current diagnostic logs." : "Showing recent diagnostic logs.";
   const styledLogRows = args.logRows.replaceAll("<p>", '<p style="margin:0;color:var(--text);font-size:12.5px;font-weight:750;">').replaceAll("<strong>", '<strong style="display:inline-block;width:64px;color:var(--muted);font-weight:850;">');
 
   return `${pageStart("Developer", "Simple tools for monitoring runtime health and fixing common issues.", 1710)}
@@ -158,7 +159,7 @@ export function developerSettingsView(args: {
       <section class="diagnostic-head">${icon("check")}<div><h3>Run Diagnostic</h3><p>Check launcher, audio device, translation engine, transcript, and local worker.</p></div><button id="runDiagnosticButton" type="button">Run Checking</button></section>
       <section class="diagnostic-progress"><div><strong>Checking translation engine</strong><span>Running</span></div><p>${note}</p><div class="progress-line"><i></i><b style="width:${progress}%;"></b><em style="left:calc(${marker}% - 5px);"></em><strong style="left:calc(${marker}% - 28px);">${progress}%</strong></div></section>
       <div class="diagnostic-divider"></div>
-      <section class="diagnostic-log-title">${icon("logs")}<div><h3>Log Diagnostic</h3><p>Showing the latest 3 diagnostic logs.</p></div></section>
+      <section class="diagnostic-log-title">${icon("logs")}<div><h3>Log Diagnostic</h3><p>${logSummary}</p></div></section>
       <section class="diagnostic-log-panel" style="height:${logHeight}px;overflow:${logOverflow};"><header><span><i></i><i></i><i></i></span><strong>developer-log/latest</strong><button id="seeAllLogsButton" type="button">${icon("maximize")}<span>${args.logsExpanded ? "Show Less" : "See All Logs"}</span></button></header><div class="developer-log-body">${styledLogRows}</div></section>
     </article>
     <section class="settings-section-title" style="top:1450px;"><h2>Advanced Developer Setting</h2><p>Reserved for future developer options.</p></section>
