@@ -86,6 +86,11 @@ const icons = {
   code: `<svg viewBox="0 0 24 24"><path d="M8 8l-4 4 4 4M16 8l4 4-4 4M14 4l-4 16"/></svg>`,
   swap: `<svg viewBox="0 0 24 24"><path d="M7 7h12M15 3l4 4-4 4M17 17H5M9 13l-4 4 4 4"/></svg>`,
   fileText: `<svg viewBox="0 0 24 24"><path d="M7 3h7l4 4v14H7z"/><path d="M14 3v5h5M9 13h6M9 17h6"/></svg>`,
+  monitor: `<svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="13" rx="2"/><path d="M8 21h8M12 17v4"/></svg>`,
+  pulse: `<svg viewBox="0 0 24 24"><path d="M3 12h4l2-6 4 12 2-6h6"/></svg>`,
+  check: `<svg viewBox="0 0 24 24"><path d="M20 6 9 17l-5-5"/></svg>`,
+  logs: `<svg viewBox="0 0 24 24"><path d="M6 3h12v18H6z"/><path d="M9 8h6M9 12h6M9 16h4"/></svg>`,
+  maximize: `<svg viewBox="0 0 24 24"><path d="M8 3H3v5M16 3h5v5M8 21H3v-5M16 21h5v-5"/><path d="M3 3l7 7M21 3l-7 7M3 21l7-7M21 21l-7-7"/></svg>`,
 };
 
 function icon(name: keyof typeof icons): string {
@@ -149,49 +154,91 @@ app.innerHTML = `
         <nav class="settings-nav-v22">
           <button type="button" class="settings-nav-item">${icon("sliders")}<span>General</span></button>
           <button type="button" class="settings-nav-item">${icon("speaker")}<span>Audio</span></button>
-          <button type="button" class="settings-nav-item active">${icon("translate")}<span>Translate</span></button>
-          <button type="button" class="settings-nav-item">${icon("code")}<span>Developer</span></button>
+          <button type="button" class="settings-nav-item">${icon("translate")}<span>Translate</span></button>
+          <button type="button" class="settings-nav-item active">${icon("code")}<span>Developer</span></button>
         </nav>
       </aside>
 
       <section class="settings-workspace-v22">
         <header class="settings-topbar-v22"><button id="backHomeButton" class="settings-back-button" type="button">${icon("back")}<span>Back</span></button></header>
-        <div class="settings-scroll-v22">
-          <section class="settings-page-title"><h2>Translate</h2><p>Configure language direction, translation speed, and output behavior.</p></section>
+        <div class="settings-scroll-v22" style="padding-top:72px;">
+          <section class="settings-page-title"><h2>Developer</h2><p>Simple tools for monitoring runtime health and fixing common issues.</p></section>
 
-          <article class="audio-card-v22" style="min-height:190px;margin-top:54px;padding:48px 74px;">
-            <div style="display:grid;grid-template-columns:500px 72px 500px;align-items:end;column-gap:50px;">
-              <div class="audio-field-group"><h3>Source Language</h3><button type="button" class="select-field-v22" style="grid-template-columns:minmax(0,1fr) 20px;"> <span>Indonesian</span>${icon("chevron")}</button></div>
-              <button type="button" class="select-field-v22" style="width:72px;height:62px;grid-template-columns:1fr;place-items:center;padding:0;border-radius:18px;">${icon("swap")}</button>
-              <div class="audio-field-group"><h3>Target Language</h3><button type="button" class="select-field-v22" style="grid-template-columns:minmax(0,1fr) 20px;"><span>English</span>${icon("chevron")}</button></div>
-            </div>
-          </article>
-
-          <section class="settings-page-title secondary" style="margin-top:84px;"><h2>Realtime</h2><p>Choose how TranslateIT balances speed and translation quality.</p></section>
-          <article class="voice-card-v22" style="min-height:166px;padding:50px 74px;">
-            <div class="voice-grid-v22">
-              <label class="radio-row-v22 active" style="margin-top:0;"><span></span><strong>Fast</strong><em>Prioritize low latency for live voice translation.</em></label>
-              <label class="radio-row-v22" style="margin-top:0;"><span></span><strong>Quality</strong><em>Prefer better translation quality when response time is less critical.</em></label>
-            </div>
-          </article>
-
-          <section class="settings-page-title secondary" style="margin-top:84px;"><h2>Translate Output</h2><p>Choose which output should appear after translation completes.</p></section>
-          <article class="voice-card-v22" style="min-height:176px;padding:48px 74px;">
-            <div class="voice-grid-v22">
-              <section style="position:relative;display:grid;grid-template-columns:24px minmax(0,1fr) 72px;column-gap:22px;align-items:start;">
-                ${icon("fileText")}
-                <div><h3>Transcript</h3><p>Show translated text in the conversation.</p></div>
-                <span style="display:block;width:72px;height:36px;border-radius:18px;background:#d6dbe3;position:relative;margin-top:4px;"><i style="position:absolute;right:4px;top:4px;width:28px;height:28px;border-radius:50%;background:#11141a;"></i></span>
+          <section class="settings-page-title secondary" style="margin-top:70px;"><h2>Monitoring</h2><p>Melacak usage hardware dan health engine.</p></section>
+          <article class="audio-card-v22" style="min-height:330px;margin-top:46px;padding:64px 74px 44px;">
+            <div style="display:grid;grid-template-columns:540px 540px;column-gap:92px;align-items:start;">
+              <section>
+                <div style="display:grid;grid-template-columns:22px minmax(0,1fr);column-gap:22px;align-items:center;">
+                  ${icon("monitor")}
+                  <h3 style="margin:0;color:var(--text);font-size:18px;font-weight:850;">Hardware Usage</h3>
+                </div>
+                <p style="margin:14px 0 0 44px;color:var(--muted);font-size:13px;">Track CPU, GPU, RAM, and local worker resource usage.</p>
+                <div style="display:grid;gap:38px;margin-top:45px;">
+                  <div style="display:grid;grid-template-columns:64px 1fr 48px;align-items:center;gap:20px;"><strong style="font-size:14px;">CPU</strong><span style="height:5px;border-radius:999px;background:linear-gradient(90deg,#d6dbe3 25%,#4b4f5d 25%);"></span><em style="color:var(--muted);font-size:13px;font-style:normal;font-weight:850;">25%</em></div>
+                  <div style="display:grid;grid-template-columns:64px 1fr 48px;align-items:center;gap:20px;"><strong style="font-size:14px;">GPU</strong><span style="height:5px;border-radius:999px;background:linear-gradient(90deg,#d6dbe3 32%,#4b4f5d 32%);"></span><em style="color:var(--muted);font-size:13px;font-style:normal;font-weight:850;">32%</em></div>
+                  <div style="display:grid;grid-template-columns:64px 1fr 48px;align-items:center;gap:20px;"><strong style="font-size:14px;">RAM</strong><span style="height:5px;border-radius:999px;background:linear-gradient(90deg,#d6dbe3 46%,#4b4f5d 46%);"></span><em style="color:var(--muted);font-size:13px;font-style:normal;font-weight:850;">46%</em></div>
+                </div>
               </section>
-              <section style="position:relative;display:grid;grid-template-columns:24px minmax(0,1fr) 72px;column-gap:22px;align-items:start;">
-                ${icon("speaker")}
-                <div><h3>Voice</h3><p>Play translated English voice automatically.</p></div>
-                <span style="display:block;width:72px;height:36px;border-radius:18px;background:#d6dbe3;position:relative;margin-top:4px;"><i style="position:absolute;right:4px;top:4px;width:28px;height:28px;border-radius:50%;background:#11141a;"></i></span>
+
+              <section>
+                <div style="display:grid;grid-template-columns:22px minmax(0,1fr);column-gap:22px;align-items:center;">
+                  ${icon("pulse")}
+                  <h3 style="margin:0;color:var(--text);font-size:18px;font-weight:850;">Health Engine</h3>
+                </div>
+                <p style="margin:14px 0 0 44px;color:var(--muted);font-size:13px;">Simple status for Launcher and Engine.</p>
+                <div style="display:grid;gap:18px;margin-top:35px;">
+                  <section style="display:grid;grid-template-columns:24px minmax(0,1fr) 88px;align-items:center;column-gap:20px;height:62px;border:1px solid var(--border-strong);border-radius:16px;background:#10141b;padding:0 24px;">${icon("monitor")}<div><strong style="display:block;font-size:15.5px;">Launcher</strong><p style="margin:7px 0 0;color:var(--muted);font-size:11.5px;">Desktop shell and UI route</p></div><span style="display:grid;place-items:center;height:32px;border:1px solid #8d949f;border-radius:12px;background:#151922;font-size:12px;font-weight:900;">Good</span></section>
+                  <section style="display:grid;grid-template-columns:24px minmax(0,1fr) 88px;align-items:center;column-gap:20px;height:62px;border:1px solid var(--border-strong);border-radius:16px;background:#10141b;padding:0 24px;">${icon("pulse")}<div><strong style="display:block;font-size:15.5px;">Engine</strong><p style="margin:7px 0 0;color:var(--muted);font-size:11.5px;">Translation, transcript, and worker state</p></div><span style="display:grid;place-items:center;height:32px;border:1px solid #8d949f;border-radius:12px;background:#151922;font-size:12px;font-weight:900;">Good</span></section>
+                </div>
               </section>
             </div>
           </article>
 
-          <section class="settings-page-title secondary"><h2>Advanced Translate Setting</h2></section>
+          <section class="settings-page-title secondary" style="margin-top:84px;"><h2>Diagnostic</h2><p>Run checking, show current progress, and review diagnostic logs in one table.</p></section>
+          <article class="audio-card-v22" style="min-height:622px;margin-top:46px;padding:52px 74px;">
+            <section style="position:relative;min-height:86px;">
+              <div style="display:grid;grid-template-columns:22px minmax(0,1fr);column-gap:22px;align-items:start;">
+                ${icon("check")}
+                <div><h3 style="margin:0;color:var(--text);font-size:20px;font-weight:850;">Run Diagnostic</h3><p style="margin:15px 0 0;color:var(--muted);font-size:13px;">Check launcher, audio device, translation engine, transcript, and local worker.</p></div>
+              </div>
+              <button type="button" style="position:absolute;right:20px;top:2px;width:206px;height:52px;border:1px solid #8d949f;border-radius:15px;color:var(--text);background:#151922;font-size:14px;font-weight:900;">Run Checking</button>
+            </section>
+
+            <section style="height:112px;margin-top:26px;border:1px solid var(--border-strong);border-radius:18px;background:#10141b;padding:28px;">
+              <div style="display:flex;align-items:center;justify-content:space-between;gap:24px;"><strong style="font-size:14px;">Checking translation engine</strong><span style="display:grid;place-items:center;width:82px;height:30px;border:1px solid var(--border-strong);border-radius:11px;background:#151922;color:var(--muted);font-size:12px;font-weight:900;">Running</span></div>
+              <p style="margin:18px 0 0;color:var(--muted);font-size:12.5px;font-weight:750;">Phase: Transcript worker</p>
+              <div style="position:relative;margin-top:20px;height:30px;">
+                <span style="position:absolute;left:0;right:0;top:13px;height:6px;border-radius:999px;background:#4b4f5d;"></span>
+                <span style="position:absolute;left:0;top:13px;width:52%;height:6px;border-radius:999px;background:#d6dbe3;"></span>
+                <span style="position:absolute;left:calc(52% - 5px);top:8px;width:11px;height:11px;border-radius:50%;background:#d6dbe3;"></span>
+                <span style="position:absolute;left:calc(52% - 28px);top:-27px;display:grid;place-items:center;width:56px;height:24px;border:1px solid #4b5563;border-radius:8px;background:#11141a;color:var(--text);font-size:11.5px;font-weight:900;">52%</span>
+              </div>
+            </section>
+
+            <div style="height:1px;margin:38px 0;background:var(--border);"></div>
+
+            <section style="position:relative;min-height:86px;">
+              <div style="display:grid;grid-template-columns:22px minmax(0,1fr);column-gap:22px;align-items:start;">
+                ${icon("logs")}
+                <div><h3 style="margin:0;color:var(--text);font-size:20px;font-weight:850;">Log Diagnostic</h3><p style="margin:15px 0 0;color:var(--muted);font-size:13px;">Showing the latest 3 diagnostic logs.</p></div>
+              </div>
+            </section>
+
+            <section style="height:176px;margin-top:0;border:1px solid var(--border-strong);border-radius:18px;background:#080b11;overflow:hidden;">
+              <header style="display:grid;grid-template-columns:78px minmax(0,1fr) 206px;align-items:center;height:48px;border-bottom:1px solid var(--border-strong);background:#0d1017;padding:0 20px 0 26px;">
+                <span style="display:flex;gap:10px;"><i style="width:10px;height:10px;border-radius:50%;background:#858e9c;"></i><i style="width:10px;height:10px;border-radius:50%;background:#858e9c;"></i><i style="width:10px;height:10px;border-radius:50%;background:#858e9c;"></i></span>
+                <strong style="color:var(--muted);font-size:12px;">developer-log/latest</strong>
+                <button type="button" style="display:grid;grid-template-columns:22px 1fr;align-items:center;width:206px;height:32px;border:1px solid #8d949f;border-radius:12px;padding:0 18px;color:var(--text);background:#151922;font-size:12px;font-weight:900;">${icon("maximize")}<span>See All Logs</span></button>
+              </header>
+              <div style="display:grid;gap:20px;padding:32px 26px;">
+                <p style="margin:0;color:var(--text);font-size:12.5px;font-weight:750;"><strong style="display:inline-block;width:64px;color:var(--muted);">[OK]</strong>No critical error detected.</p>
+                <p style="margin:0;color:var(--text);font-size:12.5px;font-weight:750;"><strong style="display:inline-block;width:64px;color:var(--muted);">[INFO]</strong>Launcher route loaded successfully.</p>
+                <p style="margin:0;color:var(--text);font-size:12.5px;font-weight:750;"><strong style="display:inline-block;width:64px;color:var(--muted);">[WAIT]</strong>Waiting for next diagnostic result...</p>
+              </div>
+            </section>
+          </article>
+
+          <section class="settings-page-title secondary"><h2>Advanced Developer Setting</h2><p>Reserved for future developer options.</p></section>
           <article class="advanced-empty-v22"></article>
           <div class="runtime-sinks" aria-hidden="true"><span id="realtimeStatus">Checking</span><span id="qualityStatus">Checking</span><span id="gpuStatus">Checking</span><pre id="developerOutput">Runtime status will appear here after warmup.</pre></div>
         </div>
