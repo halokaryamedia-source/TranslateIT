@@ -237,7 +237,7 @@ export class LauncherController {
     if (button) button.disabled = true;
     try {
       const status = await runtimeApi.getInputStatus();
-      const label = document.getElementById("audioInputLabel");
+      const label = document.getElementById("audioInputLabel") ?? button?.querySelector("span");
       if (label) label.textContent = status?.selected_device_name ?? "Default microphone";
       this.setAssistantNotice(status?.note ?? status?.blocker ?? "Audio input status checked.");
     } finally {
