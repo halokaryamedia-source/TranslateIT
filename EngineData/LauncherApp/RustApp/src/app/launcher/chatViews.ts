@@ -31,7 +31,7 @@ function safeMessageCount(value: number): string {
   return Math.floor(value).toString();
 }
 
-function chatIcon(kind: ChatKind): string {
+function chatIcon(kind: ChatKind): "folder" | "file" {
   return kind === "saved" ? "folder" : "file";
 }
 
