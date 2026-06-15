@@ -84,6 +84,8 @@ const icons = {
   sliders: `<svg viewBox="0 0 24 24"><path d="M4 6h10M18 6h2M4 12h3M11 12h9M4 18h12M20 18h0"/><circle cx="16" cy="6" r="2"/><circle cx="9" cy="12" r="2"/><circle cx="18" cy="18" r="2"/></svg>`,
   translate: `<svg viewBox="0 0 24 24"><path d="M4 5h9M9 5v14M5 9c1.2 3.8 4.1 6.4 8 8"/><path d="M14 19l4-9 4 9M15.5 16h5"/></svg>`,
   code: `<svg viewBox="0 0 24 24"><path d="M8 8l-4 4 4 4M16 8l4 4-4 4M14 4l-4 16"/></svg>`,
+  swap: `<svg viewBox="0 0 24 24"><path d="M7 7h12M15 3l4 4-4 4M17 17H5M9 13l-4 4 4 4"/></svg>`,
+  fileText: `<svg viewBox="0 0 24 24"><path d="M7 3h7l4 4v14H7z"/><path d="M14 3v5h5M9 13h6M9 17h6"/></svg>`,
 };
 
 function icon(name: keyof typeof icons): string {
@@ -146,8 +148,8 @@ app.innerHTML = `
         <h2>Settings</h2>
         <nav class="settings-nav-v22">
           <button type="button" class="settings-nav-item">${icon("sliders")}<span>General</span></button>
-          <button type="button" class="settings-nav-item active">${icon("speaker")}<span>Audio</span></button>
-          <button type="button" class="settings-nav-item">${icon("translate")}<span>Translate</span></button>
+          <button type="button" class="settings-nav-item">${icon("speaker")}<span>Audio</span></button>
+          <button type="button" class="settings-nav-item active">${icon("translate")}<span>Translate</span></button>
           <button type="button" class="settings-nav-item">${icon("code")}<span>Developer</span></button>
         </nav>
       </aside>
@@ -155,27 +157,41 @@ app.innerHTML = `
       <section class="settings-workspace-v22">
         <header class="settings-topbar-v22"><button id="backHomeButton" class="settings-back-button" type="button">${icon("back")}<span>Back</span></button></header>
         <div class="settings-scroll-v22">
-          <section class="settings-page-title"><h2>Audio</h2><p>Manage microphone input, speaker output, volume, and voice behavior.</p></section>
+          <section class="settings-page-title"><h2>Translate</h2><p>Configure language direction, translation speed, and output behavior.</p></section>
 
-          <article class="audio-card-v22">
-            <div class="audio-grid-v22">
-              <div class="audio-field-group"><h3>Microphone</h3><button type="button" class="select-field-v22">${icon("mic")}<span>Triton Microphone (USB AUDIO DEVICE)</span>${icon("chevron")}</button></div>
-              <div class="audio-field-group"><h3>Speaker</h3><button type="button" class="select-field-v22">${icon("speaker")}<span>TWS (AkLIAM PD6)</span>${icon("chevron")}</button></div>
-              <div class="audio-field-group"><h3>Microphone Volume</h3><div class="range-v22 mic-range"><span></span><i></i></div></div>
-              <div class="audio-field-group"><h3>Speaker Volume</h3><div class="range-v22 speaker-range"><span></span><i></i></div></div>
-              <div class="mic-test-row-v22"><button type="button" class="mic-test-button-v22">Mic Test</button><div class="meter-v22">${Array.from({ length: 33 }, () => "<span></span>").join("")}</div></div>
+          <article class="audio-card-v22" style="min-height:190px;margin-top:54px;padding:48px 74px;">
+            <div style="display:grid;grid-template-columns:500px 72px 500px;align-items:end;column-gap:50px;">
+              <div class="audio-field-group"><h3>Source Language</h3><button type="button" class="select-field-v22" style="grid-template-columns:minmax(0,1fr) 20px;"> <span>Indonesian</span>${icon("chevron")}</button></div>
+              <button type="button" class="select-field-v22" style="width:72px;height:62px;grid-template-columns:1fr;place-items:center;padding:0;border-radius:18px;">${icon("swap")}</button>
+              <div class="audio-field-group"><h3>Target Language</h3><button type="button" class="select-field-v22" style="grid-template-columns:minmax(0,1fr) 20px;"><span>English</span>${icon("chevron")}</button></div>
             </div>
           </article>
 
-          <section class="settings-page-title secondary"><h2>Voice</h2><p>Configure voice input behavior and input processing profile.</p></section>
-          <article class="voice-card-v22">
+          <section class="settings-page-title secondary" style="margin-top:84px;"><h2>Realtime</h2><p>Choose how TranslateIT balances speed and translation quality.</p></section>
+          <article class="voice-card-v22" style="min-height:166px;padding:50px 74px;">
             <div class="voice-grid-v22">
-              <section><h3>Voice Profile</h3><p>Choose the microphone processing profile.</p><label class="radio-row-v22 active"><span></span><strong>Normal</strong><em>Default microphone input without extra noise processing.</em></label><label class="radio-row-v22"><span></span><strong>Noise</strong><em>Reduce background noise and prioritize speech clarity.</em></label></section>
-              <section><h3>Voice Mode</h3><p>Choose how TranslateIT listens to voice input.</p><label class="radio-row-v22 active"><span></span><strong>Always On</strong><em>Voice input stays ready while the app is active.</em></label><label class="radio-row-v22"><span></span><strong>Push to Talk</strong><em>Voice input only activates while holding a selected key.</em></label></section>
+              <label class="radio-row-v22 active" style="margin-top:0;"><span></span><strong>Fast</strong><em>Prioritize low latency for live voice translation.</em></label>
+              <label class="radio-row-v22" style="margin-top:0;"><span></span><strong>Quality</strong><em>Prefer better translation quality when response time is less critical.</em></label>
             </div>
           </article>
 
-          <section class="settings-page-title secondary"><h2>Advanced Audio Setting</h2></section>
+          <section class="settings-page-title secondary" style="margin-top:84px;"><h2>Translate Output</h2><p>Choose which output should appear after translation completes.</p></section>
+          <article class="voice-card-v22" style="min-height:176px;padding:48px 74px;">
+            <div class="voice-grid-v22">
+              <section style="position:relative;display:grid;grid-template-columns:24px minmax(0,1fr) 72px;column-gap:22px;align-items:start;">
+                ${icon("fileText")}
+                <div><h3>Transcript</h3><p>Show translated text in the conversation.</p></div>
+                <span style="display:block;width:72px;height:36px;border-radius:18px;background:#d6dbe3;position:relative;margin-top:4px;"><i style="position:absolute;right:4px;top:4px;width:28px;height:28px;border-radius:50%;background:#11141a;"></i></span>
+              </section>
+              <section style="position:relative;display:grid;grid-template-columns:24px minmax(0,1fr) 72px;column-gap:22px;align-items:start;">
+                ${icon("speaker")}
+                <div><h3>Voice</h3><p>Play translated English voice automatically.</p></div>
+                <span style="display:block;width:72px;height:36px;border-radius:18px;background:#d6dbe3;position:relative;margin-top:4px;"><i style="position:absolute;right:4px;top:4px;width:28px;height:28px;border-radius:50%;background:#11141a;"></i></span>
+              </section>
+            </div>
+          </article>
+
+          <section class="settings-page-title secondary"><h2>Advanced Translate Setting</h2></section>
           <article class="advanced-empty-v22"></article>
           <div class="runtime-sinks" aria-hidden="true"><span id="realtimeStatus">Checking</span><span id="qualityStatus">Checking</span><span id="gpuStatus">Checking</span><pre id="developerOutput">Runtime status will appear here after warmup.</pre></div>
         </div>
