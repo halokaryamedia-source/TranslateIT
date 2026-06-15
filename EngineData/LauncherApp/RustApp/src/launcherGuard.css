@@ -1,7 +1,9 @@
 .app-shell, .workspace, .settings-page { contain: layout style; }
 .feature-card, .assistant-card, .composer, .topbar, .settings-card { contain: layout paint; }
-button:disabled { pointer-events: none; user-select: none; }
+button:disabled { pointer-events: none; user-select: none; opacity: .52; cursor: not-allowed; }
 button:focus-visible, input:focus-visible { outline: 2px solid #d6dbe3; outline-offset: 3px; }
+.composer input:disabled { opacity: .72; cursor: wait; }
+.composer input::placeholder { color: rgba(219, 224, 232, .46); }
 .nav-item:not(.active) { background: #090c12; color: var(--muted); font-weight: 700; }
 .nav-item:not(.active)::before { display: none; }
 .nav-item.active { position: relative; background: var(--surface); color: var(--text); font-weight: 750; }
