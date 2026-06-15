@@ -57,8 +57,8 @@ export class LauncherController {
 
   private exceedsManualTranslationLimit(value: string): boolean {
     let count = 0;
-    for (const _character of value) {
-      count += 1;
+    for (const character of value) {
+      if (character) count += 1;
       if (count > MAX_MANUAL_TRANSLATION_CHARS) return true;
     }
     return false;
