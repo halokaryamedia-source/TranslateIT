@@ -54,12 +54,13 @@ fn append_line(path: &Path, line: &str) -> io::Result<()> {
 }
 
 fn compact_log_field(value: impl Into<String>, max_chars: usize) -> String {
+    let input = value.into();
     let mut output = String::new();
     let mut previous_was_space = false;
     let mut written = 0usize;
     let mut truncated = false;
 
-    for character in value.into().chars() {
+    for character in input.chars() {
         let next_character = if character.is_whitespace() {
             if previous_was_space {
                 continue;
