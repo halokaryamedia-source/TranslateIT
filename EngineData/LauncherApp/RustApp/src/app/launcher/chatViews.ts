@@ -15,6 +15,12 @@ function compactTitle(value: string): string {
   return clean.length > 64 ? `${clean.slice(0, 63)}…` : clean;
 }
 
+function safeMessageCount(value: number): string {
+  if (!Number.isFinite(value) || value < 0) return "0";
+  if (value > 999) return "999+";
+  return Math.floor(value).toString();
+}
+
 export function chatCollectionView(kind: ChatKind, sessions: LauncherChatSummary[]): string {
   if (!sessions.length) return emptyChatCollectionView(kind);
   return sessions
@@ -22,7 +28,8 @@ export function chatCollectionView(kind: ChatKind, sessions: LauncherChatSummary
     .map((item) => {
       const title = escapeHtml(compactTitle(item.title));
       const itemKind = escapeHtml(item.kind);
-      return `<article class="feature-card"><div class="feature-title-row"><div class="feature-icon">${icon(kind === "saved" ? "folder" : "file")}</div><h4 title="${title}">${title}</h4></div><p>${itemKind} · ${item.message_count} message(s)</p></article>`;
+      const messageCount = safeMessageCount(item.message_count);
+      return `<article class="feature-card" aria-label="${title}"><div class="feature-title-row"><div class="feature-icon">${icon(kind === "saved" ? "folder" : "file")}</div><h4 title="${title}">${title}</h4></div><p>${itemKind} · ${messageCount} message(s)</p></article>`;
     })
     .join("");
 }
