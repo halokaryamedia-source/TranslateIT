@@ -2,10 +2,32 @@ use crate::engine::adapters::translation_logic::{run_translation_logic, Translat
 use crate::engine::runtime_settings::load_settings;
 use crate::engine::state::{CommandResult, LifecycleState};
 
+const MAX_MANUAL_TRANSLATION_CHARS: usize = 2_000;
+const SOURCE_PREVIEW_CHARS: usize = 180;
+
+fn preview_source(value: &str) -> String {
+    let compact = value.split_whitespace().collect::<Vec<_>>().join(" ");
+    let mut preview: String = compact.chars().take(SOURCE_PREVIEW_CHARS).collect();
+    if compact.chars().count() > SOURCE_PREVIEW_CHARS {
+        preview.push('…');
+    }
+    preview
+}
+
 pub fn translate_text(source: String) -> CommandResult {
     let trimmed = source.trim();
     if trimmed.is_empty() {
         return CommandResult::blocked(LifecycleState::EmptyInput, "No source text provided.");
+    }
+
+    let input_chars = trimmed.chars().count();
+    if input_chars > MAX_MANUAL_TRANSLATION_CHARS {
+        return CommandResult::blocked(
+            LifecycleState::TranslationAdapterPending,
+            format!(
+                "Input is too long for manual translation preview. Limit: {MAX_MANUAL_TRANSLATION_CHARS} characters. Received: {input_chars} characters."
+            ),
+        );
     }
 
     let settings = load_settings();
@@ -43,8 +65,8 @@ pub fn translate_text(source: String) -> CommandResult {
     CommandResult::blocked(
         LifecycleState::TranslationAdapterPending,
         format!(
-            "Realtime local translation worker is not connected yet. Source was received safely: {trimmed}. Planner status: {} / {}",
-            result.status, result.mode
+            "Realtime local translation worker is not connected yet. Source preview: {}. Planner status: {} / {}",
+            preview_source(trimmed), result.status, result.mode
         ),
     )
 }
