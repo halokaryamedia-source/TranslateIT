@@ -25,6 +25,10 @@ function clearRuntimeReads(...keys: string[]): void {
   keys.forEach((key) => pendingRuntimeReads.delete(key));
 }
 
+function clearSettingsDependentReads(): void {
+  clearRuntimeReads("runtime-settings", "status-bundle", "diagnostics", "input-status", "hardware-usage");
+}
+
 function chatListKey(kind?: string): string {
   return `chat-list:${kind ?? "all"}`;
 }
@@ -37,12 +41,12 @@ export const runtimeApi = {
   loadSettings: () => singleFlight("runtime-settings", () => runCommand<RuntimeSettings>("load_runtime_settings")),
   saveSettings: async (settings: RuntimeSettings) => {
     const result = await runCommand<CommandResult>("save_runtime_settings", { settings });
-    clearRuntimeReads("runtime-settings", "status-bundle", "diagnostics");
+    clearSettingsDependentReads();
     return result;
   },
   saveDefaultSettings: async () => {
     const result = await runCommand<CommandResult>("save_default_runtime_settings");
-    clearRuntimeReads("runtime-settings", "status-bundle", "diagnostics");
+    clearSettingsDependentReads();
     return result;
   },
   getStatusBundle: () => singleFlight("status-bundle", () => runCommand<RuntimeStatusBundleReport>("get_runtime_status_bundle")),
