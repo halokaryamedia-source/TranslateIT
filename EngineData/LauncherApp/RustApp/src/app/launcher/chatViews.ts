@@ -31,6 +31,10 @@ function safeMessageCount(value: number): string {
   return Math.floor(value).toString();
 }
 
+function chatIcon(kind: ChatKind): string {
+  return kind === "saved" ? "folder" : "file";
+}
+
 export function chatCollectionView(kind: ChatKind, sessions: LauncherChatSummary[]): string {
   if (!sessions.length) return emptyChatCollectionView(kind);
   return sessions
@@ -39,11 +43,13 @@ export function chatCollectionView(kind: ChatKind, sessions: LauncherChatSummary
       const title = escapeHtml(compactTitle(item.title));
       const itemKind = escapeHtml(item.kind);
       const messageCount = safeMessageCount(item.message_count);
-      return `<article class="feature-card" aria-label="${title}"><div class="feature-title-row"><div class="feature-icon">${icon(kind === "saved" ? "folder" : "file")}</div><h4 title="${title}">${title}</h4></div><p>${itemKind} · ${messageCount} message(s)</p></article>`;
+      const ariaLabel = escapeHtml(`${item.kind} chat: ${compactTitle(item.title)}, ${messageCount} message(s)`);
+      return `<article class="feature-card" aria-label="${ariaLabel}"><div class="feature-title-row"><div class="feature-icon">${icon(chatIcon(kind))}</div><h4 title="${title}">${title}</h4></div><p>${itemKind} · ${messageCount} message(s)</p></article>`;
     })
     .join("");
 }
 
 function emptyChatCollectionView(kind: ChatKind): string {
-  return `<article class="feature-card"><div class="feature-title-row"><div class="feature-icon">${icon("file")}</div><h4>No ${escapeHtml(kind)} chat yet</h4></div><p>New chat sessions will appear here after you send a message.</p></article>`;
+  const label = escapeHtml(`${kind} chat list is empty`);
+  return `<article class="feature-card" aria-label="${label}"><div class="feature-title-row"><div class="feature-icon">${icon(chatIcon(kind))}</div><h4>No ${escapeHtml(kind)} chat yet</h4></div><p>New chat sessions will appear here after you send a message.</p></article>`;
 }
