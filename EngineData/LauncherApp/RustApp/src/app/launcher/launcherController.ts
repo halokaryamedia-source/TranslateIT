@@ -14,6 +14,8 @@ import { homeDefaultCards, mountAppShell } from "./shell";
 import { audioSettingsView, developerSettingsView, generalSettingsView, translateSettingsView } from "./settingsViews";
 import { warmupProgressSteps, warmupStepsView } from "./warmupViews";
 
+const MAX_MANUAL_TRANSLATION_CHARS = 2_000;
+
 export class LauncherController {
   private readonly ui: UiRefs;
   private latestBundle: RuntimeStatusBundleReport | null = null;
@@ -52,6 +54,15 @@ export class LauncherController {
   private refreshDirectionPill(): void { const settings = this.currentSettings ?? defaultSettings(); this.ui.directionPill.textContent = `${settings.source_language.toUpperCase()} > ${settings.target_language.toUpperCase()}`; }
   private renderWarmupSteps(activeIndex = -1): void { this.ui.warmupSteps.innerHTML = warmupStepsView(activeIndex); }
   private escapeHtml(value: string): string { return value.replaceAll("&", "&amp;").replaceAll("<", "&lt;").replaceAll(">", "&gt;").replaceAll('"', "&quot;").replaceAll("'", "&#39;"); }
+
+  private exceedsManualTranslationLimit(value: string): boolean {
+    let count = 0;
+    for (const _character of value) {
+      count += 1;
+      if (count > MAX_MANUAL_TRANSLATION_CHARS) return true;
+    }
+    return false;
+  }
 
   private resetSettingsScroll(): void {
     this.ui.settingsContent.scrollTop = 0;
@@ -143,6 +154,10 @@ export class LauncherController {
   private async submitText(): Promise<void> {
     const source = this.ui.messageInput.value.trim();
     if (!source) return;
+    if (this.exceedsManualTranslationLimit(source)) {
+      this.setAssistantNotice(`Text is too long. Limit: ${MAX_MANUAL_TRANSLATION_CHARS} characters.`);
+      return;
+    }
     if (this.textSubmitPending) {
       this.setAssistantNotice("Translation is already running. Please wait.");
       return;
