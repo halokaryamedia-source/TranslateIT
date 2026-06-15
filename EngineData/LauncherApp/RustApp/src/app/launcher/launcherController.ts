@@ -93,6 +93,12 @@ export class LauncherController {
   private showSettings(): void { document.body.classList.add("settings-open"); this.ui.homePage.classList.add("is-hidden"); this.ui.settingsPage.classList.remove("is-hidden"); this.renderSettingsTab(this.activeSettingsTab); }
   private async refreshHardwareUsage(): Promise<void> { this.latestHardware = await runtimeApi.getHardwareUsage(); }
 
+  private async refreshDeveloperHardwareUsage(): Promise<void> {
+    if (this.latestHardware) return;
+    await this.refreshHardwareUsage();
+    if (this.activeSettingsTab === "developer") this.renderDeveloperSettings();
+  }
+
   private async ensureChatSession(): Promise<string | null> {
     if (this.currentSessionId) return this.currentSessionId;
     const session = await runtimeApi.createChatSession("unsaved");
@@ -176,7 +182,10 @@ export class LauncherController {
     if (tab === "general") this.renderGeneralSettings();
     if (tab === "audio") this.renderAudioSettings();
     if (tab === "translate") this.renderTranslateSettings();
-    if (tab === "developer") this.renderDeveloperSettings();
+    if (tab === "developer") {
+      this.renderDeveloperSettings();
+      void this.refreshDeveloperHardwareUsage();
+    }
     this.resetSettingsScroll();
   }
 
@@ -240,7 +249,6 @@ export class LauncherController {
     }
     this.currentSettings = await runtimeApi.loadSettings() ?? defaultSettings();
     this.refreshDirectionPill();
-    await this.refreshHardwareUsage();
     const [bundle, diagnostics] = await Promise.all([runtimeApi.getStatusBundle(), runtimeApi.getDiagnostics()]);
     this.renderHomeCards();
     this.renderRuntime(bundle, diagnostics);
