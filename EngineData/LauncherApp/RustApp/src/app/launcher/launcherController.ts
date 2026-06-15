@@ -1,0 +1,248 @@
+import { runtimeApi } from "../engineTranslate/runtimeApi";
+import { defaultSettings, errorMessage, languageName, percentText } from "../shared/state";
+import type {
+  ChatKind,
+  HardwareUsageReport,
+  RuntimeDiagnostics,
+  RuntimeSettings,
+  RuntimeStatusBundleReport,
+  SettingsTab,
+} from "../shared/types";
+import { icon } from "../shared/icons";
+import { bindUi, requireElement, type UiRefs } from "./dom";
+import { chatCollectionView } from "./chatViews";
+import { homeDefaultCards, mountAppShell } from "./shell";
+import { audioSettingsView, developerSettingsView, generalSettingsView, translateSettingsView } from "./settingsViews";
+import { warmupProgressSteps, warmupStepsView } from "./warmupViews";
+
+export class LauncherController {
+  private readonly ui: UiRefs;
+  private latestBundle: RuntimeStatusBundleReport | null = null;
+  private latestDiagnostics: RuntimeDiagnostics | null = null;
+  private latestHardware: HardwareUsageReport | null = null;
+  private currentSettings: RuntimeSettings | null = null;
+  private activeSettingsTab: SettingsTab = "developer";
+  private recording = false;
+  private currentSessionId: string | null = null;
+  private activeSessionTitle = "New Chat";
+  private logsExpanded = false;
+
+  constructor(root: HTMLElement) {
+    mountAppShell(root);
+    this.ui = bindUi();
+  }
+
+  start(): void {
+    this.bindEvents();
+    void this.runWarmup().catch((error: unknown) => {
+      this.updateWarmup(100, `Warmup finished with warning: ${errorMessage(error)}`);
+      this.ui.warmupScreen.classList.add("is-hidden");
+      this.ui.mainApp.classList.remove("is-hidden");
+    });
+  }
+
+  private setAssistantNotice(message: string): void { this.ui.assistantMessage.textContent = message; }
+  private updateWarmup(progress: number, detail: string): void { this.ui.warmupFill.style.width = `${progress}%`; this.ui.warmupPercent.textContent = `${progress}%`; this.ui.warmupDetail.textContent = detail; }
+  private setActiveNav(activeButton: HTMLButtonElement | null): void { this.ui.navItems.forEach((button) => button.classList.toggle("active", button === activeButton)); }
+  private workerManifest(bundle: RuntimeStatusBundleReport | null) { return bundle?.local_worker_manifest ?? bundle?.internal_validation_gate?.local_worker_manifest ?? null; }
+  private modelReadyText(value: boolean): string { return value ? "Ready" : "Needs setup"; }
+  private refreshDirectionPill(): void { const settings = this.currentSettings ?? defaultSettings(); this.ui.directionPill.textContent = `${settings.source_language.toUpperCase()} > ${settings.target_language.toUpperCase()}`; }
+  private renderWarmupSteps(activeIndex = -1): void { this.ui.warmupSteps.innerHTML = warmupStepsView(activeIndex); }
+
+  private setRecordingState(active: boolean): void {
+    this.recording = active;
+    document.body.classList.toggle("is-recording", active);
+    this.ui.recordStatusText.textContent = active ? "Recording" : "Ready";
+    this.ui.microphoneButton.setAttribute("aria-label", active ? "Stop recording" : "Start voice recording");
+  }
+
+  private renderRuntime(bundle: RuntimeStatusBundleReport | null, diagnostics: RuntimeDiagnostics | null): void {
+    this.latestBundle = bundle;
+    this.latestDiagnostics = diagnostics;
+    this.setRecordingState(Boolean(bundle?.live_capture.stream_active));
+    if (!bundle) {
+      this.ui.userPresence.textContent = "Checking";
+      this.setAssistantNotice("Runtime status is not available yet. Open Developer settings for diagnostics.");
+      return;
+    }
+
+    const worker = this.workerManifest(bundle);
+    const allModelsReady = Boolean(worker?.asr_model_ready && worker.realtime_translation_model_ready && worker.quality_translation_model_ready && worker.piper_ready);
+    const appReady = Boolean(worker?.ok || bundle.readiness.ready_for_user_facing_runtime || allModelsReady);
+    const blockers = [...bundle.readiness.blockers, ...bundle.capture_gate.blockers, ...(worker?.blockers ?? []), ...(bundle.internal_validation_gate?.blockers ?? [])].filter(Boolean);
+
+    this.ui.userPresence.textContent = appReady ? "Ready" : "Setup needed";
+    this.ui.heroTitle.textContent = this.recording ? "Listening locally..." : "How can I help translate today?";
+    this.ui.heroSubtitle.textContent = this.recording ? "Speak now. The local capture runtime is active." : "Type a message, or press the microphone button on the right to record speech locally.";
+    this.ui.realtimeStatus.textContent = worker ? this.modelReadyText(worker.asr_model_ready && worker.realtime_translation_model_ready && worker.piper_ready) : "Checking";
+    this.ui.qualityStatus.textContent = worker ? this.modelReadyText(worker.asr_model_ready && worker.quality_translation_model_ready && worker.piper_ready) : "Checking";
+    this.ui.gpuStatus.textContent = diagnostics?.cuda_probe.cuda_runtime_ready ? "CUDA ready" : diagnostics?.cuda_probe.gpu_summary ? "GPU detected" : "CPU fallback";
+    this.ui.developerOutput.textContent = JSON.stringify({ app_version: bundle.engine_status.app_version, lifecycle: bundle.engine_status.lifecycle_state, hardware: this.latestHardware, local_worker: worker, recording_active: this.recording, cuda: diagnostics?.cuda_probe, next_action: bundle.next_action, blockers: blockers.slice(0, 12) }, null, 2);
+
+    if (!this.currentSessionId) {
+      this.setAssistantNotice(appReady ? "Local runtime warmup completed. You can start typing or record speech." : `Warmup completed, but setup is not fully ready yet. ${blockers[0] ? blockers[0].replaceAll("_", " ") : bundle.next_action}`);
+    }
+  }
+
+  private showHome(): void { document.body.classList.remove("settings-open"); this.ui.settingsPage.classList.add("is-hidden"); this.ui.homePage.classList.remove("is-hidden"); }
+  private showSettings(): void { document.body.classList.add("settings-open"); this.ui.homePage.classList.add("is-hidden"); this.ui.settingsPage.classList.remove("is-hidden"); this.renderSettingsTab(this.activeSettingsTab); }
+  private async refreshHardwareUsage(): Promise<void> { this.latestHardware = await runtimeApi.getHardwareUsage(); }
+
+  private async ensureChatSession(): Promise<string | null> {
+    if (this.currentSessionId) return this.currentSessionId;
+    const session = await runtimeApi.createChatSession("unsaved");
+    this.currentSessionId = session?.session_id ?? null;
+    this.activeSessionTitle = session?.title ?? "New Chat";
+    return this.currentSessionId;
+  }
+
+  private async createNewChat(): Promise<void> {
+    const session = await runtimeApi.createChatSession("unsaved");
+    this.currentSessionId = session?.session_id ?? null;
+    this.activeSessionTitle = session?.title ?? "New Chat";
+    this.ui.messageInput.value = "";
+    this.setActiveNav(null);
+    this.renderHomeCards();
+    this.showHome();
+    this.setAssistantNotice(this.currentSessionId ? "New chat saved locally and ready." : "New chat is ready, but backend session creation failed.");
+  }
+
+  private async saveChatMessage(role: "user" | "assistant", content: string): Promise<void> {
+    const sessionId = await this.ensureChatSession();
+    if (!sessionId) return;
+    const result = await runtimeApi.appendChatMessage(sessionId, role, content);
+    if (result?.ok && role === "user" && this.activeSessionTitle === "New Chat") this.activeSessionTitle = content.split(/\s+/).slice(0, 8).join(" ");
+  }
+
+  private async showChatCollection(kind: ChatKind, button: HTMLButtonElement): Promise<void> {
+    this.setActiveNav(button);
+    this.showHome();
+    const rows = await runtimeApi.listChatSessions(kind === "local" ? undefined : kind) ?? [];
+    this.ui.chatList.innerHTML = chatCollectionView(kind, rows);
+    this.setAssistantNotice(`${kind === "local" ? "Local Data" : kind} opened. ${rows.length} item(s) found.`);
+  }
+
+  private renderHomeCards(): void { this.ui.chatList.innerHTML = homeDefaultCards(); }
+
+  private async submitText(): Promise<void> {
+    const source = this.ui.messageInput.value.trim();
+    if (!source) return;
+    this.ui.messageInput.value = "";
+    await this.saveChatMessage("user", source);
+    this.setAssistantNotice("Translating text locally...");
+    const result = await runtimeApi.translateText(source);
+    const response = result?.message ?? "Translation command failed. Open Settings > Developer for diagnostics.";
+    await this.saveChatMessage("assistant", response);
+    this.setAssistantNotice(response);
+  }
+
+  private async startOrStopRecording(): Promise<void> {
+    const result = this.recording ? await runtimeApi.stopCapture() : await runtimeApi.startCapture();
+    this.setAssistantNotice(result?.message ?? (this.recording ? "Recording stopped." : "Recording started. Waiting for local capture status."));
+    const bundle = await runtimeApi.getStatusBundle();
+    this.renderRuntime(bundle, this.latestDiagnostics);
+  }
+
+  private async checkAudioInput(): Promise<void> {
+    const status = await runtimeApi.getInputStatus();
+    const label = document.getElementById("audioInputLabel");
+    if (label) label.textContent = status?.selected_device_name ?? "Default microphone";
+    this.setAssistantNotice(status?.note ?? status?.blocker ?? "Audio input status checked.");
+  }
+
+  private async saveCurrentSettings(): Promise<void> { const result = await runtimeApi.saveSettings(this.currentSettings ?? defaultSettings()); this.setAssistantNotice(result?.message ?? "Save settings command failed."); }
+  private async saveDefaultSettings(): Promise<void> { const result = await runtimeApi.saveDefaultSettings(); this.currentSettings = await runtimeApi.loadSettings() ?? this.currentSettings; this.refreshDirectionPill(); this.setAssistantNotice(result?.message ?? "Default settings save command failed."); }
+
+  private async runDeveloperDiagnostic(): Promise<void> {
+    const [bundle, diagnostics] = await Promise.all([runtimeApi.getStatusBundle(), runtimeApi.getDiagnostics()]);
+    await this.refreshHardwareUsage();
+    this.renderRuntime(bundle, diagnostics);
+    this.renderDeveloperSettings();
+  }
+
+  private openAudioSettings(): void { this.activeSettingsTab = "audio"; this.showSettings(); }
+  private toggleVoiceOutput(): void { this.currentSettings = this.currentSettings ?? defaultSettings(); this.currentSettings.audio.auto_play_out_voice = !this.currentSettings.audio.auto_play_out_voice; this.currentSettings.audio.auto_play_translation_voice = this.currentSettings.audio.auto_play_out_voice; this.setAssistantNotice(this.currentSettings.audio.auto_play_out_voice ? "Voice output enabled." : "Voice output disabled."); }
+  private setRuntimeProfile(profile: "Realtime" | "Quality"): void { this.currentSettings = this.currentSettings ?? defaultSettings(); this.currentSettings.runtime_profile = profile; this.currentSettings.audio.input_sensitivity = profile; this.setAssistantNotice(`Translate mode set to ${profile}.`); }
+  private swapLanguages(): void { this.currentSettings = this.currentSettings ?? defaultSettings(); const source = this.currentSettings.source_language; this.currentSettings.source_language = this.currentSettings.target_language; this.currentSettings.target_language = source; this.refreshDirectionPill(); this.setAssistantNotice(`Language pair changed to ${this.currentSettings.source_language.toUpperCase()} > ${this.currentSettings.target_language.toUpperCase()}.`); }
+
+  private renderSettingsTab(tab: SettingsTab): void {
+    this.activeSettingsTab = tab;
+    this.ui.settingsNavItems.forEach((button) => button.classList.toggle("active", button.dataset.settingsTab === tab));
+    if (tab === "general") this.renderGeneralSettings();
+    if (tab === "audio") this.renderAudioSettings();
+    if (tab === "translate") this.renderTranslateSettings();
+    if (tab === "developer") this.renderDeveloperSettings();
+  }
+
+  private renderGeneralSettings(): void {
+    this.ui.settingsContent.innerHTML = generalSettingsView(this.currentSettings ?? defaultSettings(), this.ui.realtimeStatus.textContent, this.ui.gpuStatus.textContent);
+    requireElement<HTMLButtonElement>("#saveSettingsButton").addEventListener("click", () => void this.saveCurrentSettings());
+    requireElement<HTMLButtonElement>("#resetSettingsButton").addEventListener("click", () => void this.saveDefaultSettings());
+  }
+
+  private renderAudioSettings(): void {
+    this.ui.settingsContent.innerHTML = audioSettingsView(this.currentSettings ?? defaultSettings());
+    requireElement<HTMLButtonElement>("#checkAudioInputButton").addEventListener("click", () => void this.checkAudioInput());
+    requireElement<HTMLButtonElement>("#micTestButton").addEventListener("click", () => void this.startOrStopRecording());
+    requireElement<HTMLButtonElement>("#audioVoiceToggleButton").addEventListener("click", () => { this.toggleVoiceOutput(); this.renderAudioSettings(); });
+    requireElement<HTMLButtonElement>("#audioSensitivityButton").addEventListener("click", () => { this.setRuntimeProfile((this.currentSettings ?? defaultSettings()).runtime_profile === "Quality" ? "Realtime" : "Quality"); this.renderAudioSettings(); });
+  }
+
+  private renderTranslateSettings(): void {
+    const settings = this.currentSettings ?? defaultSettings();
+    this.ui.settingsContent.innerHTML = translateSettingsView(settings, languageName(settings.source_language), languageName(settings.target_language));
+    requireElement<HTMLButtonElement>("#swapLanguageButton").addEventListener("click", () => { this.swapLanguages(); this.renderTranslateSettings(); });
+    requireElement<HTMLButtonElement>("#saveTranslateButton").addEventListener("click", () => void this.saveCurrentSettings());
+    requireElement<HTMLElement>("#realtimeModeButton").addEventListener("click", () => { this.setRuntimeProfile("Realtime"); this.renderTranslateSettings(); });
+    requireElement<HTMLElement>("#qualityModeButton").addEventListener("click", () => { this.setRuntimeProfile("Quality"); this.renderTranslateSettings(); });
+  }
+
+  private renderDeveloperSettings(): void {
+    const progress = this.latestBundle?.internal_validation_gate?.progress_percent ?? this.latestBundle?.live_pipeline_gate?.progress_percent ?? 0;
+    const cpu = percentText(this.latestHardware?.cpu);
+    const ram = percentText(this.latestHardware?.ram);
+    const gpu = percentText(this.latestHardware?.gpu);
+    const gpuStatus = this.latestDiagnostics?.cuda_probe.gpu_summary ?? this.latestHardware?.gpu.detail ?? "GPU status unavailable";
+    const logRows = [`<p><strong>[OK]</strong>${this.latestBundle ? "Runtime status loaded." : "Waiting for diagnostic check."}</p>`, `<p><strong>[HW]</strong>CPU ${cpu} · RAM ${ram} · GPU ${gpu}</p>`, `<p><strong>[GPU]</strong>${gpuStatus}</p>`, `<p><strong>[WAIT]</strong>${this.latestBundle?.next_action ?? "Waiting for next diagnostic result."}</p>`].join("");
+    this.ui.settingsContent.innerHTML = developerSettingsView({ progress, cpu, ram, gpu, gpuStatus, logRows, note: this.latestHardware?.note ?? "Run diagnostic to refresh hardware usage.", logsExpanded: this.logsExpanded, engineGood: Boolean(this.latestBundle) });
+    requireElement<HTMLButtonElement>("#runDiagnosticButton").addEventListener("click", () => void this.runDeveloperDiagnostic());
+    requireElement<HTMLButtonElement>("#seeAllLogsButton").addEventListener("click", () => { this.logsExpanded = !this.logsExpanded; this.renderDeveloperSettings(); });
+  }
+
+  private async runWarmup(): Promise<void> {
+    for (let i = 0; i < warmupProgressSteps.length; i += 1) {
+      this.renderWarmupSteps(i);
+      this.updateWarmup(warmupProgressSteps[i], "Checking local runtime...");
+      await new Promise((resolve) => window.setTimeout(resolve, 120));
+    }
+    this.currentSettings = await runtimeApi.loadSettings() ?? defaultSettings();
+    this.refreshDirectionPill();
+    await this.refreshHardwareUsage();
+    const [bundle, diagnostics] = await Promise.all([runtimeApi.getStatusBundle(), runtimeApi.getDiagnostics()]);
+    this.renderHomeCards();
+    this.renderRuntime(bundle, diagnostics);
+    this.renderSettingsTab("developer");
+    this.ui.warmupScreen.classList.add("is-hidden");
+    this.ui.mainApp.classList.remove("is-hidden");
+  }
+
+  private bindEvents(): void {
+    this.ui.settingsButton.addEventListener("click", () => this.showSettings());
+    this.ui.backHomeButton.addEventListener("click", () => this.showHome());
+    this.ui.microphoneButton.addEventListener("click", () => void this.startOrStopRecording());
+    this.ui.quickMicButton.addEventListener("click", () => void this.startOrStopRecording());
+    this.ui.recordStatusButton.addEventListener("click", () => void this.startOrStopRecording());
+    this.ui.sendButton.addEventListener("click", () => void this.submitText());
+    this.ui.messageInput.addEventListener("keydown", (event) => { if (event.key === "Enter" && !event.shiftKey) { event.preventDefault(); void this.submitText(); } });
+    this.ui.newChatButton.addEventListener("click", () => void this.createNewChat());
+    this.ui.composerPlusButton.addEventListener("click", () => { this.ui.messageInput.focus(); this.setAssistantNotice("Input is ready. File attachment backend is not connected yet."); });
+    this.ui.recentChatButton.addEventListener("click", () => void this.showChatCollection("recent", this.ui.recentChatButton));
+    this.ui.unsavedChatButton.addEventListener("click", () => void this.showChatCollection("unsaved", this.ui.unsavedChatButton));
+    this.ui.savedChatButton.addEventListener("click", () => void this.showChatCollection("saved", this.ui.savedChatButton));
+    this.ui.localDataButton.addEventListener("click", () => void this.showChatCollection("local", this.ui.localDataButton));
+    this.ui.micOptionsButton.addEventListener("click", () => this.openAudioSettings());
+    this.ui.voiceOutputButton.addEventListener("click", () => { this.toggleVoiceOutput(); });
+    this.ui.voiceOptionsButton.addEventListener("click", () => this.openAudioSettings());
+    this.ui.settingsNavItems.forEach((button) => button.addEventListener("click", () => this.renderSettingsTab(button.dataset.settingsTab as SettingsTab)));
+  }
+}
