@@ -11,13 +11,23 @@ import type {
   RuntimeStatusBundleReport,
 } from "../shared/types";
 
+const pendingRuntimeReads = new Map<string, Promise<unknown>>();
+
+function singleFlight<T>(key: string, task: () => Promise<T | null>): Promise<T | null> {
+  const current = pendingRuntimeReads.get(key) as Promise<T | null> | undefined;
+  if (current) return current;
+  const pending = task().finally(() => pendingRuntimeReads.delete(key));
+  pendingRuntimeReads.set(key, pending);
+  return pending;
+}
+
 export const runtimeApi = {
   loadSettings: () => runCommand<RuntimeSettings>("load_runtime_settings"),
   saveSettings: (settings: RuntimeSettings) => runCommand<CommandResult>("save_runtime_settings", { settings }),
   saveDefaultSettings: () => runCommand<CommandResult>("save_default_runtime_settings"),
-  getStatusBundle: () => runCommand<RuntimeStatusBundleReport>("get_runtime_status_bundle"),
-  getDiagnostics: () => runCommand<RuntimeDiagnostics>("get_runtime_diagnostics"),
-  getHardwareUsage: () => runCommand<HardwareUsageReport>("get_hardware_usage"),
+  getStatusBundle: () => singleFlight("status-bundle", () => runCommand<RuntimeStatusBundleReport>("get_runtime_status_bundle")),
+  getDiagnostics: () => singleFlight("diagnostics", () => runCommand<RuntimeDiagnostics>("get_runtime_diagnostics")),
+  getHardwareUsage: () => singleFlight("hardware-usage", () => runCommand<HardwareUsageReport>("get_hardware_usage")),
   getInputStatus: () => runCommand<InputPreparationStatus>("get_input_status"),
   startCapture: () => runCommand<CommandResult>("start_capture"),
   stopCapture: () => runCommand<CommandResult>("stop_capture"),
