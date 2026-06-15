@@ -192,9 +192,11 @@ export class LauncherController {
     this.ui.recordStatusButton.disabled = true;
     try {
       const result = this.recording ? await runtimeApi.stopCapture() : await runtimeApi.startCapture();
-      this.setAssistantNotice(result?.message ?? (this.recording ? "Recording stopped." : "Recording started. Waiting for local capture status."));
+      const captureMessage = result?.message ?? (this.recording ? "Recording stopped." : "Recording started. Waiting for local capture status.");
+      this.setAssistantNotice(captureMessage);
       const bundle = await runtimeApi.getStatusBundle();
       this.renderRuntime(bundle, this.latestDiagnostics);
+      this.setAssistantNotice(captureMessage);
     } finally {
       this.recordingTogglePending = false;
       this.ui.microphoneButton.disabled = false;
