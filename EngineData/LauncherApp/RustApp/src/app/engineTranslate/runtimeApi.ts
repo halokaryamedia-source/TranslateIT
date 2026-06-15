@@ -1,4 +1,4 @@
-import { runCommand } from "../shared/tauriBridge";
+import { getRuntimeCommandErrors, runCommand } from "../shared/tauriBridge";
 import type {
   CommandResult,
   HardwareUsageReport,
@@ -25,4 +25,5 @@ export const runtimeApi = {
   createChatSession: (kind: string) => runCommand<LauncherChatSession>("create_chat_session", { kind }),
   listChatSessions: (kind?: string) => runCommand<LauncherChatSummary[]>("list_chat_sessions", kind ? { kind } : {}),
   appendChatMessage: (sessionId: string, role: string, content: string) => runCommand<LauncherChatActionResult>("append_chat_message", { sessionId, role, content }),
+  getCommandErrors: () => getRuntimeCommandErrors(),
 };

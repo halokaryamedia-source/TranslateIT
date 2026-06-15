@@ -82,8 +82,12 @@ Thumbs.db
 Desktop.ini
 .vscode/
 .idea/
+!TranslateIT.lnk
 
 # Build/dist output
 dist/
 build/
+node_modules/
+target/
+EngineData/LauncherApp/RustApp/src-tauri/gen/
 *.spec

@@ -34,7 +34,8 @@ pub fn plan_playback(request: PlaybackLogicRequest) -> PlaybackLogicResult {
         return result("Unsupported", "Only WAV playback is supported.", Some(audio_path), request.output_device_id, true, false, request.queue_depth, "unsupported");
     }
     if !request.backend_available {
-        return result("Unsupported", "Playback backend is not available.", Some(audio_path), request.output_device_id, request.output_device_id.is_none(), false, request.queue_depth, "unavailable");
+        let used_default_output = request.output_device_id.is_none();
+        return result("Unsupported", "Playback backend is not available.", Some(audio_path), request.output_device_id, used_default_output, false, request.queue_depth, "unavailable");
     }
     let used_default_output = request.prefer_windows_default || request.output_device_id.is_none();
     PlaybackLogicResult {

@@ -48,7 +48,7 @@ impl LifecycleState {
     }
 }
 
-#[derive(Debug, Serialize)]
+#[derive(Debug, Clone, Serialize)]
 pub struct EngineStatus {
     pub app_version: &'static str,
     pub runtime_stage: RuntimeStage,

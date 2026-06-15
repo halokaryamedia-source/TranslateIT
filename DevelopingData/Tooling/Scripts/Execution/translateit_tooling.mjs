@@ -1,9 +1,10 @@
 import { existsSync, mkdirSync, readFileSync, readdirSync, statSync, writeFileSync } from "node:fs";
 import { join, relative, resolve, sep } from "node:path";
+import { fileURLToPath } from "node:url";
 import { spawnSync } from "node:child_process";
 import process from "node:process";
 
-const ROOT = resolve(new URL("../../../../", import.meta.url).pathname.replace(/^\/(.:\/)/, "$1"));
+const ROOT = resolve(fileURLToPath(new URL("../../../../", import.meta.url)));
 const RUST_APP = join(ROOT, "EngineData", "LauncherApp", "RustApp");
 const WORKER_ROOT = join(ROOT, "EngineData", "LauncherApp", "Workers");
 const WORKER = join(WORKER_ROOT, "realtime_local_worker.py");

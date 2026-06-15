@@ -1,8 +1,10 @@
 use cpal::traits::{DeviceTrait, HostTrait, StreamTrait};
 use serde::Serialize;
 use std::sync::atomic::{AtomicU64, Ordering};
+use std::sync::mpsc;
 use std::sync::{Arc, Mutex, OnceLock};
-use std::time::{SystemTime, UNIX_EPOCH};
+use std::thread;
+use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
 use super::live_audio_buffer::{
     append_live_f32_samples, append_live_i16_samples, append_live_u16_samples,
@@ -43,7 +45,8 @@ pub struct LiveCaptureStopReport {
 }
 
 struct LiveCaptureRuntime {
-    _stream: cpal::Stream,
+    stop_tx: mpsc::Sender<()>,
+    capture_thread: Option<thread::JoinHandle<()>>,
     owner_id: String,
     session_id: String,
     device_name: Option<String>,
@@ -57,18 +60,37 @@ struct LiveCaptureRuntime {
 
 static LIVE_CAPTURE_RUNTIME: OnceLock<Mutex<Option<LiveCaptureRuntime>>> = OnceLock::new();
 
-pub fn start_live_capture_runtime(session_state: RuntimeSessionStateReport) -> LiveCaptureStartReport {
+struct LiveCaptureReady {
+    device_name: Option<String>,
+    sample_rate_hz: u32,
+    channels: u16,
+    sample_format: String,
+    started_unix_ms: u128,
+}
+
+pub fn start_live_capture_runtime(
+    session_state: RuntimeSessionStateReport,
+) -> LiveCaptureStartReport {
     let Some(session) = session_state.snapshot.as_ref() else {
-        return blocked_start("live_capture:no_active_session", "Live capture cannot start because no runtime session is active.");
+        return blocked_start(
+            "live_capture:no_active_session",
+            "Live capture cannot start because no runtime session is active.",
+        );
     };
 
     if !session.safe_to_stop {
-        return blocked_start("live_capture:session_not_safe", "Live capture cannot start because the active runtime session is not safe to stop.");
+        return blocked_start(
+            "live_capture:session_not_safe",
+            "Live capture cannot start because the active runtime session is not safe to stop.",
+        );
     }
 
     let store = LIVE_CAPTURE_RUNTIME.get_or_init(|| Mutex::new(None));
     let Ok(mut guard) = store.lock() else {
-        return blocked_start("live_capture:state_lock_failed", "Live capture state lock failed before stream creation.");
+        return blocked_start(
+            "live_capture:state_lock_failed",
+            "Live capture state lock failed before stream creation.",
+        );
     };
 
     if guard.is_some() {
@@ -80,53 +102,46 @@ pub fn start_live_capture_runtime(session_state: RuntimeSessionStateReport) -> L
         };
     }
 
-    let host = cpal::default_host();
-    let Some(device) = host.default_input_device() else {
-        return blocked_start("live_capture:no_default_input", "No default microphone input device was found.");
-    };
-
-    let device_name = device.name().ok();
-    let Ok(default_config) = device.default_input_config() else {
-        return blocked_start("live_capture:no_default_config", "Default microphone exists, but no default input config is available.");
-    };
-
-    let sample_format = default_config.sample_format();
-    let stream_config: cpal::StreamConfig = default_config.clone().into();
-    let sample_rate_hz = stream_config.sample_rate.0;
-    let channels = stream_config.channels;
     let frames_received = Arc::new(AtomicU64::new(0));
     let callback_errors = Arc::new(Mutex::new(Vec::new()));
+    let (ready_tx, ready_rx) = mpsc::sync_channel(1);
+    let (stop_tx, stop_rx) = mpsc::channel();
+    let thread_frames = Arc::clone(&frames_received);
+    let thread_errors = Arc::clone(&callback_errors);
+    let capture_thread = thread::spawn(move || {
+        if let Err(error) = run_capture_thread(thread_frames, thread_errors, stop_rx, &ready_tx) {
+            let _ = ready_tx.send(Err(error));
+        }
+    });
 
-    reset_live_audio_buffer(sample_rate_hz, channels);
-
-    let stream = match build_stream_for_format(
-        &device,
-        &stream_config,
-        sample_format,
-        Arc::clone(&frames_received),
-        Arc::clone(&callback_errors),
-    ) {
-        Ok(stream) => stream,
-        Err(error) => {
+    let ready = match ready_rx.recv_timeout(Duration::from_secs(10)) {
+        Ok(Ok(ready)) => ready,
+        Ok(Err(error)) => {
+            let _ = capture_thread.join();
             clear_live_audio_buffer();
-            return blocked_start("live_capture:stream_build_failed", &format!("Failed to build live microphone stream: {error}"));
+            return blocked_start("live_capture:stream_build_failed", &error);
+        }
+        Err(error) => {
+            let _ = stop_tx.send(());
+            let _ = capture_thread.join();
+            clear_live_audio_buffer();
+            return blocked_start(
+                "live_capture:stream_start_timeout",
+                &format!("Timed out while starting live microphone stream: {error}"),
+            );
         }
     };
 
-    if let Err(error) = stream.play() {
-        clear_live_audio_buffer();
-        return blocked_start("live_capture:stream_play_failed", &format!("Failed to start live microphone stream: {error}"));
-    }
-
     let runtime = LiveCaptureRuntime {
-        _stream: stream,
+        stop_tx,
+        capture_thread: Some(capture_thread),
         owner_id: session.owner_id.clone(),
         session_id: session.session_id.clone(),
-        device_name,
-        sample_rate_hz,
-        channels,
-        sample_format: format!("{sample_format:?}"),
-        started_unix_ms: current_unix_ms(),
+        device_name: ready.device_name,
+        sample_rate_hz: ready.sample_rate_hz,
+        channels: ready.channels,
+        sample_format: ready.sample_format,
+        started_unix_ms: ready.started_unix_ms,
         frames_received,
         callback_errors,
     };
@@ -146,26 +161,47 @@ pub fn stop_live_capture_runtime() -> LiveCaptureStopReport {
     let Ok(mut guard) = store.lock() else {
         return LiveCaptureStopReport {
             ok: false,
-            status: inactive_status("live_capture:state_lock_failed", "Live capture state lock failed while stopping."),
-            message: "Live capture stop failed because state lock could not be acquired.".to_string(),
+            status: inactive_status(
+                "live_capture:state_lock_failed",
+                "Live capture state lock failed while stopping.",
+            ),
+            message: "Live capture stop failed because state lock could not be acquired."
+                .to_string(),
         };
     };
 
-    if guard.is_none() {
+    let Some(mut runtime) = guard.take() else {
         clear_live_audio_buffer();
         return LiveCaptureStopReport {
             ok: true,
-            status: inactive_status("live_capture:not_active", "No live microphone stream was active."),
+            status: inactive_status(
+                "live_capture:not_active",
+                "No live microphone stream was active.",
+            ),
             message: "No live microphone stream was active. Stop remains safe.".to_string(),
         };
-    }
+    };
 
-    *guard = None;
+    drop(guard);
+    let _ = runtime.stop_tx.send(());
+    let thread_stopped = runtime
+        .capture_thread
+        .take()
+        .map(|handle| handle.join().is_ok())
+        .unwrap_or(true);
     clear_live_audio_buffer();
     LiveCaptureStopReport {
-        ok: true,
-        status: inactive_status("live_capture:stopped", "Live microphone stream ownership was released."),
-        message: "Live microphone stream stopped, rolling buffer cleared, and ownership was released.".to_string(),
+        ok: thread_stopped,
+        status: inactive_status(
+            "live_capture:stopped",
+            "Live microphone stream ownership was released.",
+        ),
+        message: if thread_stopped {
+            "Live microphone stream stopped, rolling buffer cleared, and ownership was released."
+                .to_string()
+        } else {
+            "Live microphone stream stopped, but its owner thread exited unexpectedly.".to_string()
+        },
     }
 }
 
@@ -173,7 +209,10 @@ pub fn live_capture_status() -> LiveCaptureStatusReport {
     let store = LIVE_CAPTURE_RUNTIME.get_or_init(|| Mutex::new(None));
     match store.lock() {
         Ok(guard) => build_status_from_guard(guard.as_ref()),
-        Err(_) => inactive_status("live_capture:state_lock_failed", "Live capture state lock failed while reading status."),
+        Err(_) => inactive_status(
+            "live_capture:state_lock_failed",
+            "Live capture state lock failed while reading status.",
+        ),
     }
 }
 
@@ -233,8 +272,58 @@ fn build_stream_for_format(
                 )
                 .map_err(|error| error.to_string())
         }
-        other => Err(format!("Unsupported default microphone sample format: {other:?}")),
+        other => Err(format!(
+            "Unsupported default microphone sample format: {other:?}"
+        )),
     }
+}
+
+fn run_capture_thread(
+    frames_received: Arc<AtomicU64>,
+    callback_errors: Arc<Mutex<Vec<String>>>,
+    stop_rx: mpsc::Receiver<()>,
+    ready_tx: &mpsc::SyncSender<Result<LiveCaptureReady, String>>,
+) -> Result<(), String> {
+    let host = cpal::default_host();
+    let device = host
+        .default_input_device()
+        .ok_or_else(|| "No default microphone input device was found.".to_string())?;
+    let device_name = device.name().ok();
+    let default_config = device
+        .default_input_config()
+        .map_err(|error| format!("Default microphone has no usable input config: {error}"))?;
+    let sample_format = default_config.sample_format();
+    let stream_config: cpal::StreamConfig = default_config.into();
+    let sample_rate_hz = stream_config.sample_rate.0;
+    let channels = stream_config.channels;
+
+    reset_live_audio_buffer(sample_rate_hz, channels);
+    let stream = build_stream_for_format(
+        &device,
+        &stream_config,
+        sample_format,
+        frames_received,
+        callback_errors,
+    )
+    .map_err(|error| format!("Failed to build live microphone stream: {error}"))?;
+    stream
+        .play()
+        .map_err(|error| format!("Failed to start live microphone stream: {error}"))?;
+
+    ready_tx
+        .send(Ok(LiveCaptureReady {
+            device_name,
+            sample_rate_hz,
+            channels,
+            sample_format: format!("{sample_format:?}"),
+            started_unix_ms: current_unix_ms(),
+        }))
+        .map_err(|error| format!("Failed to report live microphone readiness: {error}"))?;
+
+    // The stream must stay on its owner thread because cpal streams are not Send on all platforms.
+    let _ = stop_rx.recv();
+    drop(stream);
+    Ok(())
 }
 
 fn record_frames(sample_count: usize, channels: u16, frames_received: &Arc<AtomicU64>) {
@@ -281,7 +370,10 @@ fn build_status_from_guard(runtime: Option<&LiveCaptureRuntime>) -> LiveCaptureS
                 ),
             }
         }
-        None => inactive_status("live_capture:not_active", "Live microphone stream is not active."),
+        None => inactive_status(
+            "live_capture:not_active",
+            "Live microphone stream is not active.",
+        ),
     }
 }
 

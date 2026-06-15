@@ -1,5 +1,5 @@
 [package]
-name = "translateit_rustapp"
+name = "translateit"
 version = "0.1.0"
 description = "TranslateIT Rust/Tauri conversion shell"
 authors = ["Halo Karya Media"]

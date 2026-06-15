@@ -1,5 +1,11 @@
 export type CommandResult = { ok: boolean; state: string; message: string };
 
+export type RuntimeCommandError = {
+  command: string;
+  message: string;
+  occurred_at: string;
+};
+
 export type EngineStatus = {
   app_version: string;
   runtime_stage: string;

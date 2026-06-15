@@ -203,7 +203,20 @@ export class LauncherController {
     const ram = percentText(this.latestHardware?.ram);
     const gpu = percentText(this.latestHardware?.gpu);
     const gpuStatus = this.latestDiagnostics?.cuda_probe.gpu_summary ?? this.latestHardware?.gpu.detail ?? "GPU status unavailable";
-    const logRows = [`<p><strong>[OK]</strong>${this.latestBundle ? "Runtime status loaded." : "Waiting for diagnostic check."}</p>`, `<p><strong>[HW]</strong>CPU ${cpu} · RAM ${ram} · GPU ${gpu}</p>`, `<p><strong>[GPU]</strong>${gpuStatus}</p>`, `<p><strong>[WAIT]</strong>${this.latestBundle?.next_action ?? "Waiting for next diagnostic result."}</p>`].join("");
+    const commandErrors = runtimeApi.getCommandErrors().map((error) => {
+      const message = error.message
+        .replaceAll("&", "&amp;")
+        .replaceAll("<", "&lt;")
+        .replaceAll(">", "&gt;");
+      return `<p><strong>[ERR]</strong>${error.command}: ${message}</p>`;
+    });
+    const logRows = [
+      `<p><strong>[OK]</strong>${this.latestBundle ? "Runtime status loaded." : "Waiting for diagnostic check."}</p>`,
+      `<p><strong>[HW]</strong>CPU ${cpu} | RAM ${ram} | GPU ${gpu}</p>`,
+      `<p><strong>[GPU]</strong>${gpuStatus}</p>`,
+      `<p><strong>[WAIT]</strong>${this.latestBundle?.next_action ?? "Waiting for next diagnostic result."}</p>`,
+      ...commandErrors,
+    ].join("");
     this.ui.settingsContent.innerHTML = developerSettingsView({ progress, cpu, ram, gpu, gpuStatus, logRows, note: this.latestHardware?.note ?? "Run diagnostic to refresh hardware usage.", logsExpanded: this.logsExpanded, engineGood: Boolean(this.latestBundle) });
     requireElement<HTMLButtonElement>("#runDiagnosticButton").addEventListener("click", () => void this.runDeveloperDiagnostic());
     requireElement<HTMLButtonElement>("#seeAllLogsButton").addEventListener("click", () => { this.logsExpanded = !this.logsExpanded; this.renderDeveloperSettings(); });
