@@ -12,6 +12,7 @@ pub mod native_runners;
 pub mod paths;
 pub mod runtime_job;
 pub mod runtime_state;
+pub mod session_chat;
 pub mod session_store;
 pub mod settings;
 pub mod state;
