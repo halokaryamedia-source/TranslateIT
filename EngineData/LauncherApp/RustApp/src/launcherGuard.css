@@ -1,6 +1,12 @@
 .app-shell, .workspace, .settings-page { contain: layout style; }
 .feature-card, .assistant-card, .composer, .topbar, .settings-card { contain: layout paint; }
 button:disabled { pointer-events: none; user-select: none; }
+button:focus-visible, input:focus-visible { outline: 2px solid #d6dbe3; outline-offset: 3px; }
+.nav-item:not(.active) { background: #090c12; color: var(--muted); font-weight: 700; }
+.nav-item:not(.active)::before { display: none; }
+.nav-item.active { position: relative; background: var(--surface); color: var(--text); font-weight: 750; }
+.nav-item.active::before { content: ""; position: absolute; left: -1px; top: 15px; width: 3px; height: 26px; border-radius: 2px; background: #d7dbe1; }
+.nav-item.active svg { color: #b9c1cc; }
 .feature-card h4, .assistant-card strong, .nav-item span, .new-chat-button span { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .feature-card p, .assistant-card p, .hero-panel > p, .composer-help { overflow: hidden; display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 3; }
 .composer input { min-width: 0; }
