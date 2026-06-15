@@ -4,6 +4,9 @@ use std::io;
 use std::path::Path;
 use std::time::{SystemTime, UNIX_EPOCH};
 
+const MAX_LOG_AREA_CHARS: usize = 48;
+const MAX_LOG_MESSAGE_CHARS: usize = 360;
+
 #[derive(Debug, Clone, Serialize)]
 pub struct RuntimeLogEvent {
     pub timestamp_unix_ms: u128,
@@ -17,8 +20,8 @@ impl RuntimeLogEvent {
         Self {
             timestamp_unix_ms: current_unix_ms(),
             level: "info".to_string(),
-            area: area.into(),
-            message: message.into(),
+            area: compact_log_field(area, MAX_LOG_AREA_CHARS),
+            message: compact_log_field(message, MAX_LOG_MESSAGE_CHARS),
         }
     }
 
@@ -26,8 +29,8 @@ impl RuntimeLogEvent {
         Self {
             timestamp_unix_ms: current_unix_ms(),
             level: "warning".to_string(),
-            area: area.into(),
-            message: message.into(),
+            area: compact_log_field(area, MAX_LOG_AREA_CHARS),
+            message: compact_log_field(message, MAX_LOG_MESSAGE_CHARS),
         }
     }
 }
@@ -48,6 +51,40 @@ fn append_line(path: &Path, line: &str) -> io::Result<()> {
         .append(true)
         .open(path)?;
     writeln!(file, "{line}")
+}
+
+fn compact_log_field(value: impl Into<String>, max_chars: usize) -> String {
+    let mut output = String::new();
+    let mut previous_was_space = false;
+    let mut written = 0usize;
+    let mut truncated = false;
+
+    for character in value.into().chars() {
+        let next_character = if character.is_whitespace() {
+            if previous_was_space {
+                continue;
+            }
+            previous_was_space = true;
+            ' '
+        } else {
+            previous_was_space = false;
+            character
+        };
+
+        if written >= max_chars {
+            truncated = true;
+            break;
+        }
+
+        output.push(next_character);
+        written += 1;
+    }
+
+    let mut output = output.trim().to_string();
+    if truncated {
+        output.push('…');
+    }
+    output
 }
 
 fn current_unix_ms() -> u128 {
