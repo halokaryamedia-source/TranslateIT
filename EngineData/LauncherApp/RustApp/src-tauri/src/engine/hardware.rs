@@ -27,8 +27,10 @@ fn metric(label: &str, percent: Option<f32>, status: &str, detail: &str) -> Hard
 }
 
 pub fn collect_hardware_usage() -> HardwareUsageReport {
-    let mut system = System::new_all();
-    system.refresh_all();
+    let mut system = System::new();
+    system.refresh_cpu();
+    system.refresh_memory();
+
     let total_memory = system.total_memory();
     let ram_percent = if total_memory > 0 {
         Some((system.used_memory() as f32 / total_memory as f32) * 100.0)
@@ -37,9 +39,9 @@ pub fn collect_hardware_usage() -> HardwareUsageReport {
     };
 
     HardwareUsageReport {
-        cpu: metric("CPU", Some(system.global_cpu_info().cpu_usage()), "Connected", "Native sysinfo CPU sampler."),
-        ram: metric("RAM", ram_percent, "Connected", "Native sysinfo RAM sampler."),
+        cpu: metric("CPU", Some(system.global_cpu_info().cpu_usage()), "Connected", "Lightweight native CPU sampler."),
+        ram: metric("RAM", ram_percent, "Connected", "Lightweight native RAM sampler."),
         gpu: metric("GPU", None, "Unavailable", "GPU usage percent is not guessed. CUDA/GPU readiness remains available in runtime diagnostics."),
-        note: "CPU and RAM are sampled natively. GPU percent requires a dedicated native GPU sampler and is intentionally not faked.".to_string(),
+        note: "CPU and RAM use a lightweight sampler. GPU percent requires a dedicated native GPU sampler and is intentionally not faked.".to_string(),
     }
 }
