@@ -29,6 +29,10 @@ function clearSettingsDependentReads(): void {
   clearRuntimeReads("runtime-settings", "status-bundle", "diagnostics", "input-status", "hardware-usage");
 }
 
+function clearVoiceDependentReads(): void {
+  clearRuntimeReads("status-bundle", "diagnostics", "input-status");
+}
+
 function chatListKey(kind?: string): string {
   return `chat-list:${kind ?? "all"}`;
 }
@@ -55,12 +59,12 @@ export const runtimeApi = {
   getInputStatus: () => singleFlight("input-status", () => runCommand<InputPreparationStatus>("get_input_status")),
   startCapture: async () => {
     const result = await runCommand<CommandResult>("start_capture");
-    clearRuntimeReads("status-bundle", "input-status");
+    clearVoiceDependentReads();
     return result;
   },
   stopCapture: async () => {
     const result = await runCommand<CommandResult>("stop_capture");
-    clearRuntimeReads("status-bundle", "input-status");
+    clearVoiceDependentReads();
     return result;
   },
   translateText: async (source: string) => {
