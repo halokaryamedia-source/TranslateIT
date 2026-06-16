@@ -6,6 +6,7 @@ const RESULT_BUTTONS = "#microphoneButton,#quickMicButton,#recordStatusButton,#m
 
 let lastEvidenceKey = "";
 let polling = false;
+let bound = false;
 
 function wait(milliseconds: number): Promise<void> {
   return new Promise((resolve) => window.setTimeout(resolve, milliseconds));
@@ -63,6 +64,8 @@ async function pollForResult(startedAtUnixMs: number): Promise<void> {
 }
 
 export function bindAudioPipelineResultWatcher(): void {
+  if (bound) return;
+  bound = true;
   document.addEventListener("click", (event) => {
     const target = event.target as Element | null;
     const button = target?.closest(RESULT_BUTTONS);
@@ -71,3 +74,5 @@ export function bindAudioPipelineResultWatcher(): void {
     if (wasRecording) void pollForResult(Date.now());
   }, true);
 }
+
+bindAudioPipelineResultWatcher();
