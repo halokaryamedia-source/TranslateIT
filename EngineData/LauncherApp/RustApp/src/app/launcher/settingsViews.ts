@@ -1,6 +1,6 @@
 import { icon } from "../shared/icons";
 import type { RuntimeSettings } from "../shared/types";
-import { advancedEmpty, primaryButton, radioOption, selectButton, settingsActions, settingsCard, settingsField, settingsGrid, settingsPage, settingsSection } from "./uiPageFactory";
+import { advancedEmpty, outputRow, primaryButton, radioOption, selectButton, settingsActions, settingsCard, settingsField, settingsGrid, settingsPage, settingsSection } from "./uiPageFactory";
 
 function escapeHtml(value: string): string {
   return value
@@ -29,13 +29,6 @@ function selectField(id: string | null, label: string, value: string, iconName?:
   const iconColumn = iconName ? `${icon(iconName)}` : "";
   const grid = iconName ? "24px minmax(0,1fr) 20px" : "minmax(0,1fr) 20px";
   return `<section class="settings-field"><h3>${escapeHtml(label)}</h3><button${idAttr} class="select-field-v22" type="button" style="grid-template-columns:${grid};">${iconColumn}<span>${escapeHtml(value)}</span>${icon("chevron")}</button></section>`;
-}
-
-function radioRow(id: string | null, title: string, description: string, active = false, asButton = false): string {
-  const idAttr = id ? ` id="${id}"` : "";
-  const tag = asButton ? "button" : "label";
-  const typeAttr = asButton ? ' type="button"' : "";
-  return `<${tag}${idAttr}${typeAttr} class="radio-row-v22 ${active ? "active" : ""}"><span></span><strong>${escapeHtml(title)}</strong><em>${escapeHtml(description)}</em></${tag}>`;
 }
 
 function togglePill(active: boolean): string {
@@ -122,15 +115,15 @@ export function translateSettingsView(settings: RuntimeSettings, sourceLabel: st
     <section class="settings-section-title"><h2>Realtime</h2><p>Choose how TranslateIT balances speed and translation quality.</p></section>
     <article class="settings-card settings-card--compact">
       <div class="settings-grid-2 compact-grid">
-        ${radioRow("realtimeModeButton", "Fast", "Prioritize low latency for live voice translation.", realtimeActive, true)}
-        ${radioRow("qualityModeButton", "Quality", "Prefer better translation quality when response time is less critical.", !realtimeActive, true)}
+        ${radioOption("realtimeModeButton", "Fast", "Prioritize low latency for live voice translation.", realtimeActive, true)}
+        ${radioOption("qualityModeButton", "Quality", "Prefer better translation quality when response time is less critical.", !realtimeActive, true)}
       </div>
     </article>
     <section class="settings-section-title"><h2>Translate Output</h2><p>Choose which output should appear after translation completes.</p></section>
     <article class="settings-card settings-card--compact">
       <div class="settings-grid-2 compact-grid">
-        <section class="settings-output-row">${icon("fileText")}<div><h3>Transcript</h3><p>Show translated text in the conversation.</p></div>${togglePill(true)}</section>
-        <section class="settings-output-row">${icon("speaker")}<div><h3>Voice</h3><p>Play translated English voice automatically.</p></div>${togglePill(voiceEnabled)}</section>
+        ${outputRow(icon("fileText"), "Transcript", "Show translated text in the conversation.", togglePill(true))}
+        ${outputRow(icon("speaker"), "Voice", "Play translated English voice automatically.", togglePill(voiceEnabled))}
       </div>
     </article>
     <section class="settings-section-title"><h2>Advanced Translate Setting</h2><p>Reserved for future translation preferences.</p></section>
