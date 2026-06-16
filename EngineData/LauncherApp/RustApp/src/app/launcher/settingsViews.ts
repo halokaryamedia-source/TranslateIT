@@ -45,6 +45,18 @@ function togglePill(active: boolean): string {
   return `<span class="settings-toggle-pill ${active ? "active" : ""}"><i></i></span>`;
 }
 
+function languageDropdown(role: "source" | "target", activeSelector: "source" | "target" | null, selectedCode: string, options: { code: string; label: string }[]): string {
+  if (activeSelector !== role) return "";
+  const items = options
+    .map((item) => {
+      const active = item.code.toLowerCase() === selectedCode.toLowerCase();
+      return `<button class="language-option-button ${active ? "active" : ""}" type="button" data-language-role="${role}" data-language-code="${escapeHtml(item.code)}"><strong>${escapeHtml(item.label)}</strong><span>${escapeHtml(item.code.toUpperCase())}</span></button>`;
+    })
+    .join("");
+  const left = role === "source" ? 74 : 746;
+  return `<div class="language-dropdown-panel" role="listbox" style="position:absolute;left:${left}px;top:122px;width:500px;z-index:6;background:#11151d;border:1px solid rgba(255,255,255,.11);border-radius:18px;padding:10px;box-shadow:0 18px 48px rgba(0,0,0,.34);display:grid;gap:8px;">${items}</div>`;
+}
+
 export function generalSettingsView(settings: RuntimeSettings, realtimeStatus: string | null, gpuStatus: string | null): string {
   return `${pageStart("General", "Basic launcher and local runtime preferences.", 720)}
     <article class="settings-card final-card" style="top:118px;height:330px;">
@@ -90,32 +102,34 @@ export function audioSettingsView(settings: RuntimeSettings): string {
   </div>`;
 }
 
-export function translateSettingsView(settings: RuntimeSettings, sourceLabel: string, targetLabel: string): string {
+export function translateSettingsView(settings: RuntimeSettings, sourceLabel: string, targetLabel: string, activeSelector: "source" | "target" | null, languageOptions: { code: string; label: string }[]): string {
   const realtimeActive = settings.runtime_profile !== "Quality";
   const voiceEnabled = settings.audio.auto_play_out_voice;
   return `${pageStart("Translate", "Configure language direction, translation speed, and output behavior.", 1340)}
-    <article class="settings-card final-card" style="top:118px;height:190px;">
-      <section class="settings-field" style="position:absolute;left:74px;top:48px;width:500px;"><h3>Source Language</h3><button id="sourceLanguageButton" class="select-field-v22" type="button" style="width:100%;grid-template-columns:minmax(0,1fr) 20px;"><span>${escapeHtml(sourceLabel)}</span>${icon("chevron")}</button></section>
+    <article class="settings-card final-card" style="top:118px;height:230px;">
+      <section class="settings-field" style="position:absolute;left:74px;top:48px;width:500px;"><h3>Source Language</h3><button id="sourceLanguageButton" class="select-field-v22" type="button" aria-expanded="${activeSelector === "source"}" style="width:100%;grid-template-columns:minmax(0,1fr) 20px;"><span>${escapeHtml(sourceLabel)}</span>${icon("chevron")}</button></section>
       <button id="swapLanguageButton" type="button" class="settings-swap-button" aria-label="Swap languages">${icon("swap")}</button>
-      <section class="settings-field" style="position:absolute;left:746px;top:48px;width:500px;"><h3>Target Language</h3><button id="targetLanguageButton" class="select-field-v22" type="button" style="width:100%;grid-template-columns:minmax(0,1fr) 20px;"><span>${escapeHtml(targetLabel)}</span>${icon("chevron")}</button></section>
+      <section class="settings-field" style="position:absolute;left:746px;top:48px;width:500px;"><h3>Target Language</h3><button id="targetLanguageButton" class="select-field-v22" type="button" aria-expanded="${activeSelector === "target"}" style="width:100%;grid-template-columns:minmax(0,1fr) 20px;"><span>${escapeHtml(targetLabel)}</span>${icon("chevron")}</button></section>
+      ${languageDropdown("source", activeSelector, settings.source_language, languageOptions)}
+      ${languageDropdown("target", activeSelector, settings.target_language, languageOptions)}
       <button id="saveTranslateButton" class="mic-test-button-v22" type="button" style="position:absolute;left:74px;bottom:22px;width:176px;">Save Translate</button>
     </article>
-    <section class="settings-section-title" style="top:408px;"><h2>Realtime</h2><p>Choose how TranslateIT balances speed and translation quality.</p></section>
-    <article class="settings-card final-card" style="top:498px;height:166px;">
+    <section class="settings-section-title" style="top:448px;"><h2>Realtime</h2><p>Choose how TranslateIT balances speed and translation quality.</p></section>
+    <article class="settings-card final-card" style="top:538px;height:166px;">
       <div class="settings-grid-2 compact-grid">
         ${radioRow("realtimeModeButton", "Fast", "Prioritize low latency for live voice translation.", realtimeActive, true)}
         ${radioRow("qualityModeButton", "Quality", "Prefer better translation quality when response time is less critical.", !realtimeActive, true)}
       </div>
     </article>
-    <section class="settings-section-title" style="top:760px;"><h2>Translate Output</h2><p>Choose which output should appear after translation completes.</p></section>
-    <article class="settings-card final-card" style="top:850px;height:176px;">
+    <section class="settings-section-title" style="top:800px;"><h2>Translate Output</h2><p>Choose which output should appear after translation completes.</p></section>
+    <article class="settings-card final-card" style="top:890px;height:176px;">
       <div class="settings-grid-2 compact-grid">
         <section class="settings-output-row">${icon("fileText")}<div><h3>Transcript</h3><p>Show translated text in the conversation.</p></div>${togglePill(true)}</section>
         <section class="settings-output-row">${icon("speaker")}<div><h3>Voice</h3><p>Play translated English voice automatically.</p></div>${togglePill(voiceEnabled)}</section>
       </div>
     </article>
-    <section class="settings-section-title" style="top:1120px;"><h2>Advanced Translate Setting</h2><p>Reserved for future translation preferences.</p></section>
-    <article class="advanced-empty-v22" style="position:absolute;left:0;top:1210px;height:170px;margin:0;"></article>
+    <section class="settings-section-title" style="top:1160px;"><h2>Advanced Translate Setting</h2><p>Reserved for future translation preferences.</p></section>
+    <article class="advanced-empty-v22" style="position:absolute;left:0;top:1250px;height:170px;margin:0;"></article>
   </div>`;
 }
 
