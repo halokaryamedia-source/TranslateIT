@@ -22,6 +22,15 @@ CACHE_ROOT = ROOT / "UserData" / "CacheData"
 ALLOWED_INPUT_ROOTS = [ROOT / "UserData" / "CacheData", ROOT / "UserData" / "LogData"]
 ALLOWED_OUTPUT_ROOTS = [ROOT / "UserData" / "CacheData"]
 
+NLLB_LANGUAGE_CODES = {
+    "id": "ind_Latn",
+    "ind": "ind_Latn",
+    "indonesian": "ind_Latn",
+    "en": "eng_Latn",
+    "eng": "eng_Latn",
+    "english": "eng_Latn",
+}
+
 ASR_RUNTIME: Any | None = None
 ASR_RUNTIME_DEVICE = "not_loaded"
 ASR_RUNTIME_COMPUTE = "not_loaded"
@@ -69,6 +78,20 @@ def torch_status() -> tuple[bool, bool]:
         return True, bool(torch.cuda.is_available())
     except Exception:
         return False, False
+
+
+def normalize_language(value: Any, fallback: str) -> str:
+    text = str(value or fallback).strip().lower().replace("_latn", "")
+    if text.startswith("ind") or text == "id":
+        return "id"
+    if text.startswith("eng") or text == "en":
+        return "en"
+    return text[:2] if text else fallback
+
+
+def nllb_language_code(value: Any, fallback: str) -> str:
+    normalized = normalize_language(value, fallback)
+    return NLLB_LANGUAGE_CODES.get(normalized, NLLB_LANGUAGE_CODES[fallback])
 
 
 def resolve_worker_path(value: Any, default_path: Path, allowed_roots: list[Path]) -> Path:
@@ -388,14 +411,24 @@ def move_inputs_to_device(inputs: Any, device: str) -> Any:
     return {key: value.to("cuda") for key, value in inputs.items()}
 
 
-def nllb_generate_kwargs(tokenizer: Any, mode: str) -> dict[str, Any]:
+def realtime_direction_supported(source_language: str, target_language: str) -> bool:
+    return normalize_language(source_language, "id") == "id" and normalize_language(target_language, "en") == "en"
+
+
+def nllb_generate_kwargs(tokenizer: Any, mode: str, source_language: str, target_language: str) -> dict[str, Any]:
     if mode != "Quality":
         return {}
+    source_code = nllb_language_code(source_language, "id")
+    target_code = nllb_language_code(target_language, "en")
     if hasattr(tokenizer, "src_lang"):
-        tokenizer.src_lang = "ind_Latn"
+        tokenizer.src_lang = source_code
     lang_map = getattr(tokenizer, "lang_code_to_id", {}) or {}
-    if "eng_Latn" in lang_map:
-        return {"forced_bos_token_id": lang_map["eng_Latn"]}
+    if target_code in lang_map:
+        return {"forced_bos_token_id": lang_map[target_code]}
+    if hasattr(tokenizer, "convert_tokens_to_ids"):
+        token_id = tokenizer.convert_tokens_to_ids(target_code)
+        if isinstance(token_id, int) and token_id >= 0:
+            return {"forced_bos_token_id": token_id}
     return {}
 
 
@@ -403,14 +436,28 @@ def handle_translate(payload: dict[str, Any]) -> dict[str, Any]:
     started = now_ms()
     text = str(payload.get("text", "")).strip()
     mode = str(payload.get("mode", "Realtime"))
+    source_language = normalize_language(payload.get("source_language", "id"), "id")
+    target_language = normalize_language(payload.get("target_language", "en"), "en")
     if not text:
         return {"ok": False, "stage": "translate", "blocker": "translation:empty_text"}
+    if mode.lower() != "quality" and not realtime_direction_supported(source_language, target_language):
+        return {
+            "ok": False,
+            "stage": "translate",
+            "mode": "Realtime",
+            "model_id": "marianmt-id-en",
+            "source_language": source_language,
+            "target_language": target_language,
+            "blocker": "translation:direction_not_supported_by_realtime_model",
+            "fallback_mode": "Quality",
+            "elapsed_ms": now_ms() - started,
+        }
     try:
         runtime = get_translation_runtime(mode)
         tokenizer = runtime["tokenizer"]
         model = runtime["model"]
         device = runtime["device"]
-        generate_kwargs = nllb_generate_kwargs(tokenizer, runtime["mode"])
+        generate_kwargs = nllb_generate_kwargs(tokenizer, runtime["mode"], source_language, target_language)
         inputs = tokenizer(text, return_tensors="pt", truncation=True, max_length=256)
         inputs = move_inputs_to_device(inputs, device)
         try:
@@ -428,6 +475,8 @@ def handle_translate(payload: dict[str, Any]) -> dict[str, Any]:
             "model_id": runtime["model_id"],
             "device": device,
             "device_note": runtime["device_note"],
+            "source_language": source_language,
+            "target_language": target_language,
             "translated_text": translated,
             "elapsed_ms": now_ms() - started,
             "blocker": "" if translated else "translation:empty_output",
