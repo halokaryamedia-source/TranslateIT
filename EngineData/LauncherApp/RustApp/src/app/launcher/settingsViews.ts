@@ -1,5 +1,6 @@
 import { icon } from "../shared/icons";
 import type { RuntimeSettings } from "../shared/types";
+import { advancedEmpty, primaryButton, selectButton, settingsActions, settingsCard, settingsField, settingsGrid, settingsPage, settingsSection } from "./uiPageFactory";
 
 function escapeHtml(value: string): string {
   return value
@@ -52,23 +53,25 @@ function languageDropdown(role: "source" | "target", activeSelector: "source" | 
   return `<div class="language-dropdown-panel" role="listbox">${items}</div>`;
 }
 
+function factorySelectField(label: string, value: string, iconName: "pulse" | "monitor" | "chevron"): string {
+  const grid = "24px minmax(0,1fr) 20px";
+  return settingsField(label, selectButton(label, value, { style: `grid-template-columns:${grid};` }).replace("<span>", `${icon(iconName)}<span>`) + icon("chevron"));
+}
+
 export function generalSettingsView(settings: RuntimeSettings, realtimeStatus: string | null, gpuStatus: string | null): string {
-  return `${pageStart("General", "Basic launcher and local runtime preferences.", "settings-view--general")}
-    <article class="settings-card settings-card--general">
-      <div class="settings-grid-2">
-        ${selectField(null, "Runtime Profile", settings.runtime_profile, "pulse")}
-        ${selectField(null, "Language Focus", settings.language_focus_mode, "chevron")}
-        ${selectField(null, "Realtime Status", realtimeStatus ?? "Checking", "pulse")}
-        ${selectField(null, "GPU Status", gpuStatus ?? "Checking", "monitor")}
-      </div>
-      <div class="settings-card-actions">
-        <button id="saveSettingsButton" class="mic-test-button-v22" type="button">Save Settings</button>
-        <button id="resetSettingsButton" class="mic-test-button-v22 secondary" type="button">Save Default</button>
-      </div>
-    </article>
-    <section class="settings-section-title"><h2>Advanced General Setting</h2><p>Reserved for future launcher preferences.</p></section>
-    <article class="advanced-empty-v22"></article>
-  </div>`;
+  return settingsPage("General", "Basic launcher and local runtime preferences.", "settings-view--general", `
+    ${settingsCard("settings-card--general", `
+      ${settingsGrid(`
+        ${factorySelectField("Runtime Profile", settings.runtime_profile, "pulse")}
+        ${factorySelectField("Language Focus", settings.language_focus_mode, "chevron")}
+        ${factorySelectField("Realtime Status", realtimeStatus ?? "Checking", "pulse")}
+        ${factorySelectField("GPU Status", gpuStatus ?? "Checking", "monitor")}
+      `)}
+      ${settingsActions(`${primaryButton("Save Settings", { id: "saveSettingsButton" })}${primaryButton("Save Default", { id: "resetSettingsButton", class: "mic-test-button-v22 secondary" })}`)}
+    `)}
+    ${settingsSection("Advanced General Setting", "Reserved for future launcher preferences.")}
+    ${advancedEmpty()}
+  `);
 }
 
 export function audioSettingsView(settings: RuntimeSettings): string {
