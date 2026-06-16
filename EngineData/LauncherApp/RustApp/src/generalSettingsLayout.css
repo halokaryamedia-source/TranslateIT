@@ -1,0 +1,56 @@
+/*
+  General Settings layout module.
+  Scope: only .settings-view--general so edits here do not affect Main Page, Audio, Translate, or Developer pages.
+*/
+
+.settings-view--general .settings-view-header {
+  margin: 0;
+}
+
+.settings-view--general .settings-card--general {
+  height: 252px;
+  margin-top: 40px;
+  padding: 36px 56px;
+}
+
+.settings-view--general .settings-grid-2 {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  column-gap: 68px;
+  row-gap: 58px;
+}
+
+.settings-view--general .settings-field {
+  min-width: 0;
+}
+
+.settings-view--general .settings-field h3 {
+  font-size: 12.5px;
+  font-weight: 850;
+}
+
+.settings-view--general .select-field-v22 {
+  height: 46px;
+  min-height: 46px;
+  margin-top: 14px;
+  border-radius: var(--ref-radius-control);
+}
+
+.settings-view--general .settings-card-actions {
+  margin-top: 30px;
+  padding-left: 0;
+}
+
+.settings-view--general .mic-test-button-v22 {
+  min-width: 132px;
+  height: 48px;
+  border-radius: var(--ref-radius-control);
+}
+
+.settings-view--general .settings-section-title {
+  margin-top: 46px;
+}
+
+.settings-view--general .advanced-empty-v22 {
+  height: 170px;
+  margin-top: 34px;
+}
