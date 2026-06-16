@@ -135,9 +135,9 @@ export class LauncherController {
     return value.replace(/\s+/g, " ").trim();
   }
 
-  private async ingestAttachmentFile(): Promise<void> {
-    const file = this.ui.attachmentInput.files?.[0];
-    this.ui.attachmentInput.value = "";
+  private async ingestAttachmentFile(fileOverride?: File): Promise<void> {
+    const file = fileOverride ?? this.ui.attachmentInput.files?.[0];
+    if (!fileOverride) this.ui.attachmentInput.value = "";
     if (!file) return;
     if (this.attachmentReadPending) {
       this.setAssistantNotice("Attachment read is already running. Please wait.");
@@ -172,6 +172,24 @@ export class LauncherController {
       this.attachmentReadPending = false;
       this.ui.composerPlusButton.disabled = false;
     }
+  }
+
+  private bindAttachmentDropZone(): void {
+    const dropZone = this.ui.messageInput.closest(".composer-wrap") as HTMLElement | null;
+    if (!dropZone) return;
+    dropZone.addEventListener("dragover", (event) => {
+      event.preventDefault();
+      dropZone.classList.add("is-attachment-dragover");
+    });
+    dropZone.addEventListener("dragleave", (event) => {
+      if (!dropZone.contains(event.relatedTarget as Node | null)) dropZone.classList.remove("is-attachment-dragover");
+    });
+    dropZone.addEventListener("drop", (event) => {
+      event.preventDefault();
+      dropZone.classList.remove("is-attachment-dragover");
+      const file = event.dataTransfer?.files?.[0];
+      if (file) void this.ingestAttachmentFile(file);
+    });
   }
 
   private resetSettingsScroll(): void {
@@ -498,6 +516,7 @@ export class LauncherController {
     this.ui.newChatButton.addEventListener("click", () => void this.createNewChat());
     this.ui.composerPlusButton.addEventListener("click", () => { this.ui.attachmentInput.click(); });
     this.ui.attachmentInput.addEventListener("change", () => void this.ingestAttachmentFile());
+    this.bindAttachmentDropZone();
     this.ui.recentChatButton.addEventListener("click", () => void this.showChatCollection("recent", this.ui.recentChatButton));
     this.ui.unsavedChatButton.addEventListener("click", () => void this.showChatCollection("unsaved", this.ui.unsavedChatButton));
     this.ui.savedChatButton.addEventListener("click", () => void this.showChatCollection("saved", this.ui.savedChatButton));
