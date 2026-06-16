@@ -27,6 +27,18 @@ latest_readiness_summary.json            # Combined readiness summary
 3. Run readiness summary after evidence exists.
 4. Run build/typecheck/package validation only when explicitly requested.
 
+## Voice Handoff Evidence
+
+Voice must stay marked as unverified until the target PC proves each step:
+
+- Stop Capture creates the latest target WAV segment.
+- Worker transcribe returns valid ASR output from that WAV.
+- Worker translate returns valid translated text.
+- Worker TTS returns valid output.
+- Manual runtime evidence records the real result.
+
+A captured WAV file alone is only handoff evidence. It is not ASR, translation, or TTS success evidence.
+
 ## Readiness Rule
 
 The app must remain not client-ready until all required evidence is present and passing:
