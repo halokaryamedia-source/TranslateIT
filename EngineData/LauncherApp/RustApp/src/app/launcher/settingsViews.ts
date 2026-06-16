@@ -103,32 +103,28 @@ export function audioSettingsView(settings: RuntimeSettings): string {
 export function translateSettingsView(settings: RuntimeSettings, sourceLabel: string, targetLabel: string, activeSelector: "source" | "target" | null, languageOptions: { code: string; label: string }[]): string {
   const realtimeActive = settings.runtime_profile !== "Quality";
   const voiceEnabled = settings.audio.auto_play_out_voice;
-  return `${pageStart("Translate", "Configure language direction, translation speed, and output behavior.", "settings-view--translate")}
-    <article class="settings-card settings-card--language">
+  return settingsPage("Translate", "Configure language direction, translation speed, and output behavior.", "settings-view--translate", `
+    ${settingsCard("settings-card--language", `
       <div class="language-grid">
         ${languageSelectField("Source Language", `<button id="sourceLanguageButton" class="select-field-v22" type="button" aria-expanded="${activeSelector === "source"}" style="grid-template-columns:minmax(0,1fr) 20px;"><span>${escapeHtml(sourceLabel)}</span>${icon("chevron")}</button>`, languageDropdown("source", activeSelector, settings.source_language, languageOptions))}
         <button id="swapLanguageButton" type="button" class="settings-swap-button" aria-label="Swap languages">${icon("swap")}</button>
         ${languageSelectField("Target Language", `<button id="targetLanguageButton" class="select-field-v22" type="button" aria-expanded="${activeSelector === "target"}" style="grid-template-columns:minmax(0,1fr) 20px;"><span>${escapeHtml(targetLabel)}</span>${icon("chevron")}</button>`, languageDropdown("target", activeSelector, settings.target_language, languageOptions))}
       </div>
-      <div class="settings-card-actions compact"><button id="saveTranslateButton" class="mic-test-button-v22" type="button">Save Translate</button></div>
-    </article>
-    <section class="settings-section-title"><h2>Realtime</h2><p>Choose how TranslateIT balances speed and translation quality.</p></section>
-    <article class="settings-card settings-card--compact">
-      <div class="settings-grid-2 compact-grid">
-        ${radioOption("realtimeModeButton", "Fast", "Prioritize low latency for live voice translation.", realtimeActive, true)}
-        ${radioOption("qualityModeButton", "Quality", "Prefer better translation quality when response time is less critical.", !realtimeActive, true)}
-      </div>
-    </article>
-    <section class="settings-section-title"><h2>Translate Output</h2><p>Choose which output should appear after translation completes.</p></section>
-    <article class="settings-card settings-card--compact">
-      <div class="settings-grid-2 compact-grid">
-        ${outputRow(icon("fileText"), "Transcript", "Show translated text in the conversation.", togglePill(true))}
-        ${outputRow(icon("speaker"), "Voice", "Play translated English voice automatically.", togglePill(voiceEnabled))}
-      </div>
-    </article>
-    <section class="settings-section-title"><h2>Advanced Translate Setting</h2><p>Reserved for future translation preferences.</p></section>
-    <article class="advanced-empty-v22"></article>
-  </div>`;
+      ${settingsActions(primaryButton("Save Translate", { id: "saveTranslateButton" }), true)}
+    `)}
+    ${settingsSection("Realtime", "Choose how TranslateIT balances speed and translation quality.")}
+    ${settingsCard("settings-card--compact", settingsGrid(`
+      ${radioOption("realtimeModeButton", "Fast", "Prioritize low latency for live voice translation.", realtimeActive, true)}
+      ${radioOption("qualityModeButton", "Quality", "Prefer better translation quality when response time is less critical.", !realtimeActive, true)}
+    `, true))}
+    ${settingsSection("Translate Output", "Choose which output should appear after translation completes.")}
+    ${settingsCard("settings-card--compact", settingsGrid(`
+      ${outputRow(icon("fileText"), "Transcript", "Show translated text in the conversation.", togglePill(true))}
+      ${outputRow(icon("speaker"), "Voice", "Play translated English voice automatically.", togglePill(voiceEnabled))}
+    `, true))}
+    ${settingsSection("Advanced Translate Setting", "Reserved for future translation preferences.")}
+    ${advancedEmpty()}
+  `);
 }
 
 export function developerSettingsView(args: {
