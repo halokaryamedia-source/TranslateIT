@@ -209,14 +209,27 @@ function summarizeReadiness() {
   console.log(JSON.stringify(payload, null, 2));
   process.exit(blockers.length === 0 ? 0 : 1);
 }
+function runWorkerCommand(python, payload) {
+  const result = spawnSync(python, [WORKER], { input: JSON.stringify(payload) + "\n", encoding: "utf8", timeout: 180000 });
+  const firstLine = (result.stdout || "").trim().split(/\r?\n/)[0] || "{}";
+  let parsed = null;
+  try { parsed = JSON.parse(firstLine); } catch { parsed = null; }
+  return { exit_code: result.status, stdout: result.stdout, stderr: result.stderr, parsed, ok: result.status === 0 && Boolean(parsed?.ok) };
+}
 function smokeWorker() {
   const python = exists(join(WORKER_ROOT, ".venv", "Scripts", "python.exe")) ? join(WORKER_ROOT, ".venv", "Scripts", "python.exe") : "python";
-  const status = spawnSync(python, [WORKER], { input: JSON.stringify({ command: "status" }) + "\n", encoding: "utf8" });
+  const audioPath = process.argv[3] || "";
+  const status = runWorkerCommand(python, { command: "status" });
+  const translation = runWorkerCommand(python, { command: "translate", text: "halo", source_language: "id", target_language: "en", mode: "Realtime", max_new_tokens: 48 });
+  const ttsPreflight = runWorkerCommand(python, { command: "tts_preflight" });
+  const synthesize = runWorkerCommand(python, { command: "synthesize", text: "Hello." });
+  const asr = audioPath ? runWorkerCommand(python, { command: "transcribe", audio_path: audioPath, language: "id", beam_size: 1, vad_filter: true }) : null;
   mkdirSync(EVIDENCE_ROOT, { recursive: true });
-  const payload = { schema: "translateit.local_worker_smoke.v2", created_at: new Date().toISOString(), command: "status", exit_code: status.status, stdout: status.stdout, stderr: status.stderr, ok: status.status === 0 && status.stdout.includes("local_realtime_worker_preflight"), note: "This checks worker responsiveness only. Full microphone, translation, and TTS smoke tests still require local runtime assets." };
+  const ok = status.ok && translation.ok && ttsPreflight.ok && synthesize.ok && (!asr || asr.ok);
+  const payload = { schema: "translateit.local_worker_smoke.v3", created_at: new Date().toISOString(), python, audio_path: audioPath, ok, status, translation, tts_preflight: ttsPreflight, synthesize, asr, note: "This checks local worker command execution. ASR is checked only when an audio path argument is provided." };
   writeFileSync(join(EVIDENCE_ROOT, "latest_local_worker_smoke_evidence.json"), JSON.stringify(payload, null, 2));
   console.log(JSON.stringify(payload, null, 2));
-  process.exit(payload.ok ? 0 : 1);
+  process.exit(ok ? 0 : 1);
 }
 const command = process.argv[2] || "help";
 const commands = { "validate-root": validateRoot, "validate-structure": validateStructure, "validate-launcher": validateLauncher, "validate-worker": validateWorker, "validate-models": validateModels, "validate-evidence": validateEvidence, "validate-ci": validateCi, "validate-frontend": validateFrontend, "validate-release": validateReleaseBundle, "write-validation-evidence": writeValidationEvidence, "record-manual-evidence": recordManualEvidence, "summarize-readiness": summarizeReadiness, "smoke-worker": smokeWorker };
