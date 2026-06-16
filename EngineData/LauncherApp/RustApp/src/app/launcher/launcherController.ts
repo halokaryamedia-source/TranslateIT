@@ -17,8 +17,13 @@ import { warmupProgressSteps, warmupStepsView } from "./warmupViews";
 const MAX_MANUAL_TRANSLATION_CHARS = 2_000;
 const MAX_ATTACHMENT_BYTES = 64 * 1024;
 const LANGUAGE_CODES = ["id", "en"] as const;
+const LANGUAGE_OPTIONS: { code: LanguageCode; label: string }[] = [
+  { code: "id", label: "Indonesian" },
+  { code: "en", label: "English" },
+];
 const TEXT_ATTACHMENT_EXTENSIONS = [".txt", ".md", ".json", ".csv"];
 type LanguageCode = (typeof LANGUAGE_CODES)[number];
+type LanguageSelectorRole = "source" | "target";
 
 export class LauncherController {
   private readonly ui: UiRefs;
@@ -27,6 +32,7 @@ export class LauncherController {
   private latestHardware: HardwareUsageReport | null = null;
   private currentSettings: RuntimeSettings | null = null;
   private activeSettingsTab: SettingsTab = "general";
+  private activeLanguageSelector: LanguageSelectorRole | null = null;
   private recording = false;
   private currentSessionId: string | null = null;
   private activeSessionTitle = "New Chat";
@@ -70,9 +76,40 @@ export class LauncherController {
     return false;
   }
 
+  private isLanguageCode(value: string): value is LanguageCode {
+    return LANGUAGE_CODES.some((code) => code === value);
+  }
+
   private nextLanguageCode(value: string): LanguageCode {
     const index = LANGUAGE_CODES.findIndex((code) => code === value.toLowerCase());
     return LANGUAGE_CODES[index >= 0 && index + 1 < LANGUAGE_CODES.length ? index + 1 : 0];
+  }
+
+  private toggleLanguageSelector(role: LanguageSelectorRole): void {
+    this.activeLanguageSelector = this.activeLanguageSelector === role ? null : role;
+    this.renderTranslateSettings();
+    this.resetSettingsScroll();
+  }
+
+  private selectLanguage(role: LanguageSelectorRole, code: string): void {
+    if (!this.isLanguageCode(code)) {
+      this.setAssistantNotice("Selected language is not supported yet.");
+      return;
+    }
+    this.currentSettings = this.currentSettings ?? defaultSettings();
+    const settings = this.currentSettings;
+    if (role === "source") {
+      settings.source_language = code;
+      if (settings.target_language.toLowerCase() === code) settings.target_language = this.nextLanguageCode(code);
+    } else {
+      settings.target_language = code;
+      if (settings.source_language.toLowerCase() === code) settings.source_language = this.nextLanguageCode(code);
+    }
+    this.activeLanguageSelector = null;
+    this.refreshDirectionPill();
+    this.setAssistantNotice(`Language pair changed to ${settings.source_language.toUpperCase()} > ${settings.target_language.toUpperCase()}.`);
+    this.renderTranslateSettings();
+    this.resetSettingsScroll();
   }
 
   private cycleLanguage(role: "source" | "target"): void {
@@ -355,11 +392,12 @@ export class LauncherController {
 
   private openAudioSettings(): void { this.activeSettingsTab = "audio"; this.showSettings(); }
   private toggleVoiceOutput(): void { this.currentSettings = this.currentSettings ?? defaultSettings(); this.currentSettings.audio.auto_play_out_voice = !this.currentSettings.audio.auto_play_out_voice; this.currentSettings.audio.auto_play_translation_voice = this.currentSettings.audio.auto_play_out_voice; this.setAssistantNotice(this.currentSettings.audio.auto_play_out_voice ? "Voice output enabled." : "Voice output disabled."); }
-  private setRuntimeProfile(profile: "Realtime" | "Quality"): void { this.currentSettings = this.currentSettings ?? defaultSettings(); this.currentSettings.runtime_profile = profile; this.currentSettings.audio.input_sensitivity = profile; this.setAssistantNotice(`Translate mode set to ${profile}.`); }
-  private swapLanguages(): void { this.currentSettings = this.currentSettings ?? defaultSettings(); const source = this.currentSettings.source_language; this.currentSettings.source_language = this.currentSettings.target_language; this.currentSettings.target_language = source; this.refreshDirectionPill(); this.setAssistantNotice(`Language pair changed to ${this.currentSettings.source_language.toUpperCase()} > ${this.currentSettings.target_language.toUpperCase()}.`); }
+  private setRuntimeProfile(profile: "Realtime" | "Quality"): void { this.currentSettings = this.currentSettings ?? defaultSettings(); this.currentSettings.runtime_profile = profile; this.currentSettings.audio.input_sensitivity = profile; this.activeLanguageSelector = null; this.setAssistantNotice(`Translate mode set to ${profile}.`); }
+  private swapLanguages(): void { this.currentSettings = this.currentSettings ?? defaultSettings(); const source = this.currentSettings.source_language; this.currentSettings.source_language = this.currentSettings.target_language; this.currentSettings.target_language = source; this.activeLanguageSelector = null; this.refreshDirectionPill(); this.setAssistantNotice(`Language pair changed to ${this.currentSettings.source_language.toUpperCase()} > ${this.currentSettings.target_language.toUpperCase()}.`); }
 
   private renderSettingsTab(tab: SettingsTab): void {
     this.activeSettingsTab = tab;
+    if (tab !== "translate") this.activeLanguageSelector = null;
     this.ui.settingsNavItems.forEach((button) => button.classList.toggle("active", button.dataset.settingsTab === tab));
     if (tab === "general") this.renderGeneralSettings();
     if (tab === "audio") this.renderAudioSettings();
@@ -387,9 +425,13 @@ export class LauncherController {
 
   private renderTranslateSettings(): void {
     const settings = this.currentSettings ?? defaultSettings();
-    this.ui.settingsContent.innerHTML = translateSettingsView(settings, languageName(settings.source_language), languageName(settings.target_language));
-    requireElement<HTMLButtonElement>("#sourceLanguageButton").addEventListener("click", () => { this.cycleLanguage("source"); this.renderTranslateSettings(); this.resetSettingsScroll(); });
-    requireElement<HTMLButtonElement>("#targetLanguageButton").addEventListener("click", () => { this.cycleLanguage("target"); this.renderTranslateSettings(); this.resetSettingsScroll(); });
+    this.ui.settingsContent.innerHTML = translateSettingsView(settings, languageName(settings.source_language), languageName(settings.target_language), this.activeLanguageSelector, LANGUAGE_OPTIONS);
+    requireElement<HTMLButtonElement>("#sourceLanguageButton").addEventListener("click", () => this.toggleLanguageSelector("source"));
+    requireElement<HTMLButtonElement>("#targetLanguageButton").addEventListener("click", () => this.toggleLanguageSelector("target"));
+    this.ui.settingsContent.querySelectorAll<HTMLButtonElement>("[data-language-role][data-language-code]").forEach((button) => {
+      const role = button.dataset.languageRole === "target" ? "target" : "source";
+      button.addEventListener("click", () => this.selectLanguage(role, button.dataset.languageCode ?? ""));
+    });
     requireElement<HTMLButtonElement>("#swapLanguageButton").addEventListener("click", () => { this.swapLanguages(); this.renderTranslateSettings(); this.resetSettingsScroll(); });
     requireElement<HTMLButtonElement>("#saveTranslateButton").addEventListener("click", () => void this.saveCurrentSettings());
     requireElement<HTMLElement>("#realtimeModeButton").addEventListener("click", () => { this.setRuntimeProfile("Realtime"); this.renderTranslateSettings(); this.resetSettingsScroll(); });
