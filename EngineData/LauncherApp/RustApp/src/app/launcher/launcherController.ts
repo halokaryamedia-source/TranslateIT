@@ -17,6 +17,8 @@ import { warmupProgressSteps, warmupStepsView } from "./warmupViews";
 const MAX_MANUAL_TRANSLATION_CHARS = 2_000;
 const MAX_ATTACHMENT_BYTES = 64 * 1024;
 const MAX_ATTACHMENT_FILES = 4;
+const MAX_COMPOSER_TEXTAREA_HEIGHT = 120;
+const MIN_COMPOSER_TEXTAREA_HEIGHT = 24;
 const LANGUAGE_CODES = ["id", "en"] as const;
 const LANGUAGE_OPTIONS: { code: LanguageCode; label: string }[] = [
   { code: "id", label: "Indonesian" },
@@ -68,6 +70,19 @@ export class LauncherController {
   private refreshDirectionPill(): void { const settings = this.currentSettings ?? defaultSettings(); this.ui.directionPill.textContent = `${settings.source_language.toUpperCase()} > ${settings.target_language.toUpperCase()}`; }
   private renderWarmupSteps(activeIndex = -1): void { this.ui.warmupSteps.innerHTML = warmupStepsView(activeIndex); }
   private escapeHtml(value: string): string { return value.replaceAll("&", "&amp;").replaceAll("<", "&lt;").replaceAll(">", "&gt;").replaceAll('"', "&quot;").replaceAll("'", "&#39;"); }
+
+  private resizeMessageInput(): void {
+    const input = this.ui.messageInput;
+    input.style.height = "auto";
+    const height = Math.max(MIN_COMPOSER_TEXTAREA_HEIGHT, Math.min(input.scrollHeight, MAX_COMPOSER_TEXTAREA_HEIGHT));
+    input.style.height = `${height}px`;
+    input.style.overflowY = input.scrollHeight > MAX_COMPOSER_TEXTAREA_HEIGHT ? "auto" : "hidden";
+  }
+
+  private setMessageInputValue(value: string): void {
+    this.ui.messageInput.value = value;
+    this.resizeMessageInput();
+  }
 
   private exceedsManualTranslationLimit(value: string): boolean {
     let count = 0;
@@ -178,7 +193,7 @@ export class LauncherController {
         this.setAssistantNotice(`Combined attachment text is too long. Limit: ${MAX_MANUAL_TRANSLATION_CHARS} characters after cleanup.`);
         return;
       }
-      this.ui.messageInput.value = combinedText;
+      this.setMessageInputValue(combinedText);
       this.ui.messageInput.focus();
       const names = files.map((file) => file.name).join(", ");
       this.setAssistantNotice(`Attached ${files.length} file(s): ${names}. Text is ready for translation.`);
@@ -271,7 +286,7 @@ export class LauncherController {
     const session = await runtimeApi.createChatSession("unsaved");
     this.currentSessionId = session?.session_id ?? null;
     this.activeSessionTitle = session?.title ?? "New Chat";
-    this.ui.messageInput.value = "";
+    this.setMessageInputValue("");
     this.setActiveNav(null);
     this.renderHomeCards();
     this.showHome();
@@ -309,7 +324,7 @@ export class LauncherController {
     this.textSubmitPending = true;
     this.ui.sendButton.disabled = true;
     this.ui.messageInput.disabled = true;
-    this.ui.messageInput.value = "";
+    this.setMessageInputValue("");
     try {
       await this.saveChatMessage("user", source);
       this.setAssistantNotice("Translating text locally...");
@@ -322,6 +337,7 @@ export class LauncherController {
       this.ui.sendButton.disabled = false;
       this.ui.messageInput.disabled = false;
       this.ui.messageInput.focus();
+      this.resizeMessageInput();
     }
   }
 
@@ -519,6 +535,7 @@ export class LauncherController {
     this.renderSettingsTab("general");
     this.ui.warmupScreen.classList.add("is-hidden");
     this.ui.mainApp.classList.remove("is-hidden");
+    this.resizeMessageInput();
   }
 
   private bindEvents(): void {
@@ -528,6 +545,7 @@ export class LauncherController {
     this.ui.quickMicButton.addEventListener("click", () => void this.startOrStopRecording());
     this.ui.recordStatusButton.addEventListener("click", () => void this.startOrStopRecording());
     this.ui.sendButton.addEventListener("click", () => void this.submitText());
+    this.ui.messageInput.addEventListener("input", () => this.resizeMessageInput());
     this.ui.messageInput.addEventListener("keydown", (event) => { if (event.key === "Enter" && !event.shiftKey) { event.preventDefault(); void this.submitText(); } });
     this.ui.newChatButton.addEventListener("click", () => void this.createNewChat());
     this.ui.composerPlusButton.addEventListener("click", () => { this.ui.attachmentInput.click(); });
