@@ -94,6 +94,10 @@ def nllb_language_code(value: Any, fallback: str) -> str:
     return NLLB_LANGUAGE_CODES.get(normalized, NLLB_LANGUAGE_CODES[fallback])
 
 
+def direction_pair(source_language: str, target_language: str) -> str:
+    return f"{normalize_language(source_language, 'id')}->{normalize_language(target_language, 'en')}"
+
+
 def resolve_worker_path(value: Any, default_path: Path, allowed_roots: list[Path]) -> Path:
     raw = str(value).strip() if value not in (None, "") else str(default_path)
     path = Path(raw)
@@ -438,9 +442,11 @@ def handle_translate(payload: dict[str, Any]) -> dict[str, Any]:
     mode = str(payload.get("mode", "Realtime"))
     source_language = normalize_language(payload.get("source_language", "id"), "id")
     target_language = normalize_language(payload.get("target_language", "en"), "en")
+    pair = direction_pair(source_language, target_language)
+    direction_supported = realtime_direction_supported(source_language, target_language)
     if not text:
-        return {"ok": False, "stage": "translate", "blocker": "translation:empty_text"}
-    if mode.lower() != "quality" and not realtime_direction_supported(source_language, target_language):
+        return {"ok": False, "stage": "translate", "blocker": "translation:empty_text", "direction_pair": pair}
+    if mode.lower() != "quality" and not direction_supported:
         return {
             "ok": False,
             "stage": "translate",
@@ -448,6 +454,8 @@ def handle_translate(payload: dict[str, Any]) -> dict[str, Any]:
             "model_id": "marianmt-id-en",
             "source_language": source_language,
             "target_language": target_language,
+            "direction_pair": pair,
+            "direction_supported": False,
             "blocker": "translation:direction_not_supported_by_realtime_model",
             "fallback_mode": "Quality",
             "elapsed_ms": now_ms() - started,
@@ -477,12 +485,14 @@ def handle_translate(payload: dict[str, Any]) -> dict[str, Any]:
             "device_note": runtime["device_note"],
             "source_language": source_language,
             "target_language": target_language,
+            "direction_pair": pair,
+            "direction_supported": True,
             "translated_text": translated,
             "elapsed_ms": now_ms() - started,
             "blocker": "" if translated else "translation:empty_output",
         }
     except Exception as exc:
-        return {"ok": False, "stage": "translate", "blocker": type(exc).__name__, "note": str(exc), "elapsed_ms": now_ms() - started}
+        return {"ok": False, "stage": "translate", "blocker": type(exc).__name__, "note": str(exc), "direction_pair": pair, "elapsed_ms": now_ms() - started}
 
 
 def first_piper_voice() -> Path | None:
