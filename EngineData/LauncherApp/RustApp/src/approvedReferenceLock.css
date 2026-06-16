@@ -109,7 +109,17 @@
   border-radius: 39px;
 }
 
+.workspace .composer > .composer-icon:not(.emphasis) {
+  grid-column: 1;
+  grid-row: 1;
+}
+
+.workspace .composer::before {
+  grid-row: 1;
+}
+
 .workspace .composer textarea {
+  grid-row: 1;
   height: 22px;
   min-height: 22px;
   padding: 0;
@@ -125,6 +135,7 @@
   height: 52px;
   place-items: center;
   align-self: center;
+  grid-row: 1;
 }
 
 .workspace .composer-help {
