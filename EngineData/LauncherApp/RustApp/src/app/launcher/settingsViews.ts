@@ -20,10 +20,6 @@ function progressPercent(value: number): number {
   return Math.max(0, Math.min(100, Math.round(value)));
 }
 
-function pageStart(title: string, description: string, modifier: string): string {
-  return `<div class="settings-view ${modifier}"><section class="settings-view-header"><h2>${escapeHtml(title)}</h2><p>${escapeHtml(description)}</p></section>`;
-}
-
 function selectField(id: string | null, label: string, value: string, iconName?: "mic" | "speaker" | "pulse" | "monitor" | "chevron"): string {
   const idAttr = id ? ` id="${id}"` : "";
   const iconColumn = iconName ? `${icon(iconName)}` : "";
@@ -151,16 +147,16 @@ export function developerSettingsView(args: {
   const logSummary = args.logsExpanded ? "Showing all current diagnostic logs." : "Showing recent diagnostic logs.";
   const styledLogRows = args.logRows.replaceAll("<p>", '<p class="developer-log-row">').replaceAll("<strong>", '<strong>');
 
-  return `${pageStart("Developer", "Simple tools for monitoring runtime health and fixing common issues.", "settings-view--developer")}
-    <section class="settings-section-title first"><h2>Monitoring</h2><p>Monitor hardware usage and engine health.</p></section>
-    <article class="settings-card settings-card--monitoring">
-      <div class="settings-grid-2">
+  return settingsPage("Developer", "Simple tools for monitoring runtime health and fixing common issues.", "settings-view--developer", `
+    ${settingsSection("Monitoring", "Monitor hardware usage and engine health.", true)}
+    ${settingsCard("settings-card--monitoring", `
+      ${settingsGrid(`
         <section class="settings-panel-heading">${icon("monitor")}<div><h3>Hardware Usage</h3><p>${gpuStatus}</p></div><div class="settings-bars"><div><strong>CPU</strong><span style="background:linear-gradient(90deg,#d6dbe3 ${cpuWidth},#4b4f5d ${cpuWidth});"></span><em>${cpu}</em></div><div><strong>GPU</strong><span style="background:linear-gradient(90deg,#d6dbe3 ${gpuWidth},#4b4f5d ${gpuWidth});"></span><em>${gpu}</em></div><div><strong>RAM</strong><span style="background:linear-gradient(90deg,#d6dbe3 ${ramWidth},#4b4f5d ${ramWidth});"></span><em>${ram}</em></div></div></section>
         <section class="settings-panel-heading">${icon("pulse")}<div><h3>Health Engine</h3><p>Simple status for Launcher and Engine.</p></div><div class="health-list"><section>${icon("monitor")}<div><strong>Launcher</strong><p>Desktop shell and UI route</p></div><span>Good</span></section><section>${icon("pulse")}<div><strong>Engine</strong><p>Translation, transcript, and worker state</p></div><span>${engineStatus}</span></section></div></section>
-      </div>
-    </article>
-    <section class="settings-section-title"><h2>Diagnostic</h2><p>Run checking, show current progress, and review diagnostic logs.</p></section>
-    <article class="settings-card settings-card--diagnostic">
+      `)}
+    `)}
+    ${settingsSection("Diagnostic", "Run checking, show current progress, and review diagnostic logs.")}
+    ${settingsCard("settings-card--diagnostic", `
       <div class="diagnostic-actions"><button id="runDiagnosticButton" class="mic-test-button-v22" type="button">Run Checking</button><div><strong>Checking translation engine</strong><span>${progress}%</span></div></div>
       <div class="progress-track"><span style="width:${progress}%;"></span></div>
       <p class="diagnostic-note">${note}</p>
@@ -168,6 +164,6 @@ export function developerSettingsView(args: {
         <header class="developer-log-header"><span>developer-log/latest</span><button id="seeAllLogsButton" type="button">${args.logsExpanded ? "Collapse" : "See All Logs"}</button></header>
         <div class="developer-log-body" aria-label="Developer diagnostic logs">${styledLogRows}<p class="developer-log-summary">${escapeHtml(logSummary)}</p></div>
       </section>
-    </article>
-  </div>`;
+    `)}
+  `);
 }
