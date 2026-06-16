@@ -2,6 +2,7 @@ use std::path::PathBuf;
 
 use crate::engine::adapters::runtime_lifecycle_logic::analyze_start_lifecycle_gate;
 use crate::engine::audio::live_capture::{start_live_capture_runtime, stop_live_capture_runtime};
+use crate::engine::audio::live_segment_writer::write_latest_live_target_segment_wav;
 use crate::engine::logging::{write_jsonl_event, RuntimeLogEvent};
 use crate::engine::paths::ProjectPaths;
 use crate::engine::runtime_state::{clear_runtime_handoff_state, clear_runtime_session_state, record_direct_live_capture_session, record_runtime_session_start};
@@ -97,11 +98,25 @@ pub fn start_capture() -> CommandResult {
 
 pub fn stop_capture() -> CommandResult {
     let project_paths = ProjectPaths::discover();
+    let segment_write = write_latest_live_target_segment_wav();
+    let segment_note = if segment_write.ok {
+        format!(
+            "Target ASR WAV prepared: path={}, duration_ms={}, samples={}",
+            segment_write.audio_path.clone().unwrap_or_else(|| "none".to_string()),
+            segment_write.duration_ms,
+            segment_write.sample_count
+        )
+    } else {
+        format!(
+            "Target ASR WAV not prepared: blocker={}, note={}",
+            segment_write.blocker, segment_write.note
+        )
+    };
     let stopped_live_capture = stop_live_capture_runtime();
     let cleared_session = clear_runtime_session_state();
     let cleared_handoff = clear_runtime_handoff_state();
     let message = format!(
-        "Stop was received by Rust runtime. Live capture: {} {} {}",
+        "Stop was received by Rust runtime. {segment_note}. Live capture: {} {} {}",
         stopped_live_capture.message, cleared_session.note, cleared_handoff.note
     );
     let _ = write_jsonl_event(
