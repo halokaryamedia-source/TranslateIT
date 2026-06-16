@@ -9,6 +9,9 @@ export type AudioPipelineEvidence = {
   transcribe_ok?: boolean;
   translate_ok?: boolean;
   synthesize_ok?: boolean;
+  auto_play_output?: boolean;
+  tts_output_path?: string;
+  playback_ok?: boolean;
   evidence_unix_ms?: number;
 };
 
