@@ -1,6 +1,6 @@
 import { icon } from "../shared/icons";
 import type { RuntimeSettings } from "../shared/types";
-import { advancedEmpty, primaryButton, selectButton, settingsActions, settingsCard, settingsField, settingsGrid, settingsPage, settingsSection } from "./uiPageFactory";
+import { advancedEmpty, primaryButton, radioOption, selectButton, settingsActions, settingsCard, settingsField, settingsGrid, settingsPage, settingsSection } from "./uiPageFactory";
 
 function escapeHtml(value: string): string {
   return value
@@ -98,8 +98,8 @@ export function audioSettingsView(settings: RuntimeSettings): string {
     ${settingsSection("Voice", "Configure voice input behavior and input processing profile.")}
     ${settingsCard("settings-card--voice", `
       ${settingsGrid(`
-        ${settingsField("Voice Profile", `${radioRow(null, "Normal", "Default microphone input without extra noise processing.", true)}${radioRow(null, "Noise", "Reduce background noise and prioritize speech clarity.")}`, "Choose the microphone processing profile.")}
-        ${settingsField("Voice Mode", `${radioRow("audioSensitivityButton", "Always On", "Voice input stays ready while the app is active.", realtimeActive, true)}${radioRow(null, "Push to Talk", "Voice input only activates while holding a selected key.")}`, "Choose how TranslateIT listens to voice input.")}
+        ${settingsField("Voice Profile", `${radioOption(null, "Normal", "Default microphone input without extra noise processing.", true)}${radioOption(null, "Noise", "Reduce background noise and prioritize speech clarity.")}`, "Choose the microphone processing profile.")}
+        ${settingsField("Voice Mode", `${radioOption("audioSensitivityButton", "Always On", "Voice input stays ready while the app is active.", realtimeActive, true)}${radioOption(null, "Push to Talk", "Voice input only activates while holding a selected key.")}`, "Choose how TranslateIT listens to voice input.")}
       `)}
     `)}
     ${settingsSection("Advanced Audio Setting", "Reserved for future audio device options.")}
