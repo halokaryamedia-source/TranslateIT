@@ -74,6 +74,42 @@ fn compact_worker_field(value: Option<String>) -> String {
         .to_string()
 }
 
+fn worker_note(worker: WorkerTranslationResponse) -> String {
+    let stage = compact_worker_field(worker.stage);
+    let blocker = compact_worker_field(worker.blocker);
+    if blocker.is_empty() {
+        format!("worker_stage={stage}")
+    } else {
+        format!("worker_stage={stage}; blocker={blocker}")
+    }
+}
+
+fn worker_success_suffix(worker: &WorkerTranslationResponse, fallback_used: bool) -> String {
+    let mode = compact_worker_field(worker.mode.clone());
+    let model = compact_worker_field(worker.model_id.clone());
+    let device = compact_worker_field(worker.device.clone());
+    let detail = [mode, model, device]
+        .into_iter()
+        .filter(|value| !value.is_empty())
+        .collect::<Vec<_>>()
+        .join(" / ");
+    let worker_label = if fallback_used { "local worker fallback" } else { "local worker" };
+    if detail.is_empty() {
+        worker_label.to_string()
+    } else {
+        format!("{worker_label}: {detail}")
+    }
+}
+
+fn worker_translated_text(worker: &WorkerTranslationResponse) -> Option<&str> {
+    let translated = worker.translated_text.as_deref().unwrap_or_default().trim();
+    if worker.ok && !translated.is_empty() {
+        Some(translated)
+    } else {
+        None
+    }
+}
+
 fn run_worker_with_python(
     binary: &str,
     use_python_launcher: bool,
@@ -89,7 +125,7 @@ fn run_worker_with_python(
         "source_language": source_language,
         "target_language": target_language,
         "mode": profile,
-        "max_new_tokens": 48,
+        "max_new_tokens": 96,
     });
 
     let mut command = Command::new(binary);
@@ -148,6 +184,7 @@ pub fn translate_text(source: String) -> CommandResult {
     let settings = load_settings();
     let quality_mode = settings.runtime_profile.eq_ignore_ascii_case("Quality");
     let profile_label = if quality_mode { "Quality" } else { "Realtime" };
+    let fallback_profile_label = if quality_mode { "Realtime" } else { "Quality" };
     let source_language = settings.source_language.clone();
     let target_language = settings.target_language.clone();
     let primary_engine_name = if quality_mode {
@@ -161,24 +198,28 @@ pub fn translate_text(source: String) -> CommandResult {
         "nllb-200-distilled-600M-quality"
     };
 
-    let worker_response = run_local_worker_translation(trimmed, &source_language, &target_language, profile_label);
-    if let Some(worker) = worker_response.as_ref() {
-        let translated = worker.translated_text.as_deref().unwrap_or_default().trim();
-        if worker.ok && !translated.is_empty() {
-            let model = compact_worker_field(worker.model_id.clone());
-            let device = compact_worker_field(worker.device.clone());
-            let mode = compact_worker_field(worker.mode.clone());
-            let detail = [mode, model, device]
-                .into_iter()
-                .filter(|value| !value.is_empty())
-                .collect::<Vec<_>>()
-                .join(" / ");
-            let suffix = if detail.is_empty() { "local worker".to_string() } else { format!("local worker: {detail}") };
+    let mut worker_notes = Vec::new();
+
+    if let Some(worker) = run_local_worker_translation(trimmed, &source_language, &target_language, profile_label) {
+        if let Some(translated) = worker_translated_text(&worker) {
+            let suffix = worker_success_suffix(&worker, false);
             return CommandResult::ok(
                 LifecycleState::Idle,
                 format!("{}\n\n({suffix})", translated),
             );
         }
+        worker_notes.push(format!("primary_{profile_label}: {}", worker_note(worker)));
+    }
+
+    if let Some(worker) = run_local_worker_translation(trimmed, &source_language, &target_language, fallback_profile_label) {
+        if let Some(translated) = worker_translated_text(&worker) {
+            let suffix = worker_success_suffix(&worker, true);
+            return CommandResult::ok(
+                LifecycleState::Idle,
+                format!("{}\n\n({suffix})", translated),
+            );
+        }
+        worker_notes.push(format!("fallback_{fallback_profile_label}: {}", worker_note(worker)));
     }
 
     let result = run_translation_logic(TranslationLogicRequest {
@@ -200,22 +241,16 @@ pub fn translate_text(source: String) -> CommandResult {
         );
     }
 
-    let worker_note = worker_response
-        .map(|worker| {
-            let stage = compact_worker_field(worker.stage);
-            let blocker = compact_worker_field(worker.blocker);
-            if blocker.is_empty() {
-                format!("worker_stage={stage}")
-            } else {
-                format!("worker_stage={stage}; blocker={blocker}")
-            }
-        })
-        .unwrap_or_else(|| WORKER_TRANSLATION_TIMEOUT_NOTE.to_string());
+    let worker_note = if worker_notes.is_empty() {
+        WORKER_TRANSLATION_TIMEOUT_NOTE.to_string()
+    } else {
+        worker_notes.join(" | ")
+    };
 
     CommandResult::blocked(
         LifecycleState::TranslationAdapterPending,
         format!(
-            "{profile_label} local translation worker bridge is connected but no validated model output was returned. {worker_note}. Source preview: {}. Planner status: {} / {}",
+            "Local translation worker attempted {profile_label} and {fallback_profile_label}, but no validated model output was returned. {worker_note}. Source preview: {}. Planner status: {} / {}",
             preview_source(trimmed), result.status, result.mode
         ),
     )
