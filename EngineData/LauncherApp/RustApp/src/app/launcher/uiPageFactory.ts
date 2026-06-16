@@ -36,13 +36,14 @@ export function settingsCard(modifier: string, body: string, attributes: Attribu
   return `<article class="settings-card ${escapeHtml(modifier)}"${attrs(attributes)}>${body}</article>`;
 }
 
-export function settingsGrid(body: string): string {
-  return `<div class="settings-grid-2">${body}</div>`;
+export function settingsGrid(body: string, compact = false): string {
+  return `<div class="settings-grid-2 ${compact ? "compact-grid" : ""}">${body}</div>`;
 }
 
-export function settingsField(label: string, body: string, description = ""): string {
+export function settingsField(label: string, body: string, description = "", modifier = ""): string {
   const helper = description ? `<p>${escapeHtml(description)}</p>` : "";
-  return `<section class="settings-field"><h3>${escapeHtml(label)}</h3>${helper}${body}</section>`;
+  const className = modifier ? `settings-field ${escapeHtml(modifier)}` : "settings-field";
+  return `<section class="${className}"><h3>${escapeHtml(label)}</h3>${helper}${body}</section>`;
 }
 
 export function settingsActions(body: string, compact = false): string {
@@ -68,6 +69,10 @@ export function advancedEmpty(): string {
 
 export function emptyState(title: string, description: string): string {
   return `<article class="feature-card empty-state-card"><div class="feature-title-row"><h4>${escapeHtml(title)}</h4></div><p>${escapeHtml(description)}</p></article>`;
+}
+
+export function outputRow(iconHtml: string, title: string, description: string, controlHtml: string): string {
+  return `<section class="settings-output-row">${iconHtml}<div><h3>${escapeHtml(title)}</h3><p>${escapeHtml(description)}</p></div>${controlHtml}</section>`;
 }
 
 export function statusBadge(label: string, tone: "neutral" | "good" | "warning" | "error" = "neutral"): string {
