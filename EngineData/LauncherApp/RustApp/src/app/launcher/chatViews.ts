@@ -3,6 +3,7 @@ import type { ChatKind, LauncherChatSummary } from "../shared/types";
 
 const MAX_CHAT_COLLECTION_CARDS = 6;
 const MAX_CHAT_TITLE_CHARS = 64;
+const MAX_RESULT_PREVIEW_CHARS = 900;
 
 function escapeHtml(value: string): string {
   return value
@@ -19,6 +20,18 @@ function compactTitle(value: string): string {
   let count = 0;
   for (const character of clean) {
     if (count >= MAX_CHAT_TITLE_CHARS - 1) return `${compact}…`;
+    compact += character;
+    count += 1;
+  }
+  return compact;
+}
+
+function compactResult(value: string): string {
+  const clean = value.trim() || "No text available.";
+  let compact = "";
+  let count = 0;
+  for (const character of clean) {
+    if (count >= MAX_RESULT_PREVIEW_CHARS - 1) return `${compact}…`;
     compact += character;
     count += 1;
   }
@@ -53,6 +66,13 @@ export function chatCollectionView(kind: ChatKind, sessions: LauncherChatSummary
       return `<article class="feature-card" aria-label="${ariaLabel}"><div class="feature-title-row"><div class="feature-icon">${icon(chatIcon(kind))}</div><h4 title="${title}">${title}</h4></div><p>${itemKind} · ${escapeHtml(messageLabel)}</p></article>`;
     })
     .join("");
+}
+
+export function translationResultView(source: string, translated: string, voiceStatus: string): string {
+  const sourceText = escapeHtml(compactResult(source));
+  const translatedText = escapeHtml(compactResult(translated));
+  const statusText = escapeHtml(voiceStatus);
+  return `<section class="translation-result-stack" aria-label="Latest translation result"><article class="translation-result-card"><header><h4>${icon("translate")} Translation Result</h4><button type="button" data-copy-translation="${translatedText}" aria-label="Copy translated text">Copy</button></header><div class="translation-result-grid"><section class="translation-result-block"><strong>Original</strong><p>${sourceText}</p></section><section class="translation-result-block"><strong>Translated</strong><p>${translatedText}</p></section></div><p class="translation-result-meta">Voice output: ${statusText}</p></article></section>`;
 }
 
 function emptyChatCollectionView(kind: ChatKind): string {
