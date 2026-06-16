@@ -1,6 +1,6 @@
 import { icon } from "../shared/icons";
 import type { RuntimeSettings } from "../shared/types";
-import { advancedEmpty, diagnosticActions, languageSelectField, outputRow, primaryButton, radioOption, selectButton, settingsActions, settingsCard, settingsField, settingsGrid, settingsPage, settingsSection } from "./uiPageFactory";
+import { advancedEmpty, diagnosticActions, languageSelectField, monitoringPanel, outputRow, primaryButton, radioOption, selectButton, settingsActions, settingsCard, settingsField, settingsGrid, settingsPage, settingsSection } from "./uiPageFactory";
 
 function escapeHtml(value: string): string {
   return value
@@ -151,8 +151,8 @@ export function developerSettingsView(args: {
     ${settingsSection("Monitoring", "Monitor hardware usage and engine health.", true)}
     ${settingsCard("settings-card--monitoring", `
       ${settingsGrid(`
-        <section class="settings-panel-heading">${icon("monitor")}<div><h3>Hardware Usage</h3><p>${gpuStatus}</p></div><div class="settings-bars"><div><strong>CPU</strong><span style="background:linear-gradient(90deg,#d6dbe3 ${cpuWidth},#4b4f5d ${cpuWidth});"></span><em>${cpu}</em></div><div><strong>GPU</strong><span style="background:linear-gradient(90deg,#d6dbe3 ${gpuWidth},#4b4f5d ${gpuWidth});"></span><em>${gpu}</em></div><div><strong>RAM</strong><span style="background:linear-gradient(90deg,#d6dbe3 ${ramWidth},#4b4f5d ${ramWidth});"></span><em>${ram}</em></div></div></section>
-        <section class="settings-panel-heading">${icon("pulse")}<div><h3>Health Engine</h3><p>Simple status for Launcher and Engine.</p></div><div class="health-list"><section>${icon("monitor")}<div><strong>Launcher</strong><p>Desktop shell and UI route</p></div><span>Good</span></section><section>${icon("pulse")}<div><strong>Engine</strong><p>Translation, transcript, and worker state</p></div><span>${engineStatus}</span></section></div></section>
+        ${monitoringPanel(icon("monitor"), "Hardware Usage", gpuStatus, `<div class="settings-bars"><div><strong>CPU</strong><span style="background:linear-gradient(90deg,#d6dbe3 ${cpuWidth},#4b4f5d ${cpuWidth});"></span><em>${cpu}</em></div><div><strong>GPU</strong><span style="background:linear-gradient(90deg,#d6dbe3 ${gpuWidth},#4b4f5d ${gpuWidth});"></span><em>${gpu}</em></div><div><strong>RAM</strong><span style="background:linear-gradient(90deg,#d6dbe3 ${ramWidth},#4b4f5d ${ramWidth});"></span><em>${ram}</em></div></div>`)}
+        ${monitoringPanel(icon("pulse"), "Health Engine", "Simple status for Launcher and Engine.", `<div class="health-list"><section>${icon("monitor")}<div><strong>Launcher</strong><p>Desktop shell and UI route</p></div><span>Good</span></section><section>${icon("pulse")}<div><strong>Engine</strong><p>Translation, transcript, and worker state</p></div><span>${engineStatus}</span></section></div>`)}
       `)}
     `)}
     ${settingsSection("Diagnostic", "Run checking, show current progress, and review diagnostic logs.")}
