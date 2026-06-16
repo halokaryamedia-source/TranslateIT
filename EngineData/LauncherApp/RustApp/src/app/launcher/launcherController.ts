@@ -9,7 +9,7 @@ import type {
   SettingsTab,
 } from "../shared/types";
 import { bindUi, requireElement, type UiRefs } from "./dom";
-import { chatCollectionView } from "./chatViews";
+import { chatCollectionView, translationResultView } from "./chatViews";
 import { homeDefaultCards, mountAppShell } from "./shell";
 import { audioSettingsView, developerSettingsView, generalSettingsView, translateSettingsView } from "./settingsViews";
 import { warmupProgressSteps, warmupStepsView } from "./warmupViews";
@@ -70,6 +70,11 @@ export class LauncherController {
   private refreshDirectionPill(): void { const settings = this.currentSettings ?? defaultSettings(); this.ui.directionPill.textContent = `${settings.source_language.toUpperCase()} > ${settings.target_language.toUpperCase()}`; }
   private renderWarmupSteps(activeIndex = -1): void { this.ui.warmupSteps.innerHTML = warmupStepsView(activeIndex); }
   private escapeHtml(value: string): string { return value.replaceAll("&", "&amp;").replaceAll("<", "&lt;").replaceAll(">", "&gt;").replaceAll('"', "&quot;").replaceAll("'", "&#39;"); }
+
+  private voiceOutputStatus(): string {
+    const settings = this.currentSettings ?? defaultSettings();
+    return settings.audio.auto_play_out_voice ? "Enabled" : "Transcript only";
+  }
 
   private resizeMessageInput(): void {
     const input = this.ui.messageInput;
@@ -331,7 +336,8 @@ export class LauncherController {
       const result = await runtimeApi.translateText(source);
       const response = result?.message ?? "Translation command failed. Open Settings > Developer for diagnostics.";
       await this.saveChatMessage("assistant", response);
-      this.setAssistantNotice(response);
+      this.ui.chatList.innerHTML = translationResultView(source, response, this.voiceOutputStatus());
+      this.setAssistantNotice("Translation completed. Result is shown above.");
     } finally {
       this.textSubmitPending = false;
       this.ui.sendButton.disabled = false;
