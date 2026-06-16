@@ -20,13 +20,6 @@ function progressPercent(value: number): number {
   return Math.max(0, Math.min(100, Math.round(value)));
 }
 
-function selectField(id: string | null, label: string, value: string, iconName?: "mic" | "speaker" | "pulse" | "monitor" | "chevron"): string {
-  const idAttr = id ? ` id="${id}"` : "";
-  const iconColumn = iconName ? `${icon(iconName)}` : "";
-  const grid = iconName ? "24px minmax(0,1fr) 20px" : "minmax(0,1fr) 20px";
-  return `<section class="settings-field"><h3>${escapeHtml(label)}</h3><button${idAttr} class="select-field-v22" type="button" style="grid-template-columns:${grid};">${iconColumn}<span>${escapeHtml(value)}</span>${icon("chevron")}</button></section>`;
-}
-
 function togglePill(active: boolean): string {
   return `<span class="settings-toggle-pill ${active ? "active" : ""}"><i></i></span>`;
 }
@@ -42,9 +35,9 @@ function languageDropdown(role: "source" | "target", activeSelector: "source" | 
   return `<div class="language-dropdown-panel" role="listbox">${items}</div>`;
 }
 
-function factorySelectField(label: string, value: string, iconName: "pulse" | "monitor" | "chevron"): string {
+function factorySelectField(label: string, value: string, iconName: "mic" | "speaker" | "pulse" | "monitor" | "chevron", id?: string): string {
   const grid = "24px minmax(0,1fr) 20px";
-  const button = selectButton(label, value, { style: `grid-template-columns:${grid};` })
+  const button = selectButton(label, value, { ...(id ? { id } : {}), style: `grid-template-columns:${grid};` })
     .replace("<span>", `${icon(iconName)}<span>`)
     .replace("</button>", `${icon("chevron")}</button>`);
   return settingsField(label, button);
@@ -72,8 +65,8 @@ export function audioSettingsView(settings: RuntimeSettings): string {
   return settingsPage("Audio", "Manage microphone input, speaker output, volume, and voice behavior.", "settings-view--audio", `
     ${settingsCard("settings-card--audio", `
       ${settingsGrid(`
-        ${selectField("checkAudioInputButton", "Microphone", "Default microphone", "mic")}
-        ${selectField("audioVoiceToggleButton", "Speaker", voiceEnabled ? "Default speaker" : "Speaker disabled", "speaker")}
+        ${factorySelectField("Microphone", "Default microphone", "mic", "checkAudioInputButton")}
+        ${factorySelectField("Speaker", voiceEnabled ? "Default speaker" : "Speaker disabled", "speaker", "audioVoiceToggleButton")}
         ${settingsField("Microphone Volume", '<div class="range-v22 mic-range"><span></span><i></i></div>')}
         ${settingsField("Speaker Volume", '<div class="range-v22 speaker-range"><span></span><i></i></div>')}
       `)}
