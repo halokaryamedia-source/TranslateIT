@@ -157,7 +157,7 @@ export function developerSettingsView(args: {
     `)}
     ${settingsSection("Diagnostic", "Run checking, show current progress, and review diagnostic logs.")}
     ${settingsCard("settings-card--diagnostic", `
-      <div class="diagnostic-actions"><button id="runDiagnosticButton" class="mic-test-button-v22" type="button">Run Checking</button><div><strong>Checking translation engine</strong><span>${progress}%</span></div></div>
+      <div class="diagnostic-actions">${primaryButton("Run Checking", { id: "runDiagnosticButton" })}<div><strong>Checking translation engine</strong><span>${progress}%</span></div></div>
       <div class="progress-track"><span style="width:${progress}%;"></span></div>
       <p class="diagnostic-note">${note}</p>
       <section class="developer-log-card ${args.logsExpanded ? "expanded" : ""}">
