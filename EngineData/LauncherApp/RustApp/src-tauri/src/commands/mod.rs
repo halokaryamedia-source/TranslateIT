@@ -1,4 +1,5 @@
 pub mod audio;
+pub mod audio_evidence;
 pub mod chat;
 pub mod diagnostics;
 pub mod hardware;
