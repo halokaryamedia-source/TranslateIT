@@ -1,0 +1,132 @@
+/*
+  Developer Settings layout module.
+  Approved direction: Developer Settings v37 reference.
+  Scope: only .settings-view--developer so edits here do not affect Main Page, Audio, or Translate pages.
+*/
+
+.settings-view--developer .settings-view-header {
+  margin-top: -22px;
+}
+
+.settings-view--developer .settings-section-title.first {
+  margin-top: 44px;
+}
+
+.settings-view--developer .settings-card--monitoring {
+  height: 248px;
+  margin-top: 34px;
+  padding: 52px 56px;
+}
+
+.settings-view--developer .settings-card--diagnostic {
+  min-height: 622px;
+  margin-top: 34px;
+  padding: 40px 56px;
+  display: grid;
+  gap: 24px;
+}
+
+.settings-view--developer .settings-grid-2 {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  column-gap: 68px;
+  row-gap: 58px;
+}
+
+.settings-view--developer .settings-panel-heading {
+  border: 0;
+  background: transparent;
+  padding: 0;
+}
+
+.settings-view--developer .settings-panel-heading h3 {
+  font-size: 15px;
+}
+
+.settings-view--developer .settings-panel-heading p {
+  font-size: 11px;
+}
+
+.settings-view--developer .settings-bars {
+  gap: 24px;
+  margin-top: 28px;
+}
+
+.settings-view--developer .settings-bars div {
+  grid-template-columns: 44px minmax(0, 1fr) 44px;
+}
+
+.settings-view--developer .health-list {
+  gap: 12px;
+  margin-top: 18px;
+}
+
+.settings-view--developer .health-list section {
+  height: 50px;
+  border: 1px solid var(--ref-border-strong);
+  border-radius: 12px;
+  background: #10141b;
+  padding: 0 18px;
+}
+
+.settings-view--developer .diagnostic-actions {
+  display: grid;
+  grid-template-columns: 24px minmax(0, 1fr) 158px;
+  gap: 22px;
+  align-items: center;
+}
+
+.settings-view--developer .diagnostic-actions::before {
+  content: "✓";
+  color: var(--ref-muted);
+  font-weight: 900;
+}
+
+.settings-view--developer .diagnostic-actions .mic-test-button-v22 {
+  grid-column: 3;
+  grid-row: 1;
+  justify-self: end;
+  min-width: 158px;
+  height: 40px;
+}
+
+.settings-view--developer .diagnostic-actions div {
+  grid-column: 2;
+  display: grid;
+  gap: 12px;
+}
+
+.settings-view--developer .progress-track {
+  height: 4px;
+  margin-top: 20px;
+}
+
+.settings-view--developer .developer-log-card {
+  margin-top: 24px;
+  border: 1px solid var(--ref-border-strong);
+  border-radius: 18px;
+  overflow: hidden;
+  background: #080b11;
+}
+
+.settings-view--developer .developer-log-header {
+  height: 34px;
+  padding: 0 18px;
+  border-bottom: 1px solid var(--ref-border-strong);
+  background: #0d1017;
+}
+
+.settings-view--developer .developer-log-body {
+  min-height: 176px;
+  padding: 24px 20px;
+}
+
+.settings-view--developer .developer-log-row {
+  min-width: 0;
+}
+
+.settings-view--developer .developer-log-row span,
+.settings-view--developer .developer-log-summary {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
