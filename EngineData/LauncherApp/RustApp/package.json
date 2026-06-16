@@ -29,8 +29,9 @@
     "validate:worker": "node ../../../DevelopingData/Tooling/Scripts/Execution/translateit_tooling.mjs validate-worker",
     "validate:models": "node ../../../DevelopingData/Tooling/Scripts/Execution/translateit_tooling.mjs validate-models",
     "validate:evidence": "node ../../../DevelopingData/Tooling/Scripts/Execution/translateit_tooling.mjs validate-evidence",
-    "validate:internal": "npm run validate:root && npm run validate:structure && npm run validate:launcher && npm run validate:worker && npm run validate:evidence && npm run typecheck && npm run check:rust && npm run build:frontend",
-    "validate:full": "npm run validate:root && npm run validate:structure && npm run validate:launcher && npm run validate:worker && npm run validate:models && npm run validate:evidence && npm run typecheck && npm run check:rust && npm run build:frontend && npm run build && npm run status:readiness"
+    "validate:ui-reference": "node scripts/validate_ui_reference.mjs",
+    "validate:internal": "npm run validate:root && npm run validate:structure && npm run validate:launcher && npm run validate:worker && npm run validate:evidence && npm run validate:ui-reference && npm run typecheck && npm run check:rust && npm run build:frontend",
+    "validate:full": "npm run validate:root && npm run validate:structure && npm run validate:launcher && npm run validate:worker && npm run validate:models && npm run validate:evidence && npm run validate:ui-reference && npm run typecheck && npm run check:rust && npm run build:frontend && npm run build && npm run status:readiness"
   },
   "dependencies": {
     "@tauri-apps/api": "^2.0.0"
