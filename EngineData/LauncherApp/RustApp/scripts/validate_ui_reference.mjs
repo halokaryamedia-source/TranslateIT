@@ -19,6 +19,10 @@ function requireContains(label, content, needle) {
   if (!content.includes(needle)) errors.push(`${label} is missing: ${needle}`);
 }
 
+function requireNotContains(label, content, needle) {
+  if (content.includes(needle)) errors.push(`${label} must not include: ${needle}`);
+}
+
 function requireOrdered(label, content, first, second) {
   const firstIndex = content.indexOf(first);
   const secondIndex = content.indexOf(second);
@@ -33,6 +37,16 @@ requireOrdered("main.ts", main, 'import "./launcherGuard.css";', 'import "./refe
 requireContains("main.ts", main, "bindReferenceUi();");
 requireContains("main.ts", main, "bindAttachmentLimitWatcher();");
 requireContains("main.ts", main, "bindResultWatcher();");
+
+const requiredShellCopy = [
+  "Speak Indonesian. Get translated English voice output.",
+  "Type a message, or press the microphone button on the right to record speech locally.",
+  "Ask anything...",
+  "Recording started. I will update this conversation when the voice translation result is ready.",
+  "Type or paste Indonesian text and get an English translation in the conversation.",
+];
+
+for (const copy of requiredShellCopy) requireContains("shell.ts", shell, copy);
 
 const requiredIds = [
   "messageInput",
@@ -93,12 +107,14 @@ for (const filename of requiredReferenceImages) requireContains("reference_image
 
 const forbiddenBindingPatterns = [
   "new MutationObserver",
+  "setText(",
+  "setInputPlaceholder(",
+  "setFeatureCardCopy",
+  "applyReferenceCopy",
   "bindReferenceUi();\n",
 ];
 
-for (const pattern of forbiddenBindingPatterns) {
-  if (referenceBinding.includes(pattern)) errors.push(`referenceUiBinding.ts must not include side-effect or persistent mutation hook: ${pattern}`);
-}
+for (const pattern of forbiddenBindingPatterns) requireNotContains("referenceUiBinding.ts", referenceBinding, pattern);
 
 if (errors.length > 0) {
   console.error("UI reference validation failed:");
