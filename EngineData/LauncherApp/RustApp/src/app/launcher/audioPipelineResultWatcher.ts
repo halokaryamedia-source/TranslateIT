@@ -13,7 +13,15 @@ function wait(milliseconds: number): Promise<void> {
 }
 
 function evidenceKey(evidence: AudioPipelineEvidence): string {
-  return [evidence.evidence_unix_ms ?? "", evidence.transcript_text ?? "", evidence.translated_text ?? ""].join("|");
+  return [
+    evidence.evidence_unix_ms ?? "",
+    evidence.transcript_text ?? "",
+    evidence.translated_text ?? "",
+    evidence.translation_mode_used ?? evidence.translate?.mode ?? "",
+    evidence.translation_fallback_used ? "fallback" : "primary",
+    evidence.direction_pair ?? evidence.translate?.direction_pair ?? "",
+    evidence.playback_ok === undefined ? "playback_unknown" : String(evidence.playback_ok),
+  ].join("|");
 }
 
 function setNotice(message: string): void {
