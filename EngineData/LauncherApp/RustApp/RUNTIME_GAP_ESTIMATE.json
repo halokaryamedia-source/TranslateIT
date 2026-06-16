@@ -1,5 +1,5 @@
 {
-  "schema": "translateit.runtime_gap_estimate.v3",
+  "schema": "translateit.runtime_gap_estimate.v4",
   "note": "Tracking only. This is not validation evidence.",
   "remaining": {
     "language_picker_percent": 0,
@@ -7,6 +7,12 @@
     "real_translation_percent": "25-30",
     "voice_pipeline_percent": "30-35",
     "build_test_validation": "not_run"
+  },
+  "evidence_files": {
+    "worker_smoke": "UserData/LogData/RustAppValidation/latest_worker_smoke_result.json",
+    "manual_runtime": "UserData/LogData/RustAppValidation/latest_manual_runtime_evidence.json",
+    "validation": "UserData/LogData/RustAppValidation/latest_validation_evidence.json",
+    "readiness_summary": "UserData/LogData/RustAppValidation/latest_readiness_summary.json"
   },
   "next_safe_tasks": [
     "keep attachment binary formats unsupported until parser exists",
