@@ -55,8 +55,11 @@ export function selectButton(label: string, value: string, attributes: Attribute
 }
 
 export function primaryButton(label: string, attributes: AttributeMap = {}): string {
-  const merged = { type: "button", ...attributes };
-  return `<button class="mic-test-button-v22"${attrs(merged)}>${escapeHtml(label)}</button>`;
+  const classValue = attributes.class ? ` ${String(attributes.class)}` : "";
+  const cleanAttributes = { ...attributes };
+  delete cleanAttributes.class;
+  const merged = { type: "button", ...cleanAttributes };
+  return `<button class="mic-test-button-v22${escapeHtml(classValue)}"${attrs(merged)}>${escapeHtml(label)}</button>`;
 }
 
 export function advancedEmpty(): string {
