@@ -20,6 +20,7 @@ export function bindUi() {
     settingsButton: requireElement<HTMLButtonElement>("#settingsButton"),
     backHomeButton: requireElement<HTMLButtonElement>("#backHomeButton"),
     messageInput: requireElement<HTMLInputElement>("#messageInput"),
+    attachmentInput: requireElement<HTMLInputElement>("#attachmentInput"),
     sendButton: requireElement<HTMLButtonElement>("#sendButton"),
     microphoneButton: requireElement<HTMLButtonElement>("#microphoneButton"),
     quickMicButton: requireElement<HTMLButtonElement>("#quickMicButton"),
