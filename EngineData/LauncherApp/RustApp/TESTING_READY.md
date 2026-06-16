@@ -20,6 +20,7 @@ Status for the next manual testing round.
 - Translate language swap control.
 - Manual text translation now attempts the project-local realtime worker bridge first.
 - Worker smoke evidence is now included in readiness summary logic.
+- Runtime evidence flow is documented in `RUNTIME_EVIDENCE_FLOW.md`.
 - Developer diagnostic button guard.
 - Developer diagnostic log display and local-path redaction.
 
@@ -30,6 +31,14 @@ Status for the next manual testing round.
 - Voice pipeline still needs worker execution validation with real captured audio.
 - File attachment supports text ingestion only; PDF/DOCX/binary parsing is not connected yet.
 - Full installer/package release validation has not been run.
+
+## Remaining Gap Estimate
+
+- Language picker: 0% remaining.
+- Text attachment ingest and drag-drop: about 15% remaining.
+- Real translation model validation: about 25-30% remaining.
+- Voice ASR > Translate > TTS validation: about 30-35% remaining.
+- Build/test/package validation: not run yet.
 
 ## Manual Testing Rule
 
