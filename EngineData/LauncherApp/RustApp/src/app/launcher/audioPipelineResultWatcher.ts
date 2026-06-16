@@ -25,11 +25,17 @@ function isMissing(evidence: AudioPipelineEvidence | null): boolean {
   return !evidence || evidence.stage === "audio_pipeline_evidence_missing";
 }
 
+function playbackStatus(evidence: AudioPipelineEvidence): string {
+  if (!evidence.synthesize_ok) return "TTS output was not created.";
+  if (!evidence.auto_play_output) return "TTS output is ready, auto-play is off.";
+  return evidence.playback_ok ? "TTS audio played locally." : "TTS output is ready, but playback did not complete.";
+}
+
 function formatCompletedMessage(evidence: AudioPipelineEvidence): string | null {
   const transcript = evidence.transcript_text?.trim() ?? "";
   const translated = evidence.translated_text?.trim() ?? "";
   if (!evidence.ok || !translated) return null;
-  return `Voice translation ready. Transcript: ${transcript || "available"}. Translation: ${translated}`;
+  return `Voice translation ready. Transcript: ${transcript || "available"}. Translation: ${translated}. ${playbackStatus(evidence)}`;
 }
 
 async function pollForResult(startedAtUnixMs: number): Promise<void> {
