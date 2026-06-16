@@ -1,0 +1,34 @@
+{
+  "description": "Official TranslateIT UI reference screenshots. Binary PNG files should be stored beside this manifest when repository binary upload is available.",
+  "target_resolution": "1920x1080",
+  "references": [
+    {
+      "id": "main_page_v28",
+      "filename": "main_page_v28_reference.png",
+      "source_package_name": "02_main_page_v28_reference.png",
+      "sha256": "16221138168a2a153323f8db4ee2acd4d9bf0a3655de127b4ca6bf31bbf6dc25",
+      "required_layout": "Main launcher page"
+    },
+    {
+      "id": "audio_settings_v22",
+      "filename": "audio_settings_v22_reference.png",
+      "source_package_name": "03_audio_settings_v22_reference.png",
+      "sha256": "a92132d6e9e574acd5ac1d19612b7e620d45141cf8134ecd7516d170ee17edf3",
+      "required_layout": "Audio settings page"
+    },
+    {
+      "id": "translate_settings_v14",
+      "filename": "translate_settings_v14_reference.png",
+      "source_package_name": "04_translate_settings_v14_reference.png",
+      "sha256": "9a4c9b26cf742e6640fc78c2c4feefde49c38bc393642a0602682f861a2fe62c",
+      "required_layout": "Translate settings page"
+    },
+    {
+      "id": "developer_settings_v37",
+      "filename": "developer_settings_v37_reference.png",
+      "source_package_name": "05_developer_settings_v37_reference.png",
+      "sha256": "3812cd354bf31afa74582f56dc027a8cb978bbf2c9c2df00bfe90c7b5a34da35",
+      "required_layout": "Developer settings page"
+    }
+  ]
+}
