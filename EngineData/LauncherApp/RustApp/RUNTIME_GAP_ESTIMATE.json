@@ -1,14 +1,19 @@
 {
-  "schema": "translateit.runtime_gap_estimate.v1",
-  "note": "Tracking only. This is not runtime validation evidence.",
+  "schema": "translateit.runtime_gap_estimate.v2",
+  "note": "Tracking only. This is not validation evidence.",
   "language_picker_remaining_percent": 0,
   "text_attachment_remaining_percent": 15,
   "real_translation_remaining_percent": "25-30",
   "voice_pipeline_remaining_percent": "30-35",
   "build_test_validation": "not_run",
+  "next_safe_tasks": [
+    "keep attachment binary formats unsupported until parser exists",
+    "keep model output pending until target PC evidence exists",
+    "keep voice pipeline pending until real audio evidence exists"
+  ],
   "blocked_until_target_pc_evidence": [
     "real_translation_model_validation",
-    "voice_asr_translate_tts_validation",
+    "voice_pipeline_validation",
     "build_test_package_validation"
   ]
 }
