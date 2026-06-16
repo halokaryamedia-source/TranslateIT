@@ -75,6 +75,13 @@ export function outputRow(iconHtml: string, title: string, description: string, 
   return `<section class="settings-output-row">${iconHtml}<div><h3>${escapeHtml(title)}</h3><p>${escapeHtml(description)}</p></div>${controlHtml}</section>`;
 }
 
+export function radioOption(id: string | null, title: string, description: string, active = false, asButton = false): string {
+  const idAttr = id ? ` id="${escapeHtml(id)}"` : "";
+  const tag = asButton ? "button" : "label";
+  const typeAttr = asButton ? ' type="button"' : "";
+  return `<${tag}${idAttr}${typeAttr} class="radio-row-v22 ${active ? "active" : ""}"><span></span><strong>${escapeHtml(title)}</strong><em>${escapeHtml(description)}</em></${tag}>`;
+}
+
 export function statusBadge(label: string, tone: "neutral" | "good" | "warning" | "error" = "neutral"): string {
   return `<span class="status-badge status-badge--${tone}">${escapeHtml(label)}</span>`;
 }
