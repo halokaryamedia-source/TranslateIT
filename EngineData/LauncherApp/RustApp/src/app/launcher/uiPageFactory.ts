@@ -86,6 +86,10 @@ export function radioOption(id: string | null, title: string, description: strin
   return `<${tag}${idAttr}${typeAttr} class="radio-row-v22 ${active ? "active" : ""}"><span></span><strong>${escapeHtml(title)}</strong><em>${escapeHtml(description)}</em></${tag}>`;
 }
 
+export function monitoringPanel(iconHtml: string, title: string, description: string, bodyHtml: string): string {
+  return `<section class="settings-panel-heading">${iconHtml}<div><h3>${escapeHtml(title)}</h3><p>${escapeHtml(description)}</p></div>${bodyHtml}</section>`;
+}
+
 export function diagnosticActions(actionHtml: string, label: string, value: string): string {
   return `<div class="diagnostic-actions">${actionHtml}<div><strong>${escapeHtml(label)}</strong><span>${escapeHtml(value)}</span></div></div>`;
 }
