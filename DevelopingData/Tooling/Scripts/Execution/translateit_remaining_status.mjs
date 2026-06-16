@@ -15,19 +15,25 @@ function readJson(path) {
   try { return JSON.parse(readFileSync(path, "utf8")); } catch { return null; }
 }
 
+function fromRepoPath(value) {
+  return value ? join(ROOT, ...value.split("/")) : "";
+}
+
 const gap = readJson(gapPath);
 const manifest = readJson(manifestPath);
 const attachmentContract = readJson(attachmentContractPath);
 const translationContract = readJson(translationContractPath);
 const audioContract = readJson(audioContractPath);
+const evidence = Object.fromEntries(Object.entries(gap?.evidence_files ?? {}).map(([key, value]) => [key, existsSync(fromRepoPath(value))]));
 const payload = {
-  schema: "translateit.remaining_status.v2",
+  schema: "translateit.remaining_status.v3",
   remaining: gap?.remaining ?? null,
   contracts_loaded: {
     attachment: Boolean(attachmentContract),
     translation: Boolean(translationContract),
     audio_pipeline: Boolean(audioContract)
   },
+  evidence_present: evidence,
   runtime_manifest_loaded: Boolean(manifest),
   markers: {
     attachment_text_only: attachmentContract?.text_only_supported === true,
