@@ -574,3 +574,20 @@
     grid-template-columns: 1fr;
   }
 }
+
+
+/* Approved app logo: use existing HD Tauri icon asset for UI preview. */
+.brand-mark {
+  width: 48px;
+  height: 48px;
+  background: url("../src-tauri/icons/icon.png") center / contain no-repeat;
+}
+
+.brand-mark use {
+  display: none;
+}
+
+.brand strong {
+  text-transform: none;
+  letter-spacing: -0.01em;
+}
