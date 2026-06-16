@@ -4,6 +4,7 @@ button:disabled { pointer-events: none; user-select: none; opacity: .52; cursor:
 button:focus-visible, input:focus-visible { outline: 2px solid #d6dbe3; outline-offset: 3px; }
 .composer input:disabled { opacity: .72; cursor: wait; }
 .composer input::placeholder { color: rgba(219, 224, 232, .46); }
+.attachment-input { position: absolute; inline-size: 1px; block-size: 1px; opacity: 0; pointer-events: none; overflow: hidden; }
 .nav-item:not(.active) { background: #090c12; color: var(--muted); font-weight: 700; }
 .nav-item:not(.active)::before { display: none; }
 .nav-item.active { position: relative; background: var(--surface); color: var(--text); font-weight: 750; }
