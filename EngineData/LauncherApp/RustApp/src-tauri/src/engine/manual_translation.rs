@@ -21,6 +21,8 @@ struct WorkerTranslationResponse {
     device: Option<String>,
     translated_text: Option<String>,
     blocker: Option<String>,
+    direction_pair: Option<String>,
+    direction_supported: Option<bool>,
 }
 
 fn preview_source(value: &str) -> String {
@@ -107,7 +109,7 @@ fn compact_worker_field(value: Option<String>) -> String {
     value
         .unwrap_or_default()
         .chars()
-        .filter(|character| character.is_ascii_alphanumeric() || matches!(character, '_' | '-' | ':' | '.' | ' '))
+        .filter(|character| character.is_ascii_alphanumeric() || matches!(character, '_' | '-' | ':' | '.' | '>' | ' '))
         .take(120)
         .collect::<String>()
         .trim()
@@ -117,10 +119,21 @@ fn compact_worker_field(value: Option<String>) -> String {
 fn worker_note(worker: WorkerTranslationResponse) -> String {
     let stage = compact_worker_field(worker.stage);
     let blocker = compact_worker_field(worker.blocker);
-    if blocker.is_empty() {
-        format!("worker_stage={stage}")
+    let pair = compact_worker_field(worker.direction_pair);
+    let direction = match worker.direction_supported {
+        Some(true) => "direction_supported=true",
+        Some(false) => "direction_supported=false",
+        None => "direction_supported=unknown",
+    };
+    let direction_detail = if pair.is_empty() {
+        direction.to_string()
     } else {
-        format!("worker_stage={stage}; blocker={blocker}")
+        format!("pair={pair}; {direction}")
+    };
+    if blocker.is_empty() {
+        format!("worker_stage={stage}; {direction_detail}")
+    } else {
+        format!("worker_stage={stage}; blocker={blocker}; {direction_detail}")
     }
 }
 
@@ -128,16 +141,27 @@ fn worker_success_suffix(worker: &WorkerTranslationResponse, fallback_used: bool
     let mode = compact_worker_field(worker.mode.clone());
     let model = compact_worker_field(worker.model_id.clone());
     let device = compact_worker_field(worker.device.clone());
+    let pair = compact_worker_field(worker.direction_pair.clone());
+    let direction = match worker.direction_supported {
+        Some(true) => "direction supported",
+        Some(false) => "direction fallback required",
+        None => "direction unknown",
+    };
     let detail = [mode, model, device]
         .into_iter()
         .filter(|value| !value.is_empty())
         .collect::<Vec<_>>()
         .join(" / ");
     let worker_label = if fallback_used { "local worker fallback" } else { "local worker" };
-    if detail.is_empty() {
-        worker_label.to_string()
+    let direction_detail = if pair.is_empty() {
+        direction.to_string()
     } else {
-        format!("{worker_label}: {detail}")
+        format!("{pair}; {direction}")
+    };
+    if detail.is_empty() {
+        format!("{worker_label}: {direction_detail}")
+    } else {
+        format!("{worker_label}: {detail}; {direction_detail}")
     }
 }
 
