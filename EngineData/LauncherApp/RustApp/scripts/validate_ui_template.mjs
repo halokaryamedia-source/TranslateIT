@@ -28,6 +28,7 @@ const required = [
   "advancedEmpty(",
   "emptyState(",
   "outputRow(",
+  "radioOption(",
   "statusBadge(",
   "developerLogRows(",
   "DeveloperLogRow",
