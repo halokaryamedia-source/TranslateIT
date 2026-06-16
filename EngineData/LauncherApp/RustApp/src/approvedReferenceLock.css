@@ -4,6 +4,11 @@
   Rule: no !important; keep selectors explicit and reusable so deltas can be merged into referenceLayout.css after visual acceptance.
 */
 
+:root {
+  --ref-home-panel-width: 760px;
+  --ref-composer-width: 1040px;
+}
+
 .workspace .hero-kicker {
   justify-self: center;
   width: 378px;
@@ -29,11 +34,12 @@
 }
 
 .workspace .feature-grid {
+  gap: 34px;
   margin-top: 122px;
 }
 
 .workspace .feature-card {
-  min-height: 248px;
+  min-height: 252px;
   padding: 42px 36px;
 }
 
