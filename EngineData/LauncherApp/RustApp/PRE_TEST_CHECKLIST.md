@@ -2,6 +2,17 @@
 
 Use this checklist before manual testing the desktop launcher.
 
+## Quick Test Order
+
+1. Launch desktop app.
+2. Wait for warmup to finish.
+3. Test chat text input.
+4. Test Settings > General.
+5. Test Settings > Audio.
+6. Test Settings > Translate.
+7. Test Settings > Developer.
+8. Reopen app once to confirm settings and local chat state are still stable.
+
 ## Must Check First
 
 - Open the desktop app from the Tauri launcher, not from a browser.
@@ -27,6 +38,13 @@ Use this checklist before manual testing the desktop launcher.
 - File attachment backend is not connected yet.
 - Source/target language controls are cycle buttons for now, not a full dropdown list.
 - Build/package validation has not been run from this checklist.
+
+## Remaining Before Manual Testing
+
+- UI checklist prep: 1% remaining.
+- Manual testing readiness: 2% remaining.
+- Build/test validation: not run yet.
+- Production readiness: still depends on real worker, voice pipeline, and package validation.
 
 ## Pass Criteria For This Testing Round
 
