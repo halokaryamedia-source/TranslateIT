@@ -21,6 +21,7 @@ function evidenceKey(evidence: AudioPipelineEvidence): string {
     evidence.translation_mode_used ?? evidence.translate?.mode ?? "",
     evidence.translation_fallback_used ? "fallback" : "primary",
     evidence.direction_pair ?? evidence.translate?.direction_pair ?? "",
+    evidence.synthesize?.provider ?? "",
     evidence.playback_ok === undefined ? "playback_unknown" : String(evidence.playback_ok),
   ].join("|");
 }
@@ -41,10 +42,17 @@ function isMissing(evidence: AudioPipelineEvidence | null): boolean {
   return !evidence || evidence.stage === "audio_pipeline_evidence_missing";
 }
 
+function ttsProvider(evidence: AudioPipelineEvidence): string {
+  const provider = evidence.synthesize?.provider?.trim();
+  if (!provider) return "TTS";
+  return provider === "windows-sapi" ? "Windows SAPI" : provider === "piper" ? "Piper" : provider;
+}
+
 function playbackStatus(evidence: AudioPipelineEvidence): string {
-  if (!evidence.synthesize_ok) return "TTS output was not created.";
-  if (!evidence.auto_play_output) return "TTS output is ready, auto-play is off.";
-  return evidence.playback_ok ? "TTS audio played locally." : "TTS output is ready, but playback did not complete.";
+  const provider = ttsProvider(evidence);
+  if (!evidence.synthesize_ok) return `${provider} output was not created.`;
+  if (!evidence.auto_play_output) return `${provider} output is ready, auto-play is off.`;
+  return evidence.playback_ok ? `${provider} audio played locally.` : `${provider} output is ready, but playback did not complete.`;
 }
 
 function languagePair(evidence: AudioPipelineEvidence): string {
@@ -100,7 +108,7 @@ async function pollForResult(startedAtUnixMs: number): Promise<void> {
         return;
       }
       if (attempt === POLL_ATTEMPTS - 1 || evidence.stage === "audio_pipeline_evidence_invalid") {
-        const blocker = evidence.blocker ?? evidence.translate?.blocker ?? `ASR=${Boolean(evidence.transcribe_ok)} Translation=${Boolean(evidence.translate_ok)} TTS=${Boolean(evidence.synthesize_ok)}`;
+        const blocker = evidence.blocker ?? evidence.translate?.blocker ?? evidence.synthesize?.blocker ?? `ASR=${Boolean(evidence.transcribe_ok)} Translation=${Boolean(evidence.translate_ok)} TTS=${Boolean(evidence.synthesize_ok)}`;
         setNotice(`Voice pipeline did not complete yet. ${blocker}`);
         return;
       }
