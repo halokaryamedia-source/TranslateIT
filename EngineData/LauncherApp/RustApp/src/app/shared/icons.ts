@@ -27,6 +27,12 @@ export const icons = {
 
 export type IconName = keyof typeof icons;
 
+const svgAttributes = `xmlns="http://www.w3.org/2000/svg" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"`;
+
+function normalizeIconSvg(svg: string): string {
+  return svg.replace("<svg ", `<svg ${svgAttributes} `);
+}
+
 export function icon(name: IconName): string {
-  return `<span class="icon" aria-hidden="true">${icons[name]}</span>`;
+  return `<span class="icon" aria-hidden="true">${normalizeIconSvg(icons[name])}</span>`;
 }
