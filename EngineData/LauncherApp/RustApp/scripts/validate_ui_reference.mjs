@@ -8,6 +8,7 @@ const main = read("src/main.ts");
 const shell = read("src/app/launcher/shell.ts");
 const settingsViews = read("src/app/launcher/settingsViews.ts");
 const referenceLayout = read("src/referenceLayout.css");
+const professionalUi = read("src/professionalUi.css");
 const referenceBinding = read("src/app/launcher/referenceUiBinding.ts");
 const primitives = read("src/app/launcher/referenceUiPrimitives.ts");
 const guide = read("UI_REFERENCE_GUIDE.md");
@@ -33,7 +34,8 @@ function requireOrdered(label, content, first, second) {
 
 requireOrdered("main.ts", main, 'import "./styles.css";', 'import "./settingsLayout.css";');
 requireOrdered("main.ts", main, 'import "./settingsLayout.css";', 'import "./launcherGuard.css";');
-requireOrdered("main.ts", main, 'import "./launcherGuard.css";', 'import "./referenceLayout.css";');
+requireOrdered("main.ts", main, 'import "./launcherGuard.css";', 'import "./professionalUi.css";');
+requireOrdered("main.ts", main, 'import "./professionalUi.css";', 'import "./referenceLayout.css";');
 requireContains("main.ts", main, "bindReferenceUi();");
 requireContains("main.ts", main, "bindAttachmentLimitWatcher();");
 requireContains("main.ts", main, "bindResultWatcher();");
@@ -95,6 +97,17 @@ for (const token of requiredCssTokens) {
   requireContains("referenceLayout.css", referenceLayout, token);
   if (token.startsWith("--ref-")) requireContains("UI_REFERENCE_GUIDE.md", guide, token.split(":")[0]);
 }
+
+const requiredProfessionalTokens = [
+  ".translation-result-card",
+  ".ui-toast",
+  ".developer-log-row",
+  ":focus-visible",
+];
+
+for (const token of requiredProfessionalTokens) requireContains("professionalUi.css", professionalUi, token);
+requireContains("referenceUiBinding.ts", referenceBinding, "showToast(");
+requireContains("referenceUiBinding.ts", referenceBinding, "Saving settings...");
 
 const requiredReferenceImages = [
   "main_page_v28_reference.png",
