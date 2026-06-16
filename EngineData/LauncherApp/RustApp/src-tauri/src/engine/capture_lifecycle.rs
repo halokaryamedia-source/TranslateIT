@@ -87,8 +87,8 @@ fn start_audio_pipeline_worker(audio_path: String, user_log_dir: String) {
 
         let transcribe = run_worker(json!({
             "command": "transcribe",
-            "audio_path": audio_path,
-            "language": source_language,
+            "audio_path": audio_path.clone(),
+            "language": source_language.clone(),
             "beam_size": 1,
             "vad_filter": true
         }));
@@ -97,9 +97,9 @@ fn start_audio_pipeline_worker(audio_path: String, user_log_dir: String) {
         let translate = if json_ok(&transcribe) && !transcript_text.is_empty() {
             run_worker(json!({
                 "command": "translate",
-                "text": transcript_text,
-                "source_language": source_language,
-                "target_language": target_language,
+                "text": transcript_text.clone(),
+                "source_language": source_language.clone(),
+                "target_language": target_language.clone(),
                 "mode": mode,
                 "max_new_tokens": 96
             }))
@@ -111,7 +111,7 @@ fn start_audio_pipeline_worker(audio_path: String, user_log_dir: String) {
         let synthesize = if json_ok(&translate) && !translated_text.is_empty() {
             run_worker(json!({
                 "command": "synthesize",
-                "text": translated_text
+                "text": translated_text.clone()
             }))
         } else {
             None
