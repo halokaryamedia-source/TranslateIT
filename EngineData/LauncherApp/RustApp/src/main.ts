@@ -1,6 +1,7 @@
 import "./styles.css";
 import "./settingsLayout.css";
 import "./launcherGuard.css";
+import "./referenceLayout.css";
 import { LauncherController } from "./app/launcher/launcherController";
 import { bindAttachmentLimitWatcher } from "./app/launcher/attachmentLimitWatcher";
 import { bindAudioPipelineResultWatcher as bindResultWatcher } from "./app/launcher/audioPipelineResultWatcher";
