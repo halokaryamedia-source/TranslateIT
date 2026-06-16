@@ -32,22 +32,27 @@ function playbackStatus(evidence: AudioPipelineEvidence): string {
 }
 
 function languagePair(evidence: AudioPipelineEvidence): string {
-  const pair = evidence.direction_pair?.trim();
+  const pair = evidence.direction_pair?.trim() || evidence.translate?.direction_pair?.trim();
   if (pair) return pair.replace("->", " > ").toUpperCase();
-  const source = evidence.source_language?.trim().toUpperCase() || "SOURCE";
-  const target = evidence.target_language?.trim().toUpperCase() || "TARGET";
+  const source = evidence.source_language?.trim().toUpperCase() || evidence.translate?.source_language?.trim().toUpperCase() || "SOURCE";
+  const target = evidence.target_language?.trim().toUpperCase() || evidence.translate?.target_language?.trim().toUpperCase() || "TARGET";
   return `${source} > ${target}`;
 }
 
+function resolvedDirectionSupported(evidence: AudioPipelineEvidence): boolean | undefined {
+  return evidence.direction_supported ?? evidence.translate?.direction_supported;
+}
+
 function directionStatus(evidence: AudioPipelineEvidence): string {
-  if (evidence.direction_supported === false) return "Realtime direction unsupported; Quality route required.";
-  if (evidence.direction_supported === true) return "Realtime direction supported.";
+  const supported = resolvedDirectionSupported(evidence);
+  if (supported === false) return "Realtime direction unsupported; Quality route required.";
+  if (supported === true) return "Realtime direction supported.";
   return "Direction support not reported.";
 }
 
 function translationStatus(evidence: AudioPipelineEvidence): string {
   const requested = evidence.requested_mode?.trim() || "Auto";
-  const used = evidence.translation_mode_used?.trim() || requested;
+  const used = evidence.translation_mode_used?.trim() || evidence.translate?.mode?.trim() || requested;
   const fallback = evidence.translation_fallback_used ? "fallback used" : "no fallback";
   return `${languagePair(evidence)}, ${used} mode (${fallback}; requested ${requested}). ${directionStatus(evidence)}`;
 }
@@ -79,7 +84,7 @@ async function pollForResult(startedAtUnixMs: number): Promise<void> {
         return;
       }
       if (attempt === POLL_ATTEMPTS - 1 || evidence.stage === "audio_pipeline_evidence_invalid") {
-        const blocker = evidence.blocker ?? `ASR=${Boolean(evidence.transcribe_ok)} Translation=${Boolean(evidence.translate_ok)} TTS=${Boolean(evidence.synthesize_ok)}`;
+        const blocker = evidence.blocker ?? evidence.translate?.blocker ?? `ASR=${Boolean(evidence.transcribe_ok)} Translation=${Boolean(evidence.translate_ok)} TTS=${Boolean(evidence.synthesize_ok)}`;
         setNotice(`Voice pipeline did not complete yet. ${blocker}`);
         return;
       }
