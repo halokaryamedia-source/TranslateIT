@@ -12,10 +12,6 @@ const files = [
   "src/launcherGuard.css",
 ];
 
-const allowed = new Map([
-  ["src/styles.css", [`.is-hidden { display: none ${marker}; }`]],
-]);
-
 const findings = [];
 
 for (const file of files) {
@@ -23,16 +19,14 @@ for (const file of files) {
   const lines = content.split(/\r?\n/);
 
   lines.forEach((line, index) => {
-    if (!line.includes(marker)) return;
-    const permitted = allowed.get(file)?.some((token) => line.trim() === token);
-    if (!permitted) findings.push(`${file}:${index + 1}: ${line.trim()}`);
+    if (line.includes(marker)) findings.push(`${file}:${index + 1}: ${line.trim()}`);
   });
 }
 
 if (findings.length > 0) {
-  console.error("CSS priority override audit failed. Remove or document these declarations:");
+  console.error("CSS priority override audit failed. Remove these declarations:");
   for (const finding of findings) console.error(`- ${finding}`);
   process.exit(1);
 }
 
-console.log("CSS priority override audit passed. Only documented compatibility utility remains.");
+console.log("CSS priority override audit passed. No priority overrides found.");
