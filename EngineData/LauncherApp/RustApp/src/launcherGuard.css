@@ -6,11 +6,6 @@ button:focus-visible, input:focus-visible, textarea:focus-visible { outline: 2px
 .composer textarea::placeholder { color: rgba(219, 224, 232, .46); }
 .attachment-input { position: absolute; inline-size: 1px; block-size: 1px; opacity: 0; pointer-events: none; overflow: hidden; }
 .composer-wrap.is-attachment-dragover .composer { outline: 2px solid rgba(214,219,227,.72); outline-offset: 6px; background: rgba(255,255,255,.08); }
-.nav-item:not(.active) { background: #090c12; color: var(--muted); font-weight: 700; }
-.nav-item:not(.active)::before { display: none; }
-.nav-item.active { position: relative; background: var(--surface); color: var(--text); font-weight: 750; }
-.nav-item.active::before { content: ""; position: absolute; left: -1px; top: 15px; width: 3px; height: 26px; border-radius: 2px; background: #d7dbe1; }
-.nav-item.active svg { color: #b9c1cc; }
 .feature-card h4, .assistant-card strong, .nav-item span, .new-chat-button span { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .feature-card p, .assistant-card p, .hero-panel > p, .composer-help { overflow: hidden; display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 3; }
 .composer textarea { min-width: 0; }
