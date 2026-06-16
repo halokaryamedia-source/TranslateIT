@@ -34,7 +34,7 @@ button { border: 0; cursor: pointer; }
 button:disabled { cursor: wait; opacity: .55; }
 svg { width: 20px; height: 20px; fill: none; stroke: currentColor; stroke-linecap: round; stroke-linejoin: round; stroke-width: 2; shape-rendering: geometricPrecision; }
 .icon { display: inline-grid; flex: 0 0 auto; place-items: center; line-height: 0; }
-.is-hidden { display: none !important; }
+.is-hidden { display: none; }
 
 .warmup-screen { display: grid; min-height: 100vh; place-items: center; padding: 32px; }
 .warmup-card { width: min(720px, 94vw); border: 1px solid var(--border-strong); border-radius: 28px; padding: 32px; background: rgba(17, 20, 26, .94); box-shadow: 0 28px 90px rgba(0, 0, 0, .48); }
