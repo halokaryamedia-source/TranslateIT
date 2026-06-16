@@ -1,0 +1,25 @@
+.workspace .composer {
+  align-items: center;
+}
+
+.workspace .composer::before,
+.workspace .composer textarea,
+.workspace .composer-icon,
+.workspace .composer-icon.emphasis,
+.workspace .send-button {
+  align-self: center;
+}
+
+.workspace .composer-icon,
+.workspace .composer-icon.emphasis,
+.workspace .send-button {
+  display: inline-grid;
+  place-items: center;
+}
+
+.workspace .composer-icon svg,
+.workspace .send-button svg,
+.workspace .composer-icon .icon,
+.workspace .send-button .icon {
+  display: block;
+}
