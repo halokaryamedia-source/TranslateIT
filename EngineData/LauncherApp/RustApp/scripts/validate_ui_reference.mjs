@@ -6,6 +6,8 @@ const read = (path) => readFileSync(join(root, path), "utf8");
 
 const main = read("src/main.ts");
 const shell = read("src/app/launcher/shell.ts");
+const chatViews = read("src/app/launcher/chatViews.ts");
+const controller = read("src/app/launcher/launcherController.ts");
 const settingsViews = read("src/app/launcher/settingsViews.ts");
 const referenceLayout = read("src/referenceLayout.css");
 const professionalUi = read("src/professionalUi.css");
@@ -106,6 +108,10 @@ const requiredProfessionalTokens = [
 ];
 
 for (const token of requiredProfessionalTokens) requireContains("professionalUi.css", professionalUi, token);
+requireContains("chatViews.ts", chatViews, "translationResultView");
+requireContains("chatViews.ts", chatViews, "data-copy-translation");
+requireContains("launcherController.ts", controller, "translationResultView(source, response, this.voiceOutputStatus())");
+requireContains("referenceUiBinding.ts", referenceBinding, "copyTranslation(");
 requireContains("referenceUiBinding.ts", referenceBinding, "showToast(");
 requireContains("referenceUiBinding.ts", referenceBinding, "Saving settings...");
 
