@@ -31,9 +31,17 @@ export const REFERENCE_UI_LAYOUT = {
   settingsContentWidthPx: 993,
   topbarHeightPx: 72,
   mainHeroWidthPx: 720,
+  mainFeatureGridWidthPx: 720,
+  mainFeatureGridGapPx: 30,
   mainComposerWidthPx: 990,
+  mainComposerHeightPx: 62,
+  settingsContentLeftOffsetPx: 173,
   settingsCardRadiusPx: 20,
+  settingsBackButtonWidthPx: 130,
+  settingsBackButtonHeightPx: 40,
   formFieldHeightPx: 46,
+  standardButtonWidthPx: 132,
+  standardButtonHeightPx: 48,
 } as const;
 
 export const REFERENCE_UI_SPACING = {
@@ -55,7 +63,27 @@ export const REFERENCE_UI_PAGE_CLASS = {
   settingsSectionTitle: "settings-section-title",
   settingsCard: "settings-card",
   settingsField: "settings-field",
+  settingsGrid2: "settings-grid-2",
   selectField: "select-field-v22",
   radioRow: "radio-row-v22",
   actionButton: "mic-test-button-v22",
+  advancedEmpty: "advanced-empty-v22",
+} as const;
+
+export const REFERENCE_UI_PAGE_TEMPLATE = {
+  settingsPage: [
+    "settings-view",
+    "settings-view-header",
+    "settings-section-title",
+    "settings-card",
+    "settings-field",
+  ],
+  mainPage: [
+    "hero-panel",
+    "hero-kicker",
+    "feature-grid",
+    "feature-card",
+    "assistant-card",
+    "composer-wrap",
+  ],
 } as const;
