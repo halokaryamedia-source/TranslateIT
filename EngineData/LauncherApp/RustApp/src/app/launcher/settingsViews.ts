@@ -67,7 +67,7 @@ export function generalSettingsView(settings: RuntimeSettings, realtimeStatus: s
         ${factorySelectField("Realtime Status", realtimeStatus ?? "Checking", "pulse")}
         ${factorySelectField("GPU Status", gpuStatus ?? "Checking", "monitor")}
       `)}
-      ${settingsActions(`${primaryButton("Save Settings", { id: "saveSettingsButton" })}${primaryButton("Save Default", { id: "resetSettingsButton", class: "mic-test-button-v22 secondary" })}`)}
+      ${settingsActions(`${primaryButton("Save Settings", { id: "saveSettingsButton" })}${primaryButton("Save Default", { id: "resetSettingsButton", class: "secondary" })}`)}
     `)}
     ${settingsSection("Advanced General Setting", "Reserved for future launcher preferences.")}
     ${advancedEmpty()}
