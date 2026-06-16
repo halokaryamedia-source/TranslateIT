@@ -31,11 +31,20 @@ function playbackStatus(evidence: AudioPipelineEvidence): string {
   return evidence.playback_ok ? "TTS audio played locally." : "TTS output is ready, but playback did not complete.";
 }
 
+function translationStatus(evidence: AudioPipelineEvidence): string {
+  const source = evidence.source_language?.trim().toUpperCase() || "SOURCE";
+  const target = evidence.target_language?.trim().toUpperCase() || "TARGET";
+  const requested = evidence.requested_mode?.trim() || "Auto";
+  const used = evidence.translation_mode_used?.trim() || requested;
+  const fallback = evidence.translation_fallback_used ? "fallback used" : "no fallback";
+  return `${source} > ${target}, ${used} mode (${fallback}; requested ${requested}).`;
+}
+
 function formatCompletedMessage(evidence: AudioPipelineEvidence): string | null {
   const transcript = evidence.transcript_text?.trim() ?? "";
   const translated = evidence.translated_text?.trim() ?? "";
   if (!evidence.ok || !translated) return null;
-  return `Voice translation ready. Transcript: ${transcript || "available"}. Translation: ${translated}. ${playbackStatus(evidence)}`;
+  return `Voice translation ready. ${translationStatus(evidence)} Transcript: ${transcript || "available"}. Translation: ${translated}. ${playbackStatus(evidence)}`;
 }
 
 async function pollForResult(startedAtUnixMs: number): Promise<void> {
