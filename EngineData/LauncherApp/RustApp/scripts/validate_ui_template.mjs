@@ -28,6 +28,7 @@ const required = [
   "advancedEmpty(",
   "emptyState(",
   "outputRow(",
+  "languageSelectField(",
   "radioOption(",
   "statusBadge(",
   "developerLogRows(",
