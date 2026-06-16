@@ -2,6 +2,7 @@ mod commands;
 mod engine;
 
 use commands::audio::*;
+use commands::audio_evidence::*;
 use commands::chat::*;
 use commands::diagnostics::*;
 use commands::hardware::*;
@@ -32,6 +33,7 @@ fn main() {
         get_input_status,
         get_audio_buffer_status,
         get_live_capture_status,
+        get_latest_audio_pipeline_evidence,
         analyze_capture_loop_contract,
         analyze_stream_ownership_plan,
         analyze_realtime_handoff_plan,
