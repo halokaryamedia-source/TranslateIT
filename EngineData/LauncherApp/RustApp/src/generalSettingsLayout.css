@@ -1,7 +1,7 @@
 /*
   General Settings layout module.
-  Direction: match the approved Settings pages without changing shared Settings navigation/icons.
-  Scope: only .settings-view--general content area.
+  Direction: match the approved Audio Settings v22 spacing language.
+  Scope: only .settings-view--general content area. Settings sidebar/topbar is owned by settingsShellLayout.css.
 */
 
 .settings-view--general .settings-view-header {
@@ -37,4 +37,5 @@
 
 .settings-view--general .advanced-empty-v22 {
   height: 170px;
+  margin-top: 34px;
 }
