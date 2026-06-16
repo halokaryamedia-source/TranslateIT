@@ -16,12 +16,14 @@ import { warmupProgressSteps, warmupStepsView } from "./warmupViews";
 
 const MAX_MANUAL_TRANSLATION_CHARS = 2_000;
 const MAX_ATTACHMENT_BYTES = 64 * 1024;
+const MAX_ATTACHMENT_FILES = 4;
 const LANGUAGE_CODES = ["id", "en"] as const;
 const LANGUAGE_OPTIONS: { code: LanguageCode; label: string }[] = [
   { code: "id", label: "Indonesian" },
   { code: "en", label: "English" },
 ];
 const TEXT_ATTACHMENT_EXTENSIONS = [".txt", ".md", ".json", ".csv"];
+const TEXT_ATTACHMENT_SUPPORT_MESSAGE = "Only text, markdown, JSON, or CSV attachments are supported for now. PDF and DOCX require a backend parser first.";
 type LanguageCode = (typeof LANGUAGE_CODES)[number];
 type LanguageSelectorRole = "source" | "target";
 
@@ -76,9 +78,7 @@ export class LauncherController {
     return false;
   }
 
-  private isLanguageCode(value: string): value is LanguageCode {
-    return LANGUAGE_CODES.some((code) => code === value);
-  }
+  private isLanguageCode(value: string): value is LanguageCode { return LANGUAGE_CODES.some((code) => code === value); }
 
   private nextLanguageCode(value: string): LanguageCode {
     const index = LANGUAGE_CODES.findIndex((code) => code === value.toLowerCase());
@@ -131,41 +131,57 @@ export class LauncherController {
     return file.type.startsWith("text/") || file.type === "application/json" || TEXT_ATTACHMENT_EXTENSIONS.some((extension) => name.endsWith(extension));
   }
 
-  private compactAttachmentText(value: string): string {
-    return value.replace(/\s+/g, " ").trim();
+  private compactAttachmentText(value: string): string { return value.replace(/\s+/g, " ").trim(); }
+
+  private attachmentSection(file: File, text: string): string {
+    return `[Attachment: ${file.name}]\n${text}`;
   }
 
-  private async ingestAttachmentFile(fileOverride?: File): Promise<void> {
-    const file = fileOverride ?? this.ui.attachmentInput.files?.[0];
-    if (!fileOverride) this.ui.attachmentInput.value = "";
-    if (!file) return;
+  private unsupportedAttachmentMessage(file: File): string {
+    const name = file.name.toLowerCase();
+    if (name.endsWith(".pdf") || name.endsWith(".docx")) return `${file.name} is not supported yet. ${TEXT_ATTACHMENT_SUPPORT_MESSAGE}`;
+    return `${file.name} is not a supported text attachment. ${TEXT_ATTACHMENT_SUPPORT_MESSAGE}`;
+  }
+
+  private async ingestAttachmentFiles(filesInput?: FileList | File[]): Promise<void> {
+    const files = Array.from(filesInput ?? this.ui.attachmentInput.files ?? []).slice(0, MAX_ATTACHMENT_FILES);
+    this.ui.attachmentInput.value = "";
+    if (files.length === 0) return;
     if (this.attachmentReadPending) {
       this.setAssistantNotice("Attachment read is already running. Please wait.");
       return;
     }
-    if (!this.isSupportedTextAttachment(file)) {
-      this.setAssistantNotice("Only text, markdown, JSON, or CSV attachments are supported for now.");
+    const unsupported = files.find((file) => !this.isSupportedTextAttachment(file));
+    if (unsupported) {
+      this.setAssistantNotice(this.unsupportedAttachmentMessage(unsupported));
       return;
     }
-    if (file.size > MAX_ATTACHMENT_BYTES) {
-      this.setAssistantNotice("Attachment is too large. Limit: 64 KB text file.");
+    const oversized = files.find((file) => file.size > MAX_ATTACHMENT_BYTES);
+    if (oversized) {
+      this.setAssistantNotice(`${oversized.name} is too large. Limit: 64 KB per text file.`);
       return;
     }
     this.attachmentReadPending = true;
     this.ui.composerPlusButton.disabled = true;
     try {
-      const text = this.compactAttachmentText(await file.text());
-      if (!text) {
-        this.setAssistantNotice("Attachment is empty.");
+      const sections = [] as string[];
+      for (const file of files) {
+        const text = this.compactAttachmentText(await file.text());
+        if (!text) {
+          this.setAssistantNotice(`${file.name} is empty.`);
+          return;
+        }
+        sections.push(this.attachmentSection(file, text));
+      }
+      const combinedText = sections.join("\n\n");
+      if (this.exceedsManualTranslationLimit(combinedText)) {
+        this.setAssistantNotice(`Combined attachment text is too long. Limit: ${MAX_MANUAL_TRANSLATION_CHARS} characters after cleanup.`);
         return;
       }
-      if (this.exceedsManualTranslationLimit(text)) {
-        this.setAssistantNotice(`Attachment text is too long. Limit: ${MAX_MANUAL_TRANSLATION_CHARS} characters after cleanup.`);
-        return;
-      }
-      this.ui.messageInput.value = text;
+      this.ui.messageInput.value = combinedText;
       this.ui.messageInput.focus();
-      this.setAssistantNotice(`Attached ${file.name}. Text is ready for translation.`);
+      const names = files.map((file) => file.name).join(", ");
+      this.setAssistantNotice(`Attached ${files.length} file(s): ${names}. Text is ready for translation.`);
     } catch (_error) {
       this.setAssistantNotice("Attachment could not be read as text.");
     } finally {
@@ -187,8 +203,8 @@ export class LauncherController {
     dropZone.addEventListener("drop", (event) => {
       event.preventDefault();
       dropZone.classList.remove("is-attachment-dragover");
-      const file = event.dataTransfer?.files?.[0];
-      if (file) void this.ingestAttachmentFile(file);
+      const files = event.dataTransfer?.files;
+      if (files && files.length > 0) void this.ingestAttachmentFiles(files);
     });
   }
 
@@ -515,7 +531,7 @@ export class LauncherController {
     this.ui.messageInput.addEventListener("keydown", (event) => { if (event.key === "Enter" && !event.shiftKey) { event.preventDefault(); void this.submitText(); } });
     this.ui.newChatButton.addEventListener("click", () => void this.createNewChat());
     this.ui.composerPlusButton.addEventListener("click", () => { this.ui.attachmentInput.click(); });
-    this.ui.attachmentInput.addEventListener("change", () => void this.ingestAttachmentFile());
+    this.ui.attachmentInput.addEventListener("change", () => void this.ingestAttachmentFiles());
     this.bindAttachmentDropZone();
     this.ui.recentChatButton.addEventListener("click", () => void this.showChatCollection("recent", this.ui.recentChatButton));
     this.ui.unsavedChatButton.addEventListener("click", () => void this.showChatCollection("unsaved", this.ui.unsavedChatButton));
