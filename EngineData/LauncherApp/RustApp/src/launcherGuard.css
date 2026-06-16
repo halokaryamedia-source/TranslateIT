@@ -5,6 +5,10 @@ button:focus-visible, input:focus-visible { outline: 2px solid #d6dbe3; outline-
 .composer input:disabled { opacity: .72; cursor: wait; }
 .composer input::placeholder { color: rgba(219, 224, 232, .46); }
 .attachment-input { position: absolute; inline-size: 1px; block-size: 1px; opacity: 0; pointer-events: none; overflow: hidden; }
+.language-option-button { display: grid; grid-template-columns: minmax(0, 1fr) 54px; align-items: center; gap: 10px; width: 100%; min-height: 46px; border: 1px solid rgba(255,255,255,.08); border-radius: 13px; background: #0b0f16; color: var(--text); padding: 0 14px; text-align: left; }
+.language-option-button strong { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 13px; }
+.language-option-button span { justify-self: end; color: var(--muted); font-size: 11px; font-weight: 850; letter-spacing: .08em; }
+.language-option-button.active { background: rgba(255,255,255,.08); border-color: rgba(255,255,255,.18); }
 .nav-item:not(.active) { background: #090c12; color: var(--muted); font-weight: 700; }
 .nav-item:not(.active)::before { display: none; }
 .nav-item.active { position: relative; background: var(--surface); color: var(--text); font-weight: 750; }
