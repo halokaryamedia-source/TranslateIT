@@ -6,7 +6,7 @@ const COMPOSER_HELP = "Type a message, or press the microphone button on the rig
 const ASSISTANT_READY = "Recording started. I will update this conversation when the voice translation result is ready.";
 
 let bound = false;
-let observer: MutationObserver | null = null;
+let copyApplied = false;
 
 function setText(selector: string, value: string): void {
   const element = document.querySelector<HTMLElement>(selector);
@@ -55,14 +55,17 @@ function bindSettingsAutoSync(): void {
   }, true);
 }
 
+function scheduleReferenceCopy(): void {
+  if (copyApplied) return;
+  copyApplied = true;
+  applyReferenceCopy();
+  window.setTimeout(applyReferenceCopy, 80);
+  window.setTimeout(applyReferenceCopy, 240);
+}
+
 export function bindReferenceUi(): void {
   if (bound) return;
   bound = true;
-  applyReferenceCopy();
+  scheduleReferenceCopy();
   bindSettingsAutoSync();
-  observer = new MutationObserver(() => applyReferenceCopy());
-  const app = document.querySelector("#app");
-  if (app) observer.observe(app, { childList: true, subtree: true });
 }
-
-bindReferenceUi();
