@@ -22,6 +22,8 @@ const required = [
   "settingsField(",
   "emptyState(",
   "statusBadge(",
+  "developerLogRows(",
+  "DeveloperLogRow",
   "UI Page Template",
   "Settings Page Template",
   "Main/Home Page Template",
