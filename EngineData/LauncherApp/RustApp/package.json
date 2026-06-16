@@ -24,6 +24,7 @@
     "status:gap": "node ../../../DevelopingData/Tooling/Scripts/Execution/translateit_gap_status.mjs",
     "status:readiness": "node ../../../DevelopingData/Tooling/Scripts/Execution/translateit_tooling.mjs summarize-readiness",
     "export:figma-design": "node scripts/export_figma_design_system.mjs",
+    "validate:figma-export": "node scripts/validate_figma_export.mjs",
     "audit:css-priority": "node scripts/audit_css_important.mjs",
     "audit:ui-design": "node scripts/audit_ui_design_system.mjs",
     "validate:root": "node ../../../DevelopingData/Tooling/Scripts/Execution/translateit_tooling.mjs validate-root",
