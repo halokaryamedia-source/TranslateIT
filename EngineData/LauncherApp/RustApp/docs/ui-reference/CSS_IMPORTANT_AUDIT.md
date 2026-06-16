@@ -12,27 +12,29 @@ This audit tracks remaining CSS priority override usage in the active Rust launc
 
 ## Current Finding
 
-The current active source check found one legacy utility usage:
+No CSS priority override declaration is allowed in the active Rust launcher UI layer.
+
+The legacy utility was cleaned from:
 
 ```css
-.is-hidden { display: none !important; }
+.is-hidden { display: none; }
 ```
 
 ## Decision
 
-Keep this as a temporary compatibility utility until the UI visibility flow is migrated to explicit `hidden`, `aria-hidden`, or route-scoped state classes.
+Do not add CSS priority override declarations for layout, spacing, card sizing, typography, colors, responsive behavior, or visibility utilities.
 
-Do not add new priority override declarations for layout, spacing, card sizing, typography, colors, or responsive behavior.
+Use normal cascade order, route-scoped state classes, `hidden`, or `aria-hidden` where appropriate.
 
 ## Guard Script
 
-The guard script is now available at:
+The guard script is available at:
 
 ```text
 scripts/audit_css_important.mjs
 ```
 
-Package scripts now include:
+Package scripts include:
 
 ```text
 npm run audit:css-priority
@@ -47,15 +49,16 @@ npm run validate:full
 
 ## Cleanup Plan
 
-1. Confirm every `.is-hidden` usage is only used for binary visibility state.
-2. Replace affected call sites with explicit `hidden` attributes or route-local classes where safe.
-3. Remove the priority override from `.is-hidden` after call sites no longer rely on cascade override behavior.
-4. Keep `referenceLayout.css` as the final imported layout authority.
+1. Keep `.is-hidden` as a normal visibility utility only.
+2. Use explicit `hidden`, `aria-hidden`, or route-local classes for future visibility state where safer.
+3. Keep `referenceLayout.css` as the final imported layout authority.
+4. Reject new CSS priority overrides through `npm run audit:css-priority`.
 
 ## Status
 
 - Audit baseline: documented.
 - Guard script: added.
 - Package script: wired.
-- Cleanup applied to source CSS: pending.
+- Cleanup applied to source CSS: complete.
+- Remaining CSS priority overrides: zero expected.
 - Runtime validation: not run.
