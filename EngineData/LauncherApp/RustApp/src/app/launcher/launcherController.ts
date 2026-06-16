@@ -15,7 +15,9 @@ import { audioSettingsView, developerSettingsView, generalSettingsView, translat
 import { warmupProgressSteps, warmupStepsView } from "./warmupViews";
 
 const MAX_MANUAL_TRANSLATION_CHARS = 2_000;
+const MAX_ATTACHMENT_BYTES = 64 * 1024;
 const LANGUAGE_CODES = ["id", "en"] as const;
+const TEXT_ATTACHMENT_EXTENSIONS = [".txt", ".md", ".json", ".csv"];
 type LanguageCode = (typeof LANGUAGE_CODES)[number];
 
 export class LauncherController {
@@ -34,6 +36,7 @@ export class LauncherController {
   private saveSettingsPending = false;
   private diagnosticPending = false;
   private audioCheckPending = false;
+  private attachmentReadPending = false;
 
   constructor(root: HTMLElement) {
     mountAppShell(root);
@@ -84,6 +87,54 @@ export class LauncherController {
     }
     this.refreshDirectionPill();
     this.setAssistantNotice(`Language pair changed to ${settings.source_language.toUpperCase()} > ${settings.target_language.toUpperCase()}.`);
+  }
+
+  private isSupportedTextAttachment(file: File): boolean {
+    const name = file.name.toLowerCase();
+    return file.type.startsWith("text/") || file.type === "application/json" || TEXT_ATTACHMENT_EXTENSIONS.some((extension) => name.endsWith(extension));
+  }
+
+  private compactAttachmentText(value: string): string {
+    return value.replace(/\s+/g, " ").trim();
+  }
+
+  private async ingestAttachmentFile(): Promise<void> {
+    const file = this.ui.attachmentInput.files?.[0];
+    this.ui.attachmentInput.value = "";
+    if (!file) return;
+    if (this.attachmentReadPending) {
+      this.setAssistantNotice("Attachment read is already running. Please wait.");
+      return;
+    }
+    if (!this.isSupportedTextAttachment(file)) {
+      this.setAssistantNotice("Only text, markdown, JSON, or CSV attachments are supported for now.");
+      return;
+    }
+    if (file.size > MAX_ATTACHMENT_BYTES) {
+      this.setAssistantNotice("Attachment is too large. Limit: 64 KB text file.");
+      return;
+    }
+    this.attachmentReadPending = true;
+    this.ui.composerPlusButton.disabled = true;
+    try {
+      const text = this.compactAttachmentText(await file.text());
+      if (!text) {
+        this.setAssistantNotice("Attachment is empty.");
+        return;
+      }
+      if (this.exceedsManualTranslationLimit(text)) {
+        this.setAssistantNotice(`Attachment text is too long. Limit: ${MAX_MANUAL_TRANSLATION_CHARS} characters after cleanup.`);
+        return;
+      }
+      this.ui.messageInput.value = text;
+      this.ui.messageInput.focus();
+      this.setAssistantNotice(`Attached ${file.name}. Text is ready for translation.`);
+    } catch (_error) {
+      this.setAssistantNotice("Attachment could not be read as text.");
+    } finally {
+      this.attachmentReadPending = false;
+      this.ui.composerPlusButton.disabled = false;
+    }
   }
 
   private resetSettingsScroll(): void {
@@ -403,7 +454,8 @@ export class LauncherController {
     this.ui.sendButton.addEventListener("click", () => void this.submitText());
     this.ui.messageInput.addEventListener("keydown", (event) => { if (event.key === "Enter" && !event.shiftKey) { event.preventDefault(); void this.submitText(); } });
     this.ui.newChatButton.addEventListener("click", () => void this.createNewChat());
-    this.ui.composerPlusButton.addEventListener("click", () => { this.ui.messageInput.focus(); this.setAssistantNotice("Input is ready. File attachment backend is not connected yet."); });
+    this.ui.composerPlusButton.addEventListener("click", () => { this.ui.attachmentInput.click(); });
+    this.ui.attachmentInput.addEventListener("change", () => void this.ingestAttachmentFile());
     this.ui.recentChatButton.addEventListener("click", () => void this.showChatCollection("recent", this.ui.recentChatButton));
     this.ui.unsavedChatButton.addEventListener("click", () => void this.showChatCollection("unsaved", this.ui.unsavedChatButton));
     this.ui.savedChatButton.addEventListener("click", () => void this.showChatCollection("saved", this.ui.savedChatButton));
