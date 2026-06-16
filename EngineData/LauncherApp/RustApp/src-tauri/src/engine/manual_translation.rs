@@ -54,6 +54,46 @@ fn preview_source(value: &str) -> String {
     preview
 }
 
+fn normalize_language(value: &str, fallback: &str) -> String {
+    let text = value.trim().to_lowercase();
+    if text.starts_with("ind") || text == "id" {
+        return "id".to_string();
+    }
+    if text.starts_with("eng") || text == "en" {
+        return "en".to_string();
+    }
+    if text.is_empty() {
+        fallback.to_string()
+    } else {
+        text.chars().take(2).collect()
+    }
+}
+
+fn realtime_direction_supported(source_language: &str, target_language: &str) -> bool {
+    normalize_language(source_language, "id") == "id" && normalize_language(target_language, "en") == "en"
+}
+
+fn preferred_profile_order(requested_quality_mode: bool, source_language: &str, target_language: &str) -> Vec<&'static str> {
+    let realtime_supported = realtime_direction_supported(source_language, target_language);
+    if requested_quality_mode || !realtime_supported {
+        if realtime_supported {
+            vec!["Quality", "Realtime"]
+        } else {
+            vec!["Quality"]
+        }
+    } else {
+        vec!["Realtime", "Quality"]
+    }
+}
+
+fn engine_name_for_profile(profile: &str) -> &'static str {
+    if profile.eq_ignore_ascii_case("Quality") {
+        "nllb-200-distilled-600M-quality"
+    } else {
+        "marianmt-id-en"
+    }
+}
+
 fn local_worker_script_path() -> PathBuf {
     let project_paths = ProjectPaths::discover();
     PathBuf::from(project_paths.project_root)
@@ -182,44 +222,32 @@ pub fn translate_text(source: String) -> CommandResult {
     }
 
     let settings = load_settings();
-    let quality_mode = settings.runtime_profile.eq_ignore_ascii_case("Quality");
-    let profile_label = if quality_mode { "Quality" } else { "Realtime" };
-    let fallback_profile_label = if quality_mode { "Realtime" } else { "Quality" };
     let source_language = settings.source_language.clone();
     let target_language = settings.target_language.clone();
-    let primary_engine_name = if quality_mode {
-        "nllb-200-distilled-600M-quality"
-    } else {
-        "marianmt-id-en"
-    };
-    let fallback_engine_name = if quality_mode {
-        "marianmt-id-en"
-    } else {
-        "nllb-200-distilled-600M-quality"
-    };
+    let profile_order = preferred_profile_order(
+        settings.runtime_profile.eq_ignore_ascii_case("Quality"),
+        &source_language,
+        &target_language,
+    );
+    let profile_label = profile_order.first().copied().unwrap_or("Quality");
+    let fallback_profile_label = profile_order.get(1).copied().unwrap_or(profile_label);
+    let primary_engine_name = engine_name_for_profile(profile_label);
+    let fallback_engine_name = engine_name_for_profile(fallback_profile_label);
 
     let mut worker_notes = Vec::new();
 
-    if let Some(worker) = run_local_worker_translation(trimmed, &source_language, &target_language, profile_label) {
-        if let Some(translated) = worker_translated_text(&worker) {
-            let suffix = worker_success_suffix(&worker, false);
-            return CommandResult::ok(
-                LifecycleState::Idle,
-                format!("{}\n\n({suffix})", translated),
-            );
+    for (index, profile) in profile_order.iter().enumerate() {
+        if let Some(worker) = run_local_worker_translation(trimmed, &source_language, &target_language, profile) {
+            if let Some(translated) = worker_translated_text(&worker) {
+                let suffix = worker_success_suffix(&worker, index > 0);
+                return CommandResult::ok(
+                    LifecycleState::Idle,
+                    format!("{}\n\n({suffix})", translated),
+                );
+            }
+            let label = if index == 0 { "primary" } else { "fallback" };
+            worker_notes.push(format!("{label}_{profile}: {}", worker_note(worker)));
         }
-        worker_notes.push(format!("primary_{profile_label}: {}", worker_note(worker)));
-    }
-
-    if let Some(worker) = run_local_worker_translation(trimmed, &source_language, &target_language, fallback_profile_label) {
-        if let Some(translated) = worker_translated_text(&worker) {
-            let suffix = worker_success_suffix(&worker, true);
-            return CommandResult::ok(
-                LifecycleState::Idle,
-                format!("{}\n\n({suffix})", translated),
-            );
-        }
-        worker_notes.push(format!("fallback_{fallback_profile_label}: {}", worker_note(worker)));
     }
 
     let result = run_translation_logic(TranslationLogicRequest {
@@ -246,11 +274,12 @@ pub fn translate_text(source: String) -> CommandResult {
     } else {
         worker_notes.join(" | ")
     };
+    let attempted_profiles = profile_order.join(" then ");
 
     CommandResult::blocked(
         LifecycleState::TranslationAdapterPending,
         format!(
-            "Local translation worker attempted {profile_label} and {fallback_profile_label}, but no validated model output was returned. {worker_note}. Source preview: {}. Planner status: {} / {}",
+            "Local translation worker attempted {attempted_profiles}, but no validated model output was returned. {worker_note}. Source preview: {}. Planner status: {} / {}",
             preview_source(trimmed), result.status, result.mode
         ),
     )
