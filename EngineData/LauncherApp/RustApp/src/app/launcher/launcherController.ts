@@ -24,8 +24,8 @@ const LANGUAGE_OPTIONS: { code: LanguageCode; label: string }[] = [
   { code: "id", label: "Indonesian" },
   { code: "en", label: "English" },
 ];
-const TEXT_ATTACHMENT_EXTENSIONS = [".txt", ".md", ".json", ".csv"];
-const TEXT_ATTACHMENT_SUPPORT_MESSAGE = "Only text, markdown, JSON, or CSV attachments are supported for now. PDF and DOCX require a backend parser first.";
+const TEXT_ATTACHMENT_EXTENSIONS = [".txt", ".md", ".json", ".csv", ".tsv", ".log", ".xml", ".yaml", ".yml", ".srt", ".vtt"];
+const TEXT_ATTACHMENT_SUPPORT_MESSAGE = "Only text-based attachments are supported for now. PDF and DOCX require a backend parser first.";
 type LanguageCode = (typeof LANGUAGE_CODES)[number];
 type LanguageSelectorRole = "source" | "target";
 
