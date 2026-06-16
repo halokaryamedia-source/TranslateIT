@@ -1,5 +1,4 @@
 import "./styles.css";
-import "./settingsLayout.css";
 import "./launcherGuard.css";
 import "./professionalUi.css";
 import "./referenceLayout.css";
