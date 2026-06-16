@@ -1,12 +1,139 @@
-use std::path::PathBuf;
+use std::io::Write;
+use std::path::{Path, PathBuf};
+use std::process::{Command, Stdio};
+use std::thread;
+
+use serde_json::{json, Value};
 
 use crate::engine::adapters::runtime_lifecycle_logic::analyze_start_lifecycle_gate;
 use crate::engine::audio::live_capture::{start_live_capture_runtime, stop_live_capture_runtime};
 use crate::engine::audio::live_segment_writer::write_latest_live_target_segment_wav;
 use crate::engine::logging::{write_jsonl_event, RuntimeLogEvent};
 use crate::engine::paths::ProjectPaths;
+use crate::engine::runtime_settings::load_settings;
 use crate::engine::runtime_state::{clear_runtime_handoff_state, clear_runtime_session_state, record_direct_live_capture_session, record_runtime_session_start};
 use crate::engine::state::{CommandResult, LifecycleState};
+
+fn local_worker_script_path() -> PathBuf {
+    let project_paths = ProjectPaths::discover();
+    PathBuf::from(project_paths.project_root)
+        .join("EngineData")
+        .join("LauncherApp")
+        .join("Workers")
+        .join("realtime_local_worker.py")
+}
+
+fn run_worker_with_python(binary: &str, use_python_launcher: bool, script: &Path, payload: Value) -> Option<Value> {
+    let mut command = Command::new(binary);
+    if use_python_launcher {
+        command.arg("-3");
+    }
+    let mut child = command
+        .arg(script)
+        .stdin(Stdio::piped())
+        .stdout(Stdio::piped())
+        .stderr(Stdio::null())
+        .spawn()
+        .ok()?;
+
+    if let Some(mut stdin) = child.stdin.take() {
+        writeln!(stdin, "{payload}").ok()?;
+    }
+
+    let output = child.wait_with_output().ok()?;
+    if !output.status.success() {
+        return None;
+    }
+    serde_json::from_slice::<Value>(&output.stdout).ok()
+}
+
+fn run_worker(payload: Value) -> Option<Value> {
+    let script = local_worker_script_path();
+    if !script.is_file() {
+        return None;
+    }
+    run_worker_with_python("python", false, &script, payload.clone())
+        .or_else(|| run_worker_with_python("py", true, &script, payload))
+}
+
+fn json_ok(value: &Option<Value>) -> bool {
+    value
+        .as_ref()
+        .and_then(|payload| payload.get("ok"))
+        .and_then(Value::as_bool)
+        .unwrap_or(false)
+}
+
+fn json_string(value: &Option<Value>, key: &str) -> String {
+    value
+        .as_ref()
+        .and_then(|payload| payload.get(key))
+        .and_then(Value::as_str)
+        .unwrap_or_default()
+        .trim()
+        .to_string()
+}
+
+fn start_audio_pipeline_worker(audio_path: String, user_log_dir: String) {
+    thread::spawn(move || {
+        let settings = load_settings();
+        let source_language = settings.source_language;
+        let target_language = settings.target_language;
+        let mode = if settings.runtime_profile.eq_ignore_ascii_case("Quality") {
+            "Quality"
+        } else {
+            "Realtime"
+        };
+
+        let transcribe = run_worker(json!({
+            "command": "transcribe",
+            "audio_path": audio_path,
+            "language": source_language,
+            "beam_size": 1,
+            "vad_filter": true
+        }));
+        let transcript_text = json_string(&transcribe, "transcript_text");
+
+        let translate = if json_ok(&transcribe) && !transcript_text.is_empty() {
+            run_worker(json!({
+                "command": "translate",
+                "text": transcript_text,
+                "source_language": source_language,
+                "target_language": target_language,
+                "mode": mode,
+                "max_new_tokens": 96
+            }))
+        } else {
+            None
+        };
+        let translated_text = json_string(&translate, "translated_text");
+
+        let synthesize = if json_ok(&translate) && !translated_text.is_empty() {
+            run_worker(json!({
+                "command": "synthesize",
+                "text": translated_text
+            }))
+        } else {
+            None
+        };
+
+        let ok = json_ok(&transcribe) && json_ok(&translate) && json_ok(&synthesize);
+        let evidence = json!({
+            "ok": ok,
+            "stage": "audio_pipeline_stop_capture_worker",
+            "transcribe_ok": json_ok(&transcribe),
+            "translate_ok": json_ok(&translate),
+            "synthesize_ok": json_ok(&synthesize),
+            "transcript_preview": transcript_text.chars().take(120).collect::<String>(),
+            "translation_preview": translated_text.chars().take(120).collect::<String>()
+        });
+        let _ = write_jsonl_event(
+            &PathBuf::from(user_log_dir),
+            "rust_runtime_latest.jsonl",
+            &RuntimeLogEvent::info("audio_pipeline", evidence.to_string()),
+        );
+    });
+}
 
 pub fn start_capture() -> CommandResult {
     let project_paths = ProjectPaths::discover();
@@ -112,11 +239,21 @@ pub fn stop_capture() -> CommandResult {
             segment_write.blocker, segment_write.note
         )
     };
+    let pipeline_note = if segment_write.ok {
+        if let Some(audio_path) = segment_write.audio_path.clone() {
+            start_audio_pipeline_worker(audio_path, project_paths.user_log_dir.clone());
+            "Audio pipeline worker handoff started in background for ASR > Translate > TTS."
+        } else {
+            "Audio pipeline worker handoff skipped because the WAV path was missing."
+        }
+    } else {
+        "Audio pipeline worker handoff skipped because the target WAV was not prepared."
+    };
     let stopped_live_capture = stop_live_capture_runtime();
     let cleared_session = clear_runtime_session_state();
     let cleared_handoff = clear_runtime_handoff_state();
     let message = format!(
-        "Stop was received by Rust runtime. {segment_note}. Live capture: {} {} {}",
+        "Stop was received by Rust runtime. {segment_note}. {pipeline_note} Live capture: {} {} {}",
         stopped_live_capture.message, cleared_session.note, cleared_handoff.note
     );
     let _ = write_jsonl_event(
