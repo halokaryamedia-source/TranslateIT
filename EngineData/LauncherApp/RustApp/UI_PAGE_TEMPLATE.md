@@ -32,6 +32,7 @@ Prefer these helpers for new pages and future refactors:
 - `outputRow()` for translate output rows.
 - `languageSelectField()` for source/target language selector fields.
 - `radioOption()` for settings radio rows.
+- `monitoringPanel()` for Developer monitoring panels.
 - `diagnosticActions()` for Developer diagnostic action summaries.
 - `statusBadge()` for compact runtime or feature state.
 - `developerLogRows()` for structured developer status rows.
@@ -69,6 +70,7 @@ Every settings page should reuse these classes:
 | Select/action field | `select-field-v22` |
 | Radio row | `radio-row-v22` |
 | Output row | `settings-output-row` |
+| Monitoring panel | `settings-panel-heading` |
 | Diagnostic action row | `diagnostic-actions` |
 | Main button | `mic-test-button-v22` |
 | Empty advanced card | `advanced-empty-v22` |
