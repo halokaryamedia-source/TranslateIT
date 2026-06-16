@@ -11,6 +11,7 @@ Use this together with `UI_REFERENCE_GUIDE.md`, `src/referenceLayout.css`, `src/
 - Do not create a new topbar height.
 - Do not create custom random page padding.
 - Do not introduce new color values outside `referenceLayout.css` tokens.
+- Do not introduce new CSS priority overrides.
 - Do not rename backend-connected IDs unless the controller is updated in the same change.
 - New settings-like pages must use the settings page structure below.
 - New reusable views should use `uiPageFactory.ts` helpers before adding custom markup.
@@ -125,8 +126,10 @@ Do not change the main sidebar, topbar, hero width, feature grid width, or compo
 - The page prefers `uiPageFactory.ts` helpers for shared structure.
 - The page does not introduce new spacing constants.
 - The page does not introduce new colors.
+- The page does not introduce new CSS priority overrides.
 - The page does not change sidebar/topbar/composer dimensions.
 - The page preserves required backend IDs.
 - `npm run validate:ui-reference` passes.
 - `npm run validate:ui-template` passes.
+- `npm run audit:css-priority` passes.
 - A screenshot preview is compared with the accepted reference direction.
