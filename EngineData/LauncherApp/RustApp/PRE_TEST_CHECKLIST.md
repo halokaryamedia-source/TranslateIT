@@ -13,8 +13,9 @@ Use this checklist before manual testing the desktop launcher.
 7. Test Settings > Audio.
 8. Test Settings > Translate.
 9. Test Settings > Developer.
-10. Run worker smoke evidence command on the target PC.
-11. Reopen app once to confirm settings and local chat state are still stable.
+10. Review `RUNTIME_EVIDENCE_FLOW.md` before collecting runtime evidence.
+11. Run worker smoke evidence command on the target PC.
+12. Reopen app once to confirm settings and local chat state are still stable.
 
 ## Must Check First
 
@@ -57,10 +58,10 @@ npm run smoke:worker:audio
 
 ## Known Gaps Before Full Production
 
-- Real translation worker/model execution still needs end-to-end validation.
-- Voice pipeline needs ASR > translation > TTS validation with real captured audio.
-- File attachment now supports local text-file ingestion, but binary/PDF/DOCX parsing is not connected yet.
-- Source/target language dropdown is connected for supported local language pair options.
+- Real translation worker/model execution still needs end-to-end validation: about 25-30% remaining.
+- Voice pipeline needs ASR > translation > TTS validation with real captured audio: about 30-35% remaining.
+- File attachment supports local text-file ingestion, but binary/PDF/DOCX parsing is not connected yet: about 15% remaining.
+- Source/target language dropdown is connected for supported local language pair options: 0% remaining.
 - Build/package validation has not been run from this checklist.
 
 ## Remaining Before Manual Testing
