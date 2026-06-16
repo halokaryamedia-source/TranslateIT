@@ -25,10 +25,26 @@ function showToast(message: string): void {
   toastTimer = window.setTimeout(() => toast.classList.remove("is-visible"), 2200);
 }
 
+async function copyTranslation(button: HTMLButtonElement): Promise<void> {
+  const value = button.dataset.copyTranslation ?? "";
+  if (!value) return;
+  try {
+    await navigator.clipboard.writeText(value);
+    showToast("Translated text copied.");
+  } catch (_error) {
+    showToast("Copy failed. Select the translated text manually.");
+  }
+}
+
 function bindSettingsAutoSync(): void {
   document.addEventListener("click", (event) => {
     const target = event.target as Element | null;
     if (!target) return;
+    const copyButton = target.closest<HTMLButtonElement>("[data-copy-translation]");
+    if (copyButton) {
+      void copyTranslation(copyButton);
+      return;
+    }
     if (target.closest("#sourceLanguageButton,#targetLanguageButton,#swapLanguageButton,#realtimeModeButton,#qualityModeButton,[data-language-role][data-language-code]")) {
       showToast("Saving translate settings...");
       clickSoon("#saveTranslateButton");
