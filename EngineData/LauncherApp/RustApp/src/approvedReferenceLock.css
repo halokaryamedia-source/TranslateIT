@@ -1,0 +1,108 @@
+/*
+  Approved reference lock layer.
+  Purpose: final visual deltas against the accepted Main v28 / Audio v22 / Translate v14 / Developer v37 screenshots.
+  Rule: no !important; keep selectors explicit and reusable so deltas can be merged into referenceLayout.css after visual acceptance.
+*/
+
+.workspace .hero-kicker {
+  justify-self: center;
+  width: 378px;
+  min-width: 378px;
+  height: 40px;
+  min-height: 40px;
+  font-size: 10px;
+  font-weight: 900;
+}
+
+.workspace .hero-panel h3 {
+  margin-top: 56px;
+  font-size: 32px;
+  line-height: 1.12;
+  font-weight: 850;
+  letter-spacing: -0.035em;
+}
+
+.workspace .hero-panel > p {
+  margin-top: 22px;
+  font-size: 11px;
+  line-height: 1.45;
+}
+
+.workspace .feature-grid {
+  margin-top: 122px;
+}
+
+.workspace .feature-card {
+  min-height: 248px;
+  padding: 42px 36px;
+}
+
+.workspace .feature-card::before {
+  width: 58px;
+  height: 2px;
+  margin-bottom: 50px;
+}
+
+.workspace .feature-title-row {
+  gap: 16px;
+}
+
+.workspace .feature-card h4 {
+  font-size: 18px;
+  font-weight: 850;
+}
+
+.workspace .feature-card p {
+  margin-top: 38px;
+  font-size: 12px;
+  line-height: 1.72;
+}
+
+.workspace .assistant-card {
+  min-height: 74px;
+  margin-top: 40px;
+  padding: 14px 18px;
+}
+
+.sidebar .account-card {
+  min-height: 78px;
+  margin: auto 18px 78px;
+  padding: 12px 8px 12px 14px;
+}
+
+.sidebar .avatar {
+  width: 40px;
+  height: 40px;
+}
+
+.sidebar .account-text strong {
+  font-size: 12px;
+}
+
+.sidebar .account-text span {
+  font-size: 10px;
+}
+
+.sidebar .nav-item .icon:last-child {
+  transform: rotate(90deg);
+}
+
+.workspace .composer-wrap {
+  margin-bottom: 18px;
+}
+
+.workspace .composer {
+  min-height: 78px;
+  border-radius: 39px;
+}
+
+.workspace .composer-icon,
+.workspace .composer-icon.emphasis,
+.workspace .send-button {
+  width: 52px;
+  height: 52px;
+}
+
+.workspace .composer-help {
+  margin-top: 22px;
+}
