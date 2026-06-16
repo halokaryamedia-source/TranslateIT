@@ -50,13 +50,13 @@
   --radius-pill: 999px;
 
   --shadow-soft: 0 24px 90px rgba(0, 0, 0, 0.38);
-  --shadow-panel: inset 0 1px 0 rgba(255,255,255,0.03), 0 14px 44px rgba(0,0,0,0.26);
+  --shadow-panel: inset 0 1px 0 rgba(255,255,255,0.035), 0 18px 56px rgba(0,0,0,0.30);
 
-  --sidebar-w: 336px;
+  --sidebar-w: 352px;
   --settings-sidebar-w: 304px;
   --topbar-h: 76px;
   --template-w: 1680px;
-  --content-w: 980px;
+  --content-w: 1020px;
 }
 
 * {
