@@ -84,6 +84,42 @@ fn write_audio_pipeline_evidence(user_log_dir: &str, evidence: &Value) {
     }
 }
 
+fn run_audio_translation_with_fallback(
+    transcript_text: &str,
+    source_language: &str,
+    target_language: &str,
+    primary_mode: &str,
+) -> (Option<Value>, String, bool) {
+    let fallback_mode = if primary_mode.eq_ignore_ascii_case("Quality") {
+        "Realtime"
+    } else {
+        "Quality"
+    };
+    let primary = run_worker(json!({
+        "command": "translate",
+        "text": transcript_text,
+        "source_language": source_language,
+        "target_language": target_language,
+        "mode": primary_mode,
+        "max_new_tokens": 96
+    }));
+    if json_ok(&primary) && !json_string(&primary, "translated_text").is_empty() {
+        return (primary, primary_mode.to_string(), false);
+    }
+    let fallback = run_worker(json!({
+        "command": "translate",
+        "text": transcript_text,
+        "source_language": source_language,
+        "target_language": target_language,
+        "mode": fallback_mode,
+        "max_new_tokens": 96
+    }));
+    if json_ok(&fallback) && !json_string(&fallback, "translated_text").is_empty() {
+        return (fallback, fallback_mode.to_string(), true);
+    }
+    (primary.or(fallback), primary_mode.to_string(), false)
+}
+
 fn start_audio_pipeline_worker(audio_path: String, user_log_dir: String) {
     thread::spawn(move || {
         let settings = load_settings();
@@ -104,17 +140,10 @@ fn start_audio_pipeline_worker(audio_path: String, user_log_dir: String) {
         }));
         let transcript_text = json_string(&transcribe, "transcript_text");
 
-        let translate = if json_ok(&transcribe) && !transcript_text.is_empty() {
-            run_worker(json!({
-                "command": "translate",
-                "text": transcript_text.clone(),
-                "source_language": source_language.clone(),
-                "target_language": target_language.clone(),
-                "mode": mode,
-                "max_new_tokens": 96
-            }))
+        let (translate, translation_mode_used, translation_fallback_used) = if json_ok(&transcribe) && !transcript_text.is_empty() {
+            run_audio_translation_with_fallback(&transcript_text, &source_language, &target_language, mode)
         } else {
-            None
+            (None, mode.to_string(), false)
         };
         let translated_text = json_string(&translate, "translated_text");
 
@@ -129,13 +158,15 @@ fn start_audio_pipeline_worker(audio_path: String, user_log_dir: String) {
 
         let ok = json_ok(&transcribe) && json_ok(&translate) && json_ok(&synthesize);
         let evidence = json!({
-            "schema": "translateit.audio_pipeline_evidence.v1",
+            "schema": "translateit.audio_pipeline_evidence.v2",
             "ok": ok,
             "stage": "audio_pipeline_stop_capture_worker",
             "audio_path": audio_path,
             "source_language": source_language,
             "target_language": target_language,
-            "mode": mode,
+            "requested_mode": mode,
+            "translation_mode_used": translation_mode_used,
+            "translation_fallback_used": translation_fallback_used,
             "transcribe_ok": json_ok(&transcribe),
             "translate_ok": json_ok(&translate),
             "synthesize_ok": json_ok(&synthesize),
