@@ -12,6 +12,8 @@ function toastElement(): HTMLElement {
     toast.id = "uiToast";
     toast.className = "ui-toast";
     toast.setAttribute("role", "status");
+    toast.setAttribute("aria-live", "polite");
+    toast.setAttribute("aria-atomic", "true");
     document.body.appendChild(toast);
   }
   return toast;
