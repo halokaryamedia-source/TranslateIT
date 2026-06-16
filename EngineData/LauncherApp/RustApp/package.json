@@ -17,6 +17,7 @@
     "record:manual-evidence": "node ../../../DevelopingData/Tooling/Scripts/Execution/translateit_tooling.mjs record-manual-evidence",
     "status:attachment": "node ../../../DevelopingData/Tooling/Scripts/Execution/translateit_attachment_status.mjs",
     "status:translation": "node ../../../DevelopingData/Tooling/Scripts/Execution/translateit_translation_status.mjs",
+    "status:audio-pipeline": "node ../../../DevelopingData/Tooling/Scripts/Execution/translateit_voice_status.mjs",
     "status:gap": "node ../../../DevelopingData/Tooling/Scripts/Execution/translateit_gap_status.mjs",
     "status:readiness": "node ../../../DevelopingData/Tooling/Scripts/Execution/translateit_tooling.mjs summarize-readiness",
     "validate:root": "node ../../../DevelopingData/Tooling/Scripts/Execution/translateit_tooling.mjs validate-root",
