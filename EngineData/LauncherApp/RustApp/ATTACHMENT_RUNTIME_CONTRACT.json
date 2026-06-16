@@ -1,0 +1,12 @@
+{
+  "schema": "translateit.attachment_runtime_contract.v1",
+  "text_only_supported": true,
+  "supported_extensions": [".txt", ".md", ".json", ".csv"],
+  "supported_mime_prefixes": ["text/"],
+  "supported_mime_types": ["application/json"],
+  "max_bytes": 65536,
+  "max_cleaned_characters": 2000,
+  "unsupported_until_backend_parser_exists": [".pdf", ".docx", "binary"],
+  "user_message": "Only text, markdown, JSON, or CSV attachments are supported for now. PDF and DOCX require a backend parser first.",
+  "success_claim_allowed_for_pdf_docx": false
+}
