@@ -1,15 +1,11 @@
 .app-shell, .workspace, .settings-page { contain: layout style; }
 .feature-card, .assistant-card, .composer, .topbar, .settings-card { contain: layout paint; }
 button:disabled { pointer-events: none; user-select: none; opacity: .52; cursor: not-allowed; }
-button:focus-visible, input:focus-visible { outline: 2px solid #d6dbe3; outline-offset: 3px; }
-.composer input:disabled { opacity: .72; cursor: wait; }
-.composer input::placeholder { color: rgba(219, 224, 232, .46); }
+button:focus-visible, input:focus-visible, textarea:focus-visible { outline: 2px solid #d6dbe3; outline-offset: 3px; }
+.composer textarea:disabled { opacity: .72; cursor: wait; }
+.composer textarea::placeholder { color: rgba(219, 224, 232, .46); }
 .attachment-input { position: absolute; inline-size: 1px; block-size: 1px; opacity: 0; pointer-events: none; overflow: hidden; }
 .composer-wrap.is-attachment-dragover .composer { outline: 2px solid rgba(214,219,227,.72); outline-offset: 6px; background: rgba(255,255,255,.08); }
-.language-option-button { display: grid; grid-template-columns: minmax(0, 1fr) 54px; align-items: center; gap: 10px; width: 100%; min-height: 46px; border: 1px solid rgba(255,255,255,.08); border-radius: 13px; background: #0b0f16; color: var(--text); padding: 0 14px; text-align: left; }
-.language-option-button strong { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 13px; }
-.language-option-button span { justify-self: end; color: var(--muted); font-size: 11px; font-weight: 850; letter-spacing: .08em; }
-.language-option-button.active { background: rgba(255,255,255,.08); border-color: rgba(255,255,255,.18); }
 .nav-item:not(.active) { background: #090c12; color: var(--muted); font-weight: 700; }
 .nav-item:not(.active)::before { display: none; }
 .nav-item.active { position: relative; background: var(--surface); color: var(--text); font-weight: 750; }
@@ -17,22 +13,8 @@ button:focus-visible, input:focus-visible { outline: 2px solid #d6dbe3; outline-
 .nav-item.active svg { color: #b9c1cc; }
 .feature-card h4, .assistant-card strong, .nav-item span, .new-chat-button span { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .feature-card p, .assistant-card p, .hero-panel > p, .composer-help { overflow: hidden; display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 3; }
-.composer input { min-width: 0; }
+.composer textarea { min-width: 0; }
 .runtime-sinks { contain: strict; }
-@media (max-width: 1500px) {
-  .app-shell { grid-template-columns: clamp(390px, 30vw, 440px) minmax(0, 1fr); }
-  .workspace { padding-inline: clamp(30px, 3vw, 44px); }
-  .topbar { margin-inline: calc(clamp(30px, 3vw, 44px) * -1); padding-inline: clamp(38px, 4vw, 52px); }
-  .hero-panel { width: min(980px, calc(100vw - clamp(520px, 38vw, 610px))); margin-top: clamp(58px, 6vw, 82px); }
-  .feature-grid { gap: clamp(24px, 2.5vw, 36px); margin-top: clamp(82px, 8vw, 118px); }
-  .composer-wrap { width: min(1120px, calc(100vw - clamp(520px, 38vw, 610px))); }
-}
-@media (max-width: 1280px) {
-  .feature-grid { grid-template-columns: 1fr; }
-  .feature-card { min-height: 190px; }
-  .feature-card::before { margin-bottom: 38px; }
-  .feature-card p { margin-top: 34px; }
-}
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation-duration: .01ms !important; animation-iteration-count: 1 !important; scroll-behavior: auto !important; transition-duration: .01ms !important; }
 }
