@@ -454,17 +454,21 @@
   border-radius: var(--radius-pill);
   background: var(--surface-1);
   display: grid;
-  grid-template-columns: 36px 1px 1fr 42px 42px;
+  grid-template-columns: 36px 1fr 42px 42px;
   align-items: center;
   gap: 16px;
 }
 
 .composer::before {
   content: "";
+  position: absolute;
+  left: 70px;
+  top: 18px;
   width: 1px;
-  height: 27px;
+  height: 28px;
+  border-radius: 999px;
   background: rgba(148, 163, 184, 0.13);
-  grid-column: 2;
+  pointer-events: none;
 }
 
 .composer input {
