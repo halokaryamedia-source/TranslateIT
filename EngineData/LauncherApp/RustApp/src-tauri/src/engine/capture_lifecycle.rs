@@ -1,3 +1,4 @@
+use std::fs;
 use std::io::Write;
 use std::path::{Path, PathBuf};
 use std::process::{Command, Stdio};
@@ -74,6 +75,15 @@ fn json_string(value: &Option<Value>, key: &str) -> String {
         .to_string()
 }
 
+fn write_audio_pipeline_evidence(user_log_dir: &str, evidence: &Value) {
+    let evidence_dir = PathBuf::from(user_log_dir).join("RustAppValidation");
+    let _ = fs::create_dir_all(&evidence_dir);
+    let evidence_path = evidence_dir.join("latest_audio_pipeline_evidence.json");
+    if let Ok(text) = serde_json::to_string_pretty(evidence) {
+        let _ = fs::write(evidence_path, text);
+    }
+}
+
 fn start_audio_pipeline_worker(audio_path: String, user_log_dir: String) {
     thread::spawn(move || {
         let settings = load_settings();
@@ -119,14 +129,23 @@ fn start_audio_pipeline_worker(audio_path: String, user_log_dir: String) {
 
         let ok = json_ok(&transcribe) && json_ok(&translate) && json_ok(&synthesize);
         let evidence = json!({
+            "schema": "translateit.audio_pipeline_evidence.v1",
             "ok": ok,
             "stage": "audio_pipeline_stop_capture_worker",
+            "audio_path": audio_path,
+            "source_language": source_language,
+            "target_language": target_language,
+            "mode": mode,
             "transcribe_ok": json_ok(&transcribe),
             "translate_ok": json_ok(&translate),
             "synthesize_ok": json_ok(&synthesize),
-            "transcript_preview": transcript_text.chars().take(120).collect::<String>(),
-            "translation_preview": translated_text.chars().take(120).collect::<String>()
+            "transcript_text": transcript_text,
+            "translated_text": translated_text,
+            "transcribe": transcribe,
+            "translate": translate,
+            "synthesize": synthesize
         });
+        write_audio_pipeline_evidence(&user_log_dir, &evidence);
         let _ = write_jsonl_event(
             &PathBuf::from(user_log_dir),
             "rust_runtime_latest.jsonl",
