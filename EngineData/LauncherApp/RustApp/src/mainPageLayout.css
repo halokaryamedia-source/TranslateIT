@@ -1,0 +1,144 @@
+/*
+  Main Page layout module.
+  Approved baseline: Main Page v28.
+  Scope: sidebar, hero, feature cards, assistant card, topbar status, and composer only.
+  Rule: keep selectors scoped to .workspace or .sidebar so edits here do not affect Settings pages.
+*/
+
+.workspace .hero-kicker {
+  justify-self: center;
+  width: 378px;
+  min-width: 378px;
+  height: 40px;
+  min-height: 40px;
+  font-size: 10px;
+  font-weight: 900;
+}
+
+.workspace .hero-panel h3 {
+  margin-top: 56px;
+  font-size: 32px;
+  line-height: 1.12;
+  font-weight: 850;
+  letter-spacing: -0.035em;
+}
+
+.workspace .hero-panel > p {
+  margin-top: 22px;
+  font-size: 11px;
+  line-height: 1.45;
+}
+
+.workspace .feature-grid {
+  margin-top: 122px;
+}
+
+.workspace .feature-card {
+  min-height: 248px;
+  padding: 42px 36px;
+}
+
+.workspace .feature-card::before {
+  width: 58px;
+  height: 2px;
+  margin-bottom: 50px;
+}
+
+.workspace .feature-title-row {
+  gap: 16px;
+}
+
+.workspace .feature-card h4 {
+  font-size: 18px;
+  font-weight: 850;
+}
+
+.workspace .feature-card p {
+  margin-top: 38px;
+  font-size: 12px;
+  line-height: 1.72;
+}
+
+.workspace .assistant-card {
+  min-height: 74px;
+  margin-top: 40px;
+  padding: 14px 18px;
+}
+
+.sidebar .account-card {
+  grid-template-columns: 40px minmax(0, 1fr) auto;
+  column-gap: 10px;
+  min-height: 78px;
+  margin: auto 18px 78px;
+  padding: 12px 8px 12px 14px;
+}
+
+.sidebar .avatar {
+  width: 40px;
+  height: 40px;
+}
+
+.sidebar .account-text strong {
+  font-size: 12px;
+}
+
+.sidebar .account-text span {
+  font-size: 10px;
+}
+
+.sidebar .account-actions {
+  display: grid;
+  grid-template-columns: 34px 18px 34px 18px 34px;
+  align-items: center;
+  gap: 3px;
+}
+
+.sidebar .nav-item .icon:last-child {
+  transform: rotate(90deg);
+}
+
+.workspace .record-pill strong {
+  color: var(--ref-text);
+}
+
+.workspace .composer-wrap {
+  margin-bottom: 18px;
+}
+
+.workspace .composer {
+  min-height: 78px;
+  border-radius: 39px;
+}
+
+.workspace .composer > .composer-icon:not(.emphasis) {
+  grid-column: 1;
+  grid-row: 1;
+}
+
+.workspace .composer::before {
+  grid-row: 1;
+}
+
+.workspace .composer textarea {
+  grid-row: 1;
+  height: 22px;
+  min-height: 22px;
+  padding: 0;
+  align-self: center;
+  line-height: 22px;
+}
+
+.workspace .composer-icon,
+.workspace .composer-icon.emphasis,
+.workspace .send-button {
+  display: grid;
+  width: 52px;
+  height: 52px;
+  place-items: center;
+  align-self: center;
+  grid-row: 1;
+}
+
+.workspace .composer-help {
+  margin-top: 22px;
+}
