@@ -1,11 +1,11 @@
 {
-  "schema": "translateit.runtime_gap_estimate.v6",
+  "schema": "translateit.runtime_gap_estimate.v7",
   "note": "Tracking only. This is not validation evidence.",
   "remaining": {
     "language_picker_percent": 0,
     "text_attachment_percent": "10-12",
     "real_translation_percent": "22-27",
-    "voice_pipeline_percent": "30-35",
+    "voice_pipeline_percent": "27-32",
     "build_test_validation": "not_run"
   },
   "evidence_files": {
@@ -16,7 +16,8 @@
   },
   "contract_files": {
     "attachment": "EngineData/LauncherApp/RustApp/ATTACHMENT_RUNTIME_CONTRACT.json",
-    "translation": "EngineData/LauncherApp/RustApp/TRANSLATION_RUNTIME_CONTRACT.json"
+    "translation": "EngineData/LauncherApp/RustApp/TRANSLATION_RUNTIME_CONTRACT.json",
+    "audio_pipeline": "EngineData/LauncherApp/RustApp/AUDIO_PIPELINE_RUNTIME_CONTRACT.json"
   },
   "next_safe_tasks": [
     "keep PDF and DOCX unsupported until parser exists",
