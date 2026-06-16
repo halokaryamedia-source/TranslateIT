@@ -22,11 +22,14 @@ Prefer these helpers for new pages and future refactors:
 - `settingsPage()` for settings page wrappers.
 - `settingsSection()` for section titles.
 - `settingsCard()` for card containers.
-- `settingsGrid()` for two-column card layout.
-- `settingsField()` for form-like field blocks.
+- `settingsGrid()` for two-column or compact card layout.
+- `settingsField()` for form-like field blocks and modifier classes.
+- `settingsActions()` for action rows.
 - `selectButton()` for select-like field buttons.
 - `primaryButton()` for main actions.
+- `advancedEmpty()` for reserved advanced setting blocks.
 - `emptyState()` for empty chat, list, or data states.
+- `outputRow()` for translate output rows.
 - `statusBadge()` for compact runtime or feature state.
 - `developerLogRows()` for structured developer status rows.
 
@@ -41,8 +44,9 @@ return settingsPage("Page Name", "Short page description.", "settings-view--page
     ${settingsField("Field Label", selectButton("Field Label", "Field Value"))}
     ${settingsField("Second Field", "<p>Use this area for helper text or a reusable row.</p>")}
   `))}
+  ${settingsActions(primaryButton("Primary Action", { id: "exampleActionButton" }))}
   ${settingsSection("Advanced Page Setting", "Reserved for optional future settings.")}
-  <article class="advanced-empty-v22"></article>
+  ${advancedEmpty()}
 `);
 ```
 
@@ -57,9 +61,11 @@ Every settings page should reuse these classes:
 | Section title | `settings-section-title` |
 | Card | `settings-card` |
 | Two-column grid | `settings-grid-2` |
+| Compact grid | `compact-grid` |
 | Field wrapper | `settings-field` |
 | Select/action field | `select-field-v22` |
 | Radio row | `radio-row-v22` |
+| Output row | `settings-output-row` |
 | Main button | `mic-test-button-v22` |
 | Empty advanced card | `advanced-empty-v22` |
 
