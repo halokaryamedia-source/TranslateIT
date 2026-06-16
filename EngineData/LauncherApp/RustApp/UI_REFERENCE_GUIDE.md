@@ -20,6 +20,8 @@ Runtime style entry order:
 
 `src/referenceLayout.css` is the final visual lock and must stay imported last in `src/main.ts`.
 
+Reference copy must live directly in the source UI files such as `src/app/launcher/shell.ts` and `src/app/launcher/settingsViews.ts`. Do not use post-render text patching, `MutationObserver`, or hidden DOM copy correction to make the UI match the reference.
+
 ## Layout Tokens
 
 Use these dimensions as the default desktop layout target.
@@ -154,7 +156,7 @@ Required dimensions:
 | Compact card top margin | `30px` |
 | Language swap button | `56px × 48px` |
 
-`Save Translate` may exist for backend compatibility, but it should not become a dominant visual element if the reference screen hides it. Frontend interaction may auto-trigger save through `bindReferenceUi()` as long as the backend command flow remains intact.
+`Save Translate` may exist for backend compatibility, but it should not become a dominant visual element if the reference screen hides it. If the UI auto-persists translate changes, the persistence must be part of the controller/runtime flow, not a visual copy patch.
 
 ### Developer Settings
 
@@ -260,6 +262,7 @@ When adding a new page:
 8. Preserve all backend command IDs and event targets.
 9. Import visual override after legacy CSS if a page needs a locked reference state.
 10. Generate a preview screenshot before calling the UI final.
+11. Keep reference copy in source UI files, not in post-render patch logic.
 
 ## Validation Checklist
 
@@ -275,5 +278,6 @@ Before marking a UI update complete:
 - Developer diagnostic still reads backend/runtime data.
 - No page uses random spacing or colors.
 - Screenshot preview has been compared with the reference images.
+- `npm run validate:ui-reference` passes.
 
 Build/test is still required for final runtime validation.
