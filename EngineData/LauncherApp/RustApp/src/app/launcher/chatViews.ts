@@ -69,10 +69,11 @@ export function chatCollectionView(kind: ChatKind, sessions: LauncherChatSummary
 }
 
 export function translationResultView(source: string, translated: string, voiceStatus: string): string {
-  const sourceText = escapeHtml(compactResult(source));
-  const translatedText = escapeHtml(compactResult(translated));
+  const sourcePreview = escapeHtml(compactResult(source));
+  const translatedPreview = escapeHtml(compactResult(translated));
+  const translatedFull = escapeHtml(translated.trim() || "No text available.");
   const statusText = escapeHtml(voiceStatus);
-  return `<section class="translation-result-stack" aria-label="Latest translation result"><article class="translation-result-card"><header><h4>${icon("translate")} Translation Result</h4><button type="button" data-copy-translation="${translatedText}" aria-label="Copy translated text">Copy</button></header><div class="translation-result-grid"><section class="translation-result-block"><strong>Original</strong><p>${sourceText}</p></section><section class="translation-result-block"><strong>Translated</strong><p>${translatedText}</p></section></div><p class="translation-result-meta">Voice output: ${statusText}</p></article></section>`;
+  return `<section class="translation-result-stack" aria-label="Latest translation result"><article class="translation-result-card"><header><h4>${icon("translate")} Translation Result</h4><button type="button" data-copy-translation="${translatedFull}" aria-label="Copy full translated text">Copy</button></header><div class="translation-result-grid"><section class="translation-result-block"><strong>Original</strong><p>${sourcePreview}</p></section><section class="translation-result-block"><strong>Translated</strong><p>${translatedPreview}</p></section></div><p class="translation-result-meta">Voice output: ${statusText}</p></article></section>`;
 }
 
 function emptyChatCollectionView(kind: ChatKind): string {
