@@ -1,0 +1,17 @@
+.translation-result-stack { display: grid; gap: 18px; width: 100%; grid-column: 1 / -1; }
+.translation-result-card { border: 1px solid var(--ref-border-strong); border-radius: 16px; background: var(--ref-surface); padding: 18px; text-align: left; }
+.translation-result-card header { display: flex; align-items: center; justify-content: space-between; gap: 16px; margin-bottom: 14px; }
+.translation-result-card h4 { margin: 0; color: var(--ref-text); font-size: 13px; font-weight: 850; }
+.translation-result-card button { min-width: 72px; height: 30px; border: 1px solid #8d949f; border-radius: 10px; color: var(--ref-text); background: var(--ref-surface-2); font-size: 11px; font-weight: 850; }
+.translation-result-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; }
+.translation-result-block { min-height: 96px; border: 1px solid var(--ref-border); border-radius: 13px; background: var(--ref-surface-3); padding: 14px; }
+.translation-result-block strong { display: block; margin-bottom: 8px; color: var(--ref-muted); font-size: 10px; letter-spacing: .08em; text-transform: uppercase; }
+.translation-result-block p { margin: 0; color: var(--ref-text); font-size: 12px; line-height: 1.55; white-space: pre-wrap; }
+.translation-result-meta { margin-top: 12px; color: var(--ref-muted-2); font-size: 11px; }
+.ui-toast { position: fixed; right: 28px; bottom: 28px; z-index: 30; max-width: 360px; border: 1px solid var(--ref-border-strong); border-radius: 14px; padding: 12px 16px; color: var(--ref-text); background: rgba(17, 20, 26, .96); box-shadow: 0 18px 48px rgba(0,0,0,.32); font-size: 12px; opacity: 0; pointer-events: none; transform: translateY(8px); transition: opacity 160ms ease, transform 160ms ease; }
+.ui-toast.is-visible { opacity: 1; transform: translateY(0); }
+.developer-log-row { display: grid; grid-template-columns: 54px minmax(0,1fr); gap: 12px; align-items: start; }
+.developer-log-row strong { display: inline-grid; place-items: center; height: 22px; border: 1px solid var(--ref-border-strong); border-radius: 8px; background: var(--ref-surface-2); color: var(--ref-text); font-size: 10px; }
+.developer-log-row span { overflow: hidden; color: var(--ref-muted); text-overflow: ellipsis; white-space: nowrap; }
+.select-field-v22:focus-visible, .mic-test-button-v22:focus-visible, .settings-nav-item:focus-visible, .nav-item:focus-visible, .composer-icon:focus-visible, .send-button:focus-visible { outline: 2px solid var(--ref-accent); outline-offset: 3px; }
+@media (max-width: 1500px) { .translation-result-grid { grid-template-columns: 1fr; } }
