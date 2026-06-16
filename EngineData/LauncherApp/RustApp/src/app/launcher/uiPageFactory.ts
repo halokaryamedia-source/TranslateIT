@@ -45,6 +45,10 @@ export function settingsField(label: string, body: string, description = ""): st
   return `<section class="settings-field"><h3>${escapeHtml(label)}</h3>${helper}${body}</section>`;
 }
 
+export function settingsActions(body: string, compact = false): string {
+  return `<div class="settings-card-actions ${compact ? "compact" : ""}">${body}</div>`;
+}
+
 export function selectButton(label: string, value: string, attributes: AttributeMap = {}): string {
   const merged = { type: "button", "aria-label": label, ...attributes };
   return `<button class="select-field-v22"${attrs(merged)}><span>${escapeHtml(value)}</span></button>`;
@@ -53,6 +57,10 @@ export function selectButton(label: string, value: string, attributes: Attribute
 export function primaryButton(label: string, attributes: AttributeMap = {}): string {
   const merged = { type: "button", ...attributes };
   return `<button class="mic-test-button-v22"${attrs(merged)}>${escapeHtml(label)}</button>`;
+}
+
+export function advancedEmpty(): string {
+  return `<article class="advanced-empty-v22"></article>`;
 }
 
 export function emptyState(title: string, description: string): string {
