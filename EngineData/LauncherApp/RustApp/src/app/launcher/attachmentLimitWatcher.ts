@@ -1,4 +1,5 @@
 const MAX_ATTACHMENT_FILES = 4;
+const NOTICE_DELAY_MS = 650;
 let bound = false;
 
 function setNotice(message: string): void {
@@ -11,7 +12,7 @@ function warnIfTooManyFiles(files: FileList | null | undefined): void {
   if (count > MAX_ATTACHMENT_FILES) {
     window.setTimeout(() => {
       setNotice(`Only the first ${MAX_ATTACHMENT_FILES} attachment files were used. Selected: ${count}.`);
-    }, 80);
+    }, NOTICE_DELAY_MS);
   }
 }
 
