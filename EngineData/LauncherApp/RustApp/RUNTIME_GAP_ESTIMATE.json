@@ -1,9 +1,9 @@
 {
-  "schema": "translateit.runtime_gap_estimate.v4",
+  "schema": "translateit.runtime_gap_estimate.v5",
   "note": "Tracking only. This is not validation evidence.",
   "remaining": {
     "language_picker_percent": 0,
-    "text_attachment_percent": 15,
+    "text_attachment_percent": "10-12",
     "real_translation_percent": "25-30",
     "voice_pipeline_percent": "30-35",
     "build_test_validation": "not_run"
@@ -14,14 +14,12 @@
     "validation": "UserData/LogData/RustAppValidation/latest_validation_evidence.json",
     "readiness_summary": "UserData/LogData/RustAppValidation/latest_readiness_summary.json"
   },
+  "contract_files": {
+    "attachment": "EngineData/LauncherApp/RustApp/ATTACHMENT_RUNTIME_CONTRACT.json"
+  },
   "next_safe_tasks": [
-    "keep attachment binary formats unsupported until parser exists",
+    "keep PDF and DOCX unsupported until parser exists",
     "keep model output pending until target PC evidence exists",
-    "keep voice pipeline pending until real audio evidence exists"
-  ],
-  "blocked_until_target_pc_evidence": [
-    "real_translation_model_validation",
-    "voice_pipeline_validation",
-    "build_test_package_validation"
+    "keep audio pipeline pending until real audio evidence exists"
   ]
 }
