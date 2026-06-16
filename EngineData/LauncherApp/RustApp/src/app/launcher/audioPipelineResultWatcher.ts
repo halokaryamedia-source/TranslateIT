@@ -1,6 +1,6 @@
 import { getLatestAudioPipelineEvidence, type AudioPipelineEvidence } from "../engineTranslate/audioPipelineApi";
 
-const POLL_ATTEMPTS = 18;
+const POLL_ATTEMPTS = 45;
 const POLL_INTERVAL_MS = 800;
 const RESULT_BUTTONS = "#microphoneButton,#quickMicButton,#recordStatusButton,#micTestButton";
 const NOTICE_TEXT_LIMIT = 360;
@@ -91,7 +91,7 @@ function formatCompletedMessage(evidence: AudioPipelineEvidence): string | null 
 async function pollForResult(startedAtUnixMs: number): Promise<void> {
   if (polling) return;
   polling = true;
-  setNotice("Processing captured audio locally...");
+  setNotice("Processing captured audio locally. Larger local models may take up to 40 seconds...");
   try {
     for (let attempt = 0; attempt < POLL_ATTEMPTS; attempt += 1) {
       await wait(POLL_INTERVAL_MS);
