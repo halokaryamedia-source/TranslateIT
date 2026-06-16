@@ -4,15 +4,15 @@
 }
 
 .hero-area {
-  width: min(710px, calc(100% - 96px));
-  margin: 96px auto 0;
+  width: min(760px, calc(100% - 96px));
+  margin: 86px auto 0;
   text-align: center;
 }
 
 .mode-pill {
   min-width: 280px;
   min-height: 34px;
-  margin: 0 auto 44px;
+  margin: 0 auto 38px;
   padding: 0 22px;
   border: 1px solid var(--border-1);
   border-radius: var(--radius-pill);
@@ -35,22 +35,22 @@
 }
 
 .feature-grid {
-  margin-top: 96px;
+  margin-top: 78px;
   display: grid;
   grid-template-columns: 1fr 1fr;
-  gap: 32px;
+  gap: 30px;
   text-align: left;
 }
 
 .hero-area .notice-message {
-  margin-top: 34px;
+  margin-top: 30px;
   text-align: left;
 }
 
 .device-panel {
   display: grid;
   grid-template-columns: 1fr 1fr;
-  gap: 34px 70px;
+  gap: 32px 68px;
 }
 
 .device-panel .outline-btn {
@@ -72,7 +72,7 @@
   grid-row: 3;
   min-width: 0;
   height: 54px;
-  padding-left: 152px;
+  padding-left: 148px;
   display: flex;
   align-items: center;
   overflow: hidden;
@@ -117,7 +117,7 @@
 }
 
 .preview-account {
-  max-width: 360px;
+  max-width: 420px;
   margin: 0;
 }
 
@@ -147,7 +147,7 @@
 .monitoring-panel {
   display: grid;
   grid-template-columns: 1fr 1fr;
-  gap: 72px;
+  gap: 64px;
 }
 
 .monitoring-panel h4 {
@@ -222,7 +222,7 @@
 }
 
 .diagnostic-panel {
-  padding: 40px 56px;
+  padding: 38px 52px;
 }
 
 .diag-head {
@@ -248,7 +248,7 @@
 }
 
 .progress-box {
-  margin-top: 38px;
+  margin-top: 32px;
   padding: 19px 20px;
   border: 1px solid var(--border-1);
   border-radius: var(--radius-md);
@@ -305,8 +305,8 @@
 }
 
 .log-heading {
-  margin-top: 34px;
-  padding-top: 32px;
+  margin-top: 32px;
+  padding-top: 30px;
   border-top: 1px solid var(--border-0);
   display: grid;
   grid-template-columns: 24px 1fr;
@@ -590,4 +590,144 @@
 .brand strong {
   text-transform: none;
   letter-spacing: -0.01em;
+}
+
+
+/* Professional layout polish after approved preview. */
+.app-sidebar {
+  padding: 24px 20px;
+  gap: 24px;
+}
+
+.brand {
+  padding: 0 2px;
+}
+
+.brand strong {
+  text-transform: none;
+  letter-spacing: -0.01em;
+}
+
+.side-group {
+  gap: 9px;
+}
+
+.side-divider {
+  margin: 12px 0 0;
+}
+
+.account-card {
+  min-height: 68px;
+  padding: 11px 12px;
+  grid-template-columns: 40px minmax(76px, 1fr) 32px 20px 32px 20px 32px;
+  gap: 6px;
+}
+
+.account-actions {
+  display: contents;
+}
+
+.account-actions > :nth-child(1) { grid-column: 3; }
+.account-actions > :nth-child(2) { grid-column: 4; }
+.account-actions > :nth-child(3) { grid-column: 5; }
+.account-actions > :nth-child(4) { grid-column: 6; }
+.account-actions > :nth-child(5) { grid-column: 7; }
+
+.account-actions .icon-btn {
+  width: 32px;
+  height: 32px;
+}
+
+.account-actions .tiny-chev {
+  width: 20px;
+  height: 32px;
+}
+
+.preview-account {
+  max-width: 420px;
+}
+
+.topbar {
+  padding-inline: 40px;
+}
+
+.topbar h2 {
+  font-size: 27px;
+  letter-spacing: -0.035em;
+}
+
+.feature-card {
+  min-height: 178px;
+  padding: 26px 28px 24px;
+}
+
+.feature-card > i {
+  margin-bottom: 38px;
+}
+
+.composer {
+  bottom: 58px;
+}
+
+.settings-sidebar {
+  padding: 36px 26px;
+}
+
+.settings-sidebar button {
+  min-height: 46px;
+}
+
+.settings-content {
+  margin-top: 48px;
+}
+
+.settings-content > p {
+  margin-bottom: 36px;
+}
+
+.settings-content > h3 {
+  margin-top: 40px;
+}
+
+.settings-content > h3 + p {
+  margin-bottom: 26px;
+}
+
+.panel {
+  padding: 32px 52px;
+}
+
+.select-field,
+.outline-btn {
+  min-height: 46px;
+}
+
+.radio-row {
+  margin-top: 20px;
+}
+
+.toggle-row {
+  min-height: 66px;
+}
+
+.language-panel {
+  gap: 32px;
+}
+
+.monitoring-panel h4 svg,
+.diag-head > svg,
+.log-heading > svg {
+  color: var(--text-1);
+}
+
+.library-grid {
+  gap: 24px;
+}
+
+@media (max-width: 1180px) {
+  .device-panel > .meter-bars {
+    grid-column: 1;
+    grid-row: auto;
+    padding-left: 0;
+  }
 }
