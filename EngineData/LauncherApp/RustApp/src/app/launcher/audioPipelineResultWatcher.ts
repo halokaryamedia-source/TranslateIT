@@ -3,6 +3,7 @@ import { getLatestAudioPipelineEvidence, type AudioPipelineEvidence } from "../e
 const POLL_ATTEMPTS = 18;
 const POLL_INTERVAL_MS = 800;
 const RESULT_BUTTONS = "#microphoneButton,#quickMicButton,#recordStatusButton,#micTestButton";
+const NOTICE_TEXT_LIMIT = 360;
 
 let lastEvidenceKey = "";
 let polling = false;
@@ -27,6 +28,13 @@ function evidenceKey(evidence: AudioPipelineEvidence): string {
 function setNotice(message: string): void {
   const notice = document.querySelector<HTMLParagraphElement>("#assistantMessage");
   if (notice) notice.textContent = message;
+}
+
+function displayText(value: string, fallback: string): string {
+  const text = value.trim();
+  if (!text) return fallback;
+  if (text.length <= NOTICE_TEXT_LIMIT) return text;
+  return `${text.slice(0, NOTICE_TEXT_LIMIT).trim()}...`;
 }
 
 function isMissing(evidence: AudioPipelineEvidence | null): boolean {
@@ -69,7 +77,7 @@ function formatCompletedMessage(evidence: AudioPipelineEvidence): string | null 
   const transcript = evidence.transcript_text?.trim() ?? "";
   const translated = evidence.translated_text?.trim() ?? "";
   if (!evidence.ok || !translated) return null;
-  return `Voice translation ready. ${translationStatus(evidence)} Transcript: ${transcript || "available"}. Translation: ${translated}. ${playbackStatus(evidence)}`;
+  return `Voice translation ready. ${translationStatus(evidence)} Transcript: ${displayText(transcript, "available")}. Translation: ${displayText(translated, "available")}. ${playbackStatus(evidence)}`;
 }
 
 async function pollForResult(startedAtUnixMs: number): Promise<void> {
