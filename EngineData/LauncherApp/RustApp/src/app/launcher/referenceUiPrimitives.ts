@@ -1,0 +1,61 @@
+export const REFERENCE_UI_IDS = [
+  "messageInput",
+  "sendButton",
+  "attachmentInput",
+  "composerPlusButton",
+  "microphoneButton",
+  "quickMicButton",
+  "recordStatusButton",
+  "voiceOutputButton",
+  "settingsButton",
+  "backHomeButton",
+  "saveSettingsButton",
+  "resetSettingsButton",
+  "checkAudioInputButton",
+  "audioVoiceToggleButton",
+  "micTestButton",
+  "sourceLanguageButton",
+  "targetLanguageButton",
+  "swapLanguageButton",
+  "saveTranslateButton",
+  "realtimeModeButton",
+  "qualityModeButton",
+  "runDiagnosticButton",
+  "seeAllLogsButton",
+] as const;
+
+export const REFERENCE_UI_LAYOUT = {
+  targetResolution: "1920x1080",
+  mainSidebarWidthPx: 360,
+  settingsSidebarWidthPx: 322,
+  settingsContentWidthPx: 993,
+  topbarHeightPx: 72,
+  mainHeroWidthPx: 720,
+  mainComposerWidthPx: 990,
+  settingsCardRadiusPx: 20,
+  formFieldHeightPx: 46,
+} as const;
+
+export const REFERENCE_UI_SPACING = {
+  xs: 4,
+  sm: 8,
+  md: 14,
+  lg: 22,
+  xl: 30,
+  x2l: 40,
+  x3l: 46,
+  x4l: 56,
+  x5l: 68,
+  x6l: 96,
+} as const;
+
+export const REFERENCE_UI_PAGE_CLASS = {
+  settingsView: "settings-view",
+  settingsHeader: "settings-view-header",
+  settingsSectionTitle: "settings-section-title",
+  settingsCard: "settings-card",
+  settingsField: "settings-field",
+  selectField: "select-field-v22",
+  radioRow: "radio-row-v22",
+  actionButton: "mic-test-button-v22",
+} as const;
