@@ -12,6 +12,7 @@ pub mod models;
 pub mod native_execution;
 pub mod native_runners;
 pub mod paths;
+pub mod playback;
 pub mod runtime_job;
 pub mod runtime_settings;
 pub mod runtime_state;
