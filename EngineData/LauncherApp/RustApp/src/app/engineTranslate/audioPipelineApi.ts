@@ -4,6 +4,11 @@ export type AudioPipelineEvidence = {
   ok: boolean;
   stage: string;
   blocker?: string;
+  source_language?: string;
+  target_language?: string;
+  requested_mode?: string;
+  translation_mode_used?: string;
+  translation_fallback_used?: boolean;
   transcript_text?: string;
   translated_text?: string;
   transcribe_ok?: boolean;
