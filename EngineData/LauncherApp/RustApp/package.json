@@ -12,6 +12,7 @@
     "check:rust": "cargo check --manifest-path src-tauri/Cargo.toml",
     "setup:worker": "powershell -NoProfile -File ../Workers/setup_realtime_worker.ps1",
     "smoke:worker": "powershell -NoProfile -File ../Workers/run_realtime_worker_smoke.ps1",
+    "smoke:worker:audio": "powershell -NoProfile -File ../Workers/run_realtime_worker_smoke.ps1 -AudioPath UserData/CacheData/audio_segments/latest_live_target_segment.wav",
     "record:manual-evidence": "node ../../../DevelopingData/Tooling/Scripts/Execution/translateit_tooling.mjs record-manual-evidence",
     "status:readiness": "node ../../../DevelopingData/Tooling/Scripts/Execution/translateit_tooling.mjs summarize-readiness",
     "validate:root": "node ../../../DevelopingData/Tooling/Scripts/Execution/translateit_tooling.mjs validate-root",
