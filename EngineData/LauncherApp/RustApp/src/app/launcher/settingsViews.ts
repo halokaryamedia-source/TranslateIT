@@ -1,6 +1,6 @@
 import { icon } from "../shared/icons";
 import type { RuntimeSettings } from "../shared/types";
-import { advancedEmpty, languageSelectField, outputRow, primaryButton, radioOption, selectButton, settingsActions, settingsCard, settingsField, settingsGrid, settingsPage, settingsSection } from "./uiPageFactory";
+import { advancedEmpty, diagnosticActions, languageSelectField, outputRow, primaryButton, radioOption, selectButton, settingsActions, settingsCard, settingsField, settingsGrid, settingsPage, settingsSection } from "./uiPageFactory";
 
 function escapeHtml(value: string): string {
   return value
@@ -157,7 +157,7 @@ export function developerSettingsView(args: {
     `)}
     ${settingsSection("Diagnostic", "Run checking, show current progress, and review diagnostic logs.")}
     ${settingsCard("settings-card--diagnostic", `
-      <div class="diagnostic-actions">${primaryButton("Run Checking", { id: "runDiagnosticButton" })}<div><strong>Checking translation engine</strong><span>${progress}%</span></div></div>
+      ${diagnosticActions(primaryButton("Run Checking", { id: "runDiagnosticButton" }), "Checking translation engine", `${progress}%`)}
       <div class="progress-track"><span style="width:${progress}%;"></span></div>
       <p class="diagnostic-note">${note}</p>
       <section class="developer-log-card ${args.logsExpanded ? "expanded" : ""}">
