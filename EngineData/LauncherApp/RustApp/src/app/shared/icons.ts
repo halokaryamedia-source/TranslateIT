@@ -5,7 +5,7 @@ export const icons = {
   folder: `<svg viewBox="0 0 24 24"><path d="M3 7h7l2 2h9v9H3z"/></svg>`,
   shield: `<svg viewBox="0 0 24 24"><path d="M12 3l7 3v5c0 5-3.2 8.3-7 10-3.8-1.7-7-5-7-10V6z"/></svg>`,
   chevron: `<svg viewBox="0 0 24 24"><path d="M8 10l4 4 4-4"/></svg>`,
-  mic: `<svg viewBox="0 0 24 24"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3M9 21h6"/></svg>`,
+  mic: `<svg viewBox="0 0 24 24"><path d="M12 3a3 3 0 0 0-3 3v5a3 3 0 0 0 6 0V6a3 3 0 0 0-3-3Z"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3M9 21h6"/></svg>`,
   micOff: `<svg viewBox="0 0 24 24"><path d="M9.5 4.5A3 3 0 0 1 15 6v4.5"/><path d="M9 9.5V12a3 3 0 0 0 4.2 2.75"/><path d="M5 11a7 7 0 0 0 10.4 6.1"/><path d="M19 11a7 7 0 0 1-1.2 3.9"/><path d="M12 18v3M9 21h6M4 4l16 16"/></svg>`,
   headphonesOff: `<svg viewBox="0 0 24 24"><path d="M4 14v-2a8 8 0 0 1 12.4-6.7"/><path d="M20 14v-2c0-1.1-.2-2.1-.6-3"/><path d="M4 14h4v6H6a2 2 0 0 1-2-2z"/><path d="M17 14h3v4"/><path d="M4 4l16 16"/></svg>`,
   settings: `<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19 12a7 7 0 0 0-.1-1.1l2-1.5-2-3.4-2.4 1a7 7 0 0 0-1.9-1.1L14.3 3h-4.6l-.4 2.9A7 7 0 0 0 7.5 7L5.1 6l-2 3.4 2 1.5A7 7 0 0 0 5 12a7 7 0 0 0 .1 1.1l-2 1.5 2 3.4 2.4-1a7 7 0 0 0 1.9 1.1l.4 2.9h4.6l.4-2.9a7 7 0 0 0 1.9-1.1l2.4 1 2-3.4-2-1.5A7 7 0 0 0 19 12z"/></svg>`,
@@ -27,7 +27,7 @@ export const icons = {
 
 export type IconName = keyof typeof icons;
 
-const svgAttributes = `xmlns="http://www.w3.org/2000/svg" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"`;
+const svgAttributes = `xmlns="http://www.w3.org/2000/svg" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" vector-effect="non-scaling-stroke"`;
 
 function normalizeIconSvg(svg: string): string {
   return svg.replace("<svg ", `<svg ${svgAttributes} `);
