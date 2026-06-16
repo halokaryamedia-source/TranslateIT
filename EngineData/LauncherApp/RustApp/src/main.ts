@@ -4,6 +4,7 @@ import "./launcherGuard.css";
 import "./professionalUi.css";
 import "./referenceLayout.css";
 import "./approvedReferenceLock.css";
+import "./mainSpacingRefine.css";
 import { LauncherController } from "./app/launcher/launcherController";
 import { bindAttachmentLimitWatcher } from "./app/launcher/attachmentLimitWatcher";
 import { bindAudioPipelineResultWatcher as bindResultWatcher } from "./app/launcher/audioPipelineResultWatcher";
