@@ -30,6 +30,7 @@ const required = [
   "outputRow(",
   "languageSelectField(",
   "radioOption(",
+  "monitoringPanel(",
   "diagnosticActions(",
   "statusBadge(",
   "developerLogRows(",
