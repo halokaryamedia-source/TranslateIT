@@ -75,6 +75,10 @@ export function outputRow(iconHtml: string, title: string, description: string, 
   return `<section class="settings-output-row">${iconHtml}<div><h3>${escapeHtml(title)}</h3><p>${escapeHtml(description)}</p></div>${controlHtml}</section>`;
 }
 
+export function languageSelectField(label: string, buttonHtml: string, dropdownHtml = ""): string {
+  return settingsField(label, `${buttonHtml}${dropdownHtml}`, "", "language-block");
+}
+
 export function radioOption(id: string | null, title: string, description: string, active = false, asButton = false): string {
   const idAttr = id ? ` id="${escapeHtml(id)}"` : "";
   const tag = asButton ? "button" : "label";
