@@ -55,7 +55,10 @@ function languageDropdown(role: "source" | "target", activeSelector: "source" | 
 
 function factorySelectField(label: string, value: string, iconName: "pulse" | "monitor" | "chevron"): string {
   const grid = "24px minmax(0,1fr) 20px";
-  return settingsField(label, selectButton(label, value, { style: `grid-template-columns:${grid};` }).replace("<span>", `${icon(iconName)}<span>`) + icon("chevron"));
+  const button = selectButton(label, value, { style: `grid-template-columns:${grid};` })
+    .replace("<span>", `${icon(iconName)}<span>`)
+    .replace("</button>", `${icon("chevron")}</button>`);
+  return settingsField(label, button);
 }
 
 export function generalSettingsView(settings: RuntimeSettings, realtimeStatus: string | null, gpuStatus: string | null): string {
