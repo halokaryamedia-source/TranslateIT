@@ -10,6 +10,12 @@ type TranslationEvidence = {
   blocker?: string;
 };
 
+type SynthesisEvidence = {
+  provider?: string;
+  output_path?: string;
+  blocker?: string;
+};
+
 export type AudioPipelineEvidence = {
   ok: boolean;
   stage: string;
@@ -30,6 +36,7 @@ export type AudioPipelineEvidence = {
   tts_output_path?: string;
   playback_ok?: boolean;
   translate?: TranslationEvidence | null;
+  synthesize?: SynthesisEvidence | null;
   evidence_unix_ms?: number;
 };
 
