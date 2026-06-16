@@ -2,6 +2,7 @@ import "./styles.css";
 import "./settingsLayout.css";
 import "./launcherGuard.css";
 import { LauncherController } from "./app/launcher/launcherController";
+import { bindAttachmentLimitWatcher } from "./app/launcher/attachmentLimitWatcher";
 import { bindAudioPipelineResultWatcher as bindResultWatcher } from "./app/launcher/audioPipelineResultWatcher";
 
 const app = document.querySelector<HTMLDivElement>("#app");
@@ -10,4 +11,5 @@ if (!app) {
 }
 
 new LauncherController(app).start();
+bindAttachmentLimitWatcher();
 bindResultWatcher();
