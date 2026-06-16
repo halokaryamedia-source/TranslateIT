@@ -27,6 +27,17 @@ latest_readiness_summary.json            # Combined readiness summary
 3. Run readiness summary after evidence exists.
 4. Run build/typecheck/package validation only when explicitly requested.
 
+## Attachment Parser Boundary
+
+Attachment support is currently verified only for local text-like files:
+
+- `.txt`
+- `.md`
+- `.json`
+- `.csv`
+
+PDF, DOCX, and binary attachments must stay unsupported until a real backend parser exists and is tested. The UI should keep showing a clear limitation message for those files.
+
 ## Voice Handoff Evidence
 
 Voice must stay marked as unverified until the target PC proves each step:
