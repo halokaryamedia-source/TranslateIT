@@ -31,13 +31,25 @@ function playbackStatus(evidence: AudioPipelineEvidence): string {
   return evidence.playback_ok ? "TTS audio played locally." : "TTS output is ready, but playback did not complete.";
 }
 
-function translationStatus(evidence: AudioPipelineEvidence): string {
+function languagePair(evidence: AudioPipelineEvidence): string {
+  const pair = evidence.direction_pair?.trim();
+  if (pair) return pair.replace("->", " > ").toUpperCase();
   const source = evidence.source_language?.trim().toUpperCase() || "SOURCE";
   const target = evidence.target_language?.trim().toUpperCase() || "TARGET";
+  return `${source} > ${target}`;
+}
+
+function directionStatus(evidence: AudioPipelineEvidence): string {
+  if (evidence.direction_supported === false) return "Realtime direction unsupported; Quality route required.";
+  if (evidence.direction_supported === true) return "Realtime direction supported.";
+  return "Direction support not reported.";
+}
+
+function translationStatus(evidence: AudioPipelineEvidence): string {
   const requested = evidence.requested_mode?.trim() || "Auto";
   const used = evidence.translation_mode_used?.trim() || requested;
   const fallback = evidence.translation_fallback_used ? "fallback used" : "no fallback";
-  return `${source} > ${target}, ${used} mode (${fallback}; requested ${requested}).`;
+  return `${languagePair(evidence)}, ${used} mode (${fallback}; requested ${requested}). ${directionStatus(evidence)}`;
 }
 
 function formatCompletedMessage(evidence: AudioPipelineEvidence): string | null {
