@@ -6,6 +6,8 @@ export type AudioPipelineEvidence = {
   blocker?: string;
   source_language?: string;
   target_language?: string;
+  direction_pair?: string;
+  direction_supported?: boolean;
   requested_mode?: string;
   translation_mode_used?: string;
   translation_fallback_used?: boolean;
