@@ -80,31 +80,31 @@ export function generalSettingsView(settings: RuntimeSettings, realtimeStatus: s
 export function audioSettingsView(settings: RuntimeSettings): string {
   const voiceEnabled = settings.audio.auto_play_out_voice;
   const realtimeActive = settings.runtime_profile !== "Quality";
-  return `${pageStart("Audio", "Manage microphone input, speaker output, volume, and voice behavior.", "settings-view--audio")}
-    <article class="settings-card settings-card--audio">
-      <div class="settings-grid-2">
+  return settingsPage("Audio", "Manage microphone input, speaker output, volume, and voice behavior.", "settings-view--audio", `
+    ${settingsCard("settings-card--audio", `
+      ${settingsGrid(`
         ${selectField("checkAudioInputButton", "Microphone", "Default microphone", "mic")}
         ${selectField("audioVoiceToggleButton", "Speaker", voiceEnabled ? "Default speaker" : "Speaker disabled", "speaker")}
-        <section class="settings-field"><h3>Microphone Volume</h3><div class="range-v22 mic-range"><span></span><i></i></div></section>
-        <section class="settings-field"><h3>Speaker Volume</h3><div class="range-v22 speaker-range"><span></span><i></i></div></section>
-      </div>
+        ${settingsField("Microphone Volume", '<div class="range-v22 mic-range"><span></span><i></i></div>')}
+        ${settingsField("Speaker Volume", '<div class="range-v22 speaker-range"><span></span><i></i></div>')}
+      `)}
       <div class="mic-test-row-v22">
-        <button id="micTestButton" class="mic-test-button-v22" type="button">Mic Test</button>
+        ${primaryButton("Mic Test", { id: "micTestButton" })}
         <div class="meter-v22">
           <span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span>
         </div>
       </div>
-    </article>
-    <section class="settings-section-title"><h2>Voice</h2><p>Configure voice input behavior and input processing profile.</p></section>
-    <article class="settings-card settings-card--voice">
-      <div class="settings-grid-2">
-        <section class="settings-field"><h3>Voice Profile</h3><p>Choose the microphone processing profile.</p>${radioRow(null, "Normal", "Default microphone input without extra noise processing.", true)}${radioRow(null, "Noise", "Reduce background noise and prioritize speech clarity.")}</section>
-        <section class="settings-field"><h3>Voice Mode</h3><p>Choose how TranslateIT listens to voice input.</p>${radioRow("audioSensitivityButton", "Always On", "Voice input stays ready while the app is active.", realtimeActive, true)}${radioRow(null, "Push to Talk", "Voice input only activates while holding a selected key.")}</section>
-      </div>
-    </article>
-    <section class="settings-section-title"><h2>Advanced Audio Setting</h2><p>Reserved for future audio device options.</p></section>
-    <article class="advanced-empty-v22"></article>
-  </div>`;
+    `)}
+    ${settingsSection("Voice", "Configure voice input behavior and input processing profile.")}
+    ${settingsCard("settings-card--voice", `
+      ${settingsGrid(`
+        ${settingsField("Voice Profile", `${radioRow(null, "Normal", "Default microphone input without extra noise processing.", true)}${radioRow(null, "Noise", "Reduce background noise and prioritize speech clarity.")}`, "Choose the microphone processing profile.")}
+        ${settingsField("Voice Mode", `${radioRow("audioSensitivityButton", "Always On", "Voice input stays ready while the app is active.", realtimeActive, true)}${radioRow(null, "Push to Talk", "Voice input only activates while holding a selected key.")}`, "Choose how TranslateIT listens to voice input.")}
+      `)}
+    `)}
+    ${settingsSection("Advanced Audio Setting", "Reserved for future audio device options.")}
+    ${advancedEmpty()}
+  `);
 }
 
 export function translateSettingsView(settings: RuntimeSettings, sourceLabel: string, targetLabel: string, activeSelector: "source" | "target" | null, languageOptions: { code: string; label: string }[]): string {
