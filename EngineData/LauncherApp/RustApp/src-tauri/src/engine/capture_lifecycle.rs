@@ -11,6 +11,7 @@ use crate::engine::audio::live_capture::{start_live_capture_runtime, stop_live_c
 use crate::engine::audio::live_segment_writer::write_latest_live_target_segment_wav;
 use crate::engine::logging::{write_jsonl_event, RuntimeLogEvent};
 use crate::engine::paths::ProjectPaths;
+use crate::engine::playback::play_wav_output;
 use crate::engine::runtime_settings::load_settings;
 use crate::engine::runtime_state::{clear_runtime_handoff_state, clear_runtime_session_state, record_direct_live_capture_session, record_runtime_session_start};
 use crate::engine::state::{CommandResult, LifecycleState};
@@ -123,6 +124,7 @@ fn run_audio_translation_with_fallback(
 fn start_audio_pipeline_worker(audio_path: String, user_log_dir: String) {
     thread::spawn(move || {
         let settings = load_settings();
+        let auto_play_output = settings.audio.auto_play_out_voice || settings.audio.auto_play_translation_voice;
         let source_language = settings.source_language;
         let target_language = settings.target_language;
         let mode = if settings.runtime_profile.eq_ignore_ascii_case("Quality") {
@@ -155,10 +157,16 @@ fn start_audio_pipeline_worker(audio_path: String, user_log_dir: String) {
         } else {
             None
         };
+        let tts_output_path = json_string(&synthesize, "output_path");
+        let playback_ok = if auto_play_output && json_ok(&synthesize) && !tts_output_path.is_empty() {
+            play_wav_output(&tts_output_path)
+        } else {
+            false
+        };
 
         let ok = json_ok(&transcribe) && json_ok(&translate) && json_ok(&synthesize);
         let evidence = json!({
-            "schema": "translateit.audio_pipeline_evidence.v2",
+            "schema": "translateit.audio_pipeline_evidence.v3",
             "ok": ok,
             "stage": "audio_pipeline_stop_capture_worker",
             "audio_path": audio_path,
@@ -170,6 +178,9 @@ fn start_audio_pipeline_worker(audio_path: String, user_log_dir: String) {
             "transcribe_ok": json_ok(&transcribe),
             "translate_ok": json_ok(&translate),
             "synthesize_ok": json_ok(&synthesize),
+            "auto_play_output": auto_play_output,
+            "tts_output_path": tts_output_path,
+            "playback_ok": playback_ok,
             "transcript_text": transcript_text,
             "translated_text": translated_text,
             "transcribe": transcribe,
