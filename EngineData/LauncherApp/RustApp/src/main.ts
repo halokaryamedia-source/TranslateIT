@@ -5,6 +5,7 @@ import "./referenceLayout.css";
 import { LauncherController } from "./app/launcher/launcherController";
 import { bindAttachmentLimitWatcher } from "./app/launcher/attachmentLimitWatcher";
 import { bindAudioPipelineResultWatcher as bindResultWatcher } from "./app/launcher/audioPipelineResultWatcher";
+import { bindReferenceUi } from "./app/launcher/referenceUiBinding";
 
 const app = document.querySelector<HTMLDivElement>("#app");
 if (!app) {
@@ -13,4 +14,5 @@ if (!app) {
 
 new LauncherController(app).start();
 bindAttachmentLimitWatcher();
+bindReferenceUi();
 bindResultWatcher();
