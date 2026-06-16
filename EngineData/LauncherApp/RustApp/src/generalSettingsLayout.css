@@ -1,7 +1,7 @@
 /*
   General Settings layout module.
-  Direction: align General Settings with the approved Audio / Translate / Developer settings pages.
-  Scope: only .settings-view--general so edits here do not affect Main Page, Audio, Translate, or Developer pages.
+  Direction: match the approved Settings pages without changing shared Settings navigation/icons.
+  Scope: only .settings-view--general content area.
 */
 
 .settings-view--general .settings-view-header {
@@ -20,15 +20,6 @@
   row-gap: 58px;
 }
 
-.settings-view--general .settings-field {
-  min-width: 0;
-}
-
-.settings-view--general .settings-field h3 {
-  font-size: 12.5px;
-  font-weight: 850;
-}
-
 .settings-view--general .select-field-v22 {
   height: 46px;
   min-height: 46px;
@@ -36,27 +27,8 @@
   border-radius: var(--ref-radius-control);
 }
 
-.settings-view--general .select-field-v22 svg:first-child {
-  width: 18px;
-  height: 18px;
-}
-
 .settings-view--general .settings-card-actions {
-  justify-content: flex-start;
-  gap: 18px;
-  margin-top: 32px;
-  padding-left: 0;
-}
-
-.settings-view--general .mic-test-button-v22 {
-  min-width: 132px;
-  height: 46px;
-  border-radius: var(--ref-radius-control);
-  font-size: 13px;
-}
-
-.settings-view--general .mic-test-button-v22.secondary {
-  min-width: 126px;
+  display: none;
 }
 
 .settings-view--general .settings-section-title {
