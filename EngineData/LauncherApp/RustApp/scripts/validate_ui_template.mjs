@@ -1,0 +1,36 @@
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
+
+const root = process.cwd();
+const read = (path) => readFileSync(join(root, path), "utf8");
+
+const primitives = read("src/app/launcher/referenceUiPrimitives.ts");
+const template = read("UI_PAGE_TEMPLATE.md");
+const guide = read("UI_REFERENCE_GUIDE.md");
+
+const required = [
+  "REFERENCE_UI_PAGE_TEMPLATE",
+  "settingsContentLeftOffsetPx",
+  "mainFeatureGridGapPx",
+  "settings-grid-2",
+  "settings-card",
+  "feature-grid",
+  "UI Page Template",
+  "Settings Page Template",
+  "Main/Home Page Template",
+  "360px",
+  "322px",
+  "993px",
+  "72px",
+];
+
+const source = `${primitives}\n${template}\n${guide}`;
+const missing = required.filter((token) => !source.includes(token));
+
+if (missing.length > 0) {
+  console.error("UI template validation failed:");
+  for (const token of missing) console.error(`- Missing: ${token}`);
+  process.exit(1);
+}
+
+console.log("UI template validation passed.");
