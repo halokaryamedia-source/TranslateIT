@@ -6,6 +6,7 @@ const read = (path) => readFileSync(join(root, path), "utf8");
 
 const primitives = read("src/app/launcher/referenceUiPrimitives.ts");
 const factory = read("src/app/launcher/uiPageFactory.ts");
+const professionalUi = read("src/professionalUi.css");
 const template = read("UI_PAGE_TEMPLATE.md");
 const guide = read("UI_REFERENCE_GUIDE.md");
 
@@ -24,6 +25,8 @@ const required = [
   "statusBadge(",
   "developerLogRows(",
   "DeveloperLogRow",
+  "empty-state-card",
+  "status-badge",
   "UI Page Template",
   "Settings Page Template",
   "Main/Home Page Template",
@@ -33,7 +36,7 @@ const required = [
   "72px",
 ];
 
-const source = `${primitives}\n${factory}\n${template}\n${guide}`;
+const source = `${primitives}\n${factory}\n${professionalUi}\n${template}\n${guide}`;
 const missing = required.filter((token) => !source.includes(token));
 
 if (missing.length > 0) {
