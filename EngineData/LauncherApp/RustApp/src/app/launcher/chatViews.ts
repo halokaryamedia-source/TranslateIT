@@ -1,5 +1,6 @@
 import { icon } from "../shared/icons";
 import type { ChatKind, LauncherChatSummary } from "../shared/types";
+import { emptyState } from "./uiPageFactory";
 
 const MAX_CHAT_COLLECTION_CARDS = 6;
 const MAX_CHAT_TITLE_CHARS = 64;
@@ -77,6 +78,5 @@ export function translationResultView(source: string, translated: string, voiceS
 }
 
 function emptyChatCollectionView(kind: ChatKind): string {
-  const label = escapeHtml(`${kind} chat list is empty`);
-  return `<article class="feature-card" aria-label="${label}"><div class="feature-title-row"><div class="feature-icon">${icon(chatIcon(kind))}</div><h4>No ${escapeHtml(kind)} chat yet</h4></div><p>New chat sessions will appear here after you send a message.</p></article>`;
+  return emptyState(`No ${kind} chat yet`, "New chat sessions will appear here after you send a message.");
 }
