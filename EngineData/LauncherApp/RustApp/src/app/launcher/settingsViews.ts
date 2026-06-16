@@ -1,6 +1,6 @@
 import { icon } from "../shared/icons";
 import type { RuntimeSettings } from "../shared/types";
-import { advancedEmpty, outputRow, primaryButton, radioOption, selectButton, settingsActions, settingsCard, settingsField, settingsGrid, settingsPage, settingsSection } from "./uiPageFactory";
+import { advancedEmpty, languageSelectField, outputRow, primaryButton, radioOption, selectButton, settingsActions, settingsCard, settingsField, settingsGrid, settingsPage, settingsSection } from "./uiPageFactory";
 
 function escapeHtml(value: string): string {
   return value
@@ -106,9 +106,9 @@ export function translateSettingsView(settings: RuntimeSettings, sourceLabel: st
   return `${pageStart("Translate", "Configure language direction, translation speed, and output behavior.", "settings-view--translate")}
     <article class="settings-card settings-card--language">
       <div class="language-grid">
-        <section class="settings-field language-block"><h3>Source Language</h3><button id="sourceLanguageButton" class="select-field-v22" type="button" aria-expanded="${activeSelector === "source"}" style="grid-template-columns:minmax(0,1fr) 20px;"><span>${escapeHtml(sourceLabel)}</span>${icon("chevron")}</button>${languageDropdown("source", activeSelector, settings.source_language, languageOptions)}</section>
+        ${languageSelectField("Source Language", `<button id="sourceLanguageButton" class="select-field-v22" type="button" aria-expanded="${activeSelector === "source"}" style="grid-template-columns:minmax(0,1fr) 20px;"><span>${escapeHtml(sourceLabel)}</span>${icon("chevron")}</button>`, languageDropdown("source", activeSelector, settings.source_language, languageOptions))}
         <button id="swapLanguageButton" type="button" class="settings-swap-button" aria-label="Swap languages">${icon("swap")}</button>
-        <section class="settings-field language-block"><h3>Target Language</h3><button id="targetLanguageButton" class="select-field-v22" type="button" aria-expanded="${activeSelector === "target"}" style="grid-template-columns:minmax(0,1fr) 20px;"><span>${escapeHtml(targetLabel)}</span>${icon("chevron")}</button>${languageDropdown("target", activeSelector, settings.target_language, languageOptions)}</section>
+        ${languageSelectField("Target Language", `<button id="targetLanguageButton" class="select-field-v22" type="button" aria-expanded="${activeSelector === "target"}" style="grid-template-columns:minmax(0,1fr) 20px;"><span>${escapeHtml(targetLabel)}</span>${icon("chevron")}</button>`, languageDropdown("target", activeSelector, settings.target_language, languageOptions))}
       </div>
       <div class="settings-card-actions compact"><button id="saveTranslateButton" class="mic-test-button-v22" type="button">Save Translate</button></div>
     </article>
