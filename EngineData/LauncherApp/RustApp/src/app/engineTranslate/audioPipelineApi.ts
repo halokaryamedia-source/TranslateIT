@@ -1,5 +1,15 @@
 import { runCommand } from "../shared/tauriBridge";
 
+type TranslationEvidence = {
+  direction_pair?: string;
+  direction_supported?: boolean;
+  source_language?: string;
+  target_language?: string;
+  mode?: string;
+  fallback_mode?: string;
+  blocker?: string;
+};
+
 export type AudioPipelineEvidence = {
   ok: boolean;
   stage: string;
@@ -19,6 +29,7 @@ export type AudioPipelineEvidence = {
   auto_play_output?: boolean;
   tts_output_path?: string;
   playback_ok?: boolean;
+  translate?: TranslationEvidence | null;
   evidence_unix_ms?: number;
 };
 
