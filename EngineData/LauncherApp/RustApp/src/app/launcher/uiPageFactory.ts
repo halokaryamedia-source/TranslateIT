@@ -1,5 +1,13 @@
 type AttributeMap = Record<string, string | number | boolean | null | undefined>;
 
+type LogLevel = "OK" | "INFO" | "WARN" | "ERR" | "WAIT" | "HW" | "GPU" | "ASR" | "TR" | "TTS" | "CUDA";
+
+export type DeveloperLogRow = {
+  level: LogLevel;
+  message: string;
+  time?: string;
+};
+
 function escapeHtml(value: string): string {
   return value
     .replaceAll("&", "&amp;")
@@ -53,4 +61,11 @@ export function emptyState(title: string, description: string): string {
 
 export function statusBadge(label: string, tone: "neutral" | "good" | "warning" | "error" = "neutral"): string {
   return `<span class="status-badge status-badge--${tone}">${escapeHtml(label)}</span>`;
+}
+
+export function developerLogRows(rows: DeveloperLogRow[]): string {
+  return rows.map((row) => {
+    const time = row.time ? `<em>${escapeHtml(row.time)}</em>` : "";
+    return `<p class="developer-log-row"><strong>${escapeHtml(row.level)}</strong><span>${escapeHtml(row.message)}</span>${time}</p>`;
+  }).join("");
 }
