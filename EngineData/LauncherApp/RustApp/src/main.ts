@@ -2,6 +2,7 @@ import "./styles.css";
 import "./launcherGuard.css";
 import "./professionalUi.css";
 import "./referenceLayout.css";
+import "./settingsShellLayout.css";
 import "./mainPageLayout.css";
 import "./generalSettingsLayout.css";
 import "./audioSettingsLayout.css";
