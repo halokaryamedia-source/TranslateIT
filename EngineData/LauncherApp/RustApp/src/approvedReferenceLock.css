@@ -65,6 +65,8 @@
 }
 
 .sidebar .account-card {
+  grid-template-columns: 40px minmax(0, 1fr) auto;
+  column-gap: 10px;
   min-height: 78px;
   margin: auto 18px 78px;
   padding: 12px 8px 12px 14px;
@@ -83,8 +85,19 @@
   font-size: 10px;
 }
 
+.sidebar .account-actions {
+  display: grid;
+  grid-template-columns: 34px 18px 34px 18px 34px;
+  align-items: center;
+  gap: 3px;
+}
+
 .sidebar .nav-item .icon:last-child {
   transform: rotate(90deg);
+}
+
+.workspace .record-pill strong {
+  color: var(--ref-text);
 }
 
 .workspace .composer-wrap {
@@ -96,11 +109,22 @@
   border-radius: 39px;
 }
 
+.workspace .composer textarea {
+  height: 22px;
+  min-height: 22px;
+  padding: 0;
+  align-self: center;
+  line-height: 22px;
+}
+
 .workspace .composer-icon,
 .workspace .composer-icon.emphasis,
 .workspace .send-button {
+  display: grid;
   width: 52px;
   height: 52px;
+  place-items: center;
+  align-self: center;
 }
 
 .workspace .composer-help {
