@@ -27,5 +27,3 @@ export function bindAttachmentLimitWatcher(): void {
     warnIfTooManyFiles(event.dataTransfer?.files);
   }, true);
 }
-
-bindAttachmentLimitWatcher();
