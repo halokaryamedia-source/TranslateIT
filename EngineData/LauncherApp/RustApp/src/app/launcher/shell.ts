@@ -25,18 +25,18 @@ export function mountAppShell(app: HTMLElement): void {
           <button id="localDataButton" class="nav-item" type="button">${icon("shield")}<span>Local Data</span>${icon("chevron")}</button>
         </nav>
         <section class="account-card">
-          <div class="avatar">HK</div><div class="account-text"><strong>Halo Karya</strong><span id="userPresence">Checking</span></div>
+          <div class="avatar">HK</div><div class="account-text"><strong>Marcel Berc...</strong><span id="userPresence">Invisible</span></div>
           <div class="account-actions">
-            <button id="quickMicButton" class="footer-icon" type="button" aria-label="Toggle microphone">${icon("micOff")}</button>
-            <button id="micOptionsButton" class="footer-dropdown" type="button" aria-label="Open microphone settings">${icon("chevron")}</button>
-            <button id="voiceOutputButton" class="footer-icon" type="button" aria-label="Toggle voice output">${icon("headphonesOff")}</button>
-            <button id="voiceOptionsButton" class="footer-dropdown" type="button" aria-label="Open voice settings">${icon("chevron")}</button>
+            <button id="quickMicButton" class="footer-icon danger" type="button" aria-label="Toggle microphone">${icon("micOff")}</button>
+            <button id="micOptionsButton" class="footer-dropdown danger" type="button" aria-label="Open microphone settings">${icon("chevron")}</button>
+            <button id="voiceOutputButton" class="footer-icon danger" type="button" aria-label="Toggle voice output">${icon("headphonesOff")}</button>
+            <button id="voiceOptionsButton" class="footer-dropdown danger" type="button" aria-label="Open voice settings">${icon("chevron")}</button>
             <button id="settingsButton" class="footer-icon settings-action" type="button" aria-label="Open settings">${icon("settings")}</button>
           </div>
         </section>
       </aside>
       <section id="homePage" class="workspace">
-        <header class="topbar"><div><h2>Voice translation</h2><p>Speak Indonesian. Get translated English voice output.</p></div><div class="top-actions"><span id="directionPill" class="direction-pill">ID &gt; EN</span><button id="recordStatusButton" class="record-pill" type="button"><span></span><strong id="recordStatusText">Ready</strong></button></div></header>
+        <header class="topbar"><div><h2>Voice translation</h2><p>Speak Indonesian. Get translated English voice output.</p></div><div class="top-actions"><span id="directionPill" class="direction-pill">ID &gt; EN</span><button id="recordStatusButton" class="record-pill" type="button"><span></span><strong id="recordStatusText">Recording</strong></button></div></header>
         <section class="hero-panel">
           <span class="hero-kicker">Local-first voice translation</span>
           <h3 id="heroTitle">How can I help translate today?</h3>
