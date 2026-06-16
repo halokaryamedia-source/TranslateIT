@@ -2,7 +2,7 @@
 
 This file is the practical template for building future TranslateIT pages without re-measuring spacing manually.
 
-Use this together with `UI_REFERENCE_GUIDE.md`, `src/referenceLayout.css`, and `src/app/launcher/referenceUiPrimitives.ts`.
+Use this together with `UI_REFERENCE_GUIDE.md`, `src/referenceLayout.css`, `src/app/launcher/referenceUiPrimitives.ts`, and `src/app/launcher/uiPageFactory.ts`.
 
 ## Non-Negotiable Layout Rules
 
@@ -13,44 +13,37 @@ Use this together with `UI_REFERENCE_GUIDE.md`, `src/referenceLayout.css`, and `
 - Do not introduce new color values outside `referenceLayout.css` tokens.
 - Do not rename backend-connected IDs unless the controller is updated in the same change.
 - New settings-like pages must use the settings page structure below.
+- New reusable views should use `uiPageFactory.ts` helpers before adding custom markup.
+
+## UI Factory Helpers
+
+Prefer these helpers for new pages and future refactors:
+
+- `settingsPage()` for settings page wrappers.
+- `settingsSection()` for section titles.
+- `settingsCard()` for card containers.
+- `settingsGrid()` for two-column card layout.
+- `settingsField()` for form-like field blocks.
+- `selectButton()` for select-like field buttons.
+- `primaryButton()` for main actions.
+- `emptyState()` for empty chat, list, or data states.
+- `statusBadge()` for compact runtime or feature state.
+- `developerLogRows()` for structured developer status rows.
 
 ## Settings Page Template
 
-Use this exact structure for every future settings page:
+Use this structure for every future settings page:
 
 ```ts
-return `${pageStart("Page Name", "Short page description.", "settings-view--page-name")}
-  <section class="settings-section-title first">
-    <h2>Primary Section</h2>
-    <p>Short section helper text.</p>
-  </section>
-
-  <article class="settings-card settings-card--page-name">
-    <div class="settings-grid-2">
-      <section class="settings-field">
-        <h3>Field Label</h3>
-        <button class="select-field-v22" type="button">
-          <span>Field Value</span>
-        </button>
-      </section>
-
-      <section class="settings-field">
-        <h3>Second Field</h3>
-        <p>Use this area for helper text or a reusable row.</p>
-      </section>
-    </div>
-
-    <div class="settings-card-actions">
-      <button class="mic-test-button-v22" type="button">Primary Action</button>
-    </div>
-  </article>
-
-  <section class="settings-section-title">
-    <h2>Advanced Page Setting</h2>
-    <p>Reserved for optional future settings.</p>
-  </section>
+return settingsPage("Page Name", "Short page description.", "settings-view--page-name", `
+  ${settingsSection("Primary Section", "Short section helper text.", true)}
+  ${settingsCard("settings-card--page-name", settingsGrid(`
+    ${settingsField("Field Label", selectButton("Field Label", "Field Value"))}
+    ${settingsField("Second Field", "<p>Use this area for helper text or a reusable row.</p>")}
+  `))}
+  ${settingsSection("Advanced Page Setting", "Reserved for optional future settings.")}
   <article class="advanced-empty-v22"></article>
-</div>`;
+`);
 ```
 
 ## Required Classes for Settings Pages
@@ -105,12 +98,23 @@ For future home-like pages, keep the same structure:
 
 Do not change the main sidebar, topbar, hero width, feature grid width, or composer width for a page variant unless a new approved reference screenshot replaces the baseline.
 
+## Refactor Priority
+
+1. Empty states and status badges.
+2. General Settings.
+3. Audio Settings.
+4. Translate Settings.
+5. Developer Settings.
+6. Home feature cards.
+
 ## Checklist Before Adding a New Page
 
 - The page uses the approved class names.
+- The page prefers `uiPageFactory.ts` helpers for shared structure.
 - The page does not introduce new spacing constants.
 - The page does not introduce new colors.
 - The page does not change sidebar/topbar/composer dimensions.
 - The page preserves required backend IDs.
 - `npm run validate:ui-reference` passes.
+- `npm run validate:ui-template` passes.
 - A screenshot preview is compared with the accepted reference direction.
