@@ -9,6 +9,9 @@ const shell = read("src/app/launcher/shell.ts");
 const settingsViews = read("src/app/launcher/settingsViews.ts");
 const referenceLayout = read("src/referenceLayout.css");
 const referenceBinding = read("src/app/launcher/referenceUiBinding.ts");
+const primitives = read("src/app/launcher/referenceUiPrimitives.ts");
+const guide = read("UI_REFERENCE_GUIDE.md");
+const imageManifest = read("docs/ui-reference/reference_images_manifest.json");
 
 const errors = [];
 
@@ -60,6 +63,8 @@ const requiredIds = [
 for (const id of requiredIds) {
   const owner = shell.includes(`id=\"${id}\"`) || settingsViews.includes(`id=\"${id}\"`);
   if (!owner) errors.push(`Required UI/backend contract id is missing: #${id}`);
+  requireContains("referenceUiPrimitives.ts", primitives, `\"${id}\"`);
+  requireContains("UI_REFERENCE_GUIDE.md", guide, `#${id}`);
 }
 
 const requiredCssTokens = [
@@ -72,7 +77,19 @@ const requiredCssTokens = [
   ".composer-wrap { width: 990px",
 ];
 
-for (const token of requiredCssTokens) requireContains("referenceLayout.css", referenceLayout, token);
+for (const token of requiredCssTokens) {
+  requireContains("referenceLayout.css", referenceLayout, token);
+  if (token.startsWith("--ref-")) requireContains("UI_REFERENCE_GUIDE.md", guide, token.split(":")[0]);
+}
+
+const requiredReferenceImages = [
+  "main_page_v28_reference.png",
+  "audio_settings_v22_reference.png",
+  "translate_settings_v14_reference.png",
+  "developer_settings_v37_reference.png",
+];
+
+for (const filename of requiredReferenceImages) requireContains("reference_images_manifest.json", imageManifest, filename);
 
 const forbiddenBindingPatterns = [
   "new MutationObserver",
