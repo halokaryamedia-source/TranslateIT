@@ -22,7 +22,16 @@ Frontend/
   README.md
   UI/            # visible UI components, pages, and interaction naming
   AppShell/      # desktop shell, top-level app frame, navigation ownership
-  DesignReview/  # preview-only UI review notes and approval references
+  DesignReview/  # preview-only UI review notes, template, and approval references
+```
+
+## Design review location
+
+```text
+EngineData/Frontend/DesignReview/DesignPreview
+EngineData/Frontend/DesignReview/UIReference
+EngineData/Frontend/DesignReview/UIPageTemplate.md
+EngineData/Frontend/DesignReview/UIReferenceGuide.md
 ```
 
 ## Rules
@@ -31,3 +40,4 @@ Frontend/
 - Keep preview files separate from production runtime files.
 - Do not place backend runtime code here.
 - Do not place release-required files under `DevelopingData`.
+- Do not store UI review files in the RustApp root.
