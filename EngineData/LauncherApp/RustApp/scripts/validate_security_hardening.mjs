@@ -5,6 +5,17 @@ const root = resolve(process.cwd());
 
 const checks = [
   {
+    file: "../../Backend/LocalWorker/WorkerRuntime/realtime_local_worker.py",
+    markers: [
+      "MAX_WORKER_REQUEST_BYTES",
+      "MAX_TRANSLATION_TEXT_CHARS",
+      "MAX_TTS_TEXT_CHARS",
+      "MAX_AUDIO_INPUT_BYTES",
+      "MAX_GENERATION_TOKENS",
+      "safe_command_name",
+    ],
+  },
+  {
     file: "src-tauri/src/engine/capture_lifecycle.rs",
     markers: [
       "WORKER_BRIDGE_TIMEOUT_SECS",
@@ -62,7 +73,7 @@ const checks = [
     markers: [
       "MAX_ATTACHMENT_NAME_CHARS",
       "safeAttachmentName",
-      "replace(/[\\\\/]/g, \"_\")",
+      "replace(/[\\/]/g, \"_\")",
     ],
   },
   {
