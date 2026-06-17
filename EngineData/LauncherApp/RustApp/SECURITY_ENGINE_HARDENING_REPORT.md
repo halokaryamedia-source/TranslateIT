@@ -5,7 +5,7 @@ App route: `EngineData/LauncherApp/RustApp`
 
 ## Current progress
 
-Overall hardening progress: 89%
+Overall hardening progress: 91%
 
 ## Completed changes
 
@@ -87,6 +87,19 @@ Touched file:
 
 - `src-tauri/src/engine/logging.rs`
 
+### Frontend attachment input hardening
+
+Status: Complete
+
+- Added max attachment filename length.
+- Sanitizes attachment filenames before they are shown in UI notices or inserted into composer text.
+- Removes control characters from attachment names.
+- Replaces path separators in attachment names.
+
+Touched file:
+
+- `src/app/launcher/launcherController.ts`
+
 ### Tauri CSP hardening
 
 Status: Complete
@@ -112,6 +125,19 @@ Touched file:
 
 - `package.json`
 
+### Security hardening validation gate
+
+Status: Added, pending local run
+
+- Added `npm run validate:security-hardening`.
+- Checks required security-hardening markers across worker bridge, chat/session persistence, settings, logging, paths, frontend attachment handling, and CSP.
+- Included in `validate:internal` and `validate:full`.
+
+Touched files:
+
+- `scripts/validate_security_hardening.mjs`
+- `package.json`
+
 ## Pending items
 
 ### Dependency security remediation
@@ -124,6 +150,7 @@ Required local commands from `EngineData/LauncherApp/RustApp`:
 
 ```powershell
 npm.cmd install
+npm.cmd run validate:security-hardening
 npm.cmd run audit:deps
 npm.cmd run typecheck
 npm.cmd run check:rust
@@ -141,7 +168,7 @@ The GitHub connector can update files but cannot run the local Windows/Tauri bui
 
 ## Current readiness estimate
 
-- Internal testing readiness: 89/100
-- Production/client readiness: 68/100
+- Internal testing readiness: 91/100
+- Production/client readiness: 70/100
 
 Production readiness remains blocked by dependency audit validation, full local build validation, and missing runtime model assets.
