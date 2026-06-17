@@ -31,6 +31,9 @@ Partial repair completed. Core Qwen language files and several realtime contract
 - `EngineData/TranslateEngine/realtime_partial_event_bridge.py`
 - `EngineData/TranslateEngine/realtime_validation_result.py`
 - `EngineData/TranslateEngine/ctranslate2_mt_backend.py`
+- `EngineData/TranslateEngine/realtime_quality_layer.py`
+- `EngineData/TranslateEngine/realtime_final_readiness_gate.py`
+- `EngineData/TranslateEngine/realtime_release_gate.py`
 
 ## Still needs repair
 - Remaining realtime helper files from the misplaced range.
