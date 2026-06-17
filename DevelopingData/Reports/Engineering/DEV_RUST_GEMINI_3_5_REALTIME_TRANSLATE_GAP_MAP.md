@@ -19,16 +19,28 @@ The target is:
 - strong ID <-> EN quality,
 - local-first desktop runtime where possible.
 
+## Current honest score
+
+| Item | Estimate |
+| --- | ---: |
+| Current TranslateIT Gemini-class readiness | 45/100 |
+| Remaining gap | 55/100 |
+| Safe post-branch wiring gain, not locally proven yet | +3 to +7 |
+| Practical target after local PC validation passes | 52-60/100 |
+| Product-class target | 85+/100 |
+
+The current score remains around 45/100 until target-PC evidence proves the runtime actually records audio, transcribes it, translates it, produces voice output, and reports real latency. Recent branch work improves wiring, but wiring alone is not proof of Gemini-class realtime behavior.
+
 ## Current TranslateIT status
 
 | Layer | Current status | Gap |
 | --- | --- | --- |
-| UI state | Non-visual realtime status state exists. | Visible UI binding still waits for DesignPreview approval. |
-| Tauri command | Realtime status command is wired. | Full runtime translation command quality is not proven. |
+| UI state | Realtime status binding and voice-result card route exist. | Needs local proof that state updates correctly during real capture. |
+| Tauri command | Realtime status, audio evidence, start/stop capture commands are wired. | Full runtime command quality is not proven on target PC. |
 | Audio capture | Start/stop route exists. | Streaming partial ASR and interruption behavior are not proven. |
 | Translation | Text route and worker route exist. | Benchmark quality and partial streaming translation are missing. |
 | TTS | Provider route exists. | Naturalness, latency, and interruption-safe playback are not proven. |
-| Validation | Workflow route exists. | Pass evidence and target-PC runtime evidence are missing. |
+| Validation | Repo-safe GitHub guard exists. | Local TypeScript/Rust/worker/model/runtime evidence is still required. |
 | Runtime assets | Manifest/checkers exist. | Model/voice assets are not proven on target PC. |
 
 ## What is still needed for Gemini 3.5 realtime translate target
@@ -65,10 +77,10 @@ The target is:
 
 ### 5. Validation evidence
 
-- TypeScript pass.
-- Rust pass.
-- Worker smoke pass.
-- Runtime asset validation pass.
+- TypeScript pass on developer PC.
+- Rust pass on developer PC.
+- Worker smoke pass on developer PC.
+- Runtime asset validation pass on developer PC.
 - Target-PC realtime translation evidence.
 
 ## Target readiness estimate
@@ -81,15 +93,30 @@ The target is:
 | Streaming translation readiness | 25-35% |
 | Natural TTS realtime output | 30-40% |
 | Validation evidence | 35-45% |
-| Gemini 3.5 realtime translate target | 38-48% |
+| Gemini-class realtime translate target | 38-48% |
+
+## Remaining work split
+
+| Priority | Work | Expected score gain |
+| --- | --- | ---: |
+| P1 | Prove local runtime assets and worker execution on target PC | +8 to +12 |
+| P1 | Replace batch stop-capture flow with streaming ASR events | +10 to +15 |
+| P1 | Add partial translation state and final correction | +8 to +12 |
+| P2 | Measure and display p50/p95 latency evidence | +5 to +8 |
+| P2 | Improve TTS first-audio latency and interruptible playback | +7 to +10 |
+| P2 | Add ID/EN benchmark set and quality regression checks | +7 to +10 |
 
 ## Next priority
 
 Build toward measurable realtime translate quality:
 
-1. Add latency benchmark recorder.
-2. Add ID/EN translation benchmark dataset.
-3. Add realtime segment event contract.
-4. Add streaming transcript/translation state model.
-5. Add TTS first-audio latency evidence.
-6. Validate target-PC runtime assets.
+1. Run local target-PC evidence only on developer machine.
+2. Add realtime segment event contract.
+3. Add streaming transcript/translation state model.
+4. Add latency benchmark recorder.
+5. Add ID/EN translation benchmark dataset.
+6. Add TTS first-audio latency evidence.
+
+## Non-negotiable rule
+
+Do not mark the app as Gemini-class ready until target-PC runtime evidence exists. Repo-safe GitHub checks only prove file contracts, not actual realtime translation performance.
