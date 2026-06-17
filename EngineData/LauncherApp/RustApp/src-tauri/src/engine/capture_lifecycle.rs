@@ -2,6 +2,7 @@ use std::fs;
 use std::io::{Read, Write};
 use std::path::{Path, PathBuf};
 use std::process::{Child, Command, Stdio};
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::thread;
 use std::time::{Duration, Instant};
 
@@ -20,6 +21,8 @@ use crate::engine::state::{CommandResult, LifecycleState};
 const WORKER_BRIDGE_TIMEOUT_SECS: u64 = 180;
 const WORKER_POLL_INTERVAL_MS: u64 = 25;
 const MAX_WORKER_STDOUT_BYTES: usize = 2 * 1024 * 1024;
+
+static AUDIO_PIPELINE_WORKER_ACTIVE: AtomicBool = AtomicBool::new(false);
 
 fn local_worker_script_path() -> PathBuf {
     let project_paths = ProjectPaths::discover();
@@ -187,7 +190,14 @@ fn run_audio_translation_with_fallback(
     (primary.or(fallback), primary_mode.to_string(), false)
 }
 
-fn start_audio_pipeline_worker(audio_path: String, user_log_dir: String) {
+fn start_audio_pipeline_worker(audio_path: String, user_log_dir: String) -> bool {
+    if AUDIO_PIPELINE_WORKER_ACTIVE
+        .compare_exchange(false, true, Ordering::AcqRel, Ordering::Acquire)
+        .is_err()
+    {
+        return false;
+    }
+
     thread::spawn(move || {
         let pipeline_started_at = Instant::now();
         let settings = load_settings();
@@ -264,7 +274,9 @@ fn start_audio_pipeline_worker(audio_path: String, user_log_dir: String) {
             "rust_runtime_latest.jsonl",
             &RuntimeLogEvent::info("audio_pipeline", evidence.to_string()),
         );
+        AUDIO_PIPELINE_WORKER_ACTIVE.store(false, Ordering::Release);
     });
+    true
 }
 
 pub fn start_capture() -> CommandResult {
@@ -374,8 +386,11 @@ pub fn stop_capture() -> CommandResult {
     };
     let pipeline_note = if segment_write.ok {
         if let Some(audio_path) = segment_write.audio_path.clone() {
-            start_audio_pipeline_worker(audio_path, project_paths.user_log_dir.clone());
-            format!("Audio pipeline worker handoff started in background for ASR > Translate > TTS via {}.", local_worker_script_path().display())
+            if start_audio_pipeline_worker(audio_path, project_paths.user_log_dir.clone()) {
+                format!("Audio pipeline worker handoff started in background for ASR > Translate > TTS via {}.", local_worker_script_path().display())
+            } else {
+                "Audio pipeline worker handoff skipped because another audio pipeline worker is already active.".to_string()
+            }
         } else {
             "Audio pipeline worker handoff skipped because the WAV path was missing.".to_string()
         }
