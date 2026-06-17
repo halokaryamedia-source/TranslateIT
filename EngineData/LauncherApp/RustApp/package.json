@@ -28,6 +28,7 @@
     "audit:deps": "npm audit --audit-level=moderate",
     "audit:css-priority": "node scripts/audit_css_important.mjs",
     "audit:ui-design": "node scripts/audit_ui_design_system.mjs",
+    "validate:security-hardening": "node scripts/validate_security_hardening.mjs",
     "validate:root": "node ../../../DevelopingData/Tooling/Scripts/Execution/translateit_tooling.mjs validate-root",
     "validate:structure": "node ../../../DevelopingData/Tooling/Scripts/Execution/translateit_tooling.mjs validate-structure",
     "validate:launcher": "node ../../../DevelopingData/Tooling/Scripts/Execution/translateit_tooling.mjs validate-launcher",
@@ -36,8 +37,8 @@
     "validate:evidence": "node ../../../DevelopingData/Tooling/Scripts/Execution/translateit_tooling.mjs validate-evidence",
     "validate:ui-reference": "node scripts/validate_ui_reference.mjs",
     "validate:ui-template": "node scripts/validate_ui_template.mjs",
-    "validate:internal": "npm run validate:root && npm run validate:structure && npm run validate:launcher && npm run validate:worker && npm run validate:evidence && npm run validate:ui-reference && npm run validate:ui-template && npm run audit:deps && npm run audit:ui-design && npm run audit:css-priority && npm run typecheck && npm run check:rust && npm run build:frontend",
-    "validate:full": "npm run validate:root && npm run validate:structure && npm run validate:launcher && npm run validate:worker && npm run validate:models && npm run validate:evidence && npm run validate:ui-reference && npm run validate:ui-template && npm run audit:deps && npm run audit:ui-design && npm run audit:css-priority && npm run typecheck && npm run check:rust && npm run build:frontend && npm run build && npm run status:readiness"
+    "validate:internal": "npm run validate:root && npm run validate:structure && npm run validate:launcher && npm run validate:worker && npm run validate:evidence && npm run validate:security-hardening && npm run validate:ui-reference && npm run validate:ui-template && npm run audit:deps && npm run audit:ui-design && npm run audit:css-priority && npm run typecheck && npm run check:rust && npm run build:frontend",
+    "validate:full": "npm run validate:root && npm run validate:structure && npm run validate:launcher && npm run validate:worker && npm run validate:models && npm run validate:evidence && npm run validate:security-hardening && npm run validate:ui-reference && npm run validate:ui-template && npm run audit:deps && npm run audit:ui-design && npm run audit:css-priority && npm run typecheck && npm run check:rust && npm run build:frontend && npm run build && npm run status:readiness"
   },
   "dependencies": {
     "@tauri-apps/api": "^2.0.0"
