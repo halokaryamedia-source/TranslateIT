@@ -3,9 +3,11 @@ import { join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
 const ROOT = resolve(fileURLToPath(new URL("../../../../", import.meta.url)));
-const runtimeManifestPath = join(ROOT, "EngineData", "LauncherApp", "RustApp", "MODEL_RUNTIME_MANIFEST.json");
-const gapPath = join(ROOT, "EngineData", "LauncherApp", "RustApp", "RUNTIME_GAP_ESTIMATE.json");
-const contractPath = join(ROOT, "EngineData", "LauncherApp", "RustApp", "AUDIO_PIPELINE_RUNTIME_CONTRACT.json");
+const appPackage = join(ROOT, "EngineData", "LauncherApp", "RustApp");
+const contractsRoot = join(ROOT, "EngineData", "Backend", "RuntimeContracts");
+const runtimeManifestPath = join(contractsRoot, "MODEL_RUNTIME_MANIFEST.json");
+const gapPath = join(appPackage, "RUNTIME_GAP_ESTIMATE.json");
+const contractPath = join(contractsRoot, "AUDIO_PIPELINE_RUNTIME_CONTRACT.json");
 
 function readJson(path) {
   if (!existsSync(path)) return null;
@@ -21,7 +23,9 @@ const ttsReady = Boolean(runtimeManifest?.tts?.default_sapi_ready);
 const successAllowed = contract?.success_claim_allowed_without_evidence === true;
 
 const payload = {
-  schema: "translateit.audio_pipeline_status.v2",
+  schema: "translateit.audio_pipeline_status.v3",
+  contract_path: "EngineData/Backend/RuntimeContracts/AUDIO_PIPELINE_RUNTIME_CONTRACT.json",
+  runtime_manifest_path: "EngineData/Backend/RuntimeContracts/MODEL_RUNTIME_MANIFEST.json",
   contract_loaded: Boolean(contract),
   runtime_manifest_loaded: Boolean(runtimeManifest),
   asr_marker_ready: asrReady,
