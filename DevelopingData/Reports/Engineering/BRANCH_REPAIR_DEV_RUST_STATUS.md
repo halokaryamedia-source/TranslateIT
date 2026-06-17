@@ -4,12 +4,12 @@
 Repair misplaced work from commit range `5ba3460a2bdc2c003dc9df9b8ff7134e4a679cb0` through `df4ba2e4f6c696a85924e6752067ae4990abac1f`.
 
 ## Current repair status
-Partial repair completed.
+Repository-side repair controls completed.
 Confirmed repaired or resolved files: 96 of about 96 changed files.
-Estimated repair progress: 95%.
+Estimated repair progress: 98%.
 
-## Important meaning of 95%
-The file-level triage is complete and final repository-side repair controls are now in place. Every misplaced file is either safely ported, classified as helper/evidence, mapped to LocalWorker/Rust migration, or explicitly blocked from direct port. The remaining 5% is local build/test validation and final boundary decisions for runtime ideas that cannot be copied directly.
+## Important meaning of 98%
+The file-level triage is complete, repository-side controls are in place, and PR #3 has been closed without merge. The remaining 2% is local build/test validation from a real checkout.
 
 ## Dev-Rust architecture crosscheck
 - Active app route: `EngineData/LauncherApp/RustApp`.
@@ -20,8 +20,8 @@ The file-level triage is complete and final repository-side repair controls are 
 - Migrated Python files are helper or compatibility assets only.
 
 ## Newly confirmed in this batch
-- `DevelopingData/Reports/Engineering/BRANCH_REPAIR_DEV_RUST_ACTIVE_RUNTIME_IMPORT_AUDIT.md`
-- `DevelopingData/Reports/Engineering/BRANCH_REPAIR_DEV_RUST_FINAL_CLOSEOUT_CHECKLIST.md`
+- PR #3 was closed without merge.
+- The direct PR path from `Developing` to `Dev-Rust` is no longer open.
 
 ## Confirmed categories on Dev-Rust
 - Core Qwen language helper files.
@@ -41,7 +41,7 @@ The file-level triage is complete and final repository-side repair controls are 
 - Active runtime import audit.
 - Final closeout checklist.
 
-## Remaining work before repair can be called fully complete
+## Remaining work before repair can be called 100%
 - Run local checkout validation on `Dev-Rust`.
 - Run Rust/Tauri build or validation command from `EngineData/LauncherApp/RustApp`.
 - Confirm `EngineData/Backend/LocalWorker/WorkerRuntime` still validates after helper-map addition.
