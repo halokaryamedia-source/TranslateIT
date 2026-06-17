@@ -143,6 +143,77 @@ fn write_audio_pipeline_evidence(user_log_dir: &str, evidence: &Value) {
     }
 }
 
+fn text_char_count(value: &str) -> usize {
+    value.chars().count()
+}
+
+fn safe_file_label(value: &str) -> String {
+    Path::new(value)
+        .file_name()
+        .and_then(|name| name.to_str())
+        .filter(|name| !name.trim().is_empty())
+        .unwrap_or("redacted")
+        .to_string()
+}
+
+fn worker_stage_summary(value: &Option<Value>) -> Value {
+    json!({
+        "ok": json_ok(value),
+        "stage": json_string(value, "stage"),
+        "blocker": json_string(value, "blocker"),
+        "provider": json_string(value, "provider"),
+        "mode": json_string(value, "mode"),
+        "model_id": json_string(value, "model_id"),
+        "device": json_string(value, "device"),
+    })
+}
+
+fn privacy_preserving_audio_evidence(
+    audio_path: &str,
+    tts_output_path: &str,
+    source_language: &str,
+    target_language: &str,
+    requested_mode: &str,
+    translation_mode_used: &str,
+    translation_fallback_used: bool,
+    latency_ms: u32,
+    transcribe: &Option<Value>,
+    translate: &Option<Value>,
+    synthesize: &Option<Value>,
+    auto_play_output: bool,
+    playback_ok: bool,
+    transcript_chars: usize,
+    translated_chars: usize,
+) -> Value {
+    let ok = json_ok(transcribe) && json_ok(translate) && json_ok(synthesize);
+    json!({
+        "schema": "translateit.audio_pipeline_evidence.v5.redacted",
+        "privacy": "user_text_redacted",
+        "ok": ok,
+        "stage": "audio_pipeline_stop_capture_worker",
+        "audio_file": safe_file_label(audio_path),
+        "worker": "local_realtime_worker",
+        "source_language": source_language,
+        "target_language": target_language,
+        "requested_mode": requested_mode,
+        "translation_mode_used": translation_mode_used,
+        "translation_fallback_used": translation_fallback_used,
+        "latency_ms": latency_ms,
+        "total_latency_ms": latency_ms,
+        "transcribe_ok": json_ok(transcribe),
+        "translate_ok": json_ok(translate),
+        "synthesize_ok": json_ok(synthesize),
+        "auto_play_output": auto_play_output,
+        "tts_output_file": safe_file_label(tts_output_path),
+        "playback_ok": playback_ok,
+        "transcript_chars": transcript_chars,
+        "translated_chars": translated_chars,
+        "transcribe": worker_stage_summary(transcribe),
+        "translate": worker_stage_summary(translate),
+        "synthesize": worker_stage_summary(synthesize)
+    })
+}
+
 fn user_facing_segment_note(segment_write: &LiveSegmentWavWriteReport) -> String {
     if segment_write.ok {
         return format!(
@@ -251,32 +322,23 @@ fn start_audio_pipeline_worker(audio_path: String, user_log_dir: String) -> bool
         };
 
         let latency_ms = pipeline_started_at.elapsed().as_millis().min(u128::from(u32::MAX)) as u32;
-        let ok = json_ok(&transcribe) && json_ok(&translate) && json_ok(&synthesize);
-        let evidence = json!({
-            "schema": "translateit.audio_pipeline_evidence.v4",
-            "ok": ok,
-            "stage": "audio_pipeline_stop_capture_worker",
-            "audio_path": audio_path,
-            "worker_path": local_worker_script_path(),
-            "source_language": source_language,
-            "target_language": target_language,
-            "requested_mode": mode,
-            "translation_mode_used": translation_mode_used,
-            "translation_fallback_used": translation_fallback_used,
-            "latency_ms": latency_ms,
-            "total_latency_ms": latency_ms,
-            "transcribe_ok": json_ok(&transcribe),
-            "translate_ok": json_ok(&translate),
-            "synthesize_ok": json_ok(&synthesize),
-            "auto_play_output": auto_play_output,
-            "tts_output_path": tts_output_path,
-            "playback_ok": playback_ok,
-            "transcript_text": transcript_text,
-            "translated_text": translated_text,
-            "transcribe": transcribe,
-            "translate": translate,
-            "synthesize": synthesize
-        });
+        let evidence = privacy_preserving_audio_evidence(
+            &audio_path,
+            &tts_output_path,
+            &source_language,
+            &target_language,
+            mode,
+            &translation_mode_used,
+            translation_fallback_used,
+            latency_ms,
+            &transcribe,
+            &translate,
+            &synthesize,
+            auto_play_output,
+            playback_ok,
+            text_char_count(&transcript_text),
+            text_char_count(&translated_text),
+        );
         write_audio_pipeline_evidence(&user_log_dir, &evidence);
         let _ = write_jsonl_event(
             &PathBuf::from(user_log_dir),
@@ -381,8 +443,12 @@ pub fn stop_capture() -> CommandResult {
     let user_segment_note = user_facing_segment_note(&segment_write);
     let segment_note = if segment_write.ok {
         format!(
-            "Target ASR WAV prepared: path={}, duration_ms={}, samples={}",
-            segment_write.audio_path.clone().unwrap_or_else(|| "none".to_string()),
+            "Target ASR WAV prepared: file={}, duration_ms={}, samples={}",
+            segment_write
+                .audio_path
+                .as_deref()
+                .map(safe_file_label)
+                .unwrap_or_else(|| "redacted".to_string()),
             segment_write.duration_ms,
             segment_write.sample_count
         )
@@ -395,7 +461,7 @@ pub fn stop_capture() -> CommandResult {
     let pipeline_note = if segment_write.ok {
         if let Some(audio_path) = segment_write.audio_path.clone() {
             if start_audio_pipeline_worker(audio_path, project_paths.user_log_dir.clone()) {
-                format!("Audio pipeline worker handoff started in background for ASR > Translate > TTS via {}.", local_worker_script_path().display())
+                "Audio pipeline worker handoff started in background for ASR > Translate > TTS via local worker bridge.".to_string()
             } else {
                 "Audio pipeline worker handoff skipped because another audio pipeline worker is already active.".to_string()
             }
