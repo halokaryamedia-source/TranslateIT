@@ -1,7 +1,7 @@
 # Realtime Translate Engine Progress
 
 ## Current completion estimate
-**90% implemented** for the new low-latency realtime translation direction.
+**92% implemented** for the new low-latency realtime translation direction.
 
 ## Completed
 - Added realtime quality layer.
@@ -35,13 +35,15 @@
 - Added realtime status panel adapter.
 - Added realtime status panel adapter tests.
 - Added minimal realtime validation runner.
+- Added realtime validation runner tests.
+- Added realtime app status hook.
+- Added realtime app status hook tests.
 
 ## Partially completed
 - Fast MT routing exists, but local model files still need to exist before it can become active.
 - Partial STT adapter exists, but the app loop still needs to emit partial transcript events into UI.
 - Piper readiness detection exists, but app-side runtime integration is still pending.
-- UI-safe status formatting, diagnostics bridge, status-panel contract, status-panel adapter, and turn summary builder exist, but app main still needs to consume them.
-- Minimal validation runner exists, but its dedicated test file was blocked by connector checks.
+- UI-safe status formatting, diagnostics bridge, status-panel contract, status-panel adapter, turn summary builder, and app status hook exist, but app main still needs to call the hook.
 
 ## Not yet completed
 - Live end-to-end latency test target around 1 second.
@@ -50,4 +52,4 @@
 - Final app-side connection from partial STT event to turn planner to TTS runtime.
 
 ## Professional status
-The engine now has realtime foundation, readiness checks, diagnostics contracts, event contract, live wiring map, status-panel contract, status-panel adapter, turn summary output, and validation runner. The next blocker is app-side wiring and real-device validation.
+The engine now has realtime foundation, readiness checks, diagnostics contracts, event contract, live wiring map, status-panel contract, status-panel adapter, app status hook, turn summary output, and validation runner coverage. The next blocker is direct app main hook consumption and real-device validation.
