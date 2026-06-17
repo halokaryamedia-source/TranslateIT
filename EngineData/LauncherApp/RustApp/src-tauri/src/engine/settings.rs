@@ -73,7 +73,7 @@ impl RuntimeSettings {
         }
         let body = serde_json::to_string_pretty(&self.clone().sanitized())
             .map_err(|error| io::Error::new(io::ErrorKind::InvalidData, error))?;
-        fs::write(path, body)
+        write_atomic(path, &body)
     }
 
     pub fn sanitized(mut self) -> Self {
@@ -90,6 +90,23 @@ impl RuntimeSettings {
         self.audio.use_custom_voice_actor = !self.voice_actor_profile_id.trim().is_empty();
         self.audio.auto_play_translation_voice = self.audio.auto_play_out_voice;
         self
+    }
+}
+
+fn write_atomic(path: &Path, body: &str) -> io::Result<()> {
+    let temp_path = path.with_extension("json.tmp");
+    fs::write(&temp_path, body)?;
+    match fs::rename(&temp_path, path) {
+        Ok(()) => Ok(()),
+        Err(error) => {
+            if path.exists() {
+                fs::remove_file(path)?;
+                fs::rename(&temp_path, path)
+            } else {
+                let _ = fs::remove_file(&temp_path);
+                Err(error)
+            }
+        }
     }
 }
 
