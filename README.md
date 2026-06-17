@@ -8,6 +8,16 @@ The project is in Rust/Tauri migration and structure-cleanup phase. The source t
 
 Do not claim the application is professionally ready until local build, packaging, local model readiness, persistent worker smoke, microphone ASR, translation, TTS, and end-to-end latency evidence pass on the target PC.
 
+## Root placement guide
+
+Detailed rootfile placement rules for future AI, Codex, and engine work are documented here:
+
+```text
+DevelopingData/Documentation/Source/RootFileRules.md
+```
+
+Read that file before adding, moving, or renaming repository paths.
+
 ## Root layout
 
 Only these root folders/files are expected:
@@ -113,6 +123,7 @@ EngineData/VoiceEngine/
 EngineData/RuntimeAssets/
 EngineData/LauncherApp/Workers/
 TranslateIT.vbs
+TranslateIT.cmd
 Launcher/
 Launcher/Preview/
 ```
