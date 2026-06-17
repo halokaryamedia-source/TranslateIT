@@ -4,6 +4,8 @@ import type { RuntimeSettings } from "../shared/types";
 let bound = false;
 let savePending = false;
 
+type LanguagePair = { source: string; target: string };
+
 function setAssistantMessage(message: string): void {
   const element = document.querySelector<HTMLElement>("#assistantMessage");
   if (element) element.textContent = message;
@@ -32,6 +34,23 @@ function profileSettings(settings: RuntimeSettings, profile: "Realtime" | "Quali
   };
 }
 
+function readDirectionPair(): LanguagePair | null {
+  const text = document.getElementById("directionPill")?.textContent?.trim().toLowerCase() ?? "";
+  const parts = text.split(">").map((part) => part.trim()).filter(Boolean);
+  if (parts.length !== 2) return null;
+  const [source, target] = parts;
+  if (!["id", "en"].includes(source) || !["id", "en"].includes(target) || source === target) return null;
+  return { source, target };
+}
+
+function directionSettings(settings: RuntimeSettings, pair: LanguagePair): RuntimeSettings {
+  return {
+    ...settings,
+    source_language: pair.source,
+    target_language: pair.target,
+  };
+}
+
 async function persistSettings(nextSettings: RuntimeSettings, successMessage: string): Promise<void> {
   const result = await runtimeApi.saveSettings(nextSettings);
   setAssistantMessage(result?.ok ? successMessage : result?.message ?? "Setting could not be saved.");
@@ -54,6 +73,20 @@ async function persistRuntimeProfile(profile: "Realtime" | "Quality"): Promise<v
     return;
   }
   await persistSettings(profileSettings(settings, profile), `Translate mode saved as ${profile}.`);
+}
+
+async function persistTranslateDirection(): Promise<void> {
+  const pair = readDirectionPair();
+  if (!pair) {
+    setAssistantMessage("Translate direction could not be read yet.");
+    return;
+  }
+  const settings = await runtimeApi.loadSettings();
+  if (!settings) {
+    setAssistantMessage("Translate settings could not be loaded yet.");
+    return;
+  }
+  await persistSettings(directionSettings(settings, pair), `Translate direction saved as ${pair.source.toUpperCase()} > ${pair.target.toUpperCase()}.`);
 }
 
 async function runSavedSettingTask(task: () => Promise<void>): Promise<void> {
@@ -81,6 +114,10 @@ export function bindVoiceOutputPersistenceUi(): void {
     }
     if (target?.closest("#qualityModeButton")) {
       void runSavedSettingTask(() => persistRuntimeProfile("Quality"));
+      return;
+    }
+    if (target?.closest("#saveTranslateButton")) {
+      void runSavedSettingTask(persistTranslateDirection);
     }
   });
 }
