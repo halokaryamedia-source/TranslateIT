@@ -1,4 +1,4 @@
-name: Dev-Rust Rust Check
+name: Dev-Rust App Check
 
 on:
   workflow_dispatch:
@@ -16,7 +16,7 @@ on:
       - ".github/workflows/dev-rust-validation-note.yml"
 
 jobs:
-  rust-check:
+  app-check:
     runs-on: windows-latest
     defaults:
       run:
@@ -37,6 +37,9 @@ jobs:
 
       - name: Install frontend dependencies
         run: npm ci
+
+      - name: TypeScript check
+        run: npm run typecheck
 
       - name: Rust check
         run: npm run check:rust
