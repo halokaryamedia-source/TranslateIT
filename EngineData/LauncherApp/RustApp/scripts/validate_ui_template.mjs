@@ -7,8 +7,8 @@ const read = (path) => readFileSync(join(root, path), "utf8");
 const primitives = read("src/app/launcher/referenceUiPrimitives.ts");
 const factory = read("src/app/launcher/uiPageFactory.ts");
 const professionalUi = read("src/professionalUi.css");
-const template = read("UI_PAGE_TEMPLATE.md");
-const guide = read("UI_REFERENCE_GUIDE.md");
+const template = read("../../Frontend/DesignReview/UIPageTemplate.md");
+const guide = read("../../Frontend/DesignReview/UIReferenceGuide.md");
 
 const required = [
   "REFERENCE_UI_PAGE_TEMPLATE",
