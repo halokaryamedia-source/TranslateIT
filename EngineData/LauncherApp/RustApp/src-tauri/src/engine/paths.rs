@@ -18,7 +18,13 @@ pub struct ProjectPaths {
 impl ProjectPaths {
     pub fn discover() -> Self {
         let start = env::current_dir().unwrap_or_else(|_| PathBuf::from("."));
-        let root = find_project_root(&start).unwrap_or(start);
+        let exe_start = env::current_exe()
+            .ok()
+            .and_then(|path| path.parent().map(Path::to_path_buf));
+        let root = find_project_root(&start)
+            .or_else(|| exe_start.as_deref().and_then(find_project_root))
+            .unwrap_or_else(|| start.clone());
+        let root_verified = has_runtime_root_markers(&root);
 
         let user_cache_dir = root.join("UserData").join("CacheData");
         let user_log_dir = root.join("UserData").join("LogData");
@@ -38,21 +44,32 @@ impl ProjectPaths {
             translation_model_dir: normalize_path(&translation_model_dir),
             voice_runtime_dir: normalize_path(&voice_runtime_dir),
             backend_contract_dir: normalize_path(&backend_contract_dir),
-            discovery_note: "Runtime assets use EngineData/Backend/RuntimeAssets. Backend contracts use EngineData/Backend/RuntimeContracts.".to_string(),
+            discovery_note: discovery_note(root_verified),
         }
     }
 }
 
 fn find_project_root(start: &Path) -> Option<PathBuf> {
     for candidate in start.ancestors() {
-        if candidate.join("EngineData").is_dir()
-            && candidate.join("DevelopingData").is_dir()
-            && candidate.join("UserData").is_dir()
-        {
+        if has_runtime_root_markers(candidate) {
             return Some(candidate.to_path_buf());
         }
     }
     None
+}
+
+fn has_runtime_root_markers(candidate: &Path) -> bool {
+    candidate.join("EngineData").is_dir()
+        && candidate.join("DevelopingData").is_dir()
+        && candidate.join("UserData").is_dir()
+}
+
+fn discovery_note(root_verified: bool) -> String {
+    if root_verified {
+        "Runtime root verified from EngineData/DevelopingData/UserData markers. Runtime assets use EngineData/Backend/RuntimeAssets. Backend contracts use EngineData/Backend/RuntimeContracts.".to_string()
+    } else {
+        "Runtime root markers were not found; falling back to current working directory. Verify launch path before production packaging.".to_string()
+    }
 }
 
 fn normalize_path(path: &Path) -> String {
