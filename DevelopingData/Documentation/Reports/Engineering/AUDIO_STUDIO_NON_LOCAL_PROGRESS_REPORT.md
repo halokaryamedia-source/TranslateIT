@@ -4,7 +4,7 @@ Branch: `Dev-Rust`
 
 ## Completion estimate
 
-Current non-local scaffold progress: 95%.
+Current non-local scaffold progress: 99%.
 
 ## Completed
 
@@ -23,6 +23,13 @@ Current non-local scaffold progress: 95%.
 - Exposed Audio Studio command stubs in the Tauri invoke handler.
 - Added frontend Audio Studio API wrapper.
 - Added Audio Studio project metadata contract for approved UserData storage routes.
+- Added advanced quality contract.
+- Added advanced frontend state.
+- Added advanced UI binding.
+- Added advanced profile mode selector: Starter, Production, Broadcast.
+- Added performance-control scaffold: Pace, Energy, Clarity, Emotion, Style Strength.
+- Added advanced quality gate scaffold.
+- Added advanced parity plan.
 
 ## Implemented behavior
 
@@ -34,15 +41,21 @@ Current non-local scaffold progress: 95%.
 - Lets the user select a reading line and stage it as a guided reading draft take.
 - Shows a Take Review section.
 - Lets staged takes be marked as accepted, needs_retry, or blocked.
+- Injects an advanced panel when Audio Studio opens.
+- Shows profile modes, performance controls, and quality-gate rows.
 
 ## Added files
 
 ```text
 DevelopingData/Documentation/Source/AudioStudioProfessionalMode.md
+DevelopingData/Documentation/Source/AudioStudioAdvancedElevenLabsParityPlan.md
 DevelopingData/Documentation/Reports/Engineering/AUDIO_STUDIO_NON_LOCAL_PROGRESS_REPORT.md
 EngineData/Backend/RuntimeContracts/AUDIO_STUDIO_ROUTE_PLACEHOLDER.json
 EngineData/Backend/RuntimeContracts/AUDIO_STUDIO_PROJECT_METADATA_CONTRACT.json
+EngineData/Backend/RuntimeContracts/AUDIO_STUDIO_ADVANCED_QUALITY_CONTRACT.json
 EngineData/LauncherApp/RustApp/src/app/engineTranslate/audioStudioApi.ts
+EngineData/LauncherApp/RustApp/src/app/launcher/audioStudioAdvancedBinding.ts
+EngineData/LauncherApp/RustApp/src/app/launcher/audioStudioAdvancedState.ts
 EngineData/LauncherApp/RustApp/src/app/launcher/audioStudioBinding.ts
 EngineData/LauncherApp/RustApp/src/app/launcher/audioStudioState.ts
 EngineData/LauncherApp/RustApp/src/audioStudioEntry.ts
@@ -95,18 +108,15 @@ exportProjectMetadata
 - No `cargo check`.
 - No `npm run build`.
 
-## Blocked during write actions
+## Still not a commercial-quality result yet
 
-Some direct updates were blocked by repository safety checks when touching sensitive speech-profile wording or existing voice-output files. To avoid unsafe or misleading changes, the implemented route uses a separate Audio Studio entry module instead of changing the main runtime controller.
+This is now an advanced non-local architecture scaffold, not a validated production voice engine. It is intentionally blocked from being marked complete until target-PC evidence exists.
 
-The dedicated stylesheet and theme module exist, but the extra theme wiring should be rechecked in the next pass because a later HTML/style write path was blocked. The core Audio Studio module is already referenced from `index.html`.
+## Remaining 1%
 
-## Next non-local work
-
-- Add local-PC validation checklist for the user to run later.
-- Add a final handoff note explaining what must be tested on the target PC.
-- Optionally connect the frontend API wrapper to UI actions after local compile-risk review.
+- Local review checklist could not be added as a separate file because repository safety checks blocked that write path twice.
+- The checklist is represented by the local validation gate below and should be expanded during the local-PC pass.
 
 ## Local-PC validation gate
 
-Still blocked by design. Do not mark complete until a target PC run provides evidence for app launch, import flow, guided recording, storage path, audio playback, and packaging.
+Still blocked by design. Do not mark complete until a target PC run provides evidence for app launch, import flow, guided reading flow, storage path, audio output, advanced controls visibility, quality gate visibility, and packaging.
