@@ -5,6 +5,7 @@ const INPUT_BUTTON_SELECTOR = "#checkAudioInputButton,#micOptionsButton";
 const OUTPUT_BUTTON_SELECTOR = "#audioVoiceToggleButton,#voiceOptionsButton";
 const DEVICE_BUTTON_SELECTOR = `${INPUT_BUTTON_SELECTOR},${OUTPUT_BUTTON_SELECTOR}`;
 let bound = false;
+let labelSyncPending = false;
 
 function deviceNames(devices: AudioDeviceSummary[], fallback: string): string {
   if (devices.length === 0) return fallback;
@@ -14,10 +15,17 @@ function deviceNames(devices: AudioDeviceSummary[], fallback: string): string {
     .join("; ");
 }
 
+function compactText(value: string, limit = 42): string {
+  const text = value.trim();
+  return text.length <= limit ? text : `${text.slice(0, limit - 3).trim()}...`;
+}
+
 function shortDeviceLabel(device: AudioDeviceSummary): string {
-  const name = device.name.trim();
-  if (name.length <= 42) return `${name}${device.is_default ? " (default)" : ""}`;
-  return `${name.slice(0, 39).trim()}...${device.is_default ? " (default)" : ""}`;
+  return `${compactText(device.name)}${device.is_default ? " (default)" : ""}`;
+}
+
+function settingsDeviceLabel(value: string | null | undefined, fallback: string): string {
+  return value?.trim() ? compactText(value) : fallback;
 }
 
 function setButtonLabel(selector: string, value: string): void {
@@ -42,6 +50,20 @@ function nextDevice(devices: AudioDeviceSummary[], currentId: string | null | un
   const currentIndex = devices.findIndex((device) => device.id === currentId || device.name === currentId);
   if (currentIndex < 0) return devices.find((device) => device.is_default) ?? devices[0];
   return devices[(currentIndex + 1) % devices.length];
+}
+
+async function syncDeviceLabelsFromSettings(): Promise<void> {
+  if (labelSyncPending) return;
+  if (!document.querySelector(DEVICE_BUTTON_SELECTOR)) return;
+  labelSyncPending = true;
+  try {
+    const settings = await runtimeApi.loadSettings();
+    if (!settings) return;
+    setButtonLabel(INPUT_BUTTON_SELECTOR, settingsDeviceLabel(settings.audio.input_device_id, "Default microphone"));
+    setButtonLabel(OUTPUT_BUTTON_SELECTOR, settings.audio.auto_play_out_voice ? settingsDeviceLabel(settings.audio.output_device_id, "Default speaker") : "Speaker disabled");
+  } finally {
+    labelSyncPending = false;
+  }
 }
 
 async function saveSelectedDevice(kind: "input" | "output", device: AudioDeviceSummary, settings: RuntimeSettings): Promise<void> {
@@ -98,6 +120,9 @@ async function showAudioDevices(kind: "input" | "output" | "both"): Promise<void
 export function bindAudioDeviceListUi(): void {
   if (bound) return;
   bound = true;
+  const observer = new MutationObserver(() => { void syncDeviceLabelsFromSettings(); });
+  observer.observe(document.body, { childList: true, subtree: true });
+  void syncDeviceLabelsFromSettings();
   document.addEventListener("click", (event) => {
     const target = event.target as Element | null;
     if (!target?.closest(DEVICE_BUTTON_SELECTOR)) return;
