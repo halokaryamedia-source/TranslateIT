@@ -1,3 +1,4 @@
+import "./audioStudioThemeEntry";
 import { bindAudioStudioAdvancedUi } from "./app/launcher/audioStudioAdvancedBinding";
 import { bindAudioStudioUi } from "./app/launcher/audioStudioBinding";
 
