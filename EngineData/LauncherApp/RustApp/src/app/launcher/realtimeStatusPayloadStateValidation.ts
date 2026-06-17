@@ -4,6 +4,7 @@ import { applyRealtimeStatusPayload, latestRealtimeStatusSnapshot } from "./real
 import { realtimeStatusUiTextPatch } from "./realtimeStatusPayloadViewPatch";
 import { realtimeStatusReadinessSummary } from "./realtimeStatusReadinessSummary";
 import { decideRealtimeStatusVisibleBinding } from "./realtimeStatusVisibleBindingGate";
+import { planRealtimeStatusVisibleBinding } from "./realtimeStatusVisibleBindingPlan";
 
 export type RealtimeStatusStateValidationReport = {
   ok: boolean;
@@ -70,9 +71,17 @@ export function validateRealtimeStatusStateMapping(): RealtimeStatusStateValidat
   const allowedDecision = decideRealtimeStatusVisibleBinding(summary, true);
   if (!allowedDecision.allowed) failures.push("visible binding gate should allow after approval");
 
+  const blockedPlan = planRealtimeStatusVisibleBinding(summary, false);
+  if (blockedPlan.safeToApply) failures.push("visible binding plan should block without approval");
+  if (!blockedPlan.approvalRequired) failures.push("visible binding plan should require approval");
+
+  const allowedPlan = planRealtimeStatusVisibleBinding(summary, true);
+  if (!allowedPlan.safeToApply) failures.push("visible binding plan should be safe after approval");
+  if (allowedPlan.approvalRequired) failures.push("visible binding plan approval flag failed");
+
   return {
     ok: failures.length === 0,
-    checked: 14,
+    checked: 18,
     failures,
   };
 }
