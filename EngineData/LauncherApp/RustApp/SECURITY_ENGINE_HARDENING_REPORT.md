@@ -5,7 +5,7 @@ App route: `EngineData/LauncherApp/RustApp`
 
 ## Current progress
 
-Overall hardening progress: 95%
+Overall hardening progress: 96%
 
 ## Completed changes
 
@@ -169,6 +169,19 @@ Touched files:
 - `scripts/validate_security_hardening.mjs`
 - `package.json`
 
+### Local hardening validation runner
+
+Status: Added, pending local run
+
+- Added one-command local validation runner for Windows development machines.
+- Runs npm install, security hardening validation, dependency audit, TypeScript typecheck, Rust cargo check, frontend build, and optional Tauri build.
+- Writes `LOCAL_HARDENING_VALIDATION_RESULT.md` with pass/fail details.
+
+Touched files:
+
+- `scripts/run_local_hardening_validation.ps1`
+- `package.json`
+
 ## Pending items
 
 ### Dependency security remediation
@@ -177,29 +190,23 @@ Status: Pending local validation
 
 The previous validation report recorded `npm audit` findings in Vite/esbuild. The audit gate is now part of validation, but safe dependency remediation still requires running package-manager resolution locally so `package.json` and `package-lock.json` remain synchronized.
 
-Required local commands from `EngineData/LauncherApp/RustApp`:
+Required local command from `EngineData/LauncherApp/RustApp`:
 
 ```powershell
-npm.cmd install
-npm.cmd run validate:security-hardening
-npm.cmd run audit:deps
-npm.cmd run typecheck
-npm.cmd run check:rust
-npm.cmd run build:frontend
-npm.cmd run build
+npm.cmd run validate:local-hardening
 ```
 
-Do not manually fake `package-lock.json` integrity entries.
+Do not manually fake `package-lock.json` integrity entries. If `npm install` updates `package-lock.json`, commit that lockfile update after the local validation run.
 
 ### Full build validation
 
 Status: Pending local machine
 
-The GitHub connector can update files but cannot run the local Windows/Tauri build pipeline. Run the commands above before marking this hardening pass as release-ready.
+The GitHub connector can update files but cannot run the local Windows/Tauri build pipeline. Run the command above before marking this hardening pass as release-ready.
 
 ## Current readiness estimate
 
-- Internal testing readiness: 95/100
-- Production/client readiness: 75/100
+- Internal testing readiness: 96/100
+- Production/client readiness: 76/100
 
 Production readiness remains blocked by dependency audit validation, full local build validation, and missing runtime model assets.
