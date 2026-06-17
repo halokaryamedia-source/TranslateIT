@@ -86,6 +86,10 @@ pub fn build_realtime_status_payload() -> RealtimeStatusPayload {
     let evidence = read_latest_audio_evidence(&evidence_path);
 
     let worker_available = worker.worker_script_exists && worker.stack_manifest_exists;
+    let asr_ready = worker.asr_model_ready;
+    let translation_ready = worker.realtime_translation_model_ready;
+    let tts_ready = worker.tts_default_ready;
+    let assets_ready = worker_available && asr_ready && translation_ready && tts_ready;
     let fallback_active = !worker.ctranslate2_cuda_available || (worker.sapi_ready && !worker.piper_ready);
     let mut missing = worker.blockers.clone();
     for blocker in &worker.tts_blockers {
@@ -93,23 +97,30 @@ pub fn build_realtime_status_payload() -> RealtimeStatusPayload {
             missing.push(blocker.clone());
         }
     }
+    if worker_available && !asr_ready && !missing.contains(&"asr_model_missing".to_string()) {
+        missing.push("asr_model_missing".to_string());
+    }
+    if worker_available && !translation_ready && !missing.contains(&"translation_model_missing".to_string()) {
+        missing.push("translation_model_missing".to_string());
+    }
+    if worker_available && !tts_ready && !missing.contains(&"tts_output_missing".to_string()) {
+        missing.push("tts_output_missing".to_string());
+    }
 
-    let status = if pipeline.ready_for_user_runtime {
+    let status = if pipeline.ready_for_user_runtime && assets_ready {
         "ready"
-    } else if evidence_ok(&evidence) && worker_available {
+    } else if evidence_ok(&evidence) && assets_ready {
         "ready"
-    } else if !worker_available || !missing.is_empty() {
+    } else if worker_available || pipeline.progress_percent > 0 || evidence_ok(&evidence) {
         "partial_ready"
-    } else if pipeline.progress_percent > 0 {
-        "checking"
     } else {
         "idle"
     }
     .to_string();
 
-    let message = if evidence_ok(&evidence) {
-        "Latest local voice translation evidence is available.".to_string()
-    } else if pipeline.ready_for_user_runtime {
+    let message = if assets_ready && evidence_ok(&evidence) {
+        "Latest local voice translation evidence is available and required realtime assets are ready.".to_string()
+    } else if assets_ready && pipeline.ready_for_user_runtime {
         "Realtime pipeline is ready for local validation.".to_string()
     } else if !missing.is_empty() {
         format!("Realtime assets or worker checks are incomplete: {} item(s).", missing.len())
@@ -147,9 +158,9 @@ pub fn build_realtime_status_payload() -> RealtimeStatusPayload {
             last_command: Some(next_action),
         },
         assets: RealtimeStatusAssetsPayload {
-            asr_ready: worker.asr_model_ready,
-            translation_ready: worker.realtime_translation_model_ready,
-            tts_ready: worker.tts_default_ready,
+            asr_ready,
+            translation_ready,
+            tts_ready,
             missing,
         },
         evidence_path: if evidence_path.is_file() {
