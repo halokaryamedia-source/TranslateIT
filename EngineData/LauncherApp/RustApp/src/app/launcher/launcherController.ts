@@ -13,22 +13,18 @@ import { chatCollectionView, translationResultView } from "./chatViews";
 import { homeDefaultCards, mountAppShell } from "./shell";
 import { audioSettingsView, developerSettingsView, generalSettingsView, translateSettingsView } from "./settingsViews";
 import { warmupProgressSteps, warmupStepsView } from "./warmupViews";
-
-const MAX_MANUAL_TRANSLATION_CHARS = 2_000;
-const MAX_ATTACHMENT_BYTES = 64 * 1024;
-const MAX_ATTACHMENT_FILES = 4;
-const MAX_ATTACHMENT_NAME_CHARS = 96;
-const MAX_COMPOSER_TEXTAREA_HEIGHT = 120;
-const MIN_COMPOSER_TEXTAREA_HEIGHT = 24;
-const LANGUAGE_CODES = ["id", "en"] as const;
-const LANGUAGE_OPTIONS: { code: LanguageCode; label: string }[] = [
-  { code: "id", label: "Indonesian" },
-  { code: "en", label: "English" },
-];
-const TEXT_ATTACHMENT_EXTENSIONS = [".txt", ".md", ".json", ".csv", ".tsv", ".log", ".xml", ".yaml", ".yml", ".srt", ".vtt"];
-const TEXT_ATTACHMENT_SUPPORT_MESSAGE = "Only text-based attachments are supported for now. PDF and DOCX require a backend parser first.";
-type LanguageCode = (typeof LANGUAGE_CODES)[number];
-type LanguageSelectorRole = "source" | "target";
+import {
+  MAX_ATTACHMENT_BYTES,
+  MAX_ATTACHMENT_FILES,
+  attachmentSection,
+  compactAttachmentText,
+  isSupportedTextAttachment,
+  safeAttachmentName,
+  unsupportedAttachmentMessage,
+} from "./launcherAttachmentRules";
+import { LANGUAGE_OPTIONS, isLanguageCode, nextLanguageCode, type LanguageSelectorRole } from "./launcherLanguageRules";
+import { MAX_COMPOSER_TEXTAREA_HEIGHT, MAX_MANUAL_TRANSLATION_CHARS, MIN_COMPOSER_TEXTAREA_HEIGHT, exceedsManualTranslationLimit } from "./launcherTextRules";
+import { buildDeveloperLogRows } from "./launcherDeveloperLog";
 
 export class LauncherController {
   private readonly ui: UiRefs;
@@ -70,7 +66,6 @@ export class LauncherController {
   private modelReadyText(value: boolean): string { return value ? "Ready" : "Needs setup"; }
   private refreshDirectionPill(): void { const settings = this.currentSettings ?? defaultSettings(); this.ui.directionPill.textContent = `${settings.source_language.toUpperCase()} > ${settings.target_language.toUpperCase()}`; }
   private renderWarmupSteps(activeIndex = -1): void { this.ui.warmupSteps.innerHTML = warmupStepsView(activeIndex); }
-  private escapeHtml(value: string): string { return value.replaceAll("&", "&amp;").replaceAll("<", "&lt;").replaceAll(">", "&gt;").replaceAll('"', "&quot;").replaceAll("'", "&#39;"); }
 
   private applyRuntimeSettings(settings: RuntimeSettings): void {
     this.currentSettings = settings;
@@ -95,22 +90,6 @@ export class LauncherController {
     this.resizeMessageInput();
   }
 
-  private exceedsManualTranslationLimit(value: string): boolean {
-    let count = 0;
-    for (const character of value) {
-      if (character) count += 1;
-      if (count > MAX_MANUAL_TRANSLATION_CHARS) return true;
-    }
-    return false;
-  }
-
-  private isLanguageCode(value: string): value is LanguageCode { return LANGUAGE_CODES.some((code) => code === value); }
-
-  private nextLanguageCode(value: string): LanguageCode {
-    const index = LANGUAGE_CODES.findIndex((code) => code === value.toLowerCase());
-    return LANGUAGE_CODES[index >= 0 && index + 1 < LANGUAGE_CODES.length ? index + 1 : 0];
-  }
-
   private toggleLanguageSelector(role: LanguageSelectorRole): void {
     this.activeLanguageSelector = this.activeLanguageSelector === role ? null : role;
     this.renderTranslateSettings();
@@ -118,7 +97,7 @@ export class LauncherController {
   }
 
   private selectLanguage(role: LanguageSelectorRole, code: string): void {
-    if (!this.isLanguageCode(code)) {
+    if (!isLanguageCode(code)) {
       this.setAssistantNotice("Selected language is not supported yet.");
       return;
     }
@@ -126,10 +105,10 @@ export class LauncherController {
     const settings = this.currentSettings;
     if (role === "source") {
       settings.source_language = code;
-      if (settings.target_language.toLowerCase() === code) settings.target_language = this.nextLanguageCode(code);
+      if (settings.target_language.toLowerCase() === code) settings.target_language = nextLanguageCode(code);
     } else {
       settings.target_language = code;
-      if (settings.source_language.toLowerCase() === code) settings.source_language = this.nextLanguageCode(code);
+      if (settings.source_language.toLowerCase() === code) settings.source_language = nextLanguageCode(code);
     }
     this.activeLanguageSelector = null;
     this.refreshDirectionPill();
@@ -142,42 +121,14 @@ export class LauncherController {
     this.currentSettings = this.currentSettings ?? defaultSettings();
     const settings = this.currentSettings;
     if (role === "source") {
-      settings.source_language = this.nextLanguageCode(settings.source_language);
-      if (settings.target_language.toLowerCase() === settings.source_language) settings.target_language = this.nextLanguageCode(settings.source_language);
+      settings.source_language = nextLanguageCode(settings.source_language);
+      if (settings.target_language.toLowerCase() === settings.source_language) settings.target_language = nextLanguageCode(settings.source_language);
     } else {
-      settings.target_language = this.nextLanguageCode(settings.target_language);
-      if (settings.source_language.toLowerCase() === settings.target_language) settings.source_language = this.nextLanguageCode(settings.target_language);
+      settings.target_language = nextLanguageCode(settings.target_language);
+      if (settings.source_language.toLowerCase() === settings.target_language) settings.source_language = nextLanguageCode(settings.target_language);
     }
     this.refreshDirectionPill();
     this.setAssistantNotice(`Language pair changed to ${this.currentSettings.source_language.toUpperCase()} > ${this.currentSettings.target_language.toUpperCase()}.`);
-  }
-
-  private isSupportedTextAttachment(file: File): boolean {
-    const name = this.safeAttachmentName(file).toLowerCase();
-    return file.type.startsWith("text/") || file.type === "application/json" || TEXT_ATTACHMENT_EXTENSIONS.some((extension) => name.endsWith(extension));
-  }
-
-  private compactAttachmentText(value: string): string { return value.replace(/\s+/g, " ").trim(); }
-
-  private safeAttachmentName(file: File): string {
-    const clean = file.name
-      .replace(/[\u0000-\u001f\u007f]/g, "")
-      .replace(/[\\/]/g, "_")
-      .replace(/\s+/g, " ")
-      .trim()
-      .slice(0, MAX_ATTACHMENT_NAME_CHARS);
-    return clean || "attachment.txt";
-  }
-
-  private attachmentSection(file: File, text: string): string {
-    return `[Attachment: ${this.safeAttachmentName(file)}]\n${text}`;
-  }
-
-  private unsupportedAttachmentMessage(file: File): string {
-    const name = this.safeAttachmentName(file);
-    const lowerName = name.toLowerCase();
-    if (lowerName.endsWith(".pdf") || lowerName.endsWith(".docx")) return `${name} is not supported yet. ${TEXT_ATTACHMENT_SUPPORT_MESSAGE}`;
-    return `${name} is not a supported text attachment. ${TEXT_ATTACHMENT_SUPPORT_MESSAGE}`;
   }
 
   private async ingestAttachmentFiles(filesInput?: FileList | File[]): Promise<void> {
@@ -188,14 +139,14 @@ export class LauncherController {
       this.setAssistantNotice("Attachment read is already running. Please wait.");
       return;
     }
-    const unsupported = files.find((file) => !this.isSupportedTextAttachment(file));
+    const unsupported = files.find((file) => !isSupportedTextAttachment(file));
     if (unsupported) {
-      this.setAssistantNotice(this.unsupportedAttachmentMessage(unsupported));
+      this.setAssistantNotice(unsupportedAttachmentMessage(unsupported));
       return;
     }
     const oversized = files.find((file) => file.size > MAX_ATTACHMENT_BYTES);
     if (oversized) {
-      this.setAssistantNotice(`${this.safeAttachmentName(oversized)} is too large. Limit: 64 KB per text file.`);
+      this.setAssistantNotice(`${safeAttachmentName(oversized)} is too large. Limit: 64 KB per text file.`);
       return;
     }
     this.attachmentReadPending = true;
@@ -203,21 +154,21 @@ export class LauncherController {
     try {
       const sections = [] as string[];
       for (const file of files) {
-        const text = this.compactAttachmentText(await file.text());
+        const text = compactAttachmentText(await file.text());
         if (!text) {
-          this.setAssistantNotice(`${this.safeAttachmentName(file)} is empty.`);
+          this.setAssistantNotice(`${safeAttachmentName(file)} is empty.`);
           return;
         }
-        sections.push(this.attachmentSection(file, text));
+        sections.push(attachmentSection(file, text));
       }
       const combinedText = sections.join("\n\n");
-      if (this.exceedsManualTranslationLimit(combinedText)) {
+      if (exceedsManualTranslationLimit(combinedText)) {
         this.setAssistantNotice(`Combined attachment text is too long. Limit: ${MAX_MANUAL_TRANSLATION_CHARS} characters after cleanup.`);
         return;
       }
       this.setMessageInputValue(combinedText);
       this.ui.messageInput.focus();
-      const names = files.map((file) => this.safeAttachmentName(file)).join(", ");
+      const names = files.map((file) => safeAttachmentName(file)).join(", ");
       this.setAssistantNotice(`Attached ${files.length} file(s): ${names}. Text is ready for translation.`);
     } catch (_error) {
       this.setAssistantNotice("Attachment could not be read as text.");
@@ -336,7 +287,7 @@ export class LauncherController {
   private async submitText(): Promise<void> {
     const source = this.ui.messageInput.value.trim();
     if (!source) return;
-    if (this.exceedsManualTranslationLimit(source)) {
+    if (exceedsManualTranslationLimit(source)) {
       this.setAssistantNotice(`Text is too long. Limit: ${MAX_MANUAL_TRANSLATION_CHARS} characters.`);
       return;
     }
@@ -515,27 +466,16 @@ export class LauncherController {
     const ram = percentText(this.latestHardware?.ram);
     const gpu = percentText(this.latestHardware?.gpu);
     const gpuStatus = this.latestDiagnostics?.cuda_probe.gpu_summary ?? this.latestHardware?.gpu.detail ?? "GPU status unavailable";
-    const nextAction = this.escapeHtml(this.latestBundle?.next_action ?? "Waiting for next diagnostic result.");
-    const logCpu = this.escapeHtml(cpu);
-    const logRam = this.escapeHtml(ram);
-    const logGpu = this.escapeHtml(gpu);
-    const logGpuStatus = this.escapeHtml(gpuStatus);
-    const commandErrors = runtimeApi.getCommandErrors().map((error) => {
-      const command = this.escapeHtml(error.command);
-      const message = this.escapeHtml(error.message);
-      return `<p><strong>[ERR]</strong>${command}: ${message}</p>`;
+    const logRows = buildDeveloperLogRows({
+      runtimeLoaded: Boolean(this.latestBundle),
+      worker,
+      cpu,
+      ram,
+      gpu,
+      gpuStatus,
+      nextAction: this.latestBundle?.next_action ?? "Waiting for next diagnostic result.",
+      commandErrors: runtimeApi.getCommandErrors(),
     });
-    const logRows = [
-      `<p><strong>[OK]</strong>${this.latestBundle ? "Runtime status loaded." : "Waiting for diagnostic check."}</p>`,
-      `<p><strong>[HW]</strong>CPU ${logCpu} | RAM ${logRam} | GPU ${logGpu}</p>`,
-      `<p><strong>[GPU]</strong>${logGpuStatus}</p>`,
-      `<p><strong>[ASR]</strong>Primary ${worker?.asr_model_ready ? "ready" : "missing"} | Backup ${worker?.asr_backup_model_ready ? "ready" : "missing"}</p>`,
-      `<p><strong>[TR]</strong>Marian ${worker?.realtime_translation_model_ready ? "ready" : "missing"} | NLLB ${worker?.quality_translation_model_ready ? "ready" : "missing"}</p>`,
-      `<p><strong>[TTS]</strong>${worker?.piper_ready ? "Piper ready" : worker?.sapi_ready ? "Windows SAPI fallback ready" : "No provider"} | Marcel ${worker?.voice_actor_marcel_ready ? "ready" : "missing"}</p>`,
-      `<p><strong>[CUDA]</strong>CTranslate2 ${worker?.ctranslate2_cuda_available ? "ready" : "not ready"} | Torch ${worker?.torch_cuda_available ? "ready" : "CPU-only"}</p>`,
-      `<p><strong>[WAIT]</strong>${nextAction}</p>`,
-      ...commandErrors,
-    ].join("");
     this.ui.settingsContent.innerHTML = developerSettingsView({ progress, cpu, ram, gpu, gpuStatus, logRows, note: this.latestHardware?.note ?? "Run diagnostic to refresh hardware usage.", logsExpanded: this.logsExpanded, engineGood: Boolean(this.latestBundle) });
     requireElement<HTMLButtonElement>("#runDiagnosticButton").addEventListener("click", () => void this.runDeveloperDiagnostic());
     requireElement<HTMLButtonElement>("#seeAllLogsButton").addEventListener("click", () => { this.logsExpanded = !this.logsExpanded; this.renderDeveloperSettings(); });
