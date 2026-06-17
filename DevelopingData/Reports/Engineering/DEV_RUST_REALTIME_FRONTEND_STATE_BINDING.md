@@ -14,7 +14,8 @@ Track the non-visual frontend binding for the realtime status payload.
 - A state validation helper exists for mapper/store logic.
 - A UI text patch adapter exists for approved visible binding later.
 - A readiness summary exists to decide whether visible binding is safe.
-- State validation now covers mapper, store, UI text patch output, and readiness summary.
+- A visible binding approval gate exists.
+- State validation now covers mapper, store, UI text patch output, readiness summary, and approval gate behavior.
 
 ## Important boundary
 
