@@ -20,8 +20,9 @@ fn local_worker_script_path() -> PathBuf {
     let project_paths = ProjectPaths::discover();
     PathBuf::from(project_paths.project_root)
         .join("EngineData")
-        .join("LauncherApp")
-        .join("Workers")
+        .join("Backend")
+        .join("LocalWorker")
+        .join("WorkerRuntime")
         .join("realtime_local_worker.py")
 }
 
@@ -170,6 +171,7 @@ fn start_audio_pipeline_worker(audio_path: String, user_log_dir: String) {
             "ok": ok,
             "stage": "audio_pipeline_stop_capture_worker",
             "audio_path": audio_path,
+            "worker_path": local_worker_script_path(),
             "source_language": source_language,
             "target_language": target_language,
             "requested_mode": mode,
@@ -303,12 +305,12 @@ pub fn stop_capture() -> CommandResult {
     let pipeline_note = if segment_write.ok {
         if let Some(audio_path) = segment_write.audio_path.clone() {
             start_audio_pipeline_worker(audio_path, project_paths.user_log_dir.clone());
-            "Audio pipeline worker handoff started in background for ASR > Translate > TTS."
+            format!("Audio pipeline worker handoff started in background for ASR > Translate > TTS via {}.", local_worker_script_path().display())
         } else {
-            "Audio pipeline worker handoff skipped because the WAV path was missing."
+            "Audio pipeline worker handoff skipped because the WAV path was missing.".to_string()
         }
     } else {
-        "Audio pipeline worker handoff skipped because the target WAV was not prepared."
+        "Audio pipeline worker handoff skipped because the target WAV was not prepared.".to_string()
     };
     let stopped_live_capture = stop_live_capture_runtime();
     let cleared_session = clear_runtime_session_state();
