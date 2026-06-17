@@ -4,7 +4,7 @@
 
 `Frontend` defines the UI-facing ownership area for TranslateIT.
 
-The current active Tauri build path remains under `EngineData/LauncherApp/RustApp` to avoid breaking the package route. This folder clarifies which files are frontend-owned and how new UI work should be named.
+The current active Tauri package path remains under `EngineData/LauncherApp/RustApp`. The approved target package name is `App`.
 
 ## Current active frontend paths
 
@@ -20,24 +20,21 @@ EngineData/LauncherApp/RustApp/src/app/engineTranslate
 ```text
 Frontend/
   README.md
-  UI/            # visible UI components, pages, and interaction naming
-  AppShell/      # desktop shell, top-level app frame, navigation ownership
-  DesignReview/  # preview-only UI review notes, template, and approval references
+  UI/        # visible UI components, pages, and interaction naming
+  AppShell/  # desktop shell, top-level app frame, navigation ownership
 ```
 
-## Design review location
+## App-specific UI documentation
+
+Preview files, UI references, and app UI templates stay inside:
 
 ```text
-EngineData/Frontend/DesignReview/DesignPreview
-EngineData/Frontend/DesignReview/UIReference
-EngineData/Frontend/DesignReview/UIPageTemplate.md
-EngineData/Frontend/DesignReview/UIReferenceGuide.md
+EngineData/LauncherApp/RustApp
 ```
 
 ## Rules
 
 - Keep UI naming clear and user-facing.
-- Keep preview files separate from production runtime files.
 - Do not place backend runtime code here.
 - Do not place release-required files under `DevelopingData`.
-- Do not store UI review files in the RustApp root.
+- Keep app-specific UI documentation inside the active app package.
