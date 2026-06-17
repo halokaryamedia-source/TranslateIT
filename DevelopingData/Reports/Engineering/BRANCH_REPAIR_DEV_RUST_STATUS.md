@@ -10,9 +10,9 @@ Port safe isolated files into Dev-Rust and verify per path.
 
 ## Current repair status
 Partial repair completed.
-Confirmed repaired files: 35 of about 96 changed files.
-Estimated repair progress: 36%.
-Core Qwen language files, session bridge files, realtime contract files, status-panel bridge files, and local readiness helper files have been ported directly to Dev-Rust.
+Confirmed repaired files: 44 of about 96 changed files.
+Estimated repair progress: 46%.
+Core Qwen language files, session bridge files, realtime contract files, status-panel bridge files, local readiness helper files, and selected engineering reports have been ported directly to Dev-Rust.
 
 ## Confirmed on Dev-Rust
 - `EngineData/TranslateEngine/language_llm_manifest.py`
@@ -50,10 +50,19 @@ Core Qwen language files, session bridge files, realtime contract files, status-
 - `EngineData/TranslateEngine/piper_runtime_contract.py`
 - `EngineData/TranslateEngine/realtime_readiness_audit.py`
 - `EngineData/TranscriptEngine/realtime_stt_stream.py`
+- `DevelopingData/Reports/Engineering/REALTIME_VALIDATION_RUNBOOK.md`
+- `DevelopingData/Reports/Engineering/REALTIME_LOCAL_COMPLETION_CHECKLIST.md`
+- `DevelopingData/Reports/Engineering/REALTIME_LIVE_WIRING_MAP.md`
+- `DevelopingData/Reports/Engineering/LANGUAGE_LLM_QWEN_INTEGRATION.md`
+- `DevelopingData/Reports/Engineering/LANGUAGE_LLM_RUNTIME_CONTRACT_ADDENDUM.md`
+- `DevelopingData/Reports/Engineering/LANGUAGE_LLM_SESSION_PATCH_QUEUE_ADDENDUM.md`
+- `DevelopingData/Reports/Engineering/LANGUAGE_LLM_SESSION_PERSISTENCE_BRIDGE_ADDENDUM.md`
+- `DevelopingData/Reports/Engineering/LANGUAGE_LLM_SESSION_BRIDGE_HOOK_ADDENDUM.md`
+- `DevelopingData/Reports/Engineering/LANGUAGE_LLM_TRANSCRIPT_PERSISTENCE_PATCH_ADDENDUM.md`
 
 ## Still needs repair
 - Remaining realtime helper files from the misplaced range.
-- Tests and reports from the misplaced range.
+- Tests and remaining reports from the misplaced range.
 - Any patcher/verifier files blocked by connector checks.
 - `translation_engine.py` integration must be reviewed carefully because Dev-Rust currently has different structure.
 
