@@ -1,8 +1,20 @@
 # Structure Cleanup Report
 
-## Result
+## Current result
 
-TranslateIT development files are consolidated under:
+TranslateIT root is restricted to the approved root areas and files:
+
+```text
+DevelopingData/
+EngineData/
+UserData/
+.gitattributes
+.gitignore
+README.md
+TranslateIT.lnk
+```
+
+## Development-only route
 
 ```text
 DevelopingData/
@@ -12,47 +24,52 @@ DevelopingData/
   Tooling/
 ```
 
-Runtime files are isolated under:
+`DevelopingData` must not contain active runtime engine files.
+
+## Runtime route
 
 ```text
 EngineData/
+  Frontend/
+  Backend/
   LauncherApp/
-  RuntimeAssets/
 ```
 
-## Active routes
+## Active app package route
 
-Application route:
+Current physical package folder:
 
 ```text
-EngineData/LauncherApp/RustApp -> Tauri packaged TranslateIT app
+EngineData/LauncherApp/RustApp
 ```
 
-Documentation route:
+Approved target package folder for a later package-path migration:
 
 ```text
-DevelopingData/Documentation/
+EngineData/LauncherApp/App
 ```
 
-Tooling route:
+App-specific preview, UI reference, reports, checklists, and evidence notes stay inside the app package until that physical rename is completed.
+
+## Backend runtime routes
 
 ```text
-DevelopingData/Tooling/Scripts/Execution/
+EngineData/Backend/LocalWorker/WorkerRuntime/
+EngineData/Backend/RuntimeContracts/
+EngineData/Backend/RuntimeAssets/
 ```
 
-Runtime asset route:
+## User runtime output route
 
 ```text
-EngineData/RuntimeAssets/
+UserData/CacheData/
+UserData/LogData/
+UserData/SavedProject/
 ```
 
-Validation evidence route:
+Runtime outputs are ignored by Git except folder README placeholders.
 
-```text
-UserData/LogData/RustAppValidation/
-```
-
-## Retired paths
+## Retired paths confirmed unused
 
 ```text
 DeveloperData/
@@ -67,22 +84,48 @@ DevelopingData/Tests/
 EngineData/TranscriptEngine/
 EngineData/TranslateEngine/
 EngineData/VoiceEngine/
+EngineData/RuntimeAssets/
+EngineData/LauncherApp/Workers/
 TranslateIT.vbs
+Launcher/
+Launcher/Preview/
 ```
 
 ## Python policy
 
-The only approved Python file in the active project runtime is:
+The only approved Python runtime file route is:
 
 ```text
-EngineData/LauncherApp/Workers/realtime_local_worker.py
+EngineData/Backend/LocalWorker/WorkerRuntime/realtime_local_worker.py
 ```
 
-Rust/Tauri, repository, structure, evidence, and CI checks use Node or PowerShell tooling. Python validation scripts are retired from `DevelopingData`.
+Python validation scripts are not active runtime files and must not be restored into `DevelopingData` root-level legacy folders.
 
-## Important rule
+## Ignore policy
 
-Do not create parallel documentation, tooling, or runtime folders. Add future documentation under `DevelopingData/Documentation`, future validation tooling under `DevelopingData/Tooling`, runtime app code under `EngineData/LauncherApp/RustApp`, runtime assets under `EngineData/RuntimeAssets`, and user runtime output under `UserData`.
+`.gitignore` protects:
+
+```text
+UserData/CacheData/**
+UserData/LogData/**
+UserData/SavedProject/**
+EngineData/Backend/RuntimeAssets/ASR/ModelData/**
+EngineData/Backend/RuntimeAssets/Translation/ModelData/**
+EngineData/Backend/RuntimeAssets/Voice/Piper/**
+EngineData/RuntimeAssets/**
+```
+
+`.gitattributes` exists at root and marks text/binary handling for scripts, images, icons, and the root shortcut.
+
+## Remaining planned migration for Codex
+
+Physical rename still pending:
+
+```text
+EngineData/LauncherApp/RustApp -> EngineData/LauncherApp/App
+```
+
+This must be done as a full package-path migration so Tauri, npm scripts, README references, shortcuts, tooling scripts, and package lock metadata are updated together.
 
 ## Readiness truth
 
