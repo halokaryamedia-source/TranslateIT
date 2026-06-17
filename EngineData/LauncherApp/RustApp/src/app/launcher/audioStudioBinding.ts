@@ -1,25 +1,15 @@
 import { icon } from "../shared/icons";
+import {
+  AUDIO_STUDIO_READING_LINES,
+  createGuidedReadingTake,
+  createImportedTake,
+  stateLabel,
+  type AudioStudioTakeDraft,
+  type AudioStudioTakeState,
+} from "./audioStudioState";
 
-const READING_LINES = [
-  {
-    id: "id-neutral-01",
-    label: "Neutral Indonesian",
-    text: "Hari ini saya akan membaca kalimat ini dengan jelas, tenang, dan stabil.",
-    target: "8-12 seconds",
-  },
-  {
-    id: "en-neutral-01",
-    label: "Neutral English",
-    text: "Today I will read this sentence clearly with a calm and steady voice.",
-    target: "8-12 seconds",
-  },
-  {
-    id: "id-expressive-01",
-    label: "Expressive Indonesian",
-    text: "Tolong dengarkan instruksi ini baik-baik sebelum kita melanjutkan ke bagian berikutnya.",
-    target: "10-14 seconds",
-  },
-];
+let selectedReadingIndex = 0;
+let stagedTakes: AudioStudioTakeDraft[] = [];
 
 function escapeHtml(value: string): string {
   return value
@@ -35,14 +25,71 @@ function setAssistantNotice(message: string): void {
   if (element) element.textContent = message;
 }
 
+function statusTone(state: AudioStudioTakeState): string {
+  if (state === "accepted") return "good";
+  if (state === "blocked") return "error";
+  if (state === "needs_retry") return "warning";
+  return "neutral";
+}
+
+function updateTakeState(takeId: string, state: AudioStudioTakeState): void {
+  stagedTakes = stagedTakes.map((take) => take.id === takeId ? { ...take, state } : take);
+  const take = stagedTakes.find((item) => item.id === takeId);
+  renderTakeReviewPanel();
+  if (take) setAssistantNotice(`${take.title} marked as ${stateLabel(state)}.`);
+}
+
 function readingCards(): string {
-  return READING_LINES.map((line, index) => `
-    <article class="audio-studio-reading-card ${index === 0 ? "active" : ""}" data-reading-id="${escapeHtml(line.id)}">
+  return AUDIO_STUDIO_READING_LINES.map((line, index) => `
+    <article class="audio-studio-reading-card ${index === selectedReadingIndex ? "active" : ""}" data-reading-id="${escapeHtml(line.id)}">
       <header><strong>${escapeHtml(line.label)}</strong><span>${escapeHtml(line.target)}</span></header>
       <p>${escapeHtml(line.text)}</p>
       <button class="mic-test-button-v22 secondary audio-studio-use-line" type="button" data-reading-index="${index}">Use this line</button>
     </article>
   `).join("");
+}
+
+function takeReviewCards(): string {
+  if (stagedTakes.length === 0) {
+    return `<article class="feature-card empty-state-card"><div class="feature-title-row"><h4>No take staged yet</h4></div><p>Import audio or choose a guided reading line to create the first draft take.</p></article>`;
+  }
+
+  return stagedTakes.map((take) => `
+    <article class="audio-studio-reading-card" data-take-id="${escapeHtml(take.id)}">
+      <header><strong>${escapeHtml(take.title)}</strong><span class="status-badge status-badge--${statusTone(take.state)}">${escapeHtml(stateLabel(take.state))}</span></header>
+      <p>${escapeHtml(take.detail)}</p>
+      <div class="settings-card-actions compact">
+        <button class="mic-test-button-v22 audio-studio-take-action" type="button" data-take-action="accepted" data-take-id="${escapeHtml(take.id)}">Accept</button>
+        <button class="mic-test-button-v22 secondary audio-studio-take-action" type="button" data-take-action="needs_retry" data-take-id="${escapeHtml(take.id)}">Retry</button>
+        <button class="mic-test-button-v22 secondary audio-studio-take-action" type="button" data-take-action="blocked" data-take-id="${escapeHtml(take.id)}">Block</button>
+      </div>
+    </article>
+  `).join("");
+}
+
+function bindTakeReviewActions(): void {
+  document.querySelectorAll<HTMLButtonElement>(".audio-studio-take-action").forEach((button) => {
+    button.addEventListener("click", () => {
+      const takeId = button.dataset.takeId ?? "";
+      const action = button.dataset.takeAction as AudioStudioTakeState | undefined;
+      if (!takeId || !action) return;
+      updateTakeState(takeId, action);
+    });
+  });
+}
+
+function renderTakeReviewPanel(): void {
+  const panel = document.querySelector<HTMLElement>("#audioStudioTakeReviewPanel");
+  if (!panel) return;
+  panel.innerHTML = takeReviewCards();
+  bindTakeReviewActions();
+}
+
+function renderReadingPanel(): void {
+  const panel = document.querySelector<HTMLElement>("#audioStudioReadingGrid");
+  if (!panel) return;
+  panel.innerHTML = readingCards();
+  bindReadingActions();
 }
 
 function audioStudioView(): string {
@@ -62,13 +109,13 @@ function audioStudioView(): string {
         <div class="settings-grid-2 compact-grid">
           <section class="settings-output-row">
             ${icon("speaker")}
-            <div><h3>Import audio</h3><p>Add existing WAV, MP3, M4A, or OGG audio for later review.</p></div>
+            <div><h3>Import audio</h3><p>Add existing WAV, MP3, M4A, OGG, or WEBM audio for later review.</p></div>
             <button id="audioStudioImportButton" class="mic-test-button-v22" type="button">Import</button>
           </section>
           <section class="settings-output-row">
             ${icon("mic")}
             <div><h3>Guided reading</h3><p>Read prepared text directly in the app to keep takes consistent.</p></div>
-            <button id="audioStudioGuidedButton" class="mic-test-button-v22" type="button">Start Guide</button>
+            <button id="audioStudioGuidedButton" class="mic-test-button-v22" type="button">Stage Guide</button>
           </section>
         </div>
         <input id="audioStudioFileInput" type="file" accept="audio/wav,audio/mpeg,audio/mp4,audio/ogg,audio/webm,.wav,.mp3,.m4a,.ogg,.webm" multiple hidden />
@@ -79,7 +126,14 @@ function audioStudioView(): string {
         <p>Initial curated text set for consistent recording sessions.</p>
       </section>
 
-      <div class="audio-studio-reading-grid">${readingCards()}</div>
+      <div id="audioStudioReadingGrid" class="audio-studio-reading-grid">${readingCards()}</div>
+
+      <section class="settings-section-title">
+        <h2>Take Review</h2>
+        <p>Review staged items and mark them as accepted, retry, or blocked before later local processing.</p>
+      </section>
+
+      <div id="audioStudioTakeReviewPanel" class="audio-studio-reading-grid">${takeReviewCards()}</div>
 
       <section class="settings-section-title">
         <h2>Readiness Gate</h2>
@@ -87,14 +141,26 @@ function audioStudioView(): string {
       </section>
       <article class="settings-card settings-card--audio-studio-status">
         <div class="developer-log-body" aria-label="Audio Studio readiness">
-          <p class="developer-log-row"><strong>INFO</strong><span>UI scaffold: planned</span></p>
+          <p class="developer-log-row"><strong>INFO</strong><span>UI scaffold: staged</span></p>
+          <p class="developer-log-row"><strong>INFO</strong><span>Take states: draft, staged, accepted, retry, blocked</span></p>
           <p class="developer-log-row"><strong>WAIT</strong><span>Import handling: metadata only until backend route is added</span></p>
-          <p class="developer-log-row"><strong>WAIT</strong><span>Guided recording: uses future local capture route, not validated here</span></p>
-          <p class="developer-log-row"><strong>WAIT</strong><span>Provider output: blocked until local runtime evidence exists</span></p>
+          <p class="developer-log-row"><strong>WAIT</strong><span>Guided recording: future local capture route, not validated here</span></p>
         </div>
       </article>
     </div>
   `;
+}
+
+function bindReadingActions(): void {
+  document.querySelectorAll<HTMLButtonElement>(".audio-studio-use-line").forEach((button) => {
+    button.addEventListener("click", () => {
+      const index = Number(button.dataset.readingIndex ?? 0);
+      selectedReadingIndex = Number.isFinite(index) ? index : 0;
+      const line = AUDIO_STUDIO_READING_LINES[selectedReadingIndex] ?? AUDIO_STUDIO_READING_LINES[0];
+      renderReadingPanel();
+      setAssistantNotice(`Guided reading line ready: ${line.text}`);
+    });
+  });
 }
 
 function bindAudioStudioViewEvents(): void {
@@ -105,24 +171,23 @@ function bindAudioStudioViewEvents(): void {
   importButton?.addEventListener("click", () => fileInput?.click());
   fileInput?.addEventListener("change", () => {
     const files = Array.from(fileInput.files ?? []);
+    const newTakes = files.map(createImportedTake);
+    stagedTakes = [...newTakes, ...stagedTakes].slice(0, 12);
+    renderTakeReviewPanel();
     const names = files.map((file) => file.name).slice(0, 4).join(", ");
     setAssistantNotice(files.length > 0 ? `Audio Studio import staged: ${files.length} file(s). ${names}` : "No audio file selected.");
     fileInput.value = "";
   });
 
   guidedButton?.addEventListener("click", () => {
-    setAssistantNotice(`Guided reading selected: ${READING_LINES[0].text}`);
+    const line = AUDIO_STUDIO_READING_LINES[selectedReadingIndex] ?? AUDIO_STUDIO_READING_LINES[0];
+    stagedTakes = [createGuidedReadingTake(line), ...stagedTakes].slice(0, 12);
+    renderTakeReviewPanel();
+    setAssistantNotice(`Guided reading staged: ${line.text}`);
   });
 
-  document.querySelectorAll<HTMLButtonElement>(".audio-studio-use-line").forEach((button) => {
-    button.addEventListener("click", () => {
-      const index = Number(button.dataset.readingIndex ?? 0);
-      const line = READING_LINES[index] ?? READING_LINES[0];
-      document.querySelectorAll(".audio-studio-reading-card").forEach((card) => card.classList.remove("active"));
-      button.closest(".audio-studio-reading-card")?.classList.add("active");
-      setAssistantNotice(`Guided reading line ready: ${line.text}`);
-    });
-  });
+  bindReadingActions();
+  bindTakeReviewActions();
 }
 
 function openAudioStudio(): void {
