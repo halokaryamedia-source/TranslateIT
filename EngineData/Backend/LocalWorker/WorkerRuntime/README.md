@@ -46,6 +46,10 @@ npm run smoke:worker -- -AudioPath "UserData\CacheData\audio_segments\latest_liv
 npm run status:readiness
 ```
 
+## Migrated helper map
+
+During branch repair, several Python helpers were migrated from the misplaced branch range. They are not the active Rust/Tauri app logic. Use `migrated_python_helper_map.json` to decide whether each helper remains a compatibility helper, becomes a LocalWorker boundary candidate, is translated into Rust, or remains evidence only.
+
 ## Truth rules
 
 - CUDA availability is reported separately from CUDA inference success.
@@ -53,3 +57,4 @@ npm run status:readiness
 - Worker smoke evidence is stored under `UserData/LogData/RustAppValidation/`.
 - Owner validation remains blocked until persistent worker smoke evidence, manual runtime evidence, and build/package evidence pass.
 - Input and output files are constrained to project `UserData` runtime folders.
+- Migrated Python helpers must not replace Rust/Tauri app logic without a reviewed worker boundary or Rust translation.
