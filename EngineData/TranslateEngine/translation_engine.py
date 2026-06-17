@@ -11,6 +11,7 @@ from typing import Any
 from typing import Sequence
 
 from EngineData.TranslateEngine.translation_context import TranslationContext
+from EngineData.TranslateEngine.realtime_quality_layer import RealtimeQualityLayer
 
 
 @dataclass(slots=True)
@@ -46,6 +47,8 @@ class TranslationResult:
     output_chars: int = 0
     fallback_used: bool = False
     error: str = ""
+    quality_layer_status: str = ""
+    voice_replay_allowed: bool = False
 
 
 @dataclass(slots=True)
@@ -101,6 +104,7 @@ class TranslationEngine:
         self.fallback_engine_name = fallback_engine_name
         self.model_root = model_root
         self.context = TranslationContext()
+        self.quality_layer = RealtimeQualityLayer()
         self._tokenizer: Any | None = None
         self._model: Any | None = None
         self._loaded_model_id: str | None = None
@@ -328,6 +332,7 @@ class TranslationEngine:
             cached_copy.context_used = bool(request.context_window)
             cached_copy.input_chars = input_chars
             cached_copy.output_chars = len(cached_copy.translated_text)
+            cached_copy.voice_replay_allowed = False
             return cached_copy
         literal_translation = self._literal_short_translation(
             source_text=clean_source_text,
@@ -336,12 +341,23 @@ class TranslationEngine:
         )
         if literal_translation is not None:
             context_used = bool(request.context_window)
+            quality_result = self.quality_layer.pre_tts_fast_pass(
+                source_text=clean_source_text,
+                translated_text=literal_translation,
+                source_language=request.source_language,
+                target_language=request.target_language,
+            )
+            final_translation = quality_result.text
             self.context.push(clean_source_text)
-            self.context.push(literal_translation)
+            self.context.push(final_translation)
+            self.quality_layer.accept_post_output_observation(
+                source_text=clean_source_text,
+                translated_text=final_translation,
+            )
             total_ms = int((perf_counter() - started) * 1000)
             result = TranslationResult(
                 segment_id=request.segment_id,
-                translated_text=literal_translation,
+                translated_text=final_translation,
                 engine_name="literal-short-translation",
                 mode="literal_short_phrase",
                 latency_ms=total_ms,
@@ -359,9 +375,11 @@ class TranslationEngine:
                 model_loaded_before_segment=self._model is not None,
                 context_used=context_used,
                 input_chars=input_chars,
-                output_chars=len(literal_translation),
+                output_chars=len(final_translation),
                 fallback_used=False,
                 error="",
+                quality_layer_status=quality_result.status,
+                voice_replay_allowed=False,
             )
             self._translation_cache[cache_key] = copy.copy(result)
             while len(self._translation_cache) > self._translation_cache_limit:
@@ -422,9 +440,20 @@ class TranslationEngine:
                 decode_started = perf_counter()
                 translated_text = self._tokenizer.batch_decode(output_tokens.detach().cpu(), skip_special_tokens=True)[0]
                 decoded_text = self._collapse_adjacent_sentence_duplicates(str(translated_text).strip())
+                quality_result = self.quality_layer.pre_tts_fast_pass(
+                    source_text=clean_source_text,
+                    translated_text=decoded_text,
+                    source_language=request.source_language,
+                    target_language=request.target_language,
+                )
+                decoded_text = quality_result.text
                 decode_finalize_ms = int((perf_counter() - decode_started) * 1000)
                 context_update_started = perf_counter()
                 self.context.push(decoded_text)
+                self.quality_layer.accept_post_output_observation(
+                    source_text=clean_source_text,
+                    translated_text=decoded_text,
+                )
                 context_update_ms = int((perf_counter() - context_update_started) * 1000)
                 total_ms = int((perf_counter() - started) * 1000)
                 result = TranslationResult(
@@ -450,6 +479,8 @@ class TranslationEngine:
                     output_chars=len(decoded_text),
                     fallback_used=capability.engine_name != self.primary_engine_name,
                     error="",
+                    quality_layer_status=quality_result.status,
+                    voice_replay_allowed=False,
                 )
                 self._translation_cache[cache_key] = copy.copy(result)
                 while len(self._translation_cache) > self._translation_cache_limit:
