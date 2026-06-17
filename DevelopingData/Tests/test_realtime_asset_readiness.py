@@ -17,7 +17,9 @@ class RealtimeAssetReadinessTests(unittest.TestCase):
         payload = result.to_dict()
         self.assertFalse(payload["ready"])
         self.assertIn("checks", payload)
+        self.assertIn("manifest", payload)
         self.assertGreaterEqual(len(payload["checks"]), 1)
+        self.assertGreaterEqual(len(payload["manifest"]), 1)
 
 
 if __name__ == "__main__":
