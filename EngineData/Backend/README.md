@@ -20,8 +20,18 @@ EngineData/RuntimeAssets
 ```text
 Backend/
   README.md
-  RuntimeCore/   # Rust runtime core, audio, inference, session, diagnostics ownership
-  LocalWorker/   # approved Python worker ownership route
+  RuntimeCore/       # Rust runtime core, audio, inference, session, diagnostics ownership
+  LocalWorker/       # approved Python worker ownership route
+  RuntimeContracts/  # runtime JSON contracts and model readiness manifest
+```
+
+## Runtime contract files
+
+```text
+EngineData/Backend/RuntimeContracts/ATTACHMENT_RUNTIME_CONTRACT.json
+EngineData/Backend/RuntimeContracts/AUDIO_PIPELINE_RUNTIME_CONTRACT.json
+EngineData/Backend/RuntimeContracts/TRANSLATION_RUNTIME_CONTRACT.json
+EngineData/Backend/RuntimeContracts/MODEL_RUNTIME_MANIFEST.json
 ```
 
 ## Rules
@@ -30,3 +40,4 @@ Backend/
 - Keep frontend UI code out of backend runtime folders.
 - Keep local model binaries under `RuntimeAssets`, ignored by Git.
 - Keep the Python worker isolated to the approved worker route.
+- Keep runtime contracts under `Backend/RuntimeContracts`, not the RustApp root.
