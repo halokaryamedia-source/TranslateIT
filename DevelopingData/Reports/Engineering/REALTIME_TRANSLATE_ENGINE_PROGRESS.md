@@ -1,7 +1,7 @@
 # Realtime Translate Engine Progress
 
 ## Current completion estimate
-**61% implemented** for the new low-latency realtime translation direction.
+**68% implemented** for the new low-latency realtime translation direction.
 
 ## Completed
 - Added `EngineData/TranslateEngine/realtime_quality_layer.py`.
@@ -17,18 +17,20 @@
 - Added `EngineData/TranscriptEngine/realtime_stt_stream.py` for rolling-buffer partial STT.
 - Added `EngineData/TranslateEngine/realtime_diagnostics.py` to aggregate visible realtime status.
 - Added `EngineData/TranslateEngine/piper_tts_backend.py` for Piper TTS readiness checks and benchmark contract.
+- Added `EngineData/TranslateEngine/realtime_turn_planner.py` to combine translation, TTS readiness, and diagnostics into one realtime turn plan.
+- Added `EngineData/TranslateEngine/realtime_status_presenter.py` to format engine status for a UI diagnostics panel.
 
 ## Partially completed
 - Dedicated CTranslate2 MT backend is wired into translation routing, but converted local model files still need to exist under `ModelData` before it can become active.
 - Partial STT adapter exists, but the live microphone loop still needs to emit partial transcript events into UI.
-- Latency diagnostics snapshot exists, but the app diagnostics panel still needs to display it.
-- Piper TTS readiness detection exists, but runtime audio synthesis/playback wiring still needs app-side integration.
+- Piper TTS readiness detection exists, but runtime synthesis and speaker output still need app-side integration.
+- UI-safe status formatting exists, but the actual UI panel still needs to consume it.
 
 ## Not yet completed
 - Live end-to-end latency test target around 1 second.
-- UI runtime indicator for latency/model/fallback status.
+- UI runtime indicator rendering inside the desktop app.
 - Real device validation on target PC with microphone, GPU, STT model, MT model, and TTS voice files.
-- Final runtime bridge that connects partial STT -> fast MT -> Piper TTS -> audio output.
+- Final live connection from partial STT event -> turn planner -> TTS runtime -> app output channel.
 
 ## Professional status
-The engine now has foundations for non-replay correction, fast MT routing, latency budgeting, partial STT, diagnostics aggregation, and Piper TTS readiness. The full Gemini-style low-latency pipeline is still not complete because app-side audio output wiring, UI diagnostics, and real-device validation are not finished yet.
+The engine now has foundations for non-replay correction, fast MT routing, latency budgeting, partial STT, diagnostics aggregation, Piper TTS readiness, turn planning, and UI-safe status formatting. The full Gemini-style low-latency pipeline is still not complete because live app wiring, speaker output, UI rendering, and real-device validation are not finished yet.
