@@ -100,8 +100,9 @@ fn local_worker_script_path() -> PathBuf {
     let project_paths = ProjectPaths::discover();
     PathBuf::from(project_paths.project_root)
         .join("EngineData")
-        .join("LauncherApp")
-        .join("Workers")
+        .join("Backend")
+        .join("LocalWorker")
+        .join("WorkerRuntime")
         .join("realtime_local_worker.py")
 }
 
