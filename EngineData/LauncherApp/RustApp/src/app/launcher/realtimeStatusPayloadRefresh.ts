@@ -21,7 +21,7 @@ function isAudioDeviceOutput(value: string): boolean {
 function shouldPreserveDeveloperOutput(value: string): boolean {
   if (!isAudioDeviceOutput(value)) return false;
   const now = Date.now();
-  if (value !== preservedDeveloperOutput || now > preservedDeveloperOutputUntil) {
+  if (value !== preservedDeveloperOutput) {
     preservedDeveloperOutput = value;
     preservedDeveloperOutputUntil = now + AUDIO_DEVICE_OUTPUT_PRESERVE_MS;
     return true;
