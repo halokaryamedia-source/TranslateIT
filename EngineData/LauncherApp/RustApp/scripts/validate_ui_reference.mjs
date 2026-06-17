@@ -57,7 +57,7 @@ const requiredShellCopy = [
   "Speak Indonesian. Get translated English voice output.",
   "Type a message, or press the microphone button on the right to record speech locally.",
   "Ask anything...",
-  "Recording started. I will update this conversation when the voice translation result is ready.",
+  "Local runtime is checking. You can type text or start recording after warmup.",
   "Type or paste Indonesian text and get an English translation in the conversation."
 ];
 
