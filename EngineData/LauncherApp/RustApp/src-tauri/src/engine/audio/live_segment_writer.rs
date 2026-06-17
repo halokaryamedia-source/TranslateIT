@@ -7,6 +7,8 @@ use super::live_audio_buffer::live_target_segment_snapshot;
 use super::TARGET_SAMPLE_RATE_HZ;
 use crate::engine::paths::ProjectPaths;
 
+const MIN_ASR_SEGMENT_DURATION_MS: u32 = 300;
+
 #[derive(Debug, Clone, Serialize)]
 pub struct LiveSegmentWavWriteReport {
     pub ok: bool,
@@ -47,6 +49,8 @@ pub fn write_latest_live_target_segment_wav() -> LiveSegmentWavWriteReport {
         };
     };
 
+    let frame_duration_ms = duration_ms(frame.samples.len(), frame.sample_rate_hz);
+
     if !frame.is_target_format() {
         return LiveSegmentWavWriteReport {
             ok: false,
@@ -54,9 +58,22 @@ pub fn write_latest_live_target_segment_wav() -> LiveSegmentWavWriteReport {
             sample_rate_hz: frame.sample_rate_hz,
             channels: frame.channels,
             sample_count: frame.samples.len(),
-            duration_ms: duration_ms(frame.samples.len(), frame.sample_rate_hz),
+            duration_ms: frame_duration_ms,
             blocker: "live_segment_writer:frame_not_target_format".to_string(),
             note: "Live target frame must be 16 kHz mono before worker transcription.".to_string(),
+        };
+    }
+
+    if frame_duration_ms < MIN_ASR_SEGMENT_DURATION_MS {
+        return LiveSegmentWavWriteReport {
+            ok: false,
+            audio_path: None,
+            sample_rate_hz: frame.sample_rate_hz,
+            channels: frame.channels,
+            sample_count: frame.samples.len(),
+            duration_ms: frame_duration_ms,
+            blocker: "live_segment_writer:segment_too_short".to_string(),
+            note: format!("Captured audio is too short for reliable ASR. Minimum: {MIN_ASR_SEGMENT_DURATION_MS}ms."),
         };
     }
 
@@ -71,7 +88,7 @@ pub fn write_latest_live_target_segment_wav() -> LiveSegmentWavWriteReport {
             sample_rate_hz: frame.sample_rate_hz,
             channels: frame.channels,
             sample_count: frame.samples.len(),
-            duration_ms: duration_ms(frame.samples.len(), frame.sample_rate_hz),
+            duration_ms: frame_duration_ms,
             blocker: String::new(),
             note: "Live target ASR segment was written as PCM16 WAV for the local worker.".to_string(),
         },
@@ -81,7 +98,7 @@ pub fn write_latest_live_target_segment_wav() -> LiveSegmentWavWriteReport {
             sample_rate_hz: frame.sample_rate_hz,
             channels: frame.channels,
             sample_count: frame.samples.len(),
-            duration_ms: duration_ms(frame.samples.len(), frame.sample_rate_hz),
+            duration_ms: frame_duration_ms,
             blocker: "live_segment_writer:wav_write_failed".to_string(),
             note: error.to_string(),
         },
