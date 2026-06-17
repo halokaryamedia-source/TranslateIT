@@ -12,6 +12,8 @@ import type {
   RuntimeStatusBundleReport,
 } from "../shared/types";
 
+export const RUNTIME_SETTINGS_SAVED_EVENT = "translateit:runtime-settings-saved";
+
 const pendingRuntimeReads = new Map<string, Promise<unknown>>();
 
 function singleFlight<T>(key: string, task: () => Promise<T | null>): Promise<T | null> {
@@ -50,6 +52,10 @@ function hasDeviceId(value: string | null | undefined): boolean {
   return Boolean(value?.trim());
 }
 
+function broadcastSettingsSaved(settings: RuntimeSettings): void {
+  window.dispatchEvent(new CustomEvent<RuntimeSettings>(RUNTIME_SETTINGS_SAVED_EVENT, { detail: settings }));
+}
+
 async function settingsForSave(settings: RuntimeSettings): Promise<RuntimeSettings> {
   const current = await runCommand<RuntimeSettings>("load_runtime_settings");
   if (!current) return settings;
@@ -69,11 +75,14 @@ export const runtimeApi = {
     const mergedSettings = await settingsForSave(settings);
     const result = await runCommand<CommandResult>("save_runtime_settings", { settings: mergedSettings });
     clearSettingsDependentReads();
+    if (result?.ok) broadcastSettingsSaved(mergedSettings);
     return result;
   },
   saveDefaultSettings: async () => {
     const result = await runCommand<CommandResult>("save_default_runtime_settings");
     clearSettingsDependentReads();
+    const settings = await runCommand<RuntimeSettings>("load_runtime_settings");
+    if (result?.ok && settings) broadcastSettingsSaved(settings);
     return result;
   },
   getStatusBundle: () => singleFlight("status-bundle", () => runCommand<RuntimeStatusBundleReport>("get_runtime_status_bundle")),
