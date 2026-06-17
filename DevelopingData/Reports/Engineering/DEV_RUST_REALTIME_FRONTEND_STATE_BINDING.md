@@ -12,6 +12,8 @@ Track the non-visual frontend binding for the realtime status payload.
 - A refresh helper exists.
 - App startup now refreshes the realtime status payload store once.
 - A state validation helper exists for mapper/store logic.
+- A UI text patch adapter exists for approved visible binding later.
+- State validation now covers mapper, store, and UI text patch output.
 
 ## Important boundary
 
