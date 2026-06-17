@@ -23,14 +23,11 @@ impl ProjectPaths {
         let user_cache_dir = root.join("UserData").join("CacheData");
         let user_log_dir = root.join("UserData").join("LogData");
         let user_saved_dir = root.join("UserData").join("SavedProject");
-        let runtime_assets = root.join("EngineData").join("RuntimeAssets");
+        let runtime_assets = root.join("EngineData").join("Backend").join("RuntimeAssets");
         let asr_model_dir = runtime_assets.join("ASR").join("ModelData");
         let translation_model_dir = runtime_assets.join("Translation").join("ModelData");
         let voice_runtime_dir = runtime_assets.join("Voice");
-        let backend_contract_dir = root
-            .join("EngineData")
-            .join("Backend")
-            .join("RuntimeContracts");
+        let backend_contract_dir = root.join("EngineData").join("Backend").join("RuntimeContracts");
 
         Self {
             project_root: normalize_path(&root),
@@ -41,7 +38,7 @@ impl ProjectPaths {
             translation_model_dir: normalize_path(&translation_model_dir),
             voice_runtime_dir: normalize_path(&voice_runtime_dir),
             backend_contract_dir: normalize_path(&backend_contract_dir),
-            discovery_note: "Project root discovery requires EngineData, DevelopingData, and UserData. Runtime assets use EngineData/RuntimeAssets. Backend contracts use EngineData/Backend/RuntimeContracts.".to_string(),
+            discovery_note: "Runtime assets use EngineData/Backend/RuntimeAssets. Backend contracts use EngineData/Backend/RuntimeContracts.".to_string(),
         }
     }
 }
