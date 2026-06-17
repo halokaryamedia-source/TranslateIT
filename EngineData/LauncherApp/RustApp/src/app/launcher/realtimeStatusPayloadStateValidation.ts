@@ -2,6 +2,7 @@ import type { RealtimeStatusPayload } from "../shared/types";
 import { realtimeStatusViewState } from "./realtimeStatusPayloadState";
 import { applyRealtimeStatusPayload, latestRealtimeStatusSnapshot } from "./realtimeStatusPayloadStore";
 import { realtimeStatusUiTextPatch } from "./realtimeStatusPayloadViewPatch";
+import { realtimeStatusReadinessSummary } from "./realtimeStatusReadinessSummary";
 
 export type RealtimeStatusStateValidationReport = {
   ok: boolean;
@@ -57,9 +58,14 @@ export function validateRealtimeStatusStateMapping(): RealtimeStatusStateValidat
   if (patch.realtimeStatus !== "Partial (1)") failures.push("UI patch realtime label failed");
   if (patch.gpuStatus !== "CPU fallback") failures.push("UI patch GPU label failed");
 
+  const summary = realtimeStatusReadinessSummary(partialSnapshot);
+  if (!summary.readyForVisibleBinding) failures.push("readiness summary binding flag failed");
+  if (summary.missingCount !== 1) failures.push("readiness summary missing count failed");
+  if (summary.patch.realtimeStatus !== "Partial (1)") failures.push("readiness summary patch failed");
+
   return {
     ok: failures.length === 0,
-    checked: 9,
+    checked: 12,
     failures,
   };
 }
