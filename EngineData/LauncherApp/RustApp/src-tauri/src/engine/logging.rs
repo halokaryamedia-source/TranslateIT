@@ -7,6 +7,9 @@ use std::time::{SystemTime, UNIX_EPOCH};
 const MAX_LOG_AREA_CHARS: usize = 48;
 const MAX_LOG_MESSAGE_CHARS: usize = 360;
 const MAX_RUNTIME_LOG_FILE_BYTES: u64 = 1_000_000;
+const REDACTED_PATH: &str = "[redacted-path]";
+const REDACTED_EMAIL: &str = "[redacted-email]";
+const REDACTED_SECRET: &str = "[redacted-secret]";
 
 #[derive(Debug, Clone, Serialize)]
 pub struct RuntimeLogEvent {
@@ -90,7 +93,7 @@ fn append_line(path: &Path, line: &str) -> io::Result<()> {
 }
 
 fn compact_log_field(value: impl Into<String>, max_chars: usize) -> String {
-    let input = value.into();
+    let input = redact_log_value(&value.into());
     let mut output = String::new();
     let mut previous_was_space = false;
     let mut written = 0usize;
@@ -122,6 +125,65 @@ fn compact_log_field(value: impl Into<String>, max_chars: usize) -> String {
         output.push('…');
     }
     output
+}
+
+fn redact_log_value(value: &str) -> String {
+    value
+        .split_whitespace()
+        .map(redact_log_token)
+        .collect::<Vec<_>>()
+        .join(" ")
+}
+
+fn redact_log_token(token: &str) -> String {
+    let trimmed = token.trim_matches(|character: char| matches!(character, ',' | ';' | ')' | '(' | '[' | ']' | '{' | '}' | '"' | '\''));
+    let lowercase = trimmed.to_ascii_lowercase();
+    if looks_like_secret(&lowercase) {
+        return REDACTED_SECRET.to_string();
+    }
+    if looks_like_local_path(trimmed) {
+        return REDACTED_PATH.to_string();
+    }
+    if looks_like_email(trimmed) {
+        return REDACTED_EMAIL.to_string();
+    }
+    token.to_string()
+}
+
+fn looks_like_secret(value: &str) -> bool {
+    value.contains("token=")
+        || value.contains("api_key")
+        || value.contains("apikey")
+        || value.contains("secret=")
+        || value.contains("password=")
+        || value.contains("authorization=")
+        || value.contains("bearer ")
+}
+
+fn looks_like_local_path(value: &str) -> bool {
+    let normalized = value.replace('\\', "/");
+    let bytes = normalized.as_bytes();
+    let drive_path = bytes.len() >= 3
+        && bytes[1] == b':'
+        && bytes[2] == b'/'
+        && bytes[0].is_ascii_alphabetic();
+    drive_path
+        || normalized.starts_with("/Users/")
+        || normalized.starts_with("/home/")
+        || normalized.starts_with("/mnt/")
+        || normalized.contains("/UserData/")
+        || normalized.contains("/EngineData/")
+        || normalized.contains("/DevelopingData/")
+}
+
+fn looks_like_email(value: &str) -> bool {
+    if value.len() > 254 || value.contains('/') || value.contains('\\') {
+        return false;
+    }
+    let Some((local, domain)) = value.split_once('@') else {
+        return false;
+    };
+    !local.is_empty() && domain.contains('.') && !domain.starts_with('.') && !domain.ends_with('.')
 }
 
 fn is_safe_log_file_name(value: &str) -> bool {
