@@ -5,7 +5,7 @@ App route: `EngineData/LauncherApp/RustApp`
 
 ## Current progress
 
-Overall hardening progress: 86%
+Overall hardening progress: 89%
 
 ## Completed changes
 
@@ -55,12 +55,25 @@ Touched file:
 Status: Complete
 
 - Sanitized voice actor profile ID.
+- Sanitized input/output audio device identifiers.
 - Restricted voice actor profile root to approved relative directories.
 - Blocks absolute paths, drive-letter paths, parent traversal, control characters, and long setting values.
+- Runtime settings are now written through a temporary file before rename to reduce corruption risk.
 
 Touched file:
 
 - `src-tauri/src/engine/settings.rs`
+
+### Runtime path discovery hardening
+
+Status: Complete
+
+- Project root discovery now checks both current working directory ancestors and executable directory ancestors.
+- Discovery note now clearly reports whether runtime root markers were verified or whether fallback mode is being used.
+
+Touched file:
+
+- `src-tauri/src/engine/paths.rs`
 
 ### Runtime log growth control
 
@@ -128,7 +141,7 @@ The GitHub connector can update files but cannot run the local Windows/Tauri bui
 
 ## Current readiness estimate
 
-- Internal testing readiness: 86/100
-- Production/client readiness: 66/100
+- Internal testing readiness: 89/100
+- Production/client readiness: 68/100
 
 Production readiness remains blocked by dependency audit validation, full local build validation, and missing runtime model assets.
