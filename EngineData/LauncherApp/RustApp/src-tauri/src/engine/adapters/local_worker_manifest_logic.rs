@@ -110,32 +110,17 @@ pub fn analyze_local_worker_manifest() -> LocalWorkerManifestReport {
     let worker_script = worker_root.join("realtime_local_worker.py");
     let requirements = worker_root.join("requirements-realtime.txt");
     let stack_manifest = worker_root.join("realtime_stack_manifest.json");
-    let runtime_manifest = root
-        .join("EngineData")
-        .join("LauncherApp")
-        .join("RustApp")
+    let runtime_manifest = PathBuf::from(&project_paths.backend_contract_dir)
         .join("MODEL_RUNTIME_MANIFEST.json");
-    let asr_model = root
-        .join("EngineData")
-        .join("TranscriptEngine")
-        .join("ModelData")
+    let asr_model = PathBuf::from(&project_paths.asr_model_dir)
         .join("faster-whisper-large-v3-turbo");
-    let asr_backup_model = root
-        .join("EngineData")
-        .join("TranscriptEngine")
-        .join("ModelData")
+    let asr_backup_model = PathBuf::from(&project_paths.asr_model_dir)
         .join("faster-whisper-medium");
-    let realtime_translation_model = root
-        .join("EngineData")
-        .join("TranslateEngine")
-        .join("ModelData")
+    let realtime_translation_model = PathBuf::from(&project_paths.translation_model_dir)
         .join("marianmt-id-en");
-    let quality_translation_model = root
-        .join("EngineData")
-        .join("TranslateEngine")
-        .join("ModelData")
+    let quality_translation_model = PathBuf::from(&project_paths.translation_model_dir)
         .join("nllb-200-distilled-600M");
-    let piper_root = root.join("EngineData").join("VoiceEngine").join("Piper");
+    let piper_root = PathBuf::from(&project_paths.voice_runtime_dir).join("Piper");
 
     let worker_script_exists = worker_script.is_file();
     let requirements_exists = requirements.is_file();
@@ -294,9 +279,9 @@ pub fn analyze_local_worker_manifest() -> LocalWorkerManifestReport {
         warnings,
         tts_blockers,
         note: if ok {
-            "Project-local models passed marker and load-manifest validation. Default local TTS is available; custom voice and CUDA warnings remain separate from internal CPU/SAPI readiness.".to_string()
+            "Project-local runtime assets passed marker and load-manifest checks. Default local TTS is available; custom voice and CUDA warnings remain separate from internal CPU/SAPI readiness.".to_string()
         } else {
-            "Local realtime worker is incomplete. A model is ready only when required files exist and MODEL_RUNTIME_MANIFEST.json records a successful local load.".to_string()
+            "Local realtime worker is incomplete. A model is ready only when required files exist and EngineData/Backend/RuntimeContracts/MODEL_RUNTIME_MANIFEST.json records a successful local load.".to_string()
         },
     }
 }
