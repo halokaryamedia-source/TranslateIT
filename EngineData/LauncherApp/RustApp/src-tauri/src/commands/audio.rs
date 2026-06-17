@@ -1,3 +1,6 @@
+use cpal::traits::{DeviceTrait, HostTrait};
+use serde::Serialize;
+
 use crate::engine;
 use crate::engine::adapters::asr_model_logic::{build_asr_profile_plan, AsrProfilePlan, AsrProfileRequest};
 use crate::engine::adapters::asr_quality_logic::{evaluate_asr_quality, AsrQualityLogicDecision, AsrQualityLogicRequest};
@@ -21,6 +24,74 @@ use crate::engine::audio::stream_build::{plan_native_capture_stream_build, Nativ
 use crate::engine::audio::vad::{evaluate_segment_decision, VadDecisionReport, VadSegmentDecisionRequest};
 use crate::engine::audio::AudioFrame;
 use crate::engine::runtime_state::{latest_runtime_session_state, record_realtime_handoff_report};
+
+#[derive(Debug, Clone, Serialize)]
+pub struct AudioDeviceSummary {
+    pub id: String,
+    pub name: String,
+    pub is_default: bool,
+}
+
+#[derive(Debug, Clone, Serialize)]
+pub struct AudioDeviceListReport {
+    pub ok: bool,
+    pub input_devices: Vec<AudioDeviceSummary>,
+    pub output_devices: Vec<AudioDeviceSummary>,
+    pub blocker: String,
+    pub note: String,
+}
+
+fn device_name(device: &cpal::Device) -> Option<String> {
+    device.name().ok().map(|value| value.trim().to_string()).filter(|value| !value.is_empty())
+}
+
+fn collect_devices(is_input: bool) -> Result<Vec<AudioDeviceSummary>, String> {
+    let host = cpal::default_host();
+    let default_name = if is_input {
+        host.default_input_device().and_then(|device| device_name(&device))
+    } else {
+        host.default_output_device().and_then(|device| device_name(&device))
+    };
+    let devices = if is_input {
+        host.input_devices().map_err(|error| error.to_string())?.collect::<Vec<_>>()
+    } else {
+        host.output_devices().map_err(|error| error.to_string())?.collect::<Vec<_>>()
+    };
+    let mut result = Vec::new();
+    for device in devices {
+        if let Some(name) = device_name(&device) {
+            if result.iter().any(|item: &AudioDeviceSummary| item.name == name) {
+                continue;
+            }
+            result.push(AudioDeviceSummary {
+                id: name.clone(),
+                is_default: default_name.as_deref() == Some(name.as_str()),
+                name,
+            });
+        }
+    }
+    Ok(result)
+}
+
+#[tauri::command]
+pub fn list_audio_devices() -> AudioDeviceListReport {
+    let input = collect_devices(true);
+    let output = collect_devices(false);
+    let input_devices = input.unwrap_or_default();
+    let output_devices = output.unwrap_or_default();
+    let ok = !input_devices.is_empty() || !output_devices.is_empty();
+    AudioDeviceListReport {
+        ok,
+        input_devices,
+        output_devices,
+        blocker: if ok { String::new() } else { "audio_devices:not_found".to_string() },
+        note: if ok {
+            "Audio devices were discovered from the native host.".to_string()
+        } else {
+            "No audio input or output devices were discovered from the native host.".to_string()
+        },
+    }
+}
 
 #[tauri::command]
 pub fn probe_native_input_config() -> NativeInputConfigProbeReport { NativeInputConfigProbeReport::probe_default_input() }
