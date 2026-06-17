@@ -34,10 +34,21 @@ function requireOrdered(label, content, first, second) {
   }
 }
 
-requireOrdered("main.ts", main, 'import "./styles.css";', 'import "./settingsLayout.css";');
-requireOrdered("main.ts", main, 'import "./settingsLayout.css";', 'import "./launcherGuard.css";');
-requireOrdered("main.ts", main, 'import "./launcherGuard.css";', 'import "./professionalUi.css";');
-requireOrdered("main.ts", main, 'import "./professionalUi.css";', 'import "./referenceLayout.css";');
+const requiredMainImportOrder = [
+  'import "./styles.css";',
+  'import "./launcherGuard.css";',
+  'import "./professionalUi.css";',
+  'import "./referenceLayout.css";',
+  'import "./mainPageLayout.css";',
+  'import "./audioSettingsLayout.css";',
+  'import "./translateSettingsLayout.css";',
+  'import "./developerSettingsLayout.css";'
+];
+
+for (const importLine of requiredMainImportOrder) requireContains("main.ts", main, importLine);
+for (let index = 0; index < requiredMainImportOrder.length - 1; index += 1) {
+  requireOrdered("main.ts", main, requiredMainImportOrder[index], requiredMainImportOrder[index + 1]);
+}
 requireContains("main.ts", main, "bindReferenceUi();");
 requireContains("main.ts", main, "bindAttachmentLimitWatcher();");
 requireContains("main.ts", main, "bindResultWatcher();");
