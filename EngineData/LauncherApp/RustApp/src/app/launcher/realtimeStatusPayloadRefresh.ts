@@ -2,7 +2,10 @@ import { getRealtimeStatusPayload } from "../engineTranslate/realtimeStatusPaylo
 import { applyRealtimeStatusPayload, type RealtimeStatusStoreSnapshot } from "./realtimeStatusPayloadStore";
 
 const REALTIME_STATUS_REFRESH_MS = 2_500;
+const AUDIO_DEVICE_OUTPUT_PRESERVE_MS = 15_000;
 let realtimeStatusRefreshTimer: number | null = null;
+let preservedDeveloperOutput = "";
+let preservedDeveloperOutputUntil = 0;
 
 function setText(id: string, value: string | null | undefined): void {
   if (!value) return;
@@ -10,9 +13,20 @@ function setText(id: string, value: string | null | undefined): void {
   if (element) element.textContent = value;
 }
 
-function shouldPreserveDeveloperOutput(value: string): boolean {
+function isAudioDeviceOutput(value: string): boolean {
   const normalized = value.trim().toLowerCase();
   return normalized.startsWith("microphones:") || normalized.startsWith("audio devices unavailable:");
+}
+
+function shouldPreserveDeveloperOutput(value: string): boolean {
+  if (!isAudioDeviceOutput(value)) return false;
+  const now = Date.now();
+  if (value !== preservedDeveloperOutput || now > preservedDeveloperOutputUntil) {
+    preservedDeveloperOutput = value;
+    preservedDeveloperOutputUntil = now + AUDIO_DEVICE_OUTPUT_PRESERVE_MS;
+    return true;
+  }
+  return now <= preservedDeveloperOutputUntil;
 }
 
 function applyRealtimeStatusSnapshotToDom(snapshot: RealtimeStatusStoreSnapshot): void {
