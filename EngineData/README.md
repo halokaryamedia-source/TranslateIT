@@ -7,7 +7,7 @@
 It is split by responsibility so the tree is easy to read:
 
 - `Frontend/` - UI ownership map, design review, app shell, and frontend naming rules.
-- `Backend/` - backend ownership map, runtime core, local worker, and inference bridge rules.
+- `Backend/` - backend ownership map, runtime core, local worker, runtime contracts, and inference bridge rules.
 - `LauncherApp/` - current active Rust/Tauri build route.
 - `RuntimeAssets/` - local model, Piper, and runtime asset slots that stay out of Git.
 
@@ -21,10 +21,15 @@ EngineData/
     UI/
     AppShell/
     DesignReview/
+      DesignPreview/
+      UIReference/
+      UIPageTemplate.md
+      UIReferenceGuide.md
   Backend/
     README.md
     RuntimeCore/
     LocalWorker/
+    RuntimeContracts/
   LauncherApp/
     README.md
     RustApp/              # active Rust/Tauri desktop app build route
@@ -57,7 +62,11 @@ EngineData/LauncherApp/RustApp/src/app/engineTranslate
 EngineData/LauncherApp/RustApp/index.html
 ```
 
-`EngineData/Frontend` documents the ownership boundary and future-safe naming for UI, app shell, and design review files.
+Preview and UI reference material lives outside the RustApp root:
+
+```text
+EngineData/Frontend/DesignReview
+```
 
 ## Backend ownership
 
@@ -69,7 +78,11 @@ EngineData/LauncherApp/RustApp/src-tauri/src/engine
 EngineData/LauncherApp/Workers/realtime_local_worker.py
 ```
 
-`EngineData/Backend` documents the ownership boundary for Rust runtime core, command bridge, inference bridge, and local worker logic.
+Runtime contracts and model readiness manifests live outside the RustApp root:
+
+```text
+EngineData/Backend/RuntimeContracts
+```
 
 ## Runtime asset slots
 
@@ -99,6 +112,7 @@ Those separate root folders were consolidated into clearer ownership routes so t
 - Do not add Python source modules under `RuntimeAssets`.
 - Keep `RuntimeAssets` for local model/runtime assets and README ownership only.
 - Keep user data, logs, cache, generated audio, and model binaries out of Git.
-- Add new UI work under the frontend ownership map first.
-- Add new runtime/backend work under the backend ownership map first.
+- Keep UI review and reference files under `EngineData/Frontend/DesignReview`.
+- Keep runtime contracts under `EngineData/Backend/RuntimeContracts`.
+- Keep report/checklist/evidence documents under `DevelopingData/Documentation/Reports/Engineering`.
 - Keep the user-facing route inside the packaged Rust/Tauri app.
