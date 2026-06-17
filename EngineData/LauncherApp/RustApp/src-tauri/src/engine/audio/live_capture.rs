@@ -10,6 +10,7 @@ use super::live_audio_buffer::{
     append_live_f32_samples, append_live_i16_samples, append_live_u16_samples,
     clear_live_audio_buffer, reset_live_audio_buffer,
 };
+use crate::engine::runtime_settings::load_settings;
 use crate::engine::runtime_state::RuntimeSessionStateReport;
 
 #[derive(Debug, Clone, Serialize)]
@@ -278,6 +279,29 @@ fn build_stream_for_format(
     }
 }
 
+fn configured_input_device_name() -> Option<String> {
+    load_settings()
+        .audio
+        .input_device_id
+        .map(|value| value.trim().to_string())
+        .filter(|value| !value.is_empty())
+}
+
+fn select_input_device(host: &cpal::Host) -> Result<cpal::Device, String> {
+    if let Some(requested_name) = configured_input_device_name() {
+        if let Ok(devices) = host.input_devices() {
+            for device in devices {
+                if device.name().ok().as_deref() == Some(requested_name.as_str()) {
+                    return Ok(device);
+                }
+            }
+        }
+    }
+
+    host.default_input_device()
+        .ok_or_else(|| "No default microphone input device was found.".to_string())
+}
+
 fn run_capture_thread(
     frames_received: Arc<AtomicU64>,
     callback_errors: Arc<Mutex<Vec<String>>>,
@@ -285,13 +309,11 @@ fn run_capture_thread(
     ready_tx: &mpsc::SyncSender<Result<LiveCaptureReady, String>>,
 ) -> Result<(), String> {
     let host = cpal::default_host();
-    let device = host
-        .default_input_device()
-        .ok_or_else(|| "No default microphone input device was found.".to_string())?;
+    let device = select_input_device(&host)?;
     let device_name = device.name().ok();
     let default_config = device
         .default_input_config()
-        .map_err(|error| format!("Default microphone has no usable input config: {error}"))?;
+        .map_err(|error| format!("Selected microphone has no usable input config: {error}"))?;
     let sample_format = default_config.sample_format();
     let stream_config: cpal::StreamConfig = default_config.into();
     let sample_rate_hz = stream_config.sample_rate.0;
