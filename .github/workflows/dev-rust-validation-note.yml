@@ -1,0 +1,11 @@
+name: Dev-Rust Validation Note
+
+on:
+  workflow_dispatch:
+
+jobs:
+  validation-note:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Print validation note
+        run: echo "Run npm run check:rust from EngineData/LauncherApp/RustApp on the Dev-Rust checkout."
