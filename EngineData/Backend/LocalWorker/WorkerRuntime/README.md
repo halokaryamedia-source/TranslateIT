@@ -1,6 +1,6 @@
-# TranslateIT Local Realtime Worker
+# Backend Local Worker Runtime
 
-This folder contains the local-only worker used by the RustApp shell during the current transition phase.
+This folder contains the backend-owned local worker used by the current Tauri desktop runtime.
 
 ## Runtime contract
 
@@ -27,16 +27,16 @@ Supported commands:
 ## Required assets
 
 ```text
-EngineData/TranscriptEngine/ModelData/faster-whisper-large-v3-turbo/model.bin
-EngineData/TranslateEngine/ModelData/marianmt-id-en/
-EngineData/TranslateEngine/ModelData/nllb-200-distilled-600M/
-EngineData/VoiceEngine/Piper/piper.exe
-EngineData/VoiceEngine/Piper/**/*.onnx
+EngineData/Backend/RuntimeAssets/ASR/ModelData/faster-whisper-large-v3-turbo/model.bin
+EngineData/Backend/RuntimeAssets/Translation/ModelData/marianmt-id-en/
+EngineData/Backend/RuntimeAssets/Translation/ModelData/nllb-200-distilled-600M/
+EngineData/Backend/RuntimeAssets/Voice/Piper/piper.exe
+EngineData/Backend/RuntimeAssets/Voice/Piper/**/*.onnx
 ```
 
 ## Commands
 
-From `EngineData/LauncherApp/RustApp`:
+From the active Tauri package folder:
 
 ```powershell
 npm run setup:worker
