@@ -156,6 +156,20 @@ fn safe_file_label(value: &str) -> String {
         .to_string()
 }
 
+fn remove_private_cache_file(value: &str) {
+    if value.trim().is_empty() {
+        return;
+    }
+    let project_paths = ProjectPaths::discover();
+    let cache_root = PathBuf::from(project_paths.user_cache_dir);
+    let path = PathBuf::from(value);
+    let Ok(resolved_path) = path.canonicalize() else { return };
+    let Ok(resolved_cache_root) = cache_root.canonicalize() else { return };
+    if resolved_path.is_file() && resolved_path.starts_with(&resolved_cache_root) {
+        let _ = fs::remove_file(resolved_path);
+    }
+}
+
 fn worker_stage_summary(value: &Option<Value>) -> Value {
     json!({
         "ok": json_ok(value),
@@ -345,6 +359,8 @@ fn start_audio_pipeline_worker(audio_path: String, user_log_dir: String) -> bool
             "rust_runtime_latest.jsonl",
             &RuntimeLogEvent::info("audio_pipeline", evidence.to_string()),
         );
+        remove_private_cache_file(&audio_path);
+        remove_private_cache_file(&tts_output_path);
     });
     true
 }
