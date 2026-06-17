@@ -5,8 +5,8 @@ Repair misplaced work from commit range `5ba3460a2bdc2c003dc9df9b8ff7134e4a679cb
 
 ## Current repair status
 Partial repair completed.
-Confirmed repaired files: 53 of about 96 changed files.
-Estimated repair progress: 55%.
+Confirmed repaired files: 57 of about 96 changed files.
+Estimated repair progress: 59%.
 
 ## Dev-Rust architecture crosscheck
 - Active app route: `EngineData/LauncherApp/RustApp`.
@@ -16,6 +16,12 @@ Estimated repair progress: 55%.
 - Runtime assets route: `EngineData/Backend/RuntimeAssets`.
 - Migrated Python files are helper or compatibility assets only.
 
+## Newly confirmed in this batch
+- `DevelopingData/Reports/Engineering/BRANCH_REPAIR_DEV_RUST_PYTHON_HELPER_CLASSIFICATION.md`
+- `DevelopingData/Tests/test_language_llm_prompt_payload.py`
+- `DevelopingData/Tests/test_language_llm_session_patch_queue.py`
+- `DevelopingData/Reports/Engineering/LANGUAGE_LLM_FINAL_TRANSCRIPT_ADAPTER_ADDENDUM.md`
+
 ## Confirmed categories on Dev-Rust
 - Core Qwen language helper files.
 - Transcript/session helper files.
@@ -24,16 +30,14 @@ Estimated repair progress: 55%.
 - Selected engineering reports.
 - Main Qwen/session tests.
 - Architecture alignment report.
-
-## Confirmed architecture report
-- `DevelopingData/Reports/Engineering/BRANCH_REPAIR_DEV_RUST_ARCHITECTURE_ALIGNMENT.md`
+- Python helper classification report.
 
 ## Still needs repair
 - Remaining realtime helper files from the misplaced range.
 - Tests and remaining reports from the misplaced range.
 - Patcher/verifier files that need safer import wording.
 - `translation_engine.py` needs separate review because Dev-Rust uses Rust/Tauri structure.
-- Each migrated Python helper still needs final classification: keep helper, move behind LocalWorker, translate into Rust, or keep as evidence.
+- Each migrated Python helper still needs final placement decision: keep helper, move behind LocalWorker, translate into Rust, or keep as evidence.
 
 ## Development status
 Feature development remains paused until branch repair and architecture classification are complete.
