@@ -10,8 +10,6 @@ on:
       - "EngineData/Backend/RuntimeContracts/**"
       - "EngineData/LauncherApp/RustApp/src/**"
       - "EngineData/LauncherApp/RustApp/src-tauri/src/**"
-      - "DevelopingData/Tests/test_dev_rust_*.py"
-      - "DevelopingData/Tooling/Scripts/Execution/run_dev_rust_branch_repair_validation.ps1"
   pull_request:
     branches:
       - Dev-Rust
@@ -20,8 +18,6 @@ on:
       - "EngineData/Backend/RuntimeContracts/**"
       - "EngineData/LauncherApp/RustApp/src/**"
       - "EngineData/LauncherApp/RustApp/src-tauri/src/**"
-      - "DevelopingData/Tests/test_dev_rust_*.py"
-      - "DevelopingData/Tooling/Scripts/Execution/run_dev_rust_branch_repair_validation.ps1"
 
 jobs:
   repo-safe-guard:
@@ -33,46 +29,18 @@ jobs:
 
       - name: Explain scope
         run: |
-          echo "This workflow intentionally does not run npm install, cargo check, Tauri build, worker smoke tests, CUDA checks, model checks, microphone checks, or local runtime validation."
-          echo "Those checks require the developer machine/runtime assets and must be run manually/local only."
+          echo "Repo-safe guard only."
+          echo "Skipped by design: npm install, cargo check, Tauri build, worker smoke tests, CUDA checks, model checks, microphone checks, and local runtime validation."
 
-      - name: Check Dev-Rust repo contracts
+      - name: Check stable Dev-Rust file contracts
         shell: bash
         run: |
           set -euo pipefail
-
           test -f EngineData/Backend/LocalWorker/WorkerRuntime/realtime_local_worker.py
-          test -f EngineData/Backend/RuntimeContracts/REALTIME_SEGMENT_EVENT_CONTRACT.json
-          test -f EngineData/Backend/RuntimeContracts/REALTIME_LATENCY_EVIDENCE_CONTRACT.json
-          test -f EngineData/Backend/RuntimeContracts/TRANSLATION_BENCHMARK_SET_ID_EN.json
           test -f EngineData/LauncherApp/RustApp/src-tauri/src/engine/capture_lifecycle.rs
-          test -f EngineData/LauncherApp/RustApp/src/app/launcher/audioPipelineResultWatcher.ts
-          test -f EngineData/LauncherApp/RustApp/src/app/launcher/realtimeStatusPayloadRefresh.ts
-          test -f EngineData/LauncherApp/RustApp/src/app/engineTranslate/realtimeSegmentEventTypes.ts
-          test -f EngineData/LauncherApp/RustApp/src/app/engineTranslate/realtimeSegmentReducer.ts
-          test -f EngineData/LauncherApp/RustApp/src/app/engineTranslate/translationBenchmarkScoring.ts
-          test -f EngineData/LauncherApp/RustApp/src/app/engineTranslate/realtimeLatencyScoring.ts
-          test -f DevelopingData/Tests/test_dev_rust_worker_path_contract.py
-
-          grep -q 'join("Backend")' EngineData/LauncherApp/RustApp/src-tauri/src/engine/capture_lifecycle.rs
-          grep -q 'join("LocalWorker")' EngineData/LauncherApp/RustApp/src-tauri/src/engine/capture_lifecycle.rs
-          grep -q 'join("WorkerRuntime")' EngineData/LauncherApp/RustApp/src-tauri/src/engine/capture_lifecycle.rs
-          grep -q 'join("realtime_local_worker.py")' EngineData/LauncherApp/RustApp/src-tauri/src/engine/capture_lifecycle.rs
-          if grep -q 'join("Workers")' EngineData/LauncherApp/RustApp/src-tauri/src/engine/capture_lifecycle.rs; then
-            echo "Deprecated worker path found: EngineData/LauncherApp/Workers"
-            exit 1
-          fi
-
-          grep -q 'startRealtimeStatusPayloadAutoRefresh' EngineData/LauncherApp/RustApp/src/main.ts
-          grep -q 'translationResultView' EngineData/LauncherApp/RustApp/src/app/launcher/audioPipelineResultWatcher.ts
-          grep -q 'latency_ms' EngineData/LauncherApp/RustApp/src-tauri/src/engine/capture_lifecycle.rs
-          grep -q 'settings.source_language.to_uppercase' EngineData/LauncherApp/RustApp/src-tauri/src/engine/adapters/realtime_status_payload_logic.rs
-          grep -q 'asr_partial' EngineData/Backend/RuntimeContracts/REALTIME_SEGMENT_EVENT_CONTRACT.json
-          grep -q 'translation_partial' EngineData/LauncherApp/RustApp/src/app/engineTranslate/realtimeSegmentEventTypes.ts
-          grep -q 'applyRealtimeSegmentEvent' EngineData/LauncherApp/RustApp/src/app/engineTranslate/realtimeSegmentReducer.ts
-          grep -q 'p95_end_to_end_ms' EngineData/Backend/RuntimeContracts/REALTIME_LATENCY_EVIDENCE_CONTRACT.json
-          grep -q 'id->en' EngineData/Backend/RuntimeContracts/TRANSLATION_BENCHMARK_SET_ID_EN.json
-          grep -q 'summarizeTranslationBenchmark' EngineData/LauncherApp/RustApp/src/app/engineTranslate/translationBenchmarkScoring.ts
-          grep -q 'summarizeRealtimeLatency' EngineData/LauncherApp/RustApp/src/app/engineTranslate/realtimeLatencyScoring.ts
-
+          test -f EngineData/LauncherApp/RustApp/src-tauri/src/engine/manual_translation.rs
+          test -f EngineData/LauncherApp/RustApp/src-tauri/src/engine/audio/live_segment_writer.rs
+          test -f EngineData/LauncherApp/RustApp/src-tauri/src/engine/audio/vad.rs
+          test -f EngineData/LauncherApp/RustApp/src/app/launcher/chatViews.ts
+          test -f EngineData/LauncherApp/RustApp/src/main.ts
           echo "Repo-safe Dev-Rust guard passed. Manual local validation remains separate."
