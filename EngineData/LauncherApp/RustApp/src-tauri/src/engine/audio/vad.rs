@@ -14,9 +14,9 @@ pub struct VadGateConfig {
 impl Default for VadGateConfig {
     fn default() -> Self {
         Self {
-            min_rms: 0.008,
-            min_peak: 0.03,
-            min_active_frame_ratio: 0.08,
+            min_rms: 0.0065,
+            min_peak: 0.024,
+            min_active_frame_ratio: 0.055,
             max_clipping_ratio: 0.02,
             min_speech_ms: 100,
         }
@@ -49,9 +49,9 @@ pub fn resolve_runtime_vad_profile(name: &str) -> RuntimeVadProfile {
             maximum_segment_duration_ms: 3_000,
             partial_asr_enabled: true,
             gate: VadGateConfig {
-                min_rms: 0.006,
-                min_peak: 0.022,
-                min_active_frame_ratio: 0.06,
+                min_rms: 0.0055,
+                min_peak: 0.020,
+                min_active_frame_ratio: 0.050,
                 max_clipping_ratio: 0.02,
                 min_speech_ms: 180,
             },
@@ -67,9 +67,9 @@ pub fn resolve_runtime_vad_profile(name: &str) -> RuntimeVadProfile {
             maximum_segment_duration_ms: 1_500,
             partial_asr_enabled: true,
             gate: VadGateConfig {
-                min_rms: 0.007,
-                min_peak: 0.024,
-                min_active_frame_ratio: 0.06,
+                min_rms: 0.006,
+                min_peak: 0.021,
+                min_active_frame_ratio: 0.050,
                 max_clipping_ratio: 0.025,
                 min_speech_ms: 120,
             },
