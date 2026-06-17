@@ -1,0 +1,75 @@
+{
+  "schema": "translateit.dev_rust.migrated_python_helper_map.v1",
+  "purpose": "Classify Python helper files migrated during branch repair so they do not replace Rust/Tauri app logic.",
+  "active_app_route": "EngineData/LauncherApp/RustApp",
+  "active_backend_boundary": "EngineData/Backend/LocalWorker/WorkerRuntime",
+  "runtime_contracts_route": "EngineData/Backend/RuntimeContracts",
+  "runtime_assets_route": "EngineData/Backend/RuntimeAssets",
+  "policy": {
+    "rust_tauri_is_active_app": true,
+    "python_helpers_are_not_primary_app_logic": true,
+    "worker_boundary_required_for_runtime_use": true,
+    "direct_rustapp_import_blocked": true
+  },
+  "helper_groups": {
+    "language_quality_helpers": {
+      "classification": "helper_compatibility",
+      "allowed_use": "final transcript and glossary support after Rust or worker boundary review",
+      "files": [
+        "EngineData/TranslateEngine/language_llm_manifest.py",
+        "EngineData/TranslateEngine/language_llm_config.py",
+        "EngineData/TranslateEngine/language_llm_runtime_contract.py",
+        "EngineData/TranslateEngine/language_llm_readiness.py",
+        "EngineData/TranslateEngine/language_llm_quality_contract.py",
+        "EngineData/TranslateEngine/language_llm_prompt_payload.py",
+        "EngineData/TranslateEngine/language_llm_quality_result.py",
+        "EngineData/TranslateEngine/language_llm_final_transcript_adapter.py",
+        "EngineData/TranslateEngine/language_llm_transcript_persistence_patch.py",
+        "EngineData/TranslateEngine/language_llm_session_patch_adapter.py",
+        "EngineData/TranslateEngine/language_llm_session_patch_queue.py",
+        "EngineData/TranscriptEngine/language_llm_session_persistence_bridge.py"
+      ]
+    },
+    "worker_candidate_helpers": {
+      "classification": "candidate_local_worker_boundary",
+      "allowed_use": "runtime support only after LocalWorker command mapping or Rust command wrapper is approved",
+      "files": [
+        "EngineData/TranslateEngine/ctranslate2_mt_backend.py",
+        "EngineData/TranslateEngine/piper_tts_backend.py",
+        "EngineData/TranslateEngine/piper_runtime_contract.py",
+        "EngineData/TranscriptEngine/realtime_stt_stream.py",
+        "EngineData/TranslateEngine/realtime_asset_readiness.py",
+        "EngineData/TranslateEngine/realtime_validation_runner.py",
+        "EngineData/TranslateEngine/realtime_local_status_bundle.py"
+      ]
+    },
+    "rust_translation_candidates": {
+      "classification": "candidate_rust_translation",
+      "allowed_use": "translate concept into Rust/Tauri if needed; do not wire Python directly into RustApp",
+      "files": [
+        "EngineData/TranslateEngine/realtime_latency_budget.py",
+        "EngineData/TranslateEngine/realtime_latency_sample_gate.py",
+        "EngineData/TranslateEngine/realtime_event_contract.py",
+        "EngineData/TranslateEngine/realtime_partial_event_bridge.py",
+        "EngineData/TranslateEngine/realtime_diagnostics.py",
+        "EngineData/TranslateEngine/realtime_turn_summary.py",
+        "EngineData/LauncherApp/realtime_status_panel_contract.py",
+        "EngineData/LauncherApp/realtime_diagnostics_bridge.py",
+        "EngineData/LauncherApp/realtime_status_panel_adapter.py",
+        "EngineData/LauncherApp/realtime_app_status_hook.py",
+        "EngineData/TranslateEngine/realtime_final_readiness_gate.py",
+        "EngineData/TranslateEngine/realtime_release_gate.py"
+      ]
+    },
+    "evidence_only_until_reviewed": {
+      "classification": "evidence_only",
+      "allowed_use": "reference only until Dev-Rust architecture owner decides final placement",
+      "files": [
+        "EngineData/TranslateEngine/realtime_quality_layer.py",
+        "EngineData/TranslateEngine/realtime_readiness_audit.py",
+        "DevelopingData/Patches/*",
+        "DevelopingData/Reports/Engineering/*ADDENDUM.md"
+      ]
+    }
+  }
+}
