@@ -1,6 +1,7 @@
 import type { RealtimeStatusPayload } from "../shared/types";
 import { realtimeStatusViewState } from "./realtimeStatusPayloadState";
 import { applyRealtimeStatusPayload, latestRealtimeStatusSnapshot } from "./realtimeStatusPayloadStore";
+import { realtimeStatusUiTextPatch } from "./realtimeStatusPayloadViewPatch";
 
 export type RealtimeStatusStateValidationReport = {
   ok: boolean;
@@ -51,9 +52,14 @@ export function validateRealtimeStatusStateMapping(): RealtimeStatusStateValidat
   if (partialSnapshot.view?.missingCount !== 1) failures.push("store missing count failed");
   if (latestRealtimeStatusSnapshot().payload?.status !== "partial_ready") failures.push("latest snapshot update failed");
 
+  const patch = realtimeStatusUiTextPatch(partialSnapshot);
+  if (patch.directionPill !== "ID > EN") failures.push("UI patch direction failed");
+  if (patch.realtimeStatus !== "Partial (1)") failures.push("UI patch realtime label failed");
+  if (patch.gpuStatus !== "CPU fallback") failures.push("UI patch GPU label failed");
+
   return {
     ok: failures.length === 0,
-    checked: 6,
+    checked: 9,
     failures,
   };
 }
