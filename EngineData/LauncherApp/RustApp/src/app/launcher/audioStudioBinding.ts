@@ -1,3 +1,4 @@
+import { audioStudioApi } from "../engineTranslate/audioStudioApi";
 import { icon } from "../shared/icons";
 import {
   AUDIO_STUDIO_READING_LINES,
@@ -32,11 +33,20 @@ function statusTone(state: AudioStudioTakeState): string {
   return "neutral";
 }
 
+function sendCommandNotice(task: Promise<{ message: string } | null>, fallback: string): void {
+  void task
+    .then((result) => setAssistantNotice(result?.message ? `${fallback} ${result.message}` : fallback))
+    .catch(() => setAssistantNotice(`${fallback} Backend command is not available yet.`));
+}
+
 function updateTakeState(takeId: string, state: AudioStudioTakeState): void {
   stagedTakes = stagedTakes.map((take) => take.id === takeId ? { ...take, state } : take);
   const take = stagedTakes.find((item) => item.id === takeId);
   renderTakeReviewPanel();
-  if (take) setAssistantNotice(`${take.title} marked as ${stateLabel(state)}.`);
+  if (!take) return;
+  const fallback = `${take.title} marked as ${stateLabel(state)}.`;
+  setAssistantNotice(fallback);
+  sendCommandNotice(audioStudioApi.updateTakeState({ take_id: takeId, state }), fallback);
 }
 
 function readingCards(): string {
@@ -175,15 +185,22 @@ function bindAudioStudioViewEvents(): void {
     stagedTakes = [...newTakes, ...stagedTakes].slice(0, 12);
     renderTakeReviewPanel();
     const names = files.map((file) => file.name).slice(0, 4).join(", ");
-    setAssistantNotice(files.length > 0 ? `Audio Studio import staged: ${files.length} file(s). ${names}` : "No audio file selected.");
+    const fallback = files.length > 0 ? `Audio Studio import staged: ${files.length} file(s). ${names}` : "No audio file selected.";
+    setAssistantNotice(fallback);
+    newTakes.forEach((take) => {
+      sendCommandNotice(audioStudioApi.importTake({ take_id: take.id, source: take.source, title: take.title, detail: take.detail }), fallback);
+    });
     fileInput.value = "";
   });
 
   guidedButton?.addEventListener("click", () => {
     const line = AUDIO_STUDIO_READING_LINES[selectedReadingIndex] ?? AUDIO_STUDIO_READING_LINES[0];
-    stagedTakes = [createGuidedReadingTake(line), ...stagedTakes].slice(0, 12);
+    const take = createGuidedReadingTake(line);
+    stagedTakes = [take, ...stagedTakes].slice(0, 12);
     renderTakeReviewPanel();
-    setAssistantNotice(`Guided reading staged: ${line.text}`);
+    const fallback = `Guided reading staged: ${line.text}`;
+    setAssistantNotice(fallback);
+    sendCommandNotice(audioStudioApi.stageGuidedTake({ take_id: take.id, source: take.source, title: take.title, detail: take.detail }), fallback);
   });
 
   bindReadingActions();
