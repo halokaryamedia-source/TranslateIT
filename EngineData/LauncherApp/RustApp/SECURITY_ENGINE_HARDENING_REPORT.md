@@ -5,9 +5,27 @@ App route: `EngineData/LauncherApp/RustApp`
 
 ## Current progress
 
-Overall hardening progress: 96%
+Overall hardening progress: 97%
 
 ## Completed changes
+
+### Privacy log/evidence hardening
+
+Status: Complete
+
+- Audio pipeline evidence now uses redacted schema `translateit.audio_pipeline_evidence.v5.redacted`.
+- Audio pipeline evidence stores metadata only, not full transcript text or full translated text.
+- Runtime audio pipeline logs now record character counts and stage summaries instead of raw user speech/translation payloads.
+- Audio/worker paths in audio pipeline evidence are reduced to safe file labels instead of full local paths.
+- Manual translation fallback errors no longer include a source-text preview.
+- Local hardening validation result is ignored by Git to reduce accidental commit of local path/error details.
+
+Touched files:
+
+- `src-tauri/src/engine/capture_lifecycle.rs`
+- `src-tauri/src/engine/manual_translation.rs`
+- `scripts/validate_security_hardening.mjs`
+- `.gitignore`
 
 ### Tauri command surface hardening
 
@@ -160,7 +178,7 @@ Touched file:
 Status: Added, pending local run
 
 - Added `npm run validate:security-hardening`.
-- Checks required security-hardening markers across Tauri command surface, local worker payload limits, worker bridge, chat/session persistence, settings, logging, paths, frontend attachment handling, and CSP.
+- Checks required security-hardening markers across privacy log/evidence hardening, Tauri command surface, local worker payload limits, worker bridge, chat/session persistence, settings, logging, paths, frontend attachment handling, and CSP.
 - Includes deny-markers for internal commands that should not be exposed by the active UI runtime command handler.
 - Included in `validate:internal` and `validate:full`.
 
@@ -206,7 +224,7 @@ The GitHub connector can update files but cannot run the local Windows/Tauri bui
 
 ## Current readiness estimate
 
-- Internal testing readiness: 96/100
-- Production/client readiness: 76/100
+- Internal testing readiness: 97/100
+- Production/client readiness: 78/100
 
 Production readiness remains blocked by dependency audit validation, full local build validation, and missing runtime model assets.
