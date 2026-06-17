@@ -1,4 +1,5 @@
 import { getLatestAudioPipelineEvidence, type AudioPipelineEvidence } from "../engineTranslate/audioPipelineApi";
+import { translationResultView } from "./chatViews";
 
 const POLL_ATTEMPTS = 45;
 const POLL_INTERVAL_MS = 800;
@@ -88,6 +89,14 @@ function formatCompletedMessage(evidence: AudioPipelineEvidence): string | null 
   return `Voice translation ready. ${translationStatus(evidence)} Transcript: ${displayText(transcript, "available")}. Translation: ${displayText(translated, "available")}. ${playbackStatus(evidence)}`;
 }
 
+function renderCompletedResult(evidence: AudioPipelineEvidence): void {
+  const transcript = evidence.transcript_text?.trim() || "Voice input";
+  const translated = evidence.translated_text?.trim() || "No translated text available.";
+  const chatList = document.querySelector<HTMLElement>("#chatList");
+  if (!chatList) return;
+  chatList.innerHTML = translationResultView(transcript, translated, playbackStatus(evidence));
+}
+
 async function pollForResult(startedAtUnixMs: number): Promise<void> {
   if (polling) return;
   polling = true;
@@ -104,6 +113,7 @@ async function pollForResult(startedAtUnixMs: number): Promise<void> {
       const completed = formatCompletedMessage(evidence);
       if (completed) {
         lastEvidenceKey = key;
+        renderCompletedResult(evidence);
         setNotice(completed);
         return;
       }
