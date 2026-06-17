@@ -7,8 +7,8 @@ const read = (path) => readFileSync(join(root, path), "utf8");
 const primitives = read("src/app/launcher/referenceUiPrimitives.ts");
 const factory = read("src/app/launcher/uiPageFactory.ts");
 const professionalUi = read("src/professionalUi.css");
-const template = read("../../Frontend/DesignReview/UIPageTemplate.md");
-const guide = read("../../Frontend/DesignReview/UIReferenceGuide.md");
+const template = read("UI_PAGE_TEMPLATE.md");
+const guide = read("UI_REFERENCE_GUIDE.md");
 
 const required = [
   "REFERENCE_UI_PAGE_TEMPLATE",
@@ -43,16 +43,16 @@ const required = [
   "360px",
   "322px",
   "993px",
-  "72px",
+  "72px"
 ];
 
-const source = `${primitives}\n${factory}\n${professionalUi}\n${template}\n${guide}`;
+const source = [primitives, factory, professionalUi, template, guide].join("\n");
 const missing = required.filter((token) => !source.includes(token));
 
 if (missing.length > 0) {
-  console.error("UI template validation failed:");
-  for (const token of missing) console.error(`- Missing: ${token}`);
+  console.error("UI template check did not pass:");
+  for (const token of missing) console.error("- Missing: " + token);
   process.exit(1);
 }
 
-console.log("UI template validation passed.");
+console.log("UI template check passed.");
