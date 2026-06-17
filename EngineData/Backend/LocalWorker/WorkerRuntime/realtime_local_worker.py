@@ -9,15 +9,16 @@ from dataclasses import asdict, dataclass
 from pathlib import Path
 from typing import Any
 
-ROOT = Path(__file__).resolve().parents[3]
-ASR_MODEL_ROOT = ROOT / "EngineData" / "TranscriptEngine" / "ModelData"
-TRANSLATION_MODEL_ROOT = ROOT / "EngineData" / "TranslateEngine" / "ModelData"
+ROOT = Path(__file__).resolve().parents[4]
+RUNTIME_ASSETS_ROOT = ROOT / "EngineData" / "Backend" / "RuntimeAssets"
+ASR_MODEL_ROOT = RUNTIME_ASSETS_ROOT / "ASR" / "ModelData"
+TRANSLATION_MODEL_ROOT = RUNTIME_ASSETS_ROOT / "Translation" / "ModelData"
 ASR_MODEL = ASR_MODEL_ROOT / "faster-whisper-large-v3-turbo"
 ASR_BACKUP_MODEL = ASR_MODEL_ROOT / "faster-whisper-medium"
 TRANSLATION_MODEL = TRANSLATION_MODEL_ROOT / "marianmt-id-en"
 QUALITY_TRANSLATION_MODEL = TRANSLATION_MODEL_ROOT / "nllb-200-distilled-600M"
-PIPER_ROOT = ROOT / "EngineData" / "VoiceEngine" / "Piper"
-RUNTIME_MANIFEST = ROOT / "EngineData" / "LauncherApp" / "RustApp" / "MODEL_RUNTIME_MANIFEST.json"
+PIPER_ROOT = RUNTIME_ASSETS_ROOT / "Voice" / "Piper"
+RUNTIME_MANIFEST = ROOT / "EngineData" / "Backend" / "RuntimeContracts" / "MODEL_RUNTIME_MANIFEST.json"
 CACHE_ROOT = ROOT / "UserData" / "CacheData"
 ALLOWED_INPUT_ROOTS = [ROOT / "UserData" / "CacheData", ROOT / "UserData" / "LogData"]
 ALLOWED_OUTPUT_ROOTS = [ROOT / "UserData" / "CacheData"]
