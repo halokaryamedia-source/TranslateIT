@@ -28,6 +28,7 @@ fn main() {
         get_live_pipeline_compact_status,
         analyze_internal_validation,
         analyze_migration_closure,
+        list_audio_devices,
         probe_native_input_config,
         plan_native_capture_stream_state,
         plan_native_capture_stream_build_state,
