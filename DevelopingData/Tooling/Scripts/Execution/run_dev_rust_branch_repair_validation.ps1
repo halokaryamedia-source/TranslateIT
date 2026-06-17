@@ -45,5 +45,14 @@ finally {
     Pop-Location
 }
 
+Push-Location $RepoRoot
+try {
+    Write-Host "Running Dev-Rust Python contract tests..."
+    python -m unittest discover -s DevelopingData/Tests -p "test_dev_rust_*.py"
+}
+finally {
+    Pop-Location
+}
+
 Write-Host "Validation completed. Update this report manually with local results:"
 Write-Host $StatusReport
