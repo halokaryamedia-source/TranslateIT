@@ -1,4 +1,4 @@
-# Minimal ignore only for generic editor and build outputs.
+# Generic editor and cache outputs.
 /*.log
 /*.tmp
 /*.bak
@@ -13,3 +13,19 @@ node_modules/
 dist/
 build/
 target/
+
+# TranslateIT local runtime outputs.
+/UserData/CacheData/**
+/UserData/LogData/**
+/UserData/SavedProject/**
+!/UserData/CacheData/README.md
+!/UserData/LogData/README.md
+!/UserData/SavedProject/README.md
+
+# TranslateIT local model/runtime assets.
+/EngineData/Backend/RuntimeAssets/ASR/ModelData/**
+/EngineData/Backend/RuntimeAssets/Translation/ModelData/**
+/EngineData/Backend/RuntimeAssets/Voice/Piper/**
+
+# Retired runtime asset location must stay unused.
+/EngineData/RuntimeAssets/**
