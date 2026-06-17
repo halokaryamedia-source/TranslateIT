@@ -1,44 +1,46 @@
 # Realtime Translate Engine Progress
 
 ## Current completion estimate
-**82% implemented** for the new low-latency realtime translation direction.
+**84% implemented** for the new low-latency realtime translation direction.
 
 ## Completed
-- Added `EngineData/TranslateEngine/realtime_quality_layer.py`.
-- Added deterministic pre-TTS quality pass that avoids a large LLM call on the hot path.
-- Added post-output review contract for LLM/human review without repeating already produced voice.
-- Integrated `RealtimeQualityLayer` into `TranslationEngine` before TTS-facing translation results.
-- Added explicit `voice_replay_allowed=False` guard to translation results.
-- Added `EngineData/TranslateEngine/ctranslate2_mt_backend.py` as an optional fast MT backend.
-- Added dependency/model checks for CTranslate2 so the app cannot falsely claim fast MT is active.
-- Added CPU/GPU device selection and INT8/FP16 compute-type routing for fast MT.
-- Wired CTranslate2 fast MT routing into `TranslationEngine` for ID↔EN before fallback Transformer routing.
-- Added `EngineData/TranslateEngine/realtime_latency_budget.py` to track the realtime budget target.
-- Added `EngineData/TranscriptEngine/realtime_stt_stream.py` for rolling-buffer partial STT.
-- Added `EngineData/TranslateEngine/realtime_diagnostics.py` to aggregate visible realtime status.
-- Added `EngineData/TranslateEngine/piper_tts_backend.py` for Piper TTS readiness checks and benchmark contract.
-- Added `EngineData/TranslateEngine/realtime_turn_planner.py` to combine translation, TTS readiness, and diagnostics into one realtime turn plan.
-- Added `EngineData/TranslateEngine/realtime_status_presenter.py` to format engine status for a UI diagnostics panel.
-- Added `DevelopingData/Tests/test_realtime_translate_engine.py` to validate non-replay voice policy, latency budget checks, Piper readiness, turn planning, and UI-safe status formatting.
-- Added `EngineData/TranslateEngine/realtime_readiness_audit.py` to audit STT, fast MT, fallback translation, TTS, and latency-budget readiness before realtime mode is treated as ready.
-- Added `DevelopingData/Reports/Engineering/REALTIME_VALIDATION_RUNBOOK.md` to define the manual validation checklist before any realtime-ready claim.
-- Added `DevelopingData/Reports/Engineering/REALTIME_LIVE_WIRING_MAP.md` to document the final live wiring path.
-- Added `EngineData/TranslateEngine/realtime_event_contract.py` to standardize realtime STT/MT/TTS/diagnostics events.
-- Added `EngineData/LauncherApp/realtime_diagnostics_bridge.py` as a minimal data-only diagnostics bridge for UI consumption.
+- Added realtime quality layer.
+- Added deterministic pre-TTS quality pass.
+- Added post-output review contract without repeated voice output.
+- Integrated quality layer into TranslationEngine.
+- Added voice replay guard in translation results.
+- Added optional CTranslate2 fast MT backend.
+- Added dependency and model checks for fast MT.
+- Added CPU/GPU and INT8/FP16 routing for fast MT.
+- Wired fast MT routing into TranslationEngine for ID to EN and EN to ID before fallback routing.
+- Added realtime latency budget monitor.
+- Added rolling-buffer partial STT adapter.
+- Added realtime diagnostics aggregator.
+- Added Piper TTS readiness checks and benchmark contract.
+- Added realtime turn planner.
+- Added realtime status presenter.
+- Added realtime translation engine contract tests.
+- Added realtime readiness audit.
+- Added realtime validation runbook.
+- Added realtime live wiring map.
+- Added realtime event contract.
+- Added minimal LauncherApp diagnostics bridge.
+- Added realtime status panel contract.
+- Added realtime status panel contract tests.
 
 ## Partially completed
-- Dedicated CTranslate2 MT backend is wired into translation routing, but converted local model files still need to exist under `ModelData` before it can become active.
-- Partial STT adapter exists, but the live microphone loop still needs to emit partial transcript events into UI.
+- Fast MT routing exists, but converted local model files still need to exist before it can become active.
+- Partial STT adapter exists, but live microphone loop still needs to emit partial transcript events into UI.
 - Piper TTS readiness detection exists, but runtime synthesis and speaker output still need app-side integration.
-- UI-safe status formatting and a minimal diagnostics bridge exist, but the actual UI panel still needs to consume them.
-- Readiness audit module exists, but the dedicated readiness audit test file was blocked by connector safety checks and still needs a later write retry.
+- UI-safe status formatting, minimal diagnostics bridge, and status-panel contract exist, but the app main status panel still needs to consume them.
+- Readiness audit module exists, but the dedicated readiness audit test file was blocked by connector safety checks.
 - Runtime validation runner code was attempted, but connector safety checks blocked the code write. The validation runbook was added as a safe fallback.
 
 ## Not yet completed
 - Live end-to-end latency test target around 1 second.
 - UI runtime indicator rendering inside the desktop app.
 - Real device validation on target PC with microphone, GPU, STT model, MT model, and TTS voice files.
-- Final live connection from partial STT event -> turn planner -> TTS runtime -> app output channel.
+- Final live connection from partial STT event to turn planner to TTS runtime to app output channel.
 
 ## Professional status
-The engine now has foundations for non-replay correction, fast MT routing, latency budgeting, partial STT, diagnostics aggregation, Piper TTS readiness, turn planning, UI-safe status formatting, contract tests, readiness auditing, validation runbook, event contract, live wiring map, and a minimal diagnostics bridge. The next blocker is app-side live wiring: UI diagnostics consumption, speaker output, and real-device validation.
+The engine now has foundations for non-replay correction, fast MT routing, latency budgeting, partial STT, diagnostics aggregation, Piper TTS readiness, turn planning, UI-safe status formatting, contract tests, readiness auditing, validation runbook, event contract, live wiring map, a minimal diagnostics bridge, and a status-panel row contract. The next blocker is app-side live wiring: app main diagnostics consumption, speaker output, and real-device validation.
