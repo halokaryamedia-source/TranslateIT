@@ -4,6 +4,8 @@ from dataclasses import asdict, dataclass
 from pathlib import Path
 from typing import Any
 
+from EngineData.TranslateEngine.realtime_asset_manifest import realtime_asset_manifest
+
 
 @dataclass(slots=True)
 class RealtimeAssetCheck:
@@ -20,11 +22,13 @@ class RealtimeAssetCheck:
 class RealtimeAssetReadiness:
     ready: bool
     checks: list[RealtimeAssetCheck]
+    manifest: list[dict[str, Any]] | None = None
 
     def to_dict(self) -> dict[str, Any]:
         return {
             "ready": self.ready,
             "checks": [item.to_dict() for item in self.checks],
+            "manifest": list(self.manifest or []),
         }
 
 
@@ -44,6 +48,7 @@ class RealtimeAssetReadinessChecker:
         return RealtimeAssetReadiness(
             ready=all(item.ready for item in checks),
             checks=checks,
+            manifest=realtime_asset_manifest(),
         )
 
     def _check_dir(self, name: str, path: Path | None) -> RealtimeAssetCheck:
