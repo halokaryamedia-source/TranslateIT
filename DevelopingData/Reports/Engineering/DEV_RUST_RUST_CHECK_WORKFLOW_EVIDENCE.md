@@ -1,7 +1,7 @@
-# Dev-Rust Rust Check Workflow Evidence
+# Dev-Rust App Check Workflow Evidence
 
 ## Purpose
-Track validation evidence for the Dev-Rust Rust check workflow.
+Track validation evidence for the Dev-Rust app check workflow.
 
 ## Workflow file
 
@@ -12,25 +12,27 @@ Track validation evidence for the Dev-Rust Rust check workflow.
 ## Current status
 
 - Workflow file exists in `.github/workflows`.
-- Workflow has been upgraded into the Dev-Rust Rust check route.
-- Connector status check for commit `c93de3c93c5a4d8e0dccfbf8172779a433a79cab` returned no combined statuses.
-- Connector workflow-run lookup for commit `c93de3c93c5a4d8e0dccfbf8172779a433a79cab` returned no workflow runs.
+- Workflow now runs both frontend TypeScript validation and Rust validation.
+- Latest workflow upgrade commit: `772a2f3a9662f6f153c9fe3e4311bb18f55a7676`.
+- No successful workflow pass evidence is recorded yet.
 
-## Meaning
+## Required validation
 
-The workflow placement blocker is resolved, but no successful Rust check evidence is recorded yet.
-
-## Required next validation
-
-From a local checkout:
+The workflow should run:
 
 ```text
-cd EngineData/LauncherApp/RustApp
+npm run typecheck
 npm run check:rust
 ```
 
-Or trigger the GitHub workflow manually with `workflow_dispatch` and record the result here.
+Manual fallback from local checkout:
+
+```text
+cd EngineData/LauncherApp/RustApp
+npm run typecheck
+npm run check:rust
+```
 
 ## Readiness rule
 
-Realtime app integration should not be marked fully validated until either local `check:rust` passes or a workflow run passes.
+Realtime app integration should not be marked fully validated until either the workflow passes or both local commands pass.
