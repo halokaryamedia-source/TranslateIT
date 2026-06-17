@@ -25,19 +25,19 @@ TranslateIT.lnk
 ## Root ownership
 
 - `DevelopingData/` - development-only documentation, reports, samples, QA references, and maintenance tooling. It must not contain active runtime engine files.
-- `EngineData/` - runtime source ownership for Frontend, Backend, and the remaining active Tauri desktop runtime package route.
+- `EngineData/` - runtime source ownership for Frontend, Backend, and the active Tauri desktop app package route.
 - `UserData/` - local runtime cache, logs, saved work, and validation evidence.
 
 ## EngineData ownership split
 
 ```text
 EngineData/
-  Frontend/       # UI ownership map, design review, frontend naming rules
+  Frontend/       # frontend ownership notes and naming guide
   Backend/        # backend/runtime ownership map, worker, contracts, assets, runtime-core rules
-  LauncherApp/    # remaining active Tauri desktop runtime package route
+  LauncherApp/    # active desktop app package route
 ```
 
-`LauncherApp/RustApp` remains only because it is still the active Tauri package folder. It should not be treated as frontend ownership.
+`LauncherApp/RustApp` is the current physical package folder. The approved target name is `LauncherApp/App`, but the physical rename is reserved for a dedicated package-path migration.
 
 ## Active desktop runtime
 
@@ -71,11 +71,11 @@ npm run dev
 ## Correct file positions
 
 ```text
-EngineData/Frontend/DesignReview/                 # UI preview and UI reference documents
-EngineData/Backend/LocalWorker/WorkerRuntime/     # Python worker runtime files
-EngineData/Backend/RuntimeContracts/              # backend JSON contracts and model manifest
-EngineData/Backend/RuntimeAssets/                 # local model/runtime asset slots
-DevelopingData/Documentation/Reports/Engineering/ # reports, checklists, evidence notes, templates
+EngineData/LauncherApp/RustApp/                # app package, app UI docs, preview, reports, checklists
+EngineData/Backend/LocalWorker/WorkerRuntime/ # Python worker runtime files
+EngineData/Backend/RuntimeContracts/          # backend JSON contracts and model manifest
+EngineData/Backend/RuntimeAssets/             # local model/runtime asset slots
+DevelopingData/Documentation/                 # development-only project documentation
 ```
 
 ## Approved Python exception
@@ -122,9 +122,7 @@ Launcher/Preview/
 - Keep root clean except approved root documentation and the official shortcut.
 - Do not place active runtime engine files under `DevelopingData`.
 - Runtime cache, logs, local models, and user-generated data stay out of Git.
-- Keep development documentation under `DevelopingData/Documentation`.
-- Keep development-only QA references under `DevelopingData/Quality`.
-- Keep UI review files under `EngineData/Frontend/DesignReview`.
+- Keep app-specific documentation inside `EngineData/LauncherApp/RustApp` until the physical package rename to `App` is completed.
 - Keep backend worker files under `EngineData/Backend/LocalWorker/WorkerRuntime`.
 - Keep backend contracts under `EngineData/Backend/RuntimeContracts`.
 - Keep runtime assets under `EngineData/Backend/RuntimeAssets`.
