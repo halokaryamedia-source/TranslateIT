@@ -4,7 +4,6 @@
 This matrix continues the realtime readiness work using the correct `Dev-Rust` architecture.
 
 ## Branch and architecture correction
-The old note about patching `app_main.py` is not the correct path for `Dev-Rust`.
 The active app route is:
 
 ```text
@@ -28,47 +27,35 @@ EngineData/Backend/LocalWorker/WorkerRuntime
 
 | Area | Honest readiness | Current note | Correct next action for Dev-Rust |
 | --- | ---: | --- | --- |
-| Repo-side realtime foundation | 99.8% | Foundation files, checklists, release gates, asset readiness, latency gate, issue tracking, payload contract, full Rust-check workflow, and workflow evidence tracker now exist. | Keep as foundation evidence. Do not call product ready until validation passes. |
-| Translate Engine core architecture | 74-79% | Mic -> STT -> MT -> TTS flow is mapped, helper/gate files exist, Rust-facing payload adapter exists, ownership hardening is applied, and handler registration is now present. | Validate via LocalWorker command path and Rust/Tauri command wrappers. |
-| Realtime app integration | 67-72% | Tauri command function, Rust adapter, `main.rs` handler registration, and `.github/workflows` Rust-check workflow now exist. No workflow pass evidence is recorded yet. | Run/check workflow result, then connect frontend after preview approval. |
-| Runtime model/assets readiness | 35-45% | Manifest and checker exist, but local model and voice assets are not proven available in runtime asset folders. | Validate `RuntimeAssets` with local model presence and worker smoke tests. |
-| Benchmark and validation | 35-40% | Gate and sample formats exist, but no target-PC latency result is recorded. | Collect latency samples through LocalWorker smoke and app-level test flow. |
-| Product realtime readiness | 63-68% | Foundation is stronger and Rust/Tauri command exposure is wired for validation, but desktop app binding and target-PC evidence are still pending. | Complete Rust check, app integration, and evidence capture. |
-| Gemini Live Translate pursuit | 30-40% | Gemini-level behavior requires very low latency, broad multilingual support, strong quality routing, and natural voice output. | Treat as future quality target, not current release claim. |
+| Repo-side realtime foundation | 99.8% | Foundation, payload contract, workflow, and evidence tracker exist. | Keep as evidence until validation passes. |
+| Translate Engine core architecture | 74-79% | Core flow is mapped and Rust-facing payload route exists. | Validate through LocalWorker and Rust/Tauri wrappers. |
+| Realtime app integration | 69-73% | Tauri command, Rust adapter, handler registration, frontend payload type, separate payload API, and state mapper now exist. | Run Rust check, then bind mapper into UI after DesignPreview approval. |
+| Runtime model/assets readiness | 35-45% | Asset checks exist, but local model and voice assets are not proven on target PC. | Validate RuntimeAssets and worker smoke tests. |
+| Benchmark and validation | 35-40% | Gate formats exist, but no target-PC latency result is recorded. | Collect LocalWorker and app-level latency samples. |
+| Product realtime readiness | 64-69% | Command exposure plus frontend state preparation exists; final UI binding and target-PC evidence are pending. | Complete validation, UI binding, and evidence capture. |
+| Gemini Live Translate pursuit | 30-40% | This remains a future quality target, not a current release claim. | Continue after product realtime readiness improves. |
 
 ## Completed in this continuation
 
-- Created issue #5 for Dev-Rust realtime app integration via Tauri and LocalWorker.
-- Added `EngineData/Backend/RuntimeContracts/realtime_status_payload_contract.json`.
-- Added `EngineData/LauncherApp/RustApp/DesignPreview/realtime-status-mapping.md`.
-- Added Rust adapter `EngineData/LauncherApp/RustApp/src-tauri/src/engine/adapters/realtime_status_payload_logic.rs`.
-- Registered the adapter module in `src-tauri/src/engine/adapters/mod.rs`.
-- Added command function `get_realtime_status_payload()` in `src-tauri/src/commands/diagnostics.rs`.
-- Hardened adapter ownership handling for `next_action`.
-- Registered `get_realtime_status_payload` in `src-tauri/src/main.rs`.
-- Added progress tracker `DevelopingData/Reports/Engineering/DEV_RUST_REALTIME_STATUS_COMMAND_PROGRESS.md`.
-- Added patch `DevelopingData/Patches/DevRust/register_realtime_status_payload_handler.patch`.
-- Added apply notes `DevelopingData/Patches/DevRust/README_APPLY_REALTIME_STATUS_HANDLER.md`.
-- Added workflow draft `DevelopingData/Patches/DevRust/dev_rust_rust_check_workflow.yml`.
-- Upgraded `.github/workflows/dev-rust-validation-note.yml` into a full Rust-check workflow.
-- Added workflow evidence tracker `DevelopingData/Reports/Engineering/DEV_RUST_RUST_CHECK_WORKFLOW_EVIDENCE.md`.
-- Confirmed that the old `app_main.py` path is not the Dev-Rust integration route.
+- Main handler registration is resolved.
+- Full Rust-check workflow placement is resolved.
+- Frontend payload type is added.
+- Separate frontend payload API is added.
+- Frontend state mapper is added.
+- Old Python launcher route is not used for Dev-Rust realtime integration.
 
 ## Immediate development priorities
 
 1. Check the `Dev-Rust Rust Check` workflow result.
-2. Run `npm run check:rust` locally from `EngineData/LauncherApp/RustApp` if workflow evidence is unavailable.
-3. Connect the command to a frontend state model after DesignPreview approval.
+2. Run `npm run check:rust` locally if workflow evidence is unavailable.
+3. Bind the realtime status state mapper into UI after DesignPreview approval.
 4. Validate LocalWorker commands: `status`, `transcribe`, `translate`, `synthesize`.
-5. Validate local runtime assets under `EngineData/Backend/RuntimeAssets`.
-6. Record local validation evidence under `UserData/LogData/RustAppValidation`.
+5. Validate local runtime assets.
+6. Record validation evidence.
 
 ## Current blocker summary
 
-- Main handler registration is resolved.
-- Full Rust-check workflow placement is resolved.
+- Large runtime API edit was blocked and replaced by a separate payload API module.
+- Direct DOM binding was blocked and replaced by a pure state mapper.
 - Workflow status lookup returned no run/pass evidence yet.
 - No successful Rust check or target-PC validation result has been recorded yet.
-- Runtime assets must be verified in `EngineData/Backend/RuntimeAssets`.
-- App integration must use `RustApp/src-tauri`, not the old Python launcher route.
-- DesignPreview must be approved before UI style is synced into active Tauri frontend.
