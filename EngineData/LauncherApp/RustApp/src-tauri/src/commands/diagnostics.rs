@@ -3,6 +3,7 @@ use crate::engine::adapters::internal_validation_gate_logic::{analyze_internal_v
 use crate::engine::adapters::live_pipeline_compact_status_logic::{build_live_pipeline_compact_status, LivePipelineCompactStatusReport};
 use crate::engine::adapters::live_runtime_pipeline_gate_logic::{analyze_live_runtime_pipeline_gate, LiveRuntimePipelineGateReport};
 use crate::engine::adapters::migration_closure_gate_logic::{analyze_migration_closure_gate, MigrationClosureGateReport, MigrationClosureGateRequest};
+use crate::engine::adapters::realtime_status_payload_logic::{build_realtime_status_payload, RealtimeStatusPayload};
 use crate::engine::adapters::runtime_readiness_bundle_logic::{analyze_runtime_readiness_bundle, RuntimeReadinessBundleReport};
 use crate::engine::adapters::runtime_status_bundle_logic::{build_runtime_status_bundle, RuntimeStatusBundleReport};
 use crate::engine::diagnostics::RuntimeDiagnostics;
@@ -20,6 +21,9 @@ pub fn analyze_runtime_readiness() -> RuntimeReadinessBundleReport { analyze_run
 
 #[tauri::command]
 pub fn get_runtime_status_bundle() -> RuntimeStatusBundleReport { build_runtime_status_bundle() }
+
+#[tauri::command]
+pub fn get_realtime_status_payload() -> RealtimeStatusPayload { build_realtime_status_payload() }
 
 #[tauri::command]
 pub fn analyze_live_pipeline_gate() -> LiveRuntimePipelineGateReport { analyze_live_runtime_pipeline_gate() }
