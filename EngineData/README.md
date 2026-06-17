@@ -8,7 +8,7 @@ Target root split:
 
 - `Frontend/` - UI ownership map, design review, app shell, and frontend naming rules.
 - `Backend/` - backend ownership map, runtime core, local worker, runtime contracts, runtime assets, and inference bridge rules.
-- `LauncherApp/` - temporary active Rust/Tauri build route that still needs build-path migration.
+- `LauncherApp/` - remaining active Tauri desktop runtime route. The name is not final.
 
 ## Current layout
 
@@ -28,12 +28,13 @@ EngineData/
     README.md
     RuntimeCore/
     LocalWorker/
+      WorkerRuntime/
     RuntimeContracts/
     RuntimeAssets/
-  LauncherApp/              # temporary active build route
+  LauncherApp/              # remaining active Tauri package route
 ```
 
-## Active runtime route
+## Active desktop runtime route
 
 The user-facing route is still generated from:
 
@@ -41,44 +42,25 @@ The user-facing route is still generated from:
 EngineData/LauncherApp/RustApp
 ```
 
-This is the last non-final folder under `EngineData`. It remains only because moving it requires build-path migration.
+This is now the last non-final folder under `EngineData`.
 
 ## Frontend ownership
-
-Frontend runtime source currently lives inside RustApp because Tauri expects the app package there:
 
 ```text
 EngineData/LauncherApp/RustApp/src/app
 EngineData/LauncherApp/RustApp/src/app/launcher
 EngineData/LauncherApp/RustApp/src/app/engineTranslate
 EngineData/LauncherApp/RustApp/index.html
-```
-
-Preview and UI reference material lives here:
-
-```text
 EngineData/Frontend/DesignReview
 ```
 
 ## Backend ownership
 
-Backend runtime source currently lives inside RustApp and the worker route:
-
 ```text
 EngineData/LauncherApp/RustApp/src-tauri/src/commands
 EngineData/LauncherApp/RustApp/src-tauri/src/engine
-EngineData/LauncherApp/Workers/realtime_local_worker.py
-```
-
-Runtime contracts and model readiness manifests live here:
-
-```text
+EngineData/Backend/LocalWorker/WorkerRuntime/realtime_local_worker.py
 EngineData/Backend/RuntimeContracts
-```
-
-Runtime asset slots live here:
-
-```text
 EngineData/Backend/RuntimeAssets
 ```
 
@@ -100,6 +82,7 @@ EngineData/TranscriptEngine/
 EngineData/TranslateEngine/
 EngineData/VoiceEngine/
 EngineData/RuntimeAssets/
+EngineData/LauncherApp/Workers/
 ```
 
 ## Rules
@@ -111,5 +94,6 @@ EngineData/RuntimeAssets/
 - Keep UI review and reference files under `EngineData/Frontend/DesignReview`.
 - Keep runtime contracts under `EngineData/Backend/RuntimeContracts`.
 - Keep runtime assets under `EngineData/Backend/RuntimeAssets`.
+- Keep backend worker files under `EngineData/Backend/LocalWorker/WorkerRuntime`.
 - Keep report/checklist/evidence documents under `DevelopingData/Documentation/Reports/Engineering`.
-- Move `LauncherApp` under backend ownership only after safe build-path migration.
+- Move `LauncherApp/RustApp` only after the full Tauri package tree can be copied safely.
