@@ -13,8 +13,8 @@ const referenceLayout = read("src/referenceLayout.css");
 const professionalUi = read("src/professionalUi.css");
 const referenceBinding = read("src/app/launcher/referenceUiBinding.ts");
 const primitives = read("src/app/launcher/referenceUiPrimitives.ts");
-const guide = read("../../Frontend/DesignReview/UIReferenceGuide.md");
-const imageManifest = read("../../Frontend/DesignReview/UIReference/reference_images_manifest.json");
+const guide = read("UI_REFERENCE_GUIDE.md");
+const imageManifest = read("docs/ui-reference/reference_images_manifest.json");
 
 const errors = [];
 
@@ -47,7 +47,7 @@ const requiredShellCopy = [
   "Type a message, or press the microphone button on the right to record speech locally.",
   "Ask anything...",
   "Recording started. I will update this conversation when the voice translation result is ready.",
-  "Type or paste Indonesian text and get an English translation in the conversation.",
+  "Type or paste Indonesian text and get an English translation in the conversation."
 ];
 
 for (const copy of requiredShellCopy) requireContains("shell.ts", shell, copy);
@@ -75,14 +75,14 @@ const requiredIds = [
   "realtimeModeButton",
   "qualityModeButton",
   "runDiagnosticButton",
-  "seeAllLogsButton",
+  "seeAllLogsButton"
 ];
 
 for (const id of requiredIds) {
   const owner = shell.includes(`id="${id}"`) || settingsViews.includes(`id="${id}"`);
   if (!owner) errors.push(`Required UI/backend contract id is missing: #${id}`);
   requireContains("referenceUiPrimitives.ts", primitives, `"${id}"`);
-  requireContains("UIReferenceGuide.md", guide, `#${id}`);
+  requireContains("UI_REFERENCE_GUIDE.md", guide, `#${id}`);
 }
 
 const requiredCssTokens = [
@@ -92,19 +92,19 @@ const requiredCssTokens = [
   ".topbar { min-height: 72px",
   ".settings-topbar-v22 { min-height: 72px",
   ".hero-panel { width: 720px",
-  ".composer-wrap { width: 990px",
+  ".composer-wrap { width: 990px"
 ];
 
 for (const token of requiredCssTokens) {
   requireContains("referenceLayout.css", referenceLayout, token);
-  if (token.startsWith("--ref-")) requireContains("UIReferenceGuide.md", guide, token.split(":")[0]);
+  if (token.startsWith("--ref-")) requireContains("UI_REFERENCE_GUIDE.md", guide, token.split(":")[0]);
 }
 
 const requiredProfessionalTokens = [
   ".translation-result-card",
   ".ui-toast",
   ".developer-log-row",
-  ":focus-visible",
+  ":focus-visible"
 ];
 
 for (const token of requiredProfessionalTokens) requireContains("professionalUi.css", professionalUi, token);
@@ -119,7 +119,7 @@ const requiredReferenceImages = [
   "main_page_v28_reference.png",
   "audio_settings_v22_reference.png",
   "translate_settings_v14_reference.png",
-  "developer_settings_v37_reference.png",
+  "developer_settings_v37_reference.png"
 ];
 
 for (const filename of requiredReferenceImages) requireContains("reference_images_manifest.json", imageManifest, filename);
@@ -130,15 +130,15 @@ const forbiddenBindingPatterns = [
   "setInputPlaceholder(",
   "setFeatureCardCopy",
   "applyReferenceCopy",
-  "bindReferenceUi();\n",
+  "bindReferenceUi();\n"
 ];
 
 for (const pattern of forbiddenBindingPatterns) requireNotContains("referenceUiBinding.ts", referenceBinding, pattern);
 
 if (errors.length > 0) {
-  console.error("UI reference validation failed:");
-  for (const error of errors) console.error(`- ${error}`);
+  console.error("UI reference check did not pass:");
+  for (const error of errors) console.error("- " + error);
   process.exit(1);
 }
 
-console.log("UI reference validation passed.");
+console.log("UI reference check passed.");
