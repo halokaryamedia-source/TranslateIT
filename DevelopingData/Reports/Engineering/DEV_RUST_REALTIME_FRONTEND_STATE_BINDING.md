@@ -11,6 +11,7 @@ Track the non-visual frontend binding for the realtime status payload.
 - A pure store exists.
 - A refresh helper exists.
 - App startup now refreshes the realtime status payload store once.
+- A state validation helper exists for mapper/store logic.
 
 ## Important boundary
 
