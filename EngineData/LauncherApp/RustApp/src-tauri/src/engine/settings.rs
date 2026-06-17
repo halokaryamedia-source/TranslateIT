@@ -3,6 +3,8 @@ use std::fs;
 use std::io;
 use std::path::Path;
 
+const MAX_SETTING_TEXT_CHARS: usize = 160;
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct AudioSettings {
     pub input_device_id: Option<String>,
@@ -82,7 +84,7 @@ impl RuntimeSettings {
         self.audio.input_sensitivity = self.runtime_profile.clone();
         self.audio.sensitivity = self.audio.sensitivity.clamp(0.1, 3.0);
         self.audio.voice_actor_profiles_root = sanitize_voice_root(&self.audio.voice_actor_profiles_root);
-        self.voice_actor_profile_id = sanitize_text(&self.voice_actor_profile_id);
+        self.voice_actor_profile_id = sanitize_identifier(&self.voice_actor_profile_id);
         self.audio.use_custom_voice_actor = !self.voice_actor_profile_id.trim().is_empty();
         self.audio.auto_play_translation_voice = self.audio.auto_play_out_voice;
         self
@@ -106,15 +108,32 @@ fn sanitize_language(value: &str, fallback: &str) -> String {
     if text.is_empty() { fallback.to_string() } else { text.chars().take(2).collect() }
 }
 
-fn sanitize_text(value: &str) -> String {
-    value.trim().to_string()
+fn sanitize_identifier(value: &str) -> String {
+    value
+        .trim()
+        .chars()
+        .filter(|character| character.is_ascii_alphanumeric() || matches!(character, '-' | '_'))
+        .take(MAX_SETTING_TEXT_CHARS)
+        .collect::<String>()
 }
 
 fn sanitize_voice_root(value: &str) -> String {
-    let text = value.trim();
-    if text.is_empty() || text.starts_with("<member ") || text.contains("AudioSettings' objects>") {
-        "EngineData/VoiceActorProfiles".to_string()
+    let text = value.trim().replace('\\', "/");
+    if text.is_empty()
+        || text.starts_with("<member ")
+        || text.contains("AudioSettings' objects>")
+        || text.contains("..")
+        || text.starts_with('/')
+        || text.contains(':')
+        || text.chars().any(|character| character.is_control())
+        || text.chars().count() > MAX_SETTING_TEXT_CHARS
+    {
+        return "EngineData/VoiceActorProfiles".to_string();
+    }
+    let allowed = ["EngineData/VoiceActorProfiles", "UserData/SavedProject/VoiceActorProfiles"];
+    if allowed.iter().any(|prefix| text == *prefix || text.starts_with(&format!("{prefix}/"))) {
+        text
     } else {
-        text.to_string()
+        "EngineData/VoiceActorProfiles".to_string()
     }
 }
