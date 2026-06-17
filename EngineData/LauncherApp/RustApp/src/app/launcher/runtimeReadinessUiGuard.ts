@@ -10,11 +10,16 @@ function setText(id: string, value: string): void {
   if (element) element.textContent = value;
 }
 
+function hasSetupNeededStatus(): boolean {
+  return visibleText("realtimeStatus").toLowerCase().includes("setup needed");
+}
+
 function guardReadinessUi(): void {
-  const realtimeStatus = visibleText("realtimeStatus").toLowerCase();
+  if (!hasSetupNeededStatus()) return;
   const userPresence = visibleText("userPresence").toLowerCase();
-  if (!realtimeStatus.includes("setup needed")) return;
+  const qualityStatus = visibleText("qualityStatus").toLowerCase();
   if (userPresence.includes("ready")) setText("userPresence", "Setup needed");
+  if (qualityStatus === "ready") setText("qualityStatus", "Needs setup");
 }
 
 export function bindRuntimeReadinessUiGuard(): void {
