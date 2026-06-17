@@ -72,6 +72,32 @@ export type RuntimeStatusBundleReport = {
   summary: string;
 };
 
+export type RealtimeStatusPayload = {
+  status: "idle" | "checking" | "ready" | "partial_ready" | "fallback" | "error" | string;
+  language_direction: string;
+  mode: "Realtime" | "Quality" | string;
+  latency: {
+    target_ms: number;
+    last_total_ms: number | null;
+    p50_ms: number | null;
+    sample_count: number;
+  };
+  worker: {
+    available: boolean;
+    device: string | null;
+    fallback_active: boolean;
+    last_command: string | null;
+  };
+  assets: {
+    asr_ready: boolean;
+    translation_ready: boolean;
+    tts_ready: boolean;
+    missing: string[];
+  };
+  message: string;
+  evidence_path: string | null;
+};
+
 export type RuntimeSettings = {
   schema_version: number;
   language_focus_mode: string;
