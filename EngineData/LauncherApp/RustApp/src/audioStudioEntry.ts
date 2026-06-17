@@ -1,7 +1,9 @@
+import { bindAudioStudioAdvancedUi } from "./app/launcher/audioStudioAdvancedBinding";
 import { bindAudioStudioUi } from "./app/launcher/audioStudioBinding";
 
 function tryBindAudioStudio(): boolean {
   bindAudioStudioUi();
+  bindAudioStudioAdvancedUi();
   return Boolean(document.querySelector('[data-audio-studio-tab="true"]'));
 }
 
