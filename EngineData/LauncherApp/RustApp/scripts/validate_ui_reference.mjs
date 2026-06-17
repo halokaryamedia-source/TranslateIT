@@ -15,6 +15,7 @@ const referenceBinding = read("src/app/launcher/referenceUiBinding.ts");
 const primitives = read("src/app/launcher/referenceUiPrimitives.ts");
 const guide = read("UI_REFERENCE_GUIDE.md");
 const imageManifest = read("docs/ui-reference/reference_images_manifest.json");
+const realtimeRefresh = read("src/app/launcher/realtimeStatusPayloadRefresh.ts");
 
 const errors = [];
 
@@ -52,6 +53,10 @@ for (let index = 0; index < requiredMainImportOrder.length - 1; index += 1) {
 requireContains("main.ts", main, "bindReferenceUi();");
 requireContains("main.ts", main, "bindAttachmentLimitWatcher();");
 requireContains("main.ts", main, "bindResultWatcher();");
+requireContains("main.ts", main, "startRealtimeStatusPayloadAutoRefresh();");
+requireContains("realtimeStatusPayloadRefresh.ts", realtimeRefresh, "window.setInterval");
+requireContains("realtimeStatusPayloadRefresh.ts", realtimeRefresh, "document.hidden");
+requireContains("realtimeStatusPayloadRefresh.ts", realtimeRefresh, "developerOutput");
 
 const requiredShellCopy = [
   "Speak Indonesian. Get translated English voice output.",
