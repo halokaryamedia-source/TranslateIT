@@ -14,6 +14,19 @@ function deviceNames(devices: AudioDeviceSummary[], fallback: string): string {
     .join("; ");
 }
 
+function shortDeviceLabel(device: AudioDeviceSummary): string {
+  const name = device.name.trim();
+  if (name.length <= 42) return `${name}${device.is_default ? " (default)" : ""}`;
+  return `${name.slice(0, 39).trim()}...${device.is_default ? " (default)" : ""}`;
+}
+
+function setButtonLabel(selector: string, value: string): void {
+  document.querySelectorAll<HTMLButtonElement>(selector).forEach((button) => {
+    const label = button.querySelector("span:not(.icon)");
+    if (label) label.textContent = value;
+  });
+}
+
 function setAssistantMessage(message: string): void {
   const element = document.querySelector<HTMLElement>("#assistantMessage");
   if (element) element.textContent = message;
@@ -77,7 +90,9 @@ async function showAudioDevices(kind: "input" | "output" | "both"): Promise<void
   }
 
   await saveSelectedDevice(kind, selected, settings);
-  setAssistantMessage(`${kind === "input" ? "Microphone" : "Speaker"} selected: ${selected.name}${selected.is_default ? " (default)" : ""}.`);
+  const label = shortDeviceLabel(selected);
+  setButtonLabel(kind === "input" ? INPUT_BUTTON_SELECTOR : OUTPUT_BUTTON_SELECTOR, label);
+  setAssistantMessage(`${kind === "input" ? "Microphone" : "Speaker"} selected: ${label}.`);
 }
 
 export function bindAudioDeviceListUi(): void {
