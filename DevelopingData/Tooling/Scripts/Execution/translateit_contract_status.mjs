@@ -3,7 +3,7 @@ import { join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
 const ROOT = resolve(fileURLToPath(new URL("../../../../", import.meta.url)));
-const rustApp = join(ROOT, "EngineData", "LauncherApp", "RustApp");
+const contractsRoot = join(ROOT, "EngineData", "Backend", "RuntimeContracts");
 
 function readJson(path) {
   if (!existsSync(path)) return null;
@@ -11,14 +11,16 @@ function readJson(path) {
 }
 
 const contracts = {
-  attachment: readJson(join(rustApp, "ATTACHMENT_RUNTIME_CONTRACT.json")),
-  translation: readJson(join(rustApp, "TRANSLATION_RUNTIME_CONTRACT.json")),
-  audio_pipeline: readJson(join(rustApp, "AUDIO_PIPELINE_RUNTIME_CONTRACT.json"))
+  attachment: readJson(join(contractsRoot, "ATTACHMENT_RUNTIME_CONTRACT.json")),
+  translation: readJson(join(contractsRoot, "TRANSLATION_RUNTIME_CONTRACT.json")),
+  audio_pipeline: readJson(join(contractsRoot, "AUDIO_PIPELINE_RUNTIME_CONTRACT.json")),
+  model_manifest: readJson(join(contractsRoot, "MODEL_RUNTIME_MANIFEST.json"))
 };
 
 const loaded = Object.fromEntries(Object.entries(contracts).map(([key, value]) => [key, Boolean(value)]));
 const payload = {
-  schema: "translateit.contract_status.v1",
+  schema: "translateit.contract_status.v2",
+  contracts_root: "EngineData/Backend/RuntimeContracts",
   loaded,
   all_loaded: Object.values(loaded).every(Boolean),
   success_claim_allowed: false,
