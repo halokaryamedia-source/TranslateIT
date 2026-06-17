@@ -2,9 +2,13 @@
 
 ## Purpose
 
-`DevelopingData` is the single development workspace for TranslateIT.
+`DevelopingData` is the development-only workspace for TranslateIT.
 
-It owns current developer-facing documentation, concise reports, safe sample references, quality references, and project tooling.
+It owns developer-facing documentation, concise reports, safe sample references, QA references, and maintenance tooling. It is not part of the release root and must not contain active runtime engine files.
+
+## Release rule
+
+When TranslateIT is prepared for release, `DevelopingData` can be excluded safely. The app must not depend on files from this folder at runtime.
 
 ## Current layout
 
@@ -40,21 +44,21 @@ DevelopingData/
 DevelopingData/Documentation
 ```
 
-All durable documentation must live there. Do not scatter documentation into root-level or parallel folders.
+All durable development documentation must live there. Do not scatter documentation into root-level or parallel folders.
 
-## Active tooling route
+## Development tooling route
 
 ```text
 DevelopingData/Tooling/Scripts/Execution
 ```
 
-RustApp package scripts and GitHub Actions should point to this path.
+This folder is for developer maintenance and validation only. Runtime app code must not import, load, or depend on it.
 
 ## Tooling language policy
 
 - Rust/Tauri and repository checks use Node or PowerShell tooling.
 - Do not add Python validation scripts under `DevelopingData`.
-- The only active Python runtime file is the local worker under `EngineData/LauncherApp/Workers/realtime_local_worker.py`.
+- The only approved Python runtime route is the local worker under `EngineData/LauncherApp/Workers/realtime_local_worker.py`.
 
 ## Retired paths
 
@@ -77,16 +81,18 @@ DevelopingData/Tests/
 - `Documentation/` - current source docs, concise reports, and templates.
 - `Quality/` - diagnostics and test references only.
 - `Samples/` - safe, small sample references only.
-- `Tooling/` - Node/PowerShell validation and maintenance scripts.
+- `Tooling/` - development-only Node/PowerShell maintenance scripts.
 
 ## Must not be placed here
 
 - Runtime engine code.
+- Frontend app source.
+- Backend runtime source.
 - User saved sessions.
 - Runtime cache files.
 - Local model binaries.
-- Loose experiments without a clear owner.
 - Alternate launcher routes.
+- Release-required scripts.
 - Python validation scripts.
 
 ## Naming rules
