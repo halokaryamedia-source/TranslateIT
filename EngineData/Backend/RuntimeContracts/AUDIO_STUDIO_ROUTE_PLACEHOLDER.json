@@ -1,0 +1,32 @@
+{
+  "schema": "translateit.audio_studio_route_placeholder.v1",
+  "branch": "Dev-Rust",
+  "status": "non_local_placeholder",
+  "commands_planned": [
+    "audio_studio_import_take",
+    "audio_studio_stage_guided_take",
+    "audio_studio_update_take_state",
+    "audio_studio_list_takes",
+    "audio_studio_export_project_metadata"
+  ],
+  "take_states": [
+    "draft",
+    "staged",
+    "accepted",
+    "needs_retry",
+    "blocked"
+  ],
+  "storage_policy": {
+    "cache_root": "UserData/CacheData/",
+    "saved_project_root": "UserData/SavedProject/",
+    "log_root": "UserData/LogData/",
+    "external_write_allowed": false
+  },
+  "not_executed_here": [
+    "local_microphone_check",
+    "runtime_validation",
+    "provider_check",
+    "packaging_check"
+  ],
+  "readiness_rule": "This placeholder must not be marked ready until local runtime evidence exists on the target PC."
+}
