@@ -22,6 +22,7 @@ fn main() {
         analyze_stop_gate,
         analyze_runtime_readiness,
         get_runtime_status_bundle,
+        get_realtime_status_payload,
         analyze_live_pipeline_gate,
         get_live_pipeline_compact_status,
         analyze_internal_validation,
@@ -80,5 +81,5 @@ fn main() {
     ]);
 
     app.run(tauri::generate_context!())
-        .expect("TranslateIT RustApp failed to run");
+        .expect("TranslateIT app failed to start");
 }
