@@ -16,6 +16,7 @@ const primitives = read("src/app/launcher/referenceUiPrimitives.ts");
 const guide = read("UI_REFERENCE_GUIDE.md");
 const imageManifest = read("docs/ui-reference/reference_images_manifest.json");
 const realtimeRefresh = read("src/app/launcher/realtimeStatusPayloadRefresh.ts");
+const audioWatcher = read("src/app/launcher/audioPipelineResultWatcher.ts");
 
 const errors = [];
 
@@ -57,6 +58,9 @@ requireContains("main.ts", main, "startRealtimeStatusPayloadAutoRefresh();");
 requireContains("realtimeStatusPayloadRefresh.ts", realtimeRefresh, "window.setInterval");
 requireContains("realtimeStatusPayloadRefresh.ts", realtimeRefresh, "document.hidden");
 requireContains("realtimeStatusPayloadRefresh.ts", realtimeRefresh, "developerOutput");
+requireContains("audioPipelineResultWatcher.ts", audioWatcher, "translationResultView");
+requireContains("audioPipelineResultWatcher.ts", audioWatcher, "renderCompletedResult(evidence);");
+requireContains("audioPipelineResultWatcher.ts", audioWatcher, "#chatList");
 
 const requiredShellCopy = [
   "Speak Indonesian. Get translated English voice output.",
