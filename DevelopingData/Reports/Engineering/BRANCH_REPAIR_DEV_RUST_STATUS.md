@@ -5,8 +5,8 @@ Repair misplaced work from commit range `5ba3460a2bdc2c003dc9df9b8ff7134e4a679cb
 
 ## Current repair status
 Partial repair completed.
-Confirmed repaired files: 69 of about 96 changed files.
-Estimated repair progress: 72%.
+Confirmed repaired files: 75 of about 96 changed files.
+Estimated repair progress: 78%.
 
 ## Dev-Rust architecture crosscheck
 - Active app route: `EngineData/LauncherApp/RustApp`.
@@ -17,11 +17,12 @@ Estimated repair progress: 72%.
 - Migrated Python files are helper or compatibility assets only.
 
 ## Newly confirmed in this batch
-- `DevelopingData/Tests/test_realtime_status_panel_adapter.py`
-- `DevelopingData/Tests/test_realtime_app_status_hook.py`
-- `DevelopingData/Tests/test_realtime_local_status_bundle.py`
-- `DevelopingData/Tests/test_realtime_validation_runner.py`
-- `DevelopingData/Tests/test_realtime_final_readiness_gate.py`
+- `DevelopingData/Reports/Engineering/REALTIME_PROGRESS_ADDENDUM_94.md`
+- `DevelopingData/Reports/Engineering/REALTIME_PROGRESS_ADDENDUM_97.md`
+- `DevelopingData/Reports/Engineering/REALTIME_PROGRESS_ADDENDUM_98.md`
+- `DevelopingData/Reports/Engineering/REALTIME_PROGRESS_ADDENDUM_99.md`
+- `DevelopingData/Reports/Engineering/REALTIME_PROGRESS_ADDENDUM_99_5.md`
+- `DevelopingData/Reports/Engineering/REALTIME_PROGRESS_ADDENDUM_99_8.md`
 
 ## Confirmed categories on Dev-Rust
 - Core Qwen language helper files.
@@ -31,13 +32,14 @@ Estimated repair progress: 72%.
 - Selected engineering reports.
 - Main Qwen/session tests.
 - Additional realtime helper tests.
+- Progress addendum evidence reports.
 - Architecture alignment report.
 - Python helper classification report.
 - LocalWorker helper boundary map.
 
 ## Still needs repair
-- Remaining realtime helper files from the misplaced range.
-- Tests and remaining reports from the misplaced range.
+- Remaining helper files from the misplaced range.
+- Remaining tests and reports from the misplaced range.
 - Patcher/verifier files that need safer import wording.
 - `translation_engine.py` needs separate review because Dev-Rust uses Rust/Tauri structure.
 - Each migrated Python helper still needs final placement decision: keep helper, move behind LocalWorker, translate into Rust, or keep as evidence.
