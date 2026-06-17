@@ -10,6 +10,8 @@ pub struct ProjectPaths {
     pub user_saved_dir: String,
     pub asr_model_dir: String,
     pub translation_model_dir: String,
+    pub voice_runtime_dir: String,
+    pub backend_contract_dir: String,
     pub discovery_note: String,
 }
 
@@ -21,14 +23,14 @@ impl ProjectPaths {
         let user_cache_dir = root.join("UserData").join("CacheData");
         let user_log_dir = root.join("UserData").join("LogData");
         let user_saved_dir = root.join("UserData").join("SavedProject");
-        let asr_model_dir = root
+        let runtime_assets = root.join("EngineData").join("RuntimeAssets");
+        let asr_model_dir = runtime_assets.join("ASR").join("ModelData");
+        let translation_model_dir = runtime_assets.join("Translation").join("ModelData");
+        let voice_runtime_dir = runtime_assets.join("Voice");
+        let backend_contract_dir = root
             .join("EngineData")
-            .join("TranscriptEngine")
-            .join("ModelData");
-        let translation_model_dir = root
-            .join("EngineData")
-            .join("TranslateEngine")
-            .join("ModelData");
+            .join("Backend")
+            .join("RuntimeContracts");
 
         Self {
             project_root: normalize_path(&root),
@@ -37,7 +39,9 @@ impl ProjectPaths {
             user_saved_dir: normalize_path(&user_saved_dir),
             asr_model_dir: normalize_path(&asr_model_dir),
             translation_model_dir: normalize_path(&translation_model_dir),
-            discovery_note: "Project root discovery requires EngineData, DevelopingData, and UserData. Saved runtime data uses UserData/SavedProject.".to_string(),
+            voice_runtime_dir: normalize_path(&voice_runtime_dir),
+            backend_contract_dir: normalize_path(&backend_contract_dir),
+            discovery_note: "Project root discovery requires EngineData, DevelopingData, and UserData. Runtime assets use EngineData/RuntimeAssets. Backend contracts use EngineData/Backend/RuntimeContracts.".to_string(),
         }
     }
 }
