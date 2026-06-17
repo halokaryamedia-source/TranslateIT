@@ -50,6 +50,8 @@ jobs:
           test -f EngineData/LauncherApp/RustApp/src/app/launcher/realtimeStatusPayloadRefresh.ts
           test -f EngineData/LauncherApp/RustApp/src/app/engineTranslate/realtimeSegmentEventTypes.ts
           test -f EngineData/LauncherApp/RustApp/src/app/engineTranslate/realtimeSegmentReducer.ts
+          test -f EngineData/LauncherApp/RustApp/src/app/engineTranslate/translationBenchmarkScoring.ts
+          test -f EngineData/LauncherApp/RustApp/src/app/engineTranslate/realtimeLatencyScoring.ts
           test -f DevelopingData/Tests/test_dev_rust_worker_path_contract.py
 
           grep -q 'join("Backend")' EngineData/LauncherApp/RustApp/src-tauri/src/engine/capture_lifecycle.rs
@@ -70,5 +72,7 @@ jobs:
           grep -q 'applyRealtimeSegmentEvent' EngineData/LauncherApp/RustApp/src/app/engineTranslate/realtimeSegmentReducer.ts
           grep -q 'p95_end_to_end_ms' EngineData/Backend/RuntimeContracts/REALTIME_LATENCY_EVIDENCE_CONTRACT.json
           grep -q 'id->en' EngineData/Backend/RuntimeContracts/TRANSLATION_BENCHMARK_SET_ID_EN.json
+          grep -q 'summarizeTranslationBenchmark' EngineData/LauncherApp/RustApp/src/app/engineTranslate/translationBenchmarkScoring.ts
+          grep -q 'summarizeRealtimeLatency' EngineData/LauncherApp/RustApp/src/app/engineTranslate/realtimeLatencyScoring.ts
 
           echo "Repo-safe Dev-Rust guard passed. Manual local validation remains separate."
