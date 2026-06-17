@@ -9,14 +9,15 @@ export type RealtimeStatusViewState = {
 };
 
 export function realtimeStatusViewState(payload: RealtimeStatusPayload): RealtimeStatusViewState {
+  const missingCount = payload.assets.missing.length;
   const realtimeLabel = payload.status === "ready"
     ? "Ready"
     : payload.status === "partial_ready"
-      ? `Partial (${payload.assets.missing.length})`
+      ? `Setup needed (${missingCount})`
       : payload.status === "checking"
         ? "Checking"
         : payload.status === "fallback"
-          ? "Fallback"
+          ? "Fallback active"
           : payload.status === "error"
             ? "Error"
             : "Idle";
@@ -33,7 +34,7 @@ export function realtimeStatusViewState(payload: RealtimeStatusPayload): Realtim
     direction: payload.language_direction,
     realtimeLabel,
     gpuLabel,
-    missingCount: payload.assets.missing.length,
+    missingCount,
     message: payload.message,
   };
 }
