@@ -40,6 +40,16 @@ const checks = [
       "MAX_WORKER_STDOUT_BYTES",
       "AudioPipelineWorkerGuard",
       "compare_exchange(false, true",
+      "privacy_preserving_audio_evidence",
+      "translateit.audio_pipeline_evidence.v5.redacted",
+      "user_text_redacted",
+      "transcript_chars",
+      "translated_chars",
+      "worker_stage_summary",
+      "safe_file_label",
+    ],
+    denyMarkers: [
+      "worker_path",
     ],
   },
   {
