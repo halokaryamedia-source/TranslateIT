@@ -5,6 +5,8 @@ import {
   type AudioStudioAdvancedMode,
 } from "./audioStudioAdvancedState";
 
+let observerStarted = false;
+
 function escapeHtml(value: string): string {
   return value
     .replaceAll("&", "&amp;")
@@ -91,7 +93,10 @@ function injectAdvancedPanel(): void {
 
 export function bindAudioStudioAdvancedUi(): void {
   injectAdvancedPanel();
-  const observer = new MutationObserver(() => injectAdvancedPanel());
+  if (observerStarted) return;
   const content = document.querySelector<HTMLElement>("#settingsContent");
-  if (content) observer.observe(content, { childList: true, subtree: true });
+  if (!content) return;
+  const observer = new MutationObserver(() => injectAdvancedPanel());
+  observer.observe(content, { childList: true, subtree: true });
+  observerStarted = true;
 }
