@@ -1,6 +1,7 @@
 const style = document.createElement("style");
 style.textContent = `
 .settings-view--audio-studio { min-height: 100%; }
+.settings-card--audio-studio, .settings-card--audio-studio-status { gap: 18px; }
 .audio-studio-reading-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 14px; }
 .audio-studio-reading-card { border: 1px solid rgba(148, 163, 184, 0.25); border-radius: 18px; padding: 16px; background: rgba(255, 255, 255, 0.72); box-shadow: 0 18px 45px rgba(15, 23, 42, 0.06); display: grid; gap: 14px; }
 .audio-studio-reading-card.active { border-color: rgba(15, 23, 42, 0.55); box-shadow: 0 22px 55px rgba(15, 23, 42, 0.10); }
