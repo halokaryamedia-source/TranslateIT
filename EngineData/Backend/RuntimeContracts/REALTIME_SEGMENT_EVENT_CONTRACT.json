@@ -1,0 +1,36 @@
+{
+  "schema": "translateit.realtime_segment_event_contract.v1",
+  "purpose": "Defines the UI/backend event payload for future streaming ASR and streaming translation updates.",
+  "status": "contract_only_not_runtime_proof",
+  "non_goal": "This contract does not claim local realtime streaming is already validated.",
+  "event_types": [
+    "asr_partial",
+    "asr_final",
+    "translation_partial",
+    "translation_final",
+    "tts_started",
+    "tts_finished",
+    "pipeline_error"
+  ],
+  "payload": {
+    "event_id": "string",
+    "session_id": "string",
+    "sequence": "number",
+    "event_type": "string",
+    "source_language": "string",
+    "target_language": "string",
+    "text": "string",
+    "translated_text": "string_or_null",
+    "is_final": "boolean",
+    "confidence": "number_or_null",
+    "latency_ms": "number_or_null",
+    "created_unix_ms": "number",
+    "blocker": "string_or_null"
+  },
+  "ui_expectation": {
+    "partial_events": "Render inline and replace the previous partial text for the same session.",
+    "final_events": "Commit final transcript/translation into the conversation card.",
+    "error_events": "Show a visible but non-blocking status message."
+  },
+  "readiness_rule": "Gemini-class readiness must not advance until this contract is backed by target-PC runtime evidence."
+}
