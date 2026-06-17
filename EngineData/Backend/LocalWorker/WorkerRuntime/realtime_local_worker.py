@@ -23,6 +23,14 @@ CACHE_ROOT = ROOT / "UserData" / "CacheData"
 ALLOWED_INPUT_ROOTS = [ROOT / "UserData" / "CacheData", ROOT / "UserData" / "LogData"]
 ALLOWED_OUTPUT_ROOTS = [ROOT / "UserData" / "CacheData"]
 
+MAX_WORKER_REQUEST_BYTES = 1_000_000
+MAX_RUNTIME_FIELD_CHARS = 160
+MAX_TRANSLATION_TEXT_CHARS = 2_000
+MAX_TTS_TEXT_CHARS = 1_000
+MAX_TRANSCRIPT_TEXT_CHARS = 4_000
+MAX_AUDIO_INPUT_BYTES = 25 * 1024 * 1024
+MAX_GENERATION_TOKENS = 128
+
 NLLB_LANGUAGE_CODES = {
     "id": "ind_Latn",
     "ind": "ind_Latn",
@@ -70,6 +78,39 @@ def import_ready(module_name: str) -> bool:
         return True
     except Exception:
         return False
+
+
+def bounded_int(value: Any, fallback: int, minimum: int, maximum: int) -> int:
+    try:
+        parsed = int(value)
+    except Exception:
+        parsed = fallback
+    return max(minimum, min(maximum, parsed))
+
+
+def bounded_float(value: Any, fallback: float, minimum: float, maximum: float) -> float:
+    try:
+        parsed = float(value)
+    except Exception:
+        parsed = fallback
+    return max(minimum, min(maximum, parsed))
+
+
+def compact_runtime_text(value: Any, max_chars: int) -> str:
+    text = str(value or "").strip().replace("\x00", "")
+    compact = " ".join(text.split())
+    if len(compact) > max_chars:
+        return compact[:max_chars]
+    return compact
+
+
+def runtime_text_too_large(value: Any, max_chars: int) -> bool:
+    return len(str(value or "")) > max_chars
+
+
+def safe_command_name(value: Any) -> str:
+    text = str(value or "status").strip().lower()
+    return "".join(character for character in text if character.isascii() and (character.isalnum() or character == "_"))[:64]
 
 
 def torch_status() -> tuple[bool, bool]:
@@ -313,19 +354,21 @@ def handle_transcribe(payload: dict[str, Any]) -> dict[str, Any]:
         return {"ok": False, "stage": "transcribe", "blocker": type(exc).__name__, "note": str(exc)}
     if not audio_path.is_file():
         return {"ok": False, "stage": "transcribe", "blocker": "asr:audio_file_missing", "audio_path": str(audio_path)}
+    if audio_path.stat().st_size > MAX_AUDIO_INPUT_BYTES:
+        return {"ok": False, "stage": "transcribe", "blocker": "asr:audio_file_too_large", "max_bytes": MAX_AUDIO_INPUT_BYTES}
     try:
         model = get_asr_runtime()
         segments, info = model.transcribe(
             str(audio_path),
-            language=str(payload.get("language", "id")),
+            language=normalize_language(payload.get("language", "id"), "id"),
             task="transcribe",
-            beam_size=int(payload.get("beam_size", 1)),
-            temperature=float(payload.get("temperature", 0)),
+            beam_size=bounded_int(payload.get("beam_size", 1), 1, 1, 5),
+            temperature=bounded_float(payload.get("temperature", 0), 0.0, 0.0, 1.0),
             condition_on_previous_text=False,
             vad_filter=bool(payload.get("vad_filter", True)),
             word_timestamps=False,
         )
-        text = " ".join(segment.text.strip() for segment in segments).strip()
+        text = compact_runtime_text(" ".join(segment.text.strip() for segment in segments), MAX_TRANSCRIPT_TEXT_CHARS)
         return {
             "ok": bool(text),
             "stage": "transcribe",
@@ -439,7 +482,9 @@ def nllb_generate_kwargs(tokenizer: Any, mode: str, source_language: str, target
 
 def handle_translate(payload: dict[str, Any]) -> dict[str, Any]:
     started = now_ms()
-    text = str(payload.get("text", "")).strip()
+    if runtime_text_too_large(payload.get("text", ""), MAX_TRANSLATION_TEXT_CHARS):
+        return {"ok": False, "stage": "translate", "blocker": "translation:text_too_large", "max_chars": MAX_TRANSLATION_TEXT_CHARS}
+    text = compact_runtime_text(payload.get("text", ""), MAX_TRANSLATION_TEXT_CHARS)
     mode = str(payload.get("mode", "Realtime"))
     source_language = normalize_language(payload.get("source_language", "id"), "id")
     target_language = normalize_language(payload.get("target_language", "en"), "en")
@@ -466,6 +511,7 @@ def handle_translate(payload: dict[str, Any]) -> dict[str, Any]:
         tokenizer = runtime["tokenizer"]
         model = runtime["model"]
         device = runtime["device"]
+        max_new_tokens = bounded_int(payload.get("max_new_tokens", 32), 32, 1, MAX_GENERATION_TOKENS)
         generate_kwargs = nllb_generate_kwargs(tokenizer, runtime["mode"], source_language, target_language)
         inputs = tokenizer(text, return_tensors="pt", truncation=True, max_length=256)
         inputs = move_inputs_to_device(inputs, device)
@@ -473,10 +519,10 @@ def handle_translate(payload: dict[str, Any]) -> dict[str, Any]:
             import torch
 
             with torch.inference_mode():
-                output_tokens = model.generate(**inputs, max_new_tokens=int(payload.get("max_new_tokens", 32)), num_beams=1, **generate_kwargs)
+                output_tokens = model.generate(**inputs, max_new_tokens=max_new_tokens, num_beams=1, **generate_kwargs)
         except Exception:
-            output_tokens = model.generate(**inputs, max_new_tokens=int(payload.get("max_new_tokens", 32)), num_beams=1, **generate_kwargs)
-        translated = tokenizer.batch_decode(output_tokens, skip_special_tokens=True)[0].strip()
+            output_tokens = model.generate(**inputs, max_new_tokens=max_new_tokens, num_beams=1, **generate_kwargs)
+        translated = compact_runtime_text(tokenizer.batch_decode(output_tokens, skip_special_tokens=True)[0], MAX_TRANSLATION_TEXT_CHARS)
         return {
             "ok": bool(translated),
             "stage": "translate",
@@ -522,7 +568,9 @@ def handle_tts_preflight(_: dict[str, Any]) -> dict[str, Any]:
 
 def handle_synthesize(payload: dict[str, Any]) -> dict[str, Any]:
     started = now_ms()
-    text = str(payload.get("text", "")).strip()
+    if runtime_text_too_large(payload.get("text", ""), MAX_TTS_TEXT_CHARS):
+        return {"ok": False, "stage": "synthesize", "blocker": "tts:text_too_large", "max_chars": MAX_TTS_TEXT_CHARS}
+    text = compact_runtime_text(payload.get("text", ""), MAX_TTS_TEXT_CHARS)
     if not text:
         return {"ok": False, "stage": "synthesize", "blocker": "tts:empty_text"}
     executable = PIPER_ROOT / "piper.exe"
@@ -611,12 +659,18 @@ def respond(payload: dict[str, Any]) -> None:
 
 def main() -> int:
     for raw in sys.stdin:
+        if len(raw.encode("utf-8", errors="ignore")) > MAX_WORKER_REQUEST_BYTES:
+            respond({"ok": False, "stage": "worker_request", "blocker": "worker:request_too_large", "max_bytes": MAX_WORKER_REQUEST_BYTES})
+            continue
         try:
             request = json.loads(raw)
-            command = str(request.get("command", "status"))
+            if not isinstance(request, dict):
+                respond({"ok": False, "stage": "worker_request", "blocker": "worker:request_must_be_object"})
+                continue
+            command = safe_command_name(request.get("command", "status"))
             handler = HANDLERS.get(command)
             if handler is None:
-                respond({"ok": False, "stage": command, "blocker": "worker:unknown_command"})
+                respond({"ok": False, "stage": command or "unknown", "blocker": "worker:unknown_command"})
                 continue
             respond(handler(request))
         except Exception as exc:
