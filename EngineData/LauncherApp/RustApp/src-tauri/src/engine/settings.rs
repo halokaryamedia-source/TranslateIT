@@ -81,6 +81,8 @@ impl RuntimeSettings {
         self.runtime_profile = sanitize_runtime_profile(&self.runtime_profile, &self.audio.input_sensitivity);
         self.source_language = sanitize_language(&self.source_language, "id");
         self.target_language = sanitize_language(&self.target_language, "en");
+        self.audio.input_device_id = sanitize_optional_runtime_text(self.audio.input_device_id.take());
+        self.audio.output_device_id = sanitize_optional_runtime_text(self.audio.output_device_id.take());
         self.audio.input_sensitivity = self.runtime_profile.clone();
         self.audio.sensitivity = self.audio.sensitivity.clamp(0.1, 3.0);
         self.audio.voice_actor_profiles_root = sanitize_voice_root(&self.audio.voice_actor_profiles_root);
@@ -115,6 +117,16 @@ fn sanitize_identifier(value: &str) -> String {
         .filter(|character| character.is_ascii_alphanumeric() || matches!(character, '-' | '_'))
         .take(MAX_SETTING_TEXT_CHARS)
         .collect::<String>()
+}
+
+fn sanitize_optional_runtime_text(value: Option<String>) -> Option<String> {
+    let text = value?
+        .trim()
+        .chars()
+        .filter(|character| !character.is_control())
+        .take(MAX_SETTING_TEXT_CHARS)
+        .collect::<String>();
+    if text.is_empty() { None } else { Some(text) }
 }
 
 fn sanitize_voice_root(value: &str) -> String {
