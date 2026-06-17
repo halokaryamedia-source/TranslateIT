@@ -36,13 +36,13 @@ export function mountAppShell(app: HTMLElement): void {
         </section>
       </aside>
       <section id="homePage" class="workspace">
-        <header class="topbar"><div><h2>Voice translation</h2><p>Speak Indonesian. Get translated English voice output.</p></div><div class="top-actions"><span id="directionPill" class="direction-pill">ID &gt; EN</span><button id="recordStatusButton" class="record-pill" type="button"><span></span><strong id="recordStatusText">Recording</strong></button></div></header>
+        <header class="topbar"><div><h2>Voice translation</h2><p>Speak Indonesian. Get translated English voice output.</p></div><div class="top-actions"><span id="directionPill" class="direction-pill">ID &gt; EN</span><button id="recordStatusButton" class="record-pill" type="button"><span></span><strong id="recordStatusText">Ready</strong></button></div></header>
         <section class="hero-panel">
           <span class="hero-kicker">Local-first voice translation</span>
           <h3 id="heroTitle">How can I help translate today?</h3>
           <p id="heroSubtitle">Type a message, or press the microphone button on the right to record speech locally.</p>
           <div id="chatList" class="feature-grid"></div>
-          <article class="assistant-card"><div class="mini-brand">T</div><div><strong>TranslateIT</strong><p id="assistantMessage">Recording started. I will update this conversation when the voice translation result is ready.</p></div></article>
+          <article class="assistant-card"><div class="mini-brand">T</div><div><strong>TranslateIT</strong><p id="assistantMessage">Local runtime is checking. You can type text or start recording after warmup.</p></div></article>
         </section>
         <section class="composer-wrap"><input id="attachmentInput" class="attachment-input" type="file" accept=".txt,.md,.json,.csv,.tsv,.log,.xml,.yaml,.yml,.srt,.vtt,text/plain,text/markdown,application/json,text/csv,text/tab-separated-values,text/xml,application/xml,application/yaml,text/yaml" multiple aria-hidden="true" tabindex="-1" /><div class="composer"><button id="composerPlusButton" class="composer-icon" type="button" aria-label="Attach text files">${icon("plus")}</button><textarea id="messageInput" placeholder="Ask anything..." autocomplete="off" maxlength="2000" rows="1" aria-label="Text to translate" style="field-sizing: content;"></textarea><button id="microphoneButton" class="composer-icon emphasis" type="button" aria-label="Start voice recording">${icon("mic")}</button><button id="sendButton" class="send-button" type="button" aria-label="Send text">${icon("arrowUp")}</button></div><p class="composer-help">Type a message, or press the microphone button on the right to record speech locally.</p></section>
       </section>
