@@ -87,6 +87,13 @@ const checks = [
       "rotate_if_too_large",
       "previous.jsonl",
       "is_safe_log_file_name",
+      "redact_log_value",
+      "looks_like_local_path",
+      "looks_like_email",
+      "looks_like_secret",
+      "[redacted-path]",
+      "[redacted-email]",
+      "[redacted-secret]",
     ],
   },
   {
