@@ -65,8 +65,8 @@ export function audioSettingsView(settings: RuntimeSettings): string {
   return settingsPage("Audio", "Manage microphone input, speaker output, volume, and voice behavior.", "settings-view--audio", `
     ${settingsCard("settings-card--audio", `
       ${settingsGrid(`
-        ${factorySelectField("Microphone", "Default microphone", "mic", "checkAudioInputButton")}
-        ${factorySelectField("Speaker", voiceEnabled ? "Default speaker" : "Speaker disabled", "speaker", "audioVoiceToggleButton")}
+        ${factorySelectField("Microphone", "Choose microphone", "mic", "checkAudioInputButton")}
+        ${factorySelectField("Speaker", voiceEnabled ? "Choose speaker" : "Enable speaker", "speaker", "audioVoiceToggleButton")}
         ${settingsField("Microphone Volume", '<div class="range-v22 mic-range"><span></span><i></i></div>')}
         ${settingsField("Speaker Volume", '<div class="range-v22 speaker-range"><span></span><i></i></div>')}
       `)}
