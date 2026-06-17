@@ -1,11 +1,42 @@
-name: Dev-Rust Validation Note
+name: Dev-Rust Rust Check
 
 on:
   workflow_dispatch:
+  push:
+    branches:
+      - Dev-Rust
+    paths:
+      - "EngineData/LauncherApp/RustApp/**"
+      - ".github/workflows/dev-rust-validation-note.yml"
+  pull_request:
+    branches:
+      - Dev-Rust
+    paths:
+      - "EngineData/LauncherApp/RustApp/**"
+      - ".github/workflows/dev-rust-validation-note.yml"
 
 jobs:
-  validation-note:
-    runs-on: ubuntu-latest
+  rust-check:
+    runs-on: windows-latest
+    defaults:
+      run:
+        working-directory: EngineData/LauncherApp/RustApp
     steps:
-      - name: Print validation note
-        run: echo "Run npm run check:rust from EngineData/LauncherApp/RustApp on the Dev-Rust checkout."
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+          cache-dependency-path: EngineData/LauncherApp/RustApp/package-lock.json
+
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Install frontend dependencies
+        run: npm ci
+
+      - name: Rust check
+        run: npm run check:rust
