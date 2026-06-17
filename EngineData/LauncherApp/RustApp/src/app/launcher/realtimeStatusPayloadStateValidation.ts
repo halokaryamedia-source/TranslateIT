@@ -5,6 +5,7 @@ import { realtimeStatusUiTextPatch } from "./realtimeStatusPayloadViewPatch";
 import { realtimeStatusReadinessSummary } from "./realtimeStatusReadinessSummary";
 import { decideRealtimeStatusVisibleBinding } from "./realtimeStatusVisibleBindingGate";
 import { planRealtimeStatusVisibleBinding } from "./realtimeStatusVisibleBindingPlan";
+import { scoreRealtimeGeminiClassGap } from "./realtimeGeminiClassGapScore";
 
 export type RealtimeStatusStateValidationReport = {
   ok: boolean;
@@ -79,9 +80,13 @@ export function validateRealtimeStatusStateMapping(): RealtimeStatusStateValidat
   if (!allowedPlan.safeToApply) failures.push("visible binding plan should be safe after approval");
   if (allowedPlan.approvalRequired) failures.push("visible binding plan approval flag failed");
 
+  const gapScore = scoreRealtimeGeminiClassGap(summary);
+  if (gapScore.overallPercent <= 0) failures.push("Gemini-class gap score overall failed");
+  if (!gapScore.blockers.includes("runtime_assets_incomplete")) failures.push("Gemini-class gap blocker failed");
+
   return {
     ok: failures.length === 0,
-    checked: 18,
+    checked: 20,
     failures,
   };
 }
