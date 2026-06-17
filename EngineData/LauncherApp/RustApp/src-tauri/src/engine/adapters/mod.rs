@@ -25,6 +25,7 @@ pub mod output_dry_run;
 pub mod pipeline_logic;
 pub mod playback_logic;
 pub mod realtime_handoff_logic;
+pub mod realtime_status_payload_logic;
 pub mod runtime_lifecycle_logic;
 pub mod runtime_readiness_bundle_logic;
 pub mod runtime_status_bundle_logic;
