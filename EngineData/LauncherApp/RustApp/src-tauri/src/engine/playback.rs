@@ -7,7 +7,7 @@ pub fn play_wav_output(output_path: &str) -> bool {
         return false;
     }
 
-    let command = "Add-Type -AssemblyName System.Windows.Forms; $player = New-Object System.Media.SoundPlayer($env:TRANSLATEIT_PLAY_WAV); $player.PlaySync();";
+    let command = "Add-Type -AssemblyName System; $player = New-Object System.Media.SoundPlayer($env:TRANSLATEIT_PLAY_WAV); $player.Load(); $player.PlaySync(); $player.Dispose();";
     Command::new("powershell")
         .arg("-NoProfile")
         .arg("-NonInteractive")
