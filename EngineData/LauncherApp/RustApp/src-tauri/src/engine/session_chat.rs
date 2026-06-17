@@ -183,7 +183,7 @@ fn write_pretty_json<T: Serialize>(path: &Path, value: &T) -> io::Result<()> {
     }
     let body = serde_json::to_string_pretty(value)
         .map_err(|error| io::Error::new(io::ErrorKind::InvalidData, error))?;
-    if body.len() as u64 > MAX_CHAT_SESSION_FILE_BYTES {
+    if u64::try_from(body.len()).unwrap_or(u64::MAX) > MAX_CHAT_SESSION_FILE_BYTES {
         return Err(io::Error::new(
             io::ErrorKind::InvalidData,
             "serialized chat session exceeds safe file size limit",
