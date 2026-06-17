@@ -1,5 +1,6 @@
 import { getRuntimeCommandErrors, runCommand } from "../shared/tauriBridge";
 import type {
+  AudioDeviceListReport,
   CommandResult,
   HardwareUsageReport,
   InputPreparationStatus,
@@ -26,7 +27,7 @@ function clearRuntimeReads(...keys: string[]): void {
 }
 
 function clearSettingsDependentReads(): void {
-  clearRuntimeReads("runtime-settings", "status-bundle", "diagnostics", "input-status", "hardware-usage");
+  clearRuntimeReads("runtime-settings", "status-bundle", "diagnostics", "input-status", "hardware-usage", "audio-devices");
 }
 
 function clearVoiceDependentReads(): void {
@@ -61,6 +62,7 @@ export const runtimeApi = {
   getDiagnostics: () => singleFlight("diagnostics", () => runCommand<RuntimeDiagnostics>("get_runtime_diagnostics")),
   getHardwareUsage: () => singleFlight("hardware-usage", () => runCommand<HardwareUsageReport>("get_hardware_usage")),
   getInputStatus: () => singleFlight("input-status", () => runCommand<InputPreparationStatus>("get_input_status")),
+  listAudioDevices: () => singleFlight("audio-devices", () => runCommand<AudioDeviceListReport>("list_audio_devices")),
   startCapture: async () => {
     const result = await runCommand<CommandResult>("start_capture");
     clearVoiceDependentReads();
