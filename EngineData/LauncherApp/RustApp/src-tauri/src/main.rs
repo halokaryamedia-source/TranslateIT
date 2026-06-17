@@ -23,6 +23,7 @@ fn main() {
         analyze_runtime_readiness,
         get_runtime_status_bundle,
         get_realtime_status_payload,
+        analyze_realtime_translate_stream_state,
         analyze_live_pipeline_gate,
         get_live_pipeline_compact_status,
         analyze_internal_validation,
