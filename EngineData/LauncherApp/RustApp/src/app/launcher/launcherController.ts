@@ -1,4 +1,4 @@
-import { RUNTIME_SETTINGS_SAVED_EVENT, runtimeApi } from "../engineTranslate/runtimeApi";
+import { runtimeApi } from "../engineTranslate/runtimeApi";
 import { defaultSettings, errorMessage, languageName, percentText } from "../shared/state";
 import type {
   ChatKind,
@@ -22,6 +22,7 @@ import {
   safeAttachmentName,
   unsupportedAttachmentMessage,
 } from "./launcherAttachmentRules";
+import { bindLauncherEvents } from "./launcherEventBindings";
 import { LANGUAGE_OPTIONS, isLanguageCode, nextLanguageCode, type LanguageSelectorRole } from "./launcherLanguageRules";
 import { MAX_COMPOSER_TEXTAREA_HEIGHT, MAX_MANUAL_TRANSLATION_CHARS, MIN_COMPOSER_TEXTAREA_HEIGHT, exceedsManualTranslationLimit } from "./launcherTextRules";
 import { buildDeveloperLogRows } from "./launcherDeveloperLog";
@@ -499,29 +500,24 @@ export class LauncherController {
   }
 
   private bindEvents(): void {
-    this.ui.settingsButton.addEventListener("click", () => this.showSettings());
-    this.ui.backHomeButton.addEventListener("click", () => this.showHome());
-    this.ui.microphoneButton.addEventListener("click", () => void this.startOrStopRecording());
-    this.ui.quickMicButton.addEventListener("click", () => void this.startOrStopRecording());
-    this.ui.recordStatusButton.addEventListener("click", () => void this.startOrStopRecording());
-    this.ui.sendButton.addEventListener("click", () => void this.submitText());
-    this.ui.messageInput.addEventListener("input", () => this.resizeMessageInput());
-    this.ui.messageInput.addEventListener("keydown", (event) => { if (event.key === "Enter" && !event.shiftKey) { event.preventDefault(); void this.submitText(); } });
-    this.ui.newChatButton.addEventListener("click", () => void this.createNewChat());
-    this.ui.composerPlusButton.addEventListener("click", () => { this.ui.attachmentInput.click(); });
-    this.ui.attachmentInput.addEventListener("change", () => void this.ingestAttachmentFiles());
-    this.bindAttachmentDropZone();
-    this.ui.recentChatButton.addEventListener("click", () => void this.showChatCollection("recent", this.ui.recentChatButton));
-    this.ui.unsavedChatButton.addEventListener("click", () => void this.showChatCollection("unsaved", this.ui.unsavedChatButton));
-    this.ui.savedChatButton.addEventListener("click", () => void this.showChatCollection("saved", this.ui.savedChatButton));
-    this.ui.localDataButton.addEventListener("click", () => void this.showChatCollection("local", this.ui.localDataButton));
-    this.ui.micOptionsButton.addEventListener("click", () => this.openAudioSettings());
-    this.ui.voiceOutputButton.addEventListener("click", () => { this.toggleVoiceOutput(); });
-    this.ui.voiceOptionsButton.addEventListener("click", () => this.openAudioSettings());
-    this.ui.settingsNavItems.forEach((button) => button.addEventListener("click", () => this.renderSettingsTab(button.dataset.settingsTab as SettingsTab)));
-    window.addEventListener(RUNTIME_SETTINGS_SAVED_EVENT, (event) => {
-      const settings = (event as CustomEvent<RuntimeSettings>).detail;
-      if (settings) this.applyRuntimeSettings(settings);
+    bindLauncherEvents(this.ui, {
+      showSettings: () => this.showSettings(),
+      showHome: () => this.showHome(),
+      startOrStopRecording: () => this.startOrStopRecording(),
+      submitText: () => this.submitText(),
+      resizeMessageInput: () => this.resizeMessageInput(),
+      createNewChat: () => this.createNewChat(),
+      openAttachmentInput: () => { this.ui.attachmentInput.click(); },
+      ingestAttachmentFiles: () => this.ingestAttachmentFiles(),
+      bindAttachmentDropZone: () => this.bindAttachmentDropZone(),
+      showRecentChat: () => this.showChatCollection("recent", this.ui.recentChatButton),
+      showUnsavedChat: () => this.showChatCollection("unsaved", this.ui.unsavedChatButton),
+      showSavedChat: () => this.showChatCollection("saved", this.ui.savedChatButton),
+      showLocalData: () => this.showChatCollection("local", this.ui.localDataButton),
+      openAudioSettings: () => this.openAudioSettings(),
+      toggleVoiceOutput: () => this.toggleVoiceOutput(),
+      renderSettingsTab: (tab) => this.renderSettingsTab(tab),
+      applyRuntimeSettings: (settings) => this.applyRuntimeSettings(settings),
     });
   }
 }
