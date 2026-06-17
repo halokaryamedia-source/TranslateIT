@@ -10,9 +10,9 @@ Port safe isolated files into Dev-Rust and verify per path.
 
 ## Current repair status
 Partial repair completed.
-Confirmed repaired files: 44 of about 96 changed files.
-Estimated repair progress: 46%.
-Core Qwen language files, session bridge files, realtime contract files, status-panel bridge files, local readiness helper files, and selected engineering reports have been ported directly to Dev-Rust.
+Confirmed repaired files: 52 of about 96 changed files.
+Estimated repair progress: 54%.
+Core Qwen language files, session bridge files, realtime contract files, status-panel bridge files, local readiness helper files, selected engineering reports, and main Qwen/session test files have been ported directly to Dev-Rust.
 
 ## Confirmed on Dev-Rust
 - `EngineData/TranslateEngine/language_llm_manifest.py`
@@ -59,6 +59,14 @@ Core Qwen language files, session bridge files, realtime contract files, status-
 - `DevelopingData/Reports/Engineering/LANGUAGE_LLM_SESSION_PERSISTENCE_BRIDGE_ADDENDUM.md`
 - `DevelopingData/Reports/Engineering/LANGUAGE_LLM_SESSION_BRIDGE_HOOK_ADDENDUM.md`
 - `DevelopingData/Reports/Engineering/LANGUAGE_LLM_TRANSCRIPT_PERSISTENCE_PATCH_ADDENDUM.md`
+- `DevelopingData/Tests/test_language_llm_runtime_contract.py`
+- `DevelopingData/Tests/test_language_llm_readiness.py`
+- `DevelopingData/Tests/test_language_llm_quality_contract.py`
+- `DevelopingData/Tests/test_language_llm_quality_result.py`
+- `DevelopingData/Tests/test_language_llm_final_transcript_adapter.py`
+- `DevelopingData/Tests/test_language_llm_transcript_persistence_patch.py`
+- `DevelopingData/Tests/test_language_llm_session_patch_adapter.py`
+- `DevelopingData/Tests/test_language_llm_session_persistence_bridge.py`
 
 ## Still needs repair
 - Remaining realtime helper files from the misplaced range.
