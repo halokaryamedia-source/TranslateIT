@@ -1,0 +1,11 @@
+diff --git a/EngineData/LauncherApp/RustApp/src-tauri/src/main.rs b/EngineData/LauncherApp/RustApp/src-tauri/src/main.rs
+--- a/EngineData/LauncherApp/RustApp/src-tauri/src/main.rs
++++ b/EngineData/LauncherApp/RustApp/src-tauri/src/main.rs
+@@ -24,6 +24,7 @@ fn main() {
+         analyze_stop_gate,
+         analyze_runtime_readiness,
+         get_runtime_status_bundle,
++        get_realtime_status_payload,
+         analyze_live_pipeline_gate,
+         get_live_pipeline_compact_status,
+         analyze_internal_validation,
