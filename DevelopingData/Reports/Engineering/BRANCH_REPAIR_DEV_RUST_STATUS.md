@@ -6,10 +6,10 @@ Repair misplaced work from commit range `5ba3460a2bdc2c003dc9df9b8ff7134e4a679cb
 ## Current repair status
 Repository-side repair controls completed.
 Confirmed repaired or resolved files: 96 of about 96 changed files.
-Estimated repair progress: 98%.
+Estimated repair progress: 99%.
 
-## Important meaning of 98%
-The file-level triage is complete, repository-side controls are in place, and PR #3 has been closed without merge. The remaining 2% is local build/test validation from a real checkout.
+## Important meaning of 99%
+The file-level triage is complete, repository-side controls are in place, PR #3 has been closed without merge, and local validation helper files have been added. The remaining 1% is running validation from a real local checkout.
 
 ## Dev-Rust architecture crosscheck
 - Active app route: `EngineData/LauncherApp/RustApp`.
@@ -20,8 +20,8 @@ The file-level triage is complete, repository-side controls are in place, and PR
 - Migrated Python files are helper or compatibility assets only.
 
 ## Newly confirmed in this batch
-- PR #3 was closed without merge.
-- The direct PR path from `Developing` to `Dev-Rust` is no longer open.
+- `DevelopingData/Tooling/Scripts/Execution/run_dev_rust_branch_repair_validation.ps1`
+- `DevelopingData/Reports/Engineering/BRANCH_REPAIR_DEV_RUST_LOCAL_VALIDATION_NOTES.md`
 
 ## Confirmed categories on Dev-Rust
 - Core Qwen language helper files.
@@ -40,6 +40,7 @@ The file-level triage is complete, repository-side controls are in place, and PR
 - Boundary migration queue.
 - Active runtime import audit.
 - Final closeout checklist.
+- Local validation runner and notes.
 
 ## Remaining work before repair can be called 100%
 - Run local checkout validation on `Dev-Rust`.
@@ -49,4 +50,4 @@ The file-level triage is complete, repository-side controls are in place, and PR
 - Rebuild patcher/verifier intent as Rust/Tauri or LocalWorker tasks if still needed.
 
 ## Development status
-Feature development remains paused until final validation and boundary decisions are complete.
+Feature development remains paused until final local validation and boundary decisions are complete.
