@@ -40,7 +40,8 @@ impl AudioEvidenceReport {
         let impulse_edge_ratio = impulse_edge_ratio(&normalized, noise_floor_rms, rms);
         let (frame_energy_concentration, frame_active_ratio) = frame_metrics(&normalized, noise_floor_rms, rms);
         let clipping_ratio = normalized.iter().filter(|value| value.abs() >= 0.98).count() as f32 / len.max(1.0);
-        let active_frame_ratio = normalized.iter().filter(|value| value.abs() >= 0.01).count() as f32 / len.max(1.0);
+        let active_threshold = 0.006_f32.max(noise_floor_rms * 1.45).min(0.012_f32.max(rms * 1.6));
+        let active_frame_ratio = normalized.iter().filter(|value| value.abs() >= active_threshold).count() as f32 / len.max(1.0);
         let sensitivity = normalize_sensitivity(sensitivity);
         let (min_peak, min_rms, min_voiced) = sensitivity_thresholds(sensitivity);
         let strong_voiced_speech = sensitivity == "High"
