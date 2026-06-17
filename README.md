@@ -33,7 +33,7 @@ TranslateIT.lnk
 ```text
 EngineData/
   Frontend/       # UI ownership map, design review, frontend naming rules
-  Backend/        # backend/runtime ownership map, worker and runtime-core naming rules
+  Backend/        # backend/runtime ownership map, worker, contracts, runtime-core rules
   LauncherApp/    # current active Rust/Tauri build route
   RuntimeAssets/  # local model/runtime asset slots ignored by Git
 ```
@@ -69,9 +69,14 @@ cd EngineData/LauncherApp/RustApp
 npm run dev
 ```
 
-## UI preview
+## Correct file positions
 
-UI preview files are design-review references only. They are not the final launcher runtime and must not be treated as release evidence.
+```text
+EngineData/Frontend/DesignReview/        # UI preview and UI reference documents
+EngineData/Backend/RuntimeContracts/     # backend JSON contracts and model manifest
+EngineData/RuntimeAssets/                # local model/runtime asset slots
+DevelopingData/Documentation/Reports/    # reports, checklists, evidence notes, templates
+```
 
 ## Approved Python exception
 
@@ -118,6 +123,7 @@ Launcher/Preview/
 - Keep development documentation under `DevelopingData/Documentation`.
 - Keep development-only QA references under `DevelopingData/Quality`.
 - Keep runtime app code under `EngineData/LauncherApp/RustApp` until a safe build-path migration is approved.
-- Keep runtime ownership documented through `EngineData/Frontend` and `EngineData/Backend`.
+- Keep UI review files under `EngineData/Frontend/DesignReview`.
+- Keep backend contracts under `EngineData/Backend/RuntimeContracts`.
 - Keep runtime assets under `EngineData/RuntimeAssets`.
 - Keep user runtime outputs under `UserData`.
