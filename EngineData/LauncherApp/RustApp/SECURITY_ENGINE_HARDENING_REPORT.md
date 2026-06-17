@@ -5,9 +5,26 @@ App route: `EngineData/LauncherApp/RustApp`
 
 ## Current progress
 
-Overall hardening progress: 91%
+Overall hardening progress: 93%
 
 ## Completed changes
+
+### Local worker payload hardening
+
+Status: Complete
+
+- Added max worker request size.
+- Added max translation text size.
+- Added max TTS text size.
+- Added max transcript text size.
+- Added max audio input file size.
+- Added max generation token limit.
+- Sanitizes worker command names before dispatch.
+- Bounds numeric worker inputs such as ASR beam size, temperature, and translation generation tokens.
+
+Touched file:
+
+- `../../Backend/LocalWorker/WorkerRuntime/realtime_local_worker.py`
 
 ### Worker bridge safety
 
@@ -130,7 +147,7 @@ Touched file:
 Status: Added, pending local run
 
 - Added `npm run validate:security-hardening`.
-- Checks required security-hardening markers across worker bridge, chat/session persistence, settings, logging, paths, frontend attachment handling, and CSP.
+- Checks required security-hardening markers across local worker payload limits, worker bridge, chat/session persistence, settings, logging, paths, frontend attachment handling, and CSP.
 - Included in `validate:internal` and `validate:full`.
 
 Touched files:
@@ -168,7 +185,7 @@ The GitHub connector can update files but cannot run the local Windows/Tauri bui
 
 ## Current readiness estimate
 
-- Internal testing readiness: 91/100
-- Production/client readiness: 70/100
+- Internal testing readiness: 93/100
+- Production/client readiness: 72/100
 
 Production readiness remains blocked by dependency audit validation, full local build validation, and missing runtime model assets.
