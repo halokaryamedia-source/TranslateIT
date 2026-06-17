@@ -10,6 +10,11 @@ function setText(id: string, value: string | null | undefined): void {
   if (element) element.textContent = value;
 }
 
+function shouldPreserveDeveloperOutput(value: string): boolean {
+  const normalized = value.trim().toLowerCase();
+  return normalized.startsWith("microphones:") || normalized.startsWith("audio devices unavailable:");
+}
+
 function applyRealtimeStatusSnapshotToDom(snapshot: RealtimeStatusStoreSnapshot): void {
   const view = snapshot.view;
   if (!view) return;
@@ -20,7 +25,7 @@ function applyRealtimeStatusSnapshotToDom(snapshot: RealtimeStatusStoreSnapshot)
   setText("gpuStatus", view.gpuLabel);
 
   const developerOutput = document.getElementById("developerOutput");
-  if (developerOutput) {
+  if (developerOutput && !shouldPreserveDeveloperOutput(developerOutput.textContent ?? "")) {
     const latency = snapshot.payload?.latency.last_total_ms ?? "none";
     developerOutput.textContent = `realtime=${view.realtimeLabel}; gpu=${view.gpuLabel}; missing=${view.missingCount}; latency=${latency}; message=${view.message}`;
   }
