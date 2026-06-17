@@ -12,6 +12,7 @@ const MAX_CHAT_SESSION_FILE_BYTES: u64 = 1_000_000;
 const MAX_CHAT_LIST_ROWS: usize = 200;
 const MAX_CHAT_LIST_SCAN_FILES: usize = 1_000;
 const MAX_TITLE_CHARS: usize = 64;
+const PRIVATE_CHAT_TITLE: &str = "Private Chat";
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct LauncherChatMessage {
@@ -158,10 +159,10 @@ pub fn append_launcher_chat_message(session_id: String, role: String, content: S
             session_id: session.session_id,
             message: "Chat message saved.".to_string(),
         },
-        Err(error) => LauncherChatActionResult {
+        Err(_error) => LauncherChatActionResult {
             ok: false,
             session_id: session.session_id,
-            message: format!("Failed to save chat message: {error}"),
+            message: "Failed to save chat message. Open Developer diagnostics for details.".to_string(),
         },
     }
 }
@@ -263,14 +264,11 @@ fn sanitize_role(value: &str) -> String {
 }
 
 fn sanitize_title(value: &str) -> String {
-    let title = sanitize_message_content(value)
-        .split_whitespace()
-        .collect::<Vec<_>>()
-        .join(" ");
-    if title.is_empty() {
+    let trimmed = value.trim();
+    if trimmed.is_empty() || trimmed == "New Chat" {
         "New Chat".to_string()
     } else {
-        title.chars().take(MAX_TITLE_CHARS).collect()
+        PRIVATE_CHAT_TITLE.chars().take(MAX_TITLE_CHARS).collect()
     }
 }
 
@@ -282,13 +280,8 @@ fn sanitize_message_content(value: &str) -> String {
         .collect::<String>()
 }
 
-fn title_from_message(value: &str) -> String {
-    let title = value.split_whitespace().take(8).collect::<Vec<_>>().join(" ");
-    if title.is_empty() {
-        "New Chat".to_string()
-    } else {
-        title.chars().take(MAX_TITLE_CHARS).collect()
-    }
+fn title_from_message(_value: &str) -> String {
+    PRIVATE_CHAT_TITLE.chars().take(MAX_TITLE_CHARS).collect()
 }
 
 fn current_unix_ms() -> u128 {
