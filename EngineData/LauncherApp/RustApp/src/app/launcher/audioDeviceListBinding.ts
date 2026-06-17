@@ -1,8 +1,8 @@
 import { runtimeApi } from "../engineTranslate/runtimeApi";
 import type { AudioDeviceSummary, RuntimeSettings } from "../shared/types";
 
-const INPUT_BUTTON_SELECTOR = "#checkAudioInputButton,#micOptionsButton";
-const OUTPUT_BUTTON_SELECTOR = "#audioVoiceToggleButton,#voiceOptionsButton";
+const INPUT_BUTTON_SELECTOR = "#checkAudioInputButton";
+const OUTPUT_BUTTON_SELECTOR = "#audioVoiceToggleButton";
 const DEVICE_BUTTON_SELECTOR = `${INPUT_BUTTON_SELECTOR},${OUTPUT_BUTTON_SELECTOR}`;
 let bound = false;
 let labelSyncPending = false;
@@ -78,7 +78,7 @@ async function saveSelectedDevice(kind: "input" | "output", device: AudioDeviceS
   await runtimeApi.saveSettings(nextSettings);
 }
 
-async function showAudioDevices(kind: "input" | "output" | "both"): Promise<void> {
+async function showAudioDevices(kind: "input" | "output"): Promise<void> {
   setAssistantMessage("Checking local audio devices...");
   const report = await runtimeApi.listAudioDevices();
   if (!report || !report.ok) {
@@ -91,11 +91,6 @@ async function showAudioDevices(kind: "input" | "output" | "both"): Promise<void
   const input = deviceNames(report.input_devices, "no microphone found");
   const output = deviceNames(report.output_devices, "no speaker found");
   setDeveloperOutput(`microphones: ${input}\nspeakers: ${output}\n${report.note}`);
-
-  if (kind === "both") {
-    setAssistantMessage(`Detected ${report.input_devices.length} microphone(s) and ${report.output_devices.length} speaker device(s).`);
-    return;
-  }
 
   const settings = await runtimeApi.loadSettings();
   if (!settings) {
@@ -127,13 +122,15 @@ export function bindAudioDeviceListUi(): void {
     const target = event.target as Element | null;
     if (!target?.closest(DEVICE_BUTTON_SELECTOR)) return;
     if (target.closest(INPUT_BUTTON_SELECTOR)) {
+      event.preventDefault();
+      event.stopPropagation();
       void showAudioDevices("input");
       return;
     }
     if (target.closest(OUTPUT_BUTTON_SELECTOR)) {
+      event.preventDefault();
+      event.stopPropagation();
       void showAudioDevices("output");
-      return;
     }
-    void showAudioDevices("both");
-  });
+  }, true);
 }
