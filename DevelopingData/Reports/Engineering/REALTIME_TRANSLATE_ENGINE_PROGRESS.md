@@ -25,6 +25,7 @@
 - Partial STT adapter exists, but the live microphone loop still needs to emit partial transcript events into UI.
 - Piper TTS readiness detection exists, but runtime synthesis and speaker output still need app-side integration.
 - UI-safe status formatting exists, but the actual UI panel still needs to consume it.
+- App-side diagnostics bridge was attempted, but direct GitHub write for the new bridge/schema file was blocked by tool safety checks. This needs repo-local patching or a later connector write retry.
 
 ## Not yet completed
 - Live end-to-end latency test target around 1 second.
@@ -33,4 +34,4 @@
 - Final live connection from partial STT event -> turn planner -> TTS runtime -> app output channel.
 
 ## Professional status
-The engine now has foundations for non-replay correction, fast MT routing, latency budgeting, partial STT, diagnostics aggregation, Piper TTS readiness, turn planning, and UI-safe status formatting. The full Gemini-style low-latency pipeline is still not complete because live app wiring, speaker output, UI rendering, and real-device validation are not finished yet.
+The engine now has foundations for non-replay correction, fast MT routing, latency budgeting, partial STT, diagnostics aggregation, Piper TTS readiness, turn planning, and UI-safe status formatting. The next blocker is app-side live wiring: UI diagnostics consumption, speaker output, and real-device validation.
