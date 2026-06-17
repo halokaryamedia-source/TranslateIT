@@ -28,12 +28,12 @@ EngineData/Backend/LocalWorker/WorkerRuntime
 
 | Area | Honest readiness | Current note | Correct next action for Dev-Rust |
 | --- | ---: | --- | --- |
-| Repo-side realtime foundation | 99.8% | Foundation files, checklists, release gates, asset readiness, latency gate, issue tracking, payload contract, workflow draft, and minimal workflow note now exist. | Keep as foundation evidence. Do not call product ready until local validation passes. |
+| Repo-side realtime foundation | 99.8% | Foundation files, checklists, release gates, asset readiness, latency gate, issue tracking, payload contract, and full Rust-check workflow now exist. | Keep as foundation evidence. Do not call product ready until validation passes. |
 | Translate Engine core architecture | 74-79% | Mic -> STT -> MT -> TTS flow is mapped, helper/gate files exist, Rust-facing payload adapter exists, ownership hardening is applied, and handler registration is now present. | Validate via LocalWorker command path and Rust/Tauri command wrappers. |
-| Realtime app integration | 65-70% | Tauri command function, Rust adapter, `main.rs` handler registration, and `.github/workflows` placement path now exist. Full Rust-check workflow still needs upgrade from draft. | Run `check:rust`, then connect frontend after preview approval. |
+| Realtime app integration | 67-72% | Tauri command function, Rust adapter, `main.rs` handler registration, and `.github/workflows` Rust-check workflow now exist. Frontend state binding is still pending. | Run/check workflow result, then connect frontend after preview approval. |
 | Runtime model/assets readiness | 35-45% | Manifest and checker exist, but local model and voice assets are not proven available in runtime asset folders. | Validate `RuntimeAssets` with local model presence and worker smoke tests. |
 | Benchmark and validation | 35-40% | Gate and sample formats exist, but no target-PC latency result is recorded. | Collect latency samples through LocalWorker smoke and app-level test flow. |
-| Product realtime readiness | 62-67% | Foundation is stronger and the Rust/Tauri command is now exposed to handler registration, but desktop app binding and target-PC evidence are still pending. | Complete Rust check, app integration, and evidence capture. |
+| Product realtime readiness | 63-68% | Foundation is stronger and Rust/Tauri command exposure is wired for validation, but desktop app binding and target-PC evidence are still pending. | Complete Rust check, app integration, and evidence capture. |
 | Gemini Live Translate pursuit | 30-40% | Gemini-level behavior requires very low latency, broad multilingual support, strong quality routing, and natural voice output. | Treat as future quality target, not current release claim. |
 
 ## Completed in this continuation
@@ -50,13 +50,13 @@ EngineData/Backend/LocalWorker/WorkerRuntime
 - Added patch `DevelopingData/Patches/DevRust/register_realtime_status_payload_handler.patch`.
 - Added apply notes `DevelopingData/Patches/DevRust/README_APPLY_REALTIME_STATUS_HANDLER.md`.
 - Added workflow draft `DevelopingData/Patches/DevRust/dev_rust_rust_check_workflow.yml`.
-- Added minimal workflow note `.github/workflows/dev-rust-validation-note.yml`.
+- Upgraded `.github/workflows/dev-rust-validation-note.yml` into a full Rust-check workflow.
 - Confirmed that the old `app_main.py` path is not the Dev-Rust integration route.
 
 ## Immediate development priorities
 
-1. Run `npm run check:rust` from `EngineData/LauncherApp/RustApp`.
-2. Upgrade `.github/workflows/dev-rust-validation-note.yml` into the full Rust check workflow when the connector allows it.
+1. Check the `Dev-Rust Rust Check` workflow result.
+2. Run `npm run check:rust` locally from `EngineData/LauncherApp/RustApp` if workflow evidence is unavailable.
 3. Connect the command to a frontend state model after DesignPreview approval.
 4. Validate LocalWorker commands: `status`, `transcribe`, `translate`, `synthesize`.
 5. Validate local runtime assets under `EngineData/Backend/RuntimeAssets`.
@@ -65,9 +65,8 @@ EngineData/Backend/LocalWorker/WorkerRuntime
 ## Current blocker summary
 
 - Main handler registration is resolved.
-- `.github/workflows` placement is now partially resolved through a minimal workflow note.
-- Full Rust-check workflow upgrade is still pending.
-- No local target-PC validation result has been recorded yet.
+- Full Rust-check workflow placement is resolved.
+- No successful Rust check or target-PC validation result has been recorded yet.
 - Runtime assets must be verified in `EngineData/Backend/RuntimeAssets`.
 - App integration must use `RustApp/src-tauri`, not the old Python launcher route.
 - DesignPreview must be approved before UI style is synced into active Tauri frontend.
