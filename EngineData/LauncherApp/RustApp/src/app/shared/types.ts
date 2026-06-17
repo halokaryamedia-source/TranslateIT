@@ -98,6 +98,20 @@ export type RealtimeStatusPayload = {
   evidence_path: string | null;
 };
 
+export type AudioDeviceSummary = {
+  id: string;
+  name: string;
+  is_default: boolean;
+};
+
+export type AudioDeviceListReport = {
+  ok: boolean;
+  input_devices: AudioDeviceSummary[];
+  output_devices: AudioDeviceSummary[];
+  blocker: string;
+  note: string;
+};
+
 export type RuntimeSettings = {
   schema_version: number;
   language_focus_mode: string;
