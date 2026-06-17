@@ -9,7 +9,7 @@ Confirmed repaired or resolved files: 96 of about 96 changed files.
 Estimated repair progress: 99%.
 
 ## Important meaning of 99%
-The file-level triage is complete, repository-side controls are in place, PR #3 has been closed without merge, and local validation helper files have been added. The remaining 1% is running validation from a real local checkout.
+The file-level triage is complete, repository-side controls are in place, PR #3 has been closed without merge, local validation helper files have been added, and issue #4 now tracks the final local validation gate. The remaining 1% is running validation from a real local checkout.
 
 ## Dev-Rust architecture crosscheck
 - Active app route: `EngineData/LauncherApp/RustApp`.
@@ -20,8 +20,7 @@ The file-level triage is complete, repository-side controls are in place, PR #3 
 - Migrated Python files are helper or compatibility assets only.
 
 ## Newly confirmed in this batch
-- `DevelopingData/Tooling/Scripts/Execution/run_dev_rust_branch_repair_validation.ps1`
-- `DevelopingData/Reports/Engineering/BRANCH_REPAIR_DEV_RUST_LOCAL_VALIDATION_NOTES.md`
+- GitHub issue #4 created: final local validation after branch repair.
 
 ## Confirmed categories on Dev-Rust
 - Core Qwen language helper files.
@@ -41,6 +40,7 @@ The file-level triage is complete, repository-side controls are in place, PR #3 
 - Active runtime import audit.
 - Final closeout checklist.
 - Local validation runner and notes.
+- Final validation tracking issue.
 
 ## Remaining work before repair can be called 100%
 - Run local checkout validation on `Dev-Rust`.
@@ -48,6 +48,7 @@ The file-level triage is complete, repository-side controls are in place, PR #3 
 - Confirm `EngineData/Backend/LocalWorker/WorkerRuntime` still validates after helper-map addition.
 - Decide whether `translation_engine.py`, `realtime_turn_planner.py`, and `realtime_status_presenter.py` should be rewritten into Rust/Tauri, moved behind LocalWorker, or kept only as evidence.
 - Rebuild patcher/verifier intent as Rust/Tauri or LocalWorker tasks if still needed.
+- Close issue #4 after local validation and boundary decisions pass.
 
 ## Development status
 Feature development remains paused until final local validation and boundary decisions are complete.
