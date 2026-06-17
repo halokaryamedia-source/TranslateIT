@@ -5,7 +5,7 @@ App route: `EngineData/LauncherApp/RustApp`
 
 ## Current progress
 
-Overall hardening progress: 82%
+Overall hardening progress: 86%
 
 ## Completed changes
 
@@ -29,6 +29,7 @@ Status: Complete
 
 - Added a single-flight guard for the audio pipeline background worker.
 - Prevents repeated stop/capture actions from spawning overlapping ASR > Translate > TTS pipeline workers.
+- Added a panic-safe drop guard so the active-worker flag is released even if the background worker exits unexpectedly.
 
 Touched file:
 
@@ -87,19 +88,30 @@ Touched file:
 
 - `src-tauri/tauri.conf.json`
 
+### Dependency audit gate
+
+Status: Added, pending local run
+
+- Added `npm run audit:deps`.
+- Included dependency audit in `validate:internal` and `validate:full`.
+
+Touched file:
+
+- `package.json`
+
 ## Pending items
 
 ### Dependency security remediation
 
 Status: Pending local validation
 
-The previous validation report recorded `npm audit` findings in Vite/esbuild. The safe dependency update requires running package-manager resolution locally so `package.json` and `package-lock.json` remain synchronized.
+The previous validation report recorded `npm audit` findings in Vite/esbuild. The audit gate is now part of validation, but safe dependency remediation still requires running package-manager resolution locally so `package.json` and `package-lock.json` remain synchronized.
 
 Required local commands from `EngineData/LauncherApp/RustApp`:
 
 ```powershell
 npm.cmd install
-npm.cmd audit --audit-level=moderate
+npm.cmd run audit:deps
 npm.cmd run typecheck
 npm.cmd run check:rust
 npm.cmd run build:frontend
@@ -116,7 +128,7 @@ The GitHub connector can update files but cannot run the local Windows/Tauri bui
 
 ## Current readiness estimate
 
-- Internal testing readiness: 82/100
-- Production/client readiness: 62/100
+- Internal testing readiness: 86/100
+- Production/client readiness: 66/100
 
 Production readiness remains blocked by dependency audit validation, full local build validation, and missing runtime model assets.
