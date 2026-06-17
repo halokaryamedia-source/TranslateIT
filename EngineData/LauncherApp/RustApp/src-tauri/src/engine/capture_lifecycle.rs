@@ -9,7 +9,7 @@ use serde_json::{json, Value};
 
 use crate::engine::adapters::runtime_lifecycle_logic::analyze_start_lifecycle_gate;
 use crate::engine::audio::live_capture::{start_live_capture_runtime, stop_live_capture_runtime};
-use crate::engine::audio::live_segment_writer::write_latest_live_target_segment_wav;
+use crate::engine::audio::live_segment_writer::{write_latest_live_target_segment_wav, LiveSegmentWavWriteReport};
 use crate::engine::logging::{write_jsonl_event, RuntimeLogEvent};
 use crate::engine::paths::ProjectPaths;
 use crate::engine::playback::play_wav_output;
@@ -85,6 +85,25 @@ fn write_audio_pipeline_evidence(user_log_dir: &str, evidence: &Value) {
     if let Ok(text) = serde_json::to_string_pretty(evidence) {
         let _ = fs::write(evidence_path, text);
     }
+}
+
+fn user_facing_segment_note(segment_write: &LiveSegmentWavWriteReport) -> String {
+    if segment_write.ok {
+        return format!(
+            "Audio captured successfully: {}ms prepared for translation.",
+            segment_write.duration_ms
+        );
+    }
+    if segment_write.blocker.contains("segment_too_short") {
+        return "Recording was too short. Hold the microphone for at least one second and speak clearly.".to_string();
+    }
+    if segment_write.blocker.contains("vad_rejected") || segment_write.blocker.contains("low_energy") || segment_write.blocker.contains("low_peak") {
+        return "No clear speech was detected. Try speaking closer to the microphone or increase input volume.".to_string();
+    }
+    if segment_write.blocker.contains("not_enough_audio") {
+        return "Not enough audio was captured yet. Try recording a longer sentence.".to_string();
+    }
+    "Audio was captured, but it was not ready for local ASR. Open Developer settings for details.".to_string()
 }
 
 fn run_audio_translation_with_fallback(
@@ -294,6 +313,7 @@ pub fn start_capture() -> CommandResult {
 pub fn stop_capture() -> CommandResult {
     let project_paths = ProjectPaths::discover();
     let segment_write = write_latest_live_target_segment_wav();
+    let user_segment_note = user_facing_segment_note(&segment_write);
     let segment_note = if segment_write.ok {
         format!(
             "Target ASR WAV prepared: path={}, duration_ms={}, samples={}",
@@ -321,7 +341,7 @@ pub fn stop_capture() -> CommandResult {
     let cleared_session = clear_runtime_session_state();
     let cleared_handoff = clear_runtime_handoff_state();
     let message = format!(
-        "Stop was received by Rust runtime. {segment_note}. {pipeline_note} Live capture: {} {} {}",
+        "{user_segment_note} {segment_note}. {pipeline_note} Live capture: {} {} {}",
         stopped_live_capture.message, cleared_session.note, cleared_handoff.note
     );
     let _ = write_jsonl_event(
