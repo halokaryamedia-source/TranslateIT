@@ -59,6 +59,7 @@ const checks = [
       "MAX_WORKER_STDOUT_BYTES",
       "wait_for_worker_output",
       "child.kill()",
+      "Source text is omitted from this diagnostic for privacy",
     ],
   },
   {
