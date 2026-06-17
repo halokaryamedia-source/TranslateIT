@@ -10,4 +10,5 @@
 *.jpeg binary
 *.ico binary
 *.icns binary
+*.lnk binary
 *.svg text eol=lf
