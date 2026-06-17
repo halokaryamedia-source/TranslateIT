@@ -17,6 +17,7 @@ class RealtimeLocalStatusBundleTests(unittest.TestCase):
         self.assertFalse(bundle["ready"])
         self.assertIn("hook", bundle)
         self.assertIn("assets", bundle)
+        self.assertIn("language_llm", bundle)
         self.assertIn("validation", bundle)
         self.assertIn("release", bundle)
 
