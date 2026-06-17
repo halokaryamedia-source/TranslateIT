@@ -2,7 +2,6 @@ use serde::Serialize;
 use serde_json::Value;
 use std::fs;
 use std::path::PathBuf;
-use std::time::UNIX_EPOCH;
 
 use crate::engine::adapters::runtime_status_bundle_logic::build_runtime_status_bundle;
 use crate::engine::paths::ProjectPaths;
@@ -57,21 +56,16 @@ fn read_latest_audio_evidence(path: &PathBuf) -> Option<Value> {
         .and_then(|content| serde_json::from_str::<Value>(&content).ok())
 }
 
-fn evidence_modified_unix_ms(path: &PathBuf) -> Option<u32> {
-    fs::metadata(path)
-        .and_then(|metadata| metadata.modified())
-        .ok()
-        .and_then(|modified| modified.duration_since(UNIX_EPOCH).ok())
-        .map(|duration| duration.as_millis().min(u128::from(u32::MAX)) as u32)
-}
-
-fn evidence_latency_ms(evidence: &Option<Value>, fallback_path: &PathBuf) -> Option<u32> {
-    evidence
-        .as_ref()
-        .and_then(|payload| payload.get("latency_ms"))
-        .and_then(Value::as_u64)
-        .map(|value| value.min(u64::from(u32::MAX)) as u32)
-        .or_else(|| evidence_modified_unix_ms(fallback_path).map(|_| 0))
+fn evidence_latency_ms(evidence: &Option<Value>) -> Option<u32> {
+    let payload = evidence.as_ref()?;
+    ["latency_ms", "total_latency_ms", "last_total_ms"]
+        .iter()
+        .find_map(|key| {
+            payload
+                .get(*key)
+                .and_then(Value::as_u64)
+                .map(|value| value.min(u64::from(u32::MAX)) as u32)
+        })
 }
 
 fn evidence_ok(evidence: &Option<Value>) -> bool {
@@ -136,9 +130,9 @@ pub fn build_realtime_status_payload() -> RealtimeStatusPayload {
         mode: settings.runtime_profile,
         latency: RealtimeStatusLatencyPayload {
             target_ms: worker.realtime_target_latency_ms.unwrap_or(1000),
-            last_total_ms: evidence_latency_ms(&evidence, &evidence_path),
+            last_total_ms: evidence_latency_ms(&evidence),
             p50_ms: None,
-            sample_count: if evidence.is_some() { 1 } else { 0 },
+            sample_count: if evidence_latency_ms(&evidence).is_some() { 1 } else { 0 },
         },
         worker: RealtimeStatusWorkerPayload {
             available: worker_available,
