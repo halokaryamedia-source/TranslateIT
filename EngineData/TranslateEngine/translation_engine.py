@@ -12,6 +12,7 @@ from typing import Sequence
 
 from EngineData.TranslateEngine.translation_context import TranslationContext
 from EngineData.TranslateEngine.realtime_quality_layer import RealtimeQualityLayer
+from EngineData.TranslateEngine.ctranslate2_mt_backend import CTranslate2MTBackend
 
 
 @dataclass(slots=True)
@@ -105,6 +106,7 @@ class TranslationEngine:
         self.model_root = model_root
         self.context = TranslationContext()
         self.quality_layer = RealtimeQualityLayer()
+        self.fast_mt_backend = CTranslate2MTBackend(model_root=model_root)
         self._tokenizer: Any | None = None
         self._model: Any | None = None
         self._loaded_model_id: str | None = None
@@ -190,6 +192,92 @@ class TranslationEngine:
         if (local_path / "config.json").exists():
             return local_path
         return None
+
+    @staticmethod
+    def _normalize_language(language: str) -> str:
+        return str(language or "").strip().lower().replace("_latn", "")
+
+    def _fast_engine_for_languages(self, source_language: str, target_language: str) -> str | None:
+        source = self._normalize_language(source_language)
+        target = self._normalize_language(target_language)
+        id_aliases = {"id", "ind", "indonesian"}
+        en_aliases = {"en", "eng", "english"}
+        if source in id_aliases and target in en_aliases:
+            return "fast-mt-id-en"
+        if source in en_aliases and target in id_aliases:
+            return "fast-mt-en-id"
+        return None
+
+    def _try_fast_mt_translation(
+        self,
+        *,
+        request: TranslationRequest,
+        clean_source_text: str,
+        started: float,
+        queue_wait_ms: int,
+        text_prep_ms: int,
+        input_chars: int,
+        cache_key: tuple[str, str, str, tuple[str, ...]],
+    ) -> TranslationResult | None:
+        fast_engine = self._fast_engine_for_languages(request.source_language, request.target_language)
+        if fast_engine is None:
+            return None
+        fast_result = self.fast_mt_backend.translate(
+            text=clean_source_text,
+            source_language=request.source_language,
+            target_language=request.target_language,
+            engine_name=fast_engine,
+        )
+        if fast_result.status != "Completed" or not fast_result.translated_text:
+            return None
+
+        context_used = bool(request.context_window)
+        quality_result = self.quality_layer.pre_tts_fast_pass(
+            source_text=clean_source_text,
+            translated_text=fast_result.translated_text,
+            source_language=request.source_language,
+            target_language=request.target_language,
+        )
+        final_translation = quality_result.text
+        context_update_started = perf_counter()
+        self.context.push(clean_source_text)
+        self.context.push(final_translation)
+        self.quality_layer.accept_post_output_observation(
+            source_text=clean_source_text,
+            translated_text=final_translation,
+        )
+        context_update_ms = int((perf_counter() - context_update_started) * 1000)
+        total_ms = int((perf_counter() - started) * 1000)
+        result = TranslationResult(
+            segment_id=request.segment_id,
+            translated_text=final_translation,
+            engine_name=fast_result.engine_name,
+            mode=fast_result.mode,
+            latency_ms=total_ms,
+            status="Completed",
+            notes="Fast CTranslate2 MT backend completed the translation before fallback model routing.",
+            queue_wait_ms=queue_wait_ms,
+            text_prep_ms=text_prep_ms,
+            tokenize_ms=fast_result.tokenize_ms,
+            translate_inference_ms=fast_result.inference_ms,
+            decode_finalize_ms=fast_result.decode_ms + quality_result.latency_ms,
+            context_update_ms=context_update_ms,
+            total_ms=total_ms,
+            device=fast_result.device,
+            dtype=fast_result.compute_type,
+            model_loaded_before_segment=True,
+            context_used=context_used,
+            input_chars=input_chars,
+            output_chars=len(final_translation),
+            fallback_used=False,
+            error="",
+            quality_layer_status=quality_result.status,
+            voice_replay_allowed=False,
+        )
+        self._translation_cache[cache_key] = copy.copy(result)
+        while len(self._translation_cache) > self._translation_cache_limit:
+            self._translation_cache.popitem(last=False)
+        return result
 
     @staticmethod
     def _normalize_short_phrase(text: str) -> tuple[str, ...]:
@@ -385,6 +473,17 @@ class TranslationEngine:
             while len(self._translation_cache) > self._translation_cache_limit:
                 self._translation_cache.popitem(last=False)
             return result
+        fast_result = self._try_fast_mt_translation(
+            request=request,
+            clean_source_text=clean_source_text,
+            started=started,
+            queue_wait_ms=queue_wait_ms,
+            text_prep_ms=text_prep_ms,
+            input_chars=input_chars,
+            cache_key=cache_key,
+        )
+        if fast_result is not None:
+            return fast_result
         tokenize_ms = 0
         candidate_engines = [self.primary_engine_name]
         if self.fallback_engine_name not in candidate_engines:
