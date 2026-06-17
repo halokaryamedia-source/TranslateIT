@@ -9,7 +9,7 @@ Overall hardening progress: 98%
 
 ## Completed changes
 
-### Privacy log/evidence hardening
+### Privacy log/evidence/cache hardening
 
 Status: Complete
 
@@ -17,6 +17,7 @@ Status: Complete
 - Audio pipeline evidence stores metadata only, not full transcript text or full translated text.
 - Runtime audio pipeline logs now record character counts and stage summaries instead of raw user speech/translation payloads.
 - Audio/worker paths in audio pipeline evidence are reduced to safe file labels instead of full local paths.
+- Transient audio input and TTS cache files under `UserData/CacheData` are removed after the audio pipeline writes redacted evidence/log metadata.
 - Manual translation fallback errors no longer include a source-text preview.
 - Runtime log events now apply global redaction for local path-like values, email-like values, and secret-like tokens before writing JSONL.
 - Persisted chat titles no longer derive from user message text; they use a generic private title.
@@ -183,7 +184,7 @@ Touched file:
 Status: Added, pending local run
 
 - Added `npm run validate:security-hardening`.
-- Checks required security-hardening markers across privacy log/evidence hardening, Tauri command surface, local worker payload limits, worker bridge, chat/session persistence, settings, logging, paths, frontend attachment handling, and CSP.
+- Checks required security-hardening markers across privacy log/evidence/cache hardening, Tauri command surface, local worker payload limits, worker bridge, chat/session persistence, settings, logging, paths, frontend attachment handling, and CSP.
 - Includes deny-markers for internal commands that should not be exposed by the active UI runtime command handler.
 - Included in `validate:internal` and `validate:full`.
 
@@ -227,9 +228,15 @@ Status: Pending local machine
 
 The GitHub connector can update files but cannot run the local Windows/Tauri build pipeline. Run the command above before marking this hardening pass as release-ready.
 
+### At-rest encryption / OS credential protection
+
+Status: Future hardening track
+
+Plaintext chat/session files are still intentionally used by the current launcher workflow. A stronger 9+/10 data-protection score would require a separate at-rest encryption design, key management, migration plan, and local build validation.
+
 ## Current readiness estimate
 
 - Internal testing readiness: 98/100
-- Production/client readiness: 80/100
+- Production/client readiness: 81/100
 
-Production readiness remains blocked by dependency audit validation, full local build validation, and missing runtime model assets.
+Production readiness remains blocked by dependency audit validation, full local build validation, missing runtime model assets, and the absence of at-rest encryption for persisted user chat data.
