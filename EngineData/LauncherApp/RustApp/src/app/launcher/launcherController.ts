@@ -1,4 +1,4 @@
-import { runtimeApi } from "../engineTranslate/runtimeApi";
+import { RUNTIME_SETTINGS_SAVED_EVENT, runtimeApi } from "../engineTranslate/runtimeApi";
 import { defaultSettings, errorMessage, languageName, percentText } from "../shared/state";
 import type {
   ChatKind,
@@ -70,6 +70,11 @@ export class LauncherController {
   private refreshDirectionPill(): void { const settings = this.currentSettings ?? defaultSettings(); this.ui.directionPill.textContent = `${settings.source_language.toUpperCase()} > ${settings.target_language.toUpperCase()}`; }
   private renderWarmupSteps(activeIndex = -1): void { this.ui.warmupSteps.innerHTML = warmupStepsView(activeIndex); }
   private escapeHtml(value: string): string { return value.replaceAll("&", "&amp;").replaceAll("<", "&lt;").replaceAll(">", "&gt;").replaceAll('"', "&quot;").replaceAll("'", "&#39;"); }
+
+  private applyRuntimeSettings(settings: RuntimeSettings): void {
+    this.currentSettings = settings;
+    this.refreshDirectionPill();
+  }
 
   private voiceOutputStatus(): string {
     const settings = this.currentSettings ?? defaultSettings();
@@ -484,19 +489,15 @@ export class LauncherController {
     this.ui.settingsContent.innerHTML = translateSettingsView(settings, languageName(settings.source_language), languageName(settings.target_language), this.activeLanguageSelector, LANGUAGE_OPTIONS);
     requireElement<HTMLButtonElement>("#sourceLanguageButton").addEventListener("click", () => this.toggleLanguageSelector("source"));
     requireElement<HTMLButtonElement>("#targetLanguageButton").addEventListener("click", () => this.toggleLanguageSelector("target"));
-    this.ui.settingsContent.querySelectorAll<HTMLButtonElement>("[data-language-role][data-language-code]").forEach((button) => {
-      const role = button.dataset.languageRole === "target" ? "target" : "source";
-      button.addEventListener("click", () => this.selectLanguage(role, button.dataset.languageCode ?? ""));
-    });
     requireElement<HTMLButtonElement>("#swapLanguageButton").addEventListener("click", () => { this.swapLanguages(); this.renderTranslateSettings(); this.resetSettingsScroll(); });
-    requireElement<HTMLButtonElement>("#saveTranslateButton").addEventListener("click", () => void this.saveCurrentSettings());
-    requireElement<HTMLElement>("#realtimeModeButton").addEventListener("click", () => { this.setRuntimeProfile("Realtime"); this.renderTranslateSettings(); this.resetSettingsScroll(); });
-    requireElement<HTMLElement>("#qualityModeButton").addEventListener("click", () => { this.setRuntimeProfile("Quality"); this.renderTranslateSettings(); this.resetSettingsScroll(); });
+    document.querySelectorAll<HTMLButtonElement>("[data-language-role]").forEach((button) => button.addEventListener("click", () => this.selectLanguage(button.dataset.languageRole as LanguageSelectorRole, button.dataset.languageCode ?? "")));
+    requireElement<HTMLButtonElement>("#realtimeModeButton").addEventListener("click", () => { this.setRuntimeProfile("Realtime"); this.renderTranslateSettings(); this.resetSettingsScroll(); });
+    requireElement<HTMLButtonElement>("#qualityModeButton").addEventListener("click", () => { this.setRuntimeProfile("Quality"); this.renderTranslateSettings(); this.resetSettingsScroll(); });
   }
 
   private renderDeveloperSettings(): void {
     const worker = this.workerManifest(this.latestBundle);
-    const progress = this.latestBundle?.internal_validation_gate?.progress_percent ?? this.latestBundle?.live_pipeline_gate?.progress_percent ?? 0;
+    const progress = this.latestBundle?.live_pipeline_gate?.progress_percent ?? this.latestBundle?.internal_validation_gate?.progress_percent ?? 0;
     const cpu = percentText(this.latestHardware?.cpu);
     const ram = percentText(this.latestHardware?.ram);
     const gpu = percentText(this.latestHardware?.gpu);
@@ -565,5 +566,9 @@ export class LauncherController {
     this.ui.voiceOutputButton.addEventListener("click", () => { this.toggleVoiceOutput(); });
     this.ui.voiceOptionsButton.addEventListener("click", () => this.openAudioSettings());
     this.ui.settingsNavItems.forEach((button) => button.addEventListener("click", () => this.renderSettingsTab(button.dataset.settingsTab as SettingsTab)));
+    window.addEventListener(RUNTIME_SETTINGS_SAVED_EVENT, (event) => {
+      const settings = (event as CustomEvent<RuntimeSettings>).detail;
+      if (settings) this.applyRuntimeSettings(settings);
+    });
   }
 }
