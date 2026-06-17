@@ -5,6 +5,7 @@ from pathlib import Path
 from typing import Any
 
 from EngineData.TranslateEngine.language_llm_manifest import LANGUAGE_LLM_MODELS, language_llm_manifest
+from EngineData.TranslateEngine.language_llm_runtime_contract import LanguageLLMRuntimeContract
 
 
 @dataclass(slots=True)
@@ -14,6 +15,7 @@ class LanguageLLMCheck:
     path: str
     ready: bool
     message: str
+    runtime: dict[str, Any] | None = None
 
     def to_dict(self) -> dict[str, Any]:
         return asdict(self)
@@ -47,13 +49,18 @@ class LanguageLLMReadinessChecker:
 
     def _check_model(self, key: str, model_name: str) -> LanguageLLMCheck:
         if self.model_root is None:
-            return LanguageLLMCheck(key, model_name, "", False, "model root not configured")
+            runtime_status = LanguageLLMRuntimeContract(model_path=None).status().to_dict()
+            return LanguageLLMCheck(key, model_name, "", False, "model root not configured", runtime_status)
         model_dir = self.model_root / "language-llm" / model_name
-        has_model = model_dir.exists() and any(model_dir.glob("*.gguf"))
+        candidates = sorted(model_dir.glob("*.gguf")) if model_dir.exists() else []
+        model_path = candidates[0] if candidates else None
+        runtime_status = LanguageLLMRuntimeContract(model_path=model_path).status().to_dict()
+        ready = bool(runtime_status.get("ready", False))
         return LanguageLLMCheck(
             key=key,
             model_name=model_name,
             path=str(model_dir),
-            ready=has_model,
-            message="ready" if has_model else "gguf model missing",
+            ready=ready,
+            message="ready" if ready else str(runtime_status.get("message", "gguf model missing")),
+            runtime=runtime_status,
         )
