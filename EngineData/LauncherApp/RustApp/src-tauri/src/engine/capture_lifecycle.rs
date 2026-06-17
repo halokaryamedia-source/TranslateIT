@@ -24,6 +24,14 @@ const MAX_WORKER_STDOUT_BYTES: usize = 2 * 1024 * 1024;
 
 static AUDIO_PIPELINE_WORKER_ACTIVE: AtomicBool = AtomicBool::new(false);
 
+struct AudioPipelineWorkerGuard;
+
+impl Drop for AudioPipelineWorkerGuard {
+    fn drop(&mut self) {
+        AUDIO_PIPELINE_WORKER_ACTIVE.store(false, Ordering::Release);
+    }
+}
+
 fn local_worker_script_path() -> PathBuf {
     let project_paths = ProjectPaths::discover();
     PathBuf::from(project_paths.project_root)
@@ -199,6 +207,7 @@ fn start_audio_pipeline_worker(audio_path: String, user_log_dir: String) -> bool
     }
 
     thread::spawn(move || {
+        let _worker_guard = AudioPipelineWorkerGuard;
         let pipeline_started_at = Instant::now();
         let settings = load_settings();
         let auto_play_output = settings.audio.auto_play_out_voice || settings.audio.auto_play_translation_voice;
@@ -274,7 +283,6 @@ fn start_audio_pipeline_worker(audio_path: String, user_log_dir: String) -> bool
             "rust_runtime_latest.jsonl",
             &RuntimeLogEvent::info("audio_pipeline", evidence.to_string()),
         );
-        AUDIO_PIPELINE_WORKER_ACTIVE.store(false, Ordering::Release);
     });
     true
 }
