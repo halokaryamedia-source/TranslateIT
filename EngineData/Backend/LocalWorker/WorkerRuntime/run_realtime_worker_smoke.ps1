@@ -8,8 +8,8 @@ param(
 
 $ErrorActionPreference = "Stop"
 
-$Root = (Resolve-Path (Join-Path $PSScriptRoot "..\..\..")).Path
-$Worker = Join-Path $Root "EngineData\LauncherApp\Workers\realtime_local_worker.py"
+$Root = (Resolve-Path (Join-Path $PSScriptRoot "..\..\..\..")).Path
+$Worker = Join-Path $PSScriptRoot "realtime_local_worker.py"
 $EvidenceRoot = Join-Path $Root "UserData\LogData\RustAppValidation"
 $EvidencePath = Join-Path $EvidenceRoot "latest_worker_smoke_result.json"
 
@@ -21,7 +21,12 @@ function Invoke-WorkerJson {
     param([hashtable]$Payload)
 
     $json = $Payload | ConvertTo-Json -Compress -Depth 12
-    $candidates = @(
+    $venvPython = Join-Path $PSScriptRoot ".venv\Scripts\python.exe"
+    $candidates = @()
+    if (Test-Path $venvPython) {
+        $candidates += @{ FileName = $venvPython; Arguments = @($Worker) }
+    }
+    $candidates += @(
         @{ FileName = "python"; Arguments = @($Worker) },
         @{ FileName = "py"; Arguments = @("-3", $Worker) }
     )
