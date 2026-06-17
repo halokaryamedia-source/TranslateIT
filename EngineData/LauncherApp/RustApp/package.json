@@ -29,6 +29,7 @@
     "audit:css-priority": "node scripts/audit_css_important.mjs",
     "audit:ui-design": "node scripts/audit_ui_design_system.mjs",
     "validate:security-hardening": "node scripts/validate_security_hardening.mjs",
+    "validate:local-hardening": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/run_local_hardening_validation.ps1",
     "validate:root": "node ../../../DevelopingData/Tooling/Scripts/Execution/translateit_tooling.mjs validate-root",
     "validate:structure": "node ../../../DevelopingData/Tooling/Scripts/Execution/translateit_tooling.mjs validate-structure",
     "validate:launcher": "node ../../../DevelopingData/Tooling/Scripts/Execution/translateit_tooling.mjs validate-launcher",
