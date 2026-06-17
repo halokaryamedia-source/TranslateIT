@@ -1,11 +1,12 @@
 use serde::Serialize;
 use std::fs;
 use std::io;
-use std::path::Path;
+use std::path::{Path, PathBuf};
 use std::time::{SystemTime, UNIX_EPOCH};
 
 const MAX_LOG_AREA_CHARS: usize = 48;
 const MAX_LOG_MESSAGE_CHARS: usize = 360;
+const MAX_RUNTIME_LOG_FILE_BYTES: u64 = 1_000_000;
 
 #[derive(Debug, Clone, Serialize)]
 pub struct RuntimeLogEvent {
@@ -44,9 +45,38 @@ pub fn write_jsonl_event(log_dir: &Path, file_name: &str, event: &RuntimeLogEven
     }
     fs::create_dir_all(log_dir)?;
     let path = log_dir.join(file_name);
+    rotate_if_too_large(&path, file_name)?;
     let line = serde_json::to_string(event)
         .map_err(|error| io::Error::new(io::ErrorKind::InvalidData, error))?;
     append_line(&path, &line)
+}
+
+fn rotate_if_too_large(path: &Path, file_name: &str) -> io::Result<()> {
+    let Ok(metadata) = fs::metadata(path) else {
+        return Ok(());
+    };
+    if metadata.len() <= MAX_RUNTIME_LOG_FILE_BYTES {
+        return Ok(());
+    }
+    let rotated_path = rotated_log_path(path, file_name);
+    if rotated_path.exists() {
+        fs::remove_file(&rotated_path)?;
+    }
+    match fs::rename(path, &rotated_path) {
+        Ok(()) => Ok(()),
+        Err(_) => {
+            fs::remove_file(path)?;
+            Ok(())
+        }
+    }
+}
+
+fn rotated_log_path(path: &Path, file_name: &str) -> PathBuf {
+    let rotated_name = file_name
+        .strip_suffix(".jsonl")
+        .map(|stem| format!("{stem}.previous.jsonl"))
+        .unwrap_or_else(|| "runtime.previous.jsonl".to_string());
+    path.with_file_name(rotated_name)
 }
 
 fn append_line(path: &Path, line: &str) -> io::Result<()> {
