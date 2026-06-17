@@ -69,6 +69,12 @@ const checks = [
       "MAX_MESSAGES_PER_SESSION",
       "MAX_CHAT_SESSION_FILE_BYTES",
       "write_pretty_json",
+      "PRIVATE_CHAT_TITLE",
+      "fn title_from_message(_value: &str)",
+      "Failed to save chat message. Open Developer diagnostics for details.",
+    ],
+    denyMarkers: [
+      "split_whitespace().take(8)",
     ],
   },
   {
