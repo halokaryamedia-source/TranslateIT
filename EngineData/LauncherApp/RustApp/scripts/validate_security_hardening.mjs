@@ -16,6 +16,24 @@ const checks = [
     ],
   },
   {
+    file: "src-tauri/src/main.rs",
+    markers: [
+      "get_runtime_status_bundle",
+      "get_realtime_status_payload",
+      "save_runtime_settings",
+      "append_chat_message",
+      "translate_text",
+    ],
+    denyMarkers: [
+      "plan_native_execution_step",
+      "run_runtime_plan",
+      "preprocess_audio_payload",
+      "run_asr_dry_run",
+      "run_text_dry_run",
+      "save_calibration_profile",
+    ],
+  },
+  {
     file: "src-tauri/src/engine/capture_lifecycle.rs",
     markers: [
       "WORKER_BRIDGE_TIMEOUT_SECS",
@@ -99,10 +117,17 @@ for (const check of checks) {
     continue;
   }
 
-  for (const marker of check.markers) {
+  for (const marker of check.markers ?? []) {
     if (!body.includes(marker)) {
       failed = true;
       console.error(`[security-hardening] missing marker in ${check.file}: ${marker}`);
+    }
+  }
+
+  for (const marker of check.denyMarkers ?? []) {
+    if (body.includes(marker)) {
+      failed = true;
+      console.error(`[security-hardening] forbidden marker in ${check.file}: ${marker}`);
     }
   }
 }
@@ -110,5 +135,5 @@ for (const check of checks) {
 if (failed) {
   process.exitCode = 1;
 } else {
-  console.log("[security-hardening] PASS: required hardening markers are present.");
+  console.log("[security-hardening] PASS: required hardening markers are present and forbidden command markers are absent.");
 }
