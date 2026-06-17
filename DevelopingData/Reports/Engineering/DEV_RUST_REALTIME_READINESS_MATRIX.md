@@ -28,20 +28,27 @@ EngineData/Backend/LocalWorker/WorkerRuntime
 
 | Area | Honest readiness | Current note | Correct next action for Dev-Rust |
 | --- | ---: | --- | --- |
-| Repo-side realtime foundation | 99.8% | Foundation files, checklists, release gates, asset readiness, latency gate, and issue tracking are present. | Keep as foundation evidence. Do not call product ready until local validation passes. |
+| Repo-side realtime foundation | 99.8% | Foundation files, checklists, release gates, asset readiness, latency gate, issue tracking, and payload contract now exist. | Keep as foundation evidence. Do not call product ready until local validation passes. |
 | Translate Engine core architecture | 70-75% | Mic -> STT -> MT -> TTS flow is mapped and many helper/gate files exist. Live target-PC end-to-end proof is still missing. | Validate via LocalWorker command path and Rust/Tauri command wrappers. |
-| Realtime app integration | 50-55% | Old `app_main.py` patch path is not valid for Dev-Rust. | Rebuild as Tauri frontend state + Rust command integration, not Python app-main patching. |
+| Realtime app integration | 52-57% | Old `app_main.py` path has been replaced by a Dev-Rust Tauri/LocalWorker integration issue and status payload contract. | Implement Tauri frontend state + Rust command integration after preview approval. |
 | Runtime model/assets readiness | 35-45% | Manifest and checker exist, but local model and voice assets are not proven available in runtime asset folders. | Validate `RuntimeAssets` with local model presence and worker smoke tests. |
 | Benchmark and validation | 35-40% | Gate and sample formats exist, but no target-PC latency result is recorded. | Collect latency samples through LocalWorker smoke and app-level test flow. |
-| Product realtime readiness | 55-60% | Foundation is stronger, but product readiness still needs desktop app integration and target-PC evidence. | Complete app integration and evidence capture. |
+| Product realtime readiness | 56-61% | Foundation is stronger and app integration contract is now defined, but desktop app integration and target-PC evidence are still pending. | Complete app integration and evidence capture. |
 | Gemini Live Translate pursuit | 30-40% | Gemini-level behavior requires very low latency, broad multilingual support, strong quality routing, and natural voice output. | Treat as future quality target, not current release claim. |
+
+## Completed in this continuation
+
+- Created issue #5 for Dev-Rust realtime app integration via Tauri and LocalWorker.
+- Added `EngineData/Backend/RuntimeContracts/realtime_status_payload_contract.json`.
+- Added `EngineData/LauncherApp/RustApp/DesignPreview/realtime-status-mapping.md`.
+- Confirmed that the old `app_main.py` path is not the Dev-Rust integration route.
 
 ## Immediate development priorities
 
-1. Replace the old app-main hook idea with a Dev-Rust Tauri integration task.
-2. Add a Rust/Tauri-facing realtime status contract if not already exposed by current commands.
-3. Add frontend preview-to-runtime mapping only after DesignPreview approval.
-4. Validate LocalWorker commands: `status`, `transcribe`, `translate`, `synthesize`.
+1. Implement a Rust command that returns a payload compatible with `realtime_status_payload_contract.json`.
+2. Connect that command to a frontend state model after DesignPreview approval.
+3. Validate LocalWorker commands: `status`, `transcribe`, `translate`, `synthesize`.
+4. Validate local runtime assets under `EngineData/Backend/RuntimeAssets`.
 5. Record local validation evidence under `UserData/LogData/RustAppValidation`.
 
 ## Current blocker summary
