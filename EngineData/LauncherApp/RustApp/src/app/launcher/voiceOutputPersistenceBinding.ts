@@ -21,22 +21,46 @@ function nextVoiceSettings(settings: RuntimeSettings): RuntimeSettings {
   };
 }
 
+function profileSettings(settings: RuntimeSettings, profile: "Realtime" | "Quality"): RuntimeSettings {
+  return {
+    ...settings,
+    runtime_profile: profile,
+    audio: {
+      ...settings.audio,
+      input_sensitivity: profile,
+    },
+  };
+}
+
+async function persistSettings(nextSettings: RuntimeSettings, successMessage: string): Promise<void> {
+  const result = await runtimeApi.saveSettings(nextSettings);
+  setAssistantMessage(result?.ok ? successMessage : result?.message ?? "Setting could not be saved.");
+}
+
 async function persistVoiceOutputToggle(): Promise<void> {
+  const settings = await runtimeApi.loadSettings();
+  if (!settings) {
+    setAssistantMessage("Voice output setting could not be loaded yet.");
+    return;
+  }
+  const nextSettings = nextVoiceSettings(settings);
+  await persistSettings(nextSettings, nextSettings.audio.auto_play_out_voice ? "Voice output enabled and saved." : "Voice output disabled and saved.");
+}
+
+async function persistRuntimeProfile(profile: "Realtime" | "Quality"): Promise<void> {
+  const settings = await runtimeApi.loadSettings();
+  if (!settings) {
+    setAssistantMessage("Translate mode could not be loaded yet.");
+    return;
+  }
+  await persistSettings(profileSettings(settings, profile), `Translate mode saved as ${profile}.`);
+}
+
+async function runSavedSettingTask(task: () => Promise<void>): Promise<void> {
   if (savePending) return;
   savePending = true;
   try {
-    const settings = await runtimeApi.loadSettings();
-    if (!settings) {
-      setAssistantMessage("Voice output setting could not be loaded yet.");
-      return;
-    }
-    const nextSettings = nextVoiceSettings(settings);
-    const result = await runtimeApi.saveSettings(nextSettings);
-    if (!result?.ok) {
-      setAssistantMessage(result?.message ?? "Voice output setting could not be saved.");
-      return;
-    }
-    setAssistantMessage(nextSettings.audio.auto_play_out_voice ? "Voice output enabled and saved." : "Voice output disabled and saved.");
+    await task();
   } finally {
     savePending = false;
   }
@@ -47,7 +71,16 @@ export function bindVoiceOutputPersistenceUi(): void {
   bound = true;
   document.addEventListener("click", (event) => {
     const target = event.target as Element | null;
-    if (!target?.closest("#voiceOutputButton")) return;
-    void persistVoiceOutputToggle();
+    if (target?.closest("#voiceOutputButton")) {
+      void runSavedSettingTask(persistVoiceOutputToggle);
+      return;
+    }
+    if (target?.closest("#realtimeModeButton")) {
+      void runSavedSettingTask(() => persistRuntimeProfile("Realtime"));
+      return;
+    }
+    if (target?.closest("#qualityModeButton")) {
+      void runSavedSettingTask(() => persistRuntimeProfile("Quality"));
+    }
   });
 }
