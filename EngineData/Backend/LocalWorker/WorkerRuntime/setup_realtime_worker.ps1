@@ -1,7 +1,7 @@
 $ErrorActionPreference = "Stop"
 
-$Root = Resolve-Path (Join-Path $PSScriptRoot "..\..\..")
-$WorkerRoot = Join-Path $Root "EngineData\LauncherApp\Workers"
+$Root = Resolve-Path (Join-Path $PSScriptRoot "..\..\..\..")
+$WorkerRoot = $PSScriptRoot
 $Venv = Join-Path $WorkerRoot ".venv"
 $Requirements = Join-Path $WorkerRoot "requirements-realtime.txt"
 $PythonExe = Join-Path $Venv "Scripts\python.exe"
