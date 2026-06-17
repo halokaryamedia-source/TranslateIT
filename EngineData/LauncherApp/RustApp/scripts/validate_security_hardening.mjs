@@ -47,6 +47,7 @@ const checks = [
       "translated_chars",
       "worker_stage_summary",
       "safe_file_label",
+      "remove_private_cache_file",
     ],
     denyMarkers: [
       "worker_path",
