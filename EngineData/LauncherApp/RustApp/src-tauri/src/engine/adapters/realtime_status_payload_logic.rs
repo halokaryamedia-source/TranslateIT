@@ -1,6 +1,12 @@
 use serde::Serialize;
+use serde_json::Value;
+use std::fs;
+use std::path::PathBuf;
+use std::time::UNIX_EPOCH;
 
 use crate::engine::adapters::runtime_status_bundle_logic::build_runtime_status_bundle;
+use crate::engine::paths::ProjectPaths;
+use crate::engine::runtime_settings::load_settings;
 
 #[derive(Debug, Clone, Serialize)]
 pub struct RealtimeStatusLatencyPayload {
@@ -38,11 +44,52 @@ pub struct RealtimeStatusPayload {
     pub evidence_path: Option<String>,
 }
 
+fn latest_audio_evidence_path() -> PathBuf {
+    let project_paths = ProjectPaths::discover();
+    PathBuf::from(project_paths.user_log_dir)
+        .join("RustAppValidation")
+        .join("latest_audio_pipeline_evidence.json")
+}
+
+fn read_latest_audio_evidence(path: &PathBuf) -> Option<Value> {
+    fs::read_to_string(path)
+        .ok()
+        .and_then(|content| serde_json::from_str::<Value>(&content).ok())
+}
+
+fn evidence_modified_unix_ms(path: &PathBuf) -> Option<u32> {
+    fs::metadata(path)
+        .and_then(|metadata| metadata.modified())
+        .ok()
+        .and_then(|modified| modified.duration_since(UNIX_EPOCH).ok())
+        .map(|duration| duration.as_millis().min(u128::from(u32::MAX)) as u32)
+}
+
+fn evidence_latency_ms(evidence: &Option<Value>, fallback_path: &PathBuf) -> Option<u32> {
+    evidence
+        .as_ref()
+        .and_then(|payload| payload.get("latency_ms"))
+        .and_then(Value::as_u64)
+        .map(|value| value.min(u64::from(u32::MAX)) as u32)
+        .or_else(|| evidence_modified_unix_ms(fallback_path).map(|_| 0))
+}
+
+fn evidence_ok(evidence: &Option<Value>) -> bool {
+    evidence
+        .as_ref()
+        .and_then(|payload| payload.get("ok"))
+        .and_then(Value::as_bool)
+        .unwrap_or(false)
+}
+
 pub fn build_realtime_status_payload() -> RealtimeStatusPayload {
     let bundle = build_runtime_status_bundle();
     let worker = &bundle.local_worker_manifest;
     let pipeline = &bundle.live_pipeline_gate;
     let next_action = bundle.next_action.clone();
+    let settings = load_settings();
+    let evidence_path = latest_audio_evidence_path();
+    let evidence = read_latest_audio_evidence(&evidence_path);
 
     let worker_available = worker.worker_script_exists && worker.stack_manifest_exists;
     let fallback_active = !worker.ctranslate2_cuda_available || (worker.sapi_ready && !worker.piper_ready);
@@ -55,6 +102,8 @@ pub fn build_realtime_status_payload() -> RealtimeStatusPayload {
 
     let status = if pipeline.ready_for_user_runtime {
         "ready"
+    } else if evidence_ok(&evidence) && worker_available {
+        "ready"
     } else if !worker_available || !missing.is_empty() {
         "partial_ready"
     } else if pipeline.progress_percent > 0 {
@@ -64,7 +113,9 @@ pub fn build_realtime_status_payload() -> RealtimeStatusPayload {
     }
     .to_string();
 
-    let message = if pipeline.ready_for_user_runtime {
+    let message = if evidence_ok(&evidence) {
+        "Latest local voice translation evidence is available.".to_string()
+    } else if pipeline.ready_for_user_runtime {
         "Realtime pipeline is ready for local validation.".to_string()
     } else if !missing.is_empty() {
         format!("Realtime assets or worker checks are incomplete: {} item(s).", missing.len())
@@ -77,13 +128,17 @@ pub fn build_realtime_status_payload() -> RealtimeStatusPayload {
 
     RealtimeStatusPayload {
         status,
-        language_direction: "ID > EN".to_string(),
-        mode: "Realtime".to_string(),
+        language_direction: format!(
+            "{} > {}",
+            settings.source_language.to_uppercase(),
+            settings.target_language.to_uppercase()
+        ),
+        mode: settings.runtime_profile,
         latency: RealtimeStatusLatencyPayload {
             target_ms: worker.realtime_target_latency_ms.unwrap_or(1000),
-            last_total_ms: None,
+            last_total_ms: evidence_latency_ms(&evidence, &evidence_path),
             p50_ms: None,
-            sample_count: 0,
+            sample_count: if evidence.is_some() { 1 } else { 0 },
         },
         worker: RealtimeStatusWorkerPayload {
             available: worker_available,
@@ -103,7 +158,11 @@ pub fn build_realtime_status_payload() -> RealtimeStatusPayload {
             tts_ready: worker.tts_default_ready,
             missing,
         },
-        evidence_path: None,
+        evidence_path: if evidence_path.is_file() {
+            Some(evidence_path.to_string_lossy().replace('\\', "/"))
+        } else {
+            None
+        },
         message,
     }
 }
