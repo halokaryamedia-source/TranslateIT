@@ -1,46 +1,15 @@
-name: Dev-Rust Repo-Safe Check
+name: Dev-Rust Manual Validation Only
 
 on:
   workflow_dispatch:
-  push:
-    branches:
-      - Dev-Rust
-    paths:
-      - ".github/workflows/dev-rust-validation-note.yml"
-      - "EngineData/Backend/RuntimeContracts/**"
-      - "EngineData/LauncherApp/RustApp/src/**"
-      - "EngineData/LauncherApp/RustApp/src-tauri/src/**"
-  pull_request:
-    branches:
-      - Dev-Rust
-    paths:
-      - ".github/workflows/dev-rust-validation-note.yml"
-      - "EngineData/Backend/RuntimeContracts/**"
-      - "EngineData/LauncherApp/RustApp/src/**"
-      - "EngineData/LauncherApp/RustApp/src-tauri/src/**"
 
 jobs:
-  repo-safe-guard:
-    name: Repo-safe guard only
+  validation-disabled:
+    name: Validation intentionally manual only
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Explain scope
+      - name: Explain manual-only policy
         run: |
-          echo "Repo-safe guard only."
-          echo "Skipped by design: npm install, cargo check, Tauri build, worker smoke tests, CUDA checks, model checks, microphone checks, and local runtime validation."
-
-      - name: Check stable Dev-Rust file contracts
-        shell: bash
-        run: |
-          set -euo pipefail
-          test -f EngineData/Backend/LocalWorker/WorkerRuntime/realtime_local_worker.py
-          test -f EngineData/LauncherApp/RustApp/src-tauri/src/engine/capture_lifecycle.rs
-          test -f EngineData/LauncherApp/RustApp/src-tauri/src/engine/manual_translation.rs
-          test -f EngineData/LauncherApp/RustApp/src-tauri/src/engine/audio/live_segment_writer.rs
-          test -f EngineData/LauncherApp/RustApp/src-tauri/src/engine/audio/vad.rs
-          test -f EngineData/LauncherApp/RustApp/src/app/launcher/chatViews.ts
-          test -f EngineData/LauncherApp/RustApp/src/main.ts
-          echo "Repo-safe Dev-Rust guard passed. Manual local validation remains separate."
+          echo "Automatic Dev-Rust validation is disabled while active development is in progress."
+          echo "Do not run npm install, cargo check, Tauri build, worker smoke tests, CUDA checks, model checks, microphone checks, or local runtime validation in GitHub Actions."
+          echo "Run validation manually only after the development batch is complete."
