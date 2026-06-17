@@ -4,7 +4,7 @@ TranslateIT is a local speech-to-text, translation, and voice-output desktop app
 
 ## Current status
 
-The project is in Rust/Tauri migration and structure-cleanup phase. The source tree is organized around a packaged desktop runtime route and a single development workspace.
+The project is in Rust/Tauri migration and structure-cleanup phase. The source tree is organized around one packaged desktop runtime route, one runtime engine area, one user-data area, and one development-only workspace.
 
 Do not claim the application is professionally ready until local build, packaging, local model readiness, persistent worker smoke, microphone ASR, translation, TTS, and end-to-end latency evidence pass on the target PC.
 
@@ -24,9 +24,21 @@ TranslateIT.lnk
 
 ## Root ownership
 
-- `DevelopingData/` - developer documentation, concise reports, samples, quality references, and Node/PowerShell tooling.
-- `EngineData/` - Rust/Tauri app, approved local AI worker, and local model/runtime asset slots.
+- `DevelopingData/` - development-only documentation, reports, samples, QA references, and maintenance tooling. It must not contain active runtime engine files.
+- `EngineData/` - runtime source ownership for Frontend, Backend, the current Tauri build route, and local runtime asset slots.
 - `UserData/` - local runtime cache, logs, saved work, and validation evidence.
+
+## EngineData ownership split
+
+```text
+EngineData/
+  Frontend/       # UI ownership map, design review, frontend naming rules
+  Backend/        # backend/runtime ownership map, worker and runtime-core naming rules
+  LauncherApp/    # current active Rust/Tauri build route
+  RuntimeAssets/  # local model/runtime asset slots ignored by Git
+```
+
+`LauncherApp/RustApp` remains the build route so the Tauri app is not broken during cleanup. The clearer `Frontend/` and `Backend/` folders document where each part belongs and what the active paths mean.
 
 ## Active app launcher
 
@@ -59,11 +71,11 @@ npm run dev
 
 ## UI preview
 
-UI preview should be shown in conversation for correction. Do not store static preview HTML in the repository.
+UI preview files are design-review references only. They are not the final launcher runtime and must not be treated as release evidence.
 
 ## Approved Python exception
 
-The only approved Python file under `EngineData` is:
+The only approved Python runtime route under `EngineData` is the local worker route:
 
 ```text
 EngineData/LauncherApp/Workers/realtime_local_worker.py
@@ -100,10 +112,12 @@ Launcher/Preview/
 
 ## Safety and cleanliness rules
 
-- Keep root clean except for the approved `TranslateIT.cmd` shortcut.
+- Keep root clean except approved root documentation and the official shortcut.
+- Do not place active runtime engine files under `DevelopingData`.
 - Runtime cache, logs, local models, and user-generated data stay out of Git.
-- Keep documentation under `DevelopingData/Documentation`.
-- Keep executable validation tooling under `DevelopingData/Tooling`.
-- Keep runtime app code under `EngineData/LauncherApp/RustApp`.
+- Keep development documentation under `DevelopingData/Documentation`.
+- Keep development-only QA references under `DevelopingData/Quality`.
+- Keep runtime app code under `EngineData/LauncherApp/RustApp` until a safe build-path migration is approved.
+- Keep runtime ownership documented through `EngineData/Frontend` and `EngineData/Backend`.
 - Keep runtime assets under `EngineData/RuntimeAssets`.
 - Keep user runtime outputs under `UserData`.
