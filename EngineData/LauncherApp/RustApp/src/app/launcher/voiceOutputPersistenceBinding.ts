@@ -51,6 +51,19 @@ function directionSettings(settings: RuntimeSettings, pair: LanguagePair): Runti
   };
 }
 
+async function copyText(value: string): Promise<void> {
+  if (!value.trim()) {
+    setAssistantMessage("There is no text to copy yet.");
+    return;
+  }
+  try {
+    await navigator.clipboard.writeText(value);
+    setAssistantMessage("Copied to clipboard.");
+  } catch (_error) {
+    setAssistantMessage("Clipboard copy is unavailable in this runtime. Select the text manually.");
+  }
+}
+
 async function persistSettings(nextSettings: RuntimeSettings, successMessage: string): Promise<void> {
   const result = await runtimeApi.saveSettings(nextSettings);
   setAssistantMessage(result?.ok ? successMessage : result?.message ?? "Setting could not be saved.");
@@ -104,6 +117,12 @@ export function bindVoiceOutputPersistenceUi(): void {
   bound = true;
   document.addEventListener("click", (event) => {
     const target = event.target as Element | null;
+    const copyButton = target?.closest<HTMLButtonElement>("[data-copy-translation]");
+    if (copyButton) {
+      event.preventDefault();
+      void copyText(copyButton.dataset.copyTranslation ?? "");
+      return;
+    }
     if (target?.closest("#voiceOutputButton")) {
       void runSavedSettingTask(persistVoiceOutputToggle);
       return;
