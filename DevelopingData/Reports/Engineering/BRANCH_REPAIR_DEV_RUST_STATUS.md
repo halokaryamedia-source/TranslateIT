@@ -10,9 +10,9 @@ Port safe isolated files into Dev-Rust and verify per path.
 
 ## Current repair status
 Partial repair completed.
-Confirmed repaired files: 28 of about 96 changed files.
-Estimated repair progress: 29%.
-Core Qwen language files, session bridge files, realtime contract files, and status-panel bridge files have been ported directly to Dev-Rust.
+Confirmed repaired files: 35 of about 96 changed files.
+Estimated repair progress: 36%.
+Core Qwen language files, session bridge files, realtime contract files, status-panel bridge files, and local readiness helper files have been ported directly to Dev-Rust.
 
 ## Confirmed on Dev-Rust
 - `EngineData/TranslateEngine/language_llm_manifest.py`
@@ -43,6 +43,13 @@ Core Qwen language files, session bridge files, realtime contract files, and sta
 - `EngineData/LauncherApp/realtime_diagnostics_bridge.py`
 - `EngineData/LauncherApp/realtime_status_panel_adapter.py`
 - `EngineData/LauncherApp/realtime_app_status_hook.py`
+- `EngineData/TranslateEngine/realtime_local_status_bundle.py`
+- `EngineData/TranslateEngine/realtime_asset_readiness.py`
+- `EngineData/TranslateEngine/realtime_validation_runner.py`
+- `EngineData/TranslateEngine/piper_tts_backend.py`
+- `EngineData/TranslateEngine/piper_runtime_contract.py`
+- `EngineData/TranslateEngine/realtime_readiness_audit.py`
+- `EngineData/TranscriptEngine/realtime_stt_stream.py`
 
 ## Still needs repair
 - Remaining realtime helper files from the misplaced range.
