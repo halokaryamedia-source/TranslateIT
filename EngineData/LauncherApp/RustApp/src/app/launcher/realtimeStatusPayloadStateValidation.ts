@@ -3,6 +3,7 @@ import { realtimeStatusViewState } from "./realtimeStatusPayloadState";
 import { applyRealtimeStatusPayload, latestRealtimeStatusSnapshot } from "./realtimeStatusPayloadStore";
 import { realtimeStatusUiTextPatch } from "./realtimeStatusPayloadViewPatch";
 import { realtimeStatusReadinessSummary } from "./realtimeStatusReadinessSummary";
+import { decideRealtimeStatusVisibleBinding } from "./realtimeStatusVisibleBindingGate";
 
 export type RealtimeStatusStateValidationReport = {
   ok: boolean;
@@ -63,9 +64,15 @@ export function validateRealtimeStatusStateMapping(): RealtimeStatusStateValidat
   if (summary.missingCount !== 1) failures.push("readiness summary missing count failed");
   if (summary.patch.realtimeStatus !== "Partial (1)") failures.push("readiness summary patch failed");
 
+  const blockedDecision = decideRealtimeStatusVisibleBinding(summary, false);
+  if (blockedDecision.allowed) failures.push("visible binding gate should block without approval");
+
+  const allowedDecision = decideRealtimeStatusVisibleBinding(summary, true);
+  if (!allowedDecision.allowed) failures.push("visible binding gate should allow after approval");
+
   return {
     ok: failures.length === 0,
-    checked: 12,
+    checked: 14,
     failures,
   };
 }
