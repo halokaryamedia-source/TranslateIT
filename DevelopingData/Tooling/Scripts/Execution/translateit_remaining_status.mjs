@@ -3,12 +3,13 @@ import { join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
 const ROOT = resolve(fileURLToPath(new URL("../../../../", import.meta.url)));
-const rustApp = join(ROOT, "EngineData", "LauncherApp", "RustApp");
-const gapPath = join(rustApp, "RUNTIME_GAP_ESTIMATE.json");
-const manifestPath = join(rustApp, "MODEL_RUNTIME_MANIFEST.json");
-const attachmentContractPath = join(rustApp, "ATTACHMENT_RUNTIME_CONTRACT.json");
-const translationContractPath = join(rustApp, "TRANSLATION_RUNTIME_CONTRACT.json");
-const audioContractPath = join(rustApp, "AUDIO_PIPELINE_RUNTIME_CONTRACT.json");
+const appPackage = join(ROOT, "EngineData", "LauncherApp", "RustApp");
+const contractsRoot = join(ROOT, "EngineData", "Backend", "RuntimeContracts");
+const gapPath = join(appPackage, "RUNTIME_GAP_ESTIMATE.json");
+const manifestPath = join(contractsRoot, "MODEL_RUNTIME_MANIFEST.json");
+const attachmentContractPath = join(contractsRoot, "ATTACHMENT_RUNTIME_CONTRACT.json");
+const translationContractPath = join(contractsRoot, "TRANSLATION_RUNTIME_CONTRACT.json");
+const audioContractPath = join(contractsRoot, "AUDIO_PIPELINE_RUNTIME_CONTRACT.json");
 
 function readJson(path) {
   if (!existsSync(path)) return null;
@@ -26,7 +27,9 @@ const translationContract = readJson(translationContractPath);
 const audioContract = readJson(audioContractPath);
 const evidence = Object.fromEntries(Object.entries(gap?.evidence_files ?? {}).map(([key, value]) => [key, existsSync(fromRepoPath(value))]));
 const payload = {
-  schema: "translateit.remaining_status.v3",
+  schema: "translateit.remaining_status.v4",
+  gap_path: "EngineData/LauncherApp/RustApp/RUNTIME_GAP_ESTIMATE.json",
+  contracts_root: "EngineData/Backend/RuntimeContracts",
   remaining: gap?.remaining ?? null,
   contracts_loaded: {
     attachment: Boolean(attachmentContract),
