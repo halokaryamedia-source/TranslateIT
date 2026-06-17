@@ -5,9 +5,22 @@ App route: `EngineData/LauncherApp/RustApp`
 
 ## Current progress
 
-Overall hardening progress: 93%
+Overall hardening progress: 95%
 
 ## Completed changes
+
+### Tauri command surface hardening
+
+Status: Complete for current UI runtime path
+
+- Reduced the exposed Tauri command handler list to the command set used by the active desktop UI runtime.
+- Removed internal planning/dry-run/native execution commands from the exposed invoke handler surface.
+- Added security validator deny-markers for high-risk internal command names so they do not return unnoticed.
+
+Touched files:
+
+- `src-tauri/src/main.rs`
+- `scripts/validate_security_hardening.mjs`
 
 ### Local worker payload hardening
 
@@ -147,7 +160,8 @@ Touched file:
 Status: Added, pending local run
 
 - Added `npm run validate:security-hardening`.
-- Checks required security-hardening markers across local worker payload limits, worker bridge, chat/session persistence, settings, logging, paths, frontend attachment handling, and CSP.
+- Checks required security-hardening markers across Tauri command surface, local worker payload limits, worker bridge, chat/session persistence, settings, logging, paths, frontend attachment handling, and CSP.
+- Includes deny-markers for internal commands that should not be exposed by the active UI runtime command handler.
 - Included in `validate:internal` and `validate:full`.
 
 Touched files:
@@ -185,7 +199,7 @@ The GitHub connector can update files but cannot run the local Windows/Tauri bui
 
 ## Current readiness estimate
 
-- Internal testing readiness: 93/100
-- Production/client readiness: 72/100
+- Internal testing readiness: 95/100
+- Production/client readiness: 75/100
 
 Production readiness remains blocked by dependency audit validation, full local build validation, and missing runtime model assets.
