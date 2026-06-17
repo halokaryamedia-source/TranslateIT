@@ -17,6 +17,7 @@ import { warmupProgressSteps, warmupStepsView } from "./warmupViews";
 const MAX_MANUAL_TRANSLATION_CHARS = 2_000;
 const MAX_ATTACHMENT_BYTES = 64 * 1024;
 const MAX_ATTACHMENT_FILES = 4;
+const MAX_ATTACHMENT_NAME_CHARS = 96;
 const MAX_COMPOSER_TEXTAREA_HEIGHT = 120;
 const MIN_COMPOSER_TEXTAREA_HEIGHT = 24;
 const LANGUAGE_CODES = ["id", "en"] as const;
@@ -148,24 +149,35 @@ export class LauncherController {
       if (settings.source_language.toLowerCase() === settings.target_language) settings.source_language = this.nextLanguageCode(settings.target_language);
     }
     this.refreshDirectionPill();
-    this.setAssistantNotice(`Language pair changed to ${settings.source_language.toUpperCase()} > ${settings.target_language.toUpperCase()}.`);
+    this.setAssistantNotice(`Language pair changed to ${this.currentSettings.source_language.toUpperCase()} > ${this.currentSettings.target_language.toUpperCase()}.`);
   }
 
   private isSupportedTextAttachment(file: File): boolean {
-    const name = file.name.toLowerCase();
+    const name = this.safeAttachmentName(file).toLowerCase();
     return file.type.startsWith("text/") || file.type === "application/json" || TEXT_ATTACHMENT_EXTENSIONS.some((extension) => name.endsWith(extension));
   }
 
   private compactAttachmentText(value: string): string { return value.replace(/\s+/g, " ").trim(); }
 
+  private safeAttachmentName(file: File): string {
+    const clean = file.name
+      .replace(/[\u0000-\u001f\u007f]/g, "")
+      .replace(/[\\/]/g, "_")
+      .replace(/\s+/g, " ")
+      .trim()
+      .slice(0, MAX_ATTACHMENT_NAME_CHARS);
+    return clean || "attachment.txt";
+  }
+
   private attachmentSection(file: File, text: string): string {
-    return `[Attachment: ${file.name}]\n${text}`;
+    return `[Attachment: ${this.safeAttachmentName(file)}]\n${text}`;
   }
 
   private unsupportedAttachmentMessage(file: File): string {
-    const name = file.name.toLowerCase();
-    if (name.endsWith(".pdf") || name.endsWith(".docx")) return `${file.name} is not supported yet. ${TEXT_ATTACHMENT_SUPPORT_MESSAGE}`;
-    return `${file.name} is not a supported text attachment. ${TEXT_ATTACHMENT_SUPPORT_MESSAGE}`;
+    const name = this.safeAttachmentName(file);
+    const lowerName = name.toLowerCase();
+    if (lowerName.endsWith(".pdf") || lowerName.endsWith(".docx")) return `${name} is not supported yet. ${TEXT_ATTACHMENT_SUPPORT_MESSAGE}`;
+    return `${name} is not a supported text attachment. ${TEXT_ATTACHMENT_SUPPORT_MESSAGE}`;
   }
 
   private async ingestAttachmentFiles(filesInput?: FileList | File[]): Promise<void> {
@@ -183,7 +195,7 @@ export class LauncherController {
     }
     const oversized = files.find((file) => file.size > MAX_ATTACHMENT_BYTES);
     if (oversized) {
-      this.setAssistantNotice(`${oversized.name} is too large. Limit: 64 KB per text file.`);
+      this.setAssistantNotice(`${this.safeAttachmentName(oversized)} is too large. Limit: 64 KB per text file.`);
       return;
     }
     this.attachmentReadPending = true;
@@ -193,7 +205,7 @@ export class LauncherController {
       for (const file of files) {
         const text = this.compactAttachmentText(await file.text());
         if (!text) {
-          this.setAssistantNotice(`${file.name} is empty.`);
+          this.setAssistantNotice(`${this.safeAttachmentName(file)} is empty.`);
           return;
         }
         sections.push(this.attachmentSection(file, text));
@@ -205,7 +217,7 @@ export class LauncherController {
       }
       this.setMessageInputValue(combinedText);
       this.ui.messageInput.focus();
-      const names = files.map((file) => file.name).join(", ");
+      const names = files.map((file) => this.safeAttachmentName(file)).join(", ");
       this.setAssistantNotice(`Attached ${files.length} file(s): ${names}. Text is ready for translation.`);
     } catch (_error) {
       this.setAssistantNotice("Attachment could not be read as text.");
@@ -276,6 +288,7 @@ export class LauncherController {
 
   private showHome(): void { document.body.classList.remove("settings-open"); this.ui.settingsPage.classList.add("is-hidden"); this.ui.homePage.classList.remove("is-hidden"); }
   private showSettings(): void { document.body.classList.add("settings-open"); this.ui.homePage.classList.add("is-hidden"); this.ui.settingsPage.classList.remove("is-hidden"); this.renderSettingsTab(this.activeSettingsTab); }
+
   private async refreshHardwareUsage(): Promise<void> { this.latestHardware = await runtimeApi.getHardwareUsage(); }
 
   private async refreshDeveloperHardwareUsage(): Promise<void> {
