@@ -13,8 +13,8 @@ const referenceLayout = read("src/referenceLayout.css");
 const professionalUi = read("src/professionalUi.css");
 const referenceBinding = read("src/app/launcher/referenceUiBinding.ts");
 const primitives = read("src/app/launcher/referenceUiPrimitives.ts");
-const guide = read("UI_REFERENCE_GUIDE.md");
-const imageManifest = read("docs/ui-reference/reference_images_manifest.json");
+const guide = read("../../Frontend/DesignReview/UIReferenceGuide.md");
+const imageManifest = read("../../Frontend/DesignReview/UIReference/reference_images_manifest.json");
 
 const errors = [];
 
@@ -79,10 +79,10 @@ const requiredIds = [
 ];
 
 for (const id of requiredIds) {
-  const owner = shell.includes(`id=\"${id}\"`) || settingsViews.includes(`id=\"${id}\"`);
+  const owner = shell.includes(`id="${id}"`) || settingsViews.includes(`id="${id}"`);
   if (!owner) errors.push(`Required UI/backend contract id is missing: #${id}`);
-  requireContains("referenceUiPrimitives.ts", primitives, `\"${id}\"`);
-  requireContains("UI_REFERENCE_GUIDE.md", guide, `#${id}`);
+  requireContains("referenceUiPrimitives.ts", primitives, `"${id}"`);
+  requireContains("UIReferenceGuide.md", guide, `#${id}`);
 }
 
 const requiredCssTokens = [
@@ -97,7 +97,7 @@ const requiredCssTokens = [
 
 for (const token of requiredCssTokens) {
   requireContains("referenceLayout.css", referenceLayout, token);
-  if (token.startsWith("--ref-")) requireContains("UI_REFERENCE_GUIDE.md", guide, token.split(":")[0]);
+  if (token.startsWith("--ref-")) requireContains("UIReferenceGuide.md", guide, token.split(":")[0]);
 }
 
 const requiredProfessionalTokens = [
