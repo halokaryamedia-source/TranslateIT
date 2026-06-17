@@ -1,7 +1,9 @@
 use serde::Deserialize;
-use std::io::Write;
+use std::io::{Read, Write};
 use std::path::{Path, PathBuf};
-use std::process::{Command, Stdio};
+use std::process::{Child, Command, Stdio};
+use std::thread;
+use std::time::{Duration, Instant};
 
 use crate::engine::adapters::translation_logic::{run_translation_logic, TranslationLogicRequest};
 use crate::engine::paths::ProjectPaths;
@@ -11,6 +13,9 @@ use crate::engine::state::{CommandResult, LifecycleState};
 const MAX_MANUAL_TRANSLATION_CHARS: usize = 2_000;
 const SOURCE_PREVIEW_CHARS: usize = 180;
 const WORKER_TRANSLATION_TIMEOUT_NOTE: &str = "worker_bridge_unavailable";
+const WORKER_BRIDGE_TIMEOUT_SECS: u64 = 120;
+const WORKER_POLL_INTERVAL_MS: u64 = 25;
+const MAX_WORKER_STDOUT_BYTES: usize = 2 * 1024 * 1024;
 
 #[derive(Debug, Deserialize)]
 struct WorkerTranslationResponse {
@@ -175,6 +180,46 @@ fn worker_translated_text(worker: &WorkerTranslationResponse) -> Option<&str> {
     }
 }
 
+fn read_limited_stdout(child: &mut Child) -> Option<Vec<u8>> {
+    let mut stdout = Vec::new();
+    if let Some(pipe) = child.stdout.as_mut() {
+        let mut limited = pipe.take((MAX_WORKER_STDOUT_BYTES + 1) as u64);
+        limited.read_to_end(&mut stdout).ok()?;
+    }
+    if stdout.len() > MAX_WORKER_STDOUT_BYTES {
+        return None;
+    }
+    Some(stdout)
+}
+
+fn wait_for_worker_output(mut child: Child) -> Option<Vec<u8>> {
+    let started = Instant::now();
+    loop {
+        match child.try_wait() {
+            Ok(Some(status)) => {
+                let stdout = read_limited_stdout(&mut child)?;
+                if !status.success() {
+                    return None;
+                }
+                return Some(stdout);
+            }
+            Ok(None) => {
+                if started.elapsed() >= Duration::from_secs(WORKER_BRIDGE_TIMEOUT_SECS) {
+                    let _ = child.kill();
+                    let _ = child.wait();
+                    return None;
+                }
+                thread::sleep(Duration::from_millis(WORKER_POLL_INTERVAL_MS));
+            }
+            Err(_) => {
+                let _ = child.kill();
+                let _ = child.wait();
+                return None;
+            }
+        }
+    }
+}
+
 fn run_worker_with_python(
     binary: &str,
     use_python_launcher: bool,
@@ -206,14 +251,15 @@ fn run_worker_with_python(
         .ok()?;
 
     if let Some(mut stdin) = child.stdin.take() {
-        writeln!(stdin, "{payload}").ok()?;
+        if writeln!(stdin, "{payload}").is_err() {
+            let _ = child.kill();
+            let _ = child.wait();
+            return None;
+        }
     }
 
-    let output = child.wait_with_output().ok()?;
-    if !output.status.success() {
-        return None;
-    }
-    serde_json::from_slice::<WorkerTranslationResponse>(&output.stdout).ok()
+    let stdout = wait_for_worker_output(child)?;
+    serde_json::from_slice::<WorkerTranslationResponse>(&stdout).ok()
 }
 
 fn run_local_worker_translation(
