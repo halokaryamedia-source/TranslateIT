@@ -106,7 +106,11 @@ struct RuntimeCuda {
 pub fn analyze_local_worker_manifest() -> LocalWorkerManifestReport {
     let project_paths = ProjectPaths::discover();
     let root = PathBuf::from(&project_paths.project_root);
-    let worker_root = root.join("EngineData").join("LauncherApp").join("Workers");
+    let worker_root = root
+        .join("EngineData")
+        .join("Backend")
+        .join("LocalWorker")
+        .join("WorkerRuntime");
     let worker_script = worker_root.join("realtime_local_worker.py");
     let requirements = worker_root.join("requirements-realtime.txt");
     let stack_manifest = worker_root.join("realtime_stack_manifest.json");
