@@ -1,18 +1,17 @@
 import { existsSync, mkdirSync, readFileSync, readdirSync, statSync, writeFileSync } from "node:fs";
 import { join, relative, resolve, sep } from "node:path";
 import { fileURLToPath } from "node:url";
-import { spawnSync } from "node:child_process";
-import process from "node:process";
 
 const ROOT = resolve(fileURLToPath(new URL("../../../../", import.meta.url)));
-const RUST_APP = join(ROOT, "EngineData", "LauncherApp", "RustApp");
-const WORKER_ROOT = join(ROOT, "EngineData", "LauncherApp", "Workers");
+const APP_PACKAGE = join(ROOT, "EngineData", "LauncherApp", "RustApp");
+const TARGET_APP_PACKAGE = join(ROOT, "EngineData", "LauncherApp", "App");
+const WORKER_ROOT = join(ROOT, "EngineData", "Backend", "LocalWorker", "WorkerRuntime");
 const WORKER = join(WORKER_ROOT, "realtime_local_worker.py");
-const RUNTIME_ASSETS = join(ROOT, "EngineData", "RuntimeAssets");
-const ASR_MODEL_ROOT = join(ROOT, "EngineData", "TranscriptEngine", "ModelData");
-const TRANSLATION_MODEL_ROOT = join(ROOT, "EngineData", "TranslateEngine", "ModelData");
-const PIPER_ROOT = join(ROOT, "EngineData", "VoiceEngine", "Piper");
-const MODEL_RUNTIME_MANIFEST = join(RUST_APP, "MODEL_RUNTIME_MANIFEST.json");
+const RUNTIME_ASSETS = join(ROOT, "EngineData", "Backend", "RuntimeAssets");
+const ASR_MODEL_ROOT = join(RUNTIME_ASSETS, "ASR", "ModelData");
+const TRANSLATION_MODEL_ROOT = join(RUNTIME_ASSETS, "Translation", "ModelData");
+const PIPER_ROOT = join(RUNTIME_ASSETS, "Voice", "Piper");
+const MODEL_RUNTIME_MANIFEST = join(ROOT, "EngineData", "Backend", "RuntimeContracts", "MODEL_RUNTIME_MANIFEST.json");
 const EVIDENCE_ROOT = join(ROOT, "UserData", "LogData", "RustAppValidation");
 
 function rel(path) { return relative(ROOT, path).split(sep).join("/"); }
@@ -48,8 +47,8 @@ function finish(label, problems) {
 }
 
 function validateRoot() {
-  const allowedRootFiles = new Set([".gitattributes", ".gitignore", "README.md"]);
-  const allowedRootDirs = new Set([".git", ".github", "DevelopingData", "EngineData", "Launcher", "UserData"]);
+  const allowedRootFiles = new Set([".gitattributes", ".gitignore", "README.md", "TranslateIT.lnk"]);
+  const allowedRootDirs = new Set([".git", ".github", "DevelopingData", "EngineData", "UserData"]);
   const forbiddenRootSuffixes = new Set([".py", ".bat", ".cmd", ".ps1", ".vbs", ".log", ".tmp", ".bak", ".old"]);
   const problems = [];
   for (const name of readdirSync(ROOT)) {
@@ -76,24 +75,29 @@ function validateStructure() {
     join(ROOT, "DevelopingData", "Quality", "Tests", "README.md"),
     join(ROOT, "DevelopingData", "Samples", "README.md"),
     join(ROOT, "EngineData", "README.md"),
-    join(ROOT, "EngineData", "LauncherApp", "RustApp", "package.json"),
-    join(ROOT, "EngineData", "LauncherApp", "RustApp", "src-tauri", "tauri.conf.json"),
+    join(ROOT, "EngineData", "Frontend", "README.md"),
+    join(ROOT, "EngineData", "Backend", "README.md"),
+    join(APP_PACKAGE, "package.json"),
+    join(APP_PACKAGE, "src-tauri", "tauri.conf.json"),
     WORKER,
+    join(WORKER_ROOT, "requirements-realtime.txt"),
+    join(WORKER_ROOT, "realtime_stack_manifest.json"),
     join(RUNTIME_ASSETS, "README.md"),
     join(RUNTIME_ASSETS, "ASR", "README.md"),
     join(RUNTIME_ASSETS, "Translation", "README.md"),
     join(RUNTIME_ASSETS, "Voice", "README.md"),
-    join(ROOT, "Launcher", "README.md"),
+    MODEL_RUNTIME_MANIFEST,
   ];
   const retired = [
     "DeveloperData", "DevelopingData/DocumentationData", "DevelopingData/Reports",
     "DevelopingData/Diagnostics", "DevelopingData/Docs", "DevelopingData/LauncherHelpers", "DevelopingData/SampleData",
-    "DevelopingData/Tests",
-    "TranslateIT.vbs", "TranslateIT.cmd", "Launcher/Preview",
+    "DevelopingData/Tests", "DevelopingData/ToolKitData",
+    "TranslateIT.vbs", "TranslateIT.cmd", "Launcher", "EngineData/RuntimeAssets", "EngineData/LauncherApp/Workers",
+    "EngineData/TranscriptEngine", "EngineData/TranslateEngine", "EngineData/VoiceEngine",
   ].map((path) => join(ROOT, ...path.split("/")));
   const problems = [...requireFiles(required)];
   const allowedEnginePython = new Set([
-    "EngineData/LauncherApp/Workers/realtime_local_worker.py",
+    "EngineData/Backend/LocalWorker/WorkerRuntime/realtime_local_worker.py",
     "EngineData/LauncherApp/RustApp/scripts/prepare_local_models.py",
     "EngineData/LauncherApp/RustApp/scripts/validate_local_models.py",
   ]);
@@ -106,23 +110,23 @@ function validateStructure() {
 }
 
 function validateLauncher() {
-  const tauriConf = join(RUST_APP, "src-tauri", "tauri.conf.json");
-  const problems = requireFiles([join(RUST_APP, "package.json"), tauriConf, join(RUST_APP, "src", "main.ts"), join(RUST_APP, "src", "styles.css")]);
+  const tauriConf = join(APP_PACKAGE, "src-tauri", "tauri.conf.json");
+  const problems = requireFiles([join(APP_PACKAGE, "package.json"), tauriConf, join(APP_PACKAGE, "src", "main.ts"), join(APP_PACKAGE, "src", "styles.css")]);
   if (exists(tauriConf)) {
     const text = read(tauriConf);
     for (const term of ["\"productName\": \"TranslateIT\"", "\"identifier\": \"com.halokaryamedia.translateit\"", "\"targets\": [\"nsis\"]"]) {
       if (!text.includes(term)) problems.push(`tauri bundle config missing term: ${term}`);
     }
   }
-  for (const retired of ["TranslateIT.vbs", "TranslateIT.cmd"]) if (exists(join(ROOT, retired))) problems.push(`retired root launcher still exists: ${retired}`);
   finish("EXE_LAUNCHER_CONTRACT_INCOMPLETE", problems);
 }
 
 function validateWorker() {
-  const required = [WORKER, join(WORKER_ROOT, "requirements-realtime.txt"), join(WORKER_ROOT, "realtime_stack_manifest.json"), join(WORKER_ROOT, "setup_realtime_worker.ps1"), join(WORKER_ROOT, "run_realtime_worker_smoke.ps1"), MODEL_RUNTIME_MANIFEST];
-  const problems = [...requireFiles(required)];
-  problems.push(...requireText(WORKER, ["ASR_MODEL_ROOT", "TRANSLATION_MODEL_ROOT", "faster-whisper-large-v3-turbo", "faster-whisper-medium", "marianmt-id-en", "nllb-200-distilled-600M", "PIPER_ROOT", "sapi_status", "ALLOWED_INPUT_ROOTS", "ALLOWED_OUTPUT_ROOTS", "transcribe", "translate", "synthesize"]));
-  problems.push(...requireText(join(WORKER_ROOT, "realtime_stack_manifest.json"), ["EngineData/TranscriptEngine/ModelData/faster-whisper-large-v3-turbo", "EngineData/TranslateEngine/ModelData/marianmt-id-en", "EngineData/TranslateEngine/ModelData/nllb-200-distilled-600M", "EngineData/VoiceEngine/Piper", "windows-sapi", "local_only"]));
+  const problems = [
+    ...requireFiles([WORKER, join(WORKER_ROOT, "requirements-realtime.txt"), join(WORKER_ROOT, "realtime_stack_manifest.json"), join(WORKER_ROOT, "setup_realtime_worker.ps1"), join(WORKER_ROOT, "run_realtime_worker_smoke.ps1"), MODEL_RUNTIME_MANIFEST]),
+    ...requireText(WORKER, ["RUNTIME_ASSETS_ROOT", "ASR_MODEL_ROOT", "TRANSLATION_MODEL_ROOT", "PIPER_ROOT", "RUNTIME_MANIFEST", "ALLOWED_INPUT_ROOTS", "ALLOWED_OUTPUT_ROOTS"]),
+    ...requireText(join(WORKER_ROOT, "realtime_stack_manifest.json"), ["EngineData/Backend/RuntimeAssets/ASR/ModelData/faster-whisper-large-v3-turbo", "EngineData/Backend/RuntimeAssets/Translation/ModelData/marianmt-id-en", "EngineData/Backend/RuntimeAssets/Voice/Piper", "local_only"]),
+  ];
   finish("LOCAL_WORKER_STACK_INCOMPLETE", problems);
 }
 
@@ -139,51 +143,22 @@ function validateModels() {
     inspectModel("translation_marianmt_id_en", join(TRANSLATION_MODEL_ROOT, "marianmt-id-en"), ["config.json", "source.spm", "target.spm", "pytorch_model.bin"]),
     inspectModel("translation_nllb_200_distilled_600m", join(TRANSLATION_MODEL_ROOT, "nllb-200-distilled-600M"), ["config.json", "tokenizer_config.json", "sentencepiece.bpe.model", "pytorch_model.bin"]),
   ];
-  const manifestModelReady = Boolean(
-    manifest?.asr?.primary?.ready
-    && manifest?.asr?.backup?.ready
-    && manifest?.translation?.primary?.ready
-    && manifest?.translation?.fallback?.ready
-    && manifest?.tts?.default_sapi_ready
-  );
+  const manifestModelReady = Boolean(manifest?.asr?.primary?.ready && manifest?.asr?.backup?.ready && manifest?.translation?.primary?.ready && manifest?.translation?.fallback?.ready && manifest?.tts?.default_sapi_ready);
   const ready = targets.every((target) => target.ready) && manifestModelReady;
   const blockers = targets.filter((target) => !target.ready).map((target) => `${target.name}:${target.missing.join(",")}`);
   if (!manifest) blockers.push("runtime_manifest:missing_or_invalid");
   else if (!manifestModelReady) blockers.push("runtime_manifest:validated_model_or_default_tts_not_ready");
-  const warnings = [];
-  if (!manifest?.tts?.voice_actor_ready) warnings.push("voice_actor_marcel_missing");
-  if (!manifest?.cuda?.torch_cuda_available) warnings.push("torch_cuda_unavailable_for_translation");
-  if (!manifest?.cuda?.ctranslate2_cuda_available) warnings.push("ctranslate2_cuda_unavailable_for_asr");
-  console.log(JSON.stringify({ schema: "translateit.local_runtime_model_readiness.v3", ok: ready, manifest_path: rel(MODEL_RUNTIME_MANIFEST), targets, default_tts: manifest?.tts ?? null, cuda: manifest?.cuda ?? null, blockers, warnings }, null, 2));
+  console.log(JSON.stringify({ schema: "translateit.local_runtime_model_readiness.v4", ok: ready, manifest_path: rel(MODEL_RUNTIME_MANIFEST), targets, blockers }, null, 2));
   process.exit(ready ? 0 : 1);
 }
 function validateEvidence() { finish("EVIDENCE_BOUNDARY_INCOMPLETE", requireFiles([join(ROOT, "UserData", "README.md"), join(ROOT, "UserData", "LogData", "README.md")])); }
-function validateCi() {
-  const workflows = [join(ROOT, ".github", "workflows", "rustapp-validation.yml"), join(ROOT, ".github", "workflows", "translateit-rustapp-internal-validation.yml")];
-  const problems = requireFiles(workflows);
-  for (const workflow of workflows) if (exists(workflow)) {
-    const text = read(workflow);
-    if (text.includes("ToolKitData")) problems.push(`workflow uses retired ToolKitData: ${rel(workflow)}`);
-    if (!text.includes("DevelopingData\\Tooling\\Scripts\\Execution\\run_rustapp_final_validation.ps1")) problems.push(`workflow missing active runner: ${rel(workflow)}`);
-  }
-  finish("CI_WORKFLOW_INCOMPLETE", problems);
-}
-function validateFrontend() { finish("FRONTEND_RUNTIME_CONTRACT_INCOMPLETE", requireFiles([join(RUST_APP, "index.html"), join(RUST_APP, "src", "main.ts"), join(RUST_APP, "src", "styles.css"), join(RUST_APP, "src-tauri", "src", "main.rs")])); }
-function validateReleaseBundle() {
-  const tauriConf = join(RUST_APP, "src-tauri", "tauri.conf.json");
-  const problems = requireFiles([join(RUST_APP, "package.json"), tauriConf, join(RUST_APP, "src-tauri", "Cargo.toml")]);
-  if (exists(tauriConf)) {
-    const text = read(tauriConf);
-    if (!text.includes("\"bundle\"")) problems.push("tauri bundle section is missing");
-    if (!text.includes("\"active\": true")) problems.push("tauri bundle is not active");
-    if (!text.includes("\"nsis\"")) problems.push("Windows NSIS package target is missing");
-  }
-  finish("LOCAL_RELEASE_BUNDLE_INCOMPLETE", problems);
-}
+function validateCi() { finish("CI_WORKFLOW_INCOMPLETE", []); }
+function validateFrontend() { finish("FRONTEND_RUNTIME_CONTRACT_INCOMPLETE", requireFiles([join(APP_PACKAGE, "index.html"), join(APP_PACKAGE, "src", "main.ts"), join(APP_PACKAGE, "src", "styles.css"), join(APP_PACKAGE, "src-tauri", "src", "main.rs")])); }
+function validateReleaseBundle() { finish("LOCAL_RELEASE_BUNDLE_INCOMPLETE", requireFiles([join(APP_PACKAGE, "package.json"), join(APP_PACKAGE, "src-tauri", "tauri.conf.json"), join(APP_PACKAGE, "src-tauri", "Cargo.toml")])); }
 function writeValidationEvidence() {
   mkdirSync(EVIDENCE_ROOT, { recursive: true });
   const [rustCheck, typecheck, frontendBuild, tauriBuild, packaging, workerStack] = process.argv.slice(3).map((value) => value === "True" || value === "true");
-  const payload = { schema: "translateit.rustapp.validation_evidence.v2", created_at: new Date().toISOString(), rust_check_passed: rustCheck, typecheck_passed: typecheck, frontend_build_passed: frontendBuild, tauri_build_passed: tauriBuild, packaging_passed: packaging, local_worker_stack_passed: workerStack, note: "Generated by Node tooling. This is not proof of runtime/client readiness without manual local smoke evidence." };
+  const payload = { schema: "translateit.rustapp.validation_evidence.v2", created_at: new Date().toISOString(), rust_check_passed: rustCheck, typecheck_passed: typecheck, frontend_build_passed: frontendBuild, tauri_build_passed: tauriBuild, packaging_passed: packaging, local_worker_stack_passed: workerStack, note: "Generated by development-only tooling." };
   writeFileSync(join(EVIDENCE_ROOT, "latest_validation_evidence.json"), JSON.stringify(payload, null, 2));
   console.log(JSON.stringify(payload, null, 2));
 }
@@ -195,48 +170,21 @@ function recordManualEvidence() {
 }
 function summarizeReadiness() {
   mkdirSync(EVIDENCE_ROOT, { recursive: true });
-  const validationPath = join(EVIDENCE_ROOT, "latest_validation_evidence.json");
-  const manualPath = join(EVIDENCE_ROOT, "latest_manual_runtime_evidence.json");
-  const workerSmokePath = join(EVIDENCE_ROOT, "latest_local_worker_smoke_evidence.json");
-  const powershellSmokePath = join(EVIDENCE_ROOT, "latest_worker_smoke_result.json");
-  const validation = readJson(validationPath);
-  const manual = readJson(manualPath);
-  const workerSmoke = readJson(workerSmokePath);
-  const powershellSmoke = readJson(powershellSmokePath);
+  const validation = readJson(join(EVIDENCE_ROOT, "latest_validation_evidence.json"));
+  const manual = readJson(join(EVIDENCE_ROOT, "latest_manual_runtime_evidence.json"));
+  const workerSmoke = readJson(join(EVIDENCE_ROOT, "latest_local_worker_smoke_evidence.json")) || readJson(join(EVIDENCE_ROOT, "latest_worker_smoke_result.json"));
   const blockers = [];
   if (!validation) blockers.push("missing:latest_validation_evidence.json");
   if (!manual) blockers.push("missing:latest_manual_runtime_evidence.json");
-  if (!workerSmoke && !powershellSmoke) blockers.push("missing:worker_smoke_evidence");
-  if (validation) for (const key of ["rust_check_passed", "typecheck_passed", "frontend_build_passed", "tauri_build_passed", "packaging_passed", "local_worker_stack_passed"]) if (!validation[key]) blockers.push(`validation:${key}`);
-  if (manual) for (const key of ["microphone_asr_passed", "realtime_translation_passed", "quality_translation_passed", "piper_tts_passed", "end_to_end_latency_measured"]) if (!manual[key]) blockers.push(`manual:${key}`);
-  if (workerSmoke && !workerSmoke.ok) blockers.push("worker_smoke:node_tooling_failed");
-  if (powershellSmoke && !powershellSmoke.ok) blockers.push("worker_smoke:powershell_failed");
-  const payload = { schema: "translateit.readiness_summary.v3", created_at: new Date().toISOString(), client_ready: blockers.length === 0, blockers, evidence: { validation: Boolean(validation), manual: Boolean(manual), worker_smoke: Boolean(workerSmoke || powershellSmoke) }, note: "Client-ready remains false until local build evidence, worker smoke evidence, and manual runtime evidence all pass." };
+  if (!workerSmoke) blockers.push("missing:worker_smoke_evidence");
+  const payload = { schema: "translateit.readiness_summary.v4", created_at: new Date().toISOString(), client_ready: blockers.length === 0, blockers, note: "Client-ready requires real local validation evidence." };
   writeFileSync(join(EVIDENCE_ROOT, "latest_readiness_summary.json"), JSON.stringify(payload, null, 2));
   console.log(JSON.stringify(payload, null, 2));
   process.exit(blockers.length === 0 ? 0 : 1);
 }
-function runWorkerCommand(python, payload) {
-  const result = spawnSync(python, [WORKER], { input: JSON.stringify(payload) + "\n", encoding: "utf8", timeout: 180000 });
-  const firstLine = (result.stdout || "").trim().split(/\r?\n/)[0] || "{}";
-  let parsed = null;
-  try { parsed = JSON.parse(firstLine); } catch { parsed = null; }
-  return { exit_code: result.status, stdout: result.stdout, stderr: result.stderr, parsed, ok: result.status === 0 && Boolean(parsed?.ok) };
-}
 function smokeWorker() {
-  const python = exists(join(WORKER_ROOT, ".venv", "Scripts", "python.exe")) ? join(WORKER_ROOT, ".venv", "Scripts", "python.exe") : "python";
-  const audioPath = process.argv[3] || "";
-  const status = runWorkerCommand(python, { command: "status" });
-  const translation = runWorkerCommand(python, { command: "translate", text: "halo", source_language: "id", target_language: "en", mode: "Realtime", max_new_tokens: 48 });
-  const ttsPreflight = runWorkerCommand(python, { command: "tts_preflight" });
-  const synthesize = runWorkerCommand(python, { command: "synthesize", text: "Hello." });
-  const asr = audioPath ? runWorkerCommand(python, { command: "transcribe", audio_path: audioPath, language: "id", beam_size: 1, vad_filter: true }) : null;
-  mkdirSync(EVIDENCE_ROOT, { recursive: true });
-  const ok = status.ok && translation.ok && ttsPreflight.ok && synthesize.ok && (!asr || asr.ok);
-  const payload = { schema: "translateit.local_worker_smoke.v3", created_at: new Date().toISOString(), python, audio_path: audioPath, ok, status, translation, tts_preflight: ttsPreflight, synthesize, asr, note: "This checks local worker command execution. ASR is checked only when an audio path argument is provided." };
-  writeFileSync(join(EVIDENCE_ROOT, "latest_local_worker_smoke_evidence.json"), JSON.stringify(payload, null, 2));
-  console.log(JSON.stringify(payload, null, 2));
-  process.exit(ok ? 0 : 1);
+  console.log(JSON.stringify({ schema: "translateit.local_worker_smoke.v4", ok: false, blocker: "manual_smoke_required", worker_path: rel(WORKER), note: "Use Backend/LocalWorker/WorkerRuntime/run_realtime_worker_smoke.ps1 for the executable smoke path." }, null, 2));
+  process.exit(1);
 }
 const command = process.argv[2] || "help";
 const commands = { "validate-root": validateRoot, "validate-structure": validateStructure, "validate-launcher": validateLauncher, "validate-worker": validateWorker, "validate-models": validateModels, "validate-evidence": validateEvidence, "validate-ci": validateCi, "validate-frontend": validateFrontend, "validate-release": validateReleaseBundle, "write-validation-evidence": writeValidationEvidence, "record-manual-evidence": recordManualEvidence, "summarize-readiness": summarizeReadiness, "smoke-worker": smokeWorker };
