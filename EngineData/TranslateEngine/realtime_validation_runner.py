@@ -4,6 +4,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
+from EngineData.TranslateEngine.realtime_asset_readiness import RealtimeAssetReadinessChecker
 from EngineData.TranslateEngine.realtime_readiness_audit import RealtimeReadinessAuditor
 from EngineData.TranslateEngine.realtime_validation_result import RealtimeValidationResultBuilder
 
@@ -19,13 +20,18 @@ class RealtimeValidationRunner:
     """Run readiness validation without starting the desktop app."""
 
     def __init__(self, model_root: Path | None = None) -> None:
+        self.model_root = model_root
         self.auditor = RealtimeReadinessAuditor(model_root=model_root)
+        self.asset_checker = RealtimeAssetReadinessChecker(model_root=model_root)
 
     def run(self, *, source_language: str = "id", target_language: str = "en") -> RealtimeValidationRunnerOutput:
         audit = self.auditor.audit(source_language=source_language, target_language=target_language)
         result = RealtimeValidationResultBuilder.from_audit(audit)
+        asset_readiness = self.asset_checker.check()
+        payload = result.to_dict()
+        payload["asset_readiness"] = asset_readiness.to_dict()
         return RealtimeValidationRunnerOutput(
             status=result.status,
             percent_ready=result.percent_ready,
-            payload=result.to_dict(),
+            payload=payload,
         )
