@@ -4,7 +4,7 @@ Branch: `Dev-Rust`
 
 ## Completion estimate
 
-Current non-local scaffold progress: 85%.
+Current non-local scaffold progress: 90%.
 
 ## Completed
 
@@ -18,6 +18,8 @@ Current non-local scaffold progress: 85%.
 - Added Import Audio metadata staging.
 - Added Guided Reading staging from curated reading lines.
 - Added backend route placeholder for the next non-local backend pass.
+- Added Rust/Tauri command stubs for Audio Studio.
+- Registered the Audio Studio command module in the Rust commands module tree.
 
 ## Implemented behavior
 
@@ -28,26 +30,39 @@ Current non-local scaffold progress: 85%.
 - Shows curated Indonesian and English reading lines.
 - Lets the user select a reading line and stage it as a guided reading draft take.
 - Shows a Take Review section.
-- Lets staged takes be marked as accepted, needs retry, or blocked.
+- Lets staged takes be marked as accepted, needs_retry, or blocked.
 
 ## Added files
 
 ```text
 DevelopingData/Documentation/Source/AudioStudioProfessionalMode.md
 DevelopingData/Documentation/Reports/Engineering/AUDIO_STUDIO_NON_LOCAL_PROGRESS_REPORT.md
+EngineData/Backend/RuntimeContracts/AUDIO_STUDIO_ROUTE_PLACEHOLDER.json
 EngineData/LauncherApp/RustApp/src/app/launcher/audioStudioBinding.ts
 EngineData/LauncherApp/RustApp/src/app/launcher/audioStudioState.ts
 EngineData/LauncherApp/RustApp/src/audioStudioEntry.ts
 EngineData/LauncherApp/RustApp/src/audioStudioLayout.css
 EngineData/LauncherApp/RustApp/src/audioStudioThemeEntry.ts
-EngineData/Backend/RuntimeContracts/AUDIO_STUDIO_ROUTE_PLACEHOLDER.json
+EngineData/LauncherApp/RustApp/src-tauri/src/commands/audio_studio.rs
 ```
 
 ## Updated files
 
 ```text
 EngineData/LauncherApp/RustApp/index.html
+EngineData/LauncherApp/RustApp/src-tauri/src/commands/mod.rs
 ```
+
+## Rust command stubs added
+
+```text
+audio_studio_import_take
+audio_studio_stage_guided_take
+audio_studio_update_take_state
+audio_studio_export_project_metadata
+```
+
+These commands currently return placeholder-only results and require target-PC evidence before they are enabled as real runtime behavior.
 
 ## Not executed
 
@@ -56,6 +71,8 @@ EngineData/LauncherApp/RustApp/index.html
 - No target-PC microphone check.
 - No provider output check.
 - No packaging check.
+- No `cargo check`.
+- No `npm run build`.
 
 ## Blocked during write actions
 
@@ -65,9 +82,9 @@ The dedicated stylesheet and theme module exist, but the extra theme wiring shou
 
 ## Next non-local work
 
-- Add Rust/Tauri command stubs only, without executing them.
+- Expose Rust command stubs in `main.rs` only after a careful compile-risk pass.
+- Add frontend API wrapper names for Audio Studio commands.
 - Add project-data metadata writer contract.
-- Add frontend persistence API wrapper names.
 - Prepare local-PC validation checklist for the user to run later.
 
 ## Local-PC validation gate
