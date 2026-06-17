@@ -42,6 +42,7 @@ pub fn build_realtime_status_payload() -> RealtimeStatusPayload {
     let bundle = build_runtime_status_bundle();
     let worker = &bundle.local_worker_manifest;
     let pipeline = &bundle.live_pipeline_gate;
+    let next_action = bundle.next_action.clone();
 
     let worker_available = worker.worker_script_exists && worker.stack_manifest_exists;
     let fallback_active = !worker.ctranslate2_cuda_available || (worker.sapi_ready && !worker.piper_ready);
@@ -70,7 +71,7 @@ pub fn build_realtime_status_payload() -> RealtimeStatusPayload {
     } else {
         format!(
             "Realtime pipeline progress is {}%; next action: {}.",
-            pipeline.progress_percent, bundle.next_action
+            pipeline.progress_percent, next_action
         )
     };
 
@@ -94,7 +95,7 @@ pub fn build_realtime_status_payload() -> RealtimeStatusPayload {
                 "cpu_or_unknown".to_string()
             }),
             fallback_active,
-            last_command: Some(bundle.next_action),
+            last_command: Some(next_action),
         },
         assets: RealtimeStatusAssetsPayload {
             asr_ready: worker.asr_model_ready,
