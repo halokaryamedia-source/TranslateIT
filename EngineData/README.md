@@ -4,11 +4,11 @@
 
 `EngineData` is the runtime ownership layer for TranslateIT.
 
-Target root split:
+Current root split:
 
-- `Frontend/` - UI ownership map, design review, app shell, and frontend naming rules.
-- `Backend/` - backend ownership map, runtime core, local worker, runtime contracts, runtime assets, and inference bridge rules.
-- `LauncherApp/` - remaining active Tauri desktop runtime route. The name is not final.
+- `Frontend/` - frontend ownership notes and naming guide.
+- `Backend/` - backend runtime ownership map, worker, contracts, assets, and runtime-core rules.
+- `LauncherApp/` - active desktop app package route.
 
 ## Current layout
 
@@ -19,11 +19,6 @@ EngineData/
     README.md
     UI/
     AppShell/
-    DesignReview/
-      DesignPreview/
-      UIReference/
-      UIPageTemplate.md
-      UIReferenceGuide.md
   Backend/
     README.md
     RuntimeCore/
@@ -31,18 +26,38 @@ EngineData/
       WorkerRuntime/
     RuntimeContracts/
     RuntimeAssets/
-  LauncherApp/              # remaining active Tauri package route
+  LauncherApp/
+    README.md
+    RustApp/              # current physical package folder; approved target name is App
 ```
 
-## Active desktop runtime route
+## Active desktop app route
 
-The user-facing route is still generated from:
+Current physical route:
 
 ```text
 EngineData/LauncherApp/RustApp
 ```
 
-This is now the last non-final folder under `EngineData`.
+Approved target route for the next package-path migration:
+
+```text
+EngineData/LauncherApp/App
+```
+
+## App-owned documentation
+
+App-specific preview, UI reference, report, checklist, and evidence documents stay inside the app package:
+
+```text
+EngineData/LauncherApp/RustApp/DesignPreview
+EngineData/LauncherApp/RustApp/UI_PAGE_TEMPLATE.md
+EngineData/LauncherApp/RustApp/UI_REFERENCE_GUIDE.md
+EngineData/LauncherApp/RustApp/docs/ui-reference
+EngineData/LauncherApp/RustApp/*REPORT*.md
+EngineData/LauncherApp/RustApp/*REPORT*.json
+EngineData/LauncherApp/RustApp/*CHECKLIST*.md
+```
 
 ## Frontend ownership
 
@@ -51,7 +66,6 @@ EngineData/LauncherApp/RustApp/src/app
 EngineData/LauncherApp/RustApp/src/app/launcher
 EngineData/LauncherApp/RustApp/src/app/engineTranslate
 EngineData/LauncherApp/RustApp/index.html
-EngineData/Frontend/DesignReview
 ```
 
 ## Backend ownership
@@ -88,12 +102,10 @@ EngineData/LauncherApp/Workers/
 ## Rules
 
 - Do not add active runtime code under `DevelopingData`.
+- Keep app-specific documentation inside `EngineData/LauncherApp/RustApp` until the physical rename to `App` is complete.
 - Do not add Python launcher/UI modules back under `EngineData/LauncherApp`.
 - Do not add Python source modules under runtime assets.
 - Keep user data, logs, cache, generated audio, and model binaries out of Git.
-- Keep UI review and reference files under `EngineData/Frontend/DesignReview`.
 - Keep runtime contracts under `EngineData/Backend/RuntimeContracts`.
 - Keep runtime assets under `EngineData/Backend/RuntimeAssets`.
 - Keep backend worker files under `EngineData/Backend/LocalWorker/WorkerRuntime`.
-- Keep report/checklist/evidence documents under `DevelopingData/Documentation/Reports/Engineering`.
-- Move `LauncherApp/RustApp` only after the full Tauri package tree can be copied safely.
