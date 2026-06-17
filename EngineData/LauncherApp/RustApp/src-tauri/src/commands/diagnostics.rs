@@ -6,6 +6,7 @@ use crate::engine::adapters::migration_closure_gate_logic::{analyze_migration_cl
 use crate::engine::adapters::realtime_status_payload_logic::{build_realtime_status_payload, RealtimeStatusPayload};
 use crate::engine::adapters::runtime_readiness_bundle_logic::{analyze_runtime_readiness_bundle, RuntimeReadinessBundleReport};
 use crate::engine::adapters::runtime_status_bundle_logic::{build_runtime_status_bundle, RuntimeStatusBundleReport};
+use crate::engine::adapters::segment_flow_logic::{analyze_realtime_translate_stream, RealtimeTranslateStreamReport, RealtimeTranslateStreamRequest};
 use crate::engine::diagnostics::RuntimeDiagnostics;
 use crate::engine::inference::backend_validation::NativeCudaBackendValidationReport;
 use crate::engine::state::EngineStatus;
@@ -24,6 +25,9 @@ pub fn get_runtime_status_bundle() -> RuntimeStatusBundleReport { build_runtime_
 
 #[tauri::command]
 pub fn get_realtime_status_payload() -> RealtimeStatusPayload { build_realtime_status_payload() }
+
+#[tauri::command]
+pub fn analyze_realtime_translate_stream_state(request: RealtimeTranslateStreamRequest) -> RealtimeTranslateStreamReport { analyze_realtime_translate_stream(request) }
 
 #[tauri::command]
 pub fn analyze_live_pipeline_gate() -> LiveRuntimePipelineGateReport { analyze_live_runtime_pipeline_gate() }
