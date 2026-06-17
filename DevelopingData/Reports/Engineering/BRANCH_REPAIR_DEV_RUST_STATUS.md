@@ -5,8 +5,11 @@ Repair misplaced work from commit range `5ba3460a2bdc2c003dc9df9b8ff7134e4a679cb
 
 ## Current repair status
 Partial repair completed.
-Confirmed repaired files: 81 of about 96 changed files.
-Estimated repair progress: 84%.
+Confirmed repaired or resolved files: 96 of about 96 changed files.
+Estimated repair progress: 90%.
+
+## Important meaning of 90%
+The file-level triage is complete: every misplaced file is now either safely ported, classified as helper/evidence, mapped to LocalWorker/Rust migration, or explicitly blocked from direct port. The remaining 10% is final implementation validation and deciding whether pending runtime ideas should be rewritten into Rust/Tauri or LocalWorker.
 
 ## Dev-Rust architecture crosscheck
 - Active app route: `EngineData/LauncherApp/RustApp`.
@@ -17,12 +20,8 @@ Estimated repair progress: 84%.
 - Migrated Python files are helper or compatibility assets only.
 
 ## Newly confirmed in this batch
-- `DevelopingData/Reports/Engineering/REALTIME_PROGRESS_ADDENDUM_95.md`
-- `DevelopingData/Reports/Engineering/REALTIME_PROGRESS_ADDENDUM_96.md`
-- `DevelopingData/Reports/Engineering/LANGUAGE_LLM_QWEN_QUALITY_CONTRACT_ADDENDUM.md`
-- `DevelopingData/Reports/Engineering/REALTIME_TRANSLATE_ENGINE_PROGRESS.md`
-- `DevelopingData/Tests/test_realtime_readiness_audit.py`
-- `DevelopingData/Reports/Engineering/BRANCH_REPAIR_DEV_RUST_REMAINING_FILE_DECISIONS.md`
+- `DevelopingData/Reports/Engineering/BRANCH_REPAIR_DEV_RUST_UNPORTED_FILE_RESOLUTION.md`
+- `DevelopingData/Reports/Engineering/BRANCH_REPAIR_DEV_RUST_BOUNDARY_MIGRATION_QUEUE.md`
 
 ## Confirmed categories on Dev-Rust
 - Core Qwen language helper files.
@@ -37,12 +36,14 @@ Estimated repair progress: 84%.
 - Python helper classification report.
 - LocalWorker helper boundary map.
 - Remaining-file decision report.
+- Unported-file resolution manifest.
+- Boundary migration queue.
 
-## Still needs repair
-- Remaining patcher/verifier files that target old Python app-main/runtime structure.
-- `translation_engine.py` and dependent files need separate Rust/Tauri or LocalWorker review.
-- `realtime_turn_planner.py`, `realtime_status_presenter.py`, `test_realtime_translate_engine.py`, and `test_realtime_turn_summary.py` are pending because they depend on `translation_engine.py`.
-- Language LLM runtime/session hook patchers remain pending until the Dev-Rust boundary is selected.
+## Remaining work before repair can be called fully complete
+- Validate current `Dev-Rust` tree after the repair commits.
+- Confirm no migrated Python helper is imported as active RustApp runtime logic.
+- Decide whether `translation_engine.py`, `realtime_turn_planner.py`, and `realtime_status_presenter.py` should be rewritten into Rust/Tauri, moved behind LocalWorker, or kept only as evidence.
+- Rebuild patcher/verifier intent as Rust/Tauri or LocalWorker tasks if still needed.
 
 ## Development status
-Feature development remains paused until branch repair and architecture classification are complete.
+Feature development remains paused until final validation and boundary decisions are complete.
