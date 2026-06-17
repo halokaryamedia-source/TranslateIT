@@ -58,7 +58,7 @@ This folder is for developer maintenance and validation only. Runtime app code m
 
 - Rust/Tauri and repository checks use Node or PowerShell tooling.
 - Do not add Python validation scripts under `DevelopingData`.
-- The only approved Python runtime route is the local worker under `EngineData/LauncherApp/Workers/realtime_local_worker.py`.
+- The only approved Python runtime route is `EngineData/Backend/LocalWorker/WorkerRuntime/realtime_local_worker.py`.
 
 ## Retired paths
 
