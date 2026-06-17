@@ -1,5 +1,5 @@
 {
-  "schema": "translateit.local_realtime_stack.v2",
+  "schema": "translateit.local_realtime_stack.v3",
   "default_mode": "Realtime",
   "modes": {
     "Realtime": {
@@ -12,7 +12,7 @@
       },
       "asr": {
         "model_id": "faster-whisper-large-v3-turbo",
-        "model_path": "EngineData/TranscriptEngine/ModelData/faster-whisper-large-v3-turbo",
+        "model_path": "EngineData/Backend/RuntimeAssets/ASR/ModelData/faster-whisper-large-v3-turbo",
         "device": "cuda",
         "compute_type": "int8_float16",
         "beam_size": 1,
@@ -22,14 +22,14 @@
       },
       "translation": {
         "model_id": "marianmt-id-en",
-        "model_path": "EngineData/TranslateEngine/ModelData/marianmt-id-en",
+        "model_path": "EngineData/Backend/RuntimeAssets/Translation/ModelData/marianmt-id-en",
         "device": "cuda",
         "compute_type": "int8_float16",
         "max_new_tokens": 32
       },
       "tts": {
         "engine_id": "piper-or-windows-sapi",
-        "root": "EngineData/VoiceEngine/Piper",
+        "root": "EngineData/Backend/RuntimeAssets/Voice/Piper",
         "voice_mode": "fast"
       }
     },
@@ -43,7 +43,7 @@
       },
       "asr": {
         "model_id": "faster-whisper-large-v3-turbo",
-        "model_path": "EngineData/TranscriptEngine/ModelData/faster-whisper-large-v3-turbo",
+        "model_path": "EngineData/Backend/RuntimeAssets/ASR/ModelData/faster-whisper-large-v3-turbo",
         "device": "cuda",
         "compute_type": "float16",
         "beam_size": 1,
@@ -53,14 +53,14 @@
       },
       "translation": {
         "model_id": "nllb-200-distilled-600M",
-        "model_path": "EngineData/TranslateEngine/ModelData/nllb-200-distilled-600M",
+        "model_path": "EngineData/Backend/RuntimeAssets/Translation/ModelData/nllb-200-distilled-600M",
         "device": "cuda",
         "compute_type": "float16",
         "max_new_tokens": 64
       },
       "tts": {
         "engine_id": "piper-or-windows-sapi",
-        "root": "EngineData/VoiceEngine/Piper",
+        "root": "EngineData/Backend/RuntimeAssets/Voice/Piper",
         "voice_mode": "quality"
       }
     }
