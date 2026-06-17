@@ -2,12 +2,26 @@
 
 ## Purpose
 
-`LocalWorker` documents the approved local worker ownership route.
+`LocalWorker` owns the backend Python worker route for local ASR, translation, and TTS orchestration.
 
-Current active worker source is still inside:
+Current active worker source:
 
 ```text
-EngineData/LauncherApp/Workers/realtime_local_worker.py
+EngineData/Backend/LocalWorker/WorkerRuntime/realtime_local_worker.py
+```
+
+## Layout
+
+```text
+LocalWorker/
+  README.md
+  WorkerRuntime/
+    README.md
+    realtime_local_worker.py
+    requirements-realtime.txt
+    realtime_stack_manifest.json
+    setup_realtime_worker.ps1
+    run_realtime_worker_smoke.ps1
 ```
 
 ## Owns
@@ -20,7 +34,7 @@ EngineData/LauncherApp/Workers/realtime_local_worker.py
 
 ## Rules
 
-- Keep the Python worker isolated to the approved worker route.
+- Keep the Python worker isolated to the backend worker route.
 - Do not add Python launcher or UI modules.
 - Do not move worker code into `DevelopingData`.
 - Do not store local model binaries in Git.
