@@ -22,6 +22,9 @@ target/
 !/UserData/LogData/README.md
 !/UserData/SavedProject/README.md
 
+# TranslateIT local validation outputs.
+/EngineData/LauncherApp/RustApp/LOCAL_HARDENING_VALIDATION_RESULT.md
+
 # TranslateIT local model/runtime assets.
 /EngineData/Backend/RuntimeAssets/ASR/ModelData/**
 /EngineData/Backend/RuntimeAssets/Translation/ModelData/**
