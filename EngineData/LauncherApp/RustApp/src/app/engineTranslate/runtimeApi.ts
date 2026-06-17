@@ -46,10 +46,28 @@ function clearChatReads(kind?: string): void {
   clearRuntimeReads(chatListKey(), chatListKey("recent"), chatListKey("unsaved"), chatListKey("saved"), chatListKey(kind));
 }
 
+function hasDeviceId(value: string | null | undefined): boolean {
+  return Boolean(value?.trim());
+}
+
+async function settingsForSave(settings: RuntimeSettings): Promise<RuntimeSettings> {
+  const current = await runCommand<RuntimeSettings>("load_runtime_settings");
+  if (!current) return settings;
+  return {
+    ...settings,
+    audio: {
+      ...settings.audio,
+      input_device_id: hasDeviceId(settings.audio.input_device_id) ? settings.audio.input_device_id : current.audio.input_device_id,
+      output_device_id: hasDeviceId(settings.audio.output_device_id) ? settings.audio.output_device_id : current.audio.output_device_id,
+    },
+  };
+}
+
 export const runtimeApi = {
   loadSettings: () => singleFlight("runtime-settings", () => runCommand<RuntimeSettings>("load_runtime_settings")),
   saveSettings: async (settings: RuntimeSettings) => {
-    const result = await runCommand<CommandResult>("save_runtime_settings", { settings });
+    const mergedSettings = await settingsForSave(settings);
+    const result = await runCommand<CommandResult>("save_runtime_settings", { settings: mergedSettings });
     clearSettingsDependentReads();
     return result;
   },
