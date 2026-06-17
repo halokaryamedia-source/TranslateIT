@@ -28,9 +28,9 @@ EngineData/Backend/LocalWorker/WorkerRuntime
 
 | Area | Honest readiness | Current note | Correct next action for Dev-Rust |
 | --- | ---: | --- | --- |
-| Repo-side realtime foundation | 99.8% | Foundation files, checklists, release gates, asset readiness, latency gate, issue tracking, payload contract, and full Rust-check workflow now exist. | Keep as foundation evidence. Do not call product ready until validation passes. |
+| Repo-side realtime foundation | 99.8% | Foundation files, checklists, release gates, asset readiness, latency gate, issue tracking, payload contract, full Rust-check workflow, and workflow evidence tracker now exist. | Keep as foundation evidence. Do not call product ready until validation passes. |
 | Translate Engine core architecture | 74-79% | Mic -> STT -> MT -> TTS flow is mapped, helper/gate files exist, Rust-facing payload adapter exists, ownership hardening is applied, and handler registration is now present. | Validate via LocalWorker command path and Rust/Tauri command wrappers. |
-| Realtime app integration | 67-72% | Tauri command function, Rust adapter, `main.rs` handler registration, and `.github/workflows` Rust-check workflow now exist. Frontend state binding is still pending. | Run/check workflow result, then connect frontend after preview approval. |
+| Realtime app integration | 67-72% | Tauri command function, Rust adapter, `main.rs` handler registration, and `.github/workflows` Rust-check workflow now exist. No workflow pass evidence is recorded yet. | Run/check workflow result, then connect frontend after preview approval. |
 | Runtime model/assets readiness | 35-45% | Manifest and checker exist, but local model and voice assets are not proven available in runtime asset folders. | Validate `RuntimeAssets` with local model presence and worker smoke tests. |
 | Benchmark and validation | 35-40% | Gate and sample formats exist, but no target-PC latency result is recorded. | Collect latency samples through LocalWorker smoke and app-level test flow. |
 | Product realtime readiness | 63-68% | Foundation is stronger and Rust/Tauri command exposure is wired for validation, but desktop app binding and target-PC evidence are still pending. | Complete Rust check, app integration, and evidence capture. |
@@ -51,6 +51,7 @@ EngineData/Backend/LocalWorker/WorkerRuntime
 - Added apply notes `DevelopingData/Patches/DevRust/README_APPLY_REALTIME_STATUS_HANDLER.md`.
 - Added workflow draft `DevelopingData/Patches/DevRust/dev_rust_rust_check_workflow.yml`.
 - Upgraded `.github/workflows/dev-rust-validation-note.yml` into a full Rust-check workflow.
+- Added workflow evidence tracker `DevelopingData/Reports/Engineering/DEV_RUST_RUST_CHECK_WORKFLOW_EVIDENCE.md`.
 - Confirmed that the old `app_main.py` path is not the Dev-Rust integration route.
 
 ## Immediate development priorities
@@ -66,6 +67,7 @@ EngineData/Backend/LocalWorker/WorkerRuntime
 
 - Main handler registration is resolved.
 - Full Rust-check workflow placement is resolved.
+- Workflow status lookup returned no run/pass evidence yet.
 - No successful Rust check or target-PC validation result has been recorded yet.
 - Runtime assets must be verified in `EngineData/Backend/RuntimeAssets`.
 - App integration must use `RustApp/src-tauri`, not the old Python launcher route.
