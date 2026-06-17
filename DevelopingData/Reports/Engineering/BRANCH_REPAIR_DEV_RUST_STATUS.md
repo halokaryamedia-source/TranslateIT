@@ -5,8 +5,8 @@ Repair misplaced work from commit range `5ba3460a2bdc2c003dc9df9b8ff7134e4a679cb
 
 ## Current repair status
 Partial repair completed.
-Confirmed repaired files: 59 of about 96 changed files.
-Estimated repair progress: 62%.
+Confirmed repaired files: 64 of about 96 changed files.
+Estimated repair progress: 67%.
 
 ## Dev-Rust architecture crosscheck
 - Active app route: `EngineData/LauncherApp/RustApp`.
@@ -17,8 +17,12 @@ Estimated repair progress: 62%.
 - Migrated Python files are helper or compatibility assets only.
 
 ## Newly confirmed in this batch
-- `EngineData/Backend/LocalWorker/WorkerRuntime/migrated_python_helper_map.json`
-- Updated `EngineData/Backend/LocalWorker/WorkerRuntime/README.md`
+- `DevelopingData/Tests/test_realtime_partial_event_bridge.py`
+- `DevelopingData/Tests/test_realtime_asset_readiness.py`
+- `DevelopingData/Tests/test_realtime_validation_result.py`
+- `DevelopingData/Tests/test_realtime_latency_sample_gate.py`
+- `DevelopingData/Tests/test_realtime_release_gate.py`
+- `DevelopingData/Tests/test_runtime_contracts.py`
 
 ## Confirmed categories on Dev-Rust
 - Core Qwen language helper files.
@@ -27,6 +31,7 @@ Estimated repair progress: 62%.
 - Status-panel bridge helper files.
 - Selected engineering reports.
 - Main Qwen/session tests.
+- Additional realtime helper tests.
 - Architecture alignment report.
 - Python helper classification report.
 - LocalWorker helper boundary map.
