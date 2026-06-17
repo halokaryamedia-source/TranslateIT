@@ -78,6 +78,20 @@ async function saveSelectedDevice(kind: "input" | "output", device: AudioDeviceS
   await runtimeApi.saveSettings(nextSettings);
 }
 
+async function enableSpeakerOutput(settings: RuntimeSettings): Promise<void> {
+  const nextSettings: RuntimeSettings = {
+    ...settings,
+    audio: {
+      ...settings.audio,
+      auto_play_out_voice: true,
+      auto_play_translation_voice: true,
+    },
+  };
+  await runtimeApi.saveSettings(nextSettings);
+  setButtonLabel(OUTPUT_BUTTON_SELECTOR, settingsDeviceLabel(settings.audio.output_device_id, "Default speaker"));
+  setAssistantMessage("Speaker output enabled. Click Speaker again to choose another output device.");
+}
+
 async function showAudioDevices(kind: "input" | "output"): Promise<void> {
   setAssistantMessage("Checking local audio devices...");
   const report = await runtimeApi.listAudioDevices();
@@ -95,6 +109,11 @@ async function showAudioDevices(kind: "input" | "output"): Promise<void> {
   const settings = await runtimeApi.loadSettings();
   if (!settings) {
     setAssistantMessage("Audio devices were found, but settings could not be loaded yet.");
+    return;
+  }
+
+  if (kind === "output" && !settings.audio.auto_play_out_voice) {
+    await enableSpeakerOutput(settings);
     return;
   }
 
