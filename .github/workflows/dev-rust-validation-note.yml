@@ -1,4 +1,4 @@
-name: Dev-Rust App Check
+name: Dev-Rust Repo-Safe Check
 
 on:
   workflow_dispatch:
@@ -6,40 +6,57 @@ on:
     branches:
       - Dev-Rust
     paths:
-      - "EngineData/LauncherApp/RustApp/**"
       - ".github/workflows/dev-rust-validation-note.yml"
+      - "EngineData/LauncherApp/RustApp/src/**"
+      - "EngineData/LauncherApp/RustApp/src-tauri/src/**"
+      - "DevelopingData/Tests/test_dev_rust_*.py"
+      - "DevelopingData/Tooling/Scripts/Execution/run_dev_rust_branch_repair_validation.ps1"
   pull_request:
     branches:
       - Dev-Rust
     paths:
-      - "EngineData/LauncherApp/RustApp/**"
       - ".github/workflows/dev-rust-validation-note.yml"
+      - "EngineData/LauncherApp/RustApp/src/**"
+      - "EngineData/LauncherApp/RustApp/src-tauri/src/**"
+      - "DevelopingData/Tests/test_dev_rust_*.py"
+      - "DevelopingData/Tooling/Scripts/Execution/run_dev_rust_branch_repair_validation.ps1"
 
 jobs:
-  app-check:
-    runs-on: windows-latest
-    defaults:
-      run:
-        working-directory: EngineData/LauncherApp/RustApp
+  repo-safe-guard:
+    name: Repo-safe guard only
+    runs-on: ubuntu-latest
     steps:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Setup Node
-        uses: actions/setup-node@v4
-        with:
-          node-version: "20"
-          cache: npm
-          cache-dependency-path: EngineData/LauncherApp/RustApp/package-lock.json
+      - name: Explain scope
+        run: |
+          echo "This workflow intentionally does not run npm install, cargo check, Tauri build, worker smoke tests, CUDA checks, model checks, microphone checks, or local runtime validation."
+          echo "Those checks require the developer machine/runtime assets and must be run manually/local only."
 
-      - name: Setup Rust
-        uses: dtolnay/rust-toolchain@stable
+      - name: Check Dev-Rust repo contracts
+        shell: bash
+        run: |
+          set -euo pipefail
 
-      - name: Install frontend dependencies
-        run: npm ci
+          test -f EngineData/Backend/LocalWorker/WorkerRuntime/realtime_local_worker.py
+          test -f EngineData/LauncherApp/RustApp/src-tauri/src/engine/capture_lifecycle.rs
+          test -f EngineData/LauncherApp/RustApp/src/app/launcher/audioPipelineResultWatcher.ts
+          test -f EngineData/LauncherApp/RustApp/src/app/launcher/realtimeStatusPayloadRefresh.ts
+          test -f DevelopingData/Tests/test_dev_rust_worker_path_contract.py
 
-      - name: TypeScript check
-        run: npm run typecheck
+          grep -q 'join("Backend")' EngineData/LauncherApp/RustApp/src-tauri/src/engine/capture_lifecycle.rs
+          grep -q 'join("LocalWorker")' EngineData/LauncherApp/RustApp/src-tauri/src/engine/capture_lifecycle.rs
+          grep -q 'join("WorkerRuntime")' EngineData/LauncherApp/RustApp/src-tauri/src/engine/capture_lifecycle.rs
+          grep -q 'join("realtime_local_worker.py")' EngineData/LauncherApp/RustApp/src-tauri/src/engine/capture_lifecycle.rs
+          if grep -q 'join("Workers")' EngineData/LauncherApp/RustApp/src-tauri/src/engine/capture_lifecycle.rs; then
+            echo "Deprecated worker path found: EngineData/LauncherApp/Workers"
+            exit 1
+          fi
 
-      - name: Rust check
-        run: npm run check:rust
+          grep -q 'startRealtimeStatusPayloadAutoRefresh' EngineData/LauncherApp/RustApp/src/main.ts
+          grep -q 'translationResultView' EngineData/LauncherApp/RustApp/src/app/launcher/audioPipelineResultWatcher.ts
+          grep -q 'latency_ms' EngineData/LauncherApp/RustApp/src-tauri/src/engine/capture_lifecycle.rs
+          grep -q 'settings.source_language.to_uppercase' EngineData/LauncherApp/RustApp/src-tauri/src/engine/adapters/realtime_status_payload_logic.rs
+
+          echo "Repo-safe Dev-Rust guard passed. Manual local validation remains separate."
