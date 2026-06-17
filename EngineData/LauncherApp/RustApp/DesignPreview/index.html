@@ -11,9 +11,9 @@
 <body>
   <header class="preview-header">
     <div>
-      <p class="eyebrow">DesignPreview / locked reference</p>
+      <p class="eyebrow">DesignPreview / Dev-Rust preview-only</p>
       <h1>TranslateIT UI Preview</h1>
-      <p>Main Page v28 · Audio Settings v22 · Translate Settings v14 · Developer Settings v37</p>
+      <p>Main Page v28.1 · Audio Settings v22 · Translate Settings v14 · Developer Settings v37</p>
     </div>
     <nav class="preview-nav" aria-label="Preview navigation">
       <a href="#main-page">Main</a>
@@ -29,7 +29,7 @@
     <section id="main-page" class="template-block">
       <div class="template-label">
         <span>MainPage</span>
-        <small>v28 locked composition</small>
+        <small>v28.1 clean composition</small>
       </div>
 
       <div class="app-frame main-frame">
@@ -97,45 +97,64 @@
           <header class="topbar">
             <div>
               <h2>Voice translation</h2>
-              <p>Speak Indonesian. Get translated English voice output.</p>
+              <p>Translate text or speech with a local-first workflow.</p>
             </div>
             <div class="topbar-actions">
-              <button class="pill-btn">ID → EN</button>
-              <button class="pill-btn recording"><span></span>Recording</button>
+              <button class="pill-btn language-pill">ID &gt; EN</button>
+              <button class="pill-btn status-ok"><span></span>LOCAL READY</button>
             </div>
           </header>
 
-          <div class="hero-area">
-            <span class="mode-pill">Local-first voice translation</span>
-            <h3>How can I help translate today?</h3>
-            <p>Type a message, or press the microphone button on the right to record speech locally.</p>
+          <div class="hero-area clean-hero">
+            <span class="mode-pill">Local-first translation workspace</span>
+            <h3>What would you like to translate?</h3>
+            <p>Type Indonesian text, or use the microphone action for voice input after preview approval.</p>
+
+            <div class="status-grid">
+              <article class="status-card">
+                <svg><use href="./icons.svg#translate"></use></svg>
+                <div>
+                  <strong>ID &gt; EN</strong>
+                  <span>Current language direction</span>
+                </div>
+              </article>
+              <article class="status-card">
+                <svg><use href="./icons.svg#shield"></use></svg>
+                <div>
+                  <strong>Local-first</strong>
+                  <span>Worker boundary reviewed separately</span>
+                </div>
+              </article>
+              <article class="status-card muted">
+                <svg><use href="./icons.svg#pulse"></use></svg>
+                <div>
+                  <strong>Preview only</strong>
+                  <span>No runtime claim from this screen</span>
+                </div>
+              </article>
+            </div>
 
             <div class="feature-grid">
               <article class="feature-card">
                 <i></i>
                 <div class="feature-title"><svg><use href="./icons.svg#keyboard"></use></svg>Text input</div>
-                <p>Type or paste Indonesian text and get an English translation in the conversation.</p>
+                <p>Type or paste Indonesian text and review the English result in the conversation.</p>
               </article>
               <article class="feature-card">
                 <i></i>
                 <div class="feature-title"><svg><use href="./icons.svg#mic"></use></svg>Voice input</div>
-                <p>Press the microphone button. A recording indicator appears while voice capture is active.</p>
+                <p>Use a clean microphone action when the approved design is integrated into Tauri.</p>
               </article>
-            </div>
-
-            <div class="notice-message">
-              <div class="mini-avatar">T</div>
-              <div><strong>TranslateIT</strong><span>Recording started. I will update this conversation when the voice translation result is ready.</span></div>
             </div>
           </div>
 
           <form class="composer" aria-label="Message composer">
             <button type="button" class="icon-plain"><svg><use href="./icons.svg#plus"></use></svg></button>
             <input aria-label="Message" placeholder="Ask anything..." />
-            <button type="button" class="round-btn"><svg><use href="./icons.svg#mic"></use></svg></button>
             <button type="button" class="round-btn send"><svg><use href="./icons.svg#arrow-up"></use></svg></button>
+            <button type="button" class="round-btn"><svg><use href="./icons.svg#mic"></use></svg></button>
           </form>
-          <p class="composer-help">Type a message, or press the microphone button on the right to record speech locally.</p>
+          <p class="composer-help">Use the arrow for text translation, or the microphone for voice input.</p>
         </section>
       </div>
     </section>
@@ -390,10 +409,10 @@
           <h3>Buttons</h3>
           <div class="row-wrap">
             <button class="outline-btn">Primary</button>
-            <button class="pill-btn">ID → EN</button>
-            <button class="pill-btn recording"><span></span>Recording</button>
-            <button class="round-btn"><svg><use href="./icons.svg#mic"></use></svg></button>
+            <button class="pill-btn language-pill">ID &gt; EN</button>
+            <button class="pill-btn status-ok"><span></span>LOCAL READY</button>
             <button class="round-btn send"><svg><use href="./icons.svg#arrow-up"></use></svg></button>
+            <button class="round-btn"><svg><use href="./icons.svg#mic"></use></svg></button>
           </div>
         </article>
         <article class="library-card">
@@ -408,11 +427,7 @@
           </div>
         </article>
         <article class="library-card">
-          <h3>MainPage-Recording / TranslationResult / Startup-Warmup</h3>
-          <div class="notice-message mini">
-            <div class="mini-avatar">T</div>
-            <div><strong>TranslateIT</strong><span>Recording in progress. Transcript will appear when ready.</span></div>
-          </div>
+          <h3>MainPage / TranslationResult / Startup-Warmup</h3>
           <div class="translation-result">
             <small>Translation Result</small>
             <p>“Selamat pagi” → “Good morning”</p>
