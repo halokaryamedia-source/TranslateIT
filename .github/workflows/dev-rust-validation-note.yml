@@ -7,6 +7,7 @@ on:
       - Dev-Rust
     paths:
       - ".github/workflows/dev-rust-validation-note.yml"
+      - "EngineData/Backend/RuntimeContracts/**"
       - "EngineData/LauncherApp/RustApp/src/**"
       - "EngineData/LauncherApp/RustApp/src-tauri/src/**"
       - "DevelopingData/Tests/test_dev_rust_*.py"
@@ -16,6 +17,7 @@ on:
       - Dev-Rust
     paths:
       - ".github/workflows/dev-rust-validation-note.yml"
+      - "EngineData/Backend/RuntimeContracts/**"
       - "EngineData/LauncherApp/RustApp/src/**"
       - "EngineData/LauncherApp/RustApp/src-tauri/src/**"
       - "DevelopingData/Tests/test_dev_rust_*.py"
@@ -40,9 +42,12 @@ jobs:
           set -euo pipefail
 
           test -f EngineData/Backend/LocalWorker/WorkerRuntime/realtime_local_worker.py
+          test -f EngineData/Backend/RuntimeContracts/REALTIME_SEGMENT_EVENT_CONTRACT.json
           test -f EngineData/LauncherApp/RustApp/src-tauri/src/engine/capture_lifecycle.rs
           test -f EngineData/LauncherApp/RustApp/src/app/launcher/audioPipelineResultWatcher.ts
           test -f EngineData/LauncherApp/RustApp/src/app/launcher/realtimeStatusPayloadRefresh.ts
+          test -f EngineData/LauncherApp/RustApp/src/app/engineTranslate/realtimeSegmentEventTypes.ts
+          test -f EngineData/LauncherApp/RustApp/src/app/engineTranslate/realtimeSegmentReducer.ts
           test -f DevelopingData/Tests/test_dev_rust_worker_path_contract.py
 
           grep -q 'join("Backend")' EngineData/LauncherApp/RustApp/src-tauri/src/engine/capture_lifecycle.rs
@@ -58,5 +63,8 @@ jobs:
           grep -q 'translationResultView' EngineData/LauncherApp/RustApp/src/app/launcher/audioPipelineResultWatcher.ts
           grep -q 'latency_ms' EngineData/LauncherApp/RustApp/src-tauri/src/engine/capture_lifecycle.rs
           grep -q 'settings.source_language.to_uppercase' EngineData/LauncherApp/RustApp/src-tauri/src/engine/adapters/realtime_status_payload_logic.rs
+          grep -q 'asr_partial' EngineData/Backend/RuntimeContracts/REALTIME_SEGMENT_EVENT_CONTRACT.json
+          grep -q 'translation_partial' EngineData/LauncherApp/RustApp/src/app/engineTranslate/realtimeSegmentEventTypes.ts
+          grep -q 'applyRealtimeSegmentEvent' EngineData/LauncherApp/RustApp/src/app/engineTranslate/realtimeSegmentReducer.ts
 
           echo "Repo-safe Dev-Rust guard passed. Manual local validation remains separate."
