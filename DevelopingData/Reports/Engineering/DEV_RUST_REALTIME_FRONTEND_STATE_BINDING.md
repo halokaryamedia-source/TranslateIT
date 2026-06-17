@@ -5,27 +5,28 @@ Track the non-visual frontend binding for the realtime status payload.
 
 ## Completed
 
-- `RealtimeStatusPayload` type is available in the frontend shared types.
-- A dedicated payload API module exists.
-- A pure state mapper exists.
-- A pure store exists.
-- A refresh helper exists.
-- App startup now refreshes the realtime status payload store once.
-- A state validation helper exists for mapper/store logic.
-- A UI text patch adapter exists for approved visible binding later.
-- A readiness summary exists to decide whether visible binding is safe.
-- A visible binding approval gate exists.
-- State validation now covers mapper, store, UI text patch output, readiness summary, and approval gate behavior.
+- Frontend payload type exists.
+- Dedicated payload API exists.
+- Pure state mapper exists.
+- Pure store exists.
+- Refresh helper exists.
+- Startup refresh exists.
+- UI text patch adapter exists.
+- Readiness summary exists.
+- Visible binding approval gate exists.
+- Visible binding plan exists.
+- Integration surface exists.
+- Validation now covers 18 non-visual checks.
 
-## Important boundary
+## Boundary
 
-This is not final visual UI binding.
+This is still not final visual UI binding.
 
-The startup refresh only prepares frontend state. It does not change the approved visual layout and does not sync DesignPreview styles into the active Tauri UI.
+No active visual UI layout/style sync has been applied before DesignPreview approval.
 
 ## Remaining
 
 - Run TypeScript validation.
 - Run Rust validation.
-- Bind the stored view state to visible UI after DesignPreview approval.
-- Record validation evidence after local or CI checks pass.
+- Apply visible UI binding only after DesignPreview approval.
+- Record validation evidence.
