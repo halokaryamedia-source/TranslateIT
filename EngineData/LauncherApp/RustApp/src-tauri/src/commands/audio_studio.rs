@@ -22,34 +22,64 @@ pub struct AudioStudioCommandResult {
     pub evidence_required: bool,
 }
 
-fn placeholder_result(message: &str) -> AudioStudioCommandResult {
+fn result(state: &str, message: &str) -> AudioStudioCommandResult {
     AudioStudioCommandResult {
         ok: false,
-        state: "placeholder_only".to_string(),
+        state: state.to_string(),
         message: message.to_string(),
         evidence_required: true,
     }
 }
 
+fn validate_take_request(request: &AudioStudioTakeRequest) -> Option<AudioStudioCommandResult> {
+    if request.source.trim().is_empty() {
+        return Some(result("invalid_request", "Audio Studio request is missing a source."));
+    }
+    if request.title.trim().is_empty() {
+        return Some(result("invalid_request", "Audio Studio request is missing a title."));
+    }
+    if request.detail.trim().is_empty() {
+        return Some(result("invalid_request", "Audio Studio request is missing detail text."));
+    }
+    None
+}
+
+fn validate_state_request(request: &AudioStudioStateUpdateRequest) -> Option<AudioStudioCommandResult> {
+    if request.take_id.trim().is_empty() {
+        return Some(result("invalid_request", "Audio Studio state update is missing a take id."));
+    }
+    let allowed = ["draft", "staged", "accepted", "needs_retry", "blocked"];
+    if !allowed.contains(&request.state.as_str()) {
+        return Some(result("invalid_request", "Audio Studio state update has an unsupported state."));
+    }
+    None
+}
+
 #[tauri::command]
 pub fn audio_studio_import_take(request: AudioStudioTakeRequest) -> AudioStudioCommandResult {
-    let _ = request;
-    placeholder_result("Audio Studio import route is a non-local placeholder. Target-PC storage evidence is required before enabling it.")
+    if let Some(error) = validate_take_request(&request) {
+        return error;
+    }
+    result("placeholder_only", "Audio Studio import route is available as a reviewed stub. Target-PC storage review is still required.")
 }
 
 #[tauri::command]
 pub fn audio_studio_stage_guided_take(request: AudioStudioTakeRequest) -> AudioStudioCommandResult {
-    let _ = request;
-    placeholder_result("Audio Studio guided reading route is a non-local placeholder. Target-PC capture evidence is required before enabling it.")
+    if let Some(error) = validate_take_request(&request) {
+        return error;
+    }
+    result("placeholder_only", "Audio Studio guided reading route is available as a reviewed stub. Target-PC review is still required.")
 }
 
 #[tauri::command]
 pub fn audio_studio_update_take_state(request: AudioStudioStateUpdateRequest) -> AudioStudioCommandResult {
-    let _ = request;
-    placeholder_result("Audio Studio take state route is a non-local placeholder. Target-PC project-data evidence is required before enabling it.")
+    if let Some(error) = validate_state_request(&request) {
+        return error;
+    }
+    result("placeholder_only", "Audio Studio take state route is available as a reviewed stub. Target-PC project-data review is still required.")
 }
 
 #[tauri::command]
 pub fn audio_studio_export_project_metadata() -> AudioStudioCommandResult {
-    placeholder_result("Audio Studio metadata export route is a non-local placeholder. Target-PC file-write evidence is required before enabling it.")
+    result("placeholder_only", "Audio Studio metadata export route is available as a reviewed stub. Target-PC file review is still required.")
 }
