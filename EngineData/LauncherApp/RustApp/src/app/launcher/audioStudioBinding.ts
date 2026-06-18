@@ -270,6 +270,11 @@ function audioStudioView(): string {
             <div><h3>Project metadata</h3><p>Export project metadata to UserData/SavedProject/AudioStudio.</p></div>
             <button id="audioStudioMetadataButton" class="mic-test-button-v22 secondary" type="button">Export Metadata</button>
           </section>
+          <section class="settings-output-row">
+            ${icon("pulse")}
+            <div><h3>Provider status</h3><p>Check Audio Studio provider readiness without claiming audio generation is ready.</p></div>
+            <button id="audioStudioProviderStatusButton" class="mic-test-button-v22 secondary" type="button">Provider Status</button>
+          </section>
         </div>
         <input id="audioStudioFileInput" type="file" accept="audio/wav,audio/mpeg,audio/mp4,audio/ogg,audio/webm,.wav,.mp3,.m4a,.ogg,.webm" multiple hidden />
       </article>
@@ -322,9 +327,15 @@ function bindAudioStudioViewEvents(): void {
   const guidedButton = document.querySelector<HTMLButtonElement>("#audioStudioGuidedButton");
   const loadButton = document.querySelector<HTMLButtonElement>("#audioStudioLoadButton");
   const metadataButton = document.querySelector<HTMLButtonElement>("#audioStudioMetadataButton");
+  const providerStatusButton = document.querySelector<HTMLButtonElement>("#audioStudioProviderStatusButton");
 
   importButton?.addEventListener("click", () => fileInput?.click());
   loadButton?.addEventListener("click", refreshPersistedTakes);
+  providerStatusButton?.addEventListener("click", () => {
+    const fallback = "Audio Studio provider status requested.";
+    setAssistantNotice(fallback);
+    sendCommandNotice(audioStudioApi.getProviderStatus(), fallback);
+  });
   fileInput?.addEventListener("change", () => {
     const selectedFiles = Array.from(fileInput.files ?? []);
     const { accepted, rejected } = validatedImportFiles(selectedFiles);
