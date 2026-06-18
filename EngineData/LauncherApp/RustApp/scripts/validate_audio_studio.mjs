@@ -18,6 +18,7 @@ const requiredFiles = [
   "EngineData/LauncherApp/RustApp/src-tauri/src/commands/audio_studio.rs",
   "EngineData/LauncherApp/RustApp/src-tauri/src/commands/mod.rs",
   "EngineData/LauncherApp/RustApp/src-tauri/src/main.rs",
+  "EngineData/LauncherApp/RustApp/scripts/run_audio_studio_local_validation.mjs",
   "EngineData/Backend/RuntimeContracts/AUDIO_STUDIO_ROUTE_PLACEHOLDER.json",
   "EngineData/Backend/RuntimeContracts/AUDIO_STUDIO_PROJECT_METADATA_CONTRACT.json",
   "EngineData/Backend/RuntimeContracts/AUDIO_STUDIO_ADVANCED_QUALITY_CONTRACT.json",
@@ -41,6 +42,8 @@ const requiredText = [
   ["EngineData/LauncherApp/RustApp/src-tauri/src/main.rs", "audio_studio_stage_guided_take"],
   ["EngineData/LauncherApp/RustApp/src-tauri/src/main.rs", "audio_studio_update_take_state"],
   ["EngineData/LauncherApp/RustApp/src-tauri/src/main.rs", "audio_studio_export_project_metadata"],
+  ["EngineData/LauncherApp/RustApp/scripts/run_audio_studio_local_validation.mjs", "Audio Studio local validation started"],
+  ["EngineData/LauncherApp/RustApp/scripts/run_audio_studio_local_validation.mjs", "UserData/CacheData/AudioStudio/logs"],
   ["EngineData/Backend/RuntimeContracts/AUDIO_STUDIO_PROJECT_METADATA_CONTRACT.json", "UserData/CacheData/AudioStudio/logs/"],
   ["EngineData/Backend/RuntimeContracts/AUDIO_STUDIO_ADVANCED_QUALITY_CONTRACT.json", "root_contracts_normalized"],
 ];
@@ -168,10 +171,12 @@ expectFileIncludesAll("EngineData/LauncherApp/RustApp/src/app/launcher/audioStud
 expectFileIncludesAll("EngineData/LauncherApp/RustApp/src/app/launcher/audioStudioBinding.ts", [expectedLimits.maxStagedTakes, expectedLimits.maxImportFilesPerAction, expectedLimits.maxImportFileSizeBytes, ...expectedImportExtensions], "frontend import limits");
 expectFileIncludesAll("EngineData/LauncherApp/RustApp/src/app/launcher/audioStudioState.ts", [expectedLimits.frontendTitleLength, expectedLimits.frontendDetailLength], "frontend take metadata limits");
 expectFileIncludesAll("EngineData/LauncherApp/RustApp/src-tauri/src/commands/audio_studio.rs", [expectedLimits.rustTakeIdLength, expectedLimits.rustTitleLength, expectedLimits.rustDetailLength], "Rust payload limits");
+expectFileIncludesAll("EngineData/LauncherApp/RustApp/scripts/run_audio_studio_local_validation.mjs", ["validate:audio-studio", "typecheck", "check:rust", "build:frontend"], "local validation runner steps");
 
 const packageJson = readJson("EngineData/LauncherApp/RustApp/package.json");
 if (packageJson) {
   expectScriptIncludes(packageJson.scripts, "validate:audio-studio", "node scripts/validate_audio_studio.mjs");
+  expectScriptIncludes(packageJson.scripts, "validate:audio-studio:local", "node scripts/run_audio_studio_local_validation.mjs");
   expectScriptIncludes(packageJson.scripts, "validate:internal", "validate:audio-studio");
   expectScriptIncludes(packageJson.scripts, "validate:full", "validate:audio-studio");
 }
