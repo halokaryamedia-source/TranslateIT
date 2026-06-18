@@ -119,4 +119,58 @@
 
 ## Final Status
 
-- `PASS`
+- `PARTIAL`
+
+## Native Desktop Usability Validation
+
+- Branch: `Dev-Pack`
+- Previous commit: `2f01a723`
+- Validation date: `2026-06-18`
+- Initial problem: app stayed on `Preparing local voice translation` with `Interface - Checking local state...` even when progress reached 100%
+- Root cause found:
+  - `runWarmup()` awaited multiple bridge calls before hiding the warmup screen
+  - non-critical invoke calls could hang and prevent the transition to the main UI
+- Fix applied:
+  - Added a startup timeout/fallback path for `loadSettings`, `getStatusBundle`, `getDiagnostics`, and `getHelperBridgeStatus`
+  - Ensured the interface opens in local validation mode instead of waiting forever on the startup gate
+- Commands run:
+  - `npm.cmd run typecheck`
+  - `npm.cmd run check:rust`
+  - `cargo fmt --check`
+  - `npm.cmd run dev`
+- Native desktop validation steps:
+  - Launched `tauri dev`
+  - Confirmed `target\\debug\\translateit.exe` was started
+  - Observed the startup log reaching `VITE ready`
+  - Verified the app transitioned to the main UI state in the running runtime, with fallback notice instead of a stuck splash
+  - Cleaned up project-related background processes after validation
+- Startup transition result:
+  - `PASS` for leaving the splash state and entering the UI shell
+- Text input result:
+  - `PARTIAL` because a full native window interaction trace was not captured here
+- Translate action result:
+  - `PARTIAL`; local validation mode and fallback text exist, but a direct native desktop input/output trace was not fully captured in this pass
+- Output/status result:
+  - `PASS` for showing a clear local validation mode status instead of a frozen startup message
+- Empty input result:
+  - `PASS` in browser/runtime inspection, no crash
+- Long input result:
+  - Not fully rechecked in the native window during this pass
+- New Chat/sidebar/buttons result:
+  - UI controls are present and enabled; not fully exercised in the native window during this pass
+- Microphone/audio behavior:
+  - UI controls are present; real mic/ASR execution was not fully validated in this pass
+- Close/reopen result:
+  - Background project processes were stopped successfully after validation
+  - A full reopen interaction trace still needs a direct desktop pass
+- Background process cleanup:
+  - `translateit.exe`, `tauri`, `vite`, `cargo`, and related project processes were identified and stopped after the validation run
+- Remaining blockers:
+  - Full native desktop interaction evidence is still incomplete because the current session cannot directly capture the window interactions end-to-end
+- How to run locally:
+  - Install: `npm.cmd install`
+  - Dev: `npm.cmd run dev`
+  - Build: `npm.cmd run build`
+  - Test: `cargo test` in `EngineData/LauncherApp/RustApp/src-tauri`
+- Final status:
+  - `PARTIAL`

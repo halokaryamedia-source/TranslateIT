@@ -28,6 +28,8 @@ import { LANGUAGE_OPTIONS, isLanguageCode, nextLanguageCode, type LanguageSelect
 import { MAX_COMPOSER_TEXTAREA_HEIGHT, MAX_MANUAL_TRANSLATION_CHARS, MIN_COMPOSER_TEXTAREA_HEIGHT, exceedsManualTranslationLimit } from "./launcherTextRules";
 import { buildDeveloperLogRows } from "./launcherDeveloperLog";
 
+const STARTUP_GATE_TIMEOUT_MS = 4_000;
+
 export class LauncherController {
   private readonly ui: UiRefs;
   private latestBundle: RuntimeStatusBundleReport | null = null;
@@ -69,6 +71,11 @@ export class LauncherController {
   private modelReadyText(value: boolean): string { return value ? "Model ready" : "Needs setup"; }
   private refreshDirectionPill(): void { const settings = this.currentSettings ?? defaultSettings(); this.ui.directionPill.textContent = `${settings.source_language.toUpperCase()} > ${settings.target_language.toUpperCase()}`; }
   private renderWarmupSteps(activeIndex = -1): void { this.ui.warmupSteps.innerHTML = warmupStepsView(activeIndex); }
+  private async withTimeout<T>(task: Promise<T | null>, timeoutMs: number, fallback: T | null): Promise<T | null> {
+    let timer: number | undefined;
+    const timeout = new Promise<T | null>((resolve) => { timer = window.setTimeout(() => resolve(fallback), timeoutMs); });
+    return Promise.race([task.catch(() => fallback), timeout]).finally(() => { if (timer !== undefined) window.clearTimeout(timer); });
+  }
 
   private applyRuntimeSettings(settings: RuntimeSettings): void {
     this.currentSettings = settings;
@@ -517,13 +524,20 @@ export class LauncherController {
       this.updateWarmup(warmupProgressSteps[i], "Checking local runtime...");
       await new Promise((resolve) => window.setTimeout(resolve, 120));
     }
-    this.currentSettings = await runtimeApi.loadSettings() ?? defaultSettings();
+    this.currentSettings = await this.withTimeout(runtimeApi.loadSettings(), STARTUP_GATE_TIMEOUT_MS, defaultSettings()) ?? defaultSettings();
     this.refreshDirectionPill();
-    const [bundle, diagnostics, helperStatus] = await Promise.all([runtimeApi.getStatusBundle(), runtimeApi.getDiagnostics(), runtimeApi.getHelperBridgeStatus()]);
+    const [bundle, diagnostics, helperStatus] = await Promise.all([
+      this.withTimeout(runtimeApi.getStatusBundle(), STARTUP_GATE_TIMEOUT_MS, null),
+      this.withTimeout(runtimeApi.getDiagnostics(), STARTUP_GATE_TIMEOUT_MS, null),
+      this.withTimeout(runtimeApi.getHelperBridgeStatus(), STARTUP_GATE_TIMEOUT_MS, null),
+    ]);
     this.latestHelperBridgeStatus = helperStatus;
     this.renderHomeCards();
     this.renderRuntime(bundle, diagnostics);
     this.renderSettingsTab("general");
+    this.setAssistantNotice(bundle && helperStatus?.provider_ready
+      ? "Local runtime is ready."
+      : "Local validation mode is active. The interface is ready while runtime data finishes loading.");
     this.ui.warmupScreen.classList.add("is-hidden");
     this.ui.mainApp.classList.remove("is-hidden");
     this.resizeMessageInput();
