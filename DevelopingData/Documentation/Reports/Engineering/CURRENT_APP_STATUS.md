@@ -28,6 +28,9 @@ Python remains part of the product as a helper runtime for tasks where Python is
 - Runtime API applies frontend timeout guards to helper bridge lifecycle/request commands so the UI does not wait indefinitely for a worker response.
 - Start Capture is blocked until helper provider readiness is verified, preventing users from silently entering the older one-shot capture path when helper/provider readiness is incomplete.
 - Duplicate helper readiness panel injection was removed from the app entrypoint; Developer settings remain the source of helper readiness display.
+- Helper bridge controls are now rendered directly inside Developer settings rather than injected after render by a layout MutationObserver.
+- Helper bridge UI binding now uses event delegation only and does not create layout.
+- Obsolete helper bridge visibility binding file was removed.
 
 ### Helper bridge lifecycle and worker spawn
 
@@ -49,7 +52,7 @@ Python remains part of the product as a helper runtime for tasks where Python is
 - Developer UI reads and displays helper bridge status.
 - Developer UI includes Start Helper, Worker Status, Stop Helper, and Cancel Task controls.
 - Developer UI includes provider/CUDA-aware helper readiness wording.
-- Helper bridge validator is registered in package validation scripts.
+- Helper bridge validator is registered in package validation scripts and now matches the Developer settings inline controls.
 - UserData root policy validator is registered in package validation scripts.
 - Machine-specific path validator is registered in package validation scripts.
 - Helper existence alone must not mark full runtime ready; model/provider readiness still depends on worker response evidence and local validation.
@@ -95,8 +98,11 @@ Audio Studio metadata routes now use `metadata_ready` semantics instead of gener
 - The old Audio Studio route placeholder contract is marked deprecated and points to `AUDIO_STUDIO_ROUTE_STATUS_CONTRACT.json`.
 - Architecture validator checks the deprecated placeholder does not become the source of truth again.
 - Architecture validator checks Audio Studio provider and quality routes remain guarded by `provider_blocked` before local evidence.
+- Capture helper bridge request contract defines the future capture_start/capture_stop helper bridge schema and keeps current state as `contract_ready_runtime_not_migrated`.
+- Architecture validator checks the capture helper bridge request contract and helper timeout policy.
 - Machine-specific path validator is available as `validate:machine-paths` and is included in `validate:internal` and `validate:full`.
 - Capture helper bridge migration plan documents the safe migration boundary before replacing the older one-shot capture path.
+- Helper bridge timeout policy documents that frontend timeout improves UX but backend stdout deadline handling is still required.
 - Legacy reference policy documents Rust/Tauri as final shell and Python as helper runtime.
 - Noise and hallucination filtering policy defines evidence-based filtering requirements instead of phrase-blocklist-only behavior.
 
@@ -135,6 +141,7 @@ Contracts exist for:
 - Audio Studio local validation evidence,
 - final Rust/Tauri plus Python helper architecture,
 - Python helper bridge,
+- capture helper bridge request routing,
 - Audio Studio route status,
 - UserData root policy.
 
