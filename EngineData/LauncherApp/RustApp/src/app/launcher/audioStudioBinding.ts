@@ -9,6 +9,8 @@ import {
   type AudioStudioTakeState,
 } from "./audioStudioState";
 
+const ACTION_STATES: AudioStudioTakeState[] = ["accepted", "needs_retry", "blocked"];
+
 let selectedReadingIndex = 0;
 let stagedTakes: AudioStudioTakeDraft[] = [];
 
@@ -24,6 +26,10 @@ function escapeHtml(value: string): string {
 function setAssistantNotice(message: string): void {
   const element = document.querySelector<HTMLParagraphElement>("#assistantMessage");
   if (element) element.textContent = message;
+}
+
+function isActionState(value: string | undefined): value is AudioStudioTakeState {
+  return ACTION_STATES.includes(value as AudioStudioTakeState);
 }
 
 function statusTone(state: AudioStudioTakeState): string {
@@ -81,8 +87,8 @@ function bindTakeReviewActions(): void {
   document.querySelectorAll<HTMLButtonElement>(".audio-studio-take-action").forEach((button) => {
     button.addEventListener("click", () => {
       const takeId = button.dataset.takeId ?? "";
-      const action = button.dataset.takeAction as AudioStudioTakeState | undefined;
-      if (!takeId || !action) return;
+      const action = button.dataset.takeAction;
+      if (!takeId || !isActionState(action)) return;
       updateTakeState(takeId, action);
     });
   });
@@ -127,6 +133,11 @@ function audioStudioView(): string {
             <div><h3>Guided reading</h3><p>Read prepared text directly in the app to keep takes consistent.</p></div>
             <button id="audioStudioGuidedButton" class="mic-test-button-v22" type="button">Stage Guide</button>
           </section>
+          <section class="settings-output-row">
+            ${icon("download")}
+            <div><h3>Project metadata</h3><p>Review the project metadata route before local file writing is enabled.</p></div>
+            <button id="audioStudioMetadataButton" class="mic-test-button-v22 secondary" type="button">Check Route</button>
+          </section>
         </div>
         <input id="audioStudioFileInput" type="file" accept="audio/wav,audio/mpeg,audio/mp4,audio/ogg,audio/webm,.wav,.mp3,.m4a,.ogg,.webm" multiple hidden />
       </article>
@@ -147,14 +158,14 @@ function audioStudioView(): string {
 
       <section class="settings-section-title">
         <h2>Readiness Gate</h2>
-        <p>This branch only adds non-local scaffolding. Runtime validation remains blocked until target-PC evidence exists.</p>
+        <p>This branch adds repository-side scaffolding. Runtime validation remains blocked until target-PC review exists.</p>
       </section>
       <article class="settings-card settings-card--audio-studio-status">
         <div class="developer-log-body" aria-label="Audio Studio readiness">
           <p class="developer-log-row"><strong>INFO</strong><span>UI scaffold: staged</span></p>
           <p class="developer-log-row"><strong>INFO</strong><span>Take states: draft, staged, accepted, retry, blocked</span></p>
-          <p class="developer-log-row"><strong>WAIT</strong><span>Import handling: metadata only until backend route is added</span></p>
-          <p class="developer-log-row"><strong>WAIT</strong><span>Guided recording: future local capture route, not validated here</span></p>
+          <p class="developer-log-row"><strong>INFO</strong><span>Frontend API wrapper: connected to UI actions</span></p>
+          <p class="developer-log-row"><strong>WAIT</strong><span>Runtime route: reviewed stub until local execution is checked</span></p>
         </div>
       </article>
     </div>
@@ -177,6 +188,7 @@ function bindAudioStudioViewEvents(): void {
   const fileInput = document.querySelector<HTMLInputElement>("#audioStudioFileInput");
   const importButton = document.querySelector<HTMLButtonElement>("#audioStudioImportButton");
   const guidedButton = document.querySelector<HTMLButtonElement>("#audioStudioGuidedButton");
+  const metadataButton = document.querySelector<HTMLButtonElement>("#audioStudioMetadataButton");
 
   importButton?.addEventListener("click", () => fileInput?.click());
   fileInput?.addEventListener("change", () => {
@@ -203,6 +215,12 @@ function bindAudioStudioViewEvents(): void {
     sendCommandNotice(audioStudioApi.stageGuidedTake({ take_id: take.id, source: take.source, title: take.title, detail: take.detail }), fallback);
   });
 
+  metadataButton?.addEventListener("click", () => {
+    const fallback = "Audio Studio metadata route checked.";
+    setAssistantNotice(fallback);
+    sendCommandNotice(audioStudioApi.exportProjectMetadata(), fallback);
+  });
+
   bindReadingActions();
   bindTakeReviewActions();
 }
@@ -218,7 +236,7 @@ function openAudioStudio(): void {
   content.innerHTML = audioStudioView();
   content.scrollTop = 0;
   bindAudioStudioViewEvents();
-  setAssistantNotice("Audio Studio opened. Non-local scaffold is ready for the next backend pass.");
+  setAssistantNotice("Audio Studio opened. Repository-side scaffold is ready for local review.");
 }
 
 export function bindAudioStudioUi(): void {
