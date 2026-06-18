@@ -40,6 +40,14 @@ export type AudioPipelineEvidence = {
   evidence_unix_ms?: number;
 };
 
+let pendingLatestAudioPipelineEvidence: Promise<AudioPipelineEvidence | null> | null = null;
+
 export function getLatestAudioPipelineEvidence(): Promise<AudioPipelineEvidence | null> {
-  return runCommand<AudioPipelineEvidence>("get_latest_audio_pipeline_evidence");
+  if (pendingLatestAudioPipelineEvidence) return pendingLatestAudioPipelineEvidence;
+  pendingLatestAudioPipelineEvidence = runCommand<AudioPipelineEvidence>("get_latest_audio_pipeline_evidence")
+    .catch(() => null)
+    .finally(() => {
+      pendingLatestAudioPipelineEvidence = null;
+    });
+  return pendingLatestAudioPipelineEvidence;
 }
