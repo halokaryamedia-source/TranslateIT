@@ -157,7 +157,7 @@ fn sanitize_optional_runtime_text(value: Option<String>) -> Option<String> {
 }
 
 fn sanitize_voice_root(value: &str) -> String {
-    let text = clean_setting_text(value).replace('\', "/");
+    let text = clean_setting_text(value).replace(char::from(92), "/");
     if text.is_empty()
         || text.starts_with("<member ")
         || text.contains("AudioSettings' objects>")
