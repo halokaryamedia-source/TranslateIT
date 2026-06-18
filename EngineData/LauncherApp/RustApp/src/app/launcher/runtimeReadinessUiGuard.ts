@@ -1,5 +1,6 @@
 let bound = false;
 let guardTimer: number | null = null;
+let observer: MutationObserver | null = null;
 
 function visibleText(id: string): string {
   return document.getElementById(id)?.textContent?.trim() ?? "";
@@ -27,15 +28,21 @@ function guardReadinessUi(): void {
   if (isPriorGenericReadyLabel(qualityStatus)) setText("qualityStatus", "Needs setup");
 }
 
-export function bindRuntimeReadinessUiGuard(): void {
-  if (bound) return;
+export function bindRuntimeReadinessUiGuard(): () => void {
+  if (bound) return unbindRuntimeReadinessUiGuard;
   bound = true;
-  const observer = new MutationObserver(() => guardReadinessUi());
+  observer = new MutationObserver(() => guardReadinessUi());
   observer.observe(document.body, { childList: true, subtree: true, characterData: true });
   guardTimer = window.setInterval(guardReadinessUi, 2_000);
-  window.addEventListener("beforeunload", () => {
-    if (guardTimer !== null) window.clearInterval(guardTimer);
-    guardTimer = null;
-  });
   guardReadinessUi();
+  return unbindRuntimeReadinessUiGuard;
+}
+
+export function unbindRuntimeReadinessUiGuard(): void {
+  if (!bound) return;
+  observer?.disconnect();
+  observer = null;
+  if (guardTimer !== null) window.clearInterval(guardTimer);
+  guardTimer = null;
+  bound = false;
 }
