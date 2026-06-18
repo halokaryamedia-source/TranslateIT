@@ -11,6 +11,7 @@ This report covers repository-side stability review for the current Dev-Rust bra
 - Tauri command argument compatibility.
 - Frontend API wrapper wiring.
 - Audio Studio UI event handling.
+- Audio Studio import file validation.
 - Audio Studio placeholder command visibility.
 - Advanced panel observer behavior.
 - Advanced panel direct-open behavior.
@@ -137,6 +138,19 @@ Fix:
 
 - Added command result formatting for `invalid_request`, `placeholder_only`, evidence-required, and unavailable command states.
 - Kept local UI staging visible while clearly labeling backend route state as placeholder-only when applicable.
+
+### 13. Import file validation
+
+Risk: unsupported, empty, very large, or too many imported files could enter staged takes and call command stubs.
+
+Fix:
+
+- Added import validation before take staging.
+- Rejected empty files.
+- Rejected files larger than 500 MB.
+- Rejected unsupported file types and extensions.
+- Limited each import action to 12 files.
+- Added rejection summaries in the assistant notice.
 
 ## Current integration chains
 
