@@ -15,6 +15,7 @@ Current repository-side scaffold progress: 100% for the non-local scope.
 - Consolidated Audio Studio styling through `audioStudioThemeEntry.ts`.
 - Guarded Audio Studio theme injection with a stable style id.
 - Added shared Audio Studio type definitions under `app/shared`.
+- Added shared Audio Studio command state constants.
 - Added Audio Studio frontend state model.
 - Added take review states: draft, staged, accepted, needs_retry, and blocked.
 - Added explicit take source definitions: import and guided_reading.
@@ -31,6 +32,7 @@ Current repository-side scaffold progress: 100% for the non-local scope.
 - Registered the Audio Studio command module.
 - Exposed command stubs in the Tauri invoke handler.
 - Added frontend Audio Studio API wrapper.
+- Added command response normalization in the Audio Studio API wrapper.
 - Connected UI actions to the frontend API wrapper.
 - Added command result formatting so placeholder routes do not look like completed runtime behavior.
 - Added project metadata route check in the UI.
