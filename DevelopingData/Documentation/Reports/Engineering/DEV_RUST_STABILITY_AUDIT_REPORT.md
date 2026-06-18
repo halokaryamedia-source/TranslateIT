@@ -23,6 +23,7 @@ This report covers repository-side stability review for the current Dev-Rust bra
 - Audio Studio contract validator robustness.
 - Audio Studio validation script chain enforcement.
 - Audio Studio cross-layer enum consistency.
+- Audio Studio safety limit consistency.
 - Advanced panel observer behavior.
 - Advanced panel direct-open behavior.
 - Theme injection behavior.
@@ -272,6 +273,17 @@ Fix:
 - The validator now checks shared take sources, take states, and command states.
 - The validator now checks Rust-side take source and state validation markers.
 - The validator now checks advanced mode ids and advanced binding hardening markers.
+
+### 24. Audio Studio safety limit consistency validation
+
+Risk: frontend import limits, frontend metadata caps, or Rust payload caps could be changed independently and create inconsistent validation behavior across UI and backend stubs.
+
+Fix:
+
+- Added limit consistency markers to `validate_audio_studio.mjs`.
+- The validator now checks staged take limit, import count limit, and max audio file size limit.
+- The validator now checks frontend title/detail limits.
+- The validator now checks Rust take id/title/detail payload limits.
 
 ## Current integration chains
 
