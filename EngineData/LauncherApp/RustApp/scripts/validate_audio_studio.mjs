@@ -47,6 +47,8 @@ const requiredText = [
 
 const expectedTakeSources = ["import", "guided_reading"];
 const expectedTakeStates = ["draft", "staged", "accepted", "needs_retry", "blocked"];
+const expectedCommandStates = ["invalid_request", "placeholder_only", "ready", "blocked"];
+const expectedAdvancedModeIds = ["starter_profile", "production_profile", "broadcast_profile"];
 const expectedRoots = {
   cache: "UserData/CacheData/AudioStudio/",
   saved_project: "UserData/SavedProject/AudioStudio/",
@@ -104,6 +106,19 @@ function expectScriptIncludes(scripts, scriptName, expectedText) {
   }
 }
 
+function expectFileIncludesAll(relativePath, expectedValues, label) {
+  const content = readRepoFile(relativePath);
+  if (content === null) {
+    errors.push(`Cannot inspect missing file for ${label}: ${relativePath}`);
+    return;
+  }
+  for (const expectedValue of expectedValues) {
+    if (!content.includes(expectedValue)) {
+      errors.push(`${label} in ${relativePath} is missing: ${expectedValue}`);
+    }
+  }
+}
+
 for (const relativePath of requiredFiles) {
   if (!existsSync(resolve(repoRoot, relativePath))) {
     errors.push(`Missing required Audio Studio file: ${relativePath}`);
@@ -120,6 +135,14 @@ for (const [relativePath, expectedText] of requiredText) {
     errors.push(`Missing expected Audio Studio marker in ${relativePath}: ${expectedText}`);
   }
 }
+
+expectFileIncludesAll("EngineData/LauncherApp/RustApp/src/app/shared/audioStudioTypes.ts", expectedTakeSources, "shared take source constants");
+expectFileIncludesAll("EngineData/LauncherApp/RustApp/src/app/shared/audioStudioTypes.ts", expectedTakeStates, "shared take state constants");
+expectFileIncludesAll("EngineData/LauncherApp/RustApp/src/app/shared/audioStudioTypes.ts", expectedCommandStates, "shared command state constants");
+expectFileIncludesAll("EngineData/LauncherApp/RustApp/src-tauri/src/commands/audio_studio.rs", expectedTakeSources, "Rust take source validation");
+expectFileIncludesAll("EngineData/LauncherApp/RustApp/src-tauri/src/commands/audio_studio.rs", expectedTakeStates, "Rust take state validation");
+expectFileIncludesAll("EngineData/LauncherApp/RustApp/src/app/launcher/audioStudioAdvancedState.ts", expectedAdvancedModeIds, "advanced mode id constants");
+expectFileIncludesAll("EngineData/LauncherApp/RustApp/src/app/launcher/audioStudioAdvancedBinding.ts", ["AUDIO_STUDIO_ADVANCED_MODE_IDS", "AUDIO_STUDIO_DEFAULT_ADVANCED_MODE", "isAdvancedMode", "clampPercent"], "advanced binding hardening markers");
 
 const packageJson = readJson("EngineData/LauncherApp/RustApp/package.json");
 if (packageJson) {
