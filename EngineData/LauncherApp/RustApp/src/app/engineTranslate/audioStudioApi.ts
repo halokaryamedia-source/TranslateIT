@@ -11,6 +11,9 @@ export type AudioStudioTakeRequest = {
   source: AudioStudioTakeSource;
   title: string;
   detail: string;
+  file_name?: string | null;
+  size_bytes?: number | null;
+  reading_line_id?: string | null;
 };
 
 export type AudioStudioStateUpdateRequest = {
@@ -32,6 +35,9 @@ export type AudioStudioTakeRecord = {
   state: AudioStudioTakeState;
   title: string;
   detail: string;
+  file_name?: string | null;
+  size_bytes?: number | null;
+  reading_line_id?: string | null;
   created_unix_ms: number;
   updated_unix_ms: number;
 };
@@ -59,6 +65,14 @@ function normalizeCommandResult(result: RawAudioStudioCommandResult): AudioStudi
   };
 }
 
+function optionalString(value: unknown): string | null {
+  return typeof value === "string" && value.trim().length > 0 ? value : null;
+}
+
+function optionalNumber(value: unknown): number | null {
+  return typeof value === "number" && Number.isFinite(value) ? value : null;
+}
+
 function normalizeTakeRecord(value: unknown): AudioStudioTakeRecord | null {
   if (!value || typeof value !== "object") return null;
   const record = value as Partial<AudioStudioTakeRecord>;
@@ -72,6 +86,9 @@ function normalizeTakeRecord(value: unknown): AudioStudioTakeRecord | null {
     state: record.state as AudioStudioTakeState,
     title: record.title,
     detail: record.detail,
+    file_name: optionalString(record.file_name),
+    size_bytes: optionalNumber(record.size_bytes),
+    reading_line_id: optionalString(record.reading_line_id),
     created_unix_ms: typeof record.created_unix_ms === "number" ? record.created_unix_ms : 0,
     updated_unix_ms: typeof record.updated_unix_ms === "number" ? record.updated_unix_ms : 0,
   };
