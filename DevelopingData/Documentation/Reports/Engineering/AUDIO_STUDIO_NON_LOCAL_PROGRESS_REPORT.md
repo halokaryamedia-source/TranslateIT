@@ -20,6 +20,7 @@ Current repository-side scaffold progress: 100% for the non-local scope.
 - Added explicit take source definitions: import and guided_reading.
 - Added stronger take id generation for imported and guided items.
 - Added import staging.
+- Added import file validation for empty, unsupported, oversized, and over-limit file selections.
 - Added guided reading staging.
 - Added backend route placeholder.
 - Added Rust command stubs.
