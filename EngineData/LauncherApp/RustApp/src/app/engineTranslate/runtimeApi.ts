@@ -111,6 +111,11 @@ export const runtimeApi = {
     clearHelperBridgeReads();
     return result;
   },
+  checkHelperBridgeHealth: async () => {
+    const result = await runCommand<HelperBridgeActionResult>("check_helper_bridge_health");
+    clearHelperBridgeReads();
+    return result;
+  },
   sendHelperBridgeRequest: async (request: HelperBridgeRequest) => {
     const result = await runCommand<HelperBridgeActionResult>("send_helper_bridge_request", { request });
     clearHelperBridgeReads();
