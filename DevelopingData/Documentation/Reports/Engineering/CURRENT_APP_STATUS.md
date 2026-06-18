@@ -19,11 +19,24 @@ Python remains part of the product as a helper runtime for tasks where Python is
 
 ### Audio Studio project-data runtime
 
+Audio Studio metadata routes now use `metadata_ready` semantics instead of general runtime `ready` semantics.
+
 - Audio Studio can stage imported audio metadata.
 - Audio Studio can stage guided-reading metadata.
 - Audio Studio can update take states.
 - Audio Studio can list saved take metadata.
 - Audio Studio can export project metadata.
+- Audio Studio persists take details:
+  - `take_id`
+  - `source`
+  - `state`
+  - `title`
+  - `detail`
+  - `file_name`
+  - `size_bytes`
+  - `reading_line_id`
+  - `created_unix_ms`
+  - `updated_unix_ms`
 - Audio Studio writes under:
   - `UserData/CacheData/AudioStudio/takes.json`
   - `UserData/CacheData/AudioStudio/logs/evidence.jsonl`
@@ -55,7 +68,9 @@ Contracts exist for:
 - Audio Studio project metadata,
 - Audio Studio advanced quality gates,
 - Audio Studio local validation evidence,
-- final Rust/Tauri plus Python helper architecture.
+- final Rust/Tauri plus Python helper architecture,
+- Python helper bridge,
+- Audio Studio route status.
 
 These contracts guide implementation and validators, but contract existence alone is not runtime readiness.
 
@@ -79,6 +94,8 @@ However, the final shell direction is now Rust/Tauri. Python/Qt launcher materia
 10. Mark legacy Python/Qt launcher docs as legacy reference where they conflict with Dev-Rust architecture.
 11. Keep Start/Stop lifecycle state separate from helper process existence.
 12. Keep hallucination/noise filtering evidence-based rather than phrase-blocklist-only.
+13. Replace or deprecate stale placeholder contracts that conflict with route-status contracts.
+14. Keep architecture contracts in `validate:internal` and `validate:full`.
 
 ## Not claimed
 
