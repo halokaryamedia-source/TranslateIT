@@ -372,3 +372,25 @@ pub fn translate_text(source: String) -> CommandResult {
         ),
     )
 }
+
+#[cfg(test)]
+mod tests {
+    use super::translate_text;
+
+    #[test]
+    fn empty_input_is_blocked_with_user_friendly_message() {
+        let result = translate_text(String::new());
+        assert!(!result.ok);
+        assert_eq!(result.state, "empty_input");
+        assert!(result.message.contains("No source text provided"));
+    }
+
+    #[test]
+    fn long_input_is_blocked_for_preview_limits() {
+        let long_input = "halo ".repeat(600);
+        let result = translate_text(long_input);
+        assert!(!result.ok);
+        assert_eq!(result.state, "translation_adapter_pending");
+        assert!(result.message.contains("too long"));
+    }
+}

@@ -298,3 +298,7 @@
   - Test: `cargo test` in `EngineData/LauncherApp/RustApp/src-tauri`
 - Final status:
   - `PASS`
+
+## Total Engine Validation
+
+- See: [TOTAL_ENGINE_VALIDATION.md](/D:/Work/AI%20Stuff/TranslateIT/TranslateIT-Rust/docs/local-validation/TOTAL_ENGINE_VALIDATION.md)

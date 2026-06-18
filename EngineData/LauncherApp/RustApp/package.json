@@ -39,6 +39,7 @@
     "validate:audio-studio": "node scripts/validate_audio_studio.mjs",
     "validate:audio-studio:local": "node scripts/run_audio_studio_local_validation.mjs",
     "verify:audio-studio:summary": "node scripts/verify_audio_studio_local_summary.mjs",
+    "validate:engine-total": "node scripts/validate_engine_total.mjs",
     "validate:root": "node ../../../DevelopingData/Tooling/Scripts/Execution/translateit_tooling.mjs validate-root",
     "validate:structure": "node ../../../DevelopingData/Tooling/Scripts/Execution/translateit_tooling.mjs validate-structure",
     "validate:launcher": "node ../../../DevelopingData/Tooling/Scripts/Execution/translateit_tooling.mjs validate-launcher",

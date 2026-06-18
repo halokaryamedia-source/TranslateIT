@@ -418,6 +418,11 @@ export class LauncherController {
       const fallback = result?.ok ? null : localPreviewTranslation(source, (this.currentSettings ?? defaultSettings()).source_language, (this.currentSettings ?? defaultSettings()).target_language);
       const response = result?.ok ? result.message : fallback ?? result?.message ?? "Translation command failed. Open Settings > Developer for diagnostics.";
       const voiceStatus = result?.ok ? this.voiceOutputStatus() : fallback ? "Local preview" : "Error";
+      if (!result?.ok) {
+        if (fallback) {
+          this.setAssistantNotice("Local preview translation shown because the native worker/model is not configured yet.");
+        }
+      }
       if (!result?.ok && !fallback) {
         this.ui.chatList.innerHTML = translationResultView(source, response, voiceStatus);
         this.setAssistantNotice(`Translation failed. ${response}`);

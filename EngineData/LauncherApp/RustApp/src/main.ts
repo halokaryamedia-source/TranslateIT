@@ -12,6 +12,7 @@ import { bindAudioDeviceListUi } from "./app/launcher/audioDeviceListBinding";
 import { bindAudioPipelineResultWatcher as bindResultWatcher } from "./app/launcher/audioPipelineResultWatcher";
 import { bindDeveloperEvidenceUi } from "./app/launcher/developerEvidenceBinding";
 import { bindDeveloperHelperBridgeUi } from "./app/launcher/developerHelperBridgeBinding";
+import { startHelperBridgeHealthMonitor } from "./app/launcher/helperBridgeHealthMonitor";
 import { bindReferenceUi } from "./app/launcher/referenceUiBinding";
 import { bindRuntimeReadinessUiGuard } from "./app/launcher/runtimeReadinessUiGuard";
 import { startRealtimeStatusPayloadAutoRefresh } from "./app/launcher/realtimeStatusPayloadRefresh";
@@ -39,6 +40,7 @@ bindVoiceOutputPersistenceUi();
 bindRuntimeReadinessUiGuard();
 const stopDeveloperEvidenceUi = bindDeveloperEvidenceUi();
 bindDeveloperHelperBridgeUi();
+const stopHelperBridgeHealthMonitor = startHelperBridgeHealthMonitor();
 const stopAudioPipelineResultWatcher = bindResultWatcher();
 const stopRealtimeStatusPayloadAutoRefresh = startRealtimeStatusPayloadAutoRefresh();
 
@@ -46,6 +48,7 @@ window.addEventListener("beforeunload", () => {
   stopAttachmentLimitWatcher();
   stopAudioDeviceListUi();
   stopDeveloperEvidenceUi();
+  stopHelperBridgeHealthMonitor();
   stopAudioPipelineResultWatcher();
   stopRealtimeStatusPayloadAutoRefresh();
 }, { once: true });

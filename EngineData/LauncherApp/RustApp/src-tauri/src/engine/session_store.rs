@@ -159,3 +159,74 @@ fn current_unix_ms() -> u128 {
 fn normalize_path(path: &Path) -> String {
     path.to_string_lossy().replace(char::from(92), "/")
 }
+
+#[cfg(test)]
+mod tests {
+    use super::{current_session_store_status, preview_session_save};
+    use crate::engine::models::{
+        LatencyMetrics, QualityReport, SavedSessionPayload, TranscriptSegmentPayload,
+    };
+
+    #[test]
+    fn session_store_status_is_safe() {
+        let status = current_session_store_status();
+        assert!(!status.output_dir.trim().is_empty());
+        assert!(!status.note.trim().is_empty());
+    }
+
+    #[test]
+    fn save_preview_normalizes_empty_session_id() {
+        let payload = SavedSessionPayload {
+            schema_version: 1,
+            session_id: String::new(),
+            created_unix_ms: 1,
+            app_version: None,
+            source_language: Some("id".to_string()),
+            target_language: Some("en".to_string()),
+            vad_preset: None,
+            worker_health: None,
+            segments: vec![TranscriptSegmentPayload {
+                segment_id: "seg-1".to_string(),
+                source_language: "id".to_string(),
+                target_language: "en".to_string(),
+                detected_language: None,
+                original_text: "halo".to_string(),
+                normalized_source_text: Some("halo".to_string()),
+                translated_text: Some("hello".to_string()),
+                source_audio_path: None,
+                translated_audio_path: None,
+                translation_engine: None,
+                asr_model: None,
+                voice_profile_id: None,
+                capture_mode: None,
+                reject_reason_code: None,
+                latency: LatencyMetrics {
+                    audio_verify_ms: None,
+                    speech_detection_ms: None,
+                    asr_ms: None,
+                    translation_ms: None,
+                    tts_ms: None,
+                    total_after_eos_ms: None,
+                    speech_duration_ms: None,
+                    delay_after_speech_end_ms: None,
+                    total_realtime_ms: None,
+                    missing_latency_ms: None,
+                    main_bottleneck_stage: None,
+                },
+                quality: QualityReport {
+                    accepted: true,
+                    reason: "ok".to_string(),
+                    confidence: None,
+                    language_probability: None,
+                    no_speech_probability: None,
+                    average_log_probability: None,
+                    compression_ratio: None,
+                    audio_evidence: None,
+                },
+            }],
+        };
+        let preview = preview_session_save(&payload);
+        assert!(!preview.session_id.trim().is_empty());
+        assert_eq!(preview.segment_count, 1);
+    }
+}

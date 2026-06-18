@@ -108,3 +108,24 @@ fn sanitize_command_result_message(value: String) -> String {
     }
     clean
 }
+
+#[cfg(test)]
+mod tests {
+    use super::{CommandResult, LifecycleState};
+
+    #[test]
+    fn command_result_sanitizes_empty_message() {
+        let result = CommandResult::blocked(LifecycleState::Error, "   ");
+        assert!(!result.ok);
+        assert_eq!(result.message, "Command completed without a message.");
+    }
+
+    #[test]
+    fn lifecycle_state_labels_are_stable() {
+        assert_eq!(LifecycleState::EmptyInput.as_label(), "empty_input");
+        assert_eq!(
+            LifecycleState::TranslationAdapterPending.as_label(),
+            "translation_adapter_pending"
+        );
+    }
+}

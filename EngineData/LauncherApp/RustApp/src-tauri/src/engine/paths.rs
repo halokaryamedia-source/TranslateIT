@@ -81,3 +81,27 @@ fn discovery_note(root_verified: bool) -> String {
 fn normalize_path(path: &Path) -> String {
     path.to_string_lossy().replace('\\', "/")
 }
+
+#[cfg(test)]
+mod tests {
+    use super::ProjectPaths;
+
+    #[test]
+    fn discover_produces_non_empty_runtime_paths() {
+        let paths = ProjectPaths::discover();
+        assert!(!paths.project_root.trim().is_empty());
+        assert!(!paths.user_cache_dir.trim().is_empty());
+        assert!(!paths.user_log_dir.trim().is_empty());
+        assert!(!paths.user_saved_dir.trim().is_empty());
+        assert!(!paths.discovery_note.trim().is_empty());
+    }
+
+    #[test]
+    fn discover_uses_forward_slashes_in_reported_paths() {
+        let paths = ProjectPaths::discover();
+        assert!(!paths.project_root.contains('\\'));
+        assert!(!paths.user_cache_dir.contains('\\'));
+        assert!(!paths.user_log_dir.contains('\\'));
+        assert!(!paths.user_saved_dir.contains('\\'));
+    }
+}

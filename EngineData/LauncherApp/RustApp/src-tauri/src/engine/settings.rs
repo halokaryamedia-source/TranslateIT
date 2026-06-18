@@ -198,3 +198,44 @@ fn sanitize_voice_root(value: &str) -> String {
         "EngineData/VoiceActorProfiles".to_string()
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::{sanitize_voice_root, RuntimeSettings};
+    use std::fs;
+
+    #[test]
+    fn missing_settings_file_falls_back_to_defaults() {
+        let path = std::env::temp_dir().join("translateit_missing_settings_test.json");
+        let _ = fs::remove_file(&path);
+        let settings = RuntimeSettings::load_or_default(&path);
+        assert_eq!(settings.source_language, "id");
+        assert_eq!(settings.target_language, "en");
+        assert_eq!(settings.runtime_profile, "Realtime");
+    }
+
+    #[test]
+    fn settings_roundtrip_preserves_safe_values() {
+        let path = std::env::temp_dir().join("translateit_settings_roundtrip_test.json");
+        let _ = fs::remove_file(&path);
+        let settings = RuntimeSettings::default().sanitized();
+        settings.save_pretty(&path).expect("settings should save");
+        let loaded = RuntimeSettings::load_or_default(&path);
+        let _ = fs::remove_file(&path);
+        assert_eq!(loaded.source_language, "id");
+        assert_eq!(loaded.target_language, "en");
+        assert_eq!(loaded.runtime_profile, "Realtime");
+        assert_eq!(
+            loaded.audio.voice_actor_profiles_root,
+            "EngineData/VoiceActorProfiles"
+        );
+    }
+
+    #[test]
+    fn unsafe_voice_root_falls_back_to_default_root() {
+        assert_eq!(
+            sanitize_voice_root("../../private"),
+            "EngineData/VoiceActorProfiles"
+        );
+    }
+}
