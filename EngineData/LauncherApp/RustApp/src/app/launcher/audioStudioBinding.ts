@@ -1,4 +1,4 @@
-import { audioStudioApi, type AudioStudioCommandResult } from "../engineTranslate/audioStudioApi";
+import { audioStudioApi, type AudioStudioCommandResult, type AudioStudioTakeRecord } from "../engineTranslate/audioStudioApi";
 import { icon } from "../shared/icons";
 import { injectAudioStudioAdvancedPanel } from "./audioStudioAdvancedBinding";
 import {
@@ -127,6 +127,34 @@ function sendCommandNotice(task: Promise<AudioStudioCommandResult | null>, fallb
     });
 }
 
+function takeRecordToDraft(record: AudioStudioTakeRecord): AudioStudioTakeDraft {
+  return {
+    id: record.take_id,
+    source: record.source,
+    state: record.state,
+    title: record.title,
+    detail: record.detail,
+  };
+}
+
+function refreshPersistedTakes(): void {
+  const sequence = ++commandNoticeSequence;
+  void audioStudioApi.listTakes()
+    .then((result) => {
+      if (sequence !== commandNoticeSequence) return;
+      if (!result) {
+        setAssistantNotice("Audio Studio saved takes unavailable in this runtime.");
+        return;
+      }
+      stagedTakes = result.takes.map(takeRecordToDraft).slice(0, MAX_STAGED_TAKES);
+      renderTakeReviewPanel();
+      setAssistantNotice(`${result.message} Loaded ${stagedTakes.length} saved take(s).`);
+    })
+    .catch(() => {
+      if (sequence === commandNoticeSequence) setAssistantNotice("Audio Studio saved takes unavailable in this runtime.");
+    });
+}
+
 function updateTakeState(takeId: string, state: AudioStudioTakeState): void {
   stagedTakes = stagedTakes.map((take) => take.id === takeId ? { ...take, state } : take);
   const take = stagedTakes.find((item) => item.id === takeId);
@@ -153,7 +181,7 @@ function readingCards(): string {
 
 function takeReviewCards(): string {
   if (stagedTakes.length === 0) {
-    return `<article class="feature-card empty-state-card"><div class="feature-title-row"><h4>No take staged yet</h4></div><p>Import audio or choose a guided reading line to create the first draft take.</p></article>`;
+    return `<article class="feature-card empty-state-card"><div class="feature-title-row"><h4>No take staged yet</h4></div><p>Import audio, choose a guided reading line, or load saved takes from UserData.</p></article>`;
   }
 
   return stagedTakes.map((take) => `
@@ -221,8 +249,13 @@ function audioStudioView(): string {
           </section>
           <section class="settings-output-row">
             ${icon("fileText")}
-            <div><h3>Project metadata</h3><p>Review the project metadata route before local file writing is enabled.</p></div>
-            <button id="audioStudioMetadataButton" class="mic-test-button-v22 secondary" type="button">Check Route</button>
+            <div><h3>Saved takes</h3><p>Load persisted takes from UserData/CacheData/AudioStudio.</p></div>
+            <button id="audioStudioLoadButton" class="mic-test-button-v22 secondary" type="button">Load Saved</button>
+          </section>
+          <section class="settings-output-row">
+            ${icon("fileText")}
+            <div><h3>Project metadata</h3><p>Export project metadata to UserData/SavedProject/AudioStudio.</p></div>
+            <button id="audioStudioMetadataButton" class="mic-test-button-v22 secondary" type="button">Export Metadata</button>
           </section>
         </div>
         <input id="audioStudioFileInput" type="file" accept="audio/wav,audio/mpeg,audio/mp4,audio/ogg,audio/webm,.wav,.mp3,.m4a,.ogg,.webm" multiple hidden />
@@ -244,14 +277,14 @@ function audioStudioView(): string {
 
       <section class="settings-section-title">
         <h2>Readiness Gate</h2>
-        <p>This branch adds repository-side scaffolding. Runtime validation remains blocked until target-PC review exists.</p>
+        <p>This branch now persists project metadata locally. Provider processing and real audio generation remain blocked until runtime integration exists.</p>
       </section>
       <article class="settings-card settings-card--audio-studio-status">
         <div class="developer-log-body" aria-label="Audio Studio readiness">
           <p class="developer-log-row"><strong>INFO</strong><span>UI scaffold: staged</span></p>
+          <p class="developer-log-row"><strong>INFO</strong><span>Project metadata persistence: enabled</span></p>
           <p class="developer-log-row"><strong>INFO</strong><span>Take states: draft, staged, accepted, retry, blocked</span></p>
-          <p class="developer-log-row"><strong>INFO</strong><span>Frontend API wrapper: connected to UI actions</span></p>
-          <p class="developer-log-row"><strong>WAIT</strong><span>Runtime route: reviewed stub until local execution is checked</span></p>
+          <p class="developer-log-row"><strong>WAIT</strong><span>Provider processing: not connected yet</span></p>
         </div>
       </article>
     </div>
@@ -274,9 +307,11 @@ function bindAudioStudioViewEvents(): void {
   const fileInput = document.querySelector<HTMLInputElement>("#audioStudioFileInput");
   const importButton = document.querySelector<HTMLButtonElement>("#audioStudioImportButton");
   const guidedButton = document.querySelector<HTMLButtonElement>("#audioStudioGuidedButton");
+  const loadButton = document.querySelector<HTMLButtonElement>("#audioStudioLoadButton");
   const metadataButton = document.querySelector<HTMLButtonElement>("#audioStudioMetadataButton");
 
   importButton?.addEventListener("click", () => fileInput?.click());
+  loadButton?.addEventListener("click", refreshPersistedTakes);
   fileInput?.addEventListener("change", () => {
     const selectedFiles = Array.from(fileInput.files ?? []);
     const { accepted, rejected } = validatedImportFiles(selectedFiles);
@@ -311,7 +346,7 @@ function bindAudioStudioViewEvents(): void {
   });
 
   metadataButton?.addEventListener("click", () => {
-    const fallback = "Audio Studio metadata route checked.";
+    const fallback = "Audio Studio metadata export requested.";
     setAssistantNotice(fallback);
     sendCommandNotice(audioStudioApi.exportProjectMetadata(), fallback);
   });
@@ -332,7 +367,8 @@ function openAudioStudio(): void {
   content.scrollTop = 0;
   bindAudioStudioViewEvents();
   injectAudioStudioAdvancedPanel();
-  setAssistantNotice("Audio Studio opened. Repository-side scaffold is ready for local review.");
+  setAssistantNotice("Audio Studio opened. Loading saved project metadata from UserData.");
+  refreshPersistedTakes();
 }
 
 export function bindAudioStudioUi(): void {
