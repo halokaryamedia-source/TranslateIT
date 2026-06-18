@@ -1,8 +1,10 @@
 import { existsSync, readFileSync } from "node:fs";
-import { resolve } from "node:path";
+import { dirname, resolve } from "node:path";
+import { fileURLToPath } from "node:url";
 
-const root = process.cwd();
-const repoRoot = resolve(root, "../../..");
+const scriptDir = dirname(fileURLToPath(import.meta.url));
+const packageRoot = resolve(scriptDir, "..");
+const repoRoot = resolve(packageRoot, "../../..");
 
 const requiredFiles = [
   "EngineData/LauncherApp/RustApp/src/audioStudioEntry.ts",
@@ -43,12 +45,52 @@ const requiredText = [
   ["EngineData/Backend/RuntimeContracts/AUDIO_STUDIO_ADVANCED_QUALITY_CONTRACT.json", "root_contracts_normalized"],
 ];
 
+const expectedTakeSources = ["import", "guided_reading"];
+const expectedTakeStates = ["draft", "staged", "accepted", "needs_retry", "blocked"];
+const expectedRoots = {
+  cache: "UserData/CacheData/AudioStudio/",
+  saved_project: "UserData/SavedProject/AudioStudio/",
+  logs: "UserData/CacheData/AudioStudio/logs/",
+};
+
 const errors = [];
 
 function readRepoFile(relativePath) {
   const absolutePath = resolve(repoRoot, relativePath);
   if (!existsSync(absolutePath)) return null;
   return readFileSync(absolutePath, "utf8");
+}
+
+function readJson(relativePath) {
+  const content = readRepoFile(relativePath);
+  if (content === null) {
+    errors.push(`Cannot inspect missing JSON file: ${relativePath}`);
+    return null;
+  }
+  try {
+    return JSON.parse(content);
+  } catch (error) {
+    errors.push(`Invalid JSON in ${relativePath}: ${error instanceof Error ? error.message : String(error)}`);
+    return null;
+  }
+}
+
+function expectArrayEquals(actual, expected, label) {
+  if (!Array.isArray(actual)) {
+    errors.push(`${label} must be an array.`);
+    return;
+  }
+  const actualJoined = actual.join("|");
+  const expectedJoined = expected.join("|");
+  if (actualJoined !== expectedJoined) {
+    errors.push(`${label} mismatch. Expected ${expectedJoined}, got ${actualJoined}.`);
+  }
+}
+
+function expectValue(actual, expected, label) {
+  if (actual !== expected) {
+    errors.push(`${label} mismatch. Expected ${expected}, got ${String(actual)}.`);
+  }
 }
 
 for (const relativePath of requiredFiles) {
@@ -65,6 +107,30 @@ for (const [relativePath, expectedText] of requiredText) {
   }
   if (!content.includes(expectedText)) {
     errors.push(`Missing expected Audio Studio marker in ${relativePath}: ${expectedText}`);
+  }
+}
+
+const metadataContract = readJson("EngineData/Backend/RuntimeContracts/AUDIO_STUDIO_PROJECT_METADATA_CONTRACT.json");
+if (metadataContract) {
+  expectValue(metadataContract.schema, "translateit.audio_studio_project_metadata_contract.v1", "metadata contract schema");
+  expectValue(metadataContract.status, "contract_only", "metadata contract status");
+  expectValue(metadataContract.local_validation_required_before_ready, true, "metadata local validation requirement");
+  expectValue(metadataContract.approved_roots?.cache, expectedRoots.cache, "metadata cache root");
+  expectValue(metadataContract.approved_roots?.saved_project, expectedRoots.saved_project, "metadata saved project root");
+  expectValue(metadataContract.approved_roots?.logs, expectedRoots.logs, "metadata logs root");
+  expectArrayEquals(metadataContract.allowed_take_sources, expectedTakeSources, "metadata allowed take sources");
+  expectArrayEquals(metadataContract.allowed_take_states, expectedTakeStates, "metadata allowed take states");
+}
+
+const advancedContract = readJson("EngineData/Backend/RuntimeContracts/AUDIO_STUDIO_ADVANCED_QUALITY_CONTRACT.json");
+if (advancedContract) {
+  expectValue(advancedContract.schema, "translateit.audio_studio_advanced_quality_contract.v1", "advanced quality contract schema");
+  expectValue(advancedContract.status, "advanced_non_local_contract", "advanced quality contract status");
+  expectValue(advancedContract.approved_audio_studio_roots?.cache, expectedRoots.cache, "advanced cache root");
+  expectValue(advancedContract.approved_audio_studio_roots?.saved_project, expectedRoots.saved_project, "advanced saved project root");
+  expectValue(advancedContract.approved_audio_studio_roots?.logs, expectedRoots.logs, "advanced logs root");
+  if (!Array.isArray(advancedContract.non_local_done_definition) || !advancedContract.non_local_done_definition.includes("root_contracts_normalized")) {
+    errors.push("advanced non-local definition must include root_contracts_normalized.");
   }
 }
 
