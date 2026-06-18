@@ -1,5 +1,9 @@
-const style = document.createElement("style");
-style.textContent = `
+const AUDIO_STUDIO_THEME_ID = "translateit-audio-studio-theme";
+
+if (!document.getElementById(AUDIO_STUDIO_THEME_ID)) {
+  const style = document.createElement("style");
+  style.id = AUDIO_STUDIO_THEME_ID;
+  style.textContent = `
 .settings-view--audio-studio { min-height: 100%; }
 .settings-card--audio-studio, .settings-card--audio-studio-status { gap: 18px; }
 .audio-studio-reading-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 14px; }
@@ -11,4 +15,7 @@ style.textContent = `
 .audio-studio-reading-card p { margin: 0; color: #334155; font-size: 13px; line-height: 1.55; }
 @media (max-width: 980px) { .audio-studio-reading-grid { grid-template-columns: 1fr; } }
 `;
-document.head.appendChild(style);
+  document.head.appendChild(style);
+}
+
+export {};
