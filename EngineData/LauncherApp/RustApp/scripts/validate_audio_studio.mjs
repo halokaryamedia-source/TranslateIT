@@ -22,6 +22,7 @@ const requiredFiles = [
   "EngineData/Backend/RuntimeContracts/AUDIO_STUDIO_ROUTE_PLACEHOLDER.json",
   "EngineData/Backend/RuntimeContracts/AUDIO_STUDIO_PROJECT_METADATA_CONTRACT.json",
   "EngineData/Backend/RuntimeContracts/AUDIO_STUDIO_ADVANCED_QUALITY_CONTRACT.json",
+  "EngineData/Backend/RuntimeContracts/AUDIO_STUDIO_LOCAL_VALIDATION_EVIDENCE_CONTRACT.json",
 ];
 
 const requiredText = [
@@ -49,6 +50,7 @@ const requiredText = [
   ["EngineData/LauncherApp/RustApp/scripts/run_audio_studio_local_validation.mjs", "not_ready_until_target_pc_review"],
   ["EngineData/Backend/RuntimeContracts/AUDIO_STUDIO_PROJECT_METADATA_CONTRACT.json", "UserData/CacheData/AudioStudio/logs/"],
   ["EngineData/Backend/RuntimeContracts/AUDIO_STUDIO_ADVANCED_QUALITY_CONTRACT.json", "root_contracts_normalized"],
+  ["EngineData/Backend/RuntimeContracts/AUDIO_STUDIO_LOCAL_VALIDATION_EVIDENCE_CONTRACT.json", "translateit.audio_studio_local_validation_evidence_contract.v1"],
 ];
 
 const expectedTakeSources = ["import", "guided_reading"];
@@ -82,6 +84,23 @@ const expectedPayloadLimits = {
   import_file_max_bytes: 524288000,
   accepted_import_extensions: expectedImportExtensions,
 };
+
+const expectedEvidenceSummaryFields = [
+  "schema",
+  "status",
+  "started_at",
+  "completed_at",
+  "package_root",
+  "log_path",
+  "summary_path",
+  "include_tauri_build",
+  "runtime_claim",
+  "steps",
+  "error_message",
+];
+const expectedEvidenceStepFields = ["name", "command", "status", "started_at", "completed_at", "exit_code"];
+const expectedEvidenceStatuses = ["running", "passed", "failed"];
+const expectedEvidenceSteps = ["Audio Studio static validator", "TypeScript typecheck", "Rust cargo check", "Frontend build"];
 
 const errors = [];
 
@@ -216,6 +235,20 @@ if (advancedContract) {
   if (!Array.isArray(advancedContract.non_local_done_definition) || !advancedContract.non_local_done_definition.includes("metadata_payload_limits_synced")) {
     errors.push("advanced non-local definition must include metadata_payload_limits_synced.");
   }
+}
+
+const evidenceContract = readJson("EngineData/Backend/RuntimeContracts/AUDIO_STUDIO_LOCAL_VALIDATION_EVIDENCE_CONTRACT.json");
+if (evidenceContract) {
+  expectValue(evidenceContract.schema, "translateit.audio_studio_local_validation_evidence_contract.v1", "local validation evidence contract schema");
+  expectValue(evidenceContract.status, "contract_only", "local validation evidence contract status");
+  expectValue(evidenceContract.approved_output_root, expectedRoots.logs, "local validation evidence output root");
+  expectValue(evidenceContract.summary_schema, "translateit.audio_studio_local_validation.v1", "local validation summary schema");
+  expectValue(evidenceContract.required_runtime_claim, "not_ready_until_target_pc_review", "local validation required runtime claim");
+  expectArrayEquals(evidenceContract.required_summary_fields, expectedEvidenceSummaryFields, "local validation required summary fields");
+  expectArrayEquals(evidenceContract.allowed_summary_statuses, expectedEvidenceStatuses, "local validation allowed summary statuses");
+  expectArrayEquals(evidenceContract.required_step_fields, expectedEvidenceStepFields, "local validation required step fields");
+  expectArrayEquals(evidenceContract.allowed_step_statuses, expectedEvidenceStatuses, "local validation allowed step statuses");
+  expectArrayEquals(evidenceContract.required_steps, expectedEvidenceSteps, "local validation required steps");
 }
 
 if (errors.length > 0) {
