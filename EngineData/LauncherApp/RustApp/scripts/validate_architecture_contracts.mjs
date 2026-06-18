@@ -7,14 +7,20 @@ const packageRoot = resolve(scriptDir, "..");
 const repoRoot = resolve(packageRoot, "../../..");
 const errors = [];
 
-function readJson(path) {
+function readText(path) {
   const fullPath = resolve(repoRoot, path);
   if (!existsSync(fullPath)) {
-    errors.push(`Missing contract: ${path}`);
-    return null;
+    errors.push(`Missing file: ${path}`);
+    return "";
   }
+  return readFileSync(fullPath, "utf8");
+}
+
+function readJson(path) {
+  const content = readText(path);
+  if (!content) return null;
   try {
-    return JSON.parse(readFileSync(fullPath, "utf8"));
+    return JSON.parse(content);
   } catch (error) {
     errors.push(`Invalid contract JSON ${path}: ${error instanceof Error ? error.message : String(error)}`);
     return null;
@@ -27,6 +33,10 @@ function expect(value, expected, label) {
 
 function includes(list, value, label) {
   if (!Array.isArray(list) || !list.includes(value)) errors.push(`${label}: missing ${value}`);
+}
+
+function textIncludes(content, value, label) {
+  if (!content.includes(value)) errors.push(`${label}: missing ${value}`);
 }
 
 const architecture = readJson("EngineData/Backend/RuntimeContracts/FINAL_ARCHITECTURE_CONTRACT.json");
@@ -66,6 +76,17 @@ if (audioStudioPlaceholder) {
   expect(audioStudioPlaceholder.replacement_contract, "EngineData/Backend/RuntimeContracts/AUDIO_STUDIO_ROUTE_STATUS_CONTRACT.json", "Audio Studio placeholder replacement");
   expect(audioStudioPlaceholder.current_storage_policy?.evidence_log_root, "UserData/CacheData/AudioStudio/logs/", "Audio Studio placeholder evidence log root");
 }
+
+const audioStudioRust = readText("EngineData/LauncherApp/RustApp/src-tauri/src/commands/audio_studio.rs");
+textIncludes(audioStudioRust, "pub fn audio_studio_get_provider_status", "Audio Studio provider route");
+textIncludes(audioStudioRust, "pub fn audio_studio_get_quality_gate_status", "Audio Studio quality gate route");
+textIncludes(audioStudioRust, "provider_status_checked", "Audio Studio provider evidence event");
+textIncludes(audioStudioRust, "quality_gate_status_checked", "Audio Studio quality evidence event");
+textIncludes(audioStudioRust, "result(false, \"provider_blocked\"", "Audio Studio provider/quality readiness guard");
+
+const audioStudioApi = readText("EngineData/LauncherApp/RustApp/src/app/engineTranslate/audioStudioApi.ts");
+textIncludes(audioStudioApi, "getProviderStatus", "Audio Studio provider frontend API");
+textIncludes(audioStudioApi, "getQualityGateStatus", "Audio Studio quality gate frontend API");
 
 if (errors.length > 0) {
   console.error("Architecture contract validation failed:");
