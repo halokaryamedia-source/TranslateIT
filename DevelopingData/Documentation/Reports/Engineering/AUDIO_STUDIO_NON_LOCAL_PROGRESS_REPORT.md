@@ -56,6 +56,8 @@ Current repository-side scaffold progress: 100% for the non-local scope.
 - Added quality-gate scaffold.
 - Added empty-state fallbacks for missing advanced modes, controls, and quality dimensions.
 - Added Audio Studio static validator script.
+- Strengthened Audio Studio static validator path handling using script-location based root detection.
+- Added Audio Studio contract JSON parsing and structural checks to the static validator.
 - Registered `validate:audio-studio` in `package.json`.
 - Included `validate:audio-studio` in `validate:internal` and `validate:full`.
 - Guarded advanced UI observer wiring to avoid repeated observer setup.
