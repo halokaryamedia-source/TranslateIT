@@ -19,12 +19,12 @@ This means:
 
 ## What is not active
 
-Older launcher prototypes, old handoff notes, and old phase reports are historical context only.
+Superseded launcher prototypes, historical handoff notes, and phase reports are historical context only.
 
 They must not be used to claim:
 
 - a second product engine,
-- Python/Qt as the user-facing shell,
+- any non-Rust/Tauri user-facing shell,
 - packaged app readiness,
 - CUDA readiness,
 - microphone capture success,
@@ -36,7 +36,7 @@ They must not be used to claim:
 
 ## Active source-of-truth priority
 
-When any older note conflicts with current implementation, use this priority order:
+When any superseded note conflicts with current implementation, use this priority order:
 
 1. `DevelopingData/Documentation/Reports/Engineering/ACTIVE_DOCUMENTATION_INDEX.md`
 2. `DevelopingData/Documentation/Reports/Engineering/CURRENT_APP_STATUS.md`
@@ -47,14 +47,14 @@ When any older note conflicts with current implementation, use this priority ord
 
 ## Naming rule
 
-Do not describe older material as another active engine.
+Do not describe superseded material as another active engine.
 
 Use these terms instead:
 
 - `historical note`
 - `superseded note`
 - `reference-only report`
-- `old prototype note`
+- `prototype note`
 
 Avoid wording that implies another launcher engine can be reactivated without a new approved architecture contract.
 
