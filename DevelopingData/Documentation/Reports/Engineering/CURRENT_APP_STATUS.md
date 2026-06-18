@@ -36,6 +36,9 @@ Python remains part of the product as a helper runtime for tasks where Python is
 - Frontend includes a helper health monitor that checks health every 15 seconds only when the helper status is already `ready`.
 - Developer UI reads and displays helper bridge status.
 - Developer UI includes Start Helper, Worker Status, Stop Helper, and Cancel Task controls.
+- Developer UI includes a detailed helper readiness panel for CUDA/provider/degraded mode and helper stderr log path.
+- Helper bridge validator is registered in package validation scripts.
+- UserData root policy validator is registered in package validation scripts.
 - Helper existence alone must not mark full runtime ready; model/provider readiness still depends on worker response evidence and local validation.
 
 ### Audio Studio project-data runtime
@@ -87,7 +90,7 @@ Still scaffold-only:
 
 ### Python helper runtime bridge remaining work
 
-Helper worker spawn, ping health check, JSON-line request forwarding, worker status mapping, capture generation-token invalidation, helper error-log capture, and frontend health monitor now exist, but these still require local validation and additional runtime hardening.
+Helper worker spawn, ping health check, JSON-line request forwarding, worker status mapping, capture generation-token invalidation, helper error-log capture, frontend health monitor, detailed degraded-mode visibility, and helper bridge validator now exist, but these still require local validation and additional runtime hardening.
 
 Still pending:
 
@@ -119,15 +122,13 @@ However, the final shell direction is now Rust/Tauri. Python/Qt launcher materia
 
 1. Validate helper worker spawn on target PC.
 2. Replace capture one-shot worker invocation with long-running helper bridge routing.
-3. Add visible degraded-mode controls for CPU/provider fallback.
-4. Implement Audio Studio provider processing after metadata routes.
-5. Add Audio Studio guided microphone capture.
-6. Add Audio Studio audio quality scoring.
-7. Remove or migrate machine-specific absolute paths from runtime defaults.
-8. Mark legacy Python/Qt launcher docs as legacy reference where they conflict with Dev-Rust architecture.
-9. Keep hallucination/noise filtering evidence-based rather than phrase-blocklist-only.
-10. Replace or deprecate stale placeholder contracts that conflict with route-status contracts.
-11. Register UserData root policy validator in package validation chain once package update is accepted.
+3. Implement Audio Studio provider processing after metadata routes.
+4. Add Audio Studio guided microphone capture.
+5. Add Audio Studio audio quality scoring.
+6. Remove or migrate machine-specific absolute paths from runtime defaults.
+7. Mark legacy Python/Qt launcher docs as legacy reference where they conflict with Dev-Rust architecture.
+8. Keep hallucination/noise filtering evidence-based rather than phrase-blocklist-only.
+9. Replace or deprecate stale placeholder contracts that conflict with route-status contracts.
 
 ## Not claimed
 
