@@ -4,6 +4,9 @@ use std::path::{Component, Path, PathBuf};
 use crate::engine::session_store::{preview_transcript_session_save, SessionSavePreview};
 use crate::engine::transcript::TranscriptSegmentRecord;
 
+const MAX_PATH_SEGMENT_CHARS: usize = 96;
+const MAX_EXTENSION_CHARS: usize = 12;
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct TranscriptSessionRecord {
     pub session_id: String,
@@ -111,7 +114,7 @@ pub fn summarize_transcript_session(session: &TranscriptSessionRecord) -> Transc
         .count();
 
     TranscriptSessionSummary {
-        session_id: session.session_id.clone(),
+        session_id: safe_path_segment(&session.session_id, "session"),
         segment_count: session.segment_count(),
         source_language: session.input_language.clone(),
         target_language: session.output_language.clone(),
@@ -127,11 +130,12 @@ pub fn plan_transcript_session_paths(request: TranscriptSessionPlanRequest) -> T
     let store_preview = preview_transcript_session_save(&request.session);
     let cache_root = request.cache_root.unwrap_or_default();
     let saved_root = request.saved_root.unwrap_or_default();
-    let cache_session_dir = join_path(&cache_root, &["session_cache", &request.session.session_id]);
+    let session_id = safe_path_segment(&request.session.session_id, "session");
+    let cache_session_dir = join_path(&cache_root, &["session_cache", &session_id]);
     let cache_audio_dir = join_path(&cache_root, &["audio_segments"]);
-    let cache_session_json_path = join_path(&cache_session_dir, &[&format!("{}.json", request.session.session_id)]);
-    let saved_session_dir = join_path(&saved_root, &["SavedTranscript", &request.session.session_id]);
-    let saved_session_json_path = join_path(&saved_session_dir, &[&format!("{}.json", request.session.session_id)]);
+    let cache_session_json_path = join_path(&cache_session_dir, &[&format!("{}.json", session_id)]);
+    let saved_session_dir = join_path(&saved_root, &["SavedTranscript", &session_id]);
+    let saved_session_json_path = join_path(&saved_session_dir, &[&format!("{}.json", session_id)]);
 
     let mut guard_blockers = Vec::new();
     guard_path("cache_root", &cache_root, &cache_session_json_path, &mut guard_blockers);
@@ -139,7 +143,8 @@ pub fn plan_transcript_session_paths(request: TranscriptSessionPlanRequest) -> T
 
     let mut planned_cache_items = vec![cache_session_json_path.clone()];
     for segment in &request.session.segments {
-        planned_cache_items.push(join_path(&cache_audio_dir, &[&format!("{}.wav", segment.segment_id)]));
+        let segment_id = safe_path_segment(&segment.segment_id, "segment");
+        planned_cache_items.push(join_path(&cache_audio_dir, &[&format!("{}.wav", segment_id)]));
     }
 
     let mut planned_save_items = vec![saved_session_json_path.clone()];
@@ -214,15 +219,36 @@ fn has_unsafe_component(value: &str) -> bool {
     Path::new(value).components().any(|component| matches!(component, Component::ParentDir))
 }
 
-fn saved_audio_filename(segment_id: &str, source_path: &str, role: &str) -> String {
-    let suffix = Path::new(source_path)
+fn safe_path_segment(value: &str, fallback: &str) -> String {
+    let clean = value
+        .trim()
+        .chars()
+        .map(|character| if character.is_ascii_alphanumeric() || matches!(character, '-' | '_') { character } else { '_' })
+        .take(MAX_PATH_SEGMENT_CHARS)
+        .collect::<String>();
+    if clean.is_empty() { fallback.to_string() } else { clean }
+}
+
+fn safe_extension(source_path: &str) -> String {
+    let extension = Path::new(source_path)
         .extension()
         .and_then(|value| value.to_str())
-        .map(|value| format!(".{value}"))
-        .unwrap_or_else(|| ".wav".to_string());
-    format!("{segment_id}-{role}{suffix}")
+        .unwrap_or("wav")
+        .trim()
+        .chars()
+        .filter(|character| character.is_ascii_alphanumeric())
+        .take(MAX_EXTENSION_CHARS)
+        .collect::<String>();
+    if extension.is_empty() { "wav".to_string() } else { extension }
+}
+
+fn saved_audio_filename(segment_id: &str, source_path: &str, role: &str) -> String {
+    let segment = safe_path_segment(segment_id, "segment");
+    let role = safe_path_segment(role, "audio");
+    let extension = safe_extension(source_path);
+    format!("{segment}-{role}.{extension}")
 }
 
 fn normalize_path(path: &Path) -> String {
-    path.to_string_lossy().replace('\\', "/")
+    path.to_string_lossy().replace(char::from(92), "/")
 }
