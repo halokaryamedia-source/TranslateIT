@@ -26,6 +26,8 @@ Python remains part of the product as a helper runtime for tasks where Python is
 - `start_helper_bridge` resolves `EngineData/Backend/LocalWorker/WorkerRuntime/realtime_local_worker.py`.
 - `start_helper_bridge` requires the project-local worker `.venv` Python created by `setup_realtime_worker.ps1`.
 - `start_helper_bridge` spawns the Python worker with piped stdin/stdout and verifies startup using a `ping` command.
+- Worker error stream is captured under `UserData/CacheData/HelperBridge/logs/`.
+- `get_helper_bridge_status` returns the latest helper error-log path when available.
 - After ping, `start_helper_bridge` asks the worker for `status` and maps worker readiness into `cuda_ready`, `provider_ready`, `degraded_mode`, and `last_error`.
 - `send_helper_bridge_request` sends JSON-line requests to the running worker and reads one JSON-line response.
 - `send_helper_bridge_request` maps worker responses into helper bridge readiness state.
@@ -83,13 +85,12 @@ Still scaffold-only:
 
 ### Python helper runtime bridge remaining work
 
-Helper worker spawn, ping health check, JSON-line request forwarding, worker status mapping, and capture generation-token invalidation now exist, but these still require local validation and additional runtime hardening.
+Helper worker spawn, ping health check, JSON-line request forwarding, worker status mapping, capture generation-token invalidation, and helper error-log capture now exist, but these still require local validation and additional runtime hardening.
 
 Still pending:
 
 - target-PC spawn validation,
 - long-running health monitor,
-- worker stderr/error visibility mapping,
 - replacing the older capture one-shot worker invocation with the long-running helper bridge,
 - full Start/Stop capture result routing through helper request/response evidence.
 
