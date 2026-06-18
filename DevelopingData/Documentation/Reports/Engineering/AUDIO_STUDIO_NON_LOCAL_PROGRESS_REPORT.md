@@ -29,6 +29,7 @@ Current repository-side scaffold progress: 100% for the non-local scope.
 - Exposed command stubs in the Tauri invoke handler.
 - Added frontend Audio Studio API wrapper.
 - Connected UI actions to the frontend API wrapper.
+- Added command result formatting so placeholder routes do not look like completed runtime behavior.
 - Added project metadata route check in the UI.
 - Added project metadata contract for approved UserData storage routes.
 - Normalized Audio Studio logs under `UserData/CacheData/AudioStudio/logs/`.
