@@ -1,5 +1,6 @@
 import { audioStudioApi } from "../engineTranslate/audioStudioApi";
 import { icon } from "../shared/icons";
+import { injectAudioStudioAdvancedPanel } from "./audioStudioAdvancedBinding";
 import {
   AUDIO_STUDIO_READING_LINES,
   createGuidedReadingTake,
@@ -236,6 +237,7 @@ function openAudioStudio(): void {
   content.innerHTML = audioStudioView();
   content.scrollTop = 0;
   bindAudioStudioViewEvents();
+  injectAudioStudioAdvancedPanel();
   setAssistantNotice("Audio Studio opened. Repository-side scaffold is ready for local review.");
 }
 
