@@ -24,6 +24,10 @@ function togglePill(active: boolean): string {
   return `<span class="settings-toggle-pill ${active ? "active" : ""}"><i></i></span>`;
 }
 
+function statusRow(label: string, value: string, tone = "neutral"): string {
+  return `<p class="developer-log-row"><strong>${escapeHtml(label)}</strong><span class="status-badge status-badge--${escapeHtml(tone)}">${escapeHtml(value)}</span></p>`;
+}
+
 function languageDropdown(role: "source" | "target", activeSelector: "source" | "target" | null, selectedCode: string, options: { code: string; label: string }[]): string {
   if (activeSelector !== role) return "";
   const items = options
@@ -147,6 +151,25 @@ export function developerSettingsView(args: {
         ${monitoringPanel(icon("monitor"), "Hardware Usage", gpuStatus, `<div class="settings-bars"><div><strong>CPU</strong><span style="background:linear-gradient(90deg,#d6dbe3 ${cpuWidth},#4b4f5d ${cpuWidth});"></span><em>${cpu}</em></div><div><strong>GPU</strong><span style="background:linear-gradient(90deg,#d6dbe3 ${gpuWidth},#4b4f5d ${gpuWidth});"></span><em>${gpu}</em></div><div><strong>RAM</strong><span style="background:linear-gradient(90deg,#d6dbe3 ${ramWidth},#4b4f5d ${ramWidth});"></span><em>${ram}</em></div></div>`)}
         ${monitoringPanel(icon("pulse"), "Health Engine", "Simple status for Launcher and Engine.", `<div class="health-list"><section>${icon("monitor")}<div><strong>Launcher</strong><p>Desktop shell and UI route</p></div><span>Good</span></section><section>${icon("pulse")}<div><strong>Engine</strong><p>Translation, transcript, and worker state</p></div><span>${engineStatus}</span></section></div>`)}
       `)}
+    `)}
+    ${settingsSection("Architecture", "Current product boundary and runtime readiness semantics.")}
+    ${settingsCard("settings-card--diagnostic", `
+      <div class="developer-log-body" aria-label="Architecture and runtime status">
+        ${statusRow("Shell", "Rust/Tauri final", "good")}
+        ${statusRow("Python helper", "contract defined / bridge not implemented", "warning")}
+        ${statusRow("Audio Studio metadata", "metadata_ready", "good")}
+        ${statusRow("Audio Studio provider", "provider_blocked", "warning")}
+        ${statusRow("CUDA/provider fallback", "must be visible before runtime ready", "warning")}
+      </div>
+    `)}
+    ${settingsSection("Validation Evidence", "Command-line evidence exists; UI evidence browser is still pending.")}
+    ${settingsCard("settings-card--diagnostic", `
+      <div class="developer-log-body" aria-label="Validation evidence status">
+        ${statusRow("Audio Studio local runner", "npm run validate:audio-studio:local", "neutral")}
+        ${statusRow("Summary verifier", "npm run verify:audio-studio:summary <summary-json-path>", "neutral")}
+        ${statusRow("Architecture contracts", "npm run validate:architecture-contracts", "neutral")}
+        ${statusRow("Evidence UI", "pending", "warning")}
+      </div>
     `)}
     ${settingsSection("Diagnostic", "Run checking, show current progress, and review diagnostic logs.")}
     ${settingsCard("settings-card--diagnostic", `
