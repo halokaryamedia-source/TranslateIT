@@ -9,6 +9,7 @@ const NOTICE_TEXT_LIMIT = 360;
 let lastEvidenceKey = "";
 let polling = false;
 let bound = false;
+let clickHandler: ((event: MouseEvent) => void) | null = null;
 
 function wait(milliseconds: number): Promise<void> {
   return new Promise((resolve) => window.setTimeout(resolve, milliseconds));
@@ -129,16 +130,23 @@ async function pollForResult(startedAtUnixMs: number): Promise<void> {
   }
 }
 
-export function bindAudioPipelineResultWatcher(): void {
-  if (bound) return;
+export function bindAudioPipelineResultWatcher(): () => void {
+  if (bound) return unbindAudioPipelineResultWatcher;
   bound = true;
-  document.addEventListener("click", (event) => {
+  clickHandler = (event: MouseEvent) => {
     const target = event.target as Element | null;
     const button = target?.closest(RESULT_BUTTONS);
     if (!button) return;
     const wasRecording = document.body.classList.contains("is-recording");
     if (wasRecording) void pollForResult(Date.now());
-  }, true);
+  };
+  document.addEventListener("click", clickHandler, true);
+  return unbindAudioPipelineResultWatcher;
 }
 
-bindAudioPipelineResultWatcher();
+export function unbindAudioPipelineResultWatcher(): void {
+  if (!bound || !clickHandler) return;
+  document.removeEventListener("click", clickHandler, true);
+  clickHandler = null;
+  bound = false;
+}
