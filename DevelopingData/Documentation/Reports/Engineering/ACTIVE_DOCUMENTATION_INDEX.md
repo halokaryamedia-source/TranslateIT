@@ -6,7 +6,7 @@ Branch: `Dev-Rust`
 
 This is the current engineering documentation entrypoint for TranslateIT.
 
-Read this file first before using older reports, handoff notes, or phase documents.
+Read this file first before using superseded reports, handoff notes, or phase documents.
 
 ## Single active engine rule
 
@@ -16,7 +16,7 @@ TranslateIT has one active product runtime direction:
 Rust/Tauri desktop shell + Python helper runtime
 ```
 
-There is no second launcher engine and no alternate Python/Qt product shell in `Dev-Rust`.
+There is no second launcher engine and no separate product shell in `Dev-Rust`.
 
 Python remains part of the product only as the helper runtime for ASR, translation, TTS/voice, CUDA diagnostics, latency diagnostics, model health checks, and audio/provider processing.
 
@@ -47,11 +47,11 @@ Read these in order:
 
 ## Documentation cleanup rule
 
-Older reports and notes may remain in the repository as historical context, but they are not active source-of-truth unless they are listed in this index.
+Superseded reports and notes may remain in the repository as historical context, but they are not active source-of-truth unless they are listed in this index.
 
-When an older document conflicts with this index, `CURRENT_APP_STATUS.md`, or the runtime contracts, this index and the active contracts win.
+When a superseded document conflicts with this index, `CURRENT_APP_STATUS.md`, or the runtime contracts, this index and the active contracts win.
 
-Recommended note when editing an older file:
+Recommended note when editing a superseded file:
 
 ```text
 Historical context only. Current active direction is Rust/Tauri desktop shell + Python helper runtime. Read DevelopingData/Documentation/Reports/Engineering/ACTIVE_DOCUMENTATION_INDEX.md first.
@@ -61,7 +61,7 @@ Historical context only. Current active direction is Rust/Tauri desktop shell + 
 
 Do not create or document another active launcher shell.
 
-Do not use older notes to claim runtime readiness.
+Do not use superseded notes to claim runtime readiness.
 
 Do not move active documentation outside `DevelopingData/Documentation/Reports/Engineering` unless the documentation hub is updated in the same change.
 
