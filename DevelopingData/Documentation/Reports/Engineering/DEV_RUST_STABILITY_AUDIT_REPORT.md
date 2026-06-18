@@ -12,6 +12,7 @@ This report covers repository-side stability review for the current Dev-Rust bra
 - Frontend API wrapper wiring.
 - Audio Studio UI event handling.
 - Advanced panel observer behavior.
+- Advanced panel direct-open behavior.
 - Theme injection behavior.
 - Icon name compatibility.
 - Engine and Launcher file placement.
@@ -104,6 +105,16 @@ Fix:
 
 - Added a shared id helper with timestamp and random suffix for imported and guided items.
 
+### 10. Advanced panel direct-open fallback
+
+Risk: the advanced panel depended on a MutationObserver path and could fail to appear if observer setup had not started before Audio Studio opened.
+
+Fix:
+
+- Exported an explicit advanced panel injection function.
+- Called the injection function directly from the Audio Studio open flow.
+- Kept the observer path as a secondary safety net.
+
 ## Current integration chains
 
 ### Launcher entry chain
@@ -133,6 +144,7 @@ index.html
 src/audioStudioEntry.ts
   -> audioStudioAdvancedBinding.ts
   -> audioStudioAdvancedState.ts
+  -> audioStudioBinding.ts direct-open fallback
 ```
 
 ## Still vulnerable until local validation
