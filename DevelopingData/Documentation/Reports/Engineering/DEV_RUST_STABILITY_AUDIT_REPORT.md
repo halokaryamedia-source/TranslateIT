@@ -18,6 +18,7 @@ This report covers repository-side stability review for the current Dev-Rust bra
 - Audio Studio command notice race handling.
 - Audio Studio reading selection bounds.
 - Audio Studio empty reading fallback.
+- Audio Studio advanced panel mode/control safety.
 - Advanced panel observer behavior.
 - Advanced panel direct-open behavior.
 - Theme injection behavior.
@@ -211,6 +212,18 @@ Fix:
 - Added an empty-state card for missing guided reading lines.
 - Blocked guided staging with a clear notice when no guided line is available.
 - Sanitized and clipped rejected file labels before showing them in assistant notices.
+
+### 19. Advanced panel mode and control rendering safety
+
+Risk: advanced mode selection used display labels rather than stable mode ids, default active mode depended on object order, and control widths could be rendered from unchecked numeric values.
+
+Fix:
+
+- Added explicit advanced mode id constants and default mode constant.
+- Tracked selected advanced mode by stable id.
+- Validated mode button actions against the official mode id list.
+- Clamped control default values to 0-100 before rendering width.
+- Added empty-state fallbacks for missing modes, controls, and quality dimensions.
 
 ## Current integration chains
 
