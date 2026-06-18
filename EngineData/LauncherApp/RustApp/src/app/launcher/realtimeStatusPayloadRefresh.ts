@@ -4,6 +4,7 @@ import { applyRealtimeStatusPayload, type RealtimeStatusStoreSnapshot } from "./
 const REALTIME_STATUS_REFRESH_MS = 2_500;
 const AUDIO_DEVICE_OUTPUT_PRESERVE_MS = 15_000;
 let realtimeStatusRefreshTimer: number | null = null;
+let realtimeStatusRefreshPending: Promise<RealtimeStatusStoreSnapshot> | null = null;
 let preservedDeveloperOutput = "";
 let preservedDeveloperOutputUntil = 0;
 let visibilityChangeHandler: (() => void) | null = null;
@@ -46,11 +47,19 @@ function applyRealtimeStatusSnapshotToDom(snapshot: RealtimeStatusStoreSnapshot)
   }
 }
 
-export async function refreshRealtimeStatusPayloadStore(): Promise<RealtimeStatusStoreSnapshot> {
+async function loadRealtimeStatusPayloadStore(): Promise<RealtimeStatusStoreSnapshot> {
   const payload = await getRealtimeStatusPayload();
   const snapshot = applyRealtimeStatusPayload(payload);
   applyRealtimeStatusSnapshotToDom(snapshot);
   return snapshot;
+}
+
+export function refreshRealtimeStatusPayloadStore(): Promise<RealtimeStatusStoreSnapshot> {
+  if (realtimeStatusRefreshPending) return realtimeStatusRefreshPending;
+  realtimeStatusRefreshPending = loadRealtimeStatusPayloadStore().finally(() => {
+    realtimeStatusRefreshPending = null;
+  });
+  return realtimeStatusRefreshPending;
 }
 
 export function startRealtimeStatusPayloadAutoRefresh(): () => void {
