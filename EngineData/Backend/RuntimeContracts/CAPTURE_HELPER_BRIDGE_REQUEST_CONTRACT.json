@@ -4,7 +4,7 @@
   "status": "contract_ready_runtime_not_migrated",
   "owner_shell": "Rust/Tauri",
   "helper_runtime": "Python",
-  "purpose": "Define the request and response boundary for replacing the older capture one-shot path with the long-running helper bridge.",
+  "purpose": "Define the request and response boundary for migrating the temporary capture implementation to the long-running helper bridge.",
   "not_ready_claims": [
     "microphone_capture_ready",
     "asr_ready",
@@ -41,7 +41,7 @@
     "evidence_path": "string_or_null"
   },
   "safety_rules": [
-    "Do not run capture_start through the older one-shot worker when helper provider readiness is false.",
+    "Do not run capture_start through the temporary one-shot worker when helper provider readiness is false.",
     "Do not mark capture active unless helper response ok=true and generation_token matches the latest Rust/Tauri generation.",
     "Ignore stale helper output when response generation_token does not match the current generation.",
     "Do not claim voice capture readiness without target-PC evidence.",
@@ -49,7 +49,7 @@
   ],
   "migration_state": {
     "current_rust_command_guard": "start_capture blocks when helper provider readiness is not verified",
-    "current_one_shot_capture_path": "still present and pending replacement",
+    "current_temporary_capture_path": "present and pending helper bridge routing",
     "target_state": "capture_start and capture_stop routed through long-running helper bridge with evidence"
   }
 }
