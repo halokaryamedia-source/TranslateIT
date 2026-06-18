@@ -39,3 +39,5 @@ npm run validate:runtime-flow
 - Launcher event bindings use an `AbortController`.
 - Developer log rendering caps repeated command errors.
 - Generated HTML attribute names are validated before rendering.
+- Chat titles and translation previews sanitize control and bidi characters before rendering.
+- Generic developer log rows are capped to avoid oversized panels.
