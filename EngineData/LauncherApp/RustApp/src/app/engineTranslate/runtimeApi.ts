@@ -15,6 +15,7 @@ import type {
   RuntimeDiagnostics,
   RuntimeSettings,
   RuntimeStatusBundleReport,
+  VoiceCapturePreparationReport,
 } from "../shared/types";
 
 export const RUNTIME_SETTINGS_SAVED_EVENT = "translateit:runtime-settings-saved";
@@ -162,6 +163,7 @@ export const runtimeApi = {
   getLatestAudioStudioValidationEvidence: () => singleFlight("audio-studio-validation-evidence", () => runCommand<AudioStudioValidationEvidence>("get_latest_audio_studio_validation_evidence")),
   getHardwareUsage: () => singleFlight("hardware-usage", () => runCommand<HardwareUsageReport>("get_hardware_usage")),
   getInputStatus: () => singleFlight("input-status", () => runCommand<InputPreparationStatus>("get_input_status")),
+  prepareVoiceCapture: (autoStart = true) => singleFlight("voice-capture-prep", () => runCommand<VoiceCapturePreparationReport>("prepare_voice_capture", { autoStart })),
   listAudioDevices: () => singleFlight("audio-devices", () => runCommand<AudioDeviceListReport>("list_audio_devices")),
   startCapture: async () => {
     clearVoiceDependentReads();

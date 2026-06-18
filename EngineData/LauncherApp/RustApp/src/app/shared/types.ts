@@ -197,6 +197,21 @@ export type InputPreparationStatus = {
   note?: string;
 };
 
+export type VoiceCapturePreparationReport = {
+  ok: boolean;
+  state: "ready" | "starting" | "blocked" | "missing_worker" | "missing_models" | "missing_microphone" | string;
+  microphone_ready: boolean;
+  helper_state: string;
+  helper_ready: boolean;
+  provider_ready: boolean;
+  cuda_ready: boolean;
+  missing: string[];
+  next_actions: string[];
+  message: string;
+  input_status: InputPreparationStatus;
+  helper_status: HelperBridgeStatus;
+};
+
 export type LauncherChatSession = {
   session_id: string;
   title: string;

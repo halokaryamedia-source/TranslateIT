@@ -22,7 +22,7 @@ use commands::helper_bridge::{
 };
 use commands::runtime::{
     check_helper_bridge_health, prepare_capture_start_request, prepare_capture_stop_request,
-    start_capture, stop_capture,
+    prepare_voice_capture, start_capture, stop_capture,
 };
 use commands::settings::{
     load_runtime_settings, save_default_runtime_settings, save_runtime_settings,
@@ -56,6 +56,7 @@ fn main() {
             check_helper_bridge_health,
             prepare_capture_start_request,
             prepare_capture_stop_request,
+            prepare_voice_capture,
             get_input_status,
             list_audio_devices,
             get_latest_audio_pipeline_evidence,

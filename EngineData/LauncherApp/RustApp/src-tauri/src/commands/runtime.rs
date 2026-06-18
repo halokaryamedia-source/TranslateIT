@@ -5,12 +5,14 @@ use crate::engine;
 use crate::engine::adapters::runtime_lifecycle_logic::{
     analyze_start_lifecycle_gate, analyze_stop_lifecycle_gate, RuntimeLifecycleGateReport,
 };
+use crate::engine::audio::input::InputPreparationStatus;
 use crate::engine::runtime_state::{
     latest_runtime_handoff_state, latest_runtime_session_state, RuntimeHandoffStateReport,
     RuntimeSessionStateReport,
 };
 use crate::engine::state::{CommandResult, LifecycleState};
 
+use super::helper_bridge::start_helper_bridge;
 use super::helper_bridge::{
     cancel_helper_bridge_task, get_helper_bridge_status, send_helper_bridge_request,
     HelperBridgeActionResult, HelperBridgeRequest,
@@ -29,6 +31,22 @@ pub struct CaptureHelperBridgeRequestPreview {
     pub cuda_ready: bool,
     pub runtime_claim: String,
     pub payload_json: String,
+}
+
+#[derive(Debug, Clone, Serialize)]
+pub struct VoiceCapturePreparationReport {
+    pub ok: bool,
+    pub state: String,
+    pub microphone_ready: bool,
+    pub helper_state: String,
+    pub helper_ready: bool,
+    pub provider_ready: bool,
+    pub cuda_ready: bool,
+    pub missing: Vec<String>,
+    pub next_actions: Vec<String>,
+    pub message: String,
+    pub input_status: InputPreparationStatus,
+    pub helper_status: super::helper_bridge::HelperBridgeStatus,
 }
 
 fn is_unsafe_preview_character(character: char) -> bool {
@@ -102,6 +120,62 @@ fn capture_request_preview(command: &str) -> CaptureHelperBridgeRequestPreview {
     }
 }
 
+fn voice_capture_blockers(
+    input_status: &InputPreparationStatus,
+    helper_status: &super::helper_bridge::HelperBridgeStatus,
+) -> (Vec<String>, Vec<String>, String, String) {
+    let mut missing = Vec::new();
+    let mut next_actions = Vec::new();
+    let helper_state = helper_status.state.clone();
+    let mut message = "Voice capture is ready.".to_string();
+    let mut state = "ready".to_string();
+
+    if !input_status.prepared {
+        missing.push("microphone".to_string());
+        next_actions.push("Check microphone device".to_string());
+        message = input_status.note.clone();
+        state = "missing_microphone".to_string();
+    }
+
+    if helper_state == "not_started"
+        || helper_state == "stopped"
+        || helper_state == "error"
+        || helper_state == "blocked"
+    {
+        next_actions.push("Start Helper".to_string());
+        state = "starting".to_string();
+    }
+
+    if !helper_status.provider_ready {
+        if helper_status.state == "blocked" || helper_status.state == "error" {
+            missing.push("worker".to_string());
+            next_actions.push("Run Worker Status".to_string());
+            message = helper_status.message.clone();
+            state = "missing_worker".to_string();
+        } else {
+            missing.push("models".to_string());
+            next_actions.push("Open Developer Diagnostics".to_string());
+            message = if helper_status.cuda_ready {
+                "Local helper started, but voice models are not ready yet.".to_string()
+            } else {
+                "Local helper started, but provider readiness is still incomplete. CPU fallback may be available, but voice capture is not ready yet.".to_string()
+            };
+            state = "missing_models".to_string();
+        }
+    }
+
+    if helper_status.provider_ready && input_status.prepared {
+        state = "ready".to_string();
+        message = "Voice provider and microphone are ready.".to_string();
+    }
+
+    if !helper_status.cuda_ready {
+        next_actions.push("Continue with CPU fallback if models are ready".to_string());
+    }
+
+    (missing, next_actions, state, message)
+}
+
 #[tauri::command]
 pub fn get_runtime_handoff_state() -> RuntimeHandoffStateReport {
     latest_runtime_handoff_state()
@@ -151,6 +225,66 @@ pub fn check_helper_bridge_health() -> HelperBridgeActionResult {
 }
 
 #[tauri::command]
+pub fn prepare_voice_capture(auto_start: bool) -> VoiceCapturePreparationReport {
+    let input_status = crate::commands::audio::get_input_status();
+    let mut helper_status = get_helper_bridge_status();
+    if auto_start
+        && (helper_status.state == "not_started"
+            || helper_status.state == "stopped"
+            || helper_status.state == "error"
+            || helper_status.state == "blocked")
+    {
+        let _ = start_helper_bridge();
+        helper_status = get_helper_bridge_status();
+    }
+    let (mut missing, mut next_actions, state, message) =
+        voice_capture_blockers(&input_status, &helper_status);
+    if !input_status.prepared
+        && !next_actions
+            .iter()
+            .any(|action| action == "Check microphone device")
+    {
+        next_actions.push("Check microphone device".to_string());
+    }
+    if !helper_status.provider_ready
+        && !next_actions
+            .iter()
+            .any(|action| action == "Open Developer Diagnostics")
+    {
+        next_actions.push("Open Developer Diagnostics".to_string());
+    }
+    if helper_status.provider_ready
+        && helper_status.cuda_ready
+        && !missing.iter().any(|item| item == "cuda")
+    {
+        next_actions.retain(|action| action != "Continue with CPU fallback if models are ready");
+    }
+    let ok = helper_status.provider_ready && input_status.prepared;
+    if ok {
+        missing.clear();
+        next_actions = vec!["Start Voice Capture".to_string()];
+    }
+    VoiceCapturePreparationReport {
+        ok,
+        state,
+        microphone_ready: input_status.prepared,
+        helper_state: helper_status.state.clone(),
+        helper_ready: helper_status.state == "ready",
+        provider_ready: helper_status.provider_ready,
+        cuda_ready: helper_status.cuda_ready,
+        missing,
+        next_actions,
+        message: if ok {
+            "Voice capture is ready.".to_string()
+        } else {
+            message
+        },
+        input_status,
+        helper_status,
+    }
+}
+
+#[tauri::command]
 pub fn start_capture() -> CommandResult {
     let status = get_helper_bridge_status();
     if !status.provider_ready {
@@ -158,11 +292,10 @@ pub fn start_capture() -> CommandResult {
         return CommandResult::blocked(
             LifecycleState::ConversionPending,
             format!(
-                "Voice capture is blocked because helper provider readiness is not verified yet. Start Helper, run Worker Status, and check Developer diagnostics first. Current helper state: {}; CUDA ready: {}; provider ready: {}; message: {}",
+                "Voice capture is blocked until helper provider readiness is verified. State: {}; CUDA: {}; provider: {}; next: Start Helper, Check Worker Status, Open Developer Diagnostics.",
                 compact_preview_text(&status.state),
                 status.cuda_ready,
-                status.provider_ready,
-                compact_preview_text(&status.message)
+                status.provider_ready
             ),
         );
     }

@@ -9,6 +9,10 @@ export type LauncherEventHandlers = {
   submitText: () => Promise<void>;
   resizeMessageInput: () => void;
   createNewChat: () => Promise<void>;
+  prepareAndStartVoiceCapture: () => Promise<void>;
+  startHelperBridge: () => Promise<void>;
+  checkWorkerStatus: () => Promise<void>;
+  openDeveloperDiagnostics: () => Promise<void>;
   openAttachmentInput: () => void;
   ingestAttachmentFiles: () => Promise<void>;
   bindAttachmentDropZone: () => void;
@@ -31,6 +35,10 @@ export function bindLauncherEvents(ui: UiRefs, handlers: LauncherEventHandlers):
   ui.microphoneButton.addEventListener("click", () => void handlers.startOrStopRecording(), options);
   ui.quickMicButton.addEventListener("click", () => void handlers.startOrStopRecording(), options);
   ui.recordStatusButton.addEventListener("click", () => void handlers.startOrStopRecording(), options);
+  ui.checkMicButton.addEventListener("click", () => void handlers.prepareAndStartVoiceCapture(), options);
+  ui.startHelperButton.addEventListener("click", () => void handlers.startHelperBridge(), options);
+  ui.checkWorkerStatusButton.addEventListener("click", () => void handlers.checkWorkerStatus(), options);
+  ui.openDeveloperDiagnosticsButton.addEventListener("click", () => void handlers.openDeveloperDiagnostics(), options);
   ui.sendButton.addEventListener("click", () => void handlers.submitText(), options);
   ui.messageInput.addEventListener("input", handlers.resizeMessageInput, options);
   ui.messageInput.addEventListener("keydown", (event) => {

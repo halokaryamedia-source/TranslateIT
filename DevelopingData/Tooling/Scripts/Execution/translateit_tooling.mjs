@@ -25,6 +25,9 @@ function walk(dir) {
   if (!exists(dir)) return [];
   const entries = [];
   for (const name of readdirSync(dir)) {
+    if (name === ".venv" || name === "node_modules" || name === "target" || name === "dist" || name === "__pycache__") {
+      continue;
+    }
     const path = join(dir, name);
     entries.push(path);
     if (statSync(path).isDirectory()) entries.push(...walk(path));

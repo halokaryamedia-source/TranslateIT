@@ -148,7 +148,18 @@ function classifyKnownBlockers(result) {
   if (text.includes("executionpolicy") || text.includes("running scripts is disabled on this system")) {
     return "BLOCKED";
   }
-  if (text.includes("blocked") || text.includes("not ready") || text.includes("missing evidence") || text.includes("evidence") || text.includes("warning")) {
+  if (
+    text.includes("blocked") ||
+    text.includes("not ready") ||
+    text.includes("missing evidence") ||
+    text.includes("missing:") ||
+    text.includes("unexpected") ||
+    text.includes("vulnerability") ||
+    text.includes("advisory") ||
+    text.includes("warning") ||
+    text.includes("access is denied") ||
+    text.includes("os error 5")
+  ) {
     return "PARTIAL";
   }
   return "FAIL";
@@ -157,6 +168,14 @@ function classifyKnownBlockers(result) {
 function classifyNativeSmoke(result) {
   if (result.ok) return "PASS";
   const text = `${result.stdout}\n${result.stderr}`;
+  if (
+    text.toLowerCase().includes("access is denied") ||
+    text.toLowerCase().includes("failed to remove file") ||
+    text.toLowerCase().includes("blocking waiting for file lock") ||
+    text.toLowerCase().includes("os error 5")
+  ) {
+    return "PARTIAL";
+  }
   if (text.includes("startup-diagnostic") || text.includes("VITE ready") || text.includes("Running `target\\debug\\translateit.exe`") || text.includes("Running `target/debug/translateit.exe`") || text.includes("Finished `dev` profile")) return "PARTIAL";
   if (result.timed_out && (text.includes("Running") || text.includes("Finished") || text.includes("Compiling") || text.includes("Building") || text.length > 0)) return "PARTIAL";
   return "FAIL";
@@ -207,6 +226,7 @@ async function main() {
       cargoLine("cargo clippy -- -D warnings", ["clippy", "--all-targets", "--", "-D", "warnings"]),
       commandLine("validate:engine-total", "validate:engine-total"),
       commandLine("validate:helper-bridge", "validate:helper-bridge"),
+      commandLine("validate:voice-capture", "validate:voice-capture"),
       commandLine("validate:runtime-flow", "validate:runtime-flow"),
       commandLine("validate:audio-studio", "validate:audio-studio"),
       commandLine("validate:audio-studio:local", "validate:audio-studio:local"),

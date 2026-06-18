@@ -8,6 +8,7 @@ import type {
   RuntimeSettings,
   RuntimeStatusBundleReport,
   SettingsTab,
+  VoiceCapturePreparationReport,
 } from "../shared/types";
 import { bindUi, requireElement, type UiRefs } from "./dom";
 import { chatCollectionView, translationResultView } from "./chatViews";
@@ -46,6 +47,7 @@ export class LauncherController {
   private logsExpanded = false;
   private textSubmitPending = false;
   private recordingTogglePending = false;
+  private voiceCapturePrepPending = false;
   private saveSettingsPending = false;
   private diagnosticPending = false;
   private audioCheckPending = false;
@@ -440,29 +442,113 @@ export class LauncherController {
     }
   }
 
-  private async startOrStopRecording(): Promise<void> {
-    if (this.recordingTogglePending) {
+  private summarizeVoiceCapturePreparation(report: VoiceCapturePreparationReport): string {
+    if (report.ok) return report.message;
+    if (report.state === "missing_microphone") return `${report.message} Open Check Microphone or Windows sound settings.`;
+    if (report.state === "missing_worker") return `${report.message} Open Developer Diagnostics to view the worker blocker.`;
+    if (report.state === "missing_models") return `${report.message} Open Developer Diagnostics or Check Worker Status for setup details.`;
+    return report.message;
+  }
+
+  private async prepareAndStartVoiceCapture(): Promise<void> {
+    if (this.voiceCapturePrepPending) {
       this.setAssistantNotice("Voice capture is already updating. Please wait.");
       return;
     }
-    this.recordingTogglePending = true;
+    this.voiceCapturePrepPending = true;
     this.ui.microphoneButton.disabled = true;
     this.ui.quickMicButton.disabled = true;
     this.ui.recordStatusButton.disabled = true;
+    this.ui.checkMicButton.disabled = true;
+    this.ui.startHelperButton.disabled = true;
+    this.ui.checkWorkerStatusButton.disabled = true;
+    this.ui.openDeveloperDiagnosticsButton.disabled = true;
     try {
-      const result = this.recording ? await runtimeApi.stopCapture() : await runtimeApi.startCapture();
-      const captureMessage = result?.message ?? (this.recording ? "Recording stopped." : "Recording started. Waiting for local capture status.");
+      if (this.recording) {
+        this.setAssistantNotice("Stopping voice capture...");
+        const stopResult = await runtimeApi.stopCapture().catch(() => null);
+        this.recording = false;
+        const [bundle, helperStatus] = await Promise.all([runtimeApi.getStatusBundle(), runtimeApi.getHelperBridgeStatus()]);
+        this.latestHelperBridgeStatus = helperStatus;
+        this.renderRuntime(bundle, this.latestDiagnostics);
+        this.setAssistantNotice(stopResult?.message ?? "Voice capture stopped.");
+        return;
+      }
+      this.setAssistantNotice("Checking microphone device...");
+      const preparation = await runtimeApi.prepareVoiceCapture(true).catch(() => null);
+      if (!preparation) {
+        this.setAssistantNotice("Voice capture preparation failed. Open Developer diagnostics.");
+        return;
+      }
+      this.latestHelperBridgeStatus = preparation.helper_status;
+      this.renderRuntime(this.latestBundle, this.latestDiagnostics);
+      if (!preparation.microphone_ready) {
+        this.setAssistantNotice(this.summarizeVoiceCapturePreparation(preparation));
+        return;
+      }
+      if (!preparation.helper_ready || !preparation.provider_ready) {
+        this.setAssistantNotice("Checking local voice helper...");
+        const startedAt = Date.now();
+        let current = preparation;
+        while (Date.now() - startedAt < 15_000) {
+          await new Promise((resolve) => window.setTimeout(resolve, 750));
+          const refreshed = await runtimeApi.prepareVoiceCapture(false).catch(() => null);
+          if (!refreshed) break;
+          current = refreshed;
+          this.latestHelperBridgeStatus = refreshed.helper_status;
+          this.renderRuntime(this.latestBundle, this.latestDiagnostics);
+          if (refreshed.provider_ready && refreshed.microphone_ready) break;
+          if (refreshed.state === "missing_worker" || refreshed.state === "missing_models" || refreshed.state === "missing_microphone") break;
+        }
+        if (!current.provider_ready || !current.microphone_ready) {
+          this.setAssistantNotice(this.summarizeVoiceCapturePreparation(current));
+          return;
+        }
+      }
+      this.setAssistantNotice("Voice provider ready. Starting capture...");
+      const result = await runtimeApi.startCapture().catch(() => null);
+      const captureMessage = result?.message ?? "Recording started.";
+      this.recording = Boolean(result?.ok);
       this.setAssistantNotice(captureMessage);
       const [bundle, helperStatus] = await Promise.all([runtimeApi.getStatusBundle(), runtimeApi.getHelperBridgeStatus()]);
       this.latestHelperBridgeStatus = helperStatus;
       this.renderRuntime(bundle, this.latestDiagnostics);
       this.setAssistantNotice(captureMessage);
     } finally {
-      this.recordingTogglePending = false;
+      this.voiceCapturePrepPending = false;
       this.ui.microphoneButton.disabled = false;
       this.ui.quickMicButton.disabled = false;
       this.ui.recordStatusButton.disabled = false;
+      this.ui.checkMicButton.disabled = false;
+      this.ui.startHelperButton.disabled = false;
+      this.ui.checkWorkerStatusButton.disabled = false;
+      this.ui.openDeveloperDiagnosticsButton.disabled = false;
     }
+  }
+
+  private async startOrStopRecording(): Promise<void> {
+    await this.prepareAndStartVoiceCapture();
+  }
+
+  private async startHelperBridge(): Promise<void> {
+    this.setAssistantNotice("Starting local helper...");
+    const result = await runtimeApi.startHelperBridge().catch(() => null);
+    this.latestHelperBridgeStatus = await runtimeApi.getHelperBridgeStatus().catch(() => this.latestHelperBridgeStatus);
+    this.renderRuntime(this.latestBundle, this.latestDiagnostics);
+    this.setAssistantNotice(result?.message ?? "Start Helper command finished.");
+  }
+
+  private async checkWorkerStatus(): Promise<void> {
+    this.setAssistantNotice("Checking worker status...");
+    const status = await runtimeApi.getHelperBridgeStatus().catch(() => null);
+    if (status) this.latestHelperBridgeStatus = status;
+    this.renderRuntime(this.latestBundle, this.latestDiagnostics);
+    this.setAssistantNotice(status?.message ?? "Worker status checked.");
+  }
+
+  private async openDeveloperDiagnostics(): Promise<void> {
+    this.renderSettingsTab("developer");
+    await this.runDeveloperDiagnostic();
   }
 
   private async checkAudioInput(): Promise<void> {
@@ -680,7 +766,11 @@ export class LauncherController {
     bindLauncherEvents(this.ui, {
       showSettings: () => this.showSettings(),
       showHome: () => this.showHome(),
-      startOrStopRecording: () => this.startOrStopRecording(),
+      startOrStopRecording: () => this.prepareAndStartVoiceCapture(),
+      prepareAndStartVoiceCapture: () => this.prepareAndStartVoiceCapture(),
+      startHelperBridge: () => this.startHelperBridge(),
+      checkWorkerStatus: () => this.checkWorkerStatus(),
+      openDeveloperDiagnostics: () => this.openDeveloperDiagnostics(),
       submitText: () => this.submitText(),
       resizeMessageInput: () => this.resizeMessageInput(),
       createNewChat: () => this.createNewChat(),
