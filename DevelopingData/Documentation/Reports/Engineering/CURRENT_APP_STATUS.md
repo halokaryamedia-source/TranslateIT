@@ -29,6 +29,7 @@ Python remains part of the product as a helper runtime for tasks where Python is
 - After ping, `start_helper_bridge` asks the worker for `status` and maps worker readiness into `cuda_ready`, `provider_ready`, `degraded_mode`, and `last_error`.
 - `send_helper_bridge_request` sends JSON-line requests to the running worker and reads one JSON-line response.
 - `send_helper_bridge_request` maps worker responses into helper bridge readiness state.
+- Start/Stop capture commands invalidate the helper generation token before running the existing capture lifecycle.
 - Developer UI reads and displays helper bridge status.
 - Developer UI includes Start Helper, Worker Status, Stop Helper, and Cancel Task controls.
 - Helper existence alone must not mark full runtime ready; model/provider readiness still depends on worker response evidence and local validation.
@@ -82,14 +83,15 @@ Still scaffold-only:
 
 ### Python helper runtime bridge remaining work
 
-Helper worker spawn, ping health check, JSON-line request forwarding, and worker status mapping now exist, but these still require local validation and additional runtime hardening.
+Helper worker spawn, ping health check, JSON-line request forwarding, worker status mapping, and capture generation-token invalidation now exist, but these still require local validation and additional runtime hardening.
 
 Still pending:
 
 - target-PC spawn validation,
 - long-running health monitor,
 - worker stderr/error visibility mapping,
-- Start/Stop capture integration with helper generation token.
+- replacing the older capture one-shot worker invocation with the long-running helper bridge,
+- full Start/Stop capture result routing through helper request/response evidence.
 
 ## Contract only
 
@@ -114,7 +116,7 @@ However, the final shell direction is now Rust/Tauri. Python/Qt launcher materia
 ## Known remaining implementation work
 
 1. Validate helper worker spawn on target PC.
-2. Connect Rust/Tauri capture controls to the Python helper realtime pipeline.
+2. Replace capture one-shot worker invocation with long-running helper bridge routing.
 3. Add long-running helper health monitor.
 4. Add visible degraded-mode controls for CPU/provider fallback.
 5. Implement Audio Studio provider processing after metadata routes.
