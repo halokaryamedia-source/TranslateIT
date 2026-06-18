@@ -29,6 +29,15 @@ bindVoiceOutputPersistenceUi();
 bindRuntimeReadinessUiGuard();
 bindDeveloperEvidenceUi();
 bindDeveloperHelperBridgeUi();
-startHelperBridgeHealthMonitor();
+const stopHelperBridgeHealthMonitor = startHelperBridgeHealthMonitor();
 bindResultWatcher();
-startRealtimeStatusPayloadAutoRefresh();
+const stopRealtimeStatusPayloadAutoRefresh = startRealtimeStatusPayloadAutoRefresh();
+
+window.addEventListener(
+  "beforeunload",
+  () => {
+    stopHelperBridgeHealthMonitor();
+    stopRealtimeStatusPayloadAutoRefresh();
+  },
+  { once: true },
+);
