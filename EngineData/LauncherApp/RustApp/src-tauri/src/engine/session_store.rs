@@ -8,6 +8,9 @@ use crate::engine::models::SavedSessionPayload;
 use crate::engine::paths::ProjectPaths;
 use crate::engine::transcript_session::TranscriptSessionRecord;
 
+const MAX_SESSION_ID_CHARS: usize = 96;
+const MAX_SAVED_SESSION_FILE_BYTES: usize = 1_000_000;
+
 #[derive(Debug, Clone, Serialize)]
 pub struct SessionSaveResult {
     pub ok: bool,
@@ -68,14 +71,14 @@ pub fn save_session_payload(mut payload: SavedSessionPayload) -> SessionSaveResu
             session_id,
             output_path: output_label.clone(),
             segment_count,
-            message: format!("Rust session payload saved to {output_label}"),
+            message: "Rust session payload saved.".to_string(),
         },
-        Err(error) => SessionSaveResult {
+        Err(_error) => SessionSaveResult {
             ok: false,
             session_id,
             output_path: output_label,
             segment_count,
-            message: format!("Failed to save Rust session payload: {error}"),
+            message: "Failed to save Rust session payload. Open Developer diagnostics for details.".to_string(),
         },
     }
 }
@@ -85,10 +88,10 @@ fn preview_by_parts(session_id: String, segment_count: usize) -> SessionSavePrev
     let output_label = normalize_path(&output_path);
     SessionSavePreview {
         session_id,
-        output_path: output_label.clone(),
+        output_path: output_label,
         segment_count,
         ready: output_path.parent().is_some(),
-        message: format!("Rust session payload will be saved to {output_label}"),
+        message: "Rust session payload save path is ready.".to_string(),
     }
 }
 
@@ -103,7 +106,26 @@ fn write_pretty_json<T: Serialize>(path: &Path, value: &T) -> io::Result<()> {
     }
     let body = serde_json::to_string_pretty(value)
         .map_err(|error| io::Error::new(io::ErrorKind::InvalidData, error))?;
-    fs::write(path, body)
+    if body.len() > MAX_SAVED_SESSION_FILE_BYTES {
+        return Err(io::Error::new(
+            io::ErrorKind::InvalidData,
+            "serialized transcript session exceeds safe file size limit",
+        ));
+    }
+    let temp_path = path.with_extension("json.tmp");
+    fs::write(&temp_path, body)?;
+    match fs::rename(&temp_path, path) {
+        Ok(()) => Ok(()),
+        Err(error) => {
+            if path.exists() {
+                fs::remove_file(path)?;
+                fs::rename(&temp_path, path)
+            } else {
+                let _ = fs::remove_file(&temp_path);
+                Err(error)
+            }
+        }
+    }
 }
 
 fn sanitize_session_id(value: &str) -> String {
@@ -111,6 +133,7 @@ fn sanitize_session_id(value: &str) -> String {
         .trim()
         .chars()
         .map(|ch| if ch.is_ascii_alphanumeric() || ch == '-' || ch == '_' { ch } else { '_' })
+        .take(MAX_SESSION_ID_CHARS)
         .collect::<String>();
     if cleaned.is_empty() {
         format!("session_{}", current_unix_ms())
@@ -127,5 +150,5 @@ fn current_unix_ms() -> u128 {
 }
 
 fn normalize_path(path: &Path) -> String {
-    path.to_string_lossy().replace('\\', "/")
+    path.to_string_lossy().replace(char::from(92), "/")
 }
