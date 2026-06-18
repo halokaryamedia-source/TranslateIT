@@ -9,6 +9,7 @@ export type DeveloperLogRow = {
 };
 
 const SAFE_ATTRIBUTE_NAME = /^[a-zA-Z_:][a-zA-Z0-9_.:-]*$/;
+const MAX_DEVELOPER_LOG_ROWS = 24;
 
 function escapeHtml(value: string): string {
   return value
@@ -101,8 +102,12 @@ export function statusBadge(label: string, tone: "neutral" | "good" | "warning" 
 }
 
 export function developerLogRows(rows: DeveloperLogRow[]): string {
-  return rows.map((row) => {
+  const visibleRows = rows.slice(0, MAX_DEVELOPER_LOG_ROWS);
+  const hiddenRows = Math.max(0, rows.length - MAX_DEVELOPER_LOG_ROWS);
+  const renderedRows = visibleRows.map((row) => {
     const time = row.time ? `<em>${escapeHtml(row.time)}</em>` : "";
     return `<p class="developer-log-row"><strong>${escapeHtml(row.level)}</strong><span>${escapeHtml(row.message)}</span>${time}</p>`;
-  }).join("");
+  });
+  if (hiddenRows > 0) renderedRows.push(`<p class="developer-log-row"><strong>INFO</strong><span>${hiddenRows} older log row(s) hidden.</span></p>`);
+  return renderedRows.join("");
 }
