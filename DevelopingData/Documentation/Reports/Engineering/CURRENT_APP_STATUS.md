@@ -39,10 +39,10 @@ Python remains part of the product as a helper runtime for tasks where Python is
 - Generic `Ready` wording was reduced in the main runtime status flow.
 - Translation command failure is no longer treated as a completed translation result.
 - Helper health monitor no longer overwrites the main assistant message; it stores warning detail as non-invasive runtime state.
-- Runtime readiness DOM guard only corrects old generic `Ready` labels and no longer overwrites explicit `Text ready` or `Voice ready` labels.
+- Runtime readiness DOM guard only corrects prior generic `Ready` labels and no longer overwrites explicit `Text ready` or `Voice ready` labels.
 - Runtime API clears helper/status caches before and after helper/capture mutation commands to reduce stale UI reads.
 - Runtime API applies frontend timeout guards to helper bridge lifecycle/request commands so the UI does not wait indefinitely for a worker response.
-- Start Capture is blocked until helper provider readiness is verified, preventing users from silently entering the older one-shot capture path when helper/provider readiness is incomplete.
+- Start Capture is blocked until helper provider readiness is verified, preventing users from silently entering the temporary one-shot capture implementation when helper/provider readiness is incomplete.
 - Audio settings now warns that Mic Test and voice capture require helper provider readiness evidence before testing microphone capture.
 - Duplicate helper readiness panel injection was removed from the app entrypoint; Developer settings remain the source of helper readiness display.
 - Helper bridge controls are now rendered directly inside Developer settings rather than injected after render by a layout MutationObserver.
@@ -66,7 +66,7 @@ Python remains part of the product as a helper runtime for tasks where Python is
 - After ping, `start_helper_bridge` asks the worker for `status` and maps worker readiness into `cuda_ready`, `provider_ready`, `degraded_mode`, and `last_error`.
 - `send_helper_bridge_request` sends JSON-line requests to the running worker and reads one JSON-line response.
 - `send_helper_bridge_request` maps worker responses into helper bridge readiness state.
-- Start/Stop capture commands invalidate the helper generation token before running the existing capture lifecycle.
+- Start/Stop capture commands invalidate the helper generation token before running the current capture lifecycle.
 - Frontend includes a helper health monitor that checks health every 15 seconds only when the helper status is already `ready`.
 - Developer UI reads and displays helper bridge status.
 - Developer UI includes Start Helper, Worker Status, Stop Helper, and Cancel Task controls.
@@ -123,13 +123,13 @@ Audio Studio metadata routes now use `metadata_ready` semantics instead of gener
 
 ### Contract and path guardrails
 
-- The old Audio Studio route placeholder contract is marked deprecated and points to `AUDIO_STUDIO_ROUTE_STATUS_CONTRACT.json`.
+- The superseded Audio Studio route placeholder contract is marked deprecated and points to `AUDIO_STUDIO_ROUTE_STATUS_CONTRACT.json`.
 - Architecture validator checks the deprecated placeholder does not become the source of truth again.
 - Architecture validator checks Audio Studio provider and quality routes remain guarded by `provider_blocked` before local evidence.
 - Capture helper bridge request contract defines the future capture_start/capture_stop helper bridge schema and keeps current state as `contract_ready_runtime_not_migrated`.
 - Architecture validator checks the capture helper bridge request contract and helper timeout policy.
 - Machine-specific path validator is available as `validate:machine-paths` and is included in `validate:internal` and `validate:full`.
-- Capture helper bridge migration plan documents the safe migration boundary before replacing the older one-shot capture path.
+- Capture helper bridge migration plan documents the safe migration boundary before replacing the temporary one-shot capture implementation.
 - Helper bridge timeout policy documents that frontend timeout improves UX but backend stdout deadline handling is still required.
 - Single active engine policy documents Rust/Tauri as the only user-facing shell and Python as helper runtime.
 - Noise and hallucination filtering policy defines evidence-based filtering requirements instead of phrase-blocklist-only behavior.
@@ -156,7 +156,7 @@ Helper worker spawn, ping health check, JSON-line request forwarding, worker sta
 Still pending:
 
 - target-PC spawn validation,
-- replacing the older capture one-shot worker invocation with the long-running helper bridge,
+- replacing the temporary one-shot capture implementation with the long-running helper bridge,
 - full Start/Stop capture result routing through helper request/response evidence,
 - backend timeout/deadline handling for helper bridge stdout response reads.
 
@@ -177,14 +177,14 @@ These contracts guide implementation and validators, but contract existence alon
 
 ## Historical notes
 
-Older launcher prototypes, handoff notes, and phase reports may be useful for historical context, but they are not active source-of-truth unless listed in `ACTIVE_DOCUMENTATION_INDEX.md`.
+Superseded launcher prototypes, handoff notes, and phase reports may be useful for historical context, but they are not active source-of-truth unless listed in `ACTIVE_DOCUMENTATION_INDEX.md`.
 
 The active product shell direction is Rust/Tauri. Python remains helper runtime only.
 
 ## Known remaining implementation work
 
 1. Validate helper worker spawn on target PC.
-2. Replace capture one-shot worker invocation with long-running helper bridge routing.
+2. Replace temporary one-shot capture implementation with long-running helper bridge routing.
 3. Implement Audio Studio provider processing after metadata routes.
 4. Add Audio Studio guided microphone capture.
 5. Add Audio Studio audio quality scoring.
