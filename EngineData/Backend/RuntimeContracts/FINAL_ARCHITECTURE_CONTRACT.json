@@ -34,6 +34,6 @@
   "legacy_reference_policy": {
     "python_qt_launcher": "legacy_reference_only_unless_explicitly_reactivated",
     "old_absolute_paths": "must_be_migrated_to_UserData_settings_or_runtime_contracts",
-    "legacy_docs": "must_be_marked_as_legacy_when contradicted_by_Dev_Rust_contracts"
+    "legacy_docs": "must_be_marked_as_legacy_when_contradicted_by_Dev_Rust_contracts"
   }
 }
