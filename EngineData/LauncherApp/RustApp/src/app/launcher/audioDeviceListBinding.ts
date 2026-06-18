@@ -32,6 +32,7 @@ function settingsDeviceLabel(value: string | null | undefined, fallback: string)
 }
 
 function setButtonLabel(selector: string, value: string): void {
+  if (!bound) return;
   document.querySelectorAll<HTMLButtonElement>(selector).forEach((button) => {
     const label = button.querySelector("span:not(.icon)");
     if (label) label.textContent = value;
@@ -39,11 +40,13 @@ function setButtonLabel(selector: string, value: string): void {
 }
 
 function setAssistantMessage(message: string): void {
+  if (!bound) return;
   const element = document.querySelector<HTMLElement>("#assistantMessage");
   if (element) element.textContent = message;
 }
 
 function setDeveloperOutput(message: string): void {
+  if (!bound) return;
   const element = document.querySelector<HTMLElement>("#developerOutput");
   if (element) element.textContent = message;
 }
@@ -61,7 +64,7 @@ async function syncDeviceLabelsFromSettings(): Promise<void> {
   labelSyncPending = true;
   try {
     const settings = await runtimeApi.loadSettings();
-    if (!settings) return;
+    if (!settings || !bound) return;
     setButtonLabel(INPUT_BUTTON_SELECTOR, settingsDeviceLabel(settings.audio.input_device_id, "Default microphone"));
     setButtonLabel(OUTPUT_BUTTON_SELECTOR, settings.audio.auto_play_out_voice ? settingsDeviceLabel(settings.audio.output_device_id, "Default speaker") : "Speaker disabled");
   } finally {
@@ -104,6 +107,7 @@ async function showAudioDevices(kind: "input" | "output"): Promise<void> {
   try {
     setAssistantMessage("Checking local audio devices...");
     const report = await runtimeApi.listAudioDevices();
+    if (!bound) return;
     if (!report || !report.ok) {
       const blocker = report?.blocker || "audio_devices:unavailable";
       setAssistantMessage("Audio devices were not found yet. Check Windows sound settings or reconnect your microphone.");
@@ -116,7 +120,7 @@ async function showAudioDevices(kind: "input" | "output"): Promise<void> {
     setDeveloperOutput(`microphones: ${input}\nspeakers: ${output}\n${report.note}`);
 
     const settings = await runtimeApi.loadSettings();
-    if (!settings) {
+    if (!settings || !bound) {
       setAssistantMessage("Audio devices were found, but settings could not be loaded yet.");
       return;
     }
@@ -135,6 +139,7 @@ async function showAudioDevices(kind: "input" | "output"): Promise<void> {
     }
 
     await saveSelectedDevice(kind, selected, settings);
+    if (!bound) return;
     const label = shortDeviceLabel(selected);
     setButtonLabel(kind === "input" ? INPUT_BUTTON_SELECTOR : OUTPUT_BUTTON_SELECTOR, label);
     setAssistantMessage(`${kind === "input" ? "Microphone" : "Speaker"} selected: ${label}.`);
