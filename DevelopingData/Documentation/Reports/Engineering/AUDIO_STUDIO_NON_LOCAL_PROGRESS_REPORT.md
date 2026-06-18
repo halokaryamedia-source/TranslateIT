@@ -62,6 +62,7 @@ Current repository-side scaffold progress: 100% for the non-local scope.
 - Added Audio Studio static validator script.
 - Added Audio Studio local validation runner script.
 - Added Audio Studio local validation summary JSON output.
+- Updated the local validation runner to derive output root, log pattern, summary pattern, schema, runtime claim, required steps, and optional steps from the evidence contract.
 - Strengthened Audio Studio static validator path handling using script-location based root detection.
 - Added Audio Studio contract JSON parsing and structural checks to the static validator.
 - Added Audio Studio package script chain checks to the static validator.
@@ -71,6 +72,7 @@ Current repository-side scaffold progress: 100% for the non-local scope.
 - Added Audio Studio local runner existence and step checks to the static validator.
 - Added Audio Studio local summary evidence checks to the static validator.
 - Added Audio Studio local evidence contract structural checks to the static validator.
+- Added Audio Studio local runner evidence-contract usage checks to the static validator.
 - Registered `validate:audio-studio` in `package.json`.
 - Registered `validate:audio-studio:local` in `package.json`.
 - Included `validate:audio-studio` in `validate:internal` and `validate:full`.
