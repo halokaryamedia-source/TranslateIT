@@ -329,6 +329,27 @@ fn upsert_take(request: AudioStudioTakeRequest, default_state: &str) -> io::Resu
 }
 
 #[tauri::command]
+pub fn audio_studio_get_provider_status() -> AudioStudioCommandResult {
+    let index = read_take_index();
+    let staged_count = index.takes.iter().filter(|take| take.state == "staged").count();
+    let accepted_count = index.takes.iter().filter(|take| take.state == "accepted").count();
+    let _ = append_evidence("provider_status_checked", json!({
+        "take_count": index.takes.len(),
+        "staged_take_count": staged_count,
+        "accepted_take_count": accepted_count,
+        "provider_state": "provider_blocked",
+        "blocked_until": [
+            "guided_microphone_capture",
+            "audio_quality_measurement",
+            "profile_processing",
+            "generated_audio_output",
+            "streaming_generation"
+        ]
+    }));
+    result(false, "provider_blocked", "Audio Studio provider processing is not connected yet. Project metadata is available, but guided capture, quality scoring, generated audio, and streaming generation still require runtime implementation and target-PC evidence.")
+}
+
+#[tauri::command]
 pub fn audio_studio_import_take(request: AudioStudioTakeRequest) -> AudioStudioCommandResult {
     if let Some(error) = validate_take_request(&request) {
         return error;
