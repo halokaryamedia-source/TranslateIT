@@ -1,7 +1,7 @@
 {
   "schema": "translateit.python_helper_bridge_contract.v1",
   "branch": "Dev-Rust",
-  "status": "lifecycle_contract_visible_process_not_spawned",
+  "status": "process_spawn_bridge_implemented_pending_local_verification",
   "owner_shell": "Rust/Tauri",
   "helper_runtime": "Python",
   "allowed_helper_domains": [
@@ -41,6 +41,11 @@
     "cancel_task_lifecycle_command",
     "request_schema_command",
     "generation_token_invalidation",
+    "worker_path_resolution",
+    "venv_python_guard",
+    "stdin_jsonl_worker_protocol",
+    "stdout_jsonl_response_read",
+    "ping_health_check_on_start",
     "developer_ui_status_visibility",
     "developer_ui_lifecycle_controls"
   ],
@@ -52,7 +57,7 @@
     "A helper process may not write outside approved UserData roots.",
     "Start/Stop lifecycle must cancel stale helper output from previous generations.",
     "Real ASR plus real translation requires ready helper state and valid provider evidence.",
-    "Lifecycle commands must not claim Python process readiness until process spawn and health checks exist."
+    "Helper spawn must use the project-local worker virtual environment created by setup_realtime_worker.ps1."
   ],
   "approved_userdata_roots": {
     "cache": "UserData/CacheData/",
@@ -60,11 +65,11 @@
     "logs": "UserData/LogData/"
   },
   "not_ready_until_implemented": [
-    "helper_process_spawn_policy",
-    "helper_health_endpoint_or_stdio_protocol",
-    "real_request_response_protocol",
-    "cuda_status_mapping",
-    "provider_status_mapping",
-    "error_visibility_mapping"
+    "local_build_validation",
+    "target_pc_worker_spawn_validation",
+    "long_running_health_monitor",
+    "cuda_status_mapping_from_worker_status",
+    "provider_status_mapping_from_worker_status",
+    "error_visibility_mapping_for_worker_stderr"
   ]
 }
