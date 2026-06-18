@@ -1,9 +1,11 @@
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
+use std::fs::{self, OpenOptions};
 use std::io::{BufRead, BufReader, Write};
 use std::path::PathBuf;
-use std::process::{Child, ChildStdin, ChildStdout, Command, Stdio};
+use std::process::{Child, ChildStderr, ChildStdin, ChildStdout, Command, Stdio};
 use std::sync::{Mutex, OnceLock};
+use std::thread;
 use std::time::{SystemTime, UNIX_EPOCH};
 
 use crate::engine::paths::ProjectPaths;
@@ -18,6 +20,7 @@ pub struct HelperBridgeStatus {
     pub active_task: Option<String>,
     pub generation_token: u64,
     pub last_error: Option<String>,
+    pub stderr_log_path: Option<String>,
     pub updated_unix_ms: u128,
     pub runtime_claim: String,
 }
@@ -46,6 +49,7 @@ struct HelperBridgeRuntime {
     active_task: Option<String>,
     generation_token: u64,
     last_error: Option<String>,
+    stderr_log_path: Option<String>,
     updated_unix_ms: u128,
     child: Option<Child>,
     stdin: Option<ChildStdin>,
@@ -63,6 +67,7 @@ impl Default for HelperBridgeRuntime {
             active_task: None,
             generation_token: 0,
             last_error: None,
+            stderr_log_path: None,
             updated_unix_ms: unix_ms(),
             child: None,
             stdin: None,
@@ -102,6 +107,7 @@ fn status_from_runtime(runtime: &HelperBridgeRuntime) -> HelperBridgeStatus {
         active_task: runtime.active_task.clone(),
         generation_token: runtime.generation_token,
         last_error: runtime.last_error.clone(),
+        stderr_log_path: runtime.stderr_log_path.clone(),
         updated_unix_ms: runtime.updated_unix_ms,
         runtime_claim: runtime_claim(runtime),
     }
@@ -139,6 +145,42 @@ fn worker_python() -> PathBuf {
     } else {
         worker_root().join(".venv").join("bin").join("python")
     }
+}
+
+fn helper_bridge_log_dir() -> PathBuf {
+    PathBuf::from(ProjectPaths::discover().user_cache_dir)
+        .join("HelperBridge")
+        .join("logs")
+}
+
+fn helper_stderr_log_path(generation_token: u64) -> PathBuf {
+    helper_bridge_log_dir().join(format!("helper_bridge_stderr_{generation_token}.log"))
+}
+
+fn slash_path(path: &PathBuf) -> String {
+    path.to_string_lossy().replace('\\', "/")
+}
+
+fn spawn_stderr_logger(stderr: ChildStderr, log_path: PathBuf) {
+    thread::spawn(move || {
+        if let Some(parent) = log_path.parent() {
+            let _ = fs::create_dir_all(parent);
+        }
+        let Ok(mut file) = OpenOptions::new().create(true).append(true).open(&log_path) else { return };
+        let mut reader = BufReader::new(stderr);
+        let mut line = String::new();
+        loop {
+            line.clear();
+            match reader.read_line(&mut line) {
+                Ok(0) => break,
+                Ok(_) => {
+                    let _ = file.write_all(line.as_bytes());
+                    let _ = file.flush();
+                }
+                Err(_) => break,
+            }
+        }
+    });
 }
 
 fn set_blocked(runtime: &mut HelperBridgeRuntime, message: &str, error: &str) -> HelperBridgeActionResult {
@@ -249,6 +291,7 @@ pub fn get_helper_bridge_status() -> HelperBridgeStatus {
             active_task: None,
             generation_token: 0,
             last_error: Some("helper_bridge:lock_poisoned".to_string()),
+            stderr_log_path: None,
             updated_unix_ms: unix_ms(),
             runtime_claim: "bridge_state_error".to_string(),
         },
@@ -280,12 +323,18 @@ pub fn start_helper_bridge() -> HelperBridgeActionResult {
                 .current_dir(worker_root())
                 .stdin(Stdio::piped())
                 .stdout(Stdio::piped())
-                .stderr(Stdio::null())
+                .stderr(Stdio::piped())
                 .spawn()
             {
                 Ok(child) => child,
                 Err(error) => return set_blocked(&mut runtime, &format!("Failed to spawn Python helper worker: {error}"), "helper_bridge:spawn_failed"),
             };
+
+            let stderr_log_path = helper_stderr_log_path(runtime.generation_token);
+            if let Some(stderr) = child.stderr.take() {
+                spawn_stderr_logger(stderr, stderr_log_path.clone());
+                runtime.stderr_log_path = Some(slash_path(&stderr_log_path));
+            }
 
             let mut stdin = match child.stdin.take() {
                 Some(stdin) => stdin,
