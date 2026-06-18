@@ -97,26 +97,31 @@ export const runtimeApi = {
   getDiagnostics: () => singleFlight("diagnostics", () => runCommand<RuntimeDiagnostics>("get_runtime_diagnostics")),
   getHelperBridgeStatus: () => singleFlight("helper-bridge-status", () => runCommand<HelperBridgeStatus>("get_helper_bridge_status")),
   startHelperBridge: async () => {
+    clearHelperBridgeReads();
     const result = await runCommand<HelperBridgeActionResult>("start_helper_bridge");
     clearHelperBridgeReads();
     return result;
   },
   stopHelperBridge: async () => {
+    clearHelperBridgeReads();
     const result = await runCommand<HelperBridgeActionResult>("stop_helper_bridge");
     clearHelperBridgeReads();
     return result;
   },
   cancelHelperBridgeTask: async () => {
+    clearHelperBridgeReads();
     const result = await runCommand<HelperBridgeActionResult>("cancel_helper_bridge_task");
     clearHelperBridgeReads();
     return result;
   },
   checkHelperBridgeHealth: async () => {
+    clearHelperBridgeReads();
     const result = await runCommand<HelperBridgeActionResult>("check_helper_bridge_health");
     clearHelperBridgeReads();
     return result;
   },
   sendHelperBridgeRequest: async (request: HelperBridgeRequest) => {
+    clearHelperBridgeReads();
     const result = await runCommand<HelperBridgeActionResult>("send_helper_bridge_request", { request });
     clearHelperBridgeReads();
     return result;
@@ -126,11 +131,13 @@ export const runtimeApi = {
   getInputStatus: () => singleFlight("input-status", () => runCommand<InputPreparationStatus>("get_input_status")),
   listAudioDevices: () => singleFlight("audio-devices", () => runCommand<AudioDeviceListReport>("list_audio_devices")),
   startCapture: async () => {
+    clearVoiceDependentReads();
     const result = await runCommand<CommandResult>("start_capture");
     clearVoiceDependentReads();
     return result;
   },
   stopCapture: async () => {
+    clearVoiceDependentReads();
     const result = await runCommand<CommandResult>("stop_capture");
     clearVoiceDependentReads();
     return result;
