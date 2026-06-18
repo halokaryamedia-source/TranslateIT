@@ -26,9 +26,11 @@ Python remains part of the product as a helper runtime for tasks where Python is
 - `start_helper_bridge` resolves `EngineData/Backend/LocalWorker/WorkerRuntime/realtime_local_worker.py`.
 - `start_helper_bridge` requires the project-local worker `.venv` Python created by `setup_realtime_worker.ps1`.
 - `start_helper_bridge` spawns the Python worker with piped stdin/stdout and verifies startup using a `ping` command.
+- After ping, `start_helper_bridge` asks the worker for `status` and maps worker readiness into `cuda_ready`, `provider_ready`, `degraded_mode`, and `last_error`.
 - `send_helper_bridge_request` sends JSON-line requests to the running worker and reads one JSON-line response.
+- `send_helper_bridge_request` maps worker responses into helper bridge readiness state.
 - Developer UI reads and displays helper bridge status.
-- Developer UI includes Start Helper, Stop Helper, and Cancel Task controls.
+- Developer UI includes Start Helper, Worker Status, Stop Helper, and Cancel Task controls.
 - Helper existence alone must not mark full runtime ready; model/provider readiness still depends on worker response evidence and local validation.
 
 ### Audio Studio project-data runtime
@@ -80,15 +82,13 @@ Still scaffold-only:
 
 ### Python helper runtime bridge remaining work
 
-Helper worker spawn and JSON-line request forwarding now exist, but these still require local validation and additional runtime hardening.
+Helper worker spawn, ping health check, JSON-line request forwarding, and worker status mapping now exist, but these still require local validation and additional runtime hardening.
 
 Still pending:
 
 - target-PC spawn validation,
 - long-running health monitor,
 - worker stderr/error visibility mapping,
-- CUDA status mapping from worker status,
-- provider status mapping from worker status,
 - Start/Stop capture integration with helper generation token.
 
 ## Contract only
@@ -116,16 +116,15 @@ However, the final shell direction is now Rust/Tauri. Python/Qt launcher materia
 1. Validate helper worker spawn on target PC.
 2. Connect Rust/Tauri capture controls to the Python helper realtime pipeline.
 3. Add long-running helper health monitor.
-4. Surface CUDA/provider readiness from helper worker status.
-5. Add visible degraded-mode controls for CPU/provider fallback.
-6. Implement Audio Studio provider processing after metadata routes.
-7. Add Audio Studio guided microphone capture.
-8. Add Audio Studio audio quality scoring.
-9. Remove or migrate machine-specific absolute paths from runtime defaults.
-10. Mark legacy Python/Qt launcher docs as legacy reference where they conflict with Dev-Rust architecture.
-11. Keep hallucination/noise filtering evidence-based rather than phrase-blocklist-only.
-12. Replace or deprecate stale placeholder contracts that conflict with route-status contracts.
-13. Register UserData root policy validator in package validation chain once package update is accepted.
+4. Add visible degraded-mode controls for CPU/provider fallback.
+5. Implement Audio Studio provider processing after metadata routes.
+6. Add Audio Studio guided microphone capture.
+7. Add Audio Studio audio quality scoring.
+8. Remove or migrate machine-specific absolute paths from runtime defaults.
+9. Mark legacy Python/Qt launcher docs as legacy reference where they conflict with Dev-Rust architecture.
+10. Keep hallucination/noise filtering evidence-based rather than phrase-blocklist-only.
+11. Replace or deprecate stale placeholder contracts that conflict with route-status contracts.
+12. Register UserData root policy validator in package validation chain once package update is accepted.
 
 ## Not claimed
 
