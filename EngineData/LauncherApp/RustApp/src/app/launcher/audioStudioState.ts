@@ -27,6 +27,8 @@ export const AUDIO_STUDIO_TAKE_STATES: AudioStudioTakeState[] = [
   "blocked",
 ];
 
+export const AUDIO_STUDIO_TAKE_SOURCES: AudioStudioTakeSource[] = ["import", "guided_reading"];
+
 export const AUDIO_STUDIO_READING_LINES: AudioStudioReadingLine[] = [
   {
     id: "id-neutral-01",
@@ -54,9 +56,15 @@ export const AUDIO_STUDIO_READING_LINES: AudioStudioReadingLine[] = [
   },
 ];
 
+function makeTakeId(prefix: string, suffix?: string): string {
+  const randomPart = Math.random().toString(16).slice(2);
+  const suffixPart = suffix ? `-${suffix}` : "";
+  return `${prefix}-${Date.now()}-${randomPart}${suffixPart}`;
+}
+
 export function createImportedTake(file: File): AudioStudioTakeDraft {
   return {
-    id: `import-${Date.now()}-${Math.random().toString(16).slice(2)}`,
+    id: makeTakeId("import"),
     source: "import",
     state: "staged",
     title: file.name || "Imported audio",
@@ -68,7 +76,7 @@ export function createImportedTake(file: File): AudioStudioTakeDraft {
 
 export function createGuidedReadingTake(line: AudioStudioReadingLine): AudioStudioTakeDraft {
   return {
-    id: `guided-${Date.now()}-${line.id}`,
+    id: makeTakeId("guided", line.id),
     source: "guided_reading",
     state: "draft",
     title: line.label,
