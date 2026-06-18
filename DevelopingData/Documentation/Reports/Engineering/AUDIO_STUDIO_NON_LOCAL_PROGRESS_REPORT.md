@@ -23,7 +23,9 @@ Current repository-side scaffold progress: 100% for the non-local scope.
 - Added take metadata text sanitization and clipping for imported and guided items.
 - Added import staging.
 - Added import file validation for empty, unsupported, oversized, and over-limit file selections.
+- Added sanitized import notice labels based on staged take titles.
 - Added guided reading staging.
+- Added reading index clamp for guided line selection.
 - Added backend route placeholder.
 - Added Rust command stubs.
 - Added Rust-side request validation for Audio Studio stubs.
