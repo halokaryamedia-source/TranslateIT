@@ -66,7 +66,7 @@ export class LauncherController {
   private updateWarmup(progress: number, detail: string): void { this.ui.warmupFill.style.width = `${progress}%`; this.ui.warmupPercent.textContent = `${progress}%`; this.ui.warmupDetail.textContent = detail; }
   private setActiveNav(activeButton: HTMLButtonElement | null): void { this.ui.navItems.forEach((button) => button.classList.toggle("active", button === activeButton)); }
   private workerManifest(bundle: RuntimeStatusBundleReport | null) { return bundle?.local_worker_manifest ?? bundle?.internal_validation_gate?.local_worker_manifest ?? null; }
-  private modelReadyText(value: boolean): string { return value ? "Ready" : "Needs setup"; }
+  private modelReadyText(value: boolean): string { return value ? "Model ready" : "Needs setup"; }
   private refreshDirectionPill(): void { const settings = this.currentSettings ?? defaultSettings(); this.ui.directionPill.textContent = `${settings.source_language.toUpperCase()} > ${settings.target_language.toUpperCase()}`; }
   private renderWarmupSteps(activeIndex = -1): void { this.ui.warmupSteps.innerHTML = warmupStepsView(activeIndex); }
 
@@ -207,7 +207,7 @@ export class LauncherController {
   private setRecordingState(active: boolean): void {
     this.recording = active;
     document.body.classList.toggle("is-recording", active);
-    this.ui.recordStatusText.textContent = active ? "Recording" : "Ready";
+    this.ui.recordStatusText.textContent = active ? "Recording" : "Idle";
     this.ui.microphoneButton.setAttribute("aria-label", active ? "Stop recording" : "Start voice recording");
   }
 
@@ -223,20 +223,34 @@ export class LauncherController {
 
     const worker = this.workerManifest(bundle);
     const allModelsReady = Boolean(worker?.asr_model_ready && worker.asr_backup_model_ready && worker.realtime_translation_model_ready && worker.quality_translation_model_ready && worker.tts_default_ready);
-    const appReady = Boolean(worker?.ok || bundle.readiness.ready_for_user_facing_runtime || allModelsReady);
+    const textRuntimeReady = Boolean(worker?.ok || bundle.readiness.ready_for_user_facing_runtime || allModelsReady);
+    const helperProviderReady = Boolean(this.latestHelperBridgeStatus?.provider_ready);
+    const helperRunning = this.latestHelperBridgeStatus?.state === "ready";
+    const voicePipelineReady = Boolean(helperProviderReady && (bundle.capture_gate.ready_for_capture_start || allModelsReady));
     const blockers = [...bundle.readiness.blockers, ...bundle.capture_gate.blockers, ...(worker?.blockers ?? []), ...(worker?.tts_blockers ?? []), ...(worker?.warnings ?? []), ...(bundle.internal_validation_gate?.blockers ?? [])].filter(Boolean);
     const ttsLabel = worker?.piper_ready ? "Piper" : worker?.sapi_ready ? "SAPI" : "unavailable";
 
-    this.ui.userPresence.textContent = appReady ? worker?.voice_actor_marcel_ready ? "Ready" : `Ready (${ttsLabel})` : "Setup needed";
+    this.ui.userPresence.textContent = voicePipelineReady ? worker?.voice_actor_marcel_ready ? "Voice ready" : `Voice ready (${ttsLabel})` : textRuntimeReady ? "Text ready" : "Setup needed";
     this.ui.heroTitle.textContent = this.recording ? "Listening locally..." : "How can I help translate today?";
-    this.ui.heroSubtitle.textContent = this.recording ? "Speak now. The local capture runtime is active." : "Type a message, or press the microphone button on the right to record speech locally.";
-    this.ui.realtimeStatus.textContent = worker ? this.modelReadyText(worker.asr_model_ready && worker.realtime_translation_model_ready && worker.tts_default_ready) : "Checking";
-    this.ui.qualityStatus.textContent = worker ? this.modelReadyText(worker.asr_model_ready && worker.quality_translation_model_ready && worker.tts_default_ready) : "Checking";
+    this.ui.heroSubtitle.textContent = this.recording
+      ? "Microphone capture is active. ASR, translation, and TTS still depend on local worker evidence."
+      : voicePipelineReady
+        ? "Type a message, or press the microphone button on the right to record speech locally."
+        : helperRunning
+          ? "Text translation may be available. Voice provider readiness is still incomplete."
+          : "Type text to translate. Voice capture requires helper/provider setup first.";
+    this.ui.realtimeStatus.textContent = helperProviderReady && worker?.asr_model_ready && worker.realtime_translation_model_ready && worker.tts_default_ready ? "Voice ready" : worker ? "Provider pending" : "Checking";
+    this.ui.qualityStatus.textContent = helperProviderReady && worker?.asr_model_ready && worker.quality_translation_model_ready && worker.tts_default_ready ? "Quality ready" : worker ? "Provider pending" : "Checking";
     this.ui.gpuStatus.textContent = diagnostics?.cuda_probe.cuda_runtime_ready ? "CUDA ready" : diagnostics?.cuda_probe.gpu_summary ? "GPU detected" : "CPU fallback";
-    this.ui.developerOutput.textContent = `lifecycle=${bundle.engine_status.lifecycle_state}; recording=${this.recording}; blockers=${blockers.length}; next=${bundle.next_action}`;
+    this.ui.developerOutput.textContent = `lifecycle=${bundle.engine_status.lifecycle_state}; recording=${this.recording}; helper_provider=${helperProviderReady}; blockers=${blockers.length}; next=${bundle.next_action}`;
 
     if (!this.currentSessionId) {
-      this.setAssistantNotice(appReady ? "Local runtime warmup completed. You can start typing or record speech." : `Warmup completed, but setup is not fully ready yet. ${blockers[0] ? blockers[0].replaceAll("_", " ") : bundle.next_action}`);
+      const firstBlocker = blockers[0] ? blockers[0].replaceAll("_", " ") : bundle.next_action;
+      this.setAssistantNotice(voicePipelineReady
+        ? "Local voice runtime appears ready from current helper evidence. You can type or record speech."
+        : textRuntimeReady
+          ? `Text runtime warmup completed. Voice pipeline still needs helper/provider evidence. ${firstBlocker}`
+          : `Warmup completed, but setup is not fully ready yet. ${firstBlocker}`);
     }
   }
 
@@ -306,7 +320,13 @@ export class LauncherController {
       await this.saveChatMessage("user", source);
       this.setAssistantNotice("Translating text locally...");
       const result = await runtimeApi.translateText(source);
-      const response = result?.message ?? "Translation command failed. Open Settings > Developer for diagnostics.";
+      if (!result?.ok) {
+        const failure = result?.message ?? "Translation command failed. Open Settings > Developer for diagnostics.";
+        this.ui.chatList.innerHTML = translationResultView(source, failure, "Error");
+        this.setAssistantNotice(`Translation failed. ${failure}`);
+        return;
+      }
+      const response = result.message;
       await this.saveChatMessage("assistant", response);
       this.ui.chatList.innerHTML = translationResultView(source, response, this.voiceOutputStatus());
       this.setAssistantNotice("Translation completed. Result is shown above.");
