@@ -4,6 +4,8 @@ import type {
   AudioStudioValidationEvidence,
   CommandResult,
   HardwareUsageReport,
+  HelperBridgeActionResult,
+  HelperBridgeRequest,
   HelperBridgeStatus,
   InputPreparationStatus,
   LauncherChatActionResult,
@@ -40,6 +42,10 @@ function clearVoiceDependentReads(): void {
 
 function clearTextJobReads(): void {
   clearRuntimeReads("status-bundle", "diagnostics", "helper-bridge-status");
+}
+
+function clearHelperBridgeReads(): void {
+  clearRuntimeReads("helper-bridge-status", "status-bundle", "diagnostics");
 }
 
 function chatListKey(kind?: string): string {
@@ -90,6 +96,26 @@ export const runtimeApi = {
   getStatusBundle: () => singleFlight("status-bundle", () => runCommand<RuntimeStatusBundleReport>("get_runtime_status_bundle")),
   getDiagnostics: () => singleFlight("diagnostics", () => runCommand<RuntimeDiagnostics>("get_runtime_diagnostics")),
   getHelperBridgeStatus: () => singleFlight("helper-bridge-status", () => runCommand<HelperBridgeStatus>("get_helper_bridge_status")),
+  startHelperBridge: async () => {
+    const result = await runCommand<HelperBridgeActionResult>("start_helper_bridge");
+    clearHelperBridgeReads();
+    return result;
+  },
+  stopHelperBridge: async () => {
+    const result = await runCommand<HelperBridgeActionResult>("stop_helper_bridge");
+    clearHelperBridgeReads();
+    return result;
+  },
+  cancelHelperBridgeTask: async () => {
+    const result = await runCommand<HelperBridgeActionResult>("cancel_helper_bridge_task");
+    clearHelperBridgeReads();
+    return result;
+  },
+  sendHelperBridgeRequest: async (request: HelperBridgeRequest) => {
+    const result = await runCommand<HelperBridgeActionResult>("send_helper_bridge_request", { request });
+    clearHelperBridgeReads();
+    return result;
+  },
   getLatestAudioStudioValidationEvidence: () => singleFlight("audio-studio-validation-evidence", () => runCommand<AudioStudioValidationEvidence>("get_latest_audio_studio_validation_evidence")),
   getHardwareUsage: () => singleFlight("hardware-usage", () => runCommand<HardwareUsageReport>("get_hardware_usage")),
   getInputStatus: () => singleFlight("input-status", () => runCommand<InputPreparationStatus>("get_input_status")),
