@@ -14,12 +14,17 @@ function hasSetupNeededStatus(): boolean {
   return visibleText("realtimeStatus").toLowerCase().includes("setup needed");
 }
 
+function isLegacyGenericReady(value: string): boolean {
+  const normalized = value.trim().toLowerCase();
+  return normalized === "ready" || normalized.startsWith("ready (");
+}
+
 function guardReadinessUi(): void {
   if (!hasSetupNeededStatus()) return;
-  const userPresence = visibleText("userPresence").toLowerCase();
-  const qualityStatus = visibleText("qualityStatus").toLowerCase();
-  if (userPresence.includes("ready")) setText("userPresence", "Setup needed");
-  if (qualityStatus === "ready") setText("qualityStatus", "Needs setup");
+  const userPresence = visibleText("userPresence");
+  const qualityStatus = visibleText("qualityStatus");
+  if (isLegacyGenericReady(userPresence)) setText("userPresence", "Setup needed");
+  if (isLegacyGenericReady(qualityStatus)) setText("qualityStatus", "Needs setup");
 }
 
 export function bindRuntimeReadinessUiGuard(): void {
