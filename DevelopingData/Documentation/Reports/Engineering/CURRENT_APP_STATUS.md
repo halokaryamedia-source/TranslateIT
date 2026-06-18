@@ -13,7 +13,7 @@ Python remains part of the product as a helper runtime for tasks where Python is
 ### Rust/Tauri shell
 
 - Rust/Tauri launcher shell exists.
-- Tauri command registration exists for runtime status, diagnostics, hardware, audio devices, settings, chat, capture control, translation, Audio Studio metadata routes, Audio Studio provider status route, helper bridge lifecycle/status, helper bridge health check, and Audio Studio validation evidence reads.
+- Tauri command registration exists for runtime status, diagnostics, hardware, audio devices, settings, chat, capture control, translation, Audio Studio metadata routes, Audio Studio provider status route, Audio Studio quality gate status route, helper bridge lifecycle/status, helper bridge health check, and Audio Studio validation evidence reads.
 - Launcher chat persistence uses `UserData/SavedProject/Chat`.
 - Project path discovery uses root markers: `EngineData`, `DevelopingData`, and `UserData`.
 
@@ -52,6 +52,8 @@ Audio Studio metadata routes now use `metadata_ready` semantics instead of gener
 - Audio Studio can list saved take metadata.
 - Audio Studio can export project metadata.
 - Audio Studio exposes `audio_studio_get_provider_status`, which returns `provider_blocked` and writes a provider-status evidence event without claiming real audio/provider readiness.
+- Audio Studio exposes `audio_studio_get_quality_gate_status`, which returns `provider_blocked` and writes a quality-gate evidence event without claiming real audio analysis or quality-score readiness.
+- Audio Studio UI includes Provider Status and Quality Gate buttons.
 - Audio Studio persists take details:
   - `take_id`
   - `source`
@@ -79,7 +81,10 @@ Audio Studio metadata routes now use `metadata_ready` semantics instead of gener
 
 - The old Audio Studio route placeholder contract is marked deprecated and points to `AUDIO_STUDIO_ROUTE_STATUS_CONTRACT.json`.
 - Architecture validator checks the deprecated placeholder does not become the source of truth again.
+- Architecture validator checks Audio Studio provider and quality routes remain guarded by `provider_blocked` before local evidence.
 - Machine-specific path validator is available as `validate:machine-paths` and is included in `validate:internal` and `validate:full`.
+- Capture helper bridge migration plan documents the safe migration boundary before replacing the older one-shot capture path.
+- Legacy reference policy documents Rust/Tauri as final shell and Python as helper runtime.
 
 ## Scaffold only
 
@@ -133,8 +138,7 @@ However, the final shell direction is now Rust/Tauri. Python/Qt launcher materia
 3. Implement Audio Studio provider processing after metadata routes.
 4. Add Audio Studio guided microphone capture.
 5. Add Audio Studio audio quality scoring.
-6. Mark legacy Python/Qt launcher docs as legacy reference where they conflict with Dev-Rust architecture.
-7. Keep hallucination/noise filtering evidence-based rather than phrase-blocklist-only.
+6. Keep hallucination/noise filtering evidence-based rather than phrase-blocklist-only.
 
 ## Not claimed
 
