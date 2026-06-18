@@ -32,17 +32,20 @@ fn placeholder_result(message: &str) -> AudioStudioCommandResult {
 }
 
 #[tauri::command]
-pub fn audio_studio_import_take(_request: AudioStudioTakeRequest) -> AudioStudioCommandResult {
+pub fn audio_studio_import_take(request: AudioStudioTakeRequest) -> AudioStudioCommandResult {
+    let _ = request;
     placeholder_result("Audio Studio import route is a non-local placeholder. Target-PC storage evidence is required before enabling it.")
 }
 
 #[tauri::command]
-pub fn audio_studio_stage_guided_take(_request: AudioStudioTakeRequest) -> AudioStudioCommandResult {
+pub fn audio_studio_stage_guided_take(request: AudioStudioTakeRequest) -> AudioStudioCommandResult {
+    let _ = request;
     placeholder_result("Audio Studio guided reading route is a non-local placeholder. Target-PC capture evidence is required before enabling it.")
 }
 
 #[tauri::command]
-pub fn audio_studio_update_take_state(_request: AudioStudioStateUpdateRequest) -> AudioStudioCommandResult {
+pub fn audio_studio_update_take_state(request: AudioStudioStateUpdateRequest) -> AudioStudioCommandResult {
+    let _ = request;
     placeholder_result("Audio Studio take state route is a non-local placeholder. Target-PC project-data evidence is required before enabling it.")
 }
 
