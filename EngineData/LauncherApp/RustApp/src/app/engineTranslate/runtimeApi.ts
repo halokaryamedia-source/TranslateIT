@@ -2,6 +2,7 @@ import { getRuntimeCommandErrors, runCommand } from "../shared/tauriBridge";
 import type {
   AudioDeviceListReport,
   AudioStudioValidationEvidence,
+  CaptureHelperBridgeRequestPreview,
   CommandResult,
   HardwareUsageReport,
   HelperBridgeActionResult,
@@ -35,11 +36,11 @@ function clearRuntimeReads(...keys: string[]): void {
 }
 
 function clearSettingsDependentReads(): void {
-  clearRuntimeReads("runtime-settings", "status-bundle", "diagnostics", "input-status", "hardware-usage", "audio-devices", "helper-bridge-status", "audio-studio-validation-evidence");
+  clearRuntimeReads("runtime-settings", "status-bundle", "diagnostics", "input-status", "hardware-usage", "audio-devices", "helper-bridge-status", "audio-studio-validation-evidence", "capture-start-preview", "capture-stop-preview");
 }
 
 function clearVoiceDependentReads(): void {
-  clearRuntimeReads("status-bundle", "diagnostics", "input-status", "helper-bridge-status");
+  clearRuntimeReads("status-bundle", "diagnostics", "input-status", "helper-bridge-status", "capture-start-preview", "capture-stop-preview");
 }
 
 function clearTextJobReads(): void {
@@ -47,7 +48,7 @@ function clearTextJobReads(): void {
 }
 
 function clearHelperBridgeReads(): void {
-  clearRuntimeReads("helper-bridge-status", "status-bundle", "diagnostics");
+  clearRuntimeReads("helper-bridge-status", "status-bundle", "diagnostics", "capture-start-preview", "capture-stop-preview");
 }
 
 function helperTimeoutResult(action: string, timeoutMs: number): HelperBridgeActionResult {
@@ -156,6 +157,8 @@ export const runtimeApi = {
     clearHelperBridgeReads();
     return result;
   },
+  prepareCaptureStartRequest: () => singleFlight("capture-start-preview", () => runCommand<CaptureHelperBridgeRequestPreview>("prepare_capture_start_request")),
+  prepareCaptureStopRequest: () => singleFlight("capture-stop-preview", () => runCommand<CaptureHelperBridgeRequestPreview>("prepare_capture_stop_request")),
   getLatestAudioStudioValidationEvidence: () => singleFlight("audio-studio-validation-evidence", () => runCommand<AudioStudioValidationEvidence>("get_latest_audio_studio_validation_evidence")),
   getHardwareUsage: () => singleFlight("hardware-usage", () => runCommand<HardwareUsageReport>("get_hardware_usage")),
   getInputStatus: () => singleFlight("input-status", () => runCommand<InputPreparationStatus>("get_input_status")),
