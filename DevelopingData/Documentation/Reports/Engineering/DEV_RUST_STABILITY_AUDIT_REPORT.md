@@ -22,6 +22,7 @@ This report covers repository-side stability review for the current Dev-Rust bra
 - Audio Studio static validation coverage.
 - Audio Studio contract validator robustness.
 - Audio Studio validation script chain enforcement.
+- Audio Studio cross-layer enum consistency.
 - Advanced panel observer behavior.
 - Advanced panel direct-open behavior.
 - Theme injection behavior.
@@ -260,6 +261,17 @@ Fix:
 - The validator now checks that `validate:audio-studio` points to the Audio Studio validator script.
 - The validator now checks that `validate:internal` includes `validate:audio-studio`.
 - The validator now checks that `validate:full` includes `validate:audio-studio`.
+
+### 23. Audio Studio cross-layer enum consistency validation
+
+Risk: take sources, take states, command states, or advanced mode ids could drift between shared TypeScript definitions, Rust validation stubs, contracts, and advanced UI state.
+
+Fix:
+
+- Added source-code enum consistency checks to `validate_audio_studio.mjs`.
+- The validator now checks shared take sources, take states, and command states.
+- The validator now checks Rust-side take source and state validation markers.
+- The validator now checks advanced mode ids and advanced binding hardening markers.
 
 ## Current integration chains
 
