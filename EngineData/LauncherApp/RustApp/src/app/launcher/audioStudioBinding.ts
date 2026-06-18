@@ -134,7 +134,7 @@ function audioStudioView(): string {
             <button id="audioStudioGuidedButton" class="mic-test-button-v22" type="button">Stage Guide</button>
           </section>
           <section class="settings-output-row">
-            ${icon("download")}
+            ${icon("fileText")}
             <div><h3>Project metadata</h3><p>Review the project metadata route before local file writing is enabled.</p></div>
             <button id="audioStudioMetadataButton" class="mic-test-button-v22 secondary" type="button">Check Route</button>
           </section>
