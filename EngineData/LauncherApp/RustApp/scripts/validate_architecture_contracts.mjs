@@ -3,7 +3,8 @@ import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
 const scriptDir = dirname(fileURLToPath(import.meta.url));
-const repoRoot = resolve(scriptDir, "../../..");
+const packageRoot = resolve(scriptDir, "..");
+const repoRoot = resolve(packageRoot, "../../..");
 const errors = [];
 
 function readJson(path) {
@@ -12,7 +13,12 @@ function readJson(path) {
     errors.push(`Missing contract: ${path}`);
     return null;
   }
-  return JSON.parse(readFileSync(fullPath, "utf8"));
+  try {
+    return JSON.parse(readFileSync(fullPath, "utf8"));
+  } catch (error) {
+    errors.push(`Invalid contract JSON ${path}: ${error instanceof Error ? error.message : String(error)}`);
+    return null;
+  }
 }
 
 function expect(value, expected, label) {
