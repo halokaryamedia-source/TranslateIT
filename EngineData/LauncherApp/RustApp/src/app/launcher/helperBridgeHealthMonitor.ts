@@ -5,9 +5,13 @@ let started = false;
 let healthCheckPending = false;
 let lastWarning = "";
 
-function setAssistantNotice(message: string): void {
-  const assistant = document.querySelector<HTMLParagraphElement>("#assistantMessage");
-  if (assistant) assistant.textContent = message;
+function publishHealthWarning(message: string): void {
+  document.body.dataset.helperBridgeHealthWarning = message;
+  const detail = document.querySelector<HTMLElement>('[aria-label="Helper bridge detailed readiness"] .developer-log-summary');
+  if (detail && document.body.classList.contains("settings-open")) {
+    const base = detail.textContent?.replace(/ Health: .*$/u, "") ?? "";
+    detail.textContent = `${base} Health: ${message}`.trim();
+  }
 }
 
 async function checkOnce(): Promise<void> {
@@ -19,7 +23,7 @@ async function checkOnce(): Promise<void> {
     const result = await runtimeApi.checkHelperBridgeHealth();
     if (result && !result.ok && result.message !== lastWarning) {
       lastWarning = result.message;
-      setAssistantNotice(result.message);
+      publishHealthWarning(result.message);
     }
   } catch {
     // Health monitor is best-effort and must not interrupt the launcher UI.
