@@ -1,6 +1,8 @@
 const MAX_ATTACHMENT_FILES = 4;
 const NOTICE_DELAY_MS = 650;
 let bound = false;
+let changeHandler: ((event: Event) => void) | null = null;
+let dropHandler: ((event: DragEvent) => void) | null = null;
 
 function setNotice(message: string): void {
   const notice = document.querySelector<HTMLParagraphElement>("#assistantMessage");
@@ -16,14 +18,26 @@ function warnIfTooManyFiles(files: FileList | null | undefined): void {
   }
 }
 
-export function bindAttachmentLimitWatcher(): void {
-  if (bound) return;
+export function bindAttachmentLimitWatcher(): () => void {
+  if (bound) return unbindAttachmentLimitWatcher;
   bound = true;
-  document.addEventListener("change", (event) => {
+  changeHandler = (event: Event) => {
     const input = event.target as HTMLInputElement | null;
     if (input?.id === "attachmentInput") warnIfTooManyFiles(input.files);
-  });
-  document.addEventListener("drop", (event) => {
+  };
+  dropHandler = (event: DragEvent) => {
     warnIfTooManyFiles(event.dataTransfer?.files);
-  }, true);
+  };
+  document.addEventListener("change", changeHandler);
+  document.addEventListener("drop", dropHandler, true);
+  return unbindAttachmentLimitWatcher;
+}
+
+export function unbindAttachmentLimitWatcher(): void {
+  if (!bound) return;
+  if (changeHandler) document.removeEventListener("change", changeHandler);
+  if (dropHandler) document.removeEventListener("drop", dropHandler, true);
+  changeHandler = null;
+  dropHandler = null;
+  bound = false;
 }
