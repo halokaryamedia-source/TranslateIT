@@ -13,7 +13,7 @@ Python remains part of the product as a helper runtime for tasks where Python is
 ### Rust/Tauri shell
 
 - Rust/Tauri launcher shell exists.
-- Tauri command registration exists for runtime status, diagnostics, hardware, audio devices, settings, chat, capture control, translation, Audio Studio metadata routes, helper bridge lifecycle/status, and Audio Studio validation evidence reads.
+- Tauri command registration exists for runtime status, diagnostics, hardware, audio devices, settings, chat, capture control, translation, Audio Studio metadata routes, helper bridge lifecycle/status, helper bridge health check, and Audio Studio validation evidence reads.
 - Launcher chat persistence uses `UserData/SavedProject/Chat`.
 - Project path discovery uses root markers: `EngineData`, `DevelopingData`, and `UserData`.
 
@@ -22,6 +22,7 @@ Python remains part of the product as a helper runtime for tasks where Python is
 - Rust/Tauri exposes `get_helper_bridge_status`.
 - Rust/Tauri exposes lifecycle commands: `start_helper_bridge`, `stop_helper_bridge`, and `cancel_helper_bridge_task`.
 - Rust/Tauri exposes `send_helper_bridge_request` for JSON-line worker commands.
+- Rust/Tauri exposes `check_helper_bridge_health`, which sends worker `status` only when the helper is already ready.
 - Helper bridge commands maintain a generation token for cancellation/state invalidation.
 - `start_helper_bridge` resolves `EngineData/Backend/LocalWorker/WorkerRuntime/realtime_local_worker.py`.
 - `start_helper_bridge` requires the project-local worker `.venv` Python created by `setup_realtime_worker.ps1`.
@@ -32,6 +33,7 @@ Python remains part of the product as a helper runtime for tasks where Python is
 - `send_helper_bridge_request` sends JSON-line requests to the running worker and reads one JSON-line response.
 - `send_helper_bridge_request` maps worker responses into helper bridge readiness state.
 - Start/Stop capture commands invalidate the helper generation token before running the existing capture lifecycle.
+- Frontend includes a helper health monitor that checks health every 15 seconds only when the helper status is already `ready`.
 - Developer UI reads and displays helper bridge status.
 - Developer UI includes Start Helper, Worker Status, Stop Helper, and Cancel Task controls.
 - Helper existence alone must not mark full runtime ready; model/provider readiness still depends on worker response evidence and local validation.
@@ -85,12 +87,11 @@ Still scaffold-only:
 
 ### Python helper runtime bridge remaining work
 
-Helper worker spawn, ping health check, JSON-line request forwarding, worker status mapping, capture generation-token invalidation, and helper error-log capture now exist, but these still require local validation and additional runtime hardening.
+Helper worker spawn, ping health check, JSON-line request forwarding, worker status mapping, capture generation-token invalidation, helper error-log capture, and frontend health monitor now exist, but these still require local validation and additional runtime hardening.
 
 Still pending:
 
 - target-PC spawn validation,
-- long-running health monitor,
 - replacing the older capture one-shot worker invocation with the long-running helper bridge,
 - full Start/Stop capture result routing through helper request/response evidence.
 
@@ -118,16 +119,15 @@ However, the final shell direction is now Rust/Tauri. Python/Qt launcher materia
 
 1. Validate helper worker spawn on target PC.
 2. Replace capture one-shot worker invocation with long-running helper bridge routing.
-3. Add long-running helper health monitor.
-4. Add visible degraded-mode controls for CPU/provider fallback.
-5. Implement Audio Studio provider processing after metadata routes.
-6. Add Audio Studio guided microphone capture.
-7. Add Audio Studio audio quality scoring.
-8. Remove or migrate machine-specific absolute paths from runtime defaults.
-9. Mark legacy Python/Qt launcher docs as legacy reference where they conflict with Dev-Rust architecture.
-10. Keep hallucination/noise filtering evidence-based rather than phrase-blocklist-only.
-11. Replace or deprecate stale placeholder contracts that conflict with route-status contracts.
-12. Register UserData root policy validator in package validation chain once package update is accepted.
+3. Add visible degraded-mode controls for CPU/provider fallback.
+4. Implement Audio Studio provider processing after metadata routes.
+5. Add Audio Studio guided microphone capture.
+6. Add Audio Studio audio quality scoring.
+7. Remove or migrate machine-specific absolute paths from runtime defaults.
+8. Mark legacy Python/Qt launcher docs as legacy reference where they conflict with Dev-Rust architecture.
+9. Keep hallucination/noise filtering evidence-based rather than phrase-blocklist-only.
+10. Replace or deprecate stale placeholder contracts that conflict with route-status contracts.
+11. Register UserData root policy validator in package validation chain once package update is accepted.
 
 ## Not claimed
 
