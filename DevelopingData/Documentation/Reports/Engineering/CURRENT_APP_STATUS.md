@@ -2,6 +2,22 @@
 
 Branch: `Dev-Rust`
 
+## Documentation source of truth
+
+Read this first for documentation ownership and source-of-truth order:
+
+```text
+DevelopingData/Documentation/Reports/Engineering/ACTIVE_DOCUMENTATION_INDEX.md
+```
+
+TranslateIT has one active product runtime direction:
+
+```text
+Rust/Tauri desktop shell + Python helper runtime
+```
+
+Python is an internal helper runtime, not a second user-facing product shell.
+
 ## Final architecture decision
 
 The final user-facing desktop application is Rust/Tauri.
@@ -23,7 +39,7 @@ Python remains part of the product as a helper runtime for tasks where Python is
 - Generic `Ready` wording was reduced in the main runtime status flow.
 - Translation command failure is no longer treated as a completed translation result.
 - Helper health monitor no longer overwrites the main assistant message; it stores warning detail as non-invasive runtime state.
-- Runtime readiness DOM guard only corrects legacy generic `Ready` labels and no longer overwrites explicit `Text ready` or `Voice ready` labels.
+- Runtime readiness DOM guard only corrects old generic `Ready` labels and no longer overwrites explicit `Text ready` or `Voice ready` labels.
 - Runtime API clears helper/status caches before and after helper/capture mutation commands to reduce stale UI reads.
 - Runtime API applies frontend timeout guards to helper bridge lifecycle/request commands so the UI does not wait indefinitely for a worker response.
 - Start Capture is blocked until helper provider readiness is verified, preventing users from silently entering the older one-shot capture path when helper/provider readiness is incomplete.
@@ -115,7 +131,7 @@ Audio Studio metadata routes now use `metadata_ready` semantics instead of gener
 - Machine-specific path validator is available as `validate:machine-paths` and is included in `validate:internal` and `validate:full`.
 - Capture helper bridge migration plan documents the safe migration boundary before replacing the older one-shot capture path.
 - Helper bridge timeout policy documents that frontend timeout improves UX but backend stdout deadline handling is still required.
-- Legacy reference policy documents Rust/Tauri as final shell and Python as helper runtime.
+- Single active engine policy documents Rust/Tauri as the only user-facing shell and Python as helper runtime.
 - Noise and hallucination filtering policy defines evidence-based filtering requirements instead of phrase-blocklist-only behavior.
 
 ## Scaffold only
@@ -159,11 +175,11 @@ Contracts exist for:
 
 These contracts guide implementation and validators, but contract existence alone is not runtime readiness.
 
-## Legacy reference
+## Historical notes
 
-The older Python/Qt launcher documentation and handoff notes remain useful as implementation reference for realtime speech translation behavior, CUDA policy, custom voice behavior, Start/Stop lifecycle, and ASR/translation/TTS internals.
+Older launcher prototypes, handoff notes, and phase reports may be useful for historical context, but they are not active source-of-truth unless listed in `ACTIVE_DOCUMENTATION_INDEX.md`.
 
-However, the final shell direction is now Rust/Tauri. Python/Qt launcher material should be treated as legacy reference unless explicitly reactivated.
+The active product shell direction is Rust/Tauri. Python remains helper runtime only.
 
 ## Known remaining implementation work
 
