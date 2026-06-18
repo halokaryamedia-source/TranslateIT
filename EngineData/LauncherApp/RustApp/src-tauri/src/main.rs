@@ -20,7 +20,7 @@ use commands::helper_bridge::{
     start_helper_bridge,
     stop_helper_bridge,
 };
-use commands::runtime::{start_capture, stop_capture};
+use commands::runtime::{check_helper_bridge_health, start_capture, stop_capture};
 use commands::settings::{load_runtime_settings, save_default_runtime_settings, save_runtime_settings};
 use commands::translation::translate_text;
 
@@ -35,6 +35,7 @@ fn main() {
         stop_helper_bridge,
         cancel_helper_bridge_task,
         send_helper_bridge_request,
+        check_helper_bridge_health,
         get_input_status,
         list_audio_devices,
         get_latest_audio_pipeline_evidence,
