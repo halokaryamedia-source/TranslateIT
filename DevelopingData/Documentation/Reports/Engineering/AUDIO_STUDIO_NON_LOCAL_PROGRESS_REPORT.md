@@ -49,6 +49,7 @@ Current repository-side scaffold progress: 100% for the non-local scope.
 - Added advanced quality contract.
 - Synced the advanced quality contract with approved Audio Studio roots.
 - Added advanced contract done marker for metadata payload limit sync.
+- Added local validation evidence contract.
 - Added advanced frontend state.
 - Added advanced UI binding.
 - Added stable advanced mode ids and default advanced mode constant.
@@ -69,6 +70,7 @@ Current repository-side scaffold progress: 100% for the non-local scope.
 - Added Audio Studio payload limit contract sync checks to the static validator.
 - Added Audio Studio local runner existence and step checks to the static validator.
 - Added Audio Studio local summary evidence checks to the static validator.
+- Added Audio Studio local evidence contract structural checks to the static validator.
 - Registered `validate:audio-studio` in `package.json`.
 - Registered `validate:audio-studio:local` in `package.json`.
 - Included `validate:audio-studio` in `validate:internal` and `validate:full`.
@@ -118,6 +120,7 @@ DevelopingData/Documentation/Reports/Engineering/DEV_RUST_STABILITY_AUDIT_REPORT
 EngineData/Backend/RuntimeContracts/AUDIO_STUDIO_ROUTE_PLACEHOLDER.json
 EngineData/Backend/RuntimeContracts/AUDIO_STUDIO_PROJECT_METADATA_CONTRACT.json
 EngineData/Backend/RuntimeContracts/AUDIO_STUDIO_ADVANCED_QUALITY_CONTRACT.json
+EngineData/Backend/RuntimeContracts/AUDIO_STUDIO_LOCAL_VALIDATION_EVIDENCE_CONTRACT.json
 EngineData/LauncherApp/RustApp/src/app/engineTranslate/audioStudioApi.ts
 EngineData/LauncherApp/RustApp/src/app/launcher/audioStudioAdvancedBinding.ts
 EngineData/LauncherApp/RustApp/src/app/launcher/audioStudioAdvancedState.ts
