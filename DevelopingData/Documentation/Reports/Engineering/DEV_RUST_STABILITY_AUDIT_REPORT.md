@@ -24,6 +24,7 @@ This report covers repository-side stability review for the current Dev-Rust bra
 - Audio Studio validation script chain enforcement.
 - Audio Studio cross-layer enum consistency.
 - Audio Studio safety limit consistency.
+- Audio Studio payload limit contract sync.
 - Advanced panel observer behavior.
 - Advanced panel direct-open behavior.
 - Theme injection behavior.
@@ -284,6 +285,18 @@ Fix:
 - The validator now checks staged take limit, import count limit, and max audio file size limit.
 - The validator now checks frontend title/detail limits.
 - The validator now checks Rust take id/title/detail payload limits.
+
+### 25. Audio Studio payload limit contract sync
+
+Risk: safety limits could be enforced in source code but absent from the runtime metadata contract, making future metadata writers rely on implicit implementation details.
+
+Fix:
+
+- Added `payload_limits` to `AUDIO_STUDIO_PROJECT_METADATA_CONTRACT.json`.
+- Added accepted import extensions to the payload limit contract.
+- Added a metadata rule requiring payload limits to be enforced before writing metadata.
+- Added `metadata_payload_limits_synced` to the advanced quality contract done definition.
+- Updated the static validator to check payload limit contract values and the advanced contract sync marker.
 
 ## Current integration chains
 
