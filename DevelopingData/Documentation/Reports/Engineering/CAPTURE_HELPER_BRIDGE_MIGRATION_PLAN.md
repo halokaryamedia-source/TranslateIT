@@ -4,7 +4,7 @@ Branch: `Dev-Rust`
 
 ## Purpose
 
-This document defines the non-local migration boundary for replacing the older capture one-shot worker invocation with the long-running Rust/Tauri helper bridge.
+This document defines the non-local migration boundary for moving the temporary capture implementation to the long-running Rust/Tauri helper bridge.
 
 The current safe state is:
 
@@ -13,7 +13,8 @@ The current safe state is:
 - `start_helper_bridge` can spawn the project-local Python worker and verify `ping`.
 - `send_helper_bridge_request` can send JSON-line requests to the running worker.
 - `check_helper_bridge_health` can request worker `status` when helper state is already `ready`.
-- `start_capture` and `stop_capture` invalidate the helper generation token before running the existing capture lifecycle.
+- `prepare_capture_start_request` and `prepare_capture_stop_request` can preview helper bridge payloads without running real capture.
+- `start_capture` blocks until helper provider readiness is verified.
 
 ## Non-local migration boundary
 
@@ -115,12 +116,12 @@ Status: mostly complete.
 
 ### Phase 2: Bridge request preparation
 
-Allowed non-local work:
+Status: prepared as preview-only runtime scaffolding.
 
-- Add capture-start/capture-stop request structs.
-- Add Tauri commands that prepare requests without claiming runtime success.
-- Add UI copy showing helper readiness requirements.
-- Add validators for generation token and no-ready-without-evidence behavior.
+- Capture-start/capture-stop request contract exists.
+- Tauri preview commands prepare requests without claiming runtime success.
+- UI copy shows helper readiness requirements.
+- Validators guard generation token, no-ready-without-evidence behavior, and preview-only wording.
 
 ### Phase 3: Target-PC implementation
 
@@ -136,11 +137,4 @@ Requires local runtime access:
 
 ## Current not-ready rule
 
-Do not remove the older capture one-shot path until the long-running helper bridge has passed target-PC validation and saved evidence.
-
-Until then, the safe repo-side state is:
-
-- generation-token invalidation exists,
-- helper bridge route exists,
-- helper status is visible,
-- one-shot capture replacement remains pending.
+Do not remove the temporary capture implementation until the long-running helper bridge has passed target-PC validation and saved evidence.
