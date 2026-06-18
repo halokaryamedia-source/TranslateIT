@@ -41,11 +41,15 @@ if (architecture) {
 const helper = readJson("EngineData/Backend/RuntimeContracts/PYTHON_HELPER_BRIDGE_CONTRACT.json");
 if (helper) {
   expect(helper.schema, "translateit.python_helper_bridge_contract.v1", "helper bridge schema");
+  expect(helper.status, "process_spawn_bridge_implemented_pending_local_verification", "helper bridge status");
   expect(helper.owner_shell, "Rust/Tauri", "helper owner shell");
   expect(helper.helper_runtime, "Python", "helper runtime");
   includes(helper.required_bridge_states, "degraded", "helper bridge states");
   includes(helper.required_status_fields, "cuda_ready", "helper status fields");
-  includes(helper.not_ready_until_implemented, "helper_process_spawn_policy", "helper blocked items");
+  includes(helper.required_status_fields, "generation_token", "helper status fields");
+  includes(helper.implemented_bridge_features, "stdin_jsonl_worker_protocol", "helper implemented features");
+  includes(helper.implemented_bridge_features, "ping_health_check_on_start", "helper implemented features");
+  includes(helper.not_ready_until_implemented, "target_pc_worker_spawn_validation", "helper blocked items");
 }
 
 const route = readJson("EngineData/Backend/RuntimeContracts/AUDIO_STUDIO_ROUTE_STATUS_CONTRACT.json");
