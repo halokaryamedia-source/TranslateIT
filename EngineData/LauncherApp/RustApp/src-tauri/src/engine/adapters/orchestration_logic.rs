@@ -13,6 +13,10 @@ use super::pipeline_logic::{check_stale_job, decide_pipeline, PipelineDecisionRe
 use super::playback_logic::{plan_playback, PlaybackLogicRequest, PlaybackLogicResult};
 use super::translation_logic::{run_translation_logic, TranslationLogicRequest, TranslationLogicResult};
 
+const MAX_ORCHESTRATION_ID_CHARS: usize = 96;
+const MAX_ORCHESTRATION_BLOCKER_CHARS: usize = 180;
+const MAX_ORCHESTRATION_BLOCKERS: usize = 32;
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct RuntimeOrchestrationRequest {
     pub segment_id: String,
@@ -53,6 +57,7 @@ pub struct RuntimeOrchestrationReport {
 }
 
 pub fn run_runtime_orchestration(mut request: RuntimeOrchestrationRequest) -> RuntimeOrchestrationReport {
+    let segment_id = safe_orchestration_id(&request.segment_id);
     let preprocess = preprocess_audio(request.preprocess.clone());
     let noise = classify_noise(request.noise.clone());
     let vad = evaluate_segment_decision(request.vad.clone());
@@ -79,7 +84,7 @@ pub fn run_runtime_orchestration(mut request: RuntimeOrchestrationRequest) -> Ru
 
     let playback = plan_playback(request.playback.clone());
     let native_execution = plan_native_execution_batch(request.native_execution.clone());
-    let blockers = build_blockers(&noise, &vad, &asr_profile, &asr_quality, &pipeline, &stale_guard, &translation, &playback, &native_execution);
+    let blockers = compact_blockers(build_blockers(&noise, &vad, &asr_profile, &asr_quality, &pipeline, &stale_guard, &translation, &playback, &native_execution));
     let accepted = blockers.is_empty();
     let stage = if accepted { "planned" } else { "blocked" }.to_string();
     let summary = if accepted {
@@ -89,7 +94,7 @@ pub fn run_runtime_orchestration(mut request: RuntimeOrchestrationRequest) -> Ru
     };
 
     RuntimeOrchestrationReport {
-        segment_id: request.segment_id,
+        segment_id,
         accepted,
         stage,
         summary,
@@ -152,4 +157,23 @@ fn build_blockers(
         blockers.push("native_execution:cpu_degraded_requires_visible_approval".to_string());
     }
     blockers
+}
+
+fn safe_orchestration_id(value: &str) -> String {
+    let clean = value
+        .trim()
+        .chars()
+        .map(|character| if character.is_ascii_alphanumeric() || matches!(character, '-' | '_') { character } else { '_' })
+        .take(MAX_ORCHESTRATION_ID_CHARS)
+        .collect::<String>();
+    if clean.is_empty() { "segment".to_string() } else { clean }
+}
+
+fn compact_blockers(values: Vec<String>) -> Vec<String> {
+    values
+        .into_iter()
+        .map(|value| value.trim().chars().filter(|character| !character.is_control()).take(MAX_ORCHESTRATION_BLOCKER_CHARS).collect::<String>())
+        .filter(|value| !value.is_empty())
+        .take(MAX_ORCHESTRATION_BLOCKERS)
+        .collect()
 }
