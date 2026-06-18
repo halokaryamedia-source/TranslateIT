@@ -20,6 +20,10 @@ function expectIncludes(content, marker, label) {
   if (!content.includes(marker)) errors.push(`${label}: missing ${marker}`);
 }
 
+function expectNotIncludes(content, marker, label) {
+  if (content.includes(marker)) errors.push(`${label}: forbidden ${marker}`);
+}
+
 const helperBridge = readText("EngineData/LauncherApp/RustApp/src-tauri/src/commands/helper_bridge.rs");
 expectIncludes(helperBridge, "pub fn get_helper_bridge_status", "helper bridge command");
 expectIncludes(helperBridge, "pub fn start_helper_bridge", "helper bridge command");
@@ -57,21 +61,32 @@ const runtimeApi = readText("EngineData/LauncherApp/RustApp/src/app/engineTransl
   "cancelHelperBridgeTask",
   "sendHelperBridgeRequest",
   "checkHelperBridgeHealth",
+  "runHelperActionWithTimeout",
 ].forEach((marker) => expectIncludes(runtimeApi, marker, "frontend helper bridge API"));
 
 const healthMonitor = readText("EngineData/LauncherApp/RustApp/src/app/launcher/helperBridgeHealthMonitor.ts");
 expectIncludes(healthMonitor, "HEALTH_INTERVAL_MS = 15_000", "health monitor interval");
 expectIncludes(healthMonitor, "status.state !== \"ready\"", "health monitor ready guard");
 expectIncludes(healthMonitor, "checkHelperBridgeHealth", "health monitor command call");
+expectNotIncludes(healthMonitor, "#assistantMessage", "health monitor assistant overwrite");
 
-const visibilityBinding = readText("EngineData/LauncherApp/RustApp/src/app/launcher/helperBridgeVisibilityBinding.ts");
-expectIncludes(visibilityBinding, "degraded_mode", "helper visibility degraded mode");
-expectIncludes(visibilityBinding, "stderr_log_path", "helper visibility stderr log path");
-expectIncludes(visibilityBinding, "Helper bridge detailed readiness", "helper visibility panel");
+const settingsViews = readText("EngineData/LauncherApp/RustApp/src/app/launcher/settingsViews.ts");
+expectIncludes(settingsViews, "Helper bridge controls", "developer helper bridge controls");
+expectIncludes(settingsViews, "data-helper-bridge-action=\"start\"", "developer helper start button");
+expectIncludes(settingsViews, "data-helper-bridge-action=\"status\"", "developer helper status button");
+expectIncludes(settingsViews, "provider pending", "developer helper provider label");
+expectIncludes(settingsViews, "CUDA not verified", "developer helper CUDA label");
+
+const helperBinding = readText("EngineData/LauncherApp/RustApp/src/app/launcher/developerHelperBridgeBinding.ts");
+expectIncludes(helperBinding, "document.addEventListener(\"click\"", "helper bridge event delegation");
+expectIncludes(helperBinding, "data-helper-bridge-action", "helper bridge action event selector");
+expectNotIncludes(helperBinding, "insertAdjacentElement", "helper bridge layout injection");
+expectNotIncludes(helperBinding, "MutationObserver", "helper bridge mutation layout observer");
 
 const mainTs = readText("EngineData/LauncherApp/RustApp/src/main.ts");
 expectIncludes(mainTs, "startHelperBridgeHealthMonitor", "health monitor app binding");
-expectIncludes(mainTs, "bindHelperBridgeVisibilityUi", "helper visibility app binding");
+expectIncludes(mainTs, "bindDeveloperHelperBridgeUi", "helper bridge event binding");
+expectNotIncludes(mainTs, "bindHelperBridgeVisibilityUi", "removed duplicate helper visibility binding");
 
 const sharedTypes = readText("EngineData/LauncherApp/RustApp/src/app/shared/types.ts");
 expectIncludes(sharedTypes, "stderr_log_path", "frontend helper bridge status type");
