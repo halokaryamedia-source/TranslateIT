@@ -19,6 +19,7 @@ Responsibilities:
 - Import global CSS files.
 - Mount `LauncherController` into `#app`.
 - Start supporting UI bindings and status monitors.
+- Store and dispose monitor cleanup callbacks during window unload.
 
 Keep this file small. It should not contain business logic.
 
@@ -45,6 +46,16 @@ launcherDeveloperLog.ts
 helperBridgeHealthMonitor.ts
 realtimeStatusPayloadRefresh.ts
 ```
+
+## Implemented Dev-Pack lifecycle cleanup
+
+The following lifecycle items have already been started in `Dev-Pack`:
+
+- `helperBridgeHealthMonitor.ts` now exposes a stop callback for its interval.
+- `realtimeStatusPayloadRefresh.ts` now removes its visibility listener during stop.
+- `main.ts` now calls monitor cleanup callbacks during window unload.
+
+This is not a complete frontend refactor yet. It only reduces interval/listener leak risk while keeping the UI and runtime behavior unchanged.
 
 ## Target launcher structure
 
@@ -179,7 +190,7 @@ Use small commits in this order:
 5. Move manual text submit flow into `services/translationSubmitService.ts`.
 6. Move settings rendering/rebinding into `controllers/settingsController.ts`.
 7. Move runtime status rendering into `controllers/runtimeStatusController.ts`.
-8. Add lifecycle disposer handling for status monitors.
+8. Continue lifecycle disposer handling for status monitors.
 
 ## Validation after each extraction
 
