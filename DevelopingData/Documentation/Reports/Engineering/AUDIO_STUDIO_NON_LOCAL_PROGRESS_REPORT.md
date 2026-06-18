@@ -62,6 +62,7 @@ Current repository-side scaffold progress: 100% for the non-local scope.
 - Added Audio Studio static validator script.
 - Added Audio Studio local validation runner script.
 - Added Audio Studio local validation summary JSON output.
+- Added Audio Studio summary verifier script for validating generated summary JSON against the evidence contract.
 - Updated the local validation runner to derive output root, log pattern, summary pattern, schema, runtime claim, required steps, and optional steps from the evidence contract.
 - Strengthened Audio Studio static validator path handling using script-location based root detection.
 - Added Audio Studio contract JSON parsing and structural checks to the static validator.
@@ -75,6 +76,7 @@ Current repository-side scaffold progress: 100% for the non-local scope.
 - Added Audio Studio local runner evidence-contract usage checks to the static validator.
 - Registered `validate:audio-studio` in `package.json`.
 - Registered `validate:audio-studio:local` in `package.json`.
+- Registered `verify:audio-studio:summary` in `package.json`.
 - Included `validate:audio-studio` in `validate:internal` and `validate:full`.
 - Guarded advanced UI observer wiring to avoid repeated observer setup.
 - Added direct-open fallback injection for the advanced panel.
@@ -134,6 +136,7 @@ EngineData/LauncherApp/RustApp/src/audioStudioThemeEntry.ts
 EngineData/LauncherApp/RustApp/src-tauri/src/commands/audio_studio.rs
 EngineData/LauncherApp/RustApp/scripts/validate_audio_studio.mjs
 EngineData/LauncherApp/RustApp/scripts/run_audio_studio_local_validation.mjs
+EngineData/LauncherApp/RustApp/scripts/verify_audio_studio_local_summary.mjs
 ```
 
 ## Updated files
@@ -162,6 +165,7 @@ EngineData/LauncherApp/RustApp/src/audioStudioLayout.css
 - No `npm run build`.
 - No `npm run validate:audio-studio`.
 - No `npm run validate:audio-studio:local`.
+- No `npm run verify:audio-studio:summary`.
 
 ## Final note
 
