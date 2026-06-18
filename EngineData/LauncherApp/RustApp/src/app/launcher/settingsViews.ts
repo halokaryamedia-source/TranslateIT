@@ -1,5 +1,5 @@
 import { icon } from "../shared/icons";
-import type { RuntimeSettings } from "../shared/types";
+import type { HelperBridgeStatus, RuntimeSettings } from "../shared/types";
 import { advancedEmpty, diagnosticActions, languageSelectField, monitoringPanel, outputRow, primaryButton, radioOption, selectButton, settingsActions, settingsCard, settingsField, settingsGrid, settingsPage, settingsSection } from "./uiPageFactory";
 
 function escapeHtml(value: string): string {
@@ -26,6 +26,19 @@ function togglePill(active: boolean): string {
 
 function statusRow(label: string, value: string, tone = "neutral"): string {
   return `<p class="developer-log-row"><strong>${escapeHtml(label)}</strong><span class="status-badge status-badge--${escapeHtml(tone)}">${escapeHtml(value)}</span></p>`;
+}
+
+function helperTone(helperStatus: HelperBridgeStatus | null): string {
+  if (!helperStatus) return "warning";
+  if (helperStatus.state === "ready") return "good";
+  if (helperStatus.state === "degraded") return "warning";
+  if (helperStatus.state === "error" || helperStatus.state === "blocked") return "error";
+  return "warning";
+}
+
+function helperLabel(helperStatus: HelperBridgeStatus | null): string {
+  if (!helperStatus) return "status unavailable";
+  return `${helperStatus.state} / ${helperStatus.runtime_claim}`;
 }
 
 function languageDropdown(role: "source" | "target", activeSelector: "source" | "target" | null, selectedCode: string, options: { code: string; label: string }[]): string {
@@ -130,6 +143,7 @@ export function developerSettingsView(args: {
   note: string;
   logsExpanded: boolean;
   engineGood: boolean;
+  helperStatus: HelperBridgeStatus | null;
 }): string {
   const progress = progressPercent(args.progress);
   const cpu = escapeHtml(args.cpu);
@@ -156,11 +170,12 @@ export function developerSettingsView(args: {
     ${settingsCard("settings-card--diagnostic", `
       <div class="developer-log-body" aria-label="Architecture and runtime status">
         ${statusRow("Shell", "Rust/Tauri final", "good")}
-        ${statusRow("Python helper", "contract defined / bridge not implemented", "warning")}
+        ${statusRow("Helper bridge", helperLabel(args.helperStatus), helperTone(args.helperStatus))}
         ${statusRow("Audio Studio metadata", "metadata_ready", "good")}
         ${statusRow("Audio Studio provider", "provider_blocked", "warning")}
-        ${statusRow("CUDA/provider fallback", "must be visible before runtime ready", "warning")}
+        ${statusRow("CUDA/provider fallback", args.helperStatus?.degraded_mode ? "degraded mode visible" : "must be visible before runtime ready", "warning")}
       </div>
+      <p class="diagnostic-note">${escapeHtml(args.helperStatus?.message ?? "Helper bridge status command has not returned yet.")}</p>
     `)}
     ${settingsSection("Validation Evidence", "Command-line evidence exists; UI evidence browser is still pending.")}
     ${settingsCard("settings-card--diagnostic", `
