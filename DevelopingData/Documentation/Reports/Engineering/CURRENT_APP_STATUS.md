@@ -22,10 +22,12 @@ Python remains part of the product as a helper runtime for tasks where Python is
 - Main runtime wording now separates text readiness from voice/provider readiness.
 - Generic `Ready` wording was reduced in the main runtime status flow.
 - Translation command failure is no longer treated as a completed translation result.
-- Helper health monitor no longer overwrites the main assistant message; it stores warning detail for Developer/runtime visibility.
+- Helper health monitor no longer overwrites the main assistant message; it stores warning detail as non-invasive runtime state.
 - Runtime readiness DOM guard only corrects legacy generic `Ready` labels and no longer overwrites explicit `Text ready` or `Voice ready` labels.
 - Runtime API clears helper/status caches before and after helper/capture mutation commands to reduce stale UI reads.
+- Runtime API applies frontend timeout guards to helper bridge lifecycle/request commands so the UI does not wait indefinitely for a worker response.
 - Start Capture is blocked until helper provider readiness is verified, preventing users from silently entering the older one-shot capture path when helper/provider readiness is incomplete.
+- Duplicate helper readiness panel injection was removed from the app entrypoint; Developer settings remain the source of helper readiness display.
 
 ### Helper bridge lifecycle and worker spawn
 
@@ -46,7 +48,7 @@ Python remains part of the product as a helper runtime for tasks where Python is
 - Frontend includes a helper health monitor that checks health every 15 seconds only when the helper status is already `ready`.
 - Developer UI reads and displays helper bridge status.
 - Developer UI includes Start Helper, Worker Status, Stop Helper, and Cancel Task controls.
-- Developer UI includes a detailed helper readiness panel for CUDA/provider/degraded mode and helper stderr log path.
+- Developer UI includes provider/CUDA-aware helper readiness wording.
 - Helper bridge validator is registered in package validation scripts.
 - UserData root policy validator is registered in package validation scripts.
 - Machine-specific path validator is registered in package validation scripts.
@@ -63,7 +65,8 @@ Audio Studio metadata routes now use `metadata_ready` semantics instead of gener
 - Audio Studio can export project metadata.
 - Audio Studio exposes `audio_studio_get_provider_status`, which returns `provider_blocked` and writes a provider-status evidence event without claiming real audio/provider readiness.
 - Audio Studio exposes `audio_studio_get_quality_gate_status`, which returns `provider_blocked` and writes a quality-gate evidence event without claiming real audio analysis or quality-score readiness.
-- Audio Studio UI includes Provider Status and Quality Gate buttons.
+- Audio Studio UI labels now explicitly describe the workspace as metadata-only until provider processing, real recording, quality scoring, and generated audio are implemented.
+- Audio Studio UI exposes Provider/Quality diagnostics as blocker checks, not as ready-state actions.
 - Audio Studio persists take details:
   - `take_id`
   - `source`
@@ -121,7 +124,7 @@ Still pending:
 - target-PC spawn validation,
 - replacing the older capture one-shot worker invocation with the long-running helper bridge,
 - full Start/Stop capture result routing through helper request/response evidence,
-- timeout/deadline handling for helper bridge stdout response reads.
+- backend timeout/deadline handling for helper bridge stdout response reads.
 
 ## Contract only
 
@@ -150,7 +153,7 @@ However, the final shell direction is now Rust/Tauri. Python/Qt launcher materia
 3. Implement Audio Studio provider processing after metadata routes.
 4. Add Audio Studio guided microphone capture.
 5. Add Audio Studio audio quality scoring.
-6. Add timeout/deadline handling for helper bridge worker response reads.
+6. Add backend timeout/deadline handling for helper bridge worker response reads.
 
 ## Not claimed
 
