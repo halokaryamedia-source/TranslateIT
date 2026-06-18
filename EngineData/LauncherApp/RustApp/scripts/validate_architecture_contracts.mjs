@@ -48,11 +48,17 @@ textIncludes(activeIndex, "Rust/Tauri desktop shell + Python helper runtime", "a
 textIncludes(activeIndex, "CURRENT_APP_STATUS.md", "active documentation index current status pointer");
 textIncludes(activeIndex, "SINGLE_ACTIVE_ENGINE_POLICY.md", "active documentation index single engine pointer");
 textIncludes(activeIndex, "There is no second launcher engine", "active documentation index no second engine rule");
+textNotIncludes(activeIndex, "Python/Qt", "active documentation index alternate shell wording");
+textNotIncludes(activeIndex, "legacy", "active documentation index legacy wording");
+textNotIncludes(activeIndex, "older", "active documentation index older wording");
 
 const singleEnginePolicy = readText("DevelopingData/Documentation/Reports/Engineering/SINGLE_ACTIVE_ENGINE_POLICY.md");
 textIncludes(singleEnginePolicy, "Rust/Tauri desktop shell + Python helper runtime", "single active engine rule");
 textIncludes(singleEnginePolicy, "Python is an internal helper runtime", "single active engine Python helper rule");
-textIncludes(singleEnginePolicy, "Do not describe older material as another active engine", "single active engine wording rule");
+textIncludes(singleEnginePolicy, "Do not describe superseded material as another active engine", "single active engine wording rule");
+textNotIncludes(singleEnginePolicy, "Python/Qt", "single active engine alternate shell wording");
+textNotIncludes(singleEnginePolicy, "legacy", "single active engine legacy wording");
+textNotIncludes(singleEnginePolicy, "older", "single active engine older wording");
 
 const currentStatus = readText("DevelopingData/Documentation/Reports/Engineering/CURRENT_APP_STATUS.md");
 textIncludes(currentStatus, "ACTIVE_DOCUMENTATION_INDEX.md", "current status documentation entrypoint");
@@ -60,6 +66,8 @@ textIncludes(currentStatus, "Rust/Tauri desktop shell + Python helper runtime", 
 textIncludes(currentStatus, "Single active engine policy", "current status single engine policy");
 textNotIncludes(currentStatus, "Legacy reference", "current status removed legacy reference heading");
 textNotIncludes(currentStatus, "legacy reference", "current status removed legacy reference wording");
+textNotIncludes(currentStatus, "older", "current status older wording");
+textNotIncludes(currentStatus, "old ", "current status old wording");
 
 const architecture = readJson("EngineData/Backend/RuntimeContracts/FINAL_ARCHITECTURE_CONTRACT.json");
 if (architecture) {
@@ -90,8 +98,10 @@ if (capture) {
   expect(capture.status, "contract_ready_runtime_not_migrated", "capture helper bridge status");
   expect(capture.owner_shell, "Rust/Tauri", "capture owner shell");
   expect(capture.helper_runtime, "Python", "capture helper runtime");
-  includes(capture.safety_rules, "Do not run capture_start through the older one-shot worker when helper provider readiness is false.", "capture safety rules");
+  includes(capture.safety_rules, "Do not run capture_start through the temporary one-shot worker when helper provider readiness is false.", "capture safety rules");
   expect(capture.migration_state?.current_rust_command_guard, "start_capture blocks when helper provider readiness is not verified", "capture current guard");
+  textNotIncludes(JSON.stringify(capture), "older", "capture contract older wording");
+  textNotIncludes(JSON.stringify(capture), "legacy", "capture contract legacy wording");
 }
 
 const route = readJson("EngineData/Backend/RuntimeContracts/AUDIO_STUDIO_ROUTE_STATUS_CONTRACT.json");
