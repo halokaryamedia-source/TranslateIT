@@ -14,6 +14,8 @@ use super::helper_bridge::{
     HelperBridgeRequest,
 };
 
+const MAX_CAPTURE_PREVIEW_MESSAGE_CHARS: usize = 360;
+
 #[derive(Debug, Clone, Serialize)]
 pub struct CaptureHelperBridgeRequestPreview {
     pub ok: bool,
@@ -25,6 +27,25 @@ pub struct CaptureHelperBridgeRequestPreview {
     pub cuda_ready: bool,
     pub runtime_claim: String,
     pub payload_json: String,
+}
+
+fn is_unsafe_preview_character(character: char) -> bool {
+    character == '\0'
+        || ('\u{0001}'..='\u{0008}').contains(&character)
+        || ('\u{000b}'..='\u{001f}').contains(&character)
+        || character == '\u{007f}'
+        || ('\u{202a}'..='\u{202e}').contains(&character)
+        || ('\u{2066}'..='\u{2069}').contains(&character)
+}
+
+fn compact_preview_text(value: &str) -> String {
+    let clean = value
+        .trim()
+        .chars()
+        .filter(|character| !is_unsafe_preview_character(*character))
+        .take(MAX_CAPTURE_PREVIEW_MESSAGE_CHARS)
+        .collect::<String>();
+    if clean.is_empty() { "status unavailable".to_string() } else { clean }
 }
 
 fn capture_request_preview(command: &str) -> CaptureHelperBridgeRequestPreview {
@@ -52,13 +73,14 @@ fn capture_request_preview(command: &str) -> CaptureHelperBridgeRequestPreview {
         })
     };
     let ready = status.provider_ready;
+    let status_message = compact_preview_text(&status.message);
     CaptureHelperBridgeRequestPreview {
         ok: ready,
         state: if ready { "request_ready" } else { "provider_blocked" }.to_string(),
         message: if ready {
             format!("Prepared {command} helper bridge request preview. Capture has not been started from this command.")
         } else {
-            format!("Prepared {command} preview, but capture remains blocked until helper provider readiness is verified. Current helper state: {}; message: {}", status.state, status.message)
+            format!("Prepared {command} preview, but capture remains blocked until helper provider readiness is verified. Current helper state: {}; message: {}", compact_preview_text(&status.state), status_message)
         },
         command: command.to_string(),
         generation_token: status.generation_token,
@@ -114,10 +136,10 @@ pub fn start_capture() -> CommandResult {
             LifecycleState::ConversionPending,
             format!(
                 "Voice capture is blocked because helper provider readiness is not verified yet. Start Helper, run Worker Status, and check Developer diagnostics first. Current helper state: {}; CUDA ready: {}; provider ready: {}; message: {}",
-                status.state,
+                compact_preview_text(&status.state),
                 status.cuda_ready,
                 status.provider_ready,
-                status.message
+                compact_preview_text(&status.message)
             ),
         );
     }
