@@ -1,9 +1,14 @@
 let bound = false;
 let toastTimer: number | null = null;
+let saveClickTimer: number | null = null;
 let clickHandler: ((event: MouseEvent) => void) | null = null;
 
 function clickSoon(selector: string): void {
-  window.setTimeout(() => document.querySelector<HTMLButtonElement>(selector)?.click(), 80);
+  if (saveClickTimer !== null) window.clearTimeout(saveClickTimer);
+  saveClickTimer = window.setTimeout(() => {
+    document.querySelector<HTMLButtonElement>(selector)?.click();
+    saveClickTimer = null;
+  }, 80);
 }
 
 function toastElement(): HTMLElement {
@@ -25,7 +30,10 @@ function showToast(message: string): void {
   toast.textContent = message;
   toast.classList.add("is-visible");
   if (toastTimer !== null) window.clearTimeout(toastTimer);
-  toastTimer = window.setTimeout(() => toast.classList.remove("is-visible"), 2200);
+  toastTimer = window.setTimeout(() => {
+    toast.classList.remove("is-visible");
+    toastTimer = null;
+  }, 2200);
 }
 
 async function copyTranslation(button: HTMLButtonElement): Promise<void> {
@@ -71,5 +79,7 @@ export function unbindReferenceUi(): void {
   clickHandler = null;
   bound = false;
   if (toastTimer !== null) window.clearTimeout(toastTimer);
+  if (saveClickTimer !== null) window.clearTimeout(saveClickTimer);
   toastTimer = null;
+  saveClickTimer = null;
 }
