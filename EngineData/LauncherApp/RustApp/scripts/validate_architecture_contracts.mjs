@@ -62,6 +62,16 @@ if (helper) {
   includes(helper.not_ready_until_implemented, "target_pc_worker_spawn_validation", "helper blocked items");
 }
 
+const capture = readJson("EngineData/Backend/RuntimeContracts/CAPTURE_HELPER_BRIDGE_REQUEST_CONTRACT.json");
+if (capture) {
+  expect(capture.schema, "translateit.capture_helper_bridge_request_contract.v1", "capture helper bridge schema");
+  expect(capture.status, "contract_ready_runtime_not_migrated", "capture helper bridge status");
+  expect(capture.owner_shell, "Rust/Tauri", "capture owner shell");
+  expect(capture.helper_runtime, "Python", "capture helper runtime");
+  includes(capture.safety_rules, "Do not run capture_start through the older one-shot worker when helper provider readiness is false.", "capture safety rules");
+  expect(capture.migration_state?.current_rust_command_guard, "start_capture blocks when helper provider readiness is not verified", "capture current guard");
+}
+
 const route = readJson("EngineData/Backend/RuntimeContracts/AUDIO_STUDIO_ROUTE_STATUS_CONTRACT.json");
 if (route) {
   expect(route.schema, "translateit.audio_studio_route_status_contract.v1", "Audio Studio route status schema");
@@ -87,6 +97,10 @@ textIncludes(audioStudioRust, "result(false, \"provider_blocked\"", "Audio Studi
 const audioStudioApi = readText("EngineData/LauncherApp/RustApp/src/app/engineTranslate/audioStudioApi.ts");
 textIncludes(audioStudioApi, "getProviderStatus", "Audio Studio provider frontend API");
 textIncludes(audioStudioApi, "getQualityGateStatus", "Audio Studio quality gate frontend API");
+
+const timeoutPolicy = readText("DevelopingData/Documentation/Reports/Engineering/HELPER_BRIDGE_TIMEOUT_POLICY.md");
+textIncludes(timeoutPolicy, "frontend_timeout_backend_result_unknown", "helper timeout policy frontend claim");
+textIncludes(timeoutPolicy, "timeout_backend_read", "helper timeout policy backend state");
 
 if (errors.length > 0) {
   console.error("Architecture contract validation failed:");
