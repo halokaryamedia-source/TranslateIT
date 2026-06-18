@@ -1,6 +1,7 @@
 import { getRuntimeCommandErrors, runCommand } from "../shared/tauriBridge";
 import type {
   AudioDeviceListReport,
+  AudioStudioValidationEvidence,
   CommandResult,
   HardwareUsageReport,
   HelperBridgeStatus,
@@ -30,7 +31,7 @@ function clearRuntimeReads(...keys: string[]): void {
 }
 
 function clearSettingsDependentReads(): void {
-  clearRuntimeReads("runtime-settings", "status-bundle", "diagnostics", "input-status", "hardware-usage", "audio-devices", "helper-bridge-status");
+  clearRuntimeReads("runtime-settings", "status-bundle", "diagnostics", "input-status", "hardware-usage", "audio-devices", "helper-bridge-status", "audio-studio-validation-evidence");
 }
 
 function clearVoiceDependentReads(): void {
@@ -89,6 +90,7 @@ export const runtimeApi = {
   getStatusBundle: () => singleFlight("status-bundle", () => runCommand<RuntimeStatusBundleReport>("get_runtime_status_bundle")),
   getDiagnostics: () => singleFlight("diagnostics", () => runCommand<RuntimeDiagnostics>("get_runtime_diagnostics")),
   getHelperBridgeStatus: () => singleFlight("helper-bridge-status", () => runCommand<HelperBridgeStatus>("get_helper_bridge_status")),
+  getLatestAudioStudioValidationEvidence: () => singleFlight("audio-studio-validation-evidence", () => runCommand<AudioStudioValidationEvidence>("get_latest_audio_studio_validation_evidence")),
   getHardwareUsage: () => singleFlight("hardware-usage", () => runCommand<HardwareUsageReport>("get_hardware_usage")),
   getInputStatus: () => singleFlight("input-status", () => runCommand<InputPreparationStatus>("get_input_status")),
   listAudioDevices: () => singleFlight("audio-devices", () => runCommand<AudioDeviceListReport>("list_audio_devices")),
