@@ -3,6 +3,9 @@ use serde::{Deserialize, Serialize};
 use super::input_config::{InputConfigRangeInfo, NativeInputConfigProbeReport};
 use super::{TARGET_CHANNELS, TARGET_SAMPLE_RATE_HZ};
 
+const MIN_CAPTURE_FRAME_MS: u32 = 10;
+const MAX_CAPTURE_FRAME_MS: u32 = 250;
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct NativeCaptureStreamPlanRequest {
     pub allow_non_target_device_rate: bool,
@@ -35,6 +38,7 @@ impl Default for NativeCaptureStreamPlanRequest {
 }
 
 pub fn plan_native_capture_stream(request: NativeCaptureStreamPlanRequest) -> NativeCaptureStreamPlanReport {
+    let selected_frame_ms = request.requested_frame_ms.clamp(MIN_CAPTURE_FRAME_MS, MAX_CAPTURE_FRAME_MS);
     let input_config = NativeInputConfigProbeReport::probe_default_input();
     let selected = select_best_config(&input_config, &request);
     let selected_sample_rate_hz = selected.as_ref().map(|config| {
@@ -73,6 +77,9 @@ pub fn plan_native_capture_stream(request: NativeCaptureStreamPlanRequest) -> Na
     if request.requested_frame_ms == 0 {
         blockers.push("capture_plan:invalid_frame_ms".to_string());
     }
+    if request.requested_frame_ms != selected_frame_ms {
+        blockers.push("capture_plan:frame_ms_clamped".to_string());
+    }
 
     blockers.sort();
     blockers.dedup();
@@ -91,7 +98,7 @@ pub fn plan_native_capture_stream(request: NativeCaptureStreamPlanRequest) -> Na
         selected_sample_rate_hz,
         selected_channels,
         selected_sample_format,
-        selected_frame_ms: request.requested_frame_ms,
+        selected_frame_ms,
         requires_resample_to_target,
         requires_channel_downmix,
         input_config,
