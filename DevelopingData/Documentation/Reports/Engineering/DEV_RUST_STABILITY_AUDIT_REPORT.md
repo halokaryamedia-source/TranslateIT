@@ -17,6 +17,7 @@ This report covers repository-side stability review for the current Dev-Rust bra
 - Audio Studio command response normalization.
 - Audio Studio command notice race handling.
 - Audio Studio reading selection bounds.
+- Audio Studio empty reading fallback.
 - Advanced panel observer behavior.
 - Advanced panel direct-open behavior.
 - Theme injection behavior.
@@ -199,6 +200,17 @@ Fix:
 - Added reading index clamping.
 - Clamped reading selection before rendering and guided staging.
 - Changed import notices to use sanitized take titles.
+
+### 18. Empty guided-reading fallback and rejected-label sanitization
+
+Risk: if guided reading lines are removed or not loaded in a later pass, guided staging could dereference an unavailable line. Rejected-file summaries could also expose raw file names with control characters or excessive length.
+
+Fix:
+
+- Added a selected-reading helper that returns `null` when no line is available.
+- Added an empty-state card for missing guided reading lines.
+- Blocked guided staging with a clear notice when no guided line is available.
+- Sanitized and clipped rejected file labels before showing them in assistant notices.
 
 ## Current integration chains
 
