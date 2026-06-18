@@ -19,6 +19,8 @@ import type {
 export const RUNTIME_SETTINGS_SAVED_EVENT = "translateit:runtime-settings-saved";
 
 const pendingRuntimeReads = new Map<string, Promise<unknown>>();
+const HELPER_COMMAND_TIMEOUT_MS = 8_000;
+const HELPER_START_TIMEOUT_MS = 15_000;
 
 function singleFlight<T>(key: string, task: () => Promise<T | null>): Promise<T | null> {
   const current = pendingRuntimeReads.get(key) as Promise<T | null> | undefined;
@@ -46,6 +48,34 @@ function clearTextJobReads(): void {
 
 function clearHelperBridgeReads(): void {
   clearRuntimeReads("helper-bridge-status", "status-bundle", "diagnostics");
+}
+
+function helperTimeoutResult(action: string, timeoutMs: number): HelperBridgeActionResult {
+  return {
+    ok: false,
+    state: "timeout",
+    message: `${action} did not return within ${Math.round(timeoutMs / 1000)} seconds. The UI has stopped waiting; check Developer diagnostics and helper stderr logs before retrying.`,
+    generation_token: 0,
+    runtime_claim: "frontend_timeout_backend_result_unknown",
+  };
+}
+
+function withTimeout<T>(task: Promise<T | null>, timeoutMs: number, fallback: T): Promise<T | null> {
+  let timer: number | undefined;
+  const timeout = new Promise<T>((resolve) => {
+    timer = window.setTimeout(() => resolve(fallback), timeoutMs);
+  });
+  return Promise.race([task, timeout]).finally(() => {
+    if (timer !== undefined) window.clearTimeout(timer);
+  });
+}
+
+function runHelperActionWithTimeout(command: string, timeoutMs: number, args?: Record<string, unknown>): Promise<HelperBridgeActionResult | null> {
+  return withTimeout(
+    runCommand<HelperBridgeActionResult>(command, args),
+    timeoutMs,
+    helperTimeoutResult(command, timeoutMs),
+  );
 }
 
 function chatListKey(kind?: string): string {
@@ -98,31 +128,31 @@ export const runtimeApi = {
   getHelperBridgeStatus: () => singleFlight("helper-bridge-status", () => runCommand<HelperBridgeStatus>("get_helper_bridge_status")),
   startHelperBridge: async () => {
     clearHelperBridgeReads();
-    const result = await runCommand<HelperBridgeActionResult>("start_helper_bridge");
+    const result = await runHelperActionWithTimeout("start_helper_bridge", HELPER_START_TIMEOUT_MS);
     clearHelperBridgeReads();
     return result;
   },
   stopHelperBridge: async () => {
     clearHelperBridgeReads();
-    const result = await runCommand<HelperBridgeActionResult>("stop_helper_bridge");
+    const result = await runHelperActionWithTimeout("stop_helper_bridge", HELPER_COMMAND_TIMEOUT_MS);
     clearHelperBridgeReads();
     return result;
   },
   cancelHelperBridgeTask: async () => {
     clearHelperBridgeReads();
-    const result = await runCommand<HelperBridgeActionResult>("cancel_helper_bridge_task");
+    const result = await runHelperActionWithTimeout("cancel_helper_bridge_task", HELPER_COMMAND_TIMEOUT_MS);
     clearHelperBridgeReads();
     return result;
   },
   checkHelperBridgeHealth: async () => {
     clearHelperBridgeReads();
-    const result = await runCommand<HelperBridgeActionResult>("check_helper_bridge_health");
+    const result = await runHelperActionWithTimeout("check_helper_bridge_health", HELPER_COMMAND_TIMEOUT_MS);
     clearHelperBridgeReads();
     return result;
   },
   sendHelperBridgeRequest: async (request: HelperBridgeRequest) => {
     clearHelperBridgeReads();
-    const result = await runCommand<HelperBridgeActionResult>("send_helper_bridge_request", { request });
+    const result = await runHelperActionWithTimeout("send_helper_bridge_request", HELPER_COMMAND_TIMEOUT_MS, { request });
     clearHelperBridgeReads();
     return result;
   },
