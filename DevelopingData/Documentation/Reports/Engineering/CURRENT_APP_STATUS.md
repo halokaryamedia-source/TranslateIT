@@ -13,7 +13,7 @@ Python remains part of the product as a helper runtime for tasks where Python is
 ### Rust/Tauri shell
 
 - Rust/Tauri launcher shell exists.
-- Tauri command registration exists for runtime status, diagnostics, hardware, audio devices, settings, chat, capture control, translation, Audio Studio metadata routes, Audio Studio provider status route, Audio Studio quality gate status route, helper bridge lifecycle/status, helper bridge health check, and Audio Studio validation evidence reads.
+- Tauri command registration exists for runtime status, diagnostics, hardware, audio devices, settings, chat, capture control, translation, Audio Studio metadata routes, Audio Studio provider status route, Audio Studio quality gate status route, helper bridge lifecycle/status, helper bridge health check, capture helper bridge request previews, and Audio Studio validation evidence reads.
 - Launcher chat persistence uses `UserData/SavedProject/Chat`.
 - Project path discovery uses root markers: `EngineData`, `DevelopingData`, and `UserData`.
 
@@ -27,10 +27,13 @@ Python remains part of the product as a helper runtime for tasks where Python is
 - Runtime API clears helper/status caches before and after helper/capture mutation commands to reduce stale UI reads.
 - Runtime API applies frontend timeout guards to helper bridge lifecycle/request commands so the UI does not wait indefinitely for a worker response.
 - Start Capture is blocked until helper provider readiness is verified, preventing users from silently entering the older one-shot capture path when helper/provider readiness is incomplete.
+- Audio settings now warns that Mic Test and voice capture require helper provider readiness evidence before testing microphone capture.
 - Duplicate helper readiness panel injection was removed from the app entrypoint; Developer settings remain the source of helper readiness display.
 - Helper bridge controls are now rendered directly inside Developer settings rather than injected after render by a layout MutationObserver.
 - Helper bridge UI binding now uses event delegation only and does not create layout.
 - Obsolete helper bridge visibility binding file was removed.
+- Developer settings includes capture helper bridge request preview controls that prepare `capture_start` and `capture_stop` payloads without starting/stopping real capture.
+- Runtime flow validator checks helper timeout guards, capture preview flow, Audio settings mic readiness warning, and Audio Studio metadata-only labels.
 
 ### Helper bridge lifecycle and worker spawn
 
@@ -56,6 +59,15 @@ Python remains part of the product as a helper runtime for tasks where Python is
 - UserData root policy validator is registered in package validation scripts.
 - Machine-specific path validator is registered in package validation scripts.
 - Helper existence alone must not mark full runtime ready; model/provider readiness still depends on worker response evidence and local validation.
+
+### Capture helper bridge preview
+
+- Rust/Tauri exposes `prepare_capture_start_request` and `prepare_capture_stop_request`.
+- The preview commands build helper bridge payloads using current settings and helper generation token.
+- Preview commands use `preview_only_no_capture_runtime_claim` and do not start or stop real capture.
+- Preview commands return `provider_blocked` when helper provider readiness is not verified.
+- Frontend exposes `prepareCaptureStartRequest` and `prepareCaptureStopRequest`.
+- Developer UI includes preview buttons so the next migration step can inspect capture helper bridge payloads safely.
 
 ### Audio Studio project-data runtime
 
