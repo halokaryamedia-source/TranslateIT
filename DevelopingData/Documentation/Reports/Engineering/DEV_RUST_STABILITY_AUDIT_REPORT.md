@@ -20,6 +20,7 @@ This report covers repository-side stability review for the current Dev-Rust bra
 - Audio Studio empty reading fallback.
 - Audio Studio advanced panel mode/control safety.
 - Audio Studio static validation coverage.
+- Audio Studio contract validator robustness.
 - Advanced panel observer behavior.
 - Advanced panel direct-open behavior.
 - Theme injection behavior.
@@ -236,6 +237,17 @@ Fix:
 - Registered `validate:audio-studio` in `package.json`.
 - Included `validate:audio-studio` in `validate:internal` and `validate:full`.
 - The validator checks required Audio Studio files and required integration markers.
+
+### 21. Audio Studio contract validator robustness
+
+Risk: the static validator relied on the current working directory and text markers only, so manual invocation from a different directory or contract drift inside valid JSON could be missed.
+
+Fix:
+
+- Changed validator root detection to derive paths from `import.meta.url`.
+- Added JSON parsing for Audio Studio metadata and advanced quality contracts.
+- Added structural checks for contract schema, status, approved roots, take sources, and take states.
+- Added explicit mismatch errors for missing or drifted contract values.
 
 ## Current integration chains
 
