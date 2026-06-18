@@ -7,11 +7,6 @@ let lastWarning = "";
 
 function publishHealthWarning(message: string): void {
   document.body.dataset.helperBridgeHealthWarning = message;
-  const detail = document.querySelector<HTMLElement>('[aria-label="Helper bridge detailed readiness"] .developer-log-summary');
-  if (detail && document.body.classList.contains("settings-open")) {
-    const base = detail.textContent?.replace(/ Health: .*$/u, "") ?? "";
-    detail.textContent = `${base} Health: ${message}`.trim();
-  }
 }
 
 async function checkOnce(): Promise<void> {
