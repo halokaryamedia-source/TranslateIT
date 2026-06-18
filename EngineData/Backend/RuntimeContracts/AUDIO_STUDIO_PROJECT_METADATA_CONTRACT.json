@@ -24,6 +24,10 @@
     "created_unix_ms",
     "updated_unix_ms"
   ],
+  "allowed_take_sources": [
+    "import",
+    "guided_reading"
+  ],
   "allowed_take_states": [
     "draft",
     "staged",
@@ -35,7 +39,8 @@
     "Do not write outside UserData roots.",
     "Do not mark provider output ready from metadata alone.",
     "Do not claim local capture readiness without target-PC evidence.",
-    "Keep imported file metadata separate from generated runtime evidence."
+    "Keep imported file metadata separate from generated runtime evidence.",
+    "Reject unknown take sources and unknown take states before writing metadata."
   ],
   "local_validation_required_before_ready": true
 }
