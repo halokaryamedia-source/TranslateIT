@@ -32,7 +32,7 @@ expectIncludes(helperBridge, ".venv", "worker venv guard");
 expectIncludes(helperBridge, "\"command\": \"ping\"", "startup ping check");
 expectIncludes(helperBridge, "\"command\": \"status\"", "worker status check");
 expectIncludes(helperBridge, "stderr_log_path", "stderr log visibility");
-expectIncludes(helperBridge, "UserData", "path discovery context");
+expectIncludes(helperBridge, "HelperBridge", "helper cache log root");
 
 const runtimeCommands = readText("EngineData/LauncherApp/RustApp/src-tauri/src/commands/runtime.rs");
 expectIncludes(runtimeCommands, "pub fn check_helper_bridge_health", "helper bridge health command");
@@ -64,8 +64,17 @@ expectIncludes(healthMonitor, "HEALTH_INTERVAL_MS = 15_000", "health monitor int
 expectIncludes(healthMonitor, "status.state !== \"ready\"", "health monitor ready guard");
 expectIncludes(healthMonitor, "checkHelperBridgeHealth", "health monitor command call");
 
+const visibilityBinding = readText("EngineData/LauncherApp/RustApp/src/app/launcher/helperBridgeVisibilityBinding.ts");
+expectIncludes(visibilityBinding, "degraded_mode", "helper visibility degraded mode");
+expectIncludes(visibilityBinding, "stderr_log_path", "helper visibility stderr log path");
+expectIncludes(visibilityBinding, "Helper bridge detailed readiness", "helper visibility panel");
+
 const mainTs = readText("EngineData/LauncherApp/RustApp/src/main.ts");
 expectIncludes(mainTs, "startHelperBridgeHealthMonitor", "health monitor app binding");
+expectIncludes(mainTs, "bindHelperBridgeVisibilityUi", "helper visibility app binding");
+
+const sharedTypes = readText("EngineData/LauncherApp/RustApp/src/app/shared/types.ts");
+expectIncludes(sharedTypes, "stderr_log_path", "frontend helper bridge status type");
 
 if (errors.length > 0) {
   console.error("Helper bridge validation failed:");
