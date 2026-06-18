@@ -8,6 +8,7 @@ const NOTICE_TEXT_LIMIT = 360;
 
 let lastEvidenceKey = "";
 let polling = false;
+let pollingCancelled = false;
 let bound = false;
 let clickHandler: ((event: MouseEvent) => void) | null = null;
 
@@ -101,11 +102,14 @@ function renderCompletedResult(evidence: AudioPipelineEvidence): void {
 async function pollForResult(startedAtUnixMs: number): Promise<void> {
   if (polling) return;
   polling = true;
+  pollingCancelled = false;
   setNotice("Processing captured audio locally. Larger local models may take up to 40 seconds...");
   try {
     for (let attempt = 0; attempt < POLL_ATTEMPTS; attempt += 1) {
       await wait(POLL_INTERVAL_MS);
+      if (pollingCancelled) return;
       const evidence = await getLatestAudioPipelineEvidence();
+      if (pollingCancelled) return;
       if (isMissing(evidence)) continue;
       if (!evidence) continue;
       if (evidence.evidence_unix_ms && evidence.evidence_unix_ms + 1000 < startedAtUnixMs) continue;
@@ -146,6 +150,7 @@ export function bindAudioPipelineResultWatcher(): () => void {
 
 export function unbindAudioPipelineResultWatcher(): void {
   if (!bound || !clickHandler) return;
+  pollingCancelled = true;
   document.removeEventListener("click", clickHandler, true);
   clickHandler = null;
   bound = false;
