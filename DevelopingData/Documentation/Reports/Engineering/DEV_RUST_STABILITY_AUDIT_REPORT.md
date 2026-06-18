@@ -27,6 +27,7 @@ This report covers repository-side stability review for the current Dev-Rust bra
 - Audio Studio payload limit contract sync.
 - Audio Studio local validation runner coverage.
 - Audio Studio local validation summary evidence.
+- Audio Studio local validation evidence contract.
 - Advanced panel observer behavior.
 - Advanced panel direct-open behavior.
 - Theme injection behavior.
@@ -324,6 +325,16 @@ Fix:
 - Added failure recording with `error_message`.
 - Added `runtime_claim: not_ready_until_target_pc_review` to avoid interpreting validation output as runtime readiness.
 - Updated the static validator to check summary-evidence markers.
+
+### 28. Audio Studio local validation evidence contract
+
+Risk: local validation summary evidence could drift because the runner owned the JSON shape without an explicit runtime contract.
+
+Fix:
+
+- Added `AUDIO_STUDIO_LOCAL_VALIDATION_EVIDENCE_CONTRACT.json`.
+- Defined approved output root, log pattern, summary pattern, summary schema, required summary fields, allowed statuses, runtime claim, step fields, and required validation steps.
+- Updated the static validator to require and structurally check the evidence contract.
 
 ## Current integration chains
 
