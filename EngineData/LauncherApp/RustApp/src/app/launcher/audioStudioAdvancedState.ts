@@ -17,6 +17,14 @@ export type AudioStudioQualityDimension = {
   local_pc_required: boolean;
 };
 
+export const AUDIO_STUDIO_ADVANCED_MODE_IDS: AudioStudioAdvancedMode[] = [
+  "starter_profile",
+  "production_profile",
+  "broadcast_profile",
+];
+
+export const AUDIO_STUDIO_DEFAULT_ADVANCED_MODE: AudioStudioAdvancedMode = "production_profile";
+
 export const AUDIO_STUDIO_ADVANCED_MODES: Record<AudioStudioAdvancedMode, { label: string; sampleTarget: string; useCase: string }> = {
   starter_profile: {
     label: "Starter Profile",
@@ -31,7 +39,7 @@ export const AUDIO_STUDIO_ADVANCED_MODES: Record<AudioStudioAdvancedMode, { labe
   broadcast_profile: {
     label: "Broadcast Profile",
     sampleTarget: "Up to 3 hours curated audio",
-    useCase: "Long-form, commercial, and premium voice output pipeline.",
+    useCase: "Long-form, commercial, and premium output pipeline.",
   },
 };
 
