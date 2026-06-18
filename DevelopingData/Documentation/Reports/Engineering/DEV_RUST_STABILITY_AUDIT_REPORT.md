@@ -19,6 +19,7 @@ This report covers repository-side stability review for the current Dev-Rust bra
 - Audio Studio reading selection bounds.
 - Audio Studio empty reading fallback.
 - Audio Studio advanced panel mode/control safety.
+- Audio Studio static validation coverage.
 - Advanced panel observer behavior.
 - Advanced panel direct-open behavior.
 - Theme injection behavior.
@@ -224,6 +225,17 @@ Fix:
 - Validated mode button actions against the official mode id list.
 - Clamped control default values to 0-100 before rendering width.
 - Added empty-state fallbacks for missing modes, controls, and quality dimensions.
+
+### 20. Audio Studio static validation coverage
+
+Risk: Audio Studio wiring could regress silently because existing validation scripts did not include feature-specific checks for Audio Studio files, command names, contracts, and hardening markers.
+
+Fix:
+
+- Added `scripts/validate_audio_studio.mjs`.
+- Registered `validate:audio-studio` in `package.json`.
+- Included `validate:audio-studio` in `validate:internal` and `validate:full`.
+- The validator checks required Audio Studio files and required integration markers.
 
 ## Current integration chains
 
