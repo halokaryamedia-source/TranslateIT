@@ -16,6 +16,7 @@ This report covers repository-side stability review for the current Dev-Rust bra
 - Audio Studio metadata text sanitization.
 - Audio Studio command response normalization.
 - Audio Studio command notice race handling.
+- Audio Studio reading selection bounds.
 - Advanced panel observer behavior.
 - Advanced panel direct-open behavior.
 - Theme injection behavior.
@@ -188,6 +189,16 @@ Fix:
 - Added command notice sequence tracking.
 - Only the latest command result is allowed to update the assistant notice.
 - Older command completions are ignored if a newer command has already started.
+
+### 17. Reading selection bounds and sanitized import notice labels
+
+Risk: an invalid reading index could leave no reading card active, and import notices could use raw file names rather than sanitized staged take titles.
+
+Fix:
+
+- Added reading index clamping.
+- Clamped reading selection before rendering and guided staging.
+- Changed import notices to use sanitized take titles.
 
 ## Current integration chains
 
