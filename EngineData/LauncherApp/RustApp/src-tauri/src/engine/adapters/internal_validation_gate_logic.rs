@@ -10,6 +10,10 @@ use crate::engine::adapters::local_worker_manifest_logic::{
 };
 use crate::engine::paths::ProjectPaths;
 
+const VALIDATION_EVIDENCE_LABEL: &str = "UserData/LogData/RustAppValidation/latest_validation_evidence.json";
+const MAX_INTERNAL_VALIDATION_BLOCKERS: usize = 80;
+const MAX_INTERNAL_VALIDATION_BLOCKER_CHARS: usize = 180;
+
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub struct ManualRuntimeEvidence {
     pub microphone_capture_smoke_test: Option<bool>,
@@ -157,6 +161,7 @@ pub fn analyze_internal_validation_gate() -> InternalValidationGateReport {
     if !launcher_package_open_test_passed {
         blockers.push("manual:launcher_package_open_test_not_passed".to_string());
     }
+    blockers = compact_blockers(blockers);
 
     let build_and_package_passed = rust_check_passed
         && frontend_typecheck_passed
@@ -205,7 +210,7 @@ pub fn analyze_internal_validation_gate() -> InternalValidationGateReport {
         translation_smoke_test_passed,
         tts_playback_smoke_test_passed,
         launcher_package_open_test_passed,
-        validation_evidence_path: validation_evidence_path.to_string_lossy().replace('\\', "/"),
+        validation_evidence_path: VALIDATION_EVIDENCE_LABEL.to_string(),
         validation_evidence_loaded,
         validation_evidence_generated_at_utc: evidence_ref.and_then(|value| value.generated_at_utc.clone()),
         manual_evidence_updated_at_utc: evidence_ref.and_then(|value| value.manual_evidence_updated_at_utc.clone()),
@@ -227,6 +232,22 @@ pub fn analyze_internal_validation_gate() -> InternalValidationGateReport {
         progress_percent,
         note: "Internal validation gate reads build, package, local realtime worker, persistent smoke, and manual runtime evidence from UserData/LogData and blocks owner validation until every gate is complete.".to_string(),
     }
+}
+
+fn compact_blockers(values: Vec<String>) -> Vec<String> {
+    values
+        .into_iter()
+        .map(|value| {
+            value
+                .trim()
+                .chars()
+                .filter(|character| !character.is_control())
+                .take(MAX_INTERNAL_VALIDATION_BLOCKER_CHARS)
+                .collect::<String>()
+        })
+        .filter(|value| !value.is_empty())
+        .take(MAX_INTERNAL_VALIDATION_BLOCKERS)
+        .collect()
 }
 
 fn read_validation_evidence(path: &Path) -> Option<ValidationEvidenceFile> {
