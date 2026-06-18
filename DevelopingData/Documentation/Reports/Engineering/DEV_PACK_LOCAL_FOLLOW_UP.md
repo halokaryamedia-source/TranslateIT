@@ -43,3 +43,6 @@ npm run validate:runtime-flow
 - Generic developer log rows are capped to avoid oversized panels.
 - Shared display helpers sanitize and cap error text, normalize unknown language labels, and clamp percentage output.
 - Warmup view clamps active step state before rendering.
+- Icon rendering falls back to the file icon when an invalid icon value is received.
+- Realtime status view state sanitizes direction and status messages and clamps missing asset counts.
+- Realtime status snapshots reuse the sanitized view message.
