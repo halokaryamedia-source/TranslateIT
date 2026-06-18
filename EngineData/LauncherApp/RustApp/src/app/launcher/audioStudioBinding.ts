@@ -172,7 +172,7 @@ function updateTakeState(takeId: string, state: AudioStudioTakeState): void {
 
 function readingCards(): string {
   if (AUDIO_STUDIO_READING_LINES.length === 0) {
-    return `<article class="feature-card empty-state-card"><div class="feature-title-row"><h4>No guided reading line available</h4></div><p>Add curated reading lines before staging guided takes.</p></article>`;
+    return `<article class="feature-card empty-state-card"><div class="feature-title-row"><h4>No guided reading line available</h4></div><p>Add curated reading lines before staging guided metadata.</p></article>`;
   }
 
   return AUDIO_STUDIO_READING_LINES.map((line, index) => `
@@ -240,25 +240,25 @@ function audioStudioView(): string {
     <div class="settings-view settings-view--audio-studio">
       <section class="settings-view-header">
         <h2>Audio Studio</h2>
-        <p>Professional mode workspace for imported audio and guided reading capture.</p>
+        <p>Metadata workspace for imported audio and guided reading. Real microphone recording and generated audio are still provider-blocked.</p>
       </section>
 
       <section class="settings-section-title first">
-        <h2>Professional Workspace</h2>
-        <p>Prepare clean source takes before connecting provider-specific generation.</p>
+        <h2>Project Metadata Workspace</h2>
+        <p>Prepare source takes and review metadata before connecting provider-specific audio generation.</p>
       </section>
 
       <article class="settings-card settings-card--audio-studio">
         <div class="settings-grid-2 compact-grid">
           <section class="settings-output-row">
             ${icon("speaker")}
-            <div><h3>Import audio</h3><p>Add existing WAV, MP3, M4A, OGG, or WEBM audio for later review.</p></div>
-            <button id="audioStudioImportButton" class="mic-test-button-v22" type="button">Import</button>
+            <div><h3>Import audio metadata</h3><p>Add existing WAV, MP3, M4A, OGG, or WEBM audio for metadata review.</p></div>
+            <button id="audioStudioImportButton" class="mic-test-button-v22" type="button">Import Metadata</button>
           </section>
           <section class="settings-output-row">
             ${icon("mic")}
-            <div><h3>Guided reading</h3><p>Read prepared text directly in the app to keep takes consistent.</p></div>
-            <button id="audioStudioGuidedButton" class="mic-test-button-v22" type="button">Stage Guide</button>
+            <div><h3>Guided reading metadata</h3><p>Stage prepared text metadata. Real microphone recording is not connected yet.</p></div>
+            <button id="audioStudioGuidedButton" class="mic-test-button-v22" type="button">Stage Metadata</button>
           </section>
           <section class="settings-output-row">
             ${icon("fileText")}
@@ -272,13 +272,13 @@ function audioStudioView(): string {
           </section>
           <section class="settings-output-row">
             ${icon("pulse")}
-            <div><h3>Provider status</h3><p>Check Audio Studio provider readiness without claiming audio generation is ready.</p></div>
-            <button id="audioStudioProviderStatusButton" class="mic-test-button-v22 secondary" type="button">Provider Status</button>
+            <div><h3>Provider diagnostics</h3><p>Check current provider blockers without claiming audio generation is ready.</p></div>
+            <button id="audioStudioProviderStatusButton" class="mic-test-button-v22 secondary" type="button">Check Provider Blockers</button>
           </section>
           <section class="settings-output-row">
             ${icon("pulse")}
-            <div><h3>Quality gate</h3><p>Check quality-score readiness without claiming real audio analysis is ready.</p></div>
-            <button id="audioStudioQualityGateButton" class="mic-test-button-v22 secondary" type="button">Quality Gate</button>
+            <div><h3>Quality diagnostics</h3><p>Check quality-score blockers without claiming real audio analysis is ready.</p></div>
+            <button id="audioStudioQualityGateButton" class="mic-test-button-v22 secondary" type="button">Check Quality Blockers</button>
           </section>
         </div>
         <input id="audioStudioFileInput" type="file" accept="audio/wav,audio/mpeg,audio/mp4,audio/ogg,audio/webm,.wav,.mp3,.m4a,.ogg,.webm" multiple hidden />
@@ -286,29 +286,30 @@ function audioStudioView(): string {
 
       <section class="settings-section-title">
         <h2>Guided Reading Lines</h2>
-        <p>Initial curated text set for consistent recording sessions.</p>
+        <p>Initial curated text set for consistent metadata staging. Recording is not active from this view yet.</p>
       </section>
 
       <div id="audioStudioReadingGrid" class="audio-studio-reading-grid">${readingCards()}</div>
 
       <section class="settings-section-title">
         <h2>Take Review</h2>
-        <p>Review staged items and mark them as accepted, retry, or blocked before later local processing.</p>
+        <p>Review staged metadata and mark items as accepted, retry, or blocked before later local processing.</p>
       </section>
 
       <div id="audioStudioTakeReviewPanel" class="audio-studio-reading-grid">${takeReviewCards()}</div>
 
       <section class="settings-section-title">
         <h2>Readiness Gate</h2>
-        <p>This branch now persists project metadata locally. Provider processing and real audio generation remain blocked until runtime integration exists.</p>
+        <p>This branch persists project metadata locally. Provider processing, real recording, quality scoring, and generated audio remain blocked until runtime integration exists.</p>
       </section>
       <article class="settings-card settings-card--audio-studio-status">
         <div class="developer-log-body" aria-label="Audio Studio readiness">
-          <p class="developer-log-row"><strong>INFO</strong><span>UI scaffold: staged</span></p>
+          <p class="developer-log-row"><strong>INFO</strong><span>UI metadata workspace: active</span></p>
           <p class="developer-log-row"><strong>INFO</strong><span>Project metadata persistence: metadata_ready</span></p>
           <p class="developer-log-row"><strong>INFO</strong><span>Take states: draft, staged, accepted, retry, blocked</span></p>
           <p class="developer-log-row"><strong>WAIT</strong><span>Provider processing: provider_blocked</span></p>
           <p class="developer-log-row"><strong>WAIT</strong><span>Quality score: provider_blocked</span></p>
+          <p class="developer-log-row"><strong>WAIT</strong><span>Guided recording: provider_blocked</span></p>
         </div>
       </article>
     </div>
@@ -322,7 +323,7 @@ function bindReadingActions(): void {
       selectedReadingIndex = clampReadingIndex(index);
       const line = getSelectedReadingLine();
       renderReadingPanel();
-      setAssistantNotice(line ? `Guided reading line ready: ${line.text}` : "No guided reading line available.");
+      setAssistantNotice(line ? `Guided reading metadata selected: ${line.text}` : "No guided reading line available.");
     });
   });
 }
@@ -339,12 +340,12 @@ function bindAudioStudioViewEvents(): void {
   importButton?.addEventListener("click", () => fileInput?.click());
   loadButton?.addEventListener("click", refreshPersistedTakes);
   providerStatusButton?.addEventListener("click", () => {
-    const fallback = "Audio Studio provider status requested.";
+    const fallback = "Audio Studio provider blockers requested.";
     setAssistantNotice(fallback);
     sendCommandNotice(audioStudioApi.getProviderStatus(), fallback);
   });
   qualityGateButton?.addEventListener("click", () => {
-    const fallback = "Audio Studio quality gate requested.";
+    const fallback = "Audio Studio quality blockers requested.";
     setAssistantNotice(fallback);
     sendCommandNotice(audioStudioApi.getQualityGateStatus(), fallback);
   });
@@ -356,7 +357,7 @@ function bindAudioStudioViewEvents(): void {
     renderTakeReviewPanel();
     const names = newTakes.map((take) => take.title).slice(0, 4).join(", ");
     const fallback = accepted.length > 0
-      ? `Audio Studio import staged: ${accepted.length} valid file(s). ${names}${rejectedSummary(rejected)}`
+      ? `Audio Studio import metadata staged: ${accepted.length} valid file(s). ${names}${rejectedSummary(rejected)}`
       : selectedFiles.length > 0
         ? `Audio Studio import rejected.${rejectedSummary(rejected)}`
         : "No audio file selected.";
@@ -383,7 +384,7 @@ function bindAudioStudioViewEvents(): void {
     const take = createGuidedReadingTake(line);
     stagedTakes = [take, ...stagedTakes].slice(0, MAX_STAGED_TAKES);
     renderTakeReviewPanel();
-    const fallback = `Guided reading staged: ${line.text}`;
+    const fallback = `Guided reading metadata staged: ${line.text}`;
     setAssistantNotice(fallback);
     sendCommandNotice(audioStudioApi.stageGuidedTake({
       take_id: take.id,
@@ -416,7 +417,7 @@ function openAudioStudio(): void {
   content.scrollTop = 0;
   bindAudioStudioViewEvents();
   injectAudioStudioAdvancedPanel();
-  setAssistantNotice("Audio Studio opened. Loading saved project metadata from UserData.");
+  setAssistantNotice("Audio Studio opened in metadata-only mode. Loading saved project metadata from UserData.");
   refreshPersistedTakes();
 }
 
