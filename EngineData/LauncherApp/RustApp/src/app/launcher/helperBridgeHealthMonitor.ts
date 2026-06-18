@@ -1,7 +1,7 @@
 import { runtimeApi } from "../engineTranslate/runtimeApi";
 
 const HEALTH_INTERVAL_MS = 15_000;
-let started = false;
+let healthCheckTimer: number | null = null;
 let healthCheckPending = false;
 let lastWarning = "";
 
@@ -27,8 +27,15 @@ async function checkOnce(): Promise<void> {
   }
 }
 
-export function startHelperBridgeHealthMonitor(): void {
-  if (started) return;
-  started = true;
-  window.setInterval(() => void checkOnce(), HEALTH_INTERVAL_MS);
+export function startHelperBridgeHealthMonitor(): () => void {
+  if (healthCheckTimer !== null) return stopHelperBridgeHealthMonitor;
+  healthCheckTimer = window.setInterval(() => void checkOnce(), HEALTH_INTERVAL_MS);
+  return stopHelperBridgeHealthMonitor;
+}
+
+export function stopHelperBridgeHealthMonitor(): void {
+  if (healthCheckTimer === null) return;
+  window.clearInterval(healthCheckTimer);
+  healthCheckTimer = null;
+  healthCheckPending = false;
 }
