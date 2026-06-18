@@ -1,7 +1,7 @@
 use crate::engine;
 use crate::engine::adapters::runtime_lifecycle_logic::{analyze_start_lifecycle_gate, analyze_stop_lifecycle_gate, RuntimeLifecycleGateReport};
 use crate::engine::runtime_state::{latest_runtime_handoff_state, latest_runtime_session_state, RuntimeHandoffStateReport, RuntimeSessionStateReport};
-use crate::engine::state::CommandResult;
+use crate::engine::state::{CommandResult, LifecycleState};
 
 use super::helper_bridge::{
     cancel_helper_bridge_task,
@@ -43,6 +43,20 @@ pub fn check_helper_bridge_health() -> HelperBridgeActionResult {
 
 #[tauri::command]
 pub fn start_capture() -> CommandResult {
+    let status = get_helper_bridge_status();
+    if !status.provider_ready {
+        let _ = cancel_helper_bridge_task();
+        return CommandResult::blocked(
+            LifecycleState::ConversionPending,
+            format!(
+                "Voice capture is blocked because helper provider readiness is not verified yet. Start Helper, run Worker Status, and check Developer diagnostics first. Current helper state: {}; CUDA ready: {}; provider ready: {}; message: {}",
+                status.state,
+                status.cuda_ready,
+                status.provider_ready,
+                status.message
+            ),
+        );
+    }
     let _ = cancel_helper_bridge_task();
     engine::start_capture()
 }
