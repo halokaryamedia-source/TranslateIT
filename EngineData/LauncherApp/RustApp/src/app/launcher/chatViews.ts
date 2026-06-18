@@ -6,6 +6,7 @@ const MAX_CHAT_COLLECTION_CARDS = 6;
 const MAX_CHAT_TITLE_CHARS = 64;
 const MAX_RESULT_PREVIEW_CHARS = 900;
 const TRANSLATION_PENDING_MESSAGE = "Translation is not available yet. The local worker or model may still need setup.";
+const UNSAFE_DISPLAY_CHARS = /[\u0000-\u001f\u007f\u202a-\u202e\u2066-\u2069]/g;
 
 function escapeHtml(value: string): string {
   return value
@@ -16,8 +17,12 @@ function escapeHtml(value: string): string {
     .replaceAll("'", "&#39;");
 }
 
+function cleanDisplayText(value: string): string {
+  return value.replace(UNSAFE_DISPLAY_CHARS, "").replace(/\s+/g, " ").trim();
+}
+
 function compactTitle(value: string): string {
-  const clean = value.replace(/\s+/g, " ").trim() || "Untitled Chat";
+  const clean = cleanDisplayText(value) || "Untitled Chat";
   let compact = "";
   let count = 0;
   for (const character of clean) {
@@ -29,7 +34,7 @@ function compactTitle(value: string): string {
 }
 
 function compactResult(value: string, fallback = "No text available."): string {
-  const clean = value.trim() || fallback;
+  const clean = cleanDisplayText(value) || fallback;
   let compact = "";
   let count = 0;
   for (const character of clean) {
@@ -79,9 +84,9 @@ export function translationResultView(source: string, translated: string, voiceS
   const translatedText = hasTranslatedText ? translated : TRANSLATION_PENDING_MESSAGE;
   const sourcePreview = escapeHtml(compactResult(source, "No source text available."));
   const translatedPreview = escapeHtml(compactResult(translatedText, TRANSLATION_PENDING_MESSAGE));
-  const translatedFull = escapeHtml(translatedText.trim());
-  const sourceFull = escapeHtml(source.trim() || "No source text available.");
-  const statusText = escapeHtml(voiceStatus);
+  const translatedFull = escapeHtml(cleanDisplayText(translatedText) || TRANSLATION_PENDING_MESSAGE);
+  const sourceFull = escapeHtml(cleanDisplayText(source) || "No source text available.");
+  const statusText = escapeHtml(compactResult(voiceStatus, "No voice status available."));
   const timeText = escapeHtml(localTimeLabel());
   const pendingClass = hasTranslatedText ? "" : " is-pending";
   return `<section class="translation-result-stack" aria-label="Latest translation result"><article class="translation-result-card${pendingClass}"><header><h4>${icon("translate")} Translation Result</h4><div class="translation-result-actions"><span class="translation-result-time">${timeText}</span><button type="button" data-copy-translation="${sourceFull}" aria-label="Copy original text">Copy original</button><button type="button" data-copy-translation="${translatedFull}" aria-label="Copy full translated text">Copy result</button></div></header><div class="translation-result-grid"><section class="translation-result-block"><strong>Original</strong><p>${sourcePreview}</p></section><section class="translation-result-block"><strong>${hasTranslatedText ? "Translated" : "Status"}</strong><p>${translatedPreview}</p></section></div><p class="translation-result-meta">Voice output: ${statusText}</p></article></section>`;
