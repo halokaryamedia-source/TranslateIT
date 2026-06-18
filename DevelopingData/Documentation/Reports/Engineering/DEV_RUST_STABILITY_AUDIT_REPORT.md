@@ -11,6 +11,7 @@ This report covers repository-side stability review for the current Dev-Rust bra
 - Tauri command argument compatibility.
 - Frontend API wrapper wiring.
 - Audio Studio UI event handling.
+- Audio Studio placeholder command visibility.
 - Advanced panel observer behavior.
 - Advanced panel direct-open behavior.
 - Theme injection behavior.
@@ -127,6 +128,15 @@ Fix:
 - Kept saved project data under `UserData/SavedProject/AudioStudio/`.
 - Added contract rules against creating additional Audio Studio roots outside CacheData and SavedProject.
 - Aligned the advanced quality contract with the same approved roots.
+
+### 12. Placeholder command notice clarity
+
+Risk: UI fallback messages could make reviewed placeholder routes look like completed runtime behavior.
+
+Fix:
+
+- Added command result formatting for `invalid_request`, `placeholder_only`, evidence-required, and unavailable command states.
+- Kept local UI staging visible while clearly labeling backend route state as placeholder-only when applicable.
 
 ## Current integration chains
 
