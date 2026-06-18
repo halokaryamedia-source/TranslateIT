@@ -11,6 +11,10 @@ import {
 } from "./audioStudioState";
 
 const ACTION_STATES: AudioStudioTakeState[] = ["accepted", "needs_retry", "blocked"];
+const MAX_STAGED_TAKES = 12;
+const MAX_IMPORT_FILES_PER_ACTION = 12;
+const MAX_IMPORT_FILE_SIZE_BYTES = 500 * 1024 * 1024;
+const ACCEPTED_AUDIO_EXTENSIONS = [".wav", ".mp3", ".m4a", ".ogg", ".webm"];
 
 let selectedReadingIndex = 0;
 let stagedTakes: AudioStudioTakeDraft[] = [];
@@ -31,6 +35,45 @@ function setAssistantNotice(message: string): void {
 
 function isActionState(value: string | undefined): value is AudioStudioTakeState {
   return ACTION_STATES.includes(value as AudioStudioTakeState);
+}
+
+function hasAcceptedAudioExtension(fileName: string): boolean {
+  const normalized = fileName.toLowerCase();
+  return ACCEPTED_AUDIO_EXTENSIONS.some((extension) => normalized.endsWith(extension));
+}
+
+function validateImportFile(file: File): string | null {
+  if (file.size <= 0) return "empty file";
+  if (file.size > MAX_IMPORT_FILE_SIZE_BYTES) return "file is larger than 500 MB";
+  if (!file.type.startsWith("audio/") && !hasAcceptedAudioExtension(file.name)) return "unsupported audio type";
+  return null;
+}
+
+function validatedImportFiles(files: File[]): { accepted: File[]; rejected: string[] } {
+  const accepted: File[] = [];
+  const rejected: string[] = [];
+
+  files.forEach((file, index) => {
+    if (index >= MAX_IMPORT_FILES_PER_ACTION) {
+      rejected.push(`${file.name || "Unnamed file"}: over ${MAX_IMPORT_FILES_PER_ACTION} file import limit`);
+      return;
+    }
+    const reason = validateImportFile(file);
+    if (reason) {
+      rejected.push(`${file.name || "Unnamed file"}: ${reason}`);
+      return;
+    }
+    accepted.push(file);
+  });
+
+  return { accepted, rejected };
+}
+
+function rejectedSummary(rejected: string[]): string {
+  if (rejected.length === 0) return "";
+  const sample = rejected.slice(0, 3).join("; ");
+  const more = rejected.length > 3 ? `; +${rejected.length - 3} more` : "";
+  return ` Rejected ${rejected.length} file(s): ${sample}${more}.`;
 }
 
 function statusTone(state: AudioStudioTakeState): string {
@@ -201,12 +244,17 @@ function bindAudioStudioViewEvents(): void {
 
   importButton?.addEventListener("click", () => fileInput?.click());
   fileInput?.addEventListener("change", () => {
-    const files = Array.from(fileInput.files ?? []);
-    const newTakes = files.map(createImportedTake);
-    stagedTakes = [...newTakes, ...stagedTakes].slice(0, 12);
+    const selectedFiles = Array.from(fileInput.files ?? []);
+    const { accepted, rejected } = validatedImportFiles(selectedFiles);
+    const newTakes = accepted.map(createImportedTake);
+    stagedTakes = [...newTakes, ...stagedTakes].slice(0, MAX_STAGED_TAKES);
     renderTakeReviewPanel();
-    const names = files.map((file) => file.name).slice(0, 4).join(", ");
-    const fallback = files.length > 0 ? `Audio Studio import staged: ${files.length} file(s). ${names}` : "No audio file selected.";
+    const names = accepted.map((file) => file.name).slice(0, 4).join(", ");
+    const fallback = accepted.length > 0
+      ? `Audio Studio import staged: ${accepted.length} valid file(s). ${names}${rejectedSummary(rejected)}`
+      : selectedFiles.length > 0
+        ? `Audio Studio import rejected.${rejectedSummary(rejected)}`
+        : "No audio file selected.";
     setAssistantNotice(fallback);
     newTakes.forEach((take) => {
       sendCommandNotice(audioStudioApi.importTake({ take_id: take.id, source: take.source, title: take.title, detail: take.detail }), fallback);
@@ -217,7 +265,7 @@ function bindAudioStudioViewEvents(): void {
   guidedButton?.addEventListener("click", () => {
     const line = AUDIO_STUDIO_READING_LINES[selectedReadingIndex] ?? AUDIO_STUDIO_READING_LINES[0];
     const take = createGuidedReadingTake(line);
-    stagedTakes = [take, ...stagedTakes].slice(0, 12);
+    stagedTakes = [take, ...stagedTakes].slice(0, MAX_STAGED_TAKES);
     renderTakeReviewPanel();
     const fallback = `Guided reading staged: ${line.text}`;
     setAssistantNotice(fallback);
