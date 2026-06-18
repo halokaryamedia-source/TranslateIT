@@ -30,11 +30,12 @@ export function applyRealtimeStatusPayload(payload: RealtimeStatusPayload | null
     return latestSnapshot;
   }
 
+  const view = realtimeStatusViewState(payload);
   latestSnapshot = {
     payload,
-    view: realtimeStatusViewState(payload),
+    view,
     refreshed: true,
-    message: payload.message,
+    message: view.message,
   };
   return latestSnapshot;
 }
