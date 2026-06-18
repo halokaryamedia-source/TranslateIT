@@ -29,6 +29,7 @@ async function checkOnce(): Promise<void> {
 
 export function startHelperBridgeHealthMonitor(): () => void {
   if (healthCheckTimer !== null) return stopHelperBridgeHealthMonitor;
+  void checkOnce();
   healthCheckTimer = window.setInterval(() => void checkOnce(), HEALTH_INTERVAL_MS);
   return stopHelperBridgeHealthMonitor;
 }
@@ -38,4 +39,5 @@ export function stopHelperBridgeHealthMonitor(): void {
   window.clearInterval(healthCheckTimer);
   healthCheckTimer = null;
   healthCheckPending = false;
+  lastWarning = "";
 }
