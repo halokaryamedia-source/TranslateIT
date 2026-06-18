@@ -39,6 +39,28 @@ function textIncludes(content, value, label) {
   if (!content.includes(value)) errors.push(`${label}: missing ${value}`);
 }
 
+function textNotIncludes(content, value, label) {
+  if (content.includes(value)) errors.push(`${label}: forbidden ${value}`);
+}
+
+const activeIndex = readText("DevelopingData/Documentation/Reports/Engineering/ACTIVE_DOCUMENTATION_INDEX.md");
+textIncludes(activeIndex, "Rust/Tauri desktop shell + Python helper runtime", "active documentation index engine rule");
+textIncludes(activeIndex, "CURRENT_APP_STATUS.md", "active documentation index current status pointer");
+textIncludes(activeIndex, "SINGLE_ACTIVE_ENGINE_POLICY.md", "active documentation index single engine pointer");
+textIncludes(activeIndex, "There is no second launcher engine", "active documentation index no second engine rule");
+
+const singleEnginePolicy = readText("DevelopingData/Documentation/Reports/Engineering/SINGLE_ACTIVE_ENGINE_POLICY.md");
+textIncludes(singleEnginePolicy, "Rust/Tauri desktop shell + Python helper runtime", "single active engine rule");
+textIncludes(singleEnginePolicy, "Python is an internal helper runtime", "single active engine Python helper rule");
+textIncludes(singleEnginePolicy, "Do not describe older material as another active engine", "single active engine wording rule");
+
+const currentStatus = readText("DevelopingData/Documentation/Reports/Engineering/CURRENT_APP_STATUS.md");
+textIncludes(currentStatus, "ACTIVE_DOCUMENTATION_INDEX.md", "current status documentation entrypoint");
+textIncludes(currentStatus, "Rust/Tauri desktop shell + Python helper runtime", "current status engine rule");
+textIncludes(currentStatus, "Single active engine policy", "current status single engine policy");
+textNotIncludes(currentStatus, "Legacy reference", "current status removed legacy reference heading");
+textNotIncludes(currentStatus, "legacy reference", "current status removed legacy reference wording");
+
 const architecture = readJson("EngineData/Backend/RuntimeContracts/FINAL_ARCHITECTURE_CONTRACT.json");
 if (architecture) {
   expect(architecture.schema, "translateit.final_architecture_contract.v1", "architecture schema");
