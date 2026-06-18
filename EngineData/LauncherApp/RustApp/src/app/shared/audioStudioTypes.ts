@@ -11,3 +11,10 @@ export const AUDIO_STUDIO_TAKE_STATES: AudioStudioTakeState[] = [
   "needs_retry",
   "blocked",
 ];
+
+export const AUDIO_STUDIO_COMMAND_STATES: AudioStudioCommandState[] = [
+  "invalid_request",
+  "placeholder_only",
+  "ready",
+  "blocked",
+];
