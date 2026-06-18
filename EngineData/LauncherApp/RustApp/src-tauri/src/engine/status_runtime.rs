@@ -10,6 +10,7 @@ pub fn current_status() -> EngineStatus {
     let cuda_report = CudaPolicyReport::strict_pending();
     let project_paths = ProjectPaths::discover();
     let live_capture = live_capture_status();
+    let logs_resolved = !project_paths.user_log_dir.trim().is_empty();
 
     EngineStatus {
         app_version: config.app_version,
@@ -26,7 +27,7 @@ pub fn current_status() -> EngineStatus {
             "Python runtime remains only as behavior reference until native Rust parity is implemented.".to_string(),
             "CUDA inference must be implemented through native CUDA-capable backends, not false Rust-only placeholders.".to_string(),
             format!("Live capture active: {}", live_capture.stream_active),
-            format!("Runtime logs path: {}", project_paths.user_log_dir),
+            format!("Runtime logs path resolved: {logs_resolved}"),
             cuda_report.operator_note,
         ],
     }
