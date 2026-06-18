@@ -30,9 +30,9 @@ export type IconName = keyof typeof icons;
 const svgAttributes = `xmlns="http://www.w3.org/2000/svg" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" vector-effect="non-scaling-stroke"`;
 
 function normalizeIconSvg(svg: string): string {
-  return svg.replace("<svg ", `<svg ${svgAttributes} `);
+  return svg.startsWith("<svg ") ? svg.replace("<svg ", `<svg ${svgAttributes} `) : icons.file;
 }
 
 export function icon(name: IconName): string {
-  return `<span class="icon" aria-hidden="true">${normalizeIconSvg(icons[name])}</span>`;
+  return `<span class="icon" aria-hidden="true">${normalizeIconSvg(icons[name] ?? icons.file)}</span>`;
 }
