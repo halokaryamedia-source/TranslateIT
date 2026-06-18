@@ -6,6 +6,7 @@ const OUTPUT_BUTTON_SELECTOR = "#audioVoiceToggleButton";
 const DEVICE_BUTTON_SELECTOR = `${INPUT_BUTTON_SELECTOR},${OUTPUT_BUTTON_SELECTOR}`;
 let bound = false;
 let labelSyncPending = false;
+let deviceRequestPending = false;
 let observer: MutationObserver | null = null;
 let clickHandler: ((event: MouseEvent) => void) | null = null;
 
@@ -95,42 +96,51 @@ async function enableSpeakerOutput(settings: RuntimeSettings): Promise<void> {
 }
 
 async function showAudioDevices(kind: "input" | "output"): Promise<void> {
-  setAssistantMessage("Checking local audio devices...");
-  const report = await runtimeApi.listAudioDevices();
-  if (!report || !report.ok) {
-    const blocker = report?.blocker || "audio_devices:unavailable";
-    setAssistantMessage("Audio devices were not found yet. Check Windows sound settings or reconnect your microphone.");
-    setDeveloperOutput(`audio devices unavailable: ${blocker}`);
+  if (deviceRequestPending) {
+    setAssistantMessage("Audio device check is already running. Please wait.");
     return;
   }
+  deviceRequestPending = true;
+  try {
+    setAssistantMessage("Checking local audio devices...");
+    const report = await runtimeApi.listAudioDevices();
+    if (!report || !report.ok) {
+      const blocker = report?.blocker || "audio_devices:unavailable";
+      setAssistantMessage("Audio devices were not found yet. Check Windows sound settings or reconnect your microphone.");
+      setDeveloperOutput(`audio devices unavailable: ${blocker}`);
+      return;
+    }
 
-  const input = deviceNames(report.input_devices, "no microphone found");
-  const output = deviceNames(report.output_devices, "no speaker found");
-  setDeveloperOutput(`microphones: ${input}\nspeakers: ${output}\n${report.note}`);
+    const input = deviceNames(report.input_devices, "no microphone found");
+    const output = deviceNames(report.output_devices, "no speaker found");
+    setDeveloperOutput(`microphones: ${input}\nspeakers: ${output}\n${report.note}`);
 
-  const settings = await runtimeApi.loadSettings();
-  if (!settings) {
-    setAssistantMessage("Audio devices were found, but settings could not be loaded yet.");
-    return;
+    const settings = await runtimeApi.loadSettings();
+    if (!settings) {
+      setAssistantMessage("Audio devices were found, but settings could not be loaded yet.");
+      return;
+    }
+
+    if (kind === "output" && !settings.audio.auto_play_out_voice) {
+      await enableSpeakerOutput(settings);
+      return;
+    }
+
+    const devices = kind === "input" ? report.input_devices : report.output_devices;
+    const currentId = kind === "input" ? settings.audio.input_device_id : settings.audio.output_device_id;
+    const selected = nextDevice(devices, currentId);
+    if (!selected) {
+      setAssistantMessage(kind === "input" ? "No microphone device is available." : "No speaker device is available.");
+      return;
+    }
+
+    await saveSelectedDevice(kind, selected, settings);
+    const label = shortDeviceLabel(selected);
+    setButtonLabel(kind === "input" ? INPUT_BUTTON_SELECTOR : OUTPUT_BUTTON_SELECTOR, label);
+    setAssistantMessage(`${kind === "input" ? "Microphone" : "Speaker"} selected: ${label}.`);
+  } finally {
+    deviceRequestPending = false;
   }
-
-  if (kind === "output" && !settings.audio.auto_play_out_voice) {
-    await enableSpeakerOutput(settings);
-    return;
-  }
-
-  const devices = kind === "input" ? report.input_devices : report.output_devices;
-  const currentId = kind === "input" ? settings.audio.input_device_id : settings.audio.output_device_id;
-  const selected = nextDevice(devices, currentId);
-  if (!selected) {
-    setAssistantMessage(kind === "input" ? "No microphone device is available." : "No speaker device is available.");
-    return;
-  }
-
-  await saveSelectedDevice(kind, selected, settings);
-  const label = shortDeviceLabel(selected);
-  setButtonLabel(kind === "input" ? INPUT_BUTTON_SELECTOR : OUTPUT_BUTTON_SELECTOR, label);
-  setAssistantMessage(`${kind === "input" ? "Microphone" : "Speaker"} selected: ${label}.`);
 }
 
 export function bindAudioDeviceListUi(): () => void {
@@ -165,5 +175,6 @@ export function unbindAudioDeviceListUi(): void {
   if (clickHandler) document.removeEventListener("click", clickHandler, true);
   clickHandler = null;
   labelSyncPending = false;
+  deviceRequestPending = false;
   bound = false;
 }
