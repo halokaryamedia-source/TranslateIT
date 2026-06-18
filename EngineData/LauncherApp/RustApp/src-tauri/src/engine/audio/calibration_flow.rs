@@ -5,6 +5,8 @@ use crate::engine::audio::calibration::CalibrationProfile;
 use crate::engine::audio::evidence::AudioEvidenceReport;
 use crate::engine::paths::ProjectPaths;
 
+const CALIBRATION_PROFILE_LABEL: &str = "UserData/CacheData/rust_calibration_profile.json";
+
 #[derive(Debug, Clone, Serialize)]
 pub struct CalibrationFlowStatus {
     pub output_path: String,
@@ -24,12 +26,8 @@ pub struct CalibrationSaveResult {
 
 impl CalibrationFlowStatus {
     pub fn current() -> Self {
-        let output_path = calibration_profile_path()
-            .to_string_lossy()
-            .replace('\\', "/");
-
         Self {
-            output_path,
+            output_path: CALIBRATION_PROFILE_LABEL.to_string(),
             requires_quiet_sample: true,
             requires_speech_sample: true,
             ready_to_save_profile: false,
@@ -45,20 +43,20 @@ pub fn save_calibration_from_evidence(
 ) -> CalibrationSaveResult {
     let output_path = calibration_profile_path();
     let profile = CalibrationProfile::from_quiet_and_speech(input_device_id, &quiet, &speech);
-    let output_label = output_path.to_string_lossy().replace('\\', "/");
+    let output_label = CALIBRATION_PROFILE_LABEL.to_string();
 
     match profile.save_pretty(&output_path) {
         Ok(()) => CalibrationSaveResult {
             ok: profile.usable,
-            output_path: output_label.clone(),
+            output_path: output_label,
             profile,
-            message: format!("Rust calibration profile saved to {output_label}"),
+            message: "Rust calibration profile saved.".to_string(),
         },
-        Err(error) => CalibrationSaveResult {
+        Err(_error) => CalibrationSaveResult {
             ok: false,
             output_path: output_label,
             profile,
-            message: format!("Failed to save Rust calibration profile: {error}"),
+            message: "Failed to save Rust calibration profile. Open Developer diagnostics for details.".to_string(),
         },
     }
 }
