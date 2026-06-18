@@ -35,9 +35,23 @@ export type HelperBridgeStatus = {
   provider_ready: boolean;
   degraded_mode: boolean;
   active_task: string | null;
+  generation_token: number;
   last_error: string | null;
   updated_unix_ms: number;
   runtime_claim: string;
+};
+
+export type HelperBridgeActionResult = {
+  ok: boolean;
+  state: string;
+  message: string;
+  generation_token: number;
+  runtime_claim: string;
+};
+
+export type HelperBridgeRequest = {
+  task: string;
+  payload_json?: string | null;
 };
 
 export type AudioStudioValidationEvidence = {
