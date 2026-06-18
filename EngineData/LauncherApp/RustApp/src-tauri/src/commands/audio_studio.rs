@@ -19,6 +19,9 @@ pub struct AudioStudioTakeRequest {
     pub source: String,
     pub title: String,
     pub detail: String,
+    pub file_name: Option<String>,
+    pub size_bytes: Option<u64>,
+    pub reading_line_id: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -35,6 +38,9 @@ pub struct AudioStudioTakeRecord {
     pub state: String,
     pub title: String,
     pub detail: String,
+    pub file_name: Option<String>,
+    pub size_bytes: Option<u64>,
+    pub reading_line_id: Option<String>,
     pub created_unix_ms: u128,
     pub updated_unix_ms: u128,
 }
@@ -109,6 +115,13 @@ fn normalize_text(value: &str, max: usize, fallback: &str) -> String {
     }
 }
 
+fn normalize_optional_text(value: Option<String>, max: usize) -> Option<String> {
+    value
+        .as_deref()
+        .map(|raw| normalize_text(raw, max, ""))
+        .filter(|normalized| !normalized.trim().is_empty())
+}
+
 fn sanitize_take_id(value: &str) -> String {
     value
         .trim()
@@ -139,6 +152,16 @@ fn validate_take_request(request: &AudioStudioTakeRequest) -> Option<AudioStudio
     }
     if !is_valid_length(&request.detail, MAX_TAKE_DETAIL_LENGTH) {
         return Some(result(false, "invalid_request", "Audio Studio request detail text is too long."));
+    }
+    if let Some(file_name) = &request.file_name {
+        if !is_valid_length(file_name, MAX_TAKE_TITLE_LENGTH) {
+            return Some(result(false, "invalid_request", "Audio Studio request file name is too long."));
+        }
+    }
+    if let Some(reading_line_id) = &request.reading_line_id {
+        if reading_line_id.trim().is_empty() || !is_valid_length(reading_line_id, MAX_TAKE_ID_LENGTH) {
+            return Some(result(false, "invalid_request", "Audio Studio request has an invalid reading line id."));
+        }
     }
     None
 }
@@ -209,6 +232,8 @@ fn sanitize_take_index(mut index: AudioStudioTakeIndex) -> AudioStudioTakeIndex 
         take.take_id = sanitize_take_id(&take.take_id);
         take.title = normalize_text(&take.title, MAX_TAKE_TITLE_LENGTH, "Untitled take");
         take.detail = normalize_text(&take.detail, MAX_TAKE_DETAIL_LENGTH, "Audio Studio take");
+        take.file_name = normalize_optional_text(take.file_name.clone(), MAX_TAKE_TITLE_LENGTH);
+        take.reading_line_id = normalize_optional_text(take.reading_line_id.clone(), MAX_TAKE_ID_LENGTH);
     }
     index.takes.retain(|take| !take.take_id.trim().is_empty());
     index.takes.sort_by(|a, b| b.updated_unix_ms.cmp(&a.updated_unix_ms));
@@ -277,6 +302,9 @@ fn upsert_take(request: AudioStudioTakeRequest, default_state: &str) -> io::Resu
         state: default_state.to_string(),
         title,
         detail,
+        file_name: normalize_optional_text(request.file_name, MAX_TAKE_TITLE_LENGTH),
+        size_bytes: request.size_bytes,
+        reading_line_id: normalize_optional_text(request.reading_line_id, MAX_TAKE_ID_LENGTH),
         created_unix_ms: now,
         updated_unix_ms: now,
     };
@@ -289,7 +317,14 @@ fn upsert_take(request: AudioStudioTakeRequest, default_state: &str) -> io::Resu
     }
     index.updated_unix_ms = now;
     write_take_index(&index)?;
-    append_evidence("take_upserted", json!({ "take_id": record.take_id, "source": record.source, "state": record.state }))?;
+    append_evidence("take_upserted", json!({
+        "take_id": record.take_id,
+        "source": record.source,
+        "state": record.state,
+        "file_name": record.file_name,
+        "size_bytes": record.size_bytes,
+        "reading_line_id": record.reading_line_id
+    }))?;
     Ok(record)
 }
 
@@ -299,7 +334,7 @@ pub fn audio_studio_import_take(request: AudioStudioTakeRequest) -> AudioStudioC
         return error;
     }
     match upsert_take(request, "staged") {
-        Ok(record) => result(true, "ready", &format!("Audio Studio import metadata saved for take {}. Provider processing is still not connected.", record.take_id)),
+        Ok(record) => result(true, "metadata_ready", &format!("Audio Studio import metadata saved for take {}. Provider processing is still not connected.", record.take_id)),
         Err(_) => result(false, "blocked", "Audio Studio failed to save import metadata under UserData."),
     }
 }
@@ -310,7 +345,7 @@ pub fn audio_studio_stage_guided_take(request: AudioStudioTakeRequest) -> AudioS
         return error;
     }
     match upsert_take(request, "draft") {
-        Ok(record) => result(true, "ready", &format!("Audio Studio guided reading metadata saved for take {}. Recording/provider capture is still not connected.", record.take_id)),
+        Ok(record) => result(true, "metadata_ready", &format!("Audio Studio guided reading metadata saved for take {}. Recording/provider capture is still not connected.", record.take_id)),
         Err(_) => result(false, "blocked", "Audio Studio failed to save guided reading metadata under UserData."),
     }
 }
@@ -329,7 +364,7 @@ pub fn audio_studio_update_take_state(request: AudioStudioStateUpdateRequest) ->
     take.updated_unix_ms = current_unix_ms();
     index.updated_unix_ms = current_unix_ms();
     match write_take_index(&index).and_then(|_| append_evidence("take_state_updated", json!({ "take_id": clean_take_id, "state": request.state }))) {
-        Ok(()) => result(true, "ready", "Audio Studio take state saved under UserData."),
+        Ok(()) => result(true, "metadata_ready", "Audio Studio take state saved under UserData."),
         Err(_) => result(false, "blocked", "Audio Studio failed to save take state under UserData."),
     }
 }
@@ -337,7 +372,7 @@ pub fn audio_studio_update_take_state(request: AudioStudioStateUpdateRequest) ->
 #[tauri::command]
 pub fn audio_studio_list_takes() -> AudioStudioTakeListResult {
     let index = read_take_index();
-    list_result(true, "ready", "Audio Studio take metadata loaded from UserData.", index.takes)
+    list_result(true, "metadata_ready", "Audio Studio take metadata loaded from UserData.", index.takes)
 }
 
 #[tauri::command]
@@ -357,7 +392,7 @@ pub fn audio_studio_export_project_metadata() -> AudioStudioCommandResult {
     match write_pretty_json(&project_metadata_path(), &metadata)
         .and_then(|_| append_evidence("project_metadata_exported", json!({ "path": project_metadata_path().to_string_lossy().replace('\\', "/") })))
     {
-        Ok(()) => result(true, "ready", "Audio Studio project metadata exported under UserData/SavedProject/AudioStudio. Provider processing is still not connected."),
+        Ok(()) => result(true, "metadata_ready", "Audio Studio project metadata exported under UserData/SavedProject/AudioStudio. Provider processing is still not connected."),
         Err(_) => result(false, "blocked", "Audio Studio failed to export project metadata under UserData/SavedProject."),
     }
 }
