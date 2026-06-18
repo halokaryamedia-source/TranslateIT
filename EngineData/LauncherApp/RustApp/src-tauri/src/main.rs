@@ -5,6 +5,7 @@ use commands::audio::{get_input_status, list_audio_devices};
 use commands::audio_studio::{
     audio_studio_export_project_metadata,
     audio_studio_import_take,
+    audio_studio_list_takes,
     audio_studio_stage_guided_take,
     audio_studio_update_take_state,
 };
@@ -35,6 +36,7 @@ fn main() {
         audio_studio_import_take,
         audio_studio_stage_guided_take,
         audio_studio_update_take_state,
+        audio_studio_list_takes,
         audio_studio_export_project_metadata,
     ]);
 
