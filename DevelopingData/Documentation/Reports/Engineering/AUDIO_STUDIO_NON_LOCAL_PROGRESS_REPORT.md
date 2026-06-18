@@ -55,6 +55,9 @@ Current repository-side scaffold progress: 100% for the non-local scope.
 - Added control default value clamping before rendering widths.
 - Added quality-gate scaffold.
 - Added empty-state fallbacks for missing advanced modes, controls, and quality dimensions.
+- Added Audio Studio static validator script.
+- Registered `validate:audio-studio` in `package.json`.
+- Included `validate:audio-studio` in `validate:internal` and `validate:full`.
 - Guarded advanced UI observer wiring to avoid repeated observer setup.
 - Added direct-open fallback injection for the advanced panel.
 - Added final compatibility audit.
@@ -110,12 +113,14 @@ EngineData/LauncherApp/RustApp/src/app/shared/audioStudioTypes.ts
 EngineData/LauncherApp/RustApp/src/audioStudioEntry.ts
 EngineData/LauncherApp/RustApp/src/audioStudioThemeEntry.ts
 EngineData/LauncherApp/RustApp/src-tauri/src/commands/audio_studio.rs
+EngineData/LauncherApp/RustApp/scripts/validate_audio_studio.mjs
 ```
 
 ## Updated files
 
 ```text
 EngineData/LauncherApp/RustApp/index.html
+EngineData/LauncherApp/RustApp/package.json
 EngineData/LauncherApp/RustApp/src-tauri/src/commands/mod.rs
 EngineData/LauncherApp/RustApp/src-tauri/src/main.rs
 ```
@@ -135,6 +140,7 @@ EngineData/LauncherApp/RustApp/src/audioStudioLayout.css
 - No packaging check.
 - No `cargo check`.
 - No `npm run build`.
+- No `npm run validate:audio-studio`.
 
 ## Final note
 
