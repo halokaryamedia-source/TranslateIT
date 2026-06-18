@@ -41,3 +41,5 @@ npm run validate:runtime-flow
 - Generated HTML attribute names are validated before rendering.
 - Chat titles and translation previews sanitize control and bidi characters before rendering.
 - Generic developer log rows are capped to avoid oversized panels.
+- Shared display helpers sanitize and cap error text, normalize unknown language labels, and clamp percentage output.
+- Warmup view clamps active step state before rendering.
