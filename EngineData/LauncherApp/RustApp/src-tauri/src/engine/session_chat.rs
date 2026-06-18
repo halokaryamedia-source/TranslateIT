@@ -272,11 +272,20 @@ fn sanitize_title(value: &str) -> String {
     }
 }
 
+fn is_unsafe_message_character(character: char) -> bool {
+    character == '\0'
+        || ('\u{0001}'..='\u{0008}').contains(&character)
+        || ('\u{000b}'..='\u{001f}').contains(&character)
+        || character == '\u{007f}'
+        || ('\u{202a}'..='\u{202e}').contains(&character)
+        || ('\u{2066}'..='\u{2069}').contains(&character)
+}
+
 fn sanitize_message_content(value: &str) -> String {
     value
         .trim()
         .chars()
-        .filter(|character| *character != '\0')
+        .filter(|character| !is_unsafe_message_character(*character))
         .collect::<String>()
 }
 
