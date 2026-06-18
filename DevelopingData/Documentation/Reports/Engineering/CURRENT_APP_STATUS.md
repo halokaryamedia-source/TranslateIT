@@ -17,6 +17,16 @@ Python remains part of the product as a helper runtime for tasks where Python is
 - Launcher chat persistence uses `UserData/SavedProject/Chat`.
 - Project path discovery uses root markers: `EngineData`, `DevelopingData`, and `UserData`.
 
+### Runtime UX flow hardening
+
+- Main runtime wording now separates text readiness from voice/provider readiness.
+- Generic `Ready` wording was reduced in the main runtime status flow.
+- Translation command failure is no longer treated as a completed translation result.
+- Helper health monitor no longer overwrites the main assistant message; it stores warning detail for Developer/runtime visibility.
+- Runtime readiness DOM guard only corrects legacy generic `Ready` labels and no longer overwrites explicit `Text ready` or `Voice ready` labels.
+- Runtime API clears helper/status caches before and after helper/capture mutation commands to reduce stale UI reads.
+- Start Capture is blocked until helper provider readiness is verified, preventing users from silently entering the older one-shot capture path when helper/provider readiness is incomplete.
+
 ### Helper bridge lifecycle and worker spawn
 
 - Rust/Tauri exposes `get_helper_bridge_status`.
@@ -110,7 +120,8 @@ Still pending:
 
 - target-PC spawn validation,
 - replacing the older capture one-shot worker invocation with the long-running helper bridge,
-- full Start/Stop capture result routing through helper request/response evidence.
+- full Start/Stop capture result routing through helper request/response evidence,
+- timeout/deadline handling for helper bridge stdout response reads.
 
 ## Contract only
 
@@ -139,6 +150,7 @@ However, the final shell direction is now Rust/Tauri. Python/Qt launcher materia
 3. Implement Audio Studio provider processing after metadata routes.
 4. Add Audio Studio guided microphone capture.
 5. Add Audio Studio audio quality scoring.
+6. Add timeout/deadline handling for helper bridge worker response reads.
 
 ## Not claimed
 
