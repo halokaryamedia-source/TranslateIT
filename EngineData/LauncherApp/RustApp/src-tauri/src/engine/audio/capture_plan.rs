@@ -37,8 +37,12 @@ impl Default for NativeCaptureStreamPlanRequest {
     }
 }
 
-pub fn plan_native_capture_stream(request: NativeCaptureStreamPlanRequest) -> NativeCaptureStreamPlanReport {
-    let selected_frame_ms = request.requested_frame_ms.clamp(MIN_CAPTURE_FRAME_MS, MAX_CAPTURE_FRAME_MS);
+pub fn plan_native_capture_stream(
+    request: NativeCaptureStreamPlanRequest,
+) -> NativeCaptureStreamPlanReport {
+    let selected_frame_ms = request
+        .requested_frame_ms
+        .clamp(MIN_CAPTURE_FRAME_MS, MAX_CAPTURE_FRAME_MS);
     let input_config = NativeInputConfigProbeReport::probe_default_input();
     let selected = select_best_config(&input_config, &request);
     let selected_sample_rate_hz = selected.as_ref().map(|config| {

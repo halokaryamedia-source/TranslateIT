@@ -1,6 +1,8 @@
 use serde::{Deserialize, Serialize};
 
-use crate::engine::transcript::{build_segment_from_request, SegmentBuildReport, SegmentBuildRequest};
+use crate::engine::transcript::{
+    build_segment_from_request, SegmentBuildReport, SegmentBuildRequest,
+};
 
 const MAX_SEGMENT_FLOW_ID_CHARS: usize = 96;
 const MAX_SEGMENT_FLOW_TEXT_CHARS: usize = 4_000;
@@ -84,10 +86,20 @@ fn safe_id(value: &str, fallback: &str) -> String {
     let clean = value
         .trim()
         .chars()
-        .map(|character| if character.is_ascii_alphanumeric() || matches!(character, '-' | '_') { character } else { '_' })
+        .map(|character| {
+            if character.is_ascii_alphanumeric() || matches!(character, '-' | '_') {
+                character
+            } else {
+                '_'
+            }
+        })
         .take(MAX_SEGMENT_FLOW_ID_CHARS)
         .collect::<String>();
-    if clean.is_empty() { fallback.to_string() } else { clean }
+    if clean.is_empty() {
+        fallback.to_string()
+    } else {
+        clean
+    }
 }
 
 fn safe_language(value: &str) -> String {
@@ -98,11 +110,21 @@ fn safe_language(value: &str) -> String {
         .take(MAX_LANGUAGE_LABEL_CHARS)
         .collect::<String>()
         .to_lowercase();
-    if clean.is_empty() { "unknown".to_string() } else { clean }
+    if clean.is_empty() {
+        "unknown".to_string()
+    } else {
+        clean
+    }
 }
 
 fn safe_confidence(value: Option<f32>) -> Option<f32> {
-    value.map(|value| if value.is_finite() { value.clamp(0.0, 1.0) } else { 0.0 })
+    value.map(|value| {
+        if value.is_finite() {
+            value.clamp(0.0, 1.0)
+        } else {
+            0.0
+        }
+    })
 }
 
 fn confidence_low(value: Option<f32>, threshold: f32) -> bool {
@@ -156,30 +178,60 @@ pub fn analyze_segment_flow(request: SegmentFlowRequest) -> SegmentFlowReport {
     }
 }
 
-pub fn analyze_realtime_translate_stream(request: RealtimeTranslateStreamRequest) -> RealtimeTranslateStreamReport {
+pub fn analyze_realtime_translate_stream(
+    request: RealtimeTranslateStreamRequest,
+) -> RealtimeTranslateStreamReport {
     let session_id = safe_id(&request.session_id, "session");
     let segment_id = safe_id(&request.segment_id, "segment");
     let source_language = safe_language(&request.source_language);
     let target_language = safe_language(&request.target_language);
     let partial_transcript = clean(&request.partial_transcript);
-    let final_transcript = request.final_transcript.as_deref().map(clean).unwrap_or_default();
-    let partial_translation = request.partial_translation.as_deref().map(clean).unwrap_or_default();
-    let final_translation = request.final_translation.as_deref().map(clean).unwrap_or_default();
-    let previous_translation = request.previous_translation.as_deref().map(clean).unwrap_or_default();
+    let final_transcript = request
+        .final_transcript
+        .as_deref()
+        .map(clean)
+        .unwrap_or_default();
+    let partial_translation = request
+        .partial_translation
+        .as_deref()
+        .map(clean)
+        .unwrap_or_default();
+    let final_translation = request
+        .final_translation
+        .as_deref()
+        .map(clean)
+        .unwrap_or_default();
+    let previous_translation = request
+        .previous_translation
+        .as_deref()
+        .map(clean)
+        .unwrap_or_default();
     let asr_confidence = safe_confidence(request.asr_confidence);
     let translation_confidence = safe_confidence(request.translation_confidence);
     let elapsed_ms = request.elapsed_ms.min(MAX_REALTIME_LATENCY_MS);
 
     let mut blockers = Vec::new();
-    if session_id == "session" { blockers.push("session:missing".to_string()); }
-    if segment_id == "segment" { blockers.push("segment:missing".to_string()); }
-    if source_language == "unknown" || target_language == "unknown" { blockers.push("language:missing".to_string()); }
-    if partial_transcript.is_empty() && final_transcript.is_empty() { blockers.push("transcript:missing".to_string()); }
+    if session_id == "session" {
+        blockers.push("session:missing".to_string());
+    }
+    if segment_id == "segment" {
+        blockers.push("segment:missing".to_string());
+    }
+    if source_language == "unknown" || target_language == "unknown" {
+        blockers.push("language:missing".to_string());
+    }
+    if partial_transcript.is_empty() && final_transcript.is_empty() {
+        blockers.push("transcript:missing".to_string());
+    }
 
     let has_final_transcript = !final_transcript.is_empty();
     let has_final_translation = !final_translation.is_empty();
     let has_partial_translation = !partial_translation.is_empty();
-    let display_transcript = if has_final_transcript { final_transcript.clone() } else { partial_transcript.clone() };
+    let display_transcript = if has_final_transcript {
+        final_transcript.clone()
+    } else {
+        partial_transcript.clone()
+    };
     let display_translation = if has_final_translation {
         final_translation.clone()
     } else if has_partial_translation {
@@ -189,8 +241,12 @@ pub fn analyze_realtime_translate_stream(request: RealtimeTranslateStreamRequest
     };
 
     let should_emit_final = blockers.is_empty() && has_final_transcript && has_final_translation;
-    let should_emit_partial = blockers.is_empty() && !should_emit_final && !display_transcript.is_empty() && !display_translation.is_empty();
-    let should_use_quality_fallback = confidence_low(asr_confidence, 0.55) || confidence_low(translation_confidence, 0.55);
+    let should_emit_partial = blockers.is_empty()
+        && !should_emit_final
+        && !display_transcript.is_empty()
+        && !display_translation.is_empty();
+    let should_use_quality_fallback =
+        confidence_low(asr_confidence, 0.55) || confidence_low(translation_confidence, 0.55);
     let latency_warning = elapsed_ms > 1200 && !should_emit_final;
     let stage = if should_emit_final {
         "final"
@@ -200,7 +256,8 @@ pub fn analyze_realtime_translate_stream(request: RealtimeTranslateStreamRequest
         "waiting"
     } else {
         "blocked"
-    }.to_string();
+    }
+    .to_string();
 
     let message = if should_emit_final {
         "Final realtime translation segment is ready.".to_string()
@@ -213,7 +270,10 @@ pub fn analyze_realtime_translate_stream(request: RealtimeTranslateStreamRequest
     } else if blockers.is_empty() {
         "Realtime segment is waiting for translation output.".to_string()
     } else {
-        format!("Realtime segment is blocked by {} guard(s).", blockers.len())
+        format!(
+            "Realtime segment is blocked by {} guard(s).",
+            blockers.len()
+        )
     };
 
     RealtimeTranslateStreamReport {

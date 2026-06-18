@@ -78,7 +78,12 @@ fn result(ok: bool, state: &str, message: &str) -> AudioStudioCommandResult {
     }
 }
 
-fn list_result(ok: bool, state: &str, message: &str, takes: Vec<AudioStudioTakeRecord>) -> AudioStudioTakeListResult {
+fn list_result(
+    ok: bool,
+    state: &str,
+    message: &str,
+    takes: Vec<AudioStudioTakeRecord>,
+) -> AudioStudioTakeListResult {
     AudioStudioTakeListResult {
         ok,
         state: state.to_string(),
@@ -107,7 +112,11 @@ fn normalize_text(value: &str, max: usize, fallback: &str) -> String {
         .split_whitespace()
         .collect::<Vec<_>>()
         .join(" ");
-    let safe = if normalized.trim().is_empty() { fallback.to_string() } else { normalized };
+    let safe = if normalized.trim().is_empty() {
+        fallback.to_string()
+    } else {
+        normalized
+    };
     if safe.chars().count() <= max {
         safe
     } else {
@@ -126,7 +135,13 @@ fn sanitize_take_id(value: &str) -> String {
     value
         .trim()
         .chars()
-        .map(|ch| if ch.is_ascii_alphanumeric() || ch == '-' || ch == '_' { ch } else { '_' })
+        .map(|ch| {
+            if ch.is_ascii_alphanumeric() || ch == '-' || ch == '_' {
+                ch
+            } else {
+                '_'
+            }
+        })
         .take(MAX_TAKE_ID_LENGTH)
         .collect::<String>()
 }
@@ -135,44 +150,88 @@ fn validate_take_request(request: &AudioStudioTakeRequest) -> Option<AudioStudio
     let allowed_sources = ["import", "guided_reading"];
     if let Some(take_id) = &request.take_id {
         if take_id.trim().is_empty() || !is_valid_length(take_id, MAX_TAKE_ID_LENGTH) {
-            return Some(result(false, "invalid_request", "Audio Studio request has an invalid take id."));
+            return Some(result(
+                false,
+                "invalid_request",
+                "Audio Studio request has an invalid take id.",
+            ));
         }
     }
     if !allowed_sources.contains(&request.source.as_str()) {
-        return Some(result(false, "invalid_request", "Audio Studio request has an unsupported source."));
+        return Some(result(
+            false,
+            "invalid_request",
+            "Audio Studio request has an unsupported source.",
+        ));
     }
     if request.title.trim().is_empty() {
-        return Some(result(false, "invalid_request", "Audio Studio request is missing a title."));
+        return Some(result(
+            false,
+            "invalid_request",
+            "Audio Studio request is missing a title.",
+        ));
     }
     if !is_valid_length(&request.title, MAX_TAKE_TITLE_LENGTH) {
-        return Some(result(false, "invalid_request", "Audio Studio request title is too long."));
+        return Some(result(
+            false,
+            "invalid_request",
+            "Audio Studio request title is too long.",
+        ));
     }
     if request.detail.trim().is_empty() {
-        return Some(result(false, "invalid_request", "Audio Studio request is missing detail text."));
+        return Some(result(
+            false,
+            "invalid_request",
+            "Audio Studio request is missing detail text.",
+        ));
     }
     if !is_valid_length(&request.detail, MAX_TAKE_DETAIL_LENGTH) {
-        return Some(result(false, "invalid_request", "Audio Studio request detail text is too long."));
+        return Some(result(
+            false,
+            "invalid_request",
+            "Audio Studio request detail text is too long.",
+        ));
     }
     if let Some(file_name) = &request.file_name {
         if !is_valid_length(file_name, MAX_TAKE_TITLE_LENGTH) {
-            return Some(result(false, "invalid_request", "Audio Studio request file name is too long."));
+            return Some(result(
+                false,
+                "invalid_request",
+                "Audio Studio request file name is too long.",
+            ));
         }
     }
     if let Some(reading_line_id) = &request.reading_line_id {
-        if reading_line_id.trim().is_empty() || !is_valid_length(reading_line_id, MAX_TAKE_ID_LENGTH) {
-            return Some(result(false, "invalid_request", "Audio Studio request has an invalid reading line id."));
+        if reading_line_id.trim().is_empty()
+            || !is_valid_length(reading_line_id, MAX_TAKE_ID_LENGTH)
+        {
+            return Some(result(
+                false,
+                "invalid_request",
+                "Audio Studio request has an invalid reading line id.",
+            ));
         }
     }
     None
 }
 
-fn validate_state_request(request: &AudioStudioStateUpdateRequest) -> Option<AudioStudioCommandResult> {
+fn validate_state_request(
+    request: &AudioStudioStateUpdateRequest,
+) -> Option<AudioStudioCommandResult> {
     if request.take_id.trim().is_empty() || !is_valid_length(&request.take_id, MAX_TAKE_ID_LENGTH) {
-        return Some(result(false, "invalid_request", "Audio Studio state update has an invalid take id."));
+        return Some(result(
+            false,
+            "invalid_request",
+            "Audio Studio state update has an invalid take id.",
+        ));
     }
     let allowed = ["draft", "staged", "accepted", "needs_retry", "blocked"];
     if !allowed.contains(&request.state.as_str()) {
-        return Some(result(false, "invalid_request", "Audio Studio state update has an unsupported state."));
+        return Some(result(
+            false,
+            "invalid_request",
+            "Audio Studio state update has an unsupported state.",
+        ));
     }
     None
 }
@@ -202,7 +261,9 @@ fn evidence_log_path() -> PathBuf {
 }
 
 fn file_too_large(path: &Path, max_bytes: u64) -> bool {
-    path.metadata().map(|metadata| metadata.len() > max_bytes).unwrap_or(false)
+    path.metadata()
+        .map(|metadata| metadata.len() > max_bytes)
+        .unwrap_or(false)
 }
 
 fn read_take_index() -> AudioStudioTakeIndex {
@@ -233,10 +294,13 @@ fn sanitize_take_index(mut index: AudioStudioTakeIndex) -> AudioStudioTakeIndex 
         take.title = normalize_text(&take.title, MAX_TAKE_TITLE_LENGTH, "Untitled take");
         take.detail = normalize_text(&take.detail, MAX_TAKE_DETAIL_LENGTH, "Audio Studio take");
         take.file_name = normalize_optional_text(take.file_name.clone(), MAX_TAKE_TITLE_LENGTH);
-        take.reading_line_id = normalize_optional_text(take.reading_line_id.clone(), MAX_TAKE_ID_LENGTH);
+        take.reading_line_id =
+            normalize_optional_text(take.reading_line_id.clone(), MAX_TAKE_ID_LENGTH);
     }
     index.takes.retain(|take| !take.take_id.trim().is_empty());
-    index.takes.sort_by(|a, b| b.updated_unix_ms.cmp(&a.updated_unix_ms));
+    index
+        .takes
+        .sort_by(|a, b| b.updated_unix_ms.cmp(&a.updated_unix_ms));
     index.takes.truncate(MAX_TAKE_COUNT);
     index
 }
@@ -283,7 +347,10 @@ fn append_evidence(event: &str, payload: serde_json::Value) -> io::Result<()> {
     writeln!(file, "{}", record)
 }
 
-fn upsert_take(request: AudioStudioTakeRequest, default_state: &str) -> io::Result<AudioStudioTakeRecord> {
+fn upsert_take(
+    request: AudioStudioTakeRequest,
+    default_state: &str,
+) -> io::Result<AudioStudioTakeRecord> {
     let now = current_unix_ms();
     let mut index = read_take_index();
     let take_id = request
@@ -317,59 +384,88 @@ fn upsert_take(request: AudioStudioTakeRequest, default_state: &str) -> io::Resu
     }
     index.updated_unix_ms = now;
     write_take_index(&index)?;
-    append_evidence("take_upserted", json!({
-        "take_id": record.take_id,
-        "source": record.source,
-        "state": record.state,
-        "file_name": record.file_name,
-        "size_bytes": record.size_bytes,
-        "reading_line_id": record.reading_line_id
-    }))?;
+    append_evidence(
+        "take_upserted",
+        json!({
+            "take_id": record.take_id,
+            "source": record.source,
+            "state": record.state,
+            "file_name": record.file_name,
+            "size_bytes": record.size_bytes,
+            "reading_line_id": record.reading_line_id
+        }),
+    )?;
     Ok(record)
 }
 
 #[tauri::command]
 pub fn audio_studio_get_provider_status() -> AudioStudioCommandResult {
     let index = read_take_index();
-    let staged_count = index.takes.iter().filter(|take| take.state == "staged").count();
-    let accepted_count = index.takes.iter().filter(|take| take.state == "accepted").count();
-    let _ = append_evidence("provider_status_checked", json!({
-        "take_count": index.takes.len(),
-        "staged_take_count": staged_count,
-        "accepted_take_count": accepted_count,
-        "provider_state": "provider_blocked",
-        "blocked_until": [
-            "guided_microphone_capture",
-            "audio_quality_measurement",
-            "profile_processing",
-            "generated_audio_output",
-            "streaming_generation"
-        ]
-    }));
+    let staged_count = index
+        .takes
+        .iter()
+        .filter(|take| take.state == "staged")
+        .count();
+    let accepted_count = index
+        .takes
+        .iter()
+        .filter(|take| take.state == "accepted")
+        .count();
+    let _ = append_evidence(
+        "provider_status_checked",
+        json!({
+            "take_count": index.takes.len(),
+            "staged_take_count": staged_count,
+            "accepted_take_count": accepted_count,
+            "provider_state": "provider_blocked",
+            "blocked_until": [
+                "guided_microphone_capture",
+                "audio_quality_measurement",
+                "profile_processing",
+                "generated_audio_output",
+                "streaming_generation"
+            ]
+        }),
+    );
     result(false, "provider_blocked", "Audio Studio provider processing is not connected yet. Project metadata is available, but guided capture, quality scoring, generated audio, and streaming generation still require runtime implementation and target-PC evidence.")
 }
 
 #[tauri::command]
 pub fn audio_studio_get_quality_gate_status() -> AudioStudioCommandResult {
     let index = read_take_index();
-    let accepted_count = index.takes.iter().filter(|take| take.state == "accepted").count();
-    let retry_count = index.takes.iter().filter(|take| take.state == "needs_retry").count();
-    let blocked_count = index.takes.iter().filter(|take| take.state == "blocked").count();
-    let _ = append_evidence("quality_gate_status_checked", json!({
-        "take_count": index.takes.len(),
-        "accepted_take_count": accepted_count,
-        "needs_retry_take_count": retry_count,
-        "blocked_take_count": blocked_count,
-        "quality_state": "provider_blocked",
-        "score_available": false,
-        "blocked_until": [
-            "audio_quality_measurement",
-            "noise_floor_measurement",
-            "speech_confidence_measurement",
-            "clip_peak_detection",
-            "target_pc_audio_evidence"
-        ]
-    }));
+    let accepted_count = index
+        .takes
+        .iter()
+        .filter(|take| take.state == "accepted")
+        .count();
+    let retry_count = index
+        .takes
+        .iter()
+        .filter(|take| take.state == "needs_retry")
+        .count();
+    let blocked_count = index
+        .takes
+        .iter()
+        .filter(|take| take.state == "blocked")
+        .count();
+    let _ = append_evidence(
+        "quality_gate_status_checked",
+        json!({
+            "take_count": index.takes.len(),
+            "accepted_take_count": accepted_count,
+            "needs_retry_take_count": retry_count,
+            "blocked_take_count": blocked_count,
+            "quality_state": "provider_blocked",
+            "score_available": false,
+            "blocked_until": [
+                "audio_quality_measurement",
+                "noise_floor_measurement",
+                "speech_confidence_measurement",
+                "clip_peak_detection",
+                "target_pc_audio_evidence"
+            ]
+        }),
+    );
     result(false, "provider_blocked", "Audio Studio quality gate is metadata-only. No real quality score is available until microphone/audio analysis and target-PC evidence are implemented.")
 }
 
@@ -396,34 +492,66 @@ pub fn audio_studio_stage_guided_take(request: AudioStudioTakeRequest) -> AudioS
 }
 
 #[tauri::command]
-pub fn audio_studio_update_take_state(request: AudioStudioStateUpdateRequest) -> AudioStudioCommandResult {
+pub fn audio_studio_update_take_state(
+    request: AudioStudioStateUpdateRequest,
+) -> AudioStudioCommandResult {
     if let Some(error) = validate_state_request(&request) {
         return error;
     }
     let mut index = read_take_index();
     let clean_take_id = sanitize_take_id(&request.take_id);
-    let Some(take) = index.takes.iter_mut().find(|take| take.take_id == clean_take_id) else {
-        return result(false, "invalid_request", "Audio Studio take was not found in project metadata.");
+    let Some(take) = index
+        .takes
+        .iter_mut()
+        .find(|take| take.take_id == clean_take_id)
+    else {
+        return result(
+            false,
+            "invalid_request",
+            "Audio Studio take was not found in project metadata.",
+        );
     };
     take.state = request.state.clone();
     take.updated_unix_ms = current_unix_ms();
     index.updated_unix_ms = current_unix_ms();
-    match write_take_index(&index).and_then(|_| append_evidence("take_state_updated", json!({ "take_id": clean_take_id, "state": request.state }))) {
-        Ok(()) => result(true, "metadata_ready", "Audio Studio take state saved under UserData."),
-        Err(_) => result(false, "blocked", "Audio Studio failed to save take state under UserData."),
+    match write_take_index(&index).and_then(|_| {
+        append_evidence(
+            "take_state_updated",
+            json!({ "take_id": clean_take_id, "state": request.state }),
+        )
+    }) {
+        Ok(()) => result(
+            true,
+            "metadata_ready",
+            "Audio Studio take state saved under UserData.",
+        ),
+        Err(_) => result(
+            false,
+            "blocked",
+            "Audio Studio failed to save take state under UserData.",
+        ),
     }
 }
 
 #[tauri::command]
 pub fn audio_studio_list_takes() -> AudioStudioTakeListResult {
     let index = read_take_index();
-    list_result(true, "metadata_ready", "Audio Studio take metadata loaded from UserData.", index.takes)
+    list_result(
+        true,
+        "metadata_ready",
+        "Audio Studio take metadata loaded from UserData.",
+        index.takes,
+    )
 }
 
 #[tauri::command]
 pub fn audio_studio_export_project_metadata() -> AudioStudioCommandResult {
     let index = read_take_index();
-    let accepted_count = index.takes.iter().filter(|take| take.state == "accepted").count();
+    let accepted_count = index
+        .takes
+        .iter()
+        .filter(|take| take.state == "accepted")
+        .count();
     let metadata = json!({
         "schema": "translateit.audio_studio_project_metadata.v1",
         "exported_unix_ms": current_unix_ms(),

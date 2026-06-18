@@ -29,11 +29,17 @@ impl ProjectPaths {
         let user_cache_dir = root.join("UserData").join("CacheData");
         let user_log_dir = root.join("UserData").join("LogData");
         let user_saved_dir = root.join("UserData").join("SavedProject");
-        let runtime_assets = root.join("EngineData").join("Backend").join("RuntimeAssets");
+        let runtime_assets = root
+            .join("EngineData")
+            .join("Backend")
+            .join("RuntimeAssets");
         let asr_model_dir = runtime_assets.join("ASR").join("ModelData");
         let translation_model_dir = runtime_assets.join("Translation").join("ModelData");
         let voice_runtime_dir = runtime_assets.join("Voice");
-        let backend_contract_dir = root.join("EngineData").join("Backend").join("RuntimeContracts");
+        let backend_contract_dir = root
+            .join("EngineData")
+            .join("Backend")
+            .join("RuntimeContracts");
 
         Self {
             project_root: normalize_path(&root),

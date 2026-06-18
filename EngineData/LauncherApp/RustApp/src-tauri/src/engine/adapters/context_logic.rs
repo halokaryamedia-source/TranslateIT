@@ -30,9 +30,17 @@ pub fn update_translation_context(request: TranslationContextRequest) -> Transla
             dropped_count: existing_input_count + new_input_count,
         };
     }
-    let mut window = if request.clear_first { Vec::new() } else { clean_segments(request.existing_segments) };
+    let mut window = if request.clear_first {
+        Vec::new()
+    } else {
+        clean_segments(request.existing_segments)
+    };
     let before_push_len = window.len();
-    for item in request.new_segments.into_iter().take(MAX_CONTEXT_INPUT_SEGMENTS) {
+    for item in request
+        .new_segments
+        .into_iter()
+        .take(MAX_CONTEXT_INPUT_SEGMENTS)
+    {
         let text = clean_segment(&item);
         if !text.is_empty() {
             window.push(text);

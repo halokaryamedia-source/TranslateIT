@@ -115,13 +115,18 @@ pub struct WorkerHealthReport {
 
 pub fn build_session_metric_report(request: SessionMetricRequest) -> SessionMetricReport {
     let segment_id = safe_id(&request.segment_id, "segment");
-    let quality_status = clean_label(request.quality_status.as_deref().unwrap_or_default(), MAX_SESSION_STATUS_CHARS);
+    let quality_status = clean_label(
+        request.quality_status.as_deref().unwrap_or_default(),
+        MAX_SESSION_STATUS_CHARS,
+    );
     let speech_duration_ms = positive(request.speech_duration_ms);
     let delay_after_speech_end_ms = positive(request.delay_after_speech_end_ms);
     let total_latency_ms = positive(request.total_latency_ms);
-    let audio_verify_ms = positive(request.endpoint_wait_ms).max(positive(request.vad_speech_detect_ms));
+    let audio_verify_ms =
+        positive(request.endpoint_wait_ms).max(positive(request.vad_speech_detect_ms));
     let stt_ms = positive(request.asr_latency_ms).max(positive(request.asr_ms));
-    let translate_ms = positive(request.translation_latency_ms).max(positive(request.translation_ms));
+    let translate_ms =
+        positive(request.translation_latency_ms).max(positive(request.translation_ms));
     let tts_ms = positive(request.tts_voice_start_proxy_ms)
         .max(positive(request.tts_playback_start_ms))
         .max(positive(request.tts_direct_speak_called_ms))
@@ -129,27 +134,73 @@ pub fn build_session_metric_report(request: SessionMetricRequest) -> SessionMetr
     let component_total = audio_verify_ms + stt_ms + translate_ms + tts_ms;
     let missing_latency_ms = (total_latency_ms - component_total).max(0);
     let input_latency_budget_ms = audio_verify_ms + stt_ms + translate_ms;
-    let output_latency_budget_ms = request.speech_end_to_voice_proxy_ms.map(|value| value.clamp(0, MAX_LATENCY_MS)).unwrap_or_else(|| {
-        if total_latency_ms > 0 { (total_latency_ms - input_latency_budget_ms).max(0) } else { tts_ms }
-    });
+    let output_latency_budget_ms = request
+        .speech_end_to_voice_proxy_ms
+        .map(|value| value.clamp(0, MAX_LATENCY_MS))
+        .unwrap_or_else(|| {
+            if total_latency_ms > 0 {
+                (total_latency_ms - input_latency_budget_ms).max(0)
+            } else {
+                tts_ms
+            }
+        });
     let io_latency_budget_ms = input_latency_budget_ms + output_latency_budget_ms;
-    let (main_stage, main_ms) = main_bottleneck(audio_verify_ms, stt_ms, translate_ms, tts_ms, component_total);
-    let voice_signal_state = voice_out_state(request.tts_voice_start_proxy_ms, request.speech_end_to_voice_proxy_ms, clean_label(request.tts_backend_selected.as_deref().unwrap_or_default(), MAX_SESSION_STATUS_CHARS) == "sapi_direct_async");
-    let speech_end_to_voice_proxy_ms = request.speech_end_to_voice_proxy_ms.map(|value| value.clamp(0, MAX_LATENCY_MS));
+    let (main_stage, main_ms) = main_bottleneck(
+        audio_verify_ms,
+        stt_ms,
+        translate_ms,
+        tts_ms,
+        component_total,
+    );
+    let voice_signal_state = voice_out_state(
+        request.tts_voice_start_proxy_ms,
+        request.speech_end_to_voice_proxy_ms,
+        clean_label(
+            request.tts_backend_selected.as_deref().unwrap_or_default(),
+            MAX_SESSION_STATUS_CHARS,
+        ) == "sapi_direct_async",
+    );
+    let speech_end_to_voice_proxy_ms = request
+        .speech_end_to_voice_proxy_ms
+        .map(|value| value.clamp(0, MAX_LATENCY_MS));
     let tts_queue_depth = request.tts_queue_depth.map(|value| value.clamp(0, 10_000));
     let issue_signals = build_issue_signals(
         &quality_status,
-        if component_total > 0 { "MEASURED" } else { "UNAVAILABLE" },
+        if component_total > 0 {
+            "MEASURED"
+        } else {
+            "UNAVAILABLE"
+        },
         &main_stage,
-        if component_total > 0 { "Derived from preserved segment latency metrics" } else { "No measurable component recorded" },
+        if component_total > 0 {
+            "Derived from preserved segment latency metrics"
+        } else {
+            "No measurable component recorded"
+        },
         speech_end_to_voice_proxy_ms,
         missing_latency_ms,
         tts_queue_depth,
         &voice_signal_state,
-        if audio_verify_ms > 0 { "endpoint_wait_ms" } else { "Not Run" },
-        if stt_ms > 0 { "asr_latency_ms" } else { "Not Run" },
-        if translate_ms > 0 { "translation_latency_ms" } else { "Not Run" },
-        if tts_ms > 0 { "tts_voice_start_proxy_ms" } else { "Not Run" },
+        if audio_verify_ms > 0 {
+            "endpoint_wait_ms"
+        } else {
+            "Not Run"
+        },
+        if stt_ms > 0 {
+            "asr_latency_ms"
+        } else {
+            "Not Run"
+        },
+        if translate_ms > 0 {
+            "translation_latency_ms"
+        } else {
+            "Not Run"
+        },
+        if tts_ms > 0 {
+            "tts_voice_start_proxy_ms"
+        } else {
+            "Not Run"
+        },
     );
     let issue_summary = issue_signals.triage_hint.clone();
 
@@ -164,11 +215,31 @@ pub fn build_session_metric_report(request: SessionMetricRequest) -> SessionMetr
         component_total_delay_ms: component_total,
         pipeline_component_total_ms: component_total,
         main_bottleneck_stage: main_stage.clone(),
-        main_bottleneck_reason: if component_total > 0 { format!("Derived from preserved segment latency metrics: {main_stage}={main_ms}ms") } else { "No measurable component recorded".to_string() },
-        audio_verify_bottleneck: if audio_verify_ms > 0 { "endpoint_wait_ms".to_string() } else { "Not Run".to_string() },
-        stt_bottleneck: if stt_ms > 0 { "asr_latency_ms".to_string() } else { "Not Run".to_string() },
-        translate_bottleneck: if translate_ms > 0 { "translation_latency_ms".to_string() } else { "Not Run".to_string() },
-        tts_bottleneck: if tts_ms > 0 { "tts_voice_start_proxy_ms".to_string() } else { "Not Run".to_string() },
+        main_bottleneck_reason: if component_total > 0 {
+            format!("Derived from preserved segment latency metrics: {main_stage}={main_ms}ms")
+        } else {
+            "No measurable component recorded".to_string()
+        },
+        audio_verify_bottleneck: if audio_verify_ms > 0 {
+            "endpoint_wait_ms".to_string()
+        } else {
+            "Not Run".to_string()
+        },
+        stt_bottleneck: if stt_ms > 0 {
+            "asr_latency_ms".to_string()
+        } else {
+            "Not Run".to_string()
+        },
+        translate_bottleneck: if translate_ms > 0 {
+            "translation_latency_ms".to_string()
+        } else {
+            "Not Run".to_string()
+        },
+        tts_bottleneck: if tts_ms > 0 {
+            "tts_voice_start_proxy_ms".to_string()
+        } else {
+            "Not Run".to_string()
+        },
         issue_signals,
         issue_summary,
         audio_verify_ms,
@@ -178,7 +249,11 @@ pub fn build_session_metric_report(request: SessionMetricRequest) -> SessionMetr
         speech_end_to_voice_proxy_ms,
         missing_latency_ms,
         app_vs_stopwatch_delta_ms: missing_latency_ms,
-        missing_latency_assigned_to: if missing_latency_ms > 0 { "unattributed".to_string() } else { String::new() },
+        missing_latency_assigned_to: if missing_latency_ms > 0 {
+            "unattributed".to_string()
+        } else {
+            String::new()
+        },
         raw_component_total_ms: component_total,
         calibrated_total_ms: total_latency_ms,
         speech_start_to_first_voice_ms: total_latency_ms,
@@ -190,11 +265,17 @@ pub fn build_session_metric_report(request: SessionMetricRequest) -> SessionMetr
 
 pub fn build_worker_health(request: WorkerHealthRequest) -> WorkerHealthReport {
     let segment_id = safe_id(&request.segment_id, "segment");
-    let last_exception = clean_label(request.last_exception.as_deref().unwrap_or_default(), MAX_EXCEPTION_CHARS);
+    let last_exception = clean_label(
+        request.last_exception.as_deref().unwrap_or_default(),
+        MAX_EXCEPTION_CHARS,
+    );
     let active_workers = clean_worker_list(request.active_workers);
     let failed_workers = clean_worker_list(request.failed_workers);
     let stale_count = request.stale_job_rejected_count.clamp(0, 10_000);
-    let safe_to_restart = failed_workers.is_empty() && last_exception.is_empty() && stale_count == 0 && request.worker_alive;
+    let safe_to_restart = failed_workers.is_empty()
+        && last_exception.is_empty()
+        && stale_count == 0
+        && request.worker_alive;
     let (status, reason) = if !last_exception.is_empty() {
         ("error", last_exception.clone())
     } else if !failed_workers.is_empty() {
@@ -202,7 +283,10 @@ pub fn build_worker_health(request: WorkerHealthRequest) -> WorkerHealthReport {
     } else if stale_count > 0 {
         ("degraded", "Stale callbacks were rejected.".to_string())
     } else if !request.worker_alive && !active_workers.is_empty() {
-        ("degraded", "Active workers are reported, but the worker loop is not alive.".to_string())
+        (
+            "degraded",
+            "Active workers are reported, but the worker loop is not alive.".to_string(),
+        )
     } else {
         ("healthy", "Worker is healthy.".to_string())
     };
@@ -239,20 +323,46 @@ fn build_issue_signals(
     tts: &str,
 ) -> IssueSignals {
     let mut triage_points = Vec::new();
-    if !quality_status.is_empty() { triage_points.push(format!("quality={quality_status}")); }
-    if !measurement_status.is_empty() { triage_points.push(format!("measurement={measurement_status}")); }
-    if !main_stage.is_empty() && main_stage != "Not Run" { triage_points.push(format!("bottleneck={main_stage}")); }
-    if missing_latency_ms > 0 { triage_points.push(format!("missing_latency={missing_latency_ms}ms")); }
-    if let Some(value) = speech_end_to_voice_proxy_ms { triage_points.push(format!("voice_proxy={value}ms")); }
-    if let Some(queue_depth) = tts_queue_depth { if queue_depth > 0 { triage_points.push(format!("tts_queue_depth={queue_depth}")); } }
-    if voice_signal_state != "unavailable" { triage_points.push(format!("voice_signal={voice_signal_state}")); }
-    if triage_points.is_empty() { triage_points.push("no_issue_signals".to_string()); }
+    if !quality_status.is_empty() {
+        triage_points.push(format!("quality={quality_status}"));
+    }
+    if !measurement_status.is_empty() {
+        triage_points.push(format!("measurement={measurement_status}"));
+    }
+    if !main_stage.is_empty() && main_stage != "Not Run" {
+        triage_points.push(format!("bottleneck={main_stage}"));
+    }
+    if missing_latency_ms > 0 {
+        triage_points.push(format!("missing_latency={missing_latency_ms}ms"));
+    }
+    if let Some(value) = speech_end_to_voice_proxy_ms {
+        triage_points.push(format!("voice_proxy={value}ms"));
+    }
+    if let Some(queue_depth) = tts_queue_depth {
+        if queue_depth > 0 {
+            triage_points.push(format!("tts_queue_depth={queue_depth}"));
+        }
+    }
+    if voice_signal_state != "unavailable" {
+        triage_points.push(format!("voice_signal={voice_signal_state}"));
+    }
+    if triage_points.is_empty() {
+        triage_points.push("no_issue_signals".to_string());
+    }
     let status = issue_status_label(quality_status, measurement_status);
     let triage_hint = triage_points.join("; ");
     IssueSignals {
         status,
-        primary_stage: if main_stage.is_empty() { "Unknown".to_string() } else { main_stage.to_string() },
-        primary_reason: if main_reason.is_empty() { "unavailable".to_string() } else { main_reason.to_string() },
+        primary_stage: if main_stage.is_empty() {
+            "Unknown".to_string()
+        } else {
+            main_stage.to_string()
+        },
+        primary_reason: if main_reason.is_empty() {
+            "unavailable".to_string()
+        } else {
+            main_reason.to_string()
+        },
         audio_verify: audio_verify.to_string(),
         stt: stt.to_string(),
         translate: translate.to_string(),
@@ -269,20 +379,46 @@ fn build_issue_signals(
 fn issue_status_label(quality_status: &str, measurement_status: &str) -> String {
     let quality = clean_label(quality_status, MAX_SESSION_STATUS_CHARS).to_lowercase();
     let measurement = clean_label(measurement_status, MAX_SESSION_STATUS_CHARS).to_lowercase();
-    if !quality.is_empty() && !matches!(quality.as_str(), "accepted" | "measured" | "ok") { return quality; }
-    if matches!(measurement.as_str(), "measured" | "partial" | "unavailable") { return measurement; }
-    if !quality.is_empty() { quality } else { "unknown".to_string() }
+    if !quality.is_empty() && !matches!(quality.as_str(), "accepted" | "measured" | "ok") {
+        return quality;
+    }
+    if matches!(measurement.as_str(), "measured" | "partial" | "unavailable") {
+        return measurement;
+    }
+    if !quality.is_empty() {
+        quality
+    } else {
+        "unknown".to_string()
+    }
 }
 
-fn voice_out_state(voice_start_proxy_ms: Option<i64>, speech_end_to_voice_proxy_ms: Option<i64>, direct_playback: bool) -> String {
-    if voice_start_proxy_ms.is_some() || speech_end_to_voice_proxy_ms.is_some() || direct_playback { "proxy".to_string() } else { "unavailable".to_string() }
+fn voice_out_state(
+    voice_start_proxy_ms: Option<i64>,
+    speech_end_to_voice_proxy_ms: Option<i64>,
+    direct_playback: bool,
+) -> String {
+    if voice_start_proxy_ms.is_some() || speech_end_to_voice_proxy_ms.is_some() || direct_playback {
+        "proxy".to_string()
+    } else {
+        "unavailable".to_string()
+    }
 }
 
-fn main_bottleneck(audio: i64, stt: i64, translate: i64, tts: i64, component_total: i64) -> (String, i64) {
-    if component_total <= 0 { return ("Not Run".to_string(), 0); }
+fn main_bottleneck(
+    audio: i64,
+    stt: i64,
+    translate: i64,
+    tts: i64,
+    component_total: i64,
+) -> (String, i64) {
+    if component_total <= 0 {
+        return ("Not Run".to_string(), 0);
+    }
     let mut best = ("Audio Verify", audio);
     for candidate in [("STT", stt), ("Translate", translate), ("TTS", tts)] {
-        if candidate.1 > best.1 { best = candidate; }
+        if candidate.1 > best.1 {
+            best = candidate;
+        }
     }
     (best.0.to_string(), best.1)
 }
@@ -309,10 +445,20 @@ fn safe_id(value: &str, fallback: &str) -> String {
     let clean = value
         .trim()
         .chars()
-        .map(|character| if character.is_ascii_alphanumeric() || matches!(character, '-' | '_') { character } else { '_' })
+        .map(|character| {
+            if character.is_ascii_alphanumeric() || matches!(character, '-' | '_') {
+                character
+            } else {
+                '_'
+            }
+        })
         .take(MAX_SESSION_ID_CHARS)
         .collect::<String>();
-    if clean.is_empty() { fallback.to_string() } else { clean }
+    if clean.is_empty() {
+        fallback.to_string()
+    } else {
+        clean
+    }
 }
 
 fn clean_worker_list(values: Vec<String>) -> Vec<String> {

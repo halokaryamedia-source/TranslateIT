@@ -60,7 +60,8 @@ impl Default for HelperBridgeRuntime {
     fn default() -> Self {
         Self {
             state: "not_started".to_string(),
-            message: "Helper bridge contract exists; runtime process bridge is not started yet.".to_string(),
+            message: "Helper bridge contract exists; runtime process bridge is not started yet."
+                .to_string(),
             cuda_ready: false,
             provider_ready: false,
             degraded_mode: false,
@@ -141,7 +142,10 @@ fn worker_script() -> PathBuf {
 
 fn worker_python() -> PathBuf {
     if cfg!(windows) {
-        worker_root().join(".venv").join("Scripts").join("python.exe")
+        worker_root()
+            .join(".venv")
+            .join("Scripts")
+            .join("python.exe")
     } else {
         worker_root().join(".venv").join("bin").join("python")
     }
@@ -166,7 +170,9 @@ fn spawn_stderr_logger(stderr: ChildStderr, log_path: PathBuf) {
         if let Some(parent) = log_path.parent() {
             let _ = fs::create_dir_all(parent);
         }
-        let Ok(mut file) = OpenOptions::new().create(true).append(true).open(&log_path) else { return };
+        let Ok(mut file) = OpenOptions::new().create(true).append(true).open(&log_path) else {
+            return;
+        };
         let mut reader = BufReader::new(stderr);
         let mut line = String::new();
         loop {
@@ -183,7 +189,11 @@ fn spawn_stderr_logger(stderr: ChildStderr, log_path: PathBuf) {
     });
 }
 
-fn set_blocked(runtime: &mut HelperBridgeRuntime, message: &str, error: &str) -> HelperBridgeActionResult {
+fn set_blocked(
+    runtime: &mut HelperBridgeRuntime,
+    message: &str,
+    error: &str,
+) -> HelperBridgeActionResult {
     runtime.state = "blocked".to_string();
     runtime.message = message.to_string();
     runtime.cuda_ready = false;
@@ -200,15 +210,21 @@ fn worker_bool(value: &Value, key: &str) -> bool {
 }
 
 fn worker_text(value: &Value, key: &str) -> Option<String> {
-    value.get(key).and_then(Value::as_str).filter(|text| !text.is_empty()).map(str::to_string)
+    value
+        .get(key)
+        .and_then(Value::as_str)
+        .filter(|text| !text.is_empty())
+        .map(str::to_string)
 }
 
 fn apply_worker_status(runtime: &mut HelperBridgeRuntime, status: &Value) {
     let worker_ok = worker_bool(status, "ok");
     let cuda_ready = worker_bool(status, "torch_cuda_available");
     let tts_ready = worker_bool(status, "tts_default_ready");
-    let asr_ready = worker_bool(status, "asr_model_ready") || worker_bool(status, "asr_backup_model_ready");
-    let translation_ready = worker_bool(status, "translation_model_ready") || worker_bool(status, "quality_translation_model_ready");
+    let asr_ready =
+        worker_bool(status, "asr_model_ready") || worker_bool(status, "asr_backup_model_ready");
+    let translation_ready = worker_bool(status, "translation_model_ready")
+        || worker_bool(status, "quality_translation_model_ready");
     runtime.cuda_ready = cuda_ready;
     runtime.provider_ready = worker_ok && asr_ready && translation_ready && tts_ready;
     runtime.degraded_mode = worker_ok && !cuda_ready;
@@ -224,16 +240,26 @@ fn apply_worker_status(runtime: &mut HelperBridgeRuntime, status: &Value) {
 
 fn apply_worker_response(runtime: &mut HelperBridgeRuntime, value: &Value) -> bool {
     let ok = worker_bool(value, "ok");
-    runtime.state = if ok { "ready".to_string() } else { "blocked".to_string() };
+    runtime.state = if ok {
+        "ready".to_string()
+    } else {
+        "blocked".to_string()
+    };
     if value.get("stage").and_then(Value::as_str) == Some("local_realtime_worker_preflight") {
         apply_worker_status(runtime, value);
     } else {
         runtime.cuda_ready = worker_bool(value, "torch_cuda_available") || runtime.cuda_ready;
         runtime.provider_ready = ok;
         runtime.degraded_mode = value.get("device").and_then(Value::as_str) == Some("cpu")
-            || value.get("device_note").and_then(Value::as_str).map(|note| note.contains("fallback") || note.contains("cpu")).unwrap_or(false);
+            || value
+                .get("device_note")
+                .and_then(Value::as_str)
+                .map(|note| note.contains("fallback") || note.contains("cpu"))
+                .unwrap_or(false);
         runtime.last_error = worker_text(value, "blocker");
-        runtime.message = worker_text(value, "note").or_else(|| worker_text(value, "stage")).unwrap_or_else(|| "Helper request completed.".to_string());
+        runtime.message = worker_text(value, "note")
+            .or_else(|| worker_text(value, "stage"))
+            .unwrap_or_else(|| "Helper request completed.".to_string());
     }
     runtime.updated_unix_ms = unix_ms();
     ok
@@ -241,14 +267,18 @@ fn apply_worker_response(runtime: &mut HelperBridgeRuntime, value: &Value) -> bo
 
 fn write_worker_request(stdin: &mut ChildStdin, payload: &Value) -> Result<(), String> {
     let body = serde_json::to_string(payload).map_err(|error| error.to_string())?;
-    stdin.write_all(body.as_bytes()).map_err(|error| error.to_string())?;
+    stdin
+        .write_all(body.as_bytes())
+        .map_err(|error| error.to_string())?;
     stdin.write_all(b"\n").map_err(|error| error.to_string())?;
     stdin.flush().map_err(|error| error.to_string())
 }
 
 fn read_worker_response(stdout: &mut BufReader<ChildStdout>) -> Result<Value, String> {
     let mut line = String::new();
-    let size = stdout.read_line(&mut line).map_err(|error| error.to_string())?;
+    let size = stdout
+        .read_line(&mut line)
+        .map_err(|error| error.to_string())?;
     if size == 0 {
         return Err("worker:stdout_closed".to_string());
     }
@@ -327,7 +357,13 @@ pub fn start_helper_bridge() -> HelperBridgeActionResult {
                 .spawn()
             {
                 Ok(child) => child,
-                Err(error) => return set_blocked(&mut runtime, &format!("Failed to spawn Python helper worker: {error}"), "helper_bridge:spawn_failed"),
+                Err(error) => {
+                    return set_blocked(
+                        &mut runtime,
+                        &format!("Failed to spawn Python helper worker: {error}"),
+                        "helper_bridge:spawn_failed",
+                    )
+                }
             };
 
             let stderr_log_path = helper_stderr_log_path(runtime.generation_token);
@@ -338,38 +374,63 @@ pub fn start_helper_bridge() -> HelperBridgeActionResult {
 
             let mut stdin = match child.stdin.take() {
                 Some(stdin) => stdin,
-                None => return set_blocked(&mut runtime, "Python helper stdin was not available after spawn.", "helper_bridge:stdin_missing"),
+                None => {
+                    return set_blocked(
+                        &mut runtime,
+                        "Python helper stdin was not available after spawn.",
+                        "helper_bridge:stdin_missing",
+                    )
+                }
             };
             let stdout = match child.stdout.take() {
                 Some(stdout) => stdout,
-                None => return set_blocked(&mut runtime, "Python helper stdout was not available after spawn.", "helper_bridge:stdout_missing"),
+                None => {
+                    return set_blocked(
+                        &mut runtime,
+                        "Python helper stdout was not available after spawn.",
+                        "helper_bridge:stdout_missing",
+                    )
+                }
             };
             let mut stdout = BufReader::new(stdout);
 
             if let Err(error) = write_worker_request(&mut stdin, &json!({ "command": "ping" })) {
                 let _ = child.kill();
                 let _ = child.wait();
-                return set_blocked(&mut runtime, &format!("Failed to send ping to helper worker: {error}"), "helper_bridge:ping_write_failed");
+                return set_blocked(
+                    &mut runtime,
+                    &format!("Failed to send ping to helper worker: {error}"),
+                    "helper_bridge:ping_write_failed",
+                );
             }
             let ping = match read_worker_response(&mut stdout) {
                 Ok(value) => value,
                 Err(error) => {
                     let _ = child.kill();
                     let _ = child.wait();
-                    return set_blocked(&mut runtime, &format!("Failed to read helper worker ping response: {error}"), "helper_bridge:ping_read_failed");
+                    return set_blocked(
+                        &mut runtime,
+                        &format!("Failed to read helper worker ping response: {error}"),
+                        "helper_bridge:ping_read_failed",
+                    );
                 }
             };
             if ping.get("ok").and_then(Value::as_bool) != Some(true) {
                 let _ = child.kill();
                 let _ = child.wait();
-                return set_blocked(&mut runtime, "Helper worker ping returned a non-ready response.", "helper_bridge:ping_not_ok");
+                return set_blocked(
+                    &mut runtime,
+                    "Helper worker ping returned a non-ready response.",
+                    "helper_bridge:ping_not_ok",
+                );
             }
 
-            let status = if write_worker_request(&mut stdin, &json!({ "command": "status" })).is_ok() {
-                read_worker_response(&mut stdout).ok()
-            } else {
-                None
-            };
+            let status =
+                if write_worker_request(&mut stdin, &json!({ "command": "status" })).is_ok() {
+                    read_worker_response(&mut stdout).ok()
+                } else {
+                    None
+                };
 
             runtime.child = Some(child);
             runtime.stdin = Some(stdin);
@@ -405,7 +466,8 @@ pub fn stop_helper_bridge() -> HelperBridgeActionResult {
             runtime.generation_token = runtime.generation_token.saturating_add(1);
             stop_child(&mut runtime);
             runtime.state = "stopped".to_string();
-            runtime.message = "Helper bridge stopped and any active worker process was terminated.".to_string();
+            runtime.message =
+                "Helper bridge stopped and any active worker process was terminated.".to_string();
             runtime.cuda_ready = false;
             runtime.provider_ready = false;
             runtime.degraded_mode = false;
@@ -430,7 +492,9 @@ pub fn cancel_helper_bridge_task() -> HelperBridgeActionResult {
             runtime.generation_token = runtime.generation_token.saturating_add(1);
             runtime.active_task = None;
             runtime.updated_unix_ms = unix_ms();
-            runtime.message = "Helper bridge active task was cancelled by generation token invalidation.".to_string();
+            runtime.message =
+                "Helper bridge active task was cancelled by generation token invalidation."
+                    .to_string();
             action_result(true, &runtime)
         }
         Err(_) => HelperBridgeActionResult {
@@ -450,7 +514,8 @@ pub fn send_helper_bridge_request(request: HelperBridgeRequest) -> HelperBridgeA
             let trimmed_task = request.task.trim();
             if trimmed_task.is_empty() {
                 runtime.state = "blocked".to_string();
-                runtime.message = "Helper bridge request rejected because task is empty.".to_string();
+                runtime.message =
+                    "Helper bridge request rejected because task is empty.".to_string();
                 runtime.last_error = Some("helper_bridge:empty_task".to_string());
                 runtime.updated_unix_ms = unix_ms();
                 return action_result(false, &runtime);
@@ -472,7 +537,10 @@ pub fn send_helper_bridge_request(request: HelperBridgeRequest) -> HelperBridgeA
                 payload = json!({ "command": trimmed_task });
             }
 
-            let write_result = runtime.stdin.as_mut().map(|stdin| write_worker_request(stdin, &payload));
+            let write_result = runtime
+                .stdin
+                .as_mut()
+                .map(|stdin| write_worker_request(stdin, &payload));
             if !matches!(write_result, Some(Ok(()))) {
                 runtime.state = "blocked".to_string();
                 runtime.message = "Failed to write request to Python helper worker.".to_string();
@@ -488,12 +556,17 @@ pub fn send_helper_bridge_request(request: HelperBridgeRequest) -> HelperBridgeA
                 }
                 Some(Err(error)) => {
                     runtime.state = "blocked".to_string();
-                    runtime.message = format!("Failed to read response from Python helper worker: {error}");
+                    runtime.message =
+                        format!("Failed to read response from Python helper worker: {error}");
                     runtime.last_error = Some("helper_bridge:response_read_failed".to_string());
                     runtime.updated_unix_ms = unix_ms();
                     action_result(false, &runtime)
                 }
-                None => set_blocked(&mut runtime, "Helper bridge request failed because worker IO is unavailable.", "helper_bridge:io_missing"),
+                None => set_blocked(
+                    &mut runtime,
+                    "Helper bridge request failed because worker IO is unavailable.",
+                    "helper_bridge:io_missing",
+                ),
             }
         }
         Err(_) => HelperBridgeActionResult {

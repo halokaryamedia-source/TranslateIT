@@ -10,12 +10,17 @@ use serde_json::{json, Value};
 
 use crate::engine::adapters::runtime_lifecycle_logic::analyze_start_lifecycle_gate;
 use crate::engine::audio::live_capture::{start_live_capture_runtime, stop_live_capture_runtime};
-use crate::engine::audio::live_segment_writer::{write_latest_live_target_segment_wav, LiveSegmentWavWriteReport};
+use crate::engine::audio::live_segment_writer::{
+    write_latest_live_target_segment_wav, LiveSegmentWavWriteReport,
+};
 use crate::engine::logging::{write_jsonl_event, RuntimeLogEvent};
 use crate::engine::paths::ProjectPaths;
 use crate::engine::playback::play_wav_output;
 use crate::engine::runtime_settings::load_settings;
-use crate::engine::runtime_state::{clear_runtime_handoff_state, clear_runtime_session_state, record_direct_live_capture_session, record_runtime_session_start};
+use crate::engine::runtime_state::{
+    clear_runtime_handoff_state, clear_runtime_session_state, record_direct_live_capture_session,
+    record_runtime_session_start,
+};
 use crate::engine::state::{CommandResult, LifecycleState};
 
 const WORKER_BRIDGE_TIMEOUT_SECS: u64 = 180;
@@ -82,7 +87,12 @@ fn wait_for_worker_output(mut child: Child) -> Option<Vec<u8>> {
     }
 }
 
-fn run_worker_with_python(binary: &str, use_python_launcher: bool, script: &Path, payload: Value) -> Option<Value> {
+fn run_worker_with_python(
+    binary: &str,
+    use_python_launcher: bool,
+    script: &Path,
+    payload: Value,
+) -> Option<Value> {
     let mut command = Command::new(binary);
     if use_python_launcher {
         command.arg("-3");
@@ -163,8 +173,12 @@ fn remove_private_cache_file(value: &str) {
     let project_paths = ProjectPaths::discover();
     let cache_root = PathBuf::from(project_paths.user_cache_dir);
     let path = PathBuf::from(value);
-    let Ok(resolved_path) = path.canonicalize() else { return };
-    let Ok(resolved_cache_root) = cache_root.canonicalize() else { return };
+    let Ok(resolved_path) = path.canonicalize() else {
+        return;
+    };
+    let Ok(resolved_cache_root) = cache_root.canonicalize() else {
+        return;
+    };
     if resolved_path.is_file() && resolved_path.starts_with(&resolved_cache_root) {
         let _ = fs::remove_file(resolved_path);
     }
@@ -238,13 +252,17 @@ fn user_facing_segment_note(segment_write: &LiveSegmentWavWriteReport) -> String
     if segment_write.blocker.contains("segment_too_short") {
         return "Recording was too short. Hold the microphone for at least one second and speak clearly.".to_string();
     }
-    if segment_write.blocker.contains("vad_rejected") || segment_write.blocker.contains("low_energy") || segment_write.blocker.contains("low_peak") {
+    if segment_write.blocker.contains("vad_rejected")
+        || segment_write.blocker.contains("low_energy")
+        || segment_write.blocker.contains("low_peak")
+    {
         return "No clear speech was detected. Try speaking closer to the microphone or increase input volume.".to_string();
     }
     if segment_write.blocker.contains("not_enough_audio") {
         return "Not enough audio was captured yet. Try recording a longer sentence.".to_string();
     }
-    "Audio was captured, but it was not ready for local ASR. Open Developer settings for details.".to_string()
+    "Audio was captured, but it was not ready for local ASR. Open Developer settings for details."
+        .to_string()
 }
 
 fn run_audio_translation_with_fallback(
@@ -295,7 +313,8 @@ fn start_audio_pipeline_worker(audio_path: String, user_log_dir: String) -> bool
         let _worker_guard = AudioPipelineWorkerGuard;
         let pipeline_started_at = Instant::now();
         let settings = load_settings();
-        let auto_play_output = settings.audio.auto_play_out_voice || settings.audio.auto_play_translation_voice;
+        let auto_play_output =
+            settings.audio.auto_play_out_voice || settings.audio.auto_play_translation_voice;
         let source_language = settings.source_language;
         let target_language = settings.target_language;
         let mode = if settings.runtime_profile.eq_ignore_ascii_case("Quality") {
@@ -313,11 +332,17 @@ fn start_audio_pipeline_worker(audio_path: String, user_log_dir: String) -> bool
         }));
         let transcript_text = json_string(&transcribe, "transcript_text");
 
-        let (translate, translation_mode_used, translation_fallback_used) = if json_ok(&transcribe) && !transcript_text.is_empty() {
-            run_audio_translation_with_fallback(&transcript_text, &source_language, &target_language, mode)
-        } else {
-            (None, mode.to_string(), false)
-        };
+        let (translate, translation_mode_used, translation_fallback_used) =
+            if json_ok(&transcribe) && !transcript_text.is_empty() {
+                run_audio_translation_with_fallback(
+                    &transcript_text,
+                    &source_language,
+                    &target_language,
+                    mode,
+                )
+            } else {
+                (None, mode.to_string(), false)
+            };
         let translated_text = json_string(&translate, "translated_text");
 
         let synthesize = if json_ok(&translate) && !translated_text.is_empty() {
@@ -329,13 +354,17 @@ fn start_audio_pipeline_worker(audio_path: String, user_log_dir: String) -> bool
             None
         };
         let tts_output_path = json_string(&synthesize, "output_path");
-        let playback_ok = if auto_play_output && json_ok(&synthesize) && !tts_output_path.is_empty() {
+        let playback_ok = if auto_play_output && json_ok(&synthesize) && !tts_output_path.is_empty()
+        {
             play_wav_output(&tts_output_path)
         } else {
             false
         };
 
-        let latency_ms = pipeline_started_at.elapsed().as_millis().min(u128::from(u32::MAX)) as u32;
+        let latency_ms = pipeline_started_at
+            .elapsed()
+            .as_millis()
+            .min(u128::from(u32::MAX)) as u32;
         let evidence = privacy_preserving_audio_evidence(
             &audio_path,
             &tts_output_path,
@@ -448,7 +477,10 @@ pub fn start_capture() -> CommandResult {
         let cleared_session = clear_runtime_session_state();
         CommandResult::blocked(
             LifecycleState::Error,
-            format!("{message}. {session_note}. {live_note}. {}", cleared_session.note),
+            format!(
+                "{message}. {session_note}. {live_note}. {}",
+                cleared_session.note
+            ),
         )
     }
 }

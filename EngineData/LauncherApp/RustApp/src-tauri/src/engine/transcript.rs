@@ -144,9 +144,18 @@ impl Default for TranscriptReplayPaths {
 }
 
 impl TranscriptReplayPaths {
-    pub fn from_paths(source_audio_path: Option<String>, translated_audio_path: Option<String>) -> Self {
-        let source_replay_available = source_audio_path.as_ref().map(|value| !value.trim().is_empty()).unwrap_or(false);
-        let target_voice_available = translated_audio_path.as_ref().map(|value| !value.trim().is_empty()).unwrap_or(false);
+    pub fn from_paths(
+        source_audio_path: Option<String>,
+        translated_audio_path: Option<String>,
+    ) -> Self {
+        let source_replay_available = source_audio_path
+            .as_ref()
+            .map(|value| !value.trim().is_empty())
+            .unwrap_or(false);
+        let target_voice_available = translated_audio_path
+            .as_ref()
+            .map(|value| !value.trim().is_empty())
+            .unwrap_or(false);
         Self {
             source_audio_path,
             translated_audio_path,
@@ -183,7 +192,10 @@ pub fn is_valid_segment_duration(window: &SegmentWindow) -> bool {
 }
 
 pub fn build_segment_from_request(request: SegmentBuildRequest) -> SegmentBuildReport {
-    let replay = TranscriptReplayPaths::from_paths(request.source_audio_path.clone(), request.translated_audio_path.clone());
+    let replay = TranscriptReplayPaths::from_paths(
+        request.source_audio_path.clone(),
+        request.translated_audio_path.clone(),
+    );
     let segment = TranscriptSegmentRecord {
         segment_id: request.segment_id,
         trace_id: request.trace_id.unwrap_or_default(),
@@ -194,8 +206,12 @@ pub fn build_segment_from_request(request: SegmentBuildRequest) -> SegmentBuildR
         end_time_ms: request.end_time_ms,
         input_text: request.input_text.unwrap_or_default(),
         translated_text: request.translated_text.unwrap_or_default(),
-        pipeline_mode: request.pipeline_mode.unwrap_or_else(|| "cascaded".to_string()),
-        capture_mode: request.capture_mode.unwrap_or_else(|| "Real ASR + Real Translation".to_string()),
+        pipeline_mode: request
+            .pipeline_mode
+            .unwrap_or_else(|| "cascaded".to_string()),
+        capture_mode: request
+            .capture_mode
+            .unwrap_or_else(|| "Real ASR + Real Translation".to_string()),
         asr_model_used: request.asr_model_used.unwrap_or_default(),
         asr_device_used: request.asr_device_used.unwrap_or_default(),
         asr_compute_type_used: request.asr_compute_type_used.unwrap_or_default(),

@@ -9,7 +9,8 @@ use crate::engine::paths::ProjectPaths;
 
 const MIN_ASR_SEGMENT_DURATION_MS: u32 = 300;
 const MAX_ASR_SEGMENT_SAMPLES: usize = 120_000;
-const LATEST_LIVE_SEGMENT_LABEL: &str = "UserData/CacheData/audio_segments/latest_live_target_segment.wav";
+const LATEST_LIVE_SEGMENT_LABEL: &str =
+    "UserData/CacheData/audio_segments/latest_live_target_segment.wav";
 
 #[derive(Debug, Clone, Serialize)]
 pub struct LiveSegmentWavWriteReport {
@@ -95,7 +96,12 @@ pub fn write_latest_live_target_segment_wav() -> LiveSegmentWavWriteReport {
     let project_paths = ProjectPaths::discover();
     let audio_dir = PathBuf::from(project_paths.user_cache_dir).join("audio_segments");
     let audio_path = audio_dir.join("latest_live_target_segment.wav");
-    let write_result = write_pcm16_wav(&audio_path, frame.sample_rate_hz, frame.channels, &frame.samples);
+    let write_result = write_pcm16_wav(
+        &audio_path,
+        frame.sample_rate_hz,
+        frame.channels,
+        &frame.samples,
+    );
     match write_result {
         Ok(()) => LiveSegmentWavWriteReport {
             ok: true,
@@ -120,7 +126,12 @@ pub fn write_latest_live_target_segment_wav() -> LiveSegmentWavWriteReport {
     }
 }
 
-fn write_pcm16_wav(path: &PathBuf, sample_rate_hz: u32, channels: u16, samples: &[f32]) -> io::Result<()> {
+fn write_pcm16_wav(
+    path: &PathBuf,
+    sample_rate_hz: u32,
+    channels: u16,
+    samples: &[f32],
+) -> io::Result<()> {
     if let Some(parent) = path.parent() {
         fs::create_dir_all(parent)?;
     }
@@ -169,7 +180,11 @@ fn write_pcm16_wav(path: &PathBuf, sample_rate_hz: u32, channels: u16, samples: 
 }
 
 fn safe_sample(value: f32) -> f32 {
-    if value.is_finite() { value.clamp(-1.0, 1.0) } else { 0.0 }
+    if value.is_finite() {
+        value.clamp(-1.0, 1.0)
+    } else {
+        0.0
+    }
 }
 
 fn duration_ms(sample_count: usize, sample_rate_hz: u32) -> u32 {

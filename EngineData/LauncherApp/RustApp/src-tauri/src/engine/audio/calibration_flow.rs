@@ -56,7 +56,9 @@ pub fn save_calibration_from_evidence(
             ok: false,
             output_path: output_label,
             profile,
-            message: "Failed to save Rust calibration profile. Open Developer diagnostics for details.".to_string(),
+            message:
+                "Failed to save Rust calibration profile. Open Developer diagnostics for details."
+                    .to_string(),
         },
     }
 }

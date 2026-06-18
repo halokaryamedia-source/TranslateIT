@@ -34,7 +34,9 @@ pub struct MigrationClosureGateReport {
     pub note: String,
 }
 
-pub fn analyze_migration_closure_gate(request: MigrationClosureGateRequest) -> MigrationClosureGateReport {
+pub fn analyze_migration_closure_gate(
+    request: MigrationClosureGateRequest,
+) -> MigrationClosureGateReport {
     let runtime = analyze_runtime_readiness_bundle();
 
     let stages = vec![
@@ -114,7 +116,13 @@ pub fn analyze_migration_closure_gate(request: MigrationClosureGateRequest) -> M
         .map(|stage| format!("{}:{}", stage.stage, stage.blocker))
         .collect();
 
-    blockers.extend(runtime.blockers.iter().filter(|blocker| !blocker.is_empty()).cloned());
+    blockers.extend(
+        runtime
+            .blockers
+            .iter()
+            .filter(|blocker| !blocker.is_empty())
+            .cloned(),
+    );
     blockers.sort();
     blockers.dedup();
 

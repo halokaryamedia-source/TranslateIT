@@ -106,7 +106,11 @@ pub fn summarize_transcript_session(session: &TranscriptSessionRecord) -> Transc
         .iter()
         .map(|segment| segment.translated_text.chars().count())
         .sum();
-    let completed_segments = session.segments.iter().filter(|segment| segment.accepted()).count();
+    let completed_segments = session
+        .segments
+        .iter()
+        .filter(|segment| segment.accepted())
+        .count();
     let errored_segments = session
         .segments
         .iter()
@@ -125,7 +129,9 @@ pub fn summarize_transcript_session(session: &TranscriptSessionRecord) -> Transc
     }
 }
 
-pub fn plan_transcript_session_paths(request: TranscriptSessionPlanRequest) -> TranscriptSessionPlanReport {
+pub fn plan_transcript_session_paths(
+    request: TranscriptSessionPlanRequest,
+) -> TranscriptSessionPlanReport {
     let summary = summarize_transcript_session(&request.session);
     let store_preview = preview_transcript_session_save(&request.session);
     let cache_root = request.cache_root.unwrap_or_default();
@@ -138,13 +144,26 @@ pub fn plan_transcript_session_paths(request: TranscriptSessionPlanRequest) -> T
     let saved_session_json_path = join_path(&saved_session_dir, &[&format!("{}.json", session_id)]);
 
     let mut guard_blockers = Vec::new();
-    guard_path("cache_root", &cache_root, &cache_session_json_path, &mut guard_blockers);
-    guard_path("saved_root", &saved_root, &saved_session_json_path, &mut guard_blockers);
+    guard_path(
+        "cache_root",
+        &cache_root,
+        &cache_session_json_path,
+        &mut guard_blockers,
+    );
+    guard_path(
+        "saved_root",
+        &saved_root,
+        &saved_session_json_path,
+        &mut guard_blockers,
+    );
 
     let mut planned_cache_items = vec![cache_session_json_path.clone()];
     for segment in &request.session.segments {
         let segment_id = safe_path_segment(&segment.segment_id, "segment");
-        planned_cache_items.push(join_path(&cache_audio_dir, &[&format!("{}.wav", segment_id)]));
+        planned_cache_items.push(join_path(
+            &cache_audio_dir,
+            &[&format!("{}.wav", segment_id)],
+        ));
     }
 
     let mut planned_save_items = vec![saved_session_json_path.clone()];
@@ -152,12 +171,24 @@ pub fn plan_transcript_session_paths(request: TranscriptSessionPlanRequest) -> T
         for segment in &request.session.segments {
             if let Some(path) = &segment.replay.source_audio_path {
                 if !path.trim().is_empty() {
-                    planned_save_items.push(join_path(&saved_session_dir, &["audio", &saved_audio_filename(&segment.segment_id, path, "source")]));
+                    planned_save_items.push(join_path(
+                        &saved_session_dir,
+                        &[
+                            "audio",
+                            &saved_audio_filename(&segment.segment_id, path, "source"),
+                        ],
+                    ));
                 }
             }
             if let Some(path) = &segment.replay.translated_audio_path {
                 if !path.trim().is_empty() {
-                    planned_save_items.push(join_path(&saved_session_dir, &["audio", &saved_audio_filename(&segment.segment_id, path, "translated")]));
+                    planned_save_items.push(join_path(
+                        &saved_session_dir,
+                        &[
+                            "audio",
+                            &saved_audio_filename(&segment.segment_id, path, "translated"),
+                        ],
+                    ));
                 }
             }
         }
@@ -216,17 +247,29 @@ fn guard_path(label: &str, root: &str, target: &str, blockers: &mut Vec<String>)
 }
 
 fn has_unsafe_component(value: &str) -> bool {
-    Path::new(value).components().any(|component| matches!(component, Component::ParentDir))
+    Path::new(value)
+        .components()
+        .any(|component| matches!(component, Component::ParentDir))
 }
 
 fn safe_path_segment(value: &str, fallback: &str) -> String {
     let clean = value
         .trim()
         .chars()
-        .map(|character| if character.is_ascii_alphanumeric() || matches!(character, '-' | '_') { character } else { '_' })
+        .map(|character| {
+            if character.is_ascii_alphanumeric() || matches!(character, '-' | '_') {
+                character
+            } else {
+                '_'
+            }
+        })
         .take(MAX_PATH_SEGMENT_CHARS)
         .collect::<String>();
-    if clean.is_empty() { fallback.to_string() } else { clean }
+    if clean.is_empty() {
+        fallback.to_string()
+    } else {
+        clean
+    }
 }
 
 fn safe_extension(source_path: &str) -> String {
@@ -239,7 +282,11 @@ fn safe_extension(source_path: &str) -> String {
         .filter(|character| character.is_ascii_alphanumeric())
         .take(MAX_EXTENSION_CHARS)
         .collect::<String>();
-    if extension.is_empty() { "wav".to_string() } else { extension }
+    if extension.is_empty() {
+        "wav".to_string()
+    } else {
+        extension
+    }
 }
 
 fn saved_audio_filename(segment_id: &str, source_path: &str, role: &str) -> String {

@@ -30,7 +30,10 @@ pub fn analyze_live_tts_boundary() -> LiveTtsBoundaryReport {
     let ready_for_tts_call = input_ready && voice_backend_connected && playback_ready;
 
     let blocker = if !input_ready {
-        format!("tts_boundary:translation_not_ready:{}", translation_boundary.blocker)
+        format!(
+            "tts_boundary:translation_not_ready:{}",
+            translation_boundary.blocker
+        )
     } else if !voice_backend_connected {
         "tts_boundary:voice_backend_not_connected".to_string()
     } else if !playback_ready {

@@ -76,18 +76,42 @@ pub struct NativeExecutionBatchPlan {
 
 pub fn plan_native_execution(request: NativeExecutionRequest) -> NativeExecutionPlan {
     let stage = normalize_stage(&request.stage);
-    let model_id = request.model_id.unwrap_or_else(|| default_model_for_stage(&stage).to_string());
-    let requested_device = request.device.unwrap_or_else(|| default_device_for_stage(&stage).to_string());
-    let requested_compute = request.compute_type.unwrap_or_else(|| default_compute_for_stage(&stage).to_string());
+    let model_id = request
+        .model_id
+        .unwrap_or_else(|| default_model_for_stage(&stage).to_string());
+    let requested_device = request
+        .device
+        .unwrap_or_else(|| default_device_for_stage(&stage).to_string());
+    let requested_compute = request
+        .compute_type
+        .unwrap_or_else(|| default_compute_for_stage(&stage).to_string());
 
     if stage == "unknown" {
-        return blocked(stage, model_id, requested_device, requested_compute, "unknown_stage");
+        return blocked(
+            stage,
+            model_id,
+            requested_device,
+            requested_compute,
+            "unknown_stage",
+        );
     }
     if !request.input_ready {
-        return blocked(stage, model_id, requested_device, requested_compute, "input_not_ready");
+        return blocked(
+            stage,
+            model_id,
+            requested_device,
+            requested_compute,
+            "input_not_ready",
+        );
     }
     if !request.model_ready {
-        return blocked(stage, model_id, requested_device, requested_compute, "model_not_ready");
+        return blocked(
+            stage,
+            model_id,
+            requested_device,
+            requested_compute,
+            "model_not_ready",
+        );
     }
     if !request.backend_ready {
         if request.allow_cpu_degraded_mode && stage != "output" {
@@ -102,7 +126,13 @@ pub fn plan_native_execution(request: NativeExecutionRequest) -> NativeExecution
                 blocker: String::new(),
             };
         }
-        return blocked(stage, model_id, requested_device, requested_compute, "backend_not_ready");
+        return blocked(
+            stage,
+            model_id,
+            requested_device,
+            requested_compute,
+            "backend_not_ready",
+        );
     }
 
     NativeExecutionPlan {
@@ -117,7 +147,9 @@ pub fn plan_native_execution(request: NativeExecutionRequest) -> NativeExecution
     }
 }
 
-pub fn prepare_native_execution_contract(request: NativeExecutionContractRequest) -> NativeExecutionContractResult {
+pub fn prepare_native_execution_contract(
+    request: NativeExecutionContractRequest,
+) -> NativeExecutionContractResult {
     let plan = plan_native_execution(request.plan);
     let input_kind = input_kind(&request.source_text, &request.source_audio_path);
     let input_summary = input_summary(&request.source_text, &request.source_audio_path);
@@ -132,7 +164,11 @@ pub fn prepare_native_execution_contract(request: NativeExecutionContractRequest
     );
     let ready_to_execute = plan.ready && contract_blocker.is_empty();
     let execution_status = if ready_to_execute {
-        if plan.cpu_degraded { "degraded_prepared" } else { "prepared" }
+        if plan.cpu_degraded {
+            "degraded_prepared"
+        } else {
+            "prepared"
+        }
     } else {
         "blocked"
     }
@@ -159,7 +195,9 @@ pub fn prepare_native_execution_contract(request: NativeExecutionContractRequest
     }
 }
 
-pub fn plan_native_execution_batch(request: NativeExecutionBatchRequest) -> NativeExecutionBatchPlan {
+pub fn plan_native_execution_batch(
+    request: NativeExecutionBatchRequest,
+) -> NativeExecutionBatchPlan {
     let asr = plan_native_execution(request.asr);
     let translation = plan_native_execution(request.translation);
     let output = plan_native_execution(request.output);
@@ -187,7 +225,13 @@ pub fn plan_native_execution_batch(request: NativeExecutionBatchRequest) -> Nati
     }
 }
 
-fn blocked(stage: String, model_id: String, device: String, compute: String, reason: &str) -> NativeExecutionPlan {
+fn blocked(
+    stage: String,
+    model_id: String,
+    device: String,
+    compute: String,
+    reason: &str,
+) -> NativeExecutionPlan {
     NativeExecutionPlan {
         stage,
         model_id,
@@ -211,12 +255,19 @@ fn contract_blocker(
     if !plan_blocker.trim().is_empty() {
         return plan_blocker.to_string();
     }
-    if model_path.as_ref().map(|value| value.trim().is_empty()).unwrap_or(true) && stage != "output" {
+    if model_path
+        .as_ref()
+        .map(|value| value.trim().is_empty())
+        .unwrap_or(true)
+        && stage != "output"
+    {
         return "model_path_missing".to_string();
     }
     match stage {
         "asr" if !is_present(source_audio_path.as_deref()) => "asr_audio_input_missing".to_string(),
-        "translation" if !is_present(source_text.as_deref()) => "translation_text_input_missing".to_string(),
+        "translation" if !is_present(source_text.as_deref()) => {
+            "translation_text_input_missing".to_string()
+        }
         "output" if !is_present(Some(output_target)) => "output_target_missing".to_string(),
         "asr" | "translation" | "output" => String::new(),
         _ => "unknown_stage".to_string(),
@@ -228,9 +279,17 @@ fn is_present(value: Option<&str>) -> bool {
 }
 
 fn input_kind(source_text: &Option<String>, source_audio_path: &Option<String>) -> String {
-    if source_audio_path.as_ref().map(|value| !value.trim().is_empty()).unwrap_or(false) {
+    if source_audio_path
+        .as_ref()
+        .map(|value| !value.trim().is_empty())
+        .unwrap_or(false)
+    {
         "audio".to_string()
-    } else if source_text.as_ref().map(|value| !value.trim().is_empty()).unwrap_or(false) {
+    } else if source_text
+        .as_ref()
+        .map(|value| !value.trim().is_empty())
+        .unwrap_or(false)
+    {
         "text".to_string()
     } else {
         "empty".to_string()
@@ -238,10 +297,16 @@ fn input_kind(source_text: &Option<String>, source_audio_path: &Option<String>) 
 }
 
 fn input_summary(source_text: &Option<String>, source_audio_path: &Option<String>) -> String {
-    if let Some(path) = source_audio_path.as_ref().filter(|value| !value.trim().is_empty()) {
+    if let Some(path) = source_audio_path
+        .as_ref()
+        .filter(|value| !value.trim().is_empty())
+    {
         return format!("audio:{path}");
     }
-    if let Some(text) = source_text.as_ref().filter(|value| !value.trim().is_empty()) {
+    if let Some(text) = source_text
+        .as_ref()
+        .filter(|value| !value.trim().is_empty())
+    {
         return format!("text_chars:{}", text.chars().count());
     }
     "empty".to_string()

@@ -88,5 +88,9 @@ fn safe_device_name(device: &cpal::Device) -> Option<String> {
         .collect::<String>()
         .trim()
         .to_string();
-    if clean.is_empty() { None } else { Some(clean) }
+    if clean.is_empty() {
+        None
+    } else {
+        Some(clean)
+    }
 }

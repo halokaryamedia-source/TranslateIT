@@ -1,6 +1,8 @@
 use serde::{Deserialize, Serialize};
 
-use crate::engine::audio::capture_plan::{plan_native_capture_stream, NativeCaptureStreamPlanReport, NativeCaptureStreamPlanRequest};
+use crate::engine::audio::capture_plan::{
+    plan_native_capture_stream, NativeCaptureStreamPlanReport, NativeCaptureStreamPlanRequest,
+};
 use crate::engine::audio::input_config::NativeInputConfigProbeReport;
 use crate::engine::runtime_state::RuntimeSessionStateReport;
 
@@ -84,7 +86,10 @@ pub fn analyze_native_capture_bridge(
     let note = if ready_for_stream_creation {
         "Native capture bridge contract is ready for later CPAL stream construction.".to_string()
     } else {
-        format!("Native capture bridge remains blocked. blocker_count={}", blockers.len())
+        format!(
+            "Native capture bridge remains blocked. blocker_count={}",
+            blockers.len()
+        )
     };
 
     NativeCaptureBridgeReport {

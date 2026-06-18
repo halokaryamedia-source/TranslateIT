@@ -25,15 +25,22 @@ pub struct LiveTranslationBoundaryReport {
 pub fn analyze_live_translation_boundary() -> LiveTranslationBoundaryReport {
     let project_paths = ProjectPaths::discover();
     let asr_decoder = analyze_native_asr_decoder_bridge();
-    let source_text = asr_decoder.transcript_text.clone().filter(|text| !text.trim().is_empty());
+    let source_text = asr_decoder
+        .transcript_text
+        .clone()
+        .filter(|text| !text.trim().is_empty());
     let input_ready = source_text.is_some();
     let model_ready = std::path::Path::new(&project_paths.translation_model_dir).is_dir();
     let backend_ready = asr_decoder.boundary.backend_validation.ready;
     let decoder_connected = false;
-    let ready_for_translation_call = input_ready && model_ready && backend_ready && decoder_connected;
+    let ready_for_translation_call =
+        input_ready && model_ready && backend_ready && decoder_connected;
 
     let blocker = if !input_ready {
-        format!("translation_boundary:transcript_not_ready:{}", asr_decoder.blocker)
+        format!(
+            "translation_boundary:transcript_not_ready:{}",
+            asr_decoder.blocker
+        )
     } else if !model_ready {
         "translation_boundary:model_not_ready".to_string()
     } else if !backend_ready {

@@ -1,10 +1,20 @@
 use serde::{Deserialize, Serialize};
 
-use crate::engine::adapters::frame_pipeline_logic::{analyze_frame_pipeline, FramePipelineReport, FramePipelineRequest};
-use crate::engine::adapters::native_execution_bridge_logic::{build_native_execution_bridge, NativeExecutionBridgeReport, NativeExecutionBridgeRequest};
-use crate::engine::adapters::segment_flow_logic::{analyze_segment_flow, SegmentFlowReport, SegmentFlowRequest};
-use crate::engine::adapters::stream_ownership_logic::{analyze_stream_ownership, StreamOwnershipReport, StreamOwnershipRequest};
-use crate::engine::transcript_session::{plan_transcript_session_paths, TranscriptSessionPlanReport, TranscriptSessionPlanRequest};
+use crate::engine::adapters::frame_pipeline_logic::{
+    analyze_frame_pipeline, FramePipelineReport, FramePipelineRequest,
+};
+use crate::engine::adapters::native_execution_bridge_logic::{
+    build_native_execution_bridge, NativeExecutionBridgeReport, NativeExecutionBridgeRequest,
+};
+use crate::engine::adapters::segment_flow_logic::{
+    analyze_segment_flow, SegmentFlowReport, SegmentFlowRequest,
+};
+use crate::engine::adapters::stream_ownership_logic::{
+    analyze_stream_ownership, StreamOwnershipReport, StreamOwnershipRequest,
+};
+use crate::engine::transcript_session::{
+    plan_transcript_session_paths, TranscriptSessionPlanReport, TranscriptSessionPlanRequest,
+};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct RealtimeHandoffRequest {
@@ -58,8 +68,16 @@ pub fn analyze_realtime_handoff(request: RealtimeHandoffRequest) -> RealtimeHand
     prefix_blockers("stream", &stream.blockers, &mut blockers);
     prefix_blockers("frame", &frame.blockers, &mut blockers);
     prefix_blockers("segment", &segment.blockers, &mut blockers);
-    prefix_blockers("native_execution", &native_execution.blockers, &mut blockers);
-    prefix_blockers("transcript_save", &transcript_save.paths.guard_blockers, &mut blockers);
+    prefix_blockers(
+        "native_execution",
+        &native_execution.blockers,
+        &mut blockers,
+    );
+    prefix_blockers(
+        "transcript_save",
+        &transcript_save.paths.guard_blockers,
+        &mut blockers,
+    );
 
     if request.require_native_execution_ready && !ready_for_native_execution {
         blockers.push("handoff:native_execution_required".to_string());
@@ -74,17 +92,45 @@ pub fn analyze_realtime_handoff(request: RealtimeHandoffRequest) -> RealtimeHand
         && (!request.require_save_plan_ready || ready_for_safe_save);
 
     let stages = vec![
-        stage("stream_ownership", stream.ready_to_start_stream, stream.blockers.len(), &stream.note),
-        stage("frame_pipeline", frame.ready_for_segment_builder, frame.blockers.len(), &frame.note),
-        stage("segment_flow", segment.ready_for_runtime_plan, segment.blockers.len(), &segment.message),
-        stage("native_execution", native_execution.ready_for_execution, native_execution.blockers.len(), &native_execution.note),
-        stage("transcript_save", transcript_save.ready_to_save, transcript_save.paths.guard_blockers.len(), &transcript_save.message),
+        stage(
+            "stream_ownership",
+            stream.ready_to_start_stream,
+            stream.blockers.len(),
+            &stream.note,
+        ),
+        stage(
+            "frame_pipeline",
+            frame.ready_for_segment_builder,
+            frame.blockers.len(),
+            &frame.note,
+        ),
+        stage(
+            "segment_flow",
+            segment.ready_for_runtime_plan,
+            segment.blockers.len(),
+            &segment.message,
+        ),
+        stage(
+            "native_execution",
+            native_execution.ready_for_execution,
+            native_execution.blockers.len(),
+            &native_execution.note,
+        ),
+        stage(
+            "transcript_save",
+            transcript_save.ready_to_save,
+            transcript_save.paths.guard_blockers.len(),
+            &transcript_save.message,
+        ),
     ];
 
     let note = if ready_for_realtime_handoff {
         "Realtime handoff is ready for the next integration layer. This report does not execute microphone capture, ASR, translation, TTS, or file export.".to_string()
     } else {
-        format!("Realtime handoff is blocked by {} guard(s). No runtime side effects were executed.", blockers.len())
+        format!(
+            "Realtime handoff is blocked by {} guard(s). No runtime side effects were executed.",
+            blockers.len()
+        )
     };
 
     RealtimeHandoffReport {

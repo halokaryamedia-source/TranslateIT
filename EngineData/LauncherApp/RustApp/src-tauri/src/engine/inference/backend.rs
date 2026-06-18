@@ -63,5 +63,9 @@ fn compact_reason(value: &str) -> String {
         .filter(|character| !character.is_control())
         .take(MAX_BACKEND_SELECTION_REASON_CHARS)
         .collect::<String>();
-    if clean.is_empty() { "Backend selection is pending native validation.".to_string() } else { clean }
+    if clean.is_empty() {
+        "Backend selection is pending native validation.".to_string()
+    } else {
+        clean
+    }
 }

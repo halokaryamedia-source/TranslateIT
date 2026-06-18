@@ -69,7 +69,12 @@ fn latest_matching_file(dir: &Path, suffix: &str) -> Option<PathBuf> {
         .filter_map(Result::ok)
         .map(|entry| entry.path())
         .filter(|path| path.is_file())
-        .filter(|path| path.file_name().and_then(|name| name.to_str()).map(|name| name.ends_with(suffix)).unwrap_or(false))
+        .filter(|path| {
+            path.file_name()
+                .and_then(|name| name.to_str())
+                .map(|name| name.ends_with(suffix))
+                .unwrap_or(false)
+        })
         .max_by_key(|path| modified_unix_ms(path))
 }
 

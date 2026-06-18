@@ -32,14 +32,21 @@ pub fn run_calibration_logic(request: CalibrationLogicRequest) -> CalibrationLog
     let clipping_risk = if peak_level >= 0.99 { 1.0 } else { peak_level };
     let speech_to_noise_gap = (speech_rms - noise_floor_rms).max(0.0);
     let speech_to_noise_ratio = safe_ratio(speech_rms, noise_floor_rms.max(0.0005));
-    let voiced_frame_ratio = if speech_rms > noise_floor_rms * 1.15 { 1.0 } else { 0.0 };
+    let voiced_frame_ratio = if speech_rms > noise_floor_rms * 1.15 {
+        1.0
+    } else {
+        0.0
+    };
     let input_state = classify_input_state(noise_floor_rms, speech_rms, peak_level);
     let final_vad_threshold = match sensitivity.as_str() {
         "Low" => 0.0022_f32.max(noise_floor_rms * 1.05),
         "High" => 0.0011_f32.max(noise_floor_rms * 0.92),
         _ => 0.0016_f32.max(noise_floor_rms * 0.98),
     };
-    let capture_allowed = !matches!(input_state.as_str(), "Too Quiet" | "No Signal" | "Too Loud / Clipping");
+    let capture_allowed = !matches!(
+        input_state.as_str(),
+        "Too Quiet" | "No Signal" | "Too Loud / Clipping"
+    );
     CalibrationLogicResult {
         noise_floor_rms,
         speech_rms,
@@ -72,7 +79,10 @@ fn classify_input_state(noise_floor_rms: f32, speech_rms: f32, peak_level: f32) 
         "Too Loud / Clipping".to_string()
     } else if peak_level < 0.0025 && speech_rms < 0.0015 {
         "No Signal".to_string()
-    } else if speech_rms <= 0.0018_f32.max(noise_floor_rms * 0.55) && peak_level < 0.008 && speech_gap < 0.0010 {
+    } else if speech_rms <= 0.0018_f32.max(noise_floor_rms * 0.55)
+        && peak_level < 0.008
+        && speech_gap < 0.0010
+    {
         "Too Quiet".to_string()
     } else if speech_to_noise_ratio >= 1.05 || speech_gap >= 0.0009 || peak_level >= 0.005 {
         if speech_rms <= 0.0048_f32.max(noise_floor_rms * 1.02) {
@@ -95,15 +105,27 @@ fn rms(samples: &[f32]) -> f32 {
         sum += value * value;
         count += 1;
     }
-    if count == 0 { 0.0 } else { (sum / count as f32).sqrt() }
+    if count == 0 {
+        0.0
+    } else {
+        (sum / count as f32).sqrt()
+    }
 }
 
 fn peak(samples: &[f32]) -> f32 {
-    samples.iter().take(MAX_CALIBRATION_SAMPLES).map(|value| safe_sample(*value).abs()).fold(0.0_f32, f32::max)
+    samples
+        .iter()
+        .take(MAX_CALIBRATION_SAMPLES)
+        .map(|value| safe_sample(*value).abs())
+        .fold(0.0_f32, f32::max)
 }
 
 fn safe_sample(value: f32) -> f32 {
-    if value.is_finite() { value.clamp(-1.0, 1.0) } else { 0.0 }
+    if value.is_finite() {
+        value.clamp(-1.0, 1.0)
+    } else {
+        0.0
+    }
 }
 
 fn safe_ratio(numerator: f32, denominator: f32) -> f32 {

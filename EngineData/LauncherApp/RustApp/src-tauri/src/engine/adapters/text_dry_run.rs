@@ -18,11 +18,15 @@ pub struct TextDryRunResult {
 }
 
 pub fn run_text_dry_check(request: TextDryRunRequest) -> TextDryRunResult {
-    let backend_validation = NativeCudaBackendValidationReport::validate_ctranslate2_cuda_candidate();
+    let backend_validation =
+        NativeCudaBackendValidationReport::validate_ctranslate2_cuda_candidate();
     TextDryRunResult {
         ok: false,
         output_preview: None,
         backend_validation,
-        message: format!("Text boundary pending. chars={}", request.source_text.chars().count()),
+        message: format!(
+            "Text boundary pending. chars={}",
+            request.source_text.chars().count()
+        ),
     }
 }

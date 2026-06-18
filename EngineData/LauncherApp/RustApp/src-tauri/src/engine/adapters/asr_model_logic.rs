@@ -57,7 +57,11 @@ pub fn build_asr_profile_plan(request: AsrProfileRequest) -> AsrProfilePlan {
     let backup = safe_model_label(request.backup_model.as_deref().unwrap_or("medium"));
     let default_profile = profile(&request, &primary, false);
     let backup_profile = profile(&request, &backup, true);
-    let selected_model = if default_profile.model_ready { default_profile.model_name.clone() } else { backup_profile.model_name.clone() };
+    let selected_model = if default_profile.model_ready {
+        default_profile.model_name.clone()
+    } else {
+        backup_profile.model_name.clone()
+    };
     let fallback_used = !default_profile.model_ready && backup_profile.model_ready;
     let ready_for_native_execution = default_profile.model_ready || backup_profile.model_ready;
     AsrProfilePlan {
@@ -69,12 +73,27 @@ pub fn build_asr_profile_plan(request: AsrProfileRequest) -> AsrProfilePlan {
     }
 }
 
-fn profile(request: &AsrProfileRequest, model_name: &str, performance_mode: bool) -> AsrRuntimeProfileReport {
+fn profile(
+    request: &AsrProfileRequest,
+    model_name: &str,
+    performance_mode: bool,
+) -> AsrRuntimeProfileReport {
     let device = safe_runtime_label(request.device.as_deref().unwrap_or("cuda"), "cuda");
-    let compute_type = safe_runtime_label(request.compute_type.as_deref().unwrap_or("float16"), "float16");
+    let compute_type = safe_runtime_label(
+        request.compute_type.as_deref().unwrap_or("float16"),
+        "float16",
+    );
     let language = normalize_language(request.language.as_deref().unwrap_or("id"));
-    let task = safe_runtime_label(request.task.as_deref().unwrap_or("transcribe"), "transcribe");
-    let initial_prompt = request.initial_prompt.as_deref().map(|value| compact_text(value, MAX_ASR_PROMPT_CHARS)).filter(|value| !value.is_empty()).unwrap_or_else(default_initial_prompt);
+    let task = safe_runtime_label(
+        request.task.as_deref().unwrap_or("transcribe"),
+        "transcribe",
+    );
+    let initial_prompt = request
+        .initial_prompt
+        .as_deref()
+        .map(|value| compact_text(value, MAX_ASR_PROMPT_CHARS))
+        .filter(|value| !value.is_empty())
+        .unwrap_or_else(default_initial_prompt);
     let local_model_path = local_model_path(request.model_root.as_deref(), model_name);
     let model_ready = local_model_path.is_some();
     AsrRuntimeProfileReport {
@@ -92,22 +111,38 @@ fn profile(request: &AsrProfileRequest, model_name: &str, performance_mode: bool
         word_timestamps: request.word_timestamps.unwrap_or(false),
         initial_prompt,
         local_model_path: local_model_path.clone(),
-        dependency_status: if model_ready { "available".to_string() } else { "pending:native-model-files".to_string() },
+        dependency_status: if model_ready {
+            "available".to_string()
+        } else {
+            "pending:native-model-files".to_string()
+        },
         model_ready,
-        message: if model_ready { format!("ASR model files found for {model_name} on {device}/{compute_type}.") } else { format!("ASR model files are not available for {model_name}.") },
+        message: if model_ready {
+            format!("ASR model files found for {model_name} on {device}/{compute_type}.")
+        } else {
+            format!("ASR model files are not available for {model_name}.")
+        },
     }
 }
 
 fn local_model_path(model_root: Option<&str>, model_name: &str) -> Option<String> {
     let root = model_root?.trim();
-    if root.is_empty() { return None; }
+    if root.is_empty() {
+        return None;
+    }
     let local_name = match model_name {
         "large-v3-turbo" => "faster-whisper-large-v3-turbo",
         "medium" => "faster-whisper-medium",
         other => other,
     };
     let path = Path::new(root).join(local_name);
-    if path.join("model.bin").is_file() { Some(format!("EngineData/Backend/RuntimeAssets/Models/ASR/{local_name}")) } else { None }
+    if path.join("model.bin").is_file() {
+        Some(format!(
+            "EngineData/Backend/RuntimeAssets/Models/ASR/{local_name}"
+        ))
+    } else {
+        None
+    }
 }
 
 fn compact_text(value: &str, max_chars: usize) -> String {
@@ -121,17 +156,33 @@ fn compact_text(value: &str, max_chars: usize) -> String {
 
 fn safe_model_label(value: &str) -> String {
     let clean = compact_text(value, MAX_ASR_MODEL_LABEL_CHARS);
-    if clean.is_empty() { "large-v3-turbo".to_string() } else { clean }
+    if clean.is_empty() {
+        "large-v3-turbo".to_string()
+    } else {
+        clean
+    }
 }
 
 fn safe_runtime_label(value: &str, fallback: &str) -> String {
     let clean = compact_text(value, MAX_ASR_RUNTIME_LABEL_CHARS);
-    if clean.is_empty() { fallback.to_string() } else { clean }
+    if clean.is_empty() {
+        fallback.to_string()
+    } else {
+        clean
+    }
 }
 
 fn normalize_language(value: &str) -> String {
     let lowered = compact_text(value, MAX_ASR_RUNTIME_LABEL_CHARS).to_lowercase();
-    if lowered.starts_with("ind") || lowered.starts_with("id") { "id".to_string() } else if lowered.starts_with("eng") || lowered.starts_with("en") { "en".to_string() } else if lowered.is_empty() { "id".to_string() } else { lowered.chars().take(2).collect() }
+    if lowered.starts_with("ind") || lowered.starts_with("id") {
+        "id".to_string()
+    } else if lowered.starts_with("eng") || lowered.starts_with("en") {
+        "en".to_string()
+    } else if lowered.is_empty() {
+        "id".to_string()
+    } else {
+        lowered.chars().take(2).collect()
+    }
 }
 
 fn default_initial_prompt() -> String {

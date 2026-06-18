@@ -10,7 +10,8 @@ use crate::engine::adapters::local_worker_manifest_logic::{
 };
 use crate::engine::paths::ProjectPaths;
 
-const VALIDATION_EVIDENCE_LABEL: &str = "UserData/LogData/RustAppValidation/latest_validation_evidence.json";
+const VALIDATION_EVIDENCE_LABEL: &str =
+    "UserData/LogData/RustAppValidation/latest_validation_evidence.json";
 const MAX_INTERNAL_VALIDATION_BLOCKERS: usize = 80;
 const MAX_INTERNAL_VALIDATION_BLOCKER_CHARS: usize = 180;
 
@@ -97,14 +98,30 @@ pub fn analyze_internal_validation_gate() -> InternalValidationGateReport {
         .and_then(|value| value.local_worker_smoke_evidence.clone())
         .unwrap_or_default();
 
-    let rust_check_passed = evidence_ref.and_then(|value| value.rust_check_passed).unwrap_or(false);
-    let frontend_typecheck_passed = evidence_ref.and_then(|value| value.frontend_typecheck_passed).unwrap_or(false);
-    let frontend_build_passed = evidence_ref.and_then(|value| value.frontend_build_passed).unwrap_or(false);
-    let build_validation_passed = evidence_ref.and_then(|value| value.tauri_build_passed).unwrap_or(false);
-    let packaging_validation_passed = evidence_ref.and_then(|value| value.packaging_validation_passed).unwrap_or(false);
-    let local_worker_stack_passed = evidence_ref.and_then(|value| value.local_worker_stack_passed).unwrap_or(false) && local_worker_manifest.ok;
-    let persistent_worker_smoke_passed = worker_smoke.loaded.unwrap_or(false) && worker_smoke.ok.unwrap_or(false) && worker_smoke.persistent_worker.unwrap_or(false);
-    let microphone_capture_smoke_test_passed = manual.microphone_capture_smoke_test.unwrap_or(false);
+    let rust_check_passed = evidence_ref
+        .and_then(|value| value.rust_check_passed)
+        .unwrap_or(false);
+    let frontend_typecheck_passed = evidence_ref
+        .and_then(|value| value.frontend_typecheck_passed)
+        .unwrap_or(false);
+    let frontend_build_passed = evidence_ref
+        .and_then(|value| value.frontend_build_passed)
+        .unwrap_or(false);
+    let build_validation_passed = evidence_ref
+        .and_then(|value| value.tauri_build_passed)
+        .unwrap_or(false);
+    let packaging_validation_passed = evidence_ref
+        .and_then(|value| value.packaging_validation_passed)
+        .unwrap_or(false);
+    let local_worker_stack_passed = evidence_ref
+        .and_then(|value| value.local_worker_stack_passed)
+        .unwrap_or(false)
+        && local_worker_manifest.ok;
+    let persistent_worker_smoke_passed = worker_smoke.loaded.unwrap_or(false)
+        && worker_smoke.ok.unwrap_or(false)
+        && worker_smoke.persistent_worker.unwrap_or(false);
+    let microphone_capture_smoke_test_passed =
+        manual.microphone_capture_smoke_test.unwrap_or(false);
     let asr_transcript_smoke_test_passed = manual.asr_transcript_smoke_test.unwrap_or(false);
     let translation_smoke_test_passed = manual.translation_smoke_test.unwrap_or(false);
     let tts_playback_smoke_test_passed = manual.tts_playback_smoke_test.unwrap_or(false);
@@ -120,7 +137,12 @@ pub fn analyze_internal_validation_gate() -> InternalValidationGateReport {
         blockers.push(format!("live_pipeline:{}", live_pipeline.next_blocker));
     }
     if !local_worker_manifest.ok {
-        blockers.extend(local_worker_manifest.blockers.iter().map(|item| format!("local_worker:{item}")));
+        blockers.extend(
+            local_worker_manifest
+                .blockers
+                .iter()
+                .map(|item| format!("local_worker:{item}")),
+        );
     }
     if !validation_evidence_loaded {
         blockers.push("validation:evidence_file_missing".to_string());
@@ -175,9 +197,13 @@ pub fn analyze_internal_validation_gate() -> InternalValidationGateReport {
         && tauri_command_status_exposed
         && build_and_package_passed
         && manual_runtime_passed
-        && evidence_ref.and_then(|value| value.owner_validation_allowed).unwrap_or(false);
+        && evidence_ref
+            .and_then(|value| value.owner_validation_allowed)
+            .unwrap_or(false);
     let ready_for_release_candidate = ready_for_owner_validation
-        && evidence_ref.and_then(|value| value.release_candidate_allowed).unwrap_or(false);
+        && evidence_ref
+            .and_then(|value| value.release_candidate_allowed)
+            .unwrap_or(false);
     let progress_percent = if ready_for_release_candidate {
         100
     } else if ready_for_owner_validation {
@@ -187,9 +213,15 @@ pub fn analyze_internal_validation_gate() -> InternalValidationGateReport {
     } else if persistent_worker_smoke_passed {
         live_pipeline.progress_percent.saturating_add(10).min(93)
     } else if local_worker_manifest.ok {
-        live_pipeline.progress_percent.saturating_add(if validation_evidence_loaded { 6 } else { 4 }).min(91)
+        live_pipeline
+            .progress_percent
+            .saturating_add(if validation_evidence_loaded { 6 } else { 4 })
+            .min(91)
     } else {
-        live_pipeline.progress_percent.saturating_add(if validation_evidence_loaded { 4 } else { 2 }).min(89)
+        live_pipeline
+            .progress_percent
+            .saturating_add(if validation_evidence_loaded { 4 } else { 2 })
+            .min(89)
     };
 
     InternalValidationGateReport {

@@ -7,15 +7,20 @@ use crate::engine::settings::RuntimeSettings;
 use crate::engine::state::{CommandResult, LifecycleState};
 
 #[tauri::command]
-pub fn load_runtime_settings() -> RuntimeSettings { engine::load_settings() }
+pub fn load_runtime_settings() -> RuntimeSettings {
+    engine::load_settings()
+}
 
 #[tauri::command]
-pub fn save_default_runtime_settings() -> CommandResult { engine::save_default_settings() }
+pub fn save_default_runtime_settings() -> CommandResult {
+    engine::save_default_settings()
+}
 
 #[tauri::command]
 pub fn save_runtime_settings(settings: RuntimeSettings) -> CommandResult {
     let project_paths = ProjectPaths::discover();
-    let settings_path = PathBuf::from(&project_paths.user_cache_dir).join("rust_runtime_settings.json");
+    let settings_path =
+        PathBuf::from(&project_paths.user_cache_dir).join("rust_runtime_settings.json");
     let log_dir = PathBuf::from(project_paths.user_log_dir);
     match settings.save_pretty(&settings_path) {
         Ok(()) => {

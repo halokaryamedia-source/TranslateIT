@@ -2,16 +2,18 @@ use serde::Serialize;
 use serde_json::json;
 
 use crate::engine;
-use crate::engine::adapters::runtime_lifecycle_logic::{analyze_start_lifecycle_gate, analyze_stop_lifecycle_gate, RuntimeLifecycleGateReport};
-use crate::engine::runtime_state::{latest_runtime_handoff_state, latest_runtime_session_state, RuntimeHandoffStateReport, RuntimeSessionStateReport};
+use crate::engine::adapters::runtime_lifecycle_logic::{
+    analyze_start_lifecycle_gate, analyze_stop_lifecycle_gate, RuntimeLifecycleGateReport,
+};
+use crate::engine::runtime_state::{
+    latest_runtime_handoff_state, latest_runtime_session_state, RuntimeHandoffStateReport,
+    RuntimeSessionStateReport,
+};
 use crate::engine::state::{CommandResult, LifecycleState};
 
 use super::helper_bridge::{
-    cancel_helper_bridge_task,
-    get_helper_bridge_status,
-    send_helper_bridge_request,
-    HelperBridgeActionResult,
-    HelperBridgeRequest,
+    cancel_helper_bridge_task, get_helper_bridge_status, send_helper_bridge_request,
+    HelperBridgeActionResult, HelperBridgeRequest,
 };
 
 const MAX_CAPTURE_PREVIEW_MESSAGE_CHARS: usize = 360;
@@ -45,7 +47,11 @@ fn compact_preview_text(value: &str) -> String {
         .filter(|character| !is_unsafe_preview_character(*character))
         .take(MAX_CAPTURE_PREVIEW_MESSAGE_CHARS)
         .collect::<String>();
-    if clean.is_empty() { "status unavailable".to_string() } else { clean }
+    if clean.is_empty() {
+        "status unavailable".to_string()
+    } else {
+        clean
+    }
 }
 
 fn capture_request_preview(command: &str) -> CaptureHelperBridgeRequestPreview {
@@ -76,7 +82,12 @@ fn capture_request_preview(command: &str) -> CaptureHelperBridgeRequestPreview {
     let status_message = compact_preview_text(&status.message);
     CaptureHelperBridgeRequestPreview {
         ok: ready,
-        state: if ready { "request_ready" } else { "provider_blocked" }.to_string(),
+        state: if ready {
+            "request_ready"
+        } else {
+            "provider_blocked"
+        }
+        .to_string(),
         message: if ready {
             format!("Prepared {command} helper bridge request preview. Capture has not been started from this command.")
         } else {
@@ -92,22 +103,34 @@ fn capture_request_preview(command: &str) -> CaptureHelperBridgeRequestPreview {
 }
 
 #[tauri::command]
-pub fn get_runtime_handoff_state() -> RuntimeHandoffStateReport { latest_runtime_handoff_state() }
+pub fn get_runtime_handoff_state() -> RuntimeHandoffStateReport {
+    latest_runtime_handoff_state()
+}
 
 #[tauri::command]
-pub fn get_runtime_session_state() -> RuntimeSessionStateReport { latest_runtime_session_state() }
+pub fn get_runtime_session_state() -> RuntimeSessionStateReport {
+    latest_runtime_session_state()
+}
 
 #[tauri::command]
-pub fn analyze_start_gate() -> RuntimeLifecycleGateReport { analyze_start_lifecycle_gate() }
+pub fn analyze_start_gate() -> RuntimeLifecycleGateReport {
+    analyze_start_lifecycle_gate()
+}
 
 #[tauri::command]
-pub fn analyze_stop_gate() -> RuntimeLifecycleGateReport { analyze_stop_lifecycle_gate() }
+pub fn analyze_stop_gate() -> RuntimeLifecycleGateReport {
+    analyze_stop_lifecycle_gate()
+}
 
 #[tauri::command]
-pub fn prepare_capture_start_request() -> CaptureHelperBridgeRequestPreview { capture_request_preview("capture_start") }
+pub fn prepare_capture_start_request() -> CaptureHelperBridgeRequestPreview {
+    capture_request_preview("capture_start")
+}
 
 #[tauri::command]
-pub fn prepare_capture_stop_request() -> CaptureHelperBridgeRequestPreview { capture_request_preview("capture_stop") }
+pub fn prepare_capture_stop_request() -> CaptureHelperBridgeRequestPreview {
+    capture_request_preview("capture_stop")
+}
 
 #[tauri::command]
 pub fn check_helper_bridge_health() -> HelperBridgeActionResult {

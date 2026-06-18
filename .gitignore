@@ -13,6 +13,7 @@ node_modules/
 dist/
 build/
 target/
+/EngineData/LauncherApp/RustApp/src-tauri/gen/
 
 # TranslateIT local runtime outputs.
 /UserData/CacheData/**

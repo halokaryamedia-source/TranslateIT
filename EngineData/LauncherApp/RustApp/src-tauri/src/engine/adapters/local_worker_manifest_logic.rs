@@ -114,16 +114,16 @@ pub fn analyze_local_worker_manifest() -> LocalWorkerManifestReport {
     let worker_script = worker_root.join("realtime_local_worker.py");
     let requirements = worker_root.join("requirements-realtime.txt");
     let stack_manifest = worker_root.join("realtime_stack_manifest.json");
-    let runtime_manifest = PathBuf::from(&project_paths.backend_contract_dir)
-        .join("MODEL_RUNTIME_MANIFEST.json");
-    let asr_model = PathBuf::from(&project_paths.asr_model_dir)
-        .join("faster-whisper-large-v3-turbo");
-    let asr_backup_model = PathBuf::from(&project_paths.asr_model_dir)
-        .join("faster-whisper-medium");
-    let realtime_translation_model = PathBuf::from(&project_paths.translation_model_dir)
-        .join("marianmt-id-en");
-    let quality_translation_model = PathBuf::from(&project_paths.translation_model_dir)
-        .join("nllb-200-distilled-600M");
+    let runtime_manifest =
+        PathBuf::from(&project_paths.backend_contract_dir).join("MODEL_RUNTIME_MANIFEST.json");
+    let asr_model =
+        PathBuf::from(&project_paths.asr_model_dir).join("faster-whisper-large-v3-turbo");
+    let asr_backup_model =
+        PathBuf::from(&project_paths.asr_model_dir).join("faster-whisper-medium");
+    let realtime_translation_model =
+        PathBuf::from(&project_paths.translation_model_dir).join("marianmt-id-en");
+    let quality_translation_model =
+        PathBuf::from(&project_paths.translation_model_dir).join("nllb-200-distilled-600M");
     let piper_root = PathBuf::from(&project_paths.voice_runtime_dir).join("Piper");
 
     let worker_script_exists = worker_script.is_file();

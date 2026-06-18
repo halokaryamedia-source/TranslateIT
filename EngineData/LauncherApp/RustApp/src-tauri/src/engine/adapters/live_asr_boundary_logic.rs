@@ -4,8 +4,12 @@ use std::hash::{Hash, Hasher};
 use std::sync::{Mutex, OnceLock};
 use std::time::{SystemTime, UNIX_EPOCH};
 
-use crate::engine::adapters::asr_model_logic::{build_asr_profile_plan, AsrProfilePlan, AsrProfileRequest};
-use crate::engine::audio::live_audio_buffer::{live_target_segment_snapshot, LiveTargetSegmentReport};
+use crate::engine::adapters::asr_model_logic::{
+    build_asr_profile_plan, AsrProfilePlan, AsrProfileRequest,
+};
+use crate::engine::audio::live_audio_buffer::{
+    live_target_segment_snapshot, LiveTargetSegmentReport,
+};
 use crate::engine::inference::backend_validation::NativeCudaBackendValidationReport;
 use crate::engine::paths::ProjectPaths;
 
@@ -60,7 +64,8 @@ pub fn analyze_live_asr_boundary() -> LiveAsrBoundaryReport {
         .as_ref()
         .map(|state| state.duplicate_guard_key == duplicate_guard_key)
         .unwrap_or(false);
-    let backend_validation = NativeCudaBackendValidationReport::validate_ctranslate2_cuda_candidate();
+    let backend_validation =
+        NativeCudaBackendValidationReport::validate_ctranslate2_cuda_candidate();
     let asr_profile_plan = build_asr_profile_plan(AsrProfileRequest {
         primary_model: Some("large-v3-turbo".to_string()),
         backup_model: Some("medium".to_string()),
@@ -77,11 +82,20 @@ pub fn analyze_live_asr_boundary() -> LiveAsrBoundaryReport {
         initial_prompt: None,
     });
 
-    let input_ready = target_segment.ready && target_segment.frame.as_ref().map(|frame| frame.is_target_format()).unwrap_or(false);
+    let input_ready = target_segment.ready
+        && target_segment
+            .frame
+            .as_ref()
+            .map(|frame| frame.is_target_format())
+            .unwrap_or(false);
     let model_ready = asr_profile_plan.ready_for_native_execution;
     let backend_ready = backend_validation.ready;
     let decoder_connected = false;
-    let ready_for_decoder_call = input_ready && model_ready && backend_ready && decoder_connected && !duplicate_of_last_success;
+    let ready_for_decoder_call = input_ready
+        && model_ready
+        && backend_ready
+        && decoder_connected
+        && !duplicate_of_last_success;
 
     let blocker = if duplicate_of_last_success {
         "asr_boundary:duplicate_segment_already_consumed".to_string()
@@ -90,7 +104,10 @@ pub fn analyze_live_asr_boundary() -> LiveAsrBoundaryReport {
     } else if !model_ready {
         "asr_boundary:model_not_ready".to_string()
     } else if !backend_ready {
-        format!("asr_boundary:backend_not_ready:{}", backend_validation.blocker)
+        format!(
+            "asr_boundary:backend_not_ready:{}",
+            backend_validation.blocker
+        )
     } else if !decoder_connected {
         "asr_boundary:native_decoder_not_connected".to_string()
     } else {
@@ -140,7 +157,10 @@ pub fn mark_live_asr_segment_consumed_after_success() -> AsrConsumeGuardReport {
             segment_id: boundary.segment_id,
             duplicate_guard_key: boundary.duplicate_guard_key,
             last_consumed_segment_id: boundary.last_consumed_segment_id,
-            note: format!("ASR segment was not consumed because decoder call is not ready. blocker={}", boundary.blocker),
+            note: format!(
+                "ASR segment was not consumed because decoder call is not ready. blocker={}",
+                boundary.blocker
+            ),
         };
     }
 
@@ -159,7 +179,8 @@ pub fn mark_live_asr_segment_consumed_after_success() -> AsrConsumeGuardReport {
         segment_id: state.segment_id,
         duplicate_guard_key: state.duplicate_guard_key,
         last_consumed_segment_id: Some(boundary.segment_id),
-        note: "ASR segment consume guard was updated after successful decoder execution.".to_string(),
+        note: "ASR segment consume guard was updated after successful decoder execution."
+            .to_string(),
     }
 }
 
@@ -180,7 +201,13 @@ fn segment_id(segment: &LiveTargetSegmentReport) -> String {
         segment.target_sample_rate_hz,
         segment.target_channels,
         segment.target_sample_count,
-        checksum_samples(segment.frame.as_ref().map(|frame| frame.samples.as_slice()).unwrap_or(&[]))
+        checksum_samples(
+            segment
+                .frame
+                .as_ref()
+                .map(|frame| frame.samples.as_slice())
+                .unwrap_or(&[])
+        )
     )
 }
 
@@ -188,7 +215,18 @@ fn duplicate_key(segment: &LiveTargetSegmentReport) -> String {
     if !segment.ready {
         return "live_segment_pending".to_string();
     }
-    format!("{}:{}:{}", segment.target_sample_rate_hz, segment.target_sample_count, checksum_samples(segment.frame.as_ref().map(|frame| frame.samples.as_slice()).unwrap_or(&[])))
+    format!(
+        "{}:{}:{}",
+        segment.target_sample_rate_hz,
+        segment.target_sample_count,
+        checksum_samples(
+            segment
+                .frame
+                .as_ref()
+                .map(|frame| frame.samples.as_slice())
+                .unwrap_or(&[])
+        )
+    )
 }
 
 fn checksum_samples(samples: &[f32]) -> u64 {

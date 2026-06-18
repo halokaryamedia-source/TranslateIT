@@ -1,7 +1,8 @@
 use serde::{Deserialize, Serialize};
 
 use crate::engine::native_execution::{
-    prepare_native_execution_contract, NativeExecutionContractRequest, NativeExecutionContractResult,
+    prepare_native_execution_contract, NativeExecutionContractRequest,
+    NativeExecutionContractResult,
 };
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -30,7 +31,10 @@ pub fn prepare_native_stage_runners(request: NativeStageRunnerRequest) -> Native
     let mut blocked_stage_count = 0;
     let mut blockers = Vec::new();
 
-    for result in [&asr, &translation, &output].iter().filter_map(|item| item.as_ref()) {
+    for result in [&asr, &translation, &output]
+        .iter()
+        .filter_map(|item| item.as_ref())
+    {
         if result.ready_to_execute {
             ready_stage_count += 1;
         } else {

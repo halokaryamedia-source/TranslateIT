@@ -12,7 +12,10 @@ use super::inference::backend::NativeInferenceBackendSelection;
 use super::inference::backend_validation::NativeCudaBackendValidationReport;
 use super::inference::cuda_probe::CudaProbeReport;
 use super::paths::ProjectPaths;
-use super::runtime_state::{latest_runtime_handoff_state, latest_runtime_session_state, RuntimeHandoffStateReport, RuntimeSessionStateReport};
+use super::runtime_state::{
+    latest_runtime_handoff_state, latest_runtime_session_state, RuntimeHandoffStateReport,
+    RuntimeSessionStateReport,
+};
 use super::session_store::{current_session_store_status, SessionStoreStatus};
 
 const MAX_DIAGNOSTIC_BLOCKERS: usize = 24;
@@ -53,7 +56,8 @@ impl RuntimeDiagnostics {
         let runtime_handoff_state = latest_runtime_handoff_state();
         let runtime_session_state = latest_runtime_session_state();
         let cuda_probe = CudaProbeReport::probe_host();
-        let backend_validation = NativeCudaBackendValidationReport::validate_ctranslate2_cuda_candidate();
+        let backend_validation =
+            NativeCudaBackendValidationReport::validate_ctranslate2_cuda_candidate();
         let ctranslate2_candidate = NativeInferenceBackendSelection::ctranslate2_candidate();
 
         let native_inference_candidates = vec![
@@ -64,13 +68,24 @@ impl RuntimeDiagnostics {
             ),
         ];
 
-        let asr_adapter_plan = asr.plan_with_backend(ctranslate2_candidate.clone(), cuda_probe.clone());
-        let translation_adapter_plan = translation.plan_with_backend(ctranslate2_candidate, cuda_probe.clone());
+        let asr_adapter_plan =
+            asr.plan_with_backend(ctranslate2_candidate.clone(), cuda_probe.clone());
+        let translation_adapter_plan =
+            translation.plan_with_backend(ctranslate2_candidate, cuda_probe.clone());
 
         let cuda_backend_candidates = vec![
-            format!("native-ctranslate2-ffi: {}", CudaBackendStrategy::NativeCTranslate2Ffi.risk_note()),
-            format!("native-onnxruntime-cuda: {}", CudaBackendStrategy::NativeOnnxRuntimeCuda.risk_note()),
-            format!("native-tensorrt-adapter: {}", CudaBackendStrategy::NativeTensorRtAdapter.risk_note()),
+            format!(
+                "native-ctranslate2-ffi: {}",
+                CudaBackendStrategy::NativeCTranslate2Ffi.risk_note()
+            ),
+            format!(
+                "native-onnxruntime-cuda: {}",
+                CudaBackendStrategy::NativeOnnxRuntimeCuda.risk_note()
+            ),
+            format!(
+                "native-tensorrt-adapter: {}",
+                CudaBackendStrategy::NativeTensorRtAdapter.risk_note()
+            ),
         ];
 
         let mut blockers = vec![

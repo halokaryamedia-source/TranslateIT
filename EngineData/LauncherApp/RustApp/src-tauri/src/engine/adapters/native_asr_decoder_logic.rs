@@ -63,7 +63,13 @@ pub fn analyze_native_asr_decoder_bridge() -> NativeAsrDecoderBridgeReport {
 
 pub fn mark_segment_consumed_after_verified_decoder_success() -> NativeAsrDecoderBridgeReport {
     let mut report = analyze_native_asr_decoder_bridge();
-    if report.ok && report.transcript_text.as_ref().map(|text| !text.trim().is_empty()).unwrap_or(false) {
+    if report.ok
+        && report
+            .transcript_text
+            .as_ref()
+            .map(|text| !text.trim().is_empty())
+            .unwrap_or(false)
+    {
         report.consume_guard = Some(mark_live_asr_segment_consumed_after_success());
     } else {
         report.note = format!(

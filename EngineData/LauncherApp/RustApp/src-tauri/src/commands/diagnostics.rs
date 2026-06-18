@@ -1,45 +1,88 @@
 use crate::engine;
-use crate::engine::adapters::internal_validation_gate_logic::{analyze_internal_validation_gate, InternalValidationGateReport};
-use crate::engine::adapters::live_pipeline_compact_status_logic::{build_live_pipeline_compact_status, LivePipelineCompactStatusReport};
-use crate::engine::adapters::live_runtime_pipeline_gate_logic::{analyze_live_runtime_pipeline_gate, LiveRuntimePipelineGateReport};
-use crate::engine::adapters::migration_closure_gate_logic::{analyze_migration_closure_gate, MigrationClosureGateReport, MigrationClosureGateRequest};
-use crate::engine::adapters::realtime_status_payload_logic::{build_realtime_status_payload, RealtimeStatusPayload};
-use crate::engine::adapters::runtime_readiness_bundle_logic::{analyze_runtime_readiness_bundle, RuntimeReadinessBundleReport};
-use crate::engine::adapters::runtime_status_bundle_logic::{build_runtime_status_bundle, RuntimeStatusBundleReport};
-use crate::engine::adapters::segment_flow_logic::{analyze_realtime_translate_stream, RealtimeTranslateStreamReport, RealtimeTranslateStreamRequest};
+use crate::engine::adapters::internal_validation_gate_logic::{
+    analyze_internal_validation_gate, InternalValidationGateReport,
+};
+use crate::engine::adapters::live_pipeline_compact_status_logic::{
+    build_live_pipeline_compact_status, LivePipelineCompactStatusReport,
+};
+use crate::engine::adapters::live_runtime_pipeline_gate_logic::{
+    analyze_live_runtime_pipeline_gate, LiveRuntimePipelineGateReport,
+};
+use crate::engine::adapters::migration_closure_gate_logic::{
+    analyze_migration_closure_gate, MigrationClosureGateReport, MigrationClosureGateRequest,
+};
+use crate::engine::adapters::realtime_status_payload_logic::{
+    build_realtime_status_payload, RealtimeStatusPayload,
+};
+use crate::engine::adapters::runtime_readiness_bundle_logic::{
+    analyze_runtime_readiness_bundle, RuntimeReadinessBundleReport,
+};
+use crate::engine::adapters::runtime_status_bundle_logic::{
+    build_runtime_status_bundle, RuntimeStatusBundleReport,
+};
+use crate::engine::adapters::segment_flow_logic::{
+    analyze_realtime_translate_stream, RealtimeTranslateStreamReport,
+    RealtimeTranslateStreamRequest,
+};
 use crate::engine::diagnostics::RuntimeDiagnostics;
 use crate::engine::inference::backend_validation::NativeCudaBackendValidationReport;
 use crate::engine::state::EngineStatus;
 
 #[tauri::command]
-pub fn get_engine_status() -> EngineStatus { engine::current_status() }
+pub fn get_engine_status() -> EngineStatus {
+    engine::current_status()
+}
 
 #[tauri::command]
-pub fn get_runtime_diagnostics() -> RuntimeDiagnostics { engine::runtime_diagnostics() }
+pub fn get_runtime_diagnostics() -> RuntimeDiagnostics {
+    engine::runtime_diagnostics()
+}
 
 #[tauri::command]
-pub fn analyze_runtime_readiness() -> RuntimeReadinessBundleReport { analyze_runtime_readiness_bundle() }
+pub fn analyze_runtime_readiness() -> RuntimeReadinessBundleReport {
+    analyze_runtime_readiness_bundle()
+}
 
 #[tauri::command]
-pub fn get_runtime_status_bundle() -> RuntimeStatusBundleReport { build_runtime_status_bundle() }
+pub fn get_runtime_status_bundle() -> RuntimeStatusBundleReport {
+    build_runtime_status_bundle()
+}
 
 #[tauri::command]
-pub fn get_realtime_status_payload() -> RealtimeStatusPayload { build_realtime_status_payload() }
+pub fn get_realtime_status_payload() -> RealtimeStatusPayload {
+    build_realtime_status_payload()
+}
 
 #[tauri::command]
-pub fn analyze_realtime_translate_stream_state(request: RealtimeTranslateStreamRequest) -> RealtimeTranslateStreamReport { analyze_realtime_translate_stream(request) }
+pub fn analyze_realtime_translate_stream_state(
+    request: RealtimeTranslateStreamRequest,
+) -> RealtimeTranslateStreamReport {
+    analyze_realtime_translate_stream(request)
+}
 
 #[tauri::command]
-pub fn analyze_live_pipeline_gate() -> LiveRuntimePipelineGateReport { analyze_live_runtime_pipeline_gate() }
+pub fn analyze_live_pipeline_gate() -> LiveRuntimePipelineGateReport {
+    analyze_live_runtime_pipeline_gate()
+}
 
 #[tauri::command]
-pub fn get_live_pipeline_compact_status() -> LivePipelineCompactStatusReport { build_live_pipeline_compact_status() }
+pub fn get_live_pipeline_compact_status() -> LivePipelineCompactStatusReport {
+    build_live_pipeline_compact_status()
+}
 
 #[tauri::command]
-pub fn analyze_internal_validation() -> InternalValidationGateReport { analyze_internal_validation_gate() }
+pub fn analyze_internal_validation() -> InternalValidationGateReport {
+    analyze_internal_validation_gate()
+}
 
 #[tauri::command]
-pub fn analyze_migration_closure(request: MigrationClosureGateRequest) -> MigrationClosureGateReport { analyze_migration_closure_gate(request) }
+pub fn analyze_migration_closure(
+    request: MigrationClosureGateRequest,
+) -> MigrationClosureGateReport {
+    analyze_migration_closure_gate(request)
+}
 
 #[tauri::command]
-pub fn validate_native_cuda_backend() -> NativeCudaBackendValidationReport { NativeCudaBackendValidationReport::validate_ctranslate2_cuda_candidate() }
+pub fn validate_native_cuda_backend() -> NativeCudaBackendValidationReport {
+    NativeCudaBackendValidationReport::validate_ctranslate2_cuda_candidate()
+}

@@ -64,7 +64,10 @@ struct LiveAudioWindow {
 
 static LIVE_AUDIO_WINDOW: OnceLock<Mutex<Option<LiveAudioWindow>>> = OnceLock::new();
 
-pub fn reset_live_audio_buffer(sample_rate_hz: u32, source_channels: u16) -> LiveAudioBufferStatusReport {
+pub fn reset_live_audio_buffer(
+    sample_rate_hz: u32,
+    source_channels: u16,
+) -> LiveAudioBufferStatusReport {
     let max_buffer_samples = max_buffer_samples(sample_rate_hz);
     let window = LiveAudioWindow {
         sample_rate_hz,
@@ -87,11 +90,18 @@ pub fn clear_live_audio_buffer() -> LiveAudioBufferStatusReport {
     if let Ok(mut guard) = store.lock() {
         *guard = None;
     }
-    inactive_status("live_audio_buffer:cleared", "Live audio rolling buffer was cleared.")
+    inactive_status(
+        "live_audio_buffer:cleared",
+        "Live audio rolling buffer was cleared.",
+    )
 }
 
 pub fn append_live_f32_samples(samples: &[f32], sample_rate_hz: u32, source_channels: u16) {
-    append_mono_samples(&downmix_f32(samples, source_channels), sample_rate_hz, source_channels);
+    append_mono_samples(
+        &downmix_f32(samples, source_channels),
+        sample_rate_hz,
+        source_channels,
+    );
 }
 
 pub fn append_live_i16_samples(samples: &[i16], sample_rate_hz: u32, source_channels: u16) {
@@ -99,7 +109,11 @@ pub fn append_live_i16_samples(samples: &[i16], sample_rate_hz: u32, source_chan
         .iter()
         .map(|sample| (*sample as f32 / i16::MAX as f32).clamp(-1.0, 1.0))
         .collect::<Vec<_>>();
-    append_mono_samples(&downmix_f32(&converted, source_channels), sample_rate_hz, source_channels);
+    append_mono_samples(
+        &downmix_f32(&converted, source_channels),
+        sample_rate_hz,
+        source_channels,
+    );
 }
 
 pub fn append_live_u16_samples(samples: &[u16], sample_rate_hz: u32, source_channels: u16) {
@@ -107,7 +121,11 @@ pub fn append_live_u16_samples(samples: &[u16], sample_rate_hz: u32, source_chan
         .iter()
         .map(|sample| ((*sample as f32 / u16::MAX as f32) * 2.0 - 1.0).clamp(-1.0, 1.0))
         .collect::<Vec<_>>();
-    append_mono_samples(&downmix_f32(&converted, source_channels), sample_rate_hz, source_channels);
+    append_mono_samples(
+        &downmix_f32(&converted, source_channels),
+        sample_rate_hz,
+        source_channels,
+    );
 }
 
 pub fn live_audio_buffer_status() -> LiveAudioBufferStatusReport {
@@ -164,8 +182,12 @@ fn append_mono_samples(samples_mono: &[f32], sample_rate_hz: u32, source_channel
         window.frames_received = 0;
     }
 
-    window.frames_received = window.frames_received.saturating_add(samples_mono.len() as u64);
-    window.samples_mono.extend(samples_mono.iter().map(|sample| sample.clamp(-1.0, 1.0)));
+    window.frames_received = window
+        .frames_received
+        .saturating_add(samples_mono.len() as u64);
+    window
+        .samples_mono
+        .extend(samples_mono.iter().map(|sample| sample.clamp(-1.0, 1.0)));
 
     if window.samples_mono.len() > window.max_buffer_samples {
         let excess = window.samples_mono.len() - window.max_buffer_samples;
@@ -175,7 +197,10 @@ fn append_mono_samples(samples_mono: &[f32], sample_rate_hz: u32, source_channel
 
 fn build_status(window: Option<&LiveAudioWindow>) -> LiveAudioBufferStatusReport {
     let Some(window) = window else {
-        return inactive_status("live_audio_buffer:not_active", "Live audio rolling buffer is not active.");
+        return inactive_status(
+            "live_audio_buffer:not_active",
+            "Live audio rolling buffer is not active.",
+        );
     };
 
     let buffered_samples = window.samples_mono.len();
@@ -245,22 +270,39 @@ fn build_status(window: Option<&LiveAudioWindow>) -> LiveAudioBufferStatusReport
 
 fn build_target_segment(window: Option<&LiveAudioWindow>) -> LiveTargetSegmentReport {
     let Some(window) = window else {
-        return inactive_segment("live_target_segment:no_audio_buffer", "No live audio buffer exists yet.");
+        return inactive_segment(
+            "live_target_segment:no_audio_buffer",
+            "No live audio buffer exists yet.",
+        );
     };
 
     let status = build_status(Some(window));
     if !status.ready_for_target_asr_frame {
-        return blocked_segment(&status.blocker, &status.note, Some(window), &status.evidence, &status.vad_result);
+        return blocked_segment(
+            &status.blocker,
+            &status.note,
+            Some(window),
+            &status.evidence,
+            &status.vad_result,
+        );
     }
 
-    let source_take_samples = samples_for_duration(window.sample_rate_hz, MAX_SEGMENT_MS).min(window.samples_mono.len());
-    let source_start = window.samples_mono.len().saturating_sub(source_take_samples);
+    let source_take_samples =
+        samples_for_duration(window.sample_rate_hz, MAX_SEGMENT_MS).min(window.samples_mono.len());
+    let source_start = window
+        .samples_mono
+        .len()
+        .saturating_sub(source_take_samples);
     let source_samples = window.samples_mono[source_start..].to_vec();
     let source_duration_ms = duration_ms(source_samples.len(), window.sample_rate_hz);
     let target_samples = if window.sample_rate_hz == TARGET_SAMPLE_RATE_HZ {
         source_samples.clone()
     } else {
-        resample_linear(&source_samples, window.sample_rate_hz, TARGET_SAMPLE_RATE_HZ)
+        resample_linear(
+            &source_samples,
+            window.sample_rate_hz,
+            TARGET_SAMPLE_RATE_HZ,
+        )
     };
     let target_duration_ms = duration_ms(target_samples.len(), TARGET_SAMPLE_RATE_HZ);
     let evidence = AudioEvidenceReport::from_samples(&target_samples);
@@ -328,13 +370,19 @@ fn build_target_segment(window: Option<&LiveAudioWindow>) -> LiveTargetSegmentRe
 fn downmix_f32(samples: &[f32], source_channels: u16) -> Vec<f32> {
     let channel_count = usize::from(source_channels.max(1));
     if channel_count == 1 {
-        return samples.iter().map(|sample| sample.clamp(-1.0, 1.0)).collect();
+        return samples
+            .iter()
+            .map(|sample| sample.clamp(-1.0, 1.0))
+            .collect();
     }
 
     samples
         .chunks(channel_count)
         .map(|frame| {
-            let sum = frame.iter().map(|sample| sample.clamp(-1.0, 1.0)).sum::<f32>();
+            let sum = frame
+                .iter()
+                .map(|sample| sample.clamp(-1.0, 1.0))
+                .sum::<f32>();
             sum / frame.len().max(1) as f32
         })
         .collect()
@@ -348,7 +396,8 @@ fn resample_linear(samples: &[f32], source_rate: u32, target_rate: u32) -> Vec<f
         return samples.to_vec();
     }
 
-    let target_len = ((samples.len() as u64 * target_rate as u64) / source_rate as u64).max(1) as usize;
+    let target_len =
+        ((samples.len() as u64 * target_rate as u64) / source_rate as u64).max(1) as usize;
     if samples.len() == 1 {
         return vec![samples[0]; target_len];
     }
@@ -454,12 +503,18 @@ fn blocked_segment(
         source_channels: window.map(|value| value.source_channels),
         target_sample_rate_hz: TARGET_SAMPLE_RATE_HZ,
         target_channels: TARGET_CHANNELS,
-        source_duration_ms: window.map(|value| duration_ms(value.samples_mono.len(), value.sample_rate_hz)).unwrap_or(0),
+        source_duration_ms: window
+            .map(|value| duration_ms(value.samples_mono.len(), value.sample_rate_hz))
+            .unwrap_or(0),
         target_duration_ms: 0,
         source_sample_count: window.map(|value| value.samples_mono.len()).unwrap_or(0),
         target_sample_count: 0,
-        resampled: window.map(|value| value.sample_rate_hz != TARGET_SAMPLE_RATE_HZ).unwrap_or(false),
-        downmixed_to_mono: window.map(|value| value.source_channels != TARGET_CHANNELS).unwrap_or(false),
+        resampled: window
+            .map(|value| value.sample_rate_hz != TARGET_SAMPLE_RATE_HZ)
+            .unwrap_or(false),
+        downmixed_to_mono: window
+            .map(|value| value.source_channels != TARGET_CHANNELS)
+            .unwrap_or(false),
         evidence: evidence.clone(),
         vad_result: vad_result.clone(),
         frame: None,

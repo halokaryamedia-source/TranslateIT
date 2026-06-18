@@ -2,7 +2,9 @@ use serde::{Deserialize, Serialize};
 use std::path::Path;
 
 use crate::engine::native_execution::{NativeExecutionContractRequest, NativeExecutionRequest};
-use crate::engine::native_runners::{prepare_native_stage_runners, NativeStageRunnerReport, NativeStageRunnerRequest};
+use crate::engine::native_runners::{
+    prepare_native_stage_runners, NativeStageRunnerReport, NativeStageRunnerRequest,
+};
 
 const MAX_BRIDGE_ID_CHARS: usize = 96;
 const MAX_BRIDGE_TEXT_CHARS: usize = 8_000;
@@ -32,11 +34,20 @@ pub struct NativeExecutionBridgeReport {
     pub note: String,
 }
 
-pub fn build_native_execution_bridge(request: NativeExecutionBridgeRequest) -> NativeExecutionBridgeReport {
+pub fn build_native_execution_bridge(
+    request: NativeExecutionBridgeRequest,
+) -> NativeExecutionBridgeReport {
     let segment_id = safe_id(&request.segment_id);
-    let source_text = request.source_text.as_deref().map(compact_text).filter(|value| !value.is_empty());
+    let source_text = request
+        .source_text
+        .as_deref()
+        .map(compact_text)
+        .filter(|value| !value.is_empty());
     let asr_input_ready = has_value(&request.source_audio_path);
-    let translation_input_ready = source_text.as_ref().map(|value| !value.is_empty()).unwrap_or(false);
+    let translation_input_ready = source_text
+        .as_ref()
+        .map(|value| !value.is_empty())
+        .unwrap_or(false);
     let output_input_ready = translation_input_ready || has_value(&request.output_audio_path);
     let asr_model_ready = path_exists(&request.asr_model_path);
     let translation_model_ready = path_exists(&request.translation_model_path);
@@ -104,8 +115,10 @@ pub fn build_native_execution_bridge(request: NativeExecutionBridgeRequest) -> N
         translation: Some(translation),
         output: Some(output),
     });
-    let ready_for_execution = runner_report.blockers.is_empty() && runner_report.ready_stage_count == 3;
-    let realtime_stack = "faster-whisper-large-v3-turbo + marianmt-id-en + piper-en-fast".to_string();
+    let ready_for_execution =
+        runner_report.blockers.is_empty() && runner_report.ready_stage_count == 3;
+    let realtime_stack =
+        "faster-whisper-large-v3-turbo + marianmt-id-en + piper-en-fast".to_string();
     let note = if ready_for_execution {
         format!("Native execution bridge is ready to enter local realtime worker integration using {realtime_stack}.")
     } else {
@@ -123,17 +136,30 @@ pub fn build_native_execution_bridge(request: NativeExecutionBridgeRequest) -> N
 }
 
 fn has_value(value: &Option<String>) -> bool {
-    value.as_ref().map(|text| !text.trim().is_empty()).unwrap_or(false)
+    value
+        .as_ref()
+        .map(|text| !text.trim().is_empty())
+        .unwrap_or(false)
 }
 
 fn safe_id(value: &str) -> String {
     let clean = value
         .trim()
         .chars()
-        .map(|character| if character.is_ascii_alphanumeric() || matches!(character, '-' | '_') { character } else { '_' })
+        .map(|character| {
+            if character.is_ascii_alphanumeric() || matches!(character, '-' | '_') {
+                character
+            } else {
+                '_'
+            }
+        })
         .take(MAX_BRIDGE_ID_CHARS)
         .collect::<String>();
-    if clean.is_empty() { "segment".to_string() } else { clean }
+    if clean.is_empty() {
+        "segment".to_string()
+    } else {
+        clean
+    }
 }
 
 fn compact_text(value: &str) -> String {

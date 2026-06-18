@@ -1,17 +1,32 @@
 use serde::{Deserialize, Serialize};
 
-use crate::engine::audio::noise_filter::{classify_noise, AudioNoiseAssessment, NoiseAssessmentRequest};
-use crate::engine::audio::preprocess::{preprocess_audio, AudioPreprocessRequest, PreprocessingResult};
-use crate::engine::audio::vad::{evaluate_segment_decision, VadDecisionReport, VadSegmentDecisionRequest};
-use crate::engine::native_execution::{plan_native_execution_batch, NativeExecutionBatchPlan, NativeExecutionBatchRequest};
+use crate::engine::audio::noise_filter::{
+    classify_noise, AudioNoiseAssessment, NoiseAssessmentRequest,
+};
+use crate::engine::audio::preprocess::{
+    preprocess_audio, AudioPreprocessRequest, PreprocessingResult,
+};
+use crate::engine::audio::vad::{
+    evaluate_segment_decision, VadDecisionReport, VadSegmentDecisionRequest,
+};
+use crate::engine::native_execution::{
+    plan_native_execution_batch, NativeExecutionBatchPlan, NativeExecutionBatchRequest,
+};
 
 use super::asr_model_logic::{build_asr_profile_plan, AsrProfilePlan, AsrProfileRequest};
-use super::asr_quality_logic::{evaluate_asr_quality, AsrQualityLogicDecision, AsrQualityLogicRequest};
+use super::asr_quality_logic::{
+    evaluate_asr_quality, AsrQualityLogicDecision, AsrQualityLogicRequest,
+};
 use super::language_logic::{run_language_logic, LanguageLogicReport, LanguageLogicRequest};
 use super::latency_logic::{build_latency_logic, LatencyLogicReport, LatencyLogicRequest};
-use super::pipeline_logic::{check_stale_job, decide_pipeline, PipelineDecisionReport, PipelineDecisionRequest, StaleJobGuardReport, StaleJobGuardRequest};
+use super::pipeline_logic::{
+    check_stale_job, decide_pipeline, PipelineDecisionReport, PipelineDecisionRequest,
+    StaleJobGuardReport, StaleJobGuardRequest,
+};
 use super::playback_logic::{plan_playback, PlaybackLogicRequest, PlaybackLogicResult};
-use super::translation_logic::{run_translation_logic, TranslationLogicRequest, TranslationLogicResult};
+use super::translation_logic::{
+    run_translation_logic, TranslationLogicRequest, TranslationLogicResult,
+};
 
 const MAX_ORCHESTRATION_ID_CHARS: usize = 96;
 const MAX_ORCHESTRATION_BLOCKER_CHARS: usize = 180;
@@ -56,7 +71,9 @@ pub struct RuntimeOrchestrationReport {
     pub blockers: Vec<String>,
 }
 
-pub fn run_runtime_orchestration(mut request: RuntimeOrchestrationRequest) -> RuntimeOrchestrationReport {
+pub fn run_runtime_orchestration(
+    mut request: RuntimeOrchestrationRequest,
+) -> RuntimeOrchestrationReport {
     let segment_id = safe_orchestration_id(&request.segment_id);
     let preprocess = preprocess_audio(request.preprocess.clone());
     let noise = classify_noise(request.noise.clone());
@@ -84,13 +101,26 @@ pub fn run_runtime_orchestration(mut request: RuntimeOrchestrationRequest) -> Ru
 
     let playback = plan_playback(request.playback.clone());
     let native_execution = plan_native_execution_batch(request.native_execution.clone());
-    let blockers = compact_blockers(build_blockers(&noise, &vad, &asr_profile, &asr_quality, &pipeline, &stale_guard, &translation, &playback, &native_execution));
+    let blockers = compact_blockers(build_blockers(
+        &noise,
+        &vad,
+        &asr_profile,
+        &asr_quality,
+        &pipeline,
+        &stale_guard,
+        &translation,
+        &playback,
+        &native_execution,
+    ));
     let accepted = blockers.is_empty();
     let stage = if accepted { "planned" } else { "blocked" }.to_string();
     let summary = if accepted {
         "Runtime orchestration plan accepted. Native execution may proceed when adapters are connected.".to_string()
     } else {
-        format!("Runtime orchestration blocked by {} guard(s).", blockers.len())
+        format!(
+            "Runtime orchestration blocked by {} guard(s).",
+            blockers.len()
+        )
     };
 
     RuntimeOrchestrationReport {
@@ -138,8 +168,14 @@ fn build_blockers(
     if !asr_quality.accepted {
         blockers.push(format!("asr_quality:{}", asr_quality.reason));
     }
-    if !pipeline.accepted || pipeline.asr_status == "blocked" || pipeline.translation_status == "blocked" {
-        blockers.push(format!("pipeline:{}:{}", pipeline.asr_status, pipeline.translation_status));
+    if !pipeline.accepted
+        || pipeline.asr_status == "blocked"
+        || pipeline.translation_status == "blocked"
+    {
+        blockers.push(format!(
+            "pipeline:{}:{}",
+            pipeline.asr_status, pipeline.translation_status
+        ));
     }
     if stale_guard.stale_job_rejected {
         blockers.push(format!("stale_job:{}", stale_guard.reason));
@@ -163,16 +199,33 @@ fn safe_orchestration_id(value: &str) -> String {
     let clean = value
         .trim()
         .chars()
-        .map(|character| if character.is_ascii_alphanumeric() || matches!(character, '-' | '_') { character } else { '_' })
+        .map(|character| {
+            if character.is_ascii_alphanumeric() || matches!(character, '-' | '_') {
+                character
+            } else {
+                '_'
+            }
+        })
         .take(MAX_ORCHESTRATION_ID_CHARS)
         .collect::<String>();
-    if clean.is_empty() { "segment".to_string() } else { clean }
+    if clean.is_empty() {
+        "segment".to_string()
+    } else {
+        clean
+    }
 }
 
 fn compact_blockers(values: Vec<String>) -> Vec<String> {
     values
         .into_iter()
-        .map(|value| value.trim().chars().filter(|character| !character.is_control()).take(MAX_ORCHESTRATION_BLOCKER_CHARS).collect::<String>())
+        .map(|value| {
+            value
+                .trim()
+                .chars()
+                .filter(|character| !character.is_control())
+                .take(MAX_ORCHESTRATION_BLOCKER_CHARS)
+                .collect::<String>()
+        })
         .filter(|value| !value.is_empty())
         .take(MAX_ORCHESTRATION_BLOCKERS)
         .collect()

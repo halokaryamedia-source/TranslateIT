@@ -1,6 +1,8 @@
 use serde::Serialize;
 
-use crate::engine::transcript_session::{summarize_transcript_session, TranscriptSessionRecord, TranscriptSessionSummary};
+use crate::engine::transcript_session::{
+    summarize_transcript_session, TranscriptSessionRecord, TranscriptSessionSummary,
+};
 
 #[derive(Debug, Clone, Serialize)]
 pub struct TranscriptSessionReadinessReport {
@@ -9,7 +11,9 @@ pub struct TranscriptSessionReadinessReport {
     pub blockers: Vec<String>,
 }
 
-pub fn analyze_transcript_session_readiness(session: TranscriptSessionRecord) -> TranscriptSessionReadinessReport {
+pub fn analyze_transcript_session_readiness(
+    session: TranscriptSessionRecord,
+) -> TranscriptSessionReadinessReport {
     let summary = summarize_transcript_session(&session);
     let mut blockers = Vec::new();
     if session.session_id.trim().is_empty() {

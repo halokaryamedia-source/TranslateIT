@@ -77,7 +77,11 @@ pub fn record_realtime_handoff_report(report: &RealtimeHandoffReport) -> Runtime
         ready_for_realtime_handoff: report.ready_for_realtime_handoff,
         blocker_count: blockers.len(),
         blockers,
-        note: compact_runtime_text(&report.note, MAX_RUNTIME_NOTE_CHARS, "handoff status unavailable"),
+        note: compact_runtime_text(
+            &report.note,
+            MAX_RUNTIME_NOTE_CHARS,
+            "handoff status unavailable",
+        ),
     };
 
     let store = RUNTIME_HANDOFF_STATE.get_or_init(|| Mutex::new(None));
@@ -89,10 +93,7 @@ pub fn record_realtime_handoff_report(report: &RealtimeHandoffReport) -> Runtime
 
 pub fn latest_runtime_handoff_state() -> RuntimeHandoffStateReport {
     let store = RUNTIME_HANDOFF_STATE.get_or_init(|| Mutex::new(None));
-    let snapshot = store
-        .lock()
-        .ok()
-        .and_then(|guard| guard.as_ref().cloned());
+    let snapshot = store.lock().ok().and_then(|guard| guard.as_ref().cloned());
     build_handoff_state_report(snapshot)
 }
 
@@ -113,15 +114,28 @@ pub fn clear_runtime_handoff_state() -> RuntimeHandoffStateReport {
     }
 }
 
-pub fn record_runtime_session_start(handoff_state: &RuntimeHandoffStateReport) -> RuntimeSessionStateReport {
+pub fn record_runtime_session_start(
+    handoff_state: &RuntimeHandoffStateReport,
+) -> RuntimeSessionStateReport {
     if !handoff_state.ready_for_start {
         return RuntimeSessionStateReport {
             has_active_session: false,
             snapshot: None,
             active_age_ms: None,
             ready_for_stop: false,
-            blocker: compact_runtime_text(&handoff_state.blocker, MAX_RUNTIME_BLOCKER_CHARS, "handoff:not_ready"),
-            note: format!("Runtime session start was blocked by handoff state. {}", compact_runtime_text(&handoff_state.note, MAX_RUNTIME_NOTE_CHARS, "handoff note unavailable")),
+            blocker: compact_runtime_text(
+                &handoff_state.blocker,
+                MAX_RUNTIME_BLOCKER_CHARS,
+                "handoff:not_ready",
+            ),
+            note: format!(
+                "Runtime session start was blocked by handoff state. {}",
+                compact_runtime_text(
+                    &handoff_state.note,
+                    MAX_RUNTIME_NOTE_CHARS,
+                    "handoff note unavailable"
+                )
+            ),
         };
     }
 
@@ -132,7 +146,8 @@ pub fn record_runtime_session_start(handoff_state: &RuntimeHandoffStateReport) -
             active_age_ms: None,
             ready_for_stop: false,
             blocker: "runtime_session:no_handoff_snapshot".to_string(),
-            note: "Runtime session start was blocked because no handoff snapshot was available.".to_string(),
+            note: "Runtime session start was blocked because no handoff snapshot was available."
+                .to_string(),
         };
     };
 
@@ -172,10 +187,7 @@ pub fn record_direct_live_capture_session() -> RuntimeSessionStateReport {
 
 pub fn latest_runtime_session_state() -> RuntimeSessionStateReport {
     let store = RUNTIME_SESSION_STATE.get_or_init(|| Mutex::new(None));
-    let snapshot = store
-        .lock()
-        .ok()
-        .and_then(|guard| guard.as_ref().cloned());
+    let snapshot = store.lock().ok().and_then(|guard| guard.as_ref().cloned());
     build_session_state_report(snapshot)
 }
 
@@ -194,7 +206,9 @@ pub fn clear_runtime_session_state() -> RuntimeSessionStateReport {
     }
 }
 
-fn store_runtime_session_snapshot(session_snapshot: RuntimeSessionSnapshot) -> RuntimeSessionStateReport {
+fn store_runtime_session_snapshot(
+    session_snapshot: RuntimeSessionSnapshot,
+) -> RuntimeSessionStateReport {
     let store = RUNTIME_SESSION_STATE.get_or_init(|| Mutex::new(None));
     if let Ok(mut guard) = store.lock() {
         *guard = Some(session_snapshot.clone());
@@ -203,7 +217,9 @@ fn store_runtime_session_snapshot(session_snapshot: RuntimeSessionSnapshot) -> R
     build_session_state_report(Some(session_snapshot))
 }
 
-fn build_handoff_state_report(snapshot: Option<RuntimeHandoffSnapshot>) -> RuntimeHandoffStateReport {
+fn build_handoff_state_report(
+    snapshot: Option<RuntimeHandoffSnapshot>,
+) -> RuntimeHandoffStateReport {
     match snapshot {
         Some(snapshot) => {
             let snapshot_age_ms = current_unix_ms().saturating_sub(snapshot.recorded_unix_ms);
@@ -258,7 +274,9 @@ fn build_handoff_state_report(snapshot: Option<RuntimeHandoffSnapshot>) -> Runti
     }
 }
 
-fn build_session_state_report(snapshot: Option<RuntimeSessionSnapshot>) -> RuntimeSessionStateReport {
+fn build_session_state_report(
+    snapshot: Option<RuntimeSessionSnapshot>,
+) -> RuntimeSessionStateReport {
     match snapshot {
         Some(snapshot) => {
             let active_age_ms = current_unix_ms().saturating_sub(snapshot.started_unix_ms);
@@ -268,7 +286,10 @@ fn build_session_state_report(snapshot: Option<RuntimeSessionSnapshot>) -> Runti
                 active_age_ms: Some(active_age_ms),
                 ready_for_stop: true,
                 blocker: String::new(),
-                note: format!("Runtime session is active in {} phase. age_ms={active_age_ms}.", compact_runtime_text(&snapshot.phase, MAX_RUNTIME_BLOCKER_CHARS, "unknown")),
+                note: format!(
+                    "Runtime session is active in {} phase. age_ms={active_age_ms}.",
+                    compact_runtime_text(&snapshot.phase, MAX_RUNTIME_BLOCKER_CHARS, "unknown")
+                ),
             }
         }
         None => RuntimeSessionStateReport {
@@ -298,24 +319,44 @@ fn compact_runtime_text(value: &str, max_chars: usize, fallback: &str) -> String
         .filter(|character| !is_unsafe_runtime_state_character(*character))
         .take(max_chars)
         .collect::<String>();
-    if clean.is_empty() { fallback.to_string() } else { clean }
+    if clean.is_empty() {
+        fallback.to_string()
+    } else {
+        clean
+    }
 }
 
 fn safe_runtime_id(value: &str, fallback: &str) -> String {
     let clean = value
         .trim()
         .chars()
-        .map(|character| if character.is_ascii_alphanumeric() || matches!(character, '-' | '_') { character } else { '_' })
+        .map(|character| {
+            if character.is_ascii_alphanumeric() || matches!(character, '-' | '_') {
+                character
+            } else {
+                '_'
+            }
+        })
         .take(MAX_RUNTIME_ID_CHARS)
         .collect::<String>();
-    if clean.is_empty() { fallback.to_string() } else { clean }
+    if clean.is_empty() {
+        fallback.to_string()
+    } else {
+        clean
+    }
 }
 
 fn compact_blockers(blockers: &[String]) -> Vec<String> {
     blockers
         .iter()
         .take(MAX_RUNTIME_BLOCKERS)
-        .map(|value| compact_runtime_text(value, MAX_RUNTIME_BLOCKER_CHARS, "runtime:blocker_unavailable"))
+        .map(|value| {
+            compact_runtime_text(
+                value,
+                MAX_RUNTIME_BLOCKER_CHARS,
+                "runtime:blocker_unavailable",
+            )
+        })
         .collect()
 }
 

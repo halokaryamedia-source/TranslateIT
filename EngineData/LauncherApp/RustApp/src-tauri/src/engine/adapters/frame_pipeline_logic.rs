@@ -1,7 +1,9 @@
 use serde::{Deserialize, Serialize};
 
 use crate::engine::audio::buffer::{inspect_frame, AudioFrameInspectionReport};
-use crate::engine::audio::preprocess::{preprocess_audio, AudioPreprocessRequest, PreprocessingResult};
+use crate::engine::audio::preprocess::{
+    preprocess_audio, AudioPreprocessRequest, PreprocessingResult,
+};
 use crate::engine::audio::AudioFrame;
 
 const MAX_FRAME_PIPELINE_DURATION_MS: u32 = 60_000;
@@ -55,12 +57,17 @@ pub fn analyze_frame_pipeline(request: FramePipelineRequest) -> FramePipelineRep
         blockers.push("preprocess:zero_duration".to_string());
     }
 
-    let ready_for_asr_preprocess = blockers.iter().all(|blocker| !blocker.starts_with("preprocess:"));
+    let ready_for_asr_preprocess = blockers
+        .iter()
+        .all(|blocker| !blocker.starts_with("preprocess:"));
     let ready_for_segment_builder = blockers.is_empty();
     let note = if ready_for_segment_builder {
         "Frame pipeline contract is ready for segment builder handoff.".to_string()
     } else {
-        format!("Frame pipeline contract is blocked by {} guard(s).", blockers.len())
+        format!(
+            "Frame pipeline contract is blocked by {} guard(s).",
+            blockers.len()
+        )
     };
 
     FramePipelineReport {
@@ -68,7 +75,10 @@ pub fn analyze_frame_pipeline(request: FramePipelineRequest) -> FramePipelineRep
         vad_passed,
         ready_for_segment_builder,
         ready_for_asr_preprocess,
-        duration_ms: asr_preprocess.stats.duration_ms.min(MAX_FRAME_PIPELINE_DURATION_MS),
+        duration_ms: asr_preprocess
+            .stats
+            .duration_ms
+            .min(MAX_FRAME_PIPELINE_DURATION_MS),
         input_state: compact_state(&asr_preprocess.stats.input_state),
         blockers,
         inspection,
@@ -79,7 +89,11 @@ pub fn analyze_frame_pipeline(request: FramePipelineRequest) -> FramePipelineRep
 
 fn safe_floor_rms(value: Option<f32>) -> f32 {
     let value = value.unwrap_or(0.0);
-    if value.is_finite() { value.max(0.0) } else { 0.0 }
+    if value.is_finite() {
+        value.max(0.0)
+    } else {
+        0.0
+    }
 }
 
 fn compact_state(value: &str) -> String {
@@ -89,5 +103,9 @@ fn compact_state(value: &str) -> String {
         .filter(|character| !character.is_control())
         .take(MAX_FRAME_PIPELINE_STATE_CHARS)
         .collect::<String>();
-    if clean.is_empty() { "unknown".to_string() } else { clean }
+    if clean.is_empty() {
+        "unknown".to_string()
+    } else {
+        clean
+    }
 }

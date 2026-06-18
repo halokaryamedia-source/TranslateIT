@@ -32,11 +32,20 @@ pub fn plan_runtime_capture_job(input_status: InputPreparationStatus) -> Runtime
     }
 
     let ready_for_capture_loop = blocker.is_empty();
-    let stage = if ready_for_capture_loop { "capture_ready" } else { "capture_blocked" }.to_string();
-    let note = if ready_for_capture_loop {
-        "Rust capture job plan is ready. Real microphone stream loop is still pending integration.".to_string()
+    let stage = if ready_for_capture_loop {
+        "capture_ready"
     } else {
-        format!("Rust capture job plan is blocked: {blocker}. {}", compact_note(&input_status.note))
+        "capture_blocked"
+    }
+    .to_string();
+    let note = if ready_for_capture_loop {
+        "Rust capture job plan is ready. Real microphone stream loop is still pending integration."
+            .to_string()
+    } else {
+        format!(
+            "Rust capture job plan is blocked: {blocker}. {}",
+            compact_note(&input_status.note)
+        )
     };
 
     RuntimeCaptureJobPlan {
@@ -59,7 +68,11 @@ fn compact_note(value: &str) -> String {
         .filter(|character| !character.is_control())
         .take(MAX_RUNTIME_JOB_NOTE_CHARS)
         .collect::<String>();
-    if clean.is_empty() { "Input status unavailable.".to_string() } else { clean }
+    if clean.is_empty() {
+        "Input status unavailable.".to_string()
+    } else {
+        clean
+    }
 }
 
 fn current_unix_ms() -> u128 {

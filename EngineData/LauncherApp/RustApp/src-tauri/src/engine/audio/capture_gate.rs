@@ -1,6 +1,9 @@
 use serde::{Deserialize, Serialize};
 
-use super::stream_build::{plan_native_capture_stream_build, NativeCaptureStreamBuildReport, NativeCaptureStreamBuildRequest};
+use super::stream_build::{
+    plan_native_capture_stream_build, NativeCaptureStreamBuildReport,
+    NativeCaptureStreamBuildRequest,
+};
 use crate::engine::runtime_state::RuntimeSessionStateReport;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -65,7 +68,10 @@ pub fn plan_native_capture_gate(
     let note = if ready_for_capture_start {
         "Native capture gate is ready for a later validated CPAL stream start. This gate does not open the microphone stream.".to_string()
     } else {
-        format!("Native capture gate is blocked. blocker_count={}", blockers.len())
+        format!(
+            "Native capture gate is blocked. blocker_count={}",
+            blockers.len()
+        )
     };
 
     NativeCaptureGateReport {

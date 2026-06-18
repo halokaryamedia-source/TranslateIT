@@ -63,11 +63,15 @@ pub fn analyze_stream_ownership(request: StreamOwnershipRequest) -> StreamOwners
     }
 
     let ready_to_start_stream = blockers.is_empty();
-    let ownership_granted = ready_to_start_stream || (requires_takeover && request.allow_takeover && input_status.prepared);
+    let ownership_granted = ready_to_start_stream
+        || (requires_takeover && request.allow_takeover && input_status.prepared);
     let note = if ready_to_start_stream {
         "Stream ownership contract is ready. Real CPAL stream creation is still deferred to runtime integration.".to_string()
     } else {
-        format!("Stream ownership contract is blocked by {} guard(s).", blockers.len())
+        format!(
+            "Stream ownership contract is blocked by {} guard(s).",
+            blockers.len()
+        )
     };
 
     StreamOwnershipReport {
@@ -94,7 +98,13 @@ fn sanitize_id(value: Option<&str>, fallback: &str) -> String {
         .unwrap_or_default()
         .trim()
         .chars()
-        .map(|ch| if ch.is_ascii_alphanumeric() || ch == '-' || ch == '_' { ch } else { '_' })
+        .map(|ch| {
+            if ch.is_ascii_alphanumeric() || ch == '-' || ch == '_' {
+                ch
+            } else {
+                '_'
+            }
+        })
         .take(MAX_STREAM_OWNER_ID_CHARS)
         .collect::<String>();
     if cleaned.is_empty() {

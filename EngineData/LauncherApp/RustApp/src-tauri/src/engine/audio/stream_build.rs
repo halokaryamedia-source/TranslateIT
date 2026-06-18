@@ -1,6 +1,8 @@
 use serde::{Deserialize, Serialize};
 
-use super::capture_plan::{plan_native_capture_stream, NativeCaptureStreamPlanReport, NativeCaptureStreamPlanRequest};
+use super::capture_plan::{
+    plan_native_capture_stream, NativeCaptureStreamPlanReport, NativeCaptureStreamPlanRequest,
+};
 use super::{TARGET_CHANNELS, TARGET_SAMPLE_RATE_HZ};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -81,7 +83,10 @@ pub fn plan_native_capture_stream_build(
     let note = if ready_for_stream_build {
         "Native capture stream build contract is ready for later CPAL stream construction. This report does not open the stream.".to_string()
     } else {
-        format!("Native capture stream build contract is blocked. blocker_count={}", blockers.len())
+        format!(
+            "Native capture stream build contract is blocked. blocker_count={}",
+            blockers.len()
+        )
     };
 
     NativeCaptureStreamBuildReport {

@@ -90,7 +90,8 @@ pub fn build_realtime_status_payload() -> RealtimeStatusPayload {
     let translation_ready = worker.realtime_translation_model_ready;
     let tts_ready = worker.tts_default_ready;
     let assets_ready = worker_available && asr_ready && translation_ready && tts_ready;
-    let fallback_active = !worker.ctranslate2_cuda_available || (worker.sapi_ready && !worker.piper_ready);
+    let fallback_active =
+        !worker.ctranslate2_cuda_available || (worker.sapi_ready && !worker.piper_ready);
     let mut missing = worker.blockers.clone();
     for blocker in &worker.tts_blockers {
         if !missing.contains(blocker) {
@@ -100,7 +101,10 @@ pub fn build_realtime_status_payload() -> RealtimeStatusPayload {
     if worker_available && !asr_ready && !missing.contains(&"asr_model_missing".to_string()) {
         missing.push("asr_model_missing".to_string());
     }
-    if worker_available && !translation_ready && !missing.contains(&"translation_model_missing".to_string()) {
+    if worker_available
+        && !translation_ready
+        && !missing.contains(&"translation_model_missing".to_string())
+    {
         missing.push("translation_model_missing".to_string());
     }
     if worker_available && !tts_ready && !missing.contains(&"tts_output_missing".to_string()) {
@@ -123,7 +127,10 @@ pub fn build_realtime_status_payload() -> RealtimeStatusPayload {
     } else if assets_ready && pipeline.ready_for_user_runtime {
         "Realtime pipeline is ready for local validation.".to_string()
     } else if !missing.is_empty() {
-        format!("Realtime assets or worker checks are incomplete: {} item(s).", missing.len())
+        format!(
+            "Realtime assets or worker checks are incomplete: {} item(s).",
+            missing.len()
+        )
     } else {
         format!(
             "Realtime pipeline progress is {}%; next action: {}.",
@@ -143,7 +150,11 @@ pub fn build_realtime_status_payload() -> RealtimeStatusPayload {
             target_ms: worker.realtime_target_latency_ms.unwrap_or(1000),
             last_total_ms: evidence_latency_ms(&evidence),
             p50_ms: None,
-            sample_count: if evidence_latency_ms(&evidence).is_some() { 1 } else { 0 },
+            sample_count: if evidence_latency_ms(&evidence).is_some() {
+                1
+            } else {
+                0
+            },
         },
         worker: RealtimeStatusWorkerPayload {
             available: worker_available,

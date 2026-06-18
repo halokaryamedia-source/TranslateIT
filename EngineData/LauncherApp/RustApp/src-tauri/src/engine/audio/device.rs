@@ -27,20 +27,28 @@ pub struct AudioDeviceDiscoveryReport {
 impl AudioDeviceDiscoveryReport {
     pub fn discover_native() -> Self {
         let host = cpal::default_host();
-        let default_input_name = host.default_input_device().and_then(|device| safe_device_name(&device, None));
-        let default_output_name = host.default_output_device().and_then(|device| safe_device_name(&device, None));
+        let default_input_name = host
+            .default_input_device()
+            .and_then(|device| safe_device_name(&device, None));
+        let default_output_name = host
+            .default_output_device()
+            .and_then(|device| safe_device_name(&device, None));
 
         let devices = match host.devices() {
             Ok(devices) => devices
                 .take(MAX_AUDIO_DISCOVERY_DEVICES)
                 .enumerate()
-                .map(|(index, device)| build_device_info(index, &device, &default_input_name, &default_output_name))
+                .map(|(index, device)| {
+                    build_device_info(index, &device, &default_input_name, &default_output_name)
+                })
                 .collect::<Vec<_>>(),
             Err(error) => {
                 return Self {
                     backend_id: format!("cpal-{}", host.id().name()),
                     devices: Vec::new(),
-                    blocker: Some(compact_blocker(&format!("Native Rust audio device discovery failed: {error}"))),
+                    blocker: Some(compact_blocker(&format!(
+                        "Native Rust audio device discovery failed: {error}"
+                    ))),
                 };
             }
         };
@@ -89,13 +97,21 @@ fn compact_audio_text(value: &str, max_chars: usize) -> String {
 
 fn compact_blocker(value: &str) -> String {
     let clean = compact_audio_text(value, MAX_AUDIO_BLOCKER_CHARS);
-    if clean.is_empty() { "audio_device:unknown_error".to_string() } else { clean }
+    if clean.is_empty() {
+        "audio_device:unknown_error".to_string()
+    } else {
+        clean
+    }
 }
 
 fn safe_device_name(device: &cpal::Device, fallback: Option<String>) -> Option<String> {
     let raw = device.name().ok().or(fallback)?;
     let clean = compact_audio_text(&raw, MAX_AUDIO_DEVICE_NAME_CHARS);
-    if clean.is_empty() { None } else { Some(clean) }
+    if clean.is_empty() {
+        None
+    } else {
+        Some(clean)
+    }
 }
 
 fn build_device_info(
@@ -109,18 +125,23 @@ fn build_device_info(
 
     let input_config = device.default_input_config().ok();
     let output_config = device.default_output_config().ok();
-    let max_input_channels = input_config.as_ref().map(|config| config.channels()).unwrap_or(0);
-    let max_output_channels = output_config.as_ref().map(|config| config.channels()).unwrap_or(0);
+    let max_input_channels = input_config
+        .as_ref()
+        .map(|config| config.channels())
+        .unwrap_or(0);
+    let max_output_channels = output_config
+        .as_ref()
+        .map(|config| config.channels())
+        .unwrap_or(0);
     let supports_target_format = input_config
         .as_ref()
         .map(|config| {
-            config.channels() >= TARGET_CHANNELS
-                && config.sample_rate().0 >= TARGET_SAMPLE_RATE_HZ
+            config.channels() >= TARGET_CHANNELS && config.sample_rate().0 >= TARGET_SAMPLE_RATE_HZ
         })
         .unwrap_or(false);
 
-    let is_default = default_input_name.as_ref() == Some(&name)
-        || default_output_name.as_ref() == Some(&name);
+    let is_default =
+        default_input_name.as_ref() == Some(&name) || default_output_name.as_ref() == Some(&name);
 
     AudioDeviceInfo {
         id: format!("cpal-device-{index}"),

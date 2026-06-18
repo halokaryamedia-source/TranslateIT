@@ -61,7 +61,9 @@ impl CalibrationProfile {
             return None;
         }
         let raw = fs::read_to_string(path).ok()?;
-        serde_json::from_str::<Self>(&raw).ok().map(|profile| profile.sanitized())
+        serde_json::from_str::<Self>(&raw)
+            .ok()
+            .map(|profile| profile.sanitized())
     }
 
     pub fn save_pretty(&self, path: &Path) -> io::Result<()> {
@@ -132,9 +134,17 @@ fn sanitize_optional_device_id(value: Option<String>) -> Option<String> {
         .collect::<String>()
         .trim()
         .to_string();
-    if clean.is_empty() { None } else { Some(clean) }
+    if clean.is_empty() {
+        None
+    } else {
+        Some(clean)
+    }
 }
 
 fn safe_metric(value: f32) -> f32 {
-    if value.is_finite() { value.max(0.0) } else { 0.0 }
+    if value.is_finite() {
+        value.max(0.0)
+    } else {
+        0.0
+    }
 }

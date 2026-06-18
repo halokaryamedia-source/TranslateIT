@@ -78,7 +78,8 @@ pub fn save_session_payload(mut payload: SavedSessionPayload) -> SessionSaveResu
             session_id,
             output_path: output_label,
             segment_count,
-            message: "Failed to save Rust session payload. Open Developer diagnostics for details.".to_string(),
+            message: "Failed to save Rust session payload. Open Developer diagnostics for details."
+                .to_string(),
         },
     }
 }
@@ -132,7 +133,13 @@ fn sanitize_session_id(value: &str) -> String {
     let cleaned = value
         .trim()
         .chars()
-        .map(|ch| if ch.is_ascii_alphanumeric() || ch == '-' || ch == '_' { ch } else { '_' })
+        .map(|ch| {
+            if ch.is_ascii_alphanumeric() || ch == '-' || ch == '_' {
+                ch
+            } else {
+                '_'
+            }
+        })
         .take(MAX_SESSION_ID_CHARS)
         .collect::<String>();
     if cleaned.is_empty() {

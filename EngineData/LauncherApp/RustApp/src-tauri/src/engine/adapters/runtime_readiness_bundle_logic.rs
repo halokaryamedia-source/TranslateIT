@@ -49,10 +49,8 @@ pub fn analyze_runtime_readiness_bundle() -> RuntimeReadinessBundleReport {
     let diagnostics = RuntimeDiagnostics::collect();
     let handoff_state = latest_runtime_handoff_state();
     let session_state = latest_runtime_session_state();
-    let capture_bridge = analyze_native_capture_bridge(
-        NativeCaptureBridgeRequest::default(),
-        session_state.clone(),
-    );
+    let capture_bridge =
+        analyze_native_capture_bridge(NativeCaptureBridgeRequest::default(), session_state.clone());
     let pipeline_gate = analyze_live_runtime_pipeline_gate();
     let start_gate = analyze_start_lifecycle_gate();
     let stop_gate = analyze_stop_lifecycle_gate();

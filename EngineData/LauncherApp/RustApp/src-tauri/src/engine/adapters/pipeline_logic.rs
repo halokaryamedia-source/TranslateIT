@@ -53,11 +53,23 @@ pub struct StaleJobGuardReport {
 pub fn decide_pipeline(request: PipelineDecisionRequest) -> PipelineDecisionReport {
     let mode = normalize_capture_mode(&request.capture_mode);
     let mut messages = Vec::new();
-    let reject_reason = request.vad_reason.clone().or(request.audio_reason.clone()).unwrap_or_default();
-    let reject_reason_code = if request.vad_accepted { String::new() } else { reject_reason_code(&reject_reason) };
+    let reject_reason = request
+        .vad_reason
+        .clone()
+        .or(request.audio_reason.clone())
+        .unwrap_or_default();
+    let reject_reason_code = if request.vad_accepted {
+        String::new()
+    } else {
+        reject_reason_code(&reject_reason)
+    };
     let accepted = request.vad_accepted;
-    let asr_required = matches!(mode.as_str(), CAPTURE_MODE_REAL_ASR_MOCK_TRANSLATION | CAPTURE_MODE_REAL_ASR_REAL_TRANSLATION);
-    let translation_required = mode == CAPTURE_MODE_REAL_ASR_REAL_TRANSLATION && request.should_translate;
+    let asr_required = matches!(
+        mode.as_str(),
+        CAPTURE_MODE_REAL_ASR_MOCK_TRANSLATION | CAPTURE_MODE_REAL_ASR_REAL_TRANSLATION
+    );
+    let translation_required =
+        mode == CAPTURE_MODE_REAL_ASR_REAL_TRANSLATION && request.should_translate;
     let asr_allowed = accepted && asr_required && request.asr_ready;
     let translation_allowed = asr_allowed && translation_required && request.translation_ready;
 
@@ -87,8 +99,22 @@ pub fn decide_pipeline(request: PipelineDecisionRequest) -> PipelineDecisionRepo
         translation_required,
         translation_allowed,
         output_requested: request.tts_requested && translation_allowed,
-        asr_status: if asr_allowed { "allowed" } else if asr_required { "blocked" } else { "not_required" }.to_string(),
-        translation_status: if translation_allowed { "allowed" } else if translation_required { "blocked" } else { "not_required" }.to_string(),
+        asr_status: if asr_allowed {
+            "allowed"
+        } else if asr_required {
+            "blocked"
+        } else {
+            "not_required"
+        }
+        .to_string(),
+        translation_status: if translation_allowed {
+            "allowed"
+        } else if translation_required {
+            "blocked"
+        } else {
+            "not_required"
+        }
+        .to_string(),
         event_messages: messages,
     }
 }
@@ -119,8 +145,12 @@ fn normalize_capture_mode(mode: &str) -> String {
     match mode.trim() {
         CAPTURE_MODE_DIAGNOSTIC_ONLY => CAPTURE_MODE_DIAGNOSTIC_ONLY.to_string(),
         CAPTURE_MODE_MOCK_PIPELINE => CAPTURE_MODE_MOCK_PIPELINE.to_string(),
-        CAPTURE_MODE_REAL_ASR_MOCK_TRANSLATION => CAPTURE_MODE_REAL_ASR_MOCK_TRANSLATION.to_string(),
-        CAPTURE_MODE_REAL_ASR_REAL_TRANSLATION => CAPTURE_MODE_REAL_ASR_REAL_TRANSLATION.to_string(),
+        CAPTURE_MODE_REAL_ASR_MOCK_TRANSLATION => {
+            CAPTURE_MODE_REAL_ASR_MOCK_TRANSLATION.to_string()
+        }
+        CAPTURE_MODE_REAL_ASR_REAL_TRANSLATION => {
+            CAPTURE_MODE_REAL_ASR_REAL_TRANSLATION.to_string()
+        }
         _ => CAPTURE_MODE_DIAGNOSTIC_ONLY.to_string(),
     }
 }
@@ -129,7 +159,11 @@ fn reject_reason_code(reason: &str) -> String {
     let lowered = reason.to_lowercase();
     if lowered.contains("silence") {
         "rejected_silence"
-    } else if lowered.contains("profan") || lowered.contains("nonsense") || lowered.contains("hallucination") || lowered.contains("contextless") {
+    } else if lowered.contains("profan")
+        || lowered.contains("nonsense")
+        || lowered.contains("hallucination")
+        || lowered.contains("contextless")
+    {
         "rejected_content"
     } else if lowered.contains("focus") {
         "rejected_focus"
@@ -145,5 +179,6 @@ fn reject_reason_code(reason: &str) -> String {
         "rejected_unknown"
     } else {
         "rejected_other"
-    }.to_string()
+    }
+    .to_string()
 }

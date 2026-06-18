@@ -78,14 +78,18 @@ impl RuntimeSettings {
 
     pub fn sanitized(mut self) -> Self {
         self.schema_version = self.schema_version.max(3);
-        self.runtime_profile = sanitize_runtime_profile(&self.runtime_profile, &self.audio.input_sensitivity);
+        self.runtime_profile =
+            sanitize_runtime_profile(&self.runtime_profile, &self.audio.input_sensitivity);
         self.source_language = sanitize_language(&self.source_language, "id");
         self.target_language = sanitize_language(&self.target_language, "en");
-        self.audio.input_device_id = sanitize_optional_runtime_text(self.audio.input_device_id.take());
-        self.audio.output_device_id = sanitize_optional_runtime_text(self.audio.output_device_id.take());
+        self.audio.input_device_id =
+            sanitize_optional_runtime_text(self.audio.input_device_id.take());
+        self.audio.output_device_id =
+            sanitize_optional_runtime_text(self.audio.output_device_id.take());
         self.audio.input_sensitivity = self.runtime_profile.clone();
         self.audio.sensitivity = self.audio.sensitivity.clamp(0.1, 3.0);
-        self.audio.voice_actor_profiles_root = sanitize_voice_root(&self.audio.voice_actor_profiles_root);
+        self.audio.voice_actor_profiles_root =
+            sanitize_voice_root(&self.audio.voice_actor_profiles_root);
         self.voice_actor_profile_id = sanitize_identifier(&self.voice_actor_profile_id);
         self.audio.use_custom_voice_actor = !self.voice_actor_profile_id.trim().is_empty();
         self.audio.auto_play_translation_voice = self.audio.auto_play_out_voice;
@@ -137,9 +141,17 @@ fn sanitize_runtime_profile(value: &str, legacy_input_sensitivity: &str) -> Stri
 
 fn sanitize_language(value: &str, fallback: &str) -> String {
     let text = clean_setting_text(value).to_lowercase();
-    if text.starts_with("ind") || text.starts_with("id") { return "id".to_string(); }
-    if text.starts_with("eng") || text.starts_with("en") { return "en".to_string(); }
-    if text.is_empty() { fallback.to_string() } else { text.chars().take(2).collect() }
+    if text.starts_with("ind") || text.starts_with("id") {
+        return "id".to_string();
+    }
+    if text.starts_with("eng") || text.starts_with("en") {
+        return "en".to_string();
+    }
+    if text.is_empty() {
+        fallback.to_string()
+    } else {
+        text.chars().take(2).collect()
+    }
 }
 
 fn sanitize_identifier(value: &str) -> String {
@@ -153,7 +165,11 @@ fn sanitize_identifier(value: &str) -> String {
 
 fn sanitize_optional_runtime_text(value: Option<String>) -> Option<String> {
     let text = clean_setting_text(&value?);
-    if text.is_empty() { None } else { Some(text) }
+    if text.is_empty() {
+        None
+    } else {
+        Some(text)
+    }
 }
 
 fn sanitize_voice_root(value: &str) -> String {
@@ -169,8 +185,14 @@ fn sanitize_voice_root(value: &str) -> String {
     {
         return "EngineData/VoiceActorProfiles".to_string();
     }
-    let allowed = ["EngineData/VoiceActorProfiles", "UserData/SavedProject/VoiceActorProfiles"];
-    if allowed.iter().any(|prefix| text == *prefix || text.starts_with(&format!("{prefix}/"))) {
+    let allowed = [
+        "EngineData/VoiceActorProfiles",
+        "UserData/SavedProject/VoiceActorProfiles",
+    ];
+    if allowed
+        .iter()
+        .any(|prefix| text == *prefix || text.starts_with(&format!("{prefix}/")))
+    {
         text
     } else {
         "EngineData/VoiceActorProfiles".to_string()

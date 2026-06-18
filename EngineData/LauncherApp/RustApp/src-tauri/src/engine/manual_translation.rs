@@ -45,10 +45,15 @@ fn normalize_language(value: &str, fallback: &str) -> String {
 }
 
 fn realtime_direction_supported(source_language: &str, target_language: &str) -> bool {
-    normalize_language(source_language, "id") == "id" && normalize_language(target_language, "en") == "en"
+    normalize_language(source_language, "id") == "id"
+        && normalize_language(target_language, "en") == "en"
 }
 
-fn preferred_profile_order(requested_quality_mode: bool, source_language: &str, target_language: &str) -> Vec<&'static str> {
+fn preferred_profile_order(
+    requested_quality_mode: bool,
+    source_language: &str,
+    target_language: &str,
+) -> Vec<&'static str> {
     let realtime_supported = realtime_direction_supported(source_language, target_language);
     if requested_quality_mode || !realtime_supported {
         if realtime_supported {
@@ -83,7 +88,10 @@ fn compact_worker_field(value: Option<String>) -> String {
     value
         .unwrap_or_default()
         .chars()
-        .filter(|character| character.is_ascii_alphanumeric() || matches!(character, '_' | '-' | ':' | '.' | '>' | ' '))
+        .filter(|character| {
+            character.is_ascii_alphanumeric()
+                || matches!(character, '_' | '-' | ':' | '.' | '>' | ' ')
+        })
         .take(120)
         .collect::<String>()
         .trim()
@@ -126,7 +134,11 @@ fn worker_success_suffix(worker: &WorkerTranslationResponse, fallback_used: bool
         .filter(|value| !value.is_empty())
         .collect::<Vec<_>>()
         .join(" / ");
-    let worker_label = if fallback_used { "local worker fallback" } else { "local worker" };
+    let worker_label = if fallback_used {
+        "local worker fallback"
+    } else {
+        "local worker"
+    };
     let direction_detail = if pair.is_empty() {
         direction.to_string()
     } else {
@@ -240,8 +252,26 @@ fn run_local_worker_translation(
     if !script.is_file() {
         return None;
     }
-    run_worker_with_python("python", false, &script, source, source_language, target_language, profile)
-        .or_else(|| run_worker_with_python("py", true, &script, source, source_language, target_language, profile))
+    run_worker_with_python(
+        "python",
+        false,
+        &script,
+        source,
+        source_language,
+        target_language,
+        profile,
+    )
+    .or_else(|| {
+        run_worker_with_python(
+            "py",
+            true,
+            &script,
+            source,
+            source_language,
+            target_language,
+            profile,
+        )
+    })
 }
 
 fn is_unsafe_manual_source_character(character: char) -> bool {
@@ -293,7 +323,9 @@ pub fn translate_text(source: String) -> CommandResult {
     let mut worker_notes = Vec::new();
 
     for (index, profile) in profile_order.iter().enumerate() {
-        if let Some(worker) = run_local_worker_translation(&trimmed, &source_language, &target_language, profile) {
+        if let Some(worker) =
+            run_local_worker_translation(&trimmed, &source_language, &target_language, profile)
+        {
             if let Some(translated) = worker_translated_text(&worker) {
                 let suffix = worker_success_suffix(&worker, index > 0);
                 return CommandResult::ok(

@@ -57,7 +57,8 @@ impl NativeInputConfigProbeReport {
                     min_sample_rate_hz: config.min_sample_rate().0,
                     max_sample_rate_hz: config.max_sample_rate().0,
                     sample_format: format!("{:?}", config.sample_format()),
-                    supports_target_sample_rate: config.min_sample_rate().0 <= TARGET_SAMPLE_RATE_HZ
+                    supports_target_sample_rate: config.min_sample_rate().0
+                        <= TARGET_SAMPLE_RATE_HZ
                         && config.max_sample_rate().0 >= TARGET_SAMPLE_RATE_HZ,
                     supports_target_channels: config.channels() >= TARGET_CHANNELS,
                 })
@@ -65,9 +66,9 @@ impl NativeInputConfigProbeReport {
             Err(_) => Vec::new(),
         };
 
-        let supports_target_format = supported_input_ranges.iter().any(|config| {
-            config.supports_target_sample_rate && config.supports_target_channels
-        });
+        let supports_target_format = supported_input_ranges
+            .iter()
+            .any(|config| config.supports_target_sample_rate && config.supports_target_channels);
         let mut blockers = Vec::new();
         if default_config.is_none() {
             blockers.push("input_config:no_default_input_config".to_string());
@@ -92,7 +93,9 @@ impl NativeInputConfigProbeReport {
             default_input_name,
             default_sample_rate_hz: default_config.as_ref().map(|config| config.sample_rate().0),
             default_channels: default_config.as_ref().map(|config| config.channels()),
-            default_sample_format: default_config.as_ref().map(|config| format!("{:?}", config.sample_format())),
+            default_sample_format: default_config
+                .as_ref()
+                .map(|config| format!("{:?}", config.sample_format())),
             supports_target_format,
             ready_for_capture_bridge,
             supported_input_ranges,

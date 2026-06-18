@@ -22,7 +22,8 @@ pub struct AsrDryRunResult {
 }
 
 pub fn run_asr_dry_check(request: AsrDryRunRequest) -> AsrDryRunResult {
-    let backend_validation = NativeCudaBackendValidationReport::validate_ctranslate2_cuda_candidate();
+    let backend_validation =
+        NativeCudaBackendValidationReport::validate_ctranslate2_cuda_candidate();
     let language_hint = safe_label(&request.language_hint, "unknown");
     let source_label = request
         .source_label
@@ -52,5 +53,9 @@ fn safe_label(value: &str, fallback: &str) -> String {
         .collect::<String>()
         .trim()
         .to_string();
-    if clean.is_empty() { fallback.to_string() } else { clean }
+    if clean.is_empty() {
+        fallback.to_string()
+    } else {
+        clean
+    }
 }

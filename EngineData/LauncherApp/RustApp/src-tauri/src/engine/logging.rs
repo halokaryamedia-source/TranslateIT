@@ -39,7 +39,11 @@ impl RuntimeLogEvent {
     }
 }
 
-pub fn write_jsonl_event(log_dir: &Path, file_name: &str, event: &RuntimeLogEvent) -> io::Result<()> {
+pub fn write_jsonl_event(
+    log_dir: &Path,
+    file_name: &str,
+    event: &RuntimeLogEvent,
+) -> io::Result<()> {
     if !is_safe_log_file_name(file_name) {
         return Err(io::Error::new(
             io::ErrorKind::InvalidInput,
@@ -149,7 +153,10 @@ fn redact_log_value(value: &str) -> String {
 
 fn redact_log_token(token: &str) -> String {
     let trimmed = token.trim_matches(|character: char| {
-        matches!(character, ',' | ';' | ')' | '(' | '[' | ']' | '{' | '}' | '"') || character == char::from(39)
+        matches!(
+            character,
+            ',' | ';' | ')' | '(' | '[' | ']' | '{' | '}' | '"'
+        ) || character == char::from(39)
     });
     let lowercase = trimmed.to_ascii_lowercase();
     if looks_like_secret(&lowercase) {
@@ -177,10 +184,8 @@ fn looks_like_secret(value: &str) -> bool {
 fn looks_like_local_path(value: &str) -> bool {
     let normalized = value.replace(char::from(92), "/");
     let bytes = normalized.as_bytes();
-    let drive_path = bytes.len() >= 3
-        && bytes[1] == b':'
-        && bytes[2] == b'/'
-        && bytes[0].is_ascii_alphabetic();
+    let drive_path =
+        bytes.len() >= 3 && bytes[1] == b':' && bytes[2] == b'/' && bytes[0].is_ascii_alphabetic();
     drive_path
         || normalized.starts_with("/Users/")
         || normalized.starts_with("/home/")
@@ -206,9 +211,9 @@ fn is_safe_log_file_name(value: &str) -> bool {
         && !value.contains('/')
         && !value.contains(char::from(92))
         && !value.contains("..")
-        && value
-            .chars()
-            .all(|character| character.is_ascii_alphanumeric() || matches!(character, '_' | '-' | '.'))
+        && value.chars().all(|character| {
+            character.is_ascii_alphanumeric() || matches!(character, '_' | '-' | '.')
+        })
 }
 
 fn current_unix_ms() -> u128 {

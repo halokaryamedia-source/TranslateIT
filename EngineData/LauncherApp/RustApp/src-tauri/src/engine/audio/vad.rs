@@ -170,19 +170,33 @@ pub fn evaluate_segment_decision(request: VadSegmentDecisionRequest) -> VadDecis
         && request.voiced_frame_ratio >= 0.16
         && request.speech_to_noise_gap >= -0.0003;
     if rms <= 0.0025_f32.max(request.noise_floor_rms * 1.08) && !strong_voiced_speech {
-        return decision(false, "Below calibrated energy threshold", &preset.name, true, focus_score);
+        return decision(
+            false,
+            "Below calibrated energy threshold",
+            &preset.name,
+            true,
+            focus_score,
+        );
     }
     if request.clipping_risk >= 0.8 {
         return decision(false, "Severe clipping", &preset.name, true, focus_score);
     }
     if request.noise_risk >= 0.8 {
-        return decision(false, "Dominant stationary noise", &preset.name, true, focus_score);
+        return decision(
+            false,
+            "Dominant stationary noise",
+            &preset.name,
+            true,
+            focus_score,
+        );
     }
     if strong_voiced_speech {
         return final_duration_checks(&request, &preset, focus_score);
     }
-    if matches!(preset.name.as_str(), "Headset" | "Normal Room" | "Noisy Room")
-        && request.duration_ms >= 220
+    if matches!(
+        preset.name.as_str(),
+        "Headset" | "Normal Room" | "Noisy Room"
+    ) && request.duration_ms >= 220
         && (request.speech_to_noise_gap > 0.0 || request.voiced_frame_ratio > 0.0)
     {
         let legacy_noise_like_segment = request.duration_ms >= 180
@@ -192,8 +206,12 @@ pub fn evaluate_segment_decision(request: VadSegmentDecisionRequest) -> VadDecis
                 || request.frame_energy_concentration >= 0.75
                 || request.frame_active_ratio <= 0.18
                 || request.impulse_edge_ratio >= 0.08
-                || (request.peak_to_rms_ratio >= 6.2 && request.frame_active_ratio <= 0.22 && request.zero_crossing_rate <= 0.20)
-                || (request.peak_to_rms_ratio >= 6.8 && request.zero_crossing_rate <= 0.24 && request.frame_active_ratio <= 0.28));
+                || (request.peak_to_rms_ratio >= 6.2
+                    && request.frame_active_ratio <= 0.22
+                    && request.zero_crossing_rate <= 0.20)
+                || (request.peak_to_rms_ratio >= 6.8
+                    && request.zero_crossing_rate <= 0.24
+                    && request.frame_active_ratio <= 0.28));
         if legacy_noise_like_segment {
             return decision(false, "Noise-like segment", &preset.name, true, focus_score);
         }
@@ -209,13 +227,23 @@ pub fn evaluate_segment_decision(request: VadSegmentDecisionRequest) -> VadDecis
     final_duration_checks(&request, &preset, focus_score)
 }
 
-fn final_duration_checks(request: &VadSegmentDecisionRequest, preset: &VadPresetConfig, focus_score: f32) -> VadDecisionReport {
+fn final_duration_checks(
+    request: &VadSegmentDecisionRequest,
+    preset: &VadPresetConfig,
+    focus_score: f32,
+) -> VadDecisionReport {
     let effective_speech_ms = request.speech_duration_ms.unwrap_or(request.duration_ms);
     if effective_speech_ms < preset.minimum_speech_duration_ms {
         return decision(false, "Segment too short", &preset.name, true, focus_score);
     }
     if request.silence_ms < preset.minimum_silence_duration_ms {
-        return decision(false, "Insufficient end silence", &preset.name, true, focus_score);
+        return decision(
+            false,
+            "Insufficient end silence",
+            &preset.name,
+            true,
+            focus_score,
+        );
     }
     if request.duration_ms > preset.maximum_segment_duration_s * 1000 {
         return decision(false, "Segment too long", &preset.name, true, focus_score);
@@ -232,23 +260,54 @@ fn speech_focus_score(gap: f32, voiced_ratio: f32, rms: f32, peak: f32, noise_fl
     if gap <= 0.0 && voiced_ratio <= 0.0 {
         return 0.0;
     }
-    let gap_score = ((gap - 0.0_f32.max(noise_floor * 0.10)) / 0.0015_f32.max(noise_floor * 0.35)).clamp(0.0, 1.0);
+    let gap_score = ((gap - 0.0_f32.max(noise_floor * 0.10)) / 0.0015_f32.max(noise_floor * 0.35))
+        .clamp(0.0, 1.0);
     let voiced_score = (voiced_ratio / 0.06).clamp(0.0, 1.0);
     let energy_score = ((rms - noise_floor) / 0.0014_f32.max(noise_floor * 0.28)).clamp(0.0, 1.0);
-    let peak_score = ((peak - 0.004_f32.max(noise_floor * 1.05)) / 0.010_f32.max(noise_floor * 1.9)).clamp(0.0, 1.0);
+    let peak_score = ((peak - 0.004_f32.max(noise_floor * 1.05))
+        / 0.010_f32.max(noise_floor * 1.9))
+    .clamp(0.0, 1.0);
     round3((gap_score * 0.35) + (voiced_score * 0.30) + (energy_score * 0.20) + (peak_score * 0.15))
 }
 
 fn resolve_preset(name: Option<&str>) -> VadPresetConfig {
     match name.unwrap_or("Headset") {
-        "Noisy Room" => VadPresetConfig { name: "Noisy Room".to_string(), pre_roll_audio_ms: 300, minimum_speech_duration_ms: 180, minimum_silence_duration_ms: 240, maximum_segment_duration_s: 8, noise_gate: "adaptive strong".to_string(), post_asr_rejection: true },
-        "Push to Talk" => VadPresetConfig { name: "Push to Talk".to_string(), pre_roll_audio_ms: 120, minimum_speech_duration_ms: 200, minimum_silence_duration_ms: 200, maximum_segment_duration_s: 8, noise_gate: "manual trigger".to_string(), post_asr_rejection: true },
-        _ => VadPresetConfig { name: "Headset".to_string(), pre_roll_audio_ms: 180, minimum_speech_duration_ms: 100, minimum_silence_duration_ms: 80, maximum_segment_duration_s: 8, noise_gate: "adaptive light".to_string(), post_asr_rejection: true },
+        "Noisy Room" => VadPresetConfig {
+            name: "Noisy Room".to_string(),
+            pre_roll_audio_ms: 300,
+            minimum_speech_duration_ms: 180,
+            minimum_silence_duration_ms: 240,
+            maximum_segment_duration_s: 8,
+            noise_gate: "adaptive strong".to_string(),
+            post_asr_rejection: true,
+        },
+        "Push to Talk" => VadPresetConfig {
+            name: "Push to Talk".to_string(),
+            pre_roll_audio_ms: 120,
+            minimum_speech_duration_ms: 200,
+            minimum_silence_duration_ms: 200,
+            maximum_segment_duration_s: 8,
+            noise_gate: "manual trigger".to_string(),
+            post_asr_rejection: true,
+        },
+        _ => VadPresetConfig {
+            name: "Headset".to_string(),
+            pre_roll_audio_ms: 180,
+            minimum_speech_duration_ms: 100,
+            minimum_silence_duration_ms: 80,
+            maximum_segment_duration_s: 8,
+            noise_gate: "adaptive light".to_string(),
+            post_asr_rejection: true,
+        },
     }
 }
 
 fn safe_metric(value: f32) -> f32 {
-    if value.is_finite() { value } else { 0.0 }
+    if value.is_finite() {
+        value
+    } else {
+        0.0
+    }
 }
 
 fn safe_ratio(value: f32) -> f32 {
@@ -275,8 +334,20 @@ fn sanitize_decision_request(mut request: VadSegmentDecisionRequest) -> VadSegme
     request
 }
 
-fn decision(accepted: bool, reason: &str, preset: &str, should_hide: bool, speech_focus_score: f32) -> VadDecisionReport {
-    VadDecisionReport { accepted, reason: reason.to_string(), preset: preset.to_string(), should_hide, speech_focus_score: safe_ratio(speech_focus_score) }
+fn decision(
+    accepted: bool,
+    reason: &str,
+    preset: &str,
+    should_hide: bool,
+    speech_focus_score: f32,
+) -> VadDecisionReport {
+    VadDecisionReport {
+        accepted,
+        reason: reason.to_string(),
+        preset: preset.to_string(),
+        should_hide,
+        speech_focus_score: safe_ratio(speech_focus_score),
+    }
 }
 
 fn reject(reason: &str, evidence: AudioEvidenceReport) -> VadGateResult {

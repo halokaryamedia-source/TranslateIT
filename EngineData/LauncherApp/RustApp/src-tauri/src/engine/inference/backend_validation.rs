@@ -73,7 +73,8 @@ impl NativeRuntimeFileRequirementList {
                 runtime_file("cublas64_12.dll", true, "cuda math"),
                 runtime_file("cublasLt64_12.dll", true, "cuda math lt"),
             ],
-            note: "Requirement list only. Real model validation is still required before Ready.".to_string(),
+            note: "Requirement list only. Real model validation is still required before Ready."
+                .to_string(),
         }
     }
 }
@@ -95,7 +96,10 @@ impl NativeCudaBackendValidationReport {
         let deps_ready = dependency_checks.iter().all(|check| check.found);
         let model_directories = vec![
             model_dir("asr_model_dir", &project_paths.asr_model_dir),
-            model_dir("translation_model_dir", &project_paths.translation_model_dir),
+            model_dir(
+                "translation_model_dir",
+                &project_paths.translation_model_dir,
+            ),
         ];
         let model_dirs_ready = model_directories.iter().all(|check| check.exists);
         let cpu_degraded_available = deps_ready || model_dirs_ready;
@@ -108,7 +112,12 @@ impl NativeCudaBackendValidationReport {
             CUDA_CORE_FAIL
         };
         let preferred_compute_type = if ready { "float16" } else { "int8" };
-        let notes = build_notes(&cuda_probe, deps_ready, model_dirs_ready, cpu_degraded_available);
+        let notes = build_notes(
+            &cuda_probe,
+            deps_ready,
+            model_dirs_ready,
+            cpu_degraded_available,
+        );
 
         Self {
             backend_id: "native-ctranslate2-cuda-ffi".to_string(),
@@ -135,7 +144,12 @@ impl NativeCudaBackendValidationReport {
     }
 }
 
-fn build_notes(cuda_probe: &CudaProbeReport, deps_ready: bool, model_dirs_ready: bool, cpu_degraded_available: bool) -> Vec<String> {
+fn build_notes(
+    cuda_probe: &CudaProbeReport,
+    deps_ready: bool,
+    model_dirs_ready: bool,
+    cpu_degraded_available: bool,
+) -> Vec<String> {
     let mut notes = Vec::new();
     if !cuda_probe.nvidia_smi_available {
         notes.push("NVIDIA driver or nvidia-smi is not visible to the Rust runtime.".to_string());
@@ -147,7 +161,9 @@ fn build_notes(cuda_probe: &CudaProbeReport, deps_ready: bool, model_dirs_ready:
         notes.push("ASR or translation model directories are incomplete.".to_string());
     }
     if cpu_degraded_available {
-        notes.push(format!("{CPU_DEGRADED_AVAILABLE}: real ASR can run only with explicit degraded-mode approval."));
+        notes.push(format!(
+            "{CPU_DEGRADED_AVAILABLE}: real ASR can run only with explicit degraded-mode approval."
+        ));
     }
     notes
 }

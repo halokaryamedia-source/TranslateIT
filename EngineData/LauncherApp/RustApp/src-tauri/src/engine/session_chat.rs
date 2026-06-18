@@ -75,8 +75,12 @@ pub fn list_launcher_chats(kind: Option<String>) -> Vec<LauncherChatSummary> {
             if file_too_large(&path, MAX_CHAT_SESSION_FILE_BYTES) {
                 continue;
             }
-            let Ok(raw) = fs::read_to_string(path) else { continue };
-            let Ok(session) = serde_json::from_str::<LauncherChatSession>(&raw) else { continue };
+            let Ok(raw) = fs::read_to_string(path) else {
+                continue;
+            };
+            let Ok(session) = serde_json::from_str::<LauncherChatSession>(&raw) else {
+                continue;
+            };
             let session = sanitize_session(session);
             if let Some(filter_kind) = &filter {
                 if &session.kind != filter_kind {
@@ -97,7 +101,11 @@ pub fn list_launcher_chats(kind: Option<String>) -> Vec<LauncherChatSummary> {
     rows
 }
 
-pub fn append_launcher_chat_message(session_id: String, role: String, content: String) -> LauncherChatActionResult {
+pub fn append_launcher_chat_message(
+    session_id: String,
+    role: String,
+    content: String,
+) -> LauncherChatActionResult {
     let clean_session_id = sanitize_session_id(&session_id);
     let clean_content = sanitize_message_content(&content);
     if clean_content.is_empty() {
@@ -123,7 +131,8 @@ pub fn append_launcher_chat_message(session_id: String, role: String, content: S
         return LauncherChatActionResult {
             ok: false,
             session_id: clean_session_id,
-            message: "Chat session file is too large to modify safely. Start a new chat.".to_string(),
+            message: "Chat session file is too large to modify safely. Start a new chat."
+                .to_string(),
         };
     }
 
@@ -162,7 +171,8 @@ pub fn append_launcher_chat_message(session_id: String, role: String, content: S
         Err(_error) => LauncherChatActionResult {
             ok: false,
             session_id: session.session_id,
-            message: "Failed to save chat message. Open Developer diagnostics for details.".to_string(),
+            message: "Failed to save chat message. Open Developer diagnostics for details."
+                .to_string(),
         },
     }
 }
@@ -174,7 +184,10 @@ fn launcher_chat_dir() -> PathBuf {
 
 fn write_launcher_chat(session: &LauncherChatSession) -> io::Result<()> {
     let safe_session = sanitize_session(session.clone());
-    let path = launcher_chat_dir().join(format!("{}.json", sanitize_session_id(&safe_session.session_id)));
+    let path = launcher_chat_dir().join(format!(
+        "{}.json",
+        sanitize_session_id(&safe_session.session_id)
+    ));
     write_pretty_json(&path, &safe_session)
 }
 
@@ -207,7 +220,9 @@ fn write_pretty_json<T: Serialize>(path: &Path, value: &T) -> io::Result<()> {
 }
 
 fn file_too_large(path: &Path, max_bytes: u64) -> bool {
-    path.metadata().map(|metadata| metadata.len() > max_bytes).unwrap_or(false)
+    path.metadata()
+        .map(|metadata| metadata.len() > max_bytes)
+        .unwrap_or(false)
 }
 
 fn sanitize_session(mut session: LauncherChatSession) -> LauncherChatSession {
@@ -219,10 +234,16 @@ fn sanitize_session(mut session: LauncherChatSession) -> LauncherChatSession {
         message.role = sanitize_role(&message.role);
         message.content = sanitize_message_content(&message.content);
         if message.content.chars().count() > MAX_SESSION_MESSAGE_CHARS {
-            message.content = message.content.chars().take(MAX_SESSION_MESSAGE_CHARS).collect::<String>();
+            message.content = message
+                .content
+                .chars()
+                .take(MAX_SESSION_MESSAGE_CHARS)
+                .collect::<String>();
         }
     }
-    session.messages.retain(|message| !message.content.trim().is_empty());
+    session
+        .messages
+        .retain(|message| !message.content.trim().is_empty());
     if session.messages.len() > MAX_MESSAGES_PER_SESSION {
         let remove_count = session.messages.len() - MAX_MESSAGES_PER_SESSION;
         session.messages.drain(0..remove_count);
@@ -237,7 +258,13 @@ fn sanitize_session_id(value: &str) -> String {
     let cleaned = value
         .trim()
         .chars()
-        .map(|ch| if ch.is_ascii_alphanumeric() || ch == '-' || ch == '_' { ch } else { '_' })
+        .map(|ch| {
+            if ch.is_ascii_alphanumeric() || ch == '-' || ch == '_' {
+                ch
+            } else {
+                '_'
+            }
+        })
         .take(96)
         .collect::<String>();
     if cleaned.is_empty() {
