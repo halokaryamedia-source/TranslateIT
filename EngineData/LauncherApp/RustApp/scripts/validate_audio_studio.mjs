@@ -93,6 +93,17 @@ function expectValue(actual, expected, label) {
   }
 }
 
+function expectScriptIncludes(scripts, scriptName, expectedText) {
+  const script = scripts?.[scriptName];
+  if (typeof script !== "string") {
+    errors.push(`package.json script is missing: ${scriptName}`);
+    return;
+  }
+  if (!script.includes(expectedText)) {
+    errors.push(`package.json script ${scriptName} must include: ${expectedText}`);
+  }
+}
+
 for (const relativePath of requiredFiles) {
   if (!existsSync(resolve(repoRoot, relativePath))) {
     errors.push(`Missing required Audio Studio file: ${relativePath}`);
@@ -108,6 +119,13 @@ for (const [relativePath, expectedText] of requiredText) {
   if (!content.includes(expectedText)) {
     errors.push(`Missing expected Audio Studio marker in ${relativePath}: ${expectedText}`);
   }
+}
+
+const packageJson = readJson("EngineData/LauncherApp/RustApp/package.json");
+if (packageJson) {
+  expectScriptIncludes(packageJson.scripts, "validate:audio-studio", "node scripts/validate_audio_studio.mjs");
+  expectScriptIncludes(packageJson.scripts, "validate:internal", "validate:audio-studio");
+  expectScriptIncludes(packageJson.scripts, "validate:full", "validate:audio-studio");
 }
 
 const metadataContract = readJson("EngineData/Backend/RuntimeContracts/AUDIO_STUDIO_PROJECT_METADATA_CONTRACT.json");
