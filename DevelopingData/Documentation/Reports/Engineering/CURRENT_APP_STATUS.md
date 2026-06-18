@@ -13,7 +13,7 @@ Python remains part of the product as a helper runtime for tasks where Python is
 ### Rust/Tauri shell
 
 - Rust/Tauri launcher shell exists.
-- Tauri command registration exists for runtime status, diagnostics, hardware, audio devices, settings, chat, capture control, translation, Audio Studio metadata routes, helper bridge lifecycle/status, helper bridge health check, and Audio Studio validation evidence reads.
+- Tauri command registration exists for runtime status, diagnostics, hardware, audio devices, settings, chat, capture control, translation, Audio Studio metadata routes, Audio Studio provider status route, helper bridge lifecycle/status, helper bridge health check, and Audio Studio validation evidence reads.
 - Launcher chat persistence uses `UserData/SavedProject/Chat`.
 - Project path discovery uses root markers: `EngineData`, `DevelopingData`, and `UserData`.
 
@@ -39,6 +39,7 @@ Python remains part of the product as a helper runtime for tasks where Python is
 - Developer UI includes a detailed helper readiness panel for CUDA/provider/degraded mode and helper stderr log path.
 - Helper bridge validator is registered in package validation scripts.
 - UserData root policy validator is registered in package validation scripts.
+- Machine-specific path validator is registered in package validation scripts.
 - Helper existence alone must not mark full runtime ready; model/provider readiness still depends on worker response evidence and local validation.
 
 ### Audio Studio project-data runtime
@@ -50,6 +51,7 @@ Audio Studio metadata routes now use `metadata_ready` semantics instead of gener
 - Audio Studio can update take states.
 - Audio Studio can list saved take metadata.
 - Audio Studio can export project metadata.
+- Audio Studio exposes `audio_studio_get_provider_status`, which returns `provider_blocked` and writes a provider-status evidence event without claiming real audio/provider readiness.
 - Audio Studio persists take details:
   - `take_id`
   - `source`
@@ -72,6 +74,12 @@ Audio Studio metadata routes now use `metadata_ready` semantics instead of gener
 - Developer UI includes Audio Studio validation evidence status.
 - Rust/Tauri exposes `get_latest_audio_studio_validation_evidence`.
 - The evidence reader loads the latest `.summary.json` and matching `.log` from `UserData/CacheData/AudioStudio/logs/` when available.
+
+### Contract and path guardrails
+
+- The old Audio Studio route placeholder contract is marked deprecated and points to `AUDIO_STUDIO_ROUTE_STATUS_CONTRACT.json`.
+- Architecture validator checks the deprecated placeholder does not become the source of truth again.
+- Machine-specific path validator is available as `validate:machine-paths` and is included in `validate:internal` and `validate:full`.
 
 ## Scaffold only
 
@@ -125,10 +133,8 @@ However, the final shell direction is now Rust/Tauri. Python/Qt launcher materia
 3. Implement Audio Studio provider processing after metadata routes.
 4. Add Audio Studio guided microphone capture.
 5. Add Audio Studio audio quality scoring.
-6. Remove or migrate machine-specific absolute paths from runtime defaults.
-7. Mark legacy Python/Qt launcher docs as legacy reference where they conflict with Dev-Rust architecture.
-8. Keep hallucination/noise filtering evidence-based rather than phrase-blocklist-only.
-9. Replace or deprecate stale placeholder contracts that conflict with route-status contracts.
+6. Mark legacy Python/Qt launcher docs as legacy reference where they conflict with Dev-Rust architecture.
+7. Keep hallucination/noise filtering evidence-based rather than phrase-blocklist-only.
 
 ## Not claimed
 
