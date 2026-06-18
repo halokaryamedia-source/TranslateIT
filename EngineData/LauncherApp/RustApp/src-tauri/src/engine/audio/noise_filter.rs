@@ -122,6 +122,7 @@ pub struct AudioNoiseAssessment {
 }
 
 pub fn classify_noise(request: NoiseAssessmentRequest) -> AudioNoiseAssessment {
+    let request = sanitize_request(request);
     let t = request.thresholds.unwrap_or_default();
     if request.audio_duration_ms >= t.imp_dur_min_ms
         && request.audio_duration_ms <= t.imp_dur_max_ms
@@ -182,6 +183,28 @@ pub fn classify_noise(request: NoiseAssessmentRequest) -> AudioNoiseAssessment {
         return assessment(true, "mixed", "Mixed");
     }
     assessment(false, "", "")
+}
+
+fn safe_metric(value: f32) -> f32 {
+    if value.is_finite() { value } else { 0.0 }
+}
+
+fn safe_ratio(value: f32) -> f32 {
+    safe_metric(value).clamp(0.0, 1.0)
+}
+
+fn sanitize_request(mut request: NoiseAssessmentRequest) -> NoiseAssessmentRequest {
+    request.voiced_frame_ratio = safe_ratio(request.voiced_frame_ratio);
+    request.speech_to_noise_gap = safe_metric(request.speech_to_noise_gap);
+    request.audio_peak = safe_ratio(request.audio_peak);
+    request.audio_rms = safe_ratio(request.audio_rms);
+    request.peak_to_rms_ratio = safe_metric(request.peak_to_rms_ratio).max(0.0);
+    request.frame_energy_concentration = safe_ratio(request.frame_energy_concentration);
+    request.frame_active_ratio = safe_ratio(request.frame_active_ratio);
+    request.impulse_edge_ratio = safe_ratio(request.impulse_edge_ratio);
+    request.zero_crossing_rate = safe_ratio(request.zero_crossing_rate);
+    request.no_speech_probability = safe_ratio(request.no_speech_probability);
+    request
 }
 
 fn assessment(matched: bool, category: &str, reason: &str) -> AudioNoiseAssessment {
