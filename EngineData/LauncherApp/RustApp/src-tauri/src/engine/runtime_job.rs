@@ -3,6 +3,8 @@ use std::time::{SystemTime, UNIX_EPOCH};
 
 use crate::engine::audio::input::InputPreparationStatus;
 
+const MAX_RUNTIME_JOB_NOTE_CHARS: usize = 220;
+
 #[derive(Debug, Clone, Serialize)]
 pub struct RuntimeCaptureJobPlan {
     pub job_id: String,
@@ -34,7 +36,7 @@ pub fn plan_runtime_capture_job(input_status: InputPreparationStatus) -> Runtime
     let note = if ready_for_capture_loop {
         "Rust capture job plan is ready. Real microphone stream loop is still pending integration.".to_string()
     } else {
-        format!("Rust capture job plan is blocked: {blocker}. {}", input_status.note)
+        format!("Rust capture job plan is blocked: {blocker}. {}", compact_note(&input_status.note))
     };
 
     RuntimeCaptureJobPlan {
@@ -48,6 +50,16 @@ pub fn plan_runtime_capture_job(input_status: InputPreparationStatus) -> Runtime
         blocker,
         note,
     }
+}
+
+fn compact_note(value: &str) -> String {
+    let clean = value
+        .trim()
+        .chars()
+        .filter(|character| !character.is_control())
+        .take(MAX_RUNTIME_JOB_NOTE_CHARS)
+        .collect::<String>();
+    if clean.is_empty() { "Input status unavailable.".to_string() } else { clean }
 }
 
 fn current_unix_ms() -> u128 {
