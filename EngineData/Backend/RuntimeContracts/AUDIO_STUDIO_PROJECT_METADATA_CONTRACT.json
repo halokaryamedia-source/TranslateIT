@@ -35,13 +35,29 @@
     "needs_retry",
     "blocked"
   ],
+  "payload_limits": {
+    "take_id_max_chars": 160,
+    "take_title_max_chars": 120,
+    "take_detail_max_chars": 500,
+    "staged_takes_max": 12,
+    "import_files_per_action_max": 12,
+    "import_file_max_bytes": 524288000,
+    "accepted_import_extensions": [
+      ".wav",
+      ".mp3",
+      ".m4a",
+      ".ogg",
+      ".webm"
+    ]
+  },
   "rules": [
     "Do not write outside UserData roots.",
     "Do not create additional Audio Studio roots outside CacheData and SavedProject.",
     "Do not mark provider output ready from metadata alone.",
     "Do not claim local capture readiness without target-PC evidence.",
     "Keep imported file metadata separate from generated runtime evidence.",
-    "Reject unknown take sources and unknown take states before writing metadata."
+    "Reject unknown take sources and unknown take states before writing metadata.",
+    "Enforce payload_limits before writing Audio Studio metadata."
   ],
   "local_validation_required_before_ready": true
 }
