@@ -6,10 +6,15 @@ function escapeHtml(value: string): string {
   return value.replaceAll("&", "&amp;").replaceAll("<", "&lt;").replaceAll(">", "&gt;").replaceAll('"', "&quot;").replaceAll("'", "&#39;");
 }
 
-function barWidth(value: string): string { return /^\d+%$/.test(value) ? value : "0%"; }
+function barWidth(value: string): string {
+  const match = value.match(/^(\d+)%$/);
+  if (!match) return "0%";
+  return `${Math.max(0, Math.min(100, Number(match[1])))}%`;
+}
 function progressPercent(value: number): number { return !Number.isFinite(value) ? 0 : Math.max(0, Math.min(100, Math.round(value))); }
 function togglePill(active: boolean): string { return `<span class="settings-toggle-pill ${active ? "active" : ""}"><i></i></span>`; }
-function statusRow(label: string, value: string, tone = "neutral"): string { return `<p class="developer-log-row"><strong>${escapeHtml(label)}</strong><span class="status-badge status-badge--${escapeHtml(tone)}">${escapeHtml(value)}</span></p>`; }
+function safeTone(value = "neutral"): "neutral" | "good" | "warning" | "error" { return value === "good" || value === "warning" || value === "error" ? value : "neutral"; }
+function statusRow(label: string, value: string, tone = "neutral"): string { return `<p class="developer-log-row"><strong>${escapeHtml(label)}</strong><span class="status-badge status-badge--${safeTone(tone)}">${escapeHtml(value)}</span></p>`; }
 
 function helperTone(helperStatus: HelperBridgeStatus | null): string {
   if (!helperStatus) return "warning";
