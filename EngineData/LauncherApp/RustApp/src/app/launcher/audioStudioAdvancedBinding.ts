@@ -84,7 +84,7 @@ function bindAdvancedPanelActions(): void {
   });
 }
 
-function injectAdvancedPanel(): void {
+export function injectAudioStudioAdvancedPanel(): void {
   const view = document.querySelector<HTMLElement>(".settings-view--audio-studio");
   if (!view || view.querySelector('[data-audio-studio-advanced="true"]')) return;
   view.insertAdjacentHTML("beforeend", advancedPanel());
@@ -92,11 +92,11 @@ function injectAdvancedPanel(): void {
 }
 
 export function bindAudioStudioAdvancedUi(): void {
-  injectAdvancedPanel();
+  injectAudioStudioAdvancedPanel();
   if (observerStarted) return;
   const content = document.querySelector<HTMLElement>("#settingsContent");
   if (!content) return;
-  const observer = new MutationObserver(() => injectAdvancedPanel());
+  const observer = new MutationObserver(() => injectAudioStudioAdvancedPanel());
   observer.observe(content, { childList: true, subtree: true });
   observerStarted = true;
 }
