@@ -3,6 +3,8 @@ use serde::{Deserialize, Serialize};
 use crate::engine::audio::buffer::{planned_buffer_status, AudioBufferStatus};
 use crate::engine::audio::input::InputPreparationStatus;
 
+const MAX_STREAM_OWNER_ID_CHARS: usize = 96;
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct StreamOwnershipRequest {
     pub requested_owner_id: Option<String>,
@@ -37,7 +39,7 @@ pub fn analyze_stream_ownership(request: StreamOwnershipRequest) -> StreamOwners
     let buffer_status = planned_buffer_status();
     let owner_id = sanitize_id(request.requested_owner_id.as_deref(), "translateit_runtime");
     let session_id = sanitize_id(request.session_id.as_deref(), "pending_session");
-    let current_owner = request.current_owner_id.unwrap_or_default().trim().to_string();
+    let current_owner = sanitize_id(request.current_owner_id.as_deref(), "");
     let requires_takeover = !current_owner.is_empty() && current_owner != owner_id;
     let mut blockers = Vec::new();
 
@@ -93,6 +95,7 @@ fn sanitize_id(value: Option<&str>, fallback: &str) -> String {
         .trim()
         .chars()
         .map(|ch| if ch.is_ascii_alphanumeric() || ch == '-' || ch == '_' { ch } else { '_' })
+        .take(MAX_STREAM_OWNER_ID_CHARS)
         .collect::<String>();
     if cleaned.is_empty() {
         fallback.to_string()
