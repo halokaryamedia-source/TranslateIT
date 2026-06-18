@@ -2,6 +2,11 @@ use serde::{Deserialize, Serialize};
 
 use crate::engine::transcript::{build_segment_from_request, SegmentBuildReport, SegmentBuildRequest};
 
+const MAX_SEGMENT_FLOW_ID_CHARS: usize = 96;
+const MAX_SEGMENT_FLOW_TEXT_CHARS: usize = 4_000;
+const MAX_LANGUAGE_LABEL_CHARS: usize = 32;
+const MAX_REALTIME_LATENCY_MS: u32 = 60_000;
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct SegmentFlowRequest {
     pub capture_ready: bool,
@@ -55,8 +60,49 @@ pub struct RealtimeTranslateStreamReport {
     pub message: String,
 }
 
+fn is_unsafe_segment_flow_character(character: char) -> bool {
+    character == '\0'
+        || ('\u{0001}'..='\u{0008}').contains(&character)
+        || ('\u{000b}'..='\u{001f}').contains(&character)
+        || character == '\u{007f}'
+        || ('\u{202a}'..='\u{202e}').contains(&character)
+        || ('\u{2066}'..='\u{2069}').contains(&character)
+}
+
 fn clean(value: &str) -> String {
-    value.split_whitespace().collect::<Vec<_>>().join(" ")
+    value
+        .chars()
+        .filter(|character| !is_unsafe_segment_flow_character(*character))
+        .take(MAX_SEGMENT_FLOW_TEXT_CHARS)
+        .collect::<String>()
+        .split_whitespace()
+        .collect::<Vec<_>>()
+        .join(" ")
+}
+
+fn safe_id(value: &str, fallback: &str) -> String {
+    let clean = value
+        .trim()
+        .chars()
+        .map(|character| if character.is_ascii_alphanumeric() || matches!(character, '-' | '_') { character } else { '_' })
+        .take(MAX_SEGMENT_FLOW_ID_CHARS)
+        .collect::<String>();
+    if clean.is_empty() { fallback.to_string() } else { clean }
+}
+
+fn safe_language(value: &str) -> String {
+    let clean = value
+        .trim()
+        .chars()
+        .filter(|character| character.is_ascii_alphanumeric() || matches!(character, '-' | '_'))
+        .take(MAX_LANGUAGE_LABEL_CHARS)
+        .collect::<String>()
+        .to_lowercase();
+    if clean.is_empty() { "unknown".to_string() } else { clean }
+}
+
+fn safe_confidence(value: Option<f32>) -> Option<f32> {
+    value.map(|value| if value.is_finite() { value.clamp(0.0, 1.0) } else { 0.0 })
 }
 
 fn confidence_low(value: Option<f32>, threshold: f32) -> bool {
@@ -64,20 +110,24 @@ fn confidence_low(value: Option<f32>, threshold: f32) -> bool {
 }
 
 pub fn analyze_segment_flow(request: SegmentFlowRequest) -> SegmentFlowReport {
+    let session_id = safe_id(&request.session_id, "session");
+    let next_segment_id = safe_id(&request.next_segment_id, "segment");
     let segment = build_segment_from_request(request.segment);
+    let segment_session_id = safe_id(&segment.segment.session_id, "session");
+    let segment_id = safe_id(&segment.segment.segment_id, "segment");
     let mut blockers = Vec::new();
 
     if !request.capture_ready {
         blockers.push("capture:not_ready".to_string());
     }
-    if request.session_id != segment.segment.session_id {
+    if session_id != segment_session_id {
         blockers.push("session:mismatch".to_string());
     }
-    if request.next_segment_id != segment.segment.segment_id {
+    if next_segment_id != segment_id {
         blockers.push("segment:mismatch".to_string());
     }
     if !segment.valid_duration {
-        blockers.push(segment.warning.clone());
+        blockers.push(clean(&segment.warning));
     }
     if !request.vad_accepted {
         blockers.push("vad:not_accepted".to_string());
@@ -97,8 +147,8 @@ pub fn analyze_segment_flow(request: SegmentFlowRequest) -> SegmentFlowReport {
     };
 
     SegmentFlowReport {
-        session_id: segment.segment.session_id.clone(),
-        segment_id: segment.segment.segment_id.clone(),
+        session_id: segment_session_id,
+        segment_id,
         ready_for_runtime_plan,
         segment,
         blockers,
@@ -107,16 +157,23 @@ pub fn analyze_segment_flow(request: SegmentFlowRequest) -> SegmentFlowReport {
 }
 
 pub fn analyze_realtime_translate_stream(request: RealtimeTranslateStreamRequest) -> RealtimeTranslateStreamReport {
+    let session_id = safe_id(&request.session_id, "session");
+    let segment_id = safe_id(&request.segment_id, "segment");
+    let source_language = safe_language(&request.source_language);
+    let target_language = safe_language(&request.target_language);
     let partial_transcript = clean(&request.partial_transcript);
     let final_transcript = request.final_transcript.as_deref().map(clean).unwrap_or_default();
     let partial_translation = request.partial_translation.as_deref().map(clean).unwrap_or_default();
     let final_translation = request.final_translation.as_deref().map(clean).unwrap_or_default();
     let previous_translation = request.previous_translation.as_deref().map(clean).unwrap_or_default();
+    let asr_confidence = safe_confidence(request.asr_confidence);
+    let translation_confidence = safe_confidence(request.translation_confidence);
+    let elapsed_ms = request.elapsed_ms.min(MAX_REALTIME_LATENCY_MS);
 
     let mut blockers = Vec::new();
-    if request.session_id.trim().is_empty() { blockers.push("session:missing".to_string()); }
-    if request.segment_id.trim().is_empty() { blockers.push("segment:missing".to_string()); }
-    if request.source_language.trim().is_empty() || request.target_language.trim().is_empty() { blockers.push("language:missing".to_string()); }
+    if session_id == "session" { blockers.push("session:missing".to_string()); }
+    if segment_id == "segment" { blockers.push("segment:missing".to_string()); }
+    if source_language == "unknown" || target_language == "unknown" { blockers.push("language:missing".to_string()); }
     if partial_transcript.is_empty() && final_transcript.is_empty() { blockers.push("transcript:missing".to_string()); }
 
     let has_final_transcript = !final_transcript.is_empty();
@@ -133,8 +190,8 @@ pub fn analyze_realtime_translate_stream(request: RealtimeTranslateStreamRequest
 
     let should_emit_final = blockers.is_empty() && has_final_transcript && has_final_translation;
     let should_emit_partial = blockers.is_empty() && !should_emit_final && !display_transcript.is_empty() && !display_translation.is_empty();
-    let should_use_quality_fallback = confidence_low(request.asr_confidence, 0.55) || confidence_low(request.translation_confidence, 0.55);
-    let latency_warning = request.elapsed_ms > 1200 && !should_emit_final;
+    let should_use_quality_fallback = confidence_low(asr_confidence, 0.55) || confidence_low(translation_confidence, 0.55);
+    let latency_warning = elapsed_ms > 1200 && !should_emit_final;
     let stage = if should_emit_final {
         "final"
     } else if should_emit_partial {
@@ -160,9 +217,9 @@ pub fn analyze_realtime_translate_stream(request: RealtimeTranslateStreamRequest
     };
 
     RealtimeTranslateStreamReport {
-        session_id: request.session_id,
-        segment_id: request.segment_id,
-        direction_pair: format!("{}>{}", request.source_language.to_lowercase(), request.target_language.to_lowercase()),
+        session_id,
+        segment_id,
+        direction_pair: format!("{}>{}", source_language, target_language),
         stage,
         display_transcript,
         display_translation,
