@@ -18,6 +18,7 @@ const ACCEPTED_AUDIO_EXTENSIONS = [".wav", ".mp3", ".m4a", ".ogg", ".webm"];
 
 let selectedReadingIndex = 0;
 let stagedTakes: AudioStudioTakeDraft[] = [];
+let commandNoticeSequence = 0;
 
 function escapeHtml(value: string): string {
   return value
@@ -92,9 +93,14 @@ function commandNotice(result: AudioStudioCommandResult | null, fallback: string
 }
 
 function sendCommandNotice(task: Promise<AudioStudioCommandResult | null>, fallback: string): void {
+  const sequence = ++commandNoticeSequence;
   void task
-    .then((result) => setAssistantNotice(commandNotice(result, fallback)))
-    .catch(() => setAssistantNotice(`${fallback} Command unavailable in this runtime.`));
+    .then((result) => {
+      if (sequence === commandNoticeSequence) setAssistantNotice(commandNotice(result, fallback));
+    })
+    .catch(() => {
+      if (sequence === commandNoticeSequence) setAssistantNotice(`${fallback} Command unavailable in this runtime.`);
+    });
 }
 
 function updateTakeState(takeId: string, state: AudioStudioTakeState): void {
