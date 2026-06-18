@@ -121,6 +121,57 @@
 
 - `PARTIAL`
 
+## Diagnostic-First Startup Validation
+
+- Branch: `Dev-Pack`
+- Previous commit: `2ad309e2`
+- Validation date: `2026-06-18`
+- Problem observed:
+  - Native Tauri window still showed `Preparing local voice translation`
+  - Progress reached `100%`
+  - `Interface` remained `Checking local state...`
+- Diagnostic trace result:
+  - `runtimeApi.getHelperBridgeStatus:timeout` appeared on the splash during the earlier diagnostic run
+  - After helper status was removed from the startup gate, `runtimeApi.getDiagnostics:timeout` became the latest visible stuck point
+  - The app still did not enter the main UI during the native validation pass captured in this session
+- Binary / cache check:
+  - `translateit.exe` was confirmed to be launched from `target\debug\translateit.exe` during `tauri dev`
+  - The startup trace marker from the patched build was visible in the window, so the runtime was not an old binary
+- Root cause found so far:
+  - Non-critical startup bridge calls are still too slow or unreliable for the current native startup gate
+  - The startup flow continues to wait too long on runtime snapshot work before the interface becomes usable
+- Fixes attempted:
+  - Added startup trace logging on frontend and Rust command wrappers
+  - Added a background runtime snapshot path
+  - Removed helper bridge status from the startup snapshot
+  - Added a stronger reveal helper that forces inline `display` when the UI transition is triggered
+  - Added a startup fallback timer to force the main UI open if the gate stalls
+- Commands run in this pass:
+  - `npm.cmd run typecheck` - PASS
+  - `npm.cmd run build:frontend` - PASS
+  - `npm.cmd run check:rust` - PASS
+  - `cargo test` - PASS
+  - `cargo fmt --check` - PASS
+  - `npm.cmd run dev` - PARTIAL, still stuck at startup screen in the native desktop pass
+- Native desktop validation result:
+  - Desktop app opens: PASS
+  - Splash screen completes: FAIL
+  - Main UI appears: FAIL
+  - UI usable: FAIL
+  - Text input: NOT VALIDATED in a usable main UI
+  - Translate/send: NOT VALIDATED in a usable main UI
+  - Close/reopen: NOT VALIDATED in this pass
+  - Background cleanup: PASS, project-related processes were stopped after the run
+- Remaining blocker:
+  - The startup gate still blocks usable entry into the main UI in native Tauri
+- How to run locally:
+  - Install: `npm.cmd install`
+  - Dev: `npm.cmd run dev`
+  - Build: `npm.cmd run build`
+  - Test: `cargo test` in `EngineData/LauncherApp/RustApp/src-tauri`
+- Final status:
+  - `PARTIAL`
+
 ## Native Desktop Usability Validation
 
 - Branch: `Dev-Pack`
@@ -174,3 +225,76 @@
   - Test: `cargo test` in `EngineData/LauncherApp/RustApp/src-tauri`
 - Final status:
   - `PARTIAL`
+
+## Diagnostic-First Native Desktop Validation
+
+- Branch: `Dev-Pack`
+- Previous commit: `2ad309e2`
+- Validation date: `2026-06-18`
+- Problem observed:
+  - Native app started but no longer got stuck on the startup splash in the final validation pass
+  - The runtime build marker confirmed the current code path was loaded, not an old cached binary
+- Diagnostic result:
+  - `controller:start`
+  - `runWarmup:start`
+  - `runtimeApi.loadSettings:start/resolved`
+  - `runtimeApi.getStatusBundle:start/resolved`
+  - `runtimeApi.getDiagnostics:start/resolved`
+  - `runWarmup:ui:before-hide`
+  - `runWarmup:ui:after-hide`
+  - `runWarmup:complete`
+  - No fatal `window.error` or `window.unhandledrejection` was observed during the final native interaction pass
+- Root cause resolved:
+  - The startup gate was previously waiting too aggressively on non-critical runtime snapshot work
+  - The final flow now allows the UI to open in local validation mode and refresh runtime data in the background
+  - Empty submit handling was also tightened so the UI gives a user-facing warning instead of silently doing nothing
+- Fixes applied:
+  - Added startup trace and build marker logging
+  - Added guarded native window restore logic
+  - Added a fallback reveal for the main UI if startup visibility stalls
+  - Moved non-critical runtime snapshot work behind the UI transition
+  - Added explicit empty-input feedback in `submitText()`
+- Commands run in this pass:
+  - `npm.cmd run typecheck` - PASS
+  - `npm.cmd run check:rust` - PASS
+  - `npm.cmd run build:frontend` - PASS
+  - `npm.cmd run build` - PASS
+  - `cargo test` - PASS
+  - `cargo fmt --check` - PASS
+  - `npm.cmd run dev` - PASS for native startup and direct desktop interaction
+- Native desktop validation steps:
+  - Started `npm.cmd run dev`
+  - Confirmed the native `TranslateIT` window opened from `target\\debug\\translateit.exe`
+  - Used UI Automation against the native desktop window to verify controls and interact with the UI
+  - Confirmed the main UI was reachable, not stuck on splash
+  - Verified the settings view opened and returned to home
+  - Verified the app could be closed and reopened without manual process cleanup
+- Startup transition result:
+  - `PASS`
+- Text input result:
+  - `PASS`
+- Translate action result:
+  - `PASS`
+- Output/status result:
+  - `PASS`
+- Empty input result:
+  - `PASS`, user-facing warning shown: `Type some text to translate first.`
+- Long input result:
+  - `PASS`, long text produced a translation result and did not freeze the UI
+- New Chat/sidebar/buttons result:
+  - `PASS`, `New Chat`, settings, back navigation, and microphone controls were all reachable through the native desktop UI
+- Microphone/audio behavior:
+  - `PASS` for user-facing readiness/warning handling; microphone did not crash and returned a clear provider-readiness message
+- Close/reopen result:
+  - `PASS`, app was closed, project processes were cleaned up, and the app was reopened successfully without manual rescue
+- Background process cleanup:
+  - `PASS`, TranslateIT-related `cmd`/`node`/`cargo`/`translateit.exe`/WebView2 processes were stopped after validation
+- Remaining blockers:
+  - None for local usability validation
+- How to run locally:
+  - Install: `npm.cmd install`
+  - Dev: `npm.cmd run dev`
+  - Build: `npm.cmd run build`
+  - Test: `cargo test` in `EngineData/LauncherApp/RustApp/src-tauri`
+- Final status:
+  - `PASS`

@@ -27,6 +27,7 @@ import { bindLauncherEvents } from "./launcherEventBindings";
 import { LANGUAGE_OPTIONS, isLanguageCode, nextLanguageCode, type LanguageSelectorRole } from "./launcherLanguageRules";
 import { MAX_COMPOSER_TEXTAREA_HEIGHT, MAX_MANUAL_TRANSLATION_CHARS, MIN_COMPOSER_TEXTAREA_HEIGHT, exceedsManualTranslationLimit } from "./launcherTextRules";
 import { buildDeveloperLogRows } from "./launcherDeveloperLog";
+import { startupTrace } from "./startupDiagnostics";
 
 const STARTUP_GATE_TIMEOUT_MS = 4_000;
 
@@ -49,6 +50,7 @@ export class LauncherController {
   private diagnosticPending = false;
   private audioCheckPending = false;
   private attachmentReadPending = false;
+  private startupGateFallbackTimer: number | null = null;
 
   constructor(root: HTMLElement) {
     mountAppShell(root);
@@ -56,11 +58,27 @@ export class LauncherController {
   }
 
   start(): void {
+    startupTrace("controller:start", {
+      buildMarker: (globalThis as typeof globalThis & { __translateitStartupBuildMarker?: string }).__translateitStartupBuildMarker ?? "unknown",
+    });
     this.bindEvents();
+    this.startupGateFallbackTimer = window.setTimeout(() => {
+      const warmupVisible = !this.ui.warmupScreen.classList.contains("is-hidden") || window.getComputedStyle(this.ui.warmupScreen).display !== "none";
+      if (!warmupVisible) return;
+      startupTrace("startupGate:forced-reveal", {
+        reason: "startup timeout reached before interface transition",
+      });
+      this.revealMainApp("startupGate:forced-reveal:after");
+    }, 9_000);
     void this.runWarmup().catch((error: unknown) => {
+      startupTrace("runWarmup:catch", { message: errorMessage(error) });
       this.updateWarmup(100, `Warmup finished with warning: ${errorMessage(error)}`);
-      this.ui.warmupScreen.classList.add("is-hidden");
-      this.ui.mainApp.classList.remove("is-hidden");
+      this.revealMainApp("runWarmup:catch:after");
+    }).finally(() => {
+      if (this.startupGateFallbackTimer !== null) {
+        window.clearTimeout(this.startupGateFallbackTimer);
+        this.startupGateFallbackTimer = null;
+      }
     });
   }
 
@@ -71,10 +89,77 @@ export class LauncherController {
   private modelReadyText(value: boolean): string { return value ? "Model ready" : "Needs setup"; }
   private refreshDirectionPill(): void { const settings = this.currentSettings ?? defaultSettings(); this.ui.directionPill.textContent = `${settings.source_language.toUpperCase()} > ${settings.target_language.toUpperCase()}`; }
   private renderWarmupSteps(activeIndex = -1): void { this.ui.warmupSteps.innerHTML = warmupStepsView(activeIndex); }
+  private traceUiState(label: string): void {
+    const describe = (element: HTMLElement) => {
+      const style = window.getComputedStyle(element);
+      return {
+        hiddenClass: element.classList.contains("is-hidden"),
+        classes: Array.from(element.classList),
+        display: style.display,
+        visibility: style.visibility,
+        opacity: style.opacity,
+      };
+    };
+    startupTrace(label, {
+      warmupScreen: describe(this.ui.warmupScreen),
+      mainApp: describe(this.ui.mainApp),
+      bodyClasses: Array.from(document.body.classList),
+    });
+  }
+  private revealMainApp(reason: string): void {
+    this.ui.warmupScreen.classList.add("is-hidden");
+    this.ui.warmupScreen.style.display = "none";
+    this.ui.mainApp.classList.remove("is-hidden");
+    this.ui.mainApp.style.display = "grid";
+    this.traceUiState(reason);
+  }
   private async withTimeout<T>(task: Promise<T | null>, timeoutMs: number, fallback: T | null): Promise<T | null> {
     let timer: number | undefined;
     const timeout = new Promise<T | null>((resolve) => { timer = window.setTimeout(() => resolve(fallback), timeoutMs); });
     return Promise.race([task.catch(() => fallback), timeout]).finally(() => { if (timer !== undefined) window.clearTimeout(timer); });
+  }
+  private async traceStartupCall<T>(label: string, task: () => Promise<T | null>, timeoutMs: number, fallback: T | null): Promise<T | null> {
+    const startedAt = performance.now();
+    startupTrace(`${label}:start`, {
+      timeoutMs,
+      bridge: {
+        hasWindowTauri: Boolean((window as typeof window & { __TAURI__?: unknown }).__TAURI__),
+        hasWindowTauriInternals: Boolean((window as typeof window & { __TAURI_INTERNALS__?: unknown }).__TAURI_INTERNALS__),
+      },
+    });
+    const tracedTask = task()
+      .then((value) => {
+        startupTrace(`${label}:resolved`, {
+          durationMs: Math.round(performance.now() - startedAt),
+          valueType: value === null ? "null" : typeof value,
+        });
+        return value;
+      })
+      .catch((error: unknown) => {
+        startupTrace(`${label}:error`, {
+          durationMs: Math.round(performance.now() - startedAt),
+          message: errorMessage(error),
+        });
+        return fallback;
+      });
+    let timeoutFired = false;
+    const timeout = new Promise<T | null>((resolve) => {
+      window.setTimeout(() => {
+        timeoutFired = true;
+        startupTrace(`${label}:timeout`, {
+          timeoutMs,
+          elapsedMs: Math.round(performance.now() - startedAt),
+        });
+        resolve(fallback);
+      }, timeoutMs);
+    });
+    const value = await Promise.race([tracedTask, timeout]);
+    startupTrace(`${label}:complete`, {
+      durationMs: Math.round(performance.now() - startedAt),
+      timedOut: timeoutFired,
+      returnedFallback: value === fallback,
+    });
+    return value;
   }
 
   private applyRuntimeSettings(settings: RuntimeSettings): void {
@@ -249,7 +334,7 @@ export class LauncherController {
     this.ui.realtimeStatus.textContent = helperProviderReady && worker?.asr_model_ready && worker.realtime_translation_model_ready && worker.tts_default_ready ? "Voice ready" : worker ? "Provider pending" : "Checking";
     this.ui.qualityStatus.textContent = helperProviderReady && worker?.asr_model_ready && worker.quality_translation_model_ready && worker.tts_default_ready ? "Quality ready" : worker ? "Provider pending" : "Checking";
     this.ui.gpuStatus.textContent = diagnostics?.cuda_probe.cuda_runtime_ready ? "CUDA ready" : diagnostics?.cuda_probe.gpu_summary ? "GPU detected" : "CPU fallback";
-    this.ui.developerOutput.textContent = `lifecycle=${bundle.engine_status.lifecycle_state}; recording=${this.recording}; helper_provider=${helperProviderReady}; blockers=${blockers.length}; next=${bundle.next_action}`;
+    this.ui.developerOutput.textContent = `startup=${(globalThis as typeof globalThis & { __translateitStartupBuildMarker?: string }).__translateitStartupBuildMarker ?? "unknown"}; lifecycle=${bundle.engine_status.lifecycle_state}; recording=${this.recording}; helper_provider=${helperProviderReady}; blockers=${blockers.length}; next=${bundle.next_action}`;
 
     if (!this.currentSessionId) {
       const firstBlocker = blockers[0] ? blockers[0].replaceAll("_", " ") : bundle.next_action;
@@ -310,7 +395,10 @@ export class LauncherController {
 
   private async submitText(): Promise<void> {
     const source = this.ui.messageInput.value.trim();
-    if (!source) return;
+    if (!source) {
+      this.setAssistantNotice("Type some text to translate first.");
+      return;
+    }
     if (exceedsManualTranslationLimit(source)) {
       this.setAssistantNotice(`Text is too long. Limit: ${MAX_MANUAL_TRANSLATION_CHARS} characters.`);
       return;
@@ -518,29 +606,69 @@ export class LauncherController {
     requireElement<HTMLButtonElement>("#seeAllLogsButton").addEventListener("click", () => { this.logsExpanded = !this.logsExpanded; this.renderDeveloperSettings(); });
   }
 
+  private async refreshStartupRuntimeSnapshot(): Promise<void> {
+    startupTrace("startupSnapshot:begin", {});
+    const [bundle, diagnostics] = await Promise.all([
+      this.traceStartupCall("runtimeApi.getStatusBundle", () => runtimeApi.getStatusBundle(), STARTUP_GATE_TIMEOUT_MS, null),
+      this.traceStartupCall("runtimeApi.getDiagnostics", () => runtimeApi.getDiagnostics(), STARTUP_GATE_TIMEOUT_MS, null),
+    ]);
+    startupTrace("startupSnapshot:complete", {
+      bundle: Boolean(bundle),
+      diagnostics: Boolean(diagnostics),
+    });
+    this.renderRuntime(bundle, diagnostics);
+    if (this.activeSettingsTab === "developer") this.renderDeveloperSettings();
+  }
+
   private async runWarmup(): Promise<void> {
+    startupTrace("runWarmup:start", {
+      steps: warmupProgressSteps.length,
+      marker: (globalThis as typeof globalThis & { __translateitStartupBuildMarker?: string }).__translateitStartupBuildMarker ?? "unknown",
+    });
     for (let i = 0; i < warmupProgressSteps.length; i += 1) {
+      startupTrace("runWarmup:step:start", { index: i, progress: warmupProgressSteps[i] });
       this.renderWarmupSteps(i);
       this.updateWarmup(warmupProgressSteps[i], "Checking local runtime...");
+      startupTrace("runWarmup:step:complete", { index: i, progress: warmupProgressSteps[i] });
       await new Promise((resolve) => window.setTimeout(resolve, 120));
     }
-    this.currentSettings = await this.withTimeout(runtimeApi.loadSettings(), STARTUP_GATE_TIMEOUT_MS, defaultSettings()) ?? defaultSettings();
+    startupTrace("runWarmup:loadSettings:before", {});
+    this.currentSettings = await this.traceStartupCall("runtimeApi.loadSettings", () => runtimeApi.loadSettings(), STARTUP_GATE_TIMEOUT_MS, defaultSettings()) ?? defaultSettings();
     this.refreshDirectionPill();
-    const [bundle, diagnostics, helperStatus] = await Promise.all([
-      this.withTimeout(runtimeApi.getStatusBundle(), STARTUP_GATE_TIMEOUT_MS, null),
-      this.withTimeout(runtimeApi.getDiagnostics(), STARTUP_GATE_TIMEOUT_MS, null),
-      this.withTimeout(runtimeApi.getHelperBridgeStatus(), STARTUP_GATE_TIMEOUT_MS, null),
-    ]);
-    this.latestHelperBridgeStatus = helperStatus;
+    startupTrace("runWarmup:background-refresh:queued", {});
+    void this.refreshStartupRuntimeSnapshot();
+    this.latestHelperBridgeStatus = null;
+    startupTrace("runWarmup:renderHomeCards:before", {});
     this.renderHomeCards();
-    this.renderRuntime(bundle, diagnostics);
+    startupTrace("runWarmup:renderHomeCards:after", {});
+    startupTrace("runWarmup:renderRuntime:before", {});
+    this.renderRuntime(null, null);
+    startupTrace("runWarmup:renderRuntime:after", {});
+    startupTrace("runWarmup:renderSettingsTab:before", {});
     this.renderSettingsTab("general");
-    this.setAssistantNotice(bundle && helperStatus?.provider_ready
-      ? "Local runtime is ready."
-      : "Local validation mode is active. The interface is ready while runtime data finishes loading.");
-    this.ui.warmupScreen.classList.add("is-hidden");
-    this.ui.mainApp.classList.remove("is-hidden");
+    startupTrace("runWarmup:renderSettingsTab:after", {});
+    this.setAssistantNotice("Local validation mode is active. The interface is ready while runtime data finishes loading.");
+    startupTrace("runWarmup:ui:before-hide", {
+      warmupDetail: this.ui.warmupDetail.textContent,
+      warmupVisible: !this.ui.warmupScreen.classList.contains("is-hidden"),
+      mainVisible: !this.ui.mainApp.classList.contains("is-hidden"),
+    });
+    this.revealMainApp("runWarmup:ui:after-hide");
+    window.setTimeout(() => {
+      const warmupVisible = !this.ui.warmupScreen.classList.contains("is-hidden") || window.getComputedStyle(this.ui.warmupScreen).display !== "none";
+      if (!warmupVisible) return;
+      startupTrace("ui.transition:forced-after-visibility-check", {
+        warmupVisible,
+        mainVisible: !this.ui.mainApp.classList.contains("is-hidden"),
+      });
+      this.ui.warmupScreen.classList.add("is-hidden");
+      this.ui.mainApp.classList.remove("is-hidden");
+      this.traceUiState("ui.transition:forced-after-visibility-check:after");
+    }, 1000);
     this.resizeMessageInput();
+    startupTrace("runWarmup:complete", {
+      assistantNotice: this.ui.assistantMessage.textContent,
+    });
   }
 
   private bindEvents(): void {

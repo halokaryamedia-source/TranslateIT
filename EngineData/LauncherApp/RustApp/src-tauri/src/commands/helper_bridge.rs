@@ -8,6 +8,9 @@ use std::sync::{Mutex, OnceLock};
 use std::thread;
 use std::time::{SystemTime, UNIX_EPOCH};
 
+use crate::commands::diagnostic_trace::{
+    trace_command_end, trace_command_error, trace_command_start,
+};
 use crate::engine::paths::ProjectPaths;
 
 #[derive(Debug, Clone, Serialize)]
@@ -296,6 +299,7 @@ fn stop_child(runtime: &mut HelperBridgeRuntime) {
 
 #[tauri::command]
 pub fn get_helper_bridge_status() -> HelperBridgeStatus {
+    let started = trace_command_start("get_helper_bridge_status", "reading helper bridge status");
     match runtime().lock() {
         Ok(mut runtime) => {
             if let Some(child) = runtime.child.as_mut() {
@@ -310,21 +314,35 @@ pub fn get_helper_bridge_status() -> HelperBridgeStatus {
                     runtime.updated_unix_ms = unix_ms();
                 }
             }
-            status_from_runtime(&runtime)
+            let result = status_from_runtime(&runtime);
+            trace_command_end(
+                "get_helper_bridge_status",
+                started,
+                format!("state={}", result.state),
+            );
+            result
         }
-        Err(_) => HelperBridgeStatus {
-            state: "error".to_string(),
-            message: "Helper bridge status lock is poisoned.".to_string(),
-            cuda_ready: false,
-            provider_ready: false,
-            degraded_mode: false,
-            active_task: None,
-            generation_token: 0,
-            last_error: Some("helper_bridge:lock_poisoned".to_string()),
-            stderr_log_path: None,
-            updated_unix_ms: unix_ms(),
-            runtime_claim: "bridge_state_error".to_string(),
-        },
+        Err(_) => {
+            let result = HelperBridgeStatus {
+                state: "error".to_string(),
+                message: "Helper bridge status lock is poisoned.".to_string(),
+                cuda_ready: false,
+                provider_ready: false,
+                degraded_mode: false,
+                active_task: None,
+                generation_token: 0,
+                last_error: Some("helper_bridge:lock_poisoned".to_string()),
+                stderr_log_path: None,
+                updated_unix_ms: unix_ms(),
+                runtime_claim: "bridge_state_error".to_string(),
+            };
+            trace_command_error(
+                "get_helper_bridge_status",
+                started,
+                format!("state={}", result.state),
+            );
+            result
+        }
     }
 }
 

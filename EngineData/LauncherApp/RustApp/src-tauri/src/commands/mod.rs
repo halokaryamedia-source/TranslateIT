@@ -2,6 +2,7 @@ pub mod audio;
 pub mod audio_evidence;
 pub mod audio_studio;
 pub mod chat;
+pub mod diagnostic_trace;
 pub mod diagnostics;
 pub mod hardware;
 pub mod helper_bridge;

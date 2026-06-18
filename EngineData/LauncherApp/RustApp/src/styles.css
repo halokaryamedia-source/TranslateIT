@@ -48,6 +48,7 @@ svg { width: 20px; height: 20px; fill: none; stroke: currentColor; stroke-lineca
 .warmup-brand h1, .topbar h2, .hero-panel h3 { margin: 0; color: var(--text); letter-spacing: -.035em; }
 .warmup-brand h1 { margin-top: 4px; font-size: 32px; }
 .warmup-detail { margin-top: 28px; font-size: 16px; }
+.warmup-trace { margin-top: 10px; color: #cbd0d8; font-size: 12.2px; line-height: 1.45; letter-spacing: .01em; }
 .warmup-meter { height: 12px; margin-top: 16px; overflow: hidden; border: 1px solid var(--border); border-radius: 999px; background: #0b0e14; }
 .warmup-fill { width: 0%; height: 100%; border-radius: inherit; background: #d0d4db; transition: width 280ms ease; }
 .warmup-meta { display: flex; justify-content: space-between; margin-top: 10px; color: #cbd0d8; font-weight: 800; }

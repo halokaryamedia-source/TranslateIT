@@ -6,6 +6,7 @@ export function mountAppShell(app: HTMLElement): void {
       <div class="warmup-card">
         <div class="warmup-brand"><div class="brand-orb">T</div><div><p>TRANSLATEIT</p><h1>Preparing local voice translation</h1></div></div>
         <p id="warmupDetail" class="warmup-detail">Starting desktop shell...</p>
+        <p id="startupTraceLine" class="warmup-trace">Startup trace pending.</p>
         <div class="warmup-meter"><div id="warmupFill" class="warmup-fill"></div></div>
         <div class="warmup-meta"><span id="warmupPercent">0%</span><span>Release-first startup</span></div>
         <ol id="warmupSteps" class="warmup-steps"></ol>
