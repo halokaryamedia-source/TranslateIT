@@ -28,6 +28,18 @@ export type RuntimeDiagnostics = {
   blockers: string[];
 };
 
+export type HelperBridgeStatus = {
+  state: string;
+  message: string;
+  cuda_ready: boolean;
+  provider_ready: boolean;
+  degraded_mode: boolean;
+  active_task: string | null;
+  last_error: string | null;
+  updated_unix_ms: number;
+  runtime_claim: string;
+};
+
 export type LocalWorkerManifestReport = {
   ok: boolean;
   runtime_manifest_exists: boolean;
