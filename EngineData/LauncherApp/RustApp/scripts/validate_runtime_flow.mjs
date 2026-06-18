@@ -36,6 +36,12 @@ const runtimeCommands = readText("EngineData/LauncherApp/RustApp/src-tauri/src/c
 expectIncludes(runtimeCommands, "Voice capture is blocked because helper provider readiness is not verified yet", "capture helper readiness guard");
 expectIncludes(runtimeCommands, "!status.provider_ready", "capture provider readiness condition");
 
+const runtimeApi = readText("EngineData/LauncherApp/RustApp/src/app/engineTranslate/runtimeApi.ts");
+expectIncludes(runtimeApi, "HELPER_COMMAND_TIMEOUT_MS", "helper command timeout guard");
+expectIncludes(runtimeApi, "HELPER_START_TIMEOUT_MS", "helper start timeout guard");
+expectIncludes(runtimeApi, "frontend_timeout_backend_result_unknown", "helper timeout runtime claim");
+expectIncludes(runtimeApi, "runHelperActionWithTimeout", "helper timeout wrapper");
+
 const healthMonitor = readText("EngineData/LauncherApp/RustApp/src/app/launcher/helperBridgeHealthMonitor.ts");
 expectIncludes(healthMonitor, "publishHealthWarning", "health monitor non-invasive warning");
 expectIncludes(healthMonitor, "helperBridgeHealthWarning", "health warning state storage");
@@ -48,6 +54,17 @@ expectNotIncludes(readinessGuard, "userPresence.includes(\"ready\")", "broad rea
 const settingsViews = readText("EngineData/LauncherApp/RustApp/src/app/launcher/settingsViews.ts");
 expectIncludes(settingsViews, "provider pending", "developer helper provider-aware label");
 expectIncludes(settingsViews, "CUDA not verified", "developer CUDA-aware label");
+expectIncludes(settingsViews, "Helper bridge controls", "developer helper controls inline layout");
+
+const mainTs = readText("EngineData/LauncherApp/RustApp/src/main.ts");
+expectNotIncludes(mainTs, "bindHelperBridgeVisibilityUi", "removed duplicate helper visibility binding");
+
+const audioStudioBinding = readText("EngineData/LauncherApp/RustApp/src/app/launcher/audioStudioBinding.ts");
+expectIncludes(audioStudioBinding, "metadata-only mode", "Audio Studio metadata-only opening notice");
+expectIncludes(audioStudioBinding, "Stage Metadata", "Audio Studio guided metadata label");
+expectIncludes(audioStudioBinding, "Check Provider Blockers", "Audio Studio provider diagnostics label");
+expectIncludes(audioStudioBinding, "Check Quality Blockers", "Audio Studio quality diagnostics label");
+expectNotIncludes(audioStudioBinding, "Stage Guide", "misleading Audio Studio recording label");
 
 if (errors.length > 0) {
   console.error("Runtime flow validation failed:");
