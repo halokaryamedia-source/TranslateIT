@@ -38,4 +38,4 @@ pub mod translation;
 pub mod translation_logic;
 pub mod tts;
 
-pub const ADAPTER_RULE: &str = "Adapters must expose truthful readiness and deterministic error reporting.";
+pub const ADAPTER_RULE: &str = "Adapters must expose truthful readiness, deterministic compact error reporting, and no raw private path output.";
