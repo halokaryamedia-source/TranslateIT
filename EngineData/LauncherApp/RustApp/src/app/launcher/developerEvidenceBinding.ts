@@ -1,6 +1,8 @@
 import { runtimeApi } from "../engineTranslate/runtimeApi";
 import type { AudioStudioValidationEvidence } from "../shared/types";
 
+let observer: MutationObserver | null = null;
+
 function escapeHtml(value: string): string {
   return value
     .replaceAll("&", "&amp;")
@@ -42,13 +44,20 @@ function refreshEvidencePanel(panel: HTMLElement): void {
     .catch(() => renderEvidence(panel, null));
 }
 
-export function bindDeveloperEvidenceUi(): void {
+export function bindDeveloperEvidenceUi(): () => void {
   const refresh = () => {
     const panel = document.querySelector<HTMLElement>('[aria-label="Validation evidence status"]');
     if (panel) refreshEvidencePanel(panel);
   };
   refresh();
   const root = document.querySelector<HTMLElement>("#settingsContent") ?? document.body;
-  const observer = new MutationObserver(refresh);
+  observer?.disconnect();
+  observer = new MutationObserver(refresh);
   observer.observe(root, { childList: true, subtree: true });
+  return unbindDeveloperEvidenceUi;
+}
+
+export function unbindDeveloperEvidenceUi(): void {
+  observer?.disconnect();
+  observer = null;
 }
