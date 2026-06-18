@@ -17,6 +17,7 @@ This report covers repository-side stability review for the current Dev-Rust bra
 - Icon name compatibility.
 - Engine and Launcher file placement.
 - Runtime contract placement.
+- Audio Studio root and storage contract consistency.
 - Type boundary stability between shared, launcher, and API modules.
 - Report and documentation consistency.
 
@@ -114,6 +115,18 @@ Fix:
 - Exported an explicit advanced panel injection function.
 - Called the injection function directly from the Audio Studio open flow.
 - Kept the observer path as a secondary safety net.
+
+### 11. Audio Studio storage-root normalization
+
+Risk: metadata and quality contracts could drift by allowing a separate Audio Studio log root under `UserData/LogData`.
+
+Fix:
+
+- Normalized Audio Studio logs to `UserData/CacheData/AudioStudio/logs/`.
+- Kept cache data under `UserData/CacheData/AudioStudio/`.
+- Kept saved project data under `UserData/SavedProject/AudioStudio/`.
+- Added contract rules against creating additional Audio Studio roots outside CacheData and SavedProject.
+- Aligned the advanced quality contract with the same approved roots.
 
 ## Current integration chains
 
