@@ -4,7 +4,23 @@
 
 This is the single documentation hub for TranslateIT.
 
-Only current source-of-truth documentation, concise engineering reports, and maintained templates should live here. Do not restore old documentation paths or keep duplicate historical notes.
+The current active engineering entrypoint is:
+
+```text
+DevelopingData/Documentation/Reports/Engineering/ACTIVE_DOCUMENTATION_INDEX.md
+```
+
+Read that file first before using older reports, handoff notes, or phase documents.
+
+## Current active engine
+
+TranslateIT has one active product runtime direction:
+
+```text
+Rust/Tauri desktop shell + Python helper runtime
+```
+
+Python is an internal helper runtime for ASR, translation, TTS/voice, CUDA diagnostics, latency diagnostics, model checks, and audio/provider work. It is not a separate user-facing product shell.
 
 ## Current layout
 
@@ -13,7 +29,12 @@ Documentation/
   README.md
   Reports/
     Engineering/
-      README.md
+      ACTIVE_DOCUMENTATION_INDEX.md
+      CURRENT_APP_STATUS.md
+      SINGLE_ACTIVE_ENGINE_POLICY.md
+      CAPTURE_HELPER_BRIDGE_MIGRATION_PLAN.md
+      HELPER_BRIDGE_TIMEOUT_POLICY.md
+      NOISE_HALLUCINATION_FILTERING_POLICY.md
       StructureCleanupReport.md
   Source/
     README.md
@@ -30,19 +51,20 @@ Documentation/
 
 For a new AI/session or developer handoff, read in this order:
 
-1. Root `README.md`.
-2. `DevelopingData/README.md`.
-3. `DevelopingData/Documentation/README.md`.
-4. `DevelopingData/Documentation/Source/ProjectDocumentation.md`.
-5. `DevelopingData/Documentation/Source/SystemArchitecture.md`.
-6. `DevelopingData/Documentation/Source/ManualTestGuide.md`.
-7. `DevelopingData/Documentation/Reports/Engineering/StructureCleanupReport.md`.
+1. `DevelopingData/Documentation/Reports/Engineering/ACTIVE_DOCUMENTATION_INDEX.md`.
+2. `DevelopingData/Documentation/Reports/Engineering/CURRENT_APP_STATUS.md`.
+3. `DevelopingData/Documentation/Reports/Engineering/SINGLE_ACTIVE_ENGINE_POLICY.md`.
+4. `EngineData/Backend/RuntimeContracts/FINAL_ARCHITECTURE_CONTRACT.json`.
+5. `EngineData/Backend/RuntimeContracts/PYTHON_HELPER_BRIDGE_CONTRACT.json`.
+6. `EngineData/Backend/RuntimeContracts/CAPTURE_HELPER_BRIDGE_REQUEST_CONTRACT.json`.
+7. `EngineData/Backend/RuntimeContracts/AUDIO_STUDIO_ROUTE_STATUS_CONTRACT.json`.
 8. `EngineData/README.md`.
 
 ## Rules
 
 - Keep documentation here.
 - Keep only documents that are current and useful.
+- Treat older reports outside the active index as historical context only.
 - Keep executable tooling in `DevelopingData/Tooling`.
 - Keep runtime app code in `EngineData`.
 - Keep user runtime output in `UserData`.
