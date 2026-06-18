@@ -110,9 +110,24 @@ fn write_atomic(path: &Path, body: &str) -> io::Result<()> {
     }
 }
 
+fn is_unsafe_setting_text_character(character: char) -> bool {
+    character.is_control()
+        || ('\u{202a}'..='\u{202e}').contains(&character)
+        || ('\u{2066}'..='\u{2069}').contains(&character)
+}
+
+fn clean_setting_text(value: &str) -> String {
+    value
+        .trim()
+        .chars()
+        .filter(|character| !is_unsafe_setting_text_character(*character))
+        .take(MAX_SETTING_TEXT_CHARS)
+        .collect::<String>()
+}
+
 fn sanitize_runtime_profile(value: &str, legacy_input_sensitivity: &str) -> String {
-    let text = value.trim().to_lowercase();
-    let legacy = legacy_input_sensitivity.trim().to_lowercase();
+    let text = clean_setting_text(value).to_lowercase();
+    let legacy = clean_setting_text(legacy_input_sensitivity).to_lowercase();
     if text.contains("quality") || legacy.contains("quality") || legacy.contains("noisy") {
         "Quality".to_string()
     } else {
@@ -121,7 +136,7 @@ fn sanitize_runtime_profile(value: &str, legacy_input_sensitivity: &str) -> Stri
 }
 
 fn sanitize_language(value: &str, fallback: &str) -> String {
-    let text = value.trim().to_lowercase();
+    let text = clean_setting_text(value).to_lowercase();
     if text.starts_with("ind") || text.starts_with("id") { return "id".to_string(); }
     if text.starts_with("eng") || text.starts_with("en") { return "en".to_string(); }
     if text.is_empty() { fallback.to_string() } else { text.chars().take(2).collect() }
@@ -137,24 +152,19 @@ fn sanitize_identifier(value: &str) -> String {
 }
 
 fn sanitize_optional_runtime_text(value: Option<String>) -> Option<String> {
-    let text = value?
-        .trim()
-        .chars()
-        .filter(|character| !character.is_control())
-        .take(MAX_SETTING_TEXT_CHARS)
-        .collect::<String>();
+    let text = clean_setting_text(&value?);
     if text.is_empty() { None } else { Some(text) }
 }
 
 fn sanitize_voice_root(value: &str) -> String {
-    let text = value.trim().replace('\\', "/");
+    let text = clean_setting_text(value).replace('\', "/");
     if text.is_empty()
         || text.starts_with("<member ")
         || text.contains("AudioSettings' objects>")
         || text.contains("..")
         || text.starts_with('/')
         || text.contains(':')
-        || text.chars().any(|character| character.is_control())
+        || text.chars().any(is_unsafe_setting_text_character)
         || text.chars().count() > MAX_SETTING_TEXT_CHARS
     {
         return "EngineData/VoiceActorProfiles".to_string();
