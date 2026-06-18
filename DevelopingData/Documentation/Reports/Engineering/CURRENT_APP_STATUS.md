@@ -33,6 +33,17 @@ Python remains part of the product as a helper runtime for tasks where Python is
 - Launcher chat persistence uses `UserData/SavedProject/Chat`.
 - Project path discovery uses root markers: `EngineData`, `DevelopingData`, and `UserData`.
 
+### Single active engine hardening
+
+- Active user-facing shell is `EngineData/LauncherApp/RustApp`.
+- Active helper runtime is `EngineData/Backend/LocalWorker/WorkerRuntime`.
+- Active runtime contracts are under `EngineData/Backend/RuntimeContracts`.
+- `EngineData/Backend/README.md` no longer describes `RustApp` as a legacy folder name.
+- Runtime readiness guard no longer uses legacy naming in code.
+- `validate:single-active-engine` is registered in the package validation scripts.
+- Single active engine validator checks required active engine paths and blocks inactive engine paths such as `EngineData/TranscriptEngine`, `EngineData/TranslateEngine`, `EngineData/VoiceEngine`, root `EngineData/RuntimeAssets`, Python launcher files under `EngineData/LauncherApp`, and removed helper/policy files.
+- Single active engine validator scans active engine surfaces for inactive-engine wording, alternate shell wording, and Python UI shell markers.
+
 ### Runtime UX flow hardening
 
 - Main runtime wording now separates text readiness from voice/provider readiness.
