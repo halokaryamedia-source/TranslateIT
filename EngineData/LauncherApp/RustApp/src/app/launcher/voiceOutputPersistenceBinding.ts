@@ -3,6 +3,7 @@ import type { RuntimeSettings } from "../shared/types";
 
 let bound = false;
 let savePending = false;
+let clickHandler: ((event: MouseEvent) => void) | null = null;
 
 type LanguagePair = { source: string; target: string };
 
@@ -112,10 +113,10 @@ async function runSavedSettingTask(task: () => Promise<void>): Promise<void> {
   }
 }
 
-export function bindVoiceOutputPersistenceUi(): void {
-  if (bound) return;
+export function bindVoiceOutputPersistenceUi(): () => void {
+  if (bound) return unbindVoiceOutputPersistenceUi;
   bound = true;
-  document.addEventListener("click", (event) => {
+  clickHandler = (event: MouseEvent) => {
     const target = event.target as Element | null;
     const copyButton = target?.closest<HTMLButtonElement>("[data-copy-translation]");
     if (copyButton) {
@@ -138,5 +139,15 @@ export function bindVoiceOutputPersistenceUi(): void {
     if (target?.closest("#saveTranslateButton")) {
       void runSavedSettingTask(persistTranslateDirection);
     }
-  });
+  };
+  document.addEventListener("click", clickHandler);
+  return unbindVoiceOutputPersistenceUi;
+}
+
+export function unbindVoiceOutputPersistenceUi(): void {
+  if (!bound || !clickHandler) return;
+  document.removeEventListener("click", clickHandler);
+  clickHandler = null;
+  savePending = false;
+  bound = false;
 }
