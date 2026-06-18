@@ -17,16 +17,19 @@ Python remains part of the product as a helper runtime for tasks where Python is
 - Launcher chat persistence uses `UserData/SavedProject/Chat`.
 - Project path discovery uses root markers: `EngineData`, `DevelopingData`, and `UserData`.
 
-### Helper bridge lifecycle visibility
+### Helper bridge lifecycle and worker spawn
 
 - Rust/Tauri exposes `get_helper_bridge_status`.
 - Rust/Tauri exposes lifecycle commands: `start_helper_bridge`, `stop_helper_bridge`, and `cancel_helper_bridge_task`.
-- Rust/Tauri exposes a request-schema command: `send_helper_bridge_request`.
+- Rust/Tauri exposes `send_helper_bridge_request` for JSON-line worker commands.
 - Helper bridge commands maintain a generation token for cancellation/state invalidation.
-- Current helper bridge status is intentionally blocked/not ready until Python process orchestration is implemented.
+- `start_helper_bridge` resolves `EngineData/Backend/LocalWorker/WorkerRuntime/realtime_local_worker.py`.
+- `start_helper_bridge` requires the project-local worker `.venv` Python created by `setup_realtime_worker.ps1`.
+- `start_helper_bridge` spawns the Python worker with piped stdin/stdout and verifies startup using a `ping` command.
+- `send_helper_bridge_request` sends JSON-line requests to the running worker and reads one JSON-line response.
 - Developer UI reads and displays helper bridge status.
 - Developer UI includes Start Helper, Stop Helper, and Cancel Task controls.
-- Helper existence alone must not mark runtime ready.
+- Helper existence alone must not mark full runtime ready; model/provider readiness still depends on worker response evidence and local validation.
 
 ### Audio Studio project-data runtime
 
@@ -75,17 +78,18 @@ Still scaffold-only:
 - streaming generation,
 - provider readiness measurement.
 
-### Python helper runtime process bridge
+### Python helper runtime bridge remaining work
 
-Helper bridge lifecycle state exists, but actual Python process orchestration is not implemented yet.
+Helper worker spawn and JSON-line request forwarding now exist, but these still require local validation and additional runtime hardening.
 
-Still scaffold-only:
+Still pending:
 
-- helper process spawn,
-- helper process health monitoring,
-- real helper request/response protocol,
-- provider status mapping from the helper process,
-- CUDA helper status mapping from the helper process.
+- target-PC spawn validation,
+- long-running health monitor,
+- worker stderr/error visibility mapping,
+- CUDA status mapping from worker status,
+- provider status mapping from worker status,
+- Start/Stop capture integration with helper generation token.
 
 ## Contract only
 
@@ -109,10 +113,10 @@ However, the final shell direction is now Rust/Tauri. Python/Qt launcher materia
 
 ## Known remaining implementation work
 
-1. Connect Rust/Tauri capture controls to the Python helper realtime pipeline.
-2. Implement real helper process spawn and health monitoring.
-3. Implement real helper request/response protocol.
-4. Surface CUDA/provider readiness from helper runtime, not only static diagnostics.
+1. Validate helper worker spawn on target PC.
+2. Connect Rust/Tauri capture controls to the Python helper realtime pipeline.
+3. Add long-running helper health monitor.
+4. Surface CUDA/provider readiness from helper worker status.
 5. Add visible degraded-mode controls for CPU/provider fallback.
 6. Implement Audio Studio provider processing after metadata routes.
 7. Add Audio Studio guided microphone capture.
@@ -129,4 +133,4 @@ However, the final shell direction is now Rust/Tauri. Python/Qt launcher materia
 - No packaged app readiness is claimed here.
 - No real Audio Studio provider output is claimed here.
 - No CUDA runtime readiness is claimed here.
-- No Python helper process readiness is claimed here.
+- No target-PC helper spawn success is claimed here.
