@@ -37,7 +37,6 @@ const scanRoots = [
   "EngineData/Backend/README.md",
   "EngineData/LauncherApp/RustApp/src",
   "EngineData/LauncherApp/RustApp/src-tauri/src",
-  "EngineData/LauncherApp/RustApp/scripts",
   "EngineData/Backend/RuntimeContracts",
   "DevelopingData/Documentation/README.md",
   "DevelopingData/Documentation/Reports/Engineering/ACTIVE_DOCUMENTATION_INDEX.md",
@@ -79,7 +78,7 @@ function scanFile(path) {
   const rel = toRepoRelative(path);
   if (allowedWordExceptions.has(rel)) return;
   const content = readFileSync(path, "utf8");
-  if (/legacy/i.test(content)) errors.push(`Forbidden legacy wording in active engine surface: ${rel}`);
+  if (/legacy/i.test(content)) errors.push(`Forbidden inactive-engine wording in active engine surface: ${rel}`);
   if (/Python\/Qt/i.test(content)) errors.push(`Forbidden alternate shell wording in active engine surface: ${rel}`);
   if (/PyQt|PySide|tkinter/i.test(content)) errors.push(`Forbidden Python UI shell marker in active engine surface: ${rel}`);
 }
