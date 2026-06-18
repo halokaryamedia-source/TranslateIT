@@ -61,6 +61,7 @@ export function bindReferenceUi(): () => void {
   bound = true;
   clickHandler = handleReferenceClick;
   document.addEventListener("click", clickHandler, true);
+  window.addEventListener("beforeunload", unbindReferenceUi, { once: true });
   return unbindReferenceUi;
 }
 
