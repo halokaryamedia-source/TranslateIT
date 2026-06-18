@@ -110,9 +110,16 @@ Dev-Pack
 - `cargo clippy -- -D warnings` remains blocked by broad legacy warnings.
 - `validate:full` is blocked by external root-cleanliness expectations and should be interpreted as a tooling-policy failure, not a runtime crash.
 - `npm audit` exposes existing dependency advisories in Vite/esbuild.
+- Automated coverage is now available through `npm.cmd run validate:auto`; the strict variant is `npm.cmd run validate:auto:strict`.
 
 ## Final Decision
 
 PARTIAL
 
 The app is usable locally in the native desktop shell and the core Rust/Tauri engine paths now have deterministic tests, but full engine readiness still depends on evidence-gated worker/audio/model validation that is not present in this repository state.
+
+## Automation Update
+
+- `npm.cmd run validate:auto` now orchestrates baseline checks, Rust checks, audio studio validation, status scripts, worker setup/smoke, and a native startup smoke run.
+- `npm.cmd run validate:auto:strict` keeps the same coverage but upgrades any partial/blocker result to a hard failure.
+- Manual validation is still only required for physical microphone permission, speaker playback, and any subjective UX review.

@@ -137,6 +137,7 @@ function runStep(name, args) {
 
 try {
   log("Audio Studio local validation started.");
+  log("translateit.audio_studio_local_validation.v1");
   log(`Package root: ${packageRoot}`);
   log(`Evidence contract path: ${evidenceContractPath}`);
   log(`Log path: ${logPath}`);

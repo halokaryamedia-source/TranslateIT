@@ -1,4 +1,4 @@
-import { existsSync, readFileSync } from "node:fs";
+import { existsSync, readFileSync, readdirSync } from "node:fs";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -6,15 +6,13 @@ const scriptDir = dirname(fileURLToPath(import.meta.url));
 const packageRoot = resolve(scriptDir, "..");
 const repoRoot = resolve(packageRoot, "../../..");
 const contractPath = resolve(repoRoot, "EngineData/Backend/RuntimeContracts/AUDIO_STUDIO_LOCAL_VALIDATION_EVIDENCE_CONTRACT.json");
+const logsRoot = resolve(repoRoot, "UserData", "CacheData", "AudioStudio", "logs");
 const summaryArg = process.argv[2];
 
-if (!summaryArg) {
-  console.error("Usage: node scripts/verify_audio_studio_local_summary.mjs <summary-json-path>");
-  process.exit(1);
-}
-
-const summaryPath = resolve(packageRoot, summaryArg);
 const contract = readJson(contractPath, "evidence contract");
+const summaryPath = summaryArg
+  ? resolve(packageRoot, summaryArg)
+  : findLatestSummaryPath();
 const summary = readJson(summaryPath, "summary file");
 const errors = [];
 
@@ -29,6 +27,20 @@ function readJson(path, label) {
     console.error(`Invalid JSON in ${label}: ${error instanceof Error ? error.message : String(error)}`);
     process.exit(1);
   }
+}
+
+function findLatestSummaryPath() {
+  if (!existsSync(logsRoot)) {
+    console.error(`Missing summary file path and no summary directory found: ${logsRoot}`);
+    process.exit(1);
+  }
+  const summaries = readdirSync(logsRoot).filter((name) => name.startsWith("audio_studio_local_validation_") && name.endsWith(".summary.json"));
+  if (summaries.length === 0) {
+    console.error(`No Audio Studio summary file found in: ${logsRoot}`);
+    process.exit(1);
+  }
+  summaries.sort();
+  return resolve(logsRoot, summaries[summaries.length - 1]);
 }
 
 function expectArray(value, label) {

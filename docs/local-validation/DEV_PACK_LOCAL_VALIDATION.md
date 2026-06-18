@@ -121,6 +121,12 @@
 
 - `PARTIAL`
 
+## Automation Update
+
+- Primary one-command validation: `npm.cmd run validate:auto`
+- Strict validation: `npm.cmd run validate:auto:strict`
+- Manual validation is now reserved for real microphone permission, real speaker playback, and subjective UI review.
+
 ## Diagnostic-First Startup Validation
 
 - Branch: `Dev-Pack`

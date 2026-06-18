@@ -48,7 +48,7 @@ function finish(label, problems) {
 
 function validateRoot() {
   const allowedRootFiles = new Set([".gitattributes", ".gitignore", "README.md", "TranslateIT.lnk"]);
-  const allowedRootDirs = new Set([".git", ".github", "DevelopingData", "EngineData", "UserData"]);
+  const allowedRootDirs = new Set([".git", ".github", "DevelopingData", "docs", "EngineData", "UserData"]);
   const forbiddenRootSuffixes = new Set([".py", ".bat", ".cmd", ".ps1", ".vbs", ".log", ".tmp", ".bak", ".old"]);
   const problems = [];
   for (const name of readdirSync(ROOT)) {

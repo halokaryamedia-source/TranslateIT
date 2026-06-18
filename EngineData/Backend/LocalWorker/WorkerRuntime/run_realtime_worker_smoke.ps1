@@ -34,9 +34,9 @@ function Invoke-WorkerJson {
     foreach ($candidate in $candidates) {
         $processInfo = New-Object System.Diagnostics.ProcessStartInfo
         $processInfo.FileName = $candidate.FileName
-        foreach ($argument in $candidate.Arguments) {
-            [void]$processInfo.ArgumentList.Add($argument)
-        }
+        $processInfo.Arguments = ($candidate.Arguments | ForEach-Object {
+            if ($_ -match '\s') { '"' + ($_ -replace '"', '\"') + '"' } else { $_ }
+        }) -join ' '
         $processInfo.RedirectStandardInput = $true
         $processInfo.RedirectStandardOutput = $true
         $processInfo.RedirectStandardError = $true
