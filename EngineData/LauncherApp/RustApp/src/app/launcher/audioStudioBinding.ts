@@ -6,6 +6,7 @@ import {
   createGuidedReadingTake,
   createImportedTake,
   stateLabel,
+  type AudioStudioReadingLine,
   type AudioStudioTakeDraft,
   type AudioStudioTakeState,
 } from "./audioStudioState";
@@ -14,6 +15,7 @@ const ACTION_STATES: AudioStudioTakeState[] = ["accepted", "needs_retry", "block
 const MAX_STAGED_TAKES = 12;
 const MAX_IMPORT_FILES_PER_ACTION = 12;
 const MAX_IMPORT_FILE_SIZE_BYTES = 500 * 1024 * 1024;
+const MAX_NOTICE_LABEL_LENGTH = 120;
 const ACCEPTED_AUDIO_EXTENSIONS = [".wav", ".mp3", ".m4a", ".ogg", ".webm"];
 
 let selectedReadingIndex = 0;
@@ -38,10 +40,22 @@ function isActionState(value: string | undefined): value is AudioStudioTakeState
   return ACTION_STATES.includes(value as AudioStudioTakeState);
 }
 
+function normalizeNoticeText(value: string, fallback: string): string {
+  const normalized = value.replace(/[\u0000-\u001f\u007f]+/g, " ").replace(/\s+/g, " ").trim();
+  const safeValue = normalized.length > 0 ? normalized : fallback;
+  return safeValue.length <= MAX_NOTICE_LABEL_LENGTH ? safeValue : `${safeValue.slice(0, MAX_NOTICE_LABEL_LENGTH - 1)}…`;
+}
+
 function clampReadingIndex(value: number): number {
   if (!Number.isFinite(value) || value < 0) return 0;
   if (AUDIO_STUDIO_READING_LINES.length === 0) return 0;
   return Math.min(Math.floor(value), AUDIO_STUDIO_READING_LINES.length - 1);
+}
+
+function getSelectedReadingLine(): AudioStudioReadingLine | null {
+  if (AUDIO_STUDIO_READING_LINES.length === 0) return null;
+  selectedReadingIndex = clampReadingIndex(selectedReadingIndex);
+  return AUDIO_STUDIO_READING_LINES[selectedReadingIndex] ?? AUDIO_STUDIO_READING_LINES[0] ?? null;
 }
 
 function hasAcceptedAudioExtension(fileName: string): boolean {
@@ -56,18 +70,22 @@ function validateImportFile(file: File): string | null {
   return null;
 }
 
+function rejectedFileLabel(file: File): string {
+  return normalizeNoticeText(file.name, "Unnamed file");
+}
+
 function validatedImportFiles(files: File[]): { accepted: File[]; rejected: string[] } {
   const accepted: File[] = [];
   const rejected: string[] = [];
 
   files.forEach((file, index) => {
     if (index >= MAX_IMPORT_FILES_PER_ACTION) {
-      rejected.push(`${file.name || "Unnamed file"}: over ${MAX_IMPORT_FILES_PER_ACTION} file import limit`);
+      rejected.push(`${rejectedFileLabel(file)}: over ${MAX_IMPORT_FILES_PER_ACTION} file import limit`);
       return;
     }
     const reason = validateImportFile(file);
     if (reason) {
-      rejected.push(`${file.name || "Unnamed file"}: ${reason}`);
+      rejected.push(`${rejectedFileLabel(file)}: ${reason}`);
       return;
     }
     accepted.push(file);
@@ -120,6 +138,10 @@ function updateTakeState(takeId: string, state: AudioStudioTakeState): void {
 }
 
 function readingCards(): string {
+  if (AUDIO_STUDIO_READING_LINES.length === 0) {
+    return `<article class="feature-card empty-state-card"><div class="feature-title-row"><h4>No guided reading line available</h4></div><p>Add curated reading lines before staging guided takes.</p></article>`;
+  }
+
   return AUDIO_STUDIO_READING_LINES.map((line, index) => `
     <article class="audio-studio-reading-card ${index === selectedReadingIndex ? "active" : ""}" data-reading-id="${escapeHtml(line.id)}">
       <header><strong>${escapeHtml(line.label)}</strong><span>${escapeHtml(line.target)}</span></header>
@@ -241,9 +263,9 @@ function bindReadingActions(): void {
     button.addEventListener("click", () => {
       const index = Number(button.dataset.readingIndex ?? 0);
       selectedReadingIndex = clampReadingIndex(index);
-      const line = AUDIO_STUDIO_READING_LINES[selectedReadingIndex] ?? AUDIO_STUDIO_READING_LINES[0];
+      const line = getSelectedReadingLine();
       renderReadingPanel();
-      setAssistantNotice(`Guided reading line ready: ${line.text}`);
+      setAssistantNotice(line ? `Guided reading line ready: ${line.text}` : "No guided reading line available.");
     });
   });
 }
@@ -275,8 +297,11 @@ function bindAudioStudioViewEvents(): void {
   });
 
   guidedButton?.addEventListener("click", () => {
-    selectedReadingIndex = clampReadingIndex(selectedReadingIndex);
-    const line = AUDIO_STUDIO_READING_LINES[selectedReadingIndex] ?? AUDIO_STUDIO_READING_LINES[0];
+    const line = getSelectedReadingLine();
+    if (!line) {
+      setAssistantNotice("No guided reading line available.");
+      return;
+    }
     const take = createGuidedReadingTake(line);
     stagedTakes = [take, ...stagedTakes].slice(0, MAX_STAGED_TAKES);
     renderTakeReviewPanel();
