@@ -25,6 +25,7 @@ This report covers repository-side stability review for the current Dev-Rust bra
 - Audio Studio cross-layer enum consistency.
 - Audio Studio safety limit consistency.
 - Audio Studio payload limit contract sync.
+- Audio Studio local validation runner coverage.
 - Advanced panel observer behavior.
 - Advanced panel direct-open behavior.
 - Theme injection behavior.
@@ -297,6 +298,18 @@ Fix:
 - Added a metadata rule requiring payload limits to be enforced before writing metadata.
 - Added `metadata_payload_limits_synced` to the advanced quality contract done definition.
 - Updated the static validator to check payload limit contract values and the advanced contract sync marker.
+
+### 26. Audio Studio local validation runner coverage
+
+Risk: target-PC validation could be executed inconsistently by manually running scattered commands, making evidence logs incomplete or hard to compare between runs.
+
+Fix:
+
+- Added `scripts/run_audio_studio_local_validation.mjs`.
+- Registered `validate:audio-studio:local` in `package.json`.
+- The runner executes Audio Studio static validation, TypeScript typecheck, Rust cargo check, and frontend build in sequence.
+- The runner writes command output to `UserData/CacheData/AudioStudio/logs/`.
+- The static validator now checks local runner existence, package script registration, and expected validation steps.
 
 ## Current integration chains
 
