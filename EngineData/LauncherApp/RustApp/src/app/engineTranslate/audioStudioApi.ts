@@ -114,6 +114,7 @@ async function runAudioStudioTakeListCommand(): Promise<AudioStudioTakeListResul
 }
 
 export const audioStudioApi = {
+  getProviderStatus: () => runAudioStudioCommand("audio_studio_get_provider_status"),
   importTake: (request: AudioStudioTakeRequest) => runAudioStudioCommand("audio_studio_import_take", { request }),
   stageGuidedTake: (request: AudioStudioTakeRequest) => runAudioStudioCommand("audio_studio_stage_guided_take", { request }),
   updateTakeState: (request: AudioStudioStateUpdateRequest) => runAudioStudioCommand("audio_studio_update_take_state", { request }),
