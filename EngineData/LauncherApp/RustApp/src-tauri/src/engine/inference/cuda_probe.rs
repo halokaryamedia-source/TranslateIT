@@ -1,6 +1,8 @@
 use serde::{Deserialize, Serialize};
 use std::process::Command;
 
+const MAX_CUDA_PROBE_SUMMARY_CHARS: usize = 240;
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct CudaProbeReport {
     pub nvidia_smi_available: bool,
@@ -19,7 +21,7 @@ impl CudaProbeReport {
             .output()
         {
             Ok(output) if output.status.success() => {
-                let summary = String::from_utf8_lossy(&output.stdout).trim().to_string();
+                let summary = compact_cuda_probe_text(&String::from_utf8_lossy(&output.stdout));
                 Self {
                     nvidia_smi_available: true,
                     gpu_summary: if summary.is_empty() { None } else { Some(summary) },
@@ -27,21 +29,27 @@ impl CudaProbeReport {
                     blocker: Some("nvidia-smi is available, but native CUDA inference backend validation is not implemented yet.".to_string()),
                 }
             }
-            Ok(output) => Self {
+            Ok(_output) => Self {
                 nvidia_smi_available: false,
                 gpu_summary: None,
                 cuda_runtime_ready: false,
-                blocker: Some(format!(
-                    "nvidia-smi returned non-success status: {}",
-                    output.status
-                )),
+                blocker: Some("nvidia-smi returned a non-success status.".to_string()),
             },
-            Err(error) => Self {
+            Err(_error) => Self {
                 nvidia_smi_available: false,
                 gpu_summary: None,
                 cuda_runtime_ready: false,
-                blocker: Some(format!("nvidia-smi probe failed: {error}")),
+                blocker: Some("nvidia-smi probe failed or is unavailable.".to_string()),
             },
         }
     }
+}
+
+fn compact_cuda_probe_text(value: &str) -> String {
+    value
+        .trim()
+        .chars()
+        .filter(|character| !character.is_control())
+        .take(MAX_CUDA_PROBE_SUMMARY_CHARS)
+        .collect::<String>()
 }
