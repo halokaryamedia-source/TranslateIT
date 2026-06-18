@@ -1,5 +1,6 @@
 let bound = false;
 let toastTimer: number | null = null;
+let clickHandler: ((event: MouseEvent) => void) | null = null;
 
 function clickSoon(selector: string): void {
   window.setTimeout(() => document.querySelector<HTMLButtonElement>(selector)?.click(), 80);
@@ -38,27 +39,36 @@ async function copyTranslation(button: HTMLButtonElement): Promise<void> {
   }
 }
 
-function bindSettingsAutoSync(): void {
-  document.addEventListener("click", (event) => {
-    const target = event.target as Element | null;
-    if (!target) return;
-    const copyButton = target.closest<HTMLButtonElement>("[data-copy-translation]");
-    if (copyButton) {
-      void copyTranslation(copyButton);
-      return;
-    }
-    if (target.closest("#sourceLanguageButton,#targetLanguageButton,#swapLanguageButton,#realtimeModeButton,#qualityModeButton,[data-language-role][data-language-code]")) {
-      showToast("Saving translate settings...");
-      clickSoon("#saveTranslateButton");
-    }
-    if (target.closest("#saveSettingsButton,#saveTranslateButton")) showToast("Saving settings...");
-    if (target.closest("#runDiagnosticButton")) showToast("Running diagnostic...");
-    if (target.closest("#micTestButton")) showToast("Testing microphone...");
-  }, true);
+function handleReferenceClick(event: MouseEvent): void {
+  const target = event.target as Element | null;
+  if (!target) return;
+  const copyButton = target.closest<HTMLButtonElement>("[data-copy-translation]");
+  if (copyButton) {
+    void copyTranslation(copyButton);
+    return;
+  }
+  if (target.closest("#sourceLanguageButton,#targetLanguageButton,#swapLanguageButton,#realtimeModeButton,#qualityModeButton,[data-language-role][data-language-code]")) {
+    showToast("Saving translate settings...");
+    clickSoon("#saveTranslateButton");
+  }
+  if (target.closest("#saveSettingsButton,#saveTranslateButton")) showToast("Saving settings...");
+  if (target.closest("#runDiagnosticButton")) showToast("Running diagnostic...");
+  if (target.closest("#micTestButton")) showToast("Testing microphone...");
 }
 
-export function bindReferenceUi(): void {
-  if (bound) return;
+export function bindReferenceUi(): () => void {
+  if (bound) return unbindReferenceUi;
   bound = true;
-  bindSettingsAutoSync();
+  clickHandler = handleReferenceClick;
+  document.addEventListener("click", clickHandler, true);
+  return unbindReferenceUi;
+}
+
+export function unbindReferenceUi(): void {
+  if (!bound || !clickHandler) return;
+  document.removeEventListener("click", clickHandler, true);
+  clickHandler = null;
+  bound = false;
+  if (toastTimer !== null) window.clearTimeout(toastTimer);
+  toastTimer = null;
 }
