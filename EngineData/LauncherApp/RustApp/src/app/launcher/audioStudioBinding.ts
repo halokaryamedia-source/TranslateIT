@@ -275,6 +275,11 @@ function audioStudioView(): string {
             <div><h3>Provider status</h3><p>Check Audio Studio provider readiness without claiming audio generation is ready.</p></div>
             <button id="audioStudioProviderStatusButton" class="mic-test-button-v22 secondary" type="button">Provider Status</button>
           </section>
+          <section class="settings-output-row">
+            ${icon("pulse")}
+            <div><h3>Quality gate</h3><p>Check quality-score readiness without claiming real audio analysis is ready.</p></div>
+            <button id="audioStudioQualityGateButton" class="mic-test-button-v22 secondary" type="button">Quality Gate</button>
+          </section>
         </div>
         <input id="audioStudioFileInput" type="file" accept="audio/wav,audio/mpeg,audio/mp4,audio/ogg,audio/webm,.wav,.mp3,.m4a,.ogg,.webm" multiple hidden />
       </article>
@@ -303,6 +308,7 @@ function audioStudioView(): string {
           <p class="developer-log-row"><strong>INFO</strong><span>Project metadata persistence: metadata_ready</span></p>
           <p class="developer-log-row"><strong>INFO</strong><span>Take states: draft, staged, accepted, retry, blocked</span></p>
           <p class="developer-log-row"><strong>WAIT</strong><span>Provider processing: provider_blocked</span></p>
+          <p class="developer-log-row"><strong>WAIT</strong><span>Quality score: provider_blocked</span></p>
         </div>
       </article>
     </div>
@@ -328,6 +334,7 @@ function bindAudioStudioViewEvents(): void {
   const loadButton = document.querySelector<HTMLButtonElement>("#audioStudioLoadButton");
   const metadataButton = document.querySelector<HTMLButtonElement>("#audioStudioMetadataButton");
   const providerStatusButton = document.querySelector<HTMLButtonElement>("#audioStudioProviderStatusButton");
+  const qualityGateButton = document.querySelector<HTMLButtonElement>("#audioStudioQualityGateButton");
 
   importButton?.addEventListener("click", () => fileInput?.click());
   loadButton?.addEventListener("click", refreshPersistedTakes);
@@ -335,6 +342,11 @@ function bindAudioStudioViewEvents(): void {
     const fallback = "Audio Studio provider status requested.";
     setAssistantNotice(fallback);
     sendCommandNotice(audioStudioApi.getProviderStatus(), fallback);
+  });
+  qualityGateButton?.addEventListener("click", () => {
+    const fallback = "Audio Studio quality gate requested.";
+    setAssistantNotice(fallback);
+    sendCommandNotice(audioStudioApi.getQualityGateStatus(), fallback);
   });
   fileInput?.addEventListener("change", () => {
     const selectedFiles = Array.from(fileInput.files ?? []);
