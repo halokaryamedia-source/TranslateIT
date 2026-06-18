@@ -48,9 +48,13 @@ Current repository-side scaffold progress: 100% for the non-local scope.
 - Synced the advanced quality contract with approved Audio Studio roots.
 - Added advanced frontend state.
 - Added advanced UI binding.
+- Added stable advanced mode ids and default advanced mode constant.
 - Added profile mode selector: Starter, Production, Broadcast.
+- Added advanced mode action validation against official mode ids.
 - Added performance-control scaffold: Pace, Energy, Clarity, Emotion, Style Strength.
+- Added control default value clamping before rendering widths.
 - Added quality-gate scaffold.
+- Added empty-state fallbacks for missing advanced modes, controls, and quality dimensions.
 - Guarded advanced UI observer wiring to avoid repeated observer setup.
 - Added direct-open fallback injection for the advanced panel.
 - Added final compatibility audit.
