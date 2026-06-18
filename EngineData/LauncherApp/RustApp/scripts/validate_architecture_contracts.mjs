@@ -60,6 +60,13 @@ if (route) {
   expect(route.approved_storage?.evidence_log, "UserData/CacheData/AudioStudio/logs/evidence.jsonl", "Audio Studio evidence log path");
 }
 
+const audioStudioPlaceholder = readJson("EngineData/Backend/RuntimeContracts/AUDIO_STUDIO_ROUTE_PLACEHOLDER.json");
+if (audioStudioPlaceholder) {
+  expect(audioStudioPlaceholder.status, "deprecated_replaced_by_route_status_contract", "Audio Studio placeholder status");
+  expect(audioStudioPlaceholder.replacement_contract, "EngineData/Backend/RuntimeContracts/AUDIO_STUDIO_ROUTE_STATUS_CONTRACT.json", "Audio Studio placeholder replacement");
+  expect(audioStudioPlaceholder.current_storage_policy?.evidence_log_root, "UserData/CacheData/AudioStudio/logs/", "Audio Studio placeholder evidence log root");
+}
+
 if (errors.length > 0) {
   console.error("Architecture contract validation failed:");
   errors.forEach((error) => console.error(`- ${error}`));
