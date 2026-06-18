@@ -40,6 +40,22 @@ export type HelperBridgeStatus = {
   runtime_claim: string;
 };
 
+export type AudioStudioValidationEvidence = {
+  ok: boolean;
+  stage: string;
+  blocker?: string;
+  evidence_dir?: string;
+  summary_path?: string;
+  log_path?: string | null;
+  evidence_unix_ms?: number;
+  summary?: {
+    schema?: string;
+    status?: string;
+    runtime_claim?: string;
+    error_message?: string | null;
+  };
+};
+
 export type LocalWorkerManifestReport = {
   ok: boolean;
   runtime_manifest_exists: boolean;
