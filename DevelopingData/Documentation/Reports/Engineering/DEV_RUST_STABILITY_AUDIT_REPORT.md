@@ -14,6 +14,7 @@ This report covers repository-side stability review for the current Dev-Rust bra
 - Audio Studio import file validation.
 - Audio Studio placeholder command visibility.
 - Audio Studio metadata text sanitization.
+- Audio Studio command response normalization.
 - Advanced panel observer behavior.
 - Advanced panel direct-open behavior.
 - Theme injection behavior.
@@ -164,6 +165,18 @@ Fix:
 - Clipped take details to 500 characters.
 - Added Rust-side length checks for take id, title, and detail payloads.
 - Rejected oversized title/detail/id payloads before runtime route implementation.
+
+### 15. Command response normalization
+
+Risk: runtime command responses could be malformed or contain an unknown state while TypeScript generics still made them look valid at compile time.
+
+Fix:
+
+- Added shared command state constants.
+- Added response normalization in the Audio Studio API wrapper.
+- Unknown command states are treated as blocked.
+- Missing messages receive a safe fallback message.
+- Evidence requirement defaults to true unless explicitly false.
 
 ## Current integration chains
 
