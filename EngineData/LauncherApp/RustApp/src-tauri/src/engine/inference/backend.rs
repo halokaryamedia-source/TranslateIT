@@ -1,5 +1,7 @@
 use serde::{Deserialize, Serialize};
 
+const MAX_BACKEND_SELECTION_REASON_CHARS: usize = 240;
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum NativeInferenceBackendKind {
@@ -27,7 +29,7 @@ impl NativeInferenceBackendSelection {
             compute_type: "float16".to_string(),
             final_runtime_allows_python: false,
             selected: false,
-            reason: reason.into(),
+            reason: compact_reason(&reason.into()),
         }
     }
 
@@ -52,4 +54,14 @@ impl NativeInferenceBackendSelection {
             reason: "Candidate for exported ONNX models. Requires tokenizer/export parity and CUDA provider packaging validation.".to_string(),
         }
     }
+}
+
+fn compact_reason(value: &str) -> String {
+    let clean = value
+        .trim()
+        .chars()
+        .filter(|character| !character.is_control())
+        .take(MAX_BACKEND_SELECTION_REASON_CHARS)
+        .collect::<String>();
+    if clean.is_empty() { "Backend selection is pending native validation.".to_string() } else { clean }
 }
