@@ -3,6 +3,7 @@ import { defaultSettings, errorMessage, languageName, percentText } from "../sha
 import type {
   ChatKind,
   HardwareUsageReport,
+  HelperBridgeStatus,
   RuntimeDiagnostics,
   RuntimeSettings,
   RuntimeStatusBundleReport,
@@ -32,6 +33,7 @@ export class LauncherController {
   private latestBundle: RuntimeStatusBundleReport | null = null;
   private latestDiagnostics: RuntimeDiagnostics | null = null;
   private latestHardware: HardwareUsageReport | null = null;
+  private latestHelperBridgeStatus: HelperBridgeStatus | null = null;
   private currentSettings: RuntimeSettings | null = null;
   private activeSettingsTab: SettingsTab = "general";
   private activeLanguageSelector: LanguageSelectorRole | null = null;
@@ -330,7 +332,8 @@ export class LauncherController {
       const result = this.recording ? await runtimeApi.stopCapture() : await runtimeApi.startCapture();
       const captureMessage = result?.message ?? (this.recording ? "Recording stopped." : "Recording started. Waiting for local capture status.");
       this.setAssistantNotice(captureMessage);
-      const bundle = await runtimeApi.getStatusBundle();
+      const [bundle, helperStatus] = await Promise.all([runtimeApi.getStatusBundle(), runtimeApi.getHelperBridgeStatus()]);
+      this.latestHelperBridgeStatus = helperStatus;
       this.renderRuntime(bundle, this.latestDiagnostics);
       this.setAssistantNotice(captureMessage);
     } finally {
@@ -406,7 +409,8 @@ export class LauncherController {
     if (button) button.disabled = true;
     this.setAssistantNotice("Running diagnostic...");
     try {
-      const [bundle, diagnostics] = await Promise.all([runtimeApi.getStatusBundle(), runtimeApi.getDiagnostics()]);
+      const [bundle, diagnostics, helperStatus] = await Promise.all([runtimeApi.getStatusBundle(), runtimeApi.getDiagnostics(), runtimeApi.getHelperBridgeStatus()]);
+      this.latestHelperBridgeStatus = helperStatus;
       await this.refreshHardwareUsage();
       this.renderRuntime(bundle, diagnostics);
       this.renderDeveloperSettings();
@@ -431,6 +435,10 @@ export class LauncherController {
     if (tab === "developer") {
       this.renderDeveloperSettings();
       void this.refreshDeveloperHardwareUsage();
+      void runtimeApi.getHelperBridgeStatus().then((status) => {
+        this.latestHelperBridgeStatus = status;
+        if (this.activeSettingsTab === "developer") this.renderDeveloperSettings();
+      });
     }
     this.resetSettingsScroll();
   }
@@ -477,7 +485,7 @@ export class LauncherController {
       nextAction: this.latestBundle?.next_action ?? "Waiting for next diagnostic result.",
       commandErrors: runtimeApi.getCommandErrors(),
     });
-    this.ui.settingsContent.innerHTML = developerSettingsView({ progress, cpu, ram, gpu, gpuStatus, logRows, note: this.latestHardware?.note ?? "Run diagnostic to refresh hardware usage.", logsExpanded: this.logsExpanded, engineGood: Boolean(this.latestBundle) });
+    this.ui.settingsContent.innerHTML = developerSettingsView({ progress, cpu, ram, gpu, gpuStatus, logRows, note: this.latestHardware?.note ?? "Run diagnostic to refresh hardware usage.", logsExpanded: this.logsExpanded, engineGood: Boolean(this.latestBundle), helperStatus: this.latestHelperBridgeStatus });
     requireElement<HTMLButtonElement>("#runDiagnosticButton").addEventListener("click", () => void this.runDeveloperDiagnostic());
     requireElement<HTMLButtonElement>("#seeAllLogsButton").addEventListener("click", () => { this.logsExpanded = !this.logsExpanded; this.renderDeveloperSettings(); });
   }
@@ -490,7 +498,8 @@ export class LauncherController {
     }
     this.currentSettings = await runtimeApi.loadSettings() ?? defaultSettings();
     this.refreshDirectionPill();
-    const [bundle, diagnostics] = await Promise.all([runtimeApi.getStatusBundle(), runtimeApi.getDiagnostics()]);
+    const [bundle, diagnostics, helperStatus] = await Promise.all([runtimeApi.getStatusBundle(), runtimeApi.getDiagnostics(), runtimeApi.getHelperBridgeStatus()]);
+    this.latestHelperBridgeStatus = helperStatus;
     this.renderHomeCards();
     this.renderRuntime(bundle, diagnostics);
     this.renderSettingsTab("general");
