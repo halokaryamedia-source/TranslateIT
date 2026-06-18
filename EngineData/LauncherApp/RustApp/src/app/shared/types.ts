@@ -55,6 +55,18 @@ export type HelperBridgeRequest = {
   payload_json?: string | null;
 };
 
+export type CaptureHelperBridgeRequestPreview = {
+  ok: boolean;
+  state: string;
+  message: string;
+  command: string;
+  generation_token: number;
+  provider_ready: boolean;
+  cuda_ready: boolean;
+  runtime_claim: string;
+  payload_json: string;
+};
+
 export type AudioStudioValidationEvidence = {
   ok: boolean;
   stage: string;
