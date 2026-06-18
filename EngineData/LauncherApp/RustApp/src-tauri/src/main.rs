@@ -6,6 +6,7 @@ use commands::audio_evidence::{get_latest_audio_pipeline_evidence, get_latest_au
 use commands::audio_studio::{
     audio_studio_export_project_metadata,
     audio_studio_get_provider_status,
+    audio_studio_get_quality_gate_status,
     audio_studio_import_take,
     audio_studio_list_takes,
     audio_studio_stage_guided_take,
@@ -51,6 +52,7 @@ fn main() {
         stop_capture,
         translate_text,
         audio_studio_get_provider_status,
+        audio_studio_get_quality_gate_status,
         audio_studio_import_take,
         audio_studio_stage_guided_take,
         audio_studio_update_take_state,
