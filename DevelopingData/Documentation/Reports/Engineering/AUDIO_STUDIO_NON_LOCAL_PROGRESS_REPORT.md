@@ -39,6 +39,7 @@ Current repository-side scaffold progress: 100% for the non-local scope.
 - Added performance-control scaffold: Pace, Energy, Clarity, Emotion, Style Strength.
 - Added quality-gate scaffold.
 - Guarded advanced UI observer wiring to avoid repeated observer setup.
+- Added direct-open fallback injection for the advanced panel.
 - Added final compatibility audit.
 - Added final stability audit.
 - Removed the unused stylesheet draft after style consolidation.
@@ -62,6 +63,7 @@ Advanced panel chain:
 src/audioStudioEntry.ts
   -> audioStudioAdvancedBinding.ts
   -> audioStudioAdvancedState.ts
+  -> audioStudioBinding.ts direct-open fallback
 ```
 
 Theme chain:
