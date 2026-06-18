@@ -42,10 +42,13 @@ Current repository-side scaffold progress: 100% for the non-local scope.
 - Added command notice race guard so older command responses cannot overwrite newer user-facing notices.
 - Added project metadata route check in the UI.
 - Added project metadata contract for approved UserData storage routes.
+- Added payload limits to the project metadata contract.
 - Normalized Audio Studio logs under `UserData/CacheData/AudioStudio/logs/`.
 - Synced the metadata contract with allowed take sources and states.
+- Synced the metadata contract with payload limits and accepted import extensions.
 - Added advanced quality contract.
 - Synced the advanced quality contract with approved Audio Studio roots.
+- Added advanced contract done marker for metadata payload limit sync.
 - Added advanced frontend state.
 - Added advanced UI binding.
 - Added stable advanced mode ids and default advanced mode constant.
@@ -61,6 +64,7 @@ Current repository-side scaffold progress: 100% for the non-local scope.
 - Added Audio Studio package script chain checks to the static validator.
 - Added Audio Studio cross-layer enum consistency checks to the static validator.
 - Added Audio Studio safety limit consistency checks to the static validator.
+- Added Audio Studio payload limit contract sync checks to the static validator.
 - Registered `validate:audio-studio` in `package.json`.
 - Included `validate:audio-studio` in `validate:internal` and `validate:full`.
 - Guarded advanced UI observer wiring to avoid repeated observer setup.
