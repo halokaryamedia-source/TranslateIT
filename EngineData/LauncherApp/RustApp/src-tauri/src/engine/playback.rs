@@ -2,10 +2,16 @@ use std::path::PathBuf;
 use std::process::{Command, Stdio};
 
 pub fn play_wav_output(output_path: &str) -> bool {
-    let path = PathBuf::from(output_path);
-    if output_path.trim().is_empty() || !path.is_file() {
+    if output_path.trim().is_empty() {
         return false;
     }
+    let path = PathBuf::from(output_path);
+    if !path.is_file() || !is_wav_path(&path) {
+        return false;
+    }
+    let Ok(path) = path.canonicalize() else {
+        return false;
+    };
 
     let command = "Add-Type -AssemblyName System; $player = New-Object System.Media.SoundPlayer($env:TRANSLATEIT_PLAY_WAV); $player.Load(); $player.PlaySync(); $player.Dispose();";
     Command::new("powershell")
@@ -19,5 +25,12 @@ pub fn play_wav_output(output_path: &str) -> bool {
         .stderr(Stdio::null())
         .status()
         .map(|status| status.success())
+        .unwrap_or(false)
+}
+
+fn is_wav_path(path: &PathBuf) -> bool {
+    path.extension()
+        .and_then(|value| value.to_str())
+        .map(|value| value.eq_ignore_ascii_case("wav"))
         .unwrap_or(false)
 }
