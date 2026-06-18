@@ -8,6 +8,8 @@ use super::TARGET_SAMPLE_RATE_HZ;
 use crate::engine::paths::ProjectPaths;
 
 const MIN_ASR_SEGMENT_DURATION_MS: u32 = 300;
+const MAX_ASR_SEGMENT_SAMPLES: usize = 120_000;
+const LATEST_LIVE_SEGMENT_LABEL: &str = "UserData/CacheData/audio_segments/latest_live_target_segment.wav";
 
 #[derive(Debug, Clone, Serialize)]
 pub struct LiveSegmentWavWriteReport {
@@ -64,6 +66,19 @@ pub fn write_latest_live_target_segment_wav() -> LiveSegmentWavWriteReport {
         };
     }
 
+    if frame.samples.is_empty() || frame.samples.len() > MAX_ASR_SEGMENT_SAMPLES {
+        return LiveSegmentWavWriteReport {
+            ok: false,
+            audio_path: None,
+            sample_rate_hz: frame.sample_rate_hz,
+            channels: frame.channels,
+            sample_count: frame.samples.len(),
+            duration_ms: frame_duration_ms,
+            blocker: "live_segment_writer:sample_count_out_of_range".to_string(),
+            note: "Captured audio sample count is outside the safe WAV writer range.".to_string(),
+        };
+    }
+
     if frame_duration_ms < MIN_ASR_SEGMENT_DURATION_MS {
         return LiveSegmentWavWriteReport {
             ok: false,
@@ -84,7 +99,7 @@ pub fn write_latest_live_target_segment_wav() -> LiveSegmentWavWriteReport {
     match write_result {
         Ok(()) => LiveSegmentWavWriteReport {
             ok: true,
-            audio_path: Some(audio_path.to_string_lossy().replace('\\', "/")),
+            audio_path: Some(LATEST_LIVE_SEGMENT_LABEL.to_string()),
             sample_rate_hz: frame.sample_rate_hz,
             channels: frame.channels,
             sample_count: frame.samples.len(),
@@ -92,15 +107,15 @@ pub fn write_latest_live_target_segment_wav() -> LiveSegmentWavWriteReport {
             blocker: String::new(),
             note: "Live target ASR segment was written as PCM16 WAV for the local worker.".to_string(),
         },
-        Err(error) => LiveSegmentWavWriteReport {
+        Err(_error) => LiveSegmentWavWriteReport {
             ok: false,
-            audio_path: Some(audio_path.to_string_lossy().replace('\\', "/")),
+            audio_path: Some(LATEST_LIVE_SEGMENT_LABEL.to_string()),
             sample_rate_hz: frame.sample_rate_hz,
             channels: frame.channels,
             sample_count: frame.samples.len(),
             duration_ms: frame_duration_ms,
             blocker: "live_segment_writer:wav_write_failed".to_string(),
-            note: error.to_string(),
+            note: "Failed to write live target ASR segment WAV. Open Developer diagnostics for details.".to_string(),
         },
     }
 }
@@ -109,7 +124,8 @@ fn write_pcm16_wav(path: &PathBuf, sample_rate_hz: u32, channels: u16, samples: 
     if let Some(parent) = path.parent() {
         fs::create_dir_all(parent)?;
     }
-    let mut file = fs::File::create(path)?;
+    let temp_path = path.with_extension("wav.tmp");
+    let mut file = fs::File::create(&temp_path)?;
     let bits_per_sample = 16u16;
     let bytes_per_sample = bits_per_sample / 8;
     let block_align = channels * bytes_per_sample;
@@ -132,11 +148,28 @@ fn write_pcm16_wav(path: &PathBuf, sample_rate_hz: u32, channels: u16, samples: 
     file.write_all(&data_size.to_le_bytes())?;
 
     for sample in samples {
-        let value = (sample.clamp(-1.0, 1.0) * i16::MAX as f32).round() as i16;
+        let value = (safe_sample(*sample) * i16::MAX as f32).round() as i16;
         file.write_all(&value.to_le_bytes())?;
     }
+    file.flush()?;
+    drop(file);
 
-    Ok(())
+    match fs::rename(&temp_path, path) {
+        Ok(()) => Ok(()),
+        Err(error) => {
+            if path.exists() {
+                fs::remove_file(path)?;
+                fs::rename(&temp_path, path)
+            } else {
+                let _ = fs::remove_file(&temp_path);
+                Err(error)
+            }
+        }
+    }
+}
+
+fn safe_sample(value: f32) -> f32 {
+    if value.is_finite() { value.clamp(-1.0, 1.0) } else { 0.0 }
 }
 
 fn duration_ms(sample_count: usize, sample_rate_hz: u32) -> u32 {
