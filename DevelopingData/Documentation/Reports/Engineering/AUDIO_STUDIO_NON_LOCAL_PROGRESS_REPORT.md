@@ -31,8 +31,10 @@ Current repository-side scaffold progress: 100% for the non-local scope.
 - Connected UI actions to the frontend API wrapper.
 - Added project metadata route check in the UI.
 - Added project metadata contract for approved UserData storage routes.
+- Normalized Audio Studio logs under `UserData/CacheData/AudioStudio/logs/`.
 - Synced the metadata contract with allowed take sources and states.
 - Added advanced quality contract.
+- Synced the advanced quality contract with approved Audio Studio roots.
 - Added advanced frontend state.
 - Added advanced UI binding.
 - Added profile mode selector: Starter, Production, Broadcast.
