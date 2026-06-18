@@ -51,6 +51,20 @@ Older reports and notes may remain in the repository as historical context, but 
 
 When an older document conflicts with this index, `CURRENT_APP_STATUS.md`, or the runtime contracts, this index and the active contracts win.
 
+Recommended note when editing an older file:
+
+```text
+Historical context only. Current active direction is Rust/Tauri desktop shell + Python helper runtime. Read DevelopingData/Documentation/Reports/Engineering/ACTIVE_DOCUMENTATION_INDEX.md first.
+```
+
+## Do not reintroduce
+
+Do not create or document another active launcher shell.
+
+Do not use older notes to claim runtime readiness.
+
+Do not move active documentation outside `DevelopingData/Documentation/Reports/Engineering` unless the documentation hub is updated in the same change.
+
 ## Not claimed
 
 This index does not claim local validation, packaged app readiness, CUDA readiness, target-PC helper spawn success, voice capture success, or Audio Studio provider readiness.
