@@ -127,16 +127,16 @@ pub struct VadDecisionReport {
 }
 
 pub fn evaluate_vad_gate(evidence: AudioEvidenceReport, config: &VadGateConfig) -> VadGateResult {
-    if evidence.clipping_ratio > config.max_clipping_ratio {
+    if safe_ratio(evidence.clipping_ratio) > safe_ratio(config.max_clipping_ratio) {
         return reject("rejected_clipping", evidence);
     }
-    if evidence.rms < config.min_rms {
+    if safe_ratio(evidence.rms) < safe_ratio(config.min_rms) {
         return reject("rejected_low_energy", evidence);
     }
-    if evidence.peak < config.min_peak {
+    if safe_ratio(evidence.peak) < safe_ratio(config.min_peak) {
         return reject("rejected_low_peak", evidence);
     }
-    if evidence.active_frame_ratio < config.min_active_frame_ratio {
+    if safe_ratio(evidence.active_frame_ratio) < safe_ratio(config.min_active_frame_ratio) {
         return reject("rejected_unconfirmed_speech", evidence);
     }
 
@@ -148,6 +148,7 @@ pub fn evaluate_vad_gate(evidence: AudioEvidenceReport, config: &VadGateConfig) 
 }
 
 pub fn evaluate_segment_decision(request: VadSegmentDecisionRequest) -> VadDecisionReport {
+    let request = sanitize_decision_request(request);
     let preset = resolve_preset(request.preset_name.as_deref());
     if request.echo_match {
         return decision(false, "Echo match detected", &preset.name, true, 0.0);
@@ -223,6 +224,11 @@ fn final_duration_checks(request: &VadSegmentDecisionRequest, preset: &VadPreset
 }
 
 fn speech_focus_score(gap: f32, voiced_ratio: f32, rms: f32, peak: f32, noise_floor: f32) -> f32 {
+    let gap = safe_metric(gap);
+    let voiced_ratio = safe_ratio(voiced_ratio);
+    let rms = safe_ratio(rms);
+    let peak = safe_ratio(peak);
+    let noise_floor = safe_ratio(noise_floor);
     if gap <= 0.0 && voiced_ratio <= 0.0 {
         return 0.0;
     }
@@ -241,8 +247,36 @@ fn resolve_preset(name: Option<&str>) -> VadPresetConfig {
     }
 }
 
+fn safe_metric(value: f32) -> f32 {
+    if value.is_finite() { value } else { 0.0 }
+}
+
+fn safe_ratio(value: f32) -> f32 {
+    safe_metric(value).clamp(0.0, 1.0)
+}
+
+fn sanitize_optional_ratio(value: Option<f32>) -> Option<f32> {
+    value.map(safe_ratio)
+}
+
+fn sanitize_decision_request(mut request: VadSegmentDecisionRequest) -> VadSegmentDecisionRequest {
+    request.rms = sanitize_optional_ratio(request.rms);
+    request.peak = sanitize_optional_ratio(request.peak);
+    request.noise_floor_rms = safe_ratio(request.noise_floor_rms);
+    request.clipping_risk = safe_ratio(request.clipping_risk);
+    request.noise_risk = safe_ratio(request.noise_risk);
+    request.speech_to_noise_gap = safe_metric(request.speech_to_noise_gap);
+    request.voiced_frame_ratio = safe_ratio(request.voiced_frame_ratio);
+    request.zero_crossing_rate = safe_ratio(request.zero_crossing_rate);
+    request.peak_to_rms_ratio = safe_metric(request.peak_to_rms_ratio).max(0.0);
+    request.frame_energy_concentration = safe_ratio(request.frame_energy_concentration);
+    request.frame_active_ratio = safe_ratio(request.frame_active_ratio);
+    request.impulse_edge_ratio = safe_ratio(request.impulse_edge_ratio);
+    request
+}
+
 fn decision(accepted: bool, reason: &str, preset: &str, should_hide: bool, speech_focus_score: f32) -> VadDecisionReport {
-    VadDecisionReport { accepted, reason: reason.to_string(), preset: preset.to_string(), should_hide, speech_focus_score }
+    VadDecisionReport { accepted, reason: reason.to_string(), preset: preset.to_string(), should_hide, speech_focus_score: safe_ratio(speech_focus_score) }
 }
 
 fn reject(reason: &str, evidence: AudioEvidenceReport) -> VadGateResult {
@@ -254,5 +288,5 @@ fn reject(reason: &str, evidence: AudioEvidenceReport) -> VadGateResult {
 }
 
 fn round3(value: f32) -> f32 {
-    (value * 1000.0).round() / 1000.0
+    (safe_ratio(value) * 1000.0).round() / 1000.0
 }
