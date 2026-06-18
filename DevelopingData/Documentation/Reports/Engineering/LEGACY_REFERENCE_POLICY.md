@@ -6,7 +6,7 @@ Branch: `Dev-Rust`
 
 The final user-facing desktop application is Rust/Tauri.
 
-Python remains supported as a helper runtime for ASR, translation, TTS/voice, CUDA diagnostics, latency diagnostics, model health checks, and other tasks where Python is more efficient.
+Python remains supported as a helper runtime for ASR, translation, TTS/voice, CUDA diagnostics, latency diagnostics, model health checks, audio/provider processing, and other tasks where Python is more efficient.
 
 ## Legacy reference definition
 
@@ -19,18 +19,41 @@ They remain useful as behavioral references for:
 - CUDA and fallback policy,
 - custom voice behavior,
 - ASR and translation quality issues,
-- hallucination/noise filtering notes.
+- hallucination/noise filtering notes,
+- local worker setup history.
 
 ## Required interpretation rule
 
 When a legacy document conflicts with Dev-Rust Rust/Tauri contracts, the Dev-Rust contracts win.
 
-Current source-of-truth contracts:
+Current source-of-truth contracts and status documents:
 
 - `EngineData/Backend/RuntimeContracts/FINAL_ARCHITECTURE_CONTRACT.json`
 - `EngineData/Backend/RuntimeContracts/PYTHON_HELPER_BRIDGE_CONTRACT.json`
 - `EngineData/Backend/RuntimeContracts/AUDIO_STUDIO_ROUTE_STATUS_CONTRACT.json`
 - `DevelopingData/Documentation/Reports/Engineering/CURRENT_APP_STATUS.md`
+- `DevelopingData/Documentation/Reports/Engineering/CAPTURE_HELPER_BRIDGE_MIGRATION_PLAN.md`
+
+## UI rule
+
+User-facing launcher UI must remain Rust/Tauri in `Dev-Rust`.
+
+Python helper processes may be started by Rust/Tauri, but a Python/Qt launcher must not replace the Rust/Tauri shell unless a newer architecture contract explicitly reopens that decision.
+
+## Readiness wording rule
+
+Legacy documents must not be used to claim:
+
+- packaged app readiness,
+- CUDA readiness,
+- microphone capture success,
+- ASR model readiness,
+- translation model readiness,
+- TTS output readiness,
+- Audio Studio provider readiness,
+- Audio Studio quality-score readiness.
+
+Those claims require target-PC evidence and current Rust/Tauri status paths.
 
 ## Cleanup target
 
