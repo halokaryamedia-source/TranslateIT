@@ -37,3 +37,5 @@ npm run validate:runtime-flow
 - Reference UI timers are cleared on unbind.
 - Audio device binding prevents overlapping device requests and avoids UI writes after unbind.
 - Launcher event bindings use an `AbortController`.
+- Developer log rendering caps repeated command errors.
+- Generated HTML attribute names are validated before rendering.
