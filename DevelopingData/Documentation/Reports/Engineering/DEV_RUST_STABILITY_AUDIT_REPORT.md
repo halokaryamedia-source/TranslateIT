@@ -26,6 +26,7 @@ This report covers repository-side stability review for the current Dev-Rust bra
 - Audio Studio safety limit consistency.
 - Audio Studio payload limit contract sync.
 - Audio Studio local validation runner coverage.
+- Audio Studio local validation summary evidence.
 - Advanced panel observer behavior.
 - Advanced panel direct-open behavior.
 - Theme injection behavior.
@@ -310,6 +311,19 @@ Fix:
 - The runner executes Audio Studio static validation, TypeScript typecheck, Rust cargo check, and frontend build in sequence.
 - The runner writes command output to `UserData/CacheData/AudioStudio/logs/`.
 - The static validator now checks local runner existence, package script registration, and expected validation steps.
+
+### 27. Audio Studio local validation summary evidence
+
+Risk: local validation logs alone are harder to parse automatically, especially when a step fails and the status needs to be compared across runs.
+
+Fix:
+
+- Added per-run summary JSON output beside the validation log.
+- Added a summary schema: `translateit.audio_studio_local_validation.v1`.
+- Added per-step status, command, started time, completed time, and exit code fields.
+- Added failure recording with `error_message`.
+- Added `runtime_claim: not_ready_until_target_pc_review` to avoid interpreting validation output as runtime readiness.
+- Updated the static validator to check summary-evidence markers.
 
 ## Current integration chains
 
