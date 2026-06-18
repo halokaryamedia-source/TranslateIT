@@ -1,5 +1,8 @@
 use serde::{Deserialize, Serialize};
 
+const MAX_LANGUAGE_TEXT_CHARS: usize = 2_000;
+const MAX_LANGUAGE_CODE_CHARS: usize = 32;
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct LanguageLogicRequest {
     pub text: Option<String>,
@@ -20,14 +23,15 @@ pub struct LanguageLogicReport {
 }
 
 pub fn run_language_logic(request: LanguageLogicRequest) -> LanguageLogicReport {
-    let text = request.text.unwrap_or_default();
+    let text = compact_language_text(request.text.as_deref().unwrap_or_default(), MAX_LANGUAGE_TEXT_CHARS);
     let source = normalize_language_code(Some(&request.source_language));
     let target = normalize_language_code(Some(&request.target_language));
     let detected = normalize_language_code(request.detected_language.as_deref());
     let tokens = tokenize(&text);
     let id_score = tokens.iter().filter(|token| is_id_cue(token)).count();
     let en_score = tokens.iter().filter(|token| is_en_cue(token)).count();
-    let bias = infer_bias(&tokens, &source, &target, &detected, request.language_probability.unwrap_or(0.0), id_score, en_score);
+    let probability = request.language_probability.unwrap_or(0.0).clamp(0.0, 1.0);
+    let bias = infer_bias(&tokens, &source, &target, &detected, probability, id_score, en_score);
     let normalized_text = normalize_short_id_text(&tokens, &text, &source, &target, id_score, en_score);
     LanguageLogicReport {
         normalized_source: source.clone(),
@@ -39,8 +43,26 @@ pub fn run_language_logic(request: LanguageLogicRequest) -> LanguageLogicReport 
     }
 }
 
+fn is_unsafe_language_character(character: char) -> bool {
+    character == '\0'
+        || ('\u{0001}'..='\u{0008}').contains(&character)
+        || ('\u{000b}'..='\u{001f}').contains(&character)
+        || character == '\u{007f}'
+        || ('\u{202a}'..='\u{202e}').contains(&character)
+        || ('\u{2066}'..='\u{2069}').contains(&character)
+}
+
+fn compact_language_text(value: &str, max_chars: usize) -> String {
+    value
+        .trim()
+        .chars()
+        .filter(|character| !is_unsafe_language_character(*character))
+        .take(max_chars)
+        .collect::<String>()
+}
+
 fn normalize_language_code(language: Option<&str>) -> String {
-    let value = language.unwrap_or_default().trim().to_lowercase();
+    let value = compact_language_text(language.unwrap_or_default(), MAX_LANGUAGE_CODE_CHARS).to_lowercase();
     if value.starts_with("ind") || value.starts_with("id") { return "id".to_string(); }
     if value.starts_with("eng") || value.starts_with("en") { return "en".to_string(); }
     value.split(['-', '_']).next().unwrap_or("").chars().take(2).collect()
@@ -65,7 +87,7 @@ fn infer_bias(tokens: &[String], source: &str, target: &str, detected: &str, pro
 }
 
 fn normalize_short_id_text(tokens: &[String], original: &str, source: &str, target: &str, id_score: usize, en_score: usize) -> String {
-    let trimmed = original.trim().to_string();
+    let trimmed = compact_language_text(original, MAX_LANGUAGE_TEXT_CHARS);
     if source != "id" || target == "id" || tokens.is_empty() || tokens.len() > 6 { return trimmed; }
     let has_replacement = tokens.iter().any(|token| replacement(token).is_some());
     if id_score == 0 && !has_replacement { return trimmed; }
