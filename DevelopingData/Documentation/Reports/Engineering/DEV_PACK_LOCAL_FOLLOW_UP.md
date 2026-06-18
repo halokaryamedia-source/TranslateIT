@@ -33,6 +33,7 @@ npm run validate:runtime-flow
 - Several launcher watchers and bindings now expose cleanup callbacks.
 - Audio pipeline watcher can cancel result polling on unbind.
 - Attachment warning timer is cleared on unbind.
+- Attachment names are sanitized for control and bidi characters before UI display.
 - Reference UI timers are cleared on unbind.
 - Audio device binding prevents overlapping device requests and avoids UI writes after unbind.
 - Launcher event bindings use an `AbortController`.
