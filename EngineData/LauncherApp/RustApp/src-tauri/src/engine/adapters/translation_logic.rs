@@ -1,5 +1,11 @@
 use serde::{Deserialize, Serialize};
 
+const MAX_TRANSLATION_TEXT_CHARS: usize = 8_000;
+const MAX_TRANSLATION_SEGMENT_ID_CHARS: usize = 96;
+const MAX_TRANSLATION_ENGINE_NAME_CHARS: usize = 160;
+const MAX_TRANSLATION_LANGUAGE_CHARS: usize = 32;
+const MAX_TRANSLATION_CONTEXT_SEGMENTS: usize = 64;
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct TranslationLogicRequest {
     pub segment_id: String,
@@ -40,15 +46,19 @@ pub struct TranslationLogicResult {
 }
 
 pub fn run_translation_logic(request: TranslationLogicRequest) -> TranslationLogicResult {
-    let clean_source_text = request.source_text.trim().to_string();
+    let segment_id = sanitize_segment_id(&request.segment_id);
+    let clean_source_text = compact_translation_text(&request.source_text, MAX_TRANSLATION_TEXT_CHARS);
+    let source_language = normalize_language(&request.source_language);
+    let target_language = normalize_language(&request.target_language);
+    let detected_language = request.detected_language.as_deref().map(normalize_language);
     let input_chars = clean_source_text.chars().count();
-    let primary = request.primary_engine_name.unwrap_or_else(|| "marianmt-id-en".to_string());
-    let fallback = request.fallback_engine_name.unwrap_or_else(|| "nllb-200-distilled-600M-quality".to_string());
-    let context_used = !request.context_window.is_empty();
+    let primary = sanitize_engine_name(request.primary_engine_name.as_deref().unwrap_or("marianmt-id-en"));
+    let fallback = sanitize_engine_name(request.fallback_engine_name.as_deref().unwrap_or("nllb-200-distilled-600M-quality"));
+    let context_used = request.context_window.iter().take(MAX_TRANSLATION_CONTEXT_SEGMENTS).any(|item| !compact_translation_text(item, MAX_TRANSLATION_TEXT_CHARS).is_empty());
     let max_new_tokens = max_new_tokens(input_chars);
-    if detected_matches_target(request.detected_language.as_deref(), &request.target_language) {
+    if detected_matches_target(detected_language.as_deref(), &target_language) {
         return result(
-            request.segment_id,
+            segment_id,
             clean_source_text.clone(),
             primary,
             "passthrough",
@@ -61,9 +71,9 @@ pub fn run_translation_logic(request: TranslationLogicRequest) -> TranslationLog
             max_new_tokens,
         );
     }
-    if let Some(literal) = deterministic_translation(&clean_source_text, &request.source_language, &request.target_language) {
+    if let Some(literal) = deterministic_translation(&clean_source_text, &source_language, &target_language) {
         return result(
-            request.segment_id,
+            segment_id,
             literal.clone(),
             "deterministic-fallback-translation".to_string(),
             "deterministic_fallback",
@@ -78,7 +88,7 @@ pub fn run_translation_logic(request: TranslationLogicRequest) -> TranslationLog
     }
     if !request.backend_ready {
         return TranslationLogicResult {
-            segment_id: request.segment_id,
+            segment_id,
             translated_text: String::new(),
             engine_name: primary,
             mode: "pending_realtime_local_worker".to_string(),
@@ -103,7 +113,7 @@ pub fn run_translation_logic(request: TranslationLogicRequest) -> TranslationLog
         };
     }
     TranslationLogicResult {
-        segment_id: request.segment_id,
+        segment_id,
         translated_text: String::new(),
         engine_name: primary,
         mode: "model_ready_pending_execution".to_string(),
@@ -131,8 +141,8 @@ pub fn run_translation_logic(request: TranslationLogicRequest) -> TranslationLog
 fn result(segment_id: String, translated_text: String, engine_name: String, mode: &str, status: &str, notes: &str, input_chars: usize, output_chars: usize, fallback_used: bool, context_used: bool, max_new_tokens: u32) -> TranslationLogicResult {
     TranslationLogicResult {
         segment_id,
-        translated_text,
-        engine_name,
+        translated_text: compact_translation_text(&translated_text, MAX_TRANSLATION_TEXT_CHARS),
+        engine_name: sanitize_engine_name(&engine_name),
         mode: mode.to_string(),
         status: status.to_string(),
         notes: notes.to_string(),
@@ -155,6 +165,39 @@ fn result(segment_id: String, translated_text: String, engine_name: String, mode
     }
 }
 
+fn is_unsafe_translation_character(character: char) -> bool {
+    character == '\0'
+        || ('\u{0001}'..='\u{0008}').contains(&character)
+        || ('\u{000b}'..='\u{001f}').contains(&character)
+        || character == '\u{007f}'
+        || ('\u{202a}'..='\u{202e}').contains(&character)
+        || ('\u{2066}'..='\u{2069}').contains(&character)
+}
+
+fn compact_translation_text(value: &str, max_chars: usize) -> String {
+    value
+        .trim()
+        .chars()
+        .filter(|character| !is_unsafe_translation_character(*character))
+        .take(max_chars)
+        .collect::<String>()
+}
+
+fn sanitize_segment_id(value: &str) -> String {
+    let clean = value
+        .trim()
+        .chars()
+        .map(|character| if character.is_ascii_alphanumeric() || matches!(character, '-' | '_') { character } else { '_' })
+        .take(MAX_TRANSLATION_SEGMENT_ID_CHARS)
+        .collect::<String>();
+    if clean.is_empty() { "segment".to_string() } else { clean }
+}
+
+fn sanitize_engine_name(value: &str) -> String {
+    let clean = compact_translation_text(value, MAX_TRANSLATION_ENGINE_NAME_CHARS);
+    if clean.is_empty() { "engine_pending".to_string() } else { clean }
+}
+
 fn detected_matches_target(detected: Option<&str>, target: &str) -> bool {
     let detected = normalize_language(detected.unwrap_or_default());
     let target = normalize_language(target);
@@ -162,7 +205,7 @@ fn detected_matches_target(detected: Option<&str>, target: &str) -> bool {
 }
 
 fn normalize_language(value: &str) -> String {
-    let lowered = value.trim().to_lowercase();
+    let lowered = compact_translation_text(value, MAX_TRANSLATION_LANGUAGE_CHARS).to_lowercase();
     if lowered.starts_with("ind") || lowered.starts_with("id") { return "id".to_string(); }
     if lowered.starts_with("eng") || lowered.starts_with("en") { return "en".to_string(); }
     lowered.chars().take(2).collect()
@@ -248,5 +291,5 @@ fn normalize_phrase(text: &str) -> String {
 }
 
 fn normalize_short_phrase(text: &str) -> Vec<String> {
-    text.trim().to_lowercase().chars().map(|ch| if ch.is_alphanumeric() || ch.is_whitespace() { ch } else { ' ' }).collect::<String>().split_whitespace().map(|token| token.to_string()).collect()
+    compact_translation_text(text, MAX_TRANSLATION_TEXT_CHARS).to_lowercase().chars().map(|ch| if ch.is_alphanumeric() || ch.is_whitespace() { ch } else { ' ' }).collect::<String>().split_whitespace().map(|token| token.to_string()).collect()
 }
