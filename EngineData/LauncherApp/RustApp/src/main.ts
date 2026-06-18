@@ -22,23 +22,22 @@ const app = document.querySelector<HTMLDivElement>("#app");
 if (!app) throw Error("TranslateIT app root was not found.");
 
 new LauncherController(app).start();
-bindAttachmentLimitWatcher();
+const stopAttachmentLimitWatcher = bindAttachmentLimitWatcher();
 bindReferenceUi();
-bindAudioDeviceListUi();
+const stopAudioDeviceListUi = bindAudioDeviceListUi();
 bindVoiceOutputPersistenceUi();
 bindRuntimeReadinessUiGuard();
-bindDeveloperEvidenceUi();
+const stopDeveloperEvidenceUi = bindDeveloperEvidenceUi();
 bindDeveloperHelperBridgeUi();
 const stopHelperBridgeHealthMonitor = startHelperBridgeHealthMonitor();
 const stopAudioPipelineResultWatcher = bindResultWatcher();
 const stopRealtimeStatusPayloadAutoRefresh = startRealtimeStatusPayloadAutoRefresh();
 
-window.addEventListener(
-  "beforeunload",
-  () => {
-    stopHelperBridgeHealthMonitor();
-    stopAudioPipelineResultWatcher();
-    stopRealtimeStatusPayloadAutoRefresh();
-  },
-  { once: true },
-);
+window.addEventListener("beforeunload", () => {
+  stopAttachmentLimitWatcher();
+  stopAudioDeviceListUi();
+  stopDeveloperEvidenceUi();
+  stopHelperBridgeHealthMonitor();
+  stopAudioPipelineResultWatcher();
+  stopRealtimeStatusPayloadAutoRefresh();
+}, { once: true });
