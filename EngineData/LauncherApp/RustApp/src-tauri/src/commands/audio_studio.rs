@@ -1,5 +1,9 @@
 use serde::{Deserialize, Serialize};
 
+const MAX_TAKE_ID_LENGTH: usize = 160;
+const MAX_TAKE_TITLE_LENGTH: usize = 120;
+const MAX_TAKE_DETAIL_LENGTH: usize = 500;
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct AudioStudioTakeRequest {
     pub take_id: Option<String>,
@@ -31,23 +35,38 @@ fn result(state: &str, message: &str) -> AudioStudioCommandResult {
     }
 }
 
+fn is_valid_length(value: &str, max: usize) -> bool {
+    value.chars().count() <= max
+}
+
 fn validate_take_request(request: &AudioStudioTakeRequest) -> Option<AudioStudioCommandResult> {
     let allowed_sources = ["import", "guided_reading"];
+    if let Some(take_id) = &request.take_id {
+        if take_id.trim().is_empty() || !is_valid_length(take_id, MAX_TAKE_ID_LENGTH) {
+            return Some(result("invalid_request", "Audio Studio request has an invalid take id."));
+        }
+    }
     if !allowed_sources.contains(&request.source.as_str()) {
         return Some(result("invalid_request", "Audio Studio request has an unsupported source."));
     }
     if request.title.trim().is_empty() {
         return Some(result("invalid_request", "Audio Studio request is missing a title."));
     }
+    if !is_valid_length(&request.title, MAX_TAKE_TITLE_LENGTH) {
+        return Some(result("invalid_request", "Audio Studio request title is too long."));
+    }
     if request.detail.trim().is_empty() {
         return Some(result("invalid_request", "Audio Studio request is missing detail text."));
+    }
+    if !is_valid_length(&request.detail, MAX_TAKE_DETAIL_LENGTH) {
+        return Some(result("invalid_request", "Audio Studio request detail text is too long."));
     }
     None
 }
 
 fn validate_state_request(request: &AudioStudioStateUpdateRequest) -> Option<AudioStudioCommandResult> {
-    if request.take_id.trim().is_empty() {
-        return Some(result("invalid_request", "Audio Studio state update is missing a take id."));
+    if request.take_id.trim().is_empty() || !is_valid_length(&request.take_id, MAX_TAKE_ID_LENGTH) {
+        return Some(result("invalid_request", "Audio Studio state update has an invalid take id."));
     }
     let allowed = ["draft", "staged", "accepted", "needs_retry", "blocked"];
     if !allowed.contains(&request.state.as_str()) {
