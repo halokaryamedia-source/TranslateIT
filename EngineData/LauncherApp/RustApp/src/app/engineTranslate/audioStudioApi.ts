@@ -1,20 +1,21 @@
 import { runCommand } from "../shared/tauriBridge";
+import type { AudioStudioTakeSource, AudioStudioTakeState } from "../launcher/audioStudioState";
 
 export type AudioStudioTakeRequest = {
   take_id?: string | null;
-  source: string;
+  source: AudioStudioTakeSource;
   title: string;
   detail: string;
 };
 
 export type AudioStudioStateUpdateRequest = {
   take_id: string;
-  state: string;
+  state: AudioStudioTakeState;
 };
 
 export type AudioStudioCommandResult = {
   ok: boolean;
-  state: string;
+  state: "invalid_request" | "placeholder_only" | "ready" | "blocked";
   message: string;
   evidence_required: boolean;
 };
