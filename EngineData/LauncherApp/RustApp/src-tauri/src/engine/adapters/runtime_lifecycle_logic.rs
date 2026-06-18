@@ -5,6 +5,8 @@ use crate::engine::runtime_state::{
     RuntimeSessionStateReport,
 };
 
+const MAX_LIFECYCLE_GATE_TEXT_CHARS: usize = 260;
+
 #[derive(Debug, Clone, Serialize)]
 pub struct RuntimeLifecycleGateReport {
     pub action: String,
@@ -28,6 +30,7 @@ pub fn analyze_start_lifecycle_gate() -> RuntimeLifecycleGateReport {
     } else {
         handoff_state.blocker.clone()
     };
+    let blocker = compact_lifecycle_text(&blocker);
     let note = if allowed {
         "Start gate is allowed from the latest realtime handoff snapshot. Runtime session will be recorded; real microphone stream creation remains deferred to runtime integration.".to_string()
     } else if session_state.has_active_session {
@@ -43,7 +46,7 @@ pub fn analyze_start_lifecycle_gate() -> RuntimeLifecycleGateReport {
         handoff_state,
         session_state,
         blocker,
-        note,
+        note: compact_lifecycle_text(&note),
     }
 }
 
@@ -56,6 +59,7 @@ pub fn analyze_stop_lifecycle_gate() -> RuntimeLifecycleGateReport {
     } else {
         "runtime_session:no_active_session_or_handoff".to_string()
     };
+    let blocker = compact_lifecycle_text(&blocker);
     let note = if session_state.ready_for_stop {
         format!("Stop gate is allowed for active runtime session. {}", session_state.note)
     } else if handoff_state.has_snapshot {
@@ -71,6 +75,15 @@ pub fn analyze_stop_lifecycle_gate() -> RuntimeLifecycleGateReport {
         handoff_state,
         session_state,
         blocker,
-        note,
+        note: compact_lifecycle_text(&note),
     }
+}
+
+fn compact_lifecycle_text(value: &str) -> String {
+    value
+        .trim()
+        .chars()
+        .filter(|character| !character.is_control())
+        .take(MAX_LIFECYCLE_GATE_TEXT_CHARS)
+        .collect::<String>()
 }
