@@ -4,7 +4,7 @@
 
 `Backend` defines runtime and inference ownership for TranslateIT.
 
-The current active Tauri package still has a legacy folder name at `EngineData/LauncherApp/RustApp`. Its role is desktop runtime packaging, not frontend ownership. New backend-owned runtime files now use explicit backend names.
+The current active Tauri package is physically located at `EngineData/LauncherApp/RustApp`. Its role is desktop runtime packaging, not a separate engine or alternate shell. Backend-owned runtime files use explicit backend names.
 
 ## Current active backend paths
 
