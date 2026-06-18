@@ -112,6 +112,8 @@ function commandNotice(result: AudioStudioCommandResult | null, fallback: string
   if (!result) return `${fallback} Command unavailable in this runtime.`;
   if (result.state === "invalid_request") return `${fallback} Rejected: ${result.message}`;
   if (result.state === "placeholder_only") return `${fallback} Route status: placeholder only. ${result.message}`;
+  if (result.state === "metadata_ready") return `${fallback} Metadata saved. ${result.message}`;
+  if (result.state === "provider_blocked") return `${fallback} Provider blocked. ${result.message}`;
   if (result.evidence_required) return `${fallback} Evidence required: ${result.message}`;
   return result.message ? `${fallback} ${result.message}` : fallback;
 }
@@ -134,6 +136,9 @@ function takeRecordToDraft(record: AudioStudioTakeRecord): AudioStudioTakeDraft 
     state: record.state,
     title: record.title,
     detail: record.detail,
+    file_name: record.file_name ?? undefined,
+    size_bytes: record.size_bytes ?? undefined,
+    reading_line_id: record.reading_line_id ?? undefined,
   };
 }
 
@@ -179,6 +184,14 @@ function readingCards(): string {
   `).join("");
 }
 
+function takeMetadataLine(take: AudioStudioTakeDraft): string {
+  const parts = [take.detail];
+  if (take.file_name) parts.push(`File: ${take.file_name}`);
+  if (typeof take.size_bytes === "number") parts.push(`Size: ${Math.round(take.size_bytes / 1024)} KB`);
+  if (take.reading_line_id) parts.push(`Reading line: ${take.reading_line_id}`);
+  return parts.join(" • ");
+}
+
 function takeReviewCards(): string {
   if (stagedTakes.length === 0) {
     return `<article class="feature-card empty-state-card"><div class="feature-title-row"><h4>No take staged yet</h4></div><p>Import audio, choose a guided reading line, or load saved takes from UserData.</p></article>`;
@@ -187,7 +200,7 @@ function takeReviewCards(): string {
   return stagedTakes.map((take) => `
     <article class="audio-studio-reading-card" data-take-id="${escapeHtml(take.id)}">
       <header><strong>${escapeHtml(take.title)}</strong><span class="status-badge status-badge--${statusTone(take.state)}">${escapeHtml(stateLabel(take.state))}</span></header>
-      <p>${escapeHtml(take.detail)}</p>
+      <p>${escapeHtml(takeMetadataLine(take))}</p>
       <div class="settings-card-actions compact">
         <button class="mic-test-button-v22 audio-studio-take-action" type="button" data-take-action="accepted" data-take-id="${escapeHtml(take.id)}">Accept</button>
         <button class="mic-test-button-v22 secondary audio-studio-take-action" type="button" data-take-action="needs_retry" data-take-id="${escapeHtml(take.id)}">Retry</button>
@@ -282,9 +295,9 @@ function audioStudioView(): string {
       <article class="settings-card settings-card--audio-studio-status">
         <div class="developer-log-body" aria-label="Audio Studio readiness">
           <p class="developer-log-row"><strong>INFO</strong><span>UI scaffold: staged</span></p>
-          <p class="developer-log-row"><strong>INFO</strong><span>Project metadata persistence: enabled</span></p>
+          <p class="developer-log-row"><strong>INFO</strong><span>Project metadata persistence: metadata_ready</span></p>
           <p class="developer-log-row"><strong>INFO</strong><span>Take states: draft, staged, accepted, retry, blocked</span></p>
-          <p class="developer-log-row"><strong>WAIT</strong><span>Provider processing: not connected yet</span></p>
+          <p class="developer-log-row"><strong>WAIT</strong><span>Provider processing: provider_blocked</span></p>
         </div>
       </article>
     </div>
@@ -326,7 +339,14 @@ function bindAudioStudioViewEvents(): void {
         : "No audio file selected.";
     setAssistantNotice(fallback);
     newTakes.forEach((take) => {
-      sendCommandNotice(audioStudioApi.importTake({ take_id: take.id, source: take.source, title: take.title, detail: take.detail }), fallback);
+      sendCommandNotice(audioStudioApi.importTake({
+        take_id: take.id,
+        source: take.source,
+        title: take.title,
+        detail: take.detail,
+        file_name: take.file_name ?? null,
+        size_bytes: take.size_bytes ?? null,
+      }), fallback);
     });
     fileInput.value = "";
   });
@@ -342,7 +362,13 @@ function bindAudioStudioViewEvents(): void {
     renderTakeReviewPanel();
     const fallback = `Guided reading staged: ${line.text}`;
     setAssistantNotice(fallback);
-    sendCommandNotice(audioStudioApi.stageGuidedTake({ take_id: take.id, source: take.source, title: take.title, detail: take.detail }), fallback);
+    sendCommandNotice(audioStudioApi.stageGuidedTake({
+      take_id: take.id,
+      source: take.source,
+      title: take.title,
+      detail: take.detail,
+      reading_line_id: take.reading_line_id ?? null,
+    }), fallback);
   });
 
   metadataButton?.addEventListener("click", () => {
