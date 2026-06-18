@@ -1,5 +1,13 @@
 use serde::{Deserialize, Serialize};
 
+const MAX_SESSION_ID_CHARS: usize = 96;
+const MAX_SESSION_STATUS_CHARS: usize = 120;
+const MAX_WORKER_NAME_CHARS: usize = 96;
+const MAX_WORKERS: usize = 32;
+const MAX_EXCEPTION_CHARS: usize = 500;
+const MAX_TIME_LABEL_CHARS: usize = 80;
+const MAX_LATENCY_MS: i64 = 3_600_000;
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct SessionMetricRequest {
     pub segment_id: String,
@@ -106,6 +114,8 @@ pub struct WorkerHealthReport {
 }
 
 pub fn build_session_metric_report(request: SessionMetricRequest) -> SessionMetricReport {
+    let segment_id = safe_id(&request.segment_id, "segment");
+    let quality_status = clean_label(request.quality_status.as_deref().unwrap_or_default(), MAX_SESSION_STATUS_CHARS);
     let speech_duration_ms = positive(request.speech_duration_ms);
     let delay_after_speech_end_ms = positive(request.delay_after_speech_end_ms);
     let total_latency_ms = positive(request.total_latency_ms);
@@ -119,20 +129,22 @@ pub fn build_session_metric_report(request: SessionMetricRequest) -> SessionMetr
     let component_total = audio_verify_ms + stt_ms + translate_ms + tts_ms;
     let missing_latency_ms = (total_latency_ms - component_total).max(0);
     let input_latency_budget_ms = audio_verify_ms + stt_ms + translate_ms;
-    let output_latency_budget_ms = request.speech_end_to_voice_proxy_ms.unwrap_or_else(|| {
+    let output_latency_budget_ms = request.speech_end_to_voice_proxy_ms.map(|value| value.clamp(0, MAX_LATENCY_MS)).unwrap_or_else(|| {
         if total_latency_ms > 0 { (total_latency_ms - input_latency_budget_ms).max(0) } else { tts_ms }
     });
     let io_latency_budget_ms = input_latency_budget_ms + output_latency_budget_ms;
     let (main_stage, main_ms) = main_bottleneck(audio_verify_ms, stt_ms, translate_ms, tts_ms, component_total);
-    let voice_signal_state = voice_out_state(request.tts_voice_start_proxy_ms, request.speech_end_to_voice_proxy_ms, request.tts_backend_selected.as_deref() == Some("sapi_direct_async"));
+    let voice_signal_state = voice_out_state(request.tts_voice_start_proxy_ms, request.speech_end_to_voice_proxy_ms, clean_label(request.tts_backend_selected.as_deref().unwrap_or_default(), MAX_SESSION_STATUS_CHARS) == "sapi_direct_async");
+    let speech_end_to_voice_proxy_ms = request.speech_end_to_voice_proxy_ms.map(|value| value.clamp(0, MAX_LATENCY_MS));
+    let tts_queue_depth = request.tts_queue_depth.map(|value| value.clamp(0, 10_000));
     let issue_signals = build_issue_signals(
-        request.quality_status.as_deref().unwrap_or_default(),
+        &quality_status,
         if component_total > 0 { "MEASURED" } else { "UNAVAILABLE" },
         &main_stage,
         if component_total > 0 { "Derived from preserved segment latency metrics" } else { "No measurable component recorded" },
-        request.speech_end_to_voice_proxy_ms,
+        speech_end_to_voice_proxy_ms,
         missing_latency_ms,
-        request.tts_queue_depth,
+        tts_queue_depth,
         &voice_signal_state,
         if audio_verify_ms > 0 { "endpoint_wait_ms" } else { "Not Run" },
         if stt_ms > 0 { "asr_latency_ms" } else { "Not Run" },
@@ -142,7 +154,7 @@ pub fn build_session_metric_report(request: SessionMetricRequest) -> SessionMetr
     let issue_summary = issue_signals.triage_hint.clone();
 
     SessionMetricReport {
-        segment_id: request.segment_id,
+        segment_id,
         speech_duration_ms,
         delay_after_speech_end_ms,
         total_latency_ms,
@@ -163,7 +175,7 @@ pub fn build_session_metric_report(request: SessionMetricRequest) -> SessionMetr
         stt_ms,
         translate_ms,
         tts_ms,
-        speech_end_to_voice_proxy_ms: request.speech_end_to_voice_proxy_ms,
+        speech_end_to_voice_proxy_ms,
         missing_latency_ms,
         app_vs_stopwatch_delta_ms: missing_latency_ms,
         missing_latency_assigned_to: if missing_latency_ms > 0 { "unattributed".to_string() } else { String::new() },
@@ -177,10 +189,11 @@ pub fn build_session_metric_report(request: SessionMetricRequest) -> SessionMetr
 }
 
 pub fn build_worker_health(request: WorkerHealthRequest) -> WorkerHealthReport {
-    let last_exception = request.last_exception.unwrap_or_default();
-    let active_workers = request.active_workers;
-    let failed_workers = request.failed_workers;
-    let stale_count = request.stale_job_rejected_count.max(0);
+    let segment_id = safe_id(&request.segment_id, "segment");
+    let last_exception = clean_label(request.last_exception.as_deref().unwrap_or_default(), MAX_EXCEPTION_CHARS);
+    let active_workers = clean_worker_list(request.active_workers);
+    let failed_workers = clean_worker_list(request.failed_workers);
+    let stale_count = request.stale_job_rejected_count.clamp(0, 10_000);
     let safe_to_restart = failed_workers.is_empty() && last_exception.is_empty() && stale_count == 0 && request.worker_alive;
     let (status, reason) = if !last_exception.is_empty() {
         ("error", last_exception.clone())
@@ -194,16 +207,16 @@ pub fn build_worker_health(request: WorkerHealthRequest) -> WorkerHealthReport {
         ("healthy", "Worker is healthy.".to_string())
     };
     WorkerHealthReport {
-        segment_id: request.segment_id,
+        segment_id,
         status: "initialized".to_string(),
         worker_alive: request.worker_alive,
         active_workers,
         failed_workers,
         stale_job_rejected_count: stale_count,
         last_exception,
-        last_job_started_time: request.last_job_started_time.unwrap_or_default(),
-        last_job_finished_time: request.last_job_finished_time.unwrap_or_default(),
-        last_heartbeat_time: request.last_heartbeat_time.unwrap_or_default(),
+        last_job_started_time: clean_label(request.last_job_started_time.as_deref().unwrap_or_default(), MAX_TIME_LABEL_CHARS),
+        last_job_finished_time: clean_label(request.last_job_finished_time.as_deref().unwrap_or_default(), MAX_TIME_LABEL_CHARS),
+        last_heartbeat_time: clean_label(request.last_heartbeat_time.as_deref().unwrap_or_default(), MAX_TIME_LABEL_CHARS),
         worker_issue_status: status.to_string(),
         worker_issue_reason: reason,
         worker_health_note: "Use worker_issue_status and last_exception first when worker behavior looks inconsistent.".to_string(),
@@ -254,8 +267,8 @@ fn build_issue_signals(
 }
 
 fn issue_status_label(quality_status: &str, measurement_status: &str) -> String {
-    let quality = quality_status.trim().to_lowercase();
-    let measurement = measurement_status.trim().to_lowercase();
+    let quality = clean_label(quality_status, MAX_SESSION_STATUS_CHARS).to_lowercase();
+    let measurement = clean_label(measurement_status, MAX_SESSION_STATUS_CHARS).to_lowercase();
     if !quality.is_empty() && !matches!(quality.as_str(), "accepted" | "measured" | "ok") { return quality; }
     if matches!(measurement.as_str(), "measured" | "partial" | "unavailable") { return measurement; }
     if !quality.is_empty() { quality } else { "unknown".to_string() }
@@ -274,6 +287,43 @@ fn main_bottleneck(audio: i64, stt: i64, translate: i64, tts: i64, component_tot
     (best.0.to_string(), best.1)
 }
 
+fn is_unsafe_session_character(character: char) -> bool {
+    character == '\0'
+        || ('\u{0001}'..='\u{0008}').contains(&character)
+        || ('\u{000b}'..='\u{001f}').contains(&character)
+        || character == '\u{007f}'
+        || ('\u{202a}'..='\u{202e}').contains(&character)
+        || ('\u{2066}'..='\u{2069}').contains(&character)
+}
+
+fn clean_label(value: &str, max_chars: usize) -> String {
+    value
+        .trim()
+        .chars()
+        .filter(|character| !is_unsafe_session_character(*character))
+        .take(max_chars)
+        .collect::<String>()
+}
+
+fn safe_id(value: &str, fallback: &str) -> String {
+    let clean = value
+        .trim()
+        .chars()
+        .map(|character| if character.is_ascii_alphanumeric() || matches!(character, '-' | '_') { character } else { '_' })
+        .take(MAX_SESSION_ID_CHARS)
+        .collect::<String>();
+    if clean.is_empty() { fallback.to_string() } else { clean }
+}
+
+fn clean_worker_list(values: Vec<String>) -> Vec<String> {
+    values
+        .into_iter()
+        .take(MAX_WORKERS)
+        .map(|value| clean_label(&value, MAX_WORKER_NAME_CHARS))
+        .filter(|value| !value.is_empty())
+        .collect()
+}
+
 fn positive(value: Option<i64>) -> i64 {
-    value.unwrap_or(0).max(0)
+    value.unwrap_or(0).clamp(0, MAX_LATENCY_MS)
 }
