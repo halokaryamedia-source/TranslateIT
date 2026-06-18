@@ -1,5 +1,12 @@
 import { runtimeApi } from "../engineTranslate/runtimeApi";
 
+function helperTask(action: string | undefined) {
+  if (action === "start") return runtimeApi.startHelperBridge();
+  if (action === "stop") return runtimeApi.stopHelperBridge();
+  if (action === "status") return runtimeApi.sendHelperBridgeRequest({ task: "status" });
+  return runtimeApi.cancelHelperBridgeTask();
+}
+
 function ensureBridgeControls(panel: HTMLElement): void {
   if (panel.dataset.helperBridgeControls === "true") return;
   panel.dataset.helperBridgeControls = "true";
@@ -7,6 +14,7 @@ function ensureBridgeControls(panel: HTMLElement): void {
   controls.className = "settings-card-actions compact";
   controls.innerHTML = `
     <button class="mic-test-button-v22 secondary" type="button" data-helper-bridge-action="start">Start Helper</button>
+    <button class="mic-test-button-v22 secondary" type="button" data-helper-bridge-action="status">Worker Status</button>
     <button class="mic-test-button-v22 secondary" type="button" data-helper-bridge-action="stop">Stop Helper</button>
     <button class="mic-test-button-v22 secondary" type="button" data-helper-bridge-action="cancel">Cancel Task</button>
   `;
@@ -15,12 +23,7 @@ function ensureBridgeControls(panel: HTMLElement): void {
     button.addEventListener("click", () => {
       const action = button.dataset.helperBridgeAction;
       button.disabled = true;
-      const task = action === "start"
-        ? runtimeApi.startHelperBridge()
-        : action === "stop"
-          ? runtimeApi.stopHelperBridge()
-          : runtimeApi.cancelHelperBridgeTask();
-      void task
+      void helperTask(action)
         .then((result) => {
           const message = result?.message ?? "Helper bridge command did not return a result.";
           const assistant = document.querySelector<HTMLParagraphElement>("#assistantMessage");
