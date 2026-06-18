@@ -51,11 +51,16 @@ realtimeStatusPayloadRefresh.ts
 
 The following lifecycle items have already been started in `Dev-Pack`:
 
-- `helperBridgeHealthMonitor.ts` now exposes a stop callback for its interval.
-- `realtimeStatusPayloadRefresh.ts` now removes its visibility listener during stop.
-- `main.ts` now calls monitor cleanup callbacks during window unload.
+- `helperBridgeHealthMonitor.ts` exposes a stop callback for its interval.
+- `realtimeStatusPayloadRefresh.ts` removes its visibility listener during stop and uses single-flight refresh protection.
+- `audioPipelineResultWatcher.ts` is explicitly bound and disposable, with polling cancellation during unbind.
+- `attachmentLimitWatcher.ts` is disposable and clears its delayed warning timer during unbind.
+- `audioDeviceListBinding.ts` is disposable and prevents overlapping audio device requests.
+- `developerEvidenceBinding.ts`, `developerHelperBridgeBinding.ts`, `referenceUiBinding.ts`, `runtimeReadinessUiGuard.ts`, and `voiceOutputPersistenceBinding.ts` now expose unbind functions.
+- `launcherEventBindings.ts` uses an `AbortController` so launcher event listeners can be removed by the caller.
+- `main.ts` currently wires cleanup for several monitors and bindings. Remaining cleanup wiring should be completed in small patches.
 
-This is not a complete frontend refactor yet. It only reduces interval/listener leak risk while keeping the UI and runtime behavior unchanged.
+This is not a complete frontend refactor yet. It reduces interval/listener leak risk while keeping the UI and runtime behavior unchanged.
 
 ## Target launcher structure
 
@@ -183,14 +188,14 @@ Low-level helpers only. Avoid putting product logic here.
 
 Use small commits in this order:
 
-1. Move notification methods into `services/notificationService.ts`.
-2. Move chat session logic into `services/chatSessionService.ts`.
-3. Move attachment ingestion into `services/attachmentService.ts`.
-4. Move recording start/stop button-lock flow into `services/recordingService.ts`.
-5. Move manual text submit flow into `services/translationSubmitService.ts`.
-6. Move settings rendering/rebinding into `controllers/settingsController.ts`.
-7. Move runtime status rendering into `controllers/runtimeStatusController.ts`.
-8. Continue lifecycle disposer handling for status monitors.
+1. Complete caller-side cleanup wiring for disposable bindings.
+2. Move notification methods into `services/notificationService.ts`.
+3. Move chat session logic into `services/chatSessionService.ts`.
+4. Move attachment ingestion into `services/attachmentService.ts`.
+5. Move recording start/stop button-lock flow into `services/recordingService.ts`.
+6. Move manual text submit flow into `services/translationSubmitService.ts`.
+7. Move settings rendering/rebinding into `controllers/settingsController.ts`.
+8. Move runtime status rendering into `controllers/runtimeStatusController.ts`.
 
 ## Validation after each extraction
 
