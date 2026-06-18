@@ -3,6 +3,8 @@ use serde::Serialize;
 
 use super::{TARGET_CHANNELS, TARGET_SAMPLE_RATE_HZ};
 
+const MAX_INPUT_DEVICE_NAME_CHARS: usize = 160;
+
 #[derive(Debug, Clone, Serialize)]
 pub struct InputPreparationStatus {
     pub backend_id: String,
@@ -23,7 +25,7 @@ impl InputPreparationStatus {
             return Self::blocked(backend_id, None, "No default input device was found.");
         };
 
-        let device_name = device.name().ok();
+        let device_name = safe_device_name(&device);
         let Ok(config) = device.default_input_config() else {
             return Self::blocked(
                 backend_id,
@@ -64,4 +66,27 @@ impl InputPreparationStatus {
             note: note.to_string(),
         }
     }
+}
+
+fn is_unsafe_input_name_character(character: char) -> bool {
+    character == '\0'
+        || ('\u{0001}'..='\u{0008}').contains(&character)
+        || ('\u{000b}'..='\u{001f}').contains(&character)
+        || character == '\u{007f}'
+        || ('\u{202a}'..='\u{202e}').contains(&character)
+        || ('\u{2066}'..='\u{2069}').contains(&character)
+}
+
+fn safe_device_name(device: &cpal::Device) -> Option<String> {
+    let clean = device
+        .name()
+        .ok()?
+        .trim()
+        .chars()
+        .filter(|character| !is_unsafe_input_name_character(*character))
+        .take(MAX_INPUT_DEVICE_NAME_CHARS)
+        .collect::<String>()
+        .trim()
+        .to_string();
+    if clean.is_empty() { None } else { Some(clean) }
 }
