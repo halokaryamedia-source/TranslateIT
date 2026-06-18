@@ -49,6 +49,7 @@ const expectedTakeSources = ["import", "guided_reading"];
 const expectedTakeStates = ["draft", "staged", "accepted", "needs_retry", "blocked"];
 const expectedCommandStates = ["invalid_request", "placeholder_only", "ready", "blocked"];
 const expectedAdvancedModeIds = ["starter_profile", "production_profile", "broadcast_profile"];
+const expectedImportExtensions = [".wav", ".mp3", ".m4a", ".ogg", ".webm"];
 const expectedRoots = {
   cache: "UserData/CacheData/AudioStudio/",
   saved_project: "UserData/SavedProject/AudioStudio/",
@@ -64,6 +65,16 @@ const expectedLimits = {
   rustTakeIdLength: "MAX_TAKE_ID_LENGTH: usize = 160",
   rustTitleLength: "MAX_TAKE_TITLE_LENGTH: usize = 120",
   rustDetailLength: "MAX_TAKE_DETAIL_LENGTH: usize = 500",
+};
+
+const expectedPayloadLimits = {
+  take_id_max_chars: 160,
+  take_title_max_chars: 120,
+  take_detail_max_chars: 500,
+  staged_takes_max: 12,
+  import_files_per_action_max: 12,
+  import_file_max_bytes: 524288000,
+  accepted_import_extensions: expectedImportExtensions,
 };
 
 const errors = [];
@@ -154,7 +165,7 @@ expectFileIncludesAll("EngineData/LauncherApp/RustApp/src-tauri/src/commands/aud
 expectFileIncludesAll("EngineData/LauncherApp/RustApp/src-tauri/src/commands/audio_studio.rs", expectedTakeStates, "Rust take state validation");
 expectFileIncludesAll("EngineData/LauncherApp/RustApp/src/app/launcher/audioStudioAdvancedState.ts", expectedAdvancedModeIds, "advanced mode id constants");
 expectFileIncludesAll("EngineData/LauncherApp/RustApp/src/app/launcher/audioStudioAdvancedBinding.ts", ["AUDIO_STUDIO_ADVANCED_MODE_IDS", "AUDIO_STUDIO_DEFAULT_ADVANCED_MODE", "isAdvancedMode", "clampPercent"], "advanced binding hardening markers");
-expectFileIncludesAll("EngineData/LauncherApp/RustApp/src/app/launcher/audioStudioBinding.ts", [expectedLimits.maxStagedTakes, expectedLimits.maxImportFilesPerAction, expectedLimits.maxImportFileSizeBytes], "frontend import limits");
+expectFileIncludesAll("EngineData/LauncherApp/RustApp/src/app/launcher/audioStudioBinding.ts", [expectedLimits.maxStagedTakes, expectedLimits.maxImportFilesPerAction, expectedLimits.maxImportFileSizeBytes, ...expectedImportExtensions], "frontend import limits");
 expectFileIncludesAll("EngineData/LauncherApp/RustApp/src/app/launcher/audioStudioState.ts", [expectedLimits.frontendTitleLength, expectedLimits.frontendDetailLength], "frontend take metadata limits");
 expectFileIncludesAll("EngineData/LauncherApp/RustApp/src-tauri/src/commands/audio_studio.rs", [expectedLimits.rustTakeIdLength, expectedLimits.rustTitleLength, expectedLimits.rustDetailLength], "Rust payload limits");
 
@@ -175,6 +186,13 @@ if (metadataContract) {
   expectValue(metadataContract.approved_roots?.logs, expectedRoots.logs, "metadata logs root");
   expectArrayEquals(metadataContract.allowed_take_sources, expectedTakeSources, "metadata allowed take sources");
   expectArrayEquals(metadataContract.allowed_take_states, expectedTakeStates, "metadata allowed take states");
+  for (const [key, expectedValue] of Object.entries(expectedPayloadLimits)) {
+    if (Array.isArray(expectedValue)) {
+      expectArrayEquals(metadataContract.payload_limits?.[key], expectedValue, `metadata payload limit ${key}`);
+    } else {
+      expectValue(metadataContract.payload_limits?.[key], expectedValue, `metadata payload limit ${key}`);
+    }
+  }
 }
 
 const advancedContract = readJson("EngineData/Backend/RuntimeContracts/AUDIO_STUDIO_ADVANCED_QUALITY_CONTRACT.json");
@@ -186,6 +204,9 @@ if (advancedContract) {
   expectValue(advancedContract.approved_audio_studio_roots?.logs, expectedRoots.logs, "advanced logs root");
   if (!Array.isArray(advancedContract.non_local_done_definition) || !advancedContract.non_local_done_definition.includes("root_contracts_normalized")) {
     errors.push("advanced non-local definition must include root_contracts_normalized.");
+  }
+  if (!Array.isArray(advancedContract.non_local_done_definition) || !advancedContract.non_local_done_definition.includes("metadata_payload_limits_synced")) {
+    errors.push("advanced non-local definition must include metadata_payload_limits_synced.");
   }
 }
 
