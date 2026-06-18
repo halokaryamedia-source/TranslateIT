@@ -1,6 +1,12 @@
 use serde::{Deserialize, Serialize};
+use serde_json::{json, Value};
+use std::io::{BufRead, BufReader, Write};
+use std::path::{Path, PathBuf};
+use std::process::{Child, ChildStdin, ChildStdout, Command, Stdio};
 use std::sync::{Mutex, OnceLock};
 use std::time::{SystemTime, UNIX_EPOCH};
+
+use crate::engine::paths::ProjectPaths;
 
 #[derive(Debug, Clone, Serialize)]
 pub struct HelperBridgeStatus {
@@ -31,7 +37,6 @@ pub struct HelperBridgeRequest {
     pub payload_json: Option<String>,
 }
 
-#[derive(Debug, Clone)]
 struct HelperBridgeRuntime {
     state: String,
     message: String,
@@ -42,13 +47,16 @@ struct HelperBridgeRuntime {
     generation_token: u64,
     last_error: Option<String>,
     updated_unix_ms: u128,
+    child: Option<Child>,
+    stdin: Option<ChildStdin>,
+    stdout: Option<BufReader<ChildStdout>>,
 }
 
 impl Default for HelperBridgeRuntime {
     fn default() -> Self {
         Self {
             state: "not_started".to_string(),
-            message: "Helper bridge contract exists; runtime process bridge is not implemented yet.".to_string(),
+            message: "Helper bridge contract exists; runtime process bridge is not started yet.".to_string(),
             cuda_ready: false,
             provider_ready: false,
             degraded_mode: false,
@@ -56,6 +64,9 @@ impl Default for HelperBridgeRuntime {
             generation_token: 0,
             last_error: None,
             updated_unix_ms: unix_ms(),
+            child: None,
+            stdin: None,
+            stdout: None,
         }
     }
 }
@@ -73,8 +84,12 @@ fn unix_ms() -> u128 {
         .unwrap_or(0)
 }
 
-fn runtime_claim() -> String {
-    "bridge_lifecycle_only_process_not_spawned".to_string()
+fn runtime_claim(runtime: &HelperBridgeRuntime) -> String {
+    if runtime.child.is_some() && runtime.state == "ready" {
+        "helper_process_ready_ping_verified".to_string()
+    } else {
+        "bridge_lifecycle_visible_process_not_ready".to_string()
+    }
 }
 
 fn status_from_runtime(runtime: &HelperBridgeRuntime) -> HelperBridgeStatus {
@@ -88,7 +103,7 @@ fn status_from_runtime(runtime: &HelperBridgeRuntime) -> HelperBridgeStatus {
         generation_token: runtime.generation_token,
         last_error: runtime.last_error.clone(),
         updated_unix_ms: runtime.updated_unix_ms,
-        runtime_claim: runtime_claim(),
+        runtime_claim: runtime_claim(runtime),
     }
 }
 
@@ -98,14 +113,89 @@ fn action_result(ok: bool, runtime: &HelperBridgeRuntime) -> HelperBridgeActionR
         state: runtime.state.clone(),
         message: runtime.message.clone(),
         generation_token: runtime.generation_token,
-        runtime_claim: runtime_claim(),
+        runtime_claim: runtime_claim(runtime),
+    }
+}
+
+fn project_root() -> PathBuf {
+    PathBuf::from(ProjectPaths::discover().project_root)
+}
+
+fn worker_root() -> PathBuf {
+    project_root()
+        .join("EngineData")
+        .join("Backend")
+        .join("LocalWorker")
+        .join("WorkerRuntime")
+}
+
+fn worker_script() -> PathBuf {
+    worker_root().join("realtime_local_worker.py")
+}
+
+fn worker_python() -> PathBuf {
+    if cfg!(windows) {
+        worker_root().join(".venv").join("Scripts").join("python.exe")
+    } else {
+        worker_root().join(".venv").join("bin").join("python")
+    }
+}
+
+fn set_blocked(runtime: &mut HelperBridgeRuntime, message: &str, error: &str) -> HelperBridgeActionResult {
+    runtime.state = "blocked".to_string();
+    runtime.message = message.to_string();
+    runtime.cuda_ready = false;
+    runtime.provider_ready = false;
+    runtime.degraded_mode = false;
+    runtime.active_task = None;
+    runtime.last_error = Some(error.to_string());
+    runtime.updated_unix_ms = unix_ms();
+    action_result(false, runtime)
+}
+
+fn write_worker_request(stdin: &mut ChildStdin, payload: &Value) -> Result<(), String> {
+    let body = serde_json::to_string(payload).map_err(|error| error.to_string())?;
+    stdin.write_all(body.as_bytes()).map_err(|error| error.to_string())?;
+    stdin.write_all(b"\n").map_err(|error| error.to_string())?;
+    stdin.flush().map_err(|error| error.to_string())
+}
+
+fn read_worker_response(stdout: &mut BufReader<ChildStdout>) -> Result<Value, String> {
+    let mut line = String::new();
+    let size = stdout.read_line(&mut line).map_err(|error| error.to_string())?;
+    if size == 0 {
+        return Err("worker:stdout_closed".to_string());
+    }
+    serde_json::from_str::<Value>(&line).map_err(|error| error.to_string())
+}
+
+fn stop_child(runtime: &mut HelperBridgeRuntime) {
+    runtime.stdin.take();
+    runtime.stdout.take();
+    if let Some(mut child) = runtime.child.take() {
+        let _ = child.kill();
+        let _ = child.wait();
     }
 }
 
 #[tauri::command]
 pub fn get_helper_bridge_status() -> HelperBridgeStatus {
     match runtime().lock() {
-        Ok(runtime) => status_from_runtime(&runtime),
+        Ok(mut runtime) => {
+            if let Some(child) = runtime.child.as_mut() {
+                if child.try_wait().ok().flatten().is_some() {
+                    runtime.stdin.take();
+                    runtime.stdout.take();
+                    runtime.child.take();
+                    runtime.state = "stopped".to_string();
+                    runtime.message = "Helper worker process exited.".to_string();
+                    runtime.cuda_ready = false;
+                    runtime.provider_ready = false;
+                    runtime.updated_unix_ms = unix_ms();
+                }
+            }
+            status_from_runtime(&runtime)
+        }
         Err(_) => HelperBridgeStatus {
             state: "error".to_string(),
             message: "Helper bridge status lock is poisoned.".to_string(),
@@ -116,7 +206,7 @@ pub fn get_helper_bridge_status() -> HelperBridgeStatus {
             generation_token: 0,
             last_error: Some("helper_bridge:lock_poisoned".to_string()),
             updated_unix_ms: unix_ms(),
-            runtime_claim: runtime_claim(),
+            runtime_claim: "bridge_state_error".to_string(),
         },
     }
 }
@@ -126,22 +216,81 @@ pub fn start_helper_bridge() -> HelperBridgeActionResult {
     match runtime().lock() {
         Ok(mut runtime) => {
             runtime.generation_token = runtime.generation_token.saturating_add(1);
-            runtime.state = "blocked".to_string();
-            runtime.message = "Helper bridge lifecycle started, but Python process spawn is not implemented yet.".to_string();
+            stop_child(&mut runtime);
+
+            let python = worker_python();
+            let worker = worker_script();
+            if !worker.is_file() {
+                return set_blocked(&mut runtime, "Missing realtime worker script. Run setup or restore EngineData/Backend/LocalWorker/WorkerRuntime/realtime_local_worker.py.", "helper_bridge:worker_script_missing");
+            }
+            if !python.is_file() {
+                return set_blocked(&mut runtime, "Missing worker virtual environment Python. Run npm run setup:worker before starting the helper bridge.", "helper_bridge:venv_python_missing");
+            }
+
+            runtime.state = "starting".to_string();
+            runtime.message = "Starting Python helper worker.".to_string();
+            runtime.updated_unix_ms = unix_ms();
+
+            let mut child = match Command::new(&python)
+                .arg(&worker)
+                .current_dir(worker_root())
+                .stdin(Stdio::piped())
+                .stdout(Stdio::piped())
+                .stderr(Stdio::null())
+                .spawn()
+            {
+                Ok(child) => child,
+                Err(error) => return set_blocked(&mut runtime, &format!("Failed to spawn Python helper worker: {error}"), "helper_bridge:spawn_failed"),
+            };
+
+            let mut stdin = match child.stdin.take() {
+                Some(stdin) => stdin,
+                None => return set_blocked(&mut runtime, "Python helper stdin was not available after spawn.", "helper_bridge:stdin_missing"),
+            };
+            let stdout = match child.stdout.take() {
+                Some(stdout) => stdout,
+                None => return set_blocked(&mut runtime, "Python helper stdout was not available after spawn.", "helper_bridge:stdout_missing"),
+            };
+            let mut stdout = BufReader::new(stdout);
+
+            if let Err(error) = write_worker_request(&mut stdin, &json!({ "command": "ping" })) {
+                let _ = child.kill();
+                let _ = child.wait();
+                return set_blocked(&mut runtime, &format!("Failed to send ping to helper worker: {error}"), "helper_bridge:ping_write_failed");
+            }
+            let ping = match read_worker_response(&mut stdout) {
+                Ok(value) => value,
+                Err(error) => {
+                    let _ = child.kill();
+                    let _ = child.wait();
+                    return set_blocked(&mut runtime, &format!("Failed to read helper worker ping response: {error}"), "helper_bridge:ping_read_failed");
+                }
+            };
+            if ping.get("ok").and_then(Value::as_bool) != Some(true) {
+                let _ = child.kill();
+                let _ = child.wait();
+                return set_blocked(&mut runtime, "Helper worker ping returned a non-ready response.", "helper_bridge:ping_not_ok");
+            }
+
+            runtime.child = Some(child);
+            runtime.stdin = Some(stdin);
+            runtime.stdout = Some(stdout);
+            runtime.state = "ready".to_string();
+            runtime.message = "Python helper worker is running and ping verified. Model/provider readiness still depends on worker status.".to_string();
             runtime.cuda_ready = false;
             runtime.provider_ready = false;
             runtime.degraded_mode = false;
             runtime.active_task = None;
-            runtime.last_error = Some("helper_bridge:process_spawn_not_implemented".to_string());
+            runtime.last_error = None;
             runtime.updated_unix_ms = unix_ms();
-            action_result(false, &runtime)
+            action_result(true, &runtime)
         }
         Err(_) => HelperBridgeActionResult {
             ok: false,
             state: "error".to_string(),
             message: "Helper bridge start failed because state lock is poisoned.".to_string(),
             generation_token: 0,
-            runtime_claim: runtime_claim(),
+            runtime_claim: "bridge_state_error".to_string(),
         },
     }
 }
@@ -151,8 +300,9 @@ pub fn stop_helper_bridge() -> HelperBridgeActionResult {
     match runtime().lock() {
         Ok(mut runtime) => {
             runtime.generation_token = runtime.generation_token.saturating_add(1);
+            stop_child(&mut runtime);
             runtime.state = "stopped".to_string();
-            runtime.message = "Helper bridge stopped. No Python helper process was running from this bridge.".to_string();
+            runtime.message = "Helper bridge stopped and any active worker process was terminated.".to_string();
             runtime.cuda_ready = false;
             runtime.provider_ready = false;
             runtime.degraded_mode = false;
@@ -165,7 +315,7 @@ pub fn stop_helper_bridge() -> HelperBridgeActionResult {
             state: "error".to_string(),
             message: "Helper bridge stop failed because state lock is poisoned.".to_string(),
             generation_token: 0,
-            runtime_claim: runtime_claim(),
+            runtime_claim: "bridge_state_error".to_string(),
         },
     }
 }
@@ -175,10 +325,9 @@ pub fn cancel_helper_bridge_task() -> HelperBridgeActionResult {
     match runtime().lock() {
         Ok(mut runtime) => {
             runtime.generation_token = runtime.generation_token.saturating_add(1);
-            runtime.state = "stopped".to_string();
-            runtime.message = "Helper bridge active task was cancelled by generation token invalidation.".to_string();
             runtime.active_task = None;
             runtime.updated_unix_ms = unix_ms();
+            runtime.message = "Helper bridge active task was cancelled by generation token invalidation.".to_string();
             action_result(true, &runtime)
         }
         Err(_) => HelperBridgeActionResult {
@@ -186,7 +335,7 @@ pub fn cancel_helper_bridge_task() -> HelperBridgeActionResult {
             state: "error".to_string(),
             message: "Helper bridge cancel failed because state lock is poisoned.".to_string(),
             generation_token: 0,
-            runtime_claim: runtime_claim(),
+            runtime_claim: "bridge_state_error".to_string(),
         },
     }
 }
@@ -203,19 +352,60 @@ pub fn send_helper_bridge_request(request: HelperBridgeRequest) -> HelperBridgeA
                 runtime.updated_unix_ms = unix_ms();
                 return action_result(false, &runtime);
             }
+            if runtime.stdin.is_none() || runtime.stdout.is_none() || runtime.child.is_none() {
+                return set_blocked(&mut runtime, "Helper bridge request rejected because the Python worker is not running. Use Start Helper first.", "helper_bridge:not_running");
+            }
+
             runtime.active_task = Some(trimmed_task.to_string());
-            runtime.state = "blocked".to_string();
-            runtime.message = "Helper bridge request schema is accepted, but Python request/response protocol is not implemented yet.".to_string();
-            runtime.last_error = Some("helper_bridge:request_protocol_not_implemented".to_string());
             runtime.updated_unix_ms = unix_ms();
-            action_result(false, &runtime)
+            let mut payload = request
+                .payload_json
+                .as_deref()
+                .and_then(|raw| serde_json::from_str::<Value>(raw).ok())
+                .unwrap_or_else(|| json!({}));
+            if let Some(object) = payload.as_object_mut() {
+                object.insert("command".to_string(), json!(trimmed_task));
+            } else {
+                payload = json!({ "command": trimmed_task });
+            }
+
+            let write_result = runtime.stdin.as_mut().map(|stdin| write_worker_request(stdin, &payload));
+            if !matches!(write_result, Some(Ok(()))) {
+                runtime.state = "blocked".to_string();
+                runtime.message = "Failed to write request to Python helper worker.".to_string();
+                runtime.last_error = Some("helper_bridge:request_write_failed".to_string());
+                runtime.updated_unix_ms = unix_ms();
+                return action_result(false, &runtime);
+            }
+            let response = runtime.stdout.as_mut().map(read_worker_response);
+            match response {
+                Some(Ok(value)) => {
+                    let ok = value.get("ok").and_then(Value::as_bool).unwrap_or(false);
+                    runtime.state = if ok { "ready".to_string() } else { "blocked".to_string() };
+                    runtime.message = value.get("note").and_then(Value::as_str).or_else(|| value.get("stage").and_then(Value::as_str)).unwrap_or("Helper request completed.").to_string();
+                    runtime.cuda_ready = value.get("torch_cuda_available").and_then(Value::as_bool).unwrap_or(runtime.cuda_ready);
+                    runtime.provider_ready = ok;
+                    runtime.degraded_mode = value.get("device").and_then(Value::as_str) == Some("cpu") || value.get("device_note").and_then(Value::as_str).map(|note| note.contains("fallback") || note.contains("cpu")).unwrap_or(false);
+                    runtime.last_error = value.get("blocker").and_then(Value::as_str).filter(|text| !text.is_empty()).map(str::to_string);
+                    runtime.updated_unix_ms = unix_ms();
+                    action_result(ok, &runtime)
+                }
+                Some(Err(error)) => {
+                    runtime.state = "blocked".to_string();
+                    runtime.message = format!("Failed to read response from Python helper worker: {error}");
+                    runtime.last_error = Some("helper_bridge:response_read_failed".to_string());
+                    runtime.updated_unix_ms = unix_ms();
+                    action_result(false, &runtime)
+                }
+                None => set_blocked(&mut runtime, "Helper bridge request failed because worker IO is unavailable.", "helper_bridge:io_missing"),
+            }
         }
         Err(_) => HelperBridgeActionResult {
             ok: false,
             state: "error".to_string(),
             message: "Helper bridge request failed because state lock is poisoned.".to_string(),
             generation_token: 0,
-            runtime_claim: runtime_claim(),
+            runtime_claim: "bridge_state_error".to_string(),
         },
     }
 }
