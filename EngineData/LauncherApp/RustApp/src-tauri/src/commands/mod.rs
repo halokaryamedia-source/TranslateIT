@@ -4,6 +4,7 @@ pub mod audio_studio;
 pub mod chat;
 pub mod diagnostics;
 pub mod hardware;
+pub mod helper_bridge;
 pub mod pipeline;
 pub mod runtime;
 pub mod settings;
