@@ -2,6 +2,7 @@ mod commands;
 mod engine;
 
 use commands::audio::{get_input_status, list_audio_devices};
+use commands::audio_evidence::{get_latest_audio_pipeline_evidence, get_latest_audio_studio_validation_evidence};
 use commands::audio_studio::{
     audio_studio_export_project_metadata,
     audio_studio_import_take,
@@ -26,6 +27,8 @@ fn main() {
         get_helper_bridge_status,
         get_input_status,
         list_audio_devices,
+        get_latest_audio_pipeline_evidence,
+        get_latest_audio_studio_validation_evidence,
         load_runtime_settings,
         save_default_runtime_settings,
         save_runtime_settings,
