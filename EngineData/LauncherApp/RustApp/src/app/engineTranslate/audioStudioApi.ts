@@ -1,5 +1,5 @@
+import type { AudioStudioCommandState, AudioStudioTakeSource, AudioStudioTakeState } from "../shared/audioStudioTypes";
 import { runCommand } from "../shared/tauriBridge";
-import type { AudioStudioTakeSource, AudioStudioTakeState } from "../launcher/audioStudioState";
 
 export type AudioStudioTakeRequest = {
   take_id?: string | null;
@@ -15,7 +15,7 @@ export type AudioStudioStateUpdateRequest = {
 
 export type AudioStudioCommandResult = {
   ok: boolean;
-  state: "invalid_request" | "placeholder_only" | "ready" | "blocked";
+  state: AudioStudioCommandState;
   message: string;
   evidence_required: boolean;
 };
