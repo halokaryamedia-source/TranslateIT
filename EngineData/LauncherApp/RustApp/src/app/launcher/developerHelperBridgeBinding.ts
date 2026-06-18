@@ -1,6 +1,7 @@
 import { runtimeApi } from "../engineTranslate/runtimeApi";
 
 let bound = false;
+let clickHandler: ((event: MouseEvent) => void) | null = null;
 
 function helperTask(action: string | undefined) {
   if (action === "start") return runtimeApi.startHelperBridge();
@@ -25,10 +26,10 @@ function previewSummary(result: Awaited<ReturnType<typeof runtimeApi.prepareCapt
   return `Capture ${result.command} preview ${state}. Provider ready: ${result.provider_ready}. CUDA ready: ${result.cuda_ready}. This preview did not start or stop capture. ${result.message}`;
 }
 
-export function bindDeveloperHelperBridgeUi(): void {
-  if (bound) return;
+export function bindDeveloperHelperBridgeUi(): () => void {
+  if (bound) return unbindDeveloperHelperBridgeUi;
   bound = true;
-  document.addEventListener("click", (event) => {
+  clickHandler = (event: MouseEvent) => {
     const helperButton = (event.target as HTMLElement | null)?.closest<HTMLButtonElement>("[data-helper-bridge-action]");
     if (helperButton) {
       const action = helperButton.dataset.helperBridgeAction;
@@ -56,5 +57,14 @@ export function bindDeveloperHelperBridgeUi(): void {
       .finally(() => {
         captureButton.disabled = false;
       });
-  });
+  };
+  document.addEventListener("click", clickHandler);
+  return unbindDeveloperHelperBridgeUi;
+}
+
+export function unbindDeveloperHelperBridgeUi(): void {
+  if (!bound || !clickHandler) return;
+  document.removeEventListener("click", clickHandler);
+  clickHandler = null;
+  bound = false;
 }
