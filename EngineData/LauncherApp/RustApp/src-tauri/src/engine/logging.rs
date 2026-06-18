@@ -92,6 +92,15 @@ fn append_line(path: &Path, line: &str) -> io::Result<()> {
     writeln!(file, "{line}")
 }
 
+fn is_unsafe_log_character(character: char) -> bool {
+    character == '\0'
+        || ('\u{0001}'..='\u{0008}').contains(&character)
+        || ('\u{000b}'..='\u{001f}').contains(&character)
+        || character == '\u{007f}'
+        || ('\u{202a}'..='\u{202e}').contains(&character)
+        || ('\u{2066}'..='\u{2069}').contains(&character)
+}
+
 fn compact_log_field(value: impl Into<String>, max_chars: usize) -> String {
     let input = redact_log_value(&value.into());
     let mut output = String::new();
@@ -100,6 +109,9 @@ fn compact_log_field(value: impl Into<String>, max_chars: usize) -> String {
     let mut truncated = false;
 
     for character in input.chars() {
+        if is_unsafe_log_character(character) {
+            continue;
+        }
         let next_character = if character.is_whitespace() {
             if previous_was_space {
                 continue;
@@ -136,7 +148,9 @@ fn redact_log_value(value: &str) -> String {
 }
 
 fn redact_log_token(token: &str) -> String {
-    let trimmed = token.trim_matches(|character: char| matches!(character, ',' | ';' | ')' | '(' | '[' | ']' | '{' | '}' | '"' | '\''));
+    let trimmed = token.trim_matches(|character: char| {
+        matches!(character, ',' | ';' | ')' | '(' | '[' | ']' | '{' | '}' | '"') || character == char::from(39)
+    });
     let lowercase = trimmed.to_ascii_lowercase();
     if looks_like_secret(&lowercase) {
         return REDACTED_SECRET.to_string();
@@ -161,7 +175,7 @@ fn looks_like_secret(value: &str) -> bool {
 }
 
 fn looks_like_local_path(value: &str) -> bool {
-    let normalized = value.replace('\\', "/");
+    let normalized = value.replace(char::from(92), "/");
     let bytes = normalized.as_bytes();
     let drive_path = bytes.len() >= 3
         && bytes[1] == b':'
@@ -177,7 +191,7 @@ fn looks_like_local_path(value: &str) -> bool {
 }
 
 fn looks_like_email(value: &str) -> bool {
-    if value.len() > 254 || value.contains('/') || value.contains('\\') {
+    if value.len() > 254 || value.contains('/') || value.contains(char::from(92)) {
         return false;
     }
     let Some((local, domain)) = value.split_once('@') else {
@@ -190,7 +204,7 @@ fn is_safe_log_file_name(value: &str) -> bool {
     !value.is_empty()
         && value.ends_with(".jsonl")
         && !value.contains('/')
-        && !value.contains('\\')
+        && !value.contains(char::from(92))
         && !value.contains("..")
         && value
             .chars()
