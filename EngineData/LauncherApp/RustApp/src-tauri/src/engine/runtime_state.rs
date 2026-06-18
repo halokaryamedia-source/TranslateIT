@@ -5,6 +5,10 @@ use std::time::{SystemTime, UNIX_EPOCH};
 use crate::engine::adapters::realtime_handoff_logic::RealtimeHandoffReport;
 
 const MAX_HANDOFF_SNAPSHOT_AGE_MS: u128 = 120_000;
+const MAX_RUNTIME_ID_CHARS: usize = 96;
+const MAX_RUNTIME_NOTE_CHARS: usize = 360;
+const MAX_RUNTIME_BLOCKERS: usize = 12;
+const MAX_RUNTIME_BLOCKER_CHARS: usize = 120;
 
 #[derive(Debug, Clone, Serialize)]
 pub struct RuntimeHandoffSnapshot {
@@ -61,18 +65,19 @@ static RUNTIME_HANDOFF_STATE: OnceLock<Mutex<Option<RuntimeHandoffSnapshot>>> = 
 static RUNTIME_SESSION_STATE: OnceLock<Mutex<Option<RuntimeSessionSnapshot>>> = OnceLock::new();
 
 pub fn record_realtime_handoff_report(report: &RealtimeHandoffReport) -> RuntimeHandoffSnapshot {
+    let blockers = compact_blockers(&report.blockers);
     let snapshot = RuntimeHandoffSnapshot {
         recorded_unix_ms: current_unix_ms(),
-        owner_id: report.stream.owner_id.clone(),
-        session_id: report.stream.session_id.clone(),
+        owner_id: safe_runtime_id(&report.stream.owner_id, "owner"),
+        session_id: safe_runtime_id(&report.stream.session_id, "session"),
         ready_for_live_capture: report.ready_for_live_capture,
         ready_for_segment_runtime: report.ready_for_segment_runtime,
         ready_for_native_execution: report.ready_for_native_execution,
         ready_for_safe_save: report.ready_for_safe_save,
         ready_for_realtime_handoff: report.ready_for_realtime_handoff,
-        blocker_count: report.blockers.len(),
-        blockers: report.blockers.clone(),
-        note: report.note.clone(),
+        blocker_count: blockers.len(),
+        blockers,
+        note: compact_runtime_text(&report.note, MAX_RUNTIME_NOTE_CHARS, "handoff status unavailable"),
     };
 
     let store = RUNTIME_HANDOFF_STATE.get_or_init(|| Mutex::new(None));
@@ -115,8 +120,8 @@ pub fn record_runtime_session_start(handoff_state: &RuntimeHandoffStateReport) -
             snapshot: None,
             active_age_ms: None,
             ready_for_stop: false,
-            blocker: handoff_state.blocker.clone(),
-            note: format!("Runtime session start was blocked by handoff state. {}", handoff_state.note),
+            blocker: compact_runtime_text(&handoff_state.blocker, MAX_RUNTIME_BLOCKER_CHARS, "handoff:not_ready"),
+            note: format!("Runtime session start was blocked by handoff state. {}", compact_runtime_text(&handoff_state.note, MAX_RUNTIME_NOTE_CHARS, "handoff note unavailable")),
         };
     }
 
@@ -133,8 +138,8 @@ pub fn record_runtime_session_start(handoff_state: &RuntimeHandoffStateReport) -
 
     let session_snapshot = RuntimeSessionSnapshot {
         started_unix_ms: current_unix_ms(),
-        owner_id: handoff_snapshot.owner_id.clone(),
-        session_id: handoff_snapshot.session_id.clone(),
+        owner_id: safe_runtime_id(&handoff_snapshot.owner_id, "owner"),
+        session_id: safe_runtime_id(&handoff_snapshot.session_id, "session"),
         handoff_recorded_unix_ms: handoff_snapshot.recorded_unix_ms,
         phase: "preparing".to_string(),
         live_capture_stream_active: false,
@@ -263,7 +268,7 @@ fn build_session_state_report(snapshot: Option<RuntimeSessionSnapshot>) -> Runti
                 active_age_ms: Some(active_age_ms),
                 ready_for_stop: true,
                 blocker: String::new(),
-                note: format!("Runtime session is active in {} phase. age_ms={active_age_ms}.", snapshot.phase),
+                note: format!("Runtime session is active in {} phase. age_ms={active_age_ms}.", compact_runtime_text(&snapshot.phase, MAX_RUNTIME_BLOCKER_CHARS, "unknown")),
             }
         }
         None => RuntimeSessionStateReport {
@@ -275,6 +280,43 @@ fn build_session_state_report(snapshot: Option<RuntimeSessionSnapshot>) -> Runti
             note: "No runtime session has been started yet.".to_string(),
         },
     }
+}
+
+fn is_unsafe_runtime_state_character(character: char) -> bool {
+    character == '\0'
+        || ('\u{0001}'..='\u{0008}').contains(&character)
+        || ('\u{000b}'..='\u{001f}').contains(&character)
+        || character == '\u{007f}'
+        || ('\u{202a}'..='\u{202e}').contains(&character)
+        || ('\u{2066}'..='\u{2069}').contains(&character)
+}
+
+fn compact_runtime_text(value: &str, max_chars: usize, fallback: &str) -> String {
+    let clean = value
+        .trim()
+        .chars()
+        .filter(|character| !is_unsafe_runtime_state_character(*character))
+        .take(max_chars)
+        .collect::<String>();
+    if clean.is_empty() { fallback.to_string() } else { clean }
+}
+
+fn safe_runtime_id(value: &str, fallback: &str) -> String {
+    let clean = value
+        .trim()
+        .chars()
+        .map(|character| if character.is_ascii_alphanumeric() || matches!(character, '-' | '_') { character } else { '_' })
+        .take(MAX_RUNTIME_ID_CHARS)
+        .collect::<String>();
+    if clean.is_empty() { fallback.to_string() } else { clean }
+}
+
+fn compact_blockers(blockers: &[String]) -> Vec<String> {
+    blockers
+        .iter()
+        .take(MAX_RUNTIME_BLOCKERS)
+        .map(|value| compact_runtime_text(value, MAX_RUNTIME_BLOCKER_CHARS, "runtime:blocker_unavailable"))
+        .collect()
 }
 
 fn current_unix_ms() -> u128 {
