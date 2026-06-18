@@ -48,6 +48,8 @@ const requiredText = [
   ["EngineData/LauncherApp/RustApp/scripts/run_audio_studio_local_validation.mjs", "translateit.audio_studio_local_validation.v1"],
   ["EngineData/LauncherApp/RustApp/scripts/run_audio_studio_local_validation.mjs", "summaryPath"],
   ["EngineData/LauncherApp/RustApp/scripts/run_audio_studio_local_validation.mjs", "not_ready_until_target_pc_review"],
+  ["EngineData/LauncherApp/RustApp/scripts/run_audio_studio_local_validation.mjs", "readEvidenceContract"],
+  ["EngineData/LauncherApp/RustApp/scripts/run_audio_studio_local_validation.mjs", "AUDIO_STUDIO_LOCAL_VALIDATION_EVIDENCE_CONTRACT.json"],
   ["EngineData/Backend/RuntimeContracts/AUDIO_STUDIO_PROJECT_METADATA_CONTRACT.json", "UserData/CacheData/AudioStudio/logs/"],
   ["EngineData/Backend/RuntimeContracts/AUDIO_STUDIO_ADVANCED_QUALITY_CONTRACT.json", "root_contracts_normalized"],
   ["EngineData/Backend/RuntimeContracts/AUDIO_STUDIO_LOCAL_VALIDATION_EVIDENCE_CONTRACT.json", "translateit.audio_studio_local_validation_evidence_contract.v1"],
@@ -194,6 +196,7 @@ expectFileIncludesAll("EngineData/LauncherApp/RustApp/src/app/launcher/audioStud
 expectFileIncludesAll("EngineData/LauncherApp/RustApp/src/app/launcher/audioStudioState.ts", [expectedLimits.frontendTitleLength, expectedLimits.frontendDetailLength], "frontend take metadata limits");
 expectFileIncludesAll("EngineData/LauncherApp/RustApp/src-tauri/src/commands/audio_studio.rs", [expectedLimits.rustTakeIdLength, expectedLimits.rustTitleLength, expectedLimits.rustDetailLength], "Rust payload limits");
 expectFileIncludesAll("EngineData/LauncherApp/RustApp/scripts/run_audio_studio_local_validation.mjs", ["validate:audio-studio", "typecheck", "check:rust", "build:frontend", "summary_path", "runtime_claim", "error_message"], "local validation runner steps and summary evidence");
+expectFileIncludesAll("EngineData/LauncherApp/RustApp/scripts/run_audio_studio_local_validation.mjs", ["readEvidenceContract", "evidenceContractPath", "approved_output_root", "summary_file_pattern", "required_runtime_claim", "required_steps", "optional_steps"], "local validation evidence contract usage");
 
 const packageJson = readJson("EngineData/LauncherApp/RustApp/package.json");
 if (packageJson) {
