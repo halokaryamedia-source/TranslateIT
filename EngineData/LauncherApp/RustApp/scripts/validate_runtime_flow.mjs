@@ -53,7 +53,9 @@ expectIncludes(healthMonitor, "helperBridgeHealthWarning", "health warning state
 expectNotIncludes(healthMonitor, "#assistantMessage", "health monitor assistant overwrite");
 
 const readinessGuard = readText("EngineData/LauncherApp/RustApp/src/app/launcher/runtimeReadinessUiGuard.ts");
-expectIncludes(readinessGuard, "isLegacyGenericReady", "legacy ready guard");
+expectIncludes(readinessGuard, "isPriorGenericReadyLabel", "prior generic ready guard");
+expectNotIncludes(readinessGuard, "Legacy", "runtime flow legacy wording");
+expectNotIncludes(readinessGuard, "legacy", "runtime flow legacy wording");
 expectNotIncludes(readinessGuard, "userPresence.includes(\"ready\")", "broad ready text sniffing");
 
 const settingsViews = readText("EngineData/LauncherApp/RustApp/src/app/launcher/settingsViews.ts");
