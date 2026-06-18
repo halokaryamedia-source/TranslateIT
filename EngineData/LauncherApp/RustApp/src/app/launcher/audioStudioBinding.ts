@@ -38,6 +38,12 @@ function isActionState(value: string | undefined): value is AudioStudioTakeState
   return ACTION_STATES.includes(value as AudioStudioTakeState);
 }
 
+function clampReadingIndex(value: number): number {
+  if (!Number.isFinite(value) || value < 0) return 0;
+  if (AUDIO_STUDIO_READING_LINES.length === 0) return 0;
+  return Math.min(Math.floor(value), AUDIO_STUDIO_READING_LINES.length - 1);
+}
+
 function hasAcceptedAudioExtension(fileName: string): boolean {
   const normalized = fileName.toLowerCase();
   return ACCEPTED_AUDIO_EXTENSIONS.some((extension) => normalized.endsWith(extension));
@@ -234,7 +240,7 @@ function bindReadingActions(): void {
   document.querySelectorAll<HTMLButtonElement>(".audio-studio-use-line").forEach((button) => {
     button.addEventListener("click", () => {
       const index = Number(button.dataset.readingIndex ?? 0);
-      selectedReadingIndex = Number.isFinite(index) ? index : 0;
+      selectedReadingIndex = clampReadingIndex(index);
       const line = AUDIO_STUDIO_READING_LINES[selectedReadingIndex] ?? AUDIO_STUDIO_READING_LINES[0];
       renderReadingPanel();
       setAssistantNotice(`Guided reading line ready: ${line.text}`);
@@ -255,7 +261,7 @@ function bindAudioStudioViewEvents(): void {
     const newTakes = accepted.map(createImportedTake);
     stagedTakes = [...newTakes, ...stagedTakes].slice(0, MAX_STAGED_TAKES);
     renderTakeReviewPanel();
-    const names = accepted.map((file) => file.name).slice(0, 4).join(", ");
+    const names = newTakes.map((take) => take.title).slice(0, 4).join(", ");
     const fallback = accepted.length > 0
       ? `Audio Studio import staged: ${accepted.length} valid file(s). ${names}${rejectedSummary(rejected)}`
       : selectedFiles.length > 0
@@ -269,6 +275,7 @@ function bindAudioStudioViewEvents(): void {
   });
 
   guidedButton?.addEventListener("click", () => {
+    selectedReadingIndex = clampReadingIndex(selectedReadingIndex);
     const line = AUDIO_STUDIO_READING_LINES[selectedReadingIndex] ?? AUDIO_STUDIO_READING_LINES[0];
     const take = createGuidedReadingTake(line);
     stagedTakes = [take, ...stagedTakes].slice(0, MAX_STAGED_TAKES);
