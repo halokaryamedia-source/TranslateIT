@@ -15,6 +15,9 @@ use super::paths::ProjectPaths;
 use super::runtime_state::{latest_runtime_handoff_state, latest_runtime_session_state, RuntimeHandoffStateReport, RuntimeSessionStateReport};
 use super::session_store::{current_session_store_status, SessionStoreStatus};
 
+const MAX_DIAGNOSTIC_BLOCKERS: usize = 24;
+const MAX_DIAGNOSTIC_BLOCKER_CHARS: usize = 240;
+
 #[derive(Debug, Clone, Serialize)]
 pub struct RuntimeDiagnostics {
     pub project_paths: ProjectPaths,
@@ -83,7 +86,7 @@ impl RuntimeDiagnostics {
             path_note("User cache", &project_paths.user_cache_dir),
             path_note("User log", &project_paths.user_log_dir),
             path_note("User saved", &project_paths.user_saved_dir),
-            format!("Session store: {} | ready={}", session_store_status.output_dir, session_store_status.ready),
+            format!("Session store ready={}", session_store_status.ready),
             calibration_profile_status.note.clone(),
             input_preparation_status.note.clone(),
         ];
@@ -94,6 +97,7 @@ impl RuntimeDiagnostics {
         if let Some(blocker) = &cuda_probe.blocker {
             blockers.push(blocker.clone());
         }
+        let blockers = compact_blockers(blockers);
 
         Self {
             project_paths,
@@ -116,7 +120,34 @@ impl RuntimeDiagnostics {
     }
 }
 
+fn is_unsafe_diagnostic_character(character: char) -> bool {
+    character == '\0'
+        || ('\u{0001}'..='\u{0008}').contains(&character)
+        || ('\u{000b}'..='\u{001f}').contains(&character)
+        || character == '\u{007f}'
+        || ('\u{202a}'..='\u{202e}').contains(&character)
+        || ('\u{2066}'..='\u{2069}').contains(&character)
+}
+
+fn compact_diagnostic_text(value: &str) -> String {
+    value
+        .trim()
+        .chars()
+        .filter(|character| !is_unsafe_diagnostic_character(*character))
+        .take(MAX_DIAGNOSTIC_BLOCKER_CHARS)
+        .collect::<String>()
+}
+
+fn compact_blockers(values: Vec<String>) -> Vec<String> {
+    values
+        .into_iter()
+        .map(|value| compact_diagnostic_text(&value))
+        .filter(|value| !value.is_empty())
+        .take(MAX_DIAGNOSTIC_BLOCKERS)
+        .collect()
+}
+
 fn path_note(label: &str, value: &str) -> String {
     let exists = Path::new(value).exists();
-    format!("{label} path: {value} | exists={exists}")
+    format!("{label} path resolved | exists={exists}")
 }
