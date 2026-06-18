@@ -3,6 +3,7 @@ import type {
   AudioDeviceListReport,
   CommandResult,
   HardwareUsageReport,
+  HelperBridgeStatus,
   InputPreparationStatus,
   LauncherChatActionResult,
   LauncherChatSession,
@@ -29,15 +30,15 @@ function clearRuntimeReads(...keys: string[]): void {
 }
 
 function clearSettingsDependentReads(): void {
-  clearRuntimeReads("runtime-settings", "status-bundle", "diagnostics", "input-status", "hardware-usage", "audio-devices");
+  clearRuntimeReads("runtime-settings", "status-bundle", "diagnostics", "input-status", "hardware-usage", "audio-devices", "helper-bridge-status");
 }
 
 function clearVoiceDependentReads(): void {
-  clearRuntimeReads("status-bundle", "diagnostics", "input-status");
+  clearRuntimeReads("status-bundle", "diagnostics", "input-status", "helper-bridge-status");
 }
 
 function clearTextJobReads(): void {
-  clearRuntimeReads("status-bundle", "diagnostics");
+  clearRuntimeReads("status-bundle", "diagnostics", "helper-bridge-status");
 }
 
 function chatListKey(kind?: string): string {
@@ -87,6 +88,7 @@ export const runtimeApi = {
   },
   getStatusBundle: () => singleFlight("status-bundle", () => runCommand<RuntimeStatusBundleReport>("get_runtime_status_bundle")),
   getDiagnostics: () => singleFlight("diagnostics", () => runCommand<RuntimeDiagnostics>("get_runtime_diagnostics")),
+  getHelperBridgeStatus: () => singleFlight("helper-bridge-status", () => runCommand<HelperBridgeStatus>("get_helper_bridge_status")),
   getHardwareUsage: () => singleFlight("hardware-usage", () => runCommand<HardwareUsageReport>("get_hardware_usage")),
   getInputStatus: () => singleFlight("input-status", () => runCommand<InputPreparationStatus>("get_input_status")),
   listAudioDevices: () => singleFlight("audio-devices", () => runCommand<AudioDeviceListReport>("list_audio_devices")),
