@@ -31,6 +31,7 @@
     "validate:security-hardening": "node scripts/validate_security_hardening.mjs",
     "validate:local-hardening": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/run_local_hardening_validation.ps1",
     "validate:audio-studio": "node scripts/validate_audio_studio.mjs",
+    "validate:audio-studio:local": "node scripts/run_audio_studio_local_validation.mjs",
     "validate:root": "node ../../../DevelopingData/Tooling/Scripts/Execution/translateit_tooling.mjs validate-root",
     "validate:structure": "node ../../../DevelopingData/Tooling/Scripts/Execution/translateit_tooling.mjs validate-structure",
     "validate:launcher": "node ../../../DevelopingData/Tooling/Scripts/Execution/translateit_tooling.mjs validate-launcher",
