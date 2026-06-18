@@ -64,7 +64,8 @@
     "advanced_ui_panel_exists",
     "frontend_api_names_exist",
     "backend_stub_names_exist",
-    "root_contracts_normalized"
+    "root_contracts_normalized",
+    "metadata_payload_limits_synced"
   ],
   "blocked_until_local_pc": [
     "microphone_capture_validation",
