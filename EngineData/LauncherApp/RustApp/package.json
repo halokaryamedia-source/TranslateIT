@@ -33,6 +33,7 @@
     "validate:architecture-contracts": "node scripts/validate_architecture_contracts.mjs",
     "validate:userdata-root-policy": "node scripts/validate_userdata_root_policy.mjs",
     "validate:helper-bridge": "node scripts/validate_helper_bridge.mjs",
+    "validate:machine-paths": "node scripts/validate_machine_paths.mjs",
     "validate:audio-studio": "node scripts/validate_audio_studio.mjs",
     "validate:audio-studio:local": "node scripts/run_audio_studio_local_validation.mjs",
     "verify:audio-studio:summary": "node scripts/verify_audio_studio_local_summary.mjs",
@@ -44,8 +45,8 @@
     "validate:evidence": "node ../../../DevelopingData/Tooling/Scripts/Execution/translateit_tooling.mjs validate-evidence",
     "validate:ui-reference": "node scripts/validate_ui_reference.mjs",
     "validate:ui-template": "node scripts/validate_ui_template.mjs",
-    "validate:internal": "npm run validate:root && npm run validate:structure && npm run validate:launcher && npm run validate:worker && npm run validate:evidence && npm run validate:security-hardening && npm run validate:architecture-contracts && npm run validate:userdata-root-policy && npm run validate:helper-bridge && npm run validate:ui-reference && npm run validate:ui-template && npm run validate:audio-studio && npm run audit:deps && npm run audit:ui-design && npm run audit:css-priority && npm run typecheck && npm run check:rust && npm run build:frontend",
-    "validate:full": "npm run validate:root && npm run validate:structure && npm run validate:launcher && npm run validate:worker && npm run validate:models && npm run validate:evidence && npm run validate:security-hardening && npm run validate:architecture-contracts && npm run validate:userdata-root-policy && npm run validate:helper-bridge && npm run validate:ui-reference && npm run validate:ui-template && npm run validate:audio-studio && npm run audit:deps && npm run audit:ui-design && npm run audit:css-priority && npm run typecheck && npm run check:rust && npm run build:frontend && npm run build && npm run status:readiness"
+    "validate:internal": "npm run validate:root && npm run validate:structure && npm run validate:launcher && npm run validate:worker && npm run validate:evidence && npm run validate:security-hardening && npm run validate:architecture-contracts && npm run validate:userdata-root-policy && npm run validate:helper-bridge && npm run validate:machine-paths && npm run validate:ui-reference && npm run validate:ui-template && npm run validate:audio-studio && npm run audit:deps && npm run audit:ui-design && npm run audit:css-priority && npm run typecheck && npm run check:rust && npm run build:frontend",
+    "validate:full": "npm run validate:root && npm run validate:structure && npm run validate:launcher && npm run validate:worker && npm run validate:models && npm run validate:evidence && npm run validate:security-hardening && npm run validate:architecture-contracts && npm run validate:userdata-root-policy && npm run validate:helper-bridge && npm run validate:machine-paths && npm run validate:ui-reference && npm run validate:ui-template && npm run validate:audio-studio && npm run audit:deps && npm run audit:ui-design && npm run audit:css-priority && npm run typecheck && npm run check:rust && npm run build:frontend && npm run build && npm run status:readiness"
   },
   "dependencies": {
     "@tauri-apps/api": "^2.0.0"
