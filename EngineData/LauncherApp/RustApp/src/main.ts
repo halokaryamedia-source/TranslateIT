@@ -11,6 +11,7 @@ import { bindAttachmentLimitWatcher } from "./app/launcher/attachmentLimitWatche
 import { bindAudioDeviceListUi } from "./app/launcher/audioDeviceListBinding";
 import { bindAudioPipelineResultWatcher as bindResultWatcher } from "./app/launcher/audioPipelineResultWatcher";
 import { bindDeveloperEvidenceUi } from "./app/launcher/developerEvidenceBinding";
+import { bindDeveloperHelperBridgeUi } from "./app/launcher/developerHelperBridgeBinding";
 import { bindReferenceUi } from "./app/launcher/referenceUiBinding";
 import { bindRuntimeReadinessUiGuard } from "./app/launcher/runtimeReadinessUiGuard";
 import { startRealtimeStatusPayloadAutoRefresh } from "./app/launcher/realtimeStatusPayloadRefresh";
@@ -26,5 +27,6 @@ bindAudioDeviceListUi();
 bindVoiceOutputPersistenceUi();
 bindRuntimeReadinessUiGuard();
 bindDeveloperEvidenceUi();
+bindDeveloperHelperBridgeUi();
 bindResultWatcher();
 startRealtimeStatusPayloadAutoRefresh();
