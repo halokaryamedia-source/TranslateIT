@@ -8,6 +8,8 @@ export type DeveloperLogRow = {
   time?: string;
 };
 
+const SAFE_ATTRIBUTE_NAME = /^[a-zA-Z_:][a-zA-Z0-9_.:-]*$/;
+
 function escapeHtml(value: string): string {
   return value
     .replaceAll("&", "&amp;")
@@ -19,7 +21,7 @@ function escapeHtml(value: string): string {
 
 function attrs(values: AttributeMap = {}): string {
   return Object.entries(values)
-    .filter(([, value]) => value !== false && value !== null && value !== undefined)
+    .filter(([key, value]) => SAFE_ATTRIBUTE_NAME.test(key) && value !== false && value !== null && value !== undefined)
     .map(([key, value]) => value === true ? ` ${key}` : ` ${key}="${escapeHtml(String(value))}"`)
     .join("");
 }
