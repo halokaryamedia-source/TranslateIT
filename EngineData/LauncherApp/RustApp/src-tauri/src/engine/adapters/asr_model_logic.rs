@@ -1,6 +1,10 @@
 use serde::{Deserialize, Serialize};
 use std::path::Path;
 
+const MAX_ASR_MODEL_LABEL_CHARS: usize = 120;
+const MAX_ASR_RUNTIME_LABEL_CHARS: usize = 80;
+const MAX_ASR_PROMPT_CHARS: usize = 1_000;
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct AsrProfileRequest {
     pub primary_model: Option<String>,
@@ -49,8 +53,8 @@ pub struct AsrProfilePlan {
 }
 
 pub fn build_asr_profile_plan(request: AsrProfileRequest) -> AsrProfilePlan {
-    let primary = request.primary_model.clone().unwrap_or_else(|| "large-v3-turbo".to_string());
-    let backup = request.backup_model.clone().unwrap_or_else(|| "medium".to_string());
+    let primary = safe_model_label(request.primary_model.as_deref().unwrap_or("large-v3-turbo"));
+    let backup = safe_model_label(request.backup_model.as_deref().unwrap_or("medium"));
     let default_profile = profile(&request, &primary, false);
     let backup_profile = profile(&request, &backup, true);
     let selected_model = if default_profile.model_ready { default_profile.model_name.clone() } else { backup_profile.model_name.clone() };
@@ -66,11 +70,11 @@ pub fn build_asr_profile_plan(request: AsrProfileRequest) -> AsrProfilePlan {
 }
 
 fn profile(request: &AsrProfileRequest, model_name: &str, performance_mode: bool) -> AsrRuntimeProfileReport {
-    let device = request.device.clone().unwrap_or_else(|| "cuda".to_string());
-    let compute_type = request.compute_type.clone().unwrap_or_else(|| "float16".to_string());
+    let device = safe_runtime_label(request.device.as_deref().unwrap_or("cuda"), "cuda");
+    let compute_type = safe_runtime_label(request.compute_type.as_deref().unwrap_or("float16"), "float16");
     let language = normalize_language(request.language.as_deref().unwrap_or("id"));
-    let task = request.task.clone().unwrap_or_else(|| "transcribe".to_string());
-    let initial_prompt = request.initial_prompt.clone().filter(|value| !value.trim().is_empty()).unwrap_or_else(default_initial_prompt);
+    let task = safe_runtime_label(request.task.as_deref().unwrap_or("transcribe"), "transcribe");
+    let initial_prompt = request.initial_prompt.as_deref().map(|value| compact_text(value, MAX_ASR_PROMPT_CHARS)).filter(|value| !value.is_empty()).unwrap_or_else(default_initial_prompt);
     let local_model_path = local_model_path(request.model_root.as_deref(), model_name);
     let model_ready = local_model_path.is_some();
     AsrRuntimeProfileReport {
@@ -80,8 +84,8 @@ fn profile(request: &AsrProfileRequest, model_name: &str, performance_mode: bool
         compute_type: compute_type.clone(),
         language,
         task,
-        temperature: request.temperature.unwrap_or(0),
-        beam_size: request.beam_size.unwrap_or(1),
+        temperature: request.temperature.unwrap_or(0).clamp(0, 2),
+        beam_size: request.beam_size.unwrap_or(1).clamp(1, 8),
         best_of: 1,
         condition_on_previous_text: request.condition_on_previous_text.unwrap_or(false),
         vad_filter: request.vad_filter.unwrap_or(false),
@@ -103,11 +107,30 @@ fn local_model_path(model_root: Option<&str>, model_name: &str) -> Option<String
         other => other,
     };
     let path = Path::new(root).join(local_name);
-    if path.join("model.bin").is_file() { Some(path.to_string_lossy().replace('\\', "/")) } else { None }
+    if path.join("model.bin").is_file() { Some(format!("EngineData/Backend/RuntimeAssets/Models/ASR/{local_name}")) } else { None }
+}
+
+fn compact_text(value: &str, max_chars: usize) -> String {
+    value
+        .trim()
+        .chars()
+        .filter(|character| !character.is_control())
+        .take(max_chars)
+        .collect::<String>()
+}
+
+fn safe_model_label(value: &str) -> String {
+    let clean = compact_text(value, MAX_ASR_MODEL_LABEL_CHARS);
+    if clean.is_empty() { "large-v3-turbo".to_string() } else { clean }
+}
+
+fn safe_runtime_label(value: &str, fallback: &str) -> String {
+    let clean = compact_text(value, MAX_ASR_RUNTIME_LABEL_CHARS);
+    if clean.is_empty() { fallback.to_string() } else { clean }
 }
 
 fn normalize_language(value: &str) -> String {
-    let lowered = value.trim().to_lowercase();
+    let lowered = compact_text(value, MAX_ASR_RUNTIME_LABEL_CHARS).to_lowercase();
     if lowered.starts_with("ind") || lowered.starts_with("id") { "id".to_string() } else if lowered.starts_with("eng") || lowered.starts_with("en") { "en".to_string() } else if lowered.is_empty() { "id".to_string() } else { lowered.chars().take(2).collect() }
 }
 
