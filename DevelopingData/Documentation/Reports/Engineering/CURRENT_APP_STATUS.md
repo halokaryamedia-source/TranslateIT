@@ -85,6 +85,7 @@ Audio Studio metadata routes now use `metadata_ready` semantics instead of gener
 - Machine-specific path validator is available as `validate:machine-paths` and is included in `validate:internal` and `validate:full`.
 - Capture helper bridge migration plan documents the safe migration boundary before replacing the older one-shot capture path.
 - Legacy reference policy documents Rust/Tauri as final shell and Python as helper runtime.
+- Noise and hallucination filtering policy defines evidence-based filtering requirements instead of phrase-blocklist-only behavior.
 
 ## Scaffold only
 
@@ -138,7 +139,6 @@ However, the final shell direction is now Rust/Tauri. Python/Qt launcher materia
 3. Implement Audio Studio provider processing after metadata routes.
 4. Add Audio Studio guided microphone capture.
 5. Add Audio Studio audio quality scoring.
-6. Keep hallucination/noise filtering evidence-based rather than phrase-blocklist-only.
 
 ## Not claimed
 
