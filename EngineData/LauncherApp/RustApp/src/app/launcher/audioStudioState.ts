@@ -2,6 +2,9 @@ import type { AudioStudioTakeSource, AudioStudioTakeState } from "../shared/audi
 export type { AudioStudioTakeSource, AudioStudioTakeState } from "../shared/audioStudioTypes";
 export { AUDIO_STUDIO_TAKE_SOURCES, AUDIO_STUDIO_TAKE_STATES } from "../shared/audioStudioTypes";
 
+const MAX_TAKE_TITLE_LENGTH = 120;
+const MAX_TAKE_DETAIL_LENGTH = 500;
+
 export type AudioStudioReadingLine = {
   id: string;
   label: string;
@@ -47,6 +50,16 @@ export const AUDIO_STUDIO_READING_LINES: AudioStudioReadingLine[] = [
   },
 ];
 
+function normalizeDisplayText(value: string, fallback: string): string {
+  const normalized = value.replace(/[\u0000-\u001f\u007f]+/g, " ").replace(/\s+/g, " ").trim();
+  return normalized.length > 0 ? normalized : fallback;
+}
+
+function clipText(value: string, maxLength: number): string {
+  if (value.length <= maxLength) return value;
+  return `${value.slice(0, Math.max(0, maxLength - 1))}…`;
+}
+
 function makeTakeId(prefix: string, suffix?: string): string {
   const randomPart = Math.random().toString(16).slice(2);
   const suffixPart = suffix ? `-${suffix}` : "";
@@ -54,13 +67,14 @@ function makeTakeId(prefix: string, suffix?: string): string {
 }
 
 export function createImportedTake(file: File): AudioStudioTakeDraft {
+  const fileName = normalizeDisplayText(file.name, "Imported audio");
   return {
     id: makeTakeId("import"),
     source: "import",
     state: "staged",
-    title: file.name || "Imported audio",
-    detail: `${Math.round(file.size / 1024)} KB staged for later local review.`,
-    file_name: file.name,
+    title: clipText(fileName, MAX_TAKE_TITLE_LENGTH),
+    detail: clipText(`${Math.round(file.size / 1024)} KB staged for later local review.`, MAX_TAKE_DETAIL_LENGTH),
+    file_name: clipText(fileName, MAX_TAKE_TITLE_LENGTH),
     size_bytes: file.size,
   };
 }
@@ -70,8 +84,8 @@ export function createGuidedReadingTake(line: AudioStudioReadingLine): AudioStud
     id: makeTakeId("guided", line.id),
     source: "guided_reading",
     state: "draft",
-    title: line.label,
-    detail: line.text,
+    title: clipText(normalizeDisplayText(line.label, "Guided reading"), MAX_TAKE_TITLE_LENGTH),
+    detail: clipText(normalizeDisplayText(line.text, "Guided reading line"), MAX_TAKE_DETAIL_LENGTH),
     reading_line_id: line.id,
   };
 }
