@@ -55,6 +55,17 @@ const expectedRoots = {
   logs: "UserData/CacheData/AudioStudio/logs/",
 };
 
+const expectedLimits = {
+  maxStagedTakes: "MAX_STAGED_TAKES = 12",
+  maxImportFilesPerAction: "MAX_IMPORT_FILES_PER_ACTION = 12",
+  maxImportFileSizeBytes: "MAX_IMPORT_FILE_SIZE_BYTES = 500 * 1024 * 1024",
+  frontendTitleLength: "MAX_TAKE_TITLE_LENGTH = 120",
+  frontendDetailLength: "MAX_TAKE_DETAIL_LENGTH = 500",
+  rustTakeIdLength: "MAX_TAKE_ID_LENGTH: usize = 160",
+  rustTitleLength: "MAX_TAKE_TITLE_LENGTH: usize = 120",
+  rustDetailLength: "MAX_TAKE_DETAIL_LENGTH: usize = 500",
+};
+
 const errors = [];
 
 function readRepoFile(relativePath) {
@@ -143,6 +154,9 @@ expectFileIncludesAll("EngineData/LauncherApp/RustApp/src-tauri/src/commands/aud
 expectFileIncludesAll("EngineData/LauncherApp/RustApp/src-tauri/src/commands/audio_studio.rs", expectedTakeStates, "Rust take state validation");
 expectFileIncludesAll("EngineData/LauncherApp/RustApp/src/app/launcher/audioStudioAdvancedState.ts", expectedAdvancedModeIds, "advanced mode id constants");
 expectFileIncludesAll("EngineData/LauncherApp/RustApp/src/app/launcher/audioStudioAdvancedBinding.ts", ["AUDIO_STUDIO_ADVANCED_MODE_IDS", "AUDIO_STUDIO_DEFAULT_ADVANCED_MODE", "isAdvancedMode", "clampPercent"], "advanced binding hardening markers");
+expectFileIncludesAll("EngineData/LauncherApp/RustApp/src/app/launcher/audioStudioBinding.ts", [expectedLimits.maxStagedTakes, expectedLimits.maxImportFilesPerAction, expectedLimits.maxImportFileSizeBytes], "frontend import limits");
+expectFileIncludesAll("EngineData/LauncherApp/RustApp/src/app/launcher/audioStudioState.ts", [expectedLimits.frontendTitleLength, expectedLimits.frontendDetailLength], "frontend take metadata limits");
+expectFileIncludesAll("EngineData/LauncherApp/RustApp/src-tauri/src/commands/audio_studio.rs", [expectedLimits.rustTakeIdLength, expectedLimits.rustTitleLength, expectedLimits.rustDetailLength], "Rust payload limits");
 
 const packageJson = readJson("EngineData/LauncherApp/RustApp/package.json");
 if (packageJson) {
