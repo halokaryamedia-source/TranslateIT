@@ -15,6 +15,7 @@ This report covers repository-side stability review for the current Dev-Rust bra
 - Audio Studio placeholder command visibility.
 - Audio Studio metadata text sanitization.
 - Audio Studio command response normalization.
+- Audio Studio command notice race handling.
 - Advanced panel observer behavior.
 - Advanced panel direct-open behavior.
 - Theme injection behavior.
@@ -177,6 +178,16 @@ Fix:
 - Unknown command states are treated as blocked.
 - Missing messages receive a safe fallback message.
 - Evidence requirement defaults to true unless explicitly false.
+
+### 16. Command notice race handling
+
+Risk: slower command responses from older actions could overwrite newer assistant notices after rapid clicks or multi-file imports.
+
+Fix:
+
+- Added command notice sequence tracking.
+- Only the latest command result is allowed to update the assistant notice.
+- Older command completions are ignored if a newer command has already started.
 
 ## Current integration chains
 
