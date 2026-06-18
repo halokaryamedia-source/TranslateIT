@@ -15,6 +15,11 @@
     "required_single_speaker": true,
     "required_clean_audio": true
   },
+  "approved_audio_studio_roots": {
+    "cache": "UserData/CacheData/AudioStudio/",
+    "saved_project": "UserData/SavedProject/AudioStudio/",
+    "logs": "UserData/CacheData/AudioStudio/logs/"
+  },
   "advanced_controls": {
     "pace": true,
     "energy": true,
@@ -40,8 +45,10 @@
   ],
   "security_and_consent_gates": [
     "speaker_authorization_required",
-    "project_local_storage_only",
-    "delete_profile_supported",
+    "cache_under_UserData_CacheData_AudioStudio_only",
+    "saved_project_under_UserData_SavedProject_AudioStudio_only",
+    "logs_under_UserData_CacheData_AudioStudio_logs_only",
+    "delete_profile_supported_before_runtime_ready",
     "generated_audio_trace_required",
     "no_success_claim_without_target_pc_evidence"
   ],
@@ -57,7 +64,7 @@
     "advanced_ui_panel_exists",
     "frontend_api_names_exist",
     "backend_stub_names_exist",
-    "local_validation_checklist_exists"
+    "root_contracts_normalized"
   ],
   "blocked_until_local_pc": [
     "microphone_capture_validation",
