@@ -3,6 +3,7 @@ const NOTICE_DELAY_MS = 650;
 let bound = false;
 let changeHandler: ((event: Event) => void) | null = null;
 let dropHandler: ((event: DragEvent) => void) | null = null;
+let noticeTimer: number | null = null;
 
 function setNotice(message: string): void {
   const notice = document.querySelector<HTMLParagraphElement>("#assistantMessage");
@@ -12,8 +13,10 @@ function setNotice(message: string): void {
 function warnIfTooManyFiles(files: FileList | null | undefined): void {
   const count = files?.length ?? 0;
   if (count > MAX_ATTACHMENT_FILES) {
-    window.setTimeout(() => {
+    if (noticeTimer !== null) window.clearTimeout(noticeTimer);
+    noticeTimer = window.setTimeout(() => {
       setNotice(`Only the first ${MAX_ATTACHMENT_FILES} attachment files were used. Selected: ${count}.`);
+      noticeTimer = null;
     }, NOTICE_DELAY_MS);
   }
 }
@@ -37,7 +40,9 @@ export function unbindAttachmentLimitWatcher(): void {
   if (!bound) return;
   if (changeHandler) document.removeEventListener("change", changeHandler);
   if (dropHandler) document.removeEventListener("drop", dropHandler, true);
+  if (noticeTimer !== null) window.clearTimeout(noticeTimer);
   changeHandler = null;
   dropHandler = null;
+  noticeTimer = null;
   bound = false;
 }
