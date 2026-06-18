@@ -32,8 +32,9 @@ fn result(state: &str, message: &str) -> AudioStudioCommandResult {
 }
 
 fn validate_take_request(request: &AudioStudioTakeRequest) -> Option<AudioStudioCommandResult> {
-    if request.source.trim().is_empty() {
-        return Some(result("invalid_request", "Audio Studio request is missing a source."));
+    let allowed_sources = ["import", "guided_reading"];
+    if !allowed_sources.contains(&request.source.as_str()) {
+        return Some(result("invalid_request", "Audio Studio request has an unsupported source."));
     }
     if request.title.trim().is_empty() {
         return Some(result("invalid_request", "Audio Studio request is missing a title."));
