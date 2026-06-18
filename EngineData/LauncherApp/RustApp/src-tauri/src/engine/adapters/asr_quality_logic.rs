@@ -1,6 +1,8 @@
 use serde::{Deserialize, Serialize};
 use std::collections::HashSet;
 
+const MAX_ASR_QUALITY_TEXT_CHARS: usize = 4_000;
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct AsrQualityLogicRequest {
     pub transcript_text: String,
@@ -37,6 +39,10 @@ pub struct AsrQualityLogicDecision {
 pub fn evaluate_asr_quality(request: AsrQualityLogicRequest) -> AsrQualityLogicDecision {
     let normalized = normalize_text(&request.transcript_text);
     let tokens = tokenize(&normalized);
+    let no_speech_probability = safe_ratio(request.no_speech_probability);
+    let average_log_probability = safe_metric(request.average_log_probability);
+    let language_probability = safe_ratio(request.language_probability);
+    let voiced_frame_ratio = safe_ratio(request.voiced_frame_ratio);
     if request.empty_output || normalized.is_empty() {
         return reject("Empty ASR output", &normalized, "");
     }
@@ -53,13 +59,13 @@ pub fn evaluate_asr_quality(request: AsrQualityLogicRequest) -> AsrQualityLogicD
     if !badword_match.is_empty() {
         return reject("Profanity-like ASR artifact", &normalized, &badword_match);
     }
-    if request.repetitive_text || looks_looping(&tokens, request.average_log_probability, request.no_speech_probability, request.language_probability, request.voiced_frame_ratio) {
+    if request.repetitive_text || looks_looping(&tokens, average_log_probability, no_speech_probability, language_probability, voiced_frame_ratio) {
         return reject("Looping or repetitive ASR artifact", &normalized, "");
     }
-    if looks_like_gibberish(&tokens, request.average_log_probability, request.no_speech_probability, request.language_probability, request.voiced_frame_ratio) {
+    if looks_like_gibberish(&tokens, average_log_probability, no_speech_probability, language_probability, voiced_frame_ratio) {
         return reject("Gibberish or contextless ASR artifact", &normalized, "");
     }
-    if request.no_speech_probability >= 0.92 && request.voiced_frame_ratio <= 0.02 && !contains_focus_anchor(&tokens) {
+    if no_speech_probability >= 0.92 && voiced_frame_ratio <= 0.02 && !contains_focus_anchor(&tokens) {
         return reject("High no-speech probability", &normalized, "");
     }
     if request.audio_duration_ms < 120 && request.sustained_speech_ms < 100 && !contains_focus_anchor(&tokens) {
@@ -84,8 +90,25 @@ fn reject(reason: &str, normalized_text: &str, badword_match: &str) -> AsrQualit
     }
 }
 
+fn safe_metric(value: f32) -> f32 {
+    if value.is_finite() { value } else { 0.0 }
+}
+
+fn safe_ratio(value: f32) -> f32 {
+    safe_metric(value).clamp(0.0, 1.0)
+}
+
 fn normalize_text(text: &str) -> String {
-    text.trim().to_lowercase().split_whitespace().collect::<Vec<_>>().join(" ")
+    text
+        .trim()
+        .to_lowercase()
+        .chars()
+        .filter(|character| !character.is_control())
+        .take(MAX_ASR_QUALITY_TEXT_CHARS)
+        .collect::<String>()
+        .split_whitespace()
+        .collect::<Vec<_>>()
+        .join(" ")
 }
 
 fn tokenize(text: &str) -> Vec<String> {
