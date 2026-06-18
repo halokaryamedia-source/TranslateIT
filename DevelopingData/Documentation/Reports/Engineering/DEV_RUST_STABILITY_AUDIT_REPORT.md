@@ -13,6 +13,7 @@ This report covers repository-side stability review for the current Dev-Rust bra
 - Audio Studio UI event handling.
 - Audio Studio import file validation.
 - Audio Studio placeholder command visibility.
+- Audio Studio metadata text sanitization.
 - Advanced panel observer behavior.
 - Advanced panel direct-open behavior.
 - Theme injection behavior.
@@ -151,6 +152,18 @@ Fix:
 - Rejected unsupported file types and extensions.
 - Limited each import action to 12 files.
 - Added rejection summaries in the assistant notice.
+
+### 14. Take metadata text and payload length hardening
+
+Risk: very long or control-character-heavy file names, titles, details, or take ids could degrade UI notices, metadata, or command payload stability.
+
+Fix:
+
+- Normalized display metadata before staging imported or guided takes.
+- Clipped take titles to 120 characters.
+- Clipped take details to 500 characters.
+- Added Rust-side length checks for take id, title, and detail payloads.
+- Rejected oversized title/detail/id payloads before runtime route implementation.
 
 ## Current integration chains
 
