@@ -1,7 +1,7 @@
 {
   "schema": "translateit.python_helper_bridge_contract.v1",
   "branch": "Dev-Rust",
-  "status": "contract_only",
+  "status": "lifecycle_contract_visible_process_not_spawned",
   "owner_shell": "Rust/Tauri",
   "helper_runtime": "Python",
   "allowed_helper_domains": [
@@ -29,8 +29,20 @@
     "provider_ready",
     "degraded_mode",
     "active_task",
+    "generation_token",
     "last_error",
-    "updated_unix_ms"
+    "updated_unix_ms",
+    "runtime_claim"
+  ],
+  "implemented_bridge_features": [
+    "status_command",
+    "start_lifecycle_command",
+    "stop_lifecycle_command",
+    "cancel_task_lifecycle_command",
+    "request_schema_command",
+    "generation_token_invalidation",
+    "developer_ui_status_visibility",
+    "developer_ui_lifecycle_controls"
   ],
   "rules": [
     "Rust/Tauri owns user-facing readiness text.",
@@ -39,7 +51,8 @@
     "CPU fallback must be visible and recorded.",
     "A helper process may not write outside approved UserData roots.",
     "Start/Stop lifecycle must cancel stale helper output from previous generations.",
-    "Real ASR plus real translation requires ready helper state and valid provider evidence."
+    "Real ASR plus real translation requires ready helper state and valid provider evidence.",
+    "Lifecycle commands must not claim Python process readiness until process spawn and health checks exist."
   ],
   "approved_userdata_roots": {
     "cache": "UserData/CacheData/",
@@ -49,8 +62,7 @@
   "not_ready_until_implemented": [
     "helper_process_spawn_policy",
     "helper_health_endpoint_or_stdio_protocol",
-    "request_response_schema",
-    "cancellation_generation_token",
+    "real_request_response_protocol",
     "cuda_status_mapping",
     "provider_status_mapping",
     "error_visibility_mapping"
