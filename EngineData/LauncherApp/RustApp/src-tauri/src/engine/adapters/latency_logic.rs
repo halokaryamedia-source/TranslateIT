@@ -1,5 +1,8 @@
 use serde::{Deserialize, Serialize};
 
+const MAX_LATENCY_MS: i64 = 3_600_000;
+const MAX_VAD_PRESET_CHARS: usize = 80;
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct LatencyLogicRequest {
     pub speech_start_ns: Option<i64>,
@@ -81,7 +84,7 @@ pub fn build_latency_logic(request: LatencyLogicRequest) -> LatencyLogicReport {
 }
 
 pub fn build_vad_profile(request: VadProfileRequest) -> VadProfileReport {
-    let requested = request.requested_vad_preset.unwrap_or_default().trim().to_string();
+    let requested = clean_preset(request.requested_vad_preset.as_deref().unwrap_or_default());
     let selected = resolve_safe_vad_preset(&requested);
     VadProfileReport {
         requested_vad_preset: requested.clone(),
@@ -89,6 +92,15 @@ pub fn build_vad_profile(request: VadProfileRequest) -> VadProfileReport {
         unsafe_vad_replaced: !requested.is_empty() && requested != selected,
         profile_is_safe: is_safe_preset(&selected),
     }
+}
+
+fn clean_preset(value: &str) -> String {
+    value
+        .trim()
+        .chars()
+        .filter(|character| !character.is_control())
+        .take(MAX_VAD_PRESET_CHARS)
+        .collect::<String>()
 }
 
 fn resolve_safe_vad_preset(requested: &str) -> String {
@@ -105,7 +117,7 @@ fn is_safe_preset(name: &str) -> bool {
 
 fn ns_to_ms(start: Option<i64>, end: Option<i64>) -> Option<i64> {
     match (start, end) {
-        (Some(s), Some(e)) => Some(((e - s).max(0)) / 1_000_000),
+        (Some(s), Some(e)) => Some(((e.saturating_sub(s)).max(0) / 1_000_000).min(MAX_LATENCY_MS)),
         _ => None,
     }
 }
