@@ -30,13 +30,14 @@ bindRuntimeReadinessUiGuard();
 bindDeveloperEvidenceUi();
 bindDeveloperHelperBridgeUi();
 const stopHelperBridgeHealthMonitor = startHelperBridgeHealthMonitor();
-bindResultWatcher();
+const stopAudioPipelineResultWatcher = bindResultWatcher();
 const stopRealtimeStatusPayloadAutoRefresh = startRealtimeStatusPayloadAutoRefresh();
 
 window.addEventListener(
   "beforeunload",
   () => {
     stopHelperBridgeHealthMonitor();
+    stopAudioPipelineResultWatcher();
     stopRealtimeStatusPayloadAutoRefresh();
   },
   { once: true },
