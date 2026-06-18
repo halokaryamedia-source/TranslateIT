@@ -3,6 +3,10 @@ use serde::{Deserialize, Serialize};
 
 use super::{TARGET_CHANNELS, TARGET_SAMPLE_RATE_HZ};
 
+const MAX_AUDIO_DEVICE_NAME_CHARS: usize = 160;
+const MAX_AUDIO_DISCOVERY_DEVICES: usize = 96;
+const MAX_AUDIO_BLOCKER_CHARS: usize = 240;
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct AudioDeviceInfo {
     pub id: String,
@@ -23,19 +27,20 @@ pub struct AudioDeviceDiscoveryReport {
 impl AudioDeviceDiscoveryReport {
     pub fn discover_native() -> Self {
         let host = cpal::default_host();
-        let default_input_name = host.default_input_device().and_then(|device| device.name().ok());
-        let default_output_name = host.default_output_device().and_then(|device| device.name().ok());
+        let default_input_name = host.default_input_device().and_then(|device| safe_device_name(&device, None));
+        let default_output_name = host.default_output_device().and_then(|device| safe_device_name(&device, None));
 
         let devices = match host.devices() {
             Ok(devices) => devices
+                .take(MAX_AUDIO_DISCOVERY_DEVICES)
                 .enumerate()
                 .map(|(index, device)| build_device_info(index, &device, &default_input_name, &default_output_name))
                 .collect::<Vec<_>>(),
             Err(error) => {
                 return Self {
-                    backend_id: format!("cpal-{}", cpal::default_host().id().name()),
+                    backend_id: format!("cpal-{}", host.id().name()),
                     devices: Vec::new(),
-                    blocker: Some(format!("Native Rust audio device discovery failed: {error}")),
+                    blocker: Some(compact_blocker(&format!("Native Rust audio device discovery failed: {error}"))),
                 };
             }
         };
@@ -64,15 +69,43 @@ impl AudioDeviceDiscoveryReport {
     }
 }
 
+fn is_unsafe_audio_text_character(character: char) -> bool {
+    character == '\0'
+        || ('\u{0001}'..='\u{0008}').contains(&character)
+        || ('\u{000b}'..='\u{001f}').contains(&character)
+        || character == '\u{007f}'
+        || ('\u{202a}'..='\u{202e}').contains(&character)
+        || ('\u{2066}'..='\u{2069}').contains(&character)
+}
+
+fn compact_audio_text(value: &str, max_chars: usize) -> String {
+    value
+        .trim()
+        .chars()
+        .filter(|character| !is_unsafe_audio_text_character(*character))
+        .take(max_chars)
+        .collect::<String>()
+}
+
+fn compact_blocker(value: &str) -> String {
+    let clean = compact_audio_text(value, MAX_AUDIO_BLOCKER_CHARS);
+    if clean.is_empty() { "audio_device:unknown_error".to_string() } else { clean }
+}
+
+fn safe_device_name(device: &cpal::Device, fallback: Option<String>) -> Option<String> {
+    let raw = device.name().ok().or(fallback)?;
+    let clean = compact_audio_text(&raw, MAX_AUDIO_DEVICE_NAME_CHARS);
+    if clean.is_empty() { None } else { Some(clean) }
+}
+
 fn build_device_info(
     index: usize,
     device: &cpal::Device,
     default_input_name: &Option<String>,
     default_output_name: &Option<String>,
 ) -> AudioDeviceInfo {
-    let name = device
-        .name()
-        .unwrap_or_else(|_| format!("Unknown Audio Device {index}"));
+    let name = safe_device_name(device, Some(format!("Unknown Audio Device {index}")))
+        .unwrap_or_else(|| format!("Unknown Audio Device {index}"));
 
     let input_config = device.default_input_config().ok();
     let output_config = device.default_output_config().ok();
