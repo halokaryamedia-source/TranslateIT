@@ -350,6 +350,30 @@ pub fn audio_studio_get_provider_status() -> AudioStudioCommandResult {
 }
 
 #[tauri::command]
+pub fn audio_studio_get_quality_gate_status() -> AudioStudioCommandResult {
+    let index = read_take_index();
+    let accepted_count = index.takes.iter().filter(|take| take.state == "accepted").count();
+    let retry_count = index.takes.iter().filter(|take| take.state == "needs_retry").count();
+    let blocked_count = index.takes.iter().filter(|take| take.state == "blocked").count();
+    let _ = append_evidence("quality_gate_status_checked", json!({
+        "take_count": index.takes.len(),
+        "accepted_take_count": accepted_count,
+        "needs_retry_take_count": retry_count,
+        "blocked_take_count": blocked_count,
+        "quality_state": "provider_blocked",
+        "score_available": false,
+        "blocked_until": [
+            "audio_quality_measurement",
+            "noise_floor_measurement",
+            "speech_confidence_measurement",
+            "clip_peak_detection",
+            "target_pc_audio_evidence"
+        ]
+    }));
+    result(false, "provider_blocked", "Audio Studio quality gate is metadata-only. No real quality score is available until microphone/audio analysis and target-PC evidence are implemented.")
+}
+
+#[tauri::command]
 pub fn audio_studio_import_take(request: AudioStudioTakeRequest) -> AudioStudioCommandResult {
     if let Some(error) = validate_take_request(&request) {
         return error;
