@@ -6,6 +6,8 @@ const OUTPUT_BUTTON_SELECTOR = "#audioVoiceToggleButton";
 const DEVICE_BUTTON_SELECTOR = `${INPUT_BUTTON_SELECTOR},${OUTPUT_BUTTON_SELECTOR}`;
 let bound = false;
 let labelSyncPending = false;
+let observer: MutationObserver | null = null;
+let clickHandler: ((event: MouseEvent) => void) | null = null;
 
 function deviceNames(devices: AudioDeviceSummary[], fallback: string): string {
   if (devices.length === 0) return fallback;
@@ -131,13 +133,13 @@ async function showAudioDevices(kind: "input" | "output"): Promise<void> {
   setAssistantMessage(`${kind === "input" ? "Microphone" : "Speaker"} selected: ${label}.`);
 }
 
-export function bindAudioDeviceListUi(): void {
-  if (bound) return;
+export function bindAudioDeviceListUi(): () => void {
+  if (bound) return unbindAudioDeviceListUi;
   bound = true;
-  const observer = new MutationObserver(() => { void syncDeviceLabelsFromSettings(); });
+  observer = new MutationObserver(() => { void syncDeviceLabelsFromSettings(); });
   observer.observe(document.body, { childList: true, subtree: true });
   void syncDeviceLabelsFromSettings();
-  document.addEventListener("click", (event) => {
+  clickHandler = (event: MouseEvent) => {
     const target = event.target as Element | null;
     if (!target?.closest(DEVICE_BUTTON_SELECTOR)) return;
     if (target.closest(INPUT_BUTTON_SELECTOR)) {
@@ -151,5 +153,17 @@ export function bindAudioDeviceListUi(): void {
       event.stopPropagation();
       void showAudioDevices("output");
     }
-  }, true);
+  };
+  document.addEventListener("click", clickHandler, true);
+  return unbindAudioDeviceListUi;
+}
+
+export function unbindAudioDeviceListUi(): void {
+  if (!bound) return;
+  observer?.disconnect();
+  observer = null;
+  if (clickHandler) document.removeEventListener("click", clickHandler, true);
+  clickHandler = null;
+  labelSyncPending = false;
+  bound = false;
 }
