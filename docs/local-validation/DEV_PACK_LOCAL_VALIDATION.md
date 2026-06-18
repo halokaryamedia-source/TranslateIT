@@ -51,7 +51,62 @@
 ## Remaining Blockers
 
 - None observed for build/startup validation.
-- Basic in-window interaction still needs a manual GUI pass if you want deeper feature-level verification.
+- The deeper desktop-native interaction pass is still not fully complete in this run because browser-local inspection cannot exercise the Tauri bridge.
+
+## Feature Interaction Validation
+
+- Date: `2026-06-18`
+- Commit baseline: `758b0532`
+- Branch: `Dev-Pack`
+- Commands run for this pass:
+  - `npm.cmd run typecheck`
+  - `npm.cmd run check:rust`
+  - `npm.cmd run dev`
+  - `cargo fmt --check`
+  - `cargo test`
+  - Browser inspection against `http://127.0.0.1:1420`
+- Baseline validation:
+  - `npm.cmd install`: PASS
+  - `npm.cmd run typecheck`: PASS
+  - `npm.cmd run check:rust`: PASS
+  - `npm.cmd run build:frontend`: PASS
+  - `npm.cmd run build`: PASS
+  - `cargo test`: PASS
+  - `cargo fmt --check`: PASS
+- App launch:
+  - Tauri dev startup still reaches `VITE ready` and launches the desktop shell: PASS
+  - Browser-local render shows the UI shell without a blank screen: PASS
+- UI check:
+  - Main layout, nav buttons, settings button, composer controls, and microphone-related controls are present and enabled: PASS
+  - No fatal runtime error surfaced in the rendered page itself: PASS
+- Text translate flow:
+  - Added local preview fallback for `id -> en`
+  - Browser-local submit still did not surface a rendered translation result because the Tauri bridge is unavailable in browser-only inspection
+  - Final status for text translate flow: PARTIAL
+- Button interaction:
+  - New Chat, Recent Chat, Unsaved Chat, Saved Chat, Local Data, Settings, and microphone-related buttons were visible and clickable: PASS
+  - Enter-to-submit was not fully confirmed in the native desktop window during this pass: PARTIAL
+- Microphone/audio check:
+  - The controls are visible and the voice translation section renders
+  - Real microphone capture / ASR was not exercised in this pass: PARTIAL
+- Close/reopen check:
+  - Project-related `tauri`, `vite`, `node`, `cargo`, `translateit.exe`, and WebView2 processes were identified during validation
+  - Cleanup still needs the final desktop-native close/reopen pass before this can be marked complete
+- Issues found:
+  - The translation submit path can still be blocked by missing bridge/session calls before the local preview is shown
+  - Browser-local validation cannot fully reproduce the native Tauri invoke bridge
+- Fixes applied:
+  - Added a local preview translation fallback in Rust and frontend
+  - Hardened chat-session creation and message save paths so bridge failures do not block the UI flow
+- Blockers remaining:
+  - Full desktop-native interaction validation still needs the native Tauri window context
+- How to run locally:
+  - Install: `npm.cmd install`
+  - Dev: `npm.cmd run dev`
+  - Build: `npm.cmd run build`
+  - Test: `cargo test` in `EngineData/LauncherApp/RustApp/src-tauri`
+- Final status:
+  - `PARTIAL`
 
 ## How to Run Locally
 

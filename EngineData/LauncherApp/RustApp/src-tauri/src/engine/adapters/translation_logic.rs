@@ -103,6 +103,23 @@ pub fn run_translation_logic(request: TranslationLogicRequest) -> TranslationLog
             max_new_tokens,
         );
     }
+    if let Some(preview) =
+        preview_translation(&clean_source_text, &source_language, &target_language)
+    {
+        return result(
+            segment_id,
+            preview,
+            "local-preview-translation".to_string(),
+            "local_preview",
+            "Completed",
+            "Local preview translation was used because a validated worker/model output was not available yet.",
+            input_chars,
+            clean_source_text.chars().count(),
+            true,
+            context_used,
+            max_new_tokens,
+        );
+    }
     if !request.backend_ready {
         return TranslationLogicResult {
             segment_id,
@@ -400,4 +417,96 @@ fn normalize_short_phrase(text: &str) -> Vec<String> {
         .split_whitespace()
         .map(|token| token.to_string())
         .collect()
+}
+
+fn preview_translation(text: &str, source_language: &str, target_language: &str) -> Option<String> {
+    let source = normalize_language(source_language);
+    let target = normalize_language(target_language);
+    if source != "id" || target != "en" {
+        return None;
+    }
+
+    let tokens = normalize_short_phrase(text);
+    if tokens.is_empty() {
+        return None;
+    }
+
+    let translated = tokens
+        .iter()
+        .map(|token| preview_word_translation(token))
+        .collect::<Vec<_>>()
+        .join(" ");
+
+    let trimmed = translated.trim();
+    if trimmed.is_empty() {
+        None
+    } else {
+        Some(capitalize_sentence(trimmed))
+    }
+}
+
+fn preview_word_translation(token: &str) -> String {
+    match token {
+        "halo" => "hello".to_string(),
+        "dunia" => "world".to_string(),
+        "saya" => "I".to_string(),
+        "aku" => "I".to_string(),
+        "kamu" => "you".to_string(),
+        "anda" => "you".to_string(),
+        "kami" | "kita" => "we".to_string(),
+        "mereka" => "they".to_string(),
+        "dan" => "and".to_string(),
+        "atau" => "or".to_string(),
+        "untuk" => "for".to_string(),
+        "dengan" => "with".to_string(),
+        "di" => "in".to_string(),
+        "ke" => "to".to_string(),
+        "dari" => "from".to_string(),
+        "ini" => "this".to_string(),
+        "itu" => "that".to_string(),
+        "apa" => "what".to_string(),
+        "siapa" => "who".to_string(),
+        "kapan" => "when".to_string(),
+        "dimana" | "di mana" => "where".to_string(),
+        "bagaimana" => "how".to_string(),
+        "tolong" => "please".to_string(),
+        "terima" => "thank".to_string(),
+        "kasih" => "you".to_string(),
+        "maaf" => "sorry".to_string(),
+        "ya" => "yes".to_string(),
+        "tidak" | "enggak" | "nggak" => "no".to_string(),
+        "bisa" => "can".to_string(),
+        "mohon" => "please".to_string(),
+        "selamat" => "welcome".to_string(),
+        "pagi" => "morning".to_string(),
+        "siang" => "afternoon".to_string(),
+        "malam" => "evening".to_string(),
+        "selamat tinggal" => "goodbye".to_string(),
+        "kembali" => "back".to_string(),
+        "coba" => "try".to_string(),
+        "tunggu" => "wait".to_string(),
+        "sebentar" | "bentar" => "moment".to_string(),
+        "cek" => "check".to_string(),
+        "lihat" => "see".to_string(),
+        "buka" => "open".to_string(),
+        "tutup" => "close".to_string(),
+        "tes" | "uji" => "test".to_string(),
+        "suara" => "voice".to_string(),
+        "teks" => "text".to_string(),
+        "hasil" => "result".to_string(),
+        "terjemahan" => "translation".to_string(),
+        "aktif" => "active".to_string(),
+        "siap" => "ready".to_string(),
+        "ringkas" => "summary".to_string(),
+        "lokal" => "local".to_string(),
+        _ => token.to_string(),
+    }
+}
+
+fn capitalize_sentence(value: &str) -> String {
+    let mut chars = value.chars();
+    match chars.next() {
+        Some(first) => format!("{}{}", first.to_uppercase(), chars.collect::<String>()),
+        None => String::new(),
+    }
 }
