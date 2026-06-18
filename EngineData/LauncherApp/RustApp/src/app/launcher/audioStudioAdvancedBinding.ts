@@ -1,11 +1,14 @@
 import {
   AUDIO_STUDIO_ADVANCED_CONTROLS,
+  AUDIO_STUDIO_ADVANCED_MODE_IDS,
   AUDIO_STUDIO_ADVANCED_MODES,
+  AUDIO_STUDIO_DEFAULT_ADVANCED_MODE,
   AUDIO_STUDIO_QUALITY_DIMENSIONS,
   type AudioStudioAdvancedMode,
 } from "./audioStudioAdvancedState";
 
 let observerStarted = false;
+let selectedAdvancedMode: AudioStudioAdvancedMode = AUDIO_STUDIO_DEFAULT_ADVANCED_MODE;
 
 function escapeHtml(value: string): string {
   return value
@@ -21,26 +24,51 @@ function setAssistantNotice(message: string): void {
   if (element) element.textContent = message;
 }
 
+function isAdvancedMode(value: string | undefined): value is AudioStudioAdvancedMode {
+  return AUDIO_STUDIO_ADVANCED_MODE_IDS.includes(value as AudioStudioAdvancedMode);
+}
+
+function clampPercent(value: number): number {
+  if (!Number.isFinite(value)) return 0;
+  return Math.max(0, Math.min(100, Math.round(value)));
+}
+
 function modeCards(): string {
-  return (Object.entries(AUDIO_STUDIO_ADVANCED_MODES) as [AudioStudioAdvancedMode, { label: string; sampleTarget: string; useCase: string }][]).map(([id, mode], index) => `
-    <article class="audio-studio-reading-card ${index === 1 ? "active" : ""}" data-audio-studio-mode="${escapeHtml(id)}">
+  const entries = AUDIO_STUDIO_ADVANCED_MODE_IDS.map((id) => [id, AUDIO_STUDIO_ADVANCED_MODES[id]] as const).filter(([, mode]) => Boolean(mode));
+  if (entries.length === 0) {
+    return `<article class="feature-card empty-state-card"><div class="feature-title-row"><h4>No profile mode available</h4></div><p>Add at least one advanced mode before selecting a quality target.</p></article>`;
+  }
+
+  return entries.map(([id, mode]) => `
+    <article class="audio-studio-reading-card ${id === selectedAdvancedMode ? "active" : ""}" data-audio-studio-mode="${escapeHtml(id)}">
       <header><strong>${escapeHtml(mode.label)}</strong><span>${escapeHtml(mode.sampleTarget)}</span></header>
       <p>${escapeHtml(mode.useCase)}</p>
-      <button class="mic-test-button-v22 secondary audio-studio-mode-button" type="button" data-mode-label="${escapeHtml(mode.label)}">Select Mode</button>
+      <button class="mic-test-button-v22 secondary audio-studio-mode-button" type="button" data-mode-id="${escapeHtml(id)}">Select Mode</button>
     </article>
   `).join("");
 }
 
 function controlRows(): string {
-  return AUDIO_STUDIO_ADVANCED_CONTROLS.map((control) => `
-    <section class="settings-output-row">
-      <div><h3>${escapeHtml(control.label)}</h3><p>${escapeHtml(control.description)}</p></div>
-      <div class="range-v22"><span style="width:${control.default_value}%;"></span><i></i></div>
-    </section>
-  `).join("");
+  if (AUDIO_STUDIO_ADVANCED_CONTROLS.length === 0) {
+    return `<section class="settings-output-row"><div><h3>No controls available</h3><p>Add advanced control definitions before tuning profile behavior.</p></div></section>`;
+  }
+
+  return AUDIO_STUDIO_ADVANCED_CONTROLS.map((control) => {
+    const percent = clampPercent(control.default_value);
+    return `
+      <section class="settings-output-row">
+        <div><h3>${escapeHtml(control.label)}</h3><p>${escapeHtml(control.description)}</p></div>
+        <div class="range-v22" aria-label="${escapeHtml(control.label)} default ${percent} percent"><span style="width:${percent}%;"></span><i></i></div>
+      </section>
+    `;
+  }).join("");
 }
 
 function qualityRows(): string {
+  if (AUDIO_STUDIO_QUALITY_DIMENSIONS.length === 0) {
+    return `<p class="developer-log-row"><strong>WAIT</strong><span>No quality dimensions configured.</span></p>`;
+  }
+
   return AUDIO_STUDIO_QUALITY_DIMENSIONS.map((dimension) => `
     <p class="developer-log-row"><strong>${dimension.local_pc_required ? "WAIT" : "INFO"}</strong><span>${escapeHtml(dimension.label)} - ${escapeHtml(dimension.target)}</span></p>
   `).join("");
@@ -77,9 +105,16 @@ function advancedPanel(): string {
 function bindAdvancedPanelActions(): void {
   document.querySelectorAll<HTMLButtonElement>(".audio-studio-mode-button").forEach((button) => {
     button.addEventListener("click", () => {
+      const modeId = button.dataset.modeId;
+      if (!isAdvancedMode(modeId)) {
+        setAssistantNotice("Audio Studio advanced mode selection was ignored because the mode is not supported.");
+        return;
+      }
+      selectedAdvancedMode = modeId;
       document.querySelectorAll("[data-audio-studio-mode]").forEach((card) => card.classList.remove("active"));
       button.closest("[data-audio-studio-mode]")?.classList.add("active");
-      setAssistantNotice(`Audio Studio advanced mode selected: ${button.dataset.modeLabel ?? "Production Profile"}.`);
+      const mode = AUDIO_STUDIO_ADVANCED_MODES[selectedAdvancedMode];
+      setAssistantNotice(`Audio Studio advanced mode selected: ${mode.label}.`);
     });
   });
 }
