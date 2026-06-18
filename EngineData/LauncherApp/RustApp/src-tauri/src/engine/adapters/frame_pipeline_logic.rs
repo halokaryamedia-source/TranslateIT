@@ -4,6 +4,9 @@ use crate::engine::audio::buffer::{inspect_frame, AudioFrameInspectionReport};
 use crate::engine::audio::preprocess::{preprocess_audio, AudioPreprocessRequest, PreprocessingResult};
 use crate::engine::audio::AudioFrame;
 
+const MAX_FRAME_PIPELINE_DURATION_MS: u32 = 60_000;
+const MAX_FRAME_PIPELINE_STATE_CHARS: usize = 80;
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct FramePipelineRequest {
     pub frame: AudioFrame,
@@ -26,7 +29,7 @@ pub struct FramePipelineReport {
 }
 
 pub fn analyze_frame_pipeline(request: FramePipelineRequest) -> FramePipelineReport {
-    let floor_rms = request.floor_rms.unwrap_or(0.0).max(0.0);
+    let floor_rms = safe_floor_rms(request.floor_rms);
     let inspection = inspect_frame(request.frame.clone());
     let asr_preprocess = preprocess_audio(AudioPreprocessRequest {
         frame: request.frame,
@@ -65,11 +68,26 @@ pub fn analyze_frame_pipeline(request: FramePipelineRequest) -> FramePipelineRep
         vad_passed,
         ready_for_segment_builder,
         ready_for_asr_preprocess,
-        duration_ms: asr_preprocess.stats.duration_ms,
-        input_state: asr_preprocess.stats.input_state.clone(),
+        duration_ms: asr_preprocess.stats.duration_ms.min(MAX_FRAME_PIPELINE_DURATION_MS),
+        input_state: compact_state(&asr_preprocess.stats.input_state),
         blockers,
         inspection,
         asr_preprocess,
         note,
     }
+}
+
+fn safe_floor_rms(value: Option<f32>) -> f32 {
+    let value = value.unwrap_or(0.0);
+    if value.is_finite() { value.max(0.0) } else { 0.0 }
+}
+
+fn compact_state(value: &str) -> String {
+    let clean = value
+        .trim()
+        .chars()
+        .filter(|character| !character.is_control())
+        .take(MAX_FRAME_PIPELINE_STATE_CHARS)
+        .collect::<String>();
+    if clean.is_empty() { "unknown".to_string() } else { clean }
 }
