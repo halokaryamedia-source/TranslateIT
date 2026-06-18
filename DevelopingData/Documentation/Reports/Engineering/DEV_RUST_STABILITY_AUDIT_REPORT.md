@@ -16,6 +16,7 @@ This report covers repository-side stability review for the current Dev-Rust bra
 - Icon name compatibility.
 - Engine and Launcher file placement.
 - Runtime contract placement.
+- Type boundary stability between shared, launcher, and API modules.
 - Report and documentation consistency.
 
 ## Issues found and fixed
@@ -27,6 +28,7 @@ Risk: command stubs could receive incomplete or malformed arguments once connect
 Fix:
 
 - Added take request validation.
+- Added take source validation.
 - Added take state update validation.
 - Kept command parameter names compatible with frontend `{ request }` payloads.
 - Kept reviewed-stub responses explicit.
@@ -84,6 +86,24 @@ Fix:
 - Removed the unused stylesheet draft.
 - Consolidated active styling through `audioStudioThemeEntry.ts`.
 
+### 8. Shared type boundary hardening
+
+Risk: API-layer types were imported from the launcher state module, creating avoidable UI-to-API coupling.
+
+Fix:
+
+- Added `app/shared/audioStudioTypes.ts`.
+- Moved Audio Studio source/state/command-state definitions to the shared layer.
+- Updated launcher state and API wrapper to use the shared type definitions.
+
+### 9. Take identifier stability
+
+Risk: guided reading take ids could collide under extremely fast repeated staging.
+
+Fix:
+
+- Added a shared id helper with timestamp and random suffix for imported and guided items.
+
 ## Current integration chains
 
 ### Launcher entry chain
@@ -102,6 +122,7 @@ index.html
   -> audioStudioThemeEntry.ts
   -> audioStudioBinding.ts
   -> audioStudioApi.ts
+  -> shared/audioStudioTypes.ts
   -> Tauri invoke handler
   -> commands/audio_studio.rs
 ```
