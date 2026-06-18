@@ -14,19 +14,24 @@ Current repository-side scaffold progress: 100% for the non-local scope.
 - Loaded Audio Studio from `index.html`.
 - Consolidated Audio Studio styling through `audioStudioThemeEntry.ts`.
 - Guarded Audio Studio theme injection with a stable style id.
+- Added shared Audio Studio type definitions under `app/shared`.
 - Added Audio Studio frontend state model.
 - Added take review states: draft, staged, accepted, needs_retry, and blocked.
+- Added explicit take source definitions: import and guided_reading.
+- Added stronger take id generation for imported and guided items.
 - Added import staging.
 - Added guided reading staging.
 - Added backend route placeholder.
 - Added Rust command stubs.
 - Added Rust-side request validation for Audio Studio stubs.
+- Added Rust-side source validation for Audio Studio stubs.
 - Registered the Audio Studio command module.
 - Exposed command stubs in the Tauri invoke handler.
 - Added frontend Audio Studio API wrapper.
 - Connected UI actions to the frontend API wrapper.
 - Added project metadata route check in the UI.
 - Added project metadata contract for approved UserData storage routes.
+- Synced the metadata contract with allowed take sources and states.
 - Added advanced quality contract.
 - Added advanced frontend state.
 - Added advanced UI binding.
@@ -46,6 +51,7 @@ index.html
   -> src/audioStudioEntry.ts
   -> audioStudioBinding.ts
   -> audioStudioApi.ts
+  -> shared/audioStudioTypes.ts
   -> Tauri invoke handler
   -> commands/audio_studio.rs
 ```
@@ -81,6 +87,7 @@ EngineData/LauncherApp/RustApp/src/app/launcher/audioStudioAdvancedBinding.ts
 EngineData/LauncherApp/RustApp/src/app/launcher/audioStudioAdvancedState.ts
 EngineData/LauncherApp/RustApp/src/app/launcher/audioStudioBinding.ts
 EngineData/LauncherApp/RustApp/src/app/launcher/audioStudioState.ts
+EngineData/LauncherApp/RustApp/src/app/shared/audioStudioTypes.ts
 EngineData/LauncherApp/RustApp/src/audioStudioEntry.ts
 EngineData/LauncherApp/RustApp/src/audioStudioThemeEntry.ts
 EngineData/LauncherApp/RustApp/src-tauri/src/commands/audio_studio.rs
