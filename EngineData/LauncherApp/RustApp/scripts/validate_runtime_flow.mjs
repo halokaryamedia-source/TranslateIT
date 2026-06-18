@@ -35,12 +35,17 @@ expectNotIncludes(launcher, "Local runtime warmup completed. You can start typin
 const runtimeCommands = readText("EngineData/LauncherApp/RustApp/src-tauri/src/commands/runtime.rs");
 expectIncludes(runtimeCommands, "Voice capture is blocked because helper provider readiness is not verified yet", "capture helper readiness guard");
 expectIncludes(runtimeCommands, "!status.provider_ready", "capture provider readiness condition");
+expectIncludes(runtimeCommands, "pub fn prepare_capture_start_request", "capture start preview command");
+expectIncludes(runtimeCommands, "pub fn prepare_capture_stop_request", "capture stop preview command");
+expectIncludes(runtimeCommands, "preview_only_no_capture_runtime_claim", "capture preview no-runtime claim");
 
 const runtimeApi = readText("EngineData/LauncherApp/RustApp/src/app/engineTranslate/runtimeApi.ts");
 expectIncludes(runtimeApi, "HELPER_COMMAND_TIMEOUT_MS", "helper command timeout guard");
 expectIncludes(runtimeApi, "HELPER_START_TIMEOUT_MS", "helper start timeout guard");
 expectIncludes(runtimeApi, "frontend_timeout_backend_result_unknown", "helper timeout runtime claim");
 expectIncludes(runtimeApi, "runHelperActionWithTimeout", "helper timeout wrapper");
+expectIncludes(runtimeApi, "prepareCaptureStartRequest", "capture start preview frontend API");
+expectIncludes(runtimeApi, "prepareCaptureStopRequest", "capture stop preview frontend API");
 
 const healthMonitor = readText("EngineData/LauncherApp/RustApp/src/app/launcher/helperBridgeHealthMonitor.ts");
 expectIncludes(healthMonitor, "publishHealthWarning", "health monitor non-invasive warning");
@@ -55,6 +60,12 @@ const settingsViews = readText("EngineData/LauncherApp/RustApp/src/app/launcher/
 expectIncludes(settingsViews, "provider pending", "developer helper provider-aware label");
 expectIncludes(settingsViews, "CUDA not verified", "developer CUDA-aware label");
 expectIncludes(settingsViews, "Helper bridge controls", "developer helper controls inline layout");
+expectIncludes(settingsViews, "Capture helper bridge preview controls", "capture preview controls inline layout");
+expectIncludes(settingsViews, "Voice capture and Mic Test require helper provider readiness evidence", "audio mic readiness warning");
+
+const helperBinding = readText("EngineData/LauncherApp/RustApp/src/app/launcher/developerHelperBridgeBinding.ts");
+expectIncludes(helperBinding, "data-capture-bridge-action", "capture preview event binding");
+expectIncludes(helperBinding, "preview did not start or stop capture", "capture preview non-execution message");
 
 const mainTs = readText("EngineData/LauncherApp/RustApp/src/main.ts");
 expectNotIncludes(mainTs, "bindHelperBridgeVisibilityUi", "removed duplicate helper visibility binding");
