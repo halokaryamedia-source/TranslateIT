@@ -19,6 +19,7 @@ Current repository-side scaffold progress: 100% for the non-local scope.
 - Added take review states: draft, staged, accepted, needs_retry, and blocked.
 - Added explicit take source definitions: import and guided_reading.
 - Added stronger take id generation for imported and guided items.
+- Added take metadata text sanitization and clipping for imported and guided items.
 - Added import staging.
 - Added import file validation for empty, unsupported, oversized, and over-limit file selections.
 - Added guided reading staging.
@@ -26,6 +27,7 @@ Current repository-side scaffold progress: 100% for the non-local scope.
 - Added Rust command stubs.
 - Added Rust-side request validation for Audio Studio stubs.
 - Added Rust-side source validation for Audio Studio stubs.
+- Added Rust-side payload length validation for take id, title, and detail.
 - Registered the Audio Studio command module.
 - Exposed command stubs in the Tauri invoke handler.
 - Added frontend Audio Studio API wrapper.
