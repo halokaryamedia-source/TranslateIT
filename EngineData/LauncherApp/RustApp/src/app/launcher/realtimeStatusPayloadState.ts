@@ -8,8 +8,21 @@ export type RealtimeStatusViewState = {
   message: string;
 };
 
+const MAX_STATUS_MESSAGE_CHARS = 240;
+const UNSAFE_DISPLAY_CHARS = /[\u0000-\u001f\u007f\u202a-\u202e\u2066-\u2069]/g;
+
+function cleanDisplayText(value: string | null | undefined, fallback: string): string {
+  const clean = String(value ?? "").replace(UNSAFE_DISPLAY_CHARS, "").replace(/\s+/g, " ").trim();
+  return clean || fallback;
+}
+
+function compactMessage(value: string | null | undefined): string {
+  const clean = cleanDisplayText(value, "Realtime status is unavailable.");
+  return clean.length > MAX_STATUS_MESSAGE_CHARS ? `${clean.slice(0, MAX_STATUS_MESSAGE_CHARS - 1)}…` : clean;
+}
+
 export function realtimeStatusViewState(payload: RealtimeStatusPayload): RealtimeStatusViewState {
-  const missingCount = payload.assets.missing.length;
+  const missingCount = Math.max(0, Math.min(999, payload.assets.missing.length));
   const realtimeLabel = payload.status === "ready"
     ? "Ready"
     : payload.status === "partial_ready"
@@ -31,10 +44,10 @@ export function realtimeStatusViewState(payload: RealtimeStatusPayload): Realtim
         : "Checking";
 
   return {
-    direction: payload.language_direction,
+    direction: cleanDisplayText(payload.language_direction, "ID > EN"),
     realtimeLabel,
     gpuLabel,
     missingCount,
-    message: payload.message,
+    message: compactMessage(payload.message),
   };
 }
