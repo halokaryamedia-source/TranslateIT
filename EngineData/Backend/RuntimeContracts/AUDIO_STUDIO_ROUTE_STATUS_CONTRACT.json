@@ -14,6 +14,11 @@
     "evidence_log": "UserData/CacheData/AudioStudio/logs/evidence.jsonl",
     "project_metadata_export": "UserData/SavedProject/AudioStudio/project_metadata.json"
   },
+  "route_state_semantics": {
+    "metadata_ready": "UserData project metadata route completed without claiming provider/audio readiness.",
+    "provider_blocked": "Provider, capture, generation, or quality route is intentionally unavailable until implemented and locally verified.",
+    "ready": "Reserved for fully implemented runtime behavior with target-PC evidence."
+  },
   "provider_routes_blocked_until_implemented": [
     "guided_microphone_capture",
     "audio_quality_measurement",
@@ -22,8 +27,8 @@
     "streaming_generation"
   ],
   "rules": [
-    "Metadata routes may return ready only for UserData persistence.",
-    "Provider routes must remain blocked until real runtime implementation and target-PC evidence exist.",
+    "Metadata routes must return metadata_ready instead of generic ready.",
+    "Provider routes must remain provider_blocked until real runtime implementation and target-PC evidence exist.",
     "Do not use UserData/LogData for Audio Studio evidence logs; use UserData/CacheData/AudioStudio/logs/.",
     "Do not claim generated audio readiness from project metadata routes."
   ]
