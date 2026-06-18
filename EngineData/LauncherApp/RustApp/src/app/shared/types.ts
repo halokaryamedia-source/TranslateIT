@@ -37,6 +37,7 @@ export type HelperBridgeStatus = {
   active_task: string | null;
   generation_token: number;
   last_error: string | null;
+  stderr_log_path?: string | null;
   updated_unix_ms: number;
   runtime_claim: string;
 };
