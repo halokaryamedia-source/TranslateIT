@@ -244,8 +244,25 @@ fn run_local_worker_translation(
         .or_else(|| run_worker_with_python("py", true, &script, source, source_language, target_language, profile))
 }
 
+fn is_unsafe_manual_source_character(character: char) -> bool {
+    character == '\0'
+        || ('\u{0001}'..='\u{0008}').contains(&character)
+        || ('\u{000b}'..='\u{001f}').contains(&character)
+        || character == '\u{007f}'
+        || ('\u{202a}'..='\u{202e}').contains(&character)
+        || ('\u{2066}'..='\u{2069}').contains(&character)
+}
+
+fn sanitize_manual_source(value: &str) -> String {
+    value
+        .trim()
+        .chars()
+        .filter(|character| !is_unsafe_manual_source_character(*character))
+        .collect::<String>()
+}
+
 pub fn translate_text(source: String) -> CommandResult {
-    let trimmed = source.trim();
+    let trimmed = sanitize_manual_source(&source);
     if trimmed.is_empty() {
         return CommandResult::blocked(LifecycleState::EmptyInput, "No source text provided.");
     }
@@ -276,7 +293,7 @@ pub fn translate_text(source: String) -> CommandResult {
     let mut worker_notes = Vec::new();
 
     for (index, profile) in profile_order.iter().enumerate() {
-        if let Some(worker) = run_local_worker_translation(trimmed, &source_language, &target_language, profile) {
+        if let Some(worker) = run_local_worker_translation(&trimmed, &source_language, &target_language, profile) {
             if let Some(translated) = worker_translated_text(&worker) {
                 let suffix = worker_success_suffix(&worker, index > 0);
                 return CommandResult::ok(
