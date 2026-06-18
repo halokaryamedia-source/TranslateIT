@@ -15,6 +15,8 @@ type CommandErrorLike = {
   message: string;
 };
 
+const MAX_RENDERED_COMMAND_ERRORS = 6;
+
 function escapeHtml(value: string): string {
   return value
     .replaceAll("&", "&amp;")
@@ -35,11 +37,13 @@ export function buildDeveloperLogRows(args: {
   commandErrors: CommandErrorLike[];
 }): string {
   const worker = args.worker;
-  const commandErrors = args.commandErrors.map((error) => {
+  const hiddenErrors = Math.max(0, args.commandErrors.length - MAX_RENDERED_COMMAND_ERRORS);
+  const commandErrors = args.commandErrors.slice(0, MAX_RENDERED_COMMAND_ERRORS).map((error) => {
     const command = escapeHtml(error.command);
     const message = escapeHtml(error.message);
     return `<p><strong>[ERR]</strong>${command}: ${message}</p>`;
   });
+  if (hiddenErrors > 0) commandErrors.push(`<p><strong>[ERR]</strong>${hiddenErrors} older command error(s) hidden.</p>`);
 
   return [
     `<p><strong>[OK]</strong>${args.runtimeLoaded ? "Runtime status loaded." : "Waiting for diagnostic check."}</p>`,
