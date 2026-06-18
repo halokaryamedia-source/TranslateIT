@@ -12,6 +12,7 @@ use commands::audio_studio::{
 use commands::chat::{append_chat_message, create_chat_session, list_chat_sessions};
 use commands::diagnostics::{get_realtime_status_payload, get_runtime_diagnostics, get_runtime_status_bundle};
 use commands::hardware::get_hardware_usage;
+use commands::helper_bridge::get_helper_bridge_status;
 use commands::runtime::{start_capture, stop_capture};
 use commands::settings::{load_runtime_settings, save_default_runtime_settings, save_runtime_settings};
 use commands::translation::translate_text;
@@ -22,6 +23,7 @@ fn main() {
         get_realtime_status_payload,
         get_runtime_diagnostics,
         get_hardware_usage,
+        get_helper_bridge_status,
         get_input_status,
         list_audio_devices,
         load_runtime_settings,
