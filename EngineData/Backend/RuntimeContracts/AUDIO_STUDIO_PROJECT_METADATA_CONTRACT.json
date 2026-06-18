@@ -5,12 +5,12 @@
   "approved_roots": {
     "cache": "UserData/CacheData/AudioStudio/",
     "saved_project": "UserData/SavedProject/AudioStudio/",
-    "logs": "UserData/LogData/AudioStudio/"
+    "logs": "UserData/CacheData/AudioStudio/logs/"
   },
   "metadata_files": {
     "take_index": "takes.json",
     "session_index": "sessions.json",
-    "evidence_log": "evidence.jsonl"
+    "evidence_log": "logs/evidence.jsonl"
   },
   "take_fields": [
     "take_id",
@@ -37,6 +37,7 @@
   ],
   "rules": [
     "Do not write outside UserData roots.",
+    "Do not create additional Audio Studio roots outside CacheData and SavedProject.",
     "Do not mark provider output ready from metadata alone.",
     "Do not claim local capture readiness without target-PC evidence.",
     "Keep imported file metadata separate from generated runtime evidence.",
