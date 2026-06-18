@@ -1,0 +1,30 @@
+{
+  "schema": "translateit.audio_studio_route_status_contract.v1",
+  "branch": "Dev-Rust",
+  "status": "metadata_runtime_enabled_provider_runtime_blocked",
+  "metadata_routes_enabled": [
+    "audio_studio_import_take",
+    "audio_studio_stage_guided_take",
+    "audio_studio_update_take_state",
+    "audio_studio_list_takes",
+    "audio_studio_export_project_metadata"
+  ],
+  "approved_storage": {
+    "take_index": "UserData/CacheData/AudioStudio/takes.json",
+    "evidence_log": "UserData/CacheData/AudioStudio/logs/evidence.jsonl",
+    "project_metadata_export": "UserData/SavedProject/AudioStudio/project_metadata.json"
+  },
+  "provider_routes_blocked_until_implemented": [
+    "guided_microphone_capture",
+    "audio_quality_measurement",
+    "profile_processing",
+    "generated_audio_output",
+    "streaming_generation"
+  ],
+  "rules": [
+    "Metadata routes may return ready only for UserData persistence.",
+    "Provider routes must remain blocked until real runtime implementation and target-PC evidence exist.",
+    "Do not use UserData/LogData for Audio Studio evidence logs; use UserData/CacheData/AudioStudio/logs/.",
+    "Do not claim generated audio readiness from project metadata routes."
+  ]
+}
