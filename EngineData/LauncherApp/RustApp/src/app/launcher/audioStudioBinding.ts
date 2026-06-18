@@ -1,4 +1,4 @@
-import { audioStudioApi } from "../engineTranslate/audioStudioApi";
+import { audioStudioApi, type AudioStudioCommandResult } from "../engineTranslate/audioStudioApi";
 import { icon } from "../shared/icons";
 import { injectAudioStudioAdvancedPanel } from "./audioStudioAdvancedBinding";
 import {
@@ -40,10 +40,18 @@ function statusTone(state: AudioStudioTakeState): string {
   return "neutral";
 }
 
-function sendCommandNotice(task: Promise<{ message: string } | null>, fallback: string): void {
+function commandNotice(result: AudioStudioCommandResult | null, fallback: string): string {
+  if (!result) return `${fallback} Command unavailable in this runtime.`;
+  if (result.state === "invalid_request") return `${fallback} Rejected: ${result.message}`;
+  if (result.state === "placeholder_only") return `${fallback} Route status: placeholder only. ${result.message}`;
+  if (result.evidence_required) return `${fallback} Evidence required: ${result.message}`;
+  return result.message ? `${fallback} ${result.message}` : fallback;
+}
+
+function sendCommandNotice(task: Promise<AudioStudioCommandResult | null>, fallback: string): void {
   void task
-    .then((result) => setAssistantNotice(result?.message ? `${fallback} ${result.message}` : fallback))
-    .catch(() => setAssistantNotice(`${fallback} Backend command is not available yet.`));
+    .then((result) => setAssistantNotice(commandNotice(result, fallback)))
+    .catch(() => setAssistantNotice(`${fallback} Command unavailable in this runtime.`));
 }
 
 function updateTakeState(takeId: string, state: AudioStudioTakeState): void {
