@@ -6,6 +6,7 @@ const AUDIO_DEVICE_OUTPUT_PRESERVE_MS = 15_000;
 let realtimeStatusRefreshTimer: number | null = null;
 let preservedDeveloperOutput = "";
 let preservedDeveloperOutputUntil = 0;
+let visibilityChangeHandler: (() => void) | null = null;
 
 function setText(id: string, value: string | null | undefined): void {
   if (!value) return;
@@ -61,11 +62,21 @@ export function startRealtimeStatusPayloadAutoRefresh(): () => void {
     void refreshRealtimeStatusPayloadStore();
   }, REALTIME_STATUS_REFRESH_MS);
 
+  visibilityChangeHandler = () => {
+    if (!document.hidden) void refreshRealtimeStatusPayloadStore();
+  };
+  document.addEventListener("visibilitychange", visibilityChangeHandler);
+
   return stopRealtimeStatusPayloadAutoRefresh;
 }
 
 export function stopRealtimeStatusPayloadAutoRefresh(): void {
-  if (realtimeStatusRefreshTimer === null) return;
-  window.clearInterval(realtimeStatusRefreshTimer);
-  realtimeStatusRefreshTimer = null;
+  if (realtimeStatusRefreshTimer !== null) {
+    window.clearInterval(realtimeStatusRefreshTimer);
+    realtimeStatusRefreshTimer = null;
+  }
+  if (visibilityChangeHandler) {
+    document.removeEventListener("visibilitychange", visibilityChangeHandler);
+    visibilityChangeHandler = null;
+  }
 }
