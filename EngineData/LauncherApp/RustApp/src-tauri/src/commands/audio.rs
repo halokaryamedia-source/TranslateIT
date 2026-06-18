@@ -25,6 +25,9 @@ use crate::engine::audio::vad::{evaluate_segment_decision, VadDecisionReport, Va
 use crate::engine::audio::AudioFrame;
 use crate::engine::runtime_state::{latest_runtime_session_state, record_realtime_handoff_report};
 
+const MAX_AUDIO_DEVICE_NAME_CHARS: usize = 160;
+const MAX_AUDIO_DEVICES_PER_KIND: usize = 64;
+
 #[derive(Debug, Clone, Serialize)]
 pub struct AudioDeviceSummary {
     pub id: String,
@@ -41,8 +44,29 @@ pub struct AudioDeviceListReport {
     pub note: String,
 }
 
+fn is_unsafe_device_name_character(character: char) -> bool {
+    character == '\0'
+        || ('\u{0001}'..='\u{0008}').contains(&character)
+        || ('\u{000b}'..='\u{001f}').contains(&character)
+        || character == '\u{007f}'
+        || ('\u{202a}'..='\u{202e}').contains(&character)
+        || ('\u{2066}'..='\u{2069}').contains(&character)
+}
+
+fn clean_device_name(value: String) -> Option<String> {
+    let clean = value
+        .trim()
+        .chars()
+        .filter(|character| !is_unsafe_device_name_character(*character))
+        .take(MAX_AUDIO_DEVICE_NAME_CHARS)
+        .collect::<String>()
+        .trim()
+        .to_string();
+    if clean.is_empty() { None } else { Some(clean) }
+}
+
 fn device_name(device: &cpal::Device) -> Option<String> {
-    device.name().ok().map(|value| value.trim().to_string()).filter(|value| !value.is_empty())
+    device.name().ok().and_then(clean_device_name)
 }
 
 fn collect_devices(is_input: bool) -> Result<Vec<AudioDeviceSummary>, String> {
@@ -59,6 +83,9 @@ fn collect_devices(is_input: bool) -> Result<Vec<AudioDeviceSummary>, String> {
     };
     let mut result = Vec::new();
     for device in devices {
+        if result.len() >= MAX_AUDIO_DEVICES_PER_KIND {
+            break;
+        }
         if let Some(name) = device_name(&device) {
             if result.iter().any(|item: &AudioDeviceSummary| item.name == name) {
                 continue;
