@@ -1,5 +1,6 @@
-export type AudioStudioTakeSource = "import" | "guided_reading";
-export type AudioStudioTakeState = "draft" | "staged" | "accepted" | "needs_retry" | "blocked";
+import type { AudioStudioTakeSource, AudioStudioTakeState } from "../shared/audioStudioTypes";
+export type { AudioStudioTakeSource, AudioStudioTakeState } from "../shared/audioStudioTypes";
+export { AUDIO_STUDIO_TAKE_SOURCES, AUDIO_STUDIO_TAKE_STATES } from "../shared/audioStudioTypes";
 
 export type AudioStudioReadingLine = {
   id: string;
@@ -18,16 +19,6 @@ export type AudioStudioTakeDraft = {
   size_bytes?: number;
   reading_line_id?: string;
 };
-
-export const AUDIO_STUDIO_TAKE_STATES: AudioStudioTakeState[] = [
-  "draft",
-  "staged",
-  "accepted",
-  "needs_retry",
-  "blocked",
-];
-
-export const AUDIO_STUDIO_TAKE_SOURCES: AudioStudioTakeSource[] = ["import", "guided_reading"];
 
 export const AUDIO_STUDIO_READING_LINES: AudioStudioReadingLine[] = [
   {
