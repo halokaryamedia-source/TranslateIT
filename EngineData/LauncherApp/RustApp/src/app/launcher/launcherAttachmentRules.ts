@@ -4,10 +4,11 @@ export const MAX_ATTACHMENT_NAME_CHARS = 96;
 
 const TEXT_ATTACHMENT_EXTENSIONS = [".txt", ".md", ".json", ".csv", ".tsv", ".log", ".xml", ".yaml", ".yml", ".srt", ".vtt"];
 const TEXT_ATTACHMENT_SUPPORT_MESSAGE = "Only text-based attachments are supported for now. PDF and DOCX require a backend parser first.";
+const UNSAFE_FILENAME_CHARS = /[\u0000-\u001f\u007f\u202a-\u202e\u2066-\u2069]/g;
 
 export function safeAttachmentName(file: File): string {
   const clean = file.name
-    .replace(/[\u0000-\u001f\u007f]/g, "")
+    .replace(UNSAFE_FILENAME_CHARS, "")
     .replace(/[\\/]/g, "_")
     .replace(/\s+/g, " ")
     .trim()
