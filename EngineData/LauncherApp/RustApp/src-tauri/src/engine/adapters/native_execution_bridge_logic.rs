@@ -4,6 +4,9 @@ use std::path::Path;
 use crate::engine::native_execution::{NativeExecutionContractRequest, NativeExecutionRequest};
 use crate::engine::native_runners::{prepare_native_stage_runners, NativeStageRunnerReport, NativeStageRunnerRequest};
 
+const MAX_BRIDGE_ID_CHARS: usize = 96;
+const MAX_BRIDGE_TEXT_CHARS: usize = 8_000;
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct NativeExecutionBridgeRequest {
     pub segment_id: String,
@@ -30,8 +33,10 @@ pub struct NativeExecutionBridgeReport {
 }
 
 pub fn build_native_execution_bridge(request: NativeExecutionBridgeRequest) -> NativeExecutionBridgeReport {
+    let segment_id = safe_id(&request.segment_id);
+    let source_text = request.source_text.as_deref().map(compact_text).filter(|value| !value.is_empty());
     let asr_input_ready = has_value(&request.source_audio_path);
-    let translation_input_ready = has_value(&request.source_text);
+    let translation_input_ready = source_text.as_ref().map(|value| !value.is_empty()).unwrap_or(false);
     let output_input_ready = translation_input_ready || has_value(&request.output_audio_path);
     let asr_model_ready = path_exists(&request.asr_model_path);
     let translation_model_ready = path_exists(&request.translation_model_path);
@@ -39,7 +44,7 @@ pub fn build_native_execution_bridge(request: NativeExecutionBridgeRequest) -> N
 
     let asr = NativeExecutionContractRequest {
         stage: "asr".to_string(),
-        segment_id: request.segment_id.clone(),
+        segment_id: segment_id.clone(),
         source_text: None,
         source_audio_path: request.source_audio_path.clone(),
         model_path: request.asr_model_path.clone(),
@@ -58,8 +63,8 @@ pub fn build_native_execution_bridge(request: NativeExecutionBridgeRequest) -> N
 
     let translation = NativeExecutionContractRequest {
         stage: "translation".to_string(),
-        segment_id: request.segment_id.clone(),
-        source_text: request.source_text.clone(),
+        segment_id: segment_id.clone(),
+        source_text: source_text.clone(),
         source_audio_path: None,
         model_path: request.translation_model_path.clone(),
         output_audio_path: None,
@@ -77,8 +82,8 @@ pub fn build_native_execution_bridge(request: NativeExecutionBridgeRequest) -> N
 
     let output = NativeExecutionContractRequest {
         stage: "output".to_string(),
-        segment_id: request.segment_id.clone(),
-        source_text: request.source_text.clone(),
+        segment_id: segment_id.clone(),
+        source_text,
         source_audio_path: None,
         model_path: request.output_model_path.clone(),
         output_audio_path: request.output_audio_path.clone(),
@@ -108,7 +113,7 @@ pub fn build_native_execution_bridge(request: NativeExecutionBridgeRequest) -> N
     };
 
     NativeExecutionBridgeReport {
-        segment_id: request.segment_id,
+        segment_id,
         realtime_stack,
         ready_for_execution,
         blockers: runner_report.blockers.clone(),
@@ -119,6 +124,25 @@ pub fn build_native_execution_bridge(request: NativeExecutionBridgeRequest) -> N
 
 fn has_value(value: &Option<String>) -> bool {
     value.as_ref().map(|text| !text.trim().is_empty()).unwrap_or(false)
+}
+
+fn safe_id(value: &str) -> String {
+    let clean = value
+        .trim()
+        .chars()
+        .map(|character| if character.is_ascii_alphanumeric() || matches!(character, '-' | '_') { character } else { '_' })
+        .take(MAX_BRIDGE_ID_CHARS)
+        .collect::<String>();
+    if clean.is_empty() { "segment".to_string() } else { clean }
+}
+
+fn compact_text(value: &str) -> String {
+    value
+        .trim()
+        .chars()
+        .filter(|character| !character.is_control())
+        .take(MAX_BRIDGE_TEXT_CHARS)
+        .collect::<String>()
 }
 
 fn path_exists(value: &Option<String>) -> bool {
