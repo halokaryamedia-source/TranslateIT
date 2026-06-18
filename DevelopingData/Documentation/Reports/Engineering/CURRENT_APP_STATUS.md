@@ -13,15 +13,19 @@ Python remains part of the product as a helper runtime for tasks where Python is
 ### Rust/Tauri shell
 
 - Rust/Tauri launcher shell exists.
-- Tauri command registration exists for runtime status, diagnostics, hardware, audio devices, settings, chat, capture control, translation, Audio Studio metadata routes, helper bridge status, and Audio Studio validation evidence reads.
+- Tauri command registration exists for runtime status, diagnostics, hardware, audio devices, settings, chat, capture control, translation, Audio Studio metadata routes, helper bridge lifecycle/status, and Audio Studio validation evidence reads.
 - Launcher chat persistence uses `UserData/SavedProject/Chat`.
 - Project path discovery uses root markers: `EngineData`, `DevelopingData`, and `UserData`.
 
-### Helper bridge visibility
+### Helper bridge lifecycle visibility
 
 - Rust/Tauri exposes `get_helper_bridge_status`.
-- Current helper bridge status is intentionally `not_started` until process orchestration is implemented.
+- Rust/Tauri exposes lifecycle commands: `start_helper_bridge`, `stop_helper_bridge`, and `cancel_helper_bridge_task`.
+- Rust/Tauri exposes a request-schema command: `send_helper_bridge_request`.
+- Helper bridge commands maintain a generation token for cancellation/state invalidation.
+- Current helper bridge status is intentionally blocked/not ready until Python process orchestration is implemented.
 - Developer UI reads and displays helper bridge status.
+- Developer UI includes Start Helper, Stop Helper, and Cancel Task controls.
 - Helper existence alone must not mark runtime ready.
 
 ### Audio Studio project-data runtime
@@ -73,16 +77,15 @@ Still scaffold-only:
 
 ### Python helper runtime process bridge
 
-Helper bridge status exists, but actual process orchestration is not implemented yet.
+Helper bridge lifecycle state exists, but actual Python process orchestration is not implemented yet.
 
 Still scaffold-only:
 
-- helper process start,
-- helper process stop,
-- helper request/response protocol,
-- generation-token cancellation,
-- provider status mapping,
-- CUDA helper status mapping.
+- helper process spawn,
+- helper process health monitoring,
+- real helper request/response protocol,
+- provider status mapping from the helper process,
+- CUDA helper status mapping from the helper process.
 
 ## Contract only
 
@@ -107,19 +110,18 @@ However, the final shell direction is now Rust/Tauri. Python/Qt launcher materia
 ## Known remaining implementation work
 
 1. Connect Rust/Tauri capture controls to the Python helper realtime pipeline.
-2. Add robust helper-process lifecycle management from Rust/Tauri.
-3. Implement helper request/response protocol.
-4. Implement generation-token cancellation for Start/Stop safety.
-5. Surface CUDA/provider readiness from helper runtime, not only static diagnostics.
-6. Add visible degraded-mode controls for CPU/provider fallback.
-7. Implement Audio Studio provider processing after metadata routes.
-8. Add Audio Studio guided microphone capture.
-9. Add Audio Studio audio quality scoring.
-10. Remove or migrate machine-specific absolute paths from runtime defaults.
-11. Mark legacy Python/Qt launcher docs as legacy reference where they conflict with Dev-Rust architecture.
-12. Keep hallucination/noise filtering evidence-based rather than phrase-blocklist-only.
-13. Replace or deprecate stale placeholder contracts that conflict with route-status contracts.
-14. Register UserData root policy validator in package validation chain once package update is accepted.
+2. Implement real helper process spawn and health monitoring.
+3. Implement real helper request/response protocol.
+4. Surface CUDA/provider readiness from helper runtime, not only static diagnostics.
+5. Add visible degraded-mode controls for CPU/provider fallback.
+6. Implement Audio Studio provider processing after metadata routes.
+7. Add Audio Studio guided microphone capture.
+8. Add Audio Studio audio quality scoring.
+9. Remove or migrate machine-specific absolute paths from runtime defaults.
+10. Mark legacy Python/Qt launcher docs as legacy reference where they conflict with Dev-Rust architecture.
+11. Keep hallucination/noise filtering evidence-based rather than phrase-blocklist-only.
+12. Replace or deprecate stale placeholder contracts that conflict with route-status contracts.
+13. Register UserData root policy validator in package validation chain once package update is accepted.
 
 ## Not claimed
 
