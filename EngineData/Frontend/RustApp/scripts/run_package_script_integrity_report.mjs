@@ -8,6 +8,7 @@ const reportDir = resolve(repoRoot, "UserData", "LogData", "RuntimeTestReports")
 const packagePath = resolve(appRoot, "package.json");
 
 const requiredFinalScripts = [
+  "repair:text-real-worker",
   "validate:quick",
   "test:frontend-backend-contract",
   "test:worker-contract",
@@ -116,7 +117,7 @@ function main() {
   const missingFinalScripts = requiredFinalScripts.filter((scriptName) => !testLocalFinal.includes(`npm run ${scriptName}`));
   const ok = Boolean(content && parsed.ok && scriptsBlock && duplicateScriptKeys.length === 0 && missingFinalScripts.length === 0);
   const report = {
-    schema: "translateit.package_script_integrity_report.v1",
+    schema: "translateit.package_script_integrity_report.v2",
     generated_at: new Date().toISOString(),
     ok,
     package_path: packagePath,
