@@ -70,6 +70,17 @@ The model roots were mapped into the worker runtime path using local directory j
 - This machine currently reports `torch_cuda_available: false` but `ctranslate2_cuda_available: true`, so ASR can prefer CUDA while translation still falls back to CPU here.
 - The runtime distinguishes ASR CUDA selection from translation device selection.
 
+## PyTorch CUDA for Translation
+
+- ASR CUDA is driven by CTranslate2 capability.
+- Translation CUDA is driven by `torch.cuda.is_available()`.
+- If ASR CUDA is true but translation is still CPU, the worker likely has a CPU-only PyTorch wheel.
+- Check the worker Python with `npm.cmd run gpu:check`.
+- Setup or repair PyTorch CUDA with:
+  - `npm.cmd run gpu:setup-torch-cuda`
+  - `npm.cmd run gpu:setup-torch-cuda:apply`
+- CPU fallback remains valid, but it must be labeled as degraded rather than primary.
+
 ## LLM Requirement
 
 The repo contains English/Indonesian language-quality LLM helpers under `EngineData/TranslateEngine`, but no repository-level runtime manifest currently declares an enforced LLM requirement for the local worker.

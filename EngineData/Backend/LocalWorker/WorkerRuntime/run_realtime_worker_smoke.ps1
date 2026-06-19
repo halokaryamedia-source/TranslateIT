@@ -1,6 +1,6 @@
 param(
     [string]$AudioPath = "",
-    [ValidateSet("Realtime", "Quality")]
+    [ValidateSet("Realtime", "Quality", "TranslationGpu")]
     [string]$Mode = "Realtime",
     [string]$Text = "halo",
     [string]$TtsText = "Hello."
@@ -72,12 +72,16 @@ Write-Host "Mode: $Mode"
 Write-Host "AudioPath: $AudioPath"
 
 $status = Invoke-WorkerJson @{ command = "status" }
+$translationPreload = $null
+if ($Mode -eq "TranslationGpu") {
+    $translationPreload = Invoke-WorkerJson @{ command = "translation_preload"; mode = "Realtime" }
+}
 $translation = Invoke-WorkerJson @{
     command = "translate"
     text = $Text
     source_language = "id"
     target_language = "en"
-    mode = $Mode
+    mode = if ($Mode -eq "TranslationGpu") { "Realtime" } else { $Mode }
     max_new_tokens = 48
 }
 $ttsPreflight = Invoke-WorkerJson @{ command = "tts_preflight" }
@@ -111,6 +115,7 @@ $result = [ordered]@{
     text_input = $Text
     audio_path = $AudioPath
     status = $status
+    translation_preload = $translationPreload
     translation = $translation
     tts_preflight = $ttsPreflight
     tts = $tts

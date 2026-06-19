@@ -482,6 +482,15 @@ def translation_device() -> str:
         return "cpu"
 
 
+def translation_cuda_available() -> bool:
+    try:
+        import torch
+
+        return bool(torch.cuda.is_available())
+    except Exception:
+        return False
+
+
 def get_translation_runtime(mode: str) -> dict[str, Any]:
     mode_key = "Quality" if mode.lower() == "quality" else "Realtime"
     if mode_key in TRANSLATION_RUNTIME:
@@ -491,6 +500,8 @@ def get_translation_runtime(mode: str) -> dict[str, Any]:
     model_id, model_path = translation_model_for_mode(mode_key)
     device = translation_device()
     device_note = "cuda_available" if device == "cuda" else "cpu_runtime"
+    degraded = device != "cuda"
+    fallback_reason = "" if device == "cuda" else "torch_cuda_unavailable"
     tokenizer = AutoTokenizer.from_pretrained(str(model_path), local_files_only=True)
     model = AutoModelForSeq2SeqLM.from_pretrained(str(model_path), local_files_only=True)
     if device == "cuda":
@@ -500,6 +511,8 @@ def get_translation_runtime(mode: str) -> dict[str, Any]:
             model = model.to("cpu")
             device = "cpu"
             device_note = f"cuda_fallback:{type(exc).__name__}"
+            degraded = True
+            fallback_reason = f"cuda_fallback:{type(exc).__name__}"
     model.eval()
     runtime = {
         "mode": mode_key,
@@ -509,6 +522,10 @@ def get_translation_runtime(mode: str) -> dict[str, Any]:
         "model": model,
         "device": device,
         "device_note": device_note,
+        "translation_gpu_requested": True,
+        "translation_torch_cuda_available": translation_cuda_available(),
+        "translation_degraded": degraded,
+        "translation_fallback_reason": fallback_reason,
     }
     TRANSLATION_RUNTIME[mode_key] = runtime
     return runtime
@@ -531,6 +548,10 @@ def handle_translation_preload(payload: dict[str, Any]) -> dict[str, Any]:
             "mode": runtime["mode"],
             "device": runtime["device"],
             "device_note": runtime["device_note"],
+            "translation_gpu_requested": runtime["translation_gpu_requested"],
+            "translation_torch_cuda_available": runtime["translation_torch_cuda_available"],
+            "translation_degraded": runtime["translation_degraded"],
+            "translation_fallback_reason": runtime["translation_fallback_reason"],
             "elapsed_ms": now_ms() - started,
             "note": "Translation model is loaded and ready for local execution.",
         }
@@ -615,6 +636,10 @@ def handle_translate(payload: dict[str, Any]) -> dict[str, Any]:
             "model_id": runtime["model_id"],
             "device": device,
             "device_note": runtime["device_note"],
+            "translation_gpu_requested": runtime["translation_gpu_requested"],
+            "translation_torch_cuda_available": runtime["translation_torch_cuda_available"],
+            "translation_degraded": runtime["translation_degraded"],
+            "translation_fallback_reason": runtime["translation_fallback_reason"],
             "source_language": source_language,
             "target_language": target_language,
             "direction_pair": pair,

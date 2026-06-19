@@ -43,3 +43,4 @@ https://github.com/halokaryamedia-source/TranslateIT.git
 
 - The worker now loads the required fallback ASR/translation models from runtime mappings and can run local smoke tests.
 - No model binaries were committed.
+- Translation CUDA is handled separately from ASR CUDA. ASR can use CTranslate2 CUDA while translation may still need a PyTorch CUDA wheel in the worker `.venv`.

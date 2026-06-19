@@ -9,6 +9,7 @@ const workerRoot = path.join(root, "EngineData", "Backend", "LocalWorker", "Work
 const prepScript = path.join(root, "EngineData", "LauncherApp", "RustApp", "scripts", "prepare_local_models.py");
 const manifestPath = path.join(workerRoot, "model_manifest.json");
 const reportPath = path.join(root, "UserData", "CacheData", "validation", "latest_model_setup.json");
+const workerPython = path.join(workerRoot, ".venv", "Scripts", "python.exe");
 
 function readJson(filePath) {
   return JSON.parse(fs.readFileSync(filePath, "utf8"));
@@ -83,7 +84,8 @@ function main() {
     const onlyArgs = setupModels.flatMap((entry) => ["--only", entry.model_id === "faster-whisper-large-v3-turbo" ? "asr_primary" : entry.model_id === "faster-whisper-medium" ? "asr_backup" : entry.model_id === "marianmt-id-en" ? "translation_fallback" : entry.model_id === "nllb-200-distilled-600M" ? "translation_primary" : ""]);
     const filteredOnly = onlyArgs.filter(Boolean);
     const args = ["-u", prepScript, ...filteredOnly];
-    const py = spawnSync("python", args, { cwd: root, encoding: "utf8" });
+    const pythonExe = exists(workerPython) ? workerPython : "python";
+    const py = spawnSync(pythonExe, args, { cwd: root, encoding: "utf8" });
     downloadExit = py.status ?? 1;
     steps.push({
       step: "prepare_local_models.py",
