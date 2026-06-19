@@ -6,6 +6,13 @@ const appRoot = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const controllerPath = resolve(appRoot, "src", "app", "active-launcher", "launcherController.ts");
 
 const legacyImport = 'import { localPreviewTranslation } from "./launcherPreviewTranslation";\n';
+const legacyMarkers = [
+  "localPreviewTranslation",
+  "Local preview translation shown because",
+  "Local preview",
+  "local-preview",
+];
+
 const legacyBlock = `      const result = await runtimeApi.translateText(source).catch(() => null);
       const fallback = result?.ok ? null : localPreviewTranslation(source, (this.currentSettings ?? defaultSettings()).source_language, (this.currentSettings ?? defaultSettings()).target_language);
       const response = result?.ok ? result.message : fallback ?? result?.message ?? "Translation command failed. Open Settings > Developer for diagnostics.";
@@ -48,20 +55,31 @@ const realWorkerOnlyBlock = `      const result = await runtimeApi.translateText
         voiceStatus,
       });`;
 
+function legacyHits(content) {
+  return legacyMarkers.filter((marker) => content.includes(marker));
+}
+
 function main() {
   if (!existsSync(controllerPath)) {
     console.error(`launcherController.ts not found: ${controllerPath}`);
     process.exit(1);
   }
   const before = readFileSync(controllerPath, "utf8");
+  const beforeLegacyHits = legacyHits(before);
+  if (beforeLegacyHits.length === 0) {
+    console.log("launcherController.ts already uses real-worker-only text translation flow.");
+    return;
+  }
+
   let after = before.replace(legacyImport, "");
   if (!after.includes(legacyBlock)) {
-    console.error("Legacy text preview fallback block was not found. Controller may already be repaired or has drifted.");
+    console.error(`Legacy preview marker(s) remain but known repair block was not found: ${beforeLegacyHits.join(", ")}`);
     process.exit(1);
   }
   after = after.replace(legacyBlock, realWorkerOnlyBlock);
-  if (after.includes("localPreviewTranslation") || after.includes("Local preview") || after.includes("local-preview")) {
-    console.error("Repair refused to write because legacy preview marker(s) would remain.");
+  const afterLegacyHits = legacyHits(after);
+  if (afterLegacyHits.length > 0) {
+    console.error(`Repair refused to write because legacy preview marker(s) would remain: ${afterLegacyHits.join(", ")}`);
     process.exit(1);
   }
   writeFileSync(controllerPath, after);
