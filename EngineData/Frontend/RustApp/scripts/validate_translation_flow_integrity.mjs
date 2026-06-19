@@ -64,9 +64,21 @@ const forbiddenPreviewDictionaryMarkers = [
   "case \"dunia\"",
   "normalizeLanguageCode",
 ];
-const forbiddenHits = forbiddenPreviewDictionaryMarkers.filter((marker) => previewTranslation.includes(marker));
-if (forbiddenHits.length > 0) {
-  console.error(`Disabled preview module still contains fake dictionary marker(s): ${forbiddenHits.join(", ")}`);
+const forbiddenPreviewModuleHits = forbiddenPreviewDictionaryMarkers.filter((marker) => previewTranslation.includes(marker));
+if (forbiddenPreviewModuleHits.length > 0) {
+  console.error(`Disabled preview module still contains fake dictionary marker(s): ${forbiddenPreviewModuleHits.join(", ")}`);
+  process.exit(1);
+}
+
+const forbiddenLegacyControllerMarkers = [
+  "localPreviewTranslation",
+  "Local preview translation shown because",
+  "Local preview",
+  "local-preview",
+];
+const legacyControllerHits = forbiddenLegacyControllerMarkers.filter((marker) => launcherController.includes(marker) || textController.includes(marker));
+if (legacyControllerHits.length > 0) {
+  console.error(`Text translation UI still contains legacy preview fallback marker(s): ${legacyControllerHits.join(", ")}`);
   process.exit(1);
 }
 
@@ -75,4 +87,4 @@ if (!previewTranslation.includes("return null;")) {
   process.exit(1);
 }
 
-console.log("Translation flow integrity passed: text route requires the real worker/engine path and fake preview fallback is disabled.");
+console.log("Translation flow integrity passed: text route requires the real worker/engine path and legacy preview fallback references are blocked.");
