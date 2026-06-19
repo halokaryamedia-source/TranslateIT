@@ -50,6 +50,9 @@ try {
     npm.cmd install
   }
 
+  Step "Text translation real-worker repair"
+  npm.cmd run repair:text-real-worker
+
   if ($SkipReports) {
     Step "Quick validation"
     npm.cmd run validate:quick
