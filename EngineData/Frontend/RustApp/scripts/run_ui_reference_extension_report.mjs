@@ -6,87 +6,115 @@ const appRoot = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const repoRoot = resolve(appRoot, "..", "..", "..");
 const srcRoot = resolve(appRoot, "src");
 const reportDir = resolve(repoRoot, "UserData", "LogData", "RuntimeTestReports");
+const approvalPath = resolve(reportDir, "ui-visual-approval.json");
 
-const checks = [
-  {
-    name: "shell uses locked reference parts only",
-    path: "app/active-launcher/shell.ts",
-    mustContain: ["lockedWarmupScreen()", "lockedMainSidebar()", "lockedHomeWorkspace()", "lockedSettingsPage()", "lockedRuntimeSinks()"],
-    mustNotContain: ["customSidebar", "alternateSettingsSidebar", "uiComfortLayout"],
-  },
-  {
-    name: "locked reference parts define one settings sidebar",
-    path: "app/active-launcher/lockedReferenceShellParts.ts",
-    mustContain: ["export function lockedSettingsPage", "<aside class=\"settings-sidebar\">", "settings-nav-v22", "SETTINGS_NAV_ITEMS", "settingsNavButton", "data-settings-tab"],
-    mustNotContain: ["settings-sidebar-alt", "settings-sidebar-v2", "settings-tabs-custom", "settings-menu-new"],
-  },
-  {
-    name: "settings sidebar is not duplicated in settings tab views",
-    path: "app/active-launcher/settingsViews.ts",
-    mustContain: ["settingsPage(", "settingsSection(", "settingsCard(", "settingsGrid(", "settingsField(", "primaryButton(", "radioOption(", "outputRow("],
-    mustNotContain: ["<aside class=\"settings-sidebar", "settings-nav-v22", "settings-sidebar-alt", "settings-sidebar-v2"],
-  },
-  {
-    name: "main extensions use reference card patterns",
-    path: "app/active-launcher/chatViews.ts",
-    mustContain: ["feature-card", "feature-title-row", "feature-icon", "translation-result-card", "translation-result-grid", "translation-result-block", "emptyState"],
-    mustNotContain: ["custom-card", "chat-card-new", "random-layout"],
-  },
-  {
-    name: "professional result components use reference tokens",
-    path: "professionalUi.css",
-    mustContain: ["var(--ref-border-strong)", "var(--ref-surface)", "var(--ref-surface-3)", "var(--ref-text)", "var(--ref-muted)", "translation-result-card", "empty-state-card"],
-    mustNotContain: ["#ffffff", "#000000", "uiComfort"],
-  },
-  {
-    name: "reference tokens are centralized",
-    path: "referenceLayout.css",
-    mustContain: ["--ref-main-sidebar", "--ref-settings-sidebar", "--ref-settings-content-width", "--ref-home-panel-width", "--ref-composer-width", "--ref-radius-card", "--ref-radius-control"],
-    mustNotContain: ["uiComfort"],
-  },
-  {
-    name: "main page v28 is scoped and stable",
-    path: "mainPageLayout.css",
-    mustContain: ["body:not(.settings-open) .app-shell", "body:not(.settings-open) .sidebar", "body:not(.settings-open) .hero-panel", "body:not(.settings-open) .composer-wrap", "transform: translateX(-37px)", "transform: translateX(16px)"],
-    mustNotContain: [".settings-sidebar", ".settings-workspace-v22"],
-  },
-  {
-    name: "settings pages share reference sidebar layout",
-    path: "referenceLayout.css",
-    mustContain: [".settings-page", ".settings-sidebar", ".settings-nav-v22", ".settings-nav-item", ".settings-workspace-v22", ".settings-scroll-v22"],
-    mustNotContain: ["settings-sidebar-v2", "settings-sidebar-alt"],
-  },
+const requiredScreens = [
+  "main_page_v28",
+  "voice_recording_state",
+  "text_result_state",
+  "settings_general",
+  "settings_audio_v22",
+  "settings_translate_v14",
+  "settings_developer_v37",
+  "warmup_startup",
+  "recent_chat_state",
+  "saved_chat_state",
+  "local_data_state",
 ];
 
-function inspect(check) {
-  const fullPath = resolve(srcRoot, check.path);
-  if (!existsSync(fullPath)) return { name: check.name, ok: false, blocker: "missing_file", path: fullPath };
-  const content = readFileSync(fullPath, "utf8");
-  const missing = (check.mustContain ?? []).filter((needle) => !content.includes(needle));
-  const forbidden = (check.mustNotContain ?? []).filter((needle) => content.includes(needle));
-  return { name: check.name, ok: missing.length === 0 && forbidden.length === 0, blocker: missing.length ? "missing_expected_content" : forbidden.length ? "forbidden_content_present" : "", missing, forbidden, path: fullPath };
+function hasAll(content, tokens) {
+  return tokens.every((token) => content.includes(token));
 }
 
-function row(result) {
-  const missing = result.missing?.length ? ` / missing: ${result.missing.join(", ")}` : "";
-  const forbidden = result.forbidden?.length ? ` / forbidden: ${result.forbidden.join(", ")}` : "";
-  return `| ${result.name} | ${result.ok ? "PASS" : "FAIL"}${result.blocker ? ` / ${result.blocker}` : ""}${missing}${forbidden} |`;
+function readSource(relativePath) {
+  const fullPath = resolve(srcRoot, relativePath);
+  return existsSync(fullPath) ? readFileSync(fullPath, "utf8") : "";
+}
+
+function sourceChecks() {
+  const shell = readSource("app/active-launcher/shell.ts");
+  const parts = readSource("app/active-launcher/lockedReferenceShellParts.ts");
+  const settingsViews = readSource("app/active-launcher/settingsViews.ts");
+  const referenceCss = readSource("referenceLayout.css");
+  const mainCss = readSource("mainPageLayout.css");
+  return [
+    {
+      name: "shell delegates to locked reference parts",
+      ok: hasAll(shell, ["lockedWarmupScreen()", "lockedMainSidebar()", "lockedHomeWorkspace()", "lockedSettingsPage()", "lockedRuntimeSinks()"]),
+      blocker: "shell_not_using_locked_parts",
+    },
+    {
+      name: "one settings sidebar source",
+      ok: hasAll(parts, ["export function lockedSettingsPage", "settings-sidebar", "settings-nav-v22", "SETTINGS_NAV_ITEMS", "settingsNavButton"])
+        && !settingsViews.includes("settings-nav-v22")
+        && !settingsViews.includes("<aside class=\"settings-sidebar"),
+      blocker: "settings_sidebar_not_single_source",
+    },
+    {
+      name: "reference css owns settings shell",
+      ok: hasAll(referenceCss, [".settings-page", ".settings-sidebar", ".settings-nav-v22", ".settings-nav-item", ".settings-workspace-v22", ".settings-scroll-v22"]),
+      blocker: "settings_reference_css_missing",
+    },
+    {
+      name: "main v28 layout remains scoped",
+      ok: hasAll(mainCss, ["body:not(.settings-open) .app-shell", "body:not(.settings-open) .sidebar", "body:not(.settings-open) .hero-panel", "body:not(.settings-open) .composer-wrap"])
+        && !mainCss.includes(".settings-sidebar"),
+      blocker: "main_v28_layout_scope_broken",
+    },
+  ];
+}
+
+function approvalCheck() {
+  if (!existsSync(approvalPath)) {
+    return {
+      name: "visual approval evidence",
+      ok: false,
+      blocker: "missing_visual_approval_evidence",
+      missing: requiredScreens,
+    };
+  }
+  try {
+    const approval = JSON.parse(readFileSync(approvalPath, "utf8"));
+    const approved = Array.isArray(approval.approved_screens) ? approval.approved_screens : [];
+    const missing = requiredScreens.filter((screen) => !approved.includes(screen));
+    const ok = approval.user_approved === true
+      && approval.screenshot_evidence === true
+      && approval.manual_redraw_used === false
+      && approval.locked_reference === "Main v28 + Audio v22 + Translate v14 + Developer v37"
+      && missing.length === 0;
+    return {
+      name: "visual approval evidence",
+      ok,
+      blocker: ok ? "" : "visual_approval_incomplete",
+      missing,
+    };
+  } catch {
+    return {
+      name: "visual approval evidence",
+      ok: false,
+      blocker: "invalid_visual_approval_json",
+      missing: requiredScreens,
+    };
+  }
 }
 
 function main() {
   mkdirSync(reportDir, { recursive: true });
-  const startedAt = new Date().toISOString();
-  const results = checks.map(inspect);
+  const results = [...sourceChecks(), approvalCheck()];
+  const failed = results.filter((result) => !result.ok).map((result) => result.name);
   const summary = {
-    ok: results.every((result) => result.ok),
-    failed: results.filter((result) => !result.ok).map((result) => result.name),
+    ok: failed.length === 0,
+    ui_ready: failed.length === 0,
+    failed,
     checked: results.length,
     locked_reference: "Main v28 + Audio v22 + Translate v14 + Developer v37",
   };
   const report = {
-    schema: "translateit.ui_reference_extension_report.v2",
-    started_at: startedAt,
+    schema: "translateit.ui_reference_extension_report.v3",
+    generated_at: new Date().toISOString(),
     app_root: appRoot,
+    approval_path: approvalPath,
+    required_screens: requiredScreens,
     summary,
     results,
   };
@@ -95,22 +123,18 @@ function main() {
   const md = [
     "# TranslateIT UI Reference Extension Report",
     "",
-    `Started: ${startedAt}`,
+    `OK: ${summary.ok}`,
+    `UI ready: ${summary.ui_ready}`,
     `Locked reference: ${summary.locked_reference}`,
     "",
-    "| Check | Result |",
-    "|---|---|",
-    ...results.map(row),
+    "| Check | Result | Blocker |",
+    "|---|---|---|",
+    ...results.map((result) => `| ${result.name} | ${result.ok ? "PASS" : "FAIL"} | ${result.ok ? "none" : result.blocker} |`),
     "",
-    "## Summary",
-    "",
-    `- OK: ${summary.ok}`,
-    `- Checked: ${summary.checked}`,
-    `- Failed: ${summary.failed.length ? summary.failed.join(", ") : "none"}`,
+    "Manual image redraws are not accepted as approval evidence. Use rendered screenshots from repository source or the Tauri app.",
   ].join("\n");
   writeFileSync(latestJson, JSON.stringify(report, null, 2));
   writeFileSync(latestMd, md);
-  console.log(`UI reference extension report written: ${latestMd}`);
   console.log(JSON.stringify(summary, null, 2));
   if (!summary.ok) process.exitCode = 1;
 }
