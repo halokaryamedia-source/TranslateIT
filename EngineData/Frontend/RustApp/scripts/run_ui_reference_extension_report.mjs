@@ -9,16 +9,22 @@ const reportDir = resolve(repoRoot, "UserData", "LogData", "RuntimeTestReports")
 
 const checks = [
   {
-    name: "settings sidebar single source in shell",
+    name: "shell uses locked reference parts only",
     path: "app/active-launcher/shell.ts",
-    mustContain: ["settings-sidebar", "settings-nav-v22", "settings-nav-item", "data-settings-tab=\"general\"", "data-settings-tab=\"audio\"", "data-settings-tab=\"translate\"", "data-settings-tab=\"developer\""],
-    mustNotContain: ["settings-nav-alt", "settings-tabs-custom", "settings-menu-new"],
+    mustContain: ["lockedWarmupScreen()", "lockedMainSidebar()", "lockedHomeWorkspace()", "lockedSettingsPage()", "lockedRuntimeSinks()"],
+    mustNotContain: ["customSidebar", "alternateSettingsSidebar", "uiComfortLayout"],
   },
   {
-    name: "settings pages use ui factory only",
+    name: "locked reference parts define one settings sidebar",
+    path: "app/active-launcher/lockedReferenceShellParts.ts",
+    mustContain: ["export function lockedSettingsPage", "<aside class=\"settings-sidebar\">", "settings-nav-v22", "SETTINGS_NAV_ITEMS", "settingsNavButton", "data-settings-tab"],
+    mustNotContain: ["settings-sidebar-alt", "settings-sidebar-v2", "settings-tabs-custom", "settings-menu-new"],
+  },
+  {
+    name: "settings sidebar is not duplicated in settings tab views",
     path: "app/active-launcher/settingsViews.ts",
     mustContain: ["settingsPage(", "settingsSection(", "settingsCard(", "settingsGrid(", "settingsField(", "primaryButton(", "radioOption(", "outputRow("],
-    mustNotContain: ["<main", "<aside class=\"settings-sidebar", "settings-nav-v22"],
+    mustNotContain: ["<aside class=\"settings-sidebar", "settings-nav-v22", "settings-sidebar-alt", "settings-sidebar-v2"],
   },
   {
     name: "main extensions use reference card patterns",
@@ -39,9 +45,9 @@ const checks = [
     mustNotContain: ["uiComfort"],
   },
   {
-    name: "main page v28 is scoped",
+    name: "main page v28 is scoped and stable",
     path: "mainPageLayout.css",
-    mustContain: ["body:not(.settings-open) .app-shell", "body:not(.settings-open) .sidebar", "body:not(.settings-open) .hero-panel", "body:not(.settings-open) .composer-wrap"],
+    mustContain: ["body:not(.settings-open) .app-shell", "body:not(.settings-open) .sidebar", "body:not(.settings-open) .hero-panel", "body:not(.settings-open) .composer-wrap", "transform: translateX(-37px)", "transform: translateX(16px)"],
     mustNotContain: [".settings-sidebar", ".settings-workspace-v22"],
   },
   {
@@ -78,7 +84,7 @@ function main() {
     locked_reference: "Main v28 + Audio v22 + Translate v14 + Developer v37",
   };
   const report = {
-    schema: "translateit.ui_reference_extension_report.v1",
+    schema: "translateit.ui_reference_extension_report.v2",
     started_at: startedAt,
     app_root: appRoot,
     summary,
