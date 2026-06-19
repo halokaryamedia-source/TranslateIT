@@ -43,6 +43,7 @@ NLLB_LANGUAGE_CODES = {
 ASR_RUNTIME: Any | None = None
 ASR_RUNTIME_DEVICE = "not_loaded"
 ASR_RUNTIME_COMPUTE = "not_loaded"
+ASR_RUNTIME_MODEL_ID = "not_loaded"
 TRANSLATION_RUNTIME: dict[str, dict[str, Any]] = {}
 SAPI_STATUS: tuple[bool, list[str], str] | None = None
 
@@ -231,6 +232,7 @@ def build_status() -> WorkerStatus:
     torch_ready, cuda_available = torch_status()
     asr_ready = asr_model_ready(ASR_MODEL)
     asr_backup_ready = asr_model_ready(ASR_BACKUP_MODEL)
+    asr_active_ready = asr_ready or asr_backup_ready
     translation_ready = translation_model_ready(TRANSLATION_MODEL)
     quality_ready = translation_model_ready(QUALITY_TRANSLATION_MODEL, nllb=True)
     piper_is_ready = piper_ready()
@@ -247,7 +249,7 @@ def build_status() -> WorkerStatus:
         blockers.append("dependency:transformers_missing")
     if not torch_ready:
         blockers.append("dependency:torch_missing")
-    if not asr_ready:
+    if not asr_active_ready:
         blockers.append("model:faster_whisper_large_v3_turbo_missing")
     if not asr_backup_ready:
         blockers.append("model:faster_whisper_medium_missing")
@@ -263,7 +265,7 @@ def build_status() -> WorkerStatus:
     return WorkerStatus(
         ok=not blockers,
         stage="local_realtime_worker_preflight",
-        asr_model_ready=asr_ready,
+        asr_model_ready=asr_active_ready,
         asr_backup_model_ready=asr_backup_ready,
         translation_model_ready=translation_ready,
         quality_translation_model_ready=quality_ready,
@@ -287,6 +289,7 @@ def handle_status(_: dict[str, Any]) -> dict[str, Any]:
         "asr": ASR_RUNTIME is not None,
         "asr_device": ASR_RUNTIME_DEVICE,
         "asr_compute_type": ASR_RUNTIME_COMPUTE,
+        "asr_model_id": ASR_RUNTIME_MODEL_ID,
         "translation_modes": sorted(TRANSLATION_RUNTIME.keys()),
     }
     return status
@@ -304,22 +307,33 @@ def asr_runtime_config() -> tuple[str, str]:
     return "cpu", "int8"
 
 
+def choose_asr_model() -> tuple[str, Path]:
+    if asr_model_ready(ASR_MODEL):
+        return "faster-whisper-large-v3-turbo", ASR_MODEL
+    if asr_model_ready(ASR_BACKUP_MODEL):
+        return "faster-whisper-medium", ASR_BACKUP_MODEL
+    return "faster-whisper-large-v3-turbo", ASR_MODEL
+
+
 def get_asr_runtime() -> Any:
-    global ASR_RUNTIME, ASR_RUNTIME_DEVICE, ASR_RUNTIME_COMPUTE
+    global ASR_RUNTIME, ASR_RUNTIME_DEVICE, ASR_RUNTIME_COMPUTE, ASR_RUNTIME_MODEL_ID
     if ASR_RUNTIME is not None:
         return ASR_RUNTIME
     from faster_whisper import WhisperModel
 
     device, compute_type = asr_runtime_config()
+    model_id, model_path = choose_asr_model()
     try:
-        ASR_RUNTIME = WhisperModel(str(ASR_MODEL), device=device, compute_type=compute_type)
+        ASR_RUNTIME = WhisperModel(str(model_path), device=device, compute_type=compute_type)
         ASR_RUNTIME_DEVICE = device
         ASR_RUNTIME_COMPUTE = compute_type
+        ASR_RUNTIME_MODEL_ID = model_id
     except Exception:
         if device == "cuda":
-            ASR_RUNTIME = WhisperModel(str(ASR_MODEL), device="cpu", compute_type="int8")
+            ASR_RUNTIME = WhisperModel(str(model_path), device="cpu", compute_type="int8")
             ASR_RUNTIME_DEVICE = "cpu"
             ASR_RUNTIME_COMPUTE = "int8"
+            ASR_RUNTIME_MODEL_ID = model_id
         else:
             raise
     return ASR_RUNTIME
@@ -335,8 +349,8 @@ def handle_asr_preload(_: dict[str, Any]) -> dict[str, Any]:
         return {
             "ok": True,
             "stage": "asr_preload",
-            "model_path": str(ASR_MODEL),
-            "model_id": "faster-whisper-large-v3-turbo",
+            "model_path": str(choose_asr_model()[1]),
+            "model_id": choose_asr_model()[0],
             "device": ASR_RUNTIME_DEVICE,
             "compute_type": ASR_RUNTIME_COMPUTE,
             "elapsed_ms": now_ms() - started,
@@ -377,6 +391,7 @@ def handle_transcribe(payload: dict[str, Any]) -> dict[str, Any]:
             "language_probability": float(getattr(info, "language_probability", 0.0)),
             "device": ASR_RUNTIME_DEVICE,
             "compute_type": ASR_RUNTIME_COMPUTE,
+            "model_id": ASR_RUNTIME_MODEL_ID,
         }
     except Exception as exc:
         return {"ok": False, "stage": "transcribe", "blocker": type(exc).__name__, "note": str(exc), "elapsed_ms": now_ms() - started}

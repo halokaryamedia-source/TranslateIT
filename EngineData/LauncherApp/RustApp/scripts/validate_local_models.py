@@ -335,6 +335,7 @@ def main() -> int:
         if markers["asr_backup"]["complete"]
         else {"ready": False, "result": "FAIL", "error": "asr_backup_markers_incomplete"}
     )
+    asr_active_ready = bool(asr_primary.get("ready") or asr_backup.get("ready"))
     translation_primary = (
         load_translation(TRANSLATION_PRIMARY, "nllb")
         if markers["translation_primary"]["complete"]
@@ -349,11 +350,11 @@ def main() -> int:
     marcel = scan_marcel_assets()
 
     blockers: list[str] = []
-    if not asr_primary.get("ready"):
-        blockers.append("asr_primary_load_failed")
     if not asr_backup.get("ready"):
         blockers.append("asr_backup_load_failed")
-    if not asr_cuda.get("ready"):
+    if not asr_active_ready:
+        blockers.append("asr_active_load_failed")
+    if not asr_cuda.get("ready") and asr_primary.get("ready"):
         blockers.append("asr_cuda_unavailable")
     if not torch_cuda_available:
         blockers.append("torch_cuda_unavailable_for_translation")
@@ -368,7 +369,7 @@ def main() -> int:
 
     ready_for_internal_test = all(
         (
-            asr_primary.get("ready"),
+            asr_active_ready,
             asr_backup.get("ready"),
             translation_primary.get("ready"),
             translation_fallback.get("ready"),

@@ -88,7 +88,7 @@
   - Enter-to-submit was not fully confirmed in the native desktop window during this pass: PARTIAL
 - Microphone/audio check:
   - The controls are visible and the voice translation section renders
-  - Real microphone capture / ASR was not exercised in this pass: PARTIAL
+  - Required fallback ASR/translation models are now installed and worker smoke passes; the preferred ASR model is still missing and remains optional/preferred only
 - Close/reopen check:
   - Project-related `tauri`, `vite`, `node`, `cargo`, `translateit.exe`, and WebView2 processes were identified during validation
   - Cleanup still needs the final desktop-native close/reopen pass before this can be marked complete

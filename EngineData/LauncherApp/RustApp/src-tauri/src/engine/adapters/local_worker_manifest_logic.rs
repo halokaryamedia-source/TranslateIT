@@ -150,7 +150,7 @@ pub fn analyze_local_worker_manifest() -> LocalWorkerManifestReport {
         .and_then(|value| value.as_object())
         .map(|value| value.len())
         .unwrap_or(0);
-    let asr_model_ready = asr_markers_ready(&asr_model)
+    let asr_primary_marker_ready = asr_markers_ready(&asr_model)
         && runtime_models
             .as_ref()
             .map(|value| value.asr.primary.ready)
@@ -160,6 +160,7 @@ pub fn analyze_local_worker_manifest() -> LocalWorkerManifestReport {
             .as_ref()
             .map(|value| value.asr.backup.ready)
             .unwrap_or(false);
+    let asr_model_ready = asr_primary_marker_ready || asr_backup_model_ready;
     let realtime_translation_model_ready = marian_markers_ready(&realtime_translation_model)
         && runtime_models
             .as_ref()

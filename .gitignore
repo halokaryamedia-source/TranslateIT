@@ -26,11 +26,16 @@ target/
 
 # TranslateIT local validation outputs.
 /EngineData/LauncherApp/RustApp/LOCAL_HARDENING_VALIDATION_RESULT.md
+/EngineData/LauncherApp/RustApp/MODEL_PREPARATION_REPORT.json
+/EngineData/LauncherApp/RustApp/MODEL_VALIDATION_REPORT.json
 
 # TranslateIT local model/runtime assets.
 /EngineData/Backend/RuntimeAssets/ASR/ModelData/**
 /EngineData/Backend/RuntimeAssets/Translation/ModelData/**
 /EngineData/Backend/RuntimeAssets/Voice/Piper/**
+/EngineData/TranscriptEngine/ModelData/**
+/EngineData/TranslateEngine/ModelData/**
+/DevelopingData/ToolKitData/ModelCache/**
 
 # Retired runtime asset location must stay unused.
 /EngineData/RuntimeAssets/**

@@ -198,7 +198,7 @@ def download_model(snapshot_download: Any, model: dict[str, Any], max_workers: i
         return result
 
     kwargs: dict[str, Any] = {
-        "repo_id": model["repo"],
+        "repo_id": model.get("preferred_repo") or model["repo"],
         "local_dir": str(target),
         "cache_dir": str(HF_HOME),
         "max_workers": max_workers,
