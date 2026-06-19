@@ -1,15 +1,19 @@
 import fs from "node:fs";
 import path from "node:path";
 import process from "node:process";
-import { spawnSync } from "node:child_process";
 import { ensureDir, exists, repoRootFromCwd, sanitizePath } from "./model_paths.mjs";
 
 const root = repoRootFromCwd();
 const workerRoot = path.join(root, "EngineData", "Backend", "LocalWorker", "WorkerRuntime");
-const prepScript = path.join(root, "EngineData", "LauncherApp", "RustApp", "scripts", "prepare_local_models.py");
 const manifestPath = path.join(workerRoot, "model_manifest.json");
 const reportPath = path.join(root, "UserData", "CacheData", "validation", "latest_model_setup.json");
-const workerPython = path.join(workerRoot, ".venv", "Scripts", "python.exe");
+const forbiddenRuntimePrefixes = [
+  "EngineData/TranscriptEngine",
+  "EngineData/TranslateEngine",
+  "EngineData/VoiceEngine",
+  "EngineData/RuntimeAssets",
+  "DevelopingData/ToolKitData",
+];
 
 function readJson(filePath) {
   return JSON.parse(fs.readFileSync(filePath, "utf8"));
@@ -21,47 +25,31 @@ function writeReport(report) {
   console.log(JSON.stringify(report, null, 2));
 }
 
-function legacyTarget(entry) {
-  const legacy = entry.legacy_paths?.[0];
-  if (legacy) return path.join(root, legacy);
-  if (entry.model_id === "piper") return path.join(root, "EngineData", "TranslateEngine", "ModelData", "piper");
-  return null;
-}
-
 function runtimeTarget(entry) {
   return path.join(root, entry.expected_path);
 }
 
-function mklinkJunction(target, source) {
-  if (exists(target)) {
-    const stat = fs.lstatSync(target);
-    if (stat.isSymbolicLink() || stat.isDirectory()) return { ok: true, skipped: true, note: "target_exists" };
-    return { ok: false, skipped: false, note: "target_is_file" };
-  }
-  ensureDir(path.dirname(target));
-  const psCommand = `New-Item -ItemType Junction -Path '${target.replace(/'/g, "''")}' -Value '${source.replace(/'/g, "''")}' -Force | Out-Null`;
-  const completed = spawnSync("powershell.exe", ["-NoProfile", "-NonInteractive", "-Command", psCommand], {
-    cwd: root,
-    encoding: "utf8",
-    shell: false,
-  });
-  const success = completed.status === 0;
-  return {
-    ok: success,
-    skipped: false,
-    note: success ? "junction_created" : completed.stderr.trim() || completed.stdout.trim() || "junction_failed",
-  };
+function hasForbiddenExpectedPath(entry) {
+  return forbiddenRuntimePrefixes.some((prefix) => String(entry.expected_path ?? "").startsWith(prefix));
+}
+
+function markerSummary(target) {
+  if (!exists(target) || !fs.statSync(target).isDirectory()) return { exists: false, file_count: 0 };
+  let fileCount = 0;
+  for (const item of fs.readdirSync(target, { withFileTypes: true })) if (item.isFile()) fileCount += 1;
+  return { exists: true, file_count: fileCount };
 }
 
 function main() {
+  const createdAt = new Date().toISOString();
   if (!exists(manifestPath)) {
     writeReport({
       ok: false,
       status: "BLOCKED",
-      created_at: new Date().toISOString(),
-      note: "Manifest missing.",
+      created_at: createdAt,
+      note: "Worker model manifest is missing.",
       blockers: ["manifest_missing"],
-      steps: [],
+      runtime_checks: [],
     });
     process.exit(2);
     return;
@@ -71,76 +59,43 @@ function main() {
   const args = process.argv.slice(2);
   const modelIndex = args.indexOf("--model");
   const requestedModelId = modelIndex >= 0 ? args[modelIndex + 1] : null;
-  const setupModels = (manifest.models ?? []).filter((entry) => {
-    if (entry.source_type !== "huggingface" || !entry.repo_id) return false;
-    if (!requestedModelId) return true;
-    return entry.model_id === requestedModelId || (requestedModelId === "faster-whisper-large-v3-turbo" && entry.model_id === "asr_primary");
+  const selectedModels = (manifest.models ?? []).filter((entry) => {
+    if (requestedModelId) return entry.model_id === requestedModelId || entry.stage === requestedModelId;
+    return Boolean(entry.expected_path);
   });
-  const piperOptional = (manifest.models ?? []).find((entry) => entry.model_id === "piper");
-  const steps = [];
-  let downloadExit = 0;
-
-  if (setupModels.length > 0 && exists(prepScript)) {
-    const onlyArgs = setupModels.flatMap((entry) => ["--only", entry.model_id === "faster-whisper-large-v3-turbo" ? "asr_primary" : entry.model_id === "faster-whisper-medium" ? "asr_backup" : entry.model_id === "marianmt-id-en" ? "translation_fallback" : entry.model_id === "nllb-200-distilled-600M" ? "translation_primary" : ""]);
-    const filteredOnly = onlyArgs.filter(Boolean);
-    const args = ["-u", prepScript, ...filteredOnly];
-    const pythonExe = exists(workerPython) ? workerPython : "python";
-    const py = spawnSync(pythonExe, args, { cwd: root, encoding: "utf8" });
-    downloadExit = py.status ?? 1;
-    steps.push({
-      step: "prepare_local_models.py",
-      exit_code: downloadExit,
-      stdout: py.stdout.slice(-2000),
-      stderr: py.stderr.slice(-2000),
-    });
-  } else {
-    steps.push({ step: "prepare_local_models.py", exit_code: 2, note: "prep_script_missing_or_no_models" });
-    downloadExit = 2;
-  }
-
-  const mappings = [];
-  for (const entry of manifest.models ?? []) {
-    const legacy = legacyTarget(entry);
-    const runtime = runtimeTarget(entry);
-    if (legacy && exists(legacy) && !exists(runtime)) {
-      mappings.push({ model_id: entry.model_id, source: sanitizePath(root, legacy), target: sanitizePath(root, runtime), ...mklinkJunction(runtime, legacy) });
-    } else if (legacy && exists(legacy) && exists(runtime)) {
-      mappings.push({ model_id: entry.model_id, source: sanitizePath(root, legacy), target: sanitizePath(root, runtime), ok: true, skipped: true, note: "runtime_mapping_exists" });
-    } else if (entry.model_id === "piper") {
-      mappings.push({
-        model_id: entry.model_id,
-        source: null,
-        target: sanitizePath(root, runtime),
-        ok: exists(runtime),
-        skipped: true,
-        note: exists(runtime) ? "piper_present" : "piper_manual_install_or_sapi_fallback",
-      });
-    }
-  }
 
   const blockers = [];
-  for (const entry of manifest.models ?? []) {
+  const runtimeChecks = [];
+  for (const entry of selectedModels) {
+    if (hasForbiddenExpectedPath(entry)) blockers.push(`forbidden_expected_path:${entry.model_id}`);
     const runtime = runtimeTarget(entry);
-    if (entry.required && !exists(runtime)) blockers.push(`missing_required_runtime_model:${entry.model_id}`);
-  }
-  if (downloadExit !== 0 && blockers.length > 0) blockers.push("download_or_mapping_failed");
-  if (!piperOptional?.required && !exists(runtimeTarget(piperOptional ?? { expected_path: "" }))) {
-    steps.push({ step: "piper", ok: false, note: "optional_tts_provider_not_installed_use_sapi_fallback" });
+    const summary = markerSummary(runtime);
+    runtimeChecks.push({
+      model_id: entry.model_id,
+      expected_path: sanitizePath(root, runtime),
+      required: Boolean(entry.required),
+      exists: summary.exists,
+      file_count: summary.file_count,
+      source_type: entry.source_type ?? null,
+      repo_id: entry.repo_id ?? null,
+    });
+    if (entry.required && !summary.exists) blockers.push(`missing_required_runtime_model:${entry.model_id}`);
   }
 
-  const ok = blockers.length === 0;
+  if (selectedModels.length === 0) blockers.push("no_models_selected");
+  const uniqueBlockers = [...new Set(blockers)];
+  const ok = uniqueBlockers.length === 0;
   const report = {
     ok,
     status: ok ? "PASS" : "BLOCKED",
-    created_at: new Date().toISOString(),
+    created_at: createdAt,
     model_manifest: sanitizePath(root, manifestPath),
-    download_exit_code: downloadExit,
-    steps,
-    mappings,
-    blockers,
+    model_root_strategy: "EngineData/Backend/RuntimeAssets only",
+    runtime_checks: runtimeChecks,
+    blockers: uniqueBlockers,
     note: ok
-      ? "Models are available and runtime mappings were prepared."
-      : "One or more required models remain missing or unmapped.",
+      ? "Required model folders exist under approved RuntimeAssets. Run worker smoke before claiming runtime readiness."
+      : "Model setup is intentionally conservative: this command does not use retired paths and does not claim readiness until RuntimeAssets exist locally.",
   };
   writeReport(report);
   process.exit(ok ? 0 : 2);
