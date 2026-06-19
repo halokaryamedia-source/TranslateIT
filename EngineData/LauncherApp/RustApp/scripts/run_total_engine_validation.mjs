@@ -106,6 +106,21 @@ function cargoLine(name, args) {
   };
 }
 
+function cleanupProjectProcesses(name) {
+  return {
+    name,
+    command: process.platform === "win32" ? "powershell.exe" : "powershell",
+    args: [
+      "-NoProfile",
+      "-ExecutionPolicy",
+      "Bypass",
+      "-File",
+      "scripts/cleanup_translateit_processes.ps1",
+    ],
+    cwd: APP,
+  };
+}
+
 function parseJsonTail(text) {
   const lines = text.split(/\r?\n/).filter(Boolean);
   for (let index = lines.length - 1; index >= 0; index -= 1) {
@@ -215,6 +230,7 @@ async function main() {
   const commands = [];
   if (!reportOnly) {
     const base = [
+      cleanupProjectProcesses("cleanup:project-processes:before"),
       directCommand("npm install", npmCmd, ["install"]),
       commandLine("typecheck", "typecheck"),
       commandLine("check:rust", "check:rust"),
@@ -225,6 +241,11 @@ async function main() {
       cargoLine("cargo clippy", ["clippy", "--all-targets"]),
       cargoLine("cargo clippy -- -D warnings", ["clippy", "--all-targets", "--", "-D", "warnings"]),
       commandLine("validate:engine-total", "validate:engine-total"),
+      commandLine("validate:settings-navigation", "validate:settings-navigation"),
+      commandLine("validate:user-flow", "validate:user-flow"),
+      commandLine("models:inventory", "models:inventory"),
+      commandLine("models:verify", "models:verify"),
+      commandLine("validate:gpu-policy", "validate:gpu-policy"),
       commandLine("validate:helper-bridge", "validate:helper-bridge"),
       commandLine("validate:voice-capture", "validate:voice-capture"),
       commandLine("validate:runtime-flow", "validate:runtime-flow"),
@@ -254,6 +275,18 @@ async function main() {
       const result = runNativeSmoke();
       const classification = classifyNativeSmoke(result);
       entries.push({ ...result, classification });
+      const cleanupAfter = run(
+        process.platform === "win32" ? "powershell.exe" : "powershell",
+        [
+          "-NoProfile",
+          "-ExecutionPolicy",
+          "Bypass",
+          "-File",
+          "scripts/cleanup_translateit_processes.ps1",
+        ],
+        { cwd: APP, name: "cleanup:project-processes:after-native-smoke" },
+      );
+      entries.push({ ...cleanupAfter, classification: cleanupAfter.ok ? "PASS" : "PARTIAL" });
       continue;
     }
     const isStatusScript = entry.name.startsWith("status:");

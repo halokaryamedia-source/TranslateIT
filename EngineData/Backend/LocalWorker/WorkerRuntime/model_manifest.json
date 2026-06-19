@@ -1,0 +1,75 @@
+{
+  "schema": "translateit.local_model_inventory.v1",
+  "backend_policy": {
+    "gpu_primary": true,
+    "cpu_fallback_allowed": true,
+    "cpu_fallback_label": "degraded"
+  },
+  "models": [
+    {
+      "model_id": "faster-whisper-large-v3-turbo",
+      "required": true,
+      "stage": "asr_primary",
+      "backend": "whisper",
+      "expected_path": "EngineData/Backend/RuntimeAssets/ASR/ModelData/faster-whisper-large-v3-turbo",
+      "gpu_capable": true,
+      "cpu_fallback": true,
+      "download_url": null,
+      "checksum": null,
+      "license": "project-local runtime asset; source URL not defined yet",
+      "notes": "Primary ASR model for realtime voice capture."
+    },
+    {
+      "model_id": "faster-whisper-medium",
+      "required": false,
+      "stage": "asr_backup",
+      "backend": "whisper",
+      "expected_path": "EngineData/Backend/RuntimeAssets/ASR/ModelData/faster-whisper-medium",
+      "gpu_capable": true,
+      "cpu_fallback": true,
+      "download_url": null,
+      "checksum": null,
+      "license": "project-local runtime asset; source URL not defined yet",
+      "notes": "Backup ASR model."
+    },
+    {
+      "model_id": "marianmt-id-en",
+      "required": true,
+      "stage": "translation_realtime",
+      "backend": "marianmt",
+      "expected_path": "EngineData/Backend/RuntimeAssets/Translation/ModelData/marianmt-id-en",
+      "gpu_capable": true,
+      "cpu_fallback": true,
+      "download_url": null,
+      "checksum": null,
+      "license": "project-local runtime asset; source URL not defined yet",
+      "notes": "Realtime text translation model."
+    },
+    {
+      "model_id": "nllb-200-distilled-600M",
+      "required": true,
+      "stage": "translation_quality",
+      "backend": "nllb",
+      "expected_path": "EngineData/Backend/RuntimeAssets/Translation/ModelData/nllb-200-distilled-600M",
+      "gpu_capable": true,
+      "cpu_fallback": true,
+      "download_url": null,
+      "checksum": null,
+      "license": "project-local runtime asset; source URL not defined yet",
+      "notes": "Quality translation model."
+    },
+    {
+      "model_id": "piper",
+      "required": true,
+      "stage": "tts_default",
+      "backend": "piper-or-sapi",
+      "expected_path": "EngineData/Backend/RuntimeAssets/Voice/Piper",
+      "gpu_capable": false,
+      "cpu_fallback": true,
+      "download_url": null,
+      "checksum": null,
+      "license": "project-local runtime asset; source URL not defined yet",
+      "notes": "Local TTS fallback assets."
+    }
+  ]
+}

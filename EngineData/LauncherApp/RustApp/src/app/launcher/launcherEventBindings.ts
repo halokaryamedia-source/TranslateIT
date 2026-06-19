@@ -1,9 +1,11 @@
 import { RUNTIME_SETTINGS_SAVED_EVENT } from "../engineTranslate/runtimeApi";
 import type { RuntimeSettings, SettingsTab } from "../shared/types";
 import type { UiRefs } from "./dom";
+import { traceUserFlow } from "./userFlowTrace";
 
 export type LauncherEventHandlers = {
   showSettings: () => void;
+  openGeneralSettings: () => void;
   showHome: () => void;
   startOrStopRecording: () => Promise<void>;
   submitText: () => Promise<void>;
@@ -30,7 +32,7 @@ export function bindLauncherEvents(ui: UiRefs, handlers: LauncherEventHandlers):
   const controller = new AbortController();
   const options = { signal: controller.signal };
 
-  ui.settingsButton.addEventListener("click", handlers.showSettings, options);
+  ui.settingsButton.addEventListener("click", handlers.openGeneralSettings, options);
   ui.backHomeButton.addEventListener("click", handlers.showHome, options);
   ui.microphoneButton.addEventListener("click", () => void handlers.startOrStopRecording(), options);
   ui.quickMicButton.addEventListener("click", () => void handlers.startOrStopRecording(), options);
@@ -41,6 +43,7 @@ export function bindLauncherEvents(ui: UiRefs, handlers: LauncherEventHandlers):
   ui.openDeveloperDiagnosticsButton.addEventListener("click", () => void handlers.openDeveloperDiagnostics(), options);
   ui.sendButton.addEventListener("click", () => void handlers.submitText(), options);
   ui.messageInput.addEventListener("input", handlers.resizeMessageInput, options);
+  ui.messageInput.addEventListener("focus", () => traceUserFlow("text.input.focus", {}), options);
   ui.messageInput.addEventListener("keydown", (event) => {
     if (event.key === "Enter" && !event.shiftKey) {
       event.preventDefault();

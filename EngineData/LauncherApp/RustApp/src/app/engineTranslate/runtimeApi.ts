@@ -4,6 +4,7 @@ import type {
   AudioStudioValidationEvidence,
   CaptureHelperBridgeRequestPreview,
   CommandResult,
+  GpuPolicyReport,
   HardwareUsageReport,
   HelperBridgeActionResult,
   HelperBridgeRequest,
@@ -12,6 +13,8 @@ import type {
   LauncherChatActionResult,
   LauncherChatSession,
   LauncherChatSummary,
+  ModelInventoryReport,
+  ModelSetupReport,
   RuntimeDiagnostics,
   RuntimeSettings,
   RuntimeStatusBundleReport,
@@ -165,6 +168,10 @@ export const runtimeApi = {
   getInputStatus: () => singleFlight("input-status", () => runCommand<InputPreparationStatus>("get_input_status")),
   prepareVoiceCapture: (autoStart = true) => singleFlight("voice-capture-prep", () => runCommand<VoiceCapturePreparationReport>("prepare_voice_capture", { autoStart })),
   listAudioDevices: () => singleFlight("audio-devices", () => runCommand<AudioDeviceListReport>("list_audio_devices")),
+  getModelInventory: () => singleFlight("model-inventory", () => runCommand<ModelInventoryReport>("get_model_inventory")),
+  setupModels: () => runCommand<ModelSetupReport>("setup_models"),
+  verifyModels: () => runCommand<ModelInventoryReport>("verify_models"),
+  getGpuPolicy: () => singleFlight("gpu-policy", () => runCommand<GpuPolicyReport>("get_gpu_policy")),
   startCapture: async () => {
     clearVoiceDependentReads();
     const result = await runCommand<CommandResult>("start_capture");

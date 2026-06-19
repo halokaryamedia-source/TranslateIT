@@ -212,6 +212,57 @@ export type VoiceCapturePreparationReport = {
   helper_status: HelperBridgeStatus;
 };
 
+export type UserFlowTraceEvent = {
+  event: string;
+  occurred_at: string;
+  detail: string;
+};
+
+export type ModelInventoryItem = {
+  model_id: string;
+  required: boolean;
+  expected_path: string;
+  found: boolean;
+  file_count: number;
+  size_bytes: number;
+  gpu_capable: boolean | "unknown";
+  cpu_fallback: boolean;
+  download_url: string | null;
+  status: "PASS" | "PARTIAL" | "BLOCKED" | "FAIL";
+  blocker: string | null;
+  next_action: string;
+};
+
+export type ModelInventoryReport = {
+  ok: boolean;
+  status: "PASS" | "PARTIAL" | "BLOCKED" | "FAIL" | string;
+  created_at: string;
+  items: ModelInventoryItem[];
+  blockers: string[];
+  note: string;
+};
+
+export type ModelSetupReport = {
+  ok: boolean;
+  status: "PASS" | "PARTIAL" | "BLOCKED" | "FAIL" | string;
+  created_at: string;
+  output_dir: string;
+  items: ModelInventoryItem[];
+  blockers: string[];
+  note: string;
+};
+
+export type GpuPolicyReport = {
+  ok: boolean;
+  status: "PASS" | "PARTIAL" | "BLOCKED" | "FAIL" | string;
+  cuda_available: boolean;
+  gpu_primary: boolean;
+  cpu_fallback_active: boolean;
+  fallback_label: string;
+  blockers: string[];
+  note: string;
+};
+
 export type LauncherChatSession = {
   session_id: string;
   title: string;

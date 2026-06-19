@@ -123,3 +123,9 @@ The app is usable locally in the native desktop shell and the core Rust/Tauri en
 - `npm.cmd run validate:auto` now orchestrates baseline checks, Rust checks, audio studio validation, status scripts, worker setup/smoke, and a native startup smoke run.
 - `npm.cmd run validate:auto:strict` keeps the same coverage but upgrades any partial/blocker result to a hard failure.
 - Manual validation is still only required for physical microphone permission, speaker playback, and any subjective UX review.
+- Additional targeted checks are available:
+  - `npm.cmd run validate:settings-navigation`
+  - `npm.cmd run validate:user-flow`
+  - `npm.cmd run models:inventory`
+  - `npm.cmd run models:verify`
+  - `npm.cmd run validate:gpu-policy`

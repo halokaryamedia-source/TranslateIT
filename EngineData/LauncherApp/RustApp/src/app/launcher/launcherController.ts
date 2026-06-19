@@ -4,6 +4,8 @@ import type {
   ChatKind,
   HardwareUsageReport,
   HelperBridgeStatus,
+  GpuPolicyReport,
+  ModelInventoryReport,
   RuntimeDiagnostics,
   RuntimeSettings,
   RuntimeStatusBundleReport,
@@ -29,6 +31,7 @@ import { LANGUAGE_OPTIONS, isLanguageCode, nextLanguageCode, type LanguageSelect
 import { MAX_COMPOSER_TEXTAREA_HEIGHT, MAX_MANUAL_TRANSLATION_CHARS, MIN_COMPOSER_TEXTAREA_HEIGHT, exceedsManualTranslationLimit } from "./launcherTextRules";
 import { buildDeveloperLogRows } from "./launcherDeveloperLog";
 import { startupTrace } from "./startupDiagnostics";
+import { clearUserFlowTrace, traceUserFlow } from "./userFlowTrace";
 
 const STARTUP_GATE_TIMEOUT_MS = 4_000;
 
@@ -38,6 +41,8 @@ export class LauncherController {
   private latestDiagnostics: RuntimeDiagnostics | null = null;
   private latestHardware: HardwareUsageReport | null = null;
   private latestHelperBridgeStatus: HelperBridgeStatus | null = null;
+  private latestModelInventory: ModelInventoryReport | null = null;
+  private latestGpuPolicy: GpuPolicyReport | null = null;
   private currentSettings: RuntimeSettings | null = null;
   private activeSettingsTab: SettingsTab = "general";
   private activeLanguageSelector: LanguageSelectorRole | null = null;
@@ -60,7 +65,11 @@ export class LauncherController {
   }
 
   start(): void {
+    clearUserFlowTrace();
     startupTrace("controller:start", {
+      buildMarker: (globalThis as typeof globalThis & { __translateitStartupBuildMarker?: string }).__translateitStartupBuildMarker ?? "unknown",
+    });
+    traceUserFlow("app.boot", {
       buildMarker: (globalThis as typeof globalThis & { __translateitStartupBuildMarker?: string }).__translateitStartupBuildMarker ?? "unknown",
     });
     this.bindEvents();
@@ -348,8 +357,29 @@ export class LauncherController {
     }
   }
 
-  private showHome(): void { document.body.classList.remove("settings-open"); this.ui.settingsPage.classList.add("is-hidden"); this.ui.homePage.classList.remove("is-hidden"); }
-  private showSettings(): void { document.body.classList.add("settings-open"); this.ui.homePage.classList.add("is-hidden"); this.ui.settingsPage.classList.remove("is-hidden"); this.renderSettingsTab(this.activeSettingsTab); }
+  private showHome(): void {
+    document.body.classList.remove("settings-open");
+    this.ui.settingsPage.classList.add("is-hidden");
+    this.ui.homePage.classList.remove("is-hidden");
+    traceUserFlow("settings.back", {});
+    traceUserFlow("home.visible", { activeTab: this.activeSettingsTab });
+  }
+
+  private showSettings(tab: SettingsTab = "general"): void {
+    this.activeSettingsTab = tab;
+    document.body.classList.add("settings-open");
+    this.ui.homePage.classList.add("is-hidden");
+    this.ui.settingsPage.classList.remove("is-hidden");
+    this.ui.settingsPage.scrollTop = 0;
+    this.ui.settingsPage.scrollLeft = 0;
+    traceUserFlow("settings.opened", { tab });
+    this.renderSettingsTab(tab);
+  }
+
+  private openGeneralSettings(): void {
+    traceUserFlow("settings.click", { tab: "general" });
+    this.showSettings("general");
+  }
 
   private async refreshHardwareUsage(): Promise<void> { this.latestHardware = await runtimeApi.getHardwareUsage(); }
 
@@ -399,6 +429,7 @@ export class LauncherController {
     const source = this.ui.messageInput.value.trim();
     if (!source) {
       this.setAssistantNotice("Type some text to translate first.");
+      traceUserFlow("error.user_visible", { reason: "empty_text_submit" });
       return;
     }
     if (exceedsManualTranslationLimit(source)) {
@@ -410,6 +441,11 @@ export class LauncherController {
       return;
     }
     this.textSubmitPending = true;
+    traceUserFlow("text.submit", {
+      length: source.length,
+      sourceLanguage: (this.currentSettings ?? defaultSettings()).source_language,
+      targetLanguage: (this.currentSettings ?? defaultSettings()).target_language,
+    });
     this.ui.sendButton.disabled = true;
     this.ui.messageInput.disabled = true;
     this.setMessageInputValue("");
@@ -424,15 +460,21 @@ export class LauncherController {
         if (fallback) {
           this.setAssistantNotice("Local preview translation shown because the native worker/model is not configured yet.");
         }
+        traceUserFlow("error.user_visible", { reason: "translation_failed", message: result?.message ?? "unknown" });
       }
       if (!result?.ok && !fallback) {
         this.ui.chatList.innerHTML = translationResultView(source, response, voiceStatus);
         this.setAssistantNotice(`Translation failed. ${response}`);
+        traceUserFlow("text.translation.result", { status: "failed", response });
         return;
       }
       await this.saveChatMessage("assistant", response);
       this.ui.chatList.innerHTML = translationResultView(source, response, voiceStatus);
       this.setAssistantNotice(result?.ok ? "Translation completed. Result is shown above." : "Local preview translation shown because the native worker/model is not configured yet.");
+      traceUserFlow("text.translation.result", {
+        status: result?.ok ? "pass" : "local-preview",
+        voiceStatus,
+      });
     } finally {
       this.textSubmitPending = false;
       this.ui.sendButton.disabled = false;
@@ -455,6 +497,7 @@ export class LauncherController {
       this.setAssistantNotice("Voice capture is already updating. Please wait.");
       return;
     }
+    traceUserFlow("mic.click", { recording: this.recording });
     this.voiceCapturePrepPending = true;
     this.ui.microphoneButton.disabled = true;
     this.ui.quickMicButton.disabled = true;
@@ -466,6 +509,7 @@ export class LauncherController {
     try {
       if (this.recording) {
         this.setAssistantNotice("Stopping voice capture...");
+        traceUserFlow("voice.capture.stopped", { reason: "user-toggle" });
         const stopResult = await runtimeApi.stopCapture().catch(() => null);
         this.recording = false;
         const [bundle, helperStatus] = await Promise.all([runtimeApi.getStatusBundle(), runtimeApi.getHelperBridgeStatus()]);
@@ -475,19 +519,30 @@ export class LauncherController {
         return;
       }
       this.setAssistantNotice("Checking microphone device...");
+      traceUserFlow("mic.device_check.start", {});
       const preparation = await runtimeApi.prepareVoiceCapture(true).catch(() => null);
       if (!preparation) {
         this.setAssistantNotice("Voice capture preparation failed. Open Developer diagnostics.");
+        traceUserFlow("voice.capture.blocked", { reason: "preparation_failed" });
         return;
       }
+      traceUserFlow("mic.device_check.result", {
+        microphoneReady: preparation.microphone_ready,
+        helperState: preparation.helper_state,
+      });
       this.latestHelperBridgeStatus = preparation.helper_status;
       this.renderRuntime(this.latestBundle, this.latestDiagnostics);
       if (!preparation.microphone_ready) {
         this.setAssistantNotice(this.summarizeVoiceCapturePreparation(preparation));
+        traceUserFlow("voice.capture.blocked", { reason: "missing_microphone", nextActions: preparation.next_actions });
         return;
       }
       if (!preparation.helper_ready || !preparation.provider_ready) {
         this.setAssistantNotice("Checking local voice helper...");
+        traceUserFlow("helper.status.check", { state: preparation.helper_state });
+        if (preparation.helper_state === "not_started" || preparation.helper_state === "stopped" || preparation.helper_state === "error" || preparation.helper_state === "blocked") {
+          traceUserFlow("helper.start.request", { state: preparation.helper_state });
+        }
         const startedAt = Date.now();
         let current = preparation;
         while (Date.now() - startedAt < 15_000) {
@@ -497,19 +552,36 @@ export class LauncherController {
           current = refreshed;
           this.latestHelperBridgeStatus = refreshed.helper_status;
           this.renderRuntime(this.latestBundle, this.latestDiagnostics);
+          traceUserFlow("worker.status.result", {
+            helperState: refreshed.helper_state,
+            providerReady: refreshed.provider_ready,
+            cudaReady: refreshed.cuda_ready,
+          });
           if (refreshed.provider_ready && refreshed.microphone_ready) break;
           if (refreshed.state === "missing_worker" || refreshed.state === "missing_models" || refreshed.state === "missing_microphone") break;
         }
         if (!current.provider_ready || !current.microphone_ready) {
           this.setAssistantNotice(this.summarizeVoiceCapturePreparation(current));
+          traceUserFlow("voice.capture.blocked", {
+            reason: current.state,
+            nextActions: current.next_actions,
+          });
           return;
         }
       }
       this.setAssistantNotice("Voice provider ready. Starting capture...");
+      traceUserFlow("voice.capture.prepare", { providerReady: true, microphoneReady: true });
       const result = await runtimeApi.startCapture().catch(() => null);
       const captureMessage = result?.message ?? "Recording started.";
       this.recording = Boolean(result?.ok);
       this.setAssistantNotice(captureMessage);
+      traceUserFlow(result?.ok ? "voice.capture.started" : "voice.capture.blocked", {
+        result: result?.state ?? "unknown",
+        message: captureMessage,
+      });
+      traceUserFlow("asr.result", { status: result?.ok ? "pending" : "blocked" });
+      traceUserFlow("translation.voice.result", { status: result?.ok ? "pending" : "blocked" });
+      traceUserFlow("tts.result", { status: result?.ok ? "pending" : "blocked" });
       const [bundle, helperStatus] = await Promise.all([runtimeApi.getStatusBundle(), runtimeApi.getHelperBridgeStatus()]);
       this.latestHelperBridgeStatus = helperStatus;
       this.renderRuntime(bundle, this.latestDiagnostics);
@@ -532,22 +604,27 @@ export class LauncherController {
 
   private async startHelperBridge(): Promise<void> {
     this.setAssistantNotice("Starting local helper...");
+    traceUserFlow("helper.start.request", { source: "manual" });
     const result = await runtimeApi.startHelperBridge().catch(() => null);
     this.latestHelperBridgeStatus = await runtimeApi.getHelperBridgeStatus().catch(() => this.latestHelperBridgeStatus);
     this.renderRuntime(this.latestBundle, this.latestDiagnostics);
     this.setAssistantNotice(result?.message ?? "Start Helper command finished.");
+    traceUserFlow("helper.start.result", { state: result?.state ?? "unknown", ok: result?.ok ?? false });
   }
 
   private async checkWorkerStatus(): Promise<void> {
     this.setAssistantNotice("Checking worker status...");
+    traceUserFlow("helper.status.check", { source: "manual" });
     const status = await runtimeApi.getHelperBridgeStatus().catch(() => null);
     if (status) this.latestHelperBridgeStatus = status;
     this.renderRuntime(this.latestBundle, this.latestDiagnostics);
     this.setAssistantNotice(status?.message ?? "Worker status checked.");
+    traceUserFlow("worker.status.result", { state: status?.state ?? "unknown", providerReady: status?.provider_ready ?? false });
   }
 
   private async openDeveloperDiagnostics(): Promise<void> {
-    this.renderSettingsTab("developer");
+    traceUserFlow("settings.click", { tab: "developer" });
+    this.showSettings("developer");
     await this.runDeveloperDiagnostic();
   }
 
@@ -616,8 +693,20 @@ export class LauncherController {
     if (button) button.disabled = true;
     this.setAssistantNotice("Running diagnostic...");
     try {
-      const [bundle, diagnostics, helperStatus] = await Promise.all([runtimeApi.getStatusBundle(), runtimeApi.getDiagnostics(), runtimeApi.getHelperBridgeStatus()]);
+      const [bundle, diagnostics, helperStatus, modelInventory, gpuPolicy] = await Promise.all([
+        runtimeApi.getStatusBundle(),
+        runtimeApi.getDiagnostics(),
+        runtimeApi.getHelperBridgeStatus(),
+        runtimeApi.getModelInventory(),
+        runtimeApi.getGpuPolicy(),
+      ]);
       this.latestHelperBridgeStatus = helperStatus;
+      this.latestModelInventory = modelInventory;
+      this.latestGpuPolicy = gpuPolicy;
+      traceUserFlow("model.inventory.result", {
+        status: modelInventory?.status ?? "unknown",
+        blockers: modelInventory?.blockers ?? [],
+      });
       await this.refreshHardwareUsage();
       this.renderRuntime(bundle, diagnostics);
       this.renderDeveloperSettings();
@@ -627,13 +716,20 @@ export class LauncherController {
     }
   }
 
-  private openAudioSettings(): void { this.activeSettingsTab = "audio"; this.showSettings(); }
+  private openAudioSettings(): void {
+    traceUserFlow("settings.click", { tab: "audio" });
+    this.showSettings("audio");
+  }
   private toggleVoiceOutput(): void { this.currentSettings = this.currentSettings ?? defaultSettings(); this.currentSettings.audio.auto_play_out_voice = !this.currentSettings.audio.auto_play_out_voice; this.currentSettings.audio.auto_play_translation_voice = this.currentSettings.audio.auto_play_out_voice; this.setAssistantNotice(this.currentSettings.audio.auto_play_out_voice ? "Voice output enabled." : "Voice output disabled."); }
   private setRuntimeProfile(profile: "Realtime" | "Quality"): void { this.currentSettings = this.currentSettings ?? defaultSettings(); this.currentSettings.runtime_profile = profile; this.currentSettings.audio.input_sensitivity = profile; this.activeLanguageSelector = null; this.setAssistantNotice(`Translate mode set to ${profile}.`); }
   private swapLanguages(): void { this.currentSettings = this.currentSettings ?? defaultSettings(); const source = this.currentSettings.source_language; this.currentSettings.source_language = this.currentSettings.target_language; this.currentSettings.target_language = source; this.activeLanguageSelector = null; this.refreshDirectionPill(); this.setAssistantNotice(`Language pair changed to ${this.currentSettings.source_language.toUpperCase()} > ${this.currentSettings.target_language.toUpperCase()}.`); }
 
   private renderSettingsTab(tab: SettingsTab): void {
     this.activeSettingsTab = tab;
+    if (tab === "general") traceUserFlow("settings.tab.general", { tab });
+    if (tab === "audio") traceUserFlow("settings.tab.audio", { tab });
+    if (tab === "translate") traceUserFlow("settings.tab.translate", { tab });
+    if (tab === "developer") traceUserFlow("settings.tab.developer", { tab });
     if (tab !== "translate") this.activeLanguageSelector = null;
     this.ui.settingsNavItems.forEach((button) => button.classList.toggle("active", button.dataset.settingsTab === tab));
     if (tab === "general") this.renderGeneralSettings();
@@ -681,7 +777,9 @@ export class LauncherController {
     const cpu = percentText(this.latestHardware?.cpu);
     const ram = percentText(this.latestHardware?.ram);
     const gpu = percentText(this.latestHardware?.gpu);
-    const gpuStatus = this.latestDiagnostics?.cuda_probe.gpu_summary ?? this.latestHardware?.gpu.detail ?? "GPU status unavailable";
+    const gpuStatus = this.latestGpuPolicy
+      ? `${this.latestGpuPolicy.gpu_primary ? "GPU primary" : "CPU fallback"}; CUDA=${this.latestGpuPolicy.cuda_available}; status=${this.latestGpuPolicy.status}`
+      : this.latestDiagnostics?.cuda_probe.gpu_summary ?? this.latestHardware?.gpu.detail ?? "GPU status unavailable";
     const logRows = buildDeveloperLogRows({
       runtimeLoaded: Boolean(this.latestBundle),
       worker,
@@ -693,8 +791,20 @@ export class LauncherController {
       commandErrors: runtimeApi.getCommandErrors(),
     });
     this.ui.settingsContent.innerHTML = developerSettingsView({ progress, cpu, ram, gpu, gpuStatus, logRows, note: this.latestHardware?.note ?? "Run diagnostic to refresh hardware usage.", logsExpanded: this.logsExpanded, engineGood: Boolean(this.latestBundle), helperStatus: this.latestHelperBridgeStatus });
+    const modelInventoryButton = document.getElementById("refreshModelInventoryButton") as HTMLButtonElement | null;
+    if (modelInventoryButton) modelInventoryButton.addEventListener("click", () => void this.refreshModelInventory());
     requireElement<HTMLButtonElement>("#runDiagnosticButton").addEventListener("click", () => void this.runDeveloperDiagnostic());
     requireElement<HTMLButtonElement>("#seeAllLogsButton").addEventListener("click", () => { this.logsExpanded = !this.logsExpanded; this.renderDeveloperSettings(); });
+  }
+
+  private async refreshModelInventory(): Promise<void> {
+    this.latestModelInventory = await runtimeApi.getModelInventory().catch(() => this.latestModelInventory);
+    this.latestGpuPolicy = await runtimeApi.getGpuPolicy().catch(() => this.latestGpuPolicy);
+    traceUserFlow("model.inventory.result", {
+      status: this.latestModelInventory?.status ?? "unknown",
+      blockers: this.latestModelInventory?.blockers ?? [],
+    });
+    this.renderDeveloperSettings();
   }
 
   private async refreshStartupRuntimeSnapshot(): Promise<void> {
@@ -708,6 +818,10 @@ export class LauncherController {
       diagnostics: Boolean(diagnostics),
     });
     this.renderRuntime(bundle, diagnostics);
+    traceUserFlow("startup.complete", {
+      bundle: Boolean(bundle),
+      diagnostics: Boolean(diagnostics),
+    });
     if (this.activeSettingsTab === "developer") this.renderDeveloperSettings();
   }
 
@@ -764,7 +878,8 @@ export class LauncherController {
 
   private bindEvents(): void {
     bindLauncherEvents(this.ui, {
-      showSettings: () => this.showSettings(),
+      showSettings: () => this.openGeneralSettings(),
+      openGeneralSettings: () => this.openGeneralSettings(),
       showHome: () => this.showHome(),
       startOrStopRecording: () => this.prepareAndStartVoiceCapture(),
       prepareAndStartVoiceCapture: () => this.prepareAndStartVoiceCapture(),

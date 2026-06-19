@@ -21,8 +21,9 @@ use commands::helper_bridge::{
     start_helper_bridge, stop_helper_bridge,
 };
 use commands::runtime::{
-    check_helper_bridge_health, prepare_capture_start_request, prepare_capture_stop_request,
-    prepare_voice_capture, start_capture, stop_capture,
+    check_helper_bridge_health, get_gpu_policy, get_model_inventory, prepare_capture_start_request,
+    prepare_capture_stop_request, prepare_voice_capture, setup_models, start_capture, stop_capture,
+    verify_models,
 };
 use commands::settings::{
     load_runtime_settings, save_default_runtime_settings, save_runtime_settings,
@@ -57,6 +58,10 @@ fn main() {
             prepare_capture_start_request,
             prepare_capture_stop_request,
             prepare_voice_capture,
+            get_model_inventory,
+            verify_models,
+            setup_models,
+            get_gpu_policy,
             get_input_status,
             list_audio_devices,
             get_latest_audio_pipeline_evidence,

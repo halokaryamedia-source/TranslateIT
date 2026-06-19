@@ -125,6 +125,8 @@
 
 - Primary one-command validation: `npm.cmd run validate:auto`
 - Strict validation: `npm.cmd run validate:auto:strict`
+- Settings navigation validation: `npm.cmd run validate:settings-navigation`
+- User flow validation: `npm.cmd run validate:user-flow`
 - Manual validation is now reserved for real microphone permission, real speaker playback, and subjective UI review.
 
 ## Diagnostic-First Startup Validation
