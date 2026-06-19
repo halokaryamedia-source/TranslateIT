@@ -86,7 +86,7 @@ function inspect(check) {
 
 function extractVisibleControlIds(settingsViews) {
   const ids = [];
-  for (const match of settingsViews.matchAll(/id=\\"([A-Za-z0-9_-]+)\\"/g)) ids.push(match[1]);
+  for (const match of settingsViews.matchAll(/id=(?:"|\\")([A-Za-z0-9_-]+)(?:"|\\")/g)) ids.push(match[1]);
   for (const match of settingsViews.matchAll(/primaryButton\("[^"]+", \{ id: "([A-Za-z0-9_-]+)"/g)) ids.push(match[1]);
   for (const match of settingsViews.matchAll(/factorySelectField\("[^"]+", [^,]+, "[^"]+", "([A-Za-z0-9_-]+)"/g)) ids.push(match[1]);
   for (const match of settingsViews.matchAll(/radioOption\("([A-Za-z0-9_-]+)"/g)) ids.push(match[1]);
