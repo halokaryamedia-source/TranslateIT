@@ -56,6 +56,7 @@ const dataActionChecks = [
 ];
 
 const dataBoundIds = new Set(["voiceModeToggleButton", "voiceModePushToTalkButton"]);
+const nonControlSelectors = new Set(["assistantMessage"]);
 
 function readActive(file) {
   const path = resolve(activeLauncherRoot, file);
@@ -95,7 +96,7 @@ function extractVisibleControlIds(settingsViews) {
 function extractHashSelectors(content) {
   const selectors = [];
   for (const match of content.matchAll(/#[A-Za-z0-9_-]+/g)) selectors.push(match[0].slice(1));
-  return unique(selectors);
+  return unique(selectors).filter((selector) => !nonControlSelectors.has(selector));
 }
 
 function selectorBound(id, combinedBindingSource) {
