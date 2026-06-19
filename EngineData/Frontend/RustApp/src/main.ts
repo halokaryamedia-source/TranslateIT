@@ -12,6 +12,7 @@ import { bindAudioDeviceListUi } from "./app/active-launcher/audioDeviceListBind
 import { bindAudioPipelineResultWatcher as bindResultWatcher } from "./app/active-launcher/audioPipelineResultWatcher";
 import { bindDeveloperEvidenceUi } from "./app/active-launcher/developerEvidenceBinding";
 import { bindDeveloperHelperBridgeUi } from "./app/active-launcher/developerHelperBridgeBinding";
+import { bindDirectVoiceCaptureUi } from "./app/active-launcher/directVoiceCaptureBinding";
 import { startHelperBridgeHealthMonitor } from "./app/active-launcher/helperBridgeHealthMonitor";
 import { bindReferenceUi } from "./app/active-launcher/referenceUiBinding";
 import { bindRuntimeReadinessUiGuard } from "./app/active-launcher/runtimeReadinessUiGuard";
@@ -36,6 +37,7 @@ new LauncherController(app).start();
 const stopAttachmentLimitWatcher = bindAttachmentLimitWatcher();
 bindReferenceUi();
 const stopAudioDeviceListUi = bindAudioDeviceListUi();
+const stopDirectVoiceCaptureUi = bindDirectVoiceCaptureUi();
 bindVoiceOutputPersistenceUi();
 bindRuntimeReadinessUiGuard();
 const stopDeveloperEvidenceUi = bindDeveloperEvidenceUi();
@@ -47,10 +49,9 @@ const stopRealtimeStatusPayloadAutoRefresh = startRealtimeStatusPayloadAutoRefre
 window.addEventListener("beforeunload", () => {
   stopAttachmentLimitWatcher();
   stopAudioDeviceListUi();
+  stopDirectVoiceCaptureUi();
   stopDeveloperEvidenceUi();
   stopHelperBridgeHealthMonitor();
   stopAudioPipelineResultWatcher();
   stopRealtimeStatusPayloadAutoRefresh();
 }, { once: true });
-
-
