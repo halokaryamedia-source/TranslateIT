@@ -6,6 +6,7 @@ import "./mainPageLayout.css";
 import "./audioSettingsLayout.css";
 import "./translateSettingsLayout.css";
 import "./developerSettingsLayout.css";
+import "./uiComfortLayout.css";
 import { LauncherController } from "./app/active-launcher/launcherController";
 import { bindAttachmentLimitWatcher } from "./app/active-launcher/attachmentLimitWatcher";
 import { bindAudioDeviceListUi } from "./app/active-launcher/audioDeviceListBinding";
