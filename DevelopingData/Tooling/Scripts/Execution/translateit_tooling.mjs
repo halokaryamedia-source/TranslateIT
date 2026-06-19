@@ -4,7 +4,6 @@ import { fileURLToPath } from "node:url";
 
 const ROOT = resolve(fileURLToPath(new URL("../../../../", import.meta.url)));
 const APP_PACKAGE = join(ROOT, "EngineData", "LauncherApp", "RustApp");
-const TARGET_APP_PACKAGE = join(ROOT, "EngineData", "LauncherApp", "App");
 const WORKER_ROOT = join(ROOT, "EngineData", "Backend", "LocalWorker", "WorkerRuntime");
 const WORKER = join(WORKER_ROOT, "realtime_local_worker.py");
 const RUNTIME_ASSETS = join(ROOT, "EngineData", "Backend", "RuntimeAssets");
@@ -25,9 +24,7 @@ function walk(dir) {
   if (!exists(dir)) return [];
   const entries = [];
   for (const name of readdirSync(dir)) {
-    if (name === ".venv" || name === "node_modules" || name === "target" || name === "dist" || name === "__pycache__") {
-      continue;
-    }
+    if (name === ".venv" || name === "node_modules" || name === "target" || name === "dist" || name === "__pycache__") continue;
     const path = join(dir, name);
     entries.push(path);
     if (statSync(path).isDirectory()) entries.push(...walk(path));
@@ -48,10 +45,11 @@ function finish(label, problems) {
   }
   console.log(`PASS: ${label.replace(/_INCOMPLETE$/, "").toLowerCase().replaceAll("_", " ")}`);
 }
+function startsWithRel(path, prefix) { return rel(path).startsWith(prefix); }
 
 function validateRoot() {
   const allowedRootFiles = new Set([".gitattributes", ".gitignore", "README.md", "TranslateIT.lnk"]);
-  const allowedRootDirs = new Set([".git", ".github", "DevelopingData", "docs", "EngineData", "UserData"]);
+  const allowedRootDirs = new Set([".git", ".github", "DevelopingData", "EngineData", "UserData"]);
   const forbiddenRootSuffixes = new Set([".py", ".bat", ".cmd", ".ps1", ".vbs", ".log", ".tmp", ".bak", ".old"]);
   const problems = [];
   for (const name of readdirSync(ROOT)) {
@@ -83,6 +81,7 @@ function validateStructure() {
     join(APP_PACKAGE, "package.json"),
     join(APP_PACKAGE, "src-tauri", "tauri.conf.json"),
     WORKER,
+    join(WORKER_ROOT, "prepare_local_models.py"),
     join(WORKER_ROOT, "requirements-realtime.txt"),
     join(WORKER_ROOT, "realtime_stack_manifest.json"),
     join(RUNTIME_ASSETS, "README.md"),
@@ -92,22 +91,20 @@ function validateStructure() {
     MODEL_RUNTIME_MANIFEST,
   ];
   const retired = [
-    "DeveloperData", "DevelopingData/DocumentationData", "DevelopingData/Reports",
+    "DeveloperData", "DevelopingData/DocumentationData", "DevelopingData/Reports", "DevelopingData/ToolKitData",
     "DevelopingData/Diagnostics", "DevelopingData/Docs", "DevelopingData/LauncherHelpers", "DevelopingData/SampleData",
-    "DevelopingData/Tests", "DevelopingData/ToolKitData",
-    "TranslateIT.vbs", "TranslateIT.cmd", "Launcher", "EngineData/RuntimeAssets", "EngineData/LauncherApp/Workers",
-    "EngineData/TranscriptEngine", "EngineData/TranslateEngine", "EngineData/VoiceEngine",
+    "DevelopingData/Tests", "DevelopingData/Patches", "TranslateIT.vbs", "TranslateIT.cmd", "Launcher",
+    "EngineData/RuntimeAssets", "EngineData/LauncherApp/Workers", "EngineData/TranscriptEngine", "EngineData/TranslateEngine", "EngineData/VoiceEngine",
   ].map((path) => join(ROOT, ...path.split("/")));
   const problems = [...requireFiles(required)];
-  const allowedEnginePython = new Set([
-    "EngineData/Backend/LocalWorker/WorkerRuntime/realtime_local_worker.py",
-    "EngineData/LauncherApp/RustApp/scripts/prepare_local_models.py",
-    "EngineData/LauncherApp/RustApp/scripts/validate_local_models.py",
-  ]);
+
+  const allowedDevelopingTop = new Set(["README.md", "Documentation", "Quality", "Samples", "Tooling"]);
+  for (const name of readdirSync(join(ROOT, "DevelopingData"))) if (!allowedDevelopingTop.has(name)) problems.push(`unexpected DevelopingData entry: DevelopingData/${name}`);
+
   for (const path of retired) if (exists(path)) problems.push(`retired path exists: ${rel(path)}`);
   for (const path of walk(join(ROOT, "DevelopingData"))) if (path.endsWith(".py")) problems.push(`unexpected DevelopingData Python file: ${rel(path)}`);
   for (const path of walk(join(ROOT, "EngineData"))) {
-    if (path.endsWith(".py") && !allowedEnginePython.has(rel(path))) problems.push(`unexpected EngineData Python file: ${rel(path)}`);
+    if (path.endsWith(".py") && !startsWithRel(path, "EngineData/Backend/LocalWorker/WorkerRuntime/")) problems.push(`unexpected EngineData Python file: ${rel(path)}`);
   }
   finish("STRUCTURE_INCOMPLETE", problems);
 }
@@ -126,7 +123,7 @@ function validateLauncher() {
 
 function validateWorker() {
   const problems = [
-    ...requireFiles([WORKER, join(WORKER_ROOT, "requirements-realtime.txt"), join(WORKER_ROOT, "realtime_stack_manifest.json"), join(WORKER_ROOT, "setup_realtime_worker.ps1"), join(WORKER_ROOT, "run_realtime_worker_smoke.ps1"), MODEL_RUNTIME_MANIFEST]),
+    ...requireFiles([WORKER, join(WORKER_ROOT, "requirements-realtime.txt"), join(WORKER_ROOT, "realtime_stack_manifest.json"), join(WORKER_ROOT, "prepare_local_models.py"), join(WORKER_ROOT, "setup_realtime_worker.ps1"), join(WORKER_ROOT, "run_realtime_worker_smoke.ps1"), MODEL_RUNTIME_MANIFEST]),
     ...requireText(WORKER, ["RUNTIME_ASSETS_ROOT", "ASR_MODEL_ROOT", "TRANSLATION_MODEL_ROOT", "PIPER_ROOT", "RUNTIME_MANIFEST", "ALLOWED_INPUT_ROOTS", "ALLOWED_OUTPUT_ROOTS"]),
     ...requireText(join(WORKER_ROOT, "realtime_stack_manifest.json"), ["EngineData/Backend/RuntimeAssets/ASR/ModelData/faster-whisper-large-v3-turbo", "EngineData/Backend/RuntimeAssets/Translation/ModelData/marianmt-id-en", "EngineData/Backend/RuntimeAssets/Voice/Piper", "local_only"]),
   ];
@@ -148,10 +145,10 @@ function validateModels() {
   ];
   const manifestModelReady = Boolean(manifest?.asr?.primary?.ready && manifest?.asr?.backup?.ready && manifest?.translation?.primary?.ready && manifest?.translation?.fallback?.ready && manifest?.tts?.default_sapi_ready);
   const ready = targets.every((target) => target.ready) && manifestModelReady;
-  const blockers = targets.filter((target) => !target.ready).map((target) => `${target.name}:${target.missing.join(",")}`);
+  const blockers = targets.filter((target) => !target.ready).map((target) => `${target.name}:${target.missing.join(",") || "missing_path"}`);
   if (!manifest) blockers.push("runtime_manifest:missing_or_invalid");
-  else if (!manifestModelReady) blockers.push("runtime_manifest:validated_model_or_default_tts_not_ready");
-  console.log(JSON.stringify({ schema: "translateit.local_runtime_model_readiness.v4", ok: ready, manifest_path: rel(MODEL_RUNTIME_MANIFEST), targets, blockers }, null, 2));
+  else if (!manifestModelReady) blockers.push("runtime_manifest:target_pc_evidence_not_ready");
+  console.log(JSON.stringify({ schema: "translateit.local_runtime_model_readiness.v5", ok: ready, manifest_path: rel(MODEL_RUNTIME_MANIFEST), targets, blockers }, null, 2));
   process.exit(ready ? 0 : 1);
 }
 function validateEvidence() { finish("EVIDENCE_BOUNDARY_INCOMPLETE", requireFiles([join(ROOT, "UserData", "README.md"), join(ROOT, "UserData", "LogData", "README.md")])); }
