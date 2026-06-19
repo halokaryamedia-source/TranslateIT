@@ -1,5 +1,6 @@
 import {
   AUDIO_STUDIO_COMMAND_STATES,
+  AUDIO_STUDIO_TAKE_STATES,
   type AudioStudioCommandState,
   type AudioStudioTakeSource,
   type AudioStudioTakeState,
@@ -53,6 +54,10 @@ function isAudioStudioCommandState(value: unknown): value is AudioStudioCommandS
   return typeof value === "string" && AUDIO_STUDIO_COMMAND_STATES.includes(value as AudioStudioCommandState);
 }
 
+function isAudioStudioTakeState(value: unknown): value is AudioStudioTakeState {
+  return typeof value === "string" && AUDIO_STUDIO_TAKE_STATES.includes(value as AudioStudioTakeState);
+}
+
 function normalizeCommandResult(result: RawAudioStudioCommandResult): AudioStudioCommandResult | null {
   if (!result || typeof result !== "object") return null;
   return {
@@ -78,7 +83,7 @@ function normalizeTakeRecord(value: unknown): AudioStudioTakeRecord | null {
   const record = value as Partial<AudioStudioTakeRecord>;
   if (typeof record.take_id !== "string" || typeof record.title !== "string" || typeof record.detail !== "string") return null;
   if (record.source !== "import" && record.source !== "guided_reading") return null;
-  if (record.state !== "draft" && record.state !== "ready" && record.state !== "archived") return null;
+  if (!isAudioStudioTakeState(record.state)) return null;
   return {
     schema_version: typeof record.schema_version === "number" ? record.schema_version : 1,
     take_id: record.take_id,
