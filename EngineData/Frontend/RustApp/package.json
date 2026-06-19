@@ -19,6 +19,8 @@
     "validate:quick": "npm run validate:script-profiles && npm run validate:imports && npm run validate:naming && npm run validate:translation-flow && npm run validate:runtime-ux && npm run validate:startup-readiness && npm run typecheck && npm run check:rust && npm run build:frontend",
     "test:runtime-report": "node scripts/run_local_runtime_test_report.mjs",
     "test:local-final": "npm run validate:quick && npm run test:runtime-report",
+    "setup:translation-ct2": "python ../../Backend/LocalWorker/WorkerRuntime/setup_ctranslate2_translation_model.py",
+    "test:translation-gpu-final": "npm run setup:translation-ct2 && npm run test:runtime-report",
     "validate:release-preflight": "npm run validate:internal && npm run build",
     "validate:local-heavy": "npm run validate:full",
     "setup:worker": "powershell -NoProfile -ExecutionPolicy Bypass -File ../../Backend/LocalWorker/WorkerRuntime/setup_realtime_worker.ps1",
