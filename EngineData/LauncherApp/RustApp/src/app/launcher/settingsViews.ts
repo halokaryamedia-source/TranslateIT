@@ -1,6 +1,6 @@
 import { icon } from "../shared/icons";
 import type { AudioStudioValidationEvidence, HelperBridgeStatus, RuntimeSettings } from "../shared/types";
-import { advancedEmpty, diagnosticActions, languageSelectField, monitoringPanel, outputRow, primaryButton, radioOption, selectButton, settingsActions, settingsCard, settingsField, settingsGrid, settingsPage, settingsSection } from "./uiPageFactory";
+import { advancedEmpty, diagnosticActions, languageSelectField, monitoringPanel, outputRow, primaryButton, radioOption, selectButton, settingsActions, settingsCard, settingsField, settingsGrid, settingsPage, settingsSection, statusBadge } from "./uiPageFactory";
 
 function escapeHtml(value: string): string {
   return value.replaceAll("&", "&amp;").replaceAll("<", "&lt;").replaceAll(">", "&gt;").replaceAll('"', "&quot;").replaceAll("'", "&#39;");
@@ -56,8 +56,14 @@ function factorySelectField(label: string, value: string, iconName: "mic" | "spe
   return settingsField(label, button);
 }
 
+function statusField(label: string, value: string, tone: "neutral" | "good" | "warning" | "error" = "neutral"): string {
+  return settingsField(label, `<div class="settings-status-row">${statusBadge(value, tone)}</div>`);
+}
+
 export function generalSettingsView(settings: RuntimeSettings, realtimeStatus: string | null, gpuStatus: string | null): string {
-  return settingsPage("General", "Basic launcher and local runtime preferences.", "settings-view--general", `${settingsCard("settings-card--general", `${settingsGrid(`${factorySelectField("Runtime Profile", settings.runtime_profile, "pulse")}${factorySelectField("Language Focus", settings.language_focus_mode, "chevron")}${factorySelectField("Realtime Status", realtimeStatus ?? "Checking", "pulse")}${factorySelectField("GPU Status", gpuStatus ?? "Checking", "monitor")}`)}${settingsActions(`${primaryButton("Save Settings", { id: "saveSettingsButton" })}${primaryButton("Save Default", { id: "resetSettingsButton", class: "secondary" })}`)}`)}${settingsSection("Advanced General Setting", "Reserved for future launcher preferences.")}${advancedEmpty()}`);
+  const runtimeProfileLabel = settings.runtime_profile;
+  const languageFocusLabel = settings.language_focus_mode === "id-en-focus" ? "ID/EN Focus" : settings.language_focus_mode === "general-focus" ? "General Focus" : settings.language_focus_mode;
+  return settingsPage("General", "Basic launcher and local runtime preferences.", "settings-view--general", `${settingsCard("settings-card--general", `${settingsGrid(`${factorySelectField("Runtime Profile", runtimeProfileLabel, "pulse", "runtimeProfileButton")}${factorySelectField("Language Focus", languageFocusLabel, "chevron", "languageFocusButton")}${statusField("Realtime Status", realtimeStatus ?? "Checking", "neutral")}${statusField("GPU Status", gpuStatus ?? "Checking", "neutral")}`)}${settingsActions(`${primaryButton("Save Settings", { id: "saveSettingsButton" })}${primaryButton("Reset Settings", { id: "resetSettingsButton", class: "secondary" })}`)}`)}${settingsSection("Advanced General Setting", "Reserved for future launcher preferences.")}${advancedEmpty()}`);
 }
 
 export function audioSettingsView(settings: RuntimeSettings): string {

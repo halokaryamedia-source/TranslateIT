@@ -374,11 +374,36 @@ export class LauncherController {
     this.ui.settingsPage.scrollLeft = 0;
     traceUserFlow("settings.opened", { tab });
     this.renderSettingsTab(tab);
+    this.isGeneralSettingsRouteValid(tab);
   }
 
   private openGeneralSettings(): void {
     traceUserFlow("settings.click", { tab: "general" });
     this.showSettings("general");
+  }
+
+  private isGeneralSettingsRouteValid(tab: SettingsTab): boolean {
+    const duplicateIds = ["homePage", "settingsPage", "settingsContent", "chatList"].map((id) => document.querySelectorAll(`#${id}`).length > 1).some(Boolean);
+    const settingsVisible = !this.ui.settingsPage.classList.contains("is-hidden") && window.getComputedStyle(this.ui.settingsPage).display !== "none";
+    const homeHidden = this.ui.homePage.classList.contains("is-hidden") || window.getComputedStyle(this.ui.homePage).display === "none";
+    const settingsClass = this.ui.settingsContent.querySelector(`.settings-view--${tab}`) !== null;
+    const chatListInsideSettings = this.ui.settingsContent.querySelector("#chatList") !== null;
+    const ok = settingsVisible && homeHidden && settingsClass && !duplicateIds && !chatListInsideSettings;
+    if (!ok) {
+      startupTrace("settings.route:assertion-failed", {
+        tab,
+        settingsVisible,
+        homeHidden,
+        settingsClass,
+        duplicateIds,
+        chatListInsideSettings,
+      });
+      traceUserFlow("error.user_visible", {
+        reason: "settings_route_invalid",
+        tab,
+      });
+    }
+    return ok;
   }
 
   private async refreshHardwareUsage(): Promise<void> { this.latestHardware = await runtimeApi.getHardwareUsage(); }
@@ -683,6 +708,25 @@ export class LauncherController {
     }
   }
 
+  private toggleRuntimeProfile(): void {
+    this.currentSettings = this.currentSettings ?? defaultSettings();
+    const nextProfile = this.currentSettings.runtime_profile === "Quality" ? "Realtime" : "Quality";
+    this.setRuntimeProfile(nextProfile);
+    this.renderGeneralSettings();
+    this.resetSettingsScroll();
+    this.setAssistantNotice(`Runtime profile set to ${nextProfile}.`);
+  }
+
+  private cycleLanguageFocusMode(): void {
+    this.currentSettings = this.currentSettings ?? defaultSettings();
+    const current = this.currentSettings.language_focus_mode;
+    const next = current === "id-en-focus" ? "general-focus" : "id-en-focus";
+    this.currentSettings.language_focus_mode = next;
+    this.setAssistantNotice(next === "id-en-focus" ? "Language focus set to ID/EN Focus." : "Language focus set to General Focus.");
+    this.renderGeneralSettings();
+    this.resetSettingsScroll();
+  }
+
   private async runDeveloperDiagnostic(): Promise<void> {
     if (this.diagnosticPending) {
       this.setAssistantNotice("Diagnostic is already running. Please wait.");
@@ -748,6 +792,10 @@ export class LauncherController {
 
   private renderGeneralSettings(): void {
     this.ui.settingsContent.innerHTML = generalSettingsView(this.currentSettings ?? defaultSettings(), this.ui.realtimeStatus.textContent, this.ui.gpuStatus.textContent);
+    const runtimeProfileButton = document.getElementById("runtimeProfileButton") as HTMLButtonElement | null;
+    if (runtimeProfileButton) runtimeProfileButton.addEventListener("click", () => this.toggleRuntimeProfile());
+    const languageFocusButton = document.getElementById("languageFocusButton") as HTMLButtonElement | null;
+    if (languageFocusButton) languageFocusButton.addEventListener("click", () => this.cycleLanguageFocusMode());
     requireElement<HTMLButtonElement>("#saveSettingsButton").addEventListener("click", () => void this.saveCurrentSettings());
     requireElement<HTMLButtonElement>("#resetSettingsButton").addEventListener("click", () => void this.saveDefaultSettings());
   }
@@ -769,6 +817,7 @@ export class LauncherController {
     document.querySelectorAll<HTMLButtonElement>("[data-language-role]").forEach((button) => button.addEventListener("click", () => this.selectLanguage(button.dataset.languageRole as LanguageSelectorRole, button.dataset.languageCode ?? "")));
     requireElement<HTMLButtonElement>("#realtimeModeButton").addEventListener("click", () => { this.setRuntimeProfile("Realtime"); this.renderTranslateSettings(); this.resetSettingsScroll(); });
     requireElement<HTMLButtonElement>("#qualityModeButton").addEventListener("click", () => { this.setRuntimeProfile("Quality"); this.renderTranslateSettings(); this.resetSettingsScroll(); });
+    requireElement<HTMLButtonElement>("#saveTranslateButton").addEventListener("click", () => void this.saveCurrentSettings());
   }
 
   private renderDeveloperSettings(): void {
