@@ -1,0 +1,192 @@
+/*
+  TranslateIT UI comfort layer.
+  Purpose: keep the launcher familiar for first-time users by following common desktop chat-app layout patterns:
+  compact sidebar, clear primary action, centered workspace, predictable composer, and progressive disclosure for advanced actions.
+*/
+
+:root {
+  --comfort-sidebar-width: 320px;
+  --comfort-content-width: 860px;
+  --comfort-composer-width: 920px;
+  --comfort-gap-lg: 32px;
+  --comfort-gap-md: 20px;
+}
+
+body:not(.settings-open) .app-shell {
+  grid-template-columns: var(--comfort-sidebar-width) minmax(0, 1fr);
+}
+
+body:not(.settings-open) .sidebar {
+  padding: 20px 16px 0;
+}
+
+body:not(.settings-open) .new-chat-button {
+  min-height: 44px;
+  margin-top: 28px;
+  padding: 0 18px;
+}
+
+body:not(.settings-open) .nav-stack {
+  gap: 8px;
+  margin-top: 30px;
+}
+
+body:not(.settings-open) .nav-divider {
+  margin: 24px 0 16px;
+}
+
+body:not(.settings-open) .nav-item {
+  min-height: 42px;
+  padding: 0 18px;
+}
+
+body:not(.settings-open) .nav-item--secondary {
+  opacity: .82;
+}
+
+body:not(.settings-open) .account-card {
+  width: calc(100% - 8px);
+  margin: auto auto 22px;
+}
+
+body:not(.settings-open) .account-actions {
+  gap: 2px;
+}
+
+body:not(.settings-open) .workspace {
+  grid-template-rows: 72px minmax(0, 1fr) auto;
+  padding: 0 32px 24px;
+}
+
+body:not(.settings-open) .topbar {
+  min-height: 72px;
+  height: 72px;
+  margin: 0 -32px;
+  padding: 0 36px;
+}
+
+body:not(.settings-open) .topbar h2 {
+  font-size: 22px;
+}
+
+body:not(.settings-open) .topbar p {
+  max-width: 520px;
+  font-size: 12px;
+}
+
+body:not(.settings-open) .direction-pill,
+body:not(.settings-open) .record-pill {
+  min-height: 36px;
+  height: 36px;
+  padding: 0 18px;
+}
+
+body:not(.settings-open) .hero-panel {
+  width: min(var(--comfort-content-width), calc(100vw - var(--comfort-sidebar-width) - 96px));
+  max-width: min(var(--comfort-content-width), calc(100vw - var(--comfort-sidebar-width) - 96px));
+  margin: 42px auto 0;
+  transform: none;
+}
+
+body:not(.settings-open) .hero-kicker {
+  width: auto;
+  min-width: 0;
+  padding: 0 18px;
+}
+
+body:not(.settings-open) .hero-panel h3 {
+  margin-top: 28px;
+  font-size: clamp(30px, 2.4vw, 38px);
+}
+
+body:not(.settings-open) .hero-panel > p {
+  max-width: 680px;
+  font-size: 13px;
+}
+
+body:not(.settings-open) .feature-grid {
+  width: 100%;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--comfort-gap-md);
+  margin-top: var(--comfort-gap-lg);
+}
+
+body:not(.settings-open) .feature-card {
+  min-height: 150px;
+  padding: 24px;
+}
+
+body:not(.settings-open) .feature-card::before {
+  margin-bottom: 24px;
+}
+
+body:not(.settings-open) .feature-card p {
+  margin-top: 16px;
+  font-size: 12.5px;
+}
+
+body:not(.settings-open) .assistant-card {
+  width: 100%;
+  min-height: 64px;
+  margin-top: 18px;
+}
+
+body:not(.settings-open) .assistant-card p {
+  font-size: 12px;
+  -webkit-line-clamp: 2;
+}
+
+body:not(.settings-open) .assistant-actions {
+  gap: 8px;
+}
+
+body:not(.settings-open) .assistant-action {
+  min-height: 32px;
+  padding: 0 12px;
+  font-size: 12px;
+}
+
+body:not(.settings-open) .assistant-action--advanced {
+  opacity: .72;
+}
+
+body:not(.settings-open) .composer-wrap {
+  width: min(var(--comfort-composer-width), calc(100vw - var(--comfort-sidebar-width) - 96px));
+  max-width: min(var(--comfort-composer-width), calc(100vw - var(--comfort-sidebar-width) - 96px));
+  margin: 0 auto;
+  transform: none;
+}
+
+body:not(.settings-open) .composer {
+  min-height: 64px;
+  grid-template-columns: 42px 1px minmax(0, 1fr) 48px 48px;
+  gap: 14px;
+}
+
+body:not(.settings-open) .composer textarea {
+  font-size: 14px;
+}
+
+body:not(.settings-open) .composer-icon,
+body:not(.settings-open) .composer-icon.emphasis,
+body:not(.settings-open) .send-button {
+  width: 48px;
+  height: 48px;
+}
+
+body:not(.settings-open) .composer-help {
+  margin-top: 12px;
+  font-size: 12px;
+}
+
+@media (max-width: 1280px) {
+  body:not(.settings-open) .app-shell {
+    grid-template-columns: 288px minmax(0, 1fr);
+  }
+
+  body:not(.settings-open) .hero-panel,
+  body:not(.settings-open) .composer-wrap {
+    width: min(820px, calc(100vw - 360px));
+    max-width: min(820px, calc(100vw - 360px));
+  }
+}
