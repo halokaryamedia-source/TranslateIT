@@ -24,6 +24,7 @@ function classify(evidence) {
   if (!evidence.found) return "not_run";
   if (evidence.ok === true) return "pass";
   if (evidence.stage === "invalid_json") return "invalid_evidence";
+  if (String(evidence.stage ?? "").includes("segment_write")) return "segment_write_failed";
   if (evidence.transcribe_ok === false) return "asr_failed";
   if (evidence.translate_ok === false) return "translation_failed";
   if (evidence.synthesize_ok === false) return "tts_failed";
@@ -36,7 +37,7 @@ function main() {
   const evidence = readEvidence();
   const classification = classify(evidence);
   const report = {
-    schema: "translateit.voice_capture_evidence_report.v1",
+    schema: "translateit.voice_capture_evidence_report.v2",
     generated_at: new Date().toISOString(),
     evidence_path: evidencePath,
     ok: evidence.ok === true,
@@ -46,6 +47,12 @@ function main() {
       age_ms: evidence.age_ms ?? null,
       stage: evidence.stage ?? "unknown",
       blocker: evidence.blocker ?? "",
+      worker_script: evidence.worker_script ?? "",
+      worker_preferred_accelerated: evidence.worker_preferred_accelerated ?? null,
+      worker_fallback_standard: evidence.worker_fallback_standard ?? null,
+      segment_write_ok: evidence.segment_write_ok ?? null,
+      segment_duration_ms: evidence.segment_duration_ms ?? null,
+      segment_sample_count: evidence.segment_sample_count ?? null,
       transcribe_ok: evidence.transcribe_ok ?? null,
       translate_ok: evidence.translate_ok ?? null,
       synthesize_ok: evidence.synthesize_ok ?? null,
@@ -75,7 +82,9 @@ function main() {
       ? "No mic stop evidence has been generated yet. Run a manual mic test after the app is open."
       : classification === "pass"
         ? "The latest mic capture pipeline completed through ASR, translation, and TTS."
-        : "The latest mic capture pipeline needs attention. Read blocker and stage fields first.",
+        : classification === "segment_write_failed"
+          ? "The latest mic capture stopped before ASR because the target WAV segment was not ready. Read blocker, duration, and sample count first."
+          : "The latest mic capture pipeline needs attention. Read blocker and stage fields first.",
   ].join("\n");
   writeFileSync(latestJson, JSON.stringify(report, null, 2));
   writeFileSync(latestMd, md);
