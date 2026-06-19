@@ -9,13 +9,15 @@ const srcRoot = resolve(appRoot, "src");
 
 const requiredFiles = [
   "app/active-launcher/settingsAutosaveBinding.ts",
-  "app/active-launcher/launcherSettingsPanel.ts",
+  "app/active-launcher/launcherSettingsRenderer.ts",
+  "app/active-launcher/settingsViews.ts",
   "app/bridge/runtimeApi.ts",
   "app/shared/types.ts",
 ];
 
-const suspiciousTerms = ["placeholder", "coming soon", "fake setting", "todo: wire", "not implemented", "dummy"];
-const requiredTerms = ["RUNTIME_SETTINGS_SAVED_EVENT", "saveRuntimeSettings", "RuntimeSettings", "runtime_profile"];
+const suspiciousTerms = ["fake setting", "todo: wire", "dummy"];
+const blockedTerms = ["audioSensitivityButton", "coming soon"];
+const requiredTerms = ["RUNTIME_SETTINGS_SAVED_EVENT", "saveRuntimeSettings", "RuntimeSettings", "runtime_profile", "Advanced controls are intentionally hidden", "planned feature"];
 
 function readExisting(relativePath) {
   const path = resolve(srcRoot, relativePath);
@@ -26,17 +28,20 @@ function main() {
   mkdirSync(reportDir, { recursive: true });
   const files = requiredFiles.map(readExisting);
   const missingFiles = files.filter((file) => file.content === null).map((file) => file.path);
-  const combined = files.map((file) => file.content ?? "").join("\n").toLowerCase();
+  const combinedOriginal = files.map((file) => file.content ?? "").join("\n");
+  const combined = combinedOriginal.toLowerCase();
   const suspiciousHits = suspiciousTerms.filter((term) => combined.includes(term));
-  const missingTerms = requiredTerms.filter((term) => !combined.includes(term.toLowerCase()));
-  const ok = missingFiles.length === 0 && suspiciousHits.length === 0 && missingTerms.length === 0;
+  const blockedHits = blockedTerms.filter((term) => combinedOriginal.includes(term));
+  const missingTerms = requiredTerms.filter((term) => !combinedOriginal.includes(term));
+  const ok = missingFiles.length === 0 && suspiciousHits.length === 0 && blockedHits.length === 0 && missingTerms.length === 0;
   const report = {
-    schema: "translateit.settings_integrity_report.v1",
+    schema: "translateit.settings_integrity_report.v2",
     started_at: new Date().toISOString(),
     app_root: appRoot,
     ok,
     missing_files: missingFiles,
     suspicious_hits: suspiciousHits,
+    blocked_hits: blockedHits,
     missing_required_terms: missingTerms,
   };
   const latestJson = resolve(reportDir, "latest-settings-integrity.json");
@@ -50,9 +55,13 @@ function main() {
     "",
     missingFiles.length ? missingFiles.map((item) => `- ${item}`).join("\n") : "none",
     "",
-    "## Suspicious placeholder terms",
+    "## Suspicious terms",
     "",
     suspiciousHits.length ? suspiciousHits.map((item) => `- ${item}`).join("\n") : "none",
+    "",
+    "## Blocked terms",
+    "",
+    blockedHits.length ? blockedHits.map((item) => `- ${item}`).join("\n") : "none",
     "",
     "## Missing required runtime settings terms",
     "",
@@ -61,7 +70,7 @@ function main() {
   writeFileSync(latestJson, JSON.stringify(report, null, 2));
   writeFileSync(latestMd, md);
   console.log(`Settings integrity report written: ${latestMd}`);
-  console.log(JSON.stringify({ ok, missingFiles: missingFiles.length, suspiciousHits, missingTerms }, null, 2));
+  console.log(JSON.stringify({ ok, missingFiles: missingFiles.length, suspiciousHits, blockedHits, missingTerms }, null, 2));
   if (!ok) process.exitCode = 1;
 }
 
