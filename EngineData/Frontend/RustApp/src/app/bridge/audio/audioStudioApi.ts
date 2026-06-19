@@ -3,8 +3,8 @@ import {
   type AudioStudioCommandState,
   type AudioStudioTakeSource,
   type AudioStudioTakeState,
-} from "../shared/audioStudioTypes";
-import { runCommand } from "../shared/tauriBridge";
+} from "../../shared/audioStudioTypes";
+import { runCommand } from "../../shared/tauriBridge";
 
 export type AudioStudioTakeRequest = {
   take_id?: string | null;
@@ -78,12 +78,12 @@ function normalizeTakeRecord(value: unknown): AudioStudioTakeRecord | null {
   const record = value as Partial<AudioStudioTakeRecord>;
   if (typeof record.take_id !== "string" || typeof record.title !== "string" || typeof record.detail !== "string") return null;
   if (record.source !== "import" && record.source !== "guided_reading") return null;
-  if (!["draft", "staged", "accepted", "needs_retry", "blocked"].includes(String(record.state))) return null;
+  if (record.state !== "draft" && record.state !== "ready" && record.state !== "archived") return null;
   return {
     schema_version: typeof record.schema_version === "number" ? record.schema_version : 1,
     take_id: record.take_id,
     source: record.source,
-    state: record.state as AudioStudioTakeState,
+    state: record.state,
     title: record.title,
     detail: record.detail,
     file_name: optionalString(record.file_name),
@@ -94,31 +94,26 @@ function normalizeTakeRecord(value: unknown): AudioStudioTakeRecord | null {
   };
 }
 
-function normalizeTakeListResult(result: RawAudioStudioTakeListResult): AudioStudioTakeListResult | null {
+export async function importAudioStudioTake(request: AudioStudioTakeRequest): Promise<AudioStudioCommandResult | null> {
+  return normalizeCommandResult(await runCommand<RawAudioStudioCommandResult>("audio_studio_import_take", { request }).catch(() => null));
+}
+
+export async function stageGuidedAudioStudioTake(request: AudioStudioTakeRequest): Promise<AudioStudioCommandResult | null> {
+  return normalizeCommandResult(await runCommand<RawAudioStudioCommandResult>("audio_studio_stage_guided_take", { request }).catch(() => null));
+}
+
+export async function updateAudioStudioTakeState(request: AudioStudioStateUpdateRequest): Promise<AudioStudioCommandResult | null> {
+  return normalizeCommandResult(await runCommand<RawAudioStudioCommandResult>("audio_studio_update_take_state", { request }).catch(() => null));
+}
+
+export async function listAudioStudioTakes(): Promise<AudioStudioTakeListResult | null> {
+  const result = await runCommand<RawAudioStudioTakeListResult>("audio_studio_list_takes").catch(() => null);
   const command = normalizeCommandResult(result);
   if (!command) return null;
-  const takes = Array.isArray(result?.takes)
-    ? result.takes.map(normalizeTakeRecord).filter((take): take is AudioStudioTakeRecord => take !== null)
-    : [];
+  const takes = Array.isArray(result?.takes) ? result.takes.map(normalizeTakeRecord).filter((take): take is AudioStudioTakeRecord => Boolean(take)) : [];
   return { ...command, takes };
 }
 
-async function runAudioStudioCommand(name: string, args?: Record<string, unknown>): Promise<AudioStudioCommandResult | null> {
-  const result = await runCommand<RawAudioStudioCommandResult>(name, args);
-  return normalizeCommandResult(result);
+export async function exportAudioStudioProjectMetadata(): Promise<AudioStudioCommandResult | null> {
+  return normalizeCommandResult(await runCommand<RawAudioStudioCommandResult>("audio_studio_export_project_metadata").catch(() => null));
 }
-
-async function runAudioStudioTakeListCommand(): Promise<AudioStudioTakeListResult | null> {
-  const result = await runCommand<RawAudioStudioTakeListResult>("audio_studio_list_takes");
-  return normalizeTakeListResult(result);
-}
-
-export const audioStudioApi = {
-  getProviderStatus: () => runAudioStudioCommand("audio_studio_get_provider_status"),
-  getQualityGateStatus: () => runAudioStudioCommand("audio_studio_get_quality_gate_status"),
-  importTake: (request: AudioStudioTakeRequest) => runAudioStudioCommand("audio_studio_import_take", { request }),
-  stageGuidedTake: (request: AudioStudioTakeRequest) => runAudioStudioCommand("audio_studio_stage_guided_take", { request }),
-  updateTakeState: (request: AudioStudioStateUpdateRequest) => runAudioStudioCommand("audio_studio_update_take_state", { request }),
-  listTakes: () => runAudioStudioTakeListCommand(),
-  exportProjectMetadata: () => runAudioStudioCommand("audio_studio_export_project_metadata"),
-};
