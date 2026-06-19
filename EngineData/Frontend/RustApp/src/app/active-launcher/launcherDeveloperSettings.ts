@@ -1,13 +1,13 @@
 import { percentText } from "../shared/state";
-import type { HelperBridgeStatus, ModelInventoryReport, RuntimeDiagnostics, RuntimeStatusBundleReport } from "../shared/types";
+import type { GpuPolicyReport, HardwareUsageReport, HelperBridgeStatus, ModelInventoryReport, RuntimeDiagnostics, RuntimeStatusBundleReport } from "../shared/types";
 import { buildDeveloperLogRows } from "./launcherDeveloperLog";
 import { developerSettingsView } from "./settingsViews";
 
 export function renderDeveloperSettingsView(args: {
   latestBundle: RuntimeStatusBundleReport | null;
   latestDiagnostics: RuntimeDiagnostics | null;
-  latestHardware: { cpu?: string | number | null; ram?: string | number | null; gpu?: string | number | null; note?: string } | null;
-  latestGpuPolicy: { gpu_primary?: boolean; cuda_available?: boolean; status: string } | null;
+  latestHardware: HardwareUsageReport | null;
+  latestGpuPolicy: GpuPolicyReport | null;
   latestHelperBridgeStatus: HelperBridgeStatus | null;
   logsExpanded: boolean;
   latestModelInventory: ModelInventoryReport | null;
@@ -19,7 +19,7 @@ export function renderDeveloperSettingsView(args: {
   const ram = percentText(args.latestHardware?.ram);
   const gpu = percentText(args.latestHardware?.gpu);
   const gpuStatus = args.latestGpuPolicy
-    ? `${args.latestGpuPolicy.gpu_primary ? "GPU primary" : "CPU fallback"}; CUDA=${args.latestGpuPolicy.cuda_available}; status=${args.latestGpuPolicy.status}`
+    ? `GPU=${args.latestGpuPolicy.gpu_primary}; CUDA=${args.latestGpuPolicy.cuda_available}; status=${args.latestGpuPolicy.status}`
     : args.latestDiagnostics?.cuda_probe.gpu_summary ?? "GPU status unavailable";
   const logRows = buildDeveloperLogRows({
     runtimeLoaded: Boolean(args.latestBundle),
