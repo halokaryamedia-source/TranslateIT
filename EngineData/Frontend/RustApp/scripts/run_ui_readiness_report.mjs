@@ -9,7 +9,11 @@ const srcRoot = resolve(appRoot, "src");
 
 const checks = [
   { name: "main entry", path: "main.ts", mustContain: ["new LauncherController", "startStartupReadiness"] },
+  { name: "ui comfort layer import", path: "main.ts", mustContain: ["./uiComfortLayout.css"] },
   { name: "text input submit", path: "app/active-launcher/launcherEventBindings.ts", mustContain: ["submitText", "event.key === \"Enter\""] },
+  { name: "home shell comfort copy", path: "app/active-launcher/shell.ts", mustContain: ["What do you want to translate?", "Type text to translate...", "Press Enter to translate text", "nav-item--secondary", "assistant-action--advanced"] },
+  { name: "ui comfort layout", path: "uiComfortLayout.css", mustContain: ["--comfort-sidebar-width", "--comfort-content-width", "progressive disclosure", "body:not(.settings-open) .composer-wrap"] },
+  { name: "ui library factory", path: "app/active-launcher/uiPageFactory.ts", mustContain: ["settingsPage", "settingsCard", "settingsField", "primaryButton", "statusBadge"] },
   { name: "runtime readiness guard", path: "app/active-launcher/runtimeReadinessUiGuard.ts", mustContain: ["Setup needed", "MutationObserver"] },
   { name: "settings autosave", path: "app/active-launcher/settingsAutosaveBinding.ts", mustContain: ["RUNTIME_SETTINGS_SAVED_EVENT"] },
   { name: "developer diagnostics", path: "app/active-launcher/developerEvidenceBinding.ts", mustContain: ["Developer", "Evidence"] },
@@ -45,7 +49,7 @@ function main() {
     failed: results.filter((result) => !result.ok).map((result) => result.name),
     checked: results.length,
   };
-  const report = { schema: "translateit.ui_readiness_report.v3", started_at: startedAt, app_root: appRoot, results, summary };
+  const report = { schema: "translateit.ui_readiness_report.v4", started_at: startedAt, app_root: appRoot, results, summary };
   const latestJson = resolve(reportDir, "latest-ui-readiness.json");
   const latestMd = resolve(reportDir, "latest-ui-readiness.md");
   const md = [
