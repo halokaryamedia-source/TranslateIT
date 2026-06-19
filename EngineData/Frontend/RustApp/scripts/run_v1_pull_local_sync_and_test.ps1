@@ -1,6 +1,6 @@
 param(
   [switch]$SkipInstall,
-  [switch]$SkipRuntimeReport,
+  [switch]$SkipReports,
   [switch]$OpenReport
 )
 
@@ -15,7 +15,9 @@ function Step($Message) {
 $ScriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
 $AppRoot = Resolve-Path (Join-Path $ScriptDir "..")
 $RepoRoot = Resolve-Path (Join-Path $AppRoot "..\..\..")
-$ReportPath = Join-Path $RepoRoot "UserData\LogData\RuntimeTestReports\latest-runtime-test.md"
+$RuntimeReportPath = Join-Path $RepoRoot "UserData\LogData\RuntimeTestReports\latest-runtime-test.md"
+$VoiceReportPath = Join-Path $RepoRoot "UserData\LogData\RuntimeTestReports\latest-voice-preflight.md"
+$UiReportPath = Join-Path $RepoRoot "UserData\LogData\RuntimeTestReports\latest-ui-readiness.md"
 $LogDir = Join-Path $RepoRoot "UserData\LogData\Automation"
 New-Item -ItemType Directory -Force -Path $LogDir | Out-Null
 $Stamp = Get-Date -Format "yyyyMMdd-HHmmss"
@@ -39,22 +41,24 @@ try {
     npm.cmd install
   }
 
-  Step "Quick validation"
-  npm.cmd run validate:quick
-
-  if (-not $SkipRuntimeReport) {
-    Step "Runtime report"
-    npm.cmd run test:runtime-report
+  if ($SkipReports) {
+    Step "Quick validation"
+    npm.cmd run validate:quick
+  } else {
+    Step "Professional local final reports"
+    npm.cmd run test:local-final
   }
 
   Step "Done"
   Write-Host "Branch: $TargetBranch" -ForegroundColor Green
   Write-Host "Automation log: $LogPath" -ForegroundColor Green
-  if (Test-Path $ReportPath) {
-    Write-Host "Runtime report: $ReportPath" -ForegroundColor Green
-    if ($OpenReport) {
-      notepad $ReportPath
+  foreach ($ReportPath in @($RuntimeReportPath, $VoiceReportPath, $UiReportPath)) {
+    if (Test-Path $ReportPath) {
+      Write-Host "Report: $ReportPath" -ForegroundColor Green
     }
+  }
+  if ($OpenReport -and (Test-Path $RuntimeReportPath)) {
+    notepad $RuntimeReportPath
   }
 } catch {
   Write-Host ""
