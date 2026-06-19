@@ -8,8 +8,10 @@ const reportDir = resolve(repoRoot, "UserData", "LogData", "RuntimeTestReports")
 
 const reportFiles = {
   runtime: "latest-runtime-test.json",
-  voice: "latest-voice-preflight.json",
+  voice_preflight: "latest-voice-preflight.json",
+  voice_capture_evidence: "latest-voice-capture-evidence.json",
   ui: "latest-ui-readiness.json",
+  ui_binding: "latest-ui-binding-consistency.json",
   settings: "latest-settings-integrity.json",
 };
 
@@ -27,33 +29,56 @@ function runtimeGate(report) {
   const summary = report.data?.summary ?? {};
   return {
     ok: Boolean(summary.worker_alive && summary.status_ok && summary.realtime_translation_ok && summary.quality_translation_ok && summary.tts_ok),
+    advisory: false,
     detail: `worker=${summary.worker_alive}; realtime=${summary.realtime_translation_ok}; quality=${summary.quality_translation_ok}; tts=${summary.tts_ok}; device=${summary.selected_translation_device ?? "unknown"}; blocker=${summary.blocker || "none"}`,
   };
 }
 
-function voiceGate(report) {
+function voicePreflightGate(report) {
   const summary = report.data?.summary ?? {};
   return {
     ok: Boolean(summary.worker_ok && summary.tts_ready),
+    advisory: false,
     detail: `worker=${summary.worker_ok}; asr=${summary.asr_ready}; tts=${summary.tts_ready}; device=${summary.asr_device ?? "unknown"}; blocker=${summary.blocker || "none"}`,
+  };
+}
+
+function voiceCaptureEvidenceGate(report) {
+  if (!report.ok || report.missing) {
+    return { ok: true, advisory: true, detail: `manual mic evidence not generated yet; ${report.missing ? `missing ${report.path}` : report.error}` };
+  }
+  const classification = report.data?.classification ?? "unknown";
+  const summary = report.data?.evidence_summary ?? {};
+  const pass = report.data?.ok === true;
+  const notRun = classification === "not_run";
+  return {
+    ok: pass || notRun,
+    advisory: notRun,
+    detail: `classification=${classification}; stage=${summary.stage ?? "unknown"}; blocker=${summary.blocker || "none"}; transcript_chars=${summary.transcript_chars ?? "n/a"}; translated_chars=${summary.translated_chars ?? "n/a"}`,
   };
 }
 
 function genericGate(report, label) {
   const summary = report.data?.summary;
   const ok = typeof report.data?.ok === "boolean" ? report.data.ok : Boolean(summary?.ok);
-  return { ok, detail: `${label}=${ok}; failed=${summary?.failed?.join?.(", ") ?? "none"}` };
+  return { ok, advisory: false, detail: `${label}=${ok}; failed=${summary?.failed?.join?.(", ") ?? "none"}` };
 }
 
 function gateFor(key, report) {
-  if (!report.ok || report.missing) return { ok: false, detail: report.missing ? `missing ${report.path}` : `invalid ${report.path}: ${report.error}` };
+  if (key === "voice_capture_evidence") return voiceCaptureEvidenceGate(report);
+  if (!report.ok || report.missing) return { ok: false, advisory: false, detail: report.missing ? `missing ${report.path}` : `invalid ${report.path}: ${report.error}` };
   if (key === "runtime") return runtimeGate(report);
-  if (key === "voice") return voiceGate(report);
+  if (key === "voice_preflight") return voicePreflightGate(report);
   return genericGate(report, key);
 }
 
+function statusText(gate) {
+  if (gate.ok && gate.advisory) return "ADVISORY";
+  return gate.ok ? "PASS" : "NEEDS ATTENTION";
+}
+
 function row(key, gate) {
-  return `| ${key} | ${gate.ok ? "PASS" : "NEEDS ATTENTION"} | ${gate.detail} |`;
+  return `| ${key} | ${statusText(gate)} | ${gate.detail} |`;
 }
 
 function main() {
@@ -62,7 +87,7 @@ function main() {
   const gates = Object.fromEntries(Object.entries(reports).map(([key, report]) => [key, gateFor(key, report)]));
   const ok = Object.values(gates).every((gate) => gate.ok);
   const finalReport = {
-    schema: "translateit.professional_gate_report.v1",
+    schema: "translateit.professional_gate_report.v2",
     generated_at: new Date().toISOString(),
     app_root: appRoot,
     ok,
@@ -83,7 +108,7 @@ function main() {
     "",
     "## Release guidance",
     "",
-    ok ? "V1-Pull is eligible for deeper manual UI review before merging to V1." : "Do not merge V1-Pull to V1 yet. Fix the gates marked NEEDS ATTENTION first.",
+    ok ? "V1-Pull is eligible for deeper manual UI review before merging to V1. Advisory gates may still require manual mic evidence." : "Do not merge V1-Pull to V1 yet. Fix the gates marked NEEDS ATTENTION first.",
   ].join("\n");
   writeFileSync(latestJson, JSON.stringify(finalReport, null, 2));
   writeFileSync(latestMd, md);
