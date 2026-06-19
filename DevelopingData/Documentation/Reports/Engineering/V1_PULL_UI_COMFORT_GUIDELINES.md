@@ -1,64 +1,52 @@
-# TranslateIT V1-Pull UI Comfort Guidelines
+# TranslateIT V1-Pull Locked UI Reference Guidelines
 
-Status: active guideline for `V1-Pull` launcher stabilization.
+Status: active locked UI guideline for `V1-Pull` launcher stabilization.
 Scope: `EngineData/Frontend/RustApp` active launcher UI.
 
-## Product intent
+## Non-negotiable visual direction
 
-TranslateIT should feel like a familiar desktop chat/translation app, not a developer console. The default path must be obvious for new users:
+The launcher UI must follow the uploaded locked reference set:
 
-1. type text;
-2. press Enter or Send;
-3. see the translation result;
-4. use microphone only when the user intentionally wants voice input;
-5. open Settings only when changing behavior or checking runtime state.
+- Main Page: `v28`
+- Audio Settings: `v22`
+- Translate Settings: `v14`
+- Developer Settings: `v37`
 
-## Layout rules
+Do not use Main Page `v29`. It was rejected.
 
-- Keep the left sidebar compact. The sidebar should guide navigation, not dominate the screen.
-- Keep the main workspace centered and predictable.
-- Keep the composer near the bottom, like common chat applications.
-- Keep the first screen focused on two primary tasks: Text translation and Voice translation.
-- Avoid forcing users to understand helper/provider/GPU terminology on the home screen.
-- Place advanced runtime diagnostics behind Settings > Developer or visually down-rank them.
+## Hard rule
 
-## Copy rules
+Do not introduce a new visual direction unless the user explicitly approves a new reference. The UI must stay aligned to the locked screenshots, including:
 
-- Prefer user-facing labels: `Translate`, `New translation`, `Check mic`, `Voice translation`.
-- Avoid vague labels such as `Ask anything` because this app is specifically for translation.
-- Avoid exposing engineering labels as primary actions unless the action is in Developer settings.
-- Error messages must tell the user what to do next.
+- left sidebar width and spacing;
+- topbar height and placement;
+- centered hero layout;
+- feature card size and gap;
+- bottom composer width and position;
+- settings sidebar and content width;
+- card grid spacing;
+- advanced settings sections;
+- developer monitoring and diagnostic card structure.
 
-## Control hierarchy
+## Code structure rule
 
-Primary controls:
+The locked reference implementation must stay structural and maintainable. Do not force the UI with fragile one-off positioning hacks.
 
-- Text input composer
-- Send / translate text
-- Microphone start/stop
-- Check mic
-- Settings
+The active layering should remain:
 
-Secondary controls:
+1. `styles.css` for base tokens and shared primitives;
+2. `professionalUi.css` for result cards, badges, focus state, and diagnostics;
+3. `referenceLayout.css` for shared locked reference tokens and template layout;
+4. `mainPageLayout.css` for Main Page v28;
+5. `audioSettingsLayout.css` for Audio Settings v22;
+6. `translateSettingsLayout.css` for Translate Settings v14;
+7. `developerSettingsLayout.css` for Developer Settings v37.
 
-- Recent chats
-- Drafts
-- Saved chats
-- Local files
-- Worker status
+Do not add a new final override layer such as `uiComfortLayout.css` unless the user approves a new reference.
 
-Advanced controls:
+## UI library rule
 
-- Developer diagnostics
-- Helper bridge details
-- Evidence reports
-- GPU/provider details
-
-Advanced controls may remain accessible, but they must not visually compete with the main translation workflow.
-
-## UI library usage
-
-Settings pages should continue using `uiPageFactory.ts` primitives:
+Settings pages must continue using `uiPageFactory.ts` primitives:
 
 - `settingsPage`
 - `settingsSection`
@@ -67,18 +55,36 @@ Settings pages should continue using `uiPageFactory.ts` primitives:
 - `settingsField`
 - `primaryButton`
 - `statusBadge`
+- `radioOption`
+- `selectButton`
+- `outputRow`
 
-Home layout comfort is controlled through `uiComfortLayout.css`, imported after the baseline/reference CSS layers. This keeps the approved UI baseline intact while allowing user-comfort improvements as the final override layer.
+This keeps settings layout reusable and prevents duplicated card/button markup.
 
-## Validation gates
+## Main Page v28 shell copy
 
-`run_ui_readiness_report.mjs` must check:
+The main shell must preserve the locked reference language:
 
-- `uiComfortLayout.css` is imported;
-- home shell copy is translation-specific;
-- advanced actions are visually down-ranked;
-- UI factory primitives remain present;
-- Enter-to-send remains wired;
-- runtime readiness guard remains wired.
+- `Voice translation`
+- `Speak Indonesian. Get translated English voice output.`
+- `Local-first voice translation`
+- `How can I help translate today?`
+- `Type a message, or press the microphone button on the right to record speech locally.`
+- `Text input`
+- `Voice input`
+- composer placeholder: `Ask anything...`
 
-Do not mark UI as final if the home screen again becomes developer-heavy or exposes placeholder controls as primary actions.
+## Validation gate
+
+`run_ui_readiness_report.mjs` must fail when:
+
+- the locked CSS reference modules are not imported;
+- `uiComfortLayout.css` or another unapproved override is imported;
+- Main v28 shell copy drifts;
+- `referenceLayout.css` no longer declares Main v28 + Audio v22 + Translate v14 + Developer v37;
+- settings pages stop using UI factory primitives;
+- Enter-to-send is no longer wired.
+
+## User review rule
+
+Do not claim final UI quality based on generated mock images. The next review must be based on the uploaded reference screenshots or a real app screenshot after the user chooses to run the app locally.
