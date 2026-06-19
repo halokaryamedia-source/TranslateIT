@@ -54,7 +54,6 @@
     "gpu:check": "node scripts/check_cuda_runtime.mjs",
     "gpu:setup-torch-cuda": "powershell -NoProfile -ExecutionPolicy Bypass -File ../../Backend/LocalWorker/WorkerRuntime/setup_pytorch_cuda.ps1",
     "gpu:setup-torch-cuda:apply": "powershell -NoProfile -ExecutionPolicy Bypass -File ../../Backend/LocalWorker/WorkerRuntime/setup_pytorch_cuda.ps1 -Apply",
-    "validate:settings-navigation": "node scripts/validate_settings_navigation.mjs",
     "validate:route-visibility": "node scripts/validate_route_visibility_css.mjs",
     "validate:ui-buttons": "node scripts/validate_ui_buttons.mjs",
     "validate:user-flow": "node scripts/validate_user_flow_trace.mjs",
