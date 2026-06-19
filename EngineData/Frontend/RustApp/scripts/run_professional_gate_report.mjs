@@ -16,6 +16,7 @@ const reportFiles = {
   voice_preflight: "latest-voice-preflight.json",
   voice_capture_evidence: "latest-voice-capture-evidence.json",
   ui: "latest-ui-readiness.json",
+  ui_reference_extension: "latest-ui-reference-extension.json",
   ui_binding: "latest-ui-binding-consistency.json",
   action_binding: "latest-action-binding.json",
   settings: "latest-settings-integrity.json",
@@ -112,7 +113,7 @@ function main() {
   const gates = Object.fromEntries(Object.entries(reports).map(([key, report]) => [key, gateFor(key, report)]));
   const ok = Object.values(gates).every((gate) => gate.ok);
   const finalReport = {
-    schema: "translateit.professional_gate_report.v3",
+    schema: "translateit.professional_gate_report.v4",
     generated_at: new Date().toISOString(),
     app_root: appRoot,
     ok,
