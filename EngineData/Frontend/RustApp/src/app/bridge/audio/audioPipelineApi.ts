@@ -1,4 +1,4 @@
-import { runCommand } from "../shared/tauriBridge";
+import { runCommand } from "../../shared/tauriBridge";
 
 type TranslationEvidence = {
   direction_pair?: string;
