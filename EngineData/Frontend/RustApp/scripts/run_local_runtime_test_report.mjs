@@ -5,7 +5,10 @@ import { fileURLToPath } from "node:url";
 
 const appRoot = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const repoRoot = resolve(appRoot, "..", "..", "..");
-const workerPath = resolve(repoRoot, "EngineData", "Backend", "LocalWorker", "WorkerRuntime", "realtime_local_worker.py");
+const workerRoot = resolve(repoRoot, "EngineData", "Backend", "LocalWorker", "WorkerRuntime");
+const acceleratedWorkerPath = resolve(workerRoot, "realtime_local_worker_accelerated.py");
+const standardWorkerPath = resolve(workerRoot, "realtime_local_worker.py");
+const workerPath = existsSync(acceleratedWorkerPath) ? acceleratedWorkerPath : standardWorkerPath;
 const reportDir = resolve(repoRoot, "UserData", "LogData", "RuntimeTestReports");
 const timeoutMs = Number(process.env.TRANSLATEIT_TEST_TIMEOUT_MS ?? 120000);
 
@@ -81,11 +84,12 @@ async function main() {
   const tts = await runWorker({ command: "synthesize", text: "Translation test complete." }, 60000);
   const finishedAt = nowIso();
   const report = {
-    schema: "translateit.local_runtime_test_report.v1",
+    schema: "translateit.local_runtime_test_report.v2",
     started_at: startedAt,
     finished_at: finishedAt,
     repo_root: repoRoot,
     worker_path: workerPath,
+    accelerated_worker_used: workerPath === acceleratedWorkerPath,
     results: { ping, status, translation_realtime: translationRealtime, translation_quality: translationQuality, translation_reverse: translationReverse, tts },
     summary: {
       worker_alive: pass(ping),
@@ -97,6 +101,8 @@ async function main() {
       selected_translation_device: status?.selected_translation_device ?? translationRealtime?.device ?? "unknown",
       torch_cuda_available: status?.torch_cuda_available ?? false,
       ctranslate2_cuda_available: status?.ctranslate2_cuda_available ?? false,
+      ct2_translation_model_ready: status?.ct2_translation_model_ready ?? false,
+      translation_acceleration: status?.translation_acceleration ?? translationRealtime?.device_note ?? "unknown",
       blocker: [ping, status, translationRealtime, translationQuality, translationReverse, tts].map((item) => item?.blocker).filter(Boolean).join(" | "),
     },
   };
@@ -111,6 +117,7 @@ async function main() {
     `Started: ${startedAt}`,
     `Finished: ${finishedAt}`,
     `Worker: ${workerPath}`,
+    `Accelerated worker used: ${report.accelerated_worker_used}`,
     "",
     "| Scenario | Result |",
     "|---|---|",
@@ -126,14 +133,17 @@ async function main() {
     `- Selected translation device: ${report.summary.selected_translation_device}`,
     `- Torch CUDA available: ${report.summary.torch_cuda_available}`,
     `- CTranslate2 CUDA available: ${report.summary.ctranslate2_cuda_available}`,
+    `- CTranslate2 translation model ready: ${report.summary.ct2_translation_model_ready}`,
+    `- Translation acceleration: ${report.summary.translation_acceleration}`,
     `- Blocker: ${report.summary.blocker || "none"}`,
     "",
     "## Next manual checks",
     "",
-    "1. Open the app with `npm.cmd run dev`.",
-    "2. Confirm status pill matches this report.",
-    "3. Test mic click-toggle for at least 2 seconds before stopping.",
-    "4. Read latest audio evidence from `UserData/LogData/RustAppValidation/latest_audio_pipeline_evidence.json` if voice fails.",
+    "1. If CTranslate2 translation model is false, run `npm.cmd run setup:translation-ct2` once.",
+    "2. Run `npm.cmd run test:runtime-report` again.",
+    "3. Open the app with `npm.cmd run dev`.",
+    "4. Test mic click-toggle for at least 2 seconds before stopping.",
+    "5. Read latest audio evidence from `UserData/LogData/RustAppValidation/latest_audio_pipeline_evidence.json` if voice fails.",
   ].join("\n");
   writeFileSync(jsonPath, JSON.stringify(report, null, 2));
   writeFileSync(latestJsonPath, JSON.stringify(report, null, 2));
