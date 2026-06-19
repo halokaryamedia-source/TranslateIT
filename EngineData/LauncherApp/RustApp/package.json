@@ -28,6 +28,7 @@
     "models:inventory": "node scripts/model_inventory.mjs",
     "models:find-existing": "node scripts/find_existing_models.mjs",
     "models:reconcile": "node scripts/reconcile_models.mjs",
+    "models:audit-duplicates": "node scripts/audit_model_duplicates.mjs",
     "models:setup": "node scripts/model_setup.mjs",
     "models:verify": "node scripts/model_verify.mjs",
     "validate:settings-navigation": "node scripts/validate_settings_navigation.mjs",

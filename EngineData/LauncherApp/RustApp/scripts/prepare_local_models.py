@@ -22,7 +22,7 @@ REPOSITORY_ROOT = find_repository_root()
 APP_ROOT = REPOSITORY_ROOT / "EngineData" / "LauncherApp" / "RustApp"
 CACHE_ROOT = REPOSITORY_ROOT / "DevelopingData" / "ToolKitData" / "ModelCache"
 HF_HOME = CACHE_ROOT / "HuggingFaceHome"
-REPORT_PATH = APP_ROOT / "MODEL_PREPARATION_REPORT.json"
+REPORT_PATH = REPOSITORY_ROOT / "UserData" / "CacheData" / "validation" / "MODEL_PREPARATION_REPORT.json"
 
 os.environ["HF_HOME"] = str(HF_HOME)
 os.environ["TRANSFORMERS_CACHE"] = str(HF_HOME)

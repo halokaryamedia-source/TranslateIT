@@ -24,7 +24,7 @@ ROOT = find_repository_root()
 APP_ROOT = ROOT / "EngineData" / "LauncherApp" / "RustApp"
 HF_HOME = ROOT / "DevelopingData" / "ToolKitData" / "ModelCache" / "HuggingFaceHome"
 MANIFEST_PATH = APP_ROOT / "MODEL_RUNTIME_MANIFEST.json"
-VALIDATION_PATH = APP_ROOT / "MODEL_VALIDATION_REPORT.json"
+VALIDATION_PATH = ROOT / "UserData" / "CacheData" / "validation" / "MODEL_VALIDATION_REPORT.json"
 
 ASR_PRIMARY = ROOT / "EngineData" / "TranscriptEngine" / "ModelData" / "faster-whisper-large-v3-turbo"
 ASR_BACKUP = ROOT / "EngineData" / "TranscriptEngine" / "ModelData" / "faster-whisper-medium"
