@@ -1,6 +1,6 @@
 # Active Documentation Index
 
-Branch: `V1` / cleanup branch `audit/v1-safe-structure-cleanup`
+Branch: `V1` / cleanup branch `cleanup/v1-phase-1-to-5-safe`
 
 ## Purpose
 
@@ -38,10 +38,12 @@ Read these in order:
 
 ## V1 cleanup/audit documents
 
-These documents are active for cleanup planning only. They do not claim runtime readiness and do not authorize destructive file movement by themselves.
+These documents are active for cleanup planning only. They do not claim runtime readiness and do not authorize structural runtime changes by themselves.
 
 1. `DevelopingData/Documentation/Reports/Engineering/V1_STRUCTURE_AUDIT_AND_REPAIR_PLAN.md`
 2. `DevelopingData/Documentation/Reports/Engineering/V1_ACTIVE_FILE_OWNERSHIP_MAP.md`
+3. `DevelopingData/Documentation/Reports/Engineering/V1_LEGACY_ARCHIVE_GATE.md`
+4. `DevelopingData/Documentation/Reports/Engineering/V1_PHASE_1_TO_5_COMPLETION_REPORT.md`
 
 ## Current runtime summary
 
