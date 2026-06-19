@@ -7,6 +7,16 @@ const repoRoot = resolve(appRoot, "..", "..", "..");
 const reportDir = resolve(repoRoot, "UserData", "LogData", "RuntimeTestReports");
 const activeLauncherRoot = resolve(appRoot, "src", "app", "active-launcher");
 
+const files = {
+  settingsViews: "settingsViews.ts",
+  launcherSettingsRenderer: "launcherSettingsRenderer.ts",
+  launcherController: "launcherController.ts",
+  directVoiceCaptureBinding: "directVoiceCaptureBinding.ts",
+  developerHelperBridgeBinding: "developerHelperBridgeBinding.ts",
+  developerEvidenceBinding: "developerEvidenceBinding.ts",
+  settingsAutosaveBinding: "settingsAutosaveBinding.ts",
+};
+
 const actionChecks = [
   {
     name: "helper bridge actions",
@@ -33,15 +43,27 @@ const actionChecks = [
     name: "developer evidence actions",
     viewFile: "settingsViews.ts",
     bindingFile: "developerEvidenceBinding.ts",
-    visibleToken: "developerEvidence",
-    bindingTokens: ["bindDeveloperEvidenceUi"],
-    visibleRequired: false,
+    visibleToken: "Validation evidence status",
+    bindingTokens: ["bindDeveloperEvidenceUi", "getLatestAudioStudioValidationEvidence"],
   },
 ];
+
+const dataActionChecks = [
+  { token: "data-helper-bridge-action", bindingFile: "developerHelperBridgeBinding", bindingToken: "helperTask" },
+  { token: "data-capture-bridge-action", bindingFile: "developerHelperBridgeBinding", bindingToken: "capturePreviewTask" },
+  { token: "data-voice-capture-mode", bindingFile: "directVoiceCaptureBinding", bindingToken: "setVoiceMode" },
+  { token: "data-language-role", bindingFile: "launcherSettingsRenderer", bindingToken: "onSelectLanguage" },
+];
+
+const dataBoundIds = new Set(["voiceModeToggleButton", "voiceModePushToTalkButton"]);
 
 function readActive(file) {
   const path = resolve(activeLauncherRoot, file);
   return { path, content: existsSync(path) ? readFileSync(path, "utf8") : null };
+}
+
+function unique(values) {
+  return Array.from(new Set(values)).sort();
 }
 
 function inspect(check) {
@@ -49,8 +71,7 @@ function inspect(check) {
   const binding = readActive(check.bindingFile);
   const visible = view.content ? view.content.includes(check.visibleToken) : false;
   const bindingMissing = binding.content ? check.bindingTokens.filter((token) => !binding.content.includes(token)) : check.bindingTokens;
-  const visibleOk = check.visibleRequired === false ? true : visible;
-  const ok = Boolean(view.content && binding.content && visibleOk && bindingMissing.length === 0);
+  const ok = Boolean(view.content && binding.content && visible && bindingMissing.length === 0);
   return {
     name: check.name,
     ok,
@@ -58,26 +79,88 @@ function inspect(check) {
     binding_path: binding.path,
     visible_token_found: visible,
     missing_binding_tokens: bindingMissing,
-    blocker: !view.content ? "missing_view_file" : !binding.content ? "missing_binding_file" : !visibleOk ? "visible_token_missing" : bindingMissing.length ? "binding_token_missing" : "",
+    blocker: !view.content ? "missing_view_file" : !binding.content ? "missing_binding_file" : !visible ? "visible_token_missing" : bindingMissing.length ? "binding_token_missing" : "",
   };
 }
 
+function extractVisibleControlIds(settingsViews) {
+  const ids = [];
+  for (const match of settingsViews.matchAll(/id=\\"([A-Za-z0-9_-]+)\\"/g)) ids.push(match[1]);
+  for (const match of settingsViews.matchAll(/primaryButton\("[^"]+", \{ id: "([A-Za-z0-9_-]+)"/g)) ids.push(match[1]);
+  for (const match of settingsViews.matchAll(/factorySelectField\("[^"]+", [^,]+, "[^"]+", "([A-Za-z0-9_-]+)"/g)) ids.push(match[1]);
+  for (const match of settingsViews.matchAll(/radioOption\("([A-Za-z0-9_-]+)"/g)) ids.push(match[1]);
+  return unique(ids);
+}
+
+function extractHashSelectors(content) {
+  const selectors = [];
+  for (const match of content.matchAll(/#[A-Za-z0-9_-]+/g)) selectors.push(match[0].slice(1));
+  return unique(selectors);
+}
+
+function selectorBound(id, combinedBindingSource) {
+  if (dataBoundIds.has(id)) return true;
+  return combinedBindingSource.includes(`#${id}`) || combinedBindingSource.includes(`getElementById("${id}")`) || combinedBindingSource.includes(`getElementById('${id}')`);
+}
+
+function dataActionOk(token, bindingContent, bindingToken) {
+  return bindingContent.includes(token) && bindingContent.includes(bindingToken);
+}
+
 function row(result) {
-  return `| ${result.name} | ${result.ok ? "PASS" : "FAIL"} | ${result.blocker || "none"}${result.missing_binding_tokens.length ? ` / missing: ${result.missing_binding_tokens.join(", ")}` : ""} |`;
+  return `| ${result.name} | ${result.ok ? "PASS" : "FAIL"} | ${result.blocker || "none"}${result.missing_binding_tokens?.length ? ` / missing: ${result.missing_binding_tokens.join(", ")}` : ""} |`;
 }
 
 function main() {
   mkdirSync(reportDir, { recursive: true });
-  const results = actionChecks.map(inspect);
+  const loaded = Object.fromEntries(Object.entries(files).map(([key, file]) => [key, readActive(file)]));
+  const missingFiles = Object.values(loaded).filter((file) => !file.content).map((file) => file.path);
+  const settingsViews = loaded.settingsViews.content ?? "";
+  const bindingSource = Object.entries(loaded)
+    .filter(([key]) => key !== "settingsViews")
+    .map(([, file]) => file.content ?? "")
+    .join("\n");
+
+  const targetedResults = actionChecks.map(inspect);
+  const visibleControlIds = extractVisibleControlIds(settingsViews);
+  const unboundVisibleControlIds = visibleControlIds.filter((id) => !selectorBound(id, bindingSource));
+  const autosaveSelectors = extractHashSelectors(loaded.settingsAutosaveBinding.content ?? "");
+  const autosaveSelectorsMissingInView = autosaveSelectors.filter((id) => !visibleControlIds.includes(id));
+  const dataActionResults = dataActionChecks.map((check) => {
+    const bindingContent = loaded[check.bindingFile]?.content ?? "";
+    const visible = settingsViews.includes(check.token);
+    const bound = dataActionOk(check.token, bindingContent, check.bindingToken);
+    return {
+      name: `data action ${check.token}`,
+      ok: visible && bound,
+      blocker: !visible ? "visible_token_missing" : !bound ? "binding_token_missing" : "",
+      missing_binding_tokens: bound ? [] : [check.bindingToken],
+    };
+  });
+  const fakeControlTerms = ["fake button", "dummy button", "placeholder button", "coming soon"];
+  const fakeControlHits = fakeControlTerms.filter((term) => settingsViews.toLowerCase().includes(term));
   const summary = {
-    ok: results.every((result) => result.ok),
-    failed: results.filter((result) => !result.ok).map((result) => result.name),
+    ok: missingFiles.length === 0 && targetedResults.every((result) => result.ok) && dataActionResults.every((result) => result.ok) && unboundVisibleControlIds.length === 0 && autosaveSelectorsMissingInView.length === 0 && fakeControlHits.length === 0,
+    failed: [
+      ...targetedResults.filter((result) => !result.ok).map((result) => result.name),
+      ...dataActionResults.filter((result) => !result.ok).map((result) => result.name),
+      ...unboundVisibleControlIds.map((id) => `unbound:${id}`),
+      ...autosaveSelectorsMissingInView.map((id) => `autosave-missing:${id}`),
+      ...fakeControlHits.map((term) => `fake-term:${term}`),
+    ],
   };
   const report = {
-    schema: "translateit.action_binding_report.v1",
+    schema: "translateit.action_binding_report.v2",
     generated_at: new Date().toISOString(),
     app_root: appRoot,
-    results,
+    missing_files: missingFiles,
+    targeted_results: targetedResults,
+    data_action_results: dataActionResults,
+    visible_control_ids: visibleControlIds,
+    unbound_visible_control_ids: unboundVisibleControlIds,
+    autosave_selectors: autosaveSelectors,
+    autosave_selectors_missing_in_view: autosaveSelectorsMissingInView,
+    fake_control_hits: fakeControlHits,
     summary,
   };
   const latestJson = resolve(reportDir, "latest-action-binding.json");
@@ -89,7 +172,20 @@ function main() {
     "",
     "| Action area | Result | Detail |",
     "|---|---|---|",
-    ...results.map(row),
+    ...targetedResults.map(row),
+    ...dataActionResults.map(row),
+    "",
+    "## Unbound visible control IDs",
+    "",
+    unboundVisibleControlIds.length ? unboundVisibleControlIds.map((item) => `- ${item}`).join("\n") : "none",
+    "",
+    "## Autosave selectors missing in rendered settings view",
+    "",
+    autosaveSelectorsMissingInView.length ? autosaveSelectorsMissingInView.map((item) => `- ${item}`).join("\n") : "none",
+    "",
+    "## Fake/placeholder control terms",
+    "",
+    fakeControlHits.length ? fakeControlHits.map((item) => `- ${item}`).join("\n") : "none",
   ].join("\n");
   writeFileSync(latestJson, JSON.stringify(report, null, 2));
   writeFileSync(latestMd, md);
