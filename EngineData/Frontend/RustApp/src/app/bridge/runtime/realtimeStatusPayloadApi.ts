@@ -1,5 +1,5 @@
-import { runCommand } from "../shared/tauriBridge";
-import type { RealtimeStatusPayload } from "../shared/types";
+import { runCommand } from "../../shared/tauriBridge";
+import type { RealtimeStatusPayload } from "../../shared/types";
 
 let pendingRealtimeStatusPayload: Promise<RealtimeStatusPayload | null> | null = null;
 
