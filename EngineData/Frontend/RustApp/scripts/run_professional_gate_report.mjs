@@ -7,11 +7,17 @@ const repoRoot = resolve(appRoot, "..", "..", "..");
 const reportDir = resolve(repoRoot, "UserData", "LogData", "RuntimeTestReports");
 
 const reportFiles = {
+  package_scripts: "latest-package-script-integrity.json",
+  frontend_backend_contract: "latest-frontend-backend-contract.json",
+  worker_contract: "latest-worker-contract.json",
+  rust_module_linkage: "latest-rust-module-linkage.json",
+  accelerated_worker_usage: "latest-accelerated-worker-usage.json",
   runtime: "latest-runtime-test.json",
   voice_preflight: "latest-voice-preflight.json",
   voice_capture_evidence: "latest-voice-capture-evidence.json",
   ui: "latest-ui-readiness.json",
   ui_binding: "latest-ui-binding-consistency.json",
+  action_binding: "latest-action-binding.json",
   settings: "latest-settings-integrity.json",
 };
 
@@ -54,14 +60,33 @@ function voiceCaptureEvidenceGate(report) {
   return {
     ok: pass || notRun,
     advisory: notRun,
-    detail: `classification=${classification}; stage=${summary.stage ?? "unknown"}; blocker=${summary.blocker || "none"}; transcript_chars=${summary.transcript_chars ?? "n/a"}; translated_chars=${summary.translated_chars ?? "n/a"}`,
+    detail: `classification=${classification}; stage=${summary.stage ?? "unknown"}; blocker=${summary.blocker || "none"}; worker=${summary.worker_script ?? "unknown"}; transcript_chars=${summary.transcript_chars ?? "n/a"}; translated_chars=${summary.translated_chars ?? "n/a"}`,
   };
 }
 
+function boolFromReportData(data) {
+  if (typeof data?.ok === "boolean") return data.ok;
+  if (typeof data?.summary?.ok === "boolean") return data.summary.ok;
+  if (typeof data?.summary?.passed === "boolean") return data.summary.passed;
+  return false;
+}
+
+function failureSummary(data) {
+  const values = [
+    ...(Array.isArray(data?.summary?.failed) ? data.summary.failed : []),
+    ...(Array.isArray(data?.failed) ? data.failed : []),
+    ...(Array.isArray(data?.missing_backend_commands) ? data.missing_backend_commands : []),
+    ...(Array.isArray(data?.missing_handlers) ? data.missing_handlers : []),
+    ...(Array.isArray(data?.missing_core_handlers) ? data.missing_core_handlers : []),
+    ...(Array.isArray(data?.missing_from_test_local_final) ? data.missing_from_test_local_final : []),
+    ...(Array.isArray(data?.duplicate_script_keys) ? data.duplicate_script_keys : []),
+  ];
+  return values.length ? values.join(", ") : "none";
+}
+
 function genericGate(report, label) {
-  const summary = report.data?.summary;
-  const ok = typeof report.data?.ok === "boolean" ? report.data.ok : Boolean(summary?.ok);
-  return { ok, advisory: false, detail: `${label}=${ok}; failed=${summary?.failed?.join?.(", ") ?? "none"}` };
+  const ok = boolFromReportData(report.data);
+  return { ok, advisory: false, detail: `${label}=${ok}; failed=${failureSummary(report.data)}` };
 }
 
 function gateFor(key, report) {
@@ -87,7 +112,7 @@ function main() {
   const gates = Object.fromEntries(Object.entries(reports).map(([key, report]) => [key, gateFor(key, report)]));
   const ok = Object.values(gates).every((gate) => gate.ok);
   const finalReport = {
-    schema: "translateit.professional_gate_report.v2",
+    schema: "translateit.professional_gate_report.v3",
     generated_at: new Date().toISOString(),
     app_root: appRoot,
     ok,
@@ -108,7 +133,7 @@ function main() {
     "",
     "## Release guidance",
     "",
-    ok ? "V1-Pull is eligible for deeper manual UI review before merging to V1. Advisory gates may still require manual mic evidence." : "Do not merge V1-Pull to V1 yet. Fix the gates marked NEEDS ATTENTION first.",
+    ok ? "V1-Pull is eligible for deeper manual UI review before any manual merge to V1. Advisory gates may still require manual mic evidence." : "Do not merge V1-Pull to V1 yet. Fix the gates marked NEEDS ATTENTION first.",
   ].join("\n");
   writeFileSync(latestJson, JSON.stringify(finalReport, null, 2));
   writeFileSync(latestMd, md);
