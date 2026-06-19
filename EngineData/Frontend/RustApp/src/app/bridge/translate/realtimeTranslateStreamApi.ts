@@ -1,4 +1,4 @@
-import { runCommand } from "../shared/tauriBridge";
+import { runCommand } from "../../shared/tauriBridge";
 
 export type RealtimeTranslateStreamRequest = {
   session_id: string;
@@ -30,8 +30,6 @@ export type RealtimeTranslateStreamReport = {
   message: string;
 };
 
-export function analyzeRealtimeTranslateStreamState(
-  request: RealtimeTranslateStreamRequest,
-): Promise<RealtimeTranslateStreamReport | null> {
+export function analyzeRealtimeTranslateStreamState(request: RealtimeTranslateStreamRequest): Promise<RealtimeTranslateStreamReport | null> {
   return runCommand<RealtimeTranslateStreamReport>("analyze_realtime_translate_stream_state", { request });
 }
