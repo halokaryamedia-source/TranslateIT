@@ -18,6 +18,7 @@ const requiredFinalScripts = [
   "test:voice-report",
   "test:voice-capture-evidence",
   "test:ui-readiness-report",
+  "test:ui-reference-extension",
   "test:ui-binding-report",
   "test:action-binding-report",
   "test:settings-integrity-report",
@@ -117,7 +118,7 @@ function main() {
   const missingFinalScripts = requiredFinalScripts.filter((scriptName) => !testLocalFinal.includes(`npm run ${scriptName}`));
   const ok = Boolean(content && parsed.ok && scriptsBlock && duplicateScriptKeys.length === 0 && missingFinalScripts.length === 0);
   const report = {
-    schema: "translateit.package_script_integrity_report.v2",
+    schema: "translateit.package_script_integrity_report.v3",
     generated_at: new Date().toISOString(),
     ok,
     package_path: packagePath,
