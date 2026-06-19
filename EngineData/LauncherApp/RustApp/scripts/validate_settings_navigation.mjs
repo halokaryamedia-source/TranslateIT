@@ -14,6 +14,7 @@ function read(filePath) {
 const controller = read(controllerPath);
 const bindings = read(bindingsPath);
 const shell = read(shellPath);
+const styles = read(path.join(root, "EngineData", "LauncherApp", "RustApp", "src", "styles.css"));
 
 const checks = [
   ["settingsButton exists", bindings.includes("settingsButton")],
@@ -28,6 +29,10 @@ const checks = [
   ["general settings route", controller.includes('this.showSettings("general")')],
   ["audio settings route", controller.includes('this.showSettings("audio")')],
   ["developer settings route", controller.includes('this.showSettings("developer")')],
+  ["app route state used", controller.includes('this.ui.mainApp.dataset.route = "settings"') && controller.includes('this.ui.mainApp.dataset.route = "home"')],
+  ["hidden attribute used", controller.includes(".hidden = true") && controller.includes(".hidden = false")],
+  ["css route settings selector", styles.includes('.app-shell[data-route="settings"]')],
+  ["css hidden override present", styles.includes('.is-hidden,\n.workspace.is-hidden,\n.settings-page.is-hidden,\n.warmup-screen.is-hidden,\n.app-shell.is-hidden') && styles.includes('display: none !important;')],
   ["duplicate ids absent", !/id="(?:homePage|settingsPage|settingsContent|chatList)"/g.test(shell) || shell.match(/id="(?:homePage|settingsPage|settingsContent|chatList)"/g)?.length <= 4],
   ["settings tabs present", shell.includes('data-settings-tab="general"') && shell.includes('data-settings-tab="audio"') && shell.includes('data-settings-tab="translate"') && shell.includes('data-settings-tab="developer"')],
 ];

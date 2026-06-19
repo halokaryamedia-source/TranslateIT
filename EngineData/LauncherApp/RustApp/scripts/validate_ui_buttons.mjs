@@ -57,7 +57,7 @@ pushCheck("settings routing openAudioSettings", includesAll(controller, ['privat
 pushCheck("settings routing openDeveloperDiagnostics", includesAll(controller, ['private async openDeveloperDiagnostics(): Promise<void>', 'this.showSettings("developer")']));
 pushCheck("settings routing showSettings hides home", includesAll(controller, ['this.ui.homePage.classList.add("is-hidden")', 'this.ui.settingsPage.classList.remove("is-hidden")']));
 pushCheck("settings routing renderSettingsTab general", includesAll(controller, ['if (tab === "general") this.renderGeneralSettings();', 'this.renderSettingsTab(tab);']));
-pushCheck("settings route assertion present", controller.includes("settings.route:assertion-failed"));
+pushCheck("settings route assertion present", controller.includes("route.assertion-failed"));
 
 pushCheck("general runtime profile button rendered", settingsViews.includes("runtimeProfileButton"));
 pushCheck("general language focus button rendered", settingsViews.includes("languageFocusButton"));

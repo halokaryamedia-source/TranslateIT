@@ -93,7 +93,28 @@ export class LauncherController {
     });
   }
 
-  private setAssistantNotice(message: string): void { this.ui.assistantMessage.textContent = message; }
+  private userFacingNotice(message: string): string {
+    const normalized = message.toLowerCase();
+    const technicalMarkers = [
+      "rust start gate checked",
+      "lifecycle_preflight",
+      "handoff:no_snapshot",
+      "conversion_pending",
+      "no realtime handoff snapshot",
+    ];
+    if (technicalMarkers.some((marker) => normalized.includes(marker))) {
+      return "Microphone capture is active in a limited mode while the full translation handoff is still preparing. Open Developer Diagnostics for details.";
+    }
+    const compact = message.replace(/\s+/g, " ").trim();
+    if (!compact) return "Status unavailable.";
+    return compact.length > 220 ? `${compact.slice(0, 219).trimEnd()}…` : compact;
+  }
+  private setAssistantNotice(message: string): void {
+    const safeMessage = this.userFacingNotice(message);
+    this.ui.assistantMessage.textContent = safeMessage;
+    this.ui.assistantMessage.title = safeMessage;
+    startupTrace("assistant.notice", { safeMessage, rawMessage: message });
+  }
   private updateWarmup(progress: number, detail: string): void { this.ui.warmupFill.style.width = `${progress}%`; this.ui.warmupPercent.textContent = `${progress}%`; this.ui.warmupDetail.textContent = detail; }
   private setActiveNav(activeButton: HTMLButtonElement | null): void { this.ui.navItems.forEach((button) => button.classList.toggle("active", button === activeButton)); }
   private workerManifest(bundle: RuntimeStatusBundleReport | null) { return bundle?.local_worker_manifest ?? bundle?.internal_validation_gate?.local_worker_manifest ?? null; }
@@ -115,13 +136,23 @@ export class LauncherController {
       warmupScreen: describe(this.ui.warmupScreen),
       mainApp: describe(this.ui.mainApp),
       bodyClasses: Array.from(document.body.classList),
+      route: this.ui.mainApp.dataset.route ?? "unknown",
     });
   }
   private revealMainApp(reason: string): void {
     this.ui.warmupScreen.classList.add("is-hidden");
     this.ui.warmupScreen.style.display = "none";
+    this.ui.warmupScreen.hidden = true;
     this.ui.mainApp.classList.remove("is-hidden");
     this.ui.mainApp.style.display = "grid";
+    this.ui.mainApp.hidden = false;
+    this.ui.mainApp.dataset.route = "home";
+    this.ui.homePage.classList.remove("is-hidden");
+    this.ui.homePage.hidden = false;
+    this.ui.homePage.style.display = "grid";
+    this.ui.settingsPage.classList.add("is-hidden");
+    this.ui.settingsPage.hidden = true;
+    this.ui.settingsPage.style.display = "none";
     this.traceUiState(reason);
   }
   private async withTimeout<T>(task: Promise<T | null>, timeoutMs: number, fallback: T | null): Promise<T | null> {
@@ -333,10 +364,13 @@ export class LauncherController {
     const blockers = [...bundle.readiness.blockers, ...bundle.capture_gate.blockers, ...(worker?.blockers ?? []), ...(worker?.tts_blockers ?? []), ...(worker?.warnings ?? []), ...(bundle.internal_validation_gate?.blockers ?? [])].filter(Boolean);
     const ttsLabel = worker?.piper_ready ? "Piper" : worker?.sapi_ready ? "SAPI" : "unavailable";
 
-    this.ui.userPresence.textContent = voicePipelineReady ? worker?.voice_actor_marcel_ready ? "Voice ready" : `Voice ready (${ttsLabel})` : textRuntimeReady ? "Text ready" : "Setup needed";
+    const micOnlyActive = this.recording && !voicePipelineReady;
+    this.ui.userPresence.textContent = micOnlyActive ? "Mic only" : voicePipelineReady ? worker?.voice_actor_marcel_ready ? "Voice ready" : `Voice ready (${ttsLabel})` : textRuntimeReady ? "Text ready" : "Setup needed";
     this.ui.heroTitle.textContent = this.recording ? "Listening locally..." : "How can I help translate today?";
     this.ui.heroSubtitle.textContent = this.recording
-      ? "Microphone capture is active. ASR, translation, and TTS still depend on local worker evidence."
+      ? micOnlyActive
+        ? "Microphone capture is active, but the full translation handoff is still preparing."
+        : "Microphone capture is active. ASR, translation, and TTS still depend on local worker evidence."
       : voicePipelineReady
         ? "Type a message, or press the microphone button on the right to record speech locally."
         : helperRunning
@@ -359,22 +393,34 @@ export class LauncherController {
 
   private showHome(): void {
     document.body.classList.remove("settings-open");
+    this.ui.mainApp.dataset.route = "home";
     this.ui.settingsPage.classList.add("is-hidden");
+    this.ui.settingsPage.hidden = true;
+    this.ui.settingsPage.style.display = "none";
     this.ui.homePage.classList.remove("is-hidden");
+    this.ui.homePage.hidden = false;
+    this.ui.homePage.style.display = "grid";
     traceUserFlow("settings.back", {});
     traceUserFlow("home.visible", { activeTab: this.activeSettingsTab });
+    this.isRouteVisible("home");
   }
 
   private showSettings(tab: SettingsTab = "general"): void {
     this.activeSettingsTab = tab;
     document.body.classList.add("settings-open");
+    this.ui.mainApp.dataset.route = "settings";
     this.ui.homePage.classList.add("is-hidden");
+    this.ui.homePage.hidden = true;
+    this.ui.homePage.style.display = "none";
     this.ui.settingsPage.classList.remove("is-hidden");
+    this.ui.settingsPage.hidden = false;
+    this.ui.settingsPage.style.display = "grid";
     this.ui.settingsPage.scrollTop = 0;
     this.ui.settingsPage.scrollLeft = 0;
     traceUserFlow("settings.opened", { tab });
     this.renderSettingsTab(tab);
-    this.isGeneralSettingsRouteValid(tab);
+    this.isRouteVisible("settings", tab);
+    this.ui.settingsNavItems.find((button) => button.dataset.settingsTab === tab)?.focus();
   }
 
   private openGeneralSettings(): void {
@@ -382,26 +428,38 @@ export class LauncherController {
     this.showSettings("general");
   }
 
-  private isGeneralSettingsRouteValid(tab: SettingsTab): boolean {
+  private isRouteVisible(route: "home" | "settings", tab?: SettingsTab): boolean {
     const duplicateIds = ["homePage", "settingsPage", "settingsContent", "chatList"].map((id) => document.querySelectorAll(`#${id}`).length > 1).some(Boolean);
-    const settingsVisible = !this.ui.settingsPage.classList.contains("is-hidden") && window.getComputedStyle(this.ui.settingsPage).display !== "none";
-    const homeHidden = this.ui.homePage.classList.contains("is-hidden") || window.getComputedStyle(this.ui.homePage).display === "none";
-    const settingsClass = this.ui.settingsContent.querySelector(`.settings-view--${tab}`) !== null;
+    const settingsVisible = !this.ui.settingsPage.classList.contains("is-hidden") && !this.ui.settingsPage.hidden && window.getComputedStyle(this.ui.settingsPage).display !== "none";
+    const homeHidden = this.ui.homePage.classList.contains("is-hidden") && this.ui.homePage.hidden && window.getComputedStyle(this.ui.homePage).display === "none";
+    const settingsClass = route === "settings" ? (tab ? this.ui.settingsContent.querySelector(`.settings-view--${tab}`) !== null : this.ui.settingsContent.children.length > 0) : true;
     const chatListInsideSettings = this.ui.settingsContent.querySelector("#chatList") !== null;
-    const ok = settingsVisible && homeHidden && settingsClass && !duplicateIds && !chatListInsideSettings;
+    const heroVisible = route === "settings" ? window.getComputedStyle(this.ui.heroTitle).display !== "none" : true;
+    const settingsSidebar = document.querySelector<HTMLElement>(".settings-sidebar");
+    const sidebarVisible = route === "settings" ? Boolean(settingsSidebar && window.getComputedStyle(settingsSidebar).display !== "none") : true;
+    const ok = route === "settings"
+      ? settingsVisible && homeHidden && settingsClass && !duplicateIds && !chatListInsideSettings && sidebarVisible && !heroVisible && this.ui.mainApp.dataset.route === "settings"
+      : !this.ui.homePage.hidden && !this.ui.settingsPage.hidden && this.ui.mainApp.dataset.route === "home";
     if (!ok) {
-      startupTrace("settings.route:assertion-failed", {
+      startupTrace("route.assertion-failed", {
+        route,
         tab,
         settingsVisible,
         homeHidden,
         settingsClass,
         duplicateIds,
         chatListInsideSettings,
+        heroVisible,
+        sidebarVisible,
+        mainRoute: this.ui.mainApp.dataset.route ?? "unknown",
       });
       traceUserFlow("error.user_visible", {
-        reason: "settings_route_invalid",
+        reason: route === "settings" ? "settings_route_invalid" : "home_route_invalid",
         tab,
       });
+      this.setAssistantNotice(route === "settings"
+        ? "Settings route failed. Please reopen Settings or use Developer diagnostics."
+        : "Home route failed. Please restart the app.");
     }
     return ok;
   }

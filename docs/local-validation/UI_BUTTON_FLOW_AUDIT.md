@@ -78,9 +78,20 @@
 - Developer helper controls produce a visible status/update.
 - No visible button should be a silent no-op.
 
+## Native Screenshot Regression Notes
+- The Settings gear previously only changed layout state and hid the sidebar without forcing the Settings page into a real visible route.
+- The route fix now uses explicit route state plus `hidden` and `display` so the Home page cannot win the cascade.
+- Settings visibility is validated with route assertions and CSS route selectors, not only source-only checks.
+
+## Assistant Card Cleanup
+- Raw Rust lifecycle text is now reduced to a compact user-facing message.
+- Technical detail remains in developer traces and diagnostics.
+- Assistant action buttons are styled to match the app and wrap on narrow windows.
+- The microphone/recording state now distinguishes active mic-only capture from full voice handoff readiness.
+
 ## Validation Commands
 - `npm.cmd run typecheck`
 - `npm.cmd run build:frontend`
 - `npm.cmd run validate:settings-navigation`
+- `npm.cmd run validate:route-visibility`
 - `npm.cmd run validate:ui-buttons`
-
