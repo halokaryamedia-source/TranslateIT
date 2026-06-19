@@ -139,7 +139,11 @@ export function run() {
   }
 
   const manifest = readJson(manifestPath);
-  const items = (manifest.models ?? []).map(classify);
+  const args = process.argv.slice(2);
+  const modelIndex = args.indexOf("--model");
+  const requestedModelId = modelIndex >= 0 ? args[modelIndex + 1] : null;
+  const models = requestedModelId ? (manifest.models ?? []).filter((entry) => entry.model_id === requestedModelId) : (manifest.models ?? []);
+  const items = models.map(classify);
   const blockers = items.filter((item) => item.status === "BLOCKED" && item.required).map((item) => `missing_required_model:${item.model_id}`);
   const status = blockers.length ? "BLOCKED" : items.some((item) => item.status === "PARTIAL") ? "PARTIAL" : "PASS";
   const report = {

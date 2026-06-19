@@ -8,11 +8,13 @@
   "models": [
     {
       "model_id": "faster-whisper-large-v3-turbo",
-      "required": false,
+      "required": true,
       "stage": "asr_primary",
+      "preferred": true,
+      "priority": 1,
       "backend": "whisper",
       "source_type": "huggingface",
-      "repo_id": "Systran/faster-whisper-large-v3-turbo",
+      "repo_id": "dropbox-dash/faster-whisper-large-v3-turbo",
       "revision": null,
       "expected_path": "EngineData/Backend/RuntimeAssets/ASR/ModelData/faster-whisper-large-v3-turbo",
       "legacy_paths": [
@@ -24,12 +26,14 @@
       "checksum": null,
       "install_method": "huggingface_snapshot_download",
       "license": "project-local runtime asset; source URL not defined yet",
-      "notes": "Preferred ASR model when available. The backup medium model is the required local fallback for readiness."
+      "notes": "Primary ASR model when available. The backup medium model remains the required local fallback for degraded readiness."
     },
     {
       "model_id": "faster-whisper-medium",
       "required": true,
-      "stage": "asr_backup",
+      "stage": "asr_fallback",
+      "preferred": false,
+      "priority": 2,
       "backend": "whisper",
       "source_type": "huggingface",
       "repo_id": "Systran/faster-whisper-medium",

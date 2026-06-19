@@ -52,8 +52,13 @@ SAPI_STATUS: tuple[bool, list[str], str] | None = None
 class WorkerStatus:
     ok: bool
     stage: str
+    asr_primary_model_ready: bool
     asr_model_ready: bool
     asr_backup_model_ready: bool
+    asr_active_model_id: str
+    asr_active_model_path: str
+    asr_readiness_grade: str
+    asr_primary_missing: bool
     translation_model_ready: bool
     quality_translation_model_ready: bool
     piper_ready: bool
@@ -64,6 +69,13 @@ class WorkerStatus:
     transformers_import_ready: bool
     torch_import_ready: bool
     torch_cuda_available: bool
+    ctranslate2_cuda_available: bool
+    nvidia_smi_available: bool
+    gpu_primary_requested: bool
+    selected_device: str
+    selected_translation_device: str
+    selected_compute_type: str
+    fallback_reason: str
     blocker: str
     warnings: list[str]
     note: str
@@ -121,6 +133,45 @@ def torch_status() -> tuple[bool, bool]:
         return True, bool(torch.cuda.is_available())
     except Exception:
         return False, False
+
+
+def ctranslate2_status() -> tuple[bool, bool]:
+    try:
+        import ctranslate2
+
+        probe = getattr(ctranslate2, "get_cuda_device_count", None)
+        if callable(probe):
+            return True, int(probe()) > 0
+        return True, False
+    except Exception:
+        return False, False
+
+
+def nvidia_smi_available() -> bool:
+    try:
+        completed = subprocess.run(["nvidia-smi", "-L"], text=True, capture_output=True, timeout=10, check=False)
+        return completed.returncode == 0 and bool(completed.stdout.strip())
+    except Exception:
+        return False
+
+
+def probe_gpu_runtime() -> dict[str, Any]:
+    torch_ready, torch_cuda_available = torch_status()
+    ctranslate2_ready, ctranslate2_cuda_available = ctranslate2_status()
+    asr_gpu_available = bool(ctranslate2_cuda_available)
+    translation_gpu_available = bool(torch_cuda_available)
+    return {
+        "torch_import_ready": torch_ready,
+        "torch_cuda_available": torch_cuda_available,
+        "ctranslate2_import_ready": ctranslate2_ready,
+        "ctranslate2_cuda_available": ctranslate2_cuda_available,
+        "nvidia_smi_available": nvidia_smi_available(),
+        "cuda_primary_requested": True,
+        "selected_device": "cuda" if asr_gpu_available else "cpu",
+        "selected_translation_device": "cuda" if translation_gpu_available else "cpu",
+        "selected_compute_type": "int8_float16" if asr_gpu_available else "int8",
+        "fallback_reason": "" if asr_gpu_available else "cuda_unavailable",
+    }
 
 
 def normalize_language(value: Any, fallback: str) -> str:
@@ -229,10 +280,16 @@ def sapi_status() -> tuple[bool, list[str], str]:
 def build_status() -> WorkerStatus:
     faster_whisper_ready = import_ready("faster_whisper")
     transformers_ready = import_ready("transformers")
-    torch_ready, cuda_available = torch_status()
-    asr_ready = asr_model_ready(ASR_MODEL)
+    gpu_runtime = probe_gpu_runtime()
+    torch_ready = bool(gpu_runtime["torch_import_ready"])
+    cuda_available = bool(gpu_runtime["torch_cuda_available"])
+    ctranslate2_cuda_available = bool(gpu_runtime["ctranslate2_cuda_available"])
+    asr_primary_ready = asr_model_ready(ASR_MODEL)
     asr_backup_ready = asr_model_ready(ASR_BACKUP_MODEL)
-    asr_active_ready = asr_ready or asr_backup_ready
+    asr_active_ready = asr_primary_ready or asr_backup_ready
+    asr_active_model_id, asr_active_model_path = choose_asr_model()
+    asr_readiness_grade = "primary" if asr_primary_ready else "fallback_degraded" if asr_backup_ready else "blocked"
+    asr_primary_missing = not asr_primary_ready
     translation_ready = translation_model_ready(TRANSLATION_MODEL)
     quality_ready = translation_model_ready(QUALITY_TRANSLATION_MODEL, nllb=True)
     piper_is_ready = piper_ready()
@@ -249,8 +306,10 @@ def build_status() -> WorkerStatus:
         blockers.append("dependency:transformers_missing")
     if not torch_ready:
         blockers.append("dependency:torch_missing")
+    if not asr_primary_ready:
+        warnings.append("asr_primary_large_v3_turbo_missing")
     if not asr_active_ready:
-        blockers.append("model:faster_whisper_large_v3_turbo_missing")
+        blockers.append("model:faster_whisper_large_v3_turbo_and_medium_missing")
     if not asr_backup_ready:
         blockers.append("model:faster_whisper_medium_missing")
     if not translation_ready:
@@ -265,8 +324,13 @@ def build_status() -> WorkerStatus:
     return WorkerStatus(
         ok=not blockers,
         stage="local_realtime_worker_preflight",
+        asr_primary_model_ready=asr_primary_ready,
         asr_model_ready=asr_active_ready,
         asr_backup_model_ready=asr_backup_ready,
+        asr_active_model_id=asr_active_model_id,
+        asr_active_model_path=str(asr_active_model_path),
+        asr_readiness_grade=asr_readiness_grade,
+        asr_primary_missing=asr_primary_missing,
         translation_model_ready=translation_ready,
         quality_translation_model_ready=quality_ready,
         piper_ready=piper_is_ready,
@@ -277,9 +341,16 @@ def build_status() -> WorkerStatus:
         transformers_import_ready=transformers_ready,
         torch_import_ready=torch_ready,
         torch_cuda_available=cuda_available,
+        ctranslate2_cuda_available=ctranslate2_cuda_available,
+        nvidia_smi_available=bool(gpu_runtime["nvidia_smi_available"]),
+        gpu_primary_requested=bool(gpu_runtime["cuda_primary_requested"]),
+        selected_device=str(gpu_runtime["selected_device"]),
+        selected_translation_device=str(gpu_runtime["selected_translation_device"]),
+        selected_compute_type=str(gpu_runtime["selected_compute_type"]),
+        fallback_reason=str(gpu_runtime["fallback_reason"]),
         blocker=";".join(blockers),
         warnings=warnings,
-        note="Local worker requires complete project-local model markers. Piper is preferred when installed; Windows SAPI is a real local fallback. CUDA is preferred for realtime latency, and CPU fallback is reported explicitly.",
+        note="Local worker prefers the large-v3-turbo ASR model when present, but falls back to faster-whisper-medium if needed. GPU is requested first; CPU fallback is explicit and labeled degraded.",
     )
 
 
@@ -299,12 +370,11 @@ def handle_ping(_: dict[str, Any]) -> dict[str, Any]:
     return {"ok": True, "stage": "ping", "unix_ms": now_ms()}
 
 
-def asr_runtime_config() -> tuple[str, str]:
-    runtime_manifest = read_runtime_manifest()
-    cuda_available = bool(runtime_manifest.get("cuda", {}).get("ctranslate2_cuda_available", False))
-    if cuda_available:
-        return "cuda", "int8_float16"
-    return "cpu", "int8"
+def asr_runtime_config() -> tuple[str, str, str]:
+    gpu_runtime = probe_gpu_runtime()
+    if gpu_runtime["selected_device"] == "cuda":
+        return "cuda", "int8_float16", ""
+    return "cpu", "int8", str(gpu_runtime["fallback_reason"])
 
 
 def choose_asr_model() -> tuple[str, Path]:
@@ -321,7 +391,7 @@ def get_asr_runtime() -> Any:
         return ASR_RUNTIME
     from faster_whisper import WhisperModel
 
-    device, compute_type = asr_runtime_config()
+    device, compute_type, fallback_reason = asr_runtime_config()
     model_id, model_path = choose_asr_model()
     try:
         ASR_RUNTIME = WhisperModel(str(model_path), device=device, compute_type=compute_type)

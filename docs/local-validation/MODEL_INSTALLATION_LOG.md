@@ -11,14 +11,14 @@ https://github.com/halokaryamedia-source/TranslateIT.git
 
 ## Scan Result
 
-- Existing model scan found only cache metadata for the preferred ASR model.
+- Existing model scan found cache metadata for the preferred ASR model before installation.
 - Required translation models were present as legacy local folders with real model markers.
 - Required ASR fallback model was present as a full local folder with real model markers.
 
 ## Mapping Result
 
 - Created local runtime directory junctions from `RuntimeAssets` to the legacy model folders.
-- The preferred ASR model path is still incomplete and remains optional/preferred only.
+- The preferred ASR model was later installed into the runtime path and now takes priority over the fallback model.
 
 ## Setup Result
 
@@ -27,8 +27,8 @@ https://github.com/halokaryamedia-source/TranslateIT.git
 
 ## Verify Result
 
-- `models:inventory`: PARTIAL
-- `models:verify`: PARTIAL
+- `models:inventory`: PASS
+- `models:verify`: PASS
 
 ## Worker Smoke Result
 
@@ -37,11 +37,9 @@ https://github.com/halokaryamedia-source/TranslateIT.git
 
 ## Remaining Blockers
 
-- Preferred ASR model `faster-whisper-large-v3-turbo` is still missing usable marker files.
 - Piper voice assets are missing, so Windows SAPI remains the active TTS fallback.
 
 ## Notes
 
 - The worker now loads the required fallback ASR/translation models from runtime mappings and can run local smoke tests.
 - No model binaries were committed.
-

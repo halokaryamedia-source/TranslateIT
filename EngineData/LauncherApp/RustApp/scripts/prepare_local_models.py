@@ -33,7 +33,7 @@ MODELS: tuple[dict[str, Any], ...] = (
         "key": "asr_primary",
         "engine": "ASR Primary",
         "runtime_id": "large-v3-turbo",
-        "preferred_repo": "Systran/faster-whisper-large-v3-turbo",
+        "preferred_repo": "dropbox-dash/faster-whisper-large-v3-turbo",
         "repo": "dropbox-dash/faster-whisper-large-v3-turbo",
         "target": REPOSITORY_ROOT
         / "EngineData"

@@ -12,13 +12,14 @@
 
 ## Required Models
 
+- `faster-whisper-large-v3-turbo` - required ASR primary model
 - `faster-whisper-medium` - required ASR fallback model
 - `marianmt-id-en` - realtime translation
 - `nllb-200-distilled-600M` - quality translation
 
 ## Optional / Preferred Models
 
-- `faster-whisper-large-v3-turbo` - preferred ASR model when available
+- `faster-whisper-medium` - fallback ASR when the primary is unavailable
 - `piper` - local TTS voice pack; Windows SAPI is the working fallback
 
 ## Commands
@@ -36,16 +37,16 @@
 
 - `models:find-existing`: PASS
 - `models:reconcile`: PASS
-- `models:inventory`: PARTIAL
+- `models:inventory`: PASS
 - `models:setup`: PASS
-- `models:verify`: PARTIAL
+- `models:verify`: PASS
 
 ## What Was Found
 
+- `faster-whisper-large-v3-turbo` was installed from `dropbox-dash/faster-whisper-large-v3-turbo`
 - `faster-whisper-medium` was present in `EngineData/TranscriptEngine/ModelData/faster-whisper-medium`
 - `marianmt-id-en` was present in `EngineData/TranslateEngine/ModelData/marianmt-id-en`
 - `nllb-200-distilled-600M` was present in `EngineData/TranslateEngine/ModelData/nllb-200-distilled-600M`
-- `faster-whisper-large-v3-turbo` only had cache metadata and no usable marker files
 - `piper` was not present; Windows SAPI is the active local fallback
 
 ## Runtime Mapping
@@ -66,8 +67,8 @@ The model roots were mapped into the worker runtime path using local directory j
 
 - GPU remains the preferred path when available.
 - CPU fallback is allowed and labeled as degraded mode.
-- This machine currently reports `torch_cuda_available: false`, so the worker runs on CPU for the smoke path.
-- The runtime still distinguishes GPU readiness from model presence.
+- This machine currently reports `torch_cuda_available: false` but `ctranslate2_cuda_available: true`, so ASR can prefer CUDA while translation still falls back to CPU here.
+- The runtime distinguishes ASR CUDA selection from translation device selection.
 
 ## LLM Requirement
 
@@ -75,7 +76,6 @@ The repo contains English/Indonesian language-quality LLM helpers under `EngineD
 
 ## Remaining Gaps
 
-- Preferred ASR model `faster-whisper-large-v3-turbo` is still missing its usable model files.
 - Piper voice assets are still missing, so TTS uses Windows SAPI fallback.
 
 ## How To Repair Missing Models
@@ -83,4 +83,3 @@ The repo contains English/Indonesian language-quality LLM helpers under `EngineD
 1. Re-run `npm.cmd run models:setup`.
 2. If the preferred ASR model source remains incomplete, keep using `faster-whisper-medium` as the local fallback.
 3. Add a verified Piper release/voice asset source if custom voice TTS is required.
-

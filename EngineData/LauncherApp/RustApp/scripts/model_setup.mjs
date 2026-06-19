@@ -67,7 +67,14 @@ function main() {
   }
 
   const manifest = readJson(manifestPath);
-  const setupModels = (manifest.models ?? []).filter((entry) => entry.source_type === "huggingface" && entry.repo_id);
+  const args = process.argv.slice(2);
+  const modelIndex = args.indexOf("--model");
+  const requestedModelId = modelIndex >= 0 ? args[modelIndex + 1] : null;
+  const setupModels = (manifest.models ?? []).filter((entry) => {
+    if (entry.source_type !== "huggingface" || !entry.repo_id) return false;
+    if (!requestedModelId) return true;
+    return entry.model_id === requestedModelId || (requestedModelId === "faster-whisper-large-v3-turbo" && entry.model_id === "asr_primary");
+  });
   const piperOptional = (manifest.models ?? []).find((entry) => entry.model_id === "piper");
   const steps = [];
   let downloadExit = 0;
