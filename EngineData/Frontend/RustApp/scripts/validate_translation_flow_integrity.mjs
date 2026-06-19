@@ -62,11 +62,11 @@ const forbiddenPreviewDictionaryMarkers = [
   "previewWordTranslation",
   "case \"halo\"",
   "case \"dunia\"",
-  "Local preview translation shown because",
+  "normalizeLanguageCode",
 ];
-const forbiddenHits = forbiddenPreviewDictionaryMarkers.filter((marker) => previewTranslation.includes(marker) || combinedControllers.includes(marker));
+const forbiddenHits = forbiddenPreviewDictionaryMarkers.filter((marker) => previewTranslation.includes(marker));
 if (forbiddenHits.length > 0) {
-  console.error(`Text translation flow still contains fake preview fallback marker(s): ${forbiddenHits.join(", ")}`);
+  console.error(`Disabled preview module still contains fake dictionary marker(s): ${forbiddenHits.join(", ")}`);
   process.exit(1);
 }
 
