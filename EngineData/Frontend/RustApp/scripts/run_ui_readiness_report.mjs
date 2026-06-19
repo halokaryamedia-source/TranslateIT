@@ -13,8 +13,10 @@ const checks = [
   { name: "runtime readiness guard", path: "app/active-launcher/runtimeReadinessUiGuard.ts", mustContain: ["Setup needed", "MutationObserver"] },
   { name: "settings autosave", path: "app/active-launcher/settingsAutosaveBinding.ts", mustContain: ["RUNTIME_SETTINGS_SAVED_EVENT"] },
   { name: "developer diagnostics", path: "app/active-launcher/developerEvidenceBinding.ts", mustContain: ["Developer", "Evidence"] },
-  { name: "voice direct capture", path: "app/active-launcher/directVoiceCaptureBinding.ts", mustContain: ["startCapture", "stopCapture"] },
+  { name: "voice direct capture", path: "app/active-launcher/directVoiceCaptureBinding.ts", mustContain: ["startCapture", "stopCapture", "MIN_RECORDING_MS", "voiceUiState", "stopImmediatePropagation", "waitMinimumRecordingDuration"] },
   { name: "runtime report script", path: "scripts/run_local_runtime_test_report.mjs", root: appRoot, mustContain: ["Accelerated worker used", "ct2_translation_model_ready"] },
+  { name: "voice preflight report", path: "scripts/run_voice_preflight_report.mjs", root: appRoot, mustContain: ["asr_preload", "tts_preflight", "latest-voice-preflight"] },
+  { name: "settings integrity report", path: "scripts/run_settings_integrity_report.mjs", root: appRoot, mustContain: ["placeholder", "RuntimeSettings", "latest-settings-integrity"] },
 ];
 
 function inspect(check) {
@@ -41,7 +43,7 @@ function main() {
     failed: results.filter((result) => !result.ok).map((result) => result.name),
     checked: results.length,
   };
-  const report = { schema: "translateit.ui_readiness_report.v1", started_at: startedAt, app_root: appRoot, results, summary };
+  const report = { schema: "translateit.ui_readiness_report.v2", started_at: startedAt, app_root: appRoot, results, summary };
   const latestJson = resolve(reportDir, "latest-ui-readiness.json");
   const latestMd = resolve(reportDir, "latest-ui-readiness.md");
   const md = [
