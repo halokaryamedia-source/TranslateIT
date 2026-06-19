@@ -1,5 +1,6 @@
 import { invoke } from "@tauri-apps/api/core";
 import { defaultSettings, errorMessage } from "../shared/state";
+import { getRuntimeCommandErrors } from "../shared/tauriBridge";
 import type {
   AudioDeviceListReport,
   AudioStudioValidationEvidence,
@@ -109,9 +110,13 @@ function publishSettings(settings: RuntimeSettings): void {
   window.dispatchEvent(new CustomEvent<RuntimeSettings>(RUNTIME_SETTINGS_SAVED_EVENT, { detail: settings }));
 }
 
+async function loadRuntimeSettings(): Promise<RuntimeSettings> {
+  return invokeOr<RuntimeSettings>("load_runtime_settings", undefined, defaultSettings());
+}
+
 export const runtimeApi = {
   getCommandErrors(): RuntimeCommandError[] {
-    return [...commandErrors];
+    return [...commandErrors, ...getRuntimeCommandErrors()].slice(0, MAX_COMMAND_ERRORS);
   },
 
   async getStatusBundle(): Promise<RuntimeStatusBundleReport | null> {
@@ -126,8 +131,19 @@ export const runtimeApi = {
     return invokeNullable<RuntimeDiagnostics>("get_runtime_diagnostics");
   },
 
-  async recordFrontendStartupTrace(event: string, detail: Record<string, unknown> = {}): Promise<void> {
-    await invokeOr("record_frontend_startup_trace", { event, detailJson: JSON.stringify(detail) }, undefined);
+  async recordFrontendStartupTrace(label: string, detail: Record<string, unknown> = {}): Promise<void> {
+    await invokeOr(
+      "record_frontend_startup_trace",
+      {
+        record: {
+          label,
+          detail,
+          at: nowIso(),
+          build_marker: (globalThis as typeof globalThis & { __translateitStartupBuildMarker?: string }).__translateitStartupBuildMarker ?? "unknown",
+        },
+      },
+      undefined,
+    );
   },
 
   async getHardwareUsage(): Promise<HardwareUsageReport | null> {
@@ -227,7 +243,7 @@ export const runtimeApi = {
   },
 
   async loadSettings(): Promise<RuntimeSettings> {
-    return invokeOr<RuntimeSettings>("load_runtime_settings", undefined, defaultSettings());
+    return loadRuntimeSettings();
   },
 
   async saveSettings(settings: RuntimeSettings): Promise<CommandResult> {
@@ -246,7 +262,7 @@ export const runtimeApi = {
       undefined,
       commandFallback("Default settings could not be restored because the frontend bridge could not call Tauri."),
     );
-    if (result.ok) publishSettings(await this.loadSettings());
+    if (result.ok) publishSettings(await loadRuntimeSettings());
     return result;
   },
 
