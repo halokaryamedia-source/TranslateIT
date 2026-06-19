@@ -4,6 +4,7 @@ use std::path::PathBuf;
 use std::process::{Command, Stdio};
 use std::time::Instant;
 
+use crate::engine::logging::{write_jsonl_event, RuntimeLogEvent};
 use crate::engine::paths::ProjectPaths;
 use crate::engine::runtime_settings::load_settings;
 use crate::engine::state::{CommandResult, LifecycleState};
@@ -107,24 +108,32 @@ fn compact(value: Option<String>) -> String {
     value.unwrap_or_default().trim().chars().take(120).collect()
 }
 
-fn success_suffix(worker: &WorkerTranslationResponse) -> String {
-    let mode = compact(worker.mode.clone());
-    let model = compact(worker.model_id.clone());
-    let device = compact(worker.device.clone());
-    let compute = compact(worker.compute_type.clone());
-    let note = compact(worker.device_note.clone());
-    let pair = compact(worker.direction_pair.clone());
+fn diagnostics(worker: &WorkerTranslationResponse) -> String {
     let supported = match worker.direction_supported {
-        Some(true) => "direction supported",
-        Some(false) => "direction fallback required",
-        None => "direction unknown",
+        Some(true) => "supported",
+        Some(false) => "fallback_required",
+        None => "unknown",
     };
-    let elapsed = worker.elapsed_ms.map(|value| format!("{value}ms")).unwrap_or_default();
-    [mode, model, device, compute, note, pair, supported.to_string(), elapsed]
-        .into_iter()
-        .filter(|value| !value.is_empty())
-        .collect::<Vec<_>>()
-        .join(" / ")
+    format!(
+        "mode={}; model={}; device={}; compute={}; note={}; pair={}; direction={}; elapsed_ms={}",
+        compact(worker.mode.clone()),
+        compact(worker.model_id.clone()),
+        compact(worker.device.clone()),
+        compact(worker.compute_type.clone()),
+        compact(worker.device_note.clone()),
+        compact(worker.direction_pair.clone()),
+        supported,
+        worker.elapsed_ms.unwrap_or_default(),
+    )
+}
+
+fn log_translation(area: &str, message: String) {
+    let paths = ProjectPaths::discover();
+    let _ = write_jsonl_event(
+        &PathBuf::from(paths.user_log_dir),
+        "rust_runtime_latest.jsonl",
+        &RuntimeLogEvent::info(area, message),
+    );
 }
 
 pub fn translate_text(source: String) -> CommandResult {
@@ -141,20 +150,18 @@ pub fn translate_text(source: String) -> CommandResult {
     if let Some(worker) = translate_with_worker(&text) {
         let translated = worker.translated_text.as_deref().unwrap_or_default().trim();
         if worker.ok && !translated.is_empty() {
-            return CommandResult::ok(
-                LifecycleState::Idle,
-                format!("{}\n\n(local worker: {})", translated, success_suffix(&worker)),
-            );
+            log_translation("translation_success", diagnostics(&worker));
+            return CommandResult::ok(LifecycleState::Idle, translated.to_string());
         }
-        return CommandResult::blocked(
-            LifecycleState::TranslationAdapterPending,
-            format!(
-                "Local worker returned no validated translation. blocker={}; device={}; model={}",
-                compact(worker.blocker),
-                compact(worker.device),
-                compact(worker.model_id),
-            ),
+        let blocked = format!(
+            "Local worker returned no validated translation. blocker={}; device={}; model={}",
+            compact(worker.blocker),
+            compact(worker.device),
+            compact(worker.model_id),
         );
+        log_translation("translation_blocked", format!("{}; {}", blocked, diagnostics(&worker)));
+        return CommandResult::blocked(LifecycleState::TranslationAdapterPending, blocked);
     }
+    log_translation("translation_fallback", "accelerated worker unavailable; legacy manual translation used".to_string());
     super::manual_translation::translate_text(source)
 }
