@@ -16,6 +16,26 @@ target/
 /EngineData/LauncherApp/RustApp/src-tauri/gen/
 /EngineData/Backend/LocalWorker/WorkerRuntime/.venv/
 
+# Retired repository routes must stay unused.
+/DeveloperData/
+/DevelopingData/DocumentationData/
+/DevelopingData/Reports/
+/DevelopingData/ToolKitData/
+/DevelopingData/Diagnostics/
+/DevelopingData/Docs/
+/DevelopingData/LauncherHelpers/
+/DevelopingData/SampleData/
+/DevelopingData/Tests/
+/DevelopingData/Patches/
+/EngineData/TranscriptEngine/
+/EngineData/TranslateEngine/
+/EngineData/VoiceEngine/
+/EngineData/RuntimeAssets/
+/EngineData/LauncherApp/Workers/
+/Launcher/
+/TranslateIT.vbs
+/TranslateIT.cmd
+
 # TranslateIT local runtime outputs.
 /UserData/CacheData/**
 /UserData/LogData/**
@@ -33,9 +53,3 @@ target/
 /EngineData/Backend/RuntimeAssets/ASR/ModelData/**
 /EngineData/Backend/RuntimeAssets/Translation/ModelData/**
 /EngineData/Backend/RuntimeAssets/Voice/Piper/**
-/EngineData/TranscriptEngine/ModelData/**
-/EngineData/TranslateEngine/ModelData/**
-/DevelopingData/ToolKitData/ModelCache/**
-
-# Retired runtime asset location must stay unused.
-/EngineData/RuntimeAssets/**
