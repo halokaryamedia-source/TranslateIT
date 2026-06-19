@@ -15,9 +15,14 @@ function Step($Message) {
 $ScriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
 $AppRoot = Resolve-Path (Join-Path $ScriptDir "..")
 $RepoRoot = Resolve-Path (Join-Path $AppRoot "..\..\..")
-$RuntimeReportPath = Join-Path $RepoRoot "UserData\LogData\RuntimeTestReports\latest-runtime-test.md"
-$VoiceReportPath = Join-Path $RepoRoot "UserData\LogData\RuntimeTestReports\latest-voice-preflight.md"
-$UiReportPath = Join-Path $RepoRoot "UserData\LogData\RuntimeTestReports\latest-ui-readiness.md"
+$ReportRoot = Join-Path $RepoRoot "UserData\LogData\RuntimeTestReports"
+$RuntimeReportPath = Join-Path $ReportRoot "latest-runtime-test.md"
+$VoiceReportPath = Join-Path $ReportRoot "latest-voice-preflight.md"
+$VoiceCaptureEvidencePath = Join-Path $ReportRoot "latest-voice-capture-evidence.md"
+$UiReportPath = Join-Path $ReportRoot "latest-ui-readiness.md"
+$UiBindingReportPath = Join-Path $ReportRoot "latest-ui-binding-consistency.md"
+$SettingsReportPath = Join-Path $ReportRoot "latest-settings-integrity.md"
+$ProfessionalGatePath = Join-Path $ReportRoot "latest-professional-gate.md"
 $LogDir = Join-Path $RepoRoot "UserData\LogData\Automation"
 New-Item -ItemType Directory -Force -Path $LogDir | Out-Null
 $Stamp = Get-Date -Format "yyyyMMdd-HHmmss"
@@ -52,13 +57,13 @@ try {
   Step "Done"
   Write-Host "Branch: $TargetBranch" -ForegroundColor Green
   Write-Host "Automation log: $LogPath" -ForegroundColor Green
-  foreach ($ReportPath in @($RuntimeReportPath, $VoiceReportPath, $UiReportPath)) {
+  foreach ($ReportPath in @($RuntimeReportPath, $VoiceReportPath, $VoiceCaptureEvidencePath, $UiReportPath, $UiBindingReportPath, $SettingsReportPath, $ProfessionalGatePath)) {
     if (Test-Path $ReportPath) {
       Write-Host "Report: $ReportPath" -ForegroundColor Green
     }
   }
-  if ($OpenReport -and (Test-Path $RuntimeReportPath)) {
-    notepad $RuntimeReportPath
+  if ($OpenReport -and (Test-Path $ProfessionalGatePath)) {
+    notepad $ProfessionalGatePath
   }
 } catch {
   Write-Host ""
