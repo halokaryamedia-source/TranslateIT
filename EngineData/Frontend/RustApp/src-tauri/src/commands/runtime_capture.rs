@@ -3,7 +3,7 @@ use serde_json::json;
 
 use crate::engine;
 use crate::engine::audio::input::InputPreparationStatus;
-use crate::engine::state::{CommandResult, LifecycleState};
+use crate::engine::state::CommandResult;
 
 use super::helper_bridge::start_helper_bridge;
 use super::helper_bridge::{
@@ -73,7 +73,7 @@ fn capture_request_preview(command: &str) -> CaptureHelperBridgeRequestPreview {
         message: if ready {
             format!("Prepared {command} helper bridge request preview. Capture has not been started from this command.")
         } else {
-            format!("Prepared {command} preview, but capture remains blocked until helper provider readiness is verified. Current helper state: {}; message: {}", compact_preview_text(&status.state), status_message)
+            format!("Prepared {command} preview. Full ASR/translation/TTS is blocked until helper provider readiness is verified, but microphone-only capture can still start when the input device is usable. Current helper state: {}; message: {}", compact_preview_text(&status.state), status_message)
         },
         command: command.to_string(),
         generation_token: status.generation_token,
@@ -137,6 +137,12 @@ pub fn prepare_voice_capture(auto_start: bool) -> VoiceCapturePreparationReport 
     {
         next_actions.push("Open Developer Diagnostics".to_string());
     }
+    if input_status.prepared
+        && !helper_status.provider_ready
+        && !next_actions.iter().any(|action| action == "Start microphone-only capture")
+    {
+        next_actions.insert(0, "Start microphone-only capture".to_string());
+    }
     if helper_status.provider_ready
         && helper_status.cuda_ready
         && !missing.iter().any(|item| item == "cuda")
@@ -148,6 +154,13 @@ pub fn prepare_voice_capture(auto_start: bool) -> VoiceCapturePreparationReport 
         missing.clear();
         next_actions = vec!["Start Voice Capture".to_string()];
     }
+    let user_message = if ok {
+        "Voice capture is ready.".to_string()
+    } else if input_status.prepared && !helper_status.provider_ready {
+        format!("Microphone is ready. Full ASR/translation/TTS is blocked until helper provider readiness is verified. You can start microphone-only capture now, then use Developer Diagnostics to fix the helper pipeline. {message}")
+    } else {
+        message
+    };
     VoiceCapturePreparationReport {
         ok,
         state,
@@ -158,11 +171,7 @@ pub fn prepare_voice_capture(auto_start: bool) -> VoiceCapturePreparationReport 
         cuda_ready: helper_status.cuda_ready,
         missing,
         next_actions,
-        message: if ok {
-            "Voice capture is ready.".to_string()
-        } else {
-            message
-        },
+        message: user_message,
         input_status,
         helper_status,
     }
@@ -173,17 +182,7 @@ pub fn start_capture() -> CommandResult {
     let status = get_helper_bridge_status();
     if !status.provider_ready {
         let _ = cancel_helper_bridge_task();
-        return CommandResult::blocked(
-            LifecycleState::ConversionPending,
-            format!(
-                "Voice capture is blocked until helper provider readiness is verified. State: {}; CUDA: {}; provider: {}; next: Start Helper, Check Worker Status, Open Developer Diagnostics.",
-                compact_preview_text(&status.state),
-                status.cuda_ready,
-                status.provider_ready
-            ),
-        );
     }
-    let _ = cancel_helper_bridge_task();
     engine::start_capture()
 }
 
