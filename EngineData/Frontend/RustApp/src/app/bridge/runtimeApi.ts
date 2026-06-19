@@ -30,6 +30,15 @@ export const RUNTIME_SETTINGS_SAVED_EVENT = "translateit:runtime-settings-saved"
 const MAX_COMMAND_ERRORS = 25;
 const commandErrors: RuntimeCommandError[] = [];
 
+type NativeInputPreparationStatus = InputPreparationStatus & {
+  backend_id?: string;
+  input_device_name?: string | null;
+  prepared?: boolean;
+  running?: boolean;
+  target_sample_rate_hz?: number;
+  target_channels?: number;
+};
+
 function nowIso(): string {
   return new Date().toISOString();
 }
@@ -71,6 +80,17 @@ function inputStatusFallback(message: string): InputPreparationStatus {
     device_count: 0,
     blocker: "frontend_bridge_unavailable",
     note: message,
+  };
+}
+
+function normalizeInputStatus(status: NativeInputPreparationStatus): InputPreparationStatus {
+  return {
+    ...status,
+    ready: status.ready ?? status.prepared ?? false,
+    selected_device_name: status.selected_device_name ?? status.input_device_name ?? null,
+    device_count: status.device_count ?? (status.input_device_name ? 1 : 0),
+    blocker: status.blocker ?? (status.prepared === false ? "audio_input:not_prepared" : undefined),
+    note: status.note ?? "Audio input status checked.",
   };
 }
 
@@ -227,11 +247,12 @@ export const runtimeApi = {
   },
 
   async getInputStatus(): Promise<InputPreparationStatus> {
-    return invokeOr<InputPreparationStatus>(
+    const status = await invokeOr<NativeInputPreparationStatus>(
       "get_input_status",
       undefined,
       inputStatusFallback("Microphone status is unavailable because the frontend bridge could not call Tauri."),
     );
+    return normalizeInputStatus(status);
   },
 
   async listAudioDevices(): Promise<AudioDeviceListReport> {
