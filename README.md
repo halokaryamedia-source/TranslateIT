@@ -4,7 +4,7 @@ TranslateIT is a local speech-to-text, translation, and voice-output desktop app
 
 ## Current status
 
-The project is in Rust/Tauri migration and structure-cleanup phase. The source tree is organized around one packaged desktop runtime route, one runtime engine area, one user-data area, and one development-only workspace.
+The project is in Rust/Tauri migration and structure-cleanup phase. The source tree is organized around one packaged desktop runtime route, one runtime engine area, one user-data area, one development-only workspace, and one GitHub automation folder.
 
 Do not claim the application is professionally ready until local build, packaging, local model readiness, persistent worker smoke, microphone ASR, translation, TTS, and end-to-end latency evidence pass on the target PC.
 
@@ -23,6 +23,7 @@ Read that file before adding, moving, or renaming repository paths.
 Only these root folders/files are expected:
 
 ```text
+.github/
 DevelopingData/
 EngineData/
 UserData/
@@ -34,6 +35,7 @@ TranslateIT.lnk
 
 ## Root ownership
 
+- `.github/` - repository automation only. It must not contain app runtime files, model assets, user data, or alternate launchers.
 - `DevelopingData/` - development-only documentation, reports, samples, QA references, and maintenance tooling. It must not contain active runtime engine files.
 - `EngineData/` - runtime source ownership for Frontend, Backend, and the active Tauri desktop app package route.
 - `UserData/` - local runtime cache, logs, saved work, and validation evidence.
@@ -82,7 +84,7 @@ npm run dev
 
 ```text
 EngineData/LauncherApp/RustApp/                # app package, app UI docs, preview, reports, checklists
-EngineData/Backend/LocalWorker/WorkerRuntime/ # Python worker runtime files
+EngineData/Backend/LocalWorker/WorkerRuntime/ # Python worker runtime files and worker-owned model setup helper
 EngineData/Backend/RuntimeContracts/          # backend JSON contracts and model manifest
 EngineData/Backend/RuntimeAssets/             # local model/runtime asset slots
 DevelopingData/Documentation/                 # development-only project documentation
@@ -90,20 +92,21 @@ DevelopingData/Documentation/                 # development-only project documen
 
 ## Approved Python exception
 
-The only approved Python runtime route under `EngineData` is the backend local worker route:
+The only approved Python route under `EngineData` is the backend local worker route:
 
 ```text
-EngineData/Backend/LocalWorker/WorkerRuntime/realtime_local_worker.py
+EngineData/Backend/LocalWorker/WorkerRuntime/
 ```
 
-This file is retained because local ASR, translation, and TTS currently use Python ecosystem libraries:
+This route is retained because local ASR, translation, model preparation, model verification, and TTS currently use Python ecosystem libraries:
 
 - Faster Whisper for ASR.
 - MarianMT for Realtime translation.
 - NLLB for Quality translation.
 - Piper orchestration for TTS.
+- Hugging Face snapshot download during local model setup.
 
-It is not a launcher, UI engine, repository validator, or legacy desktop route.
+Python files outside this worker route are not approved for the active app path.
 
 ## Retired roots and folders
 
@@ -117,6 +120,7 @@ DevelopingData/Docs/
 DevelopingData/LauncherHelpers/
 DevelopingData/SampleData/
 DevelopingData/Tests/
+DevelopingData/Patches/
 EngineData/TranscriptEngine/
 EngineData/TranslateEngine/
 EngineData/VoiceEngine/
@@ -130,7 +134,7 @@ Launcher/Preview/
 
 ## Safety and cleanliness rules
 
-- Keep root clean except approved root documentation and the official shortcut.
+- Keep root clean except approved root documentation, GitHub automation, and the official shortcut.
 - Do not place active runtime engine files under `DevelopingData`.
 - Runtime cache, logs, local models, and user-generated data stay out of Git.
 - Keep app-specific documentation inside `EngineData/LauncherApp/RustApp` until the physical package rename to `App` is completed.
@@ -138,3 +142,4 @@ Launcher/Preview/
 - Keep backend contracts under `EngineData/Backend/RuntimeContracts`.
 - Keep runtime assets under `EngineData/Backend/RuntimeAssets`.
 - Keep user runtime outputs under `UserData`.
+- Do not claim local model or GPU readiness from committed manifests alone; only target-PC smoke evidence can mark runtime ready.
