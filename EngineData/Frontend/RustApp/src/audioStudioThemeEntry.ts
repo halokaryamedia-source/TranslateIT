@@ -1,0 +1,21 @@
+const AUDIO_STUDIO_THEME_ID = "translateit-audio-studio-theme";
+
+if (!document.getElementById(AUDIO_STUDIO_THEME_ID)) {
+  const style = document.createElement("style");
+  style.id = AUDIO_STUDIO_THEME_ID;
+  style.textContent = `
+.settings-view--audio-studio { min-height: 100%; }
+.settings-card--audio-studio, .settings-card--audio-studio-status { gap: 18px; }
+.audio-studio-reading-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 14px; }
+.audio-studio-reading-card { border: 1px solid rgba(148, 163, 184, 0.25); border-radius: 18px; padding: 16px; background: rgba(255, 255, 255, 0.72); box-shadow: 0 18px 45px rgba(15, 23, 42, 0.06); display: grid; gap: 14px; }
+.audio-studio-reading-card.active { border-color: rgba(15, 23, 42, 0.55); box-shadow: 0 22px 55px rgba(15, 23, 42, 0.10); }
+.audio-studio-reading-card header { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.audio-studio-reading-card strong { font-size: 13px; color: #111827; }
+.audio-studio-reading-card span { font-size: 11px; color: #64748b; white-space: nowrap; }
+.audio-studio-reading-card p { margin: 0; color: #334155; font-size: 13px; line-height: 1.55; }
+@media (max-width: 980px) { .audio-studio-reading-grid { grid-template-columns: 1fr; } }
+`;
+  document.head.appendChild(style);
+}
+
+export {};

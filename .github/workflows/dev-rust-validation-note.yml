@@ -1,0 +1,15 @@
+name: Dev-Rust Manual Validation Only
+
+on:
+  workflow_dispatch:
+
+jobs:
+  validation-disabled:
+    name: Validation intentionally manual only
+    runs-on: ubuntu-latest
+    steps:
+      - name: Explain manual-only policy
+        run: |
+          echo "Automatic Dev-Rust validation is disabled while active development is in progress."
+          echo "Do not run npm install, cargo check, Tauri build, worker smoke tests, CUDA checks, model checks, microphone checks, or local runtime validation in GitHub Actions."
+          echo "Run validation manually only after the development batch is complete."

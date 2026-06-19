@@ -1,0 +1,75 @@
+{
+  "schema": "translateit.python_helper_bridge_contract.v1",
+  "branch": "Dev-Rust",
+  "status": "process_spawn_bridge_implemented_pending_local_verification",
+  "owner_shell": "Rust/Tauri",
+  "helper_runtime": "Python",
+  "allowed_helper_domains": [
+    "asr",
+    "translation",
+    "tts_voice",
+    "cuda_validation",
+    "latency_diagnostics",
+    "model_health",
+    "audio_device_probe"
+  ],
+  "required_bridge_states": [
+    "not_started",
+    "starting",
+    "ready",
+    "degraded",
+    "blocked",
+    "stopped",
+    "error"
+  ],
+  "required_status_fields": [
+    "state",
+    "message",
+    "cuda_ready",
+    "provider_ready",
+    "degraded_mode",
+    "active_task",
+    "generation_token",
+    "last_error",
+    "updated_unix_ms",
+    "runtime_claim"
+  ],
+  "implemented_bridge_features": [
+    "status_command",
+    "start_lifecycle_command",
+    "stop_lifecycle_command",
+    "cancel_task_lifecycle_command",
+    "request_schema_command",
+    "generation_token_invalidation",
+    "worker_path_resolution",
+    "venv_python_guard",
+    "stdin_jsonl_worker_protocol",
+    "stdout_jsonl_response_read",
+    "ping_health_check_on_start",
+    "developer_ui_status_visibility",
+    "developer_ui_lifecycle_controls"
+  ],
+  "rules": [
+    "Rust/Tauri owns user-facing readiness text.",
+    "Python helper status must be reported as evidence, not as automatic UI readiness.",
+    "CUDA failure must surface as blocked or explicit degraded mode.",
+    "CPU fallback must be visible and recorded.",
+    "A helper process may not write outside approved UserData roots.",
+    "Start/Stop lifecycle must cancel stale helper output from previous generations.",
+    "Real ASR plus real translation requires ready helper state and valid provider evidence.",
+    "Helper spawn must use the project-local worker virtual environment created by setup_realtime_worker.ps1."
+  ],
+  "approved_userdata_roots": {
+    "cache": "UserData/CacheData/",
+    "saved_project": "UserData/SavedProject/",
+    "logs": "UserData/LogData/"
+  },
+  "not_ready_until_implemented": [
+    "local_build_validation",
+    "target_pc_worker_spawn_validation",
+    "long_running_health_monitor",
+    "cuda_status_mapping_from_worker_status",
+    "provider_status_mapping_from_worker_status",
+    "error_visibility_mapping_for_worker_stderr"
+  ]
+}

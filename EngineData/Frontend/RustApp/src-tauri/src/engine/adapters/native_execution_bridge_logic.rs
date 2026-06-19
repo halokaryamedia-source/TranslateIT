@@ -1,0 +1,187 @@
+use serde::{Deserialize, Serialize};
+use std::path::Path;
+
+use crate::engine::native_execution::{NativeExecutionContractRequest, NativeExecutionRequest};
+use crate::engine::native_runners::{
+    prepare_native_stage_runners, NativeStageRunnerReport, NativeStageRunnerRequest,
+};
+
+const MAX_BRIDGE_ID_CHARS: usize = 96;
+const MAX_BRIDGE_TEXT_CHARS: usize = 8_000;
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct NativeExecutionBridgeRequest {
+    pub segment_id: String,
+    pub source_text: Option<String>,
+    pub source_audio_path: Option<String>,
+    pub output_audio_path: Option<String>,
+    pub asr_model_path: Option<String>,
+    pub translation_model_path: Option<String>,
+    pub output_model_path: Option<String>,
+    pub asr_backend_ready: bool,
+    pub translation_backend_ready: bool,
+    pub output_backend_ready: bool,
+    pub allow_cpu_degraded_mode: bool,
+}
+
+#[derive(Debug, Clone, Serialize)]
+pub struct NativeExecutionBridgeReport {
+    pub segment_id: String,
+    pub realtime_stack: String,
+    pub ready_for_execution: bool,
+    pub runner_report: NativeStageRunnerReport,
+    pub blockers: Vec<String>,
+    pub note: String,
+}
+
+pub fn build_native_execution_bridge(
+    request: NativeExecutionBridgeRequest,
+) -> NativeExecutionBridgeReport {
+    let segment_id = safe_id(&request.segment_id);
+    let source_text = request
+        .source_text
+        .as_deref()
+        .map(compact_text)
+        .filter(|value| !value.is_empty());
+    let asr_input_ready = has_value(&request.source_audio_path);
+    let translation_input_ready = source_text
+        .as_ref()
+        .map(|value| !value.is_empty())
+        .unwrap_or(false);
+    let output_input_ready = translation_input_ready || has_value(&request.output_audio_path);
+    let asr_model_ready = path_exists(&request.asr_model_path);
+    let translation_model_ready = path_exists(&request.translation_model_path);
+    let output_model_ready = optional_path_exists(&request.output_model_path);
+
+    let asr = NativeExecutionContractRequest {
+        stage: "asr".to_string(),
+        segment_id: segment_id.clone(),
+        source_text: None,
+        source_audio_path: request.source_audio_path.clone(),
+        model_path: request.asr_model_path.clone(),
+        output_audio_path: None,
+        plan: NativeExecutionRequest {
+            stage: "asr".to_string(),
+            model_id: Some("faster-whisper-large-v3-turbo".to_string()),
+            device: Some("cuda".to_string()),
+            compute_type: Some("int8_float16".to_string()),
+            input_ready: asr_input_ready,
+            model_ready: asr_model_ready,
+            backend_ready: request.asr_backend_ready,
+            allow_cpu_degraded_mode: request.allow_cpu_degraded_mode,
+        },
+    };
+
+    let translation = NativeExecutionContractRequest {
+        stage: "translation".to_string(),
+        segment_id: segment_id.clone(),
+        source_text: source_text.clone(),
+        source_audio_path: None,
+        model_path: request.translation_model_path.clone(),
+        output_audio_path: None,
+        plan: NativeExecutionRequest {
+            stage: "translation".to_string(),
+            model_id: Some("marianmt-id-en".to_string()),
+            device: Some("cuda".to_string()),
+            compute_type: Some("int8_float16".to_string()),
+            input_ready: translation_input_ready,
+            model_ready: translation_model_ready,
+            backend_ready: request.translation_backend_ready,
+            allow_cpu_degraded_mode: request.allow_cpu_degraded_mode,
+        },
+    };
+
+    let output = NativeExecutionContractRequest {
+        stage: "output".to_string(),
+        segment_id: segment_id.clone(),
+        source_text,
+        source_audio_path: None,
+        model_path: request.output_model_path.clone(),
+        output_audio_path: request.output_audio_path.clone(),
+        plan: NativeExecutionRequest {
+            stage: "output".to_string(),
+            model_id: Some("piper-en-fast".to_string()),
+            device: Some("local-audio-output".to_string()),
+            compute_type: Some("pcm16".to_string()),
+            input_ready: output_input_ready,
+            model_ready: output_model_ready,
+            backend_ready: request.output_backend_ready,
+            allow_cpu_degraded_mode: false,
+        },
+    };
+
+    let runner_report = prepare_native_stage_runners(NativeStageRunnerRequest {
+        asr: Some(asr),
+        translation: Some(translation),
+        output: Some(output),
+    });
+    let ready_for_execution =
+        runner_report.blockers.is_empty() && runner_report.ready_stage_count == 3;
+    let realtime_stack =
+        "faster-whisper-large-v3-turbo + marianmt-id-en + piper-en-fast".to_string();
+    let note = if ready_for_execution {
+        format!("Native execution bridge is ready to enter local realtime worker integration using {realtime_stack}.")
+    } else {
+        format!("Native execution bridge remains blocked until required inputs, model paths, and local worker backend readiness are available. stack={realtime_stack}")
+    };
+
+    NativeExecutionBridgeReport {
+        segment_id,
+        realtime_stack,
+        ready_for_execution,
+        blockers: runner_report.blockers.clone(),
+        runner_report,
+        note,
+    }
+}
+
+fn has_value(value: &Option<String>) -> bool {
+    value
+        .as_ref()
+        .map(|text| !text.trim().is_empty())
+        .unwrap_or(false)
+}
+
+fn safe_id(value: &str) -> String {
+    let clean = value
+        .trim()
+        .chars()
+        .map(|character| {
+            if character.is_ascii_alphanumeric() || matches!(character, '-' | '_') {
+                character
+            } else {
+                '_'
+            }
+        })
+        .take(MAX_BRIDGE_ID_CHARS)
+        .collect::<String>();
+    if clean.is_empty() {
+        "segment".to_string()
+    } else {
+        clean
+    }
+}
+
+fn compact_text(value: &str) -> String {
+    value
+        .trim()
+        .chars()
+        .filter(|character| !character.is_control())
+        .take(MAX_BRIDGE_TEXT_CHARS)
+        .collect::<String>()
+}
+
+fn path_exists(value: &Option<String>) -> bool {
+    value
+        .as_ref()
+        .filter(|path| !path.trim().is_empty())
+        .map(|path| Path::new(path).exists())
+        .unwrap_or(false)
+}
+
+fn optional_path_exists(value: &Option<String>) -> bool {
+    match value.as_ref().filter(|path| !path.trim().is_empty()) {
+        Some(path) => Path::new(path).exists(),
+        None => true,
+    }
+}

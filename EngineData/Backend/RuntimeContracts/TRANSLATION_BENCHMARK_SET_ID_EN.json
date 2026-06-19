@@ -1,0 +1,44 @@
+{
+  "schema": "translateit.translation_benchmark_set.v1",
+  "status": "contract_and_seed_samples_only",
+  "purpose": "Seed benchmark set for measuring ID <-> EN translation quality before claiming Gemini-class readiness.",
+  "directions": ["id->en", "en->id"],
+  "scoring": {
+    "meaning_preservation": "0-5",
+    "fluency": "0-5",
+    "terminology": "0-5",
+    "latency_ms": "number",
+    "pass_rule": "No product-class claim until average quality score is >= 4.3/5 and p95 latency is reported from target PC."
+  },
+  "seed_cases": [
+    {
+      "id": "id_en_daily_001",
+      "direction": "id->en",
+      "source": "Tolong tunggu sebentar, saya sedang menyiapkan file presentasinya.",
+      "expected_meaning": "Please wait a moment while I prepare the presentation file.",
+      "domain": "daily_work"
+    },
+    {
+      "id": "id_en_meeting_001",
+      "direction": "id->en",
+      "source": "Apakah rapat hari ini bisa dipindahkan ke jam yang sama besok?",
+      "expected_meaning": "Can today's meeting be moved to the same time tomorrow?",
+      "domain": "meeting"
+    },
+    {
+      "id": "en_id_meeting_001",
+      "direction": "en->id",
+      "source": "Let us know if you are available today.",
+      "expected_meaning": "Beri tahu kami jika Anda tersedia hari ini.",
+      "domain": "meeting"
+    },
+    {
+      "id": "id_en_support_001",
+      "direction": "id->en",
+      "source": "Aplikasi belum merespons setelah tombol mikrofon ditekan.",
+      "expected_meaning": "The app has not responded after the microphone button was pressed.",
+      "domain": "technical_support"
+    }
+  ],
+  "readiness_rule": "Benchmark existence is not runtime proof. Scores must come from local target-PC execution."
+}

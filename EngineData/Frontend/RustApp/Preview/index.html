@@ -1,0 +1,445 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>TranslateIT DesignPreview</title>
+  <link rel="stylesheet" href="./ui-tokens.css" />
+  <link rel="stylesheet" href="./ui-components.css" />
+  <link rel="stylesheet" href="./ui-templates.css" />
+</head>
+<body>
+  <header class="preview-header">
+    <div>
+      <p class="eyebrow">DesignPreview / Dev-Rust preview-only</p>
+      <h1>TranslateIT UI Preview</h1>
+      <p>Main Page v28.1 · Audio Settings v22 · Translate Settings v14 · Developer Settings v37</p>
+    </div>
+    <nav class="preview-nav" aria-label="Preview navigation">
+      <a href="#main-page">Main</a>
+      <a href="#settings-audio">Audio</a>
+      <a href="#settings-translate">Translate</a>
+      <a href="#settings-general">General</a>
+      <a href="#developer-log">Developer</a>
+      <a href="#ui-library">Library</a>
+    </nav>
+  </header>
+
+  <main class="preview-stack">
+    <section id="main-page" class="template-block">
+      <div class="template-label">
+        <span>MainPage</span>
+        <small>v28.1 clean composition</small>
+      </div>
+
+      <div class="app-frame main-frame">
+        <aside class="app-sidebar">
+          <div class="brand">
+            <svg class="brand-mark" aria-hidden="true"><use href="./icons.svg#ti-logo"></use></svg>
+            <div>
+              <strong>TranslateIT</strong>
+              <span>Local voice translation</span>
+            </div>
+          </div>
+
+          <button class="nav-primary">
+            <svg><use href="./icons.svg#plus"></use></svg>
+            <span>New Chat</span>
+          </button>
+
+          <div class="side-group">
+            <p>Recent Chat</p>
+            <button class="side-item active">
+              <svg><use href="./icons.svg#clock"></use></svg>
+              <span>Recent Chat</span>
+              <svg class="chev"><use href="./icons.svg#chevron-down"></use></svg>
+            </button>
+            <button class="side-item">
+              <svg><use href="./icons.svg#file"></use></svg>
+              <span>Unsaved Chat</span>
+              <svg class="chev"><use href="./icons.svg#chevron-down"></use></svg>
+            </button>
+          </div>
+
+          <div class="side-divider"></div>
+
+          <div class="side-group">
+            <p>Workspace</p>
+            <button class="side-item">
+              <svg><use href="./icons.svg#folder"></use></svg>
+              <span>Saved Chat</span>
+              <svg class="chev"><use href="./icons.svg#chevron-down"></use></svg>
+            </button>
+            <button class="side-item">
+              <svg><use href="./icons.svg#shield"></use></svg>
+              <span>Local Data</span>
+              <svg class="chev"><use href="./icons.svg#chevron-down"></use></svg>
+            </button>
+          </div>
+
+          <div class="account-card">
+            <div class="account-avatar">HK</div>
+            <div class="account-meta">
+              <strong>Halo Karya</strong>
+              <span><i></i> Invisible</span>
+            </div>
+            <div class="account-actions" aria-label="Account controls">
+              <button class="icon-btn danger" aria-label="Microphone off"><svg><use href="./icons.svg#mic-off"></use></svg></button>
+              <button class="tiny-chev danger" aria-label="Microphone options"><svg><use href="./icons.svg#chevron-down"></use></svg></button>
+              <button class="icon-btn danger" aria-label="Headphone off"><svg><use href="./icons.svg#headphones"></use></svg></button>
+              <button class="tiny-chev danger" aria-label="Headphone options"><svg><use href="./icons.svg#chevron-down"></use></svg></button>
+              <button class="icon-btn" aria-label="Settings"><svg><use href="./icons.svg#settings"></use></svg></button>
+            </div>
+          </div>
+        </aside>
+
+        <section class="app-main">
+          <header class="topbar">
+            <div>
+              <h2>Voice translation</h2>
+              <p>Translate text or speech with a local-first workflow.</p>
+            </div>
+            <div class="topbar-actions">
+              <button class="pill-btn language-pill">ID &gt; EN</button>
+              <button class="pill-btn status-ok"><span></span>LOCAL READY</button>
+            </div>
+          </header>
+
+          <div class="hero-area clean-hero">
+            <span class="mode-pill">Local-first translation workspace</span>
+            <h3>What would you like to translate?</h3>
+            <p>Type Indonesian text, or use the microphone action for voice input after preview approval.</p>
+
+            <div class="status-grid">
+              <article class="status-card">
+                <svg><use href="./icons.svg#translate"></use></svg>
+                <div>
+                  <strong>ID &gt; EN</strong>
+                  <span>Current language direction</span>
+                </div>
+              </article>
+              <article class="status-card">
+                <svg><use href="./icons.svg#shield"></use></svg>
+                <div>
+                  <strong>Local-first</strong>
+                  <span>Worker boundary reviewed separately</span>
+                </div>
+              </article>
+              <article class="status-card muted">
+                <svg><use href="./icons.svg#pulse"></use></svg>
+                <div>
+                  <strong>Preview only</strong>
+                  <span>No runtime claim from this screen</span>
+                </div>
+              </article>
+            </div>
+
+            <div class="feature-grid">
+              <article class="feature-card">
+                <i></i>
+                <div class="feature-title"><svg><use href="./icons.svg#keyboard"></use></svg>Text input</div>
+                <p>Type or paste Indonesian text and review the English result in the conversation.</p>
+              </article>
+              <article class="feature-card">
+                <i></i>
+                <div class="feature-title"><svg><use href="./icons.svg#mic"></use></svg>Voice input</div>
+                <p>Use a clean microphone action when the approved design is integrated into Tauri.</p>
+              </article>
+            </div>
+          </div>
+
+          <form class="composer" aria-label="Message composer">
+            <button type="button" class="icon-plain"><svg><use href="./icons.svg#plus"></use></svg></button>
+            <input aria-label="Message" placeholder="Ask anything..." />
+            <button type="button" class="round-btn send"><svg><use href="./icons.svg#arrow-up"></use></svg></button>
+            <button type="button" class="round-btn"><svg><use href="./icons.svg#mic"></use></svg></button>
+          </form>
+          <p class="composer-help">Use the arrow for text translation, or the microphone for voice input.</p>
+        </section>
+      </div>
+    </section>
+
+    <section id="settings-audio" class="template-block">
+      <div class="template-label"><span>Settings-Audio</span><small>v22 locked composition</small></div>
+      <div class="settings-frame">
+        <aside class="settings-sidebar">
+          <h2>Settings</h2>
+          <button><svg><use href="./icons.svg#sliders"></use></svg>General</button>
+          <button class="active"><svg><use href="./icons.svg#speaker"></use></svg>Audio</button>
+          <button><svg><use href="./icons.svg#translate"></use></svg>Translate</button>
+          <button><svg><use href="./icons.svg#code"></use></svg>Developer</button>
+        </aside>
+        <section class="settings-main">
+          <header class="settings-top"><button class="back-btn"><svg><use href="./icons.svg#arrow-left"></use></svg>Back</button></header>
+          <div class="settings-content">
+            <h2>Audio</h2>
+            <p>Manage microphone input, speaker output, volume, and voice behavior.</p>
+
+            <div class="panel device-panel">
+              <div class="field-col">
+                <label>Microphone</label>
+                <button class="select-field"><svg><use href="./icons.svg#mic"></use></svg>Triton Microphone (USB AUDIO DEVICE)<svg><use href="./icons.svg#chevron-down"></use></svg></button>
+              </div>
+              <div class="field-col">
+                <label>Speaker</label>
+                <button class="select-field"><svg><use href="./icons.svg#speaker"></use></svg>TWS (AkLIAM PD6)<svg><use href="./icons.svg#chevron-down"></use></svg></button>
+              </div>
+              <div class="field-col">
+                <label>Microphone Volume</label>
+                <div class="range-line"><span style="width:84%"></span><i style="left:84%"></i></div>
+              </div>
+              <div class="field-col">
+                <label>Speaker Volume</label>
+                <div class="range-line"><span style="width:48%"></span><i style="left:48%"></i></div>
+              </div>
+              <button class="outline-btn">Mic Test</button>
+              <div class="meter-bars" aria-label="Microphone meter">
+                <i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i>
+              </div>
+            </div>
+
+            <h3>Voice</h3>
+            <p>Configure voice input behavior and input processing profile.</p>
+            <div class="panel two-col">
+              <div>
+                <h4>Voice Profile</h4>
+                <p>Choose the microphone processing profile.</p>
+                <label class="radio-row checked"><span></span><strong>Normal</strong><small>Default microphone input without extra noise processing.</small></label>
+                <label class="radio-row"><span></span><strong>Noise</strong><small>Reduce background noise and prioritize speech clarity.</small></label>
+              </div>
+              <div>
+                <h4>Voice Mode</h4>
+                <p>Choose how TranslateIT listens to voice input.</p>
+                <label class="radio-row checked"><span></span><strong>Always On</strong><small>Voice input stays ready while the app is active.</small></label>
+                <label class="radio-row"><span></span><strong>Push to Talk</strong><small>Voice input only activates while holding a selected key.</small></label>
+              </div>
+            </div>
+
+            <h3>Advanced Audio Setting</h3>
+            <div class="panel muted-panel"></div>
+          </div>
+        </section>
+      </div>
+    </section>
+
+    <section id="settings-translate" class="template-block">
+      <div class="template-label"><span>Settings-Translate</span><small>v14 locked composition</small></div>
+      <div class="settings-frame">
+        <aside class="settings-sidebar">
+          <h2>Settings</h2>
+          <button><svg><use href="./icons.svg#sliders"></use></svg>General</button>
+          <button><svg><use href="./icons.svg#speaker"></use></svg>Audio</button>
+          <button class="active"><svg><use href="./icons.svg#translate"></use></svg>Translate</button>
+          <button><svg><use href="./icons.svg#code"></use></svg>Developer</button>
+        </aside>
+        <section class="settings-main">
+          <header class="settings-top"><button class="back-btn"><svg><use href="./icons.svg#arrow-left"></use></svg>Back</button></header>
+          <div class="settings-content">
+            <h2>Translate</h2>
+            <p>Configure language direction, translation speed, and output behavior.</p>
+
+            <div class="panel language-panel">
+              <div class="field-col">
+                <label>Source Language</label>
+                <button class="select-field">Indonesian<svg><use href="./icons.svg#chevron-down"></use></svg></button>
+              </div>
+              <button class="swap-btn" aria-label="Swap language"><svg><use href="./icons.svg#swap"></use></svg></button>
+              <div class="field-col">
+                <label>Target Language</label>
+                <button class="select-field">English<svg><use href="./icons.svg#chevron-down"></use></svg></button>
+              </div>
+            </div>
+
+            <h3>Realtime</h3>
+            <p>Choose how TranslateIT balances speed and translation quality.</p>
+            <div class="panel two-col compact">
+              <label class="radio-row checked"><span></span><strong>Fast</strong><small>Prioritize low latency for live voice translation.</small></label>
+              <label class="radio-row"><span></span><strong>Quality</strong><small>Prefer better translation quality when response time is less critical.</small></label>
+            </div>
+
+            <h3>Translate Output</h3>
+            <p>Choose which output should appear after translation completes.</p>
+            <div class="panel two-col compact">
+              <div class="toggle-row"><svg><use href="./icons.svg#file"></use></svg><div><strong>Transcript</strong><small>Show translated text in the conversation.</small></div><span class="toggle on"></span></div>
+              <div class="toggle-row"><svg><use href="./icons.svg#speaker"></use></svg><div><strong>Voice</strong><small>Play translated English voice automatically.</small></div><span class="toggle on"></span></div>
+            </div>
+
+            <h3>Advanced Translate Setting</h3>
+            <div class="panel muted-panel"></div>
+          </div>
+        </section>
+      </div>
+    </section>
+
+    <section id="settings-general" class="template-block">
+      <div class="template-label"><span>Settings-General</span><small>new template aligned with v22/v14/v37</small></div>
+      <div class="settings-frame">
+        <aside class="settings-sidebar">
+          <h2>Settings</h2>
+          <button class="active"><svg><use href="./icons.svg#sliders"></use></svg>General</button>
+          <button><svg><use href="./icons.svg#speaker"></use></svg>Audio</button>
+          <button><svg><use href="./icons.svg#translate"></use></svg>Translate</button>
+          <button><svg><use href="./icons.svg#code"></use></svg>Developer</button>
+        </aside>
+        <section class="settings-main">
+          <header class="settings-top"><button class="back-btn"><svg><use href="./icons.svg#arrow-left"></use></svg>Back</button></header>
+          <div class="settings-content">
+            <h2>General</h2>
+            <p>Configure app behavior, workspace defaults, and local data visibility.</p>
+
+            <div class="panel two-col compact">
+              <div class="toggle-row"><svg><use href="./icons.svg#spark"></use></svg><div><strong>Startup Warmup</strong><small>Prepare local worker after launcher opens.</small></div><span class="toggle on"></span></div>
+              <div class="toggle-row"><svg><use href="./icons.svg#shield"></use></svg><div><strong>Local-first Mode</strong><small>Prefer local processing when available.</small></div><span class="toggle on"></span></div>
+              <div class="toggle-row"><svg><use href="./icons.svg#folder"></use></svg><div><strong>Save Chat History</strong><small>Keep recent chat cache locally.</small></div><span class="toggle on"></span></div>
+              <div class="toggle-row"><svg><use href="./icons.svg#bell"></use></svg><div><strong>Diagnostic Notice</strong><small>Show warning when worker falls back.</small></div><span class="toggle warning"></span></div>
+            </div>
+
+            <h3>Account</h3>
+            <p>Compact account card with separated mic/headphone/options controls.</p>
+            <div class="panel">
+              <div class="account-card preview-account">
+                <div class="account-avatar">HK</div>
+                <div class="account-meta">
+                  <strong>Halo Karya</strong>
+                  <span><i></i> Invisible</span>
+                </div>
+                <div class="account-actions">
+                  <button class="icon-btn danger"><svg><use href="./icons.svg#mic-off"></use></svg></button>
+                  <button class="tiny-chev danger"><svg><use href="./icons.svg#chevron-down"></use></svg></button>
+                  <button class="icon-btn danger"><svg><use href="./icons.svg#headphones"></use></svg></button>
+                  <button class="tiny-chev danger"><svg><use href="./icons.svg#chevron-down"></use></svg></button>
+                  <button class="icon-btn"><svg><use href="./icons.svg#settings"></use></svg></button>
+                </div>
+              </div>
+            </div>
+
+            <h3>SavedChat-EmptyState</h3>
+            <div class="panel empty-state">
+              <svg><use href="./icons.svg#folder"></use></svg>
+              <strong>No saved chat yet</strong>
+              <p>Saved conversations will appear here after the user chooses Save Translate.</p>
+            </div>
+          </div>
+        </section>
+      </div>
+    </section>
+
+    <section id="developer-log" class="template-block">
+      <div class="template-label"><span>Developer-LogDiagnostic</span><small>v37 locked composition</small></div>
+      <div class="settings-frame">
+        <aside class="settings-sidebar">
+          <h2>Settings</h2>
+          <button><svg><use href="./icons.svg#sliders"></use></svg>General</button>
+          <button><svg><use href="./icons.svg#speaker"></use></svg>Audio</button>
+          <button><svg><use href="./icons.svg#translate"></use></svg>Translate</button>
+          <button class="active"><svg><use href="./icons.svg#code"></use></svg>Developer</button>
+        </aside>
+        <section class="settings-main">
+          <header class="settings-top"><button class="back-btn"><svg><use href="./icons.svg#arrow-left"></use></svg>Back</button></header>
+          <div class="settings-content">
+            <h2>Developer</h2>
+            <p>Simple tools for monitoring runtime health and fixing common issues.</p>
+
+            <h3>Monitoring</h3>
+            <p>Melacak usage hardware dan health engine.</p>
+            <div class="panel monitoring-panel">
+              <div>
+                <h4><svg><use href="./icons.svg#monitor"></use></svg>Hardware Usage</h4>
+                <p>Track CPU, GPU, RAM, and local worker resource usage.</p>
+                <div class="usage-row"><strong>CPU</strong><span><i style="width:25%"></i></span><em>25%</em></div>
+                <div class="usage-row"><strong>GPU</strong><span><i style="width:32%"></i></span><em>32%</em></div>
+                <div class="usage-row"><strong>RAM</strong><span><i style="width:46%"></i></span><em>46%</em></div>
+              </div>
+              <div>
+                <h4><svg><use href="./icons.svg#pulse"></use></svg>Health Engine</h4>
+                <p>Simple status for Launcher and Engine.</p>
+                <div class="health-row"><svg><use href="./icons.svg#monitor"></use></svg><div><strong>Launcher</strong><span>Desktop shell and UI route</span></div><em>Good</em></div>
+                <div class="health-row"><svg><use href="./icons.svg#pulse"></use></svg><div><strong>Engine</strong><span>Translation, transcript, and worker state</span></div><em>Good</em></div>
+              </div>
+            </div>
+
+            <h3>Diagnostic</h3>
+            <p>Run checking, show current progress, and review diagnostic logs in one table.</p>
+            <div class="panel diagnostic-panel">
+              <div class="diag-head">
+                <svg><use href="./icons.svg#check"></use></svg>
+                <div><strong>Run Diagnostic</strong><span>Check launcher, audio device, translation engine, transcript, and local worker.</span></div>
+                <button class="outline-btn">Run Checking</button>
+              </div>
+              <div class="progress-box">
+                <div><strong>Checking translation engine</strong><em>Running</em></div>
+                <p>Phase: Transcript worker</p>
+                <div class="progress-line"><span style="width:52%"></span><b>52%</b></div>
+              </div>
+
+              <div class="log-heading">
+                <svg><use href="./icons.svg#list"></use></svg>
+                <div><strong>Log Diagnostic</strong><span>Showing the latest 3 diagnostic logs.</span></div>
+              </div>
+              <div class="log-window">
+                <div class="log-top"><span></span><span></span><span></span><strong>developer-log/latest</strong><button><svg><use href="./icons.svg#expand"></use></svg>See All Logs</button></div>
+                <pre>[OK]    No critical error detected.
+[INFO]  Launcher route loaded successfully.
+[INFO]  Worker smoke evidence is waiting for target-PC validation.
+[WARN]  This preview is a design template only, not app runtime validation.</pre>
+              </div>
+            </div>
+          </div>
+        </section>
+      </div>
+    </section>
+
+    <section id="ui-library" class="template-block">
+      <div class="template-label"><span>Components / UI Library</span><small>tokens, buttons, cards, fields, meters, logs</small></div>
+      <div class="library-grid">
+        <article class="library-card">
+          <h3>Design tokens</h3>
+          <div class="swatches">
+            <span style="--sw:#05070a">Background</span>
+            <span style="--sw:#11161d">Surface</span>
+            <span style="--sw:#202833">Border</span>
+            <span style="--sw:#dce3ec">Text</span>
+            <span style="--sw:#6ea8ff">Info</span>
+            <span style="--sw:#70d994">Ready</span>
+            <span style="--sw:#e3b65c">Warning</span>
+            <span style="--sw:#ff5b66">Error</span>
+          </div>
+        </article>
+        <article class="library-card">
+          <h3>Buttons</h3>
+          <div class="row-wrap">
+            <button class="outline-btn">Primary</button>
+            <button class="pill-btn language-pill">ID &gt; EN</button>
+            <button class="pill-btn status-ok"><span></span>LOCAL READY</button>
+            <button class="round-btn send"><svg><use href="./icons.svg#arrow-up"></use></svg></button>
+            <button class="round-btn"><svg><use href="./icons.svg#mic"></use></svg></button>
+          </div>
+        </article>
+        <article class="library-card">
+          <h3>Dropdown-LanguageDirection</h3>
+          <div class="dropdown-preview">
+            <button class="select-field">Indonesian <svg><use href="./icons.svg#chevron-down"></use></svg></button>
+            <div>
+              <button class="selected">Indonesian</button>
+              <button>English</button>
+              <button>Japanese</button>
+            </div>
+          </div>
+        </article>
+        <article class="library-card">
+          <h3>MainPage / TranslationResult / Startup-Warmup</h3>
+          <div class="translation-result">
+            <small>Translation Result</small>
+            <p>“Selamat pagi” → “Good morning”</p>
+          </div>
+          <div class="warmup-box">
+            <svg><use href="./icons.svg#spark"></use></svg>
+            <div><strong>Startup Warmup</strong><span>Preparing local translation worker…</span></div>
+            <em>Wait</em>
+          </div>
+        </article>
+      </div>
+    </section>
+  </main>
+</body>
+</html>

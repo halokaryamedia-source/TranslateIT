@@ -1,0 +1,78 @@
+{
+  "schema_version": 1,
+  "generated_at": "2026-06-15T15:08:38.290693+00:00",
+  "model_root_strategy": "project-local",
+  "asr": {
+    "primary": {
+      "id": "large-v3-turbo",
+      "repo": "dropbox-dash/faster-whisper-large-v3-turbo",
+      "preferred_repo": "Systran/faster-whisper-large-v3-turbo",
+      "path": "EngineData/Backend/RuntimeAssets/ASR/ModelData/faster-whisper-large-v3-turbo",
+      "ready": true,
+      "backend": "faster-whisper",
+      "device_preference": "cuda",
+      "required_markers": [
+        "model.bin",
+        "config.json",
+        "tokenizer files"
+      ]
+    },
+    "backup": {
+      "id": "medium",
+      "repo": "Systran/faster-whisper-medium",
+      "path": "EngineData/Backend/RuntimeAssets/ASR/ModelData/faster-whisper-medium",
+      "ready": true,
+      "backend": "faster-whisper",
+      "device_preference": "cpu",
+      "required_markers": [
+        "model.bin",
+        "config.json",
+        "tokenizer files"
+      ]
+    }
+  },
+  "translation": {
+    "primary": {
+      "id": "local-nllb-distilled",
+      "repo": "facebook/nllb-200-distilled-600M",
+      "path": "EngineData/Backend/RuntimeAssets/Translation/ModelData/nllb-200-distilled-600M",
+      "ready": true
+    },
+    "fallback": {
+      "id": "marianmt-id-en",
+      "repo": "Helsinki-NLP/opus-mt-id-en",
+      "path": "EngineData/Backend/RuntimeAssets/Translation/ModelData/marianmt-id-en",
+      "ready": true
+    }
+  },
+  "tts": {
+    "default_sapi_ready": true,
+    "default_sapi_voices": [
+      "Microsoft David Desktop - English (United States)",
+      "Microsoft Zira Desktop - English (United States)"
+    ],
+    "voice_actor_profile_id": "marcel",
+    "voice_actor_ready": false,
+    "voice_actor_path": null,
+    "providers_available": [],
+    "blockers": [
+      "voice_actor_marcel_missing"
+    ]
+  },
+  "cuda": {
+    "torch_cuda_available": false,
+    "ctranslate2_cuda_available": true,
+    "notes": [
+      "torch_version=2.11.0+cpu",
+      "CTranslate2 CUDA model load passed."
+    ]
+  },
+  "overall": {
+    "ready_for_internal_test": true,
+    "ready_for_full_runtime": false,
+    "blockers": [
+      "torch_cuda_unavailable_for_translation",
+      "voice_actor_marcel_missing"
+    ]
+  }
+}

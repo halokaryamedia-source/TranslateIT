@@ -1,0 +1,114 @@
+{
+  "schema": "translateit.local_model_inventory.v1",
+  "backend_policy": {
+    "gpu_primary": true,
+    "cpu_fallback_allowed": true,
+    "cpu_fallback_label": "degraded"
+  },
+  "models": [
+    {
+      "model_id": "faster-whisper-large-v3-turbo",
+      "required": true,
+      "stage": "asr_primary",
+      "preferred": true,
+      "priority": 1,
+      "backend": "whisper",
+      "source_type": "huggingface",
+      "repo_id": "dropbox-dash/faster-whisper-large-v3-turbo",
+      "revision": null,
+      "expected_path": "EngineData/Backend/RuntimeAssets/ASR/ModelData/faster-whisper-large-v3-turbo",
+      "legacy_paths": [
+        "EngineData/Backend/RuntimeAssets/ASR/ModelData/faster-whisper-large-v3-turbo"
+      ],
+      "gpu_capable": true,
+      "cpu_fallback": true,
+      "download_url": null,
+      "checksum": null,
+      "install_method": "huggingface_snapshot_download",
+      "license": "project-local runtime asset; source URL not defined yet",
+      "notes": "Primary ASR model when available. The backup medium model remains the required local fallback for degraded readiness."
+    },
+    {
+      "model_id": "faster-whisper-medium",
+      "required": true,
+      "stage": "asr_fallback",
+      "preferred": false,
+      "priority": 2,
+      "backend": "whisper",
+      "source_type": "huggingface",
+      "repo_id": "Systran/faster-whisper-medium",
+      "revision": null,
+      "expected_path": "EngineData/Backend/RuntimeAssets/ASR/ModelData/faster-whisper-medium",
+      "legacy_paths": [
+        "EngineData/Backend/RuntimeAssets/ASR/ModelData/faster-whisper-medium"
+      ],
+      "gpu_capable": true,
+      "cpu_fallback": true,
+      "download_url": null,
+      "checksum": null,
+      "install_method": "huggingface_snapshot_download",
+      "license": "project-local runtime asset; source URL not defined yet",
+      "notes": "Required ASR fallback model when the preferred large-v3-turbo asset is unavailable."
+    },
+    {
+      "model_id": "marianmt-id-en",
+      "required": true,
+      "stage": "translation_realtime",
+      "backend": "marianmt",
+      "source_type": "huggingface",
+      "repo_id": "Helsinki-NLP/opus-mt-id-en",
+      "revision": null,
+      "expected_path": "EngineData/Backend/RuntimeAssets/Translation/ModelData/marianmt-id-en",
+      "legacy_paths": [
+        "EngineData/Backend/RuntimeAssets/Translation/ModelData/marianmt-id-en"
+      ],
+      "gpu_capable": true,
+      "cpu_fallback": true,
+      "download_url": null,
+      "checksum": null,
+      "install_method": "huggingface_snapshot_download",
+      "license": "project-local runtime asset; source URL not defined yet",
+      "notes": "Realtime text translation model."
+    },
+    {
+      "model_id": "nllb-200-distilled-600M",
+      "required": true,
+      "stage": "translation_quality",
+      "backend": "nllb",
+      "source_type": "huggingface",
+      "repo_id": "facebook/nllb-200-distilled-600M",
+      "revision": null,
+      "expected_path": "EngineData/Backend/RuntimeAssets/Translation/ModelData/nllb-200-distilled-600M",
+      "legacy_paths": [
+        "EngineData/Backend/RuntimeAssets/Translation/ModelData/nllb-200-distilled-600M"
+      ],
+      "gpu_capable": true,
+      "cpu_fallback": true,
+      "download_url": null,
+      "checksum": null,
+      "install_method": "huggingface_snapshot_download",
+      "license": "project-local runtime asset; source URL not defined yet",
+      "notes": "Quality translation model."
+    },
+    {
+      "model_id": "piper",
+      "required": false,
+      "stage": "tts_default",
+      "backend": "piper-or-sapi",
+      "source_type": "manual",
+      "repo_id": null,
+      "revision": null,
+      "expected_path": "EngineData/Backend/RuntimeAssets/Voice/Piper",
+      "legacy_paths": [
+        "EngineData/Backend/RuntimeAssets/Translation/ModelData/piper"
+      ],
+      "gpu_capable": false,
+      "cpu_fallback": true,
+      "download_url": null,
+      "checksum": null,
+      "install_method": "manual_or_release_asset",
+      "license": "project-local runtime asset; source URL not defined yet",
+      "notes": "Local TTS fallback assets."
+    }
+  ]
+}

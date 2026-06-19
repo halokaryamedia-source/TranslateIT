@@ -1,0 +1,123 @@
+/*
+  Translate Settings layout module.
+  Approved direction: Translate Settings v14 reference.
+  Scope: only .settings-view--translate so edits here do not affect Main Page, Audio, or Developer pages.
+*/
+
+.settings-view--translate .settings-view-header {
+  margin: 0;
+}
+
+.settings-view--translate .settings-card--language {
+  height: 144px;
+  margin-top: 40px;
+  padding: 24px 56px;
+}
+
+.settings-view--translate .settings-card--compact {
+  height: 126px;
+  margin-top: 30px;
+  padding: 42px 56px;
+}
+
+.settings-view--translate .settings-card-actions.compact {
+  display: none;
+}
+
+.settings-view--translate .settings-section-title {
+  margin-top: 46px;
+}
+
+.settings-view--translate .language-grid {
+  grid-template-columns: minmax(0, 1fr) 56px minmax(0, 1fr);
+  gap: 34px;
+  align-items: start;
+}
+
+.settings-view--translate .language-block {
+  min-width: 0;
+}
+
+.settings-view--translate .select-field-v22 {
+  height: 46px;
+  min-height: 46px;
+  margin-top: 14px;
+  border-radius: var(--ref-radius-control);
+}
+
+.settings-view--translate .settings-swap-button {
+  width: 56px;
+  height: 48px;
+  margin-top: 38px;
+  border-radius: 12px;
+}
+
+.settings-view--translate .settings-grid-2 {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  column-gap: 68px;
+  row-gap: 0;
+}
+
+.settings-view--translate .radio-row-v22 {
+  width: 100%;
+  margin-top: 0;
+  border: 0;
+  background: transparent;
+  padding: 0;
+  grid-template-columns: 22px minmax(0, 1fr);
+  column-gap: 22px;
+  row-gap: 8px;
+}
+
+.settings-view--translate .radio-row-v22 > span {
+  width: 18px;
+  height: 18px;
+}
+
+.settings-view--translate .radio-row-v22.active > span::after {
+  inset: 5px;
+}
+
+.settings-view--translate .radio-row-v22 strong {
+  font-size: 12.5px;
+}
+
+.settings-view--translate .radio-row-v22 em {
+  max-width: 350px;
+  font-size: 11px;
+  white-space: normal;
+}
+
+.settings-view--translate .settings-output-row {
+  min-height: 58px;
+  border: 0;
+  padding: 0;
+  background: transparent;
+  grid-template-columns: 24px minmax(0, 1fr) 56px;
+  column-gap: 24px;
+  align-items: start;
+}
+
+.settings-view--translate .settings-output-row .icon {
+  margin-top: 0;
+}
+
+.settings-view--translate .settings-output-row h3 {
+  font-size: 12.5px;
+}
+
+.settings-view--translate .settings-output-row p {
+  margin-top: 10px;
+  font-size: 11px;
+}
+
+.settings-view--translate .settings-toggle-pill {
+  width: 54px;
+  height: 28px;
+  margin-top: 0;
+}
+
+.settings-view--translate .settings-toggle-pill i {
+  width: 22px;
+  height: 22px;
+}

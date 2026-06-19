@@ -1,0 +1,99 @@
+/*
+  Audio Settings layout module.
+  Approved direction: Audio Settings v22 reference.
+  Scope: only .settings-view--audio so edits here do not affect Main Page, Translate, or Developer pages.
+*/
+
+.settings-view--audio .settings-view-header {
+  margin: 0;
+}
+
+.settings-view--audio .settings-card--audio {
+  height: 338px;
+  margin-top: 40px;
+  padding: 24px 56px;
+}
+
+.settings-view--audio .settings-card--voice {
+  height: 250px;
+  margin-top: 30px;
+  padding: 30px 56px;
+}
+
+.settings-view--audio .settings-section-title {
+  margin-top: 46px;
+}
+
+.settings-view--audio .settings-grid-2 {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  column-gap: 68px;
+  row-gap: 58px;
+}
+
+.settings-view--audio .select-field-v22 {
+  height: 46px;
+  min-height: 46px;
+  margin-top: 14px;
+  border-radius: var(--ref-radius-control);
+}
+
+.settings-view--audio .range-v22 {
+  height: 32px;
+  margin-top: 18px;
+}
+
+.settings-view--audio .range-v22::before,
+.settings-view--audio .range-v22 span {
+  top: 14px;
+  height: 4px;
+}
+
+.settings-view--audio .mic-test-row-v22 {
+  display: grid;
+  grid-template-columns: 132px minmax(0, 1fr);
+  gap: 34px;
+  align-items: center;
+  margin-top: 70px;
+}
+
+.settings-view--audio .meter-v22 {
+  justify-content: flex-start;
+  gap: 11px;
+  height: 44px;
+}
+
+.settings-view--audio .meter-v22 span {
+  width: 5px;
+  min-width: 5px;
+  background: #4b4f5d;
+}
+
+.settings-view--audio .radio-row-v22 {
+  width: 100%;
+  margin-top: 30px;
+  border: 0;
+  background: transparent;
+  padding: 0;
+  grid-template-columns: 22px minmax(0, 1fr);
+  column-gap: 22px;
+  row-gap: 8px;
+}
+
+.settings-view--audio .radio-row-v22 > span {
+  width: 18px;
+  height: 18px;
+}
+
+.settings-view--audio .radio-row-v22.active > span::after {
+  inset: 5px;
+}
+
+.settings-view--audio .radio-row-v22 strong {
+  font-size: 12.5px;
+}
+
+.settings-view--audio .radio-row-v22 em {
+  max-width: 350px;
+  font-size: 11px;
+  white-space: normal;
+}

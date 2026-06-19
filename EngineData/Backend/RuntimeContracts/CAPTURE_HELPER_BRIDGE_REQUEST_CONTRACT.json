@@ -1,0 +1,55 @@
+{
+  "schema": "translateit.capture_helper_bridge_request_contract.v1",
+  "branch": "Dev-Rust",
+  "status": "contract_ready_runtime_not_migrated",
+  "owner_shell": "Rust/Tauri",
+  "helper_runtime": "Python",
+  "purpose": "Define the request and response boundary for migrating the temporary capture implementation to the long-running helper bridge.",
+  "not_ready_claims": [
+    "microphone_capture_ready",
+    "asr_ready",
+    "translation_ready",
+    "tts_ready",
+    "cuda_ready",
+    "low_latency_ready",
+    "packaged_app_ready"
+  ],
+  "capture_start_request": {
+    "command": "capture_start",
+    "generation_token": "u64_required",
+    "source_language": "string_required",
+    "target_language": "string_required",
+    "runtime_profile": "Realtime_or_Quality_required",
+    "input_device_id": "string_or_null",
+    "output_device_id": "string_or_null"
+  },
+  "capture_stop_request": {
+    "command": "capture_stop",
+    "generation_token": "u64_required"
+  },
+  "minimum_response_fields": {
+    "ok": "boolean_required",
+    "stage": "capture_start_or_capture_stop_required",
+    "generation_token": "u64_required",
+    "blocker": "string_or_null",
+    "microphone_ready": "boolean_required",
+    "asr_ready": "boolean_required",
+    "translation_ready": "boolean_required",
+    "tts_ready": "boolean_required",
+    "cuda_ready": "boolean_required",
+    "degraded_mode": "boolean_required",
+    "evidence_path": "string_or_null"
+  },
+  "safety_rules": [
+    "Do not run capture_start through the temporary one-shot worker when helper provider readiness is false.",
+    "Do not mark capture active unless helper response ok=true and generation_token matches the latest Rust/Tauri generation.",
+    "Ignore stale helper output when response generation_token does not match the current generation.",
+    "Do not claim voice capture readiness without target-PC evidence.",
+    "Do not route real microphone audio to provider routes until local validation has passed."
+  ],
+  "migration_state": {
+    "current_rust_command_guard": "start_capture blocks when helper provider readiness is not verified",
+    "current_temporary_capture_path": "present and pending helper bridge routing",
+    "target_state": "capture_start and capture_stop routed through long-running helper bridge with evidence"
+  }
+}

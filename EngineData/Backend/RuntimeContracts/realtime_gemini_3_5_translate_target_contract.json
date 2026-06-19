@@ -1,0 +1,45 @@
+{
+  "schema": "translateit.realtime_gemini_3_5_translate_target.v1",
+  "purpose": "Define the measurable internal target for Gemini 3.5 realtime translate quality.",
+  "target_name": "Gemini 3.5 realtime translate",
+  "claim_policy": {
+    "may_claim_target_met": false,
+    "reason": "Streaming ASR, streaming translation, natural TTS latency, runtime assets, and target-PC evidence are not complete."
+  },
+  "latency_targets": {
+    "partial_transcript_first_ms": 350,
+    "partial_translation_first_ms": 700,
+    "final_translation_p50_ms": 1200,
+    "final_translation_p95_ms": 2200,
+    "tts_first_audio_p50_ms": 900
+  },
+  "quality_targets": {
+    "language_pairs": ["id-en", "en-id"],
+    "requires_partial_transcript": true,
+    "requires_partial_translation": true,
+    "requires_final_correction": true,
+    "requires_terminology_memory": true,
+    "requires_context_memory": true,
+    "requires_quality_fallback": true,
+    "requires_noise_robustness": true,
+    "requires_interruptible_playback": true
+  },
+  "validation_targets": {
+    "requires_typecheck_pass": true,
+    "requires_rust_check_pass": true,
+    "requires_worker_smoke_pass": true,
+    "requires_asset_validation_pass": true,
+    "requires_latency_evidence": true,
+    "requires_translation_benchmark": true,
+    "requires_target_pc_evidence": true
+  },
+  "current_blockers": [
+    "No successful app check evidence recorded yet.",
+    "No target-PC latency evidence recorded yet.",
+    "No ID/EN benchmark dataset implemented yet.",
+    "No streaming transcript event contract implemented yet.",
+    "No streaming translation state model implemented yet.",
+    "No interruptible playback evidence recorded yet.",
+    "Runtime assets are not proven on target PC."
+  ]
+}

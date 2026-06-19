@@ -1,0 +1,96 @@
+{
+  "schema": "https://translateit.local/figma-approved-ui-export.schema.json",
+  "meta": {
+    "name": "TranslateIT Approved UI Export",
+    "version": "1.0.0",
+    "status": "ready-for-figma-import",
+    "source": "Approved page registry + design tokens",
+    "pages": ["Main Page", "Audio Settings", "Translate Settings", "Developer Settings"]
+  },
+  "variables": [
+    { "name": "color/bg", "type": "color", "value": "#050609", "figmaCollection": "color" },
+    { "name": "color/sidebar", "type": "color", "value": "#07080c", "figmaCollection": "color" },
+    { "name": "color/surface", "type": "color", "value": "#11141a", "figmaCollection": "color" },
+    { "name": "color/surface2", "type": "color", "value": "#151922", "figmaCollection": "color" },
+    { "name": "color/surface3", "type": "color", "value": "#0b0e14", "figmaCollection": "color" },
+    { "name": "color/border", "type": "color", "value": "#252b35", "figmaCollection": "color" },
+    { "name": "color/borderStrong", "type": "color", "value": "#37404b", "figmaCollection": "color" },
+    { "name": "color/text", "type": "color", "value": "#f5f6f8", "figmaCollection": "color" },
+    { "name": "color/muted", "type": "color", "value": "#a5adba", "figmaCollection": "color" },
+    { "name": "color/muted2", "type": "color", "value": "#858e9c", "figmaCollection": "color" },
+    { "name": "color/accent", "type": "color", "value": "#d6dbe3", "figmaCollection": "color" },
+    { "name": "color/danger", "type": "color", "value": "#ff4b55", "figmaCollection": "color" },
+    { "name": "layout/mainSidebar", "type": "dimension", "value": "360px", "figmaCollection": "layout" },
+    { "name": "layout/settingsSidebar", "type": "dimension", "value": "322px", "figmaCollection": "layout" },
+    { "name": "layout/settingsContentWidth", "type": "dimension", "value": "993px", "figmaCollection": "layout" },
+    { "name": "layout/topbarHeight", "type": "dimension", "value": "72px", "figmaCollection": "layout" },
+    { "name": "layout/homePanelWidth", "type": "dimension", "value": "720px", "figmaCollection": "layout" },
+    { "name": "layout/composerWidth", "type": "dimension", "value": "990px", "figmaCollection": "layout" },
+    { "name": "radius/card", "type": "borderRadius", "value": "20px", "figmaCollection": "radius" },
+    { "name": "radius/control", "type": "borderRadius", "value": "10px", "figmaCollection": "radius" },
+    { "name": "radius/composer", "type": "borderRadius", "value": "39px", "figmaCollection": "radius" },
+    { "name": "typography/heroTitleSize", "type": "fontSize", "value": "32px", "figmaCollection": "typography" },
+    { "name": "typography/cardTitleSize", "type": "fontSize", "value": "18px", "figmaCollection": "typography" }
+  ],
+  "figmaFrames": {
+    "mainPage": {
+      "name": "TranslateIT / Main Page / Approved",
+      "width": 2560,
+      "height": 1440,
+      "children": [
+        { "id": "sidebar", "name": "Sidebar", "x": 0, "y": 0, "width": 360, "height": 1440, "fill": "color/sidebar", "stroke": "color/border" },
+        { "id": "topbar", "name": "Topbar", "x": 360, "y": 0, "width": 2200, "height": 72, "fill": "color/sidebar", "stroke": "color/border" },
+        { "id": "hero", "name": "Hero Section", "x": 920, "y": 245, "width": 720, "height": 760, "fill": "none", "stroke": "none" },
+        { "id": "composer", "name": "Composer", "x": 965, "y": 1276, "width": 990, "height": 78, "fill": "color/surface3", "stroke": "color/borderStrong", "radius": "radius/composer" }
+      ]
+    },
+    "audioSettings": {
+      "name": "TranslateIT / Audio Settings / Approved",
+      "width": 2560,
+      "height": 1440,
+      "children": [
+        { "id": "settings-sidebar", "name": "Settings Sidebar", "x": 0, "y": 0, "width": 322, "height": 1440, "fill": "color/sidebar", "stroke": "color/border" },
+        { "id": "settings-topbar", "name": "Settings Topbar", "x": 322, "y": 0, "width": 2238, "height": 72, "fill": "color/sidebar", "stroke": "color/border" },
+        { "id": "audio-header", "name": "Audio Header", "x": 495, "y": 122, "width": 993, "height": 78, "fill": "none", "stroke": "none" },
+        { "id": "audio-card", "name": "Audio Control Card", "x": 495, "y": 242, "width": 993, "height": 338, "fill": "color/surface", "stroke": "color/borderStrong", "radius": "radius/card" },
+        { "id": "voice-section", "name": "Voice Section", "x": 495, "y": 626, "width": 993, "height": 54, "fill": "none", "stroke": "none" },
+        { "id": "voice-card", "name": "Voice Card", "x": 495, "y": 710, "width": 993, "height": 250, "fill": "color/surface", "stroke": "color/borderStrong", "radius": "radius/card" },
+        { "id": "advanced-audio", "name": "Advanced Audio Placeholder", "x": 495, "y": 1045, "width": 993, "height": 170, "fill": "color/surface", "stroke": "color/borderStrong", "radius": "radius/card" }
+      ]
+    },
+    "translateSettings": {
+      "name": "TranslateIT / Translate Settings / Approved",
+      "width": 2560,
+      "height": 1440,
+      "children": [
+        { "id": "settings-sidebar", "name": "Settings Sidebar", "x": 0, "y": 0, "width": 322, "height": 1440, "fill": "color/sidebar", "stroke": "color/border" },
+        { "id": "settings-topbar", "name": "Settings Topbar", "x": 322, "y": 0, "width": 2238, "height": 72, "fill": "color/sidebar", "stroke": "color/border" },
+        { "id": "translate-header", "name": "Translate Header", "x": 495, "y": 122, "width": 993, "height": 78, "fill": "none", "stroke": "none" },
+        { "id": "language-card", "name": "Language Card", "x": 495, "y": 242, "width": 993, "height": 144, "fill": "color/surface", "stroke": "color/borderStrong", "radius": "radius/card" },
+        { "id": "realtime-card", "name": "Realtime Card", "x": 495, "y": 462, "width": 993, "height": 126, "fill": "color/surface", "stroke": "color/borderStrong", "radius": "radius/card" },
+        { "id": "output-card", "name": "Translate Output Card", "x": 495, "y": 660, "width": 993, "height": 126, "fill": "color/surface", "stroke": "color/borderStrong", "radius": "radius/card" },
+        { "id": "advanced-translate", "name": "Advanced Translate Placeholder", "x": 495, "y": 870, "width": 993, "height": 170, "fill": "color/surface", "stroke": "color/borderStrong", "radius": "radius/card" }
+      ]
+    },
+    "developerSettings": {
+      "name": "TranslateIT / Developer Settings / Approved",
+      "width": 2560,
+      "height": 1440,
+      "children": [
+        { "id": "settings-sidebar", "name": "Settings Sidebar", "x": 0, "y": 0, "width": 322, "height": 1440, "fill": "color/sidebar", "stroke": "color/border" },
+        { "id": "settings-topbar", "name": "Settings Topbar", "x": 322, "y": 0, "width": 2238, "height": 72, "fill": "color/sidebar", "stroke": "color/border" },
+        { "id": "developer-header", "name": "Developer Header", "x": 495, "y": 100, "width": 993, "height": 78, "fill": "none", "stroke": "none" },
+        { "id": "monitoring-card", "name": "Monitoring Card", "x": 495, "y": 276, "width": 993, "height": 248, "fill": "color/surface", "stroke": "color/borderStrong", "radius": "radius/card" },
+        { "id": "diagnostic-card", "name": "Diagnostic Card", "x": 495, "y": 648, "width": 993, "height": 622, "fill": "color/surface", "stroke": "color/borderStrong", "radius": "radius/card" }
+      ]
+    }
+  },
+  "safeEditRules": [
+    "Each page has its own CSS module and Figma frame.",
+    "Main Page edits must stay in mainPageLayout.css.",
+    "Audio edits must stay in audioSettingsLayout.css.",
+    "Translate edits must stay in translateSettingsLayout.css.",
+    "Developer edits must stay in developerSettingsLayout.css.",
+    "Shared style values should go into translateit.tokens.json."
+  ]
+}

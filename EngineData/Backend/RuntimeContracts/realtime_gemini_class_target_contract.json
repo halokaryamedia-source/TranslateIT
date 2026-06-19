@@ -1,0 +1,56 @@
+{
+  "schema": "translateit.realtime_gemini_class_target.v1",
+  "purpose": "Define measurable gaps between current TranslateIT realtime translator work and a Gemini-class realtime assistant target.",
+  "target_name": "Gemini-class realtime assistant",
+  "claim_policy": {
+    "may_claim_gemini_class": false,
+    "reason": "Target-PC runtime evidence, latency benchmarks, quality benchmarks, and full-duplex behavior are not complete."
+  },
+  "quality_targets": {
+    "latency": {
+      "p50_total_ms_target": 1000,
+      "p95_total_ms_target": 1800,
+      "requires_recorded_samples": true
+    },
+    "voice": {
+      "requires_streaming_capture": true,
+      "requires_interruptible_playback": true,
+      "requires_noise_robustness_tests": true,
+      "requires_natural_tts_review": true
+    },
+    "translation": {
+      "requires_id_en_benchmark": true,
+      "requires_en_id_benchmark": true,
+      "requires_quality_mode_fallback": true,
+      "requires_terminology_memory": true
+    },
+    "assistant_context": {
+      "requires_session_memory": true,
+      "requires_correction_memory": true,
+      "requires_workspace_context": true,
+      "requires_tool_evidence": true
+    },
+    "multimodal": {
+      "requires_screen_context": true,
+      "requires_file_context": true,
+      "requires_camera_context": false
+    },
+    "validation": {
+      "requires_typecheck_pass": true,
+      "requires_rust_check_pass": true,
+      "requires_worker_smoke_pass": true,
+      "requires_target_pc_evidence": true
+    }
+  },
+  "current_known_gaps": [
+    "No recorded workflow or local validation pass evidence yet.",
+    "No target-PC latency evidence yet.",
+    "Runtime model assets are not proven available on target PC.",
+    "Visible UI binding is intentionally blocked until DesignPreview approval.",
+    "Full-duplex interruption behavior is not implemented.",
+    "Translation benchmark/evaluator is not implemented.",
+    "Noise robustness dataset is not implemented.",
+    "Persistent terminology/correction memory is not implemented.",
+    "Multimodal workspace context is not implemented."
+  ]
+}

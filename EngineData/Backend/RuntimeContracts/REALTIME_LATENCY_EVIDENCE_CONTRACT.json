@@ -1,0 +1,33 @@
+{
+  "schema": "translateit.realtime_latency_evidence_contract.v1",
+  "status": "contract_only_not_runtime_proof",
+  "purpose": "Defines the latency evidence required before TranslateIT readiness can move toward Gemini-class live translate.",
+  "required_metrics": {
+    "capture_start_to_first_asr_partial_ms": "number_or_null",
+    "capture_start_to_first_translation_partial_ms": "number_or_null",
+    "capture_stop_to_final_translation_ms": "number_or_null",
+    "translation_to_first_audio_ms": "number_or_null",
+    "end_to_end_total_ms": "number_or_null",
+    "p50_end_to_end_ms": "number_or_null",
+    "p95_end_to_end_ms": "number_or_null",
+    "sample_count": "number"
+  },
+  "target_thresholds": {
+    "excellent_realtime_p50_ms": 1000,
+    "acceptable_realtime_p50_ms": 1800,
+    "maximum_realtime_p95_ms": 3500,
+    "minimum_sample_count_before_claim": 20
+  },
+  "evidence_payload": {
+    "session_id": "string",
+    "started_unix_ms": "number",
+    "completed_unix_ms": "number_or_null",
+    "source_language": "string",
+    "target_language": "string",
+    "mode": "Realtime_or_Quality",
+    "device": "cuda_cpu_or_unknown",
+    "metrics": "required_metrics_object",
+    "blockers": "string_array"
+  },
+  "readiness_rule": "Do not raise Gemini-class readiness based on architecture only. Raise it only after target-PC latency samples are recorded."
+}

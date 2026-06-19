@@ -1,0 +1,60 @@
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
+
+const root = process.cwd();
+const read = (path) => readFileSync(join(root, path), "utf8");
+
+const primitives = read("src/app/active-launcher/referenceUiPrimitives.ts");
+const factory = read("src/app/active-launcher/uiPageFactory.ts");
+const professionalUi = read("src/professionalUi.css");
+const template = read("page-template.md");
+const guide = read("ui-reference.md");
+
+const required = [
+  "REFERENCE_UI_PAGE_TEMPLATE",
+  "settingsContentLeftOffsetPx",
+  "mainFeatureGridGapPx",
+  "settings-grid-2",
+  "settings-card",
+  "feature-grid",
+  "settingsPage(",
+  "settingsSection(",
+  "settingsCard(",
+  "settingsGrid(",
+  "settingsField(",
+  "settingsActions(",
+  "selectButton(",
+  "primaryButton(",
+  "advancedEmpty(",
+  "emptyState(",
+  "outputRow(",
+  "languageSelectField(",
+  "radioOption(",
+  "monitoringPanel(",
+  "diagnosticActions(",
+  "statusBadge(",
+  "developerLogRows(",
+  "DeveloperLogRow",
+  "empty-state-card",
+  "status-badge",
+  "UI Page Template",
+  "Settings Page Template",
+  "Main/Home Page Template",
+  "360px",
+  "322px",
+  "993px",
+  "72px"
+];
+
+const source = [primitives, factory, professionalUi, template, guide].join("\n");
+const missing = required.filter((token) => !source.includes(token));
+
+if (missing.length > 0) {
+  console.error("UI template check did not pass:");
+  for (const token of missing) console.error("- Missing: " + token);
+  process.exit(1);
+}
+
+console.log("UI template check passed.");
+
+

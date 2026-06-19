@@ -1,0 +1,89 @@
+{
+  "schema": "translateit.local_realtime_stack.v3",
+  "default_mode": "Realtime",
+  "modes": {
+    "Realtime": {
+      "target_latency_ms": 1000,
+      "latency_budget_ms": {
+        "vad_chunk": 350,
+        "asr": 450,
+        "translation": 150,
+        "tts": 250
+      },
+      "asr": {
+        "model_id": "faster-whisper-large-v3-turbo",
+        "model_path": "EngineData/Backend/RuntimeAssets/ASR/ModelData/faster-whisper-large-v3-turbo",
+        "device": "cuda",
+        "compute_type": "int8_float16",
+        "beam_size": 1,
+        "language": "id",
+        "task": "transcribe",
+        "vad_filter": true
+      },
+      "translation": {
+        "model_id": "marianmt-id-en",
+        "model_path": "EngineData/Backend/RuntimeAssets/Translation/ModelData/marianmt-id-en",
+        "device": "cuda",
+        "compute_type": "int8_float16",
+        "max_new_tokens": 32
+      },
+      "tts": {
+        "engine_id": "piper-or-windows-sapi",
+        "root": "EngineData/Backend/RuntimeAssets/Voice/Piper",
+        "voice_mode": "fast"
+      }
+    },
+    "Quality": {
+      "target_latency_ms": 2500,
+      "latency_budget_ms": {
+        "vad_chunk": 900,
+        "asr": 800,
+        "translation": 900,
+        "tts": 350
+      },
+      "asr": {
+        "model_id": "faster-whisper-large-v3-turbo",
+        "model_path": "EngineData/Backend/RuntimeAssets/ASR/ModelData/faster-whisper-large-v3-turbo",
+        "device": "cuda",
+        "compute_type": "float16",
+        "beam_size": 1,
+        "language": "id",
+        "task": "transcribe",
+        "vad_filter": true
+      },
+      "translation": {
+        "model_id": "nllb-200-distilled-600M",
+        "model_path": "EngineData/Backend/RuntimeAssets/Translation/ModelData/nllb-200-distilled-600M",
+        "device": "cuda",
+        "compute_type": "float16",
+        "max_new_tokens": 64
+      },
+      "tts": {
+        "engine_id": "piper-or-windows-sapi",
+        "root": "EngineData/Backend/RuntimeAssets/Voice/Piper",
+        "voice_mode": "quality"
+      }
+    }
+  },
+  "worker_commands": {
+    "status": "preflight local dependencies and model paths",
+    "asr_preload": "load Faster Whisper V3 Turbo into the persistent worker",
+    "transcribe": "run local ASR from a 16 kHz mono WAV segment",
+    "translation_preload": "load Realtime or Quality translation model",
+    "translate": "run local text translation",
+    "tts_preflight": "verify Piper assets or Windows SAPI fallback",
+    "synthesize": "generate local voice output through Piper or Windows SAPI"
+  },
+  "truth_policy": {
+    "no_api": true,
+    "local_only": true,
+    "do_not_claim_ready_until_smoke_tests_pass": true,
+    "required_smoke_tests": [
+      "microphone_capture_smoke_test",
+      "asr_transcript_smoke_test",
+      "translation_smoke_test",
+      "tts_playback_smoke_test",
+      "launcher_package_open_test"
+    ]
+  }
+}
