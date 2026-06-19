@@ -1,12 +1,12 @@
 # Active Documentation Index
 
-Branch: `Dev-Rust`
+Branch: `V1` / cleanup branch `audit/v1-safe-structure-cleanup`
 
 ## Purpose
 
 This is the current engineering documentation entrypoint for TranslateIT.
 
-Read this file first before using superseded reports, handoff notes, or phase documents.
+Read this file first before using superseded reports, handoff notes, phase documents, or cleanup reports.
 
 ## Single active engine rule
 
@@ -16,7 +16,7 @@ TranslateIT has one active product runtime direction:
 Rust/Tauri desktop shell + Python helper runtime
 ```
 
-There is no second launcher engine and no separate product shell in `Dev-Rust`.
+There is no second launcher engine and no separate product shell in `V1`.
 
 Python remains part of the product only as the helper runtime for ASR, translation, TTS/voice, CUDA diagnostics, latency diagnostics, model health checks, and audio/provider processing.
 
@@ -35,6 +35,13 @@ Read these in order:
 9. `DevelopingData/Documentation/Reports/Engineering/CAPTURE_HELPER_BRIDGE_MIGRATION_PLAN.md`
 10. `DevelopingData/Documentation/Reports/Engineering/HELPER_BRIDGE_TIMEOUT_POLICY.md`
 11. `DevelopingData/Documentation/Reports/Engineering/NOISE_HALLUCINATION_FILTERING_POLICY.md`
+
+## V1 cleanup/audit documents
+
+These documents are active for cleanup planning only. They do not claim runtime readiness and do not authorize destructive file movement by themselves.
+
+1. `DevelopingData/Documentation/Reports/Engineering/V1_STRUCTURE_AUDIT_AND_REPAIR_PLAN.md`
+2. `DevelopingData/Documentation/Reports/Engineering/V1_ACTIVE_FILE_OWNERSHIP_MAP.md`
 
 ## Current runtime summary
 
