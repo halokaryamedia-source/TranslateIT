@@ -1,4 +1,4 @@
-import { getRuntimeCommandErrors, runCommand } from "../shared/tauriBridge";
+import { getRuntimeCommandErrors, runCommand } from "../../shared/tauriBridge";
 import type {
   AudioDeviceListReport,
   AudioStudioValidationEvidence,
@@ -19,7 +19,7 @@ import type {
   RuntimeSettings,
   RuntimeStatusBundleReport,
   VoiceCapturePreparationReport,
-} from "../shared/types";
+} from "../../shared/types";
 
 export const RUNTIME_SETTINGS_SAVED_EVENT = "translateit:runtime-settings-saved";
 
@@ -80,125 +80,106 @@ function runHelperActionWithTimeout(command: string, timeoutMs: number, args?: R
     runCommand<HelperBridgeActionResult>(command, args),
     timeoutMs,
     helperTimeoutResult(command, timeoutMs),
-  );
+  ).finally(() => clearHelperBridgeReads());
 }
 
-function chatListKey(kind?: string): string {
-  return `chat-list:${kind ?? "all"}`;
-}
-
-function clearChatReads(kind?: string): void {
-  clearRuntimeReads(chatListKey(), chatListKey("recent"), chatListKey("unsaved"), chatListKey("saved"), chatListKey(kind));
-}
-
-function hasDeviceId(value: string | null | undefined): boolean {
-  return Boolean(value?.trim());
-}
-
-function broadcastSettingsSaved(settings: RuntimeSettings): void {
+function publishSettings(settings: RuntimeSettings): void {
   window.dispatchEvent(new CustomEvent<RuntimeSettings>(RUNTIME_SETTINGS_SAVED_EVENT, { detail: settings }));
 }
 
-async function settingsForSave(settings: RuntimeSettings): Promise<RuntimeSettings> {
-  const current = await runCommand<RuntimeSettings>("load_runtime_settings");
-  if (!current) return settings;
-  return {
-    ...settings,
-    audio: {
-      ...settings.audio,
-      input_device_id: hasDeviceId(settings.audio.input_device_id) ? settings.audio.input_device_id : current.audio.input_device_id,
-      output_device_id: hasDeviceId(settings.audio.output_device_id) ? settings.audio.output_device_id : current.audio.output_device_id,
-    },
-  };
-}
-
 export const runtimeApi = {
-  loadSettings: () => singleFlight("runtime-settings", () => runCommand<RuntimeSettings>("load_runtime_settings")),
-  saveSettings: async (settings: RuntimeSettings) => {
-    const mergedSettings = await settingsForSave(settings);
-    const result = await runCommand<CommandResult>("save_runtime_settings", { settings: mergedSettings });
-    clearSettingsDependentReads();
-    if (result?.ok) broadcastSettingsSaved(mergedSettings);
-    return result;
+  getCommandErrors() {
+    return getRuntimeCommandErrors();
   },
-  saveDefaultSettings: async () => {
-    const result = await runCommand<CommandResult>("save_default_runtime_settings");
-    clearSettingsDependentReads();
-    const settings = await runCommand<RuntimeSettings>("load_runtime_settings");
-    if (result?.ok && settings) broadcastSettingsSaved(settings);
-    return result;
+  getStatusBundle(): Promise<RuntimeStatusBundleReport | null> {
+    return singleFlight("status-bundle", () => runCommand<RuntimeStatusBundleReport>("get_runtime_status_bundle").catch(() => null));
   },
-  getStatusBundle: () => singleFlight("status-bundle", () => runCommand<RuntimeStatusBundleReport>("get_runtime_status_bundle")),
-  getDiagnostics: () => singleFlight("diagnostics", () => runCommand<RuntimeDiagnostics>("get_runtime_diagnostics")),
-  getHelperBridgeStatus: () => singleFlight("helper-bridge-status", () => runCommand<HelperBridgeStatus>("get_helper_bridge_status")),
-  startHelperBridge: async () => {
-    clearHelperBridgeReads();
-    const result = await runHelperActionWithTimeout("start_helper_bridge", HELPER_START_TIMEOUT_MS);
-    clearHelperBridgeReads();
-    return result;
+  getRealtimeStatusPayload(): Promise<import("../../shared/types").RealtimeStatusPayload | null> {
+    return singleFlight("realtime-status-payload", () => runCommand<import("../../shared/types").RealtimeStatusPayload>("get_realtime_status_payload").catch(() => null));
   },
-  stopHelperBridge: async () => {
-    clearHelperBridgeReads();
-    const result = await runHelperActionWithTimeout("stop_helper_bridge", HELPER_COMMAND_TIMEOUT_MS);
-    clearHelperBridgeReads();
-    return result;
+  getDiagnostics(): Promise<RuntimeDiagnostics | null> {
+    return singleFlight("diagnostics", () => runCommand<RuntimeDiagnostics>("get_runtime_diagnostics").catch(() => null));
   },
-  cancelHelperBridgeTask: async () => {
-    clearHelperBridgeReads();
-    const result = await runHelperActionWithTimeout("cancel_helper_bridge_task", HELPER_COMMAND_TIMEOUT_MS);
-    clearHelperBridgeReads();
-    return result;
+  getHardwareUsage(): Promise<HardwareUsageReport | null> {
+    return singleFlight("hardware-usage", () => runCommand<HardwareUsageReport>("get_hardware_usage").catch(() => null));
   },
-  checkHelperBridgeHealth: async () => {
-    clearHelperBridgeReads();
-    const result = await runHelperActionWithTimeout("check_helper_bridge_health", HELPER_COMMAND_TIMEOUT_MS);
-    clearHelperBridgeReads();
-    return result;
+  getHelperBridgeStatus(): Promise<HelperBridgeStatus | null> {
+    return singleFlight("helper-bridge-status", () => runCommand<HelperBridgeStatus>("get_helper_bridge_status").catch(() => null));
   },
-  sendHelperBridgeRequest: async (request: HelperBridgeRequest) => {
-    clearHelperBridgeReads();
-    const result = await runHelperActionWithTimeout("send_helper_bridge_request", HELPER_COMMAND_TIMEOUT_MS, { request });
-    clearHelperBridgeReads();
-    return result;
+  startHelperBridge(): Promise<HelperBridgeActionResult | null> {
+    return runHelperActionWithTimeout("start_helper_bridge", HELPER_START_TIMEOUT_MS);
   },
-  prepareCaptureStartRequest: () => singleFlight("capture-start-preview", () => runCommand<CaptureHelperBridgeRequestPreview>("prepare_capture_start_request")),
-  prepareCaptureStopRequest: () => singleFlight("capture-stop-preview", () => runCommand<CaptureHelperBridgeRequestPreview>("prepare_capture_stop_request")),
-  getLatestAudioStudioValidationEvidence: () => singleFlight("audio-studio-validation-evidence", () => runCommand<AudioStudioValidationEvidence>("get_latest_audio_studio_validation_evidence")),
-  getHardwareUsage: () => singleFlight("hardware-usage", () => runCommand<HardwareUsageReport>("get_hardware_usage")),
-  getInputStatus: () => singleFlight("input-status", () => runCommand<InputPreparationStatus>("get_input_status")),
-  prepareVoiceCapture: (autoStart = true) => singleFlight("voice-capture-prep", () => runCommand<VoiceCapturePreparationReport>("prepare_voice_capture", { autoStart })),
-  listAudioDevices: () => singleFlight("audio-devices", () => runCommand<AudioDeviceListReport>("list_audio_devices")),
-  getModelInventory: () => singleFlight("model-inventory", () => runCommand<ModelInventoryReport>("get_model_inventory")),
-  setupModels: () => runCommand<ModelSetupReport>("setup_models"),
-  verifyModels: () => runCommand<ModelInventoryReport>("verify_models"),
-  getGpuPolicy: () => singleFlight("gpu-policy", () => runCommand<GpuPolicyReport>("get_gpu_policy")),
-  startCapture: async () => {
-    clearVoiceDependentReads();
-    const result = await runCommand<CommandResult>("start_capture");
-    clearVoiceDependentReads();
-    return result;
+  stopHelperBridge(): Promise<HelperBridgeActionResult | null> {
+    return runHelperActionWithTimeout("stop_helper_bridge", HELPER_COMMAND_TIMEOUT_MS);
   },
-  stopCapture: async () => {
-    clearVoiceDependentReads();
-    const result = await runCommand<CommandResult>("stop_capture");
-    clearVoiceDependentReads();
-    return result;
+  cancelHelperBridgeTask(): Promise<HelperBridgeActionResult | null> {
+    return runHelperActionWithTimeout("cancel_helper_bridge_task", HELPER_COMMAND_TIMEOUT_MS);
   },
-  translateText: async (source: string) => {
-    const result = await runCommand<CommandResult>("translate_text", { source });
-    clearTextJobReads();
-    return result;
+  sendHelperBridgeRequest(request: HelperBridgeRequest): Promise<HelperBridgeActionResult | null> {
+    return runHelperActionWithTimeout("send_helper_bridge_request", HELPER_COMMAND_TIMEOUT_MS, { request });
   },
-  createChatSession: async (kind: string) => {
-    const result = await runCommand<LauncherChatSession>("create_chat_session", { kind });
-    clearChatReads(kind);
-    return result;
+  checkHelperBridgeHealth(): Promise<HelperBridgeActionResult | null> {
+    return runHelperActionWithTimeout("check_helper_bridge_health", HELPER_COMMAND_TIMEOUT_MS);
   },
-  listChatSessions: (kind?: string) => singleFlight(chatListKey(kind), () => runCommand<LauncherChatSummary[]>("list_chat_sessions", kind ? { kind } : {})),
-  appendChatMessage: async (sessionId: string, role: string, content: string) => {
-    const result = await runCommand<LauncherChatActionResult>("append_chat_message", { sessionId, role, content });
-    clearChatReads();
-    return result;
+  prepareCaptureStartRequest(): Promise<CaptureHelperBridgeRequestPreview | null> {
+    return singleFlight("capture-start-preview", () => runCommand<CaptureHelperBridgeRequestPreview>("prepare_capture_start_request").catch(() => null));
   },
-  getCommandErrors: () => getRuntimeCommandErrors(),
+  prepareCaptureStopRequest(): Promise<CaptureHelperBridgeRequestPreview | null> {
+    return singleFlight("capture-stop-preview", () => runCommand<CaptureHelperBridgeRequestPreview>("prepare_capture_stop_request").catch(() => null));
+  },
+  prepareVoiceCapture(autoStart: boolean): Promise<VoiceCapturePreparationReport | null> {
+    return runCommand<VoiceCapturePreparationReport>("prepare_voice_capture", { autoStart }).catch(() => null).finally(() => clearVoiceDependentReads());
+  },
+  startCapture(): Promise<CommandResult | null> {
+    return runCommand<CommandResult>("start_capture").catch(() => null).finally(() => clearVoiceDependentReads());
+  },
+  stopCapture(): Promise<CommandResult | null> {
+    return runCommand<CommandResult>("stop_capture").catch(() => null).finally(() => clearVoiceDependentReads());
+  },
+  getInputStatus(): Promise<InputPreparationStatus | null> {
+    return singleFlight("input-status", () => runCommand<InputPreparationStatus>("get_input_status").catch(() => null));
+  },
+  listAudioDevices(): Promise<AudioDeviceListReport | null> {
+    return singleFlight("audio-devices", () => runCommand<AudioDeviceListReport>("list_audio_devices").catch(() => null));
+  },
+  loadSettings(): Promise<RuntimeSettings | null> {
+    return singleFlight("runtime-settings", () => runCommand<RuntimeSettings>("load_runtime_settings").catch(() => null));
+  },
+  saveSettings(settings: RuntimeSettings): Promise<CommandResult | null> {
+    publishSettings(settings);
+    return runCommand<CommandResult>("save_runtime_settings", { settings }).catch(() => null).finally(clearSettingsDependentReads);
+  },
+  saveDefaultSettings(): Promise<CommandResult | null> {
+    return runCommand<CommandResult>("save_default_runtime_settings").catch(() => null).finally(clearSettingsDependentReads);
+  },
+  createChatSession(kind: string): Promise<LauncherChatSession | null> {
+    return runCommand<LauncherChatSession>("create_chat_session", { kind }).catch(() => null);
+  },
+  listChatSessions(kind?: string): Promise<LauncherChatSummary[] | null> {
+    return runCommand<LauncherChatSummary[]>("list_chat_sessions", { kind: kind ?? null }).catch(() => null);
+  },
+  appendChatMessage(sessionId: string, role: "user" | "assistant", content: string): Promise<LauncherChatActionResult | null> {
+    return runCommand<LauncherChatActionResult>("append_chat_message", { sessionId, role, content }).catch(() => null);
+  },
+  translateText(source: string): Promise<CommandResult | null> {
+    return runCommand<CommandResult>("translate_text", { source }).catch(() => null).finally(clearTextJobReads);
+  },
+  getModelInventory(): Promise<ModelInventoryReport | null> {
+    return singleFlight("model-inventory", () => runCommand<ModelInventoryReport>("get_model_inventory").catch(() => null));
+  },
+  verifyModels(): Promise<ModelSetupReport | null> {
+    return runCommand<ModelSetupReport>("verify_models").catch(() => null);
+  },
+  setupModels(): Promise<ModelSetupReport | null> {
+    return runCommand<ModelSetupReport>("setup_models").catch(() => null);
+  },
+  getGpuPolicy(): Promise<GpuPolicyReport | null> {
+    return singleFlight("gpu-policy", () => runCommand<GpuPolicyReport>("get_gpu_policy").catch(() => null));
+  },
+  getLatestAudioPipelineEvidence(): Promise<AudioStudioValidationEvidence | null> {
+    return singleFlight("audio-pipeline-evidence", () => runCommand<AudioStudioValidationEvidence>("get_latest_audio_pipeline_evidence").catch(() => null));
+  },
+  getLatestAudioStudioValidationEvidence(): Promise<AudioStudioValidationEvidence | null> {
+    return singleFlight("audio-studio-validation-evidence", () => runCommand<AudioStudioValidationEvidence>("get_latest_audio_studio_validation_evidence").catch(() => null));
+  },
 };
