@@ -4,10 +4,12 @@ type VoiceCaptureMode = "toggle" | "push-to-talk";
 
 const VOICE_CAPTURE_MODE_KEY = "translateit.voiceCaptureMode";
 const PUSH_TO_TALK_LABEL = "Ctrl+Space";
+const MIN_RECORDING_MS = 1200;
 
 let bound = false;
 let pending = false;
 let recording = false;
+let recordingStartedAt = 0;
 let pushToTalkHeld = false;
 let clickHandler: ((event: MouseEvent) => void) | null = null;
 let keydownHandler: ((event: KeyboardEvent) => void) | null = null;
@@ -16,7 +18,10 @@ let observer: MutationObserver | null = null;
 
 function notice(message: string): void {
   const element = document.querySelector<HTMLElement>("#assistantMessage");
-  if (element) element.textContent = message;
+  if (element) {
+    element.textContent = message;
+    element.title = message;
+  }
 }
 
 function voiceMode(): VoiceCaptureMode {
@@ -39,13 +44,14 @@ function syncVoiceModeUi(): void {
   });
 }
 
-function updateRecordingUi(active: boolean): void {
-  recording = active;
-  document.body.classList.toggle("is-recording", active);
+function updateVoiceUi(state: "idle" | "starting" | "recording" | "stopping" | "blocked"): void {
+  recording = state === "recording" || state === "stopping";
+  document.body.dataset.voiceUiState = state;
+  document.body.classList.toggle("is-recording", recording);
   const status = document.getElementById("recordStatusText");
-  if (status) status.textContent = active ? "Recording" : "Idle";
+  if (status) status.textContent = state === "recording" ? "Recording" : state === "starting" ? "Starting" : state === "stopping" ? "Stopping" : state === "blocked" ? "Blocked" : "Idle";
   const presence = document.getElementById("userPresence");
-  if (presence) presence.textContent = active ? "Mic active" : "Text ready";
+  if (presence) presence.textContent = state === "recording" ? "Mic active" : state === "starting" ? "Mic starting" : state === "blocked" ? "Mic blocked" : "Text ready";
 }
 
 function setVoiceButtonsDisabled(disabled: boolean): void {
@@ -55,12 +61,20 @@ function setVoiceButtonsDisabled(disabled: boolean): void {
   }
 }
 
+async function waitMinimumRecordingDuration(): Promise<void> {
+  if (!recordingStartedAt) return;
+  const elapsed = performance.now() - recordingStartedAt;
+  if (elapsed >= MIN_RECORDING_MS) return;
+  await new Promise((resolve) => window.setTimeout(resolve, MIN_RECORDING_MS - elapsed));
+}
+
 async function startVoiceCapture(reason: "toggle" | "push-to-talk"): Promise<void> {
   if (recording) return;
+  updateVoiceUi("starting");
   notice(reason === "push-to-talk" ? "Push to Talk active. Checking microphone..." : "Checking microphone before recording...");
   const input = await runtimeApi.getInputStatus();
   if (!input.ready) {
-    updateRecordingUi(false);
+    updateVoiceUi("blocked");
     notice(input.note || input.blocker || "Microphone is not ready. Open Audio Settings or Windows sound settings.");
     return;
   }
@@ -68,15 +82,24 @@ async function startVoiceCapture(reason: "toggle" | "push-to-talk"): Promise<voi
   const helper = await runtimeApi.getHelperBridgeStatus();
   notice(helper.provider_ready ? "Voice provider is ready. Starting capture..." : "Starting microphone-only capture. Full voice translation still needs helper/model/provider setup.");
   const result = await runtimeApi.startCapture();
-  updateRecordingUi(Boolean(result.ok));
+  if (result.ok) {
+    recordingStartedAt = performance.now();
+    updateVoiceUi("recording");
+  } else {
+    recordingStartedAt = 0;
+    updateVoiceUi("blocked");
+  }
   notice(result.message || (result.ok ? "Recording started." : "Recording could not start."));
 }
 
 async function stopVoiceCapture(reason: "toggle" | "push-to-talk"): Promise<void> {
   if (!recording) return;
+  updateVoiceUi("stopping");
   notice(reason === "push-to-talk" ? "Push to Talk released. Preparing local audio segment..." : "Stopping microphone capture and preparing the local audio segment...");
+  await waitMinimumRecordingDuration();
   const result = await runtimeApi.stopCapture();
-  updateRecordingUi(false);
+  recordingStartedAt = 0;
+  updateVoiceUi(result.ok ? "idle" : "blocked");
   notice(result.message || "Microphone capture stopped.");
 }
 
@@ -104,15 +127,17 @@ async function runPushToTalkStart(): Promise<void> {
   try {
     await startVoiceCapture("push-to-talk");
   } finally {
+    if (!recording) pushToTalkHeld = false;
     pending = false;
     setVoiceButtonsDisabled(false);
   }
 }
 
 async function runPushToTalkStop(): Promise<void> {
-  if (voiceMode() !== "push-to-talk" || pending || !recording) return;
-  pending = true;
+  if (voiceMode() !== "push-to-talk") return;
   pushToTalkHeld = false;
+  if (pending || !recording) return;
+  pending = true;
   setVoiceButtonsDisabled(true);
   try {
     await stopVoiceCapture("push-to-talk");
@@ -142,12 +167,15 @@ export function bindDirectVoiceCaptureUi(): () => void {
     const modeButton = target?.closest<HTMLElement>("[data-voice-capture-mode]");
     if (modeButton) {
       event.preventDefault();
+      event.stopPropagation();
+      event.stopImmediatePropagation();
       setVoiceMode(modeButton.dataset.voiceCaptureMode === "push-to-talk" ? "push-to-talk" : "toggle");
       return;
     }
     if (!target?.closest("#microphoneButton,#quickMicButton,#recordStatusButton")) return;
     event.preventDefault();
     event.stopPropagation();
+    event.stopImmediatePropagation();
     if (voiceMode() === "push-to-talk") {
       notice(`Push to Talk mode is active. Hold ${PUSH_TO_TALK_LABEL} to record, or switch to Click Toggle in Audio Settings.`);
       return;
@@ -155,29 +183,34 @@ export function bindDirectVoiceCaptureUi(): () => void {
     void runVoiceToggle().catch(() => {
       pending = false;
       setVoiceButtonsDisabled(false);
-      updateRecordingUi(false);
+      recordingStartedAt = 0;
+      updateVoiceUi("blocked");
       notice("Voice capture failed before returning a result. Open Developer Diagnostics for details.");
     });
   };
   keydownHandler = (event: KeyboardEvent) => {
     if (!isPushToTalkShortcut(event) || isTypingTarget(event) || pushToTalkHeld) return;
     event.preventDefault();
+    event.stopPropagation();
     void runPushToTalkStart().catch(() => {
       pending = false;
       pushToTalkHeld = false;
       setVoiceButtonsDisabled(false);
-      updateRecordingUi(false);
+      recordingStartedAt = 0;
+      updateVoiceUi("blocked");
       notice("Push to Talk failed before returning a result. Open Developer Diagnostics for details.");
     });
   };
   keyupHandler = (event: KeyboardEvent) => {
     if (!isPushToTalkShortcut(event) || !pushToTalkHeld) return;
     event.preventDefault();
+    event.stopPropagation();
     void runPushToTalkStop().catch(() => {
       pending = false;
       pushToTalkHeld = false;
       setVoiceButtonsDisabled(false);
-      updateRecordingUi(false);
+      recordingStartedAt = 0;
+      updateVoiceUi("blocked");
       notice("Push to Talk stop failed before returning a result. Open Developer Diagnostics for details.");
     });
   };
@@ -199,5 +232,6 @@ export function unbindDirectVoiceCaptureUi(): void {
   keyupHandler = null;
   pending = false;
   pushToTalkHeld = false;
+  recordingStartedAt = 0;
   bound = false;
 }
