@@ -8,11 +8,15 @@ const reportDir = resolve(repoRoot, "UserData", "LogData", "RuntimeTestReports")
 const srcRoot = resolve(appRoot, "src");
 
 const checks = [
-  { name: "main entry", path: "main.ts", mustContain: ["new LauncherController", "startStartupReadiness"] },
-  { name: "ui comfort layer import", path: "main.ts", mustContain: ["./uiComfortLayout.css"] },
+  { name: "main entry", path: "main.ts", mustContain: ["new LauncherController", "startStartupReadiness", "./referenceLayout.css", "./mainPageLayout.css", "./audioSettingsLayout.css", "./translateSettingsLayout.css", "./developerSettingsLayout.css"] },
+  { name: "no custom comfort override", path: "main.ts", mustNotContain: ["./uiComfortLayout.css"] },
   { name: "text input submit", path: "app/active-launcher/launcherEventBindings.ts", mustContain: ["submitText", "event.key === \"Enter\""] },
-  { name: "home shell comfort copy", path: "app/active-launcher/shell.ts", mustContain: ["What do you want to translate?", "Type text to translate...", "Press Enter to translate text", "nav-item--secondary", "assistant-action--advanced"] },
-  { name: "ui comfort layout", path: "uiComfortLayout.css", mustContain: ["--comfort-sidebar-width", "--comfort-content-width", "progressive disclosure", "body:not(.settings-open) .composer-wrap"] },
+  { name: "locked main page v28 shell", path: "app/active-launcher/shell.ts", mustContain: ["Voice translation", "Local-first voice translation", "How can I help translate today?", "Ask anything...", "Text input", "Voice input", "New Chat", "Recent Chat", "Saved Chat", "Local Data"] },
+  { name: "main page v28 layout module", path: "mainPageLayout.css", mustContain: ["Approved baseline: Main Page v28 reference screenshot", "grid-template-columns: 384px minmax(0, 1fr)", "width: 770px", "transform: translateX(-37px)", "max-width: 1058px"] },
+  { name: "reference layout template", path: "referenceLayout.css", mustContain: ["Baseline: Main Page v28, Audio v22, Translate v14, Developer v37", "--ref-main-sidebar", "--ref-settings-content-width", "--ref-composer-width"] },
+  { name: "audio settings v22 layout", path: "audioSettingsLayout.css", mustContain: ["Audio", "settings-card--audio", "mic-test-row-v22"] },
+  { name: "translate settings v14 layout", path: "translateSettingsLayout.css", mustContain: ["Translate", "language-grid", "settings-output-row"] },
+  { name: "developer settings v37 layout", path: "developerSettingsLayout.css", mustContain: ["Developer", "diagnostic", "settings-card--monitoring"] },
   { name: "ui library factory", path: "app/active-launcher/uiPageFactory.ts", mustContain: ["settingsPage", "settingsCard", "settingsField", "primaryButton", "statusBadge"] },
   { name: "runtime readiness guard", path: "app/active-launcher/runtimeReadinessUiGuard.ts", mustContain: ["Setup needed", "MutationObserver"] },
   { name: "settings autosave", path: "app/active-launcher/settingsAutosaveBinding.ts", mustContain: ["RUNTIME_SETTINGS_SAVED_EVENT"] },
@@ -32,12 +36,22 @@ function inspect(check) {
     return { name: check.name, ok: false, blocker: "missing_file", path: fullPath };
   }
   const content = readFileSync(fullPath, "utf8");
-  const missing = check.mustContain.filter((needle) => !content.includes(needle));
-  return { name: check.name, ok: missing.length === 0, blocker: missing.length ? "missing_expected_content" : "", missing, path: fullPath };
+  const missing = (check.mustContain ?? []).filter((needle) => !content.includes(needle));
+  const forbidden = (check.mustNotContain ?? []).filter((needle) => content.includes(needle));
+  return {
+    name: check.name,
+    ok: missing.length === 0 && forbidden.length === 0,
+    blocker: missing.length ? "missing_expected_content" : forbidden.length ? "forbidden_content_present" : "",
+    missing,
+    forbidden,
+    path: fullPath,
+  };
 }
 
 function row(result) {
-  return `| ${result.name} | ${result.ok ? "PASS" : "FAIL"}${result.blocker ? ` / ${result.blocker}` : ""}${result.missing?.length ? ` / missing: ${result.missing.join(", ")}` : ""} |`;
+  const missing = result.missing?.length ? ` / missing: ${result.missing.join(", ")}` : "";
+  const forbidden = result.forbidden?.length ? ` / forbidden: ${result.forbidden.join(", ")}` : "";
+  return `| ${result.name} | ${result.ok ? "PASS" : "FAIL"}${result.blocker ? ` / ${result.blocker}` : ""}${missing}${forbidden} |`;
 }
 
 function main() {
@@ -48,8 +62,9 @@ function main() {
     ok: results.every((result) => result.ok),
     failed: results.filter((result) => !result.ok).map((result) => result.name),
     checked: results.length,
+    locked_reference: "Main Page v28 + Audio v22 + Translate v14 + Developer v37",
   };
-  const report = { schema: "translateit.ui_readiness_report.v4", started_at: startedAt, app_root: appRoot, results, summary };
+  const report = { schema: "translateit.ui_readiness_report.locked_reference.v1", started_at: startedAt, app_root: appRoot, results, summary };
   const latestJson = resolve(reportDir, "latest-ui-readiness.json");
   const latestMd = resolve(reportDir, "latest-ui-readiness.md");
   const md = [
@@ -57,6 +72,7 @@ function main() {
     "",
     `Started: ${startedAt}`,
     `App root: ${appRoot}`,
+    `Locked reference: ${summary.locked_reference}`,
     "",
     "| Check | Result |",
     "|---|---|",
