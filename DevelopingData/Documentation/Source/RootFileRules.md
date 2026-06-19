@@ -11,6 +11,7 @@ Use this file before adding, moving, or renaming files. Do not guess file placem
 Only these root entries are expected:
 
 ```text
+.github/
 DevelopingData/
 EngineData/
 UserData/
@@ -24,6 +25,7 @@ TranslateIT.lnk
 
 | Root entry | Function | Release rule |
 | --- | --- | --- |
+| `.github/` | GitHub automation, validation notes, and workflow metadata. | Included for repository automation only. Must not contain runtime app files, model assets, user data, or alternate launchers. |
 | `README.md` | Human and AI entry point for current repo structure, active route, and safety rules. | Included. Keep concise and current. |
 | `.gitignore` | Prevents local runtime outputs, cache, logs, model binaries, retired runtime paths, and build outputs from being tracked. | Included. Must protect release hygiene. |
 | `.gitattributes` | Defines text/binary handling for scripts, images, icons, SVG, and Windows shortcut files. | Included. Keep at root. |
@@ -88,7 +90,7 @@ Function by area:
 | `EngineData/Frontend/AppShell/` | Desktop shell/navigation ownership notes. | Shell guide only; active source is inside app package. |
 | `EngineData/Backend/` | Backend runtime ownership map. | Backend runtime-related docs and routes belong here. |
 | `EngineData/Backend/RuntimeCore/` | Rust backend/runtime-core ownership notes. | Active Rust source is inside app package until package migration. |
-| `EngineData/Backend/LocalWorker/WorkerRuntime/` | Active Python local worker runtime, requirements, manifest, setup, and smoke script. | This is the only approved Python runtime route. |
+| `EngineData/Backend/LocalWorker/WorkerRuntime/` | Active Python local worker runtime, requirements, manifest, setup, model preparation helper, and smoke script. | This is the only approved Python route under `EngineData`. |
 | `EngineData/Backend/RuntimeContracts/` | Backend JSON contracts and model readiness manifest. | Contract files must not be placed in app root or DevelopingData. |
 | `EngineData/Backend/RuntimeAssets/` | Local model/Piper/runtime asset slots and README placeholders. | Model binaries and Piper files must stay ignored by Git. |
 | `EngineData/LauncherApp/` | Active desktop app package area. | Keep as the app package owner. Do not confuse it with frontend-only ownership. |
@@ -161,6 +163,7 @@ Rules:
 - Do not duplicate these in `RustApp` root.
 - Do not place them in `DevelopingData`.
 - Update tooling/status scripts to read from this route.
+- Do not claim a model is ready from committed JSON alone; readiness must come from target-PC local evidence.
 
 ## Runtime asset slots
 
@@ -183,6 +186,7 @@ Rules:
 - README placeholders may be tracked.
 - Model binaries, ONNX files, Piper binaries, generated audio, and large runtime data must not be tracked.
 - Do not restore `EngineData/RuntimeAssets` at root.
+- Do not restore `EngineData/TranscriptEngine`, `EngineData/TranslateEngine`, or `EngineData/VoiceEngine` as active model roots.
 
 ## UserData function
 
@@ -218,6 +222,7 @@ DevelopingData/Docs/
 DevelopingData/LauncherHelpers/
 DevelopingData/SampleData/
 DevelopingData/Tests/
+DevelopingData/Patches/
 EngineData/TranscriptEngine/
 EngineData/TranslateEngine/
 EngineData/VoiceEngine/
@@ -234,10 +239,10 @@ TranslateIT.cmd
 When adding a file, use this decision order:
 
 1. Is it active desktop app code, app UI, app-specific preview, app-specific report, or Tauri config? Put it in `EngineData/LauncherApp/RustApp` until the package is renamed to `App`.
-2. Is it backend worker runtime code or worker setup/smoke execution? Put it in `EngineData/Backend/LocalWorker/WorkerRuntime`.
+2. Is it backend worker runtime code, worker-owned Python helper, worker setup, or smoke execution? Put it in `EngineData/Backend/LocalWorker/WorkerRuntime`.
 3. Is it a backend JSON contract or model readiness manifest? Put it in `EngineData/Backend/RuntimeContracts`.
 4. Is it a local model/Piper/runtime asset slot? Put README placeholders in `EngineData/Backend/RuntimeAssets`; keep actual assets ignored.
-5. Is it development-only documentation, report, QA reference, sample, or maintenance tooling? Put it in `DevelopingData`.
+5. Is it development-only documentation, report, QA reference, sample, or maintenance tooling? Put it in `DevelopingData` using only `Documentation`, `Quality`, `Samples`, or `Tooling`.
 6. Is it user-generated cache/log/save data? Put it in `UserData` and keep generated data ignored.
 7. If none match, stop and update this guide before adding a new path.
 
@@ -248,5 +253,6 @@ When adding a file, use this decision order:
 - Do not make the app depend on `DevelopingData` at runtime.
 - Do not duplicate contracts between `RustApp` and `Backend/RuntimeContracts`.
 - Do not restore retired root paths.
+- Do not add Python files outside `EngineData/Backend/LocalWorker/WorkerRuntime`.
 - Do not move the Tauri package by only changing docs; move the full package tree and references together.
 - Do not claim release readiness from structure cleanup alone.
