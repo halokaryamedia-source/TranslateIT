@@ -1,5 +1,5 @@
-import { percentText } from "../../shared/state";
-import type { HelperBridgeStatus, ModelInventoryReport, RuntimeDiagnostics, RuntimeStatusBundleReport } from "../../shared/types";
+import { percentText } from "../shared/state";
+import type { HelperBridgeStatus, ModelInventoryReport, RuntimeDiagnostics, RuntimeStatusBundleReport } from "../shared/types";
 import { buildDeveloperLogRows } from "./launcherDeveloperLog";
 import { developerSettingsView } from "./settingsViews";
 
