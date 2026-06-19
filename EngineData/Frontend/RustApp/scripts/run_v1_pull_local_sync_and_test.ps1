@@ -17,10 +17,14 @@ $AppRoot = Resolve-Path (Join-Path $ScriptDir "..")
 $RepoRoot = Resolve-Path (Join-Path $AppRoot "..\..\..")
 $ReportRoot = Join-Path $RepoRoot "UserData\LogData\RuntimeTestReports"
 $RuntimeReportPath = Join-Path $ReportRoot "latest-runtime-test.md"
+$FrontendBackendContractPath = Join-Path $ReportRoot "latest-frontend-backend-contract.md"
+$WorkerContractPath = Join-Path $ReportRoot "latest-worker-contract.md"
+$RustLinkagePath = Join-Path $ReportRoot "latest-rust-module-linkage.md"
 $VoiceReportPath = Join-Path $ReportRoot "latest-voice-preflight.md"
 $VoiceCaptureEvidencePath = Join-Path $ReportRoot "latest-voice-capture-evidence.md"
 $UiReportPath = Join-Path $ReportRoot "latest-ui-readiness.md"
 $UiBindingReportPath = Join-Path $ReportRoot "latest-ui-binding-consistency.md"
+$ActionBindingReportPath = Join-Path $ReportRoot "latest-action-binding.md"
 $SettingsReportPath = Join-Path $ReportRoot "latest-settings-integrity.md"
 $ProfessionalGatePath = Join-Path $ReportRoot "latest-professional-gate.md"
 $LogDir = Join-Path $RepoRoot "UserData\LogData\Automation"
@@ -57,7 +61,7 @@ try {
   Step "Done"
   Write-Host "Branch: $TargetBranch" -ForegroundColor Green
   Write-Host "Automation log: $LogPath" -ForegroundColor Green
-  foreach ($ReportPath in @($RuntimeReportPath, $VoiceReportPath, $VoiceCaptureEvidencePath, $UiReportPath, $UiBindingReportPath, $SettingsReportPath, $ProfessionalGatePath)) {
+  foreach ($ReportPath in @($FrontendBackendContractPath, $WorkerContractPath, $RustLinkagePath, $RuntimeReportPath, $VoiceReportPath, $VoiceCaptureEvidencePath, $UiReportPath, $UiBindingReportPath, $ActionBindingReportPath, $SettingsReportPath, $ProfessionalGatePath)) {
     if (Test-Path $ReportPath) {
       Write-Host "Report: $ReportPath" -ForegroundColor Green
     }
