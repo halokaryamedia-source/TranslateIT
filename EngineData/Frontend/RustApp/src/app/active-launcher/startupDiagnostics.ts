@@ -59,10 +59,12 @@ export function startupTrace(label: string, detail: unknown = null): void {
   if (globalScope[STARTUP_TRACE_MIRROR_KEY] && MIRRORED_STARTUP_TRACE_LABELS.has(label)) {
     void import("../shared/tauriBridge").then(({ runCommand }) => {
       void runCommand("record_frontend_startup_trace", {
-        label,
-        detail,
-        at: record.at,
-        buildMarker: STARTUP_BUILD_MARKER,
+        record: {
+          label,
+          detail,
+          at: record.at,
+          build_marker: STARTUP_BUILD_MARKER,
+        },
       });
     });
   }
