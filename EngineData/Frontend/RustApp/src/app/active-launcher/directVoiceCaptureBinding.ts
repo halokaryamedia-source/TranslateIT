@@ -12,6 +12,7 @@ let pushToTalkHeld = false;
 let clickHandler: ((event: MouseEvent) => void) | null = null;
 let keydownHandler: ((event: KeyboardEvent) => void) | null = null;
 let keyupHandler: ((event: KeyboardEvent) => void) | null = null;
+let observer: MutationObserver | null = null;
 
 function notice(message: string): void {
   const element = document.querySelector<HTMLElement>("#assistantMessage");
@@ -24,11 +25,7 @@ function voiceMode(): VoiceCaptureMode {
 
 function setVoiceMode(mode: VoiceCaptureMode): void {
   localStorage.setItem(VOICE_CAPTURE_MODE_KEY, mode);
-  document.body.dataset.voiceCaptureMode = mode;
-  document.querySelectorAll<HTMLElement>("[data-voice-capture-mode]").forEach((element) => {
-    element.classList.toggle("active", element.dataset.voiceCaptureMode === mode);
-    element.setAttribute("aria-pressed", element.dataset.voiceCaptureMode === mode ? "true" : "false");
-  });
+  syncVoiceModeUi();
   notice(mode === "push-to-talk" ? `Voice mode set to Push to Talk. Hold ${PUSH_TO_TALK_LABEL} to record.` : "Voice mode set to Click Toggle. Click the mic once to start and again to stop.");
 }
 
@@ -36,8 +33,9 @@ function syncVoiceModeUi(): void {
   const mode = voiceMode();
   document.body.dataset.voiceCaptureMode = mode;
   document.querySelectorAll<HTMLElement>("[data-voice-capture-mode]").forEach((element) => {
-    element.classList.toggle("active", element.dataset.voiceCaptureMode === mode);
-    element.setAttribute("aria-pressed", element.dataset.voiceCaptureMode === mode ? "true" : "false");
+    const active = element.dataset.voiceCaptureMode === mode;
+    element.classList.toggle("active", active);
+    element.setAttribute("aria-pressed", active ? "true" : "false");
   });
 }
 
@@ -137,6 +135,8 @@ export function bindDirectVoiceCaptureUi(): () => void {
   if (bound) return unbindDirectVoiceCaptureUi;
   bound = true;
   syncVoiceModeUi();
+  observer = new MutationObserver(() => syncVoiceModeUi());
+  observer.observe(document.body, { childList: true, subtree: true });
   clickHandler = (event: MouseEvent) => {
     const target = event.target as Element | null;
     const modeButton = target?.closest<HTMLElement>("[data-voice-capture-mode]");
@@ -192,6 +192,8 @@ export function unbindDirectVoiceCaptureUi(): void {
   if (clickHandler) document.removeEventListener("click", clickHandler, true);
   if (keydownHandler) window.removeEventListener("keydown", keydownHandler, true);
   if (keyupHandler) window.removeEventListener("keyup", keyupHandler, true);
+  observer?.disconnect();
+  observer = null;
   clickHandler = null;
   keydownHandler = null;
   keyupHandler = null;
