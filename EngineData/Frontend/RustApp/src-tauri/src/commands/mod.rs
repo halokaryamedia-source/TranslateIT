@@ -11,6 +11,7 @@ pub mod hardware;
 pub mod helper_bridge;
 pub mod helper_bridge_runtime;
 pub mod pipeline;
+pub mod registry;
 pub mod runtime_inventory;
 pub mod runtime_preview;
 pub mod runtime_capture;
