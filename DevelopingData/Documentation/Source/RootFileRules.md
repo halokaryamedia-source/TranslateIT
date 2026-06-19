@@ -85,7 +85,7 @@ EngineData/
   Frontend/
 ```
 
-These are the active engine branches. All docs should live under `DevelopingData/`.
+These are the active engine branches. All docs should live under `DevelopingData/` unless they are app-package-specific references.
 
 Current practical source of truth:
 
@@ -100,7 +100,7 @@ Function by area:
 | Path | Function | Rule |
 | --- | --- | --- |
 | `EngineData/README.md` | Runtime ownership map and current/target app route explanation. | Keep current when moving app paths. |
-| `EngineData/Frontend/` | Frontend ownership notes and naming guide. | Do not put backend runtime code here. |
+| `EngineData/Frontend/` | Active desktop app package ownership area. | Do not confuse this with frontend-only code. |
 | `EngineData/Frontend/UI/` | UI component/page ownership notes. | UI guide only; active UI source is inside app package. |
 | `EngineData/Frontend/Runtime/` | Runtime status, settings, and shell-flow ownership notes. | Active source is inside app package. |
 | `EngineData/Frontend/Translate/` | Translation UI ownership notes. | Active source is inside app package. |
@@ -109,14 +109,15 @@ Function by area:
 | `EngineData/Backend/Runtime/` | Rust backend runtime ownership notes. | Active Rust source is inside app package until package migration. |
 | `EngineData/Backend/Translate/` | Translation backend ownership notes. | Active Rust source is inside app package until package migration. |
 | `EngineData/Backend/Transcript/` | Capture and transcript backend ownership notes. | Active Rust source is inside app package until package migration. |
-| `EngineData/Backend/Worker/` | Python worker ownership notes. | Active Rust source is inside app package until package migration. |
+| `EngineData/Backend/Worker/` | Python worker ownership notes. | Active Python source is under LocalWorker/WorkerRuntime. |
 | `EngineData/Backend/LocalWorker/WorkerRuntime/` | Active Python local worker runtime, requirements, manifest, setup, and smoke script. | This is the only approved Python runtime route. |
 | `EngineData/Backend/RuntimeContracts/` | Backend JSON contracts and model readiness manifest. | Contract files must not be placed in app root or DevelopingData. |
 | `EngineData/Backend/RuntimeAssets/` | Local model/Piper/runtime asset slots and README placeholders. | Model binaries and Piper files must stay ignored by Git. |
-| `EngineData/Frontend/` | Active desktop app package area. | Keep as the app package owner. Do not confuse it with frontend-only ownership. |
 | `EngineData/Frontend/RustApp/` | Current physical Tauri app package folder. | Keep this as the active package route. |
+| `EngineData/Frontend/RustApp/src/` | Active UI runtime source. | Keep live UI behavior here. |
+| `EngineData/Frontend/RustApp/src-tauri/` | App-embedded Rust/Tauri backend bridge. | Keep Rust command and engine code here until a full package migration is approved. |
 | `EngineData/Frontend/RustApp/src-tauri/src/commands/` | Tauri command bridge layer. | Keep command modules thin and split by responsibility. |
-| `EngineData/Frontend/RustApp/src-tauri/src/engine/` | Rust engine domain logic. | Keep backend logic here, not in command handlers or UI files. |
+| `EngineData/Frontend/RustApp/src-tauri/src/engine/` | Rust engine domain/runtime logic. | Keep backend logic here, not in command handlers or UI files. |
 
 ## Frontend package rule
 
@@ -138,9 +139,9 @@ Examples:
 EngineData/Frontend/RustApp/index.html
 EngineData/Frontend/RustApp/src/
 EngineData/Frontend/RustApp/src-tauri/
-EngineData/Frontend/RustApp/DesignPreview/
-EngineData/Frontend/RustApp/UI_PAGE_TEMPLATE.md
-EngineData/Frontend/RustApp/UI_REFERENCE_GUIDE.md
+EngineData/Frontend/RustApp/Preview/
+EngineData/Frontend/RustApp/page-template.md
+EngineData/Frontend/RustApp/ui-reference.md
 EngineData/Frontend/RustApp/docs/ui-reference/
 EngineData/Frontend/RustApp/*REPORT*.md
 EngineData/Frontend/RustApp/*REPORT*.json
@@ -223,7 +224,6 @@ DeveloperData/
 DevelopingData/DocumentationData/
 DevelopingData/Reports/
 DevelopingData/ToolKitData/
-DevelopingData/Samples/
 EngineData/VoiceEngine/
 Launcher/
 Launcher/Preview/
@@ -252,6 +252,8 @@ For large Rust files, prefer moving cohesive logic into a dedicated module inste
 - readiness and validation logic
 - bridge or adapter state
 - command wrapper entrypoints
+- service-level orchestration
+- domain-level pure rules
 
 This keeps the rewrite aligned with future maintenance and avoids another monolith.
 
@@ -264,4 +266,3 @@ This keeps the rewrite aligned with future maintenance and avoids another monoli
 - Do not restore retired root paths.
 - Do not move the Tauri package by only changing docs; move the full package tree and references together.
 - Do not claim release readiness from structure cleanup alone.
-
