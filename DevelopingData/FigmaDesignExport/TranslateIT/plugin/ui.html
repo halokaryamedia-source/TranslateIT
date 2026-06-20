@@ -84,6 +84,16 @@
       });
     }
 
+    function adapterSummary(payload) {
+      var diagnostics = payload.diagnostics || {};
+      var assets = payload.assets || {};
+      var imageStatus = [];
+      imageStatus.push('Logo: ' + (assets.logo ? 'captured' : 'fallback'));
+      imageStatus.push('Main card image: ' + (assets.mainProject ? 'captured' : 'fallback'));
+      imageStatus.push('Side card image: ' + (assets.sideProject ? 'captured' : 'fallback'));
+      return 'Mivubi adapter payload ready.\nMode: ' + (payload.mode || 'unknown') + '\nCaptured images: ' + (diagnostics.capturedImages || 0) + '\n' + imageStatus.join('\n') + '\nImporting structured design into Figma...';
+    }
+
     el('importData').onclick = function () {
       var url = normalizeUrl(el('sourceUrl').value || 'https://www.mivubi.com/');
       setBusy(true);
@@ -91,7 +101,7 @@
       fetch('http://127.0.0.1:8844/render?url=' + encodeURIComponent(url))
         .then(readBridgeResponse)
         .then(function (payload) {
-          setStatus('Mivubi adapter payload ready.\nMode: ' + (payload.mode || 'unknown') + '\nCaptured images: ' + ((payload.diagnostics && payload.diagnostics.capturedImages) || 0) + '\nImporting structured design into Figma...');
+          setStatus(adapterSummary(payload));
           send('import-design-reconstruction', { payload: payload });
         })
         .catch(function (error) {
