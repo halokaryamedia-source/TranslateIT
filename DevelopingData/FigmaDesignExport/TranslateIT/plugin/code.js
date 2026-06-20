@@ -1,226 +1,30 @@
 figma.showUI(__html__, { width: 580, height: 860 });
 
-const NS = 'translateit.designExport';
-const VERSION = 'design-reconstruction-compiler-v1.1';
-const PAGE_NAME = 'TranslateIT Import / Workspace';
-let lastRun = null;
-let regularFont = { family: 'Inter', style: 'Regular' };
-let boldFont = { family: 'Inter', style: 'Bold' };
-
-function status(text, extra) {
-  const message = { type: 'status', text: text };
-  extra = extra || {};
-  Object.keys(extra).forEach(function (key) { message[key] = extra[key]; });
-  figma.ui.postMessage(message);
-}
-
-async function loadFonts() {
-  try { await figma.loadFontAsync(regularFont); } catch (_) { regularFont = { family: 'Roboto', style: 'Regular' }; await figma.loadFontAsync(regularFont); }
-  try { await figma.loadFontAsync(boldFont); } catch (_) { boldFont = regularFont; }
-}
-
-function font(bold) { return bold ? boldFont : regularFont; }
-function clean(value) { return String(value || '').replace(/\s+/g, ' ').trim(); }
-function safeName(value) { return clean(value || 'Layer').slice(0, 96) || 'Layer'; }
-function px(value, fallback) { const m = String(value || '').match(/-?\d+(\.\d+)?/); return m ? Number(m[0]) : fallback; }
-function rgb(hex) { const v = parseInt(/^#[\da-fA-F]{6}$/.test(hex || '') ? hex.slice(1) : '111827', 16); return { r: ((v >> 16) & 255) / 255, g: ((v >> 8) & 255) / 255, b: (v & 255) / 255 }; }
-function paint(hex) { return hex ? [{ type: 'SOLID', color: rgb(hex) }] : []; }
-function color(value, fallback) {
-  const raw = String(value || '').trim();
-  if (!raw || raw === 'transparent' || raw === 'rgba(0, 0, 0, 0)') return fallback || null;
-  const hex = raw.match(/#[\da-fA-F]{6}|#[\da-fA-F]{3}/);
-  if (hex) return hex[0].length === 4 ? '#' + hex[0][1] + hex[0][1] + hex[0][2] + hex[0][2] + hex[0][3] + hex[0][3] : hex[0];
-  const rgba = raw.match(/rgba?\(([^)]+)\)/);
-  if (rgba) {
-    const p = rgba[1].split(',').map(function (x) { return parseFloat(x); });
-    if (p.length >= 3 && !(p.length >= 4 && p[3] === 0)) return '#' + p.slice(0, 3).map(function (n) { return Math.round(Math.max(0, Math.min(255, n))).toString(16).padStart(2, '0'); }).join('');
-  }
-  return fallback || null;
-}
-function bytes(base64) { const raw = atob(base64); const out = new Uint8Array(raw.length); for (let i = 0; i < raw.length; i += 1) out[i] = raw.charCodeAt(i); return out; }
-function pos(rect, parent, scale) { rect = rect || {}; parent = parent || {}; return { x: Math.round(((rect.x || 0) - (parent.x || 0)) * scale), y: Math.round(((rect.y || 0) - (parent.y || 0)) * scale) }; }
-function size(rect, scale) { rect = rect || {}; return { w: Math.max(1, Math.round((rect.w || 1) * scale)), h: Math.max(1, Math.round((rect.h || 1) * scale)) }; }
-function textWidth(value, fontSize, rectWidth, scale) { return Math.max(Math.round((rectWidth || 1) * scale), Math.round(clean(value).length * fontSize * 0.58), 32); }
-
-async function page() {
-  let p = null;
-  for (let i = 0; i < figma.root.children.length; i += 1) if (figma.root.children[i].name === PAGE_NAME) p = figma.root.children[i];
-  if (!p) p = figma.createPage();
-  p.name = PAGE_NAME;
-  await figma.setCurrentPageAsync(p);
-  return p;
-}
-
-function meta(node, source) {
-  source = source || {};
-  node.setSharedPluginData(NS, 'version', VERSION);
-  node.setSharedPluginData(NS, 'role', source.role || '');
-  node.setSharedPluginData(NS, 'tag', source.tag || '');
-  node.setSharedPluginData(NS, 'path', source.path || '');
-}
-
-function makeFrame(name, rect, parent, scale, fill) {
-  const f = figma.createFrame();
-  const s = size(rect, scale);
-  const p = pos(rect, parent, scale);
-  f.name = safeName(name);
-  f.resize(s.w, s.h);
-  f.x = p.x; f.y = p.y;
-  f.layoutMode = 'NONE';
-  f.paddingTop = 0; f.paddingRight = 0; f.paddingBottom = 0; f.paddingLeft = 0;
-  f.clipsContent = false;
-  f.fills = fill ? paint(fill) : [];
-  f.strokes = [];
-  return f;
-}
-
-function makeText(item, parent, scale) {
-  const style = item.style || {};
-  const t = figma.createText();
-  const value = clean(item.text || item.name || '');
-  const bold = /bold|600|700|800|900/i.test(String(style.fontWeight || '')) || item.role === 'heading';
-  const fontSize = Math.max(6, px(style.fontSize, item.role === 'heading' ? 32 : 14) * scale);
-  t.fontName = font(bold);
-  t.characters = value || ' ';
-  t.fontSize = fontSize;
-  t.fills = paint(color(style.color, item.role === 'heading' ? '#111827' : '#374151'));
-  t.name = safeName((item.role || 'text') + ' / ' + value.slice(0, 56));
-  const p = pos(item.rect, parent, scale);
-  t.x = p.x; t.y = p.y;
-  try { t.textAutoResize = 'HEIGHT'; } catch (_) {}
-  try { t.resize(textWidth(value, fontSize, item.rect && item.rect.w, scale), Math.max(fontSize * 1.2, Math.round(((item.rect && item.rect.h) || fontSize) * scale))); } catch (_) {}
-  meta(t, item);
-  return t;
-}
-
-function makeImage(item, parent, scale) {
-  const r = figma.createRectangle();
-  const s = size(item.rect, scale);
-  const p = pos(item.rect, parent, scale);
-  r.name = safeName('image / ' + (item.name || 'Image'));
-  r.resize(s.w, s.h);
-  r.x = p.x; r.y = p.y;
-  r.cornerRadius = Math.max(0, px((item.style || {}).borderRadius, 0) * scale);
-  if (item.image && item.image.base64) {
-    const img = figma.createImage(bytes(item.image.base64));
-    r.fills = [{ type: 'IMAGE', imageHash: img.hash, scaleMode: 'FILL' }];
-  } else r.fills = paint('#E5E7EB');
-  meta(r, item);
-  return r;
-}
-
-function makeButton(item, parent, scale) {
-  const f = makeFrame((item.role || 'button') + ' / ' + (item.text || item.name || 'Action'), item.rect, parent, scale, color((item.style || {}).backgroundColor, '#FFFFFF'));
-  f.cornerRadius = Math.max(8, Math.round(size(item.rect, scale).h / 2));
-  f.strokes = paint('#D1D5DB');
-  f.strokeWeight = 1;
-  const labelRect = { x: (item.rect.x || 0) + 12, y: (item.rect.y || 0) + 6, w: Math.max(20, (item.rect.w || 80) - 24), h: Math.max(12, (item.rect.h || 32) - 12) };
-  const label = makeText({ role: 'text', tag: 'label', name: item.name, text: item.text || item.name || 'Button', rect: labelRect, style: item.style || {}, path: item.path || '' }, item.rect, scale);
-  label.x = Math.max(4, label.x); label.y = Math.max(2, label.y);
-  f.appendChild(label);
-  meta(f, item);
-  return f;
-}
-
-function makeElement(item, parent, scale) {
-  if (!item || !item.rect) return null;
-  if (item.role === 'image') return makeImage(item, parent, scale);
-  if (item.role === 'button') return makeButton(item, parent, scale);
-  if (clean(item.text || item.name)) return makeText(item, parent, scale);
-  return null;
-}
-
-function canvasHeight(sections, viewport) {
-  let h = viewport && viewport.height ? viewport.height : 1600;
-  (sections || []).forEach(function (section) { const r = section.rect || {}; h = Math.max(h, (r.y || 0) + (r.h || 0)); });
-  return h;
-}
-
-async function importDesign(payload) {
-  await loadFonts();
-  const p = await page();
-  const sections = Array.isArray(payload.sections) ? payload.sections : [];
-  const elements = Array.isArray(payload.elements) ? payload.elements : [];
-  if (!sections.length && !elements.length) throw new Error('Design Reconstruction Compiler returned no visible elements.');
-
-  const viewport = payload.viewport || { width: 1440, height: 1600 };
-  const scale = 1280 / Math.max(1, Number(viewport.width) || 1440);
-  const sourceHeight = canvasHeight(sections, viewport);
-  const canvasH = Math.max(600, Math.round(sourceHeight * scale));
-  const stamp = new Date().toISOString().replace(/[:.]/g, '-');
-
-  const run = figma.createFrame();
-  run.name = safeName((payload.title || 'Website Design Reconstruction') + ' / ' + stamp);
-  run.resize(1440, canvasH + 220);
-  run.fills = paint('#030407');
-  run.layoutMode = 'VERTICAL';
-  run.itemSpacing = 24;
-  run.paddingTop = 40; run.paddingRight = 40; run.paddingBottom = 40; run.paddingLeft = 40;
-  run.primaryAxisSizingMode = 'AUTO';
-  run.counterAxisSizingMode = 'FIXED';
-
-  const title = figma.createText();
-  title.fontName = font(true);
-  title.characters = payload.title || 'Website Design Reconstruction';
-  title.fontSize = 30;
-  title.fills = paint('#F7F9FD');
-  title.name = 'Import Title';
-  run.appendChild(title);
-
-  const info = payload.source || {};
-  const note = figma.createText();
-  note.fontName = font(false);
-  note.characters = 'Design Reconstruction Compiler: editable rebuild from website text, images, actions, and layout clusters. Elements: ' + (info.elementCount || elements.length) + ' / Sections: ' + (info.sectionCount || sections.length);
-  note.fontSize = 12;
-  note.fills = paint('#8D96A6');
-  note.name = 'Import Note';
-  run.appendChild(note);
-
-  const canvas = figma.createFrame();
-  canvas.name = '01 Website UI / Reconstructed Design';
-  canvas.resize(1280, canvasH);
-  canvas.layoutMode = 'NONE';
-  canvas.paddingTop = 0; canvas.paddingRight = 0; canvas.paddingBottom = 0; canvas.paddingLeft = 0;
-  canvas.clipsContent = false;
-  canvas.fills = paint('#FFFFFF');
-
-  if (sections.length) {
-    sections.forEach(function (section, index) {
-      const rect = section.rect || { x: 0, y: 0, w: viewport.width, h: 100 };
-      const frame = makeFrame(section.role === 'header' ? 'Header' : 'Section ' + String(index + 1).padStart(2, '0'), rect, { x: 0, y: 0 }, scale, null);
-      meta(frame, section);
-      (section.rows || []).forEach(function (row) {
-        (row.elements || []).forEach(function (item) {
-          const layer = makeElement(item, rect, scale);
-          if (layer) frame.appendChild(layer);
-        });
-      });
-      canvas.appendChild(frame);
-    });
-  } else {
-    elements.forEach(function (item) { const layer = makeElement(item, { x: 0, y: 0 }, scale); if (layer) canvas.appendChild(layer); });
-  }
-
-  run.appendChild(canvas);
-  p.appendChild(run);
-  figma.viewport.scrollAndZoomIntoView([run]);
-  lastRun = run;
-
-  status('Import complete.\nOutput page: ' + PAGE_NAME + '\nTop-level run: ' + run.name + '\nMode: Design Reconstruction Compiler\nElements generated: ' + (info.elementCount || elements.length) + '\nSections generated: ' + (info.sectionCount || sections.length) + '\nNext step: review in Figma, then Export Data.');
-}
-
-function exportPackage() {
-  if (!lastRun) return status('No import run found. Import Data first.');
-  status('Export complete.', { exportJson: JSON.stringify({ schema: 'translateit.ui-build-package.design-reconstruction.v1', generatedAt: new Date().toISOString(), pluginVersion: VERSION, figmaRun: lastRun.name }, null, 2) });
-}
-
-figma.ui.onmessage = async function (msg) {
-  try {
-    msg = msg || {};
-    if (msg.type === 'import-design-reconstruction' || msg.type === 'import-layout-tree' || msg.type === 'import-source-bundle' || msg.type === 'import-inspector-tree') return await importDesign(msg.payload || {});
-    if (msg.type === 'export-ui-package') return exportPackage();
-    status('Unsupported command: ' + msg.type);
-  } catch (error) {
-    status('Plugin error: ' + (error && error.message ? error.message : error));
-  }
-};
+const PAGE_NAME='TranslateIT Import / Workspace';
+const VERSION='mivubi-home-adapter-v1';
+let lastRun=null;
+let regular={family:'Inter',style:'Regular'};
+let bold={family:'Inter',style:'Bold'};
+function send(text,extra){const m={type:'status',text:text};extra=extra||{};Object.keys(extra).forEach(k=>m[k]=extra[k]);figma.ui.postMessage(m)}
+async function fonts(){try{await figma.loadFontAsync(regular)}catch(_){regular={family:'Roboto',style:'Regular'};await figma.loadFontAsync(regular)}try{await figma.loadFontAsync(bold)}catch(_){bold=regular}}
+function f(b){return b?bold:regular}
+function s(v){return String(v||'').replace(/\s+/g,' ').trim()}
+function n(v){return s(v||'Layer').slice(0,96)||'Layer'}
+function rgb(hex){const v=parseInt(/^#[\da-fA-F]{6}$/.test(hex||'')?hex.slice(1):'111827',16);return{r:((v>>16)&255)/255,g:((v>>8)&255)/255,b:(v&255)/255}}
+function p(hex){return hex?[{type:'SOLID',color:rgb(hex)}]:[]}
+function b64(v){const raw=atob(v);const a=new Uint8Array(raw.length);for(let i=0;i<raw.length;i++)a[i]=raw.charCodeAt(i);return a}
+async function getPage(){let p0=null;for(let i=0;i<figma.root.children.length;i++)if(figma.root.children[i].name===PAGE_NAME)p0=figma.root.children[i];if(!p0)p0=figma.createPage();p0.name=PAGE_NAME;await figma.setCurrentPageAsync(p0);return p0}
+function fr(name,x,y,w,h,fill){const o=figma.createFrame();o.name=n(name);o.resize(w,h);o.x=x;o.y=y;o.layoutMode='NONE';o.paddingTop=0;o.paddingRight=0;o.paddingBottom=0;o.paddingLeft=0;o.clipsContent=false;o.fills=fill?p(fill):[];o.strokes=[];return o}
+function rr(name,x,y,w,h,fill,r){const o=figma.createRectangle();o.name=n(name);o.resize(w,h);o.x=x;o.y=y;o.fills=fill?p(fill):[];o.strokes=[];o.cornerRadius=r||0;return o}
+function ee(name,x,y,w,h,fill,stroke){const o=figma.createEllipse();o.name=n(name);o.resize(w,h);o.x=x;o.y=y;o.fills=fill?p(fill):[];o.strokes=stroke?p(stroke):[];o.strokeWeight=stroke?1:0;return o}
+function tt(name,val,x,y,size,col,isBold,w){const o=figma.createText();o.name=n(name);o.fontName=f(isBold);o.characters=s(val)||' ';o.fontSize=size;o.fills=p(col||'#111827');o.x=x;o.y=y;if(w){try{o.textAutoResize='HEIGHT';o.resize(w,Math.max(size*1.25,o.height))}catch(_){}}return o}
+function img(name,asset,x,y,w,h,r){const o=rr(name,x,y,w,h,'#E5E7EB',r||0);if(asset&&asset.base64){const im=figma.createImage(b64(asset.base64));o.fills=[{type:'IMAGE',imageHash:im.hash,scaleMode:'FILL'}]}return o}
+function pill(name,label,x,y,w,h,fill,col){const g=fr(name,x,y,w,h,null);g.appendChild(rr('bg',0,0,w,h,fill||'#F6C52D',h/2));g.appendChild(tt('label',label,14,Math.max(2,(h-14)/2),12,col||'#111827',true,w-24));return g}
+function logo(parent,asset,x,y,size,word){const g=fr('Logo',x,y,word?170:size,size,null);if(asset&&asset.base64)g.appendChild(img('Logo asset',asset,0,0,size,size,0));else{g.appendChild(rr('green',0,0,size/2,size/2,'#00A66A',0));g.appendChild(rr('blue',size/2,0,size/2,size/2,'#4AA3FF',0));g.appendChild(rr('yellow',0,size/2,size/2,size/2,'#F6C52D',0));g.appendChild(rr('cream',size/2,size/2,size/2,size/2,'#F2E7C9',0))}if(word)g.appendChild(tt('Wordmark','Mivubi',size+14,6,32,'#FFFFFF',true,120));parent.appendChild(g)}
+function card(parent,name,asset,x,y,w,h,label,date,arrow){const c=fr(name,x,y,w,h,null);c.appendChild(img('image',asset,0,0,w,h,12));const t1=pill('tag',label,24,h-48,130,24,'#6B7280','#FFFFFF');t1.opacity=.9;c.appendChild(t1);const t2=pill('date',date,166,h-48,arrow?112:142,24,'#6B7280','#FFFFFF');t2.opacity=.9;c.appendChild(t2);if(arrow){c.appendChild(ee('arrow bg',w-56,h-58,36,36,'#D1D5DB',null));c.children[c.children.length-1].opacity=.7;c.appendChild(tt('arrow','→',w-47,h-53,20,'#FFFFFF',true,24))}parent.appendChild(c)}
+function header(canvas,c,a){const h=fr('Header',80,42,1120,64,null);logo(h,a.logo,0,6,42,false);const nav=c.nav||['About','Portfolio','Goodies','Contents','Talk with us'];for(let i=0;i<nav.length;i++)h.appendChild(tt('nav / '+nav[i],nav[i],435+i*78,22,13,'#192627',i===0,80));const top=pill('CTA',c.topCta||'Lets Contribute',965,14,138,34,'#FFFFFF','#111827');top.children[0].strokes=p('#1F2937');top.children[0].strokeWeight=1;h.appendChild(top);h.appendChild(ee('Yellow icon',1122,16,30,30,'#F6C52D',null));h.appendChild(tt('icon','✦',1130,21,12,'#111827',true,18));canvas.appendChild(h)}
+function hero(canvas,c,a){const h=fr('Hero Section',80,126,1120,780,null);const intro=fr('Intro Column',0,0,340,760,null);const head=c.headline||['Unlocking','Potential Through','Cultural Games.'];intro.appendChild(pill('Badge',c.badge||'Mivubi Team',0,0,120,28,'#F6C52D','#1B2B2B'));intro.appendChild(tt('Heading 1',head[0],0,70,50,'#18292A',false,330));intro.appendChild(tt('Heading 2',head[1],0,128,50,'#18292A',false,360));intro.appendChild(tt('Heading 3',head[2],0,190,45,'#F2BE25',false,350));intro.appendChild(rr('divider',0,560,300,1,'#D8D8D2',0));intro.appendChild(tt('Intro paragraph',c.intro||'',0,590,16,'#334344',false,270));intro.appendChild(pill('Talk CTA',(c.primaryCta||'Talk with us')+'  →',0,686,132,38,'#F6C52D','#111827'));intro.appendChild(rr('social divider',0,746,300,1,'#D8D8D2',0));const soc=c.socials||['in','ig','tk'];for(let i=0;i<soc.length;i++){intro.appendChild(ee('Social '+soc[i],i*48,770,36,36,'#FFFFFF','#1F2937'));intro.appendChild(tt('Social text '+soc[i],soc[i],i*48+9,780,11,'#111827',true,22))}h.appendChild(intro);card(h,'Main Project Card',a.mainProject,358,10,500,760,c.mainCard.title,c.mainCard.date,true);const side=fr('Side Feature Column',900,40,360,720,null);side.appendChild(tt('Feature title',c.sideFeature.title,0,0,23,'#1A2A2A',true,250));side.appendChild(rr('feature divider',0,40,250,1,'#D8D8D2',0));side.appendChild(tt('Feature desc',c.sideFeature.description,0,62,16,'#334344',false,335));side.appendChild(ee('Feature arrow bg',314,0,38,38,'#F6C52D',null));side.appendChild(tt('Feature arrow','→',325,7,18,'#111827',true,18));card(side,'Side Project Card',a.sideProject,0,190,350,530,c.sideFeature.label,c.sideFeature.date,false);h.appendChild(side);canvas.appendChild(h)}
+function footer(canvas,c,a){const ft=fr('Footer',0,930,1280,285,null);ft.appendChild(rr('Green brand block',0,0,500,285,'#006A36',0));ft.appendChild(rr('Yellow info block',500,0,780,285,'#F4D35E',0));logo(ft,a.logo,80,68,54,true);ft.appendChild(tt('Footer desc',c.footer.description,80,138,16,'#FFFFFF',true,350));ft.appendChild(tt('Copyright','Copyright © 2022-2026 Mivubi. Powered by PT Halo Karya Media.',80,228,11,'#FFFFFF',false,360));ft.appendChild(tt('Recent Works title','Recent Works',610,76,18,'#111827',true,180));ft.appendChild(tt('Recent Works list',c.footer.recentWorks.join('\n'),610,112,15,'#333333',false,220));ft.appendChild(tt('Program title','Our Program',850,76,18,'#111827',true,170));ft.appendChild(tt('Program list',c.footer.programs.join('\n'),850,112,15,'#333333',false,160));ft.appendChild(tt('Contact title','Contact',1010,76,18,'#111827',true,170));ft.appendChild(tt('Contact list',c.footer.contact.join('\n'),1010,112,15,'#333333',false,220));canvas.appendChild(ft)}
+async function importMivubi(payload){await fonts();const pg=await getPage();const c=payload.content||{};const a=payload.assets||{};const stamp=new Date().toISOString().replace(/[:.]/g,'-');const run=fr('Mivubi Home Rebuilt / '+stamp,0,0,1440,1440,'#030407');run.layoutMode='VERTICAL';run.itemSpacing=22;run.paddingTop=40;run.paddingRight=40;run.paddingBottom=40;run.paddingLeft=40;run.primaryAxisSizingMode='AUTO';run.counterAxisSizingMode='FIXED';run.appendChild(tt('Import Title','Mivubi Home — Rebuilt Design Adapter',0,0,30,'#F7F9FD',true,900));run.appendChild(tt('Import Note','Site-specific adapter output. Built from Header, Hero, Project Cards, Intro Column, Side Feature, and Footer. Generic DOM dumping is disabled for this target.',0,0,12,'#8D96A6',false,1200));const canvas=fr('01 Website UI / Mivubi Rebuilt Design',0,0,1280,1215,'#FFFDF7');header(canvas,c,a);hero(canvas,c,a);footer(canvas,c,a);run.appendChild(canvas);pg.appendChild(run);figma.viewport.scrollAndZoomIntoView([run]);lastRun=run;send('Import complete.\nOutput page: '+PAGE_NAME+'\nTop-level run: '+run.name+'\nMode: Mivubi Home Adapter\nStructure: Header / Hero Section / Project Cards / Footer\nNext step: review in Figma, then Export Data.')}
+function exportPackage(){if(!lastRun)return send('No import run found. Import Data first.');send('Export complete.',{exportJson:JSON.stringify({schema:'translateit.ui-build-package.mivubi-home.v1',generatedAt:new Date().toISOString(),pluginVersion:VERSION,figmaRun:lastRun.name},null,2)})}
+figma.ui.onmessage=async function(msg){try{msg=msg||{};if(msg.type==='import-design-reconstruction'||msg.type==='import-layout-tree'||msg.type==='import-source-bundle'||msg.type==='import-inspector-tree'){if(!msg.payload||msg.payload.mode!=='mivubi-home-adapter-v1')throw new Error('Expected Mivubi Home Adapter payload.');await importMivubi(msg.payload);return}if(msg.type==='export-ui-package')return exportPackage();send('Unsupported command: '+msg.type)}catch(e){send('Plugin error: '+(e&&e.message?e.message:e))}};
