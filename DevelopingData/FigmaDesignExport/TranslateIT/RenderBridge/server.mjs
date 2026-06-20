@@ -4,13 +4,14 @@ import { chromium } from 'playwright';
 
 const PORT = Number(process.env.TRANSLATEIT_RENDER_PORT || 8844);
 const IDLE_EXIT_MS = Number(process.env.TRANSLATEIT_RENDER_IDLE_EXIT_MS || 180000);
+const VIEWPORT = { width: 1440, height: 1600 };
 
 let browserPromise = null;
-let idleTimer = null;
 let activeJobs = 0;
+let idleTimer = null;
 let server = null;
 
-function respondJson(res, status, payload) {
+function json(res, status, payload) {
   res.writeHead(status, {
     'Content-Type': 'application/json; charset=utf-8',
     'Access-Control-Allow-Origin': '*',
@@ -21,15 +22,13 @@ function respondJson(res, status, payload) {
 }
 
 function normalizeUrl(value) {
-  const raw = String(value || '').trim();
-  if (!raw) return '';
-  return /^https?:\/\//i.test(raw) ? raw : `https://${raw}`;
+  const url = String(value || '').trim();
+  if (!url) return '';
+  return /^https?:\/\//i.test(url) ? url : `https://${url}`;
 }
 
 async function getBrowser() {
-  if (!browserPromise) {
-    browserPromise = chromium.launch({ headless: true });
-  }
+  if (!browserPromise) browserPromise = chromium.launch({ headless: true });
   return browserPromise;
 }
 
@@ -56,16 +55,20 @@ function resetIdleTimer() {
   idleTimer.unref();
 }
 
-async function captureInspectorData(page, targetUrl) {
-  const data = await page.evaluate((sourceUrl) => {
+async function captureInspectorTree(page, targetUrl) {
+  const treePackage = await page.evaluate((sourceUrl) => {
     const viewport = {
       width: window.innerWidth || 1440,
       height: window.innerHeight || 1600
     };
 
-    const blocked = new Set(['SCRIPT', 'STYLE', 'META', 'LINK', 'NOSCRIPT', 'TEMPLATE', 'BR']);
-    const layers = [];
-    let idCounter = 0;
+    const BLOCKED = new Set(['SCRIPT', 'STYLE', 'META', 'LINK', 'NOSCRIPT', 'TEMPLATE', 'BR', 'IFRAME', 'VIDEO', 'AUDIO', 'CANVAS']);
+    const STRUCTURAL_TAGS = new Set(['BODY', 'HEADER', 'NAV', 'MAIN', 'SECTION', 'ARTICLE', 'ASIDE', 'FOOTER', 'UL', 'OL', 'LI']);
+    const TEXT_TAGS = new Set(['H1', 'H2', 'H3', 'H4', 'H5', 'H6', 'P', 'SPAN', 'STRONG', 'EM', 'SMALL', 'LABEL']);
+    const CONTROL_TAGS = new Set(['A', 'BUTTON', 'INPUT', 'TEXTAREA', 'SELECT']);
+    const MEDIA_TAGS = new Set(['IMG', 'PICTURE', 'SVG']);
+
+    let id = 0;
 
     function clean(value) {
       return String(value || '').replace(/\s+/g, ' ').trim();
@@ -76,7 +79,8 @@ async function captureInspectorData(page, targetUrl) {
       return Number.isFinite(number) ? number : fallback;
     }
 
-    function rectFromDomRect(rect) {
+    function rectOf(element) {
+      const rect = element.getBoundingClientRect();
       return {
         x: Math.round(rect.left),
         y: Math.round(rect.top),
@@ -85,227 +89,257 @@ async function captureInspectorData(page, targetUrl) {
       };
     }
 
-    function rectOfElement(element) {
-      return rectFromDomRect(element.getBoundingClientRect());
+    function directText(element) {
+      return clean(Array.from(element.childNodes || [])
+        .filter((node) => node.nodeType === Node.TEXT_NODE)
+        .map((node) => node.textContent)
+        .join(' '));
     }
 
-    function isRectVisible(rect) {
-      if (!rect || rect.w < 2 || rect.h < 2) return false;
+    function visible(element, rect, computed) {
+      if (!rect || rect.w < 1 || rect.h < 1) return false;
       if (rect.x > viewport.width || rect.y > viewport.height) return false;
       if (rect.x + rect.w < 0 || rect.y + rect.h < 0) return false;
-      return true;
-    }
-
-    function isElementVisible(element, rect, computed) {
-      if (!isRectVisible(rect)) return false;
-      if (computed.display === 'none') return false;
-      if (computed.visibility === 'hidden') return false;
+      if (computed.display === 'none' || computed.visibility === 'hidden') return false;
       if (Number(computed.opacity) === 0) return false;
       return true;
     }
 
-    function styleFrom(element) {
-      const c = window.getComputedStyle(element);
+    function styleOf(element, computed) {
       return {
-        display: c.display,
-        position: c.position,
-        flexDirection: c.flexDirection,
-        alignItems: c.alignItems,
-        justifyContent: c.justifyContent,
-        gap: c.gap,
-        paddingTop: c.paddingTop,
-        paddingRight: c.paddingRight,
-        paddingBottom: c.paddingBottom,
-        paddingLeft: c.paddingLeft,
-        backgroundColor: c.backgroundColor,
-        backgroundImage: c.backgroundImage,
-        color: c.color,
-        borderColor: c.borderTopColor || c.borderColor,
-        borderWidth: c.borderTopWidth || c.borderWidth,
-        borderRadius: c.borderRadius,
-        boxShadow: c.boxShadow,
-        fontFamily: c.fontFamily,
-        fontSize: c.fontSize,
-        fontWeight: c.fontWeight,
-        lineHeight: c.lineHeight,
-        letterSpacing: c.letterSpacing,
-        textAlign: c.textAlign,
-        opacity: c.opacity
+        display: computed.display,
+        position: computed.position,
+        flexDirection: computed.flexDirection,
+        alignItems: computed.alignItems,
+        justifyContent: computed.justifyContent,
+        gap: computed.gap,
+        paddingTop: computed.paddingTop,
+        paddingRight: computed.paddingRight,
+        paddingBottom: computed.paddingBottom,
+        paddingLeft: computed.paddingLeft,
+        backgroundColor: computed.backgroundColor,
+        backgroundImage: computed.backgroundImage,
+        color: computed.color,
+        borderTopColor: computed.borderTopColor,
+        borderRightColor: computed.borderRightColor,
+        borderBottomColor: computed.borderBottomColor,
+        borderLeftColor: computed.borderLeftColor,
+        borderTopWidth: computed.borderTopWidth,
+        borderRightWidth: computed.borderRightWidth,
+        borderBottomWidth: computed.borderBottomWidth,
+        borderLeftWidth: computed.borderLeftWidth,
+        borderRadius: computed.borderRadius,
+        boxShadow: computed.boxShadow,
+        fontFamily: computed.fontFamily,
+        fontSize: computed.fontSize,
+        fontWeight: computed.fontWeight,
+        lineHeight: computed.lineHeight,
+        letterSpacing: computed.letterSpacing,
+        textAlign: computed.textAlign,
+        opacity: computed.opacity,
+        objectFit: computed.objectFit
       };
     }
 
-    function hasFillOrStroke(style) {
-      const hasBackground = style.backgroundColor && style.backgroundColor !== 'transparent' && style.backgroundColor !== 'rgba(0, 0, 0, 0)';
-      const hasBorder = px(style.borderWidth) > 0;
-      const hasRadius = px(style.borderRadius) > 0;
-      const hasShadow = style.boxShadow && style.boxShadow !== 'none';
-      return hasBackground || hasBorder || hasRadius || hasShadow;
+    function hasVisualStyle(style) {
+      const background = style.backgroundColor && style.backgroundColor !== 'rgba(0, 0, 0, 0)' && style.backgroundColor !== 'transparent';
+      const border = px(style.borderTopWidth) > 0 || px(style.borderRightWidth) > 0 || px(style.borderBottomWidth) > 0 || px(style.borderLeftWidth) > 0;
+      const radius = px(style.borderRadius) > 0;
+      const shadow = style.boxShadow && style.boxShadow !== 'none';
+      const backgroundImage = style.backgroundImage && style.backgroundImage !== 'none';
+      return background || border || radius || shadow || backgroundImage;
     }
 
-    function elementRole(element, tag, style, text) {
+    function roleOf(element, tag, style, text) {
       const role = clean(element.getAttribute('role')).toLowerCase();
       const className = clean(element.className).toLowerCase();
-
-      if (tag === 'IMG' || tag === 'PICTURE' || tag === 'SVG') return 'image';
+      if (MEDIA_TAGS.has(tag)) return 'image';
       if (tag === 'BUTTON' || role === 'button' || className.includes('button') || className.includes('btn') || className.includes('cta')) return 'button';
       if (tag === 'A' && text) return 'link';
       if (/^H[1-6]$/.test(tag)) return 'heading';
+      if (TEXT_TAGS.has(tag) && text) return 'text';
       if (tag === 'NAV') return 'nav';
-      if (['HEADER', 'FOOTER', 'MAIN', 'SECTION', 'ARTICLE', 'ASIDE', 'LI'].includes(tag)) return 'section';
-      if (hasFillOrStroke(style)) return 'box';
+      if (STRUCTURAL_TAGS.has(tag)) return tag === 'BODY' ? 'root' : 'section';
+      if (hasVisualStyle(style)) return 'box';
       return 'group';
     }
 
-    function layerName(element, tag, role, text) {
+    function nameOf(element, tag, role, text) {
       const aria = clean(element.getAttribute('aria-label'));
       const alt = clean(element.getAttribute('alt'));
       const title = clean(element.getAttribute('title'));
-      const id = clean(element.id);
-      const className = clean(element.className).split(' ').filter(Boolean).slice(0, 2).join('.');
-      return clean(text || aria || alt || title || id || className || role || tag).slice(0, 96) || 'Layer';
+      const idName = clean(element.id);
+      const cls = clean(element.className).split(' ').filter(Boolean).slice(0, 2).join('.');
+      return clean(text || aria || alt || title || idName || cls || role || tag).slice(0, 96) || 'Layer';
     }
 
     function domPath(element) {
-      const parts = [];
+      const path = [];
       let current = element;
       while (current && current.nodeType === Node.ELEMENT_NODE && current !== document.documentElement) {
         const tag = current.tagName.toLowerCase();
-        const id = current.id ? `#${current.id}` : '';
-        const cls = clean(current.className).split(' ').filter(Boolean).slice(0, 1).map((x) => `.${x}`).join('');
-        parts.unshift(`${tag}${id}${cls}`);
+        const idName = current.id ? `#${current.id}` : '';
+        const cls = clean(current.className).split(' ').filter(Boolean).slice(0, 1).map((item) => `.${item}`).join('');
+        path.unshift(`${tag}${idName}${cls}`);
         current = current.parentElement;
       }
-      return parts.join(' > ');
+      return path.join(' > ');
     }
 
-    function shouldIncludeElement(element, tag, role, rect, style, text) {
-      if (tag === 'HTML' || tag === 'BODY') return false;
-      if (!isRectVisible(rect)) return false;
-
-      const area = rect.w * rect.h;
-      const viewportArea = viewport.width * viewport.height;
-
-      if (role === 'image') return rect.w >= 12 && rect.h >= 12;
-      if (role === 'button' || role === 'link') return rect.w >= 8 && rect.h >= 8;
-      if (role === 'heading') return !!text && rect.w >= 4 && rect.h >= 4;
-      if (role === 'nav') return rect.w >= 80 && rect.h >= 16 && area < viewportArea * 0.25;
-      if (role === 'section') return hasFillOrStroke(style) && area < viewportArea * 0.32 && rect.w >= 24 && rect.h >= 16;
-      if (role === 'box') return hasFillOrStroke(style) && area < viewportArea * 0.28 && rect.w >= 8 && rect.h >= 8;
-      return false;
-    }
-
-    function addElementLayer(element) {
-      const tag = element.tagName;
-      if (!tag || blocked.has(tag)) return;
-
-      const computed = window.getComputedStyle(element);
-      const rect = rectOfElement(element);
-      if (!isElementVisible(element, rect, computed)) return;
-
-      const style = styleFrom(element);
-      const directText = clean(Array.from(element.childNodes || [])
-        .filter((node) => node.nodeType === Node.TEXT_NODE)
-        .map((node) => node.textContent)
-        .join(' '));
-      const text = directText || clean(element.getAttribute('aria-label')) || clean(element.getAttribute('alt')) || clean(element.getAttribute('placeholder'));
-      const role = elementRole(element, tag, style, text);
-
-      if (!shouldIncludeElement(element, tag, role, rect, style, text)) return;
-
-      const layer = {
-        id: `el-${idCounter++}`,
-        kind: role === 'image' ? 'image' : role === 'button' || role === 'link' ? 'control' : 'box',
-        role,
-        tag: tag.toLowerCase(),
-        name: layerName(element, tag.toLowerCase(), role, text),
-        text,
-        rect,
-        style,
-        path: domPath(element)
-      };
-
-      if (role === 'image') {
-        layer.captureId = `ti-img-${idCounter}`;
-        element.setAttribute('data-ti-capture-id', layer.captureId);
-        layer.src = element.currentSrc || element.src || element.getAttribute('src') || '';
-      }
-
-      layers.push(layer);
-    }
-
-    function addTextLayers() {
-      const walker = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT, {
-        acceptNode(node) {
-          const text = clean(node.textContent);
-          if (!text || text.length < 2) return NodeFilter.FILTER_REJECT;
-          const parent = node.parentElement;
-          if (!parent || blocked.has(parent.tagName)) return NodeFilter.FILTER_REJECT;
-          return NodeFilter.FILTER_ACCEPT;
-        }
-      });
-
-      let node;
-      while ((node = walker.nextNode())) {
-        const parent = node.parentElement;
-        const computed = window.getComputedStyle(parent);
+    function textNodeChildren(element, parentStyle) {
+      const output = [];
+      Array.from(element.childNodes || []).forEach((node) => {
+        if (node.nodeType !== Node.TEXT_NODE) return;
+        const text = clean(node.textContent);
+        if (!text || text.length < 2) return;
         const range = document.createRange();
         range.selectNodeContents(node);
         const rects = Array.from(range.getClientRects()).slice(0, 4);
-        const text = clean(node.textContent);
         rects.forEach((domRect) => {
-          const rect = rectFromDomRect(domRect);
-          if (!isElementVisible(parent, rect, computed)) return;
-          layers.push({
-            id: `txt-${idCounter++}`,
-            kind: 'text',
-            role: /^H[1-6]$/.test(parent.tagName) ? 'heading' : 'text',
-            tag: parent.tagName.toLowerCase(),
+          const rect = {
+            x: Math.round(domRect.left),
+            y: Math.round(domRect.top),
+            w: Math.round(domRect.width),
+            h: Math.round(domRect.height)
+          };
+          if (rect.w < 1 || rect.h < 1) return;
+          output.push({
+            id: `text-${id++}`,
+            type: 'text',
+            role: 'text',
+            tag: '#text',
             name: text.slice(0, 96),
             text,
             rect,
-            style: styleFrom(parent),
-            path: domPath(parent)
+            style: parentStyle,
+            path: '',
+            children: []
           });
         });
-      }
+      });
+      return output;
     }
 
-    Array.from(document.querySelectorAll('body *')).forEach(addElementLayer);
-    addTextLayers();
+    function shouldKeepNode(node, element, computed) {
+      const viewportArea = viewport.width * viewport.height;
+      const area = node.rect.w * node.rect.h;
+      const tag = element.tagName;
 
-    const rank = { box: 0, image: 1, control: 2, text: 3 };
-    layers.sort((a, b) => (rank[a.kind] - rank[b.kind]) || (a.rect.y - b.rect.y) || (a.rect.x - b.rect.x));
+      if (node.role === 'root') return true;
+      if (node.type === 'text') return !!node.text;
+      if (node.role === 'image') return node.rect.w >= 8 && node.rect.h >= 8;
+      if (node.role === 'button' || node.role === 'link') return node.rect.w >= 8 && node.rect.h >= 8;
+      if (node.role === 'heading' || node.role === 'text') return !!node.text || node.children.length > 0;
+      if (node.children.length > 0) return true;
+      if (hasVisualStyle(node.style) && area < viewportArea * 0.55 && node.rect.w >= 4 && node.rect.h >= 4) return true;
+      if (STRUCTURAL_TAGS.has(tag) && node.children.length > 0) return true;
+      return false;
+    }
 
+    function flattenNoise(node) {
+      if (!node) return null;
+      if ((node.role === 'group' || node.role === 'box') && !hasVisualStyle(node.style) && !node.text && node.children.length === 1) {
+        return node.children[0];
+      }
+      if ((node.role === 'group') && !node.text && node.children.length === 0) return null;
+      return node;
+    }
+
+    function build(element, depth = 0) {
+      if (!element || element.nodeType !== Node.ELEMENT_NODE) return null;
+      const tag = element.tagName;
+      if (BLOCKED.has(tag)) return null;
+
+      const computed = window.getComputedStyle(element);
+      const rect = rectOf(element);
+      if (!visible(element, rect, computed)) return null;
+
+      const style = styleOf(element, computed);
+      const text = directText(element) || clean(element.getAttribute('aria-label')) || clean(element.getAttribute('alt')) || clean(element.getAttribute('placeholder'));
+      const role = roleOf(element, tag, style, text);
+      const type = role === 'image' ? 'image' : role === 'button' || role === 'link' ? 'control' : role === 'heading' || role === 'text' ? 'text-container' : 'frame';
+
+      const node = {
+        id: `node-${id++}`,
+        type,
+        role,
+        tag: tag.toLowerCase(),
+        name: nameOf(element, tag.toLowerCase(), role, text),
+        text,
+        rect,
+        style,
+        path: domPath(element),
+        children: []
+      };
+
+      if (role === 'image') {
+        node.captureId = `image-${id}`;
+        element.setAttribute('data-ti-image-id', node.captureId);
+        node.src = element.currentSrc || element.src || element.getAttribute('src') || '';
+      }
+
+      if (role === 'heading' || role === 'text' || role === 'button' || role === 'link') {
+        node.children.push(...textNodeChildren(element, style));
+      }
+
+      Array.from(element.children || []).forEach((child) => {
+        const childNode = build(child, depth + 1);
+        if (childNode) node.children.push(childNode);
+      });
+
+      if ((role === 'button' || role === 'link') && node.children.length === 0 && text) {
+        node.children.push({
+          id: `text-${id++}`,
+          type: 'text',
+          role: 'text',
+          tag: '#text',
+          name: text.slice(0, 96),
+          text,
+          rect,
+          style,
+          path: node.path,
+          children: []
+        });
+      }
+
+      if (!shouldKeepNode(node, element, computed)) return null;
+      return flattenNoise(node);
+    }
+
+    const root = build(document.body);
     return {
       title: document.title || new URL(sourceUrl).hostname,
       viewport,
-      layers: layers.slice(0, 320),
+      tree: root,
       html: '<!doctype html>\n' + document.documentElement.outerHTML
     };
   }, targetUrl);
 
-  for (const layer of data.layers) {
-    if (layer.kind !== 'image' || !layer.captureId) continue;
-    try {
-      const handle = await page.$(`[data-ti-capture-id="${layer.captureId}"]`);
-      if (!handle) continue;
-      const image = await handle.screenshot({ type: 'png' });
-      layer.imageBase64 = image.toString('base64');
-    } catch (_) {}
+  async function attachImages(node) {
+    if (!node) return;
+    if (node.role === 'image' && node.captureId) {
+      try {
+        const handle = await page.$(`[data-ti-image-id="${node.captureId}"]`);
+        if (handle) {
+          const image = await handle.screenshot({ type: 'png' });
+          node.imageBase64 = image.toString('base64');
+        }
+      } catch (_) {}
+    }
+
+    for (const child of node.children || []) await attachImages(child);
   }
 
-  return data;
+  await attachImages(treePackage.tree);
+  return treePackage;
 }
 
-async function renderUrl(urlValue) {
-  const targetUrl = normalizeUrl(urlValue);
+async function renderUrl(sourceUrl) {
+  const targetUrl = normalizeUrl(sourceUrl);
   if (!targetUrl) throw new Error('Missing url query parameter.');
 
   const browser = await getBrowser();
-  const page = await browser.newPage({
-    viewport: { width: 1440, height: 1600 },
-    deviceScaleFactor: 1
-  });
+  const page = await browser.newPage({ viewport: VIEWPORT, deviceScaleFactor: 1 });
 
   try {
     await page.goto(targetUrl, { waitUntil: 'domcontentloaded', timeout: 45000 });
@@ -314,21 +348,19 @@ async function renderUrl(urlValue) {
     await page.evaluate(() => window.scrollTo(0, 0));
     await page.waitForTimeout(500);
 
-    const inspector = await captureInspectorData(page, targetUrl);
-
+    const inspector = await captureInspectorTree(page, targetUrl);
     return {
       ok: true,
       url: targetUrl,
       title: inspector.title,
       viewport: inspector.viewport,
-      layers: inspector.layers,
+      tree: inspector.tree,
       html: inspector.html,
-      mode: 'inspector-dom-v4',
+      mode: 'inspector-dom-tree-v5',
       capturedAt: new Date().toISOString(),
-      idleExitMs: IDLE_EXIT_MS,
       warnings: [
-        'Inspector Mode uses DOM text, element boxes, computed CSS, and image assets.',
-        'Pseudo-elements, canvas, video, WebGL, iframe content, and complex animations may need manual cleanup.'
+        'Inspector tree mode reads DOM hierarchy, computed CSS, text ranges, and image assets.',
+        'Pseudo-elements, canvas, video, iframe contents, and complex animation states may still require manual cleanup.'
       ]
     };
   } finally {
@@ -352,12 +384,12 @@ server = http.createServer(async (req, res) => {
   const requestUrl = new URL(req.url, `http://127.0.0.1:${PORT}`);
 
   if (requestUrl.pathname === '/health') {
-    respondJson(res, 200, { ok: true, service: 'translateit-render-bridge', mode: 'inspector-dom-v4', port: PORT });
+    json(res, 200, { ok: true, service: 'translateit-render-bridge', mode: 'inspector-dom-tree-v5', port: PORT });
     return;
   }
 
   if (requestUrl.pathname === '/shutdown') {
-    respondJson(res, 200, { ok: true, message: 'Render Bridge shutting down.' });
+    json(res, 200, { ok: true, message: 'Render Bridge shutting down.' });
     setTimeout(async () => {
       try {
         if (browserPromise) {
@@ -372,16 +404,16 @@ server = http.createServer(async (req, res) => {
   }
 
   if (requestUrl.pathname !== '/render') {
-    respondJson(res, 404, { ok: false, error: 'Use /render?url=https://example.com' });
+    json(res, 404, { ok: false, error: 'Use /render?url=https://example.com' });
     return;
   }
 
   activeJobs += 1;
   try {
     const result = await renderUrl(requestUrl.searchParams.get('url'));
-    respondJson(res, 200, result);
+    json(res, 200, result);
   } catch (error) {
-    respondJson(res, 500, { ok: false, error: error && error.message ? error.message : String(error) });
+    json(res, 500, { ok: false, error: error && error.message ? error.message : String(error) });
   } finally {
     activeJobs -= 1;
     resetIdleTimer();
@@ -389,6 +421,6 @@ server = http.createServer(async (req, res) => {
 });
 
 server.listen(PORT, '127.0.0.1', () => {
-  console.log(`TranslateIT Render Bridge Inspector Mode running at http://127.0.0.1:${PORT}`);
+  console.log(`TranslateIT Render Bridge Inspector Tree V5 running at http://127.0.0.1:${PORT}`);
   resetIdleTimer();
 });
