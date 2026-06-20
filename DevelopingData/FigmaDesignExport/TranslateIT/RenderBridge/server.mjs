@@ -1,14 +1,13 @@
 import http from 'node:http';
 import { URL } from 'node:url';
-import { chromium } from 'playwright';
 
 const PORT = Number(process.env.TRANSLATEIT_RENDER_PORT || 8844);
 const IDLE_EXIT_MS = Number(process.env.TRANSLATEIT_RENDER_IDLE_EXIT_MS || 180000);
-const VIEWPORT = { width: 1440, height: 1600 };
+const MAX_CSS_FILES = 24;
+const MAX_IMAGE_ASSETS = 80;
 
-let browserPromise = null;
-let activeJobs = 0;
 let idleTimer = null;
+let activeJobs = 0;
 let server = null;
 
 function json(res, status, payload) {
@@ -21,32 +20,13 @@ function json(res, status, payload) {
   res.end(JSON.stringify(payload));
 }
 
-function normalizeUrl(value) {
-  const url = String(value || '').trim();
-  if (!url) return '';
-  return /^https?:\/\//i.test(url) ? url : `https://${url}`;
-}
-
-async function getBrowser() {
-  if (!browserPromise) browserPromise = chromium.launch({ headless: true });
-  return browserPromise;
-}
-
 function resetIdleTimer() {
   if (idleTimer) clearTimeout(idleTimer);
-  idleTimer = setTimeout(async () => {
+  idleTimer = setTimeout(() => {
     if (activeJobs > 0) {
       resetIdleTimer();
       return;
     }
-
-    try {
-      if (browserPromise) {
-        const browser = await browserPromise;
-        await browser.close();
-      }
-    } catch (_) {}
-
     if (server) {
       server.close(() => process.exit(0));
       setTimeout(() => process.exit(0), 3000).unref();
@@ -55,340 +35,369 @@ function resetIdleTimer() {
   idleTimer.unref();
 }
 
-async function captureInspectorTree(page, targetUrl) {
-  const treePackage = await page.evaluate((sourceUrl) => {
-    const viewport = {
-      width: window.innerWidth || 1440,
-      height: window.innerHeight || 1600
-    };
-
-    const BLOCKED = new Set(['SCRIPT', 'STYLE', 'META', 'LINK', 'NOSCRIPT', 'TEMPLATE', 'BR', 'IFRAME', 'VIDEO', 'AUDIO', 'CANVAS']);
-    const STRUCTURAL_TAGS = new Set(['BODY', 'HEADER', 'NAV', 'MAIN', 'SECTION', 'ARTICLE', 'ASIDE', 'FOOTER', 'UL', 'OL', 'LI']);
-    const TEXT_TAGS = new Set(['H1', 'H2', 'H3', 'H4', 'H5', 'H6', 'P', 'SPAN', 'STRONG', 'EM', 'SMALL', 'LABEL']);
-    const MEDIA_TAGS = new Set(['IMG', 'PICTURE', 'SVG']);
-
-    let id = 0;
-
-    function clean(value) {
-      return String(value || '').replace(/\s+/g, ' ').trim();
-    }
-
-    function px(value, fallback = 0) {
-      const number = parseFloat(String(value || '').replace('px', ''));
-      return Number.isFinite(number) ? number : fallback;
-    }
-
-    function rectOf(element) {
-      if (element === document.body) {
-        const height = Math.max(viewport.height, document.documentElement.scrollHeight || 0, document.body.scrollHeight || 0);
-        return { x: 0, y: 0, w: viewport.width, h: height };
-      }
-
-      const rect = element.getBoundingClientRect();
-      return {
-        x: Math.round(rect.left),
-        y: Math.round(rect.top),
-        w: Math.round(rect.width),
-        h: Math.round(rect.height)
-      };
-    }
-
-    function directText(element) {
-      return clean(Array.from(element.childNodes || [])
-        .filter((node) => node.nodeType === Node.TEXT_NODE)
-        .map((node) => node.textContent)
-        .join(' '));
-    }
-
-    function visible(element, rect, computed) {
-      if (element === document.body) return true;
-      if (!rect || rect.w < 1 || rect.h < 1) return false;
-      if (rect.x > viewport.width || rect.y > viewport.height) return false;
-      if (rect.x + rect.w < 0 || rect.y + rect.h < 0) return false;
-      if (computed.display === 'none' || computed.visibility === 'hidden') return false;
-      if (Number(computed.opacity) === 0) return false;
-      return true;
-    }
-
-    function styleOf(element, computed) {
-      return {
-        display: computed.display,
-        position: computed.position,
-        flexDirection: computed.flexDirection,
-        alignItems: computed.alignItems,
-        justifyContent: computed.justifyContent,
-        gap: computed.gap,
-        paddingTop: computed.paddingTop,
-        paddingRight: computed.paddingRight,
-        paddingBottom: computed.paddingBottom,
-        paddingLeft: computed.paddingLeft,
-        backgroundColor: computed.backgroundColor,
-        backgroundImage: computed.backgroundImage,
-        color: computed.color,
-        borderTopColor: computed.borderTopColor,
-        borderRightColor: computed.borderRightColor,
-        borderBottomColor: computed.borderBottomColor,
-        borderLeftColor: computed.borderLeftColor,
-        borderTopWidth: computed.borderTopWidth,
-        borderRightWidth: computed.borderRightWidth,
-        borderBottomWidth: computed.borderBottomWidth,
-        borderLeftWidth: computed.borderLeftWidth,
-        borderRadius: computed.borderRadius,
-        boxShadow: computed.boxShadow,
-        fontFamily: computed.fontFamily,
-        fontSize: computed.fontSize,
-        fontWeight: computed.fontWeight,
-        lineHeight: computed.lineHeight,
-        letterSpacing: computed.letterSpacing,
-        textAlign: computed.textAlign,
-        opacity: computed.opacity,
-        objectFit: computed.objectFit
-      };
-    }
-
-    function hasVisualStyle(style) {
-      const background = style.backgroundColor && style.backgroundColor !== 'rgba(0, 0, 0, 0)' && style.backgroundColor !== 'transparent';
-      const border = px(style.borderTopWidth) > 0 || px(style.borderRightWidth) > 0 || px(style.borderBottomWidth) > 0 || px(style.borderLeftWidth) > 0;
-      const radius = px(style.borderRadius) > 0;
-      const shadow = style.boxShadow && style.boxShadow !== 'none';
-      const backgroundImage = style.backgroundImage && style.backgroundImage !== 'none';
-      return background || border || radius || shadow || backgroundImage;
-    }
-
-    function roleOf(element, tag, style, text) {
-      const role = clean(element.getAttribute('role')).toLowerCase();
-      const className = clean(element.className).toLowerCase();
-      if (MEDIA_TAGS.has(tag)) return 'image';
-      if (tag === 'BUTTON' || role === 'button' || className.includes('button') || className.includes('btn') || className.includes('cta')) return 'button';
-      if (tag === 'A' && text) return 'link';
-      if (/^H[1-6]$/.test(tag)) return 'heading';
-      if (TEXT_TAGS.has(tag) && text) return 'text';
-      if (tag === 'NAV') return 'nav';
-      if (STRUCTURAL_TAGS.has(tag)) return tag === 'BODY' ? 'root' : 'section';
-      if (hasVisualStyle(style)) return 'box';
-      return 'group';
-    }
-
-    function typeOf(role) {
-      if (role === 'image') return 'image';
-      if (role === 'button' || role === 'link') return 'control';
-      if (role === 'heading' || role === 'text') return 'text-container';
-      return 'frame';
-    }
-
-    function nameOf(element, tag, role, text) {
-      const aria = clean(element.getAttribute('aria-label'));
-      const alt = clean(element.getAttribute('alt'));
-      const title = clean(element.getAttribute('title'));
-      const idName = clean(element.id);
-      const cls = clean(element.className).split(' ').filter(Boolean).slice(0, 2).join('.');
-      return clean(text || aria || alt || title || idName || cls || role || tag).slice(0, 96) || 'Layer';
-    }
-
-    function domPath(element) {
-      const path = [];
-      let current = element;
-      while (current && current.nodeType === Node.ELEMENT_NODE && current !== document.documentElement) {
-        const tag = current.tagName.toLowerCase();
-        const idName = current.id ? `#${current.id}` : '';
-        const cls = clean(current.className).split(' ').filter(Boolean).slice(0, 1).map((item) => `.${item}`).join('');
-        path.unshift(`${tag}${idName}${cls}`);
-        current = current.parentElement;
-      }
-      return path.join(' > ');
-    }
-
-    function textRangeChildren(element, parentStyle, path) {
-      const output = [];
-      Array.from(element.childNodes || []).forEach((node) => {
-        if (node.nodeType !== Node.TEXT_NODE) return;
-        const text = clean(node.textContent);
-        if (!text || text.length < 2) return;
-        const range = document.createRange();
-        range.selectNodeContents(node);
-        const rects = Array.from(range.getClientRects()).slice(0, 4);
-        rects.forEach((domRect) => {
-          const rect = {
-            x: Math.round(domRect.left),
-            y: Math.round(domRect.top),
-            w: Math.round(domRect.width),
-            h: Math.round(domRect.height)
-          };
-          if (rect.w < 1 || rect.h < 1) return;
-          output.push({
-            id: `text-${id++}`,
-            type: 'text',
-            role: 'text',
-            tag: '#text',
-            name: text.slice(0, 96),
-            text,
-            rect,
-            style: parentStyle,
-            path,
-            children: []
-          });
-        });
-      });
-      return output;
-    }
-
-    function shouldIncludeElementNode(element, tag, role, rect, style, text, children) {
-      if (element === document.body) return true;
-      if (role === 'image') return rect.w >= 8 && rect.h >= 8;
-      if (role === 'button' || role === 'link') return rect.w >= 8 && rect.h >= 8;
-      if (role === 'heading' || role === 'text') return !!text || children.length > 0;
-      if (role === 'nav' || role === 'section') return children.length > 0 || hasVisualStyle(style);
-      if (role === 'box') return children.length > 0 || hasVisualStyle(style);
-      if (children.length > 0) return true;
-      return false;
-    }
-
-    function buildList(element) {
-      if (!element || element.nodeType !== Node.ELEMENT_NODE) return [];
-      const tag = element.tagName;
-      if (!tag || BLOCKED.has(tag)) return [];
-
-      const computed = window.getComputedStyle(element);
-      const rect = rectOf(element);
-      if (!visible(element, rect, computed)) return [];
-
-      const style = styleOf(element, computed);
-      const path = domPath(element);
-      const text = directText(element) || clean(element.getAttribute('aria-label')) || clean(element.getAttribute('alt')) || clean(element.getAttribute('placeholder'));
-      const role = roleOf(element, tag, style, text);
-      const children = [];
-
-      if (role === 'heading' || role === 'text' || role === 'button' || role === 'link') {
-        children.push(...textRangeChildren(element, style, path));
-      }
-
-      Array.from(element.children || []).forEach((child) => {
-        children.push(...buildList(child));
-      });
-
-      if ((role === 'button' || role === 'link') && children.length === 0 && text) {
-        children.push({
-          id: `text-${id++}`,
-          type: 'text',
-          role: 'text',
-          tag: '#text',
-          name: text.slice(0, 96),
-          text,
-          rect,
-          style,
-          path,
-          children: []
-        });
-      }
-
-      if (!shouldIncludeElementNode(element, tag, role, rect, style, text, children)) {
-        return children;
-      }
-
-      const node = {
-        id: `node-${id++}`,
-        type: typeOf(role),
-        role,
-        tag: tag.toLowerCase(),
-        name: nameOf(element, tag.toLowerCase(), role, text),
-        text,
-        rect,
-        style,
-        path,
-        children
-      };
-
-      if (role === 'image') {
-        node.captureId = `image-${id}`;
-        element.setAttribute('data-ti-image-id', node.captureId);
-        node.src = element.currentSrc || element.src || element.getAttribute('src') || '';
-      }
-
-      return [node];
-    }
-
-    let root = buildList(document.body)[0] || null;
-
-    if (!root || !root.children || root.children.length === 0) {
-      const children = [];
-      Array.from(document.querySelectorAll('body *')).forEach((element) => {
-        children.push(...buildList(element));
-      });
-      root = {
-        id: `node-${id++}`,
-        type: 'frame',
-        role: 'root',
-        tag: 'body',
-        name: 'root',
-        text: '',
-        rect: { x: 0, y: 0, w: viewport.width, h: Math.max(viewport.height, document.documentElement.scrollHeight || viewport.height) },
-        style: styleOf(document.body, window.getComputedStyle(document.body)),
-        path: 'body',
-        children: children.slice(0, 260)
-      };
-    }
-
-    return {
-      title: document.title || new URL(sourceUrl).hostname,
-      viewport,
-      tree: root,
-      nodeCount: id,
-      html: '<!doctype html>\n' + document.documentElement.outerHTML
-    };
-  }, targetUrl);
-
-  async function attachImages(node) {
-    if (!node) return;
-    if (node.role === 'image' && node.captureId) {
-      try {
-        const handle = await page.$(`[data-ti-image-id="${node.captureId}"]`);
-        if (handle) {
-          const image = await handle.screenshot({ type: 'png' });
-          node.imageBase64 = image.toString('base64');
-        }
-      } catch (_) {}
-    }
-
-    for (const child of node.children || []) await attachImages(child);
-  }
-
-  await attachImages(treePackage.tree);
-  return treePackage;
+function normalizeUrl(value) {
+  const raw = String(value || '').trim();
+  if (!raw) return '';
+  return /^https?:\/\//i.test(raw) ? raw : `https://${raw}`;
 }
 
-async function renderUrl(sourceUrl) {
+function absoluteUrl(value, baseUrl) {
+  try {
+    return new URL(String(value || '').trim(), baseUrl).href;
+  } catch (_) {
+    return String(value || '').trim();
+  }
+}
+
+function stripQuotes(value) {
+  return String(value || '').trim().replace(/^['"]|['"]$/g, '');
+}
+
+function cleanText(value) {
+  return String(value || '').replace(/<[^>]+>/g, ' ').replace(/&nbsp;/g, ' ').replace(/&amp;/g, '&').replace(/&quot;/g, '"').replace(/&#39;/g, "'").replace(/\s+/g, ' ').trim();
+}
+
+async function fetchBuffer(url) {
+  const response = await fetch(url, {
+    headers: {
+      'User-Agent': 'Mozilla/5.0 TranslateIT Source Bundle Compiler',
+      'Accept': '*/*'
+    },
+    redirect: 'follow'
+  });
+  if (!response.ok) throw new Error(`HTTP ${response.status} for ${url}`);
+  const contentType = response.headers.get('content-type') || '';
+  const bytes = Buffer.from(await response.arrayBuffer());
+  return { bytes, contentType, finalUrl: response.url || url };
+}
+
+async function fetchText(url) {
+  const { bytes, contentType, finalUrl } = await fetchBuffer(url);
+  return { text: bytes.toString('utf8'), contentType, finalUrl };
+}
+
+function extractTitle(html, url) {
+  const match = String(html || '').match(/<title[^>]*>([\s\S]*?)<\/title>/i);
+  if (match) return cleanText(match[1]) || new URL(url).hostname;
+  return new URL(url).hostname;
+}
+
+function extractAttrs(raw) {
+  const attrs = {};
+  String(raw || '').replace(/([a-zA-Z_:][-a-zA-Z0-9_:.]*)\s*=\s*("[^"]*"|'[^']*'|[^\s"'>]+)/g, (_, key, value) => {
+    attrs[key.toLowerCase()] = stripQuotes(value);
+    return '';
+  });
+  return attrs;
+}
+
+function extractStylesheetUrls(html, baseUrl) {
+  const urls = [];
+  String(html || '').replace(/<link\b([^>]*?)>/gi, (_, rawAttrs) => {
+    const attrs = extractAttrs(rawAttrs);
+    const rel = String(attrs.rel || '').toLowerCase();
+    if (!rel.includes('stylesheet')) return '';
+    if (!attrs.href) return '';
+    urls.push(absoluteUrl(attrs.href, baseUrl));
+    return '';
+  });
+  return Array.from(new Set(urls)).slice(0, MAX_CSS_FILES);
+}
+
+function extractInlineCss(html) {
+  const blocks = [];
+  String(html || '').replace(/<style\b[^>]*>([\s\S]*?)<\/style>/gi, (_, css) => {
+    blocks.push(css || '');
+    return '';
+  });
+  return blocks.join('\n\n');
+}
+
+function normalizeCssUrls(css, baseUrl) {
+  return String(css || '').replace(/url\(([^)]+)\)/gi, (_, raw) => {
+    const value = stripQuotes(raw);
+    if (!value || value.startsWith('data:') || value.startsWith('#')) return `url(${raw})`;
+    return `url("${absoluteUrl(value, baseUrl)}")`;
+  });
+}
+
+function extractImports(css, baseUrl) {
+  const imports = [];
+  String(css || '').replace(/@import\s+(?:url\()?['"]?([^'";)]+)['"]?\)?[^;]*;/gi, (_, href) => {
+    imports.push(absoluteUrl(href, baseUrl));
+    return '';
+  });
+  return imports;
+}
+
+async function collectCss(html, pageUrl) {
+  const visited = new Set();
+  const cssFiles = [];
+  const cssTexts = [normalizeCssUrls(extractInlineCss(html), pageUrl)];
+  const queue = extractStylesheetUrls(html, pageUrl);
+
+  while (queue.length && visited.size < MAX_CSS_FILES) {
+    const cssUrl = queue.shift();
+    if (!cssUrl || visited.has(cssUrl)) continue;
+    visited.add(cssUrl);
+
+    try {
+      const result = await fetchText(cssUrl);
+      const normalized = normalizeCssUrls(result.text, result.finalUrl || cssUrl);
+      cssTexts.push(normalized);
+      cssFiles.push({ url: cssUrl, bytes: Buffer.byteLength(result.text, 'utf8') });
+      extractImports(result.text, result.finalUrl || cssUrl).forEach((nextUrl) => {
+        if (!visited.has(nextUrl) && queue.length + visited.size < MAX_CSS_FILES) queue.push(nextUrl);
+      });
+    } catch (error) {
+      cssFiles.push({ url: cssUrl, error: error && error.message ? error.message : String(error) });
+    }
+  }
+
+  return { css: cssTexts.join('\n\n'), cssFiles };
+}
+
+function findMatchingClose(html, tagName, openEndIndex) {
+  const tag = tagName.toLowerCase();
+  if (['img', 'input', 'br', 'hr', 'meta', 'link', 'source'].includes(tag)) return openEndIndex;
+  const regex = new RegExp(`<\\/?${tag}\\b[^>]*>`, 'gi');
+  regex.lastIndex = openEndIndex;
+  let depth = 1;
+  let match;
+  while ((match = regex.exec(html))) {
+    const token = match[0];
+    if (/^<\//.test(token)) depth -= 1;
+    else if (!/\/>$/.test(token)) depth += 1;
+    if (depth === 0) return match.index;
+  }
+  return openEndIndex;
+}
+
+function simplifyClassName(value) {
+  return String(value || '').split(/\s+/).filter(Boolean).slice(0, 4).join(' ');
+}
+
+function roleOf(tag, attrs, className) {
+  const cls = String(className || '').toLowerCase();
+  const role = String(attrs.role || '').toLowerCase();
+  if (tag === 'body') return 'root';
+  if (tag === 'header') return 'header';
+  if (tag === 'nav') return 'nav';
+  if (tag === 'footer') return 'footer';
+  if (['main', 'section', 'article', 'aside'].includes(tag)) return 'section';
+  if (tag === 'img' || tag === 'picture' || tag === 'svg') return 'image';
+  if (tag === 'button' || role === 'button' || cls.includes('button') || cls.includes('btn') || cls.includes('cta')) return 'button';
+  if (tag === 'a') return 'link';
+  if (/^h[1-6]$/.test(tag)) return 'heading';
+  if (tag === 'p') return 'paragraph';
+  if (['span', 'strong', 'em', 'small', 'label'].includes(tag)) return 'text';
+  if (['ul', 'ol'].includes(tag)) return 'list';
+  if (tag === 'li') return 'list-item';
+  if (cls.includes('card') || cls.includes('item') || cls.includes('project') || cls.includes('portfolio')) return 'card';
+  return 'group';
+}
+
+function nameOf(tag, attrs, text, role) {
+  const cls = simplifyClassName(attrs.class || '');
+  const value = cleanText(attrs['aria-label'] || attrs.alt || attrs.title || text || attrs.id || cls || role || tag);
+  return value.slice(0, 96) || 'Layer';
+}
+
+function parseInlineStyle(styleText) {
+  const style = {};
+  String(styleText || '').split(';').forEach((decl) => {
+    const index = decl.indexOf(':');
+    if (index < 0) return;
+    const key = decl.slice(0, index).trim().toLowerCase();
+    const value = decl.slice(index + 1).trim();
+    if (key) style[key] = value;
+  });
+  return style;
+}
+
+function createTextNode(text, parentPath, idRef) {
+  const value = cleanText(text);
+  if (!value || value.length < 2) return null;
+  return {
+    id: `text-${idRef.value++}`,
+    tag: '#text',
+    role: 'text',
+    name: value.slice(0, 96),
+    text: value,
+    attrs: {},
+    inlineStyle: {},
+    path: parentPath,
+    children: []
+  };
+}
+
+function parseHtmlChildren(html, baseUrl, parentPath, idRef, depth = 0) {
+  if (depth > 14) return [];
+  const output = [];
+  const regex = /<([a-zA-Z][a-zA-Z0-9:-]*)(\s[^>]*)?>/g;
+  let cursor = 0;
+  let match;
+
+  while ((match = regex.exec(html))) {
+    const before = html.slice(cursor, match.index);
+    const textNode = createTextNode(before, parentPath, idRef);
+    if (textNode) output.push(textNode);
+
+    const rawTag = match[1];
+    const tag = rawTag.toLowerCase();
+    const rawAttrs = match[2] || '';
+    const openTag = match[0];
+    const openEnd = regex.lastIndex;
+
+    if (['script', 'style', 'meta', 'link', 'noscript', 'template'].includes(tag)) {
+      const closeIndex = findMatchingClose(html, tag, openEnd);
+      cursor = closeIndex === openEnd ? openEnd : closeIndex + (`</${tag}>`).length;
+      regex.lastIndex = cursor;
+      continue;
+    }
+
+    const selfClosing = /\/>$/.test(openTag) || ['img', 'input', 'br', 'hr', 'source'].includes(tag);
+    const closeIndex = selfClosing ? openEnd : findMatchingClose(html, tag, openEnd);
+    const innerHtml = selfClosing ? '' : html.slice(openEnd, closeIndex);
+    const attrs = extractAttrs(rawAttrs);
+    const className = simplifyClassName(attrs.class || '');
+    const role = roleOf(tag, attrs, className);
+    const plainText = cleanText(innerHtml).slice(0, 180);
+    const path = `${parentPath} > ${tag}${attrs.id ? '#' + attrs.id : ''}${className ? '.' + className.split(' ')[0] : ''}`;
+
+    const node = {
+      id: `node-${idRef.value++}`,
+      tag,
+      role,
+      name: nameOf(tag, attrs, plainText, role),
+      text: ['heading', 'paragraph', 'text', 'button', 'link'].includes(role) ? plainText : '',
+      attrs: {
+        id: attrs.id || '',
+        class: className,
+        href: attrs.href ? absoluteUrl(attrs.href, baseUrl) : '',
+        src: attrs.src ? absoluteUrl(attrs.src, baseUrl) : '',
+        alt: attrs.alt || ''
+      },
+      inlineStyle: parseInlineStyle(attrs.style || ''),
+      path,
+      children: []
+    };
+
+    if (role === 'image') {
+      node.src = attrs.src ? absoluteUrl(attrs.src, baseUrl) : '';
+      node.text = attrs.alt || '';
+    } else if (!selfClosing) {
+      node.children = parseHtmlChildren(innerHtml, baseUrl, path, idRef, depth + 1);
+    }
+
+    const keepStructural = ['root', 'header', 'nav', 'footer', 'section', 'card', 'list', 'list-item', 'button', 'link', 'image', 'heading', 'paragraph', 'text'].includes(role);
+    if (keepStructural || node.children.length) output.push(node);
+
+    cursor = selfClosing ? openEnd : closeIndex + (`</${tag}>`).length;
+    regex.lastIndex = cursor;
+  }
+
+  const tail = html.slice(cursor);
+  const tailNode = createTextNode(tail, parentPath, idRef);
+  if (tailNode) output.push(tailNode);
+
+  return output;
+}
+
+function extractBodyHtml(html) {
+  const match = String(html || '').match(/<body\b[^>]*>([\s\S]*?)<\/body>/i);
+  return match ? match[1] : String(html || '');
+}
+
+function collectImageUrls(node, out = []) {
+  if (!node) return out;
+  if (node.role === 'image' && node.src) out.push(node.src);
+  (node.children || []).forEach((child) => collectImageUrls(child, out));
+  return out;
+}
+
+function attachImageAssets(node, assetsByUrl) {
+  if (!node) return;
+  if (node.role === 'image' && node.src && assetsByUrl[node.src]) {
+    node.image = assetsByUrl[node.src];
+  }
+  (node.children || []).forEach((child) => attachImageAssets(child, assetsByUrl));
+}
+
+async function collectImages(root) {
+  const urls = Array.from(new Set(collectImageUrls(root))).slice(0, MAX_IMAGE_ASSETS);
+  const assets = {};
+
+  for (const url of urls) {
+    try {
+      const result = await fetchBuffer(url);
+      if (!/^image\//i.test(result.contentType)) continue;
+      assets[url] = {
+        url,
+        contentType: result.contentType,
+        base64: result.bytes.toString('base64'),
+        bytes: result.bytes.length
+      };
+    } catch (error) {
+      assets[url] = { url, error: error && error.message ? error.message : String(error) };
+    }
+  }
+
+  return assets;
+}
+
+function countNodes(node) {
+  if (!node) return 0;
+  return 1 + (node.children || []).reduce((sum, child) => sum + countNodes(child), 0);
+}
+
+async function compileSourceBundle(sourceUrl) {
   const targetUrl = normalizeUrl(sourceUrl);
   if (!targetUrl) throw new Error('Missing url query parameter.');
 
-  const browser = await getBrowser();
-  const page = await browser.newPage({ viewport: VIEWPORT, deviceScaleFactor: 1 });
+  const htmlResult = await fetchText(targetUrl);
+  const finalUrl = htmlResult.finalUrl || targetUrl;
+  const title = extractTitle(htmlResult.text, finalUrl);
+  const cssResult = await collectCss(htmlResult.text, finalUrl);
+  const idRef = { value: 1 };
+  const bodyHtml = extractBodyHtml(htmlResult.text);
+  const root = {
+    id: 'root-0',
+    tag: 'body',
+    role: 'root',
+    name: 'Website Source Root',
+    text: '',
+    attrs: {},
+    inlineStyle: {},
+    path: 'body',
+    children: parseHtmlChildren(bodyHtml, finalUrl, 'body', idRef, 0)
+  };
 
-  try {
-    await page.goto(targetUrl, { waitUntil: 'domcontentloaded', timeout: 45000 });
-    try { await page.waitForLoadState('networkidle', { timeout: 12000 }); } catch (_) {}
-    await page.waitForTimeout(1400);
-    await page.evaluate(() => window.scrollTo(0, 0));
-    await page.waitForTimeout(500);
+  const images = await collectImages(root);
+  attachImageAssets(root, images);
 
-    const inspector = await captureInspectorTree(page, targetUrl);
-    return {
-      ok: true,
-      url: targetUrl,
-      title: inspector.title,
-      viewport: inspector.viewport,
-      tree: inspector.tree,
-      nodeCount: inspector.nodeCount,
-      html: inspector.html,
-      mode: 'inspector-dom-tree-v5.1',
-      capturedAt: new Date().toISOString(),
-      warnings: [
-        'Inspector tree mode reads DOM hierarchy, computed CSS, text ranges, and image assets.',
-        'Pseudo-elements, canvas, video, iframe contents, and complex animation states may still require manual cleanup.'
-      ]
-    };
-  } finally {
-    await page.close();
-  }
+  return {
+    ok: true,
+    url: finalUrl,
+    title,
+    mode: 'source-bundle-compiler-v1',
+    capturedAt: new Date().toISOString(),
+    source: {
+      htmlBytes: Buffer.byteLength(htmlResult.text, 'utf8'),
+      cssBytes: Buffer.byteLength(cssResult.css, 'utf8'),
+      cssFiles: cssResult.cssFiles,
+      imageCount: Object.keys(images).length,
+      nodeCount: countNodes(root)
+    },
+    css: cssResult.css,
+    tree: root,
+    html: htmlResult.text,
+    warnings: [
+      'Source Bundle Compiler downloads HTML and CSS source, then builds Figma structure from source tags.',
+      'Dynamic client-rendered content that is absent from source HTML may need rendered fallback later.',
+      'Complex CSS layout is approximated semantically, not pixel-perfect.'
+    ]
+  };
 }
 
 server = http.createServer(async (req, res) => {
@@ -407,19 +416,13 @@ server = http.createServer(async (req, res) => {
   const requestUrl = new URL(req.url, `http://127.0.0.1:${PORT}`);
 
   if (requestUrl.pathname === '/health') {
-    json(res, 200, { ok: true, service: 'translateit-render-bridge', mode: 'inspector-dom-tree-v5.1', port: PORT });
+    json(res, 200, { ok: true, service: 'translateit-render-bridge', mode: 'source-bundle-compiler-v1', port: PORT });
     return;
   }
 
   if (requestUrl.pathname === '/shutdown') {
     json(res, 200, { ok: true, message: 'Render Bridge shutting down.' });
-    setTimeout(async () => {
-      try {
-        if (browserPromise) {
-          const browser = await browserPromise;
-          await browser.close();
-        }
-      } catch (_) {}
+    setTimeout(() => {
       server.close(() => process.exit(0));
       setTimeout(() => process.exit(0), 3000).unref();
     }, 200);
@@ -433,7 +436,7 @@ server = http.createServer(async (req, res) => {
 
   activeJobs += 1;
   try {
-    const result = await renderUrl(requestUrl.searchParams.get('url'));
+    const result = await compileSourceBundle(requestUrl.searchParams.get('url'));
     json(res, 200, result);
   } catch (error) {
     json(res, 500, { ok: false, error: error && error.message ? error.message : String(error) });
@@ -444,6 +447,6 @@ server = http.createServer(async (req, res) => {
 });
 
 server.listen(PORT, '127.0.0.1', () => {
-  console.log(`TranslateIT Render Bridge Inspector Tree V5.1 running at http://127.0.0.1:${PORT}`);
+  console.log(`TranslateIT Source Bundle Compiler running at http://127.0.0.1:${PORT}`);
   resetIdleTimer();
 });
