@@ -1,0 +1,89 @@
+{
+  "meta": {
+    "source": "EngineData/Frontend/RustApp/DesignPreview/framework",
+    "target": "Figma Components",
+    "namingRule": "Figma component names use Group/Name/Variant. Source classes use ti-l, ti-c, ti-p, ti-t, ti-v prefixes."
+  },
+  "components": {
+    "Brand/TranslateIT/Default": {
+      "sourceClass": "ti-c-brand",
+      "description": "TranslateIT brand mark and text lockup."
+    },
+    "Button/Primary/Default": {
+      "sourceClass": "ti-c-button ti-c-button--primary",
+      "description": "Primary action button."
+    },
+    "Button/Secondary/Default": {
+      "sourceClass": "ti-c-button ti-c-button--secondary",
+      "description": "Secondary action button."
+    },
+    "Button/Ghost/Default": {
+      "sourceClass": "ti-c-button ti-c-button--ghost",
+      "description": "Low-emphasis action button."
+    },
+    "Button/Icon/Default": {
+      "sourceClass": "ti-c-icon-button",
+      "description": "Circular icon button."
+    },
+    "NavItem/Main/Active": {
+      "sourceClass": "ti-c-nav-item is-active",
+      "description": "Active main sidebar navigation item."
+    },
+    "NavItem/Main/Default": {
+      "sourceClass": "ti-c-nav-item",
+      "description": "Default main sidebar navigation item."
+    },
+    "NavItem/Settings/Active": {
+      "sourceClass": "ti-c-nav-item ti-c-nav-item--settings is-active",
+      "description": "Active settings sidebar navigation item."
+    },
+    "NavItem/Settings/Default": {
+      "sourceClass": "ti-c-nav-item ti-c-nav-item--settings",
+      "description": "Default settings sidebar navigation item."
+    },
+    "Select/Default": {
+      "sourceClass": "ti-c-select",
+      "description": "Select field with optional leading icon and chevron."
+    },
+    "Card/Feature/Default": {
+      "sourceClass": "ti-c-card ti-c-feature-card",
+      "description": "Main page feature card."
+    },
+    "Card/AssistantNotice/Default": {
+      "sourceClass": "ti-c-card ti-c-assistant-note",
+      "description": "Assistant status card."
+    },
+    "Composer/Default": {
+      "sourceClass": "ti-c-composer",
+      "description": "Main translation composer."
+    },
+    "StatusPill/Ready/Default": {
+      "sourceClass": "ti-c-status-pill",
+      "description": "Language or runtime status pill."
+    },
+    "StatusPill/Recording/Active": {
+      "sourceClass": "ti-c-status-pill is-recording",
+      "description": "Recording status pill."
+    },
+    "RadioRow/Default": {
+      "sourceClass": "ti-c-radio-row",
+      "description": "Unselected radio row."
+    },
+    "RadioRow/Active": {
+      "sourceClass": "ti-c-radio-row is-active",
+      "description": "Selected radio row."
+    },
+    "Toggle/Active": {
+      "sourceClass": "ti-c-toggle",
+      "description": "Toggle switch."
+    },
+    "Meter/MicLevel/Default": {
+      "sourceClass": "ti-c-meter",
+      "description": "Microphone level meter."
+    },
+    "Progress/Diagnostic/Default": {
+      "sourceClass": "ti-c-progress",
+      "description": "Diagnostic progress bar."
+    }
+  }
+}
