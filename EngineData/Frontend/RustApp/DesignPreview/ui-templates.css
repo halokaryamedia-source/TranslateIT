@@ -156,3 +156,126 @@
   font-size: 11px;
   line-height: 1.55;
 }
+
+/* Preview-board primitives kept here to avoid inline review styling. */
+.ti-ghost-button,
+.ti-danger-button {
+  min-width: 132px;
+  height: 48px;
+  border: 1px solid var(--ti-line-strong);
+  border-radius: var(--ti-radius-sm);
+  color: var(--ti-text);
+  background: var(--ti-surface-2);
+  font-size: 12px;
+  font-weight: var(--ti-weight-bold);
+}
+
+.ti-ghost-button {
+  color: var(--ti-muted);
+  background: transparent;
+  border-color: var(--ti-line);
+}
+
+.ti-danger-button {
+  color: var(--ti-danger-soft);
+  background: var(--ti-danger-surface);
+  border-color: transparent;
+}
+
+.ti-component-card {
+  display: grid;
+  gap: 18px;
+  min-height: 240px;
+  border: 1px solid var(--ti-line-strong);
+  border-radius: var(--ti-radius-md);
+  padding: 22px;
+  background: var(--ti-surface-2);
+}
+
+.ti-component-card h3 {
+  margin: 0;
+  color: var(--ti-text);
+  font-size: 16px;
+  letter-spacing: -0.035em;
+}
+
+.ti-component-card p {
+  margin: 0;
+  color: var(--ti-muted);
+  font-size: 11px;
+  line-height: 1.5;
+}
+
+.ti-component-card .ti-translation-result,
+.ti-component-card .ti-assistant-card {
+  width: 100%;
+}
+
+.ti-component-card .ti-result-grid {
+  grid-template-columns: 1fr;
+}
+
+.ti-token-list {
+  display: grid;
+  gap: 10px;
+}
+
+.ti-token-row {
+  display: grid;
+  grid-template-columns: 24px minmax(0, 1fr) auto;
+  gap: 10px;
+  align-items: center;
+  color: var(--ti-muted);
+  font-size: 11px;
+}
+
+.ti-token-swatch {
+  width: 24px;
+  height: 24px;
+  border: 1px solid var(--ti-line-strong);
+  border-radius: var(--ti-radius-xs);
+}
+
+.ti-toast {
+  display: grid;
+  grid-template-columns: 10px minmax(0, 1fr);
+  gap: 12px;
+  align-items: start;
+  width: 330px;
+  border: 1px solid var(--ti-line-strong);
+  border-radius: var(--ti-radius-lg);
+  padding: 14px;
+  background: var(--ti-surface-2);
+  box-shadow: var(--ti-shadow-float);
+}
+
+.ti-toast strong {
+  display: block;
+  color: var(--ti-text);
+  font-size: 12px;
+}
+
+.ti-toast p {
+  margin: 5px 0 0;
+  color: var(--ti-muted);
+  font-size: 11px;
+  line-height: 1.45;
+}
+
+.ti-state-dot {
+  display: grid;
+  width: 9px;
+  height: 9px;
+  place-items: center;
+  border-radius: var(--ti-radius-pill);
+  background: var(--ti-accent);
+}
+
+.ti-log-header strong,
+.ti-log-header span {
+  font-size: 10px;
+}
+
+.ti-log-header span {
+  color: var(--ti-muted);
+}
