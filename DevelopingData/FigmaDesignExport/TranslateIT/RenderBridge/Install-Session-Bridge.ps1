@@ -32,7 +32,7 @@ New-ItemProperty -Path $ProtocolRoot -Name 'URL Protocol' -Value '' -PropertyTyp
 
 $CommandKey = Join-Path $ProtocolRoot 'shell\open\command'
 New-Item -Path $CommandKey -Force | Out-Null
-$Command = 'powershell.exe -NoProfile -WindowStyle Hidden -File "' + $Launcher + '" "%1"'
+$Command = 'powershell.exe -NoProfile -ExecutionPolicy Bypass -WindowStyle Hidden -File "' + $Launcher + '" "%1"'
 Set-ItemProperty -Path $CommandKey -Name '(default)' -Value $Command
 
 Write-Host '[DONE] Session Bridge protocol installed.' -ForegroundColor Green
