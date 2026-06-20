@@ -41,14 +41,14 @@
       </div>
     </div>
 
-    <p class="sub">Paste a website address, compile its rendered layout tree, then export the UI Build Package JSON.</p>
+    <p class="sub">Paste a website address, reconstruct it as clean editable Figma layers, then export the UI Build Package JSON.</p>
 
     <section class="card">
       <div class="card-header"><h2 class="card-title">Import Data</h2><span class="badge">1</span></div>
       <div class="card-body">
         <input id="sourceUrl" class="source-input" placeholder="Paste website address, e.g. https://example.com" />
         <button id="importData" class="primary">Import Data</button>
-        <div class="helper">Local Layout Tree Compiler must be running at http://127.0.0.1:8844. This mode uses rendered DOM hierarchy, computed CSS bounds, text nodes, and image assets.</div>
+        <div class="helper">Local Design Reconstruction Compiler must be running at http://127.0.0.1:8844. This mode extracts visible text, images, actions, and section layout clusters into editable Figma layers.</div>
       </div>
     </section>
 
@@ -88,16 +88,17 @@
       var url = normalizeUrl(el('sourceUrl').value);
       if (!url) { setStatus('Paste a website address first.'); return; }
       setBusy(true);
-      setStatus('Rendering website and building layout tree...\n' + url);
+      setStatus('Rendering website and reconstructing editable design...\n' + url);
       fetch('http://127.0.0.1:8844/render?url=' + encodeURIComponent(url))
         .then(readBridgeResponse)
         .then(function (payload) {
-          setStatus('Layout tree ready.\nMode: ' + (payload.mode || 'unknown') + '\nNodes: ' + ((payload.source && payload.source.nodeCount) || 0) + '\nImporting into Figma...');
-          send('import-layout-tree', { payload: payload });
+          var count = payload.source && payload.source.elementCount ? payload.source.elementCount : 0;
+          setStatus('Design reconstruction ready.\nMode: ' + (payload.mode || 'unknown') + '\nElements: ' + count + '\nImporting into Figma...');
+          send('import-design-reconstruction', { payload: payload });
         })
         .catch(function (error) {
           setBusy(false);
-          setStatus('Layout Tree Compiler failed.\n\n' + (error && error.message ? error.message : error));
+          setStatus('Design Reconstruction Compiler failed.\n\n' + (error && error.message ? error.message : error));
         });
     };
 
