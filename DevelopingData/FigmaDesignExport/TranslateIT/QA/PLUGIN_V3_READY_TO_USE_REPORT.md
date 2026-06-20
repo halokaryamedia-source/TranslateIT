@@ -250,6 +250,68 @@ setComponentState(componentId, state)
 
 This makes the generated scaffold more useful for app UI state previews.
 
+### 17. Snapshot tool added
+
+A new snapshot tool stores every exported package with a hash-based filename and manifest.
+
+File:
+
+```txt
+DevelopingData/FigmaDesignExport/TranslateIT/BuildPackage/tools/create-ui-package-snapshot.mjs
+```
+
+Usage:
+
+```powershell
+node .\tools\create-ui-package-snapshot.mjs .\ui-build-package.json .\Snapshots
+```
+
+### 18. Package diff report added
+
+A new diff tool compares old and new UI Build Package exports.
+
+File:
+
+```txt
+DevelopingData/FigmaDesignExport/TranslateIT/BuildPackage/tools/diff-ui-build-packages.mjs
+```
+
+Usage:
+
+```powershell
+node .\tools\diff-ui-build-packages.mjs .\Snapshots\old-approved.json .\ui-build-package.json .\ui-package-diff-report.md
+```
+
+The report highlights added, removed, and changed components, bindings, icons, and color tokens.
+
+### 19. Roundtrip risk checker added
+
+A new roundtrip checker detects package risks before an export is treated as a stable source for app workflow.
+
+File:
+
+```txt
+DevelopingData/FigmaDesignExport/TranslateIT/BuildPackage/tools/check-roundtrip-risk.mjs
+```
+
+Usage:
+
+```powershell
+node .\tools\check-roundtrip-risk.mjs .\ui-build-package.json
+```
+
+It checks design-only section leakage, weak names, weak source metadata, repeated actions, quality metadata, readiness status, backend bindings, and component entries.
+
+### 20. Roundtrip workflow documented
+
+A dedicated workflow document was added:
+
+```txt
+DevelopingData/FigmaDesignExport/TranslateIT/ROUNDTRIP_WORKFLOW.md
+```
+
+It defines safe export history, diff review, snapshot, and runtime sync rules.
+
 ## Known Limitation
 
 The plugin UI panel file was not changed in this pass because the repository connector blocked that specific HTML/inline-script update. The core plugin handler is already updated, so import/generate/export paths now use the v3 readiness guardrails.
@@ -283,6 +345,9 @@ Do not use a large TranslateIT app preview as the first test. First confirm the 
 - generated frontend with `ui-package-report.md`;
 - generated frontend with `component-registry.json`;
 - passing component contract check;
+- passing roundtrip risk check;
+- snapshot created;
+- diff report reviewed;
 - passing UI sync gate.
 
 ## Recommended Next Step
