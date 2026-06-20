@@ -27,7 +27,7 @@
     .card,
     .composer {
       background: var(--surface);
-      border-color: var(--border);
+      border: 1px solid var(--border);
       border-radius: 18px;
       padding: 20px;
     }
@@ -35,6 +35,8 @@
     .toolbar {
       display: flex;
       flex-direction: row;
+      align-items: center;
+      justify-content: space-between;
       gap: 16px;
       height: 86px;
     }
@@ -56,6 +58,7 @@
     .composer {
       display: flex;
       flex-direction: row;
+      align-items: center;
       gap: 12px;
       width: 960px;
       height: 78px;
@@ -75,6 +78,7 @@
     .button {
       display: flex;
       flex-direction: row;
+      align-items: center;
       gap: 10px;
       width: 180px;
       height: 44px;
@@ -101,7 +105,7 @@
 
   <main class="preview-root" data-component="Screen / TranslateIT Sample">
     <section class="toolbar" data-component="Toolbar / Main">
-      <div class="button" data-component="Button / New Chat" data-action="chat.new" data-backend="chat_new">
+      <div class="button" data-component="Button / New Chat" data-action="chat.new" data-backend="chat_new" role="button">
         <span data-icon="plus"></span>
         <span>New Chat</span>
       </div>
@@ -122,8 +126,8 @@
     <section class="composer" data-component="Composer / Translation Input">
       <span data-icon="plus"></span>
       <span class="label" data-slot="composer.placeholder">Ask anything...</span>
-      <span data-icon="mic" data-action="voice.record" data-backend="voice_record"></span>
-      <span data-icon="send" data-action="translation.send" data-backend="translation_send"></span>
+      <span data-icon="mic" data-action="voice.record" data-backend="voice_record" role="button"></span>
+      <span data-icon="send" data-action="translation.send" data-backend="translation_send" role="button"></span>
     </section>
   </main>
 </body>
