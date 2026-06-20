@@ -6,7 +6,7 @@ const PORT = Number(process.env.TRANSLATEIT_RENDER_PORT || 8844);
 const IDLE_EXIT_MS = Number(process.env.TRANSLATEIT_RENDER_IDLE_EXIT_MS || 180000);
 const VIEWPORT = { width: 1440, height: 1600 };
 const MAX_LAYERS = 900;
-const MODE = 'universal-page-adapter-v7';
+const MODE = 'universal-page-adapter-v9';
 
 let idleTimer = null;
 let activeJobs = 0;
@@ -62,7 +62,7 @@ function expand(rect, pad) {
 }
 
 function overlaps(a, b) {
-  return a.x < b.x + b.w && a.x + a.w > b.x && a.y < b.y + b.h && a.y + a.h > b.y;
+  return a && b && a.x < b.x + b.w && a.x + a.w > b.x && a.y < b.y + b.h && a.y + a.h > b.y;
 }
 
 function componentName(members, index) {
@@ -83,23 +83,20 @@ function buildComponents(section) {
   const used = new Set();
   const components = [];
   const candidates = layers
-    .filter((l) => l.type === 'image' || l.role === 'button-bg' || l.role === 'button-label' || l.role === 'link' || (l.type === 'box' && l.rect.w > 72 && l.rect.h > 32 && l.rect.w * l.rect.h > 2600))
+    .filter((l) => l.type === 'image' || l.role === 'button-bg' || l.role === 'button-label' || l.role === 'link')
     .sort((a, b) => (b.rect.w * b.rect.h) - (a.rect.w * a.rect.h));
 
   candidates.forEach((candidate) => {
     if (used.has(candidate.id)) return;
-    const sectionArea = Math.max(1, section.rect.w * section.rect.h);
-    const area = candidate.rect.w * candidate.rect.h;
-    if (candidate.type === 'box' && area > sectionArea * 0.72) return;
-    const zone = expand(candidate.rect, candidate.type === 'image' ? 48 : 28);
+    const zone = expand(candidate.rect, candidate.type === 'image' ? 72 : 42);
     const members = layers.filter((layer) => !used.has(layer.id) && overlaps(zone, layer.rect));
-    if (members.length < 2 && candidate.type !== 'image' && candidate.role !== 'button-bg' && candidate.role !== 'link') return;
+    if (members.length < 1) return;
     members.forEach((layer) => used.add(layer.id));
     components.push({
       id: `component-${components.length + 1}`,
       role: 'component',
       name: componentName(members, components.length),
-      rect: expand(union(members.map((l) => l.rect)), 6),
+      rect: expand(union(members.map((l) => l.rect)), 8),
       layers: members.sort((a, b) => a.order - b.order)
     });
   });
@@ -111,7 +108,7 @@ function buildComponents(section) {
 
 function clusterSections(layers, viewport, pageHeight) {
   const important = layers
-    .filter((l) => l.type !== 'box' || l.role === 'button-bg')
+    .filter((l) => l.type !== 'box' || l.role === 'button-bg' || l.role === 'navigation' || l.role === 'section' || l.role === 'footer')
     .sort((a, b) => a.rect.y - b.rect.y || a.rect.x - b.rect.x);
   const sections = [];
 
@@ -119,8 +116,8 @@ function clusterSections(layers, viewport, pageHeight) {
     let current = sections[sections.length - 1];
     const currentBottom = current ? current.rect.y + current.rect.h : 0;
     const gap = current ? layer.rect.y - currentBottom : 9999;
-    if (!current || gap > 130 || (layer.rect.h > 340 && layer.rect.y > current.rect.y + 120)) {
-      current = { id: `section-${sections.length + 1}`, role: 'section', layers: [] };
+    if (!current || gap > 150 || layer.role === 'section' || layer.role === 'footer') {
+      current = { id: `section-${sections.length + 1}`, role: layer.role === 'footer' ? 'footer' : layer.role === 'navigation' && !sections.length ? 'header' : 'section', layers: [] };
       sections.push(current);
     }
     current.layers.push(layer);
@@ -130,13 +127,13 @@ function clusterSections(layers, viewport, pageHeight) {
   sections.forEach((section, index) => {
     section.layers = layers.filter((layer) => {
       const mid = layer.rect.y + layer.rect.h / 2;
-      return mid >= section.rect.y - 36 && mid <= section.rect.y + section.rect.h + 36;
+      return mid >= section.rect.y - 48 && mid <= section.rect.y + section.rect.h + 48;
     });
     section.rect = expand(union(section.layers.map((item) => item.rect)), 32);
     section.rect.x = Math.max(0, section.rect.x);
     section.rect.y = Math.max(0, section.rect.y);
-    section.rect.w = Math.min(viewport.width, section.rect.w);
-    if (index === 0 && section.rect.y < 180) section.role = 'header';
+    section.rect.w = Math.min(viewport.width, Math.max(section.rect.w, viewport.width * 0.25));
+    if (index === 0 && section.rect.y < 220) section.role = 'header';
     if (index === sections.length - 1 && section.rect.y > pageHeight * 0.55) section.role = 'footer';
     section.name = section.role === 'header' ? 'Header' : section.role === 'footer' ? 'Footer' : `Section ${String(index + 1).padStart(2, '0')}`;
     buildComponents(section);
@@ -151,7 +148,7 @@ function clusterSections(layers, viewport, pageHeight) {
   })];
 }
 
-async function extractUniversalPage(page) {
+async function extractPage(page) {
   const payload = await page.evaluate(({ maxLayers }) => {
     const viewport = { width: window.innerWidth || 1440, height: window.innerHeight || 1600 };
     const pageHeight = Math.max(document.documentElement.scrollHeight || 0, document.body.scrollHeight || 0, viewport.height);
@@ -226,10 +223,7 @@ async function extractUniversalPage(page) {
       if (!usable(rect)) return false;
       const tag = el.tagName;
       if (/^H[1-6]$/.test(tag) || tag === 'P' || tag === 'A' || tag === 'BUTTON' || tag === 'LI' || tag === 'LABEL') return true;
-      const children = Array.from(el.children || []).filter((child) => {
-        const style = window.getComputedStyle(child);
-        return visible(style) && usable(rectFromDOM(child.getBoundingClientRect()));
-      });
+      const children = Array.from(el.children || []).filter((child) => visible(window.getComputedStyle(child)) && usable(rectFromDOM(child.getBoundingClientRect())));
       if (children.length === 0 && text.length <= 180) return true;
       if ((role === 'button' || role === 'link' || role === 'heading') && text.length <= 220) return true;
       return false;
@@ -246,8 +240,8 @@ async function extractUniversalPage(page) {
       const viewportArea = viewport.width * viewport.height;
 
       if (role === 'image' || (hasBgImage(style) && clean(el.innerText).length < 3)) {
-        const captureId = `ti-universal-img-${id}`;
-        el.setAttribute('data-ti-universal-img-id', captureId);
+        const captureId = `ti-img-${id}`;
+        el.setAttribute('data-ti-img-id', captureId);
         push({ type: 'image', role: role === 'image' ? 'image' : 'background-image', tag: el.tagName.toLowerCase(), name: clean(el.getAttribute('alt') || el.getAttribute('aria-label') || el.id || el.className || 'Image'), rect, style: styleOf(style), path: pathOf(el), captureId });
         return;
       }
@@ -265,9 +259,9 @@ async function extractUniversalPage(page) {
     const seen = new Set();
     const unique = [];
     layers.sort((a, b) => a.order - b.order).forEach((layer) => {
-      const key = `${layer.type}|${layer.role}|${layer.text || layer.name}|${Math.round(layer.rect.x / 3)}|${Math.round(layer.rect.y / 3)}|${Math.round(layer.rect.w / 3)}|${Math.round(layer.rect.h / 3)}`;
-      if (seen.has(key)) return;
-      seen.add(key);
+      const fingerprint = `${layer.type}|${layer.role}|${layer.text || layer.name}|${Math.round(layer.rect.x / 3)}|${Math.round(layer.rect.y / 3)}|${Math.round(layer.rect.w / 3)}|${Math.round(layer.rect.h / 3)}`;
+      if (seen.has(fingerprint)) return;
+      seen.add(fingerprint);
       unique.push(layer);
     });
 
@@ -277,7 +271,7 @@ async function extractUniversalPage(page) {
   for (const layer of payload.layers) {
     if (layer.type !== 'image' || !layer.captureId) continue;
     try {
-      const handle = await page.$(`[data-ti-universal-img-id="${layer.captureId}"]`);
+      const handle = await page.$(`[data-ti-img-id="${layer.captureId}"]`);
       if (!handle) continue;
       const bytes = await handle.screenshot({ type: 'png' });
       layer.image = { contentType: 'image/png', base64: bytes.toString('base64'), bytes: bytes.length };
@@ -315,14 +309,14 @@ async function compile(target) {
     });
     await page.waitForTimeout(600);
 
-    const extracted = await extractUniversalPage(page);
+    const extracted = await extractPage(page);
     const shot = await page.screenshot({ type: 'png', fullPage: true });
     const componentCount = extracted.sections.reduce((sum, section) => sum + ((section.components || []).length), 0);
 
     return {
       ok: true,
       mode: MODE,
-      adapter: 'universal-page-semantic-design-intelligence',
+      adapter: 'universal-page-clean-useful-output',
       capturedAt: new Date().toISOString(),
       title: extracted.title,
       url: extracted.url,
@@ -338,9 +332,15 @@ async function compile(target) {
         imageCount: extracted.layers.filter((x) => x.type === 'image').length,
         textCount: extracted.layers.filter((x) => x.type === 'text').length
       },
+      outputRules: [
+        '01 Screenshot Preview must stay pure: one screenshot rectangle only.',
+        '02 UI Components must be clean library components, not raw browser coordinates.',
+        '03 Editable Result must be a clean structured draft, not a raw reconstruction dump.',
+        '04 Audit summarizes usefulness and remaining gaps.'
+      ],
       warnings: [
-        'V7 semantic design intelligence mode: screenshot is only a visual anchor, not a structure score shortcut.',
-        'Visual and structure must both pass the strict gate; screenshot-only output should be considered failed.'
+        'V9 clean useful output prioritizes usable components and editable drafts over chaotic raw coordinate reconstruction.',
+        'Screenshot-only visual fidelity is not considered enough for a pass.'
       ]
     };
   } finally {
@@ -379,6 +379,6 @@ server = http.createServer(async (req, res) => {
 });
 
 server.listen(PORT, '127.0.0.1', () => {
-  console.log(`TranslateIT Universal Page Adapter V7 running at http://127.0.0.1:${PORT}`);
+  console.log(`TranslateIT Universal Page Adapter V9 running at http://127.0.0.1:${PORT}`);
   resetIdleTimer();
 });
