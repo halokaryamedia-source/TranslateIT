@@ -3,55 +3,22 @@
 <head>
   <meta charset="utf-8" />
   <style>
-    * { box-sizing: border-box; }
-    :root { --bg:#070a11; --panel:#101622; --soft:#111827; --line:#263244; --text:#f7f9fd; --muted:#a0abc0; --muted2:#6f7b90; --blue:#6382ff; --blueSoft:rgba(99,130,255,.14); }
-    html, body { margin:0; min-height:100%; background:var(--bg); color:var(--text); font-family:Inter,"Segoe UI",Roboto,Arial,sans-serif; -webkit-font-smoothing:antialiased; text-rendering:optimizeLegibility; }
-    body { padding:18px; background:radial-gradient(circle at 0% 0%,rgba(99,130,255,.18),transparent 34%),linear-gradient(180deg,#0b101a 0%,#070a11 100%); }
-    .app { display:flex; flex-direction:column; gap:14px; max-width:560px; margin:0 auto; }
-    .topbar { display:flex; align-items:center; gap:12px; padding:2px 2px 8px; }
-    .mark { width:40px; height:40px; border-radius:14px; display:grid; place-items:center; background:linear-gradient(180deg,rgba(99,130,255,.22),rgba(99,130,255,.08)); border:1px solid rgba(99,130,255,.28); color:#dbe3ff; font-weight:900; }
-    .eyebrow { color:var(--muted2); font-size:10px; font-weight:800; letter-spacing:.08em; text-transform:uppercase; margin-bottom:4px; }
-    h1 { margin:0; font-size:20px; line-height:1.15; letter-spacing:-.035em; }
-    .sub { margin:0; color:var(--muted); font-size:12px; line-height:1.55; }
-    .card { border:1px solid var(--line); border-radius:20px; background:rgba(16,22,34,.92); box-shadow:0 18px 48px rgba(0,0,0,.25); overflow:hidden; }
-    .card-header { display:flex; align-items:center; justify-content:space-between; padding:16px 16px 0; }
-    .card-title { margin:0; font-size:14px; font-weight:900; letter-spacing:-.01em; }
-    .badge { min-width:30px; height:30px; border-radius:999px; display:inline-flex; align-items:center; justify-content:center; color:#dce4ff; background:var(--blueSoft); border:1px solid rgba(99,130,255,.24); font-size:12px; font-weight:900; }
-    .card-body { padding:16px; }
-    .source-input { width:100%; height:46px; border:1px solid var(--line); border-radius:15px; background:#0b1019; color:var(--text); padding:0 14px; outline:none; font:600 12px Inter,"Segoe UI",Roboto,Arial,sans-serif; }
-    .source-input:focus { border-color:var(--blue); }
-    button { width:100%; height:48px; border:1px solid var(--line); border-radius:15px; color:var(--text); background:var(--soft); font-size:14px; font-weight:900; cursor:pointer; transition:.15s ease; margin-top:14px; }
-    button:hover { transform:translateY(-1px); border-color:#4b5d7c; background:#172033; }
-    button:disabled { opacity:.48; cursor:not-allowed; transform:none; }
-    .primary { border-color:rgba(99,130,255,.85); background:linear-gradient(180deg,#3149a5,#20306f); box-shadow:0 12px 30px rgba(99,130,255,.18); }
-    .helper { margin-top:10px; color:var(--muted2); font-size:11px; line-height:1.45; }
-    .status { border:1px solid var(--line); border-radius:18px; background:rgba(3,4,7,.68); padding:14px; min-height:132px; max-height:220px; overflow:auto; color:var(--muted); font-size:11.5px; line-height:1.55; white-space:pre-wrap; }
-    .status-title { display:flex; align-items:center; gap:8px; color:var(--text); font-size:13px; font-weight:900; margin-bottom:8px; }
-    .dot { width:8px; height:8px; border-radius:99px; background:var(--blue); box-shadow:0 0 0 4px rgba(99,130,255,.12); }
-    .footer { color:var(--muted2); font-size:10px; line-height:1.45; text-align:center; padding:0 10px 4px; }
+    *{box-sizing:border-box}body{margin:0;padding:18px;background:#070a11;color:#f7f9fd;font-family:Inter,Segoe UI,Arial,sans-serif}.app{display:flex;flex-direction:column;gap:14px}.top{display:flex;gap:12px;align-items:center}.mark{width:40px;height:40px;border-radius:14px;background:#18224a;display:grid;place-items:center;font-weight:900}.eyebrow{font-size:10px;color:#6f7b90;font-weight:800;letter-spacing:.08em;text-transform:uppercase}h1{margin:0;font-size:20px}.sub{margin:0;color:#a0abc0;font-size:12px;line-height:1.5}.card{border:1px solid #263244;border-radius:20px;background:#101622;padding:16px}.row{display:flex;justify-content:space-between;align-items:center}.badge{width:30px;height:30px;border-radius:999px;background:#1c2b66;display:grid;place-items:center;font-weight:900}input{width:100%;height:46px;border:1px solid #263244;border-radius:15px;background:#0b1019;color:#fff;padding:0 14px;font-weight:700}button{width:100%;height:48px;border:1px solid #263244;border-radius:15px;background:#20306f;color:#fff;font-weight:900;margin-top:14px;cursor:pointer}.helper{margin-top:10px;color:#6f7b90;font-size:11px;line-height:1.4}.status{border:1px solid #263244;border-radius:18px;background:#030407;padding:14px;color:#a0abc0;font-size:11.5px;line-height:1.55;white-space:pre-wrap;max-height:240px;overflow:auto}.footer{text-align:center;color:#6f7b90;font-size:10px}
   </style>
 </head>
 <body>
   <div class="app">
-    <div class="topbar"><div class="mark">T</div><div><div class="eyebrow">TranslateIT Figma Plugin</div><h1>Design Export</h1></div></div>
-    <p class="sub">V8 creates actual Figma components, paint styles, text styles, semantic groups, and an editable UI library. Screenshot-only output is not a pass.</p>
-    <section class="card"><div class="card-header"><h2 class="card-title">Import Data</h2><span class="badge">1</span></div><div class="card-body"><input id="sourceUrl" class="source-input" placeholder="Paste website address, e.g. https://www.mivubi.com/" /><button id="importData" class="primary">Import Data</button><div class="helper">Output: production visual anchor, editable component library, semantic editable page, and strict audit.</div></div></section>
-    <section class="card"><div class="card-header"><h2 class="card-title">Export Data</h2><span class="badge">2</span></div><div class="card-body"><button id="exportData">Export Data</button><div class="helper">Downloads the latest result as a JSON package with component/style diagnostics.</div></div></section>
-    <div class="status"><div class="status-title"><span class="dot"></span><span>Status</span></div><div id="statusText">Ready. Paste a website address, then click Import Data.</div></div>
-    <div class="footer">Flow: Website → Adapter Payload → V8 Editable UI Library → Export</div>
+    <div class="top"><div class="mark">T</div><div><div class="eyebrow">TranslateIT Figma Plugin</div><h1>Design Export</h1></div></div>
+    <p class="sub">V9 creates a pure screenshot preview, clean component library, clean editable result, and audit notes. Raw browser-coordinate dump is disabled.</p>
+    <section class="card"><div class="row"><b>Import Data</b><span class="badge">1</span></div><br><input id="sourceUrl" placeholder="https://www.mivubi.com/"/><button id="importData">Import Data</button><div class="helper">Frame order: 01 pure screenshot, 02 clean components, 03 editable result, 04 audit.</div></section>
+    <section class="card"><div class="row"><b>Export Data</b><span class="badge">2</span></div><button id="exportData">Export Data</button></section>
+    <div class="status"><b>Status</b><br><br><span id="statusText">Ready.</span></div>
+    <div class="footer">Website → Adapter Payload → V9 Clean Useful Output → Export</div>
   </div>
-  <script>
-    function el(id) { return document.getElementById(id); }
-    function setStatus(text) { el('statusText').textContent = text; }
-    function setBusy(value) { el('importData').disabled = !!value; el('importData').textContent = value ? 'Importing...' : 'Import Data'; }
-    function normalizeUrl(value) { var url = String(value || '').trim(); if (!url) return ''; if (!/^https?:\/\//i.test(url)) url = 'https://' + url; return url; }
-    function send(type, data) { var msg = { type: type }; data = data || {}; Object.keys(data).forEach(function (key) { msg[key] = data[key]; }); parent.postMessage({ pluginMessage: msg }, '*'); }
-    function downloadText(filename, text) { var blob = new Blob([text], { type: 'application/json;charset=utf-8' }); var url = URL.createObjectURL(blob); var a = document.createElement('a'); a.href = url; a.download = filename; document.body.appendChild(a); a.click(); document.body.removeChild(a); setTimeout(function () { URL.revokeObjectURL(url); }, 1000); }
-    function readBridgeResponse(response) { return response.text().then(function (bodyText) { var payload = null; try { payload = bodyText ? JSON.parse(bodyText) : null; } catch (_) {} if (!response.ok) { var detail = payload && payload.error ? payload.error : bodyText; throw new Error('Bridge HTTP ' + response.status + (detail ? '\n' + detail : '')); } return payload || {}; }); }
-    function adapterSummary(payload) { var d = payload.diagnostics || {}; return 'Adapter payload ready.\nPayload mode: ' + (payload.mode || 'unknown') + '\nPlugin renderer: universal-page-adapter-v8\nGate: visual >= 9 AND structure >= 9\nScreenshot-only pass: no\nVisual reference: ' + (payload.screenshot ? 'yes' : 'no') + '\nLayers: ' + (d.layerCount || 0) + '\nSections: ' + (d.sectionCount || 0) + '\nBridge Components: ' + (d.componentCount || 0) + '\nImages: ' + (d.imageCount || 0) + '\nText: ' + (d.textCount || 0) + '\nImporting into Figma...'; }
-    el('importData').onclick = function () { var url = normalizeUrl(el('sourceUrl').value); if (!url) { setStatus('Paste a website address first.'); return; } setBusy(true); setStatus('Rendering website and building V8 editable UI library output...\n' + url); fetch('http://127.0.0.1:8844/render?url=' + encodeURIComponent(url)).then(readBridgeResponse).then(function (payload) { setStatus(adapterSummary(payload)); send('import-design-reconstruction', { payload: payload }); }).catch(function (error) { setBusy(false); setStatus('Universal Page Adapter failed.\n\n' + (error && error.message ? error.message : error)); }); };
-    el('exportData').onclick = function () { send('export-ui-package'); };
-    window.onmessage = function (event) { var msg = event.data.pluginMessage; if (!msg) return; if (msg.type === 'status') { setStatus(msg.text || ''); if (String(msg.text || '').indexOf('Import complete') >= 0 || String(msg.text || '').indexOf('Plugin error') >= 0) setBusy(false); } if (msg.exportJson) { downloadText('ui-build-package-' + new Date().toISOString().replace(/[:.]/g, '-') + '.json', msg.exportJson); } };
-  </script>
+<script>
+function el(id){return document.getElementById(id)}function setStatus(t){el('statusText').textContent=t}function setBusy(v){el('importData').disabled=!!v;el('importData').textContent=v?'Importing...':'Import Data'}function norm(v){v=String(v||'').trim();if(!v)return'';return/^https?:\/\//i.test(v)?v:'https://'+v}function send(type,data){var msg={type:type};data=data||{};Object.keys(data).forEach(function(k){msg[k]=data[k]});parent.postMessage({pluginMessage:msg},'*')}function read(r){return r.text().then(function(t){var p=null;try{p=t?JSON.parse(t):null}catch(e){}if(!r.ok)throw new Error('Bridge HTTP '+r.status+'\n'+((p&&p.error)||t));return p||{}})}
+el('importData').onclick=function(){var url=norm(el('sourceUrl').value);if(!url){setStatus('Paste website address first.');return}setBusy(true);setStatus('Rendering V9 clean useful output...\n'+url);fetch('http://127.0.0.1:8844/render?url='+encodeURIComponent(url)).then(read).then(function(payload){var d=payload.diagnostics||{};setStatus('Adapter payload ready.\nPlugin renderer: universal-page-adapter-v9\nRaw coordinate dump: disabled\nLayers: '+(d.layerCount||0)+'\nSections: '+(d.sectionCount||0)+'\nComponents: '+(d.componentCount||0)+'\nImporting into Figma...');send('import-design-reconstruction',{payload:payload})}).catch(function(e){setBusy(false);setStatus('Import failed.\n\n'+(e&&e.message?e.message:e))})};
+el('exportData').onclick=function(){send('export-ui-package')};window.onmessage=function(e){var m=e.data.pluginMessage;if(!m)return;if(m.type==='status'){setStatus(m.text||'');if(String(m.text||'').indexOf('Import complete')>=0||String(m.text||'').indexOf('Plugin error')>=0)setBusy(false)}if(m.exportJson){var blob=new Blob([m.exportJson],{type:'application/json'});var url=URL.createObjectURL(blob);var a=document.createElement('a');a.href=url;a.download='ui-build-package.json';a.click();URL.revokeObjectURL(url)}};
+</script>
 </body>
 </html>
