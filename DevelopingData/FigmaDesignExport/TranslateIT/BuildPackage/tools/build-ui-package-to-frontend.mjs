@@ -30,12 +30,19 @@ function attr(name, value) {
   return `${name}="${escapeHtml(value || '')}"`;
 }
 
-function styleToCss(style = {}) {
+function styleToCss(node = {}) {
+  const style = node.style || {};
   const lines = [];
-  if (style.fill) lines.push(`background: ${style.fill};`);
+  const isText = node.figmaType === 'TEXT';
+
+  if (style.fill && isText) lines.push(`color: ${style.fill};`);
+  if (style.fill && !isText) lines.push(`background: ${style.fill};`);
   if (style.stroke) lines.push(`border: ${style.strokeWeight || 1}px solid ${style.stroke};`);
   if (style.radius) lines.push(`border-radius: ${style.radius}px;`);
   if (style.opacity !== undefined && style.opacity !== 1) lines.push(`opacity: ${style.opacity};`);
+  if (style.fontSize) lines.push(`font-size: ${style.fontSize}px;`);
+  if (style.fontWeight) lines.push(`font-weight: ${style.fontWeight};`);
+
   return lines.join(' ');
 }
 
@@ -75,7 +82,10 @@ function renderNode(node, depth = 0) {
   const layout = node.layout || {};
   const direction = layout.layoutMode === 'HORIZONTAL' ? 'row' : 'column';
   const pad = layout.padding || {};
-  cssRules.push(`.${className} { ${styleToCss(node.style)} width: ${layout.width || 0}px; min-height: ${layout.height || 0}px; display: flex; flex-direction: ${direction}; gap: ${layout.itemSpacing || 0}px; padding: ${pad.top || 0}px ${pad.right || 0}px ${pad.bottom || 0}px ${pad.left || 0}px; box-sizing: border-box; }`);
+  const width = Number.isFinite(Number(layout.width)) && Number(layout.width) > 0 ? `${layout.width}px` : 'auto';
+  const minHeight = Number.isFinite(Number(layout.height)) && Number(layout.height) > 0 ? `${layout.height}px` : 'auto';
+  const display = isText ? 'inline-flex' : 'flex';
+  cssRules.push(`.${className} { ${styleToCss(node)} width: ${width}; min-height: ${minHeight}; display: ${display}; flex-direction: ${direction}; gap: ${layout.itemSpacing || 0}px; padding: ${pad.top || 0}px ${pad.right || 0}px ${pad.bottom || 0}px ${pad.left || 0}px; box-sizing: border-box; }`);
 
   if (isText) return `${'  '.repeat(depth)}<${tag} ${attrs.join(' ')}>${escapeHtml(node.text || '')}</${tag}>`;
   if (node.figmaType === 'INSTANCE' && node.componentRef) return `${'  '.repeat(depth)}<${tag} ${attrs.join(' ')}>${iconMarkup(node.componentRef)}</${tag}>`;
@@ -141,13 +151,15 @@ document.addEventListener('click', async (event) => {
 });
 
 export function updateBinding(name, value) {
-  document.querySelectorAll('[data-bind="' + name + '"]').forEach(node => {
+  document.querySelectorAll('[data-bind]').forEach(node => {
+    if (node.getAttribute('data-bind') !== name) return;
     node.textContent = value == null ? '' : String(value);
   });
 }
 
 export function updateSlotText(name, value) {
-  document.querySelectorAll('[data-slot="' + name + '"]').forEach(node => {
+  document.querySelectorAll('[data-slot]').forEach(node => {
+    if (node.getAttribute('data-slot') !== name) return;
     node.textContent = value == null ? '' : String(value);
   });
 }
