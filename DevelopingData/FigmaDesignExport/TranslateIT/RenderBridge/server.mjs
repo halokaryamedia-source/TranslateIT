@@ -65,7 +65,6 @@ async function captureInspectorTree(page, targetUrl) {
     const BLOCKED = new Set(['SCRIPT', 'STYLE', 'META', 'LINK', 'NOSCRIPT', 'TEMPLATE', 'BR', 'IFRAME', 'VIDEO', 'AUDIO', 'CANVAS']);
     const STRUCTURAL_TAGS = new Set(['BODY', 'HEADER', 'NAV', 'MAIN', 'SECTION', 'ARTICLE', 'ASIDE', 'FOOTER', 'UL', 'OL', 'LI']);
     const TEXT_TAGS = new Set(['H1', 'H2', 'H3', 'H4', 'H5', 'H6', 'P', 'SPAN', 'STRONG', 'EM', 'SMALL', 'LABEL']);
-    const CONTROL_TAGS = new Set(['A', 'BUTTON', 'INPUT', 'TEXTAREA', 'SELECT']);
     const MEDIA_TAGS = new Set(['IMG', 'PICTURE', 'SVG']);
 
     let id = 0;
@@ -80,6 +79,11 @@ async function captureInspectorTree(page, targetUrl) {
     }
 
     function rectOf(element) {
+      if (element === document.body) {
+        const height = Math.max(viewport.height, document.documentElement.scrollHeight || 0, document.body.scrollHeight || 0);
+        return { x: 0, y: 0, w: viewport.width, h: height };
+      }
+
       const rect = element.getBoundingClientRect();
       return {
         x: Math.round(rect.left),
@@ -97,6 +101,7 @@ async function captureInspectorTree(page, targetUrl) {
     }
 
     function visible(element, rect, computed) {
+      if (element === document.body) return true;
       if (!rect || rect.w < 1 || rect.h < 1) return false;
       if (rect.x > viewport.width || rect.y > viewport.height) return false;
       if (rect.x + rect.w < 0 || rect.y + rect.h < 0) return false;
@@ -164,6 +169,13 @@ async function captureInspectorTree(page, targetUrl) {
       return 'group';
     }
 
+    function typeOf(role) {
+      if (role === 'image') return 'image';
+      if (role === 'button' || role === 'link') return 'control';
+      if (role === 'heading' || role === 'text') return 'text-container';
+      return 'frame';
+    }
+
     function nameOf(element, tag, role, text) {
       const aria = clean(element.getAttribute('aria-label'));
       const alt = clean(element.getAttribute('alt'));
@@ -186,7 +198,7 @@ async function captureInspectorTree(page, targetUrl) {
       return path.join(' > ');
     }
 
-    function textNodeChildren(element, parentStyle) {
+    function textRangeChildren(element, parentStyle, path) {
       const output = [];
       Array.from(element.childNodes || []).forEach((node) => {
         if (node.nodeType !== Node.TEXT_NODE) return;
@@ -212,7 +224,7 @@ async function captureInspectorTree(page, targetUrl) {
             text,
             rect,
             style: parentStyle,
-            path: '',
+            path,
             children: []
           });
         });
@@ -220,75 +232,42 @@ async function captureInspectorTree(page, targetUrl) {
       return output;
     }
 
-    function shouldKeepNode(node, element, computed) {
-      const viewportArea = viewport.width * viewport.height;
-      const area = node.rect.w * node.rect.h;
-      const tag = element.tagName;
-
-      if (node.role === 'root') return true;
-      if (node.type === 'text') return !!node.text;
-      if (node.role === 'image') return node.rect.w >= 8 && node.rect.h >= 8;
-      if (node.role === 'button' || node.role === 'link') return node.rect.w >= 8 && node.rect.h >= 8;
-      if (node.role === 'heading' || node.role === 'text') return !!node.text || node.children.length > 0;
-      if (node.children.length > 0) return true;
-      if (hasVisualStyle(node.style) && area < viewportArea * 0.55 && node.rect.w >= 4 && node.rect.h >= 4) return true;
-      if (STRUCTURAL_TAGS.has(tag) && node.children.length > 0) return true;
+    function shouldIncludeElementNode(element, tag, role, rect, style, text, children) {
+      if (element === document.body) return true;
+      if (role === 'image') return rect.w >= 8 && rect.h >= 8;
+      if (role === 'button' || role === 'link') return rect.w >= 8 && rect.h >= 8;
+      if (role === 'heading' || role === 'text') return !!text || children.length > 0;
+      if (role === 'nav' || role === 'section') return children.length > 0 || hasVisualStyle(style);
+      if (role === 'box') return children.length > 0 || hasVisualStyle(style);
+      if (children.length > 0) return true;
       return false;
     }
 
-    function flattenNoise(node) {
-      if (!node) return null;
-      if ((node.role === 'group' || node.role === 'box') && !hasVisualStyle(node.style) && !node.text && node.children.length === 1) {
-        return node.children[0];
-      }
-      if ((node.role === 'group') && !node.text && node.children.length === 0) return null;
-      return node;
-    }
-
-    function build(element, depth = 0) {
-      if (!element || element.nodeType !== Node.ELEMENT_NODE) return null;
+    function buildList(element) {
+      if (!element || element.nodeType !== Node.ELEMENT_NODE) return [];
       const tag = element.tagName;
-      if (BLOCKED.has(tag)) return null;
+      if (!tag || BLOCKED.has(tag)) return [];
 
       const computed = window.getComputedStyle(element);
       const rect = rectOf(element);
-      if (!visible(element, rect, computed)) return null;
+      if (!visible(element, rect, computed)) return [];
 
       const style = styleOf(element, computed);
+      const path = domPath(element);
       const text = directText(element) || clean(element.getAttribute('aria-label')) || clean(element.getAttribute('alt')) || clean(element.getAttribute('placeholder'));
       const role = roleOf(element, tag, style, text);
-      const type = role === 'image' ? 'image' : role === 'button' || role === 'link' ? 'control' : role === 'heading' || role === 'text' ? 'text-container' : 'frame';
-
-      const node = {
-        id: `node-${id++}`,
-        type,
-        role,
-        tag: tag.toLowerCase(),
-        name: nameOf(element, tag.toLowerCase(), role, text),
-        text,
-        rect,
-        style,
-        path: domPath(element),
-        children: []
-      };
-
-      if (role === 'image') {
-        node.captureId = `image-${id}`;
-        element.setAttribute('data-ti-image-id', node.captureId);
-        node.src = element.currentSrc || element.src || element.getAttribute('src') || '';
-      }
+      const children = [];
 
       if (role === 'heading' || role === 'text' || role === 'button' || role === 'link') {
-        node.children.push(...textNodeChildren(element, style));
+        children.push(...textRangeChildren(element, style, path));
       }
 
       Array.from(element.children || []).forEach((child) => {
-        const childNode = build(child, depth + 1);
-        if (childNode) node.children.push(childNode);
+        children.push(...buildList(child));
       });
 
-      if ((role === 'button' || role === 'link') && node.children.length === 0 && text) {
-        node.children.push({
+      if ((role === 'button' || role === 'link') && children.length === 0 && text) {
+        children.push({
           id: `text-${id++}`,
           type: 'text',
           role: 'text',
@@ -297,20 +276,63 @@ async function captureInspectorTree(page, targetUrl) {
           text,
           rect,
           style,
-          path: node.path,
+          path,
           children: []
         });
       }
 
-      if (!shouldKeepNode(node, element, computed)) return null;
-      return flattenNoise(node);
+      if (!shouldIncludeElementNode(element, tag, role, rect, style, text, children)) {
+        return children;
+      }
+
+      const node = {
+        id: `node-${id++}`,
+        type: typeOf(role),
+        role,
+        tag: tag.toLowerCase(),
+        name: nameOf(element, tag.toLowerCase(), role, text),
+        text,
+        rect,
+        style,
+        path,
+        children
+      };
+
+      if (role === 'image') {
+        node.captureId = `image-${id}`;
+        element.setAttribute('data-ti-image-id', node.captureId);
+        node.src = element.currentSrc || element.src || element.getAttribute('src') || '';
+      }
+
+      return [node];
     }
 
-    const root = build(document.body);
+    let root = buildList(document.body)[0] || null;
+
+    if (!root || !root.children || root.children.length === 0) {
+      const children = [];
+      Array.from(document.querySelectorAll('body *')).forEach((element) => {
+        children.push(...buildList(element));
+      });
+      root = {
+        id: `node-${id++}`,
+        type: 'frame',
+        role: 'root',
+        tag: 'body',
+        name: 'root',
+        text: '',
+        rect: { x: 0, y: 0, w: viewport.width, h: Math.max(viewport.height, document.documentElement.scrollHeight || viewport.height) },
+        style: styleOf(document.body, window.getComputedStyle(document.body)),
+        path: 'body',
+        children: children.slice(0, 260)
+      };
+    }
+
     return {
       title: document.title || new URL(sourceUrl).hostname,
       viewport,
       tree: root,
+      nodeCount: id,
       html: '<!doctype html>\n' + document.documentElement.outerHTML
     };
   }, targetUrl);
@@ -355,8 +377,9 @@ async function renderUrl(sourceUrl) {
       title: inspector.title,
       viewport: inspector.viewport,
       tree: inspector.tree,
+      nodeCount: inspector.nodeCount,
       html: inspector.html,
-      mode: 'inspector-dom-tree-v5',
+      mode: 'inspector-dom-tree-v5.1',
       capturedAt: new Date().toISOString(),
       warnings: [
         'Inspector tree mode reads DOM hierarchy, computed CSS, text ranges, and image assets.',
@@ -384,7 +407,7 @@ server = http.createServer(async (req, res) => {
   const requestUrl = new URL(req.url, `http://127.0.0.1:${PORT}`);
 
   if (requestUrl.pathname === '/health') {
-    json(res, 200, { ok: true, service: 'translateit-render-bridge', mode: 'inspector-dom-tree-v5', port: PORT });
+    json(res, 200, { ok: true, service: 'translateit-render-bridge', mode: 'inspector-dom-tree-v5.1', port: PORT });
     return;
   }
 
@@ -421,6 +444,6 @@ server = http.createServer(async (req, res) => {
 });
 
 server.listen(PORT, '127.0.0.1', () => {
-  console.log(`TranslateIT Render Bridge Inspector Tree V5 running at http://127.0.0.1:${PORT}`);
+  console.log(`TranslateIT Render Bridge Inspector Tree V5.1 running at http://127.0.0.1:${PORT}`);
   resetIdleTimer();
 });
