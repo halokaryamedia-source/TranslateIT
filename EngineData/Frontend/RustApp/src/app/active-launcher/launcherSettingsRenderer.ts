@@ -36,7 +36,6 @@ export function renderAudioSettingsTab(args: {
   requireElement<HTMLButtonElement>("#checkAudioInputButton").addEventListener("click", () => args.onCheckAudioInput());
   requireElement<HTMLButtonElement>("#micTestButton").addEventListener("click", () => args.onStartOrStopRecording());
   requireElement<HTMLButtonElement>("#audioVoiceToggleButton").addEventListener("click", () => args.onToggleVoiceOutput());
-  requireElement<HTMLButtonElement>("#audioSensitivityButton").addEventListener("click", () => args.onToggleRuntimeProfile());
 }
 
 export function renderTranslateSettingsTab(args: {

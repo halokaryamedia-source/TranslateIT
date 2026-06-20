@@ -7,7 +7,6 @@ const SETTING_CONTROL_SELECTOR = [
   "#runtimeProfileButton",
   "#languageFocusButton",
   "#audioVoiceToggleButton",
-  "#audioSensitivityButton",
   "#realtimeModeButton",
   "#qualityModeButton",
   "#swapLanguageButton",

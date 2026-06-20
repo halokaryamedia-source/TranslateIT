@@ -1,0 +1,44 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>TranslateIT Reference-Locked UI Framework</title>
+  <link rel="stylesheet" href="framework/00-reset.css" />
+  <link rel="stylesheet" href="framework/01-tokens.css" />
+  <link rel="stylesheet" href="framework/02-layout.css" />
+  <link rel="stylesheet" href="framework/03-components.css" />
+  <link rel="stylesheet" href="framework/04-patterns.css" />
+  <link rel="stylesheet" href="framework/05-templates.css" />
+  <link rel="stylesheet" href="framework/06-preview-board.css" />
+</head>
+<body>
+  <main class="ti-v-board">
+    <header class="ti-v-header">
+      <h1>TranslateIT UI Framework Preview</h1>
+      <p>Reference-locked rebuild based on Preview UI.zip. Icon shapes and icon placement are mapped directly from the reference screens.</p>
+      <div class="ti-v-note">Branch target: V1-Pull · Scope: DesignPreview only · V1 and Tauri runtime untouched</div>
+    </header>
+
+    <section class="ti-v-section">
+      <div class="ti-v-section-title">
+        <h2>01 Components</h2>
+        <p>Foundations + UI Library Components. Repeated icons use the exact same SVG registry and repeated UI uses named framework classes.</p>
+      </div>
+      <div id="component-library" class="ti-v-library"></div>
+    </section>
+
+    <section class="ti-v-section">
+      <div class="ti-v-section-title">
+        <h2>02 Reference-Locked Screens</h2>
+        <p>Main v28, Audio v22, Translate v14, and Developer v37. These are the only active preview screens after cleanup.</p>
+      </div>
+      <div id="screen-gallery" class="ti-v-screen-grid"></div>
+    </section>
+  </main>
+
+  <script src="framework/07-preview-core.js"></script>
+  <script src="framework/08-preview-library.js"></script>
+  <script src="framework/09-preview-screens.js"></script>
+</body>
+</html>

@@ -1,9 +1,13 @@
 import { runtimeApi } from "../bridge/runtimeApi";
 import type { GpuPolicyReport, RealtimeStatusPayload } from "../shared/types";
 
-const REFRESH_INTERVAL_MS = 5_000;
+const REFRESH_INTERVAL_MS = 7_500;
+const FIRST_REFRESH_DELAY_MS = 1_800;
+const MIN_REFRESH_GAP_MS = 2_500;
 let timer: number | null = null;
+let firstTimer: number | null = null;
 let pending = false;
+let lastRefreshStartedAt = 0;
 
 function setText(id: string, value: string): void {
   const element = document.getElementById(id);
@@ -56,9 +60,17 @@ function qualityLabel(payload: RealtimeStatusPayload): string {
   return latency;
 }
 
+function shouldSkipRefresh(): boolean {
+  if (document.hidden) return true;
+  if (pending) return true;
+  return Date.now() - lastRefreshStartedAt < MIN_REFRESH_GAP_MS;
+}
+
 async function refreshOnce(): Promise<void> {
-  if (pending) return;
+  if (shouldSkipRefresh()) return;
   pending = true;
+  lastRefreshStartedAt = Date.now();
+  document.body.dataset.realtimeStatusRefresh = "pending";
   try {
     const [payload, gpuPolicy] = await Promise.all([
       runtimeApi.getRealtimeStatusPayload(),
@@ -73,8 +85,10 @@ async function refreshOnce(): Promise<void> {
     document.body.dataset.realtimeStatusPayload = payload.message ?? payload.status ?? "checking";
     document.body.dataset.realtimeLatency = latencyLabel(payload);
     document.body.dataset.gpuPolicy = gpuLabel(gpuPolicy, payload);
+    document.body.dataset.realtimeStatusRefresh = "ok";
   } catch {
     document.body.dataset.realtimeStatusPayload = "unavailable";
+    document.body.dataset.realtimeStatusRefresh = "unavailable";
   } finally {
     pending = false;
   }
@@ -82,13 +96,15 @@ async function refreshOnce(): Promise<void> {
 
 export function startRealtimeStatusPayloadAutoRefresh(): () => void {
   if (timer !== null) return stopRealtimeStatusPayloadAutoRefresh;
-  void refreshOnce();
+  firstTimer = window.setTimeout(() => void refreshOnce(), FIRST_REFRESH_DELAY_MS);
   timer = window.setInterval(() => void refreshOnce(), REFRESH_INTERVAL_MS);
   return stopRealtimeStatusPayloadAutoRefresh;
 }
 
 export function stopRealtimeStatusPayloadAutoRefresh(): void {
+  if (firstTimer !== null) window.clearTimeout(firstTimer);
   if (timer !== null) window.clearInterval(timer);
+  firstTimer = null;
   timer = null;
   pending = false;
 }

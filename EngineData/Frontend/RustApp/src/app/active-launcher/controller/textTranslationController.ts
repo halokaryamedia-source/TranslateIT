@@ -1,8 +1,6 @@
 import { runtimeApi } from "../../bridge/runtimeApi";
-import { defaultSettings } from "../../shared/state";
 import type { RuntimeSettings } from "../../shared/types";
 import { translationResultView } from "../chatViews";
-import { localPreviewTranslation } from "../launcherPreviewTranslation";
 import { MAX_MANUAL_TRANSLATION_CHARS, exceedsManualTranslationLimit } from "../launcherTextRules";
 import { traceUserFlow } from "../userFlowTrace";
 
@@ -31,21 +29,16 @@ export function validateTextTranslationSource(source: string): string | null {
 
 export async function runTextTranslationFlow(args: TextTranslationControllerArgs): Promise<TextTranslationControllerResult> {
   const source = args.source.trim();
-  const settings = args.currentSettings ?? defaultSettings();
   await args.saveChatMessage("user", source);
   args.setAssistantNotice("Translating text locally...");
   const result = await runtimeApi.translateText(source).catch(() => null);
-  const fallback = result?.ok ? null : localPreviewTranslation(source, settings.source_language, settings.target_language);
   const response = result?.ok
     ? result.message
-    : fallback ?? result?.message ?? "Translation command failed. Open Settings > Developer for diagnostics.";
-  const voiceStatus = result?.ok ? args.voiceOutputStatus() : fallback ? "Local preview" : "Error";
+    : result?.message ?? "Translation command failed. Open Settings > Developer for diagnostics.";
+  const voiceStatus = result?.ok ? args.voiceOutputStatus() : "Error";
 
   if (!result?.ok) {
     traceUserFlow("error.user_visible", { reason: "translation_failed", message: result?.message ?? "unknown" });
-  }
-
-  if (!result?.ok && !fallback) {
     return {
       ok: false,
       source,
@@ -58,13 +51,11 @@ export async function runTextTranslationFlow(args: TextTranslationControllerArgs
 
   await args.saveChatMessage("assistant", response);
   return {
-    ok: Boolean(result?.ok),
+    ok: true,
     source,
     response,
     voiceStatus,
     html: translationResultView(source, response, voiceStatus),
-    notice: result?.ok
-      ? "Translation completed. Result is shown above."
-      : "Local preview translation shown because the native worker/model is not configured yet.",
+    notice: "Translation completed. Result is shown above.",
   };
 }

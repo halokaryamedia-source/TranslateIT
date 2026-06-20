@@ -1,0 +1,83 @@
+/* TranslateIT UI Framework / Layout */
+.ti-l-screen {
+  width: var(--ti-size-canvas-w);
+  height: var(--ti-size-canvas-h);
+  overflow: hidden;
+  background: var(--ti-color-canvas);
+}
+
+.ti-l-app-shell {
+  display: grid;
+  width: 100%;
+  height: 100%;
+  min-height: 0;
+  overflow: hidden;
+  background: var(--ti-color-canvas);
+}
+
+.ti-l-app-shell--main { grid-template-columns: var(--ti-size-main-sidebar) minmax(0, 1fr); }
+.ti-l-app-shell--settings { grid-template-columns: var(--ti-size-settings-sidebar) minmax(0, 1fr); }
+
+.ti-l-main-sidebar,
+.ti-l-settings-sidebar {
+  min-height: 0;
+  height: 100%;
+  background: var(--ti-color-shell);
+  border-right: 1px solid var(--ti-color-border-soft);
+}
+
+.ti-l-main-sidebar {
+  display: flex;
+  flex-direction: column;
+  padding: 24px 22px 24px 22px;
+}
+
+.ti-l-settings-sidebar {
+  padding: 47px 32px 0;
+}
+
+.ti-l-main-content,
+.ti-l-settings-content {
+  display: grid;
+  height: 100%;
+  min-width: 0;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.ti-l-main-content { grid-template-rows: var(--ti-size-topbar) minmax(0, 1fr) auto; }
+.ti-l-settings-content { grid-template-rows: var(--ti-size-topbar) minmax(0, 1fr); }
+
+.ti-l-topbar {
+  display: flex;
+  min-height: var(--ti-size-topbar);
+  height: var(--ti-size-topbar);
+  align-items: center;
+  justify-content: space-between;
+  border-bottom: 1px solid var(--ti-color-border-soft);
+  background: rgba(3,4,7,.96);
+}
+
+.ti-l-main-topbar { padding: 0 58px; }
+.ti-l-settings-topbar { justify-content: flex-end; padding: 0 56px; }
+
+.ti-l-main-stage {
+  display: grid;
+  justify-items: center;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.ti-l-settings-scroll {
+  height: calc(var(--ti-size-canvas-h) - var(--ti-size-topbar));
+  overflow-x: hidden;
+  overflow-y: auto;
+  scrollbar-color: #303847 transparent;
+  scrollbar-width: thin;
+}
+
+.ti-l-settings-page {
+  width: var(--ti-size-settings-content-width);
+  margin-left: var(--ti-size-settings-content-left);
+  padding: 66px 0 160px;
+}

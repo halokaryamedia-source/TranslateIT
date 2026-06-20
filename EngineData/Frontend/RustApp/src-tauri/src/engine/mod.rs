@@ -11,6 +11,7 @@ pub mod hardware;
 pub mod inference;
 pub mod logging;
 pub mod manual_translation;
+pub mod manual_translation_accelerated;
 pub mod models;
 pub mod native_execution;
 pub mod native_runners;
@@ -29,6 +30,6 @@ pub mod transcript;
 pub mod transcript_session;
 
 pub use capture_lifecycle::{start_capture, stop_capture};
-pub use manual_translation::translate_text;
+pub use manual_translation_accelerated::translate_text;
 pub use runtime_settings::{load_settings, save_default_settings};
 pub use status_runtime::{current_status, live_capture_runtime_status, runtime_diagnostics};

@@ -37,14 +37,22 @@ impl Drop for AudioPipelineWorkerGuard {
     }
 }
 
-fn local_worker_script_path() -> PathBuf {
+fn local_worker_runtime_root() -> PathBuf {
     let project_paths = ProjectPaths::discover();
     PathBuf::from(project_paths.project_root)
         .join("EngineData")
         .join("Backend")
         .join("LocalWorker")
         .join("WorkerRuntime")
-        .join("realtime_local_worker.py")
+}
+
+fn local_worker_script_path() -> PathBuf {
+    let worker_root = local_worker_runtime_root();
+    let accelerated = worker_root.join("realtime_local_worker_accelerated.py");
+    if accelerated.is_file() {
+        return accelerated;
+    }
+    worker_root.join("realtime_local_worker.py")
 }
 
 fn read_limited_stdout(child: &mut Child) -> Option<Vec<u8>> {
@@ -198,6 +206,7 @@ fn worker_stage_summary(value: &Option<Value>) -> Value {
 
 struct AudioEvidenceInputs<'a> {
     audio_path: &'a str,
+    worker_script_label: &'a str,
     tts_output_path: &'a str,
     source_language: &'a str,
     target_language: &'a str,
@@ -217,12 +226,15 @@ struct AudioEvidenceInputs<'a> {
 fn privacy_preserving_audio_evidence(inputs: AudioEvidenceInputs<'_>) -> Value {
     let ok = json_ok(inputs.transcribe) && json_ok(inputs.translate) && json_ok(inputs.synthesize);
     json!({
-        "schema": "translateit.audio_pipeline_evidence.v5.redacted",
+        "schema": "translateit.audio_pipeline_evidence.v6.redacted",
         "privacy": "user_text_redacted",
         "ok": ok,
         "stage": "audio_pipeline_stop_capture_worker",
         "audio_file": safe_file_label(inputs.audio_path),
         "worker": "local_realtime_worker",
+        "worker_script": inputs.worker_script_label,
+        "worker_preferred_accelerated": inputs.worker_script_label == "realtime_local_worker_accelerated.py",
+        "worker_fallback_standard": inputs.worker_script_label == "realtime_local_worker.py",
         "source_language": inputs.source_language,
         "target_language": inputs.target_language,
         "requested_mode": inputs.requested_mode,
@@ -242,6 +254,47 @@ fn privacy_preserving_audio_evidence(inputs: AudioEvidenceInputs<'_>) -> Value {
         "translate": worker_stage_summary(inputs.translate),
         "synthesize": worker_stage_summary(inputs.synthesize)
     })
+}
+
+fn privacy_preserving_segment_write_evidence(
+    segment_write: &LiveSegmentWavWriteReport,
+    stage: &str,
+    blocker: &str,
+) -> Value {
+    json!({
+        "schema": "translateit.audio_pipeline_evidence.v6.redacted",
+        "privacy": "user_text_redacted",
+        "ok": false,
+        "stage": stage,
+        "blocker": blocker,
+        "note": segment_write.note.as_str(),
+        "audio_file": segment_write
+            .audio_path
+            .as_deref()
+            .map(safe_file_label)
+            .unwrap_or_else(|| "redacted".to_string()),
+        "worker": "local_realtime_worker",
+        "worker_script": "not_started",
+        "worker_preferred_accelerated": false,
+        "worker_fallback_standard": false,
+        "segment_write_ok": segment_write.ok,
+        "segment_duration_ms": segment_write.duration_ms,
+        "segment_sample_count": segment_write.sample_count,
+        "transcribe_ok": false,
+        "translate_ok": false,
+        "synthesize_ok": false,
+        "playback_ok": false,
+        "transcript_chars": 0,
+        "translated_chars": 0,
+    })
+}
+
+fn log_audio_pipeline_evidence(user_log_dir: &str, evidence: &Value) {
+    let _ = write_jsonl_event(
+        &PathBuf::from(user_log_dir),
+        "rust_runtime_latest.jsonl",
+        &RuntimeLogEvent::info("audio_pipeline", evidence.to_string()),
+    );
 }
 
 fn user_facing_segment_note(segment_write: &LiveSegmentWavWriteReport) -> String {
@@ -324,6 +377,8 @@ fn start_audio_pipeline_worker(audio_path: String, user_log_dir: String) -> bool
         } else {
             "Realtime"
         };
+        let worker_script = local_worker_script_path();
+        let worker_script_label = safe_file_label(worker_script.to_string_lossy().as_ref());
 
         let transcribe = run_worker(json!({
             "command": "transcribe",
@@ -356,8 +411,7 @@ fn start_audio_pipeline_worker(audio_path: String, user_log_dir: String) -> bool
             None
         };
         let tts_output_path = json_string(&synthesize, "output_path");
-        let playback_ok = if auto_play_output && json_ok(&synthesize) && !tts_output_path.is_empty()
-        {
+        let playback_ok = if auto_play_output && json_ok(&synthesize) && !tts_output_path.is_empty() {
             play_wav_output(&tts_output_path)
         } else {
             false
@@ -369,6 +423,7 @@ fn start_audio_pipeline_worker(audio_path: String, user_log_dir: String) -> bool
             .min(u128::from(u32::MAX)) as u32;
         let evidence = privacy_preserving_audio_evidence(AudioEvidenceInputs {
             audio_path: &audio_path,
+            worker_script_label: &worker_script_label,
             tts_output_path: &tts_output_path,
             source_language: &source_language,
             target_language: &target_language,
@@ -385,11 +440,7 @@ fn start_audio_pipeline_worker(audio_path: String, user_log_dir: String) -> bool
             translated_chars: text_char_count(&translated_text),
         });
         write_audio_pipeline_evidence(&user_log_dir, &evidence);
-        let _ = write_jsonl_event(
-            &PathBuf::from(user_log_dir),
-            "rust_runtime_latest.jsonl",
-            &RuntimeLogEvent::info("audio_pipeline", evidence.to_string()),
-        );
+        log_audio_pipeline_evidence(&user_log_dir, &evidence);
         remove_private_cache_file(&audio_path);
         remove_private_cache_file(&tts_output_path);
     });
@@ -516,9 +567,23 @@ pub fn stop_capture() -> CommandResult {
                 "Audio pipeline worker handoff skipped because another audio pipeline worker is already active.".to_string()
             }
         } else {
+            let evidence = privacy_preserving_segment_write_evidence(
+                &segment_write,
+                "segment_write_missing_path_before_asr_worker",
+                "target_wav_path_missing",
+            );
+            write_audio_pipeline_evidence(&project_paths.user_log_dir, &evidence);
+            log_audio_pipeline_evidence(&project_paths.user_log_dir, &evidence);
             "Audio pipeline worker handoff skipped because the WAV path was missing.".to_string()
         }
     } else {
+        let evidence = privacy_preserving_segment_write_evidence(
+            &segment_write,
+            "segment_write_failed_before_asr_worker",
+            &segment_write.blocker,
+        );
+        write_audio_pipeline_evidence(&project_paths.user_log_dir, &evidence);
+        log_audio_pipeline_evidence(&project_paths.user_log_dir, &evidence);
         "Audio pipeline worker handoff skipped because the target WAV was not prepared.".to_string()
     };
     let stopped_live_capture = stop_live_capture_runtime();
