@@ -41,14 +41,14 @@
       </div>
     </div>
 
-    <p class="sub">Paste a website address, compile its HTML/CSS source bundle, then export the UI Build Package JSON.</p>
+    <p class="sub">Paste a website address, compile its rendered layout tree, then export the UI Build Package JSON.</p>
 
     <section class="card">
       <div class="card-header"><h2 class="card-title">Import Data</h2><span class="badge">1</span></div>
       <div class="card-body">
         <input id="sourceUrl" class="source-input" placeholder="Paste website address, e.g. https://example.com" />
         <button id="importData" class="primary">Import Data</button>
-        <div class="helper">Local Source Bundle Compiler must be running at http://127.0.0.1:8844. This mode downloads HTML, linked CSS, and image assets, then rebuilds semantic Figma structure.</div>
+        <div class="helper">Local Layout Tree Compiler must be running at http://127.0.0.1:8844. This mode uses rendered DOM hierarchy, computed CSS bounds, text nodes, and image assets.</div>
       </div>
     </section>
 
@@ -76,16 +76,16 @@
       var url = normalizeUrl(el('sourceUrl').value);
       if (!url) { setStatus('Paste a website address first.'); return; }
       setBusy(true);
-      setStatus('Downloading HTML/CSS source bundle...\n' + url);
+      setStatus('Rendering website and building layout tree...\n' + url);
       fetch('http://127.0.0.1:8844/render?url=' + encodeURIComponent(url))
         .then(function (response) { if (!response.ok) throw new Error('Bridge HTTP ' + response.status); return response.json(); })
         .then(function (payload) {
-          setStatus('Source bundle ready.\nMode: ' + (payload.mode || 'unknown') + '\nNodes: ' + ((payload.source && payload.source.nodeCount) || 0) + '\nCSS files: ' + (((payload.source && payload.source.cssFiles) || []).length) + '\nImporting into Figma...');
-          send('import-source-bundle', { payload: payload });
+          setStatus('Layout tree ready.\nMode: ' + (payload.mode || 'unknown') + '\nNodes: ' + ((payload.source && payload.source.nodeCount) || 0) + '\nImporting into Figma...');
+          send('import-layout-tree', { payload: payload });
         })
         .catch(function (error) {
           setBusy(false);
-          setStatus('Source Bundle Compiler failed.\nMake sure the local bridge is running, then try again.\n\n' + (error && error.message ? error.message : error));
+          setStatus('Layout Tree Compiler failed.\nMake sure the local bridge is running, then try again.\n\n' + (error && error.message ? error.message : error));
         });
     };
 
