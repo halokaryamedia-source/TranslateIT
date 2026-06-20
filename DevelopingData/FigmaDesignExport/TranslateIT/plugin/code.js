@@ -1,7 +1,7 @@
 figma.showUI(__html__, { width: 580, height: 860 });
 
 const NS = 'translateit.designExport';
-const VERSION = 'inspector-dom-tree-v5';
+const VERSION = 'source-bundle-compiler-v1';
 const PAGE_NAME = 'TranslateIT Import / Workspace';
 let lastRun = null;
 
@@ -23,10 +23,6 @@ async function loadFonts() {
 
 function fontName(bold) {
   return bold ? { family: 'Inter', style: 'Bold' } : { family: 'Inter', style: 'Regular' };
-}
-
-function component(value) {
-  return Math.round(Math.max(0, Math.min(1, value)) * 255).toString(16).padStart(2, '0');
 }
 
 function hexToRgb(hex) {
@@ -67,13 +63,12 @@ function cssColor(value, fallback) {
   return named[raw.toLowerCase()] || fallback || null;
 }
 
-function px(value, fallback) {
-  const match = String(value || '').match(/-?\d+(\.\d+)?/);
-  return match ? Number(match[0]) : fallback;
-}
-
 function safeName(value) {
   return String(value || 'Layer').replace(/\s+/g, ' ').trim().slice(0, 96) || 'Layer';
+}
+
+function cleanText(value) {
+  return String(value || '').replace(/\s+/g, ' ').trim();
 }
 
 function bytesFromBase64(base64) {
@@ -91,163 +86,171 @@ async function workspacePage() {
   return page;
 }
 
-function hasVisibleFill(style) {
-  const color = cssColor(style && style.backgroundColor, null);
-  return !!color;
+function isStructural(role) {
+  return ['root', 'header', 'nav', 'footer', 'section', 'card', 'list', 'list-item', 'group'].includes(role);
 }
 
-function hasVisibleStroke(style) {
-  if (!style) return false;
-  const width = Math.max(px(style.borderTopWidth, 0), px(style.borderRightWidth, 0), px(style.borderBottomWidth, 0), px(style.borderLeftWidth, 0));
-  return width > 0 && !!cssColor(style.borderTopColor || style.borderRightColor || style.borderBottomColor || style.borderLeftColor, null);
+function isTextual(role) {
+  return ['heading', 'paragraph', 'text'].includes(role);
 }
 
-function nodeSize(node, scale) {
-  return {
-    width: Math.max(1, Math.round((node.rect && node.rect.w ? node.rect.w : 1) * scale)),
-    height: Math.max(1, Math.round((node.rect && node.rect.h ? node.rect.h : 1) * scale))
-  };
+function isAction(role) {
+  return role === 'button' || role === 'link';
 }
 
-function positionRelative(node, parentRect, scale) {
-  return {
-    x: Math.round(((node.rect && node.rect.x ? node.rect.x : 0) - (parentRect && parentRect.x ? parentRect.x : 0)) * scale),
-    y: Math.round(((node.rect && node.rect.y ? node.rect.y : 0) - (parentRect && parentRect.y ? parentRect.y : 0)) * scale)
-  };
+function createText(characters, size, color, bold, name) {
+  const node = figma.createText();
+  node.fontName = fontName(!!bold);
+  node.characters = cleanText(characters) || ' ';
+  node.fontSize = size;
+  node.fills = solid(color || '#111827');
+  node.name = safeName(name || ('text / ' + node.characters.slice(0, 48)));
+  try { node.layoutSizingHorizontal = 'FILL'; } catch (_) {}
+  return node;
 }
 
-function makeFrameNode(node, scale) {
-  const style = node.style || {};
-  const size = nodeSize(node, scale);
+function createFrame(name, layoutMode, fill) {
   const frame = figma.createFrame();
-  frame.name = safeName((node.role || node.type || 'frame') + ' / ' + (node.name || node.tag || 'Layer'));
-  frame.resize(size.width, size.height);
-  frame.layoutMode = 'NONE';
-  frame.paddingTop = 0;
-  frame.paddingRight = 0;
-  frame.paddingBottom = 0;
-  frame.paddingLeft = 0;
-  frame.clipsContent = false;
-
-  const fill = cssColor(style.backgroundColor, null);
+  frame.name = safeName(name);
+  frame.layoutMode = layoutMode || 'VERTICAL';
+  frame.itemSpacing = layoutMode === 'HORIZONTAL' ? 12 : 10;
+  frame.paddingTop = 16;
+  frame.paddingRight = 16;
+  frame.paddingBottom = 16;
+  frame.paddingLeft = 16;
+  frame.counterAxisSizingMode = 'AUTO';
+  frame.primaryAxisSizingMode = 'AUTO';
   frame.fills = fill ? solid(fill) : [];
-
-  const strokeColor = cssColor(style.borderTopColor || style.borderRightColor || style.borderBottomColor || style.borderLeftColor, null);
-  const strokeWidth = Math.max(px(style.borderTopWidth, 0), px(style.borderRightWidth, 0), px(style.borderBottomWidth, 0), px(style.borderLeftWidth, 0));
-  frame.strokes = strokeColor && strokeWidth > 0 ? solid(strokeColor) : [];
-  frame.strokeWeight = strokeColor && strokeWidth > 0 ? Math.max(1, strokeWidth * scale) : 0;
-  frame.cornerRadius = Math.max(0, px(style.borderRadius, 0) * scale);
+  frame.strokes = [];
+  try { frame.layoutSizingHorizontal = 'FILL'; } catch (_) {}
   return frame;
 }
 
-function makeTextNode(node, scale) {
-  const style = node.style || {};
-  const text = figma.createText();
-  const weight = String(style.fontWeight || '');
-  text.fontName = fontName(/bold|600|700|800|900/i.test(weight));
-  text.characters = String(node.text || node.name || ' ');
-  text.fontSize = Math.max(6, px(style.fontSize, 14) * scale);
-  text.fills = solid(cssColor(style.color, '#111827'));
-  text.name = safeName('text / ' + (node.text || node.name));
-  try {
-    text.resize(Math.max(1, Math.round((node.rect.w || 1) * scale)), text.height);
-  } catch (_) {}
-  return text;
-}
+function createImage(node) {
+  const imageNode = figma.createRectangle();
+  imageNode.name = safeName('image / ' + (node.name || node.attrs?.alt || 'Image'));
+  imageNode.resize(360, 220);
+  imageNode.cornerRadius = 12;
 
-function makeImageNode(node, scale) {
-  const size = nodeSize(node, scale);
-  const rect = figma.createRectangle();
-  rect.name = safeName('image / ' + (node.name || 'Image'));
-  rect.resize(size.width, size.height);
-  if (node.imageBase64) {
-    const image = figma.createImage(bytesFromBase64(node.imageBase64));
-    rect.fills = [{ type: 'IMAGE', imageHash: image.hash, scaleMode: 'FILL' }];
+  if (node.image && node.image.base64) {
+    const image = figma.createImage(bytesFromBase64(node.image.base64));
+    imageNode.fills = [{ type: 'IMAGE', imageHash: image.hash, scaleMode: 'FILL' }];
   } else {
-    rect.fills = solid('#E5E7EB');
+    imageNode.fills = solid('#E5E7EB');
   }
-  return rect;
+
+  return imageNode;
 }
 
-function attachMeta(figmaNode, dataNode) {
+function createAction(node) {
+  const frame = createFrame((node.role || 'action') + ' / ' + (node.name || node.text || 'Action'), 'HORIZONTAL', '#FFFFFF');
+  frame.cornerRadius = 999;
+  frame.paddingTop = 10;
+  frame.paddingRight = 14;
+  frame.paddingBottom = 10;
+  frame.paddingLeft = 14;
+  frame.strokes = solid('#D1D5DB');
+  frame.strokeWeight = 1;
+  const label = createText(node.text || node.name || node.attrs?.href || 'Link', 14, '#111827', false, 'label / ' + (node.text || node.name || 'Action'));
+  frame.appendChild(label);
+  return frame;
+}
+
+function frameRoleStyle(role) {
+  if (role === 'root') return { name: '01 Website UI / Source HTML Structure', fill: '#FFFFFF', layout: 'VERTICAL', padding: 24, gap: 20 };
+  if (role === 'header' || role === 'nav') return { fill: '#FFFFFF', layout: 'HORIZONTAL', padding: 14, gap: 16 };
+  if (role === 'footer') return { fill: '#F4D35E', layout: 'HORIZONTAL', padding: 24, gap: 28 };
+  if (role === 'section') return { fill: '#FFFFFF', layout: 'HORIZONTAL', padding: 24, gap: 24 };
+  if (role === 'card') return { fill: '#FFFFFF', layout: 'VERTICAL', padding: 16, gap: 12 };
+  if (role === 'list') return { fill: null, layout: 'VERTICAL', padding: 0, gap: 8 };
+  if (role === 'list-item') return { fill: null, layout: 'HORIZONTAL', padding: 4, gap: 8 };
+  return { fill: null, layout: 'VERTICAL', padding: 8, gap: 8 };
+}
+
+function applyFrameStyle(frame, style) {
+  frame.layoutMode = style.layout || 'VERTICAL';
+  frame.itemSpacing = style.gap || 8;
+  frame.paddingTop = style.padding || 0;
+  frame.paddingRight = style.padding || 0;
+  frame.paddingBottom = style.padding || 0;
+  frame.paddingLeft = style.padding || 0;
+  frame.fills = style.fill ? solid(style.fill) : [];
+  try { frame.layoutSizingHorizontal = 'FILL'; } catch (_) {}
+}
+
+function attachMeta(figmaNode, sourceNode) {
   figmaNode.setSharedPluginData(NS, 'version', VERSION);
-  figmaNode.setSharedPluginData(NS, 'role', dataNode.role || '');
-  figmaNode.setSharedPluginData(NS, 'type', dataNode.type || '');
-  figmaNode.setSharedPluginData(NS, 'tag', dataNode.tag || '');
-  figmaNode.setSharedPluginData(NS, 'path', dataNode.path || '');
+  figmaNode.setSharedPluginData(NS, 'role', sourceNode.role || '');
+  figmaNode.setSharedPluginData(NS, 'tag', sourceNode.tag || '');
+  figmaNode.setSharedPluginData(NS, 'path', sourceNode.path || '');
+  figmaNode.setSharedPluginData(NS, 'sourceName', sourceNode.name || '');
 }
 
-function shouldRenderAsText(node) {
-  return node.type === 'text' || node.tag === '#text';
-}
+function buildNode(node, depth) {
+  if (!node) return null;
+  const role = node.role || 'group';
 
-function shouldRenderAsImage(node) {
-  return node.type === 'image' || node.role === 'image';
-}
-
-function shouldCreateFrame(node) {
-  if (node.role === 'root') return true;
-  if (node.role === 'button' || node.role === 'link') return true;
-  if (node.type === 'frame') return true;
-  if ((node.children || []).length > 0) return true;
-  return hasVisibleFill(node.style || {}) || hasVisibleStroke(node.style || {});
-}
-
-function createFigmaNode(dataNode, parentRect, scale, depth) {
-  if (!dataNode || !dataNode.rect) return null;
-
-  let figmaNode;
-  if (shouldRenderAsText(dataNode)) {
-    figmaNode = makeTextNode(dataNode, scale);
-  } else if (shouldRenderAsImage(dataNode)) {
-    figmaNode = makeImageNode(dataNode, scale);
-  } else if (shouldCreateFrame(dataNode)) {
-    figmaNode = makeFrameNode(dataNode, scale);
-  } else {
-    return null;
+  if (role === 'image') {
+    const image = createImage(node);
+    attachMeta(image, node);
+    return image;
   }
 
-  const position = positionRelative(dataNode, parentRect || { x: 0, y: 0 }, scale);
-  figmaNode.x = position.x;
-  figmaNode.y = position.y;
-  attachMeta(figmaNode, dataNode);
-
-  if ('children' in figmaNode && !shouldRenderAsText(dataNode) && !shouldRenderAsImage(dataNode)) {
-    const children = (dataNode.children || []).slice().sort((a, b) => {
-      const rank = { frame: 0, image: 1, control: 2, 'text-container': 2, text: 3 };
-      const ar = rank[a.type] === undefined ? 1 : rank[a.type];
-      const br = rank[b.type] === undefined ? 1 : rank[b.type];
-      return ar - br || (a.rect.y - b.rect.y) || (a.rect.x - b.rect.x);
-    });
-
-    children.forEach((child) => {
-      const childNode = createFigmaNode(child, dataNode.rect, scale, depth + 1);
-      if (childNode) figmaNode.appendChild(childNode);
-    });
+  if (isAction(role)) {
+    const action = createAction(node);
+    attachMeta(action, node);
+    return action;
   }
 
-  return figmaNode;
+  if (isTextual(role) || node.tag === '#text') {
+    const text = node.text || node.name || '';
+    if (!cleanText(text)) return null;
+    const size = role === 'heading' ? 34 : role === 'paragraph' ? 16 : 14;
+    const color = role === 'heading' ? '#111827' : '#374151';
+    const textNode = createText(text, size, color, role === 'heading', role + ' / ' + text.slice(0, 48));
+    attachMeta(textNode, node);
+    return textNode;
+  }
+
+  const roleStyle = frameRoleStyle(role);
+  const frame = createFrame(roleStyle.name || (role + ' / ' + (node.name || node.tag || 'Group')), roleStyle.layout, roleStyle.fill);
+  applyFrameStyle(frame, roleStyle);
+  attachMeta(frame, node);
+
+  const seenText = new Set();
+  (node.children || []).forEach((child) => {
+    if (!child) return;
+    const textKey = child.tag === '#text' ? cleanText(child.text).toLowerCase() : '';
+    if (textKey && seenText.has(textKey)) return;
+    if (textKey) seenText.add(textKey);
+    const childLayer = buildNode(child, depth + 1);
+    if (childLayer) frame.appendChild(childLayer);
+  });
+
+  if (frame.children.length === 0 && cleanText(node.text)) {
+    const fallback = createText(node.text, 14, '#374151', false, 'text / ' + node.text.slice(0, 48));
+    frame.appendChild(fallback);
+  }
+
+  if (frame.children.length === 0 && role !== 'root') return null;
+  return frame;
 }
 
-function countTree(node) {
+function countNodes(node) {
   if (!node) return 0;
-  return 1 + (node.children || []).reduce((sum, child) => sum + countTree(child), 0);
+  return 1 + (node.children || []).reduce((sum, child) => sum + countNodes(child), 0);
 }
 
-async function importInspectorTree(payload) {
+async function importSourceBundle(payload) {
   await loadFonts();
   const page = await workspacePage();
   const tree = payload.tree;
-  if (!tree || !tree.rect) throw new Error('Render Bridge returned no inspector DOM tree.');
+  if (!tree || !Array.isArray(tree.children)) throw new Error('Source Bundle Compiler returned no source tree.');
 
-  const viewport = payload.viewport || { width: 1440, height: 1600 };
-  const scale = 1280 / Math.max(1, Number(viewport.width) || 1440);
-  const canvasHeight = Math.max(500, Math.round((Number(viewport.height) || 1600) * scale));
   const stamp = new Date().toISOString().replace(/[:.]/g, '-');
-
   const run = figma.createFrame();
-  run.name = safeName((payload.title || 'Website Import') + ' / ' + stamp);
-  run.resize(1440, canvasHeight + 220);
+  run.name = safeName((payload.title || 'Website Source Import') + ' / ' + stamp);
+  run.resize(1440, 900);
   run.fills = solid('#030407');
   run.layoutMode = 'VERTICAL';
   run.itemSpacing = 24;
@@ -255,47 +258,24 @@ async function importInspectorTree(payload) {
   run.paddingRight = 40;
   run.paddingBottom = 40;
   run.paddingLeft = 40;
+  run.primaryAxisSizingMode = 'AUTO';
+  run.counterAxisSizingMode = 'FIXED';
 
-  const title = figma.createText();
-  title.fontName = fontName(true);
-  title.characters = payload.title || 'Website Import';
-  title.fontSize = 30;
-  title.fills = solid('#F7F9FD');
-  title.name = 'Import Title';
+  const title = createText(payload.title || 'Website Source Import', 30, '#F7F9FD', true, 'Import Title');
   run.appendChild(title);
 
-  const note = figma.createText();
-  note.fontName = fontName(false);
-  note.characters = 'Inspector Tree Mode: generated from DOM hierarchy, computed CSS, text ranges, layout bounds, and image assets. Screenshot is not used as the main output.';
-  note.fontSize = 12;
-  note.fills = solid('#8D96A6');
-  note.name = 'Import Note';
+  const info = payload.source || {};
+  const note = createText('Source Bundle Compiler: downloaded HTML + CSS, normalized assets, and rebuilt a semantic Figma structure. Nodes: ' + (info.nodeCount || countNodes(tree)) + ' / CSS files: ' + ((info.cssFiles || []).length || 0) + ' / Images: ' + (info.imageCount || 0), 12, '#8D96A6', false, 'Import Note');
   run.appendChild(note);
 
-  const canvas = figma.createFrame();
-  canvas.name = '01 Website UI / Inspector Tree Layers';
-  canvas.resize(1280, canvasHeight);
-  canvas.fills = solid('#FFFFFF');
-  canvas.layoutMode = 'NONE';
-  canvas.paddingTop = 0;
-  canvas.paddingRight = 0;
-  canvas.paddingBottom = 0;
-  canvas.paddingLeft = 0;
-  canvas.clipsContent = false;
+  const output = buildNode(tree, 0);
+  if (output) run.appendChild(output);
 
-  const body = createFigmaNode(tree, { x: 0, y: 0 }, scale, 0);
-  if (body) {
-    body.x = 0;
-    body.y = 0;
-    canvas.appendChild(body);
-  }
-
-  run.appendChild(canvas);
   page.appendChild(run);
   figma.viewport.scrollAndZoomIntoView([run]);
   lastRun = run;
 
-  sendStatus('Import complete.\nOutput page: ' + PAGE_NAME + '\nTop-level run: ' + run.name + '\nMode: Inspector DOM Tree Layers\nNodes generated: ' + countTree(tree) + '\nNext step: review in Figma, then Export Data.');
+  sendStatus('Import complete.\nOutput page: ' + PAGE_NAME + '\nTop-level run: ' + run.name + '\nMode: Source Bundle Compiler\nNodes generated: ' + (info.nodeCount || countNodes(tree)) + '\nNext step: review in Figma, then Export Data.');
 }
 
 function exportPackage() {
@@ -305,7 +285,7 @@ function exportPackage() {
   }
 
   const pkg = {
-    schema: 'translateit.ui-build-package.inspector-tree.v1',
+    schema: 'translateit.ui-build-package.source-bundle.v1',
     generatedAt: new Date().toISOString(),
     pluginVersion: VERSION,
     figmaRun: lastRun.name
@@ -317,8 +297,8 @@ function exportPackage() {
 figma.ui.onmessage = async function (msg) {
   try {
     msg = msg || {};
-    if (msg.type === 'import-inspector-tree' || msg.type === 'import-inspector-layers' || msg.type === 'import-rendered-tree') {
-      await importInspectorTree(msg.payload || {});
+    if (msg.type === 'import-source-bundle' || msg.type === 'import-inspector-tree') {
+      await importSourceBundle(msg.payload || {});
       return;
     }
     if (msg.type === 'export-ui-package') {
