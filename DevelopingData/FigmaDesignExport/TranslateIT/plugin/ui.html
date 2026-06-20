@@ -3,10 +3,12 @@
 <head>
   <meta charset="utf-8" />
   <style>
-    body { margin: 0; padding: 16px; background: #0b0e14; color: #f5f7fa; font-family: Inter, system-ui, sans-serif; }
-    h1 { margin: 0 0 8px; font-size: 16px; }
+    * { box-sizing: border-box; }
+    body { margin: 0; padding: 18px; background: #0b0e14; color: #f5f7fa; font-family: Inter, system-ui, sans-serif; }
+    h1 { margin: 0 0 8px; font-size: 17px; line-height: 1.2; letter-spacing: -.03em; }
     p { margin: 0 0 14px; color: #8d96a6; font-size: 12px; line-height: 1.5; }
-    button { width: 100%; height: 38px; border: 1px solid #3a4454; border-radius: 10px; color: #f5f7fa; background: #11151c; font-weight: 700; cursor: pointer; }
+    .note { border: 1px solid #242b36; border-radius: 12px; padding: 10px 12px; background: #07090d; color: #c8ced8; font-size: 11px; line-height: 1.45; margin-bottom: 14px; }
+    button { width: 100%; height: 40px; border: 1px solid #3a4454; border-radius: 10px; color: #f5f7fa; background: #11151c; font-weight: 800; cursor: pointer; }
     button + button { margin-top: 10px; }
     .secondary { color: #c8ced8; background: transparent; }
     code { color: #d7dde7; }
@@ -14,8 +16,9 @@
 </head>
 <body>
   <h1>TranslateIT Design Export</h1>
-  <p>Generate editable Figma pages, tokens, icon placeholders, and component frames from the repo export manifests.</p>
-  <button id="create">Create Figma Library</button>
+  <p>Create editable Figma pages, tokens, SVG icon components, component library frames, templates, and screen drafts.</p>
+  <div class="note">Scope: design workflow only. Approved Figma changes must be reflected back into repo manifests and DesignPreview before Tauri sync.</div>
+  <button id="create">Create Editable Design System</button>
   <button id="notes" class="secondary">Create Notes Only</button>
   <script>
     document.getElementById('create').onclick = () => parent.postMessage({ pluginMessage: { type: 'create-library' } }, '*');
