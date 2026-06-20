@@ -117,6 +117,78 @@ The sample HTML now better represents the supported contract:
 - `data-action` + `data-backend` pairs;
 - `data-bind` and `data-slot`.
 
+### 8. UI package schema upgraded
+
+The UI Build Package schema now includes v3 quality metadata and stricter integration contract fields.
+
+File:
+
+```txt
+DevelopingData/FigmaDesignExport/TranslateIT/BuildPackage/ui-build-package.schema.json
+```
+
+### 9. Pre-Figma HTML validator added
+
+A local HTML contract validator now checks a single HTML package before opening Figma.
+
+File:
+
+```txt
+DevelopingData/FigmaDesignExport/TranslateIT/BuildPackage/tools/validate-single-html-package.mjs
+```
+
+Usage:
+
+```powershell
+node .\tools\validate-single-html-package.mjs ..\Samples\single-html-ready-sample.html
+```
+
+### 10. UI package validator strengthened
+
+The package validator now checks v3 quality metadata, component candidates, action/backend bindings, state/slot bindings, icon payloads, and integration contract fields.
+
+File:
+
+```txt
+DevelopingData/FigmaDesignExport/TranslateIT/BuildPackage/tools/validate-ui-build-package.mjs
+```
+
+### 11. UI sync gate added
+
+A stricter sync gate now decides whether an exported UI package is structurally safe enough to continue toward app runtime integration.
+
+File:
+
+```txt
+DevelopingData/FigmaDesignExport/TranslateIT/BuildPackage/tools/run-ui-sync-gate.mjs
+```
+
+Usage:
+
+```powershell
+node .\tools\run-ui-sync-gate.mjs .\ui-build-package.json
+```
+
+### 12. Codegen quality report added
+
+Codegen now refuses `BLOCKED` packages and writes a generated quality report:
+
+```txt
+GeneratedFrontend/ui-package-report.md
+```
+
+The generated runtime metadata also includes package quality information.
+
+### 13. Component contract documented
+
+A formal component contract was added to guide future HTML/Figma/codegen work.
+
+File:
+
+```txt
+DevelopingData/FigmaDesignExport/TranslateIT/COMPONENT_CONTRACT.md
+```
+
 ## Known Limitation
 
 The plugin UI panel file was not changed in this pass because the repository connector blocked that specific HTML/inline-script update. The core plugin handler is already updated, so import/generate/export paths now use the v3 readiness guardrails.
@@ -146,8 +218,10 @@ Do not use a large TranslateIT app preview as the first test. First confirm the 
 - `01 Imported UI`;
 - `99 Import Report`;
 - icon masters and instances;
-- exported UI Build Package JSON with `quality` metadata.
+- exported UI Build Package JSON with `quality` metadata;
+- generated frontend with `ui-package-report.md`;
+- passing UI sync gate.
 
 ## Recommended Next Step
 
-Run the plugin manually in Figma Desktop and record the smoke test result before merging `V1-Pull` back into `V1`.
+When manual testing is allowed, run the plugin in Figma Desktop and record the smoke test result before merging `V1-Pull` back into `V1`.
