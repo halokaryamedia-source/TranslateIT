@@ -1,0 +1,59 @@
+{
+  "meta": {
+    "target": "Figma Pages",
+    "rule": "Pages are generated from this map by plugin/code.js."
+  },
+  "pages": [
+    {
+      "name": "00 Cover / Export Notes",
+      "purpose": "Explain export source, branch, and non-runtime scope."
+    },
+    {
+      "name": "01 Foundations",
+      "purpose": "Colors, typography, radius, spacing, and canvas rules."
+    },
+    {
+      "name": "02 Icon Registry",
+      "purpose": "Editable Figma icon components generated from icon mapping."
+    },
+    {
+      "name": "03 Components",
+      "purpose": "Reusable UI components: buttons, nav, cards, select, composer, radio, meter, progress."
+    },
+    {
+      "name": "04 Templates",
+      "purpose": "Reusable shell templates: main shell, settings shell, sidebar systems."
+    },
+    {
+      "name": "05 Screens",
+      "purpose": "Reference-locked screen previews: Main v28, Audio v22, Translate v14, Developer v37."
+    }
+  ],
+  "frames": {
+    "componentLibrary": {
+      "width": 1440,
+      "height": 2200,
+      "page": "03 Components"
+    },
+    "mainV28": {
+      "width": 2560,
+      "height": 1440,
+      "page": "05 Screens"
+    },
+    "audioV22": {
+      "width": 2560,
+      "height": 1440,
+      "page": "05 Screens"
+    },
+    "translateV14": {
+      "width": 2560,
+      "height": 1440,
+      "page": "05 Screens"
+    },
+    "developerV37": {
+      "width": 2560,
+      "height": 1440,
+      "page": "05 Screens"
+    }
+  }
+}
