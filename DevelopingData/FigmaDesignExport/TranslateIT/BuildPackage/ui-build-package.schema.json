@@ -12,7 +12,8 @@
       "type": "object",
       "properties": {
         "figmaPage": { "type": "string" },
-        "importRun": { "type": "string" }
+        "importRun": { "type": "string" },
+        "exportedRoot": { "type": "string" }
       }
     },
     "target": {
@@ -37,7 +38,8 @@
             "type": "object",
             "properties": {
               "name": { "type": "string" },
-              "componentName": { "type": "string" }
+              "componentName": { "type": "string" },
+              "svg": { "type": "string" }
             }
           }
         }
