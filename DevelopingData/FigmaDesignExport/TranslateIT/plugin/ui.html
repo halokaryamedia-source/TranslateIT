@@ -41,14 +41,14 @@
       </div>
     </div>
 
-    <p class="sub">Paste a website address, import it with Inspector Tree mode, then export the UI Build Package JSON.</p>
+    <p class="sub">Paste a website address, compile its HTML/CSS source bundle, then export the UI Build Package JSON.</p>
 
     <section class="card">
       <div class="card-header"><h2 class="card-title">Import Data</h2><span class="badge">1</span></div>
       <div class="card-body">
         <input id="sourceUrl" class="source-input" placeholder="Paste website address, e.g. https://example.com" />
         <button id="importData" class="primary">Import Data</button>
-        <div class="helper">Local Render Bridge must be running at http://127.0.0.1:8844. This mode uses real DOM hierarchy, computed CSS, text ranges, and image assets.</div>
+        <div class="helper">Local Source Bundle Compiler must be running at http://127.0.0.1:8844. This mode downloads HTML, linked CSS, and image assets, then rebuilds semantic Figma structure.</div>
       </div>
     </section>
 
@@ -76,16 +76,16 @@
       var url = normalizeUrl(el('sourceUrl').value);
       if (!url) { setStatus('Paste a website address first.'); return; }
       setBusy(true);
-      setStatus('Rendering website with local Inspector Tree Bridge...\n' + url);
+      setStatus('Downloading HTML/CSS source bundle...\n' + url);
       fetch('http://127.0.0.1:8844/render?url=' + encodeURIComponent(url))
         .then(function (response) { if (!response.ok) throw new Error('Bridge HTTP ' + response.status); return response.json(); })
         .then(function (payload) {
-          setStatus('Bridge ready.\nMode: ' + (payload.mode || 'unknown') + '\nImporting DOM tree into Figma...');
-          send('import-inspector-tree', { payload: payload });
+          setStatus('Source bundle ready.\nMode: ' + (payload.mode || 'unknown') + '\nNodes: ' + ((payload.source && payload.source.nodeCount) || 0) + '\nCSS files: ' + (((payload.source && payload.source.cssFiles) || []).length) + '\nImporting into Figma...');
+          send('import-source-bundle', { payload: payload });
         })
         .catch(function (error) {
           setBusy(false);
-          setStatus('Render Bridge failed.\nMake sure the local bridge is running, then try again.\n\n' + (error && error.message ? error.message : error));
+          setStatus('Source Bundle Compiler failed.\nMake sure the local bridge is running, then try again.\n\n' + (error && error.message ? error.message : error));
         });
     };
 
