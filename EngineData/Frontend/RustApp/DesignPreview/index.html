@@ -3,47 +3,237 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>TranslateIT Locked UI Template</title>
+  <title>TranslateIT DesignPreview / UI Source of Truth</title>
   <link rel="stylesheet" href="ui-tokens.css" />
   <link rel="stylesheet" href="ui-components.css" />
   <link rel="stylesheet" href="ui-templates.css" />
 </head>
 <body>
   <main class="ti-preview-stage">
-    <section>
-      <h1 style="margin:0;color:var(--ti-text);font-size:32px;letter-spacing:-.04em;">01 Components</h1>
-      <p style="margin:8px 0 32px;color:var(--ti-muted);font-size:12px;">Reusable primitives. Every app screen must reuse these classes.</p>
-      <div style="display:grid;grid-template-columns:360px 360px 360px;gap:42px;align-items:start;">
-        <article>
-          <h2 style="margin:0 0 16px;font-size:18px;">Shell / Navigation</h2>
+    <header class="ti-preview-header">
+      <h1>TranslateIT UI DesignPreview</h1>
+      <p>This board is the design-review source before any Tauri sync. Repeated structures are generated from shared template data in this file and styled only through <code>ui-tokens.css</code>, <code>ui-components.css</code>, and <code>ui-templates.css</code>.</p>
+      <div class="ti-preview-note">Branch target for this pass: <strong>V1-Pull</strong>. Scope: <strong>EngineData/Frontend/RustApp/DesignPreview/</strong>. V1 and the main Tauri UI are intentionally untouched.</div>
+    </header>
+
+    <section class="ti-preview-section" aria-labelledby="components-title">
+      <div class="ti-preview-section-title">
+        <h2 id="components-title">01 Component Library</h2>
+        <p>Reusable primitives. Page templates may compose these classes, but must not create visual forks per screen.</p>
+      </div>
+
+      <div class="ti-component-grid">
+        <article class="ti-component-card">
+          <h3>Tokens / Surface System</h3>
+          <div class="ti-token-list">
+            <div class="ti-token-row"><span class="ti-token-swatch" style="background:var(--ti-bg)"></span><strong>--ti-bg</strong><span>#050609</span></div>
+            <div class="ti-token-row"><span class="ti-token-swatch" style="background:var(--ti-shell)"></span><strong>--ti-shell</strong><span>Sidebar</span></div>
+            <div class="ti-token-row"><span class="ti-token-swatch" style="background:var(--ti-surface-1)"></span><strong>--ti-surface-1</strong><span>Base card</span></div>
+            <div class="ti-token-row"><span class="ti-token-swatch" style="background:var(--ti-surface-2)"></span><strong>--ti-surface-2</strong><span>Raised card</span></div>
+            <div class="ti-token-row"><span class="ti-token-swatch" style="background:var(--ti-accent)"></span><strong>--ti-accent</strong><span>Neutral light</span></div>
+          </div>
+          <p>Dark desktop direction stays restrained: neutral surfaces, low saturation, and one accent family.</p>
+        </article>
+
+        <article class="ti-component-card">
+          <h3>Main Sidebar / Nav</h3>
           <div class="ti-brand"><div class="ti-brand-mark">T</div><div><h1>TRANSLATEIT</h1><p>Local voice translation</p></div></div>
           <button class="ti-new-chat"><span class="ti-icon">+</span><span>New Chat</span></button>
-          <div class="ti-nav-stack" style="margin-top:18px;"><button class="ti-nav-item is-active"><span>◷</span><span>Recent Chat</span><span>›</span></button><button class="ti-nav-item"><span>□</span><span>Unsaved Chat</span><span>›</span></button></div>
+          <div class="ti-nav-stack" style="margin-top:0;flex:none;">
+            <p class="ti-nav-heading">Recent Chat</p>
+            <button class="ti-nav-item is-active"><span>◷</span><span>Recent Chat</span><span>›</span></button>
+            <button class="ti-nav-item"><span>□</span><span>Unsaved Chat</span><span>›</span></button>
+          </div>
         </article>
-        <article>
-          <h2 style="margin:0 0 16px;font-size:18px;">Controls</h2>
-          <button class="ti-primary-button">Run Checking</button><button class="ti-secondary-button" style="margin-left:10px;">Save Default</button>
-          <div class="ti-field" style="margin-top:22px;"><h3>Microphone</h3><button class="ti-select"><span>Default Microphone</span><span>›</span></button></div>
-          <div class="ti-meter" style="margin-top:22px;"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></div>
+
+        <article class="ti-component-card">
+          <h3>Controls</h3>
+          <div style="display:flex;gap:12px;flex-wrap:wrap;">
+            <button class="ti-primary-button">Save Settings</button>
+            <button class="ti-secondary-button">Reset</button>
+            <button class="ti-ghost-button">Cancel</button>
+          </div>
+          <div class="ti-field">
+            <h3>Microphone</h3>
+            <p>Shared select field with one visual treatment.</p>
+            <button class="ti-select"><span>Default Microphone</span><span>›</span></button>
+          </div>
+          <div class="ti-meter" aria-label="voice meter"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></div>
         </article>
-        <article>
-          <h2 style="margin:0 0 16px;font-size:18px;">Cards</h2>
-          <article class="ti-card ti-feature-card" style="width:340px;min-height:170px;"><div class="ti-feature-title"><span>⌨</span><h4>Text input</h4></div><p>Type or paste Indonesian text and get an English translation.</p></article>
-          <article class="ti-card ti-assistant-card" style="width:340px;"><div class="ti-mini-brand">T</div><div><strong>TranslateIT</strong><p>Local runtime status appears here.</p></div></article>
+      </div>
+
+      <div class="ti-component-grid ti-component-grid--wide">
+        <article class="ti-component-card">
+          <h3>Card / Translation Result</h3>
+          <article class="ti-card ti-translation-result">
+            <header><h4><span>文</span> Translation result</h4><div class="ti-result-actions"><button>Copy</button><button>Save</button></div></header>
+            <div class="ti-result-grid">
+              <div class="ti-result-block"><strong>Indonesian</strong><p>Selamat pagi, saya ingin memulai terjemahan suara lokal.</p></div>
+              <div class="ti-result-block"><strong>English</strong><p>Good morning, I want to start local voice translation.</p></div>
+            </div>
+          </article>
+        </article>
+
+        <article class="ti-component-card">
+          <h3>Composer / Toast / Log</h3>
+          <div class="ti-composer" style="width:100%;grid-template-columns:44px 1px minmax(0,1fr) 52px 52px;"><button class="ti-icon-button">+</button><textarea placeholder="Ask anything..."></textarea><button class="ti-icon-button">mic</button><button class="ti-send-button">↑</button></div>
+          <div style="display:grid;grid-template-columns:330px minmax(0,1fr);gap:16px;align-items:start;">
+            <div class="ti-toast"><span class="ti-state-dot"></span><div><strong>Runtime checking</strong><p>Local speech and translation engines are warming up.</p></div></div>
+            <div class="ti-log-panel"><div class="ti-log-header"><strong>Developer log</strong><span>local</span></div><div class="ti-log-body"><div class="ti-log-row"><strong>INFO</strong><span>Audio device profile loaded.</span></div><div class="ti-log-row"><strong>OK</strong><span>Translation queue is idle.</span></div></div></div>
+          </div>
         </article>
       </div>
     </section>
 
-    <section>
-      <h1 style="margin:0;color:var(--ti-text);font-size:32px;letter-spacing:-.04em;">02 UI Templates</h1>
-      <p style="margin:8px 0 56px;color:var(--ti-muted);font-size:12px;">One shell, one settings sidebar, one card system. State changes use modifier classes only.</p>
+    <section class="ti-preview-section" aria-labelledby="main-title">
+      <div class="ti-preview-section-title">
+        <h2 id="main-title">02 Main Shell Templates</h2>
+        <p>Default, recording, result, and empty states reuse the same sidebar, topbar, hero width, card system, and composer position.</p>
+      </div>
+      <div id="main-template-gallery" class="ti-preview-row"></div>
+    </section>
+
+    <section class="ti-preview-section" aria-labelledby="settings-title">
+      <div class="ti-preview-section-title">
+        <h2 id="settings-title">03 Settings Templates</h2>
+        <p>General, Audio, Translate, and Developer are generated from one settings shell and one settings sidebar template. Only active state and content change.</p>
+      </div>
+      <div id="settings-template-gallery" class="ti-preview-row ti-preview-row--settings"></div>
+    </section>
+
+    <section class="ti-preview-section" aria-labelledby="utility-title">
+      <div class="ti-preview-section-title">
+        <h2 id="utility-title">04 Utility States</h2>
+        <p>Warmup/loading and rule cards use the same token system and should be synced only after design approval.</p>
+      </div>
       <div class="ti-preview-row">
-        <article class="ti-preview-item ti-preview-item--main"><h2 class="ti-screen-title">MainPage / Default</h2><div class="ti-template-main" style="transform:scale(.43);"><iframe title="Main default" srcdoc='<!doctype html><html><head><link rel="stylesheet" href="ui-tokens.css"><link rel="stylesheet" href="ui-components.css"><link rel="stylesheet" href="ui-templates.css"></head><body><section class="ti-app-shell ti-app-shell--preview-main"><aside class="ti-sidebar"><section class="ti-brand"><div class="ti-brand-mark">T</div><div><h1>TRANSLATEIT</h1><p>Local voice translation</p></div></section><button class="ti-new-chat"><span>+</span><span>New Chat</span></button><nav class="ti-nav-stack"><p class="ti-nav-heading">Recent Chat</p><button class="ti-nav-item is-active"><span>◷</span><span>Recent Chat</span><span>›</span></button><button class="ti-nav-item"><span>□</span><span>Unsaved Chat</span><span>›</span></button><div class="ti-nav-divider"></div><p class="ti-nav-heading">Workspace</p><button class="ti-nav-item"><span>▣</span><span>Saved Chat</span><span>›</span></button><button class="ti-nav-item"><span>◇</span><span>Local Data</span><span>›</span></button></nav><section class="ti-account-card"><div class="ti-avatar">HK</div><div class="ti-account-text"><strong>Marcel Berc...</strong><span>Invisible</span></div><div class="ti-account-actions"><button class="ti-footer-icon is-danger">M</button><button class="ti-footer-dropdown is-danger">⌄</button><button class="ti-footer-icon is-danger">V</button><button class="ti-footer-dropdown is-danger">⌄</button><button class="ti-footer-icon">⚙</button></div></section></aside><section class="ti-workspace"><header class="ti-topbar"><div><h2>Voice translation</h2><p>Speak Indonesian. Get translated English voice output.</p></div><div class="ti-top-actions"><span class="ti-pill">ID &gt; EN</span><span class="ti-pill ti-record-pill"><i></i><strong>Ready</strong></span></div></header><section class="ti-hero"><span class="ti-kicker">Local-first voice translation</span><h3>How can I help translate today?</h3><p>Type a message, or press the microphone button on the right to record speech locally.</p><div class="ti-card-grid"><article class="ti-card ti-feature-card"><div class="ti-feature-title"><span>⌨</span><h4>Text input</h4></div><p>Type or paste Indonesian text and get an English translation in the conversation.</p></article><article class="ti-card ti-feature-card"><div class="ti-feature-title"><span>◉</span><h4>Voice input</h4></div><p>Press the microphone button. A recording indicator appears while voice capture is active.</p></article></div><article class="ti-card ti-assistant-card"><div class="ti-mini-brand">T</div><div><strong>TranslateIT</strong><p>Local runtime is checking. You can type text or record a clear voice sample after warmup.</p></div></article></section><section class="ti-composer-wrap"><div class="ti-composer"><button class="ti-icon-button">+</button><textarea placeholder="Ask anything..."></textarea><button class="ti-icon-button">mic</button><button class="ti-send-button">↑</button></div><p class="ti-composer-help">Type a message, or press the microphone button on the right to record speech locally.</p></section></section></section></body></html>'></iframe></div></article>
-        <article class="ti-preview-item ti-preview-item--main"><h2 class="ti-screen-title">MainPage / Recording</h2><div class="ti-template-main" style="transform:scale(.43);"><iframe title="Recording" srcdoc='<!doctype html><html><head><link rel="stylesheet" href="ui-tokens.css"><link rel="stylesheet" href="ui-components.css"><link rel="stylesheet" href="ui-templates.css"></head><body><section class="ti-app-shell ti-app-shell--preview-main ti-state-recording"><aside class="ti-sidebar"><section class="ti-brand"><div class="ti-brand-mark">T</div><div><h1>TRANSLATEIT</h1><p>Local voice translation</p></div></section><button class="ti-new-chat"><span>+</span><span>New Chat</span></button><nav class="ti-nav-stack"><p class="ti-nav-heading">Recent Chat</p><button class="ti-nav-item is-active"><span>◷</span><span>Recent Chat</span><span>›</span></button><button class="ti-nav-item"><span>□</span><span>Unsaved Chat</span><span>›</span></button><div class="ti-nav-divider"></div><p class="ti-nav-heading">Workspace</p><button class="ti-nav-item"><span>▣</span><span>Saved Chat</span><span>›</span></button><button class="ti-nav-item"><span>◇</span><span>Local Data</span><span>›</span></button></nav><section class="ti-account-card"><div class="ti-avatar">HK</div><div class="ti-account-text"><strong>Marcel Berc...</strong><span>Invisible</span></div><div class="ti-account-actions"><button class="ti-footer-icon is-danger">M</button><button class="ti-footer-dropdown is-danger">⌄</button><button class="ti-footer-icon is-danger">V</button><button class="ti-footer-dropdown is-danger">⌄</button><button class="ti-footer-icon">⚙</button></div></section></aside><section class="ti-workspace"><header class="ti-topbar"><div><h2>Voice translation</h2><p>Speak Indonesian. Get translated English voice output.</p></div><div class="ti-top-actions"><span class="ti-pill">ID &gt; EN</span><span class="ti-pill ti-record-pill is-recording"><i></i><strong>Recording</strong></span></div></header><section class="ti-hero"><span class="ti-kicker">Local-first voice translation</span><h3>Listening locally...</h3><p>Recording state uses the same shell and only changes state content.</p><div class="ti-card-grid"><article class="ti-card ti-feature-card"><div class="ti-feature-title"><span>⌨</span><h4>Text input</h4></div><p>Type or paste Indonesian text and get an English translation in the conversation.</p></article><article class="ti-card ti-feature-card"><div class="ti-feature-title"><span>◉</span><h4>Voice input</h4></div><p>Press the microphone button. A recording indicator appears while voice capture is active.</p></article></div><article class="ti-card ti-assistant-card"><div class="ti-mini-brand">T</div><div><strong>TranslateIT</strong><p>Recording is active. Speak clearly, then press the microphone again to stop.</p></div></article></section><section class="ti-composer-wrap"><div class="ti-composer"><button class="ti-icon-button">+</button><textarea placeholder="Ask anything..."></textarea><button class="ti-icon-button">mic</button><button class="ti-send-button">↑</button></div><p class="ti-composer-help">Type a message, or press the microphone button on the right to record speech locally.</p></section></section></section></body></html>'></iframe></div></article>
-        <article class="ti-preview-item ti-preview-item--main"><h2 class="ti-screen-title">Settings / General</h2><div class="ti-template-settings" style="transform:scale(.59);"><iframe title="Settings general" srcdoc='<!doctype html><html><head><link rel="stylesheet" href="ui-tokens.css"><link rel="stylesheet" href="ui-components.css"><link rel="stylesheet" href="ui-templates.css"></head><body><section class="ti-app-shell ti-app-shell--settings"><aside class="ti-settings-sidebar"><h2>Settings</h2><nav class="ti-settings-nav"><button class="ti-nav-item is-active"><span>≡</span><span>General</span></button><button class="ti-nav-item"><span>◉</span><span>Audio</span></button><button class="ti-nav-item"><span>文</span><span>Translate</span></button><button class="ti-nav-item"><span>{ }</span><span>Developer</span></button></nav></aside><section class="ti-settings-workspace"><header class="ti-settings-topbar"><button class="ti-back-button">← <span>Back</span></button></header><div class="ti-settings-scroll"><section class="ti-settings-view"><header class="ti-settings-title"><h2>General</h2><p>Basic launcher and local runtime preferences.</p></header><article class="ti-settings-card ti-settings-card--primary"><div class="ti-settings-grid"><div class="ti-field"><h3>Runtime Profile</h3><button class="ti-select"><span>Realtime</span><span>›</span></button></div><div class="ti-field"><h3>Language Focus</h3><button class="ti-select"><span>ID/EN Focus</span><span>›</span></button></div><div class="ti-field"><h3>Realtime / Latency</h3><button class="ti-select"><span>Checking</span><span>›</span></button></div><div class="ti-field"><h3>GPU Policy</h3><button class="ti-select"><span>Checking</span><span>›</span></button></div></div><div class="ti-card-actions"><button class="ti-primary-button">Save Settings</button><button class="ti-secondary-button">Reset Settings</button></div></article></section></div></section></section></body></html>'></iframe></div></article>
+        <article class="ti-preview-item">
+          <h3 class="ti-screen-title">Warmup / Loading</h3>
+          <div class="ti-preview-frame ti-preview-frame--utility"><div class="ti-stage-frame ti-stage-frame--utility"><section class="ti-warmup-shell"><article class="ti-warmup-card"><div class="ti-warmup-brand"><div class="ti-mini-brand">T</div><div><strong>Starting TranslateIT</strong><span>Checking local runtime and audio devices</span></div></div><div class="ti-progress"><i></i></div><p>Keep this state minimal. It should not introduce a separate visual direction or extra layout system.</p></article></section></div></div>
+        </article>
+        <article class="ti-preview-item">
+          <h3 class="ti-screen-title">Template Rules / Sync Gate</h3>
+          <div class="ti-preview-frame ti-preview-frame--utility"><div class="ti-stage-frame ti-stage-frame--utility" style="padding:110px;"><div style="display:grid;grid-template-columns:repeat(2,1fr);gap:24px;"><article class="ti-template-rule-card"><strong>Do not redraw</strong><p>Every preview must come from DesignPreview source, not manual image composition.</p></article><article class="ti-template-rule-card"><strong>Do not fork sidebars</strong><p>Main sidebar and settings sidebar each have a single structure and class system.</p></article><article class="ti-template-rule-card"><strong>State modifiers only</strong><p>Recording, result, loading, and empty states change content/status without moving the shell.</p></article><article class="ti-template-rule-card"><strong>No Tauri sync yet</strong><p>Sync to the real app only after explicit user approval.</p></article></div></div></div>
+        </article>
       </div>
     </section>
   </main>
-  <style>iframe{width:1440px;height:900px;border:0;background:var(--ti-bg);} .ti-template-settings iframe{height:640px;}</style>
+
+  <template id="ti-main-sidebar-template">
+    <aside class="ti-sidebar">
+      <section class="ti-brand"><div class="ti-brand-mark">T</div><div><h1>TRANSLATEIT</h1><p>Local voice translation</p></div></section>
+      <button class="ti-new-chat"><span>+</span><span>New Chat</span></button>
+      <nav class="ti-nav-stack">
+        <p class="ti-nav-heading">Recent Chat</p>
+        <button class="ti-nav-item is-active"><span>◷</span><span>Recent Chat</span><span>›</span></button>
+        <button class="ti-nav-item"><span>□</span><span>Unsaved Chat</span><span>›</span></button>
+        <div class="ti-nav-divider"></div>
+        <p class="ti-nav-heading">Workspace</p>
+        <button class="ti-nav-item"><span>▣</span><span>Saved Chat</span><span>›</span></button>
+        <button class="ti-nav-item"><span>◇</span><span>Local Data</span><span>›</span></button>
+      </nav>
+      <section class="ti-account-card"><div class="ti-avatar">HK</div><div class="ti-account-text"><strong>Marcel Berc...</strong><span>Invisible</span></div><div class="ti-account-actions"><button class="ti-footer-icon is-danger">M</button><button class="ti-footer-dropdown is-danger">⌄</button><button class="ti-footer-icon is-danger">V</button><button class="ti-footer-dropdown is-danger">⌄</button><button class="ti-footer-icon">⚙</button></div></section>
+    </aside>
+  </template>
+
+  <template id="ti-settings-sidebar-template">
+    <aside class="ti-settings-sidebar">
+      <h2>Settings</h2>
+      <nav class="ti-settings-nav" data-settings-nav></nav>
+    </aside>
+  </template>
+
+  <script>
+    const mainScreens = [
+      { id: 'default', title: 'MainPage / Default', shellClass: '', status: 'Ready', heading: 'How can I help translate today?', body: 'Type a message, or press the microphone button on the right to record speech locally.', assistant: 'Local runtime is checking. You can type text or record a clear voice sample after warmup.' },
+      { id: 'recording', title: 'MainPage / Recording', shellClass: 'ti-state-recording', status: 'Recording', heading: 'Listening locally...', body: 'Recording state uses the same shell and only changes status, copy, and assistant feedback.', assistant: 'Recording is active. Speak clearly, then press the microphone again to stop.' },
+      { id: 'result', title: 'MainPage / Translation Result', shellClass: 'ti-state-result', status: 'Result ready', heading: 'Translation is ready', body: 'The result state keeps the main shell, then replaces the suggestion cards with a result card.', assistant: 'Result saved locally only when the user chooses Save.', result: true },
+      { id: 'empty', title: 'MainPage / Empty Recent', shellClass: 'ti-state-empty', status: 'Ready', heading: 'No recent translations yet', body: 'Empty states stay quiet and centered inside the same main page hierarchy.', assistant: 'Start a new translation by typing text or recording voice.', empty: true }
+    ];
+
+    const settingsNav = [
+      ['general', '≡', 'General'],
+      ['audio', '◉', 'Audio'],
+      ['translate', '文', 'Translate'],
+      ['developer', '{ }', 'Developer']
+    ];
+
+    const settingsScreens = [
+      { id: 'general', title: 'Settings / General', description: 'Basic launcher and local runtime preferences.' },
+      { id: 'audio', title: 'Settings / Audio', description: 'Input, output, and voice-capture device controls.' },
+      { id: 'translate', title: 'Settings / Translate', description: 'Language direction, output behavior, and translation defaults.' },
+      { id: 'developer', title: 'Settings / Developer', description: 'Diagnostics, local logs, and runtime checks.' }
+    ];
+
+    function mainSidebar() {
+      return document.getElementById('ti-main-sidebar-template').innerHTML;
+    }
+
+    function settingsSidebar(active) {
+      const shell = document.getElementById('ti-settings-sidebar-template').content.cloneNode(true);
+      const nav = shell.querySelector('[data-settings-nav]');
+      settingsNav.forEach(([id, icon, label]) => {
+        const item = document.createElement('button');
+        item.className = `ti-nav-item${id === active ? ' is-active' : ''}`;
+        item.innerHTML = `<span>${icon}</span><span>${label}</span>`;
+        nav.appendChild(item);
+      });
+      const holder = document.createElement('div');
+      holder.appendChild(shell);
+      return holder.innerHTML;
+    }
+
+    function featureCards() {
+      return `<div class="ti-card-grid"><article class="ti-card ti-feature-card"><div class="ti-feature-title"><span>⌨</span><h4>Text input</h4></div><p>Type or paste Indonesian text and get an English translation in the conversation.</p></article><article class="ti-card ti-feature-card"><div class="ti-feature-title"><span>◉</span><h4>Voice input</h4></div><p>Press the microphone button. A recording indicator appears while voice capture is active.</p></article></div>`;
+    }
+
+    function resultCard() {
+      return `<div class="ti-card-grid"><article class="ti-card ti-translation-result"><header><h4><span>文</span> Translation result</h4><div class="ti-result-actions"><button>Copy</button><button>Save</button></div></header><div class="ti-result-grid"><div class="ti-result-block"><strong>Indonesian</strong><p>Selamat pagi, saya ingin memulai terjemahan suara lokal.</p></div><div class="ti-result-block"><strong>English</strong><p>Good morning, I want to start local voice translation.</p></div></div></article></div>`;
+    }
+
+    function emptyCard() {
+      return `<article class="ti-empty-card"><h4>No recent translation</h4><p>Recent and saved screens use the same empty-state card so the app feels consistent even without data.</p></article>`;
+    }
+
+    function mainWorkspace(screen) {
+      const recordClass = screen.id === 'recording' ? ' is-recording' : '';
+      const content = screen.result ? resultCard() : screen.empty ? emptyCard() : featureCards();
+      return `<section class="ti-workspace"><header class="ti-topbar"><div><h2>Voice translation</h2><p>Speak Indonesian. Get translated English voice output.</p></div><div class="ti-top-actions"><span class="ti-pill">ID &gt; EN</span><span class="ti-pill ti-record-pill${recordClass}"><i></i><strong>${screen.status}</strong></span></div></header><section class="ti-hero"><span class="ti-kicker">Local-first voice translation</span><h3>${screen.heading}</h3><p>${screen.body}</p>${content}<article class="ti-card ti-assistant-card"><div class="ti-mini-brand">T</div><div><strong>TranslateIT</strong><p>${screen.assistant}</p></div></article></section><section class="ti-composer-wrap"><div class="ti-composer"><button class="ti-icon-button">+</button><textarea placeholder="Ask anything..."></textarea><button class="ti-icon-button">mic</button><button class="ti-send-button">↑</button></div><p class="ti-composer-help">Type a message, or press the microphone button on the right to record speech locally.</p></section></section>`;
+    }
+
+    function mainShell(screen) {
+      return `<section class="ti-app-shell ti-app-shell--preview-main ${screen.shellClass}">${mainSidebar()}${mainWorkspace(screen)}</section>`;
+    }
+
+    function settingsContent(id) {
+      if (id === 'audio') {
+        return `<article class="ti-settings-card ti-settings-card--audio"><div class="ti-settings-grid"><div class="ti-field"><h3>Input Device</h3><p>Default microphone for recording.</p><button class="ti-select"><span>Default Microphone</span><span>›</span></button></div><div class="ti-field"><h3>Output Device</h3><p>Speaker used for translated voice.</p><button class="ti-select"><span>System Output</span><span>›</span></button></div><div class="ti-field"><h3>Noise Gate</h3><p>Reduce low-level room noise.</p><button class="ti-select"><span>Balanced</span><span>›</span></button></div><div class="ti-field"><h3>Voice Meter</h3><p>Preview current capture level.</p><div class="ti-meter"><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span></div></div></div></article><article class="ti-settings-card ti-settings-card--compact"><div class="ti-output-row"><span>◉</span><div><h3>Auto stop recording</h3><p>Stop after silence is detected.</p></div><span class="ti-toggle is-active"><i></i></span></div></article>`;
+      }
+      if (id === 'translate') {
+        return `<article class="ti-settings-card ti-settings-card--language"><div class="ti-language-grid"><div class="ti-field"><h3>Source Language</h3><button class="ti-select"><span>Indonesian</span><span>›</span></button></div><button class="ti-swap-button">⇄</button><div class="ti-field"><h3>Target Language</h3><button class="ti-select"><span>English</span><span>›</span></button></div></div></article><article class="ti-settings-card ti-settings-card--compact"><div class="ti-output-row"><span>▣</span><div><h3>Save translation result</h3><p>Ask before saving translated text to local data.</p></div><span class="ti-toggle"><i></i></span></div></article><article class="ti-settings-card ti-settings-card--compact"><button class="ti-radio-row is-active"><span></span><strong>Balanced translation</strong><em>Keep meaning accurate while sounding natural.</em></button></article>`;
+      }
+      if (id === 'developer') {
+        return `<article class="ti-settings-card ti-settings-card--developer-monitoring"><div class="ti-settings-grid ti-settings-grid--compact"><div class="ti-field"><h3>Runtime Check</h3><p>Inspect local speech and translation engine status.</p><button class="ti-select"><span>Checking</span><span>›</span></button></div><div class="ti-field"><h3>GPU Policy</h3><p>Show actual backend selection. Do not claim GPU use without evidence.</p><button class="ti-select"><span>Verify on launch</span><span>›</span></button></div></div><div class="ti-card-actions"><button class="ti-primary-button">Run Checking</button><button class="ti-secondary-button">Export Log</button></div></article><article class="ti-settings-card ti-settings-card--developer-log"><div class="ti-log-panel"><div class="ti-log-header"><strong>Runtime log</strong><span>local only</span></div><div class="ti-log-body"><div class="ti-log-row"><strong>INFO</strong><span>Audio profile loaded.</span></div><div class="ti-log-row"><strong>WARN</strong><span>Translation model not verified yet.</span></div><div class="ti-log-row"><strong>OK</strong><span>UI preview source is DesignPreview.</span></div></div></div></article>`;
+      }
+      return `<article class="ti-settings-card ti-settings-card--primary"><div class="ti-settings-grid"><div class="ti-field"><h3>Runtime Profile</h3><button class="ti-select"><span>Realtime</span><span>›</span></button></div><div class="ti-field"><h3>Language Focus</h3><button class="ti-select"><span>ID/EN Focus</span><span>›</span></button></div><div class="ti-field"><h3>Realtime / Latency</h3><button class="ti-select"><span>Balanced</span><span>›</span></button></div><div class="ti-field"><h3>GPU Policy</h3><button class="ti-select"><span>Verify on launch</span><span>›</span></button></div></div><div class="ti-card-actions"><button class="ti-primary-button">Save Settings</button><button class="ti-secondary-button">Reset Settings</button></div></article><section class="ti-section-title"><h2>Local data</h2><p>Keep local-first controls in the same card system.</p></section><article class="ti-empty-card"><h4>No saved default yet</h4><p>Defaults can be saved after runtime checking passes.</p></article>`;
+    }
+
+    function settingsShell(screen) {
+      return `<section class="ti-app-shell ti-app-shell--settings ti-app-shell--preview-settings">${settingsSidebar(screen.id)}<section class="ti-settings-workspace"><header class="ti-settings-topbar"><button class="ti-back-button">← <span>Back</span></button></header><div class="ti-settings-scroll"><section class="ti-settings-view"><header class="ti-settings-title"><h2>${screen.title.replace('Settings / ', '')}</h2><p>${screen.description}</p></header>${settingsContent(screen.id)}</section></div></section></section>`;
+    }
+
+    function mountGallery(targetId, screens, type, render) {
+      const target = document.getElementById(targetId);
+      screens.forEach((screen) => {
+        const article = document.createElement('article');
+        article.className = 'ti-preview-item';
+        article.innerHTML = `<h3 class="ti-screen-title">${screen.title}</h3><div class="ti-preview-frame ti-preview-frame--${type}"><div class="ti-stage-frame ti-stage-frame--${type}">${render(screen)}</div></div>`;
+        target.appendChild(article);
+      });
+    }
+
+    mountGallery('main-template-gallery', mainScreens, 'main', mainShell);
+    mountGallery('settings-template-gallery', settingsScreens, 'settings', settingsShell);
+  </script>
 </body>
 </html>
