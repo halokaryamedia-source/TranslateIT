@@ -1,87 +1,68 @@
 # TranslateIT DesignPreview
 
-Status: design-review source only. This folder is not the final Tauri launcher and must not be treated as approved UI until the user approves the rendered preview.
+Status: design-review source only. This is not the final Tauri launcher and is not approved until the user approves the rendered HTML preview.
 
-Current working branch for this pass: `V1-Pull`.
+Working branch for this pass: `V1-Pull`.
 
 Protected branch: `V1` must not be edited, merged into, or described as updated unless the user explicitly asks.
 
-## Purpose
+## Reference lock
 
-This folder exists to prevent inconsistent UI previews. Every visual screen must be composed from the same tokens, components, and templates before it is copied into the real Tauri app.
+The UI framework in this folder is rebuilt from `Preview UI.zip` and follows these approved references:
 
-The preview board in `index.html` is intentionally generated from shared template data for repeated shells:
+- Main Page: `02_main_page_v28_reference.png`
+- Audio Settings: `03_audio_settings_v22_reference.png`
+- Translate Settings: `04_translate_settings_v14_reference.png`
+- Developer Settings: `05_developer_settings_v37_reference.png`
 
-- one main sidebar structure;
-- one settings sidebar structure;
-- one main workspace shell;
-- one settings workspace shell;
-- state changes through modifier classes and content slots only.
+`Main Page v29` is intentionally not used.
 
-## Files
+## Folder structure
 
-- `index.html` — component library and template gallery rendered from reusable preview templates.
-- `ui-tokens.css` — single source of visual tokens: color, spacing, radius, sizing, typography, desktop dimensions.
-- `ui-components.css` — reusable UI primitives: sidebar, nav item, cards, buttons, selects, composer, settings shell, log panel, toast, meter, result card.
-- `ui-templates.css` — page-level templates and state modifiers: main states, settings states, warmup, empty states, scaled preview frames.
-- `icons.svg` — local icon registry. Text symbols may be used in the preview when the design decision is not icon-specific.
+```txt
+DesignPreview/
+├─ index.html
+├─ README.md
+├─ icons.svg
+├─ reference/
+│  ├─ README.md
+│  └─ ui-reference.manifest.json
+└─ framework/
+   ├─ 00-reset.css
+   ├─ 01-tokens.css
+   ├─ 02-layout.css
+   ├─ 03-components.css
+   ├─ 04-patterns.css
+   ├─ 05-templates.css
+   └─ 06-preview-board.css
+```
 
-## Locked visual direction
+## Naming system
 
-The design follows the approved dark desktop direction: professional, clean, simple, low-noise, and neutral. Do not introduce a separate style direction for individual pages.
+- `ti-l-*` = layout shell and structural layout.
+- `ti-c-*` = reusable component.
+- `ti-p-*` = repeated composed pattern.
+- `ti-t-*` = full screen template.
+- `ti-v-*` = preview board only.
+- `is-*` = state class.
+- `has-*` = condition/state class.
 
-Critical locked rules:
+## Icon rule
 
-1. Main page recording state must reuse the same main shell.
-   - Do not move the sidebar.
-   - Do not move the composer.
-   - Do not resize the main hero/card area.
-   - Only state indicator, copy, and state content may change.
+All repeated app icons must come from `icons.svg` and use `.ti-c-icon`.
 
-2. Settings sidebar must be identical across settings screens.
-   - Use one settings sidebar template.
-   - Do not create a new sidebar per tab.
-   - Do not create alternate settings navigation classes.
-   - Only the active state may change per tab.
+Do not use random emoji, text symbols, or one-off icon markup for repeated UI icons.
 
-3. Repeated UI must use shared components.
-   - Cards use `.ti-card` variants.
-   - Navigation uses `.ti-nav-item`.
-   - Buttons use `.ti-primary-button`, `.ti-secondary-button`, `.ti-ghost-button`, `.ti-danger-button`, or `.ti-chip-button`.
-   - Inputs use `.ti-select` or `.ti-composer`.
-   - Settings pages use `.ti-app-shell--settings`, `.ti-settings-sidebar`, `.ti-settings-workspace`, `.ti-settings-scroll`, `.ti-settings-view`.
-   - Main states use `.ti-state-recording`, `.ti-state-result`, `.ti-state-empty`, or future state modifier classes.
+## Cleanup rule
 
-4. Page templates must be reviewed in DesignPreview before syncing to Tauri.
-   - Do not patch `EngineData/Frontend/RustApp` UI runtime directly from an unapproved preview.
-   - Do not claim the UI is final or approved until the user explicitly approves.
+The old mixed preview files are removed from the active DesignPreview framework:
 
-## Template coverage in this pass
+- `ui-tokens.css`
+- `ui-components.css`
+- `ui-templates.css`
 
-The preview board currently covers:
+The active framework is under `framework/` only.
 
-- component library primitives;
-- MainPage / Default;
-- MainPage / Recording;
-- MainPage / Translation Result;
-- MainPage / Empty Recent;
-- Settings / General;
-- Settings / Audio;
-- Settings / Translate;
-- Settings / Developer;
-- Warmup / Loading;
-- Template Rules / Sync Gate.
+## Sync rule
 
-## Workflow
-
-1. Build or update template in `DesignPreview` first.
-2. Render `DesignPreview/index.html`.
-3. Compare layout hierarchy, spacing, component consistency, and state behavior.
-4. User reviews the rendered preview.
-5. Only after approval, sync the same token/component/template structure into the Tauri launcher.
-
-## Invalid evidence
-
-Manual redraw images are not valid evidence.
-
-Valid evidence must come from rendered HTML in this folder or from the actual Tauri app.
+Do not sync this UI into the Tauri app until the user explicitly approves the rendered DesignPreview output.
