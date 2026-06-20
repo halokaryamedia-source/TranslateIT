@@ -6,7 +6,7 @@ const PORT = Number(process.env.TRANSLATEIT_RENDER_PORT || 8844);
 const IDLE_EXIT_MS = Number(process.env.TRANSLATEIT_RENDER_IDLE_EXIT_MS || 180000);
 const VIEWPORT = { width: 1440, height: 1600 };
 const MAX_LAYERS = 900;
-const MODE = 'universal-page-adapter-v5';
+const MODE = 'universal-page-adapter-v6';
 
 let idleTimer = null;
 let activeJobs = 0;
@@ -123,8 +123,7 @@ async function extractUniversalPage(page) {
   }
   payload.sections = clusterSections(payload.layers, payload.viewport, payload.pageHeight);
   return payload;
-}
-async function compile(target) {
+}\nasync function compile(target) {
   const targetUrl = normalizeUrl(target);
   if (!targetUrl) throw new Error('Missing url query parameter.');
   const browser = await getBrowser();
@@ -138,7 +137,7 @@ async function compile(target) {
     const extracted = await extractUniversalPage(page);
     const shot = await page.screenshot({ type: 'png', fullPage: true });
     const componentCount = extracted.sections.reduce((sum, section) => sum + ((section.components || []).length), 0);
-    return { ok: true, mode: MODE, adapter: 'universal-page-production-hybrid', capturedAt: new Date().toISOString(), title: extracted.title, url: extracted.url, viewport: extracted.viewport, pageHeight: extracted.pageHeight, screenshot: { contentType: 'image/png', base64: shot.toString('base64'), width: extracted.viewport.width, height: extracted.pageHeight }, layers: extracted.layers, sections: extracted.sections, html: extracted.html, diagnostics: { layerCount: extracted.layers.length, sectionCount: extracted.sections.length, componentCount, imageCount: extracted.layers.filter((x) => x.type === 'image').length, textCount: extracted.layers.filter((x) => x.type === 'text').length }, warnings: ['Universal Page Adapter V5 supplies screenshot, layer, section, and component data for Production Hybrid rendering.', 'Target 9+ visual score is achieved through screenshot-backed production output, not pure editable reconstruction.'] };
+    return { ok: true, mode: MODE, adapter: 'universal-page-structured-ui-library', capturedAt: new Date().toISOString(), title: extracted.title, url: extracted.url, viewport: extracted.viewport, pageHeight: extracted.pageHeight, screenshot: { contentType: 'image/png', base64: shot.toString('base64'), width: extracted.viewport.width, height: extracted.pageHeight }, layers: extracted.layers, sections: extracted.sections, html: extracted.html, diagnostics: { layerCount: extracted.layers.length, sectionCount: extracted.sections.length, componentCount, imageCount: extracted.layers.filter((x) => x.type === 'image').length, textCount: extracted.layers.filter((x) => x.type === 'text').length }, warnings: ['V6 is structured UI library mode: screenshot is used as a production anchor only.', 'The goal is not screenshot-only visual tricking; output also includes extracted UI library and structured editable page.'] };
   } finally { await page.close(); }
 }
 server = http.createServer(async (req, res) => {
@@ -151,4 +150,4 @@ server = http.createServer(async (req, res) => {
   activeJobs += 1;
   try { json(res, 200, await compile(requestUrl.searchParams.get('url'))); } catch (error) { json(res, 500, { ok: false, error: error && error.stack ? error.stack : error && error.message ? error.message : String(error) }); } finally { activeJobs -= 1; resetIdleTimer(); }
 });
-server.listen(PORT, '127.0.0.1', () => { console.log(`TranslateIT Universal Page Adapter V5 running at http://127.0.0.1:${PORT}`); resetIdleTimer(); });
+server.listen(PORT, '127.0.0.1', () => { console.log(`TranslateIT Universal Page Adapter V6 running at http://127.0.0.1:${PORT}`); resetIdleTimer(); });
