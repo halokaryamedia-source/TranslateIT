@@ -1,0 +1,25 @@
+/* TranslateIT UI Framework / Preview Board only */
+.ti-v-board {
+  min-width: 1600px;
+  padding: 72px 80px 120px;
+  background: radial-gradient(circle at 44% 0%, rgba(31,38,52,.54), transparent 34%), var(--ti-color-canvas);
+}
+.ti-v-header { max-width: 1180px; margin-bottom: 58px; }
+.ti-v-header h1 { margin: 0; color: var(--ti-color-text-primary); font-size: 46px; line-height: 1.05; letter-spacing: -.045em; }
+.ti-v-header p { margin: 18px 0 0; color: var(--ti-color-text-muted); font-size: 15px; line-height: 1.65; }
+.ti-v-note { display: inline-flex; margin-top: 22px; border: 1px solid var(--ti-color-border); border-radius: var(--ti-radius-pill); padding: 10px 16px; color: var(--ti-color-text-secondary); background: var(--ti-color-surface-1); font-size: 12px; }
+.ti-v-section { display: grid; gap: 28px; margin-top: 76px; }
+.ti-v-section-title h2 { margin: 0; color: var(--ti-color-text-primary); font-size: 30px; letter-spacing: -.04em; }
+.ti-v-section-title p { margin: 10px 0 0; color: var(--ti-color-text-muted); font-size: 13px; line-height: 1.55; }
+.ti-v-component-grid { display: grid; grid-template-columns: repeat(3, 360px); gap: 24px; align-items: start; }
+.ti-v-component-card { display: grid; gap: 18px; min-height: 238px; border: 1px solid var(--ti-color-border-strong); border-radius: var(--ti-radius-lg); padding: 22px; background: var(--ti-color-surface-2); }
+.ti-v-component-card h3 { margin: 0; color: var(--ti-color-text-primary); font-size: 17px; letter-spacing: -.03em; }
+.ti-v-component-card p { margin: 0; color: var(--ti-color-text-muted); font-size: 11px; line-height: 1.55; }
+.ti-v-token-list { display: grid; gap: 10px; }
+.ti-v-token-row { display: grid; grid-template-columns: 24px minmax(0,1fr) auto; gap: 10px; align-items: center; color: var(--ti-color-text-muted); font-size: 11px; }
+.ti-v-token-swatch { width: 24px; height: 24px; border: 1px solid var(--ti-color-border-strong); border-radius: var(--ti-radius-xs); }
+.ti-v-screen-grid { display: grid; grid-template-columns: repeat(2, 1090px); gap: 72px 58px; align-items: start; }
+.ti-v-screen-card { display: grid; gap: 14px; }
+.ti-v-screen-card h3 { margin: 0; color: rgba(245,247,250,.62); font-size: 16px; letter-spacing: -.03em; }
+.ti-v-frame { width: 1076px; height: 605px; overflow: hidden; border: 1px solid var(--ti-color-border-soft); background: var(--ti-color-canvas); }
+.ti-v-frame .ti-l-screen { transform: scale(.42); transform-origin: top left; }
