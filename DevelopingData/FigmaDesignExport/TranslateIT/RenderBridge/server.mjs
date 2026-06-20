@@ -6,7 +6,7 @@ const PORT = Number(process.env.TRANSLATEIT_RENDER_PORT || 8844);
 const IDLE_EXIT_MS = Number(process.env.TRANSLATEIT_RENDER_IDLE_EXIT_MS || 180000);
 const VIEWPORT = { width: 1440, height: 1600 };
 const MAX_LAYERS = 900;
-const MODE = 'universal-page-adapter-v1.1';
+const MODE = 'universal-page-adapter-v2';
 
 let idleTimer = null;
 let activeJobs = 0;
@@ -23,10 +23,7 @@ function resetIdleTimer() {
   idleTimer = setTimeout(async () => {
     if (activeJobs > 0) return resetIdleTimer();
     try { if (browserPromise) await (await browserPromise).close(); } catch (_) {}
-    if (server) {
-      server.close(() => process.exit(0));
-      setTimeout(() => process.exit(0), 3000).unref();
-    }
+    if (server) { server.close(() => process.exit(0)); setTimeout(() => process.exit(0), 3000).unref(); }
   }, IDLE_EXIT_MS);
   idleTimer.unref();
 }
@@ -50,6 +47,51 @@ function union(rects) {
   const right = Math.max(...safe.map((r) => r.x + r.w));
   const bottom = Math.max(...safe.map((r) => r.y + r.h));
   return { x, y, w: right - x, h: bottom - y };
+}
+
+function expand(rect, pad) {
+  return { x: rect.x - pad, y: rect.y - pad, w: rect.w + pad * 2, h: rect.h + pad * 2 };
+}
+
+function overlaps(a, b) {
+  return a.x < b.x + b.w && a.x + a.w > b.x && a.y < b.y + b.h && a.y + a.h > b.y;
+}
+
+function componentName(members, index) {
+  const hasImage = members.some((l) => l.type === 'image');
+  const hasText = members.some((l) => l.type === 'text');
+  const hasButton = members.some((l) => l.role === 'button-bg' || l.role === 'button-label');
+  if (hasImage && hasText) return `Image Card ${String(index + 1).padStart(2, '0')}`;
+  if (hasButton) return `Button Group ${String(index + 1).padStart(2, '0')}`;
+  if (hasImage) return `Media ${String(index + 1).padStart(2, '0')}`;
+  if (hasText) return `Content Group ${String(index + 1).padStart(2, '0')}`;
+  return `Component ${String(index + 1).padStart(2, '0')}`;
+}
+
+function buildComponents(section) {
+  const layers = section.layers || [];
+  const used = new Set();
+  const components = [];
+  const candidates = layers
+    .filter((l) => l.type === 'image' || l.role === 'button-bg' || (l.type === 'box' && l.rect.w > 72 && l.rect.h > 32 && l.rect.w * l.rect.h > 2600))
+    .sort((a, b) => (b.rect.w * b.rect.h) - (a.rect.w * a.rect.h));
+
+  candidates.forEach((candidate) => {
+    if (used.has(candidate.id)) return;
+    const area = candidate.rect.w * candidate.rect.h;
+    if (area > section.rect.w * section.rect.h * 0.72 && candidate.type === 'box') return;
+    const zone = expand(candidate.rect, candidate.type === 'image' ? 36 : 18);
+    const members = layers.filter((layer) => !used.has(layer.id) && overlaps(zone, layer.rect));
+    if (members.length < 2 && candidate.type !== 'image' && candidate.role !== 'button-bg') return;
+    members.forEach((layer) => used.add(layer.id));
+    const rect = expand(union(members.map((l) => l.rect)), 6);
+    components.push({ id: `component-${components.length + 1}`, role: 'component', name: componentName(members, components.length), rect, layers: members.sort((a, b) => a.order - b.order) });
+  });
+
+  const looseLayers = layers.filter((layer) => !used.has(layer.id));
+  section.components = components;
+  section.looseLayers = looseLayers;
+  return section;
 }
 
 function clusterSections(layers, viewport, pageHeight) {
@@ -76,8 +118,9 @@ function clusterSections(layers, viewport, pageHeight) {
     if (index === 0 && section.rect.y < 180) section.role = 'header';
     if (index === sections.length - 1 && section.rect.y > pageHeight * 0.55) section.role = 'footer';
     section.name = section.role === 'header' ? 'Header' : section.role === 'footer' ? 'Footer' : `Section ${String(index + 1).padStart(2, '0')}`;
+    buildComponents(section);
   });
-  return sections.length ? sections : [{ id: 'section-1', role: 'section', name: 'Section 01', rect: { x: 0, y: 0, w: viewport.width, h: pageHeight || viewport.height }, layers }];
+  return sections.length ? sections : [buildComponents({ id: 'section-1', role: 'section', name: 'Section 01', rect: { x: 0, y: 0, w: viewport.width, h: pageHeight || viewport.height }, layers })];
 }
 
 async function extractUniversalPage(page) {
@@ -92,9 +135,10 @@ async function extractUniversalPage(page) {
     function rectFromDOM(rect) { return { x: Math.round(rect.left + window.scrollX), y: Math.round(rect.top + window.scrollY), w: Math.round(rect.width), h: Math.round(rect.height) }; }
     function usable(rect) { return rect && rect.w >= 2 && rect.h >= 2 && rect.x < viewport.width && rect.x + rect.w > 0 && rect.y < pageHeight + viewport.height * 0.2 && rect.y + rect.h > 0; }
     function visible(style) { return style.display !== 'none' && style.visibility !== 'hidden' && Number(style.opacity || 1) > 0; }
-    function styleOf(style) { return { color: style.color, backgroundColor: style.backgroundColor, borderTopColor: style.borderTopColor, borderRightColor: style.borderRightColor, borderBottomColor: style.borderBottomColor, borderLeftColor: style.borderLeftColor, borderTopWidth: style.borderTopWidth, borderRightWidth: style.borderRightWidth, borderBottomWidth: style.borderBottomWidth, borderLeftWidth: style.borderLeftWidth, borderRadius: style.borderRadius, fontFamily: style.fontFamily, fontSize: style.fontSize, fontWeight: style.fontWeight, lineHeight: style.lineHeight, letterSpacing: style.letterSpacing, textAlign: style.textAlign, objectFit: style.objectFit, opacity: style.opacity }; }
+    function styleOf(style) { return { color: style.color, backgroundColor: style.backgroundColor, backgroundImage: style.backgroundImage, borderTopColor: style.borderTopColor, borderRightColor: style.borderRightColor, borderBottomColor: style.borderBottomColor, borderLeftColor: style.borderLeftColor, borderTopWidth: style.borderTopWidth, borderRightWidth: style.borderRightWidth, borderBottomWidth: style.borderBottomWidth, borderLeftWidth: style.borderLeftWidth, borderRadius: style.borderRadius, fontFamily: style.fontFamily, fontSize: style.fontSize, fontWeight: style.fontWeight, lineHeight: style.lineHeight, letterSpacing: style.letterSpacing, textAlign: style.textAlign, objectFit: style.objectFit, opacity: style.opacity }; }
     function hasFill(style) { return style.backgroundColor && style.backgroundColor !== 'transparent' && style.backgroundColor !== 'rgba(0, 0, 0, 0)'; }
     function hasBorder(style) { return px(style.borderTopWidth) > 0 || px(style.borderRightWidth) > 0 || px(style.borderBottomWidth) > 0 || px(style.borderLeftWidth) > 0; }
+    function hasBgImage(style) { return style.backgroundImage && style.backgroundImage !== 'none' && /^url\(/.test(style.backgroundImage); }
     function pathOf(el) { const parts = []; let cur = el; while (cur && cur.nodeType === Node.ELEMENT_NODE && cur !== document.documentElement) { const tag = cur.tagName.toLowerCase(); const cls = clean(cur.className).split(' ').filter(Boolean).slice(0, 1).map((x) => `.${x}`).join(''); parts.unshift(tag + (cur.id ? `#${cur.id}` : '') + cls); cur = cur.parentElement; } return parts.join(' > '); }
     function roleOf(el) { const tag = el.tagName; const cls = clean(el.className).toLowerCase(); const role = clean(el.getAttribute('role')).toLowerCase(); if (tag === 'IMG' || tag === 'PICTURE' || tag === 'SVG') return 'image'; if (tag === 'BUTTON' || role === 'button' || cls.includes('button') || cls.includes('btn') || cls.includes('cta')) return 'button'; if (tag === 'A') return cls.includes('button') || cls.includes('btn') || cls.includes('cta') ? 'button' : 'link'; if (/^H[1-6]$/.test(tag)) return 'heading'; return 'box'; }
     function push(layer) { if (layers.length >= maxLayers) return; layer.id = layer.id || `layer-${id++}`; layer.order = layers.length; layers.push(layer); }
@@ -109,10 +153,10 @@ async function extractUniversalPage(page) {
       const role = roleOf(el);
       const area = rect.w * rect.h;
       const viewportArea = viewport.width * viewport.height;
-      if (role === 'image') {
+      if (role === 'image' || (hasBgImage(style) && clean(el.innerText).length < 3)) {
         const captureId = `ti-universal-img-${id}`;
         el.setAttribute('data-ti-universal-img-id', captureId);
-        push({ type: 'image', role: 'image', tag: el.tagName.toLowerCase(), name: clean(el.getAttribute('alt') || el.getAttribute('aria-label') || 'Image'), rect, style: styleOf(style), path: pathOf(el), captureId });
+        push({ type: 'image', role: role === 'image' ? 'image' : 'background-image', tag: el.tagName.toLowerCase(), name: clean(el.getAttribute('alt') || el.getAttribute('aria-label') || el.id || el.className || 'Image'), rect, style: styleOf(style), path: pathOf(el), captureId });
         return;
       }
       if ((hasFill(style) || hasBorder(style) || role === 'button') && area < viewportArea * 0.9) push({ type: 'box', role: role === 'button' ? 'button-bg' : 'box', tag: el.tagName.toLowerCase(), name: clean(el.getAttribute('aria-label') || el.id || el.className || el.tagName), rect, style: styleOf(style), path: pathOf(el) });
@@ -158,7 +202,8 @@ async function compile(target) {
     await page.evaluate(async () => { await new Promise((resolve) => { let total = 0; const step = 700; const max = Math.min(12000, Math.max(document.body.scrollHeight || 0, document.documentElement.scrollHeight || 0)); const timer = setInterval(() => { window.scrollBy(0, step); total += step; if (total >= max) { clearInterval(timer); window.scrollTo(0, 0); resolve(); } }, 70); }); });
     await page.waitForTimeout(600);
     const extracted = await extractUniversalPage(page);
-    return { ok: true, mode: MODE, adapter: 'universal-page', capturedAt: new Date().toISOString(), title: extracted.title, url: extracted.url, viewport: extracted.viewport, pageHeight: extracted.pageHeight, layers: extracted.layers, sections: extracted.sections, html: extracted.html, diagnostics: { layerCount: extracted.layers.length, sectionCount: extracted.sections.length, imageCount: extracted.layers.filter((x) => x.type === 'image').length, textCount: extracted.layers.filter((x) => x.type === 'text').length }, warnings: ['Universal Page Adapter extracts browser-rendered text, images, buttons, links, and visual boxes, then groups them into editable page sections.', 'This is generic and does not use site-specific hardcoded layout.'] };
+    const componentCount = extracted.sections.reduce((sum, section) => sum + ((section.components || []).length), 0);
+    return { ok: true, mode: MODE, adapter: 'universal-page', capturedAt: new Date().toISOString(), title: extracted.title, url: extracted.url, viewport: extracted.viewport, pageHeight: extracted.pageHeight, layers: extracted.layers, sections: extracted.sections, html: extracted.html, diagnostics: { layerCount: extracted.layers.length, sectionCount: extracted.sections.length, componentCount, imageCount: extracted.layers.filter((x) => x.type === 'image').length, textCount: extracted.layers.filter((x) => x.type === 'text').length }, warnings: ['Universal Page Adapter V2 extracts browser-rendered layers, captures images/background-images, groups components, and builds editable page sections.', 'This is generic and does not use site-specific hardcoded layout.'] };
   } finally {
     await page.close();
   }
@@ -177,7 +222,4 @@ server = http.createServer(async (req, res) => {
   finally { activeJobs -= 1; resetIdleTimer(); }
 });
 
-server.listen(PORT, '127.0.0.1', () => {
-  console.log(`TranslateIT Universal Page Adapter running at http://127.0.0.1:${PORT}`);
-  resetIdleTimer();
-});
+server.listen(PORT, '127.0.0.1', () => { console.log(`TranslateIT Universal Page Adapter V2 running at http://127.0.0.1:${PORT}`); resetIdleTimer(); });
