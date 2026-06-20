@@ -1,10 +1,11 @@
 figma.showUI(__html__, { width: 540, height: 760 });
 
 // TranslateIT Figma Design Export
-// Single self-contained HTML -> one Figma page -> modular editable sections -> UI Build Package JSON.
+// One self-contained HTML -> one Figma workspace page -> modular editable sections -> UI Build Package JSON.
+// This plugin is not a browser engine. It creates editable/buildable Figma structure.
 
 const NS = 'translateit.designExport';
-const VERSION = '2026-06-ui-build-package-v1';
+const VERSION = '2026-06-ui-build-package-v2-audited';
 const WORKSPACE_PAGE = 'TranslateIT Import / Workspace';
 
 const state = {
@@ -27,11 +28,17 @@ const FALLBACK_ICONS = {
 
 function status(text, extra = {}) { figma.ui.postMessage({ type: 'status', text, ...extra }); }
 function stamp() { return new Date().toISOString().replace(/[:.]/g, '-'); }
-function tag(node, kind, source = '') { node.setSharedPluginData(NS, 'generated', 'true'); node.setSharedPluginData(NS, 'version', VERSION); node.setSharedPluginData(NS, 'kind', kind); node.setSharedPluginData(NS, 'source', source); return node; }
+function tag(node, kind, source = '') {
+  node.setSharedPluginData(NS, 'generated', 'true');
+  node.setSharedPluginData(NS, 'version', VERSION);
+  node.setSharedPluginData(NS, 'kind', kind);
+  node.setSharedPluginData(NS, 'source', source);
+  return node;
+}
 function isTagged(node) { return node.getSharedPluginData(NS, 'generated') === 'true'; }
 function kindOf(node) { return node.getSharedPluginData(NS, 'kind'); }
 function sourceOf(node) { return node.getSharedPluginData(NS, 'source'); }
-function data(node, key, value) { if (value !== undefined && value !== null && String(value) !== '') node.setSharedPluginData(NS, key, String(value)); }
+function setData(node, key, value) { if (value !== undefined && value !== null && String(value) !== '') node.setSharedPluginData(NS, key, String(value)); }
 function getData(node, key) { return node.getSharedPluginData(NS, key); }
 
 async function loadFonts() {
@@ -41,60 +48,393 @@ async function loadFonts() {
   catch (_) { state.fontBold = state.fontRegular; }
 }
 
-async function workspacePage() { let p = figma.root.children.find(x => x.name === WORKSPACE_PAGE); if (!p) p = figma.createPage(); p.name = WORKSPACE_PAGE; p.setSharedPluginData(NS, 'ownedPage', 'true'); await figma.setCurrentPageAsync(p); return p; }
+async function workspacePage() {
+  let p = figma.root.children.find(x => x.name === WORKSPACE_PAGE);
+  if (!p) p = figma.createPage();
+  p.name = WORKSPACE_PAGE;
+  p.setSharedPluginData(NS, 'ownedPage', 'true');
+  await figma.setCurrentPageAsync(p);
+  return p;
+}
 
 function hexToRgb(hex) { const value = /^#[0-9A-Fa-f]{6}$/.test(hex || '') ? hex : '#000000'; const n = parseInt(value.slice(1), 16); return { r: ((n >> 16) & 255) / 255, g: ((n >> 8) & 255) / 255, b: (n & 255) / 255 }; }
 function rgbToHex(c) { const h = n => Math.round(Math.max(0, Math.min(1, n)) * 255).toString(16).padStart(2, '0'); return `#${h(c.r)}${h(c.g)}${h(c.b)}`; }
 function paint(hex) { return [{ type: 'SOLID', color: hexToRgb(hex) }]; }
 function parsePx(value, fallback) { const m = String(value || '').match(/-?\d+(\.\d+)?/); return m ? Number(m[0]) : fallback; }
-function cssColor(value, fallback = '#11151C') { if (!value) return fallback; const v = String(value).trim(); if (/^#[0-9A-Fa-f]{6}$/.test(v)) return v; if (/^#[0-9A-Fa-f]{3}$/.test(v)) return `#${v[1]}${v[1]}${v[2]}${v[2]}${v[3]}${v[3]}`; const rgba = v.match(/rgba?\(([^)]+)\)/); if (rgba) { const parts = rgba[1].split(',').map(x => Math.max(0, Math.min(255, parseFloat(x)))); if (parts.length >= 3) return `#${parts.slice(0,3).map(n => Math.round(n).toString(16).padStart(2, '0')).join('')}`; } const named = { transparent: null, black: '#000000', white: '#FFFFFF', red: '#FF0000', blue: '#0000FF', green: '#008000' }; return Object.prototype.hasOwnProperty.call(named, v.toLowerCase()) ? named[v.toLowerCase()] : fallback; }
+function cssColor(value, fallback = '#11151C') {
+  if (!value) return fallback;
+  const v = String(value).trim();
+  if (/^#[0-9A-Fa-f]{6}$/.test(v)) return v;
+  if (/^#[0-9A-Fa-f]{3}$/.test(v)) return `#${v[1]}${v[1]}${v[2]}${v[2]}${v[3]}${v[3]}`;
+  const rgba = v.match(/rgba?\(([^)]+)\)/);
+  if (rgba) {
+    const parts = rgba[1].split(',').map(x => Math.max(0, Math.min(255, parseFloat(x))));
+    if (parts.length >= 3) return `#${parts.slice(0, 3).map(n => Math.round(n).toString(16).padStart(2, '0')).join('')}`;
+  }
+  const named = { transparent: null, black: '#000000', white: '#FFFFFF', red: '#FF0000', blue: '#0000FF', green: '#008000' };
+  return Object.prototype.hasOwnProperty.call(named, v.toLowerCase()) ? named[v.toLowerCase()] : fallback;
+}
 
-function makeFrame(name, w, h, bg = 'transparent', kind = 'frame', source = '') { const n = figma.createFrame(); n.name = name; n.resize(Math.max(1, w), Math.max(1, h)); const color = cssColor(bg, null); n.fills = color ? paint(color) : []; n.strokes = []; return tag(n, kind, source || name); }
-function makeText(value, size = 14, color = '#F5F7FA', bold = false) { const n = figma.createText(); n.name = `Text / ${String(value).slice(0, 44) || 'Empty'}`; n.fontName = bold ? state.fontBold : state.fontRegular; n.characters = String(value || ''); n.fontSize = Math.max(1, size); n.fills = paint(cssColor(color, '#F5F7FA')); return tag(n, 'text', n.characters.slice(0, 44)); }
+function makeFrame(name, w, h, bg = 'transparent', kind = 'frame', source = '') {
+  const n = figma.createFrame();
+  n.name = name;
+  n.resize(Math.max(1, w), Math.max(1, h));
+  const color = cssColor(bg, null);
+  n.fills = color ? paint(color) : [];
+  n.strokes = [];
+  return tag(n, kind, source || name);
+}
+function makeText(value, size = 14, color = '#F5F7FA', bold = false) {
+  const n = figma.createText();
+  n.name = `Text / ${String(value).slice(0, 44) || 'Empty'}`;
+  n.fontName = bold ? state.fontBold : state.fontRegular;
+  n.characters = String(value || '');
+  n.fontSize = Math.max(1, size);
+  n.fills = paint(cssColor(color, '#F5F7FA'));
+  return tag(n, 'text', n.characters.slice(0, 44));
+}
 function setCol(node, gap = 16, pad = 24) { node.layoutMode = 'VERTICAL'; node.itemSpacing = gap; node.paddingTop = pad; node.paddingRight = pad; node.paddingBottom = pad; node.paddingLeft = pad; }
 function setRow(node, gap = 12, pad = 12) { node.layoutMode = 'HORIZONTAL'; node.itemSpacing = gap; node.paddingTop = pad; node.paddingRight = pad; node.paddingBottom = pad; node.paddingLeft = pad; node.counterAxisAlignItems = 'CENTER'; }
 
-function camel(prop) { return String(prop || '').trim().replace(/-([a-z])/g, (_, c) => c.toUpperCase()); }
-function parseDecls(text) { const out = {}; String(text || '').split(';').forEach(part => { const i = part.indexOf(':'); if (i < 0) return; const key = camel(part.slice(0, i)); const value = part.slice(i + 1).trim(); if (key) out[key] = value; }); return out; }
-function parseAttrs(raw) { const attrs = {}; String(raw || '').replace(/([a-zA-Z_:][-a-zA-Z0-9_:.]*)\s*=\s*("[^"]*"|'[^']*'|[^\s"'>]+)/g, (_, k, v) => { attrs[k] = String(v || '').replace(/^['"]|['"]$/g, ''); return ''; }); return attrs; }
-function extractStyleBlocks(html) { const blocks = []; const body = String(html || '').replace(/<style\b[^>]*>([\s\S]*?)<\/style>/ig, (_, css) => { blocks.push(css || ''); return ''; }); return { html: body, css: blocks.join('\n\n') }; }
-function extractSymbols(html) { const symbols = {}; const body = String(html || '').replace(/<symbol\b([^>]*)>([\s\S]*?)<\/symbol>/ig, (full, attrRaw, inner) => { const attrs = parseAttrs(attrRaw); if (attrs.id) symbols[attrs.id] = inner; return ''; }).replace(/<defs\b[^>]*>[\s\S]*?<\/defs>/ig, ''); return { html: body, symbols }; }
-function parseCss(css) { const clean = String(css || '').replace(/\/\*[\s\S]*?\*\//g, ''); const rules = []; const vars = {}; clean.replace(/([^{}]+)\{([^{}]*)\}/g, (_, selectorText, body) => { const decl = parseDecls(body); selectorText.split(',').map(s => s.trim()).filter(Boolean).forEach(selector => { if (selector === ':root') Object.assign(vars, decl); else rules.push({ selector, decl }); }); return ''; }); return { rules, vars }; }
-function resolveVars(style, vars) { const out = { ...style }; Object.keys(out).forEach(k => { out[k] = String(out[k]).replace(/var\((--[^),]+)(?:,[^)]+)?\)/g, (_, name) => vars[name.trim()] || ''); }); return out; }
-function selectorMatches(selector, tag, attrs, classes) { if (!selector) return false; if (selector.includes(' ') || selector.includes('>') || selector.includes(':')) return false; if (selector[0] === '.') return classes.includes(selector.slice(1)); if (selector[0] === '#') return attrs.id === selector.slice(1); if (selector.includes('.')) { const [t, c] = selector.split('.'); return (!t || t === tag) && classes.includes(c); } return selector.toLowerCase() === tag; }
-function styleFor(tag, attrs, classes, cssData) { let style = {}; cssData.rules.forEach(rule => { if (selectorMatches(rule.selector, tag, attrs, classes)) style = { ...style, ...rule.decl }; }); style = { ...style, ...parseDecls(attrs.style || '') }; return resolveVars(style, cssData.vars); }
+function camel(prop) {
+  const key = String(prop || '').trim();
+  if (key.startsWith('--')) return key;
+  return key.replace(/-([a-z])/g, (_, c) => c.toUpperCase());
+}
+function parseDecls(text) {
+  const out = {};
+  String(text || '').split(';').forEach(part => {
+    const i = part.indexOf(':');
+    if (i < 0) return;
+    const key = camel(part.slice(0, i));
+    const value = part.slice(i + 1).trim();
+    if (key) out[key] = value;
+  });
+  return out;
+}
+function parseAttrs(raw) {
+  const attrs = {};
+  String(raw || '').replace(/([a-zA-Z_:][-a-zA-Z0-9_:.]*)\s*=\s*("[^"]*"|'[^']*'|[^\s"'>]+)/g, (_, k, v) => {
+    attrs[k] = String(v || '').replace(/^['"]|['"]$/g, '');
+    return '';
+  });
+  return attrs;
+}
+function extractStyleBlocks(html) {
+  const blocks = [];
+  const body = String(html || '').replace(/<style\b[^>]*>([\s\S]*?)<\/style>/ig, (_, css) => { blocks.push(css || ''); return ''; });
+  return { html: body, css: blocks.join('\n\n') };
+}
+function extractSymbols(html) {
+  const symbols = {};
+  const body = String(html || '').replace(/<symbol\b([^>]*)>([\s\S]*?)<\/symbol>/ig, (full, attrRaw, inner) => {
+    const attrs = parseAttrs(attrRaw);
+    if (attrs.id) symbols[attrs.id] = inner;
+    return '';
+  }).replace(/<defs\b[^>]*>[\s\S]*?<\/defs>/ig, '');
+  return { html: body, symbols };
+}
+function parseCss(css) {
+  const clean = String(css || '').replace(/\/\*[\s\S]*?\*\//g, '');
+  const rules = []; const vars = {};
+  clean.replace(/([^{}]+)\{([^{}]*)\}/g, (_, selectorText, body) => {
+    const decl = parseDecls(body);
+    selectorText.split(',').map(s => s.trim()).filter(Boolean).forEach(selector => {
+      if (selector === ':root') Object.assign(vars, decl); else rules.push({ selector, decl });
+    });
+    return '';
+  });
+  return { rules, vars };
+}
+function resolveVars(style, vars) {
+  const out = { ...style };
+  Object.keys(out).forEach(k => {
+    out[k] = String(out[k]).replace(/var\((--[^),]+)(?:,[^)]+)?\)/g, (_, name) => vars[name.trim()] || '');
+  });
+  return out;
+}
+function selectorMatches(selector, tag, attrs, classes) {
+  if (!selector) return false;
+  if (selector.includes(' ') || selector.includes('>') || selector.includes(':')) return false;
+  if (selector[0] === '.') return classes.includes(selector.slice(1));
+  if (selector[0] === '#') return attrs.id === selector.slice(1);
+  if (selector.includes('.')) { const [t, c] = selector.split('.'); return (!t || t === tag) && classes.includes(c); }
+  return selector.toLowerCase() === tag;
+}
+function styleFor(tag, attrs, classes, cssData) {
+  let style = {};
+  cssData.rules.forEach(rule => { if (selectorMatches(rule.selector, tag, attrs, classes)) style = { ...style, ...rule.decl }; });
+  style = { ...style, ...parseDecls(attrs.style || '') };
+  return resolveVars(style, cssData.vars);
+}
 
-function parseHtmlToIR(rawHtml) { const warnings = []; const styleExtract = extractStyleBlocks(rawHtml); const symbolExtract = extractSymbols(styleExtract.html); const cssData = parseCss(styleExtract.css); let html = symbolExtract.html.replace(/<!doctype[^>]*>/ig, '').replace(/<script[\s\S]*?<\/script>/ig, '').replace(/<link[^>]*rel=["']?stylesheet["']?[^>]*>/ig, () => { warnings.push('External stylesheet link ignored. Embed CSS in <style>.'); return ''; }); if (!styleExtract.css.trim()) warnings.push('No <style> CSS found. Generic layout will be used.'); const root = { type: 'element', tag: 'body', attrs: {}, classes: [], style: { display: 'flex', flexDirection: 'column', gap: '16px', padding: '24px', backgroundColor: '#030407' }, children: [] }; const stack = [root]; const tokenRe = /<\/?[^>]+>|[^<]+/g; let token; while ((token = tokenRe.exec(html))) { const t = token[0]; if (!t) continue; if (t.startsWith('</')) { if (stack.length > 1) stack.pop(); continue; } if (t.startsWith('<')) { const open = t.match(/^<\s*([a-zA-Z0-9-]+)/); if (!open) continue; const tag = open[1].toLowerCase(); if (['html','head','meta','link','title','style'].includes(tag)) continue; const selfClosing = /\/\s*>$/.test(t) || ['br','hr','img','input','use'].includes(tag); const body = t.replace(/^<\s*[a-zA-Z0-9-]+/, '').replace(/\/?>$/, ''); const attrs = parseAttrs(body); const classes = String(attrs.class || '').split(/\s+/).filter(Boolean); const node = { type: 'element', tag, attrs, classes, style: styleFor(tag, attrs, classes, cssData), children: [] }; if (tag === 'img') { warnings.push(`img converted to placeholder: ${attrs.src || 'no src'}`); node.attrs['data-placeholder'] = 'image'; } stack[stack.length - 1].children.push(node); if (!selfClosing) stack.push(node); continue; } const text = t.replace(/\s+/g, ' ').trim(); if (text) stack[stack.length - 1].children.push({ type: 'text', text, style: {} }); } return { root, symbols: { ...FALLBACK_ICONS, ...symbolExtract.symbols }, warnings, cssLength: styleExtract.css.length }; }
+function parseHtmlToIR(rawHtml) {
+  const warnings = [];
+  const styleExtract = extractStyleBlocks(rawHtml);
+  const symbolExtract = extractSymbols(styleExtract.html);
+  const cssData = parseCss(styleExtract.css);
+  let html = symbolExtract.html
+    .replace(/<!doctype[^>]*>/ig, '')
+    .replace(/<script[\s\S]*?<\/script>/ig, '')
+    .replace(/<link[^>]*rel=["']?stylesheet["']?[^>]*>/ig, () => { warnings.push('External stylesheet link ignored. Embed CSS in <style>.'); return ''; });
+  if (!String(rawHtml || '').trim()) warnings.push('HTML package is empty.');
+  if (!styleExtract.css.trim()) warnings.push('No <style> CSS found. Generic layout will be used.');
+  const root = { type: 'element', tag: 'body', attrs: {}, classes: [], style: { display: 'flex', flexDirection: 'column', gap: '16px', padding: '24px', backgroundColor: '#030407' }, children: [] };
+  const stack = [root];
+  const tokenRe = /<\/?[^>]+>|[^<]+/g;
+  let token;
+  while ((token = tokenRe.exec(html))) {
+    const t = token[0];
+    if (!t) continue;
+    if (t.startsWith('</')) { if (stack.length > 1) stack.pop(); continue; }
+    if (t.startsWith('<')) {
+      const open = t.match(/^<\s*([a-zA-Z0-9-]+)/);
+      if (!open) continue;
+      const tag = open[1].toLowerCase();
+      if (['html', 'head', 'meta', 'link', 'title', 'style'].includes(tag)) continue;
+      const selfClosing = /\/\s*>$/.test(t) || ['br', 'hr', 'img', 'input', 'use'].includes(tag);
+      const body = t.replace(/^<\s*[a-zA-Z0-9-]+/, '').replace(/\/?>$/, '');
+      const attrs = parseAttrs(body);
+      const classes = String(attrs.class || '').split(/\s+/).filter(Boolean);
+      const node = { type: 'element', tag, attrs, classes, style: styleFor(tag, attrs, classes, cssData), children: [] };
+      if (tag === 'img') { warnings.push(`img converted to placeholder: ${attrs.src || 'no src'}`); node.attrs['data-placeholder'] = 'image'; }
+      stack[stack.length - 1].children.push(node);
+      if (!selfClosing) stack.push(node);
+      continue;
+    }
+    const text = t.replace(/\s+/g, ' ').trim();
+    if (text) stack[stack.length - 1].children.push({ type: 'text', text, style: {} });
+  }
+  return { root, symbols: { ...FALLBACK_ICONS, ...symbolExtract.symbols }, warnings, cssLength: styleExtract.css.length };
+}
 
-function applyStyle(node, style = {}) { if ('borderRadius' in style) node.cornerRadius = parsePx(style.borderRadius, 0); if (style.borderColor || style.border) { node.strokes = paint(cssColor(style.borderColor || '#242B36', '#242B36')); node.strokeWeight = parsePx(style.borderWidth, 1); } if (style.opacity) node.opacity = Math.max(0, Math.min(1, Number(style.opacity) || 1)); }
-function applyLayout(node, style = {}) { const display = String(style.display || '').toLowerCase(); const direction = String(style.flexDirection || '').toLowerCase(); const isFlex = display === 'flex' || display === 'inline-flex'; if (isFlex && direction === 'row') setRow(node, parsePx(style.gap || style.columnGap, 12), 0); else setCol(node, parsePx(style.gap || style.rowGap, 12), 0); const p = parsePx(style.padding, 0); node.paddingTop = parsePx(style.paddingTop, p); node.paddingRight = parsePx(style.paddingRight, p); node.paddingBottom = parsePx(style.paddingBottom, p); node.paddingLeft = parsePx(style.paddingLeft, p); }
-function estimateSize(ir, parentWidth) { const s = ir.style || {}; const tag = ir.tag || 'div'; const childCount = (ir.children || []).length; const width = parsePx(s.width, tag === 'body' ? parentWidth : Math.min(parentWidth, 720)); let height = parsePx(s.height, NaN); if (!Number.isFinite(height)) height = ['button','input','select'].includes(tag) ? 44 : Math.max(48, childCount * 56 + parsePx(s.padding, 20) * 2); return { width, height }; }
-function nodeLabel(ir) { const attrs = ir.attrs || {}; const classes = ir.classes || []; const id = attrs.id ? `#${attrs.id}` : ''; const cls = classes.length ? `.${classes.slice(0, 2).join('.')}` : ''; return attrs['data-component'] || attrs['data-name'] || `${ir.tag || 'node'}${id}${cls}` || 'Node'; }
+function applyStyle(node, style = {}) {
+  if ('borderRadius' in style) node.cornerRadius = parsePx(style.borderRadius, 0);
+  if (style.borderColor || style.border) { node.strokes = paint(cssColor(style.borderColor || '#242B36', '#242B36')); node.strokeWeight = parsePx(style.borderWidth, 1); }
+  if (style.opacity) node.opacity = Math.max(0, Math.min(1, Number(style.opacity) || 1));
+}
+function applyLayout(node, style = {}) {
+  const display = String(style.display || '').toLowerCase();
+  const direction = String(style.flexDirection || '').toLowerCase();
+  const isFlex = display === 'flex' || display === 'inline-flex';
+  if (isFlex && direction === 'row') setRow(node, parsePx(style.gap || style.columnGap, 12), 0); else setCol(node, parsePx(style.gap || style.rowGap, 12), 0);
+  const p = parsePx(style.padding, 0);
+  node.paddingTop = parsePx(style.paddingTop, p); node.paddingRight = parsePx(style.paddingRight, p); node.paddingBottom = parsePx(style.paddingBottom, p); node.paddingLeft = parsePx(style.paddingLeft, p);
+}
+function estimateSize(ir, parentWidth) {
+  const s = ir.style || {}; const tag = ir.tag || 'div'; const childCount = (ir.children || []).length;
+  const width = parsePx(s.width, tag === 'body' ? parentWidth : Math.min(parentWidth, 720));
+  let height = parsePx(s.height, NaN);
+  if (!Number.isFinite(height)) height = ['button', 'input', 'select'].includes(tag) ? 44 : Math.max(48, childCount * 56 + parsePx(s.padding, 20) * 2);
+  return { width, height };
+}
+function nodeLabel(ir) {
+  const attrs = ir.attrs || {}; const classes = ir.classes || [];
+  const id = attrs.id ? `#${attrs.id}` : '';
+  const cls = classes.length ? `.${classes.slice(0, 2).join('.')}` : '';
+  return attrs['data-component'] || attrs['data-name'] || `${ir.tag || 'node'}${id}${cls}` || 'Node';
+}
 function hrefIconName(href) { return String(href || '').split('#').pop().trim(); }
-function findUseIcon(ir) { if (!ir || !ir.children) return ''; for (const child of ir.children) { if (child.tag === 'use') return hrefIconName((child.attrs && (child.attrs.href || child.attrs['xlink:href'])) || ''); const nested = findUseIcon(child); if (nested) return nested; } return ''; }
+function findUseIcon(ir) {
+  if (!ir || !ir.children) return '';
+  for (const child of ir.children) {
+    if (child.tag === 'use') return hrefIconName((child.attrs && (child.attrs.href || child.attrs['xlink:href'])) || '');
+    const nested = findUseIcon(child);
+    if (nested) return nested;
+  }
+  return '';
+}
 
-function createIconMaster(name, svgBody) { const comp = figma.createComponent(); comp.name = `Icon/${name}`; comp.resize(24, 24); comp.fills = []; try { const svg = figma.createNodeFromSvg(`<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#C8CED8" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">${svgBody}</svg>`); svg.name = `Glyph/${name}`; svg.x = 0; svg.y = 0; comp.appendChild(svg); } catch (_) { const fallback = makeText('□', 18, '#C8CED8', false); fallback.x = 3; fallback.y = 1; comp.appendChild(fallback); } return tag(comp, 'icon-master', name); }
-function iconInstance(name, masters) { const master = masters[name] || masters.file || masters.plus; if (!master) return makeText('□', 16, '#8D96A6', false); const inst = master.createInstance(); inst.name = `Icon Instance/${name}`; return tag(inst, 'icon-instance', name); }
-function storeBindingData(node, attrs = {}) { ['data-action','data-bind','data-slot','data-route','data-state','data-component','data-backend'].forEach(key => data(node, key, attrs[key])); }
+function createIconMaster(name, svgBody) {
+  const comp = figma.createComponent();
+  comp.name = `Icon/${name}`;
+  comp.resize(24, 24);
+  comp.fills = [];
+  try {
+    const svg = figma.createNodeFromSvg(`<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#C8CED8" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">${svgBody}</svg>`);
+    svg.name = `Glyph/${name}`; svg.x = 0; svg.y = 0; comp.appendChild(svg);
+  } catch (_) {
+    const fallback = makeText('□', 18, '#C8CED8', false); fallback.x = 3; fallback.y = 1; comp.appendChild(fallback);
+  }
+  return tag(comp, 'icon-master', name);
+}
+function storeBindingData(node, attrs = {}) { ['data-action', 'data-bind', 'data-slot', 'data-route', 'data-state', 'data-component', 'data-backend'].forEach(key => setData(node, key, attrs[key])); }
+function iconInstance(name, masters, attrs = {}) {
+  const master = masters[name] || masters.file || masters.plus;
+  if (!master) return makeText('□', 16, '#8D96A6', false);
+  const inst = tag(master.createInstance(), 'icon-instance', name);
+  inst.name = `Icon Instance/${name}`;
+  storeBindingData(inst, attrs);
+  return inst;
+}
 
-function createFromIR(ir, parentWidth, masters, inherited = {}) { if (!ir) return null; if (ir.type === 'text') { const text = String(ir.text || '').trim(); if (!text) return null; const style = { ...inherited, ...(ir.style || {}) }; return makeText(text, parsePx(style.fontSize, 14), style.color || '#F5F7FA', String(style.fontWeight || '').match(/bold|600|700|800|900/i)); } const attrs = ir.attrs || {}; if (attrs['data-icon']) return iconInstance(attrs['data-icon'], masters); if (ir.tag === 'use') return iconInstance(hrefIconName(attrs.href || attrs['xlink:href']), masters); if (ir.tag === 'svg') { const icon = findUseIcon(ir); if (icon) return iconInstance(icon, masters); } if (['defs','symbol'].includes(ir.tag)) return null; const style = ir.style || {}; const size = estimateSize(ir, parentWidth); const bg = attrs['data-placeholder'] === 'image' ? '#171C25' : (style.backgroundColor || style.background || 'transparent'); const node = makeFrame(nodeLabel(ir), size.width, size.height, bg, attrs['data-component'] ? 'component-candidate' : 'html-frame', ir.tag || 'div'); storeBindingData(node, attrs); applyStyle(node, style); applyLayout(node, style); if (attrs['data-placeholder'] === 'image') node.appendChild(makeText('Image placeholder', 12, '#8D96A6', false)); const nextInherited = { ...inherited }; ['color','fontSize','fontWeight'].forEach(k => { if (style[k]) nextInherited[k] = style[k]; }); for (const child of (ir.children || [])) { const childNode = createFromIR(child, Math.max(1, size.width - 40), masters, nextInherited); if (childNode) node.appendChild(childNode); } return node; }
+function createFromIR(ir, parentWidth, masters, inherited = {}) {
+  if (!ir) return null;
+  if (ir.type === 'text') {
+    const text = String(ir.text || '').trim(); if (!text) return null;
+    const style = { ...inherited, ...(ir.style || {}) };
+    return makeText(text, parsePx(style.fontSize, 14), style.color || '#F5F7FA', String(style.fontWeight || '').match(/bold|600|700|800|900/i));
+  }
+  const attrs = ir.attrs || {};
+  if (attrs['data-icon']) return iconInstance(attrs['data-icon'], masters, attrs);
+  if (ir.tag === 'use') return iconInstance(hrefIconName(attrs.href || attrs['xlink:href']), masters, attrs);
+  if (ir.tag === 'svg') { const icon = findUseIcon(ir); if (icon) return iconInstance(icon, masters, attrs); }
+  if (['defs', 'symbol'].includes(ir.tag)) return null;
+  const style = ir.style || {}; const size = estimateSize(ir, parentWidth);
+  const bg = attrs['data-placeholder'] === 'image' ? '#171C25' : (style.backgroundColor || style.background || 'transparent');
+  const node = makeFrame(nodeLabel(ir), size.width, size.height, bg, attrs['data-component'] ? 'component-candidate' : 'html-frame', ir.tag || 'div');
+  storeBindingData(node, attrs);
+  applyStyle(node, style); applyLayout(node, style);
+  if (attrs['data-placeholder'] === 'image') node.appendChild(makeText('Image placeholder', 12, '#8D96A6', false));
+  const nextInherited = { ...inherited };
+  ['color', 'fontSize', 'fontWeight'].forEach(k => { if (style[k]) nextInherited[k] = style[k]; });
+  for (const child of (ir.children || [])) { const childNode = createFromIR(child, Math.max(1, size.width - 40), masters, nextInherited); if (childNode) node.appendChild(childNode); }
+  return node;
+}
 
-function buildComponentPreview(symbols) { const section = makeFrame('00 Component Preview', 1440, 420, '#030407', 'section', 'component-preview'); setCol(section, 18, 32); section.appendChild(makeText('00 Component Preview', 28, '#F5F7FA', true)); section.appendChild(makeText('Reusable icon masters live here. UI below uses instances. Editing an icon master updates its repeated UI instances.', 13, '#8D96A6', false)); const grid = makeFrame('Icon Masters', 1280, 260, 'transparent', 'section-grid', 'icon-masters'); grid.layoutMode = 'HORIZONTAL'; grid.layoutWrap = 'WRAP'; grid.itemSpacing = 14; grid.counterAxisSpacing = 14; grid.paddingTop = 0; grid.paddingRight = 0; grid.paddingBottom = 0; grid.paddingLeft = 0; grid.fills = []; const masters = {}; Object.entries(symbols).forEach(([name, body]) => { const card = makeFrame(`Icon Card/${name}`, 90, 78, '#0B0E14', 'component-card', name); setCol(card, 6, 8); card.cornerRadius = 10; card.strokes = paint('#242B36'); card.strokeWeight = 1; const master = createIconMaster(name, body); masters[name] = master; card.appendChild(master); card.appendChild(makeText(name, 8, '#8D96A6', false)); grid.appendChild(card); }); section.appendChild(grid); return { section, masters }; }
-async function archiveOldRuns(page, runStamp) { const old = page.children.filter(n => isTagged(n) && kindOf(n) === 'import-run'); if (!old.length) return 0; const archive = makeFrame(`98 Archive / ${runStamp}`, 1440, Math.max(280, old.length * 220), '#030407', 'archive-root', runStamp); setCol(archive, 18, 32); archive.x = 0; archive.y = 1280; archive.appendChild(makeText('98 Archive', 28, '#F5F7FA', true)); archive.appendChild(makeText('Previous generated import runs were moved here. Manual layers were not touched.', 13, '#8D96A6', false)); page.appendChild(archive); old.forEach((node, index) => { node.x = 0; node.y = 84 + index * 220; archive.appendChild(node); }); return old.length; }
+function buildComponentPreview(symbols) {
+  const section = makeFrame('00 Component Preview', 1440, 420, '#030407', 'section', 'component-preview');
+  setCol(section, 18, 32);
+  section.appendChild(makeText('00 Component Preview', 28, '#F5F7FA', true));
+  section.appendChild(makeText('Reusable icon masters live here. UI below uses instances. Editing an icon master updates its repeated UI instances.', 13, '#8D96A6', false));
+  const grid = makeFrame('Icon Masters', 1280, 260, 'transparent', 'section-grid', 'icon-masters');
+  grid.layoutMode = 'HORIZONTAL'; grid.layoutWrap = 'WRAP'; grid.itemSpacing = 14; grid.counterAxisSpacing = 14; grid.paddingTop = 0; grid.paddingRight = 0; grid.paddingBottom = 0; grid.paddingLeft = 0; grid.fills = [];
+  const masters = {};
+  Object.entries(symbols).forEach(([name, body]) => {
+    const card = makeFrame(`Icon Card/${name}`, 90, 78, '#0B0E14', 'component-card', name);
+    setCol(card, 6, 8); card.cornerRadius = 10; card.strokes = paint('#242B36'); card.strokeWeight = 1;
+    const master = createIconMaster(name, body);
+    masters[name] = master;
+    card.appendChild(master);
+    card.appendChild(makeText(name, 8, '#8D96A6', false));
+    grid.appendChild(card);
+  });
+  section.appendChild(grid);
+  return { section, masters };
+}
+async function archiveOldRuns(page, runStamp) {
+  const old = page.children.filter(n => isTagged(n) && kindOf(n) === 'import-run');
+  if (!old.length) return 0;
+  const archive = makeFrame(`98 Archive / ${runStamp}`, 1440, Math.max(280, old.length * 220), '#030407', 'archive-root', runStamp);
+  setCol(archive, 18, 32); archive.x = 0; archive.y = 1280;
+  archive.appendChild(makeText('98 Archive', 28, '#F5F7FA', true));
+  archive.appendChild(makeText('Previous generated import runs were moved here. Manual layers were not touched.', 13, '#8D96A6', false));
+  page.appendChild(archive);
+  old.forEach((node, index) => { node.x = 0; node.y = 84 + index * 220; archive.appendChild(node); });
+  return old.length;
+}
 
-async function importSingleHtml(payload, refresh) { await loadFonts(); const page = await workspacePage(); const runStamp = stamp(); const parsed = parseHtmlToIR(payload.html || ''); let archived = 0; if (refresh) archived = await archiveOldRuns(page, runStamp); const width = Number(payload.width) || 1440; const height = Number(payload.height) || 1200; const run = makeFrame(`${payload.name || 'Single HTML Import'} / ${runStamp}`, width, height, '#030407', 'import-run', payload.name || 'single-html'); run.x = 0; run.y = 0; setCol(run, 28, 48); run.appendChild(makeText(payload.name || 'Single HTML Import', 32, '#F5F7FA', true)); run.appendChild(makeText('One-page output. Sections are modular frames. Icons are component masters plus instances. Data attributes become backend binding metadata.', 13, '#8D96A6', false)); const { section, masters } = buildComponentPreview(parsed.symbols); run.appendChild(section); const uiSection = makeFrame('01 Imported UI', Math.max(320, width - 96), Math.max(240, height - 640), '#030407', 'section', 'imported-ui'); setCol(uiSection, 18, 32); uiSection.appendChild(makeText('01 Imported UI', 28, '#F5F7FA', true)); const built = createFromIR(parsed.root, Math.max(320, width - 160), masters); if (built) uiSection.appendChild(built); run.appendChild(uiSection); const report = makeFrame('99 Import Report', Math.max(320, width - 96), 200, '#0B0E14', 'section', 'report'); report.cornerRadius = 16; report.strokes = paint('#242B36'); report.strokeWeight = 1; setCol(report, 8, 20); report.appendChild(makeText('99 Import Report', 20, '#F5F7FA', true)); report.appendChild(makeText(`Version: ${VERSION}`, 12, '#C8CED8', false)); report.appendChild(makeText(`Embedded CSS chars: ${parsed.cssLength} / Symbols: ${Object.keys(parsed.symbols).length} / Archived runs: ${archived}`, 12, '#8D96A6', false)); if (parsed.warnings.length) report.appendChild(makeText(`Warnings: ${parsed.warnings.join(' | ')}`, 11, '#8D96A6', false)); report.appendChild(makeText('Use Export UI Build Package JSON after reviewing the generated Figma structure.', 11, '#8D96A6', false)); run.appendChild(report); page.appendChild(run); status(`Import complete.\nOutput page: ${WORKSPACE_PAGE}\nTop-level run: ${run.name}\nArchived previous runs: ${archived}\nIcon masters: ${Object.keys(parsed.symbols).length}\nNext step: Export UI Build Package JSON.`); figma.notify('Single HTML import complete.'); }
+async function importSingleHtml(payload, refresh) {
+  await loadFonts();
+  const page = await workspacePage();
+  const runStamp = stamp();
+  const parsed = parseHtmlToIR(payload.html || '');
+  let archived = 0;
+  if (refresh) archived = await archiveOldRuns(page, runStamp);
+  const width = Number(payload.width) || 1440;
+  const height = Number(payload.height) || 1200;
+  const run = makeFrame(`${payload.name || 'Single HTML Import'} / ${runStamp}`, width, height, '#030407', 'import-run', payload.name || 'single-html');
+  run.x = 0; run.y = 0; setCol(run, 28, 48);
+  run.appendChild(makeText(payload.name || 'Single HTML Import', 32, '#F5F7FA', true));
+  run.appendChild(makeText('One-page output. Sections are modular frames. Icons are component masters plus instances. Data attributes become backend binding metadata.', 13, '#8D96A6', false));
+  const { section, masters } = buildComponentPreview(parsed.symbols);
+  run.appendChild(section);
+  const uiSection = makeFrame('01 Imported UI', Math.max(320, width - 96), Math.max(240, height - 640), '#030407', 'section', 'imported-ui');
+  setCol(uiSection, 18, 32);
+  uiSection.appendChild(makeText('01 Imported UI', 28, '#F5F7FA', true));
+  const built = createFromIR(parsed.root, Math.max(320, width - 160), masters);
+  if (built) uiSection.appendChild(built);
+  run.appendChild(uiSection);
+  const report = makeFrame('99 Import Report', Math.max(320, width - 96), 200, '#0B0E14', 'section', 'report');
+  report.cornerRadius = 16; report.strokes = paint('#242B36'); report.strokeWeight = 1; setCol(report, 8, 20);
+  report.appendChild(makeText('99 Import Report', 20, '#F5F7FA', true));
+  report.appendChild(makeText(`Version: ${VERSION}`, 12, '#C8CED8', false));
+  report.appendChild(makeText(`Embedded CSS chars: ${parsed.cssLength} / Symbols: ${Object.keys(parsed.symbols).length} / Archived runs: ${archived}`, 12, '#8D96A6', false));
+  if (parsed.warnings.length) report.appendChild(makeText(`Warnings: ${parsed.warnings.join(' | ')}`, 11, '#8D96A6', false));
+  report.appendChild(makeText('Use Export UI Build Package JSON after reviewing the generated Figma structure.', 11, '#8D96A6', false));
+  run.appendChild(report);
+  page.appendChild(run);
+  status(`Import complete.\nOutput page: ${WORKSPACE_PAGE}\nTop-level run: ${run.name}\nArchived previous runs: ${archived}\nIcon masters: ${Object.keys(parsed.symbols).length}\nNext step: Export UI Build Package JSON.`);
+  figma.notify('Single HTML import complete.');
+}
 
 function firstPaintHex(node) { if (!('fills' in node) || !Array.isArray(node.fills) || !node.fills.length) return null; const p = node.fills[0]; return p && p.type === 'SOLID' ? rgbToHex(p.color) : null; }
 function strokesHex(node) { if (!('strokes' in node) || !Array.isArray(node.strokes) || !node.strokes.length) return null; const p = node.strokes[0]; return p && p.type === 'SOLID' ? rgbToHex(p.color) : null; }
 function nodeLayout(node) { return { x: Math.round(node.x || 0), y: Math.round(node.y || 0), width: Math.round(node.width || 0), height: Math.round(node.height || 0), layoutMode: node.layoutMode || 'NONE', itemSpacing: node.itemSpacing || 0, padding: { top: node.paddingTop || 0, right: node.paddingRight || 0, bottom: node.paddingBottom || 0, left: node.paddingLeft || 0 } }; }
 function nodeStyle(node) { return { fill: firstPaintHex(node), stroke: strokesHex(node), strokeWeight: node.strokeWeight || 0, radius: node.cornerRadius || 0, opacity: node.opacity === undefined ? 1 : node.opacity }; }
-function bindingOf(node) { const b = {}; ['data-action','data-bind','data-slot','data-route','data-state','data-component','data-backend'].forEach(k => { const v = getData(node, k); if (v) b[k.replace('data-', '')] = v; }); return b; }
-function exportTree(node) { const item = { name: node.name, figmaType: node.type, kind: kindOf(node) || '', source: sourceOf(node) || '', layout: nodeLayout(node), style: nodeStyle(node), binding: bindingOf(node), children: [] }; if (node.type === 'TEXT') item.text = node.characters; if (node.type === 'INSTANCE') { item.componentRef = node.mainComponent ? node.mainComponent.name : ''; } if ('children' in node) item.children = node.children.map(exportTree); return item; }
+function bindingOf(node) { const b = {}; ['data-action', 'data-bind', 'data-slot', 'data-route', 'data-state', 'data-component', 'data-backend'].forEach(k => { const v = getData(node, k); if (v) b[k.replace('data-', '')] = v; }); return b; }
+function exportTree(node) { const item = { name: node.name, figmaType: node.type, kind: kindOf(node) || '', source: sourceOf(node) || '', layout: nodeLayout(node), style: nodeStyle(node), binding: bindingOf(node), children: [] }; if (node.type === 'TEXT') item.text = node.characters; if (node.type === 'INSTANCE') item.componentRef = node.mainComponent ? node.mainComponent.name : ''; if ('children' in node) item.children = node.children.map(exportTree); return item; }
 function walk(node, fn) { fn(node); if ('children' in node) node.children.forEach(child => walk(child, fn)); }
 function latestRun() { const p = figma.root.children.find(x => x.name === WORKSPACE_PAGE); if (!p) return null; const runs = p.children.filter(n => isTagged(n) && kindOf(n) === 'import-run'); return runs.length ? runs[runs.length - 1] : null; }
-async function exportUiPackage() { const run = latestRun(); if (!run) { status('No generated import run found. Generate from Single HTML first.'); return; } const icons = []; const components = []; const bindings = []; const colors = new Set(); walk(run, node => { const fill = firstPaintHex(node); if (fill) colors.add(fill); if (kindOf(node) === 'icon-master') icons.push({ name: sourceOf(node), componentName: node.name }); if (kindOf(node) === 'component-candidate') components.push({ name: node.name, source: sourceOf(node), binding: bindingOf(node) }); const b = bindingOf(node); if (Object.keys(b).length) bindings.push({ nodeName: node.name, kind: kindOf(node), binding: b }); }); const pkg = { schema: 'translateit.ui-build-package.v1', generatedAt: new Date().toISOString(), pluginVersion: VERSION, source: { figmaPage: WORKSPACE_PAGE, importRun: run.name }, target: { primary: 'tauri-vite-typescript', secondary: 'html-css-js' }, tokens: { colors: Array.from(colors).sort() }, assets: { icons }, components, backendBindings: bindings, screens: [{ name: run.name, tree: exportTree(run) }], integrationContract: { eventAttribute: 'data-action', stateAttribute: 'data-bind', slotAttribute: 'data-slot', backendAttribute: 'data-backend', note: 'Connect actions/states to Tauri invoke or local backend bridge in generated adapter.' } }; status(`UI Build Package exported.\nCopy the JSON below and save it as ui-build-package.json.`, { exportJson: JSON.stringify(pkg, null, 2) }); figma.notify('UI Build Package exported.'); }
+function importedUiRoot(run) {
+  if (!run || !('children' in run)) return run;
+  const section = run.children.find(n => n.name === '01 Imported UI');
+  if (!section || !('children' in section)) return run;
+  return section.children.find(n => kindOf(n) === 'html-frame' || kindOf(n) === 'component-candidate') || section;
+}
+function uint8ToText(bytes) {
+  try { return new TextDecoder('utf-8').decode(bytes); }
+  catch (_) { return Array.from(bytes).map(b => String.fromCharCode(b)).join(''); }
+}
+async function exportIconAsset(node) {
+  let svg = '';
+  try { svg = uint8ToText(await node.exportAsync({ format: 'SVG' })); } catch (_) { svg = ''; }
+  return { name: sourceOf(node), componentName: node.name, svg };
+}
 
-async function validate() { await loadFonts(); const page = figma.root.children.find(x => x.name === WORKSPACE_PAGE); const runs = page ? page.children.filter(n => isTagged(n) && kindOf(n) === 'import-run').length : 0; status(`Validation passed.\nOne self-contained HTML only.\nOutput page: ${WORKSPACE_PAGE}\nGenerated runs: ${runs}\nAfter import, click Export UI Build Package JSON.`); }
-async function prepareRefresh() { const page = figma.root.children.find(x => x.name === WORKSPACE_PAGE); const runs = page ? page.children.filter(n => isTagged(n) && kindOf(n) === 'import-run').length : 0; status(`Refresh ready.\nGenerated import runs to archive: ${runs}\nClick Generate + Archive Previous after pasting the new single HTML package.`); }
+async function exportUiPackage() {
+  const run = latestRun();
+  if (!run) { status('No generated import run found. Generate from Single HTML first.'); return; }
+  const screenRoot = importedUiRoot(run);
+  const iconNodes = [];
+  const components = [];
+  const bindings = [];
+  const colors = new Set();
+  walk(run, node => { if (kindOf(node) === 'icon-master') iconNodes.push(node); });
+  walk(screenRoot, node => {
+    const fill = firstPaintHex(node); if (fill) colors.add(fill);
+    if (kindOf(node) === 'component-candidate') components.push({ name: node.name, source: sourceOf(node), binding: bindingOf(node) });
+    const b = bindingOf(node); if (Object.keys(b).length) bindings.push({ nodeName: node.name, kind: kindOf(node), binding: b });
+  });
+  const icons = [];
+  for (const node of iconNodes) icons.push(await exportIconAsset(node));
+  const pkg = {
+    schema: 'translateit.ui-build-package.v1',
+    generatedAt: new Date().toISOString(),
+    pluginVersion: VERSION,
+    source: { figmaPage: WORKSPACE_PAGE, importRun: run.name, exportedRoot: screenRoot.name },
+    target: { primary: 'tauri-vite-typescript', secondary: 'html-css-js' },
+    tokens: { colors: Array.from(colors).sort() },
+    assets: { icons },
+    components,
+    backendBindings: bindings,
+    screens: [{ name: screenRoot.name, tree: exportTree(screenRoot) }],
+    integrationContract: { eventAttribute: 'data-action', stateAttribute: 'data-bind', slotAttribute: 'data-slot', backendAttribute: 'data-backend', note: 'Connect actions/states to Tauri invoke or local backend bridge in generated adapter.' }
+  };
+  status(`UI Build Package exported.\nExported root: ${screenRoot.name}\nIcons: ${icons.length}\nBindings: ${bindings.length}\nCopy the JSON below and save it as ui-build-package.json.`, { exportJson: JSON.stringify(pkg, null, 2) });
+  figma.notify('UI Build Package exported.');
+}
 
-figma.ui.onmessage = async msg => { try { if (msg.type === 'validate') await validate(); if (msg.type === 'prepare-refresh') await prepareRefresh(); if (msg.type === 'import-single-html') await importSingleHtml(msg.payload || {}, !!msg.refresh); if (msg.type === 'export-ui-package') await exportUiPackage(); } catch (err) { status(`Plugin error: ${err && err.message ? err.message : err}\nOpen Figma console for details.`); figma.notify('TranslateIT plugin error.'); } };
+async function validate() {
+  await loadFonts();
+  const page = figma.root.children.find(x => x.name === WORKSPACE_PAGE);
+  const runs = page ? page.children.filter(n => isTagged(n) && kindOf(n) === 'import-run').length : 0;
+  status(`Validation passed.\nOne self-contained HTML only.\nOutput page: ${WORKSPACE_PAGE}\nGenerated runs: ${runs}\nAfter import, click Export UI Build Package JSON.`);
+}
+async function prepareRefresh() {
+  const page = figma.root.children.find(x => x.name === WORKSPACE_PAGE);
+  const runs = page ? page.children.filter(n => isTagged(n) && kindOf(n) === 'import-run').length : 0;
+  status(`Refresh ready.\nGenerated import runs to archive: ${runs}\nClick Generate + Archive Previous after pasting the new single HTML package.`);
+}
+
+figma.ui.onmessage = async msg => {
+  try {
+    if (msg.type === 'validate') await validate();
+    if (msg.type === 'prepare-refresh') await prepareRefresh();
+    if (msg.type === 'import-single-html') await importSingleHtml(msg.payload || {}, !!msg.refresh);
+    if (msg.type === 'export-ui-package') await exportUiPackage();
+  } catch (err) {
+    status(`Plugin error: ${err && err.message ? err.message : err}\nOpen Figma console for details.`);
+    figma.notify('TranslateIT plugin error.');
+  }
+};
