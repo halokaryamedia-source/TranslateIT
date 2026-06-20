@@ -6,7 +6,7 @@ const PORT = Number(process.env.TRANSLATEIT_RENDER_PORT || 8844);
 const IDLE_EXIT_MS = Number(process.env.TRANSLATEIT_RENDER_IDLE_EXIT_MS || 180000);
 const VIEWPORT = { width: 1440, height: 1600 };
 const MAX_LAYERS = 900;
-const MODE = 'universal-page-adapter-v6';
+const MODE = 'universal-page-adapter-v7';
 
 let idleTimer = null;
 let activeJobs = 0;
@@ -69,10 +69,12 @@ function componentName(members, index) {
   const hasImage = members.some((l) => l.type === 'image');
   const hasText = members.some((l) => l.type === 'text');
   const hasButton = members.some((l) => l.role === 'button-bg' || l.role === 'button-label');
+  const hasLink = members.some((l) => l.role === 'link');
   if (hasImage && hasText) return `Image Card ${String(index + 1).padStart(2, '0')}`;
-  if (hasButton) return `Button Group ${String(index + 1).padStart(2, '0')}`;
-  if (hasImage) return `Media ${String(index + 1).padStart(2, '0')}`;
-  if (hasText) return `Content Group ${String(index + 1).padStart(2, '0')}`;
+  if (hasButton) return `CTA / Button Group ${String(index + 1).padStart(2, '0')}`;
+  if (hasLink) return `Navigation Group ${String(index + 1).padStart(2, '0')}`;
+  if (hasImage) return `Media Asset ${String(index + 1).padStart(2, '0')}`;
+  if (hasText) return `Text Block ${String(index + 1).padStart(2, '0')}`;
   return `Component ${String(index + 1).padStart(2, '0')}`;
 }
 
@@ -81,7 +83,7 @@ function buildComponents(section) {
   const used = new Set();
   const components = [];
   const candidates = layers
-    .filter((l) => l.type === 'image' || l.role === 'button-bg' || (l.type === 'box' && l.rect.w > 72 && l.rect.h > 32 && l.rect.w * l.rect.h > 2600))
+    .filter((l) => l.type === 'image' || l.role === 'button-bg' || l.role === 'button-label' || l.role === 'link' || (l.type === 'box' && l.rect.w > 72 && l.rect.h > 32 && l.rect.w * l.rect.h > 2600))
     .sort((a, b) => (b.rect.w * b.rect.h) - (a.rect.w * a.rect.h));
 
   candidates.forEach((candidate) => {
@@ -89,9 +91,9 @@ function buildComponents(section) {
     const sectionArea = Math.max(1, section.rect.w * section.rect.h);
     const area = candidate.rect.w * candidate.rect.h;
     if (candidate.type === 'box' && area > sectionArea * 0.72) return;
-    const zone = expand(candidate.rect, candidate.type === 'image' ? 42 : 22);
+    const zone = expand(candidate.rect, candidate.type === 'image' ? 48 : 28);
     const members = layers.filter((layer) => !used.has(layer.id) && overlaps(zone, layer.rect));
-    if (members.length < 2 && candidate.type !== 'image' && candidate.role !== 'button-bg') return;
+    if (members.length < 2 && candidate.type !== 'image' && candidate.role !== 'button-bg' && candidate.role !== 'link') return;
     members.forEach((layer) => used.add(layer.id));
     components.push({
       id: `component-${components.length + 1}`,
@@ -206,8 +208,11 @@ async function extractUniversalPage(page) {
       const role = clean(el.getAttribute('role')).toLowerCase();
       if (tag === 'IMG' || tag === 'PICTURE' || tag === 'SVG') return 'image';
       if (tag === 'BUTTON' || role === 'button' || cls.includes('button') || cls.includes('btn') || cls.includes('cta')) return 'button';
+      if (tag === 'NAV' || tag === 'HEADER') return 'navigation';
       if (tag === 'A') return cls.includes('button') || cls.includes('btn') || cls.includes('cta') ? 'button' : 'link';
       if (/^H[1-6]$/.test(tag)) return 'heading';
+      if (tag === 'FOOTER') return 'footer';
+      if (tag === 'SECTION' || tag === 'MAIN' || tag === 'ARTICLE') return 'section';
       return 'box';
     }
     function push(layer) {
@@ -247,8 +252,8 @@ async function extractUniversalPage(page) {
         return;
       }
 
-      if ((hasFill(style) || hasBorder(style) || role === 'button') && area < viewportArea * 0.9) {
-        push({ type: 'box', role: role === 'button' ? 'button-bg' : 'box', tag: el.tagName.toLowerCase(), name: clean(el.getAttribute('aria-label') || el.id || el.className || el.tagName), rect, style: styleOf(style), path: pathOf(el) });
+      if ((hasFill(style) || hasBorder(style) || role === 'button' || role === 'navigation' || role === 'section' || role === 'footer') && area < viewportArea * 0.9) {
+        push({ type: 'box', role: role === 'button' ? 'button-bg' : role, tag: el.tagName.toLowerCase(), name: clean(el.getAttribute('aria-label') || el.id || el.className || el.tagName), rect, style: styleOf(style), path: pathOf(el) });
       }
 
       const text = clean(el.innerText || el.textContent || '');
@@ -317,7 +322,7 @@ async function compile(target) {
     return {
       ok: true,
       mode: MODE,
-      adapter: 'universal-page-structured-ui-library',
+      adapter: 'universal-page-semantic-design-intelligence',
       capturedAt: new Date().toISOString(),
       title: extracted.title,
       url: extracted.url,
@@ -334,8 +339,8 @@ async function compile(target) {
         textCount: extracted.layers.filter((x) => x.type === 'text').length
       },
       warnings: [
-        'V6 is structured UI library mode: screenshot is used as a production anchor only.',
-        'The goal is not screenshot-only visual tricking; output also includes extracted UI library and structured editable page.'
+        'V7 semantic design intelligence mode: screenshot is only a visual anchor, not a structure score shortcut.',
+        'Visual and structure must both pass the strict gate; screenshot-only output should be considered failed.'
       ]
     };
   } finally {
@@ -374,6 +379,6 @@ server = http.createServer(async (req, res) => {
 });
 
 server.listen(PORT, '127.0.0.1', () => {
-  console.log(`TranslateIT Universal Page Adapter V6 running at http://127.0.0.1:${PORT}`);
+  console.log(`TranslateIT Universal Page Adapter V7 running at http://127.0.0.1:${PORT}`);
   resetIdleTimer();
 });
