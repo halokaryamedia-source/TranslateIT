@@ -1,0 +1,65 @@
+{
+  "meta": {
+    "source": "EngineData/Frontend/RustApp/DesignPreview/framework/01-tokens.css",
+    "target": "Figma Variables and Styles",
+    "note": "Keep this file aligned with DesignPreview tokens."
+  },
+  "colors": {
+    "canvas": "#030407",
+    "shell": "#07090D",
+    "surface1": "#0B0E14",
+    "surface2": "#11151C",
+    "surface3": "#171C25",
+    "surfaceMuted": "#0D1017",
+    "borderSoft": "#151A22",
+    "border": "#242B36",
+    "borderStrong": "#3A4454",
+    "borderBright": "#5A6474",
+    "textPrimary": "#F5F7FA",
+    "textSecondary": "#C8CED8",
+    "textMuted": "#8D96A6",
+    "textSubtle": "#6D7787",
+    "accent": "#D7DDE7",
+    "danger": "#FF4B55",
+    "dangerSurface": "#241014"
+  },
+  "radius": {
+    "xs": 8,
+    "sm": 12,
+    "md": 16,
+    "lg": 20,
+    "xl": 24,
+    "2xl": 28,
+    "pill": 999
+  },
+  "spacing": {
+    "1": 4,
+    "2": 8,
+    "3": 12,
+    "4": 16,
+    "5": 20,
+    "6": 24,
+    "7": 28,
+    "8": 32,
+    "10": 40,
+    "12": 48,
+    "14": 56,
+    "16": 64,
+    "20": 80
+  },
+  "typography": {
+    "fontFamily": "Inter",
+    "display": { "size": 42, "weight": "Extra Bold", "lineHeight": 45 },
+    "heading": { "size": 28, "weight": "Extra Bold", "lineHeight": 34 },
+    "title": { "size": 20, "weight": "Bold", "lineHeight": 26 },
+    "body": { "size": 14, "weight": "Regular", "lineHeight": 22 },
+    "caption": { "size": 12, "weight": "Regular", "lineHeight": 18 }
+  },
+  "canvas": {
+    "desktopWidth": 2560,
+    "desktopHeight": 1440,
+    "mainSidebar": 480,
+    "settingsSidebar": 430,
+    "topbar": 96
+  }
+}
