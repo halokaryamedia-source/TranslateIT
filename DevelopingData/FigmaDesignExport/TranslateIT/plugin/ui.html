@@ -41,14 +41,14 @@
       </div>
     </div>
 
-    <p class="sub">Paste any website address, convert the rendered page into editable Figma sections, then export the UI Build Package JSON.</p>
+    <p class="sub">Paste any website address, convert the rendered page into editable Figma sections and component groups, then export the UI Build Package JSON.</p>
 
     <section class="card">
       <div class="card-header"><h2 class="card-title">Import Data</h2><span class="badge">1</span></div>
       <div class="card-body">
         <input id="sourceUrl" class="source-input" placeholder="Paste website address, e.g. https://www.mivubi.com/" />
         <button id="importData" class="primary">Import Data</button>
-        <div class="helper">Local Universal Page Adapter must be running at http://127.0.0.1:8844. The URL is treated as input only; no site-specific layout is hardcoded.</div>
+        <div class="helper">Local Universal Page Adapter V2 must be running at http://127.0.0.1:8844. The URL is treated as input only; no site-specific layout is hardcoded.</div>
       </div>
     </section>
 
@@ -61,7 +61,7 @@
     </section>
 
     <div class="status"><div class="status-title"><span class="dot"></span><span>Status</span></div><div id="statusText">Ready. Paste a website address, then click Import Data.</div></div>
-    <div class="footer">Flow: Website Address → Universal Page Adapter → Review in Figma → Export Data</div>
+    <div class="footer">Flow: Website Address → Universal Page Adapter V2 → Review in Figma → Export Data</div>
   </div>
 
   <script>
@@ -86,7 +86,7 @@
 
     function adapterSummary(payload) {
       var diagnostics = payload.diagnostics || {};
-      return 'Universal adapter payload ready.\nMode: ' + (payload.mode || 'unknown') + '\nLayers: ' + (diagnostics.layerCount || 0) + '\nSections: ' + (diagnostics.sectionCount || 0) + '\nImages: ' + (diagnostics.imageCount || 0) + '\nText: ' + (diagnostics.textCount || 0) + '\nImporting editable page into Figma...';
+      return 'Universal adapter payload ready.\nMode: ' + (payload.mode || 'unknown') + '\nLayers: ' + (diagnostics.layerCount || 0) + '\nSections: ' + (diagnostics.sectionCount || 0) + '\nComponents: ' + (diagnostics.componentCount || 0) + '\nImages: ' + (diagnostics.imageCount || 0) + '\nText: ' + (diagnostics.textCount || 0) + '\nImporting editable page into Figma...';
     }
 
     el('importData').onclick = function () {
