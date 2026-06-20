@@ -4,54 +4,61 @@
   <meta charset="utf-8" />
   <style>
     * { box-sizing: border-box; }
-    body { margin: 0; padding: 18px; background: #0b0e14; color: #f5f7fa; font-family: Inter, system-ui, sans-serif; }
-    h1 { margin: 0 0 8px; font-size: 17px; line-height: 1.2; letter-spacing: -.03em; }
-    p { margin: 0 0 14px; color: #8d96a6; font-size: 12px; line-height: 1.5; }
-    .note { border: 1px solid #242b36; border-radius: 12px; padding: 10px 12px; background: #07090d; color: #c8ced8; font-size: 11px; line-height: 1.45; margin-bottom: 14px; }
-    .status { min-height: 92px; max-height: 128px; overflow: auto; white-space: pre-wrap; border: 1px solid #242b36; border-radius: 12px; padding: 10px 12px; color: #8d96a6; background: #030407; font-size: 10px; line-height: 1.45; margin-top: 12px; }
-    textarea { width: 100%; height: 82px; resize: vertical; border: 1px solid #242b36; border-radius: 12px; padding: 10px; color: #c8ced8; background: #030407; font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 10px; line-height: 1.4; }
-    label { display: block; margin: 14px 0 8px; color: #c8ced8; font-size: 11px; font-weight: 800; }
-    button { width: 100%; height: 40px; border: 1px solid #3a4454; border-radius: 10px; color: #f5f7fa; background: #11151c; font-weight: 800; cursor: pointer; }
-    button + button { margin-top: 10px; }
+    body { margin: 0; padding: 16px; background: #0b0e14; color: #f5f7fa; font-family: Inter, system-ui, sans-serif; }
+    h1 { margin: 0 0 6px; font-size: 17px; line-height: 1.2; }
+    p { margin: 0 0 12px; color: #8d96a6; font-size: 12px; line-height: 1.45; }
+    label { display: block; margin: 12px 0 6px; color: #c8ced8; font-size: 11px; font-weight: 800; }
+    input, textarea { width: 100%; border: 1px solid #242b36; border-radius: 10px; padding: 9px; color: #c8ced8; background: #030407; font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 10px; line-height: 1.4; }
+    textarea { height: 96px; resize: vertical; }
+    .row { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+    .note { border: 1px solid #242b36; border-radius: 12px; padding: 10px 12px; background: #07090d; color: #c8ced8; font-size: 11px; line-height: 1.45; margin-bottom: 12px; }
+    .status { min-height: 92px; max-height: 132px; overflow: auto; white-space: pre-wrap; border: 1px solid #242b36; border-radius: 12px; padding: 10px 12px; color: #8d96a6; background: #030407; font-size: 10px; line-height: 1.45; margin-top: 12px; }
+    button { width: 100%; height: 38px; border: 1px solid #3a4454; border-radius: 10px; color: #f5f7fa; background: #11151c; font-weight: 800; cursor: pointer; }
+    button + button { margin-top: 8px; }
     .secondary { color: #c8ced8; background: transparent; }
     .danger { color: #ffb3b8; border-color: #5c2730; background: #241014; }
-    .confirm { display: none; color: #030407; border-color: #d7dde7; background: #d7dde7; }
   </style>
 </head>
 <body>
-  <h1>TranslateIT Design Export</h1>
-  <p>Native Figma Builder. It creates editable Figma frames from token and icon data. It does not import an HTML file.</p>
-  <div class="note">DesignPreview remains the technical source. Figma is a visual review and adjustment layer only.</div>
-  <div class="note">Safe mode: manual content is never deleted. Refresh archives tagged generated nodes before creating a new export.</div>
+  <h1>TranslateIT HTML/CSS to Figma</h1>
+  <p>Paste preview HTML and CSS. The plugin creates editable native Figma frames, text, rectangles, and SVG-like structure.</p>
+  <div class="note">This is not a screenshot importer. It parses common HTML/CSS and creates editable Figma layers. For best result, paste the preview HTML body plus all relevant CSS.</div>
 
-  <button id="validate" class="secondary">Validate Safety First</button>
-  <button id="create">Create New Native Export</button>
-  <button id="refresh" class="danger">Prepare Refresh + Archive</button>
-  <button id="confirmRefresh" class="confirm">Confirm Refresh / Archive Generated Nodes</button>
-  <button id="notes" class="secondary">Create Notes Only</button>
+  <label>Preview name</label>
+  <input id="name" value="TranslateIT Preview Import" />
 
-  <label for="manifest">Optional token/icon manifest JSON</label>
-  <textarea id="manifest" placeholder='Optional JSON override for colors or svgSymbols.'></textarea>
-  <button id="importManifest" class="secondary">Import Manifest Into Session</button>
+  <div class="row">
+    <div><label>Canvas width</label><input id="width" value="1440" /></div>
+    <div><label>Canvas height</label><input id="height" value="1000" /></div>
+  </div>
 
-  <div id="status" class="status">Ready. Run validation first. No HTML import is required.</div>
+  <label>HTML</label>
+  <textarea id="html" placeholder="Paste body HTML or full HTML document here."></textarea>
+
+  <label>CSS</label>
+  <textarea id="css" placeholder="Paste CSS here. Supports common class, id, tag, root variables, inline style, flex, padding, gap, colors, radius, width, height, text styles."></textarea>
+
+  <label>Optional JSON notes</label>
+  <textarea id="manifest" placeholder="Optional JSON note or future manifest."></textarea>
+
+  <button id="validate" class="secondary">Validate Plugin</button>
+  <button id="importManifest" class="secondary">Read Optional JSON</button>
+  <button id="generate">Generate Editable Figma from HTML/CSS</button>
+  <button id="prepareRefresh" class="danger">Prepare Refresh + Archive</button>
+  <button id="generateRefresh" class="danger">Generate + Archive Previous</button>
+
+  <div id="status" class="status">Ready. Paste HTML/CSS, then generate.</div>
+
   <script>
+    const $ = id => document.getElementById(id);
     const send = (type, extra = {}) => parent.postMessage({ pluginMessage: { type, ...extra } }, '*');
-    const confirmButton = document.getElementById('confirmRefresh');
-    document.getElementById('validate').onclick = () => send('validate');
-    document.getElementById('create').onclick = () => send('create-safe');
-    document.getElementById('refresh').onclick = () => send('prepare-refresh');
-    confirmButton.onclick = () => send('confirm-refresh');
-    document.getElementById('notes').onclick = () => send('create-notes');
-    document.getElementById('importManifest').onclick = () => send('import-manifest', { raw: document.getElementById('manifest').value });
-    window.onmessage = (event) => {
-      const msg = event.data.pluginMessage;
-      if (!msg) return;
-      if (msg.type === 'status') {
-        document.getElementById('status').textContent = msg.text;
-        confirmButton.style.display = msg.confirmRefresh ? 'block' : 'none';
-      }
-    };
+    const payload = () => ({ name: $('name').value, width: Number($('width').value) || 1440, height: Number($('height').value) || 1000, html: $('html').value, css: $('css').value });
+    $('validate').onclick = () => send('validate');
+    $('importManifest').onclick = () => send('import-manifest', { raw: $('manifest').value });
+    $('prepareRefresh').onclick = () => send('prepare-refresh');
+    $('generate').onclick = () => send('import-raw', { payload: payload(), refresh: false });
+    $('generateRefresh').onclick = () => send('import-raw', { payload: payload(), refresh: true });
+    window.onmessage = event => { const msg = event.data.pluginMessage; if (msg && msg.type === 'status') $('status').textContent = msg.text; };
   </script>
 </body>
 </html>
