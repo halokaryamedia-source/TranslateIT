@@ -1,0 +1,51 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "translateit.ui-build-package.v1",
+  "title": "TranslateIT UI Build Package",
+  "type": "object",
+  "required": ["schema", "generatedAt", "pluginVersion", "source", "target", "tokens", "assets", "components", "backendBindings", "screens", "integrationContract"],
+  "properties": {
+    "schema": { "const": "translateit.ui-build-package.v1" },
+    "generatedAt": { "type": "string" },
+    "pluginVersion": { "type": "string" },
+    "source": {
+      "type": "object",
+      "properties": {
+        "figmaPage": { "type": "string" },
+        "importRun": { "type": "string" }
+      }
+    },
+    "target": {
+      "type": "object",
+      "properties": {
+        "primary": { "type": "string" },
+        "secondary": { "type": "string" }
+      }
+    },
+    "tokens": {
+      "type": "object",
+      "properties": {
+        "colors": { "type": "array", "items": { "type": "string" } }
+      }
+    },
+    "assets": {
+      "type": "object",
+      "properties": {
+        "icons": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "name": { "type": "string" },
+              "componentName": { "type": "string" }
+            }
+          }
+        }
+      }
+    },
+    "components": { "type": "array" },
+    "backendBindings": { "type": "array" },
+    "screens": { "type": "array" },
+    "integrationContract": { "type": "object" }
+  }
+}
