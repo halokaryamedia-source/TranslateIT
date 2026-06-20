@@ -87,17 +87,7 @@ function makeBox(layer, parentRect, scale) {
 }
 
 function makeImage(layer, parentRect, scale) {
-  const imageLayer = {
-    type: layer.type,
-    role: 'image',
-    tag: layer.tag,
-    name: layer.name,
-    rect: layer.rect,
-    style: {
-      backgroundColor: '#E5E7EB',
-      borderRadius: ((layer.style || {}).borderRadius || '0px')
-    }
-  };
+  const imageLayer = { type: layer.type, role: 'image', tag: layer.tag, name: layer.name, rect: layer.rect, style: { backgroundColor: '#E5E7EB', borderRadius: ((layer.style || {}).borderRadius || '0px') } };
   const rect = makeBox(imageLayer, parentRect, scale);
   rect.name = safe('image / ' + (layer.name || 'Image'));
   if (layer.image && layer.image.base64) {
@@ -155,7 +145,7 @@ function getSourceHeight(sections, payload, viewport) {
 
 async function importUniversal(payload) {
   await loadFonts();
-  if (!payload || payload.mode !== 'universal-page-adapter-v1') throw new Error('Expected Universal Page Adapter payload.');
+  if (!payload || (payload.mode !== 'universal-page-adapter-v1' && payload.mode !== 'universal-page-adapter-v1.1')) throw new Error('Expected Universal Page Adapter payload.');
   const page = await workspacePage();
   const sections = Array.isArray(payload.sections) ? payload.sections : [];
   const layers = Array.isArray(payload.layers) ? payload.layers : [];
