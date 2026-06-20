@@ -327,7 +327,7 @@
         </label>
 
         <button id="importData" class="primary" data-action="import.data" data-backend="import_data">Import Data</button>
-        <div class="helper">Recommended: start the Render Bridge, paste a URL, then import.</div>
+        <div class="helper">The local Render Bridge starts on demand and auto-closes after it is idle.</div>
       </div>
     </section>
 
@@ -355,7 +355,9 @@ Paste a website address or select an HTML file.</div>
   <script>
     var selectedHtml = "";
     var selectedName = "TranslateIT Import";
-    var bridgeUrl = "http://127.0.0.1:8844/render?url=";
+    var bridgeBase = "http://127.0.0.1:8844";
+    var bridgeUrl = bridgeBase + "/render?url=";
+    var bridgeLaunchUrl = "translateit-render-bridge://start";
 
     function el(id) { return document.getElementById(id); }
     function setStatus(text) { el("statusText").textContent = text; }
@@ -398,6 +400,10 @@ Paste a website address or select an HTML file.</div>
       catch (err) { return "website-source"; }
     }
 
+    function sleep(ms) {
+      return new Promise(function (resolve) { setTimeout(resolve, ms); });
+    }
+
     function importHtml(name, html) {
       selectedName = cleanFileName(name || selectedName);
       selectedHtml = String(html || "");
@@ -420,16 +426,62 @@ Paste a website address or select an HTML file.</div>
       });
     }
 
-    function getRenderedSource(url) {
-      return fetch(bridgeUrl + encodeURIComponent(url))
+    function launchBridgeProtocol() {
+      try {
+        var iframe = document.createElement("iframe");
+        iframe.style.display = "none";
+        iframe.src = bridgeLaunchUrl;
+        document.body.appendChild(iframe);
+        setTimeout(function () {
+          try { document.body.removeChild(iframe); } catch (err) {}
+        }, 1500);
+      } catch (err) {}
+
+      try {
+        window.open(bridgeLaunchUrl, "_blank");
+      } catch (err) {}
+    }
+
+    function healthCheck() {
+      return fetch(bridgeBase + "/health", { cache: "no-store" })
         .then(function (response) {
-          if (!response.ok) throw new Error("Render Bridge HTTP " + response.status);
+          if (!response.ok) throw new Error("Health HTTP " + response.status);
           return response.json();
-        })
-        .then(function (data) {
-          if (!data || !data.html) throw new Error("Render Bridge returned no HTML.");
-          return data;
         });
+    }
+
+    function waitForBridge(maxAttempts) {
+      var attempt = 0;
+
+      function tick() {
+        attempt += 1;
+        return healthCheck().catch(function () {
+          if (attempt >= maxAttempts) throw new Error("Render Bridge did not start.");
+          return sleep(700).then(tick);
+        });
+      }
+
+      return tick();
+    }
+
+    function ensureBridge() {
+      return healthCheck().catch(function () {
+        setStatus("Starting local Render Bridge...\nPlease allow the TranslateIT bridge prompt if Windows asks.");
+        launchBridgeProtocol();
+        return waitForBridge(18);
+      });
+    }
+
+    function getRenderedSource(url) {
+      return ensureBridge().then(function () {
+        return fetch(bridgeUrl + encodeURIComponent(url));
+      }).then(function (response) {
+        if (!response.ok) throw new Error("Render Bridge HTTP " + response.status);
+        return response.json();
+      }).then(function (data) {
+        if (!data || !data.html) throw new Error("Render Bridge returned no HTML.");
+        return data;
+      });
     }
 
     function getBasicSource(url) {
@@ -480,21 +532,21 @@ Paste a website address or select an HTML file.</div>
       var url = normalizeUrl(el("sourceUrl").value);
 
       if (url) {
-        setStatus("Rendering website in background...\n" + url + "\n\nUsing local Render Bridge when available.");
+        setStatus("Rendering website in background...\n" + url + "\n\nThe bridge will close automatically after it becomes idle.");
         getRenderedSource(url)
           .then(function (data) {
             var name = data.title || hostnameFromUrl(url);
             importHtml(name, data.html);
           })
           .catch(function (bridgeError) {
-            setStatus("Render Bridge is not available or failed.\nTrying basic source fallback...\n\n" + (bridgeError && bridgeError.message ? bridgeError.message : bridgeError));
+            setStatus("Rendered capture failed. Trying basic source fallback...\n\n" + (bridgeError && bridgeError.message ? bridgeError.message : bridgeError));
             getBasicSource(url)
               .then(function (data) {
                 setStatus("Basic source loaded. Result may be less accurate than Render Bridge.\nImporting...");
                 importHtml(data.title || hostnameFromUrl(url), data.html);
               })
               .catch(function (sourceError) {
-                setStatus("Failed to import website address.\n\nStart the TranslateIT Render Bridge, then try again.\n\nError:\n" + (sourceError && sourceError.message ? sourceError.message : sourceError));
+                setStatus("Failed to import website address.\n\nRun Install-Session-Bridge.cmd once, then try again.\n\nError:\n" + (sourceError && sourceError.message ? sourceError.message : sourceError));
               });
           });
         return;
