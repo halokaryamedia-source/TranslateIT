@@ -41,14 +41,14 @@
       </div>
     </div>
 
-    <p class="sub">Paste a website address, reconstruct it as clean editable Figma layers, then export the UI Build Package JSON.</p>
+    <p class="sub">Paste the Mivubi website address, rebuild the page as structured editable Figma sections, then export the UI Build Package JSON.</p>
 
     <section class="card">
       <div class="card-header"><h2 class="card-title">Import Data</h2><span class="badge">1</span></div>
       <div class="card-body">
-        <input id="sourceUrl" class="source-input" placeholder="Paste website address, e.g. https://example.com" />
+        <input id="sourceUrl" class="source-input" placeholder="https://www.mivubi.com/" />
         <button id="importData" class="primary">Import Data</button>
-        <div class="helper">Local Design Reconstruction Compiler must be running at http://127.0.0.1:8844. This mode extracts visible text, images, actions, and section layout clusters into editable Figma layers.</div>
+        <div class="helper">Local Mivubi Home Adapter must be running at http://127.0.0.1:8844. Generic DOM import is disabled until this adapter is stable.</div>
       </div>
     </section>
 
@@ -60,8 +60,8 @@
       </div>
     </section>
 
-    <div class="status"><div class="status-title"><span class="dot"></span><span>Status</span></div><div id="statusText">Ready. Paste a website address, then click Import Data.</div></div>
-    <div class="footer">Flow: Website Address → Import Data → Review in Figma → Export Data</div>
+    <div class="status"><div class="status-title"><span class="dot"></span><span>Status</span></div><div id="statusText">Ready. Paste https://www.mivubi.com/ then click Import Data.</div></div>
+    <div class="footer">Flow: Website Address → Mivubi Adapter → Review in Figma → Export Data</div>
   </div>
 
   <script>
@@ -85,20 +85,18 @@
     }
 
     el('importData').onclick = function () {
-      var url = normalizeUrl(el('sourceUrl').value);
-      if (!url) { setStatus('Paste a website address first.'); return; }
+      var url = normalizeUrl(el('sourceUrl').value || 'https://www.mivubi.com/');
       setBusy(true);
-      setStatus('Rendering website and reconstructing editable design...\n' + url);
+      setStatus('Rebuilding Mivubi homepage using site-specific adapter...\n' + url);
       fetch('http://127.0.0.1:8844/render?url=' + encodeURIComponent(url))
         .then(readBridgeResponse)
         .then(function (payload) {
-          var count = payload.source && payload.source.elementCount ? payload.source.elementCount : 0;
-          setStatus('Design reconstruction ready.\nMode: ' + (payload.mode || 'unknown') + '\nElements: ' + count + '\nImporting into Figma...');
+          setStatus('Mivubi adapter payload ready.\nMode: ' + (payload.mode || 'unknown') + '\nCaptured images: ' + ((payload.diagnostics && payload.diagnostics.capturedImages) || 0) + '\nImporting structured design into Figma...');
           send('import-design-reconstruction', { payload: payload });
         })
         .catch(function (error) {
           setBusy(false);
-          setStatus('Design Reconstruction Compiler failed.\n\n' + (error && error.message ? error.message : error));
+          setStatus('Mivubi Home Adapter failed.\n\n' + (error && error.message ? error.message : error));
         });
     };
 
