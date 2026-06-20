@@ -2,9 +2,23 @@
 
 This plugin is a design-export helper. It is not part of the TranslateIT app runtime.
 
+## Safety Model
+
+The plugin is designed to be safe for existing Figma files.
+
+Rules:
+
+1. It never deletes all content on a page.
+2. It creates pages under the namespace prefix `TranslateIT Export / ...`.
+3. It tags generated nodes using Figma shared plugin data namespace `translateit.designExport`.
+4. `Refresh Generated Nodes Only` removes only nodes that were tagged by this plugin.
+5. Manual user-created nodes are not removed by refresh.
+6. `Create New Safe Export` adds a new timestamped generated root frame instead of clearing manual work.
+7. `Validate Safety First` runs basic checks and reports the number of generated nodes currently present.
+
 ## Current Capability
 
-The plugin now generates an editable Figma design system draft, not only flat placeholders.
+The plugin generates an editable Figma design system draft, not only flat placeholders.
 
 It creates:
 
@@ -27,18 +41,21 @@ DevelopingData/FigmaDesignExport/TranslateIT/plugin/manifest.json
 ```
 
 5. Run `TranslateIT Design Export`.
-6. Click `Create Editable Design System`.
+6. Click `Validate Safety First`.
+7. Click `Create New Safe Export`.
+
+Use `Refresh Generated Nodes Only` only when you want to replace prior plugin-generated nodes. It is still safe because it removes only tagged generated nodes.
 
 ## Expected Output
 
-The plugin creates these pages:
+The plugin creates these namespaced pages:
 
-- `00 Cover / Export Notes`
-- `01 Foundations`
-- `02 Icon Registry`
-- `03 Components`
-- `04 Templates`
-- `05 Screens`
+- `TranslateIT Export / 00 Cover / Export Notes`
+- `TranslateIT Export / 01 Foundations`
+- `TranslateIT Export / 02 Icon Registry`
+- `TranslateIT Export / 03 Components`
+- `TranslateIT Export / 04 Templates`
+- `TranslateIT Export / 05 Screens`
 
 ## Editing Rule
 
@@ -53,8 +70,10 @@ Do not sync to Tauri until DesignPreview is approved.
 
 ## Plugin Code Structure
 
-`code.js` is organized around these internal builders:
+`code.js` is organized around these internal sections:
 
+- safety constants and metadata tagging;
+- validation and page namespace helpers;
 - token/style helpers;
 - SVG icon helpers;
 - component builders;
