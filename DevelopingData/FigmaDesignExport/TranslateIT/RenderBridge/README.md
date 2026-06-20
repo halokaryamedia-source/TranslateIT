@@ -13,20 +13,20 @@ Paste Website Address → Import Data → Review in Figma → Export Data
 Run once:
 
 ```txt
-Install-Auto-Bridge.cmd
+Install-Session-Bridge.cmd
 ```
 
-After this one-time setup, the bridge starts automatically when Windows logs in. The user can open the Figma plugin normally, paste a website address, and click **Import Data**.
+After this one-time setup, the Figma plugin can start the bridge only when **Import Data** needs it. The bridge does not need to run at Windows login.
 
-## Manual start fallback
+The bridge auto-closes after it is idle.
 
-Use this only if automatic startup is not installed:
+## Daily usage
 
-```txt
-Start-Render-Bridge.cmd
-```
-
-Keep the terminal window open while using the Figma plugin.
+1. Open the TranslateIT Figma plugin.
+2. Paste a website URL.
+3. Click **Import Data**.
+4. Review the generated Figma layers.
+5. Click **Export Data**.
 
 ## Why this exists
 
@@ -36,33 +36,37 @@ The Render Bridge opens the website in a local Chromium browser through Playwrig
 
 ## Health check
 
-Open this in a browser:
+The bridge is expected to be available only while importing or shortly after import.
 
 ```txt
 http://127.0.0.1:8844/health
 ```
 
-Expected result:
+## Manual start fallback
 
-```json
-{ "ok": true }
+Use this only for debugging:
+
+```txt
+Start-Render-Bridge.cmd
 ```
 
-## Figma usage
+## Stop manually
 
-1. Open the TranslateIT Figma plugin.
-2. Paste a website URL.
-3. Click **Import Data**.
-4. Review the generated Figma layers.
-5. Click **Export Data**.
+```txt
+http://127.0.0.1:8844/shutdown
+```
 
-## Uninstall automatic bridge
+## Uninstall session protocol
 
 Run:
 
 ```txt
-Uninstall-Auto-Bridge.cmd
+Uninstall-Session-Bridge.cmd
 ```
+
+## Optional old startup mode
+
+The old Windows-login task files are still included for compatibility, but the recommended mode is now **session bridge**, not startup bridge.
 
 ## Limitations
 
