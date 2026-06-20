@@ -23,6 +23,12 @@ UI Build Package validator
         ↓
 Component contract checker
         ↓
+Roundtrip risk checker
+        ↓
+Snapshot export
+        ↓
+Diff against previous approved package
+        ↓
 UI Sync Gate
         ↓
 Component registry generation
@@ -101,6 +107,61 @@ This checks whether components follow the TranslateIT component contract:
 - non-button interactive elements should define `role="button"`;
 - dynamic/status/output components should define `data-bind` or `data-slot`;
 - layout dimensions should exist.
+
+## Roundtrip Risk Check
+
+Run:
+
+```powershell
+node .\tools\check-roundtrip-risk.mjs .\ui-build-package.json
+```
+
+This checks whether an export is risky to roundtrip back into the app workflow.
+
+It looks for:
+
+- design-only section leakage;
+- weak or missing stable names;
+- weak source metadata;
+- repeated action names;
+- missing quality metadata;
+- blocked readiness;
+- low readiness score;
+- missing backend bindings;
+- missing component entries.
+
+## Snapshot Export
+
+After each export, create a hash-based snapshot:
+
+```powershell
+node .\tools\create-ui-package-snapshot.mjs .\ui-build-package.json .\Snapshots
+```
+
+This writes:
+
+```txt
+Snapshots/<timestamp>-<source>-<hash>.json
+Snapshots/<timestamp>-<source>-<hash>.manifest.json
+```
+
+Use snapshots as reviewable package history before app runtime sync.
+
+## Diff Report
+
+Compare a new export against a previous approved package:
+
+```powershell
+node .\tools\diff-ui-build-packages.mjs .\Snapshots\old-approved.json .\ui-build-package.json .\ui-package-diff-report.md
+```
+
+The report lists:
+
+- added/removed/changed components;
+- added/removed/changed bindings;
+- added/removed/changed icons;
+- added/removed color tokens;
+- readiness regression warnings.
 
 ## Sync Gate
 
