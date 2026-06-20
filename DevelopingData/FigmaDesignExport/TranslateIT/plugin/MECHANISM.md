@@ -1,30 +1,35 @@
 # TranslateIT Figma Plugin Mechanism
 
-This plugin is a Native Figma Builder. It is not an HTML importer.
+This plugin is now a modular HTML/CSS to Figma importer.
 
-## Why Not Import HTML Directly?
+It is designed to support the project workflow where UI is first previewed through HTML/CSS, then reviewed or adjusted in Figma as editable design layers.
 
-The existing DesignPreview HTML/CSS is useful as the technical UI preview, but importing HTML directly into Figma has several problems:
+## Correct Import Mechanism
 
-- HTML/CSS becomes a visual capture, not a clean design system.
-- Browser-rendered screenshots are not easily editable as Figma components.
-- CSS layout does not map perfectly to Figma auto layout.
-- HTML import can create messy layer trees.
+You do not import a screenshot.
 
-Therefore, this plugin uses a controlled Figma-native build workflow.
+You do not import only CSS.
 
-## Current Mechanism
+You paste both:
+
+1. HTML structure, preferably the preview body or complete preview HTML.
+2. CSS rules used by that HTML.
+
+The plugin parses the HTML/CSS into an intermediate representation, then creates native editable Figma nodes.
 
 ```txt
-DesignPreview HTML/CSS/SVG
+Preview HTML
++ Preview CSS
         ↓
-Token, icon, component, and page mapping data
+Plugin parser
         ↓
-Figma plugin Native Builder
+Intermediate layout tree
         ↓
-Editable Figma pages, frames, text, colors, and vector icons
+Figma native builder
         ↓
-Visual review and manual adjustment in Figma
+Editable frames, text, rectangles, and vector-like icon layers
+        ↓
+Manual review/edit in Figma
         ↓
 Approved changes are written back to repo files
         ↓
@@ -33,60 +38,114 @@ Render DesignPreview again
 Sync to Tauri only after approval
 ```
 
-## What the Plugin Imports
+## Why HTML and CSS Together?
 
-The plugin does not ask you to import an HTML file.
+HTML gives the structure:
 
-Instead it uses:
+- sections;
+- cards;
+- nav items;
+- buttons;
+- text hierarchy;
+- data-component names;
+- grouping.
 
-1. Built-in default token and icon data embedded in `code.js`.
-2. Optional pasted JSON in the plugin panel.
+CSS gives the visual rules:
 
-The optional JSON can override:
+- colors;
+- spacing;
+- padding;
+- gap;
+- layout direction;
+- width and height;
+- border radius;
+- typography.
 
-- color tokens;
-- SVG icon symbol paths.
+If only HTML is pasted, the plugin can create the layer tree, but the visual result will be generic.
 
-## What the Plugin Generates
+If only CSS is pasted, the plugin has no UI structure to build.
 
-The plugin generates namespaced Figma pages:
+## Current Supported CSS Subset
 
-- `TranslateIT Export / 00 Cover / Export Notes`
-- `TranslateIT Export / 01 Foundations`
-- `TranslateIT Export / 02 Icon Registry`
-- `TranslateIT Export / 03 Components`
-- `TranslateIT Export / 04 Templates`
-- `TranslateIT Export / 05 Screens`
-- `TranslateIT Export / 98 Archive`
-- `TranslateIT Export / 99 Export Report`
+The importer supports common UI preview CSS patterns:
 
-The generated objects are native Figma nodes:
+- class selectors such as `.card`;
+- id selectors such as `#main`;
+- tag selectors such as `button` or `section`;
+- simple `tag.class` selectors;
+- `:root` CSS variables;
+- inline style attributes;
+- `display: flex`;
+- `flex-direction: row` or `column`;
+- `gap`;
+- `padding` and side-specific padding;
+- `width` and `height` in px-like values;
+- `background`, `background-color`;
+- `color`;
+- `font-size`;
+- `font-weight`;
+- `border-radius`;
+- `border-color` and basic border width.
 
-- frames;
-- rectangles;
-- text nodes;
-- vector icons created from SVG path data;
-- local paint styles.
+Unsupported CSS is ignored safely.
+
+## Current HTML Handling
+
+The importer supports regular HTML elements and text nodes.
+
+It ignores unsafe or irrelevant tags:
+
+- `script`;
+- `style`;
+- `link`;
+- `meta`;
+- `title`.
+
+`img` tags are converted into image placeholder frames for now.
+
+For clearer Figma layer names, add attributes like:
+
+```html
+<section data-component="Card / Feature">
+  ...
+</section>
+```
+
+or use clear classes:
+
+```html
+<div class="ti-card ti-feature-card">
+  ...
+</div>
+```
+
+## Generated Figma Pages
+
+The plugin creates namespaced pages:
+
+- `TranslateIT Import / 01 Imported Preview`
+- `TranslateIT Import / 98 Archive`
+- `TranslateIT Import / 99 Import Report`
 
 ## Safe Mode
 
-The plugin uses shared plugin metadata to tag generated nodes:
+The plugin tags generated top-level nodes using shared plugin metadata:
 
 ```txt
 namespace: translateit.designExport
 generated: true
-version: 2026-06-native-builder-v3
+version: 2026-06-html-css-ir-v2
 ```
 
 Refresh does not delete manual nodes.
 
 Refresh workflow:
 
-1. `Prepare Refresh + Archive`
-2. Review generated node count
-3. `Confirm Refresh / Archive Generated Nodes`
-4. Old generated top-level nodes move to `TranslateIT Export / 98 Archive`
-5. New export is generated
+1. Click `Prepare Refresh + Archive`.
+2. Review generated node count.
+3. Click `Generate + Archive Previous`.
+4. Old generated top-level nodes move to `TranslateIT Import / 98 Archive`.
+5. New import is generated.
 
 ## What Figma Edits Mean
 
@@ -99,12 +158,38 @@ Use Figma to decide visual changes, then update the repo source:
 - Component style changes -> DesignPreview CSS framework files
 - Screen layout changes -> DesignPreview templates and CSS
 
-## Future Upgrade Path
+## Important Limitation
 
-After this stable native builder is validated, next upgrades can include:
+This plugin is not a complete browser engine.
 
-1. True master components and instances.
-2. Better manifest bundle generation from repo JSON files.
-3. Reference PNG overlay layer.
-4. Change request cards.
-5. Round-trip export report for approved Figma changes.
+It will not perfectly reproduce every CSS behavior, especially:
+
+- CSS grid;
+- advanced positioning;
+- pseudo-elements;
+- complex selectors;
+- media queries;
+- canvas/webgl;
+- external fonts loaded from the web;
+- external image files.
+
+The goal is a structured editable Figma layer tree, not a pixel-perfect browser screenshot.
+
+For pixel-perfect review, keep using the generated PNG preview.
+
+For editable design work, use this plugin import.
+
+## Professional Workflow Recommendation
+
+For best results, maintain a clean HTML preview export:
+
+```txt
+DesignPreview/export/figma-import.html
+DesignPreview/export/figma-import.css
+```
+
+The HTML should include semantic component names and `data-component` attributes.
+
+The CSS should include resolved tokens and avoid overly complex selectors.
+
+This will make Figma output more modular and easier to edit.
