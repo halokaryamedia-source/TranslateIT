@@ -1,249 +1,128 @@
 /*
   TranslateIT DesignPreview / UI Templates
-  Rule: page states can only extend these templates with modifier classes.
+  Rule: page states extend these templates with modifier classes. No manual redraw variants.
 */
 
-.ti-template-main {
-  width: 1440px;
-  height: 900px;
+.ti-stage-frame {
+  width: var(--ti-desktop-width);
+  height: var(--ti-desktop-height);
   overflow: hidden;
   transform-origin: top left;
+  background: var(--ti-bg);
 }
 
-.ti-template-settings {
-  width: 1440px;
-  height: 640px;
+.ti-stage-frame--main { transform: scale(0.43); }
+.ti-stage-frame--settings { height: var(--ti-settings-height); transform: scale(0.51); }
+.ti-stage-frame--utility { transform: scale(0.62); }
+
+.ti-preview-frame {
+  position: relative;
   overflow: hidden;
-  transform-origin: top left;
+  background: #030407;
 }
 
-.ti-template-warmup {
-  display: grid;
-  width: 680px;
-  height: 340px;
-  place-items: center;
+.ti-preview-frame--main {
+  width: 620px;
+  height: 388px;
 }
 
-.ti-template-log {
-  width: 660px;
+.ti-preview-frame--settings {
+  width: 735px;
+  height: 370px;
 }
 
-.ti-app-shell--preview-main {
-  width: 100%;
-  height: 100%;
-  min-height: 0;
+.ti-preview-frame--utility {
+  width: 620px;
+  height: 360px;
 }
 
+.ti-app-shell--preview-main,
 .ti-app-shell--preview-settings {
   width: 100%;
   height: 100%;
   min-height: 0;
 }
 
-.ti-template-main .ti-sidebar,
-.ti-template-main .ti-workspace,
-.ti-template-settings .ti-settings-sidebar,
-.ti-template-settings .ti-settings-workspace {
+.ti-stage-frame .ti-sidebar,
+.ti-stage-frame .ti-workspace,
+.ti-stage-frame .ti-settings-sidebar,
+.ti-stage-frame .ti-settings-workspace {
   min-height: 0;
   height: 100%;
 }
 
-.ti-template-settings .ti-settings-scroll {
-  height: calc(640px - var(--ti-topbar-settings));
-}
+.ti-stage-frame--settings .ti-settings-scroll { height: calc(var(--ti-settings-height) - var(--ti-topbar-settings)); }
 
 .ti-state-recording .ti-record-pill {
   background: #1d0d12;
   border-color: #5a2930;
 }
 
-.ti-state-recording .ti-record-pill i {
-  background: var(--ti-danger);
-}
+.ti-state-recording .ti-record-pill i { background: var(--ti-danger); }
 
-.ti-state-recording .ti-assistant-card p::after {
-  content: " Recording is active. Speak clearly, then press the microphone again to stop.";
-}
+.ti-state-recording .ti-card-grid { margin-top: 86px; }
 
 .ti-state-result .ti-card-grid {
   grid-template-columns: 1fr;
   margin-top: 72px;
 }
 
-.ti-translation-result {
-  display: grid;
-  gap: 14px;
+.ti-state-result .ti-feature-card { display: none; }
+
+.ti-state-empty .ti-card-grid { display: none; }
+
+.ti-state-empty .ti-empty-card {
   width: var(--ti-home-width);
-  min-height: 188px;
-  padding: 18px;
-  text-align: left;
+  margin-top: 82px;
 }
 
-.ti-translation-result header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 16px;
-}
+.ti-state-empty .ti-assistant-card { margin-top: 34px; }
 
-.ti-translation-result h4 {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  font-size: 13px;
-  font-weight: var(--ti-weight-bold);
-}
-
-.ti-result-actions {
-  display: flex;
-  gap: 8px;
-}
-
-.ti-result-actions button {
-  min-width: 84px;
-  height: 30px;
-  border: 1px solid var(--ti-line-strong);
-  border-radius: var(--ti-radius-sm);
-  color: var(--ti-text);
-  background: var(--ti-surface-3);
-  font-size: 10px;
-  font-weight: var(--ti-weight-bold);
-}
-
-.ti-result-grid {
+.ti-warmup-shell {
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 14px;
-}
-
-.ti-result-block {
-  min-height: 94px;
-  border: 1px solid var(--ti-line);
-  border-radius: 13px;
-  padding: 14px;
-  background: var(--ti-surface-1);
-}
-
-.ti-result-block strong {
-  display: block;
-  margin-bottom: 8px;
-  color: var(--ti-muted);
-  font-size: 10px;
-  font-weight: var(--ti-weight-black);
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-}
-
-.ti-result-block p {
-  margin: 0;
-  color: var(--ti-text);
-  font-size: 12px;
-  line-height: 1.55;
-}
-
-.ti-dropdown-panel {
-  position: absolute;
-  z-index: 10;
-  display: grid;
-  gap: 8px;
-  width: 150px;
-  border: 1px solid var(--ti-line-strong);
-  border-radius: var(--ti-radius-md);
-  padding: 10px;
-  background: var(--ti-surface-2);
-  box-shadow: var(--ti-shadow-float);
-}
-
-.ti-dropdown-panel--direction {
-  right: 78px;
-  top: 206px;
-}
-
-.ti-dropdown-panel button {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) 34px;
-  min-height: 36px;
-  align-items: center;
-  border: 1px solid var(--ti-line);
-  border-radius: var(--ti-radius-sm);
-  padding: 0 10px;
-  color: var(--ti-text);
-  background: var(--ti-surface-1);
-  text-align: left;
-  font-size: 11px;
-  font-weight: var(--ti-weight-bold);
-}
-
-.ti-saved-empty {
-  display: grid;
-  width: 360px;
-  min-height: 120px;
+  width: 100%;
+  height: 100%;
   place-items: center;
-  justify-self: center;
-  margin-top: 150px;
-  border: 1px solid var(--ti-line-strong);
-  border-radius: var(--ti-radius-md);
-  background: var(--ti-surface-2);
-  text-align: center;
-}
-
-.ti-saved-empty h4 {
-  margin: 0;
-  color: var(--ti-text);
-  font-size: 14px;
-}
-
-.ti-saved-empty p {
-  margin: 8px 0 0;
-  color: var(--ti-muted);
-  font-size: 11px;
-}
-
-.ti-saved-empty button {
-  min-width: 120px;
-  height: 28px;
-  margin-top: 12px;
-  border-radius: var(--ti-radius-xs);
-  color: var(--ti-inverse);
-  background: var(--ti-text);
-  font-size: 10px;
-  font-weight: var(--ti-weight-black);
+  background: var(--ti-bg-radial), var(--ti-bg);
 }
 
 .ti-warmup-card {
-  width: 320px;
+  display: grid;
+  width: 438px;
+  gap: 18px;
   border: 1px solid var(--ti-line-strong);
-  border-radius: var(--ti-radius-md);
-  padding: 18px;
+  border-radius: var(--ti-radius-xl);
+  padding: 28px;
   background: var(--ti-surface-2);
+  box-shadow: var(--ti-shadow-float);
 }
 
 .ti-warmup-brand {
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: 14px;
 }
 
 .ti-warmup-brand strong {
   display: block;
   color: var(--ti-text);
-  font-size: 12px;
+  font-size: 14px;
 }
 
 .ti-warmup-brand span,
 .ti-warmup-card p {
   color: var(--ti-muted);
-  font-size: 10px;
+  font-size: 11px;
 }
 
 .ti-warmup-card p {
-  margin: 18px 0 0;
+  margin: 0;
+  line-height: 1.55;
 }
 
 .ti-progress {
   width: 100%;
   height: 4px;
-  margin-top: 12px;
   overflow: hidden;
   border-radius: var(--ti-radius-pill);
   background: #4b4f5d;
@@ -251,160 +130,29 @@
 
 .ti-progress i {
   display: block;
-  width: 46%;
+  width: 58%;
   height: 100%;
   border-radius: inherit;
   background: var(--ti-accent);
 }
 
-.ti-settings-card--audio {
-  min-height: 338px;
-  margin-top: 40px;
-  padding: 24px 56px;
-}
-
-.ti-settings-card--voice {
-  min-height: 250px;
-  margin-top: 30px;
-  padding: 30px 56px;
-}
-
-.ti-settings-card--language {
-  min-height: 144px;
-  margin-top: 40px;
-  padding: 24px 56px;
-}
-
-.ti-settings-card--compact {
-  min-height: 126px;
-  margin-top: 30px;
-  padding: 42px 56px;
-}
-
-.ti-settings-card--developer-monitoring {
-  min-height: 248px;
-  margin-top: 34px;
-  padding: 52px 56px;
-}
-
-.ti-settings-card--developer-log {
-  min-height: 276px;
-  margin-top: 34px;
-  padding: 40px 56px;
-}
-
-.ti-language-grid {
+.ti-template-rule-card {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) 56px minmax(0, 1fr);
-  gap: 34px;
-  align-items: start;
-}
-
-.ti-swap-button {
-  display: grid;
-  width: 56px;
-  height: 48px;
-  place-items: center;
-  margin-top: 38px;
+  gap: 12px;
   border: 1px solid var(--ti-line-strong);
-  border-radius: 12px;
+  border-radius: var(--ti-radius-xl);
+  padding: 24px;
+  background: var(--ti-surface-1);
+}
+
+.ti-template-rule-card strong {
   color: var(--ti-text);
-  background: var(--ti-surface-3);
+  font-size: 13px;
 }
 
-.ti-output-row,
-.ti-radio-row {
-  display: grid;
-  align-items: center;
-  background: transparent;
-}
-
-.ti-output-row {
-  grid-template-columns: 24px minmax(0, 1fr) 56px;
-  min-height: 58px;
-  column-gap: 24px;
-}
-
-.ti-output-row h3,
-.ti-output-row p {
+.ti-template-rule-card p {
   margin: 0;
-}
-
-.ti-output-row h3 {
-  font-size: 12.5px;
-}
-
-.ti-output-row p {
-  margin-top: 6px;
   color: var(--ti-muted);
   font-size: 11px;
-}
-
-.ti-toggle {
-  display: flex;
-  width: 54px;
-  height: 28px;
-  align-items: center;
-  justify-content: flex-start;
-  border-radius: var(--ti-radius-pill);
-  padding: 3px;
-  background: #333a45;
-}
-
-.ti-toggle.is-active {
-  justify-content: flex-end;
-  background: var(--ti-accent);
-}
-
-.ti-toggle i {
-  width: 22px;
-  height: 22px;
-  border-radius: var(--ti-radius-pill);
-  background: #9aa3b0;
-}
-
-.ti-toggle.is-active i {
-  background: var(--ti-surface-2);
-}
-
-.ti-radio-row {
-  grid-template-columns: 22px minmax(0, 1fr);
-  column-gap: 22px;
-  row-gap: 8px;
-  margin-top: 30px;
-  color: var(--ti-muted);
-  text-align: left;
-}
-
-.ti-radio-row > span {
-  width: 18px;
-  height: 18px;
-  border: 1px solid var(--ti-muted-2);
-  border-radius: var(--ti-radius-pill);
-}
-
-.ti-radio-row.is-active > span {
-  position: relative;
-  border-color: var(--ti-accent);
-  background: var(--ti-accent);
-}
-
-.ti-radio-row.is-active > span::after {
-  content: "";
-  position: absolute;
-  inset: 5px;
-  border-radius: var(--ti-radius-pill);
-  background: var(--ti-surface-2);
-}
-
-.ti-radio-row strong {
-  color: var(--ti-text);
-  font-size: 12.5px;
-}
-
-.ti-radio-row em {
-  grid-column: 2;
-  color: var(--ti-muted);
-  font-size: 11px;
-  font-style: normal;
+  line-height: 1.55;
 }
