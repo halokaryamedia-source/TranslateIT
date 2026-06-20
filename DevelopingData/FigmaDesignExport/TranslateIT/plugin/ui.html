@@ -40,18 +40,15 @@
         <h1>Design Export</h1>
       </div>
     </div>
-
-    <p class="sub">Paste any website address. V3 creates a visual screenshot reference plus an editable reconstruction for honest comparison.</p>
-
+    <p class="sub">Paste any website address. V4 creates a visual reference, a screenshot-backed editable overlay, and raw reconstruction debug.</p>
     <section class="card">
       <div class="card-header"><h2 class="card-title">Import Data</h2><span class="badge">1</span></div>
       <div class="card-body">
         <input id="sourceUrl" class="source-input" placeholder="Paste website address, e.g. https://www.mivubi.com/" />
         <button id="importData" class="primary">Import Data</button>
-        <div class="helper">Local Universal Page Adapter V3 must be running at http://127.0.0.1:8844. No site-specific layout is hardcoded.</div>
+        <div class="helper">Uses the local Universal Page Adapter payload and renders it with the V4 hybrid renderer. No site-specific layout is hardcoded.</div>
       </div>
     </section>
-
     <section class="card">
       <div class="card-header"><h2 class="card-title">Export Data</h2><span class="badge">2</span></div>
       <div class="card-body">
@@ -59,11 +56,9 @@
         <div class="helper">Downloads the latest Figma result as a JSON package with diagnostics.</div>
       </div>
     </section>
-
     <div class="status"><div class="status-title"><span class="dot"></span><span>Status</span></div><div id="statusText">Ready. Paste a website address, then click Import Data.</div></div>
-    <div class="footer">Flow: Website Address → Universal Page Adapter V3 → Visual Reference + Editable Reconstruction → Export Data</div>
+    <div class="footer">Flow: Website Address → Adapter Payload → V4 Hybrid Visual Match + Raw Debug → Export Data</div>
   </div>
-
   <script>
     function el(id) { return document.getElementById(id); }
     function setStatus(text) { el('statusText').textContent = text; }
@@ -72,8 +67,8 @@
     function send(type, data) { var msg = { type: type }; data = data || {}; Object.keys(data).forEach(function (key) { msg[key] = data[key]; }); parent.postMessage({ pluginMessage: msg }, '*'); }
     function downloadText(filename, text) { var blob = new Blob([text], { type: 'application/json;charset=utf-8' }); var url = URL.createObjectURL(blob); var a = document.createElement('a'); a.href = url; a.download = filename; document.body.appendChild(a); a.click(); document.body.removeChild(a); setTimeout(function () { URL.revokeObjectURL(url); }, 1000); }
     function readBridgeResponse(response) { return response.text().then(function (bodyText) { var payload = null; try { payload = bodyText ? JSON.parse(bodyText) : null; } catch (_) {} if (!response.ok) { var detail = payload && payload.error ? payload.error : bodyText; throw new Error('Bridge HTTP ' + response.status + (detail ? '\n' + detail : '')); } return payload || {}; }); }
-    function adapterSummary(payload) { var diagnostics = payload.diagnostics || {}; return 'Universal adapter payload ready.\nMode: ' + (payload.mode || 'unknown') + '\nVisual reference: ' + (payload.screenshot ? 'yes' : 'no') + '\nLayers: ' + (diagnostics.layerCount || 0) + '\nSections: ' + (diagnostics.sectionCount || 0) + '\nComponents: ' + (diagnostics.componentCount || 0) + '\nImages: ' + (diagnostics.imageCount || 0) + '\nText: ' + (diagnostics.textCount || 0) + '\nImporting into Figma...'; }
-    el('importData').onclick = function () { var url = normalizeUrl(el('sourceUrl').value); if (!url) { setStatus('Paste a website address first.'); return; } setBusy(true); setStatus('Rendering website and building V3 hybrid output...\n' + url); fetch('http://127.0.0.1:8844/render?url=' + encodeURIComponent(url)).then(readBridgeResponse).then(function (payload) { setStatus(adapterSummary(payload)); send('import-design-reconstruction', { payload: payload }); }).catch(function (error) { setBusy(false); setStatus('Universal Page Adapter failed.\n\n' + (error && error.message ? error.message : error)); }); };
+    function adapterSummary(payload) { var d = payload.diagnostics || {}; return 'Adapter payload ready.\nPayload mode: ' + (payload.mode || 'unknown') + '\nPlugin renderer: universal-page-adapter-v4\nVisual reference: ' + (payload.screenshot ? 'yes' : 'no') + '\nLayers: ' + (d.layerCount || 0) + '\nSections: ' + (d.sectionCount || 0) + '\nComponents: ' + (d.componentCount || 0) + '\nImages: ' + (d.imageCount || 0) + '\nText: ' + (d.textCount || 0) + '\nImporting into Figma...'; }
+    el('importData').onclick = function () { var url = normalizeUrl(el('sourceUrl').value); if (!url) { setStatus('Paste a website address first.'); return; } setBusy(true); setStatus('Rendering website and building V4 hybrid output...\n' + url); fetch('http://127.0.0.1:8844/render?url=' + encodeURIComponent(url)).then(readBridgeResponse).then(function (payload) { setStatus(adapterSummary(payload)); send('import-design-reconstruction', { payload: payload }); }).catch(function (error) { setBusy(false); setStatus('Universal Page Adapter failed.\n\n' + (error && error.message ? error.message : error)); }); };
     el('exportData').onclick = function () { send('export-ui-package'); };
     window.onmessage = function (event) { var msg = event.data.pluginMessage; if (!msg) return; if (msg.type === 'status') { setStatus(msg.text || ''); if (String(msg.text || '').indexOf('Import complete') >= 0 || String(msg.text || '').indexOf('Plugin error') >= 0) setBusy(false); } if (msg.exportJson) { downloadText('ui-build-package-' + new Date().toISOString().replace(/[:.]/g, '-') + '.json', msg.exportJson); } };
   </script>
