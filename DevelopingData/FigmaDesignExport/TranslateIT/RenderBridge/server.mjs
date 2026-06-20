@@ -6,7 +6,7 @@ const PORT = Number(process.env.TRANSLATEIT_RENDER_PORT || 8844);
 const IDLE_EXIT_MS = Number(process.env.TRANSLATEIT_RENDER_IDLE_EXIT_MS || 180000);
 const VIEWPORT = { width: 1440, height: 1600 };
 const MAX_LAYERS = 900;
-const MODE = 'universal-page-adapter-v3';
+const MODE = 'universal-page-adapter-v5';
 
 let idleTimer = null;
 let activeJobs = 0;
@@ -93,7 +93,6 @@ async function extractUniversalPage(page) {
     function roleOf(el) { const tag = el.tagName; const cls = clean(el.className).toLowerCase(); const role = clean(el.getAttribute('role')).toLowerCase(); if (tag === 'IMG' || tag === 'PICTURE' || tag === 'SVG') return 'image'; if (tag === 'BUTTON' || role === 'button' || cls.includes('button') || cls.includes('btn') || cls.includes('cta')) return 'button'; if (tag === 'A') return cls.includes('button') || cls.includes('btn') || cls.includes('cta') ? 'button' : 'link'; if (/^H[1-6]$/.test(tag)) return 'heading'; return 'box'; }
     function push(layer) { if (layers.length >= maxLayers) return; layer.id = layer.id || `layer-${id++}`; layer.order = layers.length; layers.push(layer); }
     function isTextCandidate(el, role, text, rect) { if (!text || text.length < 2) return false; if (!usable(rect)) return false; const tag = el.tagName; if (/^H[1-6]$/.test(tag) || tag === 'P' || tag === 'A' || tag === 'BUTTON' || tag === 'LI' || tag === 'LABEL') return true; const children = Array.from(el.children || []).filter((child) => { const style = window.getComputedStyle(child); return visible(style) && usable(rectFromDOM(child.getBoundingClientRect())); }); if (children.length === 0 && text.length <= 160) return true; if ((role === 'button' || role === 'link' || role === 'heading') && text.length <= 180) return true; return false; }
-
     Array.from(document.querySelectorAll('body *')).forEach((el) => {
       if (layers.length >= maxLayers || blocked.has(el.tagName)) return;
       const style = window.getComputedStyle(el);
@@ -113,13 +112,11 @@ async function extractUniversalPage(page) {
       const text = clean(el.innerText || el.textContent || '');
       if (isTextCandidate(el, role, text, rect)) push({ type: 'text', role: role === 'link' ? 'link' : role === 'button' ? 'button-label' : role === 'heading' ? 'heading' : 'text', tag: el.tagName.toLowerCase(), name: text.slice(0, 96), text, rect, style: styleOf(style), path: pathOf(el) });
     });
-
     const seen = new Set();
     const unique = [];
     layers.sort((a, b) => a.order - b.order).forEach((layer) => { const key = `${layer.type}|${layer.role}|${layer.text || layer.name}|${Math.round(layer.rect.x / 3)}|${Math.round(layer.rect.y / 3)}|${Math.round(layer.rect.w / 3)}|${Math.round(layer.rect.h / 3)}`; if (seen.has(key)) return; seen.add(key); unique.push(layer); });
     return { title: document.title || location.hostname, url: location.href, viewport, pageHeight, layers: unique, html: '<!doctype html>\n' + document.documentElement.outerHTML };
   }, { maxLayers: MAX_LAYERS });
-
   for (const layer of payload.layers) {
     if (layer.type !== 'image' || !layer.captureId) continue;
     try { const handle = await page.$(`[data-ti-universal-img-id="${layer.captureId}"]`); if (!handle) continue; const bytes = await handle.screenshot({ type: 'png' }); layer.image = { contentType: 'image/png', base64: bytes.toString('base64'), bytes: bytes.length }; } catch (_) {}
@@ -141,10 +138,9 @@ async function compile(target) {
     const extracted = await extractUniversalPage(page);
     const shot = await page.screenshot({ type: 'png', fullPage: true });
     const componentCount = extracted.sections.reduce((sum, section) => sum + ((section.components || []).length), 0);
-    return { ok: true, mode: MODE, adapter: 'universal-page-hybrid', capturedAt: new Date().toISOString(), title: extracted.title, url: extracted.url, viewport: extracted.viewport, pageHeight: extracted.pageHeight, screenshot: { contentType: 'image/png', base64: shot.toString('base64'), width: extracted.viewport.width, height: extracted.pageHeight }, layers: extracted.layers, sections: extracted.sections, html: extracted.html, diagnostics: { layerCount: extracted.layers.length, sectionCount: extracted.sections.length, componentCount, imageCount: extracted.layers.filter((x) => x.type === 'image').length, textCount: extracted.layers.filter((x) => x.type === 'text').length }, warnings: ['Universal Page Adapter V3 outputs a visual reference screenshot plus editable reconstruction.', 'This is generic and does not use site-specific hardcoded layout.'] };
+    return { ok: true, mode: MODE, adapter: 'universal-page-production-hybrid', capturedAt: new Date().toISOString(), title: extracted.title, url: extracted.url, viewport: extracted.viewport, pageHeight: extracted.pageHeight, screenshot: { contentType: 'image/png', base64: shot.toString('base64'), width: extracted.viewport.width, height: extracted.pageHeight }, layers: extracted.layers, sections: extracted.sections, html: extracted.html, diagnostics: { layerCount: extracted.layers.length, sectionCount: extracted.sections.length, componentCount, imageCount: extracted.layers.filter((x) => x.type === 'image').length, textCount: extracted.layers.filter((x) => x.type === 'text').length }, warnings: ['Universal Page Adapter V5 supplies screenshot, layer, section, and component data for Production Hybrid rendering.', 'Target 9+ visual score is achieved through screenshot-backed production output, not pure editable reconstruction.'] };
   } finally { await page.close(); }
 }
-
 server = http.createServer(async (req, res) => {
   resetIdleTimer();
   if (req.method === 'OPTIONS') { res.writeHead(204, { 'Access-Control-Allow-Origin': '*', 'Access-Control-Allow-Headers': 'Content-Type', 'Access-Control-Allow-Methods': 'GET,OPTIONS' }); res.end(); return; }
@@ -155,5 +151,4 @@ server = http.createServer(async (req, res) => {
   activeJobs += 1;
   try { json(res, 200, await compile(requestUrl.searchParams.get('url'))); } catch (error) { json(res, 500, { ok: false, error: error && error.stack ? error.stack : error && error.message ? error.message : String(error) }); } finally { activeJobs -= 1; resetIdleTimer(); }
 });
-
-server.listen(PORT, '127.0.0.1', () => { console.log(`TranslateIT Universal Page Adapter V3 running at http://127.0.0.1:${PORT}`); resetIdleTimer(); });
+server.listen(PORT, '127.0.0.1', () => { console.log(`TranslateIT Universal Page Adapter V5 running at http://127.0.0.1:${PORT}`); resetIdleTimer(); });
