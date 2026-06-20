@@ -26,6 +26,10 @@ function escapeHtml(value) {
   return String(value).replace(/[&<>"']/g, ch => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[ch]));
 }
 
+function attr(name, value) {
+  return `${name}="${escapeHtml(value || '')}"`;
+}
+
 function styleToCss(style = {}) {
   const lines = [];
   if (style.fill) lines.push(`background: ${style.fill};`);
@@ -35,16 +39,26 @@ function styleToCss(style = {}) {
   return lines.join(' ');
 }
 
+const iconByComponent = new Map();
+const iconByName = new Map();
+for (const icon of pkg.assets?.icons || []) {
+  if (icon.componentName) iconByComponent.set(icon.componentName, icon);
+  if (icon.name) iconByName.set(icon.name, icon);
+}
+
 const cssRules = [];
 const bindings = [];
 let idSeq = 0;
 
-function attr(name, value) {
-  return `${name}="${escapeHtml(value || '')}"`;
+function iconMarkup(componentRef) {
+  const icon = iconByComponent.get(componentRef) || iconByName.get(String(componentRef || '').replace(/^Icon\//, ''));
+  if (icon && icon.svg) return `<span class="ui-icon-svg" data-icon-ref="${escapeHtml(componentRef)}">${icon.svg}</span>`;
+  return `<span class="ui-icon-label">${escapeHtml(componentRef || 'icon')}</span>`;
 }
 
 function renderNode(node, depth = 0) {
-  const tag = node.figmaType === 'TEXT' ? 'span' : 'div';
+  const isText = node.figmaType === 'TEXT';
+  const tag = isText ? 'span' : 'div';
   const className = `ui-${safeName(node.name)}-${idSeq++}`;
   const attrs = [attr('class', className), attr('data-ui-node', node.name || '')];
 
@@ -56,22 +70,15 @@ function renderNode(node, depth = 0) {
     if (Object.keys(node.binding).length) bindings.push({ node: node.name, binding: node.binding });
   }
 
-  if (node.figmaType === 'INSTANCE' && node.componentRef) {
-    attrs.push(attr('data-icon-ref', node.componentRef));
-  }
+  if (node.figmaType === 'INSTANCE' && node.componentRef) attrs.push(attr('data-icon-ref', node.componentRef));
 
   const layout = node.layout || {};
   const direction = layout.layoutMode === 'HORIZONTAL' ? 'row' : 'column';
   const pad = layout.padding || {};
   cssRules.push(`.${className} { ${styleToCss(node.style)} width: ${layout.width || 0}px; min-height: ${layout.height || 0}px; display: flex; flex-direction: ${direction}; gap: ${layout.itemSpacing || 0}px; padding: ${pad.top || 0}px ${pad.right || 0}px ${pad.bottom || 0}px ${pad.left || 0}px; box-sizing: border-box; }`);
 
-  if (node.figmaType === 'TEXT') {
-    return `${'  '.repeat(depth)}<${tag} ${attrs.join(' ')}>${escapeHtml(node.text || '')}</${tag}>`;
-  }
-
-  if (node.figmaType === 'INSTANCE' && node.componentRef) {
-    return `${'  '.repeat(depth)}<${tag} ${attrs.join(' ')}><span class="ui-icon-label">${escapeHtml(node.componentRef)}</span></${tag}>`;
-  }
+  if (isText) return `${'  '.repeat(depth)}<${tag} ${attrs.join(' ')}>${escapeHtml(node.text || '')}</${tag}>`;
+  if (node.figmaType === 'INSTANCE' && node.componentRef) return `${'  '.repeat(depth)}<${tag} ${attrs.join(' ')}>${iconMarkup(node.componentRef)}</${tag}>`;
 
   const children = (node.children || []).map(child => renderNode(child, depth + 1)).join('\n');
   return `${'  '.repeat(depth)}<${tag} ${attrs.join(' ')}>\n${children}\n${'  '.repeat(depth)}</${tag}>`;
@@ -111,6 +118,7 @@ ${(pkg.tokens?.colors || []).map((color, index) => `  --ui-color-${index + 1}: $
 html, body { margin: 0; min-height: 100%; background: #030407; color: #f5f7fa; font-family: Inter, system-ui, sans-serif; }
 #app-root { min-height: 100vh; }
 .ui-icon-label { font-size: 9px; opacity: .65; }
+.ui-icon-svg, .ui-icon-svg svg { width: 24px; height: 24px; display: inline-flex; }
 
 ${cssRules.join('\n\n')}
 `;
