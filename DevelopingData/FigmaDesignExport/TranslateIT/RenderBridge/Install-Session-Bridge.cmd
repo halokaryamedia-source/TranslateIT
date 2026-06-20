@@ -9,7 +9,7 @@ echo TranslateIT Session Render Bridge Installer
 echo ============================================================
 echo.
 
-powershell -NoProfile -File "%~dp0Install-Session-Bridge.ps1"
+powershell -NoProfile -ExecutionPolicy Bypass -File "%~dp0Install-Session-Bridge.ps1"
 
 if errorlevel 1 (
   echo.
