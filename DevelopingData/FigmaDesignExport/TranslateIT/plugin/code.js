@@ -4,25 +4,35 @@ const NS = 'translateit.designExport';
 const VERSION = 'source-bundle-compiler-v1';
 const PAGE_NAME = 'TranslateIT Import / Workspace';
 let lastRun = null;
+let loadedRegularFont = { family: 'Inter', style: 'Regular' };
+let loadedBoldFont = { family: 'Inter', style: 'Bold' };
 
 function sendStatus(text, extra) {
-  const message = { type: 'status', text };
+  const message = { type: 'status', text: text };
   extra = extra || {};
-  Object.keys(extra).forEach((key) => { message[key] = extra[key]; });
+  Object.keys(extra).forEach(function (key) { message[key] = extra[key]; });
   figma.ui.postMessage(message);
 }
 
 async function loadFonts() {
   try {
     await figma.loadFontAsync({ family: 'Inter', style: 'Regular' });
-    await figma.loadFontAsync({ family: 'Inter', style: 'Bold' });
+    loadedRegularFont = { family: 'Inter', style: 'Regular' };
   } catch (_) {
     await figma.loadFontAsync({ family: 'Roboto', style: 'Regular' });
+    loadedRegularFont = { family: 'Roboto', style: 'Regular' };
+  }
+
+  try {
+    await figma.loadFontAsync({ family: 'Inter', style: 'Bold' });
+    loadedBoldFont = { family: 'Inter', style: 'Bold' };
+  } catch (_) {
+    loadedBoldFont = loadedRegularFont;
   }
 }
 
 function fontName(bold) {
-  return bold ? { family: 'Inter', style: 'Bold' } : { family: 'Inter', style: 'Regular' };
+  return bold ? loadedBoldFont : loadedRegularFont;
 }
 
 function hexToRgb(hex) {
@@ -52,10 +62,10 @@ function cssColor(value, fallback) {
 
   const rgba = raw.match(/rgba?\(([^)]+)\)/);
   if (rgba) {
-    const parts = rgba[1].split(',').map((item) => parseFloat(item));
+    const parts = rgba[1].split(',').map(function (item) { return parseFloat(item); });
     if (parts.length >= 3) {
       if (parts.length >= 4 && parts[3] === 0) return fallback || null;
-      return '#' + parts.slice(0, 3).map((n) => Math.round(Math.max(0, Math.min(255, n))).toString(16).padStart(2, '0')).join('');
+      return '#' + parts.slice(0, 3).map(function (n) { return Math.round(Math.max(0, Math.min(255, n))).toString(16).padStart(2, '0'); }).join('');
     }
   }
 
@@ -79,19 +89,21 @@ function bytesFromBase64(base64) {
 }
 
 async function workspacePage() {
-  let page = figma.root.children.find((item) => item.name === PAGE_NAME);
+  let page = null;
+  for (let i = 0; i < figma.root.children.length; i += 1) {
+    if (figma.root.children[i].name === PAGE_NAME) {
+      page = figma.root.children[i];
+      break;
+    }
+  }
   if (!page) page = figma.createPage();
   page.name = PAGE_NAME;
   await figma.setCurrentPageAsync(page);
   return page;
 }
 
-function isStructural(role) {
-  return ['root', 'header', 'nav', 'footer', 'section', 'card', 'list', 'list-item', 'group'].includes(role);
-}
-
 function isTextual(role) {
-  return ['heading', 'paragraph', 'text'].includes(role);
+  return ['heading', 'paragraph', 'text'].indexOf(role) >= 0;
 }
 
 function isAction(role) {
@@ -128,7 +140,8 @@ function createFrame(name, layoutMode, fill) {
 
 function createImage(node) {
   const imageNode = figma.createRectangle();
-  imageNode.name = safeName('image / ' + (node.name || node.attrs?.alt || 'Image'));
+  const attrs = node.attrs || {};
+  imageNode.name = safeName('image / ' + (node.name || attrs.alt || 'Image'));
   imageNode.resize(360, 220);
   imageNode.cornerRadius = 12;
 
@@ -143,6 +156,7 @@ function createImage(node) {
 }
 
 function createAction(node) {
+  const attrs = node.attrs || {};
   const frame = createFrame((node.role || 'action') + ' / ' + (node.name || node.text || 'Action'), 'HORIZONTAL', '#FFFFFF');
   frame.cornerRadius = 999;
   frame.paddingTop = 10;
@@ -151,7 +165,7 @@ function createAction(node) {
   frame.paddingLeft = 14;
   frame.strokes = solid('#D1D5DB');
   frame.strokeWeight = 1;
-  const label = createText(node.text || node.name || node.attrs?.href || 'Link', 14, '#111827', false, 'label / ' + (node.text || node.name || 'Action'));
+  const label = createText(node.text || node.name || attrs.href || 'Link', 14, '#111827', false, 'label / ' + (node.text || node.name || 'Action'));
   frame.appendChild(label);
   return frame;
 }
@@ -217,12 +231,12 @@ function buildNode(node, depth) {
   applyFrameStyle(frame, roleStyle);
   attachMeta(frame, node);
 
-  const seenText = new Set();
-  (node.children || []).forEach((child) => {
+  const seenText = {};
+  (node.children || []).forEach(function (child) {
     if (!child) return;
     const textKey = child.tag === '#text' ? cleanText(child.text).toLowerCase() : '';
-    if (textKey && seenText.has(textKey)) return;
-    if (textKey) seenText.add(textKey);
+    if (textKey && seenText[textKey]) return;
+    if (textKey) seenText[textKey] = true;
     const childLayer = buildNode(child, depth + 1);
     if (childLayer) frame.appendChild(childLayer);
   });
@@ -238,7 +252,7 @@ function buildNode(node, depth) {
 
 function countNodes(node) {
   if (!node) return 0;
-  return 1 + (node.children || []).reduce((sum, child) => sum + countNodes(child), 0);
+  return 1 + (node.children || []).reduce(function (sum, child) { return sum + countNodes(child); }, 0);
 }
 
 async function importSourceBundle(payload) {
@@ -265,7 +279,8 @@ async function importSourceBundle(payload) {
   run.appendChild(title);
 
   const info = payload.source || {};
-  const note = createText('Source Bundle Compiler: downloaded HTML + CSS, normalized assets, and rebuilt a semantic Figma structure. Nodes: ' + (info.nodeCount || countNodes(tree)) + ' / CSS files: ' + ((info.cssFiles || []).length || 0) + ' / Images: ' + (info.imageCount || 0), 12, '#8D96A6', false, 'Import Note');
+  const cssFiles = info.cssFiles || [];
+  const note = createText('Source Bundle Compiler: downloaded HTML + CSS, normalized assets, and rebuilt a semantic Figma structure. Nodes: ' + (info.nodeCount || countNodes(tree)) + ' / CSS files: ' + (cssFiles.length || 0) + ' / Images: ' + (info.imageCount || 0), 12, '#8D96A6', false, 'Import Note');
   run.appendChild(note);
 
   const output = buildNode(tree, 0);
