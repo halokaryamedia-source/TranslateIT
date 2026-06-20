@@ -1,7 +1,7 @@
 figma.showUI(__html__, { width: 580, height: 860 });
 
 const PAGE_NAME = 'TranslateIT Import / Workspace';
-const VERSION = 'universal-page-adapter-v1.1';
+const VERSION = 'universal-page-adapter-v2';
 let lastRun = null;
 let regular = { family: 'Inter', style: 'Regular' };
 let bold = { family: 'Inter', style: 'Bold' };
@@ -143,9 +143,35 @@ function getSourceHeight(sections, payload, viewport) {
   return maxHeight;
 }
 
+function modeOk(mode) {
+  return mode === 'universal-page-adapter-v1' || mode === 'universal-page-adapter-v1.1' || mode === 'universal-page-adapter-v2';
+}
+
+function appendLayerList(parent, layers, parentRect, scale) {
+  (layers || []).slice().sort(layerSort).forEach((layer) => {
+    const node = makeLayer(layer, parentRect, scale);
+    if (node) parent.appendChild(node);
+  });
+}
+
+function appendComponents(sectionFrame, section, sectionRect, scale) {
+  const components = Array.isArray(section.components) ? section.components : [];
+  if (!components.length) {
+    appendLayerList(sectionFrame, section.layers || [], sectionRect, scale);
+    return;
+  }
+  components.forEach((component, index) => {
+    const componentRect = component.rect || { x: sectionRect.x, y: sectionRect.y, w: 1, h: 1 };
+    const componentFrame = makeFrame(component.name || ('Component ' + String(index + 1).padStart(2, '0')), componentRect, sectionRect, scale, null);
+    appendLayerList(componentFrame, component.layers || [], componentRect, scale);
+    sectionFrame.appendChild(componentFrame);
+  });
+  appendLayerList(sectionFrame, section.looseLayers || [], sectionRect, scale);
+}
+
 async function importUniversal(payload) {
   await loadFonts();
-  if (!payload || (payload.mode !== 'universal-page-adapter-v1' && payload.mode !== 'universal-page-adapter-v1.1')) throw new Error('Expected Universal Page Adapter payload.');
+  if (!payload || !modeOk(payload.mode)) throw new Error('Expected Universal Page Adapter payload.');
   const page = await workspacePage();
   const sections = Array.isArray(payload.sections) ? payload.sections : [];
   const layers = Array.isArray(payload.layers) ? payload.layers : [];
@@ -182,7 +208,7 @@ async function importUniversal(payload) {
   const note = figma.createText();
   note.name = 'Import Note';
   note.fontName = font(false);
-  note.characters = 'Universal Page Adapter: browser-rendered editable layers. Layers: ' + (diagnostics.layerCount || layers.length) + ' / Sections: ' + (diagnostics.sectionCount || sections.length) + ' / Images: ' + (diagnostics.imageCount || 0) + ' / Text: ' + (diagnostics.textCount || 0);
+  note.characters = 'Universal Page Adapter: editable browser-rendered layers. Layers: ' + (diagnostics.layerCount || layers.length) + ' / Sections: ' + (diagnostics.sectionCount || sections.length) + ' / Components: ' + (diagnostics.componentCount || 0) + ' / Images: ' + (diagnostics.imageCount || 0) + ' / Text: ' + (diagnostics.textCount || 0);
   note.fontSize = 12;
   note.fills = paint('#8D96A6');
   try { note.textAutoResize = 'HEIGHT'; note.resize(1200, 24); } catch (_) {}
@@ -204,17 +230,11 @@ async function importUniversal(payload) {
       const rect = section.rect || { x: 0, y: 0, w: viewport.width, h: 100 };
       const sectionFrame = makeFrame(section.name || ('Section ' + String(index + 1).padStart(2, '0')), rect, { x: 0, y: 0 }, scale, null);
       sectionFrame.name = safe(section.role === 'header' ? 'Header' : section.role === 'footer' ? 'Footer' : (section.name || 'Section ' + String(index + 1).padStart(2, '0')));
-      (section.layers || []).slice().sort(layerSort).forEach((layer) => {
-        const node = makeLayer(layer, rect, scale);
-        if (node) sectionFrame.appendChild(node);
-      });
+      appendComponents(sectionFrame, section, rect, scale);
       canvas.appendChild(sectionFrame);
     });
   } else {
-    layers.slice().sort(layerSort).forEach((layer) => {
-      const node = makeLayer(layer, { x: 0, y: 0 }, scale);
-      if (node) canvas.appendChild(node);
-    });
+    appendLayerList(canvas, layers, { x: 0, y: 0 }, scale);
   }
 
   run.appendChild(canvas);
@@ -222,12 +242,12 @@ async function importUniversal(payload) {
   figma.viewport.scrollAndZoomIntoView([run]);
   lastRun = run;
 
-  send('Import complete.\nOutput page: ' + PAGE_NAME + '\nTop-level run: ' + run.name + '\nMode: Universal Page Adapter\nLayers generated: ' + (diagnostics.layerCount || layers.length) + '\nSections generated: ' + (diagnostics.sectionCount || sections.length) + '\nAdapter version: ' + VERSION + '\nNext step: review in Figma, then Export Data.');
+  send('Import complete.\nOutput page: ' + PAGE_NAME + '\nTop-level run: ' + run.name + '\nMode: Universal Page Adapter\nLayers generated: ' + (diagnostics.layerCount || layers.length) + '\nSections generated: ' + (diagnostics.sectionCount || sections.length) + '\nComponents generated: ' + (diagnostics.componentCount || 0) + '\nAdapter version: ' + VERSION + '\nNext step: review in Figma, then Export Data.');
 }
 
 function exportPackage() {
   if (!lastRun) return send('No import run found. Import Data first.');
-  send('Export complete.', { exportJson: JSON.stringify({ schema: 'translateit.ui-build-package.universal-page.v1', generatedAt: new Date().toISOString(), pluginVersion: VERSION, figmaRun: lastRun.name }, null, 2) });
+  send('Export complete.', { exportJson: JSON.stringify({ schema: 'translateit.ui-build-package.universal-page.v2', generatedAt: new Date().toISOString(), pluginVersion: VERSION, figmaRun: lastRun.name }, null, 2) });
 }
 
 figma.ui.onmessage = async function (msg) {
