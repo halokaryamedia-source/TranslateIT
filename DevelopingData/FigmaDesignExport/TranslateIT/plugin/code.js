@@ -1,7 +1,7 @@
 figma.showUI(__html__, { width: 580, height: 860 });
 
 const NS = 'translateit.designExport';
-const VERSION = 'design-reconstruction-compiler-v1';
+const VERSION = 'design-reconstruction-compiler-v1.1';
 const PAGE_NAME = 'TranslateIT Import / Workspace';
 let lastRun = null;
 let regularFont = { family: 'Inter', style: 'Regular' };
@@ -40,6 +40,7 @@ function color(value, fallback) {
 function bytes(base64) { const raw = atob(base64); const out = new Uint8Array(raw.length); for (let i = 0; i < raw.length; i += 1) out[i] = raw.charCodeAt(i); return out; }
 function pos(rect, parent, scale) { rect = rect || {}; parent = parent || {}; return { x: Math.round(((rect.x || 0) - (parent.x || 0)) * scale), y: Math.round(((rect.y || 0) - (parent.y || 0)) * scale) }; }
 function size(rect, scale) { rect = rect || {}; return { w: Math.max(1, Math.round((rect.w || 1) * scale)), h: Math.max(1, Math.round((rect.h || 1) * scale)) }; }
+function textWidth(value, fontSize, rectWidth, scale) { return Math.max(Math.round((rectWidth || 1) * scale), Math.round(clean(value).length * fontSize * 0.58), 32); }
 
 async function page() {
   let p = null;
@@ -78,14 +79,16 @@ function makeText(item, parent, scale) {
   const t = figma.createText();
   const value = clean(item.text || item.name || '');
   const bold = /bold|600|700|800|900/i.test(String(style.fontWeight || '')) || item.role === 'heading';
+  const fontSize = Math.max(6, px(style.fontSize, item.role === 'heading' ? 32 : 14) * scale);
   t.fontName = font(bold);
   t.characters = value || ' ';
-  t.fontSize = Math.max(6, px(style.fontSize, item.role === 'heading' ? 32 : 14) * scale);
+  t.fontSize = fontSize;
   t.fills = paint(color(style.color, item.role === 'heading' ? '#111827' : '#374151'));
   t.name = safeName((item.role || 'text') + ' / ' + value.slice(0, 56));
   const p = pos(item.rect, parent, scale);
   t.x = p.x; t.y = p.y;
-  try { t.resize(Math.max(1, Math.round(((item.rect && item.rect.w) || 120) * scale)), t.height); } catch (_) {}
+  try { t.textAutoResize = 'HEIGHT'; } catch (_) {}
+  try { t.resize(textWidth(value, fontSize, item.rect && item.rect.w, scale), Math.max(fontSize * 1.2, Math.round(((item.rect && item.rect.h) || fontSize) * scale))); } catch (_) {}
   meta(t, item);
   return t;
 }
@@ -122,7 +125,7 @@ function makeButton(item, parent, scale) {
 function makeElement(item, parent, scale) {
   if (!item || !item.rect) return null;
   if (item.role === 'image') return makeImage(item, parent, scale);
-  if (item.role === 'button' || item.role === 'link') return makeButton(item, parent, scale);
+  if (item.role === 'button') return makeButton(item, parent, scale);
   if (clean(item.text || item.name)) return makeText(item, parent, scale);
   return null;
 }
@@ -167,7 +170,7 @@ async function importDesign(payload) {
   const info = payload.source || {};
   const note = figma.createText();
   note.fontName = font(false);
-  note.characters = 'Design Reconstruction Compiler: clean editable rebuild from visible website text, images, actions, and layout clusters. Elements: ' + (info.elementCount || elements.length) + ' / Sections: ' + (info.sectionCount || sections.length);
+  note.characters = 'Design Reconstruction Compiler: editable rebuild from website text, images, actions, and layout clusters. Elements: ' + (info.elementCount || elements.length) + ' / Sections: ' + (info.sectionCount || sections.length);
   note.fontSize = 12;
   note.fills = paint('#8D96A6');
   note.name = 'Import Note';
