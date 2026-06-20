@@ -3,7 +3,33 @@ import { URL } from 'node:url';
 import { chromium } from 'playwright';
 
 const PORT = Number(process.env.TRANSLATEIT_RENDER_PORT || 8844);
+const IDLE_EXIT_MS = Number(process.env.TRANSLATEIT_RENDER_IDLE_EXIT_MS || 180000);
+
 let browserPromise = null;
+let activeJobs = 0;
+let idleTimer = null;
+
+function touch() {
+  if (idleTimer) clearTimeout(idleTimer);
+  idleTimer = setTimeout(async () => {
+    if (activeJobs > 0) {
+      touch();
+      return;
+    }
+
+    console.log(`Render Bridge idle for ${IDLE_EXIT_MS}ms. Shutting down.`);
+    try {
+      if (browserPromise) {
+        const browser = await browserPromise;
+        await browser.close();
+      }
+    } catch (_) {}
+
+    server.close(() => process.exit(0));
+    setTimeout(() => process.exit(0), 3000).unref();
+  }, IDLE_EXIT_MS);
+  idleTimer.unref();
+}
 
 function json(res, status, payload) {
   res.writeHead(status, {
@@ -178,6 +204,7 @@ async function renderUrl(sourceUrl) {
       html: result.html,
       mode: 'rendered-dom-computed-style',
       capturedAt: new Date().toISOString(),
+      idleExitMs: IDLE_EXIT_MS,
       warnings: [
         'Canvas, video, audio, iframe, WebGL, and complex animations are skipped.',
         'The output is an editable Figma approximation, not a pixel-perfect browser screenshot.'
@@ -189,6 +216,8 @@ async function renderUrl(sourceUrl) {
 }
 
 const server = http.createServer(async (req, res) => {
+  touch();
+
   if (req.method === 'OPTIONS') {
     res.writeHead(204, {
       'Access-Control-Allow-Origin': '*',
@@ -202,7 +231,27 @@ const server = http.createServer(async (req, res) => {
   const requestUrl = new URL(req.url, `http://127.0.0.1:${PORT}`);
 
   if (requestUrl.pathname === '/health') {
-    json(res, 200, { ok: true, service: 'translateit-render-bridge', port: PORT });
+    json(res, 200, {
+      ok: true,
+      service: 'translateit-render-bridge',
+      port: PORT,
+      idleExitMs: IDLE_EXIT_MS
+    });
+    return;
+  }
+
+  if (requestUrl.pathname === '/shutdown') {
+    json(res, 200, { ok: true, message: 'Render Bridge shutting down.' });
+    setTimeout(async () => {
+      try {
+        if (browserPromise) {
+          const browser = await browserPromise;
+          await browser.close();
+        }
+      } catch (_) {}
+      server.close(() => process.exit(0));
+      setTimeout(() => process.exit(0), 3000).unref();
+    }, 200);
     return;
   }
 
@@ -211,6 +260,7 @@ const server = http.createServer(async (req, res) => {
     return;
   }
 
+  activeJobs += 1;
   try {
     const targetUrl = requestUrl.searchParams.get('url');
     const result = await renderUrl(targetUrl);
@@ -220,12 +270,17 @@ const server = http.createServer(async (req, res) => {
       ok: false,
       error: error && error.message ? error.message : String(error)
     });
+  } finally {
+    activeJobs -= 1;
+    touch();
   }
 });
 
 server.listen(PORT, '127.0.0.1', () => {
   console.log(`TranslateIT Render Bridge running at http://127.0.0.1:${PORT}`);
-  console.log('Health check: http://127.0.0.1:8844/health');
+  console.log(`Auto shutdown after ${IDLE_EXIT_MS}ms idle.`);
+  console.log(`Health check: http://127.0.0.1:${PORT}/health`);
+  touch();
 });
 
 process.on('SIGINT', async () => {
