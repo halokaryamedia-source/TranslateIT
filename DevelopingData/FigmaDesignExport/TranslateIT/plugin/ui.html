@@ -9,11 +9,11 @@
     p { margin: 0 0 12px; color: #8d96a6; font-size: 12px; line-height: 1.45; }
     label { display: block; margin: 12px 0 6px; color: #c8ced8; font-size: 11px; font-weight: 800; }
     input, textarea { width: 100%; border: 1px solid #242b36; border-radius: 10px; padding: 9px; color: #c8ced8; background: #030407; font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 10px; line-height: 1.4; }
-    textarea { height: 170px; resize: vertical; }
-    .exportBox { height: 150px; }
+    textarea { height: 155px; resize: vertical; }
+    .exportBox { height: 135px; }
     .row { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
     .note { border: 1px solid #242b36; border-radius: 12px; padding: 10px 12px; background: #07090d; color: #c8ced8; font-size: 11px; line-height: 1.45; margin-bottom: 12px; }
-    .status { min-height: 88px; max-height: 120px; overflow: auto; white-space: pre-wrap; border: 1px solid #242b36; border-radius: 12px; padding: 10px 12px; color: #8d96a6; background: #030407; font-size: 10px; line-height: 1.45; margin-top: 12px; }
+    .status { min-height: 82px; max-height: 112px; overflow: auto; white-space: pre-wrap; border: 1px solid #242b36; border-radius: 12px; padding: 10px 12px; color: #8d96a6; background: #030407; font-size: 10px; line-height: 1.45; margin-top: 12px; }
     button { width: 100%; height: 38px; border: 1px solid #3a4454; border-radius: 10px; color: #f5f7fa; background: #11151c; font-weight: 800; cursor: pointer; }
     button + button { margin-top: 8px; }
     .secondary { color: #c8ced8; background: transparent; }
@@ -36,6 +36,7 @@
   <label>Single HTML package</label>
   <textarea id="html" placeholder="Paste HTML here. Include CSS in a style tag and optional SVG symbols for icons."></textarea>
 
+  <button id="loadSample" class="secondary">Load Built-in Smoke Test Sample</button>
   <button id="validate" class="secondary">Validate Plugin</button>
   <button id="generate">Generate One-Page Editable Figma</button>
   <button id="prepareRefresh" class="danger">Prepare Refresh + Archive</button>
@@ -50,7 +51,29 @@
   <script>
     const $ = id => document.getElementById(id);
     const send = (type, extra = {}) => parent.postMessage({ pluginMessage: { type, ...extra } }, '*');
+    const sample = `<!doctype html>
+<html>
+<head>
+<style>
+:root { --bg:#030407; --surface:#11151c; --surface2:#171c25; --border:#242b36; --text:#f5f7fa; --muted:#8d96a6; }
+.preview-root { display:flex; flex-direction:column; gap:20px; padding:32px; width:1180px; background:var(--bg); color:var(--text); }
+.toolbar,.card,.composer { background:var(--surface); border-color:var(--border); border-radius:18px; padding:20px; }
+.toolbar { display:flex; flex-direction:row; gap:16px; height:86px; }
+.cards { display:flex; flex-direction:row; gap:20px; }
+.card { display:flex; flex-direction:column; gap:10px; width:520px; height:180px; }
+.composer { display:flex; flex-direction:row; gap:12px; width:960px; height:78px; }
+.label { color:var(--muted); font-size:12px; }
+.title { color:var(--text); font-size:22px; font-weight:700; }
+.button { display:flex; flex-direction:row; gap:10px; width:180px; height:44px; padding:12px; background:var(--surface2); border-radius:12px; color:var(--text); }
+</style>
+</head>
+<body>
+<svg width="0" height="0" style="display:none"><symbol id="plus" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></symbol><symbol id="mic" viewBox="0 0 24 24"><path d="M12 14a4 4 0 0 0 4-4V7a4 4 0 0 0-8 0v3a4 4 0 0 0 4 4Z"/><path d="M19 10a7 7 0 0 1-14 0M12 17v4M8 21h8"/></symbol><symbol id="send" viewBox="0 0 24 24"><path d="M12 19V5M5 12l7-7 7 7"/></symbol></svg>
+<main class="preview-root" data-component="Screen / Smoke Test"><section class="toolbar" data-component="Toolbar / Main"><div class="button" data-component="Button / New Chat" data-action="chat.new" data-backend="chat_new"><span data-icon="plus"></span><span>New Chat</span></div><div class="label" data-bind="worker.status">Worker Ready</div></section><section class="cards" data-component="Cards / Feature Row"><article class="card" data-component="Card / Text Input"><div class="title">Text input</div><p class="label">Type text and translate it through the local runtime.</p></article><article class="card" data-component="Card / Voice Input"><div class="title">Voice input</div><p class="label">Record speech and stream it to the translation worker.</p></article></section><section class="composer" data-component="Composer / Translation Input"><span data-icon="plus"></span><span class="label" data-slot="composer.placeholder">Ask anything...</span><span data-icon="mic" data-action="voice.record" data-backend="voice_record"></span><span data-icon="send" data-action="translation.send" data-backend="translation_send"></span></section></main>
+</body>
+</html>`;
     const payload = () => ({ name: $('name').value, width: Number($('width').value) || 1440, height: Number($('height').value) || 1600, html: $('html').value });
+    $('loadSample').onclick = () => { $('html').value = sample; $('status').textContent = 'Built-in sample loaded. Click Generate One-Page Editable Figma.'; };
     $('validate').onclick = () => send('validate');
     $('prepareRefresh').onclick = () => send('prepare-refresh');
     $('generate').onclick = () => send('import-single-html', { payload: payload(), refresh: false });
