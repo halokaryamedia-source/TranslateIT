@@ -54,10 +54,6 @@ function clean(value) {
   return String(value || '').replace(/\s+/g, ' ').trim();
 }
 
-function rectArea(rect) {
-  return Math.max(0, (rect?.width || rect?.w || 0) * (rect?.height || rect?.h || 0));
-}
-
 async function captureVisibleImages(page) {
   const descriptors = await page.evaluate(() => {
     function clean(value) { return String(value || '').replace(/\s+/g, ' ').trim(); }
@@ -96,13 +92,29 @@ async function captureVisibleImages(page) {
 }
 
 function chooseMivubiAssets(images) {
-  const sorted = images.slice().sort((a, b) => b.area - a.area);
-  const logo = images.find((item) => /logo|mivubi/i.test(item.alt) && item.area < 12000) || images.filter((item) => item.area < 12000).sort((a, b) => a.rect.y - b.rect.y || a.rect.x - b.rect.x)[0] || null;
-  const large = sorted.filter((item) => item.area > 40000);
+  const small = images.filter((item) => item.area < 16000).sort((a, b) => a.rect.y - b.rect.y || a.rect.x - b.rect.x);
+  const logo = images.find((item) => /logo|mivubi|mvub/i.test(item.alt + ' ' + item.src) && item.area < 20000) || small[0] || null;
+
+  const projectImages = images
+    .filter((item) => item.area > 35000 && item.rect.h > 180 && item.rect.w > 120)
+    .sort((a, b) => {
+      const centerBiasA = Math.abs((a.rect.x + a.rect.w / 2) - 720);
+      const centerBiasB = Math.abs((b.rect.x + b.rect.w / 2) - 720);
+      return centerBiasA - centerBiasB || b.area - a.area;
+    });
+
+  const mainProject = projectImages[0] || null;
+  const sideProject = projectImages.find((item) => !mainProject || item.id !== mainProject.id) || null;
+
   return {
     logo: logo ? logo.image : null,
-    mainProject: large[0] ? large[0].image : null,
-    sideProject: large[1] ? large[1].image : null,
+    mainProject: mainProject ? mainProject.image : null,
+    sideProject: sideProject ? sideProject.image : null,
+    selected: {
+      logo: logo ? { alt: logo.alt, src: logo.src, rect: logo.rect, area: logo.area } : null,
+      mainProject: mainProject ? { alt: mainProject.alt, src: mainProject.src, rect: mainProject.rect, area: mainProject.area } : null,
+      sideProject: sideProject ? { alt: sideProject.alt, src: sideProject.src, rect: sideProject.rect, area: sideProject.area } : null
+    },
     raw: images.map((item) => ({ alt: item.alt, src: item.src, rect: item.rect, area: item.area }))
   };
 }
@@ -140,7 +152,7 @@ async function compileMivubiHome(targetUrl) {
         intro: 'MIVUBI Team is dedicated to utilizing Minecraft for Education, Art, and Cultural Initiatives.',
         primaryCta: 'Talk with us',
         socials: ['in', 'ig', 'tk'],
-        mainCard: { title: 'RAMPoggan Arena', date: 'Dec 20, 2025' },
+        mainCard: { title: 'RAMpoggan Arena', date: 'Dec 20, 2025' },
         sideFeature: {
           title: 'Tana Samawa',
           description: 'Tana Samawa merekonstruksi Sumbawa melalui video game dengan pendekatan topografi, arsitektur, ikonografi, dan kultural sebagai ruang alternatif reka pengetahuan.',
@@ -149,7 +161,7 @@ async function compileMivubiHome(targetUrl) {
         },
         footer: {
           description: "We're a specialized project team exploring new possibilities using the Minecraft platform in the realms of Education, Art, and Culture.",
-          recentWorks: ['RAMPoggan Arena', 'Tana Samawa', 'Jalur Tanam: Lini Masa', 'Perkebunan Nusantara'],
+          recentWorks: ['RAMpoggan Arena', 'Tana Samawa', 'Jalur Tanam: Lini Masa', 'Perkebunan Nusantara'],
           programs: ['Contents', 'Careers'],
           contact: ['Java, Indonesia', 'mivubiteam@gmail.com', '+62821-3214-5370']
         }
@@ -157,6 +169,7 @@ async function compileMivubiHome(targetUrl) {
       diagnostics: {
         sourceTextChars: clean(pageText).length,
         capturedImages: images.length,
+        selectedAssets: assets.selected,
         rawImages: assets.raw
       },
       warnings: [
