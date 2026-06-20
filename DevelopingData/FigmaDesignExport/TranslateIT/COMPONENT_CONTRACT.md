@@ -2,7 +2,7 @@
 
 This document defines the supported component contract for the Figma Design Export workflow.
 
-The goal is to keep generated Figma layers, exported UI Build Package JSON, and frontend codegen consistent.
+The goal is to keep generated Figma layers, exported UI Build Package JSON, component registry, and frontend codegen consistent.
 
 ## Required Base Attributes
 
@@ -43,7 +43,7 @@ Rules:
 - `data-action` is the frontend event name.
 - `data-backend` is the Tauri/backend command name.
 - Interactive controls should define both.
-- If `data-backend` is missing, codegen may fallback to `data-action`, but sync gate should warn.
+- If `data-backend` is missing, codegen may fallback to `data-action`, but validator/sync gate should warn.
 
 Recommended action naming:
 
@@ -112,7 +112,7 @@ alert
 check
 ```
 
-## Optional Semantic Attributes
+## Semantic Component Attributes
 
 Future-friendly attributes:
 
@@ -150,7 +150,87 @@ data-size="md"
 data-size="lg"
 ```
 
-These attributes should be preserved through plugin metadata and later used by codegen.
+Current tooling can infer these values from component names when explicit attributes are not available.
+
+Inference examples:
+
+```txt
+Button / New Chat            -> type=button, variant=default, state=default, size=md
+Button / Primary Send        -> type=button, variant=primary, state=default, size=md
+Card / Voice Input           -> type=card, variant=default, state=default, size=lg
+Status / Worker              -> type=status, variant=default, state=default, size=md
+Modal / Settings             -> type=modal, variant=default, state=default, size=lg
+```
+
+## Component Registry
+
+A UI Build Package can be converted into a component registry:
+
+```powershell
+node .\tools\generate-component-registry.mjs .\ui-build-package.json .\component-registry.json
+```
+
+Codegen also writes:
+
+```txt
+GeneratedFrontend/component-registry.json
+```
+
+The registry records:
+
+```txt
+id
+name
+figmaNodeName
+source
+type
+variant
+state
+size
+action
+backend
+bind
+slot
+route
+layout
+style
+```
+
+The generated frontend also writes these attributes to HTML nodes when possible:
+
+```txt
+data-component-id
+data-component-type
+data-variant
+data-state
+data-size
+```
+
+Runtime helper:
+
+```txt
+setComponentState(componentId, state)
+```
+
+This allows the generated scaffold to preview state changes without rewriting the generated HTML manually.
+
+## Component Contract Checker
+
+Run:
+
+```powershell
+node .\tools\check-component-contract.mjs .\ui-build-package.json
+```
+
+This checks:
+
+- component naming style;
+- missing component categories;
+- interactive components without `data-action`;
+- actions without `data-backend`;
+- non-button interactive elements without `role="button"`;
+- status/output-like components without `data-bind` or `data-slot`;
+- missing layout dimensions.
 
 ## Supported CSS Contract
 
