@@ -9,11 +9,10 @@
     p { margin: 0 0 12px; color: #8d96a6; font-size: 12px; line-height: 1.45; }
     label { display: block; margin: 12px 0 6px; color: #c8ced8; font-size: 11px; font-weight: 800; }
     input, textarea { width: 100%; border: 1px solid #242b36; border-radius: 10px; padding: 9px; color: #c8ced8; background: #030407; font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 10px; line-height: 1.4; }
-    textarea { height: 126px; resize: vertical; }
-    .small { height: 64px; }
+    textarea { height: 220px; resize: vertical; }
     .row { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
     .note { border: 1px solid #242b36; border-radius: 12px; padding: 10px 12px; background: #07090d; color: #c8ced8; font-size: 11px; line-height: 1.45; margin-bottom: 12px; }
-    .status { min-height: 92px; max-height: 132px; overflow: auto; white-space: pre-wrap; border: 1px solid #242b36; border-radius: 12px; padding: 10px 12px; color: #8d96a6; background: #030407; font-size: 10px; line-height: 1.45; margin-top: 12px; }
+    .status { min-height: 96px; max-height: 136px; overflow: auto; white-space: pre-wrap; border: 1px solid #242b36; border-radius: 12px; padding: 10px 12px; color: #8d96a6; background: #030407; font-size: 10px; line-height: 1.45; margin-top: 12px; }
     button { width: 100%; height: 38px; border: 1px solid #3a4454; border-radius: 10px; color: #f5f7fa; background: #11151c; font-weight: 800; cursor: pointer; }
     button + button { margin-top: 8px; }
     .secondary { color: #c8ced8; background: transparent; }
@@ -21,39 +20,36 @@
   </style>
 </head>
 <body>
-  <h1>TranslateIT Single HTML to Figma</h1>
-  <p>Recommended: paste one self-contained HTML package. Put CSS inside a style tag in the same HTML.</p>
-  <div class="note">Use one input: HTML with embedded CSS. Separate CSS is optional only for override or advanced testing.</div>
+  <h1>Single HTML to Figma</h1>
+  <p>Paste one self-contained HTML package. CSS must be inside a style tag. Output is one Figma page with modular sections.</p>
+  <div class="note">Icons from SVG symbol ids become reusable Figma component masters in Component Preview. UI icon usages become instances, so editing the master updates the repeated icons.</div>
 
   <label>Preview name</label>
   <input id="name" value="TranslateIT Preview Import" />
 
   <div class="row">
     <div><label>Canvas width</label><input id="width" value="1440" /></div>
-    <div><label>Canvas height</label><input id="height" value="1000" /></div>
+    <div><label>Canvas height</label><input id="height" value="1600" /></div>
   </div>
 
   <label>Single HTML package</label>
-  <textarea id="html" placeholder="Paste one HTML package here. Include CSS inside a style tag."></textarea>
-
-  <label>Optional CSS override</label>
-  <textarea id="css" class="small" placeholder="Optional. Leave empty for normal use."></textarea>
+  <textarea id="html" placeholder="Paste HTML here. Include CSS in a style tag and optional SVG symbols for icons."></textarea>
 
   <button id="validate" class="secondary">Validate Plugin</button>
-  <button id="generate">Generate Editable Figma from Single HTML</button>
+  <button id="generate">Generate One-Page Editable Figma</button>
   <button id="prepareRefresh" class="danger">Prepare Refresh + Archive</button>
   <button id="generateRefresh" class="danger">Generate + Archive Previous</button>
 
-  <div id="status" class="status">Ready. Paste one HTML package, then generate.</div>
+  <div id="status" class="status">Ready. Paste one self-contained HTML package, then generate.</div>
 
   <script>
     const $ = id => document.getElementById(id);
     const send = (type, extra = {}) => parent.postMessage({ pluginMessage: { type, ...extra } }, '*');
-    const payload = () => ({ name: $('name').value, width: Number($('width').value) || 1440, height: Number($('height').value) || 1000, html: $('html').value, css: $('css').value });
+    const payload = () => ({ name: $('name').value, width: Number($('width').value) || 1440, height: Number($('height').value) || 1600, html: $('html').value });
     $('validate').onclick = () => send('validate');
     $('prepareRefresh').onclick = () => send('prepare-refresh');
-    $('generate').onclick = () => send('import-raw', { payload: payload(), refresh: false });
-    $('generateRefresh').onclick = () => send('import-raw', { payload: payload(), refresh: true });
+    $('generate').onclick = () => send('import-single-html', { payload: payload(), refresh: false });
+    $('generateRefresh').onclick = () => send('import-single-html', { payload: payload(), refresh: true });
     window.onmessage = event => { const msg = event.data.pluginMessage; if (msg && msg.type === 'status') $('status').textContent = msg.text; };
   </script>
 </body>
