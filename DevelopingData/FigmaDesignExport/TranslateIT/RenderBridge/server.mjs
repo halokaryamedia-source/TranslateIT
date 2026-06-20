@@ -1,14 +1,17 @@
 import http from 'node:http';
 import { URL } from 'node:url';
+import { chromium } from 'playwright';
 
 const PORT = Number(process.env.TRANSLATEIT_RENDER_PORT || 8844);
 const IDLE_EXIT_MS = Number(process.env.TRANSLATEIT_RENDER_IDLE_EXIT_MS || 180000);
 const MAX_CSS_FILES = 24;
 const MAX_IMAGE_ASSETS = 80;
+const VIEWPORT = { width: 1440, height: 1600 };
 
 let idleTimer = null;
 let activeJobs = 0;
 let server = null;
+let browserPromise = null;
 
 function json(res, status, payload) {
   res.writeHead(status, {
@@ -20,13 +23,26 @@ function json(res, status, payload) {
   res.end(JSON.stringify(payload));
 }
 
+async function getBrowser() {
+  if (!browserPromise) browserPromise = chromium.launch({ headless: true });
+  return browserPromise;
+}
+
 function resetIdleTimer() {
   if (idleTimer) clearTimeout(idleTimer);
-  idleTimer = setTimeout(() => {
+  idleTimer = setTimeout(async () => {
     if (activeJobs > 0) {
       resetIdleTimer();
       return;
     }
+
+    try {
+      if (browserPromise) {
+        const browser = await browserPromise;
+        await browser.close();
+      }
+    } catch (_) {}
+
     if (server) {
       server.close(() => process.exit(0));
       setTimeout(() => process.exit(0), 3000).unref();
@@ -54,13 +70,22 @@ function stripQuotes(value) {
 }
 
 function cleanText(value) {
-  return String(value || '').replace(/<[^>]+>/g, ' ').replace(/&nbsp;/g, ' ').replace(/&amp;/g, '&').replace(/&quot;/g, '"').replace(/&#39;/g, "'").replace(/\s+/g, ' ').trim();
+  return String(value || '')
+    .replace(/<script\b[\s\S]*?<\/script>/gi, ' ')
+    .replace(/<style\b[\s\S]*?<\/style>/gi, ' ')
+    .replace(/<[^>]+>/g, ' ')
+    .replace(/&nbsp;/g, ' ')
+    .replace(/&amp;/g, '&')
+    .replace(/&quot;/g, '"')
+    .replace(/&#39;/g, "'")
+    .replace(/\s+/g, ' ')
+    .trim();
 }
 
 async function fetchBuffer(url) {
   const response = await fetch(url, {
     headers: {
-      'User-Agent': 'Mozilla/5.0 TranslateIT Source Bundle Compiler',
+      'User-Agent': 'Mozilla/5.0 TranslateIT Hybrid Source Bundle Compiler',
       'Accept': '*/*'
     },
     redirect: 'follow'
@@ -74,6 +99,42 @@ async function fetchBuffer(url) {
 async function fetchText(url) {
   const { bytes, contentType, finalUrl } = await fetchBuffer(url);
   return { text: bytes.toString('utf8'), contentType, finalUrl };
+}
+
+async function renderClientHtml(url) {
+  const browser = await getBrowser();
+  const page = await browser.newPage({ viewport: VIEWPORT, deviceScaleFactor: 1 });
+  try {
+    await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 45000 });
+    try { await page.waitForLoadState('networkidle', { timeout: 12000 }); } catch (_) {}
+    await page.waitForTimeout(1800);
+    await page.evaluate(async () => {
+      await new Promise((resolve) => {
+        let total = 0;
+        const step = 700;
+        const timer = setInterval(() => {
+          window.scrollBy(0, step);
+          total += step;
+          const height = Math.max(document.body.scrollHeight || 0, document.documentElement.scrollHeight || 0);
+          if (total >= height || total > 8000) {
+            clearInterval(timer);
+            window.scrollTo(0, 0);
+            resolve();
+          }
+        }, 80);
+      });
+    });
+    await page.waitForTimeout(600);
+    const result = await page.evaluate(() => ({
+      title: document.title || location.hostname,
+      html: '<!doctype html>\n' + document.documentElement.outerHTML,
+      finalUrl: location.href,
+      bodyText: document.body ? document.body.innerText : ''
+    }));
+    return result;
+  } finally {
+    await page.close();
+  }
 }
 
 function extractTitle(html, url) {
@@ -193,7 +254,7 @@ function roleOf(tag, attrs, className) {
   if (['span', 'strong', 'em', 'small', 'label'].includes(tag)) return 'text';
   if (['ul', 'ol'].includes(tag)) return 'list';
   if (tag === 'li') return 'list-item';
-  if (cls.includes('card') || cls.includes('item') || cls.includes('project') || cls.includes('portfolio')) return 'card';
+  if (cls.includes('card') || cls.includes('item') || cls.includes('project') || cls.includes('portfolio') || cls.includes('work')) return 'card';
   return 'group';
 }
 
@@ -232,7 +293,7 @@ function createTextNode(text, parentPath, idRef) {
 }
 
 function parseHtmlChildren(html, baseUrl, parentPath, idRef, depth = 0) {
-  if (depth > 14) return [];
+  if (depth > 16) return [];
   const output = [];
   const regex = /<([a-zA-Z][a-zA-Z0-9:-]*)(\s[^>]*)?>/g;
   let cursor = 0;
@@ -318,9 +379,7 @@ function collectImageUrls(node, out = []) {
 
 function attachImageAssets(node, assetsByUrl) {
   if (!node) return;
-  if (node.role === 'image' && node.src && assetsByUrl[node.src]) {
-    node.image = assetsByUrl[node.src];
-  }
+  if (node.role === 'image' && node.src && assetsByUrl[node.src]) node.image = assetsByUrl[node.src];
   (node.children || []).forEach((child) => attachImageAssets(child, assetsByUrl));
 }
 
@@ -332,12 +391,7 @@ async function collectImages(root) {
     try {
       const result = await fetchBuffer(url);
       if (!/^image\//i.test(result.contentType)) continue;
-      assets[url] = {
-        url,
-        contentType: result.contentType,
-        base64: result.bytes.toString('base64'),
-        bytes: result.bytes.length
-      };
+      assets[url] = { url, contentType: result.contentType, base64: result.bytes.toString('base64'), bytes: result.bytes.length };
     } catch (error) {
       assets[url] = { url, error: error && error.message ? error.message : String(error) };
     }
@@ -351,17 +405,8 @@ function countNodes(node) {
   return 1 + (node.children || []).reduce((sum, child) => sum + countNodes(child), 0);
 }
 
-async function compileSourceBundle(sourceUrl) {
-  const targetUrl = normalizeUrl(sourceUrl);
-  if (!targetUrl) throw new Error('Missing url query parameter.');
-
-  const htmlResult = await fetchText(targetUrl);
-  const finalUrl = htmlResult.finalUrl || targetUrl;
-  const title = extractTitle(htmlResult.text, finalUrl);
-  const cssResult = await collectCss(htmlResult.text, finalUrl);
-  const idRef = { value: 1 };
-  const bodyHtml = extractBodyHtml(htmlResult.text);
-  const root = {
+function buildRootFromHtml(html, baseUrl, idRef) {
+  return {
     id: 'root-0',
     tag: 'body',
     role: 'root',
@@ -370,9 +415,40 @@ async function compileSourceBundle(sourceUrl) {
     attrs: {},
     inlineStyle: {},
     path: 'body',
-    children: parseHtmlChildren(bodyHtml, finalUrl, 'body', idRef, 0)
+    children: parseHtmlChildren(extractBodyHtml(html), baseUrl, 'body', idRef, 0)
   };
+}
 
+function isSparseTree(root) {
+  if (!root) return true;
+  const nodeCount = countNodes(root);
+  const textLength = cleanText(JSON.stringify(root.children || [])).length;
+  return nodeCount <= 5 || textLength < 80;
+}
+
+async function compileSourceBundle(sourceUrl) {
+  const targetUrl = normalizeUrl(sourceUrl);
+  if (!targetUrl) throw new Error('Missing url query parameter.');
+
+  const staticResult = await fetchText(targetUrl);
+  let finalUrl = staticResult.finalUrl || targetUrl;
+  let html = staticResult.text;
+  let title = extractTitle(html, finalUrl);
+  let sourceKind = 'static-html';
+  let idRef = { value: 1 };
+  let root = buildRootFromHtml(html, finalUrl, idRef);
+
+  if (isSparseTree(root)) {
+    const rendered = await renderClientHtml(finalUrl);
+    html = rendered.html || html;
+    finalUrl = rendered.finalUrl || finalUrl;
+    title = rendered.title || title;
+    sourceKind = 'rendered-client-html';
+    idRef = { value: 1 };
+    root = buildRootFromHtml(html, finalUrl, idRef);
+  }
+
+  const cssResult = await collectCss(html, finalUrl);
   const images = await collectImages(root);
   attachImageAssets(root, images);
 
@@ -380,10 +456,11 @@ async function compileSourceBundle(sourceUrl) {
     ok: true,
     url: finalUrl,
     title,
-    mode: 'source-bundle-compiler-v1',
+    mode: 'hybrid-source-bundle-compiler-v2',
     capturedAt: new Date().toISOString(),
     source: {
-      htmlBytes: Buffer.byteLength(htmlResult.text, 'utf8'),
+      kind: sourceKind,
+      htmlBytes: Buffer.byteLength(html, 'utf8'),
       cssBytes: Buffer.byteLength(cssResult.css, 'utf8'),
       cssFiles: cssResult.cssFiles,
       imageCount: Object.keys(images).length,
@@ -391,10 +468,10 @@ async function compileSourceBundle(sourceUrl) {
     },
     css: cssResult.css,
     tree: root,
-    html: htmlResult.text,
+    html,
     warnings: [
-      'Source Bundle Compiler downloads HTML and CSS source, then builds Figma structure from source tags.',
-      'Dynamic client-rendered content that is absent from source HTML may need rendered fallback later.',
+      'Hybrid Source Bundle Compiler downloads source HTML first, then falls back to rendered client HTML when the source is sparse.',
+      'This avoids empty output on client-rendered sites while keeping semantic source-tree conversion.',
       'Complex CSS layout is approximated semantically, not pixel-perfect.'
     ]
   };
@@ -416,13 +493,19 @@ server = http.createServer(async (req, res) => {
   const requestUrl = new URL(req.url, `http://127.0.0.1:${PORT}`);
 
   if (requestUrl.pathname === '/health') {
-    json(res, 200, { ok: true, service: 'translateit-render-bridge', mode: 'source-bundle-compiler-v1', port: PORT });
+    json(res, 200, { ok: true, service: 'translateit-render-bridge', mode: 'hybrid-source-bundle-compiler-v2', port: PORT });
     return;
   }
 
   if (requestUrl.pathname === '/shutdown') {
     json(res, 200, { ok: true, message: 'Render Bridge shutting down.' });
-    setTimeout(() => {
+    setTimeout(async () => {
+      try {
+        if (browserPromise) {
+          const browser = await browserPromise;
+          await browser.close();
+        }
+      } catch (_) {}
       server.close(() => process.exit(0));
       setTimeout(() => process.exit(0), 3000).unref();
     }, 200);
@@ -447,6 +530,6 @@ server = http.createServer(async (req, res) => {
 });
 
 server.listen(PORT, '127.0.0.1', () => {
-  console.log(`TranslateIT Source Bundle Compiler running at http://127.0.0.1:${PORT}`);
+  console.log(`TranslateIT Hybrid Source Bundle Compiler V2 running at http://127.0.0.1:${PORT}`);
   resetIdleTimer();
 });
