@@ -16,6 +16,11 @@ if (pkg.schema !== 'translateit.ui-build-package.v1') {
   process.exit(1);
 }
 
+if (pkg.quality?.readinessLevel === 'BLOCKED') {
+  console.error('Package readiness is BLOCKED. Fix the Figma export before codegen.');
+  process.exit(1);
+}
+
 fs.mkdirSync(output, { recursive: true });
 
 function safeName(value) {
@@ -74,6 +79,9 @@ function renderNode(node, depth = 0) {
     if (node.binding.bind) attrs.push(attr('data-bind', node.binding.bind));
     if (node.binding.slot) attrs.push(attr('data-slot', node.binding.slot));
     if (node.binding.backend) attrs.push(attr('data-backend', node.binding.backend));
+    if (node.binding.component) attrs.push(attr('data-component', node.binding.component));
+    if (node.binding.role) attrs.push(attr('role', node.binding.role));
+    if (node.binding['aria-label']) attrs.push(attr('aria-label', node.binding['aria-label']));
     if (Object.keys(node.binding).length) bindings.push({ node: node.name, binding: node.binding });
   }
 
@@ -101,8 +109,8 @@ if (!screen) {
 }
 
 const htmlBody = renderNode(screen, 2);
-const bindingsJson = JSON.stringify({ bindings, packageSource: pkg.source, integrationContract: pkg.integrationContract }, null, 2);
-const runtimePackage = JSON.stringify({ source: pkg.source, target: pkg.target, bindings }, null, 2);
+const bindingsJson = JSON.stringify({ bindings, packageSource: pkg.source, quality: pkg.quality || null, integrationContract: pkg.integrationContract }, null, 2);
+const runtimePackage = JSON.stringify({ source: pkg.source, target: pkg.target, quality: pkg.quality || null, bindings }, null, 2);
 
 const html = `<!doctype html>
 <html>
@@ -177,11 +185,32 @@ const adapter = `export const backend = {
 };
 `;
 
+const quality = pkg.quality || {};
+const qualityReport = `# Generated UI Package Report
+
+Source: ${pkg.source?.importRun || 'unknown'}
+Readiness: ${quality.readinessLevel || 'UNKNOWN'} (${quality.readinessScore ?? 'unknown'}/100)
+Warnings: ${Array.isArray(quality.warnings) ? quality.warnings.length : 0}
+Bindings: ${bindings.length}
+Icons: ${(pkg.assets?.icons || []).length}
+Components: ${(pkg.components || []).length}
+
+## Warnings
+
+${Array.isArray(quality.warnings) && quality.warnings.length ? quality.warnings.map(item => `- ${item}`).join('\n') : '- None recorded.'}
+
+## Safety
+
+This generated frontend is a scaffold. Do not copy it into app runtime without visual approval and sync gate approval.
+`;
+
 fs.writeFileSync(path.join(output, 'index.html'), html);
 fs.writeFileSync(path.join(output, 'styles.css'), css);
 fs.writeFileSync(path.join(output, 'ui-runtime.js'), runtime);
 fs.writeFileSync(path.join(output, 'backend-adapter.js'), adapter);
 fs.writeFileSync(path.join(output, 'ui-bindings.json'), bindingsJson);
-fs.writeFileSync(path.join(output, 'README.md'), `# Generated Frontend\n\nGenerated from TranslateIT UI Build Package.\n\n## Files\n\n- index.html\n- styles.css\n- ui-runtime.js\n- backend-adapter.js\n- ui-bindings.json\n\n## Backend Integration\n\nSet \`globalThis.TranslateITBackend.invoke(command, payload)\` or replace \`backend-adapter.js\` with a Tauri invoke adapter.\n\n## Binding Helpers\n\n- \`updateBinding(name, value)\` updates nodes with \`data-bind\`.\n- \`updateSlotText(name, value)\` updates text for nodes with \`data-slot\`.\n`);
+fs.writeFileSync(path.join(output, 'ui-package-report.md'), qualityReport);
+fs.writeFileSync(path.join(output, 'README.md'), `# Generated Frontend\n\nGenerated from TranslateIT UI Build Package.\n\n## Files\n\n- index.html\n- styles.css\n- ui-runtime.js\n- backend-adapter.js\n- ui-bindings.json\n- ui-package-report.md\n\n## Backend Integration\n\nSet \`globalThis.TranslateITBackend.invoke(command, payload)\` or replace \`backend-adapter.js\` with a Tauri invoke adapter.\n\n## Binding Helpers\n\n- \`updateBinding(name, value)\` updates nodes with \`data-bind\`.\n- \`updateSlotText(name, value)\` updates text for nodes with \`data-slot\`.\n`);
 
 console.log(`Generated frontend scaffold: ${output}`);
+console.log(`Readiness: ${quality.readinessLevel || 'UNKNOWN'} (${quality.readinessScore ?? 'unknown'}/100)`);
