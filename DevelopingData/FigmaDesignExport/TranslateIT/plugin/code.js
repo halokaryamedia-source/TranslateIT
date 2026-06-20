@@ -1,12 +1,12 @@
 figma.showUI(__html__, { width: 520, height: 720 });
 
 // TranslateIT Figma Design Export
-// Modular architecture: paste HTML/CSS -> parse to IR -> build editable native Figma nodes.
+// Modular architecture: paste self-contained HTML or HTML+CSS -> parse to IR -> build editable native Figma nodes.
 // This is not a screenshot importer and not a full browser renderer.
 
 const NS = 'translateit.designExport';
 const PAGE_PREFIX = 'TranslateIT Import / ';
-const VERSION = '2026-06-html-css-ir-v2';
+const VERSION = '2026-06-html-css-ir-v3-single-html';
 const DEFAULT_PAGE = '01 Imported Preview';
 const ARCHIVE_PAGE = '98 Archive';
 const REPORT_PAGE = '99 Import Report';
@@ -86,6 +86,11 @@ function parseCss(css) {
   clean.replace(/([^{}]+)\{([^{}]*)\}/g, (_, selectorText, body) => { const decl = parseDecls(body); selectorText.split(',').map(s => s.trim()).filter(Boolean).forEach(selector => { if (selector === ':root') Object.assign(vars, decl); else rules.push({ selector, decl }); }); return ''; });
   return { rules, vars };
 }
+function extractStyleBlocks(html) {
+  const blocks = [];
+  const body = String(html || '').replace(/<style\b[^>]*>([\s\S]*?)<\/style>/ig, (_, css) => { blocks.push(css || ''); return ''; });
+  return { html: body, css: blocks.join('\n\n') };
+}
 function resolveVars(style, vars) { const out = { ...style }; Object.keys(out).forEach(k => { out[k] = String(out[k]).replace(/var\((--[^),]+)(?:,[^)]+)?\)/g, (_, name) => vars[name.trim()] || ''); }); return out; }
 function selectorMatches(selector, tag, attrs, classes) {
   if (!selector) return false;
@@ -104,8 +109,12 @@ function styleFor(tag, attrs, classes, cssData) {
 
 function parseHtmlToIR(rawHtml, rawCss) {
   const warnings = [];
-  const cssData = parseCss(rawCss);
-  const html = String(rawHtml || '').replace(/<!doctype[^>]*>/ig, '').replace(/<script[\s\S]*?<\/script>/ig, '').replace(/<style[\s\S]*?<\/style>/ig, '');
+  const extracted = extractStyleBlocks(rawHtml);
+  const combinedCss = `${extracted.css}\n\n${rawCss || ''}`;
+  const cssData = parseCss(combinedCss);
+  const html = String(extracted.html || '').replace(/<!doctype[^>]*>/ig, '').replace(/<script[\s\S]*?<\/script>/ig, '').replace(/<style[\s\S]*?<\/style>/ig, '').replace(/<link[^>]*rel=["']?stylesheet["']?[^>]*>/ig, () => { warnings.push('External stylesheet link ignored. Use self-contained <style> CSS instead.'); return ''; });
+  if (extracted.css.trim() && !(rawCss || '').trim()) warnings.push('CSS extracted from <style> block inside single HTML package.');
+  if (!combinedCss.trim()) warnings.push('No CSS found. Import will use generic layout styles.');
   const root = { type: 'element', tag: 'body', attrs: {}, classes: [], style: { display: 'flex', flexDirection: 'column', gap: '16px', padding: '24px', backgroundColor: '#030407' }, children: [] };
   const stack = [root];
   const tokenRe = /<\/?[^>]+>|[^<]+/g;
@@ -132,7 +141,7 @@ function parseHtmlToIR(rawHtml, rawCss) {
     const text = t.replace(/\s+/g, ' ').trim();
     if (text) stack[stack.length - 1].children.push({ type: 'text', text, style: {} });
   }
-  return { root, warnings };
+  return { root, warnings, extractedCssLength: extracted.css.length, externalCssLength: String(rawCss || '').length };
 }
 
 function makeFrame(name, width, height, background, kind = 'frame', source = '') { const node = figma.createFrame(); node.name = name; node.resize(Math.max(1, width), Math.max(1, height)); const bg = cssColor(background, null); node.fills = bg ? paint(bg) : []; node.strokes = []; return tag(node, kind, source || name); }
@@ -154,11 +163,11 @@ function createFromIR(ir, parentWidth = 1200) {
   return node;
 }
 
-async function buildReport(payload, archived, runStamp) { const p = await getPage(REPORT_PAGE); const root = makeFrame(`Import Report / ${runStamp}`, 1100, 720, '#030407', 'report', runStamp); root.layoutMode = 'VERTICAL'; root.itemSpacing = 12; root.paddingTop = 32; root.paddingRight = 32; root.paddingBottom = 32; root.paddingLeft = 32; root.appendChild(makeText('HTML/CSS Import Report', 32, '#F5F7FA', true)); root.appendChild(makeText(`Version: ${VERSION}`, 13, '#C8CED8', false)); root.appendChild(makeText('Mode: pasted HTML/CSS to native editable Figma nodes', 13, '#C8CED8', false)); root.appendChild(makeText(`Source name: ${payload.name || 'Untitled Preview'}`, 13, '#8D96A6', false)); root.appendChild(makeText(`Archived generated nodes: ${archived}`, 13, '#8D96A6', false)); root.appendChild(makeText(`Warnings: ${(payload.warnings || []).length}`, 13, '#8D96A6', false)); if (payload.warnings && payload.warnings.length) root.appendChild(makeText(payload.warnings.slice(0, 10).join('\n'), 11, '#8D96A6', false)); p.appendChild(root); }
-async function validate() { await loadFonts(); status(`Validation passed.\nMechanism: paste HTML + CSS.\nThe plugin parses structure and creates editable native Figma nodes.\nNo HTML file import is required.\nGenerated top-level nodes: ${generatedCount(DEFAULT_PAGE)}`, { confirmRefresh: false }); }
-async function importPayload(payload, refresh = false) { await loadFonts(); const runStamp = stamp(); const parsed = parseHtmlToIR(payload.html, payload.css); payload.root = parsed.root; payload.warnings = [...(payload.warnings || []), ...parsed.warnings]; let archived = 0; if (refresh) archived = await archiveGenerated(DEFAULT_PAGE, runStamp); const p = await getPage(DEFAULT_PAGE); const rootWidth = Number(payload.width) || 1440; const rootHeight = Number(payload.height) || 1000; const root = makeFrame(`${payload.name || 'Imported Preview'} / ${runStamp}`, rootWidth, rootHeight, '#030407', 'import-root', payload.name || 'preview'); root.layoutMode = 'VERTICAL'; root.itemSpacing = 24; root.paddingTop = 48; root.paddingRight = 48; root.paddingBottom = 48; root.paddingLeft = 48; root.appendChild(makeText(payload.name || 'Imported Preview', 32, '#F5F7FA', true)); root.appendChild(makeText('Generated from pasted HTML/CSS. Editable native Figma structure, not a screenshot.', 13, '#8D96A6', false)); const built = createFromIR(payload.root, Math.max(1, rootWidth - 96)); if (built) root.appendChild(built); p.appendChild(root); await buildReport(payload, archived, runStamp); status(`${refresh ? 'Refresh import complete' : 'Import complete'}.\nArchived nodes: ${archived}\nWarnings: ${(payload.warnings || []).length}\nPage: ${pageName(DEFAULT_PAGE)}`, { confirmRefresh: false }); figma.notify('TranslateIT HTML/CSS import complete.'); }
+async function buildReport(payload, parsed, archived, runStamp) { const p = await getPage(REPORT_PAGE); const root = makeFrame(`Import Report / ${runStamp}`, 1100, 760, '#030407', 'report', runStamp); root.layoutMode = 'VERTICAL'; root.itemSpacing = 12; root.paddingTop = 32; root.paddingRight = 32; root.paddingBottom = 32; root.paddingLeft = 32; root.appendChild(makeText('Single HTML Import Report', 32, '#F5F7FA', true)); root.appendChild(makeText(`Version: ${VERSION}`, 13, '#C8CED8', false)); root.appendChild(makeText('Mode: self-contained HTML package, optional CSS override', 13, '#C8CED8', false)); root.appendChild(makeText(`Source name: ${payload.name || 'Untitled Preview'}`, 13, '#8D96A6', false)); root.appendChild(makeText(`Archived generated nodes: ${archived}`, 13, '#8D96A6', false)); root.appendChild(makeText(`Embedded CSS chars: ${parsed.extractedCssLength}`, 13, '#8D96A6', false)); root.appendChild(makeText(`CSS override chars: ${parsed.externalCssLength}`, 13, '#8D96A6', false)); root.appendChild(makeText(`Warnings: ${(payload.warnings || []).length}`, 13, '#8D96A6', false)); if (payload.warnings && payload.warnings.length) root.appendChild(makeText(payload.warnings.slice(0, 10).join('\n'), 11, '#8D96A6', false)); p.appendChild(root); }
+async function validate() { await loadFonts(); status(`Validation passed.\nRecommended import: one self-contained HTML package with <style> inside.\nOptional CSS field is only for override/advanced use.\nGenerated top-level nodes: ${generatedCount(DEFAULT_PAGE)}`, { confirmRefresh: false }); }
+async function importPayload(payload, refresh = false) { await loadFonts(); const runStamp = stamp(); const parsed = parseHtmlToIR(payload.html, payload.css); payload.root = parsed.root; payload.warnings = [...(payload.warnings || []), ...parsed.warnings]; let archived = 0; if (refresh) archived = await archiveGenerated(DEFAULT_PAGE, runStamp); const p = await getPage(DEFAULT_PAGE); const rootWidth = Number(payload.width) || 1440; const rootHeight = Number(payload.height) || 1000; const root = makeFrame(`${payload.name || 'Imported Preview'} / ${runStamp}`, rootWidth, rootHeight, '#030407', 'import-root', payload.name || 'preview'); root.layoutMode = 'VERTICAL'; root.itemSpacing = 24; root.paddingTop = 48; root.paddingRight = 48; root.paddingBottom = 48; root.paddingLeft = 48; root.appendChild(makeText(payload.name || 'Imported Preview', 32, '#F5F7FA', true)); root.appendChild(makeText('Generated from one self-contained HTML package. Editable native Figma structure, not a screenshot.', 13, '#8D96A6', false)); const built = createFromIR(payload.root, Math.max(1, rootWidth - 96)); if (built) root.appendChild(built); p.appendChild(root); await buildReport(payload, parsed, archived, runStamp); status(`${refresh ? 'Refresh import complete' : 'Import complete'}.\nArchived nodes: ${archived}\nWarnings: ${(payload.warnings || []).length}\nEmbedded CSS chars: ${parsed.extractedCssLength}\nPage: ${pageName(DEFAULT_PAGE)}`, { confirmRefresh: false }); figma.notify('TranslateIT single HTML import complete.'); }
 async function prepareRefresh() { state.pendingRefresh = { stamp: stamp(), count: generatedCount(DEFAULT_PAGE) }; status(`Generated top-level nodes to archive: ${state.pendingRefresh.count}\nManual nodes will not be touched.\nUse Generate + Archive Previous to continue.`, { confirmRefresh: true }); }
-async function importManifest(raw) { if (!raw || !raw.trim()) { status('No optional JSON provided.'); return; } try { const parsed = JSON.parse(raw); status(`Optional manifest accepted. Current generic importer mainly uses pasted HTML/CSS. Keys: ${Object.keys(parsed).join(', ')}`); } catch (err) { status(`Optional manifest import failed: ${err.message || err}`); } }
+async function importManifest(raw) { if (!raw || !raw.trim()) { status('No optional JSON provided.'); return; } try { const parsed = JSON.parse(raw); status(`Optional manifest accepted. Current importer mainly uses one self-contained HTML package. Keys: ${Object.keys(parsed).join(', ')}`); } catch (err) { status(`Optional manifest import failed: ${err.message || err}`); } }
 
 figma.ui.onmessage = async msg => {
   try {
