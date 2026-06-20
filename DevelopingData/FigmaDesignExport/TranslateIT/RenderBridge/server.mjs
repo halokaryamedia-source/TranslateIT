@@ -5,6 +5,7 @@ import { chromium } from 'playwright';
 const PORT = Number(process.env.TRANSLATEIT_RENDER_PORT || 8844);
 const IDLE_EXIT_MS = Number(process.env.TRANSLATEIT_RENDER_IDLE_EXIT_MS || 180000);
 const VIEWPORT = { width: 1440, height: 1600 };
+const MAX_LAYERS = 720;
 
 let idleTimer = null;
 let activeJobs = 0;
@@ -25,12 +26,7 @@ function resetIdleTimer() {
   if (idleTimer) clearTimeout(idleTimer);
   idleTimer = setTimeout(async () => {
     if (activeJobs > 0) return resetIdleTimer();
-    try {
-      if (browserPromise) {
-        const browser = await browserPromise;
-        await browser.close();
-      }
-    } catch (_) {}
+    try { if (browserPromise) await (await browserPromise).close(); } catch (_) {}
     if (server) {
       server.close(() => process.exit(0));
       setTimeout(() => process.exit(0), 3000).unref();
@@ -50,184 +46,252 @@ async function getBrowser() {
   return browserPromise;
 }
 
-function clean(value) {
-  return String(value || '').replace(/\s+/g, ' ').trim();
+function union(rects) {
+  const safe = rects.filter(Boolean).filter((r) => r.w > 0 && r.h > 0);
+  if (!safe.length) return { x: 0, y: 0, w: 1, h: 1 };
+  const x = Math.min(...safe.map((r) => r.x));
+  const y = Math.min(...safe.map((r) => r.y));
+  const right = Math.max(...safe.map((r) => r.x + r.w));
+  const bottom = Math.max(...safe.map((r) => r.y + r.h));
+  return { x, y, w: right - x, h: bottom - y };
 }
 
-async function captureVisibleImages(page) {
-  const descriptors = await page.evaluate(() => {
-    function clean(value) { return String(value || '').replace(/\s+/g, ' ').trim(); }
-    return Array.from(document.querySelectorAll('img, picture img')).map((img, index) => {
-      const rect = img.getBoundingClientRect();
-      const visible = rect.width > 8 && rect.height > 8 && rect.x < window.innerWidth && rect.y < window.innerHeight && rect.x + rect.width > 0 && rect.y + rect.height > 0;
-      const id = `ti-mivubi-img-${index}`;
-      img.setAttribute('data-ti-mivubi-img-id', id);
-      return {
-        id,
-        index,
-        visible,
-        alt: clean(img.getAttribute('alt') || ''),
-        src: img.currentSrc || img.src || img.getAttribute('src') || '',
-        rect: { x: Math.round(rect.x), y: Math.round(rect.y), w: Math.round(rect.width), h: Math.round(rect.height) },
-        area: Math.round(rect.width * rect.height)
-      };
-    }).filter((item) => item.visible);
+function clusterSections(layers, viewport) {
+  const important = layers.filter((l) => l.type !== 'box' || l.role === 'button-bg').sort((a, b) => a.rect.y - b.rect.y || a.rect.x - b.rect.x);
+  const sections = [];
+
+  for (const layer of important) {
+    const midY = layer.rect.y + layer.rect.h / 2;
+    let current = sections[sections.length - 1];
+    const currentBottom = current ? current.rect.y + current.rect.h : 0;
+    const gap = current ? layer.rect.y - currentBottom : 9999;
+    const shouldStart = !current || gap > 90 || (layer.rect.h > 300 && layer.rect.y > current.rect.y + 80);
+    if (shouldStart) {
+      current = { id: `section-${sections.length + 1}`, role: 'section', layers: [] };
+      sections.push(current);
+    }
+    current.layers.push(layer);
+    current.rect = union(current.layers.map((item) => item.rect));
+    current.midY = midY;
+  }
+
+  sections.forEach((section, index) => {
+    section.layers = layers.filter((layer) => {
+      const layerMid = layer.rect.y + layer.rect.h / 2;
+      return layerMid >= section.rect.y - 24 && layerMid <= section.rect.y + section.rect.h + 24;
+    });
+    section.rect = union(section.layers.map((item) => item.rect));
+    section.rect = {
+      x: Math.max(0, section.rect.x - 32),
+      y: Math.max(0, section.rect.y - 32),
+      w: Math.min(viewport.width, section.rect.w + 64),
+      h: section.rect.h + 64
+    };
+    if (index === 0 && section.rect.y < 180) section.role = 'header';
+    if (index === sections.length - 1 && section.rect.y > viewport.height * 0.55) section.role = 'footer';
+    section.name = section.role === 'header' ? 'Header' : section.role === 'footer' ? 'Footer' : `Section ${String(index + 1).padStart(2, '0')}`;
   });
 
-  const withImages = [];
-  for (const item of descriptors) {
-    try {
-      const handle = await page.$(`[data-ti-mivubi-img-id="${item.id}"]`);
-      if (!handle) continue;
-      const bytes = await handle.screenshot({ type: 'png' });
-      withImages.push({
-        ...item,
-        image: { contentType: 'image/png', base64: bytes.toString('base64'), bytes: bytes.length }
-      });
-    } catch (_) {
-      withImages.push(item);
-    }
-  }
-  return withImages;
+  return sections.length ? sections : [{ id: 'section-1', role: 'section', name: 'Section 01', rect: { x: 0, y: 0, w: viewport.width, h: viewport.height }, layers }];
 }
 
-function chooseMivubiAssets(images) {
-  const small = images.filter((item) => item.area < 16000).sort((a, b) => a.rect.y - b.rect.y || a.rect.x - b.rect.x);
-  const logo = images.find((item) => /logo|mivubi|mvub/i.test(item.alt + ' ' + item.src) && item.area < 20000) || small[0] || null;
+async function extractUniversalPage(page, targetUrl) {
+  const payload = await page.evaluate(({ maxLayers }) => {
+    const viewport = { width: window.innerWidth || 1440, height: window.innerHeight || 1600 };
+    const pageHeight = Math.max(document.documentElement.scrollHeight || 0, document.body.scrollHeight || 0, viewport.height);
+    const layers = [];
+    const blocked = new Set(['SCRIPT', 'STYLE', 'META', 'LINK', 'NOSCRIPT', 'TEMPLATE', 'BR', 'IFRAME', 'VIDEO', 'AUDIO', 'CANVAS']);
+    let id = 1;
 
-  const projectImages = images
-    .filter((item) => item.area > 35000 && item.rect.h > 180 && item.rect.w > 120)
-    .sort((a, b) => {
-      const centerBiasA = Math.abs((a.rect.x + a.rect.w / 2) - 720);
-      const centerBiasB = Math.abs((b.rect.x + b.rect.w / 2) - 720);
-      return centerBiasA - centerBiasB || b.area - a.area;
+    function clean(value) { return String(value || '').replace(/\s+/g, ' ').trim(); }
+    function px(value, fallback = 0) { const n = parseFloat(String(value || '').replace('px', '')); return Number.isFinite(n) ? n : fallback; }
+    function rectFromDOM(rect) { return { x: Math.round(rect.left), y: Math.round(rect.top), w: Math.round(rect.width), h: Math.round(rect.height) }; }
+    function isVisibleRect(rect) { return rect && rect.w >= 2 && rect.h >= 2 && rect.x < viewport.width && rect.y < viewport.height && rect.x + rect.w > 0 && rect.y + rect.h > 0; }
+    function computedVisible(style) { return style.display !== 'none' && style.visibility !== 'hidden' && Number(style.opacity || 1) > 0; }
+    function styleOf(style) {
+      return {
+        color: style.color,
+        backgroundColor: style.backgroundColor,
+        borderTopColor: style.borderTopColor,
+        borderRightColor: style.borderRightColor,
+        borderBottomColor: style.borderBottomColor,
+        borderLeftColor: style.borderLeftColor,
+        borderTopWidth: style.borderTopWidth,
+        borderRightWidth: style.borderRightWidth,
+        borderBottomWidth: style.borderBottomWidth,
+        borderLeftWidth: style.borderLeftWidth,
+        borderRadius: style.borderRadius,
+        fontFamily: style.fontFamily,
+        fontSize: style.fontSize,
+        fontWeight: style.fontWeight,
+        lineHeight: style.lineHeight,
+        letterSpacing: style.letterSpacing,
+        textAlign: style.textAlign,
+        objectFit: style.objectFit,
+        opacity: style.opacity
+      };
+    }
+    function hasFill(style) { return style.backgroundColor && style.backgroundColor !== 'transparent' && style.backgroundColor !== 'rgba(0, 0, 0, 0)'; }
+    function hasBorder(style) { return px(style.borderTopWidth) > 0 || px(style.borderRightWidth) > 0 || px(style.borderBottomWidth) > 0 || px(style.borderLeftWidth) > 0; }
+    function pathOf(el) {
+      const parts = [];
+      let cur = el;
+      while (cur && cur.nodeType === Node.ELEMENT_NODE && cur !== document.documentElement) {
+        const tag = cur.tagName.toLowerCase();
+        const cls = clean(cur.className).split(' ').filter(Boolean).slice(0, 1).map((x) => `.${x}`).join('');
+        parts.unshift(tag + (cur.id ? `#${cur.id}` : '') + cls);
+        cur = cur.parentElement;
+      }
+      return parts.join(' > ');
+    }
+    function roleOf(el) {
+      const tag = el.tagName;
+      const cls = clean(el.className).toLowerCase();
+      const role = clean(el.getAttribute('role')).toLowerCase();
+      if (tag === 'IMG' || tag === 'PICTURE' || tag === 'SVG') return 'image';
+      if (tag === 'BUTTON' || role === 'button' || cls.includes('button') || cls.includes('btn') || cls.includes('cta')) return 'button';
+      if (tag === 'A') return cls.includes('button') || cls.includes('btn') || cls.includes('cta') ? 'button' : 'link';
+      if (/^H[1-6]$/.test(tag)) return 'heading';
+      return 'box';
+    }
+    function push(layer) {
+      if (layers.length >= maxLayers) return;
+      layer.id = layer.id || `layer-${id++}`;
+      layer.order = layers.length;
+      layers.push(layer);
+    }
+    function rangeUnion(rects) {
+      const safe = rects.filter(isVisibleRect);
+      if (!safe.length) return null;
+      const x = Math.min(...safe.map((r) => r.x));
+      const y = Math.min(...safe.map((r) => r.y));
+      const right = Math.max(...safe.map((r) => r.x + r.w));
+      const bottom = Math.max(...safe.map((r) => r.y + r.h));
+      return { x, y, w: right - x, h: bottom - y };
+    }
+
+    Array.from(document.querySelectorAll('body *')).forEach((el) => {
+      if (layers.length >= maxLayers || blocked.has(el.tagName)) return;
+      const style = window.getComputedStyle(el);
+      if (!computedVisible(style)) return;
+      const rect = rectFromDOM(el.getBoundingClientRect());
+      if (!isVisibleRect(rect)) return;
+      const role = roleOf(el);
+      const area = rect.w * rect.h;
+      const viewportArea = viewport.width * viewport.height;
+
+      if (role === 'image') {
+        const captureId = `ti-universal-img-${id}`;
+        el.setAttribute('data-ti-universal-img-id', captureId);
+        push({ type: 'image', role: 'image', tag: el.tagName.toLowerCase(), name: clean(el.getAttribute('alt') || el.getAttribute('aria-label') || 'Image'), rect, style: styleOf(style), path: pathOf(el), captureId });
+        return;
+      }
+
+      if ((hasFill(style) || hasBorder(style) || role === 'button') && area < viewportArea * 0.75) {
+        const fill = hasFill(style);
+        const border = hasBorder(style);
+        if (fill || border || role === 'button') push({ type: 'box', role: role === 'button' ? 'button-bg' : 'box', tag: el.tagName.toLowerCase(), name: clean(el.getAttribute('aria-label') || el.id || el.className || el.tagName), rect, style: styleOf(style), path: pathOf(el) });
+      }
     });
 
-  const mainProject = projectImages[0] || null;
-  const sideProject = projectImages.find((item) => !mainProject || item.id !== mainProject.id) || null;
+    const walker = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT, {
+      acceptNode(node) {
+        const txt = clean(node.textContent);
+        if (!txt || txt.length < 2) return NodeFilter.FILTER_REJECT;
+        const parent = node.parentElement;
+        if (!parent || blocked.has(parent.tagName)) return NodeFilter.FILTER_REJECT;
+        const style = window.getComputedStyle(parent);
+        if (!computedVisible(style)) return NodeFilter.FILTER_REJECT;
+        return NodeFilter.FILTER_ACCEPT;
+      }
+    });
 
-  return {
-    logo: logo ? logo.image : null,
-    mainProject: mainProject ? mainProject.image : null,
-    sideProject: sideProject ? sideProject.image : null,
-    selected: {
-      logo: logo ? { alt: logo.alt, src: logo.src, rect: logo.rect, area: logo.area } : null,
-      mainProject: mainProject ? { alt: mainProject.alt, src: mainProject.src, rect: mainProject.rect, area: mainProject.area } : null,
-      sideProject: sideProject ? { alt: sideProject.alt, src: sideProject.src, rect: sideProject.rect, area: sideProject.area } : null
-    },
-    raw: images.map((item) => ({ alt: item.alt, src: item.src, rect: item.rect, area: item.area }))
-  };
-}
+    let tn;
+    while ((tn = walker.nextNode()) && layers.length < maxLayers) {
+      const parent = tn.parentElement;
+      const style = window.getComputedStyle(parent);
+      const range = document.createRange();
+      range.selectNodeContents(tn);
+      const rect = rangeUnion(Array.from(range.getClientRects()).map(rectFromDOM));
+      if (!rect) continue;
+      const parentRole = roleOf(parent);
+      const txt = clean(tn.textContent);
+      push({ type: 'text', role: parentRole === 'link' ? 'link' : parentRole === 'button' ? 'button-label' : parentRole === 'heading' ? 'heading' : 'text', tag: parent.tagName.toLowerCase(), name: txt.slice(0, 96), text: txt, rect, style: styleOf(style), path: pathOf(parent) });
+    }
 
-async function compileMivubiHome(targetUrl) {
-  const browser = await getBrowser();
-  const page = await browser.newPage({ viewport: VIEWPORT, deviceScaleFactor: 1 });
-  try {
-    await page.goto(targetUrl, { waitUntil: 'domcontentloaded', timeout: 45000 });
-    try { await page.waitForLoadState('networkidle', { timeout: 12000 }); } catch (_) {}
-    await page.waitForTimeout(2000);
-    await page.evaluate(() => window.scrollTo(0, 0));
-    await page.waitForTimeout(400);
+    const seen = new Set();
+    const unique = [];
+    layers.sort((a, b) => a.order - b.order).forEach((layer) => {
+      const key = `${layer.type}|${layer.role}|${layer.text || layer.name}|${Math.round(layer.rect.x / 3)}|${Math.round(layer.rect.y / 3)}|${Math.round(layer.rect.w / 3)}|${Math.round(layer.rect.h / 3)}`;
+      if (seen.has(key)) return;
+      seen.add(key);
+      unique.push(layer);
+    });
 
-    const images = await captureVisibleImages(page);
-    const assets = chooseMivubiAssets(images);
-    const pageText = await page.evaluate(() => document.body ? document.body.innerText : '');
-    const title = await page.title();
+    return { title: document.title || location.hostname, url: location.href, viewport, pageHeight, layers: unique, html: '<!doctype html>\n' + document.documentElement.outerHTML };
+  }, { maxLayers: MAX_LAYERS });
 
-    return {
-      ok: true,
-      mode: 'mivubi-home-adapter-v1',
-      adapter: 'mivubi-home',
-      capturedAt: new Date().toISOString(),
-      url: page.url() || targetUrl,
-      title: title || 'Mivubi Team',
-      viewport: VIEWPORT,
-      assets,
-      content: {
-        brand: 'Mivubi',
-        nav: ['About', 'Portfolio', 'Goodies', 'Contents', 'Talk with us'],
-        topCta: 'Lets Contribute',
-        badge: 'Mivubi Team',
-        headline: ['Unlocking', 'Potential Through', 'Cultural Games.'],
-        intro: 'MIVUBI Team is dedicated to utilizing Minecraft for Education, Art, and Cultural Initiatives.',
-        primaryCta: 'Talk with us',
-        socials: ['in', 'ig', 'tk'],
-        mainCard: { title: 'RAMpoggan Arena', date: 'Dec 20, 2025' },
-        sideFeature: {
-          title: 'Tana Samawa',
-          description: 'Tana Samawa merekonstruksi Sumbawa melalui video game dengan pendekatan topografi, arsitektur, ikonografi, dan kultural sebagai ruang alternatif reka pengetahuan.',
-          label: 'Recent Project',
-          date: 'Oct 5 - Nov 20, 2025'
-        },
-        footer: {
-          description: "We're a specialized project team exploring new possibilities using the Minecraft platform in the realms of Education, Art, and Culture.",
-          recentWorks: ['RAMpoggan Arena', 'Tana Samawa', 'Jalur Tanam: Lini Masa', 'Perkebunan Nusantara'],
-          programs: ['Contents', 'Careers'],
-          contact: ['Java, Indonesia', 'mivubiteam@gmail.com', '+62821-3214-5370']
-        }
-      },
-      diagnostics: {
-        sourceTextChars: clean(pageText).length,
-        capturedImages: images.length,
-        selectedAssets: assets.selected,
-        rawImages: assets.raw
-      },
-      warnings: [
-        'Dedicated Mivubi adapter rebuilds the page from a design model instead of dumping DOM layers.',
-        'Images are captured from the live website and inserted into structured project cards.',
-        'This adapter is site-specific and intentionally prioritizes clean editable design over generic DOM conversion.'
-      ]
-    };
-  } finally {
-    await page.close();
+  for (const layer of payload.layers) {
+    if (layer.type !== 'image' || !layer.captureId) continue;
+    try {
+      const handle = await page.$(`[data-ti-universal-img-id="${layer.captureId}"]`);
+      if (!handle) continue;
+      const bytes = await handle.screenshot({ type: 'png' });
+      layer.image = { contentType: 'image/png', base64: bytes.toString('base64'), bytes: bytes.length };
+    } catch (_) {}
   }
+
+  payload.sections = clusterSections(payload.layers, payload.viewport);
+  return payload;
 }
 
 async function compile(target) {
   const targetUrl = normalizeUrl(target);
   if (!targetUrl) throw new Error('Missing url query parameter.');
-  const host = new URL(targetUrl).hostname.replace(/^www\./, '').toLowerCase();
-  if (host === 'mivubi.com') return compileMivubiHome(targetUrl);
-  throw new Error('This build is currently locked to the Mivubi Home Adapter. Generic website import is disabled until the adapter output is stable.');
+  const browser = await getBrowser();
+  const page = await browser.newPage({ viewport: VIEWPORT, deviceScaleFactor: 1 });
+  try {
+    await page.goto(targetUrl, { waitUntil: 'domcontentloaded', timeout: 45000 });
+    try { await page.waitForLoadState('networkidle', { timeout: 12000 }); } catch (_) {}
+    await page.waitForTimeout(1600);
+    await page.evaluate(async () => {
+      await new Promise((resolve) => {
+        let total = 0;
+        const step = 700;
+        const max = Math.min(9000, Math.max(document.body.scrollHeight || 0, document.documentElement.scrollHeight || 0));
+        const timer = setInterval(() => {
+          window.scrollBy(0, step);
+          total += step;
+          if (total >= max) { clearInterval(timer); window.scrollTo(0, 0); resolve(); }
+        }, 70);
+      });
+    });
+    await page.waitForTimeout(600);
+    const extracted = await extractUniversalPage(page, targetUrl);
+    return { ok: true, mode: 'universal-page-adapter-v1', adapter: 'universal-page', capturedAt: new Date().toISOString(), title: extracted.title, url: extracted.url, viewport: extracted.viewport, pageHeight: extracted.pageHeight, layers: extracted.layers, sections: extracted.sections, html: extracted.html, diagnostics: { layerCount: extracted.layers.length, sectionCount: extracted.sections.length, imageCount: extracted.layers.filter((x) => x.type === 'image').length, textCount: extracted.layers.filter((x) => x.type === 'text').length }, warnings: ['Universal Page Adapter extracts browser-rendered text, images, buttons, links, and visual boxes, then groups them into editable page sections.', 'This is generic and does not use site-specific hardcoded layout.'] };
+  } finally {
+    await page.close();
+  }
 }
 
 server = http.createServer(async (req, res) => {
   resetIdleTimer();
-  if (req.method === 'OPTIONS') {
-    res.writeHead(204, {
-      'Access-Control-Allow-Origin': '*',
-      'Access-Control-Allow-Headers': 'Content-Type',
-      'Access-Control-Allow-Methods': 'GET,OPTIONS'
-    });
-    res.end();
-    return;
-  }
-
+  if (req.method === 'OPTIONS') { res.writeHead(204, { 'Access-Control-Allow-Origin': '*', 'Access-Control-Allow-Headers': 'Content-Type', 'Access-Control-Allow-Methods': 'GET,OPTIONS' }); res.end(); return; }
   const requestUrl = new URL(req.url, `http://127.0.0.1:${PORT}`);
-  if (requestUrl.pathname === '/health') return json(res, 200, { ok: true, service: 'translateit-render-bridge', mode: 'mivubi-home-adapter-v1', port: PORT });
+  if (requestUrl.pathname === '/health') return json(res, 200, { ok: true, service: 'translateit-render-bridge', mode: 'universal-page-adapter-v1', port: PORT });
   if (requestUrl.pathname === '/shutdown') {
     json(res, 200, { ok: true, message: 'Render Bridge shutting down.' });
-    setTimeout(async () => {
-      try { if (browserPromise) await (await browserPromise).close(); } catch (_) {}
-      server.close(() => process.exit(0));
-      setTimeout(() => process.exit(0), 3000).unref();
-    }, 200);
+    setTimeout(async () => { try { if (browserPromise) await (await browserPromise).close(); } catch (_) {} server.close(() => process.exit(0)); setTimeout(() => process.exit(0), 3000).unref(); }, 200);
     return;
   }
   if (requestUrl.pathname !== '/render') return json(res, 404, { ok: false, error: 'Use /render?url=https://example.com' });
-
   activeJobs += 1;
-  try {
-    json(res, 200, await compile(requestUrl.searchParams.get('url')));
-  } catch (error) {
-    json(res, 500, { ok: false, error: error && error.stack ? error.stack : error && error.message ? error.message : String(error) });
-  } finally {
-    activeJobs -= 1;
-    resetIdleTimer();
-  }
+  try { json(res, 200, await compile(requestUrl.searchParams.get('url'))); }
+  catch (error) { json(res, 500, { ok: false, error: error && error.stack ? error.stack : error && error.message ? error.message : String(error) }); }
+  finally { activeJobs -= 1; resetIdleTimer(); }
 });
 
 server.listen(PORT, '127.0.0.1', () => {
-  console.log(`TranslateIT Mivubi Home Adapter running at http://127.0.0.1:${PORT}`);
+  console.log(`TranslateIT Universal Page Adapter running at http://127.0.0.1:${PORT}`);
   resetIdleTimer();
 });
