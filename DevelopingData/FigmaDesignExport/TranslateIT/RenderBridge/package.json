@@ -1,0 +1,14 @@
+{
+  "name": "translateit-render-bridge",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Local background render bridge for TranslateIT Figma plugin website imports.",
+  "scripts": {
+    "start": "node server.mjs",
+    "install-browser": "playwright install chromium"
+  },
+  "dependencies": {
+    "playwright": "^1.49.1"
+  }
+}
