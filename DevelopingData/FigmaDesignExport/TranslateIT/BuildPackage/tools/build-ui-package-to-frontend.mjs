@@ -1,0 +1,145 @@
+#!/usr/bin/env node
+import fs from 'node:fs';
+import path from 'node:path';
+
+const input = process.argv[2] || 'ui-build-package.json';
+const output = process.argv[3] || 'GeneratedFrontend';
+
+if (!fs.existsSync(input)) {
+  console.error(`Missing input package: ${input}`);
+  process.exit(1);
+}
+
+const pkg = JSON.parse(fs.readFileSync(input, 'utf8'));
+if (pkg.schema !== 'translateit.ui-build-package.v1') {
+  console.error(`Unsupported schema: ${pkg.schema}`);
+  process.exit(1);
+}
+
+fs.mkdirSync(output, { recursive: true });
+
+function safeName(value) {
+  return String(value || 'node').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') || 'node';
+}
+
+function styleToCss(style = {}) {
+  const lines = [];
+  if (style.fill) lines.push(`background: ${style.fill};`);
+  if (style.stroke) lines.push(`border: ${style.strokeWeight || 1}px solid ${style.stroke};`);
+  if (style.radius) lines.push(`border-radius: ${style.radius}px;`);
+  if (style.opacity !== undefined && style.opacity !== 1) lines.push(`opacity: ${style.opacity};`);
+  return lines.join(' ');
+}
+
+const cssRules = [];
+const bindings = [];
+let idSeq = 0;
+
+function renderNode(node, depth = 0) {
+  const tag = node.figmaType === 'TEXT' ? 'span' : 'div';
+  const className = `ui-${safeName(node.name)}-${idSeq++}`;
+  const attrs = [`class="${className}"`, `data-ui-node="${node.name || ''}"`];
+
+  if (node.binding) {
+    if (node.binding.action) attrs.push(`data-action="${node.binding.action}"`);
+    if (node.binding.bind) attrs.push(`data-bind="${node.binding.bind}"`);
+    if (node.binding.slot) attrs.push(`data-slot="${node.binding.slot}"`);
+    if (node.binding.backend) attrs.push(`data-backend="${node.binding.backend}"`);
+    if (Object.keys(node.binding).length) bindings.push({ node: node.name, binding: node.binding });
+  }
+
+  const layout = node.layout || {};
+  const display = layout.layoutMode === 'HORIZONTAL' ? 'flex' : 'flex';
+  const direction = layout.layoutMode === 'HORIZONTAL' ? 'row' : 'column';
+  const pad = layout.padding || {};
+  cssRules.push(`.${className} { ${styleToCss(node.style)} width: ${layout.width || 0}px; min-height: ${layout.height || 0}px; display: ${display}; flex-direction: ${direction}; gap: ${layout.itemSpacing || 0}px; padding: ${pad.top || 0}px ${pad.right || 0}px ${pad.bottom || 0}px ${pad.left || 0}px; box-sizing: border-box; }`);
+
+  if (node.figmaType === 'TEXT') {
+    return `${'  '.repeat(depth)}<${tag} ${attrs.join(' ')}>${escapeHtml(node.text || '')}</${tag}>`;
+  }
+
+  if (node.figmaType === 'INSTANCE' && node.componentRef) {
+    attrs.push(`data-icon-ref="${node.componentRef}"`);
+  }
+
+  const children = (node.children || []).map(child => renderNode(child, depth + 1)).join('\n');
+  return `${'  '.repeat(depth)}<${tag} ${attrs.join(' ')}>\n${children}\n${'  '.repeat(depth)}</${tag}>`;
+}
+
+function escapeHtml(value) {
+  return String(value).replace(/[&<>"']/g, ch => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[ch]));
+}
+
+const screen = pkg.screens?.[0]?.tree;
+if (!screen) {
+  console.error('Package has no screen tree.');
+  process.exit(1);
+}
+
+const htmlBody = renderNode(screen, 2);
+const html = `<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>${escapeHtml(pkg.source?.importRun || 'Generated UI')}</title>
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <main id="app-root">
+${htmlBody}
+  </main>
+  <script type="module" src="ui-runtime.js"></script>
+</body>
+</html>
+`;
+
+const css = `:root {
+${(pkg.tokens?.colors || []).map((color, index) => `  --ui-color-${index + 1}: ${color};`).join('\n')}
+}
+
+html, body { margin: 0; min-height: 100%; background: #030407; color: #f5f7fa; font-family: Inter, system-ui, sans-serif; }
+#app-root { min-height: 100vh; }
+
+${cssRules.join('\n\n')}
+`;
+
+const runtime = `import bindings from './ui-bindings.json' assert { type: 'json' };
+
+const backend = window.__TRANSLATEIT_BACKEND__ || {
+  async invoke(command, payload) {
+    console.log('[UI backend stub]', command, payload);
+    return null;
+  }
+};
+
+document.addEventListener('click', async (event) => {
+  const target = event.target.closest('[data-action]');
+  if (!target) return;
+  const action = target.getAttribute('data-action');
+  const backendCommand = target.getAttribute('data-backend') || action;
+  await backend.invoke(backendCommand, { action, node: target.getAttribute('data-ui-node') });
+});
+
+export function updateBinding(name, value) {
+  document.querySelectorAll(`[data-bind="${name}"]`).forEach(node => {
+    node.textContent = value == null ? '' : String(value);
+  });
+}
+
+export function mountBackend(adapter) {
+  if (adapter && typeof adapter.invoke === 'function') {
+    window.__TRANSLATEIT_BACKEND__ = adapter;
+  }
+}
+
+console.log('[Generated UI ready]', bindings);
+`;
+
+fs.writeFileSync(path.join(output, 'index.html'), html);
+fs.writeFileSync(path.join(output, 'styles.css'), css);
+fs.writeFileSync(path.join(output, 'ui-runtime.js'), runtime);
+fs.writeFileSync(path.join(output, 'ui-bindings.json'), JSON.stringify({ bindings, packageSource: pkg.source, integrationContract: pkg.integrationContract }, null, 2));
+fs.writeFileSync(path.join(output, 'README.md'), `# Generated Frontend\n\nGenerated from TranslateIT UI Build Package.\n\n## Files\n\n- index.html\n- styles.css\n- ui-runtime.js\n- ui-bindings.json\n\n## Backend Integration\n\nConnect backend by providing \`window.__TRANSLATEIT_BACKEND__.invoke(command, payload)\` or by adapting \`ui-runtime.js\` to Tauri invoke.\n`);
+
+console.log(`Generated frontend scaffold: ${output}`);
