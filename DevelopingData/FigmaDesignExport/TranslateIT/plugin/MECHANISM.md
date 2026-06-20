@@ -1,17 +1,36 @@
 # TranslateIT Figma Plugin Mechanism
 
-This plugin is a modular **Single HTML Package to Figma** importer.
+This plugin is a modular **Single HTML Package to One Figma Page** importer.
 
-The recommended workflow is now one import input only:
+## Current Goal
+
+The plugin exists to support this workflow:
 
 ```txt
-figma-import.html
+HTML/CSS preview shown to the user
+        ↓
+One self-contained HTML package
+        ↓
+Figma plugin import
+        ↓
+One Figma page
+        ↓
+Modular editable sections
+        ↓
+Reusable icon components + UI instances
 ```
 
-The file should contain both:
+## One Input Only
 
-1. CSS inside a `<style>` block.
-2. HTML structure below it.
+The plugin no longer requires a separate CSS input.
+
+Use one input:
+
+```txt
+Single HTML package
+```
+
+That HTML must contain CSS inside a `<style>` tag.
 
 Example:
 
@@ -39,61 +58,110 @@ Example:
   }
 </style>
 
+<svg width="0" height="0" style="display:none">
+  <symbol id="shield" viewBox="0 0 24 24">
+    <path d="M12 4 6 7v5c0 4 2.4 7 6 8 3.6-1 6-4 6-8V7l-6-3Z" />
+  </symbol>
+</svg>
+
 <div class="preview-root" data-component="Preview / Root">
   <section class="card" data-component="Card / Feature">
+    <svg><use href="#shield"></use></svg>
     <h3>Voice input</h3>
     <p>Press the microphone button to start translating.</p>
   </section>
 </div>
 ```
 
-## Why One HTML Package?
+## One Figma Page Only
 
-Using separate HTML and CSS fields works, but it is less convenient and easier to mismatch.
-
-A single self-contained HTML package is better because:
-
-- the structure and visual rules travel together;
-- the plugin can extract CSS from `<style>` automatically;
-- the user only needs one copy-paste/import action;
-- the preview can be archived and versioned as one file;
-- it reduces confusion between which CSS belongs to which HTML.
-
-## Correct Import Mechanism
+The plugin now outputs to one page:
 
 ```txt
-Self-contained preview HTML
-        ↓
-Plugin extracts <style> CSS
-        ↓
-Plugin parses HTML structure
-        ↓
-Plugin builds intermediate layout tree
-        ↓
-Figma native builder
-        ↓
-Editable frames, text, rectangles, and vector-like layers
-        ↓
-Manual review/edit in Figma
-        ↓
-Approved changes are written back to repo files
-        ↓
-Render DesignPreview again
-        ↓
-Sync to Tauri only after approval
+TranslateIT Import / Workspace
 ```
 
-## What the Plugin Accepts
+Inside that page, each import run is grouped into one generated root frame.
 
-Primary input:
+Each generated root frame contains modular sections:
 
-- `Single HTML package`: HTML with embedded `<style>` CSS.
+```txt
+Import Run / timestamp
+├─ 00 Component Preview
+├─ 01 Imported UI
+└─ 99 Import Report
+```
 
-Optional input:
+When refreshing, older generated import runs are moved into an archive section on the same page:
 
-- `Optional CSS override`: use only for testing or quick override.
+```txt
+98 Archive / timestamp
+```
 
-The optional CSS is appended after embedded CSS, so it can override earlier rules when selector support matches.
+Manual Figma layers are not moved or deleted.
+
+## Modular Sections
+
+The plugin uses Figma frames as modular containers.
+
+Recommended layer strategy:
+
+- `00 Component Preview`: reusable icon master components and future component previews.
+- `01 Imported UI`: editable UI imported from the self-contained HTML.
+- `99 Import Report`: import metadata and warnings.
+- `98 Archive`: old generated runs after refresh.
+
+Use `data-component` attributes in HTML to get clean layer names:
+
+```html
+<section data-component="Nav / SavedChat">
+  ...
+</section>
+```
+
+Without `data-component`, the plugin uses tag, id, and class names.
+
+## Reusable Icon Behavior
+
+The plugin extracts SVG `<symbol id="...">` definitions from the HTML package.
+
+For every symbol, it creates a reusable Figma master component:
+
+```txt
+Icon/shield
+Icon/chevron
+Icon/file
+```
+
+These master icons appear in:
+
+```txt
+00 Component Preview
+```
+
+When the UI contains:
+
+```html
+<svg><use href="#shield"></use></svg>
+```
+
+or:
+
+```html
+<span data-icon="shield"></span>
+```
+
+The imported UI uses an instance of the master icon.
+
+That means:
+
+```txt
+Edit Icon/shield in Component Preview
+        ↓
+All Icon Instance/shield usages in the imported UI update together
+```
+
+This is the correct Figma design-system behavior.
 
 ## Current Supported CSS Subset
 
@@ -119,64 +187,6 @@ The importer supports common UI preview CSS patterns:
 
 Unsupported CSS is ignored safely.
 
-## Current HTML Handling
-
-The importer supports regular HTML elements and text nodes.
-
-It ignores unsafe or irrelevant tags:
-
-- `script`;
-- `style` after extracting its CSS;
-- `link`;
-- `meta`;
-- `title`.
-
-`img` tags are converted into image placeholder frames for now.
-
-For clearer Figma layer names, add attributes like:
-
-```html
-<section data-component="Card / Feature">
-  ...
-</section>
-```
-
-or use clear classes:
-
-```html
-<div class="ti-card ti-feature-card">
-  ...
-</div>
-```
-
-## Generated Figma Pages
-
-The plugin creates namespaced pages:
-
-- `TranslateIT Import / 01 Imported Preview`
-- `TranslateIT Import / 98 Archive`
-- `TranslateIT Import / 99 Import Report`
-
-## Safe Mode
-
-The plugin tags generated top-level nodes using shared plugin metadata:
-
-```txt
-namespace: translateit.designExport
-generated: true
-version: 2026-06-html-css-ir-v3-single-html
-```
-
-Refresh does not delete manual nodes.
-
-Refresh workflow:
-
-1. Click `Prepare Refresh + Archive`.
-2. Review generated node count.
-3. Click `Generate + Archive Previous`.
-4. Old generated top-level nodes move to `TranslateIT Import / 98 Archive`.
-5. New import is generated.
-
 ## Important Limitation
 
 This plugin is not a complete browser engine.
@@ -188,7 +198,6 @@ It will not perfectly reproduce every CSS behavior, especially:
 - pseudo-elements;
 - complex selectors;
 - media queries;
-- canvas/webgl;
 - external fonts loaded from the web;
 - external image files.
 
@@ -203,7 +212,7 @@ For editable design work, use this plugin import.
 Generate one clean import artifact from DesignPreview:
 
 ```txt
-DesignPreview/export/figma-import.html
+EngineData/Frontend/RustApp/DesignPreview/export/figma-import.html
 ```
 
 That one file should contain:
@@ -212,7 +221,8 @@ That one file should contain:
 - embedded CSS;
 - semantic HTML;
 - `data-component` names;
+- inline SVG `<symbol>` icons;
 - no external scripts;
 - no external CSS links.
 
-This gives the best balance between easy import and editable Figma structure.
+This gives the best balance between easy import, modular structure, and reusable Figma components.
