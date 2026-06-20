@@ -3,6 +3,8 @@ figma.showUI(__html__, { width: 580, height: 860 });
 const PAGE_NAME = 'TranslateIT Import / Workspace';
 const VERSION = 'universal-page-adapter-v2';
 let lastRun = null;
+let lastDiagnostics = null;
+let lastImportMeta = null;
 let regular = { family: 'Inter', style: 'Regular' };
 let bold = { family: 'Inter', style: 'Bold' };
 
@@ -205,10 +207,25 @@ async function importUniversal(payload) {
   run.appendChild(title);
 
   const diagnostics = payload.diagnostics || {};
+  lastDiagnostics = {
+    layerCount: diagnostics.layerCount || layers.length,
+    sectionCount: diagnostics.sectionCount || sections.length,
+    componentCount: diagnostics.componentCount || 0,
+    imageCount: diagnostics.imageCount || 0,
+    textCount: diagnostics.textCount || 0
+  };
+  lastImportMeta = {
+    title: payload.title || 'Website Import',
+    url: payload.url || '',
+    adapterMode: payload.mode || '',
+    pageHeight: payload.pageHeight || 0,
+    viewport: viewport
+  };
+
   const note = figma.createText();
   note.name = 'Import Note';
   note.fontName = font(false);
-  note.characters = 'Universal Page Adapter: editable browser-rendered layers. Layers: ' + (diagnostics.layerCount || layers.length) + ' / Sections: ' + (diagnostics.sectionCount || sections.length) + ' / Components: ' + (diagnostics.componentCount || 0) + ' / Images: ' + (diagnostics.imageCount || 0) + ' / Text: ' + (diagnostics.textCount || 0);
+  note.characters = 'Universal Page Adapter: editable browser-rendered layers. Layers: ' + lastDiagnostics.layerCount + ' / Sections: ' + lastDiagnostics.sectionCount + ' / Components: ' + lastDiagnostics.componentCount + ' / Images: ' + lastDiagnostics.imageCount + ' / Text: ' + lastDiagnostics.textCount;
   note.fontSize = 12;
   note.fills = paint('#8D96A6');
   try { note.textAutoResize = 'HEIGHT'; note.resize(1200, 24); } catch (_) {}
@@ -242,12 +259,20 @@ async function importUniversal(payload) {
   figma.viewport.scrollAndZoomIntoView([run]);
   lastRun = run;
 
-  send('Import complete.\nOutput page: ' + PAGE_NAME + '\nTop-level run: ' + run.name + '\nMode: Universal Page Adapter\nLayers generated: ' + (diagnostics.layerCount || layers.length) + '\nSections generated: ' + (diagnostics.sectionCount || sections.length) + '\nComponents generated: ' + (diagnostics.componentCount || 0) + '\nAdapter version: ' + VERSION + '\nNext step: review in Figma, then Export Data.');
+  send('Import complete.\nOutput page: ' + PAGE_NAME + '\nTop-level run: ' + run.name + '\nMode: Universal Page Adapter\nLayers generated: ' + lastDiagnostics.layerCount + '\nSections generated: ' + lastDiagnostics.sectionCount + '\nComponents generated: ' + lastDiagnostics.componentCount + '\nAdapter version: ' + VERSION + '\nNext step: review in Figma, then Export Data.');
 }
 
 function exportPackage() {
   if (!lastRun) return send('No import run found. Import Data first.');
-  send('Export complete.', { exportJson: JSON.stringify({ schema: 'translateit.ui-build-package.universal-page.v2', generatedAt: new Date().toISOString(), pluginVersion: VERSION, figmaRun: lastRun.name }, null, 2) });
+  const pkg = {
+    schema: 'translateit.ui-build-package.universal-page.v2',
+    generatedAt: new Date().toISOString(),
+    pluginVersion: VERSION,
+    figmaRun: lastRun.name,
+    source: lastImportMeta || {},
+    diagnostics: lastDiagnostics || {}
+  };
+  send('Export complete.', { exportJson: JSON.stringify(pkg, null, 2) });
 }
 
 figma.ui.onmessage = async function (msg) {
