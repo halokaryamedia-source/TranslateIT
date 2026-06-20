@@ -189,6 +189,67 @@ File:
 DevelopingData/FigmaDesignExport/TranslateIT/COMPONENT_CONTRACT.md
 ```
 
+### 14. Component contract checker added
+
+A package-level checker now verifies naming and interaction rules from the component contract.
+
+File:
+
+```txt
+DevelopingData/FigmaDesignExport/TranslateIT/BuildPackage/tools/check-component-contract.mjs
+```
+
+Usage:
+
+```powershell
+node .\tools\check-component-contract.mjs .\ui-build-package.json
+```
+
+### 15. Component registry generator added
+
+A new tool generates a standalone component registry from an exported UI Build Package.
+
+File:
+
+```txt
+DevelopingData/FigmaDesignExport/TranslateIT/BuildPackage/tools/generate-component-registry.mjs
+```
+
+Usage:
+
+```powershell
+node .\tools\generate-component-registry.mjs .\ui-build-package.json .\component-registry.json
+```
+
+The registry records component id, name, inferred type, variant, state, size, actions, backend commands, bindings, layout, and style.
+
+### 16. Codegen component intelligence added
+
+Generated frontend now includes:
+
+```txt
+GeneratedFrontend/component-registry.json
+GeneratedFrontend/ui-package-report.md
+```
+
+Generated HTML nodes also receive inferred component metadata when available:
+
+```txt
+data-component-id
+data-component-type
+data-variant
+data-state
+data-size
+```
+
+Generated runtime now exposes:
+
+```txt
+setComponentState(componentId, state)
+```
+
+This makes the generated scaffold more useful for app UI state previews.
+
 ## Known Limitation
 
 The plugin UI panel file was not changed in this pass because the repository connector blocked that specific HTML/inline-script update. The core plugin handler is already updated, so import/generate/export paths now use the v3 readiness guardrails.
@@ -220,6 +281,8 @@ Do not use a large TranslateIT app preview as the first test. First confirm the 
 - icon masters and instances;
 - exported UI Build Package JSON with `quality` metadata;
 - generated frontend with `ui-package-report.md`;
+- generated frontend with `component-registry.json`;
+- passing component contract check;
 - passing UI sync gate.
 
 ## Recommended Next Step
