@@ -21,11 +21,15 @@ Export UI Build Package JSON
         ↓
 UI Build Package validator
         ↓
+Component contract checker
+        ↓
 UI Sync Gate
+        ↓
+Component registry generation
         ↓
 Codegen tool creates frontend scaffold
         ↓
-Backend adapter connects actions/state
+Backend adapter connects actions/state/component state
 ```
 
 ## Pre-Figma HTML Validation
@@ -81,6 +85,23 @@ node .\tools\validate-ui-build-package.mjs .\ui-build-package.json
 
 This confirms the package is structurally usable for codegen.
 
+## Component Contract Check
+
+Run:
+
+```powershell
+node .\tools\check-component-contract.mjs .\ui-build-package.json
+```
+
+This checks whether components follow the TranslateIT component contract:
+
+- `Category / Name` component naming;
+- interactive components should define `data-action`;
+- actions should define `data-backend`;
+- non-button interactive elements should define `role="button"`;
+- dynamic/status/output components should define `data-bind` or `data-slot`;
+- layout dimensions should exist.
+
 ## Sync Gate
 
 Before considering runtime sync, run:
@@ -103,6 +124,48 @@ It should fail or warn when:
 - icon SVG payloads are missing.
 
 Passing the sync gate does not replace visual approval. It only means the package is structurally safe enough for the next stage.
+
+## Component Registry
+
+Generate a standalone component registry from an exported package:
+
+```powershell
+node .\tools\generate-component-registry.mjs .\ui-build-package.json .\component-registry.json
+```
+
+Codegen also writes:
+
+```txt
+GeneratedFrontend/component-registry.json
+```
+
+The registry infers:
+
+- component id;
+- component name;
+- type;
+- variant;
+- state;
+- size;
+- action;
+- backend command;
+- state binding;
+- slot binding;
+- layout and style snapshot.
+
+Type inference currently supports:
+
+```txt
+screen
+toolbar
+button
+input
+card
+modal
+status
+icon
+frame
+```
 
 ## Backend Binding Attributes
 
@@ -130,7 +193,7 @@ Meaning:
 
 ## Generated Frontend Package
 
-The codegen tool should output:
+The codegen tool outputs:
 
 ```txt
 GeneratedFrontend/
@@ -139,10 +202,20 @@ GeneratedFrontend/
 ├─ ui-runtime.js
 ├─ backend-adapter.js
 ├─ ui-bindings.json
+├─ component-registry.json
+├─ ui-package-report.md
 └─ README.md
 ```
 
 This is not automatically copied into the app runtime. It is a reviewable frontend scaffold.
+
+Generated runtime helpers:
+
+```txt
+updateBinding(name, value)
+updateSlotText(name, value)
+setComponentState(componentId, state)
+```
 
 After approval, it can be mapped into:
 
