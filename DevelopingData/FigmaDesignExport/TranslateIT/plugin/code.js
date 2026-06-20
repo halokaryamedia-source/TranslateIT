@@ -1,7 +1,7 @@
 figma.showUI(__html__, { width: 580, height: 860 });
 
 const PAGE_NAME = 'TranslateIT Import / Workspace';
-const VERSION = 'universal-page-adapter-v1';
+const VERSION = 'universal-page-adapter-v1.1';
 let lastRun = null;
 let regular = { family: 'Inter', style: 'Regular' };
 let bold = { family: 'Inter', style: 'Bold' };
@@ -87,7 +87,18 @@ function makeBox(layer, parentRect, scale) {
 }
 
 function makeImage(layer, parentRect, scale) {
-  const rect = makeBox({ ...layer, role: 'image', style: { backgroundColor: '#E5E7EB', borderRadius: (layer.style || {}).borderRadius || '0px' } }, parentRect, scale);
+  const imageLayer = {
+    type: layer.type,
+    role: 'image',
+    tag: layer.tag,
+    name: layer.name,
+    rect: layer.rect,
+    style: {
+      backgroundColor: '#E5E7EB',
+      borderRadius: ((layer.style || {}).borderRadius || '0px')
+    }
+  };
+  const rect = makeBox(imageLayer, parentRect, scale);
   rect.name = safe('image / ' + (layer.name || 'Image'));
   if (layer.image && layer.image.base64) {
     const image = figma.createImage(decodeBase64(layer.image.base64));
@@ -112,7 +123,9 @@ function makeText(layer, parentRect, scale) {
   text.y = p.y;
   try {
     text.textAutoResize = 'HEIGHT';
-    text.resize(Math.max(Math.round(((layer.rect && layer.rect.w) || 80) * scale), Math.round(value.length * fontSize * 0.45), 20), Math.max(fontSize * 1.25, Math.round(((layer.rect && layer.rect.h) || fontSize) * scale)));
+    const browserWidth = Math.max(20, Math.round(((layer.rect && layer.rect.w) || 80) * scale));
+    const contentWidth = Math.round(value.length * fontSize * 0.45);
+    text.resize(Math.max(browserWidth, contentWidth, 20), Math.max(fontSize * 1.25, Math.round(((layer.rect && layer.rect.h) || fontSize) * scale)));
   } catch (_) {}
   return text;
 }
@@ -130,6 +143,16 @@ function layerSort(a, b) {
   return (rank[a.type] || 9) - (rank[b.type] || 9) || (a.rect.y - b.rect.y) || (a.rect.x - b.rect.x);
 }
 
+function getSourceHeight(sections, payload, viewport) {
+  let maxHeight = payload.pageHeight || viewport.height || 1600;
+  for (let i = 0; i < sections.length; i += 1) {
+    const section = sections[i] || {};
+    const rect = section.rect || {};
+    maxHeight = Math.max(maxHeight, (rect.y || 0) + (rect.h || 0));
+  }
+  return maxHeight;
+}
+
 async function importUniversal(payload) {
   await loadFonts();
   if (!payload || payload.mode !== 'universal-page-adapter-v1') throw new Error('Expected Universal Page Adapter payload.');
@@ -140,7 +163,7 @@ async function importUniversal(payload) {
 
   const viewport = payload.viewport || { width: 1440, height: 1600 };
   const scale = 1280 / Math.max(1, Number(viewport.width) || 1440);
-  const sourceHeight = Math.max(payload.pageHeight || viewport.height || 1600, ...sections.map((section) => (section.rect.y || 0) + (section.rect.h || 0)));
+  const sourceHeight = getSourceHeight(sections, payload, viewport);
   const canvasHeight = Math.max(600, Math.round(sourceHeight * scale));
   const stamp = new Date().toISOString().replace(/[:.]/g, '-');
 
