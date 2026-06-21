@@ -48,6 +48,12 @@ function normalizeElement(element, assets) {
     name: 'Element',
     sectionId: element.sectionId || null,
     rect: element.rect,
+    source: {
+      childElementCount: element.childElementCount || 0,
+      directText: clean(element.directText),
+      textDensity: element.textDensity || 0,
+      tag: element.tag || ''
+    },
     style: {
       color: cssColor(style.color) || '#111827',
       backgroundColor: cssColor(style.backgroundColor),
@@ -114,6 +120,42 @@ function normalizeElement(element, assets) {
   return null;
 }
 
+function normalizeTextKey(value) {
+  return clean(value).toLowerCase().replace(/[^a-z0-9\u00c0-\u024f]+/gi, ' ').trim();
+}
+
+function removeUnsafeTextLayers(elements, page) {
+  const textItems = elements.filter((item) => item.type === 'text');
+  const out = [];
+  const seen = new Set();
+  for (const item of elements) {
+    if (item.type !== 'text') {
+      out.push(item);
+      continue;
+    }
+    const key = normalizeTextKey(item.text);
+    if (!key) continue;
+    if (seen.has(key)) continue;
+    const rectArea = Math.max(1, (item.rect?.w || 0) * (item.rect?.h || 0));
+    const pageArea = Math.max(1, page.width * page.height);
+    const childCount = item.source?.childElementCount || 0;
+    const directText = clean(item.source?.directText);
+    const looksLikeParent = childCount >= 3 && item.text.length > Math.max(80, directText.length + 60);
+    const tooLargeTextBox = rectArea > pageArea * 0.18 && item.text.length > 80 && !['title', 'section-title'].includes(item.role);
+    const containsOtherText = textItems.some((other) => {
+      if (other.id === item.id) return false;
+      const otherKey = normalizeTextKey(other.text);
+      if (!otherKey || otherKey.length < 3) return false;
+      const inside = other.rect.x >= item.rect.x - 4 && other.rect.y >= item.rect.y - 4 && other.rect.x + other.rect.w <= item.rect.x + item.rect.w + 4 && other.rect.y + other.rect.h <= item.rect.y + item.rect.h + 4;
+      return inside && key.includes(otherKey);
+    });
+    if ((looksLikeParent || tooLargeTextBox) && containsOtherText) continue;
+    seen.add(key);
+    out.push(item);
+  }
+  return out;
+}
+
 function refineSectionRect(section, elements, source) {
   const inside = elements.filter((item) => item.sectionId === section.id);
   if (!inside.length) return section.rect;
@@ -169,7 +211,15 @@ function applySafetyLayout(model) {
 export function buildDesignModel(layout) {
   const source = layout.source;
   const assets = layout.assets || [];
-  const normalized = layout.elements.map((item) => normalizeElement(item, assets)).filter(Boolean);
+  const page = {
+    title: source.title || 'Imported Website',
+    url: source.finalUrl || source.url,
+    width: source.viewport.width,
+    height: source.pageHeight,
+    background: '#FFFFFF'
+  };
+  const normalizedRaw = layout.elements.map((item) => normalizeElement(item, assets)).filter(Boolean);
+  const normalized = removeUnsafeTextLayers(normalizedRaw, page);
   const sections = layout.sections.map((section) => ({
     id: section.id,
     role: section.role,
@@ -180,13 +230,7 @@ export function buildDesignModel(layout) {
   })).filter((section) => section.elementIds.length || ['header', 'footer'].includes(section.role));
 
   const model = {
-    page: {
-      title: source.title || 'Imported Website',
-      url: source.finalUrl || source.url,
-      width: source.viewport.width,
-      height: source.pageHeight,
-      background: '#FFFFFF'
-    },
+    page,
     sections,
     elements: normalized.filter((item) => sections.some((section) => section.id === item.sectionId)),
     assets,
@@ -198,7 +242,9 @@ export function buildDesignModel(layout) {
       assets: assets.length,
       textElements: normalized.filter((item) => item.type === 'text').length,
       imageElements: normalized.filter((item) => item.type === 'image').length,
-      buttonElements: normalized.filter((item) => item.type === 'button').length
+      buttonElements: normalized.filter((item) => item.type === 'button').length,
+      removedParentText: layout.stats.removedParentText || 0,
+      removedUnsafeText: normalizedRaw.length - normalized.length
     }
   };
 
