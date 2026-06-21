@@ -10,6 +10,10 @@ Write-Host "Target: $Url" -ForegroundColor DarkGray
 npm.cmd install
 npx.cmd playwright install chromium
 
+node audit-alpha-v5-plugin-syntax.mjs
+node audit-alpha-v5-single-engine.mjs
+node audit-alpha-v5-default.mjs
+
 $Log = Join-Path $Bridge "bridge-v5.log"
 Start-Process powershell -WindowStyle Hidden -ArgumentList "-ExecutionPolicy Bypass -Command `"cd '$Bridge'; node start-alpha-v5.mjs > bridge-v5.log 2>&1`""
 Start-Sleep 8
@@ -29,8 +33,6 @@ if ($Health.publicVersion -ne "Version 0.1 - Alpha") {
   throw "Unexpected public version: $($Health.publicVersion)"
 }
 
-node audit-alpha-v5-single-engine.mjs
-node audit-alpha-v5-default.mjs
 node audit-alpha-v5-media.mjs $Url
 node audit-alpha-v5-model.mjs $Url
 node audit-alpha-v5-model-strict.mjs $Url
