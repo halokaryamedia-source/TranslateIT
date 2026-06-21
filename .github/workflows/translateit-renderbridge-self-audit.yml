@@ -1,12 +1,6 @@
 name: TranslateIT RenderBridge Self Audit
 
 on:
-  push:
-    branches:
-      - translateit-clean-engine
-    paths:
-      - 'DevelopingData/FigmaDesignExport/TranslateIT/**'
-      - '.github/workflows/translateit-renderbridge-self-audit.yml'
   workflow_dispatch:
 
 jobs:
