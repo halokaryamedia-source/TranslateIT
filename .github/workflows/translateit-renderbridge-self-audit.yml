@@ -60,6 +60,9 @@ jobs:
       - name: Run Mivubi sample audit
         run: node ./tests/test-sample-sites.mjs https://www.mivubi.com/
 
+      - name: Run Figma renderer dry run
+        run: node ./tests/test-figma-renderer-dry-run.mjs https://www.mivubi.com/
+
       - name: Run regression suite
         run: npm run test:regression
 
