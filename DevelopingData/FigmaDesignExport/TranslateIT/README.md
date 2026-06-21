@@ -113,11 +113,12 @@ capture source website
 render clone preview
 compare source vs clone
 write visual diff overlay
+run Figma renderer dry run with a mock API
 run regression suite
 upload report artifacts
 ```
 
-Manual Figma testing should only happen after the automated self audit produces a reviewable preview and diff overlay.
+Manual Figma testing should only happen after the automated self audit produces a reviewable preview and diff overlay. The manual test is final validation, not the main debugging process.
 
 ## Folder Structure
 
@@ -153,6 +154,7 @@ DevelopingData/FigmaDesignExport/TranslateIT/
 │  │  ├─ test-module-imports.mjs
 │  │  ├─ test-clean-contract.mjs
 │  │  ├─ test-v2-markers.mjs
+│  │  ├─ test-figma-renderer-dry-run.mjs
 │  │  ├─ test-sample-sites.mjs
 │  │  ├─ test-regression-suite.mjs
 │  │  └─ regression-sites.json
@@ -181,6 +183,7 @@ module import gate
 clean contract gate
 V2 marker gate
 sample audit
+Figma renderer dry run
 regression suite
 open latest reports
 copy Mivubi JSON report to clipboard
