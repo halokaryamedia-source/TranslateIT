@@ -17,6 +17,26 @@ function area(rect) {
   return Math.max(0, rect?.w || 0) * Math.max(0, rect?.h || 0);
 }
 
+function rawIndexOf(element) {
+  const match = String(element.id || '').match(/^el-(\d+)$/);
+  return match ? Number(match[1]) : 0;
+}
+
+function explicitZIndex(element) {
+  const raw = String(element.source?.zIndex || element.style?.zIndex || '').trim();
+  if (!raw || raw === 'auto') return null;
+  const value = Number.parseInt(raw, 10);
+  return Number.isFinite(value) ? value : null;
+}
+
+function paintOrderOf(element, type) {
+  const explicit = explicitZIndex(element);
+  const rawIndex = rawIndexOf(element);
+  if (explicit !== null) return explicit * 1000 + rawIndex;
+  if (type === 'shape') return rawIndex - 200;
+  return rawIndex;
+}
+
 function sectionName(section) {
   if (section.role === 'header') return 'Section / Header';
   if (section.role === 'hero') return 'Section / Hero';
@@ -56,21 +76,16 @@ function styleOf(element) {
     fontFamily: s.fontFamily || 'Inter',
     lineHeight: Number(s.lineHeight || 0),
     borderRadius: Number(s.borderRadius || 0),
-    textAlign: s.textAlign || 'left'
+    textAlign: s.textAlign || 'left',
+    position: s.position || element.source?.position || '',
+    zIndex: s.zIndex || element.source?.zIndex || ''
   };
 }
 
 export function buildCloneModel(model, visualModel, visualMatching) {
   const sections = (model.sections || [])
-    .map((section) => ({
-      id: section.id,
-      role: section.role,
-      name: sectionName(section),
-      rect: section.rect,
-      layerIds: []
-    }))
+    .map((section) => ({ id: section.id, role: section.role, name: sectionName(section), rect: section.rect, layerIds: [] }))
     .sort((a, b) => ((a.rect && a.rect.y) || 0) - ((b.rect && b.rect.y) || 0));
-
   const sectionMap = new Map(sections.map((section) => [section.id, section]));
   const layers = [];
 
@@ -89,9 +104,10 @@ export function buildCloneModel(model, visualModel, visualMatching) {
       assetId: element.assetId || null,
       alt: clean(element.alt),
       style: styleOf(element),
-      zIndex: type === 'shape' ? 0 : type === 'image' ? 10 : type === 'text' ? 20 : 30,
+      zIndex: paintOrderOf(element, type),
+      paintOrder: paintOrderOf(element, type),
       editable: true,
-      sourceReason: element.sourceReason || 'dom-css-geometry',
+      sourceReason: element.sourceReason || 'dom-css-visual-paint-order',
       confidence: element.confidence || 0.45,
       visualMatch: element.visualMatch || null
     };
@@ -100,7 +116,7 @@ export function buildCloneModel(model, visualModel, visualMatching) {
     if (section) section.layerIds.push(layer.id);
   }
 
-  const backgroundLayers = sections.map((section) => ({
+  const backgroundLayers = sections.map((section, index) => ({
     id: `bg-${section.id}`,
     type: 'shape',
     role: 'section-background',
@@ -110,48 +126,27 @@ export function buildCloneModel(model, visualModel, visualMatching) {
     text: '',
     assetId: null,
     alt: '',
-    style: {
-      color: '#111827',
-      backgroundColor: section.role === 'footer' ? '#087A4B' : '#FFFFFF',
-      fontSize: 0,
-      fontWeight: 400,
-      fontFamily: 'Inter',
-      lineHeight: 0,
-      borderRadius: 0,
-      textAlign: 'left'
-    },
-    zIndex: -10,
+    style: { color: '#111827', backgroundColor: section.role === 'footer' ? '#087A4B' : '#FFFFFF', fontSize: 0, fontWeight: 400, fontFamily: 'Inter', lineHeight: 0, borderRadius: 0, textAlign: 'left' },
+    zIndex: -10000 + index,
+    paintOrder: -10000 + index,
     editable: true,
     sourceReason: 'section-visual-background',
     confidence: 0.72,
     visualMatch: null
   }));
 
-  const allLayers = backgroundLayers
-    .concat(layers)
-    .sort((a, b) => (a.zIndex || 0) - (b.zIndex || 0) || ((a.rect && a.rect.y) || 0) - ((b.rect && b.rect.y) || 0));
+  const allLayers = backgroundLayers.concat(layers).sort((a, b) => (a.zIndex || 0) - (b.zIndex || 0) || ((a.rect && a.rect.y) || 0) - ((b.rect && b.rect.y) || 0));
 
   return {
     mode: 'layout-preserving-editable-clone',
     visualTruth: 'screenshot-first-html-assisted',
-    page: {
-      title: model.page?.title || 'Imported Website',
-      url: model.page?.url || '',
-      width: model.page?.width || 1440,
-      height: model.page?.height || 1600,
-      background: model.page?.background || '#FFFFFF'
-    },
+    page: { title: model.page?.title || 'Imported Website', url: model.page?.url || '', width: model.page?.width || 1440, height: model.page?.height || 1600, background: model.page?.background || '#FFFFFF' },
     sections,
     layers: allLayers,
     assets: model.assets || [],
     visualModel: { mode: visualModel.mode, diagnostics: visualModel.diagnostics },
     visualMatching,
-    uiLibrary: {
-      grouping: 'section-first-source-geometry',
-      editableText: true,
-      editableImages: true,
-      screenshotReferenceOnly: true
-    },
+    uiLibrary: { grouping: 'section-first-source-geometry', editableText: true, editableImages: true, screenshotReferenceOnly: true, paintOrder: 'dom-paint-order-preserved' },
     diagnostics: {
       sections: sections.length,
       layers: allLayers.length,
@@ -162,7 +157,8 @@ export function buildCloneModel(model, visualModel, visualMatching) {
       visualBlocks: visualModel.diagnostics.blocks,
       visualConfidence: visualModel.diagnostics.averageConfidence,
       visualMatchRate: visualMatching.matchRate,
-      visualMatchConfidence: visualMatching.averageConfidence
+      visualMatchConfidence: visualMatching.averageConfidence,
+      paintOrder: 'dom-paint-order-preserved'
     }
   };
 }
