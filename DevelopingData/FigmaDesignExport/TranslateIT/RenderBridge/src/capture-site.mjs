@@ -32,6 +32,7 @@ export async function captureSite(inputUrl, options = {}) {
     const raw = await page.evaluate(() => {
       const clean = (value) => String(value || '').replace(/\s+/g, ' ').trim();
       const parseColor = (value) => String(value || '').trim();
+      const directTextOf = (el) => clean(Array.from(el.childNodes || []).filter((node) => node.nodeType === Node.TEXT_NODE).map((node) => node.textContent || '').join(' '));
       const rectOf = (el) => {
         const r = el.getBoundingClientRect();
         return {
@@ -50,7 +51,7 @@ export async function captureSite(inputUrl, options = {}) {
         if (r.width < 3 || r.height < 3) return false;
         return true;
       };
-      const roleOf = (el, text, style, rect) => {
+      const roleOf = (el, text, directText, style, rect, childElementCount) => {
         const tag = String(el.tagName || '').toLowerCase();
         const cls = String(el.className || '');
         const aria = String(el.getAttribute('aria-label') || '');
@@ -58,13 +59,14 @@ export async function captureSite(inputUrl, options = {}) {
         const hint = `${tag} ${cls} ${aria} ${id}`.toLowerCase();
         if (tag === 'img' || tag === 'picture' || tag === 'svg') return 'image';
         if (tag === 'button' || el.getAttribute('role') === 'button' || /\b(btn|button|cta)\b/i.test(cls)) return 'button';
-        if (tag === 'a' && text.length <= 64) return 'link';
+        if (tag === 'a' && text.length <= 96) return 'link';
         if (/header|nav|navbar|menu/.test(hint) && rect.y < 260) return 'navigation';
         if (/footer/.test(hint)) return 'footer';
         if (/h1/.test(tag)) return 'heading-1';
         if (/h2/.test(tag)) return 'heading-2';
         if (/h3|h4/.test(tag)) return 'heading-3';
-        if (text && text.length <= 260) return 'text';
+        if (/^(p|span|strong|em|small|label|li)$/i.test(tag) && text && text.length <= 260) return 'text';
+        if (directText && directText.length <= 180 && childElementCount <= 2) return 'text';
         const hasBg = style.backgroundColor && style.backgroundColor !== 'rgba(0, 0, 0, 0)' && style.backgroundColor !== 'transparent';
         if (hasBg && rect.w * rect.h > 10000) return 'container';
         return 'decorative';
@@ -74,14 +76,19 @@ export async function captureSite(inputUrl, options = {}) {
         const style = getComputedStyle(el);
         const rect = rectOf(el);
         const text = clean(el.innerText || el.textContent || '');
+        const directText = directTextOf(el);
+        const childElementCount = el.children ? el.children.length : 0;
         const tag = String(el.tagName || '').toLowerCase();
-        const role = roleOf(el, text, style, rect);
+        const role = roleOf(el, text, directText, style, rect, childElementCount);
         return {
           id: `raw-${index}`,
           index,
           tag,
           role,
           text: text.slice(0, 320),
+          directText: directText.slice(0, 220),
+          childElementCount,
+          textDensity: text.length ? Number((text.length / Math.max(1, rect.w * rect.h)).toFixed(6)) : 0,
           rect,
           area: rect.w * rect.h,
           imageIndex: tag === 'img' ? Number(el.getAttribute('data-translateit-image-index') || -1) : null,
@@ -105,6 +112,8 @@ export async function captureSite(inputUrl, options = {}) {
         if (item.role === 'decorative') return item.area >= 16000 && item.area < innerWidth * Math.max(innerHeight, document.documentElement.scrollHeight) * 0.85;
         if (item.role === 'container') return item.area >= 12000;
         if (item.role === 'image') return item.area >= 4000;
+        if (item.role === 'navigation') return item.text.length <= 160 && item.rect.w >= 8 && item.rect.h >= 8;
+        if (item.role === 'footer') return item.text.length <= 260 && item.rect.w >= 8 && item.rect.h >= 8;
         if (item.text) return item.rect.w >= 8 && item.rect.h >= 8;
         return false;
       }).slice(0, 260);
