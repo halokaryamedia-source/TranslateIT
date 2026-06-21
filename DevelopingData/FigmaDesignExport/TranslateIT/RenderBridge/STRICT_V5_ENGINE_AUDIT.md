@@ -17,7 +17,7 @@ one active bridge engine
 one active plugin renderer
 strict payload contract
 legacy paths disabled or redirected
-no visual test until gates pass
+no visual test until final readiness gate passes
 ```
 
 ## Active Engine
@@ -32,6 +32,12 @@ Active renderer:
 
 ```txt
 plugin/code.v5.strict.js
+```
+
+Expected engine build:
+
+```txt
+strict-v5.1-single-engine
 ```
 
 Default plugin manifest:
@@ -54,7 +60,11 @@ A valid import payload must include:
 publicVersion: Version 0.1 - Alpha
 adapter contains: v5
 adapter contains: enhanced
+strictV5Engine: true
+engineBuild: strict-v5.1-single-engine
 diagnostics.v5Enhanced: true
+diagnostics.strictV5Engine: true
+diagnostics.engineBuild: strict-v5.1-single-engine
 structuredLayout: present
 structuredLayout.visualProfile.template: source-inspired-editorial
 ```
@@ -74,6 +84,17 @@ background launcher        points to start-alpha-v5.mjs
 auto installer             requires strict V5 enhanced health
 ```
 
+## Active Plugin Functions
+
+```txt
+Import Website             supported
+Render editable clone      supported
+Locked screenshot ref      supported
+Export Data JSON           supported
+Reject stale engine        supported
+Reject legacy payload      supported
+```
+
 ## Internal Template Exception
 
 This file may still exist and is allowed:
@@ -90,7 +111,7 @@ It is not the default active engine.
 The active launcher regenerates the V5 enhanced structured bridge from it.
 ```
 
-## Required Gates
+## Required Gate
 
 Before visual testing, run:
 
@@ -101,12 +122,27 @@ Before visual testing, run:
 This runs:
 
 ```txt
+audit-alpha-v5-plugin-syntax.mjs
 audit-alpha-v5-single-engine.mjs
 audit-alpha-v5-default.mjs
 audit-alpha-v5-media.mjs
 audit-alpha-v5-model.mjs
 audit-alpha-v5-model-strict.mjs
+audit-alpha-v5-final-readiness.mjs
 ```
+
+## Final Readiness Criteria
+
+The last report must show:
+
+```txt
+gate: alpha-v5-final-readiness
+status: pass
+readyForFigmaTest: true
+expectedBuild: strict-v5.1-single-engine
+```
+
+If `readyForFigmaTest` is false, do not test in Figma yet. Fix the listed failures first.
 
 ## Realization Assessment
 
@@ -114,10 +150,11 @@ Can be realized now:
 
 ```txt
 single active default engine
-strict V5 payload validation
+strict V5.1 payload validation
 legacy plugin renderer prevention
 source-inspired editable website clone
 locked screenshot reference
+export data JSON
 preflight gate before Figma testing
 ```
 
@@ -135,4 +172,4 @@ Current realistic target:
 clean editable source-inspired clone with captured source screenshot reference
 ```
 
-Testing should only begin after the strict gate passes.
+Testing should only begin after the final readiness gate passes.
