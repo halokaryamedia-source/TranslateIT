@@ -1,7 +1,8 @@
 figma.showUI(__html__, { width: 580, height: 860 });
 
 const PAGE_NAME = 'TranslateIT Import / Workspace';
-const VERSION = 'universal-page-adapter-v11-design-clone';
+const VERSION = 'universal-page-adapter-v11-1-design-clone';
+
 let lastRun = null;
 let lastDiagnostics = null;
 let lastImportMeta = null;
@@ -10,8 +11,7 @@ let bold = { family: 'Inter', style: 'Bold' };
 
 function send(text, extra) {
   const msg = { type: 'status', text };
-  extra = extra || {};
-  Object.keys(extra).forEach((key) => { msg[key] = extra[key]; });
+  Object.assign(msg, extra || {});
   figma.ui.postMessage(msg);
 }
 
@@ -57,6 +57,25 @@ function collectColors(layers) {
   });
   return colors.slice(0, 20);
 }
+function defaultSpacing() {
+  return [
+    { name: 'Space / XS', value: 4 },
+    { name: 'Space / SM', value: 8 },
+    { name: 'Space / MD', value: 16 },
+    { name: 'Space / LG', value: 24 },
+    { name: 'Space / XL', value: 40 },
+    { name: 'Section Gap', value: 72 },
+    { name: 'Card Padding', value: 24 },
+    { name: 'Grid Gap', value: 20 }
+  ];
+}
+function defaultResponsive() {
+  return {
+    desktop: 'Use full-width sections, horizontal navigation, multi-column cards, and spacious section gaps.',
+    tablet: 'Reduce large grids to two columns, keep headings readable, and preserve section rhythm.',
+    mobile: 'Stack sections vertically, collapse navigation, use single-column cards, and increase tap spacing.'
+  };
+}
 
 async function workspacePage() {
   let page = null;
@@ -66,7 +85,6 @@ async function workspacePage() {
   await figma.setCurrentPageAsync(page);
   return page;
 }
-
 function frame(name, w, h, fill) {
   const node = figma.createFrame();
   node.name = safe(name);
@@ -97,7 +115,7 @@ function component(name, w, h, fill) {
   node.clipsContent = true;
   return node;
 }
-function text(name, value, size, color, isBold, width) {
+function label(name, value, size, color, isBold, width) {
   const node = figma.createText();
   node.name = safe(name);
   node.fontName = isBold ? bold : regular;
@@ -108,7 +126,7 @@ function text(name, value, size, color, isBold, width) {
   return node;
 }
 function placeText(parent, name, value, x, y, size, color, isBold, width) {
-  const node = text(name, value, size, color, isBold, width || 180);
+  const node = label(name, value, size, color, isBold, width || 180);
   node.x = x || 0;
   node.y = y || 0;
   parent.appendChild(node);
@@ -164,7 +182,6 @@ function makeScreenshotFrame(payload, width) {
   }
   return f;
 }
-
 function inferIntent(section, index) {
   if ((section.role || '') === 'header') return 'Navigation / Header';
   if ((section.role || '') === 'footer') return 'Footer';
@@ -174,26 +191,35 @@ function inferIntent(section, index) {
   if (/about|team|culture|mission|story/.test(content)) return 'Content / About';
   return 'Content Section';
 }
-function buildPlan(payload, layers, sections) {
+function normalizePlan(payload, layers, sections) {
+  const bridgePlan = payload.rebuildPlan || {};
   const textLayers = layers.filter((l) => l.type === 'text');
   const imageLayers = layers.filter((l) => l.type === 'image');
   const buttonLayers = layers.filter((l) => l.role === 'button-bg' || l.role === 'button-label');
-  const colors = collectColors(layers);
-  const textStyles = unique(textLayers, styleKey, 18);
+  const colors = Array.isArray(bridgePlan.tokens && bridgePlan.tokens.colors) && bridgePlan.tokens.colors.length ? bridgePlan.tokens.colors : collectColors(layers);
+  const textStyles = Array.isArray(bridgePlan.tokens && bridgePlan.tokens.typography) && bridgePlan.tokens.typography.length ? bridgePlan.tokens.typography : unique(textLayers, styleKey, 18);
+  const spacing = Array.isArray(bridgePlan.tokens && bridgePlan.tokens.spacing) && bridgePlan.tokens.spacing.length ? bridgePlan.tokens.spacing : defaultSpacing();
+  const responsive = bridgePlan.responsive || defaultResponsive();
+  const planSections = Array.isArray(bridgePlan.sections) && bridgePlan.sections.length ? bridgePlan.sections : sections.slice(0, 12).map((section, index) => ({
+    name: section.name || ('Section ' + (index + 1)),
+    intent: inferIntent(section, index),
+    textCount: (section.layers || []).filter((l) => l.type === 'text').length,
+    imageCount: (section.layers || []).filter((l) => l.type === 'image').length,
+    componentCount: (section.components || []).length,
+    confidence: Math.min(0.95, 0.45 + Math.min((section.layers || []).length, 20) / 40)
+  }));
   return {
-    title: clean(payload.title || 'Website Design Clone'),
-    url: payload.url || '',
-    summary: 'Design clone generated as clean Figma structure. Raw browser-coordinate reconstruction is intentionally avoided.',
-    tokens: { colors, textStyles },
+    title: clean(payload.title || bridgePlan.title || 'Website Design Clone'),
+    url: payload.url || bridgePlan.url || '',
+    summary: bridgePlan.summary || 'Design clone generated as clean Figma structure. Raw browser-coordinate reconstruction is intentionally avoided.',
+    tokens: { colors, textStyles, spacing },
+    responsive,
     counts: { sections: sections.length, text: textLayers.length, images: imageLayers.length, buttons: buttonLayers.length },
-    sections: (sections || []).slice(0, 12).map((section, index) => ({
-      name: section.name || ('Section ' + (index + 1)),
-      intent: inferIntent(section, index),
-      textCount: (section.layers || []).filter((l) => l.type === 'text').length,
-      imageCount: (section.layers || []).filter((l) => l.type === 'image').length,
-      componentCount: (section.components || []).length,
-      confidence: Math.min(0.95, 0.45 + Math.min((section.layers || []).length, 20) / 40 + Math.min((section.components || []).length, 6) / 18)
-    }))
+    sections: planSections,
+    uncertainties: bridgePlan.uncertainties || [
+      'Dynamic states and animation details are not reconstructed yet.',
+      'Output quality must still be validated visually in Figma after import.'
+    ]
   };
 }
 
@@ -202,10 +228,10 @@ function makePlanFrame(plan) {
   f.cornerRadius = 24;
   f.strokes = paint('#E5E7EB');
   f.strokeWeight = 1;
-  f.appendChild(text('Plan Title', 'Rebuild Plan / AI Interpretation', 30, '#111827', true, 1160));
-  f.appendChild(text('Plan Summary', plan.summary, 13, '#64748B', false, 1160));
-  f.appendChild(text('Plan Counts', 'Sections: ' + plan.counts.sections + '  •  Text: ' + plan.counts.text + '  •  Images: ' + plan.counts.images + '  •  Buttons: ' + plan.counts.buttons, 13, '#2563EB', true, 1160));
-
+  f.appendChild(label('Plan Title', 'Rebuild Plan / AI Interpretation', 30, '#111827', true, 1160));
+  f.appendChild(label('Plan Summary', plan.summary, 13, '#64748B', false, 1160));
+  f.appendChild(label('Plan Counts', 'Sections: ' + plan.counts.sections + '  •  Text: ' + plan.counts.text + '  •  Images: ' + plan.counts.images + '  •  Buttons: ' + plan.counts.buttons, 13, '#2563EB', true, 1160));
+  f.appendChild(label('Responsive Intent', 'Desktop: ' + plan.responsive.desktop + '\nTablet: ' + plan.responsive.tablet + '\nMobile: ' + plan.responsive.mobile, 12, '#334155', false, 1160));
   const grid = frame('Section Plan Grid', 1180, Math.ceil(Math.max(1, plan.sections.length) / 3) * 132, null);
   grid.fills = [];
   plan.sections.forEach((section, index) => {
@@ -215,9 +241,9 @@ function makePlanFrame(plan) {
     card.strokeWeight = 1;
     card.x = (index % 3) * 394;
     card.y = Math.floor(index / 3) * 132;
-    placeText(card, 'Section Name', section.name, 18, 16, 14, '#111827', true, 330);
-    placeText(card, 'Intent', section.intent, 18, 42, 11, '#64748B', false, 330);
-    placeText(card, 'Meta', 'text ' + section.textCount + ' / image ' + section.imageCount + ' / comp ' + section.componentCount + ' / confidence ' + Math.round(section.confidence * 100) + '%', 18, 70, 10, '#2563EB', true, 330);
+    placeText(card, 'Section Name', section.name || ('Section ' + (index + 1)), 18, 16, 14, '#111827', true, 330);
+    placeText(card, 'Intent', section.intent || 'Content Section', 18, 42, 11, '#64748B', false, 330);
+    placeText(card, 'Meta', 'text ' + (section.textCount || 0) + ' / image ' + (section.imageCount || 0) + ' / comp ' + (section.componentCount || 0) + ' / confidence ' + Math.round((section.confidence || 0.45) * 100) + '%', 18, 70, 10, '#2563EB', true, 330);
     grid.appendChild(card);
   });
   f.appendChild(grid);
@@ -227,25 +253,23 @@ function makePlanFrame(plan) {
 function createPaintStyles(title, colors) {
   const created = [];
   colors.forEach((hex, index) => {
-    try {
-      const style = figma.createPaintStyle();
-      style.name = 'TranslateIT/' + safe(title) + '/Color ' + String(index + 1).padStart(2, '0') + ' ' + hex;
-      style.paints = paint(hex);
-      created.push(style.name);
-    } catch (_) {}
+    try { const style = figma.createPaintStyle(); style.name = 'TranslateIT/' + safe(title) + '/Color ' + String(index + 1).padStart(2, '0') + ' ' + hex; style.paints = paint(hex); created.push(style.name); } catch (_) {}
   });
   return created;
 }
 function createTextStyles(title, textStyles) {
   const created = [];
-  textStyles.forEach((layer, index) => {
+  textStyles.forEach((item, index) => {
     try {
-      const s = layer.style || {};
       const style = figma.createTextStyle();
-      style.name = 'TranslateIT/' + safe(title) + '/Text ' + String(index + 1).padStart(2, '0') + ' ' + (layer.role || 'text');
-      style.fontName = /bold|600|700|800|900/i.test(String(s.fontWeight || '')) || layer.role === 'heading' ? bold : regular;
-      style.fontSize = Math.max(8, px(s.fontSize, layer.role === 'heading' ? 30 : 14));
-      style.fills = paint(cssColor(s.color, '#111827'));
+      const role = item.role || 'text';
+      const fontSize = item.fontSize || (item.style && item.style.fontSize) || '14px';
+      const fontWeight = item.fontWeight || (item.style && item.style.fontWeight) || '';
+      const color = item.color || cssColor(item.style && item.style.color, '#111827') || '#111827';
+      style.name = 'TranslateIT/' + safe(title) + '/Text ' + String(index + 1).padStart(2, '0') + ' ' + role;
+      style.fontName = /bold|600|700|800|900/i.test(String(fontWeight)) || role === 'heading' ? bold : regular;
+      style.fontSize = Math.max(8, px(fontSize, role === 'heading' ? 30 : 14));
+      style.fills = paint(color);
       created.push(style.name);
     } catch (_) {}
   });
@@ -254,75 +278,77 @@ function createTextStyles(title, textStyles) {
 
 function tokenComponent(hex, index) {
   const c = component('Color Token / ' + String(index + 1).padStart(2, '0'), 156, 92, '#FFFFFF');
-  c.cornerRadius = 16;
-  c.strokes = paint('#D9DEE8');
-  c.strokeWeight = 1;
+  c.cornerRadius = 16; c.strokes = paint('#D9DEE8'); c.strokeWeight = 1;
   rect(c, 'Swatch', 16, 16, 124, 34, hex, 10);
   placeText(c, 'Hex', hex, 16, 58, 11, '#111827', true, 124);
   return c;
 }
-function typeComponent(layer, index) {
-  const s = layer.style || {};
-  const fs = Math.min(18, Math.max(11, px(s.fontSize, 14) * 0.75));
+function typeComponent(item, index) {
+  const role = item.role || item.type || 'text';
+  const sample = item.sample || textValue(item) || 'Sample Text';
+  const fontSize = item.fontSize || (item.style && item.style.fontSize) || '14px';
   const c = component('Typography Token / ' + String(index + 1).padStart(2, '0'), 224, 108, '#FFFFFF');
-  c.cornerRadius = 16;
-  c.strokes = paint('#D9DEE8');
-  c.strokeWeight = 1;
-  placeText(c, 'Type Meta', (layer.role || 'text') + ' / ' + (s.fontSize || 'size'), 16, 14, 11, '#64748B', true, 190);
-  placeText(c, 'Sample', textValue(layer).slice(0, 34) || 'Sample Text', 16, 48, fs, '#111827', /bold|600|700|800|900/i.test(String(s.fontWeight || '')), 190);
+  c.cornerRadius = 16; c.strokes = paint('#D9DEE8'); c.strokeWeight = 1;
+  placeText(c, 'Type Meta', role + ' / ' + fontSize, 16, 14, 11, '#64748B', true, 190);
+  placeText(c, 'Sample', sample.slice(0, 34), 16, 48, Math.min(18, Math.max(11, px(fontSize, 14) * 0.75)), '#111827', /heading|bold/i.test(role), 190);
+  return c;
+}
+function spacingComponent(item, index) {
+  const name = item.name || ('Space / ' + String(index + 1));
+  const value = Number(item.value || item.px || 16);
+  const c = component('Spacing Token / ' + name, 224, 96, '#FFFFFF');
+  c.cornerRadius = 16; c.strokes = paint('#D9DEE8'); c.strokeWeight = 1;
+  placeText(c, 'Spacing Name', name, 16, 14, 12, '#111827', true, 190);
+  placeText(c, 'Spacing Value', value + ' px', 16, 38, 10, '#64748B', false, 190);
+  rect(c, 'Spacing Visual', 16, 64, Math.min(160, Math.max(8, value * 2)), 10, '#2563EB', 5);
+  return c;
+}
+function buttonVariant(name, fill, color, index) {
+  const c = component('Button / ' + name, 200, 78, '#FFFFFF');
+  c.cornerRadius = 16; c.strokes = paint('#D9DEE8'); c.strokeWeight = 1;
+  rect(c, 'Button Shape', 18, 22, 148, 34, fill, 17, fill === '#FFFFFF' ? '#CBD5E1' : null);
+  placeText(c, 'Button Label', name, 34, 31, 12, color, true, 116);
   return c;
 }
 function navComponent(layer, index) {
-  const c = component('Navigation Item / ' + String(index + 1).padStart(2, '0'), 192, 72, '#FFFFFF');
-  c.cornerRadius = 16;
-  c.strokes = paint('#D9DEE8');
-  c.strokeWeight = 1;
+  const c = component('Navigation / Default ' + String(index + 1).padStart(2, '0'), 192, 72, '#FFFFFF');
+  c.cornerRadius = 16; c.strokes = paint('#D9DEE8'); c.strokeWeight = 1;
   placeText(c, 'Nav Label', textValue(layer).slice(0, 28) || 'Nav Item', 18, 24, 13, '#111827', true, 154);
   return c;
 }
-function buttonComponent(layer, index) {
-  const c = component('Button / CTA ' + String(index + 1).padStart(2, '0'), 192, 78, '#FFFFFF');
-  c.cornerRadius = 16;
-  c.strokes = paint('#D9DEE8');
-  c.strokeWeight = 1;
-  rect(c, 'Button Shape', 18, 22, 140, 34, '#2563EB', 17);
-  placeText(c, 'Button Label', textValue(layer).slice(0, 18) || 'Button', 32, 31, 12, '#FFFFFF', true, 112);
+function cardVariant(name, withMedia) {
+  const c = component('Card / ' + name, 240, withMedia ? 188 : 132, '#FFFFFF');
+  c.cornerRadius = 18; c.strokes = paint('#D9DEE8'); c.strokeWeight = 1;
+  if (withMedia) rect(c, 'Card Media', 16, 16, 208, 78, '#E5E7EB', 14);
+  placeText(c, 'Card Title', name, 16, withMedia ? 110 : 24, 14, '#111827', true, 208);
+  placeText(c, 'Card Body', 'Reusable editable card component.', 16, withMedia ? 136 : 52, 10, '#64748B', false, 208);
   return c;
 }
 function mediaComponent(layer, index) {
   const c = component('Media Component / ' + String(index + 1).padStart(2, '0'), 224, 156, '#FFFFFF');
-  c.cornerRadius = 16;
-  c.strokes = paint('#D9DEE8');
-  c.strokeWeight = 1;
+  c.cornerRadius = 16; c.strokes = paint('#D9DEE8'); c.strokeWeight = 1;
   imagePreview(c, layer, 16, 16, 96, 72);
   placeText(c, 'Media Name', clean(layer.name || 'Image').slice(0, 28), 16, 100, 12, '#111827', true, 190);
   const r = layer.rect || {};
   placeText(c, 'Media Size', Math.round(r.w || 0) + '×' + Math.round(r.h || 0), 16, 122, 10, '#64748B', false, 190);
   return c;
 }
-function sectionComponent(section, index) {
-  const c = component('Section Component / ' + String(index + 1).padStart(2, '0'), 240, 112, '#FFFFFF');
-  c.cornerRadius = 16;
-  c.strokes = paint('#D9DEE8');
-  c.strokeWeight = 1;
-  placeText(c, 'Section Name', section.name || 'Section', 16, 16, 13, '#111827', true, 204);
-  placeText(c, 'Intent', inferIntent(section, index), 16, 40, 10, '#64748B', false, 204);
-  rect(c, 'Preview Strip', 16, 72, 160, 18, '#EEF2FF', 9);
+function sectionVariant(name, intent) {
+  const c = component('Section / ' + name, 260, 122, '#FFFFFF');
+  c.cornerRadius = 18; c.strokes = paint('#D9DEE8'); c.strokeWeight = 1;
+  placeText(c, 'Section Name', name, 16, 16, 14, '#111827', true, 224);
+  placeText(c, 'Section Intent', intent || 'Editable section block', 16, 42, 10, '#64748B', false, 224);
+  rect(c, 'Section Preview Strip', 16, 76, 180, 18, '#EEF2FF', 9);
   return c;
 }
 function appendGrid(parent, title, items, factory, cols, cardW, cardH) {
   const section = autoFrame(title, 1180, null, 12, 0);
   section.fills = [];
-  section.appendChild(text('Library Group Title', title, 18, '#111827', true, 1160));
+  section.appendChild(label('Library Group Title', title, 18, '#111827', true, 1160));
   const rows = Math.ceil(Math.max(1, items.length) / cols);
   const grid = frame(title + ' Grid', 1180, rows * (cardH + 16), null);
   grid.fills = [];
-  items.forEach((item, index) => {
-    const node = factory(item, index);
-    node.x = (index % cols) * (cardW + 16);
-    node.y = Math.floor(index / cols) * (cardH + 16);
-    grid.appendChild(node);
-  });
+  items.forEach((item, index) => { const node = factory(item, index); node.x = (index % cols) * (cardW + 16); node.y = Math.floor(index / cols) * (cardH + 16); grid.appendChild(node); });
   section.appendChild(grid);
   parent.appendChild(section);
 }
@@ -330,49 +356,48 @@ function makeLibraryFrame(plan, layers, sections) {
   const textLayers = layers.filter((l) => l.type === 'text');
   const imageLayers = layers.filter((l) => l.type === 'image').slice(0, 20);
   const links = unique(textLayers.filter((l) => l.role === 'link'), (l) => key(textValue(l)), 24);
-  const buttons = unique(layers.filter((l) => l.role === 'button-label' || l.role === 'button-bg'), (l) => key(textValue(l) || l.name || l.path), 18);
   const lib = autoFrame('03 UI Components / Structured Library', 1280, '#F7F8FB', 28, 32);
-  lib.appendChild(text('Library Title', 'Structured UI Library', 30, '#111827', true, 1160));
-  lib.appendChild(text('Library Note', 'Clean component groups. No raw website-coordinate fragments. Every item is generated as a readable design component.', 12, '#64748B', false, 1160));
+  lib.appendChild(label('Library Title', 'Structured UI Library', 30, '#111827', true, 1160));
+  lib.appendChild(label('Library Note', 'Clean component groups with fallbacks and variants. No raw website-coordinate fragments.', 12, '#64748B', false, 1160));
   appendGrid(lib, 'Color Tokens', plan.tokens.colors.length ? plan.tokens.colors : ['#111827', '#F8FAFC', '#2563EB'], tokenComponent, 7, 156, 92);
   appendGrid(lib, 'Typography Tokens', plan.tokens.textStyles.length ? plan.tokens.textStyles : textLayers.slice(0, 6), typeComponent, 5, 224, 108);
-  appendGrid(lib, 'Navigation Components', links.length ? links : textLayers.slice(0, 6), navComponent, 6, 192, 72);
-  appendGrid(lib, 'Button / CTA Components', buttons, buttonComponent, 6, 192, 78);
-  appendGrid(lib, 'Media Components', imageLayers, mediaComponent, 5, 224, 156);
-  appendGrid(lib, 'Section Components', sections.slice(0, 12), sectionComponent, 5, 240, 112);
+  appendGrid(lib, 'Spacing Tokens', plan.tokens.spacing, spacingComponent, 5, 224, 96);
+  appendGrid(lib, 'Button Variants', [
+    { name: 'Primary', fill: '#2563EB', color: '#FFFFFF' },
+    { name: 'Secondary', fill: '#111827', color: '#FFFFFF' },
+    { name: 'Ghost', fill: '#FFFFFF', color: '#111827' }
+  ], (item, index) => buttonVariant(item.name, item.fill, item.color, index), 5, 200, 78);
+  appendGrid(lib, 'Navigation Components', links.length ? links : [{ text: 'Home' }, { text: 'About' }, { text: 'Projects' }, { text: 'Contact' }], navComponent, 6, 192, 72);
+  appendGrid(lib, 'Card Components', [{ name: 'Default', media: false }, { name: 'Media', media: true }], (item) => cardVariant(item.name, item.media), 4, 240, 188);
+  appendGrid(lib, 'Media Components', imageLayers.length ? imageLayers : [{ name: 'Media Placeholder' }], mediaComponent, 5, 224, 156);
+  appendGrid(lib, 'Section Components', [
+    { name: 'Header', intent: 'Navigation and brand area' },
+    { name: 'Content', intent: 'Text and supporting media' },
+    { name: 'Gallery', intent: 'Card/grid style section' }
+  ], (item) => sectionVariant(item.name, item.intent), 4, 260, 122);
   return lib;
 }
-
 function makeEditableResultFrame(payload, sections, layers) {
   const f = autoFrame('04 Editable Result / Clean Structured Draft', 1280, '#FFFFFF', 28, 40);
-  f.appendChild(text('Editable Title', payload.title || 'Editable Design Draft', 30, '#111827', true, 1180));
-  f.appendChild(text('Editable Note', 'Clean editable section draft generated from content and rebuild plan. This intentionally avoids chaotic raw coordinate reconstruction.', 12, '#64748B', false, 1180));
+  f.appendChild(label('Editable Title', payload.title || 'Editable Design Draft', 30, '#111827', true, 1180));
+  f.appendChild(label('Editable Note', 'Section-based editable draft. This is intentionally clean and readable, not a raw DOM coordinate copy.', 12, '#64748B', false, 1180));
   const globalImages = layers.filter((l) => l.type === 'image');
   sections.slice(0, 10).forEach((section, index) => {
     const block = autoFrame((section.name || 'Section') + ' / Editable Block', 1180, '#FFFFFF', 16, 24);
-    block.cornerRadius = 24;
-    block.strokes = paint('#E5E7EB');
-    block.strokeWeight = 1;
-    block.appendChild(text('Block Title', section.name || 'Section', 19, '#111827', true, 1100));
-    block.appendChild(text('Block Intent', inferIntent(section, index), 11, '#2563EB', true, 1100));
-    const content = frame('Editable Content Layout', 1132, 230, null);
-    content.fills = [];
-    const textCol = autoFrame('Editable Text Column', 650, null, 10, 0);
-    textCol.fills = [];
-    textCol.x = 0;
-    textCol.y = 0;
+    block.cornerRadius = 24; block.strokes = paint('#E5E7EB'); block.strokeWeight = 1;
+    block.appendChild(label('Block Title', section.name || 'Section', 19, '#111827', true, 1100));
+    block.appendChild(label('Block Intent', inferIntent(section, index), 11, '#2563EB', true, 1100));
+    const content = frame('Editable Content Layout', 1132, 230, null); content.fills = [];
+    const textCol = autoFrame('Editable Text Column', 650, null, 10, 0); textCol.fills = []; textCol.x = 0; textCol.y = 0;
     const sectionTexts = unique((section.layers || []).filter((l) => l.type === 'text'), (l) => key(textValue(l)), 8);
     sectionTexts.forEach((layer) => {
       const s = layer.style || {};
       const fontSize = Math.min(28, Math.max(12, px(s.fontSize, layer.role === 'heading' ? 24 : 14)));
-      textCol.appendChild(text((layer.role || 'Text') + ' Layer', textValue(layer).slice(0, 140), fontSize, cssColor(s.color, '#111827'), layer.role === 'heading' || /bold|600|700|800|900/i.test(String(s.fontWeight || '')), 620));
+      textCol.appendChild(label((layer.role || 'Text') + ' Layer', textValue(layer).slice(0, 140), fontSize, cssColor(s.color, '#111827'), layer.role === 'heading' || /bold|600|700|800|900/i.test(String(s.fontWeight || '')), 620));
     });
-    if (!sectionTexts.length) textCol.appendChild(text('Empty Text Note', 'No readable text detected for this section.', 12, '#94A3B8', false, 620));
+    if (!sectionTexts.length) textCol.appendChild(label('Empty Text Note', 'No readable text detected for this section.', 12, '#94A3B8', false, 620));
     content.appendChild(textCol);
-    const mediaCol = frame('Editable Media Column', 420, 190, null);
-    mediaCol.fills = [];
-    mediaCol.x = 700;
-    mediaCol.y = 0;
+    const mediaCol = frame('Editable Media Column', 420, 190, null); mediaCol.fills = []; mediaCol.x = 700; mediaCol.y = 0;
     const sectionImages = (section.layers || []).filter((l) => l.type === 'image').slice(0, 2);
     (sectionImages.length ? sectionImages : globalImages.slice(index, index + 1)).slice(0, 2).forEach((img, imgIndex) => imagePreview(mediaCol, img, imgIndex * 210, 0, 196, 148));
     content.appendChild(mediaCol);
@@ -381,13 +406,12 @@ function makeEditableResultFrame(payload, sections, layers) {
   });
   return f;
 }
-
-function makeAuditFrame(diag) {
+function makeAuditFrame(diag, plan) {
   const f = autoFrame('05 Audit / Design Clone Notes', 1280, '#0B1020', 14, 32);
-  f.appendChild(text('Audit Title', 'Design Clone Audit', 28, '#F8FAFC', true, 1160));
-  f.appendChild(text('Audit Note', 'V11 focuses on clean design structure: pure reference, rebuild plan, structured library, editable draft, and audit. Raw coordinate dumps are not allowed.', 13, '#CBD5E1', false, 1160));
-  f.appendChild(text('Audit Diagnostics', 'sections: ' + diag.sectionCount + ' / layers: ' + diag.layerCount + ' / images: ' + diag.imageCount + ' / text: ' + diag.textCount + ' / colors: ' + diag.colorTokenCount + ' / type styles: ' + diag.textStyleCount, 14, '#93C5FD', true, 1160));
-  f.appendChild(text('Audit Frame Order', '01 Screenshot Preview / Pure Reference\n02 Rebuild Plan / AI Interpretation\n03 UI Components / Structured Library\n04 Editable Result / Clean Structured Draft\n05 Audit / Design Clone Notes', 13, '#E5E7EB', false, 1160));
+  f.appendChild(label('Audit Title', 'Design Clone Audit / Honest Readiness', 28, '#F8FAFC', true, 1160));
+  f.appendChild(label('Audit Note', 'This output is still a prototype until the imported Figma canvas is visually checked. Good data does not automatically mean good design output.', 13, '#CBD5E1', false, 1160));
+  f.appendChild(label('Audit Diagnostics', 'sections: ' + diag.sectionCount + ' / layers: ' + diag.layerCount + ' / images: ' + diag.imageCount + ' / text: ' + diag.textCount + ' / colors: ' + diag.colorTokenCount + ' / type styles: ' + diag.textStyleCount + ' / spacing: ' + diag.spacingTokenCount, 14, '#93C5FD', true, 1160));
+  f.appendChild(label('Audit Checklist', '✓ Pure screenshot reference\n✓ Rebuild plan generated\n✓ Structured library groups\n✓ Spacing tokens included\n✓ Component variants included\n⚠ Requires visual Figma validation before claiming professional-ready', 13, '#E5E7EB', false, 1160));
   return f;
 }
 
@@ -398,7 +422,7 @@ async function importUniversal(payload) {
   const layers = Array.isArray(payload.layers) ? payload.layers : [];
   const sections = Array.isArray(payload.sections) ? payload.sections : [];
   if (!layers.length && !sections.length && !(payload.screenshot && payload.screenshot.base64)) throw new Error('No visible page data found.');
-  const plan = buildPlan(payload, layers, sections);
+  const plan = normalizePlan(payload, layers, sections);
   const paintStyles = createPaintStyles(payload.title || 'Website', plan.tokens.colors);
   const textStyles = createTextStyles(payload.title || 'Website', plan.tokens.textStyles);
   const d = payload.diagnostics || {};
@@ -410,32 +434,30 @@ async function importUniversal(payload) {
     textCount: d.textCount || layers.filter((l) => l.type === 'text').length,
     colorTokenCount: plan.tokens.colors.length,
     textStyleCount: plan.tokens.textStyles.length,
+    spacingTokenCount: plan.tokens.spacing.length,
+    responsiveCount: Object.keys(plan.responsive || {}).length,
     paintStyleCount: paintStyles.length,
     figmaTextStyleCount: textStyles.length,
     outputMode: VERSION
   };
   lastImportMeta = { title: payload.title || '', url: payload.url || '', adapterMode: payload.mode || '', pluginOutputMode: VERSION };
-
   const run = autoFrame(safe((payload.title || 'Website Design Clone') + ' / ' + new Date().toISOString().replace(/[:.]/g, '-')), 1440, '#030407', 30, 40);
-  run.appendChild(text('Run Title', payload.title || 'Website Design Clone', 30, '#F8FAFC', true, 1320));
-  run.appendChild(text('Run Note', 'V11 Design Clone: pure screenshot, rebuild plan, structured UI library, clean editable draft, audit.', 12, '#8D96A6', false, 1320));
+  run.appendChild(label('Run Title', payload.title || 'Website Design Clone', 30, '#F8FAFC', true, 1320));
+  run.appendChild(label('Run Note', 'V11.1 Design Clone: pure screenshot, rebuild plan, spacing tokens, structured UI library, clean editable draft, honest audit.', 12, '#8D96A6', false, 1320));
   run.appendChild(makeScreenshotFrame(payload, 1280));
   run.appendChild(makePlanFrame(plan));
   run.appendChild(makeLibraryFrame(plan, layers, sections));
   run.appendChild(makeEditableResultFrame(payload, sections, layers));
-  run.appendChild(makeAuditFrame(lastDiagnostics));
-
+  run.appendChild(makeAuditFrame(lastDiagnostics, plan));
   page.appendChild(run);
   figma.viewport.scrollAndZoomIntoView([run]);
   lastRun = run;
-  send('Import complete.\nMode: V11 Design Clone Structure\nOutput page: ' + PAGE_NAME + '\nScreenshot preview: pure image only\nRebuild Plan: generated\nUI Library: structured clean grid\nEditable Result: clean draft, no raw dump\nSections: ' + lastDiagnostics.sectionCount + '\nColors: ' + lastDiagnostics.colorTokenCount + '\nText styles: ' + lastDiagnostics.textStyleCount + '\nReview frames 01–05.');
+  send('Import complete.\nMode: V11.1 Design Clone\nScreenshot preview: pure image only\nRebuild Plan: generated\nUI Library: structured grid + spacing tokens + variants\nEditable Result: clean draft, no raw dump\nSections: ' + lastDiagnostics.sectionCount + '\nColors: ' + lastDiagnostics.colorTokenCount + '\nText styles: ' + lastDiagnostics.textStyleCount + '\nSpacing tokens: ' + lastDiagnostics.spacingTokenCount + '\nImportant: still needs visual Figma validation before professional-ready claim.');
 }
-
 function exportPackage() {
   if (!lastRun) return send('No import run found. Import Data first.');
-  send('Export complete.', { exportJson: JSON.stringify({ schema: 'translateit.design-clone.v11', pluginVersion: VERSION, generatedAt: new Date().toISOString(), source: lastImportMeta || {}, diagnostics: lastDiagnostics || {} }, null, 2) });
+  send('Export complete.', { exportJson: JSON.stringify({ schema: 'translateit.design-clone.v11.1', pluginVersion: VERSION, generatedAt: new Date().toISOString(), source: lastImportMeta || {}, diagnostics: lastDiagnostics || {} }, null, 2) });
 }
-
 figma.ui.onmessage = async function (msg) {
   try {
     msg = msg || {};
