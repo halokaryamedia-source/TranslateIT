@@ -36,6 +36,7 @@ if ($Health.publicVersion -ne "Version 0.1 - Alpha") {
 node audit-alpha-v5-media.mjs $Url
 node audit-alpha-v5-model.mjs $Url
 node audit-alpha-v5-model-strict.mjs $Url
+node audit-alpha-v5-final-readiness.mjs $Url
 
 Write-Host "`nAlpha V5 strict gate finished." -ForegroundColor Green
 Write-Host "Bridge log: $Log" -ForegroundColor DarkGray
