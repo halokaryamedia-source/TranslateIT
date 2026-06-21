@@ -9,48 +9,34 @@ function safeColor(value, fallback) { const raw = String(value || '').trim(); re
 function safeCssKeyword(value, fallback) { const raw = String(value || '').trim(); return /^[a-zA-Z-]+$/.test(raw) ? raw : fallback; }
 function assetById(assets, id) { return (assets || []).find((asset) => asset.id === id) || null; }
 function imageFitCss(layer) { const fit = layer.imageFit || layer.layout || {}; const objectFit = String(fit.objectFit || 'cover').trim() || 'cover'; const objectPosition = String(fit.objectPosition || '50% 50%').trim() || '50% 50%'; return `object-fit:${esc(objectFit)};object-position:${esc(objectPosition)}`; }
+function sortLayers(layers) { return (layers || []).slice().sort((a, b) => (a.zIndex || 0) - (b.zIndex || 0) || (a.paintOrder || 0) - (b.paintOrder || 0) || ((a.rect && a.rect.y) || 0) - ((b.rect && b.rect.y) || 0)); }
 
-function layerCss(layer) {
+function layerCss(layer, zIndex) {
   const r = layer.rect || {};
   const s = layer.style || {};
-  const z = Number(layer.zIndex || 0) + 20;
+  const z = Math.max(1, Number(zIndex || 1));
   const overflow = layer.type === 'text' || layer.type === 'button' ? safeCssKeyword(s.overflow || 'visible', 'visible') : 'hidden';
   const opacity = Number.isFinite(Number(s.opacity)) ? Math.max(0, Math.min(1, Number(s.opacity))) : 1;
   return ['position:absolute', `left:${px(r.x)}`, `top:${px(r.y)}`, `width:${px(r.w)}`, `height:${px(r.h)}`, `z-index:${z}`, `border-radius:${px(s.borderRadius || 0)}`, `opacity:${opacity}`, 'box-sizing:border-box', `overflow:${overflow}`].join(';');
 }
 
-function textCss(layer) {
+function textCss(layer, zIndex) {
   const s = layer.style || {};
   const lineHeight = s.lineHeight ? px(s.lineHeight) : 'normal';
   const letterSpacing = Number.isFinite(Number(s.letterSpacing)) ? px(s.letterSpacing) : 'normal';
-  return [
-    layerCss(layer),
-    `font-size:${px(s.fontSize || 14)}`,
-    `font-weight:${Number(s.fontWeight || 400)}`,
-    `font-family:${esc(s.fontFamily || 'Inter')}, Arial, sans-serif`,
-    `line-height:${lineHeight}`,
-    `letter-spacing:${letterSpacing}`,
-    `text-transform:${safeCssKeyword(s.textTransform || 'none', 'none')}`,
-    `color:${safeColor(s.color, '#111827')}`,
-    `text-align:${s.textAlign || 'left'}`,
-    `white-space:${safeCssKeyword(s.whiteSpace || 'normal', 'normal')}`,
-    `word-break:${safeCssKeyword(s.wordBreak || 'normal', 'normal')}`,
-    `overflow-wrap:${safeCssKeyword(s.overflowWrap || 'normal', 'normal')}`,
-    '-webkit-font-smoothing:antialiased',
-    'text-rendering:geometricPrecision'
-  ].join(';');
+  return [layerCss(layer, zIndex), `font-size:${px(s.fontSize || 14)}`, `font-weight:${Number(s.fontWeight || 400)}`, `font-family:${esc(s.fontFamily || 'Inter')}, Arial, sans-serif`, `line-height:${lineHeight}`, `letter-spacing:${letterSpacing}`, `text-transform:${safeCssKeyword(s.textTransform || 'none', 'none')}`, `color:${safeColor(s.color, '#111827')}`, `text-align:${s.textAlign || 'left'}`, `white-space:${safeCssKeyword(s.whiteSpace || 'normal', 'normal')}`, `word-break:${safeCssKeyword(s.wordBreak || 'normal', 'normal')}`, `overflow-wrap:${safeCssKeyword(s.overflowWrap || 'normal', 'normal')}`, '-webkit-font-smoothing:antialiased', 'text-rendering:geometricPrecision'].join(';');
 }
 
-function layerHtml(layer, assets) {
+function layerHtml(layer, assets, zIndex) {
   const s = layer.style || {};
-  if (layer.type === 'shape') return `<div data-layer="${esc(layer.id)}" style="${layerCss(layer)};background:${safeColor(s.backgroundColor, '#FFFFFF')}"></div>`;
+  if (layer.type === 'shape') return `<div data-layer="${esc(layer.id)}" style="${layerCss(layer, zIndex)};background:${safeColor(s.backgroundColor, '#FFFFFF')}"></div>`;
   if (layer.type === 'image') {
     const asset = assetById(assets, layer.assetId);
-    if (asset && asset.base64) return `<img data-layer="${esc(layer.id)}" src="data:${asset.contentType || 'image/png'};base64,${asset.base64}" style="${layerCss(layer)};${imageFitCss(layer)};display:block" />`;
-    return `<div data-layer="${esc(layer.id)}" style="${layerCss(layer)};background:#E5E7EB"></div>`;
+    if (asset && asset.base64) return `<img data-layer="${esc(layer.id)}" src="data:${asset.contentType || 'image/png'};base64,${asset.base64}" style="${layerCss(layer, zIndex)};${imageFitCss(layer)};display:block" />`;
+    return `<div data-layer="${esc(layer.id)}" style="${layerCss(layer, zIndex)};background:#E5E7EB"></div>`;
   }
-  if (layer.type === 'button') return `<div data-layer="${esc(layer.id)}" style="${textCss(layer)};background:${safeColor(s.backgroundColor, '#111827')};display:flex;align-items:center;justify-content:center;color:${safeColor(s.color, '#FFFFFF')}">${esc(layer.text)}</div>`;
-  return `<div data-layer="${esc(layer.id)}" style="${textCss(layer)}">${esc(layer.text)}</div>`;
+  if (layer.type === 'button') return `<div data-layer="${esc(layer.id)}" style="${textCss(layer, zIndex)};background:${safeColor(s.backgroundColor, '#111827')};display:flex;align-items:center;justify-content:center;color:${safeColor(s.color, '#FFFFFF')}">${esc(layer.text)}</div>`;
+  return `<div data-layer="${esc(layer.id)}" style="${textCss(layer, zIndex)}">${esc(layer.text)}</div>`;
 }
 
 export function buildClonePreviewHtml(payload) {
@@ -58,8 +44,9 @@ export function buildClonePreviewHtml(payload) {
   const page = clone.page || {};
   const width = Math.max(320, Math.round(page.width || 1440));
   const height = Math.max(320, Math.round(page.height || 1600));
-  const layers = (clone.layers || []).slice().sort((a, b) => (a.zIndex || 0) - (b.zIndex || 0));
-  return `<!doctype html><html><head><meta charset="utf-8"><style>html,body{margin:0;padding:0;background:#111827}.page{position:relative;width:${width}px;height:${height}px;background:${safeColor(page.background, '#FFFFFF')};overflow:hidden}</style></head><body><main class="page">${layers.map((layer) => layerHtml(layer, clone.assets || [])).join('')}</main></body></html>`;
+  const layers = sortLayers(clone.layers || []);
+  const body = layers.map((layer, index) => layerHtml(layer, clone.assets || [], index + 1)).join('');
+  return `<!doctype html><html><head><meta charset="utf-8"><style>html,body{margin:0;padding:0;background:#111827}.page{position:relative;width:${width}px;height:${height}px;background:${safeColor(page.background, '#FFFFFF')};overflow:hidden;isolation:isolate}</style></head><body><main class="page">${body}</main></body></html>`;
 }
 
 export function previewMetrics(payload) {
@@ -103,12 +90,7 @@ export async function renderClonePreview(payload, reportDir) {
   const height = Math.max(320, Math.min(5000, Math.round(page.height || 1600)));
   const browser = await chromium.launch({ headless: true });
   const previewPage = await browser.newPage({ viewport: { width, height }, deviceScaleFactor: 1 });
-  try {
-    await previewPage.setContent(html, { waitUntil: 'load' });
-    await previewPage.screenshot({ path: pngPath, fullPage: true, type: 'png' });
-  } finally {
-    await previewPage.close().catch(() => {});
-    await browser.close().catch(() => {});
-  }
+  try { await previewPage.setContent(html, { waitUntil: 'load' }); await previewPage.screenshot({ path: pngPath, fullPage: true, type: 'png' }); }
+  finally { await previewPage.close().catch(() => {}); await browser.close().catch(() => {}); }
   return { htmlPath, pngPath, metrics: previewMetrics(payload) };
 }
