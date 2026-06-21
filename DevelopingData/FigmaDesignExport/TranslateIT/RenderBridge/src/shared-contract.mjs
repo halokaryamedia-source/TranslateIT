@@ -25,7 +25,7 @@ export function assertCleanPayload(payload) {
   if (payload?.engineBuild !== ENGINE_BUILD) failures.push('engineBuild mismatch');
   if (!payload?.source) failures.push('source missing');
   if (!payload?.visualModel) failures.push('visualModel missing');
-  if (payload?.visualModel?.mode !== 'screenshot-first-html-assisted-visual-model') failures.push('visualModel mode mismatch');
+  if (payload?.visualModel?.mode !== 'screenshot-first-html-assisted-v2') failures.push('visualModel mode mismatch');
   if (!Array.isArray(payload?.visualModel?.visualBlocks)) failures.push('visualModel.visualBlocks missing');
   if (!payload?.cloneModel) failures.push('cloneModel missing');
   if (payload?.cloneModel?.mode !== 'layout-preserving-editable-clone') failures.push('cloneModel mode mismatch');
