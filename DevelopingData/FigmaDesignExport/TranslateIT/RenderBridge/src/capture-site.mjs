@@ -33,48 +33,10 @@ export async function captureSite(inputUrl, options = {}) {
       const clean = (value) => String(value || '').replace(/\s+/g, ' ').trim();
       const parseColor = (value) => String(value || '').trim();
       const directTextOf = (el) => clean(Array.from(el.childNodes || []).filter((node) => node.nodeType === Node.TEXT_NODE).map((node) => node.textContent || '').join(' '));
-      const rectOf = (el) => {
-        const r = el.getBoundingClientRect();
-        return { x: Math.round(r.left + scrollX), y: Math.round(r.top + scrollY), w: Math.round(r.width), h: Math.round(r.height) };
-      };
-      const imageMetaOf = (el, style, rect) => {
-        const tag = String(el.tagName || '').toLowerCase();
-        if (tag !== 'img') return null;
-        const naturalWidth = Number(el.naturalWidth || 0);
-        const naturalHeight = Number(el.naturalHeight || 0);
-        const renderedRatio = rect.w && rect.h ? Number((rect.w / rect.h).toFixed(4)) : 0;
-        const naturalRatio = naturalWidth && naturalHeight ? Number((naturalWidth / naturalHeight).toFixed(4)) : 0;
-        return { naturalWidth, naturalHeight, renderedRatio, naturalRatio, objectFit: style.objectFit || 'fill', objectPosition: style.objectPosition || '50% 50%', aspectDrift: naturalRatio && renderedRatio ? Number(Math.abs(naturalRatio - renderedRatio).toFixed(4)) : 0 };
-      };
-      const visible = (el) => {
-        if (!el) return false;
-        const s = getComputedStyle(el);
-        const r = el.getBoundingClientRect();
-        if (s.display === 'none' || s.visibility === 'hidden') return false;
-        if (Number(s.opacity || 1) <= 0.03) return false;
-        if (r.width < 3 || r.height < 3) return false;
-        return true;
-      };
-      const roleOf = (el, text, directText, style, rect, childElementCount) => {
-        const tag = String(el.tagName || '').toLowerCase();
-        const cls = String(el.className || '');
-        const aria = String(el.getAttribute('aria-label') || '');
-        const id = String(el.id || '');
-        const hint = `${tag} ${cls} ${aria} ${id}`.toLowerCase();
-        if (tag === 'img' || tag === 'picture' || tag === 'svg') return 'image';
-        if (tag === 'button' || el.getAttribute('role') === 'button' || /\b(btn|button|cta)\b/i.test(cls)) return 'button';
-        if (tag === 'a' && text.length <= 96) return 'link';
-        if (/header|nav|navbar|menu/.test(hint) && rect.y < 260) return 'navigation';
-        if (/footer/.test(hint)) return 'footer';
-        if (/h1/.test(tag)) return 'heading-1';
-        if (/h2/.test(tag)) return 'heading-2';
-        if (/h3|h4/.test(tag)) return 'heading-3';
-        if (/^(p|span|strong|em|small|label|li)$/i.test(tag) && text && text.length <= 260) return 'text';
-        if (directText && directText.length <= 180 && childElementCount <= 2) return 'text';
-        const hasBg = style.backgroundColor && style.backgroundColor !== 'rgba(0, 0, 0, 0)' && style.backgroundColor !== 'transparent';
-        if (hasBg && rect.w * rect.h > 10000) return 'container';
-        return 'decorative';
-      };
+      const rectOf = (el) => { const r = el.getBoundingClientRect(); return { x: Math.round(r.left + scrollX), y: Math.round(r.top + scrollY), w: Math.round(r.width), h: Math.round(r.height) }; };
+      const imageMetaOf = (el, style, rect) => { const tag = String(el.tagName || '').toLowerCase(); if (tag !== 'img') return null; const naturalWidth = Number(el.naturalWidth || 0); const naturalHeight = Number(el.naturalHeight || 0); const renderedRatio = rect.w && rect.h ? Number((rect.w / rect.h).toFixed(4)) : 0; const naturalRatio = naturalWidth && naturalHeight ? Number((naturalWidth / naturalHeight).toFixed(4)) : 0; return { naturalWidth, naturalHeight, renderedRatio, naturalRatio, objectFit: style.objectFit || 'fill', objectPosition: style.objectPosition || '50% 50%', aspectDrift: naturalRatio && renderedRatio ? Number(Math.abs(naturalRatio - renderedRatio).toFixed(4)) : 0 }; };
+      const visible = (el) => { if (!el) return false; const s = getComputedStyle(el); const r = el.getBoundingClientRect(); if (s.display === 'none' || s.visibility === 'hidden') return false; if (Number(s.opacity || 1) <= 0.03) return false; if (r.width < 3 || r.height < 3) return false; return true; };
+      const roleOf = (el, text, directText, style, rect, childElementCount) => { const tag = String(el.tagName || '').toLowerCase(); const cls = String(el.className || ''); const aria = String(el.getAttribute('aria-label') || ''); const id = String(el.id || ''); const hint = `${tag} ${cls} ${aria} ${id}`.toLowerCase(); if (tag === 'img' || tag === 'picture' || tag === 'svg') return 'image'; if (tag === 'button' || el.getAttribute('role') === 'button' || /\b(btn|button|cta)\b/i.test(cls)) return 'button'; if (tag === 'a' && text.length <= 96) return 'link'; if (/header|nav|navbar|menu/.test(hint) && rect.y < 260) return 'navigation'; if (/footer/.test(hint)) return 'footer'; if (/h1/.test(tag)) return 'heading-1'; if (/h2/.test(tag)) return 'heading-2'; if (/h3|h4/.test(tag)) return 'heading-3'; if (/^(p|span|strong|em|small|label|li)$/i.test(tag) && text && text.length <= 260) return 'text'; if (directText && directText.length <= 180 && childElementCount <= 2) return 'text'; const hasBg = style.backgroundColor && style.backgroundColor !== 'rgba(0, 0, 0, 0)' && style.backgroundColor !== 'transparent'; if (hasBg && rect.w * rect.h > 10000) return 'container'; return 'decorative'; };
 
       const elements = Array.from(document.querySelectorAll('body *')).filter(visible).map((el, index) => {
         const style = getComputedStyle(el);
@@ -84,7 +46,7 @@ export async function captureSite(inputUrl, options = {}) {
         const childElementCount = el.children ? el.children.length : 0;
         const tag = String(el.tagName || '').toLowerCase();
         const role = roleOf(el, text, directText, style, rect, childElementCount);
-        return { id: `raw-${index}`, index, tag, role, text: text.slice(0, 320), directText: directText.slice(0, 220), childElementCount, textDensity: text.length ? Number((text.length / Math.max(1, rect.w * rect.h)).toFixed(6)) : 0, rect, area: rect.w * rect.h, imageIndex: tag === 'img' ? Number(el.getAttribute('data-translateit-image-index') || -1) : null, imageMeta: imageMetaOf(el, style, rect), alt: clean(el.getAttribute('alt') || el.getAttribute('aria-label') || ''), href: el.href || '', style: { color: parseColor(style.color), backgroundColor: parseColor(style.backgroundColor), fontSize: style.fontSize, fontWeight: style.fontWeight, fontFamily: style.fontFamily, lineHeight: style.lineHeight, borderRadius: style.borderRadius, textAlign: style.textAlign, display: style.display, position: style.position, zIndex: style.zIndex, objectFit: style.objectFit, objectPosition: style.objectPosition } };
+        return { id: `raw-${index}`, index, tag, role, text: text.slice(0, 320), directText: directText.slice(0, 220), childElementCount, textDensity: text.length ? Number((text.length / Math.max(1, rect.w * rect.h)).toFixed(6)) : 0, rect, area: rect.w * rect.h, imageIndex: tag === 'img' ? Number(el.getAttribute('data-translateit-image-index') || -1) : null, imageMeta: imageMetaOf(el, style, rect), alt: clean(el.getAttribute('alt') || el.getAttribute('aria-label') || ''), href: el.href || '', style: { color: parseColor(style.color), backgroundColor: parseColor(style.backgroundColor), backgroundImage: String(style.backgroundImage || ''), fontSize: style.fontSize, fontWeight: style.fontWeight, fontFamily: style.fontFamily, lineHeight: style.lineHeight, letterSpacing: style.letterSpacing, textTransform: style.textTransform, whiteSpace: style.whiteSpace, wordBreak: style.wordBreak, overflowWrap: style.overflowWrap, opacity: style.opacity, overflow: style.overflow, textAlign: style.textAlign, display: style.display, position: style.position, zIndex: style.zIndex, borderRadius: style.borderRadius, objectFit: style.objectFit, objectPosition: style.objectPosition } };
       }).filter((item) => {
         if (item.role === 'decorative') return item.area >= 16000 && item.area < innerWidth * Math.max(innerHeight, document.documentElement.scrollHeight) * 0.85;
         if (item.role === 'container') return item.area >= 12000;
@@ -117,7 +79,5 @@ export async function captureSite(inputUrl, options = {}) {
     }
 
     return { source: { url, finalUrl: raw.finalUrl, title: raw.title, viewport: raw.viewport, pageHeight: raw.pageHeight, screenshot }, rawElements: raw.elements, assets: imageAssets };
-  } finally {
-    await page.close().catch(() => {});
-  }
+  } finally { await page.close().catch(() => {}); }
 }
