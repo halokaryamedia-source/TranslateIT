@@ -40,17 +40,19 @@ function score(payload) {
   const colors = Array.isArray(tokens.colors) ? tokens.colors.length : 0;
   const typography = Array.isArray(tokens.typography) ? tokens.typography.length : 0;
   const spacing = Array.isArray(tokens.spacing) ? tokens.spacing.length : 0;
+  const radius = Array.isArray(tokens.radius) ? tokens.radius.length : 0;
   const responsiveCount = plan.responsive ? ['desktop', 'tablet', 'mobile'].filter((k) => !!plan.responsive[k]).length : 0;
   const images = layers.filter((layer) => layer.type === 'image').length;
   const texts = layers.filter((layer) => layer.type === 'text').length;
   const components = sections.flatMap((section) => section.components || []);
   const usefulComponents = components.filter((component) => (component.layers || []).length >= 2).length;
-  const intentTypes = countUnique(planSections, (section) => classifyIntent(section.intent || section.role));
+  const intentTypes = countUnique(planSections, (section) => section.templateIntent || classifyIntent(section.intent || section.role));
+  const templateIntentCoverage = planSections.length ? planSections.filter((section) => !!section.templateIntent).length / planSections.length : 0;
 
   const screenshotScore = payload.screenshot && payload.screenshot.base64 ? 9 : 0;
   const extractionScore = clamp(1 + Math.min(layers.length, 120) / 120 * 2 + Math.min(sections.length, 8) / 8 * 2 + Math.min(texts, 80) / 80 * 1.5 + Math.min(images, 8) / 8 * 1, 0, 8);
-  const tokenScore = clamp(1 + Math.min(colors, 10) / 10 * 1.5 + Math.min(typography, 8) / 8 * 1.5 + Math.min(spacing, 8) / 8 * 2 + Math.min(responsiveCount, 3) / 3 * 1.5, 0, 8);
-  const templateReadinessScore = clamp(1 + Math.min(planSections.length, 8) / 8 * 2 + Math.min(intentTypes, 4) / 4 * 2 + Math.min(usefulComponents, 8) / 8 * 1.5, 0, 8);
+  const tokenScore = clamp(1 + Math.min(colors, 10) / 10 * 1.2 + Math.min(typography, 8) / 8 * 1.2 + Math.min(spacing, 8) / 8 * 1.6 + Math.min(radius, 4) / 4 * 1.2 + Math.min(responsiveCount, 3) / 3 * 1.3, 0, 8);
+  const templateReadinessScore = clamp(1 + Math.min(planSections.length, 8) / 8 * 1.8 + Math.min(intentTypes, 4) / 4 * 1.8 + Math.min(usefulComponents, 8) / 8 * 1.2 + templateIntentCoverage * 1.2, 0, 8);
 
   const noCanvasValidationPenalty = 1.5;
   const finalScore = Math.min(screenshotScore, extractionScore, tokenScore, templateReadinessScore) - noCanvasValidationPenalty;
@@ -73,6 +75,7 @@ function score(payload) {
       sections: sections.length,
       planSections: planSections.length,
       intentTypes,
+      templateIntentCoverage: round(templateIntentCoverage),
       texts,
       images,
       components: components.length,
@@ -80,6 +83,7 @@ function score(payload) {
       colors,
       typography,
       spacing,
+      radius,
       responsiveCount,
       hasScreenshot: !!(payload.screenshot && payload.screenshot.base64)
     }
