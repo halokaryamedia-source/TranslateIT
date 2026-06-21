@@ -1,71 +1,83 @@
-# TranslateIT V11 Same.new-Style Website Cloning Architecture
+# TranslateIT V11 Design Clone Architecture
 
-## Why this exists
+## Scope correction
 
-Same.new-style tools do not only clone a website visually. The useful workflow is closer to:
+TranslateIT stays focused on **Design Clone** only.
 
-1. User gives a URL, screenshot, or prompt.
-2. System reads the target visual and structure.
-3. System interprets the page into sections and components.
-4. System generates an editable design/library.
-5. System generates runnable website code.
-6. User can iterate with follow-up prompts.
+The goal is not to generate production code or full-stack apps. Code can be created separately later because every project may need a different framework, interaction model, backend, animation system, and deployment target.
 
-TranslateIT currently focuses on the design/Figma side. V11 expands the direction into a dual-output workflow.
+## Main goal
 
-## V11 output modes
+```txt
+Website / screenshot / visual reference
+→ visual understanding
+→ rebuild plan
+→ clean Figma component library
+→ clean editable design draft
+→ audit
+```
 
-### A. Design Clone Mode
+## What we learn from Same.new-style workflows
 
-Target output:
+We only adopt the workflow idea:
+
+1. The system receives a URL or visual reference.
+2. The system studies the visual target.
+3. The system creates an interpretation/rebuild plan.
+4. The system creates a cleaner editable result.
+5. The user can iterate further.
+
+We do **not** copy Same.new proprietary internals, code generation system, models, prompts, private APIs, or deployment workflows.
+
+## TranslateIT V11 output order
 
 1. `01 Screenshot Preview / Pure Reference`
+   - One screenshot rectangle only.
+   - No overlay.
+   - No editable child layers.
+
 2. `02 Rebuild Plan / AI Interpretation`
+   - Page summary.
+   - Section list.
+   - Component intent.
+   - Layout interpretation.
+   - Token summary.
+   - Known uncertainties.
+
 3. `03 UI Components / Clean Editable Library`
+   - Color tokens.
+   - Typography tokens.
+   - Navigation components.
+   - Button/CTA components.
+   - Card/media components.
+   - Section components.
+
 4. `04 Editable Result / Clean Structured Draft`
+   - Clean rebuilt design draft.
+   - Editable text.
+   - Editable images/placeholders.
+   - Section-based vertical composition.
+   - No raw browser-coordinate dump.
+
 5. `05 Audit / Score and Usefulness Notes`
+   - Screenshot purity check.
+   - Component library usefulness.
+   - Editable result usefulness.
+   - Content coverage.
+   - Known limitations.
 
-Purpose:
-
-- Figma-friendly editable library.
-- Clean design system components.
-- Useful editable draft.
-- No raw coordinate dump.
-
-### B. Code Clone Mode
-
-Target output:
-
-1. `project.json`
-2. `index.html`
-3. `src/App.jsx` or `src/App.tsx`
-4. `src/styles.css`
-5. `src/components/*`
-6. `assets/*`
-7. `README.md`
-
-Purpose:
-
-- Runnable website clone scaffold.
-- Clean sections and components.
-- Extracted text and media.
-- Reasonable CSS tokens.
-- Developer-editable code.
-
-## Shared pipeline
-
-The same render payload should feed both design and code outputs.
+## Design Clone pipeline
 
 ```txt
 URL
 → Browser Render Capture
 → Screenshot
-→ Visual/DOM Layer Extraction
+→ Visual/DOM Signal Extraction
 → Section Detection
-→ Component Detection
+→ Component Candidate Detection
 → Rebuild Plan
-→ Design Clone Output
-→ Code Clone Output
+→ Figma Component Library
+→ Editable Design Draft
 → Audit
 ```
 
@@ -75,18 +87,21 @@ URL
 {
   "title": "Website title",
   "url": "https://example.com",
+  "summary": "Short design summary",
   "sections": [
     {
       "name": "Header",
       "intent": "navigation",
       "layout": "horizontal nav",
-      "components": ["logo", "nav item", "cta"]
+      "components": ["logo", "nav item", "cta"],
+      "confidence": 0.8
     },
     {
       "name": "Hero",
       "intent": "landing hero",
       "layout": "two column image/text",
-      "components": ["headline", "body", "image", "cta"]
+      "components": ["headline", "body", "image", "cta"],
+      "confidence": 0.75
     }
   ],
   "tokens": {
@@ -95,79 +110,35 @@ URL
     "spacing": []
   },
   "assets": [],
-  "confidence": {
-    "visual": 0,
-    "structure": 0,
-    "codeReadiness": 0
-  }
+  "uncertainties": []
 }
 ```
-
-## Code generation principles
-
-The code output must avoid dumping browser coordinates. It should generate meaningful sections:
-
-```txt
-Header
-Hero
-FeatureGrid
-CardGrid
-Gallery
-Footer
-```
-
-Generated code should prefer:
-
-- semantic HTML
-- reusable components
-- CSS variables for tokens
-- local assets folder
-- responsive layout defaults
-- readable class names
 
 ## Failure rules
 
 The output fails if:
 
-- It only screenshots the website.
-- It only dumps absolute browser coordinates.
-- It generates one giant HTML blob with no component structure.
-- Design and code outputs disagree on section/component names.
-- Code cannot be understood or edited by a developer.
+- The screenshot preview contains extra layers.
+- The component library contains tiny raw browser-position fragments.
+- The editable result is unreadable or chaotic.
+- The rebuild plan is missing.
+- The audit passes only because the screenshot looks good.
+- The design clone depends on generated website code to be useful.
 
-## Implementation stages
+## Next implementation steps
 
-### V11.1 Rebuild Plan Generator
+### V11.1 Rebuild Plan Frame
 
-Add a generated `rebuildPlan` field into RenderBridge payload.
+Add `02 Rebuild Plan / AI Interpretation` into the Figma output.
 
-### V11.2 Code Package Generator
+### V11.2 Better Component Library
 
-Create a script that transforms payload + rebuildPlan into:
+Improve generated Figma components so they look like a practical design system, not extracted fragments.
 
-- HTML
-- CSS
-- components
-- assets
+### V11.3 Better Editable Draft
 
-### V11.3 Figma UI Integration
+Build clean vertical sections based on the rebuild plan.
 
-Add export options:
+### V11.4 Strict Design Audit
 
-- Export Figma package
-- Export Code Clone package
-- Export Full Clone package
-
-### V11.4 Prompt Iteration Layer
-
-Allow user instructions such as:
-
-- make it more modern
-- simplify the hero
-- convert to dashboard layout
-- replace brand colors
-- create mobile version
-
-## Honest limitation
-
-This architecture is inspired by the public idea of Same.new-style website cloning, but it does not copy Same.new proprietary internal systems, models, prompts, training data, or private APIs.
+Audit must measure design usefulness, not code readiness.
