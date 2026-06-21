@@ -13,22 +13,25 @@ function assert(condition, message) {
   if (!condition) throw new Error(message);
 }
 
+const expectedMode = 'universal-page-adapter-v11-2-design-clone';
 const health = await getJson(`${bridge}/health`);
-assert(health.mode === 'universal-page-adapter-v11-1-design-clone', `Expected V11.1 health mode, got ${health.mode}`);
+assert(health.mode === expectedMode, `Expected V11.2 health mode, got ${health.mode}`);
 
 const payload = await getJson(`${bridge}/render?url=${encodeURIComponent(targetUrl)}`);
 const plan = payload.rebuildPlan || {};
 const tokens = plan.tokens || {};
 const diagnostics = payload.diagnostics || {};
 
-assert(payload.mode === 'universal-page-adapter-v11-1-design-clone', `Expected V11.1 payload mode, got ${payload.mode}`);
+assert(payload.mode === expectedMode, `Expected V11.2 payload mode, got ${payload.mode}`);
 assert(payload.screenshot && payload.screenshot.base64, 'Missing screenshot reference.');
 assert(Array.isArray(payload.sections) && payload.sections.length > 0, 'Missing sections.');
 assert(Array.isArray(payload.layers) && payload.layers.length > 0, 'Missing layers.');
 assert(Array.isArray(plan.sections) && plan.sections.length > 0, 'Missing rebuildPlan.sections.');
+assert(plan.sections.every((section) => !!section.templateIntent), 'Missing templateIntent on one or more rebuildPlan sections.');
 assert(tokens && Array.isArray(tokens.colors), 'Missing rebuildPlan.tokens.colors.');
 assert(tokens && Array.isArray(tokens.typography), 'Missing rebuildPlan.tokens.typography.');
 assert(tokens && Array.isArray(tokens.spacing) && tokens.spacing.length >= 6, 'Missing or weak rebuildPlan.tokens.spacing.');
+assert(tokens && Array.isArray(tokens.radius) && tokens.radius.length >= 2, 'Missing or weak rebuildPlan.tokens.radius.');
 assert(plan.responsive && plan.responsive.desktop && plan.responsive.tablet && plan.responsive.mobile, 'Missing responsive desktop/tablet/mobile notes.');
 assert(Array.isArray(payload.outputRules) && payload.outputRules.length >= 5, 'Missing output rules.');
 
@@ -41,9 +44,11 @@ console.log(JSON.stringify({
   diagnostics,
   rebuildPlan: {
     sections: plan.sections.length,
+    templateIntentCoverage: plan.sections.filter((section) => !!section.templateIntent).length + '/' + plan.sections.length,
     colors: tokens.colors.length,
     typography: tokens.typography.length,
     spacing: tokens.spacing.length,
+    radius: tokens.radius.length,
     responsive: Object.keys(plan.responsive || {}).length
   },
   outputRules: payload.outputRules.length
