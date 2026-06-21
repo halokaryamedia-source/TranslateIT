@@ -15,8 +15,8 @@ Start-Sleep 8
 
 $Health = Invoke-RestMethod http://127.0.0.1:8844/health
 $Health | ConvertTo-Json -Depth 8
-if (-not ($Health.adapter -match "v5|enhanced|structured")) {
-  throw "Bridge health is not V5 enhanced structured. Adapter: $($Health.adapter)"
+if ((-not ($Health.adapter -match "v5")) -or (-not ($Health.adapter -match "enhanced"))) {
+  throw "Bridge health is not strict V5 enhanced. Adapter: $($Health.adapter)"
 }
 if ($Health.publicVersion -ne "Version 0.1 - Alpha") {
   throw "Unexpected public version: $($Health.publicVersion)"
