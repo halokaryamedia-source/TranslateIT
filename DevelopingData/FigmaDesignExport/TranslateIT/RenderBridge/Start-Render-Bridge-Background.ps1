@@ -18,8 +18,8 @@ function Write-BridgeLog($Message) {
 
 function Test-BridgeHealth {
   try {
-    $response = Invoke-WebRequest "http://127.0.0.1:$Port/health" -UseBasicParsing -TimeoutSec 2
-    return $response.StatusCode -eq 200
+    $response = Invoke-RestMethod "http://127.0.0.1:$Port/health" -TimeoutSec 2
+    return ($response.publicVersion -eq 'Version 0.1 - Alpha') -and ($response.adapter -match 'v5|enhanced|structured')
   } catch {
     return $false
   }
@@ -27,7 +27,7 @@ function Test-BridgeHealth {
 
 try {
   if (Test-BridgeHealth) {
-    Write-BridgeLog "Render Bridge already running on port $Port."
+    Write-BridgeLog "Strict V5 Render Bridge already running on port $Port."
     exit 0
   }
 
@@ -44,17 +44,17 @@ try {
   Write-BridgeLog 'Installing Playwright Chromium if needed...'
   cmd /c npx playwright install chromium >> $LogFile 2>&1
 
-  Write-BridgeLog "Starting Render Bridge on port $Port..."
-  Start-Process -FilePath 'node' -ArgumentList 'server.mjs' -WorkingDirectory $BridgeDir -WindowStyle Hidden -RedirectStandardOutput $LogFile -RedirectStandardError $LogFile
+  Write-BridgeLog "Starting strict V5 Render Bridge on port $Port..."
+  Start-Process -FilePath 'node' -ArgumentList 'start-alpha-v5.mjs' -WorkingDirectory $BridgeDir -WindowStyle Hidden -RedirectStandardOutput $LogFile -RedirectStandardError $LogFile
 
-  Start-Sleep -Seconds 3
+  Start-Sleep -Seconds 4
 
   if (Test-BridgeHealth) {
-    Write-BridgeLog 'Render Bridge started successfully.'
+    Write-BridgeLog 'Strict V5 Render Bridge started successfully.'
     exit 0
   }
 
-  Write-BridgeLog 'Render Bridge start attempted, but health check failed.'
+  Write-BridgeLog 'Strict V5 Render Bridge start attempted, but health check failed.'
   exit 1
 } catch {
   Write-BridgeLog "Error: $($_.Exception.Message)"
