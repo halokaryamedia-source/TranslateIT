@@ -1,5 +1,6 @@
 const url = process.argv[2] || 'https://www.mivubi.com/';
 const bridge = process.env.TRANSLATEIT_RENDER_BRIDGE || 'http://127.0.0.1:8844';
+const expectedBuild = 'strict-v5.1-single-engine';
 const res = await fetch(`${bridge}/render?url=${encodeURIComponent(url)}`);
 const payload = await res.json();
 if (!res.ok || !payload.ok) throw new Error(payload.error || `HTTP ${res.status}`);
@@ -19,7 +20,12 @@ const failures = [];
 if (payload.publicVersion !== 'Version 0.1 - Alpha') failures.push('wrong public version');
 if (!String(payload.adapter || '').includes('structured')) failures.push('adapter is not structured');
 if (!String(payload.adapter || '').includes('v5')) failures.push('adapter is not V5 enhanced');
+if (!String(payload.adapter || '').includes('enhanced')) failures.push('adapter is not enhanced');
+if (payload.strictV5Engine !== true) failures.push('strictV5Engine marker missing');
+if (payload.engineBuild !== expectedBuild) failures.push('wrong engine build');
 if (!payload.diagnostics?.v5Enhanced) failures.push('v5 enhanced marker missing');
+if (!payload.diagnostics?.strictV5Engine) failures.push('diagnostics strictV5Engine missing');
+if (payload.diagnostics?.engineBuild !== expectedBuild) failures.push('diagnostics wrong engine build');
 if (layout.visualProfile?.template !== 'source-inspired-editorial') failures.push('visual profile missing');
 if (!layout.type) failures.push('layout type missing');
 if (heroHeading.length < 8) failures.push('weak hero heading');
@@ -32,13 +38,15 @@ if (cards.length < 2) failures.push('weak cards');
 if (usefulCards < 2) failures.push('weak useful cards');
 if (footer.length < 3) failures.push('weak footer links');
 
-const total = 15;
+const total = 20;
 const passed = total - failures.length;
 const report = {
   gate: 'alpha-v5-strict-model',
   status: failures.length ? 'fail' : 'pass',
   score: Math.round((passed / total) * 100),
   adapter: payload.adapter,
+  strictV5Engine: !!payload.strictV5Engine,
+  engineBuild: payload.engineBuild || null,
   v5Enhanced: !!payload.diagnostics?.v5Enhanced,
   visualProfile: layout.visualProfile || null,
   heroHeading,
