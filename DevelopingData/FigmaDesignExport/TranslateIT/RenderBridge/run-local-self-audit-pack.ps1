@@ -80,6 +80,7 @@ try {
   Run-Step 'v2-markers' { npm.cmd run test:v2 }
   Run-Step 'mivubi-sample' { node .\tests\test-sample-sites.mjs $TargetUrl }
   Run-Step 'figma-dry-run' { node .\tests\test-figma-renderer-dry-run.mjs $TargetUrl }
+  Run-Step 'figma-sim-preview' { node .\tests\test-figma-sim-preview.mjs $TargetUrl }
   Run-Step 'regression' { npm.cmd run test:regression }
 }
 finally {
@@ -94,6 +95,12 @@ $meta = [ordered]@{
   targetUrl = $TargetUrl
   bridgeRoot = $BridgeRoot
   branchNote = 'translateit-clean-engine local self-audit'
+  requiredReviewFiles = @(
+    'reports/translateit-figma-sim-preview-latest.png',
+    'reports/translateit-figma-sim-preview-latest.json',
+    'reports/translateit-regression-site-mivubi-sample.png',
+    'reports/translateit-regression-site-mivubi-sample-diff.png'
+  )
   uploadThisZipToChat = (Split-Path $ZipPath -Leaf)
 }
 $meta | ConvertTo-Json -Depth 20 | Set-Content -Path (Join-Path $PackRoot 'self-audit-meta.json') -Encoding UTF8
@@ -103,6 +110,10 @@ Compress-Archive -Path (Join-Path $PackRoot '*') -DestinationPath $ZipPath -Forc
 Write-Host "`nDONE" -ForegroundColor Green
 Write-Host "Upload this file to chat:"
 Write-Host $ZipPath -ForegroundColor Yellow
+Write-Host "`nMain review files inside ZIP:"
+Write-Host 'reports/translateit-figma-sim-preview-latest.png'
+Write-Host 'reports/translateit-regression-site-mivubi-sample.png'
+Write-Host 'reports/translateit-regression-site-mivubi-sample-diff.png'
 Write-Host "`nExit codes:"
 if (Test-Path $ExitCodes) { Get-Content $ExitCodes }
 Invoke-Item $BridgeRoot
