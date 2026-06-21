@@ -6,7 +6,7 @@ const PORT = Number(process.env.TRANSLATEIT_RENDER_PORT || 8844);
 const IDLE_EXIT_MS = Number(process.env.TRANSLATEIT_RENDER_IDLE_EXIT_MS || 180000);
 const VIEWPORT = { width: 1440, height: 1600 };
 const MAX_LAYERS = 900;
-const MODE = 'universal-page-adapter-v11-design-clone';
+const MODE = 'universal-page-adapter-v11-1-design-clone';
 
 let idleTimer = null;
 let activeJobs = 0;
@@ -83,6 +83,18 @@ function expand(rect, pad) {
 
 function overlaps(a, b) {
   return a && b && a.x < b.x + b.w && a.x + a.w > b.x && a.y < b.y + b.h && a.y + a.h > b.y;
+}
+
+function colorFromCss(value) {
+  const raw = String(value || '').trim();
+  if (!raw || raw === 'transparent' || raw === 'rgba(0, 0, 0, 0)') return '';
+  const hex = raw.match(/#[\da-fA-F]{6}|#[\da-fA-F]{3}/);
+  if (hex) return hex[0].length === 4 ? `#${hex[0][1]}${hex[0][1]}${hex[0][2]}${hex[0][2]}${hex[0][3]}${hex[0][3]}` : hex[0];
+  const rgba = raw.match(/rgba?\(([^)]+)\)/);
+  if (!rgba) return '';
+  const parts = rgba[1].split(',').map((x) => parseFloat(x));
+  if (parts.length < 3 || (parts.length >= 4 && parts[3] === 0)) return '';
+  return '#' + parts.slice(0, 3).map((n) => Math.round(Math.max(0, Math.min(255, n))).toString(16).padStart(2, '0')).join('');
 }
 
 function componentName(members, index) {
@@ -163,18 +175,6 @@ function clusterSections(layers, viewport, pageHeight) {
   return sections.length ? sections : [buildComponents({ id: 'section-1', role: 'section', name: 'Section 01', rect: { x: 0, y: 0, w: viewport.width, h: pageHeight || viewport.height }, layers })];
 }
 
-function colorFromCss(value) {
-  const raw = String(value || '').trim();
-  if (!raw || raw === 'transparent' || raw === 'rgba(0, 0, 0, 0)') return '';
-  const hex = raw.match(/#[\da-fA-F]{6}|#[\da-fA-F]{3}/);
-  if (hex) return hex[0];
-  const rgba = raw.match(/rgba?\(([^)]+)\)/);
-  if (!rgba) return '';
-  const parts = rgba[1].split(',').map((x) => parseFloat(x));
-  if (parts.length < 3 || (parts.length >= 4 && parts[3] === 0)) return '';
-  return '#' + parts.slice(0, 3).map((n) => Math.round(Math.max(0, Math.min(255, n))).toString(16).padStart(2, '0')).join('');
-}
-
 function sectionIntent(section, index) {
   if (section.role === 'header') return 'navigation/header';
   if (section.role === 'footer') return 'footer';
@@ -183,6 +183,44 @@ function sectionIntent(section, index) {
   if (/project|portfolio|gallery|work|case/.test(text)) return 'gallery/card-grid';
   if (/about|team|culture|mission|story/.test(text)) return 'content/about';
   return 'content-section';
+}
+
+function defaultSpacingTokens() {
+  return [
+    { name: 'Space / XS', value: 4 },
+    { name: 'Space / SM', value: 8 },
+    { name: 'Space / MD', value: 16 },
+    { name: 'Space / LG', value: 24 },
+    { name: 'Space / XL', value: 40 },
+    { name: 'Section Gap', value: 72 },
+    { name: 'Card Padding', value: 24 },
+    { name: 'Grid Gap', value: 20 }
+  ];
+}
+
+function inferResponsivePlan(sections) {
+  const hasGallery = sections.some((section, index) => sectionIntent(section, index) === 'gallery/card-grid');
+  const hasHero = sections.some((section, index) => sectionIntent(section, index) === 'hero/landing');
+  return {
+    desktop: `${hasHero ? 'Hero can use two-column composition. ' : ''}${hasGallery ? 'Card/gallery sections can use 3-column grids. ' : ''}Navigation stays horizontal and sections use generous spacing.`,
+    tablet: `${hasGallery ? 'Reduce card/gallery sections to 2 columns. ' : ''}Keep typography hierarchy clear and preserve section rhythm.`,
+    mobile: 'Stack all sections vertically, collapse navigation, use single-column cards, and increase tap spacing.'
+  };
+}
+
+function inferSpacingTokens(sections) {
+  const gaps = [];
+  const ordered = [...sections].sort((a, b) => a.rect.y - b.rect.y);
+  for (let i = 1; i < ordered.length; i += 1) {
+    const prev = ordered[i - 1].rect;
+    const cur = ordered[i].rect;
+    const gap = Math.round(cur.y - (prev.y + prev.h));
+    if (gap > 0 && gap < 240) gaps.push(gap);
+  }
+  const base = defaultSpacingTokens();
+  if (!gaps.length) return base;
+  const median = gaps.sort((a, b) => a - b)[Math.floor(gaps.length / 2)];
+  return base.map((token) => token.name === 'Section Gap' ? { ...token, value: Math.max(48, Math.min(120, median)) } : token);
 }
 
 function buildRebuildPlan(payload) {
@@ -198,13 +236,22 @@ function buildRebuildPlan(payload) {
   const typography = unique(textLayers, (l) => {
     const s = l.style || {};
     return [l.role, s.fontSize, s.fontWeight, s.color].join('|');
-  }, 18).map((l) => ({ role: l.role || 'text', sample: clean(l.text || l.name).slice(0, 80), fontSize: (l.style || {}).fontSize || '', fontWeight: (l.style || {}).fontWeight || '', color: colorFromCss((l.style || {}).color) }));
+  }, 18).map((l) => ({
+    role: l.role || 'text',
+    sample: clean(l.text || l.name).slice(0, 80),
+    fontSize: (l.style || {}).fontSize || '',
+    fontWeight: (l.style || {}).fontWeight || '',
+    color: colorFromCss((l.style || {}).color)
+  }));
+  const spacing = inferSpacingTokens(sections);
+  const responsive = inferResponsivePlan(sections);
 
   return {
     title: payload.title || 'Website Design Clone',
     url: payload.url || '',
     summary: 'Design clone plan for clean Figma reconstruction. Raw coordinate dumping is intentionally avoided.',
-    tokens: { colors, typography },
+    tokens: { colors, typography, spacing },
+    responsive,
     counts: { sections: sections.length, text: textLayers.length, images: imageLayers.length, buttons: buttonLayers.length },
     sections: sections.slice(0, 14).map((section, index) => ({
       name: section.name || `Section ${index + 1}`,
@@ -217,7 +264,8 @@ function buildRebuildPlan(payload) {
     })),
     uncertainties: [
       'Dynamic animations, hidden states, and interaction logic are not reconstructed in Design Clone mode.',
-      'The editable draft prioritizes clean design structure over raw DOM coordinate matching.'
+      'The editable draft prioritizes clean design structure over raw DOM coordinate matching.',
+      'Post-import Figma visual validation is still required before claiming professional-ready quality.'
     ]
   };
 }
@@ -391,7 +439,7 @@ async function compile(target) {
     return {
       ok: true,
       mode: MODE,
-      adapter: 'universal-page-design-clone-structured-library',
+      adapter: 'universal-page-design-clone-v11-1-structured-library',
       capturedAt: new Date().toISOString(),
       title: extracted.title,
       url: extracted.url,
@@ -409,18 +457,21 @@ async function compile(target) {
         textCount: extracted.layers.filter((x) => x.type === 'text').length,
         rebuildPlanSectionCount: (extracted.rebuildPlan.sections || []).length,
         colorTokenCount: (extracted.rebuildPlan.tokens.colors || []).length,
-        typographyTokenCount: (extracted.rebuildPlan.tokens.typography || []).length
+        typographyTokenCount: (extracted.rebuildPlan.tokens.typography || []).length,
+        spacingTokenCount: (extracted.rebuildPlan.tokens.spacing || []).length,
+        responsiveCount: Object.keys(extracted.rebuildPlan.responsive || {}).length
       },
       outputRules: [
         '01 Screenshot Preview / Pure Reference: one screenshot rectangle only.',
-        '02 Rebuild Plan / AI Interpretation: summarize sections, intents, tokens, and uncertainty.',
-        '03 UI Components / Structured Library: clean grouped design components, not raw browser coordinates.',
+        '02 Rebuild Plan / AI Interpretation: summarize sections, intents, tokens, responsive behavior, and uncertainty.',
+        '03 UI Components / Structured Library: clean grouped design components, spacing tokens, and variants; not raw browser coordinates.',
         '04 Editable Result / Clean Structured Draft: section-based editable draft, not chaotic layer dump.',
         '05 Audit / Design Clone Notes: visible diagnostics and weakness tracking.'
       ],
       warnings: [
-        'V11 Design Clone mode is design-only. Code clone and app logic are intentionally out of scope.',
-        'The editable draft prioritizes professional structure and usability over raw DOM coordinate matching.'
+        'V11.1 Design Clone mode is design-only. Code clone and app logic are intentionally out of scope.',
+        'The editable draft prioritizes professional structure and usability over raw DOM coordinate matching.',
+        'Post-import Figma visual validation is required before calling the result professional-ready.'
       ]
     };
   } finally {
@@ -459,6 +510,6 @@ server = http.createServer(async (req, res) => {
 });
 
 server.listen(PORT, '127.0.0.1', () => {
-  console.log(`TranslateIT Universal Page Adapter V11 Design Clone running at http://127.0.0.1:${PORT}`);
+  console.log(`TranslateIT Universal Page Adapter V11.1 Design Clone running at http://127.0.0.1:${PORT}`);
   resetIdleTimer();
 });
