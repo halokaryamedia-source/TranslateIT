@@ -2,6 +2,7 @@ import { captureSite } from './capture-site.mjs';
 import { extractLayout } from './extract-layout.mjs';
 import { buildDesignModel } from './build-design-model.mjs';
 import { buildVisualModel } from './build-visual-model.mjs';
+import { guardHeroOcclusion } from './guard-hero-occlusion.mjs';
 import { matchDomToVisual } from './match-dom-visual.mjs';
 import { buildCloneModel } from './build-clone-model.mjs';
 import { ok, assertCleanPayload } from './shared-contract.mjs';
@@ -11,7 +12,8 @@ export async function buildPayload(targetUrl) {
   const visualModel = buildVisualModel(capture);
   const layout = extractLayout(capture);
   const designModel = buildDesignModel(layout);
-  const matched = matchDomToVisual(designModel, visualModel);
+  const guardedModel = guardHeroOcclusion(designModel);
+  const matched = matchDomToVisual(guardedModel, visualModel);
   const cloneModel = buildCloneModel(matched.model, visualModel, matched.diagnostics);
 
   const payload = ok({
@@ -24,7 +26,7 @@ export async function buildPayload(targetUrl) {
       visualModel: visualModel.diagnostics,
       visualMatching: matched.diagnostics,
       layout: layout.stats,
-      model: matched.model.diagnostics || designModel.diagnostics,
+      model: matched.model.diagnostics || guardedModel.diagnostics || designModel.diagnostics,
       cloneModel: cloneModel.diagnostics
     }
   });
