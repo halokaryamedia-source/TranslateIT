@@ -8,6 +8,8 @@ const expectedBuild = 'strict-v5.1-single-engine';
 
 const bridgeRoot = process.cwd();
 const pluginRoot = path.resolve(bridgeRoot, '..', 'plugin');
+const reportDir = path.join(bridgeRoot, 'reports');
+const reportPath = path.join(reportDir, 'alpha-v5-final-readiness.latest.json');
 const read = (file) => fs.readFileSync(path.join(pluginRoot, file), 'utf8');
 
 const failures = [];
@@ -89,6 +91,8 @@ const report = {
   activeRenderer: manifest.main,
   expectedBuild,
   targetUrl: url,
+  generatedAt: new Date().toISOString(),
+  reportPath,
   metrics: {
     navLinks: nav.length,
     footerLinks: footer.length,
@@ -104,5 +108,8 @@ const report = {
   failures
 };
 
+fs.mkdirSync(reportDir, { recursive: true });
+fs.writeFileSync(reportPath, JSON.stringify(report, null, 2), 'utf8');
 console.log(JSON.stringify(report, null, 2));
+console.log(`Final readiness report saved to: ${reportPath}`);
 if (failures.length) process.exitCode = 2;
