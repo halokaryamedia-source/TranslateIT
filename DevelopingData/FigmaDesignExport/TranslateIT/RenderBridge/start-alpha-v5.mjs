@@ -6,10 +6,9 @@ const here = path.dirname(fileURLToPath(import.meta.url));
 const fixed = path.join(here, 'server.alpha.v4.fixed.generated.mjs');
 const bootstrap = path.join(here, 'start-alpha-v4-fixed.mjs');
 
-if (!fs.existsSync(fixed)) {
-  console.log('Alpha V5 launcher: generating fixed structured bridge first...');
-  await import(pathToFileURL(bootstrap).href);
-} else {
-  console.log('Alpha V5 launcher: using fixed structured bridge:', fixed);
-  await import(pathToFileURL(fixed).href);
-}
+try {
+  if (fs.existsSync(fixed)) fs.unlinkSync(fixed);
+} catch (_) {}
+
+console.log('Alpha V5 launcher: regenerating fixed structured bridge...');
+await import(pathToFileURL(bootstrap).href);
