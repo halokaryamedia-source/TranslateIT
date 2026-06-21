@@ -7,6 +7,9 @@ Set-Location $Bridge
 Write-Host "=== TranslateIT Alpha V5 Internal Gate ===" -ForegroundColor Cyan
 Write-Host "Target: $Url" -ForegroundColor DarkGray
 
+Write-Host "`n=== Plugin Syntax Readiness Gate ===" -ForegroundColor Cyan
+node audit-alpha-v5-plugin-syntax.mjs
+
 Write-Host "`n=== Single Active Engine Gate ===" -ForegroundColor Cyan
 node audit-alpha-v5-single-engine.mjs
 
