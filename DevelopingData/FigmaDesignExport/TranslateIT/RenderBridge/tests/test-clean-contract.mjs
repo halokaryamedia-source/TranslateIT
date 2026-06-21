@@ -4,123 +4,83 @@ import path from 'node:path';
 const root = process.cwd();
 const pluginRoot = path.resolve(root, '..', 'plugin');
 const failures = [];
-const manifest = JSON.parse(fs.readFileSync(path.join(pluginRoot, 'manifest.json'), 'utf8'));
-const pkg = JSON.parse(fs.readFileSync(path.join(root, 'package.json'), 'utf8'));
-const server = fs.readFileSync(path.join(root, 'server.mjs'), 'utf8');
-const contract = fs.readFileSync(path.join(root, 'src', 'shared-contract.mjs'), 'utf8');
-const capture = fs.readFileSync(path.join(root, 'src', 'capture-site.mjs'), 'utf8');
-const visualModel = fs.readFileSync(path.join(root, 'src', 'build-visual-model.mjs'), 'utf8');
-const payloadBuilder = fs.readFileSync(path.join(root, 'src', 'build-payload.mjs'), 'utf8');
-const designBuilder = fs.readFileSync(path.join(root, 'src', 'build-design-model.mjs'), 'utf8');
-const lineReconstruction = fs.readFileSync(path.join(root, 'src', 'reconstruct-text-lines.mjs'), 'utf8');
-const heroGuard = fs.readFileSync(path.join(root, 'src', 'guard-hero-occlusion.mjs'), 'utf8');
-const cloneBuilder = fs.readFileSync(path.join(root, 'src', 'build-clone-model.mjs'), 'utf8');
-const health = fs.readFileSync(path.join(root, 'src', 'health-status.mjs'), 'utf8');
-const routes = fs.readFileSync(path.join(root, 'src', 'route-handlers.mjs'), 'utf8');
-const matcher = fs.readFileSync(path.join(root, 'src', 'match-dom-visual.mjs'), 'utf8');
-const preview = fs.readFileSync(path.join(root, 'src', 'render-clone-preview.mjs'), 'utf8');
-const comparison = fs.readFileSync(path.join(root, 'src', 'compare-visual-screenshots.mjs'), 'utf8');
-const runner = fs.readFileSync(path.join(root, 'src', 'run-clone-audit.mjs'), 'utf8');
-const audit = fs.readFileSync(path.join(root, 'src', 'visual-audit.mjs'), 'utf8');
-const regression = fs.readFileSync(path.join(root, 'tests', 'test-regression-suite.mjs'), 'utf8');
-const ui = fs.readFileSync(path.join(pluginRoot, 'ui.html'), 'utf8');
-const renderer = fs.readFileSync(path.join(pluginRoot, 'code.js'), 'utf8');
+function read(file) { return fs.readFileSync(file, 'utf8'); }
+function must(name, text, marker, message) { if (!text.includes(marker)) failures.push(message || `${name} missing ${marker}`); }
+function mustNot(name, text, marker, message) { if (text.includes(marker)) failures.push(message || `${name} must not contain ${marker}`); }
+
+const manifest = JSON.parse(read(path.join(pluginRoot, 'manifest.json')));
+const pkg = JSON.parse(read(path.join(root, 'package.json')));
+const files = {
+  server: read(path.join(root, 'server.mjs')),
+  contract: read(path.join(root, 'src', 'shared-contract.mjs')),
+  capture: read(path.join(root, 'src', 'capture-site.mjs')),
+  visualModel: read(path.join(root, 'src', 'build-visual-model.mjs')),
+  payloadBuilder: read(path.join(root, 'src', 'build-payload.mjs')),
+  designBuilder: read(path.join(root, 'src', 'build-design-model.mjs')),
+  lineReconstruction: read(path.join(root, 'src', 'reconstruct-text-lines.mjs')),
+  heroGuard: read(path.join(root, 'src', 'guard-hero-occlusion.mjs')),
+  cloneBuilder: read(path.join(root, 'src', 'build-clone-model.mjs')),
+  health: read(path.join(root, 'src', 'health-status.mjs')),
+  routes: read(path.join(root, 'src', 'route-handlers.mjs')),
+  matcher: read(path.join(root, 'src', 'match-dom-visual.mjs')),
+  preview: read(path.join(root, 'src', 'render-clone-preview.mjs')),
+  comparison: read(path.join(root, 'src', 'compare-visual-screenshots.mjs')),
+  runner: read(path.join(root, 'src', 'run-clone-audit.mjs')),
+  audit: read(path.join(root, 'src', 'visual-audit.mjs')),
+  regression: read(path.join(root, 'tests', 'test-regression-suite.mjs')),
+  sample: read(path.join(root, 'tests', 'test-sample-sites.mjs')),
+  figmaDryRun: read(path.join(root, 'tests', 'test-figma-renderer-dry-run.mjs')),
+  ui: read(path.join(pluginRoot, 'ui.html')),
+  renderer: read(path.join(pluginRoot, 'code.js'))
+};
 
 if (manifest.main !== 'code.js') failures.push('manifest must use code.js');
 if (manifest.ui !== 'ui.html') failures.push('manifest must use ui.html');
 if (pkg.scripts?.start !== 'node server.mjs') failures.push('npm start must use server.mjs');
 if (pkg.scripts?.['test:imports'] !== 'node ./tests/test-module-imports.mjs') failures.push('npm test:imports must run module import gate');
-for (const pair of [['server', server], ['contract', contract], ['capture', capture], ['visualModel', visualModel], ['payloadBuilder', payloadBuilder], ['designBuilder', designBuilder], ['lineReconstruction', lineReconstruction], ['heroGuard', heroGuard], ['cloneBuilder', cloneBuilder], ['health', health], ['routes', routes], ['matcher', matcher], ['preview', preview], ['comparison', comparison], ['runner', runner], ['regression', regression], ['ui', ui], ['renderer', renderer]]) {
-  const name = pair[0]; const text = pair[1];
-  if (!text.includes('translateit-core') && !['capture','visualModel','payloadBuilder','designBuilder','lineReconstruction','heroGuard','cloneBuilder','health','routes','matcher','preview','comparison','runner','regression'].includes(name)) failures.push(`${name} missing clean engine marker`);
-  if (!text.includes('alpha-clean-1') && !['capture','visualModel','payloadBuilder','designBuilder','lineReconstruction','heroGuard','cloneBuilder','health','routes','matcher','preview','comparison','runner','regression'].includes(name)) failures.push(`${name} missing clean build marker`);
-  if (!text.includes('Version 0.1 - Alpha') && !['capture','visualModel','payloadBuilder','designBuilder','lineReconstruction','heroGuard','cloneBuilder','health','routes','matcher','preview','comparison','runner','regression'].includes(name)) failures.push(`${name} missing public version marker`);
-}
-if (!server.includes('healthStatus')) failures.push('server must use healthStatus');
-if (!server.includes('handleRender')) failures.push('server must use handleRender');
-if (!server.includes('handleAudit')) failures.push('server must use handleAudit');
-if (server.includes('function buildCloneModel')) failures.push('server still contains clone model builder');
-if (server.includes('function buildPayload')) failures.push('server still contains payload builder');
-if (!capture.includes('objectFit')) failures.push('capture missing objectFit metadata');
-if (!capture.includes('objectPosition')) failures.push('capture missing objectPosition metadata');
-if (!capture.includes('naturalWidth')) failures.push('capture missing natural image width metadata');
-if (!capture.includes('letterSpacing')) failures.push('capture missing letterSpacing metadata');
-if (!capture.includes('textTransform')) failures.push('capture missing textTransform metadata');
-if (!capture.includes('whiteSpace')) failures.push('capture missing whiteSpace metadata');
-if (!capture.includes('overflowWrap')) failures.push('capture missing overflowWrap metadata');
-if (!capture.includes('opacity')) failures.push('capture missing opacity metadata');
-if (!visualModel.includes('coverageRatio')) failures.push('visual model missing coverageRatio');
-if (!visualModel.includes('confidenceReason')) failures.push('visual model missing confidenceReason');
-if (!visualModel.includes('importantBlocks')) failures.push('visual model missing importantBlocks diagnostics');
-if (!designBuilder.includes('cssStackingPreserved')) failures.push('design builder missing CSS stacking preservation marker');
-if (!designBuilder.includes('imageFitPreserved')) failures.push('design builder missing image fit preservation marker');
-if (!designBuilder.includes('textRenderMetadataPreserved')) failures.push('design builder missing text render metadata marker');
-if (!designBuilder.includes('textStyleOf')) failures.push('design builder missing textStyleOf');
-if (!lineReconstruction.includes('reconstructTextLines')) failures.push('line reconstruction missing reconstructTextLines');
-if (!lineReconstruction.includes('line-aware-headline-reconstruction')) failures.push('line reconstruction missing source reason marker');
-if (!payloadBuilder.includes('buildVisualModel')) failures.push('payload builder missing buildVisualModel');
-if (!payloadBuilder.includes('reconstructTextLines')) failures.push('payload builder missing reconstructTextLines');
-if (!payloadBuilder.includes('guardHeroOcclusion')) failures.push('payload builder missing guardHeroOcclusion');
-if (!payloadBuilder.includes('matchDomToVisual')) failures.push('payload builder missing matchDomToVisual');
-if (!payloadBuilder.includes('buildCloneModel')) failures.push('payload builder missing buildCloneModel');
-if (!heroGuard.includes('removedHeroOccludedText')) failures.push('hero guard missing occluded text diagnostic');
-if (!heroGuard.includes('removedHeadlineCollisionText')) failures.push('hero guard missing headline collision diagnostic');
-if (!cloneBuilder.includes('layout-preserving-editable-clone')) failures.push('clone builder missing clone mode');
-if (!cloneBuilder.includes('screenshot-first-html-assisted')) failures.push('clone builder missing visual truth');
-if (!cloneBuilder.includes('paintOrderOf')) failures.push('clone builder missing paintOrderOf');
-if (!cloneBuilder.includes('dom-paint-order-preserved')) failures.push('clone builder missing DOM paint order marker');
-if (!cloneBuilder.includes('sectionSurfaceColor')) failures.push('clone builder missing source-derived section surface');
-if (!cloneBuilder.includes('sectionSurface: \'source-derived\'')) failures.push('clone builder missing section surface diagnostic');
-if (!cloneBuilder.includes('source-object-fit-preserved')) failures.push('clone builder missing image fit diagnostic');
-if (!cloneBuilder.includes('imageFitLayerCount')) failures.push('clone builder missing image fit layer count');
-if (!cloneBuilder.includes('source-text-rendering-preserved')) failures.push('clone builder missing text render diagnostic');
-if (!cloneBuilder.includes('textRenderLayerCount')) failures.push('clone builder missing text render layer count');
-if (!health.includes('screenshot-first-html-assisted-v2')) failures.push('health status missing visual model v2 marker');
-if (!health.includes('dom-paint-order-preserved')) failures.push('health status missing paint order marker');
-if (!health.includes('source-derived')) failures.push('health status missing source-derived marker');
-if (!health.includes('source-object-fit-preserved')) failures.push('health status missing image fit marker');
-if (!health.includes('source-text-rendering-preserved')) failures.push('health status missing text render marker');
-if (!health.includes('visual-comparison-v2')) failures.push('health status missing visual comparison v2 marker');
-if (!health.includes('visualDiffOverlay')) failures.push('health status missing visual diff overlay marker');
-if (!routes.includes('runCloneAudit')) failures.push('routes missing runCloneAudit');
-if (!routes.includes('translateit-clean-latest.json')) failures.push('routes missing report writer');
-if (!matcher.includes('visual-rect-dom-content-style')) failures.push('matcher missing visual rect + DOM content rule');
-if (!matcher.includes('dom-rect-visual-verified')) failures.push('matcher missing DOM rect visual verification rule');
-if (!preview.includes('translateit-clone-preview-latest.png')) failures.push('preview renderer does not write PNG preview');
-if (!preview.includes('imageFitCss')) failures.push('preview renderer missing image fit CSS');
-if (!preview.includes('textRenderScore')) failures.push('preview metrics missing text render score');
-if (!preview.includes('text-rendering:geometricPrecision')) failures.push('preview renderer missing text rendering parity CSS');
-if (!preview.includes('letter-spacing')) failures.push('preview renderer missing letter-spacing CSS');
-if (!preview.includes('text-transform')) failures.push('preview renderer missing text-transform CSS');
-if (!preview.includes('overflow-wrap')) failures.push('preview renderer missing overflow-wrap CSS');
-if (!comparison.includes('visual-comparison-v2')) failures.push('comparison module missing v2 marker');
-if (!comparison.includes('topViewportSimilarityScore')) failures.push('comparison module missing top viewport score');
-if (!comparison.includes('sectionBandSimilarityScore')) failures.push('comparison module missing section band score');
-if (!comparison.includes('worstBandScore')) failures.push('comparison module missing worst band score');
-if (!comparison.includes('layoutShiftRiskScore')) failures.push('comparison module missing layout shift score');
-if (!comparison.includes('translateit-visual-diff-latest.png')) failures.push('comparison module missing visual diff png');
-if (!runner.includes('visualDiff')) failures.push('audit runner does not expose visual diff');
-if (!audit.includes('top viewport similarity too low')) failures.push('visual audit missing top viewport v2 gate');
-if (!audit.includes('worst visual band too low')) failures.push('visual audit missing worst band v2 gate');
-if (!audit.includes('layout shift risk too high')) failures.push('visual audit missing layout shift v2 gate');
-if (!regression.includes('diffPngPath')) failures.push('regression report missing per-site diff png path');
-if (!regression.includes('diffHtmlPath')) failures.push('regression report missing per-site diff html path');
-if (!contract.includes('visualModel missing')) failures.push('contract does not require visualModel');
-if (!contract.includes('cloneModel missing')) failures.push('contract does not require cloneModel');
-if (!contract.includes('layout-preserving-editable-clone')) failures.push('contract does not require clone mode');
-if (!renderer.includes('cloneModel missing')) failures.push('plugin does not reject missing cloneModel');
-if (!renderer.includes('PaintOrder: source DOM')) failures.push('plugin does not report source paint order');
-if (!renderer.includes('ImageFit: source object-fit')) failures.push('plugin does not report source image fit');
-if (!renderer.includes('TextRender: source opacity safe')) failures.push('plugin does not report text render safe opacity');
-if (!renderer.includes('function OP')) failures.push('plugin renderer missing opacity helper');
-if (!renderer.includes('fitMode')) failures.push('plugin renderer missing image fit mode');
-if (renderer.includes('var o={shape:0,image:1,text:2,button:3}')) failures.push('plugin still uses type-based order fallback');
-if (renderer.includes('renderHeader')) failures.push('renderer still contains template header renderer');
-if (renderer.includes('renderHero')) failures.push('renderer still contains template hero renderer');
-if (renderer.includes('renderContent')) failures.push('renderer still contains template content renderer');
-if (renderer.includes('renderFooter')) failures.push('renderer still contains template footer renderer');
-if (renderer.includes('?.')) failures.push('plugin/code.js uses optional chaining');
-if (renderer.includes('??')) failures.push('plugin/code.js uses nullish coalescing');
+if (pkg.scripts?.['test:v2'] !== 'node ./tests/test-v2-markers.mjs') failures.push('npm test:v2 must run V2 marker gate');
+if (pkg.scripts?.['test:figma-dry-run'] !== 'node ./tests/test-figma-renderer-dry-run.mjs') failures.push('npm test:figma-dry-run must run Figma renderer dry run');
+
+must('server', files.server, 'healthStatus', 'server must use healthStatus');
+must('server', files.server, 'handleRender', 'server must use handleRender');
+must('server', files.server, 'handleAudit', 'server must use handleAudit');
+mustNot('server', files.server, 'function buildCloneModel', 'server must not contain clone model builder');
+mustNot('server', files.server, 'function buildPayload', 'server must not contain payload builder');
+
+must('contract', files.contract, 'translateit-core', 'contract missing engine marker');
+must('contract', files.contract, 'alpha-clean-1', 'contract missing build marker');
+must('contract', files.contract, 'Version 0.1 - Alpha', 'contract missing public version marker');
+must('contract', files.contract, 'visualModel missing', 'contract does not require visualModel');
+must('contract', files.contract, 'cloneModel missing', 'contract does not require cloneModel');
+must('contract', files.contract, 'screenshot-first-html-assisted-v2', 'contract does not require visual model v2');
+must('contract', files.contract, 'layout-preserving-editable-clone', 'contract does not require clone mode');
+
+for (const marker of ['objectFit', 'objectPosition', 'naturalWidth', 'letterSpacing', 'textTransform', 'whiteSpace', 'overflowWrap', 'opacity']) must('capture', files.capture, marker, `capture missing ${marker} metadata`);
+for (const marker of ['coverageRatio', 'confidenceReason', 'importantBlocks', 'screenshot-first-html-assisted-v2']) must('visualModel', files.visualModel, marker, `visual model missing ${marker}`);
+for (const marker of ['cssStackingPreserved', 'imageFitPreserved', 'textRenderMetadataPreserved', 'coloredSurfacePreserved', 'removeOffCanvasTextFragments', 'textStyleOf']) must('designBuilder', files.designBuilder, marker, `design builder missing ${marker}`);
+for (const marker of ['reconstructTextLines', 'line-aware-headline-reconstruction']) must('lineReconstruction', files.lineReconstruction, marker, `line reconstruction missing ${marker}`);
+for (const marker of ['removedHeroOccludedText', 'removedHeadlineCollisionText']) must('heroGuard', files.heroGuard, marker, `hero guard missing ${marker}`);
+for (const marker of ['buildVisualModel', 'reconstructTextLines', 'guardHeroOcclusion', 'matchDomToVisual', 'buildCloneModel']) must('payloadBuilder', files.payloadBuilder, marker, `payload builder missing ${marker}`);
+for (const marker of ['layout-preserving-editable-clone', 'screenshot-first-html-assisted', 'paintOrderOf', 'dom-paint-order-preserved', 'sectionSurfaceColor', 'source-derived', 'source-object-fit-preserved', 'imageFitLayerCount', 'source-text-rendering-preserved', 'textRenderLayerCount']) must('cloneBuilder', files.cloneBuilder, marker, `clone builder missing ${marker}`);
+for (const marker of ['screenshot-first-html-assisted-v2', 'dom-paint-order-preserved', 'source-derived', 'source-object-fit-preserved', 'source-text-rendering-preserved', 'visual-comparison-v2', 'visualDiffOverlay']) must('health', files.health, marker, `health status missing ${marker}`);
+for (const marker of ['visual-rect-dom-content-style', 'dom-rect-visual-verified']) must('matcher', files.matcher, marker, `matcher missing ${marker}`);
+for (const marker of ['translateit-clone-preview-latest.png', 'imageFitCss', 'textRenderScore', 'text-rendering:geometricPrecision', 'letter-spacing', 'text-transform', 'overflow-wrap', 'sortLayers']) must('preview', files.preview, marker, `preview renderer missing ${marker}`);
+for (const marker of ['visual-comparison-v2', 'topViewportSimilarityScore', 'sectionBandSimilarityScore', 'worstBandScore', 'layoutShiftRiskScore', 'translateit-visual-diff-latest.png']) must('comparison', files.comparison, marker, `comparison module missing ${marker}`);
+for (const marker of ['visualDiff', 'compareSourceAndClonePreview']) must('runner', files.runner, marker, `audit runner missing ${marker}`);
+for (const marker of ['top viewport similarity too low', 'worst visual band too low', 'layout shift risk too high', 'source clone visual comparison']) must('audit', files.audit, marker, `visual audit missing ${marker}`);
+for (const marker of ['diffPngPath', 'diffHtmlPath']) must('regression', files.regression, marker, `regression report missing ${marker}`);
+for (const marker of ['screenshot-first-html-assisted-v2', 'visual-comparison-v2', 'visualDiffOverlay']) must('sample', files.sample, marker, `sample test missing ${marker}`);
+for (const marker of ['figma.ui.onmessage', 'Import complete', 'PaintOrder: source DOM', 'ImageFit: source object-fit']) must('figmaDryRun', files.figmaDryRun, marker, `Figma dry run missing ${marker}`);
+
+must('renderer', files.renderer, 'cloneModel missing', 'plugin does not reject missing cloneModel');
+must('renderer', files.renderer, 'PaintOrder: source DOM', 'plugin does not report source paint order');
+must('renderer', files.renderer, 'ImageFit: source object-fit', 'plugin does not report source image fit');
+must('renderer', files.renderer, 'TextRender: source opacity safe', 'plugin does not report text render safe opacity');
+must('renderer', files.renderer, 'function OP', 'plugin renderer missing opacity helper');
+must('renderer', files.renderer, 'fitMode', 'plugin renderer missing image fit mode');
+mustNot('renderer', files.renderer, 'var o={shape:0,image:1,text:2,button:3}', 'plugin still uses type-based order fallback');
+for (const marker of ['renderHeader', 'renderHero', 'renderContent', 'renderFooter', '?.', '??']) mustNot('renderer', files.renderer, marker, `plugin/code.js contains forbidden marker ${marker}`);
+
 const report = { gate: 'translateit-clean-contract', status: failures.length ? 'fail' : 'pass', manifestMain: manifest.main, npmStart: pkg.scripts ? pkg.scripts.start : null, engine: 'translateit-core', engineBuild: 'alpha-clean-1', renderer: 'layout-preserving-editable-clone', modularPipeline: true, visualModel: 'screenshot-first-html-assisted-v2', textLineReconstruction: true, heroOcclusionGuard: true, sectionSurface: 'source-derived', imageFit: 'source-object-fit-preserved', textRender: 'source-text-rendering-preserved', visualComparison: 'visual-comparison-v2', visualDiffOverlay: true, visualMatching: 'dom-to-visual-foundation', paintOrder: 'dom-paint-order-preserved', clonePreview: 'html-png-preview-foundation', failures };
 console.log(JSON.stringify(report, null, 2));
 if (failures.length) process.exitCode = 2;
