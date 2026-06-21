@@ -23,8 +23,12 @@ for (const pair of [['server', server], ['contract', contract], ['ui', ui], ['re
   if (!text.includes('Version 0.1 - Alpha')) failures.push(`${name} missing public version marker`);
 }
 
+if (!server.includes('buildVisualModel')) failures.push('server missing buildVisualModel');
+if (!server.includes('visualModel')) failures.push('server does not attach visualModel');
+if (!server.includes('screenshot-first-html-assisted')) failures.push('server missing screenshot-first visual truth marker');
 if (!server.includes('buildCloneModel')) failures.push('server missing buildCloneModel');
 if (!server.includes('cloneModel')) failures.push('server does not attach cloneModel');
+if (!contract.includes('visualModel missing')) failures.push('contract does not require visualModel');
 if (!contract.includes('cloneModel missing')) failures.push('contract does not require cloneModel');
 if (!contract.includes('layout-preserving-editable-clone')) failures.push('contract does not require clone mode');
 if (!renderer.includes('cloneModel missing')) failures.push('plugin does not reject missing cloneModel');
@@ -36,16 +40,6 @@ if (renderer.includes('renderFooter')) failures.push('renderer still contains te
 if (renderer.includes('?.')) failures.push('plugin/code.js uses optional chaining');
 if (renderer.includes('??')) failures.push('plugin/code.js uses nullish coalescing');
 
-const report = {
-  gate: 'translateit-clean-contract',
-  status: failures.length ? 'fail' : 'pass',
-  manifestMain: manifest.main,
-  npmStart: pkg.scripts ? pkg.scripts.start : null,
-  engine: 'translateit-core',
-  engineBuild: 'alpha-clean-1',
-  renderer: 'layout-preserving-editable-clone',
-  failures
-};
-
+const report = { gate: 'translateit-clean-contract', status: failures.length ? 'fail' : 'pass', manifestMain: manifest.main, npmStart: pkg.scripts ? pkg.scripts.start : null, engine: 'translateit-core', engineBuild: 'alpha-clean-1', renderer: 'layout-preserving-editable-clone', visualModel: 'screenshot-first-html-assisted', failures };
 console.log(JSON.stringify(report, null, 2));
 if (failures.length) process.exitCode = 2;
