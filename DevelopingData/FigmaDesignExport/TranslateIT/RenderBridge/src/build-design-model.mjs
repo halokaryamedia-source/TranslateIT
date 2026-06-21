@@ -124,6 +124,96 @@ function normalizeTextKey(value) {
   return clean(value).toLowerCase().replace(/[^a-z0-9\u00c0-\u024f]+/gi, ' ').trim();
 }
 
+function area(rect) {
+  return Math.max(1, (rect?.w || 0) * (rect?.h || 0));
+}
+
+function overlapArea(a, b) {
+  const x = Math.max(0, Math.min(a.x + a.w, b.x + b.w) - Math.max(a.x, b.x));
+  const y = Math.max(0, Math.min(a.y + a.h, b.y + b.h) - Math.max(a.y, b.y));
+  return x * y;
+}
+
+function overlapRatio(a, b) {
+  const overlap = overlapArea(a, b);
+  if (!overlap) return 0;
+  return overlap / Math.max(1, Math.min(area(a), area(b)));
+}
+
+function contains(parent, child, pad = 4) {
+  return child.x >= parent.x - pad && child.y >= parent.y - pad && child.x + child.w <= parent.x + parent.w + pad && child.y + child.h <= parent.y + parent.h + pad;
+}
+
+function textWeight(item) {
+  const roleScore = { title: 100, 'section-title': 85, subheading: 70, body: 55, button: 60, 'nav-item': 50, link: 45, label: 35, 'footer-link': 35, 'footer-text': 30 };
+  return (roleScore[item.role] || 20) + Math.min(50, item.text.length * 0.4) + Math.min(40, item.style.fontSize || 14) + (item.style.fontWeight >= 600 ? 15 : 0);
+}
+
+function resolveAggregateText(elements) {
+  const textItems = elements.filter((item) => item.type === 'text');
+  const remove = new Set();
+
+  for (const item of textItems) {
+    if (remove.has(item.id)) continue;
+    const key = normalizeTextKey(item.text);
+    if (!key || key.length < 4) {
+      remove.add(item.id);
+      continue;
+    }
+
+    const related = textItems.filter((other) => {
+      if (other.id === item.id || remove.has(other.id)) return false;
+      const otherKey = normalizeTextKey(other.text);
+      if (!otherKey || otherKey.length < 3) return false;
+      const relatedByText = key.includes(otherKey) || otherKey.includes(key);
+      const relatedBySpace = contains(item.rect, other.rect, 10) || contains(other.rect, item.rect, 10) || overlapRatio(item.rect, other.rect) > 0.55;
+      return relatedByText && relatedBySpace;
+    });
+
+    if (related.length < 1) continue;
+    const childLike = related.filter((other) => key.includes(normalizeTextKey(other.text)) && normalizeTextKey(other.text).length < key.length);
+    const peerTextCount = childLike.length;
+    const isCompositeTitle = ['title', 'section-title'].includes(item.role) && item.text.length <= 90 && peerTextCount >= 1;
+    const isAggregateNavigation = ['label', 'body', 'nav-item', 'footer-text'].includes(item.role) && peerTextCount >= 2;
+    const isLargeParent = area(item.rect) > 90000 && peerTextCount >= 1 && !isCompositeTitle;
+
+    if (isCompositeTitle) {
+      for (const child of childLike) {
+        if (!['button', 'nav-item', 'footer-link'].includes(child.role)) remove.add(child.id);
+      }
+      continue;
+    }
+
+    if (isAggregateNavigation || isLargeParent) {
+      remove.add(item.id);
+      continue;
+    }
+
+    for (const other of related) {
+      const otherKey = normalizeTextKey(other.text);
+      if (otherKey === key) {
+        const keep = textWeight(item) >= textWeight(other) ? item : other;
+        const drop = keep.id === item.id ? other : item;
+        remove.add(drop.id);
+      }
+    }
+  }
+
+  return elements.filter((item) => !remove.has(item.id));
+}
+
+function removeTextInsideImages(elements) {
+  const images = elements.filter((item) => item.type === 'image');
+  if (!images.length) return elements;
+  return elements.filter((item) => {
+    if (item.type !== 'text') return true;
+    const insideImage = images.find((image) => overlapRatio(item.rect, image.rect) > 0.72 || contains(image.rect, item.rect, 8));
+    if (!insideImage) return true;
+    if (['title', 'section-title', 'body'].includes(item.role) && (item.style.fontSize || 0) >= 18) return true;
+    return false;
+  });
+}
+
 function removeUnsafeTextLayers(elements, page) {
   const textItems = elements.filter((item) => item.type === 'text');
   const out = [];
@@ -136,7 +226,7 @@ function removeUnsafeTextLayers(elements, page) {
     const key = normalizeTextKey(item.text);
     if (!key) continue;
     if (seen.has(key)) continue;
-    const rectArea = Math.max(1, (item.rect?.w || 0) * (item.rect?.h || 0));
+    const rectArea = area(item.rect);
     const pageArea = Math.max(1, page.width * page.height);
     const childCount = item.source?.childElementCount || 0;
     const directText = clean(item.source?.directText);
@@ -146,7 +236,7 @@ function removeUnsafeTextLayers(elements, page) {
       if (other.id === item.id) return false;
       const otherKey = normalizeTextKey(other.text);
       if (!otherKey || otherKey.length < 3) return false;
-      const inside = other.rect.x >= item.rect.x - 4 && other.rect.y >= item.rect.y - 4 && other.rect.x + other.rect.w <= item.rect.x + item.rect.w + 4 && other.rect.y + other.rect.h <= item.rect.y + item.rect.h + 4;
+      const inside = contains(item.rect, other.rect, 8) || overlapRatio(item.rect, other.rect) > 0.6;
       return inside && key.includes(otherKey);
     });
     if ((looksLikeParent || tooLargeTextBox) && containsOtherText) continue;
@@ -219,7 +309,9 @@ export function buildDesignModel(layout) {
     background: '#FFFFFF'
   };
   const normalizedRaw = layout.elements.map((item) => normalizeElement(item, assets)).filter(Boolean);
-  const normalized = removeUnsafeTextLayers(normalizedRaw, page);
+  const unsafeFiltered = removeUnsafeTextLayers(normalizedRaw, page);
+  const aggregateFiltered = resolveAggregateText(unsafeFiltered);
+  const normalized = removeTextInsideImages(aggregateFiltered);
   const sections = layout.sections.map((section) => ({
     id: section.id,
     role: section.role,
@@ -244,7 +336,9 @@ export function buildDesignModel(layout) {
       imageElements: normalized.filter((item) => item.type === 'image').length,
       buttonElements: normalized.filter((item) => item.type === 'button').length,
       removedParentText: layout.stats.removedParentText || 0,
-      removedUnsafeText: normalizedRaw.length - normalized.length
+      removedUnsafeText: normalizedRaw.length - unsafeFiltered.length,
+      removedAggregateText: unsafeFiltered.length - aggregateFiltered.length,
+      removedImageOverlayText: aggregateFiltered.length - normalized.length
     }
   };
 
