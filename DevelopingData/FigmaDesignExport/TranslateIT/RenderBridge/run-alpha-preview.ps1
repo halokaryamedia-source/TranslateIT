@@ -14,10 +14,14 @@ Write-Host "URL: $Url"
 node --check "$Bridge\server.mjs"
 node --check "$Bridge\preview-alpha-design-clone.mjs"
 node --check "$Bridge\audit-alpha-template-safety.mjs"
+node --check "$Bridge\audit-alpha-quality-gate.mjs"
 
 Get-CimInstance Win32_Process -Filter "name='node.exe'" | Where-Object { $_.CommandLine -match "RenderBridge|server.mjs" } | ForEach-Object { Stop-Process -Id $_.ProcessId -Force }
 Start-Process powershell -WindowStyle Hidden -ArgumentList "-NoProfile -ExecutionPolicy Bypass -Command `"cd '$Bridge'; node server.mjs`""
 Start-Sleep 3
+
+Write-Host "`n=== Alpha Quality Gate ===" -ForegroundColor Cyan
+node "$Bridge\audit-alpha-quality-gate.mjs" $Url
 
 Write-Host "`n=== Alpha Template Safety Audit ===" -ForegroundColor Cyan
 node "$Bridge\audit-alpha-template-safety.mjs" $Url
