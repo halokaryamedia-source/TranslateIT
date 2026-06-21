@@ -1,6 +1,7 @@
 $ErrorActionPreference = "Stop"
 $Bridge = Split-Path -Parent $MyInvocation.MyCommand.Path
 $Url = if ($args.Count -gt 0) { $args[0] } else { "https://www.mivubi.com/" }
+$ExpectedBuild = "strict-v5.1-single-engine"
 
 Set-Location $Bridge
 Write-Host "=== TranslateIT Alpha V5 Strict Gate ===" -ForegroundColor Cyan
@@ -17,6 +18,12 @@ $Health = Invoke-RestMethod http://127.0.0.1:8844/health
 $Health | ConvertTo-Json -Depth 8
 if ((-not ($Health.adapter -match "v5")) -or (-not ($Health.adapter -match "enhanced"))) {
   throw "Bridge health is not strict V5 enhanced. Adapter: $($Health.adapter)"
+}
+if ($Health.strictV5Engine -ne $true) {
+  throw "Bridge health is missing strictV5Engine marker."
+}
+if ($Health.engineBuild -ne $ExpectedBuild) {
+  throw "Unexpected engine build: $($Health.engineBuild). Expected: $ExpectedBuild"
 }
 if ($Health.publicVersion -ne "Version 0.1 - Alpha") {
   throw "Unexpected public version: $($Health.publicVersion)"
