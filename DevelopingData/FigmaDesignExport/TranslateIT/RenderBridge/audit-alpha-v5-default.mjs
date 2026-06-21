@@ -9,7 +9,8 @@ const renderer = fs.readFileSync(path.join(pluginRoot, 'code.v5.strict.js'), 'ut
 
 const failures = [];
 if (manifest.main !== 'code.v5.strict.js') failures.push('manifest main is not code.v5.strict.js');
-if (!ui.includes('V5 source-inspired structured clone')) failures.push('ui does not mention V5 structured clone');
+if (!ui.includes('strict V5 source-inspired structured clone')) failures.push('ui does not mention strict V5 structured clone');
+if (!ui.includes('diagnostics.v5Enhanced')) failures.push('ui does not require V5 enhanced payload');
 if (!ui.includes('Wrong bridge payload')) failures.push('ui does not block older bridge payloads');
 if (!renderer.includes('translateit-alpha-v5-strict-source-inspired-renderer')) failures.push('renderer id is not strict V5');
 if (!renderer.includes('Source-Inspired Editable Clone')) failures.push('V5 main frame name is missing');
