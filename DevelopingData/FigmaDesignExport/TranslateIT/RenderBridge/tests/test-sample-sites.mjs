@@ -13,6 +13,7 @@ const health = await readJson(await fetch(`${bridge}/health`));
 if (health.engine !== 'translateit-core') throw new Error(`Wrong engine: ${health.engine || 'missing'}`);
 if (health.engineBuild !== 'alpha-clean-1') throw new Error(`Wrong engine build: ${health.engineBuild || 'missing'}`);
 if (health.legacyActive !== false) throw new Error('legacyActive must be false');
+if (health.contract !== 'designModel+renderPlan') throw new Error(`Wrong contract: ${health.contract || 'missing'}`);
 
 const report = await readJson(await fetch(`${bridge}/audit?url=${encodeURIComponent(target)}`));
 console.log(JSON.stringify({
@@ -30,6 +31,7 @@ console.log(JSON.stringify({
   sectionScore: report.audit?.sectionScore,
   layerCleanlinessScore: report.audit?.layerCleanlinessScore,
   metrics: report.audit?.metrics,
+  renderPlan: report.diagnostics?.renderPlan || null,
   reportPath: report.reportPath,
   failures: report.audit?.failures || [],
   warnings: report.audit?.warnings || []
