@@ -18,6 +18,9 @@ const usefulImages = images.filter((x) => x.rect && x.rect.w * x.rect.h >= 8000)
 const failures = [];
 if (payload.publicVersion !== 'Version 0.1 - Alpha') failures.push('wrong public version');
 if (!String(payload.adapter || '').includes('structured')) failures.push('adapter is not structured');
+if (!String(payload.adapter || '').includes('v5')) failures.push('adapter is not V5 enhanced');
+if (!payload.diagnostics?.v5Enhanced) failures.push('v5 enhanced marker missing');
+if (layout.visualProfile?.template !== 'source-inspired-editorial') failures.push('visual profile missing');
 if (!layout.type) failures.push('layout type missing');
 if (heroHeading.length < 8) failures.push('weak hero heading');
 if (heroBody.length < 24) failures.push('weak hero body');
@@ -29,13 +32,15 @@ if (cards.length < 2) failures.push('weak cards');
 if (usefulCards < 2) failures.push('weak useful cards');
 if (footer.length < 3) failures.push('weak footer links');
 
-const total = 12;
+const total = 15;
 const passed = total - failures.length;
 const report = {
   gate: 'alpha-v5-strict-model',
   status: failures.length ? 'fail' : 'pass',
   score: Math.round((passed / total) * 100),
   adapter: payload.adapter,
+  v5Enhanced: !!payload.diagnostics?.v5Enhanced,
+  visualProfile: layout.visualProfile || null,
   heroHeading,
   heroBodyLength: heroBody.length,
   navLinks: nav.length,
