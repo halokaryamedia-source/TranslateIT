@@ -59,6 +59,7 @@ try {
 
   npm.cmd run test:imports
   npm.cmd run test:contract
+  npm.cmd run test:v2
   node .\tests\test-sample-sites.mjs $TargetUrl
   npm.cmd run test:regression
 
