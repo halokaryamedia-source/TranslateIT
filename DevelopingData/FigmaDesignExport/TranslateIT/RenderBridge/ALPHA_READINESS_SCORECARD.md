@@ -3,26 +3,28 @@
 ## Current honest score
 
 ```txt
-Overall: 7.1 / 10
+Overall: 7.6 / 10
 ```
 
 ## Breakdown
 
 ```txt
-Architecture / direction:            7.8 / 10
-RenderBridge extraction:             7.1 / 10
-Semantic rebuild blueprint:          7.4 / 10
-Token system:                        7.1 / 10
-Component blueprint system:          7.2 / 10
-UI Library structure:                7.0 / 10
-Editable draft structure:            7.1 / 10
-Audit / quality gate tooling:        7.5 / 10
-Actual Figma visual confidence:      5.8 / 10
+Architecture / direction:            7.9 / 10
+RenderBridge extraction:             7.2 / 10
+Semantic rebuild blueprint:          7.5 / 10
+Design profile gate:                 7.6 / 10
+Token system:                        7.2 / 10
+Component blueprint system:          7.3 / 10
+UI Library structure:                7.3 / 10
+Editable draft structure:            7.3 / 10
+Audit / quality gate tooling:        7.8 / 10
+Multi-site preflight coverage:       7.5 / 10
+Actual Figma visual confidence:      6.0 / 10
 ```
 
 ## What improved
 
-The Alpha pipeline now includes a semantic professional blueprint layer:
+The Alpha pipeline now includes a semantic professional blueprint layer and a Design Profile Gate:
 
 ```txt
 priorityText
@@ -32,9 +34,15 @@ density
 overflowRisk
 componentBlueprints
 qualityHints
+design tone
+palette role
+layout strategy
+density strategy
+component strategy
+content strategy
 ```
 
-This makes the editable draft less dependent on raw extracted text/layers and more structured for professional reconstruction.
+This makes the editable draft less dependent on raw extracted text/layers and gives the system clearer design direction before Figma validation.
 
 ## Why not higher
 
@@ -52,17 +60,17 @@ Main risks:
 
 ```txt
 Version: 0.1 - Alpha
-Status: stronger Alpha foundation
+Status: strong pre-Figma Alpha foundation
 Release-ready: no
-Professional-ready: no
+Professional-ready: not yet
 9+ target-ready: no, not before Figma validation
 ```
 
 ## Next target
 
 ```txt
-Target before Figma validation: 7.3 - 7.5 / 10
-Target after successful Figma validation: 7.8+ / 10
+Target before Figma validation: 7.7 - 7.8 / 10
+Target after successful Figma validation: 8.0+ / 10
 9+ target: only after repeated visual validation and fixes
 ```
 
@@ -70,6 +78,6 @@ Target after successful Figma validation: 7.8+ / 10
 
 1. Improve plugin visual layout polish using semantic blueprints.
 2. Strengthen UI Library section/card hierarchy.
-3. Ensure all audits understand semantic blueprint contract.
+3. Ensure all audits understand semantic blueprint and design profile contract.
 4. Keep public version locked to Version 0.1 - Alpha.
 5. Prepare final Figma validation checklist.
