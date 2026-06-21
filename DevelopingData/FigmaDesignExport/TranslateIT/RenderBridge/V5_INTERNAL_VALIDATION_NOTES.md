@@ -58,6 +58,28 @@ adapter: translateit-alpha-v4-fixed-structured-site-model
 
 The plugin UI now rejects older payloads without `structuredLayout`.
 
+## Internal gates before another visual test
+
+Run these gates before asking for another Figma screenshot:
+
+```txt
+node audit-alpha-v5-default.mjs
+node audit-alpha-v4-media.mjs https://www.mivubi.com/
+```
+
+Required pass criteria:
+
+```txt
+manifest.json -> code.v5.js
+ui.html mentions V5 structured clone
+ui.html blocks wrong bridge payload
+renderer id is V5
+main frame name is Source-Inspired Editable Clone
+bridge media audit passes
+capturedImages >= 2
+payload has structuredLayout
+```
+
 ## No-test rule until internal readiness
 
 Do not ask for repeated visual testing unless these are true:
