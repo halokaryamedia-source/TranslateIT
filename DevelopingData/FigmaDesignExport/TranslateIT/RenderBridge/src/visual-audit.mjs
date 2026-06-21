@@ -47,14 +47,19 @@ function auditOverlaps(model) {
 function auditImages(model) {
   const images = model.elements.filter((item) => item.type === 'image');
   const issues = [];
+  const warnings = [];
+  const pageHeight = Math.max(1, model.page?.height || 1600);
+  const pageWidth = Math.max(1, model.page?.width || 1440);
   for (const image of images) {
     const r = image.rect || {};
+    const aspect = r.w > 0 ? r.h / r.w : 1;
     if (r.w < 48 || r.h < 48) issues.push(`${image.name}: too small`);
-    if (r.w > model.page.width * 0.95) issues.push(`${image.name}: too wide`);
-    if (r.h > model.page.height * 0.55) issues.push(`${image.name}: too tall`);
+    if (r.w > pageWidth * 0.95) issues.push(`${image.name}: too wide`);
+    if (r.h > pageHeight * 0.72 && aspect < 1.7) issues.push(`${image.name}: too tall for non-portrait layout`);
+    if (r.h > pageHeight * 0.55 && aspect >= 1.7) warnings.push(`${image.name}: tall portrait image`);
     if (!image.assetId) issues.push(`${image.name}: missing captured asset`);
   }
-  return { issues, score: images.length ? scoreFromFailures(issues.length, Math.max(3, images.length * 2), 35) : 70 };
+  return { issues, warnings, score: images.length ? scoreFromFailures(issues.length, Math.max(3, images.length * 2), 45) : 70 };
 }
 
 function auditText(model) {
@@ -140,6 +145,7 @@ export function visualAudit(payload) {
   if (weighted < 78) warnings.push('visual quality is below preferred target');
   if (text.duplicateGroups > 0) warnings.push('duplicate text groups detected');
   if (image.issues.length) warnings.push('some images need cleanup');
+  warnings.push(...image.warnings);
 
   return {
     visualReadiness: failures.length ? 'fail' : 'pass',
