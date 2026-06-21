@@ -1,20 +1,39 @@
-# TranslateIT V11 Versioning Policy
+# TranslateIT Versioning Policy
 
-## Rule
+## Current public version
+
+```txt
+Version 0.1 - Alpha
+```
+
+This version label is locked during active development.
 
 Do not change the public version label for every small patch.
 
-During active development, keep the work under one stable development label:
+## Rule
+
+All current Design Clone development must stay under:
 
 ```txt
-V11 Design Clone Dev Build
+Version 0.1 - Alpha
 ```
 
-Only create a new release version when the build is actually ready.
+Do not introduce labels like:
+
+```txt
+V11.4
+V11.5
+V11.6
+0.1.1
+0.1.2
+0.1.3
+```
+
+Small improvements should be treated as internal Alpha improvements, not public version changes.
 
 ## Why
 
-Frequent small version bumps create extra work:
+Frequent version bumps create extra work:
 
 - bridge mode needs updating
 - plugin UI text needs updating
@@ -25,23 +44,24 @@ Frequent small version bumps create extra work:
 
 This slows development and makes tracking harder.
 
-## Allowed during development
+## Allowed during Alpha development
 
-Small changes should be described as internal improvements, not public versions.
+Small changes should be described as internal improvements under the same version.
 
-Examples:
+Example:
 
 ```txt
-V11 Design Clone Dev Build
+Version 0.1 - Alpha
 - improved template intent handling
 - added radius tokens
 - improved UI Library grouping
 - improved editable draft safety
+- improved audit honesty
 ```
 
 ## When a new version is allowed
 
-A new release version may be created only when all of these are true:
+A new public version may be created only when all of these are true:
 
 - bridge contract is stable
 - plugin renderer is stable
@@ -54,12 +74,10 @@ A new release version may be created only when all of these are true:
 
 ## Current policy
 
-Do not introduce V11.4, V11.5, V11.6, etc. for small changes.
-
 Keep the current development work under:
 
 ```txt
-V11 Design Clone Dev Build
+Version 0.1 - Alpha
 ```
 
 The next public version label should only be assigned after the design clone output is genuinely ready.
