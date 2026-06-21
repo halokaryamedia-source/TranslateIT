@@ -2,26 +2,12 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { chromium } from 'playwright';
 
-function clean(value) {
-  return String(value || '').replace(/\s+/g, ' ').trim();
-}
-
-function esc(value) {
-  return String(value || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
-}
-
-function px(value) {
-  return `${Math.round(Number(value) || 0)}px`;
-}
-
-function safeColor(value, fallback) {
-  const raw = String(value || '').trim();
-  return /^#[0-9a-fA-F]{6}$/.test(raw) ? raw : fallback;
-}
-
-function assetById(assets, id) {
-  return (assets || []).find((asset) => asset.id === id) || null;
-}
+function clean(value) { return String(value || '').replace(/\s+/g, ' ').trim(); }
+function esc(value) { return String(value || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;'); }
+function px(value) { return `${Math.round(Number(value) || 0)}px`; }
+function safeColor(value, fallback) { const raw = String(value || '').trim(); return /^#[0-9a-fA-F]{6}$/.test(raw) ? raw : fallback; }
+function assetById(assets, id) { return (assets || []).find((asset) => asset.id === id) || null; }
+function imageFitCss(layer) { const fit = layer.imageFit || layer.layout || {}; const objectFit = String(fit.objectFit || 'cover').trim() || 'cover'; const objectPosition = String(fit.objectPosition || '50% 50%').trim() || '50% 50%'; return `object-fit:${esc(objectFit)};object-position:${esc(objectPosition)}`; }
 
 function layerCss(layer) {
   const r = layer.rect || {};
@@ -40,7 +26,7 @@ function layerHtml(layer, assets) {
   if (layer.type === 'shape') return `<div data-layer="${esc(layer.id)}" style="${layerCss(layer)};background:${safeColor(s.backgroundColor, '#FFFFFF')}"></div>`;
   if (layer.type === 'image') {
     const asset = assetById(assets, layer.assetId);
-    if (asset && asset.base64) return `<img data-layer="${esc(layer.id)}" src="data:${asset.contentType || 'image/png'};base64,${asset.base64}" style="${layerCss(layer)};object-fit:cover;display:block" />`;
+    if (asset && asset.base64) return `<img data-layer="${esc(layer.id)}" src="data:${asset.contentType || 'image/png'};base64,${asset.base64}" style="${layerCss(layer)};${imageFitCss(layer)};display:block" />`;
     return `<div data-layer="${esc(layer.id)}" style="${layerCss(layer)};background:#E5E7EB"></div>`;
   }
   if (layer.type === 'button') return `<div data-layer="${esc(layer.id)}" style="${layerCss(layer)};background:${safeColor(s.backgroundColor, '#111827')};display:flex;align-items:center;justify-content:center;color:${safeColor(s.color, '#FFFFFF')};font-size:${px(s.fontSize || 14)};font-weight:${Number(s.fontWeight || 700)};font-family:${esc(s.fontFamily || 'Inter')}, Arial, sans-serif">${esc(layer.text)}</div>`;
@@ -65,6 +51,7 @@ export function previewMetrics(payload) {
   const semanticLayers = layers.filter((layer) => ['text', 'image', 'button'].includes(layer.type));
   const matched = semanticLayers.filter((layer) => layer.visualMatch).length;
   const editable = layers.filter((layer) => layer.editable !== false).length;
+  const fitLayers = layers.filter((layer) => layer.type === 'image' && layer.imageFit).length;
   const matchRate = Number(match.matchRate || (semanticLayers.length ? matched / semanticLayers.length : 0));
   const confidence = Number(match.averageConfidence || diagnostics.visualMatchConfidence || 0);
   const visualBlockCount = Number(visual.blocks || diagnostics.visualBlocks || 0);
@@ -75,9 +62,10 @@ export function previewMetrics(payload) {
   const geometryScore = Math.round(Math.min(100, Math.max(0, matchRate * 72 + confidence * 28)));
   const sourceCoverageScore = Math.round(Math.min(100, Math.max(0, sourceCoverage * 100)));
   const editableLayerScore = Math.round(layers.length ? editable / layers.length * 100 : 0);
+  const imageFitScore = Math.round(layers.filter((layer) => layer.type === 'image').length ? fitLayers / layers.filter((layer) => layer.type === 'image').length * 100 : 100);
   const fabricatedLayoutRisk = matchRate < 0.45 || confidence < 0.52 ? 'high' : matchRate < 0.65 ? 'medium' : 'low';
-  const visualSimilarityScore = Math.round(geometryScore * 0.55 + sourceCoverageScore * 0.25 + editableLayerScore * 0.2);
-  return { visualSimilarityScore, geometryPreservationScore: geometryScore, sourceCoverageScore, rawLayerCoverageScore: Math.round(rawLayerCoverage * 100), confidenceCoverageScore: Math.round(confidenceCoverage * 100), visualCoverageScore: Math.round(visualCoverageRatio * 100), editableLayerScore, fabricatedLayoutRisk, visualMatchRate: Number(matchRate.toFixed(3)), visualMatchConfidence: Number(confidence.toFixed(2)) };
+  const visualSimilarityScore = Math.round(geometryScore * 0.5 + sourceCoverageScore * 0.22 + editableLayerScore * 0.18 + imageFitScore * 0.1);
+  return { visualSimilarityScore, geometryPreservationScore: geometryScore, sourceCoverageScore, rawLayerCoverageScore: Math.round(rawLayerCoverage * 100), confidenceCoverageScore: Math.round(confidenceCoverage * 100), visualCoverageScore: Math.round(visualCoverageRatio * 100), editableLayerScore, imageFitScore, fabricatedLayoutRisk, visualMatchRate: Number(matchRate.toFixed(3)), visualMatchConfidence: Number(confidence.toFixed(2)) };
 }
 
 export async function renderClonePreview(payload, reportDir) {
