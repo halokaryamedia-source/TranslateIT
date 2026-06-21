@@ -8,6 +8,7 @@ const manifest = JSON.parse(fs.readFileSync(path.join(pluginRoot, 'manifest.json
 const pkg = JSON.parse(fs.readFileSync(path.join(root, 'package.json'), 'utf8'));
 const server = fs.readFileSync(path.join(root, 'server.mjs'), 'utf8');
 const contract = fs.readFileSync(path.join(root, 'src', 'shared-contract.mjs'), 'utf8');
+const capture = fs.readFileSync(path.join(root, 'src', 'capture-site.mjs'), 'utf8');
 const visualModel = fs.readFileSync(path.join(root, 'src', 'build-visual-model.mjs'), 'utf8');
 const payloadBuilder = fs.readFileSync(path.join(root, 'src', 'build-payload.mjs'), 'utf8');
 const designBuilder = fs.readFileSync(path.join(root, 'src', 'build-design-model.mjs'), 'utf8');
@@ -28,12 +29,12 @@ if (manifest.main !== 'code.js') failures.push('manifest must use code.js');
 if (manifest.ui !== 'ui.html') failures.push('manifest must use ui.html');
 if (pkg.scripts?.start !== 'node server.mjs') failures.push('npm start must use server.mjs');
 
-for (const pair of [['server', server], ['contract', contract], ['visualModel', visualModel], ['payloadBuilder', payloadBuilder], ['designBuilder', designBuilder], ['lineReconstruction', lineReconstruction], ['heroGuard', heroGuard], ['cloneBuilder', cloneBuilder], ['health', health], ['routes', routes], ['matcher', matcher], ['preview', preview], ['comparison', comparison], ['runner', runner], ['ui', ui], ['renderer', renderer]]) {
+for (const pair of [['server', server], ['contract', contract], ['capture', capture], ['visualModel', visualModel], ['payloadBuilder', payloadBuilder], ['designBuilder', designBuilder], ['lineReconstruction', lineReconstruction], ['heroGuard', heroGuard], ['cloneBuilder', cloneBuilder], ['health', health], ['routes', routes], ['matcher', matcher], ['preview', preview], ['comparison', comparison], ['runner', runner], ['ui', ui], ['renderer', renderer]]) {
   const name = pair[0];
   const text = pair[1];
-  if (!text.includes('translateit-core') && !['visualModel','payloadBuilder','designBuilder','lineReconstruction','heroGuard','cloneBuilder','health','routes','matcher','preview','comparison','runner'].includes(name)) failures.push(`${name} missing clean engine marker`);
-  if (!text.includes('alpha-clean-1') && !['visualModel','payloadBuilder','designBuilder','lineReconstruction','heroGuard','cloneBuilder','health','routes','matcher','preview','comparison','runner'].includes(name)) failures.push(`${name} missing clean build marker`);
-  if (!text.includes('Version 0.1 - Alpha') && !['visualModel','payloadBuilder','designBuilder','lineReconstruction','heroGuard','cloneBuilder','health','routes','matcher','preview','comparison','runner'].includes(name)) failures.push(`${name} missing public version marker`);
+  if (!text.includes('translateit-core') && !['capture','visualModel','payloadBuilder','designBuilder','lineReconstruction','heroGuard','cloneBuilder','health','routes','matcher','preview','comparison','runner'].includes(name)) failures.push(`${name} missing clean engine marker`);
+  if (!text.includes('alpha-clean-1') && !['capture','visualModel','payloadBuilder','designBuilder','lineReconstruction','heroGuard','cloneBuilder','health','routes','matcher','preview','comparison','runner'].includes(name)) failures.push(`${name} missing clean build marker`);
+  if (!text.includes('Version 0.1 - Alpha') && !['capture','visualModel','payloadBuilder','designBuilder','lineReconstruction','heroGuard','cloneBuilder','health','routes','matcher','preview','comparison','runner'].includes(name)) failures.push(`${name} missing public version marker`);
 }
 
 if (!server.includes('healthStatus')) failures.push('server must use healthStatus');
@@ -41,10 +42,15 @@ if (!server.includes('handleRender')) failures.push('server must use handleRende
 if (!server.includes('handleAudit')) failures.push('server must use handleAudit');
 if (server.includes('function buildCloneModel')) failures.push('server still contains clone model builder');
 if (server.includes('function buildPayload')) failures.push('server still contains payload builder');
+if (!capture.includes('objectFit')) failures.push('capture missing objectFit metadata');
+if (!capture.includes('objectPosition')) failures.push('capture missing objectPosition metadata');
+if (!capture.includes('naturalWidth')) failures.push('capture missing natural image width metadata');
 if (!visualModel.includes('coverageRatio')) failures.push('visual model missing coverageRatio');
 if (!visualModel.includes('confidenceReason')) failures.push('visual model missing confidenceReason');
 if (!visualModel.includes('importantBlocks')) failures.push('visual model missing importantBlocks diagnostics');
 if (!designBuilder.includes('cssStackingPreserved')) failures.push('design builder missing CSS stacking preservation marker');
+if (!designBuilder.includes('imageFitPreserved')) failures.push('design builder missing image fit preservation marker');
+if (!designBuilder.includes('imageFitOf')) failures.push('design builder missing imageFitOf');
 if (!lineReconstruction.includes('reconstructTextLines')) failures.push('line reconstruction missing reconstructTextLines');
 if (!lineReconstruction.includes('line-aware-headline-reconstruction')) failures.push('line reconstruction missing source reason marker');
 if (!payloadBuilder.includes('buildVisualModel')) failures.push('payload builder missing buildVisualModel');
@@ -60,6 +66,8 @@ if (!cloneBuilder.includes('paintOrderOf')) failures.push('clone builder missing
 if (!cloneBuilder.includes('dom-paint-order-preserved')) failures.push('clone builder missing DOM paint order marker');
 if (!cloneBuilder.includes('sectionSurfaceColor')) failures.push('clone builder missing source-derived section surface');
 if (!cloneBuilder.includes('sectionSurface: \'source-derived\'')) failures.push('clone builder missing section surface diagnostic');
+if (!cloneBuilder.includes('source-object-fit-preserved')) failures.push('clone builder missing image fit diagnostic');
+if (!cloneBuilder.includes('imageFitLayerCount')) failures.push('clone builder missing image fit layer count');
 if (!health.includes('visualComparison')) failures.push('health status missing visualComparison marker');
 if (!routes.includes('runCloneAudit')) failures.push('routes missing runCloneAudit');
 if (!routes.includes('translateit-clean-latest.json')) failures.push('routes missing report writer');
@@ -68,6 +76,8 @@ if (!matcher.includes('dom-rect-visual-verified')) failures.push('matcher missin
 if (!preview.includes('translateit-clone-preview-latest.png')) failures.push('preview renderer does not write PNG preview');
 if (!preview.includes('visualSimilarityScore')) failures.push('preview renderer missing visual similarity metric');
 if (!preview.includes('visualCoverageScore')) failures.push('preview renderer missing visual coverage score');
+if (!preview.includes('imageFitCss')) failures.push('preview renderer missing image fit CSS');
+if (!preview.includes('imageFitScore')) failures.push('preview metrics missing image fit score');
 if (!comparison.includes('compareSourceAndClonePreview')) failures.push('comparison module missing compareSourceAndClonePreview');
 if (!comparison.includes('averagePixelDifference')) failures.push('comparison module missing pixel difference metric');
 if (!runner.includes('compareSourceAndClonePreview')) failures.push('audit runner does not call source/clone comparison');
@@ -81,6 +91,8 @@ if (!contract.includes('layout-preserving-editable-clone')) failures.push('contr
 if (!renderer.includes('cloneModel missing')) failures.push('plugin does not reject missing cloneModel');
 if (!renderer.includes('Renderer: layout-preserving editable clone')) failures.push('plugin does not report clone renderer');
 if (!renderer.includes('PaintOrder: source DOM')) failures.push('plugin does not report source paint order');
+if (!renderer.includes('ImageFit: source object-fit')) failures.push('plugin does not report source image fit');
+if (!renderer.includes('fitMode')) failures.push('plugin renderer missing image fit mode');
 if (renderer.includes('var o={shape:0,image:1,text:2,button:3}')) failures.push('plugin still uses type-based order fallback');
 if (renderer.includes('renderHeader')) failures.push('renderer still contains template header renderer');
 if (renderer.includes('renderHero')) failures.push('renderer still contains template hero renderer');
@@ -89,6 +101,6 @@ if (renderer.includes('renderFooter')) failures.push('renderer still contains te
 if (renderer.includes('?.')) failures.push('plugin/code.js uses optional chaining');
 if (renderer.includes('??')) failures.push('plugin/code.js uses nullish coalescing');
 
-const report = { gate: 'translateit-clean-contract', status: failures.length ? 'fail' : 'pass', manifestMain: manifest.main, npmStart: pkg.scripts ? pkg.scripts.start : null, engine: 'translateit-core', engineBuild: 'alpha-clean-1', renderer: 'layout-preserving-editable-clone', modularPipeline: true, visualModel: 'screenshot-first-html-assisted-v2', textLineReconstruction: true, heroOcclusionGuard: true, sectionSurface: 'source-derived', visualMatching: 'dom-to-visual-foundation', paintOrder: 'dom-paint-order-preserved', clonePreview: 'html-png-preview-foundation', visualComparison: 'source-vs-clone-preview-sampling', failures };
+const report = { gate: 'translateit-clean-contract', status: failures.length ? 'fail' : 'pass', manifestMain: manifest.main, npmStart: pkg.scripts ? pkg.scripts.start : null, engine: 'translateit-core', engineBuild: 'alpha-clean-1', renderer: 'layout-preserving-editable-clone', modularPipeline: true, visualModel: 'screenshot-first-html-assisted-v2', textLineReconstruction: true, heroOcclusionGuard: true, sectionSurface: 'source-derived', imageFit: 'source-object-fit-preserved', visualMatching: 'dom-to-visual-foundation', paintOrder: 'dom-paint-order-preserved', clonePreview: 'html-png-preview-foundation', visualComparison: 'source-vs-clone-preview-sampling', failures };
 console.log(JSON.stringify(report, null, 2));
 if (failures.length) process.exitCode = 2;
