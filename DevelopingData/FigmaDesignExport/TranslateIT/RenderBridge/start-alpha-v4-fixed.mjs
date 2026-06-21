@@ -5,6 +5,7 @@ import { pathToFileURL, fileURLToPath } from 'node:url';
 const here = path.dirname(fileURLToPath(import.meta.url));
 const sourcePath = path.join(here, 'server.alpha.v4.structured.mjs');
 const generatedPath = path.join(here, 'server.alpha.v4.fixed.generated.mjs');
+const ENGINE_BUILD = 'strict-v5.1-single-engine';
 
 let source = fs.readFileSync(sourcePath, 'utf8');
 
@@ -30,7 +31,7 @@ source = source.replace(
 
 source = source.replace(
   "adapter: 'alpha-v4-structured-site-model'",
-  "adapter: 'alpha-v5-enhanced-structured-site-model'"
+  "adapter: 'alpha-v5-enhanced-structured-site-model', strictV5Engine: true, engineBuild: 'strict-v5.1-single-engine'"
 );
 
 source = source.replace(
@@ -54,9 +55,13 @@ function enhanceV5Payload(payload) {
   if (cards.length < 2) {
     images.slice(0, 3).forEach((image, index) => cards.push({ title: image.alt || ('Visual Story ' + (index + 1)), body: hero.body, imageIndex: image.selectorIndex, imageAlt: image.alt || 'Image' }));
   }
+  payload.strictV5Engine = true;
+  payload.engineBuild = '${ENGINE_BUILD}';
   payload.structuredLayout.visualProfile = { template: 'source-inspired-editorial', palette: 'yellow-green-white', composition: 'left-copy-right-media-footer-strip' };
   payload.diagnostics = payload.diagnostics || {};
   payload.diagnostics.v5Enhanced = true;
+  payload.diagnostics.strictV5Engine = true;
+  payload.diagnostics.engineBuild = '${ENGINE_BUILD}';
   payload.diagnostics.capturedImageCount = images.filter((image) => image.image && image.image.base64).length;
   payload.outputRules = ['01 Source-Inspired Editable Clone / Main Output', '02 Screenshot Reference / Pure Source', 'No raw layer dump.'];
   return payload;
