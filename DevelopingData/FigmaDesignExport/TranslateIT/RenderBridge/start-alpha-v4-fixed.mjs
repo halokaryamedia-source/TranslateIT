@@ -25,19 +25,50 @@ source = source.replace(
 
 source = source.replace(
   "adapter: 'translateit-alpha-v4-structured-site-model'",
-  "adapter: 'translateit-alpha-v4-fixed-structured-site-model'"
+  "adapter: 'translateit-alpha-v5-enhanced-structured-site-model'"
 );
 
 source = source.replace(
   "adapter: 'alpha-v4-structured-site-model'",
-  "adapter: 'alpha-v4-fixed-structured-site-model'"
+  "adapter: 'alpha-v5-enhanced-structured-site-model'"
 );
 
 source = source.replace(
   "Alpha V4 Structured Bridge running",
-  "Alpha V4 Fixed Structured Bridge running"
+  "Alpha V5 Enhanced Structured Bridge running"
+);
+
+const enhancer = `
+function enhanceV5Payload(payload) {
+  const layout = payload.structuredLayout || {};
+  const header = layout.header || (layout.header = {});
+  const hero = layout.hero || (layout.hero = {});
+  const footer = layout.footer || (layout.footer = {});
+  const images = Array.isArray(layout.images) ? layout.images : (layout.images = []);
+  const cards = Array.isArray(layout.cards) ? layout.cards : (layout.cards = []);
+  header.logoText = clean(header.logoText || payload.title || 'Mivubi');
+  header.navLinks = unique(header.navLinks && header.navLinks.length ? header.navLinks : ['Home','About','Works','Program','Contact'], 7);
+  footer.links = unique(footer.links && footer.links.length ? footer.links : header.navLinks, 12);
+  if (!hero.heading || hero.heading.length < 8) hero.heading = payload.title || 'Unlocking Potential Through Cultural Games.';
+  if (!hero.body || hero.body.length < 24) hero.body = footer.text || 'A specialized project team exploring education, art, and culture through interactive digital experiences.';
+  if (cards.length < 2) {
+    images.slice(0, 3).forEach((image, index) => cards.push({ title: image.alt || ('Visual Story ' + (index + 1)), body: hero.body, imageIndex: image.selectorIndex, imageAlt: image.alt || 'Image' }));
+  }
+  payload.structuredLayout.visualProfile = { template: 'source-inspired-editorial', palette: 'yellow-green-white', composition: 'left-copy-right-media-footer-strip' };
+  payload.diagnostics = payload.diagnostics || {};
+  payload.diagnostics.v5Enhanced = true;
+  payload.diagnostics.capturedImageCount = images.filter((image) => image.image && image.image.base64).length;
+  payload.outputRules = ['01 Source-Inspired Editable Clone / Main Output', '02 Screenshot Reference / Pure Source', 'No raw layer dump.'];
+  return payload;
+}
+`;
+
+source = source.replace('\nasync function compile(target) {', enhancer + '\nasync function compile(target) {');
+source = source.replace(
+  'return buildPayload(model, screenshot);',
+  'return enhanceV5Payload(buildPayload(model, screenshot));'
 );
 
 fs.writeFileSync(generatedPath, source, 'utf8');
-console.log('Generated Alpha V4 fixed server:', generatedPath);
+console.log('Generated Alpha V5 enhanced structured server:', generatedPath);
 await import(pathToFileURL(generatedPath).href);
