@@ -6,7 +6,7 @@ const PORT = Number(process.env.TRANSLATEIT_RENDER_PORT || 8844);
 const IDLE_EXIT_MS = Number(process.env.TRANSLATEIT_RENDER_IDLE_EXIT_MS || 180000);
 const VIEWPORT = { width: 1440, height: 1600 };
 const MAX_LAYERS = 900;
-const MODE = 'universal-page-adapter-v9';
+const MODE = 'universal-page-adapter-v11-design-clone';
 
 let idleTimer = null;
 let activeJobs = 0;
@@ -47,8 +47,28 @@ async function getBrowser() {
   return browserPromise;
 }
 
+function clean(value) {
+  return String(value || '').replace(/\s+/g, ' ').trim();
+}
+
+function key(value) {
+  return clean(value).toLowerCase();
+}
+
+function unique(items, fn, limit) {
+  const seen = new Set();
+  const out = [];
+  for (const item of items || []) {
+    const k = fn(item);
+    if (!k || seen.has(k) || (limit && out.length >= limit)) continue;
+    seen.add(k);
+    out.push(item);
+  }
+  return out;
+}
+
 function union(rects) {
-  const safe = rects.filter(Boolean).filter((r) => r.w > 0 && r.h > 0);
+  const safe = (rects || []).filter(Boolean).filter((r) => r.w > 0 && r.h > 0);
   if (!safe.length) return { x: 0, y: 0, w: 1, h: 1 };
   const x = Math.min(...safe.map((r) => r.x));
   const y = Math.min(...safe.map((r) => r.y));
@@ -90,13 +110,13 @@ function buildComponents(section) {
     if (used.has(candidate.id)) return;
     const zone = expand(candidate.rect, candidate.type === 'image' ? 72 : 42);
     const members = layers.filter((layer) => !used.has(layer.id) && overlaps(zone, layer.rect));
-    if (members.length < 1) return;
+    if (!members.length) return;
     members.forEach((layer) => used.add(layer.id));
     components.push({
       id: `component-${components.length + 1}`,
       role: 'component',
       name: componentName(members, components.length),
-      rect: expand(union(members.map((l) => l.rect)), 8),
+      rect: expand(union(members.map((layer) => layer.rect)), 8),
       layers: members.sort((a, b) => a.order - b.order)
     });
   });
@@ -116,7 +136,8 @@ function clusterSections(layers, viewport, pageHeight) {
     let current = sections[sections.length - 1];
     const currentBottom = current ? current.rect.y + current.rect.h : 0;
     const gap = current ? layer.rect.y - currentBottom : 9999;
-    if (!current || gap > 150 || layer.role === 'section' || layer.role === 'footer') {
+    const forcedSection = layer.role === 'section' || layer.role === 'footer' || layer.role === 'navigation';
+    if (!current || gap > 150 || (forcedSection && current.layers.length > 4)) {
       current = { id: `section-${sections.length + 1}`, role: layer.role === 'footer' ? 'footer' : layer.role === 'navigation' && !sections.length ? 'header' : 'section', layers: [] };
       sections.push(current);
     }
@@ -139,13 +160,66 @@ function clusterSections(layers, viewport, pageHeight) {
     buildComponents(section);
   });
 
-  return sections.length ? sections : [buildComponents({
-    id: 'section-1',
-    role: 'section',
-    name: 'Section 01',
-    rect: { x: 0, y: 0, w: viewport.width, h: pageHeight || viewport.height },
-    layers
-  })];
+  return sections.length ? sections : [buildComponents({ id: 'section-1', role: 'section', name: 'Section 01', rect: { x: 0, y: 0, w: viewport.width, h: pageHeight || viewport.height }, layers })];
+}
+
+function colorFromCss(value) {
+  const raw = String(value || '').trim();
+  if (!raw || raw === 'transparent' || raw === 'rgba(0, 0, 0, 0)') return '';
+  const hex = raw.match(/#[\da-fA-F]{6}|#[\da-fA-F]{3}/);
+  if (hex) return hex[0];
+  const rgba = raw.match(/rgba?\(([^)]+)\)/);
+  if (!rgba) return '';
+  const parts = rgba[1].split(',').map((x) => parseFloat(x));
+  if (parts.length < 3 || (parts.length >= 4 && parts[3] === 0)) return '';
+  return '#' + parts.slice(0, 3).map((n) => Math.round(Math.max(0, Math.min(255, n))).toString(16).padStart(2, '0')).join('');
+}
+
+function sectionIntent(section, index) {
+  if (section.role === 'header') return 'navigation/header';
+  if (section.role === 'footer') return 'footer';
+  const text = (section.layers || []).filter((l) => l.type === 'text').map((l) => key(l.text || l.name)).join(' ');
+  if (index === 1 || /hero|welcome|discover|unlock|introducing|creative/.test(text)) return 'hero/landing';
+  if (/project|portfolio|gallery|work|case/.test(text)) return 'gallery/card-grid';
+  if (/about|team|culture|mission|story/.test(text)) return 'content/about';
+  return 'content-section';
+}
+
+function buildRebuildPlan(payload) {
+  const layers = payload.layers || [];
+  const sections = payload.sections || [];
+  const textLayers = layers.filter((l) => l.type === 'text');
+  const imageLayers = layers.filter((l) => l.type === 'image');
+  const buttonLayers = layers.filter((l) => l.role === 'button-bg' || l.role === 'button-label');
+  const colors = unique(layers.flatMap((l) => {
+    const s = l.style || {};
+    return [s.color, s.backgroundColor, s.borderTopColor, s.borderBottomColor].map(colorFromCss).filter(Boolean);
+  }), (value) => value, 20);
+  const typography = unique(textLayers, (l) => {
+    const s = l.style || {};
+    return [l.role, s.fontSize, s.fontWeight, s.color].join('|');
+  }, 18).map((l) => ({ role: l.role || 'text', sample: clean(l.text || l.name).slice(0, 80), fontSize: (l.style || {}).fontSize || '', fontWeight: (l.style || {}).fontWeight || '', color: colorFromCss((l.style || {}).color) }));
+
+  return {
+    title: payload.title || 'Website Design Clone',
+    url: payload.url || '',
+    summary: 'Design clone plan for clean Figma reconstruction. Raw coordinate dumping is intentionally avoided.',
+    tokens: { colors, typography },
+    counts: { sections: sections.length, text: textLayers.length, images: imageLayers.length, buttons: buttonLayers.length },
+    sections: sections.slice(0, 14).map((section, index) => ({
+      name: section.name || `Section ${index + 1}`,
+      role: section.role || 'section',
+      intent: sectionIntent(section, index),
+      textCount: (section.layers || []).filter((l) => l.type === 'text').length,
+      imageCount: (section.layers || []).filter((l) => l.type === 'image').length,
+      componentCount: (section.components || []).length,
+      confidence: Math.min(0.95, 0.45 + Math.min((section.layers || []).length, 24) / 45 + Math.min((section.components || []).length, 8) / 20)
+    })),
+    uncertainties: [
+      'Dynamic animations, hidden states, and interaction logic are not reconstructed in Design Clone mode.',
+      'The editable draft prioritizes clean design structure over raw DOM coordinate matching.'
+    ]
+  };
 }
 
 async function extractPage(page) {
@@ -156,7 +230,7 @@ async function extractPage(page) {
     const layers = [];
     let id = 1;
 
-    function clean(value) { return String(value || '').replace(/\s+/g, ' ').trim(); }
+    function cleanText(value) { return String(value || '').replace(/\s+/g, ' ').trim(); }
     function px(value, fallback = 0) { const n = parseFloat(String(value || '').replace('px', '')); return Number.isFinite(n) ? n : fallback; }
     function rectFromDOM(rect) { return { x: Math.round(rect.left + window.scrollX), y: Math.round(rect.top + window.scrollY), w: Math.round(rect.width), h: Math.round(rect.height) }; }
     function usable(rect) { return rect && rect.w >= 2 && rect.h >= 2 && rect.x < viewport.width && rect.x + rect.w > 0 && rect.y < pageHeight + viewport.height * 0.2 && rect.y + rect.h > 0; }
@@ -193,7 +267,7 @@ async function extractPage(page) {
       let cur = el;
       while (cur && cur.nodeType === Node.ELEMENT_NODE && cur !== document.documentElement) {
         const tag = cur.tagName.toLowerCase();
-        const cls = clean(cur.className).split(' ').filter(Boolean).slice(0, 1).map((x) => `.${x}`).join('');
+        const cls = cleanText(cur.className).split(' ').filter(Boolean).slice(0, 1).map((x) => `.${x}`).join('');
         parts.unshift(tag + (cur.id ? `#${cur.id}` : '') + cls);
         cur = cur.parentElement;
       }
@@ -201,8 +275,8 @@ async function extractPage(page) {
     }
     function roleOf(el) {
       const tag = el.tagName;
-      const cls = clean(el.className).toLowerCase();
-      const role = clean(el.getAttribute('role')).toLowerCase();
+      const cls = cleanText(el.className).toLowerCase();
+      const role = cleanText(el.getAttribute('role')).toLowerCase();
       if (tag === 'IMG' || tag === 'PICTURE' || tag === 'SVG') return 'image';
       if (tag === 'BUTTON' || role === 'button' || cls.includes('button') || cls.includes('btn') || cls.includes('cta')) return 'button';
       if (tag === 'NAV' || tag === 'HEADER') return 'navigation';
@@ -239,18 +313,18 @@ async function extractPage(page) {
       const area = rect.w * rect.h;
       const viewportArea = viewport.width * viewport.height;
 
-      if (role === 'image' || (hasBgImage(style) && clean(el.innerText).length < 3)) {
+      if (role === 'image' || (hasBgImage(style) && cleanText(el.innerText).length < 3)) {
         const captureId = `ti-img-${id}`;
         el.setAttribute('data-ti-img-id', captureId);
-        push({ type: 'image', role: role === 'image' ? 'image' : 'background-image', tag: el.tagName.toLowerCase(), name: clean(el.getAttribute('alt') || el.getAttribute('aria-label') || el.id || el.className || 'Image'), rect, style: styleOf(style), path: pathOf(el), captureId });
+        push({ type: 'image', role: role === 'image' ? 'image' : 'background-image', tag: el.tagName.toLowerCase(), name: cleanText(el.getAttribute('alt') || el.getAttribute('aria-label') || el.id || el.className || 'Image'), rect, style: styleOf(style), path: pathOf(el), captureId });
         return;
       }
 
       if ((hasFill(style) || hasBorder(style) || role === 'button' || role === 'navigation' || role === 'section' || role === 'footer') && area < viewportArea * 0.9) {
-        push({ type: 'box', role: role === 'button' ? 'button-bg' : role, tag: el.tagName.toLowerCase(), name: clean(el.getAttribute('aria-label') || el.id || el.className || el.tagName), rect, style: styleOf(style), path: pathOf(el) });
+        push({ type: 'box', role: role === 'button' ? 'button-bg' : role, tag: el.tagName.toLowerCase(), name: cleanText(el.getAttribute('aria-label') || el.id || el.className || el.tagName), rect, style: styleOf(style), path: pathOf(el) });
       }
 
-      const text = clean(el.innerText || el.textContent || '');
+      const text = cleanText(el.innerText || el.textContent || '');
       if (isTextCandidate(el, role, text, rect)) {
         push({ type: 'text', role: role === 'link' ? 'link' : role === 'button' ? 'button-label' : role === 'heading' ? 'heading' : 'text', tag: el.tagName.toLowerCase(), name: text.slice(0, 96), text, rect, style: styleOf(style), path: pathOf(el) });
       }
@@ -279,6 +353,7 @@ async function extractPage(page) {
   }
 
   payload.sections = clusterSections(payload.layers, payload.viewport, payload.pageHeight);
+  payload.rebuildPlan = buildRebuildPlan(payload);
   return payload;
 }
 
@@ -316,7 +391,7 @@ async function compile(target) {
     return {
       ok: true,
       mode: MODE,
-      adapter: 'universal-page-clean-useful-output',
+      adapter: 'universal-page-design-clone-structured-library',
       capturedAt: new Date().toISOString(),
       title: extracted.title,
       url: extracted.url,
@@ -325,22 +400,27 @@ async function compile(target) {
       screenshot: { contentType: 'image/png', base64: shot.toString('base64'), width: extracted.viewport.width, height: extracted.pageHeight },
       layers: extracted.layers,
       sections: extracted.sections,
+      rebuildPlan: extracted.rebuildPlan,
       diagnostics: {
         layerCount: extracted.layers.length,
         sectionCount: extracted.sections.length,
         componentCount,
         imageCount: extracted.layers.filter((x) => x.type === 'image').length,
-        textCount: extracted.layers.filter((x) => x.type === 'text').length
+        textCount: extracted.layers.filter((x) => x.type === 'text').length,
+        rebuildPlanSectionCount: (extracted.rebuildPlan.sections || []).length,
+        colorTokenCount: (extracted.rebuildPlan.tokens.colors || []).length,
+        typographyTokenCount: (extracted.rebuildPlan.tokens.typography || []).length
       },
       outputRules: [
-        '01 Screenshot Preview must stay pure: one screenshot rectangle only.',
-        '02 UI Components must be clean library components, not raw browser coordinates.',
-        '03 Editable Result must be a clean structured draft, not a raw reconstruction dump.',
-        '04 Audit summarizes usefulness and remaining gaps.'
+        '01 Screenshot Preview / Pure Reference: one screenshot rectangle only.',
+        '02 Rebuild Plan / AI Interpretation: summarize sections, intents, tokens, and uncertainty.',
+        '03 UI Components / Structured Library: clean grouped design components, not raw browser coordinates.',
+        '04 Editable Result / Clean Structured Draft: section-based editable draft, not chaotic layer dump.',
+        '05 Audit / Design Clone Notes: visible diagnostics and weakness tracking.'
       ],
       warnings: [
-        'V9 clean useful output prioritizes usable components and editable drafts over chaotic raw coordinate reconstruction.',
-        'Screenshot-only visual fidelity is not considered enough for a pass.'
+        'V11 Design Clone mode is design-only. Code clone and app logic are intentionally out of scope.',
+        'The editable draft prioritizes professional structure and usability over raw DOM coordinate matching.'
       ]
     };
   } finally {
@@ -379,6 +459,6 @@ server = http.createServer(async (req, res) => {
 });
 
 server.listen(PORT, '127.0.0.1', () => {
-  console.log(`TranslateIT Universal Page Adapter V9 running at http://127.0.0.1:${PORT}`);
+  console.log(`TranslateIT Universal Page Adapter V11 Design Clone running at http://127.0.0.1:${PORT}`);
   resetIdleTimer();
 });
