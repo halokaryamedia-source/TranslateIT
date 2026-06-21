@@ -20,8 +20,10 @@ if (!ui.includes('EXPECTED_BUILD')) failures.push('ui does not define expected e
 if (!ui.includes('Wrong bridge payload')) failures.push('ui does not block older bridge payloads');
 if (!ui.includes('export-ui-package')) failures.push('ui export command missing');
 if (!renderer.includes('translateit-alpha-v5-strict-source-inspired-renderer')) failures.push('renderer id is not strict V5');
-if (!renderer.includes('V5.1 visual layout')) failures.push('V5.1 visual polish marker missing');
-if (!renderer.includes('Polished Editorial Composition')) failures.push('polished hero composition missing');
+if (!renderer.includes('V5.2 source-measured layout')) failures.push('V5.2 source-measured marker missing');
+if (!renderer.includes('source-measured layout reconstruction')) failures.push('source measured reconstruction export marker missing');
+if (!renderer.includes('scaleRect')) failures.push('renderer is not using measured source rectangles');
+if (!renderer.includes('Locked Source Screenshot Guide')) failures.push('low opacity screenshot alignment guide missing');
 if (!renderer.includes('Source-Inspired Editable Clone')) failures.push('V5 main frame name is missing');
 if (!renderer.includes('No raw layer dump')) failures.push('V5 raw layer dump rejection copy is missing');
 if (!renderer.includes('Screenshot stays as reference only')) failures.push('V5 screenshot reference copy is missing');
@@ -40,7 +42,7 @@ const report = {
   manifestMain: manifest.main,
   alternateManifestMain: alternateManifest.main,
   renderer: 'code.v5.strict.js',
-  polish: 'V5.1 visual layout',
+  polish: 'V5.2 source-measured layout',
   expectedBuild: 'strict-v5.1-single-engine',
   exportReady: renderer.includes('exportJson'),
   failures
