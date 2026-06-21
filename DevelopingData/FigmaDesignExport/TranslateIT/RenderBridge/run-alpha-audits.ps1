@@ -15,6 +15,7 @@ node --check "$Bridge\audit-alpha-quality-gate.mjs"
 node --check "$Bridge\audit-alpha-ui-library-polish.mjs"
 node --check "$Bridge\audit-alpha-template-safety.mjs"
 node --check "$Bridge\preview-alpha-design-clone.mjs"
+node --check "$Bridge\preview-alpha-semantic.mjs"
 
 Write-Host "`n=== Alpha Quality Gate ===" -ForegroundColor Cyan
 node "$Bridge\audit-alpha-quality-gate.mjs" $Url
@@ -24,6 +25,9 @@ node "$Bridge\audit-alpha-ui-library-polish.mjs" $Url
 
 Write-Host "`n=== Alpha Template Safety Audit ===" -ForegroundColor Cyan
 node "$Bridge\audit-alpha-template-safety.mjs" $Url
+
+Write-Host "`n=== Alpha Semantic Preview ===" -ForegroundColor Cyan
+node "$Bridge\preview-alpha-semantic.mjs" $Url
 
 Write-Host "`n=== Alpha HTML Preview ===" -ForegroundColor Cyan
 node "$Bridge\preview-alpha-design-clone.mjs" $Url
