@@ -5,7 +5,15 @@ import { visualAudit } from './visual-audit.mjs';
 export async function runCloneAudit(payload, reportDir) {
   const preview = await renderClonePreview(payload, reportDir);
   const comparison = await compareSourceAndClonePreview(payload, preview);
-  payload.diagnostics.clonePreview = { ...preview, comparison };
+  payload.diagnostics.clonePreview = {
+    ...preview,
+    comparison,
+    visualDiff: {
+      overlayPath: comparison.overlayPath || null,
+      overlayHtmlPath: comparison.overlayHtmlPath || null,
+      version: comparison.version || null
+    }
+  };
   const audit = visualAudit(payload);
   return { payload, audit, preview, comparison };
 }
