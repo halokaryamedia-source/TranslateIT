@@ -25,12 +25,12 @@ $portProcessIds = @()
 try {
   $portProcessIds = Get-NetTCPConnection -LocalPort 8844 -ErrorAction SilentlyContinue | Select-Object -ExpandProperty OwningProcess -Unique
 } catch {}
-foreach ($pid in $portProcessIds) {
+foreach ($ownerPid in $portProcessIds) {
   try {
-    $proc = Get-CimInstance Win32_Process -Filter "ProcessId=$pid" -ErrorAction SilentlyContinue
-    if ($proc -and ($proc.CommandLine -match 'TranslateIT' -or $proc.CommandLine -match 'RenderBridge' -or $proc.CommandLine -match 'server\.mjs')) {
-      Write-Host "Stopping existing TranslateIT bridge process $pid" -ForegroundColor Yellow
-      Stop-Process -Id $pid -Force -ErrorAction SilentlyContinue
+    $procInfo = Get-CimInstance Win32_Process -Filter "ProcessId=$ownerPid" -ErrorAction SilentlyContinue
+    if ($procInfo -and ($procInfo.CommandLine -match 'TranslateIT' -or $procInfo.CommandLine -match 'RenderBridge' -or $procInfo.CommandLine -match 'server\.mjs')) {
+      Write-Host "Stopping existing TranslateIT bridge process $ownerPid" -ForegroundColor Yellow
+      Stop-Process -Id $ownerPid -Force -ErrorAction SilentlyContinue
     }
   } catch {}
 }
@@ -40,7 +40,7 @@ New-Item -ItemType Directory -Force -Path (Join-Path $Root 'reports') | Out-Null
 if (Test-Path $log) { Remove-Item $log -Force }
 
 Write-Host "Starting clean RenderBridge..." -ForegroundColor Yellow
-$proc = Start-Process -FilePath 'node' -ArgumentList 'server.mjs' -WorkingDirectory $Root -WindowStyle Hidden -PassThru -RedirectStandardOutput $log -RedirectStandardError $log
+$bridgeProcess = Start-Process -FilePath 'node' -ArgumentList 'server.mjs' -WorkingDirectory $Root -WindowStyle Hidden -PassThru -RedirectStandardOutput $log -RedirectStandardError $log
 Start-Sleep -Seconds 2
 
 $health = $null
