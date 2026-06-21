@@ -22,6 +22,10 @@ function uniqueCount(items, fn) {
   return seen.size;
 }
 
+function honestScore(value, strictPenalty) {
+  return round(clamp(value - strictPenalty, 0, 10));
+}
+
 function score(payload) {
   const layers = Array.isArray(payload.layers) ? payload.layers : [];
   const sections = Array.isArray(payload.sections) ? payload.sections : [];
@@ -38,16 +42,32 @@ function score(payload) {
   const buttons = layers.filter((layer) => layer.role === 'button-bg' || layer.role === 'button-label');
   const links = uniqueCount(texts.filter((layer) => layer.role === 'link'), (layer) => key(layer.text || layer.name));
   const headings = uniqueCount(texts.filter((layer) => layer.role === 'heading'), (layer) => key(layer.text || layer.name));
-  const usefulComponents = components.filter((component) => (component.layers || []).length >= 1).length;
+  const usefulComponents = components.filter((component) => (component.layers || []).length >= 2).length;
+  const planSections = Array.isArray(plan.sections) ? plan.sections.length : 0;
   const hasScreenshot = !!(payload.screenshot && payload.screenshot.base64);
-  const hasPlan = !!(plan && Array.isArray(plan.sections) && plan.sections.length);
+  const hasPlan = !!(plan && planSections >= 3);
   const hasRules = Array.isArray(payload.outputRules) && payload.outputRules.length >= 5;
 
-  const screenshotScore = hasScreenshot ? 10 : 0;
-  const planScore = clamp(2 + (hasPlan ? 2 : 0) + Math.min(sections.length, 8) / 8 * 2 + Math.min(headings, 6) / 6 * 1.5 + Math.min(responsiveCount, 3) / 3 * 2.5, 0, 10);
-  const libraryScore = clamp(2 + Math.min(colors, 12) / 12 * 1.6 + Math.min(typography, 10) / 10 * 1.6 + Math.min(spacing, 6) / 6 * 1.6 + Math.min(links, 8) / 8 * 1.1 + Math.min(buttons.length, 8) / 8 * 1.1 + Math.min(images.length, 8) / 8 * 1, 0, 10);
-  const editableScore = clamp(2.5 + Math.min(texts.length, 80) / 80 * 2.5 + Math.min(images.length, 10) / 10 * 1.5 + Math.min(sections.length, 8) / 8 * 2 + Math.min(usefulComponents, 14) / 14 * 1.5, 0, 10);
-  const workflowScore = hasRules ? 9.5 : 6;
+  // Honest audit note:
+  // This script cannot inspect the final Figma canvas after import.
+  // Scores are intentionally capped and penalized unless the payload contains enough evidence
+  // to suggest the result can become a clean structured design clone.
+  const missingSpacingPenalty = spacing >= 5 ? 0 : 1.2;
+  const missingResponsivePenalty = responsiveCount === 3 ? 0 : 1.2;
+  const weakComponentsPenalty = usefulComponents >= 8 ? 0 : 1.4;
+  const weakPlanPenalty = hasPlan ? 0 : 1.2;
+  const noPostFigmaValidationPenalty = 1.4;
+  const strictPenalty = missingSpacingPenalty + missingResponsivePenalty + weakComponentsPenalty + weakPlanPenalty + noPostFigmaValidationPenalty;
+
+  const screenshotScore = hasScreenshot ? 9 : 0;
+  const rawPlanScore = 1.5 + (hasPlan ? 1.5 : 0) + Math.min(planSections, 8) / 8 * 1.8 + Math.min(headings, 6) / 6 * 1.2 + Math.min(responsiveCount, 3) / 3 * 1.2;
+  const rawLibraryScore = 1.5 + Math.min(colors, 12) / 12 * 1.4 + Math.min(typography, 10) / 10 * 1.4 + Math.min(spacing, 6) / 6 * 1.4 + Math.min(links, 8) / 8 * 0.8 + Math.min(buttons.length, 8) / 8 * 0.8 + Math.min(images.length, 8) / 8 * 0.8 + Math.min(usefulComponents, 12) / 12 * 1.4;
+  const rawEditableScore = 1.5 + Math.min(texts.length, 80) / 80 * 1.7 + Math.min(images.length, 10) / 10 * 1.2 + Math.min(sections.length, 8) / 8 * 1.5 + Math.min(usefulComponents, 14) / 14 * 1.1;
+  const workflowScore = hasRules ? 8 : 5;
+
+  const planScore = honestScore(rawPlanScore, missingResponsivePenalty + weakPlanPenalty + noPostFigmaValidationPenalty);
+  const libraryScore = honestScore(rawLibraryScore, missingSpacingPenalty + weakComponentsPenalty + noPostFigmaValidationPenalty);
+  const editableScore = honestScore(rawEditableScore, weakComponentsPenalty + noPostFigmaValidationPenalty);
   const finalScore = Math.min(screenshotScore, planScore, libraryScore, editableScore, workflowScore);
 
   return {
@@ -58,13 +78,28 @@ function score(payload) {
     workflowScore: round(workflowScore),
     finalScore: round(finalScore),
     passesV11_1ProfessionalReadiness: finalScore >= 9,
-    rule: 'Final score is the lowest category. Professional output needs screenshot, plan, structured library, editable draft, and workflow discipline.',
+    readinessLabel: finalScore >= 9 ? 'professional-ready' : finalScore >= 7 ? 'usable-prototype' : finalScore >= 5 ? 'early-usable-prototype' : 'not-ready',
+    rule: 'This is a strict pre-Figma audit. Final score is capped by the weakest category and penalized because the script cannot validate the final Figma canvas.',
+    honestLimitations: [
+      'This audit only sees the RenderBridge payload, not the final imported Figma layout.',
+      'A high screenshot score does not mean the design clone is usable.',
+      'Professional-ready requires post-import Figma validation and visually clean UI Library output.',
+      'Missing spacing tokens, responsive notes, or useful components lowers the score intentionally.'
+    ],
+    penalties: {
+      missingSpacingPenalty: round(missingSpacingPenalty),
+      missingResponsivePenalty: round(missingResponsivePenalty),
+      weakComponentsPenalty: round(weakComponentsPenalty),
+      weakPlanPenalty: round(weakPlanPenalty),
+      noPostFigmaValidationPenalty: round(noPostFigmaValidationPenalty),
+      totalStrictPenalty: round(strictPenalty)
+    },
     basis: {
       mode: payload.mode,
       adapter: payload.adapter,
       layers: layers.length,
       sections: sections.length,
-      planSections: Array.isArray(plan.sections) ? plan.sections.length : 0,
+      planSections,
       components: components.length,
       usefulComponents,
       texts: texts.length,
