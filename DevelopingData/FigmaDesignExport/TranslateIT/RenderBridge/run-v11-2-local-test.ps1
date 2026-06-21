@@ -31,7 +31,7 @@ Start-Sleep 3
 Write-Host "`n=== Health ===" -ForegroundColor Cyan
 Invoke-RestMethod "http://127.0.0.1:8844/health" | Format-List
 
-Write-Host "`n=== V11.1 Bridge Smoke Test ===" -ForegroundColor Cyan
+Write-Host "`n=== V11.2 Bridge Smoke Test ===" -ForegroundColor Cyan
 node "$Bridge\smoke-v11-1.mjs" $Url
 
 Write-Host "`n=== V11.2 Template Readiness Audit ===" -ForegroundColor Cyan
