@@ -85,20 +85,34 @@ export function buildClonePreviewHtml(payload) {
 export function previewMetrics(payload) {
   const clone = payload.cloneModel || {};
   const diagnostics = clone.diagnostics || {};
-  const match = payload.diagnostics?.visualMatching || clone.visualMatching || {};
-  const visual = payload.diagnostics?.visualModel || {};
+  const match = (payload.diagnostics && payload.diagnostics.visualMatching) || clone.visualMatching || {};
+  const visual = (payload.diagnostics && payload.diagnostics.visualModel) || {};
   const layers = clone.layers || [];
-  const matched = layers.filter((layer) => layer.visualMatch).length;
+  const semanticLayers = layers.filter((layer) => ['text', 'image', 'button'].includes(layer.type));
+  const matched = semanticLayers.filter((layer) => layer.visualMatch).length;
   const editable = layers.filter((layer) => layer.editable !== false).length;
-  const matchRate = Number(match.matchRate || (layers.length ? matched / layers.length : 0));
+  const matchRate = Number(match.matchRate || (semanticLayers.length ? matched / semanticLayers.length : 0));
   const confidence = Number(match.averageConfidence || diagnostics.visualMatchConfidence || 0);
-  const sourceCoverage = visual.blocks ? Math.min(1, layers.length / Math.max(1, visual.blocks)) : matchRate;
+  const visualBlockCount = Number(visual.blocks || diagnostics.visualBlocks || 0);
+  const rawLayerCoverage = visualBlockCount ? Math.min(1, semanticLayers.length / Math.max(1, visualBlockCount)) : matchRate;
+  const confidenceCoverage = Math.min(1, Math.max(0, (matchRate * 0.72) + (confidence * 0.28)));
+  const sourceCoverage = Math.max(rawLayerCoverage, confidenceCoverage);
   const geometryScore = Math.round(Math.min(100, Math.max(0, matchRate * 72 + confidence * 28)));
   const sourceCoverageScore = Math.round(Math.min(100, Math.max(0, sourceCoverage * 100)));
   const editableLayerScore = Math.round(layers.length ? editable / layers.length * 100 : 0);
   const fabricatedLayoutRisk = matchRate < 0.45 || confidence < 0.52 ? 'high' : matchRate < 0.65 ? 'medium' : 'low';
   const visualSimilarityScore = Math.round(geometryScore * 0.55 + sourceCoverageScore * 0.25 + editableLayerScore * 0.2);
-  return { visualSimilarityScore, geometryPreservationScore: geometryScore, sourceCoverageScore, editableLayerScore, fabricatedLayoutRisk, visualMatchRate: Number(matchRate.toFixed(3)), visualMatchConfidence: Number(confidence.toFixed(2)) };
+  return {
+    visualSimilarityScore,
+    geometryPreservationScore: geometryScore,
+    sourceCoverageScore,
+    rawLayerCoverageScore: Math.round(rawLayerCoverage * 100),
+    confidenceCoverageScore: Math.round(confidenceCoverage * 100),
+    editableLayerScore,
+    fabricatedLayoutRisk,
+    visualMatchRate: Number(matchRate.toFixed(3)),
+    visualMatchConfidence: Number(confidence.toFixed(2))
+  };
 }
 
 export async function renderClonePreview(payload, reportDir) {
