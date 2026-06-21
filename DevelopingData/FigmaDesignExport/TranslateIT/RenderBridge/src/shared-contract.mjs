@@ -42,5 +42,7 @@ export function assertCleanPayload(payload) {
   if (!Array.isArray(payload?.designModel?.sections)) failures.push('designModel.sections missing');
   if (!Array.isArray(payload?.designModel?.elements)) failures.push('designModel.elements missing');
   if (!Array.isArray(payload?.designModel?.assets)) failures.push('designModel.assets missing');
+  if (!payload?.designModel?.renderPlan) failures.push('designModel.renderPlan missing');
+  if (payload?.designModel?.renderPlan?.mode !== 'professional-section-based-ui-library') failures.push('renderPlan mode mismatch');
   return failures;
 }
