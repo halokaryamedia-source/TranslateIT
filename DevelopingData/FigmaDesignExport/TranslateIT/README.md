@@ -92,6 +92,33 @@ textLineReconstruction: true
 visualDiffOverlay: true
 ```
 
+## Automated Self Audit
+
+The repository includes a GitHub Actions workflow:
+
+```txt
+.github/workflows/translateit-renderbridge-self-audit.yml
+```
+
+The workflow simulates the RenderBridge pipeline before manual Figma testing:
+
+```txt
+install dependencies
+install Playwright Chromium
+run module import gate
+run clean contract gate
+run V2 marker gate
+start RenderBridge
+capture source website
+render clone preview
+compare source vs clone
+write visual diff overlay
+run regression suite
+upload report artifacts
+```
+
+Manual Figma testing should only happen after the automated self audit produces a reviewable preview and diff overlay.
+
 ## Folder Structure
 
 ```txt
@@ -125,6 +152,7 @@ DevelopingData/FigmaDesignExport/TranslateIT/
 │  ├─ tests/
 │  │  ├─ test-module-imports.mjs
 │  │  ├─ test-clean-contract.mjs
+│  │  ├─ test-v2-markers.mjs
 │  │  ├─ test-sample-sites.mjs
 │  │  ├─ test-regression-suite.mjs
 │  │  └─ regression-sites.json
@@ -151,6 +179,7 @@ Playwright Chromium install
 RenderBridge health check
 module import gate
 clean contract gate
+V2 marker gate
 sample audit
 regression suite
 open latest reports
