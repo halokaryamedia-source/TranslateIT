@@ -60,11 +60,18 @@ The plugin UI now rejects older payloads without `structuredLayout`.
 
 ## Internal gates before another visual test
 
-Run these gates before asking for another Figma screenshot:
+Preferred one-command internal gate:
+
+```txt
+./start-alpha-v5-gated.ps1 https://www.mivubi.com/
+```
+
+Manual gates:
 
 ```txt
 node audit-alpha-v5-default.mjs
 node audit-alpha-v4-media.mjs https://www.mivubi.com/
+node audit-alpha-v5-model.mjs https://www.mivubi.com/
 ```
 
 Required pass criteria:
@@ -78,6 +85,10 @@ main frame name is Source-Inspired Editable Clone
 bridge media audit passes
 capturedImages >= 2
 payload has structuredLayout
+structured model has hero heading
+structured model has nav links
+structured model has cards
+structured model has footer links
 ```
 
 ## No-test rule until internal readiness
