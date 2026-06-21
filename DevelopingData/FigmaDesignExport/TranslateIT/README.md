@@ -118,6 +118,8 @@ run regression suite
 upload report artifacts
 ```
 
+The workflow is configured to keep collecting artifacts even when a visual gate fails. A red CI result can still contain useful preview and diff overlay artifacts for debugging.
+
 Manual Figma testing should only happen after the automated self audit produces a reviewable preview and diff overlay. The manual test is final validation, not the main debugging process.
 
 ## Folder Structure
