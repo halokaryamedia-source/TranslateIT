@@ -18,7 +18,15 @@ $Log = Join-Path $Bridge "bridge-v5.log"
 Start-Process powershell -WindowStyle Hidden -ArgumentList "-ExecutionPolicy Bypass -Command `"cd '$Bridge'; node start-alpha-v5.mjs > bridge-v5.log 2>&1`""
 Start-Sleep 8
 
-Invoke-RestMethod http://127.0.0.1:8844/health | ConvertTo-Json -Depth 8
+$Health = Invoke-RestMethod http://127.0.0.1:8844/health
+$Health | ConvertTo-Json -Depth 8
+if (-not ($Health.adapter -match "fixed-structured|structured")) {
+  throw "Bridge health is not V5 fixed/structured. Adapter: $($Health.adapter)"
+}
+if ($Health.publicVersion -ne "Version 0.1 - Alpha") {
+  throw "Unexpected public version: $($Health.publicVersion)"
+}
+
 node audit-alpha-v5-default.mjs
 node audit-alpha-v4-media.mjs $Url
 node audit-alpha-v5-model.mjs $Url
