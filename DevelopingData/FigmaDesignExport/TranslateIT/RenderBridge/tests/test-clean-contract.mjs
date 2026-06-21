@@ -20,6 +20,9 @@ for (const [name, text] of [['server', server], ['ui', ui], ['renderer', rendere
   if (!text.includes('Version 0.1 - Alpha')) failures.push(`${name} missing public version marker`);
 }
 
+if (renderer.includes('?.')) failures.push('plugin/code.js uses optional chaining, which is not supported by this Figma runtime');
+if (renderer.includes('??')) failures.push('plugin/code.js uses nullish coalescing, which is not supported by this Figma runtime');
+
 const report = {
   gate: 'translateit-clean-contract',
   status: failures.length ? 'fail' : 'pass',
