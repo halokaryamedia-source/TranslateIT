@@ -21,6 +21,9 @@ if (-not (Test-Path "$Root\node_modules")) {
 Write-Host "Ensuring Playwright Chromium is installed..." -ForegroundColor Yellow
 npm run install-browser
 
+Write-Host "Running clean contract audit..." -ForegroundColor Yellow
+node .\tests\test-clean-contract.mjs
+
 $portProcessIds = @()
 try {
   $portProcessIds = Get-NetTCPConnection -LocalPort 8844 -ErrorAction SilentlyContinue | Select-Object -ExpandProperty OwningProcess -Unique
@@ -35,12 +38,14 @@ foreach ($ownerPid in $portProcessIds) {
   } catch {}
 }
 
-$log = Join-Path $Root 'reports\translateit-clean-bridge.log'
+$outLog = Join-Path $Root 'reports\translateit-clean-bridge.out.log'
+$errLog = Join-Path $Root 'reports\translateit-clean-bridge.err.log'
 New-Item -ItemType Directory -Force -Path (Join-Path $Root 'reports') | Out-Null
-if (Test-Path $log) { Remove-Item $log -Force }
+if (Test-Path $outLog) { Remove-Item $outLog -Force }
+if (Test-Path $errLog) { Remove-Item $errLog -Force }
 
 Write-Host "Starting clean RenderBridge..." -ForegroundColor Yellow
-$bridgeProcess = Start-Process -FilePath 'node' -ArgumentList 'server.mjs' -WorkingDirectory $Root -WindowStyle Hidden -PassThru -RedirectStandardOutput $log -RedirectStandardError $log
+$bridgeProcess = Start-Process -FilePath 'node' -ArgumentList 'server.mjs' -WorkingDirectory $Root -WindowStyle Hidden -PassThru -RedirectStandardOutput $outLog -RedirectStandardError $errLog
 Start-Sleep -Seconds 2
 
 $health = $null
@@ -54,8 +59,9 @@ for ($i = 0; $i -lt 20; $i++) {
 }
 
 if (-not $health -or $health.ok -ne $true) {
-  Write-Host "Bridge failed to start. Log:" -ForegroundColor Red
-  if (Test-Path $log) { Get-Content $log }
+  Write-Host "Bridge failed to start. Logs:" -ForegroundColor Red
+  if (Test-Path $outLog) { Get-Content $outLog }
+  if (Test-Path $errLog) { Get-Content $errLog }
   throw "Clean RenderBridge did not respond on /health."
 }
 
