@@ -27,6 +27,22 @@ function normalizeTextKey(text) {
   return clean(text).toLowerCase().replace(/[^a-z0-9\u00c0-\u024f]+/gi, ' ').trim();
 }
 
+function isTextish(item) {
+  return TEXT_ROLES.has(item.role) && clean(item.text).length > 0;
+}
+
+function isLikelyParentText(item) {
+  const text = clean(item.text);
+  const direct = clean(item.directText);
+  const tag = String(item.tag || '').toLowerCase();
+  if (!isTextish(item)) return false;
+  if (/^h[1-6]$|^p$|^a$|^button$|^span$|^strong$|^em$|^small$|^label$|^li$/.test(tag)) return false;
+  if (item.childElementCount >= 3 && text.length > Math.max(80, direct.length + 60)) return true;
+  if (item.area > 180000 && text.length > 90 && direct.length < text.length * 0.45) return true;
+  if ((item.role === 'navigation' || item.role === 'footer') && text.length > 180 && item.childElementCount >= 3) return true;
+  return false;
+}
+
 function importance(item, source) {
   const rect = item.rect || {};
   const font = num(item.style?.fontSize, 14);
@@ -34,20 +50,35 @@ function importance(item, source) {
   const text = clean(item.text);
   let score = 0;
   score += Math.min(80, font * 2.5);
-  score += Math.min(60, text.length * 0.45);
-  score += Math.min(60, area(rect) / 9000);
+  score += Math.min(60, text.length * 0.35);
+  score += Math.min(45, area(rect) / 12000);
   if (rect.y < source.viewport.height * 0.8) score += 35;
   if (item.role === 'heading-1') score += 90;
   if (item.role === 'heading-2') score += 60;
   if (item.role === 'heading-3') score += 35;
   if (item.role === 'button') score += 30;
   if (item.role === 'image') score += 45;
-  if (item.role === 'navigation') score += 25;
-  if (item.role === 'footer') score += 10;
+  if (item.role === 'navigation') score += 18;
+  if (item.role === 'footer') score += 8;
   if (weight >= 600) score += 18;
-  if (text.length > 220) score -= 30;
+  if (text.length > 220) score -= 45;
   if (font < 9 && item.role !== 'link') score -= 25;
+  if (isLikelyParentText(item)) score -= 120;
   return Math.round(score);
+}
+
+function removeParentTextContainers(items) {
+  return items.filter((item) => {
+    if (!isLikelyParentText(item)) return true;
+    const key = normalizeTextKey(item.text);
+    const childTextItems = items.filter((other) => {
+      if (other.id === item.id || !isTextish(other)) return false;
+      if (!contains(item.rect, other.rect, 8)) return false;
+      const otherKey = normalizeTextKey(other.text);
+      return otherKey && key.includes(otherKey) && otherKey.length >= 3;
+    });
+    return childTextItems.length < 2;
+  });
 }
 
 function removeDuplicateText(items) {
@@ -64,6 +95,13 @@ function removeDuplicateText(items) {
     if (!key) continue;
     const existing = seen.get(key);
     if (existing) continue;
+    const childDuplicate = out.find((other) => {
+      if (!clean(other.text) || !TEXT_ROLES.has(other.role)) return false;
+      if (!contains(item.rect, other.rect, 4)) return false;
+      const otherText = normalizeTextKey(other.text);
+      return key.includes(otherText) && otherText.length >= 3;
+    });
+    if (childDuplicate && item.importance <= childDuplicate.importance + 35) continue;
     const parentDuplicate = out.find((other) => {
       if (!clean(other.text) || !TEXT_ROLES.has(other.role)) return false;
       if (!contains(other.rect, item.rect, 4)) return false;
@@ -111,7 +149,7 @@ function detectSections(items, source) {
   if (heroCandidates.length) {
     const minY = Math.min(...heroCandidates.map((item) => item.rect.y));
     const maxY = Math.max(...heroCandidates.map((item) => item.rect.y + item.rect.h));
-    sections.push({ id: 'section-hero', role: 'hero', name: 'Hero / Primary', rect: { x: 0, y: Math.max(0, minY - 48), w: width, h: Math.min(760, Math.max(360, maxY - minY + 96)) } });
+    sections.push({ id: 'section-hero', role: 'hero', name: 'Hero / Primary', rect: { x: 0, y: Math.max(0, minY - 48), w: width, h: Math.min(860, Math.max(360, maxY - minY + 96)) } });
   }
 
   const reserved = sections.map((section) => section.rect);
@@ -165,9 +203,11 @@ export function extractLayout(capture) {
   let elements = raw.map((item) => ({
     ...item,
     text: clean(item.text),
+    directText: clean(item.directText),
     importance: importance(item, source)
   })).filter((item) => {
     if (!item.rect || area(item.rect) < 24) return false;
+    if (isLikelyParentText(item)) return false;
     if (item.role === 'decorative') return item.area >= 24000;
     if (item.role === 'container') return item.area >= 16000;
     if (item.role === 'image') return item.area >= 5000;
@@ -175,6 +215,7 @@ export function extractLayout(capture) {
     return false;
   });
 
+  elements = removeParentTextContainers(elements);
   elements = removeDuplicateText(elements);
   elements = elements.map((item) => ({ ...item, semanticRole: deriveSemanticRole(item, source) }));
   elements = elements.filter((item) => {
@@ -197,7 +238,8 @@ export function extractLayout(capture) {
       keptElements: elements.length,
       sections: sections.length,
       images: elements.filter((item) => item.semanticRole === 'image').length,
-      text: elements.filter((item) => ['title', 'section-title', 'subheading', 'body', 'label', 'link', 'nav-item', 'footer-link', 'footer-text'].includes(item.semanticRole)).length
+      text: elements.filter((item) => ['title', 'section-title', 'subheading', 'body', 'label', 'link', 'nav-item', 'footer-link', 'footer-text'].includes(item.semanticRole)).length,
+      removedParentText: raw.filter(isLikelyParentText).length
     }
   };
 }
