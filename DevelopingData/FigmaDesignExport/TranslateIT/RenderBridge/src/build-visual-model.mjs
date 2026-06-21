@@ -70,9 +70,7 @@ function overlapArea(a, b) {
 }
 
 function coveredArea(blocks) {
-  const ordered = blocks
-    .filter((block) => block.rect && area(block.rect) > 0)
-    .sort((a, b) => area(b.rect) - area(a.rect));
+  const ordered = blocks.filter((block) => block.rect && area(block.rect) > 0).sort((a, b) => area(b.rect) - area(a.rect));
   let total = 0;
   const accepted = [];
   for (const block of ordered) {
@@ -91,79 +89,25 @@ export function buildVisualModel(capture) {
   const pageHeight = capture.source?.pageHeight || viewport.height;
   const pageArea = Math.max(1, viewport.width * pageHeight);
   const raw = capture.rawElements || [];
-  const visualBlocks = raw
-    .filter((item) => item.rect && area(item.rect) >= 24)
-    .map((item) => {
-      const blockArea = area(item.rect);
-      const type = visualType(item);
-      const reasons = confidenceReason(item, pageArea);
-      return {
-        id: `visual-${item.index}`,
-        type,
-        role: item.role,
-        source: 'dom-derived-visible-geometry',
-        confidenceReason: reasons,
-        coverageArea: blockArea,
-        isLargeSurface: blockArea > pageArea * 0.01,
-        isTextCandidate: type === 'text-region',
-        isImageCandidate: type === 'image-region',
-        isContainerCandidate: type === 'shape-region' || type === 'button-region',
-        rect: item.rect,
-        text: clean(item.directText || item.text).slice(0, 180),
-        matchedRawId: item.id,
-        imageIndex: item.imageIndex,
-        sectionBand: sectionBandFor(item, viewport, pageHeight),
-        confidence: scoreBlock(item, pageArea),
-        style: {
-          color: item.style?.color || '',
-          backgroundColor: item.style?.backgroundColor || '',
-          fontSize: item.style?.fontSize || '',
-          fontWeight: item.style?.fontWeight || ''
-        }
-      };
-    })
-    .filter((block) => block.type !== 'unknown-region' || block.confidence >= 0.55)
-    .sort((a, b) => (a.rect.y - b.rect.y) || (a.rect.x - b.rect.x));
+  const visualBlocks = raw.filter((item) => item.rect && area(item.rect) >= 24).map((item) => {
+    const blockArea = area(item.rect);
+    const type = visualType(item);
+    const reasons = confidenceReason(item, pageArea);
+    return { id: `visual-${item.index}`, type, role: item.role, source: 'dom-derived-visible-geometry', confidenceReason: reasons, coverageArea: blockArea, isLargeSurface: blockArea > pageArea * 0.01, isTextCandidate: type === 'text-region', isImageCandidate: type === 'image-region', isContainerCandidate: type === 'shape-region' || type === 'button-region', rect: item.rect, text: clean(item.directText || item.text).slice(0, 180), matchedRawId: item.id, imageIndex: item.imageIndex, sectionBand: sectionBandFor(item, viewport, pageHeight), confidence: scoreBlock(item, pageArea), style: { color: item.style?.color || '', backgroundColor: item.style?.backgroundColor || '', fontSize: item.style?.fontSize || '', fontWeight: item.style?.fontWeight || '' } };
+  }).filter((block) => block.type !== 'unknown-region' || block.confidence >= 0.55).sort((a, b) => (a.rect.y - b.rect.y) || (a.rect.x - b.rect.x));
 
   const importantBlocks = visualBlocks.filter((block) => isImportantBlock(block, pageArea));
-  const counts = visualBlocks.reduce((acc, block) => {
-    acc[block.type] = (acc[block.type] || 0) + 1;
-    acc[block.sectionBand] = (acc[block.sectionBand] || 0) + 1;
-    return acc;
-  }, {});
+  const counts = visualBlocks.reduce((acc, block) => { acc[block.type] = (acc[block.type] || 0) + 1; acc[block.sectionBand] = (acc[block.sectionBand] || 0) + 1; return acc; }, {});
   const visibleArea = Math.max(1, viewport.width * Math.min(pageHeight, viewport.height * 3));
   const importantCoveredArea = Math.min(visibleArea, coveredArea(importantBlocks));
   const allCoveredArea = Math.min(visibleArea, coveredArea(visualBlocks));
   const coverageRatio = Number((importantCoveredArea / visibleArea).toFixed(3));
 
   return {
-    mode: 'screenshot-first-html-assisted-visual-model',
-    source: {
-      viewport,
-      pageHeight,
-      screenshot: capture.source?.screenshot ? { width: capture.source.screenshot.width, height: capture.source.screenshot.height, contentType: capture.source.screenshot.contentType } : null
-    },
+    mode: 'screenshot-first-html-assisted-v2',
+    source: { viewport, pageHeight, screenshot: capture.source?.screenshot ? { width: capture.source.screenshot.width, height: capture.source.screenshot.height, contentType: capture.source.screenshot.contentType } : null },
     visualBlocks,
-    coverage: {
-      visibleArea,
-      coveredArea: importantCoveredArea,
-      allCoveredArea,
-      coverageRatio,
-      importantBlocks: importantBlocks.length
-    },
-    diagnostics: {
-      blocks: visualBlocks.length,
-      importantBlocks: importantBlocks.length,
-      textRegions: counts['text-region'] || 0,
-      imageRegions: counts['image-region'] || 0,
-      shapeRegions: counts['shape-region'] || 0,
-      buttonRegions: counts['button-region'] || 0,
-      headerRegions: counts.header || 0,
-      heroRegions: counts.hero || 0,
-      contentRegions: counts.content || 0,
-      footerRegions: counts.footer || 0,
-      coverageRatio,
-      averageConfidence: visualBlocks.length ? Number((visualBlocks.reduce((sum, block) => sum + block.confidence, 0) / visualBlocks.length).toFixed(2)) : 0
-    }
+    coverage: { visibleArea, coveredArea: importantCoveredArea, allCoveredArea, coverageRatio, importantBlocks: importantBlocks.length },
+    diagnostics: { blocks: visualBlocks.length, importantBlocks: importantBlocks.length, textRegions: counts['text-region'] || 0, imageRegions: counts['image-region'] || 0, shapeRegions: counts['shape-region'] || 0, buttonRegions: counts['button-region'] || 0, headerRegions: counts.header || 0, heroRegions: counts.hero || 0, contentRegions: counts.content || 0, footerRegions: counts.footer || 0, coverageRatio, averageConfidence: visualBlocks.length ? Number((visualBlocks.reduce((sum, block) => sum + block.confidence, 0) / visualBlocks.length).toFixed(2)) : 0 }
   };
 }
