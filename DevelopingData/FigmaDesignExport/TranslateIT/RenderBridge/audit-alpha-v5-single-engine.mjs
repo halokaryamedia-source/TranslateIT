@@ -7,6 +7,8 @@ const read = (file) => fs.readFileSync(path.join(projectRoot, file), 'utf8');
 
 const files = {
   packageJson: read('RenderBridge/package.json'),
+  rootReadme: read('README.md'),
+  bridgeReadme: read('RenderBridge/README.md'),
   serverMain: read('RenderBridge/server.mjs'),
   startFixed: read('RenderBridge/start-alpha-fixed.mjs'),
   startV5: read('RenderBridge/start-alpha-v5.mjs'),
@@ -15,6 +17,7 @@ const files = {
   background: read('RenderBridge/Start-Render-Bridge-Background.ps1'),
   autoInstall: read('RenderBridge/Install-Auto-Bridge.ps1'),
   gated: read('RenderBridge/start-alpha-v5-gated.ps1'),
+  internalGate: read('RenderBridge/run-alpha-v5-internal-gate.ps1'),
   manifest: read('plugin/manifest.json'),
   manifestV5: read('plugin/manifest.v5.json'),
   legacyCode: read('plugin/code.js'),
@@ -24,14 +27,18 @@ const files = {
 
 const failures = [];
 if (!files.packageJson.includes('"start": "node start-alpha-v5.mjs"')) failures.push('npm start is not V5');
+if (!files.rootReadme.includes('Single Active Engine Rule')) failures.push('root README missing single engine rule');
+if (!files.bridgeReadme.includes('Single Active Engine')) failures.push('bridge README missing single engine rule');
 if (!files.serverMain.includes('start-alpha-v5.mjs')) failures.push('server.mjs is not V5 alias');
 if (!files.startFixed.includes('start-alpha-v5.mjs')) failures.push('start-alpha-fixed.mjs is not V5 alias');
 if (!files.startV5.includes('start-alpha-v4-fixed.mjs')) failures.push('start-alpha-v5.mjs does not generate enhanced bridge');
 if (!files.startCmd.includes('npm start')) failures.push('Start-Render-Bridge.cmd does not use npm start');
-if (!files.session.includes('start-alpha-v5.mjs')) failures.push('session launcher does not use V5');
-if (!files.background.includes('start-alpha-v5.mjs')) failures.push('background launcher does not use V5');
-if (!files.autoInstall.includes('Strict V5 Auto Bridge')) failures.push('auto installer does not require strict V5');
-if (!files.gated.includes('audit-alpha-v5-media.mjs')) failures.push('gated launcher still misses V5 media audit');
+if (!files.session.includes("$response.adapter -match 'v5'") || !files.session.includes("$response.adapter -match 'enhanced'")) failures.push('session launcher health is not strict V5 enhanced');
+if (!files.background.includes("$response.adapter -match 'v5'") || !files.background.includes("$response.adapter -match 'enhanced'")) failures.push('background launcher health is not strict V5 enhanced');
+if (!files.autoInstall.includes("$health.adapter -match 'v5'") || !files.autoInstall.includes("$health.adapter -match 'enhanced'")) failures.push('auto installer health is not strict V5 enhanced');
+if (!files.gated.includes('audit-alpha-v5-single-engine.mjs')) failures.push('gated launcher misses single engine audit');
+if (!files.gated.includes('audit-alpha-v5-media.mjs')) failures.push('gated launcher misses V5 media audit');
+if (!files.internalGate.includes('audit-alpha-v5-single-engine.mjs')) failures.push('internal gate misses single engine audit');
 if (!files.manifest.includes('code.v5.strict.js')) failures.push('manifest is not strict V5');
 if (!files.manifestV5.includes('code.v5.strict.js')) failures.push('alternate manifest is not strict V5');
 if (!files.legacyCode.includes('Legacy renderer disabled')) failures.push('legacy code.js is not disabled');
@@ -44,6 +51,7 @@ const report = {
   status: failures.length ? 'fail' : 'pass',
   activeBridge: 'start-alpha-v5.mjs',
   activeRenderer: 'code.v5.strict.js',
+  healthContract: 'adapter must include v5 and enhanced',
   failures
 };
 
