@@ -1,26 +1,27 @@
 figma.showUI(__html__, { width: 580, height: 860 });
 
-const PUBLIC_VERSION = 'Version 0.1 - Alpha';
-const ENGINE = 'translateit-core';
-const ENGINE_BUILD = 'alpha-clean-1';
-const PAGE_NAME = 'TranslateIT Import / Clean Engine';
+var PUBLIC_VERSION = 'Version 0.1 - Alpha';
+var ENGINE = 'translateit-core';
+var ENGINE_BUILD = 'alpha-clean-1';
+var PAGE_NAME = 'TranslateIT Import / Clean Engine';
 
-let regular = { family: 'Inter', style: 'Regular' };
-let bold = { family: 'Inter', style: 'Bold' };
-let lastFrame = null;
+var regular = { family: 'Inter', style: 'Regular' };
+var bold = { family: 'Inter', style: 'Bold' };
+var lastFrame = null;
 
-const arr = (value) => Array.isArray(value) ? value : [];
-const clean = (value) => String(value || '').replace(/\s+/g, ' ').trim();
-const layerName = (value) => (clean(value) || 'Layer').slice(0, 90);
-const clamp = (value, min, max) => Math.max(min, Math.min(max, Number(value) || 0));
+function arr(value) { return Array.isArray(value) ? value : []; }
+function clean(value) { return String(value || '').replace(/\s+/g, ' ').trim(); }
+function layerName(value) { return (clean(value) || 'Layer').slice(0, 90); }
+function clamp(value, min, max) { return Math.max(min, Math.min(max, Number(value) || 0)); }
+function get(obj, key, fallback) { return obj && obj[key] != null ? obj[key] : fallback; }
 
 function post(text) {
-  figma.ui.postMessage({ type: 'status', text });
+  figma.ui.postMessage({ type: 'status', text: text });
 }
 
 function hexToRgb(hex) {
-  const raw = /^#[0-9a-fA-F]{6}$/.test(hex || '') ? hex.slice(1) : '111827';
-  const num = parseInt(raw, 16);
+  var raw = /^#[0-9a-fA-F]{6}$/.test(hex || '') ? hex.slice(1) : '111827';
+  var num = parseInt(raw, 16);
   return { r: ((num >> 16) & 255) / 255, g: ((num >> 8) & 255) / 255, b: (num & 255) / 255 };
 }
 
@@ -29,9 +30,9 @@ function paint(hex) {
 }
 
 function base64ToBytes(value) {
-  const binary = atob(value || '');
-  const bytes = new Uint8Array(binary.length);
-  for (let i = 0; i < binary.length; i += 1) bytes[i] = binary.charCodeAt(i);
+  var binary = atob(value || '');
+  var bytes = new Uint8Array(binary.length);
+  for (var i = 0; i < binary.length; i += 1) bytes[i] = binary.charCodeAt(i);
   return bytes;
 }
 
@@ -47,15 +48,18 @@ async function preparePage() {
   } catch (_) {
     bold = regular;
   }
-  let page = figma.root.children.find((item) => item.name === PAGE_NAME);
+  var page = null;
+  for (var i = 0; i < figma.root.children.length; i += 1) {
+    if (figma.root.children[i].name === PAGE_NAME) page = figma.root.children[i];
+  }
   if (!page) page = figma.createPage();
   page.name = PAGE_NAME;
-  await figma.setCurrentPageAsync(page);
+  if (figma.setCurrentPageAsync) await figma.setCurrentPageAsync(page);
   return page;
 }
 
 function frame(name, w, h, fill) {
-  const node = figma.createFrame();
+  var node = figma.createFrame();
   node.name = layerName(name);
   node.resize(Math.max(1, w), Math.max(1, h));
   node.fills = fill ? paint(fill) : [];
@@ -65,7 +69,7 @@ function frame(name, w, h, fill) {
 }
 
 function rect(parent, name, x, y, w, h, fill, radius, stroke) {
-  const node = figma.createRectangle();
+  var node = figma.createRectangle();
   node.name = layerName(name);
   node.x = x;
   node.y = y;
@@ -79,7 +83,7 @@ function rect(parent, name, x, y, w, h, fill, radius, stroke) {
 }
 
 function text(parent, name, value, x, y, fontSize, color, width, weight) {
-  const node = figma.createText();
+  var node = figma.createText();
   node.name = layerName(name);
   node.fontName = weight >= 600 ? bold : regular;
   node.characters = clean(value) || ' ';
@@ -96,7 +100,7 @@ function text(parent, name, value, x, y, fontSize, color, width, weight) {
 }
 
 function image(parent, name, asset, x, y, w, h, radius) {
-  const node = figma.createRectangle();
+  var node = figma.createRectangle();
   node.name = layerName(name);
   node.x = x;
   node.y = y;
@@ -104,7 +108,7 @@ function image(parent, name, asset, x, y, w, h, radius) {
   node.cornerRadius = radius || 0;
   node.strokes = [];
   if (asset && asset.base64) {
-    const img = figma.createImage(base64ToBytes(asset.base64));
+    var img = figma.createImage(base64ToBytes(asset.base64));
     node.fills = [{ type: 'IMAGE', imageHash: img.hash, scaleMode: 'FILL' }];
   } else {
     node.fills = paint('#E5E7EB');
@@ -114,7 +118,7 @@ function image(parent, name, asset, x, y, w, h, radius) {
 }
 
 function scaleRect(sourceRect, scale) {
-  const r = sourceRect || {};
+  var r = sourceRect || {};
   return {
     x: Math.round((r.x || 0) * scale),
     y: Math.round((r.y || 0) * scale),
@@ -135,13 +139,14 @@ function validatePayload(payload) {
 }
 
 function renderSourceReference(payload, width) {
-  const shot = payload.source && payload.source.screenshot;
-  const ratio = shot && shot.width ? (shot.height || 1600) / shot.width : 1.4;
-  const ref = frame('02 Screenshot Reference / Pure Source', width, Math.max(640, Math.round(width * ratio)), '#FFFFFF');
+  var source = payload.source || {};
+  var shot = source.screenshot;
+  var ratio = shot && shot.width ? (shot.height || 1600) / shot.width : 1.4;
+  var ref = frame('02 Screenshot Reference / Pure Source', width, Math.max(640, Math.round(width * ratio)), '#FFFFFF');
   ref.clipsContent = true;
   if (shot && shot.base64) {
-    const img = figma.createImage(base64ToBytes(shot.base64));
-    const node = figma.createRectangle();
+    var img = figma.createImage(base64ToBytes(shot.base64));
+    var node = figma.createRectangle();
     node.name = 'Locked Screenshot';
     node.resize(ref.width, ref.height);
     node.fills = [{ type: 'IMAGE', imageHash: img.hash, scaleMode: 'FILL' }];
@@ -152,18 +157,25 @@ function renderSourceReference(payload, width) {
   return ref;
 }
 
+function findAsset(assets, assetId) {
+  for (var i = 0; i < assets.length; i += 1) {
+    if (assets[i].id === assetId) return assets[i];
+  }
+  return null;
+}
+
 function renderElement(sectionFrame, element, assets, sectionRect, scale) {
-  const r = scaleRect(element.rect, scale);
-  const x = r.x - sectionRect.x;
-  const y = r.y - sectionRect.y;
-  const style = element.style || {};
-  const radius = clamp((style.borderRadius || 0) * scale, 0, 28);
+  var r = scaleRect(element.rect, scale);
+  var x = r.x - sectionRect.x;
+  var y = r.y - sectionRect.y;
+  var style = element.style || {};
+  var radius = clamp((style.borderRadius || 0) * scale, 0, 28);
   if (element.type === 'image') {
-    const asset = assets.find((item) => item.id === element.assetId);
+    var asset = findAsset(assets, element.assetId);
     return image(sectionFrame, element.name || 'Image', asset, x, y, r.w, r.h, radius);
   }
   if (element.type === 'button') {
-    const group = frame(element.name || 'Button', r.w, Math.max(28, r.h), '');
+    var group = frame(element.name || 'Button', r.w, Math.max(28, r.h), '');
     group.x = x;
     group.y = y;
     group.clipsContent = false;
@@ -179,35 +191,38 @@ function renderElement(sectionFrame, element, assets, sectionRect, scale) {
 }
 
 function renderDesignModel(payload) {
-  const model = payload.designModel;
-  const sourceWidth = model.page.width || 1440;
-  const targetWidth = 1280;
-  const scale = targetWidth / sourceWidth;
-  const targetHeight = Math.max(900, Math.round((model.page.height || 1600) * scale));
-  const root = frame('01 UI Library / Editable Website Reconstruction', targetWidth, targetHeight, model.page.background || '#FFFFFF');
+  var model = payload.designModel;
+  var sourceWidth = model.page.width || 1440;
+  var targetWidth = 1280;
+  var scale = targetWidth / sourceWidth;
+  var targetHeight = Math.max(900, Math.round((model.page.height || 1600) * scale));
+  var root = frame('01 UI Library / Editable Website Reconstruction', targetWidth, targetHeight, model.page.background || '#FFFFFF');
   root.clipsContent = true;
 
-  const assets = arr(model.assets);
-  const elements = arr(model.elements);
-  const sections = arr(model.sections).sort((a, b) => (a.rect?.y || 0) - (b.rect?.y || 0));
+  var assets = arr(model.assets);
+  var elements = arr(model.elements);
+  var sections = arr(model.sections).slice().sort(function(a, b) {
+    return get(a.rect, 'y', 0) - get(b.rect, 'y', 0);
+  });
 
-  for (const section of sections) {
-    const sr = scaleRect(section.rect, scale);
-    const sf = frame(`Section / ${section.name || section.role}`, targetWidth, Math.max(40, sr.h), '#FFFFFF');
+  for (var i = 0; i < sections.length; i += 1) {
+    var section = sections[i];
+    var sr = scaleRect(section.rect, scale);
+    var sf = frame('Section / ' + (section.name || section.role), targetWidth, Math.max(40, sr.h), '#FFFFFF');
     sf.x = 0;
     sf.y = sr.y;
     sf.clipsContent = true;
-    sf.layoutMode = 'NONE';
+    try { sf.layoutMode = 'NONE'; } catch (_) {}
     if (section.role === 'footer') sf.fills = paint('#F7F8FA');
     if (section.role === 'header') sf.fills = paint('#FFFFFF');
     if (section.role === 'hero') sf.fills = paint('#FFFFFF');
     root.appendChild(sf);
 
-    const childElements = elements.filter((item) => item.sectionId === section.id).sort((a, b) => {
-      const order = { container: 0, image: 1, text: 2, button: 3 };
-      return (order[a.type] || 4) - (order[b.type] || 4) || (a.rect?.y || 0) - (b.rect?.y || 0);
+    var childElements = elements.filter(function(item) { return item.sectionId === section.id; }).sort(function(a, b) {
+      var order = { container: 0, image: 1, text: 2, button: 3 };
+      return (order[a.type] || 4) - (order[b.type] || 4) || get(a.rect, 'y', 0) - get(b.rect, 'y', 0);
     });
-    for (const element of childElements) renderElement(sf, element, assets, sr, scale);
+    for (var j = 0; j < childElements.length; j += 1) renderElement(sf, childElements[j], assets, sr, scale);
   }
 
   return root;
@@ -216,17 +231,17 @@ function renderDesignModel(payload) {
 async function importPayload(payload) {
   validatePayload(payload);
   await preparePage();
-  const pageTitle = clean(payload.designModel.page.title || payload.source?.title || 'Website');
-  const root = frame(`${pageTitle} / ${new Date().toISOString().replace(/[:.]/g, '-')}`, 1440, 2400, '#FFFFFF');
+  var pageTitle = clean(payload.designModel.page.title || (payload.source && payload.source.title) || 'Website');
+  var root = frame(pageTitle + ' / ' + new Date().toISOString().replace(/[:.]/g, '-'), 1440, 2400, '#FFFFFF');
   text(root, 'Run Title', pageTitle, 80, 30, 28, '#111827', 1200, 700);
-  text(root, 'Run Note', `${PUBLIC_VERSION} / ${ENGINE} / ${ENGINE_BUILD} — clean editable UI Library reconstruction.`, 80, 68, 12, '#667085', 1200, 400);
+  text(root, 'Run Note', PUBLIC_VERSION + ' / ' + ENGINE + ' / ' + ENGINE_BUILD + ' — clean editable UI Library reconstruction.', 80, 68, 12, '#667085', 1200, 400);
 
-  const main = renderDesignModel(payload);
+  var main = renderDesignModel(payload);
   main.x = 80;
   main.y = 112;
   root.appendChild(main);
 
-  const ref = renderSourceReference(payload, 1280);
+  var ref = renderSourceReference(payload, 1280);
   ref.x = 80;
   ref.y = main.y + main.height + 80;
   root.resize(1440, ref.y + ref.height + 80);
@@ -236,8 +251,8 @@ async function importPayload(payload) {
   figma.viewport.scrollAndZoomIntoView([main]);
   lastFrame = root;
 
-  const audit = payload.audit ? `\nVisual Readiness: ${payload.audit.visualReadiness}\nVisual Score: ${payload.audit.score}` : '';
-  post(`Import complete.\nEngine: ${ENGINE}\nEngine Build: ${ENGINE_BUILD}\nOutput: clean editable UI Library structure\nSections: ${payload.designModel.sections.length}\nElements: ${payload.designModel.elements.length}\nAssets: ${payload.designModel.assets.length}${audit}`);
+  var audit = payload.audit ? ('\nVisual Readiness: ' + payload.audit.visualReadiness + '\nVisual Score: ' + payload.audit.score) : '';
+  post('Import complete.\nEngine: ' + ENGINE + '\nEngine Build: ' + ENGINE_BUILD + '\nOutput: clean editable UI Library structure\nSections: ' + payload.designModel.sections.length + '\nElements: ' + payload.designModel.elements.length + '\nAssets: ' + payload.designModel.assets.length + audit);
 }
 
 function exportPackage() {
@@ -256,15 +271,19 @@ function exportPackage() {
       ]
     }, null, 2)
   });
-  post(`Export package ready.\nEngine: ${ENGINE}\nLast Frame: ${lastFrame ? lastFrame.name : 'none'}`);
+  post('Export package ready.\nEngine: ' + ENGINE + '\nLast Frame: ' + (lastFrame ? lastFrame.name : 'none'));
 }
 
-figma.ui.onmessage = async (message) => {
+figma.ui.onmessage = async function(message) {
   try {
     if (message && message.type === 'import-design-model') return await importPayload(message.payload || {});
     if (message && message.type === 'export-ui-package') return exportPackage();
-    post(`Unsupported command: ${message && message.type}`);
+    post('Unsupported command: ' + (message && message.type));
   } catch (err) {
-    post(`Plugin error: ${err && err.message ? err.message : err}`);
+    var msg = err && err.message ? err.message : String(err);
+    console.error(err);
+    post('Plugin error: ' + msg);
   }
 };
+
+post('Clean renderer loaded.\nEngine: ' + ENGINE + '\nEngine Build: ' + ENGINE_BUILD);
