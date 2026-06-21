@@ -8,6 +8,7 @@ const manifest = JSON.parse(fs.readFileSync(path.join(pluginRoot, 'manifest.json
 const pkg = JSON.parse(fs.readFileSync(path.join(root, 'package.json'), 'utf8'));
 const server = fs.readFileSync(path.join(root, 'server.mjs'), 'utf8');
 const contract = fs.readFileSync(path.join(root, 'src', 'shared-contract.mjs'), 'utf8');
+const visualModel = fs.readFileSync(path.join(root, 'src', 'build-visual-model.mjs'), 'utf8');
 const payloadBuilder = fs.readFileSync(path.join(root, 'src', 'build-payload.mjs'), 'utf8');
 const cloneBuilder = fs.readFileSync(path.join(root, 'src', 'build-clone-model.mjs'), 'utf8');
 const health = fs.readFileSync(path.join(root, 'src', 'health-status.mjs'), 'utf8');
@@ -24,12 +25,12 @@ if (manifest.main !== 'code.js') failures.push('manifest must use code.js');
 if (manifest.ui !== 'ui.html') failures.push('manifest must use ui.html');
 if (pkg.scripts?.start !== 'node server.mjs') failures.push('npm start must use server.mjs');
 
-for (const pair of [['server', server], ['contract', contract], ['payloadBuilder', payloadBuilder], ['cloneBuilder', cloneBuilder], ['health', health], ['routes', routes], ['matcher', matcher], ['preview', preview], ['comparison', comparison], ['runner', runner], ['ui', ui], ['renderer', renderer]]) {
+for (const pair of [['server', server], ['contract', contract], ['visualModel', visualModel], ['payloadBuilder', payloadBuilder], ['cloneBuilder', cloneBuilder], ['health', health], ['routes', routes], ['matcher', matcher], ['preview', preview], ['comparison', comparison], ['runner', runner], ['ui', ui], ['renderer', renderer]]) {
   const name = pair[0];
   const text = pair[1];
-  if (!text.includes('translateit-core') && !['payloadBuilder','cloneBuilder','health','routes','matcher','preview','comparison','runner'].includes(name)) failures.push(`${name} missing clean engine marker`);
-  if (!text.includes('alpha-clean-1') && !['payloadBuilder','cloneBuilder','health','routes','matcher','preview','comparison','runner'].includes(name)) failures.push(`${name} missing clean build marker`);
-  if (!text.includes('Version 0.1 - Alpha') && !['payloadBuilder','cloneBuilder','health','routes','matcher','preview','comparison','runner'].includes(name)) failures.push(`${name} missing public version marker`);
+  if (!text.includes('translateit-core') && !['visualModel','payloadBuilder','cloneBuilder','health','routes','matcher','preview','comparison','runner'].includes(name)) failures.push(`${name} missing clean engine marker`);
+  if (!text.includes('alpha-clean-1') && !['visualModel','payloadBuilder','cloneBuilder','health','routes','matcher','preview','comparison','runner'].includes(name)) failures.push(`${name} missing clean build marker`);
+  if (!text.includes('Version 0.1 - Alpha') && !['visualModel','payloadBuilder','cloneBuilder','health','routes','matcher','preview','comparison','runner'].includes(name)) failures.push(`${name} missing public version marker`);
 }
 
 if (!server.includes('healthStatus')) failures.push('server must use healthStatus');
@@ -37,6 +38,9 @@ if (!server.includes('handleRender')) failures.push('server must use handleRende
 if (!server.includes('handleAudit')) failures.push('server must use handleAudit');
 if (server.includes('function buildCloneModel')) failures.push('server still contains clone model builder');
 if (server.includes('function buildPayload')) failures.push('server still contains payload builder');
+if (!visualModel.includes('coverageRatio')) failures.push('visual model missing coverageRatio');
+if (!visualModel.includes('confidenceReason')) failures.push('visual model missing confidenceReason');
+if (!visualModel.includes('importantBlocks')) failures.push('visual model missing importantBlocks diagnostics');
 if (!payloadBuilder.includes('buildVisualModel')) failures.push('payload builder missing buildVisualModel');
 if (!payloadBuilder.includes('matchDomToVisual')) failures.push('payload builder missing matchDomToVisual');
 if (!payloadBuilder.includes('buildCloneModel')) failures.push('payload builder missing buildCloneModel');
@@ -49,6 +53,7 @@ if (!matcher.includes('visual-rect-dom-content-style')) failures.push('matcher m
 if (!matcher.includes('dom-rect-visual-verified')) failures.push('matcher missing DOM rect visual verification rule');
 if (!preview.includes('translateit-clone-preview-latest.png')) failures.push('preview renderer does not write PNG preview');
 if (!preview.includes('visualSimilarityScore')) failures.push('preview renderer missing visual similarity metric');
+if (!preview.includes('visualCoverageScore')) failures.push('preview renderer missing visual coverage score');
 if (!comparison.includes('compareSourceAndClonePreview')) failures.push('comparison module missing compareSourceAndClonePreview');
 if (!comparison.includes('averagePixelDifference')) failures.push('comparison module missing pixel difference metric');
 if (!runner.includes('compareSourceAndClonePreview')) failures.push('audit runner does not call source/clone comparison');
@@ -66,6 +71,6 @@ if (renderer.includes('renderFooter')) failures.push('renderer still contains te
 if (renderer.includes('?.')) failures.push('plugin/code.js uses optional chaining');
 if (renderer.includes('??')) failures.push('plugin/code.js uses nullish coalescing');
 
-const report = { gate: 'translateit-clean-contract', status: failures.length ? 'fail' : 'pass', manifestMain: manifest.main, npmStart: pkg.scripts ? pkg.scripts.start : null, engine: 'translateit-core', engineBuild: 'alpha-clean-1', renderer: 'layout-preserving-editable-clone', modularPipeline: true, visualModel: 'screenshot-first-html-assisted', visualMatching: 'dom-to-visual-foundation', clonePreview: 'html-png-preview-foundation', visualComparison: 'source-vs-clone-preview-sampling', failures };
+const report = { gate: 'translateit-clean-contract', status: failures.length ? 'fail' : 'pass', manifestMain: manifest.main, npmStart: pkg.scripts ? pkg.scripts.start : null, engine: 'translateit-core', engineBuild: 'alpha-clean-1', renderer: 'layout-preserving-editable-clone', modularPipeline: true, visualModel: 'screenshot-first-html-assisted-v2', visualMatching: 'dom-to-visual-foundation', clonePreview: 'html-png-preview-foundation', visualComparison: 'source-vs-clone-preview-sampling', failures };
 console.log(JSON.stringify(report, null, 2));
 if (failures.length) process.exitCode = 2;
