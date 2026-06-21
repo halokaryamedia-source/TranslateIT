@@ -10,25 +10,15 @@ Version 0.1 - Alpha
 
 ## Product Goal
 
-TranslateIT is a website-to-Figma reconstruction plugin. The goal is not just to create frames in Figma, but to create a clean, editable, professional UI structure that designers can continue editing.
+TranslateIT is a website-to-Figma reconstruction plugin. The goal is a layout-preserving editable clone of the source website, not a clean redesign template and not a screenshot-only import.
 
-The output should behave like a practical UI Library structure:
+The correct product direction is:
 
 ```txt
-Page
-Section
-Header
-Navigation
-Hero
-Content
-Card
-Image
-Button
-Footer
-Asset
+Screenshot-first, HTML-assisted, editable reconstruction.
 ```
 
-The editable output must not be a raw DOM dump and must not rely on screenshot overlay. Screenshot source is allowed only as a separate reference frame.
+The screenshot is the visual truth. DOM/CSS/assets provide editability, text, asset metadata, section meaning, and UI Library organization.
 
 ## Active Clean Engine
 
@@ -45,47 +35,99 @@ Only one plugin renderer is active:
 plugin/code.js
 ```
 
-The default manifest points to:
+The active manifest points to:
 
 ```txt
 plugin/manifest.json -> main: code.js
+plugin/manifest.json -> ui: ui.html
 ```
 
-## Clean Contract
+## Active Contract
 
-RenderBridge returns one contract:
+RenderBridge returns one active contract:
 
 ```txt
 publicVersion: Version 0.1 - Alpha
 engine: translateit-core
 engineBuild: alpha-clean-1
-source: present
-designModel.sections: present
-designModel.elements: present
-designModel.assets: present
+contract: cloneModel
+cloneModel.mode: layout-preserving-editable-clone
+visualModel: screenshot-first-html-assisted-v2
+visualComparison: visual-comparison-v2
+legacyActive: false
 ```
 
-The plugin rejects payloads outside this contract.
+The plugin renders from `cloneModel` only. `designModel` can exist internally as an intermediate representation, but it is not the renderer contract.
+
+## Current Reconstruction Pipeline
+
+```txt
+URL
+-> Playwright browser render
+-> full-page screenshot capture
+-> DOM/CSS/assets capture
+-> buildVisualModel
+-> extractLayout
+-> buildDesignModel
+-> reconstructTextLines
+-> guardHeroOcclusion
+-> matchDomToVisual
+-> buildCloneModel
+-> renderClonePreview
+-> compareSourceAndClonePreview V2
+-> visualAudit
+-> plugin/code.js renderer
+-> editable Figma clone + locked screenshot reference
+```
+
+Active capability markers:
+
+```txt
+paintOrder: dom-paint-order-preserved
+sectionSurface: source-derived
+imageFit: source-object-fit-preserved
+textRender: source-text-rendering-preserved
+heroOcclusionGuard: true
+textLineReconstruction: true
+visualDiffOverlay: true
+```
 
 ## Folder Structure
 
 ```txt
 DevelopingData/FigmaDesignExport/TranslateIT/
 ├─ CLEAN_ENGINE_PLAN.md
+├─ ENGINE_FLOW_CHART.md
+├─ CODIA_STYLE_REFERENCE.md
 ├─ README.md
 ├─ RenderBridge/
 │  ├─ package.json
 │  ├─ server.mjs
 │  ├─ test-translateit.ps1
+│  ├─ run-full-regression-and-open.ps1
+│  ├─ open-latest-reports.ps1
 │  ├─ src/
 │  │  ├─ shared-contract.mjs
+│  │  ├─ health-status.mjs
+│  │  ├─ route-handlers.mjs
 │  │  ├─ capture-site.mjs
 │  │  ├─ extract-layout.mjs
+│  │  ├─ build-visual-model.mjs
 │  │  ├─ build-design-model.mjs
+│  │  ├─ reconstruct-text-lines.mjs
+│  │  ├─ guard-hero-occlusion.mjs
+│  │  ├─ match-dom-visual.mjs
+│  │  ├─ build-clone-model.mjs
+│  │  ├─ render-clone-preview.mjs
+│  │  ├─ compare-visual-screenshots.mjs
+│  │  ├─ run-clone-audit.mjs
 │  │  └─ visual-audit.mjs
 │  ├─ tests/
+│  │  ├─ test-module-imports.mjs
 │  │  ├─ test-clean-contract.mjs
-│  │  └─ test-sample-sites.mjs
+│  │  ├─ test-sample-sites.mjs
+│  │  ├─ test-regression-suite.mjs
+│  │  └─ regression-sites.json
 │  └─ reports/
 └─ plugin/
    ├─ manifest.json
@@ -101,28 +143,40 @@ Run from `RenderBridge`:
 .\test-translateit.ps1 https://www.mivubi.com/
 ```
 
+`test-translateit.ps1` routes to the full workflow:
+
+```txt
+npm dependency check
+Playwright Chromium install
+RenderBridge health check
+module import gate
+clean contract gate
+sample audit
+regression suite
+open latest reports
+copy Mivubi JSON report to clipboard
+```
+
 `mivubi.com` is only a sample/regression target. The engine must not contain site-specific hardcoded logic.
 
-The command runs:
+## Report Files
+
+The workflow writes per-site reports to avoid confusion from overwritten latest files:
 
 ```txt
-dependency check
-Playwright browser install
-clean contract audit
-clean RenderBridge start
-visual audit
-report generation
+RenderBridge/reports/translateit-regression-site-mivubi-sample.json
+RenderBridge/reports/translateit-regression-site-mivubi-sample.html
+RenderBridge/reports/translateit-regression-site-mivubi-sample.png
+RenderBridge/reports/translateit-regression-site-mivubi-sample-diff.html
+RenderBridge/reports/translateit-regression-site-mivubi-sample-diff.png
+RenderBridge/reports/translateit-regression-latest.json
 ```
 
-Report:
-
-```txt
-RenderBridge/reports/translateit-clean-latest.json
-```
+`translateit-clean-latest.json` can still exist as a low-level latest audit file, but the main review target is the per-site regression report.
 
 ## Visual Quality Gate
 
-A result should not be treated as ready only because the payload exists. The audit must evaluate:
+A result must not be treated as ready only because the payload exists. The audit must evaluate:
 
 ```txt
 visualReadiness
@@ -132,11 +186,27 @@ imageScore
 textScore
 sectionScore
 layerCleanlinessScore
+cloneFidelityScore
+visualMatchScore
+visualSimilarityScore
 duplicateTextScore
 editabilityScore
 ```
 
-Manual Figma testing should happen only when the clean report is meaningful and the generated structure is expected to be reviewable.
+Visual Comparison V2 also evaluates:
+
+```txt
+topViewportSimilarityScore
+fullPageSimilarityScore
+sectionBandSimilarityScore
+worstBandScore
+imageRegionSimilarityScore
+colorSimilarityScore
+layoutShiftRiskScore
+fabricatedLayoutRisk
+```
+
+Manual Figma testing should happen only when the per-site preview and diff overlay are visually reviewable.
 
 ## Rules
 
@@ -144,7 +214,10 @@ Manual Figma testing should happen only when the clean report is meaningful and 
 No active multiple engines.
 No active alternate plugin renderer.
 No hardcoded sample website logic.
+No clean redesign/template as default output.
 No raw DOM dump as final output.
 No screenshot overlay as editable output.
 No report pass that ignores visual quality.
+Renderer must render cloneModel only.
+Screenshot is visual truth; DOM is editability support.
 ```
