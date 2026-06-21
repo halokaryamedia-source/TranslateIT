@@ -68,53 +68,23 @@ function normalizeElement(element, assets) {
 
   if (semantic === 'image') {
     const asset = assetForElement(element, assets);
-    return {
-      ...base,
-      type: 'image',
-      role: 'image',
-      name: `Image / ${clean(element.alt) || asset?.name || element.index}`,
-      assetId: asset?.id || null,
-      alt: clean(element.alt || asset?.name || '')
-    };
+    return { ...base, type: 'image', role: 'image', name: `Image / ${clean(element.alt) || asset?.name || element.index}`, assetId: asset?.id || null, alt: clean(element.alt || asset?.name || '') };
   }
 
   if (semantic === 'button') {
-    return {
-      ...base,
-      type: 'button',
-      role: 'button',
-      name: `Button / ${clean(element.text).slice(0, 36)}`,
-      text: clean(element.text).slice(0, 80)
-    };
+    return { ...base, type: 'button', role: 'button', name: `Button / ${clean(element.text).slice(0, 36)}`, text: clean(element.text).slice(0, 80) };
   }
 
   if (semantic === 'nav-item' || semantic === 'footer-link' || semantic === 'link') {
-    return {
-      ...base,
-      type: 'text',
-      role: semantic,
-      name: `${semantic === 'nav-item' ? 'Nav Item' : semantic === 'footer-link' ? 'Footer Link' : 'Link'} / ${clean(element.text).slice(0, 36)}`,
-      text: clean(element.text).slice(0, 120)
-    };
+    return { ...base, type: 'text', role: semantic, name: `${semantic === 'nav-item' ? 'Nav Item' : semantic === 'footer-link' ? 'Footer Link' : 'Link'} / ${clean(element.text).slice(0, 36)}`, text: clean(element.text).slice(0, 120) };
   }
 
   if (semantic === 'title' || semantic === 'section-title' || semantic === 'subheading' || semantic === 'body' || semantic === 'label' || semantic === 'footer-text') {
-    return {
-      ...base,
-      type: 'text',
-      role: semantic,
-      name: `${semantic.replace('-', ' ')} / ${clean(element.text).slice(0, 42)}`,
-      text: clean(element.text).slice(0, semantic === 'body' || semantic === 'footer-text' ? 260 : 140)
-    };
+    return { ...base, type: 'text', role: semantic, name: `${semantic.replace('-', ' ')} / ${clean(element.text).slice(0, 42)}`, text: clean(element.text).slice(0, semantic === 'body' || semantic === 'footer-text' ? 260 : 140) };
   }
 
   if (element.role === 'container') {
-    return {
-      ...base,
-      type: 'container',
-      role: 'container',
-      name: 'Container / Layout Surface'
-    };
+    return { ...base, type: 'container', role: 'container', name: 'Container / Layout Surface' };
   }
 
   return null;
@@ -152,15 +122,10 @@ function textWeight(item) {
 function resolveAggregateText(elements) {
   const textItems = elements.filter((item) => item.type === 'text');
   const remove = new Set();
-
   for (const item of textItems) {
     if (remove.has(item.id)) continue;
     const key = normalizeTextKey(item.text);
-    if (!key || key.length < 4) {
-      remove.add(item.id);
-      continue;
-    }
-
+    if (!key || key.length < 4) { remove.add(item.id); continue; }
     const related = textItems.filter((other) => {
       if (other.id === item.id || remove.has(other.id)) return false;
       const otherKey = normalizeTextKey(other.text);
@@ -169,26 +134,14 @@ function resolveAggregateText(elements) {
       const relatedBySpace = contains(item.rect, other.rect, 10) || contains(other.rect, item.rect, 10) || overlapRatio(item.rect, other.rect) > 0.55;
       return relatedByText && relatedBySpace;
     });
-
     if (related.length < 1) continue;
     const childLike = related.filter((other) => key.includes(normalizeTextKey(other.text)) && normalizeTextKey(other.text).length < key.length);
     const peerTextCount = childLike.length;
     const isCompositeTitle = ['title', 'section-title'].includes(item.role) && item.text.length <= 90 && peerTextCount >= 1;
     const isAggregateNavigation = ['label', 'body', 'nav-item', 'footer-text'].includes(item.role) && peerTextCount >= 2;
     const isLargeParent = area(item.rect) > 90000 && peerTextCount >= 1 && !isCompositeTitle;
-
-    if (isCompositeTitle) {
-      for (const child of childLike) {
-        if (!['button', 'nav-item', 'footer-link'].includes(child.role)) remove.add(child.id);
-      }
-      continue;
-    }
-
-    if (isAggregateNavigation || isLargeParent) {
-      remove.add(item.id);
-      continue;
-    }
-
+    if (isCompositeTitle) { for (const child of childLike) { if (!['button', 'nav-item', 'footer-link'].includes(child.role)) remove.add(child.id); } continue; }
+    if (isAggregateNavigation || isLargeParent) { remove.add(item.id); continue; }
     for (const other of related) {
       const otherKey = normalizeTextKey(other.text);
       if (otherKey === key) {
@@ -198,7 +151,6 @@ function resolveAggregateText(elements) {
       }
     }
   }
-
   return elements.filter((item) => !remove.has(item.id));
 }
 
@@ -219,10 +171,7 @@ function removeUnsafeTextLayers(elements, page) {
   const out = [];
   const seen = new Set();
   for (const item of elements) {
-    if (item.type !== 'text') {
-      out.push(item);
-      continue;
-    }
+    if (item.type !== 'text') { out.push(item); continue; }
     const key = normalizeTextKey(item.text);
     if (!key) continue;
     if (seen.has(key)) continue;
@@ -244,6 +193,30 @@ function removeUnsafeTextLayers(elements, page) {
     out.push(item);
   }
   return out;
+}
+
+function removeSevereTextCollisions(elements) {
+  const textItems = elements.filter((item) => item.type === 'text');
+  const remove = new Set();
+  for (let i = 0; i < textItems.length; i += 1) {
+    for (let j = i + 1; j < textItems.length; j += 1) {
+      const a = textItems[i];
+      const b = textItems[j];
+      if (a.sectionId !== b.sectionId) continue;
+      if (remove.has(a.id) || remove.has(b.id)) continue;
+      const ratio = overlapRatio(a.rect, b.rect);
+      if (ratio < 0.34) continue;
+      const ak = normalizeTextKey(a.text);
+      const bk = normalizeTextKey(b.text);
+      const relatedText = ak.includes(bk) || bk.includes(ak) || ak === bk;
+      const bothHeadline = ['title', 'section-title', 'subheading'].includes(a.role) && ['title', 'section-title', 'subheading'].includes(b.role);
+      if (!relatedText && !bothHeadline) continue;
+      const keep = textWeight(a) >= textWeight(b) ? a : b;
+      const drop = keep.id === a.id ? b : a;
+      remove.add(drop.id);
+    }
+  }
+  return elements.filter((item) => !remove.has(item.id));
 }
 
 function refineSectionRect(section, elements, source) {
@@ -274,13 +247,7 @@ function buildTokens(elements, source) {
   const colors = unique(elements.flatMap((item) => [item.style?.color, item.style?.backgroundColor]).filter(Boolean).map(cssColor).filter(Boolean), 18);
   const fontSizes = unique(elements.map((item) => String(Math.round(number(item.style?.fontSize, 14)))).filter(Boolean), 10).map((value) => Number(value));
   const radii = unique(elements.map((item) => String(Math.round(number(item.style?.borderRadius, 0)))).filter((value) => Number(value) > 0), 10).map((value) => Number(value));
-  return {
-    colors: colors.length ? colors : ['#111827', '#FFFFFF', '#F4C84A', '#087A4B'],
-    typography: fontSizes.sort((a, b) => b - a).map((size) => ({ name: `Font / ${size}`, size })),
-    radius: radii.sort((a, b) => a - b).map((value) => ({ name: `Radius / ${value}`, value })),
-    spacing: [4, 8, 12, 16, 24, 32, 48, 64].map((value) => ({ name: `Space / ${value}`, value })),
-    sourceViewport: source.viewport
-  };
+  return { colors: colors.length ? colors : ['#111827', '#FFFFFF', '#F4C84A', '#087A4B'], typography: fontSizes.sort((a, b) => b - a).map((size) => ({ name: `Font / ${size}`, size })), radius: radii.sort((a, b) => a - b).map((value) => ({ name: `Radius / ${value}`, value })), spacing: [4, 8, 12, 16, 24, 32, 48, 64].map((value) => ({ name: `Space / ${value}`, value })), sourceViewport: source.viewport };
 }
 
 function applySafetyLayout(model) {
@@ -301,26 +268,13 @@ function applySafetyLayout(model) {
 export function buildDesignModel(layout) {
   const source = layout.source;
   const assets = layout.assets || [];
-  const page = {
-    title: source.title || 'Imported Website',
-    url: source.finalUrl || source.url,
-    width: source.viewport.width,
-    height: source.pageHeight,
-    background: '#FFFFFF'
-  };
+  const page = { title: source.title || 'Imported Website', url: source.finalUrl || source.url, width: source.viewport.width, height: source.pageHeight, background: '#FFFFFF' };
   const normalizedRaw = layout.elements.map((item) => normalizeElement(item, assets)).filter(Boolean);
   const unsafeFiltered = removeUnsafeTextLayers(normalizedRaw, page);
   const aggregateFiltered = resolveAggregateText(unsafeFiltered);
-  const normalized = removeTextInsideImages(aggregateFiltered);
-  const sections = layout.sections.map((section) => ({
-    id: section.id,
-    role: section.role,
-    name: section.name,
-    rect: refineSectionRect(section, normalized, source),
-    intent: inferSectionIntent(section, normalized),
-    elementIds: normalized.filter((item) => item.sectionId === section.id).map((item) => item.id)
-  })).filter((section) => section.elementIds.length || ['header', 'footer'].includes(section.role));
-
+  const imageFiltered = removeTextInsideImages(aggregateFiltered);
+  const normalized = removeSevereTextCollisions(imageFiltered);
+  const sections = layout.sections.map((section) => ({ id: section.id, role: section.role, name: section.name, rect: refineSectionRect(section, normalized, source), intent: inferSectionIntent(section, normalized), elementIds: normalized.filter((item) => item.sectionId === section.id).map((item) => item.id) })).filter((section) => section.elementIds.length || ['header', 'footer'].includes(section.role));
   const model = {
     page,
     sections,
@@ -338,9 +292,9 @@ export function buildDesignModel(layout) {
       removedParentText: layout.stats.removedParentText || 0,
       removedUnsafeText: normalizedRaw.length - unsafeFiltered.length,
       removedAggregateText: unsafeFiltered.length - aggregateFiltered.length,
-      removedImageOverlayText: aggregateFiltered.length - normalized.length
+      removedImageOverlayText: aggregateFiltered.length - imageFiltered.length,
+      removedCollisionText: imageFiltered.length - normalized.length
     }
   };
-
   return applySafetyLayout(model);
 }
