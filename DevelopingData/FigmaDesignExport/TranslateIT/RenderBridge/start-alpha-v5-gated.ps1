@@ -22,6 +22,7 @@ if ($Health.publicVersion -ne "Version 0.1 - Alpha") {
   throw "Unexpected public version: $($Health.publicVersion)"
 }
 
+node audit-alpha-v5-single-engine.mjs
 node audit-alpha-v5-default.mjs
 node audit-alpha-v5-media.mjs $Url
 node audit-alpha-v5-model.mjs $Url
