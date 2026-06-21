@@ -61,6 +61,7 @@ try {
   npm.cmd run test:contract
   npm.cmd run test:v2
   node .\tests\test-sample-sites.mjs $TargetUrl
+  node .\tests\test-figma-renderer-dry-run.mjs $TargetUrl
   npm.cmd run test:regression
 
   & (Join-Path $BridgeRoot 'open-latest-reports.ps1')
