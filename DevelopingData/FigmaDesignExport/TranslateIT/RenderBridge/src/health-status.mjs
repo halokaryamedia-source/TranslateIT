@@ -1,5 +1,23 @@
 import { ok } from './shared-contract.mjs';
 
 export function healthStatus() {
-  return ok({ adapter: 'clean-render-bridge', activeServer: 'server.mjs', activeRenderer: 'plugin/code.js', contract: 'cloneModel', cloneMode: 'layout-preserving-editable-clone', visualModel: 'screenshot-first-html-assisted-visual-model', visualMatching: 'dom-to-visual-foundation', clonePreview: 'html-png-preview-foundation', visualComparison: 'source-vs-clone-preview-sampling', legacyActive: false });
+  return ok({
+    adapter: 'clean-render-bridge',
+    activeServer: 'server.mjs',
+    activeRenderer: 'plugin/code.js',
+    contract: 'cloneModel',
+    cloneMode: 'layout-preserving-editable-clone',
+    visualModel: 'screenshot-first-html-assisted-v2',
+    visualMatching: 'dom-to-visual-foundation',
+    paintOrder: 'dom-paint-order-preserved',
+    sectionSurface: 'source-derived',
+    imageFit: 'source-object-fit-preserved',
+    textRender: 'source-text-rendering-preserved',
+    heroOcclusionGuard: true,
+    textLineReconstruction: true,
+    clonePreview: 'html-png-preview-foundation',
+    visualComparison: 'visual-comparison-v2',
+    visualDiffOverlay: true,
+    legacyActive: false
+  });
 }
