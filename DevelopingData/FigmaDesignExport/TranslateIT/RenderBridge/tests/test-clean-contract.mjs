@@ -10,6 +10,7 @@ function mustNot(name, text, marker, message) { if (text.includes(marker)) failu
 
 const manifest = JSON.parse(read(path.join(pluginRoot, 'manifest.json')));
 const pkg = JSON.parse(read(path.join(root, 'package.json')));
+const activeRendererPath = path.join(pluginRoot, manifest.main || 'code.js');
 const files = {
   server: read(path.join(root, 'server.mjs')),
   contract: read(path.join(root, 'src', 'shared-contract.mjs')),
@@ -24,22 +25,25 @@ const files = {
   routes: read(path.join(root, 'src', 'route-handlers.mjs')),
   matcher: read(path.join(root, 'src', 'match-dom-visual.mjs')),
   preview: read(path.join(root, 'src', 'render-clone-preview.mjs')),
+  figmaSim: read(path.join(root, 'src', 'render-figma-sim-preview.mjs')),
   comparison: read(path.join(root, 'src', 'compare-visual-screenshots.mjs')),
   runner: read(path.join(root, 'src', 'run-clone-audit.mjs')),
   audit: read(path.join(root, 'src', 'visual-audit.mjs')),
   regression: read(path.join(root, 'tests', 'test-regression-suite.mjs')),
   sample: read(path.join(root, 'tests', 'test-sample-sites.mjs')),
   figmaDryRun: read(path.join(root, 'tests', 'test-figma-renderer-dry-run.mjs')),
+  figmaSimTest: read(path.join(root, 'tests', 'test-figma-sim-preview.mjs')),
   ui: read(path.join(pluginRoot, 'ui.html')),
-  renderer: read(path.join(pluginRoot, 'code.js'))
+  renderer: read(activeRendererPath)
 };
 
-if (manifest.main !== 'code.js') failures.push('manifest must use code.js');
+if (manifest.main !== 'code-visual-backed.js') failures.push('manifest must use code-visual-backed.js');
 if (manifest.ui !== 'ui.html') failures.push('manifest must use ui.html');
 if (pkg.scripts?.start !== 'node server.mjs') failures.push('npm start must use server.mjs');
 if (pkg.scripts?.['test:imports'] !== 'node ./tests/test-module-imports.mjs') failures.push('npm test:imports must run module import gate');
 if (pkg.scripts?.['test:v2'] !== 'node ./tests/test-v2-markers.mjs') failures.push('npm test:v2 must run V2 marker gate');
 if (pkg.scripts?.['test:figma-dry-run'] !== 'node ./tests/test-figma-renderer-dry-run.mjs') failures.push('npm test:figma-dry-run must run Figma renderer dry run');
+if (pkg.scripts?.['test:figma-sim-preview'] !== 'node ./tests/test-figma-sim-preview.mjs') failures.push('npm test:figma-sim-preview must run Figma simulation preview');
 
 must('server', files.server, 'healthStatus', 'server must use healthStatus');
 must('server', files.server, 'handleRender', 'server must use handleRender');
@@ -61,26 +65,27 @@ for (const marker of ['cssStackingPreserved', 'imageFitPreserved', 'textRenderMe
 for (const marker of ['reconstructTextLines', 'line-aware-headline-reconstruction']) must('lineReconstruction', files.lineReconstruction, marker, `line reconstruction missing ${marker}`);
 for (const marker of ['removedHeroOccludedText', 'removedHeadlineCollisionText']) must('heroGuard', files.heroGuard, marker, `hero guard missing ${marker}`);
 for (const marker of ['buildVisualModel', 'reconstructTextLines', 'guardHeroOcclusion', 'matchDomToVisual', 'buildCloneModel']) must('payloadBuilder', files.payloadBuilder, marker, `payload builder missing ${marker}`);
-for (const marker of ['layout-preserving-editable-clone', 'screenshot-first-html-assisted', 'paintOrderOf', 'dom-paint-order-preserved', 'sectionSurfaceColor', 'source-derived', 'source-object-fit-preserved', 'imageFitLayerCount', 'source-text-rendering-preserved', 'textRenderLayerCount']) must('cloneBuilder', files.cloneBuilder, marker, `clone builder missing ${marker}`);
+for (const marker of ['layout-preserving-editable-clone', 'screenshot-first-html-assisted', 'paintOrderOf', 'dom-paint-order-preserved', 'sectionSurfaceColor', 'source-derived', 'source-object-fit-preserved', 'imageFitLayerCount', 'source-text-rendering-preserved', 'textRenderLayerCount', 'visualBacking']) must('cloneBuilder', files.cloneBuilder, marker, `clone builder missing ${marker}`);
 for (const marker of ['screenshot-first-html-assisted-v2', 'dom-paint-order-preserved', 'source-derived', 'source-object-fit-preserved', 'source-text-rendering-preserved', 'visual-comparison-v2', 'visualDiffOverlay']) must('health', files.health, marker, `health status missing ${marker}`);
 for (const marker of ['visual-rect-dom-content-style', 'dom-rect-visual-verified']) must('matcher', files.matcher, marker, `matcher missing ${marker}`);
 for (const marker of ['translateit-clone-preview-latest.png', 'imageFitCss', 'textRenderScore', 'text-rendering:geometricPrecision', 'letter-spacing', 'text-transform', 'overflow-wrap', 'sortLayers']) must('preview', files.preview, marker, `preview renderer missing ${marker}`);
+for (const marker of ['renderFigmaSimPreview', 'source-screenshot-underlay', 'Editable Reconstruction', 'translateit-figma-sim-preview-latest.png']) must('figmaSim', files.figmaSim, marker, `Figma simulation missing ${marker}`);
 for (const marker of ['visual-comparison-v2', 'topViewportSimilarityScore', 'sectionBandSimilarityScore', 'worstBandScore', 'layoutShiftRiskScore', 'translateit-visual-diff-latest.png']) must('comparison', files.comparison, marker, `comparison module missing ${marker}`);
 for (const marker of ['visualDiff', 'compareSourceAndClonePreview']) must('runner', files.runner, marker, `audit runner missing ${marker}`);
 for (const marker of ['top viewport similarity too low', 'worst visual band too low', 'layout shift risk too high', 'source clone visual comparison']) must('audit', files.audit, marker, `visual audit missing ${marker}`);
 for (const marker of ['diffPngPath', 'diffHtmlPath']) must('regression', files.regression, marker, `regression report missing ${marker}`);
 for (const marker of ['screenshot-first-html-assisted-v2', 'visual-comparison-v2', 'visualDiffOverlay']) must('sample', files.sample, marker, `sample test missing ${marker}`);
-for (const marker of ['figma.ui.onmessage', 'Import complete', 'PaintOrder: source DOM', 'ImageFit: source object-fit']) must('figmaDryRun', files.figmaDryRun, marker, `Figma dry run missing ${marker}`);
+for (const marker of ['manifest.main', 'Import complete', 'VisualBacking: source screenshot underlay', 'EditableOverlay: low opacity grouped']) must('figmaDryRun', files.figmaDryRun, marker, `Figma dry run missing ${marker}`);
+for (const marker of ['renderFigmaSimPreview', 'translateit-figma-sim-preview-latest.png']) must('figmaSimTest', files.figmaSimTest, marker, `Figma sim test missing ${marker}`);
 
 must('renderer', files.renderer, 'cloneModel missing', 'plugin does not reject missing cloneModel');
-must('renderer', files.renderer, 'PaintOrder: source DOM', 'plugin does not report source paint order');
-must('renderer', files.renderer, 'ImageFit: source object-fit', 'plugin does not report source image fit');
-must('renderer', files.renderer, 'TextRender: source opacity safe', 'plugin does not report text render safe opacity');
-must('renderer', files.renderer, 'function OP', 'plugin renderer missing opacity helper');
+must('renderer', files.renderer, 'Visual Backing / Source Screenshot', 'renderer missing locked visual backing layer');
+must('renderer', files.renderer, 'Editable Reconstruction / Low Opacity', 'renderer missing editable overlay group');
+must('renderer', files.renderer, 'VisualBacking: ', 'renderer does not report visual backing');
+must('renderer', files.renderer, 'EditableOverlay: ', 'renderer does not report editable overlay');
 must('renderer', files.renderer, 'fitMode', 'plugin renderer missing image fit mode');
-mustNot('renderer', files.renderer, 'var o={shape:0,image:1,text:2,button:3}', 'plugin still uses type-based order fallback');
-for (const marker of ['renderHeader', 'renderHero', 'renderContent', 'renderFooter', '?.', '??']) mustNot('renderer', files.renderer, marker, `plugin/code.js contains forbidden marker ${marker}`);
+for (const marker of ['renderHeader', 'renderHero', 'renderContent', 'renderFooter']) mustNot('renderer', files.renderer, marker, `active renderer contains forbidden marker ${marker}`);
 
-const report = { gate: 'translateit-clean-contract', status: failures.length ? 'fail' : 'pass', manifestMain: manifest.main, npmStart: pkg.scripts ? pkg.scripts.start : null, engine: 'translateit-core', engineBuild: 'alpha-clean-1', renderer: 'layout-preserving-editable-clone', modularPipeline: true, visualModel: 'screenshot-first-html-assisted-v2', textLineReconstruction: true, heroOcclusionGuard: true, sectionSurface: 'source-derived', imageFit: 'source-object-fit-preserved', textRender: 'source-text-rendering-preserved', visualComparison: 'visual-comparison-v2', visualDiffOverlay: true, visualMatching: 'dom-to-visual-foundation', paintOrder: 'dom-paint-order-preserved', clonePreview: 'html-png-preview-foundation', failures };
+const report = { gate: 'translateit-clean-contract', status: failures.length ? 'fail' : 'pass', manifestMain: manifest.main, npmStart: pkg.scripts ? pkg.scripts.start : null, engine: 'translateit-core', engineBuild: 'alpha-clean-1', renderer: 'visual-backed-editable-clone', modularPipeline: true, visualModel: 'screenshot-first-html-assisted-v2', textLineReconstruction: true, heroOcclusionGuard: true, sectionSurface: 'source-derived', imageFit: 'source-object-fit-preserved', textRender: 'source-text-rendering-preserved', visualComparison: 'visual-comparison-v2', visualDiffOverlay: true, visualMatching: 'dom-to-visual-foundation', paintOrder: 'dom-paint-order-preserved', clonePreview: 'html-png-preview-foundation', figmaSimulationPreview: true, failures };
 console.log(JSON.stringify(report, null, 2));
 if (failures.length) process.exitCode = 2;
