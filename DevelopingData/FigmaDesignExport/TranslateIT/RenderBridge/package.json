@@ -5,7 +5,9 @@
   "type": "module",
   "description": "Local background render bridge for TranslateIT Figma plugin website imports.",
   "scripts": {
-    "start": "node server.mjs",
+    "start": "node start-alpha-v5.mjs",
+    "start:v5": "node start-alpha-v5.mjs",
+    "gate:v5": "powershell -ExecutionPolicy Bypass -File ./start-alpha-v5-gated.ps1",
     "install-browser": "playwright install chromium"
   },
   "dependencies": {
