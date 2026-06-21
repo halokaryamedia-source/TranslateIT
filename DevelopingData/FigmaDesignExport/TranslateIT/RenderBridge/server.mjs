@@ -6,7 +6,8 @@ const PORT = Number(process.env.TRANSLATEIT_RENDER_PORT || 8844);
 const IDLE_EXIT_MS = Number(process.env.TRANSLATEIT_RENDER_IDLE_EXIT_MS || 180000);
 const VIEWPORT = { width: 1440, height: 1600 };
 const MAX_LAYERS = 900;
-const MODE = 'universal-page-adapter-v11-2-design-clone';
+const MODE = 'translateit-design-clone-alpha';
+const PUBLIC_VERSION = 'Version 0.1 - Alpha';
 
 let idleTimer = null;
 let activeJobs = 0;
@@ -38,8 +39,7 @@ function resetIdleTimer() {
 
 function normalizeUrl(value) {
   const raw = String(value || '').trim();
-  if (!raw) return '';
-  return /^https?:\/\//i.test(raw) ? raw : `https://${raw}`;
+  return raw ? (/^https?:\/\//i.test(raw) ? raw : `https://${raw}`) : '';
 }
 
 async function getBrowser() {
@@ -47,13 +47,11 @@ async function getBrowser() {
   return browserPromise;
 }
 
-function clean(value) {
-  return String(value || '').replace(/\s+/g, ' ').trim();
-}
-
-function key(value) {
-  return clean(value).toLowerCase();
-}
+function clean(value) { return String(value || '').replace(/\s+/g, ' ').trim(); }
+function key(value) { return clean(value).toLowerCase(); }
+function pxValue(value, fallback = 0) { const n = parseFloat(String(value || '').replace('px', '')); return Number.isFinite(n) ? n : fallback; }
+function clamp(value, min, max) { return Math.max(min, Math.min(max, value)); }
+function truncate(value, max) { const t = clean(value); return t.length > max ? `${t.slice(0, max - 1)}…` : t; }
 
 function unique(items, fn, limit) {
   const seen = new Set();
@@ -77,13 +75,8 @@ function union(rects) {
   return { x, y, w: right - x, h: bottom - y };
 }
 
-function expand(rect, pad) {
-  return { x: rect.x - pad, y: rect.y - pad, w: rect.w + pad * 2, h: rect.h + pad * 2 };
-}
-
-function overlaps(a, b) {
-  return a && b && a.x < b.x + b.w && a.x + a.w > b.x && a.y < b.y + b.h && a.y + a.h > b.y;
-}
+function expand(rect, pad) { return { x: rect.x - pad, y: rect.y - pad, w: rect.w + pad * 2, h: rect.h + pad * 2 }; }
+function overlaps(a, b) { return a && b && a.x < b.x + b.w && a.x + a.w > b.x && a.y < b.y + b.h && a.y + a.h > b.y; }
 
 function colorFromCss(value) {
   const raw = String(value || '').trim();
@@ -94,12 +87,7 @@ function colorFromCss(value) {
   if (!rgba) return '';
   const parts = rgba[1].split(',').map((x) => parseFloat(x));
   if (parts.length < 3 || (parts.length >= 4 && parts[3] === 0)) return '';
-  return '#' + parts.slice(0, 3).map((n) => Math.round(Math.max(0, Math.min(255, n))).toString(16).padStart(2, '0')).join('');
-}
-
-function pxValue(value, fallback = 0) {
-  const n = parseFloat(String(value || '').replace('px', ''));
-  return Number.isFinite(n) ? n : fallback;
+  return '#' + parts.slice(0, 3).map((n) => Math.round(clamp(n, 0, 255)).toString(16).padStart(2, '0')).join('');
 }
 
 function componentName(members, index) {
@@ -184,9 +172,9 @@ function sectionIntent(section, index) {
   if (section.role === 'header') return 'navigation/header';
   if (section.role === 'footer') return 'footer';
   const text = (section.layers || []).filter((l) => l.type === 'text').map((l) => key(l.text || l.name)).join(' ');
-  if (index === 1 || /hero|welcome|discover|unlock|introducing|creative/.test(text)) return 'hero/landing';
-  if (/project|portfolio|gallery|work|case/.test(text)) return 'gallery/card-grid';
-  if (/about|team|culture|mission|story/.test(text)) return 'content/about';
+  if (index === 1 || /hero|welcome|discover|unlock|introducing|creative|start|main/.test(text)) return 'hero/landing';
+  if (/project|portfolio|gallery|work|case|collection|showcase/.test(text)) return 'gallery/card-grid';
+  if (/about|team|culture|mission|story|service|feature/.test(text)) return 'content/about';
   return 'content-section';
 }
 
@@ -243,7 +231,7 @@ function inferSpacingTokens(sections) {
   const base = defaultSpacingTokens();
   if (!gaps.length) return base;
   const median = gaps.sort((a, b) => a - b)[Math.floor(gaps.length / 2)];
-  return base.map((token) => token.name === 'Section Gap' ? { ...token, value: Math.max(48, Math.min(120, median)) } : token);
+  return base.map((token) => token.name === 'Section Gap' ? { ...token, value: clamp(median, 48, 120) } : token);
 }
 
 function inferRadiusTokens(layers) {
@@ -252,6 +240,74 @@ function inferRadiusTokens(layers) {
     return radius > 0 && radius < 80 ? String(Math.round(radius)) : '';
   }, 6).map((layer) => ({ name: `Radius / ${Math.round(pxValue(layer.style && layer.style.borderRadius, 0))}`, value: Math.round(pxValue(layer.style && layer.style.borderRadius, 0)) }));
   return values.length ? values : defaultRadiusTokens();
+}
+
+function readableTexts(section, limit = 10) {
+  return unique((section.layers || [])
+    .filter((layer) => layer.type === 'text')
+    .sort((a, b) => (pxValue((b.style || {}).fontSize, 14) - pxValue((a.style || {}).fontSize, 14)) || a.order - b.order),
+    (layer) => key(layer.text || layer.name), limit)
+    .map((layer) => ({
+      text: clean(layer.text || layer.name),
+      role: layer.role || 'text',
+      fontSize: pxValue((layer.style || {}).fontSize, 14),
+      weight: String((layer.style || {}).fontWeight || '')
+    }))
+    .filter((item) => item.text);
+}
+
+function inferLayoutBlueprint(section, index) {
+  const templateIntent = templateIntentFor(section, index);
+  const texts = readableTexts(section, 12);
+  const imageCount = (section.layers || []).filter((l) => l.type === 'image').length;
+  const textChars = texts.reduce((sum, item) => sum + item.text.length, 0);
+  const hasLargeMedia = (section.layers || []).some((l) => l.type === 'image' && l.rect && l.rect.w * l.rect.h > 80000);
+
+  const budgetByTemplate = {
+    header: { maxItems: 6, headingChars: 32, bodyChars: 0, maxHeight: 132 },
+    hero: { maxItems: 4, headingChars: 90, bodyChars: 180, maxHeight: 560 },
+    content: { maxItems: 6, headingChars: 80, bodyChars: 260, maxHeight: 380 },
+    gallery: { maxItems: 7, headingChars: 80, bodyChars: 48, maxHeight: 480 },
+    footer: { maxItems: 5, headingChars: 42, bodyChars: 160, maxHeight: 168 }
+  };
+  const budget = budgetByTemplate[templateIntent] || budgetByTemplate.content;
+
+  let suggestedLayout = 'single-column';
+  if (templateIntent === 'header') suggestedLayout = 'horizontal-navigation';
+  else if (templateIntent === 'hero') suggestedLayout = hasLargeMedia || imageCount ? 'two-column-hero' : 'centered-hero';
+  else if (templateIntent === 'gallery') suggestedLayout = 'three-card-grid';
+  else if (templateIntent === 'footer') suggestedLayout = 'compact-footer';
+  else if (imageCount) suggestedLayout = 'text-media-split';
+
+  return {
+    templateIntent,
+    suggestedLayout,
+    density: textChars > 900 ? 'dense' : textChars > 420 ? 'normal' : 'airy',
+    contentBudget: budget,
+    priorityText: texts.slice(0, budget.maxItems).map((item, i) => ({
+      role: i === 0 || item.role === 'heading' ? 'heading' : item.role,
+      text: i === 0 ? truncate(item.text, budget.headingChars) : truncate(item.text, budget.bodyChars || 80),
+      originalLength: item.text.length
+    })),
+    mediaSlots: Math.min(templateIntent === 'gallery' ? 3 : 1, imageCount),
+    overflowRisk: textChars > budget.headingChars + budget.bodyChars + 320,
+    sourceMetrics: { textNodes: texts.length, textChars, imageCount }
+  };
+}
+
+function buildComponentBlueprints(sections) {
+  const intents = new Set(sections.map((section, index) => templateIntentFor(section, index)));
+  const blueprints = [
+    { name: 'Button / Primary', purpose: 'Main CTA used in hero/content sections.', states: ['default', 'hover-ready'], properties: ['label', 'radius', 'padding'] },
+    { name: 'Button / Secondary', purpose: 'Secondary CTA or dark button variant.', states: ['default'], properties: ['label', 'radius', 'padding'] },
+    { name: 'Card / Default', purpose: 'Reusable content card.', states: ['default'], properties: ['title', 'body', 'radius', 'media optional'] },
+    { name: 'Media / Image Placeholder', purpose: 'Image/media container fallback.', states: ['default'], properties: ['aspect ratio', 'radius'] }
+  ];
+  if (intents.has('header')) blueprints.push({ name: 'Navigation / Header', purpose: 'Top-level brand and navigation container.', states: ['desktop', 'mobile-collapse-ready'], properties: ['brand', 'links', 'cta'] });
+  if (intents.has('hero')) blueprints.push({ name: 'Section / Hero', purpose: 'Primary landing section template.', states: ['desktop', 'mobile'], properties: ['eyebrow', 'heading', 'body', 'cta', 'media'] });
+  if (intents.has('gallery')) blueprints.push({ name: 'Section / Gallery', purpose: 'Three-card gallery template.', states: ['desktop-3col', 'tablet-2col', 'mobile-1col'], properties: ['heading', 'cards'] });
+  if (intents.has('footer')) blueprints.push({ name: 'Section / Footer', purpose: 'Compact footer template.', states: ['default'], properties: ['brand', 'links', 'notes'] });
+  return blueprints;
 }
 
 function buildRebuildPlan(payload) {
@@ -277,24 +333,43 @@ function buildRebuildPlan(payload) {
   const spacing = inferSpacingTokens(sections);
   const radius = inferRadiusTokens(layers);
   const responsive = inferResponsivePlan(sections);
-
-  return {
-    title: payload.title || 'Website Design Clone',
-    url: payload.url || '',
-    summary: 'Design clone plan for clean Figma reconstruction. Raw coordinate dumping is intentionally avoided.',
-    tokens: { colors, typography, spacing, radius },
-    responsive,
-    counts: { sections: sections.length, text: textLayers.length, images: imageLayers.length, buttons: buttonLayers.length },
-    sections: sections.slice(0, 14).map((section, index) => ({
+  const sectionPlans = sections.slice(0, 14).map((section, index) => {
+    const blueprint = inferLayoutBlueprint(section, index);
+    return {
       name: section.name || `Section ${index + 1}`,
       role: section.role || 'section',
       intent: sectionIntent(section, index),
-      templateIntent: templateIntentFor(section, index),
+      templateIntent: blueprint.templateIntent,
+      suggestedLayout: blueprint.suggestedLayout,
+      density: blueprint.density,
+      contentBudget: blueprint.contentBudget,
+      priorityText: blueprint.priorityText,
+      mediaSlots: blueprint.mediaSlots,
+      overflowRisk: blueprint.overflowRisk,
+      sourceMetrics: blueprint.sourceMetrics,
       textCount: (section.layers || []).filter((l) => l.type === 'text').length,
       imageCount: (section.layers || []).filter((l) => l.type === 'image').length,
       componentCount: (section.components || []).length,
       confidence: Math.min(0.95, 0.45 + Math.min((section.layers || []).length, 24) / 45 + Math.min((section.components || []).length, 8) / 20)
-    })),
+    };
+  });
+
+  return {
+    title: payload.title || 'Website Design Clone',
+    url: payload.url || '',
+    publicVersion: PUBLIC_VERSION,
+    summary: 'Professional design clone plan for clean Figma reconstruction. Raw coordinate dumping is intentionally avoided.',
+    tokens: { colors, typography, spacing, radius },
+    componentBlueprints: buildComponentBlueprints(sections),
+    responsive,
+    counts: { sections: sections.length, text: textLayers.length, images: imageLayers.length, buttons: buttonLayers.length },
+    sections: sectionPlans,
+    qualityHints: {
+      overflowRiskCount: sectionPlans.filter((section) => section.overflowRisk).length,
+      denseSectionCount: sectionPlans.filter((section) => section.density === 'dense').length,
+      templateIntentCoverage: sectionPlans.length ? sectionPlans.filter((section) => !!section.templateIntent).length / sectionPlans.length : 0,
+      professionalTarget: '9+ requires Figma visual validation and manual quality review after Alpha hardening.'
+    },
     uncertainties: [
       'Dynamic animations, hidden states, and interaction logic are not reconstructed in Design Clone mode.',
       'The editable draft prioritizes clean design structure over raw DOM coordinate matching.',
@@ -473,7 +548,8 @@ async function compile(target) {
     return {
       ok: true,
       mode: MODE,
-      adapter: 'universal-page-design-clone-v11-2-template-ready-library',
+      publicVersion: PUBLIC_VERSION,
+      adapter: 'translateit-alpha-professional-design-blueprint',
       capturedAt: new Date().toISOString(),
       title: extracted.title,
       url: extracted.url,
@@ -494,18 +570,21 @@ async function compile(target) {
         typographyTokenCount: (extracted.rebuildPlan.tokens.typography || []).length,
         spacingTokenCount: (extracted.rebuildPlan.tokens.spacing || []).length,
         radiusTokenCount: (extracted.rebuildPlan.tokens.radius || []).length,
+        componentBlueprintCount: (extracted.rebuildPlan.componentBlueprints || []).length,
+        overflowRiskCount: extracted.rebuildPlan.qualityHints.overflowRiskCount,
+        denseSectionCount: extracted.rebuildPlan.qualityHints.denseSectionCount,
         responsiveCount: Object.keys(extracted.rebuildPlan.responsive || {}).length,
         templateIntentCount
       },
       outputRules: [
         '01 Screenshot Preview / Pure Reference: one screenshot rectangle only.',
-        '02 Rebuild Plan / AI Interpretation: summarize sections, template intents, tokens, responsive behavior, and uncertainty.',
-        '03 UI Components / Structured Library: clean grouped design components, spacing tokens, radius tokens, and variants; not raw browser coordinates.',
-        '04 Editable Result / Clean Structured Draft: template-based editable draft, not chaotic layer dump.',
-        '05 Audit / Design Clone Notes: visible diagnostics and weakness tracking.'
+        '02 Rebuild Plan / AI Interpretation: summarize semantic section blueprints, template intents, tokens, responsive behavior, and uncertainty.',
+        '03 UI Components / Structured Library: clean grouped design components, spacing tokens, radius tokens, component blueprints, and variants; not raw browser coordinates.',
+        '04 Editable Result / Clean Structured Draft: template-based editable draft using priorityText/contentBudget, not chaotic layer dump.',
+        '05 Audit / Design Clone Notes: visible diagnostics, risk count, and weakness tracking.'
       ],
       warnings: [
-        'V11.2 Design Clone mode is design-only. Code clone and app logic are intentionally out of scope.',
+        'Version 0.1 - Alpha is design-only. Code clone and app logic are intentionally out of scope.',
         'The editable draft prioritizes professional templates and usability over raw DOM coordinate matching.',
         'Post-import Figma visual validation is required before calling the result professional-ready.'
       ]
@@ -523,7 +602,7 @@ server = http.createServer(async (req, res) => {
     return;
   }
   const requestUrl = new URL(req.url, `http://127.0.0.1:${PORT}`);
-  if (requestUrl.pathname === '/health') return json(res, 200, { ok: true, service: 'translateit-render-bridge', mode: MODE, port: PORT });
+  if (requestUrl.pathname === '/health') return json(res, 200, { ok: true, service: 'translateit-render-bridge', mode: MODE, publicVersion: PUBLIC_VERSION, port: PORT });
   if (requestUrl.pathname === '/shutdown') {
     json(res, 200, { ok: true, message: 'Render Bridge shutting down.' });
     setTimeout(async () => {
@@ -546,6 +625,6 @@ server = http.createServer(async (req, res) => {
 });
 
 server.listen(PORT, '127.0.0.1', () => {
-  console.log(`TranslateIT Universal Page Adapter V11.2 Design Clone running at http://127.0.0.1:${PORT}`);
+  console.log(`TranslateIT ${PUBLIC_VERSION} Design Clone Bridge running at http://127.0.0.1:${PORT}`);
   resetIdleTimer();
 });
