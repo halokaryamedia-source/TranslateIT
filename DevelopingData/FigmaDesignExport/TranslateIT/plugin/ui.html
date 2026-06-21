@@ -30,17 +30,17 @@
       <div class="mark">T</div>
       <div>
         <div class="eyebrow">TranslateIT Clean Engine</div>
-        <h1>Website to Editable Clone</h1>
+        <h1>Visual-Backed Editable Clone</h1>
       </div>
     </div>
-    <p class="sub">Version 0.1 - Alpha. One active engine: translateit-core / alpha-clean-1. Output is a layout-preserving editable clone; screenshot is reference only.</p>
+    <p class="sub">Version 0.1 - Alpha. Visual accuracy uses a locked source screenshot base. Editable reconstruction layers are still generated for structure/editing and can be inspected separately.</p>
 
     <section class="card">
-      <div class="row"><b>Import Website</b><span class="badge">Clean</span></div>
+      <div class="row"><b>Import Website</b><span class="badge">Alpha</span></div>
       <br />
       <input id="sourceUrl" placeholder="https://example.com/" />
-      <button id="importData">Import Editable Clone</button>
-      <div class="helper">Requires local RenderBridge running on port 8844. Start it with start-renderbridge-server.ps1 and keep that terminal open.</div>
+      <button id="importData">Import Visual-Backed Clone</button>
+      <div class="helper">Requires local RenderBridge running on port 8844. Use Start-TranslateIT-OneTerminal.ps1 and keep that terminal open.</div>
     </section>
 
     <section class="card">
@@ -49,7 +49,7 @@
     </section>
 
     <div class="status"><b>Status</b><br><br><span id="statusText">Ready.</span></div>
-    <div class="footer">URL → translateit-core → cloneModel → editable Figma clone</div>
+    <div class="footer">URL → translateit-core → cloneModel → visual-backed editable Figma clone</div>
   </div>
 
   <script>
@@ -59,7 +59,7 @@
     var BRIDGE = 'http://127.0.0.1:8844';
     function el(id){ return document.getElementById(id); }
     function setStatus(text){ el('statusText').textContent = text; }
-    function setBusy(value){ el('importData').disabled = !!value; el('importData').textContent = value ? 'Importing...' : 'Import Editable Clone'; }
+    function setBusy(value){ el('importData').disabled = !!value; el('importData').textContent = value ? 'Importing...' : 'Import Visual-Backed Clone'; }
     function normalizeUrl(value){ value = String(value || '').trim(); if(!value) return ''; return /^https?:\/\//i.test(value) ? value : 'https://' + value; }
     function send(type, data){ var msg = { type: type }; data = data || {}; Object.keys(data).forEach(function(key){ msg[key] = data[key]; }); parent.postMessage({ pluginMessage: msg }, '*'); }
     function bridgeFetch(path){ return fetch(BRIDGE + path); }
@@ -67,7 +67,7 @@
     function explainFetchError(err){
       var msg = err && err.message ? err.message : String(err);
       if(msg === 'Failed to fetch' || msg.indexOf('fetch') >= 0){
-        return 'RenderBridge is not reachable.\n\nStart the local server first and keep the terminal open:\nRenderBridge/start-renderbridge-server.ps1\n\nExpected health URL:\nhttp://127.0.0.1:8844/health\n\nOriginal error: ' + msg;
+        return 'RenderBridge is not reachable.\n\nStart the local server first and keep the terminal open:\nStart-TranslateIT-OneTerminal.ps1\n\nExpected health URL:\nhttp://127.0.0.1:8844/health\n\nOriginal error: ' + msg;
       }
       return msg;
     }
@@ -85,6 +85,7 @@
       if(payload.engineBuild !== ENGINE_BUILD) throw new Error('Wrong engine build: ' + (payload.engineBuild || 'missing') + '. Expected ' + ENGINE_BUILD + '.');
       if(!payload.cloneModel) throw new Error('cloneModel missing. Restart latest RenderBridge.');
       if(payload.cloneModel.mode !== 'layout-preserving-editable-clone') throw new Error('Wrong cloneModel mode.');
+      if(!payload.cloneModel.visualBacking || payload.cloneModel.visualBacking.enabled !== true) throw new Error('visualBacking missing. Pull latest RenderBridge.');
       if(!Array.isArray(payload.cloneModel.sections)) throw new Error('cloneModel.sections missing.');
       if(!Array.isArray(payload.cloneModel.layers)) throw new Error('cloneModel.layers missing.');
       if(!Array.isArray(payload.cloneModel.assets)) throw new Error('cloneModel.assets missing.');
@@ -98,13 +99,13 @@
         .then(readJson)
         .then(function(health){
           validateHealth(health);
-          setStatus('RenderBridge ready.\nRendering editable clone...\n' + url);
+          setStatus('RenderBridge ready.\nRendering visual-backed editable clone...\n' + url);
           return bridgeFetch('/render?url=' + encodeURIComponent(url)).then(readJson);
         })
         .then(function(payload){
           validate(payload);
           var model = payload.cloneModel || {};
-          setStatus('Clean clone payload ready.\nEngine: ' + payload.engine + '\nEngine Build: ' + payload.engineBuild + '\nSections: ' + (model.sections || []).length + '\nLayers: ' + (model.layers || []).length + '\nAssets: ' + (model.assets || []).length + '\nImporting into Figma...');
+          setStatus('Visual-backed clone payload ready.\nEngine: ' + payload.engine + '\nEngine Build: ' + payload.engineBuild + '\nVisualBacking: source screenshot underlay\nSections: ' + (model.sections || []).length + '\nLayers: ' + (model.layers || []).length + '\nAssets: ' + (model.assets || []).length + '\nImporting into Figma...');
           send('import-design-model', { payload: payload });
         })
         .catch(function(err){ setBusy(false); setStatus('Import failed.\n\n' + explainFetchError(err)); });
