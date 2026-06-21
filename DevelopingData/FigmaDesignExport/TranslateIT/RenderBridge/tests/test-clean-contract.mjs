@@ -23,15 +23,16 @@ for (const pair of [['server', server], ['contract', contract], ['ui', ui], ['re
   if (!text.includes('Version 0.1 - Alpha')) failures.push(`${name} missing public version marker`);
 }
 
-if (!server.includes('buildRenderPlan')) failures.push('server missing buildRenderPlan');
-if (!server.includes('designModel.renderPlan')) failures.push('server does not attach designModel.renderPlan');
-if (!contract.includes('designModel.renderPlan missing')) failures.push('contract does not require renderPlan');
-if (!renderer.includes('designModel.renderPlan missing')) failures.push('plugin does not reject missing renderPlan');
-if (!renderer.includes('Renderer: engine renderPlan UI Library')) failures.push('plugin does not report renderPlan renderer');
-if (!renderer.includes('renderHeader')) failures.push('renderer missing renderHeader');
-if (!renderer.includes('renderHero')) failures.push('renderer missing renderHero');
-if (!renderer.includes('renderContent')) failures.push('renderer missing renderContent');
-if (!renderer.includes('renderFooter')) failures.push('renderer missing renderFooter');
+if (!server.includes('buildCloneModel')) failures.push('server missing buildCloneModel');
+if (!server.includes('cloneModel')) failures.push('server does not attach cloneModel');
+if (!contract.includes('cloneModel missing')) failures.push('contract does not require cloneModel');
+if (!contract.includes('layout-preserving-editable-clone')) failures.push('contract does not require clone mode');
+if (!renderer.includes('cloneModel missing')) failures.push('plugin does not reject missing cloneModel');
+if (!renderer.includes('Renderer: layout-preserving editable clone')) failures.push('plugin does not report clone renderer');
+if (renderer.includes('renderHeader')) failures.push('renderer still contains template header renderer');
+if (renderer.includes('renderHero')) failures.push('renderer still contains template hero renderer');
+if (renderer.includes('renderContent')) failures.push('renderer still contains template content renderer');
+if (renderer.includes('renderFooter')) failures.push('renderer still contains template footer renderer');
 if (renderer.includes('?.')) failures.push('plugin/code.js uses optional chaining');
 if (renderer.includes('??')) failures.push('plugin/code.js uses nullish coalescing');
 
@@ -42,7 +43,7 @@ const report = {
   npmStart: pkg.scripts ? pkg.scripts.start : null,
   engine: 'translateit-core',
   engineBuild: 'alpha-clean-1',
-  renderer: 'engine-renderPlan-ui-library',
+  renderer: 'layout-preserving-editable-clone',
   failures
 };
 
