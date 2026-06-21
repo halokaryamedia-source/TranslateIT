@@ -28,4 +28,7 @@ node audit-alpha-v5-model.mjs $Url
 Write-Host "`n=== Strict V5 Model Gate ===" -ForegroundColor Cyan
 node audit-alpha-v5-model-strict.mjs $Url
 
+Write-Host "`n=== Final Readiness Gate ===" -ForegroundColor Cyan
+node audit-alpha-v5-final-readiness.mjs $Url
+
 Write-Host "`nAlpha V5 internal gate finished." -ForegroundColor Green
