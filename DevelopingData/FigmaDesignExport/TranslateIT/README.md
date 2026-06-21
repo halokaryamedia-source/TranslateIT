@@ -1,106 +1,150 @@
 # TranslateIT Figma Design Export
 
-Status: development/design tooling only.
+Status: active clean-engine development.
 
-Public plugin version: `Version 0.1 - Alpha`
-
-## Current Purpose
-
-This folder contains the TranslateIT Figma website import workflow.
-
-The current supported workflow is strict V5 only:
+Public plugin version must remain:
 
 ```txt
-Website URL
--> RenderBridge strict V5 enhanced structured model
--> Figma plugin strict V5 renderer
--> editable source-inspired UI clone
--> locked screenshot reference
+Version 0.1 - Alpha
 ```
 
-This workflow is not a raw DOM layer dump and not a screenshot-only import.
+## Product Goal
 
-## Single Active Engine Rule
+TranslateIT is a website-to-Figma reconstruction plugin. The goal is not just to create frames in Figma, but to create a clean, editable, professional UI structure that designers can continue editing.
 
-Only one engine should be used for current testing:
+The output should behave like a practical UI Library structure:
 
 ```txt
-RenderBridge/start-alpha-v5.mjs
+Page
+Section
+Header
+Navigation
+Hero
+Content
+Card
+Image
+Button
+Footer
+Asset
 ```
 
-Only one Figma renderer should be active:
+The editable output must not be a raw DOM dump and must not rely on screenshot overlay. Screenshot source is allowed only as a separate reference frame.
+
+## Active Clean Engine
+
+Only one active engine is allowed:
 
 ```txt
-plugin/code.v5.strict.js
+translateit-core
+alpha-clean-1
 ```
 
-The default manifest must point to:
+Only one plugin renderer is active:
 
 ```txt
-plugin/manifest.json -> main: code.v5.strict.js
+plugin/code.js
 ```
 
-Legacy and non-strict entrypoints are intentionally disabled or aliased to the strict V5 engine.
+The default manifest points to:
 
-## Required Payload Contract
+```txt
+plugin/manifest.json -> main: code.js
+```
 
-The plugin must only import payloads that include:
+## Clean Contract
+
+RenderBridge returns one contract:
 
 ```txt
 publicVersion: Version 0.1 - Alpha
-structuredLayout: present
-adapter: V5 enhanced structured adapter
-diagnostics.v5Enhanced: true
-structuredLayout.visualProfile.template: source-inspired-editorial
+engine: translateit-core
+engineBuild: alpha-clean-1
+source: present
+designModel.sections: present
+designModel.elements: present
+designModel.assets: present
 ```
 
-If this contract is missing, the UI and renderer must stop instead of producing a broken Figma output.
+The plugin rejects payloads outside this contract.
 
 ## Folder Structure
 
 ```txt
 DevelopingData/FigmaDesignExport/TranslateIT/
+├─ CLEAN_ENGINE_PLAN.md
 ├─ README.md
 ├─ RenderBridge/
-│  ├─ start-alpha-v5.mjs
-│  ├─ start-alpha-v5-gated.ps1
-│  ├─ audit-alpha-v5-single-engine.mjs
-│  ├─ audit-alpha-v5-default.mjs
-│  ├─ audit-alpha-v5-media.mjs
-│  ├─ audit-alpha-v5-model.mjs
-│  └─ audit-alpha-v5-model-strict.mjs
+│  ├─ package.json
+│  ├─ server.mjs
+│  ├─ test-translateit.ps1
+│  ├─ src/
+│  │  ├─ shared-contract.mjs
+│  │  ├─ capture-site.mjs
+│  │  ├─ extract-layout.mjs
+│  │  ├─ build-design-model.mjs
+│  │  └─ visual-audit.mjs
+│  ├─ tests/
+│  │  ├─ test-clean-contract.mjs
+│  │  └─ test-sample-sites.mjs
+│  └─ reports/
 └─ plugin/
    ├─ manifest.json
-   ├─ manifest.v5.json
-   ├─ code.v5.strict.js
-   ├─ code.js          # disabled legacy guard
-   ├─ code.v5.js       # disabled non-strict guard
+   ├─ code.js
    └─ ui.html
 ```
 
-## Preflight Before Any Visual Test
+## One Command Preflight
 
-Run the strict gate before opening Figma for visual review:
+Run from `RenderBridge`:
 
 ```powershell
-cd RenderBridge
-.\start-alpha-v5-gated.ps1 https://www.mivubi.com/
+.\test-translateit.ps1 https://www.mivubi.com/
 ```
 
-The gate must pass these checks:
+`mivubi.com` is only a sample/regression target. The engine must not contain site-specific hardcoded logic.
+
+The command runs:
 
 ```txt
-single active engine
-strict V5 default wiring
-strict V5 enhanced media capture
-structured model quality
-strict model contract
+dependency check
+Playwright browser install
+clean contract audit
+clean RenderBridge start
+visual audit
+report generation
 ```
 
-## Important Rules
+Report:
 
-- Do not run older V4/V7/V11 bridge launchers for current testing.
-- Do not import into Figma if the strict V5 gate fails.
-- Do not accept raw layer dump output as a valid result.
-- Do not use `code.js` or `code.v5.js` as active plugin main files.
-- Keep public version text exactly `Version 0.1 - Alpha`.
+```txt
+RenderBridge/reports/translateit-clean-latest.json
+```
+
+## Visual Quality Gate
+
+A result should not be treated as ready only because the payload exists. The audit must evaluate:
+
+```txt
+visualReadiness
+layoutScore
+overlapScore
+imageScore
+textScore
+sectionScore
+layerCleanlinessScore
+duplicateTextScore
+editabilityScore
+```
+
+Manual Figma testing should happen only when the clean report is meaningful and the generated structure is expected to be reviewable.
+
+## Rules
+
+```txt
+No active multiple engines.
+No active alternate plugin renderer.
+No hardcoded sample website logic.
+No raw DOM dump as final output.
+No screenshot overlay as editable output.
+No report pass that ignores visual quality.
+```
