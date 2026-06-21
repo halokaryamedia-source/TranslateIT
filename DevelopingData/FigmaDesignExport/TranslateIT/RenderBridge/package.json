@@ -6,7 +6,9 @@
   "description": "Local clean RenderBridge for TranslateIT website-to-Figma reconstruction.",
   "scripts": {
     "start": "node server.mjs",
-    "test": "node ./tests/test-sample-sites.mjs",
+    "test": "node ./tests/test-clean-contract.mjs && node ./tests/test-sample-sites.mjs",
+    "test:contract": "node ./tests/test-clean-contract.mjs",
+    "test:sample": "node ./tests/test-sample-sites.mjs",
     "install-browser": "playwright install chromium"
   },
   "dependencies": {
