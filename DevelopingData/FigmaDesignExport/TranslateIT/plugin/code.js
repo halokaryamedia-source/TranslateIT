@@ -1,7 +1,7 @@
 figma.showUI(__html__, { width: 580, height: 860 });
 
 const PAGE_NAME = 'TranslateIT Import / Workspace';
-const VERSION = 'universal-page-adapter-v11-1-design-clone';
+const VERSION = 'universal-page-adapter-v11-2-design-clone';
 
 let lastRun = null;
 let lastDiagnostics = null;
@@ -46,6 +46,7 @@ function unique(items, fn, limit) {
 }
 function textValue(layer) { return clean(layer && (layer.text || layer.name || '')); }
 function styleKey(layer) { const s = layer.style || {}; return [layer.role || layer.type, s.fontSize || '', s.fontWeight || '', s.color || ''].join('|'); }
+function truncate(value, length) { const t = clean(value); return t.length > length ? t.slice(0, Math.max(0, length - 1)) + '…' : t; }
 function collectColors(layers) {
   const colors = [];
   (layers || []).forEach((layer) => {
@@ -151,7 +152,7 @@ function imagePreview(parent, layer, x, y, w, h) {
   node.x = x || 0;
   node.y = y || 0;
   node.resize(w, h);
-  node.cornerRadius = 14;
+  node.cornerRadius = 16;
   node.strokes = [];
   if (layer && layer.image && layer.image.base64) {
     const img = figma.createImage(decodeBase64(layer.image.base64));
@@ -161,6 +162,13 @@ function imagePreview(parent, layer, x, y, w, h) {
   }
   parent.appendChild(node);
   return node;
+}
+function sectionTexts(section, limit) {
+  return unique((section.layers || []).filter((l) => l.type === 'text'), (l) => key(textValue(l)), limit || 8).map(textValue).filter(Boolean);
+}
+function sectionImages(section, fallbackImages, index, limit) {
+  const local = (section.layers || []).filter((l) => l.type === 'image');
+  return (local.length ? local : (fallbackImages || []).slice(index, index + 1)).slice(0, limit || 2);
 }
 
 function makeScreenshotFrame(payload, width) {
@@ -190,6 +198,14 @@ function inferIntent(section, index) {
   if (/project|portfolio|gallery|work|case/.test(content)) return 'Gallery / Card Grid';
   if (/about|team|culture|mission|story/.test(content)) return 'Content / About';
   return 'Content Section';
+}
+function normalizeIntent(value, fallback) {
+  const raw = key(value || fallback || '');
+  if (raw.includes('navigation') || raw.includes('header')) return 'header';
+  if (raw.includes('hero') || raw.includes('landing')) return 'hero';
+  if (raw.includes('gallery') || raw.includes('grid') || raw.includes('portfolio') || raw.includes('card')) return 'gallery';
+  if (raw.includes('footer')) return 'footer';
+  return 'content';
 }
 function normalizePlan(payload, layers, sections) {
   const bridgePlan = payload.rebuildPlan || {};
@@ -290,7 +306,7 @@ function typeComponent(item, index) {
   const c = component('Typography Token / ' + String(index + 1).padStart(2, '0'), 224, 108, '#FFFFFF');
   c.cornerRadius = 16; c.strokes = paint('#D9DEE8'); c.strokeWeight = 1;
   placeText(c, 'Type Meta', role + ' / ' + fontSize, 16, 14, 11, '#64748B', true, 190);
-  placeText(c, 'Sample', sample.slice(0, 34), 16, 48, Math.min(18, Math.max(11, px(fontSize, 14) * 0.75)), '#111827', /heading|bold/i.test(role), 190);
+  placeText(c, 'Sample', truncate(sample, 34), 16, 48, Math.min(18, Math.max(11, px(fontSize, 14) * 0.75)), '#111827', /heading|bold/i.test(role), 190);
   return c;
 }
 function spacingComponent(item, index) {
@@ -303,7 +319,7 @@ function spacingComponent(item, index) {
   rect(c, 'Spacing Visual', 16, 64, Math.min(160, Math.max(8, value * 2)), 10, '#2563EB', 5);
   return c;
 }
-function buttonVariant(name, fill, color, index) {
+function buttonVariant(name, fill, color) {
   const c = component('Button / ' + name, 200, 78, '#FFFFFF');
   c.cornerRadius = 16; c.strokes = paint('#D9DEE8'); c.strokeWeight = 1;
   rect(c, 'Button Shape', 18, 22, 148, 34, fill, 17, fill === '#FFFFFF' ? '#CBD5E1' : null);
@@ -313,7 +329,7 @@ function buttonVariant(name, fill, color, index) {
 function navComponent(layer, index) {
   const c = component('Navigation / Default ' + String(index + 1).padStart(2, '0'), 192, 72, '#FFFFFF');
   c.cornerRadius = 16; c.strokes = paint('#D9DEE8'); c.strokeWeight = 1;
-  placeText(c, 'Nav Label', textValue(layer).slice(0, 28) || 'Nav Item', 18, 24, 13, '#111827', true, 154);
+  placeText(c, 'Nav Label', truncate(textValue(layer) || 'Nav Item', 28), 18, 24, 13, '#111827', true, 154);
   return c;
 }
 function cardVariant(name, withMedia) {
@@ -328,7 +344,7 @@ function mediaComponent(layer, index) {
   const c = component('Media Component / ' + String(index + 1).padStart(2, '0'), 224, 156, '#FFFFFF');
   c.cornerRadius = 16; c.strokes = paint('#D9DEE8'); c.strokeWeight = 1;
   imagePreview(c, layer, 16, 16, 96, 72);
-  placeText(c, 'Media Name', clean(layer.name || 'Image').slice(0, 28), 16, 100, 12, '#111827', true, 190);
+  placeText(c, 'Media Name', truncate(layer.name || 'Image', 28), 16, 100, 12, '#111827', true, 190);
   const r = layer.rect || {};
   placeText(c, 'Media Size', Math.round(r.w || 0) + '×' + Math.round(r.h || 0), 16, 122, 10, '#64748B', false, 190);
   return c;
@@ -352,66 +368,111 @@ function appendGrid(parent, title, items, factory, cols, cardW, cardH) {
   section.appendChild(grid);
   parent.appendChild(section);
 }
-function makeLibraryFrame(plan, layers, sections) {
+function makeLibraryFrame(plan, layers) {
   const textLayers = layers.filter((l) => l.type === 'text');
   const imageLayers = layers.filter((l) => l.type === 'image').slice(0, 20);
   const links = unique(textLayers.filter((l) => l.role === 'link'), (l) => key(textValue(l)), 24);
   const lib = autoFrame('03 UI Components / Structured Library', 1280, '#F7F8FB', 28, 32);
   lib.appendChild(label('Library Title', 'Structured UI Library', 30, '#111827', true, 1160));
-  lib.appendChild(label('Library Note', 'Clean component groups with fallbacks and variants. No raw website-coordinate fragments.', 12, '#64748B', false, 1160));
+  lib.appendChild(label('Library Note', 'Clean tokens, variants, and reusable components. No raw website-coordinate fragments.', 12, '#64748B', false, 1160));
   appendGrid(lib, 'Color Tokens', plan.tokens.colors.length ? plan.tokens.colors : ['#111827', '#F8FAFC', '#2563EB'], tokenComponent, 7, 156, 92);
   appendGrid(lib, 'Typography Tokens', plan.tokens.textStyles.length ? plan.tokens.textStyles : textLayers.slice(0, 6), typeComponent, 5, 224, 108);
-  appendGrid(lib, 'Spacing Tokens', plan.tokens.spacing, spacingComponent, 5, 224, 96);
+  appendGrid(lib, 'Spacing Tokens', plan.tokens.spacing.length ? plan.tokens.spacing : defaultSpacing(), spacingComponent, 5, 224, 96);
   appendGrid(lib, 'Button Variants', [
     { name: 'Primary', fill: '#2563EB', color: '#FFFFFF' },
     { name: 'Secondary', fill: '#111827', color: '#FFFFFF' },
     { name: 'Ghost', fill: '#FFFFFF', color: '#111827' }
-  ], (item, index) => buttonVariant(item.name, item.fill, item.color, index), 5, 200, 78);
+  ], (item) => buttonVariant(item.name, item.fill, item.color), 5, 200, 78);
   appendGrid(lib, 'Navigation Components', links.length ? links : [{ text: 'Home' }, { text: 'About' }, { text: 'Projects' }, { text: 'Contact' }], navComponent, 6, 192, 72);
-  appendGrid(lib, 'Card Components', [{ name: 'Default', media: false }, { name: 'Media', media: true }], (item) => cardVariant(item.name, item.media), 4, 240, 188);
+  appendGrid(lib, 'Card Components', [{ name: 'Default', media: false }, { name: 'Media', media: true }, { name: 'Feature', media: true }], (item) => cardVariant(item.name, item.media), 4, 240, 188);
   appendGrid(lib, 'Media Components', imageLayers.length ? imageLayers : [{ name: 'Media Placeholder' }], mediaComponent, 5, 224, 156);
   appendGrid(lib, 'Section Components', [
     { name: 'Header', intent: 'Navigation and brand area' },
+    { name: 'Hero', intent: 'Main landing area' },
     { name: 'Content', intent: 'Text and supporting media' },
-    { name: 'Gallery', intent: 'Card/grid style section' }
+    { name: 'Gallery', intent: 'Card/grid style section' },
+    { name: 'Footer', intent: 'Closing navigation area' }
   ], (item) => sectionVariant(item.name, item.intent), 4, 260, 122);
   return lib;
 }
-function makeEditableResultFrame(payload, sections, layers) {
+
+function headerTemplate(section, texts) {
+  const block = frame((section.name || 'Header') + ' / Header Template', 1180, 132, '#FFFFFF');
+  block.cornerRadius = 26; block.strokes = paint('#E5E7EB'); block.strokeWeight = 1;
+  placeText(block, 'Brand', truncate(texts[0] || 'Brand', 28), 32, 42, 22, '#111827', true, 240);
+  const nav = texts.slice(1, 6).length ? texts.slice(1, 6) : ['Home', 'About', 'Projects', 'Contact'];
+  nav.forEach((item, i) => placeText(block, 'Nav Item', truncate(item, 18), 380 + i * 118, 52, 12, '#475569', false, 100));
+  rect(block, 'Header CTA', 1000, 38, 116, 38, '#111827', 19);
+  placeText(block, 'CTA Label', 'Contact', 1034, 49, 11, '#FFFFFF', true, 70);
+  return block;
+}
+function heroTemplate(section, texts, images) {
+  const block = frame((section.name || 'Hero') + ' / Hero Template', 1180, 560, '#FFFFFF');
+  block.cornerRadius = 28; block.strokes = paint('#E5E7EB'); block.strokeWeight = 1;
+  placeText(block, 'Eyebrow', truncate(section.name || 'Hero Section', 42), 40, 76, 12, '#2563EB', true, 520);
+  placeText(block, 'Hero Heading', truncate(texts[0] || 'Generated Hero Heading', 90), 40, 116, 54, '#111827', true, 560);
+  placeText(block, 'Hero Body', truncate(texts.slice(1, 4).join(' ') || 'Editable supporting copy generated from the source website structure.', 180), 44, 290, 17, '#64748B', false, 520);
+  rect(block, 'Primary CTA', 44, 400, 148, 46, '#2563EB', 23);
+  placeText(block, 'CTA Text', 'Explore', 92, 414, 12, '#FFFFFF', true, 84);
+  if (images.length) imagePreview(block, images[0], 690, 70, 430, 420); else rect(block, 'Hero Media Placeholder', 690, 70, 430, 420, '#EEF2FF', 28, '#D9E2F2');
+  return block;
+}
+function contentTemplate(section, texts, images) {
+  const block = frame((section.name || 'Content') + ' / Content Template', 1180, 380, '#FFFFFF');
+  block.cornerRadius = 28; block.strokes = paint('#E5E7EB'); block.strokeWeight = 1;
+  placeText(block, 'Section Label', truncate(section.name || 'Content Section', 42), 40, 44, 12, '#2563EB', true, 520);
+  placeText(block, 'Content Heading', truncate(texts[0] || 'Editable Content Section', 80), 40, 82, 34, '#111827', true, 600);
+  placeText(block, 'Content Body', truncate(texts.slice(1, 6).join(' ') || 'Editable body text generated from the page content. Use this as a clean starting point for manual design refinement.', 260), 42, 170, 15, '#64748B', false, 600);
+  if (images.length) imagePreview(block, images[0], 760, 54, 330, 260); else rect(block, 'Content Media Placeholder', 760, 54, 330, 260, '#F1F5F9', 24, '#D9E2F2');
+  return block;
+}
+function galleryTemplate(section, texts, images) {
+  const block = frame((section.name || 'Gallery') + ' / Gallery Template', 1180, 480, '#FFFFFF');
+  block.cornerRadius = 28; block.strokes = paint('#E5E7EB'); block.strokeWeight = 1;
+  placeText(block, 'Gallery Heading', truncate(texts[0] || 'Editable Gallery Section', 80), 40, 42, 34, '#111827', true, 720);
+  const cardTexts = texts.slice(1, 7).length ? texts.slice(1, 7) : ['Card One', 'Card Two', 'Card Three'];
+  const count = Math.min(3, Math.max(3, cardTexts.length));
+  for (let i = 0; i < count; i += 1) {
+    const x = 40 + i * 372;
+    rect(block, 'Gallery Card BG', x, 130, 336, 284, '#F8FAFC', 24, '#E5E7EB');
+    if (images[i]) imagePreview(block, images[i], x + 18, 148, 300, 128); else rect(block, 'Card Media Placeholder', x + 18, 148, 300, 128, '#E5E7EB', 18);
+    placeText(block, 'Card Title', truncate(cardTexts[i] || ('Card ' + (i + 1)), 36), x + 22, 300, 15, '#111827', true, 286);
+    placeText(block, 'Card Body', 'Editable card description.', x + 22, 330, 11, '#64748B', false, 286);
+  }
+  return block;
+}
+function footerTemplate(section, texts) {
+  const block = frame((section.name || 'Footer') + ' / Footer Template', 1180, 168, '#0B1020');
+  block.cornerRadius = 28; block.strokes = paint('#1F2937'); block.strokeWeight = 1;
+  placeText(block, 'Footer Brand', truncate(texts[0] || 'Footer', 42), 40, 46, 22, '#F8FAFC', true, 420);
+  placeText(block, 'Footer Note', truncate(texts.slice(1, 5).join(' ') || 'Editable footer content and closing navigation.', 160), 40, 86, 12, '#CBD5E1', false, 560);
+  (texts.slice(1, 5).length ? texts.slice(1, 5) : ['Home', 'About', 'Contact']).forEach((item, i) => placeText(block, 'Footer Link', truncate(item, 18), 760 + i * 100, 72, 11, '#CBD5E1', false, 86));
+  return block;
+}
+function makeEditableResultFrame(payload, plan, sections, layers) {
   const f = autoFrame('04 Editable Result / Clean Structured Draft', 1280, '#FFFFFF', 28, 40);
   f.appendChild(label('Editable Title', payload.title || 'Editable Design Draft', 30, '#111827', true, 1180));
-  f.appendChild(label('Editable Note', 'Section-based editable draft. This is intentionally clean and readable, not a raw DOM coordinate copy.', 12, '#64748B', false, 1180));
+  f.appendChild(label('Editable Note', 'Template-based editable draft. Sections are rebuilt as header, hero, content, gallery, or footer templates instead of raw DOM blocks.', 12, '#64748B', false, 1180));
   const globalImages = layers.filter((l) => l.type === 'image');
   sections.slice(0, 10).forEach((section, index) => {
-    const block = autoFrame((section.name || 'Section') + ' / Editable Block', 1180, '#FFFFFF', 16, 24);
-    block.cornerRadius = 24; block.strokes = paint('#E5E7EB'); block.strokeWeight = 1;
-    block.appendChild(label('Block Title', section.name || 'Section', 19, '#111827', true, 1100));
-    block.appendChild(label('Block Intent', inferIntent(section, index), 11, '#2563EB', true, 1100));
-    const content = frame('Editable Content Layout', 1132, 230, null); content.fills = [];
-    const textCol = autoFrame('Editable Text Column', 650, null, 10, 0); textCol.fills = []; textCol.x = 0; textCol.y = 0;
-    const sectionTexts = unique((section.layers || []).filter((l) => l.type === 'text'), (l) => key(textValue(l)), 8);
-    sectionTexts.forEach((layer) => {
-      const s = layer.style || {};
-      const fontSize = Math.min(28, Math.max(12, px(s.fontSize, layer.role === 'heading' ? 24 : 14)));
-      textCol.appendChild(label((layer.role || 'Text') + ' Layer', textValue(layer).slice(0, 140), fontSize, cssColor(s.color, '#111827'), layer.role === 'heading' || /bold|600|700|800|900/i.test(String(s.fontWeight || '')), 620));
-    });
-    if (!sectionTexts.length) textCol.appendChild(label('Empty Text Note', 'No readable text detected for this section.', 12, '#94A3B8', false, 620));
-    content.appendChild(textCol);
-    const mediaCol = frame('Editable Media Column', 420, 190, null); mediaCol.fills = []; mediaCol.x = 700; mediaCol.y = 0;
-    const sectionImages = (section.layers || []).filter((l) => l.type === 'image').slice(0, 2);
-    (sectionImages.length ? sectionImages : globalImages.slice(index, index + 1)).slice(0, 2).forEach((img, imgIndex) => imagePreview(mediaCol, img, imgIndex * 210, 0, 196, 148));
-    content.appendChild(mediaCol);
-    block.appendChild(content);
-    f.appendChild(block);
+    const planSection = plan.sections[index] || {};
+    const intent = normalizeIntent(planSection.intent, inferIntent(section, index));
+    const texts = sectionTexts(section, 10);
+    const images = sectionImages(section, globalImages, index, 4);
+    if (intent === 'header') f.appendChild(headerTemplate(section, texts));
+    else if (intent === 'hero') f.appendChild(heroTemplate(section, texts, images));
+    else if (intent === 'gallery') f.appendChild(galleryTemplate(section, texts, images));
+    else if (intent === 'footer') f.appendChild(footerTemplate(section, texts));
+    else f.appendChild(contentTemplate(section, texts, images));
   });
   return f;
 }
-function makeAuditFrame(diag, plan) {
+function makeAuditFrame(diag) {
   const f = autoFrame('05 Audit / Design Clone Notes', 1280, '#0B1020', 14, 32);
   f.appendChild(label('Audit Title', 'Design Clone Audit / Honest Readiness', 28, '#F8FAFC', true, 1160));
   f.appendChild(label('Audit Note', 'This output is still a prototype until the imported Figma canvas is visually checked. Good data does not automatically mean good design output.', 13, '#CBD5E1', false, 1160));
-  f.appendChild(label('Audit Diagnostics', 'sections: ' + diag.sectionCount + ' / layers: ' + diag.layerCount + ' / images: ' + diag.imageCount + ' / text: ' + diag.textCount + ' / colors: ' + diag.colorTokenCount + ' / type styles: ' + diag.textStyleCount + ' / spacing: ' + diag.spacingTokenCount, 14, '#93C5FD', true, 1160));
-  f.appendChild(label('Audit Checklist', '✓ Pure screenshot reference\n✓ Rebuild plan generated\n✓ Structured library groups\n✓ Spacing tokens included\n✓ Component variants included\n⚠ Requires visual Figma validation before claiming professional-ready', 13, '#E5E7EB', false, 1160));
+  f.appendChild(label('Audit Diagnostics', 'sections: ' + diag.sectionCount + ' / layers: ' + diag.layerCount + ' / images: ' + diag.imageCount + ' / text: ' + diag.textCount + ' / colors: ' + diag.colorTokenCount + ' / type styles: ' + diag.textStyleCount + ' / spacing: ' + diag.spacingTokenCount + ' / renderer: V11.2 templates', 14, '#93C5FD', true, 1160));
+  f.appendChild(label('Audit Checklist', '✓ Pure screenshot reference\n✓ Rebuild plan generated\n✓ Structured library groups\n✓ Spacing tokens included\n✓ Component variants included\n✓ Editable draft uses professional section templates\n⚠ Requires visual Figma validation before claiming professional-ready', 13, '#E5E7EB', false, 1160));
   return f;
 }
 
@@ -443,20 +504,20 @@ async function importUniversal(payload) {
   lastImportMeta = { title: payload.title || '', url: payload.url || '', adapterMode: payload.mode || '', pluginOutputMode: VERSION };
   const run = autoFrame(safe((payload.title || 'Website Design Clone') + ' / ' + new Date().toISOString().replace(/[:.]/g, '-')), 1440, '#030407', 30, 40);
   run.appendChild(label('Run Title', payload.title || 'Website Design Clone', 30, '#F8FAFC', true, 1320));
-  run.appendChild(label('Run Note', 'V11.1 Design Clone: pure screenshot, rebuild plan, spacing tokens, structured UI library, clean editable draft, honest audit.', 12, '#8D96A6', false, 1320));
+  run.appendChild(label('Run Note', 'V11.2 Design Clone: pure screenshot, rebuild plan, structured UI library, template-based editable draft, honest audit.', 12, '#8D96A6', false, 1320));
   run.appendChild(makeScreenshotFrame(payload, 1280));
   run.appendChild(makePlanFrame(plan));
-  run.appendChild(makeLibraryFrame(plan, layers, sections));
-  run.appendChild(makeEditableResultFrame(payload, sections, layers));
-  run.appendChild(makeAuditFrame(lastDiagnostics, plan));
+  run.appendChild(makeLibraryFrame(plan, layers));
+  run.appendChild(makeEditableResultFrame(payload, plan, sections, layers));
+  run.appendChild(makeAuditFrame(lastDiagnostics));
   page.appendChild(run);
   figma.viewport.scrollAndZoomIntoView([run]);
   lastRun = run;
-  send('Import complete.\nMode: V11.1 Design Clone\nScreenshot preview: pure image only\nRebuild Plan: generated\nUI Library: structured grid + spacing tokens + variants\nEditable Result: clean draft, no raw dump\nSections: ' + lastDiagnostics.sectionCount + '\nColors: ' + lastDiagnostics.colorTokenCount + '\nText styles: ' + lastDiagnostics.textStyleCount + '\nSpacing tokens: ' + lastDiagnostics.spacingTokenCount + '\nImportant: still needs visual Figma validation before professional-ready claim.');
+  send('Import complete.\nMode: V11.2 Design Clone\nScreenshot preview: pure image only\nRebuild Plan: generated\nUI Library: structured grid + spacing tokens + variants\nEditable Result: professional section templates, no raw dump\nSections: ' + lastDiagnostics.sectionCount + '\nColors: ' + lastDiagnostics.colorTokenCount + '\nText styles: ' + lastDiagnostics.textStyleCount + '\nSpacing tokens: ' + lastDiagnostics.spacingTokenCount + '\nImportant: still needs visual Figma validation before professional-ready claim.');
 }
 function exportPackage() {
   if (!lastRun) return send('No import run found. Import Data first.');
-  send('Export complete.', { exportJson: JSON.stringify({ schema: 'translateit.design-clone.v11.1', pluginVersion: VERSION, generatedAt: new Date().toISOString(), source: lastImportMeta || {}, diagnostics: lastDiagnostics || {} }, null, 2) });
+  send('Export complete.', { exportJson: JSON.stringify({ schema: 'translateit.design-clone.v11.2', pluginVersion: VERSION, generatedAt: new Date().toISOString(), source: lastImportMeta || {}, diagnostics: lastDiagnostics || {} }, null, 2) });
 }
 figma.ui.onmessage = async function (msg) {
   try {
