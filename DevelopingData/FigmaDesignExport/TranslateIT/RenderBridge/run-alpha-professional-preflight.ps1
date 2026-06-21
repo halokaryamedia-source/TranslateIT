@@ -1,5 +1,6 @@
 param(
-  [string]$Url = "https://www.mivubi.com/"
+  [string]$Url = "https://www.mivubi.com/",
+  [switch]$SkipBenchmark
 )
 
 $ErrorActionPreference = "Stop"
@@ -22,6 +23,7 @@ node --check "$Bridge\audit-alpha-quality-gate.mjs"
 node --check "$Bridge\audit-alpha-ui-library-polish.mjs"
 node --check "$Bridge\audit-alpha-template-safety.mjs"
 node --check "$Bridge\audit-alpha-pretest-gate.mjs"
+node --check "$Bridge\benchmark-alpha-multi-site.mjs"
 node --check "$Bridge\preview-alpha-semantic.mjs"
 node --check "$Bridge\preview-alpha-design-clone.mjs"
 node --check "$Bridge\..\plugin\code.js"
@@ -48,6 +50,11 @@ node "$Bridge\audit-alpha-ui-library-polish.mjs" $Url
 
 Write-Host "`n=== Template Safety Audit ===" -ForegroundColor Cyan
 node "$Bridge\audit-alpha-template-safety.mjs" $Url
+
+if (-not $SkipBenchmark) {
+  Write-Host "`n=== Multi-Site Stability Benchmark ===" -ForegroundColor Cyan
+  node "$Bridge\benchmark-alpha-multi-site.mjs" $Url "https://www.minecraft.net/" "https://www.figma.com/"
+}
 
 Write-Host "`n=== Semantic Preview ===" -ForegroundColor Cyan
 node "$Bridge\preview-alpha-semantic.mjs" $Url
