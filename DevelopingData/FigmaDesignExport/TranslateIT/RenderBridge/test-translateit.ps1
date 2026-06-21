@@ -24,19 +24,21 @@ npm run install-browser
 Write-Host "Running clean contract audit..." -ForegroundColor Yellow
 node .\tests\test-clean-contract.mjs
 
+Write-Host "Clearing port 8844 before clean bridge start..." -ForegroundColor Yellow
 $portProcessIds = @()
 try {
   $portProcessIds = Get-NetTCPConnection -LocalPort 8844 -ErrorAction SilentlyContinue | Select-Object -ExpandProperty OwningProcess -Unique
 } catch {}
 foreach ($ownerPid in $portProcessIds) {
+  if ($ownerPid -eq $PID) { continue }
   try {
     $procInfo = Get-CimInstance Win32_Process -Filter "ProcessId=$ownerPid" -ErrorAction SilentlyContinue
-    if ($procInfo -and ($procInfo.CommandLine -match 'TranslateIT' -or $procInfo.CommandLine -match 'RenderBridge' -or $procInfo.CommandLine -match 'server\.mjs')) {
-      Write-Host "Stopping existing TranslateIT bridge process $ownerPid" -ForegroundColor Yellow
-      Stop-Process -Id $ownerPid -Force -ErrorAction SilentlyContinue
-    }
+    $name = if ($procInfo) { $procInfo.Name } else { 'unknown' }
+    Write-Host "Stopping process on port 8844: $ownerPid ($name)" -ForegroundColor Yellow
+    Stop-Process -Id $ownerPid -Force -ErrorAction SilentlyContinue
   } catch {}
 }
+Start-Sleep -Milliseconds 750
 
 $outLog = Join-Path $Root 'reports\translateit-clean-bridge.out.log'
 $errLog = Join-Path $Root 'reports\translateit-clean-bridge.err.log'
@@ -66,7 +68,12 @@ if (-not $health -or $health.ok -ne $true) {
 }
 
 if ($health.engine -ne 'translateit-core' -or $health.engineBuild -ne 'alpha-clean-1' -or $health.legacyActive -ne $false) {
+  Write-Host "Unexpected health response:" -ForegroundColor Red
   $health | ConvertTo-Json -Depth 8
+  Write-Host "Bridge stdout log:" -ForegroundColor Yellow
+  if (Test-Path $outLog) { Get-Content $outLog }
+  Write-Host "Bridge stderr log:" -ForegroundColor Yellow
+  if (Test-Path $errLog) { Get-Content $errLog }
   throw "Wrong bridge contract. Expected translateit-core / alpha-clean-1 with legacyActive=false."
 }
 
