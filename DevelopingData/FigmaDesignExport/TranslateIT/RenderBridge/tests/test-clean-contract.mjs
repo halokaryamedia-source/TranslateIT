@@ -8,6 +8,7 @@ const manifest = JSON.parse(fs.readFileSync(path.join(pluginRoot, 'manifest.json
 const pkg = JSON.parse(fs.readFileSync(path.join(root, 'package.json'), 'utf8'));
 const server = fs.readFileSync(path.join(root, 'server.mjs'), 'utf8');
 const contract = fs.readFileSync(path.join(root, 'src', 'shared-contract.mjs'), 'utf8');
+const matcher = fs.readFileSync(path.join(root, 'src', 'match-dom-visual.mjs'), 'utf8');
 const ui = fs.readFileSync(path.join(pluginRoot, 'ui.html'), 'utf8');
 const renderer = fs.readFileSync(path.join(pluginRoot, 'code.js'), 'utf8');
 
@@ -15,19 +16,22 @@ if (manifest.main !== 'code.js') failures.push('manifest must use code.js');
 if (manifest.ui !== 'ui.html') failures.push('manifest must use ui.html');
 if (pkg.scripts?.start !== 'node server.mjs') failures.push('npm start must use server.mjs');
 
-for (const pair of [['server', server], ['contract', contract], ['ui', ui], ['renderer', renderer]]) {
+for (const pair of [['server', server], ['contract', contract], ['matcher', matcher], ['ui', ui], ['renderer', renderer]]) {
   const name = pair[0];
   const text = pair[1];
-  if (!text.includes('translateit-core')) failures.push(`${name} missing clean engine marker`);
-  if (!text.includes('alpha-clean-1')) failures.push(`${name} missing clean build marker`);
-  if (!text.includes('Version 0.1 - Alpha')) failures.push(`${name} missing public version marker`);
+  if (!text.includes('translateit-core') && name !== 'matcher') failures.push(`${name} missing clean engine marker`);
+  if (!text.includes('alpha-clean-1') && name !== 'matcher') failures.push(`${name} missing clean build marker`);
+  if (!text.includes('Version 0.1 - Alpha') && name !== 'matcher') failures.push(`${name} missing public version marker`);
 }
 
 if (!server.includes('buildVisualModel')) failures.push('server missing buildVisualModel');
-if (!server.includes('visualModel')) failures.push('server does not attach visualModel');
+if (!server.includes('matchDomToVisual')) failures.push('server missing matchDomToVisual');
+if (!server.includes('visualMatching')) failures.push('server does not attach visualMatching diagnostics');
 if (!server.includes('screenshot-first-html-assisted')) failures.push('server missing screenshot-first visual truth marker');
 if (!server.includes('buildCloneModel')) failures.push('server missing buildCloneModel');
 if (!server.includes('cloneModel')) failures.push('server does not attach cloneModel');
+if (!matcher.includes('visual-rect-dom-content-style')) failures.push('matcher missing visual rect + DOM content rule');
+if (!matcher.includes('dom-rect-visual-verified')) failures.push('matcher missing DOM rect visual verification rule');
 if (!contract.includes('visualModel missing')) failures.push('contract does not require visualModel');
 if (!contract.includes('cloneModel missing')) failures.push('contract does not require cloneModel');
 if (!contract.includes('layout-preserving-editable-clone')) failures.push('contract does not require clone mode');
@@ -40,6 +44,6 @@ if (renderer.includes('renderFooter')) failures.push('renderer still contains te
 if (renderer.includes('?.')) failures.push('plugin/code.js uses optional chaining');
 if (renderer.includes('??')) failures.push('plugin/code.js uses nullish coalescing');
 
-const report = { gate: 'translateit-clean-contract', status: failures.length ? 'fail' : 'pass', manifestMain: manifest.main, npmStart: pkg.scripts ? pkg.scripts.start : null, engine: 'translateit-core', engineBuild: 'alpha-clean-1', renderer: 'layout-preserving-editable-clone', visualModel: 'screenshot-first-html-assisted', failures };
+const report = { gate: 'translateit-clean-contract', status: failures.length ? 'fail' : 'pass', manifestMain: manifest.main, npmStart: pkg.scripts ? pkg.scripts.start : null, engine: 'translateit-core', engineBuild: 'alpha-clean-1', renderer: 'layout-preserving-editable-clone', visualModel: 'screenshot-first-html-assisted', visualMatching: 'dom-to-visual-foundation', failures };
 console.log(JSON.stringify(report, null, 2));
 if (failures.length) process.exitCode = 2;
