@@ -15,7 +15,7 @@ npm.cmd install
 npx.cmd playwright install chromium
 
 $Log = Join-Path $Bridge "bridge-v5.log"
-Start-Process powershell -WindowStyle Hidden -ArgumentList "-ExecutionPolicy Bypass -Command `"cd '$Bridge'; node start-alpha-v4-fixed.mjs > bridge-v5.log 2>&1`""
+Start-Process powershell -WindowStyle Hidden -ArgumentList "-ExecutionPolicy Bypass -Command `"cd '$Bridge'; node start-alpha-v5.mjs > bridge-v5.log 2>&1`""
 Start-Sleep 8
 
 Invoke-RestMethod http://127.0.0.1:8844/health | ConvertTo-Json -Depth 8
