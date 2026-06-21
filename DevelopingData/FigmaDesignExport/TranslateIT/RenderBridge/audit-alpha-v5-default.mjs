@@ -18,6 +18,7 @@ if (!ui.includes('diagnostics.v5Enhanced')) failures.push('ui does not require V
 if (!ui.includes('strictV5Engine')) failures.push('ui does not require strictV5Engine');
 if (!ui.includes('EXPECTED_BUILD')) failures.push('ui does not define expected engine build');
 if (!ui.includes('Wrong bridge payload')) failures.push('ui does not block older bridge payloads');
+if (!ui.includes('export-ui-package')) failures.push('ui export command missing');
 if (!renderer.includes('translateit-alpha-v5-strict-source-inspired-renderer')) failures.push('renderer id is not strict V5');
 if (!renderer.includes('V5.1 visual layout')) failures.push('V5.1 visual polish marker missing');
 if (!renderer.includes('Polished Editorial Composition')) failures.push('polished hero composition missing');
@@ -27,6 +28,8 @@ if (!renderer.includes('Screenshot stays as reference only')) failures.push('V5 
 if (!renderer.includes('diagnostics.v5Enhanced')) failures.push('strict V5 enhanced payload guard is missing');
 if (!renderer.includes('strictV5Engine')) failures.push('renderer does not require strictV5Engine');
 if (!renderer.includes('strict-v5.1-single-engine')) failures.push('renderer does not require expected engine build');
+if (!renderer.includes("m.type==='export-ui-package'")) failures.push('renderer export command missing');
+if (!renderer.includes('exportJson')) failures.push('renderer export json response missing');
 if (!legacyCode.includes('Legacy renderer disabled')) failures.push('legacy code.js is not disabled');
 if (!nonStrictV5.includes('Non-strict V5 renderer disabled')) failures.push('code.v5.js is not disabled');
 
@@ -39,6 +42,7 @@ const report = {
   renderer: 'code.v5.strict.js',
   polish: 'V5.1 visual layout',
   expectedBuild: 'strict-v5.1-single-engine',
+  exportReady: renderer.includes('exportJson'),
   failures
 };
 
