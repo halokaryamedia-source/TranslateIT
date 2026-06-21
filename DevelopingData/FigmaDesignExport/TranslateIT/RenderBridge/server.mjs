@@ -6,7 +6,7 @@ const PORT = Number(process.env.TRANSLATEIT_RENDER_PORT || 8844);
 const IDLE_EXIT_MS = Number(process.env.TRANSLATEIT_RENDER_IDLE_EXIT_MS || 180000);
 const VIEWPORT = { width: 1440, height: 1600 };
 const MAX_LAYERS = 900;
-const MODE = 'universal-page-adapter-v11-1-design-clone';
+const MODE = 'universal-page-adapter-v11-2-design-clone';
 
 let idleTimer = null;
 let activeJobs = 0;
@@ -97,6 +97,11 @@ function colorFromCss(value) {
   return '#' + parts.slice(0, 3).map((n) => Math.round(Math.max(0, Math.min(255, n))).toString(16).padStart(2, '0')).join('');
 }
 
+function pxValue(value, fallback = 0) {
+  const n = parseFloat(String(value || '').replace('px', ''));
+  return Number.isFinite(n) ? n : fallback;
+}
+
 function componentName(members, index) {
   const hasImage = members.some((l) => l.type === 'image');
   const hasText = members.some((l) => l.type === 'text');
@@ -185,6 +190,15 @@ function sectionIntent(section, index) {
   return 'content-section';
 }
 
+function templateIntentFor(section, index) {
+  const intent = sectionIntent(section, index);
+  if (intent.includes('navigation') || intent.includes('header')) return 'header';
+  if (intent.includes('hero') || intent.includes('landing')) return 'hero';
+  if (intent.includes('gallery') || intent.includes('grid')) return 'gallery';
+  if (intent.includes('footer')) return 'footer';
+  return 'content';
+}
+
 function defaultSpacingTokens() {
   return [
     { name: 'Space / XS', value: 4 },
@@ -198,9 +212,18 @@ function defaultSpacingTokens() {
   ];
 }
 
+function defaultRadiusTokens() {
+  return [
+    { name: 'Radius / SM', value: 8 },
+    { name: 'Radius / MD', value: 16 },
+    { name: 'Radius / LG', value: 24 },
+    { name: 'Radius / XL', value: 32 }
+  ];
+}
+
 function inferResponsivePlan(sections) {
-  const hasGallery = sections.some((section, index) => sectionIntent(section, index) === 'gallery/card-grid');
-  const hasHero = sections.some((section, index) => sectionIntent(section, index) === 'hero/landing');
+  const hasGallery = sections.some((section, index) => templateIntentFor(section, index) === 'gallery');
+  const hasHero = sections.some((section, index) => templateIntentFor(section, index) === 'hero');
   return {
     desktop: `${hasHero ? 'Hero can use two-column composition. ' : ''}${hasGallery ? 'Card/gallery sections can use 3-column grids. ' : ''}Navigation stays horizontal and sections use generous spacing.`,
     tablet: `${hasGallery ? 'Reduce card/gallery sections to 2 columns. ' : ''}Keep typography hierarchy clear and preserve section rhythm.`,
@@ -221,6 +244,14 @@ function inferSpacingTokens(sections) {
   if (!gaps.length) return base;
   const median = gaps.sort((a, b) => a - b)[Math.floor(gaps.length / 2)];
   return base.map((token) => token.name === 'Section Gap' ? { ...token, value: Math.max(48, Math.min(120, median)) } : token);
+}
+
+function inferRadiusTokens(layers) {
+  const values = unique(layers, (layer) => {
+    const radius = pxValue(layer.style && layer.style.borderRadius, 0);
+    return radius > 0 && radius < 80 ? String(Math.round(radius)) : '';
+  }, 6).map((layer) => ({ name: `Radius / ${Math.round(pxValue(layer.style && layer.style.borderRadius, 0))}`, value: Math.round(pxValue(layer.style && layer.style.borderRadius, 0)) }));
+  return values.length ? values : defaultRadiusTokens();
 }
 
 function buildRebuildPlan(payload) {
@@ -244,19 +275,21 @@ function buildRebuildPlan(payload) {
     color: colorFromCss((l.style || {}).color)
   }));
   const spacing = inferSpacingTokens(sections);
+  const radius = inferRadiusTokens(layers);
   const responsive = inferResponsivePlan(sections);
 
   return {
     title: payload.title || 'Website Design Clone',
     url: payload.url || '',
     summary: 'Design clone plan for clean Figma reconstruction. Raw coordinate dumping is intentionally avoided.',
-    tokens: { colors, typography, spacing },
+    tokens: { colors, typography, spacing, radius },
     responsive,
     counts: { sections: sections.length, text: textLayers.length, images: imageLayers.length, buttons: buttonLayers.length },
     sections: sections.slice(0, 14).map((section, index) => ({
       name: section.name || `Section ${index + 1}`,
       role: section.role || 'section',
       intent: sectionIntent(section, index),
+      templateIntent: templateIntentFor(section, index),
       textCount: (section.layers || []).filter((l) => l.type === 'text').length,
       imageCount: (section.layers || []).filter((l) => l.type === 'image').length,
       componentCount: (section.components || []).length,
@@ -435,11 +468,12 @@ async function compile(target) {
     const extracted = await extractPage(page);
     const shot = await page.screenshot({ type: 'png', fullPage: true });
     const componentCount = extracted.sections.reduce((sum, section) => sum + ((section.components || []).length), 0);
+    const templateIntentCount = new Set((extracted.rebuildPlan.sections || []).map((section) => section.templateIntent).filter(Boolean)).size;
 
     return {
       ok: true,
       mode: MODE,
-      adapter: 'universal-page-design-clone-v11-1-structured-library',
+      adapter: 'universal-page-design-clone-v11-2-template-ready-library',
       capturedAt: new Date().toISOString(),
       title: extracted.title,
       url: extracted.url,
@@ -459,18 +493,20 @@ async function compile(target) {
         colorTokenCount: (extracted.rebuildPlan.tokens.colors || []).length,
         typographyTokenCount: (extracted.rebuildPlan.tokens.typography || []).length,
         spacingTokenCount: (extracted.rebuildPlan.tokens.spacing || []).length,
-        responsiveCount: Object.keys(extracted.rebuildPlan.responsive || {}).length
+        radiusTokenCount: (extracted.rebuildPlan.tokens.radius || []).length,
+        responsiveCount: Object.keys(extracted.rebuildPlan.responsive || {}).length,
+        templateIntentCount
       },
       outputRules: [
         '01 Screenshot Preview / Pure Reference: one screenshot rectangle only.',
-        '02 Rebuild Plan / AI Interpretation: summarize sections, intents, tokens, responsive behavior, and uncertainty.',
-        '03 UI Components / Structured Library: clean grouped design components, spacing tokens, and variants; not raw browser coordinates.',
-        '04 Editable Result / Clean Structured Draft: section-based editable draft, not chaotic layer dump.',
+        '02 Rebuild Plan / AI Interpretation: summarize sections, template intents, tokens, responsive behavior, and uncertainty.',
+        '03 UI Components / Structured Library: clean grouped design components, spacing tokens, radius tokens, and variants; not raw browser coordinates.',
+        '04 Editable Result / Clean Structured Draft: template-based editable draft, not chaotic layer dump.',
         '05 Audit / Design Clone Notes: visible diagnostics and weakness tracking.'
       ],
       warnings: [
-        'V11.1 Design Clone mode is design-only. Code clone and app logic are intentionally out of scope.',
-        'The editable draft prioritizes professional structure and usability over raw DOM coordinate matching.',
+        'V11.2 Design Clone mode is design-only. Code clone and app logic are intentionally out of scope.',
+        'The editable draft prioritizes professional templates and usability over raw DOM coordinate matching.',
         'Post-import Figma visual validation is required before calling the result professional-ready.'
       ]
     };
@@ -510,6 +546,6 @@ server = http.createServer(async (req, res) => {
 });
 
 server.listen(PORT, '127.0.0.1', () => {
-  console.log(`TranslateIT Universal Page Adapter V11.1 Design Clone running at http://127.0.0.1:${PORT}`);
+  console.log(`TranslateIT Universal Page Adapter V11.2 Design Clone running at http://127.0.0.1:${PORT}`);
   resetIdleTimer();
 });
