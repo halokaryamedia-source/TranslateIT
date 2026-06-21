@@ -11,11 +11,15 @@ Write-Host "URL: $Url"
 Write-Host "Note: start server.mjs separately before running this script."
 
 node --check "$Bridge\server.mjs"
+node --check "$Bridge\audit-alpha-code-contract.mjs"
 node --check "$Bridge\audit-alpha-quality-gate.mjs"
 node --check "$Bridge\audit-alpha-ui-library-polish.mjs"
 node --check "$Bridge\audit-alpha-template-safety.mjs"
 node --check "$Bridge\preview-alpha-design-clone.mjs"
 node --check "$Bridge\preview-alpha-semantic.mjs"
+
+Write-Host "`n=== Alpha Static Code Contract Audit ===" -ForegroundColor Cyan
+node "$Bridge\audit-alpha-code-contract.mjs"
 
 Write-Host "`n=== Alpha Quality Gate ===" -ForegroundColor Cyan
 node "$Bridge\audit-alpha-quality-gate.mjs" $Url
