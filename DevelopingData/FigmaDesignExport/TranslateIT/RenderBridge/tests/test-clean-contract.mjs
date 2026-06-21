@@ -46,6 +46,8 @@ if (!payloadBuilder.includes('matchDomToVisual')) failures.push('payload builder
 if (!payloadBuilder.includes('buildCloneModel')) failures.push('payload builder missing buildCloneModel');
 if (!cloneBuilder.includes('layout-preserving-editable-clone')) failures.push('clone builder missing clone mode');
 if (!cloneBuilder.includes('screenshot-first-html-assisted')) failures.push('clone builder missing visual truth');
+if (!cloneBuilder.includes('paintOrderOf')) failures.push('clone builder missing paintOrderOf');
+if (!cloneBuilder.includes('dom-paint-order-preserved')) failures.push('clone builder missing DOM paint order marker');
 if (!health.includes('visualComparison')) failures.push('health status missing visualComparison marker');
 if (!routes.includes('runCloneAudit')) failures.push('routes missing runCloneAudit');
 if (!routes.includes('translateit-clean-latest.json')) failures.push('routes missing report writer');
@@ -57,6 +59,8 @@ if (!preview.includes('visualCoverageScore')) failures.push('preview renderer mi
 if (!comparison.includes('compareSourceAndClonePreview')) failures.push('comparison module missing compareSourceAndClonePreview');
 if (!comparison.includes('averagePixelDifference')) failures.push('comparison module missing pixel difference metric');
 if (!runner.includes('compareSourceAndClonePreview')) failures.push('audit runner does not call source/clone comparison');
+if (!audit.includes('paintOrder')) failures.push('visual audit does not consider paint order');
+if (!audit.includes('text-above-image-collision')) failures.push('visual audit missing text above image collision gate');
 if (!audit.includes('comparison.visualSimilarityScore')) failures.push('visual audit does not gate source/clone comparison score');
 if (!audit.includes('source clone visual comparison')) failures.push('visual audit missing source clone comparison failure text');
 if (!contract.includes('visualModel missing')) failures.push('contract does not require visualModel');
@@ -64,6 +68,8 @@ if (!contract.includes('cloneModel missing')) failures.push('contract does not r
 if (!contract.includes('layout-preserving-editable-clone')) failures.push('contract does not require clone mode');
 if (!renderer.includes('cloneModel missing')) failures.push('plugin does not reject missing cloneModel');
 if (!renderer.includes('Renderer: layout-preserving editable clone')) failures.push('plugin does not report clone renderer');
+if (!renderer.includes('PaintOrder: source DOM')) failures.push('plugin does not report source paint order');
+if (renderer.includes('var o={shape:0,image:1,text:2,button:3}')) failures.push('plugin still uses type-based order fallback');
 if (renderer.includes('renderHeader')) failures.push('renderer still contains template header renderer');
 if (renderer.includes('renderHero')) failures.push('renderer still contains template hero renderer');
 if (renderer.includes('renderContent')) failures.push('renderer still contains template content renderer');
@@ -71,6 +77,6 @@ if (renderer.includes('renderFooter')) failures.push('renderer still contains te
 if (renderer.includes('?.')) failures.push('plugin/code.js uses optional chaining');
 if (renderer.includes('??')) failures.push('plugin/code.js uses nullish coalescing');
 
-const report = { gate: 'translateit-clean-contract', status: failures.length ? 'fail' : 'pass', manifestMain: manifest.main, npmStart: pkg.scripts ? pkg.scripts.start : null, engine: 'translateit-core', engineBuild: 'alpha-clean-1', renderer: 'layout-preserving-editable-clone', modularPipeline: true, visualModel: 'screenshot-first-html-assisted-v2', visualMatching: 'dom-to-visual-foundation', clonePreview: 'html-png-preview-foundation', visualComparison: 'source-vs-clone-preview-sampling', failures };
+const report = { gate: 'translateit-clean-contract', status: failures.length ? 'fail' : 'pass', manifestMain: manifest.main, npmStart: pkg.scripts ? pkg.scripts.start : null, engine: 'translateit-core', engineBuild: 'alpha-clean-1', renderer: 'layout-preserving-editable-clone', modularPipeline: true, visualModel: 'screenshot-first-html-assisted-v2', visualMatching: 'dom-to-visual-foundation', paintOrder: 'dom-paint-order-preserved', clonePreview: 'html-png-preview-foundation', visualComparison: 'source-vs-clone-preview-sampling', failures };
 console.log(JSON.stringify(report, null, 2));
 if (failures.length) process.exitCode = 2;
