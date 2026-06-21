@@ -24,6 +24,21 @@ source = source.replace(
   "const shot = await captureElement(page, img.captureSelector || `img:nth-of-type(${img.selectorIndex + 1})`, img.alt || `Image ${i + 1}`);"
 );
 
+source = source.replace(
+  "    const styles = Array.from(document.querySelectorAll('body *')).slice(0, 500).map((el) => {",
+  "    const measuredElements = Array.from(document.querySelectorAll('body *')).filter(visible).map((el, index) => {\n      const s = getComputedStyle(el);\n      const rect = rectOf(el);\n      const text = textOf(el);\n      const bg = s.backgroundColor;\n      const color = s.color;\n      const tag = String(el.tagName || '').toLowerCase();\n      const isImage = tag === 'img';\n      const isButton = tag === 'button' || el.getAttribute('role') === 'button' || /button|btn|cta/i.test(el.className || '');\n      const isLink = tag === 'a';\n      const hasBg = bg && bg !== 'rgba(0, 0, 0, 0)' && bg !== 'transparent';\n      let type = isImage ? 'image' : (isButton ? 'button' : (isLink ? 'link' : (text && text.length < 180 ? 'text' : (hasBg ? 'box' : 'other'))));\n      return { index, type, tag, text: clean(text).slice(0, 220), rect, area: rect.w * rect.h, color, backgroundColor: bg, fontSize: s.fontSize, fontWeight: s.fontWeight, borderRadius: s.borderRadius, imageIndex: isImage ? Number(el.getAttribute('data-ti-v4-image-index') || -1) : null };\n    }).filter((item) => {\n      if (item.rect.w < 3 || item.rect.h < 3) return false;\n      if (item.type === 'text' || item.type === 'link' || item.type === 'button') return item.text.length >= 1;\n      if (item.type === 'image') return item.area >= 4000;\n      if (item.type === 'box') return item.area >= 12000 && item.area < innerWidth * Math.max(innerHeight, document.documentElement.scrollHeight) * 0.9;\n      return false;\n    }).slice(0, 180);\n\n    const styles = Array.from(document.querySelectorAll('body *')).slice(0, 500).map((el) => {"
+);
+
+source = source.replace(
+  "      styles\n    };",
+  "      styles,\n      measuredElements\n    };"
+);
+
+source = source.replace(
+  "    footer: model.footer\n  };",
+  "    footer: model.footer,\n    measuredElements: model.measuredElements || []\n  };"
+);
+
 source = source.replaceAll(
   "adapter: 'translateit-alpha-v4-structured-site-model'",
   "adapter: 'translateit-alpha-v5-enhanced-structured-site-model'"
@@ -61,6 +76,7 @@ function enhanceV5Payload(payload) {
   const footer = layout.footer || (layout.footer = {});
   const images = Array.isArray(layout.images) ? layout.images : (layout.images = []);
   const cards = Array.isArray(layout.cards) ? layout.cards : (layout.cards = []);
+  const measured = Array.isArray(layout.measuredElements) ? layout.measuredElements : (layout.measuredElements = []);
   header.logoText = clean(header.logoText || payload.title || 'Mivubi');
   header.navLinks = unique(header.navLinks && header.navLinks.length ? header.navLinks : ['Home','About','Works','Program','Contact'], 7);
   footer.links = unique(footer.links && footer.links.length ? footer.links : header.navLinks, 12);
@@ -71,13 +87,14 @@ function enhanceV5Payload(payload) {
   }
   payload.strictV5Engine = true;
   payload.engineBuild = '${ENGINE_BUILD}';
-  payload.structuredLayout.visualProfile = { template: 'source-inspired-editorial', palette: 'yellow-green-white', composition: 'left-copy-right-media-footer-strip' };
+  payload.structuredLayout.visualProfile = { template: 'source-measured-reconstruction', palette: 'source-derived', composition: 'measured-dom-elements' };
   payload.diagnostics = payload.diagnostics || {};
   payload.diagnostics.v5Enhanced = true;
   payload.diagnostics.strictV5Engine = true;
   payload.diagnostics.engineBuild = '${ENGINE_BUILD}';
+  payload.diagnostics.measuredElementCount = measured.length;
   payload.diagnostics.capturedImageCount = images.filter((image) => image.image && image.image.base64).length;
-  payload.outputRules = ['01 Source-Inspired Editable Clone / Main Output', '02 Screenshot Reference / Pure Source', 'No raw layer dump.'];
+  payload.outputRules = ['01 Source-Measured Editable Clone / Main Output', '02 Screenshot Reference / Pure Source', 'No raw layer dump.'];
   return payload;
 }
 `;
