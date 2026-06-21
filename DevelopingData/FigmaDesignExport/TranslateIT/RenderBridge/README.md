@@ -1,100 +1,152 @@
-# TranslateIT Render Bridge
+# TranslateIT RenderBridge
 
-Local strict V5 render helper for the TranslateIT Figma plugin.
+Local clean RenderBridge for the TranslateIT Figma plugin.
 
-Current workflow:
-
-```txt
-Paste Website URL
--> strict V5 RenderBridge
--> V5 enhanced structured payload
--> strict V5 Figma renderer
--> editable source-inspired clone + locked screenshot reference
-```
-
-## Single Active Engine
-
-Current active bridge engine:
+Public version:
 
 ```txt
-start-alpha-v5.mjs
+Version 0.1 - Alpha
 ```
 
-Current active plugin renderer:
+Active engine:
 
 ```txt
-../plugin/code.v5.strict.js
+translateit-core
+alpha-clean-1
 ```
 
-Older bridge and plugin entrypoints are disabled or redirected so current testing does not accidentally use a legacy path.
+## Goal
 
-## Recommended setup
+TranslateIT converts a website URL into a clean, editable Figma UI structure. The output should be usable as a UI Library style reconstruction, not a raw DOM dump and not a flattened screenshot.
 
-Run once:
+## Active Workflow
 
 ```txt
-Install-Session-Bridge.cmd
+Website URL
+-> RenderBridge/server.mjs
+-> capture-site.mjs
+-> extract-layout.mjs
+-> build-design-model.mjs
+-> visual-audit.mjs
+-> plugin/code.js
+-> editable Figma UI Library structure + separate screenshot reference
 ```
 
-After setup, the Figma plugin can start the strict V5 bridge when import needs it.
+## Active Files
 
-## Daily usage
+```txt
+RenderBridge/server.mjs
+RenderBridge/src/shared-contract.mjs
+RenderBridge/src/capture-site.mjs
+RenderBridge/src/extract-layout.mjs
+RenderBridge/src/build-design-model.mjs
+RenderBridge/src/visual-audit.mjs
+RenderBridge/test-translateit.ps1
+plugin/manifest.json
+plugin/code.js
+plugin/ui.html
+```
 
-1. Open the TranslateIT Figma plugin.
-2. Paste a website URL.
-3. Click **Import Design Clone**.
-4. Review the generated editable clone and locked screenshot reference.
-5. Export data only after the strict V5 output is acceptable.
+## One Engine Rule
 
-## Preflight before visual testing
+Only this engine is active:
 
-Before user visual testing, run:
+```txt
+translateit-core / alpha-clean-1
+```
+
+The plugin rejects any payload that does not match this contract.
+
+## One Command Preflight
+
+From this folder, run:
 
 ```powershell
-.\start-alpha-v5-gated.ps1 https://www.mivubi.com/
+.\test-translateit.ps1 https://www.mivubi.com/
 ```
 
-The gate checks:
+`mivubi.com` is only a sample/regression target. It is not hardcoded into the engine.
+
+The command:
 
 ```txt
-single active engine
-strict V5 default plugin wiring
-strict V5 media capture
-structured model quality
-strict V5 enhanced payload contract
+installs dependencies if needed
+installs Playwright Chromium
+runs clean contract audit
+starts only the clean RenderBridge
+runs visual audit
+saves reports/translateit-clean-latest.json
+prints whether Figma testing is allowed
 ```
 
-Do not open Figma for visual testing if the gate fails.
+## Manual Start
 
-## Health check
+```cmd
+Start-Render-Bridge.cmd
+```
+
+This calls:
+
+```txt
+npm start
+```
+
+`npm start` calls:
+
+```txt
+node server.mjs
+```
+
+## Health Check
 
 ```txt
 http://127.0.0.1:8844/health
 ```
 
-Expected health:
+Expected:
 
 ```txt
-publicVersion: Version 0.1 - Alpha
-adapter: V5 enhanced structured adapter
+engine: translateit-core
+engineBuild: alpha-clean-1
+legacyActive: false
 ```
 
-## Manual start fallback
-
-Use this only for debugging:
+## Render Endpoint
 
 ```txt
-Start-Render-Bridge.cmd
+http://127.0.0.1:8844/render?url=https://example.com/
 ```
 
-This command routes through `npm start`, and `npm start` routes to `start-alpha-v5.mjs`.
-
-## Stop manually
+Returns the clean contract:
 
 ```txt
-http://127.0.0.1:8844/shutdown
+source
+designModel.sections
+designModel.elements
+designModel.assets
 ```
 
-## Limitations
+## Audit Endpoint
 
-This creates editable source-inspired Figma approximations, not perfect screenshots. Canvas, WebGL, videos, iframes, advanced animation, login-only content, and complex responsive states may still need manual cleanup.
+```txt
+http://127.0.0.1:8844/audit?url=https://example.com/
+```
+
+Returns visual audit metrics:
+
+```txt
+visualReadiness
+layoutScore
+overlapScore
+imageScore
+textScore
+sectionScore
+layerCleanlinessScore
+editabilityScore
+```
+
+## Quality Target
+
+Do not ask for manual Figma testing unless visual audit is meaningful and the output is expected to be clean enough to review.
+
+The target is not pixel-perfect screenshot copying. The target is professional editable reconstruction: readable sections, clean layer names, no major overlap, proportional images, and a UI Library structure that designers can edit.
