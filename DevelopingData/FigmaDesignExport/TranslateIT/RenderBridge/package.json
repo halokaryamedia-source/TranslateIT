@@ -10,6 +10,7 @@
     "test:imports": "node ./tests/test-module-imports.mjs",
     "test:contract": "node ./tests/test-clean-contract.mjs",
     "test:v2": "node ./tests/test-v2-markers.mjs",
+    "test:figma-dry-run": "node ./tests/test-figma-renderer-dry-run.mjs",
     "test:sample": "node ./tests/test-sample-sites.mjs",
     "test:regression": "node ./tests/test-regression-suite.mjs",
     "install-browser": "playwright install chromium"
