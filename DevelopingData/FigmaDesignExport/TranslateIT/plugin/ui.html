@@ -30,17 +30,17 @@
       <div class="mark">T</div>
       <div>
         <div class="eyebrow">TranslateIT Clean Engine</div>
-        <h1>Website to UI Library</h1>
+        <h1>Website to Editable Clone</h1>
       </div>
     </div>
-    <p class="sub">Version 0.1 - Alpha. One active engine: translateit-core / alpha-clean-1. Output is a clean editable Figma structure; screenshot is reference only.</p>
+    <p class="sub">Version 0.1 - Alpha. One active engine: translateit-core / alpha-clean-1. Output is a layout-preserving editable clone; screenshot is reference only.</p>
 
     <section class="card">
       <div class="row"><b>Import Website</b><span class="badge">Clean</span></div>
       <br />
       <input id="sourceUrl" placeholder="https://example.com/" />
-      <button id="importData">Import Clean UI Structure</button>
-      <div class="helper">Requires local RenderBridge on port 8844 using npm start / server.mjs. The plugin rejects old or legacy payloads.</div>
+      <button id="importData">Import Editable Clone</button>
+      <div class="helper">Requires local RenderBridge running on port 8844. Start it with start-renderbridge-server.ps1 and keep that terminal open.</div>
     </section>
 
     <section class="card">
@@ -49,43 +49,65 @@
     </section>
 
     <div class="status"><b>Status</b><br><br><span id="statusText">Ready.</span></div>
-    <div class="footer">URL → translateit-core → designModel → editable UI Library</div>
+    <div class="footer">URL → translateit-core → cloneModel → editable Figma clone</div>
   </div>
 
   <script>
     var PUBLIC_VERSION = 'Version 0.1 - Alpha';
     var ENGINE = 'translateit-core';
     var ENGINE_BUILD = 'alpha-clean-1';
+    var BRIDGE = 'http://127.0.0.1:8844';
     function el(id){ return document.getElementById(id); }
     function setStatus(text){ el('statusText').textContent = text; }
-    function setBusy(value){ el('importData').disabled = !!value; el('importData').textContent = value ? 'Importing...' : 'Import Clean UI Structure'; }
+    function setBusy(value){ el('importData').disabled = !!value; el('importData').textContent = value ? 'Importing...' : 'Import Editable Clone'; }
     function normalizeUrl(value){ value = String(value || '').trim(); if(!value) return ''; return /^https?:\/\//i.test(value) ? value : 'https://' + value; }
     function send(type, data){ var msg = { type: type }; data = data || {}; Object.keys(data).forEach(function(key){ msg[key] = data[key]; }); parent.postMessage({ pluginMessage: msg }, '*'); }
+    function bridgeFetch(path){ return fetch(BRIDGE + path); }
     function readJson(response){ return response.text().then(function(text){ var payload = null; try { payload = text ? JSON.parse(text) : null; } catch(_) {} if(!response.ok) throw new Error('Bridge HTTP ' + response.status + '\n' + ((payload && payload.error) || text)); return payload || {}; }); }
+    function explainFetchError(err){
+      var msg = err && err.message ? err.message : String(err);
+      if(msg === 'Failed to fetch' || msg.indexOf('fetch') >= 0){
+        return 'RenderBridge is not reachable.\n\nStart the local server first and keep the terminal open:\nRenderBridge/start-renderbridge-server.ps1\n\nExpected health URL:\nhttp://127.0.0.1:8844/health\n\nOriginal error: ' + msg;
+      }
+      return msg;
+    }
+    function validateHealth(payload){
+      if(!payload || payload.ok !== true) throw new Error('Invalid RenderBridge health response.');
+      if(payload.engine !== ENGINE) throw new Error('Wrong engine: ' + (payload.engine || 'missing') + '. Expected ' + ENGINE + '.');
+      if(payload.engineBuild !== ENGINE_BUILD) throw new Error('Wrong engine build: ' + (payload.engineBuild || 'missing') + '. Expected ' + ENGINE_BUILD + '.');
+      if(payload.contract !== 'cloneModel') throw new Error('Wrong bridge contract: ' + (payload.contract || 'missing') + '. Expected cloneModel.');
+      if(payload.legacyActive !== false) throw new Error('Legacy bridge is active. Restart latest RenderBridge.');
+    }
     function validate(payload){
       if(!payload || payload.ok !== true) throw new Error('Invalid bridge payload.');
       if(payload.publicVersion !== PUBLIC_VERSION) throw new Error('Wrong public version.');
       if(payload.engine !== ENGINE) throw new Error('Wrong engine: ' + (payload.engine || 'missing') + '. Expected ' + ENGINE + '.');
       if(payload.engineBuild !== ENGINE_BUILD) throw new Error('Wrong engine build: ' + (payload.engineBuild || 'missing') + '. Expected ' + ENGINE_BUILD + '.');
-      if(!payload.designModel) throw new Error('designModel missing.');
-      if(!Array.isArray(payload.designModel.sections)) throw new Error('designModel.sections missing.');
-      if(!Array.isArray(payload.designModel.elements)) throw new Error('designModel.elements missing.');
-      if(!Array.isArray(payload.designModel.assets)) throw new Error('designModel.assets missing.');
+      if(!payload.cloneModel) throw new Error('cloneModel missing. Restart latest RenderBridge.');
+      if(payload.cloneModel.mode !== 'layout-preserving-editable-clone') throw new Error('Wrong cloneModel mode.');
+      if(!Array.isArray(payload.cloneModel.sections)) throw new Error('cloneModel.sections missing.');
+      if(!Array.isArray(payload.cloneModel.layers)) throw new Error('cloneModel.layers missing.');
+      if(!Array.isArray(payload.cloneModel.assets)) throw new Error('cloneModel.assets missing.');
     }
     el('importData').onclick = function(){
       var url = normalizeUrl(el('sourceUrl').value);
       if(!url){ setStatus('Paste website address first.'); return; }
       setBusy(true);
-      setStatus('Rendering clean UI structure...\n' + url);
-      fetch('http://127.0.0.1:8844/render?url=' + encodeURIComponent(url))
+      setStatus('Checking local RenderBridge...\n' + BRIDGE + '/health');
+      bridgeFetch('/health')
         .then(readJson)
+        .then(function(health){
+          validateHealth(health);
+          setStatus('RenderBridge ready.\nRendering editable clone...\n' + url);
+          return bridgeFetch('/render?url=' + encodeURIComponent(url)).then(readJson);
+        })
         .then(function(payload){
           validate(payload);
-          var model = payload.designModel || {};
-          setStatus('Clean payload ready.\nEngine: ' + payload.engine + '\nEngine Build: ' + payload.engineBuild + '\nSections: ' + (model.sections || []).length + '\nElements: ' + (model.elements || []).length + '\nAssets: ' + (model.assets || []).length + '\nImporting into Figma...');
+          var model = payload.cloneModel || {};
+          setStatus('Clean clone payload ready.\nEngine: ' + payload.engine + '\nEngine Build: ' + payload.engineBuild + '\nSections: ' + (model.sections || []).length + '\nLayers: ' + (model.layers || []).length + '\nAssets: ' + (model.assets || []).length + '\nImporting into Figma...');
           send('import-design-model', { payload: payload });
         })
-        .catch(function(err){ setBusy(false); setStatus('Import failed.\n\n' + (err && err.message ? err.message : err)); });
+        .catch(function(err){ setBusy(false); setStatus('Import failed.\n\n' + explainFetchError(err)); });
     };
     el('exportData').onclick = function(){ send('export-ui-package'); };
     window.onmessage = function(event){
