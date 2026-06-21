@@ -6,9 +6,10 @@
   "description": "Local clean RenderBridge for TranslateIT website-to-Figma reconstruction.",
   "scripts": {
     "start": "node server.mjs",
-    "test": "npm run test:imports && npm run test:contract && node ./tests/test-sample-sites.mjs",
+    "test": "npm run test:imports && npm run test:contract && npm run test:v2 && node ./tests/test-sample-sites.mjs",
     "test:imports": "node ./tests/test-module-imports.mjs",
     "test:contract": "node ./tests/test-clean-contract.mjs",
+    "test:v2": "node ./tests/test-v2-markers.mjs",
     "test:sample": "node ./tests/test-sample-sites.mjs",
     "test:regression": "node ./tests/test-regression-suite.mjs",
     "install-browser": "playwright install chromium"
