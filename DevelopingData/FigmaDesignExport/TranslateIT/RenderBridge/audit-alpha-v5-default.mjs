@@ -13,8 +13,10 @@ const nonStrictV5 = fs.readFileSync(path.join(pluginRoot, 'code.v5.js'), 'utf8')
 const failures = [];
 if (manifest.main !== 'code.v5.strict.js') failures.push('manifest main is not code.v5.strict.js');
 if (alternateManifest.main !== 'code.v5.strict.js') failures.push('manifest.v5 main is not code.v5.strict.js');
-if (!ui.includes('strict V5 source-inspired structured clone')) failures.push('ui does not mention strict V5 structured clone');
+if (!ui.includes('strict V5.1 single-engine')) failures.push('ui does not mention strict V5.1 single-engine');
 if (!ui.includes('diagnostics.v5Enhanced')) failures.push('ui does not require V5 enhanced payload');
+if (!ui.includes('strictV5Engine')) failures.push('ui does not require strictV5Engine');
+if (!ui.includes('EXPECTED_BUILD')) failures.push('ui does not define expected engine build');
 if (!ui.includes('Wrong bridge payload')) failures.push('ui does not block older bridge payloads');
 if (!renderer.includes('translateit-alpha-v5-strict-source-inspired-renderer')) failures.push('renderer id is not strict V5');
 if (!renderer.includes('V5.1 visual layout')) failures.push('V5.1 visual polish marker missing');
@@ -23,6 +25,8 @@ if (!renderer.includes('Source-Inspired Editable Clone')) failures.push('V5 main
 if (!renderer.includes('No raw layer dump')) failures.push('V5 raw layer dump rejection copy is missing');
 if (!renderer.includes('Screenshot stays as reference only')) failures.push('V5 screenshot reference copy is missing');
 if (!renderer.includes('diagnostics.v5Enhanced')) failures.push('strict V5 enhanced payload guard is missing');
+if (!renderer.includes('strictV5Engine')) failures.push('renderer does not require strictV5Engine');
+if (!renderer.includes('strict-v5.1-single-engine')) failures.push('renderer does not require expected engine build');
 if (!legacyCode.includes('Legacy renderer disabled')) failures.push('legacy code.js is not disabled');
 if (!nonStrictV5.includes('Non-strict V5 renderer disabled')) failures.push('code.v5.js is not disabled');
 
@@ -34,6 +38,7 @@ const report = {
   alternateManifestMain: alternateManifest.main,
   renderer: 'code.v5.strict.js',
   polish: 'V5.1 visual layout',
+  expectedBuild: 'strict-v5.1-single-engine',
   failures
 };
 
