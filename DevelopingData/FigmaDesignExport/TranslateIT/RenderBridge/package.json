@@ -9,6 +9,7 @@
     "test": "node ./tests/test-clean-contract.mjs && node ./tests/test-sample-sites.mjs",
     "test:contract": "node ./tests/test-clean-contract.mjs",
     "test:sample": "node ./tests/test-sample-sites.mjs",
+    "test:regression": "node ./tests/test-regression-suite.mjs",
     "install-browser": "playwright install chromium"
   },
   "dependencies": {
