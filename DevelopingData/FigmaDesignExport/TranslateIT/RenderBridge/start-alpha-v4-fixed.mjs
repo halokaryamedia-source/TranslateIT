@@ -1,8 +1,8 @@
 import fs from 'node:fs';
 import path from 'node:path';
-import { pathToFileURL } from 'node:url';
+import { pathToFileURL, fileURLToPath } from 'node:url';
 
-const here = path.dirname(new URL(import.meta.url).pathname).replace(/^\/(.:\/)/, '$1');
+const here = path.dirname(fileURLToPath(import.meta.url));
 const sourcePath = path.join(here, 'server.alpha.v4.structured.mjs');
 const generatedPath = path.join(here, 'server.alpha.v4.fixed.generated.mjs');
 
