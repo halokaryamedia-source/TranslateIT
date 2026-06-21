@@ -24,18 +24,32 @@ source = source.replace(
   "const shot = await captureElement(page, img.captureSelector || `img:nth-of-type(${img.selectorIndex + 1})`, img.alt || `Image ${i + 1}`);"
 );
 
-source = source.replace(
+source = source.replaceAll(
   "adapter: 'translateit-alpha-v4-structured-site-model'",
   "adapter: 'translateit-alpha-v5-enhanced-structured-site-model'"
 );
 
-source = source.replace(
+source = source.replaceAll(
+  "adapter: 'translateit-alpha-v4-fixed-structured-site-model'",
+  "adapter: 'translateit-alpha-v5-enhanced-structured-site-model'"
+);
+
+source = source.replaceAll(
   "adapter: 'alpha-v4-structured-site-model'",
+  "adapter: 'alpha-v5-enhanced-structured-site-model', strictV5Engine: true, engineBuild: 'strict-v5.1-single-engine'"
+);
+
+source = source.replaceAll(
+  "adapter: 'alpha-v4-fixed-structured-site-model'",
   "adapter: 'alpha-v5-enhanced-structured-site-model', strictV5Engine: true, engineBuild: 'strict-v5.1-single-engine'"
 );
 
 source = source.replace(
   "Alpha V4 Structured Bridge running",
+  "Alpha V5 Enhanced Structured Bridge running"
+);
+source = source.replace(
+  "Alpha V4 Fixed Structured Bridge running",
   "Alpha V5 Enhanced Structured Bridge running"
 );
 
