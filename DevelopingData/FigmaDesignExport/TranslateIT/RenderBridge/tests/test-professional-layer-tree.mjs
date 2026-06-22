@@ -1,0 +1,33 @@
+import fs from 'node:fs';
+import path from 'node:path';
+
+const bridge = process.env.TRANSLATEIT_RENDER_BRIDGE || 'http://127.0.0.1:8844';
+const targetUrl = process.argv[2] || 'https://www.mivubi.com/';
+const reportDir = path.join(process.cwd(), 'reports');
+fs.mkdirSync(reportDir, { recursive: true });
+async function readJson(res) { const text = await res.text(); let payload = {}; try { payload = text ? JSON.parse(text) : {}; } catch {} if (!res.ok) throw new Error('HTTP ' + res.status + ': ' + (payload.error || text)); return payload; }
+const payload = await readJson(await fetch(bridge + '/render?url=' + encodeURIComponent(targetUrl)));
+const model = payload.cloneModel || {};
+const sections = model.sections || [];
+const layers = model.layers || [];
+const failures = [];
+const warnings = [];
+if (model.uiLibrary?.layerNaming !== 'professional-semantic-v1') failures.push('professional layer naming not enabled');
+if (model.uiLibrary?.layerTree !== 'professional-section-semantic-v1') failures.push('professional layer tree not enabled');
+const badNames = layers.filter((layer) => /^layer-|raw-|Element$|Layer$/i.test(String(layer.name || '')));
+if (badNames.length) failures.push(`${badNames.length} generic/raw layer names remain`);
+const noGroupPath = layers.filter((layer) => !Array.isArray(layer.groupPath) || layer.groupPath.length < 2);
+if (noGroupPath.length) failures.push(`${noGroupPath.length} layers missing groupPath`);
+const emptySections = sections.filter((section) => !section.layerIds || !section.layerIds.length);
+if (emptySections.length) failures.push(`${emptySections.length} sections have no layers`);
+const emptyContentSections = sections.filter((section) => !section.contentLayerIds || !section.contentLayerIds.length).map((section) => section.name);
+if (emptyContentSections.length) warnings.push(`sections with background-only content: ${emptyContentSections.join(', ')}`);
+const namedScore = model.diagnostics?.layerNamingScore || 0;
+if (namedScore < 95) failures.push(`layer naming score too low: ${namedScore}`);
+const expectedFamilies = ['Background', 'Text'];
+const families = new Set(layers.map((layer) => layer.layerTree?.family).filter(Boolean));
+for (const family of expectedFamilies) if (!families.has(family)) warnings.push(`layer family missing: ${family}`);
+const report = { gate: 'translateit-professional-layer-tree', status: failures.length ? 'fail' : 'pass', targetUrl, sections: sections.length, layers: layers.length, layerNamingScore: namedScore, badLayerNames: badNames.map((layer) => layer.name).slice(0, 20), missingGroupPath: noGroupPath.length, emptySections: emptySections.map((section) => section.name), emptyContentSections, families: Array.from(families).sort(), professionalLayerTree: model.professionalLayerTree || null, failures, warnings };
+fs.writeFileSync(path.join(reportDir, 'translateit-professional-layer-tree.json'), JSON.stringify(report, null, 2), 'utf8');
+console.log(JSON.stringify(report, null, 2));
+if (failures.length) process.exitCode = 2;
