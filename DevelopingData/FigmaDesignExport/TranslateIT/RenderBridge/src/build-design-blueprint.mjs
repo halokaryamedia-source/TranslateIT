@@ -2,24 +2,30 @@ function clean(value) { return String(value || '').replace(/\s+/g, ' ').trim(); 
 function short(value, max = 120) { const text = clean(value); return text.length > max ? text.slice(0, max - 1).trim() + '…' : text; }
 function uniq(values) { const seen = new Set(); const out = []; for (const value of values.map(clean).filter(Boolean)) { const key = value.toLowerCase(); if (seen.has(key)) continue; seen.add(key); out.push(value); } return out; }
 function byRole(model, roles) { const set = new Set(roles); return (model.layers || []).filter((layer) => set.has(layer.role) || set.has(layer.type)); }
-function sectionOf(model, id) { return (model.sections || []).find((section) => section.id === id) || { role: 'content', name: 'Content' }; }
 function textLayers(model) { return (model.layers || []).filter((layer) => layer.type === 'text' && clean(layer.text)); }
 function mediaLayers(model) { return (model.layers || []).filter((layer) => layer.type === 'image' && layer.role !== 'component-slice' && layer.assetId); }
 function texts(model, roles, limit = 8) { return uniq(byRole(model, roles).map((layer) => short(layer.text || layer.alt || layer.name, 160))).slice(0, limit); }
 function largestText(model, roles, fallback) { const list = byRole(model, roles).filter((layer) => clean(layer.text)).sort((a, b) => Number(b.style?.fontSize || 0) - Number(a.style?.fontSize || 0)); return short(list[0]?.text || fallback, 160); }
+function gradientColors(layer) { return Array.isArray(layer.style?.backgroundGradient?.colors) ? layer.style.backgroundGradient.colors : []; }
 function colorTokens(model) {
   const colors = [];
   for (const layer of model.layers || []) {
     const style = layer.style || {};
-    for (const color of [style.color, style.backgroundColor]) if (/^#[0-9a-fA-F]{6}$/.test(color || '')) colors.push(color.toUpperCase());
+    for (const color of [style.color, style.backgroundColor, style.borderColor, ...gradientColors(layer)]) if (/^#[0-9a-fA-F]{6}$/.test(color || '')) colors.push(color.toUpperCase());
   }
   const base = ['#FFFFFF', '#111827', '#64748B', '#F8FAFC'];
-  return uniq([...colors, ...base]).slice(0, 10).map((value, index) => ({ id: `color-${index + 1}`, name: index === 0 ? 'Primary' : index === 1 ? 'Text' : `Color ${index + 1}`, value }));
+  return uniq([...colors, ...base]).slice(0, 14).map((value, index) => ({ id: `color-${index + 1}`, name: index === 0 ? 'Primary' : index === 1 ? 'Text' : `Color ${index + 1}`, value }));
 }
 function typographyTokens(model) {
   const sizes = uniq((model.layers || []).map((layer) => String(Math.round(Number(layer.style?.fontSize || 0)))).filter((value) => Number(value) >= 8));
   const picked = sizes.map(Number).sort((a, b) => b - a).slice(0, 6);
   return picked.map((size, index) => ({ id: `type-${index + 1}`, name: index === 0 ? 'Heading XL' : index === 1 ? 'Heading M' : index === picked.length - 1 ? 'Caption' : `Text ${index + 1}`, fontSize: size, fontFamily: 'Inter', fontWeight: index < 2 ? 800 : 400 }));
+}
+function effectTokens(model) {
+  const shadow = (model.layers || []).filter((layer) => clean(layer.style?.boxShadow) && clean(layer.style?.boxShadow) !== 'none').slice(0, 6).map((layer, index) => ({ id: `shadow-${index + 1}`, name: `Shadow ${index + 1}`, value: layer.style.boxShadow }));
+  const stroke = (model.layers || []).filter((layer) => Number(layer.style?.borderWidth || 0) > 0 && layer.style?.borderColor).slice(0, 6).map((layer, index) => ({ id: `stroke-${index + 1}`, name: `Stroke ${index + 1}`, width: Number(layer.style.borderWidth || 1), color: layer.style.borderColor }));
+  const gradients = (model.layers || []).filter((layer) => layer.style?.backgroundGradient).slice(0, 6).map((layer, index) => ({ id: `gradient-${index + 1}`, name: `Gradient ${index + 1}`, type: layer.style.backgroundGradient.type, colors: layer.style.backgroundGradient.colors }));
+  return { shadow, stroke, gradients };
 }
 function imageRef(model, layer) { return layer ? { layerId: layer.id, assetId: layer.assetId, alt: clean(layer.alt || layer.name), role: layer.role } : null; }
 function detectPageType(model) {
@@ -50,7 +56,8 @@ export function buildDesignBlueprint(model, source = {}) {
     { id: 'footer-links', type: 'link-list', items: nav.slice(0, 5) },
     { id: 'footer-contact', type: 'contact', text: body.find((item) => /@|\+|contact/i.test(item)) || 'hello@example.com' }
   ]});
-  const tokens = { colors: colorTokens(model), typography: typographyTokens(model), spacing: [8, 12, 16, 24, 32, 48, 80].map((value) => ({ name: `Space ${value}`, value })), radius: [{ name: 'Button', value: 999 }, { name: 'Card', value: 20 }, { name: 'Media', value: 18 }] };
-  const diagnostics = { sections: sections.length, navItems: nav.length, textLayers: textLayers(model).length, mediaLayers: media.length, tokens: tokens.colors.length + tokens.typography.length + tokens.spacing.length + tokens.radius.length, hasHeader: true, hasHero: true, hasFooter: true };
-  return { version: 'design-blueprint-v1', pageType: detectPageType(model), source: { title: source.title || model.page?.title || 'Website', url: source.url || source.finalUrl || '' }, sections, tokens, diagnostics };
+  const effects = effectTokens(model);
+  const tokens = { colors: colorTokens(model), typography: typographyTokens(model), spacing: [8, 12, 16, 24, 32, 48, 80].map((value) => ({ name: `Space ${value}`, value })), radius: [{ name: 'Button', value: 999 }, { name: 'Card', value: 20 }, { name: 'Media', value: 18 }], effects };
+  const diagnostics = { sections: sections.length, navItems: nav.length, textLayers: textLayers(model).length, mediaLayers: media.length, gradients: effects.gradients.length, strokes: effects.stroke.length, shadows: effects.shadow.length, tokens: tokens.colors.length + tokens.typography.length + tokens.spacing.length + tokens.radius.length + effects.gradients.length + effects.stroke.length + effects.shadow.length, hasHeader: true, hasHero: true, hasFooter: true };
+  return { version: 'design-blueprint-v2-effects-aware', pageType: detectPageType(model), source: { title: source.title || model.page?.title || 'Website', url: source.url || source.finalUrl || '' }, sections, tokens, diagnostics };
 }
