@@ -76,9 +76,48 @@ function textStyleOf(style) {
   };
 }
 
+function area(rect) {
+  return Math.max(1, (rect?.w || 0) * (rect?.h || 0));
+}
+
+function normalizeTextKey(value) {
+  return clean(value).toLowerCase().replace(/[^a-z0-9\u00c0-\u024f]+/gi, ' ').trim();
+}
+
+function looksLikeButton(element, style) {
+  const text = clean(element.text);
+  const rect = element.rect || {};
+  const bg = cssColor(style.backgroundColor);
+  const hasBgImage = clean(style.backgroundImage || '') && clean(style.backgroundImage || '') !== 'none';
+  const radius = number(style.borderRadius, 0);
+  const tag = clean(element.tag).toLowerCase();
+  const href = clean(element.href);
+  const compact = rect.w >= 34 && rect.w <= 420 && rect.h >= 22 && rect.h <= 96;
+  const shortText = text.length > 0 && text.length <= 80;
+  const interactive = element.role === 'button' || element.semanticRole === 'button' || tag === 'button' || href || element.role === 'link';
+  const visualSurface = bg || hasBgImage || radius >= 6 || /btn|button|cta/i.test(`${element.id || ''} ${element.name || ''} ${element.className || ''}`);
+  return compact && shortText && interactive && visualSurface;
+}
+
+function buttonComponentOf(element, style) {
+  const rect = element.rect || {};
+  return {
+    kind: 'button-component',
+    label: clean(element.text).slice(0, 80),
+    variant: rect.h >= 44 ? 'large' : 'default',
+    href: clean(element.href || ''),
+    radius: number(style.borderRadius, Math.min(999, rect.h / 2 || 8)),
+    backgroundColor: cssColor(style.backgroundColor) || '#111827',
+    textColor: cssColor(style.color) || '#FFFFFF',
+    paddingX: Math.max(12, Math.round(Math.min(28, rect.w * 0.14))),
+    paddingY: Math.max(6, Math.round(Math.min(18, rect.h * 0.22)))
+  };
+}
+
 function normalizeElement(element, assets) {
   const style = element.style || {};
   const semantic = element.semanticRole || 'element';
+  const textStyle = textStyleOf(style);
   const base = {
     id: `el-${element.index}`,
     type: 'text',
@@ -91,11 +130,12 @@ function normalizeElement(element, assets) {
       directText: clean(element.directText),
       textDensity: element.textDensity || 0,
       tag: element.tag || '',
+      href: element.href || '',
       position: style.position || '',
       zIndex: style.zIndex || '',
       textRenderMetadata: true
     },
-    style: textStyleOf(style)
+    style: textStyle
   };
   if (semantic === 'image') {
     const asset = assetForElement(element, assets);
@@ -104,18 +144,10 @@ function normalizeElement(element, assets) {
   if (semantic === 'container' || element.role === 'container' || element.role === 'decorative') {
     return { ...base, type: 'container', role: 'container', name: 'Container / Layout Surface' };
   }
-  if (semantic === 'button') return { ...base, type: 'button', role: 'button', name: `Button / ${clean(element.text).slice(0, 36)}`, text: clean(element.text).slice(0, 80) };
+  if (semantic === 'button' || looksLikeButton(element, style)) return { ...base, type: 'button', role: 'button', name: `Button / ${clean(element.text).slice(0, 36)}`, text: clean(element.text).slice(0, 80), component: buttonComponentOf(element, style), style: { ...textStyle, backgroundColor: buttonComponentOf(element, style).backgroundColor, color: buttonComponentOf(element, style).textColor, borderRadius: buttonComponentOf(element, style).radius } };
   if (semantic === 'nav-item' || semantic === 'footer-link' || semantic === 'link') return { ...base, type: 'text', role: semantic, name: `${semantic === 'nav-item' ? 'Nav Item' : semantic === 'footer-link' ? 'Footer Link' : 'Link'} / ${clean(element.text).slice(0, 36)}`, text: clean(element.text).slice(0, 120) };
-  if (semantic === 'title' || semantic === 'section-title' || semantic === 'subheading' || semantic === 'body' || semantic === 'label' || semantic === 'footer-text') return { ...base, type: 'text', role: semantic, name: `${semantic.replace('-', ' ')} / ${clean(element.text).slice(0, 42)}`, text: clean(element.text).slice(0, semantic === 'body' || semantic === 'footer-text' ? 260 : 140) };
+  if (semantic === 'title' || semantic === 'section-title' || semantic === 'subheading' || semantic === 'body' || semantic === 'label' || semantic === 'footer-text') return { ...base, type: 'text', role: semantic, name: `${semantic.replace('-', ' ')} / ${clean(element.text).slice(0, 42)}`, text: clean(element.text).slice(0, semantic === 'body' || semantic === 'footer-text' ? 360 : 160) };
   return null;
-}
-
-function normalizeTextKey(value) {
-  return clean(value).toLowerCase().replace(/[^a-z0-9\u00c0-\u024f]+/gi, ' ').trim();
-}
-
-function area(rect) {
-  return Math.max(1, (rect?.w || 0) * (rect?.h || 0));
 }
 
 function overlapArea(a, b) {
@@ -135,7 +167,7 @@ function contains(parent, child, pad = 4) {
 }
 
 function textWeight(item) {
-  const roleScore = { title: 100, 'section-title': 85, subheading: 70, body: 55, button: 60, 'nav-item': 50, link: 45, label: 35, 'footer-link': 35, 'footer-text': 30 };
+  const roleScore = { title: 100, 'section-title': 85, subheading: 70, body: 55, button: 75, 'nav-item': 50, link: 45, label: 35, 'footer-link': 35, 'footer-text': 30 };
   return (roleScore[item.role] || 20) + Math.min(50, (item.text || '').length * 0.4) + Math.min(40, item.style.fontSize || 14) + (item.style.fontWeight >= 600 ? 15 : 0);
 }
 
@@ -172,22 +204,12 @@ function resolveAggregateText(elements) {
     if (related.length < 1) continue;
     const childLike = related.filter((other) => key.includes(normalizeTextKey(other.text)) && normalizeTextKey(other.text).length < key.length);
     const peerTextCount = childLike.length;
-    const isCompositeTitle = ['title', 'section-title'].includes(item.role) && item.text.length <= 90 && peerTextCount >= 1;
+    const isCompositeTitle = ['title', 'section-title'].includes(item.role) && item.text.length <= 110 && peerTextCount >= 1;
     const isAggregateNavigation = ['label', 'body', 'nav-item', 'footer-text'].includes(item.role) && peerTextCount >= 2;
     const isLargeParent = area(item.rect) > 90000 && peerTextCount >= 1 && !isCompositeTitle;
-    if (isCompositeTitle) {
-      for (const child of childLike) if (!['button', 'nav-item', 'footer-link'].includes(child.role)) remove.add(child.id);
-      continue;
-    }
+    if (isCompositeTitle) { for (const child of childLike) if (!['button', 'nav-item', 'footer-link'].includes(child.role)) remove.add(child.id); continue; }
     if (isAggregateNavigation || isLargeParent) { remove.add(item.id); continue; }
-    for (const other of related) {
-      const otherKey = normalizeTextKey(other.text);
-      if (otherKey === key) {
-        const keep = textWeight(item) >= textWeight(other) ? item : other;
-        const drop = keep.id === item.id ? other : item;
-        remove.add(drop.id);
-      }
-    }
+    for (const other of related) { const otherKey = normalizeTextKey(other.text); if (otherKey === key) { const keep = textWeight(item) >= textWeight(other) ? item : other; const drop = keep.id === item.id ? other : item; remove.add(drop.id); } }
   }
   return elements.filter((item) => !remove.has(item.id));
 }
@@ -219,13 +241,7 @@ function removeUnsafeTextLayers(elements, page) {
     const directText = clean(item.source?.directText);
     const looksLikeParent = childCount >= 3 && item.text.length > Math.max(80, directText.length + 60);
     const tooLargeTextBox = rectArea > pageArea * 0.18 && item.text.length > 80 && !['title', 'section-title'].includes(item.role);
-    const containsOtherText = textItems.some((other) => {
-      if (other.id === item.id) return false;
-      const otherKey = normalizeTextKey(other.text);
-      if (!otherKey || otherKey.length < 3) return false;
-      const inside = contains(item.rect, other.rect, 8) || overlapRatio(item.rect, other.rect) > 0.6;
-      return inside && key.includes(otherKey);
-    });
+    const containsOtherText = textItems.some((other) => { if (other.id === item.id) return false; const otherKey = normalizeTextKey(other.text); if (!otherKey || otherKey.length < 3) return false; const inside = contains(item.rect, other.rect, 8) || overlapRatio(item.rect, other.rect) > 0.6; return inside && key.includes(otherKey); });
     if ((looksLikeParent || tooLargeTextBox) && containsOtherText) continue;
     seen.add(key);
     out.push(item);
@@ -238,14 +254,12 @@ function removeSevereTextCollisions(elements) {
   const remove = new Set();
   for (let i = 0; i < textItems.length; i += 1) {
     for (let j = i + 1; j < textItems.length; j += 1) {
-      const a = textItems[i];
-      const b = textItems[j];
+      const a = textItems[i]; const b = textItems[j];
       if (a.sectionId !== b.sectionId) continue;
       if (remove.has(a.id) || remove.has(b.id)) continue;
       const ratio = overlapRatio(a.rect, b.rect);
       if (ratio < 0.34) continue;
-      const ak = normalizeTextKey(a.text);
-      const bk = normalizeTextKey(b.text);
+      const ak = normalizeTextKey(a.text); const bk = normalizeTextKey(b.text);
       const relatedText = ak.includes(bk) || bk.includes(ak) || ak === bk;
       const bothHeadline = ['title', 'section-title', 'subheading'].includes(a.role) && ['title', 'section-title', 'subheading'].includes(b.role);
       if (!relatedText && !bothHeadline) continue;
@@ -297,7 +311,10 @@ function applySafetyLayout(model) {
     item.layout.whiteSpace = item.style.whiteSpace || 'normal';
     item.layout.overflowWrap = item.style.overflowWrap || 'normal';
     item.layout.minWidth = Math.min(120, Math.max(40, item.rect.w));
-    item.layout.maxWidth = Math.max(item.rect.w, Math.min(model.page.width - 80, item.rect.w + 24));
+    item.layout.maxWidth = Math.max(item.rect.w, Math.min(model.page.width - 80, item.rect.w + 36));
+  }
+  for (const item of elements.filter((entry) => entry.type === 'button')) {
+    item.layout = { component: 'button', hugLabel: true, paddingX: item.component?.paddingX || 16, paddingY: item.component?.paddingY || 8, minWidth: Math.max(44, item.rect.w), minHeight: Math.max(28, item.rect.h) };
   }
   for (const item of elements.filter((entry) => entry.type === 'image')) {
     item.layout = { clip: true, objectFit: item.imageFit?.objectFit || 'cover', objectPosition: item.imageFit?.objectPosition || '50% 50%', maxHeight: Math.max(80, item.rect.h), preserveAspectIntent: true };
@@ -316,32 +333,6 @@ export function buildDesignModel(layout) {
   const imageFiltered = removeTextInsideImages(aggregateFiltered);
   const normalized = removeSevereTextCollisions(imageFiltered);
   const sections = layout.sections.map((section) => ({ id: section.id, role: section.role, name: section.name, rect: refineSectionRect(section, normalized, source), intent: inferSectionIntent(section, normalized), elementIds: normalized.filter((item) => item.sectionId === section.id).map((item) => item.id) })).filter((section) => section.elementIds.length || ['header', 'footer'].includes(section.role));
-  const model = {
-    page,
-    sections,
-    elements: normalized.filter((item) => sections.some((section) => section.id === item.sectionId)),
-    assets,
-    tokens: buildTokens(normalized, source),
-    diagnostics: {
-      rawElements: layout.stats.rawElements,
-      keptElements: layout.stats.keptElements,
-      sections: sections.length,
-      assets: assets.length,
-      textElements: normalized.filter((item) => item.type === 'text').length,
-      imageElements: normalized.filter((item) => item.type === 'image').length,
-      surfaceElements: normalized.filter((item) => item.type === 'container').length,
-      buttonElements: normalized.filter((item) => item.type === 'button').length,
-      removedParentText: layout.stats.removedParentText || 0,
-      removedOffCanvasText: normalizedRaw.length - offCanvasFiltered.length,
-      removedUnsafeText: offCanvasFiltered.length - unsafeFiltered.length,
-      removedAggregateText: unsafeFiltered.length - aggregateFiltered.length,
-      removedImageOverlayText: aggregateFiltered.length - imageFiltered.length,
-      removedCollisionText: imageFiltered.length - normalized.length,
-      cssStackingPreserved: true,
-      imageFitPreserved: true,
-      textRenderMetadataPreserved: true,
-      coloredSurfacePreserved: true
-    }
-  };
+  const model = { page, sections, elements: normalized.filter((item) => sections.some((section) => section.id === item.sectionId)), assets, tokens: buildTokens(normalized, source), diagnostics: { rawElements: layout.stats.rawElements, keptElements: layout.stats.keptElements, sections: sections.length, assets: assets.length, textElements: normalized.filter((item) => item.type === 'text').length, imageElements: normalized.filter((item) => item.type === 'image').length, surfaceElements: normalized.filter((item) => item.type === 'container').length, buttonElements: normalized.filter((item) => item.type === 'button').length, ctaButtons: normalized.filter((item) => item.type === 'button' && item.component?.kind === 'button-component').length, removedParentText: layout.stats.removedParentText || 0, removedOffCanvasText: normalizedRaw.length - offCanvasFiltered.length, removedUnsafeText: offCanvasFiltered.length - unsafeFiltered.length, removedAggregateText: unsafeFiltered.length - aggregateFiltered.length, removedImageOverlayText: aggregateFiltered.length - imageFiltered.length, removedCollisionText: imageFiltered.length - normalized.length, cssStackingPreserved: true, imageFitPreserved: true, textRenderMetadataPreserved: true, coloredSurfacePreserved: true, buttonComponentMapping: true } };
   return applySafetyLayout(model);
 }
