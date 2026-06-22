@@ -7,6 +7,7 @@
   "scripts": {
     "start": "node server.mjs",
     "audit:full-prep": "powershell -ExecutionPolicy Bypass -File ./run-full-engine-prep.ps1",
+    "summary:master": "powershell -ExecutionPolicy Bypass -File ./run-master-summary.ps1",
     "test": "npm run test:imports && npm run test:contract && npm run test:v2 && node ./tests/test-sample-sites.mjs",
     "test:imports": "node ./tests/test-module-imports.mjs",
     "test:contract": "node ./tests/test-clean-contract.mjs",
