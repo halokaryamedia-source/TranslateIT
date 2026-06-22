@@ -17,6 +17,7 @@ import { addCardComponentGroups } from './add-card-component-groups.mjs';
 import { professionalizeCloneModelV2 } from './professionalize-clone-model-v2.mjs';
 import { buildDesignBlueprint } from './build-design-blueprint.mjs';
 import { buildFigmaRenderPlan } from './build-figma-render-plan.mjs';
+import { normalizeCardRenderGroups } from './normalize-card-render-groups.mjs';
 import { buildFigmaAutoLayoutPlan } from './figma-auto-layout-engine.mjs';
 import { buildImageAssetProcessingPlan } from './image-asset-processing-engine.mjs';
 import { buildVisualComparePlan } from './visual-compare-engine.mjs';
@@ -48,7 +49,8 @@ export async function buildPayload(targetUrl) {
   const cloneModel = professionalizeCloneModelV2(cardCloneModel);
   const designBlueprint = buildDesignBlueprint(cloneModel, capture.source);
   const layoutIntentModel = buildLayoutIntentModel({ designBlueprint, visualIntentModel, cloneModel });
-  const figmaRenderPlan = buildFigmaRenderPlan(cloneModel);
+  const rawFigmaRenderPlan = buildFigmaRenderPlan(cloneModel);
+  const figmaRenderPlan = normalizeCardRenderGroups(rawFigmaRenderPlan);
   const figmaAutoLayoutPlan = buildFigmaAutoLayoutPlan(figmaRenderPlan);
   const imageAssetProcessingPlan = await buildImageAssetProcessingPlan(cloneModel);
   const visualComparePlan = await buildVisualComparePlan({ source: capture.source });
@@ -112,6 +114,8 @@ export async function buildPayload(targetUrl) {
         missingImagePlaceholders: cloneModel.diagnostics?.missingImagePlaceholders || 0,
         visualSliceOverlaysDemoted: cloneModel.diagnostics?.visualSliceOverlaysDemoted || 0,
         visualSliceOverlaysRemoved: cloneModel.diagnostics?.visualSliceOverlaysRemoved || 0,
+        normalizedCardGroups: figmaRenderPlan.diagnostics?.normalizedCardGroups || 0,
+        normalizedCardSurfaces: figmaRenderPlan.diagnostics?.normalizedCardSurfaces || 0,
         gradientLayers: designModel.diagnostics?.gradientLayers || 0,
         surfaceStrokeLayers: designModel.diagnostics?.strokeLayers || 0,
         surfaceShadowLayers: designModel.diagnostics?.shadowLayers || 0,
