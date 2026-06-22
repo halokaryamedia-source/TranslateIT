@@ -6,6 +6,7 @@ import { reconstructTextLines } from './reconstruct-text-lines.mjs';
 import { guardHeroOcclusion } from './guard-hero-occlusion.mjs';
 import { matchDomToVisual } from './match-dom-visual.mjs';
 import { buildCloneModel } from './build-clone-model.mjs';
+import { professionalizeCloneModel } from './professionalize-clone-model.mjs';
 import { ok, assertCleanPayload } from './shared-contract.mjs';
 
 export async function buildPayload(targetUrl) {
@@ -16,7 +17,8 @@ export async function buildPayload(targetUrl) {
   const lineModel = reconstructTextLines(designModel);
   const guardedModel = guardHeroOcclusion(lineModel);
   const matched = matchDomToVisual(guardedModel, visualModel);
-  const cloneModel = buildCloneModel(matched.model, visualModel, matched.diagnostics);
+  const baseCloneModel = buildCloneModel(matched.model, visualModel, matched.diagnostics);
+  const cloneModel = professionalizeCloneModel(baseCloneModel);
   const payload = ok({
     source: Object.assign({}, capture.source, { screenshot: capture.source.screenshot }),
     visualModel,
@@ -38,7 +40,8 @@ export async function buildPayload(targetUrl) {
       visualMatching: matched.diagnostics,
       layout: layout.stats,
       model: matched.model.diagnostics || guardedModel.diagnostics || lineModel.diagnostics || designModel.diagnostics,
-      cloneModel: cloneModel.diagnostics
+      cloneModel: cloneModel.diagnostics,
+      professionalLayerTree: cloneModel.professionalLayerTree || null
     }
   });
   const failures = assertCleanPayload(payload);
