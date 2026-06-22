@@ -1,9 +1,0 @@
-{
-  "name": "TranslateIT Design Export - Production Safe",
-  "id": "translateit-design-export-production-safe",
-  "api": "1.0.0",
-  "main": "code-framework-production.js",
-  "ui": "ui-framework.html",
-  "editorType": ["figma"],
-  "permissions": []
-}
