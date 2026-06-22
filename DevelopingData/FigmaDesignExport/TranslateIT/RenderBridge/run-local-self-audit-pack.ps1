@@ -73,8 +73,19 @@ $meta = [ordered]@{
   targetUrl = $TargetUrl
   bridgeRoot = $BridgeRoot
   branchNote = 'translateit-clean-engine local self-audit'
+  readinessFile = 'reports/translateit-self-audit-readiness.json'
   primaryReviewFile = 'reports/translateit-self-audit-review.html'
-  requiredReviewFiles = @('reports/translateit-self-audit-review.html','reports/translateit-figma-sim-preview-latest.png','reports/translateit-figma-sim-preview-latest.json','reports/translateit-regression-site-mivubi-sample.png','reports/translateit-regression-site-mivubi-sample-diff.png')
+  primaryVisualFile = 'reports/translateit-figma-sim-main-latest.png'
+  requiredReviewFiles = @(
+    'reports/translateit-self-audit-review.html',
+    'reports/translateit-self-audit-readiness.json',
+    'reports/translateit-figma-sim-main-latest.png',
+    'reports/translateit-figma-sim-main-diff-latest.png',
+    'reports/translateit-figma-sim-preview-latest.png',
+    'reports/translateit-figma-sim-preview-latest.json',
+    'reports/translateit-regression-site-mivubi-sample.png',
+    'reports/translateit-regression-site-mivubi-sample-diff.png'
+  )
   uploadThisZipToChat = (Split-Path $ZipPath -Leaf)
 }
 $meta | ConvertTo-Json -Depth 20 | Set-Content -Path (Join-Path $PackRoot 'self-audit-meta.json') -Encoding UTF8
@@ -84,10 +95,10 @@ Write-Host "Upload this file to chat:"
 Write-Host $ZipPath -ForegroundColor Yellow
 Write-Host "`nPrimary review file inside ZIP:"
 Write-Host 'reports/translateit-self-audit-review.html'
-Write-Host "`nMain preview files inside ZIP:"
+Write-Host "`nMain visual files inside ZIP:"
+Write-Host 'reports/translateit-figma-sim-main-latest.png'
+Write-Host 'reports/translateit-figma-sim-main-diff-latest.png'
 Write-Host 'reports/translateit-figma-sim-preview-latest.png'
-Write-Host 'reports/translateit-regression-site-mivubi-sample.png'
-Write-Host 'reports/translateit-regression-site-mivubi-sample-diff.png'
 Write-Host "`nExit codes:"
 if (Test-Path $ExitCodes) { Get-Content $ExitCodes }
 Invoke-Item $BridgeRoot
