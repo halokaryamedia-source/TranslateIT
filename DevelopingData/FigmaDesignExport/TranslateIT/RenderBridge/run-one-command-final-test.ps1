@@ -4,7 +4,8 @@ param(
   [string]$OmniParserRepo = "https://github.com/microsoft/OmniParser.git",
   [string]$OmniParserEndpoint = "http://127.0.0.1:7860/parse",
   [switch]$SkipOmniParserDownload,
-  [switch]$SkipBrowserInstall
+  [switch]$SkipBrowserInstall,
+  [switch]$SkipOmniParserPythonSetup
 )
 
 $ErrorActionPreference = "Stop"
@@ -48,6 +49,22 @@ if (-not (Test-Path $OmniParserDir)) {
   }
 } else {
   Write-Host "OmniParser folder exists: $OmniParserDir"
+}
+
+if (-not $SkipOmniParserPythonSetup -and (Test-Path $OmniParserDir)) {
+  Step "Preparing OmniParser Python environment if requirements exist"
+  $requirements = Join-Path $OmniParserDir "requirements.txt"
+  $venvPython = Join-Path $OmniParserDir ".venv\Scripts\python.exe"
+  if (Test-Path $requirements) {
+    if (-not (Test-Path $venvPython)) {
+      NeedCommand "python" "Install Python 3.10+ and add it to PATH, then reopen PowerShell."
+      python -m venv (Join-Path $OmniParserDir ".venv")
+    }
+    & $venvPython -m pip install --upgrade pip
+    & $venvPython -m pip install -r $requirements
+  } else {
+    Write-Host "No OmniParser requirements.txt found. Skipping Python package setup." -ForegroundColor Yellow
+  }
 }
 
 $env:OMNIPARSER_REPO = $OmniParserDir
