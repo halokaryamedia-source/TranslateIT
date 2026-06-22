@@ -1,1 +1,1 @@
-export { buildPayload } from './build-payload-core-v3.mjs';
+export { buildPayload } from './build-payload-core-v4.mjs';
