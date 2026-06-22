@@ -46,4 +46,28 @@ export function buildFigmaSimPreviewHtml(payload) {
   const overlay = visualBacking ? `<div data-layer="Editable Reconstruction / Low Opacity" style="position:absolute;left:0;top:0;width:${px(frameW)};height:${px(frameH)};z-index:2;opacity:${overlayOpacity};overflow:hidden">${sectionHtml.join('')}${looseLayers}</div>` : `${sectionHtml.join('')}${looseLayers}`;
   return `<!doctype html><html><head><meta charset="utf-8"><style>html,body{margin:0;padding:0;background:#202020;font-family:Inter,Arial,sans-serif}.root{position:relative;width:${px(rootW)};height:${px(rootH)};background:#fff;overflow:hidden}.title{position:absolute;left:80px;top:30px;color:#111827;font-weight:700;font-size:28px}.note{position:absolute;left:80px;top:68px;color:#667085;font-size:12px}.main{position:absolute;left:${px(rootPad)};top:${px(rootTop)};width:${px(frameW)};height:${px(frameH)};background:${safeColor(page.background, '#FFFFFF')};overflow:hidden;isolation:isolate}</style></head><body><main class="root"><div class="title">${esc(page.title || 'Website')}</div><div class="note">Version 0.1 - Alpha / translateit-core / alpha-clean-1 - ${visualBacking ? 'visual-backed editable clone' : 'layout-preserving editable clone'}</div><div class="main">${backing}${overlay}</div></main></body></html>`;
 }
-export async function renderFigmaSimPreview(payload, reportDir) { fs.mkdirSync(reportDir, { recursive: true }); const html = buildFigmaSimPreviewHtml(payload); const htmlPath = path.join(reportDir, 'translateit-figma-sim-preview-latest.html'); const pngPath = path.join(reportDir, 'translateit-figma-sim-preview-latest.png'); fs.writeFileSync(htmlPath, html, 'utf8'); const browser = await chromium.launch({ headless: true }); const page = await browser.newPage({ viewport: { width: 1440, height: 1800 }, deviceScaleFactor: 1 }); try { await page.setContent(html, { waitUntil: 'load' }); await page.screenshot({ path: pngPath, fullPage: true, type: 'png' }); } finally { await page.close().catch(() => {}); await browser.close().catch(() => {}); } return { htmlPath, pngPath, visualBacking, overlayOpacity }; }
+
+export async function renderFigmaSimPreview(payload, reportDir) {
+  fs.mkdirSync(reportDir, { recursive: true });
+  const html = buildFigmaSimPreviewHtml(payload);
+  const htmlPath = path.join(reportDir, 'translateit-figma-sim-preview-latest.html');
+  const pngPath = path.join(reportDir, 'translateit-figma-sim-preview-latest.png');
+  const mainPngPath = path.join(reportDir, 'translateit-figma-sim-main-latest.png');
+  fs.writeFileSync(htmlPath, html, 'utf8');
+  const browser = await chromium.launch({ headless: true });
+  const page = await browser.newPage({ viewport: { width: 1440, height: 1800 }, deviceScaleFactor: 1 });
+  let visualBacking = false;
+  let overlayOpacity = 1;
+  try {
+    await page.setContent(html, { waitUntil: 'load' });
+    await page.screenshot({ path: pngPath, fullPage: true, type: 'png' });
+    await page.locator('.main').screenshot({ path: mainPngPath });
+    const clone = payload.cloneModel || {};
+    visualBacking = !!(clone.visualBacking && clone.visualBacking.enabled && sourceScreenshotDataUrl(payload));
+    overlayOpacity = visualBacking ? safeOpacity(clone.visualBacking.layerOpacity || 0.04, 0.04) : 1;
+  } finally {
+    await page.close().catch(() => {});
+    await browser.close().catch(() => {});
+  }
+  return { htmlPath, pngPath, mainPngPath, visualBacking, overlayOpacity };
+}
