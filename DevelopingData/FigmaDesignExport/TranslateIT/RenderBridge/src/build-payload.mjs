@@ -10,6 +10,7 @@ import { guardHeroOcclusion } from './guard-hero-occlusion.mjs';
 import { matchDomToVisual } from './match-dom-visual.mjs';
 import { buildCloneModel } from './build-clone-model.mjs';
 import { addComponentSliceLayers } from './add-component-slice-layers.mjs';
+import { addIconAssetLayers } from './add-icon-asset-layers.mjs';
 import { addCardComponentGroups } from './add-card-component-groups.mjs';
 import { professionalizeCloneModelV2 } from './professionalize-clone-model-v2.mjs';
 import { buildDesignBlueprint } from './build-design-blueprint.mjs';
@@ -38,7 +39,8 @@ export async function buildPayload(targetUrl) {
   const matched = matchDomToVisual(guardedModel, visualModel);
   const baseCloneModel = buildCloneModel(matched.model, visualModel, matched.diagnostics);
   const hybridCloneModel = addComponentSliceLayers(baseCloneModel);
-  const cardCloneModel = addCardComponentGroups(hybridCloneModel);
+  const iconCloneModel = addIconAssetLayers(hybridCloneModel);
+  const cardCloneModel = addCardComponentGroups(iconCloneModel);
   const cloneModel = professionalizeCloneModelV2(cardCloneModel);
   const designBlueprint = buildDesignBlueprint(cloneModel, capture.source);
   const layoutIntentModel = buildLayoutIntentModel({ designBlueprint, visualIntentModel, cloneModel });
@@ -65,6 +67,7 @@ export async function buildPayload(targetUrl) {
         rawElements: capture.rawElements.length,
         assets: capture.assets.length,
         backgroundAssets: capture.assets.filter((asset) => asset.kind === 'background-image').length,
+        iconAssets: capture.assets.filter((asset) => ['vector-image','svg-icon','logo-icon','icon-image'].includes(asset.kind)).length,
         componentSliceCount: capture.source.captureDiagnostics?.componentSliceCount || 0,
         stabilization: capture.source.captureDiagnostics || null,
         screenshot: { width: capture.source.screenshot?.width || 0, height: capture.source.screenshot?.height || 0, pageHeight: capture.source.pageHeight || 0, viewport: capture.source.viewport || null }
@@ -99,6 +102,7 @@ export async function buildPayload(targetUrl) {
         coverageRatio: layout.stats.coverageRatio,
         images: layout.stats.images,
         backgroundImages: designModel.diagnostics?.backgroundImageLayers || 0,
+        iconAssetLayers: cloneModel.diagnostics?.iconAssetLayers || 0,
         gradientLayers: designModel.diagnostics?.gradientLayers || 0,
         surfaceStrokeLayers: designModel.diagnostics?.strokeLayers || 0,
         surfaceShadowLayers: designModel.diagnostics?.shadowLayers || 0,
