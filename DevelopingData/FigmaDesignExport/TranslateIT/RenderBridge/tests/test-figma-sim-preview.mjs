@@ -1,6 +1,6 @@
 import fs from 'node:fs';
 import path from 'node:path';
-import { renderFigmaSimPreview } from '../src/render-figma-sim-preview.mjs';
+import { renderFigmaSimPreview } from '../src/render-figma-sim-preview-v2.mjs';
 import { compareSourceAndClonePreview } from '../src/compare-visual-screenshots.mjs';
 
 const bridge = process.env.TRANSLATEIT_RENDER_BRIDGE || 'http://127.0.0.1:8844';
@@ -46,6 +46,8 @@ const report = {
   diffHtmlPath,
   visualBacking: payload.cloneModel.visualBacking || null,
   overlayOpacity: result.overlayOpacity,
+  sourceSize: result.sourceSize || null,
+  mainSize: result.mainSize || null,
   comparison: {
     available: comparison.available,
     version: comparison.version,
