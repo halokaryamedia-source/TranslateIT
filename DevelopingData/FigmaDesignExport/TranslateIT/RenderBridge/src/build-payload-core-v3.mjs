@@ -13,6 +13,7 @@ import { addComponentSliceLayers } from './add-component-slice-layers.mjs';
 import { addIconAssetLayers } from './add-icon-asset-layers.mjs';
 import { resolveMissingImageAssets } from './resolve-missing-image-assets.mjs';
 import { rebalanceVisualSliceOverlays } from './rebalance-visual-slice-overlays.mjs';
+import { cleanProductionLayers } from './clean-production-layers.mjs';
 import { addCardComponentGroups } from './add-card-component-groups.mjs';
 import { professionalizeCloneModelV2 } from './professionalize-clone-model-v2.mjs';
 import { buildDesignBlueprint } from './build-design-blueprint.mjs';
@@ -50,6 +51,9 @@ function nativeUsefulness({ layout, layoutIntentModel, figmaRenderPlan, figmaAut
     missingImagePlaceholders: cloneModel.diagnostics?.missingImagePlaceholders || 0,
     visualSliceOverlaysDemoted: cloneModel.diagnostics?.visualSliceOverlaysDemoted || 0,
     visualSliceOverlaysRemoved: cloneModel.diagnostics?.visualSliceOverlaysRemoved || 0,
+    productionDuplicateLayersRemoved: cloneModel.diagnostics?.productionDuplicateLayersRemoved || 0,
+    productionSmallIconsRemoved: cloneModel.diagnostics?.productionSmallIconsRemoved || 0,
+    productionOverflowLayersRemoved: cloneModel.diagnostics?.productionOverflowLayersRemoved || 0,
     normalizedCardGroups: figmaRenderPlan.diagnostics?.normalizedCardGroups || 0,
     normalizedCardSurfaces: figmaRenderPlan.diagnostics?.normalizedCardSurfaces || 0,
     duplicateTextRemoved: figmaRenderPlan.diagnostics?.duplicateTextRemoved || 0,
@@ -81,7 +85,8 @@ export async function buildPayload(targetUrl) {
   const iconCloneModel = addIconAssetLayers(hybridCloneModel);
   const resolvedCloneModel = resolveMissingImageAssets(iconCloneModel);
   const balancedCloneModel = rebalanceVisualSliceOverlays(resolvedCloneModel);
-  const cardCloneModel = addCardComponentGroups(balancedCloneModel);
+  const cleanedCloneModel = cleanProductionLayers(balancedCloneModel);
+  const cardCloneModel = addCardComponentGroups(cleanedCloneModel);
   const cloneModel = professionalizeCloneModelV2(cardCloneModel);
   const designBlueprint = buildDesignBlueprint(cloneModel, capture.source);
   const layoutIntentModel = buildLayoutIntentModel({ designBlueprint, visualIntentModel, cloneModel });
