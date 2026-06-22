@@ -13,9 +13,10 @@ Step 'imports' { npm.cmd run test:imports }
 Step 'external-engine-readiness' { node .\src\external-engine-readiness.mjs .\reports }
 Get-NetTCPConnection -LocalPort 8844 -ErrorAction SilentlyContinue | ForEach-Object { Stop-Process -Id $_.OwningProcess -Force -ErrorAction SilentlyContinue }
 $server=Start-Process -FilePath 'node' -ArgumentList 'server.mjs' -WorkingDirectory $Root -RedirectStandardOutput $Out -RedirectStandardError $Err -PassThru -WindowStyle Hidden
-try{Start-Sleep -Seconds 3; Step 'framework-contract' { node .\tests\test-framework-output-contract.mjs }; Step 'blueprint-framework-output' { node .\tests\test-blueprint-framework-output.mjs $TargetUrl }; Step 'engine-pipeline-readiness' { node .\tests\test-engine-pipeline-readiness.mjs $TargetUrl }; Step 'engine-preview-page' { node .\src\write-engine-preview-page.mjs .\reports }}finally{if($server -and !$server.HasExited){Stop-Process -Id $server.Id -Force -ErrorAction SilentlyContinue}}
+try{Start-Sleep -Seconds 3; Step 'framework-contract' { node .\tests\test-framework-output-contract.mjs }; Step 'blueprint-framework-output' { node .\tests\test-blueprint-framework-output.mjs $TargetUrl }; Step 'figma-support-engines' { node .\tests\test-figma-support-engines.mjs $TargetUrl }; Step 'engine-pipeline-readiness' { node .\tests\test-engine-pipeline-readiness.mjs $TargetUrl }; Step 'engine-preview-page' { node .\src\write-engine-preview-page.mjs .\reports }}finally{if($server -and !$server.HasExited){Stop-Process -Id $server.Id -Force -ErrorAction SilentlyContinue}}
 Write-Host "`nENGINE PIPELINE AUDIT DONE" -ForegroundColor Green
 Write-Host 'reports/translateit-external-engine-readiness.json'
+Write-Host 'reports/translateit-figma-support-engines.json'
 Write-Host 'reports/translateit-engine-pipeline-readiness.json'
 Write-Host 'reports/translateit-engine-preview.html'
 if(Test-Path $ExitCodes){Get-Content $ExitCodes}
