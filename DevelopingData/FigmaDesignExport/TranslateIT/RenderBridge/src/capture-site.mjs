@@ -47,6 +47,21 @@ function isBackgroundAssetCandidate(item) {
   if (area < 9000 || rect.w < 80 || rect.h < 60) return false;
   return true;
 }
+function isIconAssetCandidate(item) {
+  const rect = item.rect || {};
+  const area = Math.max(0, rect.w || 0) * Math.max(0, rect.h || 0);
+  if (area < 100 || area > 90000) return false;
+  if (Number.isFinite(item.imageIndex) && item.imageIndex >= 0) return false;
+  const hint = `${item.tag || ''} ${item.alt || ''} ${item.className || ''} ${item.directText || ''}`.toLowerCase();
+  if (item.tag === 'svg' || item.role === 'image') return true;
+  return /logo|icon|brand|mark|symbol/.test(hint) && rect.w >= 8 && rect.h >= 8;
+}
+function iconKind(item) {
+  const hint = `${item.alt || ''} ${item.className || ''} ${item.directText || ''}`.toLowerCase();
+  if (/logo|brand|mark/.test(hint) || (item.rect?.y || 9999) < 160) return 'logo-icon';
+  if (item.tag === 'svg') return 'svg-icon';
+  return 'icon-image';
+}
 
 export async function captureSite(inputUrl, options = {}) {
   const url = normalizeUrl(inputUrl);
@@ -72,16 +87,16 @@ export async function captureSite(inputUrl, options = {}) {
       nodes.forEach((el, index) => el.setAttribute('data-translateit-raw-index', String(index)));
       const elements = nodes.map((el, index) => {
         const style = getComputedStyle(el); const rect = rectOf(el); const text = clean(el.innerText || el.textContent || ''); const directText = directTextOf(el); const childElementCount = el.children ? el.children.length : 0; const tag = String(el.tagName || '').toLowerCase(); const role = roleOf(el, text, directText, style, rect, childElementCount);
-        return { id: `raw-${index}`, rawIndex: index, index, tag, role, text: text.slice(0, 320), directText: directText.slice(0, 220), childElementCount, textDensity: text.length ? Number((text.length / Math.max(1, rect.w * rect.h)).toFixed(6)) : 0, rect, area: rect.w * rect.h, imageIndex: tag === 'img' ? Number(el.getAttribute('data-translateit-image-index') || -1) : null, imageMeta: imageMetaOf(el, style, rect), alt: clean(el.getAttribute('alt') || el.getAttribute('aria-label') || ''), href: el.href || '', className: String(el.className || ''), style: { color: parseColor(style.color), backgroundColor: parseColor(style.backgroundColor), backgroundImage: String(style.backgroundImage || ''), backgroundSize: style.backgroundSize, backgroundPosition: style.backgroundPosition, backgroundRepeat: style.backgroundRepeat, fontSize: style.fontSize, fontWeight: style.fontWeight, fontFamily: style.fontFamily, lineHeight: style.lineHeight, letterSpacing: style.letterSpacing, textTransform: style.textTransform, whiteSpace: style.whiteSpace, wordBreak: style.wordBreak, overflowWrap: style.overflowWrap, opacity: style.opacity, overflow: style.overflow, textAlign: style.textAlign, display: style.display, position: style.position, zIndex: style.zIndex, borderRadius: style.borderRadius, borderWidth: style.borderWidth, borderColor: style.borderColor, borderStyle: style.borderStyle, borderTopWidth: style.borderTopWidth, borderRightWidth: style.borderRightWidth, borderBottomWidth: style.borderBottomWidth, borderLeftWidth: style.borderLeftWidth, borderTopColor: style.borderTopColor, borderRightColor: style.borderRightColor, borderBottomColor: style.borderBottomColor, borderLeftColor: style.borderLeftColor, boxShadow: style.boxShadow, filter: style.filter, backdropFilter: style.backdropFilter, objectFit: style.objectFit, objectPosition: style.objectPosition } };
+        return { id: `raw-${index}`, rawIndex: index, index, tag, role, text: text.slice(0, 320), directText: directText.slice(0, 220), childElementCount, textDensity: text.length ? Number((text.length / Math.max(1, rect.w * rect.h)).toFixed(6)) : 0, rect, area: rect.w * rect.h, imageIndex: tag === 'img' ? Number(el.getAttribute('data-translateit-image-index') || -1) : null, imageMeta: imageMetaOf(el, style, rect), alt: clean(el.getAttribute('alt') || el.getAttribute('aria-label') || el.getAttribute('title') || ''), href: el.href || '', className: String(el.className || ''), style: { color: parseColor(style.color), backgroundColor: parseColor(style.backgroundColor), backgroundImage: String(style.backgroundImage || ''), backgroundSize: style.backgroundSize, backgroundPosition: style.backgroundPosition, backgroundRepeat: style.backgroundRepeat, fontSize: style.fontSize, fontWeight: style.fontWeight, fontFamily: style.fontFamily, lineHeight: style.lineHeight, letterSpacing: style.letterSpacing, textTransform: style.textTransform, whiteSpace: style.whiteSpace, wordBreak: style.wordBreak, overflowWrap: style.overflowWrap, opacity: style.opacity, overflow: style.overflow, textAlign: style.textAlign, display: style.display, position: style.position, zIndex: style.zIndex, borderRadius: style.borderRadius, borderWidth: style.borderWidth, borderColor: style.borderColor, borderStyle: style.borderStyle, borderTopWidth: style.borderTopWidth, borderRightWidth: style.borderRightWidth, borderBottomWidth: style.borderBottomWidth, borderLeftWidth: style.borderLeftWidth, borderTopColor: style.borderTopColor, borderRightColor: style.borderRightColor, borderBottomColor: style.borderBottomColor, borderLeftColor: style.borderLeftColor, boxShadow: style.boxShadow, filter: style.filter, backdropFilter: style.backdropFilter, objectFit: style.objectFit, objectPosition: style.objectPosition } };
       }).filter((item) => {
         if (item.role === 'decorative') return item.area >= 16000 && item.area < innerWidth * Math.max(innerHeight, document.documentElement.scrollHeight) * 0.85;
         if (item.role === 'container') return item.area >= 12000;
-        if (item.role === 'image') return item.area >= 4000;
+        if (item.role === 'image') return item.tag === 'svg' ? item.area >= 100 : item.area >= 900;
         if (item.role === 'navigation') return item.text.length <= 160 && item.rect.w >= 8 && item.rect.h >= 8;
         if (item.role === 'footer') return item.text.length <= 260 && item.rect.w >= 8 && item.rect.h >= 8;
         if (item.text) return item.rect.w >= 8 && item.rect.h >= 8;
         return false;
-      }).slice(0, 260);
+      }).slice(0, 300);
       const title = clean(document.title || location.hostname);
       const pageHeight = Math.max(document.documentElement.scrollHeight || 0, document.body.scrollHeight || 0, innerHeight);
       return { title, finalUrl: location.href, viewport: { width: innerWidth, height: innerHeight }, pageHeight, elements };
@@ -94,6 +109,11 @@ export async function captureSite(inputUrl, options = {}) {
     for (const item of imageElements) {
       try { const handle = await page.$(`[data-translateit-image-index="${item.imageIndex}"]`); if (!handle) continue; const box = await handle.boundingBox(); if (!box || box.width < 12 || box.height < 12) continue; const buffer = await handle.screenshot({ type: 'png', animations: 'disabled' }); imageAssets.push({ id: `asset-image-${item.imageIndex}`, kind: 'image', imageIndex: item.imageIndex, name: item.alt || `Image ${item.imageIndex + 1}`, rect: item.rect, imageMeta: item.imageMeta || null, contentType: 'image/png', base64: toBase64(buffer), width: Math.round(box.width), height: Math.round(box.height), naturalWidth: item.imageMeta?.naturalWidth || Math.round(box.width), naturalHeight: item.imageMeta?.naturalHeight || Math.round(box.height), objectFit: item.imageMeta?.objectFit || 'cover', objectPosition: item.imageMeta?.objectPosition || '50% 50%' }); } catch (_) {}
     }
+    const iconAssets = [];
+    const iconElements = raw.elements.filter(isIconAssetCandidate).sort((a, b) => (a.rect.y - b.rect.y) || (a.rect.x - b.rect.x)).slice(0, 36);
+    for (const item of iconElements) {
+      try { const handle = await page.$(`[data-translateit-raw-index="${item.rawIndex}"]`); if (!handle) continue; const box = await handle.boundingBox(); if (!box || box.width < 8 || box.height < 8) continue; const buffer = await handle.screenshot({ type: 'png', animations: 'disabled' }); const kind = iconKind(item); const id = `asset-${kind}-${item.rawIndex}`; iconAssets.push({ id, kind, rawIndex: item.rawIndex, name: item.alt || item.directText || item.className || `${kind} ${item.rawIndex}`, rect: item.rect, contentType: 'image/png', base64: toBase64(buffer), width: Math.round(box.width), height: Math.round(box.height), naturalWidth: Math.round(box.width), naturalHeight: Math.round(box.height), objectFit: 'contain', objectPosition: '50% 50%' }); } catch (_) {}
+    }
     const backgroundAssets = [];
     const backgroundElements = raw.elements.filter(isBackgroundAssetCandidate).sort((a, b) => (b.area || 0) - (a.area || 0)).slice(0, 18);
     for (const item of backgroundElements) {
@@ -104,8 +124,9 @@ export async function captureSite(inputUrl, options = {}) {
     for (const item of sliceCandidates) {
       try { const handle = await page.$(`[data-translateit-raw-index="${item.rawIndex}"]`); if (!handle) continue; const box = await handle.boundingBox(); if (!box || box.width < 40 || box.height < 40) continue; const buffer = await handle.screenshot({ type: 'png', animations: 'disabled' }); const id = `asset-component-${item.rawIndex}`; item.componentAssetId = id; componentAssets.push({ id, kind: 'component-slice', rawIndex: item.rawIndex, name: item.alt || item.directText || item.text?.slice(0, 48) || `Component ${item.rawIndex}`, rect: item.rect, contentType: 'image/png', base64: toBase64(buffer), width: Math.round(box.width), height: Math.round(box.height), naturalWidth: Math.round(box.width), naturalHeight: Math.round(box.height), objectFit: 'fill', objectPosition: '50% 50%' }); } catch (_) {}
     }
+    captureDiagnostics.iconAssetCount = iconAssets.length;
     captureDiagnostics.backgroundAssetCount = backgroundAssets.length;
     captureDiagnostics.componentSliceCount = componentAssets.length;
-    return { source: { url, finalUrl: raw.finalUrl, title: raw.title, viewport: raw.viewport, pageHeight: raw.pageHeight, screenshot, captureDiagnostics }, rawElements: raw.elements, assets: imageAssets.concat(backgroundAssets).concat(componentAssets) };
+    return { source: { url, finalUrl: raw.finalUrl, title: raw.title, viewport: raw.viewport, pageHeight: raw.pageHeight, screenshot, captureDiagnostics }, rawElements: raw.elements, assets: imageAssets.concat(iconAssets).concat(backgroundAssets).concat(componentAssets) };
   } finally { await page.close().catch(() => {}); }
 }
