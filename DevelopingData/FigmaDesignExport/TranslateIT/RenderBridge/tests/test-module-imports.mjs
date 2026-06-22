@@ -19,6 +19,10 @@ const modules = [
   '../src/build-layout-intent-model.mjs',
   '../src/build-design-blueprint.mjs',
   '../src/build-figma-render-plan.mjs',
+  '../src/figma-auto-layout-engine.mjs',
+  '../src/image-asset-processing-engine.mjs',
+  '../src/visual-compare-engine.mjs',
+  '../src/font-metric-engine.mjs',
   '../src/export-html-package.mjs',
   '../src/write-engine-preview-page.mjs'
 ];
