@@ -1,6 +1,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { buildFinalPayload } from './build-final-payload.mjs';
+import { checkExternalVisualEngine, externalVisualEngineRequiredError } from './external-visual-engine-gate.mjs';
 import { runCloneAudit } from './run-clone-audit.mjs';
 import { PUBLIC_VERSION, ENGINE, ENGINE_BUILD, error, normalizeUrl } from './shared-contract.mjs';
 
@@ -16,11 +17,25 @@ function writeLatestReport(reportDir, name, payload) {
   return file;
 }
 
+async function requireExternalVisualEngine(res) {
+  const visualEngine = await checkExternalVisualEngine();
+  if (!visualEngine.ok) {
+    sendJson(res, 503, externalVisualEngineRequiredError(visualEngine));
+    return null;
+  }
+  return visualEngine;
+}
+
 export async function handleRender(req, res, url) {
   const target = normalizeUrl(url.searchParams.get('url'));
   if (!target) return sendJson(res, 400, error('Missing url parameter.'));
+  const visualEngine = await requireExternalVisualEngine(res);
+  if (!visualEngine) return;
   try {
-    return sendJson(res, 200, await buildFinalPayload(target));
+    const payload = await buildFinalPayload(target);
+    payload.externalVisualEngine = visualEngine;
+    payload.diagnostics = { ...(payload.diagnostics || {}), externalVisualEngine: visualEngine, internalLayoutFallback: visualEngine.mode === 'internal-fallback-explicitly-enabled' };
+    return sendJson(res, 200, payload);
   } catch (err) {
     return sendJson(res, 500, error(err?.message || err));
   }
@@ -29,8 +44,12 @@ export async function handleRender(req, res, url) {
 export async function handleAudit(req, res, url, reportDir) {
   const target = normalizeUrl(url.searchParams.get('url'));
   if (!target) return sendJson(res, 400, error('Missing url parameter.'));
+  const visualEngine = await requireExternalVisualEngine(res);
+  if (!visualEngine) return;
   try {
     const payload = await buildFinalPayload(target);
+    payload.externalVisualEngine = visualEngine;
+    payload.diagnostics = { ...(payload.diagnostics || {}), externalVisualEngine: visualEngine, internalLayoutFallback: visualEngine.mode === 'internal-fallback-explicitly-enabled' };
     const audited = await runCloneAudit(payload, reportDir);
     const report = {
       publicVersion: PUBLIC_VERSION,
