@@ -12,6 +12,7 @@
     "test:v2": "node ./tests/test-v2-markers.mjs",
     "test:figma-dry-run": "node ./tests/test-figma-renderer-dry-run.mjs",
     "test:figma-sim-preview": "node ./tests/test-figma-sim-preview.mjs",
+    "test:source-size-parity": "node ./tests/test-source-size-frame-parity.mjs",
     "test:self-audit-readiness": "node ./src/evaluate-self-audit-readiness-v2.mjs ./reports",
     "test:sample": "node ./tests/test-sample-sites.mjs",
     "test:regression": "node ./tests/test-regression-suite.mjs",
