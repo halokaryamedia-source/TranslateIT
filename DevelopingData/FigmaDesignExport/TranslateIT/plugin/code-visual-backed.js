@@ -7,7 +7,6 @@ var PAGE_NAME = 'TranslateIT Import / Clean Engine';
 var regular = { family: 'Inter', style: 'Regular' };
 var bold = { family: 'Inter', style: 'Bold' };
 var lastFrame = null;
-
 function arr(v) { return Array.isArray(v) ? v : []; }
 function clean(v) { return String(v || '').replace(/\s+/g, ' ').trim(); }
 function nameOf(v) { return (clean(v) || 'Layer').slice(0, 90); }
@@ -17,108 +16,25 @@ function post(t) { figma.ui.postMessage({ type: 'status', text: t }); }
 function rgb(h) { var raw = /^#[0-9a-fA-F]{6}$/.test(h || '') ? h.slice(1) : '111827'; var n = parseInt(raw, 16); return { r: ((n >> 16) & 255) / 255, g: ((n >> 8) & 255) / 255, b: (n & 255) / 255 }; }
 function paint(h) { return [{ type: 'SOLID', color: rgb(h || '#111827') }]; }
 function bytes(v) { var b = atob(v || ''); var o = new Uint8Array(b.length); for (var i = 0; i < b.length; i++) o[i] = b.charCodeAt(i); return o; }
-
-async function ready() {
-  try { await figma.loadFontAsync(regular); } catch (e) { regular = { family: 'Roboto', style: 'Regular' }; await figma.loadFontAsync(regular); }
-  try { await figma.loadFontAsync(bold); } catch (e) { bold = regular; }
-  var p = null;
-  for (var i = 0; i < figma.root.children.length; i++) if (figma.root.children[i].name === PAGE_NAME) p = figma.root.children[i];
-  if (!p) p = figma.createPage();
-  p.name = PAGE_NAME;
-  if (figma.setCurrentPageAsync) await figma.setCurrentPageAsync(p);
-}
-
+async function ready() { try { await figma.loadFontAsync(regular); } catch (e) { regular = { family: 'Roboto', style: 'Regular' }; await figma.loadFontAsync(regular); } try { await figma.loadFontAsync(bold); } catch (e) { bold = regular; } var p = null; for (var i = 0; i < figma.root.children.length; i++) if (figma.root.children[i].name === PAGE_NAME) p = figma.root.children[i]; if (!p) p = figma.createPage(); p.name = PAGE_NAME; if (figma.setCurrentPageAsync) await figma.setCurrentPageAsync(p); }
 function frame(n, w, h, c) { var x = figma.createFrame(); x.name = nameOf(n); x.resize(Math.max(1, w), Math.max(1, h)); x.fills = c ? paint(c) : []; x.strokes = []; x.clipsContent = false; return x; }
 function rect(p, n, x, y, w, h, c, r, o) { var node = figma.createRectangle(); node.name = nameOf(n); node.x = x; node.y = y; node.resize(Math.max(1, w), Math.max(1, h)); node.fills = paint(c || '#FFFFFF'); node.cornerRadius = r || 0; node.strokes = []; node.opacity = opacity(o); p.appendChild(node); return node; }
 function text(p, n, v, x, y, z, c, w, h, b, o) { var node = figma.createText(); node.name = nameOf(n); node.fontName = b >= 600 ? bold : regular; node.characters = clean(v) || ' '; node.fontSize = clamp(z, 7, 96); node.fills = paint(c || '#111827'); node.opacity = opacity(o); node.x = x; node.y = y; try { node.textAutoResize = 'HEIGHT'; node.resize(Math.max(8, w || 220), Math.max(10, h || node.fontSize * 1.4)); } catch (e) {} p.appendChild(node); return node; }
-function imgFill(asset, fit) { var im = figma.createImage(bytes(asset.base64)); var mode = clean(fit && fit.objectFit).toLowerCase(); return [{ type: 'IMAGE', imageHash: im.hash, scaleMode: mode === 'contain' || mode === 'scale-down' ? 'FIT' : 'FILL' }]; }
+function fitMode(f) { f = clean(f).toLowerCase(); return f === 'contain' || f === 'scale-down' ? 'FIT' : 'FILL'; }
+function imgFill(asset, fit) { var im = figma.createImage(bytes(asset.base64)); return [{ type: 'IMAGE', imageHash: im.hash, scaleMode: fitMode(fit && fit.objectFit) }]; }
 function image(p, n, a, x, y, w, h, r, fit, o) { var node = figma.createRectangle(); node.name = nameOf(n); node.x = x; node.y = y; node.resize(Math.max(1, w), Math.max(1, h)); node.cornerRadius = r || 0; node.strokes = []; node.opacity = opacity(o); node.fills = a && a.base64 ? imgFill(a, fit) : paint('#E5E7EB'); p.appendChild(node); return node; }
 function asset(list, id) { for (var i = 0; i < list.length; i++) if (list[i].id === id) return list[i]; return null; }
 function scaleRect(r, s) { r = r || {}; return { x: Math.round((r.x || 0) * s), y: Math.round((r.y || 0) * s), w: Math.round((r.w || 1) * s), h: Math.round((r.h || 1) * s) }; }
 function order(a, b) { if ((a.zIndex || 0) !== (b.zIndex || 0)) return (a.zIndex || 0) - (b.zIndex || 0); if ((a.paintOrder || 0) !== (b.paintOrder || 0)) return (a.paintOrder || 0) - (b.paintOrder || 0); return ((a.rect && a.rect.y) || 0) - ((b.rect && b.rect.y) || 0); }
-function isBacked(payload) { var m = payload && payload.cloneModel || {}; var shot = payload && payload.source && payload.source.screenshot; return !!(m.visualBacking && m.visualBacking.enabled && shot && shot.base64); }
-
-function addBacking(parent, payload, w, h) {
-  var shot = payload.source && payload.source.screenshot;
-  if (!shot || !shot.base64) return null;
-  var node = figma.createRectangle();
-  node.name = 'Visual Backing / Source Screenshot';
-  node.x = 0; node.y = 0; node.resize(Math.max(1, w), Math.max(1, h));
-  var im = figma.createImage(bytes(shot.base64));
-  node.fills = [{ type: 'IMAGE', imageHash: im.hash, scaleMode: 'FILL' }];
-  node.strokes = [];
-  try { node.locked = true; } catch (e) {}
-  parent.appendChild(node);
-  return node;
-}
-
-function validate(p) {
-  if (!p || p.ok !== true) throw new Error('Invalid payload');
-  if (p.publicVersion !== PUBLIC_VERSION) throw new Error('Wrong public version');
-  if (p.engine !== ENGINE) throw new Error('Wrong engine');
-  if (p.engineBuild !== ENGINE_BUILD) throw new Error('Wrong engine build');
-  if (!p.cloneModel) throw new Error('cloneModel missing');
-  if (p.cloneModel.mode !== 'layout-preserving-editable-clone') throw new Error('Wrong clone mode');
-  if (!arr(p.cloneModel.sections).length) throw new Error('cloneModel.sections missing');
-  if (!arr(p.cloneModel.layers).length) throw new Error('cloneModel.layers missing');
-}
-
-function drawLayer(parent, layer, secRect, scale, assets) {
-  var lr = scaleRect(layer.rect, scale);
-  var sr = scaleRect(secRect, scale);
-  var x = lr.x - sr.x, y = lr.y - sr.y;
-  var st = layer.style || {};
-  var rad = clamp((st.borderRadius || 0) * scale, 0, 40);
-  if (layer.type === 'shape') return rect(parent, layer.name, x, y, lr.w, lr.h, st.backgroundColor || '#FFFFFF', rad, st.opacity);
-  if (layer.type === 'image') return image(parent, layer.name, asset(assets, layer.assetId), x, y, lr.w, lr.h, rad, layer.imageFit || layer.layout || {}, st.opacity);
-  if (layer.type === 'button') {
-    var g = frame(layer.name, lr.w, lr.h, ''); g.x = x; g.y = y; g.opacity = opacity(st.opacity); rect(g, 'Button Surface', 0, 0, lr.w, lr.h, st.backgroundColor || '#111827', rad || Math.round(lr.h / 2), 1); text(g, 'Button Label', layer.text, Math.max(6, 10 * scale), Math.max(4, lr.h * .25), clamp((st.fontSize || 12) * scale, 7, 22), st.color || '#FFFFFF', Math.max(8, lr.w - 20), lr.h, st.fontWeight || 700, 1); parent.appendChild(g); return g;
-  }
-  return text(parent, layer.name, layer.text, x, y, clamp((st.fontSize || 14) * scale, 7, 72), st.color || '#111827', Math.max(8, lr.w + 4), Math.max(10, lr.h + 8), st.fontWeight || 400, st.opacity);
-}
-
-function renderClone(payload) {
-  var m = payload.cloneModel, page = m.page || {}, sw = page.width || 1440, sh = page.height || 1600;
-  var w = 1280, scale = w / sw, h = Math.max(900, Math.round(sh * scale));
-  var backed = isBacked(payload);
-  var main = frame(backed ? '01 Visual-Backed Editable Clone' : '01 Layout-Preserving Editable Clone', w, h, page.background || '#FFFFFF');
-  main.clipsContent = true;
-  if (backed) addBacking(main, payload, w, h);
-  var host = main;
-  if (backed) { host = frame('Editable Reconstruction / Low Opacity', w, h, ''); host.x = 0; host.y = 0; host.clipsContent = true; host.opacity = opacity((m.visualBacking && m.visualBacking.layerOpacity) || 0.04); main.appendChild(host); }
-  var secs = arr(m.sections).slice().sort(function(a, b) { return ((a.rect && a.rect.y) || 0) - ((b.rect && b.rect.y) || 0); });
-  var layers = arr(m.layers).slice().sort(order);
-  var secFrames = {};
-  for (var i = 0; i < secs.length; i++) { var sr = scaleRect(secs[i].rect, scale); var sf = frame(secs[i].name || ('Section / ' + secs[i].role), w, Math.max(1, sr.h), ''); sf.x = 0; sf.y = sr.y; sf.clipsContent = true; host.appendChild(sf); secFrames[secs[i].id] = sf; }
-  for (var j = 0; j < layers.length; j++) { var l = layers[j], sec = null; for (var k = 0; k < secs.length; k++) if (secs[k].id === l.sectionId) sec = secs[k]; drawLayer(sec ? secFrames[sec.id] : host, l, sec ? sec.rect : { x: 0, y: 0, w: sw, h: sh }, scale, arr(m.assets)); }
-  text(main, 'Clone Mode Note', backed ? 'Visual-backed alpha: locked source screenshot provides visual fidelity; editable reconstruction is grouped in a low-opacity overlay.' : 'Layout-preserving editable clone.', 32, h - 34, 10, '#98A2B3', 1100, 20, 400, 1);
-  return main;
-}
-
-function renderReference(payload, w) {
-  var shot = payload.source && payload.source.screenshot;
-  var ratio = shot && shot.width ? (shot.height || 1600) / shot.width : 1.4;
-  var ref = frame('02 Screenshot Reference / Pure Source', w, Math.max(640, Math.round(w * ratio)), '#FFFFFF');
-  ref.clipsContent = true;
-  if (shot && shot.base64) { var n = figma.createRectangle(); n.name = 'Locked Screenshot'; n.resize(ref.width, ref.height); var im = figma.createImage(bytes(shot.base64)); n.fills = [{ type: 'IMAGE', imageHash: im.hash, scaleMode: 'FILL' }]; n.strokes = []; try { n.locked = true; } catch (e) {} ref.appendChild(n); }
-  return ref;
-}
-
-async function importPayload(payload) {
-  validate(payload);
-  await ready();
-  var title = clean((payload.cloneModel.page && payload.cloneModel.page.title) || (payload.source && payload.source.title) || 'Website');
-  var backed = isBacked(payload);
-  var root = frame(title + ' / ' + new Date().toISOString().replace(/[:.]/g, '-'), 1440, 2400, '#FFFFFF');
-  text(root, 'Run Title', title, 80, 30, 28, '#111827', 1200, 40, 700, 1);
-  text(root, 'Run Note', PUBLIC_VERSION + ' / ' + ENGINE + ' / ' + ENGINE_BUILD + (backed ? ' - visual-backed editable clone.' : ' - layout-preserving editable clone.'), 80, 68, 12, '#667085', 1200, 24, 400, 1);
-  var main = renderClone(payload); main.x = 80; main.y = 112; root.appendChild(main);
-  var ref = renderReference(payload, 1280); ref.x = 80; ref.y = main.y + main.height + 80; root.resize(1440, ref.y + ref.height + 80); root.appendChild(ref);
-  figma.currentPage.appendChild(root); figma.viewport.scrollAndZoomIntoView([main]); lastFrame = root;
-  post('Import complete.\nEngine: ' + ENGINE + '\nEngine Build: ' + ENGINE_BUILD + '\nRenderer: ' + (backed ? 'visual-backed editable clone' : 'layout-preserving editable clone') + '\nVisualBacking: ' + (backed ? 'source screenshot underlay' : 'off') + '\nEditableOverlay: ' + (backed ? 'low opacity grouped' : 'normal') + '\nCloneMode: ' + payload.cloneModel.mode + '\nSections: ' + payload.cloneModel.sections.length + '\nLayers: ' + payload.cloneModel.layers.length + '\nAssets: ' + payload.cloneModel.assets.length);
-}
-
-function exportData() { figma.ui.postMessage({ exportJson: JSON.stringify({ publicVersion: PUBLIC_VERSION, engine: ENGINE, engineBuild: ENGINE_BUILD, workspace: PAGE_NAME, lastFrame: lastFrame ? lastFrame.name : null, exportedAt: new Date().toISOString(), rules: ['Visual-backed alpha uses a locked screenshot underlay.', 'Editable reconstruction is grouped in a low-opacity overlay.', 'Renderer reads cloneModel only.'] }, null, 2) }); post('Export package ready.\nEngine: ' + ENGINE + '\nLast Frame: ' + (lastFrame ? lastFrame.name : 'none')); }
-
+function shot(payload) { return payload && payload.source && payload.source.screenshot || null; }
+function isBacked(payload) { var m = payload && payload.cloneModel || {}; var s = shot(payload); return !!(m.visualBacking && m.visualBacking.enabled && s && s.base64); }
+function sourceSize(payload, page) { var s = shot(payload); return { w: s && s.width ? s.width : page.width || 1440, h: s && s.height ? s.height : page.height || 1600 }; }
+function addBacking(parent, payload, w, h) { var s = shot(payload); if (!s || !s.base64) return null; var node = figma.createRectangle(); node.name = 'Visual Backing / Source Screenshot'; node.x = 0; node.y = 0; node.resize(Math.max(1, w), Math.max(1, h)); var im = figma.createImage(bytes(s.base64)); node.fills = [{ type: 'IMAGE', imageHash: im.hash, scaleMode: 'FILL' }]; node.strokes = []; try { node.locked = true; } catch (e) {} parent.appendChild(node); return node; }
+function validate(p) { if (!p || p.ok !== true) throw new Error('Invalid payload'); if (p.publicVersion !== PUBLIC_VERSION) throw new Error('Wrong public version'); if (p.engine !== ENGINE) throw new Error('Wrong engine'); if (p.engineBuild !== ENGINE_BUILD) throw new Error('Wrong engine build'); if (!p.cloneModel) throw new Error('cloneModel missing'); if (p.cloneModel.mode !== 'layout-preserving-editable-clone') throw new Error('Wrong clone mode'); if (!arr(p.cloneModel.sections).length) throw new Error('cloneModel.sections missing'); if (!arr(p.cloneModel.layers).length) throw new Error('cloneModel.layers missing'); }
+function drawLayer(parent, layer, secRect, scale, assets) { var lr = scaleRect(layer.rect, scale); var sr = scaleRect(secRect, scale); var x = lr.x - sr.x, y = lr.y - sr.y; var st = layer.style || {}; var rad = clamp((st.borderRadius || 0) * scale, 0, 40); if (layer.type === 'shape') return rect(parent, layer.name, x, y, lr.w, lr.h, st.backgroundColor || '#FFFFFF', rad, st.opacity); if (layer.type === 'image') return image(parent, layer.name, asset(assets, layer.assetId), x, y, lr.w, lr.h, rad, layer.imageFit || layer.layout || {}, st.opacity); if (layer.type === 'button') { var g = frame(layer.name, lr.w, lr.h, ''); g.x = x; g.y = y; g.opacity = opacity(st.opacity); rect(g, 'Button Surface', 0, 0, lr.w, lr.h, st.backgroundColor || '#111827', rad || Math.round(lr.h / 2), 1); text(g, 'Button Label', layer.text, Math.max(6, 10 * scale), Math.max(4, lr.h * .25), clamp((st.fontSize || 12) * scale, 7, 22), st.color || '#FFFFFF', Math.max(8, lr.w - 20), lr.h, st.fontWeight || 700, 1); parent.appendChild(g); return g; } return text(parent, layer.name, layer.text, x, y, clamp((st.fontSize || 14) * scale, 7, 72), st.color || '#111827', Math.max(8, lr.w + 4), Math.max(10, lr.h + 8), st.fontWeight || 400, st.opacity); }
+function renderClone(payload) { var m = payload.cloneModel, page = m.page || {}, backed = isBacked(payload), ss = sourceSize(payload, page), w = 1280, scale = w / ss.w, h = backed ? Math.max(1, Math.round(ss.h * scale)) : Math.max(900, Math.round((page.height || ss.h) * scale)); var main = frame(backed ? '01 Visual-Backed Editable Clone' : '01 Layout-Preserving Editable Clone', w, h, page.background || '#FFFFFF'); main.clipsContent = true; if (backed) addBacking(main, payload, w, h); var host = main; if (backed) { host = frame('Editable Reconstruction / Low Opacity', w, h, ''); host.x = 0; host.y = 0; host.clipsContent = true; host.opacity = opacity((m.visualBacking && m.visualBacking.layerOpacity) || 0.04); main.appendChild(host); } var secs = arr(m.sections).slice().sort(function(a, b) { return ((a.rect && a.rect.y) || 0) - ((b.rect && b.rect.y) || 0); }); var layers = arr(m.layers).slice().sort(order); var secFrames = {}; for (var i = 0; i < secs.length; i++) { var sr = scaleRect(secs[i].rect, scale); var sf = frame(secs[i].name || ('Section / ' + secs[i].role), w, Math.max(1, sr.h), ''); sf.x = 0; sf.y = sr.y; sf.clipsContent = true; host.appendChild(sf); secFrames[secs[i].id] = sf; } for (var j = 0; j < layers.length; j++) { var l = layers[j], sec = null; for (var k = 0; k < secs.length; k++) if (secs[k].id === l.sectionId) sec = secs[k]; drawLayer(sec ? secFrames[sec.id] : host, l, sec ? sec.rect : { x: 0, y: 0, w: ss.w, h: ss.h }, scale, arr(m.assets)); } text(main, 'Clone Mode Note', backed ? 'Visual-backed alpha: locked source screenshot provides visual fidelity; editable reconstruction is grouped in a low-opacity overlay.' : 'Layout-preserving editable clone.', 32, h - 34, 10, '#98A2B3', 1100, 20, 400, 1); return main; }
+function renderReference(payload, w) { var s = shot(payload); var ratio = s && s.width ? (s.height || 1600) / s.width : 1.4; var ref = frame('02 Screenshot Reference / Pure Source', w, Math.max(1, Math.round(w * ratio)), '#FFFFFF'); ref.clipsContent = true; if (s && s.base64) { var n = figma.createRectangle(); n.name = 'Locked Screenshot'; n.resize(ref.width, ref.height); var im = figma.createImage(bytes(s.base64)); n.fills = [{ type: 'IMAGE', imageHash: im.hash, scaleMode: 'FILL' }]; n.strokes = []; try { n.locked = true; } catch (e) {} ref.appendChild(n); } return ref; }
+async function importPayload(payload) { validate(payload); await ready(); var title = clean((payload.cloneModel.page && payload.cloneModel.page.title) || (payload.source && payload.source.title) || 'Website'); var backed = isBacked(payload); var root = frame(title + ' / ' + new Date().toISOString().replace(/[:.]/g, '-'), 1440, 2400, '#FFFFFF'); text(root, 'Run Title', title, 80, 30, 28, '#111827', 1200, 40, 700, 1); text(root, 'Run Note', PUBLIC_VERSION + ' / ' + ENGINE + ' / ' + ENGINE_BUILD + (backed ? ' - visual-backed editable clone.' : ' - layout-preserving editable clone.'), 80, 68, 12, '#667085', 1200, 24, 400, 1); var main = renderClone(payload); main.x = 80; main.y = 112; root.appendChild(main); var ref = renderReference(payload, 1280); ref.x = 80; ref.y = main.y + main.height + 80; root.resize(1440, ref.y + ref.height + 80); root.appendChild(ref); figma.currentPage.appendChild(root); figma.viewport.scrollAndZoomIntoView([main]); lastFrame = root; post('Import complete.\nEngine: ' + ENGINE + '\nEngine Build: ' + ENGINE_BUILD + '\nRenderer: ' + (backed ? 'visual-backed editable clone' : 'layout-preserving editable clone') + '\nVisualBacking: ' + (backed ? 'source screenshot underlay' : 'off') + '\nEditableOverlay: ' + (backed ? 'low opacity grouped' : 'normal') + '\nCloneMode: ' + payload.cloneModel.mode + '\nSections: ' + payload.cloneModel.sections.length + '\nLayers: ' + payload.cloneModel.layers.length + '\nAssets: ' + payload.cloneModel.assets.length); }
+function exportData() { figma.ui.postMessage({ exportJson: JSON.stringify({ publicVersion: PUBLIC_VERSION, engine: ENGINE, engineBuild: ENGINE_BUILD, workspace: PAGE_NAME, lastFrame: lastFrame ? lastFrame.name : null, exportedAt: new Date().toISOString(), rules: ['Visual-backed alpha uses a locked screenshot underlay.', 'Editable reconstruction is grouped in a low-opacity overlay.', 'Renderer reads cloneModel only.', 'Visual-backed frame size is derived from source screenshot dimensions.'] }, null, 2) }); post('Export package ready.\nEngine: ' + ENGINE + '\nLast Frame: ' + (lastFrame ? lastFrame.name : 'none')); }
 figma.ui.onmessage = async function(m) { try { if (m && m.type === 'import-design-model') return await importPayload(m.payload || {}); if (m && m.type === 'export-ui-package') return exportData(); post('Unsupported command: ' + (m && m.type)); } catch (e) { var msg = e && e.message ? e.message : String(e); console.error(e); post('Plugin error: ' + msg); } };
 post('Clean renderer loaded.\nEngine: ' + ENGINE + '\nEngine Build: ' + ENGINE_BUILD + '\nRenderer: visual-backed editable clone');
