@@ -17,6 +17,8 @@ must('health', health, 'plugin/code-framework-editable.js');
 must('health', health, 'framework-editable-output');
 must('renderer', renderer, '01 Native Editable Working Frame');
 must('renderer', renderer, 'renderFramework');
+must('renderer', renderer, 'figmaRenderPlan');
+must('renderer', renderer, 'renderFigmaRenderPlan');
 must('renderer', renderer, '02 Screenshot Reference / Source Below');
 must('renderer', renderer, 'Screenshot reference is below only');
 must('renderer', renderer, 'No screenshot inside working frame');
