@@ -9,10 +9,14 @@ import { buildCloneModel } from './build-clone-model.mjs';
 import { addComponentSliceLayers } from './add-component-slice-layers.mjs';
 import { professionalizeCloneModelV2 } from './professionalize-clone-model-v2.mjs';
 import { buildDesignBlueprint } from './build-design-blueprint.mjs';
+import { runExternalVisualParser } from './visual-parser-adapter.mjs';
+import { buildVisualIntentModel, buildMissingVisualIntentModel } from './build-visual-intent-model.mjs';
 import { ok, assertCleanPayload } from './shared-contract.mjs';
 
 export async function buildPayload(targetUrl) {
   const capture = await captureSite(targetUrl);
+  const externalVisualParser = await runExternalVisualParser(capture.source);
+  const visualIntentModel = externalVisualParser.result ? buildVisualIntentModel(externalVisualParser.result, capture.source) : buildMissingVisualIntentModel(capture.source, externalVisualParser.reason || 'external visual parser missing');
   const visualModel = buildVisualModel(capture);
   const layout = extractLayoutDomFaithful(capture);
   const designModel = buildDesignModel(layout);
@@ -26,6 +30,7 @@ export async function buildPayload(targetUrl) {
   const payload = ok({
     source: Object.assign({}, capture.source, { screenshot: capture.source.screenshot }),
     visualModel,
+    visualIntentModel,
     designModel: matched.model,
     cloneModel,
     designBlueprint,
@@ -42,6 +47,13 @@ export async function buildPayload(targetUrl) {
           viewport: capture.source.viewport || null
         }
       },
+      externalVisualParser: {
+        status: externalVisualParser.status,
+        parser: externalVisualParser.parser,
+        attempts: externalVisualParser.attempts || [],
+        reason: externalVisualParser.reason || null
+      },
+      visualIntentModel: visualIntentModel.diagnostics,
       visualModel: visualModel.diagnostics,
       visualMatching: matched.diagnostics,
       layout: layout.stats,
