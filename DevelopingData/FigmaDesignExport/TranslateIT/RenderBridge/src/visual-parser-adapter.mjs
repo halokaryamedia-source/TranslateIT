@@ -6,6 +6,7 @@ import os from 'node:os';
 function clean(value) { return String(value || '').replace(/\s+/g, ' ').trim(); }
 function rectOf(item = {}) { const r = item.rect || item.bbox || item.box || item.bounds || item; return { x: Math.round(Number(r.x ?? r.left ?? 0)), y: Math.round(Number(r.y ?? r.top ?? 0)), w: Math.round(Number(r.w ?? r.width ?? Math.max(0, Number(r.right ?? 0) - Number(r.left ?? 0)))), h: Math.round(Number(r.h ?? r.height ?? Math.max(0, Number(r.bottom ?? 0) - Number(r.top ?? 0)))) }; }
 function normalizeRole(value) { const v = clean(value).toLowerCase(); if (/button|cta/.test(v)) return 'button'; if (/text|label|ocr|paragraph|heading|title/.test(v)) return 'text'; if (/image|media|picture|photo/.test(v)) return 'image'; if (/input|field|form/.test(v)) return 'input'; if (/nav|menu|link/.test(v)) return 'navigation'; if (/card|panel|container|section|group|block/.test(v)) return 'container'; return v || 'unknown'; }
+function timeoutMs() { const raw = Number(process.env.OMNIPARSER_TIMEOUT_MS || 120000); return Number.isFinite(raw) && raw > 1000 ? raw : 120000; }
 export function normalizeVisualParserOutput(raw, source = {}) {
   const candidates = raw?.regions || raw?.elements || raw?.boxes || raw?.components || raw?.parsed || [];
   const regions = Array.isArray(candidates) ? candidates.map((item, index) => {
@@ -19,7 +20,17 @@ async function runOmniParserEndpoint(source) {
   if (!endpoint) return null;
   const screenshot = source.screenshot?.base64;
   if (!screenshot) throw new Error('OMNIPARSER_ENDPOINT configured but source screenshot is missing.');
-  const res = await fetch(endpoint, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ image_base64: screenshot, url: source.url || source.finalUrl || '', title: source.title || '' }) });
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(new Error('OmniParser endpoint timed out after ' + timeoutMs() + 'ms.')), timeoutMs());
+  let res;
+  try {
+    res = await fetch(endpoint, { method: 'POST', headers: { 'content-type': 'application/json' }, signal: controller.signal, body: JSON.stringify({ image_base64: screenshot, url: source.url || source.finalUrl || '', title: source.title || '' }) });
+  } catch (error) {
+    if (error?.name === 'AbortError') throw new Error('OmniParser endpoint timed out after ' + timeoutMs() + 'ms.');
+    throw error;
+  } finally {
+    clearTimeout(timer);
+  }
   const text = await res.text();
   let json = {}; try { json = text ? JSON.parse(text) : {}; } catch { throw new Error('OmniParser endpoint returned non-JSON response.'); }
   if (!res.ok) throw new Error('OmniParser endpoint failed: HTTP ' + res.status + ' ' + (json.error || text));
