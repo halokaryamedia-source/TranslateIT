@@ -1,4 +1,4 @@
-import { chromium } from './node_modules/playwright/index.js';
+import { chromium } from 'playwright';
 import { DEFAULT_VIEWPORT, normalizeUrl } from './shared-contract.mjs';
 
 let browserPromise;
