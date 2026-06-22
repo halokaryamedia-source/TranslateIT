@@ -15,6 +15,14 @@ $env:OMNIPARSER_USE_LOCAL_SEMANTICS='0'
 $env:OMNIPARSER_ENDPOINT='http://127.0.0.1:7860/parse'
 
 npm.cmd install
+
+$BridgeScript=Join-Path $Root 'tools\omniparser-bridge\omniparser_bridge_server.py'
+$Python=Join-Path $OmniParserRepo '.venv\Scripts\python.exe'
+if((Test-Path $Python) -and (Test-Path $BridgeScript)){
+  Start-Process -FilePath $Python -ArgumentList "`"$BridgeScript`"" -WorkingDirectory $OmniParserRepo -RedirectStandardOutput (Join-Path $Reports 'omniparser-bridge-stdout.log') -RedirectStandardError (Join-Path $Reports 'omniparser-bridge-stderr.log') -WindowStyle Hidden
+  Start-Sleep -Seconds 8
+}
+
 powershell -ExecutionPolicy Bypass -File (Join-Path $Root 'run-engine-pipeline-audit.ps1') -TargetUrl $TargetUrl
 
 Write-Host "`n===== TRANSLATEIT FINAL SUMMARY =====" -ForegroundColor Yellow
