@@ -1,0 +1,135 @@
+function clean(value) { return String(value || '').replace(/\s+/g, ' ').trim(); }
+function num(value, fallback = 0) { const n = Number(value); return Number.isFinite(n) ? n : fallback; }
+function round(value) { return Math.round(num(value, 0)); }
+function area(rect = {}) { return Math.max(0, num(rect.w, 0)) * Math.max(0, num(rect.h, 0)); }
+function color(value, fallback = '') { const raw = clean(value); return /^#[0-9a-fA-F]{6}$/.test(raw) ? raw : fallback; }
+function radius(value) { return Math.max(0, Math.min(999, num(value, 0))); }
+function rectOf(rect = {}) { return { x: round(rect.x), y: round(rect.y), w: Math.max(1, round(rect.w || 1)), h: Math.max(1, round(rect.h || 1)) }; }
+function textRole(layer) { return ['title', 'section-title', 'subheading', 'body', 'label', 'footer-text', 'nav-item', 'link', 'footer-link'].includes(layer.role); }
+function kindOf(layer) {
+  if (layer.type === 'image') return 'image';
+  if (layer.type === 'button') return 'button';
+  if (layer.type === 'shape' || layer.role === 'section-background') return 'shape';
+  if (layer.type === 'text' || textRole(layer)) return 'text';
+  return 'unknown';
+}
+function styleOf(layer) {
+  const style = layer.style || {};
+  return {
+    color: color(style.color, '#111827'),
+    backgroundColor: color(style.backgroundColor, ''),
+    fontSize: Math.max(7, Math.min(140, num(style.fontSize, 14))),
+    fontWeight: num(style.fontWeight, 400),
+    opacity: Math.max(0, Math.min(1, num(style.opacity, 1))),
+    borderRadius: radius(style.borderRadius),
+    textAlign: clean(style.textAlign || 'left'),
+    objectFit: clean(layer.imageFit?.objectFit || layer.layout?.objectFit || 'cover')
+  };
+}
+function sectionName(section, index) {
+  const n = String(index + 1).padStart(2, '0');
+  if (section.role === 'header') return `${n} Header`;
+  if (section.role === 'hero') return `${n} Hero`;
+  if (section.role === 'footer') return `${n} Footer`;
+  return `${n} Content`;
+}
+function layerName(layer) {
+  const base = clean(layer.name || layer.role || layer.type || 'Layer');
+  const text = clean(layer.text || layer.alt || '');
+  return text && !base.includes(text.slice(0, 20)) ? `${base} / ${text.slice(0, 44)}` : base;
+}
+function normalizeLayer(layer, sectionRect, assets) {
+  const rect = rectOf(layer.rect || {});
+  const rel = { x: rect.x - round(sectionRect.x), y: rect.y - round(sectionRect.y), w: rect.w, h: rect.h };
+  const kind = kindOf(layer);
+  const style = styleOf(layer);
+  const hasAsset = !layer.assetId || assets.has(layer.assetId);
+  return {
+    id: clean(layer.id || layer.name),
+    name: layerName(layer),
+    kind,
+    role: clean(layer.role || kind),
+    sectionId: layer.sectionId || null,
+    rect: rel,
+    sourceRect: rect,
+    text: clean(layer.text),
+    assetId: layer.assetId || null,
+    hasAsset,
+    style,
+    paintOrder: num(layer.paintOrder ?? layer.zIndex, 0),
+    editable: layer.editable !== false,
+    sourceReason: layer.sourceReason || '',
+    warnings: [
+      kind === 'unknown' ? 'unknown-kind' : '',
+      kind === 'image' && layer.assetId && !hasAsset ? 'missing-image-asset' : '',
+      kind === 'text' && !clean(layer.text) ? 'empty-text' : ''
+    ].filter(Boolean)
+  };
+}
+export function buildFigmaRenderPlan(payloadInput) {
+  const cloneModel = payloadInput.cloneModel || payloadInput || {};
+  const assets = new Map((cloneModel.assets || []).map((asset) => [asset.id, asset]));
+  const page = cloneModel.page || {};
+  const sections = (cloneModel.sections || []).slice().sort((a, b) => num(a.rect?.y, 0) - num(b.rect?.y, 0));
+  const allLayers = cloneModel.layers || [];
+  let maxY = num(page.height, 1600);
+  const frames = sections.map((section, index) => {
+    const rect = rectOf(section.rect || { x: 0, y: index * 400, w: page.width || 1440, h: 400 });
+    maxY = Math.max(maxY, rect.y + rect.h);
+    const layers = allLayers
+      .filter((layer) => layer.sectionId === section.id)
+      .map((layer) => normalizeLayer(layer, rect, assets))
+      .filter((layer) => area(layer.rect) >= 4 && !(layer.kind === 'text' && !layer.text))
+      .sort((a, b) => a.paintOrder - b.paintOrder || a.rect.y - b.rect.y);
+    return {
+      id: section.id,
+      name: sectionName(section, index),
+      role: section.role || 'content',
+      rect,
+      backgroundColor: color(section.surface?.color, color(page.background, '#FFFFFF')),
+      layoutMode: section.role === 'header' ? 'horizontal-source-geometry' : 'vertical-source-geometry',
+      children: layers,
+      diagnostics: {
+        layers: layers.length,
+        textLayers: layers.filter((layer) => layer.kind === 'text').length,
+        imageLayers: layers.filter((layer) => layer.kind === 'image').length,
+        shapeLayers: layers.filter((layer) => layer.kind === 'shape').length,
+        buttonLayers: layers.filter((layer) => layer.kind === 'button').length
+      }
+    };
+  });
+  const layerCount = frames.reduce((sum, frame) => sum + frame.children.length, 0);
+  const textLayers = frames.reduce((sum, frame) => sum + frame.diagnostics.textLayers, 0);
+  const imageLayers = frames.reduce((sum, frame) => sum + frame.diagnostics.imageLayers, 0);
+  const missingAssets = frames.flatMap((frame) => frame.children).filter((layer) => layer.warnings.includes('missing-image-asset')).length;
+  const emptyFrames = frames.filter((frame) => frame.children.length === 0).map((frame) => frame.name);
+  const failures = [];
+  if (!frames.length) failures.push('no render frames');
+  if (textLayers < 6) failures.push('not enough editable text layers for useful Figma output');
+  if (layerCount < 10) failures.push('not enough renderable layers');
+  if (emptyFrames.length) failures.push('empty render frames: ' + emptyFrames.join(', '));
+  if (missingAssets > 0) failures.push('missing image assets: ' + missingAssets);
+  return {
+    version: 'figma-render-plan-v1',
+    mode: 'source-geometry-editable-render-plan',
+    status: failures.length ? 'fail' : 'pass',
+    figmaTestAllowed: failures.length === 0,
+    page: {
+      title: page.title || 'Imported Website',
+      url: page.url || '',
+      width: Math.max(320, round(page.width || 1440)),
+      height: Math.max(640, round(maxY)),
+      backgroundColor: color(page.background, '#FFFFFF')
+    },
+    frames,
+    diagnostics: {
+      frames: frames.length,
+      layers: layerCount,
+      textLayers,
+      imageLayers,
+      missingAssets,
+      emptyFrames,
+      failures
+    }
+  };
+}
