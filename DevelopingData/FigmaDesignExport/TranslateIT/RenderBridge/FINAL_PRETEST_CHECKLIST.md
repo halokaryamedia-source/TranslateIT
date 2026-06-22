@@ -28,6 +28,8 @@ This should generate:
 
 ```txt
 reports/translateit-payload.json
+reports/translateit-final-payload-health.json
+reports/translateit-asset-reliability.json
 reports/translateit-honest-production-readiness.json
 reports/translateit-engine-pipeline-readiness.json
 reports/translateit-master-engine-summary.json
@@ -41,10 +43,12 @@ Expected minimum:
 
 ```txt
 figmaRenderPlan.status = pass
+figmaRenderPlan.diagnostics.sanitized = true
 productionExportManifest.status = ready-for-controlled-test
 productionExportManifest.risk.level = low or medium
-figmaRenderPlan.diagnostics.sanitized = true
 imageAssetProcessingPlan.status = pass
+translateit-final-payload-health.status = pass or review
+translateit-asset-reliability.status = pass or review
 ```
 
 Acceptable but must be reviewed:
@@ -53,6 +57,8 @@ Acceptable but must be reviewed:
 productionExportManifest.figma.downgradedMissingImages > 0
 productionExportManifest.summary.visualBlocks > 0
 figmaAutoLayoutPlan.diagnostics.absoluteFrames > 0
+translateit-final-payload-health.summary.placeholders > 0
+translateit-asset-reliability.summary.unusedAssets > 0
 ```
 
 Do not continue to Figma import if:
@@ -61,6 +67,8 @@ Do not continue to Figma import if:
 figmaRenderPlan.status = fail
 productionExportManifest.risk.level = high
 productionExportManifest.figma.missingAssets > 0
+translateit-final-payload-health.status = fail
+translateit-asset-reliability.status = fail
 payload build fails
 module import test fails
 ```
@@ -88,6 +96,8 @@ Use:
 
 ```txt
 reports/translateit-honest-production-readiness.json
+reports/translateit-final-payload-health.json
+reports/translateit-asset-reliability.json
 ```
 
 The score is still not a release approval. It only measures payload health. Final release requires visual review inside Figma and a multi-site benchmark.
