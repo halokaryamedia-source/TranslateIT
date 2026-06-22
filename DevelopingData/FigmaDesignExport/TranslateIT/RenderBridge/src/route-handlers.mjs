@@ -1,6 +1,6 @@
 import fs from 'node:fs';
 import path from 'node:path';
-import { buildPayload } from './build-payload.mjs';
+import { buildFinalPayload } from './build-final-payload.mjs';
 import { runCloneAudit } from './run-clone-audit.mjs';
 import { PUBLIC_VERSION, ENGINE, ENGINE_BUILD, error, normalizeUrl } from './shared-contract.mjs';
 
@@ -20,7 +20,7 @@ export async function handleRender(req, res, url) {
   const target = normalizeUrl(url.searchParams.get('url'));
   if (!target) return sendJson(res, 400, error('Missing url parameter.'));
   try {
-    return sendJson(res, 200, await buildPayload(target));
+    return sendJson(res, 200, await buildFinalPayload(target));
   } catch (err) {
     return sendJson(res, 500, error(err?.message || err));
   }
@@ -30,7 +30,7 @@ export async function handleAudit(req, res, url, reportDir) {
   const target = normalizeUrl(url.searchParams.get('url'));
   if (!target) return sendJson(res, 400, error('Missing url parameter.'));
   try {
-    const payload = await buildPayload(target);
+    const payload = await buildFinalPayload(target);
     const audited = await runCloneAudit(payload, reportDir);
     const report = {
       publicVersion: PUBLIC_VERSION,
