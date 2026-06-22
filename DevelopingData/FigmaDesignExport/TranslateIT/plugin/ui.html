@@ -7,16 +7,16 @@
     body { margin: 0; padding: 18px; background: #080A0F; color: #F8FAFC; font-family: Inter, Segoe UI, Arial, sans-serif; }
     .app { display: flex; flex-direction: column; gap: 14px; }
     .top { display: flex; gap: 12px; align-items: center; }
-    .mark { width: 42px; height: 42px; border-radius: 14px; background: linear-gradient(135deg,#1E40AF,#111827); display: grid; place-items: center; font-weight: 900; }
+    .mark { width: 42px; height: 42px; border-radius: 14px; background: linear-gradient(135deg,#16A34A,#111827); display: grid; place-items: center; font-weight: 900; }
     .eyebrow { font-size: 10px; color: #94A3B8; font-weight: 800; letter-spacing: .08em; text-transform: uppercase; }
     h1 { margin: 0; font-size: 20px; }
     .sub { margin: 0; color: #CBD5E1; font-size: 12px; line-height: 1.5; }
     .card { border: 1px solid #263244; border-radius: 20px; background: #101622; padding: 16px; }
     .row { display: flex; justify-content: space-between; align-items: center; gap: 12px; }
-    .badge { min-width: 30px; height: 30px; border-radius: 999px; background: #172554; color: #DBEAFE; display: grid; place-items: center; font-weight: 900; font-size: 11px; padding: 0 10px; }
+    .badge { min-width: 30px; height: 30px; border-radius: 999px; background: #064E3B; color: #D1FAE5; display: grid; place-items: center; font-weight: 900; font-size: 11px; padding: 0 10px; }
     input { width: 100%; height: 46px; border: 1px solid #334155; border-radius: 15px; background: #0B1019; color: #FFF; padding: 0 14px; font-weight: 700; outline: none; }
-    input:focus { border-color: #60A5FA; }
-    button { width: 100%; min-height: 48px; border: 1px solid #334155; border-radius: 15px; background: #2563EB; color: #FFF; font-weight: 900; margin-top: 14px; cursor: pointer; }
+    input:focus { border-color: #34D399; }
+    button { width: 100%; min-height: 48px; border: 1px solid #334155; border-radius: 15px; background: #16A34A; color: #FFF; font-weight: 900; margin-top: 14px; cursor: pointer; }
     button.secondary { background: #111827; }
     button:disabled { opacity: .55; cursor: wait; }
     .helper { margin-top: 10px; color: #94A3B8; font-size: 11px; line-height: 1.45; }
@@ -30,17 +30,17 @@
       <div class="mark">T</div>
       <div>
         <div class="eyebrow">TranslateIT Clean Engine</div>
-        <h1>Visual-Backed Editable Clone</h1>
+        <h1>Native Editable Reconstruction</h1>
       </div>
     </div>
-    <p class="sub">Version 0.1 - Alpha. Visual accuracy uses a locked source screenshot base. Editable reconstruction layers are still generated for structure/editing and can be inspected separately.</p>
+    <p class="sub">Version 0.1 - Alpha. Main Figma output is editable layers. Screenshot is created separately only as a locked compare reference.</p>
 
     <section class="card">
-      <div class="row"><b>Import Website</b><span class="badge">Alpha</span></div>
+      <div class="row"><b>Import Website</b><span class="badge">Editable</span></div>
       <br />
       <input id="sourceUrl" placeholder="https://example.com/" />
-      <button id="importData">Import Visual-Backed Clone</button>
-      <div class="helper">Requires local RenderBridge running on port 8844. Use Start-TranslateIT-OneTerminal.ps1 and keep that terminal open.</div>
+      <button id="importData">Import Editable Reconstruction</button>
+      <div class="helper">Requires local RenderBridge running on port 8844. Keep the terminal open.</div>
     </section>
 
     <section class="card">
@@ -49,7 +49,7 @@
     </section>
 
     <div class="status"><b>Status</b><br><br><span id="statusText">Ready.</span></div>
-    <div class="footer">URL → translateit-core → cloneModel → visual-backed editable Figma clone</div>
+    <div class="footer">URL → translateit-core → cloneModel → native editable Figma reconstruction</div>
   </div>
 
   <script>
@@ -59,7 +59,7 @@
     var BRIDGE = 'http://127.0.0.1:8844';
     function el(id){ return document.getElementById(id); }
     function setStatus(text){ el('statusText').textContent = text; }
-    function setBusy(value){ el('importData').disabled = !!value; el('importData').textContent = value ? 'Importing...' : 'Import Visual-Backed Clone'; }
+    function setBusy(value){ el('importData').disabled = !!value; el('importData').textContent = value ? 'Importing...' : 'Import Editable Reconstruction'; }
     function normalizeUrl(value){ value = String(value || '').trim(); if(!value) return ''; return /^https?:\/\//i.test(value) ? value : 'https://' + value; }
     function send(type, data){ var msg = { type: type }; data = data || {}; Object.keys(data).forEach(function(key){ msg[key] = data[key]; }); parent.postMessage({ pluginMessage: msg }, '*'); }
     function bridgeFetch(path){ return fetch(BRIDGE + path); }
@@ -67,7 +67,7 @@
     function explainFetchError(err){
       var msg = err && err.message ? err.message : String(err);
       if(msg === 'Failed to fetch' || msg.indexOf('fetch') >= 0){
-        return 'RenderBridge is not reachable.\n\nStart the local server first and keep the terminal open:\nStart-TranslateIT-OneTerminal.ps1\n\nExpected health URL:\nhttp://127.0.0.1:8844/health\n\nOriginal error: ' + msg;
+        return 'RenderBridge is not reachable.\n\nStart the local server first and keep the terminal open.\n\nExpected health URL:\nhttp://127.0.0.1:8844/health\n\nOriginal error: ' + msg;
       }
       return msg;
     }
@@ -76,6 +76,7 @@
       if(payload.engine !== ENGINE) throw new Error('Wrong engine: ' + (payload.engine || 'missing') + '. Expected ' + ENGINE + '.');
       if(payload.engineBuild !== ENGINE_BUILD) throw new Error('Wrong engine build: ' + (payload.engineBuild || 'missing') + '. Expected ' + ENGINE_BUILD + '.');
       if(payload.contract !== 'cloneModel') throw new Error('Wrong bridge contract: ' + (payload.contract || 'missing') + '. Expected cloneModel.');
+      if(payload.activeRenderer !== 'plugin/code-native-editable.js') throw new Error('Wrong active renderer: ' + (payload.activeRenderer || 'missing') + '. Pull latest branch and restart RenderBridge.');
       if(payload.legacyActive !== false) throw new Error('Legacy bridge is active. Restart latest RenderBridge.');
     }
     function validate(payload){
@@ -85,7 +86,6 @@
       if(payload.engineBuild !== ENGINE_BUILD) throw new Error('Wrong engine build: ' + (payload.engineBuild || 'missing') + '. Expected ' + ENGINE_BUILD + '.');
       if(!payload.cloneModel) throw new Error('cloneModel missing. Restart latest RenderBridge.');
       if(payload.cloneModel.mode !== 'layout-preserving-editable-clone') throw new Error('Wrong cloneModel mode.');
-      if(!payload.cloneModel.visualBacking || payload.cloneModel.visualBacking.enabled !== true) throw new Error('visualBacking missing. Pull latest RenderBridge.');
       if(!Array.isArray(payload.cloneModel.sections)) throw new Error('cloneModel.sections missing.');
       if(!Array.isArray(payload.cloneModel.layers)) throw new Error('cloneModel.layers missing.');
       if(!Array.isArray(payload.cloneModel.assets)) throw new Error('cloneModel.assets missing.');
@@ -99,13 +99,13 @@
         .then(readJson)
         .then(function(health){
           validateHealth(health);
-          setStatus('RenderBridge ready.\nRendering visual-backed editable clone...\n' + url);
+          setStatus('RenderBridge ready.\nRendering native editable reconstruction...\n' + url);
           return bridgeFetch('/render?url=' + encodeURIComponent(url)).then(readJson);
         })
         .then(function(payload){
           validate(payload);
           var model = payload.cloneModel || {};
-          setStatus('Visual-backed clone payload ready.\nEngine: ' + payload.engine + '\nEngine Build: ' + payload.engineBuild + '\nVisualBacking: source screenshot underlay\nSections: ' + (model.sections || []).length + '\nLayers: ' + (model.layers || []).length + '\nAssets: ' + (model.assets || []).length + '\nImporting into Figma...');
+          setStatus('Editable reconstruction payload ready.\nEngine: ' + payload.engine + '\nEngine Build: ' + payload.engineBuild + '\nMain output: editable layers\nScreenshot: separate compare reference\nSections: ' + (model.sections || []).length + '\nLayers: ' + (model.layers || []).length + '\nAssets: ' + (model.assets || []).length + '\nImporting into Figma...');
           send('import-design-model', { payload: payload });
         })
         .catch(function(err){ setBusy(false); setStatus('Import failed.\n\n' + explainFetchError(err)); });
