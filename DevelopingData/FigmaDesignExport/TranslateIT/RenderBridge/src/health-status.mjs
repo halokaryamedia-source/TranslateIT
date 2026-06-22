@@ -7,7 +7,7 @@ export function healthStatus() {
     activeRenderer: 'plugin/code-native-editable.js',
     contract: 'cloneModel',
     cloneMode: 'layout-preserving-editable-clone',
-    rendererMode: 'native-editable-reconstruction-primary',
+    rendererMode: 'hybrid-native-editable-reconstruction',
     visualBacking: 'reference-only',
     editableOverlay: 'full-opacity-primary-output',
     visualModel: 'screenshot-first-html-assisted-v2',
