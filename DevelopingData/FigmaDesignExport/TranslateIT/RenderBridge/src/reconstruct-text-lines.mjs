@@ -1,125 +1,32 @@
-function clean(value) {
-  return String(value || '').replace(/\s+/g, ' ').trim();
-}
-
-function unionRect(items) {
-  const xs = items.map((item) => item.rect.x);
-  const ys = items.map((item) => item.rect.y);
-  const xe = items.map((item) => item.rect.x + item.rect.w);
-  const ye = items.map((item) => item.rect.y + item.rect.h);
-  const x = Math.min(...xs);
-  const y = Math.min(...ys);
-  return { x, y, w: Math.max(...xe) - x, h: Math.max(...ye) - y };
-}
-
-function sameLine(a, b) {
-  const ay = a.rect.y + a.rect.h / 2;
-  const by = b.rect.y + b.rect.h / 2;
-  const tolerance = Math.max(10, Math.min(a.rect.h || 0, b.rect.h || 0) * 0.55);
-  return Math.abs(ay - by) <= tolerance;
-}
-
-function closeHorizontally(a, b) {
-  const left = a.rect.x <= b.rect.x ? a : b;
-  const right = left === a ? b : a;
-  const gap = right.rect.x - (left.rect.x + left.rect.w);
-  return gap >= -16 && gap <= Math.max(90, Math.min(left.rect.w, right.rect.w) * 1.4);
-}
-
-function isHeadlineCandidate(item) {
-  if (!item || item.type !== 'text') return false;
-  if (!['title', 'section-title', 'subheading'].includes(item.role)) return false;
-  if (clean(item.text).length < 2) return false;
-  if ((item.style?.fontSize || 0) < 18) return false;
-  return true;
-}
-
-function compatibleStyle(a, b) {
-  const af = a.style?.fontSize || 0;
-  const bf = b.style?.fontSize || 0;
-  const aw = a.style?.fontWeight || 0;
-  const bw = b.style?.fontWeight || 0;
-  if (Math.abs(af - bf) > Math.max(6, Math.min(af, bf) * 0.25)) return false;
-  if (Math.abs(aw - bw) > 250) return false;
-  return true;
-}
-
-function shouldMerge(a, b) {
-  if (a.sectionId !== b.sectionId) return false;
-  if (!sameLine(a, b)) return false;
-  if (!closeHorizontally(a, b)) return false;
-  if (!compatibleStyle(a, b)) return false;
-  const textA = clean(a.text);
-  const textB = clean(b.text);
-  if (!textA || !textB) return false;
-  if (textA.length > 90 || textB.length > 90) return false;
-  return true;
-}
-
-function makeMerged(group, index) {
-  const sorted = group.slice().sort((a, b) => a.rect.x - b.rect.x);
-  const first = sorted[0];
-  const text = sorted.map((item) => clean(item.text)).filter(Boolean).join(' ');
-  return {
-    ...first,
-    id: `line-${first.id}-${index}`,
-    name: `${first.role.replace('-', ' ')} / ${text.slice(0, 42)}`,
-    rect: unionRect(sorted),
-    text,
-    source: {
-      ...(first.source || {}),
-      lineReconstructed: true,
-      mergedElementIds: sorted.map((item) => item.id)
-    },
-    sourceReason: 'line-aware-headline-reconstruction',
-    confidence: Math.max(first.confidence || 0.74, 0.82)
-  };
-}
-
+function clean(value) { return String(value || '').replace(/\s+/g, ' ').trim(); }
+function area(rect = {}) { return Math.max(0, (rect.w || 0) * (rect.h || 0)); }
+function unionRect(items) { const xs = items.map((item) => item.rect.x); const ys = items.map((item) => item.rect.y); const xe = items.map((item) => item.rect.x + item.rect.w); const ye = items.map((item) => item.rect.y + item.rect.h); const x = Math.min(...xs); const y = Math.min(...ys); return { x, y, w: Math.max(...xe) - x, h: Math.max(...ye) - y }; }
+function sameLine(a, b) { const ay = a.rect.y + a.rect.h / 2; const by = b.rect.y + b.rect.h / 2; const tolerance = Math.max(9, Math.min(a.rect.h || 0, b.rect.h || 0) * 0.72); return Math.abs(ay - by) <= tolerance; }
+function sameColumn(a, b) { const ax = a.rect.x + a.rect.w / 2; const bx = b.rect.x + b.rect.w / 2; return Math.abs(ax - bx) <= Math.max(42, Math.min(a.rect.w || 0, b.rect.w || 0) * 0.35); }
+function verticalGap(a, b) { const top = a.rect.y <= b.rect.y ? a : b; const bottom = top === a ? b : a; return bottom.rect.y - (top.rect.y + top.rect.h); }
+function closeHorizontally(a, b) { const left = a.rect.x <= b.rect.x ? a : b; const right = left === a ? b : a; const gap = right.rect.x - (left.rect.x + left.rect.w); return gap >= -16 && gap <= Math.max(72, Math.min(left.rect.w, right.rect.w) * 1.25); }
+function isTextCandidate(item) { if (!item || item.type !== 'text') return false; if (!clean(item.text)) return false; if (['nav-item', 'footer-link'].includes(item.role)) return false; return ['title', 'section-title', 'subheading', 'body', 'label', 'footer-text', 'link'].includes(item.role); }
+function compatibleStyle(a, b) { const af = a.style?.fontSize || 0; const bf = b.style?.fontSize || 0; const aw = a.style?.fontWeight || 0; const bw = b.style?.fontWeight || 0; if (Math.abs(af - bf) > Math.max(5, Math.min(af, bf) * 0.22)) return false; if (Math.abs(aw - bw) > 220) return false; if ((a.style?.color || '') !== (b.style?.color || '') && Math.min(af, bf) < 18) return false; return true; }
+function shouldMergeLine(a, b) { if (a.sectionId !== b.sectionId) return false; if (!sameLine(a, b)) return false; if (!closeHorizontally(a, b)) return false; if (!compatibleStyle(a, b)) return false; const textA = clean(a.text); const textB = clean(b.text); if (!textA || !textB) return false; if (textA.length > 120 || textB.length > 120) return false; return true; }
+function shouldMergeParagraph(a, b) { if (a.sectionId !== b.sectionId) return false; if (!['body', 'footer-text', 'label'].includes(a.role) || a.role !== b.role) return false; if (!compatibleStyle(a, b)) return false; if (!sameColumn(a, b)) return false; const gap = verticalGap(a, b); if (gap < -8 || gap > Math.max(18, (a.style?.fontSize || 14) * 1.35)) return false; if (Math.abs((a.rect.w || 0) - (b.rect.w || 0)) > Math.max(96, Math.min(a.rect.w || 0, b.rect.w || 0) * 0.45)) return false; return clean(a.text).length <= 220 && clean(b.text).length <= 220; }
+function mergedRole(group) { if (group.some((i) => i.role === 'title')) return 'title'; if (group.some((i) => i.role === 'section-title')) return 'section-title'; if (group.some((i) => i.role === 'subheading')) return 'subheading'; if (group.every((i) => i.role === 'footer-text')) return 'footer-text'; if (group.every((i) => i.role === 'label')) return 'label'; return 'body'; }
+function makeMerged(group, index, mode) { const sorted = group.slice().sort((a, b) => a.rect.y - b.rect.y || a.rect.x - b.rect.x); const first = sorted[0]; const role = mergedRole(sorted); const text = mode === 'paragraph' ? sorted.map((item) => clean(item.text)).filter(Boolean).join('\n') : sorted.slice().sort((a, b) => a.rect.x - b.rect.x).map((item) => clean(item.text)).filter(Boolean).join(' '); return { ...first, id: `${mode}-${first.id}-${index}`, role, name: `${role.replace('-', ' ')} / ${text.slice(0, 42)}`, rect: unionRect(sorted), text, layout: { ...(first.layout || {}), reconstructedText: true, multiline: mode === 'paragraph' }, source: { ...(first.source || {}), lineReconstructed: true, reconstructionMode: mode, mergedElementIds: sorted.map((item) => item.id) }, sourceReason: mode === 'paragraph' ? 'paragraph-aware-text-reconstruction' : 'line-aware-text-reconstruction', confidence: Math.max(first.confidence || 0.74, mode === 'paragraph' ? 0.8 : 0.84) }; }
+function mergeBy(candidates, predicate, mode, used, startIndex) { const merged = []; let index = startIndex; for (const item of candidates) { if (used.has(item.id)) continue; const group = [item]; used.add(item.id); let changed = true; while (changed) { changed = false; for (const other of candidates) { if (used.has(other.id)) continue; if (group.some((existing) => predicate(existing, other))) { group.push(other); used.add(other.id); changed = true; } } } merged.push(group.length > 1 ? makeMerged(group, index++, mode) : item); } return { merged, index }; }
 export function reconstructTextLines(model) {
   const elements = model.elements || [];
-  const candidates = elements.filter(isHeadlineCandidate).sort((a, b) => (a.sectionId || '').localeCompare(b.sectionId || '') || a.rect.y - b.rect.y || a.rect.x - b.rect.x);
+  const candidates = elements.filter(isTextCandidate).sort((a, b) => (a.sectionId || '').localeCompare(b.sectionId || '') || a.rect.y - b.rect.y || a.rect.x - b.rect.x);
   const used = new Set();
-  const merged = [];
   let mergeIndex = 0;
-
-  for (const item of candidates) {
-    if (used.has(item.id)) continue;
-    const group = [item];
-    used.add(item.id);
-    for (const other of candidates) {
-      if (used.has(other.id)) continue;
-      if (group.some((existing) => shouldMerge(existing, other))) {
-        group.push(other);
-        used.add(other.id);
-      }
-    }
-    if (group.length > 1) {
-      merged.push(makeMerged(group, mergeIndex++));
-    } else {
-      merged.push(item);
-    }
-  }
-
+  const linePass = mergeBy(candidates, shouldMergeLine, 'line', used, mergeIndex);
+  mergeIndex = linePass.index;
+  const lineMerged = linePass.merged;
+  const usedParagraph = new Set();
+  const paragraphCandidates = lineMerged.filter((item) => ['body', 'footer-text', 'label'].includes(item.role) && area(item.rect) < 90000).sort((a, b) => (a.sectionId || '').localeCompare(b.sectionId || '') || a.rect.y - b.rect.y || a.rect.x - b.rect.x);
+  const paragraphPass = mergeBy(paragraphCandidates, shouldMergeParagraph, 'paragraph', usedParagraph, mergeIndex);
+  const paragraphIds = new Set(paragraphCandidates.map((item) => item.id));
+  const finalMerged = lineMerged.filter((item) => !paragraphIds.has(item.id)).concat(paragraphPass.merged);
   const candidateIds = new Set(candidates.map((item) => item.id));
-  const nextElements = elements.filter((item) => !candidateIds.has(item.id)).concat(merged).sort((a, b) => {
-    const ai = Number(String(a.id || '').match(/(\d+)/)?.[1] || 0);
-    const bi = Number(String(b.id || '').match(/(\d+)/)?.[1] || 0);
-    return ai - bi;
-  });
-  const nextSections = (model.sections || []).map((section) => ({
-    ...section,
-    elementIds: nextElements.filter((item) => item.sectionId === section.id).map((item) => item.id)
-  }));
-
-  return {
-    ...model,
-    sections: nextSections,
-    elements: nextElements,
-    diagnostics: {
-      ...(model.diagnostics || {}),
-      lineReconstruction: true,
-      reconstructedHeadlineLines: merged.filter((item) => item.source?.lineReconstructed).length
-    }
-  };
+  const nextElements = elements.filter((item) => !candidateIds.has(item.id)).concat(finalMerged).sort((a, b) => { const ay = a.rect?.y || 0; const by = b.rect?.y || 0; if (Math.abs(ay - by) > 2) return ay - by; return (a.rect?.x || 0) - (b.rect?.x || 0); });
+  const nextSections = (model.sections || []).map((section) => ({ ...section, elementIds: nextElements.filter((item) => item.sectionId === section.id).map((item) => item.id) }));
+  return { ...model, sections: nextSections, elements: nextElements, diagnostics: { ...(model.diagnostics || {}), lineReconstruction: true, reconstructedTextLines: finalMerged.filter((item) => item.source?.lineReconstructed && item.source.reconstructionMode === 'line').length, reconstructedParagraphs: finalMerged.filter((item) => item.source?.lineReconstructed && item.source.reconstructionMode === 'paragraph').length } };
 }
