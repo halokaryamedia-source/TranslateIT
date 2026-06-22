@@ -17,8 +17,11 @@ export function professionalizeCloneModelV2(cloneModel) {
     layer.groupPath = [sectionName(layer.sectionId, model.sections || []), '05 Visual Blocks'];
     layer.layerTree = { section: sectionName(layer.sectionId, model.sections || []), family: 'Visual Blocks', editable: true };
   }
-  model.uiLibrary = { ...(model.uiLibrary || {}), layerNaming: 'professional-semantic-v2', layerTree: 'hybrid-section-visual-blocks-v1', hybridEditableMode: 'component-slices-plus-editable-text' };
-  model.diagnostics = { ...(model.diagnostics || {}), layerNaming: 'professional-semantic-v2', layerTree: 'hybrid-section-visual-blocks-v1', visualBlockLayers: (model.layers || []).filter((layer) => layer.role === 'component-slice').length };
-  model.professionalLayerTree = { ...(model.professionalLayerTree || {}), version: 'hybrid-section-visual-blocks-v1', visualBlockLayers: model.diagnostics.visualBlockLayers };
+  const visualBlockLayers = (model.layers || []).filter((layer) => layer.role === 'component-slice').length;
+  const cardGroups = model.diagnostics?.cardComponentGroups || new Set((model.layers || []).filter((layer) => layer.componentGroup?.role === 'card').map((layer) => layer.componentGroup.id)).size;
+  const cardGroupedLayers = model.diagnostics?.cardGroupedLayers || (model.layers || []).filter((layer) => layer.componentGroup?.role === 'card').length;
+  model.uiLibrary = { ...(model.uiLibrary || {}), layerNaming: 'professional-semantic-v2-card-and-visual-blocks', layerTree: 'hybrid-section-cards-visual-blocks-v2', hybridEditableMode: 'component-slices-plus-editable-text', cardComponentGroups: cardGroups };
+  model.diagnostics = { ...(model.diagnostics || {}), layerNaming: 'professional-semantic-v2-card-and-visual-blocks', layerTree: 'hybrid-section-cards-visual-blocks-v2', visualBlockLayers, cardComponentGroups: cardGroups, cardGroupedLayers };
+  model.professionalLayerTree = { ...(model.professionalLayerTree || {}), version: 'hybrid-section-cards-visual-blocks-v2', visualBlockLayers, cardComponentGroups: cardGroups };
   return model;
 }
