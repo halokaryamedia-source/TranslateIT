@@ -9,6 +9,7 @@ import { buildCloneModel } from './build-clone-model.mjs';
 import { addComponentSliceLayers } from './add-component-slice-layers.mjs';
 import { professionalizeCloneModelV2 } from './professionalize-clone-model-v2.mjs';
 import { buildDesignBlueprint } from './build-design-blueprint.mjs';
+import { buildFigmaRenderPlan } from './build-figma-render-plan.mjs';
 import { runExternalVisualParser } from './visual-parser-adapter.mjs';
 import { buildVisualIntentModel, buildMissingVisualIntentModel } from './build-visual-intent-model.mjs';
 import { buildLayoutIntentModel } from './build-layout-intent-model.mjs';
@@ -29,11 +30,13 @@ export async function buildPayload(targetUrl) {
   const cloneModel = professionalizeCloneModelV2(hybridCloneModel);
   const designBlueprint = buildDesignBlueprint(cloneModel, capture.source);
   const layoutIntentModel = buildLayoutIntentModel({ designBlueprint, visualIntentModel, cloneModel });
+  const figmaRenderPlan = buildFigmaRenderPlan(cloneModel);
   const payload = ok({
     source: Object.assign({}, capture.source, { screenshot: capture.source.screenshot }),
     visualModel,
     visualIntentModel,
     layoutIntentModel,
+    figmaRenderPlan,
     designModel: matched.model,
     cloneModel,
     designBlueprint,
@@ -58,6 +61,7 @@ export async function buildPayload(targetUrl) {
       },
       visualIntentModel: visualIntentModel.diagnostics,
       layoutIntentModel: layoutIntentModel.diagnostics,
+      figmaRenderPlan: figmaRenderPlan.diagnostics,
       visualModel: visualModel.diagnostics,
       visualMatching: matched.diagnostics,
       layout: layout.stats,
@@ -66,9 +70,10 @@ export async function buildPayload(targetUrl) {
       designBlueprint: designBlueprint.diagnostics,
       professionalLayerTree: cloneModel.professionalLayerTree || null,
       nativeUsefulness: {
-        mode: 'blueprint-framework-editable-output',
-        figmaTestAllowed: layoutIntentModel.figmaTestAllowed,
+        mode: 'figma-render-plan-editable-output',
+        figmaTestAllowed: layoutIntentModel.figmaTestAllowed && figmaRenderPlan.figmaTestAllowed,
         layoutIntentStatus: layoutIntentModel.status,
+        figmaRenderPlanStatus: figmaRenderPlan.status,
         extractor: layout.stats.extractor,
         rawElements: layout.stats.rawElements,
         keptElements: layout.stats.keptElements,
