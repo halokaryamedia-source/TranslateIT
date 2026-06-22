@@ -16,6 +16,7 @@
     "test:self-audit-readiness": "node ./src/evaluate-self-audit-readiness-v2.mjs ./reports",
     "test:sample": "node ./tests/test-sample-sites.mjs",
     "test:regression": "node ./tests/test-regression-suite.mjs",
+    "smoke:omniparser-bridge": "node ./tools/omniparser-bridge/smoke-test-omniparser-bridge.mjs",
     "install-browser": "playwright install chromium"
   },
   "dependencies": {
