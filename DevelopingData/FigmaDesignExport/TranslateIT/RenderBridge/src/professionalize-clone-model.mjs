@@ -14,6 +14,7 @@ function sectionLabel(section, index) {
   return `${n} Content / Section`;
 }
 function layerFamily(layer) {
+  if (layer.componentGroup?.role === 'card') return 'Cards';
   if (layer.role === 'section-background' || layer.type === 'shape') return 'Background';
   if (layer.type === 'image') return 'Media';
   if (layer.type === 'button') return 'Action';
@@ -27,6 +28,14 @@ function semanticLayerName(layer, section, counters) {
   const text = snippet(layer.text || layer.alt || layer.name);
   counters[family] = (counters[family] || 0) + 1;
   const num = String(counters[family]).padStart(2, '0');
+  if (layer.componentGroup?.role === 'card') {
+    const card = clean(layer.componentGroup.name || 'Card');
+    if (layer.componentGroup.surfaceLayerId === layer.id) return `${card} / Surface`;
+    if (layer.type === 'image') return `${card} / Image ${num}`;
+    if (layer.type === 'button') return `${card} / Button / ${text || num}`;
+    if (['title', 'section-title', 'subheading'].includes(layer.role)) return `${card} / Heading / ${text || num}`;
+    return `${card} / Text / ${text || num}`;
+  }
   if (layer.role === 'section-background') return `Section Background`;
   if (sectionRole === 'header') {
     if (layer.type === 'image') return `Header / Logo Image ${num}`;
@@ -55,6 +64,7 @@ function semanticLayerName(layer, section, counters) {
 }
 function groupPathFor(layer, section) {
   const s = section?.name || 'Unsectioned';
+  if (layer.componentGroup?.role === 'card') return [s, '35 Cards', clean(layer.componentGroup.name || 'Card')];
   if (layer.role === 'section-background') return [s, '00 Background'];
   if (layer.type === 'image') return [s, '30 Media'];
   if (layer.type === 'button') return [s, '40 Actions'];
@@ -65,12 +75,7 @@ function groupPathFor(layer, section) {
 export function professionalizeCloneModel(cloneModel) {
   const model = JSON.parse(JSON.stringify(cloneModel || {}));
   const sections = (model.sections || []).slice().sort((a, b) => ((a.rect?.y) || 0) - ((b.rect?.y) || 0));
-  sections.forEach((section, index) => {
-    section.originalName = section.name;
-    section.name = sectionLabel(section, index);
-    section.layerIds = [];
-    section.contentLayerIds = [];
-  });
+  sections.forEach((section, index) => { section.originalName = section.name; section.name = sectionLabel(section, index); section.layerIds = []; section.contentLayerIds = []; });
   const sectionMap = new Map(sections.map((section) => [section.id, section]));
   const countersBySection = new Map();
   const layers = (model.layers || []).map((layer) => {
@@ -81,20 +86,19 @@ export function professionalizeCloneModel(cloneModel) {
     next.semanticRole = next.role || next.type || 'layer';
     next.name = semanticLayerName(next, section, counters);
     next.groupPath = groupPathFor(next, section);
-    next.layerTree = { section: section?.name || 'Unsectioned', family: layerFamily(next), editable: next.editable !== false };
-    if (section) {
-      section.layerIds.push(next.id);
-      if (next.role !== 'section-background') section.contentLayerIds.push(next.id);
-    }
+    next.layerTree = { section: section?.name || 'Unsectioned', family: layerFamily(next), editable: next.editable !== false, componentGroup: next.componentGroup?.name || null };
+    if (section) { section.layerIds.push(next.id); if (next.role !== 'section-background') section.contentLayerIds.push(next.id); }
     return next;
   });
   const emptyContentSections = sections.filter((section) => !section.contentLayerIds.length).map((section) => section.name);
   const genericNames = layers.filter((layer) => /^layer-|raw-|Element$|Layer$/i.test(clean(layer.name))).length;
   const semanticNamed = layers.length - genericNames;
+  const cardLayers = layers.filter((layer) => layer.componentGroup?.role === 'card').length;
+  const cardGroups = new Set(layers.filter((layer) => layer.componentGroup?.role === 'card').map((layer) => layer.componentGroup.id)).size;
   model.sections = sections;
   model.layers = layers.sort((a, b) => (a.zIndex || 0) - (b.zIndex || 0) || ((a.rect?.y) || 0) - ((b.rect?.y) || 0));
-  model.uiLibrary = { ...(model.uiLibrary || {}), layerTree: 'professional-section-semantic-v1', layerNaming: 'professional-semantic-v1', groupPath: true, editableOverlayOrganization: 'section-family-layer' };
-  model.diagnostics = { ...(model.diagnostics || {}), layerTree: 'professional-section-semantic-v1', layerNaming: 'professional-semantic-v1', semanticNamedLayers: semanticNamed, genericLayerNames: genericNames, layerNamingScore: layers.length ? Math.round((semanticNamed / layers.length) * 100) : 100, emptyContentSections, contentSectionsWithNoEditableChildren: emptyContentSections.length, averageLayersPerSection: sections.length ? Number((layers.length / sections.length).toFixed(2)) : 0 };
-  model.professionalLayerTree = { version: 'professional-section-semantic-v1', sections: sections.map((section) => ({ id: section.id, name: section.name, role: section.role, layers: section.layerIds.length, contentLayers: section.contentLayerIds.length, area: area(section.rect) })), namingScore: model.diagnostics.layerNamingScore };
+  model.uiLibrary = { ...(model.uiLibrary || {}), layerTree: 'professional-section-semantic-v2-card-aware', layerNaming: 'professional-semantic-v2-card-aware', groupPath: true, editableOverlayOrganization: 'section-family-layer', cardComponentGroups: cardGroups };
+  model.diagnostics = { ...(model.diagnostics || {}), layerTree: 'professional-section-semantic-v2-card-aware', layerNaming: 'professional-semantic-v2-card-aware', semanticNamedLayers: semanticNamed, genericLayerNames: genericNames, layerNamingScore: layers.length ? Math.round((semanticNamed / layers.length) * 100) : 100, emptyContentSections, contentSectionsWithNoEditableChildren: emptyContentSections.length, averageLayersPerSection: sections.length ? Number((layers.length / sections.length).toFixed(2)) : 0, cardComponentGroups: cardGroups, cardGroupedLayers: cardLayers };
+  model.professionalLayerTree = { version: 'professional-section-semantic-v2-card-aware', sections: sections.map((section) => ({ id: section.id, name: section.name, role: section.role, layers: section.layerIds.length, contentLayers: section.contentLayerIds.length, area: area(section.rect) })), namingScore: model.diagnostics.layerNamingScore, cardComponentGroups: cardGroups };
   return model;
 }
