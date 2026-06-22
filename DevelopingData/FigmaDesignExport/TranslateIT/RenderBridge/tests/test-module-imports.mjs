@@ -18,6 +18,7 @@ const modules = [
   '../src/build-visual-intent-model.mjs',
   '../src/build-layout-intent-model.mjs',
   '../src/build-design-blueprint.mjs',
+  '../src/build-figma-render-plan.mjs',
   '../src/export-html-package.mjs',
   '../src/write-engine-preview-page.mjs'
 ];
