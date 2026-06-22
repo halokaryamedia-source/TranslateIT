@@ -31,57 +31,40 @@ function inferPadding(sectionRect, children) {
   const minY = Math.min(...children.map((child) => child.rect.y));
   const maxX = Math.max(...children.map((child) => child.rect.x + child.rect.w));
   const maxY = Math.max(...children.map((child) => child.rect.y + child.rect.h));
-  return {
-    left: Math.max(0, Math.round(minX)),
-    top: Math.max(0, Math.round(minY)),
-    right: Math.max(0, Math.round(sectionRect.w - maxX)),
-    bottom: Math.max(0, Math.round(sectionRect.h - maxY))
-  };
+  return { left: Math.max(0, Math.round(minX)), top: Math.max(0, Math.round(minY)), right: Math.max(0, Math.round(sectionRect.w - maxX)), bottom: Math.max(0, Math.round(sectionRect.h - maxY)) };
 }
 function normalizeChild(layer) {
   const r = rect(layer);
-  return {
-    id: clean(layer.id || layer.name),
-    kind: clean(layer.kind || layer.type || 'layer'),
-    role: clean(layer.role || ''),
-    name: clean(layer.name || layer.id || 'Layer'),
-    rect: r,
-    canAutoLayout: !['image', 'shape'].includes(clean(layer.kind || layer.type)) || r.w < 900,
-    fixedSize: clean(layer.kind || layer.type) === 'image'
-  };
+  return { id: clean(layer.id || layer.name), kind: clean(layer.kind || layer.type || 'layer'), role: clean(layer.role || ''), name: clean(layer.name || layer.id || 'Layer'), rect: r, canAutoLayout: !['image', 'shape'].includes(clean(layer.kind || layer.type)) || r.w < 900, fixedSize: clean(layer.kind || layer.type) === 'image' };
+}
+function normalizeGroup(group) {
+  const r = rect(group);
+  const children = (group.children || []).map(normalizeChild).filter((child) => child.rect.w > 1 && child.rect.h > 1);
+  const isCard = group.role === 'card-component' || group.layout?.component === 'card' || group.componentGroup?.role === 'card';
+  const direction = isCard ? 'absolute-card' : group.layout?.enabled ? String(group.layout.mode || 'HORIZONTAL').toLowerCase() : inferDirection(children);
+  const autoLayoutAllowed = !!group.layout?.enabled && !isCard;
+  return { id: group.id, name: group.name, role: isCard ? 'card-component' : 'group', rect: r, direction, autoLayoutAllowed, gap: autoLayoutAllowed ? num(group.layout?.itemSpacing, gapsFor(children, direction)) : 0, padding: inferPadding(r, children), children: children.map((child) => ({ id: child.id, name: child.name, kind: child.kind, role: child.role, fixedSize: child.fixedSize, canAutoLayout: child.canAutoLayout })), warnings: isCard ? ['card-kept-absolute-to-preserve-source-geometry'] : autoLayoutAllowed ? [] : ['kept-absolute-positioning'] };
+}
+function responsiveHints(frame) {
+  const w = num(frame.rect?.w, 1440);
+  const groups = frame.groups || [];
+  const hasCards = groups.some((group) => group.role === 'card-component' || group.componentGroup?.role === 'card');
+  const hasNav = groups.some((group) => /navigation/i.test(group.name || ''));
+  return { desktopWidth: w, tabletStrategy: hasCards ? 'stack-card-groups-and-preserve-media-ratio' : 'scale-section-width-then-wrap-text', mobileStrategy: hasNav ? 'collapse-navigation-and-stack-content' : 'stack-content-preserve-order', confidence: hasCards || hasNav ? 0.62 : 0.48 };
 }
 export function buildFigmaAutoLayoutPlan(figmaRenderPlan) {
   const frames = (figmaRenderPlan?.frames || []).map((frame) => {
     const sectionRect = frame.rect || { x: 0, y: 0, w: 1, h: 1 };
     const children = (frame.children || []).map(normalizeChild).filter((child) => child.rect.w > 1 && child.rect.h > 1);
+    const groups = (frame.groups || []).map(normalizeGroup);
     const direction = inferDirection(children);
     const padding = inferPadding(sectionRect, children);
     const gap = direction === 'absolute' ? 0 : gapsFor(children, direction);
-    const autoLayoutAllowed = direction !== 'absolute' && children.length >= 2;
-    return {
-      id: frame.id,
-      name: frame.name,
-      role: frame.role,
-      rect: sectionRect,
-      direction,
-      autoLayoutAllowed,
-      padding,
-      gap,
-      children: children.map((child) => ({ id: child.id, name: child.name, kind: child.kind, role: child.role, fixedSize: child.fixedSize, canAutoLayout: child.canAutoLayout })),
-      warnings: autoLayoutAllowed ? [] : ['kept-absolute-positioning']
-    };
+    const autoLayoutAllowed = direction !== 'absolute' && children.length >= 2 && groups.length === 0;
+    return { id: frame.id, name: frame.name, role: frame.role, rect: sectionRect, direction, autoLayoutAllowed, padding, gap, groups, responsive: responsiveHints(frame), children: children.map((child) => ({ id: child.id, name: child.name, kind: child.kind, role: child.role, fixedSize: child.fixedSize, canAutoLayout: child.canAutoLayout })), warnings: autoLayoutAllowed ? [] : ['kept-absolute-positioning'] };
   });
   const autoFrames = frames.filter((frame) => frame.autoLayoutAllowed).length;
-  return {
-    version: 'figma-auto-layout-plan-v1',
-    engine: 'yoga-layout-adapter',
-    status: frames.length ? 'pass' : 'fail',
-    frames,
-    diagnostics: {
-      frames: frames.length,
-      autoLayoutFrames: autoFrames,
-      absoluteFrames: frames.length - autoFrames,
-      note: 'Yoga dependency is installed; this adapter creates a safe auto-layout plan before mutating Figma frames.'
-    }
-  };
+  const autoGroups = frames.reduce((sum, frame) => sum + frame.groups.filter((group) => group.autoLayoutAllowed).length, 0);
+  const cardGroups = frames.reduce((sum, frame) => sum + frame.groups.filter((group) => group.role === 'card-component').length, 0);
+  return { version: 'figma-auto-layout-plan-v2-group-card-responsive-aware', engine: 'yoga-layout-adapter', status: frames.length ? 'pass' : 'fail', frames, diagnostics: { frames: frames.length, autoLayoutFrames: autoFrames, autoLayoutGroups: autoGroups, cardGroups, absoluteFrames: frames.length - autoFrames, responsiveHints: frames.length, note: 'Group/card aware auto-layout plan keeps risky sections absolute while preserving responsive intent metadata.' } };
 }
