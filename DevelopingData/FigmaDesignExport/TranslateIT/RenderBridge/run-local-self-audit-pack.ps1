@@ -32,7 +32,6 @@ Remove-Item $PackRoot -Recurse -Force -ErrorAction SilentlyContinue
 Write-Host 'TranslateIT Local Self Audit Pack' -ForegroundColor Green
 Write-Host "BridgeRoot: $BridgeRoot"
 Write-Host "TargetUrl:  $TargetUrl"
-
 Run-Step 'npm-install' { if (!(Test-Path 'node_modules')) { npm.cmd install } }
 Run-Step 'playwright-install' { npx.cmd playwright install chromium }
 Stop-Port8844
@@ -59,6 +58,7 @@ try {
   Run-Step 'mivubi-sample' { node .\tests\test-sample-sites.mjs $TargetUrl }
   Run-Step 'figma-dry-run' { node .\tests\test-figma-renderer-dry-run.mjs $TargetUrl }
   Run-Step 'figma-sim-preview' { node .\tests\test-figma-sim-preview.mjs $TargetUrl }
+  Run-Step 'source-size-parity' { node .\tests\test-source-size-frame-parity.mjs $TargetUrl }
   Run-Step 'regression' { npm.cmd run test:regression }
   Run-Step 'review-dashboard' { node .\src\write-self-audit-review-page.mjs $Reports }
 }
@@ -76,9 +76,11 @@ $meta = [ordered]@{
   readinessFile = 'reports/translateit-self-audit-readiness.json'
   primaryReviewFile = 'reports/translateit-self-audit-review.html'
   primaryVisualFile = 'reports/translateit-figma-sim-main-latest.png'
+  sourceSizeParityFile = 'reports/translateit-source-size-frame-parity.json'
   requiredReviewFiles = @(
     'reports/translateit-self-audit-review.html',
     'reports/translateit-self-audit-readiness.json',
+    'reports/translateit-source-size-frame-parity.json',
     'reports/translateit-figma-sim-main-latest.png',
     'reports/translateit-figma-sim-main-diff-latest.png',
     'reports/translateit-figma-sim-preview-latest.png',
@@ -99,6 +101,7 @@ Write-Host "`nMain visual files inside ZIP:"
 Write-Host 'reports/translateit-figma-sim-main-latest.png'
 Write-Host 'reports/translateit-figma-sim-main-diff-latest.png'
 Write-Host 'reports/translateit-figma-sim-preview-latest.png'
+Write-Host 'reports/translateit-source-size-frame-parity.json'
 Write-Host "`nExit codes:"
 if (Test-Path $ExitCodes) { Get-Content $ExitCodes }
 Invoke-Item $BridgeRoot
