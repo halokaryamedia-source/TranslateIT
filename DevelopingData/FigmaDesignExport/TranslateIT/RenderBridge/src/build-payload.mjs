@@ -11,6 +11,7 @@ import { professionalizeCloneModelV2 } from './professionalize-clone-model-v2.mj
 import { buildDesignBlueprint } from './build-design-blueprint.mjs';
 import { runExternalVisualParser } from './visual-parser-adapter.mjs';
 import { buildVisualIntentModel, buildMissingVisualIntentModel } from './build-visual-intent-model.mjs';
+import { buildLayoutIntentModel } from './build-layout-intent-model.mjs';
 import { ok, assertCleanPayload } from './shared-contract.mjs';
 
 export async function buildPayload(targetUrl) {
@@ -27,10 +28,12 @@ export async function buildPayload(targetUrl) {
   const hybridCloneModel = addComponentSliceLayers(baseCloneModel);
   const cloneModel = professionalizeCloneModelV2(hybridCloneModel);
   const designBlueprint = buildDesignBlueprint(cloneModel, capture.source);
+  const layoutIntentModel = buildLayoutIntentModel({ designBlueprint, visualIntentModel, cloneModel });
   const payload = ok({
     source: Object.assign({}, capture.source, { screenshot: capture.source.screenshot }),
     visualModel,
     visualIntentModel,
+    layoutIntentModel,
     designModel: matched.model,
     cloneModel,
     designBlueprint,
@@ -54,6 +57,7 @@ export async function buildPayload(targetUrl) {
         reason: externalVisualParser.reason || null
       },
       visualIntentModel: visualIntentModel.diagnostics,
+      layoutIntentModel: layoutIntentModel.diagnostics,
       visualModel: visualModel.diagnostics,
       visualMatching: matched.diagnostics,
       layout: layout.stats,
@@ -63,6 +67,8 @@ export async function buildPayload(targetUrl) {
       professionalLayerTree: cloneModel.professionalLayerTree || null,
       nativeUsefulness: {
         mode: 'blueprint-framework-editable-output',
+        figmaTestAllowed: layoutIntentModel.figmaTestAllowed,
+        layoutIntentStatus: layoutIntentModel.status,
         extractor: layout.stats.extractor,
         rawElements: layout.stats.rawElements,
         keptElements: layout.stats.keptElements,
