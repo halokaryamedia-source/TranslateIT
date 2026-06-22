@@ -1,6 +1,7 @@
 import { captureSite } from './capture-site.mjs';
 import { extractLayoutDomFaithful } from './extract-layout-dom-faithful.mjs';
 import { buildDesignModel } from './build-design-model.mjs';
+import { promoteBackgroundImageLayers } from './promote-background-image-layers.mjs';
 import { buildVisualModel } from './build-visual-model.mjs';
 import { reconstructTextLines } from './reconstruct-text-lines.mjs';
 import { guardHeroOcclusion } from './guard-hero-occlusion.mjs';
@@ -26,7 +27,8 @@ export async function buildPayload(targetUrl) {
   const visualIntentModel = externalVisualParser.result ? buildVisualIntentModel(externalVisualParser.result, capture.source) : buildMissingVisualIntentModel(capture.source, externalVisualParser.reason || 'external visual parser missing');
   const visualModel = buildVisualModel(capture);
   const layout = extractLayoutDomFaithful(capture);
-  const designModel = buildDesignModel(layout);
+  const rawDesignModel = buildDesignModel(layout);
+  const designModel = promoteBackgroundImageLayers(rawDesignModel);
   const lineModel = reconstructTextLines(designModel);
   const guardedModel = guardHeroOcclusion(lineModel);
   const matched = matchDomToVisual(guardedModel, visualModel);
@@ -58,6 +60,7 @@ export async function buildPayload(targetUrl) {
       capture: {
         rawElements: capture.rawElements.length,
         assets: capture.assets.length,
+        backgroundAssets: capture.assets.filter((asset) => asset.kind === 'background-image').length,
         componentSliceCount: capture.source.captureDiagnostics?.componentSliceCount || 0,
         stabilization: capture.source.captureDiagnostics || null,
         screenshot: {
@@ -101,6 +104,7 @@ export async function buildPayload(targetUrl) {
         keptElements: layout.stats.keptElements,
         coverageRatio: layout.stats.coverageRatio,
         images: layout.stats.images,
+        backgroundImages: designModel.diagnostics?.backgroundImageLayers || 0,
         componentSlices: cloneModel.diagnostics?.componentSliceLayers || 0,
         visualBlocks: cloneModel.diagnostics?.visualBlockLayers || 0,
         cardComponentGroups: cloneModel.diagnostics?.cardComponentGroups || 0,
