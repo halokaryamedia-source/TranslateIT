@@ -2,6 +2,7 @@ import { captureSite } from './capture-site.mjs';
 import { extractLayoutDomFaithful } from './extract-layout-dom-faithful.mjs';
 import { buildDesignModel } from './build-design-model.mjs';
 import { promoteSurfaceEffects } from './promote-surface-effects.mjs';
+import { promoteGradientSurfaces } from './promote-gradient-surfaces.mjs';
 import { promoteBackgroundImageLayers } from './promote-background-image-layers.mjs';
 import { buildVisualModel } from './build-visual-model.mjs';
 import { reconstructTextLines } from './reconstruct-text-lines.mjs';
@@ -30,7 +31,8 @@ export async function buildPayload(targetUrl) {
   const layout = extractLayoutDomFaithful(capture);
   const rawDesignModel = buildDesignModel(layout);
   const effectDesignModel = promoteSurfaceEffects(rawDesignModel, layout);
-  const designModel = promoteBackgroundImageLayers(effectDesignModel);
+  const gradientDesignModel = promoteGradientSurfaces(effectDesignModel);
+  const designModel = promoteBackgroundImageLayers(gradientDesignModel);
   const lineModel = reconstructTextLines(designModel);
   const guardedModel = guardHeroOcclusion(lineModel);
   const matched = matchDomToVisual(guardedModel, visualModel);
@@ -97,6 +99,7 @@ export async function buildPayload(targetUrl) {
         coverageRatio: layout.stats.coverageRatio,
         images: layout.stats.images,
         backgroundImages: designModel.diagnostics?.backgroundImageLayers || 0,
+        gradientLayers: designModel.diagnostics?.gradientLayers || 0,
         surfaceStrokeLayers: designModel.diagnostics?.strokeLayers || 0,
         surfaceShadowLayers: designModel.diagnostics?.shadowLayers || 0,
         surfaceFilterLayers: designModel.diagnostics?.filterLayers || 0,
