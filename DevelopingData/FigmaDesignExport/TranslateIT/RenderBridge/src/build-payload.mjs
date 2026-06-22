@@ -7,6 +7,7 @@ import { guardHeroOcclusion } from './guard-hero-occlusion.mjs';
 import { matchDomToVisual } from './match-dom-visual.mjs';
 import { buildCloneModel } from './build-clone-model.mjs';
 import { addComponentSliceLayers } from './add-component-slice-layers.mjs';
+import { addCardComponentGroups } from './add-card-component-groups.mjs';
 import { professionalizeCloneModelV2 } from './professionalize-clone-model-v2.mjs';
 import { buildDesignBlueprint } from './build-design-blueprint.mjs';
 import { buildFigmaRenderPlan } from './build-figma-render-plan.mjs';
@@ -31,7 +32,8 @@ export async function buildPayload(targetUrl) {
   const matched = matchDomToVisual(guardedModel, visualModel);
   const baseCloneModel = buildCloneModel(matched.model, visualModel, matched.diagnostics);
   const hybridCloneModel = addComponentSliceLayers(baseCloneModel);
-  const cloneModel = professionalizeCloneModelV2(hybridCloneModel);
+  const cardCloneModel = addCardComponentGroups(hybridCloneModel);
+  const cloneModel = professionalizeCloneModelV2(cardCloneModel);
   const designBlueprint = buildDesignBlueprint(cloneModel, capture.source);
   const layoutIntentModel = buildLayoutIntentModel({ designBlueprint, visualIntentModel, cloneModel });
   const figmaRenderPlan = buildFigmaRenderPlan(cloneModel);
@@ -101,6 +103,7 @@ export async function buildPayload(targetUrl) {
         images: layout.stats.images,
         componentSlices: cloneModel.diagnostics?.componentSliceLayers || 0,
         visualBlocks: cloneModel.diagnostics?.visualBlockLayers || 0,
+        cardComponentGroups: cloneModel.diagnostics?.cardComponentGroups || 0,
         surfaces: layout.stats.surfaces,
         text: layout.stats.text
       }
