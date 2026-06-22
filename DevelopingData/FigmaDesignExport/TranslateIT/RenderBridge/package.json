@@ -6,6 +6,7 @@
   "description": "Local clean RenderBridge for TranslateIT website-to-Figma reconstruction.",
   "scripts": {
     "start": "node server.mjs",
+    "readiness:complete": "powershell -ExecutionPolicy Bypass -File ./run-complete-readiness.ps1",
     "audit:full-prep": "powershell -ExecutionPolicy Bypass -File ./run-full-engine-prep.ps1",
     "summary:master": "powershell -ExecutionPolicy Bypass -File ./run-master-summary.ps1",
     "test": "npm run test:imports && npm run test:contract && npm run test:v2 && node ./tests/test-sample-sites.mjs",
