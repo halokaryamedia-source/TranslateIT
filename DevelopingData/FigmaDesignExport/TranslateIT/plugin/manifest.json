@@ -2,7 +2,7 @@
   "name": "TranslateIT Design Export",
   "id": "translateit-design-export",
   "api": "1.0.0",
-  "main": "code-framework-editable.js",
+  "main": "code-framework-production.js",
   "ui": "ui-framework.html",
   "editorType": ["figma"],
   "permissions": []
