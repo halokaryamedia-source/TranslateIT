@@ -23,9 +23,11 @@ const codes = codeMap();
 const maturity = read('translateit-figma-engine-maturity.json');
 const support = read('translateit-figma-support-engines.json');
 const pipeline = read('translateit-engine-pipeline-readiness.json');
+const quality = read('translateit-figma-render-quality.json');
 const required = ['imports','framework-contract','blueprint-framework-output','figma-support-engines','figma-engine-maturity','engine-pipeline-readiness','engine-preview-page'];
 const failed = required.filter((name) => codes[name] !== 0);
-const ready = failed.length === 0 && maturity?.manualFigmaTestAllowed === true && pipeline?.figmaTestAllowed === true;
+const qualityReady = !quality || quality.passesThreshold === true;
+const ready = failed.length === 0 && qualityReady && maturity?.manualFigmaTestAllowed === true && pipeline?.figmaTestAllowed === true;
 const summary = {
   version: 'master-engine-summary-v1',
   status: ready ? 'ready' : 'not-ready',
@@ -34,7 +36,8 @@ const summary = {
   maturity: maturity?.status || 'missing',
   support: support?.status || 'missing',
   pipeline: pipeline?.status || 'missing',
-  blockers: (maturity?.failures || []).map((x) => x.message || String(x)).concat(support?.failures || [])
+  renderQuality: quality ? { status: quality.status, score: quality.score, threshold: quality.threshold } : null,
+  blockers: (maturity?.failures || []).map((x) => x.message || String(x)).concat(support?.failures || []).concat(quality?.failures || [])
 };
 fs.writeFileSync(path.join(dir, 'translateit-master-engine-summary.json'), JSON.stringify(summary, null, 2), 'utf8');
 console.log(JSON.stringify(summary, null, 2));
