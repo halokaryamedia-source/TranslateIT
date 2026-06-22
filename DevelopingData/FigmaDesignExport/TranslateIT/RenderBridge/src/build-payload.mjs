@@ -1,5 +1,5 @@
 import { captureSite } from './capture-site.mjs';
-import { extractLayout } from './extract-layout.mjs';
+import { extractLayoutDomFaithful } from './extract-layout-dom-faithful.mjs';
 import { buildDesignModel } from './build-design-model.mjs';
 import { buildVisualModel } from './build-visual-model.mjs';
 import { reconstructTextLines } from './reconstruct-text-lines.mjs';
@@ -12,7 +12,7 @@ import { ok, assertCleanPayload } from './shared-contract.mjs';
 export async function buildPayload(targetUrl) {
   const capture = await captureSite(targetUrl);
   const visualModel = buildVisualModel(capture);
-  const layout = extractLayout(capture);
+  const layout = extractLayoutDomFaithful(capture);
   const designModel = buildDesignModel(layout);
   const lineModel = reconstructTextLines(designModel);
   const guardedModel = guardHeroOcclusion(lineModel);
@@ -41,7 +41,16 @@ export async function buildPayload(targetUrl) {
       layout: layout.stats,
       model: matched.model.diagnostics || guardedModel.diagnostics || lineModel.diagnostics || designModel.diagnostics,
       cloneModel: cloneModel.diagnostics,
-      professionalLayerTree: cloneModel.professionalLayerTree || null
+      professionalLayerTree: cloneModel.professionalLayerTree || null,
+      nativeUsefulness: {
+        extractor: layout.stats.extractor,
+        rawElements: layout.stats.rawElements,
+        keptElements: layout.stats.keptElements,
+        coverageRatio: layout.stats.coverageRatio,
+        images: layout.stats.images,
+        surfaces: layout.stats.surfaces,
+        text: layout.stats.text
+      }
     }
   });
   const failures = assertCleanPayload(payload);
