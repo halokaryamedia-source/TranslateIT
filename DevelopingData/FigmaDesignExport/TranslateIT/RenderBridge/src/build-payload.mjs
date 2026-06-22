@@ -1,6 +1,7 @@
 import { captureSite } from './capture-site.mjs';
 import { extractLayoutDomFaithful } from './extract-layout-dom-faithful.mjs';
 import { buildDesignModel } from './build-design-model.mjs';
+import { promoteSurfaceEffects } from './promote-surface-effects.mjs';
 import { promoteBackgroundImageLayers } from './promote-background-image-layers.mjs';
 import { buildVisualModel } from './build-visual-model.mjs';
 import { reconstructTextLines } from './reconstruct-text-lines.mjs';
@@ -28,7 +29,8 @@ export async function buildPayload(targetUrl) {
   const visualModel = buildVisualModel(capture);
   const layout = extractLayoutDomFaithful(capture);
   const rawDesignModel = buildDesignModel(layout);
-  const designModel = promoteBackgroundImageLayers(rawDesignModel);
+  const effectDesignModel = promoteSurfaceEffects(rawDesignModel, layout);
+  const designModel = promoteBackgroundImageLayers(effectDesignModel);
   const lineModel = reconstructTextLines(designModel);
   const guardedModel = guardHeroOcclusion(lineModel);
   const matched = matchDomToVisual(guardedModel, visualModel);
@@ -63,19 +65,9 @@ export async function buildPayload(targetUrl) {
         backgroundAssets: capture.assets.filter((asset) => asset.kind === 'background-image').length,
         componentSliceCount: capture.source.captureDiagnostics?.componentSliceCount || 0,
         stabilization: capture.source.captureDiagnostics || null,
-        screenshot: {
-          width: capture.source.screenshot?.width || 0,
-          height: capture.source.screenshot?.height || 0,
-          pageHeight: capture.source.pageHeight || 0,
-          viewport: capture.source.viewport || null
-        }
+        screenshot: { width: capture.source.screenshot?.width || 0, height: capture.source.screenshot?.height || 0, pageHeight: capture.source.pageHeight || 0, viewport: capture.source.viewport || null }
       },
-      externalVisualParser: {
-        status: externalVisualParser.status,
-        parser: externalVisualParser.parser,
-        attempts: externalVisualParser.attempts || [],
-        reason: externalVisualParser.reason || null
-      },
+      externalVisualParser: { status: externalVisualParser.status, parser: externalVisualParser.parser, attempts: externalVisualParser.attempts || [], reason: externalVisualParser.reason || null },
       visualIntentModel: visualIntentModel.diagnostics,
       layoutIntentModel: layoutIntentModel.diagnostics,
       figmaRenderPlan: figmaRenderPlan.diagnostics,
@@ -105,6 +97,9 @@ export async function buildPayload(targetUrl) {
         coverageRatio: layout.stats.coverageRatio,
         images: layout.stats.images,
         backgroundImages: designModel.diagnostics?.backgroundImageLayers || 0,
+        surfaceStrokeLayers: designModel.diagnostics?.strokeLayers || 0,
+        surfaceShadowLayers: designModel.diagnostics?.shadowLayers || 0,
+        surfaceFilterLayers: designModel.diagnostics?.filterLayers || 0,
         componentSlices: cloneModel.diagnostics?.componentSliceLayers || 0,
         visualBlocks: cloneModel.diagnostics?.visualBlockLayers || 0,
         cardComponentGroups: cloneModel.diagnostics?.cardComponentGroups || 0,
