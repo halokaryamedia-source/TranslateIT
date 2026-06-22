@@ -1,0 +1,13 @@
+import fs from 'node:fs';
+import path from 'node:path';
+import { scoreLayoutStrategy } from '../src/layout-strategy-score.mjs';
+const bridge = process.env.TRANSLATEIT_RENDER_BRIDGE || 'http://127.0.0.1:8844';
+const targetUrl = process.argv[2] || 'https://www.mivubi.com/';
+const dir = path.join(process.cwd(), 'reports');
+fs.mkdirSync(dir, { recursive: true });
+const res = await fetch(bridge + '/render?url=' + encodeURIComponent(targetUrl));
+const payload = await res.json();
+const report = { gate: 'translateit-layout-strategy-score', targetUrl, ...scoreLayoutStrategy(payload) };
+fs.writeFileSync(path.join(dir, 'translateit-layout-strategy-score.json'), JSON.stringify(report, null, 2), 'utf8');
+console.log(JSON.stringify(report, null, 2));
+if (report.status !== 'ready') process.exitCode = 2;
