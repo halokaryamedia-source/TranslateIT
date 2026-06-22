@@ -6,6 +6,9 @@
   "description": "Local clean RenderBridge for TranslateIT website-to-Figma reconstruction.",
   "scripts": {
     "start": "node server.mjs",
+    "payload:site": "node ./src/write-payload-report.mjs",
+    "readiness:honest": "node ./src/evaluate-honest-production-readiness.mjs ./reports/translateit-payload.json ./reports/translateit-honest-production-readiness.json",
+    "proof:production": "powershell -ExecutionPolicy Bypass -File ./run-final-production-proof.ps1",
     "readiness:complete": "powershell -ExecutionPolicy Bypass -File ./run-complete-readiness.ps1",
     "audit:full-prep": "powershell -ExecutionPolicy Bypass -File ./run-full-engine-prep.ps1",
     "summary:master": "powershell -ExecutionPolicy Bypass -File ./run-master-summary.ps1",
