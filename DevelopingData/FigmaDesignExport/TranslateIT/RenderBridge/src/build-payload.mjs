@@ -11,6 +11,7 @@ import { matchDomToVisual } from './match-dom-visual.mjs';
 import { buildCloneModel } from './build-clone-model.mjs';
 import { addComponentSliceLayers } from './add-component-slice-layers.mjs';
 import { addIconAssetLayers } from './add-icon-asset-layers.mjs';
+import { resolveMissingImageAssets } from './resolve-missing-image-assets.mjs';
 import { addCardComponentGroups } from './add-card-component-groups.mjs';
 import { professionalizeCloneModelV2 } from './professionalize-clone-model-v2.mjs';
 import { buildDesignBlueprint } from './build-design-blueprint.mjs';
@@ -40,7 +41,8 @@ export async function buildPayload(targetUrl) {
   const baseCloneModel = buildCloneModel(matched.model, visualModel, matched.diagnostics);
   const hybridCloneModel = addComponentSliceLayers(baseCloneModel);
   const iconCloneModel = addIconAssetLayers(hybridCloneModel);
-  const cardCloneModel = addCardComponentGroups(iconCloneModel);
+  const resolvedCloneModel = resolveMissingImageAssets(iconCloneModel);
+  const cardCloneModel = addCardComponentGroups(resolvedCloneModel);
   const cloneModel = professionalizeCloneModelV2(cardCloneModel);
   const designBlueprint = buildDesignBlueprint(cloneModel, capture.source);
   const layoutIntentModel = buildLayoutIntentModel({ designBlueprint, visualIntentModel, cloneModel });
@@ -103,6 +105,9 @@ export async function buildPayload(targetUrl) {
         images: layout.stats.images,
         backgroundImages: designModel.diagnostics?.backgroundImageLayers || 0,
         iconAssetLayers: cloneModel.diagnostics?.iconAssetLayers || 0,
+        missingImageAssetsResolved: cloneModel.diagnostics?.missingImageAssetsResolved || 0,
+        missingImageLayersDropped: cloneModel.diagnostics?.missingImageLayersDropped || 0,
+        missingImagePlaceholders: cloneModel.diagnostics?.missingImagePlaceholders || 0,
         gradientLayers: designModel.diagnostics?.gradientLayers || 0,
         surfaceStrokeLayers: designModel.diagnostics?.strokeLayers || 0,
         surfaceShadowLayers: designModel.diagnostics?.shadowLayers || 0,
