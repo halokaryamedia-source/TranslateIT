@@ -4,7 +4,7 @@ New-Item -ItemType Directory -Force -Path $Reports | Out-Null
 node (Join-Path $Root 'tests\test-figma-render-quality.mjs')
 node (Join-Path $Root 'tests\test-section-layer-quality.mjs')
 node (Join-Path $Root 'tests\test-layout-strategy-score.mjs')
-node (Join-Path $Root 'tests\test-visual-compare-readiness.mjs')
+node (Join-Path $Root 'tests\test-visual-compare-generated.mjs')
 node (Join-Path $Root 'src\write-master-engine-summary.mjs') $Reports
 node (Join-Path $Root 'tests\test-controlled-readiness.mjs')
 Write-Host "`n===== FINAL GATES =====" -ForegroundColor Yellow
