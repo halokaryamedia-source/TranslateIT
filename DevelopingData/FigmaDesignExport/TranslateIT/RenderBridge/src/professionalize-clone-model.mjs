@@ -1,0 +1,100 @@
+function clean(value) { return String(value || '').replace(/\s+/g, ' ').trim(); }
+function area(rect) { return Math.max(0, rect?.w || 0) * Math.max(0, rect?.h || 0); }
+function titleCase(value) { return clean(value).replace(/[-_/]+/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase()); }
+function snippet(value, fallback = '') { const text = clean(value || fallback); return text.length > 44 ? text.slice(0, 41).trim() + '...' : text; }
+function roleLabel(role) { return titleCase(role || 'Layer'); }
+function sectionLabel(section, index) {
+  const n = String(index + 1).padStart(2, '0');
+  if (section.role === 'header') return `${n} Header / Navigation`;
+  if (section.role === 'hero') return `${n} Hero / Landing`;
+  if (section.role === 'footer') return `${n} Footer / Site Info`;
+  if (section.intent === 'gallery-or-card-grid') return `${n} Content / Gallery Grid`;
+  if (section.intent === 'content-callout') return `${n} Content / Callout`;
+  if (section.intent === 'surface-layout') return `${n} Content / Surface Group`;
+  return `${n} Content / Section`;
+}
+function layerFamily(layer) {
+  if (layer.role === 'section-background' || layer.type === 'shape') return 'Background';
+  if (layer.type === 'image') return 'Media';
+  if (layer.type === 'button') return 'Action';
+  if (['title', 'section-title', 'subheading'].includes(layer.role)) return 'Heading';
+  if (['nav-item', 'link', 'footer-link'].includes(layer.role)) return 'Navigation';
+  return 'Text';
+}
+function semanticLayerName(layer, section, counters) {
+  const family = layerFamily(layer);
+  const sectionRole = section?.role || 'content';
+  const text = snippet(layer.text || layer.alt || layer.name);
+  counters[family] = (counters[family] || 0) + 1;
+  const num = String(counters[family]).padStart(2, '0');
+  if (layer.role === 'section-background') return `Section Background`;
+  if (sectionRole === 'header') {
+    if (layer.type === 'image') return `Header / Logo Image ${num}`;
+    if (['nav-item', 'link'].includes(layer.role)) return `Header / Navigation Link / ${text || num}`;
+    if (layer.type === 'button') return `Header / Action / ${text || num}`;
+    return `Header / Text / ${text || num}`;
+  }
+  if (sectionRole === 'hero') {
+    if (layer.role === 'title') return `Hero / Title`;
+    if (layer.role === 'subheading' || layer.role === 'body') return `Hero / Supporting Text ${num}`;
+    if (layer.type === 'button') return `Hero / CTA Button / ${text || num}`;
+    if (layer.type === 'image') return `Hero / Media Image ${num}`;
+    return `Hero / ${family} ${num}`;
+  }
+  if (sectionRole === 'footer') {
+    if (layer.type === 'image') return `Footer / Logo or Media ${num}`;
+    if (['footer-link', 'link'].includes(layer.role)) return `Footer / Link / ${text || num}`;
+    if (layer.role === 'footer-text' || layer.type === 'text') return `Footer / Text / ${text || num}`;
+    return `Footer / ${family} ${num}`;
+  }
+  if (layer.role === 'section-title') return `Content / Section Heading / ${text || num}`;
+  if (layer.type === 'image') return `Content / Image ${num}${text ? ' / ' + text : ''}`;
+  if (layer.type === 'button') return `Content / Button / ${text || num}`;
+  if (layer.type === 'shape') return `Content / Surface ${num}`;
+  return `Content / ${roleLabel(layer.role)} / ${text || num}`;
+}
+function groupPathFor(layer, section) {
+  const s = section?.name || 'Unsectioned';
+  if (layer.role === 'section-background') return [s, '00 Background'];
+  if (layer.type === 'image') return [s, '30 Media'];
+  if (layer.type === 'button') return [s, '40 Actions'];
+  if (['title', 'section-title', 'subheading'].includes(layer.role)) return [s, '10 Headings'];
+  if (['nav-item', 'link', 'footer-link'].includes(layer.role)) return [s, '20 Navigation'];
+  return [s, '50 Text'];
+}
+export function professionalizeCloneModel(cloneModel) {
+  const model = JSON.parse(JSON.stringify(cloneModel || {}));
+  const sections = (model.sections || []).slice().sort((a, b) => ((a.rect?.y) || 0) - ((b.rect?.y) || 0));
+  sections.forEach((section, index) => {
+    section.originalName = section.name;
+    section.name = sectionLabel(section, index);
+    section.layerIds = [];
+    section.contentLayerIds = [];
+  });
+  const sectionMap = new Map(sections.map((section) => [section.id, section]));
+  const countersBySection = new Map();
+  const layers = (model.layers || []).map((layer) => {
+    const section = sectionMap.get(layer.sectionId);
+    const counters = countersBySection.get(layer.sectionId || 'root') || {};
+    countersBySection.set(layer.sectionId || 'root', counters);
+    const next = { ...layer, originalName: layer.originalName || layer.name };
+    next.semanticRole = next.role || next.type || 'layer';
+    next.name = semanticLayerName(next, section, counters);
+    next.groupPath = groupPathFor(next, section);
+    next.layerTree = { section: section?.name || 'Unsectioned', family: layerFamily(next), editable: next.editable !== false };
+    if (section) {
+      section.layerIds.push(next.id);
+      if (next.role !== 'section-background') section.contentLayerIds.push(next.id);
+    }
+    return next;
+  });
+  const emptyContentSections = sections.filter((section) => !section.contentLayerIds.length).map((section) => section.name);
+  const genericNames = layers.filter((layer) => /^layer-|raw-|Element$|Layer$/i.test(clean(layer.name))).length;
+  const semanticNamed = layers.length - genericNames;
+  model.sections = sections;
+  model.layers = layers.sort((a, b) => (a.zIndex || 0) - (b.zIndex || 0) || ((a.rect?.y) || 0) - ((b.rect?.y) || 0));
+  model.uiLibrary = { ...(model.uiLibrary || {}), layerTree: 'professional-section-semantic-v1', layerNaming: 'professional-semantic-v1', groupPath: true, editableOverlayOrganization: 'section-family-layer' };
+  model.diagnostics = { ...(model.diagnostics || {}), layerTree: 'professional-section-semantic-v1', layerNaming: 'professional-semantic-v1', semanticNamedLayers: semanticNamed, genericLayerNames: genericNames, layerNamingScore: layers.length ? Math.round((semanticNamed / layers.length) * 100) : 100, emptyContentSections, contentSectionsWithNoEditableChildren: emptyContentSections.length, averageLayersPerSection: sections.length ? Number((layers.length / sections.length).toFixed(2)) : 0 };
+  model.professionalLayerTree = { version: 'professional-section-semantic-v1', sections: sections.map((section) => ({ id: section.id, name: section.name, role: section.role, layers: section.layerIds.length, contentLayers: section.contentLayerIds.length, area: area(section.rect) })), namingScore: model.diagnostics.layerNamingScore };
+  return model;
+}
