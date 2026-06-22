@@ -12,7 +12,15 @@ const modules = [
   '../src/compare-visual-screenshots.mjs',
   '../src/run-clone-audit.mjs',
   '../src/route-handlers.mjs',
-  '../src/health-status.mjs'
+  '../src/health-status.mjs',
+  '../src/external-engine-readiness.mjs',
+  '../src/visual-parser-adapter.mjs',
+  '../src/build-visual-intent-model.mjs',
+  '../src/build-layout-intent-model.mjs',
+  '../src/build-design-blueprint.mjs',
+  '../src/export-html-package.mjs',
+  '../src/export-url-html-package.mjs',
+  '../src/write-engine-preview-page.mjs'
 ];
 
 const failures = [];
