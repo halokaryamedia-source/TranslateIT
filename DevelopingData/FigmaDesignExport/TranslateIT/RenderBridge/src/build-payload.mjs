@@ -10,6 +10,10 @@ import { addComponentSliceLayers } from './add-component-slice-layers.mjs';
 import { professionalizeCloneModelV2 } from './professionalize-clone-model-v2.mjs';
 import { buildDesignBlueprint } from './build-design-blueprint.mjs';
 import { buildFigmaRenderPlan } from './build-figma-render-plan.mjs';
+import { buildFigmaAutoLayoutPlan } from './figma-auto-layout-engine.mjs';
+import { buildImageAssetProcessingPlan } from './image-asset-processing-engine.mjs';
+import { buildVisualComparePlan } from './visual-compare-engine.mjs';
+import { buildFontMetricPlan } from './font-metric-engine.mjs';
 import { runExternalVisualParser } from './visual-parser-adapter.mjs';
 import { buildVisualIntentModel, buildMissingVisualIntentModel } from './build-visual-intent-model.mjs';
 import { buildLayoutIntentModel } from './build-layout-intent-model.mjs';
@@ -31,12 +35,20 @@ export async function buildPayload(targetUrl) {
   const designBlueprint = buildDesignBlueprint(cloneModel, capture.source);
   const layoutIntentModel = buildLayoutIntentModel({ designBlueprint, visualIntentModel, cloneModel });
   const figmaRenderPlan = buildFigmaRenderPlan(cloneModel);
+  const figmaAutoLayoutPlan = buildFigmaAutoLayoutPlan(figmaRenderPlan);
+  const imageAssetProcessingPlan = await buildImageAssetProcessingPlan(cloneModel);
+  const visualComparePlan = await buildVisualComparePlan({ source: capture.source });
+  const fontMetricPlan = await buildFontMetricPlan(cloneModel);
   const payload = ok({
     source: Object.assign({}, capture.source, { screenshot: capture.source.screenshot }),
     visualModel,
     visualIntentModel,
     layoutIntentModel,
     figmaRenderPlan,
+    figmaAutoLayoutPlan,
+    imageAssetProcessingPlan,
+    visualComparePlan,
+    fontMetricPlan,
     designModel: matched.model,
     cloneModel,
     designBlueprint,
@@ -62,6 +74,10 @@ export async function buildPayload(targetUrl) {
       visualIntentModel: visualIntentModel.diagnostics,
       layoutIntentModel: layoutIntentModel.diagnostics,
       figmaRenderPlan: figmaRenderPlan.diagnostics,
+      figmaAutoLayoutPlan: figmaAutoLayoutPlan.diagnostics,
+      imageAssetProcessingPlan: imageAssetProcessingPlan.diagnostics,
+      visualComparePlan: visualComparePlan.diagnostics,
+      fontMetricPlan: fontMetricPlan.diagnostics,
       visualModel: visualModel.diagnostics,
       visualMatching: matched.diagnostics,
       layout: layout.stats,
@@ -71,9 +87,13 @@ export async function buildPayload(targetUrl) {
       professionalLayerTree: cloneModel.professionalLayerTree || null,
       nativeUsefulness: {
         mode: 'figma-render-plan-editable-output',
-        figmaTestAllowed: layoutIntentModel.figmaTestAllowed && figmaRenderPlan.figmaTestAllowed,
+        figmaTestAllowed: layoutIntentModel.figmaTestAllowed && figmaRenderPlan.figmaTestAllowed && imageAssetProcessingPlan.status === 'pass' && visualComparePlan.status === 'ready',
         layoutIntentStatus: layoutIntentModel.status,
         figmaRenderPlanStatus: figmaRenderPlan.status,
+        figmaAutoLayoutPlanStatus: figmaAutoLayoutPlan.status,
+        imageAssetProcessingPlanStatus: imageAssetProcessingPlan.status,
+        visualComparePlanStatus: visualComparePlan.status,
+        fontMetricPlanStatus: fontMetricPlan.status,
         extractor: layout.stats.extractor,
         rawElements: layout.stats.rawElements,
         keptElements: layout.stats.keptElements,
