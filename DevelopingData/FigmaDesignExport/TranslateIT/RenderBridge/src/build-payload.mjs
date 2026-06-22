@@ -7,7 +7,7 @@ import { guardHeroOcclusion } from './guard-hero-occlusion.mjs';
 import { matchDomToVisual } from './match-dom-visual.mjs';
 import { buildCloneModel } from './build-clone-model.mjs';
 import { addComponentSliceLayers } from './add-component-slice-layers.mjs';
-import { professionalizeCloneModel } from './professionalize-clone-model.mjs';
+import { professionalizeCloneModelV2 } from './professionalize-clone-model-v2.mjs';
 import { ok, assertCleanPayload } from './shared-contract.mjs';
 
 export async function buildPayload(targetUrl) {
@@ -20,7 +20,7 @@ export async function buildPayload(targetUrl) {
   const matched = matchDomToVisual(guardedModel, visualModel);
   const baseCloneModel = buildCloneModel(matched.model, visualModel, matched.diagnostics);
   const hybridCloneModel = addComponentSliceLayers(baseCloneModel);
-  const cloneModel = professionalizeCloneModel(hybridCloneModel);
+  const cloneModel = professionalizeCloneModelV2(hybridCloneModel);
   const payload = ok({
     source: Object.assign({}, capture.source, { screenshot: capture.source.screenshot }),
     visualModel,
@@ -53,6 +53,7 @@ export async function buildPayload(targetUrl) {
         coverageRatio: layout.stats.coverageRatio,
         images: layout.stats.images,
         componentSlices: cloneModel.diagnostics?.componentSliceLayers || 0,
+        visualBlocks: cloneModel.diagnostics?.visualBlockLayers || 0,
         surfaces: layout.stats.surfaces,
         text: layout.stats.text
       }
