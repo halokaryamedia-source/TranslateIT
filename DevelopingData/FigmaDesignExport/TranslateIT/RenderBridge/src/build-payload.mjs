@@ -17,14 +17,23 @@ export async function buildPayload(targetUrl) {
   const guardedModel = guardHeroOcclusion(lineModel);
   const matched = matchDomToVisual(guardedModel, visualModel);
   const cloneModel = buildCloneModel(matched.model, visualModel, matched.diagnostics);
-
   const payload = ok({
     source: Object.assign({}, capture.source, { screenshot: capture.source.screenshot }),
     visualModel,
     designModel: matched.model,
     cloneModel,
     diagnostics: {
-      capture: { rawElements: capture.rawElements.length, assets: capture.assets.length },
+      capture: {
+        rawElements: capture.rawElements.length,
+        assets: capture.assets.length,
+        stabilization: capture.source.captureDiagnostics || null,
+        screenshot: {
+          width: capture.source.screenshot?.width || 0,
+          height: capture.source.screenshot?.height || 0,
+          pageHeight: capture.source.pageHeight || 0,
+          viewport: capture.source.viewport || null
+        }
+      },
       visualModel: visualModel.diagnostics,
       visualMatching: matched.diagnostics,
       layout: layout.stats,
@@ -32,7 +41,6 @@ export async function buildPayload(targetUrl) {
       cloneModel: cloneModel.diagnostics
     }
   });
-
   const failures = assertCleanPayload(payload);
   if (failures.length) throw new Error('Clean contract failed: ' + failures.join(', '));
   return payload;
