@@ -1,0 +1,21 @@
+import fs from 'node:fs';
+import path from 'node:path';
+const bridge = process.env.TRANSLATEIT_RENDER_BRIDGE || 'http://127.0.0.1:8844';
+const targetUrl = process.argv[2] || 'https://www.mivubi.com/';
+const reportDir = path.join(process.cwd(), 'reports');
+fs.mkdirSync(reportDir, { recursive: true });
+async function readJson(res) { const text = await res.text(); let payload = {}; try { payload = text ? JSON.parse(text) : {}; } catch {} if (!res.ok) throw new Error('HTTP ' + res.status + ': ' + (payload.error || text)); return payload; }
+const payload = await readJson(await fetch(bridge + '/render?url=' + encodeURIComponent(targetUrl)));
+const failures = [];
+const external = payload.diagnostics?.externalVisualParser || {};
+const visual = payload.visualIntentModel || {};
+const layout = payload.layoutIntentModel || {};
+if (external.status !== 'ready') failures.push('external visual parser is not ready');
+if (!visual.diagnostics?.hasUsefulVisualParse) failures.push('visual intent model has no useful parse');
+if (layout.status !== 'ready') failures.push('layout intent model is not ready');
+if (layout.figmaTestAllowed !== true) failures.push('Figma test is not allowed by layout intent');
+if (!payload.designBlueprint || payload.designBlueprint.version !== 'design-blueprint-v1') failures.push('design blueprint missing');
+const report = { gate: 'translateit-engine-pipeline-readiness', status: failures.length ? 'fail' : 'pass', figmaTestAllowed: failures.length === 0, externalVisualParser: external, visualIntent: visual.diagnostics || null, layoutIntent: layout.diagnostics || null, blockers: layout.blockers || [], failures };
+fs.writeFileSync(path.join(reportDir, 'translateit-engine-pipeline-readiness.json'), JSON.stringify(report, null, 2), 'utf8');
+console.log(JSON.stringify(report, null, 2));
+if (failures.length) process.exitCode = 2;
