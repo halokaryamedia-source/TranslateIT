@@ -1,31 +1,11 @@
 """TranslateIT OmniParser V2 HTTP bridge.
 
-This script is intentionally kept outside the Node RenderBridge runtime.
-It exposes a small `/parse` endpoint that converts Microsoft OmniParser output into
-TranslateIT's visual region contract.
+Default mode is detection-only for stability:
+- PaddleOCR import is disabled automatically.
+- Florence icon caption/local semantics is disabled by default.
 
-Expected request:
-    POST /parse
-    {"image_base64":"...", "url":"https://...", "title":"..."}
-
-Expected response:
-    {"engine":"omniparser-v2-bridge", "regions":[...]}
-
-Environment variables:
-    OMNIPARSER_REPO        Path to the cloned microsoft/OmniParser repo.
-                           Default: D:\\Tools\\OmniParser on Windows, ./OmniParser elsewhere.
-    OMNIPARSER_WEIGHTS     Path to the OmniParser weights folder.
-                           Default: <OMNIPARSER_REPO>/weights
-    OMNIPARSER_HOST        Default: 127.0.0.1
-    OMNIPARSER_PORT        Default: 7860
-    OMNIPARSER_USE_PADDLEOCR  Default: 1
-    OMNIPARSER_BOX_THRESHOLD  Default: 0.05
-    OMNIPARSER_IOU_THRESHOLD  Default: 0.10
-    OMNIPARSER_IMGSZ          Default: 640
-
-Notes:
-    - This bridge does not make TranslateIT Figma-ready by itself.
-    - TranslateIT still blocks Figma testing until engine-pipeline-readiness passes.
+This is enough for TranslateIT's first Figma gate because it needs useful visual
+regions before editable reconstruction is allowed.
 """
 
 from __future__ import annotations
@@ -50,15 +30,18 @@ class BridgeConfig:
     host: str
     port: int
     use_paddleocr: bool
+    use_local_semantics: bool
     box_threshold: float
     iou_threshold: float
     imgsz: int
 
 
+def _bool_env(name: str, default: str = "0") -> bool:
+    return os.environ.get(name, default).lower() in {"1", "true", "yes", "on"}
+
+
 def _default_repo_path() -> Path:
-    if os.name == "nt":
-        return Path(r"D:\Tools\OmniParser")
-    return Path.cwd() / "OmniParser"
+    return Path(r"D:\Tools\OmniParser") if os.name == "nt" else Path.cwd() / "OmniParser"
 
 
 def read_config() -> BridgeConfig:
@@ -69,7 +52,8 @@ def read_config() -> BridgeConfig:
         weights=weights,
         host=os.environ.get("OMNIPARSER_HOST", "127.0.0.1"),
         port=int(os.environ.get("OMNIPARSER_PORT", "7860")),
-        use_paddleocr=os.environ.get("OMNIPARSER_USE_PADDLEOCR", "1").lower() in {"1", "true", "yes", "on"},
+        use_paddleocr=_bool_env("OMNIPARSER_USE_PADDLEOCR", "0"),
+        use_local_semantics=_bool_env("OMNIPARSER_USE_LOCAL_SEMANTICS", "0"),
         box_threshold=float(os.environ.get("OMNIPARSER_BOX_THRESHOLD", "0.05")),
         iou_threshold=float(os.environ.get("OMNIPARSER_IOU_THRESHOLD", "0.10")),
         imgsz=int(os.environ.get("OMNIPARSER_IMGSZ", "640")),
@@ -92,9 +76,44 @@ def _json_response(handler: BaseHTTPRequestHandler, status: int, payload: Dict[s
     handler.wfile.write(body)
 
 
-def _load_omniparser_modules() -> Tuple[Any, Any, Any, Any]:
+def _replace_function_call(source: str, marker: str, replacement: str) -> str:
+    start = source.find(marker)
+    if start == -1:
+        return source
+    i = source.find("(", start)
+    if i == -1:
+        return source
+    depth = 0
+    for j in range(i, len(source)):
+        if source[j] == "(":
+            depth += 1
+        elif source[j] == ")":
+            depth -= 1
+            if depth == 0:
+                return source[:start] + replacement + source[j + 1:]
+    return source
+
+
+def _patch_omniparser_runtime() -> None:
+    """Patch known external OmniParser/PaddleOCR incompatibility safely.
+
+    New PaddleOCR versions reject legacy OmniParser arguments like show_log,
+    max_batch_size, det_db_score_mode. Since TranslateIT runs OCR through EasyOCR
+    for now, we disable the eager PaddleOCR object creation before importing util.utils.
+    """
+    utils_path = CONFIG.repo / "util" / "utils.py"
+    if not utils_path.exists():
+        return
+    text = utils_path.read_text(encoding="utf-8")
+    patched = _replace_function_call(text, "paddle_ocr = PaddleOCR", "paddle_ocr = None  # PATCHED_TRANSLATEIT_DISABLE_PADDLEOCR")
+    if patched != text:
+        utils_path.write_text(patched, encoding="utf-8")
+
+
+def _load_omniparser_modules() -> Tuple[Any, Any, Any, Any, Any]:
     if not CONFIG.repo.exists():
         raise RuntimeError(f"OMNIPARSER_REPO does not exist: {CONFIG.repo}")
+    _patch_omniparser_runtime()
     if str(CONFIG.repo) not in sys.path:
         sys.path.insert(0, str(CONFIG.repo))
 
@@ -106,11 +125,8 @@ def _load_omniparser_modules() -> Tuple[Any, Any, Any, Any]:
             get_som_labeled_img,
             get_yolo_model,
         )
-    except Exception as exc:  # pragma: no cover - depends on external OmniParser install
-        raise RuntimeError(
-            "Could not import OmniParser dependencies. Activate the OmniParser Python environment "
-            "and run `pip install -r requirements.txt` inside the OmniParser repo."
-        ) from exc
+    except Exception as exc:
+        raise RuntimeError(f"Could not import OmniParser dependencies: {exc}") from exc
     return Image, check_ocr_box, get_caption_model_processor, get_som_labeled_img, get_yolo_model
 
 
@@ -119,73 +135,59 @@ def _get_models() -> Dict[str, Any]:
         return _MODEL_STATE
 
     Image, check_ocr_box, get_caption_model_processor, get_som_labeled_img, get_yolo_model = _load_omniparser_modules()
-
     icon_model = CONFIG.weights / "icon_detect" / "model.pt"
-    caption_model = CONFIG.weights / "icon_caption_florence"
+    caption_folder = CONFIG.weights / "icon_caption_florence"
     if not icon_model.exists():
         raise RuntimeError(f"OmniParser icon detect model is missing: {icon_model}")
-    if not caption_model.exists():
-        raise RuntimeError(f"OmniParser Florence caption folder is missing: {caption_model}")
 
-    _MODEL_STATE.update(
-        {
-            "Image": Image,
-            "check_ocr_box": check_ocr_box,
-            "get_som_labeled_img": get_som_labeled_img,
-            "yolo_model": get_yolo_model(model_path=str(icon_model)),
-            "caption_model_processor": get_caption_model_processor(
-                model_name="florence2", model_name_or_path=str(caption_model)
-            ),
-        }
-    )
+    caption_processor = None
+    if CONFIG.use_local_semantics:
+        if not caption_folder.exists():
+            raise RuntimeError(f"OmniParser Florence caption folder is missing: {caption_folder}")
+        caption_processor = get_caption_model_processor(model_name="florence2", model_name_or_path=str(caption_folder))
+
+    _MODEL_STATE.update({
+        "Image": Image,
+        "check_ocr_box": check_ocr_box,
+        "get_som_labeled_img": get_som_labeled_img,
+        "yolo_model": get_yolo_model(model_path=str(icon_model)),
+        "caption_model_processor": caption_processor,
+    })
     return _MODEL_STATE
 
 
 def _decode_image(image_base64: str) -> Any:
-    models = _get_models()
-    Image = models["Image"]
+    Image = _get_models()["Image"]
     if not image_base64:
         raise ValueError("image_base64 is required")
     image_base64 = re.sub(r"^data:image/[^;]+;base64,", "", image_base64.strip())
-    image_bytes = base64.b64decode(image_base64)
-    return Image.open(io.BytesIO(image_bytes)).convert("RGB")
+    return Image.open(io.BytesIO(base64.b64decode(image_base64))).convert("RGB")
 
 
 def _bbox_to_rect(bbox: Iterable[float], width: int, height: int) -> Dict[str, int]:
     values = list(bbox)
     if len(values) != 4:
         return {"x": 0, "y": 0, "w": 0, "h": 0}
-
-    # OmniParser returns xyxy ratios when output_coord_in_ratio=True.
     x1, y1, x2, y2 = values
     if max(abs(x1), abs(y1), abs(x2), abs(y2)) <= 1.5:
         x1, x2 = x1 * width, x2 * width
         y1, y2 = y1 * height, y2 * height
-
-    x = int(round(min(x1, x2)))
-    y = int(round(min(y1, y2)))
-    w = int(round(abs(x2 - x1)))
-    h = int(round(abs(y2 - y1)))
-    return {"x": max(0, x), "y": max(0, y), "w": max(0, w), "h": max(0, h)}
+    return {"x": max(0, int(round(min(x1, x2)))), "y": max(0, int(round(min(y1, y2)))), "w": max(0, int(round(abs(x2 - x1)))), "h": max(0, int(round(abs(y2 - y1))))}
 
 
 def _role_for(item: Dict[str, Any]) -> str:
     raw_type = str(item.get("type") or item.get("role") or "").lower()
     content = str(item.get("content") or item.get("text") or "").lower()
-    interactive = bool(item.get("interactivity"))
-
     if raw_type == "text":
         return "text"
     if "nav" in content or "menu" in content:
         return "navigation"
-    if interactive:
+    if bool(item.get("interactivity")) or raw_type == "icon":
         return "button"
     if raw_type in {"image", "media", "picture", "photo"}:
         return "image"
     if raw_type in {"container", "section", "group"}:
         return "container"
-    if raw_type == "icon":
-        return "button"
     return "unknown"
 
 
@@ -202,13 +204,12 @@ def _confidence_for(item: Dict[str, Any]) -> float:
 def parse_image(image: Any, request_meta: Dict[str, Any]) -> Dict[str, Any]:
     models = _get_models()
     width, height = image.size
-
-    box_overlay_ratio = width / 3200
+    ratio = width / 3200
     draw_bbox_config = {
-        "text_scale": 0.8 * box_overlay_ratio,
-        "text_thickness": max(int(2 * box_overlay_ratio), 1),
-        "text_padding": max(int(3 * box_overlay_ratio), 1),
-        "thickness": max(int(3 * box_overlay_ratio), 1),
+        "text_scale": 0.8 * ratio,
+        "text_thickness": max(int(2 * ratio), 1),
+        "text_padding": max(int(3 * ratio), 1),
+        "thickness": max(int(3 * ratio), 1),
     }
 
     ocr_bbox_result, _ = models["check_ocr_box"](
@@ -230,28 +231,26 @@ def parse_image(image: Any, request_meta: Dict[str, Any]) -> Dict[str, Any]:
         draw_bbox_config=draw_bbox_config,
         caption_model_processor=models["caption_model_processor"],
         ocr_text=ocr_text,
+        use_local_semantics=CONFIG.use_local_semantics,
         iou_threshold=CONFIG.iou_threshold,
         imgsz=CONFIG.imgsz,
     )
 
     regions: List[Dict[str, Any]] = []
     for index, item in enumerate(parsed_content_list or []):
-        bbox = item.get("bbox") or label_coordinates.get(str(index))
-        rect = _bbox_to_rect(bbox or [0, 0, 0, 0], width, height)
+        rect = _bbox_to_rect(item.get("bbox") or label_coordinates.get(str(index)) or [0, 0, 0, 0], width, height)
         if rect["w"] <= 2 or rect["h"] <= 2:
             continue
-        regions.append(
-            {
-                "id": f"omniparser-{index}",
-                "role": _role_for(item),
-                "text": str(item.get("content") or "").strip(),
-                "confidence": _confidence_for(item),
-                "rect": rect,
-                "source": item.get("source") or "omniparser-v2",
-                "rawType": item.get("type"),
-                "interactive": bool(item.get("interactivity")),
-            }
-        )
+        regions.append({
+            "id": f"omniparser-{index}",
+            "role": _role_for(item),
+            "text": str(item.get("content") or "").strip(),
+            "confidence": _confidence_for(item),
+            "rect": rect,
+            "source": item.get("source") or "omniparser-v2",
+            "rawType": item.get("type"),
+            "interactive": bool(item.get("interactivity")),
+        })
 
     return {
         "engine": "omniparser-v2-bridge",
@@ -266,63 +265,46 @@ def parse_image(image: Any, request_meta: Dict[str, Any]) -> Dict[str, Any]:
             "buttons": len([r for r in regions if r["role"] == "button"]),
             "images": len([r for r in regions if r["role"] == "image"]),
             "containers": len([r for r in regions if r["role"] == "container"]),
+            "usePaddleOCR": CONFIG.use_paddleocr,
+            "useLocalSemantics": CONFIG.use_local_semantics,
         },
     }
 
 
 class OmniParserBridgeHandler(BaseHTTPRequestHandler):
-    server_version = "TranslateITOmniParserBridge/1.0"
+    server_version = "TranslateITOmniParserBridge/1.1"
 
-    def do_OPTIONS(self) -> None:  # noqa: N802
+    def do_OPTIONS(self) -> None:
         _json_response(self, 200, {"ok": True})
 
-    def do_GET(self) -> None:  # noqa: N802
+    def do_GET(self) -> None:
         if self.path in {"/health", "/"}:
-            payload = {
-                "ok": True,
-                "engine": "omniparser-v2-bridge",
-                "repo": str(CONFIG.repo),
-                "weights": str(CONFIG.weights),
-                "parseEndpoint": "/parse",
-            }
-            _json_response(self, 200, payload)
+            _json_response(self, 200, {"ok": True, "engine": "omniparser-v2-bridge", "repo": str(CONFIG.repo), "weights": str(CONFIG.weights), "parseEndpoint": "/parse", "usePaddleOCR": CONFIG.use_paddleocr, "useLocalSemantics": CONFIG.use_local_semantics})
             return
         _json_response(self, 404, {"ok": False, "error": "Route not found. Use /health or /parse."})
 
-    def do_POST(self) -> None:  # noqa: N802
+    def do_POST(self) -> None:
         if self.path != "/parse":
             _json_response(self, 404, {"ok": False, "error": "Route not found. Use /parse."})
             return
-
         try:
             length = int(self.headers.get("content-length", "0"))
-            body = self.rfile.read(length).decode("utf-8")
-            payload = json.loads(body or "{}")
-            image = _decode_image(str(payload.get("image_base64") or ""))
-            result = parse_image(image, payload)
-            _json_response(self, 200, result)
-        except Exception as exc:  # pragma: no cover - runtime diagnostics
-            _json_response(
-                self,
-                500,
-                {
-                    "ok": False,
-                    "engine": "omniparser-v2-bridge",
-                    "error": str(exc),
-                    "trace": traceback.format_exc().splitlines()[-8:],
-                },
-            )
+            payload = json.loads(self.rfile.read(length).decode("utf-8") or "{}")
+            _json_response(self, 200, parse_image(_decode_image(str(payload.get("image_base64") or "")), payload))
+        except Exception as exc:
+            _json_response(self, 500, {"ok": False, "engine": "omniparser-v2-bridge", "error": str(exc), "trace": traceback.format_exc().splitlines()[-12:]})
 
-    def log_message(self, format: str, *args: Any) -> None:
-        sys.stderr.write("[%s] %s\n" % (self.log_date_time_string(), format % args))
+    def log_message(self, fmt: str, *args: Any) -> None:
+        sys.stderr.write("[%s] %s\n" % (self.log_date_time_string(), fmt % args))
 
 
 def main() -> None:
     print(f"TranslateIT OmniParser Bridge running on http://{CONFIG.host}:{CONFIG.port}")
     print(f"OMNIPARSER_REPO={CONFIG.repo}")
     print(f"OMNIPARSER_WEIGHTS={CONFIG.weights}")
-    server = ThreadingHTTPServer((CONFIG.host, CONFIG.port), OmniParserBridgeHandler)
-    server.serve_forever()
+    print(f"OMNIPARSER_USE_PADDLEOCR={CONFIG.use_paddleocr}")
+    print(f"OMNIPARSER_USE_LOCAL_SEMANTICS={CONFIG.use_local_semantics}")
+    ThreadingHTTPServer((CONFIG.host, CONFIG.port), OmniParserBridgeHandler).serve_forever()
 
 
 if __name__ == "__main__":
