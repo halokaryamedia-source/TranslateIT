@@ -7,6 +7,7 @@
   "scripts": {
     "start": "node server.mjs",
     "payload:site": "node ./src/write-payload-report.mjs",
+    "payload:final": "node ./src/write-final-payload-report.mjs",
     "pretest:reports": "node ./src/write-final-pretest-reports.mjs ./reports/translateit-payload.json ./reports/translateit-final-payload-health.json ./reports/translateit-asset-reliability.json",
     "pretest:bundle": "node ./src/run-pretest-quality-bundle.mjs ./reports/translateit-payload.json ./reports",
     "render:contract": "node ./src/write-render-contract-report.mjs ./reports/translateit-payload.json ./reports/translateit-plugin-render-contract.json",
