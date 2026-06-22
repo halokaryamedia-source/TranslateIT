@@ -2,6 +2,7 @@ import { buildPayload as buildBasePayload } from './build-payload-core-v4.mjs';
 import { sanitizeFigmaRenderPlan } from './sanitize-figma-render-plan.mjs';
 import { buildFigmaAutoLayoutPlan } from './figma-auto-layout-engine.mjs';
 import { buildProductionExportManifest } from './build-production-export-manifest.mjs';
+import { attachPluginRenderExpectations } from './attach-plugin-render-expectations.mjs';
 
 function mergeNativeUsefulness(payload, manifest) {
   const native = payload.diagnostics?.nativeUsefulness || {};
@@ -20,5 +21,5 @@ export async function buildPayload(targetUrl) {
   payload.diagnostics.figmaAutoLayoutPlan = figmaAutoLayoutPlan.diagnostics;
   payload.diagnostics.productionExportManifest = productionExportManifest.summary;
   payload.diagnostics.nativeUsefulness = mergeNativeUsefulness(payload, productionExportManifest);
-  return payload;
+  return attachPluginRenderExpectations(payload);
 }
