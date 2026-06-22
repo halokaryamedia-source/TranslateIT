@@ -1,9 +1,10 @@
 import fs from 'node:fs';
 import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 
 function exists(value) { try { return !!value && fs.existsSync(value); } catch { return false; } }
 function bool(value) { return ['1', 'true', 'yes', 'on'].includes(String(value || '').toLowerCase()); }
-function rootOf() { return path.resolve(path.dirname(new URL(import.meta.url).pathname), '..'); }
+function rootOf() { return path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..'); }
 function src(name) { return path.join(rootOf(), 'src', name); }
 function pkgHas(name) {
   try {
