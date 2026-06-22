@@ -10,6 +10,7 @@
     "payload:final": "node ./src/write-final-payload-report.mjs",
     "pretest:reports": "node ./src/write-final-pretest-reports.mjs ./reports/translateit-payload.json ./reports/translateit-final-payload-health.json ./reports/translateit-asset-reliability.json",
     "pretest:bundle": "node ./src/run-pretest-quality-bundle.mjs ./reports/translateit-payload.json ./reports",
+    "pretest:final": "node ./src/run-final-pretest-bundle.mjs",
     "render:contract": "node ./src/write-render-contract-report.mjs ./reports/translateit-payload.json ./reports/translateit-plugin-render-contract.json",
     "responsive:plan": "node ./src/write-responsive-render-report.mjs ./reports/translateit-payload.json ./reports/translateit-responsive-render-plan.json",
     "readiness:honest": "node ./src/evaluate-honest-production-readiness.mjs ./reports/translateit-payload.json ./reports/translateit-honest-production-readiness.json",
