@@ -6,6 +6,7 @@ import { reconstructTextLines } from './reconstruct-text-lines.mjs';
 import { guardHeroOcclusion } from './guard-hero-occlusion.mjs';
 import { matchDomToVisual } from './match-dom-visual.mjs';
 import { buildCloneModel } from './build-clone-model.mjs';
+import { addComponentSliceLayers } from './add-component-slice-layers.mjs';
 import { professionalizeCloneModel } from './professionalize-clone-model.mjs';
 import { ok, assertCleanPayload } from './shared-contract.mjs';
 
@@ -18,7 +19,8 @@ export async function buildPayload(targetUrl) {
   const guardedModel = guardHeroOcclusion(lineModel);
   const matched = matchDomToVisual(guardedModel, visualModel);
   const baseCloneModel = buildCloneModel(matched.model, visualModel, matched.diagnostics);
-  const cloneModel = professionalizeCloneModel(baseCloneModel);
+  const hybridCloneModel = addComponentSliceLayers(baseCloneModel);
+  const cloneModel = professionalizeCloneModel(hybridCloneModel);
   const payload = ok({
     source: Object.assign({}, capture.source, { screenshot: capture.source.screenshot }),
     visualModel,
@@ -28,6 +30,7 @@ export async function buildPayload(targetUrl) {
       capture: {
         rawElements: capture.rawElements.length,
         assets: capture.assets.length,
+        componentSliceCount: capture.source.captureDiagnostics?.componentSliceCount || 0,
         stabilization: capture.source.captureDiagnostics || null,
         screenshot: {
           width: capture.source.screenshot?.width || 0,
@@ -43,11 +46,13 @@ export async function buildPayload(targetUrl) {
       cloneModel: cloneModel.diagnostics,
       professionalLayerTree: cloneModel.professionalLayerTree || null,
       nativeUsefulness: {
+        mode: 'hybrid-component-slices-plus-editable-text',
         extractor: layout.stats.extractor,
         rawElements: layout.stats.rawElements,
         keptElements: layout.stats.keptElements,
         coverageRatio: layout.stats.coverageRatio,
         images: layout.stats.images,
+        componentSlices: cloneModel.diagnostics?.componentSliceLayers || 0,
         surfaces: layout.stats.surfaces,
         text: layout.stats.text
       }
