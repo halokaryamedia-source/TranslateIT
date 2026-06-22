@@ -8,6 +8,7 @@ import { matchDomToVisual } from './match-dom-visual.mjs';
 import { buildCloneModel } from './build-clone-model.mjs';
 import { addComponentSliceLayers } from './add-component-slice-layers.mjs';
 import { professionalizeCloneModelV2 } from './professionalize-clone-model-v2.mjs';
+import { buildDesignBlueprint } from './build-design-blueprint.mjs';
 import { ok, assertCleanPayload } from './shared-contract.mjs';
 
 export async function buildPayload(targetUrl) {
@@ -21,11 +22,13 @@ export async function buildPayload(targetUrl) {
   const baseCloneModel = buildCloneModel(matched.model, visualModel, matched.diagnostics);
   const hybridCloneModel = addComponentSliceLayers(baseCloneModel);
   const cloneModel = professionalizeCloneModelV2(hybridCloneModel);
+  const designBlueprint = buildDesignBlueprint(cloneModel, capture.source);
   const payload = ok({
     source: Object.assign({}, capture.source, { screenshot: capture.source.screenshot }),
     visualModel,
     designModel: matched.model,
     cloneModel,
+    designBlueprint,
     diagnostics: {
       capture: {
         rawElements: capture.rawElements.length,
@@ -44,9 +47,10 @@ export async function buildPayload(targetUrl) {
       layout: layout.stats,
       model: matched.model.diagnostics || guardedModel.diagnostics || lineModel.diagnostics || designModel.diagnostics,
       cloneModel: cloneModel.diagnostics,
+      designBlueprint: designBlueprint.diagnostics,
       professionalLayerTree: cloneModel.professionalLayerTree || null,
       nativeUsefulness: {
-        mode: 'hybrid-component-slices-plus-editable-text',
+        mode: 'blueprint-framework-editable-output',
         extractor: layout.stats.extractor,
         rawElements: layout.stats.rawElements,
         keptElements: layout.stats.keptElements,
