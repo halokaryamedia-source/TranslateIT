@@ -83,6 +83,7 @@ target/
 /EngineData/RuntimeAssets/**
 
 # DesignIT local generated launcher/runtime outputs.
+/DesignIT.exe
 /DevelopingData/FigmaDesignExport/TranslateIT/scripts/DesignIT.exe
 /DevelopingData/FigmaDesignExport/_runtime/**
 /DevelopingData/FigmaDesignExport/_external/**
