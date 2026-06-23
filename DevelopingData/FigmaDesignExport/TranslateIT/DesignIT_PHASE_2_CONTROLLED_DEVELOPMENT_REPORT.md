@@ -2,27 +2,20 @@
 
 ## 1. Executive Summary
 
-Phase 2 is still in controlled development. The latest product decision is to use a single root launcher executable:
+Phase 2 is still in controlled development. The current focus has shifted from launcher usability to Figma output quality.
+
+The active quality direction is:
 
 ```text
-Version 0.1/DesignIT.exe
+1 URL
+-> 1 desktop frame
+-> cleaned section order
+-> reduced duplicate/noisy layers
+-> visible quality score
+-> editable Figma output
 ```
 
-The intended workflow is:
-
-```text
-Double-click DesignIT.exe
--> keep DesignIT.exe open
--> open Figma plugin
--> paste website URL
--> click Import
--> close DesignIT.exe when finished
--> local services stop automatically
-```
-
-The user should not need to manually type terminal commands during normal use, and no Desktop shortcut should be created.
-
-The Figma plugin alone cannot start Node, WSL, Python, or OmniParser processes by itself. Therefore the practical local-PC solution is one visible launcher executable in the target root that starts and stops the required local services.
+The launcher remains a supporting workflow. The main product blocker is now visual quality: frame/scale stability, section order, duplicate/noisy layer cleanup, and measurable desktop quality.
 
 ## 2. Active User Workflow
 
@@ -35,9 +28,11 @@ The Figma plugin alone cannot start Node, WSL, Python, or OmniParser processes b
 6. User opens the Figma plugin.
 7. User inputs a website URL.
 8. Plugin sends the URL to the local DesignIT engine.
-9. Plugin imports editable layers into Figma.
-10. User closes DesignIT.exe when finished.
-11. DesignIT.exe stops the local engine ports automatically.
+9. RenderBridge builds the desktop quality checked render payload.
+10. Plugin displays desktop quality score.
+11. Plugin imports editable layers into Figma.
+12. User closes DesignIT.exe when finished.
+13. DesignIT.exe stops the local engine ports automatically.
 ```
 
 ## 3. Active Source of Truth
@@ -52,73 +47,88 @@ DesignIT.exe in target root
 -> external visual parser
 -> cloneModel
 -> figmaRenderPlan
+-> applyDesktopQualityPass
 -> plugin/code-framework-production.js
 -> one clean editable desktop frame by default
 -> close DesignIT.exe to stop local services
 ```
 
-## 4. Latest Launcher Patch
+## 4. Latest Quality Patch
 
 | Area | Status | Notes |
 |---|---|---|
-| Single root launcher | Completed | `build-designit-launcher.ps1` now creates `DesignIT.exe` in the target root. |
-| No Desktop shortcut | Completed | `setup-designit-shortcut.ps1` no longer creates Desktop shortcuts and removes old DesignIT shortcuts if present. |
-| One visible launcher | Completed | Removed extra visible Start/Stop shortcut launchers from the active scripts folder. |
-| Close-to-stop behavior | Completed | Closing `DesignIT.exe` runs `designit-stop.ps1` and stops local engine ports. |
-| Background service orchestration | Completed | `designit-start.ps1` starts/checks OmniParser and RenderBridge in the background and writes logs. |
-| Plugin offline message | Completed | The plugin no longer shows raw `Failed to fetch`; it now tells the user to start DesignIT local engine. |
-| Health metadata | Completed | `/health` now exposes the single-root-exe launcher workflow. |
-| Launcher documentation | Completed | Updated `scripts/DESIGNIT_LOCAL_LAUNCHER.md`. |
+| Desktop quality pass | Completed | Added `apply-desktop-quality-pass.mjs`. |
+| Section ordering | Completed | Frames are sorted by source Y and restacked into one clean desktop flow. |
+| Frame normalization | Completed | Desktop page width is normalized and page height follows stacked section height. |
+| Noise cleanup | Completed | Removes off-frame layers, tiny decorative layers, small icon-like image noise, empty text, and duplicates. |
+| Group cleanup | Completed | Empty groups are removed; group bounds are recomputed while preserving source auto-layout group bounds. |
+| Quality scoring | Completed | Adds `desktopQuality` score, grade, removed layer count, and cleanup reasons. |
+| Plugin quality visibility | Completed | Plugin status now displays desktop quality score before importing into Figma. |
+| Quality gate | Completed | Added `test-desktop-quality-pass.mjs` and `npm run test:desktop-quality`. |
+| Contract protection | Completed | Active contract gate now protects the desktop quality pass markers. |
 
-## 5. Files Changed in Latest Launcher Patch
+## 5. Files Changed in Latest Quality Patch
 
 | File | Change Type | Reason |
 |---|---|---|
-| `scripts/DesignIT-Launcher.cs` | Updated | Resolves scripts from the target root and stops local services when the launcher closes. |
-| `scripts/build-designit-launcher.ps1` | Updated | Builds `DesignIT.exe` into the target root. |
-| `scripts/setup-designit-shortcut.ps1` | Updated | Builds the root `DesignIT.exe`, removes old Desktop shortcuts, and does not create new shortcuts. |
-| `scripts/designit-start.ps1` | Updated | Runs services hidden/background with log files. |
-| `scripts/DesignIT-Start.cmd` | Deleted | Removed extra visible launcher. |
-| `scripts/DesignIT-Start.vbs` | Deleted | Removed extra silent launcher. |
-| `scripts/DesignIT-Stop.cmd` | Deleted | Removed separate stop launcher; closing `DesignIT.exe` now stops services. |
-| `scripts/DESIGNIT_LOCAL_LAUNCHER.md` | Updated | Documents the root executable and close-to-stop behavior. |
-| `RenderBridge/src/health-status.mjs` | Updated | Exposes single root executable launcher metadata in `/health`. |
-| `.gitignore` | Updated | Ignores generated root `DesignIT.exe` and DesignIT runtime folders. |
-| `plugin/ui-framework.html` | Updated | Keeps user-friendly local engine guidance. |
-| `DesignIT_PHASE_2_CONTROLLED_DEVELOPMENT_REPORT.md` | Updated | Documents the single root executable workflow. |
+| `RenderBridge/src/apply-desktop-quality-pass.mjs` | Created | Desktop-only quality cleanup and scoring pass. |
+| `RenderBridge/src/build-final-payload.mjs` | Updated | Applies the desktop quality pass before responsive intent/style/component summaries. |
+| `RenderBridge/tests/test-desktop-quality-pass.mjs` | Created | Tests section ordering, duplicate removal, tiny-noise removal, off-frame removal, and score output. |
+| `RenderBridge/tests/test-clean-contract.mjs` | Updated | Protects `applyDesktopQualityPass` and quality-pass markers. |
+| `RenderBridge/package.json` | Updated | Adds `test:desktop-quality` and includes it in `npm test`. |
+| `plugin/ui-framework.html` | Updated | Shows desktop quality score and cleanup reasons before sending payload to Figma. |
+| `DesignIT_PHASE_2_CONTROLLED_DEVELOPMENT_REPORT.md` | Updated | Documents the quality-first development shift. |
 
-## 6. What This Patch Does Not Solve Yet
+## 6. Existing Launcher Status
 
-- It does not create a cloud backend.
-- It does not make the Figma plugin directly start system processes by itself.
+| Area | Status | Notes |
+|---|---|---|
+| Single root launcher | Completed | `build-designit-launcher.ps1` creates `DesignIT.exe` in the target root. |
+| No Desktop shortcut | Completed | `setup-designit-shortcut.ps1` no longer creates Desktop shortcuts and removes old DesignIT shortcuts if present. |
+| One visible launcher | Completed | Extra visible Start/Stop shortcut launchers were removed from the active scripts folder. |
+| Close-to-stop behavior | Completed | Closing `DesignIT.exe` runs `designit-stop.ps1` and stops local engine ports. |
+| Background service orchestration | Completed | `designit-start.ps1` starts/checks OmniParser and RenderBridge in the background and writes logs. |
+
+## 7. What This Patch Does Not Solve Yet
+
 - It does not fully solve Figma layout fidelity.
 - It does not fully solve visual-to-DOM matching.
+- It does not fully solve image placement fidelity.
+- It does not make the Figma plugin directly start system processes by itself.
 - It does not remove the need for local dependencies such as Node, WSL, Miniforge, and OmniParser.
 - It does not delete stale duplicate renderer files.
 
-## 7. Next Required User Test
+## 8. Next Required User Test
 
-Pull the latest branch into the existing `Version 0.1` root only. Then run the setup script once to generate:
+Pull the latest branch into the existing `Version 0.1` root only. Then run:
 
 ```text
 D:\Work\AI Stuff\TranslateIT-Rust\Developing\Version 0.1\DesignIT.exe
 ```
 
-After that, use only this launcher:
+While `DesignIT.exe` is open, import:
 
 ```text
-DesignIT.exe
+https://www.mivubi.com/
 ```
 
-Do not use Desktop shortcuts. Old Desktop shortcuts are removed by the setup script if they exist.
+The plugin should show:
 
-## 8. Phase Status
+```text
+Desktop Quality: <score>/100 (<grade>)
+Cleaned layers: <count>
+Cleanup: <reason counts>
+```
 
-**PARTIAL PASS — SINGLE ROOT EXE LAUNCHER ADDED, USER RETEST REQUIRED**
+Then Figma should import one desktop frame only.
 
-The project is not finished. The next test should confirm whether `DesignIT.exe` starts the local engine, keeps it alive while open, and stops it automatically when closed.
+## 9. Phase Status
 
-## 9. SYNC HANDOFF FOR NEXT PROMPT
+**PARTIAL PASS — DESKTOP QUALITY PASS ADDED, USER RETEST REQUIRED**
+
+The project is not finished. The next test should confirm whether the result improved from “cluttered visual dump” into a cleaner one-frame desktop mockup.
+
+## 10. SYNC HANDOFF FOR NEXT PROMPT
 
 ```text
 SYNC HANDOFF FOR NEXT PROMPT
@@ -127,18 +137,17 @@ Current Phase:
 Phase 2 — DesignIT Controlled Development
 
 Phase Status:
-PARTIAL PASS — SINGLE ROOT EXE LAUNCHER ADDED, USER RETEST REQUIRED
+PARTIAL PASS — DESKTOP QUALITY PASS ADDED, USER RETEST REQUIRED
 
 Latest Commit Scope:
-- Build generated launcher into target root as Version 0.1/DesignIT.exe.
-- Do not create Desktop shortcuts.
-- Remove old Desktop shortcuts during setup if present.
-- Remove extra Start/Stop visible launchers from scripts folder.
-- Keep one user-facing launcher only: DesignIT.exe.
-- Closing DesignIT.exe runs designit-stop.ps1 and stops local services on ports 8844 and 7860.
-- designit-start.ps1 starts services in hidden/background mode and writes logs.
-- Updated /health launcher metadata to single-root-exe mode.
-- Updated launcher documentation and report.
+- Added RenderBridge/src/apply-desktop-quality-pass.mjs.
+- Applied applyDesktopQualityPass in RenderBridge/src/build-final-payload.mjs.
+- Added desktop quality diagnostics into payload diagnostics/nativeUsefulness.
+- Added RenderBridge/tests/test-desktop-quality-pass.mjs.
+- Added npm run test:desktop-quality and included it in npm test.
+- Updated test-clean-contract.mjs to protect desktop quality pass markers.
+- Updated plugin UI to show Desktop Quality score and cleanup reasons before import.
+- Kept launcher behavior unchanged: one root DesignIT.exe, no Desktop shortcuts, close-to-stop.
 
 Current Active Source of Truth:
 - Product/plugin name: DesignIT
@@ -153,17 +162,17 @@ Current Active Source of Truth:
 - Plugin UI: plugin/ui-framework.html
 - Plugin renderer: plugin/code-framework-production.js
 - RenderBridge server: RenderBridge/server.mjs
+- Final payload: RenderBridge/src/build-final-payload.mjs
+- Desktop quality pass: RenderBridge/src/apply-desktop-quality-pass.mjs
 - External visual engine script: scripts/start-omni-wsl.ps1
 
 Next Required User Test:
 - Pull latest branch into existing Version 0.1 root only.
-- Run scripts/setup-designit-shortcut.ps1 once.
-- Confirm Desktop DesignIT shortcuts are removed.
-- Confirm Version 0.1/DesignIT.exe exists.
-- Run Version 0.1/DesignIT.exe.
-- Confirm local engine starts and stays alive while launcher is open.
-- Close DesignIT.exe and confirm services stop.
-- Open Figma plugin and import https://www.mivubi.com/ while DesignIT.exe is open.
+- Ensure Version 0.1/DesignIT.exe exists; run scripts/setup-designit-shortcut.ps1 if it does not.
+- Run Version 0.1/DesignIT.exe and keep it open.
+- Open Figma plugin and import https://www.mivubi.com/.
+- Capture plugin status showing Desktop Quality score.
+- Capture resulting Figma canvas and layer tree.
 
 Forbidden Next Scope:
 - No new worktree.
@@ -171,6 +180,6 @@ Forbidden Next Scope:
 - No new root folder creation.
 - No broad refactor.
 - No full renderer rewrite.
-- No extractor rewrite before reviewing new output.
+- No extractor rewrite before reviewing new quality score and output screenshot.
 - No unrelated RustApp/runtime changes.
 ```
