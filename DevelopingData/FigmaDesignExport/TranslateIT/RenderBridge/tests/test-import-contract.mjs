@@ -31,6 +31,7 @@ function has(name, text, marker) {
 
 const approvedNodeTypes = new Set(['frame', 'group', 'text', 'image', 'shape', 'button', 'input', 'icon', 'card', 'section']);
 const manifest = readJson(path.join(pluginRoot, 'manifest.json'));
+const buildPayload = read(path.join(root, 'src', 'build-payload.mjs'));
 const buildCloneModel = read(path.join(root, 'src', 'build-clone-model.mjs'));
 const buildFigmaRenderPlan = read(path.join(root, 'src', 'build-figma-render-plan.mjs'));
 const finalPayload = read(path.join(root, 'src', 'build-final-payload.mjs'));
@@ -77,6 +78,7 @@ for (const requiredType of approvedNodeTypes) {
   if (!observedTypes.has(requiredType)) failures.push(`contract fixture missing node type: ${requiredType}`);
 }
 
+has('build-payload entry', buildPayload, 'build-payload-core-v5.mjs');
 has('build-clone-model', buildCloneModel, 'layout-preserving-editable-clone');
 has('build-clone-model', buildCloneModel, 'editable: true');
 has('build-clone-model', buildCloneModel, 'groupPath');
@@ -85,8 +87,9 @@ has('build-figma-render-plan', buildFigmaRenderPlan, 'buildFigmaRenderPlan');
 has('build-figma-render-plan', buildFigmaRenderPlan, 'warnings');
 has('build-figma-render-plan', buildFigmaRenderPlan, 'editable');
 has('build-figma-render-plan', buildFigmaRenderPlan, 'missing-image-asset');
-has('final-payload', finalPayload, 'figmaRenderPlan');
-has('final-payload', finalPayload, 'cloneModel');
+has('final-payload', finalPayload, 'buildBasePayload');
+has('final-payload', finalPayload, 'payload.figmaRenderPlan');
+has('final-payload', finalPayload, 'payload.diagnostics');
 has('renderer', renderer, 'figmaRenderPlan');
 has('renderer', renderer, 'createText');
 has('renderer', renderer, 'createRectangle');
