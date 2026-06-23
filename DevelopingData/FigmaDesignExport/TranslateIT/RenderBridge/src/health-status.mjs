@@ -7,6 +7,13 @@ export function healthStatus() {
     activeRenderer: 'plugin/code-framework-production.js',
     userFacingInput: 'url-link',
     payloadJsonRole: 'internal-report-and-debug-only',
+    localLauncher: {
+      mode: 'on-demand-local-engine',
+      startScript: 'scripts/DesignIT-Start.cmd',
+      silentStartScript: 'scripts/DesignIT-Start.vbs',
+      stopScript: 'scripts/DesignIT-Stop.cmd',
+      userWorkflow: 'Double-click DesignIT Start, then use the Figma plugin URL input.'
+    },
     renderPolicy: 'external-visual-engine-required',
     internalLayoutFallback: false,
     internalLayoutFallbackEnv: 'TRANSLATEIT_ALLOW_INTERNAL_LAYOUT_FALLBACK=1',
@@ -14,6 +21,7 @@ export function healthStatus() {
       required: true,
       preferred: 'OmniParser V2 endpoint',
       endpoint: process.env.OMNIPARSER_ENDPOINT || 'http://127.0.0.1:7860/parse',
+      health: (process.env.OMNIPARSER_ENDPOINT || 'http://127.0.0.1:7860/parse').replace(/\/parse$/, '/health'),
       fallback: process.env.UIED_CLI_PATH ? 'UIED_CLI_PATH' : null
     },
     contract: 'cloneModel',
