@@ -81,3 +81,9 @@ target/
 /EngineData/Backend/RuntimeAssets/Translation/ModelData/**
 /EngineData/Backend/RuntimeAssets/Voice/Piper/**
 /EngineData/RuntimeAssets/**
+
+# DesignIT local generated launcher/runtime outputs.
+/DevelopingData/FigmaDesignExport/TranslateIT/scripts/DesignIT.exe
+/DevelopingData/FigmaDesignExport/_runtime/**
+/DevelopingData/FigmaDesignExport/_external/**
+/DevelopingData/FigmaDesignExport/_reports/**
