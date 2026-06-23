@@ -8,11 +8,11 @@ export function healthStatus() {
     userFacingInput: 'url-link',
     payloadJsonRole: 'internal-report-and-debug-only',
     localLauncher: {
-      mode: 'on-demand-local-engine',
-      startScript: 'scripts/DesignIT-Start.cmd',
-      silentStartScript: 'scripts/DesignIT-Start.vbs',
-      stopScript: 'scripts/DesignIT-Stop.cmd',
-      userWorkflow: 'Double-click DesignIT Start, then use the Figma plugin URL input.'
+      mode: 'single-root-exe-on-demand-local-engine',
+      launcher: 'DesignIT.exe',
+      launcherLocation: 'target-root',
+      closeBehavior: 'closing DesignIT.exe stops local services on ports 8844 and 7860',
+      userWorkflow: 'Double-click DesignIT.exe in the target root, keep it open, then use the Figma plugin URL input.'
     },
     renderPolicy: 'external-visual-engine-required',
     internalLayoutFallback: false,
