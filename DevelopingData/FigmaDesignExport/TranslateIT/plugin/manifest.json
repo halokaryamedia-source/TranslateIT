@@ -1,6 +1,6 @@
 {
-  "name": "TranslateIT Design Export",
-  "id": "translateit-design-export",
+  "name": "DesignIT",
+  "id": "designit-url-import",
   "api": "1.0.0",
   "main": "code-framework-production.js",
   "ui": "ui-framework.html",
