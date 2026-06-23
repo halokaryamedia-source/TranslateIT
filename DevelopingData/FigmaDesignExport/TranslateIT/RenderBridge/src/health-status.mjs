@@ -25,6 +25,6 @@ export function healthStatus() {
     visualMatching: 'external-regions-to-figma-layout',
     imageFit: 'source-object-fit-preserved',
     textRender: 'source-text-rendering-preserved',
-    legacyActive: false
+    retiredWorkflowActive: false
   });
 }
