@@ -5,10 +5,11 @@
 The normal user workflow should be simple:
 
 ```text
-1. Double-click DesignIT Start.
-2. Open the Figma plugin.
-3. Paste a website URL.
-4. Click Import Website to Figma.
+1. Double-click DesignIT.exe or the DesignIT Start desktop shortcut.
+2. Wait until the local engine is ready.
+3. Open the Figma plugin.
+4. Paste a website URL.
+5. Click Import Website to Figma.
 ```
 
 Users should not need to manually type PowerShell commands for normal use.
@@ -17,12 +18,15 @@ Users should not need to manually type PowerShell commands for normal use.
 
 | File | Purpose |
 |---|---|
-| `DesignIT-Start.cmd` | Visible launcher with progress output. Useful for debugging. |
-| `DesignIT-Start.vbs` | Silent launcher. Useful for desktop shortcut usage. |
-| `designit-start.ps1` | Starts the required local engine services. |
+| `DesignIT-Launcher.cs` | Native Windows launcher source. |
+| `build-designit-launcher.ps1` | Builds `DesignIT.exe` from the C# source. |
+| `DesignIT.exe` | Generated local launcher executable. This file is built locally and is not committed as a binary. |
+| `DesignIT-Start.cmd` | Visible launcher fallback with progress output. Useful for debugging. |
+| `DesignIT-Start.vbs` | Silent launcher fallback. |
+| `designit-start.ps1` | Starts the required local engine services in the background and writes logs. |
 | `DesignIT-Stop.cmd` | Stops the local engine ports. |
 | `designit-stop.ps1` | Stops local services on ports 8844 and 7860. |
-| `setup-designit-shortcut.ps1` | Creates Desktop shortcuts for `DesignIT Start` and `DesignIT Stop`. |
+| `setup-designit-shortcut.ps1` | Builds the native launcher when needed and creates Desktop shortcuts for `DesignIT Start` and `DesignIT Stop`. |
 
 ## Services Started
 
@@ -39,6 +43,12 @@ RenderBridge is started with:
 OMNIPARSER_ENDPOINT=http://127.0.0.1:7860/parse
 ```
 
+Service logs are written under:
+
+```text
+DevelopingData/FigmaDesignExport/_runtime/designit-local-engine/logs
+```
+
 ## Notes
 
 - The launcher does not clone the repository.
@@ -46,6 +56,7 @@ OMNIPARSER_ENDPOINT=http://127.0.0.1:7860/parse
 - Runtime folders used by OmniParser are created inside the existing `FigmaDesignExport` workspace by the existing `start-omni-wsl.ps1` script.
 - The launcher is an on-demand local engine start flow, not a permanent Windows startup service.
 - If the external visual engine is not ready, RenderBridge can still start, but imports will not be production-ready until OmniParser is healthy.
+- `DesignIT.exe` is generated locally because binaries should not be committed into the repository during controlled development.
 
 ## One-Time Shortcut Setup
 
@@ -60,6 +71,12 @@ After that, use the Desktop shortcut:
 
 ```text
 DesignIT Start
+```
+
+Or run the generated executable directly:
+
+```text
+DevelopingData/FigmaDesignExport/TranslateIT/scripts/DesignIT.exe
 ```
 
 Then use the Figma plugin normally.
