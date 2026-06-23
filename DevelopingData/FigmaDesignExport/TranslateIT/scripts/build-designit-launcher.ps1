@@ -2,7 +2,8 @@ $ErrorActionPreference = 'Stop'
 
 $ScriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
 $Source = Join-Path $ScriptDir 'DesignIT-Launcher.cs'
-$Out = Join-Path $ScriptDir 'DesignIT.exe'
+$TargetRoot = Resolve-Path (Join-Path $ScriptDir '..\..\..\..')
+$Out = Join-Path $TargetRoot 'DesignIT.exe'
 
 if (-not (Test-Path $Source)) {
   throw "Launcher source not found: $Source"
@@ -19,9 +20,10 @@ if (-not $csc) {
 }
 
 Write-Host 'Building DesignIT.exe...' -ForegroundColor Cyan
-Write-Host "Compiler: $csc" -ForegroundColor Gray
-Write-Host "Source:   $Source" -ForegroundColor Gray
-Write-Host "Output:   $Out" -ForegroundColor Gray
+Write-Host "Compiler:    $csc" -ForegroundColor Gray
+Write-Host "Source:      $Source" -ForegroundColor Gray
+Write-Host "Target root: $TargetRoot" -ForegroundColor Gray
+Write-Host "Output:      $Out" -ForegroundColor Gray
 
 & $csc /nologo /target:winexe /platform:anycpu /out:"$Out" /reference:System.Windows.Forms.dll /reference:System.Drawing.dll "$Source"
 
@@ -33,5 +35,5 @@ if (-not (Test-Path $Out)) {
   throw "Launcher build finished but output was not found: $Out"
 }
 
-Write-Host 'DesignIT.exe created successfully:' -ForegroundColor Green
+Write-Host 'DesignIT.exe created successfully in target root:' -ForegroundColor Green
 Write-Host $Out -ForegroundColor Green
