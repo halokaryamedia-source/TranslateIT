@@ -33,10 +33,12 @@ DesignIT URL input
 | Sample-site gate | Completed | Made the sample-site gate external-engine aware instead of failing unexpectedly when OmniParser/UIED is missing. |
 | Regression gate | Completed | Strengthened regression checks around active manifest, active renderer, input mode, and contract. |
 | Import contract gate | Completed | Added a DesignIT import contract gate covering approved node types, required fields, validation rules, and active payload/render markers. |
-| Golden sample gate | Completed | Added five fixed professional benchmark sample definitions and a gate that validates their scoring and acceptance structure. |
+| Golden sample definition gate | Completed | Added five fixed professional benchmark sample definitions and a gate that validates their scoring and acceptance structure. |
+| Golden sample HTML fixtures | Completed | Added five fixed HTML fixtures directly linked from the golden sample definitions. |
+| Golden sample execution scaffolding | Completed | Added a local fixture server and `/audit` execution gate that measures fixtures when the external visual engine is available and reports a blocked dependency when it is not. |
 | CI self-audit workflow | Completed | CI now runs `npm test`, visual-engine, figma-dry-run, and regression gates. |
 | Renderer rewrite | Not performed | Explicitly forbidden before contract and golden sample gates are stable. |
-| Extractor rewrite | Not performed | Explicitly deferred until contract and golden sample gates are stable. |
+| Extractor rewrite | Not performed | Explicitly deferred until measured golden sample failures exist. |
 | Payload rewrite | Not performed | Versioned payload files remain temporarily until cleanup is separately approved. |
 | File deletion cleanup | Not performed | Cleanup candidates must be removed only after active reference checks. |
 
@@ -52,19 +54,25 @@ DesignIT URL input
 | `RenderBridge/tests/test-figma-renderer-dry-run.mjs` | Updated | Aligns Figma dry-run assertions with the active production renderer. |
 | `RenderBridge/tests/test-regression-suite.mjs` | Updated | Strengthens regression checks around active source-of-truth. |
 | `RenderBridge/tests/test-import-contract.mjs` | Created | Adds the active DesignIT import contract gate. |
-| `RenderBridge/tests/fixtures/designit-golden-samples.json` | Created | Defines five fixed professional benchmark samples. |
-| `RenderBridge/tests/test-golden-samples.mjs` | Created | Adds the golden sample definition gate. |
-| `RenderBridge/package.json` | Updated | Routes scripts through active-flow, import-contract, workspace-clean, golden-samples, and sample gates; removes active `test:v2` script. |
+| `RenderBridge/tests/fixtures/designit-golden-samples.json` | Updated | Defines five fixed professional benchmark samples and links each sample to a fixed HTML fixture. |
+| `RenderBridge/tests/fixtures/golden-html/simple-landing-page.html` | Created | Fixed HTML benchmark for landing page import quality. |
+| `RenderBridge/tests/fixtures/golden-html/dashboard-settings-page.html` | Created | Fixed HTML benchmark for dashboard/settings import quality. |
+| `RenderBridge/tests/fixtures/golden-html/card-grid.html` | Created | Fixed HTML benchmark for repeated card grid import quality. |
+| `RenderBridge/tests/fixtures/golden-html/form-input-page.html` | Created | Fixed HTML benchmark for form/input import quality. |
+| `RenderBridge/tests/fixtures/golden-html/navbar-content-section.html` | Created | Fixed HTML benchmark for navigation/content import quality. |
+| `RenderBridge/tests/test-golden-samples.mjs` | Updated | Validates golden sample definitions and confirms linked HTML fixtures are present and readable. |
+| `RenderBridge/tests/test-golden-sample-execution.mjs` | Created | Serves fixed fixtures locally and executes RenderBridge `/audit` against them when the external visual engine is available. |
+| `RenderBridge/package.json` | Updated | Adds `test:golden-execution` and includes it in `npm test`. |
 | `.github/workflows/translateit-renderbridge-self-audit.yml` | Updated | Runs `npm test`, visual-engine, figma-dry-run, and regression gates instead of stale version-marker gates. |
 | `DesignIT_PHASE_2_CONTROLLED_DEVELOPMENT_REPORT.md` | Updated | Documents the expanded Phase 2 controlled development result and next handoff. |
 
 ## 4. Important Notes
 
 - The project still contains stale/duplicate renderer files and versioned payload core files. They were not removed because cleanup must happen only after active reference checks pass.
-- The external visual engine remains required for real render-quality validation. If OmniParser/UIED is not running, sample and dry-run gates now report a blocked external-engine status instead of failing with an unclear error.
+- The external visual engine remains required for real render-quality validation. If OmniParser/UIED is not running, sample, dry-run, and golden execution gates now report a blocked external-engine status instead of failing with an unclear error.
 - Raw HTML input is still not implemented. It should remain deferred until the URL pipeline gates are stable.
 - During package script alignment, the dependency version for `pngjs` was accidentally changed and then immediately corrected back to `^7.0.0`. No dependency version change remains in the final package file.
-- The golden sample gate currently validates fixed benchmark definitions and scoring structure. It does not yet run full visual render comparisons for all samples. That should be the next controlled development step.
+- The golden sample gate now validates both benchmark definitions and linked fixture files. The golden execution gate can serve those fixtures locally and route them through the existing RenderBridge `/audit` flow without creating a new import pipeline.
 
 ## 5. Current Test Strategy After This Phase
 
@@ -75,7 +83,8 @@ DesignIT URL input
 | `npm run test:import-contract` | Validate the approved DesignIT node contract and active payload/render contract markers. |
 | `npm run test:active-flow` | Validate the approved DesignIT active flow. |
 | `npm run test:workspace-clean` | Detect active references to stale/legacy paths and report cleanup candidates. |
-| `npm run test:golden-samples` | Validate fixed professional golden sample definitions and scoring structure. |
+| `npm run test:golden-samples` | Validate fixed professional golden sample definitions and linked HTML fixtures. |
+| `npm run test:golden-execution` | Serve fixed fixtures locally and execute `/audit` against them when the external visual engine is available. |
 | `npm run test:visual-engine` | Validate documented external visual engine readiness behavior. |
 | `npm run test:sample` | Run sample-site audit when external visual engine is available; otherwise report blocked dependency. |
 | `npm run test:figma-dry-run` | Run mock Figma renderer test when external visual engine is available; otherwise report blocked dependency. |
@@ -87,11 +96,11 @@ DesignIT URL input
 
 Reason:
 
-The controlled Phase 2 gate foundation is now in place: active-flow alignment, import-contract validation, workspace cleanup policy, external visual-engine readiness, Figma dry-run alignment, and golden sample definition validation. The next controlled patch should connect golden samples to real fixture/render outputs and then begin extractor/renderer quality improvements against measured failures.
+The controlled Phase 2 gate foundation is now stronger: active-flow alignment, import-contract validation, workspace cleanup policy, external visual-engine readiness, Figma dry-run alignment, golden sample definition validation, fixed HTML fixtures, and golden sample execution scaffolding are in place. The next controlled patch should use measured golden sample failures to improve the renderer or extractor narrowly.
 
 ## 7. Remaining Risks
 
-- Golden samples are defined and gated, but not yet rendered through a full sample execution loop.
+- Golden samples now execute through `/audit` only when the external visual engine is available.
 - The active renderer still may not handle dedicated input and vector icon primitives professionally.
 - Existing versioned payload files are still present and active behind the payload entry.
 - Duplicate renderer files are still present as cleanup candidates.
@@ -110,7 +119,7 @@ Phase Status:
 PARTIAL PASS
 
 Final Recommendation:
-CONTINUE PHASE 2 WITH GOLDEN SAMPLE EXECUTION + QUALITY FIXES
+CONTINUE PHASE 2 WITH MEASURED QUALITY FIXES
 
 Can Continue:
 YES
@@ -122,7 +131,9 @@ Completed Phase 2 Scope:
 - Added test-visual-engine-readiness.mjs.
 - Added test-import-contract.mjs.
 - Added tests/fixtures/designit-golden-samples.json.
-- Added test-golden-samples.mjs.
+- Added five fixed HTML golden fixtures under tests/fixtures/golden-html/.
+- Added test-golden-samples.mjs validation for definitions and linked fixtures.
+- Added test-golden-sample-execution.mjs to serve fixtures locally and execute RenderBridge /audit when external visual engine is available.
 - Updated test-clean-contract.mjs.
 - Updated test-sample-sites.mjs to be external-engine aware.
 - Updated test-figma-renderer-dry-run.mjs for the active production renderer.
@@ -150,6 +161,7 @@ Current Gate Commands:
 - npm run test:active-flow
 - npm run test:workspace-clean
 - npm run test:golden-samples
+- npm run test:golden-execution
 - npm run test:visual-engine
 - npm run test:sample
 - npm run test:figma-dry-run
@@ -169,11 +181,10 @@ Known Remaining Cleanup Candidates:
 - audit-v* / server.alpha.v* style files
 
 Next Recommended Phase 2 Scope:
-- Add real golden sample execution scaffolding without creating a new pipeline.
-- Add fixed HTML fixtures only if they are directly consumed by the golden sample gate.
-- Connect golden sample expectations to render/audit output when external visual engine is available.
-- Start quality fixes only after measured golden sample failures are available.
-- Prioritize input primitive and icon/vector handling after golden sample execution exists.
+- Run the golden execution gate with the external visual engine available.
+- Use the measured failures from fixed fixtures to select the first narrow quality fix.
+- Prioritize dedicated input primitive handling and vector/icon handling only if the golden samples identify those as blockers.
+- Keep raw HTML input deferred until URL fixture quality is measurable and stable.
 
 Forbidden Next Scope:
 - No renderer rewrite.
@@ -187,5 +198,5 @@ Forbidden Next Scope:
 - No unrelated RustApp/runtime changes.
 
 Prompt Continuation Request:
-Please continue Phase 2 by adding real golden sample execution scaffolding and fixed HTML fixtures that are directly consumed by the golden sample gate. Keep the same strict rules: no new versioned files, no legacy/archive/backup folders, no parallel implementation, no broad refactor, no unrelated runtime/app changes, and patch only the approved active flow.
+Please continue Phase 2 by using measured golden sample execution results to apply the smallest necessary quality fix to the approved active flow. Keep the same strict rules: no new versioned files, no legacy/archive/backup folders, no parallel implementation, no broad refactor, no unrelated runtime/app changes, and patch only the approved active flow.
 ```
