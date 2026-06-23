@@ -2,120 +2,83 @@
 
 ## 1. Executive Summary
 
-Phase 2 continued from the approved Phase 1 planning document and stayed inside the controlled development boundary. The work focused on making the current DesignIT import flow measurable before broad extractor or renderer quality work.
+Phase 2 is still in controlled development. The latest quality patch responds to the first real Figma import result, which showed that the pipeline could import but the output was not professionally usable yet.
 
-This phase did not perform a renderer rewrite, extractor rewrite, payload rewrite, plugin UI redesign, runtime application change, file deletion cleanup, mass rename from TranslateIT to DesignIT, or legacy/archive/backup folder creation.
+The main finding from the Figma test was clear: the blocker is no longer only service startup or dependency wiring. The active output was too noisy because the plugin rendered desktop plus responsive variants, many icon/image slices, and fallback rectangles. This made the result look like a cluttered visual dump instead of a clean editable desktop mockup.
 
-The active source-of-truth remains:
+The latest patch narrows the plugin default to one clean desktop frame first. Responsive variants remain available in the payload for later, but they are no longer rendered into Figma by default. No new pipeline was created.
+
+## 2. Active Source of Truth
 
 ```text
 DesignIT URL input
 -> plugin/ui-framework.html
 -> RenderBridge /render
--> capture-site.mjs
 -> external visual parser
 -> DOM/CSS extraction
 -> cloneModel
 -> figmaRenderPlan
 -> plugin/code-framework-production.js
--> editable Figma layers
+-> one clean editable desktop frame by default
 ```
 
-## 2. Scope Completed
+## 3. Latest Quality Patch
 
 | Area | Status | Notes |
 |---|---|---|
-| Active manifest contract | Completed | The contract gate now expects `code-framework-production.js` and `ui-framework.html`. |
-| Active flow gate | Completed | Added a current active-flow gate that verifies the approved DesignIT flow. |
-| Workspace cleanliness gate | Completed | Added a cleanup/no-orphan policy gate that reports known cleanup candidates without deleting them. |
-| External visual engine readiness gate | Completed | Added a readiness gate that documents and probes the required external visual engine behavior. |
-| Figma dry-run alignment | Completed | Updated dry-run expectations for the active production renderer. |
-| Sample-site gate | Completed | Made the sample-site gate external-engine aware instead of failing unexpectedly when OmniParser/UIED is missing. |
-| Regression gate | Completed | Strengthened regression checks around active manifest, active renderer, input mode, and contract. |
-| Import contract gate | Completed | Added a DesignIT import contract gate covering approved node types, required fields, validation rules, and active payload/render markers. |
-| Golden sample definition gate | Completed | Added five fixed professional benchmark sample definitions and a gate that validates their scoring and acceptance structure. |
-| Golden sample HTML fixtures | Completed | Added five fixed HTML fixtures directly linked from the golden sample definitions. |
-| Golden sample execution scaffolding | Completed | Added a local fixture server and `/audit` execution gate that measures fixtures when the external visual engine is available and reports a blocked dependency when it is not. |
-| Input primitive quality fix | Completed | Added narrow support for preserving HTML input/select/textarea elements as editable input layers through capture, design model, clone model, render plan, visual audit metrics, and the active production renderer. |
-| CI self-audit workflow | Completed | CI runs `npm test`, visual-engine, figma-dry-run, and regression gates. |
-| Renderer rewrite | Not performed | Only a narrow input primitive path was added to the active renderer. |
-| Extractor rewrite | Not performed | Only targeted input capture was added to the existing capture flow. |
-| Payload rewrite | Not performed | Versioned payload files remain temporarily until cleanup is separately approved. |
-| File deletion cleanup | Not performed | Cleanup candidates must be removed only after active reference checks. |
+| Desktop-only default render | Completed | The active plugin now renders one desktop frame by default. |
+| Responsive variant suppression | Completed | Responsive frames are no longer rendered unless explicitly enabled by policy. |
+| Diagnostic summary cleanup | Completed | Visible title/summary blocks are no longer added above the imported mockup by default. Summary data is kept in plugin data instead. |
+| Icon/image noise reduction | Completed | Small icon-like image layers are skipped by default to reduce layer noise. |
+| Missing image fallback reduction | Completed | Missing image fallbacks are skipped instead of producing gray/yellow placeholder clutter. |
+| Quality warning status | Completed | The plugin status now warns when fallback/errors are still high. |
+| Render policy metadata | Completed | `pluginRenderPolicy` is attached to the payload so the renderer behavior is explicit and testable. |
 
-## 3. Files Changed
+## 4. Files Changed in Latest Patch
 
 | File | Change Type | Reason |
 |---|---|---|
-| `RenderBridge/tests/test-clean-contract.mjs` | Updated | Replaced stale manifest expectations with the active DesignIT source of truth. |
-| `RenderBridge/tests/test-active-flow.mjs` | Created | Adds a direct gate for the approved active URL-to-Figma flow. |
-| `RenderBridge/tests/test-workspace-clean.mjs` | Created | Adds a cleanup/no-orphan gate without deleting existing cleanup candidates. |
-| `RenderBridge/tests/test-visual-engine-readiness.mjs` | Created | Adds an explicit external visual engine readiness gate. |
-| `RenderBridge/tests/test-sample-sites.mjs` | Updated | Makes sample-site audit external-engine aware. |
-| `RenderBridge/tests/test-figma-renderer-dry-run.mjs` | Updated | Aligns Figma dry-run assertions with the active production renderer. |
-| `RenderBridge/tests/test-regression-suite.mjs` | Updated | Strengthens regression checks around active source-of-truth. |
-| `RenderBridge/tests/test-import-contract.mjs` | Created | Adds the active DesignIT import contract gate. |
-| `RenderBridge/tests/fixtures/designit-golden-samples.json` | Updated | Defines five fixed professional benchmark samples and links each sample to a fixed HTML fixture. |
-| `RenderBridge/tests/fixtures/golden-html/simple-landing-page.html` | Created | Fixed HTML benchmark for landing page import quality. |
-| `RenderBridge/tests/fixtures/golden-html/dashboard-settings-page.html` | Created | Fixed HTML benchmark for dashboard/settings import quality. |
-| `RenderBridge/tests/fixtures/golden-html/card-grid.html` | Created | Fixed HTML benchmark for repeated card grid import quality. |
-| `RenderBridge/tests/fixtures/golden-html/form-input-page.html` | Created | Fixed HTML benchmark for form/input import quality. |
-| `RenderBridge/tests/fixtures/golden-html/navbar-content-section.html` | Created | Fixed HTML benchmark for navigation/content import quality. |
-| `RenderBridge/tests/test-golden-samples.mjs` | Updated | Validates golden sample definitions and confirms linked HTML fixtures are present and readable. |
-| `RenderBridge/tests/test-golden-sample-execution.mjs` | Created | Serves fixed fixtures locally and executes RenderBridge `/audit` against them when the external visual engine is available. |
-| `RenderBridge/package.json` | Updated | Adds `test:golden-execution` and includes it in `npm test`. |
-| `.github/workflows/translateit-renderbridge-self-audit.yml` | Updated | Runs `npm test`, visual-engine, figma-dry-run, and regression gates instead of stale version-marker gates. |
-| `RenderBridge/src/capture-site.mjs` | Updated | Captures `input`, `select`, and `textarea` elements as input roles with value, placeholder, and input type metadata. |
-| `RenderBridge/src/build-design-model.mjs` | Updated | Normalizes input elements into design-model input nodes and preserves field metadata. |
-| `RenderBridge/src/build-clone-model.mjs` | Updated | Preserves input layers in the clone model and exposes `inputLayers` diagnostics. |
-| `RenderBridge/src/build-figma-render-plan.mjs` | Updated | Carries input layers into the Figma render plan and exposes input diagnostics. |
-| `RenderBridge/src/visual-audit.mjs` | Updated | Adds input quality scoring and `inputLayers` metrics for golden execution checks. |
-| `plugin/code-framework-production.js` | Updated | Adds a narrow editable input field renderer without rewriting the renderer. |
-| `DesignIT_PHASE_2_CONTROLLED_DEVELOPMENT_REPORT.md` | Updated | Documents the expanded Phase 2 controlled development result and next handoff. |
+| `RenderBridge/src/build-final-payload.mjs` | Updated | Adds `pluginRenderPolicy` with desktop-only default and quality cleanup options. |
+| `plugin/code-framework-production.js` | Updated | Uses the policy to render one desktop frame, skip noisy icons, skip missing-image fallbacks, and avoid visible diagnostic summary clutter. |
+| `DesignIT_PHASE_2_CONTROLLED_DEVELOPMENT_REPORT.md` | Updated | Documents the real Figma import result and the corrective patch. |
 
-## 4. Important Notes
+## 5. Current Expected Result After Latest Patch
 
-- The project still contains stale/duplicate renderer files and versioned payload core files. They were not removed because cleanup must happen only after active reference checks pass.
-- The external visual engine remains required for real render-quality validation. If OmniParser/UIED is not running, sample, dry-run, and golden execution gates report a blocked external-engine status instead of failing with an unclear error.
-- Raw HTML input is still not implemented. It should remain deferred until the URL pipeline gates are stable.
-- During package script alignment, the dependency version for `pngjs` was accidentally changed and then immediately corrected back to `^7.0.0`. No dependency version change remains in the final package file.
-- The golden sample gate validates both benchmark definitions and linked fixture files. The golden execution gate can serve those fixtures locally and route them through the existing RenderBridge `/audit` flow without creating a new import pipeline.
-- The input primitive fix was intentionally narrow because the form/input golden fixture requires editable inputs. This was implemented through the existing active flow only.
+The next Figma import should no longer create side-by-side responsive frames. The expected output is:
 
-## 5. Current Test Strategy After This Phase
+```text
+DesignIT Import / timestamp
+└── Desktop Editable / DesignIT
+    ├── Header / section layers
+    ├── Hero / section layers
+    ├── Content / section layers
+    └── Footer / section layers
+```
 
-| Command | Purpose |
-|---|---|
-| `npm run test:imports` | Validate module imports. |
-| `npm run test:contract` | Validate active contract/source-of-truth markers. |
-| `npm run test:import-contract` | Validate the approved DesignIT node contract and active payload/render contract markers. |
-| `npm run test:active-flow` | Validate the approved DesignIT active flow. |
-| `npm run test:workspace-clean` | Detect active references to stale/legacy paths and report cleanup candidates. |
-| `npm run test:golden-samples` | Validate fixed professional golden sample definitions and linked HTML fixtures. |
-| `npm run test:golden-execution` | Serve fixed fixtures locally and execute `/audit` against them when the external visual engine is available. |
-| `npm run test:visual-engine` | Validate documented external visual engine readiness behavior. |
-| `npm run test:sample` | Run sample-site audit when external visual engine is available; otherwise report blocked dependency. |
-| `npm run test:figma-dry-run` | Run mock Figma renderer test when external visual engine is available; otherwise report blocked dependency. |
-| `npm run test:regression` | Protect active manifest, renderer, input mode, and contract assumptions. |
+The output may still not be production quality yet, but it should be less cluttered and easier to inspect. The next quality fixes should be based on the new desktop-only result.
 
-## 6. Phase 2 Status
+## 6. What This Patch Does Not Solve Yet
 
-**PARTIAL PASS**
+- It does not fully solve layout fidelity.
+- It does not fully solve visual-to-DOM matching.
+- It does not create a one-click background companion app yet.
+- It does not remove the need for RenderBridge and the external visual engine.
+- It does not implement raw HTML input.
+- It does not delete stale duplicate renderer files.
 
-Reason:
+## 7. Recommended Next Step
 
-The controlled Phase 2 foundation is now stronger: active-flow alignment, import-contract validation, workspace cleanup policy, external visual-engine readiness, Figma dry-run alignment, golden sample definition validation, fixed HTML fixtures, golden sample execution scaffolding, and narrow input primitive handling are in place. The next controlled patch should use actual golden execution results to improve vector/icon handling or another measured blocker.
+Pull the latest branch into the existing root only, restart RenderBridge, re-import the same URL in Figma, and compare the result.
 
-## 7. Remaining Risks
+Do not run more external setup commands until the desktop-only Figma output is reviewed.
 
-- Golden samples execute through `/audit` only when the external visual engine is available.
-- The active renderer still may not handle vector icon primitives professionally.
-- Existing versioned payload files are still present and active behind the payload entry.
-- Duplicate renderer files are still present as cleanup candidates.
-- Real quality validation still depends on an available external visual engine.
-- Raw HTML input is still planned but not active.
+## 8. Phase Status
 
-## 8. SYNC HANDOFF FOR NEXT PROMPT
+**PARTIAL PASS — QUALITY PATCH APPLIED, RE-TEST REQUIRED**
+
+The project is not finished. The latest patch is only a corrective step to make the output easier to evaluate and prevent the plugin from rendering responsive clutter by default.
+
+## 9. SYNC HANDOFF FOR NEXT PROMPT
 
 ```text
 SYNC HANDOFF FOR NEXT PROMPT
@@ -124,31 +87,16 @@ Current Phase:
 Phase 2 — DesignIT Controlled Development
 
 Phase Status:
-PARTIAL PASS
+PARTIAL PASS — QUALITY PATCH APPLIED, RE-TEST REQUIRED
 
-Final Recommendation:
-CONTINUE PHASE 2 WITH EXTERNAL-ENGINE RUN + MEASURED QUALITY FIXES
-
-Can Continue:
-YES
-
-Completed Phase 2 Scope:
-- Active manifest/test contract aligned with plugin/code-framework-production.js and plugin/ui-framework.html.
-- Added test-active-flow.mjs.
-- Added test-workspace-clean.mjs.
-- Added test-visual-engine-readiness.mjs.
-- Added test-import-contract.mjs.
-- Added tests/fixtures/designit-golden-samples.json.
-- Added five fixed HTML golden fixtures under tests/fixtures/golden-html/.
-- Added test-golden-samples.mjs validation for definitions and linked fixtures.
-- Added test-golden-sample-execution.mjs to serve fixtures locally and execute RenderBridge /audit when external visual engine is available.
-- Added narrow editable input primitive support through capture-site, design model, clone model, render plan, visual audit metrics, and active production renderer.
-- Updated test-clean-contract.mjs.
-- Updated test-sample-sites.mjs to be external-engine aware.
-- Updated test-figma-renderer-dry-run.mjs for the active production renderer.
-- Updated test-regression-suite.mjs to protect active source-of-truth assumptions.
-- Updated package.json scripts to remove active test:v2 usage and add current gates.
-- Updated CI workflow to run npm test, visual-engine, figma-dry-run, and regression gates.
+Latest Commit Scope:
+- Added pluginRenderPolicy in RenderBridge/src/build-final-payload.mjs.
+- Updated plugin/code-framework-production.js to render desktop-only by default.
+- Disabled responsive variant rendering by default.
+- Removed visible diagnostic title/summary blocks from the Figma canvas by default.
+- Added skip policy for noisy icon-like image layers.
+- Added skip policy for missing-image fallbacks.
+- Added user-facing quality warning when fallback/errors remain high.
 
 Current Active Source of Truth:
 - Product/plugin name: DesignIT
@@ -157,55 +105,24 @@ Current Active Source of Truth:
 - Plugin UI: plugin/ui-framework.html
 - Plugin renderer: plugin/code-framework-production.js
 - RenderBridge server: RenderBridge/server.mjs
-- Browser capture: RenderBridge/src/capture-site.mjs
-- DOM/CSS extraction: capture-site.mjs and extract-layout-dom-faithful.mjs
 - Payload entry: RenderBridge/src/build-payload.mjs
+- Final payload policy: RenderBridge/src/build-final-payload.mjs
 - Figma render plan: RenderBridge/src/build-figma-render-plan.mjs
-- CI workflow: .github/workflows/translateit-renderbridge-self-audit.yml
 
-Current Gate Commands:
-- npm run test:imports
-- npm run test:contract
-- npm run test:import-contract
-- npm run test:active-flow
-- npm run test:workspace-clean
-- npm run test:golden-samples
-- npm run test:golden-execution
-- npm run test:visual-engine
-- npm run test:sample
-- npm run test:figma-dry-run
-- npm run test:regression
-
-Known Remaining Cleanup Candidates:
-- plugin/code.js
-- plugin/code-visual-backed.js
-- plugin/code-native-editable.js
-- plugin/code-framework-editable.js
-- plugin/ui.html
-- RenderBridge/src/build-payload-core-v3.mjs
-- RenderBridge/src/build-payload-core-v4.mjs
-- RenderBridge/src/build-payload-core-v5.mjs
-- RenderBridge/src/professionalize-clone-model-v2.mjs
-- RenderBridge/tests/test-v2-markers.mjs
-- audit-v* / server.alpha.v* style files
-
-Next Recommended Phase 2 Scope:
-- Run the golden execution gate with the external visual engine available.
-- Use measured fixture failures to select the next narrow quality fix.
-- Prioritize vector/icon handling only if the golden samples identify it as a blocker.
-- Keep raw HTML input deferred until URL fixture quality is measurable and stable.
+Next Required User Test:
+- Pull latest branch into existing Version 0.1 root only.
+- Restart RenderBridge.
+- Re-import https://www.mivubi.com/ in Figma.
+- Confirm whether output is now one desktop frame only.
+- Provide screenshot of the new Figma layer tree and canvas.
 
 Forbidden Next Scope:
-- No full renderer rewrite.
-- No extractor rewrite before measured failures.
-- No new pipeline.
+- No new worktree.
+- No clone.
+- No root folder creation.
 - No broad refactor.
-- No mass rename from TranslateIT to DesignIT.
-- No deletion before active reference checks.
-- No v1/v2/v3/v4/v5 new files.
-- No legacy/archive/backup/old/deprecated folders.
+- No full renderer rewrite.
+- No extractor rewrite before reviewing the new desktop-only output.
+- No deletion of project files.
 - No unrelated RustApp/runtime changes.
-
-Prompt Continuation Request:
-Please continue Phase 2 by running the golden execution gate with the external visual engine available, then use the measured failures to apply the smallest necessary quality fix to the approved active flow. Keep the same strict rules: no new versioned files, no legacy/archive/backup folders, no parallel implementation, no broad refactor, no unrelated runtime/app changes, and patch only the approved active flow.
 ```
