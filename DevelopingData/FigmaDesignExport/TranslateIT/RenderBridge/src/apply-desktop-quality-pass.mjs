@@ -78,7 +78,8 @@ function normalizeGroup(group, frameBounds, seen, counters) {
     keptAbs.push({ child, abs });
   }
   if (!keptAbs.length) return null;
-  const nextRect = bbox(keptAbs.map((item) => ({ rect: item.abs })));
+  const preserveSourceBounds = group.layout?.enabled === true;
+  const nextRect = preserveSourceBounds ? groupRect : bbox(keptAbs.map((item) => ({ rect: item.abs })));
   const nextChildren = keptAbs.map(({ child, abs }) => ({
     ...child,
     rect: { x: Math.round(abs.x - nextRect.x), y: Math.round(abs.y - nextRect.y), w: abs.w, h: abs.h }
@@ -90,6 +91,7 @@ function normalizeGroup(group, frameBounds, seen, counters) {
     diagnostics: {
       ...(group.diagnostics || {}),
       desktopQualityPass: true,
+      sourceBoundsPreserved: preserveSourceBounds,
       layersBefore: list(group.children).length,
       layersAfter: nextChildren.length,
       removedLayers: removed.length
