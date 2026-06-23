@@ -47,6 +47,7 @@ const files = {
   capture: read(path.join(root, 'src', 'capture-site.mjs')),
   payloadEntry: read(path.join(root, 'src', 'build-payload.mjs')),
   finalPayload: read(path.join(root, 'src', 'build-final-payload.mjs')),
+  desktopQualityPass: read(path.join(root, 'src', 'apply-desktop-quality-pass.mjs')),
   figmaRenderPlan: read(path.join(root, 'src', 'build-figma-render-plan.mjs')),
   renderer: read(activeRendererPath),
   ui: read(activeUiPath)
@@ -59,6 +60,7 @@ if (manifest.editorType && !manifest.editorType.includes('figma')) failures.push
 if (pkg.scripts?.start !== 'node server.mjs') failures.push('npm start must use server.mjs');
 if (!pkg.scripts?.['test:active-flow']) failures.push('package.json missing test:active-flow script');
 if (!pkg.scripts?.['test:workspace-clean']) failures.push('package.json missing test:workspace-clean script');
+if (!pkg.scripts?.['test:desktop-quality']) failures.push('package.json missing test:desktop-quality script');
 if (pkg.scripts?.['test:v2']) failures.push('package.json must not keep test:v2 as an active script');
 
 for (const marker of ['TranslateIT Clean RenderBridge running', '/health', '/render', '/audit']) must('server', files.server, marker);
@@ -67,7 +69,8 @@ for (const marker of ['translateit-core', 'alpha-clean-1', 'Version 0.1 - Alpha'
 for (const marker of ['activeRenderer: \'plugin/code-framework-production.js\'', 'userFacingInput: \'url-link\'', 'contract: \'cloneModel\'', 'external-visual-engine-required']) must('health', files.health, marker);
 for (const marker of ['chromium', 'stabilizePage', 'document.fonts', 'getComputedStyle', 'getBoundingClientRect', 'page.screenshot']) must('capture', files.capture, marker);
 for (const marker of ['build-payload-core-v5.mjs']) must('payloadEntry', files.payloadEntry, marker);
-for (const marker of ['buildBasePayload', 'applyLayerNamePass', 'finalizePluginRenderPlan', 'applyImageFitPlan', 'payload.figmaRenderPlan']) must('finalPayload', files.finalPayload, marker);
+for (const marker of ['buildBasePayload', 'applyLayerNamePass', 'finalizePluginRenderPlan', 'applyImageFitPlan', 'applyDesktopQualityPass', 'payload.figmaRenderPlan']) must('finalPayload', files.finalPayload, marker);
+for (const marker of ['desktopQualityPass', 'duplicate-layer', 'tiny-noise', 'off-frame']) must('desktopQualityPass', files.desktopQualityPass, marker);
 for (const marker of ['buildFigmaRenderPlan', 'frames', 'groups', 'textLayers', 'imageLayers', 'componentButtons']) must('figmaRenderPlan', files.figmaRenderPlan, marker);
 for (const marker of ['figma.showUI', 'import-design-model', 'figmaRenderPlan', 'createText', 'createRectangle', 'createImage', 'Import complete']) must('renderer', files.renderer, marker);
 for (const marker of ['Import Website to Figma', 'http://127.0.0.1:8844', '/health', '/render?url=', 'import-design-model', 'Payload JSON files are internal reports only']) must('ui', files.ui, marker);
@@ -95,7 +98,7 @@ const report = {
     input: 'url-link',
     server: 'server.mjs',
     routes: ['/health', '/render', '/audit'],
-    payloadContract: 'cloneModel + figmaRenderPlan',
+    payloadContract: 'cloneModel + figmaRenderPlan + desktopQualityPass',
     renderer: manifest.main || null,
     ui: manifest.ui || null
   },
