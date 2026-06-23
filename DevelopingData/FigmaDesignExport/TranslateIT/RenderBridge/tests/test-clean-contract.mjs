@@ -67,16 +67,19 @@ for (const marker of ['translateit-core', 'alpha-clean-1', 'Version 0.1 - Alpha'
 for (const marker of ['activeRenderer: \'plugin/code-framework-production.js\'', 'userFacingInput: \'url-link\'', 'contract: \'cloneModel\'', 'external-visual-engine-required']) must('health', files.health, marker);
 for (const marker of ['chromium', 'stabilizePage', 'document.fonts', 'getComputedStyle', 'getBoundingClientRect', 'page.screenshot']) must('capture', files.capture, marker);
 for (const marker of ['build-payload-core-v5.mjs']) must('payloadEntry', files.payloadEntry, marker);
-for (const marker of ['applyLayerNamePass', 'finalizePluginRenderPlan', 'applyImageFitPlan']) must('finalPayload', files.finalPayload, marker);
+for (const marker of ['buildBasePayload', 'applyLayerNamePass', 'finalizePluginRenderPlan', 'applyImageFitPlan', 'payload.figmaRenderPlan']) must('finalPayload', files.finalPayload, marker);
 for (const marker of ['buildFigmaRenderPlan', 'frames', 'groups', 'textLayers', 'imageLayers', 'componentButtons']) must('figmaRenderPlan', files.figmaRenderPlan, marker);
 for (const marker of ['figma.showUI', 'import-design-model', 'figmaRenderPlan', 'createText', 'createRectangle', 'createImage', 'Import complete']) must('renderer', files.renderer, marker);
-for (const marker of ['Import Website to Figma', 'http://127.0.0.1:8844', '/health', '/render?url=', 'import-design-model']) must('ui', files.ui, marker);
+for (const marker of ['Import Website to Figma', 'http://127.0.0.1:8844', '/health', '/render?url=', 'import-design-model', 'Payload JSON files are internal reports only']) must('ui', files.ui, marker);
 
 mustNot('active renderer', files.renderer, 'Visual-Backed Editable Clone');
-mustNot('active ui', files.ui, 'manual payload JSON import');
+mustNot('active ui', files.ui, '<textarea');
+mustNot('active ui', files.ui, 'manualJsonPayload');
+mustNot('active ui', files.ui, 'load-payload-json');
 
 if (manifest.name && !/TranslateIT|DesignIT/i.test(manifest.name)) warnings.push(`manifest name does not mention TranslateIT or DesignIT: ${manifest.name}`);
 if (manifest.id && !/translateit|designit/i.test(manifest.id)) warnings.push(`manifest id does not mention TranslateIT or DesignIT: ${manifest.id}`);
+if (String(files.ui || '').includes('No manual payload JSON import is needed')) warnings.push('UI explicitly explains that manual payload JSON import is not part of the active flow.');
 
 const report = {
   gate: 'designit-active-contract',
