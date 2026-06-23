@@ -1,0 +1,61 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>DesignIT Golden Sample - Simple Landing Page</title>
+  <style>
+    * { box-sizing: border-box; }
+    body { margin: 0; font-family: Inter, Arial, sans-serif; color: #111827; background: #f8fafc; }
+    header { height: 88px; display: flex; align-items: center; justify-content: space-between; padding: 0 72px; background: #ffffff; border-bottom: 1px solid #e5e7eb; }
+    .brand { font-size: 24px; font-weight: 800; }
+    nav { display: flex; gap: 28px; font-size: 15px; font-weight: 600; color: #334155; }
+    .hero { display: grid; grid-template-columns: 1fr 520px; gap: 56px; align-items: center; min-height: 620px; padding: 76px 72px; background: linear-gradient(135deg, #ffffff, #eef2ff); }
+    .eyebrow { font-size: 14px; font-weight: 800; color: #4f46e5; letter-spacing: .08em; text-transform: uppercase; }
+    h1 { margin: 12px 0 20px; font-size: 64px; line-height: 1.02; letter-spacing: -0.04em; }
+    .lead { font-size: 20px; line-height: 1.6; color: #475569; max-width: 620px; }
+    .actions { display: flex; gap: 16px; margin-top: 32px; }
+    .button { display: inline-flex; align-items: center; justify-content: center; height: 48px; padding: 0 22px; border-radius: 999px; font-weight: 800; text-decoration: none; }
+    .primary { color: #ffffff; background: #111827; }
+    .secondary { color: #111827; background: #ffffff; border: 1px solid #cbd5e1; }
+    .media-card { background: #ffffff; border: 1px solid #e5e7eb; border-radius: 28px; box-shadow: 0 24px 70px rgba(15, 23, 42, .16); padding: 22px; }
+    .media-card img { width: 100%; height: 360px; object-fit: cover; border-radius: 20px; display: block; }
+    .features { display: grid; grid-template-columns: repeat(3, 1fr); gap: 24px; padding: 64px 72px; background: #ffffff; }
+    .feature { border: 1px solid #e5e7eb; border-radius: 20px; padding: 24px; background: #ffffff; }
+    .feature h2 { margin: 0 0 8px; font-size: 22px; }
+    .feature p { margin: 0; color: #64748b; line-height: 1.5; }
+    footer { padding: 40px 72px; display: flex; justify-content: space-between; background: #111827; color: #ffffff; }
+  </style>
+</head>
+<body>
+  <header data-section="Header">
+    <div class="brand">DesignIT</div>
+    <nav aria-label="Main navigation">
+      <span>Product</span><span>Workflow</span><span>Pricing</span><span>Docs</span>
+    </nav>
+    <a class="button secondary" href="#">Book demo</a>
+  </header>
+  <main>
+    <section class="hero" data-section="Hero">
+      <div>
+        <p class="eyebrow">Website to Figma</p>
+        <h1>Turn live pages into editable design layers.</h1>
+        <p class="lead">DesignIT imports rendered websites into Figma as organized text, images, buttons, cards, and sections that designers can actually edit.</p>
+        <div class="actions">
+          <a class="button primary" href="#">Start import</a>
+          <a class="button secondary" href="#">View sample</a>
+        </div>
+      </div>
+      <div class="media-card">
+        <img alt="DesignIT product preview" src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='900' height='620'%3E%3Crect width='900' height='620' fill='%234f46e5'/%3E%3Crect x='90' y='90' width='720' height='440' rx='32' fill='%23ffffff' opacity='.95'/%3E%3Crect x='140' y='150' width='280' height='34' rx='17' fill='%23111827'/%3E%3Crect x='140' y='220' width='620' height='24' rx='12' fill='%23c7d2fe'/%3E%3Crect x='140' y='270' width='520' height='24' rx='12' fill='%23ddd6fe'/%3E%3Crect x='140' y='350' width='180' height='54' rx='27' fill='%23111827'/%3E%3C/svg%3E">
+      </div>
+    </section>
+    <section class="features" data-section="Content">
+      <article class="feature"><h2>Editable text</h2><p>Headings, labels, and body copy remain editable after import.</p></article>
+      <article class="feature"><h2>Clean hierarchy</h2><p>Layers are grouped by section, role, and component intent.</p></article>
+      <article class="feature"><h2>Image handling</h2><p>Media assets are preserved as Figma image fills where possible.</p></article>
+    </section>
+  </main>
+  <footer data-section="Footer"><strong>DesignIT</strong><span>Professional import benchmark fixture.</span></footer>
+</body>
+</html>
