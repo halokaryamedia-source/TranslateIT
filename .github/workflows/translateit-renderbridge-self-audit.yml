@@ -46,7 +46,7 @@ jobs:
       - name: Run self-audit without early stop
         run: |
           set +e
-          echo '{"gate":"translateit-ci-self-audit","steps":[]}' > reports-ci-results.json
+          echo '{"gate":"designit-ci-self-audit","steps":[]}' > reports-ci-results.json
 
           run_step () {
             local name="$1"
@@ -61,7 +61,9 @@ jobs:
 
           run_step "imports" npm run test:imports
           run_step "contract" npm run test:contract
-          run_step "v2" npm run test:v2
+          run_step "active-flow" npm run test:active-flow
+          run_step "workspace-clean" npm run test:workspace-clean
+          run_step "visual-engine" npm run test:visual-engine
           run_step "mivubi-sample" node ./tests/test-sample-sites.mjs https://www.mivubi.com/
           run_step "figma-dry-run" node ./tests/test-figma-renderer-dry-run.mjs https://www.mivubi.com/
           run_step "regression" npm run test:regression
