@@ -1,156 +1,67 @@
 {
   "schema": "designit-golden-samples",
   "minimumPassScore": 80,
+  "fixtureRoot": "tests/fixtures/golden-html",
   "samples": [
     {
       "id": "simple-landing-page",
       "name": "Simple landing page",
       "purpose": "Validate hero, navigation, call-to-action, media, section backgrounds, and footer structure.",
       "sourceType": "html-fixture",
+      "fixture": "simple-landing-page.html",
       "requiredSections": ["Header", "Hero", "Content", "Footer"],
-      "minimums": {
-        "editableText": 8,
-        "editableImages": 1,
-        "editableButtons": 1,
-        "editableInputs": 0,
-        "cards": 0,
-        "sections": 4
-      },
+      "minimums": { "editableText": 8, "editableImages": 1, "editableButtons": 1, "editableInputs": 0, "cards": 0, "sections": 4 },
       "requiredGrouping": ["Header", "Hero", "Content", "Footer"],
-      "failureConditions": [
-        "Main output is screenshot-only.",
-        "Hero title is not editable text.",
-        "Primary CTA is not editable.",
-        "Major sections are not grouped."
-      ],
-      "scoring": {
-        "textPreservation": 20,
-        "layoutAccuracy": 20,
-        "layerCleanliness": 20,
-        "componentEditability": 20,
-        "assetHandling": 10,
-        "garbageLayerControl": 10
-      }
+      "failureConditions": ["Main output is screenshot-only.", "Hero title is not editable text.", "Primary CTA is not editable.", "Major sections are not grouped."],
+      "scoring": { "textPreservation": 20, "layoutAccuracy": 20, "layerCleanliness": 20, "componentEditability": 20, "assetHandling": 10, "garbageLayerControl": 10 }
     },
     {
       "id": "dashboard-settings-page",
       "name": "Dashboard/settings page",
       "purpose": "Validate dense UI reconstruction with sidebar, topbar, settings sections, cards, rows, buttons, and toggles.",
       "sourceType": "html-fixture",
+      "fixture": "dashboard-settings-page.html",
       "requiredSections": ["Sidebar", "Topbar", "Settings", "Cards"],
-      "minimums": {
-        "editableText": 20,
-        "editableImages": 0,
-        "editableButtons": 2,
-        "editableInputs": 2,
-        "cards": 4,
-        "sections": 4
-      },
+      "minimums": { "editableText": 20, "editableImages": 0, "editableButtons": 2, "editableInputs": 2, "cards": 4, "sections": 4 },
       "requiredGrouping": ["Sidebar", "Topbar", "Settings Sections", "Cards"],
-      "failureConditions": [
-        "Sidebar labels are not editable text.",
-        "Settings rows are flattened into one image.",
-        "Buttons or toggles are not editable.",
-        "Layer hierarchy is too noisy for designer use."
-      ],
-      "scoring": {
-        "textPreservation": 20,
-        "layoutAccuracy": 20,
-        "layerCleanliness": 20,
-        "componentEditability": 20,
-        "assetHandling": 10,
-        "garbageLayerControl": 10
-      }
+      "failureConditions": ["Sidebar labels are not editable text.", "Settings rows are flattened into one image.", "Buttons or toggles are not editable.", "Layer hierarchy is too noisy for designer use."],
+      "scoring": { "textPreservation": 20, "layoutAccuracy": 20, "layerCleanliness": 20, "componentEditability": 20, "assetHandling": 10, "garbageLayerControl": 10 }
     },
     {
       "id": "card-grid",
       "name": "Card grid",
       "purpose": "Validate repeated card structures with consistent grouping, titles, body text, optional images, and actions.",
       "sourceType": "html-fixture",
+      "fixture": "card-grid.html",
       "requiredSections": ["Header", "Grid", "Card"],
-      "minimums": {
-        "editableText": 18,
-        "editableImages": 3,
-        "editableButtons": 3,
-        "editableInputs": 0,
-        "cards": 6,
-        "sections": 2
-      },
+      "minimums": { "editableText": 18, "editableImages": 3, "editableButtons": 3, "editableInputs": 0, "cards": 6, "sections": 2 },
       "requiredGrouping": ["Section", "Grid", "Card Groups"],
-      "failureConditions": [
-        "Repeated cards are not grouped consistently.",
-        "Card text is duplicated by parent containers.",
-        "Images are missing or flattened into background-only output.",
-        "Card order is not stable."
-      ],
-      "scoring": {
-        "textPreservation": 20,
-        "layoutAccuracy": 20,
-        "layerCleanliness": 20,
-        "componentEditability": 20,
-        "assetHandling": 10,
-        "garbageLayerControl": 10
-      }
+      "failureConditions": ["Repeated cards are not grouped consistently.", "Card text is duplicated by parent containers.", "Images are missing or flattened into background-only output.", "Card order is not stable."],
+      "scoring": { "textPreservation": 20, "layoutAccuracy": 20, "layerCleanliness": 20, "componentEditability": 20, "assetHandling": 10, "garbageLayerControl": 10 }
     },
     {
       "id": "form-input-page",
       "name": "Form/input page",
       "purpose": "Validate labels, input fields, placeholders, helper text, validation text, and action buttons.",
       "sourceType": "html-fixture",
+      "fixture": "form-input-page.html",
       "requiredSections": ["Form", "Fields", "Actions"],
-      "minimums": {
-        "editableText": 12,
-        "editableImages": 0,
-        "editableButtons": 1,
-        "editableInputs": 4,
-        "cards": 1,
-        "sections": 2
-      },
+      "minimums": { "editableText": 12, "editableImages": 0, "editableButtons": 1, "editableInputs": 4, "cards": 1, "sections": 2 },
       "requiredGrouping": ["Form Container", "Fields", "Actions"],
-      "failureConditions": [
-        "Input fields are only rectangles without labels or placeholders.",
-        "Form labels are not editable text.",
-        "Primary action button is not editable.",
-        "Fields are not grouped under the form container."
-      ],
-      "scoring": {
-        "textPreservation": 20,
-        "layoutAccuracy": 20,
-        "layerCleanliness": 20,
-        "componentEditability": 20,
-        "assetHandling": 10,
-        "garbageLayerControl": 10
-      }
+      "failureConditions": ["Input fields are only rectangles without labels or placeholders.", "Form labels are not editable text.", "Primary action button is not editable.", "Fields are not grouped under the form container."],
+      "scoring": { "textPreservation": 20, "layoutAccuracy": 20, "layerCleanliness": 20, "componentEditability": 20, "assetHandling": 10, "garbageLayerControl": 10 }
     },
     {
       "id": "navbar-content-section",
       "name": "Navbar + content section",
       "purpose": "Validate navigation, structured content, headings, body copy, CTA, and mixed media layout.",
       "sourceType": "html-fixture",
+      "fixture": "navbar-content-section.html",
       "requiredSections": ["Header", "Navigation", "Content", "CTA"],
-      "minimums": {
-        "editableText": 10,
-        "editableImages": 1,
-        "editableButtons": 1,
-        "editableInputs": 0,
-        "cards": 0,
-        "sections": 3
-      },
+      "minimums": { "editableText": 10, "editableImages": 1, "editableButtons": 1, "editableInputs": 0, "cards": 0, "sections": 3 },
       "requiredGrouping": ["Header/Nav", "Content Section", "CTA Group"],
-      "failureConditions": [
-        "Navigation items are not editable text.",
-        "CTA is not editable.",
-        "Content heading or body copy is missing.",
-        "Header and content are not separated into clear sections."
-      ],
-      "scoring": {
-        "textPreservation": 20,
-        "layoutAccuracy": 20,
-        "layerCleanliness": 20,
-        "componentEditability": 20,
-        "assetHandling": 10,
-        "garbageLayerControl": 10
-      }
+      "failureConditions": ["Navigation items are not editable text.", "CTA is not editable.", "Content heading or body copy is missing.", "Header and content are not separated into clear sections."],
+      "scoring": { "textPreservation": 20, "layoutAccuracy": 20, "layerCleanliness": 20, "componentEditability": 20, "assetHandling": 10, "garbageLayerControl": 10 }
     }
   ]
 }
