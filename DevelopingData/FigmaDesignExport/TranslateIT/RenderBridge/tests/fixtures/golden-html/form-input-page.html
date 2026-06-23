@@ -1,0 +1,53 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>DesignIT Golden Sample - Form Input Page</title>
+  <style>
+    * { box-sizing: border-box; }
+    body { margin: 0; font-family: Inter, Arial, sans-serif; color: #111827; background: linear-gradient(135deg, #eef2ff, #f8fafc); }
+    .page { min-height: 940px; display: grid; grid-template-columns: 1fr 560px; gap: 64px; align-items: center; padding: 80px; }
+    .copy { max-width: 620px; }
+    .eyebrow { color: #2563eb; font-weight: 900; text-transform: uppercase; letter-spacing: .1em; font-size: 13px; }
+    h1 { font-size: 58px; line-height: 1.04; margin: 12px 0 20px; letter-spacing: -0.04em; }
+    .lead { color: #475569; font-size: 19px; line-height: 1.6; }
+    .benefits { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin-top: 28px; }
+    .benefit { padding: 16px; border-radius: 16px; background: #ffffff; border: 1px solid #e5e7eb; font-weight: 700; }
+    .form-card { background: #ffffff; border: 1px solid #e5e7eb; border-radius: 28px; padding: 32px; box-shadow: 0 26px 80px rgba(15, 23, 42, .16); }
+    .form-card h2 { font-size: 28px; margin: 0 0 6px; }
+    .helper { color: #667085; margin: 0 0 24px; line-height: 1.5; }
+    .field { display: flex; flex-direction: column; gap: 8px; margin-bottom: 18px; }
+    label { font-size: 13px; font-weight: 800; color: #344054; }
+    input, select, textarea { width: 100%; border: 1px solid #d0d5dd; border-radius: 14px; padding: 0 14px; font-size: 15px; color: #111827; background: #ffffff; }
+    input, select { height: 48px; }
+    textarea { min-height: 92px; padding-top: 14px; resize: none; }
+    .validation { font-size: 12px; color: #b42318; margin-top: -8px; margin-bottom: 14px; }
+    .actions { display: flex; align-items: center; gap: 14px; margin-top: 24px; }
+    .button { height: 48px; display: inline-flex; align-items: center; justify-content: center; border-radius: 999px; padding: 0 22px; font-weight: 900; border: 0; }
+    .primary { color: #ffffff; background: #111827; }
+    .secondary { color: #111827; background: #f1f5f9; }
+  </style>
+</head>
+<body>
+  <main class="page">
+    <section class="copy" data-section="Content">
+      <p class="eyebrow">Form benchmark</p>
+      <h1>Editable inputs, labels, placeholders, and action buttons.</h1>
+      <p class="lead">This golden fixture checks if DesignIT can preserve a professional form layout as real editable Figma layers, not a flat screenshot.</p>
+      <div class="benefits"><div class="benefit">Labels stay editable</div><div class="benefit">Inputs are grouped</div><div class="benefit">Buttons are real components</div><div class="benefit">Validation text is preserved</div></div>
+    </section>
+    <section class="form-card" data-section="Form">
+      <h2>Start an import project</h2>
+      <p class="helper">Use these fields to define a website reconstruction benchmark.</p>
+      <div class="field"><label for="project">Project name</label><input id="project" placeholder="DesignIT landing import" value="DesignIT landing import"></div>
+      <div class="field"><label for="url">Website URL</label><input id="url" placeholder="https://example.com" value="https://www.mivubi.com"></div>
+      <div class="field"><label for="viewport">Viewport size</label><select id="viewport"><option>1440 x 1600</option><option>1280 x 900</option></select></div>
+      <div class="field"><label for="quality">Quality target</label><input id="quality" placeholder="80" value="80"></div>
+      <div class="field"><label for="notes">Import notes</label><textarea id="notes" placeholder="Describe expected sections and components">Preserve header, hero, cards, buttons, and form fields.</textarea></div>
+      <div class="validation">Quality target must be at least 80 for professional approval.</div>
+      <div class="actions"><button class="button primary">Create benchmark</button><button class="button secondary">Save draft</button></div>
+    </section>
+  </main>
+</body>
+</html>
