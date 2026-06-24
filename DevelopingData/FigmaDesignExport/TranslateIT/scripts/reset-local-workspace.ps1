@@ -1,7 +1,8 @@
 param(
   [string]$WorkspaceRoot,
   [switch]$RemoveScattered,
-  [switch]$CleanGenerated
+  [switch]$CleanGenerated,
+  [switch]$CleanDesignITWorkspace
 )
 
 $ErrorActionPreference = 'Stop'
@@ -15,6 +16,7 @@ $TranslateItRoot = Resolve-Path (Join-Path $ScriptDir '..')
 if (-not $WorkspaceRoot) { $WorkspaceRoot = Resolve-Path (Join-Path $TranslateItRoot '..') }
 $WorkspaceRoot = [System.IO.Path]::GetFullPath($WorkspaceRoot)
 $TranslateItRoot = [System.IO.Path]::GetFullPath($TranslateItRoot)
+$RepoRoot = Resolve-Path (Join-Path $TranslateItRoot '..\..\..')
 
 $ExternalRoot = Join-Path $WorkspaceRoot '_external'
 $RuntimeRoot = Join-Path $WorkspaceRoot '_runtime'
@@ -24,19 +26,23 @@ $OldOmniWindows = 'D:' + '\Tools' + '\OmniParser'
 $RenderBridgeReports = Join-Path $TranslateItRoot 'RenderBridge\reports'
 
 Step 'Workspace target'
+Info "RepoRoot      : $RepoRoot"
 Info "WorkspaceRoot : $WorkspaceRoot"
-Info "TranslateIT    : $TranslateItRoot"
+Info "DesignIT root : $TranslateItRoot"
 Info "ExternalRoot   : $ExternalRoot"
 Info "RuntimeRoot    : $RuntimeRoot"
 Info "ReportsRoot    : $ReportsRoot"
 
-Step 'Create workspace folders'
-New-Item -ItemType Directory -Force -Path $ExternalRoot, $RuntimeRoot, $ReportsRoot | Out-Null
+Step 'Create runtime folders when needed'
+if (-not $CleanGenerated) {
+  New-Item -ItemType Directory -Force -Path $ExternalRoot, $RuntimeRoot, $ReportsRoot | Out-Null
+}
 
 Step 'Consolidate Windows OmniParser folder'
 if ((Test-Path $OldOmniWindows) -and -not (Test-Path $OmniTarget)) {
+  New-Item -ItemType Directory -Force -Path $ExternalRoot | Out-Null
   Move-Item -Path $OldOmniWindows -Destination $OmniTarget
-  Info "Moved external parser folder into workspace."
+  Info 'Moved external parser folder into workspace.'
 } elseif ((Test-Path $OldOmniWindows) -and (Test-Path $OmniTarget) -and $RemoveScattered) {
   Remove-IfExists $OldOmniWindows
 } elseif (Test-Path $OldOmniWindows) {
@@ -55,5 +61,38 @@ if ($CleanGenerated) {
   New-Item -ItemType Directory -Force -Path $ReportsRoot, $RuntimeRoot | Out-Null
 }
 
+if ($CleanDesignITWorkspace) {
+  Step 'Clean obsolete visible workspace files and folders'
+  $obsoletePaths = @(
+    (Join-Path $TranslateItRoot 'BuildPackage'),
+    (Join-Path $TranslateItRoot 'Samples'),
+    (Join-Path $TranslateItRoot 'Tools'),
+    (Join-Path $TranslateItRoot 'Start-TranslateIT-OneTerminal.ps1'),
+    (Join-Path $TranslateItRoot 'WORKFLOW.md'),
+    (Join-Path $TranslateItRoot 'README.md'),
+    (Join-Path $TranslateItRoot 'figma-component-map.json'),
+    (Join-Path $TranslateItRoot 'figma-export.manifest.json'),
+    (Join-Path $TranslateItRoot 'figma-icon-map.json'),
+    (Join-Path $TranslateItRoot 'figma-page-map.json'),
+    (Join-Path $TranslateItRoot 'figma-tokens.json'),
+    (Join-Path $TranslateItRoot 'DesignIT_PHASE_1_PROFESSIONAL_PLAN.md'),
+    (Join-Path $TranslateItRoot 'DesignIT_PHASE_2_CONTROLLED_DEVELOPMENT_REPORT.md'),
+    (Join-Path $WorkspaceRoot '_reports'),
+    (Join-Path $WorkspaceRoot '_runtime')
+  )
+
+  foreach ($path in $obsoletePaths) {
+    Remove-IfExists $path
+  }
+
+  $oldDesktopShortcuts = @(
+    (Join-Path ([Environment]::GetFolderPath('Desktop')) 'DesignIT Start.lnk'),
+    (Join-Path ([Environment]::GetFolderPath('Desktop')) 'DesignIT Stop.lnk')
+  )
+  foreach ($shortcut in $oldDesktopShortcuts) {
+    Remove-IfExists $shortcut
+  }
+}
+
 Step 'Done'
-Info 'All TranslateIT work files should stay under DevelopingData\FigmaDesignExport.'
+Info 'Visible DesignIT workspace should now focus on docs, plugin, RenderBridge, and scripts.'
