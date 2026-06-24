@@ -114,7 +114,7 @@ def role_from_text(text: str):
         return 'button'
     if 'text' in t or 'ocr' in t:
         return 'text'
-    if 'icon' in t or 'image' in t or 'picture':
+    if 'icon' in t or 'image' in t or 'picture' in t:
         return 'image'
     if 'input' in t or 'field' in t:
         return 'input'
