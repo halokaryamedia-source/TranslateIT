@@ -16,16 +16,17 @@ function ToWslPath($WindowsPath) {
 
 $ScriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
 $TranslateItRoot = Resolve-Path (Join-Path $ScriptDir '..')
-$WorkspaceRoot = Resolve-Path (Join-Path $TranslateItRoot '..')
-$WorkspaceWsl = ToWslPath $WorkspaceRoot
+$RepoRoot = Resolve-Path (Join-Path $TranslateItRoot '..\..\..')
+$DesignItDataRoot = Join-Path $RepoRoot 'UserData\CacheData\DesignIT'
+$DesignItDataWsl = ToWslPath $DesignItDataRoot
 
 $bash = @"
 set -e
-WORKSPACE='$WorkspaceWsl'
-OMNI_DIR="`$WORKSPACE/_external/OmniParser"
+DESIGNIT_DATA='$DesignItDataWsl'
+OMNI_DIR="`$DESIGNIT_DATA/_external/OmniParser"
 PORT='$Port'
 
-mkdir -p "`$WORKSPACE/_external" "`$WORKSPACE/_runtime" "`$WORKSPACE/_reports"
+mkdir -p "`$DESIGNIT_DATA/_external" "`$DESIGNIT_DATA/_runtime" "`$DESIGNIT_DATA/_reports"
 
 if [ ! -d "`$OMNI_DIR/.git" ]; then
   if [ -d "`$HOME/OmniParser/.git" ]; then
@@ -47,7 +48,7 @@ conda activate omni
 
 python -m pip install -U fastapi uvicorn pydantic pillow >/dev/null
 
-cat > translateit_parse_server.py <<'PY'
+cat > designit_parse_server.py <<'PY'
 import base64
 import io
 from typing import Optional, Any
@@ -60,12 +61,12 @@ import uvicorn
 
 from util.utils import check_ocr_box, get_yolo_model, get_caption_model_processor, get_som_labeled_img
 
-print('[TranslateIT] Loading OmniParser full models...')
+print('[DesignIT] Loading OmniParser full models...')
 yolo_model = get_yolo_model(model_path='weights/icon_detect/model.pt')
 caption_model_processor = get_caption_model_processor(model_name='florence2', model_name_or_path='weights/icon_caption_florence')
-print('[TranslateIT] Models loaded.')
+print('[DesignIT] Models loaded.')
 
-app = FastAPI(title='TranslateIT OmniParser Parse Server')
+app = FastAPI(title='DesignIT OmniParser Parse Server')
 app.add_middleware(CORSMiddleware, allow_origins=['*'], allow_methods=['*'], allow_headers=['*'])
 
 class ParseRequest(BaseModel):
@@ -113,7 +114,7 @@ def role_from_text(text: str):
         return 'button'
     if 'text' in t or 'ocr' in t:
         return 'text'
-    if 'icon' in t or 'image' in t or 'picture' in t:
+    if 'icon' in t or 'image' in t or 'picture':
         return 'image'
     if 'input' in t or 'field' in t:
         return 'input'
@@ -156,7 +157,7 @@ def parse(req: ParseRequest):
         ocr_text, ocr_bbox = ocr_bbox_rslt
         labeled_img_b64, label_coordinates, parsed_content_list = get_som_labeled_img(image, yolo_model, BOX_TRESHOLD=float(req.box_threshold), output_coord_in_ratio=True, ocr_bbox=ocr_bbox, draw_bbox_config=draw_bbox_config, caption_model_processor=caption_model_processor, ocr_text=ocr_text, iou_threshold=float(req.iou_threshold), imgsz=int(req.imgsz))
         regions = normalize_regions(label_coordinates, parsed_content_list, width, height)
-        return {'ok': True, 'engine': 'omniparser-full', 'source': 'translateit-parse-server', 'title': req.title, 'url': req.url, 'image': {'width': width, 'height': height}, 'regions': regions, 'raw': {'label_coordinates': label_coordinates, 'parsed_content_list': parsed_content_list}, 'labeled_image_base64': labeled_img_b64, 'diagnostics': {'regions': len(regions), 'rawItems': len(parsed_content_list) if isinstance(parsed_content_list, list) else 0}}
+        return {'ok': True, 'engine': 'omniparser-full', 'source': 'designit-parse-server', 'title': req.title, 'url': req.url, 'image': {'width': width, 'height': height}, 'regions': regions, 'raw': {'label_coordinates': label_coordinates, 'parsed_content_list': parsed_content_list}, 'labeled_image_base64': labeled_img_b64, 'diagnostics': {'regions': len(regions), 'rawItems': len(parsed_content_list) if isinstance(parsed_content_list, list) else 0}}
     except Exception as e:
         return {'ok': False, 'engine': 'omniparser-full', 'error': str(e)}
 
@@ -166,7 +167,7 @@ PY
 
 python - <<'PY'
 from pathlib import Path
-p = Path('translateit_parse_server.py')
+p = Path('designit_parse_server.py')
 p.write_text(p.read_text(errors='ignore').replace('\r\n', '\n').replace('\r', '\n'))
 print('Server file:', p.resolve())
 PY
@@ -176,10 +177,7 @@ export PATH="`$CUDA_HOME/bin:`$PATH"
 export LD_LIBRARY_PATH="`$CUDA_HOME/lib:`$CUDA_HOME/lib64:`$CONDA_PREFIX/lib:`$LD_LIBRARY_PATH"
 
 fuser -k "`$PORT/tcp" || true
-python -c "from pathlib import Path; p=Path('translateit_parse_server.py'); exec(compile(p.read_text(errors='ignore').replace(chr(13), ''), str(p), 'exec'))"
+python -c "from pathlib import Path; p=Path('designit_parse_server.py'); exec(compile(p.read_text(errors='ignore').replace(chr(13), ''), str(p), 'exec'))"
 "@
 
-$bash = $bash -replace "`r", ''
-$encoded = [Convert]::ToBase64String([Text.Encoding]::UTF8.GetBytes($bash))
-Step 'Starting OmniParser in WSL from workspace path'
-wsl.exe bash -lc "printf '%s' '$encoded' | base64 -d > /tmp/translateit_start_omni.sh && bash /tmp/translateit_start_omni.sh"
+wsl.exe bash -lc $bash
