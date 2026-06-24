@@ -48,6 +48,7 @@ const files = {
   payloadEntry: read(path.join(root, 'src', 'build-payload.mjs')),
   finalPayload: read(path.join(root, 'src', 'build-final-payload.mjs')),
   desktopQualityPass: read(path.join(root, 'src', 'apply-desktop-quality-pass.mjs')),
+  visualBackplatePass: read(path.join(root, 'src', 'apply-visual-backplate-pass.mjs')),
   figmaRenderPlan: read(path.join(root, 'src', 'build-figma-render-plan.mjs')),
   renderer: read(activeRendererPath),
   ui: read(activeUiPath)
@@ -69,13 +70,13 @@ for (const marker of ['translateit-core', 'alpha-clean-1', 'Version 0.1 - Alpha'
 for (const marker of ['activeRenderer: \'plugin/code-framework-production.js\'', 'userFacingInput: \'url-link\'', 'contract: \'cloneModel\'', 'external-visual-engine-required']) must('health', files.health, marker);
 for (const marker of ['chromium', 'stabilizePage', 'document.fonts', 'getComputedStyle', 'getBoundingClientRect', 'page.screenshot']) must('capture', files.capture, marker);
 for (const marker of ['build-payload-core-v5.mjs']) must('payloadEntry', files.payloadEntry, marker);
-for (const marker of ['buildBasePayload', 'applyLayerNamePass', 'finalizePluginRenderPlan', 'applyImageFitPlan', 'applyDesktopQualityPass', 'payload.figmaRenderPlan']) must('finalPayload', files.finalPayload, marker);
+for (const marker of ['buildBasePayload', 'applyLayerNamePass', 'finalizePluginRenderPlan', 'applyImageFitPlan', 'applyDesktopQualityPass', 'applyVisualBackplatePass', 'payload.figmaRenderPlan']) must('finalPayload', files.finalPayload, marker);
 for (const marker of ['desktopQualityPass', 'duplicate-layer', 'tiny-noise', 'off-frame']) must('desktopQualityPass', files.desktopQualityPass, marker);
+for (const marker of ['visualBackplate', 'designit-visual-backplate-full-page', 'screenshot-backed-editable-overlay']) must('visualBackplatePass', files.visualBackplatePass, marker);
 for (const marker of ['buildFigmaRenderPlan', 'frames', 'groups', 'textLayers', 'imageLayers', 'componentButtons']) must('figmaRenderPlan', files.figmaRenderPlan, marker);
-for (const marker of ['figma.showUI', 'import-design-model', 'figmaRenderPlan', 'createText', 'createRectangle', 'createImage', 'Import complete']) must('renderer', files.renderer, marker);
+for (const marker of ['figma.showUI', 'import-design-model', 'figmaRenderPlan', 'createText', 'createRectangle', 'createImage', 'Import complete', 'renderVisualBackplate']) must('renderer', files.renderer, marker);
 for (const marker of ['Import Website to Figma', 'http://127.0.0.1:8844', '/health', '/render?url=', 'import-design-model', 'Payload JSON files are internal reports only']) must('ui', files.ui, marker);
 
-mustNot('active renderer', files.renderer, 'Visual-Backed Editable Clone');
 mustNot('active ui', files.ui, '<textarea');
 mustNot('active ui', files.ui, 'manualJsonPayload');
 mustNot('active ui', files.ui, 'load-payload-json');
@@ -98,7 +99,7 @@ const report = {
     input: 'url-link',
     server: 'server.mjs',
     routes: ['/health', '/render', '/audit'],
-    payloadContract: 'cloneModel + figmaRenderPlan + desktopQualityPass',
+    payloadContract: 'cloneModel + figmaRenderPlan + desktopQualityPass + visualBackplate',
     renderer: manifest.main || null,
     ui: manifest.ui || null
   },
