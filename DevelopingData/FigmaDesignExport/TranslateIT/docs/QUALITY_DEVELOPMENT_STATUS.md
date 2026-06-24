@@ -2,7 +2,7 @@
 
 ## Current Focus
 
-DesignIT is in a quality-first phase. Launcher usability is now only supporting infrastructure; the primary blocker is output quality.
+DesignIT is in a quality-first phase. Launcher usability is now supporting infrastructure; the primary blocker is output quality and workspace cleanliness.
 
 Target:
 
@@ -35,6 +35,7 @@ DevelopingData/FigmaDesignExport/TranslateIT/plugin/code-framework-production.js
 DevelopingData/FigmaDesignExport/TranslateIT/RenderBridge/server.mjs
 DevelopingData/FigmaDesignExport/TranslateIT/RenderBridge/src/build-final-payload.mjs
 DevelopingData/FigmaDesignExport/TranslateIT/RenderBridge/src/apply-desktop-quality-pass.mjs
+DevelopingData/FigmaDesignExport/TranslateIT/RenderBridge/src/apply-visual-backplate-pass.mjs
 DevelopingData/FigmaDesignExport/TranslateIT/scripts/designit-start.ps1
 DevelopingData/FigmaDesignExport/TranslateIT/scripts/designit-stop.ps1
 DevelopingData/FigmaDesignExport/TranslateIT/scripts/start-omni-wsl.ps1
@@ -52,14 +53,16 @@ Completed:
 - desktop quality pass
 - section order cleanup
 - duplicate/off-frame/tiny-noise cleanup
+- screenshot visual backplate pass
+- plugin renderer support for locked visual reference backplate
 - quality score surfaced in plugin UI
 
 Still not solved:
 
-- overall Figma visual fidelity
-- image placement fidelity
-- DOM-to-visual matching
-- clean editable hierarchy comparable to a professional Figma design
+- professional editable hierarchy comparable to hand-made Figma
+- perfect DOM-to-visual matching
+- perfect image placement fidelity without the backplate
+- detailed component reconstruction
 
 ## Clean Workspace Policy
 
@@ -73,9 +76,19 @@ DevelopingData/FigmaDesignExport/TranslateIT/
   scripts/
 ```
 
+Runtime/generated data should move out of the visible development workspace and stay under:
+
+```text
+UserData/CacheData/DesignIT/
+UserData/LogData/DesignIT/
+```
+
 Old generated or legacy folders/files should be removed locally:
 
 ```text
+DevelopingData/FigmaDesignExport/_external/
+DevelopingData/FigmaDesignExport/_runtime/
+DevelopingData/FigmaDesignExport/_reports/
 BuildPackage/
 Samples/
 Tools/
