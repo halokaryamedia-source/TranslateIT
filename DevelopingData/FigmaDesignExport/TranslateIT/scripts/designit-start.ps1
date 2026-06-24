@@ -63,11 +63,11 @@ function Start-DesignItService($Name, $Command, $StdOut, $StdErr) {
 $ScriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
 $TranslateItRoot = Resolve-Path (Join-Path $ScriptDir '..')
 $WorkspaceRoot = Resolve-Path (Join-Path $TranslateItRoot '..')
+$RepoRoot = Resolve-Path (Join-Path $TranslateItRoot '..\..\..')
 $RenderBridgeDir = Join-Path $TranslateItRoot 'RenderBridge'
 $OmniStart = Join-Path $ScriptDir 'start-omni-wsl.ps1'
 $OmniHealth = $OmniEndpoint -replace '/parse$', '/health'
-$RuntimeDir = Join-Path $WorkspaceRoot '_runtime\designit-local-engine'
-$LogDir = Join-Path $RuntimeDir 'logs'
+$LogDir = Join-Path $RepoRoot 'UserData\LogData\DesignIT\local-engine'
 New-Item -ItemType Directory -Force -Path $LogDir | Out-Null
 
 $OmniOut = Join-Path $LogDir 'omniparser.stdout.log'
@@ -76,8 +76,9 @@ $BridgeOut = Join-Path $LogDir 'renderbridge.stdout.log'
 $BridgeErr = Join-Path $LogDir 'renderbridge.stderr.log'
 
 Step 'DesignIT one-click local engine launcher'
-Info "TranslateIT root: $TranslateItRoot"
+Info "DesignIT root:    $TranslateItRoot"
 Info "Workspace root:   $WorkspaceRoot"
+Info "Repo root:        $RepoRoot"
 Info "RenderBridge:     $RenderBridgeDir"
 Info "Omni endpoint:    $OmniEndpoint"
 Info "Logs:             $LogDir"
