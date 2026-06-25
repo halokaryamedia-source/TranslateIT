@@ -61,13 +61,13 @@ function Start-DesignItService($Name, $Command, $StdOut, $StdErr) {
 }
 
 $ScriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
-$DesignItRoot = Resolve-Path (Join-Path $ScriptDir '..')
-$WorkspaceRoot = Resolve-Path (Join-Path $DesignItRoot '..')
-$RepoRoot = $DesignItRoot
-$RenderBridgeDir = Join-Path $DesignItRoot 'RenderBridge'
+$TranslateItRoot = Resolve-Path (Join-Path $ScriptDir '..')
+$WorkspaceRoot = Resolve-Path (Join-Path $TranslateItRoot '..')
+$RenderBridgeDir = Join-Path $TranslateItRoot 'RenderBridge'
 $OmniStart = Join-Path $ScriptDir 'start-omni-wsl.ps1'
 $OmniHealth = $OmniEndpoint -replace '/parse$', '/health'
-$LogDir = Join-Path $DesignItRoot 'RuntimeData\logs'
+$RuntimeDir = Join-Path $WorkspaceRoot '_runtime\designit-local-engine'
+$LogDir = Join-Path $RuntimeDir 'logs'
 New-Item -ItemType Directory -Force -Path $LogDir | Out-Null
 
 $OmniOut = Join-Path $LogDir 'omniparser.stdout.log'
@@ -76,9 +76,8 @@ $BridgeOut = Join-Path $LogDir 'renderbridge.stdout.log'
 $BridgeErr = Join-Path $LogDir 'renderbridge.stderr.log'
 
 Step 'DesignIT one-click local engine launcher'
-Info "DesignIT root:    $DesignItRoot"
+Info "DesignIT root: $TranslateItRoot"
 Info "Workspace root:   $WorkspaceRoot"
-Info "Repo root:        $RepoRoot"
 Info "RenderBridge:     $RenderBridgeDir"
 Info "Omni endpoint:    $OmniEndpoint"
 Info "Logs:             $LogDir"
@@ -146,6 +145,4 @@ if ($omniReady) {
 
 Write-Host "`nDesignIT launcher finished. Local engine services are running in the background." -ForegroundColor Green
 Write-Host "Logs: $LogDir" -ForegroundColor Green
-
-
 
