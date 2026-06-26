@@ -1,4 +1,4 @@
-import { captureSite } from './capture-site.mjs';
+﻿import { captureSite } from './capture-site.mjs';
 import { extractLayoutDomFaithful } from './extract-layout-dom-faithful.mjs';
 import { buildDesignModel } from './build-design-model.mjs';
 import { promoteSurfaceEffects } from './promote-surface-effects.mjs';
@@ -54,8 +54,18 @@ export async function buildPayload(targetUrl) {
   const visualComparePlan = await buildVisualComparePlan({ source: capture.source });
   const fontMetricPlan = await buildFontMetricPlan(cloneModel);
   const productionExportManifest = buildProductionExportManifest({ cloneModel, figmaRenderPlan, figmaAutoLayoutPlan, imageAssetProcessingPlan });
-  const payload = ok({ source: Object.assign({}, capture.source, { screenshot: capture.source.screenshot }), visualModel, visualIntentModel, layoutIntentModel, figmaRenderPlan, figmaAutoLayoutPlan, imageAssetProcessingPlan, visualComparePlan, fontMetricPlan, productionExportManifest, designModel: matched.model, cloneModel, designBlueprint, diagnostics: { capture: cap(capture), externalVisualParser: { status: externalVisualParser.status, parser: externalVisualParser.parser, attempts: externalVisualParser.attempts || [], reason: externalVisualParser.reason || null }, visualIntentModel: visualIntentModel.diagnostics, layoutIntentModel: layoutIntentModel.diagnostics, figmaRenderPlan: figmaRenderPlan.diagnostics, figmaAutoLayoutPlan: figmaAutoLayoutPlan.diagnostics, imageAssetProcessingPlan: imageAssetProcessingPlan.diagnostics, visualComparePlan: visualComparePlan.diagnostics, fontMetricPlan: fontMetricPlan.diagnostics, productionExportManifest: productionExportManifest.summary, visualModel: visualModel.diagnostics, visualMatching: matched.diagnostics, layout: layout.stats, model: matched.model.diagnostics || designModel.diagnostics, cloneModel: cloneModel.diagnostics, designBlueprint: designBlueprint.diagnostics, professionalLayerTree: cloneModel.professionalLayerTree || null, nativeUsefulness: nativeUsefulness({ layout, layoutIntentModel, figmaRenderPlan, figmaAutoLayoutPlan, imageAssetProcessingPlan, visualComparePlan, fontMetricPlan, designModel, cloneModel, productionExportManifest }) } });
+  const payload = ok({ source: Object.assign({}, capture.source, {
+      screenshot: capture.source.screenshot,
+      rawElements: capture.rawElements,
+      /* DESIGNIT_ACTIVE_CORE_V4_SOURCE_TRUTH_16D_F */
+      sourceTruth: capture.sourceTruth || capture.source?.sourceTruth || null,
+      rawMediaSourceTruth: capture.rawMediaSourceTruth || capture.source?.rawMediaSourceTruth || null,
+      backgroundMediaSourceTruth: capture.backgroundMediaSourceTruth || capture.source?.backgroundMediaSourceTruth || null,
+      textSourceTruth: capture.textSourceTruth || capture.source?.textSourceTruth || null,
+      controlSourceTruth: capture.controlSourceTruth || capture.source?.controlSourceTruth || null
+    }), visualModel, visualIntentModel, layoutIntentModel, figmaRenderPlan, figmaAutoLayoutPlan, imageAssetProcessingPlan, visualComparePlan, fontMetricPlan, productionExportManifest, designModel: matched.model, cloneModel, designBlueprint, diagnostics: { capture: cap(capture), externalVisualParser: { status: externalVisualParser.status, parser: externalVisualParser.parser, attempts: externalVisualParser.attempts || [], reason: externalVisualParser.reason || null }, visualIntentModel: visualIntentModel.diagnostics, layoutIntentModel: layoutIntentModel.diagnostics, figmaRenderPlan: figmaRenderPlan.diagnostics, figmaAutoLayoutPlan: figmaAutoLayoutPlan.diagnostics, imageAssetProcessingPlan: imageAssetProcessingPlan.diagnostics, visualComparePlan: visualComparePlan.diagnostics, fontMetricPlan: fontMetricPlan.diagnostics, productionExportManifest: productionExportManifest.summary, visualModel: visualModel.diagnostics, visualMatching: matched.diagnostics, layout: layout.stats, model: matched.model.diagnostics || designModel.diagnostics, cloneModel: cloneModel.diagnostics, designBlueprint: designBlueprint.diagnostics, professionalLayerTree: cloneModel.professionalLayerTree || null, nativeUsefulness: nativeUsefulness({ layout, layoutIntentModel, figmaRenderPlan, figmaAutoLayoutPlan, imageAssetProcessingPlan, visualComparePlan, fontMetricPlan, designModel, cloneModel, productionExportManifest }) } });
   const failures = assertCleanPayload(payload);
   if (failures.length) throw new Error('Clean contract failed: ' + failures.join(', '));
   return payload;
 }
+

@@ -110,7 +110,48 @@ export async function buildPayload(targetUrl) {
     cloneModel,
     designBlueprint,
     diagnostics: {
-      capture: { rawElements: capture.rawElements.length, assets: capture.assets.length, backgroundAssets: capture.assets.filter((asset) => asset.kind === 'background-image').length, iconAssets: capture.assets.filter((asset) => ['vector-image','svg-icon','logo-icon','icon-image'].includes(asset.kind)).length, componentSliceCount: capture.source.captureDiagnostics?.componentSliceCount || 0, stabilization: capture.source.captureDiagnostics || null, screenshot: { width: capture.source.screenshot?.width || 0, height: capture.source.screenshot?.height || 0, pageHeight: capture.source.pageHeight || 0, viewport: capture.source.viewport || null } },
+      capture: {     /* DESIGNIT_RESPONSE_SOURCE_TRUTH_16D_C */
+    sourceTruth: (() => {
+      try {
+        const item = capture;
+        return item && item.sourceTruth ? item.sourceTruth : null;
+      } catch {
+        return null;
+      }
+    })(),
+    rawMediaSourceTruth: (() => {
+      try {
+        const item = capture;
+        return item && item.rawMediaSourceTruth ? item.rawMediaSourceTruth : null;
+      } catch {
+        return null;
+      }
+    })(),
+    backgroundMediaSourceTruth: (() => {
+      try {
+        const item = capture;
+        return item && item.backgroundMediaSourceTruth ? item.backgroundMediaSourceTruth : null;
+      } catch {
+        return null;
+      }
+    })(),
+    textSourceTruth: (() => {
+      try {
+        const item = capture;
+        return item && item.textSourceTruth ? item.textSourceTruth : null;
+      } catch {
+        return null;
+      }
+    })(),
+    controlSourceTruth: (() => {
+      try {
+        const item = capture;
+        return item && item.controlSourceTruth ? item.controlSourceTruth : null;
+      } catch {
+        return null;
+      }
+    })(),
+    rawElements: capture.rawElements.length, assets: capture.assets.length, backgroundAssets: capture.assets.filter((asset) => asset.kind === 'background-image').length, iconAssets: capture.assets.filter((asset) => ['vector-image','svg-icon','logo-icon','icon-image'].includes(asset.kind)).length, componentSliceCount: capture.source.captureDiagnostics?.componentSliceCount || 0, stabilization: capture.source.captureDiagnostics || null, screenshot: { width: capture.source.screenshot?.width || 0, height: capture.source.screenshot?.height || 0, pageHeight: capture.source.pageHeight || 0, viewport: capture.source.viewport || null } },
       externalVisualParser: { status: externalVisualParser.status, parser: externalVisualParser.parser, attempts: externalVisualParser.attempts || [], reason: externalVisualParser.reason || null },
       visualIntentModel: visualIntentModel.diagnostics,
       layoutIntentModel: layoutIntentModel.diagnostics,

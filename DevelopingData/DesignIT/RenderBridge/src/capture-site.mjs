@@ -130,7 +130,279 @@ export async function captureSite(inputUrl, options = {}) {
     captureDiagnostics.iconAssetCount = iconAssets.length;
     captureDiagnostics.backgroundAssetCount = backgroundAssets.length;
     captureDiagnostics.componentSliceCount = componentAssets.length;
-    return { source: { url, finalUrl: raw.finalUrl, title: raw.title, viewport: raw.viewport, pageHeight: raw.pageHeight, screenshot, captureDiagnostics }, rawElements: raw.elements, assets: imageAssets.concat(iconAssets).concat(backgroundAssets).concat(componentAssets) };
+    
+  /* DESIGNIT_CAPTURE_SOURCE_TRUTH_16D_B */
+  const designit16dSourceTruth = await page.evaluate(() => {
+    function cleanText(value) {
+      return String(value || "").replace(/\s+/g, " ").trim();
+    }
+
+    function absUrl(value) {
+      try {
+        if (!value) return "";
+        return new URL(value, location.href).href;
+      } catch {
+        return String(value || "");
+      }
+    }
+
+    function rectOf(el) {
+      const r = el.getBoundingClientRect();
+      return {
+        x: Math.round(r.x),
+        y: Math.round(r.y),
+        width: Math.round(r.width),
+        height: Math.round(r.height),
+        top: Math.round(r.top),
+        left: Math.round(r.left),
+        right: Math.round(r.right),
+        bottom: Math.round(r.bottom)
+      };
+    }
+
+    function visibleRect(rect) {
+      return rect && rect.width > 1 && rect.height > 1 && rect.bottom >= 0 && rect.right >= 0;
+    }
+
+    function cssEscapeSafe(value) {
+      try {
+        if (window.CSS && CSS.escape) return CSS.escape(String(value));
+      } catch {}
+      return String(value || "").replace(/[^a-zA-Z0-9_-]/g, "\\$&");
+    }
+
+    function selectorOf(el) {
+      if (!el || el.nodeType !== 1) return "";
+      const parts = [];
+      let node = el;
+
+      while (node && node.nodeType === 1 && node !== document.documentElement) {
+        let part = node.tagName.toLowerCase();
+
+        if (node.id) {
+          part += "#" + cssEscapeSafe(node.id);
+          parts.unshift(part);
+          break;
+        }
+
+        const classes = Array.from(node.classList || []).slice(0, 4);
+        if (classes.length) part += "." + classes.map(cssEscapeSafe).join(".");
+
+        const parent = node.parentElement;
+        if (parent) {
+          const sameTag = Array.from(parent.children).filter((item) => item.tagName === node.tagName);
+          if (sameTag.length > 1) part += ":nth-of-type(" + (sameTag.indexOf(node) + 1) + ")";
+        }
+
+        parts.unshift(part);
+        node = parent;
+      }
+
+      return parts.join(" > ");
+    }
+
+    function cssUrls(value) {
+      const result = [];
+      const text = String(value || "");
+      const rx = /url\((['"]?)(.*?)\1\)/gi;
+      let m;
+      while ((m = rx.exec(text))) {
+        if (m[2]) result.push(absUrl(m[2]));
+      }
+      return result;
+    }
+
+    const rawMedia = [];
+    const backgroundMedia = [];
+    const textBoxes = [];
+    const controls = [];
+    const landmarks = [];
+
+    const elements = Array.from(document.querySelectorAll("*")).slice(0, 8000);
+
+    for (let index = 0; index < elements.length; index++) {
+      const el = elements[index];
+      const tag = el.tagName.toLowerCase();
+      const style = getComputedStyle(el);
+      const rect = rectOf(el);
+
+      if (!visibleRect(rect)) continue;
+      if (style.display === "none" || style.visibility === "hidden" || Number(style.opacity || 1) <= 0.01) continue;
+
+      const selector = selectorOf(el);
+      const role = el.getAttribute("role") || "";
+      const aria = el.getAttribute("aria-label") || "";
+      const title = el.getAttribute("title") || "";
+      const alt = el.getAttribute("alt") || "";
+
+      if (["header", "main", "footer", "nav", "section", "article", "aside"].includes(tag) || role) {
+        landmarks.push({ tag, role, aria, selector, rect });
+      }
+
+      if (tag === "img") {
+        rawMedia.push({
+          kind: "img",
+          tag,
+          elementIndex: index,
+          selector,
+          rect,
+          currentSrc: el.currentSrc || "",
+          src: absUrl(el.getAttribute("src") || ""),
+          rawSrc: el.getAttribute("src") || "",
+          srcset: el.getAttribute("srcset") || "",
+          sizes: el.getAttribute("sizes") || "",
+          alt,
+          title,
+          loading: el.getAttribute("loading") || "",
+          decoding: el.getAttribute("decoding") || "",
+          objectFit: style.objectFit,
+          objectPosition: style.objectPosition,
+          naturalWidth: el.naturalWidth || 0,
+          naturalHeight: el.naturalHeight || 0
+        });
+      }
+
+      if (tag === "source") {
+        rawMedia.push({
+          kind: "source",
+          tag,
+          elementIndex: index,
+          selector,
+          rect,
+          src: absUrl(el.getAttribute("src") || ""),
+          rawSrc: el.getAttribute("src") || "",
+          srcset: el.getAttribute("srcset") || "",
+          media: el.getAttribute("media") || "",
+          type: el.getAttribute("type") || ""
+        });
+      }
+
+      if (tag === "video") {
+        rawMedia.push({
+          kind: "video",
+          tag,
+          elementIndex: index,
+          selector,
+          rect,
+          currentSrc: el.currentSrc || "",
+          src: absUrl(el.getAttribute("src") || ""),
+          rawSrc: el.getAttribute("src") || "",
+          poster: absUrl(el.getAttribute("poster") || ""),
+          controls: el.hasAttribute("controls")
+        });
+      }
+
+      if (tag === "svg") {
+        rawMedia.push({
+          kind: "svg-inline",
+          tag,
+          elementIndex: index,
+          selector,
+          rect,
+          aria,
+          title,
+          text: cleanText(el.textContent).slice(0, 300)
+        });
+      }
+
+      if (tag === "canvas") {
+        rawMedia.push({ kind: "canvas", tag, elementIndex: index, selector, rect, aria, title });
+      }
+
+      if (style.backgroundImage && style.backgroundImage !== "none") {
+        backgroundMedia.push({
+          kind: "css-background",
+          tag,
+          elementIndex: index,
+          selector,
+          rect,
+          urls: cssUrls(style.backgroundImage),
+          backgroundImage: style.backgroundImage,
+          backgroundSize: style.backgroundSize,
+          backgroundPosition: style.backgroundPosition,
+          backgroundRepeat: style.backgroundRepeat,
+          backgroundColor: style.backgroundColor
+        });
+      }
+
+      const directText = cleanText(Array.from(el.childNodes)
+        .filter((node) => node.nodeType === Node.TEXT_NODE)
+        .map((node) => node.textContent)
+        .join(" "));
+
+      const fullText = cleanText(el.textContent);
+      const isTextTag = /^(h1|h2|h3|h4|h5|h6|p|span|strong|em|small|label|li|blockquote)$/i.test(tag);
+      const looksLikeText = directText.length > 0 && directText.length <= 500;
+
+      if ((isTextTag || looksLikeText) && directText) {
+        textBoxes.push({
+          tag,
+          elementIndex: index,
+          selector,
+          rect,
+          text: directText,
+          fullText: fullText.slice(0, 800),
+          fontFamily: style.fontFamily,
+          fontSize: style.fontSize,
+          fontWeight: style.fontWeight,
+          lineHeight: style.lineHeight,
+          color: style.color,
+          textAlign: style.textAlign
+        });
+      }
+
+      const controlText = cleanText(el.innerText || el.textContent).slice(0, 180);
+      const href = el.getAttribute("href") || "";
+      const isButtonLike = tag === "button" || tag === "a" || role === "button";
+      const isArrow = /next|prev|previous|arrow|slide|carousel|→|←|›|‹|»|«/i.test([aria, title, controlText].join(" "));
+
+      if (isButtonLike || isArrow) {
+        controls.push({
+          tag,
+          role,
+          elementIndex: index,
+          selector,
+          rect,
+          text: controlText,
+          aria,
+          title,
+          href: absUrl(href),
+          isArrow
+        });
+      }
+    }
+
+    return {
+      marker: "DESIGNIT_CAPTURE_SOURCE_TRUTH_16D_B",
+      url: location.href,
+      title: document.title,
+      viewport: {
+        width: window.innerWidth,
+        height: window.innerHeight,
+        devicePixelRatio: window.devicePixelRatio
+      },
+      counts: {
+        rawMedia: rawMedia.length,
+        backgroundMedia: backgroundMedia.length,
+        textBoxes: textBoxes.length,
+        controls: controls.length,
+        landmarks: landmarks.length
+      },
+      rawMedia,
+      backgroundMedia,
+      textBoxes,
+      controls,
+      landmarks
+    };
+  });
+  /* END DESIGNIT_CAPTURE_SOURCE_TRUTH_16D_B */
+
+return { source: { url, finalUrl: raw.finalUrl, title: raw.title, viewport: raw.viewport, pageHeight: raw.pageHeight, screenshot, captureDiagnostics }, sourceTruth: designit16dSourceTruth,
+    rawMediaSourceTruth: designit16dSourceTruth.rawMedia,
+    backgroundMediaSourceTruth: designit16dSourceTruth.backgroundMedia,
+    textSourceTruth: designit16dSourceTruth.textBoxes,
+    controlSourceTruth: designit16dSourceTruth.controls,
+    rawElements: raw.elements, assets: imageAssets.concat(iconAssets).concat(backgroundAssets).concat(componentAssets) };
   } finally {
     await page.close().catch(() => {});
   }

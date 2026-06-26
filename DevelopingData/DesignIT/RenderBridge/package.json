@@ -25,14 +25,40 @@
     "test:sample": "node ./tests/test-sample-sites.mjs",
     "test:regression": "node ./tests/test-regression-suite.mjs",
     "install-browser": "playwright install chromium",
-    "test:desktop-quality": "node ./tests/test-desktop-quality-pass.mjs"
+    "test:desktop-quality": "node ./tests/test-desktop-quality-pass.mjs",
+    "designit:debug": "node src/debug/designit-debug-server.mjs"
   },
   "dependencies": {
+    "@axe-core/playwright": "^4.12.1",
+    "@napi-rs/canvas": "^1.0.1",
+    "@playwright/test": "^1.61.1",
+    "@techstark/opencv-js": "^5.0.0-release.1",
+    "axe-core": "^4.12.1",
+    "cheerio": "^1.2.0",
+    "css-select": "^7.0.0",
+    "css-tree": "^3.2.1",
+    "domhandler": "^6.0.1",
+    "domutils": "^4.0.2",
+    "express": "^5.2.1",
+    "htmlparser2": "^12.0.0",
+    "jsdom": "^29.1.1",
+    "lightningcss": "^1.32.0",
+    "onnxruntime-node": "^1.27.0",
     "opentype.js": "^1.3.4",
-    "pixelmatch": "^7.1.0",
-    "playwright": "^1.49.1",
+    "parse5": "^8.0.1",
+    "pixelmatch": "^7.2.0",
+    "playwright": "^1.61.1",
     "pngjs": "^7.0.0",
-    "sharp": "^0.34.3",
+    "postcss": "^8.5.15",
+    "postcss-value-parser": "^4.2.0",
+    "sharp": "^0.34.5",
+    "simple-git": "^3.36.0",
+    "svgo": "^4.0.1",
+    "tesseract.js": "^7.0.0",
+    "uuid": "^14.0.1",
     "yoga-layout": "^3.2.1"
+  },
+  "devDependencies": {
+    "odiff-bin": "^4.3.8"
   }
 }

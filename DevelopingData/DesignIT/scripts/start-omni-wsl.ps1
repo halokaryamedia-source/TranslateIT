@@ -1,4 +1,4 @@
-﻿param(
+param(
   [string]$Port = "7860"
 )
 
@@ -7,45 +7,73 @@ $ErrorActionPreference = "Stop"
 function ToWslPath($WindowsPath) {
   $resolved = [System.IO.Path]::GetFullPath($WindowsPath)
   $result = wsl.exe wslpath -a "$resolved"
-  return ($result | Select-Object -First 1).Trim()
+  $value = ($result | Select-Object -First 1)
+  if ($null -eq $value) {
+    throw "Failed to convert Windows path to WSL path: $WindowsPath"
+  }
+  return $value.Trim()
+}
+
+function Write-Utf8NoBomLf($Path, $Text) {
+  $normalized = $Text.Replace("`r`n", "`n").Replace("`r", "`n")
+  $encoding = [System.Text.UTF8Encoding]::new($false)
+  [System.IO.File]::WriteAllText($Path, $normalized, $encoding)
 }
 
 $ScriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
 $DesignItRoot = Resolve-Path (Join-Path $ScriptDir "..")
 $RuntimeData = Join-Path $DesignItRoot "RuntimeData"
-$RuntimeDataWsl = ToWslPath $RuntimeData
+$RuntimeDir = Join-Path $RuntimeData "_runtime"
+$LogDir = Join-Path $RuntimeData "logs"
 
-$bash = @"
+New-Item -ItemType Directory -Force -Path $RuntimeDir | Out-Null
+New-Item -ItemType Directory -Force -Path $LogDir | Out-Null
+
+$RuntimeDataWsl = ToWslPath $RuntimeData
+$RuntimeDataWslEsc = $RuntimeDataWsl.Replace("'", "'\''")
+$BashFile = Join-Path $RuntimeDir "start-omni-wsl.sh"
+$BashFileWsl = ToWslPath $BashFile
+
+$bashTemplate = @'
 set -e
 
-DESIGNIT_DATA='$RuntimeDataWsl'
-OMNI_DIR="\$DESIGNIT_DATA/_external/OmniParser"
-PORT='$Port'
+DESIGNIT_DATA='__DESIGNIT_DATA__'
+OMNI_DIR="$DESIGNIT_DATA/_external/OmniParser"
+PORT='__PORT__'
 
-mkdir -p "\$DESIGNIT_DATA/_external" "\$DESIGNIT_DATA/_runtime" "\$DESIGNIT_DATA/_reports" "\$DESIGNIT_DATA/logs"
+mkdir -p "$DESIGNIT_DATA/_external"
+mkdir -p "$DESIGNIT_DATA/_runtime"
+mkdir -p "$DESIGNIT_DATA/_reports"
+mkdir -p "$DESIGNIT_DATA/logs"
 
-if [ ! -d "\$OMNI_DIR/.git" ]; then
-  if [ -d "\$HOME/OmniParser/.git" ]; then
-    cp -a "\$HOME/OmniParser" "\$OMNI_DIR"
+echo "DesignIT data: $DESIGNIT_DATA"
+echo "OmniParser dir: $OMNI_DIR"
+echo "Port: $PORT"
+
+if [ ! -d "$OMNI_DIR/.git" ]; then
+  if [ -d "$HOME/OmniParser/.git" ]; then
+    echo "Copying existing OmniParser from HOME..."
+    cp -a "$HOME/OmniParser" "$OMNI_DIR"
   else
-    git clone https://github.com/microsoft/OmniParser.git "\$OMNI_DIR"
+    echo "Cloning OmniParser..."
+    git clone https://github.com/microsoft/OmniParser.git "$OMNI_DIR"
   fi
 fi
 
-cd "\$OMNI_DIR"
+cd "$OMNI_DIR"
 
-if [ ! -f "\$HOME/miniforge3/etc/profile.d/conda.sh" ]; then
-  echo "Miniforge is not installed at \$HOME/miniforge3."
+if [ ! -f "$HOME/miniforge3/etc/profile.d/conda.sh" ]; then
+  echo "Miniforge is not installed at $HOME/miniforge3."
   exit 1
 fi
 
-source "\$HOME/miniforge3/etc/profile.d/conda.sh"
+source "$HOME/miniforge3/etc/profile.d/conda.sh"
 conda activate omni
 
-# Install only once. Reinstalling packages every launcher start is slow.
-if [ ! -f "\$DESIGNIT_DATA/_runtime/.designit_python_deps_ready" ]; then
+if [ ! -f "$DESIGNIT_DATA/_runtime/.designit_python_deps_ready" ]; then
+  echo "Installing lightweight server dependencies once..."
   python -m pip install -U fastapi uvicorn pydantic pillow >/dev/null
-  touch "\$DESIGNIT_DATA/_runtime/.designit_python_deps_ready"
+  touch "$DESIGNIT_DATA/_runtime/.designit_python_deps_ready"
 fi
 
 cat > designit_parse_server.py <<'PY'
@@ -62,7 +90,12 @@ from PIL import Image
 import uvicorn
 
 app = FastAPI(title="DesignIT Visual Engine")
-app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_methods=["*"], allow_headers=["*"])
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_methods=["*"],
+    allow_headers=["*"]
+)
 
 STATE = {
     "started_at": time.time(),
@@ -113,8 +146,8 @@ def load_models():
 
 def ensure_background_load():
     if STATE["models"] in ["not_loaded", "error"] and not STATE["loading"]:
-        t = threading.Thread(target=load_models, daemon=True)
-        t.start()
+        thread = threading.Thread(target=load_models, daemon=True)
+        thread.start()
 
 def clean_b64(value: str) -> str:
     value = value or ""
@@ -222,6 +255,11 @@ def parse(req: ParseRequest):
 
     if STATE["models"] != "ready":
         ensure_background_load()
+        deadline = time.time() + 90
+        while STATE["models"] == "loading" and time.time() < deadline:
+            time.sleep(0.5)
+
+    if STATE["models"] != "ready":
         return {
             "ok": False,
             "engine": "designit-visual-engine",
@@ -302,13 +340,16 @@ if __name__ == "__main__":
     uvicorn.run(app, host="0.0.0.0", port=7860)
 PY
 
-fuser -k "\$PORT/tcp" || true
+fuser -k "$PORT/tcp" || true
 
-export CUDA_HOME="\$CONDA_PREFIX"
-export PATH="\$CUDA_HOME/bin:\$PATH"
-export LD_LIBRARY_PATH="\$CUDA_HOME/lib:\$CUDA_HOME/lib64:\$CONDA_PREFIX/lib:\$LD_LIBRARY_PATH"
+export CUDA_HOME="$CONDA_PREFIX"
+export PATH="$CUDA_HOME/bin:$PATH"
+export LD_LIBRARY_PATH="$CUDA_HOME/lib:$CUDA_HOME/lib64:$CONDA_PREFIX/lib:$LD_LIBRARY_PATH"
 
 python designit_parse_server.py
-"@
+'@
 
-wsl.exe bash -lc $bash
+$bash = $bashTemplate.Replace('__DESIGNIT_DATA__', $RuntimeDataWslEsc).Replace('__PORT__', $Port)
+Write-Utf8NoBomLf $BashFile $bash
+
+& wsl.exe bash $BashFileWsl
