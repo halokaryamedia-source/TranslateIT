@@ -162,6 +162,24 @@ fn set_translation_payload(text: String, source: &str) {
     }
 }
 
+fn dev_translation_placeholder(payload: &PipelinePayloadState) -> String {
+    let transcript = payload
+        .transcript_text
+        .clone()
+        .unwrap_or_else(|| "missing transcript".to_string());
+    format!("[dev-contract translation pending for] {transcript}")
+}
+
+fn promote_translation_payload_after_contract(dispatch_ok: bool, payload: &PipelinePayloadState) {
+    if !dispatch_ok || payload.translation_available {
+        return;
+    }
+    set_translation_payload(
+        dev_translation_placeholder(payload),
+        "worker_dev_translation_contract_acceptance",
+    );
+}
+
 fn handoff_payload(stage: &str, helper: &HelperBridgeStatus, asr: &AsrHandoffRequestStatus, payload: &PipelinePayloadState) -> Value {
     json!({
         "command": stage,
@@ -364,7 +382,7 @@ pub fn prepare_translation_handoff_request() -> PipelineHandoffRequestStatus {
 
 #[tauri::command]
 pub fn dispatch_translation_handoff_request() -> PipelineHandoffRequestStatus {
-    let (_asr, helper, _payload, payload_json, ready) = translation_prerequisite();
+    let (_asr, helper, payload, payload_json, ready) = translation_prerequisite();
     let status = if !ready {
         status_from_parts(
             "translation_handoff",
@@ -383,7 +401,8 @@ pub fn dispatch_translation_handoff_request() -> PipelineHandoffRequestStatus {
             payload_json: Some(payload_json.clone()),
         };
         let dispatch = send_helper_bridge_request(request);
-        status_from_parts(
+        let dispatch_ok = dispatch.ok;
+        let status = status_from_parts(
             "translation_handoff",
             "asr_handoff_or_seeded_transcript",
             ready,
@@ -393,7 +412,9 @@ pub fn dispatch_translation_handoff_request() -> PipelineHandoffRequestStatus {
             helper.generation_token,
             "",
             "implement_translation_runtime",
-        )
+        );
+        promote_translation_payload_after_contract(dispatch_ok, &payload);
+        status
     };
     record_stage_status(&status);
     status
@@ -452,6 +473,24 @@ pub fn dispatch_tts_handoff_request() -> PipelineHandoffRequestStatus {
     };
     record_stage_status(&status);
     status
+}
+
+#[tauri::command]
+pub fn run_dev_pipeline_contract_smoke() -> LivePipelineSessionSnapshot {
+    clear_stage_caches();
+    set_transcript_payload(
+        "Hello from the TranslateIT dev pipeline contract smoke.".to_string(),
+        "developer_contract_smoke_transcript",
+    );
+    let translation = dispatch_translation_handoff_request();
+    if translation.dispatch_ok && !current_payload_state().translation_available {
+        set_translation_payload(
+            "Halo dari smoke contract TranslateIT.".to_string(),
+            "developer_contract_smoke_translation_fallback",
+        );
+    }
+    let _ = dispatch_tts_handoff_request();
+    build_pipeline_snapshot(get_live_pipeline_handoff_status())
 }
 
 #[tauri::command]
