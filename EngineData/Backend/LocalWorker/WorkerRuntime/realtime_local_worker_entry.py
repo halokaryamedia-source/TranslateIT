@@ -14,6 +14,13 @@ def deadline_fields(payload: dict[str, Any]) -> dict[str, Any]:
     }
 
 
+def text_field(payload: dict[str, Any], key: str) -> str:
+    value = payload.get(key)
+    if value is None:
+        return ""
+    return str(value).strip()
+
+
 def handle_capture_migration_stub(payload: dict[str, Any]) -> dict[str, Any]:
     command = str(payload.get("command", "capture")).strip() or "capture"
     return {
@@ -59,20 +66,54 @@ def handle_asr_handoff_stub(payload: dict[str, Any]) -> dict[str, Any]:
 
 def handle_pipeline_handoff_stub(payload: dict[str, Any]) -> dict[str, Any]:
     command = str(payload.get("command", "pipeline_handoff")).strip() or "pipeline_handoff"
+    transcript_text = text_field(payload, "transcript_text")
+    translated_text = text_field(payload, "translated_text")
+    tts_text = text_field(payload, "tts_text")
+    transcript_available = bool(payload.get("transcript_available")) and bool(transcript_text)
+    translation_available = bool(payload.get("translation_available")) and bool(translated_text)
+    tts_text_available = bool(payload.get("tts_text_available")) and bool(tts_text)
+    payload_source = str(payload.get("payload_source", "unknown")).strip() or "unknown"
+
+    ok = False
+    blocker = "pipeline:handoff_runtime_not_implemented"
+    note = "Pipeline handoff command was received by the Python worker, but runtime is not implemented on this helper route yet."
+    next_runtime = "Connect the previous pipeline stage first."
+    contract_payload: dict[str, Any] = {}
+
     if command == "translation_handoff":
-        blocker = "translation:handoff_runtime_not_implemented"
-        note = "Translation handoff command was received by the Python worker, but translated transcript runtime is not implemented on this helper route yet."
-        next_runtime = "Connect ASR transcript text to the local translation model after decoder proof."
+        if transcript_available:
+            ok = True
+            blocker = ""
+            note = "Translation handoff dev payload contract accepted. No local translation model was executed."
+            next_runtime = "Replace dev transcript payload with real ASR decoder output, then run the local translation model."
+            contract_payload = {
+                "transcript_text": transcript_text,
+                "translated_text": translated_text,
+                "translation_placeholder": translated_text or f"[dev-contract translation pending for] {transcript_text}",
+            }
+        else:
+            blocker = "translation:missing_transcript_payload"
+            note = "Translation handoff was received, but no transcript payload is available."
+            next_runtime = "Seed a developer transcript or connect real ASR decoder output first."
     elif command == "tts_handoff":
-        blocker = "tts:handoff_runtime_not_implemented"
-        note = "TTS handoff command was received by the Python worker, but synthesized voice output runtime is not implemented on this helper route yet."
-        next_runtime = "Connect translated text to local TTS after translation runtime proof."
-    else:
-        blocker = "pipeline:handoff_runtime_not_implemented"
-        note = "Pipeline handoff command was received by the Python worker, but runtime is not implemented on this helper route yet."
-        next_runtime = "Connect the previous pipeline stage first."
+        candidate_tts_text = tts_text or translated_text
+        if translation_available or tts_text_available or candidate_tts_text:
+            ok = True
+            blocker = ""
+            note = "TTS handoff dev payload contract accepted. No local TTS synthesis was executed."
+            next_runtime = "Replace dev translated text with real translation output, then run local TTS synthesis."
+            contract_payload = {
+                "translated_text": translated_text,
+                "tts_text": candidate_tts_text,
+                "audio_output_ready": False,
+            }
+        else:
+            blocker = "tts:missing_translated_text_payload"
+            note = "TTS handoff was received, but no translated/TTS text payload is available."
+            next_runtime = "Seed developer translated text or connect real translation output first."
+
     return {
-        "ok": False,
+        "ok": ok,
         "stage": command,
         "command_received": True,
         "asr_boundary_ready": bool(payload.get("asr_boundary_ready", False)),
@@ -81,13 +122,18 @@ def handle_pipeline_handoff_stub(payload: dict[str, Any]) -> dict[str, Any]:
         "asr_dispatch_ok": bool(payload.get("asr_dispatch_ok", False)),
         "frames_received": payload.get("frames_received", 0),
         "buffered_duration_ms": payload.get("buffered_duration_ms", 0),
+        "transcript_available": transcript_available,
+        "translation_available": translation_available,
+        "tts_text_available": tts_text_available,
+        "payload_source": payload_source,
+        "contract_payload": contract_payload,
         "generation_token": payload.get("generation_token", 0),
         **deadline_fields(payload),
-        "runtime_claim": "pipeline_handoff_migration_stub_no_runtime_claim",
+        "runtime_claim": "pipeline_dev_payload_contract_acceptance_no_model_runtime_claim",
         "blocker": blocker,
         "note": note,
         "next_actions": [
-            "Keep this as pipeline wiring evidence until local compile/runtime proof is available.",
+            "Keep this as pipeline payload contract evidence until local compile/runtime proof is available.",
             next_runtime,
             "Do not claim live meeting runtime until audio, ASR, translation, TTS, and virtual mic evidence exist.",
         ],
