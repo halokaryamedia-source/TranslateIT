@@ -170,23 +170,11 @@ jobs:
           @'
           TranslateIT V1-Advance bootstrap CI completed.
 
-          This bootstrap workflow validates:
-          - V1-Advance source-of-truth files exist
-          - active RustApp package exists
-          - no active FigmaDesignExport/DesignIT path exists
-          - required package scripts are declared
-          - inactive Figma/DesignIT scripts are not active
-          - V1-Advance single-engine policy validator passes
-          - product requirements contain locked V1-Advance markers
-          - CI policy confirms this is non-local development
+          This bootstrap workflow validates source-of-truth, active RustApp package presence,
+          script declarations, inactive DesignIT/FigmaDesignExport guards, and policy markers.
 
-          This workflow intentionally does not run local/runtime checks:
-          - CUDA runtime
-          - model loading
-          - microphone capture
-          - virtual microphone routing
-          - TTS provider quality
-          - installer packaging
+          It intentionally does not run local/runtime checks such as CUDA, model loading,
+          microphone capture, virtual microphone routing, TTS provider quality, or installer packaging.
           '@ | Write-Host
 
   v1-advance-dependency-probe:
@@ -244,14 +232,51 @@ jobs:
           TranslateIT V1-Advance dependency probe completed.
 
           This job only validates dependency installation in GitHub Actions.
-          It does not run:
-          - TypeScript typecheck
-          - Rust cargo check
-          - frontend build
-          - Tauri packaging
-          - CUDA checks
-          - model setup/loading
-          - microphone capture
-          - virtual microphone routing
-          - TTS provider runtime
+          It does not run TypeScript, Rust, frontend build, Tauri packaging,
+          CUDA, model setup/loading, microphone capture, virtual microphone routing,
+          or TTS provider runtime.
+          '@ | Write-Host
+
+  v1-advance-typescript-gate:
+    name: V1 Advance TypeScript Gate
+    runs-on: windows-latest
+    timeout-minutes: 15
+    needs: v1-advance-dependency-probe
+
+    defaults:
+      run:
+        shell: pwsh
+        working-directory: EngineData/Frontend/RustApp
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install dependencies for TypeScript gate
+        run: |
+          $ErrorActionPreference = 'Stop'
+
+          if (Test-Path 'package-lock.json') {
+            npm ci --ignore-scripts --no-audit --no-fund
+          } else {
+            npm install --ignore-scripts --no-audit --no-fund
+          }
+
+      - name: Run TypeScript typecheck
+        run: npm run typecheck
+
+      - name: TypeScript gate summary
+        run: |
+          @'
+          TranslateIT V1-Advance TypeScript gate completed.
+
+          This job validates TypeScript only.
+          It does not run Rust cargo check, frontend build, Tauri packaging,
+          CUDA checks, model setup/loading, microphone capture, virtual microphone routing,
+          or TTS provider runtime.
           '@ | Write-Host
