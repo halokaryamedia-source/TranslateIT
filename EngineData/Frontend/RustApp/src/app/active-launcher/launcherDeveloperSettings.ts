@@ -1,9 +1,13 @@
 import { percentText } from "../shared/state";
-import type { CaptureHelperDispatchStatus, CaptureTranscriptBoundaryStatus, GpuPolicyReport, HardwareUsageReport, HelperBridgeStatus, ModelInventoryReport, RuntimeDiagnostics, RuntimeStatusBundleReport } from "../shared/types";
+import type { CaptureHelperDispatchStatus, CaptureTranscriptBoundaryStatus, GpuPolicyReport, HardwareUsageReport, HelperBridgeStatus, ModelInventoryReport, PipelineHandoffRequestStatus, RuntimeDiagnostics, RuntimeStatusBundleReport } from "../shared/types";
 import { buildDeveloperLogRows } from "./launcherDeveloperLog";
 import { developerSettingsView } from "./settingsViews";
 
-type CaptureBoundaryGlobal = typeof globalThis & { __translateitCaptureHelperDispatchStatus?: CaptureHelperDispatchStatus; __translateitCaptureTranscriptBoundaryStatus?: CaptureTranscriptBoundaryStatus };
+type CaptureBoundaryGlobal = typeof globalThis & {
+  __translateitCaptureHelperDispatchStatus?: CaptureHelperDispatchStatus;
+  __translateitCaptureTranscriptBoundaryStatus?: CaptureTranscriptBoundaryStatus;
+  __translateitLivePipelineHandoffStatus?: PipelineHandoffRequestStatus[];
+};
 
 export function renderDeveloperSettingsView(args: {
   latestBundle: RuntimeStatusBundleReport | null;
@@ -13,6 +17,7 @@ export function renderDeveloperSettingsView(args: {
   latestHelperBridgeStatus: HelperBridgeStatus | null;
   latestCaptureHelperDispatchStatus?: CaptureHelperDispatchStatus | null;
   latestCaptureTranscriptBoundaryStatus?: CaptureTranscriptBoundaryStatus | null;
+  latestLivePipelineHandoffStatus?: PipelineHandoffRequestStatus[] | null;
   logsExpanded: boolean;
   latestModelInventory: ModelInventoryReport | null;
   commandErrors: { command: string; message: string }[];
@@ -49,5 +54,6 @@ export function renderDeveloperSettingsView(args: {
     helperStatus: args.latestHelperBridgeStatus,
     captureHelperDispatchStatus: args.latestCaptureHelperDispatchStatus ?? globalCache.__translateitCaptureHelperDispatchStatus ?? null,
     captureTranscriptBoundaryStatus: args.latestCaptureTranscriptBoundaryStatus ?? globalCache.__translateitCaptureTranscriptBoundaryStatus ?? null,
+    livePipelineHandoffStatus: args.latestLivePipelineHandoffStatus ?? globalCache.__translateitLivePipelineHandoffStatus ?? null,
   });
 }
