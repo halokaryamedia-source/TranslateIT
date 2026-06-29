@@ -3,6 +3,8 @@ import type { CaptureHelperDispatchStatus, CaptureTranscriptBoundaryStatus, GpuP
 import { buildDeveloperLogRows } from "./launcherDeveloperLog";
 import { developerSettingsView } from "./settingsViews";
 
+type CaptureBoundaryGlobal = typeof globalThis & { __translateitCaptureHelperDispatchStatus?: CaptureHelperDispatchStatus; __translateitCaptureTranscriptBoundaryStatus?: CaptureTranscriptBoundaryStatus };
+
 export function renderDeveloperSettingsView(args: {
   latestBundle: RuntimeStatusBundleReport | null;
   latestDiagnostics: RuntimeDiagnostics | null;
@@ -15,6 +17,7 @@ export function renderDeveloperSettingsView(args: {
   latestModelInventory: ModelInventoryReport | null;
   commandErrors: { command: string; message: string }[];
 }): string {
+  const globalCache = globalThis as CaptureBoundaryGlobal;
   const worker = args.latestBundle?.local_worker_manifest ?? args.latestBundle?.internal_validation_gate?.local_worker_manifest ?? null;
   const progress = args.latestBundle?.live_pipeline_gate?.progress_percent ?? args.latestBundle?.internal_validation_gate?.progress_percent ?? 0;
   const cpu = percentText(args.latestHardware?.cpu);
@@ -44,7 +47,7 @@ export function renderDeveloperSettingsView(args: {
     logsExpanded: args.logsExpanded,
     engineGood: Boolean(args.latestBundle),
     helperStatus: args.latestHelperBridgeStatus,
-    captureHelperDispatchStatus: args.latestCaptureHelperDispatchStatus ?? null,
-    captureTranscriptBoundaryStatus: args.latestCaptureTranscriptBoundaryStatus ?? null,
+    captureHelperDispatchStatus: args.latestCaptureHelperDispatchStatus ?? globalCache.__translateitCaptureHelperDispatchStatus ?? null,
+    captureTranscriptBoundaryStatus: args.latestCaptureTranscriptBoundaryStatus ?? globalCache.__translateitCaptureTranscriptBoundaryStatus ?? null,
   });
 }
