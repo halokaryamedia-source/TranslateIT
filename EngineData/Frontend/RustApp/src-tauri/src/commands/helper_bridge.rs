@@ -11,9 +11,11 @@ use super::bridge_paths::{
     worker_python_command_available, worker_root, worker_script,
 };
 use super::helper_bridge_runtime::{
-    action_result, apply_worker_response, apply_worker_status, read_worker_response, runtime,
+    action_result, apply_worker_response, apply_worker_status,
+    read_worker_response_direct_with_deadline, read_worker_response_with_deadline, runtime,
     set_blocked, spawn_stderr_logger, status_from_runtime, stop_child, unix_ms,
     write_worker_request, HelperBridgeActionResult, HelperBridgeRequest, HelperBridgeStatus,
+    DEFAULT_WORKER_RESPONSE_DEADLINE_MS,
 };
 
 const MAX_HELPER_TEXT_CHARS: usize = 2_000;
@@ -93,7 +95,7 @@ fn blocked_worker_response(
         worker_response_json: json!({
             "ok": false,
             "stage": task,
-            "blocker": "helper_bridge:not_ready",
+            "blocker": runtime.last_error.clone().unwrap_or_else(|| "helper_bridge:not_ready".to_string()),
             "note": message
         })
         .to_string(),
@@ -133,23 +135,15 @@ fn send_worker_task(task: &str, mut payload: Value) -> HelperBridgeWorkerRespons
                 return blocked_worker_response(task, &runtime, &format!("Failed to write {task} request to Python helper worker."));
             }
 
-            let response = match runtime.stdout.as_mut().map(read_worker_response) {
-                Some(Ok(value)) => value,
-                Some(Err(error)) => {
+            let response = match read_worker_response_with_deadline(&mut runtime) {
+                Ok(value) => value,
+                Err(error) => {
                     runtime.state = "blocked".to_string();
-                    runtime.message = format!("Failed to read {task} response from Python helper worker: {error}");
-                    runtime.last_error = Some(format!("helper_bridge:{task}_read_failed"));
+                    runtime.message = format!("Failed to read {task} response from Python helper worker before deadline: {error}");
+                    runtime.last_error = Some(format!("helper_bridge:{task}_read_failed:{error}"));
                     runtime.active_task = None;
                     runtime.updated_unix_ms = unix_ms();
-                    return blocked_worker_response(task, &runtime, &format!("Failed to read {task} response from Python helper worker: {error}"));
-                }
-                None => {
-                    runtime.state = "blocked".to_string();
-                    runtime.message = "Helper worker IO is unavailable.".to_string();
-                    runtime.last_error = Some("helper_bridge:io_missing".to_string());
-                    runtime.active_task = None;
-                    runtime.updated_unix_ms = unix_ms();
-                    return blocked_worker_response(task, &runtime, "Helper worker IO is unavailable.");
+                    return blocked_worker_response(task, &runtime, &format!("Failed to read {task} response from Python helper worker before deadline: {error}"));
                 }
             };
 
@@ -293,7 +287,7 @@ pub fn start_helper_bridge() -> HelperBridgeActionResult {
                     )
                 }
             };
-            let mut stdout = BufReader::new(stdout);
+            let stdout = BufReader::new(stdout);
 
             if let Err(error) = write_worker_request(&mut stdin, &json!({ "command": "ping" })) {
                 let _ = child.kill();
@@ -304,14 +298,17 @@ pub fn start_helper_bridge() -> HelperBridgeActionResult {
                     "helper_bridge:ping_write_failed",
                 );
             }
-            let ping = match read_worker_response(&mut stdout) {
-                Ok(value) => value,
+            let (ping, mut stdout) = match read_worker_response_direct_with_deadline(
+                stdout,
+                DEFAULT_WORKER_RESPONSE_DEADLINE_MS,
+            ) {
+                Ok((value, stdout)) => (value, stdout),
                 Err(error) => {
                     let _ = child.kill();
                     let _ = child.wait();
                     return set_blocked(
                         &mut runtime,
-                        &format!("Failed to read helper worker ping response: {error}"),
+                        &format!("Failed to read helper worker ping response before deadline: {error}"),
                         "helper_bridge:ping_read_failed",
                     );
                 }
@@ -326,12 +323,28 @@ pub fn start_helper_bridge() -> HelperBridgeActionResult {
                 );
             }
 
-            let status =
-                if write_worker_request(&mut stdin, &json!({ "command": "status" })).is_ok() {
-                    read_worker_response(&mut stdout).ok()
-                } else {
-                    None
-                };
+            let status = if write_worker_request(&mut stdin, &json!({ "command": "status" })).is_ok() {
+                match read_worker_response_direct_with_deadline(
+                    stdout,
+                    DEFAULT_WORKER_RESPONSE_DEADLINE_MS,
+                ) {
+                    Ok((value, next_stdout)) => {
+                        stdout = next_stdout;
+                        Some(value)
+                    }
+                    Err(error) => {
+                        let _ = child.kill();
+                        let _ = child.wait();
+                        return set_blocked(
+                            &mut runtime,
+                            &format!("Failed to read helper worker status response before deadline: {error}"),
+                            "helper_bridge:status_read_failed",
+                        );
+                    }
+                }
+            } else {
+                None
+            };
 
             runtime.child = Some(child);
             runtime.stdin = Some(stdin);
@@ -449,25 +462,19 @@ pub fn send_helper_bridge_request(request: HelperBridgeRequest) -> HelperBridgeA
                 runtime.updated_unix_ms = unix_ms();
                 return action_result(false, &runtime);
             }
-            let response = runtime.stdout.as_mut().map(read_worker_response);
-            match response {
-                Some(Ok(value)) => {
+            match read_worker_response_with_deadline(&mut runtime) {
+                Ok(value) => {
                     let ok = apply_worker_response(&mut runtime, &value);
                     action_result(ok, &runtime)
                 }
-                Some(Err(error)) => {
+                Err(error) => {
                     runtime.state = "blocked".to_string();
                     runtime.message =
-                        format!("Failed to read response from Python helper worker: {error}");
+                        format!("Failed to read response from Python helper worker before deadline: {error}");
                     runtime.last_error = Some("helper_bridge:response_read_failed".to_string());
                     runtime.updated_unix_ms = unix_ms();
                     action_result(false, &runtime)
                 }
-                None => set_blocked(
-                    &mut runtime,
-                    "Helper bridge request failed because worker IO is unavailable.",
-                    "helper_bridge:io_missing",
-                ),
             }
         }
         Err(_) => HelperBridgeActionResult {
