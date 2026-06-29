@@ -1,3 +1,4 @@
+use serde::Serialize;
 use serde_json::{json, Value};
 use std::io::BufReader;
 use std::process::{Command, Stdio};
@@ -14,6 +15,166 @@ use super::helper_bridge_runtime::{
     set_blocked, spawn_stderr_logger, status_from_runtime, stop_child, unix_ms,
     write_worker_request, HelperBridgeActionResult, HelperBridgeRequest, HelperBridgeStatus,
 };
+
+const MAX_HELPER_TEXT_CHARS: usize = 2_000;
+
+#[derive(Debug, Clone, Serialize)]
+pub struct HelperBridgeWorkerResponse {
+    pub ok: bool,
+    pub state: String,
+    pub task: String,
+    pub message: String,
+    pub generation_token: u64,
+    pub runtime_claim: String,
+    pub worker_response_json: String,
+}
+
+fn clean_helper_text(value: &str, max_chars: usize) -> String {
+    value
+        .trim()
+        .chars()
+        .filter(|character| {
+            *character != '\0'
+                && !('\u{0001}'..='\u{0008}').contains(character)
+                && !('\u{000b}'..='\u{001f}').contains(character)
+                && *character != '\u{007f}'
+        })
+        .take(max_chars)
+        .collect::<String>()
+        .trim()
+        .to_string()
+}
+
+fn worker_text(value: &Value, key: &str) -> Option<String> {
+    value
+        .get(key)
+        .and_then(Value::as_str)
+        .map(|text| clean_helper_text(text, 500))
+        .filter(|text| !text.is_empty())
+}
+
+fn worker_message(task: &str, response: &Value) -> String {
+    worker_text(response, "note")
+        .or_else(|| worker_text(response, "blocker"))
+        .or_else(|| worker_text(response, "stage"))
+        .unwrap_or_else(|| format!("Helper worker task {task} completed."))
+}
+
+fn worker_response_result(
+    ok: bool,
+    task: &str,
+    message: String,
+    worker_response: Value,
+    runtime: &super::helper_bridge_runtime::HelperBridgeRuntime,
+) -> HelperBridgeWorkerResponse {
+    HelperBridgeWorkerResponse {
+        ok,
+        state: runtime.state.clone(),
+        task: task.to_string(),
+        message,
+        generation_token: runtime.generation_token,
+        runtime_claim: status_from_runtime(runtime).runtime_claim,
+        worker_response_json: worker_response.to_string(),
+    }
+}
+
+fn blocked_worker_response(
+    task: &str,
+    runtime: &super::helper_bridge_runtime::HelperBridgeRuntime,
+    message: &str,
+) -> HelperBridgeWorkerResponse {
+    HelperBridgeWorkerResponse {
+        ok: false,
+        state: runtime.state.clone(),
+        task: task.to_string(),
+        message: message.to_string(),
+        generation_token: runtime.generation_token,
+        runtime_claim: status_from_runtime(runtime).runtime_claim,
+        worker_response_json: json!({
+            "ok": false,
+            "stage": task,
+            "blocker": "helper_bridge:not_ready",
+            "note": message
+        })
+        .to_string(),
+    }
+}
+
+fn send_worker_task(task: &str, mut payload: Value) -> HelperBridgeWorkerResponse {
+    match runtime().lock() {
+        Ok(mut runtime) => {
+            if runtime.stdin.is_none() || runtime.stdout.is_none() || runtime.child.is_none() {
+                runtime.state = "blocked".to_string();
+                runtime.message = "Helper worker is not running. Start Helper first.".to_string();
+                runtime.last_error = Some("helper_bridge:not_running".to_string());
+                runtime.updated_unix_ms = unix_ms();
+                return blocked_worker_response(task, &runtime, "Helper worker is not running. Start Helper first.");
+            }
+
+            if let Some(object) = payload.as_object_mut() {
+                object.insert("command".to_string(), json!(task));
+            } else {
+                payload = json!({ "command": task });
+            }
+
+            runtime.active_task = Some(task.to_string());
+            runtime.updated_unix_ms = unix_ms();
+
+            let write_result = runtime
+                .stdin
+                .as_mut()
+                .map(|stdin| write_worker_request(stdin, &payload));
+            if !matches!(write_result, Some(Ok(()))) {
+                runtime.state = "blocked".to_string();
+                runtime.message = format!("Failed to write {task} request to Python helper worker.");
+                runtime.last_error = Some(format!("helper_bridge:{task}_write_failed"));
+                runtime.active_task = None;
+                runtime.updated_unix_ms = unix_ms();
+                return blocked_worker_response(task, &runtime, &format!("Failed to write {task} request to Python helper worker."));
+            }
+
+            let response = match runtime.stdout.as_mut().map(read_worker_response) {
+                Some(Ok(value)) => value,
+                Some(Err(error)) => {
+                    runtime.state = "blocked".to_string();
+                    runtime.message = format!("Failed to read {task} response from Python helper worker: {error}");
+                    runtime.last_error = Some(format!("helper_bridge:{task}_read_failed"));
+                    runtime.active_task = None;
+                    runtime.updated_unix_ms = unix_ms();
+                    return blocked_worker_response(task, &runtime, &format!("Failed to read {task} response from Python helper worker: {error}"));
+                }
+                None => {
+                    runtime.state = "blocked".to_string();
+                    runtime.message = "Helper worker IO is unavailable.".to_string();
+                    runtime.last_error = Some("helper_bridge:io_missing".to_string());
+                    runtime.active_task = None;
+                    runtime.updated_unix_ms = unix_ms();
+                    return blocked_worker_response(task, &runtime, "Helper worker IO is unavailable.");
+                }
+            };
+
+            let ok = apply_worker_response(&mut runtime, &response);
+            runtime.active_task = None;
+            runtime.updated_unix_ms = unix_ms();
+            let message = worker_message(task, &response);
+            worker_response_result(ok, task, message, response, &runtime)
+        }
+        Err(_) => HelperBridgeWorkerResponse {
+            ok: false,
+            state: "error".to_string(),
+            task: task.to_string(),
+            message: "Helper bridge state lock is poisoned.".to_string(),
+            generation_token: 0,
+            runtime_claim: "bridge_state_error".to_string(),
+            worker_response_json: json!({
+                "ok": false,
+                "stage": task,
+                "blocker": "helper_bridge:lock_poisoned"
+            })
+            .to_string(),
+        },
+    }
+}
 
 #[tauri::command]
 pub fn get_helper_bridge_status() -> HelperBridgeStatus {
@@ -317,4 +478,66 @@ pub fn send_helper_bridge_request(request: HelperBridgeRequest) -> HelperBridgeA
             runtime_claim: "bridge_state_error".to_string(),
         },
     }
+}
+
+#[tauri::command]
+pub fn helper_bridge_worker_status() -> HelperBridgeWorkerResponse {
+    send_worker_task("status", json!({}))
+}
+
+#[tauri::command]
+pub fn helper_bridge_preload_asr() -> HelperBridgeWorkerResponse {
+    send_worker_task("asr_preload", json!({}))
+}
+
+#[tauri::command]
+pub fn helper_bridge_preload_translation(mode: Option<String>) -> HelperBridgeWorkerResponse {
+    let mode = mode
+        .as_deref()
+        .map(|value| clean_helper_text(value, 64))
+        .filter(|value| !value.is_empty())
+        .unwrap_or_else(|| "Realtime".to_string());
+    send_worker_task("translation_preload", json!({ "mode": mode }))
+}
+
+#[tauri::command]
+pub fn helper_bridge_tts_preflight() -> HelperBridgeWorkerResponse {
+    send_worker_task("tts_preflight", json!({}))
+}
+
+#[tauri::command]
+pub fn helper_bridge_synthesize_text(
+    text: String,
+    output_path: Option<String>,
+) -> HelperBridgeWorkerResponse {
+    let text = clean_helper_text(&text, MAX_HELPER_TEXT_CHARS);
+    if text.is_empty() {
+        return HelperBridgeWorkerResponse {
+            ok: false,
+            state: "invalid_request".to_string(),
+            task: "synthesize".to_string(),
+            message: "Synthesize request rejected because text is empty.".to_string(),
+            generation_token: get_helper_bridge_status().generation_token,
+            runtime_claim: "invalid_request".to_string(),
+            worker_response_json: json!({
+                "ok": false,
+                "stage": "synthesize",
+                "blocker": "tts:empty_text"
+            })
+            .to_string(),
+        };
+    }
+
+    let mut payload = json!({ "text": text });
+    if let Some(output_path) = output_path
+        .as_deref()
+        .map(|value| clean_helper_text(value, 500))
+        .filter(|value| !value.is_empty())
+    {
+        if let Some(object) = payload.as_object_mut() {
+            object.insert("output_path".to_string(), json!(output_path));
+        }
+    }
+
+    send_worker_task("synthesize", payload)
 }
