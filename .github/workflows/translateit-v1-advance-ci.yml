@@ -83,3 +83,20 @@ jobs:
           }
       - name: Run TypeScript typecheck
         run: npm run typecheck
+
+  rust-manifest-preflight:
+    name: Rust Manifest Preflight
+    runs-on: windows-latest
+    timeout-minutes: 10
+    needs: typescript-gate
+    defaults:
+      run:
+        shell: pwsh
+        working-directory: EngineData/Frontend/RustApp
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - name: Run Rust manifest preflight
+        run: npm run check:rust
