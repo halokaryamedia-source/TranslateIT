@@ -513,6 +513,17 @@ pub fn helper_bridge_tts_preflight() -> HelperBridgeWorkerResponse {
 }
 
 #[tauri::command]
+pub fn helper_bridge_pipeline_contract_smoke() -> HelperBridgeWorkerResponse {
+    send_worker_task(
+        "dev_pipeline_contract_smoke",
+        json!({
+            "transcript_text": "Hello from the Rust helper bridge pipeline smoke.",
+            "translated_text": "Halo dari smoke pipeline helper bridge Rust."
+        }),
+    )
+}
+
+#[tauri::command]
 pub fn helper_bridge_synthesize_text(
     text: String,
     output_path: Option<String>,
