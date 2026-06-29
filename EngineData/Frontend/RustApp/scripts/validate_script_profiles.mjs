@@ -7,27 +7,76 @@ const packageJsonPath = resolve(currentDir, "..", "package.json");
 const packageJson = JSON.parse(readFileSync(packageJsonPath, "utf8"));
 const scripts = packageJson.scripts ?? {};
 
+const failures = [];
+const fail = (message) => failures.push(message);
+
+const requireScript = (name) => {
+  if (typeof scripts[name] !== "string" || scripts[name].trim().length === 0) {
+    fail(`Missing required script profile: ${name}`);
+  }
+};
+
 const requiredProfiles = [
   "validate:quick",
-  "validate:internal",
+  "typecheck",
+  "check:rust",
+  "preflight:frontend-build",
+  "preflight:tauri-package",
+  "check:tauri-rust-local",
   "validate:release-preflight",
   "validate:local-heavy",
+  "validate:local-hardening",
 ];
 
-const missing = requiredProfiles.filter((name) => typeof scripts[name] !== "string" || scripts[name].trim().length === 0);
+for (const profile of requiredProfiles) requireScript(profile);
 
-if (missing.length > 0) {
-  console.error(`Missing required script profile(s): ${missing.join(", ")}`);
+const quick = scripts["validate:quick"] ?? "";
+const disallowedQuickMarkers = [
+  "local-only",
+  "report-only",
+  "check:tauri-rust-local",
+  "setup:",
+  "smoke:",
+  "models:",
+  "gpu:",
+  "validate:release-preflight",
+  "validate:local-heavy",
+  "validate:local-hardening",
+  "validate:full",
+  "validate:models",
+  "cargo check",
+];
+
+for (const marker of disallowedQuickMarkers) {
+  if (quick.includes(marker)) {
+    fail(`validate:quick must stay non-local and lightweight. Found marker: ${marker}`);
+  }
+}
+
+const localOnlyScriptNames = Object.entries(scripts)
+  .filter(([, command]) => command.includes("local-only"))
+  .map(([name]) => name);
+
+for (const name of localOnlyScriptNames) {
+  if (quick.includes(name)) {
+    fail(`validate:quick must not call local-only script: ${name}`);
+  }
+}
+
+const manualCompile = scripts["check:tauri-rust-local"] ?? "";
+if (!manualCompile.includes("run_local_tauri_compile_check.mjs")) {
+  fail("check:tauri-rust-local must remain the manual local Tauri compile proof command");
+}
+
+const releasePreflight = scripts["validate:release-preflight"] ?? "";
+if (!releasePreflight.includes("local-only")) {
+  fail("validate:release-preflight must remain local-only/deferred until installer proof exists");
+}
+
+if (failures.length > 0) {
+  console.error("Script profile validation failed:");
+  for (const failure of failures) console.error(`- ${failure}`);
   process.exit(1);
 }
 
-const quick = scripts["validate:quick"];
-const heavyMarkers = ["models:", "gpu:", "smoke:worker", "setup:worker"];
-const foundHeavyMarkers = heavyMarkers.filter((marker) => quick.includes(marker));
-
-if (foundHeavyMarkers.length > 0) {
-  console.error(`validate:quick must stay lightweight. Found heavy marker(s): ${foundHeavyMarkers.join(", ")}`);
-  process.exit(1);
-}
-
-console.log("Script profiles are present and validate:quick is lightweight.");
+console.log("Script profiles are separated: validate:quick is CI-safe, local proof remains manual, release/local profiles remain deferred.");
