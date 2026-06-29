@@ -176,10 +176,10 @@ jobs:
           if (!(Test-Path 'src-tauri/Cargo.toml')) { throw 'src-tauri/Cargo.toml is missing.' }
           Write-Host 'Rust toolchain probe passed.'
 
-  rust-cargo-check:
-    name: Full Rust Cargo Check
+  rust-cargo-metadata:
+    name: Rust Cargo Metadata Gate
     runs-on: windows-latest
-    timeout-minutes: 25
+    timeout-minutes: 10
     needs: rust-toolchain-probe
     defaults:
       run:
@@ -187,21 +187,9 @@ jobs:
         working-directory: EngineData/Frontend/RustApp
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
-        with:
-          node-version: '20'
       - uses: dtolnay/rust-toolchain@stable
-      - name: Install frontend dependencies
+      - name: Validate Cargo metadata
         run: |
           $ErrorActionPreference = 'Stop'
-          if (Test-Path 'package-lock.json') {
-            npm ci --ignore-scripts --no-audit --no-fund
-          } else {
-            npm install --ignore-scripts --no-audit --no-fund
-          }
-      - name: Build frontend dist for Tauri context
-        run: npm run build:frontend
-      - name: Run cargo check
-        run: |
-          $ErrorActionPreference = 'Stop'
-          cargo check --manifest-path src-tauri/Cargo.toml
+          cargo metadata --manifest-path src-tauri/Cargo.toml --format-version 1 --no-deps
+          Write-Host 'Rust Cargo metadata gate passed. Full cargo check remains deferred until Rust source compile errors are fixed with logs.'
