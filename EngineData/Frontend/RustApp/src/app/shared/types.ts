@@ -144,6 +144,17 @@ export type PipelineHandoffRequestStatus = {
   updated_unix_ms: number;
 };
 
+export type PipelinePayloadState = {
+  transcript_text: string | null;
+  translated_text: string | null;
+  tts_text: string | null;
+  transcript_available: boolean;
+  translation_available: boolean;
+  tts_text_available: boolean;
+  source: string;
+  updated_unix_ms: number;
+};
+
 export type LivePipelineSessionSnapshot = {
   ok: boolean;
   state: string;
@@ -156,6 +167,7 @@ export type LivePipelineSessionSnapshot = {
   next_action: string;
   summary: string;
   runtime_claim: string;
+  payload: PipelinePayloadState;
   stages: PipelineHandoffRequestStatus[];
   updated_unix_ms: number;
 };
