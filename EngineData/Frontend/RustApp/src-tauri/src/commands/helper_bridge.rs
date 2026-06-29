@@ -6,7 +6,8 @@ use crate::commands::diagnostic_trace::{
     trace_command_end, trace_command_error, trace_command_start,
 };
 use super::bridge_paths::{
-    helper_stderr_log_path, slash_path, worker_python, worker_root, worker_script,
+    helper_stderr_log_path, slash_path, worker_python_candidates,
+    worker_python_command_available, worker_root, worker_script,
 };
 use super::helper_bridge_runtime::{
     action_result, apply_worker_response, apply_worker_status, read_worker_response, runtime,
@@ -70,32 +71,36 @@ pub fn start_helper_bridge() -> HelperBridgeActionResult {
             runtime.generation_token = runtime.generation_token.saturating_add(1);
             stop_child(&mut runtime);
 
-            let python = worker_python();
             let worker = worker_script();
             if !worker.is_file() {
-                return set_blocked(&mut runtime, "Missing realtime worker script. Run setup or restore EngineData/Backend/LocalWorker/WorkerRuntime/realtime_local_worker.py.", "helper_bridge:worker_script_missing");
+                return set_blocked(&mut runtime, "Missing realtime worker script. Restore EngineData/Backend/LocalWorker/WorkerRuntime/realtime_local_worker.py before starting the helper bridge.", "helper_bridge:worker_script_missing");
             }
-            if !python.is_file() {
-                return set_blocked(&mut runtime, "Missing worker virtual environment Python. Run npm run setup:worker before starting the helper bridge.", "helper_bridge:venv_python_missing");
-            }
+
+            let python = worker_python_candidates()
+                .into_iter()
+                .find(worker_python_command_available);
+            let Some(python) = python else {
+                return set_blocked(&mut runtime, "No usable Python runtime was found for the helper worker. Set TRANSLATEIT_WORKER_PYTHON, create the WorkerRuntime .venv, or install Python on PATH.", "helper_bridge:python_runtime_missing");
+            };
 
             runtime.state = "starting".to_string();
-            runtime.message = "Starting Python helper worker.".to_string();
+            runtime.message = format!("Starting Python helper worker using {}.", python.source);
             runtime.updated_unix_ms = unix_ms();
 
-            let mut child = match Command::new(&python)
-                .arg(&worker)
-                .current_dir(worker_root())
-                .stdin(Stdio::piped())
-                .stdout(Stdio::piped())
-                .stderr(Stdio::piped())
-                .spawn()
-            {
+            let mut command = Command::new(&python.program);
+            command.args(&python.bootstrap_args);
+            command.arg(&worker);
+            command.current_dir(worker_root());
+            command.stdin(Stdio::piped());
+            command.stdout(Stdio::piped());
+            command.stderr(Stdio::piped());
+
+            let mut child = match command.spawn() {
                 Ok(child) => child,
                 Err(error) => {
                     return set_blocked(
                         &mut runtime,
-                        &format!("Failed to spawn Python helper worker: {error}"),
+                        &format!("Failed to spawn Python helper worker using {}: {error}", python.source),
                         "helper_bridge:spawn_failed",
                     )
                 }
@@ -177,7 +182,7 @@ pub fn start_helper_bridge() -> HelperBridgeActionResult {
             if let Some(status) = status {
                 apply_worker_status(&mut runtime, &status);
             } else {
-                runtime.message = "Python helper worker is running and ping verified. Worker status was not available yet.".to_string();
+                runtime.message = format!("Python helper worker is running via {} and ping verified. Worker status was not available yet.", python.source);
                 runtime.cuda_ready = false;
                 runtime.provider_ready = false;
                 runtime.degraded_mode = false;
