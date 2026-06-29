@@ -48,6 +48,7 @@ capture_stop
 asr_handoff
 translation_handoff
 tts_handoff
+dev_pipeline_contract_smoke
 ```
 
 and then runs the original worker main loop.
@@ -176,6 +177,7 @@ The Python worker entry wrapper receives these commands and can accept valid dev
 ```text
 translation_handoff + transcript_text -> ok=true, contract accepted, no model executed
 tts_handoff + translated_text/tts_text -> ok=true, contract accepted, no TTS executed
+dev_pipeline_contract_smoke -> ok=true only if both worker contract stages pass
 ```
 
 If required payloads are missing, it returns clear blockers:
@@ -183,9 +185,10 @@ If required payloads are missing, it returns clear blockers:
 ```text
 translation:missing_transcript_payload
 tts:missing_translated_text_payload
+worker_pipeline_contract_smoke:failed_contract
 ```
 
-Developer Diagnostics exposes buttons for capture, ASR, dev transcript seed, dev translation seed, one-click pipeline smoke, translation, TTS, full pipeline status, pipeline snapshot, and reset pipeline cache.
+Developer Diagnostics exposes buttons for capture, ASR, dev transcript seed, dev translation seed, one-click pipeline smoke, worker pipeline smoke, translation, TTS, full pipeline status, pipeline snapshot, and reset pipeline cache.
 
 ## Session-local pipeline cache
 
@@ -254,16 +257,19 @@ seed translation -> prepare/dispatch TTS handoff
 pipeline snapshot -> confirm payload markers and stage blockers
 ```
 
-`run_dev_pipeline_contract_smoke` compresses the common diagnostics path into one command:
+`run_dev_pipeline_contract_smoke` compresses the common Rust-side diagnostics path into one command:
 
 ```text
 reset cache -> seed transcript -> dispatch translation contract -> promote dev translation payload -> dispatch TTS contract -> return snapshot
 ```
 
+`helper_bridge_pipeline_contract_smoke` and the Developer Diagnostics `Worker Pipeline Smoke` button send `dev_pipeline_contract_smoke` to the Python worker. The worker runs translation and TTS contract checks internally and returns both nested results in one response.
+
 The worker can accept these dev payload contracts and return `ok=true` for the relevant handoff stages, but the response runtime claim remains:
 
 ```text
 pipeline_dev_payload_contract_acceptance_no_model_runtime_claim
+worker_pipeline_contract_smoke_no_model_runtime_claim
 ```
 
 This helps verify payload contracts and stage transitions, but it does not prove ASR decoding, translation quality, TTS synthesis, virtual microphone routing, or latency.
@@ -272,7 +278,7 @@ This helps verify payload contracts and stage transitions, but it does not prove
 
 Main Start/Stop Capture still depends on the existing capture path for actual capture behavior.
 
-Helper capture dispatch, capture transcript boundary status, ASR handoff, translation handoff, TTS handoff, dev payload seeds, one-click pipeline smoke, worker contract acceptance, the live pipeline snapshot, and the session cache are still migration/wiring evidence only. They do not prove microphone capture quality, ASR decoding, translated transcript, TTS synthesis, virtual microphone routing, or target latency.
+Helper capture dispatch, capture transcript boundary status, ASR handoff, translation handoff, TTS handoff, dev payload seeds, one-click pipeline smoke, worker pipeline smoke, worker contract acceptance, the live pipeline snapshot, and the session cache are still migration/wiring evidence only. They do not prove microphone capture quality, ASR decoding, translated transcript, TTS synthesis, virtual microphone routing, or target latency.
 
 ## Why this matters
 
