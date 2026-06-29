@@ -41,15 +41,17 @@ Phase 3 should be promoted in small gates:
 
 2. **Dependency probe gate**
    - Run dependency install in a dedicated CI job.
-   - Use `npm install --no-audit --no-fund` only if no lockfile exists.
+   - Use `npm install --ignore-scripts --no-audit --no-fund` when no lockfile exists.
+   - Use `npm ci --ignore-scripts --no-audit --no-fund` when a lockfile exists but the job is still only a dependency probe.
    - Do not run local-only scripts.
+   - Do not run lifecycle scripts.
    - Do not run Tauri build.
    - Do not claim app readiness.
 
 3. **Lockfile gate**
    - Introduce `package-lock.json` only after dependency probe is stable.
-   - Once `package-lock.json` is committed, CI may use `npm ci`.
-   - `npm ci` must not be used before the lockfile is present.
+   - Once `package-lock.json` is committed, strict CI may use `npm ci`.
+   - `npm ci` must not be used as a strict gate before the lockfile is present.
 
 4. **TypeScript gate**
    - Promote `npm run typecheck` after dependency install is stable.
@@ -74,6 +76,13 @@ Dependency probe CI without lockfile:
 
 ```text
 npm install --no-audit --no-fund
+npm install --ignore-scripts --no-audit --no-fund
+```
+
+Dependency probe CI with lockfile:
+
+```text
+npm ci --ignore-scripts --no-audit --no-fund
 ```
 
 Strict CI with lockfile:
