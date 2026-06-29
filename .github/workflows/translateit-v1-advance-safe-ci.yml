@@ -77,14 +77,8 @@ jobs:
         working-directory: EngineData/Frontend/RustApp
     steps:
       - uses: actions/checkout@v4
-      - uses: dtolnay/rust-toolchain@stable
-      - name: Validate Rust manifest only
-        run: |
-          $ErrorActionPreference = 'Stop'
-          rustc --version
-          cargo --version
-          if (!(Test-Path 'src-tauri/Cargo.toml')) { throw 'src-tauri/Cargo.toml is missing.' }
-          $cargoToml = Get-Content 'src-tauri/Cargo.toml' -Raw
-          if (!$cargoToml.Contains('[package]')) { throw 'Cargo.toml missing package section.' }
-          if (!$cargoToml.Contains('[dependencies]')) { throw 'Cargo.toml missing dependencies section.' }
-          Write-Host 'Rust manifest preflight passed. Full cargo check is deferred.'
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - name: Run Rust manifest preflight
+        run: npm run check:rust
