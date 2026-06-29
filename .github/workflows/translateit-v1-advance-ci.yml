@@ -117,3 +117,28 @@ jobs:
           node-version: '20'
       - name: Run frontend build preflight
         run: npm run preflight:frontend-build
+
+  frontend-build:
+    name: Frontend Build Gate
+    runs-on: windows-latest
+    timeout-minutes: 15
+    needs: frontend-build-preflight
+    defaults:
+      run:
+        shell: pwsh
+        working-directory: EngineData/Frontend/RustApp
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - name: Install dependencies
+        run: |
+          $ErrorActionPreference = 'Stop'
+          if (Test-Path 'package-lock.json') {
+            npm ci --ignore-scripts --no-audit --no-fund
+          } else {
+            npm install --ignore-scripts --no-audit --no-fund
+          }
+      - name: Run frontend build
+        run: npm run build:frontend
