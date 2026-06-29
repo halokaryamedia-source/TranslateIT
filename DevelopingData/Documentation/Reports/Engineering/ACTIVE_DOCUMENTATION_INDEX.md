@@ -70,6 +70,7 @@ V1_ADVANCE_CI_REPROMOTION_FRONTEND_PREFLIGHT_AUDIT.md
 V1_ADVANCE_CI_REPROMOTION_FRONTEND_BUILD_GATE_AUDIT.md
 V1_ADVANCE_CI_REPROMOTION_POLICY_VALIDATOR_AUDIT.md
 V1_ADVANCE_POLICY_VALIDATOR_COMMAND_MATCH_REPAIR_AUDIT.md
+V1_ADVANCE_CI_REPROMOTION_RUST_TOOLCHAIN_PROBE_AUDIT.md
 ```
 
 ## Current runtime summary
@@ -83,6 +84,6 @@ V1_ADVANCE_POLICY_VALIDATOR_COMMAND_MATCH_REPAIR_AUDIT.md
 
 Current work continues directly on `V1-Advance`.
 
-Non-local CI may validate structure, scripts, policy contracts, TypeScript, Rust manifest preflight, and frontend build gates.
+Non-local CI may validate structure, scripts, policy contracts, TypeScript, Rust manifest preflight, frontend build gates, and Rust toolchain availability.
 
 Non-local CI must not claim local runtime readiness, CUDA readiness, model loading readiness, microphone readiness, virtual microphone readiness, TTS provider quality, installer readiness, or target-PC latency.
