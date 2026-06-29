@@ -45,11 +45,12 @@ That entry wrapper imports the existing `realtime_local_worker.py`, registers mi
 ```text
 capture_start
 capture_stop
+asr_handoff
 ```
 
 and then runs the original worker main loop.
 
-This prevents dispatch from returning `worker:unknown_command` while keeping helper-routed capture clearly blocked until implemented.
+This prevents dispatch from returning `worker:unknown_command` while keeping helper-routed capture and ASR handoff clearly blocked until implemented.
 
 ## Main Start/Stop step 1
 
@@ -84,7 +85,7 @@ and the frontend has a matching `CaptureHelperDispatchStatus` type plus runtime 
 
 ## Capture transcript boundary status
 
-Rust now also exposes a source-side boundary status between capture and ASR/transcript handoff:
+Rust exposes a source-side boundary status between capture and ASR/transcript handoff:
 
 ```text
 get_capture_transcript_boundary_status
@@ -114,15 +115,45 @@ live audio buffer not ready for ASR frame yet
 capture boundary ready for ASR handoff
 ```
 
+## ASR handoff request stub
+
+Rust now prepares and dispatches a source-side ASR handoff request stub:
+
+```text
+prepare_asr_handoff_request
+dispatch_asr_handoff_request
+```
+
+The request is only prepared when `get_capture_transcript_boundary_status` reports `transcript_handoff_ready = true`.
+
+The current payload is metadata-only:
+
+```text
+frames_received
+buffered_duration_ms
+ready_for_vad
+ready_for_target_asr_frame
+capture_dispatch_attempted
+capture_dispatch_ok
+```
+
+No audio frame payload is sent yet.
+
+The Python worker entry wrapper receives `asr_handoff` and returns a clear blocker:
+
+```text
+asr:handoff_runtime_not_implemented
+```
+
 ## Current boundary
 
 Main Start/Stop Capture still depends on the existing capture path for actual capture behavior.
 
-Helper capture dispatch and capture transcript boundary status are still migration/wiring evidence only. They do not prove microphone capture quality, ASR decoding, translated transcript, TTS, virtual microphone routing, or target latency.
+Helper capture dispatch, capture transcript boundary status, and ASR handoff request stubs are still migration/wiring evidence only. They do not prove microphone capture quality, ASR decoding, translated transcript, TTS, virtual microphone routing, or target latency.
 
 ## Why this matters
 
-The next implementation step can replace the fallback path with real helper-routed capture only after local compile/runtime evidence exists.
+The next implementation step can attach a real target audio frame payload and connect it to the decoder only after local compile/runtime evidence exists.
 
 ## Not claimed yet
 
