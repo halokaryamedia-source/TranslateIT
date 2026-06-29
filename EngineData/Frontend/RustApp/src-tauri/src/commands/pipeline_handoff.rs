@@ -1,9 +1,13 @@
 use serde::Serialize;
 use serde_json::{json, Value};
+use std::sync::{Mutex, OnceLock};
 
 use super::helper_bridge::{get_helper_bridge_status, send_helper_bridge_request};
 use super::helper_bridge_runtime::{unix_ms, HelperBridgeActionResult, HelperBridgeRequest, HelperBridgeStatus};
-use super::runtime_capture::{get_capture_transcript_boundary_status, prepare_asr_handoff_request, AsrHandoffRequestStatus};
+use super::runtime_capture::{
+    get_cached_asr_handoff_status, get_capture_transcript_boundary_status, prepare_asr_handoff_request,
+    AsrHandoffRequestStatus,
+};
 
 #[derive(Debug, Clone, Serialize)]
 pub struct PipelineHandoffRequestStatus {
@@ -21,6 +25,48 @@ pub struct PipelineHandoffRequestStatus {
     pub runtime_claim: String,
     pub payload_json: String,
     pub updated_unix_ms: u128,
+}
+
+static TRANSLATION_HANDOFF_STATUS: OnceLock<Mutex<Option<PipelineHandoffRequestStatus>>> = OnceLock::new();
+static TTS_HANDOFF_STATUS: OnceLock<Mutex<Option<PipelineHandoffRequestStatus>>> = OnceLock::new();
+
+fn translation_status_runtime() -> &'static Mutex<Option<PipelineHandoffRequestStatus>> {
+    TRANSLATION_HANDOFF_STATUS.get_or_init(|| Mutex::new(None))
+}
+
+fn tts_status_runtime() -> &'static Mutex<Option<PipelineHandoffRequestStatus>> {
+    TTS_HANDOFF_STATUS.get_or_init(|| Mutex::new(None))
+}
+
+fn record_stage_status(status: &PipelineHandoffRequestStatus) {
+    let runtime = match status.stage.as_str() {
+        "translation_handoff" => Some(translation_status_runtime()),
+        "tts_handoff" => Some(tts_status_runtime()),
+        _ => None,
+    };
+    if let Some(runtime) = runtime {
+        if let Ok(mut cached) = runtime.lock() {
+            *cached = Some(status.clone());
+        }
+    }
+}
+
+fn cached_translation_status() -> Option<PipelineHandoffRequestStatus> {
+    translation_status_runtime()
+        .lock()
+        .ok()
+        .and_then(|cached| cached.clone())
+}
+
+fn cached_tts_status() -> Option<PipelineHandoffRequestStatus> {
+    tts_status_runtime()
+        .lock()
+        .ok()
+        .and_then(|cached| cached.clone())
+}
+
+fn current_asr_status() -> AsrHandoffRequestStatus {
+    get_cached_asr_handoff_status().unwrap_or_else(prepare_asr_handoff_request)
 }
 
 fn handoff_payload(stage: &str, helper: &HelperBridgeStatus, asr: &AsrHandoffRequestStatus) -> Value {
@@ -100,7 +146,7 @@ fn status_from_parts(
 }
 
 fn translation_prerequisite() -> (AsrHandoffRequestStatus, HelperBridgeStatus, String, bool) {
-    let asr = prepare_asr_handoff_request();
+    let asr = current_asr_status();
     let helper = get_helper_bridge_status();
     let payload_json = handoff_payload("translation_handoff", &helper, &asr).to_string();
     let ready = asr.dispatch_ok;
@@ -108,17 +154,19 @@ fn translation_prerequisite() -> (AsrHandoffRequestStatus, HelperBridgeStatus, S
 }
 
 fn tts_prerequisite() -> (AsrHandoffRequestStatus, HelperBridgeStatus, String, bool) {
-    let asr = prepare_asr_handoff_request();
+    let asr = current_asr_status();
     let helper = get_helper_bridge_status();
     let payload_json = handoff_payload("tts_handoff", &helper, &asr).to_string();
-    let ready = false;
+    let ready = cached_translation_status()
+        .map(|status| status.dispatch_ok)
+        .unwrap_or(false);
     (asr, helper, payload_json, ready)
 }
 
 #[tauri::command]
 pub fn prepare_translation_handoff_request() -> PipelineHandoffRequestStatus {
     let (asr, helper, payload_json, ready) = translation_prerequisite();
-    status_from_parts(
+    let status = status_from_parts(
         "translation_handoff",
         "asr_handoff",
         ready,
@@ -128,14 +176,16 @@ pub fn prepare_translation_handoff_request() -> PipelineHandoffRequestStatus {
         helper.generation_token,
         if asr.dispatch_ok { "" } else { "translation_handoff:missing_asr_transcript" },
         "dispatch_translation_handoff_request",
-    )
+    );
+    record_stage_status(&status);
+    status
 }
 
 #[tauri::command]
 pub fn dispatch_translation_handoff_request() -> PipelineHandoffRequestStatus {
-    let (asr, helper, payload_json, ready) = translation_prerequisite();
-    if !ready {
-        return status_from_parts(
+    let (_asr, helper, payload_json, ready) = translation_prerequisite();
+    let status = if !ready {
+        status_from_parts(
             "translation_handoff",
             "asr_handoff",
             ready,
@@ -145,47 +195,52 @@ pub fn dispatch_translation_handoff_request() -> PipelineHandoffRequestStatus {
             helper.generation_token,
             "translation_handoff:missing_asr_transcript",
             "complete_asr_handoff_first",
-        );
-    }
-    let request = HelperBridgeRequest {
-        task: "translation_handoff".to_string(),
-        payload_json: Some(payload_json.clone()),
+        )
+    } else {
+        let request = HelperBridgeRequest {
+            task: "translation_handoff".to_string(),
+            payload_json: Some(payload_json.clone()),
+        };
+        let dispatch = send_helper_bridge_request(request);
+        status_from_parts(
+            "translation_handoff",
+            "asr_handoff",
+            ready,
+            true,
+            Some(dispatch),
+            payload_json,
+            helper.generation_token,
+            "",
+            "implement_translation_runtime",
+        )
     };
-    let dispatch = send_helper_bridge_request(request);
-    status_from_parts(
-        "translation_handoff",
-        "asr_handoff",
-        ready,
-        true,
-        Some(dispatch),
-        payload_json,
-        helper.generation_token,
-        "",
-        "implement_translation_runtime",
-    )
+    record_stage_status(&status);
+    status
 }
 
 #[tauri::command]
 pub fn prepare_tts_handoff_request() -> PipelineHandoffRequestStatus {
     let (_asr, helper, payload_json, ready) = tts_prerequisite();
-    status_from_parts(
+    let status = status_from_parts(
         "tts_handoff",
         "translation_handoff",
         ready,
-        false,
+        ready,
         None,
         payload_json,
         helper.generation_token,
         "tts_handoff:missing_translated_text",
-        "complete_translation_handoff_first",
-    )
+        "dispatch_tts_handoff_request",
+    );
+    record_stage_status(&status);
+    status
 }
 
 #[tauri::command]
 pub fn dispatch_tts_handoff_request() -> PipelineHandoffRequestStatus {
     let (_asr, helper, payload_json, ready) = tts_prerequisite();
-    if !ready {
-        return status_from_parts(
+    let status = if !ready {
+        status_from_parts(
             "tts_handoff",
             "translation_handoff",
             ready,
@@ -195,32 +250,35 @@ pub fn dispatch_tts_handoff_request() -> PipelineHandoffRequestStatus {
             helper.generation_token,
             "tts_handoff:missing_translated_text",
             "complete_translation_handoff_first",
-        );
-    }
-    let request = HelperBridgeRequest {
-        task: "tts_handoff".to_string(),
-        payload_json: Some(payload_json.clone()),
+        )
+    } else {
+        let request = HelperBridgeRequest {
+            task: "tts_handoff".to_string(),
+            payload_json: Some(payload_json.clone()),
+        };
+        let dispatch = send_helper_bridge_request(request);
+        status_from_parts(
+            "tts_handoff",
+            "translation_handoff",
+            ready,
+            true,
+            Some(dispatch),
+            payload_json,
+            helper.generation_token,
+            "",
+            "implement_tts_runtime",
+        )
     };
-    let dispatch = send_helper_bridge_request(request);
-    status_from_parts(
-        "tts_handoff",
-        "translation_handoff",
-        ready,
-        true,
-        Some(dispatch),
-        payload_json,
-        helper.generation_token,
-        "",
-        "implement_tts_runtime",
-    )
+    record_stage_status(&status);
+    status
 }
 
 #[tauri::command]
 pub fn get_live_pipeline_handoff_status() -> Vec<PipelineHandoffRequestStatus> {
     let capture_boundary = get_capture_transcript_boundary_status();
-    let asr = prepare_asr_handoff_request();
-    let translation = prepare_translation_handoff_request();
-    let tts = prepare_tts_handoff_request();
+    let asr = current_asr_status();
+    let translation = cached_translation_status().unwrap_or_else(prepare_translation_handoff_request);
+    let tts = cached_tts_status().unwrap_or_else(prepare_tts_handoff_request);
     vec![
         PipelineHandoffRequestStatus {
             stage: "capture_transcript_boundary".to_string(),
