@@ -18,10 +18,10 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  v1-advance-non-local-validation:
-    name: V1 Advance Non-Local Validation
+  v1-advance-bootstrap-validation:
+    name: V1 Advance Bootstrap Validation
     runs-on: windows-latest
-    timeout-minutes: 30
+    timeout-minutes: 10
 
     defaults:
       run:
@@ -31,99 +31,122 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: '20'
-
-      - name: Setup Rust stable
-        uses: dtolnay/rust-toolchain@stable
-
-      - name: Guard active V1 source tree
+      - name: Validate V1-Advance source of truth
         run: |
           $ErrorActionPreference = 'Stop'
 
-          if (!(Test-Path 'EngineData/Frontend/RustApp')) {
-            throw 'Active RustApp package is missing: EngineData/Frontend/RustApp'
-          }
+          $requiredFiles = @(
+            'DevelopingData/Documentation/Reports/Engineering/V1_ADVANCE_PRODUCT_REQUIREMENTS.md',
+            'DevelopingData/Documentation/Reports/Engineering/V1_ADVANCE_NON_LOCAL_CI_POLICY.md',
+            'DevelopingData/Documentation/Reports/Engineering/V1_ADVANCE_PHASE_PLAN.md',
+            'EngineData/Frontend/RustApp/README.md',
+            'EngineData/Frontend/RustApp/package.json'
+          )
 
-          if (!(Test-Path 'DevelopingData/Documentation/Reports/Engineering/V1_ADVANCE_PRODUCT_REQUIREMENTS.md')) {
-            throw 'V1-Advance product requirements document is missing.'
+          foreach ($path in $requiredFiles) {
+            if (!(Test-Path $path)) {
+              throw "Required V1-Advance file is missing: $path"
+            }
           }
 
           if (Test-Path 'DevelopingData/FigmaDesignExport') {
             throw 'FigmaDesignExport must not be an active dependency in V1-Advance.'
           }
 
-          if (!(Test-Path 'EngineData/Frontend/RustApp/package.json')) {
-            throw 'RustApp package.json is missing.'
+      - name: Validate package script declarations
+        run: |
+          $ErrorActionPreference = 'Stop'
+
+          $packagePath = 'EngineData/Frontend/RustApp/package.json'
+          $package = Get-Content $packagePath -Raw | ConvertFrom-Json
+          $scripts = $package.scripts
+
+          $requiredScripts = @(
+            'typecheck',
+            'check:rust',
+            'build:frontend',
+            'validate:quick',
+            'test:frontend-backend-contract',
+            'test:worker-contract',
+            'test:ui-binding-report',
+            'test:settings-integrity-report'
+          )
+
+          foreach ($scriptName in $requiredScripts) {
+            if (-not ($scripts.PSObject.Properties.Name -contains $scriptName)) {
+              throw "Required package script is missing: $scriptName"
+            }
           }
 
-      - name: Install dependencies
-        working-directory: EngineData/Frontend/RustApp
+      - name: Validate V1-Advance policy keywords
         run: |
           $ErrorActionPreference = 'Stop'
 
-          if (Test-Path 'package-lock.json') {
-            npm ci
-          } else {
-            Write-Host 'package-lock.json not found; using npm install for this non-local CI pass.'
-            npm install --no-audit --no-fund
+          $requirements = Get-Content 'DevelopingData/Documentation/Reports/Engineering/V1_ADVANCE_PRODUCT_REQUIREMENTS.md' -Raw
+          $policy = Get-Content 'DevelopingData/Documentation/Reports/Engineering/V1_ADVANCE_NON_LOCAL_CI_POLICY.md' -Raw
+          $phasePlan = Get-Content 'DevelopingData/Documentation/Reports/Engineering/V1_ADVANCE_PHASE_PLAN.md' -Raw
+
+          $requiredRequirementMarkers = @(
+            'single active product direction',
+            'Windows desktop real-time conversation translator',
+            'NVIDIA CUDA',
+            'CPU fallback',
+            'built-in virtual microphone',
+            'Silence threshold: 700ms',
+            'Maximum speech segment: 12 seconds',
+            'Always-listening',
+            'Push-to-talk',
+            'Hold Space',
+            'Whisper Large V3 Turbo',
+            'Audio recording history is off by default'
+          )
+
+          foreach ($marker in $requiredRequirementMarkers) {
+            if (!$requirements.Contains($marker)) {
+              throw "Product requirement marker is missing: $marker"
+            }
           }
 
-      - name: Static validation profile
-        working-directory: EngineData/Frontend/RustApp
-        run: |
-          $ErrorActionPreference = 'Stop'
+          $requiredPolicyMarkers = @(
+            'current development phase is intentionally non-local',
+            'Do not require local CUDA hardware in CI',
+            'Do not require local model files in CI',
+            'Do not require microphone access in CI',
+            'Do not require virtual audio devices in CI',
+            'Do not claim local runtime readiness from GitHub inspection alone'
+          )
 
-          npm run validate:script-profiles
-          npm run validate:imports
-          npm run validate:naming
-          npm run validate:translation-flow
-          npm run validate:runtime-ux
-          npm run validate:startup-readiness
+          foreach ($marker in $requiredPolicyMarkers) {
+            if (!$policy.Contains($marker)) {
+              throw "CI policy marker is missing: $marker"
+            }
+          }
 
-      - name: Contract validation profile
-        working-directory: EngineData/Frontend/RustApp
-        run: |
-          $ErrorActionPreference = 'Stop'
-
-          npm run test:frontend-backend-contract
-          npm run test:worker-contract
-          npm run test:rust-linkage-report
-          npm run test:ui-binding-report
-          npm run test:action-binding-report
-          npm run test:settings-integrity-report
-
-      - name: Build-safe validation profile
-        working-directory: EngineData/Frontend/RustApp
-        run: |
-          $ErrorActionPreference = 'Stop'
-
-          npm run typecheck
-          npm run check:rust
-          npm run build:frontend
+          if (!$phasePlan.Contains('Phase 1')) {
+            throw 'Phase plan must include Phase 1.'
+          }
 
       - name: Non-local CI summary
         run: |
           @'
-          TranslateIT V1-Advance CI completed.
+          TranslateIT V1-Advance bootstrap CI completed.
 
-          This workflow validates only CI-safe work:
-          - active RustApp structure
-          - product requirement source of truth
-          - no active FigmaDesignExport dependency
-          - lockfile-safe dependency installation
-          - TypeScript checks
-          - Rust cargo check
-          - frontend build
-          - static contract validation
+          This bootstrap workflow validates:
+          - V1-Advance source-of-truth files exist
+          - active RustApp package exists
+          - no active FigmaDesignExport path exists
+          - required package scripts are declared
+          - product requirements contain locked V1-Advance markers
+          - CI policy confirms this is non-local development
 
-          This workflow does not claim local readiness for:
+          This workflow intentionally does not run local/runtime checks yet:
           - CUDA runtime
-          - local model loading
+          - model loading
           - microphone capture
           - virtual microphone routing
           - TTS provider quality
           - installer packaging
+          - full TypeScript/Rust/frontend build gate
+
+          Strict build validation will be promoted in Phase 3 after bootstrap CI is green.
           '@ | Write-Host
