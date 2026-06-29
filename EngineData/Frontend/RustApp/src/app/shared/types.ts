@@ -50,6 +50,16 @@ export type HelperBridgeActionResult = {
   runtime_claim: string;
 };
 
+export type HelperBridgeWorkerResponse = {
+  ok: boolean;
+  state: string;
+  task: string;
+  message: string;
+  generation_token: number;
+  runtime_claim: string;
+  worker_response_json: string;
+};
+
 export type HelperBridgeRequest = {
   task: string;
   payload_json?: string | null;
