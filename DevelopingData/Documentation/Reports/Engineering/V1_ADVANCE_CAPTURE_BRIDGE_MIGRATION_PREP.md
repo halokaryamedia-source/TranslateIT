@@ -157,6 +157,8 @@ dispatch_translation_handoff_request
 prepare_tts_handoff_request
 dispatch_tts_handoff_request
 get_live_pipeline_handoff_status
+get_live_pipeline_session_snapshot
+reset_live_pipeline_handoff_status
 ```
 
 These stages are still metadata-only. They intentionally block until upstream stages provide real payloads:
@@ -173,11 +175,11 @@ translation:handoff_runtime_not_implemented
 tts:handoff_runtime_not_implemented
 ```
 
-Developer Diagnostics exposes buttons for capture, ASR, translation, TTS, and full pipeline status.
+Developer Diagnostics exposes buttons for capture, ASR, translation, TTS, full pipeline status, pipeline snapshot, and reset pipeline cache.
 
 ## Session-local pipeline cache
 
-Rust now stores source-side handoff status in session memory for:
+Rust stores source-side handoff status in session memory for:
 
 ```text
 asr_handoff
@@ -195,11 +197,31 @@ __translateitLivePipelineHandoffStatus
 
 This is still UI/session evidence only. It is not persisted and is reset when the app session restarts.
 
+## Live pipeline session snapshot
+
+`get_live_pipeline_session_snapshot` returns a compact source-side session summary:
+
+```text
+progress_percent
+stage_count
+prepared_count
+dispatch_ok_count
+active_stage
+active_blocker
+next_action
+summary
+stages
+```
+
+`reset_live_pipeline_handoff_status` clears cached translation/TTS handoff state and refreshes ASR handoff state from the current capture boundary. This prevents stale Developer Diagnostics stage summaries while keeping the operation source-side only.
+
+The progress percentage is a wiring/progress indicator for Developer Diagnostics. It is not live runtime readiness.
+
 ## Current boundary
 
 Main Start/Stop Capture still depends on the existing capture path for actual capture behavior.
 
-Helper capture dispatch, capture transcript boundary status, ASR handoff, translation handoff, TTS handoff, and the live pipeline snapshot cache are still migration/wiring evidence only. They do not prove microphone capture quality, ASR decoding, translated transcript, TTS synthesis, virtual microphone routing, or target latency.
+Helper capture dispatch, capture transcript boundary status, ASR handoff, translation handoff, TTS handoff, the live pipeline snapshot, and the session cache are still migration/wiring evidence only. They do not prove microphone capture quality, ASR decoding, translated transcript, TTS synthesis, virtual microphone routing, or target latency.
 
 ## Why this matters
 
