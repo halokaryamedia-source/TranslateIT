@@ -1,0 +1,92 @@
+name: TranslateIT V1 Advance Safe CI
+
+on:
+  push:
+    branches: [V1-Advance]
+  pull_request:
+    branches: [Developing, V1-Advance]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  bootstrap:
+    name: Bootstrap Policy
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - name: Run V1-Advance policy validator
+        run: node EngineData/Frontend/RustApp/scripts/validate_v1_advance_policy.mjs
+
+  dependency-probe:
+    name: Dependency Probe
+    runs-on: windows-latest
+    needs: bootstrap
+    defaults:
+      run:
+        shell: pwsh
+        working-directory: EngineData/Frontend/RustApp
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - name: Install dependencies only
+        run: |
+          $ErrorActionPreference = 'Stop'
+          if (Test-Path 'package-lock.json') {
+            npm ci --ignore-scripts --no-audit --no-fund
+          } else {
+            npm install --ignore-scripts --no-audit --no-fund
+          }
+          if (!(Test-Path 'node_modules')) { throw 'node_modules was not created.' }
+
+  typescript:
+    name: TypeScript Gate
+    runs-on: windows-latest
+    needs: dependency-probe
+    defaults:
+      run:
+        shell: pwsh
+        working-directory: EngineData/Frontend/RustApp
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - name: Install dependencies
+        run: |
+          $ErrorActionPreference = 'Stop'
+          if (Test-Path 'package-lock.json') {
+            npm ci --ignore-scripts --no-audit --no-fund
+          } else {
+            npm install --ignore-scripts --no-audit --no-fund
+          }
+      - name: Run TypeScript typecheck
+        run: npm run typecheck
+
+  rust-manifest-preflight:
+    name: Rust Manifest Preflight
+    runs-on: windows-latest
+    needs: typescript
+    defaults:
+      run:
+        shell: pwsh
+        working-directory: EngineData/Frontend/RustApp
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - name: Validate Rust manifest only
+        run: |
+          $ErrorActionPreference = 'Stop'
+          rustc --version
+          cargo --version
+          if (!(Test-Path 'src-tauri/Cargo.toml')) { throw 'src-tauri/Cargo.toml is missing.' }
+          $cargoToml = Get-Content 'src-tauri/Cargo.toml' -Raw
+          if (!$cargoToml.Contains('[package]')) { throw 'Cargo.toml missing package section.' }
+          if (!$cargoToml.Contains('[dependencies]')) { throw 'Cargo.toml missing dependencies section.' }
+          Write-Host 'Rust manifest preflight passed. Full cargo check is deferred.'
