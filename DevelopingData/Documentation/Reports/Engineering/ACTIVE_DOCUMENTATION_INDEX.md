@@ -65,9 +65,10 @@ Read these in order:
 19. `DevelopingData/Documentation/Reports/Engineering/V1_ADVANCE_DEPENDENCY_PROBE_CI_AUDIT.md`
 20. `DevelopingData/Documentation/Reports/Engineering/V1_ADVANCE_TYPESCRIPT_CI_AUDIT.md`
 21. `DevelopingData/Documentation/Reports/Engineering/V1_ADVANCE_RUST_CHECK_CI_AUDIT.md`
-22. `DevelopingData/Documentation/Reports/Engineering/CAPTURE_HELPER_BRIDGE_MIGRATION_PLAN.md`
-23. `DevelopingData/Documentation/Reports/Engineering/HELPER_BRIDGE_TIMEOUT_POLICY.md`
-24. `DevelopingData/Documentation/Reports/Engineering/NOISE_HALLUCINATION_FILTERING_POLICY.md`
+22. `DevelopingData/Documentation/Reports/Engineering/V1_ADVANCE_RUST_GATE_REPAIR_AUDIT.md`
+23. `DevelopingData/Documentation/Reports/Engineering/CAPTURE_HELPER_BRIDGE_MIGRATION_PLAN.md`
+24. `DevelopingData/Documentation/Reports/Engineering/HELPER_BRIDGE_TIMEOUT_POLICY.md`
+25. `DevelopingData/Documentation/Reports/Engineering/NOISE_HALLUCINATION_FILTERING_POLICY.md`
 
 ## Historical cleanup/audit documents
 
