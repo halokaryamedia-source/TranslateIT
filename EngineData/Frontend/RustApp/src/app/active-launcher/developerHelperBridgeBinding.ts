@@ -33,6 +33,7 @@ function capturePreviewTask(action: string | undefined): Promise<CaptureTaskResu
   if (action === "asr-dispatch") return runtimeApi.dispatchAsrHandoffRequest();
   if (action === "seed-transcript") return runtimeApi.seedDevAsrTranscript("Hello from the developer seeded ASR transcript.");
   if (action === "seed-translation") return runtimeApi.seedDevTranslatedText("Halo dari seed teks terjemahan developer.");
+  if (action === "pipeline-smoke") return runtimeApi.runDevPipelineContractSmoke();
   if (action === "translation-prepare") return runtimeApi.prepareTranslationHandoffRequest();
   if (action === "translation-dispatch") return runtimeApi.dispatchTranslationHandoffRequest();
   if (action === "tts-prepare") return runtimeApi.prepareTtsHandoffRequest();
