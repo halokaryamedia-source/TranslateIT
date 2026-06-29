@@ -1,5 +1,5 @@
 import { runtimeApi } from "../bridge/runtimeApi";
-import type { CaptureHelperBridgeRequestPreview, HelperBridgeActionResult, HelperBridgeWorkerResponse } from "../shared/types";
+import type { CaptureHelperBridgeRequestPreview, CaptureHelperDispatchStatus, HelperBridgeActionResult, HelperBridgeWorkerResponse } from "../shared/types";
 
 let bound = false;
 let clickHandler: ((event: MouseEvent) => void) | null = null;
@@ -7,6 +7,7 @@ let clickHandler: ((event: MouseEvent) => void) | null = null;
 type HelperTaskResult = HelperBridgeActionResult | HelperBridgeWorkerResponse;
 type CaptureTaskResult = CaptureHelperBridgeRequestPreview | HelperBridgeActionResult | null;
 type WorkerPayload = Record<string, unknown>;
+type CaptureDispatchGlobal = typeof globalThis & { __translateitCaptureHelperDispatchStatus?: CaptureHelperDispatchStatus };
 
 function helperTask(action: string | undefined): Promise<HelperTaskResult> {
   if (action === "start") return runtimeApi.startHelperBridge();
@@ -29,6 +30,15 @@ function capturePreviewTask(action: string | undefined): Promise<CaptureTaskResu
 function setAssistantNotice(message: string): void {
   const assistant = document.querySelector<HTMLParagraphElement>("#assistantMessage");
   if (assistant) assistant.textContent = message;
+}
+
+function setCaptureDispatchGlobal(status: CaptureHelperDispatchStatus): void {
+  (globalThis as CaptureDispatchGlobal).__translateitCaptureHelperDispatchStatus = status;
+}
+
+async function refreshCaptureDispatchStatus(): Promise<void> {
+  const status = await runtimeApi.getCaptureHelperDispatchStatus().catch(() => null);
+  if (status) setCaptureDispatchGlobal(status);
 }
 
 function compactValue(value: unknown): string | null {
@@ -118,7 +128,10 @@ export function bindDeveloperHelperBridgeUi(): () => void {
     const action = captureButton.dataset.captureBridgeAction;
     captureButton.disabled = true;
     void capturePreviewTask(action)
-      .then((result) => setAssistantNotice(previewSummary(result)))
+      .then(async (result) => {
+        await refreshCaptureDispatchStatus();
+        setAssistantNotice(previewSummary(result));
+      })
       .catch(() => setAssistantNotice("Capture helper bridge request failed before returning a result."))
       .finally(() => {
         captureButton.disabled = false;
