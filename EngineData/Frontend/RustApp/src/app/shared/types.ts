@@ -109,6 +109,24 @@ export type CaptureTranscriptBoundaryStatus = {
   updated_unix_ms: number;
 };
 
+export type AsrHandoffRequestStatus = {
+  boundary_ready: boolean;
+  request_prepared: boolean;
+  dispatch_attempted: boolean;
+  dispatch_ok: boolean;
+  task: string;
+  state: string;
+  message: string;
+  blocker: string;
+  next_action: string;
+  frames_received: number;
+  buffered_duration_ms: number;
+  generation_token: number;
+  runtime_claim: string;
+  payload_json: string;
+  updated_unix_ms: number;
+};
+
 export type AudioStudioValidationEvidence = {
   ok: boolean;
   stage: string;
