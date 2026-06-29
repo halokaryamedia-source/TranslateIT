@@ -2,6 +2,7 @@
 
 Branch: `V1-Advance`
 Status: active status summary
+Last updated: 2026-06-29
 
 ## Documentation source of truth
 
@@ -17,7 +18,25 @@ The current active product requirement source is:
 DevelopingData/Documentation/Reports/Engineering/V1_ADVANCE_PRODUCT_REQUIREMENTS.md
 ```
 
-The current development phase is GitHub-first and CI-first. Local target-PC tests are deferred until the CI-safe foundation is stable.
+The current runtime readiness report is:
+
+```text
+DevelopingData/Documentation/Reports/Engineering/V1_ADVANCE_RUNTIME_READINESS_REPORT.md
+```
+
+Current work remains GitHub-first and CI-first. Primary CI is green preflight validation, while full local Rust/Tauri compile proof and target-PC runtime proof are manual until real logs are captured.
+
+## Runtime readiness snapshot
+
+Estimated overall readiness toward an internal release-ready build: **38%**.
+
+Current safe baseline:
+
+```text
+Stable V1 branch + CI preflight green + manual local Tauri compile proof available
+```
+
+The app is not release-ready yet. Release readiness still requires local Rust/Tauri compile proof, real model loading, helper-backed translation proof, microphone capture proof, virtual microphone/output routing, local TTS provider proof, installer build proof, and target-PC latency evidence.
 
 ## Active product direction
 
@@ -65,9 +84,11 @@ Audio recording history off by default
 ### Rust/Tauri shell
 
 - Rust/Tauri launcher shell exists.
-- Tauri command registration exists for runtime status, diagnostics, hardware, audio devices, settings, chat, capture control, translation, Audio Studio metadata routes, provider status route, quality gate status route, helper bridge lifecycle/status, helper bridge health check, capture helper bridge request previews, and Audio Studio validation evidence reads.
+- Tauri command registration exists for runtime status, diagnostics, hardware, audio devices, settings, chat, capture control, stable text translation command path, Audio Studio metadata routes, provider status route, quality gate status route, helper bridge lifecycle/status, helper bridge health check, capture helper bridge request previews, and Audio Studio validation evidence reads.
 - Launcher chat persistence uses `UserData/SavedProject/Chat`.
 - Project path discovery uses root markers: `EngineData`, `DevelopingData`, and `UserData`.
+- Manual local Rust/Tauri compile proof is available through `npm run check:tauri-rust-local` from `EngineData/Frontend/RustApp`.
+- Full Rust cargo check remains manual/deferred outside primary CI until local logs are captured and compile errors are fixed.
 
 ### Single active engine hardening
 
@@ -93,17 +114,18 @@ Audio recording history off by default
 - Start Capture is blocked until helper provider readiness is verified.
 - Audio settings warns that Mic Test and voice capture require helper provider readiness evidence before testing microphone capture.
 - Developer settings remain the source of helper readiness display.
-- Developer settings includes capture helper bridge request preview controls that prepare payloads without starting/stopping real capture.
+- Developer settings includes worker status, ASR preload, translation preload, TTS preflight, synthesize test, and capture helper bridge request preview controls.
 
 ### Helper bridge lifecycle and worker spawn
 
 - Rust/Tauri exposes `get_helper_bridge_status`.
 - Rust/Tauri exposes lifecycle commands: `start_helper_bridge`, `stop_helper_bridge`, and `cancel_helper_bridge_task`.
 - Rust/Tauri exposes `send_helper_bridge_request` for JSON-line worker commands.
+- Rust/Tauri exposes higher-level helper worker commands for worker status, ASR preload, translation preload, TTS preflight, and synthesize text.
 - Rust/Tauri exposes `check_helper_bridge_health`, which sends worker `status` only when the helper is already ready.
 - Helper bridge commands maintain a generation token for cancellation/state invalidation.
 - `start_helper_bridge` resolves `EngineData/Backend/LocalWorker/WorkerRuntime/realtime_local_worker.py`.
-- `start_helper_bridge` requires the project-local worker `.venv` Python created by `setup_realtime_worker.ps1`.
+- Helper Python command resolution supports an explicit environment override, project worker venv Python, system `python`, system `python3`, and Windows `py -3` fallback candidates.
 - `start_helper_bridge` spawns the Python worker with piped stdin/stdout and verifies startup using a `ping` command.
 - Worker error stream is captured under `UserData/CacheData/HelperBridge/logs/`.
 - Helper existence alone must not mark full runtime ready; model/provider readiness still depends on worker response evidence and local validation.
@@ -116,7 +138,14 @@ Audio recording history off by default
 - Preview commands return `provider_blocked` when helper provider readiness is not verified.
 - Frontend exposes `prepareCaptureStartRequest` and `prepareCaptureStopRequest`.
 - Developer UI includes preview buttons so the next migration step can inspect capture helper bridge payloads safely.
-- Active contract now records V1-Advance speech policy: always-listening default, 700ms silence threshold, and 12s max speech segment.
+- Active contract records V1-Advance speech policy: always-listening default, 700ms silence threshold, and 12s max speech segment.
+
+### Text translation path
+
+- Frontend text submit flow exists and displays translation results in the launcher UI.
+- Stable text translation command path is currently active through `commands::text_translate::translate_text`.
+- Helper-backed text translation work was attempted, then rolled back from the active command path to keep CI green.
+- Reintroducing helper-backed text translation must happen only after local Rust/Tauri compile proof logs are available.
 
 ### Audio Studio project-data runtime
 
@@ -135,12 +164,13 @@ Audio Studio metadata routes use `metadata_ready` semantics instead of general r
 
 - Developer UI includes architecture/runtime status visibility.
 - Developer UI includes Audio Studio validation evidence status.
+- Developer UI includes helper worker runtime detail for blocker/model/device/provider/output feedback.
 - Rust/Tauri exposes `get_latest_audio_studio_validation_evidence`.
 - Evidence reader loads the latest `.summary.json` and matching `.log` from `UserData/CacheData/AudioStudio/logs/` when available.
 
 ### Contract and path guardrails
 
-- Runtime contracts now declare `branch: V1-Advance`.
+- Runtime contracts declare `branch: V1-Advance`.
 - Architecture validator checks the deprecated Audio Studio placeholder does not become the source of truth again.
 - Architecture validator checks Audio Studio provider and quality routes remain guarded by `provider_blocked` before local evidence.
 - Capture helper bridge request contract defines the future capture_start/capture_stop helper bridge schema and keeps current state as `contract_ready_runtime_not_migrated`.
@@ -173,6 +203,8 @@ Helper worker spawn, ping health check, JSON-line request forwarding, worker sta
 Still pending:
 
 - target-PC spawn validation,
+- local Rust/Tauri cargo check proof,
+- reintroducing helper-backed text translation after compile-proof,
 - replacing the temporary one-shot capture implementation with long-running helper bridge routing,
 - full Start/Stop capture result routing through helper request/response evidence,
 - backend timeout/deadline handling for helper bridge stdout response reads,
@@ -196,32 +228,30 @@ Contracts exist for:
 
 These contracts guide implementation and validators, but contract existence alone is not runtime readiness.
 
-## Historical notes
-
-Superseded launcher prototypes, handoff notes, old branch reports, and phase reports may be useful for historical context, but they are not active source-of-truth unless listed in `ACTIVE_DOCUMENTATION_INDEX.md`.
-
-The active product shell direction is Rust/Tauri. Python remains helper runtime only.
-
 ## Known remaining implementation work
 
-1. Keep bootstrap CI green while expanding validators safely.
-2. Validate helper worker spawn on target PC later.
-3. Replace temporary one-shot capture implementation with long-running helper bridge routing.
-4. Implement built-in virtual microphone target and routing.
-5. Implement English TTS meeting output routing.
-6. Implement Audio Studio provider processing after metadata routes.
-7. Add Audio Studio guided microphone capture.
-8. Add Audio Studio audio quality scoring.
-9. Add backend timeout/deadline handling for helper bridge worker response reads.
-10. Prepare local validation checklist only after GitHub/CI-safe work is stable.
+1. Keep primary CI green while expanding local proof safely.
+2. Run `npm run check:tauri-rust-local` on a Windows development machine.
+3. Fix the first real Rust compile error from local cargo check logs.
+4. Validate helper worker spawn on target PC.
+5. Reintroduce helper-backed text translation after compile proof.
+6. Replace temporary one-shot capture implementation with long-running helper bridge routing.
+7. Implement built-in virtual microphone target and routing.
+8. Implement English TTS meeting output routing.
+9. Implement Audio Studio provider processing after metadata routes.
+10. Add Audio Studio guided microphone capture.
+11. Add Audio Studio audio quality scoring.
+12. Add backend timeout/deadline handling for helper bridge worker response reads.
+13. Prepare internal installer proof.
+14. Record target-PC latency and runtime readiness evidence.
 
 ## Not claimed
 
-- No local validation pass is claimed here.
-- No packaged app readiness is claimed here.
-- No real Audio Studio provider output is claimed here.
-- No CUDA runtime readiness is claimed here.
-- No target-PC helper spawn success is claimed here.
-- No microphone capture success is claimed here.
-- No virtual microphone success is claimed here.
-- No one-second latency success is claimed here.
+- No local Rust/Tauri cargo check pass is claimed yet.
+- No target-PC helper worker spawn pass is claimed yet.
+- No real model loading pass is claimed yet.
+- No microphone capture pass is claimed yet.
+- No virtual microphone routing pass is claimed yet.
+- No TTS provider quality pass is claimed yet.
+- No installer build pass is claimed yet.
+- No target-PC latency pass is claimed yet.
