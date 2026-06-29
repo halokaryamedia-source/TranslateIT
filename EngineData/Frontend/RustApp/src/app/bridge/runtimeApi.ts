@@ -19,6 +19,7 @@ import type {
   LauncherChatActionResult,
   LauncherChatSession,
   LauncherChatSummary,
+  LivePipelineSessionSnapshot,
   ModelInventoryReport,
   ModelSetupReport,
   PipelineHandoffRequestStatus,
@@ -77,6 +78,25 @@ function pipelineHandoffFallback(stage: string, message: string): PipelineHandof
     generation_token: 0,
     runtime_claim: "frontend_bridge_unavailable",
     payload_json: "{}",
+    updated_unix_ms: Date.now(),
+  };
+}
+
+function livePipelineSnapshotFallback(message: string): LivePipelineSessionSnapshot {
+  const stage = pipelineHandoffFallback("live_pipeline", message);
+  return {
+    ok: false,
+    state: "frontend_bridge_error",
+    progress_percent: 0,
+    stage_count: 1,
+    prepared_count: 0,
+    dispatch_ok_count: 0,
+    active_stage: "live_pipeline",
+    active_blocker: "frontend_bridge_unavailable",
+    next_action: "open_developer_diagnostics",
+    summary: message,
+    runtime_claim: "frontend_bridge_unavailable",
+    stages: [stage],
     updated_unix_ms: Date.now(),
   };
 }
@@ -335,6 +355,22 @@ export const runtimeApi = {
       "get_live_pipeline_handoff_status",
       undefined,
       [pipelineHandoffFallback("live_pipeline", "Live pipeline handoff status failed before reaching the Tauri command bridge.")],
+    );
+  },
+
+  async getLivePipelineSessionSnapshot(): Promise<LivePipelineSessionSnapshot> {
+    return invokeOr<LivePipelineSessionSnapshot>(
+      "get_live_pipeline_session_snapshot",
+      undefined,
+      livePipelineSnapshotFallback("Live pipeline session snapshot failed before reaching the Tauri command bridge."),
+    );
+  },
+
+  async resetLivePipelineHandoffStatus(): Promise<LivePipelineSessionSnapshot> {
+    return invokeOr<LivePipelineSessionSnapshot>(
+      "reset_live_pipeline_handoff_status",
+      undefined,
+      livePipelineSnapshotFallback("Live pipeline reset failed before reaching the Tauri command bridge."),
     );
   },
 
