@@ -1,3 +1,4 @@
+import { invoke } from "@tauri-apps/api/core";
 import { runtimeApi } from "../bridge/runtimeApi";
 import type { AsrHandoffRequestStatus, CaptureHelperBridgeRequestPreview, CaptureHelperDispatchStatus, CaptureTranscriptBoundaryStatus, HelperBridgeActionResult, HelperBridgeWorkerResponse, LivePipelineSessionSnapshot, PipelineHandoffRequestStatus } from "../shared/types";
 
@@ -13,6 +14,32 @@ type CaptureDispatchGlobal = typeof globalThis & {
   __translateitLivePipelineHandoffStatus?: PipelineHandoffRequestStatus[];
 };
 
+function workerSmokeFallback(message: string): HelperBridgeWorkerResponse {
+  return {
+    ok: false,
+    state: "frontend_bridge_error",
+    task: "dev_pipeline_contract_smoke",
+    message,
+    generation_token: 0,
+    runtime_claim: "frontend_bridge_unavailable",
+    worker_response_json: JSON.stringify({
+      ok: false,
+      stage: "dev_pipeline_contract_smoke",
+      blocker: "frontend_bridge_unavailable",
+      runtime_claim: "frontend_bridge_unavailable",
+      note: message,
+    }),
+  };
+}
+
+async function workerPipelineSmokeTask(): Promise<HelperBridgeWorkerResponse> {
+  try {
+    return await invoke<HelperBridgeWorkerResponse>("helper_bridge_pipeline_contract_smoke");
+  } catch {
+    return workerSmokeFallback("Worker pipeline smoke failed before reaching the Tauri command bridge.");
+  }
+}
+
 function helperTask(action: string | undefined): Promise<HelperTaskResult> {
   if (action === "start") return runtimeApi.startHelperBridge();
   if (action === "stop") return runtimeApi.stopHelperBridge();
@@ -20,13 +47,7 @@ function helperTask(action: string | undefined): Promise<HelperTaskResult> {
   if (action === "preload-asr") return runtimeApi.helperBridgePreloadAsr();
   if (action === "preload-translation") return runtimeApi.helperBridgePreloadTranslation("Realtime");
   if (action === "tts-preflight") return runtimeApi.helperBridgeTtsPreflight();
-  if (action === "worker-pipeline-smoke") return runtimeApi.sendHelperBridgeRequest({
-    task: "dev_pipeline_contract_smoke",
-    payload_json: JSON.stringify({
-      transcript_text: "Hello from Developer Diagnostics worker pipeline smoke.",
-      translated_text: "Halo dari worker pipeline smoke Developer Diagnostics.",
-    }),
-  });
+  if (action === "worker-pipeline-smoke") return workerPipelineSmokeTask();
   if (action === "synthesize-test") return runtimeApi.helperBridgeSynthesizeText("TranslateIT local voice test.");
   return runtimeApi.cancelHelperBridgeTask();
 }
