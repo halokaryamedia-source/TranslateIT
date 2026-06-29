@@ -70,9 +70,13 @@ export type CaptureHelperBridgeRequestPreview = {
   state: string;
   message: string;
   command: string;
+  helper_task: string;
   generation_token: number;
   provider_ready: boolean;
   cuda_ready: boolean;
+  requires_provider_ready: boolean;
+  migration_ready: boolean;
+  preview_only: boolean;
   runtime_claim: string;
   payload_json: string;
 };
@@ -261,54 +265,3 @@ export type ModelSetupReport = {
   blockers: string[];
   note: string;
 };
-
-export type GpuPolicyReport = {
-  ok: boolean;
-  status: "PASS" | "PARTIAL" | "BLOCKED" | "FAIL" | string;
-  cuda_available: boolean;
-  gpu_primary: boolean;
-  cpu_fallback_active: boolean;
-  fallback_label: string;
-  blockers: string[];
-  note: string;
-};
-
-export type LauncherChatSession = {
-  session_id: string;
-  title: string;
-  kind: string;
-  created_unix_ms: number;
-  updated_unix_ms: number;
-  messages: { role: string; content: string; created_unix_ms: number }[];
-};
-
-export type LauncherChatSummary = {
-  session_id: string;
-  title: string;
-  kind: string;
-  updated_unix_ms: number;
-  message_count: number;
-};
-
-export type LauncherChatActionResult = {
-  ok: boolean;
-  session_id: string;
-  message: string;
-};
-
-export type HardwareMetric = {
-  label: string;
-  percent: number | null;
-  status: string;
-  detail: string;
-};
-
-export type HardwareUsageReport = {
-  cpu: HardwareMetric;
-  ram: HardwareMetric;
-  gpu: HardwareMetric;
-  note: string;
-};
-
-export type SettingsTab = "general" | "audio" | "translate" | "developer";
-export type ChatKind = "recent" | "unsaved" | "saved" | "local";
