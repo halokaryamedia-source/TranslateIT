@@ -47,7 +47,7 @@ function workerPayload(result: HelperTaskResult): WorkerPayload | null {
 
 function workerDetail(payload: WorkerPayload | null): string {
   if (!payload) return "";
-  const details = [
+  const details: Array<[string, unknown]> = [
     ["blocker", payload.blocker],
     ["warnings", payload.warnings],
     ["model", payload.model_id ?? payload.asr_active_model_id],
@@ -56,27 +56,28 @@ function workerDetail(payload: WorkerPayload | null): string {
     ["fallback", payload.fallback_reason ?? payload.translation_fallback_reason],
     ["provider", payload.provider],
     ["output", payload.output_path],
-  ]
+  ];
+  const compactDetails = details
     .map(([label, value]) => {
       const compact = compactValue(value);
       return compact ? `${label}: ${compact}` : null;
     })
     .filter((value): value is string => Boolean(value));
-  return details.length ? ` Details: ${details.join(" | ")}` : "";
+  return compactDetails.length ? ` Details: ${compactDetails.join(" | ")}` : "";
 }
 
 function helperSummary(result: HelperTaskResult | null | undefined): string {
   if (!result) return "Helper bridge command did not return a result.";
   const task = "task" in result ? ` [${result.task}]` : "";
-  const state = result.ok ? "ok" : "blocked";
+  const state = result.ok ? "evidence returned" : "blocked";
   const payload = workerPayload(result);
-  return `Helper${task} ${state}: ${result.message}${workerDetail(payload)}`;
+  return `Helper${task} ${state}: ${result.message}${workerDetail(payload)} This is diagnostic evidence, not a local runtime readiness claim.`;
 }
 
 function previewSummary(result: Awaited<ReturnType<typeof runtimeApi.prepareCaptureStartRequest>>): string {
   if (!result) return "Capture helper bridge request preview did not return a result.";
-  const state = result.ok ? "ready" : "blocked";
-  return `Capture ${result.command} preview ${state}. Provider ready: ${result.provider_ready}. CUDA ready: ${result.cuda_ready}. This preview did not start or stop capture. ${result.message}`;
+  const state = result.ok ? "preview available" : "blocked";
+  return `Capture ${result.command} ${state}. Provider evidence flag: ${result.provider_ready}. CUDA evidence flag: ${result.cuda_ready}. This preview did not start or stop capture and is not a readiness claim. ${result.message}`;
 }
 
 export function bindDeveloperHelperBridgeUi(): () => void {
