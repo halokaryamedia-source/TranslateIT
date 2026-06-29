@@ -12,6 +12,7 @@ const fail = (message) => {
 };
 
 const readText = (path) => readFileSync(path, "utf8");
+const readJson = (path) => JSON.parse(readText(path));
 
 const packagePath = join(appRoot, "package.json");
 const requirementsPath = join(
@@ -30,12 +31,17 @@ const ciPolicyPath = join(
   "Engineering",
   "V1_ADVANCE_NON_LOCAL_CI_POLICY.md",
 );
+const runtimeContractsRoot = join(repoRoot, "EngineData", "Backend", "RuntimeContracts");
 
 const requiredFiles = [
   packagePath,
   requirementsPath,
   ciPolicyPath,
   join(appRoot, "README.md"),
+  join(runtimeContractsRoot, "FINAL_ARCHITECTURE_CONTRACT.json"),
+  join(runtimeContractsRoot, "PYTHON_HELPER_BRIDGE_CONTRACT.json"),
+  join(runtimeContractsRoot, "CAPTURE_HELPER_BRIDGE_REQUEST_CONTRACT.json"),
+  join(runtimeContractsRoot, "AUDIO_STUDIO_ROUTE_STATUS_CONTRACT.json"),
 ];
 
 for (const path of requiredFiles) {
@@ -48,7 +54,7 @@ if (process.exitCode) {
   process.exit(process.exitCode);
 }
 
-const packageJson = JSON.parse(readText(packagePath));
+const packageJson = readJson(packagePath);
 const scripts = packageJson.scripts ?? {};
 const scriptEntries = Object.entries(scripts);
 
@@ -137,6 +143,43 @@ for (const marker of requiredPolicyMarkers) {
   if (!policy.includes(marker)) {
     fail(`CI policy marker is missing: ${marker}`);
   }
+}
+
+const runtimeContractPaths = [
+  join(runtimeContractsRoot, "FINAL_ARCHITECTURE_CONTRACT.json"),
+  join(runtimeContractsRoot, "PYTHON_HELPER_BRIDGE_CONTRACT.json"),
+  join(runtimeContractsRoot, "CAPTURE_HELPER_BRIDGE_REQUEST_CONTRACT.json"),
+  join(runtimeContractsRoot, "AUDIO_STUDIO_ROUTE_STATUS_CONTRACT.json"),
+];
+
+for (const path of runtimeContractPaths) {
+  const contract = readJson(path);
+  if (contract.branch !== "V1-Advance") {
+    fail(`Runtime contract branch must be V1-Advance: ${path}`);
+  }
+  const raw = readText(path);
+  if (raw.includes('"branch": "Dev-Rust"')) {
+    fail(`Runtime contract still declares Dev-Rust as active branch: ${path}`);
+  }
+}
+
+const finalArchitecture = readJson(join(runtimeContractsRoot, "FINAL_ARCHITECTURE_CONTRACT.json"));
+if (finalArchitecture.final_desktop_shell !== "Rust/Tauri") {
+  fail("Final architecture must keep Rust/Tauri as the user-facing shell.");
+}
+if (finalArchitecture.helper_runtime !== "Python") {
+  fail("Final architecture must keep Python as helper runtime.");
+}
+
+const captureContract = readJson(join(runtimeContractsRoot, "CAPTURE_HELPER_BRIDGE_REQUEST_CONTRACT.json"));
+if (captureContract.v1_advance_speech_policy?.silence_threshold_ms !== 700) {
+  fail("Capture contract must declare 700ms silence threshold.");
+}
+if (captureContract.v1_advance_speech_policy?.max_speech_segment_seconds !== 12) {
+  fail("Capture contract must declare 12 second max speech segment.");
+}
+if (captureContract.v1_advance_speech_policy?.default_input_mode !== "always_listening") {
+  fail("Capture contract must declare always-listening as default input mode.");
 }
 
 if (process.exitCode) {
