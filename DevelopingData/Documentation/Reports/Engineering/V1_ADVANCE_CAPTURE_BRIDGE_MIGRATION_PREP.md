@@ -52,7 +52,7 @@ tts_handoff
 
 and then runs the original worker main loop.
 
-This prevents helper dispatch from returning `worker:unknown_command` while keeping helper-routed capture and pipeline handoffs clearly blocked until implemented.
+This prevents helper dispatch from returning `worker:unknown_command` while keeping helper-routed capture and pipeline handoffs clearly bounded until implemented.
 
 ## Main Start/Stop step 1
 
@@ -170,11 +170,18 @@ translation_handoff -> waits for ASR transcript text or dev-seeded transcript te
 tts_handoff -> waits for translated text or dev-seeded translated text
 ```
 
-The Python worker entry wrapper receives these commands and returns clear blockers:
+The Python worker entry wrapper receives these commands and can accept valid developer payload contracts:
 
 ```text
-translation:handoff_runtime_not_implemented
-tts:handoff_runtime_not_implemented
+translation_handoff + transcript_text -> ok=true, contract accepted, no model executed
+tts_handoff + translated_text/tts_text -> ok=true, contract accepted, no TTS executed
+```
+
+If required payloads are missing, it returns clear blockers:
+
+```text
+translation:missing_transcript_payload
+tts:missing_translated_text_payload
 ```
 
 Developer Diagnostics exposes buttons for capture, ASR, dev transcript seed, dev translation seed, translation, TTS, full pipeline status, pipeline snapshot, and reset pipeline cache.
@@ -244,13 +251,19 @@ seed translation -> prepare/dispatch TTS handoff
 pipeline snapshot -> confirm payload markers and stage blockers
 ```
 
+The worker can accept these dev payload contracts and return `ok=true` for the relevant handoff stages, but the response runtime claim remains:
+
+```text
+pipeline_dev_payload_contract_acceptance_no_model_runtime_claim
+```
+
 This helps verify payload contracts and stage transitions, but it does not prove ASR decoding, translation quality, TTS synthesis, virtual microphone routing, or latency.
 
 ## Current boundary
 
 Main Start/Stop Capture still depends on the existing capture path for actual capture behavior.
 
-Helper capture dispatch, capture transcript boundary status, ASR handoff, translation handoff, TTS handoff, dev payload seeds, the live pipeline snapshot, and the session cache are still migration/wiring evidence only. They do not prove microphone capture quality, ASR decoding, translated transcript, TTS synthesis, virtual microphone routing, or target latency.
+Helper capture dispatch, capture transcript boundary status, ASR handoff, translation handoff, TTS handoff, dev payload seeds, worker contract acceptance, the live pipeline snapshot, and the session cache are still migration/wiring evidence only. They do not prove microphone capture quality, ASR decoding, translated transcript, TTS synthesis, virtual microphone routing, or target latency.
 
 ## Why this matters
 
