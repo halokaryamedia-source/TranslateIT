@@ -51,8 +51,6 @@
     "status:remaining": "node ../../../DevelopingData/Tooling/Scripts/Execution/translateit_remaining_status.mjs",
     "status:gap": "node ../../../DevelopingData/Tooling/Scripts/Execution/translateit_gap_status.mjs",
     "status:readiness": "node ../../../DevelopingData/Tooling/Scripts/Execution/translateit_tooling.mjs summarize-readiness",
-    "export:figma-design": "node scripts/export_figma_design_system.mjs",
-    "validate:figma-export": "node scripts/validate_figma_export.mjs",
     "models:inventory": "node scripts/model_inventory.mjs",
     "models:find-existing": "node scripts/find_existing_models.mjs",
     "models:reconcile": "node scripts/reconcile_models.mjs",
@@ -75,6 +73,7 @@
     "validate:local-hardening": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/run_local_hardening_validation.ps1",
     "validate:architecture-contracts": "node scripts/validate_architecture_contracts.mjs",
     "validate:single-active-engine": "node scripts/validate_single_active_engine.mjs",
+    "validate:v1-advance-policy": "node scripts/validate_v1_advance_policy.mjs",
     "validate:userdata-root-policy": "node scripts/validate_userdata_root_policy.mjs",
     "validate:helper-bridge": "node scripts/validate_helper_bridge.mjs",
     "validate:voice-capture": "node scripts/validate_voice_capture_flow.mjs",
@@ -98,8 +97,8 @@
     "validate:evidence": "node ../../../DevelopingData/Tooling/Scripts/Execution/translateit_tooling.mjs validate-evidence",
     "validate:ui-reference": "node scripts/validate_ui_reference.mjs",
     "validate:ui-template": "node scripts/validate_ui_template.mjs",
-    "validate:internal": "npm run validate:root && npm run validate:structure && npm run validate:launcher && npm run validate:worker && npm run validate:evidence && npm run validate:security-hardening && npm run validate:architecture-contracts && npm run validate:single-active-engine && npm run validate:userdata-root-policy && npm run validate:helper-bridge && npm run validate:voice-capture && npm run validate:settings-navigation && npm run validate:machine-paths && npm run validate:runtime-flow && npm run validate:ui-reference && npm run validate:ui-template && npm run validate:audio-studio && npm run audit:deps && npm run audit:ui-design && npm run audit:css-priority && npm run typecheck && npm run check:rust && npm run build:frontend",
-    "validate:full": "npm run validate:root && npm run validate:structure && npm run validate:launcher && npm run validate:worker && npm run validate:models && npm run validate:evidence && npm run validate:security-hardening && npm run validate:architecture-contracts && npm run validate:single-active-engine && npm run validate:userdata-root-policy && npm run validate:helper-bridge && npm run validate:voice-capture && npm run validate:settings-navigation && npm run validate:machine-paths && npm run validate:runtime-flow && npm run validate:ui-reference && npm run validate:ui-template && npm run validate:audio-studio && npm run validate:user-flow && npm run validate:gpu-policy && npm run audit:deps && npm run audit:ui-design && npm run audit:css-priority && npm run typecheck && npm run check:rust && npm run build:frontend && npm run build && npm run status:readiness && npm run models:find-existing && npm run models:reconcile && npm run models:inventory && npm run models:verify"
+    "validate:internal": "npm run validate:root && npm run validate:structure && npm run validate:launcher && npm run validate:worker && npm run validate:evidence && npm run validate:security-hardening && npm run validate:architecture-contracts && npm run validate:single-active-engine && npm run validate:v1-advance-policy && npm run validate:userdata-root-policy && npm run validate:helper-bridge && npm run validate:voice-capture && npm run validate:settings-navigation && npm run validate:machine-paths && npm run validate:runtime-flow && npm run validate:ui-reference && npm run validate:ui-template && npm run validate:audio-studio && npm run audit:deps && npm run audit:ui-design && npm run audit:css-priority && npm run typecheck && npm run check:rust && npm run build:frontend",
+    "validate:full": "npm run validate:root && npm run validate:structure && npm run validate:launcher && npm run validate:worker && npm run validate:models && npm run validate:evidence && npm run validate:security-hardening && npm run validate:architecture-contracts && npm run validate:single-active-engine && npm run validate:v1-advance-policy && npm run validate:userdata-root-policy && npm run validate:helper-bridge && npm run validate:voice-capture && npm run validate:settings-navigation && npm run validate:machine-paths && npm run validate:runtime-flow && npm run validate:ui-reference && npm run validate:ui-template && npm run validate:audio-studio && npm run validate:user-flow && npm run validate:gpu-policy && npm run audit:deps && npm run audit:ui-design && npm run audit:css-priority && npm run typecheck && npm run check:rust && npm run build:frontend && npm run build && npm run status:readiness && npm run models:find-existing && npm run models:reconcile && npm run models:inventory && npm run models:verify"
   },
   "dependencies": {
     "@tauri-apps/api": "^2.0.0"
