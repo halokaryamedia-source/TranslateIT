@@ -4,9 +4,10 @@ use std::fs::{self, OpenOptions};
 use std::io::{BufRead, BufReader, Write};
 use std::path::PathBuf;
 use std::process::{Child, ChildStderr, ChildStdin, ChildStdout};
+use std::sync::mpsc::{self, RecvTimeoutError};
 use std::sync::{Mutex, OnceLock};
 use std::thread;
-use std::time::{SystemTime, UNIX_EPOCH};
+use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
 pub const DEFAULT_WORKER_RESPONSE_DEADLINE_MS: u128 = 30_000;
 
@@ -259,6 +260,49 @@ pub fn read_worker_response(stdout: &mut BufReader<ChildStdout>) -> Result<Value
         return Err("worker:stdout_closed".to_string());
     }
     serde_json::from_str::<Value>(&line).map_err(|error| format!("worker:invalid_json_response:{error}"))
+}
+
+pub fn read_worker_response_direct_with_deadline(
+    mut stdout: BufReader<ChildStdout>,
+    deadline_ms: u128,
+) -> Result<(Value, BufReader<ChildStdout>), String> {
+    let (sender, receiver) = mpsc::channel();
+    thread::spawn(move || {
+        let result = read_worker_response(&mut stdout);
+        let _ = sender.send((result, stdout));
+    });
+
+    let timeout = Duration::from_millis(deadline_ms.min(u64::MAX as u128) as u64);
+    match receiver.recv_timeout(timeout) {
+        Ok((Ok(value), stdout)) => Ok((value, stdout)),
+        Ok((Err(error), _stdout)) => Err(error),
+        Err(RecvTimeoutError::Timeout) => {
+            Err(format!("worker:response_deadline_exceeded:{deadline_ms}ms"))
+        }
+        Err(RecvTimeoutError::Disconnected) => Err("worker:response_reader_disconnected".to_string()),
+    }
+}
+
+pub fn read_worker_response_with_deadline(runtime: &mut HelperBridgeRuntime) -> Result<Value, String> {
+    let Some(stdout) = runtime.stdout.take() else {
+        return Err("worker:stdout_missing".to_string());
+    };
+    match read_worker_response_direct_with_deadline(stdout, DEFAULT_WORKER_RESPONSE_DEADLINE_MS) {
+        Ok((value, stdout)) => {
+            runtime.stdout = Some(stdout);
+            Ok(value)
+        }
+        Err(error) => {
+            runtime.stdout = None;
+            runtime.state = "blocked".to_string();
+            runtime.message = format!("Helper worker response failed or exceeded deadline: {error}");
+            runtime.last_error = Some(error.clone());
+            runtime.active_task = None;
+            runtime.updated_unix_ms = unix_ms();
+            stop_child(runtime);
+            Err(error)
+        }
+    }
 }
 
 pub fn stop_child(runtime: &mut HelperBridgeRuntime) {
