@@ -3,8 +3,6 @@ name: TranslateIT V1 Advance Safe CI
 on:
   push:
     branches: [V1-Advance]
-  pull_request:
-    branches: [Developing, V1-Advance]
   workflow_dispatch:
 
 permissions:
