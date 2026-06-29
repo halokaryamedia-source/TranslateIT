@@ -1,8 +1,9 @@
 use serde::Serialize;
-use serde_json::json;
+use serde_json::{json, Value};
 
 use crate::engine;
 use crate::engine::audio::input::InputPreparationStatus;
+use crate::engine::runtime_settings::RuntimeSettings;
 use crate::engine::state::CommandResult;
 
 use super::helper_bridge::start_helper_bridge;
@@ -18,9 +19,13 @@ pub struct CaptureHelperBridgeRequestPreview {
     pub state: String,
     pub message: String,
     pub command: String,
+    pub helper_task: String,
     pub generation_token: u64,
     pub provider_ready: bool,
     pub cuda_ready: bool,
+    pub requires_provider_ready: bool,
+    pub migration_ready: bool,
+    pub preview_only: bool,
     pub runtime_claim: String,
     pub payload_json: String,
 }
@@ -41,10 +46,8 @@ pub struct VoiceCapturePreparationReport {
     pub helper_status: HelperBridgeStatus,
 }
 
-fn capture_request_preview(command: &str) -> CaptureHelperBridgeRequestPreview {
-    let status = get_helper_bridge_status();
-    let settings = engine::load_settings();
-    let payload = if command == "capture_start" {
+fn capture_helper_payload(command: &str, status: &HelperBridgeStatus, settings: &RuntimeSettings) -> Value {
+    if command == "capture_start" {
         json!({
             "command": "capture_start",
             "generation_token": status.generation_token,
@@ -62,25 +65,52 @@ fn capture_request_preview(command: &str) -> CaptureHelperBridgeRequestPreview {
             "command": "capture_stop",
             "generation_token": status.generation_token,
             "provider_ready": status.provider_ready,
+            "cuda_ready": status.cuda_ready,
             "runtime_claim": "preview_only_capture_not_stopped"
         })
-    };
-    let ready = status.provider_ready;
+    }
+}
+
+fn capture_requires_provider(command: &str) -> bool {
+    command == "capture_start"
+}
+
+fn capture_request_preview(command: &str) -> CaptureHelperBridgeRequestPreview {
+    let status = get_helper_bridge_status();
+    let settings = engine::load_settings();
+    let payload = capture_helper_payload(command, &status, &settings);
+    let requires_provider_ready = capture_requires_provider(command);
+    let migration_ready = status.state == "ready" && (!requires_provider_ready || status.provider_ready);
+    let ready = migration_ready;
     let status_message = compact_preview_text(&status.message);
     CaptureHelperBridgeRequestPreview {
         ok: ready,
         state: if ready { "request_ready" } else { "provider_blocked" }.to_string(),
         message: if ready {
             format!("Prepared {command} helper bridge request preview. Capture has not been started from this command.")
-        } else {
+        } else if requires_provider_ready {
             format!("Prepared {command} preview. Full ASR/translation/TTS is blocked until helper provider readiness is verified, but microphone-only capture can still start when the input device is usable. Current helper state: {}; message: {}", compact_preview_text(&status.state), status_message)
+        } else {
+            format!("Prepared {command} preview. Helper bridge migration is waiting for a running helper bridge. Current helper state: {}; message: {}", compact_preview_text(&status.state), status_message)
         },
         command: command.to_string(),
+        helper_task: command.to_string(),
         generation_token: status.generation_token,
         provider_ready: status.provider_ready,
         cuda_ready: status.cuda_ready,
+        requires_provider_ready,
+        migration_ready,
+        preview_only: true,
         runtime_claim: "preview_only_no_capture_runtime_claim".to_string(),
         payload_json: payload.to_string(),
+    }
+}
+
+pub fn build_capture_helper_bridge_request(command: &str) -> HelperBridgeRequest {
+    let preview = capture_request_preview(command);
+    HelperBridgeRequest {
+        task: preview.helper_task,
+        payload_json: Some(preview.payload_json),
     }
 }
 
