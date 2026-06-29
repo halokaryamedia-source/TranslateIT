@@ -58,9 +58,11 @@ Read these in order:
 12. `EngineData/Backend/RuntimeContracts/USERDATA_ROOT_POLICY_CONTRACT.json`
 13. `DevelopingData/Documentation/Reports/Engineering/V1_ADVANCE_SINGLE_ENGINE_CLEANUP_AUDIT.md`
 14. `DevelopingData/Documentation/Reports/Engineering/V1_ADVANCE_RUNTIME_CONTRACT_RETARGET_AUDIT.md`
-15. `DevelopingData/Documentation/Reports/Engineering/CAPTURE_HELPER_BRIDGE_MIGRATION_PLAN.md`
-16. `DevelopingData/Documentation/Reports/Engineering/HELPER_BRIDGE_TIMEOUT_POLICY.md`
-17. `DevelopingData/Documentation/Reports/Engineering/NOISE_HALLUCINATION_FILTERING_POLICY.md`
+15. `DevelopingData/Documentation/Reports/Engineering/V1_ADVANCE_DOCUMENTATION_CLEANUP_AUDIT.md`
+16. `DevelopingData/Documentation/Reports/Engineering/V1_ADVANCE_SCRIPT_SAFETY_AUDIT.md`
+17. `DevelopingData/Documentation/Reports/Engineering/CAPTURE_HELPER_BRIDGE_MIGRATION_PLAN.md`
+18. `DevelopingData/Documentation/Reports/Engineering/HELPER_BRIDGE_TIMEOUT_POLICY.md`
+19. `DevelopingData/Documentation/Reports/Engineering/NOISE_HALLUCINATION_FILTERING_POLICY.md`
 
 ## Historical cleanup/audit documents
 
