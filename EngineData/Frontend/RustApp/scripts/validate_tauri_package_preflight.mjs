@@ -12,6 +12,7 @@ const fail = (message) => {
 };
 
 const readJson = (path) => JSON.parse(readFileSync(path, "utf8"));
+const readText = (path) => readFileSync(path, "utf8");
 const requireFile = (path) => {
   if (!existsSync(path)) fail(`Missing required file: ${path}`);
 };
@@ -21,9 +22,18 @@ const tauriConfigPath = join(tauriRoot, "tauri.conf.json");
 const cargoTomlPath = join(tauriRoot, "Cargo.toml");
 const buildRsPath = join(tauriRoot, "build.rs");
 const mainRsPath = join(tauriRoot, "src", "main.rs");
+const appBootstrapPath = join(tauriRoot, "src", "app_bootstrap.rs");
 const defaultCapabilityPath = join(tauriRoot, "capabilities", "default.json");
 
-for (const path of [packageJsonPath, tauriConfigPath, cargoTomlPath, buildRsPath, mainRsPath, defaultCapabilityPath]) {
+for (const path of [
+  packageJsonPath,
+  tauriConfigPath,
+  cargoTomlPath,
+  buildRsPath,
+  mainRsPath,
+  appBootstrapPath,
+  defaultCapabilityPath,
+]) {
   requireFile(path);
 }
 
@@ -86,7 +96,7 @@ if (!Array.isArray(defaultCapability.permissions) || !defaultCapability.permissi
   fail("Default capability must include core:default.");
 }
 
-const cargoToml = readFileSync(cargoTomlPath, "utf8");
+const cargoToml = readText(cargoTomlPath);
 for (const marker of [
   'name = "translateit"',
   'edition = "2021"',
@@ -96,9 +106,18 @@ for (const marker of [
   if (!cargoToml.includes(marker)) fail(`Cargo.toml marker is missing: ${marker}`);
 }
 
-const mainRs = readFileSync(mainRsPath, "utf8");
-if (!mainRs.includes('get_webview_window("main")')) {
-  fail("Rust bootstrap must keep targeting the main webview window.");
+const mainRs = readText(mainRsPath);
+if (!mainRs.includes("mod app_bootstrap;")) {
+  fail("Rust main.rs must include the app_bootstrap module.");
+}
+
+if (!mainRs.includes("app_bootstrap::configure_main_window")) {
+  fail("Rust main.rs must use the app_bootstrap main window configuration hook.");
+}
+
+const appBootstrapRs = readText(appBootstrapPath);
+if (!appBootstrapRs.includes('get_webview_window("main")')) {
+  fail("Rust app_bootstrap must keep targeting the main webview window.");
 }
 
 if (process.exitCode) process.exit(process.exitCode);
