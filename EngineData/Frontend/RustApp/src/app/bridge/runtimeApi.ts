@@ -11,6 +11,7 @@ import type {
   HelperBridgeActionResult,
   HelperBridgeRequest,
   HelperBridgeStatus,
+  HelperBridgeWorkerResponse,
   InputPreparationStatus,
   LauncherChatActionResult,
   LauncherChatSession,
@@ -54,6 +55,18 @@ function helperActionFallback(message: string): HelperBridgeActionResult {
     message,
     generation_token: 0,
     runtime_claim: "frontend_bridge_unavailable",
+  };
+}
+
+function helperWorkerFallback(task: string, message: string): HelperBridgeWorkerResponse {
+  return {
+    ok: false,
+    state: "frontend_bridge_error",
+    task,
+    message,
+    generation_token: 0,
+    runtime_claim: "frontend_bridge_unavailable",
+    worker_response_json: JSON.stringify({ ok: false, stage: task, blocker: "frontend_bridge_unavailable", note: message }),
   };
 }
 
@@ -207,6 +220,46 @@ export const runtimeApi = {
       "send_helper_bridge_request",
       { request },
       helperActionFallback("Helper request failed before reaching the Tauri command bridge."),
+    );
+  },
+
+  async helperBridgeWorkerStatus(): Promise<HelperBridgeWorkerResponse> {
+    return invokeOr<HelperBridgeWorkerResponse>(
+      "helper_bridge_worker_status",
+      undefined,
+      helperWorkerFallback("status", "Worker status failed before reaching the Tauri command bridge."),
+    );
+  },
+
+  async helperBridgePreloadAsr(): Promise<HelperBridgeWorkerResponse> {
+    return invokeOr<HelperBridgeWorkerResponse>(
+      "helper_bridge_preload_asr",
+      undefined,
+      helperWorkerFallback("asr_preload", "ASR preload failed before reaching the Tauri command bridge."),
+    );
+  },
+
+  async helperBridgePreloadTranslation(mode?: string | null): Promise<HelperBridgeWorkerResponse> {
+    return invokeOr<HelperBridgeWorkerResponse>(
+      "helper_bridge_preload_translation",
+      { mode: mode ?? null },
+      helperWorkerFallback("translation_preload", "Translation preload failed before reaching the Tauri command bridge."),
+    );
+  },
+
+  async helperBridgeTtsPreflight(): Promise<HelperBridgeWorkerResponse> {
+    return invokeOr<HelperBridgeWorkerResponse>(
+      "helper_bridge_tts_preflight",
+      undefined,
+      helperWorkerFallback("tts_preflight", "TTS preflight failed before reaching the Tauri command bridge."),
+    );
+  },
+
+  async helperBridgeSynthesizeText(text: string, outputPath?: string | null): Promise<HelperBridgeWorkerResponse> {
+    return invokeOr<HelperBridgeWorkerResponse>(
+      "helper_bridge_synthesize_text",
+      { text, outputPath: outputPath ?? null },
+      helperWorkerFallback("synthesize", "TTS synthesize failed before reaching the Tauri command bridge."),
     );
   },
 
