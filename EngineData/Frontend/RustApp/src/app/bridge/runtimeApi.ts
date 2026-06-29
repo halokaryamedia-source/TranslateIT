@@ -6,6 +6,7 @@ import type {
   AudioStudioValidationEvidence,
   CaptureHelperBridgeRequestPreview,
   CaptureHelperDispatchStatus,
+  CaptureTranscriptBoundaryStatus,
   CommandResult,
   GpuPolicyReport,
   HardwareUsageReport,
@@ -67,6 +68,25 @@ function captureDispatchFallback(message: string): CaptureHelperDispatchStatus {
     state: "frontend_bridge_error",
     message,
     generation_token: 0,
+    runtime_claim: "frontend_bridge_unavailable",
+    updated_unix_ms: Date.now(),
+  };
+}
+
+function captureTranscriptBoundaryFallback(message: string): CaptureTranscriptBoundaryStatus {
+  return {
+    capture_dispatch_attempted: false,
+    capture_dispatch_ok: false,
+    helper_capture_command: "frontend_bridge_error",
+    helper_capture_state: "frontend_bridge_error",
+    existing_capture_active: false,
+    frames_received: 0,
+    buffered_duration_ms: 0,
+    ready_for_vad: false,
+    ready_for_target_asr_frame: false,
+    transcript_handoff_ready: false,
+    blocker: "frontend_bridge_unavailable",
+    next_action: "open_developer_diagnostics",
     runtime_claim: "frontend_bridge_unavailable",
     updated_unix_ms: Date.now(),
   };
@@ -210,6 +230,14 @@ export const runtimeApi = {
       "get_capture_helper_dispatch_status",
       undefined,
       captureDispatchFallback("Capture helper dispatch status is unavailable because the frontend bridge could not call Tauri."),
+    );
+  },
+
+  async getCaptureTranscriptBoundaryStatus(): Promise<CaptureTranscriptBoundaryStatus> {
+    return invokeOr<CaptureTranscriptBoundaryStatus>(
+      "get_capture_transcript_boundary_status",
+      undefined,
+      captureTranscriptBoundaryFallback("Capture transcript boundary status is unavailable because the frontend bridge could not call Tauri."),
     );
   },
 
