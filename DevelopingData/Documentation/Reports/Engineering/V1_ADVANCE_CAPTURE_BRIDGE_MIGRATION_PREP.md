@@ -152,6 +152,8 @@ asr:handoff_runtime_not_implemented
 Rust has a separate `pipeline_handoff.rs` module for the next pipeline stages:
 
 ```text
+seed_dev_asr_transcript
+seed_dev_translated_text
 prepare_translation_handoff_request
 dispatch_translation_handoff_request
 prepare_tts_handoff_request
@@ -161,11 +163,11 @@ get_live_pipeline_session_snapshot
 reset_live_pipeline_handoff_status
 ```
 
-These stages are still metadata-only. They intentionally block until upstream stages provide real payloads:
+These stages are still metadata/dev-payload only. They intentionally block until upstream stages provide real payloads:
 
 ```text
-translation_handoff -> waits for ASR transcript text
-tts_handoff -> waits for translated text
+translation_handoff -> waits for ASR transcript text or dev-seeded transcript text
+tts_handoff -> waits for translated text or dev-seeded translated text
 ```
 
 The Python worker entry wrapper receives these commands and returns clear blockers:
@@ -175,7 +177,7 @@ translation:handoff_runtime_not_implemented
 tts:handoff_runtime_not_implemented
 ```
 
-Developer Diagnostics exposes buttons for capture, ASR, translation, TTS, full pipeline status, pipeline snapshot, and reset pipeline cache.
+Developer Diagnostics exposes buttons for capture, ASR, dev transcript seed, dev translation seed, translation, TTS, full pipeline status, pipeline snapshot, and reset pipeline cache.
 
 ## Session-local pipeline cache
 
@@ -185,6 +187,18 @@ Rust stores source-side handoff status in session memory for:
 asr_handoff
 translation_handoff
 tts_handoff
+```
+
+Rust also stores source-side payload markers in session memory:
+
+```text
+transcript_text
+translated_text
+tts_text
+transcript_available
+translation_available
+tts_text_available
+payload_source
 ```
 
 `get_live_pipeline_handoff_status` reads cached stage status when available, so Developer Diagnostics can report the most recent prepare/dispatch result instead of recomputing every stage as a fresh preview.
@@ -210,22 +224,37 @@ active_stage
 active_blocker
 next_action
 summary
+payload
 stages
 ```
 
-`reset_live_pipeline_handoff_status` clears cached translation/TTS handoff state and refreshes ASR handoff state from the current capture boundary. This prevents stale Developer Diagnostics stage summaries while keeping the operation source-side only.
+`reset_live_pipeline_handoff_status` clears cached translation/TTS handoff state and clears source-side payload markers, then refreshes ASR handoff state from the current capture boundary. This prevents stale Developer Diagnostics stage summaries while keeping the operation source-side only.
 
 The progress percentage is a wiring/progress indicator for Developer Diagnostics. It is not live runtime readiness.
+
+## Developer payload seed commands
+
+`seed_dev_asr_transcript` and `seed_dev_translated_text` are Developer Diagnostics helpers only.
+
+They allow the source-side chain to be exercised in this order without waiting for real model output:
+
+```text
+seed transcript -> prepare/dispatch translation handoff
+seed translation -> prepare/dispatch TTS handoff
+pipeline snapshot -> confirm payload markers and stage blockers
+```
+
+This helps verify payload contracts and stage transitions, but it does not prove ASR decoding, translation quality, TTS synthesis, virtual microphone routing, or latency.
 
 ## Current boundary
 
 Main Start/Stop Capture still depends on the existing capture path for actual capture behavior.
 
-Helper capture dispatch, capture transcript boundary status, ASR handoff, translation handoff, TTS handoff, the live pipeline snapshot, and the session cache are still migration/wiring evidence only. They do not prove microphone capture quality, ASR decoding, translated transcript, TTS synthesis, virtual microphone routing, or target latency.
+Helper capture dispatch, capture transcript boundary status, ASR handoff, translation handoff, TTS handoff, dev payload seeds, the live pipeline snapshot, and the session cache are still migration/wiring evidence only. They do not prove microphone capture quality, ASR decoding, translated transcript, TTS synthesis, virtual microphone routing, or target latency.
 
 ## Why this matters
 
-The next implementation step can attach a real target audio frame payload, connect it to decoder output, then pass transcript -> translation -> TTS as actual runtime payloads only after local compile/runtime evidence exists.
+The next implementation step can replace dev-seeded transcript/translation payloads with real ASR decoder output and real local translation model output only after local compile/runtime evidence exists.
 
 ## Not claimed yet
 
