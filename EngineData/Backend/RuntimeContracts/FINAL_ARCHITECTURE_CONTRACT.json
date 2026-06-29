@@ -1,7 +1,8 @@
 {
   "schema": "translateit.final_architecture_contract.v1",
-  "branch": "Dev-Rust",
+  "branch": "V1-Advance",
   "status": "active_direction",
+  "product_track": "TranslateIT V1 single-engine runtime",
   "final_desktop_shell": "Rust/Tauri",
   "helper_runtime": "Python",
   "rules": [
@@ -10,12 +11,15 @@
     "Python helper processes must not replace the Rust/Tauri launcher as the user-facing app.",
     "Runtime readiness must be reported through the Rust/Tauri UI and must not be inferred from helper process existence alone.",
     "Local-only operation is the default product requirement.",
-    "CUDA fallback and provider fallback must be visible to the user and recorded in diagnostics."
+    "NVIDIA CUDA is the primary acceleration target and CPU fallback is mandatory.",
+    "CUDA fallback and provider fallback must be visible to the user and recorded in diagnostics.",
+    "Do not create alternative V1/V2/V3/V4 engines, legacy engines, or parallel product runtimes."
   ],
   "rust_tauri_responsibilities": [
     "desktop_shell",
     "settings_ui",
     "chat_ui",
+    "voice_conversation_ui",
     "audio_studio_ui",
     "runtime_status_ui",
     "diagnostics_ui",
@@ -29,11 +33,14 @@
     "tts_and_voice_provider_runtime",
     "cuda_validation",
     "latency_diagnostics",
-    "model_health_checks"
+    "model_health_checks",
+    "audio_device_probe"
   ],
-  "legacy_reference_policy": {
-    "python_qt_launcher": "legacy_reference_only_unless_explicitly_reactivated",
+  "inactive_reference_policy": {
+    "python_qt_launcher": "inactive_reference_only_unless_explicitly_reapproved",
     "old_absolute_paths": "must_be_migrated_to_UserData_settings_or_runtime_contracts",
-    "legacy_docs": "must_be_marked_as_legacy_when_contradicted_by_Dev_Rust_contracts"
+    "legacy_docs": "must_be_marked_as_inactive_when_contradicted_by_V1_Advance_contracts",
+    "DesignIT": "inactive_and_not_allowed_as_active_runtime_dependency",
+    "FigmaDesignExport": "inactive_and_not_allowed_as_active_runtime_dependency"
   }
 }
