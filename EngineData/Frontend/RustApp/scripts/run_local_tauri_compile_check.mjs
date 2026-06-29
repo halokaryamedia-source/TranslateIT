@@ -6,6 +6,7 @@ import { spawnSync } from "node:child_process";
 const scriptDir = dirname(fileURLToPath(import.meta.url));
 const appRoot = resolve(scriptDir, "..");
 const manifestPath = join(appRoot, "src-tauri", "Cargo.toml");
+const frontendDistPath = join(appRoot, "dist", "index.html");
 
 const fail = (message) => {
   console.error(`[local-tauri-compile] ${message}`);
@@ -31,6 +32,11 @@ console.log("[local-tauri-compile] This is a manual local proof command. It is i
 console.log("[local-tauri-compile] Checking Rust toolchain...");
 run("rustc", ["--version"]);
 run("cargo", ["--version"]);
+
+if (!existsSync(frontendDistPath)) {
+  console.log("[local-tauri-compile] Frontend dist is missing. Building frontend first...");
+  run("npm", ["run", "build:frontend"]);
+}
 
 console.log("[local-tauri-compile] Running cargo check for Tauri Rust source...");
 run("cargo", ["check", "--manifest-path", manifestPath]);
