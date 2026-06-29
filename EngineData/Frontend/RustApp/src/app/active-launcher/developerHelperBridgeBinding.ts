@@ -7,7 +7,11 @@ let clickHandler: ((event: MouseEvent) => void) | null = null;
 type HelperTaskResult = HelperBridgeActionResult | HelperBridgeWorkerResponse;
 type CaptureTaskResult = CaptureHelperBridgeRequestPreview | HelperBridgeActionResult | CaptureTranscriptBoundaryStatus | AsrHandoffRequestStatus | PipelineHandoffRequestStatus | PipelineHandoffRequestStatus[] | null;
 type WorkerPayload = Record<string, unknown>;
-type CaptureDispatchGlobal = typeof globalThis & { __translateitCaptureHelperDispatchStatus?: CaptureHelperDispatchStatus; __translateitCaptureTranscriptBoundaryStatus?: CaptureTranscriptBoundaryStatus };
+type CaptureDispatchGlobal = typeof globalThis & {
+  __translateitCaptureHelperDispatchStatus?: CaptureHelperDispatchStatus;
+  __translateitCaptureTranscriptBoundaryStatus?: CaptureTranscriptBoundaryStatus;
+  __translateitLivePipelineHandoffStatus?: PipelineHandoffRequestStatus[];
+};
 
 function helperTask(action: string | undefined): Promise<HelperTaskResult> {
   if (action === "start") return runtimeApi.startHelperBridge();
@@ -48,6 +52,10 @@ function setCaptureTranscriptBoundaryGlobal(status: CaptureTranscriptBoundarySta
   (globalThis as CaptureDispatchGlobal).__translateitCaptureTranscriptBoundaryStatus = status;
 }
 
+function setLivePipelineGlobal(status: PipelineHandoffRequestStatus[]): void {
+  (globalThis as CaptureDispatchGlobal).__translateitLivePipelineHandoffStatus = status;
+}
+
 async function refreshCaptureDispatchStatus(): Promise<void> {
   const status = await runtimeApi.getCaptureHelperDispatchStatus().catch(() => null);
   if (status) setCaptureDispatchGlobal(status);
@@ -56,6 +64,11 @@ async function refreshCaptureDispatchStatus(): Promise<void> {
 async function refreshCaptureTranscriptBoundaryStatus(): Promise<void> {
   const status = await runtimeApi.getCaptureTranscriptBoundaryStatus().catch(() => null);
   if (status) setCaptureTranscriptBoundaryGlobal(status);
+}
+
+async function refreshLivePipelineStatus(): Promise<void> {
+  const status = await runtimeApi.getLivePipelineHandoffStatus().catch(() => null);
+  if (status) setLivePipelineGlobal(status);
 }
 
 function compactValue(value: unknown): string | null {
@@ -176,6 +189,7 @@ export function bindDeveloperHelperBridgeUi(): () => void {
       .then(async (result) => {
         await refreshCaptureDispatchStatus();
         await refreshCaptureTranscriptBoundaryStatus();
+        await refreshLivePipelineStatus();
         setAssistantNotice(previewSummary(result));
       })
       .catch(() => setAssistantNotice("Capture helper bridge request failed before returning a result."))
