@@ -1,10 +1,11 @@
 import { runtimeApi } from "../bridge/runtimeApi";
-import type { HelperBridgeActionResult, HelperBridgeWorkerResponse } from "../shared/types";
+import type { CaptureHelperBridgeRequestPreview, HelperBridgeActionResult, HelperBridgeWorkerResponse } from "../shared/types";
 
 let bound = false;
 let clickHandler: ((event: MouseEvent) => void) | null = null;
 
 type HelperTaskResult = HelperBridgeActionResult | HelperBridgeWorkerResponse;
+type CaptureTaskResult = CaptureHelperBridgeRequestPreview | HelperBridgeActionResult | null;
 type WorkerPayload = Record<string, unknown>;
 
 function helperTask(action: string | undefined): Promise<HelperTaskResult> {
@@ -18,8 +19,10 @@ function helperTask(action: string | undefined): Promise<HelperTaskResult> {
   return runtimeApi.cancelHelperBridgeTask();
 }
 
-function capturePreviewTask(action: string | undefined) {
+function capturePreviewTask(action: string | undefined): Promise<CaptureTaskResult> {
   if (action === "stop-preview") return runtimeApi.prepareCaptureStopRequest();
+  if (action === "start-dispatch") return runtimeApi.dispatchCaptureStartRequest();
+  if (action === "stop-dispatch") return runtimeApi.dispatchCaptureStopRequest();
   return runtimeApi.prepareCaptureStartRequest();
 }
 
@@ -74,8 +77,16 @@ function helperSummary(result: HelperTaskResult | null | undefined): string {
   return `Helper${task} ${state}: ${result.message}${workerDetail(payload)} This is diagnostic evidence, not a local runtime readiness claim.`;
 }
 
-function previewSummary(result: Awaited<ReturnType<typeof runtimeApi.prepareCaptureStartRequest>>): string {
-  if (!result) return "Capture helper bridge request preview did not return a result.";
+function isCapturePreview(result: CaptureTaskResult): result is CaptureHelperBridgeRequestPreview {
+  return Boolean(result && "payload_json" in result && "migration_ready" in result);
+}
+
+function previewSummary(result: CaptureTaskResult): string {
+  if (!result) return "Capture helper bridge request did not return a result.";
+  if (!isCapturePreview(result)) {
+    const state = result.ok ? "dispatch response returned" : "dispatch blocked";
+    return `Capture helper ${state}: ${result.message} This dispatch only tests helper command wiring and is not a capture readiness claim.`;
+  }
   const state = result.migration_ready ? "migration envelope ready" : "migration blocked";
   const preview = result.preview_only ? "Preview only; capture was not started or stopped." : "Runtime execution requested.";
   return `Capture ${result.command} ${state}. Helper task: ${result.helper_task}. Provider required: ${result.requires_provider_ready}. Provider evidence flag: ${result.provider_ready}. CUDA evidence flag: ${result.cuda_ready}. ${preview} This is not a readiness claim. ${result.message}`;
@@ -108,7 +119,7 @@ export function bindDeveloperHelperBridgeUi(): () => void {
     captureButton.disabled = true;
     void capturePreviewTask(action)
       .then((result) => setAssistantNotice(previewSummary(result)))
-      .catch(() => setAssistantNotice("Capture helper bridge preview failed before returning a result."))
+      .catch(() => setAssistantNotice("Capture helper bridge request failed before returning a result."))
       .finally(() => {
         captureButton.disabled = false;
       });
