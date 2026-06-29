@@ -155,3 +155,23 @@ jobs:
           }
       - name: Run frontend build
         run: npm run build:frontend
+
+  rust-toolchain-probe:
+    name: Rust Toolchain Probe
+    runs-on: windows-latest
+    timeout-minutes: 10
+    needs: frontend-build
+    defaults:
+      run:
+        shell: pwsh
+        working-directory: EngineData/Frontend/RustApp
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - name: Probe Rust toolchain and manifest
+        run: |
+          $ErrorActionPreference = 'Stop'
+          rustc --version
+          cargo --version
+          if (!(Test-Path 'src-tauri/Cargo.toml')) { throw 'src-tauri/Cargo.toml is missing.' }
+          Write-Host 'Rust toolchain probe passed. Full cargo check remains deferred.'
