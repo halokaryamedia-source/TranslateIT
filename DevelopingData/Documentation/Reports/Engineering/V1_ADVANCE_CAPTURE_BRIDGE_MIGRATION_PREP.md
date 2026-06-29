@@ -53,11 +53,34 @@ This prevents dispatch from returning `worker:unknown_command` while keeping hel
 
 ## Main Start/Stop step 1
 
-Main `start_capture` and `stop_capture` now attempt helper capture dispatch first when the helper bridge appears dispatch-capable.
+Main `start_capture` and `stop_capture` attempt helper capture dispatch first when the helper bridge appears dispatch-capable.
 
 Then they fall back to the existing capture path.
 
 This keeps the current capture behavior available while giving Developer Diagnostics and main capture flow the same helper bridge envelope path.
+
+## Capture helper dispatch status
+
+Rust now stores the last helper capture dispatch result in a session-local status object:
+
+```text
+attempted
+command
+ok
+state
+message
+generation_token
+runtime_claim
+updated_unix_ms
+```
+
+The status is exposed through:
+
+```text
+get_capture_helper_dispatch_status
+```
+
+and the frontend has a matching `CaptureHelperDispatchStatus` type plus runtime API binding.
 
 ## Current boundary
 
