@@ -20,6 +20,8 @@ pub fn register<R: tauri::Runtime>(builder: tauri::Builder<R>) -> tauri::Builder
         crate::commands::runtime_capture::get_capture_transcript_boundary_status,
         crate::commands::runtime_capture::prepare_asr_handoff_request,
         crate::commands::runtime_capture::dispatch_asr_handoff_request,
+        crate::commands::pipeline_handoff::seed_dev_asr_transcript,
+        crate::commands::pipeline_handoff::seed_dev_translated_text,
         crate::commands::pipeline_handoff::prepare_translation_handoff_request,
         crate::commands::pipeline_handoff::dispatch_translation_handoff_request,
         crate::commands::pipeline_handoff::prepare_tts_handoff_request,
