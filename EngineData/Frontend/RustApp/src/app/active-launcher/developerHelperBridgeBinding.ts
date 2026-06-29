@@ -76,8 +76,9 @@ function helperSummary(result: HelperTaskResult | null | undefined): string {
 
 function previewSummary(result: Awaited<ReturnType<typeof runtimeApi.prepareCaptureStartRequest>>): string {
   if (!result) return "Capture helper bridge request preview did not return a result.";
-  const state = result.ok ? "preview available" : "blocked";
-  return `Capture ${result.command} ${state}. Provider evidence flag: ${result.provider_ready}. CUDA evidence flag: ${result.cuda_ready}. This preview did not start or stop capture and is not a readiness claim. ${result.message}`;
+  const state = result.migration_ready ? "migration envelope ready" : "migration blocked";
+  const preview = result.preview_only ? "Preview only; capture was not started or stopped." : "Runtime execution requested.";
+  return `Capture ${result.command} ${state}. Helper task: ${result.helper_task}. Provider required: ${result.requires_provider_ready}. Provider evidence flag: ${result.provider_ready}. CUDA evidence flag: ${result.cuda_ready}. ${preview} This is not a readiness claim. ${result.message}`;
 }
 
 export function bindDeveloperHelperBridgeUi(): () => void {
