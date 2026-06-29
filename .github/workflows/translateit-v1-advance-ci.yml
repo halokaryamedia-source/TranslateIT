@@ -174,4 +174,21 @@ jobs:
           rustc --version
           cargo --version
           if (!(Test-Path 'src-tauri/Cargo.toml')) { throw 'src-tauri/Cargo.toml is missing.' }
-          Write-Host 'Rust toolchain probe passed. Full cargo check remains deferred.'
+          Write-Host 'Rust toolchain probe passed.'
+
+  rust-cargo-check:
+    name: Full Rust Cargo Check
+    runs-on: windows-latest
+    timeout-minutes: 20
+    needs: rust-toolchain-probe
+    defaults:
+      run:
+        shell: pwsh
+        working-directory: EngineData/Frontend/RustApp
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - name: Run cargo check
+        run: |
+          $ErrorActionPreference = 'Stop'
+          cargo check --manifest-path src-tauri/Cargo.toml
