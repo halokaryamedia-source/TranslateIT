@@ -344,6 +344,14 @@ export const runtimeApi = {
     );
   },
 
+  async runDevPipelineContractSmoke(): Promise<LivePipelineSessionSnapshot> {
+    return invokeOr<LivePipelineSessionSnapshot>(
+      "run_dev_pipeline_contract_smoke",
+      undefined,
+      livePipelineSnapshotFallback("Developer pipeline contract smoke failed before reaching the Tauri command bridge."),
+    );
+  },
+
   async prepareTranslationHandoffRequest(): Promise<PipelineHandoffRequestStatus> {
     return invokeOr<PipelineHandoffRequestStatus>(
       "prepare_translation_handoff_request",
