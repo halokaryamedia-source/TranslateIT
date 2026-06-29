@@ -18,6 +18,8 @@ pub fn register<R: tauri::Runtime>(builder: tauri::Builder<R>) -> tauri::Builder
         crate::commands::runtime_capture::check_helper_bridge_health,
         crate::commands::runtime_capture::get_capture_helper_dispatch_status,
         crate::commands::runtime_capture::get_capture_transcript_boundary_status,
+        crate::commands::runtime_capture::prepare_asr_handoff_request,
+        crate::commands::runtime_capture::dispatch_asr_handoff_request,
         crate::commands::runtime_capture::prepare_capture_start_request,
         crate::commands::runtime_capture::prepare_capture_stop_request,
         crate::commands::runtime_capture::dispatch_capture_start_request,
