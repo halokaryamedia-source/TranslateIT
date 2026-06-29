@@ -35,13 +35,13 @@ pub fn register<R: tauri::Runtime>(builder: tauri::Builder<R>) -> tauri::Builder
         crate::commands::chat::append_chat_message,
         crate::commands::runtime_capture::start_capture,
         crate::commands::runtime_capture::stop_capture,
-        crate::commands::translation::translate_text,
+        crate::commands::text_translate::translate_text,
         crate::commands::audio_studio::audio_studio_get_provider_status,
         crate::commands::audio_studio::audio_studio_get_quality_gate_status,
         crate::commands::audio_studio::audio_studio_import_take,
         crate::commands::audio_studio::audio_studio_stage_guided_take,
         crate::commands::audio_studio::audio_studio_update_take_state,
         crate::commands::audio_studio::audio_studio_list_takes,
-        crate::commands::audio_studio::audio_studio_export_project_metadata,
+        crate::commands::audio_studio::audio_studio_export_project_metadata
     ])
 }
