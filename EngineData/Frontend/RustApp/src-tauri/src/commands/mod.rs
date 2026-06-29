@@ -18,4 +18,4 @@ pub mod runtime_capture;
 pub mod runtime;
 pub mod runtime_status;
 pub mod settings;
-pub mod translation;
+pub mod text_translate;
