@@ -9,7 +9,7 @@ export function renderDeveloperSettingsView(args: {
   latestHardware: HardwareUsageReport | null;
   latestGpuPolicy: GpuPolicyReport | null;
   latestHelperBridgeStatus: HelperBridgeStatus | null;
-  latestCaptureHelperDispatchStatus: CaptureHelperDispatchStatus | null;
+  latestCaptureHelperDispatchStatus?: CaptureHelperDispatchStatus | null;
   logsExpanded: boolean;
   latestModelInventory: ModelInventoryReport | null;
   commandErrors: { command: string; message: string }[];
@@ -43,6 +43,6 @@ export function renderDeveloperSettingsView(args: {
     logsExpanded: args.logsExpanded,
     engineGood: Boolean(args.latestBundle),
     helperStatus: args.latestHelperBridgeStatus,
-    captureHelperDispatchStatus: args.latestCaptureHelperDispatchStatus,
+    captureHelperDispatchStatus: args.latestCaptureHelperDispatchStatus ?? null,
   });
 }
