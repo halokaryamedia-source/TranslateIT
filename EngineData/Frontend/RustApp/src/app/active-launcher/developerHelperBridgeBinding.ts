@@ -20,6 +20,13 @@ function helperTask(action: string | undefined): Promise<HelperTaskResult> {
   if (action === "preload-asr") return runtimeApi.helperBridgePreloadAsr();
   if (action === "preload-translation") return runtimeApi.helperBridgePreloadTranslation("Realtime");
   if (action === "tts-preflight") return runtimeApi.helperBridgeTtsPreflight();
+  if (action === "worker-pipeline-smoke") return runtimeApi.sendHelperBridgeRequest({
+    task: "dev_pipeline_contract_smoke",
+    payload_json: JSON.stringify({
+      transcript_text: "Hello from Developer Diagnostics worker pipeline smoke.",
+      translated_text: "Halo dari worker pipeline smoke Developer Diagnostics.",
+    }),
+  });
   if (action === "synthesize-test") return runtimeApi.helperBridgeSynthesizeText("TranslateIT local voice test.");
   return runtimeApi.cancelHelperBridgeTask();
 }
