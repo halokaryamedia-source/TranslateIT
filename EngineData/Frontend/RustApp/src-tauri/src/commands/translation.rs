@@ -49,6 +49,32 @@ fn array_field(value: &Value, key: &str) -> Option<String> {
     if text.is_empty() { None } else { Some(text) }
 }
 
+fn user_friendly_blocker(blocker: &str) -> String {
+    let normalized = blocker.to_lowercase();
+    if normalized.contains("transformers_missing") || normalized.contains("torch_missing") {
+        return "Translation dependency is missing. Install torch and transformers in the WorkerRuntime Python environment.".to_string();
+    }
+    if normalized.contains("marianmt_id_en_missing") || normalized.contains("marianmt-id-en_missing") {
+        return "Realtime translation model is missing. Place marianmt-id-en under RuntimeAssets/Translation/ModelData.".to_string();
+    }
+    if normalized.contains("nllb") && normalized.contains("missing") {
+        return "Quality translation model is missing. Use Realtime mode or add the NLLB quality model later.".to_string();
+    }
+    if normalized.contains("direction_not_supported") {
+        return "This language direction is not supported by the realtime model. Switch to Indonesian → English or use Quality mode after the quality model is installed.".to_string();
+    }
+    if normalized.contains("empty_text") {
+        return "Text is empty. Type text before translating.".to_string();
+    }
+    if normalized.contains("text_too_large") {
+        return "Text is too long for local translation. Shorten the input and try again.".to_string();
+    }
+    if normalized.contains("cuda") {
+        return "CUDA is not ready. Translation can still run on CPU when dependencies and models are available.".to_string();
+    }
+    format!("Helper translation is blocked: {blocker}")
+}
+
 fn bridge_success_message(response: &Value) -> Option<String> {
     let translated = text_field(response, "translated_text")?;
     let mode = text_field(response, "mode").unwrap_or_else(|| "helper bridge".to_string());
@@ -63,29 +89,30 @@ fn bridge_success_message(response: &Value) -> Option<String> {
 fn bridge_blocked_message(response: &Value) -> String {
     let stage = text_field(response, "stage").unwrap_or_else(|| "translate".to_string());
     let blocker = text_field(response, "blocker").unwrap_or_else(|| "translation:helper_response_not_ready".to_string());
+    let friendly = user_friendly_blocker(&blocker);
     let note = text_field(response, "note");
     let model = text_field(response, "model_id");
     let device = text_field(response, "device").or_else(|| text_field(response, "selected_device"));
     let fallback = text_field(response, "translation_fallback_reason").or_else(|| text_field(response, "fallback_reason"));
     let next_actions = array_field(response, "next_actions");
 
-    let mut details = vec![format!("Helper translation blocked at {stage}: {blocker}")];
+    let mut details = vec![format!("{friendly} Stage: {stage}.")];
     if let Some(model) = model {
-        details.push(format!("model: {model}"));
+        details.push(format!("Model: {model}."));
     }
     if let Some(device) = device {
-        details.push(format!("device: {device}"));
+        details.push(format!("Device: {device}."));
     }
     if let Some(fallback) = fallback {
-        details.push(format!("fallback: {fallback}"));
+        details.push(format!("Fallback: {fallback}."));
     }
     if let Some(note) = note {
         details.push(note);
     }
     if let Some(next_actions) = next_actions {
-        details.push(format!("next: {next_actions}"));
+        details.push(format!("Next: {next_actions}."));
     }
-    details.join(" | ")
+    details.join(" ")
 }
 
 fn try_translate_with_running_helper_bridge(source: &str) -> Option<CommandResult> {
@@ -119,7 +146,7 @@ fn try_translate_with_running_helper_bridge(source: &str) -> Option<CommandResul
         runtime.updated_unix_ms = crate::commands::helper_bridge_runtime::unix_ms();
         return Some(CommandResult::blocked(
             LifecycleState::Error,
-            "Helper translation failed before the worker accepted the request.",
+            "Helper translation failed before the worker accepted the request. Restart Helper from Developer settings and try again.",
         ));
     }
 
@@ -133,7 +160,7 @@ fn try_translate_with_running_helper_bridge(source: &str) -> Option<CommandResul
             runtime.updated_unix_ms = crate::commands::helper_bridge_runtime::unix_ms();
             return Some(CommandResult::blocked(
                 LifecycleState::Error,
-                format!("Helper translation failed while reading worker response: {error}"),
+                format!("Helper translation failed while reading worker response: {error}. Restart Helper from Developer settings and try again."),
             ));
         }
     };
@@ -149,7 +176,7 @@ fn try_translate_with_running_helper_bridge(source: &str) -> Option<CommandResul
                 .unwrap_or_else(|| {
                     CommandResult::blocked(
                         LifecycleState::TranslationAdapterPending,
-                        "Helper translation completed, but no translated_text was returned.",
+                        "Helper translation completed, but no translated text was returned. Check Worker Status in Developer settings.",
                     )
                 }),
         );
