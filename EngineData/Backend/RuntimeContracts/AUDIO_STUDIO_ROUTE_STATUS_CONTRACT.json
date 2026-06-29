@@ -1,7 +1,9 @@
 {
   "schema": "translateit.audio_studio_route_status_contract.v1",
-  "branch": "Dev-Rust",
+  "branch": "V1-Advance",
   "status": "metadata_runtime_enabled_provider_runtime_blocked",
+  "v1_advance_scope": "secondary_feature_after_main_realtime_engine",
+  "purpose": "Prepare Audio Studio as part of the same TranslateIT V1 engine for future custom English voice actor creation from user samples.",
   "metadata_routes_enabled": [
     "audio_studio_import_take",
     "audio_studio_stage_guided_take",
@@ -24,12 +26,14 @@
     "audio_quality_measurement",
     "profile_processing",
     "generated_audio_output",
-    "streaming_generation"
+    "streaming_generation",
+    "custom_voice_actor_generation"
   ],
   "rules": [
+    "Audio Studio remains part of the same TranslateIT V1 engine and must not become a separate engine.",
     "Metadata routes must return metadata_ready instead of generic ready.",
     "Provider routes must remain provider_blocked until real runtime implementation and target-PC evidence exist.",
     "Do not use UserData/LogData for Audio Studio evidence logs; use UserData/CacheData/AudioStudio/logs/.",
-    "Do not claim generated audio readiness from project metadata routes."
+    "Do not claim generated audio or custom voice actor readiness from project metadata routes."
   ]
 }
