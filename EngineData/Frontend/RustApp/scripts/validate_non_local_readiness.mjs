@@ -27,8 +27,10 @@ const requireValue = (label, actual, expected) => {
 };
 
 const activeIndexPath = join(docsRoot, "ACTIVE_DOCUMENTATION_INDEX.md");
+const nonLocalAuditIndexPath = join(docsRoot, "V1_ADVANCE_NON_LOCAL_AUDIT_INDEX.md");
 const readinessReportPath = join(docsRoot, "V1_ADVANCE_RUNTIME_READINESS_REPORT.md");
 const nonLocalPlanPath = join(docsRoot, "V1_ADVANCE_NON_LOCAL_COMPLETION_PLAN.md");
+const helperCommandContractPath = join(docsRoot, "V1_ADVANCE_HELPER_COMMAND_CONTRACT.md");
 const compileProofPath = join(docsRoot, "V1_ADVANCE_LOCAL_TAURI_COMPILE_PROOF.md");
 const compileIntakePath = join(docsRoot, "V1_ADVANCE_LOCAL_COMPILE_ERROR_INTAKE_TEMPLATE.md");
 const currentStatusPath = join(docsRoot, "CURRENT_APP_STATUS.md");
@@ -45,8 +47,10 @@ const runtimeContractValidatorPath = join(appRoot, "scripts", "validate_runtime_
 
 for (const [label, path] of [
   ["active documentation index", activeIndexPath],
+  ["non-local audit index", nonLocalAuditIndexPath],
   ["runtime readiness report", readinessReportPath],
   ["non-local completion plan", nonLocalPlanPath],
+  ["helper command contract", helperCommandContractPath],
   ["local Tauri compile proof instructions", compileProofPath],
   ["local compile error intake template", compileIntakePath],
   ["current app status", currentStatusPath],
@@ -70,6 +74,8 @@ if (existsSync(unstableTranslationPath)) {
 if (failures.length === 0) {
   const activeIndex = readText(activeIndexPath);
   for (const marker of [
+    "V1_ADVANCE_NON_LOCAL_AUDIT_INDEX.md",
+    "V1_ADVANCE_HELPER_COMMAND_CONTRACT.md",
     "V1_ADVANCE_LOCAL_TAURI_COMPILE_PROOF.md",
     "V1_ADVANCE_LOCAL_COMPILE_ERROR_INTAKE_TEMPLATE.md",
     "V1_ADVANCE_RUNTIME_READINESS_REPORT.md",
@@ -80,6 +86,17 @@ if (failures.length === 0) {
     "AUDIO_STUDIO_ROUTE_STATUS_CONTRACT.json",
   ]) {
     requireIncludes("ACTIVE_DOCUMENTATION_INDEX.md", activeIndex, marker);
+  }
+
+  const nonLocalAuditIndex = readText(nonLocalAuditIndexPath);
+  for (const marker of [
+    "V1_ADVANCE_NON_LOCAL_STALE_REFERENCE_SWEEP_AUDIT.md",
+    "V1_ADVANCE_SCRIPT_PROFILE_SEPARATION_AUDIT.md",
+    "V1_ADVANCE_RUNTIME_CONTRACT_CONSISTENCY_AUDIT.md",
+    "V1_ADVANCE_HELPER_COMMAND_CONTRACT_AUDIT.md",
+    "V1_ADVANCE_FRONTEND_HELPER_EVIDENCE_WORDING_AUDIT.md",
+  ]) {
+    requireIncludes("V1_ADVANCE_NON_LOCAL_AUDIT_INDEX.md", nonLocalAuditIndex, marker);
   }
 
   const packageJson = JSON.parse(readText(packageJsonPath));
@@ -102,6 +119,10 @@ if (failures.length === 0) {
   const nonLocalPlan = readText(nonLocalPlanPath);
   requireIncludes("non-local completion plan", nonLocalPlan, "Non-local work must not claim:");
   requireIncludes("non-local completion plan", nonLocalPlan, "Do not reintroduce helper-backed translation, voice synthesis chaining, installer build claims, or target latency claims until local proof logs exist.");
+
+  const helperCommandContract = readText(helperCommandContractPath);
+  requireIncludes("helper command contract", helperCommandContract, "Helper process existence is not runtime readiness.");
+  requireIncludes("helper command contract", helperCommandContract, "Those claims require target-PC evidence.");
 
   const compileProof = readText(compileProofPath);
   requireIncludes("local Tauri compile proof", compileProof, "npm run check:tauri-rust-local");
