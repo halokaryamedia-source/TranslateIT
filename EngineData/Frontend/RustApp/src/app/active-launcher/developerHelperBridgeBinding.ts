@@ -5,6 +5,7 @@ let bound = false;
 let clickHandler: ((event: MouseEvent) => void) | null = null;
 
 type HelperTaskResult = HelperBridgeActionResult | HelperBridgeWorkerResponse;
+type WorkerPayload = Record<string, unknown>;
 
 function helperTask(action: string | undefined): Promise<HelperTaskResult> {
   if (action === "start") return runtimeApi.startHelperBridge();
@@ -27,11 +28,49 @@ function setAssistantNotice(message: string): void {
   if (assistant) assistant.textContent = message;
 }
 
+function compactValue(value: unknown): string | null {
+  if (value === undefined || value === null || value === "") return null;
+  if (Array.isArray(value)) return value.length ? value.map(String).join(", ") : null;
+  if (typeof value === "boolean") return value ? "true" : "false";
+  return String(value);
+}
+
+function workerPayload(result: HelperTaskResult): WorkerPayload | null {
+  if (!("worker_response_json" in result)) return null;
+  try {
+    const parsed = JSON.parse(result.worker_response_json) as unknown;
+    return parsed && typeof parsed === "object" && !Array.isArray(parsed) ? parsed as WorkerPayload : null;
+  } catch {
+    return null;
+  }
+}
+
+function workerDetail(payload: WorkerPayload | null): string {
+  if (!payload) return "";
+  const details = [
+    ["blocker", payload.blocker],
+    ["warnings", payload.warnings],
+    ["model", payload.model_id ?? payload.asr_active_model_id],
+    ["device", payload.device ?? payload.selected_device],
+    ["compute", payload.compute_type ?? payload.selected_compute_type],
+    ["fallback", payload.fallback_reason ?? payload.translation_fallback_reason],
+    ["provider", payload.provider],
+    ["output", payload.output_path],
+  ]
+    .map(([label, value]) => {
+      const compact = compactValue(value);
+      return compact ? `${label}: ${compact}` : null;
+    })
+    .filter((value): value is string => Boolean(value));
+  return details.length ? ` Details: ${details.join(" | ")}` : "";
+}
+
 function helperSummary(result: HelperTaskResult | null | undefined): string {
   if (!result) return "Helper bridge command did not return a result.";
   const task = "task" in result ? ` [${result.task}]` : "";
   const state = result.ok ? "ok" : "blocked";
-  return `Helper${task} ${state}: ${result.message}`;
+  const payload = workerPayload(result);
+  return `Helper${task} ${state}: ${result.message}${workerDetail(payload)}`;
 }
 
 function previewSummary(result: Awaited<ReturnType<typeof runtimeApi.prepareCaptureStartRequest>>): string {
