@@ -1,5 +1,5 @@
 import { percentText } from "../shared/state";
-import type { GpuPolicyReport, HardwareUsageReport, HelperBridgeStatus, ModelInventoryReport, RuntimeDiagnostics, RuntimeStatusBundleReport } from "../shared/types";
+import type { CaptureHelperDispatchStatus, GpuPolicyReport, HardwareUsageReport, HelperBridgeStatus, ModelInventoryReport, RuntimeDiagnostics, RuntimeStatusBundleReport } from "../shared/types";
 import { buildDeveloperLogRows } from "./launcherDeveloperLog";
 import { developerSettingsView } from "./settingsViews";
 
@@ -9,6 +9,7 @@ export function renderDeveloperSettingsView(args: {
   latestHardware: HardwareUsageReport | null;
   latestGpuPolicy: GpuPolicyReport | null;
   latestHelperBridgeStatus: HelperBridgeStatus | null;
+  latestCaptureHelperDispatchStatus: CaptureHelperDispatchStatus | null;
   logsExpanded: boolean;
   latestModelInventory: ModelInventoryReport | null;
   commandErrors: { command: string; message: string }[];
@@ -42,5 +43,6 @@ export function renderDeveloperSettingsView(args: {
     logsExpanded: args.logsExpanded,
     engineGood: Boolean(args.latestBundle),
     helperStatus: args.latestHelperBridgeStatus,
+    captureHelperDispatchStatus: args.latestCaptureHelperDispatchStatus,
   });
 }
