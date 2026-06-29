@@ -5,7 +5,6 @@ import os
 import subprocess
 import sys
 import time
-from dataclasses import asdict, dataclass
 from pathlib import Path
 from typing import Any
 
@@ -24,7 +23,6 @@ ALLOWED_INPUT_ROOTS = [ROOT / "UserData" / "CacheData", ROOT / "UserData" / "Log
 ALLOWED_OUTPUT_ROOTS = [ROOT / "UserData" / "CacheData"]
 
 MAX_WORKER_REQUEST_BYTES = 1_000_000
-MAX_RUNTIME_FIELD_CHARS = 160
 MAX_TRANSLATION_TEXT_CHARS = 2_000
 MAX_TTS_TEXT_CHARS = 1_000
 MAX_TRANSCRIPT_TEXT_CHARS = 4_000
@@ -46,39 +44,6 @@ ASR_RUNTIME_COMPUTE = "not_loaded"
 ASR_RUNTIME_MODEL_ID = "not_loaded"
 TRANSLATION_RUNTIME: dict[str, dict[str, Any]] = {}
 SAPI_STATUS: tuple[bool, list[str], str] | None = None
-
-
-@dataclass(slots=True)
-class WorkerStatus:
-    ok: bool
-    stage: str
-    asr_primary_model_ready: bool
-    asr_model_ready: bool
-    asr_backup_model_ready: bool
-    asr_active_model_id: str
-    asr_active_model_path: str
-    asr_readiness_grade: str
-    asr_primary_missing: bool
-    translation_model_ready: bool
-    quality_translation_model_ready: bool
-    piper_ready: bool
-    sapi_ready: bool
-    tts_default_ready: bool
-    voice_actor_marcel_ready: bool
-    faster_whisper_import_ready: bool
-    transformers_import_ready: bool
-    torch_import_ready: bool
-    torch_cuda_available: bool
-    ctranslate2_cuda_available: bool
-    nvidia_smi_available: bool
-    gpu_primary_requested: bool
-    selected_device: str
-    selected_translation_device: str
-    selected_compute_type: str
-    fallback_reason: str
-    blocker: str
-    warnings: list[str]
-    note: str
 
 
 def now_ms() -> int:
@@ -112,9 +77,7 @@ def bounded_float(value: Any, fallback: float, minimum: float, maximum: float) -
 def compact_runtime_text(value: Any, max_chars: int) -> str:
     text = str(value or "").strip().replace("\x00", "")
     compact = " ".join(text.split())
-    if len(compact) > max_chars:
-        return compact[:max_chars]
-    return compact
+    return compact[:max_chars] if len(compact) > max_chars else compact
 
 
 def runtime_text_too_large(value: Any, max_chars: int) -> bool:
@@ -236,6 +199,11 @@ def piper_ready() -> bool:
     return executable.exists() and bool(voices)
 
 
+def first_piper_voice() -> Path | None:
+    voices = sorted(PIPER_ROOT.glob("**/*.onnx")) if PIPER_ROOT.exists() else []
+    return voices[0] if voices else None
+
+
 def read_runtime_manifest() -> dict[str, Any]:
     try:
         return json.loads(RUNTIME_MANIFEST.read_text(encoding="utf-8"))
@@ -277,23 +245,62 @@ def sapi_status() -> tuple[bool, list[str], str]:
     return SAPI_STATUS
 
 
-def build_status() -> WorkerStatus:
+def choose_asr_model() -> tuple[str, Path]:
+    if asr_model_ready(ASR_MODEL):
+        return "faster-whisper-large-v3-turbo", ASR_MODEL
+    if asr_model_ready(ASR_BACKUP_MODEL):
+        return "faster-whisper-medium", ASR_BACKUP_MODEL
+    return "faster-whisper-large-v3-turbo", ASR_MODEL
+
+
+def translation_model_for_mode(mode: str) -> tuple[str, Path]:
+    if mode.lower() == "quality":
+        return "nllb-200-distilled-600M", QUALITY_TRANSLATION_MODEL
+    return "marianmt-id-en", TRANSLATION_MODEL
+
+
+def realtime_direction_supported(source_language: str, target_language: str) -> bool:
+    return normalize_language(source_language, "id") == "id" and normalize_language(target_language, "en") == "en"
+
+
+def status_action_items(blockers: list[str], warnings: list[str]) -> list[str]:
+    actions: list[str] = []
+    joined = ";".join(blockers + warnings)
+    if "dependency:" in joined:
+        actions.append("Install WorkerRuntime Python dependencies inside the worker environment.")
+    if "faster_whisper" in joined:
+        actions.append("Install faster-whisper and make sure faster-whisper large-v3-turbo or medium model assets exist.")
+    if "transformers" in joined or "torch" in joined:
+        actions.append("Install torch and transformers for local translation.")
+    if "marianmt_id_en" in joined:
+        actions.append("Place the realtime marianmt-id-en model under RuntimeAssets/Translation/ModelData.")
+    if "nllb_quality_model_missing" in joined:
+        actions.append("Place the NLLB quality model later if Quality mode is required.")
+    if "tts:" in joined or "voice_actor" in joined:
+        actions.append("Provide Piper voice assets or rely on Windows SAPI as a temporary local fallback.")
+    if "cuda" in joined:
+        actions.append("CUDA is optional for now; CPU fallback is allowed but marked degraded.")
+    return list(dict.fromkeys(actions))
+
+
+def build_status_payload() -> dict[str, Any]:
     faster_whisper_ready = import_ready("faster_whisper")
     transformers_ready = import_ready("transformers")
     gpu_runtime = probe_gpu_runtime()
     torch_ready = bool(gpu_runtime["torch_import_ready"])
     cuda_available = bool(gpu_runtime["torch_cuda_available"])
     ctranslate2_cuda_available = bool(gpu_runtime["ctranslate2_cuda_available"])
+
     asr_primary_ready = asr_model_ready(ASR_MODEL)
     asr_backup_ready = asr_model_ready(ASR_BACKUP_MODEL)
     asr_active_ready = asr_primary_ready or asr_backup_ready
     asr_active_model_id, asr_active_model_path = choose_asr_model()
     asr_readiness_grade = "primary" if asr_primary_ready else "fallback_degraded" if asr_backup_ready else "blocked"
-    asr_primary_missing = not asr_primary_ready
-    translation_ready = translation_model_ready(TRANSLATION_MODEL)
-    quality_ready = translation_model_ready(QUALITY_TRANSLATION_MODEL, nllb=True)
+
+    realtime_translation_ready = translation_model_ready(TRANSLATION_MODEL)
+    quality_translation_ready = translation_model_ready(QUALITY_TRANSLATION_MODEL, nllb=True)
     piper_is_ready = piper_ready()
-    sapi_is_ready, _sapi_voices, _sapi_error = sapi_status()
+    sapi_is_ready, sapi_voices, sapi_error = sapi_status()
     tts_ready = piper_is_ready or sapi_is_ready
     runtime_manifest = read_runtime_manifest()
     marcel_ready = bool(runtime_manifest.get("tts", {}).get("voice_actor_ready", False))
@@ -306,64 +313,105 @@ def build_status() -> WorkerStatus:
         blockers.append("dependency:transformers_missing")
     if not torch_ready:
         blockers.append("dependency:torch_missing")
-    if not asr_primary_ready:
-        warnings.append("asr_primary_large_v3_turbo_missing")
     if not asr_active_ready:
         blockers.append("model:faster_whisper_large_v3_turbo_and_medium_missing")
+    elif not asr_primary_ready:
+        warnings.append("asr_primary_large_v3_turbo_missing_using_medium_fallback")
     if not asr_backup_ready:
-        blockers.append("model:faster_whisper_medium_missing")
-    if not translation_ready:
+        warnings.append("asr_backup_faster_whisper_medium_missing")
+    if not realtime_translation_ready:
         blockers.append("model:marianmt_id_en_missing")
-    if not quality_ready:
-        blockers.append("model:nllb_quality_model_missing")
+    if not quality_translation_ready:
+        warnings.append("model:nllb_quality_model_missing")
     if not tts_ready:
-        blockers.append("tts:no_local_provider_available")
+        blockers.append(sapi_error or "tts:no_local_provider_available")
     if not marcel_ready:
         warnings.append("voice_actor_marcel_missing")
+    if not cuda_available or not ctranslate2_cuda_available:
+        warnings.append("cuda_unavailable_cpu_fallback_active")
 
-    return WorkerStatus(
-        ok=not blockers,
-        stage="local_realtime_worker_preflight",
-        asr_primary_model_ready=asr_primary_ready,
-        asr_model_ready=asr_active_ready,
-        asr_backup_model_ready=asr_backup_ready,
-        asr_active_model_id=asr_active_model_id,
-        asr_active_model_path=str(asr_active_model_path),
-        asr_readiness_grade=asr_readiness_grade,
-        asr_primary_missing=asr_primary_missing,
-        translation_model_ready=translation_ready,
-        quality_translation_model_ready=quality_ready,
-        piper_ready=piper_is_ready,
-        sapi_ready=sapi_is_ready,
-        tts_default_ready=tts_ready,
-        voice_actor_marcel_ready=marcel_ready,
-        faster_whisper_import_ready=faster_whisper_ready,
-        transformers_import_ready=transformers_ready,
-        torch_import_ready=torch_ready,
-        torch_cuda_available=cuda_available,
-        ctranslate2_cuda_available=ctranslate2_cuda_available,
-        nvidia_smi_available=bool(gpu_runtime["nvidia_smi_available"]),
-        gpu_primary_requested=bool(gpu_runtime["cuda_primary_requested"]),
-        selected_device=str(gpu_runtime["selected_device"]),
-        selected_translation_device=str(gpu_runtime["selected_translation_device"]),
-        selected_compute_type=str(gpu_runtime["selected_compute_type"]),
-        fallback_reason=str(gpu_runtime["fallback_reason"]),
-        blocker=";".join(blockers),
-        warnings=warnings,
-        note="Local worker prefers the large-v3-turbo ASR model when present, but falls back to faster-whisper-medium if needed. GPU is requested first; CPU fallback is explicit and labeled degraded.",
+    ok = not blockers
+    provider_ready = ok and asr_active_ready and realtime_translation_ready and tts_ready
+    note = (
+        "Worker ready for realtime local runtime." if provider_ready else
+        "Worker is running, but required runtime dependencies or assets are still incomplete."
     )
+    if not cuda_available or not ctranslate2_cuda_available:
+        note += " CUDA is not fully available; CPU fallback is active and should be treated as degraded."
+
+    return {
+        "ok": ok,
+        "stage": "local_realtime_worker_preflight",
+        "blocker": ";".join(blockers),
+        "blockers": blockers,
+        "warnings": warnings,
+        "next_actions": status_action_items(blockers, warnings),
+        "note": note,
+        "provider_ready": provider_ready,
+        "readiness": {
+            "asr": asr_active_ready and faster_whisper_ready,
+            "translation_realtime": realtime_translation_ready and transformers_ready and torch_ready,
+            "translation_quality": quality_translation_ready and transformers_ready and torch_ready,
+            "tts": tts_ready,
+            "cuda_degraded": not cuda_available or not ctranslate2_cuda_available,
+        },
+        "dependencies": {
+            "faster_whisper": faster_whisper_ready,
+            "transformers": transformers_ready,
+            "torch": torch_ready,
+            "ctranslate2": bool(gpu_runtime["ctranslate2_import_ready"]),
+        },
+        "models": {
+            "asr_primary": {"id": "faster-whisper-large-v3-turbo", "ready": asr_primary_ready, "path": str(ASR_MODEL)},
+            "asr_backup": {"id": "faster-whisper-medium", "ready": asr_backup_ready, "path": str(ASR_BACKUP_MODEL)},
+            "translation_realtime": {"id": "marianmt-id-en", "ready": realtime_translation_ready, "path": str(TRANSLATION_MODEL)},
+            "translation_quality": {"id": "nllb-200-distilled-600M", "ready": quality_translation_ready, "path": str(QUALITY_TRANSLATION_MODEL)},
+        },
+        "tts": {
+            "piper_ready": piper_is_ready,
+            "sapi_ready": sapi_is_ready,
+            "sapi_voices": sapi_voices,
+            "voice_actor_marcel_ready": marcel_ready,
+            "provider": "piper" if piper_is_ready else "windows-sapi" if sapi_is_ready else None,
+            "blocker": "" if tts_ready else sapi_error or "tts:no_local_provider_available",
+        },
+        "gpu": gpu_runtime,
+        "asr_primary_model_ready": asr_primary_ready,
+        "asr_model_ready": asr_active_ready,
+        "asr_backup_model_ready": asr_backup_ready,
+        "asr_active_model_id": asr_active_model_id,
+        "asr_active_model_path": str(asr_active_model_path),
+        "asr_readiness_grade": asr_readiness_grade,
+        "asr_primary_missing": not asr_primary_ready,
+        "translation_model_ready": realtime_translation_ready,
+        "quality_translation_model_ready": quality_translation_ready,
+        "piper_ready": piper_is_ready,
+        "sapi_ready": sapi_is_ready,
+        "tts_default_ready": tts_ready,
+        "voice_actor_marcel_ready": marcel_ready,
+        "faster_whisper_import_ready": faster_whisper_ready,
+        "transformers_import_ready": transformers_ready,
+        "torch_import_ready": torch_ready,
+        "torch_cuda_available": cuda_available,
+        "ctranslate2_cuda_available": ctranslate2_cuda_available,
+        "nvidia_smi_available": bool(gpu_runtime["nvidia_smi_available"]),
+        "gpu_primary_requested": bool(gpu_runtime["cuda_primary_requested"]),
+        "selected_device": str(gpu_runtime["selected_device"]),
+        "selected_translation_device": str(gpu_runtime["selected_translation_device"]),
+        "selected_compute_type": str(gpu_runtime["selected_compute_type"]),
+        "fallback_reason": str(gpu_runtime["fallback_reason"]),
+        "loaded": {
+            "asr": ASR_RUNTIME is not None,
+            "asr_device": ASR_RUNTIME_DEVICE,
+            "asr_compute_type": ASR_RUNTIME_COMPUTE,
+            "asr_model_id": ASR_RUNTIME_MODEL_ID,
+            "translation_modes": sorted(TRANSLATION_RUNTIME.keys()),
+        },
+    }
 
 
 def handle_status(_: dict[str, Any]) -> dict[str, Any]:
-    status = asdict(build_status())
-    status["loaded"] = {
-        "asr": ASR_RUNTIME is not None,
-        "asr_device": ASR_RUNTIME_DEVICE,
-        "asr_compute_type": ASR_RUNTIME_COMPUTE,
-        "asr_model_id": ASR_RUNTIME_MODEL_ID,
-        "translation_modes": sorted(TRANSLATION_RUNTIME.keys()),
-    }
-    return status
+    return build_status_payload()
 
 
 def handle_ping(_: dict[str, Any]) -> dict[str, Any]:
@@ -377,21 +425,13 @@ def asr_runtime_config() -> tuple[str, str, str]:
     return "cpu", "int8", str(gpu_runtime["fallback_reason"])
 
 
-def choose_asr_model() -> tuple[str, Path]:
-    if asr_model_ready(ASR_MODEL):
-        return "faster-whisper-large-v3-turbo", ASR_MODEL
-    if asr_model_ready(ASR_BACKUP_MODEL):
-        return "faster-whisper-medium", ASR_BACKUP_MODEL
-    return "faster-whisper-large-v3-turbo", ASR_MODEL
-
-
 def get_asr_runtime() -> Any:
     global ASR_RUNTIME, ASR_RUNTIME_DEVICE, ASR_RUNTIME_COMPUTE, ASR_RUNTIME_MODEL_ID
     if ASR_RUNTIME is not None:
         return ASR_RUNTIME
     from faster_whisper import WhisperModel
 
-    device, compute_type, fallback_reason = asr_runtime_config()
+    device, compute_type, _fallback_reason = asr_runtime_config()
     model_id, model_path = choose_asr_model()
     try:
         ASR_RUNTIME = WhisperModel(str(model_path), device=device, compute_type=compute_type)
@@ -409,11 +449,33 @@ def get_asr_runtime() -> Any:
     return ASR_RUNTIME
 
 
+def failed_from_status(stage: str, status: dict[str, Any], extra: dict[str, Any] | None = None) -> dict[str, Any]:
+    payload = {
+        "ok": False,
+        "stage": stage,
+        "blocker": status.get("blocker", "runtime:not_ready"),
+        "blockers": status.get("blockers", []),
+        "warnings": status.get("warnings", []),
+        "next_actions": status.get("next_actions", []),
+        "note": status.get("note", "Runtime is not ready."),
+        "selected_device": status.get("selected_device"),
+        "selected_compute_type": status.get("selected_compute_type"),
+        "fallback_reason": status.get("fallback_reason"),
+    }
+    if extra:
+        payload.update(extra)
+    return payload
+
+
 def handle_asr_preload(_: dict[str, Any]) -> dict[str, Any]:
     started = now_ms()
-    status = build_status()
-    if not status.faster_whisper_import_ready or not status.asr_model_ready:
-        return {"ok": False, "stage": "asr_preload", "blocker": status.blocker, "note": status.note}
+    status = build_status_payload()
+    if not status["faster_whisper_import_ready"] or not status["asr_model_ready"]:
+        return failed_from_status(
+            "asr_preload",
+            status,
+            {"model_id": status["asr_active_model_id"], "model_path": status["asr_active_model_path"]},
+        )
     try:
         get_asr_runtime()
         return {
@@ -423,11 +485,13 @@ def handle_asr_preload(_: dict[str, Any]) -> dict[str, Any]:
             "model_id": choose_asr_model()[0],
             "device": ASR_RUNTIME_DEVICE,
             "compute_type": ASR_RUNTIME_COMPUTE,
+            "fallback_reason": "" if ASR_RUNTIME_DEVICE == "cuda" else "cuda_unavailable_cpu_fallback_active",
             "elapsed_ms": now_ms() - started,
+            "warnings": status.get("warnings", []),
             "note": "ASR model is loaded and ready for local transcription. CUDA is used when available; CPU fallback is explicit.",
         }
     except Exception as exc:
-        return {"ok": False, "stage": "asr_preload", "blocker": type(exc).__name__, "note": str(exc)}
+        return {"ok": False, "stage": "asr_preload", "blocker": type(exc).__name__, "note": str(exc), "elapsed_ms": now_ms() - started}
 
 
 def handle_transcribe(payload: dict[str, Any]) -> dict[str, Any]:
@@ -462,15 +526,11 @@ def handle_transcribe(payload: dict[str, Any]) -> dict[str, Any]:
             "device": ASR_RUNTIME_DEVICE,
             "compute_type": ASR_RUNTIME_COMPUTE,
             "model_id": ASR_RUNTIME_MODEL_ID,
+            "elapsed_ms": now_ms() - started,
+            "blocker": "" if text else "asr:empty_transcript",
         }
     except Exception as exc:
         return {"ok": False, "stage": "transcribe", "blocker": type(exc).__name__, "note": str(exc), "elapsed_ms": now_ms() - started}
-
-
-def translation_model_for_mode(mode: str) -> tuple[str, Path]:
-    if mode.lower() == "quality":
-        return "nllb-200-distilled-600M", QUALITY_TRANSLATION_MODEL
-    return "marianmt-id-en", TRANSLATION_MODEL
 
 
 def translation_device() -> str:
@@ -535,9 +595,17 @@ def handle_translation_preload(payload: dict[str, Any]) -> dict[str, Any]:
     started = now_ms()
     mode = str(payload.get("mode", "Realtime"))
     model_id, model_path = translation_model_for_mode(mode)
-    status = build_status()
-    if not status.transformers_import_ready or not model_path.exists():
-        return {"ok": False, "stage": "translation_preload", "model_id": model_id, "blocker": status.blocker, "note": status.note}
+    model_ready = translation_model_ready(model_path, nllb=(mode.lower() == "quality"))
+    status = build_status_payload()
+    if not status["transformers_import_ready"] or not status["torch_import_ready"] or not model_ready:
+        blockers = list(status.get("blockers", []))
+        if not model_ready:
+            blockers.append(f"model:{model_id}_missing")
+        return failed_from_status(
+            "translation_preload",
+            {**status, "blocker": ";".join(blockers), "blockers": blockers},
+            {"model_id": model_id, "model_path": str(model_path), "mode": "Quality" if mode.lower() == "quality" else "Realtime"},
+        )
     try:
         runtime = get_translation_runtime(mode)
         return {
@@ -553,20 +621,17 @@ def handle_translation_preload(payload: dict[str, Any]) -> dict[str, Any]:
             "translation_degraded": runtime["translation_degraded"],
             "translation_fallback_reason": runtime["translation_fallback_reason"],
             "elapsed_ms": now_ms() - started,
+            "warnings": status.get("warnings", []),
             "note": "Translation model is loaded and ready for local execution.",
         }
     except Exception as exc:
-        return {"ok": False, "stage": "translation_preload", "model_id": model_id, "blocker": type(exc).__name__, "note": str(exc)}
+        return {"ok": False, "stage": "translation_preload", "model_id": model_id, "blocker": type(exc).__name__, "note": str(exc), "elapsed_ms": now_ms() - started}
 
 
 def move_inputs_to_device(inputs: Any, device: str) -> Any:
     if device != "cuda":
         return inputs
     return {key: value.to("cuda") for key, value in inputs.items()}
-
-
-def realtime_direction_supported(source_language: str, target_language: str) -> bool:
-    return normalize_language(source_language, "id") == "id" and normalize_language(target_language, "en") == "en"
 
 
 def nllb_generate_kwargs(tokenizer: Any, mode: str, source_language: str, target_language: str) -> dict[str, Any]:
@@ -595,10 +660,9 @@ def handle_translate(payload: dict[str, Any]) -> dict[str, Any]:
     source_language = normalize_language(payload.get("source_language", "id"), "id")
     target_language = normalize_language(payload.get("target_language", "en"), "en")
     pair = direction_pair(source_language, target_language)
-    direction_supported = realtime_direction_supported(source_language, target_language)
     if not text:
         return {"ok": False, "stage": "translate", "blocker": "translation:empty_text", "direction_pair": pair}
-    if mode.lower() != "quality" and not direction_supported:
+    if mode.lower() != "quality" and not realtime_direction_supported(source_language, target_language):
         return {
             "ok": False,
             "stage": "translate",
@@ -652,17 +716,13 @@ def handle_translate(payload: dict[str, Any]) -> dict[str, Any]:
         return {"ok": False, "stage": "translate", "blocker": type(exc).__name__, "note": str(exc), "direction_pair": pair, "elapsed_ms": now_ms() - started}
 
 
-def first_piper_voice() -> Path | None:
-    voices = sorted(PIPER_ROOT.glob("**/*.onnx")) if PIPER_ROOT.exists() else []
-    return voices[0] if voices else None
-
-
 def handle_tts_preflight(_: dict[str, Any]) -> dict[str, Any]:
     executable = PIPER_ROOT / "piper.exe"
     voice = first_piper_voice()
     piper_is_ready = executable.exists() and voice is not None
     sapi_is_ready, sapi_voices, sapi_error = sapi_status()
     ok = piper_is_ready or sapi_is_ready
+    warnings = [] if read_runtime_manifest().get("tts", {}).get("voice_actor_ready") else ["voice_actor_marcel_missing"]
     return {
         "ok": ok,
         "stage": "tts_preflight",
@@ -671,7 +731,8 @@ def handle_tts_preflight(_: dict[str, Any]) -> dict[str, Any]:
         "voice_path": str(voice) if voice else None,
         "sapi_voices": sapi_voices,
         "blocker": "" if ok else sapi_error or "tts:no_local_provider_available",
-        "warnings": [] if read_runtime_manifest().get("tts", {}).get("voice_actor_ready") else ["voice_actor_marcel_missing"],
+        "warnings": warnings,
+        "next_actions": status_action_items([] if ok else [sapi_error or "tts:no_local_provider_available"], warnings),
         "note": "Piper uses local ONNX assets when available. Windows SAPI is the local fallback and does not satisfy the custom Marcel voice requirement.",
     }
 
@@ -715,7 +776,7 @@ def handle_synthesize(payload: dict[str, Any]) -> dict[str, Any]:
 
     sapi_is_ready, sapi_voices, sapi_error = sapi_status()
     if not sapi_is_ready:
-        return {"ok": False, "stage": "synthesize", "blocker": sapi_error or "tts:no_local_provider_available"}
+        return {"ok": False, "stage": "synthesize", "blocker": sapi_error or "tts:no_local_provider_available", "next_actions": status_action_items([sapi_error or "tts:no_local_provider_available"], [])}
     command = (
         "Add-Type -AssemblyName System.Speech; "
         "$s = New-Object System.Speech.Synthesis.SpeechSynthesizer; "
