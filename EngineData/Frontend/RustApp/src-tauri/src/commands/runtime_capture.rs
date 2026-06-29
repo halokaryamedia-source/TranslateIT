@@ -118,6 +118,29 @@ fn dispatch_capture_helper_bridge_request(command: &str) -> HelperBridgeActionRe
     send_helper_bridge_request(request)
 }
 
+fn helper_capture_dispatch_candidate(status: &HelperBridgeStatus) -> bool {
+    matches!(status.state.as_str(), "ready" | "blocked")
+        && status.runtime_claim != "bridge_lifecycle_visible_process_not_ready"
+}
+
+fn dispatch_capture_before_fallback(command: &str) -> Option<HelperBridgeActionResult> {
+    let status = get_helper_bridge_status();
+    if !helper_capture_dispatch_candidate(&status) {
+        return None;
+    }
+    Some(dispatch_capture_helper_bridge_request(command))
+}
+
+fn append_helper_dispatch_note(result: &mut CommandResult, dispatch: Option<HelperBridgeActionResult>) {
+    if let Some(dispatch) = dispatch {
+        let outcome = if dispatch.ok { "accepted" } else { "blocked" };
+        result.message = format!(
+            "{} Helper capture dispatch {} before fallback path: {}",
+            result.message, outcome, dispatch.message
+        );
+    }
+}
+
 #[tauri::command]
 pub fn prepare_capture_start_request() -> CaptureHelperBridgeRequestPreview {
     capture_request_preview("capture_start")
@@ -223,15 +246,21 @@ pub fn prepare_voice_capture(auto_start: bool) -> VoiceCapturePreparationReport 
 
 #[tauri::command]
 pub fn start_capture() -> CommandResult {
+    let dispatch = dispatch_capture_before_fallback("capture_start");
     let status = get_helper_bridge_status();
     if !status.provider_ready {
         let _ = cancel_helper_bridge_task();
     }
-    engine::start_capture()
+    let mut result = engine::start_capture();
+    append_helper_dispatch_note(&mut result, dispatch);
+    result
 }
 
 #[tauri::command]
 pub fn stop_capture() -> CommandResult {
+    let dispatch = dispatch_capture_before_fallback("capture_stop");
     let _ = cancel_helper_bridge_task();
-    engine::stop_capture()
+    let mut result = engine::stop_capture();
+    append_helper_dispatch_note(&mut result, dispatch);
+    result
 }
