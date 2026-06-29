@@ -154,6 +154,7 @@ Rust has a separate `pipeline_handoff.rs` module for the next pipeline stages:
 ```text
 seed_dev_asr_transcript
 seed_dev_translated_text
+run_dev_pipeline_contract_smoke
 prepare_translation_handoff_request
 dispatch_translation_handoff_request
 prepare_tts_handoff_request
@@ -184,7 +185,7 @@ translation:missing_transcript_payload
 tts:missing_translated_text_payload
 ```
 
-Developer Diagnostics exposes buttons for capture, ASR, dev transcript seed, dev translation seed, translation, TTS, full pipeline status, pipeline snapshot, and reset pipeline cache.
+Developer Diagnostics exposes buttons for capture, ASR, dev transcript seed, dev translation seed, one-click pipeline smoke, translation, TTS, full pipeline status, pipeline snapshot, and reset pipeline cache.
 
 ## Session-local pipeline cache
 
@@ -207,6 +208,8 @@ translation_available
 tts_text_available
 payload_source
 ```
+
+When translation dev contract dispatch is accepted, Rust promotes a developer placeholder translation into the payload cache so the TTS handoff can be exercised immediately. This is intentionally marked as `worker_dev_translation_contract_acceptance` and is not a model result.
 
 `get_live_pipeline_handoff_status` reads cached stage status when available, so Developer Diagnostics can report the most recent prepare/dispatch result instead of recomputing every stage as a fresh preview.
 
@@ -239,7 +242,7 @@ stages
 
 The progress percentage is a wiring/progress indicator for Developer Diagnostics. It is not live runtime readiness.
 
-## Developer payload seed commands
+## Developer payload seed and smoke commands
 
 `seed_dev_asr_transcript` and `seed_dev_translated_text` are Developer Diagnostics helpers only.
 
@@ -249,6 +252,12 @@ They allow the source-side chain to be exercised in this order without waiting f
 seed transcript -> prepare/dispatch translation handoff
 seed translation -> prepare/dispatch TTS handoff
 pipeline snapshot -> confirm payload markers and stage blockers
+```
+
+`run_dev_pipeline_contract_smoke` compresses the common diagnostics path into one command:
+
+```text
+reset cache -> seed transcript -> dispatch translation contract -> promote dev translation payload -> dispatch TTS contract -> return snapshot
 ```
 
 The worker can accept these dev payload contracts and return `ok=true` for the relevant handoff stages, but the response runtime claim remains:
@@ -263,7 +272,7 @@ This helps verify payload contracts and stage transitions, but it does not prove
 
 Main Start/Stop Capture still depends on the existing capture path for actual capture behavior.
 
-Helper capture dispatch, capture transcript boundary status, ASR handoff, translation handoff, TTS handoff, dev payload seeds, worker contract acceptance, the live pipeline snapshot, and the session cache are still migration/wiring evidence only. They do not prove microphone capture quality, ASR decoding, translated transcript, TTS synthesis, virtual microphone routing, or target latency.
+Helper capture dispatch, capture transcript boundary status, ASR handoff, translation handoff, TTS handoff, dev payload seeds, one-click pipeline smoke, worker contract acceptance, the live pipeline snapshot, and the session cache are still migration/wiring evidence only. They do not prove microphone capture quality, ASR decoding, translated transcript, TTS synthesis, virtual microphone routing, or target latency.
 
 ## Why this matters
 
