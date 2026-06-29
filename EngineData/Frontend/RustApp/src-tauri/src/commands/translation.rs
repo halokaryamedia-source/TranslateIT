@@ -37,6 +37,18 @@ fn text_field(value: &Value, key: &str) -> Option<String> {
         .filter(|text| !text.is_empty())
 }
 
+fn array_field(value: &Value, key: &str) -> Option<String> {
+    let values = value.get(key)?.as_array()?;
+    let text = values
+        .iter()
+        .filter_map(Value::as_str)
+        .map(clean_bridge_text)
+        .filter(|entry| !entry.is_empty())
+        .collect::<Vec<_>>()
+        .join(", ");
+    if text.is_empty() { None } else { Some(text) }
+}
+
 fn bridge_success_message(response: &Value) -> Option<String> {
     let translated = text_field(response, "translated_text")?;
     let mode = text_field(response, "mode").unwrap_or_else(|| "helper bridge".to_string());
@@ -46,6 +58,34 @@ fn bridge_success_message(response: &Value) -> Option<String> {
     Some(format!(
         "{translated}\n\n(helper bridge: {mode} / {model} / {device}; {pair})"
     ))
+}
+
+fn bridge_blocked_message(response: &Value) -> String {
+    let stage = text_field(response, "stage").unwrap_or_else(|| "translate".to_string());
+    let blocker = text_field(response, "blocker").unwrap_or_else(|| "translation:helper_response_not_ready".to_string());
+    let note = text_field(response, "note");
+    let model = text_field(response, "model_id");
+    let device = text_field(response, "device").or_else(|| text_field(response, "selected_device"));
+    let fallback = text_field(response, "translation_fallback_reason").or_else(|| text_field(response, "fallback_reason"));
+    let next_actions = array_field(response, "next_actions");
+
+    let mut details = vec![format!("Helper translation blocked at {stage}: {blocker}")];
+    if let Some(model) = model {
+        details.push(format!("model: {model}"));
+    }
+    if let Some(device) = device {
+        details.push(format!("device: {device}"));
+    }
+    if let Some(fallback) = fallback {
+        details.push(format!("fallback: {fallback}"));
+    }
+    if let Some(note) = note {
+        details.push(note);
+    }
+    if let Some(next_actions) = next_actions {
+        details.push(format!("next: {next_actions}"));
+    }
+    details.join(" | ")
 }
 
 fn try_translate_with_running_helper_bridge(source: &str) -> Option<CommandResult> {
@@ -61,7 +101,6 @@ fn try_translate_with_running_helper_bridge(source: &str) -> Option<CommandResul
 
     let mut runtime = runtime().lock().ok()?;
     if runtime.state != "ready"
-        || !runtime.provider_ready
         || runtime.stdin.is_none()
         || runtime.stdout.is_none()
         || runtime.child.is_none()
@@ -78,18 +117,24 @@ fn try_translate_with_running_helper_bridge(source: &str) -> Option<CommandResul
         runtime.last_error = Some("helper_bridge:translation_write_failed".to_string());
         runtime.active_task = None;
         runtime.updated_unix_ms = crate::commands::helper_bridge_runtime::unix_ms();
-        return None;
+        return Some(CommandResult::blocked(
+            LifecycleState::Error,
+            "Helper translation failed before the worker accepted the request.",
+        ));
     }
 
     let response = match read_worker_response(runtime.stdout.as_mut()?) {
         Ok(value) => value,
-        Err(_) => {
+        Err(error) => {
             runtime.state = "blocked".to_string();
             runtime.message = "Failed to read translation response from helper bridge.".to_string();
             runtime.last_error = Some("helper_bridge:translation_read_failed".to_string());
             runtime.active_task = None;
             runtime.updated_unix_ms = crate::commands::helper_bridge_runtime::unix_ms();
-            return None;
+            return Some(CommandResult::blocked(
+                LifecycleState::Error,
+                format!("Helper translation failed while reading worker response: {error}"),
+            ));
         }
     };
 
@@ -97,11 +142,23 @@ fn try_translate_with_running_helper_bridge(source: &str) -> Option<CommandResul
     runtime.active_task = None;
     runtime.updated_unix_ms = crate::commands::helper_bridge_runtime::unix_ms();
 
-    if !ok {
-        return None;
+    if ok {
+        return Some(
+            bridge_success_message(&response)
+                .map(|message| CommandResult::ok(LifecycleState::Idle, message))
+                .unwrap_or_else(|| {
+                    CommandResult::blocked(
+                        LifecycleState::TranslationAdapterPending,
+                        "Helper translation completed, but no translated_text was returned.",
+                    )
+                }),
+        );
     }
 
-    bridge_success_message(&response).map(|message| CommandResult::ok(LifecycleState::Idle, message))
+    Some(CommandResult::blocked(
+        LifecycleState::TranslationAdapterPending,
+        bridge_blocked_message(&response),
+    ))
 }
 
 #[tauri::command]
