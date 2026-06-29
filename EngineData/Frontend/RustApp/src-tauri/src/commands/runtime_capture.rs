@@ -46,6 +46,24 @@ pub struct CaptureHelperDispatchStatus {
 }
 
 #[derive(Debug, Clone, Serialize)]
+pub struct CaptureTranscriptBoundaryStatus {
+    pub capture_dispatch_attempted: bool,
+    pub capture_dispatch_ok: bool,
+    pub helper_capture_command: String,
+    pub helper_capture_state: String,
+    pub existing_capture_active: bool,
+    pub frames_received: u64,
+    pub buffered_duration_ms: u32,
+    pub ready_for_vad: bool,
+    pub ready_for_target_asr_frame: bool,
+    pub transcript_handoff_ready: bool,
+    pub blocker: String,
+    pub next_action: String,
+    pub runtime_claim: String,
+    pub updated_unix_ms: u128,
+}
+
+#[derive(Debug, Clone, Serialize)]
 pub struct VoiceCapturePreparationReport {
     pub ok: bool,
     pub state: String,
@@ -209,6 +227,53 @@ pub fn get_capture_helper_dispatch_status() -> CaptureHelperDispatchStatus {
             runtime_claim: "state_error".to_string(),
             updated_unix_ms: unix_ms(),
         })
+}
+
+#[tauri::command]
+pub fn get_capture_transcript_boundary_status() -> CaptureTranscriptBoundaryStatus {
+    let dispatch = get_capture_helper_dispatch_status();
+    let live_capture = crate::engine::audio::live_capture::live_capture_status();
+    let live_buffer = crate::engine::audio::live_audio_buffer::live_audio_buffer_status();
+    let transcript_handoff_ready = live_capture.stream_active && live_buffer.ready_for_target_asr_frame;
+    let blocker = if transcript_handoff_ready {
+        "".to_string()
+    } else if !live_capture.stream_active {
+        live_capture.blocker.clone()
+    } else if live_capture.frames_received == 0 {
+        "capture_transcript_boundary:no_capture_frames".to_string()
+    } else if !live_buffer.ready_for_target_asr_frame {
+        live_buffer.blocker.clone()
+    } else {
+        "capture_transcript_boundary:not_ready".to_string()
+    };
+    let next_action = if transcript_handoff_ready {
+        "call_native_asr_decoder".to_string()
+    } else if !live_capture.stream_active {
+        "start_capture".to_string()
+    } else if live_capture.frames_received == 0 {
+        "continue_listening_until_frames_arrive".to_string()
+    } else if !live_buffer.ready_for_target_asr_frame {
+        "continue_collecting_until_target_asr_frame".to_string()
+    } else {
+        "inspect_capture_transcript_boundary".to_string()
+    };
+
+    CaptureTranscriptBoundaryStatus {
+        capture_dispatch_attempted: dispatch.attempted,
+        capture_dispatch_ok: dispatch.ok,
+        helper_capture_command: dispatch.command,
+        helper_capture_state: dispatch.state,
+        existing_capture_active: live_capture.stream_active,
+        frames_received: live_capture.frames_received,
+        buffered_duration_ms: live_buffer.buffered_duration_ms,
+        ready_for_vad: live_buffer.ready_for_vad,
+        ready_for_target_asr_frame: live_buffer.ready_for_target_asr_frame,
+        transcript_handoff_ready,
+        blocker,
+        next_action,
+        runtime_claim: "source_side_boundary_status_not_runtime_proof".to_string(),
+        updated_unix_ms: unix_ms(),
+    }
 }
 
 #[tauri::command]
