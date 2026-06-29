@@ -61,7 +61,7 @@ This keeps the current capture behavior available while giving Developer Diagnos
 
 ## Capture helper dispatch status
 
-Rust now stores the last helper capture dispatch result in a session-local status object:
+Rust stores the last helper capture dispatch result in a session-local status object:
 
 ```text
 attempted
@@ -82,11 +82,43 @@ get_capture_helper_dispatch_status
 
 and the frontend has a matching `CaptureHelperDispatchStatus` type plus runtime API binding.
 
+## Capture transcript boundary status
+
+Rust now also exposes a source-side boundary status between capture and ASR/transcript handoff:
+
+```text
+get_capture_transcript_boundary_status
+```
+
+The boundary status reports:
+
+```text
+capture_dispatch_attempted
+capture_dispatch_ok
+existing_capture_active
+frames_received
+buffered_duration_ms
+ready_for_vad
+ready_for_target_asr_frame
+transcript_handoff_ready
+blocker
+next_action
+```
+
+This helps Developer Diagnostics distinguish these states:
+
+```text
+helper capture dispatch attempted/blocked
+existing capture path active/inactive
+live audio buffer not ready for ASR frame yet
+capture boundary ready for ASR handoff
+```
+
 ## Current boundary
 
 Main Start/Stop Capture still depends on the existing capture path for actual capture behavior.
 
-Helper capture dispatch is still a migration wiring test. It does not prove microphone capture, ASR, translation, TTS, virtual microphone routing, or target latency.
+Helper capture dispatch and capture transcript boundary status are still migration/wiring evidence only. They do not prove microphone capture quality, ASR decoding, translated transcript, TTS, virtual microphone routing, or target latency.
 
 ## Why this matters
 
