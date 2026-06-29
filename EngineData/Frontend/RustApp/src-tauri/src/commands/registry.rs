@@ -25,6 +25,8 @@ pub fn register<R: tauri::Runtime>(builder: tauri::Builder<R>) -> tauri::Builder
         crate::commands::pipeline_handoff::prepare_tts_handoff_request,
         crate::commands::pipeline_handoff::dispatch_tts_handoff_request,
         crate::commands::pipeline_handoff::get_live_pipeline_handoff_status,
+        crate::commands::pipeline_handoff::get_live_pipeline_session_snapshot,
+        crate::commands::pipeline_handoff::reset_live_pipeline_handoff_status,
         crate::commands::runtime_capture::prepare_capture_start_request,
         crate::commands::runtime_capture::prepare_capture_stop_request,
         crate::commands::runtime_capture::dispatch_capture_start_request,
