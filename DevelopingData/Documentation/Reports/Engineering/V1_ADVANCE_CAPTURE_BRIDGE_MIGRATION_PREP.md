@@ -1,7 +1,7 @@
 # V1-Advance Capture Bridge Migration Prep
 
 Branch: `V1-Advance`
-Status: source-side preparation started
+Status: source-side migration step 1 active
 
 ## Purpose
 
@@ -9,7 +9,7 @@ This note records the current source-side preparation for migrating capture star
 
 ## Current change
 
-`runtime_capture.rs` now builds reusable helper bridge request payloads for:
+`runtime_capture.rs` builds reusable helper bridge request payloads for:
 
 ```text
 capture_start
@@ -32,11 +32,9 @@ dispatch_capture_start_request
 dispatch_capture_stop_request
 ```
 
-These commands send the prepared capture envelope to the running helper bridge without replacing the main Start/Stop Capture flow yet.
-
 ## Python worker entry wrapper
 
-The helper bridge now prefers:
+The helper bridge prefers:
 
 ```text
 EngineData/Backend/LocalWorker/WorkerRuntime/realtime_local_worker_entry.py
@@ -53,15 +51,23 @@ and then runs the original worker main loop.
 
 This prevents dispatch from returning `worker:unknown_command` while keeping helper-routed capture clearly blocked until implemented.
 
+## Main Start/Stop step 1
+
+Main `start_capture` and `stop_capture` now attempt helper capture dispatch first when the helper bridge appears dispatch-capable.
+
+Then they fall back to the existing capture path.
+
+This keeps the current capture behavior available while giving Developer Diagnostics and main capture flow the same helper bridge envelope path.
+
 ## Current boundary
 
-Main Start/Stop Capture remains on the existing capture path.
+Main Start/Stop Capture still depends on the existing capture path for actual capture behavior.
 
-Capture helper dispatch is a migration wiring test only. It does not prove microphone capture, ASR, translation, TTS, virtual microphone routing, or target latency.
+Helper capture dispatch is still a migration wiring test. It does not prove microphone capture, ASR, translation, TTS, virtual microphone routing, or target latency.
 
 ## Why this matters
 
-The next implementation step can reuse the same request envelope when Start/Stop Capture is migrated from temporary local capture behavior to helper bridge request/response behavior.
+The next implementation step can replace the fallback path with real helper-routed capture only after local compile/runtime evidence exists.
 
 ## Not claimed yet
 
