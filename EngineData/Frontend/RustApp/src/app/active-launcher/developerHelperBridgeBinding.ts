@@ -1,13 +1,13 @@
 import { runtimeApi } from "../bridge/runtimeApi";
-import type { CaptureHelperBridgeRequestPreview, CaptureHelperDispatchStatus, HelperBridgeActionResult, HelperBridgeWorkerResponse } from "../shared/types";
+import type { CaptureHelperBridgeRequestPreview, CaptureHelperDispatchStatus, CaptureTranscriptBoundaryStatus, HelperBridgeActionResult, HelperBridgeWorkerResponse } from "../shared/types";
 
 let bound = false;
 let clickHandler: ((event: MouseEvent) => void) | null = null;
 
 type HelperTaskResult = HelperBridgeActionResult | HelperBridgeWorkerResponse;
-type CaptureTaskResult = CaptureHelperBridgeRequestPreview | HelperBridgeActionResult | null;
+type CaptureTaskResult = CaptureHelperBridgeRequestPreview | HelperBridgeActionResult | CaptureTranscriptBoundaryStatus | null;
 type WorkerPayload = Record<string, unknown>;
-type CaptureDispatchGlobal = typeof globalThis & { __translateitCaptureHelperDispatchStatus?: CaptureHelperDispatchStatus };
+type CaptureDispatchGlobal = typeof globalThis & { __translateitCaptureHelperDispatchStatus?: CaptureHelperDispatchStatus; __translateitCaptureTranscriptBoundaryStatus?: CaptureTranscriptBoundaryStatus };
 
 function helperTask(action: string | undefined): Promise<HelperTaskResult> {
   if (action === "start") return runtimeApi.startHelperBridge();
@@ -24,6 +24,7 @@ function capturePreviewTask(action: string | undefined): Promise<CaptureTaskResu
   if (action === "stop-preview") return runtimeApi.prepareCaptureStopRequest();
   if (action === "start-dispatch") return runtimeApi.dispatchCaptureStartRequest();
   if (action === "stop-dispatch") return runtimeApi.dispatchCaptureStopRequest();
+  if (action === "boundary-status") return runtimeApi.getCaptureTranscriptBoundaryStatus();
   return runtimeApi.prepareCaptureStartRequest();
 }
 
@@ -36,9 +37,18 @@ function setCaptureDispatchGlobal(status: CaptureHelperDispatchStatus): void {
   (globalThis as CaptureDispatchGlobal).__translateitCaptureHelperDispatchStatus = status;
 }
 
+function setCaptureTranscriptBoundaryGlobal(status: CaptureTranscriptBoundaryStatus): void {
+  (globalThis as CaptureDispatchGlobal).__translateitCaptureTranscriptBoundaryStatus = status;
+}
+
 async function refreshCaptureDispatchStatus(): Promise<void> {
   const status = await runtimeApi.getCaptureHelperDispatchStatus().catch(() => null);
   if (status) setCaptureDispatchGlobal(status);
+}
+
+async function refreshCaptureTranscriptBoundaryStatus(): Promise<void> {
+  const status = await runtimeApi.getCaptureTranscriptBoundaryStatus().catch(() => null);
+  if (status) setCaptureTranscriptBoundaryGlobal(status);
 }
 
 function compactValue(value: unknown): string | null {
@@ -91,8 +101,16 @@ function isCapturePreview(result: CaptureTaskResult): result is CaptureHelperBri
   return Boolean(result && "payload_json" in result && "migration_ready" in result);
 }
 
+function isCaptureTranscriptBoundary(result: CaptureTaskResult): result is CaptureTranscriptBoundaryStatus {
+  return Boolean(result && "transcript_handoff_ready" in result && "ready_for_target_asr_frame" in result);
+}
+
 function previewSummary(result: CaptureTaskResult): string {
   if (!result) return "Capture helper bridge request did not return a result.";
+  if (isCaptureTranscriptBoundary(result)) {
+    const state = result.transcript_handoff_ready ? "ready for ASR handoff" : "blocked before ASR handoff";
+    return `Capture transcript boundary ${state}: frames=${result.frames_received}, buffer=${result.buffered_duration_ms}ms, next=${result.next_action}, blocker=${result.blocker || "none"}. This is boundary evidence, not transcript/runtime proof.`;
+  }
   if (!isCapturePreview(result)) {
     const state = result.ok ? "dispatch response returned" : "dispatch blocked";
     return `Capture helper ${state}: ${result.message} This dispatch only tests helper command wiring and is not a capture readiness claim.`;
@@ -130,6 +148,7 @@ export function bindDeveloperHelperBridgeUi(): () => void {
     void capturePreviewTask(action)
       .then(async (result) => {
         await refreshCaptureDispatchStatus();
+        await refreshCaptureTranscriptBoundaryStatus();
         setAssistantNotice(previewSummary(result));
       })
       .catch(() => setAssistantNotice("Capture helper bridge request failed before returning a result."))
