@@ -105,6 +105,9 @@ function workerDetail(payload: WorkerPayload | null): string {
   const details: Array<[string, unknown]> = [
     ["blocker", payload.blocker],
     ["warnings", payload.warnings],
+    ["translation_contract", payload.translation_contract_ok],
+    ["tts_contract", payload.tts_contract_ok],
+    ["runtime_claim", payload.runtime_claim],
     ["model", payload.model_id ?? payload.asr_active_model_id],
     ["device", payload.device ?? payload.selected_device],
     ["compute", payload.compute_type ?? payload.selected_compute_type],
@@ -126,7 +129,10 @@ function helperSummary(result: HelperTaskResult | null | undefined): string {
   const task = "task" in result ? ` [${result.task}]` : "";
   const state = result.ok ? "evidence returned" : "blocked";
   const payload = workerPayload(result);
-  return `Helper${task} ${state}: ${result.message}${workerDetail(payload)} This is diagnostic evidence, not a local runtime readiness claim.`;
+  const contractNote = payload?.runtime_claim === "worker_pipeline_contract_smoke_no_model_runtime_claim"
+    ? " Worker smoke only verifies nested translation/TTS contract handlers; no provider readiness is implied."
+    : "";
+  return `Helper${task} ${state}: ${result.message}${workerDetail(payload)}${contractNote} This is diagnostic evidence, not a local runtime readiness claim.`;
 }
 
 function isCapturePreview(result: CaptureTaskResult): result is CaptureHelperBridgeRequestPreview {
