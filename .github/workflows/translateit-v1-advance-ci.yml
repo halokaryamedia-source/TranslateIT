@@ -179,7 +179,7 @@ jobs:
   rust-cargo-check:
     name: Full Rust Cargo Check
     runs-on: windows-latest
-    timeout-minutes: 20
+    timeout-minutes: 25
     needs: rust-toolchain-probe
     defaults:
       run:
@@ -187,7 +187,20 @@ jobs:
         working-directory: EngineData/Frontend/RustApp
     steps:
       - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
       - uses: dtolnay/rust-toolchain@stable
+      - name: Install frontend dependencies
+        run: |
+          $ErrorActionPreference = 'Stop'
+          if (Test-Path 'package-lock.json') {
+            npm ci --ignore-scripts --no-audit --no-fund
+          } else {
+            npm install --ignore-scripts --no-audit --no-fund
+          }
+      - name: Build frontend dist for Tauri context
+        run: npm run build:frontend
       - name: Run cargo check
         run: |
           $ErrorActionPreference = 'Stop'
