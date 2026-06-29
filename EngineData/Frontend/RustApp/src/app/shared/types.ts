@@ -144,6 +144,22 @@ export type PipelineHandoffRequestStatus = {
   updated_unix_ms: number;
 };
 
+export type LivePipelineSessionSnapshot = {
+  ok: boolean;
+  state: string;
+  progress_percent: number;
+  stage_count: number;
+  prepared_count: number;
+  dispatch_ok_count: number;
+  active_stage: string;
+  active_blocker: string;
+  next_action: string;
+  summary: string;
+  runtime_claim: string;
+  stages: PipelineHandoffRequestStatus[];
+  updated_unix_ms: number;
+};
+
 export type AudioStudioValidationEvidence = {
   ok: boolean;
   stage: string;
