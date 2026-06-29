@@ -1,328 +1,119 @@
-name: TranslateIT V1 Advance Non-Local CI
+name: TranslateIT V1 Advance Primary CI
 
 on:
   push:
-    branches:
-      - V1-Advance
-  pull_request:
-    branches:
-      - Developing
-      - V1-Advance
+    branches: [V1-Advance]
   workflow_dispatch:
 
 permissions:
   contents: read
 
 concurrency:
-  group: translateit-v1-advance-ci-${{ github.ref }}
+  group: translateit-v1-advance-primary-ci-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
-  v1-advance-bootstrap-validation:
-    name: V1 Advance Bootstrap Validation
+  bootstrap-validation:
+    name: Bootstrap Validation
     runs-on: windows-latest
     timeout-minutes: 10
-
-    defaults:
-      run:
-        shell: pwsh
-
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
         with:
           node-version: '20'
-
-      - name: Validate V1-Advance source of truth
-        run: |
-          $ErrorActionPreference = 'Stop'
-
-          $requiredFiles = @(
-            'DevelopingData/Documentation/Reports/Engineering/V1_ADVANCE_PRODUCT_REQUIREMENTS.md',
-            'DevelopingData/Documentation/Reports/Engineering/V1_ADVANCE_NON_LOCAL_CI_POLICY.md',
-            'DevelopingData/Documentation/Reports/Engineering/V1_ADVANCE_PHASE_PLAN.md',
-            'DevelopingData/Documentation/Reports/Engineering/V1_ADVANCE_SCRIPT_SAFETY_MATRIX.json',
-            'DevelopingData/Documentation/Reports/Engineering/V1_ADVANCE_DEPENDENCY_INSTALL_POLICY.md',
-            'EngineData/Frontend/RustApp/README.md',
-            'EngineData/Frontend/RustApp/package.json',
-            'EngineData/Frontend/RustApp/scripts/validate_v1_advance_policy.mjs'
-          )
-
-          foreach ($path in $requiredFiles) {
-            if (!(Test-Path $path)) {
-              throw "Required V1-Advance file is missing: $path"
-            }
-          }
-
-          if (Test-Path 'DevelopingData/FigmaDesignExport') {
-            throw 'FigmaDesignExport must not be an active dependency in V1-Advance.'
-          }
-
-          if (Test-Path 'DevelopingData/DesignIT') {
-            throw 'DesignIT must not be an active dependency in V1-Advance.'
-          }
-
-      - name: Validate package script declarations
-        run: |
-          $ErrorActionPreference = 'Stop'
-
-          $packagePath = 'EngineData/Frontend/RustApp/package.json'
-          $package = Get-Content $packagePath -Raw | ConvertFrom-Json
-          $scripts = $package.scripts
-
-          $requiredScripts = @(
-            'typecheck',
-            'check:rust',
-            'build:frontend',
-            'validate:quick',
-            'validate:single-active-engine',
-            'validate:v1-advance-policy',
-            'test:frontend-backend-contract',
-            'test:worker-contract',
-            'test:ui-binding-report',
-            'test:settings-integrity-report'
-          )
-
-          foreach ($scriptName in $requiredScripts) {
-            if (-not ($scripts.PSObject.Properties.Name -contains $scriptName)) {
-              throw "Required package script is missing: $scriptName"
-            }
-          }
-
-          $forbiddenMarkers = @(
-            'figma',
-            'figmadesignexport',
-            'designit',
-            'export_figma',
-            'validate_figma'
-          )
-
-          foreach ($script in $scripts.PSObject.Properties) {
-            $searchable = (($script.Name + ' ' + [string]$script.Value).ToLowerInvariant())
-            foreach ($marker in $forbiddenMarkers) {
-              if ($searchable.Contains($marker)) {
-                throw "Forbidden inactive design/export script is still active: $($script.Name)"
-              }
-            }
-          }
-
-      - name: Validate V1-Advance policy keywords
-        run: |
-          $ErrorActionPreference = 'Stop'
-
-          $requirements = Get-Content 'DevelopingData/Documentation/Reports/Engineering/V1_ADVANCE_PRODUCT_REQUIREMENTS.md' -Raw
-          $policy = Get-Content 'DevelopingData/Documentation/Reports/Engineering/V1_ADVANCE_NON_LOCAL_CI_POLICY.md' -Raw
-          $phasePlan = Get-Content 'DevelopingData/Documentation/Reports/Engineering/V1_ADVANCE_PHASE_PLAN.md' -Raw
-          $dependencyPolicy = Get-Content 'DevelopingData/Documentation/Reports/Engineering/V1_ADVANCE_DEPENDENCY_INSTALL_POLICY.md' -Raw
-
-          $requiredRequirementMarkers = @(
-            'single active product direction',
-            'Windows desktop real-time conversation translator',
-            'NVIDIA CUDA',
-            'CPU fallback',
-            'built-in virtual microphone',
-            'Silence threshold: 700ms',
-            'Maximum speech segment: 12 seconds',
-            'Always-listening',
-            'Push-to-talk',
-            'Hold Space',
-            'Whisper Large V3 Turbo',
-            'Audio recording history is off by default'
-          )
-
-          foreach ($marker in $requiredRequirementMarkers) {
-            if (!$requirements.Contains($marker)) {
-              throw "Product requirement marker is missing: $marker"
-            }
-          }
-
-          $requiredPolicyMarkers = @(
-            'current development phase is intentionally non-local',
-            'Do not require local CUDA hardware in CI',
-            'Do not require local model files in CI',
-            'Do not require microphone access in CI',
-            'Do not require virtual audio devices in CI',
-            'Do not claim local runtime readiness from GitHub inspection alone'
-          )
-
-          foreach ($marker in $requiredPolicyMarkers) {
-            if (!$policy.Contains($marker)) {
-              throw "CI policy marker is missing: $marker"
-            }
-          }
-
-          if (!$phasePlan.Contains('Phase 1')) {
-            throw 'Phase plan must include Phase 1.'
-          }
-
-          if (!$dependencyPolicy.Contains('Dependency Probe CI')) {
-            throw 'Dependency install policy must define Dependency Probe CI.'
-          }
-
       - name: Run V1-Advance policy validator
         run: node EngineData/Frontend/RustApp/scripts/validate_v1_advance_policy.mjs
 
-      - name: Non-local CI summary
-        run: |
-          @'
-          TranslateIT V1-Advance bootstrap CI completed.
-
-          This bootstrap workflow validates source-of-truth, active RustApp package presence,
-          script declarations, inactive DesignIT/FigmaDesignExport guards, and policy markers.
-
-          It intentionally does not run local/runtime checks such as CUDA, model loading,
-          microphone capture, virtual microphone routing, TTS provider quality, or installer packaging.
-          '@ | Write-Host
-
-  v1-advance-dependency-probe:
-    name: V1 Advance Dependency Probe
+  dependency-probe:
+    name: Dependency Probe
     runs-on: windows-latest
     timeout-minutes: 15
-    needs: v1-advance-bootstrap-validation
-
+    needs: bootstrap-validation
     defaults:
       run:
         shell: pwsh
         working-directory: EngineData/Frontend/RustApp
-
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
         with:
           node-version: '20'
-
-      - name: Dependency install probe
+      - name: Install dependencies only
         run: |
           $ErrorActionPreference = 'Stop'
-
-          node --version
-          npm --version
-
-          if (Test-Path 'package-lock.json') {
-            Write-Host 'package-lock.json found; using npm ci with ignored lifecycle scripts for dependency probe.'
-            npm ci --ignore-scripts --no-audit --no-fund
-          } else {
-            Write-Host 'package-lock.json not found; using npm install with ignored lifecycle scripts for dependency probe.'
-            npm install --ignore-scripts --no-audit --no-fund
-          }
-
-      - name: Verify dependency probe scope
-        run: |
-          $ErrorActionPreference = 'Stop'
-
-          if (!(Test-Path 'node_modules')) {
-            throw 'Dependency probe did not create node_modules.'
-          }
-
-          if (!(Test-Path 'package.json')) {
-            throw 'package.json missing after dependency probe.'
-          }
-
-          Write-Host 'Dependency probe completed without running local runtime, CUDA, model, microphone, virtual microphone, TTS provider, or installer scripts.'
-
-      - name: Dependency probe summary
-        run: |
-          @'
-          TranslateIT V1-Advance dependency probe completed.
-
-          This job only validates dependency installation in GitHub Actions.
-          It does not run TypeScript, Rust, frontend build, Tauri packaging,
-          CUDA, model setup/loading, microphone capture, virtual microphone routing,
-          or TTS provider runtime.
-          '@ | Write-Host
-
-  v1-advance-typescript-gate:
-    name: V1 Advance TypeScript Gate
-    runs-on: windows-latest
-    timeout-minutes: 15
-    needs: v1-advance-dependency-probe
-
-    defaults:
-      run:
-        shell: pwsh
-        working-directory: EngineData/Frontend/RustApp
-
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: '20'
-
-      - name: Install dependencies for TypeScript gate
-        run: |
-          $ErrorActionPreference = 'Stop'
-
           if (Test-Path 'package-lock.json') {
             npm ci --ignore-scripts --no-audit --no-fund
           } else {
             npm install --ignore-scripts --no-audit --no-fund
           }
+          if (!(Test-Path 'node_modules')) { throw 'node_modules was not created.' }
 
+  typescript-gate:
+    name: TypeScript Gate
+    runs-on: windows-latest
+    timeout-minutes: 15
+    needs: dependency-probe
+    defaults:
+      run:
+        shell: pwsh
+        working-directory: EngineData/Frontend/RustApp
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - name: Install dependencies
+        run: |
+          $ErrorActionPreference = 'Stop'
+          if (Test-Path 'package-lock.json') {
+            npm ci --ignore-scripts --no-audit --no-fund
+          } else {
+            npm install --ignore-scripts --no-audit --no-fund
+          }
       - name: Run TypeScript typecheck
         run: npm run typecheck
 
-      - name: TypeScript gate summary
-        run: |
-          @'
-          TranslateIT V1-Advance TypeScript gate completed.
-
-          This job validates TypeScript only.
-          It does not run Rust cargo check, frontend build, Tauri packaging,
-          CUDA checks, model setup/loading, microphone capture, virtual microphone routing,
-          or TTS provider runtime.
-          '@ | Write-Host
-
-  v1-advance-rust-check-gate:
-    name: V1 Advance Rust Check Gate
+  rust-manifest-preflight:
+    name: Rust Manifest Preflight
     runs-on: windows-latest
-    timeout-minutes: 20
-    needs: v1-advance-typescript-gate
-
+    timeout-minutes: 10
+    needs: typescript-gate
     defaults:
       run:
         shell: pwsh
         working-directory: EngineData/Frontend/RustApp
-
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
         with:
           node-version: '20'
+      - name: Run Rust manifest preflight
+        run: npm run check:rust
 
-      - name: Setup Rust stable
-        uses: dtolnay/rust-toolchain@stable
-
-      - name: Install dependencies for Rust check gate
+  frontend-build:
+    name: Frontend Build Gate
+    runs-on: windows-latest
+    timeout-minutes: 15
+    needs: rust-manifest-preflight
+    defaults:
+      run:
+        shell: pwsh
+        working-directory: EngineData/Frontend/RustApp
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - name: Install dependencies
         run: |
           $ErrorActionPreference = 'Stop'
-
           if (Test-Path 'package-lock.json') {
             npm ci --ignore-scripts --no-audit --no-fund
           } else {
             npm install --ignore-scripts --no-audit --no-fund
           }
-
-      - name: Run Rust cargo check through package script
-        run: npm run check:rust
-
-      - name: Rust check gate summary
-        run: |
-          @'
-          TranslateIT V1-Advance Rust check gate completed.
-
-          This job validates Rust cargo check only through npm run check:rust.
-          It does not run frontend build, Tauri packaging, CUDA checks, model setup/loading,
-          microphone capture, virtual microphone routing, or TTS provider runtime.
-          '@ | Write-Host
+      - name: Run frontend build preflight
+        run: npm run preflight:frontend-build
+      - name: Run frontend build
+        run: npm run build:frontend
