@@ -190,6 +190,29 @@ worker_pipeline_contract_smoke:failed_contract
 
 Developer Diagnostics exposes buttons for capture, ASR, dev transcript seed, dev translation seed, one-click pipeline smoke, worker pipeline smoke, translation, TTS, full pipeline status, pipeline snapshot, and reset pipeline cache.
 
+## Helper runtime state safety
+
+Contract-only worker responses use runtime claims such as:
+
+```text
+pipeline_dev_payload_contract_acceptance_no_model_runtime_claim
+worker_pipeline_contract_smoke_no_model_runtime_claim
+```
+
+Rust treats these as diagnostic contract evidence only. Even when the worker returns `ok=true`, these responses must not mark the helper as provider/model ready.
+
+Provider readiness remains tied to the worker preflight/status path that reports ASR model readiness, translation model readiness, TTS readiness, and CUDA policy evidence.
+
+Developer Diagnostics now surfaces worker smoke details such as:
+
+```text
+translation_contract: true
+tts_contract: true
+runtime_claim: worker_pipeline_contract_smoke_no_model_runtime_claim
+```
+
+without presenting them as runtime readiness.
+
 ## Session-local pipeline cache
 
 Rust stores source-side handoff status in session memory for:
