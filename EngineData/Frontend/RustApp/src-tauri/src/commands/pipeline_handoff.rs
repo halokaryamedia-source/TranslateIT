@@ -27,6 +27,23 @@ pub struct PipelineHandoffRequestStatus {
     pub updated_unix_ms: u128,
 }
 
+#[derive(Debug, Clone, Serialize)]
+pub struct LivePipelineSessionSnapshot {
+    pub ok: bool,
+    pub state: String,
+    pub progress_percent: u8,
+    pub stage_count: usize,
+    pub prepared_count: usize,
+    pub dispatch_ok_count: usize,
+    pub active_stage: String,
+    pub active_blocker: String,
+    pub next_action: String,
+    pub summary: String,
+    pub runtime_claim: String,
+    pub stages: Vec<PipelineHandoffRequestStatus>,
+    pub updated_unix_ms: u128,
+}
+
 static TRANSLATION_HANDOFF_STATUS: OnceLock<Mutex<Option<PipelineHandoffRequestStatus>>> = OnceLock::new();
 static TTS_HANDOFF_STATUS: OnceLock<Mutex<Option<PipelineHandoffRequestStatus>>> = OnceLock::new();
 
@@ -48,6 +65,15 @@ fn record_stage_status(status: &PipelineHandoffRequestStatus) {
         if let Ok(mut cached) = runtime.lock() {
             *cached = Some(status.clone());
         }
+    }
+}
+
+fn clear_stage_caches() {
+    if let Ok(mut cached) = translation_status_runtime().lock() {
+        *cached = None;
+    }
+    if let Ok(mut cached) = tts_status_runtime().lock() {
+        *cached = None;
     }
 }
 
@@ -161,6 +187,61 @@ fn tts_prerequisite() -> (AsrHandoffRequestStatus, HelperBridgeStatus, String, b
         .map(|status| status.dispatch_ok)
         .unwrap_or(false);
     (asr, helper, payload_json, ready)
+}
+
+fn build_pipeline_snapshot(stages: Vec<PipelineHandoffRequestStatus>) -> LivePipelineSessionSnapshot {
+    let stage_count = stages.len();
+    let prepared_count = stages.iter().filter(|stage| stage.request_prepared).count();
+    let dispatch_ok_count = stages.iter().filter(|stage| stage.dispatch_ok).count();
+    let first_blocked = stages
+        .iter()
+        .find(|stage| !stage.dispatch_ok && !stage.request_prepared)
+        .or_else(|| stages.iter().find(|stage| !stage.dispatch_ok));
+    let progress_percent = if stage_count == 0 {
+        0
+    } else {
+        (((prepared_count + dispatch_ok_count) * 50) / stage_count).min(100) as u8
+    };
+    let ok = stage_count > 0 && stages.iter().all(|stage| stage.dispatch_ok);
+    let state = if ok {
+        "complete_stub_dispatch".to_string()
+    } else if prepared_count > 0 || dispatch_ok_count > 0 {
+        "partial_stub_progress".to_string()
+    } else {
+        "blocked".to_string()
+    };
+    let active_stage = first_blocked
+        .map(|stage| stage.stage.clone())
+        .unwrap_or_else(|| "none".to_string());
+    let active_blocker = first_blocked
+        .map(|stage| stage.blocker.clone())
+        .unwrap_or_default();
+    let next_action = first_blocked
+        .map(|stage| stage.next_action.clone())
+        .unwrap_or_else(|| "inspect_pipeline_runtime_proof".to_string());
+    let summary = format!(
+        "{} stages, {} prepared, {} dispatch accepted. Active blocker: {}.",
+        stage_count,
+        prepared_count,
+        dispatch_ok_count,
+        if active_blocker.is_empty() { "none" } else { active_blocker.as_str() }
+    );
+
+    LivePipelineSessionSnapshot {
+        ok,
+        state,
+        progress_percent,
+        stage_count,
+        prepared_count,
+        dispatch_ok_count,
+        active_stage,
+        active_blocker,
+        next_action,
+        summary,
+        runtime_claim: "pipeline_session_snapshot_source_side_not_runtime_proof".to_string(),
+        stages,
+        updated_unix_ms: unix_ms(),
+    }
 }
 
 #[tauri::command]
@@ -319,4 +400,16 @@ pub fn get_live_pipeline_handoff_status() -> Vec<PipelineHandoffRequestStatus> {
         translation,
         tts,
     ]
+}
+
+#[tauri::command]
+pub fn get_live_pipeline_session_snapshot() -> LivePipelineSessionSnapshot {
+    build_pipeline_snapshot(get_live_pipeline_handoff_status())
+}
+
+#[tauri::command]
+pub fn reset_live_pipeline_handoff_status() -> LivePipelineSessionSnapshot {
+    clear_stage_caches();
+    let _ = prepare_asr_handoff_request();
+    build_pipeline_snapshot(get_live_pipeline_handoff_status())
 }
