@@ -63,6 +63,43 @@ function localTimeLabel(): string {
   return new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
 }
 
+type TranslationResultDisplay = {
+  body: string;
+  runtimeLabel: string;
+  helperDetail: string | null;
+};
+
+function translationRuntimeLabel(voiceStatus: string): string {
+  const normalized = voiceStatus.toLowerCase();
+  if (normalized.includes("local preview")) return "Local preview fallback";
+  if (normalized.includes("error")) return "Runtime blocked";
+  return "Native runtime";
+}
+
+function splitHelperBridgeMetadata(translated: string, voiceStatus: string): TranslationResultDisplay {
+  const marker = "\n\n(helper bridge:";
+  const markerIndex = translated.indexOf(marker);
+  if (markerIndex < 0) {
+    return {
+      body: translated,
+      runtimeLabel: translationRuntimeLabel(voiceStatus),
+      helperDetail: null,
+    };
+  }
+
+  const body = translated.slice(0, markerIndex).trim();
+  const detail = translated
+    .slice(markerIndex + marker.length)
+    .replace(/\)\s*$/, "")
+    .trim();
+
+  return {
+    body: body || translated,
+    runtimeLabel: "Helper bridge",
+    helperDetail: detail || null,
+  };
+}
+
 export function chatCollectionView(kind: ChatKind, sessions: LauncherChatSummary[]): string {
   if (!sessions.length) return emptyChatCollectionView(kind);
   return sessions
@@ -80,16 +117,19 @@ export function chatCollectionView(kind: ChatKind, sessions: LauncherChatSummary
 }
 
 export function translationResultView(source: string, translated: string, voiceStatus: string): string {
-  const hasTranslatedText = Boolean(translated.trim());
-  const translatedText = hasTranslatedText ? translated : TRANSLATION_PENDING_MESSAGE;
+  const display = splitHelperBridgeMetadata(translated, voiceStatus);
+  const hasTranslatedText = Boolean(display.body.trim());
+  const translatedText = hasTranslatedText ? display.body : TRANSLATION_PENDING_MESSAGE;
   const sourcePreview = escapeHtml(compactResult(source, "No source text available."));
   const translatedPreview = escapeHtml(compactResult(translatedText, TRANSLATION_PENDING_MESSAGE));
   const translatedFull = escapeHtml(cleanDisplayText(translatedText) || TRANSLATION_PENDING_MESSAGE);
   const sourceFull = escapeHtml(cleanDisplayText(source) || "No source text available.");
   const statusText = escapeHtml(compactResult(voiceStatus, "No voice status available."));
+  const runtimeText = escapeHtml(compactResult(display.runtimeLabel, "Runtime unknown."));
+  const helperDetail = display.helperDetail ? `<span class="translation-result-helper">${escapeHtml(compactResult(display.helperDetail, ""))}</span>` : "";
   const timeText = escapeHtml(localTimeLabel());
   const pendingClass = hasTranslatedText ? "" : " is-pending";
-  return `<section class="translation-result-stack" aria-label="Latest translation result"><article class="translation-result-card${pendingClass}"><header><h4>${icon("translate")} Translation Result</h4><div class="translation-result-actions"><span class="translation-result-time">${timeText}</span><button type="button" data-copy-translation="${sourceFull}" aria-label="Copy original text">Copy original</button><button type="button" data-copy-translation="${translatedFull}" aria-label="Copy full translated text">Copy result</button></div></header><div class="translation-result-grid"><section class="translation-result-block"><strong>Original</strong><p>${sourcePreview}</p></section><section class="translation-result-block"><strong>${hasTranslatedText ? "Translated" : "Status"}</strong><p>${translatedPreview}</p></section></div><p class="translation-result-meta">Voice output: ${statusText}</p></article></section>`;
+  return `<section class="translation-result-stack" aria-label="Latest translation result"><article class="translation-result-card${pendingClass}"><header><h4>${icon("translate")} Translation Result</h4><div class="translation-result-actions"><span class="translation-result-time">${timeText}</span><button type="button" data-copy-translation="${sourceFull}" aria-label="Copy original text">Copy original</button><button type="button" data-copy-translation="${translatedFull}" aria-label="Copy full translated text">Copy result</button></div></header><div class="translation-result-grid"><section class="translation-result-block"><strong>Original</strong><p>${sourcePreview}</p></section><section class="translation-result-block"><strong>${hasTranslatedText ? "Translated" : "Status"}</strong><p>${translatedPreview}</p></section></div><p class="translation-result-meta">Runtime: ${runtimeText} · Voice output: ${statusText}</p>${helperDetail}</article></section>`;
 }
 
 function emptyChatCollectionView(kind: ChatKind): string {
