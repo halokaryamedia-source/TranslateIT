@@ -1,5 +1,5 @@
 use serde::{Deserialize, Serialize};
-use serde_json::Value;
+use serde_json::{json, Value};
 use std::fs::{self, OpenOptions};
 use std::io::{BufRead, BufReader, Write};
 use std::path::PathBuf;
@@ -7,6 +7,8 @@ use std::process::{Child, ChildStderr, ChildStdin, ChildStdout};
 use std::sync::{Mutex, OnceLock};
 use std::thread;
 use std::time::{SystemTime, UNIX_EPOCH};
+
+pub const DEFAULT_WORKER_RESPONSE_DEADLINE_MS: u128 = 30_000;
 
 #[derive(Debug, Clone, Serialize)]
 pub struct HelperBridgeStatus {
@@ -222,8 +224,25 @@ pub fn apply_worker_response(runtime: &mut HelperBridgeRuntime, value: &Value) -
     ok
 }
 
+pub fn request_deadline_payload(payload: &Value) -> Value {
+    let started = unix_ms();
+    let deadline = started.saturating_add(DEFAULT_WORKER_RESPONSE_DEADLINE_MS);
+    let mut payload = payload.clone();
+    if let Some(object) = payload.as_object_mut() {
+        object.entry("request_unix_ms".to_string()).or_insert(json!(started));
+        object
+            .entry("deadline_unix_ms".to_string())
+            .or_insert(json!(deadline));
+        object
+            .entry("deadline_ms".to_string())
+            .or_insert(json!(DEFAULT_WORKER_RESPONSE_DEADLINE_MS));
+    }
+    payload
+}
+
 pub fn write_worker_request(stdin: &mut ChildStdin, payload: &Value) -> Result<(), String> {
-    let body = serde_json::to_string(payload).map_err(|error| error.to_string())?;
+    let payload = request_deadline_payload(payload);
+    let body = serde_json::to_string(&payload).map_err(|error| error.to_string())?;
     stdin
         .write_all(body.as_bytes())
         .map_err(|error| error.to_string())?;
@@ -235,11 +254,11 @@ pub fn read_worker_response(stdout: &mut BufReader<ChildStdout>) -> Result<Value
     let mut line = String::new();
     let size = stdout
         .read_line(&mut line)
-        .map_err(|error| error.to_string())?;
+        .map_err(|error| format!("worker:read_failed:{error}"))?;
     if size == 0 {
         return Err("worker:stdout_closed".to_string());
     }
-    serde_json::from_str::<Value>(&line).map_err(|error| error.to_string())
+    serde_json::from_str::<Value>(&line).map_err(|error| format!("worker:invalid_json_response:{error}"))
 }
 
 pub fn stop_child(runtime: &mut HelperBridgeRuntime) {
