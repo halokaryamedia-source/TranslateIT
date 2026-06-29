@@ -13,7 +13,6 @@
     "build:frontend",
     "preflight:frontend-build",
     "preflight:tauri-package",
-    "diagnostics:rust-source",
     "validate:script-profiles",
     "validate:imports",
     "validate:naming",
