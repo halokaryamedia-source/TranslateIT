@@ -108,6 +108,31 @@ export type AudioStudioValidationEvidence = {
   };
 };
 
+export type HardwareMetric = {
+  label: string;
+  percent: number | null;
+  status: string;
+  detail: string;
+};
+
+export type HardwareUsageReport = {
+  cpu: HardwareMetric;
+  ram: HardwareMetric;
+  gpu: HardwareMetric;
+  note: string;
+};
+
+export type GpuPolicyReport = {
+  ok: boolean;
+  status: string;
+  cuda_available: boolean;
+  gpu_primary: boolean;
+  cpu_fallback_active: boolean;
+  preferred_backend: string;
+  notes: string[];
+  blocker: string;
+};
+
 export type LocalWorkerManifestReport = {
   ok: boolean;
   runtime_manifest_exists: boolean;
@@ -131,7 +156,7 @@ export type LocalWorkerManifestReport = {
 
 export type RuntimeStatusBundleReport = {
   engine_status: EngineStatus;
-  readiness: { ready_for_user_facing_runtime: boolean; blockers: string[]; note: string };
+  readiness: { ready_for_user_facing_runtime: boolean; ready_for_start_command?: boolean; ready_for_stop_command?: boolean; blockers: string[]; note: string; session_state?: { has_active_session: boolean }; handoff_state?: { has_snapshot: boolean } };
   capture_gate: { ready_for_capture_start: boolean; blockers: string[]; note: string };
   live_capture: {
     stream_active: boolean;
@@ -140,14 +165,27 @@ export type RuntimeStatusBundleReport = {
     blocker: string;
     note: string;
   };
+  live_audio_buffer?: {
+    ready_for_vad: boolean;
+    ready_for_target_asr_frame: boolean;
+    buffered_duration_ms: number;
+    blocker: string;
+  };
+  live_target_segment?: { ready: boolean; blocker: string };
+  live_asr_boundary?: { input_ready: boolean; model_ready: boolean; backend_ready: boolean; ready_for_decoder_call?: boolean; blocker: string };
+  native_asr_decoder?: { decoder_connected: boolean; transcript_text?: string | null; blocker: string };
+  live_translation_boundary?: { translated_text?: string | null; blocker: string };
+  live_tts_boundary?: { output_audio_ready: boolean; playback_ready: boolean; blocker: string };
   local_worker_manifest?: LocalWorkerManifestReport;
   internal_validation_gate?: {
     progress_percent: number;
     blockers: string[];
     note: string;
+    ready_for_owner_validation?: boolean;
+    ready_for_release_candidate?: boolean;
     local_worker_manifest?: LocalWorkerManifestReport;
   };
-  live_pipeline_gate?: { progress_percent: number; blocker: string; note: string };
+  live_pipeline_gate?: { progress_percent: number; blocker: string; ready_for_user_runtime?: boolean; note?: string };
   next_action: string;
   summary: string;
 };
@@ -250,10 +288,10 @@ export type ModelInventoryItem = {
   found: boolean;
   file_count: number;
   size_bytes: number;
-  gpu_capable: boolean | "unknown";
+  gpu_capable: boolean | string;
   cpu_fallback: boolean;
   download_url: string | null;
-  status: "PASS" | "PARTIAL" | "BLOCKED" | "FAIL";
+  status: "PASS" | "PARTIAL" | "BLOCKED" | "FAIL" | string;
   blocker: string | null;
   next_action: string;
 };
@@ -275,4 +313,38 @@ export type ModelSetupReport = {
   items: ModelInventoryItem[];
   blockers: string[];
   note: string;
+};
+
+export type ChatKind = "local" | "saved" | "unsaved" | "private" | string;
+
+export type SettingsTab = "general" | "audio" | "translate" | "developer";
+
+export type LauncherChatMessage = {
+  role: string;
+  content: string;
+  created_unix_ms: number;
+};
+
+export type LauncherChatSession = {
+  schema_version: number;
+  session_id: string;
+  title: string;
+  kind: string;
+  created_unix_ms: number;
+  updated_unix_ms: number;
+  messages: LauncherChatMessage[];
+};
+
+export type LauncherChatSummary = {
+  session_id: string;
+  title: string;
+  kind: string;
+  updated_unix_ms: number;
+  message_count: number;
+};
+
+export type LauncherChatActionResult = {
+  ok: boolean;
+  session_id: string;
+  message: string;
 };
