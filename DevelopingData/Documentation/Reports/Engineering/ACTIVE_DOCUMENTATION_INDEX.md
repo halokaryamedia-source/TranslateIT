@@ -48,21 +48,22 @@ Read these in order:
 2. `DevelopingData/Documentation/Reports/Engineering/V1_ADVANCE_PRODUCT_REQUIREMENTS.md`
 3. `DevelopingData/Documentation/Reports/Engineering/V1_ADVANCE_NON_LOCAL_CI_POLICY.md`
 4. `DevelopingData/Documentation/Reports/Engineering/V1_ADVANCE_SCRIPT_SAFETY_MATRIX.json`
-5. `DevelopingData/Documentation/Reports/Engineering/V1_ADVANCE_PHASE_PLAN.md`
-6. `DevelopingData/Documentation/Reports/Engineering/CURRENT_APP_STATUS.md`
-7. `DevelopingData/Documentation/Reports/Engineering/SINGLE_ACTIVE_ENGINE_POLICY.md`
-8. `EngineData/Backend/RuntimeContracts/FINAL_ARCHITECTURE_CONTRACT.json`
-9. `EngineData/Backend/RuntimeContracts/PYTHON_HELPER_BRIDGE_CONTRACT.json`
-10. `EngineData/Backend/RuntimeContracts/CAPTURE_HELPER_BRIDGE_REQUEST_CONTRACT.json`
-11. `EngineData/Backend/RuntimeContracts/AUDIO_STUDIO_ROUTE_STATUS_CONTRACT.json`
-12. `EngineData/Backend/RuntimeContracts/USERDATA_ROOT_POLICY_CONTRACT.json`
-13. `DevelopingData/Documentation/Reports/Engineering/V1_ADVANCE_SINGLE_ENGINE_CLEANUP_AUDIT.md`
-14. `DevelopingData/Documentation/Reports/Engineering/V1_ADVANCE_RUNTIME_CONTRACT_RETARGET_AUDIT.md`
-15. `DevelopingData/Documentation/Reports/Engineering/V1_ADVANCE_DOCUMENTATION_CLEANUP_AUDIT.md`
-16. `DevelopingData/Documentation/Reports/Engineering/V1_ADVANCE_SCRIPT_SAFETY_AUDIT.md`
-17. `DevelopingData/Documentation/Reports/Engineering/CAPTURE_HELPER_BRIDGE_MIGRATION_PLAN.md`
-18. `DevelopingData/Documentation/Reports/Engineering/HELPER_BRIDGE_TIMEOUT_POLICY.md`
-19. `DevelopingData/Documentation/Reports/Engineering/NOISE_HALLUCINATION_FILTERING_POLICY.md`
+5. `DevelopingData/Documentation/Reports/Engineering/V1_ADVANCE_DEPENDENCY_INSTALL_POLICY.md`
+6. `DevelopingData/Documentation/Reports/Engineering/V1_ADVANCE_PHASE_PLAN.md`
+7. `DevelopingData/Documentation/Reports/Engineering/CURRENT_APP_STATUS.md`
+8. `DevelopingData/Documentation/Reports/Engineering/SINGLE_ACTIVE_ENGINE_POLICY.md`
+9. `EngineData/Backend/RuntimeContracts/FINAL_ARCHITECTURE_CONTRACT.json`
+10. `EngineData/Backend/RuntimeContracts/PYTHON_HELPER_BRIDGE_CONTRACT.json`
+11. `EngineData/Backend/RuntimeContracts/CAPTURE_HELPER_BRIDGE_REQUEST_CONTRACT.json`
+12. `EngineData/Backend/RuntimeContracts/AUDIO_STUDIO_ROUTE_STATUS_CONTRACT.json`
+13. `EngineData/Backend/RuntimeContracts/USERDATA_ROOT_POLICY_CONTRACT.json`
+14. `DevelopingData/Documentation/Reports/Engineering/V1_ADVANCE_SINGLE_ENGINE_CLEANUP_AUDIT.md`
+15. `DevelopingData/Documentation/Reports/Engineering/V1_ADVANCE_RUNTIME_CONTRACT_RETARGET_AUDIT.md`
+16. `DevelopingData/Documentation/Reports/Engineering/V1_ADVANCE_DOCUMENTATION_CLEANUP_AUDIT.md`
+17. `DevelopingData/Documentation/Reports/Engineering/V1_ADVANCE_SCRIPT_SAFETY_AUDIT.md`
+18. `DevelopingData/Documentation/Reports/Engineering/CAPTURE_HELPER_BRIDGE_MIGRATION_PLAN.md`
+19. `DevelopingData/Documentation/Reports/Engineering/HELPER_BRIDGE_TIMEOUT_POLICY.md`
+20. `DevelopingData/Documentation/Reports/Engineering/NOISE_HALLUCINATION_FILTERING_POLICY.md`
 
 ## Historical cleanup/audit documents
 
@@ -93,6 +94,8 @@ Non-local CI may validate structure, scripts, policy contracts, and documentatio
 Non-local CI must not claim readiness for CUDA, model loading, microphone capture, virtual microphone routing, TTS provider quality, installer packaging, or target-PC latency.
 
 `V1_ADVANCE_SCRIPT_SAFETY_MATRIX.json` controls which package scripts are allowed in non-local CI and which must stay target-PC/local-runtime only.
+
+`V1_ADVANCE_DEPENDENCY_INSTALL_POLICY.md` controls how dependency installation may be promoted gradually after bootstrap CI is stable.
 
 ## Documentation cleanup rule
 
