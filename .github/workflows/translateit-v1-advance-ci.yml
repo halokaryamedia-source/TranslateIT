@@ -44,6 +44,8 @@ jobs:
             'DevelopingData/Documentation/Reports/Engineering/V1_ADVANCE_PRODUCT_REQUIREMENTS.md',
             'DevelopingData/Documentation/Reports/Engineering/V1_ADVANCE_NON_LOCAL_CI_POLICY.md',
             'DevelopingData/Documentation/Reports/Engineering/V1_ADVANCE_PHASE_PLAN.md',
+            'DevelopingData/Documentation/Reports/Engineering/V1_ADVANCE_SCRIPT_SAFETY_MATRIX.json',
+            'DevelopingData/Documentation/Reports/Engineering/V1_ADVANCE_DEPENDENCY_INSTALL_POLICY.md',
             'EngineData/Frontend/RustApp/README.md',
             'EngineData/Frontend/RustApp/package.json',
             'EngineData/Frontend/RustApp/scripts/validate_v1_advance_policy.mjs'
@@ -114,6 +116,7 @@ jobs:
           $requirements = Get-Content 'DevelopingData/Documentation/Reports/Engineering/V1_ADVANCE_PRODUCT_REQUIREMENTS.md' -Raw
           $policy = Get-Content 'DevelopingData/Documentation/Reports/Engineering/V1_ADVANCE_NON_LOCAL_CI_POLICY.md' -Raw
           $phasePlan = Get-Content 'DevelopingData/Documentation/Reports/Engineering/V1_ADVANCE_PHASE_PLAN.md' -Raw
+          $dependencyPolicy = Get-Content 'DevelopingData/Documentation/Reports/Engineering/V1_ADVANCE_DEPENDENCY_INSTALL_POLICY.md' -Raw
 
           $requiredRequirementMarkers = @(
             'single active product direction',
@@ -155,6 +158,10 @@ jobs:
             throw 'Phase plan must include Phase 1.'
           }
 
+          if (!$dependencyPolicy.Contains('Dependency Probe CI')) {
+            throw 'Dependency install policy must define Dependency Probe CI.'
+          }
+
       - name: Run V1-Advance policy validator
         run: node EngineData/Frontend/RustApp/scripts/validate_v1_advance_policy.mjs
 
@@ -173,14 +180,78 @@ jobs:
           - product requirements contain locked V1-Advance markers
           - CI policy confirms this is non-local development
 
-          This workflow intentionally does not run local/runtime checks yet:
+          This workflow intentionally does not run local/runtime checks:
           - CUDA runtime
           - model loading
           - microphone capture
           - virtual microphone routing
           - TTS provider quality
           - installer packaging
-          - full TypeScript/Rust/frontend build gate
+          '@ | Write-Host
 
-          Strict build validation will be promoted in Phase 3 after bootstrap CI is green.
+  v1-advance-dependency-probe:
+    name: V1 Advance Dependency Probe
+    runs-on: windows-latest
+    timeout-minutes: 15
+    needs: v1-advance-bootstrap-validation
+
+    defaults:
+      run:
+        shell: pwsh
+        working-directory: EngineData/Frontend/RustApp
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Dependency install probe
+        run: |
+          $ErrorActionPreference = 'Stop'
+
+          node --version
+          npm --version
+
+          if (Test-Path 'package-lock.json') {
+            Write-Host 'package-lock.json found; using npm ci with ignored lifecycle scripts for dependency probe.'
+            npm ci --ignore-scripts --no-audit --no-fund
+          } else {
+            Write-Host 'package-lock.json not found; using npm install with ignored lifecycle scripts for dependency probe.'
+            npm install --ignore-scripts --no-audit --no-fund
+          }
+
+      - name: Verify dependency probe scope
+        run: |
+          $ErrorActionPreference = 'Stop'
+
+          if (!(Test-Path 'node_modules')) {
+            throw 'Dependency probe did not create node_modules.'
+          }
+
+          if (!(Test-Path 'package.json')) {
+            throw 'package.json missing after dependency probe.'
+          }
+
+          Write-Host 'Dependency probe completed without running local runtime, CUDA, model, microphone, virtual microphone, TTS provider, or installer scripts.'
+
+      - name: Dependency probe summary
+        run: |
+          @'
+          TranslateIT V1-Advance dependency probe completed.
+
+          This job only validates dependency installation in GitHub Actions.
+          It does not run:
+          - TypeScript typecheck
+          - Rust cargo check
+          - frontend build
+          - Tauri packaging
+          - CUDA checks
+          - model setup/loading
+          - microphone capture
+          - virtual microphone routing
+          - TTS provider runtime
           '@ | Write-Host
