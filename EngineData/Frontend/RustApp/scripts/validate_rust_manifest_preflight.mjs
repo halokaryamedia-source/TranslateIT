@@ -1,7 +1,9 @@
 import { existsSync, readFileSync } from "node:fs";
-import { join, resolve } from "node:path";
+import { dirname, join, resolve } from "node:path";
+import { fileURLToPath } from "node:url";
 
-const appRoot = resolve(new URL("..", import.meta.url).pathname.replace(/^\/(.:\/)/, "$1"));
+const scriptDir = dirname(fileURLToPath(import.meta.url));
+const appRoot = resolve(scriptDir, "..");
 const manifestPath = join(appRoot, "src-tauri", "Cargo.toml");
 
 const fail = (message) => {
