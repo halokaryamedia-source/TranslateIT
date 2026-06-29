@@ -14,29 +14,28 @@ const fail = (message) => {
 const readText = (path) => readFileSync(path, "utf8");
 const readJson = (path) => JSON.parse(readText(path));
 
+const engineeringDocsRoot = join(
+  repoRoot,
+  "DevelopingData",
+  "Documentation",
+  "Reports",
+  "Engineering",
+);
 const packagePath = join(appRoot, "package.json");
-const requirementsPath = join(
-  repoRoot,
-  "DevelopingData",
-  "Documentation",
-  "Reports",
-  "Engineering",
-  "V1_ADVANCE_PRODUCT_REQUIREMENTS.md",
-);
-const ciPolicyPath = join(
-  repoRoot,
-  "DevelopingData",
-  "Documentation",
-  "Reports",
-  "Engineering",
-  "V1_ADVANCE_NON_LOCAL_CI_POLICY.md",
-);
+const activeIndexPath = join(engineeringDocsRoot, "ACTIVE_DOCUMENTATION_INDEX.md");
+const currentStatusPath = join(engineeringDocsRoot, "CURRENT_APP_STATUS.md");
+const singleEnginePolicyPath = join(engineeringDocsRoot, "SINGLE_ACTIVE_ENGINE_POLICY.md");
+const requirementsPath = join(engineeringDocsRoot, "V1_ADVANCE_PRODUCT_REQUIREMENTS.md");
+const ciPolicyPath = join(engineeringDocsRoot, "V1_ADVANCE_NON_LOCAL_CI_POLICY.md");
 const runtimeContractsRoot = join(repoRoot, "EngineData", "Backend", "RuntimeContracts");
 
 const requiredFiles = [
   packagePath,
   requirementsPath,
   ciPolicyPath,
+  activeIndexPath,
+  currentStatusPath,
+  singleEnginePolicyPath,
   join(appRoot, "README.md"),
   join(runtimeContractsRoot, "FINAL_ARCHITECTURE_CONTRACT.json"),
   join(runtimeContractsRoot, "PYTHON_HELPER_BRIDGE_CONTRACT.json"),
@@ -109,6 +108,9 @@ for (const path of forbiddenActivePaths) {
 
 const requirements = readText(requirementsPath);
 const policy = readText(ciPolicyPath);
+const activeIndex = readText(activeIndexPath);
+const currentStatus = readText(currentStatusPath);
+const singleEnginePolicy = readText(singleEnginePolicyPath);
 
 const requiredRequirementMarkers = [
   "single active product direction",
@@ -143,6 +145,34 @@ for (const marker of requiredPolicyMarkers) {
   if (!policy.includes(marker)) {
     fail(`CI policy marker is missing: ${marker}`);
   }
+}
+
+const activeDocumentationChecks = [
+  [activeIndex, "ACTIVE_DOCUMENTATION_INDEX.md"],
+  [currentStatus, "CURRENT_APP_STATUS.md"],
+  [singleEnginePolicy, "SINGLE_ACTIVE_ENGINE_POLICY.md"],
+];
+
+for (const [content, label] of activeDocumentationChecks) {
+  if (!content.includes("Branch: `V1-Advance`")) {
+    fail(`Active documentation must declare Branch: V1-Advance in ${label}`);
+  }
+  if (!content.includes("Rust/Tauri desktop shell + Python helper runtime")) {
+    fail(`Active documentation must preserve the single active engine direction in ${label}`);
+  }
+}
+
+if (!activeIndex.includes("V1_ADVANCE_PRODUCT_REQUIREMENTS.md")) {
+  fail("Active documentation index must include V1_ADVANCE_PRODUCT_REQUIREMENTS.md.");
+}
+if (!activeIndex.includes("V1_ADVANCE_NON_LOCAL_CI_POLICY.md")) {
+  fail("Active documentation index must include V1_ADVANCE_NON_LOCAL_CI_POLICY.md.");
+}
+if (!currentStatus.includes("The active product branch is `V1-Advance`.")) {
+  fail("Current app status must identify V1-Advance as the active product branch.");
+}
+if (!singleEnginePolicy.includes("TranslateIT V1-Advance remains one unified engine.")) {
+  fail("Single active engine policy must state that V1-Advance remains one unified engine.");
 }
 
 const runtimeContractPaths = [
