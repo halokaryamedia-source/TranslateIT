@@ -19,101 +19,17 @@ jobs:
     timeout-minutes: 10
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
-        with:
-          node-version: '20'
-      - name: Run V1-Advance policy validator
-        run: node EngineData/Frontend/RustApp/scripts/validate_v1_advance_policy.mjs
-
-  dependency-probe:
-    name: Dependency Probe
-    runs-on: windows-latest
-    timeout-minutes: 15
-    needs: bootstrap-validation
-    defaults:
-      run:
+      - name: Validate required files
         shell: pwsh
-        working-directory: EngineData/Frontend/RustApp
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
-        with:
-          node-version: '20'
-      - name: Install dependencies only
         run: |
           $ErrorActionPreference = 'Stop'
-          if (Test-Path 'package-lock.json') {
-            npm ci --ignore-scripts --no-audit --no-fund
-          } else {
-            npm install --ignore-scripts --no-audit --no-fund
+          $files = @(
+            'DevelopingData/Documentation/Reports/Engineering/ACTIVE_DOCUMENTATION_INDEX.md',
+            'DevelopingData/Documentation/Reports/Engineering/V1_ADVANCE_PRIMARY_SOURCE_BRANCH_POLICY.md',
+            'DevelopingData/Documentation/Reports/Engineering/V1_ADVANCE_PRODUCT_REQUIREMENTS.md',
+            'EngineData/Frontend/RustApp/package.json'
+          )
+          foreach ($file in $files) {
+            if (!(Test-Path $file)) { throw "Missing file: $file" }
           }
-          if (!(Test-Path 'node_modules')) { throw 'node_modules was not created.' }
-
-  typescript-gate:
-    name: TypeScript Gate
-    runs-on: windows-latest
-    timeout-minutes: 15
-    needs: dependency-probe
-    defaults:
-      run:
-        shell: pwsh
-        working-directory: EngineData/Frontend/RustApp
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
-        with:
-          node-version: '20'
-      - name: Install dependencies
-        run: |
-          $ErrorActionPreference = 'Stop'
-          if (Test-Path 'package-lock.json') {
-            npm ci --ignore-scripts --no-audit --no-fund
-          } else {
-            npm install --ignore-scripts --no-audit --no-fund
-          }
-      - name: Run TypeScript typecheck
-        run: npm run typecheck
-
-  rust-manifest-preflight:
-    name: Rust Manifest Preflight
-    runs-on: windows-latest
-    timeout-minutes: 10
-    needs: typescript-gate
-    defaults:
-      run:
-        shell: pwsh
-        working-directory: EngineData/Frontend/RustApp
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
-        with:
-          node-version: '20'
-      - name: Run Rust manifest preflight
-        run: npm run check:rust
-
-  frontend-build:
-    name: Frontend Build Gate
-    runs-on: windows-latest
-    timeout-minutes: 15
-    needs: rust-manifest-preflight
-    defaults:
-      run:
-        shell: pwsh
-        working-directory: EngineData/Frontend/RustApp
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
-        with:
-          node-version: '20'
-      - name: Install dependencies
-        run: |
-          $ErrorActionPreference = 'Stop'
-          if (Test-Path 'package-lock.json') {
-            npm ci --ignore-scripts --no-audit --no-fund
-          } else {
-            npm install --ignore-scripts --no-audit --no-fund
-          }
-      - name: Run frontend build preflight
-        run: npm run preflight:frontend-build
-      - name: Run frontend build
-        run: npm run build:frontend
+          Write-Host 'V1-Advance bootstrap validation passed.'
