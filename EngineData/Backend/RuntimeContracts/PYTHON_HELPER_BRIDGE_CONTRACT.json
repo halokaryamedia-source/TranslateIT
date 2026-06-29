@@ -1,6 +1,6 @@
 {
   "schema": "translateit.python_helper_bridge_contract.v1",
-  "branch": "Dev-Rust",
+  "branch": "V1-Advance",
   "status": "process_spawn_bridge_implemented_pending_local_verification",
   "owner_shell": "Rust/Tauri",
   "helper_runtime": "Python",
@@ -57,7 +57,8 @@
     "A helper process may not write outside approved UserData roots.",
     "Start/Stop lifecycle must cancel stale helper output from previous generations.",
     "Real ASR plus real translation requires ready helper state and valid provider evidence.",
-    "Helper spawn must use the project-local worker virtual environment created by setup_realtime_worker.ps1."
+    "Helper spawn must use the project-local worker virtual environment created by setup_realtime_worker.ps1.",
+    "Non-local CI must not claim local helper readiness without target-PC evidence."
   ],
   "approved_userdata_roots": {
     "cache": "UserData/CacheData/",
