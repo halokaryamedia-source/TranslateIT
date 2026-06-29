@@ -140,11 +140,65 @@ def handle_pipeline_handoff_stub(payload: dict[str, Any]) -> dict[str, Any]:
     }
 
 
+def handle_dev_pipeline_contract_smoke(payload: dict[str, Any]) -> dict[str, Any]:
+    transcript_text = text_field(payload, "transcript_text") or "Hello from the worker-side TranslateIT pipeline contract smoke."
+    translated_text = text_field(payload, "translated_text") or "Halo dari worker-side pipeline contract smoke TranslateIT."
+    generation_token = payload.get("generation_token", 0)
+
+    translation_payload = {
+        "command": "translation_handoff",
+        "generation_token": generation_token,
+        "transcript_available": True,
+        "translation_available": False,
+        "tts_text_available": False,
+        "transcript_text": transcript_text,
+        "translated_text": "",
+        "tts_text": "",
+        "payload_source": "worker_dev_pipeline_contract_smoke",
+    }
+    translation_result = handle_pipeline_handoff_stub(translation_payload)
+
+    tts_payload = {
+        "command": "tts_handoff",
+        "generation_token": generation_token,
+        "transcript_available": True,
+        "translation_available": True,
+        "tts_text_available": True,
+        "transcript_text": transcript_text,
+        "translated_text": translated_text,
+        "tts_text": translated_text,
+        "payload_source": "worker_dev_pipeline_contract_smoke",
+    }
+    tts_result = handle_pipeline_handoff_stub(tts_payload)
+    ok = bool(translation_result.get("ok")) and bool(tts_result.get("ok"))
+
+    return {
+        "ok": ok,
+        "stage": "dev_pipeline_contract_smoke",
+        "command_received": True,
+        "generation_token": generation_token,
+        **deadline_fields(payload),
+        "translation_contract_ok": bool(translation_result.get("ok")),
+        "tts_contract_ok": bool(tts_result.get("ok")),
+        "translation_result": translation_result,
+        "tts_result": tts_result,
+        "runtime_claim": "worker_pipeline_contract_smoke_no_model_runtime_claim",
+        "blocker": "" if ok else "worker_pipeline_contract_smoke:failed_contract",
+        "note": "Worker-side pipeline contract smoke completed without running ASR, translation, TTS, or audio output models.",
+        "next_actions": [
+            "Use this as worker handler contract evidence only.",
+            "Replace smoke payloads with real ASR transcript and real translation output after local compile/runtime proof.",
+            "Do not claim live meeting runtime until audio, ASR, translation, TTS, and virtual mic evidence exist.",
+        ],
+    }
+
+
 base.HANDLERS["capture_start"] = handle_capture_migration_stub
 base.HANDLERS["capture_stop"] = handle_capture_migration_stub
 base.HANDLERS["asr_handoff"] = handle_asr_handoff_stub
 base.HANDLERS["translation_handoff"] = handle_pipeline_handoff_stub
 base.HANDLERS["tts_handoff"] = handle_pipeline_handoff_stub
+base.HANDLERS["dev_pipeline_contract_smoke"] = handle_dev_pipeline_contract_smoke
 
 
 if __name__ == "__main__":
