@@ -96,6 +96,16 @@ function livePipelineSnapshotFallback(message: string): LivePipelineSessionSnaps
     next_action: "open_developer_diagnostics",
     summary: message,
     runtime_claim: "frontend_bridge_unavailable",
+    payload: {
+      transcript_text: null,
+      translated_text: null,
+      tts_text: null,
+      transcript_available: false,
+      translation_available: false,
+      tts_text_available: false,
+      source: "frontend_bridge_unavailable",
+      updated_unix_ms: Date.now(),
+    },
     stages: [stage],
     updated_unix_ms: Date.now(),
   };
@@ -315,6 +325,22 @@ export const runtimeApi = {
       "dispatch_asr_handoff_request",
       undefined,
       asrHandoffFallback("ASR handoff dispatch failed before reaching the Tauri command bridge."),
+    );
+  },
+
+  async seedDevAsrTranscript(text?: string | null): Promise<LivePipelineSessionSnapshot> {
+    return invokeOr<LivePipelineSessionSnapshot>(
+      "seed_dev_asr_transcript",
+      { text: text ?? null },
+      livePipelineSnapshotFallback("Developer transcript seed failed before reaching the Tauri command bridge."),
+    );
+  },
+
+  async seedDevTranslatedText(text?: string | null): Promise<LivePipelineSessionSnapshot> {
+    return invokeOr<LivePipelineSessionSnapshot>(
+      "seed_dev_translated_text",
+      { text: text ?? null },
+      livePipelineSnapshotFallback("Developer translation seed failed before reaching the Tauri command bridge."),
     );
   },
 
