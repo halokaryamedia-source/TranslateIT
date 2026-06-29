@@ -34,11 +34,24 @@ jobs:
           }
           Write-Host 'V1-Advance bootstrap validation passed.'
 
+  policy-validator:
+    name: Policy Validator
+    runs-on: windows-latest
+    timeout-minutes: 10
+    needs: bootstrap-validation
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - name: Run V1-Advance policy validator
+        run: node EngineData/Frontend/RustApp/scripts/validate_v1_advance_policy.mjs
+
   dependency-probe:
     name: Dependency Probe
     runs-on: windows-latest
     timeout-minutes: 15
-    needs: bootstrap-validation
+    needs: policy-validator
     defaults:
       run:
         shell: pwsh
