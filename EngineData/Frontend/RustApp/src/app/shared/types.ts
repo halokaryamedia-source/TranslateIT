@@ -81,6 +81,17 @@ export type CaptureHelperBridgeRequestPreview = {
   payload_json: string;
 };
 
+export type CaptureHelperDispatchStatus = {
+  attempted: boolean;
+  command: string;
+  ok: boolean;
+  state: string;
+  message: string;
+  generation_token: number;
+  runtime_claim: string;
+  updated_unix_ms: number;
+};
+
 export type AudioStudioValidationEvidence = {
   ok: boolean;
   stage: string;
