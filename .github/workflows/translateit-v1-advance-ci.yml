@@ -1,0 +1,117 @@
+name: TranslateIT V1 Advance Non-Local CI
+
+on:
+  push:
+    branches:
+      - V1-Advance
+  pull_request:
+    branches:
+      - Developing
+      - V1-Advance
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: translateit-v1-advance-ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  v1-advance-non-local-validation:
+    name: V1 Advance Non-Local Validation
+    runs-on: windows-latest
+    timeout-minutes: 30
+
+    defaults:
+      run:
+        shell: pwsh
+        working-directory: EngineData/Frontend/RustApp
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: npm
+          cache-dependency-path: EngineData/Frontend/RustApp/package-lock.json
+
+      - name: Setup Rust stable
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Guard active V1 source tree
+        working-directory: .
+        run: |
+          $ErrorActionPreference = 'Stop'
+
+          if (!(Test-Path 'EngineData/Frontend/RustApp')) {
+            throw 'Active RustApp package is missing: EngineData/Frontend/RustApp'
+          }
+
+          if (!(Test-Path 'DevelopingData/Documentation/Reports/Engineering/V1_ADVANCE_PRODUCT_REQUIREMENTS.md')) {
+            throw 'V1-Advance product requirements document is missing.'
+          }
+
+          if (Test-Path 'DevelopingData/FigmaDesignExport') {
+            throw 'FigmaDesignExport must not be an active dependency in V1-Advance.'
+          }
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Static validation profile
+        run: |
+          $ErrorActionPreference = 'Stop'
+
+          npm run validate:script-profiles
+          npm run validate:imports
+          npm run validate:naming
+          npm run validate:translation-flow
+          npm run validate:runtime-ux
+          npm run validate:startup-readiness
+
+      - name: Contract validation profile
+        run: |
+          $ErrorActionPreference = 'Stop'
+
+          npm run test:frontend-backend-contract
+          npm run test:worker-contract
+          npm run test:rust-linkage-report
+          npm run test:ui-binding-report
+          npm run test:action-binding-report
+          npm run test:settings-integrity-report
+
+      - name: Build-safe validation profile
+        run: |
+          $ErrorActionPreference = 'Stop'
+
+          npm run typecheck
+          npm run check:rust
+          npm run build:frontend
+
+      - name: Non-local CI summary
+        working-directory: .
+        run: |
+          @'
+          TranslateIT V1-Advance CI completed.
+
+          This workflow validates only CI-safe work:
+          - active RustApp structure
+          - product requirement source of truth
+          - no active FigmaDesignExport dependency
+          - TypeScript checks
+          - Rust cargo check
+          - frontend build
+          - static contract validation
+
+          This workflow does not claim local readiness for:
+          - CUDA runtime
+          - local model loading
+          - microphone capture
+          - virtual microphone routing
+          - TTS provider quality
+          - installer packaging
+          '@ | Write-Host
