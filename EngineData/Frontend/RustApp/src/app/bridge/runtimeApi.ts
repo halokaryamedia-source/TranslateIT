@@ -279,6 +279,22 @@ export const runtimeApi = {
     return invokeNullable<CaptureHelperBridgeRequestPreview>("prepare_capture_stop_request");
   },
 
+  async dispatchCaptureStartRequest(): Promise<HelperBridgeActionResult> {
+    return invokeOr<HelperBridgeActionResult>(
+      "dispatch_capture_start_request",
+      undefined,
+      helperActionFallback("Capture start dispatch failed before reaching the Tauri command bridge."),
+    );
+  },
+
+  async dispatchCaptureStopRequest(): Promise<HelperBridgeActionResult> {
+    return invokeOr<HelperBridgeActionResult>(
+      "dispatch_capture_stop_request",
+      undefined,
+      helperActionFallback("Capture stop dispatch failed before reaching the Tauri command bridge."),
+    );
+  },
+
   async prepareVoiceCapture(autoStart: boolean): Promise<VoiceCapturePreparationReport | null> {
     return invokeNullable<VoiceCapturePreparationReport>("prepare_voice_capture", { autoStart });
   },
