@@ -127,6 +127,23 @@ export type AsrHandoffRequestStatus = {
   updated_unix_ms: number;
 };
 
+export type PipelineHandoffRequestStatus = {
+  stage: string;
+  prerequisite_stage: string;
+  prerequisite_ready: boolean;
+  request_prepared: boolean;
+  dispatch_attempted: boolean;
+  dispatch_ok: boolean;
+  state: string;
+  message: string;
+  blocker: string;
+  next_action: string;
+  generation_token: number;
+  runtime_claim: string;
+  payload_json: string;
+  updated_unix_ms: number;
+};
+
 export type AudioStudioValidationEvidence = {
   ok: boolean;
   stage: string;
