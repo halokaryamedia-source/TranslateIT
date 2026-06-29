@@ -58,3 +58,28 @@ jobs:
           }
           if (!(Test-Path 'node_modules')) { throw 'node_modules was not created.' }
           Write-Host 'Dependency probe passed.'
+
+  typescript-gate:
+    name: TypeScript Gate
+    runs-on: windows-latest
+    timeout-minutes: 15
+    needs: dependency-probe
+    defaults:
+      run:
+        shell: pwsh
+        working-directory: EngineData/Frontend/RustApp
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - name: Install dependencies
+        run: |
+          $ErrorActionPreference = 'Stop'
+          if (Test-Path 'package-lock.json') {
+            npm ci --ignore-scripts --no-audit --no-fund
+          } else {
+            npm install --ignore-scripts --no-audit --no-fund
+          }
+      - name: Run TypeScript typecheck
+        run: npm run typecheck
