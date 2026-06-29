@@ -5,17 +5,7 @@ Status: active documentation entrypoint
 
 ## Purpose
 
-This is the current engineering documentation entrypoint for TranslateIT V1-Advance.
-
-## Single active engine rule
-
-TranslateIT has one active product runtime direction:
-
-```text
-Rust/Tauri desktop shell + Python helper runtime
-```
-
-Python remains part of the product only as the helper runtime for ASR, translation, TTS/voice, CUDA diagnostics, latency diagnostics, model health checks, and audio/provider processing.
+Current engineering documentation entrypoint for TranslateIT V1-Advance.
 
 ## Active branch strategy
 
@@ -25,9 +15,13 @@ Python remains part of the product only as the helper runtime for ASR, translati
 
 Do not create new PRs into `Developing` for the current phase.
 
-## Active source-of-truth documents
+## Single active engine rule
 
-Read these first:
+```text
+Rust/Tauri desktop shell + Python helper runtime
+```
+
+## Active source-of-truth documents
 
 ```text
 DevelopingData/Documentation/Reports/Engineering/ACTIVE_DOCUMENTATION_INDEX.md
@@ -75,6 +69,7 @@ V1_ADVANCE_CI_REPROMOTION_RUST_MANIFEST_PREFLIGHT_AUDIT.md
 V1_ADVANCE_CI_REPROMOTION_FRONTEND_PREFLIGHT_AUDIT.md
 V1_ADVANCE_CI_REPROMOTION_FRONTEND_BUILD_GATE_AUDIT.md
 V1_ADVANCE_CI_REPROMOTION_POLICY_VALIDATOR_AUDIT.md
+V1_ADVANCE_POLICY_VALIDATOR_COMMAND_MATCH_REPAIR_AUDIT.md
 ```
 
 ## Current runtime summary
@@ -82,8 +77,6 @@ V1_ADVANCE_CI_REPROMOTION_POLICY_VALIDATOR_AUDIT.md
 - Desktop shell: Rust/Tauri.
 - Helper runtime: Python worker launched/orchestrated by Rust/Tauri.
 - Active app package: `EngineData/Frontend/RustApp`.
-- Helper worker: `EngineData/Backend/LocalWorker/WorkerRuntime/realtime_local_worker.py`.
-- Runtime contracts: `EngineData/Backend/RuntimeContracts`.
 - Active development branch: `V1-Advance`.
 
 ## Current development mode
@@ -92,20 +85,4 @@ Current work continues directly on `V1-Advance`.
 
 Non-local CI may validate structure, scripts, policy contracts, TypeScript, Rust manifest preflight, and frontend build gates.
 
-Non-local CI must not claim readiness for CUDA, model loading, microphone capture, virtual microphone routing, TTS provider quality, installer packaging, or target-PC latency.
-
-## Documentation cleanup rule
-
-Superseded reports and notes may remain as historical context only. When a superseded document conflicts with this index, `V1_ADVANCE_PRIMARY_SOURCE_BRANCH_POLICY.md`, `V1_ADVANCE_PRODUCT_REQUIREMENTS.md`, `CURRENT_APP_STATUS.md`, or the runtime contracts, this index and the active contracts win.
-
-## Do not reintroduce
-
-Do not create or document another active launcher shell.
-
-Do not create V2, V3, V4, legacy, alternative, or parallel engines.
-
-Do not use DesignIT or FigmaDesignExport as active runtime dependencies.
-
-## Not claimed
-
-This index does not claim local validation, packaged app readiness, CUDA readiness, target-PC helper spawn success, voice capture success, virtual microphone success, TTS provider quality, or Audio Studio provider readiness.
+Non-local CI must not claim local runtime readiness, CUDA readiness, model loading readiness, microphone readiness, virtual microphone readiness, TTS provider quality, installer readiness, or target-PC latency.
