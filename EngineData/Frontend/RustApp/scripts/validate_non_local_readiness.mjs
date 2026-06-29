@@ -23,6 +23,7 @@ const requireNotIncludes = (label, text, marker) => {
 
 const activeIndexPath = join(docsRoot, "ACTIVE_DOCUMENTATION_INDEX.md");
 const readinessReportPath = join(docsRoot, "V1_ADVANCE_RUNTIME_READINESS_REPORT.md");
+const nonLocalPlanPath = join(docsRoot, "V1_ADVANCE_NON_LOCAL_COMPLETION_PLAN.md");
 const compileProofPath = join(docsRoot, "V1_ADVANCE_LOCAL_TAURI_COMPILE_PROOF.md");
 const compileIntakePath = join(docsRoot, "V1_ADVANCE_LOCAL_COMPILE_ERROR_INTAKE_TEMPLATE.md");
 const currentStatusPath = join(docsRoot, "CURRENT_APP_STATUS.md");
@@ -35,6 +36,7 @@ const unstableTranslationPath = join(commandsRoot, "translation.rs");
 for (const [label, path] of [
   ["active documentation index", activeIndexPath],
   ["runtime readiness report", readinessReportPath],
+  ["non-local completion plan", nonLocalPlanPath],
   ["local Tauri compile proof instructions", compileProofPath],
   ["local compile error intake template", compileIntakePath],
   ["current app status", currentStatusPath],
@@ -56,6 +58,7 @@ if (failures.length === 0) {
     "V1_ADVANCE_LOCAL_TAURI_COMPILE_PROOF.md",
     "V1_ADVANCE_LOCAL_COMPILE_ERROR_INTAKE_TEMPLATE.md",
     "V1_ADVANCE_RUNTIME_READINESS_REPORT.md",
+    "V1_ADVANCE_NON_LOCAL_COMPLETION_PLAN.md",
   ]) {
     requireIncludes("ACTIVE_DOCUMENTATION_INDEX.md", activeIndex, marker);
   }
@@ -76,6 +79,10 @@ if (failures.length === 0) {
   const readinessReport = readText(readinessReportPath);
   requireIncludes("runtime readiness report", readinessReport, "Estimated overall readiness toward an internal release-ready build: **38%**");
   requireIncludes("runtime readiness report", readinessReport, "Do not promote voice synthesis chaining or full cargo check back into CI until local proof logs are available.");
+
+  const nonLocalPlan = readText(nonLocalPlanPath);
+  requireIncludes("non-local completion plan", nonLocalPlan, "Non-local work must not claim:");
+  requireIncludes("non-local completion plan", nonLocalPlan, "Do not reintroduce helper-backed translation, voice synthesis chaining, installer build claims, or target latency claims until local proof logs exist.");
 
   const compileProof = readText(compileProofPath);
   requireIncludes("local Tauri compile proof", compileProof, "npm run check:tauri-rust-local");
