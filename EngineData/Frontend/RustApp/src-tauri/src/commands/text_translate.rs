@@ -8,7 +8,7 @@ use crate::engine::runtime_settings::load_settings;
 use crate::engine::state::{CommandResult, LifecycleState};
 
 use super::helper_bridge_runtime::{
-    apply_worker_response, read_worker_response, runtime, unix_ms, write_worker_request,
+    apply_worker_response, read_worker_response_with_deadline, runtime, unix_ms, write_worker_request,
 };
 
 fn compact_worker_text(value: Option<&Value>) -> String {
@@ -94,28 +94,17 @@ fn translate_with_running_helper_bridge(source: &str) -> Option<CommandResult> {
         ));
     }
 
-    let response = match runtime.stdout.as_mut().map(read_worker_response) {
-        Some(Ok(value)) => value,
-        Some(Err(error)) => {
+    let response = match read_worker_response_with_deadline(&mut runtime) {
+        Ok(value) => value,
+        Err(error) => {
             runtime.state = "blocked".to_string();
-            runtime.message = format!("Failed to read translate response from Python helper worker: {error}");
+            runtime.message = format!("Failed to read translate response from Python helper worker before deadline: {error}");
             runtime.last_error = Some("helper_bridge:translate_read_failed".to_string());
             runtime.active_task = None;
             runtime.updated_unix_ms = unix_ms();
             return Some(CommandResult::blocked(
                 LifecycleState::TranslationAdapterPending,
-                format!("Helper bridge translation blocked: failed to read response from Python helper worker: {error}"),
-            ));
-        }
-        None => {
-            runtime.state = "blocked".to_string();
-            runtime.message = "Helper bridge translation blocked because worker IO is unavailable.".to_string();
-            runtime.last_error = Some("helper_bridge:translate_io_missing".to_string());
-            runtime.active_task = None;
-            runtime.updated_unix_ms = unix_ms();
-            return Some(CommandResult::blocked(
-                LifecycleState::TranslationAdapterPending,
-                "Helper bridge translation blocked because worker IO is unavailable.",
+                format!("Helper bridge translation blocked: failed to read response from Python helper worker before deadline: {error}"),
             ));
         }
     };
