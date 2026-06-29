@@ -73,6 +73,7 @@ V1_ADVANCE_POLICY_VALIDATOR_COMMAND_MATCH_REPAIR_AUDIT.md
 V1_ADVANCE_CI_REPROMOTION_RUST_TOOLCHAIN_PROBE_AUDIT.md
 V1_ADVANCE_CI_REPROMOTION_FULL_RUST_CARGO_CHECK_AUDIT.md
 V1_ADVANCE_FULL_RUST_CARGO_CHECK_REPAIR_AUDIT.md
+V1_ADVANCE_FULL_RUST_CARGO_CHECK_DEFER_AUDIT.md
 ```
 
 ## Current runtime summary
@@ -86,6 +87,8 @@ V1_ADVANCE_FULL_RUST_CARGO_CHECK_REPAIR_AUDIT.md
 
 Current work continues directly on `V1-Advance`.
 
-Non-local CI may validate structure, scripts, policy contracts, TypeScript, Rust manifest preflight, frontend build gates, Rust toolchain availability, and full Rust cargo check.
+Non-local CI may validate structure, scripts, policy contracts, TypeScript, Rust manifest preflight, frontend build gates, Rust toolchain availability, and Cargo metadata.
+
+Full Rust cargo check is deferred until Rust source compile errors can be fixed from logs.
 
 Non-local CI must not claim local runtime readiness, CUDA readiness, model loading readiness, microphone readiness, virtual microphone readiness, TTS provider quality, installer readiness, or target-PC latency.
