@@ -17,12 +17,21 @@ Rust/Tauri desktop shell + Python helper runtime
 
 Python remains part of the product only as the helper runtime for ASR, translation, TTS/voice, CUDA diagnostics, latency diagnostics, model health checks, and audio/provider processing.
 
+## Active branch strategy
+
+`V1-Advance` is the primary source branch for current TranslateIT V1 development.
+
+`Developing` is no longer the active merge target for this phase and may be discarded later after `V1-Advance` is fully ready.
+
+Do not create new PRs into `Developing` for the current phase.
+
 ## Active source-of-truth documents
 
 Read these first:
 
 ```text
 DevelopingData/Documentation/Reports/Engineering/ACTIVE_DOCUMENTATION_INDEX.md
+DevelopingData/Documentation/Reports/Engineering/V1_ADVANCE_PRIMARY_SOURCE_BRANCH_POLICY.md
 DevelopingData/Documentation/Reports/Engineering/V1_ADVANCE_PRODUCT_REQUIREMENTS.md
 DevelopingData/Documentation/Reports/Engineering/V1_ADVANCE_NON_LOCAL_CI_POLICY.md
 DevelopingData/Documentation/Reports/Engineering/V1_ADVANCE_SCRIPT_SAFETY_MATRIX.json
@@ -66,11 +75,10 @@ V1_ADVANCE_SPLIT_MERGE_STRATEGY_PLAN.md
 - Helper worker: `EngineData/Backend/LocalWorker/WorkerRuntime/realtime_local_worker.py`.
 - Runtime contracts: `EngineData/Backend/RuntimeContracts`.
 - Active development branch: `V1-Advance`.
-- Default repository branch remains `Developing` for now.
 
 ## Current development mode
 
-Current work is GitHub-first and CI-first.
+Current work continues directly on `V1-Advance`.
 
 Non-local CI may validate structure, scripts, policy contracts, TypeScript, Rust manifest preflight, and frontend build gates.
 
@@ -78,7 +86,7 @@ Non-local CI must not claim readiness for CUDA, model loading, microphone captur
 
 ## Documentation cleanup rule
 
-Superseded reports and notes may remain as historical context only. When a superseded document conflicts with this index, `V1_ADVANCE_PRODUCT_REQUIREMENTS.md`, `CURRENT_APP_STATUS.md`, or the runtime contracts, this index and the active contracts win.
+Superseded reports and notes may remain as historical context only. When a superseded document conflicts with this index, `V1_ADVANCE_PRIMARY_SOURCE_BRANCH_POLICY.md`, `V1_ADVANCE_PRODUCT_REQUIREMENTS.md`, `CURRENT_APP_STATUS.md`, or the runtime contracts, this index and the active contracts win.
 
 ## Do not reintroduce
 
