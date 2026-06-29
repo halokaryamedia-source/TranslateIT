@@ -27,15 +27,19 @@ const currentStatusPath = join(engineeringDocsRoot, "CURRENT_APP_STATUS.md");
 const singleEnginePolicyPath = join(engineeringDocsRoot, "SINGLE_ACTIVE_ENGINE_POLICY.md");
 const requirementsPath = join(engineeringDocsRoot, "V1_ADVANCE_PRODUCT_REQUIREMENTS.md");
 const ciPolicyPath = join(engineeringDocsRoot, "V1_ADVANCE_NON_LOCAL_CI_POLICY.md");
+const scriptSafetyMatrixPath = join(engineeringDocsRoot, "V1_ADVANCE_SCRIPT_SAFETY_MATRIX.json");
+const workflowPath = join(repoRoot, ".github", "workflows", "translateit-v1-advance-ci.yml");
 const runtimeContractsRoot = join(repoRoot, "EngineData", "Backend", "RuntimeContracts");
 
 const requiredFiles = [
   packagePath,
   requirementsPath,
   ciPolicyPath,
+  scriptSafetyMatrixPath,
   activeIndexPath,
   currentStatusPath,
   singleEnginePolicyPath,
+  workflowPath,
   join(appRoot, "README.md"),
   join(runtimeContractsRoot, "FINAL_ARCHITECTURE_CONTRACT.json"),
   join(runtimeContractsRoot, "PYTHON_HELPER_BRIDGE_CONTRACT.json"),
@@ -111,6 +115,56 @@ const policy = readText(ciPolicyPath);
 const activeIndex = readText(activeIndexPath);
 const currentStatus = readText(currentStatusPath);
 const singleEnginePolicy = readText(singleEnginePolicyPath);
+const workflow = readText(workflowPath);
+const scriptSafetyMatrix = readJson(scriptSafetyMatrixPath);
+
+if (scriptSafetyMatrix.branch !== "V1-Advance") {
+  fail("Script safety matrix must declare branch V1-Advance.");
+}
+if (scriptSafetyMatrix.status !== "active_ci_script_safety_policy") {
+  fail("Script safety matrix must be active_ci_script_safety_policy.");
+}
+if (scriptSafetyMatrix.active_package !== "EngineData/Frontend/RustApp/package.json") {
+  fail("Script safety matrix must point to the active RustApp package.json.");
+}
+
+const matrixScriptGroups = [
+  "ci_safe_script_candidates_for_phase_3",
+  "requires_target_pc_or_local_runtime",
+  "report_or_status_only_scripts",
+];
+
+for (const groupName of matrixScriptGroups) {
+  const group = scriptSafetyMatrix[groupName];
+  if (!Array.isArray(group)) {
+    fail(`Script safety matrix group must be an array: ${groupName}`);
+    continue;
+  }
+  for (const scriptName of group) {
+    if (!Object.hasOwn(scripts, scriptName)) {
+      fail(`Script safety matrix references missing package script: ${groupName} -> ${scriptName}`);
+    }
+  }
+}
+
+if (!scriptSafetyMatrix.requires_target_pc_or_local_runtime?.includes("test:translation-gpu-final")) {
+  fail("Script safety matrix must classify test:translation-gpu-final as target-PC/local runtime only.");
+}
+if (!scriptSafetyMatrix.requires_target_pc_or_local_runtime?.includes("setup:worker")) {
+  fail("Script safety matrix must classify setup:worker as target-PC/local runtime only.");
+}
+if (!scriptSafetyMatrix.requires_target_pc_or_local_runtime?.includes("smoke:worker")) {
+  fail("Script safety matrix must classify smoke:worker as target-PC/local runtime only.");
+}
+if (!scriptSafetyMatrix.requires_target_pc_or_local_runtime?.includes("gpu:check")) {
+  fail("Script safety matrix must classify gpu:check as target-PC/local runtime only.");
+}
+
+for (const forbiddenCommand of scriptSafetyMatrix.forbidden_in_non_local_ci_workflow ?? []) {
+  if (workflow.includes(forbiddenCommand)) {
+    fail(`Non-local CI workflow must not run local-only command: ${forbiddenCommand}`);
+  }
+}
 
 const requiredRequirementMarkers = [
   "single active product direction",
@@ -167,6 +221,9 @@ if (!activeIndex.includes("V1_ADVANCE_PRODUCT_REQUIREMENTS.md")) {
 }
 if (!activeIndex.includes("V1_ADVANCE_NON_LOCAL_CI_POLICY.md")) {
   fail("Active documentation index must include V1_ADVANCE_NON_LOCAL_CI_POLICY.md.");
+}
+if (!activeIndex.includes("V1_ADVANCE_SCRIPT_SAFETY_MATRIX.json")) {
+  fail("Active documentation index must include V1_ADVANCE_SCRIPT_SAFETY_MATRIX.json.");
 }
 if (!currentStatus.includes("The active product branch is `V1-Advance`.")) {
   fail("Current app status must identify V1-Advance as the active product branch.");
