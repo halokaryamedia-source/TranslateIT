@@ -58,7 +58,7 @@ fn capture_helper_payload(command: &str, status: &HelperBridgeStatus, settings: 
             "output_device_id": settings.audio.output_device_id,
             "provider_ready": status.provider_ready,
             "cuda_ready": status.cuda_ready,
-            "runtime_claim": "preview_only_capture_not_started"
+            "runtime_claim": "capture_helper_dispatch_migration_stub"
         })
     } else {
         json!({
@@ -66,7 +66,7 @@ fn capture_helper_payload(command: &str, status: &HelperBridgeStatus, settings: 
             "generation_token": status.generation_token,
             "provider_ready": status.provider_ready,
             "cuda_ready": status.cuda_ready,
-            "runtime_claim": "preview_only_capture_not_stopped"
+            "runtime_claim": "capture_helper_dispatch_migration_stub"
         })
     }
 }
@@ -81,13 +81,12 @@ fn capture_request_preview(command: &str) -> CaptureHelperBridgeRequestPreview {
     let payload = capture_helper_payload(command, &status, &settings);
     let requires_provider_ready = capture_requires_provider(command);
     let migration_ready = status.state == "ready" && (!requires_provider_ready || status.provider_ready);
-    let ready = migration_ready;
     let status_message = compact_preview_text(&status.message);
     CaptureHelperBridgeRequestPreview {
-        ok: ready,
-        state: if ready { "request_ready" } else { "provider_blocked" }.to_string(),
-        message: if ready {
-            format!("Prepared {command} helper bridge request preview. Capture has not been started from this command.")
+        ok: migration_ready,
+        state: if migration_ready { "request_ready" } else { "provider_blocked" }.to_string(),
+        message: if migration_ready {
+            format!("Prepared {command} helper bridge request envelope. Dispatch is available from Developer Diagnostics, but main capture is not migrated yet.")
         } else if requires_provider_ready {
             format!("Prepared {command} preview. Full ASR/translation/TTS is blocked until helper provider readiness is verified, but microphone-only capture can still start when the input device is usable. Current helper state: {}; message: {}", compact_preview_text(&status.state), status_message)
         } else {
@@ -114,6 +113,11 @@ pub fn build_capture_helper_bridge_request(command: &str) -> HelperBridgeRequest
     }
 }
 
+fn dispatch_capture_helper_bridge_request(command: &str) -> HelperBridgeActionResult {
+    let request = build_capture_helper_bridge_request(command);
+    send_helper_bridge_request(request)
+}
+
 #[tauri::command]
 pub fn prepare_capture_start_request() -> CaptureHelperBridgeRequestPreview {
     capture_request_preview("capture_start")
@@ -122,6 +126,16 @@ pub fn prepare_capture_start_request() -> CaptureHelperBridgeRequestPreview {
 #[tauri::command]
 pub fn prepare_capture_stop_request() -> CaptureHelperBridgeRequestPreview {
     capture_request_preview("capture_stop")
+}
+
+#[tauri::command]
+pub fn dispatch_capture_start_request() -> HelperBridgeActionResult {
+    dispatch_capture_helper_bridge_request("capture_start")
+}
+
+#[tauri::command]
+pub fn dispatch_capture_stop_request() -> HelperBridgeActionResult {
+    dispatch_capture_helper_bridge_request("capture_stop")
 }
 
 #[tauri::command]
