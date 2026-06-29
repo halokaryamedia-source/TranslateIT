@@ -149,7 +149,7 @@ asr:handoff_runtime_not_implemented
 
 ## Live pipeline handoff stubs
 
-Rust now has a separate `pipeline_handoff.rs` module for the next pipeline stages:
+Rust has a separate `pipeline_handoff.rs` module for the next pipeline stages:
 
 ```text
 prepare_translation_handoff_request
@@ -173,13 +173,33 @@ translation:handoff_runtime_not_implemented
 tts:handoff_runtime_not_implemented
 ```
 
-Developer Diagnostics now exposes buttons for capture, ASR, translation, TTS, and full pipeline status.
+Developer Diagnostics exposes buttons for capture, ASR, translation, TTS, and full pipeline status.
+
+## Session-local pipeline cache
+
+Rust now stores source-side handoff status in session memory for:
+
+```text
+asr_handoff
+translation_handoff
+tts_handoff
+```
+
+`get_live_pipeline_handoff_status` reads cached stage status when available, so Developer Diagnostics can report the most recent prepare/dispatch result instead of recomputing every stage as a fresh preview.
+
+The frontend also caches the latest live pipeline handoff snapshot in `globalThis` for the Developer view:
+
+```text
+__translateitLivePipelineHandoffStatus
+```
+
+This is still UI/session evidence only. It is not persisted and is reset when the app session restarts.
 
 ## Current boundary
 
 Main Start/Stop Capture still depends on the existing capture path for actual capture behavior.
 
-Helper capture dispatch, capture transcript boundary status, ASR handoff, translation handoff, and TTS handoff are still migration/wiring evidence only. They do not prove microphone capture quality, ASR decoding, translated transcript, TTS synthesis, virtual microphone routing, or target latency.
+Helper capture dispatch, capture transcript boundary status, ASR handoff, translation handoff, TTS handoff, and the live pipeline snapshot cache are still migration/wiring evidence only. They do not prove microphone capture quality, ASR decoding, translated transcript, TTS synthesis, virtual microphone routing, or target latency.
 
 ## Why this matters
 
