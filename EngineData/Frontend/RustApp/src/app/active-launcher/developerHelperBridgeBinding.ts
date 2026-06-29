@@ -31,6 +31,8 @@ function capturePreviewTask(action: string | undefined): Promise<CaptureTaskResu
   if (action === "boundary-status") return runtimeApi.getCaptureTranscriptBoundaryStatus();
   if (action === "asr-prepare") return runtimeApi.prepareAsrHandoffRequest();
   if (action === "asr-dispatch") return runtimeApi.dispatchAsrHandoffRequest();
+  if (action === "seed-transcript") return runtimeApi.seedDevAsrTranscript("Hello from the developer seeded ASR transcript.");
+  if (action === "seed-translation") return runtimeApi.seedDevTranslatedText("Halo dari seed teks terjemahan developer.");
   if (action === "translation-prepare") return runtimeApi.prepareTranslationHandoffRequest();
   if (action === "translation-dispatch") return runtimeApi.dispatchTranslationHandoffRequest();
   if (action === "tts-prepare") return runtimeApi.prepareTtsHandoffRequest();
@@ -147,7 +149,8 @@ function previewSummary(result: CaptureTaskResult): string {
   }
   if (isLivePipelineSnapshot(result)) {
     setLivePipelineGlobal(result.stages);
-    return `Live pipeline snapshot ${result.state}: ${result.progress_percent}% source-side progress, active=${result.active_stage}, next=${result.next_action}, blocker=${result.active_blocker || "none"}. ${result.summary} This is not runtime proof.`;
+    const payload = `payload transcript=${result.payload.transcript_available}, translation=${result.payload.translation_available}, tts=${result.payload.tts_text_available}`;
+    return `Live pipeline snapshot ${result.state}: ${result.progress_percent}% source-side progress, active=${result.active_stage}, next=${result.next_action}, blocker=${result.active_blocker || "none"}, ${payload}. ${result.summary} This is not runtime proof.`;
   }
   if (isPipelineHandoff(result)) {
     const state = result.dispatch_attempted ? (result.dispatch_ok ? "dispatch accepted" : "dispatch blocked") : (result.request_prepared ? "request prepared" : "blocked before request");
