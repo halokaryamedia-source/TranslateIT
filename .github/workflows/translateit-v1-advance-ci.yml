@@ -193,3 +193,20 @@ jobs:
           $ErrorActionPreference = 'Stop'
           cargo metadata --manifest-path src-tauri/Cargo.toml --format-version 1 --no-deps
           Write-Host 'Rust Cargo metadata gate passed. Full cargo check remains deferred until Rust source compile errors are fixed with logs.'
+
+  tauri-package-preflight:
+    name: Tauri Package Preflight
+    runs-on: windows-latest
+    timeout-minutes: 10
+    needs: rust-cargo-metadata
+    defaults:
+      run:
+        shell: pwsh
+        working-directory: EngineData/Frontend/RustApp
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - name: Run Tauri package preflight
+        run: npm run preflight:tauri-package
