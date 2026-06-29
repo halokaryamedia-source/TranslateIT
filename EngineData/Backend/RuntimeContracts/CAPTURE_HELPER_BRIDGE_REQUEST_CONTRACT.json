@@ -1,10 +1,20 @@
 {
   "schema": "translateit.capture_helper_bridge_request_contract.v1",
-  "branch": "Dev-Rust",
+  "branch": "V1-Advance",
   "status": "contract_ready_runtime_not_migrated",
   "owner_shell": "Rust/Tauri",
   "helper_runtime": "Python",
   "purpose": "Define the request and response boundary for migrating the temporary capture implementation to the long-running helper bridge.",
+  "v1_advance_speech_policy": {
+    "default_input_mode": "always_listening",
+    "secondary_input_mode": "push_to_talk",
+    "default_push_to_talk_hotkey": "Hold Space",
+    "silence_threshold_ms": 700,
+    "max_speech_segment_seconds": 12,
+    "primary_meeting_output": "built_in_virtual_microphone",
+    "headphone_monitor_volume_percent": 50,
+    "mute_original_microphone_required": true
+  },
   "not_ready_claims": [
     "microphone_capture_ready",
     "asr_ready",
@@ -12,16 +22,20 @@
     "tts_ready",
     "cuda_ready",
     "low_latency_ready",
-    "packaged_app_ready"
+    "packaged_app_ready",
+    "virtual_microphone_ready"
   ],
   "capture_start_request": {
     "command": "capture_start",
     "generation_token": "u64_required",
     "source_language": "string_required",
     "target_language": "string_required",
-    "runtime_profile": "Realtime_or_Quality_required",
+    "runtime_profile": "Quality_or_Fast_required",
+    "input_mode": "always_listening_or_push_to_talk_required",
     "input_device_id": "string_or_null",
-    "output_device_id": "string_or_null"
+    "output_device_id": "string_or_null",
+    "virtual_microphone_enabled": "boolean_required",
+    "mute_original_microphone": "boolean_required"
   },
   "capture_stop_request": {
     "command": "capture_stop",
@@ -33,6 +47,7 @@
     "generation_token": "u64_required",
     "blocker": "string_or_null",
     "microphone_ready": "boolean_required",
+    "virtual_microphone_ready": "boolean_required",
     "asr_ready": "boolean_required",
     "translation_ready": "boolean_required",
     "tts_ready": "boolean_required",
@@ -43,8 +58,9 @@
   "safety_rules": [
     "Do not run capture_start through the temporary one-shot worker when helper provider readiness is false.",
     "Do not mark capture active unless helper response ok=true and generation_token matches the latest Rust/Tauri generation.",
-    "Ignore stale helper output when response generation_token does not match the current generation.",
+    "Ignore stale helper output when response generation_token does not match the current Rust/Tauri generation.",
     "Do not claim voice capture readiness without target-PC evidence.",
+    "Do not claim virtual microphone readiness without target-PC evidence.",
     "Do not route real microphone audio to provider routes until local validation has passed."
   ],
   "migration_state": {
