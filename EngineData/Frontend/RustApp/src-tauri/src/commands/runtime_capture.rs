@@ -114,9 +114,27 @@ impl Default for CaptureHelperDispatchStatus {
 }
 
 static CAPTURE_HELPER_DISPATCH_STATUS: OnceLock<Mutex<CaptureHelperDispatchStatus>> = OnceLock::new();
+static ASR_HANDOFF_STATUS: OnceLock<Mutex<Option<AsrHandoffRequestStatus>>> = OnceLock::new();
 
 fn capture_dispatch_status_runtime() -> &'static Mutex<CaptureHelperDispatchStatus> {
     CAPTURE_HELPER_DISPATCH_STATUS.get_or_init(|| Mutex::new(CaptureHelperDispatchStatus::default()))
+}
+
+fn asr_handoff_status_runtime() -> &'static Mutex<Option<AsrHandoffRequestStatus>> {
+    ASR_HANDOFF_STATUS.get_or_init(|| Mutex::new(None))
+}
+
+fn record_asr_handoff_status(status: &AsrHandoffRequestStatus) {
+    if let Ok(mut cached) = asr_handoff_status_runtime().lock() {
+        *cached = Some(status.clone());
+    }
+}
+
+pub fn get_cached_asr_handoff_status() -> Option<AsrHandoffRequestStatus> {
+    asr_handoff_status_runtime()
+        .lock()
+        .ok()
+        .and_then(|cached| cached.clone())
 }
 
 fn record_capture_helper_dispatch(command: &str, result: &HelperBridgeActionResult) {
@@ -375,13 +393,15 @@ pub fn prepare_asr_handoff_request() -> AsrHandoffRequestStatus {
     let boundary = get_capture_transcript_boundary_status();
     let helper = get_helper_bridge_status();
     let payload_json = asr_handoff_payload(&boundary, &helper).to_string();
-    asr_handoff_status_from_parts(
+    let status = asr_handoff_status_from_parts(
         boundary.clone(),
         helper,
         boundary.transcript_handoff_ready,
         None,
         payload_json,
-    )
+    );
+    record_asr_handoff_status(&status);
+    status
 }
 
 #[tauri::command]
@@ -389,15 +409,18 @@ pub fn dispatch_asr_handoff_request() -> AsrHandoffRequestStatus {
     let boundary = get_capture_transcript_boundary_status();
     let helper = get_helper_bridge_status();
     let payload_json = asr_handoff_payload(&boundary, &helper).to_string();
-    if !boundary.transcript_handoff_ready {
-        return asr_handoff_status_from_parts(boundary, helper, false, None, payload_json);
-    }
-    let request = HelperBridgeRequest {
-        task: "asr_handoff".to_string(),
-        payload_json: Some(payload_json.clone()),
+    let status = if !boundary.transcript_handoff_ready {
+        asr_handoff_status_from_parts(boundary, helper, false, None, payload_json)
+    } else {
+        let request = HelperBridgeRequest {
+            task: "asr_handoff".to_string(),
+            payload_json: Some(payload_json.clone()),
+        };
+        let dispatch = send_helper_bridge_request(request);
+        asr_handoff_status_from_parts(boundary, helper, true, Some(dispatch), payload_json)
     };
-    let dispatch = send_helper_bridge_request(request);
-    asr_handoff_status_from_parts(boundary, helper, true, Some(dispatch), payload_json)
+    record_asr_handoff_status(&status);
+    status
 }
 
 #[tauri::command]
