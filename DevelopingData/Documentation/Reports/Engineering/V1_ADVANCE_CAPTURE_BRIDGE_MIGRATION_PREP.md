@@ -25,7 +25,7 @@ migration_ready
 preview_only
 ```
 
-Developer Diagnostics now also exposes dedicated dispatch commands:
+Developer Diagnostics exposes dedicated dispatch commands:
 
 ```text
 dispatch_capture_start_request
@@ -33,6 +33,25 @@ dispatch_capture_stop_request
 ```
 
 These commands send the prepared capture envelope to the running helper bridge without replacing the main Start/Stop Capture flow yet.
+
+## Python worker entry wrapper
+
+The helper bridge now prefers:
+
+```text
+EngineData/Backend/LocalWorker/WorkerRuntime/realtime_local_worker_entry.py
+```
+
+That entry wrapper imports the existing `realtime_local_worker.py`, registers migration stubs for:
+
+```text
+capture_start
+capture_stop
+```
+
+and then runs the original worker main loop.
+
+This prevents dispatch from returning `worker:unknown_command` while keeping helper-routed capture clearly blocked until implemented.
 
 ## Current boundary
 
