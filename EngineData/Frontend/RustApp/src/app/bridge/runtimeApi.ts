@@ -21,6 +21,7 @@ import type {
   LauncherChatSummary,
   ModelInventoryReport,
   ModelSetupReport,
+  PipelineHandoffRequestStatus,
   RealtimeStatusPayload,
   RuntimeCommandError,
   RuntimeDiagnostics,
@@ -58,6 +59,25 @@ function helperActionFallback(message: string): HelperBridgeActionResult {
     message,
     generation_token: 0,
     runtime_claim: "frontend_bridge_unavailable",
+  };
+}
+
+function pipelineHandoffFallback(stage: string, message: string): PipelineHandoffRequestStatus {
+  return {
+    stage,
+    prerequisite_stage: "frontend_bridge",
+    prerequisite_ready: false,
+    request_prepared: false,
+    dispatch_attempted: false,
+    dispatch_ok: false,
+    state: "frontend_bridge_error",
+    message,
+    blocker: "frontend_bridge_unavailable",
+    next_action: "open_developer_diagnostics",
+    generation_token: 0,
+    runtime_claim: "frontend_bridge_unavailable",
+    payload_json: "{}",
+    updated_unix_ms: Date.now(),
   };
 }
 
@@ -275,6 +295,46 @@ export const runtimeApi = {
       "dispatch_asr_handoff_request",
       undefined,
       asrHandoffFallback("ASR handoff dispatch failed before reaching the Tauri command bridge."),
+    );
+  },
+
+  async prepareTranslationHandoffRequest(): Promise<PipelineHandoffRequestStatus> {
+    return invokeOr<PipelineHandoffRequestStatus>(
+      "prepare_translation_handoff_request",
+      undefined,
+      pipelineHandoffFallback("translation_handoff", "Translation handoff prepare failed before reaching the Tauri command bridge."),
+    );
+  },
+
+  async dispatchTranslationHandoffRequest(): Promise<PipelineHandoffRequestStatus> {
+    return invokeOr<PipelineHandoffRequestStatus>(
+      "dispatch_translation_handoff_request",
+      undefined,
+      pipelineHandoffFallback("translation_handoff", "Translation handoff dispatch failed before reaching the Tauri command bridge."),
+    );
+  },
+
+  async prepareTtsHandoffRequest(): Promise<PipelineHandoffRequestStatus> {
+    return invokeOr<PipelineHandoffRequestStatus>(
+      "prepare_tts_handoff_request",
+      undefined,
+      pipelineHandoffFallback("tts_handoff", "TTS handoff prepare failed before reaching the Tauri command bridge."),
+    );
+  },
+
+  async dispatchTtsHandoffRequest(): Promise<PipelineHandoffRequestStatus> {
+    return invokeOr<PipelineHandoffRequestStatus>(
+      "dispatch_tts_handoff_request",
+      undefined,
+      pipelineHandoffFallback("tts_handoff", "TTS handoff dispatch failed before reaching the Tauri command bridge."),
+    );
+  },
+
+  async getLivePipelineHandoffStatus(): Promise<PipelineHandoffRequestStatus[]> {
+    return invokeOr<PipelineHandoffRequestStatus[]>(
+      "get_live_pipeline_handoff_status",
+      undefined,
+      [pipelineHandoffFallback("live_pipeline", "Live pipeline handoff status failed before reaching the Tauri command bridge.")],
     );
   },
 
