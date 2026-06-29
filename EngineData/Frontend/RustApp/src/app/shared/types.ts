@@ -92,6 +92,23 @@ export type CaptureHelperDispatchStatus = {
   updated_unix_ms: number;
 };
 
+export type CaptureTranscriptBoundaryStatus = {
+  capture_dispatch_attempted: boolean;
+  capture_dispatch_ok: boolean;
+  helper_capture_command: string;
+  helper_capture_state: string;
+  existing_capture_active: boolean;
+  frames_received: number;
+  buffered_duration_ms: number;
+  ready_for_vad: boolean;
+  ready_for_target_asr_frame: boolean;
+  transcript_handoff_ready: boolean;
+  blocker: string;
+  next_action: string;
+  runtime_claim: string;
+  updated_unix_ms: number;
+};
+
 export type AudioStudioValidationEvidence = {
   ok: boolean;
   stage: string;
