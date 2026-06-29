@@ -5,9 +5,9 @@ Status: source-side migration step 1 active
 
 ## Purpose
 
-This note records the current source-side preparation for migrating capture start/stop toward the long-running Python helper bridge.
+This note records the current source-side preparation for migrating capture start/stop toward the long-running Python helper bridge and the live voice pipeline.
 
-## Current change
+## Current helper capture path
 
 `runtime_capture.rs` builds reusable helper bridge request payloads for:
 
@@ -46,11 +46,13 @@ That entry wrapper imports the existing `realtime_local_worker.py`, registers mi
 capture_start
 capture_stop
 asr_handoff
+translation_handoff
+tts_handoff
 ```
 
 and then runs the original worker main loop.
 
-This prevents dispatch from returning `worker:unknown_command` while keeping helper-routed capture and ASR handoff clearly blocked until implemented.
+This prevents helper dispatch from returning `worker:unknown_command` while keeping helper-routed capture and pipeline handoffs clearly blocked until implemented.
 
 ## Main Start/Stop step 1
 
@@ -117,7 +119,7 @@ capture boundary ready for ASR handoff
 
 ## ASR handoff request stub
 
-Rust now prepares and dispatches a source-side ASR handoff request stub:
+Rust prepares and dispatches a source-side ASR handoff request stub:
 
 ```text
 prepare_asr_handoff_request
@@ -145,15 +147,43 @@ The Python worker entry wrapper receives `asr_handoff` and returns a clear block
 asr:handoff_runtime_not_implemented
 ```
 
+## Live pipeline handoff stubs
+
+Rust now has a separate `pipeline_handoff.rs` module for the next pipeline stages:
+
+```text
+prepare_translation_handoff_request
+dispatch_translation_handoff_request
+prepare_tts_handoff_request
+dispatch_tts_handoff_request
+get_live_pipeline_handoff_status
+```
+
+These stages are still metadata-only. They intentionally block until upstream stages provide real payloads:
+
+```text
+translation_handoff -> waits for ASR transcript text
+tts_handoff -> waits for translated text
+```
+
+The Python worker entry wrapper receives these commands and returns clear blockers:
+
+```text
+translation:handoff_runtime_not_implemented
+tts:handoff_runtime_not_implemented
+```
+
+Developer Diagnostics now exposes buttons for capture, ASR, translation, TTS, and full pipeline status.
+
 ## Current boundary
 
 Main Start/Stop Capture still depends on the existing capture path for actual capture behavior.
 
-Helper capture dispatch, capture transcript boundary status, and ASR handoff request stubs are still migration/wiring evidence only. They do not prove microphone capture quality, ASR decoding, translated transcript, TTS, virtual microphone routing, or target latency.
+Helper capture dispatch, capture transcript boundary status, ASR handoff, translation handoff, and TTS handoff are still migration/wiring evidence only. They do not prove microphone capture quality, ASR decoding, translated transcript, TTS synthesis, virtual microphone routing, or target latency.
 
 ## Why this matters
 
-The next implementation step can attach a real target audio frame payload and connect it to the decoder only after local compile/runtime evidence exists.
+The next implementation step can attach a real target audio frame payload, connect it to decoder output, then pass transcript -> translation -> TTS as actual runtime payloads only after local compile/runtime evidence exists.
 
 ## Not claimed yet
 
