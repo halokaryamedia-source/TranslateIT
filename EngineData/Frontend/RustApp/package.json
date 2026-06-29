@@ -12,6 +12,7 @@
     "preflight:tauri-package": "node scripts/validate_tauri_package_preflight.mjs",
     "typecheck": "tsc --noEmit",
     "check:rust": "node scripts/validate_rust_manifest_preflight.mjs",
+    "check:tauri-rust-local": "node scripts/run_local_tauri_compile_check.mjs",
     "validate:script-profiles": "node scripts/validate_script_profiles.mjs",
     "validate:imports": "node scripts/validate_frontend_import_integrity.mjs",
     "validate:naming": "node scripts/validate_file_naming_policy.mjs",
@@ -91,11 +92,11 @@
     "validate:launcher": "echo report-only launcher validation deferred",
     "validate:worker": "echo report-only worker validation deferred",
     "validate:evidence": "echo report-only evidence validation deferred",
-    "validate:user-flow": "echo report-only user flow validation deferred",
+    "validate:user-flow": "echo report-only user flow deferred",
     "validate:gpu-policy": "echo report-only gpu policy validation deferred",
     "audit:deps": "echo report-only dependency audit deferred",
     "audit:css-priority": "echo report-only css priority audit deferred",
-    "audit:ui-design": "echo report-only ui design audit deferred",
+    "audit:ui-design": "echo report-only ui design deferred",
     "validate:security-hardening": "echo report-only security hardening deferred"
   },
   "dependencies": {
