@@ -27,6 +27,7 @@ const currentStatusPath = join(engineeringDocsRoot, "CURRENT_APP_STATUS.md");
 const singleEnginePolicyPath = join(engineeringDocsRoot, "SINGLE_ACTIVE_ENGINE_POLICY.md");
 const requirementsPath = join(engineeringDocsRoot, "V1_ADVANCE_PRODUCT_REQUIREMENTS.md");
 const ciPolicyPath = join(engineeringDocsRoot, "V1_ADVANCE_NON_LOCAL_CI_POLICY.md");
+const dependencyInstallPolicyPath = join(engineeringDocsRoot, "V1_ADVANCE_DEPENDENCY_INSTALL_POLICY.md");
 const scriptSafetyMatrixPath = join(engineeringDocsRoot, "V1_ADVANCE_SCRIPT_SAFETY_MATRIX.json");
 const workflowPath = join(repoRoot, ".github", "workflows", "translateit-v1-advance-ci.yml");
 const runtimeContractsRoot = join(repoRoot, "EngineData", "Backend", "RuntimeContracts");
@@ -35,6 +36,7 @@ const requiredFiles = [
   packagePath,
   requirementsPath,
   ciPolicyPath,
+  dependencyInstallPolicyPath,
   scriptSafetyMatrixPath,
   activeIndexPath,
   currentStatusPath,
@@ -112,6 +114,7 @@ for (const path of forbiddenActivePaths) {
 
 const requirements = readText(requirementsPath);
 const policy = readText(ciPolicyPath);
+const dependencyInstallPolicy = readText(dependencyInstallPolicyPath);
 const activeIndex = readText(activeIndexPath);
 const currentStatus = readText(currentStatusPath);
 const singleEnginePolicy = readText(singleEnginePolicyPath);
@@ -163,6 +166,21 @@ if (!scriptSafetyMatrix.requires_target_pc_or_local_runtime?.includes("gpu:check
 for (const forbiddenCommand of scriptSafetyMatrix.forbidden_in_non_local_ci_workflow ?? []) {
   if (workflow.includes(forbiddenCommand)) {
     fail(`Non-local CI workflow must not run local-only command: ${forbiddenCommand}`);
+  }
+}
+
+const requiredDependencyPolicyMarkers = [
+  "Branch: `V1-Advance`",
+  "No dependency install required.",
+  "npm install --no-audit --no-fund",
+  "npm ci",
+  "Do not promote multiple heavy gates at once.",
+  "Dependency install success only proves installability of package dependencies in GitHub Actions.",
+];
+
+for (const marker of requiredDependencyPolicyMarkers) {
+  if (!dependencyInstallPolicy.includes(marker)) {
+    fail(`Dependency install policy marker is missing: ${marker}`);
   }
 }
 
@@ -224,6 +242,9 @@ if (!activeIndex.includes("V1_ADVANCE_NON_LOCAL_CI_POLICY.md")) {
 }
 if (!activeIndex.includes("V1_ADVANCE_SCRIPT_SAFETY_MATRIX.json")) {
   fail("Active documentation index must include V1_ADVANCE_SCRIPT_SAFETY_MATRIX.json.");
+}
+if (!activeIndex.includes("V1_ADVANCE_DEPENDENCY_INSTALL_POLICY.md")) {
+  fail("Active documentation index must include V1_ADVANCE_DEPENDENCY_INSTALL_POLICY.md.");
 }
 if (!currentStatus.includes("The active product branch is `V1-Advance`.")) {
   fail("Current app status must identify V1-Advance as the active product branch.");
