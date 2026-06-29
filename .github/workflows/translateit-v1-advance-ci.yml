@@ -1,8 +1,6 @@
 name: TranslateIT V1 Advance Primary CI
 
 on:
-  push:
-    branches: [V1-Advance]
   workflow_dispatch:
 
 permissions:
