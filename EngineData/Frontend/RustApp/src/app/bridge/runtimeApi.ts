@@ -2,6 +2,7 @@ import { invoke } from "@tauri-apps/api/core";
 import { defaultSettings, errorMessage } from "../shared/state";
 import { getRuntimeCommandErrors } from "../shared/tauriBridge";
 import type {
+  AsrHandoffRequestStatus,
   AudioDeviceListReport,
   AudioStudioValidationEvidence,
   CaptureHelperBridgeRequestPreview,
@@ -88,6 +89,26 @@ function captureTranscriptBoundaryFallback(message: string): CaptureTranscriptBo
     blocker: "frontend_bridge_unavailable",
     next_action: "open_developer_diagnostics",
     runtime_claim: "frontend_bridge_unavailable",
+    updated_unix_ms: Date.now(),
+  };
+}
+
+function asrHandoffFallback(message: string): AsrHandoffRequestStatus {
+  return {
+    boundary_ready: false,
+    request_prepared: false,
+    dispatch_attempted: false,
+    dispatch_ok: false,
+    task: "asr_handoff",
+    state: "frontend_bridge_error",
+    message,
+    blocker: "frontend_bridge_unavailable",
+    next_action: "open_developer_diagnostics",
+    frames_received: 0,
+    buffered_duration_ms: 0,
+    generation_token: 0,
+    runtime_claim: "frontend_bridge_unavailable",
+    payload_json: "{}",
     updated_unix_ms: Date.now(),
   };
 }
@@ -238,6 +259,22 @@ export const runtimeApi = {
       "get_capture_transcript_boundary_status",
       undefined,
       captureTranscriptBoundaryFallback("Capture transcript boundary status is unavailable because the frontend bridge could not call Tauri."),
+    );
+  },
+
+  async prepareAsrHandoffRequest(): Promise<AsrHandoffRequestStatus> {
+    return invokeOr<AsrHandoffRequestStatus>(
+      "prepare_asr_handoff_request",
+      undefined,
+      asrHandoffFallback("ASR handoff prepare failed before reaching the Tauri command bridge."),
+    );
+  },
+
+  async dispatchAsrHandoffRequest(): Promise<AsrHandoffRequestStatus> {
+    return invokeOr<AsrHandoffRequestStatus>(
+      "dispatch_asr_handoff_request",
+      undefined,
+      asrHandoffFallback("ASR handoff dispatch failed before reaching the Tauri command bridge."),
     );
   },
 
