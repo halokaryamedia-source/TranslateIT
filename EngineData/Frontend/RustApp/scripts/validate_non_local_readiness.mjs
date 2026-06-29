@@ -7,10 +7,12 @@ const appRoot = resolve(scriptDir, "..");
 const repoRoot = resolve(appRoot, "..", "..", "..");
 const docsRoot = join(repoRoot, "DevelopingData", "Documentation", "Reports", "Engineering");
 const commandsRoot = join(appRoot, "src-tauri", "src", "commands");
+const contractsRoot = join(repoRoot, "EngineData", "Backend", "RuntimeContracts");
 
 const failures = [];
 const fail = (message) => failures.push(message);
 const readText = (path) => readFileSync(path, "utf8");
+const readJson = (path) => JSON.parse(readText(path));
 const requireFile = (label, path) => {
   if (!existsSync(path)) fail(`${label} is missing: ${path}`);
 };
@@ -19,6 +21,9 @@ const requireIncludes = (label, text, marker) => {
 };
 const requireNotIncludes = (label, text, marker) => {
   if (text.includes(marker)) fail(`${label} must not include: ${marker}`);
+};
+const requireValue = (label, actual, expected) => {
+  if (actual !== expected) fail(`${label} expected ${JSON.stringify(expected)} but got ${JSON.stringify(actual)}`);
 };
 
 const activeIndexPath = join(docsRoot, "ACTIVE_DOCUMENTATION_INDEX.md");
@@ -32,6 +37,11 @@ const commandModPath = join(commandsRoot, "mod.rs");
 const commandRegistryPath = join(commandsRoot, "registry.rs");
 const stableTextTranslatePath = join(commandsRoot, "text_translate.rs");
 const unstableTranslationPath = join(commandsRoot, "translation.rs");
+const finalArchitectureContractPath = join(contractsRoot, "FINAL_ARCHITECTURE_CONTRACT.json");
+const helperBridgeContractPath = join(contractsRoot, "PYTHON_HELPER_BRIDGE_CONTRACT.json");
+const captureBridgeContractPath = join(contractsRoot, "CAPTURE_HELPER_BRIDGE_REQUEST_CONTRACT.json");
+const audioStudioContractPath = join(contractsRoot, "AUDIO_STUDIO_ROUTE_STATUS_CONTRACT.json");
+const runtimeContractValidatorPath = join(appRoot, "scripts", "validate_runtime_contract_consistency.mjs");
 
 for (const [label, path] of [
   ["active documentation index", activeIndexPath],
@@ -44,6 +54,11 @@ for (const [label, path] of [
   ["commands mod.rs", commandModPath],
   ["commands registry.rs", commandRegistryPath],
   ["stable text translation module", stableTextTranslatePath],
+  ["final architecture contract", finalArchitectureContractPath],
+  ["python helper bridge contract", helperBridgeContractPath],
+  ["capture helper bridge contract", captureBridgeContractPath],
+  ["audio studio route status contract", audioStudioContractPath],
+  ["runtime contract consistency validator", runtimeContractValidatorPath],
 ]) {
   requireFile(label, path);
 }
@@ -59,6 +74,10 @@ if (failures.length === 0) {
     "V1_ADVANCE_LOCAL_COMPILE_ERROR_INTAKE_TEMPLATE.md",
     "V1_ADVANCE_RUNTIME_READINESS_REPORT.md",
     "V1_ADVANCE_NON_LOCAL_COMPLETION_PLAN.md",
+    "FINAL_ARCHITECTURE_CONTRACT.json",
+    "PYTHON_HELPER_BRIDGE_CONTRACT.json",
+    "CAPTURE_HELPER_BRIDGE_REQUEST_CONTRACT.json",
+    "AUDIO_STUDIO_ROUTE_STATUS_CONTRACT.json",
   ]) {
     requireIncludes("ACTIVE_DOCUMENTATION_INDEX.md", activeIndex, marker);
   }
@@ -91,6 +110,20 @@ if (failures.length === 0) {
   const compileIntake = readText(compileIntakePath);
   requireIncludes("local compile error intake template", compileIntake, "First Rust error code:");
   requireIncludes("local compile error intake template", compileIntake, "Do not send only:");
+
+  const finalArchitectureContract = readJson(finalArchitectureContractPath);
+  const helperBridgeContract = readJson(helperBridgeContractPath);
+  const captureBridgeContract = readJson(captureBridgeContractPath);
+  const audioStudioContract = readJson(audioStudioContractPath);
+
+  requireValue("FINAL_ARCHITECTURE_CONTRACT.branch", finalArchitectureContract.branch, "V1-Advance");
+  requireValue("PYTHON_HELPER_BRIDGE_CONTRACT.branch", helperBridgeContract.branch, "V1-Advance");
+  requireValue("CAPTURE_HELPER_BRIDGE_REQUEST_CONTRACT.branch", captureBridgeContract.branch, "V1-Advance");
+  requireValue("AUDIO_STUDIO_ROUTE_STATUS_CONTRACT.branch", audioStudioContract.branch, "V1-Advance");
+  requireValue("FINAL_ARCHITECTURE_CONTRACT.final_desktop_shell", finalArchitectureContract.final_desktop_shell, "Rust/Tauri");
+  requireValue("PYTHON_HELPER_BRIDGE_CONTRACT.owner_shell", helperBridgeContract.owner_shell, "Rust/Tauri");
+  requireValue("CAPTURE_HELPER_BRIDGE_REQUEST_CONTRACT.status", captureBridgeContract.status, "contract_ready_runtime_not_migrated");
+  requireValue("AUDIO_STUDIO_ROUTE_STATUS_CONTRACT.status", audioStudioContract.status, "metadata_runtime_enabled_provider_runtime_blocked");
 }
 
 if (failures.length > 0) {
