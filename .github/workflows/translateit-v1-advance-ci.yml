@@ -280,3 +280,49 @@ jobs:
           CUDA checks, model setup/loading, microphone capture, virtual microphone routing,
           or TTS provider runtime.
           '@ | Write-Host
+
+  v1-advance-rust-check-gate:
+    name: V1 Advance Rust Check Gate
+    runs-on: windows-latest
+    timeout-minutes: 20
+    needs: v1-advance-typescript-gate
+
+    defaults:
+      run:
+        shell: pwsh
+        working-directory: EngineData/Frontend/RustApp
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Setup Rust stable
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Install dependencies for Rust check gate
+        run: |
+          $ErrorActionPreference = 'Stop'
+
+          if (Test-Path 'package-lock.json') {
+            npm ci --ignore-scripts --no-audit --no-fund
+          } else {
+            npm install --ignore-scripts --no-audit --no-fund
+          }
+
+      - name: Run Rust cargo check through package script
+        run: npm run check:rust
+
+      - name: Rust check gate summary
+        run: |
+          @'
+          TranslateIT V1-Advance Rust check gate completed.
+
+          This job validates Rust cargo check only through npm run check:rust.
+          It does not run frontend build, Tauri packaging, CUDA checks, model setup/loading,
+          microphone capture, virtual microphone routing, or TTS provider runtime.
+          '@ | Write-Host
