@@ -1,5 +1,6 @@
 use serde::Serialize;
 use serde_json::{json, Value};
+use std::sync::{Mutex, OnceLock};
 
 use crate::engine;
 use crate::engine::audio::input::InputPreparationStatus;
@@ -10,7 +11,9 @@ use super::helper_bridge::start_helper_bridge;
 use super::helper_bridge::{
     cancel_helper_bridge_task, get_helper_bridge_status, send_helper_bridge_request,
 };
-use super::helper_bridge_runtime::{HelperBridgeActionResult, HelperBridgeRequest, HelperBridgeStatus};
+use super::helper_bridge_runtime::{
+    unix_ms, HelperBridgeActionResult, HelperBridgeRequest, HelperBridgeStatus,
+};
 use super::runtime_preview::{compact_preview_text, voice_capture_blockers};
 
 #[derive(Debug, Clone, Serialize)]
@@ -31,6 +34,18 @@ pub struct CaptureHelperBridgeRequestPreview {
 }
 
 #[derive(Debug, Clone, Serialize)]
+pub struct CaptureHelperDispatchStatus {
+    pub attempted: bool,
+    pub command: String,
+    pub ok: bool,
+    pub state: String,
+    pub message: String,
+    pub generation_token: u64,
+    pub runtime_claim: String,
+    pub updated_unix_ms: u128,
+}
+
+#[derive(Debug, Clone, Serialize)]
 pub struct VoiceCapturePreparationReport {
     pub ok: bool,
     pub state: String,
@@ -44,6 +59,42 @@ pub struct VoiceCapturePreparationReport {
     pub message: String,
     pub input_status: InputPreparationStatus,
     pub helper_status: HelperBridgeStatus,
+}
+
+impl Default for CaptureHelperDispatchStatus {
+    fn default() -> Self {
+        Self {
+            attempted: false,
+            command: "none".to_string(),
+            ok: false,
+            state: "not_attempted".to_string(),
+            message: "Helper capture dispatch has not been attempted in this app session.".to_string(),
+            generation_token: 0,
+            runtime_claim: "not_attempted".to_string(),
+            updated_unix_ms: unix_ms(),
+        }
+    }
+}
+
+static CAPTURE_HELPER_DISPATCH_STATUS: OnceLock<Mutex<CaptureHelperDispatchStatus>> = OnceLock::new();
+
+fn capture_dispatch_status_runtime() -> &'static Mutex<CaptureHelperDispatchStatus> {
+    CAPTURE_HELPER_DISPATCH_STATUS.get_or_init(|| Mutex::new(CaptureHelperDispatchStatus::default()))
+}
+
+fn record_capture_helper_dispatch(command: &str, result: &HelperBridgeActionResult) {
+    if let Ok(mut status) = capture_dispatch_status_runtime().lock() {
+        *status = CaptureHelperDispatchStatus {
+            attempted: true,
+            command: command.to_string(),
+            ok: result.ok,
+            state: result.state.clone(),
+            message: result.message.clone(),
+            generation_token: result.generation_token,
+            runtime_claim: result.runtime_claim.clone(),
+            updated_unix_ms: unix_ms(),
+        };
+    }
 }
 
 fn capture_helper_payload(command: &str, status: &HelperBridgeStatus, settings: &RuntimeSettings) -> Value {
@@ -115,7 +166,9 @@ pub fn build_capture_helper_bridge_request(command: &str) -> HelperBridgeRequest
 
 fn dispatch_capture_helper_bridge_request(command: &str) -> HelperBridgeActionResult {
     let request = build_capture_helper_bridge_request(command);
-    send_helper_bridge_request(request)
+    let result = send_helper_bridge_request(request);
+    record_capture_helper_dispatch(command, &result);
+    result
 }
 
 fn helper_capture_dispatch_candidate(status: &HelperBridgeStatus) -> bool {
@@ -139,6 +192,23 @@ fn append_helper_dispatch_note(result: &mut CommandResult, dispatch: Option<Help
             result.message, outcome, dispatch.message
         );
     }
+}
+
+#[tauri::command]
+pub fn get_capture_helper_dispatch_status() -> CaptureHelperDispatchStatus {
+    capture_dispatch_status_runtime()
+        .lock()
+        .map(|status| status.clone())
+        .unwrap_or_else(|_| CaptureHelperDispatchStatus {
+            attempted: false,
+            command: "error".to_string(),
+            ok: false,
+            state: "error".to_string(),
+            message: "Capture helper dispatch status lock is poisoned.".to_string(),
+            generation_token: 0,
+            runtime_claim: "state_error".to_string(),
+            updated_unix_ms: unix_ms(),
+        })
 }
 
 #[tauri::command]
