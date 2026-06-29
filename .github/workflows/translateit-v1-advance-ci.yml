@@ -26,7 +26,6 @@ jobs:
     defaults:
       run:
         shell: pwsh
-        working-directory: EngineData/Frontend/RustApp
 
     steps:
       - name: Checkout
@@ -36,14 +35,11 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: '20'
-          cache: npm
-          cache-dependency-path: EngineData/Frontend/RustApp/package-lock.json
 
       - name: Setup Rust stable
         uses: dtolnay/rust-toolchain@stable
 
       - name: Guard active V1 source tree
-        working-directory: .
         run: |
           $ErrorActionPreference = 'Stop'
 
@@ -59,10 +55,24 @@ jobs:
             throw 'FigmaDesignExport must not be an active dependency in V1-Advance.'
           }
 
+          if (!(Test-Path 'EngineData/Frontend/RustApp/package.json')) {
+            throw 'RustApp package.json is missing.'
+          }
+
       - name: Install dependencies
-        run: npm ci
+        working-directory: EngineData/Frontend/RustApp
+        run: |
+          $ErrorActionPreference = 'Stop'
+
+          if (Test-Path 'package-lock.json') {
+            npm ci
+          } else {
+            Write-Host 'package-lock.json not found; using npm install for this non-local CI pass.'
+            npm install --no-audit --no-fund
+          }
 
       - name: Static validation profile
+        working-directory: EngineData/Frontend/RustApp
         run: |
           $ErrorActionPreference = 'Stop'
 
@@ -74,6 +84,7 @@ jobs:
           npm run validate:startup-readiness
 
       - name: Contract validation profile
+        working-directory: EngineData/Frontend/RustApp
         run: |
           $ErrorActionPreference = 'Stop'
 
@@ -85,6 +96,7 @@ jobs:
           npm run test:settings-integrity-report
 
       - name: Build-safe validation profile
+        working-directory: EngineData/Frontend/RustApp
         run: |
           $ErrorActionPreference = 'Stop'
 
@@ -93,7 +105,6 @@ jobs:
           npm run build:frontend
 
       - name: Non-local CI summary
-        working-directory: .
         run: |
           @'
           TranslateIT V1-Advance CI completed.
@@ -102,6 +113,7 @@ jobs:
           - active RustApp structure
           - product requirement source of truth
           - no active FigmaDesignExport dependency
+          - lockfile-safe dependency installation
           - TypeScript checks
           - Rust cargo check
           - frontend build
