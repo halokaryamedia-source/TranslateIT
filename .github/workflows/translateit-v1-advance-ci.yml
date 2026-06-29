@@ -100,3 +100,20 @@ jobs:
           node-version: '20'
       - name: Run Rust manifest preflight
         run: npm run check:rust
+
+  frontend-build-preflight:
+    name: Frontend Build Preflight
+    runs-on: windows-latest
+    timeout-minutes: 10
+    needs: rust-manifest-preflight
+    defaults:
+      run:
+        shell: pwsh
+        working-directory: EngineData/Frontend/RustApp
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - name: Run frontend build preflight
+        run: npm run preflight:frontend-build
