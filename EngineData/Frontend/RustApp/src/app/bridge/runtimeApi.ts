@@ -5,6 +5,7 @@ import type {
   AudioDeviceListReport,
   AudioStudioValidationEvidence,
   CaptureHelperBridgeRequestPreview,
+  CaptureHelperDispatchStatus,
   CommandResult,
   GpuPolicyReport,
   HardwareUsageReport,
@@ -55,6 +56,19 @@ function helperActionFallback(message: string): HelperBridgeActionResult {
     message,
     generation_token: 0,
     runtime_claim: "frontend_bridge_unavailable",
+  };
+}
+
+function captureDispatchFallback(message: string): CaptureHelperDispatchStatus {
+  return {
+    attempted: false,
+    command: "frontend_bridge_error",
+    ok: false,
+    state: "frontend_bridge_error",
+    message,
+    generation_token: 0,
+    runtime_claim: "frontend_bridge_unavailable",
+    updated_unix_ms: Date.now(),
   };
 }
 
@@ -188,6 +202,14 @@ export const runtimeApi = {
       "get_helper_bridge_status",
       undefined,
       bridgeStatusFallback("Helper bridge status is unavailable because the frontend bridge could not call Tauri."),
+    );
+  },
+
+  async getCaptureHelperDispatchStatus(): Promise<CaptureHelperDispatchStatus> {
+    return invokeOr<CaptureHelperDispatchStatus>(
+      "get_capture_helper_dispatch_status",
+      undefined,
+      captureDispatchFallback("Capture helper dispatch status is unavailable because the frontend bridge could not call Tauri."),
     );
   },
 
