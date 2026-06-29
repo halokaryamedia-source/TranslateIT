@@ -16,7 +16,7 @@ capture_start
 capture_stop
 ```
 
-The preview response now carries migration fields:
+The preview response carries migration fields:
 
 ```text
 helper_task
@@ -25,11 +25,20 @@ migration_ready
 preview_only
 ```
 
+Developer Diagnostics now also exposes dedicated dispatch commands:
+
+```text
+dispatch_capture_start_request
+dispatch_capture_stop_request
+```
+
+These commands send the prepared capture envelope to the running helper bridge without replacing the main Start/Stop Capture flow yet.
+
 ## Current boundary
 
-The commands still remain preview-only for capture helper bridge migration.
+Main Start/Stop Capture remains on the existing capture path.
 
-They do not start or stop helper-routed capture yet.
+Capture helper dispatch is a migration wiring test only. It does not prove microphone capture, ASR, translation, TTS, virtual microphone routing, or target latency.
 
 ## Why this matters
 
