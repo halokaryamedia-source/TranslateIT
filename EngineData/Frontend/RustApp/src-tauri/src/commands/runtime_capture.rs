@@ -64,6 +64,25 @@ pub struct CaptureTranscriptBoundaryStatus {
 }
 
 #[derive(Debug, Clone, Serialize)]
+pub struct AsrHandoffRequestStatus {
+    pub boundary_ready: bool,
+    pub request_prepared: bool,
+    pub dispatch_attempted: bool,
+    pub dispatch_ok: bool,
+    pub task: String,
+    pub state: String,
+    pub message: String,
+    pub blocker: String,
+    pub next_action: String,
+    pub frames_received: u64,
+    pub buffered_duration_ms: u32,
+    pub generation_token: u64,
+    pub runtime_claim: String,
+    pub payload_json: String,
+    pub updated_unix_ms: u128,
+}
+
+#[derive(Debug, Clone, Serialize)]
 pub struct VoiceCapturePreparationReport {
     pub ok: bool,
     pub state: String,
@@ -274,6 +293,111 @@ pub fn get_capture_transcript_boundary_status() -> CaptureTranscriptBoundaryStat
         runtime_claim: "source_side_boundary_status_not_runtime_proof".to_string(),
         updated_unix_ms: unix_ms(),
     }
+}
+
+fn asr_handoff_payload(boundary: &CaptureTranscriptBoundaryStatus, helper: &HelperBridgeStatus) -> Value {
+    json!({
+        "command": "asr_handoff",
+        "generation_token": helper.generation_token,
+        "boundary_ready": boundary.transcript_handoff_ready,
+        "existing_capture_active": boundary.existing_capture_active,
+        "frames_received": boundary.frames_received,
+        "buffered_duration_ms": boundary.buffered_duration_ms,
+        "ready_for_vad": boundary.ready_for_vad,
+        "ready_for_target_asr_frame": boundary.ready_for_target_asr_frame,
+        "capture_dispatch_attempted": boundary.capture_dispatch_attempted,
+        "capture_dispatch_ok": boundary.capture_dispatch_ok,
+        "source": "capture_transcript_boundary",
+        "runtime_claim": "asr_handoff_request_stub_no_audio_payload"
+    })
+}
+
+fn asr_handoff_status_from_parts(
+    boundary: CaptureTranscriptBoundaryStatus,
+    helper: HelperBridgeStatus,
+    request_prepared: bool,
+    dispatch: Option<HelperBridgeActionResult>,
+    payload_json: String,
+) -> AsrHandoffRequestStatus {
+    let dispatch_attempted = dispatch.is_some();
+    let dispatch_ok = dispatch.as_ref().map(|result| result.ok).unwrap_or(false);
+    let state = dispatch
+        .as_ref()
+        .map(|result| result.state.clone())
+        .unwrap_or_else(|| if request_prepared { "request_ready".to_string() } else { "blocked".to_string() });
+    let message = dispatch
+        .as_ref()
+        .map(|result| result.message.clone())
+        .unwrap_or_else(|| {
+            if request_prepared {
+                "ASR handoff request prepared. Dispatch is available, but no audio payload is sent yet.".to_string()
+            } else {
+                format!("ASR handoff request blocked before dispatch: {}", boundary.blocker)
+            }
+        });
+    let blocker = if dispatch_ok || request_prepared {
+        "".to_string()
+    } else {
+        boundary.blocker.clone()
+    };
+    let next_action = if dispatch_ok {
+        "implement_worker_asr_decode".to_string()
+    } else if request_prepared {
+        "dispatch_asr_handoff_request".to_string()
+    } else {
+        boundary.next_action.clone()
+    };
+
+    AsrHandoffRequestStatus {
+        boundary_ready: boundary.transcript_handoff_ready,
+        request_prepared,
+        dispatch_attempted,
+        dispatch_ok,
+        task: "asr_handoff".to_string(),
+        state,
+        message,
+        blocker,
+        next_action,
+        frames_received: boundary.frames_received,
+        buffered_duration_ms: boundary.buffered_duration_ms,
+        generation_token: dispatch
+            .as_ref()
+            .map(|result| result.generation_token)
+            .unwrap_or(helper.generation_token),
+        runtime_claim: "asr_handoff_request_stub_no_transcript_runtime_claim".to_string(),
+        payload_json,
+        updated_unix_ms: unix_ms(),
+    }
+}
+
+#[tauri::command]
+pub fn prepare_asr_handoff_request() -> AsrHandoffRequestStatus {
+    let boundary = get_capture_transcript_boundary_status();
+    let helper = get_helper_bridge_status();
+    let payload_json = asr_handoff_payload(&boundary, &helper).to_string();
+    asr_handoff_status_from_parts(
+        boundary.clone(),
+        helper,
+        boundary.transcript_handoff_ready,
+        None,
+        payload_json,
+    )
+}
+
+#[tauri::command]
+pub fn dispatch_asr_handoff_request() -> AsrHandoffRequestStatus {
+    let boundary = get_capture_transcript_boundary_status();
+    let helper = get_helper_bridge_status();
+    let payload_json = asr_handoff_payload(&boundary, &helper).to_string();
+    if !boundary.transcript_handoff_ready {
+        return asr_handoff_status_from_parts(boundary, helper, false, None, payload_json);
+    }
+    let request = HelperBridgeRequest {
+        task: "asr_handoff".to_string(),
+        payload_json: Some(payload_json.clone()),
+    };
+    let dispatch = send_helper_bridge_request(request);
+    asr_handoff_status_from_parts(boundary, helper, true, Some(dispatch), payload_json)
 }
 
 #[tauri::command]
