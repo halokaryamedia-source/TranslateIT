@@ -16,6 +16,7 @@ pub fn register<R: tauri::Runtime>(builder: tauri::Builder<R>) -> tauri::Builder
         crate::commands::helper_bridge::helper_bridge_tts_preflight,
         crate::commands::helper_bridge::helper_bridge_synthesize_text,
         crate::commands::runtime_capture::check_helper_bridge_health,
+        crate::commands::runtime_capture::get_capture_helper_dispatch_status,
         crate::commands::runtime_capture::prepare_capture_start_request,
         crate::commands::runtime_capture::prepare_capture_stop_request,
         crate::commands::runtime_capture::dispatch_capture_start_request,
