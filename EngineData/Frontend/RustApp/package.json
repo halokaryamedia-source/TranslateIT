@@ -10,7 +10,6 @@
     "build:frontend": "vite build",
     "preflight:frontend-build": "node scripts/validate_frontend_build_preflight.mjs",
     "preflight:tauri-package": "node scripts/validate_tauri_package_preflight.mjs",
-    "diagnostics:rust-source": "node scripts/validate_rust_source_diagnostics.mjs",
     "typecheck": "tsc --noEmit",
     "check:rust": "node scripts/validate_rust_manifest_preflight.mjs",
     "validate:script-profiles": "node scripts/validate_script_profiles.mjs",
