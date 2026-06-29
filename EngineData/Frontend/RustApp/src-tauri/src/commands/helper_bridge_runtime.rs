@@ -177,6 +177,19 @@ pub fn worker_text(value: &Value, key: &str) -> Option<String> {
         .map(str::to_string)
 }
 
+fn is_contract_only_response(value: &Value) -> bool {
+    let stage = value.get("stage").and_then(Value::as_str).unwrap_or_default();
+    let runtime_claim = value
+        .get("runtime_claim")
+        .and_then(Value::as_str)
+        .unwrap_or_default();
+    stage == "dev_pipeline_contract_smoke"
+        || stage == "translation_handoff"
+        || stage == "tts_handoff"
+        || runtime_claim.contains("no_model_runtime_claim")
+        || runtime_claim.contains("no_runtime_claim")
+}
+
 pub fn apply_worker_status(runtime: &mut HelperBridgeRuntime, status: &Value) {
     let worker_ok = worker_bool(status, "ok");
     let cuda_ready = worker_bool(status, "torch_cuda_available");
@@ -207,6 +220,14 @@ pub fn apply_worker_response(runtime: &mut HelperBridgeRuntime, value: &Value) -
     };
     if value.get("stage").and_then(Value::as_str) == Some("local_realtime_worker_preflight") {
         apply_worker_status(runtime, value);
+    } else if is_contract_only_response(value) {
+        runtime.last_error = worker_text(value, "blocker").filter(|blocker| !blocker.is_empty());
+        runtime.message = worker_text(value, "note")
+            .or_else(|| worker_text(value, "stage"))
+            .unwrap_or_else(|| "Helper contract request completed.".to_string());
+        if !ok {
+            runtime.provider_ready = false;
+        }
     } else {
         runtime.cuda_ready = worker_bool(value, "torch_cuda_available") || runtime.cuda_ready;
         runtime.provider_ready = ok;
