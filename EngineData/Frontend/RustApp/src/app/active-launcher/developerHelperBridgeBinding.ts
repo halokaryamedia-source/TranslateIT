@@ -1,12 +1,19 @@
 import { runtimeApi } from "../bridge/runtimeApi";
+import type { HelperBridgeActionResult, HelperBridgeWorkerResponse } from "../shared/types";
 
 let bound = false;
 let clickHandler: ((event: MouseEvent) => void) | null = null;
 
-function helperTask(action: string | undefined) {
+type HelperTaskResult = HelperBridgeActionResult | HelperBridgeWorkerResponse;
+
+function helperTask(action: string | undefined): Promise<HelperTaskResult> {
   if (action === "start") return runtimeApi.startHelperBridge();
   if (action === "stop") return runtimeApi.stopHelperBridge();
-  if (action === "status") return runtimeApi.sendHelperBridgeRequest({ task: "status" });
+  if (action === "status") return runtimeApi.helperBridgeWorkerStatus();
+  if (action === "preload-asr") return runtimeApi.helperBridgePreloadAsr();
+  if (action === "preload-translation") return runtimeApi.helperBridgePreloadTranslation("Realtime");
+  if (action === "tts-preflight") return runtimeApi.helperBridgeTtsPreflight();
+  if (action === "synthesize-test") return runtimeApi.helperBridgeSynthesizeText("TranslateIT local voice test.");
   return runtimeApi.cancelHelperBridgeTask();
 }
 
@@ -18,6 +25,13 @@ function capturePreviewTask(action: string | undefined) {
 function setAssistantNotice(message: string): void {
   const assistant = document.querySelector<HTMLParagraphElement>("#assistantMessage");
   if (assistant) assistant.textContent = message;
+}
+
+function helperSummary(result: HelperTaskResult | null | undefined): string {
+  if (!result) return "Helper bridge command did not return a result.";
+  const task = "task" in result ? ` [${result.task}]` : "";
+  const state = result.ok ? "ok" : "blocked";
+  return `Helper${task} ${state}: ${result.message}`;
 }
 
 function previewSummary(result: Awaited<ReturnType<typeof runtimeApi.prepareCaptureStartRequest>>): string {
@@ -36,7 +50,7 @@ export function bindDeveloperHelperBridgeUi(): () => void {
       helperButton.disabled = true;
       void helperTask(action)
         .then((result) => {
-          setAssistantNotice(result?.message ?? "Helper bridge command did not return a result.");
+          setAssistantNotice(helperSummary(result));
         })
         .catch(() => {
           setAssistantNotice("Helper bridge command failed before returning a result.");
@@ -68,4 +82,3 @@ export function unbindDeveloperHelperBridgeUi(): void {
   clickHandler = null;
   bound = false;
 }
-
