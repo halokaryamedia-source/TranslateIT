@@ -12,6 +12,7 @@
   "app": {
     "windows": [
       {
+        "label": "main",
         "title": "TranslateIT",
         "width": 1600,
         "height": 940,
