@@ -1,7 +1,9 @@
 import { existsSync, readFileSync } from "node:fs";
-import { join, resolve } from "node:path";
+import { dirname, join, resolve } from "node:path";
+import { fileURLToPath } from "node:url";
 
-const appRoot = resolve(new URL("..", import.meta.url).pathname.replace(/^\/(.:\/)/, "$1"));
+const scriptDir = dirname(fileURLToPath(import.meta.url));
+const appRoot = resolve(scriptDir, "..");
 
 const fail = (message) => {
   console.error(`[frontend-build-preflight] ${message}`);
@@ -58,4 +60,4 @@ if (!audioStudioEntry.includes("bindAudioStudioUi")) {
   fail("src/audioStudioEntry.ts must bind Audio Studio UI.");
 }
 
-console.log("[frontend-build-preflight] Frontend build preflight passed. Full Vite build can be promoted next.");
+console.log("[frontend-build-preflight] Frontend build preflight passed.");
