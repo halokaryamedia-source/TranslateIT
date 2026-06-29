@@ -1,11 +1,11 @@
 import { runtimeApi } from "../bridge/runtimeApi";
-import type { CaptureHelperBridgeRequestPreview, CaptureHelperDispatchStatus, CaptureTranscriptBoundaryStatus, HelperBridgeActionResult, HelperBridgeWorkerResponse } from "../shared/types";
+import type { AsrHandoffRequestStatus, CaptureHelperBridgeRequestPreview, CaptureHelperDispatchStatus, CaptureTranscriptBoundaryStatus, HelperBridgeActionResult, HelperBridgeWorkerResponse } from "../shared/types";
 
 let bound = false;
 let clickHandler: ((event: MouseEvent) => void) | null = null;
 
 type HelperTaskResult = HelperBridgeActionResult | HelperBridgeWorkerResponse;
-type CaptureTaskResult = CaptureHelperBridgeRequestPreview | HelperBridgeActionResult | CaptureTranscriptBoundaryStatus | null;
+type CaptureTaskResult = CaptureHelperBridgeRequestPreview | HelperBridgeActionResult | CaptureTranscriptBoundaryStatus | AsrHandoffRequestStatus | null;
 type WorkerPayload = Record<string, unknown>;
 type CaptureDispatchGlobal = typeof globalThis & { __translateitCaptureHelperDispatchStatus?: CaptureHelperDispatchStatus; __translateitCaptureTranscriptBoundaryStatus?: CaptureTranscriptBoundaryStatus };
 
@@ -25,6 +25,8 @@ function capturePreviewTask(action: string | undefined): Promise<CaptureTaskResu
   if (action === "start-dispatch") return runtimeApi.dispatchCaptureStartRequest();
   if (action === "stop-dispatch") return runtimeApi.dispatchCaptureStopRequest();
   if (action === "boundary-status") return runtimeApi.getCaptureTranscriptBoundaryStatus();
+  if (action === "asr-prepare") return runtimeApi.prepareAsrHandoffRequest();
+  if (action === "asr-dispatch") return runtimeApi.dispatchAsrHandoffRequest();
   return runtimeApi.prepareCaptureStartRequest();
 }
 
@@ -105,8 +107,16 @@ function isCaptureTranscriptBoundary(result: CaptureTaskResult): result is Captu
   return Boolean(result && "transcript_handoff_ready" in result && "ready_for_target_asr_frame" in result);
 }
 
+function isAsrHandoff(result: CaptureTaskResult): result is AsrHandoffRequestStatus {
+  return Boolean(result && "request_prepared" in result && "boundary_ready" in result && "dispatch_ok" in result);
+}
+
 function previewSummary(result: CaptureTaskResult): string {
   if (!result) return "Capture helper bridge request did not return a result.";
+  if (isAsrHandoff(result)) {
+    const state = result.dispatch_attempted ? (result.dispatch_ok ? "dispatch accepted" : "dispatch blocked") : (result.request_prepared ? "request prepared" : "blocked before request");
+    return `ASR handoff ${state}: boundary=${result.boundary_ready}, frames=${result.frames_received}, buffer=${result.buffered_duration_ms}ms, next=${result.next_action}, blocker=${result.blocker || "none"}. This is ASR handoff stub evidence, not transcript proof.`;
+  }
   if (isCaptureTranscriptBoundary(result)) {
     const state = result.transcript_handoff_ready ? "ready for ASR handoff" : "blocked before ASR handoff";
     return `Capture transcript boundary ${state}: frames=${result.frames_received}, buffer=${result.buffered_duration_ms}ms, next=${result.next_action}, blocker=${result.blocker || "none"}. This is boundary evidence, not transcript/runtime proof.`;
