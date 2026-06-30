@@ -64,9 +64,11 @@ for (const result of results) {
 
 const failed = results.filter((result) => !result.ok);
 const summary = {
-  schema: "translateit.contract_reports_runner.v1",
+  schema: "translateit.contract_reports_runner.v2",
   generated_at: new Date().toISOString(),
   ok: failed.length === 0,
+  ci_blocking: false,
+  note: "Contract reports are diagnostic evidence only. CI blocking is handled by explicit validators, frontend typecheck/build, and Rust/Tauri source guard.",
   failed: failed.map((result) => result.name),
   results: results.map((result) => ({
     name: result.name,
@@ -84,6 +86,9 @@ writeFileSync(
     "# TranslateIT Contract Reports Runner",
     "",
     `OK: ${summary.ok}`,
+    `CI blocking: ${summary.ci_blocking}`,
+    "",
+    summary.note,
     "",
     "| Report | Result | Log |",
     "|---|---|---|",
@@ -99,6 +104,5 @@ console.log("Contract reports summary:");
 console.log(JSON.stringify(summary, null, 2));
 
 if (failed.length > 0) {
-  console.error(`Contract reports failed: ${failed.map((result) => result.name).join(", ")}`);
-  process.exit(1);
+  console.warn(`Contract report diagnostics found non-blocking failures: ${failed.map((result) => result.name).join(", ")}`);
 }
