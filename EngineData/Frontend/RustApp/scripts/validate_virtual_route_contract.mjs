@@ -43,6 +43,9 @@ expectIncludes(audioRuntime, "prepare_guarded_virtual_audio_route_runtime", "aud
 expectIncludes(audioRuntime, "latest_virtual_audio_route_runtime_handoff.json", "audio route runtime evidence");
 expectIncludes(audioRuntime, "virtual_audio_route:runtime_provider_not_implemented", "guarded provider not implemented blocker");
 expectIncludes(audioRuntime, "virtual_audio_route_runtime_handoff_source_side_not_audio_runtime_proof", "audio route runtime handoff claim");
+expectIncludes(audioRuntime, "\"source_audio_path\": &status.source_audio_path", "audio route source audio borrow guard");
+expectIncludes(audioRuntime, "\"selected_output_device\": &status.selected_output_device", "audio route selected output borrow guard");
+expectIncludes(audioRuntime, "\"selected_input_device\": &status.selected_input_device", "audio route selected input borrow guard");
 
 const professionalGate = readText("EngineData/Frontend/RustApp/src-tauri/src/commands/professional_readiness_gate.rs");
 expectIncludes(professionalGate, "pub struct ProfessionalRuntimeReadinessGateStatus", "professional gate contract");
@@ -98,6 +101,12 @@ expectIncludes(routeSelectionRenderer, "data-virtual-route-field", "route select
 expectIncludes(routeSelectionRenderer, "data-virtual-route-action", "route selection renderer actions");
 expectIncludes(routeSelectionRenderer, "Save Route Devices", "route selection renderer save button");
 expectIncludes(routeSelectionRenderer, "Refresh Devices", "route selection renderer refresh button");
+
+const routeSelectionMount = readText("EngineData/Frontend/RustApp/src/app/active-launcher/virtualRouteSelectionSurfaceMount.ts");
+expectIncludes(routeSelectionMount, "mountVirtualRouteSelectionSurface", "route selection auto mount function");
+expectIncludes(routeSelectionMount, "data-virtual-route-selection-host", "route selection host marker");
+expectIncludes(routeSelectionMount, "bindVirtualRouteSelectionSurface", "route selection mount uses renderer");
+expectIncludes(routeSelectionMount, "unmountVirtualRouteSelectionSurface", "route selection unmount function");
 
 const helperBinding = readText("EngineData/Frontend/RustApp/src/app/active-launcher/developerHelperBridgeBinding.ts");
 expectIncludes(helperBinding, "virtualRouteApi", "developer diagnostics route bridge import");
