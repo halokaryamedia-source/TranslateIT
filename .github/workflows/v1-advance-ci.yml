@@ -96,10 +96,20 @@ jobs:
         run: npm ci --silent --no-audit --no-fund
 
       - name: Typecheck frontend
-        run: ./node_modules/.bin/tsc --noEmit --pretty false
+        run: ./node_modules/.bin/tsc --noEmit --pretty false > typecheck.log 2>&1
 
       - name: Build frontend bundle
-        run: ./node_modules/.bin/vite build --logLevel warn
+        run: ./node_modules/.bin/vite build --logLevel warn > vite-build.log 2>&1
+
+      - name: Upload frontend diagnostics
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: v1-advance-frontend-diagnostics
+          path: |
+            EngineData/Frontend/RustApp/typecheck.log
+            EngineData/Frontend/RustApp/vite-build.log
+          if-no-files-found: ignore
 
   rust-tauri-compile-guard:
     name: Rust/Tauri compile guard
@@ -130,4 +140,12 @@ jobs:
         uses: dtolnay/rust-toolchain@stable
 
       - name: Cargo check Tauri shell
-        run: cargo check -q --locked --manifest-path src-tauri/Cargo.toml
+        run: cargo check -q --locked --manifest-path src-tauri/Cargo.toml > cargo-check.log 2>&1
+
+      - name: Upload Rust diagnostics
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: v1-advance-rust-diagnostics
+          path: EngineData/Frontend/RustApp/cargo-check.log
+          if-no-files-found: ignore
