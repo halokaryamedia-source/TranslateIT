@@ -17,6 +17,8 @@ File:
 - `EngineData/Frontend/RustApp/src-tauri/src/commands/asr_payload_boundary.rs`
 - `EngineData/Frontend/RustApp/src-tauri/src/commands/mod.rs`
 - `EngineData/Frontend/RustApp/src-tauri/src/commands/registry.rs`
+- `EngineData/Frontend/RustApp/src-tauri/src/commands/helper_bridge.rs`
+- `EngineData/Frontend/RustApp/src-tauri/src/commands/helper_bridge_runtime.rs`
 
 Command baru:
 
@@ -32,7 +34,8 @@ Perilaku:
 - `dispatch_asr_decode_request` mencoba menulis latest target ASR segment lewat `live_segment_writer::write_latest_live_target_segment_wav()`.
 - Payload worker menggunakan cached PCM16 WAV path: `UserData/CacheData/audio_segments/latest_live_target_segment.wav`.
 - Status terakhir disimpan di in-memory cache app session, sehingga Developer Diagnostics bisa membaca ulang hasil terakhir tanpa memicu dispatch baru.
-- Payload menyertakan metadata:
+- Dispatch ASR Decode sekarang memakai helper worker response path, sehingga status dapat menyimpan `worker_response_json` dari Python worker, bukan hanya action result ringkas.
+- Payload/status menyertakan metadata:
   - `sample_rate_hz`
   - `channels`
   - `pcm_format`
@@ -40,13 +43,14 @@ Perilaku:
   - `duration_ms`
   - `audio_path`
   - `audio_base64_present`
+  - `worker_response_json`
   - `runtime_claim`
 
 Runtime claim yang dipertahankan:
 
 - `asr_audio_payload_boundary_source_side_not_transcript_proof`
 - `asr_decode_audio_file_payload_ready_no_transcript_runtime_claim`
-- `asr_decode_worker_dispatch_returned_no_windows_runtime_proof`
+- `asr_decode_worker_response_captured_no_windows_runtime_proof`
 
 ### 2. Python worker guarded `asr_decode` command
 
@@ -87,7 +91,7 @@ Catatan implementasi:
 
 - ASR Payload command sekarang lewat adapter kecil `asrPayloadApi.ts`, memakai shared `runCommand()` agar error bridge tercatat konsisten dengan command Tauri lain.
 - Binding UI tidak lagi menyimpan fallback/type ASR Payload lokal yang duplikatif.
-- Summary UI menampilkan boundary, audio readiness, WAV path, format, sample count, durasi, next action, blocker, dan batasan bahwa ini belum transcript/Windows runtime proof.
+- Summary UI menampilkan boundary, audio readiness, WAV path, format, sample count, durasi, next action, blocker, dan detail worker response seperti `asr:model_not_ready`, `resolved_audio_path`, atau `asr:decoder_runtime_not_enabled_in_wrapper` jika tersedia.
 - Ini masih diagnostic evidence, bukan user-facing runtime readiness.
 
 ## Batasan yang masih berlaku
@@ -119,11 +123,12 @@ Jika compile aman, flow manual berikutnya:
 5. Latest ASR Payload, untuk memastikan state awal terbaca.
 6. Prepare ASR Payload.
 7. Dispatch ASR Decode.
-8. Latest ASR Payload lagi, untuk memastikan cached evidence terakhir berubah sesuai hasil dispatch.
+8. Latest ASR Payload lagi, untuk memastikan cached evidence terakhir berubah sesuai hasil dispatch dan memuat `worker_response_json`.
 
 Ekspektasi saat ini bukan transcript, tetapi blocker/evidence yang lebih spesifik:
 
 - Belum pernah prepare/dispatch → `asr_audio_payload:no_cached_status`.
+- Helper belum start → `helper_bridge:not_running`.
 - Boundary belum siap → capture/audio buffer blocker.
 - WAV belum bisa ditulis → live segment writer blocker.
 - Model belum siap → `asr:model_not_ready`.
