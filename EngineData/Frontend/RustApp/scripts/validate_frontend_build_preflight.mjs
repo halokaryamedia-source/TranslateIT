@@ -17,6 +17,8 @@ const requiredFiles = [
   "src/main.ts",
   "src/audioStudioEntry.ts",
   "src/styles.css",
+  "src/app/simple-launcher/SimpleLauncherController.ts",
+  "src/app/bridge/runtimeProductFacade.ts",
 ];
 
 for (const relativePath of requiredFiles) {
@@ -48,11 +50,14 @@ for (const marker of ["/src/main.ts", "/src/audioStudioEntry.ts", "id=\"app\""])
 }
 
 const mainTs = readFileSync(join(appRoot, "src", "main.ts"), "utf8");
-if (!mainTs.includes("LauncherController")) {
-  fail("src/main.ts must wire LauncherController.");
+if (!mainTs.includes("SimpleLauncherController")) {
+  fail("src/main.ts must wire SimpleLauncherController.");
 }
 if (!mainTs.includes("#app")) {
   fail("src/main.ts must bind to #app root.");
+}
+for (const forbidden of ["new LauncherController", "bindDirectVoiceCaptureUi", "mountVirtualRouteSelectionSurface"]) {
+  if (mainTs.includes(forbidden)) fail(`src/main.ts must not re-enable complex legacy UI binding: ${forbidden}`);
 }
 
 const audioStudioEntry = readFileSync(join(appRoot, "src", "audioStudioEntry.ts"), "utf8");
@@ -60,4 +65,4 @@ if (!audioStudioEntry.includes("bindAudioStudioUi")) {
   fail("src/audioStudioEntry.ts must bind Audio Studio UI.");
 }
 
-console.log("[frontend-build-preflight] Frontend build preflight passed.");
+console.log("[frontend-build-preflight] Frontend build preflight passed for the simple launcher entry.");
