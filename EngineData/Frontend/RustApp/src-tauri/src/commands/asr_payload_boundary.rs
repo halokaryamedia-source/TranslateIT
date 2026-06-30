@@ -2,8 +2,8 @@ use serde::Serialize;
 use serde_json::{json, Value};
 use std::sync::{Mutex, OnceLock};
 
-use super::helper_bridge::{get_helper_bridge_status, send_helper_bridge_request};
-use super::helper_bridge_runtime::{unix_ms, HelperBridgeActionResult, HelperBridgeRequest};
+use super::helper_bridge::{get_helper_bridge_status, send_helper_worker_task, HelperBridgeWorkerResponse};
+use super::helper_bridge_runtime::unix_ms;
 use super::runtime_capture::get_capture_transcript_boundary_status;
 
 static LAST_ASR_AUDIO_PAYLOAD_STATUS: OnceLock<Mutex<Option<AsrAudioPayloadRequestStatus>>> = OnceLock::new();
@@ -34,6 +34,7 @@ pub struct AsrAudioPayloadRequestStatus {
     pub runtime_claim: String,
     pub payload_json: String,
     pub evidence_json: String,
+    pub worker_response_json: String,
     pub updated_unix_ms: u128,
 }
 
@@ -77,6 +78,7 @@ fn no_cached_asr_payload_status() -> AsrAudioPayloadRequestStatus {
             "cached": false,
             "runtime_claim": "asr_audio_payload_no_cached_runtime_claim"
         }).to_string(),
+        worker_response_json: "{}".to_string(),
         updated_unix_ms: unix_ms(),
     }
 }
@@ -114,6 +116,19 @@ fn asr_payload_json(
             "asr_decode_payload_schema_no_audio_runtime_claim"
         }
     })
+}
+
+fn value_text(value: &Value, key: &str) -> Option<String> {
+    value
+        .get(key)
+        .and_then(Value::as_str)
+        .map(str::trim)
+        .filter(|text| !text.is_empty())
+        .map(str::to_string)
+}
+
+fn parse_json_or_raw(raw: &str) -> Value {
+    serde_json::from_str::<Value>(raw).unwrap_or_else(|_| json!({ "raw": raw }))
 }
 
 fn build_asr_audio_payload_status(write_audio: bool) -> AsrAudioPayloadRequestStatus {
@@ -251,31 +266,45 @@ fn build_asr_audio_payload_status(write_audio: bool) -> AsrAudioPayloadRequestSt
         runtime_claim: "asr_audio_payload_boundary_source_side_not_transcript_proof".to_string(),
         payload_json: payload.to_string(),
         evidence_json: evidence.to_string(),
+        worker_response_json: "{}".to_string(),
         updated_unix_ms: unix_ms(),
     }
 }
 
-fn apply_asr_decode_dispatch(status: &mut AsrAudioPayloadRequestStatus, dispatch: HelperBridgeActionResult) {
+fn apply_asr_decode_worker_response(status: &mut AsrAudioPayloadRequestStatus, response: HelperBridgeWorkerResponse) {
+    let worker_response = parse_json_or_raw(&response.worker_response_json);
+    let payload_evidence = parse_json_or_raw(&status.evidence_json);
+    let worker_blocker = value_text(&worker_response, "blocker");
+    let worker_note = value_text(&worker_response, "note");
     status.dispatch_attempted = true;
-    status.dispatch_ok = dispatch.ok;
-    status.ok = dispatch.ok;
-    status.state = if dispatch.ok { "worker_accepted" } else { "worker_blocked" }.to_string();
+    status.dispatch_ok = response.ok;
+    status.ok = response.ok;
+    status.state = if response.ok { "worker_accepted" } else { "worker_blocked" }.to_string();
     status.message = format!(
-        "ASR decode worker dispatch returned: {} This is ASR worker handoff evidence, not Windows runtime proof.",
-        dispatch.message
+        "ASR decode worker response returned: {} This is worker response evidence, not transcript or Windows runtime proof.",
+        worker_note.clone().unwrap_or(response.message)
     );
-    status.blocker = if dispatch.ok {
+    status.blocker = if response.ok {
         String::new()
     } else {
-        "asr_decode:worker_blocked".to_string()
+        worker_blocker.unwrap_or_else(|| "asr_decode:worker_blocked".to_string())
     };
-    status.next_action = if dispatch.ok {
+    status.next_action = if response.ok {
         "inspect_worker_asr_decode_response".to_string()
     } else {
         "inspect_worker_asr_decode_blocker".to_string()
     };
-    status.generation_token = dispatch.generation_token;
-    status.runtime_claim = "asr_decode_worker_dispatch_returned_no_windows_runtime_proof".to_string();
+    status.generation_token = response.generation_token;
+    status.runtime_claim = "asr_decode_worker_response_captured_no_windows_runtime_proof".to_string();
+    status.worker_response_json = response.worker_response_json;
+    status.evidence_json = json!({
+        "schema": "translateit.asr_audio_payload_boundary.v1",
+        "cached": true,
+        "payload_evidence": payload_evidence,
+        "worker_response": worker_response,
+        "worker_response_captured": true,
+        "runtime_claim": "asr_decode_worker_response_captured_no_windows_runtime_proof"
+    }).to_string();
     status.updated_unix_ms = unix_ms();
 }
 
@@ -302,12 +331,9 @@ pub fn dispatch_asr_decode_request() -> AsrAudioPayloadRequestStatus {
         store_asr_payload_status(&status);
         return status;
     }
-    let request = HelperBridgeRequest {
-        task: "asr_decode".to_string(),
-        payload_json: Some(status.payload_json.clone()),
-    };
-    let dispatch = send_helper_bridge_request(request);
-    apply_asr_decode_dispatch(&mut status, dispatch);
+    let payload = parse_json_or_raw(&status.payload_json);
+    let response = send_helper_worker_task("asr_decode", payload);
+    apply_asr_decode_worker_response(&mut status, response);
     store_asr_payload_status(&status);
     status
 }
