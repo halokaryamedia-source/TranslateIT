@@ -54,7 +54,7 @@ function summary(status: VirtualAudioRouteRuntimeStatus): string {
 export function bindVirtualAudioRouteProviderUi(): () => void {
   return bindDiagnosticButton({
     selector: '[data-virtual-audio-provider-action="dry-run"]',
-    dataKey: "virtualAudioProviderAction",
+    dataAttribute: "data-virtual-audio-provider-action",
     dataValue: "dry-run",
     label: "Provider Dry Run",
     command: () => virtualAudioRouteRuntimeApi.dispatchProviderFromLatestPipeline(false, true),
