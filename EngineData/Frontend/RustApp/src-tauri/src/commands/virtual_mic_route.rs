@@ -48,6 +48,23 @@ pub struct VirtualMicRouteContractStatus {
     pub updated_unix_ms: u128,
 }
 
+#[derive(Debug, Clone, Serialize)]
+pub struct VirtualMicOutputRouteRuntimeStubStatus {
+    pub ok: bool,
+    pub route_stub_ready: bool,
+    pub source_audio_path: Option<String>,
+    pub selected_output_device: Option<String>,
+    pub selected_input_device: Option<String>,
+    pub route_ready: bool,
+    pub source_audio_ready: bool,
+    pub blocker: String,
+    pub next_action: String,
+    pub runtime_claim: String,
+    pub route_output_contract_json: String,
+    pub evidence_path: Option<String>,
+    pub updated_unix_ms: u128,
+}
+
 static VIRTUAL_MIC_ROUTE_PREFERENCE: OnceLock<Mutex<VirtualMicRoutePreference>> = OnceLock::new();
 
 fn preference_runtime() -> &'static Mutex<VirtualMicRoutePreference> {
@@ -68,6 +85,13 @@ fn route_evidence_path() -> PathBuf {
     PathBuf::from(project_paths.user_log_dir)
         .join("RustAppValidation")
         .join("latest_virtual_mic_route_evidence.json")
+}
+
+fn route_runtime_stub_evidence_path() -> PathBuf {
+    let project_paths = ProjectPaths::discover();
+    PathBuf::from(project_paths.user_log_dir)
+        .join("RustAppValidation")
+        .join("latest_virtual_mic_output_route_stub.json")
 }
 
 fn load_preference_from_disk() -> VirtualMicRoutePreference {
@@ -93,6 +117,12 @@ fn save_preference_to_disk(preference: &VirtualMicRoutePreference) -> (bool, Opt
 fn clean_device_name(value: Option<String>) -> Option<String> {
     value
         .map(|text| text.trim().chars().take(180).collect::<String>())
+        .filter(|text| !text.is_empty())
+}
+
+fn clean_audio_path(value: Option<String>) -> Option<String> {
+    value
+        .map(|text| text.trim().chars().take(520).collect::<String>())
         .filter(|text| !text.is_empty())
 }
 
@@ -167,6 +197,27 @@ fn route_output_contract_json(
     .unwrap_or_else(|_| "{}".to_string())
 }
 
+fn route_runtime_stub_contract_json(
+    source_audio_path: &Option<String>,
+    route: &VirtualMicRouteContractStatus,
+    route_stub_ready: bool,
+    blocker: &str,
+) -> String {
+    serde_json::to_string_pretty(&json!({
+        "schema": "translateit.virtual_route.runtime_stub_contract.v1",
+        "source_audio_path": source_audio_path,
+        "selected_output_device": route.selected_output_device,
+        "selected_input_device": route.selected_input_device,
+        "route_ready": route.route_ready,
+        "route_stub_ready": route_stub_ready,
+        "guarded_runtime_execution": false,
+        "blocker": blocker,
+        "next_runtime_step": if route_stub_ready { "implement_guarded_audio_route_runtime_after_local_compile" } else { "resolve_stub_blocker_before_runtime_route" },
+        "runtime_claim": "virtual_mic_output_route_runtime_stub_source_side_no_audio_execution"
+    }))
+    .unwrap_or_else(|_| "{}".to_string())
+}
+
 fn write_route_evidence(status: &VirtualMicRouteContractStatus) -> Option<String> {
     let evidence_path = route_evidence_path();
     let parent = evidence_path.parent()?;
@@ -182,8 +233,30 @@ fn write_route_evidence(status: &VirtualMicRouteContractStatus) -> Option<String
     Some(normalized_path_label(&evidence_path))
 }
 
+fn write_route_runtime_stub_evidence(status: &VirtualMicOutputRouteRuntimeStubStatus) -> Option<String> {
+    let evidence_path = route_runtime_stub_evidence_path();
+    let parent = evidence_path.parent()?;
+    let _ = fs::create_dir_all(parent);
+    let evidence_payload = json!({
+        "schema": "translateit.virtual_route.runtime_stub_evidence.v1",
+        "status": status,
+        "runtime_claim": "virtual_route_runtime_stub_evidence_source_side_no_audio_execution",
+        "written_unix_ms": unix_ms()
+    });
+    let body = serde_json::to_string_pretty(&evidence_payload).ok()?;
+    fs::write(&evidence_path, body).ok()?;
+    Some(normalized_path_label(&evidence_path))
+}
+
 fn with_route_evidence(mut status: VirtualMicRouteContractStatus) -> VirtualMicRouteContractStatus {
     status.evidence_path = write_route_evidence(&status);
+    status
+}
+
+fn with_runtime_stub_evidence(
+    mut status: VirtualMicOutputRouteRuntimeStubStatus,
+) -> VirtualMicOutputRouteRuntimeStubStatus {
+    status.evidence_path = write_route_runtime_stub_evidence(&status);
     status
 }
 
@@ -214,7 +287,7 @@ fn build_status(
         "virtual_mic:route_not_ready".to_string()
     };
     let next_action = if route_ready {
-        "connect_tts_output_audio_to_selected_virtual_output_device".to_string()
+        "prepare_virtual_mic_output_route_runtime_stub".to_string()
     } else if blocker.contains("selected") {
         "choose_existing_virtual_mic_route_device".to_string()
     } else {
@@ -249,6 +322,53 @@ fn build_status(
     })
 }
 
+fn build_runtime_stub_status(source_audio_path: Option<String>) -> VirtualMicOutputRouteRuntimeStubStatus {
+    let route = get_virtual_mic_route_selection();
+    let source_audio_path = clean_audio_path(source_audio_path);
+    let source_audio_ready = source_audio_path.is_some();
+    let route_stub_ready = source_audio_ready && route.route_ready;
+    let blocker = if route_stub_ready {
+        String::new()
+    } else if !source_audio_ready {
+        "virtual_route:missing_source_audio_path".to_string()
+    } else if !route.route_ready {
+        route.blocker.clone()
+    } else {
+        "virtual_route:stub_not_ready".to_string()
+    };
+    let next_action = if route_stub_ready {
+        "local_compile_then_guarded_audio_route_runtime".to_string()
+    } else if !source_audio_ready {
+        "provide_tts_audio_output_path_from_tts_handoff".to_string()
+    } else if !route.route_ready {
+        route.next_action.clone()
+    } else {
+        "inspect_virtual_route_evidence".to_string()
+    };
+    let route_output_contract_json = route_runtime_stub_contract_json(
+        &source_audio_path,
+        &route,
+        route_stub_ready,
+        &blocker,
+    );
+
+    with_runtime_stub_evidence(VirtualMicOutputRouteRuntimeStubStatus {
+        ok: route_stub_ready,
+        route_stub_ready,
+        source_audio_path,
+        selected_output_device: route.selected_output_device,
+        selected_input_device: route.selected_input_device,
+        route_ready: route.route_ready,
+        source_audio_ready,
+        blocker,
+        next_action,
+        runtime_claim: "virtual_mic_output_route_runtime_stub_source_side_no_audio_execution".to_string(),
+        route_output_contract_json,
+        evidence_path: None,
+        updated_unix_ms: unix_ms(),
+    })
+}
+
 pub fn get_virtual_mic_route_selection() -> VirtualMicRouteContractStatus {
     let path = preference_path();
     build_status(
@@ -261,6 +381,13 @@ pub fn get_virtual_mic_route_selection() -> VirtualMicRouteContractStatus {
 #[tauri::command]
 pub fn get_virtual_mic_route_contract_status() -> VirtualMicRouteContractStatus {
     get_virtual_mic_route_selection()
+}
+
+#[tauri::command]
+pub fn prepare_virtual_mic_output_route_runtime_stub(
+    source_audio_path: Option<String>,
+) -> VirtualMicOutputRouteRuntimeStubStatus {
+    build_runtime_stub_status(source_audio_path)
 }
 
 #[tauri::command]
