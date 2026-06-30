@@ -6,7 +6,7 @@ Status: source-side / worker-contract evidence only, bukan Windows runtime proof
 
 ## Progress development
 
-Progress source-side saat ini: sekitar **92%**.
+Progress source-side saat ini: sekitar **93%**.
 
 Rinciannya:
 
@@ -21,11 +21,13 @@ Rinciannya:
 - Pipeline evidence file: tersedia.
 - Virtual route contract: tersedia dengan scan device candidates.
 - Preferred virtual route config dipersist ke `UserData/CacheData/virtual_mic_route_preference.json`.
-- `prepare_virtual_mic_output_from_latest_tts` sekarang membaca selected/preferred route dari persistent config.
-- Pipeline payload sekarang menyertakan `virtual_mic_route_claim` dan `virtual_mic_route_preference_path`.
+- `prepare_virtual_mic_output_from_latest_tts` membaca selected/preferred route dari persistent config.
+- Pipeline payload menyertakan `virtual_mic_route_claim` dan `virtual_mic_route_preference_path`.
+- Dedicated route evidence file tersedia di `UserData/LogData/RustAppValidation/latest_virtual_mic_route_evidence.json`.
+- Route output contract summary tersedia melalui `route_output_contract_json`.
 - Final runtime gate: tersedia sebagai source-side readiness gate.
 - Runtime status bundle membaca final runtime gate.
-- Yang belum selesai: real runtime output routing, local compile proof, Windows runtime proof, dan end-to-end proof.
+- Yang belum selesai: runtime output route implementation, local compile proof, Windows runtime proof, dan end-to-end proof.
 
 ## Command dan flow yang tersedia
 
@@ -57,8 +59,9 @@ Perilaku utama:
 - Route contract melakukan source-side device scan.
 - Preferred route command menyimpan selected output/input device ke `UserData/CacheData/virtual_mic_route_preference.json`.
 - Pipeline preparation memakai selected/preferred route selection jika tersedia, lalu fallback ke auto-detect dari route contract.
-- Route status menampilkan `preference_persisted` dan `preference_path`.
+- Route status menampilkan `preference_persisted`, `preference_path`, `evidence_path`, dan `route_output_contract_json`.
 - Pipeline snapshot menampilkan `virtual_mic_route_claim` dan `virtual_mic_route_preference_path`.
+- Dedicated route evidence ditulis ke `UserData/LogData/RustAppValidation/latest_virtual_mic_route_evidence.json`.
 - Blocker yang dapat muncul:
   - `virtual_mic:missing_tts_output`
   - `virtual_mic:output_device_missing`
@@ -70,6 +73,8 @@ Perilaku utama:
 Runtime claim:
 
 - `virtual_mic_route_device_selection_source_side_not_audio_routing_proof`
+- `virtual_route_output_contract_source_side_not_audio_runtime_proof`
+- `virtual_route_evidence_source_side_not_audio_runtime_proof`
 - `live_meeting_runtime_gate_source_side_not_windows_runtime_proof`
 
 ## Developer Diagnostics UI
@@ -94,6 +99,8 @@ Summary UI sekarang menampilkan:
 - selected output/input device
 - `virtual_mic_route_claim`
 - `virtual_mic_route_preference_path`
+- route evidence path
+- route output contract presence
 - `evidence_path`
 
 ## Persistent evidence
@@ -102,6 +109,12 @@ Pipeline snapshot menulis evidence ke:
 
 ```text
 UserData/LogData/RustAppValidation/latest_live_pipeline_evidence.json
+```
+
+Route status menulis evidence ke:
+
+```text
+UserData/LogData/RustAppValidation/latest_virtual_mic_route_evidence.json
 ```
 
 Evidence ini tetap source-side evidence dan tidak boleh dibaca sebagai Windows runtime proof.
@@ -152,11 +165,12 @@ Flow validasi manual nanti:
 11. Prepare Virtual Mic.
 12. Final Runtime Gate.
 13. Inspect `latest_live_pipeline_evidence.json`.
+14. Inspect `latest_virtual_mic_route_evidence.json`.
 
 ## Yang harus dilakukan selanjutnya
 
 Development non-local berikutnya:
 
-1. Tambahkan dedicated route evidence JSON agar route evidence tidak hanya berada di pipeline snapshot.
-2. Tambahkan route output contract summary yang menjelaskan mapping dari `tts_audio_output_path` ke selected route target secara source-side.
+1. Tambahkan runtime output route implementation stub yang tetap guarded dan source-side safe.
+2. Tambahkan final owner-validation checklist untuk membedakan source readiness, local compile proof, Windows runtime proof, dan end-to-end proof.
 3. Setelah itu baru masuk local compile + Windows runtime validation.
