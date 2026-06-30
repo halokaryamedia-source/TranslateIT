@@ -6,14 +6,14 @@ Status: source-side / worker-contract evidence only, bukan Windows runtime proof
 
 ## Progress development yang dikalibrasi ulang
 
-Progress gabungan realistis saat ini: sekitar **70%**.
+Progress gabungan realistis saat ini: sekitar **72%**.
 
 Catatan kalibrasi:
 
 - Angka 90%+ sebelumnya lebih cocok untuk **source-side scaffold progress**, bukan total readiness.
 - Setelah dikalibrasi dengan compile/runtime proof yang belum ada, progress total tetap konservatif.
-- Progress naik dari 68% ke 70% karena CI workflow, route runtime stub, CI/dev notes, dan static compile-risk fix sudah ditambahkan.
-- Yang sudah kuat: source wiring, payload contract, evidence, blocker, diagnostic commands, owner checklist, dan CI guard setup.
+- Progress naik dari 70% ke 72% karena route bridge diprofesionalkan, route stub sekarang membaca latest pipeline TTS output path, dan virtual route contract validation masuk ke `validate:quick`.
+- Yang sudah kuat: source wiring, payload contract, evidence, blocker, diagnostic commands, owner checklist, CI guard setup, typed virtual route bridge, dan route contract validator.
 - Yang belum terbukti: CI run result, local compile, Windows runtime, ASR runtime, translation runtime, TTS runtime, output route runtime, latency, dan end-to-end meeting proof.
 
 ## Rincian status
@@ -35,12 +35,14 @@ Catatan kalibrasi:
 - Route output contract summary tersedia melalui `route_output_contract_json`.
 - Guarded route runtime stub tersedia melalui `prepare_virtual_mic_output_route_runtime_stub`.
 - Route runtime stub evidence file tersedia di `UserData/LogData/RustAppValidation/latest_virtual_mic_output_route_stub.json`.
+- `virtualRouteApi` tersedia sebagai typed frontend bridge khusus virtual route.
+- Developer Diagnostics `Route Runtime Stub` sekarang membaca `tts_audio_output_path` dari latest pipeline snapshot sebelum memanggil route stub.
+- `validate:virtual-route` tersedia dan sudah masuk ke `validate:quick`.
 - Final runtime gate: tersedia sebagai source-side readiness gate.
 - Runtime status bundle membaca final runtime gate.
 - Owner validation checklist tersedia di `DevelopingData/Documentation/Reports/Engineering/V1_ADVANCE_OWNER_VALIDATION_CHECKLIST.md`.
 - CI workflow tersedia di `.github/workflows/v1-advance-ci.yml`.
 - CI/non-local development notes tersedia di `DevelopingData/Documentation/Reports/Engineering/V1_ADVANCE_CI_AND_NON_LOCAL_DEV_NOTES.md`.
-- Static compile-risk fix dilakukan untuk route runtime stub JSON agar tidak memindahkan borrowed route fields.
 
 ## CI guard
 
@@ -104,6 +106,7 @@ Perilaku utama:
 - Pipeline preparation memakai selected/preferred route selection jika tersedia, lalu fallback ke auto-detect dari route contract.
 - Route status menampilkan `preference_persisted`, `preference_path`, `evidence_path`, dan `route_output_contract_json`.
 - Route runtime stub menerima optional `source_audio_path`; jika kosong, blocker menjadi `virtual_route:missing_source_audio_path`.
+- Developer route bridge mengambil source audio dari latest pipeline `tts_audio_output_path` agar diagnostics tidak mengirim hardcoded null.
 - Route runtime stub tidak menjalankan audio output; statusnya tetap source-side contract.
 - Pipeline snapshot menampilkan `virtual_mic_route_claim` dan `virtual_mic_route_preference_path`.
 - Dedicated route evidence ditulis ke `UserData/LogData/RustAppValidation/latest_virtual_mic_route_evidence.json`.
@@ -234,7 +237,8 @@ Flow validasi manual nanti:
 
 Development non-local berikutnya:
 
-1. Monitor/inspect CI result setelah workflow berjalan di GitHub.
-2. Jika CI gagal, perbaiki source/CI berdasarkan error log.
-3. Lanjut source-side cleanup untuk file besar yang berubah.
-4. Setelah user mengizinkan, baru masuk local compile + Windows runtime validation.
+1. Add professional final gate extension so it exposes route stub readiness, source audio path, and route stub evidence path directly.
+2. Add user-facing route/device selection surface beyond Developer Diagnostics.
+3. Monitor/inspect CI result setelah workflow berjalan di GitHub.
+4. Jika CI gagal, perbaiki source/CI berdasarkan error log.
+5. Setelah user mengizinkan, baru masuk local compile + Windows runtime validation.
