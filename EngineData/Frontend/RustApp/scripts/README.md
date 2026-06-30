@@ -22,7 +22,7 @@ These scripts are part of the current V1 Advance CI gate through `package.json` 
 
 ## Active npm profiles
 
-`package.json` is intentionally small after cleanup. Only these user-facing profiles should be added to workflows or docs:
+`package.json` is intentionally small after cleanup. Only these profiles should be added to workflows or docs:
 
 - `npm run validate:quick`
 - `npm run validate:source-contracts`
@@ -32,6 +32,7 @@ These scripts are part of the current V1 Advance CI gate through `package.json` 
 - `npm run preflight:tauri-package`
 - `npm run test:contract-reports`
 - `npm run check:tauri-rust-local` for local/manual proof only.
+- `npm run build:frontend` for local frontend bundle checks.
 
 `validate_script_profiles.mjs` enforces this small npm script surface so old placeholder aliases do not come back.
 
