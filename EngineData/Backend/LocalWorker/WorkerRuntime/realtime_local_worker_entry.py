@@ -45,6 +45,12 @@ def helper_translation_runtime_enabled(payload: dict[str, Any]) -> bool:
     return env_enabled("TRANSLATEIT_ENABLE_HELPER_TRANSLATION")
 
 
+def helper_tts_runtime_enabled(payload: dict[str, Any]) -> bool:
+    if truthy_field(payload, "enable_tts_runtime") or truthy_field(payload, "tts_runtime_enabled"):
+        return True
+    return env_enabled("TRANSLATEIT_ENABLE_HELPER_TTS")
+
+
 def handle_capture_migration_stub(payload: dict[str, Any]) -> dict[str, Any]:
     command = str(payload.get("command", "capture")).strip() or "capture"
     return {
@@ -352,6 +358,94 @@ def handle_translation_handoff(payload: dict[str, Any], transcript_text: str, tr
     return normalize_translation_result(result, payload, transcript_text, payload_source)
 
 
+def tts_disabled_contract(payload: dict[str, Any], tts_text: str, payload_source: str) -> dict[str, Any]:
+    return {
+        "ok": True,
+        "stage": "tts_handoff",
+        "command_received": True,
+        "tts_runtime_enabled": False,
+        "tts_text_available": bool(tts_text),
+        "payload_source": payload_source,
+        "contract_payload": {
+            "tts_text": tts_text,
+            "audio_output_ready": False,
+        },
+        "generation_token": payload.get("generation_token", 0),
+        **deadline_fields(payload),
+        "runtime_claim": "tts_handoff_dev_payload_contract_no_audio_runtime_claim",
+        "blocker": "",
+        "note": "TTS handoff dev payload contract accepted. TTS runtime is guarded and was not executed.",
+        "next_actions": [
+            "Enable TRANSLATEIT_ENABLE_HELPER_TTS=1 only during local validation.",
+            "After guarded TTS returns output_path, inspect audio output and then prepare virtual mic routing.",
+            "Do not claim TTS runtime proof until the worker returns an output WAV on the target machine.",
+        ],
+    }
+
+
+def normalize_tts_result(result: dict[str, Any], payload: dict[str, Any], tts_text: str, payload_source: str) -> dict[str, Any]:
+    output_path = text_field(result, "output_path")
+    ok = bool(result.get("ok")) and bool(output_path)
+    blocker = "" if ok else text_field(result, "blocker") or "tts:missing_output_audio"
+    return {
+        **result,
+        "ok": ok,
+        "stage": "tts_handoff",
+        "command_received": True,
+        "tts_runtime_enabled": True,
+        "tts_text_available": bool(tts_text),
+        "audio_output_ready": ok,
+        "payload_source": payload_source,
+        "contract_payload": {
+            "tts_text": tts_text,
+            "audio_output_ready": ok,
+            "output_path": output_path,
+        },
+        "generation_token": payload.get("generation_token", 0),
+        **deadline_fields(payload),
+        "runtime_claim": "tts_handoff_worker_runtime_synthesize_returned_needs_windows_validation",
+        "blocker": blocker,
+        "note": result.get("note") or ("TTS runtime returned output audio. Treat as runtime evidence only after local Windows validation." if ok else "TTS runtime ran but did not return usable output audio."),
+        "next_actions": [
+            "Inspect output_path audio quality and latency on the Windows target machine.",
+            "Only route audio to virtual mic if ok=true and audio_output_ready=true during local validation.",
+            "After validation, connect output WAV to virtual mic output preparation.",
+        ],
+    }
+
+
+def handle_tts_handoff(payload: dict[str, Any], candidate_tts_text: str, payload_source: str) -> dict[str, Any]:
+    if not helper_tts_runtime_enabled(payload):
+        return tts_disabled_contract(payload, candidate_tts_text, payload_source)
+
+    status = base.build_status_payload()
+    tts_ready = bool(status.get("tts_default_ready"))
+    if not tts_ready:
+        tts_blocker = status.get("tts", {}).get("blocker") if isinstance(status.get("tts"), dict) else "tts:no_local_provider_available"
+        return {
+            "ok": False,
+            "stage": "tts_handoff",
+            "command_received": True,
+            "tts_runtime_enabled": True,
+            "tts_text_available": bool(candidate_tts_text),
+            "audio_output_ready": False,
+            "payload_source": payload_source,
+            "generation_token": payload.get("generation_token", 0),
+            **deadline_fields(payload),
+            "runtime_claim": "tts_handoff_worker_runtime_guarded_provider_not_ready_no_runtime_claim",
+            "blocker": tts_blocker or "tts:no_local_provider_available",
+            "warnings": status.get("warnings", []),
+            "next_actions": status.get("next_actions", ["Provide Piper voice assets or Windows SAPI availability."]),
+            "note": "TTS handoff has text payload, but local TTS provider is not ready yet.",
+        }
+
+    synth_payload = dict(payload)
+    synth_payload["text"] = candidate_tts_text
+    synth_payload.setdefault("output_path", str(base.CACHE_ROOT / "tts_output.wav"))
+    result = base.handle_synthesize(synth_payload)
+    return normalize_tts_result(result, payload, candidate_tts_text, payload_source)
+
+
 def handle_pipeline_handoff_stub(payload: dict[str, Any]) -> dict[str, Any]:
     command = str(payload.get("command", "pipeline_handoff")).strip() or "pipeline_handoff"
     transcript_text = text_field(payload, "transcript_text")
@@ -377,19 +471,10 @@ def handle_pipeline_handoff_stub(payload: dict[str, Any]) -> dict[str, Any]:
     elif command == "tts_handoff":
         candidate_tts_text = tts_text or translated_text
         if translation_available or tts_text_available or candidate_tts_text:
-            ok = True
-            blocker = ""
-            note = "TTS handoff dev payload contract accepted. No local TTS synthesis was executed."
-            next_runtime = "Replace dev translated text with real translation output, then run local TTS synthesis."
-            contract_payload = {
-                "translated_text": translated_text,
-                "tts_text": candidate_tts_text,
-                "audio_output_ready": False,
-            }
-        else:
-            blocker = "tts:missing_translated_text_payload"
-            note = "TTS handoff was received, but no translated/TTS text payload is available."
-            next_runtime = "Seed developer translated text or connect real translation output first."
+            return handle_tts_handoff(payload, candidate_tts_text, payload_source)
+        blocker = "tts:missing_translated_text_payload"
+        note = "TTS handoff was received, but no translated/TTS text payload is available."
+        next_runtime = "Seed developer translated text or connect real translation output first."
 
     return {
         "ok": ok,
