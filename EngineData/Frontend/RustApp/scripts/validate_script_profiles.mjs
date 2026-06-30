@@ -1,6 +1,6 @@
 import { readFileSync } from "node:fs";
-import { fileURLToPath } from "node:url";
 import { dirname, resolve } from "node:path";
+import { fileURLToPath } from "node:url";
 
 const currentDir = dirname(fileURLToPath(import.meta.url));
 const packageJsonPath = resolve(currentDir, "..", "package.json");
@@ -10,22 +10,21 @@ const scripts = packageJson.scripts ?? {};
 const failures = [];
 const fail = (message) => failures.push(message);
 
-const requireScript = (name) => {
+function requireScript(name) {
   if (typeof scripts[name] !== "string" || scripts[name].trim().length === 0) {
     fail(`Missing required script profile: ${name}`);
   }
-};
+}
 
 const requiredProfiles = [
   "validate:quick",
+  "validate:source-contracts",
   "typecheck",
   "check:rust",
   "preflight:frontend-build",
   "preflight:tauri-package",
   "check:tauri-rust-local",
-  "validate:release-preflight",
-  "validate:local-heavy",
-  "validate:local-hardening",
+  "test:contract-reports",
 ];
 
 for (const profile of requiredProfiles) requireScript(profile);
@@ -39,9 +38,6 @@ const disallowedQuickMarkers = [
   "smoke:",
   "models:",
   "gpu:",
-  "validate:release-preflight",
-  "validate:local-heavy",
-  "validate:local-hardening",
   "validate:full",
   "validate:models",
   "cargo check",
@@ -53,24 +49,27 @@ for (const marker of disallowedQuickMarkers) {
   }
 }
 
-const localOnlyScriptNames = Object.entries(scripts)
-  .filter(([, command]) => command.includes("local-only"))
-  .map(([name]) => name);
-
-for (const name of localOnlyScriptNames) {
-  if (quick.includes(name)) {
-    fail(`validate:quick must not call local-only script: ${name}`);
-  }
-}
-
 const manualCompile = scripts["check:tauri-rust-local"] ?? "";
 if (!manualCompile.includes("run_local_tauri_compile_check.mjs")) {
   fail("check:tauri-rust-local must remain the manual local Tauri compile proof command");
 }
 
-const releasePreflight = scripts["validate:release-preflight"] ?? "";
-if (!releasePreflight.includes("local-only")) {
-  fail("validate:release-preflight must remain local-only/deferred until installer proof exists");
+const sourceContracts = scripts["validate:source-contracts"] ?? "";
+for (const requiredSourceStep of [
+  "validate:script-profiles",
+  "validate:imports",
+  "validate:naming",
+  "validate:translation-flow",
+  "validate:runtime-ux",
+  "validate:startup-readiness",
+  "validate:ci-scope",
+  "validate:virtual-route",
+  "check:rust",
+  "preflight:frontend-build",
+]) {
+  if (!sourceContracts.includes(requiredSourceStep)) {
+    fail(`validate:source-contracts must include ${requiredSourceStep}`);
+  }
 }
 
 if (failures.length > 0) {
@@ -79,4 +78,4 @@ if (failures.length > 0) {
   process.exit(1);
 }
 
-console.log("Script profiles are separated: validate:quick is CI-safe, local proof remains manual, release/local profiles remain deferred.");
+console.log("Script profiles are clean: CI-safe quick validation, source contracts, manual local Tauri proof, and diagnostic contract reports are separated.");
