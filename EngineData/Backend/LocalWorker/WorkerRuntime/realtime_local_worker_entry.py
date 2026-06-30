@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import os
 from typing import Any
 
 import realtime_local_worker as base
@@ -19,6 +20,19 @@ def text_field(payload: dict[str, Any], key: str) -> str:
     if value is None:
         return ""
     return str(value).strip()
+
+
+def truthy_field(payload: dict[str, Any], key: str) -> bool:
+    value = payload.get(key)
+    if isinstance(value, bool):
+        return value
+    return str(value or "").strip().lower() in {"1", "true", "yes", "on", "enabled"}
+
+
+def helper_asr_decode_runtime_enabled(payload: dict[str, Any]) -> bool:
+    if truthy_field(payload, "enable_decoder_runtime") or truthy_field(payload, "decoder_runtime_enabled"):
+        return True
+    return os.environ.get("TRANSLATEIT_ENABLE_HELPER_ASR_DECODE", "").strip().lower() in {"1", "true", "yes", "on", "enabled"}
 
 
 def handle_capture_migration_stub(payload: dict[str, Any]) -> dict[str, Any]:
@@ -64,6 +78,57 @@ def handle_asr_handoff_stub(payload: dict[str, Any]) -> dict[str, Any]:
     }
 
 
+def asr_decode_disabled_response(base_payload: dict[str, Any], resolved_audio_path: Any, status: dict[str, Any]) -> dict[str, Any]:
+    return {
+        **base_payload,
+        "ok": False,
+        "blocker": "asr:decoder_runtime_not_enabled_in_wrapper",
+        "resolved_audio_path": str(resolved_audio_path),
+        "asr_model_ready": True,
+        "faster_whisper_import_ready": True,
+        "asr_active_model_id": status.get("asr_active_model_id"),
+        "asr_active_model_path": status.get("asr_active_model_path"),
+        "decoder_runtime_enabled": False,
+        "runtime_claim": "asr_decode_worker_payload_ready_decoder_guard_disabled_no_runtime_claim",
+        "note": "ASR decode payload and model readiness contract passed. Decoder runtime is still guarded; set TRANSLATEIT_ENABLE_HELPER_ASR_DECODE=1 or payload enable_decoder_runtime=true only during local validation.",
+        "next_actions": [
+            "Run npm run check:tauri-rust-local before enabling decoder runtime.",
+            "During local validation, set TRANSLATEIT_ENABLE_HELPER_ASR_DECODE=1 and dispatch ASR Decode again.",
+            "Do not claim transcript/runtime proof until this command returns real transcript_text on Windows.",
+        ],
+    }
+
+
+def normalize_transcribe_result(result: dict[str, Any], base_payload: dict[str, Any], resolved_audio_path: Any, status: dict[str, Any]) -> dict[str, Any]:
+    transcript_text = text_field(result, "transcript_text")
+    ok = bool(result.get("ok")) and bool(transcript_text)
+    blocker = "" if ok else text_field(result, "blocker") or "asr:empty_transcript"
+    runtime_claim = "asr_decode_worker_runtime_transcribe_returned_needs_windows_validation"
+    return {
+        **base_payload,
+        **result,
+        "ok": ok,
+        "stage": "asr_decode",
+        "blocker": blocker,
+        "resolved_audio_path": str(resolved_audio_path),
+        "audio_path": str(resolved_audio_path),
+        "decoder_runtime_enabled": True,
+        "transcript_text_present": bool(transcript_text),
+        "transcript_char_count": len(transcript_text),
+        "asr_model_ready": True,
+        "faster_whisper_import_ready": True,
+        "asr_active_model_id": result.get("model_id") or status.get("asr_active_model_id"),
+        "asr_active_model_path": status.get("asr_active_model_path"),
+        "runtime_claim": runtime_claim,
+        "note": result.get("note") or ("ASR decoder returned transcript_text. Treat as runtime evidence only after local Windows validation." if ok else "ASR decoder ran but did not return usable transcript_text."),
+        "next_actions": [
+            "Inspect transcript_text and latency on the Windows target machine.",
+            "Only promote transcript into the live pipeline if ok=true and transcript_text_present=true during local validation.",
+            "After validation, connect ASR evidence to translation handoff.",
+        ],
+    }
+
+
 def handle_asr_decode_contract(payload: dict[str, Any]) -> dict[str, Any]:
     audio_path = text_field(payload, "audio_path")
     audio_base64_present = bool(payload.get("audio_base64_present")) or bool(payload.get("audio_base64"))
@@ -84,6 +149,7 @@ def handle_asr_decode_contract(payload: dict[str, Any]) -> dict[str, Any]:
         "frame_count": payload.get("frame_count"),
         "duration_ms": payload.get("duration_ms"),
         "source_language": source_language,
+        "decoder_runtime_enabled": helper_asr_decode_runtime_enabled(payload),
         "runtime_claim": "asr_decode_worker_payload_contract_no_decoder_runtime_claim",
     }
 
@@ -161,22 +227,17 @@ def handle_asr_decode_contract(payload: dict[str, Any]) -> dict[str, Any]:
             "note": "ASR decode has a valid audio payload boundary, but model import/assets are not ready yet.",
         }
 
-    return {
-        **base_payload,
-        "ok": False,
-        "blocker": "asr:decoder_runtime_not_enabled_in_wrapper",
-        "resolved_audio_path": str(resolved_audio_path),
-        "asr_model_ready": True,
-        "faster_whisper_import_ready": True,
-        "asr_active_model_id": status.get("asr_active_model_id"),
-        "asr_active_model_path": status.get("asr_active_model_path"),
-        "note": "ASR decode payload and model readiness contract passed. The wrapper intentionally stops before Whisper transcription until local Rust/Tauri compile and Windows runtime proof are available.",
-        "next_actions": [
-            "After npm run check:tauri-rust-local passes, route this command to base.handle_transcribe(payload).",
-            "Capture the worker response as asr_evidence before promoting transcript text into the live pipeline.",
-            "Do not claim transcript/runtime proof until this command returns real transcript_text on Windows.",
-        ],
-    }
+    if not helper_asr_decode_runtime_enabled(payload):
+        return asr_decode_disabled_response(base_payload, resolved_audio_path, status)
+
+    transcribe_payload = dict(payload)
+    transcribe_payload["audio_path"] = str(resolved_audio_path)
+    transcribe_payload["language"] = source_language
+    transcribe_payload.setdefault("vad_filter", True)
+    transcribe_payload.setdefault("beam_size", 1)
+    transcribe_payload.setdefault("temperature", 0)
+    result = base.handle_transcribe(transcribe_payload)
+    return normalize_transcribe_result(result, base_payload, resolved_audio_path, status)
 
 
 def handle_pipeline_handoff_stub(payload: dict[str, Any]) -> dict[str, Any]:
