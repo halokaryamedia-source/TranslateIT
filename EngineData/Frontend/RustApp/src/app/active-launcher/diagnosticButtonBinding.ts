@@ -1,3 +1,6 @@
+export const DIAGNOSTIC_BUTTON_CLASS = "mic-test-button-v22 secondary";
+export const DIAGNOSTIC_CONTROLS_SELECTOR = '[aria-label="Capture helper bridge preview controls"]';
+
 export type DiagnosticButtonBindingOptions<Result> = {
   selector: string;
   dataKey: string;
@@ -9,8 +12,8 @@ export type DiagnosticButtonBindingOptions<Result> = {
   retryDelayMs?: number;
 };
 
-function controlsContainer(): HTMLElement | null {
-  return document.querySelector<HTMLElement>('[aria-label="Capture helper bridge preview controls"]');
+export function getDiagnosticsControlsContainer(): HTMLElement | null {
+  return document.querySelector<HTMLElement>(DIAGNOSTIC_CONTROLS_SELECTOR);
 }
 
 export function setAssistantNotice(message: string): void {
@@ -19,11 +22,11 @@ export function setAssistantNotice(message: string): void {
 }
 
 function ensureDiagnosticButton<Result>(options: DiagnosticButtonBindingOptions<Result>): void {
-  const container = controlsContainer();
+  const container = getDiagnosticsControlsContainer();
   if (!container) return;
   if (container.querySelector(options.selector)) return;
   const button = document.createElement("button");
-  button.className = "mic-test-button-v22 secondary";
+  button.className = DIAGNOSTIC_BUTTON_CLASS;
   button.type = "button";
   button.dataset[options.dataKey] = options.dataValue;
   button.textContent = options.label;
