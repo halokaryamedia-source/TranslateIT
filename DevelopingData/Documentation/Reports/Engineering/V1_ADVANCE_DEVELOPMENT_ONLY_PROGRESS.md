@@ -10,7 +10,7 @@ Progress development-only saat ini: sekitar **99%**.
 
 Definisi:
 
-- Yang dihitung: source features, contracts, bridge, evidence, blocker, diagnostics, orchestration, route selection model, route selection renderer, route selection mount helper, entrypoint mounting, Source Orchestration binding, guarded runtime handoff, guarded provider script, Rust/bridge provider dispatch wiring, Provider Dry Run UI, route selection styling, Windows provider notes, provider requirements artifact, route renderer escaping, provider response summary hardening, diagnostics button binding cleanup, shared diagnostics DOM cleanup, dan launcher lifecycle cleanup registry.
+- Yang dihitung: source features, contracts, bridge, evidence, blocker, diagnostics, orchestration, route selection model, route selection renderer, route selection mount helper, entrypoint mounting, Source Orchestration binding, guarded runtime handoff, guarded provider script, Rust/bridge provider dispatch wiring, Provider Dry Run UI, route selection styling, Windows provider notes, provider requirements artifact, route renderer escaping, provider response summary hardening, diagnostics button binding cleanup, shared diagnostics DOM cleanup, launcher lifecycle cleanup registry, dan professional readiness gap cleanup.
 - Yang tidak dihitung: CI result, local compile proof, Windows runtime proof, latency proof, dan end-to-end meeting proof.
 
 ## Yang sudah selesai secara development
@@ -39,6 +39,7 @@ Definisi:
 - Route selection surface mounted from `src/main.ts`.
 - Route selection surface now uses the shared diagnostics controls DOM helper instead of its own hardcoded controls selector.
 - Professional readiness gate.
+- Professional readiness gaps now only track actual remaining source prerequisites: route device readiness, TTS output path, route stub readiness, and professional gate blockers.
 - Source readiness orchestration command.
 - Source Orchestration UI binding.
 - Source Orchestration binding mounted from `src/main.ts`.
@@ -97,7 +98,7 @@ Purpose:
 - Prepare route runtime stub from latest TTS output path.
 - Collect professional gate status.
 - Return development-only progress via `development_progress_percent_excluding_ci_local`.
-- Return remaining source gaps via `remaining_development_gaps`.
+- Return actual remaining source gaps via `remaining_development_gaps`; stale completed gaps such as unfinished route surface and unimplemented provider handoff are no longer reported.
 - Prepare guarded audio route runtime handoff with source audio path and selected route devices.
 - Write provider payload to `UserData/CacheData/runtime_handoff/latest_virtual_audio_route_provider_payload.json`.
 - Dispatch guarded provider script through `TRANSLATEIT_PYTHON` or `python`.
