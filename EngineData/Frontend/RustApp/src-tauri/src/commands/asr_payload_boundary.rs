@@ -267,7 +267,7 @@ fn build_asr_audio_payload_status(write_audio: bool) -> AsrAudioPayloadRequestSt
         dispatch_ok: false,
         task: "asr_decode".to_string(),
         message,
-        blocker,
+        blocker: blocker.clone(),
         next_action,
         audio_path,
         sample_rate_hz,
@@ -282,7 +282,7 @@ fn build_asr_audio_payload_status(write_audio: bool) -> AsrAudioPayloadRequestSt
         evidence_json: evidence.to_string(),
         worker_response_json: "{}".to_string(),
         worker_stage: String::new(),
-        worker_blocker: blocker.clone(),
+        worker_blocker: blocker,
         worker_note: String::new(),
         transcript_text_present: false,
         transcript_char_count: 0,
@@ -343,15 +343,6 @@ fn apply_asr_decode_worker_response(status: &mut AsrAudioPayloadRequestStatus, r
 }
 
 #[tauri::command]
-pub fn get_latest_asr_audio_payload_status() -> AsrAudioPayloadRequestStatus {
-    asr_payload_cache()
-        .lock()
-        .ok()
-        .and_then(|cached| cached.clone())
-        .unwrap_or_else(no_cached_asr_payload_status)
-}
-
-#[tauri::command]
 pub fn prepare_asr_audio_payload_request() -> AsrAudioPayloadRequestStatus {
     let status = build_asr_audio_payload_status(false);
     store_asr_payload_status(&status);
@@ -361,13 +352,20 @@ pub fn prepare_asr_audio_payload_request() -> AsrAudioPayloadRequestStatus {
 #[tauri::command]
 pub fn dispatch_asr_decode_request() -> AsrAudioPayloadRequestStatus {
     let mut status = build_asr_audio_payload_status(true);
-    if !status.request_prepared {
-        store_asr_payload_status(&status);
-        return status;
+    if status.request_prepared {
+        let response = send_helper_worker_task("asr_decode", &status.payload_json);
+        apply_asr_decode_worker_response(&mut status, response);
     }
-    let payload = parse_json_or_raw(&status.payload_json);
-    let response = send_helper_worker_task("asr_decode", payload);
-    apply_asr_decode_worker_response(&mut status, response);
     store_asr_payload_status(&status);
     status
+}
+
+#[tauri::command]
+pub fn get_asr_audio_payload_status() -> AsrAudioPayloadRequestStatus {
+    if let Ok(cached) = asr_payload_cache().lock() {
+        if let Some(status) = cached.clone() {
+            return status;
+        }
+    }
+    no_cached_asr_payload_status()
 }
