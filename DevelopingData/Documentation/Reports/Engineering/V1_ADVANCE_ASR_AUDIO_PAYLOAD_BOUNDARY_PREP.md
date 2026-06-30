@@ -6,7 +6,7 @@ Status: source-side / worker-contract evidence only, bukan Windows runtime proof
 
 ## Tujuan batch
 
-Batch ini memindahkan ASR handoff satu langkah lebih dekat ke runtime nyata tanpa mengklaim Whisper transcription sudah berjalan. Fokusnya adalah boundary dari live capture buffer menuju payload audio yang bisa dikirim ke Python worker.
+Batch ini memindahkan ASR handoff satu langkah lebih dekat ke runtime nyata tanpa mengklaim Whisper transcription sudah berjalan. Fokusnya adalah boundary dari live capture buffer menuju payload audio yang bisa dikirim ke Python worker, lalu menyiapkan transcript promotion ke pipeline secara guarded.
 
 ## Yang ditambahkan
 
@@ -19,12 +19,14 @@ File:
 - `EngineData/Frontend/RustApp/src-tauri/src/commands/registry.rs`
 - `EngineData/Frontend/RustApp/src-tauri/src/commands/helper_bridge.rs`
 - `EngineData/Frontend/RustApp/src-tauri/src/commands/helper_bridge_runtime.rs`
+- `EngineData/Frontend/RustApp/src-tauri/src/commands/pipeline_handoff.rs`
 
 Command baru:
 
 - `get_latest_asr_audio_payload_status`
 - `prepare_asr_audio_payload_request`
 - `dispatch_asr_decode_request`
+- `promote_latest_asr_payload_transcript`
 
 Perilaku:
 
@@ -36,6 +38,7 @@ Perilaku:
 - Status terakhir disimpan di in-memory cache app session, sehingga Developer Diagnostics bisa membaca ulang hasil terakhir tanpa memicu dispatch baru.
 - Dispatch ASR Decode sekarang memakai helper worker response path, sehingga status dapat menyimpan `worker_response_json` dari Python worker, bukan hanya action result ringkas.
 - Worker response juga diinterpretasikan menjadi field eksplisit agar validasi lokal lebih mudah dibaca.
+- `promote_latest_asr_payload_transcript` membaca cached `worker_response_json`, mengambil `transcript_text` hanya jika `dispatch_ok=true` dan `transcript_text_present=true`, lalu mengisi pipeline transcript payload untuk Translation handoff.
 - Payload/status menyertakan metadata:
   - `sample_rate_hz`
   - `channels`
@@ -95,6 +98,7 @@ UI action baru di-inject ke panel Capture helper bridge controls:
 - `Latest ASR Payload`
 - `Prepare ASR Payload`
 - `Dispatch ASR Decode`
+- `Promote ASR Transcript`
 
 Catatan implementasi:
 
@@ -102,6 +106,7 @@ Catatan implementasi:
 - Binding UI tidak lagi menyimpan fallback/type ASR Payload lokal yang duplikatif.
 - Summary UI menampilkan boundary, audio readiness, WAV path, format, sample count, durasi, next action, blocker, dan detail worker response seperti `asr:model_not_ready`, `resolved_audio_path`, atau `asr:decoder_runtime_not_enabled_in_wrapper` jika tersedia.
 - Summary UI juga menampilkan field interpretasi: `workerStage`, `workerBlocker`, `transcriptPresent`, dan `transcriptChars`.
+- `Promote ASR Transcript` menyiapkan pipeline payload dari ASR worker response, bukan dari seed/dev text.
 - Ini masih diagnostic evidence, bukan user-facing runtime readiness.
 
 ## Batasan yang masih berlaku
@@ -134,6 +139,8 @@ Jika compile aman, flow manual berikutnya:
 6. Prepare ASR Payload.
 7. Dispatch ASR Decode.
 8. Latest ASR Payload lagi, untuk memastikan cached evidence terakhir berubah sesuai hasil dispatch dan memuat `worker_response_json`.
+9. Setelah guarded decode menghasilkan transcript, jalankan Promote ASR Transcript.
+10. Pipeline Snapshot / Prepare Translation untuk memastikan transcript payload sudah masuk.
 
 Ekspektasi default saat env guard belum aktif:
 
@@ -149,6 +156,8 @@ Ekspektasi saat guarded decode diaktifkan untuk validasi lokal:
 - Set `TRANSLATEIT_ENABLE_HELPER_ASR_DECODE=1` pada worker environment.
 - Jalankan Dispatch ASR Decode lagi.
 - Jika berhasil, `workerStage=asr_decode`, `transcriptPresent=true`, dan `transcriptChars>0` harus muncul.
+- Jalankan Promote ASR Transcript.
+- Pipeline snapshot harus menunjukkan `payload transcript=true`, lalu Translation handoff bisa dipersiapkan.
 - Jika gagal, gunakan `workerBlocker`, `worker_note`, dan `worker_response_json` untuk debugging.
 
 ## Next recommended batch
@@ -156,6 +165,5 @@ Ekspektasi saat guarded decode diaktifkan untuk validasi lokal:
 Setelah guarded ASR decode compile/runtime proof:
 
 1. Simpan response sebagai `asr_evidence` yang lebih permanen jika dibutuhkan.
-2. Promote `transcript_text` dari worker ke live pipeline payload hanya jika `ok=true`, `transcript_text_present=true`, dan stage=`asr_decode`/`transcribe`.
-3. Hubungkan transcript ke real translation handoff.
-4. Setelah translation proof, lanjut ke TTS handoff dan virtual mic output.
+2. Hubungkan transcript ke real translation handoff.
+3. Setelah translation proof, lanjut ke TTS handoff dan virtual mic output.
