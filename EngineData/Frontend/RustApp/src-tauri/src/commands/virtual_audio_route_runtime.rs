@@ -50,15 +50,15 @@ fn contract_json(status: &VirtualAudioRouteRuntimeStatus) -> String {
         "schema": "translateit.virtual_audio_route.runtime_handoff.v1",
         "route_execution_enabled": status.route_execution_enabled,
         "route_execution_attempted": status.route_execution_attempted,
-        "source_audio_path": status.source_audio_path,
-        "selected_output_device": status.selected_output_device,
-        "selected_input_device": status.selected_input_device,
+        "source_audio_path": &status.source_audio_path,
+        "selected_output_device": &status.selected_output_device,
+        "selected_input_device": &status.selected_input_device,
         "source_audio_ready": status.source_audio_ready,
         "route_ready": status.route_ready,
         "route_runtime_ready": status.route_runtime_ready,
-        "blocker": status.blocker,
-        "next_action": status.next_action,
-        "runtime_claim": status.runtime_claim
+        "blocker": &status.blocker,
+        "next_action": &status.next_action,
+        "runtime_claim": &status.runtime_claim
     }))
     .unwrap_or_else(|_| "{}".to_string())
 }
