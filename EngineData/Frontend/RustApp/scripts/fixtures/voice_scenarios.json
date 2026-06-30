@@ -1,0 +1,41 @@
+[
+  {
+    "id": "voice_id_short_translate",
+    "title": "Indonesian short voice translate fixture",
+    "mode": "synthetic_transcript",
+    "source_language": "id",
+    "target_language": "en",
+    "text": "halo dunia",
+    "expected_transcript_keywords": ["halo", "dunia"],
+    "expected_translation_keywords": ["hello", "world"],
+    "duration_ms": 1800,
+    "sample_rate_hz": 16000,
+    "purpose": "Checks that a generated voice fixture can enter the voice-to-translation test matrix without requiring a real microphone."
+  },
+  {
+    "id": "voice_en_short_translate",
+    "title": "English short voice translate fixture",
+    "mode": "synthetic_transcript",
+    "source_language": "en",
+    "target_language": "id",
+    "text": "hello world",
+    "expected_transcript_keywords": ["hello", "world"],
+    "expected_translation_keywords": ["halo", "dunia"],
+    "duration_ms": 1800,
+    "sample_rate_hz": 16000,
+    "purpose": "Checks the opposite direction voice fixture path with deterministic generated audio and transcript expectations."
+  },
+  {
+    "id": "voice_silent_input_guard",
+    "title": "Silent voice input guard",
+    "mode": "silence_guard",
+    "source_language": "id",
+    "target_language": "en",
+    "text": "",
+    "expected_transcript_keywords": [],
+    "expected_translation_keywords": [],
+    "duration_ms": 1200,
+    "sample_rate_hz": 16000,
+    "purpose": "Checks that silent generated audio is represented as a voice error-recovery scenario instead of a manual microphone QA case."
+  }
+]
