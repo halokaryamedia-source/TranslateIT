@@ -151,6 +151,10 @@ export type PipelinePayloadState = {
   transcript_available: boolean;
   translation_available: boolean;
   tts_text_available: boolean;
+  tts_audio_output_path: string | null;
+  audio_output_ready: boolean;
+  virtual_mic_ready: boolean;
+  virtual_mic_blocker: string;
   source: string;
   updated_unix_ms: number;
 };
@@ -167,6 +171,7 @@ export type LivePipelineSessionSnapshot = {
   next_action: string;
   summary: string;
   runtime_claim: string;
+  evidence_path: string | null;
   payload: PipelinePayloadState;
   stages: PipelineHandoffRequestStatus[];
   updated_unix_ms: number;
@@ -258,173 +263,10 @@ export type RuntimeStatusBundleReport = {
   live_tts_boundary?: { output_audio_ready: boolean; playback_ready: boolean; blocker: string };
   local_worker_manifest?: LocalWorkerManifestReport;
   internal_validation_gate?: {
-    progress_percent: number;
+    ready_for_internal_validation: boolean;
+    can_run_audio_studio_validation: boolean;
+    can_run_local_worker_validation: boolean;
     blockers: string[];
     note: string;
-    ready_for_owner_validation?: boolean;
-    ready_for_release_candidate?: boolean;
-    local_worker_manifest?: LocalWorkerManifestReport;
   };
-  live_pipeline_gate?: { progress_percent: number; blocker: string; ready_for_user_runtime?: boolean; note?: string };
-  next_action: string;
-  summary: string;
-};
-
-export type RealtimeStatusPayload = {
-  status: "idle" | "checking" | "ready" | "partial_ready" | "fallback" | "error" | string;
-  language_direction: string;
-  mode: "Realtime" | "Quality" | string;
-  latency: {
-    target_ms: number;
-    last_total_ms: number | null;
-    p50_ms: number | null;
-    sample_count: number;
-  };
-  worker: {
-    available: boolean;
-    device: string | null;
-    fallback_active: boolean;
-    last_command: string | null;
-  };
-  assets: {
-    asr_ready: boolean;
-    translation_ready: boolean;
-    tts_ready: boolean;
-    missing: string[];
-  };
-  message: string;
-  evidence_path: string | null;
-};
-
-export type AudioDeviceSummary = {
-  id: string;
-  name: string;
-  is_default: boolean;
-};
-
-export type AudioDeviceListReport = {
-  ok: boolean;
-  input_devices: AudioDeviceSummary[];
-  output_devices: AudioDeviceSummary[];
-  blocker: string;
-  note: string;
-};
-
-export type RuntimeSettings = {
-  schema_version: number;
-  language_focus_mode: string;
-  runtime_profile: string;
-  source_language: string;
-  target_language: string;
-  audio: {
-    input_device_id: string | null;
-    output_device_id: string | null;
-    sensitivity: number;
-    input_sensitivity: string;
-    show_advanced_devices: boolean;
-    allow_low_but_usable_input: boolean;
-    allow_cpu_degraded_mode: boolean;
-    auto_play_translation_voice: boolean;
-    auto_play_out_voice: boolean;
-    use_custom_voice_actor: boolean;
-    voice_actor_profiles_root: string;
-  };
-  voice_actor_profile_id: string;
-};
-
-export type InputPreparationStatus = {
-  ready: boolean;
-  selected_device_name?: string | null;
-  device_count?: number;
-  blocker?: string;
-  note?: string;
-};
-
-export type VoiceCapturePreparationReport = {
-  ok: boolean;
-  state: "ready" | "starting" | "blocked" | "missing_worker" | "missing_models" | "missing_microphone" | string;
-  microphone_ready: boolean;
-  helper_state: string;
-  helper_ready: boolean;
-  provider_ready: boolean;
-  cuda_ready: boolean;
-  missing: string[];
-  next_actions: string[];
-  message: string;
-  input_status: InputPreparationStatus;
-  helper_status: HelperBridgeStatus;
-};
-
-export type UserFlowTraceEvent = {
-  event: string;
-  occurred_at: string;
-  detail: string;
-};
-
-export type ModelInventoryItem = {
-  model_id: string;
-  required: boolean;
-  expected_path: string;
-  found: boolean;
-  file_count: number;
-  size_bytes: number;
-  gpu_capable: boolean | string;
-  cpu_fallback: boolean;
-  download_url: string | null;
-  status: "PASS" | "PARTIAL" | "BLOCKED" | "FAIL" | string;
-  blocker: string | null;
-  next_action: string;
-};
-
-export type ModelInventoryReport = {
-  ok: boolean;
-  status: "PASS" | "PARTIAL" | "BLOCKED" | "FAIL" | string;
-  created_at: string;
-  items: ModelInventoryItem[];
-  blockers: string[];
-  note: string;
-};
-
-export type ModelSetupReport = {
-  ok: boolean;
-  status: "PASS" | "PARTIAL" | "BLOCKED" | "FAIL" | string;
-  created_at: string;
-  output_dir: string;
-  items: ModelInventoryItem[];
-  blockers: string[];
-  note: string;
-};
-
-export type ChatKind = "local" | "saved" | "unsaved" | "private" | string;
-
-export type SettingsTab = "general" | "audio" | "translate" | "developer";
-
-export type LauncherChatMessage = {
-  role: string;
-  content: string;
-  created_unix_ms: number;
-};
-
-export type LauncherChatSession = {
-  schema_version: number;
-  session_id: string;
-  title: string;
-  kind: string;
-  created_unix_ms: number;
-  updated_unix_ms: number;
-  messages: LauncherChatMessage[];
-};
-
-export type LauncherChatSummary = {
-  session_id: string;
-  title: string;
-  kind: string;
-  updated_unix_ms: number;
-  message_count: number;
-};
-
-export type LauncherChatActionResult = {
-  ok: boolean;
-  session_id: string;
-  message: string;
 };
