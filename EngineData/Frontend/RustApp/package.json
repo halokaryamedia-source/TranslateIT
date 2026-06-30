@@ -4,9 +4,6 @@
   "version": "0.1.0",
   "type": "module",
   "scripts": {
-    "dev": "echo local-only dev deferred",
-    "build": "echo local-only tauri build deferred",
-    "dev:frontend": "echo local-only frontend dev deferred",
     "build:frontend": "vite build",
     "typecheck": "tsc --noEmit",
     "check:rust": "node scripts/validate_rust_manifest_preflight.mjs",
