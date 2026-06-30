@@ -42,12 +42,22 @@ if (process.exitCode) process.exit(process.exitCode);
 const packageJson = readJson(packageJsonPath);
 const tauriConfig = readJson(tauriConfigPath);
 const defaultCapability = readJson(defaultCapabilityPath);
+const scripts = packageJson.scripts ?? {};
 
-if (packageJson.scripts?.build !== "echo local-only tauri build deferred") {
-  fail("Full Tauri npm build script must remain deferred during non-local CI.");
+const fullTauriBuildCommands = [
+  "tauri build",
+  "cargo tauri build",
+  "npm run tauri build",
+];
+
+for (const [name, command] of Object.entries(scripts)) {
+  const normalized = String(command).toLowerCase();
+  if (name === "build" || fullTauriBuildCommands.some((marker) => normalized.includes(marker))) {
+    fail(`Full Tauri build script must not be exposed during source/CI preflight: ${name}`);
+  }
 }
 
-if (packageJson.scripts?.["build:frontend"] !== "vite build") {
+if (scripts["build:frontend"] !== "vite build") {
   fail("Frontend build script must remain vite build.");
 }
 
@@ -121,4 +131,4 @@ if (!appBootstrapRs.includes('get_webview_window("main")')) {
 }
 
 if (process.exitCode) process.exit(process.exitCode);
-console.log("[tauri-package-preflight] Tauri package preflight passed. Installer build remains deferred.");
+console.log("[tauri-package-preflight] Tauri package preflight passed. Full Tauri build remains intentionally unavailable from npm scripts.");
