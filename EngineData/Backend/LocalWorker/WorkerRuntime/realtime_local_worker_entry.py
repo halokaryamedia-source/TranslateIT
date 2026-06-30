@@ -29,10 +29,20 @@ def truthy_field(payload: dict[str, Any], key: str) -> bool:
     return str(value or "").strip().lower() in {"1", "true", "yes", "on", "enabled"}
 
 
+def env_enabled(name: str) -> bool:
+    return os.environ.get(name, "").strip().lower() in {"1", "true", "yes", "on", "enabled"}
+
+
 def helper_asr_decode_runtime_enabled(payload: dict[str, Any]) -> bool:
     if truthy_field(payload, "enable_decoder_runtime") or truthy_field(payload, "decoder_runtime_enabled"):
         return True
-    return os.environ.get("TRANSLATEIT_ENABLE_HELPER_ASR_DECODE", "").strip().lower() in {"1", "true", "yes", "on", "enabled"}
+    return env_enabled("TRANSLATEIT_ENABLE_HELPER_ASR_DECODE")
+
+
+def helper_translation_runtime_enabled(payload: dict[str, Any]) -> bool:
+    if truthy_field(payload, "enable_translation_runtime") or truthy_field(payload, "translation_runtime_enabled"):
+        return True
+    return env_enabled("TRANSLATEIT_ENABLE_HELPER_TRANSLATION")
 
 
 def handle_capture_migration_stub(payload: dict[str, Any]) -> dict[str, Any]:
@@ -240,6 +250,108 @@ def handle_asr_decode_contract(payload: dict[str, Any]) -> dict[str, Any]:
     return normalize_transcribe_result(result, base_payload, resolved_audio_path, status)
 
 
+def translation_disabled_contract(
+    payload: dict[str, Any],
+    transcript_text: str,
+    translated_text: str,
+    payload_source: str,
+) -> dict[str, Any]:
+    placeholder = translated_text or f"[dev-contract translation pending for] {transcript_text}"
+    return {
+        "ok": True,
+        "stage": "translation_handoff",
+        "command_received": True,
+        "translation_runtime_enabled": False,
+        "transcript_available": True,
+        "translation_available": bool(translated_text),
+        "payload_source": payload_source,
+        "contract_payload": {
+            "transcript_text": transcript_text,
+            "translated_text": translated_text,
+            "translation_placeholder": placeholder,
+        },
+        "generation_token": payload.get("generation_token", 0),
+        **deadline_fields(payload),
+        "runtime_claim": "translation_handoff_dev_payload_contract_no_model_runtime_claim",
+        "blocker": "",
+        "note": "Translation handoff dev payload contract accepted. Translation runtime is guarded and was not executed.",
+        "next_actions": [
+            "Enable TRANSLATEIT_ENABLE_HELPER_TRANSLATION=1 only during local validation.",
+            "After guarded translation returns translated_text, promote it into the TTS payload.",
+            "Do not claim translation runtime proof until the worker returns translated_text on the target machine.",
+        ],
+    }
+
+
+def normalize_translation_result(result: dict[str, Any], payload: dict[str, Any], transcript_text: str, payload_source: str) -> dict[str, Any]:
+    translated_text = text_field(result, "translated_text")
+    ok = bool(result.get("ok")) and bool(translated_text)
+    blocker = "" if ok else text_field(result, "blocker") or "translation:empty_output"
+    return {
+        **result,
+        "ok": ok,
+        "stage": "translation_handoff",
+        "command_received": True,
+        "translation_runtime_enabled": True,
+        "transcript_available": True,
+        "translation_available": bool(translated_text),
+        "tts_text_available": bool(translated_text),
+        "payload_source": payload_source,
+        "contract_payload": {
+            "transcript_text": transcript_text,
+            "translated_text": translated_text,
+            "tts_text": translated_text,
+        },
+        "generation_token": payload.get("generation_token", 0),
+        **deadline_fields(payload),
+        "runtime_claim": "translation_handoff_worker_runtime_translate_returned_needs_windows_validation",
+        "blocker": blocker,
+        "note": result.get("note") or ("Translation runtime returned translated_text. Treat as runtime evidence only after local Windows validation." if ok else "Translation runtime ran but did not return usable translated_text."),
+        "next_actions": [
+            "Inspect translated_text quality and latency on the Windows target machine.",
+            "Only promote translation into TTS if ok=true and translated_text is non-empty during local validation.",
+            "After validation, connect translated_text to guarded TTS handoff.",
+        ],
+    }
+
+
+def handle_translation_handoff(payload: dict[str, Any], transcript_text: str, translated_text: str, payload_source: str) -> dict[str, Any]:
+    if not helper_translation_runtime_enabled(payload):
+        return translation_disabled_contract(payload, transcript_text, translated_text, payload_source)
+
+    status = base.build_status_payload()
+    translation_ready = bool(status.get("transformers_import_ready")) and bool(status.get("torch_import_ready")) and bool(status.get("translation_model_ready"))
+    if not translation_ready:
+        blockers = list(status.get("blockers", []))
+        if not status.get("translation_model_ready"):
+            blockers.append("model:marianmt_id_en_missing")
+        return {
+            "ok": False,
+            "stage": "translation_handoff",
+            "command_received": True,
+            "translation_runtime_enabled": True,
+            "transcript_available": True,
+            "translation_available": False,
+            "payload_source": payload_source,
+            "generation_token": payload.get("generation_token", 0),
+            **deadline_fields(payload),
+            "runtime_claim": "translation_handoff_worker_runtime_guarded_model_not_ready_no_runtime_claim",
+            "blocker": ";".join(dict.fromkeys(blockers)) or "translation:model_not_ready",
+            "warnings": status.get("warnings", []),
+            "next_actions": status.get("next_actions", ["Install torch, transformers, and marianmt-id-en model assets."]),
+            "note": "Translation handoff has transcript payload, but translation import/assets are not ready yet.",
+        }
+
+    translate_payload = dict(payload)
+    translate_payload["text"] = transcript_text
+    translate_payload.setdefault("mode", "Realtime")
+    translate_payload.setdefault("source_language", "id")
+    translate_payload.setdefault("target_language", "en")
+    translate_payload.setdefault("max_new_tokens", 64)
+    result = base.handle_translate(translate_payload)
+    return normalize_translation_result(result, payload, transcript_text, payload_source)
+
+
 def handle_pipeline_handoff_stub(payload: dict[str, Any]) -> dict[str, Any]:
     command = str(payload.get("command", "pipeline_handoff")).strip() or "pipeline_handoff"
     transcript_text = text_field(payload, "transcript_text")
@@ -258,19 +370,10 @@ def handle_pipeline_handoff_stub(payload: dict[str, Any]) -> dict[str, Any]:
 
     if command == "translation_handoff":
         if transcript_available:
-            ok = True
-            blocker = ""
-            note = "Translation handoff dev payload contract accepted. No local translation model was executed."
-            next_runtime = "Replace dev transcript payload with real ASR decoder output, then run the local translation model."
-            contract_payload = {
-                "transcript_text": transcript_text,
-                "translated_text": translated_text,
-                "translation_placeholder": translated_text or f"[dev-contract translation pending for] {transcript_text}",
-            }
-        else:
-            blocker = "translation:missing_transcript_payload"
-            note = "Translation handoff was received, but no transcript payload is available."
-            next_runtime = "Seed a developer transcript or connect real ASR decoder output first."
+            return handle_translation_handoff(payload, transcript_text, translated_text, payload_source)
+        blocker = "translation:missing_transcript_payload"
+        note = "Translation handoff was received, but no transcript payload is available."
+        next_runtime = "Seed a developer transcript or connect real ASR decoder output first."
     elif command == "tts_handoff":
         candidate_tts_text = tts_text or translated_text
         if translation_available or tts_text_available or candidate_tts_text:
@@ -360,7 +463,7 @@ def handle_dev_pipeline_contract_smoke(payload: dict[str, Any]) -> dict[str, Any
         "tts_result": tts_result,
         "runtime_claim": "worker_pipeline_contract_smoke_no_model_runtime_claim",
         "blocker": "" if ok else "worker_pipeline_contract_smoke:failed_contract",
-        "note": "Worker-side pipeline contract smoke completed without running ASR, translation, TTS, or audio output models.",
+        "note": "Worker-side pipeline contract smoke completed without running ASR, translation, TTS, or audio output models unless guarded runtime env flags are explicitly enabled.",
         "next_actions": [
             "Use this as worker handler contract evidence only.",
             "Replace smoke payloads with real ASR transcript and real translation output after local compile/runtime proof.",
