@@ -17,6 +17,7 @@ const DEFAULT_OWNER = "V1 Advance maintainers";
 const AREA_BY_SUITE = {
   "source-contracts": "source contract guard",
   preflight: "source preflight",
+  "functional-app-diagnostics": "functional app diagnostics",
   "diagnostic-reports": "diagnostic report",
 };
 const AREA_BY_ID = {
@@ -37,6 +38,7 @@ const AREA_BY_ID = {
   "rust-manifest": "Rust/Tauri source registration",
   "frontend-build-preflight": "frontend build inputs",
   "tauri-package-preflight": "Tauri package inputs",
+  "voice-fixture-matrix": "voice/audio fixture diagnostics",
   "contract-reports-runner": "diagnostic report orchestration",
   "frontend-backend-contract-report": "frontend/backend diagnostics",
   "worker-contract-report": "helper worker diagnostics",
@@ -52,6 +54,7 @@ const EXTRA_FILES_BY_ID = {
   "runtime-readiness-scenarios": ["EngineData/Frontend/RustApp/src/app/bridge/runtimeProductFacade.ts", "EngineData/Frontend/RustApp/src/app/simple-launcher/SimpleLauncherController.ts"],
   "error-feedback": ["EngineData/Frontend/RustApp/src/app/simple-launcher/SimpleLauncherController.ts"],
   "settings-surface": ["EngineData/Frontend/RustApp/src/app/simple-launcher/SimpleLauncherController.ts"],
+  "voice-fixture-matrix": ["EngineData/Frontend/RustApp/scripts/run_voice_fixture_matrix.mjs", "EngineData/Frontend/RustApp/scripts/fixtures/voice_scenarios.json"],
 };
 
 function shouldRun(test) {
