@@ -10,6 +10,11 @@ use super::virtual_mic_route::{
     VirtualMicOutputRouteRuntimeStubStatus, VirtualMicRouteContractStatus,
 };
 
+const GAP_ROUTE_DEVICE_NOT_READY: &str = "route_device_selection_or_virtual_audio_device_not_ready";
+const GAP_TTS_OUTPUT_MISSING: &str = "tts_audio_output_path_not_available_for_route_stub";
+const GAP_ROUTE_STUB_NOT_READY: &str = "route_runtime_stub_not_ready";
+const GAP_PROFESSIONAL_GATE_BLOCKED: &str = "professional_gate_still_blocked";
+
 #[derive(Debug, Clone, Serialize)]
 pub struct ProfessionalRuntimeReadinessGateStatus {
     pub ok: bool,
@@ -141,37 +146,42 @@ fn development_gaps(
 ) -> Vec<String> {
     let mut gaps = Vec::new();
     if !route_status.route_ready {
-        gaps.push("route_device_selection_or_virtual_audio_device_not_ready".to_string());
+        gaps.push(GAP_ROUTE_DEVICE_NOT_READY.to_string());
     }
     if !route_stub.source_audio_ready {
-        gaps.push("tts_audio_output_path_not_available_for_route_stub".to_string());
+        gaps.push(GAP_TTS_OUTPUT_MISSING.to_string());
     }
     if !route_stub.route_stub_ready {
-        gaps.push("route_runtime_stub_not_ready".to_string());
+        gaps.push(GAP_ROUTE_STUB_NOT_READY.to_string());
     }
     if !professional_gate.ok {
-        gaps.push("professional_gate_still_blocked".to_string());
+        gaps.push(GAP_PROFESSIONAL_GATE_BLOCKED.to_string());
     }
-    gaps.push("user_facing_route_device_selection_surface_not_finished".to_string());
-    gaps.push("real_audio_output_route_runtime_not_implemented".to_string());
     gaps
 }
 
 fn development_progress_excluding_ci_local(gaps: &[String]) -> u8 {
-    let weighted_total = 100u16;
     let mut missing = 0u16;
     for gap in gaps {
         missing += match gap.as_str() {
-            "user_facing_route_device_selection_surface_not_finished" => 6,
-            "real_audio_output_route_runtime_not_implemented" => 10,
-            "route_runtime_stub_not_ready" => 4,
-            "tts_audio_output_path_not_available_for_route_stub" => 3,
-            "route_device_selection_or_virtual_audio_device_not_ready" => 3,
-            "professional_gate_still_blocked" => 2,
+            GAP_ROUTE_STUB_NOT_READY => 4,
+            GAP_TTS_OUTPUT_MISSING => 3,
+            GAP_ROUTE_DEVICE_NOT_READY => 3,
+            GAP_PROFESSIONAL_GATE_BLOCKED => 2,
             _ => 2,
         };
     }
-    weighted_total.saturating_sub(missing).max(0).min(100) as u8
+    100u16.saturating_sub(missing).min(100) as u8
+}
+
+fn next_action_for_gap(gap: &str) -> &'static str {
+    match gap {
+        GAP_ROUTE_DEVICE_NOT_READY => "select_or_install_virtual_route_device",
+        GAP_TTS_OUTPUT_MISSING => "finish_tts_audio_output_handoff_then_route_stub",
+        GAP_ROUTE_STUB_NOT_READY => "prepare_route_runtime_stub_from_latest_tts_output",
+        GAP_PROFESSIONAL_GATE_BLOCKED => "inspect_professional_gate_blockers",
+        _ => "continue_professional_source_development",
+    }
 }
 
 #[tauri::command]
@@ -219,20 +229,10 @@ pub fn run_professional_source_readiness_orchestration() -> ProfessionalSourceRe
 
     let gaps = development_gaps(&route_status, &route_stub, &professional_gate);
     let development_progress_percent_excluding_ci_local = development_progress_excluding_ci_local(&gaps);
-    let ok = gaps
-        .iter()
-        .all(|gap| !gap.contains("not_ready") && !gap.contains("not_available"));
+    let ok = gaps.is_empty();
     let next_action = gaps
         .first()
-        .map(|gap| match gap.as_str() {
-            "route_device_selection_or_virtual_audio_device_not_ready" => "select_or_install_virtual_route_device",
-            "tts_audio_output_path_not_available_for_route_stub" => "finish_tts_audio_output_handoff_then_route_stub",
-            "route_runtime_stub_not_ready" => "prepare_route_runtime_stub_from_latest_tts_output",
-            "professional_gate_still_blocked" => "inspect_professional_gate_blockers",
-            "user_facing_route_device_selection_surface_not_finished" => "build_user_facing_route_device_selection_surface",
-            "real_audio_output_route_runtime_not_implemented" => "implement_guarded_real_audio_output_route_runtime",
-            _ => "continue_professional_source_development",
-        })
+        .map(|gap| next_action_for_gap(gap))
         .unwrap_or("ready_for_ci_source_contract_validation")
         .to_string();
 
@@ -247,7 +247,7 @@ pub fn run_professional_source_readiness_orchestration() -> ProfessionalSourceRe
         route_stub,
         professional_gate,
         next_action,
-        summary: "Development-only progress excludes CI, local compile, Windows runtime, and end-to-end proof.".to_string(),
+        summary: "Development-only progress excludes CI, local compile, Windows runtime, and end-to-end proof. Route selection UI, provider handoff, and provider dry-run dispatch source wiring are already counted outside runtime proof.".to_string(),
         runtime_claim: "professional_source_orchestration_development_only_not_ci_local_runtime_proof".to_string(),
         updated_unix_ms: unix_ms(),
     }
