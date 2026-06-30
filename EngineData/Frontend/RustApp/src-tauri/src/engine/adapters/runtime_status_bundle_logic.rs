@@ -1,5 +1,8 @@
 use serde::Serialize;
 
+use crate::commands::pipeline_handoff::{
+    get_live_meeting_runtime_gate_status, LiveMeetingRuntimeGateStatus,
+};
 use crate::engine::adapters::internal_validation_gate_logic::{
     analyze_internal_validation_gate, InternalValidationGateReport,
 };
@@ -48,6 +51,7 @@ pub struct RuntimeStatusBundleReport {
     pub live_translation_boundary: LiveTranslationBoundaryReport,
     pub live_tts_boundary: LiveTtsBoundaryReport,
     pub live_pipeline_gate: LiveRuntimePipelineGateReport,
+    pub live_meeting_runtime_gate: LiveMeetingRuntimeGateStatus,
     pub local_worker_manifest: LocalWorkerManifestReport,
     pub internal_validation_gate: InternalValidationGateReport,
     pub next_action: String,
@@ -69,6 +73,7 @@ pub fn build_runtime_status_bundle() -> RuntimeStatusBundleReport {
     let live_translation_boundary = analyze_live_translation_boundary();
     let live_tts_boundary = analyze_live_tts_boundary();
     let live_pipeline_gate = analyze_live_runtime_pipeline_gate();
+    let live_meeting_runtime_gate = get_live_meeting_runtime_gate_status();
     let local_worker_manifest = analyze_local_worker_manifest();
     let internal_validation_gate = analyze_internal_validation_gate();
     let next_action = if internal_validation_gate.ready_for_release_candidate {
@@ -77,8 +82,10 @@ pub fn build_runtime_status_bundle() -> RuntimeStatusBundleReport {
         "run_release_candidate_packaging_review".to_string()
     } else if !local_worker_manifest.ok {
         "install_or_validate_local_worker_models".to_string()
-    } else if live_pipeline_gate.ready_for_user_runtime {
+    } else if live_meeting_runtime_gate.ready {
         "run_internal_validation_evidence_script".to_string()
+    } else if live_pipeline_gate.ready_for_user_runtime {
+        live_meeting_runtime_gate.next_action.clone()
     } else if live_tts_boundary.ok {
         "play_translated_audio_output".to_string()
     } else if live_translation_boundary.ok {
@@ -109,7 +116,7 @@ pub fn build_runtime_status_bundle() -> RuntimeStatusBundleReport {
         "start_microphone_only_capture".to_string()
     };
     let summary = format!(
-        "start={}, stop={}, active_session={}, capture_gate={}, live_capture={}, frames_received={}, buffer_ms={}, vad={}, target_frame={}, local_worker={}, asr_input={}, asr_model={}, asr_backend={}, decoder_connected={}, transcript={}, translation={}, tts={}, playback={}, pipeline_progress={}%, internal_validation={}%, owner_ready={}, rc_ready={}, user_runtime={}, blockers={}",
+        "start={}, stop={}, active_session={}, capture_gate={}, live_capture={}, frames_received={}, buffer_ms={}, vad={}, target_frame={}, local_worker={}, asr_input={}, asr_model={}, asr_backend={}, decoder_connected={}, transcript={}, translation={}, tts={}, playback={}, pipeline_progress={}%, meeting_gate_progress={}%, meeting_gate_ready={}, virtual_route={}, internal_validation={}%, owner_ready={}, rc_ready={}, user_runtime={}, blockers={}",
         readiness.ready_for_start_command,
         readiness.ready_for_stop_command,
         readiness.session_state.has_active_session,
@@ -129,6 +136,9 @@ pub fn build_runtime_status_bundle() -> RuntimeStatusBundleReport {
         live_tts_boundary.output_audio_ready,
         live_tts_boundary.playback_ready,
         live_pipeline_gate.progress_percent,
+        live_meeting_runtime_gate.progress_percent,
+        live_meeting_runtime_gate.ready,
+        live_meeting_runtime_gate.virtual_mic_route_ready,
         internal_validation_gate.progress_percent,
         internal_validation_gate.ready_for_owner_validation,
         internal_validation_gate.ready_for_release_candidate,
@@ -144,6 +154,7 @@ pub fn build_runtime_status_bundle() -> RuntimeStatusBundleReport {
             + usize::from(!live_translation_boundary.blocker.is_empty())
             + usize::from(!live_tts_boundary.blocker.is_empty())
             + usize::from(!live_pipeline_gate.blocker.is_empty())
+            + live_meeting_runtime_gate.blockers.len()
             + internal_validation_gate.blockers.len()
     );
 
@@ -159,6 +170,7 @@ pub fn build_runtime_status_bundle() -> RuntimeStatusBundleReport {
         live_translation_boundary,
         live_tts_boundary,
         live_pipeline_gate,
+        live_meeting_runtime_gate,
         local_worker_manifest,
         internal_validation_gate,
         next_action,
