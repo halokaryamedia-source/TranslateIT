@@ -225,6 +225,22 @@ export type VirtualMicRouteContractStatus = {
   updated_unix_ms: number;
 };
 
+export type VirtualMicOutputRouteRuntimeStubStatus = {
+  ok: boolean;
+  route_stub_ready: boolean;
+  source_audio_path: string | null;
+  selected_output_device: string | null;
+  selected_input_device: string | null;
+  route_ready: boolean;
+  source_audio_ready: boolean;
+  blocker: string;
+  next_action: string;
+  runtime_claim: string;
+  route_output_contract_json: string;
+  evidence_path: string | null;
+  updated_unix_ms: number;
+};
+
 export type AudioStudioValidationEvidence = {
   ok: boolean;
   stage: string;
