@@ -1,5 +1,13 @@
 import { runCommand } from "../shared/tauriBridge";
-import type { LivePipelineSessionSnapshot, ProfessionalRuntimeReadinessGateStatus, ProfessionalSourceReadinessOrchestrationStatus, VirtualMicOutputRouteRuntimeStubStatus, VirtualMicRouteContractStatus } from "../shared/types";
+import type {
+  LiveMeetingRuntimeGateStatus,
+  LivePipelineSessionSnapshot,
+  PipelinePayloadState,
+  ProfessionalRuntimeReadinessGateStatus,
+  ProfessionalSourceReadinessOrchestrationStatus,
+  VirtualMicOutputRouteRuntimeStubStatus,
+  VirtualMicRouteContractStatus,
+} from "../shared/types";
 
 function routeStatusFallback(message: string): VirtualMicRouteContractStatus {
   return {
@@ -48,9 +56,50 @@ function routeStubFallback(message: string, sourceAudioPath: string | null = nul
   };
 }
 
-function professionalGateFallback(message: string): ProfessionalRuntimeReadinessGateStatus {
-  const routeStub = routeStubFallback(message);
-  const liveGate = {
+function pipelinePayloadFallback(): PipelinePayloadState {
+  return {
+    transcript_text: null,
+    translated_text: null,
+    tts_text: null,
+    transcript_available: false,
+    translation_available: false,
+    tts_text_available: false,
+    tts_audio_output_path: null,
+    audio_output_ready: false,
+    virtual_mic_ready: false,
+    virtual_mic_route_ready: false,
+    virtual_mic_output_device: null,
+    virtual_mic_input_device: null,
+    virtual_mic_blocker: "frontend_bridge_unavailable",
+    virtual_mic_route_claim: "frontend_bridge_unavailable",
+    virtual_mic_route_preference_path: null,
+    source: "frontend_bridge_unavailable",
+    updated_unix_ms: Date.now(),
+  };
+}
+
+function pipelineSnapshotFallback(message: string): LivePipelineSessionSnapshot {
+  return {
+    ok: false,
+    state: "frontend_bridge_error",
+    progress_percent: 0,
+    stage_count: 0,
+    prepared_count: 0,
+    dispatch_ok_count: 0,
+    active_stage: "frontend_bridge",
+    active_blocker: "frontend_bridge_unavailable",
+    next_action: "open_developer_diagnostics",
+    summary: message,
+    runtime_claim: "frontend_bridge_unavailable",
+    evidence_path: null,
+    payload: pipelinePayloadFallback(),
+    stages: [],
+    updated_unix_ms: Date.now(),
+  };
+}
+
+function liveGateFallback(message: string): LiveMeetingRuntimeGateStatus {
+  return {
     ready: false,
     state: "frontend_bridge_error",
     progress_percent: 0,
@@ -71,6 +120,11 @@ function professionalGateFallback(message: string): ProfessionalRuntimeReadiness
     runtime_claim: "frontend_bridge_unavailable",
     updated_unix_ms: Date.now(),
   };
+}
+
+function professionalGateFallback(message: string): ProfessionalRuntimeReadinessGateStatus {
+  const routeStub = routeStubFallback(message);
+  const liveGate = liveGateFallback(message);
   return {
     ok: false,
     state: "frontend_bridge_error",
@@ -98,7 +152,7 @@ function sourceOrchestrationFallback(message: string): ProfessionalSourceReadine
     development_progress_percent_excluding_ci_local: 0,
     remaining_development_gaps: ["frontend_bridge_unavailable"],
     steps: [],
-    pipeline_snapshot: professionalGate.live_gate as unknown as ProfessionalSourceReadinessOrchestrationStatus["pipeline_snapshot"],
+    pipeline_snapshot: pipelineSnapshotFallback(message),
     route_status: routeStatusFallback(message),
     route_stub: professionalGate.route_stub,
     professional_gate: professionalGate,
