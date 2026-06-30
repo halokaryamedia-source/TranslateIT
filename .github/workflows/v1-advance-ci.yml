@@ -64,6 +64,15 @@ jobs:
       - name: Validate functional surface contract
         run: node scripts/validate_functional_surface_contract.mjs
 
+      - name: Validate runtime readiness scenarios
+        run: node scripts/validate_runtime_readiness_scenarios.mjs
+
+      - name: Validate error feedback contract
+        run: node scripts/validate_error_feedback_contract.mjs
+
+      - name: Validate settings surface contract
+        run: node scripts/validate_settings_surface_contract.mjs
+
       - name: Validate startup readiness
         run: npm run validate:startup-readiness
 
