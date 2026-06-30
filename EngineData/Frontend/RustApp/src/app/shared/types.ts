@@ -202,6 +202,23 @@ export type LiveMeetingRuntimeGateStatus = {
   updated_unix_ms: number;
 };
 
+export type VirtualMicRouteContractStatus = {
+  ok: boolean;
+  route_ready: boolean;
+  selected_output_device: string | null;
+  selected_input_device: string | null;
+  preferred_output_device: string | null;
+  preferred_input_device: string | null;
+  output_device_found: boolean;
+  input_device_found: boolean;
+  available_output_devices: string[];
+  available_input_devices: string[];
+  blocker: string;
+  next_action: string;
+  runtime_claim: string;
+  updated_unix_ms: number;
+};
+
 export type AudioStudioValidationEvidence = {
   ok: boolean;
   stage: string;
@@ -286,6 +303,7 @@ export type RuntimeStatusBundleReport = {
   native_asr_decoder?: { decoder_connected: boolean; transcript_text?: string | null; blocker: string };
   live_translation_boundary?: { translated_text?: string | null; blocker: string };
   live_tts_boundary?: { output_audio_ready: boolean; playback_ready: boolean; blocker: string };
+  live_meeting_runtime_gate?: LiveMeetingRuntimeGateStatus;
   local_worker_manifest?: LocalWorkerManifestReport;
   internal_validation_gate?: {
     ready_for_internal_validation: boolean;
