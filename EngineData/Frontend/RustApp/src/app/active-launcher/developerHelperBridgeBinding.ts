@@ -1,13 +1,13 @@
 import { invoke } from "@tauri-apps/api/core";
 import { asrPayloadApi, type AsrAudioPayloadRequestStatus } from "../bridge/asrPayloadApi";
 import { runtimeApi } from "../bridge/runtimeApi";
-import type { AsrHandoffRequestStatus, CaptureHelperBridgeRequestPreview, CaptureHelperDispatchStatus, CaptureTranscriptBoundaryStatus, HelperBridgeActionResult, HelperBridgeWorkerResponse, LiveMeetingRuntimeGateStatus, LivePipelineSessionSnapshot, PipelineHandoffRequestStatus } from "../shared/types";
+import type { AsrHandoffRequestStatus, CaptureHelperBridgeRequestPreview, CaptureHelperDispatchStatus, CaptureTranscriptBoundaryStatus, HelperBridgeActionResult, HelperBridgeWorkerResponse, LiveMeetingRuntimeGateStatus, LivePipelineSessionSnapshot, PipelineHandoffRequestStatus, VirtualMicRouteContractStatus } from "../shared/types";
 
 let bound = false;
 let clickHandler: ((event: MouseEvent) => void) | null = null;
 
 type HelperTaskResult = HelperBridgeActionResult | HelperBridgeWorkerResponse;
-type CaptureTaskResult = CaptureHelperBridgeRequestPreview | HelperBridgeActionResult | CaptureTranscriptBoundaryStatus | AsrHandoffRequestStatus | AsrAudioPayloadRequestStatus | PipelineHandoffRequestStatus | PipelineHandoffRequestStatus[] | LivePipelineSessionSnapshot | LiveMeetingRuntimeGateStatus | null;
+type CaptureTaskResult = CaptureHelperBridgeRequestPreview | HelperBridgeActionResult | CaptureTranscriptBoundaryStatus | AsrHandoffRequestStatus | AsrAudioPayloadRequestStatus | PipelineHandoffRequestStatus | PipelineHandoffRequestStatus[] | LivePipelineSessionSnapshot | LiveMeetingRuntimeGateStatus | VirtualMicRouteContractStatus | null;
 type WorkerPayload = Record<string, unknown>;
 type CaptureDispatchGlobal = typeof globalThis & {
   __translateitCaptureHelperDispatchStatus?: CaptureHelperDispatchStatus;
@@ -64,6 +64,7 @@ function capturePreviewTask(action: string | undefined): Promise<CaptureTaskResu
   if (action === "asr-payload-prepare") return asrPayloadApi.prepareAsrAudioPayloadRequest();
   if (action === "asr-decode-dispatch") return asrPayloadApi.dispatchAsrDecodeRequest();
   if (action === "asr-promote-transcript") return invoke<LivePipelineSessionSnapshot>("promote_latest_asr_payload_transcript");
+  if (action === "virtual-route-status") return invoke<VirtualMicRouteContractStatus>("get_virtual_mic_route_contract_status");
   if (action === "virtual-mic-prepare") return invoke<LivePipelineSessionSnapshot>("prepare_virtual_mic_output_from_latest_tts");
   if (action === "runtime-gate") return invoke<LiveMeetingRuntimeGateStatus>("get_live_meeting_runtime_gate_status");
   if (action === "seed-transcript") return runtimeApi.seedDevAsrTranscript("Hello from the developer seeded ASR transcript.");
@@ -197,6 +198,10 @@ function isLiveMeetingRuntimeGate(result: CaptureTaskResult): result is LiveMeet
   return Boolean(result && !Array.isArray(result) && "capture_ready" in result && "virtual_mic_route_ready" in result && "blockers" in result);
 }
 
+function isVirtualMicRouteStatus(result: CaptureTaskResult): result is VirtualMicRouteContractStatus {
+  return Boolean(result && !Array.isArray(result) && "preference_persisted" in result && "available_output_devices" in result && "route_ready" in result);
+}
+
 function ensureAsrDecodeControls(): void {
   const container = document.querySelector<HTMLElement>('[aria-label="Capture helper bridge preview controls"]');
   if (!container || container.querySelector('[data-capture-bridge-action="asr-payload-prepare"]')) return;
@@ -220,6 +225,11 @@ function ensureAsrDecodeControls(): void {
   promote.type = "button";
   promote.dataset.captureBridgeAction = "asr-promote-transcript";
   promote.textContent = "Promote ASR Transcript";
+  const routeStatus = document.createElement("button");
+  routeStatus.className = "mic-test-button-v22 secondary";
+  routeStatus.type = "button";
+  routeStatus.dataset.captureBridgeAction = "virtual-route-status";
+  routeStatus.textContent = "Virtual Route Status";
   const virtualMic = document.createElement("button");
   virtualMic.className = "mic-test-button-v22 secondary";
   virtualMic.type = "button";
@@ -236,10 +246,11 @@ function ensureAsrDecodeControls(): void {
     container.insertBefore(prepare, latest.nextSibling);
     container.insertBefore(dispatch, prepare.nextSibling);
     container.insertBefore(promote, dispatch.nextSibling);
-    container.insertBefore(virtualMic, promote.nextSibling);
+    container.insertBefore(routeStatus, promote.nextSibling);
+    container.insertBefore(virtualMic, routeStatus.nextSibling);
     container.insertBefore(runtimeGate, virtualMic.nextSibling);
   } else {
-    container.append(latest, prepare, dispatch, promote, virtualMic, runtimeGate);
+    container.append(latest, prepare, dispatch, promote, routeStatus, virtualMic, runtimeGate);
   }
 }
 
@@ -248,6 +259,13 @@ function previewSummary(result: CaptureTaskResult): string {
   if (Array.isArray(result)) {
     const summary = result.map((item) => `${item.stage}:${item.state}:${item.next_action}`).join(" | ");
     return `Live pipeline handoff status: ${summary}. This is source-side wiring evidence, not runtime proof.`;
+  }
+  if (isVirtualMicRouteStatus(result)) {
+    const devices = `selectedOutput=${result.selected_output_device || "none"}, selectedInput=${result.selected_input_device || "none"}`;
+    const preferred = `preferredOutput=${result.preferred_output_device || "none"}, preferredInput=${result.preferred_input_device || "none"}`;
+    const counts = `availableOutputs=${result.available_output_devices.length}, availableInputs=${result.available_input_devices.length}`;
+    const path = result.preference_path ? ` preferencePath=${result.preference_path}` : "";
+    return `Virtual route ${result.route_ready ? "ready" : "blocked"}: ${devices}, ${preferred}, persisted=${result.preference_persisted}, ${counts}, next=${result.next_action}, blocker=${result.blocker || "none"}.${path} This is route selection evidence, not audio routing proof.`;
   }
   if (isLiveMeetingRuntimeGate(result)) {
     const devices = `virtualOutput=${result.virtual_mic_output_device || "none"}, virtualInput=${result.virtual_mic_input_device || "none"}`;
@@ -259,8 +277,9 @@ function previewSummary(result: CaptureTaskResult): string {
     setLivePipelineGlobal(result.stages);
     const payload = `payload transcript=${result.payload.transcript_available}, translation=${result.payload.translation_available}, tts=${result.payload.tts_text_available}, audio=${result.payload.audio_output_ready}, virtualMic=${result.payload.virtual_mic_ready}, route=${result.payload.virtual_mic_route_ready}`;
     const devices = `virtualOutput=${result.payload.virtual_mic_output_device || "none"}, virtualInput=${result.payload.virtual_mic_input_device || "none"}`;
+    const route = `routeClaim=${result.payload.virtual_mic_route_claim || "none"}, routePref=${result.payload.virtual_mic_route_preference_path || "none"}`;
     const evidence = result.evidence_path ? ` evidence=${result.evidence_path}.` : "";
-    return `Live pipeline snapshot ${result.state}: ${result.progress_percent}% source-side progress, active=${result.active_stage}, next=${result.next_action}, blocker=${result.active_blocker || result.payload.virtual_mic_blocker || "none"}, ${payload}, ${devices}.${evidence} ${result.summary} This is not runtime proof.`;
+    return `Live pipeline snapshot ${result.state}: ${result.progress_percent}% source-side progress, active=${result.active_stage}, next=${result.next_action}, blocker=${result.active_blocker || result.payload.virtual_mic_blocker || "none"}, ${payload}, ${devices}, ${route}.${evidence} ${result.summary} This is not runtime proof.`;
   }
   if (isPipelineHandoff(result)) {
     const state = result.dispatch_attempted ? (result.dispatch_ok ? "dispatch accepted" : "dispatch blocked") : (result.request_prepared ? "request prepared" : "blocked before request");
