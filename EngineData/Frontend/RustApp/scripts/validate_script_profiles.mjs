@@ -120,6 +120,11 @@ for (const requiredSourceStep of [
   "validate:translation-flow",
   "validate:runtime-ux",
   "validate:simple-ui",
+  "validate_functional_surface_contract.mjs",
+  "validate_runtime_readiness_scenarios.mjs",
+  "validate_error_feedback_contract.mjs",
+  "validate_settings_surface_contract.mjs",
+  "validate_auto_test_matrix_contract.mjs",
   "validate:startup-readiness",
   "validate:ci-scope",
   "validate:virtual-route",
@@ -152,4 +157,4 @@ if (failures.length > 0) {
   process.exit(1);
 }
 
-console.log("Script profiles are clean: active CI/manual scripts, simple UI guards, and auto test matrix profiles are explicit.");
+console.log("Script profiles are clean: active CI/manual scripts, expanded source contract guards, and auto test matrix profiles are explicit.");
