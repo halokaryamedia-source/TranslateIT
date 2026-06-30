@@ -64,6 +64,13 @@ async function runAsrPayloadCommand(command: string, fallbackMessage: string): P
 }
 
 export const asrPayloadApi = {
+  getLatestAsrAudioPayloadStatus(): Promise<AsrAudioPayloadRequestStatus> {
+    return runAsrPayloadCommand(
+      "get_latest_asr_audio_payload_status",
+      "Latest ASR audio payload status failed before reaching the Tauri command bridge.",
+    );
+  },
+
   prepareAsrAudioPayloadRequest(): Promise<AsrAudioPayloadRequestStatus> {
     return runAsrPayloadCommand(
       "prepare_asr_audio_payload_request",
