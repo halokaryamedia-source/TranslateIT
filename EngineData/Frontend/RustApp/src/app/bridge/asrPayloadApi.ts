@@ -25,6 +25,7 @@ export type AsrAudioPayloadRequestStatus = {
   runtime_claim: string;
   payload_json: string;
   evidence_json: string;
+  worker_response_json: string;
   updated_unix_ms: number;
 };
 
@@ -54,6 +55,7 @@ function fallback(message: string): AsrAudioPayloadRequestStatus {
     runtime_claim: "frontend_bridge_unavailable",
     payload_json: "{}",
     evidence_json: "{}",
+    worker_response_json: "{}",
     updated_unix_ms: Date.now(),
   };
 }
