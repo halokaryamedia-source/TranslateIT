@@ -6,11 +6,11 @@ Status: progress ini tidak menghitung CI, local compile, Windows runtime, atau e
 
 ## Progress development-only
 
-Progress development-only saat ini: sekitar **98%**.
+Progress development-only saat ini: sekitar **99%**.
 
 Definisi:
 
-- Yang dihitung: source features, contracts, bridge, evidence, blocker, diagnostics, orchestration, route selection model, route selection renderer, route selection mount helper, entrypoint mounting, Source Orchestration binding, guarded runtime handoff, guarded provider script, Rust/bridge provider dispatch wiring, Provider Dry Run UI, route selection styling, Windows provider notes, provider requirements artifact, route renderer escaping, dan provider response summary hardening.
+- Yang dihitung: source features, contracts, bridge, evidence, blocker, diagnostics, orchestration, route selection model, route selection renderer, route selection mount helper, entrypoint mounting, Source Orchestration binding, guarded runtime handoff, guarded provider script, Rust/bridge provider dispatch wiring, Provider Dry Run UI, route selection styling, Windows provider notes, provider requirements artifact, route renderer escaping, provider response summary hardening, dan diagnostics button binding cleanup.
 - Yang tidak dihitung: CI result, local compile proof, Windows runtime proof, latency proof, dan end-to-end meeting proof.
 
 ## Yang sudah selesai secara development
@@ -52,6 +52,8 @@ Definisi:
 - Frontend bridge `dispatchProviderFromLatestPipeline` calls the guarded provider dispatch command from latest pipeline TTS output path.
 - Provider Dry Run UI binding mounted from `src/main.ts`.
 - Provider Dry Run summary parses provider response JSON and surfaces provider blocker, next action, runtime claim, audio readiness, and execution-attempt state.
+- Reusable diagnostics button binding helper.
+- Source Orchestration and Provider Dry Run share the same diagnostics button lifecycle helper.
 - Windows virtual audio provider notes.
 - Audio route runtime contract borrow guard cleanup.
 - Virtual route validator included in quick validation.
@@ -78,6 +80,7 @@ virtualRouteSelectionSurfaceModel.ts
 virtualRouteSelectionSurfaceRenderer.ts
 virtualRouteSelectionSurfaceMount.ts
 sourceOrchestrationBinding.ts
+diagnosticButtonBinding.ts
 V1_ADVANCE_VIRTUAL_AUDIO_PROVIDER_WINDOWS_NOTES.md
 ```
 
@@ -96,8 +99,7 @@ Purpose:
 - Provide a modular route selection surface with output/input selectors, save action, refresh action, blocker display, and evidence path display.
 - Escape route selection surface text before inserting generated HTML.
 - Mount the route selection surface near the existing capture helper controls without rewriting the large diagnostics binding.
-- Provide Source Orchestration as a separate binding/button instead of rewriting the large diagnostics binding.
-- Provide Provider Dry Run as a separate binding/button that calls guarded provider dispatch in safe dry-run mode.
+- Provide Source Orchestration and Provider Dry Run as separate actions using one reusable diagnostics button binding helper.
 - Parse provider response JSON in the Provider Dry Run summary so blockers and runtime claims are visible to the user.
 - Provide Windows provider notes for `numpy`, `sounddevice`, virtual audio cable/mixer, and runtime guards.
 - Provide a dedicated provider requirements file for Windows validation dependency installation.
