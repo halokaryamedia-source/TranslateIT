@@ -13,6 +13,7 @@ pub mod helper_bridge;
 pub mod helper_bridge_runtime;
 pub mod pipeline;
 pub mod pipeline_handoff;
+pub mod professional_readiness_gate;
 pub mod registry;
 pub mod runtime_inventory;
 pub mod runtime_preview;
