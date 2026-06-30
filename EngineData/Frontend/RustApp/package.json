@@ -90,7 +90,7 @@
     "validate:auto:worker": "echo report-only auto worker validation deferred",
     "validate:auto:report": "echo report-only auto report deferred",
     "validate:root": "echo report-only root validation deferred",
-    "validate:structure": "echo report-only structure deferred",
+    "validate:structure": "echo report-only structure validation deferred",
     "validate:launcher": "echo report-only launcher validation deferred",
     "validate:worker": "echo report-only worker validation deferred",
     "validate:evidence": "echo report-only evidence validation deferred",
