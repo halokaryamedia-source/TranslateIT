@@ -6,11 +6,11 @@ Status: progress ini tidak menghitung CI, local compile, Windows runtime, atau e
 
 ## Progress development-only
 
-Progress development-only saat ini: sekitar **96%**.
+Progress development-only saat ini: sekitar **97%**.
 
 Definisi:
 
-- Yang dihitung: source features, contracts, bridge, evidence, blocker, diagnostics, orchestration, route selection model, route selection renderer, route selection mount helper, entrypoint mounting, Source Orchestration binding, guarded runtime handoff, guarded provider script, Rust/bridge provider dispatch wiring, Provider Dry Run UI, route selection styling, dan Windows provider notes.
+- Yang dihitung: source features, contracts, bridge, evidence, blocker, diagnostics, orchestration, route selection model, route selection renderer, route selection mount helper, entrypoint mounting, Source Orchestration binding, guarded runtime handoff, guarded provider script, Rust/bridge provider dispatch wiring, Provider Dry Run UI, route selection styling, Windows provider notes, dan provider requirements artifact.
 - Yang tidak dihitung: CI result, local compile proof, Windows runtime proof, latency proof, dan end-to-end meeting proof.
 
 ## Yang sudah selesai secara development
@@ -46,6 +46,7 @@ Definisi:
 - Provider source WAV metadata check.
 - Provider selected output device lookup.
 - Provider dependency-aware blockers for `sounddevice` and `numpy`.
+- Provider requirements artifact: `requirements-virtual-audio-route.txt`.
 - Rust command `dispatch_guarded_virtual_audio_route_provider` writes provider payload and calls the provider script through `TRANSLATEIT_PYTHON` or `python`.
 - Frontend bridge `dispatchProviderFromLatestPipeline` calls the guarded provider dispatch command from latest pipeline TTS output path.
 - Provider Dry Run UI binding mounted from `src/main.ts`.
@@ -67,6 +68,7 @@ run_professional_source_readiness_orchestration
 prepare_guarded_virtual_audio_route_runtime
 dispatch_guarded_virtual_audio_route_provider
 virtual_audio_route_provider.py
+requirements-virtual-audio-route.txt
 virtualAudioRouteRuntimeApi.dispatchProviderFromLatestPipeline
 virtualAudioRouteProviderBinding.ts
 virtualRouteSelectionSurface.css
@@ -94,6 +96,7 @@ Purpose:
 - Provide Source Orchestration as a separate binding/button instead of rewriting the large diagnostics binding.
 - Provide Provider Dry Run as a separate binding/button that calls guarded provider dispatch in safe dry-run mode.
 - Provide Windows provider notes for `numpy`, `sounddevice`, virtual audio cable/mixer, and runtime guards.
+- Provide a dedicated provider requirements file for Windows validation dependency installation.
 - Keep execution disabled until CI/local/Windows validation and provider runtime guards are ready.
 
 Runtime claims:
