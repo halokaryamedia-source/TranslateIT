@@ -4,9 +4,11 @@
   "version": "0.1.0",
   "type": "module",
   "scripts": {
+    "dev:frontend": "vite --host 127.0.0.1 --port 1420 --strictPort",
+    "dev:app": "tauri dev",
     "build:frontend": "vite build",
     "typecheck": "tsc --noEmit",
-    "check:rust": "node scripts/validate_rust_manifest_preflight.mjs",
+    "check:rust": "node scripts/run_local_tauri_compile_check.mjs",
     "check:tauri-rust-local": "node scripts/run_local_tauri_compile_check.mjs",
     "preflight:frontend-build": "node scripts/validate_frontend_build_preflight.mjs",
     "preflight:tauri-package": "node scripts/validate_tauri_package_preflight.mjs",
