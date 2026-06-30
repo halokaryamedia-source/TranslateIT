@@ -2,41 +2,35 @@ export type JsonObject = Record<string, unknown>;
 export type LooseRecord = Record<string, any>;
 
 export type CommandResult = { ok: boolean; state: string; message: string; [key: string]: any };
-
-export type RuntimeCommandError = {
-  command: string;
-  message: string;
-  occurred_at: string;
-};
-
+export type RuntimeCommandError = { command: string; message: string; occurred_at: string };
 export type SettingsTab = "runtime" | "audio" | "translate" | "developer" | string;
-export type ChatKind = "translation" | "developer" | "general" | string;
+export type ChatKind = "translation" | "developer" | "general" | "saved" | string;
 
 export type RuntimeSettings = {
-  schema_version?: number;
-  language_focus_mode?: string;
+  schema_version: number;
+  language_focus_mode: string;
   runtime_profile: string;
   source_language: string;
   target_language: string;
   audio: {
     input_device_id: string | null;
     output_device_id: string | null;
-    sensitivity?: number;
-    input_sensitivity?: string;
-    show_advanced_devices?: boolean;
-    allow_low_but_usable_input?: boolean;
-    allow_cpu_degraded_mode?: boolean;
-    auto_play_translation_voice?: boolean;
-    auto_play_out_voice?: boolean;
-    use_custom_voice_actor?: boolean;
-    voice_actor_profiles_root?: string;
+    sensitivity: number;
+    input_sensitivity: string;
+    show_advanced_devices: boolean;
+    allow_low_but_usable_input: boolean;
+    allow_cpu_degraded_mode: boolean;
+    auto_play_translation_voice: boolean;
+    auto_play_out_voice: boolean;
+    use_custom_voice_actor: boolean;
+    voice_actor_profiles_root: string;
     [key: string]: any;
   };
-  voice_actor_profile_id?: string;
+  voice_actor_profile_id: string;
   [key: string]: any;
 };
 
-export type EngineStatus = {
+export type EngineStatus = LooseRecord & {
   app_version: string;
   runtime_stage: string;
   lifecycle_state: string;
@@ -45,23 +39,15 @@ export type EngineStatus = {
   translation_engine: string;
   tts_engine: string;
   notes: string[];
-  [key: string]: any;
 };
 
-export type RuntimeDiagnostics = {
-  cuda_probe: {
-    nvidia_smi_available: boolean;
-    gpu_summary: string | null;
-    cuda_runtime_ready: boolean;
-    blocker: string | null;
-    [key: string]: any;
-  };
-  backend_validation: { ready: boolean; blocker: string; [key: string]: any };
+export type RuntimeDiagnostics = LooseRecord & {
+  cuda_probe: LooseRecord;
+  backend_validation: LooseRecord;
   blockers: string[];
-  [key: string]: any;
 };
 
-export type HelperBridgeStatus = {
+export type HelperBridgeStatus = LooseRecord & {
   state: string;
   message: string;
   cuda_ready: boolean;
@@ -73,19 +59,17 @@ export type HelperBridgeStatus = {
   stderr_log_path?: string | null;
   updated_unix_ms: number;
   runtime_claim: string;
-  [key: string]: any;
 };
 
-export type HelperBridgeActionResult = {
+export type HelperBridgeActionResult = LooseRecord & {
   ok: boolean;
   state: string;
   message: string;
   generation_token: number;
   runtime_claim: string;
-  [key: string]: any;
 };
 
-export type HelperBridgeWorkerResponse = {
+export type HelperBridgeWorkerResponse = LooseRecord & {
   ok: boolean;
   state: string;
   task: string;
@@ -93,16 +77,14 @@ export type HelperBridgeWorkerResponse = {
   generation_token: number;
   runtime_claim: string;
   worker_response_json: string;
-  [key: string]: any;
 };
 
-export type HelperBridgeRequest = {
+export type HelperBridgeRequest = LooseRecord & {
   task: string;
   payload_json?: string | null;
-  [key: string]: any;
 };
 
-export type CaptureHelperBridgeRequestPreview = {
+export type CaptureHelperBridgeRequestPreview = LooseRecord & {
   ok: boolean;
   state: string;
   message: string;
@@ -116,10 +98,9 @@ export type CaptureHelperBridgeRequestPreview = {
   preview_only: boolean;
   runtime_claim: string;
   payload_json: string;
-  [key: string]: any;
 };
 
-export type CaptureHelperDispatchStatus = {
+export type CaptureHelperDispatchStatus = LooseRecord & {
   attempted: boolean;
   command: string;
   ok: boolean;
@@ -128,10 +109,9 @@ export type CaptureHelperDispatchStatus = {
   generation_token: number;
   runtime_claim: string;
   updated_unix_ms: number;
-  [key: string]: any;
 };
 
-export type CaptureTranscriptBoundaryStatus = {
+export type CaptureTranscriptBoundaryStatus = LooseRecord & {
   capture_dispatch_attempted: boolean;
   capture_dispatch_ok: boolean;
   helper_capture_command: string;
@@ -146,10 +126,9 @@ export type CaptureTranscriptBoundaryStatus = {
   next_action: string;
   runtime_claim: string;
   updated_unix_ms: number;
-  [key: string]: any;
 };
 
-export type AsrHandoffRequestStatus = {
+export type AsrHandoffRequestStatus = LooseRecord & {
   boundary_ready: boolean;
   request_prepared: boolean;
   dispatch_attempted: boolean;
@@ -165,10 +144,9 @@ export type AsrHandoffRequestStatus = {
   runtime_claim: string;
   payload_json: string;
   updated_unix_ms: number;
-  [key: string]: any;
 };
 
-export type PipelineHandoffRequestStatus = {
+export type PipelineHandoffRequestStatus = LooseRecord & {
   stage: string;
   prerequisite_stage: string;
   prerequisite_ready: boolean;
@@ -183,16 +161,15 @@ export type PipelineHandoffRequestStatus = {
   runtime_claim: string;
   payload_json: string;
   updated_unix_ms: number;
-  [key: string]: any;
 };
 
-export type PipelinePayloadState = {
-  transcript_text?: string | null;
-  translated_text?: string | null;
-  tts_text?: string | null;
-  transcript_available?: boolean;
-  translation_available?: boolean;
-  tts_text_available?: boolean;
+export type PipelinePayloadState = LooseRecord & {
+  transcript_text: string | null;
+  translated_text: string | null;
+  tts_text: string | null;
+  transcript_available: boolean;
+  translation_available: boolean;
+  tts_text_available: boolean;
   tts_audio_output_path?: string | null;
   audio_output_ready?: boolean;
   virtual_mic_ready?: boolean;
@@ -202,12 +179,11 @@ export type PipelinePayloadState = {
   virtual_mic_blocker?: string;
   virtual_mic_route_claim?: string;
   virtual_mic_route_preference_path?: string | null;
-  source?: string;
-  updated_unix_ms?: number;
-  [key: string]: any;
+  source: string;
+  updated_unix_ms: number;
 };
 
-export type LivePipelineSessionSnapshot = {
+export type LivePipelineSessionSnapshot = LooseRecord & {
   ok: boolean;
   state: string;
   progress_percent: number;
@@ -223,10 +199,9 @@ export type LivePipelineSessionSnapshot = {
   payload: PipelinePayloadState;
   stages: PipelineHandoffRequestStatus[];
   updated_unix_ms: number;
-  [key: string]: any;
 };
 
-export type LiveMeetingRuntimeGateStatus = {
+export type LiveMeetingRuntimeGateStatus = LooseRecord & {
   ready: boolean;
   state: string;
   progress_percent: number;
@@ -246,10 +221,9 @@ export type LiveMeetingRuntimeGateStatus = {
   evidence_path: string | null;
   runtime_claim: string;
   updated_unix_ms: number;
-  [key: string]: any;
 };
 
-export type VirtualMicRouteContractStatus = {
+export type VirtualMicRouteContractStatus = LooseRecord & {
   ok: boolean;
   route_ready: boolean;
   selected_output_device: string | null;
@@ -268,10 +242,9 @@ export type VirtualMicRouteContractStatus = {
   next_action: string;
   runtime_claim: string;
   updated_unix_ms: number;
-  [key: string]: any;
 };
 
-export type VirtualMicOutputRouteRuntimeStubStatus = {
+export type VirtualMicOutputRouteRuntimeStubStatus = LooseRecord & {
   ok: boolean;
   route_stub_ready: boolean;
   source_audio_path: string | null;
@@ -285,10 +258,9 @@ export type VirtualMicOutputRouteRuntimeStubStatus = {
   route_output_contract_json: string;
   evidence_path: string | null;
   updated_unix_ms: number;
-  [key: string]: any;
 };
 
-export type ProfessionalRuntimeReadinessGateStatus = {
+export type ProfessionalRuntimeReadinessGateStatus = LooseRecord & {
   ok: boolean;
   state: string;
   progress_percent: number;
@@ -304,18 +276,16 @@ export type ProfessionalRuntimeReadinessGateStatus = {
   route_stub_blocker: string;
   runtime_claim: string;
   updated_unix_ms: number;
-  [key: string]: any;
 };
 
-export type ProfessionalSourceOrchestrationStep = {
+export type ProfessionalSourceOrchestrationStep = LooseRecord & {
   name: string;
   ready: boolean;
   blocker: string;
   next_action: string;
-  [key: string]: any;
 };
 
-export type ProfessionalSourceReadinessOrchestrationStatus = {
+export type ProfessionalSourceReadinessOrchestrationStatus = LooseRecord & {
   ok: boolean;
   state: string;
   development_progress_percent_excluding_ci_local: number;
@@ -329,10 +299,9 @@ export type ProfessionalSourceReadinessOrchestrationStatus = {
   summary: string;
   runtime_claim: string;
   updated_unix_ms: number;
-  [key: string]: any;
 };
 
-export type AudioStudioValidationEvidence = {
+export type AudioStudioValidationEvidence = LooseRecord & {
   ok: boolean;
   stage: string;
   blocker?: string;
@@ -341,52 +310,25 @@ export type AudioStudioValidationEvidence = {
   log_path?: string | null;
   evidence_unix_ms?: number;
   summary?: LooseRecord;
-  [key: string]: any;
 };
 
-export type AudioDeviceSummary = {
-  name: string;
-  is_default?: boolean;
-  [key: string]: any;
-};
+export type AudioDeviceSummary = LooseRecord & { name: string; is_default?: boolean };
+export type AudioDeviceListReport = LooseRecord & { ok: boolean; input_devices: AudioDeviceSummary[]; output_devices: AudioDeviceSummary[]; blocker?: string; note?: string };
 
-export type AudioDeviceListReport = {
-  ok: boolean;
-  input_devices: AudioDeviceSummary[];
-  output_devices: AudioDeviceSummary[];
-  blocker?: string;
-  note?: string;
-  [key: string]: any;
-};
-
-export type InputPreparationStatus = {
-  ready?: boolean;
+export type InputPreparationStatus = LooseRecord & {
+  ready: boolean;
   prepared?: boolean;
-  selected_device_name?: string | null;
+  selected_device_name: string | null;
   input_device_name?: string | null;
-  device_count?: number;
+  device_count: number;
   blocker?: string;
-  note?: string;
-  [key: string]: any;
-};
-
-export type HardwareMetric = {
-  label: string;
-  percent: number | null;
-  status: string;
-  detail: string;
-  [key: string]: any;
-};
-
-export type HardwareUsageReport = {
-  cpu: HardwareMetric;
-  ram: HardwareMetric;
-  gpu: HardwareMetric;
   note: string;
-  [key: string]: any;
 };
 
-export type GpuPolicyReport = {
+export type HardwareMetric = LooseRecord & { label: string; percent: number | null; status: string; detail: string };
+export type HardwareUsageReport = LooseRecord & { cpu: HardwareMetric; ram: HardwareMetric; gpu: HardwareMetric; note: string };
+
+export type GpuPolicyReport = LooseRecord & {
   ok: boolean;
   status: string;
   cuda_available: boolean;
@@ -398,82 +340,49 @@ export type GpuPolicyReport = {
   fallback_label?: string;
   blocker: string;
   blockers?: string[];
-  [key: string]: any;
 };
 
-export type LocalWorkerManifestReport = {
+export type LocalWorkerManifestReport = LooseRecord & {
   ok: boolean;
-  runtime_manifest_exists?: boolean;
-  runtime_manifest_valid?: boolean;
-  asr_model_ready?: boolean;
-  asr_backup_model_ready?: boolean;
-  realtime_translation_model_ready?: boolean;
-  quality_translation_model_ready?: boolean;
-  piper_ready?: boolean;
-  sapi_ready?: boolean;
-  tts_default_ready?: boolean;
-  voice_actor_marcel_ready?: boolean;
-  voice_actor_path?: string | null;
-  torch_cuda_available?: boolean;
-  ctranslate2_cuda_available?: boolean;
   blockers: string[];
   warnings?: string[];
   tts_blockers?: string[];
   note: string;
-  [key: string]: any;
 };
 
-export type RuntimeStatusBundleReport = {
+export type RuntimeStatusBundleReport = LooseRecord & {
   engine_status: EngineStatus;
   readiness: LooseRecord;
   capture_gate: LooseRecord;
   live_capture: LooseRecord;
   next_action?: string;
-  live_pipeline_gate?: LooseRecord;
   live_meeting_runtime_gate?: LiveMeetingRuntimeGateStatus;
-  live_audio_buffer?: LooseRecord;
-  live_target_segment?: LooseRecord;
-  live_asr_boundary?: LooseRecord;
-  native_asr_decoder?: LooseRecord;
-  live_translation_boundary?: LooseRecord;
-  live_tts_boundary?: LooseRecord;
   local_worker_manifest?: LocalWorkerManifestReport;
-  internal_validation_gate?: LooseRecord & {
-    ready_for_internal_validation?: boolean;
-    can_run_audio_studio_validation?: boolean;
-    can_run_local_worker_validation?: boolean;
-    blockers?: string[];
-    note?: string;
-    progress_percent?: number;
-    local_worker_manifest?: LocalWorkerManifestReport;
-  };
-  [key: string]: any;
 };
 
 export type RealtimeStatusPayload = LooseRecord & {
   ok?: boolean;
   state?: string;
   summary?: string;
+  latency?: LooseRecord;
   runtime_status?: RuntimeStatusBundleReport;
   gpu_policy?: GpuPolicyReport;
   updated_unix_ms?: number;
 };
 
+export type ModelInventoryItem = LooseRecord & { required: boolean; found: boolean };
 export type ModelInventoryReport = LooseRecord & {
-  ok?: boolean;
-  blockers?: string[];
+  ok: boolean;
+  status: string;
+  items: ModelInventoryItem[];
+  blockers: string[];
   warnings?: string[];
   note?: string;
 };
 
-export type ModelSetupReport = LooseRecord & {
-  ok?: boolean;
-  blockers?: string[];
-  warnings?: string[];
-  note?: string;
-};
+export type ModelSetupReport = LooseRecord & { ok?: boolean; blockers?: string[]; warnings?: string[]; note?: string };
 
-export type VoiceCapturePreparationReport = {
+export type VoiceCapturePreparationReport = LooseRecord & {
   ok: boolean;
   state: string;
   microphone_ready: boolean;
@@ -486,48 +395,44 @@ export type VoiceCapturePreparationReport = {
   message: string;
   input_status: InputPreparationStatus;
   helper_status: HelperBridgeStatus;
-  [key: string]: any;
 };
 
-export type LauncherChatMessage = {
+export type LauncherChatMessage = LooseRecord & {
   id?: string;
   role: "user" | "assistant" | string;
   content: string;
   created_at?: string;
-  [key: string]: any;
 };
 
-export type LauncherChatSession = {
+export type LauncherChatSession = LooseRecord & {
   id: string;
   kind: ChatKind;
-  title?: string;
-  messages?: LauncherChatMessage[];
+  title: string;
+  messages: LauncherChatMessage[];
   created_at?: string;
   updated_at?: string;
-  [key: string]: any;
 };
 
-export type LauncherChatSummary = {
+export type LauncherChatSummary = LooseRecord & {
   id: string;
   kind: ChatKind;
-  title?: string;
-  message_count?: number;
+  title: string;
+  message_count: number;
   updated_at?: string;
-  [key: string]: any;
 };
 
-export type LauncherChatActionResult = {
+export type LauncherChatActionResult = LooseRecord & {
   ok: boolean;
   state: string;
   message: string;
   session?: LauncherChatSession | null;
-  [key: string]: any;
 };
 
-export type UserFlowTraceEvent = {
+export type UserFlowTraceEvent = LooseRecord & {
+  event?: string;
   name?: string;
   label?: string;
-  detail?: LooseRecord;
+  detail?: unknown;
+  occurred_at?: string;
   at?: string;
-  [key: string]: any;
 };
