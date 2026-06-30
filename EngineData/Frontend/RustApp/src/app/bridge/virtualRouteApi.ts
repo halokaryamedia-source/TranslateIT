@@ -95,10 +95,25 @@ async function latestPipelineSourceAudioPath(): Promise<string | null> {
   return snapshot?.payload?.tts_audio_output_path?.trim() || null;
 }
 
+function safeDeviceName(value?: string | null): string | null {
+  return value?.trim() || null;
+}
+
 export const virtualRouteApi = {
   async getVirtualMicRouteContractStatus(): Promise<VirtualMicRouteContractStatus> {
     const result = await runCommand<VirtualMicRouteContractStatus>("get_virtual_mic_route_contract_status");
     return result ?? routeStatusFallback("Virtual route status failed before reaching the Tauri command bridge.");
+  },
+
+  async setPreferredVirtualMicRouteDevices(outputDevice?: string | null, inputDevice?: string | null): Promise<VirtualMicRouteContractStatus> {
+    const result = await runCommand<VirtualMicRouteContractStatus>(
+      "set_preferred_virtual_mic_route_devices",
+      {
+        outputDevice: safeDeviceName(outputDevice),
+        inputDevice: safeDeviceName(inputDevice),
+      },
+    );
+    return result ?? routeStatusFallback("Virtual route preference save failed before reaching the Tauri command bridge.");
   },
 
   async prepareVirtualMicOutputRouteRuntimeStub(sourceAudioPath?: string | null): Promise<VirtualMicOutputRouteRuntimeStubStatus> {
