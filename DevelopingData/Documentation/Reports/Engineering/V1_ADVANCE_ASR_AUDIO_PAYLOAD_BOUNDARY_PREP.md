@@ -6,7 +6,7 @@ Status: source-side / worker-contract evidence only, bukan Windows runtime proof
 
 ## Tujuan batch
 
-Batch ini memindahkan ASR handoff satu langkah lebih dekat ke runtime nyata tanpa mengklaim Whisper transcription sudah berjalan. Fokusnya adalah boundary dari live capture buffer menuju payload audio yang bisa dikirim ke Python worker, lalu menyiapkan transcript promotion ke pipeline secara guarded.
+Batch ini memindahkan ASR handoff satu langkah lebih dekat ke runtime nyata tanpa mengklaim Whisper transcription sudah berjalan. Fokusnya adalah boundary dari live capture buffer menuju payload audio yang bisa dikirim ke Python worker, lalu menyiapkan transcript promotion ke pipeline dan guarded translation handoff.
 
 ## Yang ditambahkan
 
@@ -39,6 +39,7 @@ Perilaku:
 - Dispatch ASR Decode sekarang memakai helper worker response path, sehingga status dapat menyimpan `worker_response_json` dari Python worker, bukan hanya action result ringkas.
 - Worker response juga diinterpretasikan menjadi field eksplisit agar validasi lokal lebih mudah dibaca.
 - `promote_latest_asr_payload_transcript` membaca cached `worker_response_json`, mengambil `transcript_text` hanya jika `dispatch_ok=true` dan `transcript_text_present=true`, lalu mengisi pipeline transcript payload untuk Translation handoff.
+- `dispatch_translation_handoff_request` sekarang membaca worker response langsung. Jika guarded translation menghasilkan `translated_text`, payload pipeline langsung dipromosikan ke `translated_text` dan `tts_text` untuk TTS handoff. Jika guard belum aktif, fallback tetap memakai dev contract placeholder.
 - Payload/status menyertakan metadata:
   - `sample_rate_hz`
   - `channels`
@@ -61,6 +62,8 @@ Runtime claim yang dipertahankan:
 - `asr_decode_audio_file_payload_ready_no_transcript_runtime_claim`
 - `asr_decode_worker_response_captured_no_windows_runtime_proof`
 - `asr_decode_worker_runtime_transcribe_returned_needs_windows_validation`
+- `translation_handoff_dev_payload_contract_no_model_runtime_claim`
+- `translation_handoff_worker_runtime_translate_returned_needs_windows_validation`
 
 ### 2. Python worker guarded `asr_decode` command
 
@@ -86,7 +89,25 @@ Perilaku:
 
 Catatan penting: guarded runtime path sudah disiapkan di source, tetapi default tetap guard-off. Ini menjaga agar source development bisa selesai tanpa mengklaim Whisper runtime sampai local compile dan Windows test membuktikannya.
 
-### 3. Developer Diagnostics UI binding
+### 3. Python worker guarded `translation_handoff` command
+
+File:
+
+- `EngineData/Backend/LocalWorker/WorkerRuntime/realtime_local_worker_entry.py`
+
+Command worker:
+
+- `translation_handoff`
+
+Perilaku:
+
+- Jika transcript payload belum tersedia, return blocker: `translation:missing_transcript_payload`.
+- Jika translation guard belum aktif, command tetap menerima contract payload tanpa menjalankan model translation.
+- Guarded runtime translation tersedia lewat `base.handle_translate(payload)` apabila `TRANSLATEIT_ENABLE_HELPER_TRANSLATION=1`, `enable_translation_runtime=true`, atau `translation_runtime_enabled=true` diberikan saat validasi lokal.
+- Jika import/model translation belum siap, return blocker dari preflight seperti `dependency:transformers_missing`, `dependency:torch_missing`, atau `model:marianmt_id_en_missing`.
+- Jika guarded translation berhasil, response memuat `translated_text`, `translation_available=true`, `tts_text_available=true`, model/device/fallback metadata, dan runtime claim `translation_handoff_worker_runtime_translate_returned_needs_windows_validation`.
+
+### 4. Developer Diagnostics UI binding
 
 File:
 
@@ -107,6 +128,7 @@ Catatan implementasi:
 - Summary UI menampilkan boundary, audio readiness, WAV path, format, sample count, durasi, next action, blocker, dan detail worker response seperti `asr:model_not_ready`, `resolved_audio_path`, atau `asr:decoder_runtime_not_enabled_in_wrapper` jika tersedia.
 - Summary UI juga menampilkan field interpretasi: `workerStage`, `workerBlocker`, `transcriptPresent`, dan `transcriptChars`.
 - `Promote ASR Transcript` menyiapkan pipeline payload dari ASR worker response, bukan dari seed/dev text.
+- Translation handoff sekarang dapat mempromosikan real `translated_text` ke payload TTS setelah guarded local validation.
 - Ini masih diagnostic evidence, bukan user-facing runtime readiness.
 
 ## Batasan yang masih berlaku
@@ -116,8 +138,10 @@ Belum terbukti:
 - Rust/Tauri compile setelah batch ini.
 - Developer Diagnostics UI render dan click action di Windows.
 - Worker `asr_decode` berjalan di Windows.
+- Worker `translation_handoff` menjalankan model translation di Windows.
 - WAV payload benar-benar terbentuk dari mic runtime target PC.
 - Whisper/Faster-Whisper menghasilkan `transcript_text` pada target Windows.
+- Translation model menghasilkan `translated_text` pada target Windows.
 - Translation/TTS/virtual mic end-to-end.
 - Latency meeting runtime.
 
@@ -141,6 +165,8 @@ Jika compile aman, flow manual berikutnya:
 8. Latest ASR Payload lagi, untuk memastikan cached evidence terakhir berubah sesuai hasil dispatch dan memuat `worker_response_json`.
 9. Setelah guarded decode menghasilkan transcript, jalankan Promote ASR Transcript.
 10. Pipeline Snapshot / Prepare Translation untuk memastikan transcript payload sudah masuk.
+11. Dispatch Translation Handoff.
+12. Pipeline Snapshot lagi untuk memastikan `payload translation=true` dan `payload tts=true` jika guarded translation mengembalikan translated text.
 
 Ekspektasi default saat env guard belum aktif:
 
@@ -148,22 +174,25 @@ Ekspektasi default saat env guard belum aktif:
 - Helper belum start → `helper_bridge:not_running`.
 - Boundary belum siap → capture/audio buffer blocker.
 - WAV belum bisa ditulis → live segment writer blocker.
-- Model belum siap → `asr:model_not_ready`.
-- Audio + model siap tetapi env guard belum aktif → `asr:decoder_runtime_not_enabled_in_wrapper`.
+- Model ASR belum siap → `asr:model_not_ready`.
+- Audio + model ASR siap tetapi env guard belum aktif → `asr:decoder_runtime_not_enabled_in_wrapper`.
+- Translation payload ada tetapi env guard belum aktif → contract accepted tanpa menjalankan model.
 
-Ekspektasi saat guarded decode diaktifkan untuk validasi lokal:
+Ekspektasi saat guarded ASR + translation diaktifkan untuk validasi lokal:
 
 - Set `TRANSLATEIT_ENABLE_HELPER_ASR_DECODE=1` pada worker environment.
+- Set `TRANSLATEIT_ENABLE_HELPER_TRANSLATION=1` pada worker environment.
 - Jalankan Dispatch ASR Decode lagi.
 - Jika berhasil, `workerStage=asr_decode`, `transcriptPresent=true`, dan `transcriptChars>0` harus muncul.
 - Jalankan Promote ASR Transcript.
-- Pipeline snapshot harus menunjukkan `payload transcript=true`, lalu Translation handoff bisa dipersiapkan.
+- Jalankan Dispatch Translation Handoff.
+- Pipeline snapshot harus menunjukkan `payload transcript=true`, `payload translation=true`, dan `payload tts=true` jika translation berhasil.
 - Jika gagal, gunakan `workerBlocker`, `worker_note`, dan `worker_response_json` untuk debugging.
 
 ## Next recommended batch
 
-Setelah guarded ASR decode compile/runtime proof:
+Setelah guarded ASR + translation source wiring:
 
-1. Simpan response sebagai `asr_evidence` yang lebih permanen jika dibutuhkan.
-2. Hubungkan transcript ke real translation handoff.
-3. Setelah translation proof, lanjut ke TTS handoff dan virtual mic output.
+1. Siapkan guarded TTS handoff agar `tts_text` bisa masuk ke `base.handle_synthesize(payload)`.
+2. Simpan ASR/translation/TTS response sebagai evidence yang lebih permanen jika dibutuhkan.
+3. Setelah TTS proof, lanjut ke virtual mic output preparation.
