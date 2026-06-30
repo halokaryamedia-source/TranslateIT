@@ -1,5 +1,6 @@
 #![allow(dead_code)]
 
+pub mod asr_payload_boundary;
 pub mod audio;
 pub mod audio_evidence;
 pub mod audio_studio;
