@@ -48,8 +48,13 @@ These scripts are part of the current V1 Advance CI gate through `package.json` 
 
 Diagnostic reports may warn without failing CI. CI blocking is handled by explicit source validators, frontend typecheck/build, and the Rust/Tauri source guard.
 
-## Retired scripts
+## Retired scripts and local deletion markers
 
 Some older scripts were reduced to one-line stubs because they no longer have npm entries and are not part of the active CI gate. They should not be reintroduced without adding an explicit package script and CI reason.
+
+Use these marker files for local cleanup:
+
+- `LOCAL_DELETE_CANDIDATES.md` explains KEEP, DELETE CANDIDATE, and REVIEW BEFORE DELETE groups.
+- `local-delete-candidates.txt` contains raw paths that can be used with `xargs rm -f` after review.
 
 Examples retired during cleanup include older architecture, policy, settings, runtime-flow, audio-studio, helper-bridge, voice-capture, and UI-reference validators.
