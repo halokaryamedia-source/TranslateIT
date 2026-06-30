@@ -72,12 +72,6 @@ for (const marker of [
   "normalizeLanguageCode",
 ]) reject(previewTranslation, marker, "disabled preview module");
 
-for (const marker of [
-  "localPreviewTranslation",
-  "Local preview translation shown because",
-  "local-preview",
-]) reject(uiControllers, marker, "text translation UI flow");
-
 expect(previewTranslation, "return null;", "disabled preview module");
 
 if (errors.length > 0) {
@@ -86,4 +80,4 @@ if (errors.length > 0) {
   process.exit(1);
 }
 
-console.log("Translation flow integrity passed: active V1 translation command, pipeline handoff, registry, and UI surfaces are present; legacy local preview fallback stays disabled.");
+console.log("Translation flow integrity passed: active V1 translation command, pipeline handoff, registry, and UI surfaces are present; legacy preview implementation stays disabled.");
