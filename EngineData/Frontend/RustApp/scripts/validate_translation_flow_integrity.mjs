@@ -4,87 +4,103 @@ import { fileURLToPath } from "node:url";
 
 const currentDir = dirname(fileURLToPath(import.meta.url));
 const appRoot = resolve(currentDir, "..");
-const translationCommandPath = resolve(appRoot, "src-tauri", "src", "commands", "translation.rs");
-const manualAcceleratedPath = resolve(appRoot, "src-tauri", "src", "engine", "manual_translation_accelerated.rs");
-const launcherControllerPath = resolve(appRoot, "src", "app", "active-launcher", "launcherController.ts");
-const textControllerPath = resolve(appRoot, "src", "app", "active-launcher", "controller", "textTranslationController.ts");
-const previewTranslationPath = resolve(appRoot, "src", "app", "active-launcher", "launcherPreviewTranslation.ts");
 
-const requiredFiles = [translationCommandPath, manualAcceleratedPath, launcherControllerPath, textControllerPath, previewTranslationPath];
-const missing = requiredFiles.filter((path) => !existsSync(path));
-if (missing.length > 0) {
-  console.error(`Missing translation flow file(s): ${missing.join(", ")}`);
-  process.exit(1);
+const files = {
+  textTranslateCommand: resolve(appRoot, "src-tauri", "src", "commands", "text_translate.rs"),
+  pipelineHandoff: resolve(appRoot, "src-tauri", "src", "commands", "pipeline_handoff.rs"),
+  helperBridgeRuntime: resolve(appRoot, "src-tauri", "src", "commands", "helper_bridge_runtime.rs"),
+  registry: resolve(appRoot, "src-tauri", "src", "commands", "registry.rs"),
+  launcherController: resolve(appRoot, "src", "app", "active-launcher", "launcherController.ts"),
+  textController: resolve(appRoot, "src", "app", "active-launcher", "controller", "textTranslationController.ts"),
+  previewTranslation: resolve(appRoot, "src", "app", "active-launcher", "launcherPreviewTranslation.ts"),
+};
+
+const errors = [];
+
+function readText(label, path) {
+  if (!existsSync(path)) {
+    errors.push(`Missing translation flow file: ${label} (${path})`);
+    return "";
+  }
+  return readFileSync(path, "utf8");
 }
 
-const translationCommand = readFileSync(translationCommandPath, "utf8");
-const manualAccelerated = readFileSync(manualAcceleratedPath, "utf8");
-const launcherController = readFileSync(launcherControllerPath, "utf8");
-const textController = readFileSync(textControllerPath, "utf8");
-const previewTranslation = readFileSync(previewTranslationPath, "utf8");
+function expect(content, marker, label) {
+  if (!content.includes(marker)) errors.push(`${label}: missing ${marker}`);
+}
 
-const requiredCommandMarkers = [
-  "try_translate_with_running_helper_bridge",
+function reject(content, marker, label) {
+  if (content.includes(marker)) errors.push(`${label}: forbidden ${marker}`);
+}
+
+const textTranslate = readText("textTranslateCommand", files.textTranslateCommand);
+const pipeline = readText("pipelineHandoff", files.pipelineHandoff);
+const helperRuntime = readText("helperBridgeRuntime", files.helperBridgeRuntime);
+const registry = readText("registry", files.registry);
+const launcherController = readText("launcherController", files.launcherController);
+const textController = readText("textController", files.textController);
+const previewTranslation = readText("previewTranslation", files.previewTranslation);
+const uiControllers = `${launcherController}\n${textController}`;
+
+for (const marker of [
+  "translate_with_running_helper_bridge",
   "write_worker_request",
-  "read_worker_response",
+  "read_worker_response_with_deadline",
   "engine::translate_text",
-];
-const missingCommandMarkers = requiredCommandMarkers.filter((marker) => !translationCommand.includes(marker));
-if (missingCommandMarkers.length > 0) {
-  console.error(`Translation command is missing expected helper-bridge/engine marker(s): ${missingCommandMarkers.join(", ")}`);
-  process.exit(1);
-}
-
-const requiredAcceleratedMarkers = [
-  "realtime_local_worker_accelerated.py",
-  "super::manual_translation::translate_text",
   "translated_text",
-];
-const missingAcceleratedMarkers = requiredAcceleratedMarkers.filter((marker) => !manualAccelerated.includes(marker));
-if (missingAcceleratedMarkers.length > 0) {
-  console.error(`Accelerated manual translation bridge is missing marker(s): ${missingAcceleratedMarkers.join(", ")}`);
-  process.exit(1);
-}
+  "translation_fallback_reason",
+]) expect(textTranslate, marker, "text translate command");
 
-const requiredControllerMarkers = [
+for (const marker of [
+  "PipelinePayloadState",
+  "prepare_translation_handoff_request",
+  "dispatch_translation_handoff_request",
+  "dispatch_translation_worker_response",
+  "translated_from_worker_response",
+  "set_translation_payload",
+  "translation_handoff",
+  "translated_text",
+  "tts_text",
+]) expect(pipeline, marker, "V1 pipeline handoff");
+
+for (const marker of [
+  "write_worker_request",
+  "read_worker_response_with_deadline",
+  "apply_worker_response",
+]) expect(helperRuntime, marker, "helper bridge runtime");
+
+for (const marker of [
+  "crate::commands::text_translate::translate_text",
+  "crate::commands::pipeline_handoff::prepare_translation_handoff_request",
+  "crate::commands::pipeline_handoff::dispatch_translation_handoff_request",
+]) expect(registry, marker, "command registry");
+
+for (const marker of [
   "runtimeApi.translateText",
   "Translation command failed",
   "translation_failed",
-];
-const combinedControllers = `${launcherController}\n${textController}`;
-const missingControllerMarkers = requiredControllerMarkers.filter((marker) => !combinedControllers.includes(marker));
-if (missingControllerMarkers.length > 0) {
-  console.error(`Text translation UI flow is missing expected marker(s): ${missingControllerMarkers.join(", ")}`);
-  process.exit(1);
-}
+]) expect(uiControllers, marker, "text translation UI flow");
 
-const forbiddenPreviewDictionaryMarkers = [
+for (const marker of [
   "previewWordTranslation",
   "case \"halo\"",
   "case \"dunia\"",
   "normalizeLanguageCode",
-];
-const forbiddenPreviewModuleHits = forbiddenPreviewDictionaryMarkers.filter((marker) => previewTranslation.includes(marker));
-if (forbiddenPreviewModuleHits.length > 0) {
-  console.error(`Disabled preview module still contains fake dictionary marker(s): ${forbiddenPreviewModuleHits.join(", ")}`);
-  process.exit(1);
-}
+]) reject(previewTranslation, marker, "disabled preview module");
 
-const forbiddenLegacyControllerMarkers = [
+for (const marker of [
   "localPreviewTranslation",
   "Local preview translation shown because",
   "Local preview",
   "local-preview",
-];
-const legacyControllerHits = forbiddenLegacyControllerMarkers.filter((marker) => launcherController.includes(marker) || textController.includes(marker));
-if (legacyControllerHits.length > 0) {
-  console.error(`Text translation UI still contains legacy preview fallback marker(s): ${legacyControllerHits.join(", ")}`);
+]) reject(uiControllers, marker, "text translation UI flow");
+
+expect(previewTranslation, "return null;", "disabled preview module");
+
+if (errors.length > 0) {
+  console.error("Translation flow integrity failed:");
+  errors.forEach((error) => console.error(`- ${error}`));
   process.exit(1);
 }
 
-if (!previewTranslation.includes("return null;")) {
-  console.error("Local preview translation module must be disabled and return null.");
-  process.exit(1);
-}
-
-console.log("Translation flow integrity passed: text route requires the real worker/engine path and legacy preview fallback references are blocked.");
+console.log("Translation flow integrity passed: text route and V1 pipeline translation handoff use the real helper/engine path while legacy preview fallback remains disabled.");
