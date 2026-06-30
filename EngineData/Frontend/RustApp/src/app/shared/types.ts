@@ -158,6 +158,8 @@ export type PipelinePayloadState = {
   virtual_mic_output_device: string | null;
   virtual_mic_input_device: string | null;
   virtual_mic_blocker: string;
+  virtual_mic_route_claim: string;
+  virtual_mic_route_preference_path: string | null;
   source: string;
   updated_unix_ms: number;
 };
