@@ -3,7 +3,7 @@ export const DIAGNOSTIC_CONTROLS_SELECTOR = '[aria-label="Capture helper bridge 
 
 export type DiagnosticButtonBindingOptions<Result> = {
   selector: string;
-  dataKey: string;
+  dataAttribute: string;
   dataValue: string;
   label: string;
   command(): Promise<Result>;
@@ -28,7 +28,7 @@ function ensureDiagnosticButton<Result>(options: DiagnosticButtonBindingOptions<
   const button = document.createElement("button");
   button.className = DIAGNOSTIC_BUTTON_CLASS;
   button.type = "button";
-  button.dataset[options.dataKey] = options.dataValue;
+  button.setAttribute(options.dataAttribute, options.dataValue);
   button.textContent = options.label;
   container.appendChild(button);
 }
