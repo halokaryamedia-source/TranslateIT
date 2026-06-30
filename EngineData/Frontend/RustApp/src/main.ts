@@ -22,6 +22,8 @@ import { startRealtimeStatusPayloadAutoRefresh } from "./app/active-launcher/rea
 import { restoreNativeWindow } from "./app/active-launcher/windowRescue";
 import { bindVoiceOutputPersistenceUi } from "./app/active-launcher/voiceOutputPersistenceBinding";
 import { installStartupDiagnostics, startupTrace } from "./app/active-launcher/startupDiagnostics";
+import { mountVirtualRouteSelectionSurface, unmountVirtualRouteSelectionSurface } from "./app/active-launcher/virtualRouteSelectionSurfaceMount";
+import { bindSourceOrchestrationUi } from "./app/active-launcher/sourceOrchestrationBinding";
 
 installStartupDiagnostics();
 startupTrace("boot:marker", {
@@ -45,6 +47,11 @@ bindVoiceOutputPersistenceUi();
 bindRuntimeReadinessUiGuard();
 const stopDeveloperEvidenceUi = bindDeveloperEvidenceUi();
 bindDeveloperHelperBridgeUi();
+const stopSourceOrchestrationUi = bindSourceOrchestrationUi();
+void mountVirtualRouteSelectionSurface();
+window.setTimeout(() => {
+  void mountVirtualRouteSelectionSurface();
+}, 1000);
 const stopHelperBridgeHealthMonitor = startHelperBridgeHealthMonitor();
 const stopAudioPipelineResultWatcher = bindResultWatcher();
 const stopRealtimeStatusPayloadAutoRefresh = startRealtimeStatusPayloadAutoRefresh();
@@ -56,6 +63,8 @@ window.addEventListener("beforeunload", () => {
   stopDirectVoiceCaptureUi();
   stopSettingsAutosaveUi();
   stopDeveloperEvidenceUi();
+  stopSourceOrchestrationUi();
+  unmountVirtualRouteSelectionSurface();
   stopHelperBridgeHealthMonitor();
   stopAudioPipelineResultWatcher();
   stopRealtimeStatusPayloadAutoRefresh();
