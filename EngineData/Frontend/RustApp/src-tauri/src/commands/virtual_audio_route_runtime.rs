@@ -244,7 +244,11 @@ pub fn dispatch_guarded_virtual_audio_route_provider(
     match output {
         Ok(output) => {
             status.provider_exit_code = output.status.code();
-            status.provider_response_json = String::from_utf8_lossy(&output.stdout).trim().chars().take(8000).collect();
+            status.provider_response_json = String::from_utf8_lossy(&output.stdout)
+                .trim()
+                .chars()
+                .take(8000)
+                .collect::<String>();
             status.route_execution_attempted = status.route_execution_enabled && !dry_run;
             if output.status.success() {
                 status.ok = true;
