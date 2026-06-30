@@ -57,6 +57,7 @@ Runtime claim yang dipertahankan:
 - `asr_audio_payload_boundary_source_side_not_transcript_proof`
 - `asr_decode_audio_file_payload_ready_no_transcript_runtime_claim`
 - `asr_decode_worker_response_captured_no_windows_runtime_proof`
+- `asr_decode_worker_runtime_transcribe_returned_needs_windows_validation`
 
 ### 2. Python worker guarded `asr_decode` command
 
@@ -76,9 +77,11 @@ Perilaku:
 - Jika `audio_path` keluar dari allowed roots, return blocker: `asr:audio_path_invalid:*`.
 - Jika file WAV tidak ditemukan, return blocker: `asr:audio_file_missing`.
 - Jika faster-whisper/model belum siap, return blocker: `asr:model_not_ready`.
-- Jika audio dan model siap, wrapper tetap berhenti dengan blocker: `asr:decoder_runtime_not_enabled_in_wrapper`.
+- Jika audio dan model siap tetapi decoder belum di-arm, return blocker: `asr:decoder_runtime_not_enabled_in_wrapper`.
+- Guarded runtime decode sudah tersedia lewat `base.handle_transcribe(payload)` apabila `TRANSLATEIT_ENABLE_HELPER_ASR_DECODE=1`, `enable_decoder_runtime=true`, atau `decoder_runtime_enabled=true` diberikan saat validasi lokal.
+- Jika guarded decode mengembalikan transcript, response akan memuat `transcript_text`, `transcript_text_present`, `transcript_char_count`, model/device/compute metadata, dan runtime claim `asr_decode_worker_runtime_transcribe_returned_needs_windows_validation`.
 
-Catatan penting: wrapper sengaja belum memanggil `base.handle_transcribe(payload)` sampai ada compile proof dan Windows runtime proof. Ini menjaga agar batch ini tidak salah diklaim sebagai transcription proof.
+Catatan penting: guarded runtime path sudah disiapkan di source, tetapi default tetap guard-off. Ini menjaga agar source development bisa selesai tanpa mengklaim Whisper runtime sampai local compile dan Windows test membuktikannya.
 
 ### 3. Developer Diagnostics UI binding
 
@@ -109,7 +112,7 @@ Belum terbukti:
 - Developer Diagnostics UI render dan click action di Windows.
 - Worker `asr_decode` berjalan di Windows.
 - WAV payload benar-benar terbentuk dari mic runtime target PC.
-- Whisper/Faster-Whisper menghasilkan `transcript_text`.
+- Whisper/Faster-Whisper menghasilkan `transcript_text` pada target Windows.
 - Translation/TTS/virtual mic end-to-end.
 - Latency meeting runtime.
 
@@ -132,22 +135,27 @@ Jika compile aman, flow manual berikutnya:
 7. Dispatch ASR Decode.
 8. Latest ASR Payload lagi, untuk memastikan cached evidence terakhir berubah sesuai hasil dispatch dan memuat `worker_response_json`.
 
-Ekspektasi saat ini bukan transcript, tetapi blocker/evidence yang lebih spesifik:
+Ekspektasi default saat env guard belum aktif:
 
 - Belum pernah prepare/dispatch → `asr_audio_payload:no_cached_status`.
 - Helper belum start → `helper_bridge:not_running`.
 - Boundary belum siap → capture/audio buffer blocker.
 - WAV belum bisa ditulis → live segment writer blocker.
 - Model belum siap → `asr:model_not_ready`.
-- Audio + model siap → `asr:decoder_runtime_not_enabled_in_wrapper` sampai wrapper dipromosikan ke `base.handle_transcribe(payload)`.
-- Jika nanti decoder benar-benar mengembalikan transcript, `transcript_text_present=true` dan `transcript_char_count>0` harus muncul, tetapi ini belum menjadi klaim runtime sebelum divalidasi lokal.
+- Audio + model siap tetapi env guard belum aktif → `asr:decoder_runtime_not_enabled_in_wrapper`.
+
+Ekspektasi saat guarded decode diaktifkan untuk validasi lokal:
+
+- Set `TRANSLATEIT_ENABLE_HELPER_ASR_DECODE=1` pada worker environment.
+- Jalankan Dispatch ASR Decode lagi.
+- Jika berhasil, `workerStage=asr_decode`, `transcriptPresent=true`, dan `transcriptChars>0` harus muncul.
+- Jika gagal, gunakan `workerBlocker`, `worker_note`, dan `worker_response_json` untuk debugging.
 
 ## Next recommended batch
 
-Setelah compile proof:
+Setelah guarded ASR decode compile/runtime proof:
 
-1. Promosikan `asrPayloadApi.ts` ke `runtimeApi.ts` jika TypeScript compile sudah aman.
-2. Hubungkan `asr_decode` ke real `base.handle_transcribe(payload)` secara guarded.
-3. Simpan response sebagai `asr_evidence`.
-4. Promote `transcript_text` dari worker ke live pipeline payload hanya jika `ok=true` dan stage=`transcribe/asr_decode`.
-5. Baru lanjut ke real translation handoff.
+1. Simpan response sebagai `asr_evidence` yang lebih permanen jika dibutuhkan.
+2. Promote `transcript_text` dari worker ke live pipeline payload hanya jika `ok=true`, `transcript_text_present=true`, dan stage=`asr_decode`/`transcribe`.
+3. Hubungkan transcript ke real translation handoff.
+4. Setelah translation proof, lanjut ke TTS handoff dan virtual mic output.
