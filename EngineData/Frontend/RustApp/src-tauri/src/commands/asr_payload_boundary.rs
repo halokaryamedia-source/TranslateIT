@@ -1,9 +1,12 @@
 use serde::Serialize;
 use serde_json::{json, Value};
+use std::sync::{Mutex, OnceLock};
 
 use super::helper_bridge::{get_helper_bridge_status, send_helper_bridge_request};
 use super::helper_bridge_runtime::{unix_ms, HelperBridgeActionResult, HelperBridgeRequest};
 use super::runtime_capture::get_capture_transcript_boundary_status;
+
+static LAST_ASR_AUDIO_PAYLOAD_STATUS: OnceLock<Mutex<Option<AsrAudioPayloadRequestStatus>>> = OnceLock::new();
 
 #[derive(Debug, Clone, Serialize)]
 pub struct AsrAudioPayloadRequestStatus {
@@ -32,6 +35,50 @@ pub struct AsrAudioPayloadRequestStatus {
     pub payload_json: String,
     pub evidence_json: String,
     pub updated_unix_ms: u128,
+}
+
+fn asr_payload_cache() -> &'static Mutex<Option<AsrAudioPayloadRequestStatus>> {
+    LAST_ASR_AUDIO_PAYLOAD_STATUS.get_or_init(|| Mutex::new(None))
+}
+
+fn store_asr_payload_status(status: &AsrAudioPayloadRequestStatus) {
+    if let Ok(mut cached) = asr_payload_cache().lock() {
+        *cached = Some(status.clone());
+    }
+}
+
+fn no_cached_asr_payload_status() -> AsrAudioPayloadRequestStatus {
+    AsrAudioPayloadRequestStatus {
+        ok: false,
+        state: "not_checked".to_string(),
+        schema_prepared: false,
+        boundary_ready: false,
+        audio_write_attempted: false,
+        audio_payload_ready: false,
+        request_prepared: false,
+        dispatch_attempted: false,
+        dispatch_ok: false,
+        task: "asr_decode".to_string(),
+        message: "No ASR audio payload status has been prepared or dispatched in this app session yet.".to_string(),
+        blocker: "asr_audio_payload:no_cached_status".to_string(),
+        next_action: "prepare_asr_audio_payload_request".to_string(),
+        audio_path: None,
+        sample_rate_hz: crate::engine::audio::TARGET_SAMPLE_RATE_HZ,
+        channels: crate::engine::audio::TARGET_CHANNELS,
+        pcm_format: "pcm16_wav".to_string(),
+        frame_count: 0,
+        duration_ms: 0,
+        audio_base64_present: false,
+        generation_token: 0,
+        runtime_claim: "asr_audio_payload_no_cached_runtime_claim".to_string(),
+        payload_json: "{}".to_string(),
+        evidence_json: json!({
+            "schema": "translateit.asr_audio_payload_boundary.v1",
+            "cached": false,
+            "runtime_claim": "asr_audio_payload_no_cached_runtime_claim"
+        }).to_string(),
+        updated_unix_ms: unix_ms(),
+    }
 }
 
 fn asr_payload_json(
@@ -158,6 +205,7 @@ fn build_asr_audio_payload_status(write_audio: bool) -> AsrAudioPayloadRequestSt
     );
     let evidence = json!({
         "schema": "translateit.asr_audio_payload_boundary.v1",
+        "cached": true,
         "boundary_ready": boundary.transcript_handoff_ready,
         "capture_dispatch_attempted": boundary.capture_dispatch_attempted,
         "capture_dispatch_ok": boundary.capture_dispatch_ok,
@@ -232,14 +280,26 @@ fn apply_asr_decode_dispatch(status: &mut AsrAudioPayloadRequestStatus, dispatch
 }
 
 #[tauri::command]
+pub fn get_latest_asr_audio_payload_status() -> AsrAudioPayloadRequestStatus {
+    asr_payload_cache()
+        .lock()
+        .ok()
+        .and_then(|cached| cached.clone())
+        .unwrap_or_else(no_cached_asr_payload_status)
+}
+
+#[tauri::command]
 pub fn prepare_asr_audio_payload_request() -> AsrAudioPayloadRequestStatus {
-    build_asr_audio_payload_status(false)
+    let status = build_asr_audio_payload_status(false);
+    store_asr_payload_status(&status);
+    status
 }
 
 #[tauri::command]
 pub fn dispatch_asr_decode_request() -> AsrAudioPayloadRequestStatus {
     let mut status = build_asr_audio_payload_status(true);
     if !status.request_prepared {
+        store_asr_payload_status(&status);
         return status;
     }
     let request = HelperBridgeRequest {
@@ -248,5 +308,6 @@ pub fn dispatch_asr_decode_request() -> AsrAudioPayloadRequestStatus {
     };
     let dispatch = send_helper_bridge_request(request);
     apply_asr_decode_dispatch(&mut status, dispatch);
+    store_asr_payload_status(&status);
     status
 }
