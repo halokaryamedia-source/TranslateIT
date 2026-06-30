@@ -16,6 +16,29 @@ function requireScript(name) {
   }
 }
 
+const allowedProfiles = new Set([
+  "dev",
+  "build",
+  "dev:frontend",
+  "build:frontend",
+  "typecheck",
+  "check:rust",
+  "check:tauri-rust-local",
+  "preflight:frontend-build",
+  "preflight:tauri-package",
+  "validate:script-profiles",
+  "validate:imports",
+  "validate:naming",
+  "validate:translation-flow",
+  "validate:runtime-ux",
+  "validate:startup-readiness",
+  "validate:ci-scope",
+  "validate:virtual-route",
+  "validate:source-contracts",
+  "validate:quick",
+  "test:contract-reports",
+]);
+
 const requiredProfiles = [
   "validate:quick",
   "validate:source-contracts",
@@ -28,6 +51,12 @@ const requiredProfiles = [
 ];
 
 for (const profile of requiredProfiles) requireScript(profile);
+
+for (const name of Object.keys(scripts)) {
+  if (!allowedProfiles.has(name)) {
+    fail(`Unexpected package script left after cleanup: ${name}`);
+  }
+}
 
 const quick = scripts["validate:quick"] ?? "";
 const disallowedQuickMarkers = [
@@ -72,10 +101,15 @@ for (const requiredSourceStep of [
   }
 }
 
+const contractReports = scripts["test:contract-reports"] ?? "";
+if (!contractReports.includes("run_contract_reports.mjs")) {
+  fail("test:contract-reports must use the diagnostic contract report runner");
+}
+
 if (failures.length > 0) {
   console.error("Script profile validation failed:");
   for (const failure of failures) console.error(`- ${failure}`);
   process.exit(1);
 }
 
-console.log("Script profiles are clean: CI-safe quick validation, source contracts, manual local Tauri proof, and diagnostic contract reports are separated.");
+console.log("Script profiles are clean: only active CI/manual scripts remain in package.json.");
