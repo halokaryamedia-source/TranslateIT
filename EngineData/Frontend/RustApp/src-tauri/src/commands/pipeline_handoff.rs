@@ -7,13 +7,13 @@ use std::sync::{Mutex, OnceLock};
 use crate::engine::paths::ProjectPaths;
 
 use super::asr_payload_boundary::get_latest_asr_audio_payload_status;
-use super::audio::{list_audio_devices, AudioDeviceSummary};
 use super::helper_bridge::{get_helper_bridge_status, send_helper_worker_task, HelperBridgeWorkerResponse};
 use super::helper_bridge_runtime::{unix_ms, HelperBridgeActionResult, HelperBridgeStatus};
 use super::runtime_capture::{
     get_cached_asr_handoff_status, get_capture_transcript_boundary_status, prepare_asr_handoff_request,
     AsrHandoffRequestStatus,
 };
+use super::virtual_mic_route::get_virtual_mic_route_selection;
 
 #[derive(Debug, Clone, Serialize)]
 pub struct PipelineHandoffRequestStatus {
@@ -48,6 +48,8 @@ pub struct PipelinePayloadState {
     pub virtual_mic_output_device: Option<String>,
     pub virtual_mic_input_device: Option<String>,
     pub virtual_mic_blocker: String,
+    pub virtual_mic_route_claim: String,
+    pub virtual_mic_route_preference_path: Option<String>,
     pub source: String,
     pub updated_unix_ms: u128,
 }
@@ -68,6 +70,8 @@ impl Default for PipelinePayloadState {
             virtual_mic_output_device: None,
             virtual_mic_input_device: None,
             virtual_mic_blocker: "virtual_mic:missing_tts_output".to_string(),
+            virtual_mic_route_claim: "virtual_mic_route_not_prepared".to_string(),
+            virtual_mic_route_preference_path: None,
             source: "empty".to_string(),
             updated_unix_ms: unix_ms(),
         }
@@ -245,59 +249,33 @@ fn set_tts_output_payload(output_path: String, audio_output_ready: bool, source:
         } else {
             "virtual_mic:missing_tts_output".to_string()
         };
+        payload.virtual_mic_route_claim = "virtual_mic_route_not_prepared".to_string();
+        payload.virtual_mic_route_preference_path = None;
         payload.source = source.to_string();
         payload.updated_unix_ms = unix_ms();
     }
 }
 
-fn has_virtual_device_keyword(name: &str) -> bool {
-    let normalized = name.to_lowercase();
-    [
-        "vb-audio",
-        "cable input",
-        "cable output",
-        "voicemeeter",
-        "blackhole",
-        "loopback",
-        "virtual cable",
-        "virtual audio",
-        "stereo mix",
-    ]
-    .iter()
-    .any(|keyword| normalized.contains(keyword))
-}
-
-fn virtual_device_candidate(devices: &[AudioDeviceSummary]) -> Option<String> {
-    devices
-        .iter()
-        .find(|device| has_virtual_device_keyword(&device.name))
-        .map(|device| device.name.clone())
-}
-
 fn set_virtual_mic_prepared() {
-    let audio_devices = list_audio_devices();
-    let output_device = virtual_device_candidate(&audio_devices.output_devices);
-    let input_device = virtual_device_candidate(&audio_devices.input_devices);
+    let route = get_virtual_mic_route_selection();
     if let Ok(mut payload) = payload_state_runtime().lock() {
-        payload.virtual_mic_output_device = output_device.clone();
-        payload.virtual_mic_input_device = input_device.clone();
+        payload.virtual_mic_output_device = route.selected_output_device.clone();
+        payload.virtual_mic_input_device = route.selected_input_device.clone();
+        payload.virtual_mic_route_preference_path = route.preference_path.clone();
+        payload.virtual_mic_route_claim = route.runtime_claim.clone();
         if !payload.audio_output_ready || payload.tts_audio_output_path.is_none() {
             payload.virtual_mic_ready = false;
             payload.virtual_mic_route_ready = false;
             payload.virtual_mic_blocker = "virtual_mic:missing_tts_output".to_string();
-        } else if output_device.is_none() {
+        } else if !route.route_ready {
             payload.virtual_mic_ready = false;
             payload.virtual_mic_route_ready = false;
-            payload.virtual_mic_blocker = "virtual_mic:output_device_missing".to_string();
-        } else if input_device.is_none() {
-            payload.virtual_mic_ready = false;
-            payload.virtual_mic_route_ready = false;
-            payload.virtual_mic_blocker = "virtual_mic:input_device_missing".to_string();
+            payload.virtual_mic_blocker = route.blocker;
         } else {
             payload.virtual_mic_ready = true;
             payload.virtual_mic_route_ready = true;
             payload.virtual_mic_blocker = String::new();
-            payload.source = "virtual_mic_route_contract_prepared_from_tts_output_path".to_string();
+            payload.source = "preferred_virtual_mic_route_prepared_from_tts_output_path".to_string();
         }
         payload.updated_unix_ms = unix_ms();
     }
@@ -426,6 +404,9 @@ fn handoff_payload(stage: &str, helper: &HelperBridgeStatus, asr: &AsrHandoffReq
         "tts_audio_output_path": payload.tts_audio_output_path,
         "virtual_mic_output_device": payload.virtual_mic_output_device,
         "virtual_mic_input_device": payload.virtual_mic_input_device,
+        "virtual_mic_blocker": payload.virtual_mic_blocker,
+        "virtual_mic_route_claim": payload.virtual_mic_route_claim,
+        "virtual_mic_route_preference_path": payload.virtual_mic_route_preference_path,
         "payload_source": payload.source,
         "runtime_claim": "pipeline_handoff_metadata_and_dev_payload_no_runtime_proof"
     })
@@ -642,6 +623,7 @@ fn build_live_meeting_runtime_gate(snapshot: LivePipelineSessionSnapshot) -> Liv
             "tts:audio_output_not_ready" => "dispatch_tts_handoff_request",
             "virtual_mic:missing_tts_output" => "dispatch_tts_handoff_request",
             "virtual_mic:output_device_missing" | "virtual_mic:input_device_missing" => "install_or_select_virtual_audio_cable",
+            "virtual_mic:selected_output_device_missing" | "virtual_mic:selected_input_device_missing" => "choose_existing_virtual_mic_route_device",
             _ => "inspect_live_pipeline_evidence",
         })
         .unwrap_or("ready_for_local_runtime_validation")
