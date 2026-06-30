@@ -6,7 +6,34 @@ let bound = false;
 let clickHandler: ((event: MouseEvent) => void) | null = null;
 
 type HelperTaskResult = HelperBridgeActionResult | HelperBridgeWorkerResponse;
-type CaptureTaskResult = CaptureHelperBridgeRequestPreview | HelperBridgeActionResult | CaptureTranscriptBoundaryStatus | AsrHandoffRequestStatus | PipelineHandoffRequestStatus | PipelineHandoffRequestStatus[] | LivePipelineSessionSnapshot | null;
+type AsrAudioPayloadRequestStatus = {
+  ok: boolean;
+  state: string;
+  schema_prepared: boolean;
+  boundary_ready: boolean;
+  audio_write_attempted: boolean;
+  audio_payload_ready: boolean;
+  request_prepared: boolean;
+  dispatch_attempted: boolean;
+  dispatch_ok: boolean;
+  task: string;
+  message: string;
+  blocker: string;
+  next_action: string;
+  audio_path: string | null;
+  sample_rate_hz: number;
+  channels: number;
+  pcm_format: string;
+  frame_count: number;
+  duration_ms: number;
+  audio_base64_present: boolean;
+  generation_token: number;
+  runtime_claim: string;
+  payload_json: string;
+  evidence_json: string;
+  updated_unix_ms: number;
+};
+type CaptureTaskResult = CaptureHelperBridgeRequestPreview | HelperBridgeActionResult | CaptureTranscriptBoundaryStatus | AsrHandoffRequestStatus | AsrAudioPayloadRequestStatus | PipelineHandoffRequestStatus | PipelineHandoffRequestStatus[] | LivePipelineSessionSnapshot | null;
 type WorkerPayload = Record<string, unknown>;
 type CaptureDispatchGlobal = typeof globalThis & {
   __translateitCaptureHelperDispatchStatus?: CaptureHelperDispatchStatus;
@@ -32,11 +59,57 @@ function workerSmokeFallback(message: string): HelperBridgeWorkerResponse {
   };
 }
 
+function asrAudioPayloadFallback(message: string): AsrAudioPayloadRequestStatus {
+  return {
+    ok: false,
+    state: "frontend_bridge_error",
+    schema_prepared: false,
+    boundary_ready: false,
+    audio_write_attempted: false,
+    audio_payload_ready: false,
+    request_prepared: false,
+    dispatch_attempted: false,
+    dispatch_ok: false,
+    task: "asr_decode",
+    message,
+    blocker: "frontend_bridge_unavailable",
+    next_action: "open_developer_diagnostics",
+    audio_path: null,
+    sample_rate_hz: 0,
+    channels: 0,
+    pcm_format: "unknown",
+    frame_count: 0,
+    duration_ms: 0,
+    audio_base64_present: false,
+    generation_token: 0,
+    runtime_claim: "frontend_bridge_unavailable",
+    payload_json: "{}",
+    evidence_json: "{}",
+    updated_unix_ms: Date.now(),
+  };
+}
+
 async function workerPipelineSmokeTask(): Promise<HelperBridgeWorkerResponse> {
   try {
     return await invoke<HelperBridgeWorkerResponse>("helper_bridge_pipeline_contract_smoke");
   } catch {
     return workerSmokeFallback("Worker pipeline smoke failed before reaching the Tauri command bridge.");
+  }
+}
+
+async function prepareAsrAudioPayloadTask(): Promise<AsrAudioPayloadRequestStatus> {
+  try {
+    return await invoke<AsrAudioPayloadRequestStatus>("prepare_asr_audio_payload_request");
+  } catch {
+    return asrAudioPayloadFallback("ASR audio payload prepare failed before reaching the Tauri command bridge.");
+  }
+}
+
+async function dispatchAsrDecodeTask(): Promise<AsrAudioPayloadRequestStatus> {
+  try {
+    return await invoke<AsrAudioPayloadRequestStatus>("dispatch_asr_decode_request");
+  } catch {
+    return asrAudioPayloadFallback("ASR decode dispatch failed before reaching the Tauri command bridge.");
   }
 }
 
@@ -59,6 +132,8 @@ function capturePreviewTask(action: string | undefined): Promise<CaptureTaskResu
   if (action === "boundary-status") return runtimeApi.getCaptureTranscriptBoundaryStatus();
   if (action === "asr-prepare") return runtimeApi.prepareAsrHandoffRequest();
   if (action === "asr-dispatch") return runtimeApi.dispatchAsrHandoffRequest();
+  if (action === "asr-payload-prepare") return prepareAsrAudioPayloadTask();
+  if (action === "asr-decode-dispatch") return dispatchAsrDecodeTask();
   if (action === "seed-transcript") return runtimeApi.seedDevAsrTranscript("Hello from the developer seeded ASR transcript.");
   if (action === "seed-translation") return runtimeApi.seedDevTranslatedText("Halo dari seed teks terjemahan developer.");
   if (action === "pipeline-smoke") return runtimeApi.runDevPipelineContractSmoke();
@@ -165,7 +240,11 @@ function isCaptureTranscriptBoundary(result: CaptureTaskResult): result is Captu
 }
 
 function isAsrHandoff(result: CaptureTaskResult): result is AsrHandoffRequestStatus {
-  return Boolean(result && !Array.isArray(result) && "request_prepared" in result && "boundary_ready" in result && "dispatch_ok" in result);
+  return Boolean(result && !Array.isArray(result) && "request_prepared" in result && "boundary_ready" in result && "dispatch_ok" in result && "frames_received" in result);
+}
+
+function isAsrAudioPayload(result: CaptureTaskResult): result is AsrAudioPayloadRequestStatus {
+  return Boolean(result && !Array.isArray(result) && "schema_prepared" in result && "audio_payload_ready" in result && "pcm_format" in result && "evidence_json" in result);
 }
 
 function isPipelineHandoff(result: CaptureTaskResult): result is PipelineHandoffRequestStatus {
@@ -174,6 +253,28 @@ function isPipelineHandoff(result: CaptureTaskResult): result is PipelineHandoff
 
 function isLivePipelineSnapshot(result: CaptureTaskResult): result is LivePipelineSessionSnapshot {
   return Boolean(result && !Array.isArray(result) && "progress_percent" in result && "stages" in result && "active_stage" in result);
+}
+
+function ensureAsrDecodeControls(): void {
+  const container = document.querySelector<HTMLElement>('[aria-label="Capture helper bridge preview controls"]');
+  if (!container || container.querySelector('[data-capture-bridge-action="asr-payload-prepare"]')) return;
+  const prepare = document.createElement("button");
+  prepare.className = "mic-test-button-v22 secondary";
+  prepare.type = "button";
+  prepare.dataset.captureBridgeAction = "asr-payload-prepare";
+  prepare.textContent = "Prepare ASR Payload";
+  const dispatch = document.createElement("button");
+  dispatch.className = "mic-test-button-v22 secondary";
+  dispatch.type = "button";
+  dispatch.dataset.captureBridgeAction = "asr-decode-dispatch";
+  dispatch.textContent = "Dispatch ASR Decode";
+  const anchor = container.querySelector('[data-capture-bridge-action="asr-dispatch"]');
+  if (anchor?.nextSibling) {
+    container.insertBefore(prepare, anchor.nextSibling);
+    container.insertBefore(dispatch, prepare.nextSibling);
+  } else {
+    container.append(prepare, dispatch);
+  }
 }
 
 function previewSummary(result: CaptureTaskResult): string {
@@ -190,6 +291,11 @@ function previewSummary(result: CaptureTaskResult): string {
   if (isPipelineHandoff(result)) {
     const state = result.dispatch_attempted ? (result.dispatch_ok ? "dispatch accepted" : "dispatch blocked") : (result.request_prepared ? "request prepared" : "blocked before request");
     return `${result.stage} ${state}: prerequisite=${result.prerequisite_stage}/${result.prerequisite_ready}, next=${result.next_action}, blocker=${result.blocker || "none"}. This is pipeline handoff stub evidence, not runtime proof.`;
+  }
+  if (isAsrAudioPayload(result)) {
+    const state = result.dispatch_attempted ? (result.dispatch_ok ? "worker accepted" : "worker blocked") : (result.request_prepared ? "payload ready" : result.schema_prepared ? "schema ready" : "blocked");
+    const audio = result.audio_path ? `audio=${result.audio_path}` : "audio=none";
+    return `ASR payload ${state}: boundary=${result.boundary_ready}, audioReady=${result.audio_payload_ready}, ${audio}, format=${result.pcm_format}, samples=${result.frame_count}, duration=${result.duration_ms}ms, next=${result.next_action}, blocker=${result.blocker || "none"}. This is ASR audio payload/worker-contract evidence, not transcript or Windows runtime proof.`;
   }
   if (isAsrHandoff(result)) {
     const state = result.dispatch_attempted ? (result.dispatch_ok ? "dispatch accepted" : "dispatch blocked") : (result.request_prepared ? "request prepared" : "blocked before request");
@@ -211,7 +317,9 @@ function previewSummary(result: CaptureTaskResult): string {
 export function bindDeveloperHelperBridgeUi(): () => void {
   if (bound) return unbindDeveloperHelperBridgeUi;
   bound = true;
+  ensureAsrDecodeControls();
   clickHandler = (event: MouseEvent) => {
+    ensureAsrDecodeControls();
     const helperButton = (event.target as HTMLElement | null)?.closest<HTMLButtonElement>("[data-helper-bridge-action]");
     if (helperButton) {
       const action = helperButton.dataset.helperBridgeAction;
