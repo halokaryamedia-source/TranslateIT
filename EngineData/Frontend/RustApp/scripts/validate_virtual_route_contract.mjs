@@ -39,9 +39,14 @@ expectNotIncludes(virtualRoute, "\"selected_input_device\": route.selected_input
 
 const professionalGate = readText("EngineData/Frontend/RustApp/src-tauri/src/commands/professional_readiness_gate.rs");
 expectIncludes(professionalGate, "pub struct ProfessionalRuntimeReadinessGateStatus", "professional gate contract");
+expectIncludes(professionalGate, "pub struct ProfessionalSourceReadinessOrchestrationStatus", "source orchestration contract");
 expectIncludes(professionalGate, "get_professional_runtime_readiness_gate_status", "professional gate command");
+expectIncludes(professionalGate, "run_professional_source_readiness_orchestration", "source orchestration command");
+expectIncludes(professionalGate, "development_progress_percent_excluding_ci_local", "development-only progress field");
+expectIncludes(professionalGate, "remaining_development_gaps", "remaining development gaps field");
 expectIncludes(professionalGate, "prepare_virtual_mic_output_route_runtime_stub", "professional gate route stub integration");
 expectIncludes(professionalGate, "route_stub_evidence_path", "professional gate route stub evidence path");
+expectIncludes(professionalGate, "professional_source_orchestration_development_only_not_ci_local_runtime_proof", "source orchestration runtime claim");
 expectIncludes(professionalGate, "professional_runtime_readiness_gate_source_side_not_runtime_proof", "professional gate runtime claim");
 
 const commandMod = readText("EngineData/Frontend/RustApp/src-tauri/src/commands/mod.rs");
@@ -52,11 +57,15 @@ expectIncludes(registry, "get_virtual_mic_route_contract_status", "route status 
 expectIncludes(registry, "prepare_virtual_mic_output_route_runtime_stub", "route stub registry");
 expectIncludes(registry, "set_preferred_virtual_mic_route_devices", "route preference registry");
 expectIncludes(registry, "get_professional_runtime_readiness_gate_status", "professional gate registry");
+expectIncludes(registry, "run_professional_source_readiness_orchestration", "source orchestration registry");
 
 const sharedTypes = readText("EngineData/Frontend/RustApp/src/app/shared/types.ts");
 expectIncludes(sharedTypes, "export type VirtualMicRouteContractStatus", "route status frontend type");
 expectIncludes(sharedTypes, "export type VirtualMicOutputRouteRuntimeStubStatus", "route stub frontend type");
 expectIncludes(sharedTypes, "export type ProfessionalRuntimeReadinessGateStatus", "professional gate frontend type");
+expectIncludes(sharedTypes, "export type ProfessionalSourceReadinessOrchestrationStatus", "source orchestration frontend type");
+expectIncludes(sharedTypes, "development_progress_percent_excluding_ci_local", "development-only frontend progress type");
+expectIncludes(sharedTypes, "remaining_development_gaps", "remaining development gaps frontend type");
 expectIncludes(sharedTypes, "source_audio_path", "route stub source audio type");
 expectIncludes(sharedTypes, "route_output_contract_json", "route output contract type");
 expectIncludes(sharedTypes, "route_stub_evidence_path", "professional gate route stub evidence type");
@@ -68,6 +77,8 @@ expectIncludes(routeApi, "setPreferredVirtualMicRouteDevices", "route bridge pre
 expectIncludes(routeApi, "set_preferred_virtual_mic_route_devices", "route bridge preference command");
 expectIncludes(routeApi, "prepare_virtual_mic_output_route_runtime_stub", "route bridge stub command");
 expectIncludes(routeApi, "get_professional_runtime_readiness_gate_status", "route bridge professional gate command");
+expectIncludes(routeApi, "runProfessionalSourceReadinessOrchestration", "route bridge source orchestration method");
+expectIncludes(routeApi, "run_professional_source_readiness_orchestration", "route bridge source orchestration command");
 expectIncludes(routeApi, "sourceAudioPath", "route bridge camelCase argument");
 expectIncludes(routeApi, "outputDevice", "route bridge output device argument");
 expectIncludes(routeApi, "inputDevice", "route bridge input device argument");
