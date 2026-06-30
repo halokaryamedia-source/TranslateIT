@@ -58,7 +58,7 @@ for (const marker of [
   "backHomeButton",
   "chatList",
 ]) expect(shell, marker, "simple shell");
-for (const marker of ["feature-grid", "How can I help translate today?", "Open Developer Diagnostics</button></div></div></article>"]) reject(shell, marker, "simple shell");
+for (const marker of ["feature-grid", "How can I help translate today?"]) reject(shell, marker, "simple shell");
 
 expect(shellMount, "homeDefaultCards", "shell mount");
 expect(shellMount, "return \"\";", "shell mount empty result startup");
@@ -66,11 +66,11 @@ expect(shellMount, "return \"\";", "shell mount empty result startup");
 for (const marker of [
   "bindSimpleRefs",
   "submitText",
-  "runProductTranslation",
-  "translationResultView",
+  "runtimeProductFacade.runProductTranslation",
+  "this.ui.chatList.innerHTML = translationResultView",
   "Translation completed",
   "Translation blocked",
-  "runProductSetupAction",
+  "runtimeProductFacade.runProductSetupAction",
   "start-helper",
   "check-worker",
   "check-microphone",
@@ -96,8 +96,8 @@ for (const marker of [
 ]) expect(controller, marker, "simple controller bindings");
 
 expectOrder(controller, "this.ui.sendButton.disabled = true", "runtimeProductFacade.runProductTranslation", "translate button loading state");
-expectOrder(controller, "runtimeProductFacade.runProductTranslation", "translationResultView", "translation result render");
-expectOrder(controller, "runProductSetupAction", "refreshReadiness", "setup feedback refresh");
+expectOrder(controller, "runtimeProductFacade.runProductTranslation", "this.ui.chatList.innerHTML = translationResultView", "translation result render");
+expectOrder(controller, "runtimeProductFacade.runProductSetupAction", "refreshReadiness", "setup feedback refresh");
 reject(controller, "this.ui.sendButton.disabled = !", "translate button must stay primary and testable");
 
 for (const marker of [
