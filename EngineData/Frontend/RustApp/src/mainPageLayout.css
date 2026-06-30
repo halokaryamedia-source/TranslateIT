@@ -1,294 +1,319 @@
 /*
   Main Page layout module.
-  Approved baseline: Main Page v28 reference screenshot.
-  Scope: sidebar, hero, feature cards, assistant card, topbar status, and composer only.
-  Rule: keep selectors scoped to body:not(.settings-open), .workspace, or .sidebar so edits here do not affect Settings pages.
+  Scope: sidebar, translate workspace, result area, setup status, and simple composer only.
 */
 
 body:not(.settings-open) .app-shell {
-  grid-template-columns: 384px minmax(0, 1fr);
+  grid-template-columns: 286px minmax(0, 1fr);
 }
 
 body:not(.settings-open) .sidebar {
-  padding: 21px 18px 0;
+  padding: 22px 18px 18px;
 }
 
-body:not(.settings-open) .brand-row {
-  gap: 14px;
+body:not(.settings-open) .simple-sidebar .brand-row {
+  gap: 12px;
 }
 
 body:not(.settings-open) .brand-mark {
-  width: 48px;
-  height: 48px;
-  font-size: 22px;
+  width: 44px;
+  height: 44px;
+  font-size: 20px;
 }
 
 body:not(.settings-open) .brand-row h1 {
-  font-size: 16px;
+  font-size: 15px;
   font-weight: 900;
-  letter-spacing: .02em;
 }
 
 body:not(.settings-open) .brand-row p {
-  margin-top: 6px;
-  font-size: 10.5px;
-}
-
-body:not(.settings-open) .new-chat-button {
-  min-height: 46px;
-  margin-top: 36px;
-  border-radius: 10px;
-  padding: 0 24px;
-}
-
-body:not(.settings-open) .nav-stack {
-  gap: 10px;
-  margin-top: 46px;
-}
-
-body:not(.settings-open) .nav-heading {
-  margin: 0 0 14px;
-  font-size: 9px;
-  letter-spacing: .1em;
-}
-
-body:not(.settings-open) .nav-item {
-  min-height: 46px;
-  border-radius: 10px;
-  padding: 0 24px;
-  grid-template-columns: 30px minmax(0, 1fr) 16px;
-}
-
-body:not(.settings-open) .nav-item .icon:last-child {
-  transform: rotate(90deg);
-}
-
-body:not(.settings-open) .nav-divider {
-  margin: 54px 0 26px;
-}
-
-body:not(.settings-open) .account-card {
-  grid-template-columns: 40px minmax(0, 1fr) auto;
-  column-gap: 10px;
-  width: 354px;
-  min-height: 66px;
-  margin: auto auto 61px;
-  padding: 10px 8px 10px 12px;
-  border-radius: 16px;
-}
-
-body:not(.settings-open) .avatar {
-  width: 40px;
-  height: 40px;
-  font-size: 11px;
-}
-
-body:not(.settings-open) .account-text strong {
-  font-size: 12px;
-}
-
-body:not(.settings-open) .account-text span {
-  font-size: 10px;
-}
-
-body:not(.settings-open) .account-actions {
-  display: grid;
-  grid-template-columns: 34px 18px 34px 18px 34px;
-  align-items: center;
-  gap: 3px;
-}
-
-body:not(.settings-open) .footer-icon {
-  width: 34px;
-  height: 36px;
-}
-
-body:not(.settings-open) .footer-dropdown {
-  width: 18px;
-  height: 36px;
-}
-
-body:not(.settings-open) .workspace {
-  grid-template-rows: 76px minmax(0, 1fr) auto;
-  padding: 0 40px 27px;
-  overflow: hidden;
-}
-
-body:not(.settings-open) .topbar {
-  min-height: 76px;
-  height: 76px;
-  margin: 0 -40px;
-  padding: 0 44px;
-}
-
-body:not(.settings-open) .topbar h2 {
-  font-size: 21px;
-  font-weight: 850;
-}
-
-body:not(.settings-open) .topbar p {
-  margin-top: 4px;
-  font-size: 11px;
-}
-
-body:not(.settings-open) .top-actions {
-  gap: 22px;
-}
-
-body:not(.settings-open) .direction-pill,
-body:not(.settings-open) .record-pill {
-  min-height: 39px;
-  height: 39px;
-  border-radius: 10px;
-  font-size: 10.5px;
-  font-weight: 900;
-}
-
-body:not(.settings-open) .direction-pill {
-  min-width: 110px;
-  padding: 0 26px;
-}
-
-body:not(.settings-open) .record-pill {
-  min-width: 138px;
-  gap: 14px;
-  color: var(--ref-text);
-  background: #1d0d12;
-  border-color: #5a2930;
-}
-
-body:not(.settings-open) .record-pill strong {
-  color: var(--ref-text);
-}
-
-body:not(.settings-open) .hero-panel {
-  width: 770px;
-  max-width: 770px;
-  margin: 65px auto 0;
-  text-align: center;
-  transform: translateX(-37px);
-}
-
-body:not(.settings-open) .hero-kicker {
-  justify-self: center;
-  width: 306px;
-  min-width: 306px;
-  height: 36px;
-  min-height: 36px;
-  font-size: 10px;
-  font-weight: 900;
-}
-
-body:not(.settings-open) .hero-panel h3 {
-  margin-top: 48px;
-  font-size: 32px;
-  line-height: 1.12;
-  font-weight: 850;
-  letter-spacing: -0.035em;
-}
-
-body:not(.settings-open) .hero-panel > p {
-  margin-top: 20px;
-  font-size: 11px;
-  line-height: 1.45;
-}
-
-body:not(.settings-open) .feature-grid {
-  width: 770px;
-  grid-template-columns: repeat(2, 370px);
-  gap: 30px;
-  margin-top: 98px;
-}
-
-body:not(.settings-open) .feature-card {
-  min-height: 203px;
-  padding: 34px 34px;
-}
-
-body:not(.settings-open) .feature-card::before {
-  width: 48px;
-  height: 2px;
-  margin-bottom: 48px;
-}
-
-body:not(.settings-open) .feature-title-row {
-  gap: 16px;
-}
-
-body:not(.settings-open) .feature-card h4 {
-  font-size: 18px;
-  font-weight: 850;
-}
-
-body:not(.settings-open) .feature-card p {
-  margin-top: 34px;
-  font-size: 12px;
-  line-height: 1.72;
-}
-
-body:not(.settings-open) .assistant-card {
-  width: 770px;
-  min-height: 63px;
-  margin-top: 34px;
-  padding: 12px 18px;
-}
-
-body:not(.settings-open) .assistant-card strong {
-  font-size: 12px;
-}
-
-body:not(.settings-open) .assistant-card p {
   margin-top: 5px;
   font-size: 11px;
 }
 
-body:not(.settings-open) .composer-wrap {
-  width: 1058px;
-  max-width: 1058px;
-  margin: 0 auto;
-  transform: translateX(16px);
+body:not(.settings-open) .new-chat-button {
+  min-height: 44px;
+  margin-top: 28px;
+  border-radius: 12px;
+  padding: 0 18px;
 }
 
-body:not(.settings-open) .composer {
-  min-height: 66px;
-  border-radius: 33px;
-  grid-template-columns: 44px 1px minmax(0, 1fr) 52px 52px;
-  gap: 16px;
-  padding: 10px 12px 10px 22px;
+body:not(.settings-open) .compact-nav {
+  gap: 8px;
+  margin-top: 28px;
 }
 
-body:not(.settings-open) .composer > .composer-icon:not(.emphasis) {
-  grid-column: 1;
-  grid-row: 1;
+body:not(.settings-open) .nav-heading,
+body:not(.settings-open) .nav-divider,
+body:not(.settings-open) .is-utility-hidden,
+body:not(.settings-open) .hidden-control-sink {
+  display: none !important;
 }
 
-body:not(.settings-open) .composer::before {
-  grid-row: 1;
+body:not(.settings-open) .nav-item {
+  min-height: 43px;
+  border-radius: 11px;
+  padding: 0 16px;
+  grid-template-columns: 28px minmax(0, 1fr) 16px;
+}
+
+body:not(.settings-open) .compact-account {
+  grid-template-columns: 38px minmax(0, 1fr) auto;
+  width: auto;
+  min-height: 62px;
+  margin: auto 0 0;
+  padding: 10px 10px;
+  border-radius: 15px;
+}
+
+body:not(.settings-open) .avatar {
+  width: 38px;
+  height: 38px;
+  font-size: 11px;
+}
+
+body:not(.settings-open) .account-actions {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+body:not(.settings-open) .footer-icon {
+  width: 36px;
   height: 36px;
 }
 
-body:not(.settings-open) .composer textarea {
-  grid-row: 1;
-  height: 22px;
-  min-height: 22px;
-  padding: 0;
-  align-self: center;
-  line-height: 22px;
+body:not(.settings-open) .simple-workspace {
+  grid-template-rows: 78px minmax(0, 1fr) auto;
+  padding: 0 36px 28px;
+  overflow: auto;
 }
 
-body:not(.settings-open) .composer-icon,
-body:not(.settings-open) .composer-icon.emphasis,
-body:not(.settings-open) .send-button {
+body:not(.settings-open) .simple-topbar {
+  min-height: 78px;
+  height: 78px;
+  margin: 0 -36px;
+  padding: 0 38px;
+}
+
+body:not(.settings-open) .topbar h2 {
+  font-size: 22px;
+  font-weight: 900;
+}
+
+body:not(.settings-open) .topbar p {
+  margin-top: 5px;
+  font-size: 12px;
+}
+
+body:not(.settings-open) .top-actions {
+  gap: 14px;
+}
+
+body:not(.settings-open) .direction-pill,
+body:not(.settings-open) .record-pill {
+  min-height: 38px;
+  height: 38px;
+  border-radius: 12px;
+  font-size: 11px;
+  font-weight: 900;
+}
+
+body:not(.settings-open) .direction-pill {
+  min-width: 104px;
+  padding: 0 20px;
+}
+
+body:not(.settings-open) .record-pill {
+  min-width: 118px;
+  gap: 10px;
+}
+
+body:not(.settings-open) .simple-translate-grid {
   display: grid;
-  width: 52px;
-  height: 52px;
-  place-items: center;
-  align-self: center;
-  grid-row: 1;
+  grid-template-columns: minmax(0, 1fr) 340px;
+  gap: 22px;
+  width: min(1180px, 100%);
+  margin: 28px auto 0;
+  align-items: start;
+}
+
+body:not(.settings-open) .simple-translate-card,
+body:not(.settings-open) .simple-status-card,
+body:not(.settings-open) .simple-voice-card,
+body:not(.settings-open) .simple-result-area .translation-result-card,
+body:not(.settings-open) .simple-result-area .feature-card {
+  border: 1px solid rgba(255, 255, 255, .08);
+  border-radius: 24px;
+  background: rgba(255, 255, 255, .045);
+  box-shadow: 0 24px 70px rgba(0, 0, 0, .22);
+}
+
+body:not(.settings-open) .simple-translate-card {
+  display: grid;
+  gap: 22px;
+  min-height: 438px;
+  padding: 30px;
+}
+
+body:not(.settings-open) .simple-card-heading {
+  display: grid;
+  gap: 10px;
+}
+
+body:not(.settings-open) .hero-kicker {
+  display: inline-flex;
+  width: fit-content;
+  min-width: 0;
+  min-height: 0;
+  height: auto;
+  justify-self: start;
+  padding: 8px 12px;
+  border-radius: 999px;
+  font-size: 10px;
+  font-weight: 900;
+}
+
+body:not(.settings-open) .simple-card-heading h3 {
+  margin: 0;
+  font-size: clamp(30px, 4vw, 52px);
+  line-height: 1.02;
+  letter-spacing: -.055em;
+}
+
+body:not(.settings-open) .simple-card-heading p {
+  max-width: 620px;
+  margin: 0;
+  color: var(--ref-muted);
+  font-size: 13px;
+  line-height: 1.55;
+}
+
+body:not(.settings-open) .simple-composer {
+  display: grid;
+  gap: 14px;
+}
+
+body:not(.settings-open) .simple-composer textarea {
+  width: 100%;
+  min-height: 190px;
+  resize: vertical;
+  border: 1px solid rgba(255, 255, 255, .1);
+  border-radius: 20px;
+  padding: 18px 20px;
+  color: var(--ref-text);
+  background: rgba(0, 0, 0, .22);
+  outline: none;
+  font: inherit;
+  line-height: 1.55;
+}
+
+body:not(.settings-open) .simple-composer textarea:focus {
+  border-color: rgba(255, 255, 255, .28);
+  box-shadow: 0 0 0 4px rgba(255, 255, 255, .06);
+}
+
+body:not(.settings-open) .simple-composer-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 10px;
+}
+
+body:not(.settings-open) .assistant-action.secondary,
+body:not(.settings-open) .simple-send-button {
+  min-height: 42px;
+  border-radius: 12px;
+  padding: 0 16px;
+}
+
+body:not(.settings-open) .simple-send-button {
+  min-width: 132px;
+  font-size: 13px;
+  font-weight: 900;
 }
 
 body:not(.settings-open) .composer-help {
-  margin-top: 22px;
-  text-align: center;
+  margin: 0;
+  color: var(--ref-muted);
+  text-align: left;
   font-size: 11px;
+}
+
+body:not(.settings-open) .simple-status-column {
+  display: grid;
+  gap: 14px;
+}
+
+body:not(.settings-open) .simple-status-card {
+  width: auto;
+  min-height: 0;
+  margin: 0;
+  padding: 18px;
+  align-items: start;
+}
+
+body:not(.settings-open) .simple-status-card p {
+  margin-top: 6px;
+  font-size: 12px;
+  line-height: 1.45;
+}
+
+body:not(.settings-open) .simple-setup-actions {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+  margin-top: 14px;
+}
+
+body:not(.settings-open) .simple-setup-actions .assistant-action {
+  min-height: 38px;
+  padding: 0 10px;
+  border-radius: 11px;
+  font-size: 11px;
+}
+
+body:not(.settings-open) .simple-voice-card {
+  display: grid;
+  gap: 14px;
+  padding: 18px;
+}
+
+body:not(.settings-open) .simple-voice-card strong {
+  font-size: 13px;
+}
+
+body:not(.settings-open) .simple-voice-card p {
+  margin: 6px 0 0;
+  color: var(--ref-muted);
+  font-size: 12px;
+  line-height: 1.45;
+}
+
+body:not(.settings-open) .simple-result-area {
+  display: block;
+  width: min(1180px, 100%);
+  margin: 20px auto 0;
+}
+
+body:not(.settings-open) .simple-result-area:empty {
+  display: none;
+}
+
+body:not(.settings-open) .translation-result-stack {
+  display: block;
+}
+
+body:not(.settings-open) .translation-result-card {
+  padding: 22px;
+}
+
+@media (max-width: 1100px) {
+  body:not(.settings-open) .app-shell {
+    grid-template-columns: 220px minmax(0, 1fr);
+  }
+
+  body:not(.settings-open) .simple-translate-grid {
+    grid-template-columns: 1fr;
+  }
 }
