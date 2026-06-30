@@ -64,6 +64,7 @@ function capturePreviewTask(action: string | undefined): Promise<CaptureTaskResu
   if (action === "asr-payload-prepare") return asrPayloadApi.prepareAsrAudioPayloadRequest();
   if (action === "asr-decode-dispatch") return asrPayloadApi.dispatchAsrDecodeRequest();
   if (action === "asr-promote-transcript") return invoke<LivePipelineSessionSnapshot>("promote_latest_asr_payload_transcript");
+  if (action === "virtual-mic-prepare") return invoke<LivePipelineSessionSnapshot>("prepare_virtual_mic_output_from_latest_tts");
   if (action === "seed-transcript") return runtimeApi.seedDevAsrTranscript("Hello from the developer seeded ASR transcript.");
   if (action === "seed-translation") return runtimeApi.seedDevTranslatedText("Halo dari seed teks terjemahan developer.");
   if (action === "pipeline-smoke") return runtimeApi.runDevPipelineContractSmoke();
@@ -214,14 +215,20 @@ function ensureAsrDecodeControls(): void {
   promote.type = "button";
   promote.dataset.captureBridgeAction = "asr-promote-transcript";
   promote.textContent = "Promote ASR Transcript";
+  const virtualMic = document.createElement("button");
+  virtualMic.className = "mic-test-button-v22 secondary";
+  virtualMic.type = "button";
+  virtualMic.dataset.captureBridgeAction = "virtual-mic-prepare";
+  virtualMic.textContent = "Prepare Virtual Mic";
   const anchor = container.querySelector('[data-capture-bridge-action="asr-dispatch"]');
   if (anchor?.nextSibling) {
     container.insertBefore(latest, anchor.nextSibling);
     container.insertBefore(prepare, latest.nextSibling);
     container.insertBefore(dispatch, prepare.nextSibling);
     container.insertBefore(promote, dispatch.nextSibling);
+    container.insertBefore(virtualMic, promote.nextSibling);
   } else {
-    container.append(latest, prepare, dispatch, promote);
+    container.append(latest, prepare, dispatch, promote, virtualMic);
   }
 }
 
@@ -233,8 +240,9 @@ function previewSummary(result: CaptureTaskResult): string {
   }
   if (isLivePipelineSnapshot(result)) {
     setLivePipelineGlobal(result.stages);
-    const payload = `payload transcript=${result.payload.transcript_available}, translation=${result.payload.translation_available}, tts=${result.payload.tts_text_available}`;
-    return `Live pipeline snapshot ${result.state}: ${result.progress_percent}% source-side progress, active=${result.active_stage}, next=${result.next_action}, blocker=${result.active_blocker || "none"}, ${payload}. ${result.summary} This is not runtime proof.`;
+    const payload = `payload transcript=${result.payload.transcript_available}, translation=${result.payload.translation_available}, tts=${result.payload.tts_text_available}, audio=${result.payload.audio_output_ready}, virtualMic=${result.payload.virtual_mic_ready}`;
+    const evidence = result.evidence_path ? ` evidence=${result.evidence_path}.` : "";
+    return `Live pipeline snapshot ${result.state}: ${result.progress_percent}% source-side progress, active=${result.active_stage}, next=${result.next_action}, blocker=${result.active_blocker || result.payload.virtual_mic_blocker || "none"}, ${payload}.${evidence} ${result.summary} This is not runtime proof.`;
   }
   if (isPipelineHandoff(result)) {
     const state = result.dispatch_attempted ? (result.dispatch_ok ? "dispatch accepted" : "dispatch blocked") : (result.request_prepared ? "request prepared" : "blocked before request");
