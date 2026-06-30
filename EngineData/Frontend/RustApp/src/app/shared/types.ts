@@ -241,6 +241,24 @@ export type VirtualMicOutputRouteRuntimeStubStatus = {
   updated_unix_ms: number;
 };
 
+export type ProfessionalRuntimeReadinessGateStatus = {
+  ok: boolean;
+  state: string;
+  progress_percent: number;
+  blockers: string[];
+  next_action: string;
+  summary: string;
+  live_gate: LiveMeetingRuntimeGateStatus;
+  route_stub: VirtualMicOutputRouteRuntimeStubStatus;
+  source_audio_path_ready: boolean;
+  route_stub_ready: boolean;
+  route_stub_source_audio_path: string | null;
+  route_stub_evidence_path: string | null;
+  route_stub_blocker: string;
+  runtime_claim: string;
+  updated_unix_ms: number;
+};
+
 export type AudioStudioValidationEvidence = {
   ok: boolean;
   stage: string;
