@@ -1,0 +1,237 @@
+import { runtimeApi } from "./runtimeApi";
+import { defaultSettings, errorMessage } from "../shared/state";
+import type {
+  CommandResult,
+  GpuPolicyReport,
+  HelperBridgeActionResult,
+  HelperBridgeStatus,
+  InputPreparationStatus,
+  ModelInventoryReport,
+  RuntimeDiagnostics,
+  RuntimeSettings,
+  RuntimeStatusBundleReport,
+  VoiceCapturePreparationReport,
+} from "../shared/types";
+
+export type ProductReadinessLevel = "ready" | "partial" | "blocked" | "checking";
+
+export type ProductReadiness = {
+  level: ProductReadinessLevel;
+  textReady: boolean;
+  helperReady: boolean;
+  providerReady: boolean;
+  microphoneReady: boolean;
+  modelsReady: boolean;
+  voiceReady: boolean;
+  canTranslateText: boolean;
+  canRecordVoice: boolean;
+  recording: boolean;
+  nextAction: string;
+  blockers: string[];
+  summary: string;
+  textStatus: string;
+  helperStatus: string;
+  modelStatus: string;
+  microphoneStatus: string;
+  voiceStatus: string;
+  runtimeStatus: string;
+};
+
+export type ProductRuntimeSnapshot = {
+  settings: RuntimeSettings;
+  readiness: ProductReadiness;
+  bundle: RuntimeStatusBundleReport | null;
+  diagnostics: RuntimeDiagnostics | null;
+  helper: HelperBridgeStatus | null;
+  modelInventory: ModelInventoryReport | null;
+  gpuPolicy: GpuPolicyReport | null;
+  inputStatus: InputPreparationStatus | null;
+};
+
+export type ProductTranslationResult = {
+  ok: boolean;
+  source: string;
+  translated: string;
+  status: string;
+  message: string;
+};
+
+export type ProductSetupAction = "start-helper" | "check-worker" | "verify-models" | "check-microphone";
+
+function compact(value: unknown, fallback = "Unknown"): string {
+  const text = String(value ?? "").replace(/\s+/g, " ").trim();
+  if (!text) return fallback;
+  return text.length > 180 ? `${text.slice(0, 179).trimEnd()}…` : text;
+}
+
+function unique(values: Array<string | null | undefined>): string[] {
+  return Array.from(new Set(values.map((value) => compact(value, "")).filter(Boolean)));
+}
+
+function isReadyish(value: unknown): boolean {
+  if (value === true) return true;
+  if (typeof value !== "string") return false;
+  const normalized = value.toLowerCase();
+  return normalized.includes("ready") || normalized.includes("ok") || normalized.includes("available");
+}
+
+function modelReady(modelInventory: ModelInventoryReport | null, bundle: RuntimeStatusBundleReport | null): boolean {
+  if (modelInventory?.ok) return true;
+  const manifest = bundle?.local_worker_manifest ?? bundle?.internal_validation_gate?.local_worker_manifest ?? null;
+  if (!manifest) return false;
+  return Boolean(
+    manifest.ok ||
+    (manifest.asr_model_ready && manifest.realtime_translation_model_ready) ||
+    (manifest.realtime_translation_model_ready && manifest.quality_translation_model_ready),
+  );
+}
+
+function collectBlockers(
+  bundle: RuntimeStatusBundleReport | null,
+  helper: HelperBridgeStatus | null,
+  modelInventory: ModelInventoryReport | null,
+  inputStatus: InputPreparationStatus | null,
+  diagnostics: RuntimeDiagnostics | null,
+): string[] {
+  const readiness = bundle?.readiness ?? {};
+  const captureGate = bundle?.capture_gate ?? {};
+  const manifest = bundle?.local_worker_manifest ?? bundle?.internal_validation_gate?.local_worker_manifest ?? {};
+  return unique([
+    ...(Array.isArray(readiness.blockers) ? readiness.blockers : []),
+    ...(Array.isArray(captureGate.blockers) ? captureGate.blockers : []),
+    ...(Array.isArray(manifest.blockers) ? manifest.blockers : []),
+    ...(Array.isArray(manifest.tts_blockers) ? manifest.tts_blockers : []),
+    ...(Array.isArray(manifest.warnings) ? manifest.warnings : []),
+    ...(Array.isArray(modelInventory?.blockers) ? modelInventory.blockers : []),
+    ...(Array.isArray(modelInventory?.warnings) ? modelInventory.warnings : []),
+    ...(Array.isArray(diagnostics?.blockers) ? diagnostics.blockers : []),
+    helper?.last_error ?? null,
+    inputStatus?.blocker ?? null,
+  ]).slice(0, 8);
+}
+
+export function mapProductReadiness(input: {
+  bundle: RuntimeStatusBundleReport | null;
+  diagnostics: RuntimeDiagnostics | null;
+  helper: HelperBridgeStatus | null;
+  modelInventory: ModelInventoryReport | null;
+  inputStatus: InputPreparationStatus | null;
+}): ProductReadiness {
+  const { bundle, diagnostics, helper, modelInventory, inputStatus } = input;
+  const manifest = bundle?.local_worker_manifest ?? bundle?.internal_validation_gate?.local_worker_manifest ?? null;
+  const helperReady = helper?.state === "ready" || Boolean(helper?.provider_ready);
+  const providerReady = Boolean(helper?.provider_ready);
+  const microphoneReady = Boolean(inputStatus?.ready || inputStatus?.prepared || bundle?.capture_gate?.ready_for_capture_start);
+  const modelsReady = modelReady(modelInventory, bundle);
+  const recording = Boolean(bundle?.live_capture?.stream_active);
+  const runtimeReady = Boolean(bundle?.readiness?.ready_for_user_facing_runtime || bundle?.engine_status?.lifecycle_state === "Idle");
+  const textReady = Boolean(runtimeReady || modelsReady || helperReady || manifest?.realtime_translation_model_ready || manifest?.quality_translation_model_ready);
+  const canTranslateText = true;
+  const voiceReady = Boolean(helperReady && providerReady && microphoneReady && modelsReady);
+  const canRecordVoice = voiceReady && !recording;
+  const blockers = collectBlockers(bundle, helper, modelInventory, inputStatus, diagnostics);
+  const nextAction = compact(
+    bundle?.next_action ||
+    bundle?.readiness?.next_action ||
+    bundle?.capture_gate?.next_action ||
+    modelInventory?.note ||
+    inputStatus?.note ||
+    helper?.message ||
+    "Type text to test translation, or run setup checks before voice capture.",
+    "Type text to test translation, or run setup checks before voice capture.",
+  );
+  const level: ProductReadinessLevel = voiceReady ? "ready" : textReady ? "partial" : bundle || helper || modelInventory ? "blocked" : "checking";
+  const summary = voiceReady
+    ? "Text and voice runtime appear ready."
+    : textReady
+      ? "Text translation can be tested. Voice needs setup or provider evidence."
+      : blockers.length
+        ? `Runtime is blocked: ${blockers[0]}`
+        : "Runtime status is still loading.";
+
+  return {
+    level,
+    textReady,
+    helperReady,
+    providerReady,
+    microphoneReady,
+    modelsReady,
+    voiceReady,
+    canTranslateText,
+    canRecordVoice,
+    recording,
+    nextAction,
+    blockers,
+    summary,
+    textStatus: textReady ? "Text ready" : "Text blocked",
+    helperStatus: helperReady ? "Helper ready" : compact(helper?.state ?? helper?.message, "Helper not ready"),
+    modelStatus: modelsReady ? "Models ready" : compact(modelInventory?.status ?? manifest?.note, "Models need setup"),
+    microphoneStatus: microphoneReady ? compact(inputStatus?.selected_device_name, "Microphone ready") : compact(inputStatus?.blocker ?? inputStatus?.note, "Microphone not checked"),
+    voiceStatus: voiceReady ? "Voice ready" : "Voice setup needed",
+    runtimeStatus: compact(bundle?.engine_status?.lifecycle_state ?? bundle?.engine_status?.runtime_stage ?? helper?.state, "Checking"),
+  };
+}
+
+export async function loadProductRuntimeSnapshot(): Promise<ProductRuntimeSnapshot> {
+  const settings = await runtimeApi.loadSettings().catch(() => defaultSettings());
+  const [bundle, diagnostics, helper, modelInventory, gpuPolicy, inputStatus] = await Promise.all([
+    runtimeApi.getStatusBundle().catch(() => null),
+    runtimeApi.getDiagnostics().catch(() => null),
+    runtimeApi.getHelperBridgeStatus().catch(() => null),
+    runtimeApi.getModelInventory().catch(() => null),
+    runtimeApi.getGpuPolicy().catch(() => null),
+    runtimeApi.getInputStatus().catch(() => null),
+  ]);
+  const readiness = mapProductReadiness({ bundle, diagnostics, helper, modelInventory, inputStatus });
+  return { settings, readiness, bundle, diagnostics, helper, modelInventory, gpuPolicy, inputStatus };
+}
+
+export async function runProductTranslation(source: string): Promise<ProductTranslationResult> {
+  const cleaned = source.trim();
+  if (!cleaned) {
+    return { ok: false, source, translated: "", status: "empty", message: "Type text before translating." };
+  }
+  try {
+    const result = await runtimeApi.translateText(cleaned);
+    return {
+      ok: Boolean(result?.ok),
+      source: cleaned,
+      translated: result?.message ?? "",
+      status: result?.state ?? (result?.ok ? "translated" : "blocked"),
+      message: result?.message ?? "Translation command returned no message.",
+    };
+  } catch (error) {
+    return {
+      ok: false,
+      source: cleaned,
+      translated: "",
+      status: "frontend_bridge_error",
+      message: errorMessage(error),
+    };
+  }
+}
+
+export async function runProductSetupAction(action: ProductSetupAction): Promise<string> {
+  if (action === "start-helper") {
+    const result: HelperBridgeActionResult | null = await runtimeApi.startHelperBridge().catch(() => null);
+    return compact(result?.message ?? result?.state, "Start Helper command finished.");
+  }
+  if (action === "check-worker") {
+    const status = await runtimeApi.getHelperBridgeStatus().catch(() => null);
+    return compact(status?.message ?? status?.state, "Worker status checked.");
+  }
+  if (action === "verify-models") {
+    const result = await runtimeApi.verifyModels().catch(() => null);
+    const blockers = Array.isArray(result?.blockers) ? result.blockers.join("; ") : "";
+    return compact(result?.note ?? blockers, result?.ok ? "Models verified." : "Model verification finished with blockers.");
+  }
+  const status = await runtimeApi.getInputStatus().catch(() => null);
+  return compact(status?.note ?? status?.blocker ?? status?.selected_device_name, "Microphone status checked.");
+}
+
+export const runtimeProductFacade = {
+  loadProductRuntimeSnapshot,
+  mapProductReadiness,
+  runProductTranslation,
+  runProductSetupAction,
+};
