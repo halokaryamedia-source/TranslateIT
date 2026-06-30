@@ -72,6 +72,12 @@ expectIncludes(professionalGate, "get_professional_runtime_readiness_gate_status
 expectIncludes(professionalGate, "run_professional_source_readiness_orchestration", "source orchestration command");
 expectIncludes(professionalGate, "development_progress_percent_excluding_ci_local", "development-only progress field");
 expectIncludes(professionalGate, "remaining_development_gaps", "remaining development gaps field");
+expectIncludes(professionalGate, "const GAP_ROUTE_DEVICE_NOT_READY", "professional gate route device gap constant");
+expectIncludes(professionalGate, "let ok = gaps.is_empty();", "professional orchestration strict ok logic");
+expectIncludes(professionalGate, "Route selection UI, provider handoff, and provider dry-run dispatch source wiring are already counted outside runtime proof", "professional orchestration source-complete summary");
+expectNotIncludes(professionalGate, "user_facing_route_device_selection_surface_not_finished", "stale route selection gap");
+expectNotIncludes(professionalGate, "real_audio_output_route_runtime_not_implemented", "stale provider runtime gap");
+expectNotIncludes(professionalGate, "gap.contains(\"not_ready\")", "stale partial ok heuristic");
 
 const commandMod = readText("EngineData/Frontend/RustApp/src-tauri/src/commands/mod.rs");
 expectIncludes(commandMod, "pub mod professional_readiness_gate", "professional gate module export");
