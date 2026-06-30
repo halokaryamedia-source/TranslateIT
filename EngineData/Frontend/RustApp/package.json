@@ -21,7 +21,7 @@
     "validate:startup-readiness": "node scripts/validate_startup_runtime_readiness.mjs",
     "validate:ci-scope": "node scripts/validate_v1_advance_ci_scope.mjs",
     "validate:virtual-route": "node scripts/validate_virtual_route_contract.mjs",
-    "validate:source-contracts": "npm run validate:script-profiles && npm run validate:imports && npm run validate:naming && npm run validate:translation-flow && npm run validate:runtime-ux && npm run validate:simple-ui && node scripts/validate_functional_surface_contract.mjs && node scripts/validate_runtime_readiness_scenarios.mjs && node scripts/validate_error_feedback_contract.mjs && node scripts/validate_settings_surface_contract.mjs && npm run validate:startup-readiness && npm run validate:ci-scope && npm run validate:virtual-route && npm run check:rust && npm run preflight:frontend-build",
+    "validate:source-contracts": "npm run validate:script-profiles && npm run validate:imports && npm run validate:naming && npm run validate:translation-flow && npm run validate:runtime-ux && npm run validate:simple-ui && node scripts/validate_functional_surface_contract.mjs && node scripts/validate_runtime_readiness_scenarios.mjs && node scripts/validate_error_feedback_contract.mjs && node scripts/validate_settings_surface_contract.mjs && node scripts/validate_auto_test_matrix_contract.mjs && npm run validate:startup-readiness && npm run validate:ci-scope && npm run validate:virtual-route && npm run check:rust && npm run preflight:frontend-build",
     "validate:quick": "npm run validate:source-contracts && npm run typecheck",
     "test:contract-reports": "node scripts/run_contract_reports.mjs",
     "test:auto-map": "node scripts/run_auto_test_matrix.mjs",
