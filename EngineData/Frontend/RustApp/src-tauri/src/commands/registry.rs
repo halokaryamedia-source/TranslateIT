@@ -31,6 +31,7 @@ pub fn register<R: tauri::Runtime>(builder: tauri::Builder<R>) -> tauri::Builder
         crate::commands::pipeline_handoff::get_live_meeting_runtime_gate_status,
         crate::commands::professional_readiness_gate::get_professional_runtime_readiness_gate_status,
         crate::commands::professional_readiness_gate::run_professional_source_readiness_orchestration,
+        crate::commands::virtual_audio_route_runtime::prepare_guarded_virtual_audio_route_runtime,
         crate::commands::pipeline_handoff::run_dev_pipeline_contract_smoke,
         crate::commands::pipeline_handoff::prepare_translation_handoff_request,
         crate::commands::pipeline_handoff::dispatch_translation_handoff_request,
