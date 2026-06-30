@@ -47,6 +47,15 @@ expectIncludes(audioRuntime, "\"source_audio_path\": &status.source_audio_path",
 expectIncludes(audioRuntime, "\"selected_output_device\": &status.selected_output_device", "audio route selected output borrow guard");
 expectIncludes(audioRuntime, "\"selected_input_device\": &status.selected_input_device", "audio route selected input borrow guard");
 
+const provider = readText("EngineData/Backend/LocalWorker/WorkerRuntime/virtual_audio_route_provider.py");
+expectIncludes(provider, "TRANSLATEIT_ENABLE_VIRTUAL_AUDIO_ROUTE_PROVIDER", "provider env guard");
+expectIncludes(provider, "route_virtual_audio", "provider route function");
+expectIncludes(provider, "sounddevice", "provider audio output dependency");
+expectIncludes(provider, "dry_run", "provider dry-run guard");
+expectIncludes(provider, "virtual_audio_route_provider_execution_attempted_needs_windows_runtime_validation", "provider execution runtime claim");
+expectIncludes(provider, "virtual_audio_route_provider_dependency_missing", "provider dependency blocker claim");
+expectIncludes(provider, "selected_output_device_not_found", "provider selected output blocker");
+
 const professionalGate = readText("EngineData/Frontend/RustApp/src-tauri/src/commands/professional_readiness_gate.rs");
 expectIncludes(professionalGate, "pub struct ProfessionalRuntimeReadinessGateStatus", "professional gate contract");
 expectIncludes(professionalGate, "pub struct ProfessionalSourceReadinessOrchestrationStatus", "source orchestration contract");
