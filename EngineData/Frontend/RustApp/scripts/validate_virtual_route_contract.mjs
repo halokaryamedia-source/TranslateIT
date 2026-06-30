@@ -169,6 +169,13 @@ expectIncludes(providerBinding, "Provider Dry Run", "provider dry run button lab
 expectNotIncludes(providerBinding, "let clickHandler", "provider duplicate click handler");
 expectNotIncludes(providerBinding, "let installedButton", "provider duplicate installed button state");
 
+const lifecycleCleanup = readText("EngineData/Frontend/RustApp/src/app/active-launcher/lifecycleCleanup.ts");
+expectIncludes(lifecycleCleanup, "createCleanupRegistry", "launcher cleanup registry factory");
+expectIncludes(lifecycleCleanup, "CleanupRegistry", "launcher cleanup registry type");
+expectIncludes(lifecycleCleanup, "scheduleCleanupAwareDelay", "cleanup-aware delayed task helper");
+expectIncludes(lifecycleCleanup, "window.clearTimeout", "cleanup-aware timeout cleanup");
+expectIncludes(lifecycleCleanup, "beforeunload", "cleanup registry beforeunload binding");
+
 const windowsNotes = readText("DevelopingData/Documentation/Reports/Engineering/V1_ADVANCE_VIRTUAL_AUDIO_PROVIDER_WINDOWS_NOTES.md");
 expectIncludes(windowsNotes, "requirements-virtual-audio-route.txt", "windows provider notes requirements file");
 expectIncludes(windowsNotes, "numpy", "windows provider notes numpy");
@@ -178,11 +185,16 @@ expectIncludes(windowsNotes, "Provider Dry Run", "windows provider notes dry run
 
 const main = readText("EngineData/Frontend/RustApp/src/main.ts");
 expectIncludes(main, "virtualRouteSelectionSurface.css", "main route selection css import");
+expectIncludes(main, "createCleanupRegistry", "main cleanup registry import/use");
+expectIncludes(main, "scheduleCleanupAwareDelay", "main cleanup-aware delay import/use");
+expectIncludes(main, "cleanup.add", "main cleanup registry registration");
+expectIncludes(main, "cleanup.bindBeforeUnload", "main cleanup beforeunload registry");
 expectIncludes(main, "mountVirtualRouteSelectionSurface", "main route selection mount import/use");
 expectIncludes(main, "unmountVirtualRouteSelectionSurface", "main route selection unmount import/use");
 expectIncludes(main, "bindSourceOrchestrationUi", "main source orchestration import/use");
 expectIncludes(main, "bindVirtualAudioRouteProviderUi", "main provider dry-run import/use");
-expectIncludes(main, "stopVirtualAudioRouteProviderUi", "main provider dry-run cleanup");
+expectNotIncludes(main, "const stop", "main duplicate stop variable cleanup pattern");
+expectNotIncludes(main, "window.addEventListener(\"beforeunload\"", "main direct beforeunload cleanup handler");
 
 const helperBinding = readText("EngineData/Frontend/RustApp/src/app/active-launcher/developerHelperBridgeBinding.ts");
 expectIncludes(helperBinding, "virtualRouteApi", "developer diagnostics route bridge import");
