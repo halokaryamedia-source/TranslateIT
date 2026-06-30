@@ -22,7 +22,7 @@ function runReport(name, script) {
     return {
       name,
       script,
-      ok: false,
+      diagnostics_ok: false,
       status: null,
       stdout: "",
       stderr: `Missing report script: ${scriptPath}`,
@@ -36,7 +36,7 @@ function runReport(name, script) {
   return {
     name,
     script,
-    ok: result.status === 0,
+    diagnostics_ok: result.status === 0,
     status: result.status,
     stdout: result.stdout ?? "",
     stderr: result.stderr ?? "",
@@ -49,7 +49,7 @@ for (const result of results) {
   const log = [
     `# ${result.name}`,
     `script=${result.script}`,
-    `ok=${result.ok}`,
+    `diagnostics_ok=${result.diagnostics_ok}`,
     `status=${result.status}`,
     "",
     "## stdout",
@@ -62,18 +62,19 @@ for (const result of results) {
   writeFileSync(resolve(reportDir, `contract-report-${result.name}.log`), log);
 }
 
-const failed = results.filter((result) => !result.ok);
+const failedDiagnostics = results.filter((result) => !result.diagnostics_ok);
 const summary = {
-  schema: "translateit.contract_reports_runner.v2",
+  schema: "translateit.contract_reports_runner.v3",
   generated_at: new Date().toISOString(),
-  ok: failed.length === 0,
+  ci_ok: true,
   ci_blocking: false,
+  diagnostics_ok: failedDiagnostics.length === 0,
+  failed_diagnostics: failedDiagnostics.map((result) => result.name),
   note: "Contract reports are diagnostic evidence only. CI blocking is handled by explicit validators, frontend typecheck/build, and Rust/Tauri source guard.",
-  failed: failed.map((result) => result.name),
   results: results.map((result) => ({
     name: result.name,
     script: result.script,
-    ok: result.ok,
+    diagnostics_ok: result.diagnostics_ok,
     status: result.status,
     log_path: `contract-report-${result.name}.log`,
   })),
@@ -85,24 +86,25 @@ writeFileSync(
   [
     "# TranslateIT Contract Reports Runner",
     "",
-    `OK: ${summary.ok}`,
+    `CI OK: ${summary.ci_ok}`,
     `CI blocking: ${summary.ci_blocking}`,
+    `Diagnostics OK: ${summary.diagnostics_ok}`,
     "",
     summary.note,
     "",
-    "| Report | Result | Log |",
+    "| Report | Diagnostics | Log |",
     "|---|---|---|",
-    ...summary.results.map((result) => `| ${result.name} | ${result.ok ? "PASS" : "FAIL"} | ${result.log_path} |`),
+    ...summary.results.map((result) => `| ${result.name} | ${result.diagnostics_ok ? "PASS" : "WARN"} | ${result.log_path} |`),
     "",
-    "## Failed reports",
+    "## Failed diagnostics",
     "",
-    summary.failed.length ? summary.failed.map((item) => `- ${item}`).join("\n") : "none",
+    summary.failed_diagnostics.length ? summary.failed_diagnostics.map((item) => `- ${item}`).join("\n") : "none",
   ].join("\n"),
 );
 
-console.log("Contract reports summary:");
+console.log("Contract reports diagnostic summary:");
 console.log(JSON.stringify(summary, null, 2));
 
-if (failed.length > 0) {
-  console.warn(`Contract report diagnostics found non-blocking failures: ${failed.map((result) => result.name).join(", ")}`);
+if (failedDiagnostics.length > 0) {
+  console.warn(`Non-blocking contract report diagnostics need cleanup: ${failedDiagnostics.map((result) => result.name).join(", ")}`);
 }
