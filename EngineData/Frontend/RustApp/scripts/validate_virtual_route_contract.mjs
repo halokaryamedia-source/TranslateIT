@@ -60,6 +60,11 @@ expectIncludes(provider, "virtual_audio_route_provider_execution_attempted_needs
 expectIncludes(provider, "virtual_audio_route_provider_dependency_missing", "provider dependency blocker claim");
 expectIncludes(provider, "selected_output_device_not_found", "provider selected output blocker");
 
+const providerRequirements = readText("EngineData/Backend/LocalWorker/WorkerRuntime/requirements-virtual-audio-route.txt");
+expectIncludes(providerRequirements, "numpy", "provider requirements numpy");
+expectIncludes(providerRequirements, "sounddevice", "provider requirements sounddevice");
+expectIncludes(providerRequirements, "not runtime proof", "provider requirements proof disclaimer");
+
 const professionalGate = readText("EngineData/Frontend/RustApp/src-tauri/src/commands/professional_readiness_gate.rs");
 expectIncludes(professionalGate, "pub struct ProfessionalRuntimeReadinessGateStatus", "professional gate contract");
 expectIncludes(professionalGate, "pub struct ProfessionalSourceReadinessOrchestrationStatus", "source orchestration contract");
@@ -143,6 +148,7 @@ expectIncludes(providerBinding, "data-virtual-audio-provider-action", "provider 
 expectIncludes(providerBinding, "Provider Dry Run", "provider dry run button label");
 
 const windowsNotes = readText("DevelopingData/Documentation/Reports/Engineering/V1_ADVANCE_VIRTUAL_AUDIO_PROVIDER_WINDOWS_NOTES.md");
+expectIncludes(windowsNotes, "requirements-virtual-audio-route.txt", "windows provider notes requirements file");
 expectIncludes(windowsNotes, "numpy", "windows provider notes numpy");
 expectIncludes(windowsNotes, "sounddevice", "windows provider notes sounddevice");
 expectIncludes(windowsNotes, "TRANSLATEIT_ENABLE_VIRTUAL_AUDIO_ROUTE_PROVIDER", "windows provider notes env guard");
