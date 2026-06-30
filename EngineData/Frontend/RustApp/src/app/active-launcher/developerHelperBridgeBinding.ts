@@ -2,13 +2,13 @@ import { invoke } from "@tauri-apps/api/core";
 import { asrPayloadApi, type AsrAudioPayloadRequestStatus } from "../bridge/asrPayloadApi";
 import { runtimeApi } from "../bridge/runtimeApi";
 import { virtualRouteApi } from "../bridge/virtualRouteApi";
-import type { AsrHandoffRequestStatus, CaptureHelperBridgeRequestPreview, CaptureHelperDispatchStatus, CaptureTranscriptBoundaryStatus, HelperBridgeActionResult, HelperBridgeWorkerResponse, LiveMeetingRuntimeGateStatus, LivePipelineSessionSnapshot, PipelineHandoffRequestStatus, VirtualMicOutputRouteRuntimeStubStatus, VirtualMicRouteContractStatus } from "../shared/types";
+import type { AsrHandoffRequestStatus, CaptureHelperBridgeRequestPreview, CaptureHelperDispatchStatus, CaptureTranscriptBoundaryStatus, HelperBridgeActionResult, HelperBridgeWorkerResponse, LiveMeetingRuntimeGateStatus, LivePipelineSessionSnapshot, PipelineHandoffRequestStatus, ProfessionalRuntimeReadinessGateStatus, VirtualMicOutputRouteRuntimeStubStatus, VirtualMicRouteContractStatus } from "../shared/types";
 
 let bound = false;
 let clickHandler: ((event: MouseEvent) => void) | null = null;
 
 type HelperTaskResult = HelperBridgeActionResult | HelperBridgeWorkerResponse;
-type CaptureTaskResult = CaptureHelperBridgeRequestPreview | HelperBridgeActionResult | CaptureTranscriptBoundaryStatus | AsrHandoffRequestStatus | AsrAudioPayloadRequestStatus | PipelineHandoffRequestStatus | PipelineHandoffRequestStatus[] | LivePipelineSessionSnapshot | LiveMeetingRuntimeGateStatus | VirtualMicRouteContractStatus | VirtualMicOutputRouteRuntimeStubStatus | null;
+type CaptureTaskResult = CaptureHelperBridgeRequestPreview | HelperBridgeActionResult | CaptureTranscriptBoundaryStatus | AsrHandoffRequestStatus | AsrAudioPayloadRequestStatus | PipelineHandoffRequestStatus | PipelineHandoffRequestStatus[] | LivePipelineSessionSnapshot | LiveMeetingRuntimeGateStatus | VirtualMicRouteContractStatus | VirtualMicOutputRouteRuntimeStubStatus | ProfessionalRuntimeReadinessGateStatus | null;
 type WorkerPayload = Record<string, unknown>;
 type CaptureDispatchGlobal = typeof globalThis & {
   __translateitCaptureHelperDispatchStatus?: CaptureHelperDispatchStatus;
@@ -67,6 +67,7 @@ function capturePreviewTask(action: string | undefined): Promise<CaptureTaskResu
   if (action === "asr-promote-transcript") return invoke<LivePipelineSessionSnapshot>("promote_latest_asr_payload_transcript");
   if (action === "virtual-route-status") return virtualRouteApi.getVirtualMicRouteContractStatus();
   if (action === "virtual-route-stub") return virtualRouteApi.prepareVirtualMicOutputRouteRuntimeStubFromLatestPipeline();
+  if (action === "professional-gate") return virtualRouteApi.getProfessionalRuntimeReadinessGateStatus();
   if (action === "virtual-mic-prepare") return invoke<LivePipelineSessionSnapshot>("prepare_virtual_mic_output_from_latest_tts");
   if (action === "runtime-gate") return invoke<LiveMeetingRuntimeGateStatus>("get_live_meeting_runtime_gate_status");
   if (action === "seed-transcript") return runtimeApi.seedDevAsrTranscript("Hello from the developer seeded ASR transcript.");
@@ -208,6 +209,10 @@ function isVirtualMicRouteStub(result: CaptureTaskResult): result is VirtualMicO
   return Boolean(result && !Array.isArray(result) && "route_stub_ready" in result && "source_audio_ready" in result && "route_output_contract_json" in result);
 }
 
+function isProfessionalGate(result: CaptureTaskResult): result is ProfessionalRuntimeReadinessGateStatus {
+  return Boolean(result && !Array.isArray(result) && "route_stub_ready" in result && "live_gate" in result && "source_audio_path_ready" in result);
+}
+
 function ensureAsrDecodeControls(): void {
   const container = document.querySelector<HTMLElement>('[aria-label="Capture helper bridge preview controls"]');
   if (!container || container.querySelector('[data-capture-bridge-action="asr-payload-prepare"]')) return;
@@ -241,6 +246,11 @@ function ensureAsrDecodeControls(): void {
   routeStub.type = "button";
   routeStub.dataset.captureBridgeAction = "virtual-route-stub";
   routeStub.textContent = "Route Runtime Stub";
+  const professionalGate = document.createElement("button");
+  professionalGate.className = "mic-test-button-v22 secondary";
+  professionalGate.type = "button";
+  professionalGate.dataset.captureBridgeAction = "professional-gate";
+  professionalGate.textContent = "Professional Gate";
   const virtualMic = document.createElement("button");
   virtualMic.className = "mic-test-button-v22 secondary";
   virtualMic.type = "button";
@@ -259,10 +269,11 @@ function ensureAsrDecodeControls(): void {
     container.insertBefore(promote, dispatch.nextSibling);
     container.insertBefore(routeStatus, promote.nextSibling);
     container.insertBefore(routeStub, routeStatus.nextSibling);
-    container.insertBefore(virtualMic, routeStub.nextSibling);
+    container.insertBefore(professionalGate, routeStub.nextSibling);
+    container.insertBefore(virtualMic, professionalGate.nextSibling);
     container.insertBefore(runtimeGate, virtualMic.nextSibling);
   } else {
-    container.append(latest, prepare, dispatch, promote, routeStatus, routeStub, virtualMic, runtimeGate);
+    container.append(latest, prepare, dispatch, promote, routeStatus, routeStub, professionalGate, virtualMic, runtimeGate);
   }
 }
 
@@ -271,6 +282,12 @@ function previewSummary(result: CaptureTaskResult): string {
   if (Array.isArray(result)) {
     const summary = result.map((item) => `${item.stage}:${item.state}:${item.next_action}`).join(" | ");
     return `Live pipeline handoff status: ${summary}. This is source-side wiring evidence, not runtime proof.`;
+  }
+  if (isProfessionalGate(result)) {
+    const blockers = result.blockers.length ? result.blockers.join(" | ") : "none";
+    const evidence = result.route_stub_evidence_path ? ` routeStubEvidence=${result.route_stub_evidence_path}` : "";
+    const source = `sourceAudio=${result.route_stub_source_audio_path || "none"}`;
+    return `Professional gate ${result.state}: ${result.progress_percent}% source-side ready, liveGate=${result.live_gate.state}, routeStub=${result.route_stub_ready}, ${source}, next=${result.next_action}, blockers=${blockers}, routeStubBlocker=${result.route_stub_blocker || "none"}.${evidence} This is not CI/local/Windows runtime proof.`;
   }
   if (isVirtualMicRouteStub(result)) {
     const devices = `selectedOutput=${result.selected_output_device || "none"}, selectedInput=${result.selected_input_device || "none"}`;
