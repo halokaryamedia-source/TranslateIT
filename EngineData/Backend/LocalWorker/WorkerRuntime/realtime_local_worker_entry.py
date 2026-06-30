@@ -64,6 +64,121 @@ def handle_asr_handoff_stub(payload: dict[str, Any]) -> dict[str, Any]:
     }
 
 
+def handle_asr_decode_contract(payload: dict[str, Any]) -> dict[str, Any]:
+    audio_path = text_field(payload, "audio_path")
+    audio_base64_present = bool(payload.get("audio_base64_present")) or bool(payload.get("audio_base64"))
+    generation_token = payload.get("generation_token", 0)
+    source_language = text_field(payload, "source_language") or text_field(payload, "language") or "id"
+    base_payload: dict[str, Any] = {
+        "stage": "asr_decode",
+        "command_received": True,
+        "generation_token": generation_token,
+        **deadline_fields(payload),
+        "boundary_ready": bool(payload.get("boundary_ready", False)),
+        "audio_payload_ready": bool(payload.get("audio_payload_ready", False)),
+        "audio_path": audio_path or None,
+        "audio_base64_present": audio_base64_present,
+        "sample_rate_hz": payload.get("sample_rate_hz"),
+        "channels": payload.get("channels"),
+        "pcm_format": payload.get("pcm_format"),
+        "frame_count": payload.get("frame_count"),
+        "duration_ms": payload.get("duration_ms"),
+        "source_language": source_language,
+        "runtime_claim": "asr_decode_worker_payload_contract_no_decoder_runtime_claim",
+    }
+
+    if not audio_path and not audio_base64_present:
+        return {
+            **base_payload,
+            "ok": False,
+            "blocker": "asr:missing_audio_payload",
+            "note": "ASR decode command was received, but no audio_path or audio_base64 payload is available.",
+            "next_actions": [
+                "Use dispatch_asr_decode_request after the live target segment writer has produced a PCM16 WAV payload.",
+                "Keep this as worker command contract evidence until a local Windows runtime test is available.",
+            ],
+        }
+
+    if audio_base64_present and not audio_path:
+        return {
+            **base_payload,
+            "ok": False,
+            "blocker": "asr:audio_base64_not_supported_yet",
+            "note": "ASR decode received an inline audio marker, but the worker contract currently accepts the cached WAV audio_path boundary first.",
+            "next_actions": [
+                "Prefer cached PCM16 WAV handoff while source-side payload size and memory safety are being validated.",
+                "Add base64 decode only after payload limits and compile proof are validated.",
+            ],
+        }
+
+    try:
+        resolved_audio_path = base.resolve_worker_path(
+            audio_path,
+            base.CACHE_ROOT / "audio_segments" / "latest_live_target_segment.wav",
+            base.ALLOWED_INPUT_ROOTS,
+        )
+    except Exception as exc:
+        return {
+            **base_payload,
+            "ok": False,
+            "blocker": f"asr:audio_path_invalid:{type(exc).__name__}",
+            "note": str(exc),
+            "next_actions": [
+                "Keep ASR audio payloads inside UserData/CacheData or UserData/LogData.",
+                "Rebuild the payload from the Rust live segment writer.",
+            ],
+        }
+
+    if not resolved_audio_path.is_file():
+        return {
+            **base_payload,
+            "ok": False,
+            "blocker": "asr:audio_file_missing",
+            "resolved_audio_path": str(resolved_audio_path),
+            "note": "ASR decode received an audio_path, but the worker cannot find the cached WAV file.",
+            "next_actions": [
+                "Run capture until Transcript Boundary is ready, then dispatch ASR Decode again.",
+                "Confirm the Rust live segment writer created latest_live_target_segment.wav.",
+            ],
+        }
+
+    status = base.build_status_payload()
+    model_ready = bool(status.get("faster_whisper_import_ready")) and bool(status.get("asr_model_ready"))
+    if not model_ready:
+        return {
+            **base_payload,
+            "ok": False,
+            "blocker": "asr:model_not_ready",
+            "resolved_audio_path": str(resolved_audio_path),
+            "asr_model_ready": bool(status.get("asr_model_ready")),
+            "faster_whisper_import_ready": bool(status.get("faster_whisper_import_ready")),
+            "asr_active_model_id": status.get("asr_active_model_id"),
+            "asr_active_model_path": status.get("asr_active_model_path"),
+            "warnings": status.get("warnings", []),
+            "next_actions": status.get("next_actions", [
+                "Install faster-whisper and place the Whisper Large V3 Turbo or Medium model assets.",
+            ]),
+            "note": "ASR decode has a valid audio payload boundary, but model import/assets are not ready yet.",
+        }
+
+    return {
+        **base_payload,
+        "ok": False,
+        "blocker": "asr:decoder_runtime_not_enabled_in_wrapper",
+        "resolved_audio_path": str(resolved_audio_path),
+        "asr_model_ready": True,
+        "faster_whisper_import_ready": True,
+        "asr_active_model_id": status.get("asr_active_model_id"),
+        "asr_active_model_path": status.get("asr_active_model_path"),
+        "note": "ASR decode payload and model readiness contract passed. The wrapper intentionally stops before Whisper transcription until local Rust/Tauri compile and Windows runtime proof are available.",
+        "next_actions": [
+            "After npm run check:tauri-rust-local passes, route this command to base.handle_transcribe(payload).",
+            "Capture the worker response as asr_evidence before promoting transcript text into the live pipeline.",
+            "Do not claim transcript/runtime proof until this command returns real transcript_text on Windows.",
+        ],
+    }
+
+
 def handle_pipeline_handoff_stub(payload: dict[str, Any]) -> dict[str, Any]:
     command = str(payload.get("command", "pipeline_handoff")).strip() or "pipeline_handoff"
     transcript_text = text_field(payload, "transcript_text")
@@ -196,6 +311,7 @@ def handle_dev_pipeline_contract_smoke(payload: dict[str, Any]) -> dict[str, Any
 base.HANDLERS["capture_start"] = handle_capture_migration_stub
 base.HANDLERS["capture_stop"] = handle_capture_migration_stub
 base.HANDLERS["asr_handoff"] = handle_asr_handoff_stub
+base.HANDLERS["asr_decode"] = handle_asr_decode_contract
 base.HANDLERS["translation_handoff"] = handle_pipeline_handoff_stub
 base.HANDLERS["tts_handoff"] = handle_pipeline_handoff_stub
 base.HANDLERS["dev_pipeline_contract_smoke"] = handle_dev_pipeline_contract_smoke
