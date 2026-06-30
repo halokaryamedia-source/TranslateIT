@@ -135,10 +135,15 @@ const routeSelectionMount = readText("EngineData/Frontend/RustApp/src/app/active
 expectIncludes(routeSelectionMount, "mountVirtualRouteSelectionSurface", "route selection auto mount function");
 expectIncludes(routeSelectionMount, "data-virtual-route-selection-host", "route selection host marker");
 expectIncludes(routeSelectionMount, "bindVirtualRouteSelectionSurface", "route selection mount uses renderer");
+expectIncludes(routeSelectionMount, "getDiagnosticsControlsContainer", "route selection uses shared diagnostics controls helper");
+expectNotIncludes(routeSelectionMount, "Capture helper bridge preview controls", "route selection duplicate diagnostics selector");
 expectIncludes(routeSelectionMount, "unmountVirtualRouteSelectionSurface", "route selection unmount function");
 
 const diagnosticButtonBinding = readText("EngineData/Frontend/RustApp/src/app/active-launcher/diagnosticButtonBinding.ts");
 expectIncludes(diagnosticButtonBinding, "bindDiagnosticButton", "reusable diagnostic binding helper");
+expectIncludes(diagnosticButtonBinding, "getDiagnosticsControlsContainer", "reusable diagnostics controls helper");
+expectIncludes(diagnosticButtonBinding, "DIAGNOSTIC_CONTROLS_SELECTOR", "shared diagnostics controls selector");
+expectIncludes(diagnosticButtonBinding, "DIAGNOSTIC_BUTTON_CLASS", "shared diagnostic button class");
 expectIncludes(diagnosticButtonBinding, "setAssistantNotice", "reusable assistant notice helper");
 expectIncludes(diagnosticButtonBinding, "retryDelayMs", "reusable diagnostic retry delay");
 expectIncludes(diagnosticButtonBinding, "mic-test-button-v22 secondary", "reusable diagnostic button styling");
