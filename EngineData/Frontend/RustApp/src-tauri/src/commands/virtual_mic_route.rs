@@ -1,0 +1,173 @@
+use serde::Serialize;
+use std::sync::{Mutex, OnceLock};
+
+use super::audio::{list_audio_devices, AudioDeviceSummary};
+use super::helper_bridge_runtime::unix_ms;
+
+#[derive(Debug, Clone, Serialize)]
+pub struct VirtualMicRoutePreference {
+    pub preferred_output_device: Option<String>,
+    pub preferred_input_device: Option<String>,
+    pub updated_unix_ms: u128,
+}
+
+impl Default for VirtualMicRoutePreference {
+    fn default() -> Self {
+        Self {
+            preferred_output_device: None,
+            preferred_input_device: None,
+            updated_unix_ms: unix_ms(),
+        }
+    }
+}
+
+#[derive(Debug, Clone, Serialize)]
+pub struct VirtualMicRouteContractStatus {
+    pub ok: bool,
+    pub route_ready: bool,
+    pub selected_output_device: Option<String>,
+    pub selected_input_device: Option<String>,
+    pub preferred_output_device: Option<String>,
+    pub preferred_input_device: Option<String>,
+    pub output_device_found: bool,
+    pub input_device_found: bool,
+    pub available_output_devices: Vec<String>,
+    pub available_input_devices: Vec<String>,
+    pub blocker: String,
+    pub next_action: String,
+    pub runtime_claim: String,
+    pub updated_unix_ms: u128,
+}
+
+static VIRTUAL_MIC_ROUTE_PREFERENCE: OnceLock<Mutex<VirtualMicRoutePreference>> = OnceLock::new();
+
+fn preference_runtime() -> &'static Mutex<VirtualMicRoutePreference> {
+    VIRTUAL_MIC_ROUTE_PREFERENCE.get_or_init(|| Mutex::new(VirtualMicRoutePreference::default()))
+}
+
+fn clean_device_name(value: Option<String>) -> Option<String> {
+    value
+        .map(|text| text.trim().chars().take(180).collect::<String>())
+        .filter(|text| !text.is_empty())
+}
+
+fn device_names(devices: &[AudioDeviceSummary]) -> Vec<String> {
+    devices.iter().map(|device| device.name.clone()).collect()
+}
+
+fn has_virtual_device_keyword(name: &str) -> bool {
+    let normalized = name.to_lowercase();
+    [
+        "vb-audio",
+        "cable input",
+        "cable output",
+        "voicemeeter",
+        "blackhole",
+        "loopback",
+        "virtual cable",
+        "virtual audio",
+        "stereo mix",
+    ]
+    .iter()
+    .any(|keyword| normalized.contains(keyword))
+}
+
+fn named_device_exists(devices: &[AudioDeviceSummary], preferred: &str) -> bool {
+    devices.iter().any(|device| device.name == preferred)
+}
+
+fn auto_virtual_candidate(devices: &[AudioDeviceSummary]) -> Option<String> {
+    devices
+        .iter()
+        .find(|device| has_virtual_device_keyword(&device.name))
+        .map(|device| device.name.clone())
+}
+
+fn selected_device(
+    devices: &[AudioDeviceSummary],
+    preferred: &Option<String>,
+) -> (Option<String>, bool, bool) {
+    if let Some(preferred) = preferred {
+        let found = named_device_exists(devices, preferred);
+        return (if found { Some(preferred.clone()) } else { None }, found, true);
+    }
+    let candidate = auto_virtual_candidate(devices);
+    let found = candidate.is_some();
+    (candidate, found, false)
+}
+
+fn current_preference() -> VirtualMicRoutePreference {
+    preference_runtime()
+        .lock()
+        .map(|preference| preference.clone())
+        .unwrap_or_default()
+}
+
+fn build_status(preference: VirtualMicRoutePreference) -> VirtualMicRouteContractStatus {
+    let devices = list_audio_devices();
+    let available_output_devices = device_names(&devices.output_devices);
+    let available_input_devices = device_names(&devices.input_devices);
+    let (selected_output_device, output_device_found, output_was_preferred) =
+        selected_device(&devices.output_devices, &preference.preferred_output_device);
+    let (selected_input_device, input_device_found, input_was_preferred) =
+        selected_device(&devices.input_devices, &preference.preferred_input_device);
+    let route_ready = output_device_found && input_device_found;
+    let blocker = if route_ready {
+        String::new()
+    } else if output_was_preferred && !output_device_found {
+        "virtual_mic:selected_output_device_missing".to_string()
+    } else if input_was_preferred && !input_device_found {
+        "virtual_mic:selected_input_device_missing".to_string()
+    } else if !output_device_found {
+        "virtual_mic:output_device_missing".to_string()
+    } else if !input_device_found {
+        "virtual_mic:input_device_missing".to_string()
+    } else {
+        "virtual_mic:route_not_ready".to_string()
+    };
+    let next_action = if route_ready {
+        "connect_tts_output_audio_to_selected_virtual_output_device".to_string()
+    } else if blocker.contains("selected") {
+        "choose_existing_virtual_mic_route_device".to_string()
+    } else {
+        "install_or_enable_virtual_audio_cable".to_string()
+    };
+
+    VirtualMicRouteContractStatus {
+        ok: route_ready,
+        route_ready,
+        selected_output_device,
+        selected_input_device,
+        preferred_output_device: preference.preferred_output_device,
+        preferred_input_device: preference.preferred_input_device,
+        output_device_found,
+        input_device_found,
+        available_output_devices,
+        available_input_devices,
+        blocker,
+        next_action,
+        runtime_claim: "virtual_mic_route_device_selection_source_side_not_audio_routing_proof".to_string(),
+        updated_unix_ms: unix_ms(),
+    }
+}
+
+#[tauri::command]
+pub fn get_virtual_mic_route_contract_status() -> VirtualMicRouteContractStatus {
+    build_status(current_preference())
+}
+
+#[tauri::command]
+pub fn set_preferred_virtual_mic_route_devices(
+    output_device: Option<String>,
+    input_device: Option<String>,
+) -> VirtualMicRouteContractStatus {
+    let preference = VirtualMicRoutePreference {
+        preferred_output_device: clean_device_name(output_device),
+        preferred_input_device: clean_device_name(input_device),
+        updated_unix_ms: unix_ms(),
+    };
+    if let Ok(mut cached) = preference_runtime().lock() {
+        *cached = preference.clone();
+    }
+    build_status(preference)
+}
