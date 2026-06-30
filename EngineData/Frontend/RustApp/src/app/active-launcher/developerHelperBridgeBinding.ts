@@ -60,6 +60,7 @@ function capturePreviewTask(action: string | undefined): Promise<CaptureTaskResu
   if (action === "boundary-status") return runtimeApi.getCaptureTranscriptBoundaryStatus();
   if (action === "asr-prepare") return runtimeApi.prepareAsrHandoffRequest();
   if (action === "asr-dispatch") return runtimeApi.dispatchAsrHandoffRequest();
+  if (action === "asr-payload-latest") return asrPayloadApi.getLatestAsrAudioPayloadStatus();
   if (action === "asr-payload-prepare") return asrPayloadApi.prepareAsrAudioPayloadRequest();
   if (action === "asr-decode-dispatch") return asrPayloadApi.dispatchAsrDecodeRequest();
   if (action === "seed-transcript") return runtimeApi.seedDevAsrTranscript("Hello from the developer seeded ASR transcript.");
@@ -186,6 +187,11 @@ function isLivePipelineSnapshot(result: CaptureTaskResult): result is LivePipeli
 function ensureAsrDecodeControls(): void {
   const container = document.querySelector<HTMLElement>('[aria-label="Capture helper bridge preview controls"]');
   if (!container || container.querySelector('[data-capture-bridge-action="asr-payload-prepare"]')) return;
+  const latest = document.createElement("button");
+  latest.className = "mic-test-button-v22 secondary";
+  latest.type = "button";
+  latest.dataset.captureBridgeAction = "asr-payload-latest";
+  latest.textContent = "Latest ASR Payload";
   const prepare = document.createElement("button");
   prepare.className = "mic-test-button-v22 secondary";
   prepare.type = "button";
@@ -198,10 +204,11 @@ function ensureAsrDecodeControls(): void {
   dispatch.textContent = "Dispatch ASR Decode";
   const anchor = container.querySelector('[data-capture-bridge-action="asr-dispatch"]');
   if (anchor?.nextSibling) {
-    container.insertBefore(prepare, anchor.nextSibling);
+    container.insertBefore(latest, anchor.nextSibling);
+    container.insertBefore(prepare, latest.nextSibling);
     container.insertBefore(dispatch, prepare.nextSibling);
   } else {
-    container.append(prepare, dispatch);
+    container.append(latest, prepare, dispatch);
   }
 }
 
@@ -221,7 +228,7 @@ function previewSummary(result: CaptureTaskResult): string {
     return `${result.stage} ${state}: prerequisite=${result.prerequisite_stage}/${result.prerequisite_ready}, next=${result.next_action}, blocker=${result.blocker || "none"}. This is pipeline handoff stub evidence, not runtime proof.`;
   }
   if (isAsrAudioPayload(result)) {
-    const state = result.dispatch_attempted ? (result.dispatch_ok ? "worker accepted" : "worker blocked") : (result.request_prepared ? "payload ready" : result.schema_prepared ? "schema ready" : "blocked");
+    const state = result.dispatch_attempted ? (result.dispatch_ok ? "worker accepted" : "worker blocked") : (result.request_prepared ? "payload ready" : result.schema_prepared ? "schema ready" : result.state);
     const audio = result.audio_path ? `audio=${result.audio_path}` : "audio=none";
     return `ASR payload ${state}: boundary=${result.boundary_ready}, audioReady=${result.audio_payload_ready}, ${audio}, format=${result.pcm_format}, samples=${result.frame_count}, duration=${result.duration_ms}ms, next=${result.next_action}, blocker=${result.blocker || "none"}. This is ASR audio payload/worker-contract evidence, not transcript or Windows runtime proof.`;
   }
