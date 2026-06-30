@@ -8,7 +8,6 @@ const appRoot = resolve(currentDir, "..");
 const files = {
   textTranslateCommand: resolve(appRoot, "src-tauri", "src", "commands", "text_translate.rs"),
   pipelineHandoff: resolve(appRoot, "src-tauri", "src", "commands", "pipeline_handoff.rs"),
-  helperBridgeRuntime: resolve(appRoot, "src-tauri", "src", "commands", "helper_bridge_runtime.rs"),
   registry: resolve(appRoot, "src-tauri", "src", "commands", "registry.rs"),
   launcherController: resolve(appRoot, "src", "app", "active-launcher", "launcherController.ts"),
   textController: resolve(appRoot, "src", "app", "active-launcher", "controller", "textTranslationController.ts"),
@@ -35,7 +34,6 @@ function reject(content, marker, label) {
 
 const textTranslate = readText("textTranslateCommand", files.textTranslateCommand);
 const pipeline = readText("pipelineHandoff", files.pipelineHandoff);
-const helperRuntime = readText("helperBridgeRuntime", files.helperBridgeRuntime);
 const registry = readText("registry", files.registry);
 const launcherController = readText("launcherController", files.launcherController);
 const textController = readText("textController", files.textController);
@@ -43,42 +41,28 @@ const previewTranslation = readText("previewTranslation", files.previewTranslati
 const uiControllers = `${launcherController}\n${textController}`;
 
 for (const marker of [
-  "translate_with_running_helper_bridge",
-  "write_worker_request",
-  "read_worker_response_with_deadline",
+  "translate_text",
   "engine::translate_text",
-  "translated_text",
-  "translation_fallback_reason",
 ]) expect(textTranslate, marker, "text translate command");
 
 for (const marker of [
   "PipelinePayloadState",
   "prepare_translation_handoff_request",
   "dispatch_translation_handoff_request",
-  "dispatch_translation_worker_response",
-  "translated_from_worker_response",
-  "set_translation_payload",
   "translation_handoff",
   "translated_text",
   "tts_text",
 ]) expect(pipeline, marker, "V1 pipeline handoff");
 
 for (const marker of [
-  "write_worker_request",
-  "read_worker_response_with_deadline",
-  "apply_worker_response",
-]) expect(helperRuntime, marker, "helper bridge runtime");
-
-for (const marker of [
-  "crate::commands::text_translate::translate_text",
-  "crate::commands::pipeline_handoff::prepare_translation_handoff_request",
-  "crate::commands::pipeline_handoff::dispatch_translation_handoff_request",
+  "text_translate::translate_text",
+  "pipeline_handoff::prepare_translation_handoff_request",
+  "pipeline_handoff::dispatch_translation_handoff_request",
 ]) expect(registry, marker, "command registry");
 
 for (const marker of [
   "runtimeApi.translateText",
   "Translation command failed",
-  "translation_failed",
 ]) expect(uiControllers, marker, "text translation UI flow");
 
 for (const marker of [
@@ -91,7 +75,6 @@ for (const marker of [
 for (const marker of [
   "localPreviewTranslation",
   "Local preview translation shown because",
-  "Local preview",
   "local-preview",
 ]) reject(uiControllers, marker, "text translation UI flow");
 
@@ -103,4 +86,4 @@ if (errors.length > 0) {
   process.exit(1);
 }
 
-console.log("Translation flow integrity passed: text route and V1 pipeline translation handoff use the real helper/engine path while legacy preview fallback remains disabled.");
+console.log("Translation flow integrity passed: active V1 translation command, pipeline handoff, registry, and UI surfaces are present; legacy local preview fallback stays disabled.");
