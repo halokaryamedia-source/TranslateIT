@@ -1,0 +1,68 @@
+[
+  {
+    "id": "translation_command_exception",
+    "title": "Translation command exception recovery",
+    "component": "translation",
+    "failure": "command_exception",
+    "expected_feedback_keywords": ["translation", "failed"],
+    "expected_recovery": "retry_translate",
+    "requires_loading_reset": true,
+    "requires_safe_render": true,
+    "purpose": "Checks that translation command failures produce user-facing feedback and recoverable state."
+  },
+  {
+    "id": "helper_unavailable",
+    "title": "Helper unavailable recovery",
+    "component": "runtime_helper",
+    "failure": "helper_unavailable",
+    "expected_feedback_keywords": ["helper", "unavailable"],
+    "expected_recovery": "start_helper",
+    "requires_loading_reset": true,
+    "requires_safe_render": true,
+    "purpose": "Checks that helper failures guide the user to setup instead of exposing raw diagnostics as the main UI."
+  },
+  {
+    "id": "voice_command_failed",
+    "title": "Voice command failure recovery",
+    "component": "voice_capture",
+    "failure": "voice_command_failed",
+    "expected_feedback_keywords": ["voice", "failed"],
+    "expected_recovery": "check_microphone",
+    "requires_loading_reset": true,
+    "requires_safe_render": true,
+    "purpose": "Checks that voice capture failures become actionable QA signals."
+  },
+  {
+    "id": "attachment_unsupported",
+    "title": "Unsupported attachment recovery",
+    "component": "attachment",
+    "failure": "unsupported_attachment",
+    "expected_feedback_keywords": ["unsupported", "file"],
+    "expected_recovery": "choose_supported_file",
+    "requires_loading_reset": true,
+    "requires_safe_render": true,
+    "purpose": "Checks that unsupported files are rejected with a clear user-facing message."
+  },
+  {
+    "id": "attachment_too_large",
+    "title": "Large attachment recovery",
+    "component": "attachment",
+    "failure": "attachment_too_large",
+    "expected_feedback_keywords": ["file", "too", "large"],
+    "expected_recovery": "choose_smaller_file",
+    "requires_loading_reset": true,
+    "requires_safe_render": true,
+    "purpose": "Checks that oversized files are guarded before they can destabilize the app flow."
+  },
+  {
+    "id": "settings_save_failed",
+    "title": "Settings save failure recovery",
+    "component": "settings",
+    "failure": "settings_save_failed",
+    "expected_feedback_keywords": ["settings", "saved"],
+    "expected_recovery": "retry_save_settings",
+    "requires_loading_reset": true,
+    "requires_safe_render": true,
+    "purpose": "Checks that settings persistence failures remain visible and recoverable."
+  }
+]
