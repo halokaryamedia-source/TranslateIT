@@ -26,6 +26,7 @@ import { installStartupDiagnostics, startupTrace } from "./app/active-launcher/s
 import { mountVirtualRouteSelectionSurface, unmountVirtualRouteSelectionSurface } from "./app/active-launcher/virtualRouteSelectionSurfaceMount";
 import { bindSourceOrchestrationUi } from "./app/active-launcher/sourceOrchestrationBinding";
 import { bindVirtualAudioRouteProviderUi } from "./app/active-launcher/virtualAudioRouteProviderBinding";
+import { createCleanupRegistry, scheduleCleanupAwareDelay } from "./app/active-launcher/lifecycleCleanup";
 
 installStartupDiagnostics();
 startupTrace("boot:marker", {
@@ -39,38 +40,27 @@ window.setTimeout(() => {
 const app = document.querySelector<HTMLDivElement>("#app");
 if (!app) throw Error("TranslateIT app root was not found.");
 
+const cleanup = createCleanupRegistry();
+
 new LauncherController(app).start();
-const stopAttachmentLimitWatcher = bindAttachmentLimitWatcher();
+cleanup.add(bindAttachmentLimitWatcher());
 bindReferenceUi();
-const stopAudioDeviceListUi = bindAudioDeviceListUi();
-const stopDirectVoiceCaptureUi = bindDirectVoiceCaptureUi();
-const stopSettingsAutosaveUi = bindSettingsAutosaveUi();
+cleanup.add(bindAudioDeviceListUi());
+cleanup.add(bindDirectVoiceCaptureUi());
+cleanup.add(bindSettingsAutosaveUi());
 bindVoiceOutputPersistenceUi();
 bindRuntimeReadinessUiGuard();
-const stopDeveloperEvidenceUi = bindDeveloperEvidenceUi();
+cleanup.add(bindDeveloperEvidenceUi());
 bindDeveloperHelperBridgeUi();
-const stopSourceOrchestrationUi = bindSourceOrchestrationUi();
-const stopVirtualAudioRouteProviderUi = bindVirtualAudioRouteProviderUi();
+cleanup.add(bindSourceOrchestrationUi());
+cleanup.add(bindVirtualAudioRouteProviderUi());
 void mountVirtualRouteSelectionSurface();
-window.setTimeout(() => {
+scheduleCleanupAwareDelay(cleanup, 1000, () => {
   void mountVirtualRouteSelectionSurface();
-}, 1000);
-const stopHelperBridgeHealthMonitor = startHelperBridgeHealthMonitor();
-const stopAudioPipelineResultWatcher = bindResultWatcher();
-const stopRealtimeStatusPayloadAutoRefresh = startRealtimeStatusPayloadAutoRefresh();
-const stopStartupReadiness = startStartupReadiness();
-
-window.addEventListener("beforeunload", () => {
-  stopAttachmentLimitWatcher();
-  stopAudioDeviceListUi();
-  stopDirectVoiceCaptureUi();
-  stopSettingsAutosaveUi();
-  stopDeveloperEvidenceUi();
-  stopSourceOrchestrationUi();
-  stopVirtualAudioRouteProviderUi();
-  unmountVirtualRouteSelectionSurface();
-  stopHelperBridgeHealthMonitor();
-  stopAudioPipelineResultWatcher();
-  stopRealtimeStatusPayloadAutoRefresh();
-  stopStartupReadiness();
-}, { once: true });
+});
+cleanup.add(unmountVirtualRouteSelectionSurface);
+cleanup.add(startHelperBridgeHealthMonitor());
+cleanup.add(bindResultWatcher());
+cleanup.add(startRealtimeStatusPayloadAutoRefresh());
+cleanup.add(startStartupReadiness());
+cleanup.bindBeforeUnload();
