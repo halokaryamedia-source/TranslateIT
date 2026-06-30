@@ -108,6 +108,18 @@ expectIncludes(routeSelectionMount, "data-virtual-route-selection-host", "route 
 expectIncludes(routeSelectionMount, "bindVirtualRouteSelectionSurface", "route selection mount uses renderer");
 expectIncludes(routeSelectionMount, "unmountVirtualRouteSelectionSurface", "route selection unmount function");
 
+const sourceOrchestrationBinding = readText("EngineData/Frontend/RustApp/src/app/active-launcher/sourceOrchestrationBinding.ts");
+expectIncludes(sourceOrchestrationBinding, "bindSourceOrchestrationUi", "source orchestration binding");
+expectIncludes(sourceOrchestrationBinding, "runProfessionalSourceReadinessOrchestration", "source orchestration bridge call");
+expectIncludes(sourceOrchestrationBinding, "data-source-orchestration-action", "source orchestration action marker");
+expectIncludes(sourceOrchestrationBinding, "Source Orchestration", "source orchestration button label");
+
+const main = readText("EngineData/Frontend/RustApp/src/main.ts");
+expectIncludes(main, "mountVirtualRouteSelectionSurface", "main route selection mount import/use");
+expectIncludes(main, "unmountVirtualRouteSelectionSurface", "main route selection unmount import/use");
+expectIncludes(main, "bindSourceOrchestrationUi", "main source orchestration import/use");
+expectIncludes(main, "stopSourceOrchestrationUi", "main source orchestration cleanup");
+
 const helperBinding = readText("EngineData/Frontend/RustApp/src/app/active-launcher/developerHelperBridgeBinding.ts");
 expectIncludes(helperBinding, "virtualRouteApi", "developer diagnostics route bridge import");
 expectIncludes(helperBinding, "prepareVirtualMicOutputRouteRuntimeStubFromLatestPipeline", "developer diagnostics latest TTS route stub");
