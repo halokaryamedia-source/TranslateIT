@@ -14,6 +14,12 @@ Workflow:
 .github/workflows/v1-advance-ci.yml
 ```
 
+Scope penting:
+
+- CI ini hanya untuk branch `V1-Advance`.
+- Branch `Developing` tidak ditargetkan karena branch itu adalah wadah kosong dan tidak boleh disentuh oleh V1 Advance CI.
+- Scope ini dijaga oleh script `validate:ci-scope` agar workflow tidak kembali memasukkan `Developing`.
+
 CI ini fokus pada:
 
 1. Frontend/source contract guards.
@@ -23,6 +29,7 @@ CI ini fokus pada:
 5. Contract/report scripts yang sudah tersedia di `package.json`.
 6. Virtual route bridge/command/type/action consistency.
 7. Reproducible Cargo dependency validation through `--locked`.
+8. V1-Advance-only workflow scope validation.
 
 ## CI jobs
 
@@ -32,6 +39,12 @@ Job ini berjalan di:
 
 ```text
 EngineData/Frontend/RustApp
+```
+
+Runner dipin ke:
+
+```text
+ubuntu-22.04
 ```
 
 Langkah utama:
@@ -49,6 +62,7 @@ npm run test:action-binding-report
 `validate:quick` sekarang juga menjalankan:
 
 ```bash
+npm run validate:ci-scope
 npm run validate:virtual-route
 npm run typecheck
 npm run check:rust
@@ -64,10 +78,17 @@ Tujuan:
 - Menangkap virtual route command/type/bridge drift.
 - Menangkap route diagnostics yang kembali mengirim hardcoded null source audio path.
 - Menangkap stale professional readiness gaps dan duplicate route-stub preparation pattern.
+- Menangkap workflow yang tanpa sengaja kembali menyentuh branch `Developing`.
 
 ### 2. Frontend typecheck and Vite build guard
 
 Job ini sengaja dipisahkan dari source-contract guards agar error build frontend terlihat jelas.
+
+Runner dipin ke:
+
+```text
+ubuntu-22.04
+```
 
 Langkah utama:
 
@@ -92,6 +113,25 @@ Job ini memasang dependency Linux untuk compile guard Tauri lalu menjalankan:
 cargo check --locked --manifest-path src-tauri/Cargo.toml
 ```
 
+Runner dipin ke:
+
+```text
+ubuntu-22.04
+```
+
+Linux packages yang dipasang:
+
+```text
+build-essential
+curl
+libgtk-3-dev
+libayatana-appindicator3-dev
+librsvg2-dev
+libssl-dev
+libwebkit2gtk-4.1-dev
+pkg-config
+```
+
 Tujuan:
 
 - Menangkap missing Rust symbol.
@@ -111,7 +151,7 @@ Catatan:
 Urutan yang disarankan sebelum local validation:
 
 1. Source-side compile-risk review.
-2. CI workflow aktif di branch `V1-Advance` atau via PR.
+2. CI workflow aktif di branch `V1-Advance` atau via PR menuju `V1-Advance`.
 3. Perbaiki error CI jika muncul.
 4. Lengkapi documentation/evidence contract.
 5. Baru minta izin user untuk local compile validation.
@@ -149,6 +189,7 @@ Jika user sudah mengizinkan local validation:
 - Virtual route diagnostics mengirim hardcoded null source audio path.
 - Vite gagal menemukan frontend entrypoint/CSS import.
 - Cargo.lock drift setelah dependency Rust berubah.
+- Workflow tanpa sengaja kembali menargetkan `Developing`.
 
 ### Runtime setup failures
 
