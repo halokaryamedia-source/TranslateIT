@@ -13,6 +13,12 @@ Provider script:
 EngineData/Backend/LocalWorker/WorkerRuntime/virtual_audio_route_provider.py
 ```
 
+Provider dependency file:
+
+```text
+EngineData/Backend/LocalWorker/WorkerRuntime/requirements-virtual-audio-route.txt
+```
+
 Rust command:
 
 ```text
@@ -30,7 +36,7 @@ virtualAudioRouteRuntimeApi.dispatchProviderFromLatestPipeline(...)
 1. Python runtime available through either:
    - `TRANSLATEIT_PYTHON`, or
    - `python` on PATH.
-2. Python packages:
+2. Python packages from `requirements-virtual-audio-route.txt`:
    - `numpy`
    - `sounddevice`
 3. A virtual audio cable or virtual mixer output device, for example:
@@ -39,6 +45,20 @@ virtualAudioRouteRuntimeApi.dispatchProviderFromLatestPipeline(...)
    - another Windows audio device with output channels visible to `sounddevice`
 4. A generated TTS WAV file from the TranslateIT pipeline.
 5. A selected virtual output device saved through the route selection surface.
+
+## Suggested dependency install command later
+
+Run only on the Windows validation/runtime environment after CI and local compile are clean:
+
+```powershell
+python -m pip install -r EngineData/Backend/LocalWorker/WorkerRuntime/requirements-virtual-audio-route.txt
+```
+
+If `TRANSLATEIT_PYTHON` points to a dedicated runtime Python, use:
+
+```powershell
+$env:TRANSLATEIT_PYTHON -m pip install -r EngineData/Backend/LocalWorker/WorkerRuntime/requirements-virtual-audio-route.txt
+```
 
 ## Guard policy
 
@@ -79,7 +99,7 @@ virtual_audio_route_provider:playback_failed
 
 1. Confirm CI/source checks are green.
 2. Confirm local Rust/Tauri compile is green.
-3. Install Windows provider dependencies.
+3. Install Windows provider dependencies from `requirements-virtual-audio-route.txt`.
 4. Select a virtual output/input route device.
 5. Generate a TTS WAV output through the pipeline.
 6. Run Provider Dry Run.
