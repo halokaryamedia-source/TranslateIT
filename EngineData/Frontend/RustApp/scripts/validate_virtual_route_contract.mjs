@@ -119,6 +119,11 @@ expectIncludes(routeSelectionRenderer, "data-virtual-route-action", "route selec
 expectIncludes(routeSelectionRenderer, "Save Route Devices", "route selection renderer save button");
 expectIncludes(routeSelectionRenderer, "Refresh Devices", "route selection renderer refresh button");
 
+const routeSelectionStyle = readText("EngineData/Frontend/RustApp/src/virtualRouteSelectionSurface.css");
+expectIncludes(routeSelectionStyle, ".virtual-route-selection-surface", "route selection css surface");
+expectIncludes(routeSelectionStyle, ".virtual-route-selection-status", "route selection css status");
+expectIncludes(routeSelectionStyle, "data-virtual-route-ready", "route selection css ready state");
+
 const routeSelectionMount = readText("EngineData/Frontend/RustApp/src/app/active-launcher/virtualRouteSelectionSurfaceMount.ts");
 expectIncludes(routeSelectionMount, "mountVirtualRouteSelectionSurface", "route selection auto mount function");
 expectIncludes(routeSelectionMount, "data-virtual-route-selection-host", "route selection host marker");
@@ -131,11 +136,25 @@ expectIncludes(sourceOrchestrationBinding, "runProfessionalSourceReadinessOrches
 expectIncludes(sourceOrchestrationBinding, "data-source-orchestration-action", "source orchestration action marker");
 expectIncludes(sourceOrchestrationBinding, "Source Orchestration", "source orchestration button label");
 
+const providerBinding = readText("EngineData/Frontend/RustApp/src/app/active-launcher/virtualAudioRouteProviderBinding.ts");
+expectIncludes(providerBinding, "bindVirtualAudioRouteProviderUi", "provider dry run binding");
+expectIncludes(providerBinding, "dispatchProviderFromLatestPipeline", "provider dry run latest pipeline call");
+expectIncludes(providerBinding, "data-virtual-audio-provider-action", "provider dry run action marker");
+expectIncludes(providerBinding, "Provider Dry Run", "provider dry run button label");
+
+const windowsNotes = readText("DevelopingData/Documentation/Reports/Engineering/V1_ADVANCE_VIRTUAL_AUDIO_PROVIDER_WINDOWS_NOTES.md");
+expectIncludes(windowsNotes, "numpy", "windows provider notes numpy");
+expectIncludes(windowsNotes, "sounddevice", "windows provider notes sounddevice");
+expectIncludes(windowsNotes, "TRANSLATEIT_ENABLE_VIRTUAL_AUDIO_ROUTE_PROVIDER", "windows provider notes env guard");
+expectIncludes(windowsNotes, "Provider Dry Run", "windows provider notes dry run");
+
 const main = readText("EngineData/Frontend/RustApp/src/main.ts");
+expectIncludes(main, "virtualRouteSelectionSurface.css", "main route selection css import");
 expectIncludes(main, "mountVirtualRouteSelectionSurface", "main route selection mount import/use");
 expectIncludes(main, "unmountVirtualRouteSelectionSurface", "main route selection unmount import/use");
 expectIncludes(main, "bindSourceOrchestrationUi", "main source orchestration import/use");
-expectIncludes(main, "stopSourceOrchestrationUi", "main source orchestration cleanup");
+expectIncludes(main, "bindVirtualAudioRouteProviderUi", "main provider dry-run import/use");
+expectIncludes(main, "stopVirtualAudioRouteProviderUi", "main provider dry-run cleanup");
 
 const helperBinding = readText("EngineData/Frontend/RustApp/src/app/active-launcher/developerHelperBridgeBinding.ts");
 expectIncludes(helperBinding, "virtualRouteApi", "developer diagnostics route bridge import");
