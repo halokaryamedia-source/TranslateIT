@@ -6,14 +6,15 @@ Status: source-side / worker-contract evidence only, bukan Windows runtime proof
 
 ## Progress development yang dikalibrasi ulang
 
-Progress gabungan realistis saat ini: sekitar **68%**.
+Progress gabungan realistis saat ini: sekitar **70%**.
 
 Catatan kalibrasi:
 
 - Angka 90%+ sebelumnya lebih cocok untuk **source-side scaffold progress**, bukan total readiness.
-- Setelah dikalibrasi dengan compile/runtime proof yang belum ada, progress total diturunkan ke sekitar **68%**.
-- Yang sudah kuat: source wiring, payload contract, evidence, blocker, dan diagnostic commands.
-- Yang belum terbukti: local compile, Windows runtime, ASR runtime, translation runtime, TTS runtime, output route runtime, latency, dan end-to-end meeting proof.
+- Setelah dikalibrasi dengan compile/runtime proof yang belum ada, progress total tetap konservatif.
+- Progress naik dari 68% ke 70% karena CI workflow, route runtime stub, CI/dev notes, dan static compile-risk fix sudah ditambahkan.
+- Yang sudah kuat: source wiring, payload contract, evidence, blocker, diagnostic commands, owner checklist, dan CI guard setup.
+- Yang belum terbukti: CI run result, local compile, Windows runtime, ASR runtime, translation runtime, TTS runtime, output route runtime, latency, dan end-to-end meeting proof.
 
 ## Rincian status
 
@@ -37,6 +38,38 @@ Catatan kalibrasi:
 - Final runtime gate: tersedia sebagai source-side readiness gate.
 - Runtime status bundle membaca final runtime gate.
 - Owner validation checklist tersedia di `DevelopingData/Documentation/Reports/Engineering/V1_ADVANCE_OWNER_VALIDATION_CHECKLIST.md`.
+- CI workflow tersedia di `.github/workflows/v1-advance-ci.yml`.
+- CI/non-local development notes tersedia di `DevelopingData/Documentation/Reports/Engineering/V1_ADVANCE_CI_AND_NON_LOCAL_DEV_NOTES.md`.
+- Static compile-risk fix dilakukan untuk route runtime stub JSON agar tidak memindahkan borrowed route fields.
+
+## CI guard
+
+Workflow:
+
+```text
+.github/workflows/v1-advance-ci.yml
+```
+
+Job utama:
+
+- `source-contract-guards`
+- `rust-tauri-compile-guard`
+
+CI menjalankan:
+
+- `npm ci`
+- `npm run validate:quick`
+- `npm run test:frontend-backend-contract`
+- `npm run test:worker-contract`
+- `npm run test:rust-linkage-report`
+- `npm run test:ui-binding-report`
+- `npm run test:action-binding-report`
+- `cargo check --manifest-path src-tauri/Cargo.toml`
+
+Catatan:
+
+- CI setup ini belum sama dengan CI result.
+- Progress baru bisa dinaikkan lagi jika workflow benar-benar hijau.
 
 ## Command dan flow yang tersedia
 
@@ -148,6 +181,7 @@ Evidence ini tetap source-side evidence dan tidak boleh dibaca sebagai Windows r
 
 Belum terbukti:
 
+- CI workflow hijau.
 - Rust/Tauri compile setelah batch ini.
 - Developer Diagnostics UI render dan click action di Windows.
 - Worker `asr_decode` berjalan di Windows.
@@ -178,27 +212,29 @@ TRANSLATEIT_ENABLE_HELPER_TTS=1
 
 Flow validasi manual nanti:
 
-1. Start Helper.
-2. Worker Status.
-3. Start microphone-only capture.
-4. Transcript Boundary.
-5. Dispatch ASR Decode.
-6. Latest ASR Payload.
-7. Promote ASR Transcript.
-8. Dispatch Translation Handoff.
-9. Dispatch TTS Handoff.
-10. Virtual Route Status.
-11. Route Runtime Stub.
-12. Prepare Virtual Mic.
-13. Final Runtime Gate.
-14. Inspect `latest_live_pipeline_evidence.json`.
-15. Inspect `latest_virtual_mic_route_evidence.json`.
-16. Inspect `latest_virtual_mic_output_route_stub.json`.
+1. Pastikan CI hijau.
+2. Start Helper.
+3. Worker Status.
+4. Start microphone-only capture.
+5. Transcript Boundary.
+6. Dispatch ASR Decode.
+7. Latest ASR Payload.
+8. Promote ASR Transcript.
+9. Dispatch Translation Handoff.
+10. Dispatch TTS Handoff.
+11. Virtual Route Status.
+12. Route Runtime Stub.
+13. Prepare Virtual Mic.
+14. Final Runtime Gate.
+15. Inspect `latest_live_pipeline_evidence.json`.
+16. Inspect `latest_virtual_mic_route_evidence.json`.
+17. Inspect `latest_virtual_mic_output_route_stub.json`.
 
 ## Yang harus dilakukan selanjutnya
 
 Development non-local berikutnya:
 
-1. Review source-side compile-risk secara statis dari file yang banyak berubah.
-2. Tambahkan dev note untuk expected local validation order dan possible failure points.
-3. Setelah user mengizinkan, baru masuk local compile + Windows runtime validation.
+1. Monitor/inspect CI result setelah workflow berjalan di GitHub.
+2. Jika CI gagal, perbaiki source/CI berdasarkan error log.
+3. Lanjut source-side cleanup untuk file besar yang berubah.
+4. Setelah user mengizinkan, baru masuk local compile + Windows runtime validation.
