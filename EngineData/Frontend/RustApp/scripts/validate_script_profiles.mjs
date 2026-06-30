@@ -30,6 +30,7 @@ const allowedProfiles = new Set([
   "validate:naming",
   "validate:translation-flow",
   "validate:runtime-ux",
+  "validate:simple-ui",
   "validate:startup-readiness",
   "validate:ci-scope",
   "validate:virtual-route",
@@ -49,6 +50,7 @@ const requiredProfiles = [
   "test:contract-reports",
   "dev:frontend",
   "dev:app",
+  "validate:simple-ui",
 ];
 
 for (const profile of requiredProfiles) requireScript(profile);
@@ -101,6 +103,11 @@ if (devApp !== "tauri dev") {
   fail("dev:app must remain the local Tauri app testing command");
 }
 
+const simpleUi = scripts["validate:simple-ui"] ?? "";
+if (!simpleUi.includes("validate_simple_ui_contract.mjs")) {
+  fail("validate:simple-ui must run the simple UI contract guard");
+}
+
 const sourceContracts = scripts["validate:source-contracts"] ?? "";
 for (const requiredSourceStep of [
   "validate:script-profiles",
@@ -108,6 +115,7 @@ for (const requiredSourceStep of [
   "validate:naming",
   "validate:translation-flow",
   "validate:runtime-ux",
+  "validate:simple-ui",
   "validate:startup-readiness",
   "validate:ci-scope",
   "validate:virtual-route",
@@ -130,4 +138,4 @@ if (failures.length > 0) {
   process.exit(1);
 }
 
-console.log("Script profiles are clean: active CI/manual scripts and local app dev scripts are explicit.");
+console.log("Script profiles are clean: active CI/manual scripts and simple UI contract scripts are explicit.");
