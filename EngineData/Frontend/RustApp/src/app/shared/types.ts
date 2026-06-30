@@ -259,6 +259,29 @@ export type ProfessionalRuntimeReadinessGateStatus = {
   updated_unix_ms: number;
 };
 
+export type ProfessionalSourceOrchestrationStep = {
+  name: string;
+  ready: boolean;
+  blocker: string;
+  next_action: string;
+};
+
+export type ProfessionalSourceReadinessOrchestrationStatus = {
+  ok: boolean;
+  state: string;
+  development_progress_percent_excluding_ci_local: number;
+  remaining_development_gaps: string[];
+  steps: ProfessionalSourceOrchestrationStep[];
+  pipeline_snapshot: LivePipelineSessionSnapshot;
+  route_status: VirtualMicRouteContractStatus;
+  route_stub: VirtualMicOutputRouteRuntimeStubStatus;
+  professional_gate: ProfessionalRuntimeReadinessGateStatus;
+  next_action: string;
+  summary: string;
+  runtime_claim: string;
+  updated_unix_ms: number;
+};
+
 export type AudioStudioValidationEvidence = {
   ok: boolean;
   stage: string;
