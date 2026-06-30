@@ -37,6 +37,8 @@ const allowedProfiles = new Set([
   "validate:source-contracts",
   "validate:quick",
   "test:contract-reports",
+  "test:auto-map",
+  "test:auto-strict",
 ]);
 
 const requiredProfiles = [
@@ -48,6 +50,8 @@ const requiredProfiles = [
   "preflight:tauri-package",
   "check:tauri-rust-local",
   "test:contract-reports",
+  "test:auto-map",
+  "test:auto-strict",
   "dev:frontend",
   "dev:app",
   "validate:simple-ui",
@@ -132,10 +136,20 @@ if (!contractReports.includes("run_contract_reports.mjs")) {
   fail("test:contract-reports must use the diagnostic contract report runner");
 }
 
+const autoMap = scripts["test:auto-map"] ?? "";
+if (!autoMap.includes("run_auto_test_matrix.mjs") || autoMap.includes("--strict")) {
+  fail("test:auto-map must use the non-blocking auto test matrix runner");
+}
+
+const autoStrict = scripts["test:auto-strict"] ?? "";
+if (!autoStrict.includes("run_auto_test_matrix.mjs --strict")) {
+  fail("test:auto-strict must use the strict auto test matrix runner");
+}
+
 if (failures.length > 0) {
   console.error("Script profile validation failed:");
   for (const failure of failures) console.error(`- ${failure}`);
   process.exit(1);
 }
 
-console.log("Script profiles are clean: active CI/manual scripts and simple UI contract scripts are explicit.");
+console.log("Script profiles are clean: active CI/manual scripts, simple UI guards, and auto test matrix profiles are explicit.");
