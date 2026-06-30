@@ -237,7 +237,8 @@ function previewSummary(result: CaptureTaskResult): string {
     const state = result.dispatch_attempted ? (result.dispatch_ok ? "worker accepted" : "worker blocked") : (result.request_prepared ? "payload ready" : result.schema_prepared ? "schema ready" : result.state);
     const audio = result.audio_path ? `audio=${result.audio_path}` : "audio=none";
     const worker = parseWorkerJson(result.worker_response_json);
-    return `ASR payload ${state}: boundary=${result.boundary_ready}, audioReady=${result.audio_payload_ready}, ${audio}, format=${result.pcm_format}, samples=${result.frame_count}, duration=${result.duration_ms}ms, next=${result.next_action}, blocker=${result.blocker || "none"}.${workerDetail(worker)} This is ASR audio payload/worker-response evidence, not transcript or Windows runtime proof.`;
+    const interpreted = `workerStage=${result.worker_stage || "none"}, workerBlocker=${result.worker_blocker || result.blocker || "none"}, transcriptPresent=${result.transcript_text_present}, transcriptChars=${result.transcript_char_count}`;
+    return `ASR payload ${state}: boundary=${result.boundary_ready}, audioReady=${result.audio_payload_ready}, ${audio}, format=${result.pcm_format}, samples=${result.frame_count}, duration=${result.duration_ms}ms, next=${result.next_action}, blocker=${result.blocker || "none"}, ${interpreted}.${workerDetail(worker)} This is ASR audio payload/worker-response evidence, not transcript or Windows runtime proof.`;
   }
   if (isAsrHandoff(result)) {
     const state = result.dispatch_attempted ? (result.dispatch_ok ? "dispatch accepted" : "dispatch blocked") : (result.request_prepared ? "request prepared" : "blocked before request");
