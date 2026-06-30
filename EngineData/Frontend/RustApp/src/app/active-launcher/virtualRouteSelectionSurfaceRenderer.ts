@@ -9,26 +9,40 @@ export type VirtualRouteSelectionSurfaceBinding = {
   destroy(): void;
 };
 
+function escapeHtml(value: string | null | undefined): string {
+  return String(value ?? "")
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
+}
+
 function optionMarkup(option: { label: string; value: string; selected: boolean; preferred: boolean }): string {
   const flags = [option.selected ? "selected" : "", option.preferred ? "preferred" : ""].filter(Boolean).join(" • ");
-  return `<option value="${option.value}" ${option.preferred ? "selected" : ""}>${option.label}${flags ? ` (${flags})` : ""}</option>`;
+  const label = escapeHtml(option.label);
+  const value = escapeHtml(option.value);
+  const suffix = flags ? ` (${escapeHtml(flags)})` : "";
+  return `<option value="${value}" ${option.preferred ? "selected" : ""}>${label}${suffix}</option>`;
 }
 
 function selectMarkup(name: string, options: VirtualRouteSelectionSurfaceState["output_options"]): string {
   const empty = `<option value="">Auto-detect virtual device</option>`;
-  return `<select data-virtual-route-field="${name}">${empty}${options.map(optionMarkup).join("")}</select>`;
+  return `<select data-virtual-route-field="${escapeHtml(name)}">${empty}${options.map(optionMarkup).join("")}</select>`;
 }
 
 function statusMarkup(state: VirtualRouteSelectionSurfaceState): string {
-  const blocker = state.blocker || "none";
-  const evidence = state.evidence_path ? `<span>Evidence: ${state.evidence_path}</span>` : "";
+  const blocker = escapeHtml(state.blocker || "none");
+  const nextAction = escapeHtml(state.next_action);
+  const summary = escapeHtml(state.summary);
+  const evidence = state.evidence_path ? `<span>Evidence: ${escapeHtml(state.evidence_path)}</span>` : "";
   return `
     <div class="virtual-route-selection-status" data-virtual-route-ready="${state.route_ready}">
       <strong>${state.route_ready ? "Route devices ready" : "Route devices need attention"}</strong>
-      <span>Next: ${state.next_action}</span>
+      <span>Next: ${nextAction}</span>
       <span>Blocker: ${blocker}</span>
       ${evidence}
-      <small>${state.summary}</small>
+      <small>${summary}</small>
     </div>
   `;
 }
