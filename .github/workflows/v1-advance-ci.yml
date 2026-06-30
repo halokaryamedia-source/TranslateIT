@@ -43,10 +43,8 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: '24'
+      - name: Show Node version
+        run: node --version && npm --version
 
       - name: Run source contract validation
         run: npm run validate:source-contracts
@@ -70,18 +68,14 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: '24'
-          cache: npm
-          cache-dependency-path: EngineData/Frontend/RustApp/package-lock.json
+      - name: Show Node version
+        run: node --version && npm --version
 
       - name: Install frontend dependencies
         run: npm ci
 
       - name: Typecheck frontend
-        run: npm run typecheck
+        run: npm run typecheck -- --pretty false
 
       - name: Build frontend bundle
         run: npm run build:frontend
