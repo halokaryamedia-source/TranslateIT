@@ -16,6 +16,10 @@ export type VirtualAudioRouteRuntimeStatus = {
   next_action: string;
   route_runtime_contract_json: string;
   evidence_path: string | null;
+  provider_script_path?: string | null;
+  provider_payload_path?: string | null;
+  provider_exit_code?: number | null;
+  provider_response_json?: string;
   runtime_claim: string;
   updated_unix_ms: number;
 };
@@ -42,6 +46,10 @@ function fallback(message: string, sourceAudioPath: string | null = null): Virtu
       note: message,
     }),
     evidence_path: null,
+    provider_script_path: null,
+    provider_payload_path: null,
+    provider_exit_code: null,
+    provider_response_json: "{}",
     runtime_claim: "frontend_bridge_unavailable",
     updated_unix_ms: Date.now(),
   };
@@ -74,5 +82,30 @@ export const virtualAudioRouteRuntimeApi = {
   async prepareFromLatestPipeline(enableRouteRuntime = false): Promise<VirtualAudioRouteRuntimeStatus> {
     const sourceAudioPath = await latestTtsOutputPath();
     return this.prepareGuardedVirtualAudioRouteRuntime(sourceAudioPath, enableRouteRuntime);
+  },
+
+  async dispatchGuardedProvider(
+    sourceAudioPath?: string | null,
+    enableRouteRuntime = false,
+    dryRun = true,
+  ): Promise<VirtualAudioRouteRuntimeStatus> {
+    const safeSourceAudioPath = sourceAudioPath?.trim() || null;
+    const result = await runCommand<VirtualAudioRouteRuntimeStatus>(
+      "dispatch_guarded_virtual_audio_route_provider",
+      {
+        sourceAudioPath: safeSourceAudioPath,
+        enableRouteRuntime,
+        dryRun,
+      },
+    );
+    return result ?? fallback(
+      "Virtual audio route provider dispatch failed before reaching the Tauri command bridge.",
+      safeSourceAudioPath,
+    );
+  },
+
+  async dispatchProviderFromLatestPipeline(enableRouteRuntime = false, dryRun = true): Promise<VirtualAudioRouteRuntimeStatus> {
+    const sourceAudioPath = await latestTtsOutputPath();
+    return this.dispatchGuardedProvider(sourceAudioPath, enableRouteRuntime, dryRun);
   },
 };
