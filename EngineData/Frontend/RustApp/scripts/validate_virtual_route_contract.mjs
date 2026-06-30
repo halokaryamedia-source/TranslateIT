@@ -137,20 +137,32 @@ expectIncludes(routeSelectionMount, "data-virtual-route-selection-host", "route 
 expectIncludes(routeSelectionMount, "bindVirtualRouteSelectionSurface", "route selection mount uses renderer");
 expectIncludes(routeSelectionMount, "unmountVirtualRouteSelectionSurface", "route selection unmount function");
 
+const diagnosticButtonBinding = readText("EngineData/Frontend/RustApp/src/app/active-launcher/diagnosticButtonBinding.ts");
+expectIncludes(diagnosticButtonBinding, "bindDiagnosticButton", "reusable diagnostic binding helper");
+expectIncludes(diagnosticButtonBinding, "setAssistantNotice", "reusable assistant notice helper");
+expectIncludes(diagnosticButtonBinding, "retryDelayMs", "reusable diagnostic retry delay");
+expectIncludes(diagnosticButtonBinding, "mic-test-button-v22 secondary", "reusable diagnostic button styling");
+
 const sourceOrchestrationBinding = readText("EngineData/Frontend/RustApp/src/app/active-launcher/sourceOrchestrationBinding.ts");
 expectIncludes(sourceOrchestrationBinding, "bindSourceOrchestrationUi", "source orchestration binding");
+expectIncludes(sourceOrchestrationBinding, "bindDiagnosticButton", "source orchestration uses reusable diagnostic binding");
 expectIncludes(sourceOrchestrationBinding, "runProfessionalSourceReadinessOrchestration", "source orchestration bridge call");
 expectIncludes(sourceOrchestrationBinding, "data-source-orchestration-action", "source orchestration action marker");
 expectIncludes(sourceOrchestrationBinding, "Source Orchestration", "source orchestration button label");
+expectNotIncludes(sourceOrchestrationBinding, "let clickHandler", "source orchestration duplicate click handler");
+expectNotIncludes(sourceOrchestrationBinding, "let installedButton", "source orchestration duplicate installed button state");
 
 const providerBinding = readText("EngineData/Frontend/RustApp/src/app/active-launcher/virtualAudioRouteProviderBinding.ts");
 expectIncludes(providerBinding, "bindVirtualAudioRouteProviderUi", "provider dry run binding");
+expectIncludes(providerBinding, "bindDiagnosticButton", "provider uses reusable diagnostic binding");
 expectIncludes(providerBinding, "dispatchProviderFromLatestPipeline", "provider dry run latest pipeline call");
 expectIncludes(providerBinding, "providerResponseSummary", "provider response summary parser");
 expectIncludes(providerBinding, "providerBlocker", "provider response blocker output");
 expectIncludes(providerBinding, "providerClaim", "provider response runtime claim output");
 expectIncludes(providerBinding, "data-virtual-audio-provider-action", "provider dry run action marker");
 expectIncludes(providerBinding, "Provider Dry Run", "provider dry run button label");
+expectNotIncludes(providerBinding, "let clickHandler", "provider duplicate click handler");
+expectNotIncludes(providerBinding, "let installedButton", "provider duplicate installed button state");
 
 const windowsNotes = readText("DevelopingData/Documentation/Reports/Engineering/V1_ADVANCE_VIRTUAL_AUDIO_PROVIDER_WINDOWS_NOTES.md");
 expectIncludes(windowsNotes, "requirements-virtual-audio-route.txt", "windows provider notes requirements file");
