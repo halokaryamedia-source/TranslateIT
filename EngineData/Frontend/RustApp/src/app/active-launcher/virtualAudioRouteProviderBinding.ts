@@ -9,6 +9,8 @@ type ProviderResponseSummary = {
   route_execution_attempted?: unknown;
 };
 
+type ProviderResponseField = readonly [label: string, value: unknown];
+
 function compact(value: unknown): string | null {
   if (value === undefined || value === null || value === "") return null;
   if (typeof value === "boolean") return value ? "true" : "false";
@@ -19,13 +21,14 @@ function providerResponseSummary(raw: string | undefined): string {
   if (!raw || raw === "{}") return "providerResponse=none";
   try {
     const parsed = JSON.parse(raw) as ProviderResponseSummary;
-    const details = [
+    const fields: ProviderResponseField[] = [
       ["providerBlocker", parsed.blocker],
       ["providerNext", parsed.next_action],
       ["providerClaim", parsed.runtime_claim],
       ["providerAudioReady", parsed.audio_route_ready],
       ["providerAttempted", parsed.route_execution_attempted],
-    ]
+    ];
+    const details = fields
       .map(([label, value]) => {
         const result = compact(value);
         return result ? `${label}=${result}` : null;
