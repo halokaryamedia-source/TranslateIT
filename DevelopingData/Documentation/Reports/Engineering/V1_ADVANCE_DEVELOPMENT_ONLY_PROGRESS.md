@@ -10,7 +10,7 @@ Progress development-only saat ini: sekitar **99%**.
 
 Definisi:
 
-- Yang dihitung: source features, contracts, bridge, evidence, blocker, diagnostics, orchestration, route selection model, route selection renderer, route selection mount helper, entrypoint mounting, Source Orchestration binding, guarded runtime handoff, guarded provider script, Rust/bridge provider dispatch wiring, Provider Dry Run UI, route selection styling, Windows provider notes, provider requirements artifact, route renderer escaping, provider response summary hardening, diagnostics button binding cleanup, shared diagnostics DOM cleanup, launcher lifecycle cleanup registry, dan professional readiness gap cleanup.
+- Yang dihitung: source features, contracts, bridge, evidence, blocker, diagnostics, orchestration, route selection model, route selection renderer, route selection mount helper, entrypoint mounting, Source Orchestration binding, guarded runtime handoff, guarded provider script, Rust/bridge provider dispatch wiring, Provider Dry Run UI, route selection styling, Windows provider notes, provider requirements artifact, route renderer escaping, provider response summary hardening, diagnostics button binding cleanup, shared diagnostics DOM cleanup, launcher lifecycle cleanup registry, professional readiness gap cleanup, dan route-stub preparation reuse.
 - Yang tidak dihitung: CI result, local compile proof, Windows runtime proof, latency proof, dan end-to-end meeting proof.
 
 ## Yang sudah selesai secara development
@@ -40,6 +40,7 @@ Definisi:
 - Route selection surface now uses the shared diagnostics controls DOM helper instead of its own hardcoded controls selector.
 - Professional readiness gate.
 - Professional readiness gaps now only track actual remaining source prerequisites: route device readiness, TTS output path, route stub readiness, and professional gate blockers.
+- Professional readiness orchestration now prepares route stub once and reuses it for gate calculation to avoid duplicate route-stub evidence/write work.
 - Source readiness orchestration command.
 - Source Orchestration UI binding.
 - Source Orchestration binding mounted from `src/main.ts`.
@@ -96,6 +97,7 @@ Purpose:
 - Collect latest pipeline snapshot.
 - Collect virtual route status.
 - Prepare route runtime stub from latest TTS output path.
+- Reuse the prepared route stub when calculating professional gate status inside source orchestration.
 - Collect professional gate status.
 - Return development-only progress via `development_progress_percent_excluding_ci_local`.
 - Return actual remaining source gaps via `remaining_development_gaps`; stale completed gaps such as unfinished route surface and unimplemented provider handoff are no longer reported.
