@@ -15,7 +15,7 @@ function summary(status: ProfessionalSourceReadinessOrchestrationStatus): string
 export function bindSourceOrchestrationUi(): () => void {
   return bindDiagnosticButton({
     selector: '[data-source-orchestration-action="run"]',
-    dataKey: "sourceOrchestrationAction",
+    dataAttribute: "data-source-orchestration-action",
     dataValue: "run",
     label: "Source Orchestration",
     command: () => virtualRouteApi.runProfessionalSourceReadinessOrchestration(),
