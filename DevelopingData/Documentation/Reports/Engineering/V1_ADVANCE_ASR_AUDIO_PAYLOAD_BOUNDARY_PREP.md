@@ -6,7 +6,7 @@ Status: source-side / worker-contract evidence only, bukan Windows runtime proof
 
 ## Progress development
 
-Progress source-side saat ini: sekitar **90%**.
+Progress source-side saat ini: sekitar **91%**.
 
 Rinciannya:
 
@@ -22,9 +22,10 @@ Rinciannya:
 - Virtual mic preparation dari TTS output path: tersedia.
 - Virtual mic route contract: tersedia, dengan scan input/output virtual audio device candidates.
 - Preferred virtual mic route config: tersedia sebagai command source-side.
+- Preferred virtual mic route config sekarang dipersist ke `UserData/CacheData/virtual_mic_route_preference.json`.
 - Final live meeting runtime gate: tersedia sebagai source-side readiness gate.
 - Runtime status bundle sekarang membaca final live meeting runtime gate.
-- Yang belum selesai: real audio routing ke virtual mic device, persistent preferred-device settings, local compile proof, Windows runtime proof, dan live meeting end-to-end proof.
+- Yang belum selesai: real audio routing ke virtual mic device, integrasi preferred route langsung ke pipeline preparation, local compile proof, Windows runtime proof, dan live meeting end-to-end proof.
 
 ## Command dan flow yang tersedia
 
@@ -75,7 +76,8 @@ Perilaku utama:
 - Hanya bisa ready jika pipeline punya `tts_audio_output_path` dan `audio_output_ready=true`.
 - Route contract melakukan source-side device scan lewat native audio device inventory.
 - Auto-detect mencari kandidat virtual device seperti VB-Audio, Cable Input/Output, Voicemeeter, BlackHole, Loopback, Virtual Cable, Virtual Audio, atau Stereo Mix.
-- Preferred route command dapat menyimpan selected virtual output/input device secara in-memory untuk sesi app saat ini.
+- Preferred route command dapat menyimpan selected virtual output/input device ke `UserData/CacheData/virtual_mic_route_preference.json`.
+- Route status menampilkan `preference_persisted` dan `preference_path`.
 - Blocker yang dapat muncul:
   - `virtual_mic:missing_tts_output`
   - `virtual_mic:output_device_missing`
@@ -156,7 +158,7 @@ Belum terbukti:
 - Translation model menghasilkan `translated_text` pada target Windows.
 - TTS provider menghasilkan `output_path` pada target Windows.
 - Virtual mic route belum mengirim audio ke meeting app.
-- Preferred route config masih in-memory, belum persistent settings file.
+- Preferred route config sudah persistent, tetapi belum dipakai langsung oleh `prepare_virtual_mic_output_from_latest_tts`.
 - Latency meeting runtime belum terbukti.
 
 ## Cara validasi lokal nanti
@@ -194,7 +196,7 @@ Flow validasi manual:
 
 Development non-local berikutnya:
 
-1. Persist preferred virtual route device selection ke settings file, bukan hanya in-memory.
-2. Integrasikan preferred virtual route selection langsung ke `prepare_virtual_mic_output_from_latest_tts`, supaya pipeline menggunakan selected device, bukan hanya auto-detect.
-3. Tambahkan source-side route payload dari `tts_audio_output_path` menuju selected output/input virtual device.
+1. Integrasikan preferred virtual route selection langsung ke `prepare_virtual_mic_output_from_latest_tts`, supaya pipeline menggunakan selected device, bukan hanya auto-detect.
+2. Tambahkan source-side route payload dari `tts_audio_output_path` menuju selected output/input virtual device.
+3. Tambahkan UI diagnostics action untuk membaca/menampilkan route preference status secara langsung.
 4. Setelah itu baru masuk local compile + Windows runtime validation.
