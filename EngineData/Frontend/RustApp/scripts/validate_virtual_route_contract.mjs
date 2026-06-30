@@ -136,7 +136,9 @@ for (const marker of ["createCleanupRegistry", "scheduleCleanupAwareDelay", "win
 for (const marker of ["TRANSLATEIT_ENABLE_VIRTUAL_AUDIO_ROUTE_PROVIDER", "route_virtual_audio", "sounddevice", "dry_run"]) expectIncludes(files.provider, marker);
 for (const marker of ["numpy", "sounddevice", "not runtime proof"]) expectIncludes(files.requirements, marker);
 for (const marker of ["Provider Dry Run", "TRANSLATEIT_ENABLE_VIRTUAL_AUDIO_ROUTE_PROVIDER"]) expectIncludes(files.notes, marker);
-for (const marker of ["virtualRouteSelectionSurface.css", "createCleanupRegistry", "bindSourceOrchestrationUi", "bindVirtualAudioRouteProviderUi"]) expectIncludes(files.main, marker);
+
+for (const marker of ["SimpleLauncherController", "simple-ui-v1"]) expectIncludes(files.main, marker);
+for (const marker of ["mountVirtualRouteSelectionSurface", "bindSourceOrchestrationUi", "bindVirtualAudioRouteProviderUi", "virtualRouteSelectionSurface.css"]) expectNotIncludes(files.main, marker, `simple main should not mount ${marker}`);
 
 if (errors.length > 0) {
   console.error("Virtual route contract validation failed:");
@@ -144,4 +146,4 @@ if (errors.length > 0) {
   process.exit(1);
 }
 
-console.log("Virtual route contract validation passed.");
+console.log("Virtual route contract validation passed: engine/dev capability remains present and simple main UI does not mount the complex virtual route surface.");
