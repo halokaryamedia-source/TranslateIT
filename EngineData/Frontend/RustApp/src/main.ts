@@ -6,6 +6,7 @@ import "./mainPageLayout.css";
 import "./audioSettingsLayout.css";
 import "./translateSettingsLayout.css";
 import "./developerSettingsLayout.css";
+import "./virtualRouteSelectionSurface.css";
 import { LauncherController } from "./app/active-launcher/launcherController";
 import { bindAttachmentLimitWatcher } from "./app/active-launcher/attachmentLimitWatcher";
 import { bindAudioDeviceListUi } from "./app/active-launcher/audioDeviceListBinding";
@@ -24,6 +25,7 @@ import { bindVoiceOutputPersistenceUi } from "./app/active-launcher/voiceOutputP
 import { installStartupDiagnostics, startupTrace } from "./app/active-launcher/startupDiagnostics";
 import { mountVirtualRouteSelectionSurface, unmountVirtualRouteSelectionSurface } from "./app/active-launcher/virtualRouteSelectionSurfaceMount";
 import { bindSourceOrchestrationUi } from "./app/active-launcher/sourceOrchestrationBinding";
+import { bindVirtualAudioRouteProviderUi } from "./app/active-launcher/virtualAudioRouteProviderBinding";
 
 installStartupDiagnostics();
 startupTrace("boot:marker", {
@@ -48,6 +50,7 @@ bindRuntimeReadinessUiGuard();
 const stopDeveloperEvidenceUi = bindDeveloperEvidenceUi();
 bindDeveloperHelperBridgeUi();
 const stopSourceOrchestrationUi = bindSourceOrchestrationUi();
+const stopVirtualAudioRouteProviderUi = bindVirtualAudioRouteProviderUi();
 void mountVirtualRouteSelectionSurface();
 window.setTimeout(() => {
   void mountVirtualRouteSelectionSurface();
@@ -64,6 +67,7 @@ window.addEventListener("beforeunload", () => {
   stopSettingsAutosaveUi();
   stopDeveloperEvidenceUi();
   stopSourceOrchestrationUi();
+  stopVirtualAudioRouteProviderUi();
   unmountVirtualRouteSelectionSurface();
   stopHelperBridgeHealthMonitor();
   stopAudioPipelineResultWatcher();
