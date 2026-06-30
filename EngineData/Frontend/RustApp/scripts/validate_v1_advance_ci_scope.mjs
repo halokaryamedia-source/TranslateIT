@@ -25,10 +25,16 @@ const requiredMarkers = [
   "pull_request:",
   "- V1-Advance",
   "runs-on: ubuntu-24.04",
+  "Run source contract validation",
+  "npm run validate:source-contracts",
   "Frontend typecheck and Vite build",
+  "npm run typecheck",
   "npm run build:frontend",
+  "Rust/Tauri compile guard",
   "libwebkit2gtk-4.1-dev",
   "cargo check --locked --manifest-path src-tauri/Cargo.toml",
+  "EngineData/Backend/**",
+  "UserData/.gitkeep",
 ];
 
 for (const marker of requiredMarkers) {
@@ -42,6 +48,7 @@ const forbiddenMarkers = [
   "runs-on: ubuntu-latest",
   "runs-on: ubuntu-22.04",
   "libwebkit2gtk-4.0-dev",
+  "run: npm run validate:quick",
 ];
 
 for (const marker of forbiddenMarkers) {
@@ -64,6 +71,19 @@ if (v1Mentions < 2) {
 const runnerMentions = workflow.match(/runs-on: ubuntu-24\.04/g)?.length ?? 0;
 if (runnerMentions !== 3) {
   fail(`Workflow must pin all three jobs to ubuntu-24.04. Found: ${runnerMentions}`);
+}
+
+const sourceContractBlock = workflow.split("frontend-build-guard:")[0] ?? "";
+if (sourceContractBlock.includes("npm ci")) {
+  fail("Source contract guards must not run npm ci; only frontend build guard should install frontend deps.");
+}
+if (sourceContractBlock.includes("npm run typecheck")) {
+  fail("Source contract guards must not run typecheck; frontend build guard owns typecheck.");
+}
+
+const rustBlock = workflow.split("rust-tauri-compile-guard:")[1] ?? "";
+if (rustBlock.includes("Setup Node.js") || rustBlock.includes("npm ci")) {
+  fail("Rust/Tauri compile guard must not depend on Node/npm setup.");
 }
 
 console.log("[v1-advance-ci-scope] V1 Advance CI scope validation passed.");
