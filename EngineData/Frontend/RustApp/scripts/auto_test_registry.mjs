@@ -122,6 +122,20 @@ export const AUTO_TEST_SUITES = [
     ],
   },
   {
+    id: "functional-app-diagnostics",
+    title: "Functional App Diagnostics",
+    description: "Non-blocking functional scenario runners that exercise app behavior without manual QA steps.",
+    blocking: false,
+    tests: [
+      {
+        id: "voice-fixture-matrix",
+        title: "Voice fixture matrix",
+        script: "run_voice_fixture_matrix.mjs",
+        purpose: "Generates deterministic WAV fixtures and validates the voice-to-transcript-to-translation scenario path without requiring a real microphone.",
+      },
+    ],
+  },
+  {
     id: "diagnostic-reports",
     title: "Diagnostic Contract Reports",
     description: "Non-blocking evidence generators that produce deeper maps for debugging and review.",
