@@ -6,11 +6,11 @@ Status: progress ini tidak menghitung CI, local compile, Windows runtime, atau e
 
 ## Progress development-only
 
-Progress development-only saat ini: sekitar **87%**.
+Progress development-only saat ini: sekitar **88%**.
 
 Definisi:
 
-- Yang dihitung: source features, contracts, bridge, evidence, blocker, diagnostics, orchestration, route selection model, route selection renderer, dan guarded runtime handoff.
+- Yang dihitung: source features, contracts, bridge, evidence, blocker, diagnostics, orchestration, route selection model, route selection renderer, route selection mount helper, dan guarded runtime handoff.
 - Yang tidak dihitung: CI result, local compile proof, Windows runtime proof, latency proof, dan end-to-end meeting proof.
 
 ## Yang sudah selesai secara development
@@ -33,15 +33,17 @@ Definisi:
 - Preferred route selection bridge method.
 - User-facing route selection surface model.
 - User-facing route selection surface renderer.
+- Route selection auto-mount helper.
 - Professional readiness gate.
 - Source readiness orchestration command.
 - Guarded virtual audio route runtime handoff.
+- Audio route runtime contract borrow guard cleanup.
 - Virtual route validator included in quick validation.
 - CI workflow exists, but CI result is not counted here.
 
 ## Yang belum selesai secara development
 
-1. Mounting route selection surface into the real application layout.
+1. Calling/mounting route selection surface from the real application entrypoint.
 2. Platform-specific audio route provider execution.
 3. Source Orchestration UI button connection.
 4. Final UX cleanup for route flow outside Developer Diagnostics.
@@ -53,6 +55,7 @@ run_professional_source_readiness_orchestration
 prepare_guarded_virtual_audio_route_runtime
 virtualRouteSelectionSurfaceModel.ts
 virtualRouteSelectionSurfaceRenderer.ts
+virtualRouteSelectionSurfaceMount.ts
 ```
 
 Purpose:
@@ -65,6 +68,7 @@ Purpose:
 - Return remaining source gaps via `remaining_development_gaps`.
 - Prepare guarded audio route runtime handoff with source audio path and selected route devices.
 - Provide a modular route selection surface with output/input selectors, save action, refresh action, blocker display, and evidence path display.
+- Provide a safe auto-mount helper that can attach the route selection surface near the existing capture helper controls without rewriting the large diagnostics binding.
 - Keep execution disabled until CI/local/Windows validation and provider implementation are ready.
 
 Runtime claims:
@@ -78,7 +82,7 @@ virtual_route_selection_surface_source_side_not_audio_runtime_proof
 
 ## What should be done next
 
-1. Mount the route selection surface into the real application layout.
+1. Call `mountVirtualRouteSelectionSurface` from the real application entrypoint or a small diagnostics bootstrap module.
 2. Implement platform-specific audio route provider execution behind guard.
 3. Connect the Source Orchestration button using a smaller UI patch or dedicated UI module.
 4. After development-only is mature enough, inspect CI result.
