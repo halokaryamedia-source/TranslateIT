@@ -70,6 +70,12 @@ export const AUTO_TEST_SUITES = [
         purpose: "Protects generated settings tabs, renderers, actions, persistence, and developer diagnostics.",
       },
       {
+        id: "auto-test-matrix-contract",
+        title: "Auto test matrix contract",
+        script: "validate_auto_test_matrix_contract.mjs",
+        purpose: "Ensures the registry, runner, npm profiles, and CI diagnostics wiring stay aligned.",
+      },
+      {
         id: "startup-readiness",
         title: "Startup readiness",
         script: "validate_startup_runtime_readiness.mjs",
