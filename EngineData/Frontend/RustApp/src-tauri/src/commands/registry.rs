@@ -53,7 +53,7 @@ pub fn register<R: tauri::Runtime>(builder: tauri::Builder<R>) -> tauri::Builder
         crate::commands::audio_evidence::get_latest_audio_pipeline_evidence,
         crate::commands::audio_evidence::get_latest_audio_studio_validation_evidence,
         crate::commands::settings::load_runtime_settings,
-        crate::commands::save_default_runtime_settings,
+        crate::commands::settings::save_default_runtime_settings,
         crate::commands::settings::save_runtime_settings,
         crate::commands::chat::create_chat_session,
         crate::commands::chat::list_chat_sessions,
