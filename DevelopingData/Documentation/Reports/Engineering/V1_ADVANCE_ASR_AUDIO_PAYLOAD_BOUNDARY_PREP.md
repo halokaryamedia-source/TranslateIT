@@ -6,14 +6,14 @@ Status: source-side / worker-contract evidence only, bukan Windows runtime proof
 
 ## Progress development yang dikalibrasi ulang
 
-Progress gabungan realistis saat ini: sekitar **72%**.
+Progress gabungan realistis saat ini: sekitar **73%**.
 
 Catatan kalibrasi:
 
 - Angka 90%+ sebelumnya lebih cocok untuk **source-side scaffold progress**, bukan total readiness.
 - Setelah dikalibrasi dengan compile/runtime proof yang belum ada, progress total tetap konservatif.
-- Progress naik dari 70% ke 72% karena route bridge diprofesionalkan, route stub sekarang membaca latest pipeline TTS output path, dan virtual route contract validation masuk ke `validate:quick`.
-- Yang sudah kuat: source wiring, payload contract, evidence, blocker, diagnostic commands, owner checklist, CI guard setup, typed virtual route bridge, dan route contract validator.
+- Progress naik dari 72% ke 73% karena professional readiness gate sudah menggabungkan final live gate dengan route runtime stub readiness.
+- Yang sudah kuat: source wiring, payload contract, evidence, blocker, diagnostic commands, owner checklist, CI guard setup, typed virtual route bridge, route contract validator, dan professional source-side gate.
 - Yang belum terbukti: CI run result, local compile, Windows runtime, ASR runtime, translation runtime, TTS runtime, output route runtime, latency, dan end-to-end meeting proof.
 
 ## Rincian status
@@ -36,8 +36,11 @@ Catatan kalibrasi:
 - Guarded route runtime stub tersedia melalui `prepare_virtual_mic_output_route_runtime_stub`.
 - Route runtime stub evidence file tersedia di `UserData/LogData/RustAppValidation/latest_virtual_mic_output_route_stub.json`.
 - `virtualRouteApi` tersedia sebagai typed frontend bridge khusus virtual route.
-- Developer Diagnostics `Route Runtime Stub` sekarang membaca `tts_audio_output_path` dari latest pipeline snapshot sebelum memanggil route stub.
-- `validate:virtual-route` tersedia dan sudah masuk ke `validate:quick`.
+- Developer Diagnostics `Route Runtime Stub` membaca `tts_audio_output_path` dari latest pipeline snapshot sebelum memanggil route stub.
+- Professional readiness gate tersedia melalui `get_professional_runtime_readiness_gate_status`.
+- Professional readiness gate menggabungkan live final gate, route stub readiness, source audio path, route stub blocker, dan route stub evidence path.
+- Developer Diagnostics memiliki tombol `Professional Gate`.
+- `validate:virtual-route` tersedia dan sudah masuk ke `validate:quick`, termasuk guard untuk professional gate.
 - Final runtime gate: tersedia sebagai source-side readiness gate.
 - Runtime status bundle membaca final runtime gate.
 - Owner validation checklist tersedia di `DevelopingData/Documentation/Reports/Engineering/V1_ADVANCE_OWNER_VALIDATION_CHECKLIST.md`.
@@ -98,6 +101,7 @@ Catatan:
 - `get_virtual_mic_route_contract_status`
 - `set_preferred_virtual_mic_route_devices`
 - `prepare_virtual_mic_output_route_runtime_stub`
+- `get_professional_runtime_readiness_gate_status`
 
 Perilaku utama:
 
@@ -107,6 +111,7 @@ Perilaku utama:
 - Route status menampilkan `preference_persisted`, `preference_path`, `evidence_path`, dan `route_output_contract_json`.
 - Route runtime stub menerima optional `source_audio_path`; jika kosong, blocker menjadi `virtual_route:missing_source_audio_path`.
 - Developer route bridge mengambil source audio dari latest pipeline `tts_audio_output_path` agar diagnostics tidak mengirim hardcoded null.
+- Professional readiness gate memanggil latest pipeline snapshot, live meeting gate, dan route runtime stub dalam satu status gabungan.
 - Route runtime stub tidak menjalankan audio output; statusnya tetap source-side contract.
 - Pipeline snapshot menampilkan `virtual_mic_route_claim` dan `virtual_mic_route_preference_path`.
 - Dedicated route evidence ditulis ke `UserData/LogData/RustAppValidation/latest_virtual_mic_route_evidence.json`.
@@ -120,6 +125,7 @@ Perilaku utama:
   - `virtual_mic:route_not_ready`
   - `virtual_route:missing_source_audio_path`
   - `virtual_route:stub_not_ready`
+  - `route_stub:not_ready`
 
 Runtime claim:
 
@@ -129,6 +135,7 @@ Runtime claim:
 - `virtual_mic_output_route_runtime_stub_source_side_no_audio_execution`
 - `virtual_route_runtime_stub_evidence_source_side_no_audio_execution`
 - `live_meeting_runtime_gate_source_side_not_windows_runtime_proof`
+- `professional_runtime_readiness_gate_source_side_not_runtime_proof`
 
 ## Developer Diagnostics UI
 
@@ -140,6 +147,7 @@ Tombol yang tersedia di Developer Diagnostics:
 - `Promote ASR Transcript`
 - `Virtual Route Status`
 - `Route Runtime Stub`
+- `Professional Gate`
 - `Prepare Virtual Mic`
 - `Final Runtime Gate`
 
@@ -156,6 +164,8 @@ Summary UI sekarang menampilkan:
 - route evidence path
 - route output contract presence
 - route runtime stub blocker
+- professional gate blockers
+- professional gate route stub evidence path
 - `evidence_path`
 
 ## Persistent evidence
@@ -227,18 +237,19 @@ Flow validasi manual nanti:
 10. Dispatch TTS Handoff.
 11. Virtual Route Status.
 12. Route Runtime Stub.
-13. Prepare Virtual Mic.
-14. Final Runtime Gate.
-15. Inspect `latest_live_pipeline_evidence.json`.
-16. Inspect `latest_virtual_mic_route_evidence.json`.
-17. Inspect `latest_virtual_mic_output_route_stub.json`.
+13. Professional Gate.
+14. Prepare Virtual Mic.
+15. Final Runtime Gate.
+16. Inspect `latest_live_pipeline_evidence.json`.
+17. Inspect `latest_virtual_mic_route_evidence.json`.
+18. Inspect `latest_virtual_mic_output_route_stub.json`.
 
 ## Yang harus dilakukan selanjutnya
 
 Development non-local berikutnya:
 
-1. Add professional final gate extension so it exposes route stub readiness, source audio path, and route stub evidence path directly.
-2. Add user-facing route/device selection surface beyond Developer Diagnostics.
+1. Add user-facing route/device selection surface beyond Developer Diagnostics.
+2. Add professional one-click source orchestration command for diagnostics sequence.
 3. Monitor/inspect CI result setelah workflow berjalan di GitHub.
 4. Jika CI gagal, perbaiki source/CI berdasarkan error log.
 5. Setelah user mengizinkan, baru masuk local compile + Windows runtime validation.
