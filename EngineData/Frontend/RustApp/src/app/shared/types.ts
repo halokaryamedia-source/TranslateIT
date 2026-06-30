@@ -215,6 +215,8 @@ export type VirtualMicRouteContractStatus = {
   input_device_found: boolean;
   preference_persisted: boolean;
   preference_path: string | null;
+  evidence_path: string | null;
+  route_output_contract_json: string;
   available_output_devices: string[];
   available_input_devices: string[];
   blocker: string;
