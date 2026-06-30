@@ -13,7 +13,6 @@ function fail(message) {
 }
 
 if (!existsSync(workflowPath)) fail("Missing V1 Advance CI workflow file.");
-
 const workflow = readFileSync(workflowPath, "utf8");
 
 for (const marker of [
@@ -26,6 +25,15 @@ for (const marker of [
   "frontend-build-guard:",
   "rust-tauri-source-guard:",
   "Validate translation flow",
+  "Validate simple UI contract",
+  "Validate functional surface contract",
+  "Validate runtime readiness scenarios",
+  "Validate error feedback contract",
+  "Validate settings surface contract",
+  "node scripts/validate_functional_surface_contract.mjs",
+  "node scripts/validate_runtime_readiness_scenarios.mjs",
+  "node scripts/validate_error_feedback_contract.mjs",
+  "node scripts/validate_settings_surface_contract.mjs",
   "./node_modules/.bin/tsc --noEmit --pretty false",
   "./node_modules/.bin/vite build --logLevel warn",
   "npm run check:rust",
@@ -68,4 +76,4 @@ if (rustBlock.includes("npm ci") || rustBlock.includes("actions/setup-node")) {
   fail("Rust/Tauri source guard must stay dependency-light.");
 }
 
-console.log("[v1-advance-ci-scope] V1 Advance CI scope validation passed.");
+console.log("[v1-advance-ci-scope] V1 Advance CI scope validation passed with expanded source guards.");
