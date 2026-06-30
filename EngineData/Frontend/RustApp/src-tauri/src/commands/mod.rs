@@ -22,4 +22,5 @@ pub mod runtime;
 pub mod runtime_status;
 pub mod settings;
 pub mod text_translate;
+pub mod virtual_audio_route_runtime;
 pub mod virtual_mic_route;
