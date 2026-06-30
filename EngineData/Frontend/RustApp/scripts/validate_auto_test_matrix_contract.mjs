@@ -20,6 +20,7 @@ const workflow = readText(".github/workflows/v1-advance-ci.yml");
 const runner = readText("EngineData/Frontend/RustApp/scripts/run_auto_test_matrix.mjs");
 const registry = readText("EngineData/Frontend/RustApp/scripts/auto_test_registry.mjs");
 const helper = readText("EngineData/Frontend/RustApp/scripts/contract_test_utils.mjs");
+const functionalHelper = readText("EngineData/Frontend/RustApp/scripts/functional_matrix_utils.mjs");
 
 for (const marker of ["test:auto-map", "run_auto_test_matrix.mjs", "test:auto-strict", "--strict"]) {
   expectIncludes(packageJson, marker, "package auto test scripts");
@@ -29,7 +30,7 @@ for (const marker of ["Generate auto test matrix diagnostics", "if: always()", "
   expectIncludes(workflow, marker, "workflow auto test diagnostics");
 }
 
-for (const marker of ["AUTO_TEST_SUITES", "blocking: true", "blocking: false", "flattenAutoTests", AUTO_TEST_REPORT_SCHEMA]) {
+for (const marker of ["AUTO_TEST_SUITES", "blocking: true", "blocking: false", "flattenAutoTests", AUTO_TEST_REPORT_SCHEMA, "functional-app-diagnostics", "voice-fixture-matrix", "runtime-command-sync-matrix"]) {
   expectIncludes(registry, marker, "auto test registry");
 }
 
@@ -54,16 +55,31 @@ for (const marker of [
 for (const marker of ["createContractValidator", "readText", "expectIncludes", "collectRegexMatches", "printContractResult"]) {
   expectIncludes(helper, marker, "shared contract test utilities");
 }
+for (const marker of ["normalizeText", "writeJsonAndMarkdown", "scenarioResult", "summarizeResults"]) {
+  expectIncludes(functionalHelper, marker, "functional matrix utilities");
+}
 expectRegex(helper, /export function\s+createContractValidator/, "contract test utility exports validator factory");
 expectAnyIncludes(runner, ["AREA_BY_ID", "checked_files", "failure_help"], "runner developer-friendly metadata");
 
 const suites = AUTO_TEST_SUITES.map((suite) => suite.id);
-for (const requiredSuite of ["source-contracts", "preflight", "diagnostic-reports"]) {
+for (const requiredSuite of ["source-contracts", "preflight", "functional-app-diagnostics", "diagnostic-reports"]) {
   if (!suites.includes(requiredSuite)) addError(`Missing auto test suite: ${requiredSuite}`);
 }
 
+const requiredFunctionalTests = [
+  "text-translation-function-matrix",
+  "runtime-readiness-function-matrix",
+  "error-recovery-matrix",
+  "runtime-command-sync-matrix",
+  "voice-fixture-matrix",
+];
 const tests = flattenAutoTests();
-const duplicateIds = tests.map((test) => test.id).filter((id, index, ids) => ids.indexOf(id) !== index);
+const testIds = tests.map((test) => test.id);
+for (const requiredTest of requiredFunctionalTests) {
+  if (!testIds.includes(requiredTest)) addError(`Missing functional app diagnostic: ${requiredTest}`);
+}
+
+const duplicateIds = testIds.filter((id, index, ids) => ids.indexOf(id) !== index);
 if (duplicateIds.length) addError(`Duplicate auto test ids: ${Array.from(new Set(duplicateIds)).join(", ")}`);
 
 for (const test of tests) {
