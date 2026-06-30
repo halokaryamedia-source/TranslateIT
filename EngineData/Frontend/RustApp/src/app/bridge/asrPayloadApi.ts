@@ -26,6 +26,11 @@ export type AsrAudioPayloadRequestStatus = {
   payload_json: string;
   evidence_json: string;
   worker_response_json: string;
+  worker_stage: string;
+  worker_blocker: string;
+  worker_note: string;
+  transcript_text_present: boolean;
+  transcript_char_count: number;
   updated_unix_ms: number;
 };
 
@@ -56,6 +61,11 @@ function fallback(message: string): AsrAudioPayloadRequestStatus {
     payload_json: "{}",
     evidence_json: "{}",
     worker_response_json: "{}",
+    worker_stage: "frontend_bridge_error",
+    worker_blocker: "frontend_bridge_unavailable",
+    worker_note: message,
+    transcript_text_present: false,
+    transcript_char_count: 0,
     updated_unix_ms: Date.now(),
   };
 }
