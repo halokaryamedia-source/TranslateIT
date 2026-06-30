@@ -4,9 +4,27 @@ Tanggal: 2026-06-30
 Branch: `V1-Advance`
 Status: source-side / worker-contract evidence only, bukan Windows runtime proof.
 
+## Progress development
+
+Progress source-side saat ini: sekitar **82%**.
+
+Rinciannya:
+
+- Capture → ASR boundary: source wiring tersedia.
+- ASR payload → worker `asr_decode`: source wiring tersedia.
+- Guarded ASR runtime path: tersedia, default guard-off.
+- ASR transcript promotion: tersedia.
+- Translation handoff: tersedia.
+- Guarded translation runtime path: tersedia, default guard-off.
+- TTS handoff: tersedia.
+- Guarded TTS runtime path: tersedia, default guard-off.
+- Pipeline evidence file: tersedia.
+- Virtual mic preparation dari TTS output path: tersedia.
+- Yang belum selesai: real virtual mic routing, local compile proof, Windows runtime proof, dan live meeting end-to-end gate.
+
 ## Tujuan batch
 
-Batch ini memindahkan ASR handoff satu langkah lebih dekat ke runtime nyata tanpa mengklaim Whisper transcription sudah berjalan. Fokusnya adalah boundary dari live capture buffer menuju payload audio yang bisa dikirim ke Python worker, lalu menyiapkan transcript promotion, guarded translation handoff, dan guarded TTS handoff.
+Batch ini memindahkan ASR handoff satu langkah lebih dekat ke runtime nyata tanpa mengklaim Whisper transcription sudah berjalan. Fokusnya adalah boundary dari live capture buffer menuju payload audio yang bisa dikirim ke Python worker, lalu menyiapkan transcript promotion, guarded translation handoff, guarded TTS handoff, persistent evidence, dan virtual mic preparation.
 
 ## Yang ditambahkan
 
@@ -27,6 +45,7 @@ Command baru:
 - `prepare_asr_audio_payload_request`
 - `dispatch_asr_decode_request`
 - `promote_latest_asr_payload_transcript`
+- `prepare_virtual_mic_output_from_latest_tts`
 
 Perilaku:
 
@@ -40,6 +59,9 @@ Perilaku:
 - Worker response juga diinterpretasikan menjadi field eksplisit agar validasi lokal lebih mudah dibaca.
 - `promote_latest_asr_payload_transcript` membaca cached `worker_response_json`, mengambil `transcript_text` hanya jika `dispatch_ok=true` dan `transcript_text_present=true`, lalu mengisi pipeline transcript payload untuk Translation handoff.
 - `dispatch_translation_handoff_request` sekarang membaca worker response langsung. Jika guarded translation menghasilkan `translated_text`, payload pipeline langsung dipromosikan ke `translated_text` dan `tts_text` untuk TTS handoff. Jika guard belum aktif, fallback tetap memakai dev contract placeholder.
+- `dispatch_tts_handoff_request` sekarang membaca worker response langsung. Jika guarded TTS menghasilkan `output_path` dan `audio_output_ready=true`, pipeline menyimpan path output audio.
+- `prepare_virtual_mic_output_from_latest_tts` menandai virtual mic preparation siap hanya jika pipeline sudah punya TTS `output_path` dan `audio_output_ready=true`.
+- Pipeline snapshot sekarang menulis persistent evidence ke `UserData/LogData/RustAppValidation/latest_live_pipeline_evidence.json`.
 - Payload/status menyertakan metadata:
   - `sample_rate_hz`
   - `channels`
@@ -54,6 +76,11 @@ Perilaku:
   - `worker_note`
   - `transcript_text_present`
   - `transcript_char_count`
+  - `tts_audio_output_path`
+  - `audio_output_ready`
+  - `virtual_mic_ready`
+  - `virtual_mic_blocker`
+  - `evidence_path`
   - `runtime_claim`
 
 Runtime claim yang dipertahankan:
@@ -66,6 +93,7 @@ Runtime claim yang dipertahankan:
 - `translation_handoff_worker_runtime_translate_returned_needs_windows_validation`
 - `tts_handoff_dev_payload_contract_no_audio_runtime_claim`
 - `tts_handoff_worker_runtime_synthesize_returned_needs_windows_validation`
+- `pipeline_evidence_file_source_side_not_runtime_proof`
 
 ### 2. Python worker guarded `asr_decode` command
 
@@ -140,6 +168,7 @@ UI action baru di-inject ke panel Capture helper bridge controls:
 - `Prepare ASR Payload`
 - `Dispatch ASR Decode`
 - `Promote ASR Transcript`
+- `Prepare Virtual Mic`
 
 Catatan implementasi:
 
@@ -150,6 +179,8 @@ Catatan implementasi:
 - `Promote ASR Transcript` menyiapkan pipeline payload dari ASR worker response, bukan dari seed/dev text.
 - Translation handoff sekarang dapat mempromosikan real `translated_text` ke payload TTS setelah guarded local validation.
 - TTS handoff sekarang dapat memanggil guarded synthesis dan mengembalikan `output_path` setelah guarded local validation.
+- `Prepare Virtual Mic` menyiapkan gate source-side dari TTS `output_path` menuju virtual mic route berikutnya.
+- Pipeline summary menampilkan `evidence_path`, `audio_output_ready`, dan `virtual_mic_ready`.
 - Ini masih diagnostic evidence, bukan user-facing runtime readiness.
 
 ## Batasan yang masih berlaku
@@ -165,6 +196,7 @@ Belum terbukti:
 - Whisper/Faster-Whisper menghasilkan `transcript_text` pada target Windows.
 - Translation model menghasilkan `translated_text` pada target Windows.
 - TTS provider menghasilkan `output_path` pada target Windows.
+- Virtual mic routing belum menjalankan audio ke meeting app.
 - Translation/TTS/virtual mic end-to-end.
 - Latency meeting runtime.
 
@@ -192,6 +224,8 @@ Jika compile aman, flow manual berikutnya:
 12. Pipeline Snapshot lagi untuk memastikan `payload translation=true` dan `payload tts=true` jika guarded translation mengembalikan translated text.
 13. Dispatch TTS Handoff.
 14. Inspect worker response untuk `output_path` dan `audio_output_ready=true` jika guarded TTS berhasil.
+15. Prepare Virtual Mic.
+16. Pipeline Snapshot lagi untuk memastikan `virtualMic=true` dan evidence file terbentuk.
 
 Ekspektasi default saat env guard belum aktif:
 
@@ -203,6 +237,7 @@ Ekspektasi default saat env guard belum aktif:
 - Audio + model ASR siap tetapi env guard belum aktif → `asr:decoder_runtime_not_enabled_in_wrapper`.
 - Translation payload ada tetapi env guard belum aktif → contract accepted tanpa menjalankan model.
 - TTS payload ada tetapi env guard belum aktif → contract accepted tanpa menjalankan synthesis.
+- Virtual mic preparation tanpa TTS output → `virtual_mic:missing_tts_output`.
 
 Ekspektasi saat guarded ASR + translation + TTS diaktifkan untuk validasi lokal:
 
@@ -216,12 +251,15 @@ Ekspektasi saat guarded ASR + translation + TTS diaktifkan untuk validasi lokal:
 - Pipeline snapshot harus menunjukkan `payload transcript=true`, `payload translation=true`, dan `payload tts=true` jika translation berhasil.
 - Jalankan Dispatch TTS Handoff.
 - Jika TTS berhasil, worker response harus memuat `output_path` dan `audio_output_ready=true`.
-- Jika gagal, gunakan `workerBlocker`, `worker_note`, dan `worker_response_json` untuk debugging.
+- Jalankan Prepare Virtual Mic.
+- Pipeline snapshot harus menunjukkan `audio=true`, `virtualMic=true`, dan `evidence_path=UserData/LogData/RustAppValidation/latest_live_pipeline_evidence.json`.
+- Jika gagal, gunakan `workerBlocker`, `worker_note`, `worker_response_json`, dan `latest_live_pipeline_evidence.json` untuk debugging.
 
-## Next recommended batch
+## Yang harus dilakukan selanjutnya
 
-Setelah guarded ASR + translation + TTS source wiring:
+Development non-local berikutnya:
 
-1. Tambahkan persistent evidence file untuk ASR/translation/TTS response jika dibutuhkan.
-2. Siapkan virtual mic output preparation dari TTS `output_path`.
-3. Baru lanjut ke live meeting runtime gating.
+1. Implement source-side virtual mic route contract dari `tts_audio_output_path` menuju target output device/virtual cable.
+2. Tambahkan blocker eksplisit untuk virtual mic device missing.
+3. Tambahkan final live meeting runtime gate yang hanya ready jika capture, ASR, translation, TTS, output audio, dan virtual mic route semuanya valid.
+4. Setelah itu baru masuk local compile + Windows runtime validation.
