@@ -1,5 +1,5 @@
 import { runCommand } from "../shared/tauriBridge";
-import type { LivePipelineSessionSnapshot, ProfessionalRuntimeReadinessGateStatus, VirtualMicOutputRouteRuntimeStubStatus, VirtualMicRouteContractStatus } from "../shared/types";
+import type { LivePipelineSessionSnapshot, ProfessionalRuntimeReadinessGateStatus, ProfessionalSourceReadinessOrchestrationStatus, VirtualMicOutputRouteRuntimeStubStatus, VirtualMicRouteContractStatus } from "../shared/types";
 
 function routeStatusFallback(message: string): VirtualMicRouteContractStatus {
   return {
@@ -90,6 +90,25 @@ function professionalGateFallback(message: string): ProfessionalRuntimeReadiness
   };
 }
 
+function sourceOrchestrationFallback(message: string): ProfessionalSourceReadinessOrchestrationStatus {
+  const professionalGate = professionalGateFallback(message);
+  return {
+    ok: false,
+    state: "frontend_bridge_error",
+    development_progress_percent_excluding_ci_local: 0,
+    remaining_development_gaps: ["frontend_bridge_unavailable"],
+    steps: [],
+    pipeline_snapshot: professionalGate.live_gate as unknown as ProfessionalSourceReadinessOrchestrationStatus["pipeline_snapshot"],
+    route_status: routeStatusFallback(message),
+    route_stub: professionalGate.route_stub,
+    professional_gate: professionalGate,
+    next_action: "open_developer_diagnostics",
+    summary: message,
+    runtime_claim: "frontend_bridge_unavailable",
+    updated_unix_ms: Date.now(),
+  };
+}
+
 async function latestPipelineSourceAudioPath(): Promise<string | null> {
   const snapshot = await runCommand<LivePipelineSessionSnapshot>("get_live_pipeline_session_snapshot");
   return snapshot?.payload?.tts_audio_output_path?.trim() || null;
@@ -140,5 +159,10 @@ export const virtualRouteApi = {
   async getProfessionalRuntimeReadinessGateStatus(): Promise<ProfessionalRuntimeReadinessGateStatus> {
     const result = await runCommand<ProfessionalRuntimeReadinessGateStatus>("get_professional_runtime_readiness_gate_status");
     return result ?? professionalGateFallback("Professional readiness gate failed before reaching the Tauri command bridge.");
+  },
+
+  async runProfessionalSourceReadinessOrchestration(): Promise<ProfessionalSourceReadinessOrchestrationStatus> {
+    const result = await runCommand<ProfessionalSourceReadinessOrchestrationStatus>("run_professional_source_readiness_orchestration");
+    return result ?? sourceOrchestrationFallback("Professional source readiness orchestration failed before reaching the Tauri command bridge.");
   },
 };
