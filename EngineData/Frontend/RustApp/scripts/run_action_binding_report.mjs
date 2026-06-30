@@ -108,6 +108,13 @@ function dataActionOk(token, bindingContent, bindingToken) {
   return bindingContent.includes(token) && bindingContent.includes(bindingToken);
 }
 
+function normalizedFakeScanSource(settingsViews) {
+  return settingsViews
+    .toLowerCase()
+    .replaceAll("no placeholder buttons are exposed here", "")
+    .replaceAll("no placeholder button is exposed here", "");
+}
+
 function row(result) {
   return `| ${result.name} | ${result.ok ? "PASS" : "FAIL"} | ${result.blocker || "none"}${result.missing_binding_tokens?.length ? ` / missing: ${result.missing_binding_tokens.join(", ")}` : ""} |`;
 }
@@ -139,7 +146,8 @@ function main() {
     };
   });
   const fakeControlTerms = ["fake button", "dummy button", "placeholder button", "coming soon"];
-  const fakeControlHits = fakeControlTerms.filter((term) => settingsViews.toLowerCase().includes(term));
+  const fakeSource = normalizedFakeScanSource(settingsViews);
+  const fakeControlHits = fakeControlTerms.filter((term) => fakeSource.includes(term));
   const summary = {
     ok: missingFiles.length === 0 && targetedResults.every((result) => result.ok) && dataActionResults.every((result) => result.ok) && unboundVisibleControlIds.length === 0 && autosaveSelectorsMissingInView.length === 0 && fakeControlHits.length === 0,
     failed: [
