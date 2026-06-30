@@ -18,9 +18,11 @@ CI ini fokus pada:
 
 1. Frontend/source contract guards.
 2. TypeScript typecheck.
-3. Rust/Tauri compile guard via GitHub Actions.
-4. Contract/report scripts yang sudah tersedia di `package.json`.
-5. Virtual route bridge/command/type/action consistency.
+3. Real Vite frontend build guard.
+4. Rust/Tauri compile guard via GitHub Actions.
+5. Contract/report scripts yang sudah tersedia di `package.json`.
+6. Virtual route bridge/command/type/action consistency.
+7. Reproducible Cargo dependency validation through `--locked`.
 
 ## CI jobs
 
@@ -48,6 +50,9 @@ npm run test:action-binding-report
 
 ```bash
 npm run validate:virtual-route
+npm run typecheck
+npm run check:rust
+npm run preflight:frontend-build
 ```
 
 Tujuan:
@@ -58,13 +63,33 @@ Tujuan:
 - Menangkap registry/linkage consistency issue.
 - Menangkap virtual route command/type/bridge drift.
 - Menangkap route diagnostics yang kembali mengirim hardcoded null source audio path.
+- Menangkap stale professional readiness gaps dan duplicate route-stub preparation pattern.
 
-### 2. Rust/Tauri compile guard
+### 2. Frontend typecheck and Vite build guard
+
+Job ini sengaja dipisahkan dari source-contract guards agar error build frontend terlihat jelas.
+
+Langkah utama:
+
+```bash
+npm ci
+npm run typecheck
+npm run build:frontend
+```
+
+Tujuan:
+
+- Menangkap TypeScript compile error.
+- Menangkap Vite import/bundling error.
+- Menangkap missing CSS/entrypoint import.
+- Mengurangi kemungkinan local frontend validation gagal karena issue yang bisa terlihat di CI.
+
+### 3. Rust/Tauri compile guard
 
 Job ini memasang dependency Linux untuk compile guard Tauri lalu menjalankan:
 
 ```bash
-cargo check --manifest-path src-tauri/Cargo.toml
+cargo check --locked --manifest-path src-tauri/Cargo.toml
 ```
 
 Tujuan:
@@ -73,18 +98,20 @@ Tujuan:
 - Menangkap Tauri command registry mismatch.
 - Menangkap struct/function signature error.
 - Menangkap borrow/move error dari perubahan Rust source.
+- Menangkap Cargo.lock drift lebih awal melalui `--locked`.
 
 Catatan:
 
 - Ini tetap CI compile guard, bukan Windows runtime proof.
 - Jika CI gagal karena dependency Linux/Tauri package, perbaiki workflow sebelum menganggap source salah.
+- GitHub connector saat ini tidak menampilkan workflow run untuk commit terbaru karena endpoint yang tersedia memfilter pull-request-triggered runs; jadi kosongnya workflow run belum otomatis berarti workflow tidak berjalan.
 
 ## Non-local development order
 
 Urutan yang disarankan sebelum local validation:
 
 1. Source-side compile-risk review.
-2. CI workflow aktif di branch `V1-Advance`.
+2. CI workflow aktif di branch `V1-Advance` atau via PR.
 3. Perbaiki error CI jika muncul.
 4. Lengkapi documentation/evidence contract.
 5. Baru minta izin user untuk local compile validation.
@@ -120,6 +147,8 @@ Jika user sudah mengizinkan local validation:
 - Missing module export di `commands/mod.rs`.
 - Virtual route bridge tidak membaca latest pipeline TTS output path.
 - Virtual route diagnostics mengirim hardcoded null source audio path.
+- Vite gagal menemukan frontend entrypoint/CSS import.
+- Cargo.lock drift setelah dependency Rust berubah.
 
 ### Runtime setup failures
 
@@ -143,7 +172,7 @@ Jika user sudah mengizinkan local validation:
 
 Progress gabungan tetap sekitar **72%** sampai minimal CI dan local compile proof tersedia.
 
-Jika CI source-contract + Rust/Tauri compile guard hijau, progress bisa dinaikkan konservatif ke sekitar **74-76%**.
+Jika CI source-contract + frontend build + Rust/Tauri compile guard hijau, progress bisa dinaikkan konservatif ke sekitar **76-78%**.
 
 Jika Windows runtime ASR/Translation/TTS juga terbukti, progress bisa naik ke sekitar **82-86%**.
 
