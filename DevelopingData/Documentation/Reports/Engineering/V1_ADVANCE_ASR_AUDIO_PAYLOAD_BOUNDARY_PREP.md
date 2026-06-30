@@ -4,11 +4,18 @@ Tanggal: 2026-06-30
 Branch: `V1-Advance`
 Status: source-side / worker-contract evidence only, bukan Windows runtime proof.
 
-## Progress development
+## Progress development yang dikalibrasi ulang
 
-Progress source-side saat ini: sekitar **93%**.
+Progress gabungan realistis saat ini: sekitar **68%**.
 
-Rinciannya:
+Catatan kalibrasi:
+
+- Angka 90%+ sebelumnya lebih cocok untuk **source-side scaffold progress**, bukan total readiness.
+- Setelah dikalibrasi dengan compile/runtime proof yang belum ada, progress total diturunkan ke sekitar **68%**.
+- Yang sudah kuat: source wiring, payload contract, evidence, blocker, dan diagnostic commands.
+- Yang belum terbukti: local compile, Windows runtime, ASR runtime, translation runtime, TTS runtime, output route runtime, latency, dan end-to-end meeting proof.
+
+## Rincian status
 
 - Capture → ASR boundary: source wiring tersedia.
 - ASR payload → worker `asr_decode`: source wiring tersedia.
@@ -25,9 +32,11 @@ Rinciannya:
 - Pipeline payload menyertakan `virtual_mic_route_claim` dan `virtual_mic_route_preference_path`.
 - Dedicated route evidence file tersedia di `UserData/LogData/RustAppValidation/latest_virtual_mic_route_evidence.json`.
 - Route output contract summary tersedia melalui `route_output_contract_json`.
+- Guarded route runtime stub tersedia melalui `prepare_virtual_mic_output_route_runtime_stub`.
+- Route runtime stub evidence file tersedia di `UserData/LogData/RustAppValidation/latest_virtual_mic_output_route_stub.json`.
 - Final runtime gate: tersedia sebagai source-side readiness gate.
 - Runtime status bundle membaca final runtime gate.
-- Yang belum selesai: runtime output route implementation, local compile proof, Windows runtime proof, dan end-to-end proof.
+- Owner validation checklist tersedia di `DevelopingData/Documentation/Reports/Engineering/V1_ADVANCE_OWNER_VALIDATION_CHECKLIST.md`.
 
 ## Command dan flow yang tersedia
 
@@ -53,6 +62,7 @@ Rinciannya:
 - `prepare_virtual_mic_output_from_latest_tts`
 - `get_virtual_mic_route_contract_status`
 - `set_preferred_virtual_mic_route_devices`
+- `prepare_virtual_mic_output_route_runtime_stub`
 
 Perilaku utama:
 
@@ -60,8 +70,11 @@ Perilaku utama:
 - Preferred route command menyimpan selected output/input device ke `UserData/CacheData/virtual_mic_route_preference.json`.
 - Pipeline preparation memakai selected/preferred route selection jika tersedia, lalu fallback ke auto-detect dari route contract.
 - Route status menampilkan `preference_persisted`, `preference_path`, `evidence_path`, dan `route_output_contract_json`.
+- Route runtime stub menerima optional `source_audio_path`; jika kosong, blocker menjadi `virtual_route:missing_source_audio_path`.
+- Route runtime stub tidak menjalankan audio output; statusnya tetap source-side contract.
 - Pipeline snapshot menampilkan `virtual_mic_route_claim` dan `virtual_mic_route_preference_path`.
 - Dedicated route evidence ditulis ke `UserData/LogData/RustAppValidation/latest_virtual_mic_route_evidence.json`.
+- Dedicated route stub evidence ditulis ke `UserData/LogData/RustAppValidation/latest_virtual_mic_output_route_stub.json`.
 - Blocker yang dapat muncul:
   - `virtual_mic:missing_tts_output`
   - `virtual_mic:output_device_missing`
@@ -69,12 +82,16 @@ Perilaku utama:
   - `virtual_mic:selected_output_device_missing`
   - `virtual_mic:selected_input_device_missing`
   - `virtual_mic:route_not_ready`
+  - `virtual_route:missing_source_audio_path`
+  - `virtual_route:stub_not_ready`
 
 Runtime claim:
 
 - `virtual_mic_route_device_selection_source_side_not_audio_routing_proof`
 - `virtual_route_output_contract_source_side_not_audio_runtime_proof`
 - `virtual_route_evidence_source_side_not_audio_runtime_proof`
+- `virtual_mic_output_route_runtime_stub_source_side_no_audio_execution`
+- `virtual_route_runtime_stub_evidence_source_side_no_audio_execution`
 - `live_meeting_runtime_gate_source_side_not_windows_runtime_proof`
 
 ## Developer Diagnostics UI
@@ -86,6 +103,7 @@ Tombol yang tersedia di Developer Diagnostics:
 - `Dispatch ASR Decode`
 - `Promote ASR Transcript`
 - `Virtual Route Status`
+- `Route Runtime Stub`
 - `Prepare Virtual Mic`
 - `Final Runtime Gate`
 
@@ -101,6 +119,7 @@ Summary UI sekarang menampilkan:
 - `virtual_mic_route_preference_path`
 - route evidence path
 - route output contract presence
+- route runtime stub blocker
 - `evidence_path`
 
 ## Persistent evidence
@@ -115,6 +134,12 @@ Route status menulis evidence ke:
 
 ```text
 UserData/LogData/RustAppValidation/latest_virtual_mic_route_evidence.json
+```
+
+Route runtime stub menulis evidence ke:
+
+```text
+UserData/LogData/RustAppValidation/latest_virtual_mic_output_route_stub.json
 ```
 
 Evidence ini tetap source-side evidence dan tidak boleh dibaca sebagai Windows runtime proof.
@@ -133,10 +158,11 @@ Belum terbukti:
 - TTS menghasilkan `output_path` pada target Windows.
 - Runtime route belum terbukti.
 - Latency runtime belum terbukti.
+- End-to-end meeting route belum terbukti.
 
 ## Cara validasi lokal nanti
 
-Setelah source-side development selesai:
+Setelah user mengizinkan validasi lokal:
 
 ```bash
 npm run check:tauri-rust-local
@@ -162,15 +188,17 @@ Flow validasi manual nanti:
 8. Dispatch Translation Handoff.
 9. Dispatch TTS Handoff.
 10. Virtual Route Status.
-11. Prepare Virtual Mic.
-12. Final Runtime Gate.
-13. Inspect `latest_live_pipeline_evidence.json`.
-14. Inspect `latest_virtual_mic_route_evidence.json`.
+11. Route Runtime Stub.
+12. Prepare Virtual Mic.
+13. Final Runtime Gate.
+14. Inspect `latest_live_pipeline_evidence.json`.
+15. Inspect `latest_virtual_mic_route_evidence.json`.
+16. Inspect `latest_virtual_mic_output_route_stub.json`.
 
 ## Yang harus dilakukan selanjutnya
 
 Development non-local berikutnya:
 
-1. Tambahkan runtime output route implementation stub yang tetap guarded dan source-side safe.
-2. Tambahkan final owner-validation checklist untuk membedakan source readiness, local compile proof, Windows runtime proof, dan end-to-end proof.
-3. Setelah itu baru masuk local compile + Windows runtime validation.
+1. Review source-side compile-risk secara statis dari file yang banyak berubah.
+2. Tambahkan dev note untuk expected local validation order dan possible failure points.
+3. Setelah user mengizinkan, baru masuk local compile + Windows runtime validation.
