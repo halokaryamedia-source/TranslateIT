@@ -9,8 +9,8 @@ const files = {
   textTranslateCommand: resolve(appRoot, "src-tauri", "src", "commands", "text_translate.rs"),
   pipelineHandoff: resolve(appRoot, "src-tauri", "src", "commands", "pipeline_handoff.rs"),
   registry: resolve(appRoot, "src-tauri", "src", "commands", "registry.rs"),
-  launcherController: resolve(appRoot, "src", "app", "active-launcher", "launcherController.ts"),
-  textController: resolve(appRoot, "src", "app", "active-launcher", "controller", "textTranslationController.ts"),
+  simpleController: resolve(appRoot, "src", "app", "simple-launcher", "SimpleLauncherController.ts"),
+  runtimeProductFacade: resolve(appRoot, "src", "app", "bridge", "runtimeProductFacade.ts"),
   previewTranslation: resolve(appRoot, "src", "app", "active-launcher", "launcherPreviewTranslation.ts"),
 };
 
@@ -35,10 +35,9 @@ function reject(content, marker, label) {
 const textTranslate = readText("textTranslateCommand", files.textTranslateCommand);
 const pipeline = readText("pipelineHandoff", files.pipelineHandoff);
 const registry = readText("registry", files.registry);
-const launcherController = readText("launcherController", files.launcherController);
-const textController = readText("textController", files.textController);
+const simpleController = readText("simpleController", files.simpleController);
+const runtimeProductFacade = readText("runtimeProductFacade", files.runtimeProductFacade);
 const previewTranslation = readText("previewTranslation", files.previewTranslation);
-const uiControllers = `${launcherController}\n${textController}`;
 
 for (const marker of [
   "translate_text",
@@ -61,9 +60,17 @@ for (const marker of [
 ]) expect(registry, marker, "command registry");
 
 for (const marker of [
+  "runProductTranslation",
+  "Translation completed",
+  "Translation blocked",
+  "translationResultView",
+]) expect(simpleController, marker, "simple text translation UI flow");
+
+for (const marker of [
   "runtimeApi.translateText",
-  "Translation command failed",
-]) expect(uiControllers, marker, "text translation UI flow");
+  "ProductTranslationResult",
+  "runProductTranslation",
+]) expect(runtimeProductFacade, marker, "runtime product facade translation bridge");
 
 for (const marker of [
   "previewWordTranslation",
@@ -80,4 +87,4 @@ if (errors.length > 0) {
   process.exit(1);
 }
 
-console.log("Translation flow integrity passed: active V1 translation command, pipeline handoff, registry, and UI surfaces are present; legacy preview implementation stays disabled.");
+console.log("Translation flow integrity passed: simple UI -> runtimeProductFacade -> runtimeApi.translateText -> Rust translate_text stays wired; legacy preview implementation stays disabled.");
