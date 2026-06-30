@@ -119,6 +119,8 @@ expectIncludes(routeSelectionSurface, "setPreferredVirtualMicRouteDevices", "rou
 
 const routeSelectionRenderer = readText("EngineData/Frontend/RustApp/src/app/active-launcher/virtualRouteSelectionSurfaceRenderer.ts");
 expectIncludes(routeSelectionRenderer, "bindVirtualRouteSelectionSurface", "route selection renderer binder");
+expectIncludes(routeSelectionRenderer, "escapeHtml", "route selection renderer html escaping");
+expectIncludes(routeSelectionRenderer, "&amp;", "route selection renderer ampersand escape");
 expectIncludes(routeSelectionRenderer, "data-virtual-route-field", "route selection renderer fields");
 expectIncludes(routeSelectionRenderer, "data-virtual-route-action", "route selection renderer actions");
 expectIncludes(routeSelectionRenderer, "Save Route Devices", "route selection renderer save button");
@@ -144,6 +146,9 @@ expectIncludes(sourceOrchestrationBinding, "Source Orchestration", "source orche
 const providerBinding = readText("EngineData/Frontend/RustApp/src/app/active-launcher/virtualAudioRouteProviderBinding.ts");
 expectIncludes(providerBinding, "bindVirtualAudioRouteProviderUi", "provider dry run binding");
 expectIncludes(providerBinding, "dispatchProviderFromLatestPipeline", "provider dry run latest pipeline call");
+expectIncludes(providerBinding, "providerResponseSummary", "provider response summary parser");
+expectIncludes(providerBinding, "providerBlocker", "provider response blocker output");
+expectIncludes(providerBinding, "providerClaim", "provider response runtime claim output");
 expectIncludes(providerBinding, "data-virtual-audio-provider-action", "provider dry run action marker");
 expectIncludes(providerBinding, "Provider Dry Run", "provider dry run button label");
 
