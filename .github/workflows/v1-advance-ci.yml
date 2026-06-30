@@ -74,12 +74,7 @@ jobs:
         run: npm run preflight:frontend-build
 
       - name: Run contract reports
-        run: |
-          npm run test:frontend-backend-contract
-          npm run test:worker-contract
-          npm run test:rust-linkage-report
-          npm run test:ui-binding-report
-          npm run test:action-binding-report
+        run: npm run test:contract-reports
 
   frontend-build-guard:
     name: Frontend typecheck and Vite build
