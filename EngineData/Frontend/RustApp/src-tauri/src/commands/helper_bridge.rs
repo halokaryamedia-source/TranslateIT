@@ -170,6 +170,10 @@ fn send_worker_task(task: &str, mut payload: Value) -> HelperBridgeWorkerRespons
     }
 }
 
+pub fn send_helper_worker_task(task: &str, payload: Value) -> HelperBridgeWorkerResponse {
+    send_worker_task(task, payload)
+}
+
 #[tauri::command]
 pub fn get_helper_bridge_status() -> HelperBridgeStatus {
     let started = trace_command_start("get_helper_bridge_status", "reading helper bridge status");
@@ -518,44 +522,22 @@ pub fn helper_bridge_pipeline_contract_smoke() -> HelperBridgeWorkerResponse {
         "dev_pipeline_contract_smoke",
         json!({
             "transcript_text": "Hello from the Rust helper bridge pipeline smoke.",
-            "translated_text": "Halo dari smoke pipeline helper bridge Rust."
+            "translated_text": "Halo dari smoke test pipeline helper Rust.",
+            "tts_text": "Halo dari smoke test pipeline helper Rust.",
         }),
     )
 }
 
 #[tauri::command]
-pub fn helper_bridge_synthesize_text(
-    text: String,
-    output_path: Option<String>,
-) -> HelperBridgeWorkerResponse {
-    let text = clean_helper_text(&text, MAX_HELPER_TEXT_CHARS);
-    if text.is_empty() {
-        return HelperBridgeWorkerResponse {
-            ok: false,
-            state: "invalid_request".to_string(),
-            task: "synthesize".to_string(),
-            message: "Synthesize request rejected because text is empty.".to_string(),
-            generation_token: get_helper_bridge_status().generation_token,
-            runtime_claim: "invalid_request".to_string(),
-            worker_response_json: json!({
-                "ok": false,
-                "stage": "synthesize",
-                "blocker": "tts:empty_text"
-            })
-            .to_string(),
-        };
-    }
-
-    let mut payload = json!({ "text": text });
-    if let Some(output_path) = output_path
-        .as_deref()
-        .map(|value| clean_helper_text(value, 500))
-        .filter(|value| !value.is_empty())
-    {
-        if let Some(object) = payload.as_object_mut() {
-            object.insert("output_path".to_string(), json!(output_path));
-        }
-    }
-
-    send_worker_task("synthesize", payload)
+pub fn helper_bridge_synthesize_text(text: String, output_path: Option<String>) -> HelperBridgeWorkerResponse {
+    send_worker_task(
+        "synthesize",
+        json!({
+            "text": clean_helper_text(&text, MAX_HELPER_TEXT_CHARS),
+            "output_path": output_path
+                .as_deref()
+                .map(|value| clean_helper_text(value, 500))
+                .filter(|value| !value.is_empty()),
+        }),
+    )
 }
