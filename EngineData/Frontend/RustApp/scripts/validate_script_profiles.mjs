@@ -17,6 +17,8 @@ function requireScript(name) {
 }
 
 const allowedProfiles = new Set([
+  "dev:frontend",
+  "dev:app",
   "build:frontend",
   "typecheck",
   "check:rust",
@@ -45,6 +47,8 @@ const requiredProfiles = [
   "preflight:tauri-package",
   "check:tauri-rust-local",
   "test:contract-reports",
+  "dev:frontend",
+  "dev:app",
 ];
 
 for (const profile of requiredProfiles) requireScript(profile);
@@ -73,6 +77,7 @@ const disallowedQuickMarkers = [
   "validate:full",
   "validate:models",
   "cargo check",
+  "tauri dev",
 ];
 
 for (const marker of disallowedQuickMarkers) {
@@ -84,6 +89,16 @@ for (const marker of disallowedQuickMarkers) {
 const manualCompile = scripts["check:tauri-rust-local"] ?? "";
 if (!manualCompile.includes("run_local_tauri_compile_check.mjs")) {
   fail("check:tauri-rust-local must remain the manual local Tauri compile proof command");
+}
+
+const devFrontend = scripts["dev:frontend"] ?? "";
+if (!devFrontend.includes("vite") || !devFrontend.includes("1420")) {
+  fail("dev:frontend must run Vite on the Tauri devUrl port 1420");
+}
+
+const devApp = scripts["dev:app"] ?? "";
+if (devApp !== "tauri dev") {
+  fail("dev:app must remain the local Tauri app testing command");
 }
 
 const sourceContracts = scripts["validate:source-contracts"] ?? "";
@@ -115,4 +130,4 @@ if (failures.length > 0) {
   process.exit(1);
 }
 
-console.log("Script profiles are clean: only active CI/manual scripts remain in package.json.");
+console.log("Script profiles are clean: active CI/manual scripts and local app dev scripts are explicit.");
