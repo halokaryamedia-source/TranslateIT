@@ -38,6 +38,7 @@ pub fn register<R: tauri::Runtime>(builder: tauri::Builder<R>) -> tauri::Builder
         crate::commands::pipeline_handoff::get_live_pipeline_session_snapshot,
         crate::commands::pipeline_handoff::reset_live_pipeline_handoff_status,
         crate::commands::virtual_mic_route::get_virtual_mic_route_contract_status,
+        crate::commands::virtual_mic_route::prepare_virtual_mic_output_route_runtime_stub,
         crate::commands::virtual_mic_route::set_preferred_virtual_mic_route_devices,
         crate::commands::runtime_capture::prepare_capture_start_request,
         crate::commands::runtime_capture::prepare_capture_stop_request,
