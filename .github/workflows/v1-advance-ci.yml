@@ -28,6 +28,9 @@ concurrency:
   group: v1-advance-ci-${{ github.ref }}
   cancel-in-progress: true
 
+env:
+  CI: true
+
 jobs:
   source-contract-guards:
     name: Source contract guards
@@ -60,6 +63,33 @@ jobs:
           npm run test:rust-linkage-report
           npm run test:ui-binding-report
           npm run test:action-binding-report
+
+  frontend-build-guard:
+    name: Frontend typecheck and Vite build
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    defaults:
+      run:
+        working-directory: EngineData/Frontend/RustApp
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: npm
+          cache-dependency-path: EngineData/Frontend/RustApp/package-lock.json
+
+      - name: Install frontend dependencies
+        run: npm ci
+
+      - name: Typecheck frontend
+        run: npm run typecheck
+
+      - name: Build frontend bundle
+        run: npm run build:frontend
 
   rust-tauri-compile-guard:
     name: Rust/Tauri compile guard
@@ -98,4 +128,4 @@ jobs:
         run: npm ci
 
       - name: Cargo check Tauri shell
-        run: cargo check --manifest-path src-tauri/Cargo.toml
+        run: cargo check --locked --manifest-path src-tauri/Cargo.toml
