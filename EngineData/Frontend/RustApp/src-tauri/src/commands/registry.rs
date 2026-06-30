@@ -25,6 +25,7 @@ pub fn register<R: tauri::Runtime>(builder: tauri::Builder<R>) -> tauri::Builder
         crate::commands::asr_payload_boundary::prepare_asr_audio_payload_request,
         crate::commands::asr_payload_boundary::dispatch_asr_decode_request,
         crate::commands::pipeline_handoff::seed_dev_asr_transcript,
+        crate::commands::pipeline_handoff::promote_latest_asr_payload_transcript,
         crate::commands::pipeline_handoff::seed_dev_translated_text,
         crate::commands::pipeline_handoff::run_dev_pipeline_contract_smoke,
         crate::commands::pipeline_handoff::prepare_translation_handoff_request,
