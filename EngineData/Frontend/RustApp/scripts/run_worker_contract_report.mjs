@@ -11,6 +11,22 @@ const scriptsDir = resolve(appRoot, "scripts");
 const rustCapturePath = resolve(appRoot, "src-tauri", "src", "engine", "capture_lifecycle.rs");
 const manualTranslationPath = resolve(appRoot, "src-tauri", "src", "engine", "manual_translation_accelerated.rs");
 
+const workerCommandContract = new Set([
+  "ping",
+  "status",
+  "asr_preload",
+  "transcribe",
+  "translation_preload",
+  "translate",
+  "tts_preflight",
+  "synthesize",
+]);
+
+const nonWorkerEnvelopeCommands = new Set([
+  "capture_start",
+  "capture_stop",
+]);
+
 function read(path) {
   return existsSync(path) ? readFileSync(path, "utf8") : "";
 }
@@ -32,7 +48,16 @@ function usedWorkerCommands(contents) {
     for (const match of content.matchAll(/"command"\s*:\s*"([a-z_]+)"/g)) commands.push(match[1]);
     for (const match of content.matchAll(/command:\s*"([a-z_]+)"/g)) commands.push(match[1]);
   }
-  return unique(commands);
+  return unique(commands).filter((command) => workerCommandContract.has(command));
+}
+
+function discoveredNonWorkerCommands(contents) {
+  const commands = [];
+  for (const content of contents) {
+    for (const match of content.matchAll(/"command"\s*:\s*"([a-z_]+)"/g)) commands.push(match[1]);
+    for (const match of content.matchAll(/command:\s*"([a-z_]+)"/g)) commands.push(match[1]);
+  }
+  return unique(commands).filter((command) => nonWorkerEnvelopeCommands.has(command));
 }
 
 function main() {
@@ -43,14 +68,16 @@ function main() {
   const voiceReport = read(resolve(scriptsDir, "run_voice_preflight_report.mjs"));
   const rustCapture = read(rustCapturePath);
   const manualTranslation = read(manualTranslationPath);
+  const scannedSources = [runtimeReport, voiceReport, rustCapture, manualTranslation];
   const handlers = handlerCommands(`${worker}\n${accelerated}`);
-  const used = usedWorkerCommands([runtimeReport, voiceReport, rustCapture, manualTranslation]);
+  const used = usedWorkerCommands(scannedSources);
+  const nonWorkerEnvelopes = discoveredNonWorkerCommands(scannedSources);
   const missingHandlers = used.filter((command) => !handlers.includes(command));
   const requiredCore = ["ping", "status", "asr_preload", "transcribe", "translate", "tts_preflight", "synthesize"];
   const missingCore = requiredCore.filter((command) => !handlers.includes(command));
   const ok = worker.length > 0 && missingHandlers.length === 0 && missingCore.length === 0;
   const report = {
-    schema: "translateit.worker_contract_report.v1",
+    schema: "translateit.worker_contract_report.v2",
     generated_at: new Date().toISOString(),
     ok,
     worker_path: workerPath,
@@ -58,6 +85,7 @@ function main() {
     accelerated_worker_present: existsSync(acceleratedWorkerPath),
     handlers,
     used_commands: used,
+    non_worker_envelope_commands: nonWorkerEnvelopes,
     missing_handlers: missingHandlers,
     missing_core_handlers: missingCore,
   };
@@ -69,7 +97,7 @@ function main() {
     `OK: ${ok}`,
     `Accelerated worker present: ${report.accelerated_worker_present}`,
     "",
-    "## Missing handlers for used commands",
+    "## Missing handlers for used worker commands",
     "",
     missingHandlers.length ? missingHandlers.map((item) => `- ${item}`).join("\n") : "none",
     "",
@@ -80,11 +108,15 @@ function main() {
     "## Used worker commands",
     "",
     used.map((item) => `- ${item}`).join("\n"),
+    "",
+    "## Non-worker helper envelope commands ignored by this report",
+    "",
+    nonWorkerEnvelopes.length ? nonWorkerEnvelopes.map((item) => `- ${item}`).join("\n") : "none",
   ].join("\n");
   writeFileSync(latestJson, JSON.stringify(report, null, 2));
   writeFileSync(latestMd, md);
   console.log(`Worker contract report written: ${latestMd}`);
-  console.log(JSON.stringify({ ok, handlers: handlers.length, used: used.length, missingHandlers, missingCore }, null, 2));
+  console.log(JSON.stringify({ ok, handlers: handlers.length, used: used.length, missingHandlers, missingCore, nonWorkerEnvelopes }, null, 2));
   if (!ok) process.exitCode = 1;
 }
 
