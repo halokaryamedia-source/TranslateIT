@@ -92,6 +92,13 @@ expectIncludes(routeSelectionSurface, "loadVirtualRouteSelectionSurfaceState", "
 expectIncludes(routeSelectionSurface, "saveVirtualRouteSelectionSurfaceSelection", "route selection surface save action");
 expectIncludes(routeSelectionSurface, "setPreferredVirtualMicRouteDevices", "route selection surface preference bridge");
 
+const routeSelectionRenderer = readText("EngineData/Frontend/RustApp/src/app/active-launcher/virtualRouteSelectionSurfaceRenderer.ts");
+expectIncludes(routeSelectionRenderer, "bindVirtualRouteSelectionSurface", "route selection renderer binder");
+expectIncludes(routeSelectionRenderer, "data-virtual-route-field", "route selection renderer fields");
+expectIncludes(routeSelectionRenderer, "data-virtual-route-action", "route selection renderer actions");
+expectIncludes(routeSelectionRenderer, "Save Route Devices", "route selection renderer save button");
+expectIncludes(routeSelectionRenderer, "Refresh Devices", "route selection renderer refresh button");
+
 const helperBinding = readText("EngineData/Frontend/RustApp/src/app/active-launcher/developerHelperBridgeBinding.ts");
 expectIncludes(helperBinding, "virtualRouteApi", "developer diagnostics route bridge import");
 expectIncludes(helperBinding, "prepareVirtualMicOutputRouteRuntimeStubFromLatestPipeline", "developer diagnostics latest TTS route stub");
