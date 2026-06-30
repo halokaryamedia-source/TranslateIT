@@ -20,6 +20,7 @@ CI ini fokus pada:
 2. TypeScript typecheck.
 3. Rust/Tauri compile guard via GitHub Actions.
 4. Contract/report scripts yang sudah tersedia di `package.json`.
+5. Virtual route bridge/command/type/action consistency.
 
 ## CI jobs
 
@@ -43,12 +44,20 @@ npm run test:ui-binding-report
 npm run test:action-binding-report
 ```
 
+`validate:quick` sekarang juga menjalankan:
+
+```bash
+npm run validate:virtual-route
+```
+
 Tujuan:
 
 - Menangkap import/type/action binding issue.
 - Menangkap frontend/backend contract mismatch.
 - Menangkap worker contract drift.
 - Menangkap registry/linkage consistency issue.
+- Menangkap virtual route command/type/bridge drift.
+- Menangkap route diagnostics yang kembali mengirim hardcoded null source audio path.
 
 ### 2. Rust/Tauri compile guard
 
@@ -109,6 +118,8 @@ Jika user sudah mengizinkan local validation:
 - Tauri invoke argument naming mismatch.
 - Rust borrow/move error saat membuat JSON evidence.
 - Missing module export di `commands/mod.rs`.
+- Virtual route bridge tidak membaca latest pipeline TTS output path.
+- Virtual route diagnostics mengirim hardcoded null source audio path.
 
 ### Runtime setup failures
 
@@ -130,9 +141,9 @@ Jika user sudah mengizinkan local validation:
 
 ## Progress calibration
 
-Progress gabungan tetap sekitar **68-70%** sampai minimal CI dan local compile proof tersedia.
+Progress gabungan tetap sekitar **72%** sampai minimal CI dan local compile proof tersedia.
 
-Jika CI source-contract + Rust/Tauri compile guard hijau, progress bisa dinaikkan konservatif ke sekitar **72-75%**.
+Jika CI source-contract + Rust/Tauri compile guard hijau, progress bisa dinaikkan konservatif ke sekitar **74-76%**.
 
 Jika Windows runtime ASR/Translation/TTS juga terbukti, progress bisa naik ke sekitar **82-86%**.
 
