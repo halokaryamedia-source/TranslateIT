@@ -25,10 +25,12 @@ const actions = read("src/app/active-launcher/launcherSettingsActions.ts");
 const runtimeApi = read("src/app/bridge/runtimeApi.ts");
 
 for (const marker of [
-  "data-settings-tab=\"general\"",
-  "data-settings-tab=\"translate\"",
-  "data-settings-tab=\"audio\"",
-  "data-settings-tab=\"developer\"",
+  "SETTINGS_NAV_ITEMS",
+  "tab: \"general\"",
+  "tab: \"translate\"",
+  "tab: \"audio\"",
+  "tab: \"developer\"",
+  "data-settings-tab=\"${item.tab}\"",
   "settingsContent",
   "settingsButton",
   "backHomeButton",
@@ -103,4 +105,4 @@ if (errors.length > 0) {
   errors.forEach((error) => console.error(`- ${error}`));
   process.exit(1);
 }
-console.log("Settings surface contract passed: tabs, renderers, bindings, persistence, language/audio controls, and developer diagnostics are covered.");
+console.log("Settings surface contract passed: generated tabs, renderers, bindings, persistence, language/audio controls, and developer diagnostics are covered.");
