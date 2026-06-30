@@ -2,6 +2,7 @@ use serde::Serialize;
 use serde_json::{json, Value};
 use std::sync::{Mutex, OnceLock};
 
+use super::asr_payload_boundary::get_latest_asr_audio_payload_status;
 use super::helper_bridge::{get_helper_bridge_status, send_helper_bridge_request};
 use super::helper_bridge_runtime::{unix_ms, HelperBridgeActionResult, HelperBridgeRequest, HelperBridgeStatus};
 use super::runtime_capture::{
@@ -180,6 +181,13 @@ fn promote_translation_payload_after_contract(dispatch_ok: bool, payload: &Pipel
     );
 }
 
+fn transcript_from_worker_response(raw: &str) -> Option<String> {
+    serde_json::from_str::<Value>(raw)
+        .ok()
+        .and_then(|value| value.get("transcript_text").and_then(Value::as_str).map(str::trim).map(str::to_string))
+        .filter(|text| !text.is_empty())
+}
+
 fn handoff_payload(stage: &str, helper: &HelperBridgeStatus, asr: &AsrHandoffRequestStatus, payload: &PipelinePayloadState) -> Value {
     json!({
         "command": stage,
@@ -351,6 +359,18 @@ pub fn seed_dev_asr_transcript(text: Option<String>) -> LivePipelineSessionSnaps
     let transcript = normalize_seed_text(text, "Hello from TranslateIT developer transcript seed.");
     set_transcript_payload(transcript, "developer_diagnostics_seed_transcript");
     let _ = prepare_translation_handoff_request();
+    build_pipeline_snapshot(get_live_pipeline_handoff_status())
+}
+
+#[tauri::command]
+pub fn promote_latest_asr_payload_transcript() -> LivePipelineSessionSnapshot {
+    let asr_payload = get_latest_asr_audio_payload_status();
+    if asr_payload.dispatch_ok && asr_payload.transcript_text_present {
+        if let Some(transcript) = transcript_from_worker_response(&asr_payload.worker_response_json) {
+            set_transcript_payload(transcript, "asr_decode_worker_response_promoted_after_guarded_validation");
+            let _ = prepare_translation_handoff_request();
+        }
+    }
     build_pipeline_snapshot(get_live_pipeline_handoff_status())
 }
 
