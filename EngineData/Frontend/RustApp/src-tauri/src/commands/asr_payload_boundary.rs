@@ -35,6 +35,11 @@ pub struct AsrAudioPayloadRequestStatus {
     pub payload_json: String,
     pub evidence_json: String,
     pub worker_response_json: String,
+    pub worker_stage: String,
+    pub worker_blocker: String,
+    pub worker_note: String,
+    pub transcript_text_present: bool,
+    pub transcript_char_count: usize,
     pub updated_unix_ms: u128,
 }
 
@@ -79,6 +84,11 @@ fn no_cached_asr_payload_status() -> AsrAudioPayloadRequestStatus {
             "runtime_claim": "asr_audio_payload_no_cached_runtime_claim"
         }).to_string(),
         worker_response_json: "{}".to_string(),
+        worker_stage: String::new(),
+        worker_blocker: "asr_audio_payload:no_cached_status".to_string(),
+        worker_note: "No ASR audio payload status has been prepared or dispatched in this app session yet.".to_string(),
+        transcript_text_present: false,
+        transcript_char_count: 0,
         updated_unix_ms: unix_ms(),
     }
 }
@@ -129,6 +139,10 @@ fn value_text(value: &Value, key: &str) -> Option<String> {
 
 fn parse_json_or_raw(raw: &str) -> Value {
     serde_json::from_str::<Value>(raw).unwrap_or_else(|_| json!({ "raw": raw }))
+}
+
+fn text_char_count(value: &Option<String>) -> usize {
+    value.as_deref().map(|text| text.chars().count()).unwrap_or(0)
 }
 
 fn build_asr_audio_payload_status(write_audio: bool) -> AsrAudioPayloadRequestStatus {
@@ -267,6 +281,11 @@ fn build_asr_audio_payload_status(write_audio: bool) -> AsrAudioPayloadRequestSt
         payload_json: payload.to_string(),
         evidence_json: evidence.to_string(),
         worker_response_json: "{}".to_string(),
+        worker_stage: String::new(),
+        worker_blocker: blocker.clone(),
+        worker_note: String::new(),
+        transcript_text_present: false,
+        transcript_char_count: 0,
         updated_unix_ms: unix_ms(),
     }
 }
@@ -274,8 +293,11 @@ fn build_asr_audio_payload_status(write_audio: bool) -> AsrAudioPayloadRequestSt
 fn apply_asr_decode_worker_response(status: &mut AsrAudioPayloadRequestStatus, response: HelperBridgeWorkerResponse) {
     let worker_response = parse_json_or_raw(&response.worker_response_json);
     let payload_evidence = parse_json_or_raw(&status.evidence_json);
+    let worker_stage = value_text(&worker_response, "stage").unwrap_or_else(|| response.task.clone());
     let worker_blocker = value_text(&worker_response, "blocker");
     let worker_note = value_text(&worker_response, "note");
+    let transcript_text = value_text(&worker_response, "transcript_text");
+    let transcript_char_count = text_char_count(&transcript_text);
     status.dispatch_attempted = true;
     status.dispatch_ok = response.ok;
     status.ok = response.ok;
@@ -287,9 +309,11 @@ fn apply_asr_decode_worker_response(status: &mut AsrAudioPayloadRequestStatus, r
     status.blocker = if response.ok {
         String::new()
     } else {
-        worker_blocker.unwrap_or_else(|| "asr_decode:worker_blocked".to_string())
+        worker_blocker.clone().unwrap_or_else(|| "asr_decode:worker_blocked".to_string())
     };
-    status.next_action = if response.ok {
+    status.next_action = if response.ok && transcript_text.is_some() {
+        "promote_asr_transcript_after_runtime_validation".to_string()
+    } else if response.ok {
         "inspect_worker_asr_decode_response".to_string()
     } else {
         "inspect_worker_asr_decode_blocker".to_string()
@@ -297,12 +321,22 @@ fn apply_asr_decode_worker_response(status: &mut AsrAudioPayloadRequestStatus, r
     status.generation_token = response.generation_token;
     status.runtime_claim = "asr_decode_worker_response_captured_no_windows_runtime_proof".to_string();
     status.worker_response_json = response.worker_response_json;
+    status.worker_stage = worker_stage.clone();
+    status.worker_blocker = worker_blocker.clone().unwrap_or_default();
+    status.worker_note = worker_note.clone().unwrap_or_default();
+    status.transcript_text_present = transcript_text.is_some();
+    status.transcript_char_count = transcript_char_count;
     status.evidence_json = json!({
         "schema": "translateit.asr_audio_payload_boundary.v1",
         "cached": true,
         "payload_evidence": payload_evidence,
         "worker_response": worker_response,
         "worker_response_captured": true,
+        "worker_stage": worker_stage,
+        "worker_blocker": worker_blocker,
+        "worker_note": worker_note,
+        "transcript_text_present": status.transcript_text_present,
+        "transcript_char_count": status.transcript_char_count,
         "runtime_claim": "asr_decode_worker_response_captured_no_windows_runtime_proof"
     }).to_string();
     status.updated_unix_ms = unix_ms();
