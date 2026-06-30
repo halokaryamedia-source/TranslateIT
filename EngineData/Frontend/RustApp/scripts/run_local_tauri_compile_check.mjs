@@ -1,4 +1,4 @@
-import { existsSync, mkdirSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, rmSync, writeFileSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { spawnSync } from "node:child_process";
@@ -7,7 +7,9 @@ const scriptDir = dirname(fileURLToPath(import.meta.url));
 const appRoot = resolve(scriptDir, "..");
 const repoRoot = resolve(appRoot, "..", "..", "..");
 const reportDir = resolve(repoRoot, "UserData", "LogData", "RuntimeTestReports");
-const manifestPath = join(appRoot, "src-tauri", "Cargo.toml");
+const tauriRoot = join(appRoot, "src-tauri");
+const manifestPath = join(tauriRoot, "Cargo.toml");
+const targetPath = join(tauriRoot, "target");
 const frontendDistPath = join(appRoot, "dist", "index.html");
 const isWindows = process.platform === "win32";
 mkdirSync(reportDir, { recursive: true });
@@ -84,6 +86,11 @@ run("cargo version", "cargo", ["--version"]);
 if (!existsSync(frontendDistPath)) {
   console.log("[local-tauri-compile] Frontend dist is missing. Building frontend first...");
   run("frontend build", "npm", ["run", "build:frontend"]);
+}
+
+if (existsSync(targetPath)) {
+  console.log(`[local-tauri-compile] Removing stale Tauri target cache: ${targetPath}`);
+  rmSync(targetPath, { recursive: true, force: true, maxRetries: 3, retryDelay: 500 });
 }
 
 console.log("[local-tauri-compile] Running cargo check for Tauri Rust source...");
