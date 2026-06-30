@@ -15,6 +15,11 @@ const files = {
   developerHelperBridgeBinding: "developerHelperBridgeBinding.ts",
   developerEvidenceBinding: "developerEvidenceBinding.ts",
   settingsAutosaveBinding: "settingsAutosaveBinding.ts",
+  diagnosticButtonBinding: "diagnosticButtonBinding.ts",
+  sourceOrchestrationBinding: "sourceOrchestrationBinding.ts",
+  virtualAudioRouteProviderBinding: "virtualAudioRouteProviderBinding.ts",
+  virtualRouteSelectionSurfaceMount: "virtualRouteSelectionSurfaceMount.ts",
+  virtualRouteSelectionSurfaceRenderer: "virtualRouteSelectionSurfaceRenderer.ts",
 };
 
 const actionChecks = [
@@ -159,7 +164,7 @@ function main() {
     ],
   };
   const report = {
-    schema: "translateit.action_binding_report.v2",
+    schema: "translateit.action_binding_report.v3",
     generated_at: new Date().toISOString(),
     app_root: appRoot,
     missing_files: missingFiles,
