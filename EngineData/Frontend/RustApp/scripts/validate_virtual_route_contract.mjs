@@ -28,6 +28,7 @@ const virtualRoute = readText("EngineData/Frontend/RustApp/src-tauri/src/command
 expectIncludes(virtualRoute, "pub struct VirtualMicRouteContractStatus", "route status contract");
 expectIncludes(virtualRoute, "pub struct VirtualMicOutputRouteRuntimeStubStatus", "route runtime stub contract");
 expectIncludes(virtualRoute, "prepare_virtual_mic_output_route_runtime_stub", "route runtime stub command");
+expectIncludes(virtualRoute, "set_preferred_virtual_mic_route_devices", "route preference command");
 expectIncludes(virtualRoute, "latest_virtual_mic_route_evidence.json", "route evidence file");
 expectIncludes(virtualRoute, "latest_virtual_mic_output_route_stub.json", "route stub evidence file");
 expectIncludes(virtualRoute, "guarded_runtime_execution", "guarded runtime execution flag");
@@ -63,9 +64,13 @@ expectIncludes(sharedTypes, "route_stub_evidence_path", "professional gate route
 const routeApi = readText("EngineData/Frontend/RustApp/src/app/bridge/virtualRouteApi.ts");
 expectIncludes(routeApi, "get_live_pipeline_session_snapshot", "route bridge latest pipeline snapshot");
 expectIncludes(routeApi, "tts_audio_output_path", "route bridge actual TTS output path");
+expectIncludes(routeApi, "setPreferredVirtualMicRouteDevices", "route bridge preference setter");
+expectIncludes(routeApi, "set_preferred_virtual_mic_route_devices", "route bridge preference command");
 expectIncludes(routeApi, "prepare_virtual_mic_output_route_runtime_stub", "route bridge stub command");
 expectIncludes(routeApi, "get_professional_runtime_readiness_gate_status", "route bridge professional gate command");
 expectIncludes(routeApi, "sourceAudioPath", "route bridge camelCase argument");
+expectIncludes(routeApi, "outputDevice", "route bridge output device argument");
+expectIncludes(routeApi, "inputDevice", "route bridge input device argument");
 expectNotIncludes(routeApi, "sourceAudioPath: null", "route bridge hardcoded null source path");
 
 const helperBinding = readText("EngineData/Frontend/RustApp/src/app/active-launcher/developerHelperBridgeBinding.ts");
