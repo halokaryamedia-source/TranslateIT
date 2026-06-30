@@ -7,7 +7,8 @@ on:
       - V1-Advance
     paths:
       - 'EngineData/Frontend/RustApp/**'
-      - 'EngineData/Backend/LocalWorker/**'
+      - 'EngineData/Backend/**'
+      - 'UserData/.gitkeep'
       - 'DevelopingData/Documentation/Reports/Engineering/**'
       - '.github/workflows/v1-advance-ci.yml'
   pull_request:
@@ -15,7 +16,8 @@ on:
       - V1-Advance
     paths:
       - 'EngineData/Frontend/RustApp/**'
-      - 'EngineData/Backend/LocalWorker/**'
+      - 'EngineData/Backend/**'
+      - 'UserData/.gitkeep'
       - 'DevelopingData/Documentation/Reports/Engineering/**'
       - '.github/workflows/v1-advance-ci.yml'
 
@@ -33,7 +35,7 @@ jobs:
   source-contract-guards:
     name: Source contract guards
     runs-on: ubuntu-24.04
-    timeout-minutes: 15
+    timeout-minutes: 10
     defaults:
       run:
         working-directory: EngineData/Frontend/RustApp
@@ -45,14 +47,9 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: '20'
-          cache: npm
-          cache-dependency-path: EngineData/Frontend/RustApp/package-lock.json
 
-      - name: Install frontend dependencies
-        run: npm ci
-
-      - name: Run quick source validation
-        run: npm run validate:quick
+      - name: Run source contract validation
+        run: npm run validate:source-contracts
 
       - name: Run contract reports
         run: |
@@ -115,16 +112,6 @@ jobs:
 
       - name: Setup Rust
         uses: dtolnay/rust-toolchain@stable
-
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: '20'
-          cache: npm
-          cache-dependency-path: EngineData/Frontend/RustApp/package-lock.json
-
-      - name: Install frontend dependencies
-        run: npm ci
 
       - name: Cargo check Tauri shell
         run: cargo check --locked --manifest-path src-tauri/Cargo.toml
