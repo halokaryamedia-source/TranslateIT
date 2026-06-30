@@ -73,6 +73,7 @@ Catatan penting: wrapper sengaja belum memanggil `base.handle_transcribe(payload
 File:
 
 - `EngineData/Frontend/RustApp/src/app/active-launcher/developerHelperBridgeBinding.ts`
+- `EngineData/Frontend/RustApp/src/app/bridge/asrPayloadApi.ts`
 
 UI action baru di-inject ke panel Capture helper bridge controls:
 
@@ -81,7 +82,8 @@ UI action baru di-inject ke panel Capture helper bridge controls:
 
 Catatan implementasi:
 
-- Binding sengaja langsung memakai `invoke()` untuk command baru supaya tidak merombak `runtimeApi.ts` besar-besaran sebelum compile proof.
+- ASR Payload command sekarang lewat adapter kecil `asrPayloadApi.ts`, memakai shared `runCommand()` agar error bridge tercatat konsisten dengan command Tauri lain.
+- Binding UI tidak lagi menyimpan fallback/type ASR Payload lokal yang duplikatif.
 - Summary UI menampilkan boundary, audio readiness, WAV path, format, sample count, durasi, next action, blocker, dan batasan bahwa ini belum transcript/Windows runtime proof.
 - Ini masih diagnostic evidence, bukan user-facing runtime readiness.
 
@@ -125,7 +127,7 @@ Ekspektasi saat ini bukan transcript, tetapi blocker/evidence yang lebih spesifi
 
 Setelah compile proof:
 
-1. Rapikan command baru ke `runtimeApi.ts` jika TypeScript compile sudah aman.
+1. Promosikan `asrPayloadApi.ts` ke `runtimeApi.ts` jika TypeScript compile sudah aman.
 2. Hubungkan `asr_decode` ke real `base.handle_transcribe(payload)` secara guarded.
 3. Simpan response sebagai `asr_evidence`.
 4. Promote `transcript_text` dari worker ke live pipeline payload hanya jika `ok=true` dan stage=`transcribe/asr_decode`.
