@@ -206,8 +206,8 @@ fn route_runtime_stub_contract_json(
     serde_json::to_string_pretty(&json!({
         "schema": "translateit.virtual_route.runtime_stub_contract.v1",
         "source_audio_path": source_audio_path,
-        "selected_output_device": route.selected_output_device,
-        "selected_input_device": route.selected_input_device,
+        "selected_output_device": &route.selected_output_device,
+        "selected_input_device": &route.selected_input_device,
         "route_ready": route.route_ready,
         "route_stub_ready": route_stub_ready,
         "guarded_runtime_execution": false,
