@@ -68,11 +68,29 @@ Perilaku:
 
 Catatan penting: wrapper sengaja belum memanggil `base.handle_transcribe(payload)` sampai ada compile proof dan Windows runtime proof. Ini menjaga agar batch ini tidak salah diklaim sebagai transcription proof.
 
+### 3. Developer Diagnostics UI binding
+
+File:
+
+- `EngineData/Frontend/RustApp/src/app/active-launcher/developerHelperBridgeBinding.ts`
+
+UI action baru di-inject ke panel Capture helper bridge controls:
+
+- `Prepare ASR Payload`
+- `Dispatch ASR Decode`
+
+Catatan implementasi:
+
+- Binding sengaja langsung memakai `invoke()` untuk command baru supaya tidak merombak `runtimeApi.ts` besar-besaran sebelum compile proof.
+- Summary UI menampilkan boundary, audio readiness, WAV path, format, sample count, durasi, next action, blocker, dan batasan bahwa ini belum transcript/Windows runtime proof.
+- Ini masih diagnostic evidence, bukan user-facing runtime readiness.
+
 ## Batasan yang masih berlaku
 
 Belum terbukti:
 
 - Rust/Tauri compile setelah batch ini.
+- Developer Diagnostics UI render dan click action di Windows.
 - Worker `asr_decode` berjalan di Windows.
 - WAV payload benar-benar terbentuk dari mic runtime target PC.
 - Whisper/Faster-Whisper menghasilkan `transcript_text`.
@@ -107,7 +125,7 @@ Ekspektasi saat ini bukan transcript, tetapi blocker/evidence yang lebih spesifi
 
 Setelah compile proof:
 
-1. Tambahkan tombol UI Developer Diagnostics untuk `Prepare ASR Payload` dan `Dispatch ASR Decode`.
+1. Rapikan command baru ke `runtimeApi.ts` jika TypeScript compile sudah aman.
 2. Hubungkan `asr_decode` ke real `base.handle_transcribe(payload)` secara guarded.
 3. Simpan response sebagai `asr_evidence`.
 4. Promote `transcript_text` dari worker ke live pipeline payload hanya jika `ok=true` dan stage=`transcribe/asr_decode`.
