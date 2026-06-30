@@ -73,6 +73,9 @@ jobs:
       - name: Validate settings surface contract
         run: node scripts/validate_settings_surface_contract.mjs
 
+      - name: Validate auto test matrix contract
+        run: node scripts/validate_auto_test_matrix_contract.mjs
+
       - name: Validate startup readiness
         run: npm run validate:startup-readiness
 
