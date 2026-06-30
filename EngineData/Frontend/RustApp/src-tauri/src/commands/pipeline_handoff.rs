@@ -1,10 +1,14 @@
 use serde::Serialize;
 use serde_json::{json, Value};
+use std::fs;
+use std::path::{Path, PathBuf};
 use std::sync::{Mutex, OnceLock};
 
+use crate::engine::paths::ProjectPaths;
+
 use super::asr_payload_boundary::get_latest_asr_audio_payload_status;
-use super::helper_bridge::{get_helper_bridge_status, send_helper_bridge_request, send_helper_worker_task, HelperBridgeWorkerResponse};
-use super::helper_bridge_runtime::{unix_ms, HelperBridgeActionResult, HelperBridgeRequest, HelperBridgeStatus};
+use super::helper_bridge::{get_helper_bridge_status, send_helper_worker_task, HelperBridgeWorkerResponse};
+use super::helper_bridge_runtime::{unix_ms, HelperBridgeActionResult, HelperBridgeStatus};
 use super::runtime_capture::{
     get_cached_asr_handoff_status, get_capture_transcript_boundary_status, prepare_asr_handoff_request,
     AsrHandoffRequestStatus,
@@ -36,6 +40,10 @@ pub struct PipelinePayloadState {
     pub transcript_available: bool,
     pub translation_available: bool,
     pub tts_text_available: bool,
+    pub tts_audio_output_path: Option<String>,
+    pub audio_output_ready: bool,
+    pub virtual_mic_ready: bool,
+    pub virtual_mic_blocker: String,
     pub source: String,
     pub updated_unix_ms: u128,
 }
@@ -49,6 +57,10 @@ impl Default for PipelinePayloadState {
             transcript_available: false,
             translation_available: false,
             tts_text_available: false,
+            tts_audio_output_path: None,
+            audio_output_ready: false,
+            virtual_mic_ready: false,
+            virtual_mic_blocker: "virtual_mic:missing_tts_output".to_string(),
             source: "empty".to_string(),
             updated_unix_ms: unix_ms(),
         }
@@ -68,6 +80,7 @@ pub struct LivePipelineSessionSnapshot {
     pub next_action: String,
     pub summary: String,
     pub runtime_claim: String,
+    pub evidence_path: Option<String>,
     pub payload: PipelinePayloadState,
     pub stages: Vec<PipelineHandoffRequestStatus>,
     pub updated_unix_ms: u128,
@@ -87,6 +100,32 @@ fn tts_status_runtime() -> &'static Mutex<Option<PipelineHandoffRequestStatus>> 
 
 fn payload_state_runtime() -> &'static Mutex<PipelinePayloadState> {
     PIPELINE_PAYLOAD_STATE.get_or_init(|| Mutex::new(PipelinePayloadState::default()))
+}
+
+fn normalized_path_label(path: &Path) -> String {
+    path.to_string_lossy().replace(char::from(92), "/")
+}
+
+fn latest_pipeline_evidence_path() -> PathBuf {
+    let project_paths = ProjectPaths::discover();
+    PathBuf::from(project_paths.user_log_dir)
+        .join("RustAppValidation")
+        .join("latest_live_pipeline_evidence.json")
+}
+
+fn write_pipeline_evidence(snapshot: &LivePipelineSessionSnapshot) -> Option<String> {
+    let evidence_path = latest_pipeline_evidence_path();
+    let parent = evidence_path.parent()?;
+    let _ = fs::create_dir_all(parent);
+    let evidence_payload = json!({
+        "schema": "translateit.live_pipeline.evidence.v1",
+        "snapshot": snapshot,
+        "runtime_claim": "pipeline_evidence_file_source_side_not_runtime_proof",
+        "written_unix_ms": unix_ms()
+    });
+    let body = serde_json::to_string_pretty(&evidence_payload).ok()?;
+    fs::write(&evidence_path, body).ok()?;
+    Some(normalized_path_label(&evidence_path))
 }
 
 fn record_stage_status(status: &PipelineHandoffRequestStatus) {
@@ -163,6 +202,35 @@ fn set_translation_payload(text: String, source: &str) {
     }
 }
 
+fn set_tts_output_payload(output_path: String, audio_output_ready: bool, source: &str) {
+    if let Ok(mut payload) = payload_state_runtime().lock() {
+        payload.tts_audio_output_path = if output_path.is_empty() { None } else { Some(output_path) };
+        payload.audio_output_ready = audio_output_ready && payload.tts_audio_output_path.is_some();
+        payload.virtual_mic_ready = false;
+        payload.virtual_mic_blocker = if payload.audio_output_ready {
+            "virtual_mic:output_not_prepared_yet".to_string()
+        } else {
+            "virtual_mic:missing_tts_output".to_string()
+        };
+        payload.source = source.to_string();
+        payload.updated_unix_ms = unix_ms();
+    }
+}
+
+fn set_virtual_mic_prepared() {
+    if let Ok(mut payload) = payload_state_runtime().lock() {
+        if payload.audio_output_ready && payload.tts_audio_output_path.is_some() {
+            payload.virtual_mic_ready = true;
+            payload.virtual_mic_blocker = String::new();
+            payload.source = "virtual_mic_output_prepared_from_tts_output_path".to_string();
+        } else {
+            payload.virtual_mic_ready = false;
+            payload.virtual_mic_blocker = "virtual_mic:missing_tts_output".to_string();
+        }
+        payload.updated_unix_ms = unix_ms();
+    }
+}
+
 fn dev_translation_placeholder(payload: &PipelinePayloadState) -> String {
     let transcript = payload
         .transcript_text
@@ -207,6 +275,38 @@ fn translated_from_worker_response(raw: &str) -> Option<String> {
         })
 }
 
+fn tts_output_from_worker_response(raw: &str) -> (Option<String>, bool) {
+    let Some(value) = serde_json::from_str::<Value>(raw).ok() else {
+        return (None, false);
+    };
+    let output_path = value
+        .get("output_path")
+        .and_then(Value::as_str)
+        .map(str::trim)
+        .map(str::to_string)
+        .filter(|text| !text.is_empty())
+        .or_else(|| {
+            value
+                .get("contract_payload")
+                .and_then(|payload| payload.get("output_path"))
+                .and_then(Value::as_str)
+                .map(str::trim)
+                .map(str::to_string)
+                .filter(|text| !text.is_empty())
+        });
+    let audio_output_ready = value
+        .get("audio_output_ready")
+        .and_then(Value::as_bool)
+        .or_else(|| {
+            value
+                .get("contract_payload")
+                .and_then(|payload| payload.get("audio_output_ready"))
+                .and_then(Value::as_bool)
+        })
+        .unwrap_or(false);
+    (output_path, audio_output_ready)
+}
+
 fn action_result_from_worker_response(response: &HelperBridgeWorkerResponse) -> HelperBridgeActionResult {
     HelperBridgeActionResult {
         ok: response.ok,
@@ -224,6 +324,13 @@ fn dispatch_translation_worker_response(payload_json: &str) -> (HelperBridgeActi
     (action_result_from_worker_response(&response), translated)
 }
 
+fn dispatch_tts_worker_response(payload_json: &str) -> (HelperBridgeActionResult, Option<String>, bool) {
+    let payload = serde_json::from_str::<Value>(payload_json).unwrap_or_else(|_| json!({}));
+    let response = send_helper_worker_task("tts_handoff", payload);
+    let (output_path, audio_output_ready) = tts_output_from_worker_response(&response.worker_response_json);
+    (action_result_from_worker_response(&response), output_path, audio_output_ready)
+}
+
 fn handoff_payload(stage: &str, helper: &HelperBridgeStatus, asr: &AsrHandoffRequestStatus, payload: &PipelinePayloadState) -> Value {
     json!({
         "command": stage,
@@ -238,9 +345,12 @@ fn handoff_payload(stage: &str, helper: &HelperBridgeStatus, asr: &AsrHandoffReq
         "transcript_available": payload.transcript_available,
         "translation_available": payload.translation_available,
         "tts_text_available": payload.tts_text_available,
+        "audio_output_ready": payload.audio_output_ready,
+        "virtual_mic_ready": payload.virtual_mic_ready,
         "transcript_text": payload.transcript_text,
         "translated_text": payload.translated_text,
         "tts_text": payload.tts_text,
+        "tts_audio_output_path": payload.tts_audio_output_path,
         "payload_source": payload.source,
         "runtime_claim": "pipeline_handoff_metadata_and_dev_payload_no_runtime_proof"
     })
@@ -333,10 +443,16 @@ fn build_pipeline_snapshot(stages: Vec<PipelineHandoffRequestStatus>) -> LivePip
     let stage_count = stages.len();
     let prepared_count = stages.iter().filter(|stage| stage.request_prepared).count();
     let dispatch_ok_count = stages.iter().filter(|stage| stage.dispatch_ok).count();
-    let payload_count = [payload.transcript_available, payload.translation_available, payload.tts_text_available]
-        .iter()
-        .filter(|available| **available)
-        .count();
+    let payload_count = [
+        payload.transcript_available,
+        payload.translation_available,
+        payload.tts_text_available,
+        payload.audio_output_ready,
+        payload.virtual_mic_ready,
+    ]
+    .iter()
+    .filter(|available| **available)
+    .count();
     let first_blocked = stages
         .iter()
         .find(|stage| !stage.dispatch_ok && !stage.request_prepared)
@@ -344,25 +460,39 @@ fn build_pipeline_snapshot(stages: Vec<PipelineHandoffRequestStatus>) -> LivePip
     let progress_percent = if stage_count == 0 {
         0
     } else {
-        (((prepared_count + dispatch_ok_count) * 40 + payload_count * 20) / stage_count).min(100) as u8
+        (((prepared_count + dispatch_ok_count) * 35 + payload_count * 15) / stage_count).min(100) as u8
     };
-    let ok = stage_count > 0 && stages.iter().all(|stage| stage.dispatch_ok);
+    let ok = stage_count > 0 && stages.iter().all(|stage| stage.dispatch_ok) && payload.virtual_mic_ready;
     let state = if ok {
-        "complete_stub_dispatch".to_string()
+        "virtual_mic_prepared_stub_dispatch".to_string()
     } else if prepared_count > 0 || dispatch_ok_count > 0 || payload_count > 0 {
         "partial_stub_progress".to_string()
     } else {
         "blocked".to_string()
     };
-    let active_stage = first_blocked
-        .map(|stage| stage.stage.clone())
-        .unwrap_or_else(|| "none".to_string());
-    let active_blocker = first_blocked
-        .map(|stage| stage.blocker.clone())
-        .unwrap_or_default();
-    let next_action = first_blocked
-        .map(|stage| stage.next_action.clone())
-        .unwrap_or_else(|| "inspect_pipeline_runtime_proof".to_string());
+    let active_stage = if !payload.audio_output_ready && stages.iter().all(|stage| stage.dispatch_ok || stage.request_prepared) {
+        "tts_handoff".to_string()
+    } else if payload.audio_output_ready && !payload.virtual_mic_ready {
+        "virtual_mic_output".to_string()
+    } else {
+        first_blocked
+            .map(|stage| stage.stage.clone())
+            .unwrap_or_else(|| "none".to_string())
+    };
+    let active_blocker = if payload.audio_output_ready && !payload.virtual_mic_ready {
+        payload.virtual_mic_blocker.clone()
+    } else {
+        first_blocked
+            .map(|stage| stage.blocker.clone())
+            .unwrap_or_default()
+    };
+    let next_action = if payload.audio_output_ready && !payload.virtual_mic_ready {
+        "prepare_virtual_mic_output_from_latest_tts".to_string()
+    } else {
+        first_blocked
+            .map(|stage| stage.next_action.clone())
+            .unwrap_or_else(|| "inspect_pipeline_runtime_proof".to_string())
+    };
     let summary = format!(
         "{} stages, {} prepared, {} dispatch accepted, {} payload markers. Active blocker: {}.",
         stage_count,
@@ -372,7 +502,7 @@ fn build_pipeline_snapshot(stages: Vec<PipelineHandoffRequestStatus>) -> LivePip
         if active_blocker.is_empty() { "none" } else { active_blocker.as_str() }
     );
 
-    LivePipelineSessionSnapshot {
+    let mut snapshot = LivePipelineSessionSnapshot {
         ok,
         state,
         progress_percent,
@@ -384,10 +514,13 @@ fn build_pipeline_snapshot(stages: Vec<PipelineHandoffRequestStatus>) -> LivePip
         next_action,
         summary,
         runtime_claim: "pipeline_session_snapshot_source_side_not_runtime_proof".to_string(),
+        evidence_path: None,
         payload,
         stages,
         updated_unix_ms: unix_ms(),
-    }
+    };
+    snapshot.evidence_path = write_pipeline_evidence(&snapshot);
+    snapshot
 }
 
 #[tauri::command]
@@ -415,6 +548,12 @@ pub fn seed_dev_translated_text(text: Option<String>) -> LivePipelineSessionSnap
     let translated = normalize_seed_text(text, "Halo dari seed terjemahan developer TranslateIT.");
     set_translation_payload(translated, "developer_diagnostics_seed_translation");
     let _ = prepare_tts_handoff_request();
+    build_pipeline_snapshot(get_live_pipeline_handoff_status())
+}
+
+#[tauri::command]
+pub fn prepare_virtual_mic_output_from_latest_tts() -> LivePipelineSessionSnapshot {
+    set_virtual_mic_prepared();
     build_pipeline_snapshot(get_live_pipeline_handoff_status())
 }
 
@@ -515,12 +654,9 @@ pub fn dispatch_tts_handoff_request() -> PipelineHandoffRequestStatus {
             "complete_translation_handoff_or_seed_dev_translation_first",
         )
     } else {
-        let request = HelperBridgeRequest {
-            task: "tts_handoff".to_string(),
-            payload_json: Some(payload_json.clone()),
-        };
-        let dispatch = send_helper_bridge_request(request);
-        status_from_parts(
+        let (dispatch, output_path, audio_output_ready) = dispatch_tts_worker_response(&payload_json);
+        let dispatch_ok = dispatch.ok;
+        let status = status_from_parts(
             "tts_handoff",
             "translation_handoff_or_seeded_translation",
             ready,
@@ -530,7 +666,17 @@ pub fn dispatch_tts_handoff_request() -> PipelineHandoffRequestStatus {
             helper.generation_token,
             "",
             "implement_tts_runtime",
-        )
+        );
+        if dispatch_ok {
+            if let Some(output_path) = output_path {
+                set_tts_output_payload(
+                    output_path,
+                    audio_output_ready,
+                    "tts_handoff_worker_response_promoted_after_guarded_validation",
+                );
+            }
+        }
+        status
     };
     record_stage_status(&status);
     status
