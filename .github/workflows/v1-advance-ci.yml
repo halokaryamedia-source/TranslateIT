@@ -58,6 +58,12 @@ jobs:
       - name: Validate runtime UX
         run: npm run validate:runtime-ux
 
+      - name: Validate simple UI contract
+        run: npm run validate:simple-ui
+
+      - name: Validate functional surface contract
+        run: node scripts/validate_functional_surface_contract.mjs
+
       - name: Validate startup readiness
         run: npm run validate:startup-readiness
 
