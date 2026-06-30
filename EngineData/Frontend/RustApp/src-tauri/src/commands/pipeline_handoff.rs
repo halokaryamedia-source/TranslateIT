@@ -3,7 +3,7 @@ use serde_json::{json, Value};
 use std::sync::{Mutex, OnceLock};
 
 use super::asr_payload_boundary::get_latest_asr_audio_payload_status;
-use super::helper_bridge::{get_helper_bridge_status, send_helper_bridge_request};
+use super::helper_bridge::{get_helper_bridge_status, send_helper_bridge_request, send_helper_worker_task, HelperBridgeWorkerResponse};
 use super::helper_bridge_runtime::{unix_ms, HelperBridgeActionResult, HelperBridgeRequest, HelperBridgeStatus};
 use super::runtime_capture::{
     get_cached_asr_handoff_status, get_capture_transcript_boundary_status, prepare_asr_handoff_request,
@@ -186,6 +186,42 @@ fn transcript_from_worker_response(raw: &str) -> Option<String> {
         .ok()
         .and_then(|value| value.get("transcript_text").and_then(Value::as_str).map(str::trim).map(str::to_string))
         .filter(|text| !text.is_empty())
+}
+
+fn translated_from_worker_response(raw: &str) -> Option<String> {
+    let value = serde_json::from_str::<Value>(raw).ok()?;
+    value
+        .get("translated_text")
+        .and_then(Value::as_str)
+        .map(str::trim)
+        .map(str::to_string)
+        .filter(|text| !text.is_empty())
+        .or_else(|| {
+            value
+                .get("contract_payload")
+                .and_then(|payload| payload.get("translated_text"))
+                .and_then(Value::as_str)
+                .map(str::trim)
+                .map(str::to_string)
+                .filter(|text| !text.is_empty())
+        })
+}
+
+fn action_result_from_worker_response(response: &HelperBridgeWorkerResponse) -> HelperBridgeActionResult {
+    HelperBridgeActionResult {
+        ok: response.ok,
+        state: response.state.clone(),
+        message: response.message.clone(),
+        generation_token: response.generation_token,
+        runtime_claim: response.runtime_claim.clone(),
+    }
+}
+
+fn dispatch_translation_worker_response(payload_json: &str) -> (HelperBridgeActionResult, Option<String>) {
+    let payload = serde_json::from_str::<Value>(payload_json).unwrap_or_else(|_| json!({}));
+    let response = send_helper_worker_task("translation_handoff", payload);
+    let translated = translated_from_worker_response(&response.worker_response_json);
+    (action_result_from_worker_response(&response), translated)
 }
 
 fn handoff_payload(stage: &str, helper: &HelperBridgeStatus, asr: &AsrHandoffRequestStatus, payload: &PipelinePayloadState) -> Value {
@@ -416,11 +452,7 @@ pub fn dispatch_translation_handoff_request() -> PipelineHandoffRequestStatus {
             "complete_asr_handoff_or_seed_dev_transcript_first",
         )
     } else {
-        let request = HelperBridgeRequest {
-            task: "translation_handoff".to_string(),
-            payload_json: Some(payload_json.clone()),
-        };
-        let dispatch = send_helper_bridge_request(request);
+        let (dispatch, translated_text) = dispatch_translation_worker_response(&payload_json);
         let dispatch_ok = dispatch.ok;
         let status = status_from_parts(
             "translation_handoff",
@@ -433,7 +465,16 @@ pub fn dispatch_translation_handoff_request() -> PipelineHandoffRequestStatus {
             "",
             "implement_translation_runtime",
         );
-        promote_translation_payload_after_contract(dispatch_ok, &payload);
+        if dispatch_ok {
+            if let Some(translated_text) = translated_text {
+                set_translation_payload(
+                    translated_text,
+                    "translation_handoff_worker_response_promoted_after_guarded_validation",
+                );
+            } else {
+                promote_translation_payload_after_contract(true, &payload);
+            }
+        }
         status
     };
     record_stage_status(&status);
