@@ -1,3 +1,4 @@
+import { getDiagnosticsControlsContainer } from "./diagnosticButtonBinding";
 import {
   bindVirtualRouteSelectionSurface,
   type VirtualRouteSelectionSurfaceBinding,
@@ -9,7 +10,7 @@ function ensureHost(): HTMLElement | null {
   const existing = document.querySelector<HTMLElement>("[data-virtual-route-selection-host]");
   if (existing) return existing;
 
-  const captureControls = document.querySelector<HTMLElement>('[aria-label="Capture helper bridge preview controls"]');
+  const captureControls = getDiagnosticsControlsContainer();
   const parent = captureControls?.parentElement;
   if (!parent) return null;
 
