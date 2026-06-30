@@ -10,7 +10,7 @@ Progress development-only saat ini: sekitar **99%**.
 
 Definisi:
 
-- Yang dihitung: source features, contracts, bridge, evidence, blocker, diagnostics, orchestration, route selection model, route selection renderer, route selection mount helper, entrypoint mounting, Source Orchestration binding, guarded runtime handoff, guarded provider script, Rust/bridge provider dispatch wiring, Provider Dry Run UI, route selection styling, Windows provider notes, provider requirements artifact, route renderer escaping, provider response summary hardening, diagnostics button binding cleanup, dan shared diagnostics DOM cleanup.
+- Yang dihitung: source features, contracts, bridge, evidence, blocker, diagnostics, orchestration, route selection model, route selection renderer, route selection mount helper, entrypoint mounting, Source Orchestration binding, guarded runtime handoff, guarded provider script, Rust/bridge provider dispatch wiring, Provider Dry Run UI, route selection styling, Windows provider notes, provider requirements artifact, route renderer escaping, provider response summary hardening, diagnostics button binding cleanup, shared diagnostics DOM cleanup, dan launcher lifecycle cleanup registry.
 - Yang tidak dihitung: CI result, local compile proof, Windows runtime proof, latency proof, dan end-to-end meeting proof.
 
 ## Yang sudah selesai secara development
@@ -56,6 +56,9 @@ Definisi:
 - Reusable diagnostics button binding helper.
 - Shared diagnostics DOM helper for controls container, button class, and assistant notice.
 - Source Orchestration and Provider Dry Run share the same diagnostics button lifecycle helper.
+- Launcher lifecycle cleanup registry.
+- `src/main.ts` now registers cleanup tasks through one registry instead of many manual `stop...` variables.
+- Delayed route selection mount is cleanup-aware.
 - Windows virtual audio provider notes.
 - Audio route runtime contract borrow guard cleanup.
 - Virtual route validator included in quick validation.
@@ -83,6 +86,7 @@ virtualRouteSelectionSurfaceRenderer.ts
 virtualRouteSelectionSurfaceMount.ts
 sourceOrchestrationBinding.ts
 diagnosticButtonBinding.ts
+lifecycleCleanup.ts
 V1_ADVANCE_VIRTUAL_AUDIO_PROVIDER_WINDOWS_NOTES.md
 ```
 
@@ -103,6 +107,7 @@ Purpose:
 - Mount the route selection surface near the existing capture helper controls without rewriting the large diagnostics binding.
 - Provide Source Orchestration and Provider Dry Run as separate actions using one reusable diagnostics button binding helper.
 - Centralize diagnostics controls DOM access and button CSS class through `diagnosticButtonBinding.ts` so route selection, Source Orchestration, and Provider Dry Run share the same UI anchor.
+- Register launcher cleanup tasks through `lifecycleCleanup.ts` so future bindings can be added without duplicating manual `stop...` variables in `src/main.ts`.
 - Parse provider response JSON in the Provider Dry Run summary so blockers and runtime claims are visible to the user.
 - Provide Windows provider notes for `numpy`, `sounddevice`, virtual audio cable/mixer, and runtime guards.
 - Provide a dedicated provider requirements file for Windows validation dependency installation.
