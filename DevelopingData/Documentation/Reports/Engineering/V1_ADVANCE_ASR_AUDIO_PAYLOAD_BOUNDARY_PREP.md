@@ -35,6 +35,7 @@ Perilaku:
 - Payload worker menggunakan cached PCM16 WAV path: `UserData/CacheData/audio_segments/latest_live_target_segment.wav`.
 - Status terakhir disimpan di in-memory cache app session, sehingga Developer Diagnostics bisa membaca ulang hasil terakhir tanpa memicu dispatch baru.
 - Dispatch ASR Decode sekarang memakai helper worker response path, sehingga status dapat menyimpan `worker_response_json` dari Python worker, bukan hanya action result ringkas.
+- Worker response juga diinterpretasikan menjadi field eksplisit agar validasi lokal lebih mudah dibaca.
 - Payload/status menyertakan metadata:
   - `sample_rate_hz`
   - `channels`
@@ -44,6 +45,11 @@ Perilaku:
   - `audio_path`
   - `audio_base64_present`
   - `worker_response_json`
+  - `worker_stage`
+  - `worker_blocker`
+  - `worker_note`
+  - `transcript_text_present`
+  - `transcript_char_count`
   - `runtime_claim`
 
 Runtime claim yang dipertahankan:
@@ -92,6 +98,7 @@ Catatan implementasi:
 - ASR Payload command sekarang lewat adapter kecil `asrPayloadApi.ts`, memakai shared `runCommand()` agar error bridge tercatat konsisten dengan command Tauri lain.
 - Binding UI tidak lagi menyimpan fallback/type ASR Payload lokal yang duplikatif.
 - Summary UI menampilkan boundary, audio readiness, WAV path, format, sample count, durasi, next action, blocker, dan detail worker response seperti `asr:model_not_ready`, `resolved_audio_path`, atau `asr:decoder_runtime_not_enabled_in_wrapper` jika tersedia.
+- Summary UI juga menampilkan field interpretasi: `workerStage`, `workerBlocker`, `transcriptPresent`, dan `transcriptChars`.
 - Ini masih diagnostic evidence, bukan user-facing runtime readiness.
 
 ## Batasan yang masih berlaku
@@ -133,6 +140,7 @@ Ekspektasi saat ini bukan transcript, tetapi blocker/evidence yang lebih spesifi
 - WAV belum bisa ditulis → live segment writer blocker.
 - Model belum siap → `asr:model_not_ready`.
 - Audio + model siap → `asr:decoder_runtime_not_enabled_in_wrapper` sampai wrapper dipromosikan ke `base.handle_transcribe(payload)`.
+- Jika nanti decoder benar-benar mengembalikan transcript, `transcript_text_present=true` dan `transcript_char_count>0` harus muncul, tetapi ini belum menjadi klaim runtime sebelum divalidasi lokal.
 
 ## Next recommended batch
 
