@@ -6,11 +6,11 @@ Status: progress ini tidak menghitung CI, local compile, Windows runtime, atau e
 
 ## Progress development-only
 
-Progress development-only saat ini: sekitar **94%**.
+Progress development-only saat ini: sekitar **96%**.
 
 Definisi:
 
-- Yang dihitung: source features, contracts, bridge, evidence, blocker, diagnostics, orchestration, route selection model, route selection renderer, route selection mount helper, entrypoint mounting, Source Orchestration binding, guarded runtime handoff, guarded provider script, dan Rust/bridge provider dispatch wiring.
+- Yang dihitung: source features, contracts, bridge, evidence, blocker, diagnostics, orchestration, route selection model, route selection renderer, route selection mount helper, entrypoint mounting, Source Orchestration binding, guarded runtime handoff, guarded provider script, Rust/bridge provider dispatch wiring, Provider Dry Run UI, route selection styling, dan Windows provider notes.
 - Yang tidak dihitung: CI result, local compile proof, Windows runtime proof, latency proof, dan end-to-end meeting proof.
 
 ## Yang sudah selesai secara development
@@ -33,6 +33,7 @@ Definisi:
 - Preferred route selection bridge method.
 - User-facing route selection surface model.
 - User-facing route selection surface renderer.
+- Route selection surface styling.
 - Route selection auto-mount helper.
 - Route selection surface mounted from `src/main.ts`.
 - Professional readiness gate.
@@ -47,15 +48,17 @@ Definisi:
 - Provider dependency-aware blockers for `sounddevice` and `numpy`.
 - Rust command `dispatch_guarded_virtual_audio_route_provider` writes provider payload and calls the provider script through `TRANSLATEIT_PYTHON` or `python`.
 - Frontend bridge `dispatchProviderFromLatestPipeline` calls the guarded provider dispatch command from latest pipeline TTS output path.
+- Provider Dry Run UI binding mounted from `src/main.ts`.
+- Windows virtual audio provider notes.
 - Audio route runtime contract borrow guard cleanup.
 - Virtual route validator included in quick validation.
 - CI workflow exists, but CI result is not counted here.
 
 ## Yang belum selesai secara development
 
-1. Final UX cleanup/styling for route selection surface outside Developer Diagnostics.
-2. Provider packaging notes for Windows dependency installation.
-3. Optional one-click UI action for guarded provider dry-run dispatch.
+1. Optional final visual refinement after seeing the actual rendered UI.
+2. Optional post-CI/local compile fixes if validation reveals source issues.
+3. Optional Windows-specific provider behavior refinements after real device validation.
 
 ## New commands/modules added recently
 
@@ -65,10 +68,13 @@ prepare_guarded_virtual_audio_route_runtime
 dispatch_guarded_virtual_audio_route_provider
 virtual_audio_route_provider.py
 virtualAudioRouteRuntimeApi.dispatchProviderFromLatestPipeline
+virtualAudioRouteProviderBinding.ts
+virtualRouteSelectionSurface.css
 virtualRouteSelectionSurfaceModel.ts
 virtualRouteSelectionSurfaceRenderer.ts
 virtualRouteSelectionSurfaceMount.ts
 sourceOrchestrationBinding.ts
+V1_ADVANCE_VIRTUAL_AUDIO_PROVIDER_WINDOWS_NOTES.md
 ```
 
 Purpose:
@@ -86,7 +92,8 @@ Purpose:
 - Provide a modular route selection surface with output/input selectors, save action, refresh action, blocker display, and evidence path display.
 - Mount the route selection surface near the existing capture helper controls without rewriting the large diagnostics binding.
 - Provide Source Orchestration as a separate binding/button instead of rewriting the large diagnostics binding.
-- Provide a guarded Python provider script that can eventually play generated TTS WAV into a selected virtual output device when explicit runtime guards, dependencies, and Windows validation are ready.
+- Provide Provider Dry Run as a separate binding/button that calls guarded provider dispatch in safe dry-run mode.
+- Provide Windows provider notes for `numpy`, `sounddevice`, virtual audio cable/mixer, and runtime guards.
 - Keep execution disabled until CI/local/Windows validation and provider runtime guards are ready.
 
 Runtime claims:
@@ -105,8 +112,8 @@ virtual_route_selection_surface_source_side_not_audio_runtime_proof
 
 ## What should be done next
 
-1. Add final UX cleanup/styling for the route selection surface outside Developer Diagnostics.
-2. Add provider packaging notes for Windows dependency installation.
-3. Add optional UI action for guarded provider dry-run dispatch.
-4. After development-only is mature enough, inspect CI result.
+1. Inspect CI result when ready.
+2. Fix any source issues found by CI/local compile.
+3. Validate Provider Dry Run on Windows after local compile is clean.
+4. Enable guarded provider runtime only after Windows dependency/device validation.
 5. Local compile and Windows runtime validation remain separate and should not be counted in this development-only percentage.
