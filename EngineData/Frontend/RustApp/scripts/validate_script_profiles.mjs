@@ -17,9 +17,6 @@ function requireScript(name) {
 }
 
 const allowedProfiles = new Set([
-  "dev",
-  "build",
-  "dev:frontend",
   "build:frontend",
   "typecheck",
   "check:rust",
@@ -55,6 +52,12 @@ for (const profile of requiredProfiles) requireScript(profile);
 for (const name of Object.keys(scripts)) {
   if (!allowedProfiles.has(name)) {
     fail(`Unexpected package script left after cleanup: ${name}`);
+  }
+}
+
+for (const [name, command] of Object.entries(scripts)) {
+  if (command.includes("echo local-only") || command.includes("echo report-only")) {
+    fail(`Placeholder npm script is not allowed after cleanup: ${name}`);
   }
 }
 
