@@ -10,7 +10,7 @@ Progress development-only saat ini: sekitar **99%**.
 
 Definisi:
 
-- Yang dihitung: source features, contracts, bridge, evidence, blocker, diagnostics, orchestration, route selection model, route selection renderer, route selection mount helper, entrypoint mounting, Source Orchestration binding, guarded runtime handoff, guarded provider script, Rust/bridge provider dispatch wiring, Provider Dry Run UI, route selection styling, Windows provider notes, provider requirements artifact, route renderer escaping, provider response summary hardening, dan diagnostics button binding cleanup.
+- Yang dihitung: source features, contracts, bridge, evidence, blocker, diagnostics, orchestration, route selection model, route selection renderer, route selection mount helper, entrypoint mounting, Source Orchestration binding, guarded runtime handoff, guarded provider script, Rust/bridge provider dispatch wiring, Provider Dry Run UI, route selection styling, Windows provider notes, provider requirements artifact, route renderer escaping, provider response summary hardening, diagnostics button binding cleanup, dan shared diagnostics DOM cleanup.
 - Yang tidak dihitung: CI result, local compile proof, Windows runtime proof, latency proof, dan end-to-end meeting proof.
 
 ## Yang sudah selesai secara development
@@ -37,6 +37,7 @@ Definisi:
 - Route selection surface styling.
 - Route selection auto-mount helper.
 - Route selection surface mounted from `src/main.ts`.
+- Route selection surface now uses the shared diagnostics controls DOM helper instead of its own hardcoded controls selector.
 - Professional readiness gate.
 - Source readiness orchestration command.
 - Source Orchestration UI binding.
@@ -53,6 +54,7 @@ Definisi:
 - Provider Dry Run UI binding mounted from `src/main.ts`.
 - Provider Dry Run summary parses provider response JSON and surfaces provider blocker, next action, runtime claim, audio readiness, and execution-attempt state.
 - Reusable diagnostics button binding helper.
+- Shared diagnostics DOM helper for controls container, button class, and assistant notice.
 - Source Orchestration and Provider Dry Run share the same diagnostics button lifecycle helper.
 - Windows virtual audio provider notes.
 - Audio route runtime contract borrow guard cleanup.
@@ -100,6 +102,7 @@ Purpose:
 - Escape route selection surface text before inserting generated HTML.
 - Mount the route selection surface near the existing capture helper controls without rewriting the large diagnostics binding.
 - Provide Source Orchestration and Provider Dry Run as separate actions using one reusable diagnostics button binding helper.
+- Centralize diagnostics controls DOM access and button CSS class through `diagnosticButtonBinding.ts` so route selection, Source Orchestration, and Provider Dry Run share the same UI anchor.
 - Parse provider response JSON in the Provider Dry Run summary so blockers and runtime claims are visible to the user.
 - Provide Windows provider notes for `numpy`, `sounddevice`, virtual audio cable/mixer, and runtime guards.
 - Provide a dedicated provider requirements file for Windows validation dependency installation.
