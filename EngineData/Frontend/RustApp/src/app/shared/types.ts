@@ -154,6 +154,9 @@ export type PipelinePayloadState = {
   tts_audio_output_path: string | null;
   audio_output_ready: boolean;
   virtual_mic_ready: boolean;
+  virtual_mic_route_ready: boolean;
+  virtual_mic_output_device: string | null;
+  virtual_mic_input_device: string | null;
   virtual_mic_blocker: string;
   source: string;
   updated_unix_ms: number;
@@ -174,6 +177,28 @@ export type LivePipelineSessionSnapshot = {
   evidence_path: string | null;
   payload: PipelinePayloadState;
   stages: PipelineHandoffRequestStatus[];
+  updated_unix_ms: number;
+};
+
+export type LiveMeetingRuntimeGateStatus = {
+  ready: boolean;
+  state: string;
+  progress_percent: number;
+  blockers: string[];
+  next_action: string;
+  summary: string;
+  capture_ready: boolean;
+  asr_ready: boolean;
+  transcript_ready: boolean;
+  translation_ready: boolean;
+  tts_ready: boolean;
+  audio_output_ready: boolean;
+  virtual_mic_ready: boolean;
+  virtual_mic_route_ready: boolean;
+  virtual_mic_output_device: string | null;
+  virtual_mic_input_device: string | null;
+  evidence_path: string | null;
+  runtime_claim: string;
   updated_unix_ms: number;
 };
 
