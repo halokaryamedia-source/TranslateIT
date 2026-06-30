@@ -43,11 +43,35 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Show Node version
-        run: node --version && npm --version
+      - name: Validate script profiles
+        run: npm run validate:script-profiles
 
-      - name: Run source contract validation
-        run: npm run validate:source-contracts
+      - name: Validate imports
+        run: npm run validate:imports
+
+      - name: Validate file naming
+        run: npm run validate:naming
+
+      - name: Validate translation flow
+        run: npm run validate:translation-flow
+
+      - name: Validate runtime UX
+        run: npm run validate:runtime-ux
+
+      - name: Validate startup readiness
+        run: npm run validate:startup-readiness
+
+      - name: Validate V1 CI scope
+        run: npm run validate:ci-scope
+
+      - name: Validate virtual route contract
+        run: npm run validate:virtual-route
+
+      - name: Rust manifest preflight
+        run: npm run check:rust
+
+      - name: Frontend build preflight
+        run: npm run preflight:frontend-build
 
       - name: Run contract reports
         run: |
@@ -68,17 +92,14 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Show Node version
-        run: node --version && npm --version
-
       - name: Install frontend dependencies
-        run: npm ci
+        run: npm ci --silent --no-audit --no-fund
 
       - name: Typecheck frontend
-        run: npm run typecheck -- --pretty false
+        run: ./node_modules/.bin/tsc --noEmit --pretty false
 
       - name: Build frontend bundle
-        run: npm run build:frontend
+        run: ./node_modules/.bin/vite build --logLevel warn
 
   rust-tauri-compile-guard:
     name: Rust/Tauri compile guard
@@ -93,8 +114,8 @@ jobs:
 
       - name: Install Linux Tauri compile dependencies
         run: |
-          sudo apt-get update
-          sudo apt-get install -y \
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq \
             build-essential \
             curl \
             libasound2${{ '' }}-dev \
@@ -109,4 +130,4 @@ jobs:
         uses: dtolnay/rust-toolchain@stable
 
       - name: Cargo check Tauri shell
-        run: cargo check --locked --manifest-path src-tauri/Cargo.toml
+        run: cargo check -q --locked --manifest-path src-tauri/Cargo.toml
