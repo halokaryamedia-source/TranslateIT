@@ -78,12 +78,16 @@ fn next_action_for(blockers: &[String]) -> String {
         .to_string()
 }
 
+fn route_stub_for_snapshot(snapshot: &LivePipelineSessionSnapshot) -> VirtualMicOutputRouteRuntimeStubStatus {
+    prepare_virtual_mic_output_route_runtime_stub(snapshot.payload.tts_audio_output_path.clone())
+}
+
 fn professional_gate_from_parts(
     live_gate: LiveMeetingRuntimeGateStatus,
     snapshot: &LivePipelineSessionSnapshot,
+    route_stub: VirtualMicOutputRouteRuntimeStubStatus,
 ) -> ProfessionalRuntimeReadinessGateStatus {
     let source_audio_path = snapshot.payload.tts_audio_output_path.clone();
-    let route_stub = prepare_virtual_mic_output_route_runtime_stub(source_audio_path.clone());
     let source_audio_path_ready = source_audio_path
         .as_ref()
         .map(|path| !path.trim().is_empty())
@@ -105,6 +109,8 @@ fn professional_gate_from_parts(
     let progress_percent = (((live_gate.progress_percent as u16) * 4 + route_stub_score) / 5).min(100) as u8;
     let ok = blockers.is_empty() && live_gate.ready && route_stub_ready;
     let next_action = next_action_for(&blockers);
+    let route_stub_source_audio_path = route_stub.source_audio_path.clone();
+    let route_stub_evidence_path = route_stub.evidence_path.clone();
     let route_stub_blocker = route_stub.blocker.clone();
 
     ProfessionalRuntimeReadinessGateStatus {
@@ -119,11 +125,11 @@ fn professional_gate_from_parts(
             "Professional source-side gate is still blocked by live pipeline or route-stub prerequisites.".to_string()
         },
         live_gate,
-        route_stub: route_stub.clone(),
+        route_stub,
         source_audio_path_ready,
         route_stub_ready,
-        route_stub_source_audio_path: route_stub.source_audio_path.clone(),
-        route_stub_evidence_path: route_stub.evidence_path.clone(),
+        route_stub_source_audio_path,
+        route_stub_evidence_path,
         route_stub_blocker,
         runtime_claim: "professional_runtime_readiness_gate_source_side_not_runtime_proof".to_string(),
         updated_unix_ms: unix_ms(),
@@ -188,7 +194,8 @@ fn next_action_for_gap(gap: &str) -> &'static str {
 pub fn get_professional_runtime_readiness_gate_status() -> ProfessionalRuntimeReadinessGateStatus {
     let live_gate = get_live_meeting_runtime_gate_status();
     let snapshot = get_live_pipeline_session_snapshot();
-    professional_gate_from_parts(live_gate, &snapshot)
+    let route_stub = route_stub_for_snapshot(&snapshot);
+    professional_gate_from_parts(live_gate, &snapshot, route_stub)
 }
 
 #[tauri::command]
@@ -196,9 +203,8 @@ pub fn run_professional_source_readiness_orchestration() -> ProfessionalSourceRe
     let pipeline_snapshot = get_live_pipeline_session_snapshot();
     let live_gate = get_live_meeting_runtime_gate_status();
     let route_status = get_virtual_mic_route_contract_status();
-    let source_audio_path = pipeline_snapshot.payload.tts_audio_output_path.clone();
-    let route_stub = prepare_virtual_mic_output_route_runtime_stub(source_audio_path);
-    let professional_gate = professional_gate_from_parts(live_gate, &pipeline_snapshot);
+    let route_stub = route_stub_for_snapshot(&pipeline_snapshot);
+    let professional_gate = professional_gate_from_parts(live_gate, &pipeline_snapshot, route_stub.clone());
 
     let steps = vec![
         step(
