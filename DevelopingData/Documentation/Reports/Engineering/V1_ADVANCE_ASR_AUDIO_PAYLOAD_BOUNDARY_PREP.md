@@ -20,6 +20,7 @@ File:
 
 Command baru:
 
+- `get_latest_asr_audio_payload_status`
 - `prepare_asr_audio_payload_request`
 - `dispatch_asr_decode_request`
 
@@ -30,6 +31,7 @@ Perilaku:
 - `prepare_asr_audio_payload_request` hanya menyiapkan schema/status tanpa menulis audio.
 - `dispatch_asr_decode_request` mencoba menulis latest target ASR segment lewat `live_segment_writer::write_latest_live_target_segment_wav()`.
 - Payload worker menggunakan cached PCM16 WAV path: `UserData/CacheData/audio_segments/latest_live_target_segment.wav`.
+- Status terakhir disimpan di in-memory cache app session, sehingga Developer Diagnostics bisa membaca ulang hasil terakhir tanpa memicu dispatch baru.
 - Payload menyertakan metadata:
   - `sample_rate_hz`
   - `channels`
@@ -77,6 +79,7 @@ File:
 
 UI action baru di-inject ke panel Capture helper bridge controls:
 
+- `Latest ASR Payload`
 - `Prepare ASR Payload`
 - `Dispatch ASR Decode`
 
@@ -113,11 +116,14 @@ Jika compile aman, flow manual berikutnya:
 2. Worker Status.
 3. Start microphone-only capture.
 4. Transcript Boundary.
-5. Prepare ASR Payload.
-6. Dispatch ASR Decode.
+5. Latest ASR Payload, untuk memastikan state awal terbaca.
+6. Prepare ASR Payload.
+7. Dispatch ASR Decode.
+8. Latest ASR Payload lagi, untuk memastikan cached evidence terakhir berubah sesuai hasil dispatch.
 
 Ekspektasi saat ini bukan transcript, tetapi blocker/evidence yang lebih spesifik:
 
+- Belum pernah prepare/dispatch → `asr_audio_payload:no_cached_status`.
 - Boundary belum siap → capture/audio buffer blocker.
 - WAV belum bisa ditulis → live segment writer blocker.
 - Model belum siap → `asr:model_not_ready`.
