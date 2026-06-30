@@ -7,7 +7,7 @@ import { requireElement } from "../active-launcher/dom";
 import { mountAppShell } from "../active-launcher/shell";
 import { renderDeveloperSettingsView } from "../active-launcher/launcherDeveloperSettings";
 import { renderAudioSettingsTab, renderGeneralSettingsTab, renderTranslateSettingsTab } from "../active-launcher/launcherSettingsRenderer";
-import { LANGUAGE_OPTIONS, isLanguageCode, nextLanguageCode, type LanguageSelectorRole } from "../active-launcher/launcherLanguageRules";
+import { isLanguageCode, nextLanguageCode, type LanguageSelectorRole } from "../active-launcher/launcherLanguageRules";
 import { exceedsManualTranslationLimit, MAX_MANUAL_TRANSLATION_CHARS } from "../active-launcher/launcherTextRules";
 import { attachmentSection, compactAttachmentText, isSupportedTextAttachment, safeAttachmentName, unsupportedAttachmentMessage, MAX_ATTACHMENT_BYTES, MAX_ATTACHMENT_FILES } from "../active-launcher/launcherAttachmentRules";
 import { setRuntimeProfile as applyRuntimeProfile, swapLanguages as applyLanguageSwap, toggleVoiceOutput as applyVoiceOutputToggle } from "../active-launcher/launcherSettingsActions";
