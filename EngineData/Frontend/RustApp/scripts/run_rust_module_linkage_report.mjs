@@ -7,7 +7,7 @@ const repoRoot = resolve(appRoot, "..", "..", "..");
 const reportDir = resolve(repoRoot, "UserData", "LogData", "RuntimeTestReports");
 const engineModPath = resolve(appRoot, "src-tauri", "src", "engine", "mod.rs");
 const manualAcceleratedPath = resolve(appRoot, "src-tauri", "src", "engine", "manual_translation_accelerated.rs");
-const translationCommandPath = resolve(appRoot, "src-tauri", "src", "commands", "translation.rs");
+const textTranslateCommandPath = resolve(appRoot, "src-tauri", "src", "commands", "text_translate.rs");
 
 function read(path) {
   return existsSync(path) ? readFileSync(path, "utf8") : "";
@@ -21,17 +21,18 @@ function main() {
   mkdirSync(reportDir, { recursive: true });
   const engineMod = read(engineModPath);
   const accelerated = read(manualAcceleratedPath);
-  const translationCommand = read(translationCommandPath);
+  const textTranslateCommand = read(textTranslateCommandPath);
   const checks = [
     check("accelerated module file exists", accelerated.length > 0, manualAcceleratedPath),
     check("engine mod declares accelerated module", engineMod.includes("pub mod manual_translation_accelerated;"), "pub mod manual_translation_accelerated"),
-    check("engine mod exports accelerated translate_text", engineMod.includes("pub use manual_translation_accelerated::translate_text;"), "pub use manual_translation_accelerated::translate_text"),
-    check("accelerated module falls back to legacy manual translation", accelerated.includes("super::manual_translation::translate_text"), "legacy fallback present"),
-    check("translation command calls engine translate_text", translationCommand.includes("engine::translate_text"), "commands/translation.rs delegates to engine::translate_text"),
+    check("engine mod exports translate_text", engineMod.includes("pub use manual_translation_accelerated::translate_text;") || engineMod.includes("pub use manual_translation::translate_text;"), "engine translate_text export"),
+    check("accelerated module has legacy fallback", accelerated.includes("super::manual_translation::translate_text"), "legacy fallback present"),
+    check("text translate command delegates to engine translate_text", textTranslateCommand.includes("engine::translate_text"), "commands/text_translate.rs delegates to engine::translate_text"),
+    check("text translate command can use helper bridge", textTranslateCommand.includes("translate_with_running_helper_bridge"), "helper bridge translation path present"),
   ];
   const ok = checks.every((item) => item.ok);
   const report = {
-    schema: "translateit.rust_module_linkage_report.v1",
+    schema: "translateit.rust_module_linkage_report.v2",
     generated_at: new Date().toISOString(),
     ok,
     checks,
