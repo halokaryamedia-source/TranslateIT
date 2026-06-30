@@ -1,6 +1,4 @@
-import { invoke } from "@tauri-apps/api/core";
-import { errorMessage } from "../shared/state";
-import { getRuntimeCommandErrors } from "../shared/tauriBridge";
+import { runCommand } from "../shared/tauriBridge";
 
 export type AsrAudioPayloadRequestStatus = {
   ok: boolean;
@@ -60,33 +58,21 @@ function fallback(message: string): AsrAudioPayloadRequestStatus {
   };
 }
 
-function recordCommandError(command: string, error: unknown): void {
-  getRuntimeCommandErrors().unshift({
-    command,
-    message: errorMessage(error),
-    occurred_at: new Date().toISOString(),
-  });
-}
-
-async function invokeAsrPayload(command: string, fallbackMessage: string): Promise<AsrAudioPayloadRequestStatus> {
-  try {
-    return await invoke<AsrAudioPayloadRequestStatus>(command);
-  } catch (error) {
-    recordCommandError(command, error);
-    return fallback(fallbackMessage);
-  }
+async function runAsrPayloadCommand(command: string, fallbackMessage: string): Promise<AsrAudioPayloadRequestStatus> {
+  const result = await runCommand<AsrAudioPayloadRequestStatus>(command);
+  return result ?? fallback(fallbackMessage);
 }
 
 export const asrPayloadApi = {
   prepareAsrAudioPayloadRequest(): Promise<AsrAudioPayloadRequestStatus> {
-    return invokeAsrPayload(
+    return runAsrPayloadCommand(
       "prepare_asr_audio_payload_request",
       "ASR audio payload prepare failed before reaching the Tauri command bridge.",
     );
   },
 
   dispatchAsrDecodeRequest(): Promise<AsrAudioPayloadRequestStatus> {
-    return invokeAsrPayload(
+    return runAsrPayloadCommand(
       "dispatch_asr_decode_request",
       "ASR decode dispatch failed before reaching the Tauri command bridge.",
     );
