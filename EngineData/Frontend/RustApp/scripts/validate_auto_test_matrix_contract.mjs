@@ -1,7 +1,7 @@
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { AUTO_TEST_REPORT_SCHEMA, AUTO_TEST_SUITES, flattenAutoTests } from "./auto_test_registry.mjs";
-import { collectRegexMatches, createContractValidator, hasNonEmptyText, printContractResult, unique } from "./contract_test_utils.mjs";
+import { createContractValidator, hasNonEmptyText, printContractResult } from "./contract_test_utils.mjs";
 
 const appRoot = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const repoRoot = resolve(appRoot, "..", "..", "..");
@@ -25,16 +25,16 @@ for (const marker of ["test:auto-map", "run_auto_test_matrix.mjs", "test:auto-st
   expectIncludes(packageJson, marker, "package auto test scripts");
 }
 
-for (const marker of ["Generate auto test matrix diagnostics", "if: always()", "npm run test:auto-map", "v1-advance-source-contract-diagnostics", "UserData/LogData/RuntimeTestReports/**"]) {
+for (const marker of ["Generate auto test matrix diagnostics", "if: always()", "npm run test:auto-map", "v1-advance-source-contract-diagnostics", "UserData/LogData/RuntimeTestReports/**", "Validate auto test matrix contract"]) {
   expectIncludes(workflow, marker, "workflow auto test diagnostics");
 }
-expectIncludes(workflow, "Validate auto test matrix contract", "workflow auto matrix self-check step");
 
-for (const marker of ["AUTO_TEST_SUITES", "blocking: true", "blocking: false", "flattenAutoTests"]) {
+for (const marker of ["AUTO_TEST_SUITES", "blocking: true", "blocking: false", "flattenAutoTests", AUTO_TEST_REPORT_SCHEMA]) {
   expectIncludes(registry, marker, "auto test registry");
 }
 
 for (const marker of [
+  "AUTO_TEST_REPORT_SCHEMA",
   "latest-auto-test-matrix.json",
   "latest-auto-test-matrix.md",
   "critical_failures",
@@ -66,7 +66,6 @@ const tests = flattenAutoTests();
 const duplicateIds = tests.map((test) => test.id).filter((id, index, ids) => ids.indexOf(id) !== index);
 if (duplicateIds.length) addError(`Duplicate auto test ids: ${Array.from(new Set(duplicateIds)).join(", ")}`);
 
-const scriptNamesInRegistry = unique(collectRegexMatches(registry, /script:\s*"([^"]+)"/g));
 for (const test of tests) {
   if (!hasNonEmptyText(test.id, 3)) addError(`Registry test needs id: ${test.title ?? test.script ?? "unknown"}`);
   if (!hasNonEmptyText(test.title, 4)) addError(`Registry test needs title: ${test.id}`);
@@ -75,13 +74,8 @@ for (const test of tests) {
   ensureFileExists(`EngineData/Frontend/RustApp/scripts/${test.script}`, `Registry references missing script: ${test.id}`);
 }
 
-for (const scriptName of scriptNamesInRegistry) {
-  ensureFileExists(`EngineData/Frontend/RustApp/scripts/${scriptName}`, `Registry literal script path`);
-}
-
 if (!tests.some((test) => test.blocking)) addError("Auto test matrix must include blocking tests.");
 if (!tests.some((test) => !test.blocking)) addError("Auto test matrix must include non-blocking diagnostics.");
-if (!runner.includes(AUTO_TEST_REPORT_SCHEMA)) addError(`Runner must reference schema ${AUTO_TEST_REPORT_SCHEMA}.`);
 
 printContractResult({
   title: "Auto test matrix contract",
