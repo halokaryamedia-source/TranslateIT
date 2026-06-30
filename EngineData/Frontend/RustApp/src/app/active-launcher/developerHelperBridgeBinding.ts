@@ -63,6 +63,7 @@ function capturePreviewTask(action: string | undefined): Promise<CaptureTaskResu
   if (action === "asr-payload-latest") return asrPayloadApi.getLatestAsrAudioPayloadStatus();
   if (action === "asr-payload-prepare") return asrPayloadApi.prepareAsrAudioPayloadRequest();
   if (action === "asr-decode-dispatch") return asrPayloadApi.dispatchAsrDecodeRequest();
+  if (action === "asr-promote-transcript") return invoke<LivePipelineSessionSnapshot>("promote_latest_asr_payload_transcript");
   if (action === "seed-transcript") return runtimeApi.seedDevAsrTranscript("Hello from the developer seeded ASR transcript.");
   if (action === "seed-translation") return runtimeApi.seedDevTranslatedText("Halo dari seed teks terjemahan developer.");
   if (action === "pipeline-smoke") return runtimeApi.runDevPipelineContractSmoke();
@@ -208,13 +209,19 @@ function ensureAsrDecodeControls(): void {
   dispatch.type = "button";
   dispatch.dataset.captureBridgeAction = "asr-decode-dispatch";
   dispatch.textContent = "Dispatch ASR Decode";
+  const promote = document.createElement("button");
+  promote.className = "mic-test-button-v22 secondary";
+  promote.type = "button";
+  promote.dataset.captureBridgeAction = "asr-promote-transcript";
+  promote.textContent = "Promote ASR Transcript";
   const anchor = container.querySelector('[data-capture-bridge-action="asr-dispatch"]');
   if (anchor?.nextSibling) {
     container.insertBefore(latest, anchor.nextSibling);
     container.insertBefore(prepare, latest.nextSibling);
     container.insertBefore(dispatch, prepare.nextSibling);
+    container.insertBefore(promote, dispatch.nextSibling);
   } else {
-    container.append(latest, prepare, dispatch);
+    container.append(latest, prepare, dispatch, promote);
   }
 }
 
