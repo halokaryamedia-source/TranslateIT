@@ -187,6 +187,7 @@ fn is_contract_only_response(value: &Value) -> bool {
         || stage == "translation_handoff"
         || stage == "tts_handoff"
         || runtime_claim.contains("no_model_runtime_claim")
+        || runtime_claim.contains("no_decoder_runtime_claim")
         || runtime_claim.contains("no_runtime_claim")
 }
 
