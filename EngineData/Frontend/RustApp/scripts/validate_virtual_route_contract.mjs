@@ -36,27 +36,43 @@ expectIncludes(virtualRoute, "virtual_route:missing_source_audio_path", "missing
 expectNotIncludes(virtualRoute, "\"selected_output_device\": route.selected_output_device", "borrowed route output move guard");
 expectNotIncludes(virtualRoute, "\"selected_input_device\": route.selected_input_device", "borrowed route input move guard");
 
+const professionalGate = readText("EngineData/Frontend/RustApp/src-tauri/src/commands/professional_readiness_gate.rs");
+expectIncludes(professionalGate, "pub struct ProfessionalRuntimeReadinessGateStatus", "professional gate contract");
+expectIncludes(professionalGate, "get_professional_runtime_readiness_gate_status", "professional gate command");
+expectIncludes(professionalGate, "prepare_virtual_mic_output_route_runtime_stub", "professional gate route stub integration");
+expectIncludes(professionalGate, "route_stub_evidence_path", "professional gate route stub evidence path");
+expectIncludes(professionalGate, "professional_runtime_readiness_gate_source_side_not_runtime_proof", "professional gate runtime claim");
+
+const commandMod = readText("EngineData/Frontend/RustApp/src-tauri/src/commands/mod.rs");
+expectIncludes(commandMod, "pub mod professional_readiness_gate", "professional gate module export");
+
 const registry = readText("EngineData/Frontend/RustApp/src-tauri/src/commands/registry.rs");
 expectIncludes(registry, "get_virtual_mic_route_contract_status", "route status registry");
 expectIncludes(registry, "prepare_virtual_mic_output_route_runtime_stub", "route stub registry");
 expectIncludes(registry, "set_preferred_virtual_mic_route_devices", "route preference registry");
+expectIncludes(registry, "get_professional_runtime_readiness_gate_status", "professional gate registry");
 
 const sharedTypes = readText("EngineData/Frontend/RustApp/src/app/shared/types.ts");
 expectIncludes(sharedTypes, "export type VirtualMicRouteContractStatus", "route status frontend type");
 expectIncludes(sharedTypes, "export type VirtualMicOutputRouteRuntimeStubStatus", "route stub frontend type");
+expectIncludes(sharedTypes, "export type ProfessionalRuntimeReadinessGateStatus", "professional gate frontend type");
 expectIncludes(sharedTypes, "source_audio_path", "route stub source audio type");
 expectIncludes(sharedTypes, "route_output_contract_json", "route output contract type");
+expectIncludes(sharedTypes, "route_stub_evidence_path", "professional gate route stub evidence type");
 
 const routeApi = readText("EngineData/Frontend/RustApp/src/app/bridge/virtualRouteApi.ts");
 expectIncludes(routeApi, "get_live_pipeline_session_snapshot", "route bridge latest pipeline snapshot");
 expectIncludes(routeApi, "tts_audio_output_path", "route bridge actual TTS output path");
 expectIncludes(routeApi, "prepare_virtual_mic_output_route_runtime_stub", "route bridge stub command");
+expectIncludes(routeApi, "get_professional_runtime_readiness_gate_status", "route bridge professional gate command");
 expectIncludes(routeApi, "sourceAudioPath", "route bridge camelCase argument");
 expectNotIncludes(routeApi, "sourceAudioPath: null", "route bridge hardcoded null source path");
 
 const helperBinding = readText("EngineData/Frontend/RustApp/src/app/active-launcher/developerHelperBridgeBinding.ts");
 expectIncludes(helperBinding, "virtualRouteApi", "developer diagnostics route bridge import");
 expectIncludes(helperBinding, "prepareVirtualMicOutputRouteRuntimeStubFromLatestPipeline", "developer diagnostics latest TTS route stub");
+expectIncludes(helperBinding, "getProfessionalRuntimeReadinessGateStatus", "developer diagnostics professional gate bridge");
+expectIncludes(helperBinding, "Professional Gate", "developer diagnostics professional gate button");
 expectIncludes(helperBinding, "Route Runtime Stub", "developer diagnostics route stub button");
 expectNotIncludes(helperBinding, "prepare_virtual_mic_output_route_runtime_stub\", { sourceAudioPath: null }", "developer diagnostics hardcoded null source path");
 
