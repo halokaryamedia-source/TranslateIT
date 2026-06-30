@@ -1,10 +1,14 @@
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
+use std::fs;
+use std::path::{Path, PathBuf};
 use std::sync::{Mutex, OnceLock};
+
+use crate::engine::paths::ProjectPaths;
 
 use super::audio::{list_audio_devices, AudioDeviceSummary};
 use super::helper_bridge_runtime::unix_ms;
 
-#[derive(Debug, Clone, Serialize)]
+#[derive(Debug, Clone, Deserialize, Serialize)]
 pub struct VirtualMicRoutePreference {
     pub preferred_output_device: Option<String>,
     pub preferred_input_device: Option<String>,
@@ -31,6 +35,8 @@ pub struct VirtualMicRouteContractStatus {
     pub preferred_input_device: Option<String>,
     pub output_device_found: bool,
     pub input_device_found: bool,
+    pub preference_persisted: bool,
+    pub preference_path: Option<String>,
     pub available_output_devices: Vec<String>,
     pub available_input_devices: Vec<String>,
     pub blocker: String,
@@ -42,7 +48,36 @@ pub struct VirtualMicRouteContractStatus {
 static VIRTUAL_MIC_ROUTE_PREFERENCE: OnceLock<Mutex<VirtualMicRoutePreference>> = OnceLock::new();
 
 fn preference_runtime() -> &'static Mutex<VirtualMicRoutePreference> {
-    VIRTUAL_MIC_ROUTE_PREFERENCE.get_or_init(|| Mutex::new(VirtualMicRoutePreference::default()))
+    VIRTUAL_MIC_ROUTE_PREFERENCE.get_or_init(|| Mutex::new(load_preference_from_disk()))
+}
+
+fn normalized_path_label(path: &Path) -> String {
+    path.to_string_lossy().replace(char::from(92), "/")
+}
+
+fn preference_path() -> PathBuf {
+    let project_paths = ProjectPaths::discover();
+    PathBuf::from(project_paths.user_cache_dir).join("virtual_mic_route_preference.json")
+}
+
+fn load_preference_from_disk() -> VirtualMicRoutePreference {
+    let path = preference_path();
+    fs::read_to_string(path)
+        .ok()
+        .and_then(|body| serde_json::from_str::<VirtualMicRoutePreference>(&body).ok())
+        .unwrap_or_default()
+}
+
+fn save_preference_to_disk(preference: &VirtualMicRoutePreference) -> (bool, Option<String>) {
+    let path = preference_path();
+    if let Some(parent) = path.parent() {
+        let _ = fs::create_dir_all(parent);
+    }
+    let persisted = serde_json::to_string_pretty(preference)
+        .ok()
+        .and_then(|body| fs::write(&path, body).ok())
+        .is_some();
+    (persisted, Some(normalized_path_label(&path)))
 }
 
 fn clean_device_name(value: Option<String>) -> Option<String> {
@@ -100,10 +135,14 @@ fn current_preference() -> VirtualMicRoutePreference {
     preference_runtime()
         .lock()
         .map(|preference| preference.clone())
-        .unwrap_or_default()
+        .unwrap_or_else(|_| load_preference_from_disk())
 }
 
-fn build_status(preference: VirtualMicRoutePreference) -> VirtualMicRouteContractStatus {
+fn build_status(
+    preference: VirtualMicRoutePreference,
+    preference_persisted: bool,
+    preference_path: Option<String>,
+) -> VirtualMicRouteContractStatus {
     let devices = list_audio_devices();
     let available_output_devices = device_names(&devices.output_devices);
     let available_input_devices = device_names(&devices.input_devices);
@@ -142,6 +181,8 @@ fn build_status(preference: VirtualMicRoutePreference) -> VirtualMicRouteContrac
         preferred_input_device: preference.preferred_input_device,
         output_device_found,
         input_device_found,
+        preference_persisted,
+        preference_path,
         available_output_devices,
         available_input_devices,
         blocker,
@@ -151,9 +192,18 @@ fn build_status(preference: VirtualMicRoutePreference) -> VirtualMicRouteContrac
     }
 }
 
+pub fn get_virtual_mic_route_selection() -> VirtualMicRouteContractStatus {
+    let path = preference_path();
+    build_status(
+        current_preference(),
+        path.is_file(),
+        Some(normalized_path_label(&path)),
+    )
+}
+
 #[tauri::command]
 pub fn get_virtual_mic_route_contract_status() -> VirtualMicRouteContractStatus {
-    build_status(current_preference())
+    get_virtual_mic_route_selection()
 }
 
 #[tauri::command]
@@ -169,5 +219,6 @@ pub fn set_preferred_virtual_mic_route_devices(
     if let Ok(mut cached) = preference_runtime().lock() {
         *cached = preference.clone();
     }
-    build_status(preference)
+    let (persisted, path) = save_preference_to_disk(&preference);
+    build_status(preference, persisted, path)
 }
