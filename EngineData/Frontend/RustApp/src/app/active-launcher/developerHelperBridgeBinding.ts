@@ -265,7 +265,9 @@ function previewSummary(result: CaptureTaskResult): string {
     const preferred = `preferredOutput=${result.preferred_output_device || "none"}, preferredInput=${result.preferred_input_device || "none"}`;
     const counts = `availableOutputs=${result.available_output_devices.length}, availableInputs=${result.available_input_devices.length}`;
     const path = result.preference_path ? ` preferencePath=${result.preference_path}` : "";
-    return `Virtual route ${result.route_ready ? "ready" : "blocked"}: ${devices}, ${preferred}, persisted=${result.preference_persisted}, ${counts}, next=${result.next_action}, blocker=${result.blocker || "none"}.${path} This is route selection evidence, not audio routing proof.`;
+    const evidence = result.evidence_path ? ` evidence=${result.evidence_path}` : "";
+    const contract = result.route_output_contract_json && result.route_output_contract_json !== "{}" ? " contract=present" : " contract=missing";
+    return `Virtual route ${result.route_ready ? "ready" : "blocked"}: ${devices}, ${preferred}, persisted=${result.preference_persisted}, ${counts}, next=${result.next_action}, blocker=${result.blocker || "none"}.${path}${evidence}${contract} This is route selection evidence, not audio runtime proof.`;
   }
   if (isLiveMeetingRuntimeGate(result)) {
     const devices = `virtualOutput=${result.virtual_mic_output_device || "none"}, virtualInput=${result.virtual_mic_input_device || "none"}`;
