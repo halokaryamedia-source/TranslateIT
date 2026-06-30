@@ -23,7 +23,9 @@
     "validate:virtual-route": "node scripts/validate_virtual_route_contract.mjs",
     "validate:source-contracts": "npm run validate:script-profiles && npm run validate:imports && npm run validate:naming && npm run validate:translation-flow && npm run validate:runtime-ux && npm run validate:simple-ui && npm run validate:startup-readiness && npm run validate:ci-scope && npm run validate:virtual-route && npm run check:rust && npm run preflight:frontend-build",
     "validate:quick": "npm run validate:source-contracts && npm run typecheck",
-    "test:contract-reports": "node scripts/run_contract_reports.mjs"
+    "test:contract-reports": "node scripts/run_contract_reports.mjs",
+    "test:auto-map": "node scripts/run_auto_test_matrix.mjs",
+    "test:auto-strict": "node scripts/run_auto_test_matrix.mjs --strict"
   },
   "dependencies": {
     "@tauri-apps/api": "^2.0.0"
