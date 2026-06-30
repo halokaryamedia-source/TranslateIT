@@ -2,7 +2,7 @@ use std::path::PathBuf;
 
 use crate::engine::logging::{write_jsonl_event, RuntimeLogEvent};
 use crate::engine::paths::ProjectPaths;
-use crate::engine::settings::RuntimeSettings;
+pub use crate::engine::settings::RuntimeSettings;
 use crate::engine::state::{CommandResult, LifecycleState};
 
 pub fn load_settings() -> RuntimeSettings {
