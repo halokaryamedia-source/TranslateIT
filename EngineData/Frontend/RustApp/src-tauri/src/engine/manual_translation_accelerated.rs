@@ -155,9 +155,9 @@ pub fn translate_text(source: String) -> CommandResult {
         }
         let blocked = format!(
             "Local worker returned no validated translation. blocker={}; device={}; model={}",
-            compact(worker.blocker),
-            compact(worker.device),
-            compact(worker.model_id),
+            compact(worker.blocker.clone()),
+            compact(worker.device.clone()),
+            compact(worker.model_id.clone()),
         );
         log_translation("translation_blocked", format!("{}; {}", blocked, diagnostics(&worker)));
         return CommandResult::blocked(LifecycleState::TranslationAdapterPending, blocked);
