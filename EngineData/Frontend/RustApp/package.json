@@ -8,7 +8,7 @@
     "dev:app": "tauri dev",
     "build:frontend": "vite build",
     "typecheck": "tsc --noEmit",
-    "check:rust": "node scripts/run_local_tauri_compile_check.mjs",
+    "check:rust": "node scripts/validate_rust_manifest_preflight.mjs",
     "check:tauri-rust-local": "node scripts/run_local_tauri_compile_check.mjs",
     "preflight:frontend-build": "node scripts/validate_frontend_build_preflight.mjs",
     "preflight:tauri-package": "node scripts/validate_tauri_package_preflight.mjs",
