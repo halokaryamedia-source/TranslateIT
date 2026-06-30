@@ -1,7 +1,6 @@
 import { runtimeApi } from "./runtimeApi";
 import { defaultSettings, errorMessage } from "../shared/state";
 import type {
-  CommandResult,
   GpuPolicyReport,
   HelperBridgeActionResult,
   HelperBridgeStatus,
@@ -10,7 +9,6 @@ import type {
   RuntimeDiagnostics,
   RuntimeSettings,
   RuntimeStatusBundleReport,
-  VoiceCapturePreparationReport,
 } from "../shared/types";
 
 export type ProductReadinessLevel = "ready" | "partial" | "blocked" | "checking";
@@ -66,13 +64,6 @@ function compact(value: unknown, fallback = "Unknown"): string {
 
 function unique(values: Array<string | null | undefined>): string[] {
   return Array.from(new Set(values.map((value) => compact(value, "")).filter(Boolean)));
-}
-
-function isReadyish(value: unknown): boolean {
-  if (value === true) return true;
-  if (typeof value !== "string") return false;
-  const normalized = value.toLowerCase();
-  return normalized.includes("ready") || normalized.includes("ok") || normalized.includes("available");
 }
 
 function modelReady(modelInventory: ModelInventoryReport | null, bundle: RuntimeStatusBundleReport | null): boolean {
