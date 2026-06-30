@@ -1,4 +1,5 @@
 use serde::{Deserialize, Serialize};
+use serde_json::json;
 use std::fs;
 use std::path::{Path, PathBuf};
 use std::sync::{Mutex, OnceLock};
@@ -37,6 +38,8 @@ pub struct VirtualMicRouteContractStatus {
     pub input_device_found: bool,
     pub preference_persisted: bool,
     pub preference_path: Option<String>,
+    pub evidence_path: Option<String>,
+    pub route_output_contract_json: String,
     pub available_output_devices: Vec<String>,
     pub available_input_devices: Vec<String>,
     pub blocker: String,
@@ -58,6 +61,13 @@ fn normalized_path_label(path: &Path) -> String {
 fn preference_path() -> PathBuf {
     let project_paths = ProjectPaths::discover();
     PathBuf::from(project_paths.user_cache_dir).join("virtual_mic_route_preference.json")
+}
+
+fn route_evidence_path() -> PathBuf {
+    let project_paths = ProjectPaths::discover();
+    PathBuf::from(project_paths.user_log_dir)
+        .join("RustAppValidation")
+        .join("latest_virtual_mic_route_evidence.json")
 }
 
 fn load_preference_from_disk() -> VirtualMicRoutePreference {
@@ -138,6 +148,45 @@ fn current_preference() -> VirtualMicRoutePreference {
         .unwrap_or_else(|_| load_preference_from_disk())
 }
 
+fn route_output_contract_json(
+    selected_output_device: &Option<String>,
+    selected_input_device: &Option<String>,
+    route_ready: bool,
+    blocker: &str,
+) -> String {
+    serde_json::to_string_pretty(&json!({
+        "schema": "translateit.virtual_route.output_contract.v1",
+        "source_audio_path_field": "pipeline_payload.tts_audio_output_path",
+        "selected_output_device": selected_output_device,
+        "selected_input_device": selected_input_device,
+        "route_ready": route_ready,
+        "blocker": blocker,
+        "next_runtime_step": if route_ready { "connect_source_audio_to_selected_route_target" } else { "resolve_route_blocker_before_runtime_validation" },
+        "runtime_claim": "virtual_route_output_contract_source_side_not_audio_runtime_proof"
+    }))
+    .unwrap_or_else(|_| "{}".to_string())
+}
+
+fn write_route_evidence(status: &VirtualMicRouteContractStatus) -> Option<String> {
+    let evidence_path = route_evidence_path();
+    let parent = evidence_path.parent()?;
+    let _ = fs::create_dir_all(parent);
+    let evidence_payload = json!({
+        "schema": "translateit.virtual_route.evidence.v1",
+        "status": status,
+        "runtime_claim": "virtual_route_evidence_source_side_not_audio_runtime_proof",
+        "written_unix_ms": unix_ms()
+    });
+    let body = serde_json::to_string_pretty(&evidence_payload).ok()?;
+    fs::write(&evidence_path, body).ok()?;
+    Some(normalized_path_label(&evidence_path))
+}
+
+fn with_route_evidence(mut status: VirtualMicRouteContractStatus) -> VirtualMicRouteContractStatus {
+    status.evidence_path = write_route_evidence(&status);
+    status
+}
+
 fn build_status(
     preference: VirtualMicRoutePreference,
     preference_persisted: bool,
@@ -171,8 +220,14 @@ fn build_status(
     } else {
         "install_or_enable_virtual_audio_cable".to_string()
     };
+    let route_output_contract_json = route_output_contract_json(
+        &selected_output_device,
+        &selected_input_device,
+        route_ready,
+        &blocker,
+    );
 
-    VirtualMicRouteContractStatus {
+    with_route_evidence(VirtualMicRouteContractStatus {
         ok: route_ready,
         route_ready,
         selected_output_device,
@@ -183,13 +238,15 @@ fn build_status(
         input_device_found,
         preference_persisted,
         preference_path,
+        evidence_path: None,
+        route_output_contract_json,
         available_output_devices,
         available_input_devices,
         blocker,
         next_action,
         runtime_claim: "virtual_mic_route_device_selection_source_side_not_audio_routing_proof".to_string(),
         updated_unix_ms: unix_ms(),
-    }
+    })
 }
 
 pub fn get_virtual_mic_route_selection() -> VirtualMicRouteContractStatus {
