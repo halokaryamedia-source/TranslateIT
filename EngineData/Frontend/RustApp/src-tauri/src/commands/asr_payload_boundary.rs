@@ -168,7 +168,7 @@ fn build_asr_audio_payload_status(write_audio: bool) -> AsrAudioPayloadRequestSt
         "buffered_duration_ms": boundary.buffered_duration_ms,
         "audio_write_attempted": audio_write_attempted,
         "audio_write_ok": audio_payload_ready,
-        "audio_path": audio_path,
+        "audio_path": audio_path.clone(),
         "sample_rate_hz": sample_rate_hz,
         "channels": channels,
         "pcm_format": "pcm16_wav",
