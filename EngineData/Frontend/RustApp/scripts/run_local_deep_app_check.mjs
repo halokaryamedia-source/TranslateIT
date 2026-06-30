@@ -9,7 +9,6 @@ const reportDir = resolve(repoRoot, "UserData", "LogData", "RuntimeTestReports")
 mkdirSync(reportDir, { recursive: true });
 
 const color = { reset: "\x1b[0m", red: "\x1b[31m", green: "\x1b[32m", yellow: "\x1b[33m", cyan: "\x1b[36m" };
-
 const node = process.execPath;
 const steps = [
   ["script-profiles", "Package script policy", "npm", ["run", "validate:script-profiles"], true],
@@ -19,6 +18,9 @@ const steps = [
   ["runtime-ux", "Runtime UX contract", "npm", ["run", "validate:runtime-ux"], true],
   ["simple-ui", "Simple UI contract", "npm", ["run", "validate:simple-ui"], true],
   ["functional-surface", "Functional surface contract", node, ["scripts/validate_functional_surface_contract.mjs"], true],
+  ["readiness-scenarios", "Runtime readiness scenarios", node, ["scripts/validate_runtime_readiness_scenarios.mjs"], true],
+  ["error-feedback", "Error feedback contract", node, ["scripts/validate_error_feedback_contract.mjs"], true],
+  ["settings-surface", "Settings surface contract", node, ["scripts/validate_settings_surface_contract.mjs"], true],
   ["startup-readiness", "Startup readiness contract", "npm", ["run", "validate:startup-readiness"], true],
   ["virtual-route-contract", "Virtual route engine/dev contract", "npm", ["run", "validate:virtual-route"], true],
   ["rust-manifest-preflight", "Rust manifest preflight", "npm", ["run", "check:rust"], true],
@@ -59,7 +61,7 @@ for (const step of steps) {
 }
 
 const summary = {
-  schema: "translateit.local_deep_app_check.v1",
+  schema: "translateit.local_deep_app_check.v2",
   generatedAt: new Date().toISOString(),
   startedAt,
   finishedAt: new Date().toISOString(),
@@ -68,7 +70,7 @@ const summary = {
   ok: !failedBlocking,
   failedBlocking: results.filter((result) => result.blocking && !result.ok).map((result) => result.id),
   failedNonBlocking: results.filter((result) => !result.blocking && !result.ok).map((result) => result.id),
-  note: "This local deep check validates source contracts, UI wiring, TypeScript, frontend build, Tauri package preflight, and local cargo check. It does not replace final manual WebView/microphone/model usability testing.",
+  note: "This local deep check validates source contracts, UI wiring, readiness scenarios, error feedback, settings surface, TypeScript, frontend build, Tauri package preflight, and local cargo check.",
   results: results.map((result) => ({ id: result.id, label: result.label, commandLine: result.commandLine, blocking: result.blocking, ok: result.ok, status: result.status, startedAt: result.startedAt, finishedAt: result.finishedAt, error: result.error })),
 };
 
