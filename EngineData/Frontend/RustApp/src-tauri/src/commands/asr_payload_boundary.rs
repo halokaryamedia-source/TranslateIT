@@ -353,7 +353,8 @@ pub fn prepare_asr_audio_payload_request() -> AsrAudioPayloadRequestStatus {
 pub fn dispatch_asr_decode_request() -> AsrAudioPayloadRequestStatus {
     let mut status = build_asr_audio_payload_status(true);
     if status.request_prepared {
-        let response = send_helper_worker_task("asr_decode", &status.payload_json);
+        let payload = parse_json_or_raw(&status.payload_json);
+        let response = send_helper_worker_task("asr_decode", payload);
         apply_asr_decode_worker_response(&mut status, response);
     }
     store_asr_payload_status(&status);
@@ -368,4 +369,9 @@ pub fn get_asr_audio_payload_status() -> AsrAudioPayloadRequestStatus {
         }
     }
     no_cached_asr_payload_status()
+}
+
+#[tauri::command]
+pub fn get_latest_asr_audio_payload_status() -> AsrAudioPayloadRequestStatus {
+    get_asr_audio_payload_status()
 }
