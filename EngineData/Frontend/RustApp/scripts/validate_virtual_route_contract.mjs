@@ -73,8 +73,11 @@ expectIncludes(professionalGate, "run_professional_source_readiness_orchestratio
 expectIncludes(professionalGate, "development_progress_percent_excluding_ci_local", "development-only progress field");
 expectIncludes(professionalGate, "remaining_development_gaps", "remaining development gaps field");
 expectIncludes(professionalGate, "const GAP_ROUTE_DEVICE_NOT_READY", "professional gate route device gap constant");
+expectIncludes(professionalGate, "fn route_stub_for_snapshot", "professional gate shared route stub helper");
+expectIncludes(professionalGate, "professional_gate_from_parts(live_gate, &pipeline_snapshot, route_stub.clone())", "professional orchestration reuses prepared route stub");
 expectIncludes(professionalGate, "let ok = gaps.is_empty();", "professional orchestration strict ok logic");
 expectIncludes(professionalGate, "Route selection UI, provider handoff, and provider dry-run dispatch source wiring are already counted outside runtime proof", "professional orchestration source-complete summary");
+expectNotIncludes(professionalGate, "professional_gate_from_parts(live_gate, &pipeline_snapshot);", "professional orchestration duplicate route stub prepare call");
 expectNotIncludes(professionalGate, "user_facing_route_device_selection_surface_not_finished", "stale route selection gap");
 expectNotIncludes(professionalGate, "real_audio_output_route_runtime_not_implemented", "stale provider runtime gap");
 expectNotIncludes(professionalGate, "gap.contains(\"not_ready\")", "stale partial ok heuristic");
