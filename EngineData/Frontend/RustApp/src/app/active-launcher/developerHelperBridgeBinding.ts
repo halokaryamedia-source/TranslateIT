@@ -1,6 +1,7 @@
 import { invoke } from "@tauri-apps/api/core";
 import { asrPayloadApi, type AsrAudioPayloadRequestStatus } from "../bridge/asrPayloadApi";
 import { runtimeApi } from "../bridge/runtimeApi";
+import { virtualRouteApi } from "../bridge/virtualRouteApi";
 import type { AsrHandoffRequestStatus, CaptureHelperBridgeRequestPreview, CaptureHelperDispatchStatus, CaptureTranscriptBoundaryStatus, HelperBridgeActionResult, HelperBridgeWorkerResponse, LiveMeetingRuntimeGateStatus, LivePipelineSessionSnapshot, PipelineHandoffRequestStatus, VirtualMicOutputRouteRuntimeStubStatus, VirtualMicRouteContractStatus } from "../shared/types";
 
 let bound = false;
@@ -64,8 +65,8 @@ function capturePreviewTask(action: string | undefined): Promise<CaptureTaskResu
   if (action === "asr-payload-prepare") return asrPayloadApi.prepareAsrAudioPayloadRequest();
   if (action === "asr-decode-dispatch") return asrPayloadApi.dispatchAsrDecodeRequest();
   if (action === "asr-promote-transcript") return invoke<LivePipelineSessionSnapshot>("promote_latest_asr_payload_transcript");
-  if (action === "virtual-route-status") return invoke<VirtualMicRouteContractStatus>("get_virtual_mic_route_contract_status");
-  if (action === "virtual-route-stub") return invoke<VirtualMicOutputRouteRuntimeStubStatus>("prepare_virtual_mic_output_route_runtime_stub", { sourceAudioPath: null });
+  if (action === "virtual-route-status") return virtualRouteApi.getVirtualMicRouteContractStatus();
+  if (action === "virtual-route-stub") return virtualRouteApi.prepareVirtualMicOutputRouteRuntimeStubFromLatestPipeline();
   if (action === "virtual-mic-prepare") return invoke<LivePipelineSessionSnapshot>("prepare_virtual_mic_output_from_latest_tts");
   if (action === "runtime-gate") return invoke<LiveMeetingRuntimeGateStatus>("get_live_meeting_runtime_gate_status");
   if (action === "seed-transcript") return runtimeApi.seedDevAsrTranscript("Hello from the developer seeded ASR transcript.");
