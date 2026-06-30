@@ -40,9 +40,13 @@ expectNotIncludes(virtualRoute, "\"selected_input_device\": route.selected_input
 const audioRuntime = readText("EngineData/Frontend/RustApp/src-tauri/src/commands/virtual_audio_route_runtime.rs");
 expectIncludes(audioRuntime, "pub struct VirtualAudioRouteRuntimeStatus", "audio route runtime status");
 expectIncludes(audioRuntime, "prepare_guarded_virtual_audio_route_runtime", "audio route runtime command");
+expectIncludes(audioRuntime, "dispatch_guarded_virtual_audio_route_provider", "audio route provider dispatch command");
 expectIncludes(audioRuntime, "latest_virtual_audio_route_runtime_handoff.json", "audio route runtime evidence");
-expectIncludes(audioRuntime, "virtual_audio_route:runtime_provider_not_implemented", "guarded provider not implemented blocker");
-expectIncludes(audioRuntime, "virtual_audio_route_runtime_handoff_source_side_not_audio_runtime_proof", "audio route runtime handoff claim");
+expectIncludes(audioRuntime, "latest_virtual_audio_route_provider_payload.json", "audio route provider payload");
+expectIncludes(audioRuntime, "TRANSLATEIT_PYTHON", "audio route python env override");
+expectIncludes(audioRuntime, "provider_response_json", "audio route provider response field");
+expectIncludes(audioRuntime, "virtual_audio_route_provider_dry_run_source_side_not_audio_runtime_proof", "audio route provider dry-run claim");
+expectIncludes(audioRuntime, "virtual_audio_route_provider_process_failed_no_audio_execution", "audio route provider process failure claim");
 expectIncludes(audioRuntime, "\"source_audio_path\": &status.source_audio_path", "audio route source audio borrow guard");
 expectIncludes(audioRuntime, "\"selected_output_device\": &status.selected_output_device", "audio route selected output borrow guard");
 expectIncludes(audioRuntime, "\"selected_input_device\": &status.selected_input_device", "audio route selected input borrow guard");
@@ -75,6 +79,7 @@ expectIncludes(registry, "set_preferred_virtual_mic_route_devices", "route prefe
 expectIncludes(registry, "get_professional_runtime_readiness_gate_status", "professional gate registry");
 expectIncludes(registry, "run_professional_source_readiness_orchestration", "source orchestration registry");
 expectIncludes(registry, "prepare_guarded_virtual_audio_route_runtime", "audio route runtime registry");
+expectIncludes(registry, "dispatch_guarded_virtual_audio_route_provider", "audio route provider dispatch registry");
 
 const sharedTypes = readText("EngineData/Frontend/RustApp/src/app/shared/types.ts");
 expectIncludes(sharedTypes, "export type VirtualMicRouteContractStatus", "route status frontend type");
@@ -95,8 +100,11 @@ expectNotIncludes(routeApi, "sourceAudioPath: null", "route bridge hardcoded nul
 const audioRuntimeApi = readText("EngineData/Frontend/RustApp/src/app/bridge/virtualAudioRouteRuntimeApi.ts");
 expectIncludes(audioRuntimeApi, "VirtualAudioRouteRuntimeStatus", "audio route runtime frontend type");
 expectIncludes(audioRuntimeApi, "prepare_guarded_virtual_audio_route_runtime", "audio route runtime bridge command");
+expectIncludes(audioRuntimeApi, "dispatch_guarded_virtual_audio_route_provider", "audio route provider dispatch bridge command");
+expectIncludes(audioRuntimeApi, "dispatchGuardedProvider", "audio route provider dispatch bridge method");
+expectIncludes(audioRuntimeApi, "dispatchProviderFromLatestPipeline", "audio route provider latest pipeline helper");
 expectIncludes(audioRuntimeApi, "enableRouteRuntime", "audio route runtime guard argument");
-expectIncludes(audioRuntimeApi, "prepareFromLatestPipeline", "audio route runtime latest pipeline helper");
+expectIncludes(audioRuntimeApi, "dryRun", "audio route provider dry-run argument");
 
 const routeSelectionSurface = readText("EngineData/Frontend/RustApp/src/app/active-launcher/virtualRouteSelectionSurfaceModel.ts");
 expectIncludes(routeSelectionSurface, "VirtualRouteSelectionSurfaceState", "route selection surface state");
