@@ -6,7 +6,7 @@ Status: source-side / worker-contract evidence only, bukan Windows runtime proof
 
 ## Progress development
 
-Progress source-side saat ini: sekitar **88%**.
+Progress source-side saat ini: sekitar **90%**.
 
 Rinciannya:
 
@@ -21,8 +21,10 @@ Rinciannya:
 - Pipeline evidence file: tersedia.
 - Virtual mic preparation dari TTS output path: tersedia.
 - Virtual mic route contract: tersedia, dengan scan input/output virtual audio device candidates.
+- Preferred virtual mic route config: tersedia sebagai command source-side.
 - Final live meeting runtime gate: tersedia sebagai source-side readiness gate.
-- Yang belum selesai: real audio routing ke virtual mic device, local compile proof, Windows runtime proof, dan live meeting end-to-end proof.
+- Runtime status bundle sekarang membaca final live meeting runtime gate.
+- Yang belum selesai: real audio routing ke virtual mic device, persistent preferred-device settings, local compile proof, Windows runtime proof, dan live meeting end-to-end proof.
 
 ## Command dan flow yang tersedia
 
@@ -65,17 +67,26 @@ Perilaku utama:
 ### Virtual mic preparation
 
 - `prepare_virtual_mic_output_from_latest_tts`
+- `get_virtual_mic_route_contract_status`
+- `set_preferred_virtual_mic_route_devices`
 
 Perilaku utama:
 
 - Hanya bisa ready jika pipeline punya `tts_audio_output_path` dan `audio_output_ready=true`.
-- Command sekarang melakukan source-side device scan lewat native audio device inventory.
-- Virtual route dianggap ready hanya jika ditemukan kandidat output virtual device dan input virtual device.
+- Route contract melakukan source-side device scan lewat native audio device inventory.
+- Auto-detect mencari kandidat virtual device seperti VB-Audio, Cable Input/Output, Voicemeeter, BlackHole, Loopback, Virtual Cable, Virtual Audio, atau Stereo Mix.
+- Preferred route command dapat menyimpan selected virtual output/input device secara in-memory untuk sesi app saat ini.
 - Blocker yang dapat muncul:
   - `virtual_mic:missing_tts_output`
   - `virtual_mic:output_device_missing`
   - `virtual_mic:input_device_missing`
+  - `virtual_mic:selected_output_device_missing`
+  - `virtual_mic:selected_input_device_missing`
   - `virtual_mic:route_not_ready`
+
+Runtime claim:
+
+- `virtual_mic_route_device_selection_source_side_not_audio_routing_proof`
 
 ### Final live meeting runtime gate
 
@@ -94,6 +105,10 @@ Gate ini hanya source-side ready jika semua marker berikut terpenuhi:
 Runtime claim:
 
 - `live_meeting_runtime_gate_source_side_not_windows_runtime_proof`
+
+### Runtime status bundle integration
+
+`get_runtime_status_bundle` sekarang ikut membawa `live_meeting_runtime_gate`, sehingga status utama app bisa membaca blocker final gate yang sama dengan Developer Diagnostics.
 
 ## Developer Diagnostics UI
 
@@ -141,6 +156,7 @@ Belum terbukti:
 - Translation model menghasilkan `translated_text` pada target Windows.
 - TTS provider menghasilkan `output_path` pada target Windows.
 - Virtual mic route belum mengirim audio ke meeting app.
+- Preferred route config masih in-memory, belum persistent settings file.
 - Latency meeting runtime belum terbukti.
 
 ## Cara validasi lokal nanti
@@ -178,7 +194,7 @@ Flow validasi manual:
 
 Development non-local berikutnya:
 
-1. Implement source-side virtual mic route contract yang lebih eksplisit dari `tts_audio_output_path` menuju selected virtual output device.
-2. Tambahkan command untuk memilih/menyimpan preferred virtual mic output/input device, bukan hanya auto-detect candidate.
-3. Tambahkan final runtime gate ke runtime status bundle agar status utama app bisa membaca blocker yang sama.
+1. Persist preferred virtual route device selection ke settings file, bukan hanya in-memory.
+2. Integrasikan preferred virtual route selection langsung ke `prepare_virtual_mic_output_from_latest_tts`, supaya pipeline menggunakan selected device, bukan hanya auto-detect.
+3. Tambahkan source-side route payload dari `tts_audio_output_path` menuju selected output/input virtual device.
 4. Setelah itu baru masuk local compile + Windows runtime validation.
