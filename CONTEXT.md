@@ -105,6 +105,34 @@ Click Toggle/`Ctrl+Space` UI conflict. Current VAD numeric profiles remain sourc
 experiments/implementation evidence until runtime validation proves appropriate
 values.
 
+## Recovered Latency And Runtime Mode Policy
+
+Current latency/runtime-mode policy was revalidated by the user on 2026-08-08:
+
+- **Official user-relevant voice latency metric:** detected end of an utterance ->
+  first translated audio begins playing.
+- The inherited `<= 1 second` objective is **not a hard current release
+  requirement**. A numeric release threshold must be derived from target-PC
+  benchmark evidence while keeping the experience responsive enough for natural
+  online conversation.
+- Supporting stage metrics such as ASR, translation, TTS, and playback-start
+  latency should remain measurable for diagnosis, but they do not replace the
+  official end-to-first-voice product metric.
+- **User-facing runtime modes:** `Realtime` and `Quality`. `Fast` is not the
+  canonical product term for the realtime-oriented mode.
+- **Meeting voice default:** `Realtime`.
+- **Standalone text default:** `Quality`.
+- Runtime/profile selection may automatically choose a suitable local profile when
+  a direction/workflow cannot be served by the preferred mode. This routing is an
+  implementation detail and should not force normal users to choose model names.
+- Manual `Realtime` / `Quality` override may remain available in Settings, while
+  workflow-aware defaults own the normal path.
+- ASR/translation/TTS model and provider names are not normal-user product modes.
+
+Current source already measures relevant latency stages, but historical latency
+metrics are explicitly marked untrusted. Numeric release targets therefore remain
+`LOCAL PROOF REQUIRED` until measured on supported target hardware.
+
 ## Verified Repository Areas
 
 ```text
@@ -224,12 +252,10 @@ are **not yet durable `New` foundation facts**. Revalidate them before making th
 new permanent policy:
 
 - NVIDIA CUDA-first acceleration with mandatory CPU fallback;
-- ≤1 second desired post-speech translated-audio latency target;
 - built-in virtual microphone requirement;
 - 50% headphone monitoring behavior;
 - mute-original-microphone behavior;
 - specific ASR/translation/TTS model and provider choices;
-- Quality/Fast runtime modes;
 - Auto/Formal/Casual tone modes;
 - document, history, and Audio Studio scope beyond the now-confirmed text
   translation secondary workflow;
@@ -279,6 +305,10 @@ Use these terms consistently unless a later glossary decision replaces them:
   `Ctrl+Space`.
 - **Segmentation parameters** — numeric VAD/silence/chunk/segment values that are
   implementation tuning, not fixed product constants.
+- **Official voice latency** — detected utterance end -> first translated audio
+  begins.
+- **Realtime** — latency-oriented user mode and normal default for meeting voice.
+- **Quality** — quality-oriented user mode and normal default for standalone text.
 - **Desktop shell** — the user-facing Rust/Tauri application under
   `EngineData/Frontend/RustApp`.
 - **Helper runtime** — internal Python runtime under
