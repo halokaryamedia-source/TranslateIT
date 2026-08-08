@@ -63,6 +63,28 @@ support, local RuntimeAssets model paths, and local-only model loading observed
 in the inherited source, while avoiding an unnecessary permanent ban on future
 platforms or optional cloud features.
 
+## Recovered Language And Voice Direction Policy
+
+Current launch language/voice direction was revalidated by the user on
+2026-08-08:
+
+- **Initial supported languages:** Indonesian and English only.
+- **Text translation:** bidirectional Indonesian <-> English.
+- **Primary outbound meeting voice:** Indonesian speech -> Indonesian transcript
+  -> English translation -> English TTS/output for meeting use.
+- **Primary inbound meeting assistance:** English speech -> English transcript ->
+  Indonesian translation -> Indonesian text for the local user.
+- **English speech -> Indonesian TTS is not an initial product requirement.** It
+  may be added later if there is a real product need.
+- Additional languages are future scope and must not be generalized into the
+  initial product merely because a model can technically support more languages.
+
+Current source is aligned with the launch pair at the UI level. The implementation
+is currently asymmetric: realtime translation is optimized for ID -> EN, while
+Quality/NLLB can cover the reverse direction; current local TTS evidence is also
+English-oriented. Those are implementation/runtime facts, not permission to
+change the approved product directions above.
+
 ## Verified Repository Areas
 
 ```text
@@ -185,8 +207,6 @@ The following were explicit requirements or policies in `V1-Advance`, but they
 are **not yet durable `New` foundation facts**. Revalidate them before making them
 new permanent policy:
 
-- Indonesian ↔ English initial language scope;
-- Indonesian speech → English TTS as the initial voice direction;
 - NVIDIA CUDA-first acceleration with mandatory CPU fallback;
 - Always-listening default and Push-to-talk secondary;
 - `Hold Space` as the push-to-talk default;
@@ -238,6 +258,9 @@ Use these terms consistently unless a later glossary decision replaces them:
   platforms are not current scope but are not permanently prohibited.
 - **Local-first core** — core ASR, translation, and TTS can run without required
   cloud APIs after runtime assets are installed.
+- **Launch language pair** — Indonesian and English.
+- **Outbound meeting voice** — Indonesian speech translated into English voice.
+- **Inbound meeting assistance** — English speech translated into Indonesian text.
 - **Desktop shell** — the user-facing Rust/Tauri application under
   `EngineData/Frontend/RustApp`.
 - **Helper runtime** — internal Python runtime under
