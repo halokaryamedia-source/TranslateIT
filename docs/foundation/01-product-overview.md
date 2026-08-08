@@ -11,12 +11,10 @@ real-time voice translation.
 
 The product should reduce the amount of manual switching between listening,
 transcribing, translating, and speaking a translated response. The user should
-interact with one application rather than understand the internal ASR,
-translation, TTS, audio-routing, or model/runtime implementation.
+interact with one application rather than understand internal ASR, translation,
+TTS, audio-routing, acceleration, or provider implementation.
 
 ## Primary Use Case
-
-The approved primary product direction is:
 
 ```text
 speech input
@@ -26,26 +24,15 @@ speech input
 -> online meeting use
 ```
 
-Voice translation is therefore a core product capability, not an optional legacy
-feature.
-
-The exact meeting-audio integration, output routing, GPU/provider/model choices,
-and numeric release thresholds are intentionally not defined by this overview.
-They must be recovered and specified by the appropriate later foundation owner.
+Voice translation is a core product capability, not an optional legacy feature.
 
 ## Secondary Standalone Workflow
 
 TranslateIT also provides text translation as an independently useful workflow.
-
 Text translation must remain usable even when the voice pipeline is unavailable,
 blocked, still being configured, or awaiting local runtime proof.
 
-This secondary workflow is not a replacement for the primary meeting-voice
-product direction.
-
 ## Initial Product Boundary
-
-The current approved launch boundary is:
 
 ```text
 Platform
@@ -74,9 +61,9 @@ Not required initially
 -> additional language pairs
 ```
 
-Future platforms, optional cloud-assisted features, additional languages, or
-Indonesian TTS are not permanently prohibited. They require a later explicit
-product decision and must not expand the initial product by default.
+Future platforms, optional cloud assistance, additional languages, or Indonesian
+TTS require later explicit product decisions and must not expand the initial
+product automatically.
 
 ## Voice Input Interaction Boundary
 
@@ -84,7 +71,7 @@ Normal meeting use follows **Session Listening**:
 
 ```text
 User explicitly starts voice session
--> TranslateIT listens continuously while the session is active
+-> TranslateIT listens continuously while active
 -> VAD/speech-boundary logic identifies utterances
 -> utterances move into the translation pipeline
 -> User explicitly stops voice session
@@ -93,33 +80,32 @@ User explicitly starts voice session
 TranslateIT must not begin persistent listening merely because the application is
 open.
 
-**Push to Talk** remains a secondary input interaction with `Ctrl+Space` as the
-approved default hotkey.
+**Push to Talk** remains a secondary interaction with `Ctrl+Space` as the approved
+default hotkey.
 
-Speech segmentation is defined by behavior rather than fixed legacy constants:
+Speech segmentation is behavioral rather than a frozen timer contract:
 
-- detect a meaningful natural pause;
+- detect meaningful natural pauses;
 - avoid cutting active words/speech unnecessarily;
 - begin processing promptly after a valid utterance boundary;
 - handle longer speech without losing content.
 
-Numeric silence/VAD/chunk/segment values are implementation tuning that must be
-validated against real latency and speech quality. The inherited `700 ms` silence
-and `12 s` maximum segment values are not permanent product requirements.
+Numeric VAD/silence/chunk/segment values are implementation tuning. The inherited
+`700 ms` silence and `12 s` maximum segment values are not permanent product
+requirements.
 
 ## Latency And Runtime Mode Boundary
 
-The official user-relevant voice latency measurement is:
+Official user-relevant voice latency is measured as:
 
 ```text
 detected end of utterance
 -> first translated audio begins playing
 ```
 
-TranslateIT should feel responsive enough for natural online conversation, but a
+TranslateIT should feel responsive enough for natural online conversation, but the
 numeric release threshold is benchmark-derived rather than inherited as a fixed
-`<= 1 second` promise. Supported target-PC measurements must establish the release
-threshold.
+`<= 1 second` promise.
 
 Supporting ASR, translation, TTS, and playback timing should remain measurable for
 diagnosis.
@@ -134,17 +120,44 @@ Quality
 Normal defaults are workflow-aware:
 
 ```text
-Meeting voice
--> Realtime
-
-Standalone text
--> Quality
+Meeting voice -> Realtime
+Standalone text -> Quality
 ```
 
-The runtime may automatically choose a suitable local profile when a language
-direction or workflow cannot be served by the preferred profile. Normal users
-should not need to select model/provider names. A manual `Realtime` / `Quality`
-override may remain available in Settings.
+The runtime may automatically choose a suitable local profile when the preferred
+profile cannot serve a language direction/workflow. Normal users should not need
+to select model/provider names. A manual `Realtime` / `Quality` override may
+remain available in Settings.
+
+## Acceleration And Provider Boundary
+
+TranslateIT prefers **NVIDIA CUDA acceleration** when available and validated,
+especially for the Realtime meeting workflow. An NVIDIA GPU is not an absolute
+product requirement.
+
+CPU fallback is mandatory:
+
+```text
+Standalone text on CPU
+-> must remain supported when the local runtime is otherwise usable
+
+Meeting voice on CPU
+-> allowed when measured performance is usable
+-> Degraded / not Realtime-ready when benchmark requirements are not met
+```
+
+The application must not silently send speech/text to a cloud service when local
+GPU/CPU execution is slow or unavailable.
+
+Current ASR, translation, and TTS models/providers are replaceable implementation
+choices rather than product identity. A replacement is valid when it preserves the
+approved local-first behavior and required supported-language, quality, latency,
+and packaging characteristics.
+
+Normal users should see product-level status such as `Ready`, `Degraded`, `Setup
+Needed`, `GPU Accelerated`, or `CPU Mode`. Exact model IDs, provider names,
+compute types, CUDA backend details, and fallback reasons belong in Developer
+Diagnostics.
 
 ## Problem TranslateIT Solves
 
@@ -163,8 +176,6 @@ ready or not needed.
 
 ## Product Goal
 
-The intended product loop is:
-
 ```text
 User communication intent
 ↓
@@ -174,7 +185,7 @@ Language content is translated
 ↓
 Translated text is visible to the user
 ↓
-For the primary outbound voice workflow, translated English speech is produced
+For the primary outbound workflow, translated English speech is produced
 for meeting use
 ```
 
@@ -182,8 +193,6 @@ The experience should expose product actions and useful readiness information,
 not require normal users to operate internal runtime components directly.
 
 ## Current Architecture Baseline
-
-The current single-engine recovery baseline is:
 
 ```text
 Rust/Tauri desktop shell
@@ -204,42 +213,37 @@ Runtime contracts
 -> EngineData/Backend/RuntimeContracts
 ```
 
-Rust/Tauri is the user-facing desktop application direction. Python is an
-internal helper runtime and must not become a second competing product shell.
+Rust/Tauri is the user-facing desktop application. Python is an internal helper
+runtime and must not become a second competing product shell.
 
-This overview does not authorize a parallel V2/V3/V4 engine, alternate launcher,
-or duplicate runtime pipeline.
+Old Rust-only/no-Python CUDA planning is stale implementation history where it
+conflicts with this current single-engine direction.
 
 ## Current Implementation Posture
 
 The current `New` frontend entrypoint instantiates `SimpleLauncherController`.
 The visible application currently presents text translation as the immediately
-usable main workflow while voice remains setup-gated.
+usable workflow while voice remains setup-gated.
 
-That UI state is treated as the current stabilization/implementation posture.
-It does **not** change the approved product priority: real-time meeting voice
-translation remains primary, and text translation remains the secondary
-standalone path.
+That UI state is a stabilization/implementation posture. It does **not** change
+the approved product priority: real-time meeting voice translation remains
+primary.
 
-Current source reflects asymmetric translation support, historical/current
-input-mode conflicts, and `Fast` versus `Realtime` naming drift. Approved product
-policy above governs intent; implementation must later be aligned through normal
-Developing work after recovery is complete.
+Current source still contains historical/current naming and contract drift.
+Approved product policy governs intent; implementation alignment happens through
+normal Developing work after recovery is complete.
 
 ## Target User
 
 Primary user:
 
 - needs to communicate across a language barrier during an online meeting;
-- should be able to use TranslateIT without understanding its internal models,
-  helper processes, audio pipeline, or acceleration stack.
+- should be able to use TranslateIT without understanding internal models,
+  helper processes, audio pipelines, or acceleration stacks.
 
 Secondary use:
 
-- a user who wants direct desktop Indonesian/English text translation without
-  starting the voice workflow.
-
-More specific market/persona segmentation is not fixed by this overview.
+- direct desktop Indonesian/English text translation without starting voice.
 
 ## Product Success At This Level
 
@@ -247,27 +251,25 @@ TranslateIT is aligned with this overview when:
 
 - meeting voice translation remains the primary product direction;
 - text translation remains independently usable;
-- initial product scope stays focused on Windows and Indonesian/English;
-- core translation operation can function locally after required assets exist;
+- initial scope stays focused on Windows and Indonesian/English;
+- core translation can function locally after required assets exist;
 - voice listening begins only through an explicit user-started session or PTT;
-- speech boundaries are tuned for natural, responsive conversation rather than a
-  frozen historical timer;
+- speech boundaries are tuned for natural, responsive conversation;
 - official voice latency is measured end-of-utterance -> first translated audio;
 - Realtime is the normal meeting-voice mode and Quality the normal standalone-text
   mode;
+- CUDA is preferred but CPU-only systems retain a truthful supported/degraded local
+  path;
+- model/provider names remain internal implementation details for normal users;
 - one desktop application owns the user experience;
-- internal model/provider choices stay implementation details for normal users;
 - implementation state is not confused with product priority;
-- static source presence is not reported as live runtime readiness;
-- later feature decisions trace back to the communication problem above rather
-  than expanding the product because adjacent technology is available.
+- static source presence is not reported as live runtime readiness.
 
 ## Explicitly Unresolved
 
 This overview intentionally does **not** decide:
 
-- exact ASR, translation, TTS, or voice provider/model choices;
-- GPU/CUDA and CPU fallback policy;
+- exact implementation model/provider selection;
 - numeric VAD/silence/chunk/segment tuning;
 - numeric target-PC latency release threshold;
 - meeting audio integration and virtual microphone behavior;
@@ -278,22 +280,21 @@ This overview intentionally does **not** decide:
 - Audio Studio scope;
 - installer, packaging, update, or distribution policy beyond Windows as the
   initial supported platform;
-- final normal-user versus developer-diagnostics UI boundary.
-
-These must be recovered from current source and inherited evidence, then approved
-before becoming durable requirements.
+- final normal-user versus developer-diagnostics UI boundary beyond the approved
+  readiness/provider-detail split.
 
 ## Evidence Boundary
 
 This file defines **product direction**, not runtime readiness.
 
 Current source confirms that text, voice/readiness, helper, microphone, audio,
-translation, and latency-measurement structures exist, but target-environment
-behavior remains subject to the evidence rules in root `AGENTS.md`.
+translation, latency-measurement, and local acceleration/provider structures exist,
+but target-environment behavior remains subject to the evidence rules in root
+`AGENTS.md`.
 
 Do not infer successful model loading, microphone capture, TTS quality, audio
-routing, meeting integration, latency target attainment, CUDA behavior, packaging,
-or release readiness from this overview.
+routing, meeting integration, latency target attainment, CUDA performance,
+packaging, or release readiness from this overview.
 
 ## Related
 
