@@ -8,9 +8,9 @@ This note is the single active-task resume point for TranslateIT. New sessions r
 
 `AGENTS.md` -> `CONTEXT.md` -> this note
 
-Do not reconstruct project history here. Stable facts belong in `CONTEXT.md`;
-durable product/system policy belongs in `docs/foundation/`; historical evidence
-remains inherited evidence until classified.
+Stable facts belong in `CONTEXT.md`; durable approved product/system policy belongs
+in `docs/foundation/`; historical material remains recovery evidence until
+classified.
 
 ## Active Goal
 
@@ -19,10 +19,12 @@ broad development resumes.
 
 ## Current Phase
 
-`FOUNDATION_PRODUCT_OVERVIEW`
+`CONTEXT_RECOVERY_PLATFORM_AND_RUNTIME_LOCALITY`
 
-The bootstrap working system is established and the first high-impact product
-purpose decision has been recovered and approved.
+The primary product purpose has been recovered, approved, and captured in the
+first durable foundation owner. The next requirement slice must establish where
+the application is intended to run and whether core translation behavior remains
+local-first.
 
 ## Completed Boundary
 
@@ -30,29 +32,29 @@ Completed on `New`:
 
 - branch `New` created from `V1-Advance` baseline commit
   `6fd3485d6b22b9e3f44abc640241532aea61c3c7`;
-- root `AGENTS.md` established as agent behavior, context-recovery, anti-slop,
-  routing, and proof authority;
+- root `AGENTS.md` established as working/routing/evidence authority;
 - root `CONTEXT.md` established as compact stable recovery context;
-- this `next-action.md` established as the single active-task resume point;
 - `.agents/skills/development-brief/SKILL.md` established as the only current
   repository-specific Developing front door;
-- no specialist TranslateIT skill has been created;
-- no inherited runtime/source implementation has been changed by bootstrap or
-  product-purpose recovery work.
+- primary product direction revalidated as real-time voice translation for
+  online meetings;
+- standalone text translation retained as the secondary/fallback workflow;
+- `docs/foundation/01-product-overview.md` established as the durable owner for
+  that approved product purpose;
+- no inherited application/runtime source has been changed by bootstrap or
+  product recovery work.
 
-## Recovered Product Direction
-
-Approved current direction:
+## Approved Product Direction
 
 ```text
 PRIMARY
 Real-time voice translation for online meetings
 
 SECONDARY / STANDALONE
-Text translation that remains usable independently of voice readiness
+Text translation usable independently of voice readiness
 ```
 
-The intended larger product flow remains:
+High-level intended product flow:
 
 ```text
 speech input
@@ -62,93 +64,76 @@ speech input
 -> meeting use
 ```
 
-Current source/UI presents text translation as the immediately usable main flow
-and voice as setup-gated. Treat that as the current stabilization/implementation
-shape, not as a replacement of the approved meeting-translator product purpose.
+Current text-first UI is a stabilization/implementation posture, not a replacement
+of this product direction.
 
-## Current Recovery Baseline
-
-The strongest retained architecture evidence remains:
+## Current Architecture Baseline
 
 ```text
-user-facing desktop shell
--> EngineData/Frontend/RustApp
--> Rust/Tauri
-
-internal helper runtime
--> EngineData/Backend/LocalWorker/WorkerRuntime
--> Python
+Rust/Tauri desktop shell
++
+Python helper runtime
 ```
 
-Current frontend entrypoint instantiates `SimpleLauncherController`; older docs
-that describe `active-launcher` as the direct UI controller must therefore be
-reconciled before becoming current ownership documentation.
+Current source starts from:
 
-This is still static/source evidence, not a claim that the live application is
-verified or release-ready.
+```text
+EngineData/Frontend/RustApp
+EngineData/Backend/LocalWorker/WorkerRuntime
+EngineData/Backend/RuntimeContracts
+```
+
+Current frontend entrypoint instantiates `SimpleLauncherController`.
+This is static/source evidence, not live runtime proof.
 
 ## Holds
 
-Until later recovery slices reach the relevant owner, do not:
+Until later recovery slices approve the relevant requirement, do not:
 
 - resume inherited feature TODOs automatically;
-- redesign the product or UI broadly;
-- replace the Rust/Tauri + Python helper architecture without a grounded current
-  architecture decision;
-- create V2/V3/V4, a parallel engine, alternative launcher, or duplicate runtime
-  pipeline;
-- delete or mass-rewrite inherited `DevelopingData` documentation;
-- promote inherited platform, language, model, latency, virtual microphone,
-  Audio Studio, installer, or detailed audio behavior into permanent policy
-  without revalidation;
-- create specialist project skills before a distinct reusable semantic owner is
-  proved;
-- claim local runtime, model, audio, CUDA, virtual-device, installer, or
-  end-to-end readiness from static source inspection alone.
+- redesign the product/UI broadly;
+- replace the Rust/Tauri + Python helper architecture without a grounded decision;
+- create V2/V3/V4, a parallel engine, alternate launcher, or duplicate pipeline;
+- mass-rewrite inherited `DevelopingData` documentation;
+- treat Windows-only, local-only, language/model/provider, CUDA, latency, virtual
+  microphone, Audio Studio, installer, or detailed audio behavior as current
+  policy merely because inherited documents called them final/locked;
+- create specialist project skills before a reusable semantic owner is proved;
+- claim runtime/device/model/audio/release readiness from static source alone.
 
 ## Evidence State
 
-Repository/source inspection confirms:
+Current recovery has established:
 
-- `src/main.ts` starts `SimpleLauncherController`;
-- current visible UI labels text translation as the main workflow and voice as
-  setup-gated;
-- current source still contains voice capture/readiness, microphone, helper,
-  translation, and audio-runtime structures;
-- current source restricts the visible language selector to Indonesian and
-  English, but that language scope has not yet been reapproved as durable product
-  policy.
-
-The primary meeting-translator direction is now a current user decision and is
-recorded in `CONTEXT.md`.
+- current product purpose by explicit user decision;
+- current high-level single-engine architecture baseline;
+- current UI entrypoint and text-first stabilization shape;
+- presence of voice/readiness/helper/audio/translation source structures;
+- a durable product overview that intentionally leaves unresolved requirements
+  outside its authority.
 
 Material live behavior remains unverified unless separately proven.
 
 ## Next Step
 
-Create the first durable product foundation owner:
+Recover the **platform and runtime-locality boundary**.
 
-```text
-docs/foundation/01-product-overview.md
-```
+Specifically:
 
-Keep it intentionally small. It should contain only:
+1. inspect the smallest current source/config/build boundary for OS/platform
+   assumptions;
+2. inspect current helper/model/runtime code for local execution versus external
+   network/cloud dependencies;
+3. compare those findings with the inherited Windows-only and local-first
+   requirements;
+4. separate implementation constraints from actual product requirements;
+5. present only the high-impact decisions that require current user approval.
 
-1. what TranslateIT is;
-2. the approved primary use case;
-3. the secondary standalone text workflow;
-4. the current single-engine architecture baseline at a high level;
-5. the distinction between product direction, current implementation shape, and
-   runtime proof;
-6. explicit unresolved areas that require later recovery.
-
-Do **not** copy the old V1-Advance PRD into this file.
-Do **not** decide Windows-only, exact language scope, exact model/provider stack,
-latency targets, virtual microphone behavior, Audio Studio scope, or installer
-policy in the same step.
+Do **not** create `02-product-requirements.md` in the same recovery slice.
+Do **not** change application source while recovering this requirement.
 
 ## Completion Boundary For This Step
 
-This step is complete when `01-product-overview.md` exists as a concise durable
-owner for the approved product purpose, without importing unresolved inherited
-requirements or changing application source.
+This slice is complete when the intended initial platform and the policy for local
+versus cloud-assisted core translation can be stated clearly, with current source
+evidence separated from user-approved product policy.
