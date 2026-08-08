@@ -1,215 +1,191 @@
 # Next Action
 
-Updated: 2026-08-09
-Status: active task snapshot
+Updated: 2026-08-09  
+Status: active task snapshot  
 Working branch: `New`
 
-This note is the single active-task resume point for TranslateIT. New sessions read:
+This note is the single resume point for current TranslateIT work.
 
-`AGENTS.md` -> `CONTEXT.md` -> this note
+New sessions read:
 
-Stable facts belong in `CONTEXT.md`; durable approved product/system policy belongs
-in `docs/foundation/`; inherited material remains recovery evidence until
-classified.
+```text
+AGENTS.md
+-> CONTEXT.md
+-> this note
+-> relevant foundation/source owner only
+```
 
 ## Active Goal
 
-Finish the last major product-recovery decision, then consolidate the recovered
-product boundary into canonical requirements before broad development resumes.
+Reconcile the recovered product foundation with the inherited `New` source before
+normal implementation resumes.
 
 ## Current Phase
 
-`CONTEXT_RECOVERY_UI_DIAGNOSTICS_BOUNDARY`
+`FOUNDATION_RECONCILIATION_ARCHITECTURE_AND_SOURCE_OWNERSHIP`
 
-The installer/packaging/distribution policy was approved by the user on 2026-08-09.
-To avoid repeated full-file documentation churn, that newly approved policy is
-recorded in this active resume point and will be consolidated into `CONTEXT.md` and
-foundation together with the final UI/diagnostics decision.
-
-## Completed Product Boundary
+Broad product context recovery is complete enough to stop asking requirement-by-
+requirement questions. Approved policy is now owned by:
 
 ```text
-PRIMARY
-Real-time voice translation for online meetings
-
-SECONDARY
-Indonesian <-> English text translation
-
-INITIAL PLATFORM
-Windows
-
-CORE RUNTIME
-Local-first / offline-capable after required assets are installed
-
-OUTBOUND VOICE
-Indonesian speech -> English voice
-
-INBOUND ASSISTANCE
-English speech -> Indonesian text
-
-VOICE INPUT
-Session Listening primary
-Push to Talk / Ctrl+Space secondary
-
-SEGMENTATION
-Natural-pause behavior
-Numeric VAD/silence/segment values are runtime tuning
-
-LATENCY
-Detected utterance end -> first translated audio begins
-Numeric release threshold is benchmark-derived
-
-RUNTIME MODES
-Meeting voice -> Realtime
-Standalone text/document -> Quality
-
-ACCELERATION
-CUDA preferred, not required
-CPU fallback mandatory
-No silent cloud fallback
-
-MEETING OUTPUT
-Translated English voice only by default
-TranslateIT-managed meeting microphone/audio route
-Raw Indonesian microphone excluded from meeting output
-Local monitoring optional/off by default
-
-TRANSLATION
-Meaning/context first, not word-by-word
-Auto / Formal / Casual; Auto default
-Bounded local/session context
-
-HISTORY / PRIVACY
-Local History on by default and user-disableable
-Saved is explicit
-Raw/TTS audio temporary by default
-Diagnostics minimal/redacted by default
-
-DOCUMENT TRANSLATION
-TXT / MD / DOCX / text-based PDF / SRT / VTT
-OCR deferred
-Semantic chunking; Quality default
-
-AUDIO STUDIO
-Part of TranslateIT but advanced/post-core
-Not an initial core-release blocker
-Local custom English voice for outbound translated TTS
-Import + Guided Recording
-Voice authorization required
-Quality/readiness-gated, not fixed sample-minute tiers
-Default local English TTS remains independent fallback
-Advanced broadcast/emotion/style/multilingual/dialogue/long-form studio is deferred
-
-INSTALLER / DISTRIBUTION
-Windows internal/controlled distribution first
-One normal-user setup experience
-Self-contained core runtime from the user's point of view
-No manual Python/pip/model/env-var setup
-Package provides desktop app, helper runtime/dependencies, core ASR/translation
-assets, default local English TTS, and meeting-audio-route setup/support
-Model binaries are release-build inputs, not required in Git
-System Python is development fallback only, not production dependency
-Core runtime is offline-capable after installation
-Fresh install does not package developer UserData or DevelopingData
-Auto-update deferred
-Code signing is not an internal-release blocker; revisit before broad distribution
-Installer filename is a build convention, not product identity
-Installer readiness requires clean-Windows install/runtime proof
+docs/foundation/01-product-overview.md
+docs/foundation/02-product-requirements.md
+CONTEXT.md
 ```
 
-Audio Studio and installer decisions are approved product intent. Their current
-source/runtime implementations remain separate evidence questions.
+## Current Product Foundation
 
-## Packaging Evidence Boundary
+Primary product:
 
-Current source only proves packaging preparation:
+```text
+Windows real-time meeting voice translation
+Indonesian speech -> English voice
+English speech -> Indonesian text assistance
+```
 
-- Tauri targets Windows NSIS;
-- current Tauri bundle config does not yet declare the complete Python/helper/model/
-  audio-route release resources;
-- package preflight intentionally does not perform a full installer build;
-- current helper can still discover system Python and therefore is not yet proof of
-  a self-contained installed runtime;
-- runtime models/Piper/.venv are intentionally excluded from Git and must enter the
-  release through the build/package input process;
-- current path discovery still assumes an `EngineData` + `UserData` runtime root.
+Secondary:
 
-Therefore installer completeness remains `LOCAL PROOF REQUIRED` until a clean
-Windows package is actually installed and exercised.
+```text
+ID <-> EN text translation
+bounded document translation
+local History / explicit Saved
+```
 
-## Current UI / Diagnostics Evidence To Reconcile
+Advanced/post-core:
 
-Current active UI mixes product-level and developer-level controls:
+```text
+Audio Studio custom English voice
+```
 
-- Settings directly exposes a `Developer` tab to normal navigation;
-- the home Engine Status card directly exposes `Start Helper`, `Check Worker`,
-  `Check Mic`, and `Diagnostics`;
-- `Local data` routes directly to Developer settings;
-- General Settings exposes runtime/GPU status;
-- Audio Settings includes useful normal controls but also explanatory implementation
-  language about helper/model/provider pipeline and planned DSP work;
-- Translate Settings still labels the realtime mode `Fast` even though approved
-  product terminology is `Realtime`;
-- Developer Settings intentionally contains low-level helper controls, preload/
-  smoke-test actions, capture dispatch controls, hardware status, pipeline state,
-  logs, architecture status, model/provider evidence, and validation commands;
-- `runtimeProductFacade` already maps low-level runtime state to useful product
-  concepts such as Ready, Text ready, Setup needed, Voice ready, Models ready,
-  microphone readiness, and next action;
-- some normal-user notices still surface raw worker/blocker text rather than a
-  grouped product-level problem and recovery action.
+Core policies also cover Session Listening/PTT, natural segmentation,
+meaning-preserving translation, Auto/Formal/Casual, Realtime/Quality, CUDA-preferred
+with CPU fallback, TranslateIT meeting microphone routing, privacy/retention,
+self-contained internal Windows packaging, and normal-user versus Developer
+Diagnostics boundaries.
 
-The current source therefore already has a useful product-readiness abstraction,
-but the active UI still leaks engineering operation into normal product surfaces.
+The detailed requirement IDs are in `docs/foundation/02-product-requirements.md`.
+
+## Current Architecture Baseline
+
+```text
+Rust/Tauri desktop shell
++
+Python helper runtime
+```
+
+Current source roots:
+
+```text
+EngineData/Frontend/RustApp
+EngineData/Backend/LocalWorker/WorkerRuntime
+EngineData/Backend/RuntimeContracts
+EngineData/Backend/RuntimeAssets
+```
+
+Current frontend entrypoint still instantiates `SimpleLauncherController`.
+
+## Why Reconciliation Comes Before Development
+
+Current source was inherited from `V1-Advance` and contains a mixture of:
+
+- useful current implementation;
+- stabilization UI;
+- developer/runtime controls exposed as product UI;
+- stale naming/policies;
+- contract-only or provider-blocked features;
+- runtime structures whose target-PC readiness is not proven.
+
+Examples already identified during recovery:
+
+- text-first `SimpleLauncherController` does not represent the recovered
+  Meeting-first product hierarchy;
+- `Fast` still appears in some UI while `Realtime` is the approved term;
+- normal UI still exposes `Start Helper`, `Check Worker`, and direct Developer
+  controls;
+- translation tone/context policy is not implemented/proven end to end;
+- History/Saved semantics are incomplete;
+- `.docx`/PDF first-class document translation is not implemented;
+- Audio Studio is metadata-oriented/provider-blocked;
+- NSIS configuration does not prove a self-contained installer;
+- microphone, virtual route, CUDA, TTS, and latency still require target-PC proof.
+
+These gaps do **not** justify a rewrite or second engine. Source ownership must be
+mapped first.
 
 ## Holds
 
-Until the UI/diagnostics boundary is approved, do not:
+During this reconciliation slice, do not:
 
-- change application/runtime source;
-- perform a visual redesign;
-- expose model IDs, Python/helper lifecycle, pipeline smoke/preload controls,
-  internal contracts, raw logs, CUDA compute details, or provider internals to
-  normal users;
-- remove Developer Diagnostics entirely; it remains required for troubleshooting;
-- make normal product recovery depend on users manually operating helper/worker
-  controls when the app can own that workflow;
-- create `02-product-requirements.md` before this final product-boundary decision is
-  approved.
+- redesign or rewrite the application broadly;
+- create another launcher/engine/runtime;
+- start implementing every requirement gap found;
+- revive old TODOs automatically;
+- change model/provider/driver/parser choices without an owner-level need;
+- mass-rewrite inherited `DevelopingData` reports;
+- claim live runtime readiness from static source;
+- create specialist skills merely because a technology appears in the source.
 
-## Next Decision
+Application/runtime source should remain unchanged while the ownership map is being
+established unless a tiny source correction is strictly required to make the map
+truthful.
 
-Recover the **normal-user UI versus Developer Diagnostics product boundary**.
+## Next Step
 
-Specifically:
+Build a bounded **requirement -> source owner -> current behavior -> gap/evidence**
+map.
 
-1. decide which primary navigation/workflows normal users see;
-2. keep normal settings focused on language, tone/mode, audio devices, meeting
-   route, history/privacy, appearance, and product-level readiness;
-3. decide whether Developer Diagnostics is hidden behind an Advanced/Developer
-   entry rather than a permanent top-level Settings tab;
-4. replace normal `Start Helper` / `Check Worker` style operations with product
-   actions such as automatic setup/repair, Retry, Fix Setup, or Open Diagnostics;
-5. define normal readiness states and error grouping without leaking raw blocker
-   strings;
-6. keep exact runtime/model/provider/GPU/pipeline/log/contract evidence available
-   inside Developer Diagnostics;
-7. preserve one explicit path from a user-facing setup failure to diagnostics when
-   automatic/product-level recovery is insufficient.
+Inspect only the source directly needed for these product boundaries:
 
-Do **not** change runtime/source during this recovery decision.
+1. application entrypoint, shell/navigation, and Settings routing;
+2. product readiness facade and setup/recovery flow;
+3. text translation command/runtime path;
+4. voice capture/session/pipeline ownership;
+5. translation context/tone/settings ownership;
+6. meeting audio-route ownership;
+7. History/Saved/storage ownership;
+8. document-translation/attachment boundary;
+9. Audio Studio ownership;
+10. installer/package/runtime-asset ownership.
 
-## Completion Boundary For This Step
+For each boundary classify:
 
-This slice is complete when normal navigation, normal Settings, readiness/error
-presentation, automatic/product-level recovery actions, and hidden Developer
-Diagnostics can be stated as approved product requirements.
+```text
+CURRENT OWNER
+CURRENT BEHAVIOR
+REQUIREMENT IDS
+ALIGNED / PARTIAL / MISSING / STALE
+PROOF STATUS
+SMALLEST NEXT CHANGE
+```
 
-After approval:
+Do not broad-scan unrelated repository areas.
 
-1. consolidate Audio Studio + installer + UI decisions into `CONTEXT.md` and
-   `docs/foundation/01-product-overview.md`;
-2. create `docs/foundation/02-product-requirements.md` as the canonical detailed
-   product requirement owner;
-3. advance `next-action.md` out of broad product context recovery and into bounded
-   architecture/source-ownership reconciliation before implementation.
+## Expected Output
+
+Create or update one source-ownership/reconciliation owner under `docs/knowledge/`
+only after the source inspection proves the useful structure. Do not create
+multiple overlapping maps/reports.
+
+The resulting map should be usable to derive a development sequence without
+requiring the user to remember old repository internals.
+
+## Completion Boundary
+
+This phase is complete when:
+
+- each major approved requirement group has a current source owner or explicit
+  missing-owner classification;
+- stale/parallel ownership is identified;
+- runtime-proof gaps are separated from implementation gaps;
+- the minimum development sequence can be derived without creating a new
+  architecture;
+- the next task can enter Plan/Developing with a small grounded scope.
+
+## Canonical References
+
+- `AGENTS.md` — working and evidence rules.
+- `CONTEXT.md` — compact recovered context.
+- `docs/foundation/01-product-overview.md` — product hierarchy.
+- `docs/foundation/02-product-requirements.md` — detailed approved requirements.
+- `.agents/skills/development-brief/SKILL.md` — Developing front door after
+  reconciliation.
