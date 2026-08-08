@@ -159,6 +159,56 @@ Needed`, `GPU Accelerated`, or `CPU Mode`. Exact model IDs, provider names,
 compute types, CUDA backend details, and fallback reasons belong in Developer
 Diagnostics.
 
+## Meeting Audio Routing Boundary
+
+For the primary outbound workflow, the meeting should receive **translated English
+voice only**:
+
+```text
+Physical microphone
+-> TranslateIT capture / ASR
+-> Indonesian -> English translation
+-> English TTS
+-> TranslateIT-managed meeting microphone/audio route
+-> Zoom / Meet / Teams / other meeting app
+```
+
+The physical microphone remains available to TranslateIT for capture, but raw
+Indonesian microphone audio is excluded from the meeting-output route by default.
+A global Windows microphone mute is not required.
+
+The normal product concept is a **TranslateIT meeting microphone** (or equivalent
+managed Windows audio endpoint). The underlying virtual-audio driver/provider is a
+replaceable implementation detail; a specific third-party brand and a custom
+TranslateIT kernel/audio driver are not product requirements.
+
+Original Indonesian voice and translated English TTS must not be mixed into the
+meeting by default. Any future bilingual/pass-through mode requires an explicit
+separate product decision.
+
+Local translated-voice monitoring is:
+
+```text
+optional
+-> off by default
+-> user-adjustable volume
+```
+
+The inherited fixed `50%` monitoring level is not a product constant.
+
+When the virtual meeting route is unavailable:
+
+```text
+Meeting Voice -> Setup Needed
+Text translation -> remains available
+Transcript/local translation -> remains available
+Local TTS preview -> remains available when its provider is ready
+```
+
+TranslateIT must not silently substitute the physical microphone, speaker output,
+or cloud routing. Initial integration uses the standard Windows microphone-device
+model; meeting-app-specific plugins/APIs are not required initially.
+
 ## Problem TranslateIT Solves
 
 Cross-language online conversation normally forces the user to combine several
@@ -229,9 +279,11 @@ That UI state is a stabilization/implementation posture. It does **not** change
 the approved product priority: real-time meeting voice translation remains
 primary.
 
-Current source still contains historical/current naming and contract drift.
-Approved product policy governs intent; implementation alignment happens through
-normal Developing work after recovery is complete.
+Current virtual-audio source can select existing virtual audio devices and contains
+a guarded Python provider for routing TTS WAV output, but it explicitly does not
+prove that audio reaches a real meeting input. Product policy above governs the
+required experience; target-PC routing remains to be proven and implementation
+alignment happens through normal Developing work after recovery.
 
 ## Target User
 
@@ -261,6 +313,11 @@ TranslateIT is aligned with this overview when:
 - CUDA is preferred but CPU-only systems retain a truthful supported/degraded local
   path;
 - model/provider names remain internal implementation details for normal users;
+- outbound meeting audio contains translated English voice rather than raw
+  Indonesian microphone audio by default;
+- meeting routing fails explicitly to Setup Needed rather than silently falling
+  back to an unsafe/unapproved route;
+- local translated-voice monitoring is optional and user-controlled;
 - one desktop application owns the user experience;
 - implementation state is not confused with product priority;
 - static source presence is not reported as live runtime readiness.
@@ -272,9 +329,8 @@ This overview intentionally does **not** decide:
 - exact implementation model/provider selection;
 - numeric VAD/silence/chunk/segment tuning;
 - numeric target-PC latency release threshold;
-- meeting audio integration and virtual microphone behavior;
-- microphone monitoring/muting details;
-- Auto/Formal/Casual translation tone modes;
+- exact virtual-audio driver/provider implementation;
+- Auto/Formal/Casual translation tone modes and contextual-translation behavior;
 - document translation scope;
 - history/saved-session product requirements;
 - Audio Studio scope;
@@ -288,13 +344,13 @@ This overview intentionally does **not** decide:
 This file defines **product direction**, not runtime readiness.
 
 Current source confirms that text, voice/readiness, helper, microphone, audio,
-translation, latency-measurement, and local acceleration/provider structures exist,
-but target-environment behavior remains subject to the evidence rules in root
-`AGENTS.md`.
+translation, latency-measurement, local acceleration/provider, and guarded virtual
+routing structures exist, but target-environment behavior remains subject to the
+evidence rules in root `AGENTS.md`.
 
-Do not infer successful model loading, microphone capture, TTS quality, audio
-routing, meeting integration, latency target attainment, CUDA performance,
-packaging, or release readiness from this overview.
+Do not infer successful model loading, microphone capture, TTS quality, meeting
+audio delivery, latency target attainment, CUDA performance, packaging, or release
+readiness from this overview.
 
 ## Related
 
