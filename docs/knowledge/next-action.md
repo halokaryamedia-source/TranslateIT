@@ -1,6 +1,6 @@
 # Next Action
 
-Updated: 2026-08-08
+Updated: 2026-08-09
 Status: active task snapshot
 Working branch: `New`
 
@@ -19,13 +19,13 @@ broad development resumes.
 
 ## Current Phase
 
-`CONTEXT_RECOVERY_HISTORY_PRIVACY_AND_RETENTION`
+`CONTEXT_RECOVERY_DOCUMENT_TRANSLATION_SCOPE`
 
 Product purpose, platform/locality, language/voice direction, voice
-input/segmentation, latency/runtime-mode, acceleration/provider, meeting audio
-routing, and translation-quality/tone policy are now recovered and approved. The
-next slice must distinguish temporary translation context, persistent History,
-explicit Saved sessions, audio retention, and diagnostic logs.
+input/segmentation, latency/runtime modes, acceleration/provider policy, meeting
+audio routing, translation behavior/tone, and History/Saved/privacy policy are now
+recovered and approved. The next slice must decide the initial document-translation
+product boundary.
 
 ## Completed Product Boundary
 
@@ -86,6 +86,13 @@ Meaning/context first, not word-by-word
 Auto / Formal / Casual; Auto default
 Technical/entity fidelity preserved
 Recent context bounded/local/session-scoped
+
+HISTORY / SAVED / PRIVACY
+Local History on by default and user-disableable
+Saved requires explicit user action
+Raw/TTS audio temporary by default
+History is never automatic model context
+Diagnostics are minimal/redacted by default
 ```
 
 `docs/foundation/01-product-overview.md` and `CONTEXT.md` are aligned with these
@@ -110,77 +117,62 @@ EngineData/Backend/RuntimeContracts
 
 Static/source presence is not live runtime proof.
 
-## History / Privacy Evidence To Reconcile
+## Document Translation Evidence To Reconcile
 
-Inherited V1-Advance requirements wanted History on by default, persistent until
-user deletion, searchable, clearable, and disable-able. They also wanted audio
-history off by default and user-controllable deletion.
+Inherited V1-Advance requirements treated document translation as a secondary
+workflow and named initial common formats:
 
-Current source contains multiple storage concepts that must not be conflated:
+```text
+.txt
+.md
+.docx
+.pdf (text-based)
+.srt
+```
 
-- `UserData/CacheData` is explicitly disposable runtime/session material;
-- `UserData/LogData` owns runtime logs, diagnostics, and validation evidence;
-- `UserData/SavedProject` owns user-approved saved work;
-- Rust `session_store` can write transcript-session JSON under
-  `SavedProject/SavedTranscript`;
-- transcript planning can optionally copy source/translated audio into a saved
-  transcript session when `copy_audio` is enabled;
-- `session_chat` writes chat-session JSON under `SavedProject/Chat`, including for
-  newly created/unsaved chat kinds, so current source semantics are not yet cleanly
-  aligned with the `SavedProject = user-approved saved work` folder policy;
-- current active UI still treats History/Saved as not fully connected rather than
-  proving a complete user-facing history workflow;
-- the inspected chat/session APIs expose create/list/append/save behavior but do
-  not establish a complete user-facing delete/clear/retention control;
-- runtime logs have file-size rotation and basic path/email/secret redaction, but
-  source presence alone does not establish a final privacy/retention policy.
+They also expected chunking for larger content and either a translated file or a
+translated text result depending on format support, while OCR was deferred.
 
-Translation context approved in the previous slice is **session-scoped model
-context**, not automatic permission to persist full conversation history.
+Current source must be inspected before this is promoted because the active simple
+launcher currently behaves more like a text composer with text-like attachments
+than a proven document translation/export workflow.
 
 ## Holds
 
 Until this recovery slice is approved, do not:
 
-- change application/runtime source to implement persistence behavior yet;
-- equate active translation context with persistent History;
-- persist raw meeting audio by default;
-- assume `History on by default` remains correct merely because the old PRD said
-  so;
-- treat every file under `SavedProject` as intentionally user-saved when current
-  source can create chat files automatically;
-- retain transcripts/logs indefinitely without an explicit product policy;
-- feed persistent History back into translation context automatically;
-- claim delete/clear/privacy controls exist from storage structs alone;
+- change application/runtime source to add document processing;
+- assume inherited `.docx` or PDF support is implemented merely because the old
+  PRD required it;
+- add OCR, layout reconstruction, office conversion, or broad file-format support
+  without an approved initial product need;
+- treat attachment ingestion into the text composer as equivalent to document
+  translation;
+- create a parallel document engine or cloud document service;
 - create `02-product-requirements.md` yet.
 
 ## Next Step
 
-Recover the **History, Saved-session, privacy, and data-retention product policy**.
+Recover the **document translation product scope**.
 
 Specifically:
 
-1. decide whether normal translation History is persisted automatically, opt-in,
-   or session-only by default;
-2. distinguish History from explicit Saved sessions/projects;
-3. decide what transcript/original/translated text metadata is retained and for
-   how long;
-4. keep raw microphone audio and generated TTS audio temporary by default unless
-   the user explicitly saves audio/replay material;
-5. define clear/delete controls and whether History can be disabled;
-6. define whether persistent History may ever be reused as translation context
-   without explicit user action;
-7. define privacy boundaries for runtime logs/diagnostics so they avoid storing
-   conversation content unless required for an explicitly enabled diagnostic
-   workflow;
-8. preserve `CacheData` / `LogData` / `SavedProject` ownership instead of creating
-   another storage root without need.
+1. inspect current attachment/document contracts and active UI ingestion behavior;
+2. identify formats actually supported by current source and whether content is
+   extracted, translated, or merely inserted into the text composer;
+3. decide the initial supported document formats;
+4. decide whether PDF initial support is text-based extraction only and keep OCR
+   out of scope unless explicitly needed;
+5. define chunking/context behavior for larger documents without exposing model
+   internals;
+6. define the expected output per format: translated text, translated file, or
+   both where practical;
+7. preserve local-first/privacy requirements for document contents.
 
 Do **not** change runtime/source while recovering this requirement.
 
 ## Completion Boundary For This Step
 
-This slice is complete when default persistence, Saved-versus-History semantics,
-audio retention, deletion/clear behavior, context reuse, and diagnostic privacy can
-be stated as approved product requirements with storage implementation details and
-runtime proof kept separate.
+This slice is complete when initial document formats, extraction/OCR boundary,
+chunking semantics, output behavior, and privacy expectations are explicitly
+approved with current implementation capability kept separate from product scope.
