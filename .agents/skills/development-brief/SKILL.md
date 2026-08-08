@@ -1,43 +1,23 @@
 ---
 name: development-brief
-description: Mandatory front door for non-trivial TranslateIT Developing work. Ground the real goal in current repository evidence, separate requested outcome from a suggested method, identify the semantic owner and execution channel, decide whether development is actually needed, define minimal scope with 2-5 acceptance criteria and a proof budget, then use at most one specialist only when a recovered reusable ownership boundary justifies it. Re-check the same contract before completion. Do not use for Context Recovery, Plan, or Maintenance.
+description: Mandatory front door for non-trivial TranslateIT Developing work. Ground the real goal, separate outcome from suggested method, identify the semantic owner and execution channel, decide whether development is actually needed, define minimal scope with 2-5 acceptance criteria and a proof budget, then use at most one project specialist when it adds real semantic value. Re-check the same contract before completion. Do not use for Context Recovery, Plan, or Maintenance.
 ---
 
 # TranslateIT Development Brief
 
-Turn a create/change request into the smallest grounded development contract.
-
-Root `AGENTS.md` owns repository boot, context recovery, source precedence,
-independent judgment, root-cause gating, anti-AI-slop rules, skill budget, proof
-economy, and evidence labels. Apply those rules instead of duplicating them here.
-
-This skill is the mandatory front door for **non-trivial Developing work** on
-`New`. It is not a substitute for recovering product context when the requirement
-itself is still uncertain.
-
-## Do Not Use This Skill For
-
-- **Context Recovery** — first recover/reconcile the missing product or historical
-  context according to `AGENTS.md`;
-- **Plan** — resolve an unclear product/architecture choice before implementation;
-- **Maintenance** — bugs, cleanup, reviews, regressions, and behavior-preserving
-  refactors use the Maintenance route from `AGENTS.md`;
-- trivial mechanical edits whose intent, owner, scope, and proof are already
-  obvious.
-
-If a Developing request exposes a missing high-impact product decision, stop and
-reframe that part as Context Recovery or Plan rather than inventing the missing
-requirement inside the implementation.
+Use this skill as the Developing front door. Root `AGENTS.md` owns boot,
+precedence, discovery, independent judgment, edit discipline, anti-slop, evidence,
+and finalization; do not duplicate those rules here.
 
 ## Required Decisions
 
-Before implementation establish only what materially affects the task:
+For non-trivial Developing work establish:
 
 ```text
 Goal:
 Suggested method (if any):
-Current evidence:
-Current semantic owner:
+Observed fixture/example (if any):
+Generic requirement:
 Execution channel:
 Input authority:
 Expected output:
@@ -50,226 +30,114 @@ Proof budget:
 Open high-impact decisions:
 ```
 
-Omit fields that do not apply. Do not create a persisted planning document merely
-to fill this template.
+This is an internal development contract, not a reason to create a per-task plan
+file.
 
 ## Procedure
 
-### 1. Boot From Repository State
+### 1. Ground The Goal
 
-Read:
+Separate the user outcome from a suggested technical method. Treat screenshots,
+samples, old branches, old UI, sample files, and inherited reports as fixtures or
+evidence unless current policy explicitly makes them generic requirements.
 
-1. root `AGENTS.md`;
-2. root `CONTEXT.md`;
-3. `docs/knowledge/next-action.md`;
-4. only the relevant current foundation/decision/ownership note when it exists;
-5. the affected current source plus direct contracts/callers.
+Resolve repository facts from current canonical owners/source before asking the
+user. If a high-impact product decision is still unresolved, leave Developing
+and use Plan or Context Recovery rather than inventing the answer.
 
-Open inherited `DevelopingData` reports only when they are needed to recover a
-specific intent, historical decision, or evidence boundary.
+### 2. Detect The Execution Channel
 
-Do not broad-scan the repository or reconstruct the task from old chat history.
-
-### 2. Ground The Real Goal
-
-Separate:
-
-- **user outcome** — what must become possible or correct;
-- **suggested method** — how the user or an old document proposes achieving it;
-- **current behavior** — what `New` source actually does;
-- **current policy/decision** — only when a current canonical owner exists;
-- **recovery evidence** — inherited material that still needs reconciliation;
-- **assumption** — plausible but not established;
-- **unknown** — insufficient/conflicting evidence.
-
-A suggested technical method is not automatically a requirement. Preserve the
-user's outcome while redirecting methods that conflict with current evidence,
-create unnecessary architecture, revive superseded behavior, or reduce product
-quality.
-
-Samples, old prototypes, historical reports, and named fixtures are evidence or
-examples unless the current task explicitly requires their exact behavior.
-
-### 3. Identify The Current Semantic Owner
-
-Before creating a new module, service, helper, contract, config, state store, or
-document:
-
-- locate the source/contract that currently owns the behavior;
-- inspect the directly affected callers or boundaries;
-- prefer extending/correcting the existing owner;
-- treat a missing owner as an architecture question, not permission to create a
-  new layer immediately.
-
-Choose ownership by **responsibility**, not merely by implementation language.
-Rust, TypeScript, Python, Tauri, audio, CUDA, or model code appearing in the same
-task does not automatically justify multiple specialist owners.
-
-### 4. Detect The Execution Channel
-
-Classify the work before defining proof:
-
-#### ChatGPT -> GitHub
-
-Can establish repository/source/doc changes and static evidence available through
-GitHub. It must not claim live Windows/Tauri/Python/model/audio/device/CUDA/
-installer/end-to-end behavior without corresponding runtime proof.
-
-#### Codex / local target environment
-
-May run targeted build/runtime/device/model/audio checks when the environment is
-actually available. Use only the smallest check that can prove or disprove the
-material claim.
-
-The goal, scope, acceptance criteria, and product expectation do not change
-between channels. Only the available proof changes.
-
-### 5. Decide Whether Development Is Needed
-
-Inspect the current owner before inventing work.
-
-Valid outcomes include:
-
-- **development required** — current behavior does not satisfy the grounded goal;
-- **documentation/decision recovery required first** — implementation would be
-  premature;
-- **no change required** — current behavior already satisfies the goal;
-- **unsupported** — the requested method/capability conflicts with current
-  evidence and should not be implemented as proposed.
-
-`No change required` is a successful conclusion when supported by evidence.
-
-### 6. Choose Build POV And Acceptance POV
-
-Use two perspectives only when they clarify the task:
-
-- **Build POV** — the engineering/domain responsibility that owns the actual
-  implementation decision;
-- **Acceptance POV** — the downstream user/system need that determines whether
-  the result is actually useful.
-
-Examples of possible Build POVs may later include desktop runtime, local AI
-runtime, audio routing, persistence, or release tooling, but do not freeze these
-as specialist skill names during bootstrap.
-
-Intermediate frameworks, commands, providers, libraries, or agents are interface
-constraints rather than extra personas.
-
-### 7. Define Minimal Scope
-
-Write the smallest complete boundary that solves the grounded goal.
-
-Explicitly state what will **not** change when adjacent areas are easy to confuse
-with the task.
-
-Reject scope growth such as:
-
-- "while here" architecture cleanup;
-- parallel or replacement runtime paths without a proved need;
-- compatibility/fallback layers for hypothetical callers;
-- new abstractions created only to make the patch look cleaner;
-- broad documentation rewrites around one bounded source change;
-- unrelated old TODOs discovered during investigation.
-
-### 8. Define 2-5 Acceptance Criteria
-
-Criteria must be specific enough to fail.
-
-Prefer criteria about observable behavior, contract shape, source ownership, or
-required evidence. Avoid criteria such as:
+Record one:
 
 ```text
-code is clean
-architecture is better
-looks correct
-should work
-all tests pass
+ChatGPT -> GitHub
+Codex / Local
 ```
 
-unless a concrete test/observation defines what those statements mean for the
-active boundary.
+The channel changes available proof, not goal, scope, architecture, or acceptance
+criteria.
 
-Engineering success alone is not sufficient if the downstream Acceptance POV is
-still unmet.
-
-### 9. Set The Proof Budget
-
-Use the cheapest evidence that can disprove the likely failure.
-
-Examples:
-
-- bounded docs/routing change -> exact file/diff/path check;
-- source contract change -> owner + affected caller/contract inspection + relevant
-  existing check when informative;
-- frontend behavior -> targeted build/typecheck only when it tests the changed
-  boundary;
-- Rust/Tauri integration -> source/static proof in GitHub, local compile/runtime
-  proof only when the claim requires it;
-- Python helper/model/audio behavior -> targeted local/runtime proof when the
-  claim depends on execution;
-- device/CUDA/virtual-audio/latency/installer claims -> target-environment proof,
-  never inferred from static source.
-
-Do not create tests, CI jobs, fixtures, screenshots, reports, or telemetry solely
-to make the change appear rigorous.
-
-Use root evidence labels when material:
+### 3. Development Necessity Gate
 
 ```text
-CURRENT-PROJECT VERIFIED
-OFFICIALLY VERIFIED
-LOCAL PROOF REQUIRED
-UNSUPPORTED
-UNKNOWN
+Current behavior already satisfies goal
+-> No change required
+
+Requirement unresolved
+-> Plan / Context Recovery
+
+Method unsupported
+-> Redirect
+
+Grounded change required
+-> Develop
 ```
 
-### 10. Select At Most One Specialist
+Do not create a patch merely to create output.
 
-During the current bootstrap/recovery phase, `development-brief` is the only
-canonical TranslateIT project skill.
+### 4. Identify The Semantic Owner
 
-Add a repository specialist later only when repeated/current work proves:
+Find the current owner and direct callers/contracts before creating a new owner.
+Choose responsibility, not language/framework.
 
-1. a distinct semantic ownership boundary;
-2. a reusable procedure that root rules and this brief do not already cover;
-3. enough value to justify another routing choice.
+`Build POV` is the semantic engineering owner of the change. `Acceptance POV` is
+the downstream user/system perspective that determines whether the result is
+actually useful. Engineering PASS without Acceptance PASS is not completion.
 
-For any one Developing task, use **at most one** TranslateIT specialist unless a
-future explicit architecture decision changes this rule.
+### 5. Define The Smallest Complete Boundary
 
-Do not create or stack skills merely because one change touches Rust + TypeScript
-+ Python or multiple libraries.
+Set explicit in/out scope where adjacent systems are easy to confuse. Use only
+2-5 acceptance criteria, each specific enough to fail.
 
-### 11. Implement The Smallest Complete Change
+Set the proof budget before implementation using the minimum proof level required
+by the claims.
 
-Once the contract is grounded:
+### 6. Select At Most One Specialist
 
-- change the actual owner;
-- preserve valid behavior outside scope;
-- keep existing architecture unless the task explicitly and validly changes it;
-- do not patch around an unknown cause;
-- stop the same failed correction direction after two attempts without new
-  evidence;
-- avoid generating new state owners, fallback paths, or documentation layers
-  without a current requirement.
+Read `docs/knowledge/skills/activation-matrix.md` only when specialist selection is
+needed.
 
-### 12. Run The Acceptance Gate
+For one Developing task:
 
-Before reporting `Selesai`, return to the original brief and check:
+```text
+development-brief
++
+zero or one project specialist
+```
 
-- did the result achieve the stated Goal?
-- did the requested downstream Acceptance POV need become satisfied?
-- did the implementation stay within In scope / Out of scope?
-- are all acceptance criteria supported by the proof actually obtained?
-- did an assumption, historical claim, or local-only behavior get accidentally
-  reported as verified?
+Use a specialist only when the current acceptance boundary is owned by that
+semantic domain and the specialist adds domain-specific execution judgment.
 
-If implementation exists but material runtime proof is still unavailable, report
-`Perlu pemeriksaan` and name the exact remaining proof.
+### 7. Implement And Prove
+
+Apply the root-cause/edit gate, change the actual owner, preserve valid behavior
+outside scope, and implement the minimum complete solution. Obtain only the proof
+budget required by the brief.
+
+### 8. Return To The Same Brief
+
+Before completion verify:
+
+- Goal achieved?
+- Expected output achieved?
+- Acceptance POV satisfied?
+- All criteria supported by proof actually obtained?
+- Stayed inside scope?
+- Any unsupported or unproved claim introduced?
+
+If implementation exists but required local/runtime/device proof is unavailable,
+report `Perlu pemeriksaan`, not `Selesai`.
+
+## Fast Path
+
+A tiny, unambiguous, low-risk Developing change with an obvious owner and proof
+may use the brief mentally without full ceremony. Example: replacing one stale
+active `Fast` label with canonical `Realtime` when no persisted compatibility
+contract exists.
 
 ## User-Facing Brief
 
-For non-trivial Developing work, present a compact brief before implementation:
+For non-trivial Developing work:
 
 ```text
 Tujuan:
@@ -279,37 +147,12 @@ Tidak diubah:
 Cara memastikan benar:
 ```
 
-Keep it practical. Do not expose every internal field unless the user asks for
-the full contract.
+Keep the full internal fields private unless a material decision needs explicit
+review.
 
-For trivial unambiguous work, one short line is enough.
+## Completion
 
-## Final User Report
-
-Use this compact shape when useful:
-
-```text
-Status: Selesai | Perlu pemeriksaan | Terhenti
-Hasil:
-Bukti:
-Batasan:
-Next step:
-```
-
-Use exactly one meaningful next step when continuation is needed. Distinguish
-`implemented` from `verified`.
-
-## Escalation
-
-Escalation is conditional, not ceremony:
-
-- missing old/current product context -> return to **Context Recovery**;
-- unresolved high-impact product/architecture choice -> **Plan**;
-- reproducible bug/cleanup/regression -> **Maintenance**;
-- material evidence remains unavailable/conflicting -> root evidence-status rule;
-- independent review only when it materially improves confidence after the
-  implementation;
-- formal cross-cutting specification only when a genuinely broad migration or
-  multi-phase contract change proves the need.
-
-Do not add another planning framework merely because the task is complex.
+Return to root `AGENTS.md` for evidence labels, status, repository-state updates,
+and the final report. Exactly one project specialist may have been used; do not
+stack another specialist when a second independent problem is discovered. Reframe
+that problem as a separate bounded task instead.

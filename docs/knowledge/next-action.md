@@ -1,46 +1,56 @@
 # Next Action
 
 Updated: 2026-08-09  
-Status: active task snapshot  
-Working branch: `New`
+Working branch: `New`  
+Status: governance established; product development not started
 
-This note is the single resume point for current TranslateIT work.
+This file is the single active continuation owner for TranslateIT.
 
-New sessions read:
+## Resume
 
 ```text
 AGENTS.md
 -> CONTEXT.md
--> this note
--> docs/knowledge/source-ownership.md
--> relevant foundation/source owner only
+-> docs/knowledge/next-action.md
+-> one relevant canonical owner/source only
 ```
 
-## Active Goal
+Use `docs/knowledge/minimal-nav.md` only when routing help is needed.
 
-Prepare the first bounded implementation slice after product recovery and source
-ownership reconciliation.
+## Current State
 
-## Current Phase
-
-`PLAN_PRODUCT_SHELL_AND_READINESS_ALIGNMENT`
-
-Context recovery is complete enough for normal development. Source reconciliation
-is captured in:
+Completed boundaries:
 
 ```text
-docs/knowledge/source-ownership.md
+context recovery
+product foundation recovery
+source ownership reconciliation
+development/governance rules consolidation
+project skill architecture establishment
 ```
 
-No application/runtime source was changed during recovery or source mapping.
-
-## Canonical Product Owners
+Canonical governance now consists of:
 
 ```text
-CONTEXT.md
-docs/foundation/01-product-overview.md
-docs/foundation/02-product-requirements.md
+AGENTS.md
+.agents/skills/development-brief/SKILL.md
+.agents/skills/desktop-runtime-development/SKILL.md
+.agents/skills/local-ai-runtime-development/SKILL.md
+.agents/skills/windows-audio-runtime-development/SKILL.md
+.agents/skills/release-packaging-development/SKILL.md
+docs/knowledge/minimal-nav.md
+docs/knowledge/decision-log.md
+docs/knowledge/flow.md
+docs/knowledge/flows/development-flow.md
+docs/knowledge/skills/activation-matrix.md
+docs/knowledge/skills/skill-map.md
 ```
+
+`New` remains current development authority. `V1-Advance` remains inherited/
+historical evidence.
+
+No application/runtime product source was changed while establishing this
+governance system.
 
 ## Current Architecture
 
@@ -50,51 +60,37 @@ Rust/Tauri desktop shell
 Python helper runtime
 ```
 
-Do not create another launcher, engine, or product shell.
+Do not create another launcher, engine, product shell, AI runtime owner, audio
+pipeline, or packaging architecture merely to avoid current owners.
 
-## First Development Slice
+## Prepared Product Slice
 
-**Product Shell And Readiness Boundary**
-
-### Goal
-
-Align the existing active `SimpleLauncherController` product shell with the
-recovered Meeting-first product hierarchy while preserving current runtime
-behavior.
-
-### Current source owners
+The next prepared product boundary remains:
 
 ```text
-EngineData/Frontend/RustApp/src/main.ts
-EngineData/Frontend/RustApp/src/app/simple-launcher/SimpleLauncherController.ts
-EngineData/Frontend/RustApp/src/app/active-launcher/lockedReferenceShellParts.ts
-EngineData/Frontend/RustApp/src/app/active-launcher/settingsViews.ts
-EngineData/Frontend/RustApp/src/app/active-launcher/launcherSettingsRenderer.ts
-EngineData/Frontend/RustApp/src/app/bridge/runtimeProductFacade.ts
+Product Shell And Readiness Boundary
 ```
 
-### Relevant requirement IDs
+Primary semantic owner:
 
 ```text
-PR-001
-PR-002
-PR-003
-PR-050
-PR-160
-PR-161
-PR-162
-PR-163
-PR-164
-PR-165
-PR-166
-PR-167
-PR-168
-PR-169
+desktop-runtime-development
 ```
 
-### Required outcome
+Current source map and detailed implementation gaps remain owned by:
 
-Normal product hierarchy should converge on:
+```text
+docs/knowledge/source-ownership.md
+```
+
+Relevant product policy remains owned by:
+
+```text
+docs/foundation/01-product-overview.md
+docs/foundation/02-product-requirements.md
+```
+
+High-level target for that slice:
 
 ```text
 Meeting
@@ -105,126 +101,37 @@ Saved
 Settings
 ```
 
-Meeting is the primary workspace.
+Meeting is primary; normal UI uses product-level readiness/recovery; detailed
+helper/model/device internals remain Developer Diagnostics; canonical mode naming
+is `Realtime / Quality`.
 
-Normal users should see product-level readiness and recovery rather than direct
-engine operation.
+## Hold
 
-Canonical runtime mode naming is:
+Do **not** begin Product Shell implementation merely because governance is now
+ready. The governance task ends after the rules/skills are written and verified.
 
-```text
-Realtime
-Quality
-```
+Do not touch AI models, helper architecture, Session Listening/VAD runtime,
+meeting virtual-audio delivery, History/Saved persistence, document parsers,
+Audio Studio provider behavior, packaging, or installer as part of the prepared
+shell slice unless a later grounded task explicitly changes scope.
 
-### In scope
+## Proof State
 
-- reuse the existing `SimpleLauncherController`;
-- establish Meeting/Text/Documents/History/Saved/Settings navigation hierarchy;
-- make Meeting the primary product surface without inventing a second controller;
-- keep Text as a usable standalone workflow;
-- remove normal-user dependence on visible `Start Helper` / `Check Worker`
-  operations;
-- expose product-level setup/recovery language such as `Fix Setup`, `Retry`, and
-  `Open Diagnostics`;
-- keep Developer Diagnostics available under an Advanced/Developer entry;
-- change user-facing `Fast` naming to `Realtime`;
-- preserve the current product readiness facade and current runtime commands;
-- keep unavailable/unimplemented surfaces truthful rather than faking readiness.
+**CURRENT-PROJECT VERIFIED**
 
-### Out of scope
+- governance ownership/routing is now explicit and non-overlapping at repository
+  level;
+- source ownership reconciliation already identifies the prepared Product Shell
+  boundary;
+- governance establishment itself requires repository/static proof only.
 
-- changing ASR/translation/TTS models;
-- changing helper/runtime architecture;
-- implementing Session Listening runtime segmentation;
-- implementing tone/context inference;
-- implementing meeting virtual-audio delivery;
-- implementing History/Saved persistence semantics;
-- implementing DOCX/PDF parsing;
-- implementing Audio Studio provider/profile generation;
-- packaging/installer work;
-- broad visual redesign unrelated to the product hierarchy;
-- local Windows/device/runtime success claims.
-
-## Development Brief
-
-```text
-Goal:
-Align the active TranslateIT shell with the approved Meeting-first product and
-normal-user readiness boundary without changing runtime architecture.
-
-Suggested method:
-Refactor the existing SimpleLauncherController/shell/settings surfaces and reuse
-runtimeProductFacade as the normal readiness abstraction. Keep current runtime
-commands behind product-level recovery actions or Developer Diagnostics.
-
-Current evidence:
-main.ts starts SimpleLauncherController. The shell is text-first and exposes
-helper/worker controls. runtimeProductFacade already provides product-level
-capability/readiness states. Developer settings already own detailed runtime
-controls.
-
-Current semantic owner:
-SimpleLauncherController + active-launcher shell/settings + runtimeProductFacade.
-
-Execution channel:
-GitHub source edit; no target-PC runtime proof available from this channel.
-
-Expected output:
-One coherent Meeting-first shell using existing architecture and truthful setup
-states.
-
-Build POV:
-Frontend/Tauri source integrity only; do not claim live device/runtime success.
-
-Acceptance POV:
-Normal user can understand what to do without operating helper/worker internals,
-while Developer Diagnostics still retains engineering controls.
-
-In scope / Out of scope:
-See this note.
-```
-
-## Acceptance Criteria
-
-1. `main.ts` still starts the existing `SimpleLauncherController`; no second
-   launcher/controller is introduced.
-2. Normal navigation presents Meeting as primary and includes Text, Documents,
-   History, Saved, and Settings in a coherent hierarchy.
-3. Normal Home/Meeting UI no longer requires direct `Start Helper` or `Check
-   Worker` operation; product-level setup/recovery actions replace that exposure.
-4. Developer Diagnostics remains reachable and continues to own detailed helper,
-   model, CUDA, pipeline, and log controls.
-5. User-facing mode naming is consistently `Realtime / Quality`; no active normal
-   UI labels the mode `Fast`.
-6. Unimplemented downstream capabilities remain explicitly `Setup Needed`,
-   `Unavailable`, or equivalent; no fake runtime-readiness claim is introduced.
-
-## Proof Budget
-
-Minimum useful proof for this slice:
-
-- exact source diff;
-- frontend import/type integrity where available through existing project checks;
-- existing source-contract checks only when they materially cover changed shell /
-  settings surfaces;
-- no target-PC microphone/CUDA/TTS/virtual-route claim.
-
-Do not create new validation frameworks for this slice.
+Runtime-sensitive claims remain governed by `LOCAL PROOF REQUIRED` where
+appropriate; governance does not upgrade any microphone/CUDA/model/TTS/virtual-
+audio/installer claim.
 
 ## Next Step
 
-Enter **Developing** for the Product Shell And Readiness Boundary using
-`.agents/skills/development-brief/SKILL.md` and this exact scope.
-
-After that slice, return here and advance to the canonical Settings-contract slice
-before changing meeting runtime orchestration.
-
-## Canonical References
-
-- `AGENTS.md`
-- `CONTEXT.md`
-- `docs/foundation/01-product-overview.md`
-- `docs/foundation/02-product-requirements.md`
-- `docs/knowledge/source-ownership.md`
-- `.agents/skills/development-brief/SKILL.md`
+When the user explicitly starts product development, enter **Developing** for the
+**Product Shell And Readiness Boundary** through `development-brief` with
+`desktop-runtime-development` as the only specialist if the current owner check
+still confirms that boundary.
