@@ -19,13 +19,13 @@ broad development resumes.
 
 ## Current Phase
 
-`CONTEXT_RECOVERY_TRANSLATION_BEHAVIOR_AND_TONE`
+`CONTEXT_RECOVERY_HISTORY_PRIVACY_AND_RETENTION`
 
 Product purpose, platform/locality, language/voice direction, voice
-input/segmentation, latency/runtime-mode, acceleration/provider, and meeting audio
-routing policy are now recovered and approved. The next slice must define what
-translation quality means at product level and whether Auto/Formal/Casual are
-current product requirements.
+input/segmentation, latency/runtime-mode, acceleration/provider, meeting audio
+routing, and translation-quality/tone policy are now recovered and approved. The
+next slice must distinguish temporary translation context, persistent History,
+explicit Saved sessions, audio retention, and diagnostic logs.
 
 ## Completed Product Boundary
 
@@ -80,6 +80,12 @@ TranslateIT-managed meeting microphone/audio route
 Raw Indonesian microphone excluded from meeting output
 Local monitoring optional/off by default
 Route missing -> Meeting Voice Setup Needed
+
+TRANSLATION BEHAVIOR
+Meaning/context first, not word-by-word
+Auto / Formal / Casual; Auto default
+Technical/entity fidelity preserved
+Recent context bounded/local/session-scoped
 ```
 
 `docs/foundation/01-product-overview.md` and `CONTEXT.md` are aligned with these
@@ -104,74 +110,77 @@ EngineData/Backend/RuntimeContracts
 
 Static/source presence is not live runtime proof.
 
-## Translation Behavior Evidence To Reconcile
+## History / Privacy Evidence To Reconcile
 
-Inherited V1-Advance requirements expected translation to be contextual and
-meaning-preserving rather than literal. They also expected:
+Inherited V1-Advance requirements wanted History on by default, persistent until
+user deletion, searchable, clearable, and disable-able. They also wanted audio
+history off by default and user-controllable deletion.
 
-- formal source speech -> formal output;
-- casual source speech -> natural casual output;
-- graceful mixed Indonesian-English handling;
-- Indonesian slang/conversational expression support;
-- technical-term preservation where translating the term would confuse meaning;
-- user-facing tone modes `Auto`, `Formal`, and `Casual`, with `Auto` default.
+Current source contains multiple storage concepts that must not be conflated:
 
-Current source does not yet prove that behavior end to end:
+- `UserData/CacheData` is explicitly disposable runtime/session material;
+- `UserData/LogData` owns runtime logs, diagnostics, and validation evidence;
+- `UserData/SavedProject` owns user-approved saved work;
+- Rust `session_store` can write transcript-session JSON under
+  `SavedProject/SavedTranscript`;
+- transcript planning can optionally copy source/translated audio into a saved
+  transcript session when `copy_audio` is enabled;
+- `session_chat` writes chat-session JSON under `SavedProject/Chat`, including for
+  newly created/unsaved chat kinds, so current source semantics are not yet cleanly
+  aligned with the `SavedProject = user-approved saved work` folder policy;
+- current active UI still treats History/Saved as not fully connected rather than
+  proving a complete user-facing history workflow;
+- the inspected chat/session APIs expose create/list/append/save behavior but do
+  not establish a complete user-facing delete/clear/retention control;
+- runtime logs have file-size rotation and basic path/email/secret redaction, but
+  source presence alone does not establish a final privacy/retention policy.
 
-- `TranslationLogicRequest` contains a `context_window`, but the current fallback
-  logic only records whether context exists; it does not use that window to shape
-  model inference in the inspected path;
-- the Python local worker translation request currently accepts text, direction,
-  and Realtime/Quality mode but no explicit conversation-context or tone field;
-- current persisted `RuntimeSettings` has no canonical tone-mode field;
-- current Translate settings expose language and Realtime/Quality behavior but
-  intentionally hide dictionary/glossary/prompt-style controls until the engine
-  supports them;
-- deterministic fallback phrases exist for a few meeting/support expressions,
-  which is useful fallback evidence but not proof of general contextual/slang
-  quality.
-
-Therefore the old quality/tone requirements are still product-intent evidence,
-not current runtime proof.
+Translation context approved in the previous slice is **session-scoped model
+context**, not automatic permission to persist full conversation history.
 
 ## Holds
 
 Until this recovery slice is approved, do not:
 
-- change application/runtime source to implement tone/context behavior yet;
-- assume Auto/Formal/Casual must remain exactly as inherited merely because the
-  old PRD called them final;
-- expose prompt/model/provider controls to normal users;
-- claim contextual, slang, mixed-language, terminology, or tone quality from the
-  existence of context structs or deterministic phrase fallbacks;
-- create glossary/prompt infrastructure before the product requirement is clear;
+- change application/runtime source to implement persistence behavior yet;
+- equate active translation context with persistent History;
+- persist raw meeting audio by default;
+- assume `History on by default` remains correct merely because the old PRD said
+  so;
+- treat every file under `SavedProject` as intentionally user-saved when current
+  source can create chat files automatically;
+- retain transcripts/logs indefinitely without an explicit product policy;
+- feed persistent History back into translation context automatically;
+- claim delete/clear/privacy controls exist from storage structs alone;
 - create `02-product-requirements.md` yet.
 
 ## Next Step
 
-Recover the **translation-quality and tone-mode product policy**.
+Recover the **History, Saved-session, privacy, and data-retention product policy**.
 
 Specifically:
 
-1. define whether meaning preservation and natural phrasing outrank literal word
-   matching;
-2. define expected handling of formal/casual source speech, Indonesian slang,
-   mixed ID/EN input, names, numbers, acronyms, and technical terms;
-3. decide whether `Auto`, `Formal`, and `Casual` remain the user-facing tone modes
-   and whether `Auto` remains default;
-4. decide how tone override should behave without changing factual meaning or
-   technical terminology;
-5. decide whether short conversation history/context should influence translation
-   when useful and what privacy/session boundary applies;
-6. keep exact prompting, model context-window size, glossary mechanics, and
-   provider implementation as implementation details unless a durable product
-   reason requires otherwise.
+1. decide whether normal translation History is persisted automatically, opt-in,
+   or session-only by default;
+2. distinguish History from explicit Saved sessions/projects;
+3. decide what transcript/original/translated text metadata is retained and for
+   how long;
+4. keep raw microphone audio and generated TTS audio temporary by default unless
+   the user explicitly saves audio/replay material;
+5. define clear/delete controls and whether History can be disabled;
+6. define whether persistent History may ever be reused as translation context
+   without explicit user action;
+7. define privacy boundaries for runtime logs/diagnostics so they avoid storing
+   conversation content unless required for an explicitly enabled diagnostic
+   workflow;
+8. preserve `CacheData` / `LogData` / `SavedProject` ownership instead of creating
+   another storage root without need.
 
 Do **not** change runtime/source while recovering this requirement.
 
 ## Completion Boundary For This Step
 
-This slice is complete when meaning-preservation, naturalness, tone behavior,
-slang/mixed-language/technical-term handling, and conversation-context use can be
-stated as approved product requirements with implementation mechanics and runtime
-quality proof kept separate.
+This slice is complete when default persistence, Saved-versus-History semantics,
+audio retention, deletion/clear behavior, context reuse, and diagnostic privacy can
+be stated as approved product requirements with storage implementation details and
+runtime proof kept separate.
