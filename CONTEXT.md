@@ -1,0 +1,223 @@
+# TranslateIT Workspace Context
+
+Status: context recovery in progress  
+Working branch: `New`  
+Recovery baseline: `V1-Advance` at `6fd3485d6b22b9e3f44abc640241532aea61c3c7`
+
+This file stores only compact, durable facts that are sufficiently grounded for
+new TranslateIT sessions. It is not a backlog, product requirements document,
+implementation report, or reconstruction of old chat history.
+
+During context recovery, inherited requirements and engineering reports remain
+evidence until they are revalidated against current source and current product
+intent.
+
+## Current Working Posture
+
+- `New` is the current working branch for recovering, reconciling, and continuing
+  TranslateIT.
+- `V1-Advance` is the inherited source baseline for this recovery effort.
+- The repository default branch is not changed by this bootstrap work.
+- Broad feature development, redesign, architecture replacement, and old TODO
+  execution are intentionally deferred until enough project context is recovered.
+- When old documentation conflicts with current user intent or current source,
+  resolve the conflict explicitly rather than silently preserving the old rule.
+
+## Verified Repository Areas
+
+```text
+TranslateIT/
+├─ EngineData/
+├─ DevelopingData/
+├─ UserData/
+├─ AGENTS.md
+├─ CONTEXT.md
+└─ README.md
+```
+
+### `EngineData/`
+
+Current production/runtime source area inherited from `V1-Advance`.
+
+The currently supported single-engine architecture evidence points to:
+
+```text
+user-facing desktop shell
+→ EngineData/Frontend/RustApp
+→ Rust/Tauri
+
+internal helper runtime
+→ EngineData/Backend/LocalWorker/WorkerRuntime
+→ Python
+
+runtime contracts
+→ EngineData/Backend/RuntimeContracts
+```
+
+These paths exist in `New` and are the current starting points for recovery.
+Their presence does not by itself prove live runtime readiness.
+
+### `DevelopingData/`
+
+Development-only material. Existing repository guidance allows architecture and
+migration plans, audits, reports, QA/validation notes, tooling helpers, and safe
+samples here. It must not be treated as production source.
+
+Current inherited engineering documentation is extensive and may contain active,
+historical, superseded, planned, or partially implemented material. Do not read
+all of it during normal boot.
+
+### `UserData/`
+
+Local runtime/user-data area. Current repository guidance assigns:
+
+```text
+UserData/CacheData/    → disposable runtime/session cache
+UserData/LogData/      → logs, diagnostics, validation evidence
+UserData/SavedProject/ → user-approved saved project/session outputs
+```
+
+Do not place engine source or project documentation under `UserData/`.
+
+## Current Architecture Baseline
+
+The strongest inherited architecture evidence currently agrees on one active
+runtime shape:
+
+```text
+Rust/Tauri desktop shell
++
+Python helper runtime
+```
+
+For recovery purposes:
+
+- Rust/Tauri is the current user-facing shell candidate and active source path;
+- Python is an internal helper runtime, not a second product shell;
+- do not create a V2/V3/V4, legacy revival, alternative launcher, or parallel
+  engine without a new explicit product/architecture decision;
+- inactive DesignIT/FigmaDesignExport material must not silently become an active
+  runtime dependency;
+- source implementation and live runtime proof remain different claims.
+
+This architecture baseline may be refined during recovery, but replacing it
+requires evidence of a current product need rather than preference for a new
+stack.
+
+## Current Evidence Boundary
+
+Inherited status documentation says the application was not release-ready at the
+end of the `V1-Advance` phase and still required substantial local/runtime proof.
+Treat that as recovery evidence, not as a current percentage or exact readiness
+score.
+
+Do not carry forward the old `38%` readiness estimate as a current fact.
+
+Until deliberate validation occurs, do not claim current-project proof for:
+
+- target-PC application readiness;
+- successful end-to-end microphone capture;
+- local ASR/model readiness;
+- local translation-model readiness;
+- TTS/provider quality;
+- virtual microphone routing;
+- end-to-end low-latency meeting translation;
+- installer readiness;
+- CUDA behavior on the target machine;
+- save/persistence behavior beyond what current source and direct proof establish.
+
+Use the evidence labels defined by `AGENTS.md` when these distinctions matter.
+
+## Inherited Product Claims Requiring Revalidation
+
+The following were explicit requirements or policies in `V1-Advance`, but they
+are **not yet durable `New` foundation facts**. Revalidate them before making them
+new permanent policy:
+
+- primary product positioning as a real-time online-meeting translator;
+- Windows-only initial target;
+- local-first / non-cloud core runtime;
+- Indonesian ↔ English initial language scope;
+- Indonesian speech → English TTS as the initial voice direction;
+- NVIDIA CUDA-first acceleration with mandatory CPU fallback;
+- Always-listening default and Push-to-talk secondary;
+- `Hold Space` as the push-to-talk default;
+- 700 ms silence segmentation threshold;
+- 12 second maximum speech segment;
+- ≤1 second desired post-speech translated-audio latency target;
+- built-in virtual microphone requirement;
+- 50% headphone monitoring behavior;
+- mute-original-microphone behavior;
+- specific ASR/translation/TTS model and provider choices;
+- Quality/Fast runtime modes;
+- Auto/Formal/Casual tone modes;
+- text, document, history, and Audio Studio scope;
+- installer/distribution details including `TranslateIT.setup.exe`;
+- normal-user versus developer/diagnostic UI exposure.
+
+A recovered claim may later become foundation policy, be adjusted, or be
+superseded. Do not preserve it solely because an old requirements file calls it
+"final" or "locked".
+
+## Stable Recovery Principles
+
+- Recover context from repository evidence before asking the user to remember old
+  implementation history.
+- Current user intent may intentionally change an inherited product decision.
+- Current source tells us what exists; it does not automatically tell us what the
+  product should continue to require.
+- Old documentation can explain why something exists, but it does not override a
+  newer explicit decision.
+- Do not delete or rewrite historical evidence merely because it is no longer
+  current.
+- Do not turn recovery into a broad refactor.
+- Prefer one active product/runtime direction and one canonical owner per
+  responsibility.
+- Unknowns remain unknown until resolved; do not fill missing context with
+  plausible defaults.
+
+## Canonical Terms During Recovery
+
+Use these terms consistently unless a later glossary decision replaces them:
+
+- **Working branch** — `New`, where recovery and future development continue.
+- **Recovery baseline** — inherited `V1-Advance` source at the branch point.
+- **Desktop shell** — the user-facing Rust/Tauri application under
+  `EngineData/Frontend/RustApp`.
+- **Helper runtime** — internal Python runtime under
+  `EngineData/Backend/LocalWorker/WorkerRuntime`.
+- **Runtime contract** — machine-readable runtime/architecture contract under
+  `EngineData/Backend/RuntimeContracts`; evidence of intended/current contracts,
+  not automatic live proof.
+- **Inherited documentation** — pre-`New` project docs carried from
+  `V1-Advance`; recovery evidence until classified/revalidated.
+- **Current source** — source present on `New` for the boundary being inspected.
+- **Current proof** — evidence actually obtained for the claim in the relevant
+  environment/channel.
+
+## Do Not Store Here
+
+Do not use `CONTEXT.md` for:
+
+- current active task status;
+- step-by-step implementation plans;
+- backlog or roadmap;
+- detailed source ownership maps;
+- test logs;
+- long audit findings;
+- historical decision narratives;
+- temporary assumptions;
+- copied product requirements.
+
+Those responsibilities will get their own canonical owners only when needed.
+
+## Next Context Owner
+
+The next bootstrap owner is:
+
+```text
+docs/knowledge/next-action.md
+```
+
+It should hold the single active recovery goal, current state, explicit holds,
+and exactly one next step. It must not duplicate this stable context file.
