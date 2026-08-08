@@ -43,6 +43,26 @@ This decision resolves the previous ambiguity between the inherited
 meeting-translator requirement and the current text-first UI presentation.
 Detailed meeting/audio behavior still requires separate recovery and proof.
 
+## Recovered Platform And Runtime Policy
+
+Current platform/runtime policy was revalidated by the user on 2026-08-08:
+
+- **Initial supported platform: Windows.** Windows is the only platform that must
+  be supported and validated for the first product release target. This does not
+  declare that TranslateIT must remain Windows-only forever.
+- **Core runtime: local-first and offline-capable.** Once required runtime/model
+  assets are installed, core ASR -> translation -> TTS behavior must not require
+  a cloud translation/speech API for normal operation.
+- Network access may still be used for setup, dependency/model acquisition, or a
+  future explicitly approved optional cloud feature.
+- A future cloud-assisted capability must remain optional and must not silently
+  become a required dependency of the core meeting/text translation workflow.
+
+This policy matches the current Windows-oriented Tauri/NSIS, Windows audio/TTS
+support, local RuntimeAssets model paths, and local-only model loading observed
+in the inherited source, while avoiding an unnecessary permanent ban on future
+platforms or optional cloud features.
+
 ## Verified Repository Areas
 
 ```text
@@ -165,8 +185,6 @@ The following were explicit requirements or policies in `V1-Advance`, but they
 are **not yet durable `New` foundation facts**. Revalidate them before making them
 new permanent policy:
 
-- Windows-only initial target;
-- local-first / non-cloud core runtime;
 - Indonesian ↔ English initial language scope;
 - Indonesian speech → English TTS as the initial voice direction;
 - NVIDIA CUDA-first acceleration with mandatory CPU fallback;
@@ -216,6 +234,10 @@ Use these terms consistently unless a later glossary decision replaces them:
 - **Primary use case** — real-time voice translation for online meetings.
 - **Secondary text workflow** — standalone local text translation that remains
   useful independently of voice readiness.
+- **Initial supported platform** — Windows for the first release target; other
+  platforms are not current scope but are not permanently prohibited.
+- **Local-first core** — core ASR, translation, and TTS can run without required
+  cloud APIs after runtime assets are installed.
 - **Desktop shell** — the user-facing Rust/Tauri application under
   `EngineData/Frontend/RustApp`.
 - **Helper runtime** — internal Python runtime under
