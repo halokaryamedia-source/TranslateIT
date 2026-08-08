@@ -19,46 +19,20 @@ broad development resumes.
 
 ## Current Phase
 
-`CONTEXT_RECOVERY_INPUT_BEHAVIOR_AND_SEGMENTATION`
+`CONTEXT_RECOVERY_LATENCY_AND_RUNTIME_MODES`
 
-Product purpose, initial platform/locality, and initial language/voice direction
-are now recovered and approved. The next requirement slice must establish how
-voice capture starts/stops and how speech boundaries should be detected.
+Product purpose, platform/locality, language/voice direction, and voice
+input/segmentation behavior are now recovered and approved. The next slice must
+define what responsive meeting translation means and how Realtime/Quality modes
+should behave at product level.
 
-## Completed Boundary
-
-Completed on `New`:
-
-- branch `New` created from `V1-Advance` baseline commit
-  `6fd3485d6b22b9e3f44abc640241532aea61c3c7`;
-- root `AGENTS.md` established as working/routing/evidence authority;
-- root `CONTEXT.md` established as compact stable recovery context;
-- `.agents/skills/development-brief/SKILL.md` established as the only current
-  repository-specific Developing front door;
-- primary product direction approved as real-time voice translation for online
-  meetings;
-- standalone text translation retained as the secondary/fallback workflow;
-- `docs/foundation/01-product-overview.md` established and kept aligned with
-  approved product boundaries;
-- initial supported platform approved as Windows;
-- core ASR -> translation -> TTS approved as local-first and offline-capable after
-  required runtime/model assets are installed;
-- initial language scope approved as Indonesian and English;
-- text translation approved as Indonesian <-> English;
-- outbound meeting voice approved as Indonesian speech -> English translated
-  voice;
-- inbound meeting assistance approved as English speech -> Indonesian translated
-  text;
-- English speech -> Indonesian TTS is not an initial requirement;
-- no inherited application/runtime source has been changed by context recovery.
-
-## Approved Product Boundary
+## Completed Product Boundary
 
 ```text
 PRIMARY
 Real-time voice translation for online meetings
 
-SECONDARY / STANDALONE
+SECONDARY
 Indonesian <-> English text translation
 
 INITIAL PLATFORM
@@ -72,7 +46,21 @@ Indonesian speech -> English voice
 
 INBOUND ASSISTANCE
 English speech -> Indonesian text
+
+PRIMARY VOICE INPUT
+Session Listening
+(user explicitly starts once -> continuous listening/VAD -> user stops)
+
+SECONDARY VOICE INPUT
+Push to Talk / Ctrl+Space
+
+SEGMENTATION
+Natural-pause behavior; numeric VAD/silence/segment values are runtime tuning
 ```
+
+`docs/foundation/01-product-overview.md` and `CONTEXT.md` are aligned with these
+approved boundaries. No inherited application/runtime source has been changed by
+context recovery.
 
 ## Current Architecture Baseline
 
@@ -90,88 +78,77 @@ EngineData/Backend/LocalWorker/WorkerRuntime
 EngineData/Backend/RuntimeContracts
 ```
 
-Current frontend entrypoint instantiates `SimpleLauncherController`.
-This is static/source evidence, not live runtime proof.
+Static/source presence is not live runtime proof.
 
-## Input/Segmentation Conflict To Resolve
+## Latency And Mode Evidence To Reconcile
 
-Inherited V1-Advance contract declares:
+Inherited V1-Advance product requirements wanted translated audio to begin within
+about `<= 1 second` after the user finished speaking when realistically
+achievable.
+
+Current source contains a rebuilt latency meter that explicitly measures:
 
 ```text
-default input: always-listening
-secondary input: push-to-talk
-push-to-talk hotkey: Hold Space
-silence threshold: 700 ms
-maximum speech segment: 12 s
+speech end -> first translated voice event
+ASR duration
+translation duration
+TTS duration
+playback enqueue -> start
 ```
 
-Current source does not cleanly implement that contract:
+but it also declares historical latency metrics untrusted and does not establish
+a verified target-PC release threshold.
 
-- current Audio settings visually present `Click Toggle` as default and
-  `Push to Talk` as secondary using `Ctrl+Space`;
-- current `RuntimeSettings` does not contain a canonical persisted input-mode
-  field;
-- current `SimpleLauncherController` main voice action behaves as click-to-start /
-  click-to-stop capture;
-- current capture-helper payload does not include the inherited `input_mode`
-  field even though the old contract requires it;
-- current VAD/runtime profiles contain much shorter silence/segment boundaries
-  than the inherited 700 ms / 12 s rule and appear to represent experimental
-  runtime tuning rather than an approved product contract.
+Runtime/profile naming is also inconsistent:
 
-Therefore neither the old contract nor the current UI/runtime numbers should be
-promoted to current policy without explicit reconciliation.
+- persisted Rust settings use `Realtime` and `Quality`;
+- default persisted runtime profile is `Realtime`;
+- current UI labels the latency-oriented option `Fast` and the other `Quality`;
+- worker translation maps non-Quality behavior to the realtime Marian path and
+  Quality to the NLLB path;
+- current realtime translation path is optimized for ID -> EN, while EN -> ID may
+  require Quality/fallback behavior.
+
+Therefore old `<=1s`, old default `Quality`, current default `Realtime`, and
+`Fast`/`Realtime` naming must not be silently treated as one coherent policy.
 
 ## Holds
 
 Until later recovery slices approve the relevant requirement, do not:
 
 - resume inherited feature TODOs automatically;
-- redesign the product/UI broadly;
-- replace the Rust/Tauri + Python helper architecture without a grounded decision;
-- create V2/V3/V4, a parallel engine, alternate launcher, or duplicate pipeline;
-- mass-rewrite inherited `DevelopingData` documentation;
-- treat model/provider, CUDA, latency, virtual microphone, Audio Studio,
-  installer, or detailed audio behavior as current policy merely because inherited
-  documents called them final/locked;
-- treat `always-listening`, `Click Toggle`, `Hold Space`, `Ctrl+Space`, 700 ms,
-  12 s, or current VAD tuning values as approved product requirements until the
-  active recovery slice resolves them;
-- create specialist project skills before a reusable semantic owner is proved;
+- change application/runtime source to match recovered policy yet;
+- treat a `<=1s` latency target as verified or release-ready without target-PC
+  evidence;
+- expose model/provider names as user-facing runtime modes;
+- create mode-specific parallel pipelines when one pipeline/profile boundary can
+  own the behavior;
+- treat CUDA, virtual microphone, Audio Studio, installer, or detailed output
+  routing as approved merely because inherited docs called them final/locked;
 - claim runtime/device/model/audio/release readiness from static source alone.
-
-## Evidence State
-
-Current recovery has established product direction and launch boundaries by
-explicit user decision. Current source additionally proves that input-mode and
-speech-boundary behavior is internally inconsistent across old contracts, current
-UI, current settings schema, capture payloads, and VAD tuning.
-
-Material live behavior remains unverified unless separately proven.
 
 ## Next Step
 
-Recover the **input behavior and speech-segmentation policy**.
+Recover the **latency objective and runtime-mode product policy**.
 
 Specifically:
 
-1. decide whether normal meeting use should be always-listening, explicit
-   click-toggle, or another primary capture interaction;
-2. decide whether Push to Talk remains a secondary mode and choose a stable hotkey
-   policy without relying on stale UI text;
-3. define speech-end behavior semantically first (detect a natural pause and avoid
-   cutting words) before freezing numeric thresholds;
-4. decide whether 700 ms / 12 s remain product requirements or should become
-   tunable implementation defaults validated by latency/accuracy evidence;
-5. keep current VAD numeric tuning as implementation evidence only until target-PC
-   behavior is measured.
+1. define the official user-relevant latency measurement boundary;
+2. decide whether a numeric latency target should be a hard current requirement
+   or a benchmark-derived release threshold;
+3. reconcile `Fast` versus `Realtime` naming;
+4. decide the default mode for the primary meeting workflow;
+5. decide whether mode choice should be user-controlled, workflow-selected, or a
+   combination of both;
+6. keep model/provider selection as implementation detail rather than product
+   vocabulary.
 
 Do **not** create `02-product-requirements.md` until this slice is approved.
-Do **not** change application source while recovering this requirement.
+Do **not** change source while recovering this requirement.
 
 ## Completion Boundary For This Step
 
-This slice is complete when the primary/secondary voice input interactions and the
-semantic speech-segmentation requirement are approved, with numeric tuning clearly
-classified as fixed product policy or implementation parameters requiring runtime
-validation.
+This slice is complete when latency measurement semantics, target-policy type,
+runtime-mode names, default behavior, and user-control boundary are explicitly
+approved with target-PC measurement requirements clearly separated from static
+source evidence.
