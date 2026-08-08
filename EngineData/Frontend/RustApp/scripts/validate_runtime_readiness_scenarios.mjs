@@ -23,7 +23,9 @@ for (const marker of [
 ]) expect(facade, marker, "meeting readiness mapping");
 
 for (const marker of [
-  "Meeting Voice is ready.", "Text translation is available. Meeting Voice still needs setup.", "Setup is needed:", "Product readiness is still checking.",
+  "Meeting Voice is ready.", "Text translation is available. Meeting Voice still needs setup.",
+  "Setup is needed before Meeting Voice can be used.", "Product readiness is still checking.",
+  "Retry readiness, use Fix Setup, or open Developer Diagnostics for technical details.",
   "meetingStatus: meetingReady ? \"Ready\"", "Local voice pipeline ready",
 ]) expect(facade, marker, "product readiness messages");
 
@@ -42,4 +44,4 @@ if (errors.length > 0) {
   errors.forEach((error) => console.error(`- ${error}`));
   process.exit(1);
 }
-console.log("Runtime readiness scenario contract passed: Meeting readiness requires the existing live meeting gate and route, while Text can remain independently available/degraded.");
+console.log("Runtime readiness scenario contract passed: Meeting readiness requires the existing live meeting gate and route, normal messages stay product-level, and Text can remain independently available/degraded.");
