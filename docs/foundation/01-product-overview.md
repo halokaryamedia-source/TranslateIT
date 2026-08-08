@@ -1,7 +1,7 @@
 # TranslateIT — Product Overview
 
 **Status:** Active Policy  
-**Updated:** 2026-08-08
+**Updated:** 2026-08-09
 
 ## Purpose
 
@@ -266,6 +266,53 @@ Prompt design, glossary mechanics, protected-term implementation, model context
 window size, and model/provider strategy are implementation details rather than
 normal-user product settings.
 
+## History, Saved And Privacy Boundary
+
+TranslateIT keeps **Local History on by default**, but persistence remains local
+and user-controlled.
+
+```text
+History
+-> automatic local record when enabled
+-> searchable / individually deletable / clearable
+-> can be disabled without disabling translation
+
+Saved
+-> explicit user action
+-> intentionally preserved work/session
+-> independent from automatic History
+```
+
+Clearing History must not delete explicitly Saved sessions.
+
+Normal History may store the original/transcribed text, translated text, timestamp,
+workflow, language direction, tone, and runtime mode. Raw microphone audio is not
+part of normal History.
+
+Active translation context is not History. It remains bounded and session-local;
+persistent History must not be fed back into model context automatically. Restoring
+prior context requires an explicit user action.
+
+Audio retention defaults are conservative:
+
+```text
+Raw/source microphone audio -> temporary/disposable
+Generated translated TTS -> temporary by default
+Saved replay audio -> only through explicit save action
+```
+
+Diagnostic logs should store operational metadata and redacted diagnostics rather
+than full conversation bodies. Full transcript/audio/content collection for
+troubleshooting requires an explicit diagnostic workflow.
+
+Core History/Saved behavior is local-only. Existing storage ownership remains:
+
+```text
+UserData/CacheData    -> temporary runtime/session data
+UserData/LogData      -> diagnostics and validation evidence
+UserData/SavedProject -> persistent user-visible/user-approved data
+```
+
 ## Problem TranslateIT Solves
 
 Cross-language online conversation normally forces the user to combine several
@@ -340,9 +387,10 @@ Current virtual-audio source can select existing virtual audio devices and conta
 a guarded Python provider for routing TTS WAV output, but it explicitly does not
 prove that audio reaches a real meeting input. Translation source also contains
 context-window structures and limited deterministic fallback phrases, but it does
-not yet prove general contextual/tone quality. Product policy above governs the
-required experience; implementation alignment happens through normal Developing
-work after recovery.
+not yet prove general contextual/tone quality. Current persistence code also mixes
+some History/Saved semantics and does not yet prove complete search/delete/clear
+privacy behavior. Product policy above governs the required experience;
+implementation alignment happens through normal Developing work after recovery.
 
 ## Target User
 
@@ -381,6 +429,9 @@ TranslateIT is aligned with this overview when:
   rather than optimizing literal word matching;
 - recent context may improve continuity without becoming automatic persistent
   memory;
+- Local History is user-controlled and separate from explicitly Saved work;
+- raw audio is not persistently retained by default;
+- diagnostic logging avoids full conversation content by default;
 - one desktop application owns the user experience;
 - implementation state is not confused with product priority;
 - static source presence is not reported as live runtime readiness.
@@ -395,12 +446,11 @@ This overview intentionally does **not** decide:
 - exact virtual-audio driver/provider implementation;
 - exact prompt/glossary/context-window implementation;
 - document translation scope;
-- history/saved-session/privacy/data-retention product requirements;
 - Audio Studio scope;
 - installer, packaging, update, or distribution policy beyond Windows as the
   initial supported platform;
 - final normal-user versus developer-diagnostics UI boundary beyond the approved
-  readiness/provider-detail split.
+  readiness/provider/privacy-detail split.
 
 ## Evidence Boundary
 
@@ -408,12 +458,13 @@ This file defines **product direction**, not runtime readiness.
 
 Current source confirms that text, voice/readiness, helper, microphone, audio,
 translation, latency-measurement, local acceleration/provider, guarded virtual
-routing, and translation-context structures exist, but target-environment behavior
-remains subject to the evidence rules in root `AGENTS.md`.
+routing, translation-context, and persistence structures exist, but
+target-environment behavior remains subject to the evidence rules in root
+`AGENTS.md`.
 
 Do not infer successful model loading, microphone capture, contextual/tone quality,
-TTS quality, meeting audio delivery, latency target attainment, CUDA performance,
-packaging, or release readiness from this overview.
+TTS quality, meeting audio delivery, History/Saved completeness, latency target
+attainment, CUDA performance, packaging, or release readiness from this overview.
 
 ## Related
 
