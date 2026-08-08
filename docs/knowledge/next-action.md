@@ -19,12 +19,11 @@ broad development resumes.
 
 ## Current Phase
 
-`CONTEXT_RECOVERY_PLATFORM_AND_RUNTIME_LOCALITY`
+`CONTEXT_RECOVERY_LANGUAGE_AND_VOICE_DIRECTION`
 
-The primary product purpose has been recovered, approved, and captured in the
-first durable foundation owner. The next requirement slice must establish where
-the application is intended to run and whether core translation behavior remains
-local-first.
+The product purpose, initial platform, and core runtime-locality policy are now
+recovered and approved. The next requirement slice must establish the launch
+language scope and how voice translation directions should behave.
 
 ## Completed Boundary
 
@@ -39,10 +38,14 @@ Completed on `New`:
 - primary product direction revalidated as real-time voice translation for
   online meetings;
 - standalone text translation retained as the secondary/fallback workflow;
-- `docs/foundation/01-product-overview.md` established as the durable owner for
-  that approved product purpose;
-- no inherited application/runtime source has been changed by bootstrap or
-  product recovery work.
+- `docs/foundation/01-product-overview.md` established as the durable product
+  purpose owner;
+- initial supported platform approved as Windows;
+- core ASR -> translation -> TTS policy approved as local-first and offline-capable
+  after required runtime/model assets are installed;
+- future cloud-assisted capability remains optional and must not become a required
+  dependency of the core workflow;
+- no inherited application/runtime source has been changed by context recovery.
 
 ## Approved Product Direction
 
@@ -64,8 +67,24 @@ speech input
 -> meeting use
 ```
 
-Current text-first UI is a stabilization/implementation posture, not a replacement
-of this product direction.
+## Approved Platform And Locality Policy
+
+```text
+Initial supported platform
+-> Windows
+
+Core runtime
+-> local-first
+-> offline-capable after runtime/model assets are installed
+
+Future cloud assistance
+-> optional only
+-> not a required core dependency
+```
+
+Current source supports this direction through Windows-oriented NSIS/Tauri setup,
+local RuntimeAssets model paths, local-only model loading, and local TTS/provider
+paths. These are implementation/source observations, not target-PC runtime proof.
 
 ## Current Architecture Baseline
 
@@ -95,9 +114,10 @@ Until later recovery slices approve the relevant requirement, do not:
 - replace the Rust/Tauri + Python helper architecture without a grounded decision;
 - create V2/V3/V4, a parallel engine, alternate launcher, or duplicate pipeline;
 - mass-rewrite inherited `DevelopingData` documentation;
-- treat Windows-only, local-only, language/model/provider, CUDA, latency, virtual
-  microphone, Audio Studio, installer, or detailed audio behavior as current
-  policy merely because inherited documents called them final/locked;
+- treat language/model/provider, CUDA, latency, virtual microphone, Audio Studio,
+  installer, or detailed audio behavior as current policy merely because inherited
+  documents called them final/locked;
+- introduce a required cloud API into core translation behavior;
 - create specialist project skills before a reusable semantic owner is proved;
 - claim runtime/device/model/audio/release readiness from static source alone.
 
@@ -105,35 +125,38 @@ Until later recovery slices approve the relevant requirement, do not:
 
 Current recovery has established:
 
-- current product purpose by explicit user decision;
+- product purpose by explicit user decision;
+- initial supported platform as Windows by explicit user decision;
+- local-first/offline-capable core runtime by explicit user decision;
 - current high-level single-engine architecture baseline;
 - current UI entrypoint and text-first stabilization shape;
-- presence of voice/readiness/helper/audio/translation source structures;
-- a durable product overview that intentionally leaves unresolved requirements
-  outside its authority.
+- presence of local ASR/translation/TTS/runtime source structures;
+- a durable product overview that intentionally leaves unresolved detailed
+  requirements outside its authority.
 
 Material live behavior remains unverified unless separately proven.
 
 ## Next Step
 
-Recover the **platform and runtime-locality boundary**.
+Recover the **launch language scope and voice-translation direction**.
 
 Specifically:
 
-1. inspect the smallest current source/config/build boundary for OS/platform
-   assumptions;
-2. inspect current helper/model/runtime code for local execution versus external
-   network/cloud dependencies;
-3. compare those findings with the inherited Windows-only and local-first
-   requirements;
-4. separate implementation constraints from actual product requirements;
-5. present only the high-impact decisions that require current user approval.
+1. inspect the current language selector/settings restrictions;
+2. inspect translation runtime support by direction and mode;
+3. inspect current ASR/TTS language assumptions and output behavior;
+4. compare those findings with the inherited Indonesian <-> English requirement
+   and the inherited Indonesian speech -> English TTS-first rule;
+5. distinguish what should be launch product scope from what is merely a current
+   model/runtime limitation;
+6. present only the high-impact language/voice-direction choices that require
+   current user approval.
 
 Do **not** create `02-product-requirements.md` in the same recovery slice.
 Do **not** change application source while recovering this requirement.
 
 ## Completion Boundary For This Step
 
-This slice is complete when the intended initial platform and the policy for local
-versus cloud-assisted core translation can be stated clearly, with current source
-evidence separated from user-approved product policy.
+This slice is complete when the initial supported language pair(s), text
+translation direction(s), and voice-output direction(s) can be stated clearly,
+with model/runtime limitations separated from durable product requirements.
