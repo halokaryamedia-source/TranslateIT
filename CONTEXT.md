@@ -149,6 +149,45 @@ Current GPU/fallback/provider policy was revalidated by the user on 2026-08-08:
 - Old Rust-only/no-Python CUDA planning is stale implementation history where it
   conflicts with the current single-engine Rust/Tauri + Python-helper direction.
 
+## Recovered Meeting Audio Routing Policy
+
+Current meeting-audio routing behavior was revalidated by the user on 2026-08-08:
+
+- **Meeting output is translated English voice only** for the primary outbound
+  workflow. Raw Indonesian microphone audio is excluded from the meeting-output
+  route by default.
+- The physical microphone remains available to TranslateIT as the capture source
+  for ASR. A global Windows microphone mute is not required because it would also
+  prevent TranslateIT from hearing the user.
+- The normal product concept is a **TranslateIT-managed meeting microphone/audio
+  route**. The user should be able to select a TranslateIT meeting microphone (or
+  equivalent managed endpoint) in Zoom, Meet, Teams, or another meeting app.
+- The underlying virtual-audio driver/provider is a replaceable implementation
+  detail. TranslateIT does not require a specific third-party brand as product
+  identity and does not require its own custom kernel/audio driver if a supported
+  Windows route satisfies the experience.
+- Original Indonesian voice and translated English TTS must not be mixed into the
+  meeting by default. Any future bilingual/pass-through mode requires an explicit
+  separate product decision.
+- **Local translated-voice monitoring is optional, off by default, and volume is
+  user-adjustable.** The inherited fixed `50%` monitoring level is not a product
+  constant.
+- If the virtual meeting route is unavailable, Meeting Voice becomes `Setup
+  Needed`. TranslateIT must not silently fall back to the raw physical microphone,
+  speaker playback, or cloud routing.
+- Text translation, transcripts, and local translation/TTS preview should remain
+  available when their own runtime dependencies are ready even if the meeting
+  route is blocked.
+- Initial meeting integration uses the standard Windows microphone-device model;
+  Zoom/Meet/Teams-specific plugins or APIs are not required for the initial
+  product.
+
+Current source contains guarded virtual-device selection and a Python audio-route
+provider that can target an existing virtual output device, but it repeatedly
+marks this as source-side/guarded work rather than proof that meeting routing is
+working on a target Windows machine. Actual meeting audio delivery remains `LOCAL
+PROOF REQUIRED`.
+
 ## Verified Repository Areas
 
 ```text
@@ -230,7 +269,7 @@ Until deliberate target-environment validation occurs, do not claim proof for:
 - local ASR/model readiness or quality;
 - local translation-model readiness or quality;
 - TTS/provider quality;
-- virtual microphone routing;
+- virtual meeting-microphone/audio routing;
 - end-to-end meeting translation latency;
 - installer readiness;
 - CUDA behavior/performance on the target machine;
@@ -243,10 +282,7 @@ Use the evidence labels defined by `AGENTS.md` when these distinctions matter.
 The following still require separate recovery before becoming durable `New`
 requirements:
 
-- built-in virtual microphone requirement;
-- 50% headphone monitoring behavior;
-- mute-original-microphone behavior;
-- Auto/Formal/Casual tone modes;
+- Auto/Formal/Casual tone modes and contextual-translation behavior;
 - document, history, and Audio Studio scope beyond confirmed text translation;
 - installer/distribution details including `TranslateIT.setup.exe`;
 - final normal-user versus developer-diagnostic UI exposure beyond the approved
@@ -276,6 +312,12 @@ requirements:
   Realtime-equivalent performance.
 - **Implementation provider/model** — replaceable internal choice, not product
   identity.
+- **TranslateIT meeting microphone** — product-level virtual meeting input/audio
+  route carrying translated English voice; underlying provider is replaceable.
+- **Original microphone route** — physical microphone remains capture input but is
+  excluded from meeting output by default.
+- **Local monitoring** — optional translated-voice preview, off by default and
+  user-adjustable.
 - **Desktop shell** — `EngineData/Frontend/RustApp`.
 - **Helper runtime** — `EngineData/Backend/LocalWorker/WorkerRuntime`.
 - **Runtime contract** — machine-readable runtime/architecture contract; not
