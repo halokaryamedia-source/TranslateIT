@@ -19,11 +19,11 @@ broad development resumes.
 
 ## Current Phase
 
-`CONTEXT_RECOVERY_LANGUAGE_AND_VOICE_DIRECTION`
+`CONTEXT_RECOVERY_INPUT_BEHAVIOR_AND_SEGMENTATION`
 
-The product purpose, initial platform, and core runtime-locality policy are now
-recovered and approved. The next requirement slice must establish the launch
-language scope and how voice translation directions should behave.
+Product purpose, initial platform/locality, and initial language/voice direction
+are now recovered and approved. The next requirement slice must establish how
+voice capture starts/stops and how speech boundaries should be detected.
 
 ## Completed Boundary
 
@@ -35,56 +35,44 @@ Completed on `New`:
 - root `CONTEXT.md` established as compact stable recovery context;
 - `.agents/skills/development-brief/SKILL.md` established as the only current
   repository-specific Developing front door;
-- primary product direction revalidated as real-time voice translation for
-  online meetings;
+- primary product direction approved as real-time voice translation for online
+  meetings;
 - standalone text translation retained as the secondary/fallback workflow;
-- `docs/foundation/01-product-overview.md` established as the durable product
-  purpose owner;
+- `docs/foundation/01-product-overview.md` established and kept aligned with
+  approved product boundaries;
 - initial supported platform approved as Windows;
-- core ASR -> translation -> TTS policy approved as local-first and offline-capable
-  after required runtime/model assets are installed;
-- future cloud-assisted capability remains optional and must not become a required
-  dependency of the core workflow;
+- core ASR -> translation -> TTS approved as local-first and offline-capable after
+  required runtime/model assets are installed;
+- initial language scope approved as Indonesian and English;
+- text translation approved as Indonesian <-> English;
+- outbound meeting voice approved as Indonesian speech -> English translated
+  voice;
+- inbound meeting assistance approved as English speech -> Indonesian translated
+  text;
+- English speech -> Indonesian TTS is not an initial requirement;
 - no inherited application/runtime source has been changed by context recovery.
 
-## Approved Product Direction
+## Approved Product Boundary
 
 ```text
 PRIMARY
 Real-time voice translation for online meetings
 
 SECONDARY / STANDALONE
-Text translation usable independently of voice readiness
+Indonesian <-> English text translation
+
+INITIAL PLATFORM
+Windows
+
+CORE RUNTIME
+Local-first / offline-capable after assets are installed
+
+OUTBOUND VOICE
+Indonesian speech -> English voice
+
+INBOUND ASSISTANCE
+English speech -> Indonesian text
 ```
-
-High-level intended product flow:
-
-```text
-speech input
--> transcription
--> translation
--> translated voice output
--> meeting use
-```
-
-## Approved Platform And Locality Policy
-
-```text
-Initial supported platform
--> Windows
-
-Core runtime
--> local-first
--> offline-capable after runtime/model assets are installed
-
-Future cloud assistance
--> optional only
--> not a required core dependency
-```
-
-Current source supports this direction through Windows-oriented NSIS/Tauri setup,
-local RuntimeAssets model paths, local-only model loading, and local TTS/provider
-paths. These are implementation/source observations, not target-PC runtime proof.
 
 ## Current Architecture Baseline
 
@@ -105,6 +93,35 @@ EngineData/Backend/RuntimeContracts
 Current frontend entrypoint instantiates `SimpleLauncherController`.
 This is static/source evidence, not live runtime proof.
 
+## Input/Segmentation Conflict To Resolve
+
+Inherited V1-Advance contract declares:
+
+```text
+default input: always-listening
+secondary input: push-to-talk
+push-to-talk hotkey: Hold Space
+silence threshold: 700 ms
+maximum speech segment: 12 s
+```
+
+Current source does not cleanly implement that contract:
+
+- current Audio settings visually present `Click Toggle` as default and
+  `Push to Talk` as secondary using `Ctrl+Space`;
+- current `RuntimeSettings` does not contain a canonical persisted input-mode
+  field;
+- current `SimpleLauncherController` main voice action behaves as click-to-start /
+  click-to-stop capture;
+- current capture-helper payload does not include the inherited `input_mode`
+  field even though the old contract requires it;
+- current VAD/runtime profiles contain much shorter silence/segment boundaries
+  than the inherited 700 ms / 12 s rule and appear to represent experimental
+  runtime tuning rather than an approved product contract.
+
+Therefore neither the old contract nor the current UI/runtime numbers should be
+promoted to current policy without explicit reconciliation.
+
 ## Holds
 
 Until later recovery slices approve the relevant requirement, do not:
@@ -114,49 +131,47 @@ Until later recovery slices approve the relevant requirement, do not:
 - replace the Rust/Tauri + Python helper architecture without a grounded decision;
 - create V2/V3/V4, a parallel engine, alternate launcher, or duplicate pipeline;
 - mass-rewrite inherited `DevelopingData` documentation;
-- treat language/model/provider, CUDA, latency, virtual microphone, Audio Studio,
+- treat model/provider, CUDA, latency, virtual microphone, Audio Studio,
   installer, or detailed audio behavior as current policy merely because inherited
   documents called them final/locked;
-- introduce a required cloud API into core translation behavior;
+- treat `always-listening`, `Click Toggle`, `Hold Space`, `Ctrl+Space`, 700 ms,
+  12 s, or current VAD tuning values as approved product requirements until the
+  active recovery slice resolves them;
 - create specialist project skills before a reusable semantic owner is proved;
 - claim runtime/device/model/audio/release readiness from static source alone.
 
 ## Evidence State
 
-Current recovery has established:
-
-- product purpose by explicit user decision;
-- initial supported platform as Windows by explicit user decision;
-- local-first/offline-capable core runtime by explicit user decision;
-- current high-level single-engine architecture baseline;
-- current UI entrypoint and text-first stabilization shape;
-- presence of local ASR/translation/TTS/runtime source structures;
-- a durable product overview that intentionally leaves unresolved detailed
-  requirements outside its authority.
+Current recovery has established product direction and launch boundaries by
+explicit user decision. Current source additionally proves that input-mode and
+speech-boundary behavior is internally inconsistent across old contracts, current
+UI, current settings schema, capture payloads, and VAD tuning.
 
 Material live behavior remains unverified unless separately proven.
 
 ## Next Step
 
-Recover the **launch language scope and voice-translation direction**.
+Recover the **input behavior and speech-segmentation policy**.
 
 Specifically:
 
-1. inspect the current language selector/settings restrictions;
-2. inspect translation runtime support by direction and mode;
-3. inspect current ASR/TTS language assumptions and output behavior;
-4. compare those findings with the inherited Indonesian <-> English requirement
-   and the inherited Indonesian speech -> English TTS-first rule;
-5. distinguish what should be launch product scope from what is merely a current
-   model/runtime limitation;
-6. present only the high-impact language/voice-direction choices that require
-   current user approval.
+1. decide whether normal meeting use should be always-listening, explicit
+   click-toggle, or another primary capture interaction;
+2. decide whether Push to Talk remains a secondary mode and choose a stable hotkey
+   policy without relying on stale UI text;
+3. define speech-end behavior semantically first (detect a natural pause and avoid
+   cutting words) before freezing numeric thresholds;
+4. decide whether 700 ms / 12 s remain product requirements or should become
+   tunable implementation defaults validated by latency/accuracy evidence;
+5. keep current VAD numeric tuning as implementation evidence only until target-PC
+   behavior is measured.
 
-Do **not** create `02-product-requirements.md` in the same recovery slice.
+Do **not** create `02-product-requirements.md` until this slice is approved.
 Do **not** change application source while recovering this requirement.
 
 ## Completion Boundary For This Step
 
-This slice is complete when the initial supported language pair(s), text
-translation direction(s), and voice-output direction(s) can be stated clearly,
-with model/runtime limitations separated from durable product requirements.
+This slice is complete when the primary/secondary voice input interactions and the
+semantic speech-segmentation requirement are approved, with numeric tuning clearly
+classified as fixed product policy or implementation parameters requiring runtime
+validation.
