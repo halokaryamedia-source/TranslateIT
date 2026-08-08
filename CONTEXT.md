@@ -39,10 +39,6 @@ Current product direction was revalidated by the user on 2026-08-08:
 - Voice functionality is part of the product direction, but current source
   presence does not prove end-to-end voice readiness.
 
-This decision resolves the previous ambiguity between the inherited
-meeting-translator requirement and the current text-first UI presentation.
-Detailed meeting/audio behavior still requires separate recovery and proof.
-
 ## Recovered Platform And Runtime Policy
 
 Current platform/runtime policy was revalidated by the user on 2026-08-08:
@@ -57,11 +53,6 @@ Current platform/runtime policy was revalidated by the user on 2026-08-08:
   future explicitly approved optional cloud feature.
 - A future cloud-assisted capability must remain optional and must not silently
   become a required dependency of the core meeting/text translation workflow.
-
-This policy matches the current Windows-oriented Tauri/NSIS, Windows audio/TTS
-support, local RuntimeAssets model paths, and local-only model loading observed
-in the inherited source, while avoiding an unnecessary permanent ban on future
-platforms or optional cloud features.
 
 ## Recovered Language And Voice Direction Policy
 
@@ -84,6 +75,35 @@ is currently asymmetric: realtime translation is optimized for ID -> EN, while
 Quality/NLLB can cover the reverse direction; current local TTS evidence is also
 English-oriented. Those are implementation/runtime facts, not permission to
 change the approved product directions above.
+
+## Recovered Voice Input And Segmentation Policy
+
+Current voice input/segmentation behavior was revalidated by the user on
+2026-08-08:
+
+- **Primary input interaction: Session Listening.** The application does not
+  listen merely because it is open. The user explicitly starts a voice session
+  once; while that session is active TranslateIT continuously listens and uses
+  speech detection to create utterance boundaries until the user explicitly
+  stops the voice session.
+- **Secondary input interaction: Push to Talk.** This remains an alternative for
+  deliberate/manual capture.
+- **Default Push-to-Talk hotkey: `Ctrl+Space`.** Avoid plain Space because it
+  conflicts with normal typing and common UI interaction.
+- **Speech segmentation is semantic, not a fixed timer contract.** TranslateIT
+  should detect a meaningful natural pause, avoid cutting active words/speech
+  unnecessarily, begin processing quickly after a valid utterance boundary, and
+  handle longer speech without losing content.
+- Inherited `700 ms` silence and `12 s` maximum segment values are **not permanent
+  product requirements**.
+- Silence duration, minimum speech duration, pre-roll, chunk sizes, maximum
+  segment duration, VAD thresholds, and related numeric values are implementation
+  parameters that must be tuned with target-PC latency/quality evidence.
+
+This resolves the old `always-listening`/`Hold Space` contract versus the current
+Click Toggle/`Ctrl+Space` UI conflict. Current VAD numeric profiles remain source
+experiments/implementation evidence until runtime validation proves appropriate
+values.
 
 ## Verified Repository Areas
 
@@ -162,10 +182,6 @@ For recovery purposes:
   runtime dependency;
 - source implementation and live runtime proof remain different claims.
 
-This architecture baseline may be refined during recovery, but replacing it
-requires evidence of a current product need rather than preference for a new
-stack.
-
 ## Current UI/Implementation Shape
 
 Current `New` frontend entrypoint instantiates `SimpleLauncherController`.
@@ -208,10 +224,6 @@ are **not yet durable `New` foundation facts**. Revalidate them before making th
 new permanent policy:
 
 - NVIDIA CUDA-first acceleration with mandatory CPU fallback;
-- Always-listening default and Push-to-talk secondary;
-- `Hold Space` as the push-to-talk default;
-- 700 ms silence segmentation threshold;
-- 12 second maximum speech segment;
 - ≤1 second desired post-speech translated-audio latency target;
 - built-in virtual microphone requirement;
 - 50% headphone monitoring behavior;
@@ -261,6 +273,12 @@ Use these terms consistently unless a later glossary decision replaces them:
 - **Launch language pair** — Indonesian and English.
 - **Outbound meeting voice** — Indonesian speech translated into English voice.
 - **Inbound meeting assistance** — English speech translated into Indonesian text.
+- **Session Listening** — explicit user-started voice session with continuous
+  listening/VAD until the user stops the session.
+- **Push to Talk** — secondary manual capture interaction; default hotkey
+  `Ctrl+Space`.
+- **Segmentation parameters** — numeric VAD/silence/chunk/segment values that are
+  implementation tuning, not fixed product constants.
 - **Desktop shell** — the user-facing Rust/Tauri application under
   `EngineData/Frontend/RustApp`.
 - **Helper runtime** — internal Python runtime under
@@ -276,27 +294,8 @@ Use these terms consistently unless a later glossary decision replaces them:
 
 ## Do Not Store Here
 
-Do not use `CONTEXT.md` for:
+Do not use `CONTEXT.md` for current task status, detailed implementation plans,
+backlogs, source maps, test logs, long audits, historical narratives, temporary
+assumptions, or copied product requirements.
 
-- current active task status;
-- step-by-step implementation plans;
-- backlog or roadmap;
-- detailed source ownership maps;
-- test logs;
-- long audit findings;
-- historical decision narratives;
-- temporary assumptions;
-- copied product requirements.
-
-Those responsibilities will get their own canonical owners only when needed.
-
-## Next Context Owner
-
-The active continuation owner is:
-
-```text
-docs/knowledge/next-action.md
-```
-
-It should hold the single active recovery goal, current state, explicit holds,
-and exactly one next step. It must not duplicate this stable context file.
+The active continuation owner is `docs/knowledge/next-action.md`.
