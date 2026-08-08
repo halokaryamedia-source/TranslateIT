@@ -19,12 +19,12 @@ broad development resumes.
 
 ## Current Phase
 
-`CONTEXT_RECOVERY_GPU_AND_PROVIDER_POLICY`
+`CONTEXT_RECOVERY_MEETING_AUDIO_ROUTING`
 
 Product purpose, platform/locality, language/voice direction, voice
-input/segmentation, and latency/runtime-mode policy are now recovered and
-approved. The next slice must define acceleration/fallback behavior and how
-specific ASR/translation/TTS implementations relate to product requirements.
+input/segmentation, latency/runtime-mode, and acceleration/provider policy are now
+recovered and approved. The next slice must define how translated voice reaches a
+meeting application and how the original microphone/local monitoring should behave.
 
 ## Completed Product Boundary
 
@@ -49,7 +49,6 @@ English speech -> Indonesian text
 
 PRIMARY VOICE INPUT
 Session Listening
-(user explicitly starts once -> continuous listening/VAD -> user stops)
 
 SECONDARY VOICE INPUT
 Push to Talk / Ctrl+Space
@@ -65,6 +64,15 @@ USER MODES
 Realtime / Quality
 Meeting voice default -> Realtime
 Standalone text default -> Quality
+
+ACCELERATION
+CUDA preferred, not required
+CPU fallback mandatory
+No silent cloud fallback
+
+MODELS / PROVIDERS
+Replaceable implementation choices
+Normal user sees capability/readiness, not internal provider IDs
 ```
 
 `docs/foundation/01-product-overview.md` and `CONTEXT.md` are aligned with these
@@ -89,77 +97,61 @@ EngineData/Backend/RuntimeContracts
 
 Static/source presence is not live runtime proof.
 
-## GPU / Provider Evidence To Reconcile
+## Meeting Audio Routing Evidence To Reconcile
 
-The strongest current architecture contract says:
+Inherited V1-Advance requirements expected translated English voice to reach the
+meeting through a built-in virtual microphone. They also specified muting the
+original microphone and monitoring translated output locally at a fixed volume.
 
-```text
-NVIDIA CUDA -> primary acceleration target
-CPU fallback -> mandatory
-Python helper -> allowed for ASR / translation / TTS / diagnostics / model handling
-```
+Current repository source contains virtual-mic/virtual-audio-route command and
+contract work, but those areas must be checked against current runtime state before
+being promoted to current policy. The inherited numeric monitoring level and exact
+mute/routing behavior have not yet been reapproved.
 
-Current Python helper follows this general pattern:
-
-- ASR selects CUDA when CTranslate2 CUDA is available, otherwise CPU;
-- translation selects CUDA through Torch when available, otherwise CPU;
-- CPU operation is marked degraded rather than silently reported as equivalent;
-- ASR models currently reference Faster-Whisper local assets;
-- translation currently uses a realtime Marian ID->EN path and a Quality NLLB
-  path;
-- local TTS currently uses Piper when available and Windows SAPI as a fallback;
-- model/provider assets are loaded from local project/runtime paths.
-
-However, some older Rust CUDA/diagnostic files still encode an abandoned-looking
-`final runtime must not require Python` direction and native-Rust-only CUDA
-planning. That conflicts with the stronger architecture contract and the current
-`New` single-engine baseline, so those statements are stale implementation
-history rather than current architecture authority.
-
-Current static/source evidence also does **not** prove CUDA, model quality, TTS
-quality, or realtime performance on a supported target PC.
+The approved product requirement already implies one important outcome:
+participants in the online meeting must receive the translated English voice for
+the outbound workflow. How TranslateIT owns/selects the meeting input device and
+how much original/local audio is heard still requires explicit recovery.
 
 ## Holds
 
 Until this recovery slice is approved, do not:
 
 - change application/runtime source to match recovered policy yet;
-- treat NVIDIA hardware as an absolute product requirement solely because CUDA is
-  the current preferred accelerator;
-- treat CPU fallback as equivalent to Realtime meeting performance without
-  benchmark evidence;
-- automatically cloud-fallback when local GPU/CPU inference is slow or blocked;
-- freeze Faster-Whisper, Marian, NLLB, Piper, Windows SAPI, or a custom voice
-  profile as permanent product identity merely because they are current source
-  choices;
-- revive the stale Rust-only/no-Python runtime direction;
-- expose model/provider selection as normal-user product vocabulary;
-- claim CUDA/model/provider readiness from static source alone.
+- assume a particular third-party virtual-audio driver is permanent product
+  identity;
+- claim built-in virtual microphone readiness from contract/source presence;
+- assume original microphone mute behavior without reconciling user safety/control;
+- freeze inherited `50%` local monitoring as a product constant;
+- mix original Indonesian microphone audio into meeting output unless explicitly
+  approved;
+- claim Zoom/Meet/Teams integration works without target-PC proof;
+- create `02-product-requirements.md` yet.
 
 ## Next Step
 
-Recover the **GPU acceleration, CPU fallback, and model/provider product policy**.
+Recover the **meeting audio routing, virtual microphone, original-mic, and local
+monitoring policy**.
 
 Specifically:
 
-1. decide whether NVIDIA/CUDA is a required platform constraint or the preferred
-   acceleration path for the initial Windows target;
-2. define what CPU fallback must guarantee for standalone text and for meeting
-   voice;
-3. decide how the product should behave when CPU fallback cannot meet the
-   benchmark-derived Realtime threshold;
-4. decide whether current ASR/translation/TTS model/provider names are durable
-   product requirements or replaceable implementation defaults;
-5. preserve the approved local-first rule and prohibit silent cloud fallback;
-6. define which acceleration/provider details belong in normal-user readiness
-   versus developer diagnostics.
+1. inspect current virtual microphone / virtual audio route implementation and
+   runtime contracts;
+2. identify whether current source assumes an internal/bundled route, an external
+   virtual device, or only a guarded placeholder;
+3. decide the required meeting-app experience for translated English output;
+4. decide whether original Indonesian mic audio should be muted/excluded from the
+   meeting by default while translation is active;
+5. decide whether local monitoring is required, optional, or off by default and
+   keep volume numeric values as user/runtime settings unless there is a strong
+   fixed product reason;
+6. define failure behavior when the virtual meeting route is not available.
 
-Do **not** create `02-product-requirements.md` until this slice is approved.
 Do **not** change runtime/source while recovering this requirement.
 
 ## Completion Boundary For This Step
 
-This slice is complete when acceleration preference, CPU degraded behavior,
-provider/model ownership, local fallback rules, and user-visible readiness
-semantics are explicitly approved with target-PC evidence requirements separated
-from source/config presence.
+This slice is complete when the outbound meeting audio destination, virtual-device
+product requirement, original-mic mixing/muting rule, local monitoring behavior,
+and unavailable-route fallback are explicitly approved with target-PC proof
+requirements separated from static source evidence.
