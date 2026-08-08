@@ -19,13 +19,14 @@ broad development resumes.
 
 ## Current Phase
 
-`CONTEXT_RECOVERY_DOCUMENT_TRANSLATION_SCOPE`
+`CONTEXT_RECOVERY_AUDIO_STUDIO_SCOPE`
 
 Product purpose, platform/locality, language/voice direction, voice
 input/segmentation, latency/runtime modes, acceleration/provider policy, meeting
-audio routing, translation behavior/tone, and History/Saved/privacy policy are now
-recovered and approved. The active slice is defining the initial
-**document-translation product boundary**.
+audio routing, translation behavior/tone, History/Saved/privacy policy, and
+Document Translation scope are now recovered and approved. The active slice is
+defining whether and how **Audio Studio / custom voice actor** belongs in the
+initial product.
 
 ## Completed Product Boundary
 
@@ -64,7 +65,7 @@ Numeric release threshold is benchmark-derived
 USER MODES
 Realtime / Quality
 Meeting voice default -> Realtime
-Standalone text default -> Quality
+Standalone text/document default -> Quality
 
 ACCELERATION
 CUDA preferred, not required
@@ -93,6 +94,14 @@ Saved requires explicit user action
 Raw/TTS audio temporary by default
 History is never automatic model context
 Diagnostics are minimal/redacted by default
+
+DOCUMENT TRANSLATION
+First-class: TXT / MD / DOCX / text-based PDF / SRT / VTT
+OCR deferred
+DOCX basic semantic structure preservation
+PDF exports text/DOCX rather than exact-layout translated PDF
+Semantic chunking; Quality default
+Document History stores job metadata by default
 ```
 
 `docs/foundation/01-product-overview.md` and `CONTEXT.md` are aligned with these
@@ -117,75 +126,75 @@ EngineData/Backend/RuntimeContracts
 
 Static/source presence is not live runtime proof.
 
-## Document Translation Evidence
+## Audio Studio Evidence
 
-Inherited V1-Advance requirements treated document translation as a secondary
-workflow and named `.txt`, `.md`, `.docx`, text-based `.pdf`, and `.srt`, with OCR
-deferred.
+Inherited V1-Advance requirements treated Audio Studio as a secondary feature in
+the same TranslateIT V1 engine whose purpose was to create a custom English voice
+actor from user voice samples.
 
-Current `New` source is materially narrower:
+Current `New` source/contract evidence shows a much larger but mostly unimplemented
+surface:
 
-- `ATTACHMENT_RUNTIME_CONTRACT.json` declares text-only attachment support;
-- that contract explicitly marks `.pdf` and `.docx` unsupported until a backend
-  parser exists and forbids claiming success for them;
-- the contract baseline lists `.txt`, `.md`, `.json`, and `.csv` with a 64 KB
-  attachment limit;
-- current frontend attachment rules additionally accept text-like `.tsv`, `.log`,
-  `.xml`, `.yaml`, `.yml`, `.srt`, and `.vtt`;
-- `SimpleLauncherController` reads accepted attachments through browser `file.text()`,
-  compacts the text, and places it into the normal text composer;
-- current attachment ingestion therefore does **not** preserve document structure,
-  run a dedicated document chunking pipeline, or export translated files;
-- the active frontend package has no dedicated document parser dependency, and the
-  inspected realtime worker dependencies are translation/audio/model-oriented,
-  not evidence of a current DOCX/PDF parser.
+- Audio Studio supports metadata concepts for imported takes and guided-reading
+  takes with states such as draft/staged/accepted/needs-retry/blocked;
+- metadata is split between `UserData/CacheData/AudioStudio` and
+  `UserData/SavedProject/AudioStudio`;
+- current commands can create/list/update/export take/project metadata;
+- current provider status explicitly reports `provider_blocked`;
+- guided microphone capture, real audio-quality measurement, profile processing,
+  generated voice output, and streaming generation are not connected and require
+  target-PC evidence;
+- current runtime manifest references a custom voice profile (`marcel`) but marks
+  the voice actor unavailable, so a custom profile is not current runtime proof;
+- an inherited advanced contract proposes starter/production/broadcast profile
+  tiers, fixed sample-minute targets, pace/energy/clarity/emotion/style controls,
+  multilingual output, dialogue mode, long-form generation, and streaming;
+- those advanced surfaces are contract/planning evidence, not proven current
+  product needs.
 
-Important distinction for product recovery:
-
-```text
-Quick text attachment
-!=
-Document translation workflow
-```
-
-Structured text formats such as JSON/CSV/YAML/XML may remain useful as quick text
-attachments without promising structure-preserving translated-file output.
+The core meeting product already has a separate requirement for usable local
+English TTS. Therefore a custom voice actor does not need to be a prerequisite for
+Meeting Voice readiness unless the user explicitly chooses that product direction.
 
 ## Holds
 
 Until this recovery slice is approved, do not:
 
-- change application/runtime source to add document processing;
-- claim current `.docx` or PDF support;
-- add OCR, layout reconstruction, office conversion, or broad file-format support
-  without an approved initial product need;
-- treat composer attachment ingestion as document translation;
-- promise structure-preserving translation for JSON/CSV/YAML/XML merely because
-  the frontend can read them as text;
-- create a parallel document engine or cloud document service;
+- change application/runtime source to build Audio Studio;
+- make custom voice creation a prerequisite for normal meeting translation;
+- freeze `marcel` or any other named voice profile as product identity;
+- freeze 1/30/180-minute sample targets as product requirements;
+- promote starter/production/broadcast tiers without a demonstrated user need;
+- promote emotion/style/dialogue/multilingual/long-form controls merely because an
+  inherited advanced contract lists them;
+- create a separate Audio Studio engine or product;
+- use cloud voice cloning/training implicitly;
+- retain voice samples without clear local ownership, authorization, and deletion
+  behavior;
 - create `02-product-requirements.md` yet.
 
 ## Next Decision
 
-Approve the initial **document translation scope**:
+Recover the **Audio Studio / custom voice actor product boundary**:
 
-1. which human-document formats are first-class (`.txt`, `.md`, `.docx`,
-   text-based PDF, `.srt`/`.vtt`);
-2. whether scanned/image PDF and OCR remain deferred;
-3. which formats require same-format translated export versus translated-text
-   output only;
-4. how much structure must be preserved for DOCX/subtitles without promising exact
-   visual layout reconstruction;
-5. semantic chunking/context behavior for larger documents;
-6. local temporary extraction and explicit save/export behavior;
-7. whether document History stores job metadata rather than full document content
-   by default.
+1. decide whether Audio Studio remains part of the initial release, becomes an
+   optional advanced feature after the core meeting workflow, or is deferred;
+2. define its minimum useful purpose (create/manage a local custom English voice
+   profile for outbound translated TTS);
+3. decide whether imported audio and guided recording are both required inputs;
+4. define consent/voice-ownership and local-storage/deletion requirements;
+5. decide whether profile quality should be capability/quality-gated instead of
+   fixed sample-minute tiers;
+6. define fallback behavior when a custom profile is unavailable so normal local
+   English TTS continues to work;
+7. keep provider/model/training method and advanced style controls as implementation
+   or future-scope details unless explicitly justified.
 
 Do **not** change runtime/source while recovering this requirement.
 
 ## Completion Boundary For This Step
 
-This slice is complete when initial document formats, extraction/OCR boundary,
-chunking semantics, output behavior, structure-preservation expectations, and
-privacy/retention behavior are explicitly approved with current implementation
-capability kept separate from product scope.
+This slice is complete when Audio Studio release priority, minimum workflow,
+voice-authorization/privacy boundary, profile readiness semantics, default-TTS
+fallback, and advanced-feature exclusions are explicitly approved with current
+metadata-only implementation kept separate from runtime readiness.
