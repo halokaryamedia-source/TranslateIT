@@ -29,9 +29,9 @@ speech input
 Voice translation is therefore a core product capability, not an optional legacy
 feature.
 
-The exact meeting-audio integration, capture behavior, output routing, latency,
-and provider/model choices are intentionally not defined by this overview. They
-must be recovered and specified by the appropriate later foundation owner.
+The exact meeting-audio integration, output routing, latency, and provider/model
+choices are intentionally not defined by this overview. They must be recovered
+and specified by the appropriate later foundation owner.
 
 ## Secondary Standalone Workflow
 
@@ -77,6 +77,35 @@ Not required initially
 Future platforms, optional cloud-assisted features, additional languages, or
 Indonesian TTS are not permanently prohibited. They require a later explicit
 product decision and must not expand the initial product by default.
+
+## Voice Input Interaction Boundary
+
+Normal meeting use follows **Session Listening**:
+
+```text
+User explicitly starts voice session
+-> TranslateIT listens continuously while the session is active
+-> VAD/speech-boundary logic identifies utterances
+-> utterances move into the translation pipeline
+-> User explicitly stops voice session
+```
+
+TranslateIT must not begin persistent listening merely because the application is
+open.
+
+**Push to Talk** remains a secondary input interaction with `Ctrl+Space` as the
+approved default hotkey.
+
+Speech segmentation is defined by behavior rather than fixed legacy constants:
+
+- detect a meaningful natural pause;
+- avoid cutting active words/speech unnecessarily;
+- begin processing promptly after a valid utterance boundary;
+- handle longer speech without losing content.
+
+Numeric silence/VAD/chunk/segment values are implementation tuning that must be
+validated against real latency and speech quality. The inherited `700 ms` silence
+and `12 s` maximum segment values are not permanent product requirements.
 
 ## Problem TranslateIT Solves
 
@@ -153,10 +182,10 @@ It does **not** change the approved product priority: real-time meeting voice
 translation remains primary, and text translation remains the secondary
 standalone path.
 
-Current source also reflects an asymmetric implementation: realtime translation
-is currently strongest for Indonesian -> English and current local TTS evidence
-is English-oriented. That implementation shape is consistent with the approved
-outbound meeting-voice direction but does not by itself prove runtime readiness.
+Current source reflects an asymmetric translation implementation and currently
+contains conflicting historical/current input-mode details. Approved product
+policy above governs intent; implementation must later be aligned through normal
+Developing work after recovery is complete.
 
 ## Target User
 
@@ -181,8 +210,10 @@ TranslateIT is aligned with this overview when:
 - text translation remains independently usable;
 - initial product scope stays focused on Windows and Indonesian/English;
 - core translation operation can function locally after required assets exist;
+- voice listening begins only through an explicit user-started session or PTT;
+- speech boundaries are tuned for natural, responsive conversation rather than a
+  frozen historical timer;
 - one desktop application owns the user experience;
-- internal runtime complexity does not become a second user-facing product;
 - implementation state is not confused with product priority;
 - static source presence is not reported as live runtime readiness;
 - later feature decisions trace back to the communication problem above rather
@@ -194,7 +225,7 @@ This overview intentionally does **not** decide:
 
 - exact ASR, translation, TTS, or voice provider/model choices;
 - GPU/CUDA and CPU fallback policy;
-- speech segmentation and input-mode behavior;
+- numeric VAD/silence/chunk/segment tuning;
 - latency targets;
 - meeting audio integration and virtual microphone behavior;
 - microphone monitoring/muting details;
