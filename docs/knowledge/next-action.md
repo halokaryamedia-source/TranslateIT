@@ -14,21 +14,17 @@ classified.
 
 ## Active Goal
 
-Recover and reconcile TranslateIT into a small current product foundation before
-broad development resumes.
+Finish the last major product-recovery decision, then consolidate the recovered
+product boundary into canonical requirements before broad development resumes.
 
 ## Current Phase
 
-`CONTEXT_RECOVERY_INSTALLER_PACKAGING_DISTRIBUTION`
+`CONTEXT_RECOVERY_UI_DIAGNOSTICS_BOUNDARY`
 
-Product purpose, platform/locality, language/voice direction, voice
-input/segmentation, latency/runtime modes, acceleration/provider policy, meeting
-audio routing, translation behavior/tone, History/Saved/privacy, Document
-Translation, and Audio Studio scope are now recovered and approved.
-
-The active slice is defining the initial Windows installer/package/distribution
-boundary and what must actually be bundled or proven for an installable TranslateIT
-build.
+The installer/packaging/distribution policy was approved by the user on 2026-08-09.
+To avoid repeated full-file documentation churn, that newly approved policy is
+recorded in this active resume point and will be consolidated into `CONTEXT.md` and
+foundation together with the final UI/diagnostics decision.
 
 ## Completed Product Boundary
 
@@ -43,7 +39,7 @@ INITIAL PLATFORM
 Windows
 
 CORE RUNTIME
-Local-first / offline-capable after assets are installed
+Local-first / offline-capable after required assets are installed
 
 OUTBOUND VOICE
 Indonesian speech -> English voice
@@ -97,104 +93,123 @@ Semantic chunking; Quality default
 AUDIO STUDIO
 Part of TranslateIT but advanced/post-core
 Not an initial core-release blocker
-Purpose: create a local custom English voice for outbound translated TTS
+Local custom English voice for outbound translated TTS
 Import + Guided Recording
-Quality/readiness-gated rather than fixed sample-minute tiers
 Voice authorization required
-Local storage + user deletion required
-Default local English TTS remains available independently
-Custom profile failure -> visible fallback to Default Voice
-Broadcast/emotion/style/multilingual/dialogue/long-form studio surfaces are not
-initial scope
+Quality/readiness-gated, not fixed sample-minute tiers
+Default local English TTS remains independent fallback
+Advanced broadcast/emotion/style/multilingual/dialogue/long-form studio is deferred
+
+INSTALLER / DISTRIBUTION
+Windows internal/controlled distribution first
+One normal-user setup experience
+Self-contained core runtime from the user's point of view
+No manual Python/pip/model/env-var setup
+Package provides desktop app, helper runtime/dependencies, core ASR/translation
+assets, default local English TTS, and meeting-audio-route setup/support
+Model binaries are release-build inputs, not required in Git
+System Python is development fallback only, not production dependency
+Core runtime is offline-capable after installation
+Fresh install does not package developer UserData or DevelopingData
+Auto-update deferred
+Code signing is not an internal-release blocker; revisit before broad distribution
+Installer filename is a build convention, not product identity
+Installer readiness requires clean-Windows install/runtime proof
 ```
 
-The Audio Studio decision supersedes inherited fixed 1/30/180-minute profile tiers,
-`marcel` as product identity, and advanced studio controls as current requirements.
-Current Audio Studio source remains metadata-oriented/provider-blocked and does not
-prove guided capture, profile creation, generated voice quality, or streaming.
+Audio Studio and installer decisions are approved product intent. Their current
+source/runtime implementations remain separate evidence questions.
 
-No inherited application/runtime source has been changed by context recovery.
+## Packaging Evidence Boundary
 
-## Current Architecture Baseline
+Current source only proves packaging preparation:
 
-```text
-Rust/Tauri desktop shell
-+
-Python helper runtime
-```
+- Tauri targets Windows NSIS;
+- current Tauri bundle config does not yet declare the complete Python/helper/model/
+  audio-route release resources;
+- package preflight intentionally does not perform a full installer build;
+- current helper can still discover system Python and therefore is not yet proof of
+  a self-contained installed runtime;
+- runtime models/Piper/.venv are intentionally excluded from Git and must enter the
+  release through the build/package input process;
+- current path discovery still assumes an `EngineData` + `UserData` runtime root.
 
-Current source starts from:
+Therefore installer completeness remains `LOCAL PROOF REQUIRED` until a clean
+Windows package is actually installed and exercised.
 
-```text
-EngineData/Frontend/RustApp
-EngineData/Backend/LocalWorker/WorkerRuntime
-EngineData/Backend/RuntimeContracts
-```
+## Current UI / Diagnostics Evidence To Reconcile
 
-Static/source presence is not live runtime proof.
+Current active UI mixes product-level and developer-level controls:
 
-## Packaging Evidence To Reconcile
+- Settings directly exposes a `Developer` tab to normal navigation;
+- the home Engine Status card directly exposes `Start Helper`, `Check Worker`,
+  `Check Mic`, and `Diagnostics`;
+- `Local data` routes directly to Developer settings;
+- General Settings exposes runtime/GPU status;
+- Audio Settings includes useful normal controls but also explanatory implementation
+  language about helper/model/provider pipeline and planned DSP work;
+- Translate Settings still labels the realtime mode `Fast` even though approved
+  product terminology is `Realtime`;
+- Developer Settings intentionally contains low-level helper controls, preload/
+  smoke-test actions, capture dispatch controls, hardware status, pipeline state,
+  logs, architecture status, model/provider evidence, and validation commands;
+- `runtimeProductFacade` already maps low-level runtime state to useful product
+  concepts such as Ready, Text ready, Setup needed, Voice ready, Models ready,
+  microphone readiness, and next action;
+- some normal-user notices still surface raw worker/blocker text rather than a
+  grouped product-level problem and recovery action.
 
-Current packaging evidence is incomplete:
-
-- Tauri config enables Windows `nsis` bundling for product `TranslateIT`;
-- current package preflight only checks source/config readiness and intentionally
-  prevents exposing a full Tauri build through npm scripts during the GitHub-only
-  source/CI phase;
-- current `tauri.conf.json` does not declare bundled runtime resources/sidecars for
-  `EngineData`, Python, model assets, or a virtual-audio provider;
-- current path discovery expects an `EngineData` + `UserData` runtime root near the
-  working directory/executable and explicitly warns when those markers are absent;
-- helper startup resolves the Python worker under
-  `EngineData/Backend/LocalWorker/WorkerRuntime` and currently searches for an
-  environment override, worker `.venv`, system Python, or Windows `py` launcher;
-- therefore an NSIS shell being configured is not proof that a fresh installed PC
-  receives a self-contained working local runtime;
-- inherited V1-Advance requirements wanted a single large installer containing
-  required models/runtime components and named the target `TranslateIT.setup.exe`,
-  with internal distribution first, no auto-update requirement, and no signing
-  requirement for the internal build.
+The current source therefore already has a useful product-readiness abstraction,
+but the active UI still leaks engineering operation into normal product surfaces.
 
 ## Holds
 
-Until this slice is approved, do not:
+Until the UI/diagnostics boundary is approved, do not:
 
-- change packaging/runtime source;
-- claim the current NSIS config produces a complete working installer;
-- require users to separately install Python/models/dependencies for the intended
-  normal-user product unless explicitly approved;
-- freeze the exact inherited installer filename as product identity without need;
-- add auto-update, code-signing infrastructure, cloud model download, or complex
-  installer orchestration merely because they may be useful later;
-- package `DevelopingData` as runtime content;
-- treat model/runtime presence in the repository as installed-app proof;
-- create `02-product-requirements.md` yet.
+- change application/runtime source;
+- perform a visual redesign;
+- expose model IDs, Python/helper lifecycle, pipeline smoke/preload controls,
+  internal contracts, raw logs, CUDA compute details, or provider internals to
+  normal users;
+- remove Developer Diagnostics entirely; it remains required for troubleshooting;
+- make normal product recovery depend on users manually operating helper/worker
+  controls when the app can own that workflow;
+- create `02-product-requirements.md` before this final product-boundary decision is
+  approved.
 
 ## Next Decision
 
-Recover the **installer, packaging, and distribution product policy**:
+Recover the **normal-user UI versus Developer Diagnostics product boundary**.
 
-1. decide whether the initial normal-user/internal installer should be
-   self-contained for the required core runtime after installation;
-2. decide which runtime components must be bundled versus installed/configured as
-   explicit prerequisites;
-3. decide whether required core models ship in the installer/package or may be
-   obtained through a separate explicit setup step;
-4. define how the TranslateIT meeting microphone/virtual-audio provider is handled
-   during setup without freezing a specific provider brand;
-5. confirm internal distribution priority and whether auto-update/signing remain
-   deferred for the initial internal target;
-6. decide whether `TranslateIT.setup.exe` is a required filename or only an old
-   packaging convention;
-7. define installer readiness proof: clean Windows install, app launch, local data
-   path creation, helper/model discovery, text translation, and relevant voice/audio
-   readiness checks on supported target hardware.
+Specifically:
 
-Do **not** change runtime/source while recovering this requirement.
+1. decide which primary navigation/workflows normal users see;
+2. keep normal settings focused on language, tone/mode, audio devices, meeting
+   route, history/privacy, appearance, and product-level readiness;
+3. decide whether Developer Diagnostics is hidden behind an Advanced/Developer
+   entry rather than a permanent top-level Settings tab;
+4. replace normal `Start Helper` / `Check Worker` style operations with product
+   actions such as automatic setup/repair, Retry, Fix Setup, or Open Diagnostics;
+5. define normal readiness states and error grouping without leaking raw blocker
+   strings;
+6. keep exact runtime/model/provider/GPU/pipeline/log/contract evidence available
+   inside Developer Diagnostics;
+7. preserve one explicit path from a user-facing setup failure to diagnostics when
+   automatic/product-level recovery is insufficient.
+
+Do **not** change runtime/source during this recovery decision.
 
 ## Completion Boundary For This Step
 
-This slice is complete when bundling responsibility, model/runtime setup,
-virtual-audio setup, internal distribution, update/signing boundary, naming, and
-clean-machine installer proof can be stated as approved product requirements with
-current NSIS/source configuration kept separate from actual install readiness.
+This slice is complete when normal navigation, normal Settings, readiness/error
+presentation, automatic/product-level recovery actions, and hidden Developer
+Diagnostics can be stated as approved product requirements.
+
+After approval:
+
+1. consolidate Audio Studio + installer + UI decisions into `CONTEXT.md` and
+   `docs/foundation/01-product-overview.md`;
+2. create `docs/foundation/02-product-requirements.md` as the canonical detailed
+   product requirement owner;
+3. advance `next-action.md` out of broad product context recovery and into bounded
+   architecture/source-ownership reconciliation before implementation.
