@@ -19,12 +19,12 @@ broad development resumes.
 
 ## Current Phase
 
-`CONTEXT_RECOVERY_LATENCY_AND_RUNTIME_MODES`
+`CONTEXT_RECOVERY_GPU_AND_PROVIDER_POLICY`
 
-Product purpose, platform/locality, language/voice direction, and voice
-input/segmentation behavior are now recovered and approved. The next slice must
-define what responsive meeting translation means and how Realtime/Quality modes
-should behave at product level.
+Product purpose, platform/locality, language/voice direction, voice
+input/segmentation, and latency/runtime-mode policy are now recovered and
+approved. The next slice must define acceleration/fallback behavior and how
+specific ASR/translation/TTS implementations relate to product requirements.
 
 ## Completed Product Boundary
 
@@ -56,6 +56,15 @@ Push to Talk / Ctrl+Space
 
 SEGMENTATION
 Natural-pause behavior; numeric VAD/silence/segment values are runtime tuning
+
+OFFICIAL VOICE LATENCY
+Detected utterance end -> first translated audio begins
+Numeric release threshold is benchmark-derived
+
+USER MODES
+Realtime / Quality
+Meeting voice default -> Realtime
+Standalone text default -> Quality
 ```
 
 `docs/foundation/01-product-overview.md` and `CONTEXT.md` are aligned with these
@@ -80,75 +89,77 @@ EngineData/Backend/RuntimeContracts
 
 Static/source presence is not live runtime proof.
 
-## Latency And Mode Evidence To Reconcile
+## GPU / Provider Evidence To Reconcile
 
-Inherited V1-Advance product requirements wanted translated audio to begin within
-about `<= 1 second` after the user finished speaking when realistically
-achievable.
-
-Current source contains a rebuilt latency meter that explicitly measures:
+The strongest current architecture contract says:
 
 ```text
-speech end -> first translated voice event
-ASR duration
-translation duration
-TTS duration
-playback enqueue -> start
+NVIDIA CUDA -> primary acceleration target
+CPU fallback -> mandatory
+Python helper -> allowed for ASR / translation / TTS / diagnostics / model handling
 ```
 
-but it also declares historical latency metrics untrusted and does not establish
-a verified target-PC release threshold.
+Current Python helper follows this general pattern:
 
-Runtime/profile naming is also inconsistent:
+- ASR selects CUDA when CTranslate2 CUDA is available, otherwise CPU;
+- translation selects CUDA through Torch when available, otherwise CPU;
+- CPU operation is marked degraded rather than silently reported as equivalent;
+- ASR models currently reference Faster-Whisper local assets;
+- translation currently uses a realtime Marian ID->EN path and a Quality NLLB
+  path;
+- local TTS currently uses Piper when available and Windows SAPI as a fallback;
+- model/provider assets are loaded from local project/runtime paths.
 
-- persisted Rust settings use `Realtime` and `Quality`;
-- default persisted runtime profile is `Realtime`;
-- current UI labels the latency-oriented option `Fast` and the other `Quality`;
-- worker translation maps non-Quality behavior to the realtime Marian path and
-  Quality to the NLLB path;
-- current realtime translation path is optimized for ID -> EN, while EN -> ID may
-  require Quality/fallback behavior.
+However, some older Rust CUDA/diagnostic files still encode an abandoned-looking
+`final runtime must not require Python` direction and native-Rust-only CUDA
+planning. That conflicts with the stronger architecture contract and the current
+`New` single-engine baseline, so those statements are stale implementation
+history rather than current architecture authority.
 
-Therefore old `<=1s`, old default `Quality`, current default `Realtime`, and
-`Fast`/`Realtime` naming must not be silently treated as one coherent policy.
+Current static/source evidence also does **not** prove CUDA, model quality, TTS
+quality, or realtime performance on a supported target PC.
 
 ## Holds
 
-Until later recovery slices approve the relevant requirement, do not:
+Until this recovery slice is approved, do not:
 
-- resume inherited feature TODOs automatically;
 - change application/runtime source to match recovered policy yet;
-- treat a `<=1s` latency target as verified or release-ready without target-PC
-  evidence;
-- expose model/provider names as user-facing runtime modes;
-- create mode-specific parallel pipelines when one pipeline/profile boundary can
-  own the behavior;
-- treat CUDA, virtual microphone, Audio Studio, installer, or detailed output
-  routing as approved merely because inherited docs called them final/locked;
-- claim runtime/device/model/audio/release readiness from static source alone.
+- treat NVIDIA hardware as an absolute product requirement solely because CUDA is
+  the current preferred accelerator;
+- treat CPU fallback as equivalent to Realtime meeting performance without
+  benchmark evidence;
+- automatically cloud-fallback when local GPU/CPU inference is slow or blocked;
+- freeze Faster-Whisper, Marian, NLLB, Piper, Windows SAPI, or a custom voice
+  profile as permanent product identity merely because they are current source
+  choices;
+- revive the stale Rust-only/no-Python runtime direction;
+- expose model/provider selection as normal-user product vocabulary;
+- claim CUDA/model/provider readiness from static source alone.
 
 ## Next Step
 
-Recover the **latency objective and runtime-mode product policy**.
+Recover the **GPU acceleration, CPU fallback, and model/provider product policy**.
 
 Specifically:
 
-1. define the official user-relevant latency measurement boundary;
-2. decide whether a numeric latency target should be a hard current requirement
-   or a benchmark-derived release threshold;
-3. reconcile `Fast` versus `Realtime` naming;
-4. decide the default mode for the primary meeting workflow;
-5. decide whether mode choice should be user-controlled, workflow-selected, or a
-   combination of both;
-6. keep model/provider selection as implementation detail rather than product
-   vocabulary.
+1. decide whether NVIDIA/CUDA is a required platform constraint or the preferred
+   acceleration path for the initial Windows target;
+2. define what CPU fallback must guarantee for standalone text and for meeting
+   voice;
+3. decide how the product should behave when CPU fallback cannot meet the
+   benchmark-derived Realtime threshold;
+4. decide whether current ASR/translation/TTS model/provider names are durable
+   product requirements or replaceable implementation defaults;
+5. preserve the approved local-first rule and prohibit silent cloud fallback;
+6. define which acceleration/provider details belong in normal-user readiness
+   versus developer diagnostics.
 
 Do **not** create `02-product-requirements.md` until this slice is approved.
-Do **not** change source while recovering this requirement.
+Do **not** change runtime/source while recovering this requirement.
 
 ## Completion Boundary For This Step
 
-This slice is complete when latency measurement semantics, target-policy type,
-runtime-mode names, default behavior, and user-control boundary are explicitly
-approved with target-PC measurement requirements clearly separated from static
-source evidence.
+This slice is complete when acceleration preference, CPU degraded behavior,
+provider/model ownership, local fallback rules, and user-visible readiness
+semantics are explicitly approved with target-PC evidence requirements separated
+from source/config presence.
