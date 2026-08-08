@@ -5,7 +5,6 @@ const appRoot = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const errors = [];
 const read = (p) => { const f = resolve(appRoot, p); if (!existsSync(f)) { errors.push(`Missing required file: ${p}`); return ""; } return readFileSync(f, "utf8"); };
 const expect = (s, m, label) => { if (!s.includes(m)) errors.push(`${label}: missing ${m}`); };
-const expectAny = (s, ms, label) => { if (!ms.some((m) => s.includes(m))) errors.push(`${label}: missing one of ${ms.join(" | ")}`); };
 const reject = (s, m, label) => { if (s.includes(m)) errors.push(`${label}: forbidden ${m}`); };
 const collect = (s, r, group = 1) => { const out = []; let match; while ((match = r.exec(s))) out.push(match[group]); return Array.from(new Set(out)).sort(); };
 
@@ -34,17 +33,37 @@ const commandMap = [
 ];
 for (const [label, frontendMarker, rustMarker] of commandMap) { expect(runtimeApi, frontendMarker, `runtimeApi ${label}`); expect(registry, rustMarker, `registry ${label}`); expect(commandModules, rustMarker, `rust command module ${label}`); }
 
-for (const m of ["runProductTranslation", "runtimeApi.translateText", "runProductSetupAction", "runtimeApi.startHelperBridge", "runtimeApi.getHelperBridgeStatus", "runtimeApi.verifyModels", "runtimeApi.getInputStatus", "loadProductRuntimeSnapshot", "runtimeApi.getStatusBundle", "runtimeApi.getDiagnostics", "runtimeApi.getModelInventory", "runtimeApi.getGpuPolicy"]) expect(facade, m, "runtime product facade functional wiring");
-for (const [label, binding, handler] of [["Translate", "sendButton.addEventListener", "submitText"], ["Enter", "messageInput.addEventListener", "submitText"], ["Attach", "composerPlusButton.addEventListener", "ingestAttachmentFiles"], ["Start helper", "startHelperButton.addEventListener", "start-helper"], ["Check worker", "checkWorkerStatusButton.addEventListener", "check-worker"], ["Check mic", "checkMicButton.addEventListener", "check-microphone"], ["Voice", "microphoneButton.addEventListener", "toggleVoice"], ["Settings", "settingsButton.addEventListener", "showSettings"], ["Back", "backHomeButton.addEventListener", "showHome"], ["Diagnostics", "openDeveloperDiagnosticsButton.addEventListener", "developer"]]) { expect(controller, binding, `${label} binding`); expect(controller, handler, `${label} handler`); }
-for (const m of ["Text is too long", "Type text before translating", "Translating with local engine", "Translation completed", "Translation blocked", "Voice setup is not ready", "Attachment read failed", "Saving settings", "Restoring defaults"]) expect(controller, m, "user-facing feedback");
-for (const m of ["sendButton", "messageInput", "composerPlusButton", "startHelperButton", "checkWorkerStatusButton", "checkMicButton", "openDeveloperDiagnosticsButton", "microphoneButton", "settingsButton", "backHomeButton", "chatList", "assistantMessage", "developerOutput"]) expect(shell, m, "shell required control");
+for (const m of [
+  "runProductTranslation", "runtimeApi.translateText", "runProductRecoveryAction", "runtimeApi.startHelperBridge",
+  "runtimeApi.verifyModels", "runtimeApi.getInputStatus", "loadProductRuntimeSnapshot", "runtimeApi.getStatusBundle",
+  "runtimeApi.getDiagnostics", "runtimeApi.getModelInventory", "runtimeApi.getGpuPolicy", "meetingReady", "meetingRouteReady",
+]) expect(facade, m, "runtime product facade functional wiring");
+
+for (const [label, binding, handler] of [
+  ["Translate", "sendButton.addEventListener", "submitText"],
+  ["Enter", "messageInput.addEventListener", "submitText"],
+  ["Attach", "composerPlusButton.addEventListener", "ingestAttachmentFiles"],
+  ["Workspace navigation", "workspaceNavItems.forEach", "showWorkspace"],
+  ["Retry readiness", "retryReadinessButton.addEventListener", "refreshReadiness"],
+  ["Fix setup", "fixSetupButton.addEventListener", "fixSetup"],
+  ["Settings", "settingsButton.addEventListener", "showSettings"],
+  ["Back", "backHomeButton.addEventListener", "showWorkspace"],
+  ["Diagnostics", "openDeveloperDiagnosticsButton.addEventListener", "developer"],
+]) { expect(controller, binding, `${label} binding`); expect(controller, handler, `${label} handler`); }
+
+for (const m of ["Text is too long", "Type text before translating", "Translating with local engine", "Translation completed", "Translation blocked", "Running setup checks", "Voice capture setup is not ready", "Attachment read failed", "Saving settings", "Restoring defaults"]) expect(controller, m, "user-facing feedback");
+for (const m of [
+  "meetingNavButton", "textNavButton", "documentsNavButton", "historyNavButton", "savedNavButton", "settingsButton",
+  "retryReadinessButton", "fixSetupButton", "openDeveloperDiagnosticsButton", "messageInput", "sendButton", "chatList", "assistantMessage", "developerOutput",
+]) expect(shell, m, "shell required control");
 for (const m of ["escapeHtml", "cleanDisplayText", "TRANSLATION_PENDING_MESSAGE", "data-copy-translation"]) expect(chatViews, m, "translation result safety");
-for (const m of [".simple-workspace", ".simple-translate-card", ".simple-composer textarea", ".simple-send-button", ".simple-status-card", ".simple-result-area"]) expect(styles, m, "simple UI style");
-expectAny(controller, ["MAX_MANUAL_TRANSLATION_CHARS", "exceedsManualTranslationLimit"], "manual translation guard");
-expectAny(controller, ["MAX_ATTACHMENT_BYTES", "MAX_ATTACHMENT_FILES"], "attachment guard");
-reject(controller, "alert(", "simple controller must use inline feedback");
-reject(controller, "confirm(", "simple controller must use inline feedback");
-const addEventTargets = collect(controller, /this\.ui\.([A-Za-z0-9_]+)\.addEventListener/g);
-if (addEventTargets.length < 15) errors.push(`Only ${addEventTargets.length} UI event targets found; expected at least 15.`);
-if (errors.length) { console.error("Functional surface contract failed:"); errors.forEach((e) => console.error(`- ${e}`)); process.exit(1); }
-console.log(`Functional surface contract passed: ${requiredSelectors.length} DOM selectors, ${addEventTargets.length} event targets, ${commandMap.length} command surfaces, facade wiring, result safety, and feedback states are covered.`);
+for (const m of [".simple-workspace", ".simple-translate-card", ".simple-composer textarea", ".simple-send-button", ".simple-status-card", ".simple-result-area"]) expect(styles, m, "product UI style");
+expect(controller, "MAX_MANUAL_TRANSLATION_CHARS", "manual translation guard");
+expect(controller, "MAX_ATTACHMENT_BYTES", "attachment guard");
+for (const marker of ["startHelperButton", "checkWorkerStatusButton", "localDataButton", "recentChatButton"]) reject(controller, marker, "normal product controller");
+for (const marker of ["Start Helper", "Check Worker", "Local data"]) reject(shell, marker, "normal product shell");
+reject(controller, "alert(", "product controller must use inline feedback");
+reject(controller, "confirm(", "product controller must use inline feedback");
+
+if (errors.length) { console.error("Functional product surface contract failed:"); errors.forEach((e) => console.error(`- ${e}`)); process.exit(1); }
+console.log(`Functional product surface contract passed: ${requiredSelectors.length} DOM selectors, Meeting-first navigation, product recovery, translation wiring, runtime commands, result safety, and feedback states are covered.`);

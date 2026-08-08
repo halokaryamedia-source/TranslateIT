@@ -5,6 +5,7 @@ import type {
   HelperBridgeActionResult,
   HelperBridgeStatus,
   InputPreparationStatus,
+  LiveMeetingRuntimeGateStatus,
   ModelInventoryReport,
   RuntimeDiagnostics,
   RuntimeSettings,
@@ -21,6 +22,8 @@ export type ProductReadiness = {
   microphoneReady: boolean;
   modelsReady: boolean;
   voiceReady: boolean;
+  meetingRouteReady: boolean;
+  meetingReady: boolean;
   canTranslateText: boolean;
   canRecordVoice: boolean;
   recording: boolean;
@@ -32,6 +35,7 @@ export type ProductReadiness = {
   modelStatus: string;
   microphoneStatus: string;
   voiceStatus: string;
+  meetingStatus: string;
   runtimeStatus: string;
 };
 
@@ -55,6 +59,7 @@ export type ProductTranslationResult = {
 };
 
 export type ProductSetupAction = "start-helper" | "check-worker" | "verify-models" | "check-microphone";
+export type ProductRecoveryAction = "fix-setup";
 
 function compact(value: unknown, fallback = "Unknown"): string {
   const text = String(value ?? "").replace(/\s+/g, " ").trim();
@@ -77,6 +82,10 @@ function modelReady(modelInventory: ModelInventoryReport | null, bundle: Runtime
   );
 }
 
+function meetingGate(bundle: RuntimeStatusBundleReport | null): LiveMeetingRuntimeGateStatus | null {
+  return bundle?.live_meeting_runtime_gate ?? null;
+}
+
 function collectBlockers(
   bundle: RuntimeStatusBundleReport | null,
   helper: HelperBridgeStatus | null,
@@ -86,8 +95,10 @@ function collectBlockers(
 ): string[] {
   const readiness = bundle?.readiness ?? {};
   const captureGate = bundle?.capture_gate ?? {};
+  const liveMeetingGate = meetingGate(bundle);
   const manifest = bundle?.local_worker_manifest ?? bundle?.internal_validation_gate?.local_worker_manifest ?? {};
   return unique([
+    ...(Array.isArray(liveMeetingGate?.blockers) ? liveMeetingGate.blockers : []),
     ...(Array.isArray(readiness.blockers) ? readiness.blockers : []),
     ...(Array.isArray(captureGate.blockers) ? captureGate.blockers : []),
     ...(Array.isArray(manifest.blockers) ? manifest.blockers : []),
@@ -110,6 +121,7 @@ export function mapProductReadiness(input: {
 }): ProductReadiness {
   const { bundle, diagnostics, helper, modelInventory, inputStatus } = input;
   const manifest = bundle?.local_worker_manifest ?? bundle?.internal_validation_gate?.local_worker_manifest ?? null;
+  const liveMeetingGate = meetingGate(bundle);
   const helperReady = helper?.state === "ready" || Boolean(helper?.provider_ready);
   const providerReady = Boolean(helper?.provider_ready);
   const microphoneReady = Boolean(inputStatus?.ready || inputStatus?.prepared || bundle?.capture_gate?.ready_for_capture_start);
@@ -119,26 +131,29 @@ export function mapProductReadiness(input: {
   const textReady = Boolean(runtimeReady || modelsReady || helperReady || manifest?.realtime_translation_model_ready || manifest?.quality_translation_model_ready);
   const canTranslateText = true;
   const voiceReady = Boolean(helperReady && providerReady && microphoneReady && modelsReady);
+  const meetingRouteReady = Boolean(liveMeetingGate?.virtual_mic_route_ready);
+  const meetingReady = Boolean(liveMeetingGate?.ready && meetingRouteReady);
   const canRecordVoice = voiceReady && !recording;
   const blockers = collectBlockers(bundle, helper, modelInventory, inputStatus, diagnostics);
   const nextAction = compact(
+    liveMeetingGate?.next_action ||
     bundle?.next_action ||
     bundle?.readiness?.next_action ||
     bundle?.capture_gate?.next_action ||
     modelInventory?.note ||
     inputStatus?.note ||
     helper?.message ||
-    "Type text to test translation, or run setup checks before voice capture.",
-    "Type text to test translation, or run setup checks before voice capture.",
+    "Retry readiness or use Fix Setup before opening Developer Diagnostics.",
+    "Retry readiness or use Fix Setup before opening Developer Diagnostics.",
   );
-  const level: ProductReadinessLevel = voiceReady ? "ready" : textReady ? "partial" : bundle || helper || modelInventory ? "blocked" : "checking";
-  const summary = voiceReady
-    ? "Text and voice runtime appear ready."
+  const level: ProductReadinessLevel = meetingReady ? "ready" : textReady ? "partial" : bundle || helper || modelInventory ? "blocked" : "checking";
+  const summary = meetingReady
+    ? "Meeting Voice is ready."
     : textReady
-      ? "Text translation can be tested. Voice needs setup or provider evidence."
+      ? "Text translation is available. Meeting Voice still needs setup."
       : blockers.length
-        ? `Runtime is blocked: ${blockers[0]}`
-        : "Runtime status is still loading.";
+        ? `Setup is needed: ${blockers[0]}`
+        : "Product readiness is still checking.";
 
   return {
     level,
@@ -148,17 +163,20 @@ export function mapProductReadiness(input: {
     microphoneReady,
     modelsReady,
     voiceReady,
+    meetingRouteReady,
+    meetingReady,
     canTranslateText,
     canRecordVoice,
     recording,
     nextAction,
     blockers,
     summary,
-    textStatus: textReady ? "Text ready" : "Text blocked",
+    textStatus: textReady ? "Ready" : "Setup Needed",
     helperStatus: helperReady ? "Helper ready" : compact(helper?.state ?? helper?.message, "Helper not ready"),
     modelStatus: modelsReady ? "Models ready" : compact(modelInventory?.status ?? manifest?.note, "Models need setup"),
     microphoneStatus: microphoneReady ? compact(inputStatus?.selected_device_name, "Microphone ready") : compact(inputStatus?.blocker ?? inputStatus?.note, "Microphone not checked"),
-    voiceStatus: voiceReady ? "Voice ready" : "Voice setup needed",
+    voiceStatus: voiceReady ? "Local voice pipeline ready" : "Local voice setup needed",
+    meetingStatus: meetingReady ? "Ready" : liveMeetingGate ? compact(liveMeetingGate.summary || liveMeetingGate.state, "Setup Needed") : "Setup Needed",
     runtimeStatus: compact(bundle?.engine_status?.lifecycle_state ?? bundle?.engine_status?.runtime_stage ?? helper?.state, "Checking"),
   };
 }
@@ -205,7 +223,7 @@ export async function runProductTranslation(source: string): Promise<ProductTran
 export async function runProductSetupAction(action: ProductSetupAction): Promise<string> {
   if (action === "start-helper") {
     const result: HelperBridgeActionResult | null = await runtimeApi.startHelperBridge().catch(() => null);
-    return compact(result?.message ?? result?.state, "Start Helper command finished.");
+    return compact(result?.message ?? result?.state, "Helper start command finished.");
   }
   if (action === "check-worker") {
     const status = await runtimeApi.getHelperBridgeStatus().catch(() => null);
@@ -220,9 +238,27 @@ export async function runProductSetupAction(action: ProductSetupAction): Promise
   return compact(status?.note ?? status?.blocker ?? status?.selected_device_name, "Microphone status checked.");
 }
 
+export async function runProductRecoveryAction(action: ProductRecoveryAction): Promise<string> {
+  if (action !== "fix-setup") return "No product recovery action was selected.";
+
+  const helper = await runtimeApi.startHelperBridge().catch(() => null);
+  const models = await runtimeApi.verifyModels().catch(() => null);
+  const input = await runtimeApi.getInputStatus().catch(() => null);
+
+  const problems = unique([
+    helper && !helper.ok ? helper.message ?? helper.state : null,
+    ...((Array.isArray(models?.blockers) ? models.blockers : []) as string[]),
+    input?.blocker ?? null,
+  ]);
+
+  if (problems.length > 0) return `Setup still needs attention: ${problems[0]}`;
+  return "Local setup checks completed. Retry readiness; Meeting Voice may still require meeting-route setup.";
+}
+
 export const runtimeProductFacade = {
   loadProductRuntimeSnapshot,
   mapProductReadiness,
   runProductTranslation,
   runProductSetupAction,
+  runProductRecoveryAction,
 };

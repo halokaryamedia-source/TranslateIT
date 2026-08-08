@@ -8,9 +8,9 @@ type SettingsNavItem = {
 
 const SETTINGS_NAV_ITEMS: SettingsNavItem[] = [
   { tab: "general", icon: "sliders", label: "General" },
-  { tab: "translate", icon: "translate", label: "Translate" },
+  { tab: "translate", icon: "translate", label: "Translation" },
   { tab: "audio", icon: "speaker", label: "Audio" },
-  { tab: "developer", icon: "code", label: "Developer" },
+  { tab: "developer", icon: "code", label: "Advanced" },
 ];
 
 function settingsNavButton(item: SettingsNavItem): string {
@@ -33,61 +33,85 @@ export function lockedWarmupScreen(): string {
 
 export function lockedMainSidebar(): string {
   return `<aside class="sidebar simple-sidebar">
-        <section class="brand-row"><div class="brand-mark">T</div><div><h1>TRANSLATEIT</h1><p>Local translation app</p></div></section>
-        <button id="newChatButton" class="new-chat-button" type="button">${icon("plus")}<span>New translation</span></button>
-        <nav class="nav-stack compact-nav" aria-label="App navigation">
-          <button id="recentChatButton" class="nav-item" type="button">${icon("clock")}<span>History</span>${icon("chevron")}</button>
-          <button id="savedChatButton" class="nav-item" type="button">${icon("folder")}<span>Saved</span>${icon("chevron")}</button>
-          <button id="localDataButton" class="nav-item" type="button">${icon("shield")}<span>Local data</span>${icon("chevron")}</button>
-          <button id="unsavedChatButton" class="nav-item is-utility-hidden" type="button" aria-hidden="true" tabindex="-1">${icon("file")}<span>Drafts</span>${icon("chevron")}</button>
+        <section class="brand-row"><div class="brand-mark">T</div><div><h1>TRANSLATEIT</h1><p>Local meeting translator</p></div></section>
+        <nav class="nav-stack compact-nav" aria-label="Primary navigation">
+          <button id="meetingNavButton" class="nav-item active" data-workspace-nav="meeting" type="button" aria-current="page">${icon("mic")}<span>Meeting</span>${icon("chevron")}</button>
+          <button id="textNavButton" class="nav-item" data-workspace-nav="text" type="button">${icon("translate")}<span>Text</span>${icon("chevron")}</button>
+          <button id="documentsNavButton" class="nav-item" data-workspace-nav="documents" type="button">${icon("file")}<span>Documents</span>${icon("chevron")}</button>
+          <button id="historyNavButton" class="nav-item" data-workspace-nav="history" type="button">${icon("clock")}<span>History</span>${icon("chevron")}</button>
+          <button id="savedNavButton" class="nav-item" data-workspace-nav="saved" type="button">${icon("folder")}<span>Saved</span>${icon("chevron")}</button>
+          <button id="settingsButton" class="nav-item" type="button">${icon("settings")}<span>Settings</span>${icon("chevron")}</button>
         </nav>
         <section class="account-card compact-account">
           <div class="avatar">HK</div><div class="account-text"><strong>Local runtime</strong><span id="userPresence">Checking</span></div>
-          <div class="account-actions">
-            <button id="settingsButton" class="footer-icon settings-action" type="button" aria-label="Open settings">${icon("settings")}</button>
-          </div>
         </section>
-        <div class="hidden-control-sink" aria-hidden="true">
-          <button id="quickMicButton" type="button" tabindex="-1">Quick mic</button>
-          <button id="micOptionsButton" type="button" tabindex="-1">Mic options</button>
-          <button id="voiceOutputButton" type="button" tabindex="-1">Voice output</button>
-          <button id="voiceOptionsButton" type="button" tabindex="-1">Voice options</button>
-        </div>
       </aside>`;
 }
 
 export function lockedHomeWorkspace(): string {
   return `<section id="homePage" class="workspace simple-workspace">
-        <header class="topbar simple-topbar"><div><h2>Translate text</h2><p>Type text, choose direction, and get a local translation result.</p></div><div class="top-actions"><span id="directionPill" class="direction-pill">ID &gt; EN</span><button id="recordStatusButton" class="record-pill" type="button"><span></span><strong id="recordStatusText">Idle</strong></button></div></header>
-        <section class="simple-translate-grid">
-          <article class="simple-translate-card">
-            <div class="simple-card-heading"><span class="hero-kicker">Main workflow</span><h3 id="heroTitle">Translate with local engine</h3><p id="heroSubtitle">Text translation is the primary flow. Voice tools stay secondary until the engine is ready.</p></div>
-            <input id="attachmentInput" class="attachment-input" type="file" accept=".txt,.md,.json,.csv,.tsv,.log,.xml,.yaml,.yml,.srt,.vtt,text/plain,text/markdown,application/json,text/csv,text/tab-separated-values,text/xml,application/xml,application/yaml,text/yaml" multiple aria-hidden="true" tabindex="-1" />
-            <div class="simple-composer">
-              <textarea id="messageInput" placeholder="Type or paste text to translate..." autocomplete="off" maxlength="2000" rows="6" aria-label="Text to translate"></textarea>
-              <div class="simple-composer-actions">
-                <button id="composerPlusButton" class="assistant-action secondary" type="button">Attach text</button>
-                <button id="sendButton" class="send-button simple-send-button" type="button">Translate</button>
+        <header class="topbar simple-topbar"><div><h2 id="workspaceTitle">Meeting</h2><p id="assistantMessage">Checking meeting readiness...</p></div><div class="top-actions"><span id="directionPill" class="direction-pill">ID &gt; EN</span><span class="record-pill"><span></span><strong id="recordStatusText">Checking</strong></span></div></header>
+
+        <section id="meetingWorkspace" data-workspace-panel="meeting">
+          <section class="simple-translate-grid">
+            <article class="simple-translate-card">
+              <div class="simple-card-heading"><span class="hero-kicker">Primary workspace</span><h3 id="heroTitle">Meeting translation</h3><p id="heroSubtitle">TranslateIT is checking the local capabilities required for Meeting Voice.</p></div>
+              <div class="assistant-actions simple-setup-actions">
+                <button id="retryReadinessButton" class="assistant-action secondary" type="button">Retry</button>
+                <button id="fixSetupButton" class="assistant-action" type="button">Fix Setup</button>
+                <button id="openDeveloperDiagnosticsButton" class="assistant-action secondary" type="button">Open Diagnostics</button>
               </div>
-            </div>
-            <p class="composer-help">Press Enter to translate. Use Shift + Enter for a new line.</p>
-          </article>
-          <aside class="simple-status-column">
-            <article class="assistant-card simple-status-card"><div class="mini-brand">T</div><div><strong>Engine status</strong><p id="assistantMessage">Checking local engine. Text translation can be tested even while voice setup is incomplete.</p><div id="voiceCaptureActions" class="assistant-actions simple-setup-actions"><button id="startHelperButton" class="assistant-action" type="button">Start Helper</button><button id="checkWorkerStatusButton" class="assistant-action" type="button">Check Worker</button><button id="checkMicButton" class="assistant-action secondary" type="button">Check Mic</button><button id="openDeveloperDiagnosticsButton" class="assistant-action secondary" type="button">Diagnostics</button></div></div></article>
-            <article class="simple-voice-card"><div><strong>Voice capture</strong><p>Use this only after helper, microphone, and models are ready.</p></div><button id="microphoneButton" class="assistant-action secondary" type="button">Start voice</button></article>
-          </aside>
+              <p class="composer-help">Meeting Voice stays unavailable until the required local runtime and meeting route report readiness.</p>
+            </article>
+            <aside class="simple-status-column">
+              <article class="assistant-card simple-status-card"><div class="mini-brand">T</div><div><strong>Meeting Voice</strong><p id="qualityStatus">Checking</p><p>Translated English voice is the meeting output. Raw microphone audio is not presented as the meeting output.</p></div></article>
+              <article class="simple-voice-card"><div><strong>Current scope</strong><p>This screen reports product readiness and recovery. Session Listening and meeting-route runtime behavior are not claimed ready unless the runtime gate says so.</p></div></article>
+            </aside>
+          </section>
         </section>
-        <section id="chatList" class="simple-result-area" aria-label="Translation result"></section>
+
+        <section id="textWorkspace" class="is-hidden" data-workspace-panel="text" hidden>
+          <section class="simple-translate-grid">
+            <article class="simple-translate-card">
+              <div class="simple-card-heading"><span class="hero-kicker">Standalone workflow</span><h3>Translate text</h3><p>Translate Indonesian and English text with the current local translation runtime.</p></div>
+              <input id="attachmentInput" class="attachment-input" type="file" accept=".txt,.md,.json,.csv,.tsv,.log,.xml,.yaml,.yml,.srt,.vtt,text/plain,text/markdown,application/json,text/csv,text/tab-separated-values,text/xml,application/xml,application/yaml,text/yaml" multiple aria-hidden="true" tabindex="-1" />
+              <div class="simple-composer">
+                <textarea id="messageInput" placeholder="Type or paste text to translate..." autocomplete="off" maxlength="2000" rows="6" aria-label="Text to translate"></textarea>
+                <div class="simple-composer-actions">
+                  <button id="composerPlusButton" class="assistant-action secondary" type="button">Attach text</button>
+                  <button id="sendButton" class="send-button simple-send-button" type="button">Translate</button>
+                </div>
+              </div>
+              <p class="composer-help">Press Enter to translate. Use Shift + Enter for a new line.</p>
+            </article>
+            <aside class="simple-status-column">
+              <article class="assistant-card simple-status-card"><div class="mini-brand">T</div><div><strong>Text readiness</strong><p id="realtimeStatus">Checking</p><p>Runtime blockers are reported with the translation result instead of being hidden.</p></div></article>
+            </aside>
+          </section>
+          <section id="chatList" class="simple-result-area" aria-label="Translation result"></section>
+        </section>
+
+        <section id="documentsWorkspace" class="is-hidden" data-workspace-panel="documents" hidden>
+          <section class="simple-translate-grid"><article class="simple-translate-card"><div class="simple-card-heading"><span class="hero-kicker">Unavailable</span><h3>Documents</h3><p>First-class TXT, Markdown, DOCX, PDF, SRT, and VTT translation is not connected to this product shell yet.</p></div></article><aside class="simple-status-column"><article class="simple-voice-card"><div><strong>Status</strong><p>Unavailable. Use Text only for current quick text attachments.</p></div></article></aside></section>
+        </section>
+
+        <section id="historyWorkspace" class="is-hidden" data-workspace-panel="history" hidden>
+          <section class="simple-translate-grid"><article class="simple-translate-card"><div class="simple-card-heading"><span class="hero-kicker">Unavailable</span><h3>History</h3><p>Local History is a first-class product surface, but its final persistence controls are not connected to this shell yet.</p></div></article><aside class="simple-status-column"><article class="simple-voice-card"><div><strong>Status</strong><p>Unavailable. No history completeness is claimed from this placeholder.</p></div></article></aside></section>
+        </section>
+
+        <section id="savedWorkspace" class="is-hidden" data-workspace-panel="saved" hidden>
+          <section class="simple-translate-grid"><article class="simple-translate-card"><div class="simple-card-heading"><span class="hero-kicker">Unavailable</span><h3>Saved</h3><p>Saved items remain separate from automatic History, but the final Saved workflow is not connected to this shell yet.</p></div></article><aside class="simple-status-column"><article class="simple-voice-card"><div><strong>Status</strong><p>Unavailable. Existing storage behavior is not presented as complete Saved support.</p></div></article></aside></section>
+        </section>
       </section>`;
 }
 
 export function lockedSettingsPage(): string {
   return `<section id="settingsPage" class="settings-page is-hidden" aria-label="Settings page">
         <aside class="settings-sidebar"><h2>Settings</h2><nav class="settings-nav-v22">${SETTINGS_NAV_ITEMS.map(settingsNavButton).join("")}</nav></aside>
-        <section class="settings-workspace-v22"><header class="settings-topbar-v22"><button id="backHomeButton" class="settings-back-button" type="button">${icon("back")}<span>Back</span></button></header><div id="settingsContent" class="settings-scroll-v22"></div></section>
+        <section class="settings-workspace-v22"><header class="settings-topbar-v22"><button id="backHomeButton" class="settings-back-button" type="button">${icon("back")}<span>Back to app</span></button></header><div id="settingsContent" class="settings-scroll-v22"></div></section>
       </section>`;
 }
 
 export function lockedRuntimeSinks(): string {
-  return `<div class="runtime-sinks" aria-hidden="true"><span id="realtimeStatus">Checking</span><span id="qualityStatus">Checking</span><span id="gpuStatus">Checking</span><pre id="developerOutput">Runtime status will appear here after warmup.</pre></div>`;
+  return `<div class="runtime-sinks" aria-hidden="true"><span id="gpuStatus">Checking</span><pre id="developerOutput">Runtime status will appear here after warmup.</pre></div>`;
 }

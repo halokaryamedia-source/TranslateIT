@@ -4,18 +4,9 @@ import { fileURLToPath } from "node:url";
 
 const appRoot = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const errors = [];
-
-function read(relativePath) {
-  const path = resolve(appRoot, relativePath);
-  if (!existsSync(path)) {
-    errors.push(`Missing file: ${relativePath}`);
-    return "";
-  }
-  return readFileSync(path, "utf8");
-}
-function expect(source, marker, label) {
-  if (!source.includes(marker)) errors.push(`${label}: missing ${marker}`);
-}
+function read(relativePath) { const path = resolve(appRoot, relativePath); if (!existsSync(path)) { errors.push(`Missing file: ${relativePath}`); return ""; } return readFileSync(path, "utf8"); }
+function expect(source, marker, label) { if (!source.includes(marker)) errors.push(`${label}: missing ${marker}`); }
+function reject(source, marker, label) { if (source.includes(marker)) errors.push(`${label}: forbidden ${marker}`); }
 
 const shell = read("src/app/active-launcher/lockedReferenceShellParts.ts");
 const controller = read("src/app/simple-launcher/SimpleLauncherController.ts");
@@ -25,79 +16,29 @@ const actions = read("src/app/active-launcher/launcherSettingsActions.ts");
 const runtimeApi = read("src/app/bridge/runtimeApi.ts");
 
 for (const marker of [
-  "SETTINGS_NAV_ITEMS",
-  "tab: \"general\"",
-  "tab: \"translate\"",
-  "tab: \"audio\"",
-  "tab: \"developer\"",
-  "data-settings-tab=\"${item.tab}\"",
-  "settingsContent",
-  "settingsButton",
-  "backHomeButton",
+  "SETTINGS_NAV_ITEMS", "tab: \"general\"", "tab: \"translate\"", "tab: \"audio\"", "tab: \"developer\"",
+  "label: \"General\"", "label: \"Translation\"", "label: \"Audio\"", "label: \"Advanced\"",
+  "data-settings-tab=\"${item.tab}\"", "settingsContent", "settingsButton", "backHomeButton",
 ]) expect(shell, marker, "settings shell");
 
 for (const marker of [
-  "showSettings(tab: SettingsTab",
-  "renderSettings(tab: SettingsTab)",
-  "renderGeneralSettingsTab",
-  "renderTranslateSettingsTab",
-  "renderAudioSettingsTab",
-  "renderDeveloperSettingsView",
-  "saveSettings",
-  "resetSettings",
-  "selectLanguage",
-  "toggleRuntimeProfile",
-  "toggleVoiceOutput",
-  "settingsNavItems.forEach",
+  "showSettings(tab: SettingsTab", "renderSettings(tab: SettingsTab)", "renderGeneralSettingsTab", "renderTranslateSettingsTab", "renderAudioSettingsTab",
+  "renderDeveloperSettingsView", "saveSettings", "resetSettings", "selectLanguage", "toggleRuntimeProfile", "toggleVoiceOutput", "settingsNavItems.forEach",
 ]) expect(controller, marker, "settings controller");
 
+for (const marker of ["runtimeApi.saveSettings", "runtimeApi.loadSettings", "runtimeApi.saveDefaultSettings", "Language pair changed", "Language focus:", "Saving settings...", "Restoring defaults..."]) expect(controller, marker, "settings persistence feedback");
 for (const marker of [
-  "runtimeApi.saveSettings",
-  "runtimeApi.loadSettings",
-  "runtimeApi.saveDefaultSettings",
-  "Language pair changed",
-  "Language focus:",
-  "Saving settings...",
-  "Restoring defaults...",
-]) expect(controller, marker, "settings persistence feedback");
-
-for (const marker of [
-  "renderGeneralSettingsTab",
-  "renderAudioSettingsTab",
-  "renderTranslateSettingsTab",
-  "saveSettingsButton",
-  "resetSettingsButton",
-  "sourceLanguageButton",
-  "targetLanguageButton",
-  "swapLanguageButton",
-  "realtimeModeButton",
-  "qualityModeButton",
-  "saveTranslateButton",
-  "checkAudioInputButton",
-  "micTestButton",
-  "audioVoiceToggleButton",
+  "renderGeneralSettingsTab", "renderAudioSettingsTab", "renderTranslateSettingsTab", "saveSettingsButton", "resetSettingsButton", "sourceLanguageButton", "targetLanguageButton",
+  "swapLanguageButton", "realtimeModeButton", "qualityModeButton", "saveTranslateButton", "checkAudioInputButton", "micTestButton", "audioVoiceToggleButton",
 ]) expect(renderer, marker, "settings renderer bindings");
 
 for (const marker of [
-  "generalSettingsView",
-  "audioSettingsView",
-  "translateSettingsView",
-  "developerSettingsView",
-  "runtimeProfileButton",
-  "languageFocusButton",
-  "auto_play_out_voice",
-  "source_language",
-  "target_language",
+  "generalSettingsView", "audioSettingsView", "translateSettingsView", "developerSettingsView", "runtimeProfileButton", "languageFocusButton", "auto_play_out_voice",
+  "source_language", "target_language", "Session Listening", "Push to Talk", "Realtime", "Developer Diagnostics",
 ]) expect(views, marker, "settings view markup");
+reject(views, '"Fast"', "canonical translation mode naming");
 
-for (const marker of [
-  "toggleVoiceOutput",
-  "setRuntimeProfile",
-  "swapLanguages",
-  "Voice output enabled.",
-  "Translate mode set to",
-]) expect(actions, marker, "settings action helpers");
-
+for (const marker of ["toggleVoiceOutput", "setRuntimeProfile", "swapLanguages", "Voice output enabled.", "Translate mode set to"]) expect(actions, marker, "settings action helpers");
 for (const marker of ["loadSettings", "saveSettings", "saveDefaultSettings"]) expect(runtimeApi, marker, "settings runtime API");
 
 if (errors.length > 0) {
@@ -105,4 +46,4 @@ if (errors.length > 0) {
   errors.forEach((error) => console.error(`- ${error}`));
   process.exit(1);
 }
-console.log("Settings surface contract passed: generated tabs, renderers, bindings, persistence, language/audio controls, and developer diagnostics are covered.");
+console.log("Settings surface contract passed: General/Translation/Audio/Advanced routing, Realtime/Quality naming, product voice-mode wording, persistence, and diagnostics are covered.");

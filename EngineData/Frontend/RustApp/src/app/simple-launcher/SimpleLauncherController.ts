@@ -13,6 +13,15 @@ import { attachmentSection, compactAttachmentText, isSupportedTextAttachment, sa
 import { setRuntimeProfile as applyRuntimeProfile, swapLanguages as applyLanguageSwap, toggleVoiceOutput as applyVoiceOutputToggle } from "../active-launcher/launcherSettingsActions";
 
 const STARTUP_STEP_MS = 80;
+type ProductWorkspace = "meeting" | "text" | "documents" | "history" | "saved";
+
+const WORKSPACE_TITLES: Record<ProductWorkspace, string> = {
+  meeting: "Meeting",
+  text: "Text",
+  documents: "Documents",
+  history: "History",
+  saved: "Saved",
+};
 
 type SimpleRefs = {
   warmupScreen: HTMLElement;
@@ -26,35 +35,27 @@ type SimpleRefs = {
   settingsContent: HTMLElement;
   settingsButton: HTMLButtonElement;
   backHomeButton: HTMLButtonElement;
+  workspaceTitle: HTMLHeadingElement;
+  workspaceNavItems: HTMLButtonElement[];
+  workspacePanels: HTMLElement[];
   messageInput: HTMLTextAreaElement;
   attachmentInput: HTMLInputElement;
   sendButton: HTMLButtonElement;
-  microphoneButton: HTMLButtonElement;
-  recordStatusButton: HTMLButtonElement;
-  recordStatusText: HTMLElement;
   assistantMessage: HTMLParagraphElement;
-  checkMicButton: HTMLButtonElement;
-  startHelperButton: HTMLButtonElement;
-  checkWorkerStatusButton: HTMLButtonElement;
+  retryReadinessButton: HTMLButtonElement;
+  fixSetupButton: HTMLButtonElement;
   openDeveloperDiagnosticsButton: HTMLButtonElement;
   heroTitle: HTMLHeadingElement;
   heroSubtitle: HTMLParagraphElement;
-  realtimeStatus: HTMLSpanElement;
-  qualityStatus: HTMLSpanElement;
+  realtimeStatus: HTMLParagraphElement;
+  qualityStatus: HTMLParagraphElement;
   gpuStatus: HTMLSpanElement;
   developerOutput: HTMLPreElement;
   userPresence: HTMLSpanElement;
-  newChatButton: HTMLButtonElement;
   composerPlusButton: HTMLButtonElement;
-  recentChatButton: HTMLButtonElement;
-  unsavedChatButton: HTMLButtonElement;
-  savedChatButton: HTMLButtonElement;
-  localDataButton: HTMLButtonElement;
-  micOptionsButton: HTMLButtonElement;
-  voiceOutputButton: HTMLButtonElement;
-  voiceOptionsButton: HTMLButtonElement;
   chatList: HTMLElement;
   directionPill: HTMLElement;
+  recordStatusText: HTMLElement;
   settingsNavItems: HTMLButtonElement[];
 };
 
@@ -71,35 +72,27 @@ function bindSimpleRefs(): SimpleRefs {
     settingsContent: requireElement<HTMLElement>("#settingsContent"),
     settingsButton: requireElement<HTMLButtonElement>("#settingsButton"),
     backHomeButton: requireElement<HTMLButtonElement>("#backHomeButton"),
+    workspaceTitle: requireElement<HTMLHeadingElement>("#workspaceTitle"),
+    workspaceNavItems: Array.from(document.querySelectorAll<HTMLButtonElement>("[data-workspace-nav]")),
+    workspacePanels: Array.from(document.querySelectorAll<HTMLElement>("[data-workspace-panel]")),
     messageInput: requireElement<HTMLTextAreaElement>("#messageInput"),
     attachmentInput: requireElement<HTMLInputElement>("#attachmentInput"),
     sendButton: requireElement<HTMLButtonElement>("#sendButton"),
-    microphoneButton: requireElement<HTMLButtonElement>("#microphoneButton"),
-    recordStatusButton: requireElement<HTMLButtonElement>("#recordStatusButton"),
-    recordStatusText: requireElement<HTMLElement>("#recordStatusText"),
     assistantMessage: requireElement<HTMLParagraphElement>("#assistantMessage"),
-    checkMicButton: requireElement<HTMLButtonElement>("#checkMicButton"),
-    startHelperButton: requireElement<HTMLButtonElement>("#startHelperButton"),
-    checkWorkerStatusButton: requireElement<HTMLButtonElement>("#checkWorkerStatusButton"),
+    retryReadinessButton: requireElement<HTMLButtonElement>("#retryReadinessButton"),
+    fixSetupButton: requireElement<HTMLButtonElement>("#fixSetupButton"),
     openDeveloperDiagnosticsButton: requireElement<HTMLButtonElement>("#openDeveloperDiagnosticsButton"),
     heroTitle: requireElement<HTMLHeadingElement>("#heroTitle"),
     heroSubtitle: requireElement<HTMLParagraphElement>("#heroSubtitle"),
-    realtimeStatus: requireElement<HTMLSpanElement>("#realtimeStatus"),
-    qualityStatus: requireElement<HTMLSpanElement>("#qualityStatus"),
+    realtimeStatus: requireElement<HTMLParagraphElement>("#realtimeStatus"),
+    qualityStatus: requireElement<HTMLParagraphElement>("#qualityStatus"),
     gpuStatus: requireElement<HTMLSpanElement>("#gpuStatus"),
     developerOutput: requireElement<HTMLPreElement>("#developerOutput"),
     userPresence: requireElement<HTMLSpanElement>("#userPresence"),
-    newChatButton: requireElement<HTMLButtonElement>("#newChatButton"),
     composerPlusButton: requireElement<HTMLButtonElement>("#composerPlusButton"),
-    recentChatButton: requireElement<HTMLButtonElement>("#recentChatButton"),
-    unsavedChatButton: requireElement<HTMLButtonElement>("#unsavedChatButton"),
-    savedChatButton: requireElement<HTMLButtonElement>("#savedChatButton"),
-    localDataButton: requireElement<HTMLButtonElement>("#localDataButton"),
-    micOptionsButton: requireElement<HTMLButtonElement>("#micOptionsButton"),
-    voiceOutputButton: requireElement<HTMLButtonElement>("#voiceOutputButton"),
-    voiceOptionsButton: requireElement<HTMLButtonElement>("#voiceOptionsButton"),
     chatList: requireElement<HTMLElement>("#chatList"),
     directionPill: requireElement<HTMLElement>("#directionPill"),
+    recordStatusText: requireElement<HTMLElement>("#recordStatusText"),
     settingsNavItems: Array.from(document.querySelectorAll<HTMLButtonElement>("[data-settings-tab]")),
   };
 }
@@ -114,10 +107,15 @@ function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => window.setTimeout(resolve, ms));
 }
 
+function isWorkspace(value: string | undefined): value is ProductWorkspace {
+  return value === "meeting" || value === "text" || value === "documents" || value === "history" || value === "saved";
+}
+
 export class SimpleLauncherController {
   private readonly ui: SimpleRefs;
   private settings: RuntimeSettings = defaultSettings();
   private snapshot: ProductRuntimeSnapshot | null = null;
+  private activeWorkspace: ProductWorkspace = "meeting";
   private activeSettingsTab: SettingsTab = "general";
   private activeLanguageSelector: LanguageSelectorRole | null = null;
   private translating = false;
@@ -139,7 +137,7 @@ export class SimpleLauncherController {
   }
 
   private async boot(): Promise<void> {
-    const steps = ["Loading interface", "Loading settings", "Checking local engine"];
+    const steps = ["Loading interface", "Loading settings", "Checking local capabilities"];
     this.ui.warmupSteps.innerHTML = steps.map((label) => `<li>${label}</li>`).join("");
     for (let i = 0; i < steps.length; i += 1) {
       const progress = Math.round(((i + 1) / steps.length) * 100);
@@ -148,9 +146,8 @@ export class SimpleLauncherController {
       this.ui.warmupDetail.textContent = steps[i];
       await sleep(STARTUP_STEP_MS);
     }
-    await this.refreshReadiness("Text translation is ready to test. Voice setup can be checked later.");
+    await this.refreshReadiness();
     this.revealMainApp();
-    this.ui.messageInput.focus();
   }
 
   private revealMainApp(): void {
@@ -160,7 +157,7 @@ export class SimpleLauncherController {
     this.ui.mainApp.classList.remove("is-hidden");
     this.ui.mainApp.hidden = false;
     this.ui.mainApp.style.display = "grid";
-    this.showHome();
+    this.showWorkspace("meeting");
   }
 
   private notice(message: string): void {
@@ -179,33 +176,47 @@ export class SimpleLauncherController {
       this.settings = this.snapshot.settings ?? this.settings;
       this.refreshDirectionPill();
       const readiness = this.snapshot.readiness;
-      this.ui.userPresence.textContent = readiness.level === "ready" ? "Ready" : readiness.level === "partial" ? "Text ready" : readiness.level === "blocked" ? "Setup needed" : "Checking";
-      this.ui.recordStatusText.textContent = readiness.recording ? "Recording" : readiness.voiceReady ? "Voice ready" : "Idle";
+      this.ui.userPresence.textContent = readiness.meetingReady ? "Ready" : readiness.textReady ? "Degraded" : readiness.level === "blocked" ? "Setup Needed" : "Checking";
+      this.ui.recordStatusText.textContent = readiness.recording ? "Recording" : readiness.meetingReady ? "Ready" : readiness.voiceReady ? "Route needed" : readiness.level === "checking" ? "Checking" : "Setup needed";
       this.ui.realtimeStatus.textContent = readiness.textStatus;
-      this.ui.qualityStatus.textContent = readiness.voiceStatus;
+      this.ui.qualityStatus.textContent = readiness.meetingStatus;
       this.ui.gpuStatus.textContent = this.snapshot.gpuPolicy?.cuda_available ? "CUDA ready" : this.snapshot.gpuPolicy?.cpu_fallback_active ? "CPU fallback" : "Checking";
       this.ui.developerOutput.textContent = JSON.stringify({ readiness, commandErrors: runtimeApi.getCommandErrors().slice(0, 5) }, null, 2);
-      this.ui.microphoneButton.disabled = !readiness.voiceReady && !readiness.recording;
-      this.ui.microphoneButton.textContent = readiness.recording ? "Stop voice" : readiness.voiceReady ? "Start voice" : "Voice setup needed";
-      this.ui.heroSubtitle.textContent = readiness.textReady
-        ? "Text translation is the main workflow. Voice stays secondary until setup is complete."
-        : "Text translation can still be tested. If it fails, the result will show the engine blocker.";
+      this.ui.heroTitle.textContent = readiness.meetingReady ? "Meeting translation ready" : "Meeting translation setup";
+      this.ui.heroSubtitle.textContent = readiness.meetingReady
+        ? "Meeting Voice reports the required local runtime and meeting route as ready."
+        : readiness.textReady
+          ? "Text translation is available, but Meeting Voice still needs setup or route evidence."
+          : "TranslateIT is checking the local capabilities required for Meeting Voice.";
       this.notice(preferredNotice ?? readiness.summary);
     } catch (error) {
       this.notice(`Runtime check failed: ${errorMessage(error)}`);
     }
   }
 
-  private showHome(): void {
+  private showWorkspace(workspace: ProductWorkspace): void {
+    this.activeWorkspace = workspace;
     document.body.classList.remove("settings-open");
-    this.ui.mainApp.dataset.route = "home";
+    this.ui.mainApp.dataset.route = workspace;
     this.ui.homePage.classList.remove("is-hidden");
     this.ui.homePage.hidden = false;
     this.ui.homePage.style.display = "grid";
     this.ui.settingsPage.classList.add("is-hidden");
     this.ui.settingsPage.hidden = true;
     this.ui.settingsPage.style.display = "none";
-    this.ui.messageInput.focus();
+    this.ui.workspaceTitle.textContent = WORKSPACE_TITLES[workspace];
+    this.ui.workspacePanels.forEach((panel) => {
+      const active = panel.dataset.workspacePanel === workspace;
+      panel.classList.toggle("is-hidden", !active);
+      panel.hidden = !active;
+    });
+    this.ui.workspaceNavItems.forEach((button) => {
+      const active = button.dataset.workspaceNav === workspace;
+      button.classList.toggle("active", active);
+      if (active) button.setAttribute("aria-current", "page");
+      else button.removeAttribute("aria-current");
+    });
+    if (workspace === "text") this.ui.messageInput.focus();
   }
 
   private showSettings(tab: SettingsTab = "general"): void {
@@ -255,34 +266,44 @@ export class SimpleLauncherController {
   private async runSetup(action: ProductSetupAction): Promise<void> {
     if (this.setupRunning) return;
     this.setupRunning = true;
-    this.setSetupDisabled(true);
-    const label = action === "start-helper" ? "Starting helper..." : action === "check-worker" ? "Checking worker..." : action === "verify-models" ? "Verifying models..." : "Checking microphone...";
+    const label = action === "verify-models" ? "Verifying models..." : action === "check-microphone" ? "Checking microphone..." : "Refreshing diagnostics...";
     this.notice(label);
     try {
       const message = await runtimeProductFacade.runProductSetupAction(action);
       await this.refreshReadiness(message);
     } finally {
       this.setupRunning = false;
-      this.setSetupDisabled(false);
     }
   }
 
-  private setSetupDisabled(disabled: boolean): void {
-    this.ui.startHelperButton.disabled = disabled;
-    this.ui.checkWorkerStatusButton.disabled = disabled;
-    this.ui.checkMicButton.disabled = disabled;
+  private setRecoveryDisabled(disabled: boolean): void {
+    this.ui.retryReadinessButton.disabled = disabled;
+    this.ui.fixSetupButton.disabled = disabled;
     this.ui.openDeveloperDiagnosticsButton.disabled = disabled;
+  }
+
+  private async fixSetup(): Promise<void> {
+    if (this.setupRunning) return;
+    this.setupRunning = true;
+    this.setRecoveryDisabled(true);
+    this.notice("Running setup checks...");
+    try {
+      const message = await runtimeProductFacade.runProductRecoveryAction("fix-setup");
+      await this.refreshReadiness(message);
+    } finally {
+      this.setupRunning = false;
+      this.setRecoveryDisabled(false);
+    }
   }
 
   private async toggleVoice(): Promise<void> {
     if (this.voiceRunning) return;
     const readiness = this.snapshot?.readiness;
     if (!readiness?.voiceReady && !readiness?.recording) {
-      this.notice(readiness?.nextAction ?? "Voice setup is not ready. Use Start Helper, Check Worker, or Check Mic first.");
+      this.notice(readiness?.nextAction ?? "Voice capture setup is not ready. Use Fix Setup or Open Diagnostics.");
       return;
     }
     this.voiceRunning = true;
-    this.ui.microphoneButton.disabled = true;
     try {
       const result = readiness.recording ? await runtimeApi.stopCapture() : await runtimeApi.startCapture();
       await this.refreshReadiness(result.message);
@@ -290,7 +311,6 @@ export class SimpleLauncherController {
       this.notice(`Voice command failed: ${errorMessage(error)}`);
     } finally {
       this.voiceRunning = false;
-      this.ui.microphoneButton.disabled = false;
     }
   }
 
@@ -311,7 +331,7 @@ export class SimpleLauncherController {
         this.notice(`${safeAttachmentName(oversized)} is too large. Limit: 64 KB per file.`);
         return;
       }
-      const sections = [] as string[];
+      const sections: string[] = [];
       for (const file of files) {
         const text = compactAttachmentText(await file.text());
         if (text) sections.push(attachmentSection(file, text));
@@ -472,22 +492,15 @@ export class SimpleLauncherController {
     });
     this.ui.composerPlusButton.addEventListener("click", () => this.ui.attachmentInput.click());
     this.ui.attachmentInput.addEventListener("change", () => void this.ingestAttachmentFiles());
-    this.ui.newChatButton.addEventListener("click", () => { this.ui.messageInput.value = ""; this.ui.chatList.innerHTML = ""; this.notice("New translation ready."); this.showHome(); });
-    this.ui.recentChatButton.addEventListener("click", () => { this.showHome(); this.notice("History is available after translations are saved locally. Use the main Translate flow first."); });
-    this.ui.savedChatButton.addEventListener("click", () => { this.showHome(); this.notice("Saved translations will appear here after this screen is connected to saved sessions."); });
-    this.ui.localDataButton.addEventListener("click", () => { this.showSettings("developer"); });
-    this.ui.unsavedChatButton.addEventListener("click", () => { this.showHome(); this.notice("Drafts are not part of the simple workflow yet."); });
+    this.ui.workspaceNavItems.forEach((button) => button.addEventListener("click", () => {
+      const workspace = button.dataset.workspaceNav;
+      if (isWorkspace(workspace)) this.showWorkspace(workspace);
+    }));
     this.ui.settingsButton.addEventListener("click", () => this.showSettings("general"));
-    this.ui.backHomeButton.addEventListener("click", () => this.showHome());
-    this.ui.startHelperButton.addEventListener("click", () => void this.runSetup("start-helper"));
-    this.ui.checkWorkerStatusButton.addEventListener("click", () => void this.runSetup("check-worker"));
-    this.ui.checkMicButton.addEventListener("click", () => void this.runSetup("check-microphone"));
+    this.ui.backHomeButton.addEventListener("click", () => this.showWorkspace(this.activeWorkspace));
+    this.ui.retryReadinessButton.addEventListener("click", () => void this.refreshReadiness("Readiness refreshed."));
+    this.ui.fixSetupButton.addEventListener("click", () => void this.fixSetup());
     this.ui.openDeveloperDiagnosticsButton.addEventListener("click", () => this.showSettings("developer"));
-    this.ui.microphoneButton.addEventListener("click", () => void this.toggleVoice());
-    this.ui.recordStatusButton.addEventListener("click", () => void this.toggleVoice());
-    this.ui.micOptionsButton.addEventListener("click", () => this.showSettings("audio"));
-    this.ui.voiceOptionsButton.addEventListener("click", () => this.showSettings("audio"));
-    this.ui.voiceOutputButton.addEventListener("click", () => { this.toggleVoiceOutput(); void this.saveSettings(); });
     this.ui.settingsNavItems.forEach((button) => button.addEventListener("click", () => this.renderSettings((button.dataset.settingsTab as SettingsTab) ?? "general")));
   }
 }
