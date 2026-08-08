@@ -313,6 +313,68 @@ UserData/LogData      -> diagnostics and validation evidence
 UserData/SavedProject -> persistent user-visible/user-approved data
 ```
 
+## Document Translation Boundary
+
+Document translation is a **secondary first-class workflow** and must not be
+confused with quick text attachments that are simply inserted into the normal text
+composer.
+
+Initial first-class document formats are:
+
+```text
+.txt
+.md
+.docx
+text-based .pdf
+.srt
+.vtt
+```
+
+Output expectations:
+
+```text
+TXT / Markdown
+-> translated preview
+-> same-format translated export
+
+DOCX
+-> translated preview
+-> translated DOCX export
+-> preserve practical basic/semantic structure
+
+Text-based PDF
+-> local text extraction
+-> translated preview
+-> export translated text or DOCX
+-> no exact-layout translated PDF guarantee
+
+SRT / VTT
+-> translated subtitle text
+-> preserve sequence/timestamps
+```
+
+For DOCX, practical structure preservation includes paragraphs, headings, lists,
+tables, basic text formatting, and document order where reasonably supported.
+Exact visual layout reconstruction, macros, tracked changes, comments, floating
+objects, and advanced Word-specific constructs are not initial guarantees.
+
+Scanned/image-only PDFs and OCR are deferred. If a PDF has no usable text layer,
+TranslateIT should clearly report that OCR is required rather than returning empty
+or misleading translation output.
+
+Larger documents should use semantic chunking around paragraphs, sections, and
+subtitle boundaries, with bounded adjacent context for terminology and continuity.
+Arbitrary mid-sentence splitting should be avoided. `Quality` is the normal
+document-translation mode.
+
+JSON/CSV/YAML/XML and other structured text may remain useful quick text
+attachments, but the initial product does not promise structure-preserving
+translated-file export for those formats.
+
+Document extraction, intermediate chunks, and working translation artifacts remain
+local/temporary. Persistent output is created only through explicit Save/Export.
+Document History stores job metadata by default rather than the full document body.
+
 ## Problem TranslateIT Solves
 
 Cross-language online conversation normally forces the user to combine several
@@ -325,19 +387,19 @@ separate steps or tools:
 - manage audio/runtime state while the meeting is still happening.
 
 TranslateIT aims to make those steps one coherent desktop experience while
-keeping a direct text-translation path available when voice translation is not
-ready or not needed.
+keeping direct text/document translation paths available when voice translation is
+not ready or not needed.
 
 ## Product Goal
 
 ```text
 User communication intent
 ↓
-TranslateIT receives speech or text
+TranslateIT receives speech, text, or an approved document
 ↓
 Language content is translated
 ↓
-Translated text is visible to the user
+Translated content is visible to the user
 ↓
 For the primary outbound workflow, translated English speech is produced
 for meeting use
@@ -387,10 +449,12 @@ Current virtual-audio source can select existing virtual audio devices and conta
 a guarded Python provider for routing TTS WAV output, but it explicitly does not
 prove that audio reaches a real meeting input. Translation source also contains
 context-window structures and limited deterministic fallback phrases, but it does
-not yet prove general contextual/tone quality. Current persistence code also mixes
-some History/Saved semantics and does not yet prove complete search/delete/clear
-privacy behavior. Product policy above governs the required experience;
-implementation alignment happens through normal Developing work after recovery.
+not yet prove general contextual/tone quality. Current persistence code mixes some
+History/Saved semantics and does not yet prove complete search/delete/clear privacy
+behavior. Current attachment handling remains text-only composer ingestion and
+explicitly does not support `.docx`/PDF parsing as the approved document workflow
+requires. Product policy above governs the required experience; implementation
+alignment happens through normal Developing work after recovery.
 
 ## Target User
 
@@ -402,7 +466,8 @@ Primary user:
 
 Secondary use:
 
-- direct desktop Indonesian/English text translation without starting voice.
+- direct desktop Indonesian/English text or approved-document translation without
+  starting voice.
 
 ## Product Success At This Level
 
@@ -416,7 +481,7 @@ TranslateIT is aligned with this overview when:
 - speech boundaries are tuned for natural, responsive conversation;
 - official voice latency is measured end-of-utterance -> first translated audio;
 - Realtime is the normal meeting-voice mode and Quality the normal standalone-text
-  mode;
+  and document mode;
 - CUDA is preferred but CPU-only systems retain a truthful supported/degraded local
   path;
 - model/provider names remain internal implementation details for normal users;
@@ -432,6 +497,8 @@ TranslateIT is aligned with this overview when:
 - Local History is user-controlled and separate from explicitly Saved work;
 - raw audio is not persistently retained by default;
 - diagnostic logging avoids full conversation content by default;
+- document translation has a bounded initial format/parser/export contract rather
+  than treating arbitrary attachments as full document support;
 - one desktop application owns the user experience;
 - implementation state is not confused with product priority;
 - static source presence is not reported as live runtime readiness.
@@ -445,8 +512,8 @@ This overview intentionally does **not** decide:
 - numeric target-PC latency release threshold;
 - exact virtual-audio driver/provider implementation;
 - exact prompt/glossary/context-window implementation;
-- document translation scope;
-- Audio Studio scope;
+- exact document parser/export library choices;
+- Audio Studio/custom voice actor scope;
 - installer, packaging, update, or distribution policy beyond Windows as the
   initial supported platform;
 - final normal-user versus developer-diagnostics UI boundary beyond the approved
@@ -458,13 +525,14 @@ This file defines **product direction**, not runtime readiness.
 
 Current source confirms that text, voice/readiness, helper, microphone, audio,
 translation, latency-measurement, local acceleration/provider, guarded virtual
-routing, translation-context, and persistence structures exist, but
-target-environment behavior remains subject to the evidence rules in root
-`AGENTS.md`.
+routing, translation-context, persistence, and quick text-attachment structures
+exist, but target-environment behavior remains subject to the evidence rules in
+root `AGENTS.md`.
 
 Do not infer successful model loading, microphone capture, contextual/tone quality,
-TTS quality, meeting audio delivery, History/Saved completeness, latency target
-attainment, CUDA performance, packaging, or release readiness from this overview.
+TTS quality, meeting audio delivery, History/Saved completeness, document parser or
+export readiness, latency target attainment, CUDA performance, packaging, or
+release readiness from this overview.
 
 ## Related
 
