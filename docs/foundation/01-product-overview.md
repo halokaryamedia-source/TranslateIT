@@ -43,6 +43,41 @@ blocked, still being configured, or awaiting local runtime proof.
 This secondary workflow is not a replacement for the primary meeting-voice
 product direction.
 
+## Initial Product Boundary
+
+The current approved launch boundary is:
+
+```text
+Platform
+-> Windows is the initial supported and validated target
+
+Core runtime
+-> local-first
+-> offline-capable after required runtime/model assets are installed
+-> required cloud translation/speech APIs are not part of the core path
+
+Initial languages
+-> Indonesian
+-> English
+
+Text translation
+-> Indonesian <-> English
+
+Outbound meeting voice
+-> Indonesian speech -> English translated voice
+
+Inbound meeting assistance
+-> English speech -> Indonesian translated text
+
+Not required initially
+-> English speech -> Indonesian translated voice
+-> additional language pairs
+```
+
+Future platforms, optional cloud-assisted features, additional languages, or
+Indonesian TTS are not permanently prohibited. They require a later explicit
+product decision and must not expand the initial product by default.
+
 ## Problem TranslateIT Solves
 
 Cross-language online conversation normally forces the user to combine several
@@ -71,7 +106,8 @@ Language content is translated
 ↓
 Translated text is visible to the user
 ↓
-For the primary voice workflow, translated speech is produced for meeting use
+For the primary outbound voice workflow, translated English speech is produced
+for meeting use
 ```
 
 The experience should expose product actions and useful readiness information,
@@ -117,8 +153,10 @@ It does **not** change the approved product priority: real-time meeting voice
 translation remains primary, and text translation remains the secondary
 standalone path.
 
-Current source presence also does not prove that voice, models, audio routing,
-or other runtime capabilities work end to end on a target machine.
+Current source also reflects an asymmetric implementation: realtime translation
+is currently strongest for Indonesian -> English and current local TTS evidence
+is English-oriented. That implementation shape is consistent with the approved
+outbound meeting-voice direction but does not by itself prove runtime readiness.
 
 ## Target User
 
@@ -130,8 +168,8 @@ Primary user:
 
 Secondary use:
 
-- a user who wants direct desktop text translation without starting the voice
-  workflow.
+- a user who wants direct desktop Indonesian/English text translation without
+  starting the voice workflow.
 
 More specific market/persona segmentation is not fixed by this overview.
 
@@ -141,6 +179,8 @@ TranslateIT is aligned with this overview when:
 
 - meeting voice translation remains the primary product direction;
 - text translation remains independently usable;
+- initial product scope stays focused on Windows and Indonesian/English;
+- core translation operation can function locally after required assets exist;
 - one desktop application owns the user experience;
 - internal runtime complexity does not become a second user-facing product;
 - implementation state is not confused with product priority;
@@ -152,9 +192,6 @@ TranslateIT is aligned with this overview when:
 
 This overview intentionally does **not** decide:
 
-- initial operating-system/platform scope;
-- local-only versus cloud-assisted runtime policy;
-- final supported language set or launch language pair;
 - exact ASR, translation, TTS, or voice provider/model choices;
 - GPU/CUDA and CPU fallback policy;
 - speech segmentation and input-mode behavior;
@@ -165,7 +202,8 @@ This overview intentionally does **not** decide:
 - document translation scope;
 - history/saved-session product requirements;
 - Audio Studio scope;
-- installer, packaging, update, or distribution policy;
+- installer, packaging, update, or distribution policy beyond Windows as the
+  initial supported platform;
 - final normal-user versus developer-diagnostics UI boundary.
 
 These must be recovered from current source and inherited evidence, then approved
