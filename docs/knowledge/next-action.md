@@ -19,12 +19,13 @@ broad development resumes.
 
 ## Current Phase
 
-`CONTEXT_RECOVERY_MEETING_AUDIO_ROUTING`
+`CONTEXT_RECOVERY_TRANSLATION_BEHAVIOR_AND_TONE`
 
 Product purpose, platform/locality, language/voice direction, voice
-input/segmentation, latency/runtime-mode, and acceleration/provider policy are now
-recovered and approved. The next slice must define how translated voice reaches a
-meeting application and how the original microphone/local monitoring should behave.
+input/segmentation, latency/runtime-mode, acceleration/provider, and meeting audio
+routing policy are now recovered and approved. The next slice must define what
+translation quality means at product level and whether Auto/Formal/Casual are
+current product requirements.
 
 ## Completed Product Boundary
 
@@ -72,7 +73,13 @@ No silent cloud fallback
 
 MODELS / PROVIDERS
 Replaceable implementation choices
-Normal user sees capability/readiness, not internal provider IDs
+
+MEETING OUTPUT
+Translated English voice only by default
+TranslateIT-managed meeting microphone/audio route
+Raw Indonesian microphone excluded from meeting output
+Local monitoring optional/off by default
+Route missing -> Meeting Voice Setup Needed
 ```
 
 `docs/foundation/01-product-overview.md` and `CONTEXT.md` are aligned with these
@@ -97,61 +104,74 @@ EngineData/Backend/RuntimeContracts
 
 Static/source presence is not live runtime proof.
 
-## Meeting Audio Routing Evidence To Reconcile
+## Translation Behavior Evidence To Reconcile
 
-Inherited V1-Advance requirements expected translated English voice to reach the
-meeting through a built-in virtual microphone. They also specified muting the
-original microphone and monitoring translated output locally at a fixed volume.
+Inherited V1-Advance requirements expected translation to be contextual and
+meaning-preserving rather than literal. They also expected:
 
-Current repository source contains virtual-mic/virtual-audio-route command and
-contract work, but those areas must be checked against current runtime state before
-being promoted to current policy. The inherited numeric monitoring level and exact
-mute/routing behavior have not yet been reapproved.
+- formal source speech -> formal output;
+- casual source speech -> natural casual output;
+- graceful mixed Indonesian-English handling;
+- Indonesian slang/conversational expression support;
+- technical-term preservation where translating the term would confuse meaning;
+- user-facing tone modes `Auto`, `Formal`, and `Casual`, with `Auto` default.
 
-The approved product requirement already implies one important outcome:
-participants in the online meeting must receive the translated English voice for
-the outbound workflow. How TranslateIT owns/selects the meeting input device and
-how much original/local audio is heard still requires explicit recovery.
+Current source does not yet prove that behavior end to end:
+
+- `TranslationLogicRequest` contains a `context_window`, but the current fallback
+  logic only records whether context exists; it does not use that window to shape
+  model inference in the inspected path;
+- the Python local worker translation request currently accepts text, direction,
+  and Realtime/Quality mode but no explicit conversation-context or tone field;
+- current persisted `RuntimeSettings` has no canonical tone-mode field;
+- current Translate settings expose language and Realtime/Quality behavior but
+  intentionally hide dictionary/glossary/prompt-style controls until the engine
+  supports them;
+- deterministic fallback phrases exist for a few meeting/support expressions,
+  which is useful fallback evidence but not proof of general contextual/slang
+  quality.
+
+Therefore the old quality/tone requirements are still product-intent evidence,
+not current runtime proof.
 
 ## Holds
 
 Until this recovery slice is approved, do not:
 
-- change application/runtime source to match recovered policy yet;
-- assume a particular third-party virtual-audio driver is permanent product
-  identity;
-- claim built-in virtual microphone readiness from contract/source presence;
-- assume original microphone mute behavior without reconciling user safety/control;
-- freeze inherited `50%` local monitoring as a product constant;
-- mix original Indonesian microphone audio into meeting output unless explicitly
-  approved;
-- claim Zoom/Meet/Teams integration works without target-PC proof;
+- change application/runtime source to implement tone/context behavior yet;
+- assume Auto/Formal/Casual must remain exactly as inherited merely because the
+  old PRD called them final;
+- expose prompt/model/provider controls to normal users;
+- claim contextual, slang, mixed-language, terminology, or tone quality from the
+  existence of context structs or deterministic phrase fallbacks;
+- create glossary/prompt infrastructure before the product requirement is clear;
 - create `02-product-requirements.md` yet.
 
 ## Next Step
 
-Recover the **meeting audio routing, virtual microphone, original-mic, and local
-monitoring policy**.
+Recover the **translation-quality and tone-mode product policy**.
 
 Specifically:
 
-1. inspect current virtual microphone / virtual audio route implementation and
-   runtime contracts;
-2. identify whether current source assumes an internal/bundled route, an external
-   virtual device, or only a guarded placeholder;
-3. decide the required meeting-app experience for translated English output;
-4. decide whether original Indonesian mic audio should be muted/excluded from the
-   meeting by default while translation is active;
-5. decide whether local monitoring is required, optional, or off by default and
-   keep volume numeric values as user/runtime settings unless there is a strong
-   fixed product reason;
-6. define failure behavior when the virtual meeting route is not available.
+1. define whether meaning preservation and natural phrasing outrank literal word
+   matching;
+2. define expected handling of formal/casual source speech, Indonesian slang,
+   mixed ID/EN input, names, numbers, acronyms, and technical terms;
+3. decide whether `Auto`, `Formal`, and `Casual` remain the user-facing tone modes
+   and whether `Auto` remains default;
+4. decide how tone override should behave without changing factual meaning or
+   technical terminology;
+5. decide whether short conversation history/context should influence translation
+   when useful and what privacy/session boundary applies;
+6. keep exact prompting, model context-window size, glossary mechanics, and
+   provider implementation as implementation details unless a durable product
+   reason requires otherwise.
 
 Do **not** change runtime/source while recovering this requirement.
 
 ## Completion Boundary For This Step
 
-This slice is complete when the outbound meeting audio destination, virtual-device
-product requirement, original-mic mixing/muting rule, local monitoring behavior,
-and unavailable-route fallback are explicitly approved with target-PC proof
-requirements separated from static source evidence.
+This slice is complete when meaning-preservation, naturalness, tone behavior,
+slang/mixed-language/technical-term handling, and conversation-context use can be
+stated as approved product requirements with implementation mechanics and runtime
+quality proof kept separate.
