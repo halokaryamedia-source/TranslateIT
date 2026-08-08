@@ -100,11 +100,6 @@ Current voice input/segmentation behavior was revalidated by the user on
   segment duration, VAD thresholds, and related numeric values are implementation
   parameters that must be tuned with target-PC latency/quality evidence.
 
-This resolves the old `always-listening`/`Hold Space` contract versus the current
-Click Toggle/`Ctrl+Space` UI conflict. Current VAD numeric profiles remain source
-experiments/implementation evidence until runtime validation proves appropriate
-values.
-
 ## Recovered Latency And Runtime Mode Policy
 
 Current latency/runtime-mode policy was revalidated by the user on 2026-08-08:
@@ -123,15 +118,36 @@ Current latency/runtime-mode policy was revalidated by the user on 2026-08-08:
 - **Meeting voice default:** `Realtime`.
 - **Standalone text default:** `Quality`.
 - Runtime/profile selection may automatically choose a suitable local profile when
-  a direction/workflow cannot be served by the preferred mode. This routing is an
-  implementation detail and should not force normal users to choose model names.
-- Manual `Realtime` / `Quality` override may remain available in Settings, while
-  workflow-aware defaults own the normal path.
-- ASR/translation/TTS model and provider names are not normal-user product modes.
+  a direction/workflow cannot be served by the preferred mode.
+- Manual `Realtime` / `Quality` override may remain available in Settings.
+- Model/provider names are not normal-user product modes.
 
-Current source already measures relevant latency stages, but historical latency
-metrics are explicitly marked untrusted. Numeric release targets therefore remain
-`LOCAL PROOF REQUIRED` until measured on supported target hardware.
+## Recovered Acceleration And Provider Policy
+
+Current GPU/fallback/provider policy was revalidated by the user on 2026-08-08:
+
+- **NVIDIA CUDA is the preferred acceleration path**, especially for the Realtime
+  meeting workflow, but an NVIDIA GPU is not an absolute product requirement.
+- **CPU fallback is mandatory.** Standalone text translation must remain available
+  on supported CPU-only systems when the local runtime is otherwise usable.
+- Meeting voice may run on CPU when measured performance is usable. If CPU
+  performance cannot meet the benchmark-derived Realtime requirement, the product
+  must report a degraded/not-Realtime-ready state rather than pretend equivalent
+  performance.
+- Failure to meet local GPU/CPU performance must **not** trigger a silent cloud
+  fallback. The local-first policy remains authoritative.
+- Current ASR/translation/TTS implementations (including Faster-Whisper, Marian,
+  NLLB, Piper, Windows SAPI, or custom voice profiles) are **replaceable
+  implementation choices**, not permanent product identity.
+- A replacement model/provider is acceptable when it preserves the approved
+  local-first capability and improves or maintains required quality, latency,
+  packaging, and supported-language behavior.
+- Normal users should see capability/readiness states such as Ready, Degraded,
+  Setup Needed, GPU Accelerated, or CPU Mode. Exact model IDs, provider names,
+  compute types, CUDA backend details, and fallback reasons belong in Developer
+  Diagnostics.
+- Old Rust-only/no-Python CUDA planning is stale implementation history where it
+  conflicts with the current single-engine Rust/Tauri + Python-helper direction.
 
 ## Verified Repository Areas
 
@@ -149,7 +165,7 @@ TranslateIT/
 
 Current production/runtime source area inherited from `V1-Advance`.
 
-The currently supported single-engine architecture evidence points to:
+The current single-engine recovery baseline is:
 
 ```text
 user-facing desktop shell
@@ -164,22 +180,16 @@ runtime contracts
 → EngineData/Backend/RuntimeContracts
 ```
 
-These paths exist in `New` and are the current starting points for recovery.
-Their presence does not by itself prove live runtime readiness.
+These paths exist in `New`. Their presence does not by itself prove live runtime
+readiness.
 
 ### `DevelopingData/`
 
-Development-only material. Existing repository guidance allows architecture and
-migration plans, audits, reports, QA/validation notes, tooling helpers, and safe
-samples here. It must not be treated as production source.
-
-Current inherited engineering documentation is extensive and may contain active,
-historical, superseded, planned, or partially implemented material. Do not read
-all of it during normal boot.
+Development-only material. Existing reports/plans/audits are recovery evidence
+until classified and must not be treated as production source or automatic current
+policy.
 
 ### `UserData/`
-
-Local runtime/user-data area. Current repository guidance assigns:
 
 ```text
 UserData/CacheData/    → disposable runtime/session cache
@@ -191,136 +201,88 @@ Do not place engine source or project documentation under `UserData/`.
 
 ## Current Architecture Baseline
 
-The strongest inherited architecture evidence currently agrees on one active
-runtime shape:
-
 ```text
 Rust/Tauri desktop shell
 +
 Python helper runtime
 ```
 
-For recovery purposes:
-
-- Rust/Tauri is the current user-facing shell candidate and active source path;
-- Python is an internal helper runtime, not a second product shell;
-- do not create a V2/V3/V4, legacy revival, alternative launcher, or parallel
-  engine without a new explicit product/architecture decision;
-- inactive DesignIT/FigmaDesignExport material must not silently become an active
-  runtime dependency;
-- source implementation and live runtime proof remain different claims.
+- Rust/Tauri owns the user-facing application direction.
+- Python is an internal helper runtime, not a second product shell.
+- Do not create V2/V3/V4, a legacy revival, alternative launcher, or parallel
+  runtime without a new explicit product/architecture decision.
+- Source implementation and live runtime proof remain different claims.
 
 ## Current UI/Implementation Shape
 
 Current `New` frontend entrypoint instantiates `SimpleLauncherController`.
-The present UI explicitly treats text translation as the main immediately usable
-workflow and voice as setup-gated/secondary until its runtime dependencies are
-ready.
-
-This describes current implementation shape only. Product priority is governed by
-the recovered product direction above: meeting voice translation remains primary,
-while text translation remains an independently useful fallback/secondary flow.
+The present UI treats text translation as the immediately usable workflow and
+voice as setup-gated. This is implementation posture only; meeting voice remains
+the approved primary product direction.
 
 ## Current Evidence Boundary
 
-Inherited status documentation says the application was not release-ready at the
-end of the `V1-Advance` phase and still required substantial local/runtime proof.
-Treat that as recovery evidence, not as a current percentage or exact readiness
-score.
-
 Do not carry forward the old `38%` readiness estimate as a current fact.
-
-Until deliberate validation occurs, do not claim current-project proof for:
+Until deliberate target-environment validation occurs, do not claim proof for:
 
 - target-PC application readiness;
 - successful end-to-end microphone capture;
-- local ASR/model readiness;
-- local translation-model readiness;
+- local ASR/model readiness or quality;
+- local translation-model readiness or quality;
 - TTS/provider quality;
 - virtual microphone routing;
-- end-to-end low-latency meeting translation;
+- end-to-end meeting translation latency;
 - installer readiness;
-- CUDA behavior on the target machine;
-- save/persistence behavior beyond what current source and direct proof establish.
+- CUDA behavior/performance on the target machine;
+- save/persistence behavior beyond current source and direct proof.
 
 Use the evidence labels defined by `AGENTS.md` when these distinctions matter.
 
 ## Inherited Product Claims Requiring Revalidation
 
-The following were explicit requirements or policies in `V1-Advance`, but they
-are **not yet durable `New` foundation facts**. Revalidate them before making them
-new permanent policy:
+The following still require separate recovery before becoming durable `New`
+requirements:
 
-- NVIDIA CUDA-first acceleration with mandatory CPU fallback;
 - built-in virtual microphone requirement;
 - 50% headphone monitoring behavior;
 - mute-original-microphone behavior;
-- specific ASR/translation/TTS model and provider choices;
 - Auto/Formal/Casual tone modes;
-- document, history, and Audio Studio scope beyond the now-confirmed text
-  translation secondary workflow;
+- document, history, and Audio Studio scope beyond confirmed text translation;
 - installer/distribution details including `TranslateIT.setup.exe`;
-- normal-user versus developer/diagnostic UI exposure.
-
-A recovered claim may later become foundation policy, be adjusted, or be
-superseded. Do not preserve it solely because an old requirements file calls it
-"final" or "locked".
-
-## Stable Recovery Principles
-
-- Recover context from repository evidence before asking the user to remember old
-  implementation history.
-- Current user intent may intentionally change an inherited product decision.
-- Current source tells us what exists; it does not automatically tell us what the
-  product should continue to require.
-- Old documentation can explain why something exists, but it does not override a
-  newer explicit decision.
-- Do not delete or rewrite historical evidence merely because it is no longer
-  current.
-- Do not turn recovery into a broad refactor.
-- Prefer one active product/runtime direction and one canonical owner per
-  responsibility.
-- Unknowns remain unknown until resolved; do not fill missing context with
-  plausible defaults.
+- final normal-user versus developer-diagnostic UI exposure beyond the approved
+  provider/readiness boundary.
 
 ## Canonical Terms During Recovery
 
-Use these terms consistently unless a later glossary decision replaces them:
-
-- **Working branch** — `New`, where recovery and future development continue.
+- **Working branch** — `New`.
 - **Recovery baseline** — inherited `V1-Advance` source at the branch point.
 - **Primary use case** — real-time voice translation for online meetings.
-- **Secondary text workflow** — standalone local text translation that remains
-  useful independently of voice readiness.
-- **Initial supported platform** — Windows for the first release target; other
-  platforms are not current scope but are not permanently prohibited.
-- **Local-first core** — core ASR, translation, and TTS can run without required
-  cloud APIs after runtime assets are installed.
+- **Secondary text workflow** — standalone local Indonesian/English translation.
+- **Initial supported platform** — Windows for the first release target.
+- **Local-first core** — core ASR, translation, and TTS run without required cloud
+  APIs after required assets are installed.
 - **Launch language pair** — Indonesian and English.
 - **Outbound meeting voice** — Indonesian speech translated into English voice.
 - **Inbound meeting assistance** — English speech translated into Indonesian text.
-- **Session Listening** — explicit user-started voice session with continuous
-  listening/VAD until the user stops the session.
-- **Push to Talk** — secondary manual capture interaction; default hotkey
-  `Ctrl+Space`.
-- **Segmentation parameters** — numeric VAD/silence/chunk/segment values that are
-  implementation tuning, not fixed product constants.
-- **Official voice latency** — detected utterance end -> first translated audio
-  begins.
-- **Realtime** — latency-oriented user mode and normal default for meeting voice.
-- **Quality** — quality-oriented user mode and normal default for standalone text.
-- **Desktop shell** — the user-facing Rust/Tauri application under
-  `EngineData/Frontend/RustApp`.
-- **Helper runtime** — internal Python runtime under
-  `EngineData/Backend/LocalWorker/WorkerRuntime`.
-- **Runtime contract** — machine-readable runtime/architecture contract under
-  `EngineData/Backend/RuntimeContracts`; evidence of intended/current contracts,
-  not automatic live proof.
-- **Inherited documentation** — pre-`New` project docs carried from
-  `V1-Advance`; recovery evidence until classified/revalidated.
-- **Current source** — source present on `New` for the boundary being inspected.
-- **Current proof** — evidence actually obtained for the claim in the relevant
-  environment/channel.
+- **Session Listening** — explicit user-started continuous listening/VAD session.
+- **Push to Talk** — secondary manual capture using `Ctrl+Space` by default.
+- **Segmentation parameters** — runtime tuning, not fixed product constants.
+- **Official voice latency** — detected utterance end -> first translated audio.
+- **Realtime** — latency-oriented mode; normal meeting-voice default.
+- **Quality** — quality-oriented mode; normal standalone-text default.
+- **Preferred acceleration** — CUDA when available and validated; not a required
+  GPU brand constraint.
+- **CPU fallback** — required local degraded path; capability does not imply
+  Realtime-equivalent performance.
+- **Implementation provider/model** — replaceable internal choice, not product
+  identity.
+- **Desktop shell** — `EngineData/Frontend/RustApp`.
+- **Helper runtime** — `EngineData/Backend/LocalWorker/WorkerRuntime`.
+- **Runtime contract** — machine-readable runtime/architecture contract; not
+  automatic live proof.
+- **Inherited documentation** — pre-`New` recovery evidence until reconciled.
+- **Current source** — source present on `New` for the inspected boundary.
+- **Current proof** — evidence actually obtained in the relevant environment.
 
 ## Do Not Store Here
 
