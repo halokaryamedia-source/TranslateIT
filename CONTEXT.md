@@ -188,6 +188,46 @@ marks this as source-side/guarded work rather than proof that meeting routing is
 working on a target Windows machine. Actual meeting audio delivery remains `LOCAL
 PROOF REQUIRED`.
 
+## Recovered Translation Behavior And Tone Policy
+
+Current translation-quality/tone behavior was revalidated by the user on
+2026-08-08:
+
+- TranslateIT is **contextual and meaning-preserving**, not a word-by-word
+  translator.
+- Translation priority is: preserve intended meaning -> preserve factual/entity
+  fidelity -> produce natural target-language grammar -> preserve appropriate tone
+  -> preserve literal wording only when useful.
+- Names, numbers, dates, units, URLs, code identifiers, versions, acronyms, and
+  technical facts must remain accurate.
+- Mixed Indonesian/English input and Indonesian conversational/slang expressions
+  should be handled naturally rather than mechanically translated token by token.
+- Technical terms should remain untranslated when translating them would confuse
+  or distort their accepted meaning.
+- **User-facing tone modes:** `Auto`, `Formal`, and `Casual`; `Auto` is the default.
+- `Auto` should preserve/infer the source tone naturally. `Formal` makes output
+  professional, clear, and polite without adding facts. `Casual` makes output
+  conversational without inventing slang or changing meaning.
+- Tone overrides apply normally to outbound/user-authored translation. Inbound
+  meeting assistance should preserve the other participant's source tone through
+  Auto behavior by default rather than stylistically rewriting what they said.
+- Recent conversation context may influence translation when it helps resolve
+  pronouns, omitted subjects, repeated terminology, continuity, or tone, but must
+  never override the current utterance or invent new facts.
+- Translation context is **bounded, local, and session-scoped by default**. Resetting
+  the translation session clears active model context unless a later explicit
+  history feature deliberately restores selected context.
+- `Realtime` remains contextual/semantically correct while using a latency-aware
+  strategy; `Quality` may spend more time/context budget on nuance and naturalness.
+- Exact prompt design, glossary mechanics, protected-term implementation, context
+  window size, and model/provider strategy are implementation details rather than
+  normal-user product settings.
+
+Current source contains context-window structures and deterministic meeting/support
+fallback phrases, but the inspected runtime does not yet prove general contextual,
+slang, terminology, or tone behavior. Runtime translation quality remains `LOCAL
+PROOF REQUIRED`.
+
 ## Verified Repository Areas
 
 ```text
@@ -267,7 +307,7 @@ Until deliberate target-environment validation occurs, do not claim proof for:
 - target-PC application readiness;
 - successful end-to-end microphone capture;
 - local ASR/model readiness or quality;
-- local translation-model readiness or quality;
+- local translation-model readiness, contextual quality, or tone quality;
 - TTS/provider quality;
 - virtual meeting-microphone/audio routing;
 - end-to-end meeting translation latency;
@@ -282,8 +322,8 @@ Use the evidence labels defined by `AGENTS.md` when these distinctions matter.
 The following still require separate recovery before becoming durable `New`
 requirements:
 
-- Auto/Formal/Casual tone modes and contextual-translation behavior;
-- document, history, and Audio Studio scope beyond confirmed text translation;
+- document, history, saved-session, privacy/data-retention, and Audio Studio scope
+  beyond confirmed translation workflows;
 - installer/distribution details including `TranslateIT.setup.exe`;
 - final normal-user versus developer-diagnostic UI exposure beyond the approved
   provider/readiness boundary.
@@ -318,6 +358,9 @@ requirements:
   excluded from meeting output by default.
 - **Local monitoring** — optional translated-voice preview, off by default and
   user-adjustable.
+- **Translation tone** — `Auto`, `Formal`, or `Casual`; `Auto` is default.
+- **Translation context** — bounded local context for the active session, not
+  automatic persistent memory.
 - **Desktop shell** — `EngineData/Frontend/RustApp`.
 - **Helper runtime** — `EngineData/Backend/LocalWorker/WorkerRuntime`.
 - **Runtime contract** — machine-readable runtime/architecture contract; not
