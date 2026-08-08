@@ -23,6 +23,26 @@ intent.
 - When old documentation conflicts with current user intent or current source,
   resolve the conflict explicitly rather than silently preserving the old rule.
 
+## Recovered Product Direction
+
+Current product direction was revalidated by the user on 2026-08-08:
+
+- TranslateIT remains primarily a **real-time voice translation application for
+  online meetings**.
+- The intended primary product flow is speech input -> transcription ->
+  translation -> translated voice output for use in a meeting context.
+- Text translation remains a supported standalone workflow and should remain
+  usable even when the voice pipeline is not ready.
+- The current text-first `SimpleLauncherController` UI is treated as the present
+  stabilization/usable workflow, not as evidence that the meeting-translation
+  product purpose was intentionally replaced.
+- Voice functionality is part of the product direction, but current source
+  presence does not prove end-to-end voice readiness.
+
+This decision resolves the previous ambiguity between the inherited
+meeting-translator requirement and the current text-first UI presentation.
+Detailed meeting/audio behavior still requires separate recovery and proof.
+
 ## Verified Repository Areas
 
 ```text
@@ -104,6 +124,17 @@ This architecture baseline may be refined during recovery, but replacing it
 requires evidence of a current product need rather than preference for a new
 stack.
 
+## Current UI/Implementation Shape
+
+Current `New` frontend entrypoint instantiates `SimpleLauncherController`.
+The present UI explicitly treats text translation as the main immediately usable
+workflow and voice as setup-gated/secondary until its runtime dependencies are
+ready.
+
+This describes current implementation shape only. Product priority is governed by
+the recovered product direction above: meeting voice translation remains primary,
+while text translation remains an independently useful fallback/secondary flow.
+
 ## Current Evidence Boundary
 
 Inherited status documentation says the application was not release-ready at the
@@ -134,7 +165,6 @@ The following were explicit requirements or policies in `V1-Advance`, but they
 are **not yet durable `New` foundation facts**. Revalidate them before making them
 new permanent policy:
 
-- primary product positioning as a real-time online-meeting translator;
 - Windows-only initial target;
 - local-first / non-cloud core runtime;
 - Indonesian ↔ English initial language scope;
@@ -151,7 +181,8 @@ new permanent policy:
 - specific ASR/translation/TTS model and provider choices;
 - Quality/Fast runtime modes;
 - Auto/Formal/Casual tone modes;
-- text, document, history, and Audio Studio scope;
+- document, history, and Audio Studio scope beyond the now-confirmed text
+  translation secondary workflow;
 - installer/distribution details including `TranslateIT.setup.exe`;
 - normal-user versus developer/diagnostic UI exposure.
 
@@ -182,6 +213,9 @@ Use these terms consistently unless a later glossary decision replaces them:
 
 - **Working branch** — `New`, where recovery and future development continue.
 - **Recovery baseline** — inherited `V1-Advance` source at the branch point.
+- **Primary use case** — real-time voice translation for online meetings.
+- **Secondary text workflow** — standalone local text translation that remains
+  useful independently of voice readiness.
 - **Desktop shell** — the user-facing Rust/Tauri application under
   `EngineData/Frontend/RustApp`.
 - **Helper runtime** — internal Python runtime under
@@ -213,7 +247,7 @@ Those responsibilities will get their own canonical owners only when needed.
 
 ## Next Context Owner
 
-The next bootstrap owner is:
+The active continuation owner is:
 
 ```text
 docs/knowledge/next-action.md
