@@ -24,8 +24,8 @@ broad development resumes.
 Product purpose, platform/locality, language/voice direction, voice
 input/segmentation, latency/runtime modes, acceleration/provider policy, meeting
 audio routing, translation behavior/tone, and History/Saved/privacy policy are now
-recovered and approved. The next slice must decide the initial document-translation
-product boundary.
+recovered and approved. The active slice is defining the initial
+**document-translation product boundary**.
 
 ## Completed Product Boundary
 
@@ -117,62 +117,75 @@ EngineData/Backend/RuntimeContracts
 
 Static/source presence is not live runtime proof.
 
-## Document Translation Evidence To Reconcile
+## Document Translation Evidence
 
 Inherited V1-Advance requirements treated document translation as a secondary
-workflow and named initial common formats:
+workflow and named `.txt`, `.md`, `.docx`, text-based `.pdf`, and `.srt`, with OCR
+deferred.
+
+Current `New` source is materially narrower:
+
+- `ATTACHMENT_RUNTIME_CONTRACT.json` declares text-only attachment support;
+- that contract explicitly marks `.pdf` and `.docx` unsupported until a backend
+  parser exists and forbids claiming success for them;
+- the contract baseline lists `.txt`, `.md`, `.json`, and `.csv` with a 64 KB
+  attachment limit;
+- current frontend attachment rules additionally accept text-like `.tsv`, `.log`,
+  `.xml`, `.yaml`, `.yml`, `.srt`, and `.vtt`;
+- `SimpleLauncherController` reads accepted attachments through browser `file.text()`,
+  compacts the text, and places it into the normal text composer;
+- current attachment ingestion therefore does **not** preserve document structure,
+  run a dedicated document chunking pipeline, or export translated files;
+- the active frontend package has no dedicated document parser dependency, and the
+  inspected realtime worker dependencies are translation/audio/model-oriented,
+  not evidence of a current DOCX/PDF parser.
+
+Important distinction for product recovery:
 
 ```text
-.txt
-.md
-.docx
-.pdf (text-based)
-.srt
+Quick text attachment
+!=
+Document translation workflow
 ```
 
-They also expected chunking for larger content and either a translated file or a
-translated text result depending on format support, while OCR was deferred.
-
-Current source must be inspected before this is promoted because the active simple
-launcher currently behaves more like a text composer with text-like attachments
-than a proven document translation/export workflow.
+Structured text formats such as JSON/CSV/YAML/XML may remain useful as quick text
+attachments without promising structure-preserving translated-file output.
 
 ## Holds
 
 Until this recovery slice is approved, do not:
 
 - change application/runtime source to add document processing;
-- assume inherited `.docx` or PDF support is implemented merely because the old
-  PRD required it;
+- claim current `.docx` or PDF support;
 - add OCR, layout reconstruction, office conversion, or broad file-format support
   without an approved initial product need;
-- treat attachment ingestion into the text composer as equivalent to document
-  translation;
+- treat composer attachment ingestion as document translation;
+- promise structure-preserving translation for JSON/CSV/YAML/XML merely because
+  the frontend can read them as text;
 - create a parallel document engine or cloud document service;
 - create `02-product-requirements.md` yet.
 
-## Next Step
+## Next Decision
 
-Recover the **document translation product scope**.
+Approve the initial **document translation scope**:
 
-Specifically:
-
-1. inspect current attachment/document contracts and active UI ingestion behavior;
-2. identify formats actually supported by current source and whether content is
-   extracted, translated, or merely inserted into the text composer;
-3. decide the initial supported document formats;
-4. decide whether PDF initial support is text-based extraction only and keep OCR
-   out of scope unless explicitly needed;
-5. define chunking/context behavior for larger documents without exposing model
-   internals;
-6. define the expected output per format: translated text, translated file, or
-   both where practical;
-7. preserve local-first/privacy requirements for document contents.
+1. which human-document formats are first-class (`.txt`, `.md`, `.docx`,
+   text-based PDF, `.srt`/`.vtt`);
+2. whether scanned/image PDF and OCR remain deferred;
+3. which formats require same-format translated export versus translated-text
+   output only;
+4. how much structure must be preserved for DOCX/subtitles without promising exact
+   visual layout reconstruction;
+5. semantic chunking/context behavior for larger documents;
+6. local temporary extraction and explicit save/export behavior;
+7. whether document History stores job metadata rather than full document content
+   by default.
 
 Do **not** change runtime/source while recovering this requirement.
 
 ## Completion Boundary For This Step
 
 This slice is complete when initial document formats, extraction/OCR boundary,
-chunking semantics, output behavior, and privacy expectations are explicitly
-approved with current implementation capability kept separate from product scope.
+chunking semantics, output behavior, structure-preservation expectations, and
+privacy/retention behavior are explicitly approved with current implementation
+capability kept separate from product scope.
