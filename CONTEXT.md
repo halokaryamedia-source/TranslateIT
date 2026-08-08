@@ -228,6 +228,45 @@ fallback phrases, but the inspected runtime does not yet prove general contextua
 slang, terminology, or tone behavior. Runtime translation quality remains `LOCAL
 PROOF REQUIRED`.
 
+## Recovered History, Saved, Privacy And Retention Policy
+
+Current history/privacy behavior was revalidated by the user on 2026-08-09:
+
+- **Keep Local History is on by default.** History is local-only and may be
+  disabled by the user without disabling translation itself.
+- History is an automatic local record when enabled; **Saved** is a separate,
+  explicit user action for sessions/work the user intentionally preserves.
+- History should retain useful product data such as timestamp, workflow,
+  original/transcribed text, translated text, language direction, tone, and
+  runtime mode. Raw microphone audio is not part of normal History.
+- Users must be able to search History, delete individual items/sessions, clear all
+  History, and disable future History writes.
+- Clearing History must **not** delete explicitly Saved sessions.
+- Active translation context is session-local working context, not persistent
+  History. Persistent History must not be fed back into translation context
+  automatically. Restoring prior context requires an explicit user action.
+- Raw microphone audio and source speech segments are temporary by default and
+  belong in disposable cache behavior.
+- Generated translated TTS audio is temporary by default. Persistent replay audio
+  is stored only through an explicit save action, such as saving a session with
+  replay audio included.
+- Diagnostic logs should store minimal operational information such as stage,
+  status, timing, error/readiness state, and redacted paths. Full conversation
+  bodies, raw microphone data, and full translated content must not be logged by
+  default.
+- Conversation content may be collected for diagnostics only through an explicit
+  diagnostic workflow that makes the data scope clear to the user/developer.
+- Core History/Saved behavior remains local. No cloud storage is required.
+- Existing ownership remains authoritative: `CacheData` for temporary data,
+  `LogData` for diagnostics/evidence, and `SavedProject` for persistent
+  user-visible/user-approved data. Do not create another storage root without a
+  real ownership need.
+
+Current source has pieces of transcript/chat/session persistence but does not yet
+cleanly implement the approved History-versus-Saved semantics or complete
+search/delete/clear/privacy controls. Persistence readiness remains implementation
+work, not inferred product proof.
+
 ## Verified Repository Areas
 
 ```text
@@ -313,7 +352,8 @@ Until deliberate target-environment validation occurs, do not claim proof for:
 - end-to-end meeting translation latency;
 - installer readiness;
 - CUDA behavior/performance on the target machine;
-- save/persistence behavior beyond current source and direct proof.
+- complete History/Saved persistence, deletion, search, or retention behavior
+  beyond current source and direct proof.
 
 Use the evidence labels defined by `AGENTS.md` when these distinctions matter.
 
@@ -322,11 +362,11 @@ Use the evidence labels defined by `AGENTS.md` when these distinctions matter.
 The following still require separate recovery before becoming durable `New`
 requirements:
 
-- document, history, saved-session, privacy/data-retention, and Audio Studio scope
-  beyond confirmed translation workflows;
+- document translation and Audio Studio scope beyond confirmed translation
+  workflows;
 - installer/distribution details including `TranslateIT.setup.exe`;
 - final normal-user versus developer-diagnostic UI exposure beyond the approved
-  provider/readiness boundary.
+  provider/readiness/privacy boundaries.
 
 ## Canonical Terms During Recovery
 
@@ -361,6 +401,12 @@ requirements:
 - **Translation tone** — `Auto`, `Formal`, or `Casual`; `Auto` is default.
 - **Translation context** — bounded local context for the active session, not
   automatic persistent memory.
+- **Local History** — automatic local translation record when enabled; on by
+  default and user-disableable.
+- **Saved session** — persistent session/work explicitly preserved by the user;
+  separate from automatic History.
+- **Temporary audio** — raw/source and generated TTS audio that remains disposable
+  unless explicitly included in Saved data.
 - **Desktop shell** — `EngineData/Frontend/RustApp`.
 - **Helper runtime** — `EngineData/Backend/LocalWorker/WorkerRuntime`.
 - **Runtime contract** — machine-readable runtime/architecture contract; not
