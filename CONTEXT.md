@@ -267,6 +267,49 @@ cleanly implement the approved History-versus-Saved semantics or complete
 search/delete/clear/privacy controls. Persistence readiness remains implementation
 work, not inferred product proof.
 
+## Recovered Document Translation Policy
+
+Current document-translation scope was revalidated by the user on 2026-08-09:
+
+- Document translation is a **secondary workflow** and is distinct from quick text
+  attachment ingestion in the normal text composer.
+- Initial first-class document formats are `.txt`, `.md`, `.docx`, text-based
+  `.pdf`, `.srt`, and `.vtt`.
+- `.txt` and `.md` should support translated preview plus same-format translated
+  export.
+- `.docx` should support translated preview plus translated `.docx` export with
+  practical preservation of semantic/basic document structure such as paragraphs,
+  headings, lists, tables, basic text formatting, and document order. Exact visual
+  layout reconstruction, macros, tracked changes, comments, floating objects, and
+  advanced Word-specific constructs are not initial guarantees.
+- PDF support is **text-layer extraction only** for the initial product. A
+  text-based PDF may be translated to preview and exported as translated text or
+  `.docx`; exact-layout translated PDF output is not an initial requirement.
+- Scanned/image-only PDFs and OCR are deferred. When no usable text layer exists,
+  the product should report that OCR is required rather than returning an empty or
+  misleading translation.
+- `.srt` and `.vtt` should preserve sequence/timestamp structure while translating
+  subtitle text.
+- Larger documents should use semantic chunking based on paragraphs, sections, or
+  subtitle boundaries, with bounded adjacent context for terminology/continuity.
+  Arbitrary mid-sentence splitting should be avoided.
+- `Quality` is the normal default runtime mode for document translation.
+- JSON/CSV/YAML/XML and similar structured text may remain useful **quick text
+  attachments**, but the initial product does not promise structure-preserving
+  document translation/export for those formats.
+- Document extraction, working chunks, and temporary translation artifacts remain
+  local/disposable. Persistent translated output is created only through explicit
+  Save/Export.
+- Document History stores job metadata by default (for example filename,
+  timestamp, direction, tone, mode, format, status, and export reference), not the
+  full document body.
+
+Current `New` source does not yet implement this first-class document workflow.
+The active attachment path is text-only composer ingestion, and `.docx`/PDF are
+explicitly unsupported until backend parsing exists. Document translation
+implementation/readiness therefore remains future Developing work and `LOCAL PROOF
+REQUIRED` where parser/export behavior must be demonstrated.
+
 ## Verified Repository Areas
 
 ```text
@@ -350,6 +393,7 @@ Until deliberate target-environment validation occurs, do not claim proof for:
 - TTS/provider quality;
 - virtual meeting-microphone/audio routing;
 - end-to-end meeting translation latency;
+- document parser/export/OCR behavior beyond current source and direct proof;
 - installer readiness;
 - CUDA behavior/performance on the target machine;
 - complete History/Saved persistence, deletion, search, or retention behavior
@@ -362,8 +406,7 @@ Use the evidence labels defined by `AGENTS.md` when these distinctions matter.
 The following still require separate recovery before becoming durable `New`
 requirements:
 
-- document translation and Audio Studio scope beyond confirmed translation
-  workflows;
+- Audio Studio/custom voice actor scope;
 - installer/distribution details including `TranslateIT.setup.exe`;
 - final normal-user versus developer-diagnostic UI exposure beyond the approved
   provider/readiness/privacy boundaries.
@@ -385,7 +428,7 @@ requirements:
 - **Segmentation parameters** — runtime tuning, not fixed product constants.
 - **Official voice latency** — detected utterance end -> first translated audio.
 - **Realtime** — latency-oriented mode; normal meeting-voice default.
-- **Quality** — quality-oriented mode; normal standalone-text default.
+- **Quality** — quality-oriented mode; normal standalone-text/default document mode.
 - **Preferred acceleration** — CUDA when available and validated; not a required
   GPU brand constraint.
 - **CPU fallback** — required local degraded path; capability does not imply
@@ -407,6 +450,10 @@ requirements:
   separate from automatic History.
 - **Temporary audio** — raw/source and generated TTS audio that remains disposable
   unless explicitly included in Saved data.
+- **Quick text attachment** — text-like file content inserted into the normal text
+  translation workflow; not equivalent to first-class document translation.
+- **Document translation** — secondary first-class file workflow for approved human
+  document/subtitle formats with semantic chunking and explicit export behavior.
 - **Desktop shell** — `EngineData/Frontend/RustApp`.
 - **Helper runtime** — `EngineData/Backend/LocalWorker/WorkerRuntime`.
 - **Runtime contract** — machine-readable runtime/architecture contract; not
