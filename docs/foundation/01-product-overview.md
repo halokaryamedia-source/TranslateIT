@@ -209,6 +209,63 @@ TranslateIT must not silently substitute the physical microphone, speaker output
 or cloud routing. Initial integration uses the standard Windows microphone-device
 model; meeting-app-specific plugins/APIs are not required initially.
 
+## Translation Behavior Boundary
+
+TranslateIT translates **meaning and communication intent**, not word-for-word
+surface form.
+
+Translation quality priority is:
+
+```text
+1. intended meaning
+2. factual/entity fidelity
+3. natural target-language grammar
+4. appropriate tone
+5. literal wording when useful
+```
+
+Names, numbers, dates, units, URLs, code identifiers, versions, acronyms, and
+technical facts should remain accurate. Mixed Indonesian/English input and common
+Indonesian conversational/slang expressions should be handled naturally, while
+technical terms should remain untranslated when translating them would confuse
+accepted meaning.
+
+User-facing tone modes are:
+
+```text
+Auto
+Formal
+Casual
+```
+
+`Auto` is the default. It should preserve/infer source tone naturally. `Formal`
+should make user-authored output professional, clear, and polite without changing
+facts. `Casual` should make user-authored output conversational without inventing
+slang or changing intent.
+
+Outbound/user-authored translation may use all three tone modes. Inbound meeting
+assistance should preserve the other participant's source tone through Auto
+behavior by default rather than stylistically rewriting what they said.
+
+TranslateIT may use a bounded amount of recent conversation context to resolve
+pronouns, omitted subjects, repeated terminology, continuity, or tone. That
+context is local and session-scoped by default, must not override the current
+utterance, and must not introduce facts that were never spoken/written.
+
+```text
+Realtime
+-> contextual and semantically correct
+-> latency-aware context/inference strategy
+
+Quality
+-> deeper contextual/nuance processing allowed
+-> higher latency acceptable
+```
+
+Prompt design, glossary mechanics, protected-term implementation, model context
+window size, and model/provider strategy are implementation details rather than
+normal-user product settings.
+
 ## Problem TranslateIT Solves
 
 Cross-language online conversation normally forces the user to combine several
@@ -281,9 +338,11 @@ primary.
 
 Current virtual-audio source can select existing virtual audio devices and contains
 a guarded Python provider for routing TTS WAV output, but it explicitly does not
-prove that audio reaches a real meeting input. Product policy above governs the
-required experience; target-PC routing remains to be proven and implementation
-alignment happens through normal Developing work after recovery.
+prove that audio reaches a real meeting input. Translation source also contains
+context-window structures and limited deterministic fallback phrases, but it does
+not yet prove general contextual/tone quality. Product policy above governs the
+required experience; implementation alignment happens through normal Developing
+work after recovery.
 
 ## Target User
 
@@ -318,6 +377,10 @@ TranslateIT is aligned with this overview when:
 - meeting routing fails explicitly to Setup Needed rather than silently falling
   back to an unsafe/unapproved route;
 - local translated-voice monitoring is optional and user-controlled;
+- translation preserves meaning, entities, natural language, and appropriate tone
+  rather than optimizing literal word matching;
+- recent context may improve continuity without becoming automatic persistent
+  memory;
 - one desktop application owns the user experience;
 - implementation state is not confused with product priority;
 - static source presence is not reported as live runtime readiness.
@@ -330,9 +393,9 @@ This overview intentionally does **not** decide:
 - numeric VAD/silence/chunk/segment tuning;
 - numeric target-PC latency release threshold;
 - exact virtual-audio driver/provider implementation;
-- Auto/Formal/Casual translation tone modes and contextual-translation behavior;
+- exact prompt/glossary/context-window implementation;
 - document translation scope;
-- history/saved-session product requirements;
+- history/saved-session/privacy/data-retention product requirements;
 - Audio Studio scope;
 - installer, packaging, update, or distribution policy beyond Windows as the
   initial supported platform;
@@ -344,13 +407,13 @@ This overview intentionally does **not** decide:
 This file defines **product direction**, not runtime readiness.
 
 Current source confirms that text, voice/readiness, helper, microphone, audio,
-translation, latency-measurement, local acceleration/provider, and guarded virtual
-routing structures exist, but target-environment behavior remains subject to the
-evidence rules in root `AGENTS.md`.
+translation, latency-measurement, local acceleration/provider, guarded virtual
+routing, and translation-context structures exist, but target-environment behavior
+remains subject to the evidence rules in root `AGENTS.md`.
 
-Do not infer successful model loading, microphone capture, TTS quality, meeting
-audio delivery, latency target attainment, CUDA performance, packaging, or release
-readiness from this overview.
+Do not infer successful model loading, microphone capture, contextual/tone quality,
+TTS quality, meeting audio delivery, latency target attainment, CUDA performance,
+packaging, or release readiness from this overview.
 
 ## Related
 
