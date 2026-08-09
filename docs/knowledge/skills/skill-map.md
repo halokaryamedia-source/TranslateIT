@@ -11,7 +11,7 @@ not replace `activation-matrix.md` routing or root `AGENTS.md` policy.
 
 No duplicate repository-wide skill roots should be created.
 
-## Approved Baseline
+## Project Specialist Baseline
 
 ### `development-brief`
 
@@ -40,9 +40,6 @@ Semantic owner: desktop product/runtime shell, workspaces/navigation, lifecycle,
 product readiness/state mapping, desktop settings integration, product facade/
 bridge, product recovery actions, and Normal UI versus Developer Diagnostics.
 
-Adjacent owners: desktop UI design for visual composition; local AI runtime,
-Windows audio runtime, and release packaging for underlying capabilities.
-
 ### `desktop-ui-design-development`
 
 Path:
@@ -55,12 +52,6 @@ Semantic owner: desktop visual hierarchy, layout/composition, spacing/density,
 typography, color/tokens, component visual states, reference-image analysis,
 responsive desktop composition, visual accessibility, motion/micro-interaction
 craft, and rendered visual acceptance.
-
-It does not own navigation semantics, readiness truth, AI/audio/storage/package
-behavior, or frontend-framework migration.
-
-Adjacent owner: `desktop-runtime-development` owns what the desktop product does;
-this skill owns how approved desktop behavior is visually communicated.
 
 ### `local-ai-runtime-development`
 
@@ -75,9 +66,6 @@ TTS synthesis, model/provider lifecycle and evaluation, Realtime/Quality executi
 CUDA-preferred/CPU-fallback behavior, inference context/tone consumption, and AI
 capability truth.
 
-Adjacent owners: Windows audio runtime for capture/delivery; desktop runtime for
-product presentation; release packaging for runtime/model delivery.
-
 ### `windows-audio-runtime-development`
 
 Path:
@@ -90,9 +78,6 @@ Semantic owner: physical microphone capture, Session Listening/PTT capture
 mechanics, VAD/speech segmentation, audio format/buffering, Windows input/output
 devices, monitoring, virtual meeting audio route, TranslateIT Meeting Microphone
 delivery, and audio capability truth.
-
-Adjacent owners: local AI runtime for ASR/translation/TTS; desktop runtime for
-product state/UI; release packaging for provider/driver delivery.
 
 ### `release-packaging-development`
 
@@ -107,31 +92,70 @@ dependencies/models/TTS assets, installed resource layout, meeting-audio setup
 delivery, fresh UserData initialization boundary, uninstall/reinstall release
 behavior, and clean-machine deployment proof.
 
-Adjacent owners: desktop, AI, and audio runtime owners define the runtime
-requirements that packaging must deliver; packaging does not redesign them.
+## Frozen Specialist Rule
 
-## Frozen Baseline Rule
+The semantic specialist baseline remains **frozen**. Do not add, rename, split,
+merge, or duplicate a project specialist merely because a new feature or technology
+appears.
 
-The baseline is **frozen**. Do not add, rename, split, merge, or duplicate a
-project specialist merely because a new feature or technology appears.
+A specialist architecture change requires evidence that a genuinely distinct
+semantic capability is missing and that the new owner reduces overlap.
 
-A skill architecture change requires current project evidence that:
+## User-Approved Support Skills
 
-1. a genuinely distinct semantic capability exists;
-2. the existing baseline cannot represent it cleanly;
-3. reusable domain-specific execution procedure is needed;
-4. trigger and exclusion boundaries can be stated clearly;
-5. the change reduces rather than creates overlapping ownership.
+Support skills are **not semantic owners** and do not change the one-specialist
+budget. They shape execution, research, or review only. Use the minimum support skill
+needed; do not stack them automatically.
 
-The visual/UI specialist was added because current project work proved a real
-semantic gap: `desktop-runtime-development` intentionally excludes generic visual
-styling/typography/motion while TranslateIT still requires a reusable owner for
-reference-driven desktop visual design and rendered acceptance.
+### `i-have-adhd`
 
-## Conditional Helpers, Not Project Specialists
+Path:
 
-Do not add repository skills merely for generic availability, including examples
-such as:
+```text
+.agents/skills/i-have-adhd/SKILL.md
+```
+
+Role: action-first communication and progress shaping. It keeps multi-step work
+bounded, makes current state visible, suppresses tangents, and preserves one concrete
+next action. It does not change architecture, proof requirements, or safety rules.
+
+Adapted from `ayghri/i-have-adhd` under MIT terms.
+
+### `awesome-rust-research`
+
+Path:
+
+```text
+.agents/skills/awesome-rust-research/SKILL.md
+```
+
+Role: bounded Rust dependency/tool discovery when a real external candidate is
+needed. `rust-unofficial/awesome-rust` is used only as a discovery index; final
+candidate verification must come from the candidate project's official repository/
+documentation and current TranslateIT constraints.
+
+This skill does **not** activate merely because a task contains Rust code and is not
+a `rust-expert` specialist.
+
+### `no-ai-slop`
+
+Path:
+
+```text
+.agents/skills/no-ai-slop/SKILL.md
+```
+
+Role: review/edit filter for generic AI-like prose and implementation slop. In
+TranslateIT it explicitly checks fake readiness, placeholder success, duplicate
+owners, speculative abstraction, fallback masking, arbitrary progress metrics, and
+evidence inflation.
+
+Adapted from `petergyang/no-ai-slop` under MIT terms.
+
+## Conditional Helpers, Not Repository Skills
+
+Do not create permanent repository skills merely for generic technology expertise or
+availability, including examples such as:
 
 ```text
 rust-expert
@@ -140,20 +164,15 @@ tauri-expert
 typescript-expert
 cuda-expert
 context7
-code-review
 bug-fixer
-researcher
 planner
 tester
-evidence-gate
-anti-slop
 ```
 
-Context7 may be used conditionally to retrieve current/version-sensitive external
-documentation. It does not own a TranslateIT semantic boundary, and official
-project documentation/primary source remains authoritative for material external
-contracts.
+Context7 or another current-documentation retrieval helper may be used conditionally
+for version-sensitive external contracts. Official project documentation or primary
+source remains authoritative.
 
-Review, diagnosis, research, testing, documentation retrieval, and evidence
-escalation are conditional capabilities/baseline rules, not permanent semantic
-owners by default.
+Review, diagnosis, testing, documentation retrieval, profiling, and evidence
+escalation remain conditional capabilities unless a current user decision explicitly
+adopts a bounded support skill as above.
