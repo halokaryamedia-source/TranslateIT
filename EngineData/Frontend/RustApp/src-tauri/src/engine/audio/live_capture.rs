@@ -289,13 +289,17 @@ fn configured_input_device_name() -> Option<String> {
 
 fn select_input_device(host: &cpal::Host) -> Result<cpal::Device, String> {
     if let Some(requested_name) = configured_input_device_name() {
-        if let Ok(devices) = host.input_devices() {
-            for device in devices {
-                if device.name().ok().as_deref() == Some(requested_name.as_str()) {
-                    return Ok(device);
-                }
+        let devices = host
+            .input_devices()
+            .map_err(|error| format!("Configured microphone could not be enumerated: {error}"))?;
+        for device in devices {
+            if device.name().ok().as_deref() == Some(requested_name.as_str()) {
+                return Ok(device);
             }
         }
+        return Err(format!(
+            "Configured microphone '{requested_name}' is unavailable. TranslateIT will not silently switch to another microphone."
+        ));
     }
 
     host.default_input_device()
