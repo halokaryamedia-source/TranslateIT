@@ -5,6 +5,10 @@ use std::path::Path;
 
 const MAX_SETTING_TEXT_CHARS: usize = 160;
 
+fn default_history_enabled() -> bool {
+    true
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct AudioSettings {
     pub input_device_id: Option<String>,
@@ -27,6 +31,8 @@ pub struct RuntimeSettings {
     pub runtime_profile: String,
     pub source_language: String,
     pub target_language: String,
+    #[serde(default = "default_history_enabled")]
+    pub history_enabled: bool,
     pub audio: AudioSettings,
     pub voice_actor_profile_id: String,
 }
@@ -34,11 +40,12 @@ pub struct RuntimeSettings {
 impl Default for RuntimeSettings {
     fn default() -> Self {
         Self {
-            schema_version: 3,
+            schema_version: 4,
             language_focus_mode: "id-en-focus".to_string(),
             runtime_profile: "Realtime".to_string(),
             source_language: "id".to_string(),
             target_language: "en".to_string(),
+            history_enabled: true,
             audio: AudioSettings {
                 input_device_id: None,
                 output_device_id: None,
@@ -77,7 +84,7 @@ impl RuntimeSettings {
     }
 
     pub fn sanitized(mut self) -> Self {
-        self.schema_version = self.schema_version.max(3);
+        self.schema_version = self.schema_version.max(4);
         self.runtime_profile =
             sanitize_runtime_profile(&self.runtime_profile, &self.audio.input_sensitivity);
         self.source_language = sanitize_language(&self.source_language, "id");
@@ -212,6 +219,7 @@ mod tests {
         assert_eq!(settings.source_language, "id");
         assert_eq!(settings.target_language, "en");
         assert_eq!(settings.runtime_profile, "Realtime");
+        assert!(settings.history_enabled);
     }
 
     #[test]
@@ -225,6 +233,7 @@ mod tests {
         assert_eq!(loaded.source_language, "id");
         assert_eq!(loaded.target_language, "en");
         assert_eq!(loaded.runtime_profile, "Realtime");
+        assert!(loaded.history_enabled);
         assert_eq!(
             loaded.audio.voice_actor_profiles_root,
             "EngineData/VoiceActorProfiles"
