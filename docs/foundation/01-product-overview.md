@@ -270,28 +270,54 @@ Normal users do not operate Python, helper/worker lifecycle, provider/model name
 CUDA mode, VAD thresholds, queue sizes, retry counts, model paths, or raw logs as
 normal settings. Persist user preferences; recalculate runtime readiness on launch.
 
-## UI Simplicity And Screen Model
+## UI Simplicity, Familiarity And Modern Visual Direction
 
-The primary UI requirement is **simple to use and familiar to a nontechnical Windows
-desktop user**. Familiarity and clarity take priority over novelty, decorative
-complexity, or exposing internal system flexibility.
+The primary UI requirement is **modern, simple to use, and familiar to a
+nontechnical Windows desktop user**. Modernity means a current, polished desktop
+experience; it does not mean futuristic or experimental interaction.
 
-UI rules:
+Visual and interaction rules:
 
-- prefer familiar desktop patterns, clear labels, obvious buttons, standard
-  navigation, and visible state over custom interaction inventions;
+- prefer familiar desktop patterns, clear text labels, obvious buttons, normal
+  fields/dropdowns/toggles, standard scrolling, and predictable navigation;
+- use contemporary typography, spacing, alignment, restrained surfaces, subtle
+  borders/depth, consistent radius, and accessible contrast to make the product
+  feel modern without increasing learning cost;
 - each workspace should have one obvious primary task/action;
 - keep control density low and use progressive disclosure for secondary or
   technical detail;
+- text labels remain available for primary navigation/actions; icons supplement
+  meaning rather than replacing it;
 - do not duplicate the same task across multiple pages/control panels;
 - do not require hidden gestures, engineering vocabulary, or configuration the
   product can decide safely itself;
 - lifecycle variants such as Ready, Starting, Live, Paused, Recovering, and Ended
   are states of the same Meeting workspace rather than separate pages;
 - Text translation states similarly remain in one Text workspace;
-- global Meeting indicators/alerts/dialogs are shell elements, not extra pages.
+- global Meeting indicators/alerts/dialogs are shell elements, not extra pages;
+- avoid neon/futuristic AI themes, decorative AI orbs, heavy glassmorphism,
+  oversized dashboard cards, excessive card-within-card composition, icon-only
+  critical controls, decorative waveforms, or motion that delays work.
 
-Initial conceptual surfaces are deliberately small:
+The wireframe direction uses a conventional modern desktop shell:
+
+```text
+App Shell
+├─ persistent compact sidebar
+├─ optional global Meeting live/critical strip
+├─ page header / primary action hierarchy
+└─ main workspace
+```
+
+Meeting Ready favors straightforward information rows and one dominant
+`Start Translation` action. Meeting Live favors a readable chronological transcript
+with sticky session controls rather than chat-bubble novelty. Text uses a familiar
+translator pattern: side-by-side source/target panes on wide windows and stacked
+panes when narrow. History uses a searchable chronological list plus a reusable
+detail view. Settings uses familiar section navigation with label/description/control
+rows rather than a dashboard of cards.
+
+Initial conceptual surfaces remain deliberately small:
 
 ```text
 First Setup Wizard
