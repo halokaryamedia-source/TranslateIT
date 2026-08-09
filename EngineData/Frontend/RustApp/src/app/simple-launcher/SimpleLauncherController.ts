@@ -199,6 +199,7 @@ export class SimpleLauncherController {
   private historyTypeFilter: HistoryEntryType = "all";
   private historySummaries: HistorySummary[] = [];
   private historyDetailEntry: HistoryEntry | null = null;
+  private historySettingsMessage = "";
 
   constructor(root: HTMLElement) {
     mountAppShell(root);
@@ -711,6 +712,65 @@ export class SimpleLauncherController {
     }
   }
 
+  private async setHistoryEnabled(enabled: boolean): Promise<void> {
+    if (this.settingsSaving) return;
+    const previous = this.settings.history_enabled !== false;
+    if (previous === enabled) return;
+
+    this.settingsSaving = true;
+    this.settings.history_enabled = enabled;
+    this.updateHistoryRetentionNote();
+    this.historySettingsMessage = enabled ? "Turning History on..." : "Turning History off...";
+    this.renderSettings("history");
+
+    try {
+      const result = await runtimeApi.saveSettings(this.settings);
+      if (!result.ok) throw Error(result.message || "History preference could not be saved.");
+      this.settings = await runtimeApi.loadSettings().catch(() => this.settings);
+      this.updateHistoryRetentionNote();
+      this.historySettingsMessage = this.settings.history_enabled !== false
+        ? "History is on. New completed translations can be added to Recent."
+        : "History is off. Existing Recent and Saved items were not deleted.";
+      if (this.historyScope === "recent" && !this.historyDetailEntry) this.renderHistoryCollection();
+      this.notice(this.historySettingsMessage);
+    } catch (error) {
+      this.settings.history_enabled = previous;
+      this.updateHistoryRetentionNote();
+      this.historySettingsMessage = `History setting was not changed: ${errorMessage(error)}`;
+      this.notice(this.historySettingsMessage);
+    } finally {
+      this.settingsSaving = false;
+      this.renderSettings("history");
+    }
+  }
+
+  private async clearHistoryFromSettings(): Promise<void> {
+    if (this.settingsSaving) return;
+    const confirmed = window.confirm("Clear all history?\n\nMeeting and Text History in Recent will be deleted. Saved items will not be affected.");
+    if (!confirmed) return;
+
+    this.settingsSaving = true;
+    this.historySettingsMessage = "Clearing Recent History...";
+    this.renderSettings("history");
+    try {
+      const result = await runtimeApi.clearRecentHistory();
+      this.historySettingsMessage = result.message;
+      if (result.ok && this.historyScope === "recent") {
+        this.historySummaries = [];
+        this.historyDetailEntry = null;
+        this.showHistoryCollection();
+        this.renderHistoryCollection();
+      }
+      this.notice(result.message);
+    } catch (error) {
+      this.historySettingsMessage = `History could not be cleared: ${errorMessage(error)}`;
+      this.notice(this.historySettingsMessage);
+    } finally {
+      this.settingsSaving = false;
+      this.renderSettings("history");
+    }
+  }
+
   private async runSetup(action: ProductSetupAction): Promise<void> {
     if (this.setupRunning) return;
     this.setupRunning = true;
@@ -777,7 +837,14 @@ export class SimpleLauncherController {
     }
     if (tab === "history") {
       this.advancedDiagnosticsOpen = false;
-      renderHistoryPrivacySettingsTab({ ui: this.ui });
+      renderHistoryPrivacySettingsTab({
+        ui: this.ui,
+        settings: this.settings,
+        statusMessage: this.historySettingsMessage,
+        busy: this.settingsSaving,
+        onHistoryEnabledChange: (enabled) => void this.setHistoryEnabled(enabled),
+        onClearHistory: () => void this.clearHistoryFromSettings(),
+      });
       return;
     }
     if (tab === "advanced") {
