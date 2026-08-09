@@ -3,6 +3,7 @@ import "./launcherGuard.css";
 import "./professionalUi.css";
 import "./referenceLayout.css";
 import "./mainPageLayout.css";
+import "./historyLayout.css";
 import "./audioSettingsLayout.css";
 import "./translateSettingsLayout.css";
 import "./developerSettingsLayout.css";
