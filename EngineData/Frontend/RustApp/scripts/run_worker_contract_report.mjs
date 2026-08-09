@@ -7,7 +7,6 @@ const repoRoot = resolve(appRoot, "..", "..", "..");
 const reportDir = resolve(repoRoot, ".tmp", "validation", "RuntimeTestReports");
 const workerPath = resolve(repoRoot, "EngineData", "Backend", "LocalWorker", "WorkerRuntime", "realtime_local_worker.py");
 const acceleratedWorkerPath = resolve(repoRoot, "EngineData", "Backend", "LocalWorker", "WorkerRuntime", "realtime_local_worker_accelerated.py");
-const scriptsDir = resolve(appRoot, "scripts");
 const rustCapturePath = resolve(appRoot, "src-tauri", "src", "engine", "capture_lifecycle.rs");
 const manualTranslationPath = resolve(appRoot, "src-tauri", "src", "engine", "manual_translation_accelerated.rs");
 
@@ -64,11 +63,9 @@ function main() {
   mkdirSync(reportDir, { recursive: true });
   const worker = read(workerPath);
   const accelerated = read(acceleratedWorkerPath);
-  const runtimeReport = read(resolve(scriptsDir, "run_local_runtime_test_report.mjs"));
-  const voiceReport = read(resolve(scriptsDir, "run_voice_preflight_report.mjs"));
   const rustCapture = read(rustCapturePath);
   const manualTranslation = read(manualTranslationPath);
-  const scannedSources = [runtimeReport, voiceReport, rustCapture, manualTranslation];
+  const scannedSources = [rustCapture, manualTranslation];
   const handlers = handlerCommands(`${worker}\n${accelerated}`);
   const used = usedWorkerCommands(scannedSources);
   const nonWorkerEnvelopes = discoveredNonWorkerCommands(scannedSources);
@@ -77,12 +74,13 @@ function main() {
   const missingCore = requiredCore.filter((command) => !handlers.includes(command));
   const ok = worker.length > 0 && missingHandlers.length === 0 && missingCore.length === 0;
   const report = {
-    schema: "translateit.worker_contract_report.v2",
+    schema: "translateit.worker_contract_report.v3",
     generated_at: new Date().toISOString(),
     ok,
     worker_path: workerPath,
     accelerated_worker_path: acceleratedWorkerPath,
     accelerated_worker_present: existsSync(acceleratedWorkerPath),
+    scanned_product_sources: [rustCapturePath, manualTranslationPath],
     handlers,
     used_commands: used,
     non_worker_envelope_commands: nonWorkerEnvelopes,
@@ -97,6 +95,10 @@ function main() {
     `OK: ${ok}`,
     `Accelerated worker present: ${report.accelerated_worker_present}`,
     "",
+    "## Current product sources scanned",
+    "",
+    report.scanned_product_sources.map((item) => `- ${item}`).join("\n"),
+    "",
     "## Missing handlers for used worker commands",
     "",
     missingHandlers.length ? missingHandlers.map((item) => `- ${item}`).join("\n") : "none",
@@ -105,9 +107,9 @@ function main() {
     "",
     missingCore.length ? missingCore.map((item) => `- ${item}`).join("\n") : "none",
     "",
-    "## Used worker commands",
+    "## Used worker commands in current product sources",
     "",
-    used.map((item) => `- ${item}`).join("\n"),
+    used.length ? used.map((item) => `- ${item}`).join("\n") : "none",
     "",
     "## Non-worker helper envelope commands ignored by this report",
     "",

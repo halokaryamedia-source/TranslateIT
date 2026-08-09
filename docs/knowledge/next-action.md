@@ -2,7 +2,7 @@
 
 Updated: 2026-08-09  
 Working branch: `New`  
-Status: Repository data boundaries and obsolete design-review ownership aligned; source-side development continues before local acceptance
+Status: Repository root/design/tooling ownership aligned; source-side development continues before local acceptance
 
 This file is the single active continuation owner for TranslateIT.
 
@@ -25,6 +25,7 @@ development governance and skill architecture
 Product Shell & Readiness source alignment
 Repository Data Boundary Alignment — root/runtime pass
 EngineData Design/Reference Ownership Alignment — Figma/preview pass
+EngineData Tooling Ownership Alignment — RustApp scripts pass
 ```
 
 Current architecture remains:
@@ -48,60 +49,54 @@ DevelopingData
 -> historical/recovery/reference development evidence only
 ```
 
-## Completed Root/Runtime Alignment
+## Completed Structural Alignment
 
-- root/EngineData/UserData/DevelopingData documentation states the current ownership contract;
-- historical `DevelopingData/Documentation/Source` and old `RootFileRules.md` are explicitly superseded;
-- current source validation no longer depends on inherited V1-Advance CI-scope policy;
-- V1/V1-Pull sync/task automation and branch-specific workflows were removed from `New`;
-- active developer/source-validation report paths use ignored `.tmp/validation/RuntimeTestReports` instead of `UserData`;
-- `ProjectPaths` runtime discovery uses `EngineData + UserData` only and does not inspect `DevelopingData`.
+- current root/EngineData/UserData/DevelopingData documentation states the current ownership contract;
+- current runtime discovery uses `EngineData + UserData` and does not inspect `DevelopingData`;
+- developer/source-validation reports use ignored `.tmp/validation/` rather than `UserData`;
+- historical V1/V1-Pull branch automation and obsolete Figma/standalone Preview ownership are no longer current `New` infrastructure;
+- current production UI source remains caller-driven even when inherited filenames contain terms such as `reference`.
 
-## Completed Design/Reference Alignment
+## Tooling Ownership Result
 
-The obsolete standalone design-review chain is no longer a current EngineData authority:
+`EngineData/Frontend/RustApp/scripts/` now follows this reachability contract:
 
 ```text
-RustApp/Preview
-RustApp/DesignPreview
-RustApp/docs/ui-reference
-RustApp/page-template.md
-RustApp/ui-reference.md
-RustApp/src/design-system   # old v28/Figma registry/export/plugin/workflow
+package.json
+-> canonical developer/source-validation entrypoints
+
+auto_test_registry.mjs
+-> canonical registered test graph
+
+reachable helper/fixture
+-> direct dependency of one of the above
 ```
 
-Associated stale design-review scripts that depended on the old locked-reference approval flow were removed as part of the same boundary cleanup.
+The scripts cleanup removed 35 orphan utilities/validators that were not reachable from the current tool graph. The removed chain included overlapping aggregate gates, V1/V1-Pull-era diagnostics, unused model setup/inventory experiments, one-off repair/audit scripts, and local report scripts that wrote developer evidence into `UserData`.
 
-Reasoning/evidence:
+`run_worker_contract_report.mjs` was decoupled from obsolete local diagnostic scripts and now derives used worker-command evidence from current product source plus the current worker handlers/core contract.
 
-- the user explicitly confirmed Figma Design is no longer used;
-- `DesignPreview` identified itself as V1-Pull design-review source only;
-- `Preview` identified itself as separate preview-only HTML/CSS/SVG review;
-- old design-system tokens/registries were tied to Main Page v28 and Figma handoff;
-- old UI approval/reference reports were tied to that baseline and still wrote developer evidence into `UserData`;
-- current `src/main.ts` directly imports production CSS and starts `SimpleLauncherController`.
-
-Active runtime files are preserved based on callers rather than naming. In particular, files such as `referenceLayout.css` and `lockedReferenceShellParts.ts` remain current because production imports/contracts still use them.
+`EngineData/Backend/LocalWorker/WorkerRuntime/README.md` was also reconciled because it still advertised retired npm profiles. The WorkerRuntime itself remains current; its remaining local helper scripts are not normal-user setup or current package entrypoints unless a later bounded local-AI/release task explicitly adopts them.
 
 ## Proof State
 
 **CURRENT-PROJECT VERIFIED** at static repository level:
 
-- current production entrypoint does not depend on standalone Preview/DesignPreview/Figma assets;
-- current active source validators bind the product shell directly to production source rather than the retired Figma/reference package;
-- runtime source is explicitly prohibited from importing Preview-only files;
-- the obsolete design-review source carried historical V1-Pull/v28 ownership and is no longer kept as a competing current authority.
+- package profiles and `auto_test_registry.mjs` identify the retained current validation graph;
+- retained diagnostic helpers are directly referenced by that graph;
+- the removed scripts had no current package/registry ownership and included concrete stale assumptions such as removed npm profiles, V1/V1-Pull gates, duplicate aggregate validation, or UserData-bound developer reports;
+- current worker-contract diagnostics no longer treat orphan local-report scripts as product-contract input;
+- LocalWorker documentation no longer instructs developers to use retired npm profiles.
 
-**LOCAL PROOF REQUIRED** remains deferred for rendered desktop behavior, Windows runtime readiness, device/audio/model behavior, and clean installed package behavior. The local phase is still intentionally later.
+**LOCAL PROOF REQUIRED** remains deferred for rendered desktop behavior, Windows runtime readiness, device/audio/model behavior, and clean installed package behavior. The local acceptance phase remains intentionally later.
 
 ## Hold
 
-- Do not recreate a Figma/export/standalone preview workflow without a new explicit product decision.
-- Do not delete runtime source merely because filenames contain `reference`, `preview`, or inherited terminology; caller/contract evidence still controls.
-- Do not revive historical DevelopingData files as current policy or validation inputs.
-- Do not write developer/source-validation output into UserData.
+- Do not recreate orphan validation/model/repair scripts without a current owner and acceptance need.
+- Do not use `UserData` for developer/source-validation output.
+- Do not revive historical DevelopingData files as current source or policy.
 - Do not start the local acceptance phase yet unless the user changes the phase order.
 
 ## Next Step
 
-Continue bounded **EngineData tooling ownership classification**: inspect package-level scripts/diagnostics that are not part of current npm/source-contract profiles, determine which are genuine product/build tooling versus obsolete/local development utilities, and move/remove only the proven boundary violations without changing runtime behavior.
+Continue bounded **EngineData frontend source reachability classification**: start from `src/main.ts` and `SimpleLauncherController`, map only direct production imports/callers into `src/app/active-launcher`, identify unreachable legacy controller/binding paths, and remove/reconcile only source proven inactive without changing current product behavior.

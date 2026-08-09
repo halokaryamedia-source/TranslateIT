@@ -150,3 +150,13 @@ Current desktop visual truth is the production UI source that is actually import
 
 **Reason**  
 The user confirmed that Figma Design is no longer used. Source evidence also showed the design-review chain was preview-only or tied to `V1-Pull` and Main Page v28 / settings v22-v37 references, while the current application entrypoint uses the Meeting-first production shell and current CSS modules directly. Keeping both would preserve competing visual authorities and obsolete report paths.
+
+## D-011 — RustApp Tooling Reachability
+
+**Decision**  
+Persistent files under `EngineData/Frontend/RustApp/scripts/` are current only when they are reachable from `package.json`, `auto_test_registry.mjs`, or are direct helpers/fixtures required by tooling reachable from those owners. Local proof scripts also require an explicit current owner/entrypoint.
+
+Orphan repair scripts, aggregate gates, model-setup experiments, branch-era diagnostics, and unused validators are removed from `New` rather than retained as speculative future tooling or copied into `DevelopingData`.
+
+**Reason**  
+The inherited scripts directory contained multiple overlapping validation systems, stale npm profile assumptions, V1/V1-Pull terminology, developer reports written into `UserData`, and one-off model/repair utilities with no current caller. Keeping unreachable tooling makes dead behavior appear authoritative and increases proof/maintenance surface. Git history already preserves that provenance.

@@ -2,7 +2,7 @@
 
 This folder contains the backend-owned local worker used by the current Tauri desktop runtime.
 
-## Runtime contract
+## Runtime Contract
 
 The worker communicates through newline-delimited JSON on stdin/stdout. Each command returns one JSON object and does not claim production readiness by itself.
 
@@ -16,7 +16,7 @@ Supported commands:
 - `tts_preflight`
 - `synthesize`
 
-## Local stack
+## Current Local Stack
 
 | Stage | Realtime profile | Quality profile |
 | --- | --- | --- |
@@ -24,7 +24,9 @@ Supported commands:
 | Translation | MarianMT ID-EN | NLLB 200 distilled 600M |
 | TTS | Piper | Piper |
 
-## Required assets
+Named providers/models are current implementation evidence, not permanent product identity. Provider/model changes remain owned by the local-AI runtime boundary.
+
+## Required Runtime Assets
 
 ```text
 EngineData/Backend/RuntimeAssets/ASR/ModelData/faster-whisper-large-v3-turbo/model.bin
@@ -34,27 +36,40 @@ EngineData/Backend/RuntimeAssets/Voice/Piper/piper.exe
 EngineData/Backend/RuntimeAssets/Voice/Piper/**/*.onnx
 ```
 
-## Commands
+These are runtime/package inputs. Their presence in source paths does not prove model load, CUDA use, quality, or release readiness.
 
-From the active Tauri package folder:
+## Developer Tooling Boundary
 
-```powershell
-npm run setup:worker
-npm run validate:worker
-npm run validate:models
-npm run smoke:worker -- -AudioPath "UserData\CacheData\audio_segments\latest_live_target_segment.wav"
-npm run status:readiness
+The current Tauri package does **not** expose the old `setup:worker`, `validate:worker`, `validate:models`, `smoke:worker`, or `status:readiness` npm profiles. Do not restore those names merely because older documentation or branch history mentions them.
+
+Current RustApp validation entrypoints are owned by:
+
+```text
+EngineData/Frontend/RustApp/package.json
+EngineData/Frontend/RustApp/scripts/auto_test_registry.mjs
 ```
 
-## Migrated helper map
+Manual scripts that remain inside this WorkerRuntime folder are local implementation/development helpers only. They are not normal-user setup, product readiness proof, or package entrypoints unless a later bounded local-AI/release task explicitly adopts them.
 
-During branch repair, several Python helpers were migrated from the misplaced branch range. They are not the active Rust/Tauri app logic. Use `migrated_python_helper_map.json` to decide whether each helper remains a compatibility helper, becomes a LocalWorker boundary candidate, is translated into Rust, or remains evidence only.
+## Runtime Evidence
 
-## Truth rules
+The application runtime may write privacy-bounded operational evidence under:
 
-- CUDA availability is reported separately from CUDA inference success.
-- CPU fallback is reported through runtime device fields and notes.
-- Worker smoke evidence is stored under `UserData/LogData/RustAppValidation/`.
-- Owner validation remains blocked until persistent worker smoke evidence, manual runtime evidence, and build/package evidence pass.
-- Input and output files are constrained to project `UserData` runtime folders.
-- Migrated Python helpers must not replace Rust/Tauri app logic without a reviewed worker boundary or Rust translation.
+```text
+UserData/LogData/RustAppValidation/
+```
+
+That is application-generated runtime diagnostic data. It is distinct from developer/source-validation reports, which belong under ignored `.tmp/validation/` paths.
+
+## Migrated Helper Map
+
+`migrated_python_helper_map.json` is inherited migration evidence. It does not make every listed helper a current owner. Current source/callers and canonical ownership decide whether a helper is active.
+
+## Truth Rules
+
+- CUDA availability is separate from successful CUDA inference.
+- CPU fallback remains a product capability requirement, but usability/performance needs local proof.
+- Worker/model presence does not equal inference readiness.
+- Input/output runtime files remain constrained to appropriate `UserData` runtime folders.
+- Development model/setup helpers must not become normal-user requirements.
+- The worker must not replace the Rust/Tauri product shell or create a second product architecture.
