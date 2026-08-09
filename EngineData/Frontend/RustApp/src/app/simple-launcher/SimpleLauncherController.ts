@@ -2,19 +2,17 @@ import { runtimeApi } from "../bridge/runtimeApi";
 import { runtimeProductFacade, type ProductRuntimeSnapshot, type ProductSetupAction } from "../bridge/runtimeProductFacade";
 import { defaultSettings, errorMessage, languageName } from "../shared/state";
 import type { RuntimeSettings, SettingsTab } from "../shared/types";
-import { translationResultView } from "../active-launcher/chatViews";
 import { requireElement } from "../active-launcher/dom";
 import { mountAppShell } from "../active-launcher/shell";
 import { renderDeveloperSettingsView } from "../active-launcher/launcherDeveloperSettings";
 import { renderAdvancedSettingsTab, renderHistoryPrivacySettingsTab, renderMeetingSettingsTab } from "../active-launcher/launcherSettingsRenderer";
 import { exceedsManualTranslationLimit, MAX_MANUAL_TRANSLATION_CHARS } from "../active-launcher/launcherTextRules";
-import { attachmentSection, compactAttachmentText, isSupportedTextAttachment, safeAttachmentName, unsupportedAttachmentMessage, MAX_ATTACHMENT_BYTES, MAX_ATTACHMENT_FILES } from "../active-launcher/launcherAttachmentRules";
 import { swapLanguages as applyLanguageSwap } from "../active-launcher/launcherSettingsActions";
 
 const STARTUP_STEP_MS = 80;
 type ProductWorkspace = "meeting" | "text" | "history";
-
 type StatusTone = "neutral" | "good" | "warning";
+type TextResultState = "idle" | "translating" | "success" | "stale" | "error";
 
 const WORKSPACE_TITLES: Record<ProductWorkspace, string> = {
   meeting: "Meeting",
@@ -38,7 +36,10 @@ type SimpleRefs = {
   workspaceNavItems: HTMLButtonElement[];
   workspacePanels: HTMLElement[];
   messageInput: HTMLTextAreaElement;
-  attachmentInput: HTMLInputElement;
+  textTargetOutput: HTMLTextAreaElement;
+  textResultStatus: HTMLElement;
+  textResultMessage: HTMLElement;
+  textModeValue: HTMLElement;
   sendButton: HTMLButtonElement;
   assistantMessage: HTMLParagraphElement;
   retryReadinessButton: HTMLButtonElement;
@@ -47,8 +48,6 @@ type SimpleRefs = {
   gpuStatus: HTMLSpanElement;
   developerOutput: HTMLPreElement;
   userPresence: HTMLSpanElement;
-  composerPlusButton: HTMLButtonElement;
-  chatList: HTMLElement;
   directionPill: HTMLElement;
   recordStatusText: HTMLElement;
   textSourceLanguage: HTMLElement;
@@ -81,7 +80,10 @@ function bindSimpleRefs(): SimpleRefs {
     workspaceNavItems: Array.from(document.querySelectorAll<HTMLButtonElement>("[data-workspace-nav]")),
     workspacePanels: Array.from(document.querySelectorAll<HTMLElement>("[data-workspace-panel]")),
     messageInput: requireElement<HTMLTextAreaElement>("#messageInput"),
-    attachmentInput: requireElement<HTMLInputElement>("#attachmentInput"),
+    textTargetOutput: requireElement<HTMLTextAreaElement>("#textTargetOutput"),
+    textResultStatus: requireElement<HTMLElement>("#textResultStatus"),
+    textResultMessage: requireElement<HTMLElement>("#textResultMessage"),
+    textModeValue: requireElement<HTMLElement>("#textModeValue"),
     sendButton: requireElement<HTMLButtonElement>("#sendButton"),
     assistantMessage: requireElement<HTMLParagraphElement>("#assistantMessage"),
     retryReadinessButton: requireElement<HTMLButtonElement>("#retryReadinessButton"),
@@ -90,8 +92,6 @@ function bindSimpleRefs(): SimpleRefs {
     gpuStatus: requireElement<HTMLSpanElement>("#gpuStatus"),
     developerOutput: requireElement<HTMLPreElement>("#developerOutput"),
     userPresence: requireElement<HTMLSpanElement>("#userPresence"),
-    composerPlusButton: requireElement<HTMLButtonElement>("#composerPlusButton"),
-    chatList: requireElement<HTMLElement>("#chatList"),
     directionPill: requireElement<HTMLElement>("#directionPill"),
     recordStatusText: requireElement<HTMLElement>("#recordStatusText"),
     textSourceLanguage: requireElement<HTMLElement>("#textSourceLanguage"),
@@ -137,9 +137,9 @@ export class SimpleLauncherController {
   private voiceRunning = false;
   private settingsSaving = false;
   private diagnosticsRunning = false;
-  private attachmentReading = false;
   private logsExpanded = false;
   private advancedDiagnosticsOpen = false;
+  private lastTranslatedSource: string | null = null;
 
   constructor(root: HTMLElement) {
     mountAppShell(root);
@@ -181,9 +181,16 @@ export class SimpleLauncherController {
     this.ui.assistantMessage.title = safe;
   }
 
+  private setTextResultState(state: TextResultState, label: string, message: string): void {
+    this.ui.textResultStatus.dataset.state = state;
+    this.ui.textResultStatus.textContent = label;
+    this.ui.textResultMessage.textContent = message;
+  }
+
   private refreshDirectionPill(): void {
     this.ui.textSourceLanguage.textContent = languageName(this.settings.source_language);
     this.ui.textTargetLanguage.textContent = languageName(this.settings.target_language);
+    this.ui.textModeValue.textContent = this.settings.runtime_profile || "Current";
     if (this.activeWorkspace === "meeting") {
       this.ui.directionPill.textContent = "ID > EN";
       return;
@@ -281,34 +288,72 @@ export class SimpleLauncherController {
     this.renderSettings(tab);
   }
 
+  private handleTextSourceInput(): void {
+    if (this.lastTranslatedSource === null) {
+      if (this.ui.textResultStatus.dataset.state === "error") {
+        this.setTextResultState("idle", "Ready", "Select Translate when the source text is ready.");
+      }
+      return;
+    }
+    const currentSource = this.ui.messageInput.value.trim();
+    if (currentSource === this.lastTranslatedSource) {
+      this.setTextResultState("success", "Translated", "Translation matches the current source text.");
+      return;
+    }
+    this.setTextResultState("stale", "Needs update", "Source text changed after the last translation. Translate again to update the result.");
+  }
+
   private async submitText(): Promise<void> {
     const source = this.ui.messageInput.value.trim();
     if (!source) {
+      this.setTextResultState("error", "Enter text", "Type or paste source text before translating.");
       this.notice("Type text before translating.");
       this.ui.messageInput.focus();
       return;
     }
     if (exceedsManualTranslationLimit(source)) {
-      this.notice(`Text is too long. Limit: ${MAX_MANUAL_TRANSLATION_CHARS} characters.`);
+      const message = `Text is too long. Limit: ${MAX_MANUAL_TRANSLATION_CHARS} characters.`;
+      this.setTextResultState("error", "Text too long", message);
+      this.notice(message);
       return;
     }
     if (this.translating) return;
+
+    const requestSource = source;
+    const previousTarget = this.ui.textTargetOutput.value;
     this.translating = true;
     this.ui.sendButton.disabled = true;
     this.ui.sendButton.textContent = "Translating...";
+    this.setTextResultState("translating", "Translating", "Using the current local translation runtime.");
     this.notice("Translating with local engine...");
+
     try {
-      const result = await runtimeProductFacade.runProductTranslation(source);
-      const status = result.ok ? "Native runtime" : "Runtime blocked";
-      const translated = result.ok ? result.translated : result.message;
-      this.ui.chatList.innerHTML = translationResultView(source, translated, status);
-      this.notice(result.ok ? "Translation completed." : `Translation blocked: ${result.message}`);
-      await this.refreshReadiness(result.ok ? "Translation completed." : undefined);
+      const result = await runtimeProductFacade.runProductTranslation(requestSource);
+      if (!result.ok) {
+        this.ui.textTargetOutput.value = previousTarget;
+        this.setTextResultState("error", "Couldn't translate", result.message);
+        this.notice(`Translation blocked: ${result.message}`);
+        return;
+      }
+
+      this.ui.textTargetOutput.value = result.translated;
+      this.lastTranslatedSource = requestSource;
+      if (this.ui.messageInput.value.trim() === requestSource) {
+        this.setTextResultState("success", "Translated", "Translation completed. You can review or edit the result.");
+        this.notice("Translation completed.");
+      } else {
+        this.setTextResultState("stale", "Needs update", "The source changed while translating. The result is for the previous source text.");
+        this.notice("Translation completed for the previous source text.");
+      }
+    } catch (error) {
+      this.ui.textTargetOutput.value = previousTarget;
+      const message = errorMessage(error);
+      this.setTextResultState("error", "Couldn't translate", message);
+      this.notice(`Translation failed: ${message}`);
     } finally {
       this.translating = false;
       this.ui.sendButton.disabled = false;
       this.ui.sendButton.textContent = "Translate";
-      this.ui.messageInput.focus();
     }
   }
 
@@ -316,6 +361,7 @@ export class SimpleLauncherController {
     if (this.settingsSaving) return;
     const previousSource = this.settings.source_language;
     const previousTarget = this.settings.target_language;
+    const visibleTarget = this.ui.textTargetOutput.value;
     const result = applyLanguageSwap(this.settings);
     this.settings = result.settings;
     this.refreshDirectionPill();
@@ -326,6 +372,12 @@ export class SimpleLauncherController {
       if (!saveResult.ok) throw Error(saveResult.message || "Language direction could not be saved.");
       this.settings = await runtimeApi.loadSettings().catch(() => this.settings);
       this.refreshDirectionPill();
+      if (visibleTarget.trim()) {
+        this.ui.messageInput.value = visibleTarget;
+        this.ui.textTargetOutput.value = "";
+        this.lastTranslatedSource = null;
+        this.setTextResultState("idle", "Ready", "Target text moved to the source pane. Select Translate when ready.");
+      }
       this.notice(result.notice);
     } catch (error) {
       this.settings.source_language = previousSource;
@@ -385,44 +437,6 @@ export class SimpleLauncherController {
       this.notice(`Voice command failed: ${errorMessage(error)}`);
     } finally {
       this.voiceRunning = false;
-    }
-  }
-
-  private async ingestAttachmentFiles(): Promise<void> {
-    const files = Array.from(this.ui.attachmentInput.files ?? []).slice(0, MAX_ATTACHMENT_FILES);
-    this.ui.attachmentInput.value = "";
-    if (!files.length || this.attachmentReading) return;
-    this.attachmentReading = true;
-    this.ui.composerPlusButton.disabled = true;
-    try {
-      const unsupported = files.find((file) => !isSupportedTextAttachment(file));
-      if (unsupported) {
-        this.notice(unsupportedAttachmentMessage(unsupported));
-        return;
-      }
-      const oversized = files.find((file) => file.size > MAX_ATTACHMENT_BYTES);
-      if (oversized) {
-        this.notice(`${safeAttachmentName(oversized)} is too large. Limit: 64 KB per file.`);
-        return;
-      }
-      const sections: string[] = [];
-      for (const file of files) {
-        const text = compactAttachmentText(await file.text());
-        if (text) sections.push(attachmentSection(file, text));
-      }
-      const combined = sections.join("\n\n");
-      if (!combined) {
-        this.notice("Attached files did not contain readable text.");
-        return;
-      }
-      this.ui.messageInput.value = combined;
-      this.notice(`Attached ${files.length} text file(s). Ready to translate.`);
-    } catch (error) {
-      this.notice(`Attachment read failed: ${errorMessage(error)}`);
-    } finally {
-      this.attachmentReading = false;
-      this.ui.composerPlusButton.disabled = false;
-      this.ui.messageInput.focus();
     }
   }
 
@@ -494,15 +508,14 @@ export class SimpleLauncherController {
 
   private bindEvents(): void {
     this.ui.sendButton.addEventListener("click", () => void this.submitText());
+    this.ui.messageInput.addEventListener("input", () => this.handleTextSourceInput());
     this.ui.messageInput.addEventListener("keydown", (event) => {
-      if (event.key === "Enter" && !event.shiftKey) {
+      if (event.key === "Enter" && (event.ctrlKey || event.metaKey)) {
         event.preventDefault();
         void this.submitText();
       }
     });
     this.ui.textSwapLanguageButton.addEventListener("click", () => void this.swapTextLanguages());
-    this.ui.composerPlusButton.addEventListener("click", () => this.ui.attachmentInput.click());
-    this.ui.attachmentInput.addEventListener("change", () => void this.ingestAttachmentFiles());
     this.ui.workspaceNavItems.forEach((button) => button.addEventListener("click", () => {
       const workspace = button.dataset.workspaceNav;
       if (isWorkspace(workspace)) this.showWorkspace(workspace);
