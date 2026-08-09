@@ -160,3 +160,38 @@ Orphan repair scripts, aggregate gates, model-setup experiments, branch-era diag
 
 **Reason**  
 The inherited scripts directory contained multiple overlapping validation systems, stale npm profile assumptions, V1/V1-Pull terminology, developer reports written into `UserData`, and one-off model/repair utilities with no current caller. Keeping unreachable tooling makes dead behavior appear authoritative and increases proof/maintenance surface. Git history already preserves that provenance.
+
+## D-012 — Remove Document Translation From Product Scope
+
+**Decision**  
+First-class document translation is removed from the current TranslateIT product scope. `Documents` must not remain a normal product workspace merely because inherited policy or source contains document/attachment concepts. No PDF/DOCX/TXT/Markdown document workflow, parser/export subsystem, document job system, or document-specific History/Saved capability should be developed for the current product.
+
+**Reason**  
+The product's primary value is real-time meeting translation, with standalone text translation as the bounded secondary utility. A first-class document product would require disproportionate parser, structure-preservation, rendering, export, job-management, and storage work outside that core value. Removing it keeps engineering effort on meeting quality, latency, audio routing, recovery, and simple text translation instead of overdeveloping a separate document product.
+
+## D-013 — Simplify Navigation, Saved Access, And Settings
+
+**Decision**  
+The normal product hierarchy converges on:
+
+```text
+Meeting
+Text
+History
+Settings
+```
+
+`Saved` remains a distinct durable data ownership concept but is accessed inside `History` through `Recent / Saved`, not as a top-level navigation destination.
+
+Normal Settings converges on:
+
+```text
+Meeting
+History & Privacy
+Advanced
+```
+
+`General` and `Translation` are not separate normal Settings sections unless a future approved requirement gives them a distinct user responsibility. Contextual translation choices remain in Meeting/Text; engineering/runtime controls remain in Diagnostics.
+
+**Reason**  
+The previously broader navigation duplicated related user intents and promoted secondary/internal concepts into primary hierarchy. A nontechnical user mainly needs to run meeting translation, translate text, retrieve prior/saved work, and adjust meeting/privacy setup. Keeping Saved ownership independent while grouping its access under History preserves deletion/privacy semantics without adding another primary workspace, and the reduced Settings hierarchy avoids empty or engineering-oriented control panels.
