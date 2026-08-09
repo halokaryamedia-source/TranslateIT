@@ -270,3 +270,24 @@ the user. Reusing a small number of familiar workspaces keeps navigation
 predictable, reduces unnecessary decisions, and lets the application express
 runtime state without turning technical state transitions into a complicated
 information architecture.
+
+## D-016 — Modern Familiar Desktop Visual Direction
+
+**Decision**  
+TranslateIT should look like a **modern desktop application** while remaining
+immediately familiar and easy to operate. Modernity must come from polish rather
+than novelty: clean hierarchy, restrained surfaces, current typography/spacing,
+clear controls, subtle depth/borders, consistent radius, accessible contrast, and
+responsive feedback.
+
+The visual system must avoid making the app feel experimental or like an AI
+showcase. Do not use futuristic/neon treatment, decorative AI orbs, glass-heavy
+surfaces, oversized dashboard cards, hidden icon-only primary actions, or motion
+that slows normal work. Familiar desktop conventions remain the baseline.
+
+**Reason**  
+The user explicitly wants the app to feel modern, easy to use, and familiar at the
+same time. A visually dated interface would weaken perceived quality, but an overly
+novel AI-styled interface would increase learning cost. The correct direction is a
+contemporary, polished desktop UI whose interaction model remains conventional and
+predictable.
