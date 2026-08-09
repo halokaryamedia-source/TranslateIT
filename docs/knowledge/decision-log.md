@@ -323,3 +323,55 @@ matches the user's actual task, conventional translation/history/settings patter
 lower learning cost, and restrained polish provides a modern appearance without
 turning TranslateIT into a decorative AI dashboard. Deferring exact pixel/color
 constants until rendered evaluation avoids freezing numbers without visual proof.
+
+## D-018 — Final Meeting Ready And Meeting Live Composition
+
+**Decision**  
+The approved Meeting workspace has two dominant visual compositions while remaining
+one workspace/state model.
+
+`Meeting Ready` prioritizes, in order:
+
+```text
+Meeting status / readiness
+-> plain-language explanation of ID -> EN Voice and EN -> ID Text
+-> Your Microphone
+-> Incoming Translation / Meeting Sound
+-> TranslateIT Meeting Microphone
+-> compact Realtime / Tone summary
+-> one dominant Start Translation action
+-> subtle reminder to select TranslateIT Meeting Microphone in the meeting app
+```
+
+Microphone and Meeting Sound are familiar information/device rows with quiet
+`Change` actions. The TranslateIT Meeting Microphone is a managed route with
+`Ready`, `Setup Needed`, or scoped repair state rather than a generic selectable
+output. Incoming-only failure does not disable `Start Translation`; unsafe required
+outbound failure does. The screen does not become a readiness dashboard or expose
+runtime internals.
+
+`Meeting Live` shifts almost all visual priority to a chronological transcript.
+The header shows `Translation Live`, language direction, and elapsed time. Transcript
+turns use `YOU` / `INCOMING` labels without participant avatars or invented identity.
+For both directions, Indonesian user-relevant text has primary visual weight and
+English source/output is secondary. Outbound turns retain truthful delivery state.
+Listening/Processing/Speaking/Waiting/Catching Up states occupy a stable activity
+region; `Stop Voice` is contextual while speaking and `Speak Now` / `Cancel` appear
+only when waiting for a conversational gap. Incoming-only degradation uses a light
+inline callout; blocking outbound problems use a more prominent inline attention
+callout while preserving transcript context. Pause/Resume and Stop Translation stay
+visible in a sticky session-control region. Scrolling follows the latest turn only
+while the user is at the bottom; manual upward reading freezes auto-follow and shows
+a compact new-translation return control.
+
+Ready -> Starting -> Live changes composition without changing to a separate product
+page. Narrow windows stack Ready rows and keep the transcript readable; exact final
+pixel widths remain a rendered-proof decision.
+
+**Reason**  
+Meeting Ready is a decision screen: the user needs confidence that the required
+path is safe and one obvious action to begin. Meeting Live is a comprehension and
+control screen: the transcript and immediate session safety matter more than setup
+configuration. Keeping these compositions simple, text-led, and conventional makes
+the application immediately understandable while preserving the approved runtime
+semantics and avoiding a dashboard-style or decorative AI interface.
