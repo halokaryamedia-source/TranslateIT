@@ -11,6 +11,7 @@ pub mod diagnostics;
 pub mod hardware;
 pub mod helper_bridge;
 pub mod helper_bridge_runtime;
+pub mod history;
 pub mod pipeline;
 pub mod pipeline_handoff;
 pub mod professional_readiness_gate;
