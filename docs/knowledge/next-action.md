@@ -2,7 +2,7 @@
 
 Updated: 2026-08-09  
 Working branch: `New`  
-Status: Product behavior, screen inventory, and wireframe direction are approved; source implementation remains paused while the visual UI system is defined
+Status: Product behavior, screen inventory, wireframe direction, and visual UI system are approved; source implementation remains paused while final screen composition is defined
 
 This file is the single active continuation owner for TranslateIT.
 
@@ -66,7 +66,7 @@ Interpretation:
   oversized dashboard-card composition, hidden icon-only critical actions, or
   unnecessary motion.
 
-Durable reasoning: `decision-log.md` D-015 and D-016.
+Durable reasoning: `decision-log.md` D-015, D-016, and D-017.
 
 ## Approved Screen Inventory
 
@@ -127,6 +127,42 @@ Workspace direction:
   contextually while own TTS is speaking; critical outbound interruption may become
   a persistent global alert.
 
+## Approved Visual System
+
+Visual character:
+
+```text
+Modern desktop productivity app
+Clean
+Calm
+Readable
+Polished
+Familiar
+```
+
+System direction:
+
+- system-oriented sans-serif typography suitable for Windows desktop use;
+- compact-but-comfortable density with clear hierarchy rather than oversized
+  marketing typography or excessive whitespace;
+- moderate consistent radii and subtle borders/surface differences;
+- shadows reserved mainly for floating overlays such as menus/modals;
+- one primary accent role plus restrained semantic Ready/Live, warning/degraded,
+  critical/destructive, and informational roles;
+- primary actions are visibly dominant; secondary actions remain quieter;
+- familiar inputs/dropdowns/toggles/search/list/dialog patterns remain recognizable;
+- sidebar uses persistent icon + text labels rather than icon-only navigation;
+- Meeting transcript is the hero content during Live; no novelty chat bubbles,
+  avatars, decorative waveforms, or AI visual gimmicks;
+- Text follows familiar source/target translation composition;
+- History is list-based; Settings is row/section-based rather than card-dashboard
+  based;
+- hover/focus/pressed/disabled/loading states remain clear and stable;
+- motion is short/restrained and never delays interaction;
+- desktop windows reflow content sensibly when narrow; exact minimum dimensions,
+  final color values, and final pixel constants require rendered proof rather than
+  being frozen arbitrarily in planning.
+
 ## Current Source Reality
 
 Earlier source cleanup remains valid, but current `New` UI source predates the newly
@@ -152,8 +188,9 @@ implementation reconciliation.
 - flows 01–11 are persisted;
 - minimal screen inventory is persisted;
 - wireframe/component direction is persisted;
-- modern + easy + familiar UI principle is persisted in product overview and
-  decision log;
+- modern + easy + familiar UI principle is persisted;
+- restrained visual UI system and transcript-first Meeting direction are persisted
+  in `decision-log.md` D-017;
 - source/runtime was not changed by these planning steps.
 
 **LOCAL PROOF REQUIRED** remains deferred for rendered visual quality, responsive
@@ -162,18 +199,21 @@ and packaging.
 
 ## Hold
 
-- remain in Plan during visual-system definition;
+- remain in Plan during final screen-composition definition;
 - do not start source implementation/local acceptance yet;
 - do not revive Documents/top-level Saved/Home/Dashboard;
 - do not replace familiar controls with decorative custom interaction merely for
   uniqueness;
+- do not freeze exact pixel/color constants without rendered evidence;
 - do not treat wireframe examples as permission to add unapproved product behavior.
 
 ## Next Step
 
-Define **Visual Direction & UI System** for the approved wireframe: establish the
-visual character, typography hierarchy, spacing/density, sizing, surface/border/
-radius treatment, color roles, buttons/inputs/tabs/list/status/error/success states,
-transcript visual hierarchy, hover/focus/disabled behavior, motion restraint, and
-minimum-window responsive rules. The target is a polished modern desktop app that
-still feels immediately familiar and straightforward to a nontechnical user.
+Define **final visual composition for Meeting Ready and Meeting Live** before
+extending the same system to Text, History, Settings, and First Setup. Establish the
+exact information hierarchy, placement of readiness/device rows, language/mode/tone
+summary, primary/secondary actions, transcript width and turn structure, Live status
+header, listening/processing/waiting/speaking states, sticky session controls,
+inline recovery/degraded callouts, and narrow-window reflow. The goal is to make the
+two most important screens feel immediately understandable, modern, calm, and
+familiar without introducing new product behavior.
