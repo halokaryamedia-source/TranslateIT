@@ -1,16 +1,15 @@
 import { runtimeApi } from "../bridge/runtimeApi";
 import { runtimeProductFacade, type ProductRuntimeSnapshot, type ProductSetupAction } from "../bridge/runtimeProductFacade";
-import { defaultSettings, errorMessage } from "../shared/state";
+import { defaultSettings, errorMessage, languageName } from "../shared/state";
 import type { RuntimeSettings, SettingsTab } from "../shared/types";
 import { translationResultView } from "../active-launcher/chatViews";
 import { requireElement } from "../active-launcher/dom";
 import { mountAppShell } from "../active-launcher/shell";
 import { renderDeveloperSettingsView } from "../active-launcher/launcherDeveloperSettings";
-import { renderAudioSettingsTab, renderGeneralSettingsTab, renderTranslateSettingsTab } from "../active-launcher/launcherSettingsRenderer";
-import { isLanguageCode, nextLanguageCode, type LanguageSelectorRole } from "../active-launcher/launcherLanguageRules";
+import { renderAdvancedSettingsTab, renderHistoryPrivacySettingsTab, renderMeetingSettingsTab } from "../active-launcher/launcherSettingsRenderer";
 import { exceedsManualTranslationLimit, MAX_MANUAL_TRANSLATION_CHARS } from "../active-launcher/launcherTextRules";
 import { attachmentSection, compactAttachmentText, isSupportedTextAttachment, safeAttachmentName, unsupportedAttachmentMessage, MAX_ATTACHMENT_BYTES, MAX_ATTACHMENT_FILES } from "../active-launcher/launcherAttachmentRules";
-import { setRuntimeProfile as applyRuntimeProfile, swapLanguages as applyLanguageSwap, toggleVoiceOutput as applyVoiceOutputToggle } from "../active-launcher/launcherSettingsActions";
+import { swapLanguages as applyLanguageSwap } from "../active-launcher/launcherSettingsActions";
 
 const STARTUP_STEP_MS = 80;
 type ProductWorkspace = "meeting" | "text" | "history";
@@ -54,6 +53,9 @@ type SimpleRefs = {
   chatList: HTMLElement;
   directionPill: HTMLElement;
   recordStatusText: HTMLElement;
+  textSourceLanguage: HTMLElement;
+  textTargetLanguage: HTMLElement;
+  textSwapLanguageButton: HTMLButtonElement;
   settingsNavItems: HTMLButtonElement[];
 };
 
@@ -91,6 +93,9 @@ function bindSimpleRefs(): SimpleRefs {
     chatList: requireElement<HTMLElement>("#chatList"),
     directionPill: requireElement<HTMLElement>("#directionPill"),
     recordStatusText: requireElement<HTMLElement>("#recordStatusText"),
+    textSourceLanguage: requireElement<HTMLElement>("#textSourceLanguage"),
+    textTargetLanguage: requireElement<HTMLElement>("#textTargetLanguage"),
+    textSwapLanguageButton: requireElement<HTMLButtonElement>("#textSwapLanguageButton"),
     settingsNavItems: Array.from(document.querySelectorAll<HTMLButtonElement>("[data-settings-tab]")),
   };
 }
@@ -114,8 +119,7 @@ export class SimpleLauncherController {
   private settings: RuntimeSettings = defaultSettings();
   private snapshot: ProductRuntimeSnapshot | null = null;
   private activeWorkspace: ProductWorkspace = "meeting";
-  private activeSettingsTab: SettingsTab = "general";
-  private activeLanguageSelector: LanguageSelectorRole | null = null;
+  private activeSettingsTab: SettingsTab = "meeting";
   private translating = false;
   private setupRunning = false;
   private voiceRunning = false;
@@ -123,6 +127,7 @@ export class SimpleLauncherController {
   private diagnosticsRunning = false;
   private attachmentReading = false;
   private logsExpanded = false;
+  private advancedDiagnosticsOpen = false;
 
   constructor(root: HTMLElement) {
     mountAppShell(root);
@@ -165,7 +170,17 @@ export class SimpleLauncherController {
   }
 
   private refreshDirectionPill(): void {
-    this.ui.directionPill.textContent = `${this.settings.source_language.toUpperCase()} > ${this.settings.target_language.toUpperCase()}`;
+    this.ui.textSourceLanguage.textContent = languageName(this.settings.source_language);
+    this.ui.textTargetLanguage.textContent = languageName(this.settings.target_language);
+    if (this.activeWorkspace === "meeting") {
+      this.ui.directionPill.textContent = "ID > EN";
+      return;
+    }
+    if (this.activeWorkspace === "text") {
+      this.ui.directionPill.textContent = `${this.settings.source_language.toUpperCase()} > ${this.settings.target_language.toUpperCase()}`;
+      return;
+    }
+    this.ui.directionPill.textContent = "ID / EN";
   }
 
   private async refreshReadiness(preferredNotice?: string): Promise<void> {
@@ -214,12 +229,14 @@ export class SimpleLauncherController {
       if (active) button.setAttribute("aria-current", "page");
       else button.removeAttribute("aria-current");
     });
+    this.refreshDirectionPill();
     if (workspace === "text") this.ui.messageInput.focus();
   }
 
-  private showSettings(tab: SettingsTab = "general"): void {
+  private showSettings(tab: SettingsTab = "meeting", openDiagnostics = false): void {
     document.body.classList.add("settings-open");
     this.activeSettingsTab = tab;
+    this.advancedDiagnosticsOpen = tab === "advanced" && openDiagnostics;
     this.ui.mainApp.dataset.route = "settings";
     this.ui.homePage.classList.add("is-hidden");
     this.ui.homePage.hidden = true;
@@ -258,6 +275,32 @@ export class SimpleLauncherController {
       this.ui.sendButton.disabled = false;
       this.ui.sendButton.textContent = "Translate";
       this.ui.messageInput.focus();
+    }
+  }
+
+  private async swapTextLanguages(): Promise<void> {
+    if (this.settingsSaving) return;
+    const previousSource = this.settings.source_language;
+    const previousTarget = this.settings.target_language;
+    const result = applyLanguageSwap(this.settings);
+    this.settings = result.settings;
+    this.refreshDirectionPill();
+    this.settingsSaving = true;
+    this.ui.textSwapLanguageButton.disabled = true;
+    try {
+      const saveResult = await runtimeApi.saveSettings(this.settings);
+      if (!saveResult.ok) throw Error(saveResult.message || "Language direction could not be saved.");
+      this.settings = await runtimeApi.loadSettings().catch(() => this.settings);
+      this.refreshDirectionPill();
+      this.notice(result.notice);
+    } catch (error) {
+      this.settings.source_language = previousSource;
+      this.settings.target_language = previousTarget;
+      this.refreshDirectionPill();
+      this.notice(`Language direction was not changed: ${errorMessage(error)}`);
+    } finally {
+      this.settingsSaving = false;
+      this.ui.textSwapLanguageButton.disabled = false;
     }
   }
 
@@ -353,31 +396,35 @@ export class SimpleLauncherController {
   private renderSettings(tab: SettingsTab): void {
     this.activeSettingsTab = tab;
     this.ui.settingsNavItems.forEach((button) => button.classList.toggle("active", button.dataset.settingsTab === tab));
-    if (tab === "audio") {
-      renderAudioSettingsTab({
-        ui: this.ui as any,
+    if (tab === "meeting") {
+      this.advancedDiagnosticsOpen = false;
+      renderMeetingSettingsTab({
+        ui: this.ui,
         settings: this.settings,
         onCheckAudioInput: () => void this.runSetup("check-microphone"),
         onStartOrStopRecording: () => void this.toggleVoice(),
-        onToggleVoiceOutput: () => { this.toggleVoiceOutput(); this.renderSettings("audio"); },
-        onToggleRuntimeProfile: () => { this.toggleRuntimeProfile(); this.renderSettings("audio"); },
+        onCheckSetup: () => void this.fixSetup(),
       });
       return;
     }
-    if (tab === "translate") {
-      renderTranslateSettingsTab({
-        ui: this.ui as any,
-        settings: this.settings,
-        activeLanguageSelector: this.activeLanguageSelector,
-        onToggleLanguageSelector: (role) => { this.activeLanguageSelector = this.activeLanguageSelector === role ? null : role; this.renderSettings("translate"); },
-        onSelectLanguage: (role, code) => this.selectLanguage(role, code),
-        onSwapLanguages: () => { const result = applyLanguageSwap(this.settings); this.settings = result.settings; this.refreshDirectionPill(); this.notice(result.notice); this.renderSettings("translate"); },
-        onSetRuntimeProfile: (profile) => { const result = applyRuntimeProfile(this.settings, profile); this.settings = result.settings; this.notice(result.notice); this.renderSettings("translate"); },
-        onSaveSettings: () => void this.saveSettings(),
-      });
+    if (tab === "history") {
+      this.advancedDiagnosticsOpen = false;
+      renderHistoryPrivacySettingsTab({ ui: this.ui });
       return;
     }
-    if (tab === "developer") {
+    if (tab === "advanced") {
+      if (!this.advancedDiagnosticsOpen) {
+        renderAdvancedSettingsTab({
+          ui: this.ui,
+          translationStatus: this.ui.realtimeStatus.textContent ?? "Checking",
+          meetingStatus: this.ui.qualityStatus.textContent ?? "Checking",
+          onOpenDiagnostics: () => {
+            this.advancedDiagnosticsOpen = true;
+            this.renderSettings("advanced");
+          },
+        });
+        return;
+      }
       this.ui.settingsContent.innerHTML = renderDeveloperSettingsView({
         latestBundle: this.snapshot?.bundle ?? null,
         latestDiagnostics: this.snapshot?.diagnostics ?? null,
@@ -391,81 +438,12 @@ export class SimpleLauncherController {
       const diagnosticButton = document.getElementById("runDiagnosticButton") as HTMLButtonElement | null;
       diagnosticButton?.addEventListener("click", () => void this.runDiagnostics());
       const logsButton = document.getElementById("seeAllLogsButton") as HTMLButtonElement | null;
-      logsButton?.addEventListener("click", () => { this.logsExpanded = !this.logsExpanded; this.renderSettings("developer"); });
+      logsButton?.addEventListener("click", () => { this.logsExpanded = !this.logsExpanded; this.renderSettings("advanced"); });
       const modelButton = document.getElementById("refreshModelInventoryButton") as HTMLButtonElement | null;
       modelButton?.addEventListener("click", () => void this.runSetup("verify-models"));
       return;
     }
-    renderGeneralSettingsTab({
-      ui: this.ui as any,
-      settings: this.settings,
-      realtimeStatusText: this.ui.realtimeStatus.textContent,
-      gpuStatusText: this.ui.gpuStatus.textContent,
-      onToggleRuntimeProfile: () => { this.toggleRuntimeProfile(); this.renderSettings("general"); },
-      onToggleLanguageFocusMode: () => { this.settings.language_focus_mode = this.settings.language_focus_mode === "id-en-focus" ? "general-focus" : "id-en-focus"; this.notice(`Language focus: ${this.settings.language_focus_mode}`); this.renderSettings("general"); },
-      onSaveSettings: () => void this.saveSettings(),
-      onResetSettings: () => void this.resetSettings(),
-    });
-  }
-
-  private selectLanguage(role: LanguageSelectorRole, code: string): void {
-    if (!isLanguageCode(code)) {
-      this.notice("Selected language is not supported yet.");
-      return;
-    }
-    if (role === "source") {
-      this.settings.source_language = code;
-      if (this.settings.target_language.toLowerCase() === code) this.settings.target_language = nextLanguageCode(code);
-    } else {
-      this.settings.target_language = code;
-      if (this.settings.source_language.toLowerCase() === code) this.settings.source_language = nextLanguageCode(code);
-    }
-    this.activeLanguageSelector = null;
-    this.refreshDirectionPill();
-    this.notice(`Language pair changed to ${this.settings.source_language.toUpperCase()} > ${this.settings.target_language.toUpperCase()}.`);
-    this.renderSettings("translate");
-  }
-
-  private toggleRuntimeProfile(): void {
-    const next = this.settings.runtime_profile === "Quality" ? "Realtime" : "Quality";
-    const result = applyRuntimeProfile(this.settings, next);
-    this.settings = result.settings;
-    this.notice(result.notice);
-  }
-
-  private toggleVoiceOutput(): void {
-    const result = applyVoiceOutputToggle(this.settings);
-    this.settings = result.settings;
-    this.notice(result.notice);
-  }
-
-  private async saveSettings(): Promise<void> {
-    if (this.settingsSaving) return;
-    this.settingsSaving = true;
-    this.notice("Saving settings...");
-    try {
-      const result = await runtimeApi.saveSettings(this.settings);
-      this.settings = await runtimeApi.loadSettings().catch(() => this.settings);
-      this.refreshDirectionPill();
-      this.notice(result.message);
-    } finally {
-      this.settingsSaving = false;
-    }
-  }
-
-  private async resetSettings(): Promise<void> {
-    if (this.settingsSaving) return;
-    this.settingsSaving = true;
-    this.notice("Restoring defaults...");
-    try {
-      const result = await runtimeApi.saveDefaultSettings();
-      this.settings = await runtimeApi.loadSettings().catch(() => defaultSettings());
-      this.refreshDirectionPill();
-      this.notice(result.message);
-      this.renderSettings(this.activeSettingsTab);
-    } finally {
-      this.settingsSaving = false;
-    }
+    this.renderSettings("meeting");
   }
 
   private async runDiagnostics(): Promise<void> {
@@ -474,7 +452,8 @@ export class SimpleLauncherController {
     this.notice("Refreshing diagnostics...");
     try {
       await this.refreshReadiness("Diagnostics refreshed.");
-      this.renderSettings("developer");
+      this.advancedDiagnosticsOpen = true;
+      this.renderSettings("advanced");
     } finally {
       this.diagnosticsRunning = false;
     }
@@ -488,17 +467,22 @@ export class SimpleLauncherController {
         void this.submitText();
       }
     });
+    this.ui.textSwapLanguageButton.addEventListener("click", () => void this.swapTextLanguages());
     this.ui.composerPlusButton.addEventListener("click", () => this.ui.attachmentInput.click());
     this.ui.attachmentInput.addEventListener("change", () => void this.ingestAttachmentFiles());
     this.ui.workspaceNavItems.forEach((button) => button.addEventListener("click", () => {
       const workspace = button.dataset.workspaceNav;
       if (isWorkspace(workspace)) this.showWorkspace(workspace);
     }));
-    this.ui.settingsButton.addEventListener("click", () => this.showSettings("general"));
+    this.ui.settingsButton.addEventListener("click", () => this.showSettings("meeting"));
     this.ui.backHomeButton.addEventListener("click", () => this.showWorkspace(this.activeWorkspace));
     this.ui.retryReadinessButton.addEventListener("click", () => void this.refreshReadiness("Readiness refreshed."));
     this.ui.fixSetupButton.addEventListener("click", () => void this.fixSetup());
-    this.ui.openDeveloperDiagnosticsButton.addEventListener("click", () => this.showSettings("developer"));
-    this.ui.settingsNavItems.forEach((button) => button.addEventListener("click", () => this.renderSettings((button.dataset.settingsTab as SettingsTab) ?? "general")));
+    this.ui.openDeveloperDiagnosticsButton.addEventListener("click", () => this.showSettings("advanced", true));
+    this.ui.settingsNavItems.forEach((button) => button.addEventListener("click", () => {
+      const tab = (button.dataset.settingsTab as SettingsTab) ?? "meeting";
+      this.advancedDiagnosticsOpen = false;
+      this.renderSettings(tab);
+    }));
   }
 }
