@@ -222,3 +222,51 @@ initial desktop product to one app instance/active Meeting also avoids duplicate
 TTS, conflicting microphone/Meeting Microphone ownership, and concurrent writes to
 the same local user data. Keeping only safety-critical controls global prevents the
 application shell from becoming a second Meeting control panel.
+
+## D-015 — Simple Familiar UI And Minimal Screen Model
+
+**Decision**  
+The initial TranslateIT UI must prioritize being **simple to use and familiar** to a
+nontechnical Windows desktop user. Familiar desktop patterns, clear wording,
+obvious primary actions, low control density, and progressive disclosure take
+priority over novel interaction patterns or exposing implementation flexibility.
+
+The core screen model stays deliberately small:
+
+```text
+First Setup Wizard
+├─ Welcome
+├─ Microphone
+├─ Meeting Sound
+├─ Meeting Microphone
+└─ Verify / Ready
+
+Normal App
+├─ Meeting
+├─ Text
+├─ History Collection
+├─ History Detail
+├─ Settings
+└─ Diagnostics (nested under Advanced)
+```
+
+Meeting lifecycle conditions such as Ready, Starting, Live, Paused, Recovering,
+Attention Needed, Stopping, and Ended are variants of one Meeting workspace rather
+than separate pages. Text lifecycle conditions similarly remain in one Text
+workspace. Saved is a History tab and reuses the same detail views. Global Meeting
+live state, critical alerts, and confirmation dialogs are shell elements rather
+than new pages.
+
+There is no separate language-setup page while Indonesian/English is the only
+supported pair, and no initial Home/Dashboard, Documents, top-level Saved, separate
+General/Translation Settings, lifecycle Error/Ready pages, or top-level Developer
+page.
+
+**Reason**  
+The user explicitly identified simplicity and familiarity as the key UI goal. The
+approved product behavior is already complex internally; creating a page for every
+state or surfacing every capability as a control would transfer that complexity to
+the user. Reusing a small number of familiar workspaces keeps navigation
+predictable, reduces unnecessary decisions, and lets the application express
+runtime state without turning technical state transitions into a complicated
+information architecture.
