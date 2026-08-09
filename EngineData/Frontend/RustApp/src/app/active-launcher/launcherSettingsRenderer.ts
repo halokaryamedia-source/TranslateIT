@@ -140,13 +140,20 @@ function syncMeetingDeviceLabel(kind: ProductAudioDeviceKind, settings: RuntimeS
   if (value) value.textContent = `Meeting sound: ${deviceLabel(settings.audio.output_device_id)}`;
 }
 
+function applyCanonicalMicrophoneReadiness(ready: boolean): void {
+  const status = document.getElementById("meetingInputDeviceStatus");
+  if (!status) return;
+  status.textContent = ready ? "Ready" : "Setup Needed";
+  status.dataset.tone = ready ? "good" : "warning";
+}
+
 export function renderMeetingSettingsTab(args: {
   ui: SettingsRenderRefs;
   settings: RuntimeSettings;
   onCheckAudioInput: () => void;
   onStartOrStopRecording: () => void;
   onCheckSetup: () => void;
-  onDeviceSelectionCommitted: (kind: ProductAudioDeviceKind) => void;
+  onDeviceSelectionCommitted?: (kind: ProductAudioDeviceKind) => void;
 }): void {
   args.ui.settingsContent.innerHTML = meetingSettingsView(args.settings);
   requireElement<HTMLButtonElement>("#checkAudioInputButton").addEventListener("click", () => args.onCheckAudioInput());
@@ -187,7 +194,13 @@ export function renderMeetingSettingsTab(args: {
         populateDeviceSelect(microphoneSelect, devices.input_devices, args.settings.audio.input_device_id);
         populateDeviceSelect(meetingSoundSelect, devices.output_devices, args.settings.audio.output_device_id);
       }
-      args.onDeviceSelectionCommitted(kind);
+      if (args.onDeviceSelectionCommitted) {
+        args.onDeviceSelectionCommitted(kind);
+      } else if (kind === "microphone") {
+        const snapshot = await runtimeProductFacade.loadProductRuntimeSnapshot();
+        syncSettings(args.settings, snapshot.settings);
+        applyCanonicalMicrophoneReadiness(snapshot.readiness.microphoneReady);
+      }
     } catch (error) {
       select.value = String(previousValue ?? "");
       message.textContent = `Device preference was not changed: ${error instanceof Error ? error.message : String(error)}`;
