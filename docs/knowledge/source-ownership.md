@@ -24,10 +24,10 @@ runtime/device/rendered/package claims beyond the evidence actually obtained.
 
 | Boundary | Current owner(s) | Status | Proof | Smallest later reconciliation |
 |---|---|---|---|---|
-| Product shell/navigation | `src/main.ts`, `SimpleLauncherController.ts`, `lockedReferenceShellParts.ts`, `shell.ts` | **ALIGNED / VISUAL PARTIAL** | static source | Top-level navigation is now `Meeting / Text / History / Settings`; final visual composition still needs implementation/rendered proof. |
-| Settings hierarchy | `lockedReferenceShellParts.ts`, `launcherSettingsRenderer.ts`, `SimpleLauncherController.ts` | **ALIGNED HIERARCHY / PARTIAL CONTENT** | static source | Normal Settings now routes through `Meeting / History & Privacy / Advanced`; complete Meeting device controls and History persistence controls remain separate later slices. |
-| Product readiness/setup | `runtimeProductFacade.ts`, `SimpleLauncherController.ts` | **PARTIAL / STALE SEMANTICS** | static source; local proof later | Extend approved first-use/defer flow, transactional Start, optional incoming degradation, verified device changes, and scoped recovery. |
-| Text translation | `SimpleLauncherController.ts`, `runtimeProductFacade.ts`, Rust translation command/runtime | **PARTIAL** | static source; runtime quality proof later | Text now owns reachable ID/EN direction swap; later align final two-pane composition, Quality/Tone semantics, result authority/editing, and remove out-of-scope file-attachment workflow. |
+| Product shell/navigation | `src/main.ts`, `SimpleLauncherController.ts`, `lockedReferenceShellParts.ts`, `shell.ts` | **ALIGNED / VISUAL PARTIAL** | static source | Top-level navigation is now `Meeting / Text / History / Settings`; rendered shell quality remains local proof later. |
+| Settings hierarchy | `lockedReferenceShellParts.ts`, `launcherSettingsRenderer.ts`, `SimpleLauncherController.ts` | **ALIGNED HIERARCHY / PARTIAL CONTENT** | static source | Normal Settings now routes through `Meeting / History & Privacy / Advanced`; complete History persistence controls and verified device-selection behavior remain later slices. |
+| Meeting Ready / product readiness | `runtimeProductFacade.ts`, `SimpleLauncherController.ts`, `lockedReferenceShellParts.ts`, `mainPageLayout.css` | **READY UI ALIGNED / RUNTIME PARTIAL** | static source; local proof later | Ready composition now matches approved hierarchy and uses truthful current microphone/route evidence; atomic Start, incoming lane, first-use setup, and Live lifecycle remain separate slices. |
+| Text translation | `SimpleLauncherController.ts`, `runtimeProductFacade.ts`, Rust translation command/runtime | **PARTIAL** | static source; runtime quality proof later | Text owns reachable ID/EN direction swap; later align final two-pane composition, Quality/Tone semantics, result authority/editing, and remove out-of-scope file-attachment workflow. |
 | Meeting voice capture/pipeline | Rust capture/audio/pipeline owners | **PARTIAL / STALE OWNERSHIP** | local proof required | Reconcile one runtime/helper orchestration owner, Session Listening, generation-safe utterances, bounded backlog, turn coordination, and Stop semantics. |
 | Translation context/tone | runtime settings + context/translation adapters | **PARTIAL / MISSING** | static source; quality proof later | Make tone and bounded committed Meeting context reach actual inference without History leakage. |
 | Meeting audio route | virtual-route Rust commands + local provider | **PARTIAL** | **LOCAL PROOF REQUIRED** | Preserve managed `TranslateIT Meeting Microphone`; prove delivery, self-output suppression, and safe recovery on Windows. |
@@ -97,9 +97,9 @@ Source behavior now reflects the approved responsibility split:
   longer reachable through normal Settings routing.
 
 Text language direction was not silently lost when global Translation Settings was
-removed: Text now owns a direct Indonesian/English swap action persisted through the
+removed: Text owns a direct Indonesian/English swap action persisted through the
 existing settings command. Meeting keeps its fixed initial ID -> EN outbound
-direction independently, so Text swapping cannot falsely change Meeting direction.
+direction independently.
 
 Older helpers in `settingsViews.ts` may still contain inherited General/Translation/
 Audio rendering code, but they are no longer the normal active Settings route.
@@ -107,28 +107,53 @@ Remove them only when a bounded reachability cleanup proves no remaining consume
 
 Classification: **ALIGNED HIERARCHY / PARTIAL CONTENT**.
 
-## 3. Product Readiness And First Setup
+## 3. Meeting Ready And Product Readiness
 
 Current owners:
 
 ```text
 src/app/bridge/runtimeProductFacade.ts
 src/app/simple-launcher/SimpleLauncherController.ts
+src/app/active-launcher/lockedReferenceShellParts.ts
+src/mainPageLayout.css
 ```
 
-Approved behavior not yet fully implemented:
+The active Meeting Ready surface now follows the approved user hierarchy:
 
-- focused first-use setup for Your microphone, Meeting sound, Meeting microphone,
-  and local translation;
-- intentional `Set up later` without pretending Meeting readiness;
-- returning quick preflight;
-- core-outbound Ready with optional incoming degradation;
-- atomic Start Translation;
-- verified device changes before replacing working preferences;
-- scoped recovery rather than raw subsystem controls.
+```text
+readiness
+-> plain-language ID -> EN voice / EN -> ID text behavior
+-> Your microphone
+-> Incoming translation / Meeting sound
+-> managed TranslateIT Meeting Microphone
+-> Realtime / Auto
+-> Start Translation boundary
+-> meeting-app microphone reminder
+```
 
-Classification: **PARTIAL / STALE SEMANTICS**. Windows/device transitions remain
-**LOCAL PROOF REQUIRED**.
+Current readiness is not fabricated:
+
+- overall Meeting, microphone, and managed-route status come from the existing
+  `runtimeProductFacade` snapshot/current input evidence;
+- configured Meeting sound is presented from the existing settings preference;
+- the approved incoming lane is explicitly shown as `Not connected yet` rather than
+  pretending the missing incoming implementation is Ready;
+- `Start Translation` is intentionally present but disabled because the approved
+  atomic live-session Start lifecycle is not connected yet;
+- normal Meeting no longer exposes Developer Diagnostics as a competing primary
+  action; Diagnostics remains under Settings -> Advanced.
+
+The source now establishes the final Ready-state information hierarchy and narrow
+row reflow, but actual rendered quality and device truth still require local proof.
+
+Still not implemented in this boundary:
+
+- first-use setup / intentional `Set up later`;
+- verified Meeting Sound selection and incoming capture;
+- atomic `Start Translation` lifecycle;
+- Meeting Live transcript/turn coordination/recovery/Stop behavior.
+
+Classification: **READY UI ALIGNED / RUNTIME PARTIAL**.
 
 ## 4. Text Translation
 
@@ -142,8 +167,8 @@ SimpleLauncherController
 -> canonical local translation runtime
 ```
 
-The Text workspace now exposes a contextual ID/EN direction swap rather than relying
-on the removed global Translation Settings tab. Approved Text behavior still also
+The Text workspace exposes a contextual ID/EN direction swap rather than relying on
+the removed global Translation Settings tab. Approved Text behavior still also
 requires final source/target composition, Quality/Tone contextual controls, request
 authority, outdated-result handling, editable target, Save/Copy semantics, and no
 silent truncation. Current quick text file attachment remains stale because
@@ -284,14 +309,14 @@ Text file-attachment translation behavior
 ### Still requires later reconciliation
 
 ```text
-Meeting Ready / Live approved composition
+atomic Start Translation + Meeting Live approved composition/lifecycle
 First Setup wizard / intentional defer
 Text final two-pane composition and result authority
 History Recent versus Saved persistence/workspace semantics
 global Meeting strip / cross-view live state / single-instance behavior
 capture lifecycle and unified helper ownership
 incoming Meeting Sound lane and self-output suppression
-atomic Start / bounded recovery / Stop finalization
+bounded recovery / Stop finalization
 approved tone/context inference contract
 repo-root/system-Python installed-build assumptions
 ```
