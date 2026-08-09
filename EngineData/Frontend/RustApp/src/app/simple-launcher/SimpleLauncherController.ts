@@ -153,10 +153,6 @@ function isWorkspace(value: string | undefined): value is ProductWorkspace {
   return value === "meeting" || value === "text" || value === "history";
 }
 
-function isHistoryScope(value: string): value is HistoryScope {
-  return value === "recent" || value === "saved";
-}
-
 function isHistoryEntryType(value: string): value is HistoryEntryType {
   return value === "all" || value === "meeting" || value === "text";
 }
@@ -203,7 +199,6 @@ export class SimpleLauncherController {
   private historyTypeFilter: HistoryEntryType = "all";
   private historySummaries: HistorySummary[] = [];
   private historyDetailEntry: HistoryEntry | null = null;
-  private historyLoading = false;
 
   constructor(root: HTMLElement) {
     mountAppShell(root);
@@ -542,13 +537,15 @@ export class SimpleLauncherController {
       const empty = document.createElement("div");
       empty.className = "history-empty";
       const title = document.createElement("strong");
-      title.textContent = this.historyScope === "saved" ? "Nothing saved yet." : "No history yet.";
+      title.textContent = query ? "No matching history." : this.historyScope === "saved" ? "Nothing saved yet." : "No history yet.";
       const detail = document.createElement("span");
-      detail.textContent = this.historyScope === "saved"
-        ? "Saved Text and Meeting translations will appear here after an explicit Save."
-        : this.settings.history_enabled === false
-          ? "History is off. Existing items remain available, but new translations are not added to Recent."
-          : "Completed Text translations will appear here. Meeting History will follow the canonical Meeting lifecycle later.";
+      detail.textContent = query
+        ? "Try another search term or history type."
+        : this.historyScope === "saved"
+          ? "Saved Text and Meeting translations will appear here after an explicit Save."
+          : this.settings.history_enabled === false
+            ? "History is off. Existing items remain available, but new translations are not added to Recent."
+            : "Completed Text translations will appear here. Meeting History will follow the canonical Meeting lifecycle later.";
       empty.append(title, detail);
       this.ui.historyCollection.append(empty);
       return;
@@ -599,8 +596,6 @@ export class SimpleLauncherController {
   }
 
   private async refreshHistoryCollection(): Promise<void> {
-    if (this.historyLoading) return;
-    this.historyLoading = true;
     const requestScope = this.historyScope;
     const requestFilter = this.historyTypeFilter;
     this.ui.historyCollection.textContent = "Loading history...";
@@ -614,8 +609,6 @@ export class SimpleLauncherController {
       const message = errorMessage(error);
       this.renderHistoryLoadError(message);
       this.notice(`History could not be loaded: ${message}`);
-    } finally {
-      this.historyLoading = false;
     }
   }
 
@@ -712,7 +705,7 @@ export class SimpleLauncherController {
       this.ui.historyDetailMessage.textContent = `History action failed: ${message}`;
       this.notice(`History action failed: ${message}`);
     } finally {
-      if (this.historyDetailEntry && this.historyDetailActionButton.textContent !== "Saved") {
+      if (this.historyDetailEntry && this.ui.historyDetailActionButton.textContent !== "Saved") {
         this.ui.historyDetailActionButton.disabled = false;
       }
     }
