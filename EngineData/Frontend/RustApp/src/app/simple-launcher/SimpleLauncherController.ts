@@ -13,14 +13,12 @@ import { attachmentSection, compactAttachmentText, isSupportedTextAttachment, sa
 import { setRuntimeProfile as applyRuntimeProfile, swapLanguages as applyLanguageSwap, toggleVoiceOutput as applyVoiceOutputToggle } from "../active-launcher/launcherSettingsActions";
 
 const STARTUP_STEP_MS = 80;
-type ProductWorkspace = "meeting" | "text" | "documents" | "history" | "saved";
+type ProductWorkspace = "meeting" | "text" | "history";
 
 const WORKSPACE_TITLES: Record<ProductWorkspace, string> = {
   meeting: "Meeting",
   text: "Text",
-  documents: "Documents",
   history: "History",
-  saved: "Saved",
 };
 
 type SimpleRefs = {
@@ -108,7 +106,7 @@ function sleep(ms: number): Promise<void> {
 }
 
 function isWorkspace(value: string | undefined): value is ProductWorkspace {
-  return value === "meeting" || value === "text" || value === "documents" || value === "history" || value === "saved";
+  return value === "meeting" || value === "text" || value === "history";
 }
 
 export class SimpleLauncherController {
