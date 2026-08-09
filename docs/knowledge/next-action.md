@@ -2,7 +2,7 @@
 
 Updated: 2026-08-10  
 Working branch: `New`  
-Status: core shell, First Setup including source-side audio-device selection, Settings, Meeting Ready, Text, and Text-backed History/Saved are aligned through ChatGPT -> GitHub
+Status: core shell, First Setup/device selection, Settings, Meeting Ready, Text, History/Saved, and the canonical application Meeting session authority are source-aligned through ChatGPT -> GitHub
 
 This file is the single active continuation owner for TranslateIT.
 
@@ -14,7 +14,7 @@ For a new session:
 AGENTS.md
 -> CONTEXT.md
 -> docs/knowledge/next-action.md
--> relevant foundation/source-ownership owner
+-> docs/knowledge/source-ownership.md
 -> one affected current source owner + direct contracts only
 ```
 
@@ -58,20 +58,20 @@ not helper/model/audio-engineering internals.
 - Documents and top-level Saved are removed;
 - one normal `SimpleLauncherController -> shell` path remains.
 
-### Settings hierarchy
+### Settings / First Setup / devices
 
-```text
-Meeting
-History & Privacy
-Advanced
-    -> Diagnostics
-```
+- Settings is `Meeting / History & Privacy / Advanced -> Diagnostics`;
+- first launch uses the approved five-step focused Setup shell;
+- `Set up later` persists defer intent without marking Meeting Ready;
+- microphone and Meeting Sound use one shared candidate-check -> commit path;
+- pinned microphone loss does not silently fall back to another device;
+- Meeting Sound endpoint checking does not claim incoming translation is implemented.
 
 ### Meeting Ready
 
 Approved Ready hierarchy is mounted and truthful. Incoming remains explicitly not
-connected and `Start Translation` remains disabled until an atomic Meeting lifecycle
-exists.
+connected. The visible `Start Translation` control is still intentionally disabled;
+it is not mapped to legacy microphone-only capture.
 
 ### Text
 
@@ -98,76 +98,68 @@ independent Save, Remove from Saved, History On/Off, and confirmation-gated Clea
 History that never deletes Saved. Legacy chat/transcript stores are not product
 History.
 
-### First Setup
+### Canonical application Meeting session authority
 
-First launch is gated through one focused five-step shell:
-
-```text
-Welcome
--> Your microphone
--> Meeting sound
--> Meeting microphone
--> Verify / Ready
-```
-
-`Set up later` is explicit and persisted. Only setup-flow facts are stored:
+The existing runtime-state owner now carries application session authority:
 
 ```text
-meeting_setup_state      -> new | deferred | completed
-meeting_setup_checkpoint -> 1..5
+session_id
+generation
+authority_active
+phase
 ```
 
-No permanent Ready flag exists; capability state is revalidated.
-
-### Your microphone / Meeting Sound selection
-
-One shared product selection authority is now used by First Setup and
-`Settings -> Meeting`:
+Canonical command owner:
 
 ```text
-runtimeProductFacade
--> runtimeApi
--> native audio-device commands
--> existing RuntimeSettings.audio preference
+src-tauri/src/commands/meeting_session.rs
 ```
 
-**Microphone source contract:**
+Registered Tauri commands:
 
-- user can choose Windows Default or one explicit native input;
-- explicit candidate is checked before preference save;
-- failed candidate check/save keeps the previous persisted preference;
-- `get_input_status()` checks the configured input rather than always checking the
-  Windows default;
-- a pinned microphone that disappears blocks live capture instead of silently
-  switching to another default microphone;
-- Windows Default remains follow-default behavior because no explicit input id is
-  pinned.
+```text
+get_meeting_session_status
+start_meeting_translation
+stop_meeting_translation
+```
 
-**Meeting Sound source contract:**
+Current source guarantees:
 
-- user can choose Windows Default or one explicit native output;
-- candidate/default output configuration is checked before preference save;
-- failed candidate check/save keeps the previous preference;
-- this verifies only the selected output endpoint/config contract; it does not claim
-  incoming Meeting Sound capture/translation is implemented.
+- one application Meeting session may own Meeting resources at a time;
+- a new session receives a monotonically advancing generation;
+- duplicate Start cannot create/overwrite another session;
+- already-Live duplicate Start is idempotent;
+- Start has a dedicated required-outbound preflight rather than reusing developer
+  payload/cache readiness;
+- Start resource-open/commit failure paths revoke authority before rollback;
+- Stop revokes the current generation **before** helper/capture/pipeline/handoff
+  cleanup;
+- Stop with no session is idempotent;
+- clearing runtime session state invalidates prior generation authority;
+- legacy capture-only behavior remains distinct and is not promoted into product
+  Translation Live.
 
-Settings does not promote native candidate/config success into full Meeting Ready;
-microphone state is re-read through canonical product readiness.
+The Start preflight is intentionally fail-closed on:
 
-First Setup presents the same selection semantics with familiar selectors and keeps
-Meeting Sound optional/degradable because incoming translation is still unavailable.
+```text
+meeting_session:continuous_outbound_runtime_not_connected
+```
+
+This is deliberate. The current developer handoff/cache pipeline is not a continuous
+user-facing Meeting runtime, so source does not claim Translation Live merely because
+microphone/model/helper/route prerequisites exist.
 
 ## Current Source Reality
 
 Important independent gaps remain:
 
 ```text
-atomic application-level Start Translation / Stop Translation lifecycle is missing
-Meeting Live transcript state is not implemented
+generation-aware continuous outbound ASR -> Translate -> TTS -> Meeting Microphone execution is not attached to Meeting session authority
+normal frontend Start/Stop + Meeting Live transcript state are not connected
 global cross-view Meeting strip/state and single-instance behavior are incomplete
 incoming Meeting Sound lane and self-output suppression are incomplete
-turn coordination, bounded recovery, Pause/Resume/Stop finalization remain incomplete
-Meeting History write/detail waits for canonical Meeting lifecycle
+turn coordination, bounded recovery, Pause/Resume semantics remain incomplete
+Meeting History write/detail waits for committed Meeting turns
 Text independent Quality default, tone inference, Copy/direct Save remain incomplete
 Windows microphone-permission deep-link remains incomplete
 legacy unreachable helpers may remain for later bounded cleanup
@@ -178,45 +170,49 @@ Do not combine all remaining work into one broad refactor.
 
 ## Proof State
 
-**CURRENT-PROJECT VERIFIED** at static-source level:
+**CURRENT-PROJECT VERIFIED** at static-source level for the Meeting authority slice:
 
-- new native candidate probes are registered through the current Tauri registry;
-- explicit microphone candidate checking and configured-input status share the
-  existing native audio owner;
-- explicit missing microphone no longer falls back to Windows default in the live
-  capture owner;
-- Meeting Sound candidate checking uses the native output endpoint/config boundary
-  and explicitly does not claim incoming capture;
-- `runtimeProductFacade.selectProductAudioDevice()` is the one frontend product
-  candidate-check -> commit path;
-- failed candidate or settings save returns the previous canonical settings instead
-  of committing the candidate;
-- First Setup and Meeting Settings use that same product path;
-- no second device store/service/shell was created.
+- `runtime_state.rs` owns session/generation authority instead of a new parallel
+  runtime store;
+- application Meeting session begin refuses an existing runtime owner;
+- generation is advanced for new sessions and invalidated by revoke/clear;
+- `meeting_session.rs` performs explicit preflight before resource ownership;
+- the preflight checks configured microphone, required models, local provider,
+  managed Meeting route, and the continuous outbound-runtime gate;
+- the continuous-runtime gate is fail-closed instead of accepting developer
+  pipeline payload/cache status as user readiness;
+- rollback paths revoke generation authority before stopping/clearing resources;
+- Stop revokes authority before cleanup and is idempotent when already stopped;
+- all three Meeting lifecycle commands are registered in the current Tauri command
+  registry;
+- the existing normal frontend remains untouched by the command boundary, so no
+  fake Live state was introduced.
 
-**LOCAL PROOF REQUIRED** for actual Rust/TypeScript build execution, native device
-enumeration/opening, permission behavior, persistence across restart, real capture,
-rendered selectors, Windows default-device changes, and installed-run behavior.
+**LOCAL PROOF REQUIRED** for Rust build execution, actual Tauri command invocation,
+concurrent Start/Stop behavior, native resource rollback, generation behavior under
+real asynchronous work, device/audio behavior, and Windows installed-run behavior.
 
 ## Hold
 
-- do not treat device enumeration/config discovery as live target-device proof;
+- do not enable `Start Translation` while continuous outbound execution is absent;
+- do not use developer seeded/payload pipeline readiness as Meeting Start proof;
+- do not let pipeline stages ignore Meeting generation once attached;
 - do not silently replace an explicit microphone with another device;
 - do not claim Meeting Sound selection means incoming translation works;
 - do not persist permanent Ready truth;
-- do not enable `Start Translation` by mapping it to legacy capture-only behavior;
-- do not invent Meeting History before canonical Meeting lifecycle exists;
+- do not invent Meeting History before committed Meeting lifecycle data exists;
 - do not revive Documents, attachment translation, top-level Saved, or old Settings;
 - do not start local Windows acceptance yet.
 
 ## Next Step
 
-Start the next bounded source slice: **establish the canonical application-level
-Meeting session lifecycle and atomic `Start Translation` / `Stop Translation`
-boundary**. First inspect only the current runtime-session, capture/pipeline, route,
-and direct frontend Start/Stop owners. Reuse current Rust/Tauri owners; do not create
-a parallel Meeting engine. The first lifecycle slice should establish one active
-session/generation authority, transactional required-outbound Start with rollback,
-and safe Stop invalidation. Keep incoming translation, turn coordination, full
-Meeting Live transcript rendering, and local Windows acceptance outside that first
-lifecycle slice unless they are strictly required by the Start/Stop contract.
+Start the next bounded source slice: **attach the outbound realtime execution path to
+the canonical Meeting `session_id + generation` authority**. Inspect only current
+capture boundary, ASR payload decode, translation handoff, TTS handoff, and guarded
+Meeting Microphone route dispatch. Every asynchronous stage must carry/check the
+application Meeting generation before promoting output. Establish a continuous
+outbound loop/source contract sufficient for the Meeting Start preflight to stop
+failing closed; only then wire the normal `Start Translation / Stop Translation` UI
+and Meeting Live state. Keep incoming Meeting Sound, turn coordination, History
+writing, and local Windows acceptance outside this slice unless strictly required by
+outbound safety.
