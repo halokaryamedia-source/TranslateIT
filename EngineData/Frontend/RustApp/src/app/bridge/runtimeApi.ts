@@ -41,6 +41,18 @@ import type {
 
 export const RUNTIME_SETTINGS_SAVED_EVENT = "translateit:runtime-settings-saved";
 
+export type AudioDeviceProbeReport = {
+  ok: boolean;
+  device_kind: string;
+  requested_device_id: string | null;
+  resolved_device_name: string | null;
+  is_default: boolean;
+  sample_rate_hz: number | null;
+  channels: number | null;
+  blocker: string;
+  note: string;
+};
+
 const MAX_COMMAND_ERRORS = 25;
 const commandErrors: RuntimeCommandError[] = [];
 
@@ -225,6 +237,20 @@ function audioDevicesFallback(message: string): AudioDeviceListReport {
     ok: false,
     input_devices: [],
     output_devices: [],
+    blocker: "frontend_bridge_unavailable",
+    note: message,
+  };
+}
+
+function audioDeviceProbeFallback(message: string): AudioDeviceProbeReport {
+  return {
+    ok: false,
+    device_kind: "meeting_sound",
+    requested_device_id: null,
+    resolved_device_name: null,
+    is_default: false,
+    sample_rate_hz: null,
+    channels: null,
     blocker: "frontend_bridge_unavailable",
     note: message,
   };
@@ -563,6 +589,23 @@ export const runtimeApi = {
       "list_audio_devices",
       undefined,
       audioDevicesFallback("Audio device list is unavailable because the frontend bridge could not call Tauri."),
+    );
+  },
+
+  async probeInputDeviceCandidate(deviceId: string | null): Promise<InputPreparationStatus> {
+    const status = await invokeOr<NativeInputPreparationStatus>(
+      "probe_input_device_candidate",
+      { deviceId },
+      inputStatusFallback("Microphone candidate could not be checked because the frontend bridge could not call Tauri."),
+    );
+    return normalizeInputStatus(status);
+  },
+
+  async probeOutputDeviceCandidate(deviceId: string | null): Promise<AudioDeviceProbeReport> {
+    return invokeOr<AudioDeviceProbeReport>(
+      "probe_output_device_candidate",
+      { deviceId },
+      audioDeviceProbeFallback("Meeting sound candidate could not be checked because the frontend bridge could not call Tauri."),
     );
   },
 
