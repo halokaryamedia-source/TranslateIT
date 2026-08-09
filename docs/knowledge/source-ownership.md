@@ -24,16 +24,16 @@ runtime/device/rendered/package claims beyond the evidence actually obtained.
 
 | Boundary | Current owner(s) | Status | Proof | Smallest later reconciliation |
 |---|---|---|---|---|
-| Product shell/navigation | `src/main.ts`, `SimpleLauncherController.ts`, `lockedReferenceShellParts.ts`, `shell.ts` | **ALIGNED / VISUAL PARTIAL** | static source | Top-level navigation is now `Meeting / Text / History / Settings`; rendered shell quality remains local proof later. |
-| Settings hierarchy | `lockedReferenceShellParts.ts`, `launcherSettingsRenderer.ts`, `SimpleLauncherController.ts` | **ALIGNED HIERARCHY / PARTIAL CONTENT** | static source | Normal Settings now routes through `Meeting / History & Privacy / Advanced`; complete History persistence controls and verified device-selection behavior remain later slices. |
-| Meeting Ready / product readiness | `runtimeProductFacade.ts`, `SimpleLauncherController.ts`, `lockedReferenceShellParts.ts`, `mainPageLayout.css` | **READY UI ALIGNED / RUNTIME PARTIAL** | static source; local proof later | Ready composition now matches approved hierarchy and uses truthful current microphone/route evidence; atomic Start, incoming lane, first-use setup, and Live lifecycle remain separate slices. |
-| Text translation | `SimpleLauncherController.ts`, `runtimeProductFacade.ts`, Rust translation command/runtime | **PARTIAL** | static source; runtime quality proof later | Text owns reachable ID/EN direction swap; later align final two-pane composition, Quality/Tone semantics, result authority/editing, and remove out-of-scope file-attachment workflow. |
+| Product shell/navigation | `src/main.ts`, `SimpleLauncherController.ts`, `lockedReferenceShellParts.ts`, `shell.ts` | **ALIGNED / VISUAL PARTIAL** | static source | Top-level navigation is `Meeting / Text / History / Settings`; rendered shell quality remains local proof later. |
+| Settings hierarchy | `lockedReferenceShellParts.ts`, `launcherSettingsRenderer.ts`, `SimpleLauncherController.ts` | **ALIGNED HIERARCHY / PARTIAL CONTENT** | static source | Normal Settings routes through `Meeting / History & Privacy / Advanced`; complete History controls and verified device-selection behavior remain later slices. |
+| Meeting Ready / product readiness | `runtimeProductFacade.ts`, `SimpleLauncherController.ts`, `lockedReferenceShellParts.ts`, `mainPageLayout.css` | **READY UI ALIGNED / RUNTIME PARTIAL** | static source; local proof later | Ready composition matches approved hierarchy and truthful current evidence; atomic Start, incoming lane, first-use setup, and Live lifecycle remain separate slices. |
+| Text translation | `SimpleLauncherController.ts`, `lockedReferenceShellParts.ts`, `mainPageLayout.css`, `runtimeProductFacade.ts`, Rust translation command/runtime | **UI ALIGNED / BEHAVIOR PARTIAL** | static source; runtime quality proof later | Familiar source/target panes, explicit Translate, persisted ID/EN swap, editable target, stale-result indication, and active attachment removal are aligned. Quality-default ownership, tone inference, Copy/Save, and runtime quality proof remain later work. |
 | Meeting voice capture/pipeline | Rust capture/audio/pipeline owners | **PARTIAL / STALE OWNERSHIP** | local proof required | Reconcile one runtime/helper orchestration owner, Session Listening, generation-safe utterances, bounded backlog, turn coordination, and Stop semantics. |
 | Translation context/tone | runtime settings + context/translation adapters | **PARTIAL / MISSING** | static source; quality proof later | Make tone and bounded committed Meeting context reach actual inference without History leakage. |
 | Meeting audio route | virtual-route Rust commands + local provider | **PARTIAL** | **LOCAL PROOF REQUIRED** | Preserve managed `TranslateIT Meeting Microphone`; prove delivery, self-output suppression, and safe recovery on Windows. |
 | Incoming Meeting assistance | capture/audio/runtime pipeline owners | **PARTIAL / MISSING SEMANTICS** | local proof required | Separate Meeting Sound lane, optional/degradable behavior, freshness, and self-output suppression. |
 | History / Saved / storage | existing session/storage modules + `UserData/*` | **PARTIAL / STALE SEMANTICS** | static source; persistence proof later | Implement automatic Recent History and explicit independent Saved under the unified History UI. |
-| Document translation | residual quick text-attachment/document-era source only | **RETIRED** | current source/policy | Top-level Documents is gone; remove remaining Text file-attachment behavior when Text composition is reconciled. Do not build document infrastructure. |
+| Document translation | historical/unreachable attachment-era helpers may remain | **RETIRED** | current source/policy | Top-level Documents and the active Text file-attachment workflow are removed. Do not revive file/document translation; clean unreachable helpers only when bounded reachability proof shows no consumer. |
 | Audio Studio | explicit Audio Studio entry + backend metadata/contracts | **PARTIAL / POST-CORE** | source only; provider proof later | Preserve reachability; defer provider/profile completion until core paths are aligned. |
 | Installer/package/runtime assets | Tauri config/preflight + paths/assets owners | **PARTIAL / STALE PACKAGING ASSUMPTIONS** | clean-machine proof later | Package helper/runtime/assets explicitly and remove repo-root/system-Python installed-build assumptions. |
 
@@ -76,7 +76,7 @@ src/app/active-launcher/launcherSettingsRenderer.ts
 src/app/simple-launcher/SimpleLauncherController.ts
 ```
 
-Current normal hierarchy is now:
+Current normal hierarchy is:
 
 ```text
 Meeting
@@ -85,7 +85,7 @@ Advanced
     -> Diagnostics
 ```
 
-Source behavior now reflects the approved responsibility split:
+Source behavior reflects the approved responsibility split:
 
 - `Meeting` presents product-level meeting preference/setup rows and existing
   microphone/setup actions;
@@ -96,8 +96,7 @@ Source behavior now reflects the approved responsibility split:
 - inherited `General`, global `Translation`, and standalone `Audio` tabs are no
   longer reachable through normal Settings routing.
 
-Text language direction was not silently lost when global Translation Settings was
-removed: Text owns a direct Indonesian/English swap action persisted through the
+Text language direction is owned contextually in Text and persisted through the
 existing settings command. Meeting keeps its fixed initial ID -> EN outbound
 direction independently.
 
@@ -118,7 +117,7 @@ src/app/active-launcher/lockedReferenceShellParts.ts
 src/mainPageLayout.css
 ```
 
-The active Meeting Ready surface now follows the approved user hierarchy:
+The active Meeting Ready surface follows the approved user hierarchy:
 
 ```text
 readiness
@@ -138,13 +137,10 @@ Current readiness is not fabricated:
 - configured Meeting sound is presented from the existing settings preference;
 - the approved incoming lane is explicitly shown as `Not connected yet` rather than
   pretending the missing incoming implementation is Ready;
-- `Start Translation` is intentionally present but disabled because the approved
-  atomic live-session Start lifecycle is not connected yet;
+- `Start Translation` is present but disabled because the approved atomic
+  live-session Start lifecycle is not connected yet;
 - normal Meeting no longer exposes Developer Diagnostics as a competing primary
   action; Diagnostics remains under Settings -> Advanced.
-
-The source now establishes the final Ready-state information hierarchy and narrow
-row reflow, but actual rendered quality and device truth still require local proof.
 
 Still not implemented in this boundary:
 
@@ -157,7 +153,7 @@ Classification: **READY UI ALIGNED / RUNTIME PARTIAL**.
 
 ## 4. Text Translation
 
-Current path:
+Current path remains:
 
 ```text
 SimpleLauncherController
@@ -167,14 +163,41 @@ SimpleLauncherController
 -> canonical local translation runtime
 ```
 
-The Text workspace exposes a contextual ID/EN direction swap rather than relying on
-the removed global Translation Settings tab. Approved Text behavior still also
-requires final source/target composition, Quality/Tone contextual controls, request
-authority, outdated-result handling, editable target, Save/Copy semantics, and no
-silent truncation. Current quick text file attachment remains stale because
-first-class document/file translation was removed from scope.
+The active Text workspace now follows the approved familiar translator composition:
 
-Classification: **PARTIAL**.
+```text
+source language <-> target language
+source textarea | editable target textarea
+current contextual mode / Tone Auto presentation
+explicit Translate
+inline result state
+```
+
+Source behavior now includes:
+
+- direct Indonesian/English swap persisted through the existing settings command;
+- if a completed target exists, successful Swap moves that visible target into the
+  source pane and clears the target for the reverse translation;
+- explicit `Translate` button and `Ctrl + Enter` shortcut rather than Enter-to-send
+  chat behavior;
+- translation continues through the existing canonical `runtimeProductFacade` /
+  Rust command path;
+- the target pane is editable and the source is never cleared by translation errors;
+- a completed result remains visible after source edits and is marked `Needs update`;
+- if the source changes while inference is in flight, the returned result is marked
+  as belonging to the previous source instead of silently appearing current;
+- translation failure preserves any previous visible target and reports an inline
+  truthful error state;
+- the active file input, `Attach text` action, attachment-ingestion method/imports,
+  and attachment event bindings are removed from the active Text workflow.
+
+Current contextual `Mode` reflects the existing persisted runtime profile rather
+than falsely claiming the approved Text `Quality` default is already independently
+owned. Tone is presented as approved `Auto`, but actual tone inference/context
+wiring remains a separate source/runtime gap. Copy/Save semantics are also not yet
+implemented in this slice.
+
+Classification: **UI ALIGNED / BEHAVIOR PARTIAL**.
 
 ## 5. Meeting Voice Capture, Outbound And Coordination
 
@@ -254,10 +277,10 @@ Classification: **PARTIAL / STALE SEMANTICS**.
 
 First-class Document Translation is **removed from current product scope**.
 
-Top-level Documents is already removed from the active shell. Remaining attachment
-helpers reachable through Text are stale product behavior and should be removed when
-Text composition is reconciled; they must not be expanded into parser/export/job
-infrastructure.
+Top-level Documents and the active Text attachment workflow are no longer mounted or
+bound by the current shell/controller. Any remaining attachment-era helper files are
+historical/unreachable candidates only; they must not be promoted into product
+capability and should be removed only after bounded reachability proof.
 
 Classification: **RETIRED**.
 
@@ -303,7 +326,7 @@ top-level Saved navigation
 General / Translation / Audio as normal Settings destinations
 normal-user helper/worker controls outside nested Diagnostics
 Fast user-facing mode naming
-Text file-attachment translation behavior
+active Text file-attachment translation workflow
 ```
 
 ### Still requires later reconciliation
@@ -311,7 +334,7 @@ Text file-attachment translation behavior
 ```text
 atomic Start Translation + Meeting Live approved composition/lifecycle
 First Setup wizard / intentional defer
-Text final two-pane composition and result authority
+Text Quality-default ownership, tone inference, Copy/Save semantics
 History Recent versus Saved persistence/workspace semantics
 global Meeting strip / cross-view live state / single-instance behavior
 capture lifecycle and unified helper ownership
