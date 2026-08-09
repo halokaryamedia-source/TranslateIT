@@ -4,8 +4,8 @@ Updated: 2026-08-09
 Working branch: `New`  
 Recovery baseline: `V1-Advance` at `6fd3485d6b22b9e3f44abc640241532aea61c3c7`
 
-This file stores compact durable project context only. Detailed product requirements
-belong in `docs/foundation/02-product-requirements.md`; active task state belongs in
+This file stores compact durable project context only. Detailed requirements belong
+in `docs/foundation/02-product-requirements.md`; active continuation belongs in
 `docs/knowledge/next-action.md`.
 
 ## Product Direction
@@ -35,13 +35,13 @@ English meeting speech
 
 Standalone Indonesian <-> English Text is the bounded secondary workflow.
 
-**Document Translation is removed from the current product scope.** Do not develop
-or preserve a Documents workspace/parser/export/job/history subsystem merely from
-inherited policy/source.
+**Document Translation is removed from current product scope.** Do not revive a
+Documents workspace, parser/export/job system, OCR, or document-specific
+History/Saved infrastructure from inherited source.
 
-## Product Navigation
+## Product Navigation And UI Principle
 
-Normal top-level navigation converges on:
+Normal top-level navigation:
 
 ```text
 Meeting
@@ -50,7 +50,7 @@ History
 Settings
 ```
 
-`Saved` remains distinct durable ownership but is accessed through:
+History:
 
 ```text
 History
@@ -58,25 +58,25 @@ History
 └─ Saved
 ```
 
-Normal Settings converges on:
+Normal Settings:
 
 ```text
 Meeting
 History & Privacy
 Advanced
+    └─ Diagnostics
 ```
 
-`General`, `Translation`, `Documents`, and top-level `Saved` are not normal current
-product destinations.
+`Saved` remains distinct durable ownership but is not top-level navigation.
+`General`, global `Translation`, `Documents`, and top-level `Saved` are not normal
+current destinations.
 
-## UI Principle And Screen Inventory
+The key UI requirement is **Modern + Easy to use + Familiar** for a nontechnical
+Windows desktop user. Prefer conventional desktop patterns, obvious wording/actions,
+low control density, restrained surfaces, and progressive disclosure over novelty
+or technical flexibility.
 
-The key UI requirement is **simple and familiar** for a nontechnical Windows desktop
-user. Prefer conventional desktop patterns, obvious labels/actions, low control
-density, and progressive disclosure over novelty or technical flexibility.
-
-Do not make a new page for every runtime state. The initial core conceptual surfaces
-are:
+Do not create a page for every runtime state. Core conceptual surfaces remain:
 
 ```text
 First Setup Wizard
@@ -95,65 +95,57 @@ Normal App
 └─ Diagnostics (nested under Advanced)
 ```
 
-Meeting lifecycle variants (`Checking`, `Ready`, `Setup Needed`, `Starting`, `Live`,
-`Degraded`, `Recovering`, `Attention Needed`, `Paused`, `Stopping`, `Ended`) are
-states of one Meeting workspace. Text lifecycle variants are states of one Text
-workspace. `Recent / Saved` are History tabs, not separate top-level products.
-Global Meeting live indicators, critical alerts, and confirmation dialogs are shell
-elements rather than pages.
-
-There is no separate language-setup page while Indonesian/English is the only pair,
-and no Home/Dashboard, Documents, top-level Saved, separate General/Translation
-Settings, lifecycle Error/Ready pages, or top-level Developer page in the initial
-core UI.
+Meeting lifecycle variants are states of one Meeting workspace. Text lifecycle
+variants are states of one Text workspace. Global Meeting indicators/alerts and
+confirmation dialogs are shell elements rather than separate products.
 
 ## Initial Product Boundary
 
 - Initial supported platform: **Windows**.
-- Core runtime: **local-first and offline-capable after required assets are
-  installed**.
+- Core runtime: local-first/offline-capable after required assets are installed.
 - Initial languages: **Indonesian and English**.
 - Core outbound: Indonesian speech -> English voice.
 - Core inbound assistance: English speech -> Indonesian text.
 - Text: Indonesian <-> English.
 - English speech -> Indonesian TTS is not initial scope.
 - Additional languages are future scope.
-- Cloud assistance may be added later only explicitly; core behavior never silently
-  depends on it.
+- Cloud assistance may be added later only explicitly; core never silently depends
+  on it.
 
 ## First Use And Daily Meeting Use
 
-First use is guided setup for physical microphone, Meeting Sound, TranslateIT
-Meeting Microphone, and local translation readiness. Normal users never manually
-operate Python/helper/worker/model setup.
+First use is guided setup for `Your microphone`, `Meeting sound`, `TranslateIT
+Meeting Microphone`, and local translation readiness. Setup may be intentionally
+deferred without pretending Meeting succeeded; Text remains independently usable
+when its translation runtime is available.
 
-Returning launch goes directly to Meeting and runs a quick product-level preflight.
-Preferred primary action is `Start Translation`.
+Returning launch goes directly to Meeting and performs a product-level preflight.
+The primary action is `Start Translation`.
 
-Meeting `Ready` is based on the required outbound path. Incoming English ->
-Indonesian text is optional/degradable: healthy outbound may start when incoming is
+Meeting `Ready` is based on required outbound safety. Incoming English -> Indonesian
+text is optional/degradable: healthy outbound may start even when incoming is
 unavailable.
 
-Start is transactional: `Live` is committed only after final required outbound
-validation/opening. Duplicate Start must not create duplicate sessions.
+Start is transactional: `Live` is committed only after required outbound resources
+are safely validated/opened. Duplicate Start must not create duplicate sessions.
 
-## Voice And Realtime Conversation
+## Meeting Conversation Behavior
 
 - Primary voice interaction: **Session Listening**.
 - Secondary interaction: **Push to Talk**, default `Ctrl+Space`.
-- Segmentation uses natural/adaptive speech boundaries; inherited fixed `700 ms` /
-  `12 s` values are not product constants.
+- Segmentation uses natural/adaptive speech boundaries, not inherited fixed timing
+  constants as product policy.
 - Partial outbound ASR is preview-only and never meeting output.
 - Final/stable utterance is the outbound translation/TTS commit boundary.
-- Capture continues while earlier TTS is processing/speaking.
-- Own TTS outputs are serialized.
-- Session/generation/utterance identity prevents stale asynchronous work from
-  re-entering current state.
-- Application-side Meeting playback is at-most-once by default; uncertain playback
-  is not blindly replayed.
-- Outbound backlog is bounded and surfaced before stale voice becomes misleading.
-- Pause stops outbound voice/pending outbound work while incoming may continue.
-- Resume starts fresh generation authority.
+- Capture may continue while earlier output is processing/speaking.
+- Own TTS output is serialized.
+- Session/generation/utterance identity prevents stale work from re-entering current
+  state.
+- Outbound delivery is at-most-once by default; uncertain playback is not blindly
+  replayed.
+- Backlog is bounded and surfaced before stale voice becomes misleading.
+- Pause stops new/pending outbound work while incoming may continue.
+- Resume creates fresh generation authority.
 
 Incoming is a separate Meeting Sound lane:
 
@@ -167,10 +159,9 @@ Incoming may show transient partial subtitles, must suppress TranslateIT's own T
 must not invent participant identity, and degrades before core outbound under
 resource pressure.
 
-Turn coordination is conversation-aware: ready TTS may briefly wait for a natural
-gap while incoming speech is active. Waiting is bounded; when no useful gap appears,
-user intent such as `Speak Now` / `Cancel` controls interruption rather than an
-automatic indefinite wait.
+Turn coordination may briefly wait for a natural gap. Waiting is bounded; user
+intent such as `Speak Now` / `Cancel` controls the unresolved turn rather than an
+indefinite automatic hold.
 
 ## Translation Behavior
 
@@ -181,23 +172,22 @@ automatic indefinite wait.
 - Names, numbers, dates, units, URLs, code identifiers, versions, acronyms, and
   technical facts remain accurate.
 - Recent committed Meeting context is bounded, local, and session-scoped.
-- Persistent History/Saved never automatically become model context.
+- Persistent History/Saved never automatically becomes model context.
 
-## Runtime Modes, Reliability And Recovery
+## Runtime Modes And Reliability
 
 - User-facing modes: `Realtime` and `Quality`.
 - Meeting default: `Realtime`.
-- Text default: `Quality`.
-- CUDA preferred when validated; NVIDIA is not mandatory.
-- CPU fallback mandatory; insufficient Realtime performance reports Degraded.
+- Text product default: `Quality` (independent runtime ownership is not fully aligned
+  in current source yet).
+- CUDA is preferred when validated; NVIDIA is not mandatory.
+- CPU fallback is required; insufficient Realtime performance reports Degraded.
 - No silent cloud fallback.
 - Meeting has resource priority; incoming degrades before core outbound.
 - Recovery is bounded and owned by one session/recovery authority.
-- Explicit newer user action overrides stale automatic recovery.
 - Missing Meeting Microphone pauses/blocks outbound; old queues are never dumped on
   recovery.
-- Minimize/hide does not end a healthy Meeting; loss of user control must not leave
-  uncontrolled invisible output.
+- Minimize does not end a healthy Meeting.
 - Sleep/hibernate interrupts live translation and does not auto-resume voice.
 - Long sessions keep memory, queues, context, and temporary artifacts bounded.
 
@@ -213,42 +203,35 @@ Numeric release threshold is benchmark-derived.
 ## Global Application Behavior
 
 The active Meeting session is **application-level state**, not page-local state.
-Navigating from Meeting to Text, History, or Settings never stops a healthy active
-Meeting. Returning to Meeting reconnects the UI to the same authoritative active
-session rather than creating/reconstructing a new session.
+Navigation to Text, History, or Settings must not stop/recreate a healthy active
+Meeting; returning to Meeting reconnects to the same authoritative session.
 
 Cross-feature rules:
 
-- one active Meeting session per TranslateIT runtime;
+- one active Meeting session per runtime;
 - initial desktop behavior should prevent parallel independent app instances from
   owning the same Meeting/audio/storage resources;
-- active Meeting state remains visible outside the Meeting page through a compact
-  global live indicator;
+- active Meeting state remains visible outside Meeting through a compact global
+  indicator;
 - materially unsafe outbound failure is surfaced globally; incoming-only degradation
-  remains scoped/subtle;
-- while own TTS is actively speaking, a contextual global `Stop Voice` action may be
-  available as an emergency control; normal Pause/turn controls remain on Meeting;
-- Text, History, and Settings preserve reasonable in-memory view state across
-  navigation but never become lifecycle owners for the Meeting;
-- Text/History work yields compute/resource priority to the live Meeting;
-- PTT remains active across app views only when a Meeting session is already Live;
-  PTT never starts a Meeting by itself;
-- minimize keeps Meeting Live; closing the application while Meeting is Live requires
-  explicit `Stop & Close` behavior;
-- critical Meeting interruption while the app is background/minimized should attract
-  user attention without silently stealing focus;
-- capability health is scoped: a Meeting-route problem does not make Text/History
-  globally unavailable when their own dependencies remain healthy.
+  remains scoped;
+- contextual global `Stop Voice` may appear only while own TTS is speaking;
+- normal Pause/turn controls remain on Meeting;
+- Text/History/Settings preserve reasonable in-memory view state but never own the
+  Meeting lifecycle;
+- PTT works across views only while a Meeting is already Live and never starts one;
+- minimize keeps Meeting Live; close while Live requires explicit Stop & Close;
+- capability health is scoped rather than one global `appReady` truth.
 
-## Stop And History Finalization
+## Stop And Finalization
 
 `Stop Translation` is a direct safety action. Once accepted, old-session work loses
 authority to create new Meeting Microphone output. Current/pending output and
-captures stop, committed conversation follows the History policy, temporary state
-is cleaned, then the session becomes Ended.
+captures stop, committed conversation follows History policy, temporary state is
+cleaned, then the session becomes Ended.
 
-Failed Start that never reached Live, and a normally stopped live session with zero
-meaningful committed turns, do not create useless History entries.
+Failed Start that never reached Live and a normally stopped session with zero
+meaningful committed turns do not create useless History entries.
 
 ## Standalone Text
 
@@ -264,55 +247,85 @@ Type / paste
 -> Copy or Save
 ```
 
-Older request results cannot overwrite newer user intent. Editing source after a
-result marks the result outdated. Large input is never silently truncated; if it
-exceeds the supported Text boundary, report that clearly and ask the user to
-shorten/split it rather than redirecting to Documents.
+Older/late request results cannot overwrite newer intent. Editing source after a
+result marks the result outdated. Large input is never silently truncated or
+redirected to removed Documents behavior. Text remains independent of Meeting audio
+readiness/context.
 
-Text remains independent of Meeting audio readiness and Meeting context.
+Current active source already uses familiar source/target panes, explicit Translate,
+contextual persisted ID/EN Swap, editable target, and stale/error states. Active
+file-attachment translation is removed.
 
 ## History, Saved, Privacy And Storage
 
-- History: automatic when enabled, on by default, local-only, user-disableable.
+- History is automatic when enabled, local-only, ON by default, and user-disableable.
 - History contains Meeting and Text only.
-- Saved: explicit durable user work, independent from History lifetime.
+- Saved is explicit durable user work with independent lifetime.
 - Clear/delete History never deletes Saved; removing Saved never deletes History.
+- Turning History off affects new/current retention but does not delete existing
+  History/Saved.
 - History search is local retrieval only, never model context.
-- Turning History off affects new/current retention but does not delete already
-  completed History.
-- Raw microphone/incoming audio and TTS audio are temporary by default.
-- Diagnostic logs contain minimal/redacted operational data and no conversation
-  bodies by default.
+- Raw microphone/incoming audio and generated TTS are temporary by default.
+- Diagnostic logs contain minimal/redacted operational data and no conversation body
+  by default.
 
-Storage ownership:
+Storage roots:
 
 ```text
 UserData/CacheData/    -> disposable runtime/session data
-UserData/LogData/      -> minimal/redacted operational diagnostics
+UserData/LogData/      -> minimal/redacted diagnostics
 UserData/SavedProject/ -> persistent user-visible/user-approved data
 ```
+
+Canonical product History storage is now:
+
+```text
+UserData/SavedProject/History/
+├─ Recent/
+└─ Saved/
+```
+
+Canonical source owners:
+
+```text
+src-tauri/src/engine/history_store.rs
+src-tauri/src/commands/history.rs
+src/app/bridge/runtimeApi.ts
+src/app/shared/historyTypes.ts
+SimpleLauncherController + active History workspace
+```
+
+Successful Text translations currently write Recent only when `history_enabled` is
+ON. The History workspace reads `Recent / Saved`, supports local search and
+Meeting/Text filters, shows Text detail, creates an independent Saved copy, and can
+remove that Saved copy without deleting Recent. Existing legacy `session_chat.rs`
+and `session_store.rs` are not canonical product History.
+
+Meeting History writes/details wait for the canonical Meeting lifecycle and are not
+invented from legacy transcript data.
 
 ## Settings Boundary
 
 Meeting Settings owns Session Listening/PTT preference, physical microphone,
 Meeting Sound, TranslateIT Meeting Microphone setup/check, and scoped recovery.
-New device selections are verified before replacing a previous working preference.
+New device selections must be verified before replacing working preferences.
 
-History & Privacy owns History on/off, local storage information, Saved information,
-and Clear History.
+History & Privacy owns History On/Off, local storage information, Saved information,
+and Clear History. The underlying `history_enabled` setting and Clear Recent command
+exist, but those Settings controls are the next source-side slice.
 
 Advanced owns setup health and Developer Diagnostics. Normal users do not operate
-Python/helper/worker lifecycle, model/provider names, CUDA mode, VAD thresholds,
-queue sizes, retry counts, model paths, or raw logs.
+Python/helper/worker lifecycle, provider/model names, CUDA mode, VAD thresholds,
+queue sizes, model paths, or raw logs.
 
-Persist preferences; revalidate runtime readiness on launch instead of persisting
-`ready=true` as permanent truth.
+Persist preferences; revalidate readiness on launch instead of persisting permanent
+`ready=true` truth.
 
 ## Audio Studio
 
 Audio Studio remains **advanced/post-core** and is not an initial core-release
 blocker. It may create an authorized local custom English outbound voice profile.
-Default local English TTS remains available independently.
+Default local English TTS remains independently available.
 
 ## Installer And Distribution
 
@@ -322,7 +335,7 @@ Default local English TTS remains available independently.
   developer scripts, or manual core-model placement.
 - Clean supported-Windows proof is required for installer readiness.
 - System Python may remain a development fallback only.
-- Auto-update deferred; code signing reconsidered before broad/public distribution.
+- Auto-update is deferred; code signing is reconsidered before broad/public release.
 
 ## Current Architecture Baseline
 
@@ -336,28 +349,45 @@ Current source/data roots:
 
 ```text
 Desktop application -> EngineData/Frontend/RustApp
-Internal helper -> EngineData/Backend/LocalWorker/WorkerRuntime
-Runtime contracts -> EngineData/Backend/RuntimeContracts
-Runtime assets -> EngineData/Backend/RuntimeAssets
-Runtime/user data -> UserData
-Historical/reference evidence -> DevelopingData
+Internal helper      -> EngineData/Backend/LocalWorker/WorkerRuntime
+Runtime contracts    -> EngineData/Backend/RuntimeContracts
+Runtime assets       -> EngineData/Backend/RuntimeAssets
+Runtime/user data    -> UserData
+Historical evidence  -> DevelopingData
 ```
 
 `EngineData` is canonical product implementation. `UserData` is runtime/user data,
-not source authority. `DevelopingData` is historical/reference evidence and outside
+not source authority. `DevelopingData` is historical/reference evidence outside
 normal production/runtime dependency and discovery contracts.
 
 ## Current Implementation Evidence Boundary
 
-The current `New` frontend/source still predates parts of the newly approved product
-flow, including old Documents/top-level Saved/navigation/settings surfaces and the
-new global cross-feature Meeting lifecycle/indicator behavior. Source presence does
-not prove target-PC readiness.
+Source-side alignment already completed on `New` includes:
 
-Do not claim live success without appropriate evidence for microphone capture,
-ASR/translation/TTS quality, self-output suppression, turn coordination, CUDA,
-Meeting Microphone delivery, latency, History/Saved durability, Audio Studio, or
-self-contained installer behavior.
+- top-level `Meeting / Text / History / Settings` shell;
+- `Meeting / History & Privacy / Advanced` normal Settings hierarchy;
+- approved truthful Meeting Ready composition;
+- familiar Text source/target composition with active attachment workflow removed;
+- canonical History/Saved persistence under the approved existing root;
+- frontend History bridge, History `Recent / Saved` collection + Text detail, and
+  automatic Text Recent writes when History is enabled.
+
+Still incomplete source/runtime work includes:
+
+- History & Privacy On/Off and Clear History controls;
+- Meeting History writes/details after canonical Meeting lifecycle exists;
+- First Setup / intentional defer;
+- global Meeting indicator/cross-view lifecycle/single-instance behavior;
+- atomic Start Translation, Meeting Live, incoming lane, turn coordination,
+  recovery, and Stop finalization;
+- approved tone/context inference and independent Text Quality ownership;
+- Text Copy/direct Save behavior;
+- clean installer/runtime asset reconciliation.
+
+Source presence does not prove live target-PC readiness. Do not claim microphone,
+ASR/translation/TTS quality, Meeting Microphone delivery, self-output suppression,
+latency, filesystem persistence, rendered UI quality, CUDA behavior, Audio Studio,
+or installer success without the required local evidence.
 
 ## Canonical Owners
 
@@ -366,7 +396,7 @@ self-contained installer behavior.
 - `docs/foundation/01-product-overview.md` — product overview/scope hierarchy.
 - `docs/foundation/02-product-requirements.md` — detailed approved requirements.
 - `docs/knowledge/decision-log.md` — durable reasoning.
-- `docs/knowledge/next-action.md` — current continuation point.
-- `docs/knowledge/source-ownership.md` — requirement-to-source ownership map.
+- `docs/knowledge/next-action.md` — single current continuation point.
+- `docs/knowledge/source-ownership.md` — semantic source ownership map.
 
 The next task owner is `docs/knowledge/next-action.md`.
