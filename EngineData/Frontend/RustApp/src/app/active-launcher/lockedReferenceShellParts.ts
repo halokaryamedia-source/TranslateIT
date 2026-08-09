@@ -50,20 +50,62 @@ export function lockedHomeWorkspace(): string {
         <header class="topbar simple-topbar"><div><h2 id="workspaceTitle">Meeting</h2><p id="assistantMessage">Checking meeting readiness...</p></div><div class="top-actions"><span id="directionPill" class="direction-pill">ID &gt; EN</span><span class="record-pill"><span></span><strong id="recordStatusText">Checking</strong></span></div></header>
 
         <section id="meetingWorkspace" data-workspace-panel="meeting">
-          <section class="simple-translate-grid">
-            <article class="simple-translate-card">
-              <div class="simple-card-heading"><span class="hero-kicker">Primary workspace</span><h3 id="heroTitle">Meeting translation</h3><p id="heroSubtitle">TranslateIT is checking the local capabilities required for Meeting Voice.</p></div>
-              <div class="assistant-actions simple-setup-actions">
-                <button id="retryReadinessButton" class="assistant-action secondary" type="button">Retry</button>
-                <button id="fixSetupButton" class="assistant-action" type="button">Fix Setup</button>
-                <button id="openDeveloperDiagnosticsButton" class="assistant-action secondary" type="button">Open Diagnostics</button>
+          <section class="meeting-ready-layout">
+            <article class="meeting-ready-panel" aria-labelledby="meetingReadyTitle">
+              <div class="meeting-ready-heading">
+                <div class="meeting-ready-status-line">
+                  <span class="hero-kicker">Meeting translation</span>
+                  <span id="meetingReadinessStatus" class="meeting-ready-status" data-tone="neutral">Checking</span>
+                </div>
+                <h3 id="meetingReadyTitle">Speak Indonesian. Your meeting hears English.</h3>
+                <p>Indonesian speech becomes English voice. Incoming English can appear as Indonesian text when available.</p>
               </div>
-              <p class="composer-help">Meeting Voice stays unavailable until the required local runtime and meeting route report readiness.</p>
+
+              <div class="meeting-ready-rows" role="list" aria-label="Meeting setup summary">
+                <section class="meeting-ready-row" role="listitem">
+                  <div class="meeting-ready-row-copy">
+                    <span>Your microphone</span>
+                    <strong id="meetingInputDeviceValue">Windows Default</strong>
+                    <small>The microphone you speak into.</small>
+                  </div>
+                  <span id="meetingInputDeviceStatus" class="meeting-row-status" data-tone="neutral">Checking</span>
+                </section>
+
+                <section class="meeting-ready-row" role="listitem">
+                  <div class="meeting-ready-row-copy">
+                    <span>Incoming translation</span>
+                    <strong>English → Indonesian text</strong>
+                    <small id="meetingSoundDeviceValue">Meeting sound: Windows Default</small>
+                  </div>
+                  <span class="meeting-row-status" data-tone="warning">Not connected yet</span>
+                </section>
+
+                <section class="meeting-ready-row" role="listitem">
+                  <div class="meeting-ready-row-copy">
+                    <span>Meeting microphone</span>
+                    <strong>TranslateIT Meeting Microphone</strong>
+                    <small>Select this microphone inside Zoom, Meet, Teams, or another meeting app.</small>
+                  </div>
+                  <span id="meetingRouteStatus" class="meeting-row-status" data-tone="neutral">Checking</span>
+                </section>
+              </div>
+
+              <div class="meeting-ready-preferences" aria-label="Meeting translation preferences">
+                <div><span>Mode</span><strong>Realtime</strong></div>
+                <div><span>Tone</span><strong>Auto</strong></div>
+              </div>
+
+              <div class="meeting-ready-actions">
+                <button id="startTranslationButton" class="send-button meeting-start-button" type="button" aria-describedby="startTranslationHint" disabled>Start Translation</button>
+                <div class="meeting-ready-secondary-actions">
+                  <button id="retryReadinessButton" class="assistant-action secondary" type="button">Retry</button>
+                  <button id="fixSetupButton" class="assistant-action secondary" type="button">Fix Setup</button>
+                </div>
+                <p id="startTranslationHint" class="composer-help">Complete Meeting setup before Start Translation can be used.</p>
+              </div>
+
+              <p class="meeting-ready-reminder">In your meeting app, choose <strong>TranslateIT Meeting Microphone</strong> as your microphone.</p>
             </article>
-            <aside class="simple-status-column">
-              <article class="assistant-card simple-status-card"><div class="mini-brand">T</div><div><strong>Meeting Voice</strong><p id="qualityStatus">Checking</p><p>Translated English voice is the meeting output. Raw microphone audio is not presented as the meeting output.</p></div></article>
-              <article class="simple-voice-card"><div><strong>Current scope</strong><p>This screen reports product readiness and recovery. Session Listening and meeting-route runtime behavior are not claimed ready unless the runtime gate says so.</p></div></article>
-            </aside>
           </section>
         </section>
 
