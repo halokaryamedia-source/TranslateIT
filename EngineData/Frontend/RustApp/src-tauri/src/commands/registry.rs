@@ -55,6 +55,8 @@ pub fn register<R: tauri::Runtime>(builder: tauri::Builder<R>) -> tauri::Builder
         crate::commands::runtime::get_gpu_policy,
         crate::commands::audio::get_input_status,
         crate::commands::audio::list_audio_devices,
+        crate::commands::audio::probe_input_device_candidate,
+        crate::commands::audio::probe_output_device_candidate,
         crate::commands::audio_evidence::get_latest_audio_pipeline_evidence,
         crate::commands::audio_evidence::get_latest_audio_studio_validation_evidence,
         crate::commands::settings::load_runtime_settings,
