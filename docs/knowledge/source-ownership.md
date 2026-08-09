@@ -27,12 +27,12 @@ rendered/device/runtime/model/audio/package claims beyond the evidence obtained.
 | Product shell/navigation | `src/main.ts`, `FirstSetupBootstrap.ts`, `SimpleLauncherController.ts`, current shell | **ALIGNED / VISUAL PARTIAL** | static source | First Setup is a focused first-use gate; normal navigation is `Meeting / Text / History / Settings`. Rendered quality remains local proof later. |
 | First Setup | `FirstSetupBootstrap.ts`, `RuntimeSettings`, `runtimeProductFacade.ts`, audio-device commands, `firstSetupLayout.css` | **FLOW + DEVICE SELECTION SOURCE ALIGNED / WINDOWS PROOF LATER** | static source | Five-step setup, defer/resume facts, microphone/Meeting Sound selection, and capability recheck are connected. Windows permission deep-link and real target-device behavior remain later proof/work. |
 | Settings hierarchy / Meeting devices | `launcherSettingsRenderer.ts`, `SimpleLauncherController.ts`, `runtimeProductFacade.ts`, `RuntimeSettings`, audio-device commands | **ALIGNED HIERARCHY + DEVICE SELECTION / PARTIAL OTHER MEETING CONTENT** | static source | Meeting device selection uses the same candidate-check/commit owner as First Setup. Other Meeting lifecycle/session behavior remains separate. |
-| Meeting Ready / product readiness | `runtimeProductFacade.ts`, `SimpleLauncherController.ts`, `lockedReferenceShellParts.ts`, `mainPageLayout.css` | **READY UI ALIGNED / RUNTIME PARTIAL** | static source; local proof later | Ready composition is truthful; Start remains fail-closed until the continuous outbound runtime is attached to the canonical Meeting session authority. |
+| Meeting Ready / product readiness | `runtimeProductFacade.ts`, `SimpleLauncherController.ts`, `lockedReferenceShellParts.ts`, `mainPageLayout.css` | **READY UI ALIGNED / RUNTIME PARTIAL** | static source; local proof later | Ready composition is truthful; Start remains fail-closed until a finalized outbound utterance source is connected to the canonical Meeting pipeline. |
 | Text translation | `SimpleLauncherController.ts`, `runtimeProductFacade.ts`, Rust translation command/runtime | **UI + RECENT WRITE ALIGNED / RUNTIME PARTIAL** | static source; runtime quality proof later | Later align independent Quality default, tone inference, Copy, and direct Text Save semantics. |
 | History / Saved | `engine/history_store.rs`, `commands/history.rs`, `runtimeApi.ts`, `SimpleLauncherController.ts`, History shell/CSS | **TEXT COLLECTION/DETAIL + PRIVACY ALIGNED / MEETING PARTIAL** | static source; persistence/render proof later | Meeting History waits for canonical Meeting lifecycle output/history integration. |
-| Meeting session authority / Start-Stop | `engine/runtime_state.rs`, `commands/meeting_session.rs`, existing live-capture/helper/route owners | **SESSION AUTHORITY ALIGNED / OUTBOUND EXECUTION BLOCKED** | static source; local proof later | Attach generation-aware continuous ASR -> Translate -> TTS -> Meeting Microphone execution to this authority, then expose Start/Stop through the normal frontend. |
+| Meeting session authority / outbound stages | `engine/runtime_state.rs`, `commands/meeting_session.rs`, helper worker, generation-aware route owner | **SESSION AUTHORITY + FINALIZED-STAGE CONTRACT ALIGNED / FINAL UTTERANCE SOURCE MISSING** | static source; local proof later | Connect a real finalized utterance producer from the audio boundary; rolling ASR-ready audio must not be treated as final speech. |
 | Translation context/tone | runtime settings + translation/context adapters | **PARTIAL / MISSING** | static source; quality proof later | Make approved tone and bounded committed Meeting context reach inference without History leakage. |
-| Meeting audio route | virtual-route Rust commands + local provider | **PARTIAL** | **LOCAL PROOF REQUIRED** | Preserve managed `TranslateIT Meeting Microphone`; prove delivery and recovery on Windows. |
+| Meeting audio route | `virtual_audio_route_runtime.rs`, virtual-route selection, local provider | **GENERATION-CANCELLABLE SOURCE CONTRACT / WINDOWS PROOF REQUIRED** | static source; local proof required | Product route execution now checks Meeting generation and can be cancellation-signalled on Stop; actual Windows delivery remains local proof. |
 | Incoming Meeting assistance | capture/audio/runtime pipeline owners | **PARTIAL / MISSING SEMANTICS** | local proof required | Implement the separate Meeting Sound capture/translation lane and self-output suppression. |
 | Document translation | no active workspace; legacy helpers may remain unreachable | **RETIRED** | current source/policy | Do not revive Documents/file-attachment translation. |
 | Audio Studio | explicit Audio Studio entry + backend metadata/contracts | **PARTIAL / POST-CORE** | source only | Preserve reachability; defer completion until core paths are aligned. |
@@ -97,7 +97,7 @@ No permanent `Ready` truth is persisted.
 
 ### Your microphone
 
-First Setup and normal Meeting Settings now share one selection path:
+First Setup and normal Meeting Settings share one selection path:
 
 ```text
 list native candidates
@@ -114,15 +114,14 @@ Current source guarantees:
 - a failed probe/save keeps the previously persisted preference;
 - `get_input_status()` checks the configured microphone rather than always checking
   the Windows default;
-- live capture no longer silently falls back to the Windows default when an explicit
+- live capture does not silently fall back to the Windows default when an explicit
   configured microphone disappears; it blocks instead;
 - `Windows Default` is represented by no pinned `input_device_id`, preserving
   follow-default behavior.
 
-The candidate probe currently establishes native endpoint/config usability at the
-source-contract level. It does not constitute live target-PC proof that capture,
-permission, signal level, callbacks, or long-session stability work correctly.
-Those claims remain **LOCAL PROOF REQUIRED**.
+The candidate probe establishes native endpoint/config usability at source-contract
+level only. It does not prove capture permission, signal, callbacks, or long-session
+stability on the target PC. Those claims remain **LOCAL PROOF REQUIRED**.
 
 ### Meeting sound
 
@@ -139,12 +138,8 @@ A missing explicit output is rejected rather than replaced by Windows default, a
 failed probe/save keeps the previous preference.
 
 This probe establishes only that the selected output endpoint exposes a usable
-native output configuration. It deliberately does **not** claim that incoming
-Meeting Sound capture, loopback, ASR, or English -> Indonesian translation works.
-That incoming lane remains a separate unimplemented capability.
-
-`Set up later`, checkpoint resume, Meeting-route verification, and normal launch-time
-readiness revalidation remain unchanged.
+native output configuration. It does **not** claim incoming Meeting Sound capture,
+loopback, ASR, or English -> Indonesian translation works.
 
 Classification: **FLOW + DEVICE SELECTION SOURCE ALIGNED / WINDOWS PROOF LATER**.
 
@@ -159,12 +154,11 @@ Advanced
     -> Diagnostics
 ```
 
-Meeting now exposes familiar selectors for `Your microphone` and `Meeting sound`.
-The selectors use the same `runtimeProductFacade` selection authority as First Setup
-rather than duplicating device state. Candidate failure returns the control to the
-previous persisted value. A successful microphone preference change is re-read
-through canonical product readiness instead of treating native enumeration/config
-success as full Meeting readiness.
+Meeting exposes familiar selectors for `Your microphone` and `Meeting sound` using
+the same `runtimeProductFacade` selection authority as First Setup. Candidate
+failure returns the control to the previous persisted value. A successful microphone
+preference change is re-read through canonical product readiness instead of treating
+native enumeration/config success as full Meeting readiness.
 
 `History & Privacy` remains connected to `RuntimeSettings.history_enabled` and the
 canonical History store. Clear History clears Recent only and never Saved.
@@ -183,14 +177,20 @@ src/mainPageLayout.css
 ```
 
 Meeting Ready presents the approved plain-language hierarchy. Microphone readiness
-now reflects the configured microphone probe rather than always representing the
-Windows default input. Incoming remains explicitly not connected.
+reflects the configured microphone probe. Incoming remains explicitly not connected.
 
-The new application Meeting lifecycle intentionally does not make the existing
-`Start Translation` button live yet. Its dedicated Start preflight contains a
-fail-closed `continuous_outbound_runtime_not_connected` blocker until the real
-continuous generation-aware ASR -> translation -> TTS -> Meeting Microphone loop is
-attached. Developer payload/cache readiness is not accepted as a substitute.
+The visible `Start Translation` control remains intentionally disabled. The product
+Start preflight now distinguishes two different facts:
+
+```text
+generation-aware ASR -> Translate -> TTS -> Meeting route stages exist
+!=
+a safe continuous Meeting runtime exists
+```
+
+A rolling `ready_for_target_asr_frame` buffer is **not** accepted as a final/stable
+utterance. Promoting it directly could make partial speech audible in the meeting,
+which conflicts with approved product behavior.
 
 Classification: **READY UI ALIGNED / RUNTIME PARTIAL**.
 
@@ -258,17 +258,16 @@ engine/session_chat.rs
 engine/session_store.rs / SavedTranscript
 ```
 
-## 7. Application Meeting Session Authority And Outbound Lifecycle
+## 7. Application Meeting Session Authority And Finalized Outbound Pipeline
 
-Canonical session ownership now lives in the existing runtime-state layer plus one
-product command orchestrator:
+Canonical session ownership remains in:
 
 ```text
 src-tauri/src/engine/runtime_state.rs
 src-tauri/src/commands/meeting_session.rs
 ```
 
-The Tauri registry exposes:
+Registered lifecycle commands remain:
 
 ```text
 get_meeting_session_status
@@ -276,7 +275,7 @@ start_meeting_translation
 stop_meeting_translation
 ```
 
-The runtime session snapshot now carries:
+The runtime session snapshot carries:
 
 ```text
 session_id
@@ -285,33 +284,81 @@ authority_active
 phase
 ```
 
-Current source contract:
+Current session authority contract:
 
 - one application Meeting session authority may own Meeting resources at a time;
-- each new session receives a new monotonically advancing generation;
+- each new session receives a monotonically advancing generation;
 - duplicate Start cannot overwrite an existing session;
-- duplicate Start against an already-Live application Meeting is idempotent rather
-  than creating a second session;
-- Start has a dedicated required-outbound preflight for configured microphone,
-  required models, local helper/provider readiness, managed Meeting route, and the
-  continuous outbound runtime;
-- preflight is intentionally fail-closed today because the continuous
-  generation-aware outbound execution loop is not attached yet;
-- if future-ready Start opens the microphone and a later commit step fails, source
-  rollback revokes generation authority before stopping/clearing opened resources;
-- Stop reads the current generation and revokes its authority **before** helper,
-  capture, pipeline-cache, handoff, and session cleanup;
-- Stop with no active session is idempotent;
-- clearing runtime session state invalidates prior generation authority;
-- legacy direct capture remains separate and cannot be presented as application
-  Translation Live.
+- Stop revokes the current generation before resource cleanup;
+- clearing session state invalidates old generation authority;
+- legacy capture-only behavior remains separate from product Translation Live.
 
-This slice establishes authority and safety ordering only. Existing pipeline stages
-do not yet carry/check the application generation, so the continuous outbound
-execution loop must be reconciled next before `Start Translation` is enabled in the
-normal UI.
+### Generation-aware finalized-segment stages
 
-Classification: **SESSION AUTHORITY ALIGNED / OUTBOUND EXECUTION BLOCKED**.
+`meeting_session.rs` now owns one product outbound stage function for an audio file
+that has **already been finalized by the audio/segmentation owner**:
+
+```text
+finalized Indonesian WAV
+-> canonical helper task `transcribe`
+-> generation check
+-> canonical helper task `translate`
+-> generation check
+-> canonical helper task `synthesize`
+-> generation check
+-> generation-aware guarded Meeting route dispatch
+```
+
+The product stage path deliberately uses the worker's actual canonical tasks:
+
+```text
+transcribe
+translate
+synthesize
+```
+
+It does not promote developer stub task names such as `asr_decode`,
+`translation_handoff`, or `tts_handoff` into product execution.
+
+Generation is checked after every blocking AI stage before the result can advance to
+the next stage. A TTS file produced after generation revocation is discarded instead
+of being routed. The Meeting route checks generation again immediately before
+provider execution.
+
+### Cancellable Meeting route
+
+`virtual_audio_route_runtime.rs` now has a Meeting-specific provider path that:
+
+- requires current authoritative Meeting generation before provider launch;
+- carries the Meeting generation in the route provider payload;
+- requires the explicit runtime execution guard instead of accepting a dry-run as
+  product delivery;
+- runs the provider in a cancellable child-process boundary;
+- polls generation/cancel state while route playback is in progress;
+- kills/cancels the route provider when Stop revokes the generation;
+- accepts product delivery only when the provider reports both
+  `route_execution_attempted` and `audio_route_ready`.
+
+Actual audio arrival at Zoom/Meet/Teams remains **LOCAL PROOF REQUIRED**.
+
+### Remaining blocker: finalized utterance source
+
+The current live capture owner exposes a rolling audio window and
+`ready_for_target_asr_frame`. That means “enough current audio exists for ASR”, not
+“the user's utterance is final/stable”. No current source owner yet connects
+minimum/end-silence/adaptive finalization into a one-shot product utterance that can
+be consumed exactly once.
+
+For that reason Start remains fail-closed on:
+
+```text
+meeting_session:finalized_utterance_source_not_connected
+meeting_session:continuous_outbound_runtime_not_connected
+```
+
+This is intentional safety behavior, not a missing button wiring bug.
+
+Classification: **SESSION AUTHORITY + FINALIZED-STAGE CONTRACT ALIGNED / FINAL UTTERANCE SOURCE MISSING**.
 
 ## 8. Translation Context And Tone
 
@@ -323,14 +370,22 @@ Classification: **PARTIAL / MISSING**.
 
 ## 9. Meeting Audio Route And Incoming Assistance
 
-The managed outbound route remains `TranslateIT Meeting Microphone`. Route source
-exists but Windows delivery/recovery remains **LOCAL PROOF REQUIRED**.
+The managed outbound route remains `TranslateIT Meeting Microphone`.
 
-Meeting Sound device preference is now selected/committed safely, but this does not
-implement the separate incoming capture/ASR/translation lane or self-output
+Product Meeting route execution is now generation-aware and cancellation-signalled,
+so a Stop/revoked generation cannot legitimately start a new route provider action.
+If a provider is already running, the Meeting-specific route owner receives a cancel
+flag and terminates the provider process rather than waiting for old playback to
+finish normally.
+
+This is static source contract only. Device routing, provider dependencies, route
+latency, and actual audio delivery on Windows remain **LOCAL PROOF REQUIRED**.
+
+Meeting Sound device preference is selected/committed safely, but this still does
+not implement the separate incoming capture/ASR/translation lane or self-output
 suppression.
 
-Classification: route **PARTIAL**; incoming **PARTIAL / MISSING**.
+Classification: outbound route **GENERATION-CANCELLABLE SOURCE CONTRACT / WINDOWS PROOF REQUIRED**; incoming **PARTIAL / MISSING**.
 
 ## 10. Document Translation
 
@@ -366,7 +421,7 @@ runtime_state + meeting_session command authority
 audio device/input/live-capture owners
 history_store + history commands
 translate_text command
-helper/pipeline runtime owners
+canonical helper worker (`transcribe / translate / synthesize`)
 virtual route Rust/provider owners
 UserData roots
 Audio Studio explicit entry + backend contracts
@@ -382,12 +437,15 @@ top-level Saved navigation
 General / Translation / Audio as normal Settings destinations
 session_chat.rs as product History
 session_store.rs / SavedTranscript as product History
+developer handoff/cache readiness as Meeting Start proof
+rolling ASR-ready audio treated as final Meeting speech
 ```
 
 ### Still requires later reconciliation
 
 ```text
-generation-aware continuous outbound ASR -> Translate -> TTS -> Meeting Microphone execution
+finalized outbound utterance producer / exactly-once consumption from live capture
+continuous connection from finalized utterance producer to generation-aware outbound stages
 frontend Start/Stop wiring + Meeting Live transcript/global cross-view state
 single-instance behavior
 incoming Meeting Sound lane and self-output suppression
