@@ -177,7 +177,8 @@ pub fn commit_application_meeting_session_live(
             "Meeting session could not commit Live because no active session exists.",
         );
     };
-    if snapshot.generation != generation || !snapshot.authority_active || !runtime_generation_is_authoritative(generation) {
+    let current_generation = RUNTIME_AUTHORITY_GENERATION.load(Ordering::Acquire);
+    if snapshot.generation != generation || !snapshot.authority_active || current_generation != generation {
         return RuntimeSessionStateReport {
             has_active_session: true,
             snapshot: Some(snapshot.clone()),
