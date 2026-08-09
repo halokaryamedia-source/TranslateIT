@@ -27,10 +27,10 @@ rendered/device/runtime/model/audio/package claims beyond the evidence obtained.
 | Product shell/navigation | `src/main.ts`, `FirstSetupBootstrap.ts`, `SimpleLauncherController.ts`, current shell | **ALIGNED / VISUAL PARTIAL** | static source | First Setup is a focused first-use gate; normal navigation is `Meeting / Text / History / Settings`. Rendered quality remains local proof later. |
 | First Setup | `FirstSetupBootstrap.ts`, `RuntimeSettings`, `runtimeProductFacade.ts`, audio-device commands, `firstSetupLayout.css` | **FLOW + DEVICE SELECTION SOURCE ALIGNED / WINDOWS PROOF LATER** | static source | Five-step setup, defer/resume facts, microphone/Meeting Sound selection, and capability recheck are connected. Windows permission deep-link and real target-device behavior remain later proof/work. |
 | Settings hierarchy / Meeting devices | `launcherSettingsRenderer.ts`, `SimpleLauncherController.ts`, `runtimeProductFacade.ts`, `RuntimeSettings`, audio-device commands | **ALIGNED HIERARCHY + DEVICE SELECTION / PARTIAL OTHER MEETING CONTENT** | static source | Meeting device selection uses the same candidate-check/commit owner as First Setup. Other Meeting lifecycle/session behavior remains separate. |
-| Meeting Ready / product readiness | `runtimeProductFacade.ts`, `SimpleLauncherController.ts`, `lockedReferenceShellParts.ts`, `mainPageLayout.css` | **READY UI ALIGNED / RUNTIME PARTIAL** | static source; local proof later | Ready composition is truthful; atomic Start, incoming lane, and Live lifecycle remain separate slices. |
+| Meeting Ready / product readiness | `runtimeProductFacade.ts`, `SimpleLauncherController.ts`, `lockedReferenceShellParts.ts`, `mainPageLayout.css` | **READY UI ALIGNED / RUNTIME PARTIAL** | static source; local proof later | Ready composition is truthful; Start remains fail-closed until the continuous outbound runtime is attached to the canonical Meeting session authority. |
 | Text translation | `SimpleLauncherController.ts`, `runtimeProductFacade.ts`, Rust translation command/runtime | **UI + RECENT WRITE ALIGNED / RUNTIME PARTIAL** | static source; runtime quality proof later | Later align independent Quality default, tone inference, Copy, and direct Text Save semantics. |
-| History / Saved | `engine/history_store.rs`, `commands/history.rs`, `runtimeApi.ts`, `SimpleLauncherController.ts`, History shell/CSS | **TEXT COLLECTION/DETAIL + PRIVACY ALIGNED / MEETING PARTIAL** | static source; persistence/render proof later | Meeting History waits for canonical Meeting lifecycle. |
-| Meeting voice capture/pipeline | Rust capture/audio/pipeline owners | **PARTIAL / STALE OWNERSHIP** | local proof required | Establish one approved application/session Start/Stop authority, generation-safe utterances, bounded backlog, turn coordination, recovery, and Stop semantics. |
+| History / Saved | `engine/history_store.rs`, `commands/history.rs`, `runtimeApi.ts`, `SimpleLauncherController.ts`, History shell/CSS | **TEXT COLLECTION/DETAIL + PRIVACY ALIGNED / MEETING PARTIAL** | static source; persistence/render proof later | Meeting History waits for canonical Meeting lifecycle output/history integration. |
+| Meeting session authority / Start-Stop | `engine/runtime_state.rs`, `commands/meeting_session.rs`, existing live-capture/helper/route owners | **SESSION AUTHORITY ALIGNED / OUTBOUND EXECUTION BLOCKED** | static source; local proof later | Attach generation-aware continuous ASR -> Translate -> TTS -> Meeting Microphone execution to this authority, then expose Start/Stop through the normal frontend. |
 | Translation context/tone | runtime settings + translation/context adapters | **PARTIAL / MISSING** | static source; quality proof later | Make approved tone and bounded committed Meeting context reach inference without History leakage. |
 | Meeting audio route | virtual-route Rust commands + local provider | **PARTIAL** | **LOCAL PROOF REQUIRED** | Preserve managed `TranslateIT Meeting Microphone`; prove delivery and recovery on Windows. |
 | Incoming Meeting assistance | capture/audio/runtime pipeline owners | **PARTIAL / MISSING SEMANTICS** | local proof required | Implement the separate Meeting Sound capture/translation lane and self-output suppression. |
@@ -184,9 +184,13 @@ src/mainPageLayout.css
 
 Meeting Ready presents the approved plain-language hierarchy. Microphone readiness
 now reflects the configured microphone probe rather than always representing the
-Windows default input. Incoming remains explicitly not connected. `Start
-Translation` remains disabled until the approved atomic live-session lifecycle is
-implemented.
+Windows default input. Incoming remains explicitly not connected.
+
+The new application Meeting lifecycle intentionally does not make the existing
+`Start Translation` button live yet. Its dedicated Start preflight contains a
+fail-closed `continuous_outbound_runtime_not_connected` blocker until the real
+continuous generation-aware ASR -> translation -> TTS -> Meeting Microphone loop is
+attached. Developer payload/cache readiness is not accepted as a substitute.
 
 Classification: **READY UI ALIGNED / RUNTIME PARTIAL**.
 
@@ -254,29 +258,60 @@ engine/session_chat.rs
 engine/session_store.rs / SavedTranscript
 ```
 
-## 7. Meeting Voice Capture, Outbound And Coordination
+## 7. Application Meeting Session Authority And Outbound Lifecycle
 
-Current Rust capture/audio/pipeline source contains useful implementation pieces,
-including native live microphone capture and helper/pipeline handoff state, but the
-approved product still lacks one complete application-level atomic Meeting
-Start/Stop authority and final live-session semantics.
+Canonical session ownership now lives in the existing runtime-state layer plus one
+product command orchestrator:
 
-The explicit microphone selection fix in this slice removes one unsafe inherited
-behavior: a pinned microphone that disappears no longer falls through to a different
-Windows-default microphone in live capture.
+```text
+src-tauri/src/engine/runtime_state.rs
+src-tauri/src/commands/meeting_session.rs
+```
 
-Still required independently:
+The Tauri registry exposes:
 
-- transactional `Start Translation`;
-- one active Meeting session/generation authority;
-- application-level state independent of page lifecycle;
-- bounded pending output/backpressure;
-- final/fresh utterance ownership;
-- safe Pause/Resume/Stop invalidation;
-- Meeting Live transcript state;
-- later incoming/turn coordination/recovery.
+```text
+get_meeting_session_status
+start_meeting_translation
+stop_meeting_translation
+```
 
-Classification: **PARTIAL / STALE OWNERSHIP**.
+The runtime session snapshot now carries:
+
+```text
+session_id
+generation
+authority_active
+phase
+```
+
+Current source contract:
+
+- one application Meeting session authority may own Meeting resources at a time;
+- each new session receives a new monotonically advancing generation;
+- duplicate Start cannot overwrite an existing session;
+- duplicate Start against an already-Live application Meeting is idempotent rather
+  than creating a second session;
+- Start has a dedicated required-outbound preflight for configured microphone,
+  required models, local helper/provider readiness, managed Meeting route, and the
+  continuous outbound runtime;
+- preflight is intentionally fail-closed today because the continuous
+  generation-aware outbound execution loop is not attached yet;
+- if future-ready Start opens the microphone and a later commit step fails, source
+  rollback revokes generation authority before stopping/clearing opened resources;
+- Stop reads the current generation and revokes its authority **before** helper,
+  capture, pipeline-cache, handoff, and session cleanup;
+- Stop with no active session is idempotent;
+- clearing runtime session state invalidates prior generation authority;
+- legacy direct capture remains separate and cannot be presented as application
+  Translation Live.
+
+This slice establishes authority and safety ordering only. Existing pipeline stages
+do not yet carry/check the application generation, so the continuous outbound
+execution loop must be reconciled next before `Start Translation` is enabled in the
+normal UI.
+
+Classification: **SESSION AUTHORITY ALIGNED / OUTBOUND EXECUTION BLOCKED**.
 
 ## 8. Translation Context And Tone
 
@@ -327,6 +362,7 @@ FirstSetupBootstrap + SimpleLauncherController/current shell
 runtimeProductFacade
 runtimeApi
 RuntimeSettings
+runtime_state + meeting_session command authority
 audio device/input/live-capture owners
 history_store + history commands
 translate_text command
@@ -351,12 +387,12 @@ session_store.rs / SavedTranscript as product History
 ### Still requires later reconciliation
 
 ```text
-atomic application-level Start Translation / Stop Translation lifecycle
-Meeting Live transcript and global cross-view Meeting state
+generation-aware continuous outbound ASR -> Translate -> TTS -> Meeting Microphone execution
+frontend Start/Stop wiring + Meeting Live transcript/global cross-view state
 single-instance behavior
 incoming Meeting Sound lane and self-output suppression
-turn coordination / bounded recovery
-Meeting History write/detail after lifecycle exists
+turn coordination / bounded recovery / Pause-Resume semantics
+Meeting History write/detail after committed Meeting lifecycle exists
 approved tone/context inference
 Text Quality default + Copy/direct Save
 Windows permission deep-link
