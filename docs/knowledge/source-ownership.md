@@ -4,223 +4,90 @@
 **Updated:** 2026-08-10  
 **Branch:** `New`
 
-This file maps approved product responsibilities to current semantic/source owners.
-It is not a backlog, task log, or runtime-readiness report.
+This file maps product responsibilities to the source that currently owns or
+competes for them. It is not a backlog, task log, plan, or runtime-readiness report.
+`docs/knowledge/next-action.md` owns the active consolidation plan.
 
 Status vocabulary:
 
 ```text
-ALIGNED  -> current source ownership/behavior substantially matches policy
-PARTIAL  -> useful owner exists but behavior/contract is incomplete
-MISSING  -> approved capability has no complete current implementation owner
-STALE    -> current source still expresses superseded behavior
-RETIRED  -> inherited/current source concept is no longer approved product scope
+ALIGNED   -> one current owner substantially matches approved behavior
+PARTIAL   -> useful owner exists but required behavior is incomplete
+CONFLICT  -> more than one active/current path competes for the same responsibility
+MISSING   -> approved capability has no complete current owner
+STALE     -> source still expresses superseded behavior
+RETIRED   -> inherited concept is no longer approved product scope
 ```
 
-Proof vocabulary follows root `AGENTS.md`. Static source alignment never promotes
-rendered/device/runtime/model/audio/package claims beyond the evidence obtained.
+Static source alignment never becomes model, latency, Windows-device, audio,
+rendered-UI, installed-runtime, or release proof.
 
 ## Executive Ownership Map
 
-| Boundary | Current owner(s) | Status | Proof | Smallest later reconciliation |
-|---|---|---|---|---|
-| Product shell/navigation | `src/main.ts`, `FirstSetupBootstrap.ts`, `SimpleLauncherController.ts`, current shell | **ALIGNED / VISUAL PARTIAL** | static source | First Setup is a focused first-use gate; normal navigation is `Meeting / Text / History / Settings`. Rendered quality remains local proof later. |
-| First Setup | `FirstSetupBootstrap.ts`, `RuntimeSettings`, `runtimeProductFacade.ts`, audio-device commands, `firstSetupLayout.css` | **FLOW + DEVICE SELECTION SOURCE ALIGNED / WINDOWS PROOF LATER** | static source | Five-step setup, defer/resume facts, microphone/Meeting Sound selection, and capability recheck are connected. Windows permission deep-link and real target-device behavior remain later proof/work. |
-| Settings hierarchy / Meeting devices | `launcherSettingsRenderer.ts`, `SimpleLauncherController.ts`, `runtimeProductFacade.ts`, `RuntimeSettings`, audio-device commands | **ALIGNED HIERARCHY + DEVICE SELECTION / PARTIAL OTHER MEETING CONTENT** | static source | Meeting device selection uses the same candidate-check/commit owner as First Setup. Other Meeting lifecycle/session behavior remains separate. |
-| Meeting Ready / product readiness | `runtimeProductFacade.ts`, `SimpleLauncherController.ts`, `lockedReferenceShellParts.ts`, `mainPageLayout.css` | **READY UI ALIGNED / RUNTIME PARTIAL** | static source; local proof later | Ready composition is truthful; Start remains fail-closed until a finalized outbound utterance source is connected to the canonical Meeting pipeline. |
-| Text translation | `SimpleLauncherController.ts`, `runtimeProductFacade.ts`, Rust translation command/runtime | **UI + RECENT WRITE ALIGNED / RUNTIME PARTIAL** | static source; runtime quality proof later | Later align independent Quality default, tone inference, Copy, and direct Text Save semantics. |
-| History / Saved | `engine/history_store.rs`, `commands/history.rs`, `runtimeApi.ts`, `SimpleLauncherController.ts`, History shell/CSS | **TEXT COLLECTION/DETAIL + PRIVACY ALIGNED / MEETING PARTIAL** | static source; persistence/render proof later | Meeting History waits for canonical Meeting lifecycle output/history integration. |
-| Meeting session authority / outbound stages | `engine/runtime_state.rs`, `commands/meeting_session.rs`, helper worker, generation-aware route owner | **SESSION AUTHORITY + FINALIZED-STAGE CONTRACT ALIGNED / FINAL UTTERANCE SOURCE MISSING** | static source; local proof later | Connect a real finalized utterance producer from the audio boundary; rolling ASR-ready audio must not be treated as final speech. |
-| Translation context/tone | runtime settings + translation/context adapters | **PARTIAL / MISSING** | static source; quality proof later | Make approved tone and bounded committed Meeting context reach inference without History leakage. |
-| Meeting audio route | `virtual_audio_route_runtime.rs`, virtual-route selection, local provider | **GENERATION-CANCELLABLE SOURCE CONTRACT / WINDOWS PROOF REQUIRED** | static source; local proof required | Product route execution now checks Meeting generation and can be cancellation-signalled on Stop; actual Windows delivery remains local proof. |
-| Incoming Meeting assistance | capture/audio/runtime pipeline owners | **PARTIAL / MISSING SEMANTICS** | local proof required | Implement the separate Meeting Sound capture/translation lane and self-output suppression. |
-| Document translation | no active workspace; legacy helpers may remain unreachable | **RETIRED** | current source/policy | Do not revive Documents/file-attachment translation. |
-| Audio Studio | explicit Audio Studio entry + backend metadata/contracts | **PARTIAL / POST-CORE** | source only | Preserve reachability; defer completion until core paths are aligned. |
-| Installer/package/runtime assets | Tauri config/preflight + paths/assets owners | **PARTIAL / STALE PACKAGING ASSUMPTIONS** | clean-machine proof later | Remove repo-root/system-Python installed-build assumptions and prove clean install later. |
+| Boundary | Current owner(s) | Status | Current truth |
+|---|---|---|---|
+| Product shell/navigation | `src/main.ts`, `FirstSetupBootstrap.ts`, `SimpleLauncherController.ts`, active shell | **ALIGNED / VISUAL PARTIAL** | Normal app is Meeting / Text / History / Settings; rendered quality is local proof later. |
+| First Setup | `FirstSetupBootstrap.ts`, `RuntimeSettings`, `runtimeProductFacade.ts`, audio commands | **ALIGNED SOURCE / WINDOWS PROOF LATER** | Five-step flow, defer/resume facts, and safe candidate-check -> commit device selection exist. |
+| Settings | `launcherSettingsRenderer.ts`, `SimpleLauncherController.ts`, `RuntimeSettings`, History/audio owners | **ALIGNED HIERARCHY / PARTIAL MEETING RUNTIME** | Meeting / History & Privacy / Advanced -> Diagnostics is the normal hierarchy. |
+| Text UI | `SimpleLauncherController.ts`, `runtimeProductFacade.ts` | **ALIGNED UI / ENGINE CONFLICT BELOW** | Familiar source/target workspace and Recent write exist; AI execution underneath is not yet canonical. |
+| History / Saved | `engine/history_store.rs`, `commands/history.rs`, frontend History owners | **TEXT ALIGNED / MEETING PARTIAL** | Canonical store is `UserData/SavedProject/History/{Recent,Saved}`. |
+| Meeting application session | `engine/runtime_state.rs`, `commands/meeting_session.rs` | **ALIGNED AUTHORITY / DOWNSTREAM AI PARTIAL** | `session_id + generation + authority_active` is the canonical Meeting authority. |
+| Local AI / Translate Engine | helper bridge + multiple Python/Rust translation/capture/fallback paths | **CONFLICT** | Audit proves there is not yet one canonical execution engine. Do not call this optimized or production-ready. |
+| AI capability/readiness truth | worker status, model inventory/manifests, legacy gates, product mapper, Meeting preflight | **CONFLICT** | Static/model-presence/dev-gate evidence overlaps current runtime truth. Consolidation required. |
+| Meeting outbound route | `virtual_audio_route_runtime.rs`, virtual-route selection/provider | **PARTIAL / WINDOWS PROOF REQUIRED** | Generation-aware cancellation contract exists; real meeting delivery is unproved. |
+| Incoming Meeting assistance | audio/capture/runtime candidates | **MISSING / PARTIAL** | Meeting Sound preference exists; loopback -> EN ASR -> ID text and self-output suppression do not. |
+| Translation tone/context | settings + inherited adapters | **MISSING / PARTIAL** | Approved tone and bounded committed Meeting context do not yet reach canonical inference. |
+| Document Translation | no active workspace | **RETIRED** | Do not revive Documents or file-attachment translation. |
+| Audio Studio | explicit entry + backend contracts | **PARTIAL / POST-CORE** | Preserve as post-core; it is not a current core blocker. |
+| Packaging/runtime assets | Tauri/NSIS direction + path/assets owners | **PARTIAL / STALE ASSUMPTIONS** | Repo-root/system-Python assumptions remain; clean installed proof is later. |
 
-## 1. Product Shell And Navigation
+## Product Shell, Setup, Settings, Text, History
 
-Current production entry:
+### Product shell
 
 ```text
-EngineData/Frontend/RustApp/index.html
+index.html
 └─ src/main.ts
    -> startDesktopWithFirstSetup
-      ├─ setup state `new`
-      │  -> focused First Setup shell
-      └─ deferred/completed
-         -> SimpleLauncherController
-            -> normal shell
-            -> Meeting / Text / History / Settings
-
-src/audioStudioEntry.ts
--> explicit post-core Audio Studio entry
+      ├─ new      -> focused First Setup shell
+      └─ deferred/completed -> SimpleLauncherController
+                               -> Meeting / Text / History / Settings
 ```
 
-The setup shell is not a second normal application architecture. `Documents` and
-top-level `Saved` are not mounted.
+`src/audioStudioEntry.ts` remains the explicit post-core Audio Studio entry.
+Documents and top-level Saved are not active navigation.
 
-Classification: **ALIGNED / VISUAL PARTIAL**.
+### First Setup / Meeting devices
 
-## 2. First Setup And Audio Device Selection
-
-Current setup owners:
+Current device preference authority remains:
 
 ```text
-src/app/first-setup/FirstSetupBootstrap.ts
-src/firstSetupLayout.css
-src/app/bridge/runtimeProductFacade.ts
-src/app/bridge/runtimeApi.ts
-src-tauri/src/commands/audio.rs
-src-tauri/src/engine/audio/input.rs
-src-tauri/src/engine/settings.rs
+RuntimeSettings.audio.input_device_id
+RuntimeSettings.audio.output_device_id
 ```
 
-The setup flow remains:
+First Setup and Meeting Settings use the same candidate-check -> save path. Explicit
+missing devices do not silently switch to Windows Default. Endpoint/config checks do
+not prove real signal, loopback, capture permission, or long-session stability.
 
-```text
-Welcome
--> Your microphone
--> Meeting sound
--> Meeting microphone
--> Verify / Ready
-```
+### Text
 
-Persisted setup facts remain limited to:
-
-```text
-meeting_setup_state      -> new | deferred | completed
-meeting_setup_checkpoint -> 1..5
-```
-
-No permanent `Ready` truth is persisted.
-
-### Your microphone
-
-First Setup and normal Meeting Settings share one selection path:
-
-```text
-list native candidates
--> choose Windows Default or explicit microphone
--> probe that exact candidate
--> if probe passes, save RuntimeSettings.audio.input_device_id
--> reload canonical settings/readiness
-```
-
-Current source guarantees:
-
-- explicit candidate lookup does not substitute another microphone;
-- a missing/unusable candidate is rejected before preference save;
-- a failed probe/save keeps the previously persisted preference;
-- `get_input_status()` checks the configured microphone rather than always checking
-  the Windows default;
-- live capture does not silently fall back to the Windows default when an explicit
-  configured microphone disappears; it blocks instead;
-- `Windows Default` is represented by no pinned `input_device_id`, preserving
-  follow-default behavior.
-
-The candidate probe establishes native endpoint/config usability at source-contract
-level only. It does not prove capture permission, signal, callbacks, or long-session
-stability on the target PC. Those claims remain **LOCAL PROOF REQUIRED**.
-
-### Meeting sound
-
-First Setup and normal Meeting Settings also share one Meeting Sound path:
-
-```text
-list native output candidates
--> choose Windows Default or explicit output
--> probe that exact endpoint/default output configuration
--> if probe passes, save RuntimeSettings.audio.output_device_id
-```
-
-A missing explicit output is rejected rather than replaced by Windows default, and
-failed probe/save keeps the previous preference.
-
-This probe establishes only that the selected output endpoint exposes a usable
-native output configuration. It does **not** claim incoming Meeting Sound capture,
-loopback, ASR, or English -> Indonesian translation works.
-
-Classification: **FLOW + DEVICE SELECTION SOURCE ALIGNED / WINDOWS PROOF LATER**.
-
-## 3. Settings
-
-Normal Settings hierarchy is:
-
-```text
-Meeting
-History & Privacy
-Advanced
-    -> Diagnostics
-```
-
-Meeting exposes familiar selectors for `Your microphone` and `Meeting sound` using
-the same `runtimeProductFacade` selection authority as First Setup. Candidate
-failure returns the control to the previous persisted value. A successful microphone
-preference change is re-read through canonical product readiness instead of treating
-native enumeration/config success as full Meeting readiness.
-
-`History & Privacy` remains connected to `RuntimeSettings.history_enabled` and the
-canonical History store. Clear History clears Recent only and never Saved.
-
-Classification: **ALIGNED HIERARCHY + DEVICE SELECTION / PARTIAL OTHER MEETING CONTENT**.
-
-## 4. Meeting Ready And Product Readiness
-
-Current owners:
-
-```text
-src/app/bridge/runtimeProductFacade.ts
-src/app/simple-launcher/SimpleLauncherController.ts
-src/app/active-launcher/lockedReferenceShellParts.ts
-src/mainPageLayout.css
-```
-
-Meeting Ready presents the approved plain-language hierarchy. Microphone readiness
-reflects the configured microphone probe. Incoming remains explicitly not connected.
-
-The visible `Start Translation` control remains intentionally disabled. The product
-Start preflight now distinguishes two different facts:
-
-```text
-generation-aware ASR -> Translate -> TTS -> Meeting route stages exist
-!=
-a safe continuous Meeting runtime exists
-```
-
-A rolling `ready_for_target_asr_frame` buffer is **not** accepted as a final/stable
-utterance. Promoting it directly could make partial speech audible in the meeting,
-which conflicts with approved product behavior.
-
-Classification: **READY UI ALIGNED / RUNTIME PARTIAL**.
-
-## 5. Text Translation
-
-Current runtime path:
+The active frontend path remains:
 
 ```text
 SimpleLauncherController
 -> runtimeProductFacade
 -> runtimeApi.translateText
--> Rust translate_text
--> canonical local translation runtime
+-> Rust `translate_text`
 ```
 
-The active Text workspace uses source/target panes, contextual persisted ID/EN Swap,
-explicit Translate, editable target, and stale/error states. Successful intentional
-Text translation writes Recent only when History is enabled.
+The frontend is aligned, but `translate_text` currently has competing downstream
+execution/fallback behavior. Therefore the source map no longer labels the AI path
+behind Text as canonical until engine consolidation is implemented.
 
-Still incomplete:
+### History / Saved
 
-- independent Text Quality-default ownership;
-- Auto/Formal/Casual inference behavior;
-- Copy action and direct Text Save of the currently visible edited target.
-
-Classification: **UI + RECENT WRITE ALIGNED / RUNTIME PARTIAL**.
-
-## 6. Canonical History / Saved
-
-Canonical product History persistence:
+Canonical product persistence:
 
 ```text
 src-tauri/src/engine/history_store.rs
@@ -231,43 +98,19 @@ UserData/SavedProject/History/
 └─ Saved/
 ```
 
-Frontend owners:
+`engine/session_chat.rs` and `engine/session_store.rs / SavedTranscript` are not
+canonical product History.
 
-```text
-src/app/bridge/runtimeApi.ts
-src/app/shared/historyTypes.ts
-src/app/simple-launcher/SimpleLauncherController.ts
-src/app/active-launcher/lockedReferenceShellParts.ts
-src/app/active-launcher/launcherSettingsRenderer.ts
-src/historyLayout.css
-```
+## Canonical Meeting Authority That Survives Consolidation
 
-The active workspace provides Recent/Saved, local Search, All/Meeting/Text filtering,
-Text detail, independent Save, and Remove from Saved. History Off stops new connected
-Text Recent writes without deleting existing History/Saved. Clear History is
-confirmation-gated and clears Recent only.
-
-Meeting entries are not invented before canonical Meeting lifecycle writes exist.
-
-Classification: **TEXT COLLECTION/DETAIL + PRIVACY ALIGNED / MEETING PARTIAL**.
-
-Inherited persistence below is not canonical product History:
-
-```text
-engine/session_chat.rs
-engine/session_store.rs / SavedTranscript
-```
-
-## 7. Application Meeting Session Authority And Finalized Outbound Pipeline
-
-Canonical session ownership remains in:
+Keep the application/session authority already established in:
 
 ```text
 src-tauri/src/engine/runtime_state.rs
 src-tauri/src/commands/meeting_session.rs
 ```
 
-Registered lifecycle commands remain:
+Product lifecycle commands:
 
 ```text
 get_meeting_session_status
@@ -275,7 +118,7 @@ start_meeting_translation
 stop_meeting_translation
 ```
 
-The runtime session snapshot carries:
+The session snapshot owns:
 
 ```text
 session_id
@@ -284,181 +127,91 @@ authority_active
 phase
 ```
 
-Current session authority contract:
+Generation checks already guard the current finalized-segment stage boundary and
+Meeting route. This authority is not the engine conflict; competing AI execution and
+readiness paths underneath/alongside it are.
 
-- one application Meeting session authority may own Meeting resources at a time;
-- each new session receives a monotonically advancing generation;
-- duplicate Start cannot overwrite an existing session;
-- Stop revokes the current generation before resource cleanup;
-- clearing session state invalidates old generation authority;
-- legacy capture-only behavior remains separate from product Translation Live.
+`Start Translation` remains fail-closed while a safe continuous runtime is not
+connected. Rolling `ready_for_target_asr_frame` remains **not final speech**.
 
-### Generation-aware finalized-segment stages
+## Local AI / Translate Engine — Current Ownership Conflict
 
-`meeting_session.rs` now owns one product outbound stage function for an audio file
-that has **already been finalized by the audio/segmentation owner**:
+The following current paths overlap or compete and therefore require consolidation.
+The disposition itself is owned by `next-action.md`; this table records the current
+source responsibility/conflict only.
+
+| Current path / owner | Current behavior | Ownership state |
+|---|---|---|
+| `commands/helper_bridge.rs` + `helper_bridge_runtime.rs` | Persistent Python process, JSON request/response, preload/status/task bridge | **KEEP-CANDIDATE / INTERNALS PARTIAL** |
+| `bridge_paths.rs` | Prefers `realtime_local_worker_entry.py`, then base worker; can search several Python runtimes | **STALE / PACKAGING + ENTRYPOINT CONFLICT** |
+| `realtime_local_worker.py` | Real `status / transcribe / translate / synthesize` implementation and model caches | **KEEP-CANDIDATE** |
+| `realtime_local_worker_entry.py` | Wraps base worker and registers migration/dev handoff handlers | **CONFLICT / MIGRATION SCAFFOLD** |
+| `realtime_local_worker_accelerated.py` | Separate accelerated/CT2 translation execution candidate | **CONFLICT / PARALLEL WORKER** |
+| `commands/text_translate.rs` | Uses running helper, otherwise falls back to engine translation | **CONFLICT / MULTI-PATH** |
+| `engine/manual_translation_accelerated.rs` | Spawns one-shot worker; can fall back again | **CONFLICT / ONE-SHOT ENGINE** |
+| `engine/manual_translation.rs` + `adapters/translation_logic.rs` | Additional worker path plus deterministic/preview non-model translation | **CONFLICT / FAKE-SUCCESS RISK** |
+| `engine/capture_lifecycle.rs` | Legacy capture -> one-shot ASR -> Translate -> TTS pipeline and mode fallback | **CONFLICT / LEGACY VOICE ENGINE** |
+| `commands/runtime_capture.rs` migration/helper handoffs | Capture/asr migration previews/stubs plus fallback into legacy capture | **CONFLICT / MIGRATION SCAFFOLD** |
+| `commands/meeting_session.rs` finalized AI stages | Uses canonical task names with generation checks after each stage | **KEEP-CANDIDATE / WAITS FOR ENGINE CONSOLIDATION** |
+
+No new AI worker/service may be added while these overlaps exist.
+
+## AI Readiness / Model Truth — Current Conflict
+
+Current readiness inputs are not equivalent and must not be merged into one `Ready`
+label without preserving what each actually proves.
+
+| Current owner/input | What it really proves today | State |
+|---|---|---|
+| `WorkerRuntime/model_manifest.json` | Declarative expected model inventory | **KEEP-CANDIDATE / NEEDS REPRODUCIBLE METADATA** |
+| `commands/runtime_inventory.rs` | Mostly model path/file presence and native candidate visibility | **PARTIAL / STATIC INSTALL EVIDENCE** |
+| `RuntimeContracts/MODEL_RUNTIME_MANIFEST.json` | Previous machine/runtime snapshot stored in source tree | **STALE AS CURRENT READINESS** |
+| `realtime_stack_manifest.json` | Declared profiles/latency/model intentions | **STALE AS EXECUTION PROOF** |
+| worker `status` | Current process imports/assets/provider availability plus loaded-cache flags | **KEEP-CANDIDATE / SEMANTICS NEED SPLIT** |
+| helper `provider_ready` | Currently mixes process/capability/request outcomes | **CONFLICT / TOO COARSE** |
+| legacy internal/live/professional/migration gates | Planning/migration/source readiness | **STALE AS PRODUCT READINESS** |
+| `runtimeProductFacade.ts` | Product presentation mapper | **KEEP / INPUTS MUST BE REPLACED** |
+| `MeetingSessionPreflight` | Transactional Meeting Start gate | **KEEP / MUST CONSUME CANONICAL CAPABILITIES** |
+
+Required future distinction:
 
 ```text
-finalized Indonesian WAV
--> canonical helper task `transcribe`
--> generation check
--> canonical helper task `translate`
--> generation check
--> canonical helper task `synthesize`
--> generation check
--> generation-aware guarded Meeting route dispatch
+Installed
+!= Loaded
+!= Inference verified
+!= Product capability Ready
+!= Meeting Start safe
 ```
 
-The product stage path deliberately uses the worker's actual canonical tasks:
+## Audio Boundary
+
+Physical microphone capture, VAD/finalized utterance production, Windows devices,
+Meeting Sound capture, and Meeting Microphone delivery remain owned by the Windows
+audio boundary. AI consolidation must not absorb these responsibilities.
+
+The generation-aware Meeting route remains useful source and is retained. Actual
+Windows delivery stays `LOCAL PROOF REQUIRED`.
+
+## Retired / Non-Canonical Product Concepts
 
 ```text
-transcribe
-translate
-synthesize
-```
-
-It does not promote developer stub task names such as `asr_decode`,
-`translation_handoff`, or `tts_handoff` into product execution.
-
-Generation is checked after every blocking AI stage before the result can advance to
-the next stage. A TTS file produced after generation revocation is discarded instead
-of being routed. The Meeting route checks generation again immediately before
-provider execution.
-
-### Cancellable Meeting route
-
-`virtual_audio_route_runtime.rs` now has a Meeting-specific provider path that:
-
-- requires current authoritative Meeting generation before provider launch;
-- carries the Meeting generation in the route provider payload;
-- requires the explicit runtime execution guard instead of accepting a dry-run as
-  product delivery;
-- runs the provider in a cancellable child-process boundary;
-- polls generation/cancel state while route playback is in progress;
-- kills/cancels the route provider when Stop revokes the generation;
-- accepts product delivery only when the provider reports both
-  `route_execution_attempted` and `audio_route_ready`.
-
-Actual audio arrival at Zoom/Meet/Teams remains **LOCAL PROOF REQUIRED**.
-
-### Remaining blocker: finalized utterance source
-
-The current live capture owner exposes a rolling audio window and
-`ready_for_target_asr_frame`. That means “enough current audio exists for ASR”, not
-“the user's utterance is final/stable”. No current source owner yet connects
-minimum/end-silence/adaptive finalization into a one-shot product utterance that can
-be consumed exactly once.
-
-For that reason Start remains fail-closed on:
-
-```text
-meeting_session:finalized_utterance_source_not_connected
-meeting_session:continuous_outbound_runtime_not_connected
-```
-
-This is intentional safety behavior, not a missing button wiring bug.
-
-Classification: **SESSION AUTHORITY + FINALIZED-STAGE CONTRACT ALIGNED / FINAL UTTERANCE SOURCE MISSING**.
-
-## 8. Translation Context And Tone
-
-Current source does not yet prove approved tone behavior reaches inference or that
-committed Meeting chronology/canceled-turn exclusion is implemented. History/Saved
-remains retrieval only and never automatic model context.
-
-Classification: **PARTIAL / MISSING**.
-
-## 9. Meeting Audio Route And Incoming Assistance
-
-The managed outbound route remains `TranslateIT Meeting Microphone`.
-
-Product Meeting route execution is now generation-aware and cancellation-signalled,
-so a Stop/revoked generation cannot legitimately start a new route provider action.
-If a provider is already running, the Meeting-specific route owner receives a cancel
-flag and terminates the provider process rather than waiting for old playback to
-finish normally.
-
-This is static source contract only. Device routing, provider dependencies, route
-latency, and actual audio delivery on Windows remain **LOCAL PROOF REQUIRED**.
-
-Meeting Sound device preference is selected/committed safely, but this still does
-not implement the separate incoming capture/ASR/translation lane or self-output
-suppression.
-
-Classification: outbound route **GENERATION-CANCELLABLE SOURCE CONTRACT / WINDOWS PROOF REQUIRED**; incoming **PARTIAL / MISSING**.
-
-## 10. Document Translation
-
-First-class Document Translation is removed from current scope. The active shell and
-Text workflow expose neither Documents nor file-attachment translation.
-
-Classification: **RETIRED**.
-
-## 11. Audio Studio
-
-Audio Studio remains explicit but post-core. Reachability does not prove provider or
-profile completeness.
-
-Classification: **PARTIAL / POST-CORE**.
-
-## 12. Installer, Package And Runtime Assets
-
-Tauri/NSIS direction exists, but clean installed completeness is not proven and
-repository/system-Python assumptions remain to be reconciled later.
-
-Classification: **PARTIAL / STALE PACKAGING ASSUMPTIONS**.
-
-## Cross-Cutting Ownership State
-
-### Keep / extend
-
-```text
-FirstSetupBootstrap + SimpleLauncherController/current shell
-runtimeProductFacade
-runtimeApi
-RuntimeSettings
-runtime_state + meeting_session command authority
-audio device/input/live-capture owners
-history_store + history commands
-translate_text command
-canonical helper worker (`transcribe / translate / synthesize`)
-virtual route Rust/provider owners
-UserData roots
-Audio Studio explicit entry + backend contracts
-Tauri NSIS package direction
-```
-
-### Retired / non-canonical
-
-```text
-Documents top-level/workspace behavior
-Text file-attachment translation
-top-level Saved navigation
+Documents workspace / file-attachment translation
+top-level Saved
 General / Translation / Audio as normal Settings destinations
 session_chat.rs as product History
 session_store.rs / SavedTranscript as product History
-developer handoff/cache readiness as Meeting Start proof
-rolling ASR-ready audio treated as final Meeting speech
+rule-based/preview translation as successful product inference
+dev seed/smoke/handoff success as product inference proof
+stale source/runtime manifest state as current Ready
+rolling ASR-ready audio treated as finalized speech
 ```
 
-### Still requires later reconciliation
+## Current Mode / Continuation
 
-```text
-finalized outbound utterance producer / exactly-once consumption from live capture
-continuous connection from finalized utterance producer to generation-aware outbound stages
-frontend Start/Stop wiring + Meeting Live transcript/global cross-view state
-single-instance behavior
-incoming Meeting Sound lane and self-output suppression
-turn coordination / bounded recovery / Pause-Resume semantics
-Meeting History write/detail after committed Meeting lifecycle exists
-approved tone/context inference
-Text Quality default + Copy/direct Save
-Windows permission deep-link
-repo-root/system-Python installed-build assumptions
-```
+Current project mode is **Plan**, execution channel `ChatGPT -> GitHub`.
 
-## Source-Side Development Order
+Further Meeting feature expansion, including the finalized outbound utterance
+producer, is deferred until the Engine Consolidation Plan is approved and the active
+AI execution/readiness ownership is unambiguous.
 
-The project remains in **Developing** through `ChatGPT -> GitHub`. Continue bounded
-source-side slices before dedicated local Windows acceptance. The single current
-continuation is owned by `docs/knowledge/next-action.md`.
+The single current continuation is `docs/knowledge/next-action.md`.
