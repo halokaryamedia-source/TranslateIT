@@ -110,29 +110,54 @@ export function lockedHomeWorkspace(): string {
         </section>
 
         <section id="textWorkspace" class="is-hidden" data-workspace-panel="text" hidden>
-          <section class="simple-translate-grid">
-            <article class="simple-translate-card">
-              <div class="simple-card-heading"><span class="hero-kicker">Standalone workflow</span><h3>Translate text</h3><p>Translate Indonesian and English text with the current local translation runtime.</p></div>
-              <input id="attachmentInput" class="attachment-input" type="file" accept=".txt,.md,.json,.csv,.tsv,.log,.xml,.yaml,.yml,.srt,.vtt,text/plain,text/markdown,application/json,text/csv,text/tab-separated-values,text/xml,application/xml,application/yaml,text/yaml" multiple aria-hidden="true" tabindex="-1" />
-              <div class="simple-composer">
-                <div class="simple-composer-actions" aria-label="Text translation direction">
-                  <span id="textSourceLanguage" class="direction-pill">Indonesian</span>
-                  <button id="textSwapLanguageButton" class="assistant-action secondary" type="button">Swap</button>
-                  <span id="textTargetLanguage" class="direction-pill">English</span>
-                </div>
-                <textarea id="messageInput" placeholder="Type or paste text to translate..." autocomplete="off" maxlength="2000" rows="6" aria-label="Text to translate"></textarea>
-                <div class="simple-composer-actions">
-                  <button id="composerPlusButton" class="assistant-action secondary" type="button">Attach text</button>
-                  <button id="sendButton" class="send-button simple-send-button" type="button">Translate</button>
-                </div>
+          <section class="text-translator-layout" aria-labelledby="textTranslatorTitle">
+            <header class="text-translator-heading">
+              <div>
+                <span class="hero-kicker">Text translation</span>
+                <h3 id="textTranslatorTitle">Translate Indonesian and English text.</h3>
+                <p>Type or paste text, translate explicitly, then review or edit the result.</p>
               </div>
-              <p class="composer-help">Press Enter to translate. Use Shift + Enter for a new line.</p>
-            </article>
-            <aside class="simple-status-column">
-              <article class="assistant-card simple-status-card"><div class="mini-brand">T</div><div><strong>Text readiness</strong><p id="realtimeStatus">Checking</p><p>Runtime blockers are reported with the translation result instead of being hidden.</p></div></article>
-            </aside>
+              <span class="text-readiness-badge"><span>Text</span><strong id="realtimeStatus">Checking</strong></span>
+            </header>
+
+            <div class="text-language-bar" aria-label="Text translation direction">
+              <div class="text-language-side">
+                <span>Source</span>
+                <strong id="textSourceLanguage">Indonesian</strong>
+              </div>
+              <button id="textSwapLanguageButton" class="text-swap-button" type="button" aria-label="Swap source and target languages">${icon("swap")}<span>Swap</span></button>
+              <div class="text-language-side text-language-side--target">
+                <span>Target</span>
+                <strong id="textTargetLanguage">English</strong>
+              </div>
+            </div>
+
+            <div class="text-pane-grid">
+              <label class="text-pane" for="messageInput">
+                <span class="text-pane-label">Source text</span>
+                <textarea id="messageInput" placeholder="Type or paste text to translate..." autocomplete="off" maxlength="2000" rows="10" aria-label="Source text"></textarea>
+              </label>
+
+              <label class="text-pane text-pane--target" for="textTargetOutput">
+                <div class="text-pane-title-row">
+                  <span class="text-pane-label">Translation</span>
+                  <strong id="textResultStatus" class="text-result-status" data-state="idle">Ready</strong>
+                </div>
+                <textarea id="textTargetOutput" placeholder="Translation will appear here." rows="10" aria-label="Translated text"></textarea>
+              </label>
+            </div>
+
+            <div class="text-translator-footer">
+              <div class="text-context-summary" aria-label="Text translation preferences">
+                <span>Mode <strong id="textModeValue">Checking</strong></span>
+                <span>Tone <strong>Auto</strong></span>
+              </div>
+              <button id="sendButton" class="send-button simple-send-button" type="button">Translate</button>
+            </div>
+
+            <p id="textResultMessage" class="text-result-message" aria-live="polite">Type or paste text, then select Translate.</p>
+            <p class="composer-help">Press Ctrl + Enter to translate. Text files and document attachments are not part of this workflow.</p>
           </section>
-          <section id="chatList" class="simple-result-area" aria-label="Translation result"></section>
         </section>
 
         <section id="historyWorkspace" class="is-hidden" data-workspace-panel="history" hidden>
