@@ -119,6 +119,20 @@ Meeting Microphone`, and local translation readiness. Setup may be intentionally
 deferred without pretending Meeting succeeded; Text remains independently usable
 when its translation runtime is available.
 
+The current source now owns this first-use flow through a focused setup bootstrap
+before the normal application shell. Only setup-flow facts are persisted:
+
+```text
+meeting_setup_state      -> new | deferred | completed
+meeting_setup_checkpoint -> 1..5
+```
+
+These facts do not represent runtime readiness. `Ready` is always revalidated from
+current runtime/device evidence. Interrupted `new` setup may resume from a saved
+checkpoint, but relevant microphone/Meeting-route capability is rechecked before a
+checkpoint is trusted. Explicit `Set up later` persists defer intent and proceeds to
+the normal app; it does not mark Meeting Ready.
+
 Returning launch goes directly to Meeting and performs a product-level preflight.
 The primary action is `Start Translation`.
 
@@ -277,7 +291,7 @@ UserData/LogData/      -> minimal/redacted diagnostics
 UserData/SavedProject/ -> persistent user-visible/user-approved data
 ```
 
-Canonical product History storage is now:
+Canonical product History storage is:
 
 ```text
 UserData/SavedProject/History/
@@ -296,15 +310,11 @@ SimpleLauncherController + active History workspace
 ```
 
 Successful Text translations currently write Recent only when `history_enabled` is
-ON. The History workspace reads `Recent / Saved`, supports local search and
-Meeting/Text filters, shows Text detail, creates an independent Saved copy, and can
-remove that Saved copy without deleting Recent. Existing legacy `session_chat.rs`
-and `session_store.rs` are not canonical product History.
-
-`Settings -> History & Privacy` now uses the same owners: History On/Off persists via
-the existing runtime settings path, turning History off does not delete old data,
-and confirmation-gated Clear History invokes only the canonical Clear Recent action.
-Saved is not targeted by that action.
+ON. History reads `Recent / Saved`, supports local search and Meeting/Text filters,
+shows Text detail, creates an independent Saved copy, and can remove that Saved copy
+without deleting Recent. `Settings -> History & Privacy` controls the same History
+On/Off and Clear Recent contract. Existing legacy `session_chat.rs` and
+`session_store.rs` are not canonical product History.
 
 Meeting History writes/details wait for the canonical Meeting lifecycle and are not
 invented from legacy transcript data.
@@ -316,9 +326,8 @@ Meeting Sound, TranslateIT Meeting Microphone setup/check, and scoped recovery.
 New device selections must be verified before replacing working preferences.
 
 History & Privacy owns History On/Off, local storage information, Saved information,
-and Clear History. The current active controls are backed by
-`RuntimeSettings.history_enabled` and canonical `clearRecentHistory()`; turning
-History off does not delete existing data and Clear History does not delete Saved.
+and Clear History. Current source connects Keep History to `history_enabled` and
+Clear History only to canonical Clear Recent; Saved is unaffected.
 
 Advanced owns setup health and Developer Diagnostics. Normal users do not operate
 Python/helper/worker lifecycle, provider/model names, CUDA mode, VAD thresholds,
@@ -368,34 +377,34 @@ normal production/runtime dependency and discovery contracts.
 
 ## Current Implementation Evidence Boundary
 
-Source-side alignment already completed on `New` includes:
+Source-side alignment completed on `New` includes:
 
-- top-level `Meeting / Text / History / Settings` shell;
+- first-use five-step setup shell with explicit defer/resume setup facts and no
+  persisted readiness truth;
+- top-level `Meeting / Text / History / Settings` normal shell;
 - `Meeting / History & Privacy / Advanced` normal Settings hierarchy;
 - approved truthful Meeting Ready composition;
 - familiar Text source/target composition with active attachment workflow removed;
 - canonical History/Saved persistence under the approved existing root;
-- frontend History bridge, History `Recent / Saved` collection + Text detail, and
-  automatic Text Recent writes when History is enabled;
-- History & Privacy On/Off and confirmation-gated Clear History controls using the
-  same canonical settings/History owners.
+- frontend History bridge, `Recent / Saved` collection + Text detail, automatic Text
+  Recent writes when History is enabled, History On/Off, and Clear Recent controls.
 
 Still incomplete source/runtime work includes:
 
+- verified physical microphone and Meeting Sound candidate -> verify -> commit
+  selection behavior;
 - Meeting History writes/details after canonical Meeting lifecycle exists;
-- First Setup / intentional defer;
 - global Meeting indicator/cross-view lifecycle/single-instance behavior;
 - atomic Start Translation, Meeting Live, incoming lane, turn coordination,
   recovery, and Stop finalization;
 - approved tone/context inference and independent Text Quality ownership;
 - Text Copy/direct Save behavior;
-- verified Meeting device-selection behavior;
 - clean installer/runtime asset reconciliation.
 
 Source presence does not prove live target-PC readiness. Do not claim microphone,
 ASR/translation/TTS quality, Meeting Microphone delivery, self-output suppression,
 latency, settings/filesystem persistence, rendered UI quality, CUDA behavior, Audio
-Studio, or installer success without the required local evidence.
+Studio, or installer success without required local evidence.
 
 ## Canonical Owners
 
