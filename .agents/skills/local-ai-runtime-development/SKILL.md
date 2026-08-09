@@ -18,7 +18,9 @@ local inference/runtime behavior.
 - `Realtime / Quality` inference behavior;
 - CUDA-preferred / CPU-fallback execution;
 - inference-side context and tone consumption;
-- AI capability/error truth and inference-side latency stages.
+- AI capability/error truth and inference-side latency stages;
+- bounded evaluation of Python/runtime development tools when they directly improve
+  the canonical AI runtime's reproducibility, correctness, or measured performance.
 
 ## Does Not Own
 
@@ -71,6 +73,9 @@ a provider-specific name a product contract.
 - Successful AI-stage timing does not equal full meeting latency.
 - Separate expected capability conditions (`model_missing`, `cuda_unavailable`,
   `cpu_degraded`) from unexpected runtime failures.
+- Profile the canonical persistent runtime before optimizing or replacing the
+  Rust/Python process boundary. Do not infer a Python bottleneck from language
+  choice alone.
 
 ## Input/Output Boundaries
 
@@ -136,6 +141,55 @@ Provider evaluation source evidence can narrow a decision, but model quality,
 actual CUDA/CPU behavior, latency, and generated audio quality remain local/runtime
 claims when those are material acceptance criteria.
 
+## Conditional Runtime Tooling
+
+These are **development tools/candidates, not project skills, product features, or
+automatic dependencies**. Adopt only when a current acceptance/proof need justifies
+them.
+
+| Tool | Use in TranslateIT | Adoption rule |
+|---|---|---|
+| `uv` | Python version/environment/dependency resolution and lockfile candidate | Prefer when consolidating the canonical worker environment. Packaging decides how locked dependencies become an installed runtime; end users must not need `uv`. |
+| `Ruff` | Python lint + formatting | Prefer as one consolidated Python lint/format tool rather than stacking Flake8/Black/isort-style tools. Add only after the canonical Python source boundary is known. |
+| `pytest` | Executable Python correctness tests | Use for behavior that can fail deterministically. Do not substitute mocks/source-marker tests for model/runtime claims. |
+| `pytest-benchmark` | Repeatable stage-level performance regression | Use only after correctness is established and only for the measured function/stage; benchmark success is not translation/ASR/TTS quality proof. |
+| `py-spy` | First-line low-overhead profiling of the persistent Python worker | Prefer before code-level optimization, worker splitting, or FFI redesign. Profile the actual long-lived worker path, not a one-shot helper that product runtime does not use. |
+| `Scalene` | Deeper CPU/native/GPU/memory investigation | Use only when `py-spy` or simpler measurements cannot explain a material bottleneck. AI optimization suggestions are not a project authority. |
+| `ty` or another type checker | Python static typing | Defer until the canonical worker/API boundary is stable and typing materially reduces runtime-contract risk. Do not create a typing migration as cleanup theater. |
+| `PyO3` / `maturin` | Rust/Python FFI or embedding | **DEFER by default.** Consider only when profiling proves process/IPC overhead is a material bottleneck and architecture review shows FFI reduces net complexity. Never adopt for language purity. |
+
+### Tool Adoption Gate
+
+Before adding any runtime-development tool:
+
+```text
+proved current problem
++ canonical owner known
++ tool directly helps acceptance/proof
++ official/current documentation checked
++ dependency/config/maintenance cost is proportional
++ no duplicate tool already satisfies the same job
+= candidate may be adopted
+```
+
+Otherwise choose `KEEP CURRENT`, `DEFER`, or `NO CHANGE`.
+
+A tool used only for local profiling/testing should remain a development dependency
+or operator tool; do not silently turn it into a packaged user-runtime dependency.
+`release-packaging-development` owns installed delivery and reproducibility once a
+runtime requirement is approved.
+
+## External Ecosystem Discovery
+
+A curated index such as `rust-unofficial/awesome-rust` may be used only to discover
+candidate Rust crates/tools after a real requirement is proved. It is not a skill or
+a dependency authority. Serious candidates must be verified against their current
+official repository/docs, platform/license constraints, and net-complexity impact
+before adoption.
+
+Do not add a `rust-expert`, `python-expert`, or ecosystem-research specialist merely
+because this runtime uses Rust and Python.
+
 ## Boundary Examples
 
 If VAD never finalizes speech, use `windows-audio-runtime-development`. If a valid
@@ -152,10 +206,12 @@ is correct but translation context/tone is wrong, this specialist may own it.
 3. Check for competing active execution paths.
 4. If provider/model choice is material, run the bounded provider/model evaluation
    above rather than adopting a named project by default.
-5. Separate known capability condition, approved fallback, and unknown failure.
-6. Preserve one orchestration path and make the smallest complete change.
-7. Run the smallest proof appropriate to the claim.
-8. Return to the development-brief acceptance gate.
+5. If performance/tooling is material, measure the actual canonical path first and
+   apply the conditional tooling adoption gate.
+6. Separate known capability condition, approved fallback, and unknown failure.
+7. Preserve one orchestration path and make the smallest complete change.
+8. Run the smallest proof appropriate to the claim.
+9. Return to the development-brief acceptance gate.
 
 ## Proof
 
@@ -167,10 +223,14 @@ Model load, CUDA use, CPU usability, ASR output, translation quality, TTS validi
 voice-clone/profile quality, and performance require targeted local/runtime proof
 when those are the claims.
 
+Profiling output proves only the observed run/configuration. A faster stage is not a
+better model, and a benchmark is not a substitute for domain-quality evaluation.
+
 ## Anti-Slop Boundary
 
 Do not create another AI engine because old code is confusing; parallel helper/
 worker paths; automatic cloud fallback; provider-specific product policy; broad
 catch-all fallback; CUDA as mandatory app requirement; AI-owned microphone/device
-routing; AI-owned persistence; AI-owned desktop UX; or generic provider registries
-for hypothetical future integrations.
+routing; AI-owned persistence; AI-owned desktop UX; generic provider registries for
+hypothetical future integrations; duplicate lint/test/profile stacks; or Rust/Python
+FFI merely because it appears more sophisticated.
