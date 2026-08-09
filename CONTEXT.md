@@ -1,6 +1,6 @@
 # TranslateIT Workspace Context
 
-Updated: 2026-08-09  
+Updated: 2026-08-10  
 Working branch: `New`  
 Recovery baseline: `V1-Advance` at `6fd3485d6b22b9e3f44abc640241532aea61c3c7`
 
@@ -301,6 +301,11 @@ Meeting/Text filters, shows Text detail, creates an independent Saved copy, and 
 remove that Saved copy without deleting Recent. Existing legacy `session_chat.rs`
 and `session_store.rs` are not canonical product History.
 
+`Settings -> History & Privacy` now uses the same owners: History On/Off persists via
+the existing runtime settings path, turning History off does not delete old data,
+and confirmation-gated Clear History invokes only the canonical Clear Recent action.
+Saved is not targeted by that action.
+
 Meeting History writes/details wait for the canonical Meeting lifecycle and are not
 invented from legacy transcript data.
 
@@ -311,8 +316,9 @@ Meeting Sound, TranslateIT Meeting Microphone setup/check, and scoped recovery.
 New device selections must be verified before replacing working preferences.
 
 History & Privacy owns History On/Off, local storage information, Saved information,
-and Clear History. The underlying `history_enabled` setting and Clear Recent command
-exist, but those Settings controls are the next source-side slice.
+and Clear History. The current active controls are backed by
+`RuntimeSettings.history_enabled` and canonical `clearRecentHistory()`; turning
+History off does not delete existing data and Clear History does not delete Saved.
 
 Advanced owns setup health and Developer Diagnostics. Normal users do not operate
 Python/helper/worker lifecycle, provider/model names, CUDA mode, VAD thresholds,
@@ -370,11 +376,12 @@ Source-side alignment already completed on `New` includes:
 - familiar Text source/target composition with active attachment workflow removed;
 - canonical History/Saved persistence under the approved existing root;
 - frontend History bridge, History `Recent / Saved` collection + Text detail, and
-  automatic Text Recent writes when History is enabled.
+  automatic Text Recent writes when History is enabled;
+- History & Privacy On/Off and confirmation-gated Clear History controls using the
+  same canonical settings/History owners.
 
 Still incomplete source/runtime work includes:
 
-- History & Privacy On/Off and Clear History controls;
 - Meeting History writes/details after canonical Meeting lifecycle exists;
 - First Setup / intentional defer;
 - global Meeting indicator/cross-view lifecycle/single-instance behavior;
@@ -382,12 +389,13 @@ Still incomplete source/runtime work includes:
   recovery, and Stop finalization;
 - approved tone/context inference and independent Text Quality ownership;
 - Text Copy/direct Save behavior;
+- verified Meeting device-selection behavior;
 - clean installer/runtime asset reconciliation.
 
 Source presence does not prove live target-PC readiness. Do not claim microphone,
 ASR/translation/TTS quality, Meeting Microphone delivery, self-output suppression,
-latency, filesystem persistence, rendered UI quality, CUDA behavior, Audio Studio,
-or installer success without the required local evidence.
+latency, settings/filesystem persistence, rendered UI quality, CUDA behavior, Audio
+Studio, or installer success without the required local evidence.
 
 ## Canonical Owners
 
