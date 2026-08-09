@@ -24,7 +24,7 @@ impl ProjectPaths {
         let root = find_project_root(&start)
             .or_else(|| exe_start.as_deref().and_then(find_project_root))
             .unwrap_or_else(|| start.clone());
-        let root_markers = root_marker_state(&root);
+        let runtime_root_verified = has_runtime_root_markers(&root);
 
         let user_cache_dir = root.join("UserData").join("CacheData");
         let user_log_dir = root.join("UserData").join("LogData");
@@ -50,15 +50,9 @@ impl ProjectPaths {
             translation_model_dir: normalize_path(&translation_model_dir),
             voice_runtime_dir: normalize_path(&voice_runtime_dir),
             backend_contract_dir: normalize_path(&backend_contract_dir),
-            discovery_note: discovery_note(root_markers),
+            discovery_note: discovery_note(runtime_root_verified),
         }
     }
-}
-
-#[derive(Debug, Clone, Copy)]
-struct RootMarkerState {
-    runtime_root_verified: bool,
-    developing_data_present: bool,
 }
 
 fn find_project_root(start: &Path) -> Option<PathBuf> {
@@ -70,22 +64,13 @@ fn find_project_root(start: &Path) -> Option<PathBuf> {
     None
 }
 
-fn root_marker_state(candidate: &Path) -> RootMarkerState {
-    RootMarkerState {
-        runtime_root_verified: has_runtime_root_markers(candidate),
-        developing_data_present: candidate.join("DevelopingData").is_dir(),
-    }
-}
-
 fn has_runtime_root_markers(candidate: &Path) -> bool {
     candidate.join("EngineData").is_dir() && candidate.join("UserData").is_dir()
 }
 
-fn discovery_note(markers: RootMarkerState) -> String {
-    if markers.runtime_root_verified && markers.developing_data_present {
-        "Runtime root verified from EngineData/UserData markers. DevelopingData is present for development docs/tooling but is not required at runtime. Runtime assets use EngineData/Backend/RuntimeAssets. Backend contracts use EngineData/Backend/RuntimeContracts.".to_string()
-    } else if markers.runtime_root_verified {
-        "Runtime root verified from EngineData/UserData markers. DevelopingData is absent, which is allowed for release/runtime packaging. Runtime assets use EngineData/Backend/RuntimeAssets. Backend contracts use EngineData/Backend/RuntimeContracts.".to_string()
+fn discovery_note(runtime_root_verified: bool) -> String {
+    if runtime_root_verified {
+        "Runtime root verified from EngineData/UserData markers. DevelopingData is outside the runtime discovery contract. Runtime assets use EngineData/Backend/RuntimeAssets. Backend contracts use EngineData/Backend/RuntimeContracts.".to_string()
     } else {
         "Runtime root markers were not found; falling back to current working directory. Verify launch path before production packaging.".to_string()
     }

@@ -1,84 +1,43 @@
-# TranslateIT Desktop App Package
+# TranslateIT Tauri Desktop Application
 
-`RustApp` is the active Tauri desktop app package for TranslateIT V1.
+This directory is the current desktop application package on branch `New`.
 
-Even though the path is under `EngineData/Frontend/`, this package is not frontend-only. It contains both the active UI runtime and the app-embedded Rust/Tauri backend bridge.
-
-## Quick Map
-
-```txt
-RustApp/
-├─ src/             # active UI runtime source
-├─ src-tauri/       # active Rust/Tauri backend bridge and app shell
-├─ Preview/         # preview-only UI and prototype work
-├─ docs/            # package-level documentation
-├─ scripts/         # package-level tooling and validation scripts
-├─ page-template.md # UI page template reference
-├─ ui-reference.md  # UI reference rules
-├─ index.html       # app entry point
-└─ package.json     # package scripts and dependencies
-```
-
-## Package route
+## Ownership
 
 ```text
-EngineData/Frontend/RustApp
+src/main.ts
+-> desktop entrypoint
+
+src/app/simple-launcher/SimpleLauncherController.ts
+-> current active desktop controller/product shell owner
+
+src/app/bridge/
+-> frontend-to-runtime facade/API boundaries
+
+src/app/active-launcher/
+-> reusable adjacent views/renderers/bindings still used by the active shell where referenced
+
+src-tauri/
+-> Rust/Tauri commands, engine/runtime integration, settings/path/storage owners
+
+scripts/
+-> current source/build/contract validation utilities
 ```
 
-Do not rename this route unless a full package-path migration is approved and all references are updated in the same change.
+The canonical application architecture remains the existing Rust/Tauri desktop shell plus Python helper runtime. Do not create a parallel launcher/engine merely because inherited source names remain.
 
-## Source
+## Generated/local output
 
-- `src/app/active-launcher/` for active UI runtime modules.
-- `src/app/active-launcher/controller/` for the next controller split boundary.
-- `src-tauri/src/commands/` for thin Tauri command wrappers.
-- `src-tauri/src/engine/` for Rust runtime/domain logic.
-- `src-tauri/src/engine/services/` for future Rust orchestration/use-case modules.
-- `src-tauri/src/engine/domain/` for future pure Rust domain rules and DTOs.
-- `index.html` for the app entry point.
+Generated frontend/build output, Rust targets, local source-validation reports, and temporary development evidence are derived artifacts. They are ignored and must not become source authority.
 
-## App docs
-
-- `Preview/`
-- `page-template.md`
-- `ui-reference.md`
-- `docs/ui-reference/`
-- `scripts/README.md`
-
-## Validation profiles
-
-Prefer the simplified script profiles first:
+Current developer/source-validation reports belong under:
 
 ```text
-npm run validate:quick
-npm run validate:release-preflight
-npm run validate:local-heavy
+.tmp/validation/
 ```
 
-Older one-off validators remain available for compatibility until local validation proves they can be consolidated safely.
+not `UserData`.
 
-## Separation rule
+## Current project state
 
-- Put live UI behavior, state, and runtime views in `src/app/active-launcher/`.
-- Put preview or prototype-only material in `Preview/`.
-- Do not mix preview assets into the active runtime flow unless they are explicitly promoted to production.
-- Keep Tauri command wrappers thin; move orchestration into engine service modules over time.
-- Keep pure rules in domain modules over time.
-
-## Current modularity status
-
-TranslateIT V1 is no longer a single-file monolith, but it is not fully clean-modular yet.
-
-Known follow-up work:
-
-1. Split `launcherController.ts` into smaller controllers.
-2. Move broad Rust orchestration out of command/adapters into service modules.
-3. Move pure Rust rules into domain modules.
-4. Consolidate script aliases after local validation.
-
-## Rule
-
-- Keep this package active and focused on runtime code and app-specific docs.
-- Keep repository-wide development tooling under `DevelopingData/Tooling`.
-- Do not make runtime behavior depend on `DevelopingData`.
-- Do not claim packaged readiness from structure cleanup alone.
+Do not use this README as a backlog or current-task owner. Resume work through root `AGENTS.md`, `CONTEXT.md`, and `docs/knowledge/next-action.md`.

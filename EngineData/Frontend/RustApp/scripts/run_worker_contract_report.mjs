@@ -4,7 +4,7 @@ import { fileURLToPath } from "node:url";
 
 const appRoot = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const repoRoot = resolve(appRoot, "..", "..", "..");
-const reportDir = resolve(repoRoot, "UserData", "LogData", "RuntimeTestReports");
+const reportDir = resolve(repoRoot, ".tmp", "validation", "RuntimeTestReports");
 const workerPath = resolve(repoRoot, "EngineData", "Backend", "LocalWorker", "WorkerRuntime", "realtime_local_worker.py");
 const acceleratedWorkerPath = resolve(repoRoot, "EngineData", "Backend", "LocalWorker", "WorkerRuntime", "realtime_local_worker_accelerated.py");
 const scriptsDir = resolve(appRoot, "scripts");

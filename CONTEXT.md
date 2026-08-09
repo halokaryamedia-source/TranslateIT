@@ -1,6 +1,5 @@
 # TranslateIT Workspace Context
 
-Status: foundation recovery complete; source reconciliation next  
 Updated: 2026-08-09  
 Working branch: `New`  
 Recovery baseline: `V1-Advance` at `6fd3485d6b22b9e3f44abc640241532aea61c3c7`
@@ -113,9 +112,11 @@ Storage ownership:
 
 ```text
 UserData/CacheData/    -> disposable runtime/session data
-UserData/LogData/      -> diagnostics and validation evidence
-UserData/SavedProject/ -> persistent user-visible/user-approved data
+UserData/LogData/      -> minimal/redacted runtime operational diagnostics
+UserData/SavedProject/ -> explicit persistent user-visible/user-approved data
 ```
+
+Developer/source-validation reports are not UserData; disposable development evidence belongs under ignored `.tmp/` paths.
 
 ## Document Translation
 
@@ -230,7 +231,7 @@ Rust/Tauri desktop shell
 Python helper runtime
 ```
 
-Current source roots:
+Current source/data roots:
 
 ```text
 Desktop application
@@ -244,7 +245,15 @@ Runtime contracts
 
 Runtime assets
 -> EngineData/Backend/RuntimeAssets
+
+Runtime/user data
+-> UserData
+
+Historical/recovery/reference development evidence
+-> DevelopingData
 ```
+
+`EngineData` is canonical product implementation. `UserData` is a runtime/user-data destination, not source authority. `DevelopingData` is non-authoritative historical/reference evidence and is outside normal production/runtime dependency and discovery contracts.
 
 Rust/Tauri owns the user-facing application. Python is an internal helper runtime,
 not a second product shell. Do not create parallel V2/V3/V4 engines or launchers
@@ -252,9 +261,7 @@ without a new explicit architecture decision.
 
 ## Current Implementation Evidence Boundary
 
-The current `New` frontend still instantiates `SimpleLauncherController` and
-contains several inherited stabilization/developer-oriented surfaces. Current
-source presence does not prove target-PC readiness.
+The current `New` frontend instantiates `SimpleLauncherController`; current source presence does not prove target-PC readiness.
 
 Do not claim live success without appropriate evidence for:
 
@@ -276,9 +283,9 @@ Use the evidence labels in root `AGENTS.md`.
 - `AGENTS.md` — agent working/evidence rules.
 - `CONTEXT.md` — compact stable project context.
 - `docs/foundation/01-product-overview.md` — product overview and scope hierarchy.
-- `docs/foundation/02-product-requirements.md` — detailed approved product
-  requirements.
+- `docs/foundation/02-product-requirements.md` — detailed approved product requirements.
 - `docs/knowledge/next-action.md` — current continuation point.
+- `docs/knowledge/source-ownership.md` — semantic requirement-to-source map.
 - `.agents/skills/development-brief/SKILL.md` — non-trivial Developing front door.
 
 The next task owner is `docs/knowledge/next-action.md`.

@@ -1,60 +1,19 @@
 # RustApp Scripts
 
-This folder contains the active V1 Advance CI validators plus a few retired diagnostic stubs kept only because direct file deletion was blocked during cleanup.
+This directory contains current source/build/contract validation utilities for the TranslateIT Tauri application.
 
-## Active CI validators
+## Rules
 
-These scripts are part of the current V1 Advance CI gate through `package.json` and `.github/workflows/v1-advance-ci.yml`:
+- Scripts protect current source/runtime/package contracts; they do not define product requirements.
+- Do not keep branch-specific V1/V1-Advance sync automation as current `New` tooling.
+- Do not make current validation depend on historical `DevelopingData` reports/policies.
+- Developer/source-validation output belongs under ignored `.tmp/validation/`, never `UserData`.
+- Runtime/user diagnostics written by the application itself remain a separate `UserData/LogData` concern.
+- Do not keep retired validator stubs or per-task deletion lists merely for history; Git/V1 branches already preserve that history.
+- Local runtime/device/build proof scripts remain manual when their environment is required; source-only validators should remain runnable without inventing live proof.
 
-- `validate_script_profiles.mjs`
-- `validate_frontend_import_integrity.mjs`
-- `validate_file_naming_policy.mjs`
-- `validate_translation_flow_integrity.mjs`
-- `validate_runtime_ux_depth_integrity.mjs`
-- `validate_startup_runtime_readiness.mjs`
-- `validate_v1_advance_ci_scope.mjs`
-- `validate_virtual_route_contract.mjs`
-- `validate_rust_manifest_preflight.mjs`
-- `validate_frontend_build_preflight.mjs`
-- `validate_tauri_package_preflight.mjs`
-- `run_contract_reports.mjs`
-- `run_local_tauri_compile_check.mjs` for manual local Tauri/Rust proof only.
+## Current package profiles
 
-## Active npm profiles
+See `../package.json` for the canonical npm entrypoints. `validate:source-contracts` and `validate:quick` are current source-side guards; local Tauri compile/runtime commands are separate proof levels.
 
-`package.json` is intentionally small after cleanup. Only these profiles should be added to workflows or docs:
-
-- `npm run validate:quick`
-- `npm run validate:source-contracts`
-- `npm run typecheck`
-- `npm run check:rust`
-- `npm run preflight:frontend-build`
-- `npm run preflight:tauri-package`
-- `npm run test:contract-reports`
-- `npm run check:tauri-rust-local` for local/manual proof only.
-- `npm run build:frontend` for local frontend bundle checks.
-
-`validate_script_profiles.mjs` enforces this small npm script surface so old placeholder aliases do not come back.
-
-## Diagnostic report scripts
-
-`run_contract_reports.mjs` calls these report scripts directly as non-blocking diagnostics:
-
-- `run_frontend_backend_contract_report.mjs`
-- `run_worker_contract_report.mjs`
-- `run_rust_module_linkage_report.mjs`
-- `run_ui_binding_consistency_report.mjs`
-- `run_action_binding_report.mjs`
-
-Diagnostic reports may warn without failing CI. CI blocking is handled by explicit source validators, frontend typecheck/build, and the Rust/Tauri source guard.
-
-## Retired scripts and local deletion markers
-
-Some older scripts were reduced to one-line stubs because they no longer have npm entries and are not part of the active CI gate. They should not be reintroduced without adding an explicit package script and CI reason.
-
-Use these marker files for local cleanup:
-
-- `LOCAL_DELETE_CANDIDATES.md` explains KEEP, DELETE CANDIDATE, and REVIEW BEFORE DELETE groups.
-- `local-delete-candidates.txt` contains raw paths that can be used with `xargs rm -f` after review.
-
-Examples retired during cleanup include older architecture, policy, settings, runtime-flow, audio-studio, helper-bridge, voice-capture, and UI-reference validators.
+Generated validation reports are disposable and should not be committed.

@@ -2,7 +2,7 @@
 
 Updated: 2026-08-09  
 Working branch: `New`  
-Status: Skill architecture updated; ChatGPT/GitHub source-side development continues before the local acceptance phase
+Status: Repository data-boundary first pass aligned; source-side development continues before local acceptance
 
 This file is the single active continuation owner for TranslateIT.
 
@@ -17,19 +17,13 @@ AGENTS.md
 
 ## Current State
 
-Completed boundaries:
+Completed source-side boundaries include:
 
 ```text
-context recovery
-product foundation recovery
-source ownership reconciliation
-development/governance rules consolidation
-project skill architecture establishment
-Product Shell & Readiness source implementation
-static source/contract verification for Product Shell & Readiness
-visual/UI semantic skill gap resolution
-local-AI provider/model evaluation procedure
-current external-documentation retrieval rule
+context/foundation/source recovery
+development governance and skill architecture
+Product Shell & Readiness source alignment
+Repository Data Boundary Alignment — first bounded pass
 ```
 
 Current architecture remains:
@@ -40,119 +34,68 @@ Rust/Tauri desktop shell
 Python helper runtime
 ```
 
-No new application launcher, AI engine, audio pipeline, storage root, or package
-runtime was introduced by the skill update.
+## Root Data Boundary Result
 
-## Current Skill Baseline
-
-```text
-development-brief
-desktop-runtime-development
-desktop-ui-design-development
-local-ai-runtime-development
-windows-audio-runtime-development
-release-packaging-development
-```
-
-`desktop-ui-design-development` is the one semantic owner for reference-driven
-visual hierarchy, layout, typography, component visual states, responsive desktop
-composition, and motion/micro-interaction craft. Design DNA, Genjutsu, Taste Skill,
-and Motion Design were studied as external references; they are not separate
-TranslateIT specialists or runtime dependencies.
-
-`local-ai-runtime-development` now includes a bounded provider/model evaluation
-procedure. Named ASR/TTS/voice-cloning projects remain implementation candidates
-until current product, packaging, licensing, quality, and runtime evidence supports
-adoption.
-
-Context7 is a conditional current-documentation retrieval helper only. For material
-external contracts, official documentation or primary source remains authoritative.
-
-## Development Phase Order
-
-The current user-approved order is:
-
-```text
-ChatGPT -> GitHub
-source-side development / ownership alignment
-        ↓
-complete the bounded work that does not require local execution
-        ↓
-Codex / Local Windows acceptance phase
-```
-
-Local proof from the Product Shell slice remains required for final visual/runtime
-acceptance, but it is **not a blocker** for continuing independent source-side work.
-Do not promote untested rendered/runtime/device claims to `CURRENT-PROJECT VERIFIED`.
-
-## Current Structural Target
-
-The next repository-alignment focus is the relationship among:
+Current canonical positioning is now explicit:
 
 ```text
 EngineData
+-> product implementation + production runtime assets/contracts
+
 UserData
+-> runtime/user-owned data only
+
 DevelopingData
+-> historical/recovery/reference development evidence only
 ```
 
-Target positioning:
+Static corrections in the first pass:
+
+- root/EngineData/UserData/DevelopingData READMEs now state the current ownership contract;
+- historical `DevelopingData/Documentation/Source` and old `RootFileRules.md` are explicitly superseded rather than current source-of-truth;
+- current `New` source validation no longer depends on the inherited V1-Advance CI-scope validator;
+- inherited V1/V1-Pull sync/task automation and V1-specific GitHub workflows were removed from `New` while remaining available in historical branch history;
+- current developer/source-validation report paths were moved from `UserData/LogData/RuntimeTestReports` to ignored `.tmp/validation/RuntimeTestReports` for the active auto-test, contract-report, and local Tauri compile entrypoints;
+- `ProjectPaths` runtime discovery now uses `EngineData + UserData` only and no longer inspects `DevelopingData` even for informational state;
+- stale per-task local-delete candidate artifacts were removed from current source.
+
+## Scope Deliberately Preserved
+
+This pass did **not** broad-move or delete ambiguous material such as:
 
 ```text
-EngineData
--> canonical product implementation and production runtime assets/contracts
-
-UserData
--> runtime/user-owned data destination, not source authority
-
-DevelopingData
--> historical/recovery/reference development evidence, never normal production authority
+EngineData/Frontend/RustApp/Preview
+EngineData/Frontend/RustApp/DesignPreview
+EngineData/Frontend/RustApp/docs/ui-reference
+Figma/design workflow sources
+historical DevelopingData documents/plans/QA evidence
+review-before-delete diagnostic scripts whose current ownership is not yet proven
 ```
 
-The goal is not a broad folder redesign. First establish actual boundary violations
-such as production dependence on `DevelopingData`, current product truth stranded in
-historical material, UserData used as source/build input, generated reports inside
-implementation ownership, or duplicate authorities.
+Those items need their own bounded owner/caller check before any move/delete decision.
 
-## Proof State Carried Forward
+No product feature behavior, AI provider, audio pipeline, storage schema, or package architecture was redesigned by this structural pass.
 
-**CURRENT-PROJECT VERIFIED**
+## Proof State
 
-- Product Shell source hierarchy and product-level recovery are aligned at static
-  source level;
-- source ownership records Slice 1 as source-aligned;
-- the approved skill architecture and routing are repository-visible;
-- visual/UI work now has one distinct semantic specialist rather than overlapping
-  design/motion skills;
-- provider/model evaluation remains under the existing local-AI runtime owner;
-- external documentation retrieval does not create another specialist/authority.
+**CURRENT-PROJECT VERIFIED** at static repository level:
 
-**LOCAL PROOF REQUIRED**
+- current root documentation distinguishes EngineData/UserData/DevelopingData ownership;
+- current active npm source-contract profile no longer includes `validate:ci-scope`;
+- the active auto-test registry no longer registers `ci-scope` and routes disposable developer output to `.tmp/validation`;
+- active contract-report and local Tauri compile report entrypoints no longer use UserData as developer-report storage;
+- current runtime root discovery does not inspect `DevelopingData`;
+- branch-specific V1 workflow/sync automation removed in this pass is no longer current `New` infrastructure.
 
-Still deferred to the later local phase as relevant:
-
-- complete checkout type/build/source-contract execution;
-- rendered desktop composition and click behavior;
-- Windows readiness transitions;
-- microphone/VAD/meeting-route behavior;
-- CUDA/CPU/model inference and performance;
-- TTS/custom-voice quality;
-- installed/clean-machine package behavior.
+**LOCAL PROOF REQUIRED** remains deferred for claims that actually need it, including rendered desktop behavior, Windows runtime readiness, device/audio/model behavior, and clean installed package behavior. The local phase is still intentionally later.
 
 ## Hold
 
-- Do not start the local acceptance phase yet unless the user explicitly changes
-  the current phase order.
-- Do not broad-delete/move `EngineData`, `UserData`, or `DevelopingData` merely to
-  make the tree cleaner.
-- Do not promote a historical `DevelopingData` file into current authority without
-  bounded revalidation/adoption.
-- Do not introduce product dependencies on `DevelopingData` or user-generated
-  contents under `UserData`.
+- Do not broad-delete/move remaining EngineData design/reference/tooling material without proving its current callers/ownership.
+- Do not revive historical DevelopingData files as current policy or current validation inputs.
+- Do not write developer/source-validation output into UserData.
+- Do not start the local acceptance phase yet unless the user changes the current phase order.
 
 ## Next Step
 
-Begin the bounded **Repository Data Boundary Alignment** through ChatGPT -> GitHub:
-inspect only the current ownership/dependency boundaries among `EngineData`,
-`UserData`, and `DevelopingData`, classify concrete violations against the new
-rules, then implement the smallest complete source-side corrections without broad
-reorganization.
+Continue the bounded **EngineData ownership classification** for the remaining design/reference/tooling surfaces (such as `Preview`, `DesignPreview`, `docs/ui-reference`, and adjacent Figma/design workflow sources): determine which are current product/build dependencies versus historical/reference material, then correct only the proven boundary violations without broad reorganization.

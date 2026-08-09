@@ -1,21 +1,21 @@
 # CacheData
 
-## Purpose
+Disposable TranslateIT runtime working data belongs here.
 
-`CacheData` holds disposable runtime cache, temporary audio segments, temporary TTS output, and current session state.
+Examples:
 
-## Allowed files
+```text
+temporary microphone/audio segments
+temporary generated TTS audio
+current-session working artifacts
+temporary document-processing data
+Audio Studio working/rejected material when applicable
+```
 
-- `README.md`
-- Temporary audio segments
-- Temporary TTS audio
-- Current session cache material
-- Debug captures when debug mode is explicitly enabled
+Rules:
 
-## Rules
-
-- Do not place permanent transcript history here.
-- Do not place user-approved saved sessions here.
-- Do not place documentation or engine source files here.
-- Move final user-approved outputs to `UserData/SavedProject`.
-- Keep this folder disposable unless the user explicitly saves a session elsewhere.
+- contents must be safe to delete and regenerate;
+- do not use this as permanent History/Saved storage;
+- do not store developer/source-validation reports here;
+- do not persist raw audio for debugging by default;
+- cleanup/lifecycle must follow the owning runtime feature.

@@ -6,7 +6,7 @@ import { spawnSync } from "node:child_process";
 const scriptDir = dirname(fileURLToPath(import.meta.url));
 const appRoot = resolve(scriptDir, "..");
 const repoRoot = resolve(appRoot, "..", "..", "..");
-const reportDir = resolve(repoRoot, "UserData", "LogData", "RuntimeTestReports");
+const reportDir = resolve(repoRoot, ".tmp", "validation", "RuntimeTestReports");
 const tauriRoot = join(appRoot, "src-tauri");
 const manifestPath = join(tauriRoot, "Cargo.toml");
 const targetPath = join(tauriRoot, "target");
@@ -97,7 +97,7 @@ if (!existsSync(manifestPath)) {
   fail(`Missing Tauri Cargo manifest: ${manifestPath}`);
 }
 
-console.log(`${color.cyan}[local-tauri-compile] This is a manual local proof command. It is intentionally not part of primary CI.${color.reset}`);
+console.log(`${color.cyan}[local-tauri-compile] This is a manual local proof command. It is intentionally separate from source-only validation.${color.reset}`);
 console.log(`${color.cyan}[local-tauri-compile] Checking Rust toolchain...${color.reset}`);
 run("rustc version", "rustc", ["--version"]);
 run("cargo version", "cargo", ["--version"]);

@@ -32,7 +32,6 @@ const allowedProfiles = new Set([
   "validate:runtime-ux",
   "validate:simple-ui",
   "validate:startup-readiness",
-  "validate:ci-scope",
   "validate:virtual-route",
   "validate:source-contracts",
   "validate:quick",
@@ -126,7 +125,6 @@ for (const requiredSourceStep of [
   "validate_settings_surface_contract.mjs",
   "validate_auto_test_matrix_contract.mjs",
   "validate:startup-readiness",
-  "validate:ci-scope",
   "validate:virtual-route",
   "check:rust",
   "preflight:frontend-build",
@@ -157,4 +155,4 @@ if (failures.length > 0) {
   process.exit(1);
 }
 
-console.log("Script profiles are clean: active CI/manual scripts, expanded source contract guards, and auto test matrix profiles are explicit.");
+console.log("Script profiles are clean: current source guards, diagnostic profiles, and local proof commands are explicit without branch-specific CI coupling.");

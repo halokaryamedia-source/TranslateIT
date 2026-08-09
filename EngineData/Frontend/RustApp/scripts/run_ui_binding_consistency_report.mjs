@@ -4,7 +4,7 @@ import { fileURLToPath } from "node:url";
 
 const appRoot = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const repoRoot = resolve(appRoot, "..", "..", "..");
-const reportDir = resolve(repoRoot, "UserData", "LogData", "RuntimeTestReports");
+const reportDir = resolve(repoRoot, ".tmp", "validation", "RuntimeTestReports");
 const rendererPath = resolve(appRoot, "src", "app", "active-launcher", "launcherSettingsRenderer.ts");
 const viewsPath = resolve(appRoot, "src", "app", "active-launcher", "settingsViews.ts");
 

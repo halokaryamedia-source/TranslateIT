@@ -1,6 +1,6 @@
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
-import { AUTO_TEST_REPORT_SCHEMA, AUTO_TEST_SUITES, flattenAutoTests } from "./auto_test_registry.mjs";
+import { AUTO_TEST_REPORT_DIR, AUTO_TEST_REPORT_SCHEMA, AUTO_TEST_SUITES, flattenAutoTests } from "./auto_test_registry.mjs";
 import { createContractValidator, hasNonEmptyText, printContractResult } from "./contract_test_utils.mjs";
 
 const appRoot = resolve(dirname(fileURLToPath(import.meta.url)), "..");
@@ -16,23 +16,27 @@ const {
 } = createContractValidator({ rootDir: repoRoot });
 
 const packageJson = readText("EngineData/Frontend/RustApp/package.json");
-const workflow = readText(".github/workflows/v1-advance-ci.yml");
 const runner = readText("EngineData/Frontend/RustApp/scripts/run_auto_test_matrix.mjs");
 const registry = readText("EngineData/Frontend/RustApp/scripts/auto_test_registry.mjs");
 const helper = readText("EngineData/Frontend/RustApp/scripts/contract_test_utils.mjs");
 const functionalHelper = readText("EngineData/Frontend/RustApp/scripts/functional_matrix_utils.mjs");
+const gitignore = readText(".gitignore");
 
 for (const marker of ["test:auto-map", "run_auto_test_matrix.mjs", "test:auto-strict", "--strict"]) {
   expectIncludes(packageJson, marker, "package auto test scripts");
 }
 
-for (const marker of ["Generate auto test matrix diagnostics", "if: always()", "npm run test:auto-map", "v1-advance-source-contract-diagnostics", "UserData/LogData/RuntimeTestReports/**", "Validate auto test matrix contract"]) {
-  expectIncludes(workflow, marker, "workflow auto test diagnostics");
-}
-
 for (const marker of ["AUTO_TEST_SUITES", "blocking: true", "blocking: false", "flattenAutoTests", AUTO_TEST_REPORT_SCHEMA, "functional-app-diagnostics", "voice-fixture-matrix", "runtime-command-sync-matrix"]) {
   expectIncludes(registry, marker, "auto test registry");
 }
+
+if (AUTO_TEST_REPORT_DIR.join("/") !== ".tmp/validation/RuntimeTestReports") {
+  addError(`Developer test reports must stay under ignored .tmp/validation. Found: ${AUTO_TEST_REPORT_DIR.join("/")}`);
+}
+if (registry.includes("UserData")) {
+  addError("Auto test registry must not route developer/source-validation output into UserData.");
+}
+expectIncludes(gitignore, "/.tmp/", "ignored temporary development output");
 
 for (const marker of [
   "AUTO_TEST_REPORT_SCHEMA",
@@ -78,6 +82,7 @@ const testIds = tests.map((test) => test.id);
 for (const requiredTest of requiredFunctionalTests) {
   if (!testIds.includes(requiredTest)) addError(`Missing functional app diagnostic: ${requiredTest}`);
 }
+if (testIds.includes("ci-scope")) addError("Auto test matrix must not retain the superseded V1 CI scope validator on New.");
 
 const duplicateIds = testIds.filter((id, index, ids) => ids.indexOf(id) !== index);
 if (duplicateIds.length) addError(`Duplicate auto test ids: ${Array.from(new Set(duplicateIds)).join(", ")}`);
@@ -96,5 +101,5 @@ if (!tests.some((test) => !test.blocking)) addError("Auto test matrix must inclu
 printContractResult({
   title: "Auto test matrix contract",
   errors,
-  successMessage: `Auto test matrix contract passed: ${AUTO_TEST_SUITES.length} suites and ${tests.length} tests are registered, scripted, report-enriched, and wired to CI diagnostics.`,
+  successMessage: `Auto test matrix contract passed: ${AUTO_TEST_SUITES.length} suites and ${tests.length} tests are registered, source-owned, and isolated from UserData/V1 CI authority.`,
 });

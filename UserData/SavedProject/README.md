@@ -1,11 +1,13 @@
 # SavedProject
 
-This folder stores user-facing saved TranslateIT project data.
+Explicit user-approved persistent TranslateIT content belongs here.
 
-Runtime rules:
-- `Chat/` is reserved for saved chat sessions.
-- `DataWork/` is reserved for final user-visible work outputs.
-- Intermediate logs and validation evidence must stay under `UserData/LogData`.
-- Cache/runtime temporary data must stay under `UserData/CacheData`.
+Examples may include explicitly saved translation/session artifacts, user exports/projects, and accepted Audio Studio profiles when those product capabilities are implemented.
 
-This folder replaces the older `SavedData` route for active Rust/Tauri runtime path discovery.
+Rules:
+
+- persistence must be the result of an explicit product save/keep action unless foundation policy defines a separate automatic History owner;
+- automatic History and explicit Saved must remain semantically independent;
+- temporary processing data, runtime cache, logs, developer validation, and rejected working artifacts do not belong here;
+- Clear History must not implicitly delete explicitly Saved content;
+- repository/package builds must never include development-machine SavedProject contents.

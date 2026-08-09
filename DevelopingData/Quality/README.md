@@ -1,16 +1,7 @@
-# Quality
+# Historical Quality Evidence
 
-This folder holds the compact validation reference set for TranslateIT.
+This directory retains earlier QA, validation, and user-test evidence for recovery/reference purposes.
 
-## Contents
+Historical PASS/FAIL reports do not automatically prove the current `New` branch. Current claims must use proof appropriate to the current source/runtime boundary.
 
-- diagnostics notes and troubleshooting references
-- test guidance and manual validation references
-- evidence pointers for local checks
-
-## Rules
-
-- Keep executable validation scripts under `DevelopingData/Tooling/Scripts/Execution`.
-- Do not add runtime source here.
-- Do not add user data, logs, or model files here.
-- Keep this folder lean; if a note becomes long-lived source of truth, move it to `DevelopingData/Documentation`.
+Do not write new current source-validation output here or in `UserData`. Temporary developer/test output belongs under ignored `.tmp/` paths; durable current state belongs only in its canonical project-memory owner when required.

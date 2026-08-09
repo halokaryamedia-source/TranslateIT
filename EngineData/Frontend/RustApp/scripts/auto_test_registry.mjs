@@ -1,6 +1,6 @@
-export const AUTO_TEST_REPORT_SCHEMA = "translateit.auto_test_matrix.v1";
+export const AUTO_TEST_REPORT_SCHEMA = "translateit.auto_test_matrix.v2";
 
-export const AUTO_TEST_REPORT_DIR = ["UserData", "LogData", "RuntimeTestReports"];
+export const AUTO_TEST_REPORT_DIR = [".tmp", "validation", "RuntimeTestReports"];
 
 export const AUTO_TEST_SUITES = [
   {
@@ -9,19 +9,18 @@ export const AUTO_TEST_SUITES = [
     description: "Fast source-only validators that protect frontend, runtime bridge, command registry, and app shell contracts.",
     blocking: true,
     tests: [
-      { id: "script-profiles", title: "Script profiles", script: "validate_script_profiles.mjs", purpose: "Keeps npm profiles explicit and prevents placeholder/local-only scripts from leaking into CI." },
+      { id: "script-profiles", title: "Script profiles", script: "validate_script_profiles.mjs", purpose: "Keeps current npm validation profiles explicit and prevents obsolete branch/local scripts from becoming active contracts." },
       { id: "imports", title: "Frontend imports", script: "validate_frontend_import_integrity.mjs", purpose: "Detects broken or forbidden frontend import paths before TypeScript build." },
       { id: "file-naming", title: "File naming policy", script: "validate_file_naming_policy.mjs", purpose: "Protects repository naming rules and path conventions." },
       { id: "translation-flow", title: "Translation flow integrity", script: "validate_translation_flow_integrity.mjs", purpose: "Ensures the user-facing translation path remains connected to the runtime bridge." },
       { id: "runtime-ux-depth", title: "Runtime UX depth", script: "validate_runtime_ux_depth_integrity.mjs", purpose: "Ensures runtime state is surfaced as product UI, not only raw diagnostics." },
-      { id: "simple-ui", title: "Simple UI contract", script: "validate_simple_ui_contract.mjs", purpose: "Protects the one-screen translate workspace, setup controls, and diagnostics escape hatch." },
+      { id: "simple-ui", title: "Simple UI contract", script: "validate_simple_ui_contract.mjs", purpose: "Protects the primary product shell, setup controls, and diagnostics escape hatch." },
       { id: "functional-surface", title: "Functional surface contract", script: "validate_functional_surface_contract.mjs", purpose: "Maps rendered DOM IDs, controller bindings, runtime facade calls, and Rust command registrations." },
       { id: "runtime-readiness-scenarios", title: "Runtime readiness scenarios", script: "validate_runtime_readiness_scenarios.mjs", purpose: "Covers ready, partial, blocked, and checking runtime states with user-facing blockers." },
       { id: "error-feedback", title: "Error feedback contract", script: "validate_error_feedback_contract.mjs", purpose: "Ensures failures use inline notices, safe rendering, and reset loading state correctly." },
       { id: "settings-surface", title: "Settings surface contract", script: "validate_settings_surface_contract.mjs", purpose: "Protects generated settings tabs, renderers, actions, persistence, and developer diagnostics." },
-      { id: "auto-test-matrix-contract", title: "Auto test matrix contract", script: "validate_auto_test_matrix_contract.mjs", purpose: "Ensures the registry, runner, npm profiles, and CI diagnostics wiring stay aligned." },
+      { id: "auto-test-matrix-contract", title: "Auto test matrix contract", script: "validate_auto_test_matrix_contract.mjs", purpose: "Ensures the registry, runner, npm profiles, report boundary, and referenced source validators stay aligned." },
       { id: "startup-readiness", title: "Startup readiness", script: "validate_startup_runtime_readiness.mjs", purpose: "Checks startup readiness flow and runtime warmup expectations." },
-      { id: "ci-scope", title: "V1 CI scope", script: "validate_v1_advance_ci_scope.mjs", purpose: "Prevents CI scope drift outside the intended V1 Advance guardrails." },
       { id: "virtual-route", title: "Virtual route contract", script: "validate_virtual_route_contract.mjs", purpose: "Protects virtual audio route command and UI contract boundaries." },
     ],
   },
@@ -77,7 +76,7 @@ export const AUTO_TEST_SUITES = [
   {
     id: "diagnostic-reports",
     title: "Diagnostic Contract Reports",
-    description: "Non-blocking evidence generators that produce deeper maps for debugging and review.",
+    description: "Non-blocking evidence generators that produce deeper maps for debugging and review. Output is disposable under .tmp/validation.",
     blocking: false,
     tests: [
       { id: "contract-reports-runner", title: "Contract reports runner", script: "run_contract_reports.mjs", purpose: "Runs frontend/backend, worker, Rust linkage, UI binding, and action binding diagnostic reports." },

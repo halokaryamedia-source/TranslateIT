@@ -5,7 +5,7 @@ import { spawnSync } from "node:child_process";
 
 const appRoot = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const repoRoot = resolve(appRoot, "..", "..", "..");
-const reportDir = resolve(repoRoot, "UserData", "LogData", "RuntimeTestReports");
+const reportDir = resolve(repoRoot, ".tmp", "validation", "RuntimeTestReports");
 mkdirSync(reportDir, { recursive: true });
 
 const reports = [

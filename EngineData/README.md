@@ -1,15 +1,40 @@
 # EngineData
 
-`EngineData` contains production-owned source for TranslateIT.
+`EngineData` is the canonical implementation boundary for TranslateIT.
 
-## Ownership
+## Owns
 
-- `Frontend/` for UI code and presentation logic
-- `Backend/` for Rust engine, bridge, storage, security, and optional Python integration
+```text
+Frontend/RustApp
+-> Tauri desktop application
+-> TypeScript/CSS product UI
+-> Rust src-tauri runtime/commands/engine
+-> source/build/contract validation scripts that directly protect the product
 
-## Rules
+Backend/LocalWorker
+-> Python helper/worker runtime source
 
-- do not place development-only reports here
-- do not place caches or build artifacts here
-- keep frontend and backend responsibilities separate
+Backend/RuntimeAssets
+-> production runtime/model/TTS asset inputs
 
+Backend/RuntimeContracts
+-> current machine-readable runtime contracts
+```
+
+## Does not own
+
+Do not place these here as persistent source:
+
+```text
+current task/progress reports
+historical recovery documents
+design/reference archives
+local validation output
+generated logs/cache
+user-created or user-saved runtime data
+scratch files
+```
+
+Generated development/test evidence belongs under ignored `.tmp/` paths. Runtime/user data belongs under `UserData`.
+
+`EngineData` must not depend on `DevelopingData` for normal build, package, launch, runtime discovery, or production behavior. If historical material contains something still required by the product, revalidate it and adopt it into the correct current owner instead of keeping a production dependency on the historical location.

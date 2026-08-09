@@ -4,7 +4,7 @@ import { fileURLToPath } from "node:url";
 
 const appRoot = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const repoRoot = resolve(appRoot, "..", "..", "..");
-const reportDir = resolve(repoRoot, "UserData", "LogData", "RuntimeTestReports");
+const reportDir = resolve(repoRoot, ".tmp", "validation", "RuntimeTestReports");
 const engineModPath = resolve(appRoot, "src-tauri", "src", "engine", "mod.rs");
 const manualAcceleratedPath = resolve(appRoot, "src-tauri", "src", "engine", "manual_translation_accelerated.rs");
 const textTranslateCommandPath = resolve(appRoot, "src-tauri", "src", "commands", "text_translate.rs");

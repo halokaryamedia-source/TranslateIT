@@ -1,24 +1,12 @@
 # LogData
 
-## Purpose
-- Hold runtime validation, launcher, microphone diagnostic, benchmark, and error reports.
-- Keep operational logs separate from saved user transcript bundles.
+Operational diagnostics produced by the running TranslateIT product belong here.
 
-## Allowed files
-- `README.md`
-- Runtime validation reports
-- Launcher logs
-- Microphone diagnostic reports
-- Benchmark reports
-- Recoverable error reports
+Allowed examples include bounded runtime errors, capability/readiness diagnostics, crash information, and other technical evidence needed to understand actual product operation.
 
-## Must not be placed here
-- Engine source files
-- Project documentation
-- Saved transcript bundles
-- Runtime model files
+Rules:
 
-## Naming rules
-- Use English only.
-- Use clear report names such as `runtime_validation_latest.txt`.
-- Keep logs actionable and user-readable.
+- keep logs minimal and redacted;
+- do not log conversation bodies, full translated text, raw audio, secrets, or personal data by default;
+- developer/source-validation reports, contract matrices, CI output, and local build logs do **not** belong here; use ignored `.tmp/` development paths instead;
+- logs are diagnostic data, never product/source authority.

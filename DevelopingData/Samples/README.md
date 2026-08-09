@@ -1,11 +1,7 @@
-# Samples
+# Historical / Safe Samples
 
-## Purpose
+This directory may retain bounded development/reference samples that are safe to keep in the repository and useful for historical comparison or deterministic fixtures.
 
-This folder is reserved for safe sample references used during development.
+Do not place real user recordings, conversations, personal data, runtime logs, model weights, package output, or user-saved content here.
 
-## Rules
-
-- Do not store user recordings, generated audio, logs, or model binaries here.
-- Keep sample files small and documented.
-- Keep real runtime data in `UserData`, not in `DevelopingData`.
+A sample is evidence/fixture only. It does not become a generic product requirement or current source-of-truth unless the relevant bounded behavior is explicitly revalidated and adopted into a canonical owner.

@@ -4,7 +4,7 @@ import { fileURLToPath } from "node:url";
 
 const appRoot = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const repoRoot = resolve(appRoot, "..", "..", "..");
-const reportDir = resolve(repoRoot, "UserData", "LogData", "RuntimeTestReports");
+const reportDir = resolve(repoRoot, ".tmp", "validation", "RuntimeTestReports");
 const runtimeApiPath = resolve(appRoot, "src", "app", "bridge", "runtimeApi.ts");
 const registryPath = resolve(appRoot, "src-tauri", "src", "commands", "registry.rs");
 

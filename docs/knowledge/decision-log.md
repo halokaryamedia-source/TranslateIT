@@ -119,3 +119,24 @@ external authority for material contracts.
 This reduces stale/hallucinated API usage without turning a documentation service
 into a project semantic owner or allowing community-indexed material to override
 primary sources.
+
+## D-009 — Root Data Boundary Ownership
+
+**Decision**  
+The root data boundaries are:
+
+```text
+EngineData
+-> canonical product implementation and production runtime assets/contracts
+
+UserData
+-> runtime/user-owned data destination, not source/build/project-memory authority
+
+DevelopingData
+-> historical/recovery/reference development evidence, not current authority
+```
+
+Production build/package/runtime discovery must not depend on `DevelopingData`. Developer/source-validation reports belong under ignored `.tmp/` development paths rather than `UserData`.
+
+**Reason**  
+The inherited repository mixed active V1 branch automation, historical DevelopingData policy/report inputs, and developer validation output with current product/runtime data. Separating these responsibilities gives each behavior one canonical owner and prevents historical or developer evidence from becoming a production dependency.

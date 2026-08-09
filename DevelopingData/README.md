@@ -1,32 +1,32 @@
 # DevelopingData
 
-This folder stores development-only material for TranslateIT.
+`DevelopingData` is historical/recovery/reference development evidence retained from earlier TranslateIT work.
 
-## Allowed content
+It is **not** a current product, task, policy, source-ownership, runtime, build, package, or validation authority.
 
-- architecture and migration plans
-- source audits and architecture notes
-- progress reports
-- QA references and validation notes
-- tooling-only helpers
-- safe samples
+## Allowed use
 
-## Not allowed
-
-- production source
-- release assets
-- secrets or credentials
-- build artifacts
-
-## Preferred structure
+Open bounded material here only when the current canonical owner/source is insufficient and historical evidence is genuinely needed, for example:
 
 ```text
-DevelopingData/
-  Documentation/
-  Planning/
-  Quality/
-  Samples/
-  Tooling/
+old design/reference exports
+historical architecture/planning material
+past QA/validation evidence
+recovery notes
+legacy tooling kept for reference
+safe development samples
 ```
 
-Keep the root shallow. Put new notes under the closest active folder instead of adding another top-level bucket.
+## Adoption rule
+
+If historical material contains a still-valid current requirement/decision/implementation input:
+
+```text
+revalidate the bounded content
+-> adopt it into the correct current owner
+-> stop treating DevelopingData as an authority
+```
+
+Current product policy belongs under `docs/foundation/`; current task state under `docs/knowledge/next-action.md`; stable facts under `CONTEXT.md`; semantic ownership under `docs/knowledge/source-ownership.md`; actual implementation/runtime assets under `EngineData`.
+
+Do not add new progress/status reports, current implementation plans, current source-of-truth documentation, runtime dependencies, or production/package inputs here.

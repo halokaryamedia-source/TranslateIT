@@ -1,35 +1,26 @@
-# Source Documentation
+# Historical Source Documentation — Superseded Authority
 
-## Purpose
+The files in this directory were created when `DevelopingData/Documentation/Source` acted as a documentation authority during earlier TranslateIT development.
 
-This folder contains the current source-of-truth project documentation after consolidating older development-documentation roots.
+That authority is now superseded.
 
-## Documents
-
-- `ProjectDocumentation.md` - current project overview, active route, ownership, and professional readiness position.
-- `SystemArchitecture.md` - runtime architecture, module ownership, local worker boundary, and validation route.
-- `ManualTestGuide.md` - required local validation checklist before any professional-ready claim.
-- `RootFileRules.md` - rootfile ownership, file placement rules, release boundary, and future Codex/AI placement guide.
-
-## Current route summary
+Current owners are:
 
 ```text
-EngineData/Frontend/RustApp -> active physical Tauri app package
-EngineData/Frontend/ -> frontend ownership root
-EngineData/Backend/ -> backend ownership root
+AGENTS.md
+-> work rules
+
+CONTEXT.md
+-> stable project facts
+
+docs/foundation/
+-> current product/system policy
+
+docs/knowledge/
+-> current continuation, decisions, navigation, source ownership
+
+EngineData + current proof
+-> actual implementation behavior
 ```
 
-## Current tooling summary
-
-```text
-DevelopingData/Tooling/Scripts/Execution
-```
-
-Tooling is development-only and must not become a runtime dependency.
-
-## Rules
-
-- Keep current source documentation here.
-- Use `RootFileRules.md` before adding or moving repository paths.
-- Do not restore `DeveloperData`.
-- Do not restore `DevelopingData/DocumentationData`.
+Treat every file below this directory as historical/recovery evidence until bounded content is explicitly revalidated and adopted. Do not update these historical documents merely to make them look current, and do not use them as runtime/build/package inputs.

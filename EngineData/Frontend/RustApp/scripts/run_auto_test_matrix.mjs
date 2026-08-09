@@ -13,7 +13,7 @@ const includeDiagnostics = !args.has("--skip-diagnostics");
 const onlyArg = process.argv.find((arg) => arg.startsWith("--only="));
 const only = onlyArg ? new Set(onlyArg.slice(7).split(",").map((item) => item.trim()).filter(Boolean)) : null;
 
-const DEFAULT_OWNER = "V1 Advance maintainers";
+const DEFAULT_OWNER = "TranslateIT maintainers";
 const AREA_BY_SUITE = {
   "source-contracts": "source contract guard",
   preflight: "source preflight",
@@ -21,7 +21,7 @@ const AREA_BY_SUITE = {
   "diagnostic-reports": "diagnostic report",
 };
 const AREA_BY_ID = {
-  "script-profiles": "npm scripts and CI entrypoints",
+  "script-profiles": "npm validation profiles",
   imports: "frontend imports",
   "file-naming": "repository conventions",
   "translation-flow": "product translation workflow",
@@ -33,7 +33,6 @@ const AREA_BY_ID = {
   "settings-surface": "settings surface",
   "auto-test-matrix-contract": "auto test infrastructure",
   "startup-readiness": "startup readiness flow",
-  "ci-scope": "CI guardrails",
   "virtual-route": "virtual audio routing contract",
   "rust-manifest": "Rust/Tauri source registration",
   "frontend-build-preflight": "frontend build inputs",
@@ -48,7 +47,7 @@ const AREA_BY_ID = {
 };
 const EXTRA_FILES_BY_ID = {
   "script-profiles": ["EngineData/Frontend/RustApp/package.json"],
-  "auto-test-matrix-contract": ["EngineData/Frontend/RustApp/package.json", ".github/workflows/v1-advance-ci.yml", "EngineData/Frontend/RustApp/scripts/auto_test_registry.mjs", "EngineData/Frontend/RustApp/scripts/run_auto_test_matrix.mjs"],
+  "auto-test-matrix-contract": ["EngineData/Frontend/RustApp/package.json", "EngineData/Frontend/RustApp/scripts/auto_test_registry.mjs", "EngineData/Frontend/RustApp/scripts/run_auto_test_matrix.mjs", ".gitignore"],
   "simple-ui": ["EngineData/Frontend/RustApp/src/app/active-launcher/lockedReferenceShellParts.ts", "EngineData/Frontend/RustApp/src/mainPageLayout.css"],
   "functional-surface": ["EngineData/Frontend/RustApp/src/app/simple-launcher/SimpleLauncherController.ts", "EngineData/Frontend/RustApp/src/app/bridge/runtimeProductFacade.ts"],
   "runtime-readiness-scenarios": ["EngineData/Frontend/RustApp/src/app/bridge/runtimeProductFacade.ts", "EngineData/Frontend/RustApp/src/app/simple-launcher/SimpleLauncherController.ts"],
