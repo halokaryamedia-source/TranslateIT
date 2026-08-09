@@ -8,6 +8,7 @@ pub mod cuda_policy;
 pub mod diagnostics;
 pub mod domain;
 pub mod hardware;
+pub mod history_store;
 pub mod inference;
 pub mod logging;
 pub mod manual_translation;
