@@ -12,6 +12,9 @@ export type RuntimeSettings = {
   runtime_profile: string;
   source_language: string;
   target_language: string;
+  history_enabled: boolean;
+  meeting_setup_state: "new" | "deferred" | "completed" | string;
+  meeting_setup_checkpoint: number;
   audio: {
     input_device_id: string | null;
     output_device_id: string | null;
