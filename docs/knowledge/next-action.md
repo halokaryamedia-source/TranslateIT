@@ -2,7 +2,7 @@
 
 Updated: 2026-08-09  
 Working branch: `New`  
-Status: UI/product Plan is closed; top-level navigation and normal Settings hierarchy are source-aligned through ChatGPT -> GitHub
+Status: UI/product Plan is closed; top-level navigation, normal Settings hierarchy, and Meeting Ready composition are source-aligned through ChatGPT -> GitHub
 
 This file is the single active continuation owner for TranslateIT.
 
@@ -52,8 +52,6 @@ Approved first-use terminology/behavior remains: `Your microphone`, `Meeting sou
 
 ## Completed Source Slice — Top-Level Shell / Navigation
 
-Completed:
-
 - active sidebar exposes only `Meeting`, `Text`, `History`, `Settings`;
 - Documents navigation/workspace was removed from the active shell;
 - top-level Saved navigation/workspace was removed from the active shell;
@@ -62,7 +60,7 @@ Completed:
 
 ## Completed Source Slice — Normal Settings Hierarchy
 
-Current normal Settings routing is now:
+Current normal Settings routing is:
 
 ```text
 Meeting
@@ -71,30 +69,51 @@ Advanced
     -> Diagnostics
 ```
 
-Completed changes:
-
 - inherited normal `General`, `Translation`, and standalone `Audio` tabs are no longer routed from active Settings navigation;
-- `Meeting` is the default Settings section and owns the current product-level microphone / meeting-audio / managed Meeting Microphone setup presentation;
-- `History & Privacy` exists as the approved responsibility surface but intentionally does not expose fake History toggle/Clear History behavior before persistence semantics are implemented;
-- `Advanced` is now a product-level setup-health landing rather than immediately exposing the technical control surface;
-- existing technical diagnostics are opened explicitly from `Advanced -> Open Diagnostics`;
-- removing global Translation Settings did not remove Text direction control: Text now exposes a contextual Indonesian/English swap action and persists it through the existing settings command;
-- Meeting's fixed initial ID -> EN direction is kept independent from Text direction state.
+- `Meeting` is the default Settings section;
+- `History & Privacy` exists without fake persistence controls;
+- `Advanced` is a setup-health landing with explicit nested Diagnostics;
+- Text owns its contextual Indonesian/English direction swap after removal of global Translation Settings;
+- Meeting's fixed initial ID -> EN direction remains independent from Text direction state.
 
-Static proof is in current shell/controller/Settings renderer and `docs/knowledge/source-ownership.md`.
-Rendered appearance remains local proof later.
+## Completed Source Slice — Meeting Ready Composition
+
+The active Meeting Ready surface now follows the approved hierarchy:
+
+```text
+readiness
+-> Speak Indonesian / meeting hears English
+-> Your microphone
+-> Incoming translation / Meeting sound
+-> TranslateIT Meeting Microphone
+-> Realtime / Auto
+-> Start Translation boundary
+-> meeting-app microphone reminder
+```
+
+Source behavior is intentionally truthful:
+
+- overall Meeting, physical-microphone, and managed-route statuses are driven by the existing product readiness snapshot/current input evidence;
+- Meeting sound displays the existing configured preference;
+- incoming translation is shown as `Not connected yet` because the approved incoming lane is not implemented yet;
+- `Start Translation` is visible as the correct primary boundary but remains disabled because the approved atomic live-session Start lifecycle is not connected yet;
+- Retry / Fix Setup remain secondary recovery actions;
+- Developer Diagnostics is no longer a competing Meeting action and remains under Settings -> Advanced;
+- Meeting Ready uses a single restrained information surface with row reflow rather than the inherited card/dashboard composition.
+
+Static source proof is in `lockedReferenceShellParts.ts`, `SimpleLauncherController.ts`, `mainPageLayout.css`, and `source-ownership.md`. Actual rendered quality remains local proof later.
 
 ## Current Source Reality
 
 Important approved gaps remain independently:
 
 ```text
-Meeting Ready/Live composition is still inherited/incomplete
 Text still uses inherited composer/result layout and stale text-file attachment behavior
 History/Saved nested workflow and persistence semantics are incomplete
 First Setup wizard / intentional defer is not implemented
 global Meeting strip / cross-view live state / single-instance behavior is incomplete
-Meeting runtime lifecycle, incoming lane, turn coordination, recovery, and Stop semantics remain incomplete
+atomic Start Translation and Meeting Live lifecycle are not implemented
+incoming lane, turn coordination, recovery, and Stop semantics remain incomplete
 legacy unreachable Settings view helpers may still remain and require bounded reachability cleanup later
 installer/runtime asset proof remains later
 ```
@@ -107,9 +126,8 @@ Do not combine all remaining gaps into one broad refactor.
 
 - active shell is `Meeting / Text / History / Settings` only;
 - normal Settings navigation is `Meeting / History & Privacy / Advanced` only;
-- Advanced has an explicit nested Diagnostics entry;
-- controller no longer routes normal Settings through `general`, `translate`, `audio`, or `developer` tabs;
-- Text owns a persisted ID/EN swap after removal of global Translation Settings;
+- Meeting Ready composition matches the approved static information hierarchy;
+- Meeting Ready does not claim incoming readiness or atomic Start behavior that source does not yet provide;
 - current entry remains `main.ts -> SimpleLauncherController -> shell`.
 
 **LOCAL PROOF REQUIRED** for actual rendered layout/resizing and all Windows/runtime behavior.
@@ -117,6 +135,8 @@ Do not combine all remaining gaps into one broad refactor.
 ## Hold
 
 - do not revive Documents, top-level Saved, or the old Settings hierarchy;
+- do not enable `Start Translation` by mapping it to capture-only behavior;
+- do not pretend incoming translation is Ready before its actual lane exists;
 - do not create a second shell/launcher or a second Settings control plane;
 - do not expose fake History persistence controls before their storage contract exists;
 - do not start local Windows acceptance yet;
@@ -125,4 +145,4 @@ Do not combine all remaining gaps into one broad refactor.
 
 ## Next Step
 
-Start the next bounded source slice: **reconcile the active Meeting workspace from the inherited readiness-card layout toward the approved Meeting Ready composition**, while preserving truthful current readiness/recovery semantics. Do not implement the full Live conversation/runtime lifecycle in the same slice; first establish the Ready-state information hierarchy, product terminology, managed Meeting Microphone presentation, and one clear `Start Translation` boundary without inventing runtime readiness that current source cannot prove.
+Start the next bounded source slice: **reconcile the active Text workspace to the approved familiar source/target translator composition and remove the stale text-file attachment workflow**. Preserve the existing canonical text translation command and persisted ID/EN direction swap; establish source/target panes, explicit Translate, contextual Quality/Tone presentation, and truthful result/error states without adding document parsing or changing Meeting runtime behavior.
