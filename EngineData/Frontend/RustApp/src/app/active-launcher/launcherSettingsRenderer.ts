@@ -130,15 +130,10 @@ function syncSettings(target: RuntimeSettings, source: RuntimeSettings): void {
   Object.assign(target, source);
 }
 
-function syncMeetingSummary(kind: ProductAudioDeviceKind, settings: RuntimeSettings, ready: boolean): void {
+function syncMeetingDeviceLabel(kind: ProductAudioDeviceKind, settings: RuntimeSettings): void {
   if (kind === "microphone") {
     const value = document.getElementById("meetingInputDeviceValue");
     if (value) value.textContent = deviceLabel(settings.audio.input_device_id);
-    const status = document.getElementById("meetingInputDeviceStatus");
-    if (status) {
-      status.textContent = ready ? "Ready" : "Setup Needed";
-      status.dataset.tone = ready ? "good" : "warning";
-    }
     return;
   }
   const value = document.getElementById("meetingSoundDeviceValue");
@@ -151,6 +146,7 @@ export function renderMeetingSettingsTab(args: {
   onCheckAudioInput: () => void;
   onStartOrStopRecording: () => void;
   onCheckSetup: () => void;
+  onDeviceSelectionCommitted: (kind: ProductAudioDeviceKind) => void;
 }): void {
   args.ui.settingsContent.innerHTML = meetingSettingsView(args.settings);
   requireElement<HTMLButtonElement>("#checkAudioInputButton").addEventListener("click", () => args.onCheckAudioInput());
@@ -185,12 +181,13 @@ export function renderMeetingSettingsTab(args: {
         return;
       }
       syncSettings(args.settings, result.settings);
-      syncMeetingSummary(kind, args.settings, result.ok);
+      syncMeetingDeviceLabel(kind, args.settings);
       message.textContent = result.message;
       if (devices) {
         populateDeviceSelect(microphoneSelect, devices.input_devices, args.settings.audio.input_device_id);
         populateDeviceSelect(meetingSoundSelect, devices.output_devices, args.settings.audio.output_device_id);
       }
+      args.onDeviceSelectionCommitted(kind);
     } catch (error) {
       select.value = String(previousValue ?? "");
       message.textContent = `Device preference was not changed: ${error instanceof Error ? error.message : String(error)}`;
@@ -208,7 +205,7 @@ export function renderMeetingSettingsTab(args: {
       devices = report;
       populateDeviceSelect(microphoneSelect, report.input_devices, args.settings.audio.input_device_id);
       populateDeviceSelect(meetingSoundSelect, report.output_devices, args.settings.audio.output_device_id);
-      message.textContent = report.ok ? "Choose a device to verify it before saving." : report.note;
+      message.textContent = report.ok ? "Choose a device to check it before saving." : report.note;
     })
     .catch((error) => {
       message.textContent = `Audio devices could not be listed: ${error instanceof Error ? error.message : String(error)}`;
