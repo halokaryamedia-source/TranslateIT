@@ -5,97 +5,138 @@
 
 ## Purpose
 
-TranslateIT is a Windows desktop translation application whose primary purpose is
-to help a user communicate across a language barrier during an online meeting
-through real-time local voice translation.
-
-The product should hide internal ASR, translation, TTS, helper-process,
-acceleration, and audio-routing complexity behind a simple product workflow.
+TranslateIT is a Windows desktop application whose primary purpose is real-time
+local voice translation for online meetings. Internal ASR, translation, TTS,
+helper-process, acceleration, and audio-routing details stay behind a simple
+product workflow.
 
 ## Product Hierarchy
 
-### Primary — Meeting Voice
+### Primary — Meeting Translation
 
 ```text
+Outbound
 Indonesian speech
--> transcription
+-> Indonesian transcript
 -> English translation
 -> English TTS
--> TranslateIT meeting microphone
+-> TranslateIT Meeting Microphone
 -> meeting application
-```
 
-Inbound meeting assistance translates English speech into Indonesian text for the
-local user.
+Inbound assistance
+English meeting speech
+-> English transcript
+-> Indonesian translated text
+-> local user
+```
 
 ### Secondary — Text Translation
 
 Standalone Indonesian <-> English text translation remains independently usable
-when voice is unavailable, not configured, or not needed.
-
-### Secondary — Document Translation
-
-First-class document translation supports TXT, Markdown, DOCX, text-based PDF,
-SRT, and VTT within a bounded local workflow.
+without Meeting audio readiness.
 
 ### Advanced / Post-Core — Audio Studio
 
-Audio Studio creates and manages an authorized local custom English voice profile
-for outbound translated TTS. It is part of TranslateIT but is not an initial
-core-release blocker.
+Audio Studio creates/manages an authorized local custom English voice profile for
+outbound TTS. It is not an initial core-release blocker.
 
-## Initial Product Boundary
+### Removed — Document Translation
 
-```text
-Platform
--> Windows
+First-class document translation is not part of the current product scope. Do not
+build or preserve a Documents workspace, PDF/DOCX/TXT/Markdown parser/export
+workflow, document jobs, or document-specific History/Saved capability.
 
-Runtime
--> local-first
--> offline-capable after required assets are installed
-
-Languages
--> Indonesian
--> English
-
-Core outbound voice
--> Indonesian speech -> English voice
-
-Core inbound assistance
--> English speech -> Indonesian text
-
-Not initial scope
--> English speech -> Indonesian TTS
--> additional language pairs
--> mandatory cloud services
-```
-
-Optional future cloud assistance may exist only through an explicit later product
-decision and must not silently replace the local core.
-
-## Meeting Interaction
-
-Normal meeting use follows **Session Listening**:
+## Initial Boundary
 
 ```text
-Start Meeting / Start Voice
--> TranslateIT prepares required local runtime automatically
--> continuous listening while the session is active
--> natural-pause/VAD utterance boundaries
--> ASR -> translation -> TTS
--> translated voice routed to meeting input
--> Stop Meeting / Stop Voice
+Platform -> Windows
+Runtime -> local-first; offline-capable after required assets are installed
+Languages -> Indonesian + English
+Meeting outbound -> Indonesian speech -> English voice
+Meeting inbound -> English speech -> Indonesian text
+Secondary utility -> Indonesian <-> English text
 ```
 
-Push to Talk remains a secondary mode using `Ctrl+Space` by default.
+Not current/initial scope:
 
-Normal users should not manually operate helper processes, workers, preload steps,
-or pipeline internals.
+- document translation;
+- English speech -> Indonesian TTS;
+- additional language pairs;
+- mandatory/silent cloud services.
 
-## Translation Quality
+## First Use And Daily Use
 
-TranslateIT translates meaning and communication intent rather than literal word
-order.
+First use is a guided product setup for physical microphone, Meeting Sound,
+TranslateIT Meeting Microphone, and local translation readiness. Normal users do
+not manually install/start Python, workers, models, or audio plumbing.
+
+Returning use opens directly to Meeting and performs a quick product-level
+preflight. Preferred primary action is `Start Translation`, not wording that
+implies TranslateIT creates or joins the external meeting.
+
+Meeting readiness is based on the required outbound path. Incoming English ->
+Indonesian text is optional/degradable: outbound may remain usable when incoming is
+unavailable.
+
+## Live Meeting Behavior
+
+Primary interaction is **Session Listening**; Push to Talk (`Ctrl+Space`) is the
+secondary mode.
+
+Outbound rules:
+
+- speech segmentation is natural/adaptive rather than fixed inherited timing;
+- partial ASR may be previewed but never becomes meeting output;
+- final/stable utterance is the translation/TTS commit boundary;
+- capture continues while earlier translation/TTS is processing or speaking;
+- own TTS outputs are serialized;
+- session/generation/utterance identity prevents stale work from re-entering;
+- meeting delivery is at-most-once by default; uncertain playback is not blindly
+  replayed;
+- output status describes what TranslateIT can prove, such as `Output complete`,
+  rather than claiming a remote participant heard it;
+- backlog is bounded and surfaced before stale speech becomes useless;
+- Pause stops outbound translated voice/pending outbound work while incoming may
+  continue; Resume starts fresh generation authority.
+
+Incoming rules:
+
+- incoming capture is a separate lane from the physical microphone;
+- initial output is Indonesian text only;
+- partial subtitles may update live but remain transient;
+- TranslateIT's own English TTS must not appear as incoming speech;
+- participant identity is not invented when only mixed/device-level audio exists;
+- incoming can be turned off independently and degrades before core outbound under
+  resource pressure.
+
+Turn coordination is conversation-aware. Ready outbound TTS may briefly wait for a
+natural gap while incoming speech is active. If no useful gap appears within a
+bounded period, expose an explicit user choice such as `Speak Now` or `Cancel`
+rather than waiting indefinitely or automatically deciding meeting etiquette.
+
+## Reliability And Stop
+
+Failure is classified as recoverable, degradable, or blocking/unsafe. Recovery is
+bounded and has one session/recovery owner. Explicit user action overrides stale
+automatic recovery.
+
+Important reliability rules:
+
+- losing the managed Meeting Microphone pauses outbound;
+- old queues are never dumped after route recovery;
+- stale generation callbacks are discarded;
+- local failure never silently routes to cloud;
+- minimizing the window does not end a healthy live session;
+- loss of user control must not leave uncontrolled invisible meeting output;
+- sleep/hibernate interrupts a live session and does not auto-resume voice;
+- memory, queues, context, and temporary audio remain bounded in long sessions.
+
+`Stop Translation` is a direct safety action. Once accepted, old-session work loses
+authority to create new Meeting Microphone output. Current voice/pending work is
+interrupted/invalidated, captures stop, committed conversation is finalized by the
+History policy, temporary resources are cleaned, then the session becomes Ended.
+
+## Translation Quality And Modes
 
 Priority:
 
@@ -107,214 +148,106 @@ intended meaning
 -> literal wording when useful
 ```
 
-User-facing tone modes are `Auto`, `Formal`, and `Casual`, with `Auto` default.
-Recent conversation context may help translation when bounded to the current local
-session, but persistent History is never automatic model context.
+Tone modes: `Auto`, `Formal`, `Casual`; default `Auto`.
 
-## Runtime Modes
-
-User-facing modes are:
+Modes:
 
 ```text
-Realtime
-Quality
+Meeting -> Realtime
+Text -> Quality
 ```
 
-Normal defaults:
+Names, numbers, dates, URLs, versions, acronyms, and technical identifiers must
+remain accurate. Recent committed session context may help translation, but
+persistent History is never automatic model context.
+
+CUDA is preferred when validated but not mandatory. CPU fallback is required. If
+CPU cannot satisfy benchmark-derived Realtime expectations, report a truthful
+degraded/not-Realtime-ready state.
+
+## Text Translation
+
+Text follows a bounded explicit workflow:
 
 ```text
-Meeting voice -> Realtime
-Standalone text -> Quality
-Document translation -> Quality
+Type / paste
+-> choose Indonesian <-> English
+-> choose tone if needed
+-> Translate
+-> review/edit target
+-> Copy or Save
 ```
 
-The runtime may choose an appropriate local implementation profile when the
-preferred mode cannot serve a direction/workflow. Model/provider names remain
-implementation details.
-
-## Performance And Acceleration
-
-CUDA is preferred when available and validated, especially for Realtime meeting
-voice. An NVIDIA GPU is not mandatory.
-
-CPU fallback is required. If CPU performance cannot satisfy Realtime expectations,
-TranslateIT must report a truthful degraded/not-Realtime-ready state rather than
-pretending equivalent performance.
-
-The user-relevant latency metric is:
-
-```text
-detected end of utterance
--> first translated audio begins playing
-```
-
-The release threshold is benchmark-derived rather than inherited as a fixed
-`<= 1 second` promise.
-
-## Meeting Audio
-
-The primary outbound meeting route sends **translated English voice**, not raw
-Indonesian microphone audio, by default.
-
-```text
-Physical microphone
--> TranslateIT capture
--> translation pipeline
--> English TTS
--> TranslateIT meeting microphone/audio route
--> Zoom / Meet / Teams / other meeting app
-```
-
-The physical microphone remains available to TranslateIT for capture. Local
-translated-voice monitoring is optional, off by default, and user-adjustable.
-
-The underlying Windows virtual-audio provider is replaceable. Missing route means
-`Setup Needed`; TranslateIT must not silently substitute raw mic, speaker output, or
-cloud routing.
+Text does not translate every keystroke. Older async results cannot overwrite newer
+user intent. Editing source after a result marks that result outdated. Very large
+input is never silently truncated; the app reports the interactive limit clearly
+rather than redirecting to a removed Documents feature.
 
 ## History, Saved And Privacy
 
+History contains Meeting and Text activity only.
+
 ```text
 History
--> automatic local record when enabled
--> on by default
--> searchable / deletable / clearable
--> user-disableable
-
-Saved
--> explicit user action
--> intentionally preserved session/work
+├─ Recent
+│  ├─ Meeting
+│  └─ Text
+└─ Saved
+   ├─ Meeting
+   └─ Text
 ```
 
-Clearing History must not delete Saved sessions.
+History is automatic when enabled and on by default. Saved is explicit durable user
+work with independent lifetime. Clearing History does not delete Saved; removing
+Saved does not delete History. Search is local retrieval only and never automatic
+model context.
 
-Raw/source microphone audio and generated TTS are temporary by default. Persistent
-replay audio requires explicit save. Diagnostic logs should contain minimal,
-redacted operational information rather than full conversation bodies by default.
+Raw microphone audio, incoming meeting audio, and generated TTS are temporary by
+default and are not normal History/Saved content. Diagnostic logs use minimal,
+redacted operational data rather than conversation bodies by default.
 
-## Document Translation
+## Navigation And Settings
 
-Initial first-class formats:
-
-```text
-TXT
-Markdown
-DOCX
-text-based PDF
-SRT
-VTT
-```
-
-- DOCX preserves practical semantic/basic structure but does not guarantee
-  pixel-perfect Word layout.
-- PDF is text-layer extraction only initially and exports translated text/DOCX;
-  exact-layout translated PDF is not required.
-- Scanned/image-only PDF and OCR are deferred.
-- SRT/VTT preserve timestamps and sequence.
-- Larger documents use semantic chunking and bounded adjacent context.
-- Processing artifacts remain local/temporary; persistent output requires explicit
-  Save/Export.
-
-Quick text attachments such as JSON/CSV/YAML/XML are not equivalent to
-structure-preserving document translation.
-
-## Audio Studio
-
-Minimum intended workflow:
-
-```text
-Create Voice Profile
--> Import Samples or Guided Recording
--> Local Quality Check
--> Accept / Retry / Remove
--> Build Local English Voice Profile
--> Preview
--> Activate
-```
-
-Voice authorization is required. Readiness is quality/provider-driven rather than
-fixed sample-minute tiers. Default local English TTS remains available when custom
-voice is absent or fails.
-
-Broadcast tiers, emotion/style production controls, multilingual cloning, dialogue
-mode, and long-form voice-production studio are not initial scope.
-
-## Installer And Distribution
-
-Initial distribution is Windows internal/controlled first.
-
-The normal user receives one installer/setup experience. A normal installed build
-must not require manual Python, `pip`, environment variables, developer scripts, or
-manual core-model installation.
-
-Release inputs/package must provide:
-
-```text
-Rust/Tauri desktop app
-packaged Python/helper runtime
-required runtime dependencies
-core ASR assets
-core ID/EN translation assets
-default local English TTS
-meeting-audio-route setup/support
-```
-
-Model binaries may remain outside Git but are required release-build inputs.
-System Python may remain a development fallback only.
-
-Auto-update is deferred. Code signing is not an internal-release blocker but should
-be revisited before broad/public distribution. Exact installer filename is a build
-convention, not product identity.
-
-Installer readiness requires clean supported-Windows proof; NSIS configuration or
-a successful package build alone is insufficient.
-
-## Product UI Boundary
-
-Normal product navigation should converge on:
+Normal top-level navigation converges on:
 
 ```text
 Meeting
 Text
-Documents
 History
-Saved
 Settings
 ```
 
-Meeting is the primary workspace.
+`Saved` is accessed through `History -> Saved`, not as top-level navigation.
+`Documents` is absent.
 
-Normal users see:
-
-- product actions and translated results;
-- transcript and meeting state;
-- language direction;
-- `Auto / Formal / Casual`;
-- `Realtime / Quality`;
-- microphone/speaker/meeting-microphone choices;
-- Local History/privacy controls;
-- simple readiness and recovery actions.
-
-Normal readiness states:
+Normal Settings converges on:
 
 ```text
-Ready
-Degraded
-Setup Needed
-Unavailable
-Checking
+Meeting
+History & Privacy
+Advanced
 ```
 
-Normal recovery actions should be product-level, such as `Retry`, `Fix Setup`, or
-`Open Diagnostics`.
+Meeting Settings owns persistent speaking-mode and device preferences plus managed
+Meeting Microphone setup/check. Device choices are verified before they replace a
+working preference. History & Privacy owns future History retention and Clear
+History. Advanced owns setup health and Developer Diagnostics.
 
-Developer Diagnostics remains available under an Advanced/Developer entry and may
-show helper lifecycle, model/provider details, CUDA/CPU information, pipeline
-stages, exact latency breakdown, virtual-route details, logs, evidence, and
-engineering test controls.
+Normal users do not operate Python, helper/worker lifecycle, provider/model names,
+CUDA mode, VAD thresholds, queue sizes, retry counts, model paths, or raw logs as
+normal settings. Persist user preferences; recalculate runtime readiness on launch.
 
-`Fast` is superseded as a product term; canonical mode naming is
-`Realtime / Quality`.
+## Audio Studio
+
+Audio Studio remains advanced/post-core. Voice authorization is required. Default
+local English TTS remains available independently of custom voice profiles.
+
+## Installer And Distribution
+
+Initial distribution is Windows internal/controlled first. Normal installed builds
+must not require manual Python, `pip`, environment variables, developer scripts, or
+manual core-model placement. Installer readiness requires clean supported-Windows
+proof; package configuration alone is insufficient.
 
 ## Architecture Baseline
 
@@ -324,49 +257,19 @@ Rust/Tauri desktop shell
 Python helper runtime
 ```
 
-Source ownership begins at:
-
-```text
-EngineData/Frontend/RustApp
-EngineData/Backend/LocalWorker/WorkerRuntime
-EngineData/Backend/RuntimeContracts
-EngineData/Backend/RuntimeAssets
-```
-
 One desktop application owns the UX. Python is internal runtime support, not a
 second product shell. Parallel V2/V3/V4 engines or launchers require a new explicit
 architecture decision.
 
-## Product Success At This Level
-
-TranslateIT is aligned when:
-
-- meeting voice is visibly the primary product workflow;
-- text and approved document translation remain independently useful;
-- initial scope stays Windows + Indonesian/English;
-- the installed core is local-first/offline-capable;
-- user-facing controls describe product behavior rather than engine internals;
-- translation preserves meaning, entities, naturalness, and appropriate tone;
-- meeting output carries translated English voice by default;
-- History/privacy behavior is explicit and local;
-- Audio Studio remains advanced and non-blocking;
-- installer setup owns required core runtime dependencies;
-- implementation presence is not confused with target-PC readiness.
-
 ## Evidence Boundary
 
-This file defines product direction, not current implementation readiness.
-
-Current source remains partially aligned and contains inherited stabilization and
-developer-facing surfaces. Do not infer successful microphone capture, translation
-quality, TTS quality, meeting routing, latency, CUDA performance, persistence,
-document parsing/export, Audio Studio profile generation, or installer readiness
-without the evidence required by root `AGENTS.md`.
+This file defines desired product behavior, not current implementation readiness.
+Runtime/device/model/audio/rendered/release claims require the proof level defined
+by root `AGENTS.md`.
 
 ## Related
 
-- `AGENTS.md` — repository working/evidence rules.
-- `CONTEXT.md` — compact stable project context.
-- `docs/foundation/02-product-requirements.md` — detailed approved requirements.
-- `docs/knowledge/next-action.md` — active continuation point.
-- `.agents/skills/development-brief/SKILL.md` — non-trivial Developing front door.
+- `AGENTS.md`
+- `CONTEXT.md`
+- `docs/foundation/02-product-requirements.md`
+- `docs/knowledge/next-action.md`
