@@ -1,6 +1,7 @@
-import { runtimeApi } from "./runtimeApi";
+import { runtimeApi, type AudioDeviceProbeReport } from "./runtimeApi";
 import { defaultSettings, errorMessage } from "../shared/state";
 import type {
+  AudioDeviceListReport,
   GpuPolicyReport,
   HelperBridgeActionResult,
   HelperBridgeStatus,
@@ -56,6 +57,20 @@ export type ProductTranslationResult = {
   translated: string;
   status: string;
   message: string;
+};
+
+export type ProductAudioDeviceKind = "microphone" | "meeting-sound";
+
+export type ProductAudioDeviceProbe = {
+  ok: boolean;
+  kind: ProductAudioDeviceKind;
+  deviceId: string | null;
+  deviceName: string;
+  message: string;
+};
+
+export type ProductAudioDeviceSelectionResult = ProductAudioDeviceProbe & {
+  settings: RuntimeSettings;
 };
 
 export type ProductSetupAction = "start-helper" | "check-worker" | "verify-models" | "check-microphone";
@@ -188,6 +203,81 @@ export async function loadProductRuntimeSnapshot(): Promise<ProductRuntimeSnapsh
   return { settings, readiness, bundle, diagnostics, helper, modelInventory, gpuPolicy, inputStatus };
 }
 
+export async function loadProductAudioDevices(): Promise<AudioDeviceListReport> {
+  return runtimeApi.listAudioDevices();
+}
+
+export async function probeProductAudioDevice(
+  kind: ProductAudioDeviceKind,
+  deviceId: string | null,
+): Promise<ProductAudioDeviceProbe> {
+  const normalizedDeviceId = String(deviceId ?? "").trim() || null;
+  if (kind === "microphone") {
+    const status = await runtimeApi.probeInputDeviceCandidate(normalizedDeviceId);
+    const ok = Boolean(status.ready || status.prepared);
+    return {
+      ok,
+      kind,
+      deviceId: normalizedDeviceId,
+      deviceName: compact(status.selected_device_name ?? normalizedDeviceId, normalizedDeviceId ? "Selected microphone" : "Windows Default"),
+      message: compact(status.note ?? status.blocker, ok ? "Microphone is available." : "Microphone is not available."),
+    };
+  }
+
+  const status: AudioDeviceProbeReport = await runtimeApi.probeOutputDeviceCandidate(normalizedDeviceId);
+  return {
+    ok: Boolean(status.ok),
+    kind,
+    deviceId: normalizedDeviceId,
+    deviceName: compact(status.resolved_device_name ?? normalizedDeviceId, normalizedDeviceId ? "Selected Meeting sound" : "Windows Default"),
+    message: compact(status.note ?? status.blocker, status.ok ? "Meeting sound device is available." : "Meeting sound device is not available."),
+  };
+}
+
+export async function selectProductAudioDevice(
+  kind: ProductAudioDeviceKind,
+  deviceId: string | null,
+): Promise<ProductAudioDeviceSelectionResult> {
+  const currentSettings = await runtimeApi.loadSettings().catch(() => defaultSettings());
+  const probe = await probeProductAudioDevice(kind, deviceId);
+  if (!probe.ok) {
+    return {
+      ...probe,
+      settings: currentSettings,
+      message: `${probe.message} The previous device preference was kept.`,
+    };
+  }
+
+  const candidateSettings: RuntimeSettings = {
+    ...currentSettings,
+    audio: { ...currentSettings.audio },
+  };
+  if (kind === "microphone") {
+    candidateSettings.audio.input_device_id = probe.deviceId;
+  } else {
+    candidateSettings.audio.output_device_id = probe.deviceId;
+  }
+
+  const saveResult = await runtimeApi.saveSettings(candidateSettings);
+  if (!saveResult.ok) {
+    return {
+      ...probe,
+      ok: false,
+      settings: currentSettings,
+      message: `${compact(saveResult.message, "The device preference could not be saved.")} The previous device preference was kept.`,
+    };
+  }
+
+  const savedSettings = await runtimeApi.loadSettings().catch(() => candidateSettings);
+  const label = kind === "microphone" ? "Microphone" : "Meeting sound";
+  return {
+    ...probe,
+    ok: true,
+    settings: savedSettings,
+    message: `${label} set to ${probe.deviceId ? probe.deviceName : "Windows Default"}.`,
+  };
+}
+
 export async function runProductTranslation(source: string): Promise<ProductTranslationResult> {
   const cleaned = source.trim();
   if (!cleaned) {
@@ -249,6 +339,9 @@ export async function runProductRecoveryAction(action: ProductRecoveryAction): P
 
 export const runtimeProductFacade = {
   loadProductRuntimeSnapshot,
+  loadProductAudioDevices,
+  probeProductAudioDevice,
+  selectProductAudioDevice,
   mapProductReadiness,
   runProductTranslation,
   runProductSetupAction,
