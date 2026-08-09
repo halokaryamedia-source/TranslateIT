@@ -78,6 +78,19 @@ pub struct AudioDeviceListReport {
     pub note: String,
 }
 
+#[derive(Debug, Clone, Serialize)]
+pub struct AudioDeviceProbeReport {
+    pub ok: bool,
+    pub device_kind: String,
+    pub requested_device_id: Option<String>,
+    pub resolved_device_name: Option<String>,
+    pub is_default: bool,
+    pub sample_rate_hz: Option<u32>,
+    pub channels: Option<u16>,
+    pub blocker: String,
+    pub note: String,
+}
+
 fn is_unsafe_device_name_character(character: char) -> bool {
     character == '\0'
         || ('\u{0001}'..='\u{0008}').contains(&character)
@@ -147,6 +160,25 @@ fn collect_devices(is_input: bool) -> Result<Vec<AudioDeviceSummary>, String> {
     Ok(result)
 }
 
+fn find_output_device(
+    host: &cpal::Host,
+    requested_device_id: Option<&str>,
+) -> Result<(cpal::Device, bool), String> {
+    if let Some(requested_name) = requested_device_id.map(str::trim).filter(|value| !value.is_empty()) {
+        let devices = host.output_devices().map_err(|error| error.to_string())?;
+        for device in devices {
+            if device_name(&device).as_deref() == Some(requested_name) {
+                return Ok((device, false));
+            }
+        }
+        return Err("The selected Meeting sound device is not available. The Windows default device was not substituted.".to_string());
+    }
+
+    host.default_output_device()
+        .map(|device| (device, true))
+        .ok_or_else(|| "No Windows default output device was found.".to_string())
+}
+
 #[tauri::command]
 pub fn list_audio_devices() -> AudioDeviceListReport {
     let input = collect_devices(true);
@@ -168,6 +200,66 @@ pub fn list_audio_devices() -> AudioDeviceListReport {
         } else {
             "No audio input or output devices were discovered from the native host.".to_string()
         },
+    }
+}
+
+#[tauri::command]
+pub fn probe_input_device_candidate(device_id: Option<String>) -> InputPreparationStatus {
+    InputPreparationStatus::inspect_input_device(device_id.as_deref())
+}
+
+#[tauri::command]
+pub fn probe_output_device_candidate(device_id: Option<String>) -> AudioDeviceProbeReport {
+    let host = cpal::default_host();
+    let requested_device_id = device_id
+        .and_then(clean_device_name)
+        .filter(|value| !value.is_empty());
+
+    let (device, is_default) = match find_output_device(&host, requested_device_id.as_deref()) {
+        Ok(value) => value,
+        Err(message) => {
+            return AudioDeviceProbeReport {
+                ok: false,
+                device_kind: "meeting_sound".to_string(),
+                requested_device_id,
+                resolved_device_name: None,
+                is_default: false,
+                sample_rate_hz: None,
+                channels: None,
+                blocker: "meeting_sound:device_unavailable".to_string(),
+                note: message,
+            }
+        }
+    };
+
+    let resolved_device_name = device_name(&device);
+    let config = match device.default_output_config() {
+        Ok(config) => config,
+        Err(error) => {
+            return AudioDeviceProbeReport {
+                ok: false,
+                device_kind: "meeting_sound".to_string(),
+                requested_device_id,
+                resolved_device_name,
+                is_default,
+                sample_rate_hz: None,
+                channels: None,
+                blocker: "meeting_sound:no_output_config".to_string(),
+                note: format!("The selected Meeting sound device exists, but no default output configuration was available: {error}"),
+            }
+        }
+    };
+
+    AudioDeviceProbeReport {
+        ok: true,
+        device_kind: "meeting_sound".to_string(),
+        requested_device_id,
+        resolved_device_name,
+        is_default,
+        sample_rate_hz: Some(config.sample_rate().0),
+        channels: Some(config.channels()),
+        blocker: String::new(),
+        note: "The selected Meeting sound device has a usable native output configuration. Incoming Meeting Sound capture is still a separate unimplemented capability.".to_string(),
     }
 }
 
@@ -199,7 +291,8 @@ pub fn analyze_native_capture_bridge_state(
 
 #[tauri::command]
 pub fn get_input_status() -> InputPreparationStatus {
-    InputPreparationStatus::inspect_default_input()
+    let settings = engine::load_settings();
+    InputPreparationStatus::inspect_input_device(settings.audio.input_device_id.as_deref())
 }
 
 #[tauri::command]
