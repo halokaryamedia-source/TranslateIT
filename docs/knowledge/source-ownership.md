@@ -17,20 +17,20 @@ STALE    -> current source still expresses superseded behavior
 RETIRED  -> inherited/current source concept is no longer approved product scope
 ```
 
-Proof vocabulary follows root `AGENTS.md`. Source-side alignment does not promote
-runtime/device/rendered/package claims beyond the evidence actually obtained.
+Proof vocabulary follows root `AGENTS.md`. Static source alignment does not promote
+rendered/device/runtime/model/audio/package claims beyond evidence actually obtained.
 
 ## Executive Ownership Map
 
 | Boundary | Current owner(s) | Status | Proof | Smallest later reconciliation |
 |---|---|---|---|---|
 | Product shell/navigation | `src/main.ts`, `SimpleLauncherController.ts`, `lockedReferenceShellParts.ts`, `shell.ts` | **ALIGNED / VISUAL PARTIAL** | static source | Top-level navigation is `Meeting / Text / History / Settings`; rendered shell quality remains local proof later. |
-| Settings hierarchy | `lockedReferenceShellParts.ts`, `launcherSettingsRenderer.ts`, `SimpleLauncherController.ts` | **ALIGNED HIERARCHY / PARTIAL CONTENT** | static source | Normal Settings is `Meeting / History & Privacy / Advanced`; finish real History controls and verified device-selection behavior in later slices. |
+| Settings hierarchy | `lockedReferenceShellParts.ts`, `launcherSettingsRenderer.ts`, `SimpleLauncherController.ts` | **ALIGNED HIERARCHY / PARTIAL CONTENT** | static source | Normal Settings is `Meeting / History & Privacy / Advanced`; next connect real History On/Off and Clear History to the canonical store/settings owner. |
 | Meeting Ready / product readiness | `runtimeProductFacade.ts`, `SimpleLauncherController.ts`, `lockedReferenceShellParts.ts`, `mainPageLayout.css` | **READY UI ALIGNED / RUNTIME PARTIAL** | static source; local proof later | Ready composition is aligned and truthful; atomic Start, incoming lane, First Setup, and Live lifecycle remain separate slices. |
-| Text translation | `SimpleLauncherController.ts`, `runtimeProductFacade.ts`, Rust translation command/runtime | **UI ALIGNED / RUNTIME + HISTORY PARTIAL** | static source; runtime quality proof later | Source/target translator UI and stale/error authority are aligned; connect automatic Recent History, Quality default ownership, tone inference, Copy/Save semantics. |
-| History / Saved persistence | `engine/history_store.rs`, `commands/history.rs`, existing `UserData/SavedProject` root | **PERSISTENCE FOUNDATION ALIGNED / UI PARTIAL** | static source | Canonical Recent/Saved storage contract now exists; wire frontend bridge, Text Recent writes, collection/detail UI, History toggle, and Meeting writes when Meeting lifecycle exists. |
+| Text translation | `SimpleLauncherController.ts`, `runtimeProductFacade.ts`, Rust translation command/runtime | **UI + RECENT WRITE ALIGNED / RUNTIME PARTIAL** | static source; runtime quality proof later | Source/target UI and History-on Recent write are connected; later align independent Quality default, tone inference, Copy, and direct Text Save semantics. |
+| History / Saved | `engine/history_store.rs`, `commands/history.rs`, `runtimeApi.ts`, `SimpleLauncherController.ts`, History shell/CSS | **TEXT COLLECTION/DETAIL ALIGNED / SETTINGS + MEETING PARTIAL** | static source; persistence/render proof later | Recent/Saved collection and Text detail use one canonical store; next connect History & Privacy controls. Meeting writes wait for canonical Meeting lifecycle. |
 | Meeting voice capture/pipeline | Rust capture/audio/pipeline owners | **PARTIAL / STALE OWNERSHIP** | local proof required | Reconcile one runtime/helper orchestration owner, Session Listening, generation-safe utterances, bounded backlog, turn coordination, recovery, and Stop. |
-| Translation context/tone | runtime settings + context/translation adapters | **PARTIAL / MISSING** | static source; quality proof later | Make tone and bounded committed Meeting context reach actual inference without History leakage. |
+| Translation context/tone | runtime settings + context/translation adapters | **PARTIAL / MISSING** | static source; quality proof later | Make tone and bounded committed Meeting context reach inference without History leakage. |
 | Meeting audio route | virtual-route Rust commands + local provider | **PARTIAL** | **LOCAL PROOF REQUIRED** | Preserve managed `TranslateIT Meeting Microphone`; prove delivery, self-output suppression, and safe recovery on Windows. |
 | Incoming Meeting assistance | capture/audio/runtime pipeline owners | **PARTIAL / MISSING SEMANTICS** | local proof required | Separate Meeting Sound lane, optional/degradable behavior, freshness, and self-output suppression. |
 | Document translation | no active product workspace; legacy helpers may remain unreachable | **RETIRED** | current source/policy | Do not revive Documents or file-attachment translation; remove dead helpers only through bounded reachability cleanup. |
@@ -39,19 +39,18 @@ runtime/device/rendered/package claims beyond the evidence actually obtained.
 
 ## 1. Product Shell And Navigation
 
-Current production entry graph:
+Current production entry remains:
 
 ```text
 EngineData/Frontend/RustApp/index.html
 ├─ src/main.ts
 │  -> SimpleLauncherController
-│  -> shell/settings/result/startup/window helpers
-│
+│  -> current shell / settings / workspace helpers
 └─ src/audioStudioEntry.ts
-   -> Audio Studio theme/binding entry
+   -> explicit post-core Audio Studio entry
 ```
 
-Current top-level product shell is source-aligned to:
+Normal application navigation is source-aligned to:
 
 ```text
 Meeting
@@ -60,15 +59,14 @@ History
 Settings
 ```
 
-`Documents` and top-level `Saved` are no longer active navigation/workspace
-surfaces. `ProductWorkspace` accepts only `meeting`, `text`, and `history`; Settings
-remains the fourth destination through the same controller/shell path.
+`Documents` and top-level `Saved` are not mounted. `Saved` exists only as a durable
+History ownership state. No second launcher/shell was added.
 
 Classification: **ALIGNED / VISUAL PARTIAL**.
 
 ## 2. Settings
 
-Current normal hierarchy is:
+Normal Settings routing is:
 
 ```text
 Meeting
@@ -77,13 +75,14 @@ Advanced
     -> Diagnostics
 ```
 
-Normal `General`, global `Translation`, and standalone `Audio` are no longer active
-Settings destinations. Meeting owns current product-level meeting preferences;
-History & Privacy remains conservative until storage actions are wired; Advanced is
+`General`, global `Translation`, and standalone `Audio` are no longer active normal
+Settings destinations. Meeting owns product-level meeting preferences; Advanced is
 a setup-health landing with explicit nested Diagnostics.
 
-Text direction is contextual in Text and persisted through existing settings.
-Meeting retains fixed initial ID -> EN outbound direction independently.
+`History & Privacy` is still **PARTIAL**: the underlying `history_enabled` setting
+and canonical Clear Recent command now exist, but their user controls are not yet
+wired in the Settings renderer. No fake toggle/destructive button is exposed before
+that next bounded slice.
 
 Classification: **ALIGNED HIERARCHY / PARTIAL CONTENT**.
 
@@ -98,20 +97,21 @@ src/app/active-launcher/lockedReferenceShellParts.ts
 src/mainPageLayout.css
 ```
 
-Meeting Ready now presents readiness, plain-language direction, Your microphone,
-Incoming translation / Meeting sound, managed TranslateIT Meeting Microphone,
-Realtime / Auto, Start Translation boundary, and the meeting-app microphone
-reminder.
+Meeting Ready presents the approved order: readiness, plain-language meeting
+behavior, Your microphone, Incoming translation / Meeting sound, managed TranslateIT
+Meeting Microphone, Realtime / Auto, Start Translation boundary, and meeting-app
+microphone reminder.
 
-Current readiness is not fabricated: microphone/route state comes from existing
-product readiness evidence, incoming is explicitly `Not connected yet`, and Start
-Translation remains disabled until the approved atomic live-session lifecycle exists.
+Current source does not fabricate capability state: microphone/route state comes
+from current readiness evidence, incoming remains explicitly not connected, and
+`Start Translation` remains disabled until an approved atomic live-session lifecycle
+exists.
 
 Classification: **READY UI ALIGNED / RUNTIME PARTIAL**.
 
 ## 4. Text Translation
 
-Current path:
+Current runtime path remains:
 
 ```text
 SimpleLauncherController
@@ -121,83 +121,98 @@ SimpleLauncherController
 -> canonical local translation runtime
 ```
 
-The active Text workspace now uses source/target panes with contextual ID/EN Swap,
-explicit Translate, editable target, and stale/error result states that preserve the
-user's work. The active file-attachment workflow has been removed.
+The active Text workspace uses source/target panes, contextual persisted ID/EN Swap,
+explicit Translate, editable target, and stale/error states that preserve visible
+work. File attachment translation is no longer active.
 
-Still incomplete:
+Successful intentional translations now also snapshot their source language, target
+language, mode, source text, and translated result and call the canonical History
+write only when `RuntimeSettings.history_enabled` is on. A History write failure is
+reported separately and does not convert a successful translation into a failed
+translation.
 
-- automatic Recent History write after successful intentional translation;
-- explicit Save/Copy actions;
-- independent Text Quality-default ownership in runtime settings;
-- actual Auto/Formal/Casual inference behavior.
+Still incomplete here:
 
-Classification: **UI ALIGNED / RUNTIME + HISTORY PARTIAL**.
+- independent Text Quality-default ownership instead of inherited shared profile;
+- actual Auto/Formal/Casual inference behavior;
+- Copy action and direct Text Save of the currently visible edited target.
 
-## 5. Canonical History / Saved Persistence
+Classification: **UI + RECENT WRITE ALIGNED / RUNTIME PARTIAL**.
 
-The inherited persistence sources were inspected before wiring History UI.
+## 5. Canonical History / Saved
 
-### Inherited sources that are not the canonical History owner
-
-`engine/session_chat.rs` stores generic role/content chat files under
-`UserData/SavedProject/Chat`. It has only create/list/append semantics, mixes kind
-labels in one storage area, and cannot represent approved Meeting delivery state,
-Text/Meeting detail metadata, independent Saved lifetime, Clear History, or detail
-retrieval.
-
-`engine/session_store.rs` writes technical transcript payloads under
-`UserData/SavedProject/SavedTranscript`. It is useful transcript/runtime evidence,
-but it is not a unified Recent/Saved retrieval model and is not the active History
-workspace contract.
-
-Neither inherited owner is promoted into product History merely because it can
-write JSON.
-
-### Canonical owner
-
-Current canonical product History persistence is:
+### Canonical persistence owner
 
 ```text
 src-tauri/src/engine/history_store.rs
 src-tauri/src/commands/history.rs
+
 UserData/SavedProject/History/
 ├─ Recent/
 └─ Saved/
 ```
 
-The implementation stays inside the approved existing persistent root; no fourth
-persistent root was created.
+The store stays inside the existing approved persistent root. It provides Text
+Recent creation, Recent/Saved listing with Meeting/Text filtering, detail read,
+idempotent Recent -> Saved independent copy, Remove from Saved, and Clear Recent
+without touching Saved. Its schema can later represent Meeting chronological turns,
+duration, interruption, and delivery state.
 
-Current contract provides:
+### Current frontend owner
 
-- Text Recent-entry creation with source/target/language/tone/mode metadata;
-- a schema that can also represent future Meeting chronological turns, duration,
-  interruption state, and truthful delivery state;
-- chronological list by `recent` or `saved` and optional `meeting` / `text` filter;
-- detail read by scope + entry id;
-- idempotent Recent -> Saved copy, so Saved has an independent durable file;
-- remove-from-Saved without deleting Recent;
-- Clear Recent without touching Saved;
-- bounded file/list/text sizes and atomic writes.
+```text
+src/app/bridge/runtimeApi.ts
+src/app/shared/historyTypes.ts
+src/app/simple-launcher/SimpleLauncherController.ts
+src/app/active-launcher/lockedReferenceShellParts.ts
+src/historyLayout.css
+```
 
-Runtime settings schema now contains `history_enabled`, default `true`, with a
-serde default so older settings files do not lose all settings merely because the
-new field is absent.
+The frontend bridge calls only the canonical History commands. Command failures are
+recorded and surfaced instead of being collapsed into an empty collection.
 
-Not yet connected in this slice:
+The active History workspace now provides:
 
-- frontend `runtimeApi` History bridge methods;
-- Text automatic Recent write after a successful translation;
-- History collection/detail rendering;
-- History On/Off and Clear History controls in Settings;
-- Meeting History writes, because canonical Meeting lifecycle does not yet exist.
+```text
+Recent | Saved
+Search
+All | Meeting | Text
+chronological collection
+-> Text detail
+   -> Save (Recent)
+   -> Remove from Saved (Saved)
+```
 
-Classification: **PERSISTENCE FOUNDATION ALIGNED / UI PARTIAL**.
+Collection search is local over currently retrieved title/snippet data. Text detail
+is read-only and uses the persisted source/target metadata. Saved actions use the
+same store: Save creates/keeps an independent copied artifact; Remove from Saved does
+not delete Recent.
+
+Meeting filters are present because the canonical schema supports Meeting, but the
+current application does **not** invent Meeting entries. Meeting History writes and
+real Meeting transcript detail wait for the canonical Meeting lifecycle.
+
+History OFF does not hide or delete existing Recent/Saved. It only prevents new Text
+Recent writes in the current connected path. Settings controls for changing that
+preference and clearing Recent remain the next bounded slice.
+
+Classification: **TEXT COLLECTION/DETAIL ALIGNED / SETTINGS + MEETING PARTIAL**.
+
+### Inherited persistence that is not product History
+
+```text
+engine/session_chat.rs
+-> legacy generic role/content chat persistence
+
+engine/session_store.rs / SavedTranscript
+-> technical transcript/session persistence
+```
+
+Neither path is wired as a second History system.
 
 ## 6. Meeting Voice Capture, Outbound And Coordination
 
-Current owners include Rust capture/audio/pipeline modules. Approved behavior still
+Current owners remain Rust capture/audio/pipeline modules. Approved behavior still
 requires partial/final ASR boundaries, session/generation/utterance identity,
 concurrent capture/output, serialized at-most-once delivery, bounded backlog,
 conversation-aware waiting, bounded recovery, and strong Stop invalidation.
@@ -206,15 +221,15 @@ Classification: **PARTIAL / STALE OWNERSHIP**.
 
 ## 7. Translation Context And Tone
 
-Current owners include runtime settings and context/translation adapters. Current
-source does not yet prove approved tone behavior reaches inference or that committed
-Meeting chronology and canceled/failed-turn exclusion are implemented.
+Current source does not yet prove approved tone behavior reaches inference or that
+committed Meeting chronology and canceled/failed-turn exclusion are implemented.
+History/Saved remains retrieval/storage only and is not automatic model context.
 
 Classification: **PARTIAL / MISSING**.
 
 ## 8. Meeting Audio Route And Incoming Assistance
 
-Current route owners remain the virtual-route Rust commands plus local provider.
+Current route owners remain virtual-route Rust commands plus the local provider.
 The product route remains managed `TranslateIT Meeting Microphone`. Incoming remains
 a separate Meeting Sound lane with Indonesian text output, optional/degradable
 readiness, freshness, and mandatory self-output suppression.
@@ -224,18 +239,17 @@ proof remains **LOCAL PROOF REQUIRED**.
 
 ## 9. Document Translation
 
-First-class Document Translation is **removed from current product scope**. The
-active shell and active Text workflow no longer expose Documents or file-attachment
-translation. Unreachable legacy helpers may be removed later only when bounded
-reachability proof shows no remaining consumer.
+First-class Document Translation is removed from current scope. The active shell and
+Text workflow expose neither Documents nor file-attachment translation. Unreachable
+legacy helpers may be removed later only when bounded reachability proof shows no
+consumer.
 
 Classification: **RETIRED**.
 
 ## 10. Audio Studio
 
-Current backend metadata/contracts remain, and `index.html -> audioStudioEntry.ts`
-is an explicit frontend build entry. Reachability does not prove a complete
-experience.
+The explicit Audio Studio entry and backend metadata/contracts remain post-core.
+Reachability does not prove provider/profile completeness.
 
 Classification: **PARTIAL / POST-CORE**.
 
@@ -269,11 +283,9 @@ Tauri NSIS package direction
 ### Inherited but not canonical for product History
 
 ```text
-session_chat.rs -> legacy generic chat persistence
-session_store.rs / SavedTranscript -> technical transcript/session persistence
+session_chat.rs
+session_store.rs / SavedTranscript
 ```
-
-Do not make either path a second active History system.
 
 ### Retired / stale product ownership
 
@@ -289,8 +301,8 @@ Text file-attachment translation behavior
 ### Still requires later reconciliation
 
 ```text
-History frontend bridge + Recent/Saved collection/detail + Text History write
-History & Privacy controls
+History & Privacy On/Off + Clear History controls
+Meeting History write/detail after canonical Meeting lifecycle
 atomic Start Translation + Meeting Live lifecycle
 First Setup wizard / intentional defer
 global Meeting strip / cross-view live state / single-instance behavior
@@ -298,6 +310,7 @@ capture lifecycle and unified helper ownership
 incoming Meeting Sound lane and self-output suppression
 bounded recovery / Stop finalization
 approved tone/context inference contract
+Text Quality default + Copy/direct Save
 repo-root/system-Python installed-build assumptions
 ```
 
@@ -305,4 +318,4 @@ repo-root/system-Python installed-build assumptions
 
 The project remains in **Developing** through `ChatGPT -> GitHub`. Complete bounded
 source-side slices before dedicated local Windows acceptance. Current continuation
-is owned by `docs/knowledge/next-action.md`.
+is owned only by `docs/knowledge/next-action.md`.
