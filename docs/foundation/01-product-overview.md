@@ -136,6 +136,39 @@ authority to create new Meeting Microphone output. Current voice/pending work is
 interrupted/invalidated, captures stop, committed conversation is finalized by the
 History policy, temporary resources are cleaned, then the session becomes Ended.
 
+## Global Navigation And Cross-Feature Behavior
+
+A live Meeting is application-level state, not state owned by the Meeting page.
+Navigation between `Meeting`, `Text`, `History`, and `Settings` must not stop or
+recreate a healthy active Meeting. Returning to Meeting reconnects the view to the
+same authoritative active session and conversation state.
+
+While Meeting is active:
+
+- a compact global live indicator remains visible outside the Meeting page;
+- unsafe outbound failures become global attention states, while incoming-only
+  degradation remains scoped/subtle;
+- a contextual global `Stop Voice` may appear while translated TTS is actively
+  speaking, but normal Pause/turn controls remain on the Meeting page;
+- Text, History, and Settings preserve reasonable in-memory view state across
+  navigation without becoming Meeting lifecycle owners;
+- Meeting processing has priority over Text/History work under resource pressure;
+- PTT works across product views only for an already-live Meeting and never starts a
+  Meeting by itself;
+- minimize keeps the active Meeting running;
+- closing the application while Meeting is Live requires explicit `Stop & Close`;
+- a critical background/minimized interruption should attract user attention
+  without silently stealing foreground focus.
+
+Initial product allows only one active Meeting session and should prevent parallel
+independent TranslateIT desktop instances from competing for the same Meeting audio
+and user-data resources.
+
+Capability health remains scoped. A Meeting-route/device problem does not make Text
+or History unavailable when their own dependencies remain healthy; a shared local
+translation-runtime failure may affect both Meeting and Text while History/Settings
+remain usable.
+
 ## Translation Quality And Modes
 
 Priority:
