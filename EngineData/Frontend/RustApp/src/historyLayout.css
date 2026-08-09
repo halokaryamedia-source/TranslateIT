@@ -307,6 +307,128 @@ body:not(.settings-open) .history-detail-message:empty {
   display: none;
 }
 
+body.settings-open .settings-view--history-privacy .settings-card--history,
+body.settings-open .settings-view--history-privacy .settings-card--saved,
+body.settings-open .settings-view--history-privacy .settings-card--history-clear {
+  margin-top: 30px;
+  padding: 24px 28px;
+}
+
+body.settings-open .history-privacy-control-row,
+body.settings-open .history-clear-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 28px;
+}
+
+body.settings-open .history-privacy-control-row > div,
+body.settings-open .history-clear-row > div {
+  display: grid;
+  gap: 8px;
+  min-width: 0;
+}
+
+body.settings-open .history-privacy-control-row h3,
+body.settings-open .history-clear-row h3 {
+  margin: 0;
+  font-size: 13px;
+}
+
+body.settings-open .history-privacy-control-row p,
+body.settings-open .history-clear-row p,
+body.settings-open .history-privacy-note,
+body.settings-open .history-privacy-message {
+  margin: 0;
+  color: var(--ref-muted);
+  font-size: 11px;
+  line-height: 1.55;
+}
+
+body.settings-open .history-privacy-note {
+  margin-top: 18px;
+  border-top: 1px solid rgba(255, 255, 255, .07);
+  padding-top: 16px;
+}
+
+body.settings-open .history-privacy-toggle {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  flex: 0 0 auto;
+  cursor: pointer;
+}
+
+body.settings-open .history-privacy-toggle input {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  opacity: 0;
+  pointer-events: none;
+}
+
+body.settings-open .history-privacy-toggle-track {
+  position: relative;
+  display: block;
+  width: 46px;
+  height: 26px;
+  border: 1px solid rgba(255, 255, 255, .14);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, .07);
+  transition: background 140ms ease, border-color 140ms ease;
+}
+
+body.settings-open .history-privacy-toggle-track::after {
+  content: "";
+  position: absolute;
+  top: 3px;
+  left: 3px;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: var(--ref-muted);
+  transition: transform 140ms ease, background 140ms ease;
+}
+
+body.settings-open .history-privacy-toggle input:checked + .history-privacy-toggle-track {
+  border-color: rgba(134, 239, 172, .35);
+  background: rgba(34, 197, 94, .22);
+}
+
+body.settings-open .history-privacy-toggle input:checked + .history-privacy-toggle-track::after {
+  transform: translateX(20px);
+  background: rgb(220, 252, 231);
+}
+
+body.settings-open .history-privacy-toggle input:focus-visible + .history-privacy-toggle-track {
+  box-shadow: 0 0 0 3px rgba(255, 255, 255, .09);
+}
+
+body.settings-open .history-privacy-toggle input:disabled + .history-privacy-toggle-track,
+body.settings-open .history-privacy-toggle input:disabled ~ strong {
+  opacity: .5;
+}
+
+body.settings-open .history-privacy-toggle strong {
+  min-width: 24px;
+  font-size: 12px;
+}
+
+body.settings-open .history-clear-button {
+  flex: 0 0 auto;
+  border-color: rgba(248, 113, 113, .3);
+  color: rgb(254, 202, 202);
+}
+
+body.settings-open .history-privacy-message {
+  margin-top: 16px;
+}
+
+body.settings-open .history-privacy-message:empty {
+  display: none;
+}
+
 @media (max-width: 900px) {
   body:not(.settings-open) .history-heading,
   body:not(.settings-open) .history-toolbar,
@@ -332,5 +454,11 @@ body:not(.settings-open) .history-detail-message:empty {
 
   body:not(.settings-open) .history-row time {
     justify-self: start;
+  }
+
+  body.settings-open .history-privacy-control-row,
+  body.settings-open .history-clear-row {
+    align-items: flex-start;
+    flex-direction: column;
   }
 }
