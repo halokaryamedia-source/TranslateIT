@@ -1,10 +1,11 @@
 import { runtimeApi } from "../bridge/runtimeApi";
 import {
   runtimeProductFacade,
+  type ProductAudioDeviceKind,
   type ProductRuntimeSnapshot,
 } from "../bridge/runtimeProductFacade";
 import { defaultSettings, errorMessage } from "../shared/state";
-import type { RuntimeSettings } from "../shared/types";
+import type { AudioDeviceListReport, RuntimeSettings } from "../shared/types";
 
 type SetupStep = 1 | 2 | 3 | 4 | 5;
 type SetupState = "new" | "deferred" | "completed";
@@ -91,6 +92,8 @@ function footerActions(options: {
 class FirstSetupCoordinator {
   private settings: RuntimeSettings;
   private snapshot: ProductRuntimeSnapshot | null = null;
+  private devices: AudioDeviceListReport | null = null;
+  private meetingSoundReady: boolean | null = null;
   private step: SetupStep;
   private busy = false;
   private message = "";
@@ -113,6 +116,8 @@ class FirstSetupCoordinator {
     if (this.step > 1) {
       await this.refreshSnapshot();
       this.step = this.safeResumeStep(this.step);
+      if (this.step === 2 || this.step === 3) await this.refreshDevices();
+      if (this.step === 3) await this.refreshMeetingSoundProbe();
     }
     this.render();
   }
@@ -131,6 +136,51 @@ class FirstSetupCoordinator {
     } catch (error) {
       this.message = `Setup check failed: ${errorMessage(error)}`;
     }
+  }
+
+  private async refreshDevices(): Promise<void> {
+    try {
+      this.devices = await runtimeProductFacade.loadProductAudioDevices();
+      if (!this.devices.ok && !this.message) this.message = this.devices.note;
+    } catch (error) {
+      this.devices = null;
+      if (!this.message) this.message = `Audio devices could not be listed: ${errorMessage(error)}`;
+    }
+  }
+
+  private async refreshMeetingSoundProbe(): Promise<void> {
+    try {
+      const probe = await runtimeProductFacade.probeProductAudioDevice(
+        "meeting-sound",
+        this.settings.audio.output_device_id,
+      );
+      this.meetingSoundReady = probe.ok;
+      if (!probe.ok && !this.message) this.message = probe.message;
+    } catch (error) {
+      this.meetingSoundReady = false;
+      if (!this.message) this.message = `Meeting sound could not be checked: ${errorMessage(error)}`;
+    }
+  }
+
+  private deviceOptions(kind: ProductAudioDeviceKind): string {
+    const current = kind === "microphone" ? this.settings.audio.input_device_id : this.settings.audio.output_device_id;
+    const currentValue = String(current ?? "").trim();
+    const devices = kind === "microphone" ? this.devices?.input_devices ?? [] : this.devices?.output_devices ?? [];
+    const options = [`<option value=""${currentValue ? "" : " selected"}>Windows Default</option>`];
+    let currentFound = !currentValue;
+
+    devices.forEach((device) => {
+      const id = String(device.id ?? device.name).trim();
+      if (!id) return;
+      if (id === currentValue) currentFound = true;
+      const suffix = device.is_default ? " · current Windows default" : "";
+      options.push(`<option value="${escapeHtml(id)}"${id === currentValue ? " selected" : ""}>${escapeHtml(device.name)}${suffix}</option>`);
+    });
+
+    if (currentValue && !currentFound) {
+      options.push(`<option value="${escapeHtml(currentValue)}" selected>${escapeHtml(currentValue)} · unavailable</option>`);
+    }
+    return options.join("");
   }
 
   private async persistSetupFact(state: SetupState, checkpoint: SetupStep): Promise<boolean> {
@@ -162,6 +212,8 @@ class FirstSetupCoordinator {
       this.step = step;
       this.message = "";
       if (step === 2 || step === 4 || step === 5) await this.refreshSnapshot();
+      if (step === 2 || step === 3) await this.refreshDevices();
+      if (step === 3) await this.refreshMeetingSoundProbe();
     }
     this.busy = false;
     this.render();
@@ -172,6 +224,7 @@ class FirstSetupCoordinator {
     this.step = Math.max(1, this.step - 1) as SetupStep;
     this.message = "";
     this.render();
+    if (this.step === 2 || this.step === 3) void this.refreshDevices().then(() => this.render());
   }
 
   private async deferSetup(): Promise<void> {
@@ -186,6 +239,34 @@ class FirstSetupCoordinator {
       return;
     }
     this.startMainApp();
+  }
+
+  private async selectAudioDevice(kind: ProductAudioDeviceKind, selectId: string): Promise<void> {
+    if (this.busy) return;
+    const select = this.app.querySelector<HTMLSelectElement>(`#${selectId}`);
+    if (!select) return;
+    const candidate = select.value.trim() || null;
+    const current = kind === "microphone" ? this.settings.audio.input_device_id : this.settings.audio.output_device_id;
+    if ((current ?? null) === candidate) return;
+
+    this.busy = true;
+    this.message = kind === "microphone" ? "Checking microphone before saving..." : "Checking Meeting sound before saving...";
+    this.render();
+    try {
+      const result = await runtimeProductFacade.selectProductAudioDevice(kind, candidate);
+      this.settings = result.settings;
+      this.message = result.message;
+      if (result.ok) {
+        await this.refreshDevices();
+        if (kind === "microphone") await this.refreshSnapshot();
+        else await this.refreshMeetingSoundProbe();
+      }
+    } catch (error) {
+      this.message = `Device preference was not changed: ${errorMessage(error)}`;
+    } finally {
+      this.busy = false;
+      this.render();
+    }
   }
 
   private async checkMicrophone(): Promise<void> {
@@ -286,18 +367,22 @@ class FirstSetupCoordinator {
       return `<section class="first-setup-content">
         <span class="first-setup-kicker">Your microphone</span>
         <h1>Set up the microphone you speak into.</h1>
-        <p>TranslateIT uses your current microphone selection for Indonesian speech.</p>
+        <p>Choose Windows Default or pin one microphone. TranslateIT checks a candidate before replacing your saved preference.</p>
+        <div class="first-setup-device-picker"><label><span>Microphone</span><select id="setupMicrophoneSelect"${this.busy ? " disabled" : ""}>${this.deviceOptions("microphone")}</select></label><button id="setupUseMicrophoneButton" class="first-setup-button first-setup-button--secondary" type="button"${this.busy ? " disabled" : ""}>Use Microphone</button></div>
         <div class="first-setup-check-row"><div><span>Current microphone</span><strong>${escapeHtml(currentMicrophone(this.settings, this.snapshot))}</strong><small>${escapeHtml(detail)}</small></div><b data-tone="${statusTone(ready, Boolean(checking))}">${statusText(ready, Boolean(checking))}</b></div>
         ${footerActions({ back: true, primaryId: "setupMicrophoneContinueButton", primaryLabel: "Continue", primaryDisabled: !ready, secondaryId: "setupCheckMicrophoneButton", secondaryLabel: ready ? "Check Again" : "Check Microphone", defer: true, busy: this.busy })}
       </section>`;
     }
 
     if (this.step === 3) {
+      const soundReady = this.meetingSoundReady === true;
       return `<section class="first-setup-content">
         <span class="first-setup-kicker">Meeting sound</span>
         <h1>Where do you listen to your meetings?</h1>
-        <p>This is the current device preference for meeting sound.</p>
-        <div class="first-setup-check-row"><div><span>Current meeting sound</span><strong>${escapeHtml(currentMeetingSound(this.settings))}</strong><small>Incoming English → Indonesian translation is not connected yet in this build. Your translated outbound voice can still be set up independently.</small></div><b data-tone="warning">Incoming unavailable</b></div>
+        <p>Choose Windows Default or pin one output device. The endpoint is checked before the preference is saved.</p>
+        <div class="first-setup-device-picker"><label><span>Meeting sound</span><select id="setupMeetingSoundSelect"${this.busy ? " disabled" : ""}>${this.deviceOptions("meeting-sound")}</select></label><button id="setupUseMeetingSoundButton" class="first-setup-button first-setup-button--secondary" type="button"${this.busy ? " disabled" : ""}>Use Meeting Sound</button></div>
+        <div class="first-setup-check-row"><div><span>Current meeting sound</span><strong>${escapeHtml(currentMeetingSound(this.settings))}</strong><small>${soundReady ? "This output endpoint has a usable native configuration." : "The current output endpoint is not verified yet or is unavailable."}</small></div><b data-tone="${soundReady ? "good" : "warning"}">${soundReady ? "Device ready" : "Check device"}</b></div>
+        <p class="first-setup-inline-note">Incoming English → Indonesian translation is not connected yet in this build. Meeting sound selection does not claim that incoming capture is already working.</p>
         ${footerActions({ back: true, primaryId: "setupMeetingSoundContinueButton", primaryLabel: "Continue", defer: true, busy: this.busy })}
       </section>`;
     }
@@ -337,8 +422,10 @@ class FirstSetupCoordinator {
     this.app.querySelector<HTMLButtonElement>("[data-setup-action='back']")?.addEventListener("click", () => this.goBack());
     this.app.querySelector<HTMLButtonElement>("[data-setup-action='defer']")?.addEventListener("click", () => void this.deferSetup());
     this.app.querySelector<HTMLButtonElement>("#setupStartButton")?.addEventListener("click", () => void this.advance(2));
+    this.app.querySelector<HTMLButtonElement>("#setupUseMicrophoneButton")?.addEventListener("click", () => void this.selectAudioDevice("microphone", "setupMicrophoneSelect"));
     this.app.querySelector<HTMLButtonElement>("#setupCheckMicrophoneButton")?.addEventListener("click", () => void this.checkMicrophone());
     this.app.querySelector<HTMLButtonElement>("#setupMicrophoneContinueButton")?.addEventListener("click", () => void this.advance(3));
+    this.app.querySelector<HTMLButtonElement>("#setupUseMeetingSoundButton")?.addEventListener("click", () => void this.selectAudioDevice("meeting-sound", "setupMeetingSoundSelect"));
     this.app.querySelector<HTMLButtonElement>("#setupMeetingSoundContinueButton")?.addEventListener("click", () => void this.advance(4));
     this.app.querySelector<HTMLButtonElement>("#setupFixButton")?.addEventListener("click", () => void this.fixSetup());
     this.app.querySelector<HTMLButtonElement>("#setupMeetingMicContinueButton")?.addEventListener("click", () => void this.advance(5));
