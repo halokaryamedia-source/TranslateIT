@@ -1,20 +1,19 @@
 import { icon } from "../shared/icons";
 
 type SettingsNavItem = {
-  tab: "general" | "audio" | "translate" | "developer";
-  icon: "sliders" | "speaker" | "translate" | "code";
+  tab: "meeting" | "history" | "advanced";
+  icon: "mic" | "clock" | "code";
   label: string;
 };
 
 const SETTINGS_NAV_ITEMS: SettingsNavItem[] = [
-  { tab: "general", icon: "sliders", label: "General" },
-  { tab: "translate", icon: "translate", label: "Translation" },
-  { tab: "audio", icon: "speaker", label: "Audio" },
-  { tab: "developer", icon: "code", label: "Advanced" },
+  { tab: "meeting", icon: "mic", label: "Meeting" },
+  { tab: "history", icon: "clock", label: "History & Privacy" },
+  { tab: "advanced", icon: "code", label: "Advanced" },
 ];
 
 function settingsNavButton(item: SettingsNavItem): string {
-  const activeClass = item.tab === "general" ? " active" : "";
+  const activeClass = item.tab === "meeting" ? " active" : "";
   return `<button class="settings-nav-item${activeClass}" data-settings-tab="${item.tab}" type="button">${icon(item.icon)}<span>${item.label}</span></button>`;
 }
 
@@ -74,6 +73,11 @@ export function lockedHomeWorkspace(): string {
               <div class="simple-card-heading"><span class="hero-kicker">Standalone workflow</span><h3>Translate text</h3><p>Translate Indonesian and English text with the current local translation runtime.</p></div>
               <input id="attachmentInput" class="attachment-input" type="file" accept=".txt,.md,.json,.csv,.tsv,.log,.xml,.yaml,.yml,.srt,.vtt,text/plain,text/markdown,application/json,text/csv,text/tab-separated-values,text/xml,application/xml,application/yaml,text/yaml" multiple aria-hidden="true" tabindex="-1" />
               <div class="simple-composer">
+                <div class="simple-composer-actions" aria-label="Text translation direction">
+                  <span id="textSourceLanguage" class="direction-pill">Indonesian</span>
+                  <button id="textSwapLanguageButton" class="assistant-action secondary" type="button">Swap</button>
+                  <span id="textTargetLanguage" class="direction-pill">English</span>
+                </div>
                 <textarea id="messageInput" placeholder="Type or paste text to translate..." autocomplete="off" maxlength="2000" rows="6" aria-label="Text to translate"></textarea>
                 <div class="simple-composer-actions">
                   <button id="composerPlusButton" class="assistant-action secondary" type="button">Attach text</button>
