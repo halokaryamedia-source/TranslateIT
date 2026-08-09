@@ -195,3 +195,30 @@ Advanced
 
 **Reason**  
 The previously broader navigation duplicated related user intents and promoted secondary/internal concepts into primary hierarchy. A nontechnical user mainly needs to run meeting translation, translate text, retrieve prior/saved work, and adjust meeting/privacy setup. Keeping Saved ownership independent while grouping its access under History preserves deletion/privacy semantics without adding another primary workspace, and the reduced Settings hierarchy avoids empty or engineering-oriented control panels.
+
+## D-014 — Meeting Session Is Application-Level And Navigation-Independent
+
+**Decision**  
+An active Meeting translation session is application-level state owned by the
+canonical Meeting/session runtime, not by the lifecycle of the Meeting page.
+Navigating to Text, History, or Settings must not stop/recreate that session.
+Returning to Meeting reconnects the UI to the same authoritative session state.
+
+The initial product permits one active Meeting session and should prevent parallel
+independent TranslateIT desktop instances from competing for the same Meeting audio
+and user-data resources. A compact global live indicator exposes active Meeting
+state outside the Meeting page. Material outbound safety failures are surfaced
+application-wide, while optional incoming-only degradation remains scoped. A
+global `Stop Voice` may appear only contextually while translated TTS is actively
+speaking; normal Pause/turn controls stay on Meeting.
+
+**Reason**  
+A real meeting continues while the user briefly translates text, searches History,
+or adjusts a setting. Binding the live session to a page would make normal
+navigation capable of dropping capture/output state and would complicate minimize,
+recovery, and frontend re-render behavior. Application-level ownership keeps the
+session stable while still allowing capability-specific UI views. Restricting the
+initial desktop product to one app instance/active Meeting also avoids duplicate
+TTS, conflicting microphone/Meeting Microphone ownership, and concurrent writes to
+the same local user data. Keeping only safety-critical controls global prevents the
+application shell from becoming a second Meeting control panel.
