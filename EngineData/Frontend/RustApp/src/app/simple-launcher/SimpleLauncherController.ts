@@ -14,6 +14,8 @@ import { swapLanguages as applyLanguageSwap } from "../active-launcher/launcherS
 const STARTUP_STEP_MS = 80;
 type ProductWorkspace = "meeting" | "text" | "history";
 
+type StatusTone = "neutral" | "good" | "warning";
+
 const WORKSPACE_TITLES: Record<ProductWorkspace, string> = {
   meeting: "Meeting",
   text: "Text",
@@ -41,11 +43,7 @@ type SimpleRefs = {
   assistantMessage: HTMLParagraphElement;
   retryReadinessButton: HTMLButtonElement;
   fixSetupButton: HTMLButtonElement;
-  openDeveloperDiagnosticsButton: HTMLButtonElement;
-  heroTitle: HTMLHeadingElement;
-  heroSubtitle: HTMLParagraphElement;
   realtimeStatus: HTMLParagraphElement;
-  qualityStatus: HTMLParagraphElement;
   gpuStatus: HTMLSpanElement;
   developerOutput: HTMLPreElement;
   userPresence: HTMLSpanElement;
@@ -56,6 +54,13 @@ type SimpleRefs = {
   textSourceLanguage: HTMLElement;
   textTargetLanguage: HTMLElement;
   textSwapLanguageButton: HTMLButtonElement;
+  meetingReadinessStatus: HTMLElement;
+  meetingInputDeviceValue: HTMLElement;
+  meetingInputDeviceStatus: HTMLElement;
+  meetingSoundDeviceValue: HTMLElement;
+  meetingRouteStatus: HTMLElement;
+  startTranslationButton: HTMLButtonElement;
+  startTranslationHint: HTMLElement;
   settingsNavItems: HTMLButtonElement[];
 };
 
@@ -81,11 +86,7 @@ function bindSimpleRefs(): SimpleRefs {
     assistantMessage: requireElement<HTMLParagraphElement>("#assistantMessage"),
     retryReadinessButton: requireElement<HTMLButtonElement>("#retryReadinessButton"),
     fixSetupButton: requireElement<HTMLButtonElement>("#fixSetupButton"),
-    openDeveloperDiagnosticsButton: requireElement<HTMLButtonElement>("#openDeveloperDiagnosticsButton"),
-    heroTitle: requireElement<HTMLHeadingElement>("#heroTitle"),
-    heroSubtitle: requireElement<HTMLParagraphElement>("#heroSubtitle"),
     realtimeStatus: requireElement<HTMLParagraphElement>("#realtimeStatus"),
-    qualityStatus: requireElement<HTMLParagraphElement>("#qualityStatus"),
     gpuStatus: requireElement<HTMLSpanElement>("#gpuStatus"),
     developerOutput: requireElement<HTMLPreElement>("#developerOutput"),
     userPresence: requireElement<HTMLSpanElement>("#userPresence"),
@@ -96,6 +97,13 @@ function bindSimpleRefs(): SimpleRefs {
     textSourceLanguage: requireElement<HTMLElement>("#textSourceLanguage"),
     textTargetLanguage: requireElement<HTMLElement>("#textTargetLanguage"),
     textSwapLanguageButton: requireElement<HTMLButtonElement>("#textSwapLanguageButton"),
+    meetingReadinessStatus: requireElement<HTMLElement>("#meetingReadinessStatus"),
+    meetingInputDeviceValue: requireElement<HTMLElement>("#meetingInputDeviceValue"),
+    meetingInputDeviceStatus: requireElement<HTMLElement>("#meetingInputDeviceStatus"),
+    meetingSoundDeviceValue: requireElement<HTMLElement>("#meetingSoundDeviceValue"),
+    meetingRouteStatus: requireElement<HTMLElement>("#meetingRouteStatus"),
+    startTranslationButton: requireElement<HTMLButtonElement>("#startTranslationButton"),
+    startTranslationHint: requireElement<HTMLElement>("#startTranslationHint"),
     settingsNavItems: Array.from(document.querySelectorAll<HTMLButtonElement>("[data-settings-tab]")),
   };
 }
@@ -112,6 +120,10 @@ function sleep(ms: number): Promise<void> {
 
 function isWorkspace(value: string | undefined): value is ProductWorkspace {
   return value === "meeting" || value === "text" || value === "history";
+}
+
+function setTone(element: HTMLElement, tone: StatusTone): void {
+  element.dataset.tone = tone;
 }
 
 export class SimpleLauncherController {
@@ -183,6 +195,34 @@ export class SimpleLauncherController {
     this.ui.directionPill.textContent = "ID / EN";
   }
 
+  private updateMeetingReadyView(readiness: ProductRuntimeSnapshot["readiness"]): void {
+    const checking = readiness.level === "checking";
+    const meetingLabel = readiness.meetingReady ? "Ready" : checking ? "Checking" : "Setup Needed";
+    const meetingTone: StatusTone = readiness.meetingReady ? "good" : checking ? "neutral" : "warning";
+    this.ui.meetingReadinessStatus.textContent = meetingLabel;
+    setTone(this.ui.meetingReadinessStatus, meetingTone);
+
+    const selectedInput = String(this.snapshot?.inputStatus?.selected_device_name ?? this.settings.audio.input_device_id ?? "").trim() || "Windows Default";
+    this.ui.meetingInputDeviceValue.textContent = selectedInput;
+    const microphoneLabel = readiness.microphoneReady ? "Ready" : checking ? "Checking" : "Setup Needed";
+    this.ui.meetingInputDeviceStatus.textContent = microphoneLabel;
+    setTone(this.ui.meetingInputDeviceStatus, readiness.microphoneReady ? "good" : checking ? "neutral" : "warning");
+
+    const meetingSound = String(this.settings.audio.output_device_id ?? "").trim() || "Windows Default";
+    this.ui.meetingSoundDeviceValue.textContent = `Meeting sound: ${meetingSound}`;
+
+    const routeLabel = readiness.meetingRouteReady ? "Ready" : checking ? "Checking" : "Setup Needed";
+    this.ui.meetingRouteStatus.textContent = routeLabel;
+    setTone(this.ui.meetingRouteStatus, readiness.meetingRouteReady ? "good" : checking ? "neutral" : "warning");
+
+    this.ui.startTranslationButton.disabled = true;
+    this.ui.startTranslationHint.textContent = readiness.meetingReady
+      ? "Start Translation is not available in this build yet."
+      : "Complete Meeting setup before Start Translation can be used.";
+    this.ui.retryReadinessButton.textContent = readiness.meetingReady ? "Check Setup" : "Retry";
+    this.ui.fixSetupButton.hidden = readiness.meetingReady;
+  }
+
   private async refreshReadiness(preferredNotice?: string): Promise<void> {
     try {
       this.snapshot = await runtimeProductFacade.loadProductRuntimeSnapshot();
@@ -192,15 +232,9 @@ export class SimpleLauncherController {
       this.ui.userPresence.textContent = readiness.meetingReady ? "Ready" : readiness.textReady ? "Degraded" : readiness.level === "blocked" ? "Setup Needed" : "Checking";
       this.ui.recordStatusText.textContent = readiness.recording ? "Recording" : readiness.meetingReady ? "Ready" : readiness.voiceReady ? "Route needed" : readiness.level === "checking" ? "Checking" : "Setup needed";
       this.ui.realtimeStatus.textContent = readiness.textStatus;
-      this.ui.qualityStatus.textContent = readiness.meetingStatus;
       this.ui.gpuStatus.textContent = this.snapshot.gpuPolicy?.cuda_available ? "CUDA ready" : this.snapshot.gpuPolicy?.cpu_fallback_active ? "CPU fallback" : "Checking";
       this.ui.developerOutput.textContent = JSON.stringify({ readiness, commandErrors: runtimeApi.getCommandErrors().slice(0, 5) }, null, 2);
-      this.ui.heroTitle.textContent = readiness.meetingReady ? "Meeting translation ready" : "Meeting translation setup";
-      this.ui.heroSubtitle.textContent = readiness.meetingReady
-        ? "Meeting Voice reports the required local runtime and meeting route as ready."
-        : readiness.textReady
-          ? "Text translation is available, but Meeting Voice still needs setup or route evidence."
-          : "TranslateIT is checking the local capabilities required for Meeting Voice.";
+      this.updateMeetingReadyView(readiness);
       this.notice(preferredNotice ?? readiness.summary);
     } catch (error) {
       this.notice(`Runtime check failed: ${errorMessage(error)}`);
@@ -320,7 +354,6 @@ export class SimpleLauncherController {
   private setRecoveryDisabled(disabled: boolean): void {
     this.ui.retryReadinessButton.disabled = disabled;
     this.ui.fixSetupButton.disabled = disabled;
-    this.ui.openDeveloperDiagnosticsButton.disabled = disabled;
   }
 
   private async fixSetup(): Promise<void> {
@@ -417,7 +450,7 @@ export class SimpleLauncherController {
         renderAdvancedSettingsTab({
           ui: this.ui,
           translationStatus: this.ui.realtimeStatus.textContent ?? "Checking",
-          meetingStatus: this.ui.qualityStatus.textContent ?? "Checking",
+          meetingStatus: this.ui.meetingReadinessStatus.textContent ?? "Checking",
           onOpenDiagnostics: () => {
             this.advancedDiagnosticsOpen = true;
             this.renderSettings("advanced");
@@ -478,7 +511,6 @@ export class SimpleLauncherController {
     this.ui.backHomeButton.addEventListener("click", () => this.showWorkspace(this.activeWorkspace));
     this.ui.retryReadinessButton.addEventListener("click", () => void this.refreshReadiness("Readiness refreshed."));
     this.ui.fixSetupButton.addEventListener("click", () => void this.fixSetup());
-    this.ui.openDeveloperDiagnosticsButton.addEventListener("click", () => this.showSettings("advanced", true));
     this.ui.settingsNavItems.forEach((button) => button.addEventListener("click", () => {
       const tab = (button.dataset.settingsTab as SettingsTab) ?? "meeting";
       this.advancedDiagnosticsOpen = false;
