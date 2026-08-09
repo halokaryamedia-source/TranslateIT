@@ -270,6 +270,51 @@ Normal users do not operate Python, helper/worker lifecycle, provider/model name
 CUDA mode, VAD thresholds, queue sizes, retry counts, model paths, or raw logs as
 normal settings. Persist user preferences; recalculate runtime readiness on launch.
 
+## UI Simplicity And Screen Model
+
+The primary UI requirement is **simple to use and familiar to a nontechnical Windows
+desktop user**. Familiarity and clarity take priority over novelty, decorative
+complexity, or exposing internal system flexibility.
+
+UI rules:
+
+- prefer familiar desktop patterns, clear labels, obvious buttons, standard
+  navigation, and visible state over custom interaction inventions;
+- each workspace should have one obvious primary task/action;
+- keep control density low and use progressive disclosure for secondary or
+  technical detail;
+- do not duplicate the same task across multiple pages/control panels;
+- do not require hidden gestures, engineering vocabulary, or configuration the
+  product can decide safely itself;
+- lifecycle variants such as Ready, Starting, Live, Paused, Recovering, and Ended
+  are states of the same Meeting workspace rather than separate pages;
+- Text translation states similarly remain in one Text workspace;
+- global Meeting indicators/alerts/dialogs are shell elements, not extra pages.
+
+Initial conceptual surfaces are deliberately small:
+
+```text
+First Setup Wizard
+├─ Welcome
+├─ Microphone
+├─ Meeting Sound
+├─ Meeting Microphone
+└─ Verify / Ready
+
+Normal App
+├─ Meeting
+├─ Text
+├─ History Collection
+├─ History Detail
+├─ Settings
+└─ Diagnostics (nested under Advanced)
+```
+
+There is no separate language-setup page while Indonesian/English is the only
+supported pair. There is no Home/Dashboard, Documents page, top-level Saved page,
+General Settings, separate Translation Settings, dedicated lifecycle Error/Ready/
+Recovering pages, or top-level Developer page in the initial core UI.
+
 ## Audio Studio
 
 Audio Studio remains advanced/post-core. Voice authorization is required. Default
