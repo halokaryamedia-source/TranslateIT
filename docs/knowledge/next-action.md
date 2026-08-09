@@ -2,7 +2,7 @@
 
 Updated: 2026-08-09  
 Working branch: `New`  
-Status: Product behavior, minimal IA, visual system, and Meeting Ready/Live composition are approved; source implementation remains paused while remaining core screen composition is defined
+Status: Product behavior and all normal core-workspace visual compositions are approved; source implementation remains paused for the final First Setup and end-to-end UI consistency check
 
 This file is the single active continuation owner for TranslateIT.
 
@@ -27,8 +27,9 @@ repository owners already contain them.
 
 **Plan**.
 
-Source/runtime implementation is intentionally paused until the core UI composition
-is sufficiently defined. Local/Windows acceptance also remains deferred.
+Source/runtime implementation is intentionally paused until the final First Setup
+polish and cross-screen consistency pass are complete. Local/Windows acceptance
+remains deferred until the later dedicated local phase.
 
 ## Locked Product Scope
 
@@ -44,7 +45,7 @@ Audio Studio  -> advanced/post-core
 
 ## Locked UI Principle
 
-The product UI must be:
+TranslateIT must be:
 
 ```text
 Modern
@@ -54,11 +55,12 @@ Familiar
 
 Use familiar modern Windows desktop patterns, clear text labels, conventional
 controls/navigation, one obvious primary action per workspace, restrained surfaces,
-progressive disclosure, and quiet responsive feedback. Avoid futuristic/neon AI
-showcase treatment, decorative AI orbs, heavy glassmorphism, oversized dashboard
-cards, icon-only critical actions, or unnecessary motion.
+progressive disclosure, and quiet responsive feedback. Modernity comes from polish,
+not novelty. Avoid futuristic/neon AI showcase treatment, decorative AI orbs,
+heavy glassmorphism, oversized dashboard cards, icon-only critical actions,
+decorative waveforms, or unnecessary motion.
 
-Durable reasoning: `decision-log.md` D-015 through D-018.
+Durable reasoning: `decision-log.md` D-015 through D-019.
 
 ## Approved Core Screen Model
 
@@ -98,51 +100,101 @@ page per runtime state.
 - wide desktop layouts reflow sensibly when narrow; exact final pixel/color values
   wait for rendered proof.
 
-## Approved Meeting Ready Composition
+## Approved Meeting Composition
 
-Priority:
+`Meeting Ready` priority:
 
 ```text
 status/readiness
--> plain-language language behavior
+-> plain-language ID -> EN Voice and EN -> ID Text behavior
 -> Your Microphone
 -> Incoming Translation / Meeting Sound
 -> TranslateIT Meeting Microphone
 -> compact Realtime / Tone
--> Start Translation
--> meeting-app microphone reminder
+-> one dominant Start Translation action
+-> subtle meeting-app microphone reminder
 ```
 
-Rules:
+Incoming-only failure does not disable Start. Required unsafe outbound failure does.
+Normal UI does not expose ASR/TTS/worker/CUDA/runtime diagnostics.
 
-- one dominant `Start Translation` CTA;
-- device/setup actions are visually secondary;
-- physical mic and Meeting Sound are familiar information/device rows;
-- TranslateIT Meeting Microphone is a managed route, not a generic dropdown;
-- incoming-only failure does not disable Start;
-- required unsafe outbound failure disables/blocks Start and surfaces `Fix Setup`;
-- no ASR/TTS/worker/CUDA/runtime dashboard in normal UI.
+`Meeting Live` is transcript-first:
 
-## Approved Meeting Live Composition
-
-- chronological transcript is the hero content;
-- header shows `Translation Live`, language direction, elapsed time;
-- `YOU` / `INCOMING` labels only; no fake participant identity or avatar dependency;
-- Indonesian user-relevant text gets primary visual weight; English source/output is
-  secondary;
-- outbound turns retain truthful delivery state;
-- stable activity area for Listening / Processing / Speaking / Waiting / Catching Up;
+- chronological `YOU` / `INCOMING` turns, no fake participant identity/avatars;
+- Indonesian user-relevant text primary; English source/output secondary;
+- truthful outbound delivery state;
+- stable Listening / Processing / Speaking / Waiting / Catching Up activity region;
 - `Stop Voice` only while speaking;
-- `Speak Now` / `Cancel` only while waiting for a conversational gap;
-- incoming-only degradation uses a light inline callout;
-- unsafe outbound interruption uses stronger inline attention while transcript stays
-  visible;
-- Pause/Resume + Stop Translation remain in sticky session controls;
-- auto-follow transcript only while user remains at the bottom; scrolling upward
-  freezes follow and shows a compact new-translation return control;
-- Ready -> Starting -> Live remains one Meeting workspace, not route/page churn.
+- `Speak Now` / `Cancel` only while waiting for a gap;
+- light incoming-only degradation callout;
+- stronger unsafe outbound interruption callout while transcript remains visible;
+- sticky Pause/Resume + Stop Translation controls;
+- auto-follow only while the user stays at the bottom; manual reading freezes it;
+- Ready -> Starting -> Live remains one Meeting workspace.
 
-Durable reasoning: `decision-log.md` D-018.
+Durable reasoning: D-018.
+
+## Approved Text Composition
+
+- familiar translator mental model rather than AI-editor/dashboard UI;
+- explicit Indonesian / English selectors with one swap action;
+- source + editable target panes side by side when wide and stacked when narrow;
+- `Quality` and `Tone` remain secondary controls;
+- one primary `Translate` action; `Copy` and `Save` remain quieter actions;
+- completed result stays visible if source changes but is marked as needing update;
+- errors/unavailable state remain inline and never clear the user's source text;
+- live Meeting may add the global Meeting strip; Text may wait for capacity but must
+  not degrade the Meeting.
+
+## Approved History / Saved Composition
+
+- chronological list, not cards/gallery/dashboard;
+- `Recent / Saved` tabs;
+- normal local search field plus compact `All / Meeting / Text` filters;
+- Meeting rows: title, time, duration, truthful completed/interrupted state;
+- Text rows: useful source snippet + language direction;
+- Meeting detail reuses the Meeting transcript visual language but is read-only;
+- Text detail is a simple read-only source/translation artifact;
+- Saved reuses the same collection/detail surfaces; ownership actions change rather
+  than creating a separate Saved application;
+- History Off messaging must not imply existing History was deleted;
+- empty states remain simple text-led states.
+
+## Approved Settings Composition
+
+Conventional desktop preferences layout:
+
+```text
+Settings
+├─ Meeting
+├─ History & Privacy
+└─ Advanced
+    └─ Diagnostics
+```
+
+- Meeting: speaking mode, physical microphone, Meeting Sound, managed Meeting
+  Microphone; affected-row progress/errors rather than full-page blocking;
+- History & Privacy: History On/Off, local storage summary, Saved explanation/access,
+  Clear History separated as destructive action;
+- Advanced: setup health + Diagnostics entry only;
+- Diagnostics is inspect/troubleshoot, not the normal manual runtime control plane.
+
+Durable reasoning: D-019.
+
+## Global / Cross-Feature Rules
+
+- active Meeting is application-level state, never page-lifecycle state;
+- navigation to Text/History/Settings never stops/recreates a healthy Meeting;
+- one active Meeting session per runtime and no competing independent app instance;
+- compact global live indicator outside Meeting;
+- unsafe outbound failures surfaced globally; incoming-only degradation remains
+  scoped/subtle;
+- contextual global `Stop Voice` only while own TTS is speaking;
+- Text/History/Settings preserve reasonable in-memory view state;
+- Meeting processing has resource priority;
+- PTT works across views only for an already-live Meeting;
+- minimize keeps Meeting Live; close while Live requires `Stop & Close`;
+- capability health is scoped rather than one giant app Ready/Error state.
 
 ## Current Source Reality
 
@@ -164,11 +216,12 @@ implementation reconciliation.
 
 ## Proof State
 
-**CURRENT-PROJECT VERIFIED** at repository-policy level:
+**CURRENT-PROJECT VERIFIED** at repository-policy/design level:
 
 - product flows 01–11 are persisted;
-- minimal screen inventory and modern/familiar visual direction are persisted;
-- Meeting Ready and Meeting Live final composition is persisted in D-018;
+- minimal screen inventory and modern/familiar visual system are persisted;
+- Meeting Ready/Live composition is persisted in D-018;
+- Text, History/Saved, and Settings composition is persisted in D-019;
 - source/runtime was not changed by these planning steps.
 
 **LOCAL PROOF REQUIRED** remains deferred for rendered visual quality, responsive
@@ -177,25 +230,27 @@ and packaging.
 
 ## Hold
 
-- remain in Plan while remaining core screen composition is defined;
+- remain in Plan until First Setup + end-to-end UI consistency check is approved;
 - do not start source implementation/local acceptance yet;
 - do not revive Documents/top-level Saved/Home/Dashboard;
 - do not replace familiar controls with decorative custom interaction;
 - do not freeze exact pixel/color constants without rendered evidence;
-- do not invent product behavior from wireframe examples.
+- do not invent product behavior from composition examples.
 
 ## Next Step
 
-Define final visual composition for the remaining core workspaces in this order:
+Complete the **final First Setup polish and end-to-end UI consistency check**:
 
-```text
-Text
--> History Collection + History Detail / Saved
--> Settings (Meeting / History & Privacy / Advanced / Diagnostics entry)
--> First Setup polish/check
-```
+1. finalize the 5-step first-run wizard composition and failure/resume states;
+2. verify wording and control hierarchy are consistent between Setup, Meeting,
+   Settings, History, and Text;
+3. verify every important error/recovery state has one familiar place/action and no
+   duplicate control surface;
+4. verify responsive/narrow-window behavior does not introduce a second interaction
+   model;
+5. identify any remaining high-impact design ambiguity.
 
-Use the same approved system: modern, familiar, low-learning-cost, text-led,
-conventional desktop interaction. After these compositions are approved and
-persisted, decide whether any product-design ambiguity remains before transitioning
-from Plan to bounded source implementation.
+If no material ambiguity remains after that pass, persist the final Plan state and
+transition the next task to **bounded source implementation on branch `New` through
+ChatGPT -> GitHub**, still without claiming local/rendered/Windows proof until the
+later local acceptance phase.
