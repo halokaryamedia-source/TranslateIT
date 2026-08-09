@@ -2,7 +2,7 @@
 
 Updated: 2026-08-10  
 Working branch: `New`  
-Status: product/source alignment work is paused before further Meeting runtime expansion because the Translate Engine audit found overlapping execution owners, optimistic readiness, and legacy/dev fallback paths that must be consolidated first.
+Status: product feature expansion remains paused while the Translate Engine is consolidated; skill governance has been reconciled back to the frozen six-skill baseline so anti-slop/research/tooling capability does not create parallel owners.
 
 This file is the single active continuation owner for TranslateIT.
 
@@ -26,8 +26,8 @@ repository owners already contain them.
 **Plan**.
 
 The previous Developing continuation (`finalized outbound utterance producer`) is
-**deferred**, not cancelled. Do not resume that implementation until the engine
-consolidation plan is approved and the canonical runtime path is unambiguous.
+**deferred**, not cancelled. Do not resume that implementation until the Engine
+Consolidation Plan is approved and the canonical runtime path is unambiguous.
 
 Execution channel remains:
 
@@ -42,58 +42,30 @@ audio delivery, and installed behavior remain `LOCAL PROOF REQUIRED`.
 ## Engine Audit Result
 
 The current Translate Engine must **not** be described as optimized or production
-ready yet. The audit found several root problems that predate the stricter project
-governance.
+ready yet. The audit found root problems that predate the stricter governance.
 
-### P0 — Multiple active execution owners
+### P0
 
-Translation/voice behavior is split across persistent helper execution, accelerated
-one-shot workers, manual/legacy translation fallbacks, legacy capture workers, and
-developer handoff/scaffold paths. Behavior can therefore depend on which path is
-active rather than one canonical engine contract.
+- multiple active execution owners: persistent helper, accelerated one-shot worker,
+  legacy/manual translation paths, legacy capture worker, and developer handoff
+  scaffolds;
+- fake/inflated success remains reachable through rule-based/preview translation or
+  contract/dev payload paths without validated model inference;
+- readiness truth is spread across model inventory, stale/runtime manifests, helper
+  status, runtime/readiness bundles, legacy gates, product readiness, and newer
+  Meeting preflight;
+- persistent worker scheduling/cancellation is not yet realtime-safe and there is no
+  proved Meeting-over-Text scheduler.
 
-### P0 — Fake or inflated success remains reachable
+### P1
 
-Inherited rule-based/deterministic/preview translation can report completed output
-without validated model inference. Developer seed/smoke/handoff paths can also
-return contract success without runtime success. These paths must never become
-product readiness or user-facing translation truth.
-
-### P0 — Readiness has too many authorities
-
-Model inventory, worker/runtime manifests, helper status, runtime-readiness bundles,
-live/professional gates, product readiness, and the newer Meeting preflight overlap.
-Some use stale/static file presence or previous-machine manifest state. One
-capability needs one current truth owner.
-
-### P0 — Persistent worker scheduling/cancellation is not realtime-safe
-
-The helper runtime serializes blocking inference behind one global state lock.
-Cancellation mainly invalidates state/generation after work boundaries and cannot be
-assumed to stop expensive inference immediately. There is also no proved scheduler
-that enforces Meeting work priority over standalone Text work.
-
-### P1 — Declared Realtime/Quality stack differs from active execution
-
-The repository contains standard PyTorch translation, an accelerated CTranslate2
-translation worker, legacy one-shot workers, and manifests that describe different
-primary/fallback model roles. Realtime/Quality settings and model claims do not yet
-map cleanly to one execution path. Text also still shares the global runtime profile
-instead of independently defaulting to Quality.
-
-### P1 — Dependency/model/runtime reproducibility is incomplete
-
-Python dependencies are not fully locked, worker discovery can fall back to system
-Python, model revisions/checksums are not canonical, model setup is partly report/
-manual tooling, and current paths still assume repository-root `EngineData/UserData`
-layout. Clean installed runtime ownership remains unresolved.
-
-### P1 — Existing validation overstates what it proves
-
-Several source validators verify marker/string/wiring presence. Worker smoke tooling
-does not necessarily exercise the active persistent helper path and ASR can be
-optional. These checks are useful static evidence but must not be treated as model
-quality, realtime latency, cancellation, Windows audio, or end-to-end runtime proof.
+- declared Realtime/Quality stack differs from the execution path that may actually
+  run;
+- Text still shares the global runtime profile instead of owning its Quality default;
+- Python/model/runtime dependency lifecycle is not reproducible enough for a clean
+  installed runtime;
+- current source validators/smokes prove narrower source/command contracts than many
+  runtime-quality claims would require.
 
 ## Hold
 
@@ -101,68 +73,107 @@ Until the consolidation plan is approved:
 
 - do not implement the finalized utterance producer on top of overlapping engine
   paths;
-- do not add another worker, fallback, readiness gate, model manifest, or runtime
-  service;
+- do not add another worker, fallback, readiness gate, model manifest, runtime
+  service, or compatibility owner;
 - do not promote rule-based/preview/dev-seed output into product translation;
-- do not call source presence, marker validation, or stale manifest state `Ready`;
+- do not call source presence, marker validation, stale manifest state, or dry-run
+  contract success `Ready`;
 - do not replace Python with Rust merely for language purity;
 - do not adopt a new model/provider before a bounded evaluation proves why the
   current candidate is insufficient;
 - do not start the local Windows acceptance phase yet.
 
-## User-Approved Support Skills
+## Skill Governance — Reconciled
 
-Three non-specialist support skills are now available under `.agents/skills/`:
+The repository again has **exactly the frozen canonical baseline**:
+
+```text
+development-brief
+desktop-runtime-development
+desktop-ui-design-development
+local-ai-runtime-development
+windows-audio-runtime-development
+release-packaging-development
+```
+
+The temporary support-skill experiments were intentionally merged/retired instead
+of becoming permanent owners:
 
 ```text
 i-have-adhd
-awesome-rust-research
+-> useful action/progress communication rules merged into development-brief / root communication discipline
+
 no-ai-slop
+-> engineering anti-slop checks merged into the always-on AGENTS + development-brief quality gate
+
+awesome-rust-research
+-> Rust ecosystem discovery converted to a conditional research procedure in activation-matrix / local-ai tooling rules
 ```
 
-They do not change the frozen semantic specialist baseline. `awesome-rust-research`
-uses Awesome Rust only for candidate discovery; `no-ai-slop` is a review filter;
-`i-have-adhd` shapes action/progress communication.
+Do **not** recreate these as separate skills merely because the external repositories
+remain useful references. `docs/knowledge/skills/skill-map.md` is the canonical
+inventory and `activation-matrix.md` is the routing owner.
 
-## Python / Rust Tooling Candidates — Not Yet Adopted
+Anti-slop is intentionally always-on rather than an optional reviewer. The
+`development-brief` now explicitly gates duplicate ownership, fake success,
+fallback masking, unjustified persistent additions, and evidence inflation before
+Developing edits proceed.
 
-The audit identified a small set worth evaluating during consolidation rather than
-adding tools blindly:
+## Python / Rust Tooling Governance
+
+Python/Rust development tools are **tools, not skills or product owners**.
+`local-ai-runtime-development` now owns their bounded adoption gate.
+
+Current candidates:
 
 ```text
 uv
--> Python environment/dependency lock and reproducible execution candidate
+-> candidate for reproducible Python environment/dependency locking
 
 Ruff
--> fast Python lint + format candidate
+-> candidate for one consolidated Python lint/format path
+
+pytest
+-> candidate for executable Python correctness tests
+
+pytest-benchmark
+-> candidate for measured stage-level regression after correctness is established
 
 py-spy
--> low-overhead profiler for the persistent Python worker, including subprocess use
-
-pytest + pytest-benchmark
--> correctness + repeatable stage-level performance regression candidate
+-> preferred first profiler for the actual persistent Python worker
 
 Scalene
--> deeper Python/native/GPU/memory profiling when py-spy is insufficient
+-> deeper CPU/native/GPU/memory profiling only when simpler profiling is insufficient
+
+ty / another type checker
+-> defer until the canonical worker boundary is stable and typing solves a real contract risk
 
 PyO3 / maturin
--> DEFER; consider only if profiling later proves the process/FFI boundary itself is
-   a material bottleneck. Do not adopt merely because the application also uses Rust.
+-> DEFER; only reconsider when profiling proves Rust/Python process or IPC overhead is a material bottleneck and FFI reduces net complexity
 ```
 
-These are research candidates, not current dependencies or acceptance proof.
+No tool above is adopted merely because it is popular, Rust-written, or modern.
+Each requires a current problem, canonical owner, direct acceptance/proof value,
+primary-source verification, proportional maintenance cost, and no duplicate tool
+already serving the same job.
+
+Packaging implications remain owned by `release-packaging-development`; a dev tool
+or `uv` lockfile must never become a manual end-user runtime requirement.
 
 ## Proof State
 
-**CURRENT-PROJECT VERIFIED** at static-source audit level:
+**CURRENT-PROJECT VERIFIED** at static-source/governance level:
 
-- multiple translation/voice execution paths exist;
-- rule-based/preview fallback can produce non-model translation output;
-- persistent and accelerated worker ownership is inconsistent;
-- readiness/model truth is distributed across overlapping owners/manifests;
-- helper execution is serialized through its current shared runtime owner;
-- current source validators/smokes are narrower than runtime-quality claims;
-- the three support skills are present and routed as non-specialist helpers.
+- multiple translation/voice execution paths and overlapping readiness owners exist;
+- fake/non-model translation success remains present in inherited source;
+- the engine therefore requires consolidation before further feature expansion;
+- the three temporary support skill files are no longer part of the repository skill
+  architecture;
+- useful communication/anti-slop/research rules were merged into existing canonical
+  owners instead of creating new semantic specialists;
+- `local-ai-runtime-development` now contains the conditional Python/Rust tooling
+  adoption rules;
+- the frozen six-skill semantic baseline is restored.
 
 **LOCAL PROOF REQUIRED** before any claim about actual model quality, realtime
 latency, CPU/CUDA usability, memory/VRAM pressure, cancellation responsiveness,
@@ -185,7 +196,8 @@ DEFER
 The plan must converge on **one canonical persistent local AI runtime**, one
 capability/readiness truth path, one model/dependency lifecycle, explicit
 Meeting-over-Text scheduling/cancellation semantics, and no fake translation
-fallback. It must also define the smallest benchmark/proof matrix needed to decide
-whether the current ASR/translation/TTS model choices are actually acceptable.
-Only after that plan is approved should Developing resume, beginning with engine
-consolidation rather than the finalized-utterance feature.
+fallback. It must also decide which of `uv`, Ruff, pytest/pytest-benchmark, and
+py-spy are actually worth adopting and define the smallest benchmark/proof matrix
+needed to judge ASR/translation/TTS quality and performance. Only after that plan is
+approved should Developing resume, beginning with engine consolidation rather than
+the finalized-utterance feature.
