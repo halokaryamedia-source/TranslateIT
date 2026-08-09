@@ -18,11 +18,42 @@ pub struct InputPreparationStatus {
 
 impl InputPreparationStatus {
     pub fn inspect_default_input() -> Self {
+        Self::inspect_input_device(None)
+    }
+
+    pub fn inspect_input_device(requested_name: Option<&str>) -> Self {
         let host = cpal::default_host();
         let backend_id = format!("cpal-{}", host.id().name());
+        let requested_name = requested_name.map(str::trim).filter(|value| !value.is_empty());
 
-        let Some(device) = host.default_input_device() else {
-            return Self::blocked(backend_id, None, "No default input device was found.");
+        let device = match requested_name {
+            Some(name) => match find_named_input_device(&host, name) {
+                Ok(Some(device)) => device,
+                Ok(None) => {
+                    return Self::blocked(
+                        backend_id,
+                        Some(name.to_string()),
+                        "The selected microphone is not available. The previous/default microphone was not substituted.",
+                    )
+                }
+                Err(error) => {
+                    return Self::blocked(
+                        backend_id,
+                        Some(name.to_string()),
+                        &format!("The selected microphone could not be enumerated: {error}"),
+                    )
+                }
+            },
+            None => {
+                let Some(device) = host.default_input_device() else {
+                    return Self::blocked(
+                        backend_id,
+                        None,
+                        "No Windows default input device was found.",
+                    );
+                };
+                device
+            }
         };
 
         let device_name = safe_device_name(&device);
@@ -30,7 +61,7 @@ impl InputPreparationStatus {
             return Self::blocked(
                 backend_id,
                 device_name,
-                "Default input device exists, but no default input config was available.",
+                "The selected microphone exists, but no default input configuration was available.",
             );
         };
 
@@ -40,7 +71,7 @@ impl InputPreparationStatus {
             return Self::blocked(
                 backend_id,
                 device_name,
-                "Default input device does not satisfy the target 16 kHz mono pipeline requirement.",
+                "The selected microphone does not satisfy the target 16 kHz mono pipeline requirement.",
             );
         }
 
@@ -51,7 +82,13 @@ impl InputPreparationStatus {
             target_channels: TARGET_CHANNELS,
             prepared: true,
             running: false,
-            note: "Default input device is usable for the Rust input pipeline boundary. Live stream start remains blocked until calibration flow is connected.".to_string(),
+            note: if requested_name.is_some() {
+                "The selected microphone is available with a usable input configuration. Live capture was not started by this check."
+                    .to_string()
+            } else {
+                "The Windows default microphone is available with a usable input configuration. Live capture was not started by this check."
+                    .to_string()
+            },
         }
     }
 
@@ -66,6 +103,16 @@ impl InputPreparationStatus {
             note: note.to_string(),
         }
     }
+}
+
+fn find_named_input_device(host: &cpal::Host, requested_name: &str) -> Result<Option<cpal::Device>, String> {
+    let devices = host.input_devices().map_err(|error| error.to_string())?;
+    for device in devices {
+        if safe_device_name(&device).as_deref() == Some(requested_name) {
+            return Ok(Some(device));
+        }
+    }
+    Ok(None)
 }
 
 fn is_unsafe_input_name_character(character: char) -> bool {
