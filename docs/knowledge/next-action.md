@@ -2,7 +2,7 @@
 
 Updated: 2026-08-10  
 Working branch: `New`  
-Status: core shell, Settings hierarchy, Meeting Ready, Text, History/Saved + privacy controls, and First Setup flow are source-aligned through ChatGPT -> GitHub
+Status: core shell, First Setup including source-side audio-device selection, Settings, Meeting Ready, Text, and Text-backed History/Saved are aligned through ChatGPT -> GitHub
 
 This file is the single active continuation owner for TranslateIT.
 
@@ -14,10 +14,8 @@ For a new session:
 AGENTS.md
 -> CONTEXT.md
 -> docs/knowledge/next-action.md
--> docs/foundation/01-product-overview.md
--> docs/foundation/02-product-requirements.md
--> docs/knowledge/source-ownership.md
--> one relevant current source owner only
+-> relevant foundation/source-ownership owner
+-> one affected current source owner + direct contracts only
 ```
 
 Do not reconstruct approved product decisions from chat history when canonical
@@ -34,7 +32,7 @@ ChatGPT -> GitHub
 ```
 
 Local/Windows acceptance remains deferred. Static source alignment may continue,
-but rendered/device/runtime/audio/model/filesystem/package claims remain
+but build/runtime/device/audio/rendered/filesystem/package claims remain
 `LOCAL PROOF REQUIRED` until the dedicated local phase.
 
 ## Locked Product / UI Baseline
@@ -49,18 +47,18 @@ Documents     -> removed
 Audio Studio  -> advanced/post-core
 ```
 
-UI target remains **Modern + Easy to use + Familiar**. Normal UI uses product
-language rather than helper/model/audio-engineering terminology.
+UI remains **Modern + Easy to use + Familiar**. Normal users see product concepts,
+not helper/model/audio-engineering internals.
 
-## Completed Source Slices
+## Completed Source-Side Product Slices
 
-### 1. Top-level shell / navigation
+### Shell / navigation
 
-- active normal sidebar is `Meeting / Text / History / Settings` only;
+- normal app uses `Meeting / Text / History / Settings` only;
 - Documents and top-level Saved are removed;
-- one current normal controller/shell path remains.
+- one normal `SimpleLauncherController -> shell` path remains.
 
-### 2. Normal Settings hierarchy
+### Settings hierarchy
 
 ```text
 Meeting
@@ -69,38 +67,25 @@ Advanced
     -> Diagnostics
 ```
 
-Global General/Translation/Audio destinations are no longer active. Diagnostics
-stays nested under Advanced.
+### Meeting Ready
 
-### 3. Meeting Ready
+Approved Ready hierarchy is mounted and truthful. Incoming remains explicitly not
+connected and `Start Translation` remains disabled until an atomic Meeting lifecycle
+exists.
 
-The active Ready surface follows the approved hierarchy and remains truthful:
-
-```text
-readiness
--> Your microphone
--> Incoming translation / Meeting sound
--> TranslateIT Meeting Microphone
--> Realtime / Auto
--> Start Translation boundary
-```
-
-Incoming remains explicitly not connected and `Start Translation` remains disabled
-until the approved atomic Meeting lifecycle exists.
-
-### 4. Text workspace
+### Text
 
 - familiar source/target panes;
-- contextual persisted ID/EN Swap;
+- persisted contextual ID/EN Swap;
 - explicit Translate + Ctrl+Enter;
 - editable target;
-- stale/error states preserve visible work;
-- active file-attachment translation removed;
-- canonical translation runtime path preserved.
+- stale/error states preserve work;
+- active attachment translation removed;
+- successful Text writes Recent only when History is ON.
 
-### 5. Canonical History / Saved persistence
+### History / Saved / Privacy
 
-Canonical product History is:
+Canonical store:
 
 ```text
 UserData/SavedProject/History/
@@ -108,146 +93,130 @@ UserData/SavedProject/History/
 └─ Saved/
 ```
 
-Owned by `engine/history_store.rs` + `commands/history.rs`. It provides Text Recent
-creation, Recent/Saved listing + filtering, detail read, independent idempotent
-Recent -> Saved copy, Remove from Saved, and Clear Recent without touching Saved.
-Legacy chat/transcript stores are not canonical product History.
+Current UI supports Recent/Saved, Search, All/Meeting/Text filter, Text detail,
+independent Save, Remove from Saved, History On/Off, and confirmation-gated Clear
+History that never deletes Saved. Legacy chat/transcript stores are not product
+History.
 
-### 6. History frontend + Text Recent
+### First Setup
 
-- canonical History commands are connected through existing `runtimeApi`;
-- successful intentional Text translation writes Recent only when
-  `history_enabled` is ON;
-- History workspace is `Recent / Saved` with local Search and
-  `All / Meeting / Text` filters;
-- Text detail uses persisted source/target metadata;
-- Recent Save and Saved Remove use the same canonical store;
-- Meeting entries are not invented before canonical Meeting lifecycle writes exist.
-
-### 7. Settings -> History & Privacy
-
-- `Keep History` persists through `RuntimeSettings.history_enabled`;
-- turning History off does not delete existing Recent/Saved;
-- failed setting save rolls back rather than presenting false state;
-- `Clear History` requires explicit confirmation;
-- Clear calls only `runtimeApi.clearRecentHistory()`;
-- Saved is not touched;
-- successful Clear invalidates Recent UI collection/detail cache only.
-
-### 8. First Setup
-
-The first-use gate is now owned by:
+First launch is gated through one focused five-step shell:
 
 ```text
-src/main.ts
--> startDesktopWithFirstSetup
-   ├─ setup state = new
-   │  -> focused First Setup shell
-   └─ deferred/completed
-      -> existing SimpleLauncherController / normal shell
+Welcome
+-> Your microphone
+-> Meeting sound
+-> Meeting microphone
+-> Verify / Ready
 ```
 
-The setup flow is:
-
-```text
-1. Welcome
-2. Your microphone
-3. Meeting sound
-4. Meeting microphone
-5. Verify / Ready
-```
-
-Current source behavior:
-
-- setup uses a focused shell with no normal application sidebar;
-- explicit `Set up later` persists defer intent and enters the normal app;
-- deferred setup does not block standalone Text merely because Meeting audio is
-  incomplete;
-- interrupted `new` setup resumes from a stored checkpoint but rechecks microphone
-  and Meeting-route capability before trusting the checkpoint;
-- only setup-flow facts are persisted:
+`Set up later` is explicit and persisted. Only setup-flow facts are stored:
 
 ```text
 meeting_setup_state      -> new | deferred | completed
 meeting_setup_checkpoint -> 1..5
 ```
 
-- no permanent `Ready` truth is persisted;
-- microphone, Meeting route, local translation, and final Meeting readiness are
-  obtained from the existing product readiness facade;
-- Your microphone requires current microphone readiness before Continue;
-- Meeting sound shows the current preference and truthfully states incoming
-  translation is not connected yet;
-- Meeting microphone requires current managed-route readiness before Continue;
-- Verify / Ready rechecks actual capabilities and only enables `Go to Meeting` when
-  current required Meeting readiness is true;
-- incoming translation remains optional/unavailable in the wizard rather than being
-  represented as a fake PASS;
-- entering the normal app after completion/defer still runs the existing normal
-  readiness startup path, so setup completion cannot replace runtime revalidation.
+No permanent Ready flag exists; capability state is revalidated.
 
-The First Setup composition is source-aligned, but actual device choice/change is
-still incomplete: the wizard can inspect/check the current microphone and Meeting
-Sound preference but does not yet provide candidate -> verify -> commit device
-selection.
+### Your microphone / Meeting Sound selection
+
+One shared product selection authority is now used by First Setup and
+`Settings -> Meeting`:
+
+```text
+runtimeProductFacade
+-> runtimeApi
+-> native audio-device commands
+-> existing RuntimeSettings.audio preference
+```
+
+**Microphone source contract:**
+
+- user can choose Windows Default or one explicit native input;
+- explicit candidate is checked before preference save;
+- failed candidate check/save keeps the previous persisted preference;
+- `get_input_status()` checks the configured input rather than always checking the
+  Windows default;
+- a pinned microphone that disappears blocks live capture instead of silently
+  switching to another default microphone;
+- Windows Default remains follow-default behavior because no explicit input id is
+  pinned.
+
+**Meeting Sound source contract:**
+
+- user can choose Windows Default or one explicit native output;
+- candidate/default output configuration is checked before preference save;
+- failed candidate check/save keeps the previous preference;
+- this verifies only the selected output endpoint/config contract; it does not claim
+  incoming Meeting Sound capture/translation is implemented.
+
+Settings does not promote native candidate/config success into full Meeting Ready;
+microphone state is re-read through canonical product readiness.
+
+First Setup presents the same selection semantics with familiar selectors and keeps
+Meeting Sound optional/degradable because incoming translation is still unavailable.
 
 ## Current Source Reality
 
-Important approved gaps remain independently:
+Important independent gaps remain:
 
 ```text
-verified physical microphone / Meeting Sound selection and commit behavior is incomplete
+atomic application-level Start Translation / Stop Translation lifecycle is missing
+Meeting Live transcript state is not implemented
+global cross-view Meeting strip/state and single-instance behavior are incomplete
+incoming Meeting Sound lane and self-output suppression are incomplete
+turn coordination, bounded recovery, Pause/Resume/Stop finalization remain incomplete
 Meeting History write/detail waits for canonical Meeting lifecycle
-global Meeting strip / cross-view live state / single-instance behavior is incomplete
-atomic Start Translation and Meeting Live lifecycle are not implemented
-incoming lane, turn coordination, recovery, and Stop semantics remain incomplete
-Text independent Quality-default ownership, tone inference, Copy/direct Save remain incomplete
-legacy unreachable helpers may remain and require bounded reachability cleanup later
-installer/runtime asset proof remains later
+Text independent Quality default, tone inference, Copy/direct Save remain incomplete
+Windows microphone-permission deep-link remains incomplete
+legacy unreachable helpers may remain for later bounded cleanup
+installer/runtime asset reconciliation remains later
 ```
 
-Do not combine all remaining gaps into one broad refactor.
+Do not combine all remaining work into one broad refactor.
 
 ## Proof State
 
-**CURRENT-PROJECT VERIFIED** for the completed First Setup source slice:
+**CURRENT-PROJECT VERIFIED** at static-source level:
 
-- `main.ts` gates first-use startup through one focused setup bootstrap before the
-  existing normal controller;
-- setup `new/deferred/completed` and checkpoint facts are part of the canonical Rust
-  runtime settings schema with backward-compatible serde defaults;
-- the frontend RuntimeSettings/default contract mirrors those fields;
-- the setup bootstrap uses `runtimeProductFacade` for capability truth and
-  `runtimeApi.saveSettings()` for setup facts;
-- no persistent `Ready` field or second readiness store was added;
-- `Set up later` persists defer intent instead of pretending success;
-- normal application ownership remains `SimpleLauncherController -> shell` after
-  setup exits.
+- new native candidate probes are registered through the current Tauri registry;
+- explicit microphone candidate checking and configured-input status share the
+  existing native audio owner;
+- explicit missing microphone no longer falls back to Windows default in the live
+  capture owner;
+- Meeting Sound candidate checking uses the native output endpoint/config boundary
+  and explicitly does not claim incoming capture;
+- `runtimeProductFacade.selectProductAudioDevice()` is the one frontend product
+  candidate-check -> commit path;
+- failed candidate or settings save returns the previous canonical settings instead
+  of committing the candidate;
+- First Setup and Meeting Settings use that same product path;
+- no second device store/service/shell was created.
 
-**LOCAL PROOF REQUIRED** for TypeScript/Rust build execution, actual settings save,
-resume behavior across process restart, device/runtime checks, rendered wizard,
-keyboard/focus behavior, and Windows installed-run behavior.
+**LOCAL PROOF REQUIRED** for actual Rust/TypeScript build execution, native device
+enumeration/opening, permission behavior, persistence across restart, real capture,
+rendered selectors, Windows default-device changes, and installed-run behavior.
 
 ## Hold
 
-- do not persist permanent Meeting Ready truth;
-- do not turn setup completion into a substitute for launch-time readiness checks;
-- do not block Text solely because Meeting setup is deferred;
-- do not create a second normal application shell/controller;
-- do not pretend incoming translation is available;
-- do not enable `Start Translation` by mapping it to capture-only behavior;
+- do not treat device enumeration/config discovery as live target-device proof;
+- do not silently replace an explicit microphone with another device;
+- do not claim Meeting Sound selection means incoming translation works;
+- do not persist permanent Ready truth;
+- do not enable `Start Translation` by mapping it to legacy capture-only behavior;
 - do not invent Meeting History before canonical Meeting lifecycle exists;
-- do not revive Documents, top-level Saved, file attachment translation, or old
-  Settings hierarchy;
-- do not start local Windows acceptance yet;
-- do not claim device/rendered/settings persistence success from static source.
+- do not revive Documents, attachment translation, top-level Saved, or old Settings;
+- do not start local Windows acceptance yet.
 
 ## Next Step
 
-Start the next bounded source slice: **implement verified physical microphone and
-Meeting Sound selection against the existing RuntimeSettings/audio-device owners**.
-Use one candidate -> open/check where current APIs genuinely support it -> commit
-preference path, and keep the previous working preference when verification fails.
-Expose the same truthful selection behavior in First Setup and `Settings -> Meeting`
-without creating a second device store or implementing the incoming translation lane
-or atomic Meeting Start/Live lifecycle in the same slice.
+Start the next bounded source slice: **establish the canonical application-level
+Meeting session lifecycle and atomic `Start Translation` / `Stop Translation`
+boundary**. First inspect only the current runtime-session, capture/pipeline, route,
+and direct frontend Start/Stop owners. Reuse current Rust/Tauri owners; do not create
+a parallel Meeting engine. The first lifecycle slice should establish one active
+session/generation authority, transactional required-outbound Start with rollback,
+and safe Stop invalidation. Keep incoming translation, turn coordination, full
+Meeting Live transcript rendering, and local Windows acceptance outside that first
+lifecycle slice unless they are strictly required by the Start/Stop contract.
