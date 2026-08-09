@@ -5,12 +5,14 @@ const UNSAFE_DISPLAY_CHARS = /[\u0000-\u001f\u007f\u202a-\u202e\u2066-\u2069]/g;
 
 export function defaultSettings(): RuntimeSettings {
   return {
-    schema_version: 4,
+    schema_version: 5,
     language_focus_mode: "id-en-focus",
     runtime_profile: "Realtime",
     source_language: "id",
     target_language: "en",
     history_enabled: true,
+    meeting_setup_state: "new",
+    meeting_setup_checkpoint: 1,
     audio: {
       input_device_id: null,
       output_device_id: null,
