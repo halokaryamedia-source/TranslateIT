@@ -23,12 +23,7 @@ pub fn worker_root() -> PathBuf {
 }
 
 pub fn worker_script() -> PathBuf {
-    let root = worker_root();
-    let entry = root.join("realtime_local_worker_entry.py");
-    if entry.is_file() {
-        return entry;
-    }
-    root.join("realtime_local_worker.py")
+    worker_root().join("realtime_local_worker.py")
 }
 
 pub fn worker_python() -> PathBuf {
