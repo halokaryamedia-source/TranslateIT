@@ -40,13 +40,10 @@ function meetingSettingsView(settings: RuntimeSettings): string {
   );
 }
 
-function historyPrivacySettingsView(settings: RuntimeSettings, statusMessage: string, busy: boolean): string {
+function historyPrivacySettingsView(settings: RuntimeSettings, busy: boolean): string {
   const enabled = settings.history_enabled !== false;
   const checked = enabled ? " checked" : "";
   const disabled = busy ? " disabled" : "";
-  const message = statusMessage.trim()
-    ? `<p id="historyPrivacyMessage" class="history-privacy-message" aria-live="polite">${statusMessage}</p>`
-    : `<p id="historyPrivacyMessage" class="history-privacy-message" aria-live="polite"></p>`;
 
   return settingsPage(
     "History & Privacy",
@@ -60,7 +57,7 @@ function historyPrivacySettingsView(settings: RuntimeSettings, statusMessage: st
       `${settingsField("Saved ownership", statusValue("Separate from History"), "Saved items remain available when History is turned off and are not removed by Clear History.")}`,
     )}${settingsSection("Clear History", "Delete automatic Recent History without deleting Saved items.")}${settingsCard(
       "settings-card--history-clear",
-      `<div class="history-clear-row"><div><h3>Clear Recent History</h3><p>Meeting and Text items in Recent will be deleted. Saved items will not be affected.</p></div>${primaryButton("Clear History", { id: "clearHistoryButton", class: "secondary history-clear-button", disabled: busy })}</div>${message}`,
+      `<div class="history-clear-row"><div><h3>Clear Recent History</h3><p>Meeting and Text items in Recent will be deleted. Saved items will not be affected.</p></div>${primaryButton("Clear History", { id: "clearHistoryButton", class: "secondary history-clear-button", disabled: busy })}</div><p id="historyPrivacyMessage" class="history-privacy-message" aria-live="polite"></p>`,
     )}`,
   );
 }
@@ -100,7 +97,8 @@ export function renderHistoryPrivacySettingsTab(args: {
   onHistoryEnabledChange: (enabled: boolean) => void;
   onClearHistory: () => void;
 }): void {
-  args.ui.settingsContent.innerHTML = historyPrivacySettingsView(args.settings, args.statusMessage, args.busy);
+  args.ui.settingsContent.innerHTML = historyPrivacySettingsView(args.settings, args.busy);
+  requireElement<HTMLElement>("#historyPrivacyMessage").textContent = args.statusMessage;
   const toggle = requireElement<HTMLInputElement>("#historyEnabledToggle");
   toggle.addEventListener("change", () => args.onHistoryEnabledChange(toggle.checked));
   requireElement<HTMLButtonElement>("#clearHistoryButton").addEventListener("click", () => args.onClearHistory());
