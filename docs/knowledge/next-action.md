@@ -2,7 +2,7 @@
 
 Updated: 2026-08-09  
 Working branch: `New`  
-Status: Product behavior and all normal core-workspace visual compositions are approved; source implementation remains paused for the final First Setup and end-to-end UI consistency check
+Status: Product/UI planning is approved and closed; bounded ChatGPT -> GitHub source implementation has started with shell/navigation reconciliation
 
 This file is the single active continuation owner for TranslateIT.
 
@@ -16,22 +16,25 @@ AGENTS.md
 -> docs/knowledge/next-action.md
 -> docs/foundation/01-product-overview.md
 -> docs/foundation/02-product-requirements.md
--> docs/knowledge/decision-log.md only when reasoning/provenance is needed
--> one relevant source owner only when implementation resumes
+-> docs/knowledge/source-ownership.md
+-> one relevant current source owner only
 ```
 
-Do not reconstruct approved product decisions from old chat history when canonical
-repository owners already contain them.
+Do not reconstruct approved product decisions from chat history when canonical repository owners already contain them.
 
 ## Current Mode
 
-**Plan**.
+**Developing**.
 
-Source/runtime implementation is intentionally paused until the final First Setup
-polish and cross-screen consistency pass are complete. Local/Windows acceptance
-remains deferred until the later dedicated local phase.
+Execution channel:
 
-## Locked Product Scope
+```text
+ChatGPT -> GitHub
+```
+
+The dedicated local/Windows acceptance phase remains deferred. Static source alignment may proceed; rendered/device/runtime/audio/model claims remain `LOCAL PROOF REQUIRED`.
+
+## Approved Product / UI Baseline
 
 ```text
 Primary       -> Meeting
@@ -43,9 +46,7 @@ Documents     -> removed from current product scope
 Audio Studio  -> advanced/post-core
 ```
 
-## Locked UI Principle
-
-TranslateIT must be:
+UI principle:
 
 ```text
 Modern
@@ -53,204 +54,93 @@ Easy to use
 Familiar
 ```
 
-Use familiar modern Windows desktop patterns, clear text labels, conventional
-controls/navigation, one obvious primary action per workspace, restrained surfaces,
-progressive disclosure, and quiet responsive feedback. Modernity comes from polish,
-not novelty. Avoid futuristic/neon AI showcase treatment, decorative AI orbs,
-heavy glassmorphism, oversized dashboard cards, icon-only critical actions,
-decorative waveforms, or unnecessary motion.
+Use familiar modern Windows desktop patterns, conventional controls/navigation, one obvious primary action per workspace, restrained surfaces, progressive disclosure, and quiet feedback. Do not revive Home/Dashboard, Documents, top-level Saved, futuristic AI decoration, dashboard-card sprawl, or technical runtime controls in normal UI.
 
-Durable reasoning: `decision-log.md` D-015 through D-019.
+## Final First-Setup / Consistency Decisions
 
-## Approved Core Screen Model
+First Setup is a focused 5-step Meeting setup flow:
 
 ```text
-Setup Wizard
-├─ Welcome
-├─ Microphone
-├─ Meeting Sound
-├─ Meeting Microphone
-└─ Verify / Ready
-
-Normal App
-├─ Meeting
-├─ Text
-├─ History Collection
-├─ History Detail
-├─ Settings
-└─ Diagnostics (nested under Advanced)
+Welcome
+-> Your microphone
+-> Meeting sound
+-> Meeting microphone
+-> Verify / Ready
 ```
 
-Meeting/Text runtime conditions remain state variants of their workspace, not
-separate pages. Saved remains a History tab. There is no Home/Dashboard, Documents,
-top-level Saved, separate General/Translation Settings, top-level Developer, or one
-page per runtime state.
+Final consistency rules:
 
-## Approved Application Shell / Visual System
+- first-run Meeting setup may be intentionally deferred through a quiet `Set up later` path; skipping setup is not reported as success;
+- Text remains usable whenever its translation dependency is available even if Meeting audio setup is incomplete;
+- interrupted setup resumes from verified progress, while an intentional defer opens the normal app with Meeting truthfully `Setup Needed`;
+- normal user terminology is consistent: `Your microphone`, `Meeting sound`, `Meeting microphone`, `TranslateIT Meeting Microphone`, `Incoming translation`, `Start Translation`, `Translation Live`, `Stop Translation`, `Stop Voice`, `Fix Setup`, `Retry`, `Check Setup`;
+- incoming-only failure is degradable and does not block healthy outbound Meeting voice;
+- local translation failure may affect Meeting and Text but must not make History/Settings unusable;
+- narrow windows keep the same desktop interaction model and reflow/stack content rather than switching to a separate mobile interaction model;
+- exact color/pixel/breakpoint/minimum-window tuning remains a rendered-evidence decision, not product policy.
 
-- persistent compact sidebar with icon + text labels;
-- compact global Meeting Live / critical strip outside Meeting when needed;
-- page header + clear action hierarchy + main workspace;
-- system-oriented sans-serif typography;
-- compact-but-comfortable spacing/density;
-- moderate consistent radii, subtle borders/surface differences, restrained shadow;
-- one primary accent plus semantic state colors;
-- standard recognizable buttons, fields, dropdowns, toggles, search, lists, dialogs;
-- short restrained motion that never blocks interaction;
-- wide desktop layouts reflow sensibly when narrow; exact final pixel/color values
-  wait for rendered proof.
+No unresolved high-impact product-design decision remains before source implementation.
 
-## Approved Meeting Composition
+## Developing Brief — Slice 1
 
-`Meeting Ready` priority:
+Goal:
 
 ```text
-status/readiness
--> plain-language ID -> EN Voice and EN -> ID Text behavior
--> Your Microphone
--> Incoming Translation / Meeting Sound
--> TranslateIT Meeting Microphone
--> compact Realtime / Tone
--> one dominant Start Translation action
--> subtle meeting-app microphone reminder
+Reconcile the active product shell/navigation with the approved top-level hierarchy.
 ```
 
-Incoming-only failure does not disable Start. Required unsafe outbound failure does.
-Normal UI does not expose ASR/TTS/worker/CUDA/runtime diagnostics.
+Current root cause:
 
-`Meeting Live` is transcript-first:
+- `lockedReferenceShellParts.ts` still renders top-level `Documents` and `Saved` navigation plus dedicated product panels;
+- `SimpleLauncherController.ts` still treats `documents` and `saved` as valid top-level workspaces;
+- approved policy only permits `Meeting / Text / History / Settings`, with Saved nested under History and Documents removed.
 
-- chronological `YOU` / `INCOMING` turns, no fake participant identity/avatars;
-- Indonesian user-relevant text primary; English source/output secondary;
-- truthful outbound delivery state;
-- stable Listening / Processing / Speaking / Waiting / Catching Up activity region;
-- `Stop Voice` only while speaking;
-- `Speak Now` / `Cancel` only while waiting for a gap;
-- light incoming-only degradation callout;
-- stronger unsafe outbound interruption callout while transcript remains visible;
-- sticky Pause/Resume + Stop Translation controls;
-- auto-follow only while the user stays at the bottom; manual reading freezes it;
-- Ready -> Starting -> Live remains one Meeting workspace.
+In scope:
 
-Durable reasoning: D-018.
+- remove top-level Documents and Saved navigation/panels from the active shell;
+- narrow the controller workspace contract to Meeting/Text/History;
+- preserve Settings as the fourth top-level destination through the existing Settings shell path;
+- update source ownership/current continuation state after the edit.
 
-## Approved Text Composition
+Out of scope for this slice:
 
-- familiar translator mental model rather than AI-editor/dashboard UI;
-- explicit Indonesian / English selectors with one swap action;
-- source + editable target panes side by side when wide and stacked when narrow;
-- `Quality` and `Tone` remain secondary controls;
-- one primary `Translate` action; `Copy` and `Save` remain quieter actions;
-- completed result stays visible if source changes but is marked as needing update;
-- errors/unavailable state remain inline and never clear the user's source text;
-- live Meeting may add the global Meeting strip; Text may wait for capacity but must
-  not degrade the Meeting.
+- full Settings hierarchy rewrite;
+- Text translator redesign or attachment cleanup;
+- History/Saved persistence implementation;
+- Meeting lifecycle/readiness/runtime implementation;
+- exact visual styling/pixel tuning;
+- local/rendered/Windows tests.
 
-## Approved History / Saved Composition
+Acceptance criteria:
 
-- chronological list, not cards/gallery/dashboard;
-- `Recent / Saved` tabs;
-- normal local search field plus compact `All / Meeting / Text` filters;
-- Meeting rows: title, time, duration, truthful completed/interrupted state;
-- Text rows: useful source snippet + language direction;
-- Meeting detail reuses the Meeting transcript visual language but is read-only;
-- Text detail is a simple read-only source/translation artifact;
-- Saved reuses the same collection/detail surfaces; ownership actions change rather
-  than creating a separate Saved application;
-- History Off messaging must not imply existing History was deleted;
-- empty states remain simple text-led states.
+1. active sidebar exposes only Meeting, Text, History, Settings;
+2. active shell contains no Documents or top-level Saved product panel;
+3. controller cannot navigate to `documents` or `saved` as top-level workspaces;
+4. existing Meeting/Text/History/Settings entry ownership remains single-path; no new launcher or parallel shell is introduced.
 
-## Approved Settings Composition
-
-Conventional desktop preferences layout:
-
-```text
-Settings
-├─ Meeting
-├─ History & Privacy
-└─ Advanced
-    └─ Diagnostics
-```
-
-- Meeting: speaking mode, physical microphone, Meeting Sound, managed Meeting
-  Microphone; affected-row progress/errors rather than full-page blocking;
-- History & Privacy: History On/Off, local storage summary, Saved explanation/access,
-  Clear History separated as destructive action;
-- Advanced: setup health + Diagnostics entry only;
-- Diagnostics is inspect/troubleshoot, not the normal manual runtime control plane.
-
-Durable reasoning: D-019.
-
-## Global / Cross-Feature Rules
-
-- active Meeting is application-level state, never page-lifecycle state;
-- navigation to Text/History/Settings never stops/recreates a healthy Meeting;
-- one active Meeting session per runtime and no competing independent app instance;
-- compact global live indicator outside Meeting;
-- unsafe outbound failures surfaced globally; incoming-only degradation remains
-  scoped/subtle;
-- contextual global `Stop Voice` only while own TTS is speaking;
-- Text/History/Settings preserve reasonable in-memory view state;
-- Meeting processing has resource priority;
-- PTT works across views only for an already-live Meeting;
-- minimize keeps Meeting Live; close while Live requires `Stop & Close`;
-- capability health is scoped rather than one giant app Ready/Error state.
+Proof budget: exact current-source diff/owner inspection only. Rendered appearance remains local proof later.
 
 ## Current Source Reality
 
-Earlier source cleanup remains valid, but current `New` source still predates the
-approved product/UI direction in multiple areas:
+Canonical entry remains:
 
 ```text
-Documents still exists as inherited source surface
-Saved is still top-level
-Settings hierarchy is stale
-Meeting lifecycle/readiness is incomplete
-History/Saved semantics are incomplete
-global Meeting indicator/single-instance behavior is incomplete
-current layout/style is not yet reconciled to the approved modern minimal UI
+index.html
+-> src/main.ts
+-> SimpleLauncherController
+-> active shell owners
 ```
 
-`docs/knowledge/source-ownership.md` remains the semantic source map for later
-implementation reconciliation.
-
-## Proof State
-
-**CURRENT-PROJECT VERIFIED** at repository-policy/design level:
-
-- product flows 01–11 are persisted;
-- minimal screen inventory and modern/familiar visual system are persisted;
-- Meeting Ready/Live composition is persisted in D-018;
-- Text, History/Saved, and Settings composition is persisted in D-019;
-- source/runtime was not changed by these planning steps.
-
-**LOCAL PROOF REQUIRED** remains deferred for rendered visual quality, responsive
-window behavior, Windows runtime, audio/model behavior, persistence, notifications,
-and packaging.
+Current later gaps still include Settings hierarchy, final Meeting Ready/Live composition, Text composition, History/Saved semantics, setup wizard, global Meeting state, single-instance behavior, runtime Meeting pipeline/recovery, and local packaging proof. These are separate bounded slices; do not solve them all in the first navigation edit.
 
 ## Hold
 
-- remain in Plan until First Setup + end-to-end UI consistency check is approved;
-- do not start source implementation/local acceptance yet;
-- do not revive Documents/top-level Saved/Home/Dashboard;
-- do not replace familiar controls with decorative custom interaction;
-- do not freeze exact pixel/color constants without rendered evidence;
-- do not invent product behavior from composition examples.
+- do not create a second launcher/shell or migration framework;
+- do not revive Documents or top-level Saved;
+- do not broaden this first source slice into Meeting/audio/runtime work;
+- do not start local Windows acceptance yet;
+- do not claim rendered visual success from source markup alone.
 
 ## Next Step
 
-Complete the **final First Setup polish and end-to-end UI consistency check**:
-
-1. finalize the 5-step first-run wizard composition and failure/resume states;
-2. verify wording and control hierarchy are consistent between Setup, Meeting,
-   Settings, History, and Text;
-3. verify every important error/recovery state has one familiar place/action and no
-   duplicate control surface;
-4. verify responsive/narrow-window behavior does not introduce a second interaction
-   model;
-5. identify any remaining high-impact design ambiguity.
-
-If no material ambiguity remains after that pass, persist the final Plan state and
-transition the next task to **bounded source implementation on branch `New` through
-ChatGPT -> GitHub**, still without claiming local/rendered/Windows proof until the
-later local acceptance phase.
+Complete the bounded **shell/navigation reconciliation** in the current owners, update `docs/knowledge/source-ownership.md` to reflect the resulting source state, and then select the next independent source slice from the approved UI/product gaps.
