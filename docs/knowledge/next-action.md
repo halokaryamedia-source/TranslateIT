@@ -2,7 +2,7 @@
 
 Updated: 2026-08-10  
 Working branch: `New`  
-Status: **Engine Consolidation Plan approved; Developing has resumed with Slice 1 only.**
+Status: **Engine Consolidation Slice 1 is source-aligned: standalone Text now has one persistent-worker execution route and the manual/one-shot worker fallbacks are retired.**
 
 This file is the single active continuation owner for TranslateIT.
 
@@ -13,7 +13,7 @@ AGENTS.md
 -> CONTEXT.md
 -> docs/knowledge/next-action.md
 -> docs/knowledge/source-ownership.md
--> bounded Slice 1 engine owners + direct callers/contracts only
+-> bounded Slice 2 readiness/capability owners + direct consumers only
 ```
 
 ## Current Mode
@@ -26,12 +26,10 @@ Execution channel:
 ChatGPT -> GitHub
 ```
 
-The user approved the Engine Consolidation Plan. Do not reopen the architecture
-choice during this slice unless current source contradicts a required assumption.
-
 Local/Windows acceptance remains deferred. Static source may establish ownership and
-wiring only; model execution/quality, latency, CUDA/CPU behavior, process timing,
-Windows audio, and installed operation remain `LOCAL PROOF REQUIRED`.
+wiring only; actual helper startup, model inference/quality, latency, CUDA/CPU
+behavior, process cancellation timing, Windows audio, and installed operation remain
+`LOCAL PROOF REQUIRED`.
 
 ## Approved Engine Consolidation Target
 
@@ -52,117 +50,88 @@ ONE persistent Python worker
 product result / Meeting route
 ```
 
-Locked consolidation rules:
+Still locked:
 
-- one persistent Python worker process and one worker command protocol;
-- `realtime_local_worker.py` is the target canonical worker;
-- no product translation may fall back to one-shot workers, manual/rule-based
-  translation, dev seed payloads, or migration handoff stubs;
-- no silent Realtime <-> Quality fallback merely to obtain output;
-- CPU fallback remains allowed inside the requested mode when capability supports it;
-- Meeting session/generation authority remains in the existing Meeting runtime owner;
-- Windows audio capture/delivery remains outside the AI worker;
-- model/provider replacement waits for bounded local quality/performance evidence;
-- Python/Rust development tools remain tools under existing skill governance, not
-  new project skills.
+- one persistent worker process/protocol;
+- no fake/manual/rule-based product translation fallback;
+- no automatic cross-mode fallback merely to obtain output;
+- Meeting session/generation authority remains in the existing Meeting owner;
+- Windows audio remains outside AI ownership;
+- model replacement waits for bounded evaluation evidence;
+- Python/Rust tooling stays under existing skill governance;
+- Svelte is not part of Engine consolidation and may be reconsidered later as a
+  separate frontend architecture decision after Engine contracts stabilize.
 
-Approved later sequence after Slice 1:
+## Slice 1 — Completed Source Boundary
 
-```text
-Slice 2 -> capability/readiness truth
-Slice 3 -> request-scoped modes + scheduler/cancellation
-Slice 4 -> dependency/tooling consolidation
-Slice 5 -> resume finalized outbound utterance producer
-```
-
-The Svelte frontend idea is intentionally not part of Engine consolidation. Frontend
-framework migration may be reconsidered only after Engine contracts are stable and a
-separate frontend architecture decision proves that Vanilla TypeScript has become a
-material constraint.
-
-## Active Slice 1 — Canonical Worker And Truthful Text Execution
-
-### Goal
-
-Make standalone Text translation use exactly one AI execution path:
+Canonical standalone Text path is now:
 
 ```text
 Text UI
 -> runtimeProductFacade
 -> runtimeApi.translateText
--> Rust `translate_text`
--> existing helper bridge
--> persistent `realtime_local_worker.py` `translate`
--> one truthful result
+-> Rust commands/text_translate.rs
+-> existing persistent helper bridge
+-> realtime_local_worker.py `translate`
+-> one result
 ```
 
-### In scope
+Current source facts:
 
-- make `realtime_local_worker.py` the persistent helper process entry;
-- make `commands/text_translate.rs` use the persistent helper only;
-- remove active fallback from Text into `engine::translate_text`;
-- retire `manual_translation_accelerated.rs` and `manual_translation.rs` from the
-  active Rust engine when no direct current consumer remains;
-- retire the standalone accelerated Python worker as an execution owner when no
-  current product caller remains;
-- retire the helper entry wrapper when the base worker already owns the canonical
-  `ping/status/preload/transcribe/translate/synthesize` tasks needed by product
-  execution;
-- keep failures truthful when helper/model/direction/runtime is unavailable;
-- update only source ownership / continuation state that materially changes.
+- `bridge_paths.rs` launches `realtime_local_worker.py` directly;
+- `realtime_local_worker_entry.py` is removed;
+- `realtime_local_worker_accelerated.py` is removed as a standalone worker owner;
+- `commands/text_translate.rs` no longer falls back to `engine::translate_text`;
+- `engine/manual_translation.rs` and `manual_translation_accelerated.rs` are removed;
+- their engine module registration/re-export is removed;
+- Text helper/model/direction/response failure stays blocked instead of producing a
+  rule/dictionary preview result;
+- the canonical Text command does not retry another translation mode;
+- the reachable translation-flow source validator now checks this real static
+  ownership instead of requiring the retired `engine::translate_text` fallback or
+  migration handoff markers.
 
-### Out of scope
+Important bounded limitations:
 
-- helper scheduler/locking redesign;
-- coarse `provider_ready` cleanup and readiness consolidation;
-- Text independent Quality-default migration;
-- model changes or CT2 backend adoption;
-- `uv`, Ruff, pytest configuration;
-- capture/VAD/finalized utterance work;
-- incoming Meeting lane;
-- Svelte migration;
-- local Windows testing.
+- `runtime_profile` still reaches Text for compatibility; caller-owned `Text ->
+  Quality` / `Meeting -> Realtime` belongs to Slice 3;
+- helper locking/scheduling and cancellation remain unchanged until Slice 3;
+- `adapters/translation_logic.rs` may remain as inherited/dead adapter source but is
+  no longer an active Text product fallback; inspect any remaining direct consumer
+  before later deletion;
+- legacy capture/voice one-shot and migration/stub paths remain outside Text and are
+  not claimed consolidated by Slice 1.
 
-### Acceptance criteria
+## Proof State
 
-1. Product `translate_text` has no fallback to one-shot/manual/rule-based
-   translation.
-2. The helper bridge launches `realtime_local_worker.py` directly as its persistent
-   worker entry.
-3. Retired Text execution owners are removed from active module/source ownership;
-   unavailable model/helper state returns a blocked/error result rather than fake
-   translation success.
-4. No silent Realtime <-> Quality retry is introduced in the canonical Text command.
-5. Repository ownership and continuation state describe the source truth without
-   claiming runtime/model success.
+**CURRENT-PROJECT VERIFIED** at static-source level:
 
-## Proof Budget
+1. Text `translate_text` has one persistent-helper execution route.
+2. The persistent helper resolves to the base `realtime_local_worker.py` entry.
+3. Manual Rust translation and standalone entry/accelerated Python worker owners are
+   absent from the active source tree.
+4. No rule-based/manual fallback remains reachable from the standalone Text command.
+5. The updated reachable source validator describes the same ownership contract.
 
-**CURRENT-PROJECT VERIFIED** may be used only for exact static claims such as:
-
-- which worker script the helper bridge launches;
-- which function `translate_text` calls;
-- whether manual/one-shot fallback remains reachable from Text;
-- whether retired modules remain registered in the active engine.
-
-**LOCAL PROOF REQUIRED** for Rust/TypeScript build execution, actual helper startup,
-model inference, translation quality, CUDA/CPU execution, latency, and installed
-behavior.
+No build/test command was executed through the current ChatGPT -> GitHub channel.
+Therefore Rust compile, frontend typecheck, helper startup, Python import/model load,
+and actual translation remain `LOCAL PROOF REQUIRED`.
 
 ## Hold
 
-During Slice 1:
-
-- do not add another worker/service/fallback/readiness gate;
-- do not change models to make source consolidation look successful;
-- do not solve scheduler/readiness/tooling work early;
-- do not modify Meeting audio/VAD/finalization;
-- do not preserve obsolete Text execution paths `just in case`; Git history is the
-  recovery path;
+- do not reintroduce removed translation owners as compatibility fallback;
+- do not change models to hide readiness problems;
+- do not add another readiness gate or runtime manifest;
+- do not solve scheduler/mode/tooling work inside the readiness slice unless required
+  to remove a readiness contradiction;
+- do not resume finalized-utterance/Meeting feature expansion yet;
 - do not start local Windows acceptance yet.
 
 ## Next Step
 
-Complete **Slice 1** only. When static ownership proves Text has one persistent-worker
-execution route and no fake/parallel fallback, close the slice and advance to
-**Slice 2 — capability/readiness truth**.
+Start **Engine Consolidation Slice 2 — capability/readiness truth**. Reconcile static
+model installation evidence, current persistent-worker capability/load state, helper
+status, Meeting preflight, and `runtimeProductFacade` so each claim has one semantic
+truth path. Remove stale source/runtime snapshots and migration/professional gates
+from normal product readiness without redesigning scheduler/cancellation or modes in
+the same slice.
