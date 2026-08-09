@@ -1,7 +1,7 @@
 # TranslateIT — Source Ownership And Reconciliation Map
 
 **Status:** current source map  
-**Updated:** 2026-08-09  
+**Updated:** 2026-08-10  
 **Branch:** `New`
 
 This file maps approved product boundaries to current semantic/source ownership. It
@@ -25,10 +25,10 @@ rendered/device/runtime/model/audio/package claims beyond evidence actually obta
 | Boundary | Current owner(s) | Status | Proof | Smallest later reconciliation |
 |---|---|---|---|---|
 | Product shell/navigation | `src/main.ts`, `SimpleLauncherController.ts`, `lockedReferenceShellParts.ts`, `shell.ts` | **ALIGNED / VISUAL PARTIAL** | static source | Top-level navigation is `Meeting / Text / History / Settings`; rendered shell quality remains local proof later. |
-| Settings hierarchy | `lockedReferenceShellParts.ts`, `launcherSettingsRenderer.ts`, `SimpleLauncherController.ts` | **ALIGNED HIERARCHY / PARTIAL CONTENT** | static source | Normal Settings is `Meeting / History & Privacy / Advanced`; next connect real History On/Off and Clear History to the canonical store/settings owner. |
+| Settings hierarchy | `lockedReferenceShellParts.ts`, `launcherSettingsRenderer.ts`, `SimpleLauncherController.ts` | **ALIGNED HIERARCHY / PARTIAL MEETING CONTENT** | static source | `History & Privacy` is connected to the canonical settings/store owners; later complete verified Meeting device-selection behavior. |
 | Meeting Ready / product readiness | `runtimeProductFacade.ts`, `SimpleLauncherController.ts`, `lockedReferenceShellParts.ts`, `mainPageLayout.css` | **READY UI ALIGNED / RUNTIME PARTIAL** | static source; local proof later | Ready composition is aligned and truthful; atomic Start, incoming lane, First Setup, and Live lifecycle remain separate slices. |
 | Text translation | `SimpleLauncherController.ts`, `runtimeProductFacade.ts`, Rust translation command/runtime | **UI + RECENT WRITE ALIGNED / RUNTIME PARTIAL** | static source; runtime quality proof later | Source/target UI and History-on Recent write are connected; later align independent Quality default, tone inference, Copy, and direct Text Save semantics. |
-| History / Saved | `engine/history_store.rs`, `commands/history.rs`, `runtimeApi.ts`, `SimpleLauncherController.ts`, History shell/CSS | **TEXT COLLECTION/DETAIL ALIGNED / SETTINGS + MEETING PARTIAL** | static source; persistence/render proof later | Recent/Saved collection and Text detail use one canonical store; next connect History & Privacy controls. Meeting writes wait for canonical Meeting lifecycle. |
+| History / Saved | `engine/history_store.rs`, `commands/history.rs`, `runtimeApi.ts`, `SimpleLauncherController.ts`, History shell/CSS | **TEXT COLLECTION/DETAIL + PRIVACY ALIGNED / MEETING PARTIAL** | static source; persistence/render proof later | Recent/Saved collection, Text detail, History On/Off, and Clear History use one canonical owner; Meeting writes wait for canonical Meeting lifecycle. |
 | Meeting voice capture/pipeline | Rust capture/audio/pipeline owners | **PARTIAL / STALE OWNERSHIP** | local proof required | Reconcile one runtime/helper orchestration owner, Session Listening, generation-safe utterances, bounded backlog, turn coordination, recovery, and Stop. |
 | Translation context/tone | runtime settings + context/translation adapters | **PARTIAL / MISSING** | static source; quality proof later | Make tone and bounded committed Meeting context reach inference without History leakage. |
 | Meeting audio route | virtual-route Rust commands + local provider | **PARTIAL** | **LOCAL PROOF REQUIRED** | Preserve managed `TranslateIT Meeting Microphone`; prove delivery, self-output suppression, and safe recovery on Windows. |
@@ -79,12 +79,23 @@ Advanced
 Settings destinations. Meeting owns product-level meeting preferences; Advanced is
 a setup-health landing with explicit nested Diagnostics.
 
-`History & Privacy` is still **PARTIAL**: the underlying `history_enabled` setting
-and canonical Clear Recent command now exist, but their user controls are not yet
-wired in the Settings renderer. No fake toggle/destructive button is exposed before
-that next bounded slice.
+`History & Privacy` now uses the same canonical owners as the active History flow:
 
-Classification: **ALIGNED HIERARCHY / PARTIAL CONTENT**.
+- `History` On/Off is backed by `RuntimeSettings.history_enabled` and saved through
+  the existing runtime settings command;
+- turning History off changes future/current automatic retention only and does not
+  delete existing Recent or Saved data;
+- `Clear History` requires explicit confirmation and calls only
+  `runtimeApi.clearRecentHistory()`;
+- the canonical Clear Recent implementation targets only the `Recent` directory;
+  Saved is not touched;
+- Settings reports operation success/failure inline rather than pretending a failed
+  persistence action succeeded.
+
+Remaining Settings incompleteness is now primarily the verified Meeting-device
+selection/change behavior rather than History ownership.
+
+Classification: **ALIGNED HIERARCHY / PARTIAL MEETING CONTENT**.
 
 ## 3. Meeting Ready And Product Readiness
 
@@ -125,11 +136,10 @@ The active Text workspace uses source/target panes, contextual persisted ID/EN S
 explicit Translate, editable target, and stale/error states that preserve visible
 work. File attachment translation is no longer active.
 
-Successful intentional translations now also snapshot their source language, target
-language, mode, source text, and translated result and call the canonical History
-write only when `RuntimeSettings.history_enabled` is on. A History write failure is
-reported separately and does not convert a successful translation into a failed
-translation.
+Successful intentional translations snapshot their source language, target language,
+mode, source text, and translated result and call the canonical History write only
+when `RuntimeSettings.history_enabled` is on. A History write failure is reported
+separately and does not convert a successful translation into a failed translation.
 
 Still incomplete here:
 
@@ -165,13 +175,14 @@ src/app/bridge/runtimeApi.ts
 src/app/shared/historyTypes.ts
 src/app/simple-launcher/SimpleLauncherController.ts
 src/app/active-launcher/lockedReferenceShellParts.ts
+src/app/active-launcher/launcherSettingsRenderer.ts
 src/historyLayout.css
 ```
 
 The frontend bridge calls only the canonical History commands. Command failures are
 recorded and surfaced instead of being collapsed into an empty collection.
 
-The active History workspace now provides:
+The active History workspace provides:
 
 ```text
 Recent | Saved
@@ -188,15 +199,17 @@ is read-only and uses the persisted source/target metadata. Saved actions use th
 same store: Save creates/keeps an independent copied artifact; Remove from Saved does
 not delete Recent.
 
-Meeting filters are present because the canonical schema supports Meeting, but the
-current application does **not** invent Meeting entries. Meeting History writes and
-real Meeting transcript detail wait for the canonical Meeting lifecycle.
+`Settings -> History & Privacy` now controls the same contract instead of introducing
+a second privacy/storage service. History Off leaves existing collection data
+readable while blocking new automatic Text Recent writes. Clear History is
+confirmation-gated and clears Recent only; controller collection/detail cache is
+invalidated for the Recent scope after a successful clear.
 
-History OFF does not hide or delete existing Recent/Saved. It only prevents new Text
-Recent writes in the current connected path. Settings controls for changing that
-preference and clearing Recent remain the next bounded slice.
+Meeting filters remain truthful but the application does **not** invent Meeting
+entries. Meeting History writes and real Meeting transcript detail wait for the
+canonical Meeting lifecycle.
 
-Classification: **TEXT COLLECTION/DETAIL ALIGNED / SETTINGS + MEETING PARTIAL**.
+Classification: **TEXT COLLECTION/DETAIL + PRIVACY ALIGNED / MEETING PARTIAL**.
 
 ### Inherited persistence that is not product History
 
@@ -301,7 +314,6 @@ Text file-attachment translation behavior
 ### Still requires later reconciliation
 
 ```text
-History & Privacy On/Off + Clear History controls
 Meeting History write/detail after canonical Meeting lifecycle
 atomic Start Translation + Meeting Live lifecycle
 First Setup wizard / intentional defer
@@ -311,6 +323,7 @@ incoming Meeting Sound lane and self-output suppression
 bounded recovery / Stop finalization
 approved tone/context inference contract
 Text Quality default + Copy/direct Save
+verified Meeting device-selection behavior
 repo-root/system-Python installed-build assumptions
 ```
 
