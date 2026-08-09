@@ -23,7 +23,8 @@ Context Recovery and Plan use no project specialist by default.
 |---|---|
 | Non-trivial approved product behavior create/change | `development-brief` |
 | Desktop shell, navigation/workspaces, product readiness/state mapping, desktop settings integration, desktop/runtime facade, Normal UI vs Developer Diagnostics | `desktop-runtime-development` |
-| Local ASR/translation/TTS inference, model/provider lifecycle, Realtime/Quality execution, CUDA/CPU behavior, inference context/tone, AI helper/worker orchestration | `local-ai-runtime-development` |
+| Desktop visual hierarchy, layout/composition, spacing/density, typography, color/tokens, component visual states, reference-image analysis, responsive composition, motion/micro-interactions, rendered visual acceptance | `desktop-ui-design-development` |
+| Local ASR/translation/TTS inference, model/provider lifecycle/evaluation, Realtime/Quality execution, CUDA/CPU behavior, inference context/tone, AI helper/worker orchestration | `local-ai-runtime-development` |
 | Physical mic capture, PTT/Session Listening capture mechanics, VAD/segmentation, Windows devices, monitoring, virtual meeting route, TranslateIT Meeting Microphone delivery | `windows-audio-runtime-development` |
 | Windows installer/package, bundled helper/Python runtime, dependencies/models/TTS assets, installed resource layout, audio-provider delivery, clean-machine deployment | `release-packaging-development` |
 
@@ -54,6 +55,9 @@ AI reports route_missing correctly, desktop shows Ready
 device discovery/route detection itself is wrong
 -> windows-audio-runtime-development
 
+navigation semantics are correct, but visual hierarchy/spacing/motion is poor
+-> desktop-ui-design-development
+
 valid speech segment exists, ASR never handles it
 -> local-ai-runtime-development
 
@@ -64,6 +68,13 @@ runtime works in development, packaged helper is missing
 If investigation discovers a second independent problem, finish/reframe the
 current boundary and create a separate bounded task. Do not stack specialists.
 
+## External Documentation Helpers
+
+Context7 or another current-documentation retrieval tool may be used conditionally
+when a version-sensitive third-party API/library is material to the task. It is not
+a project specialist. Official documentation or primary source remains the final
+external authority for material contracts.
+
 ## Do Not Route By Technology
 
 Do not select/create a project skill merely because a task touches:
@@ -73,6 +84,7 @@ Rust
 TypeScript
 Python
 Tauri
+CSS
 CUDA
 Windows API
 a named library/provider/model

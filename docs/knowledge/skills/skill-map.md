@@ -40,7 +40,27 @@ Semantic owner: desktop product/runtime shell, workspaces/navigation, lifecycle,
 product readiness/state mapping, desktop settings integration, product facade/
 bridge, product recovery actions, and Normal UI versus Developer Diagnostics.
 
-Adjacent owners: local AI runtime, Windows audio runtime, release packaging.
+Adjacent owners: desktop UI design for visual composition; local AI runtime,
+Windows audio runtime, and release packaging for underlying capabilities.
+
+### `desktop-ui-design-development`
+
+Path:
+
+```text
+.agents/skills/desktop-ui-design-development/SKILL.md
+```
+
+Semantic owner: desktop visual hierarchy, layout/composition, spacing/density,
+typography, color/tokens, component visual states, reference-image analysis,
+responsive desktop composition, visual accessibility, motion/micro-interaction
+craft, and rendered visual acceptance.
+
+It does not own navigation semantics, readiness truth, AI/audio/storage/package
+behavior, or frontend-framework migration.
+
+Adjacent owner: `desktop-runtime-development` owns what the desktop product does;
+this skill owns how approved desktop behavior is visually communicated.
 
 ### `local-ai-runtime-development`
 
@@ -51,7 +71,7 @@ Path:
 ```
 
 Semantic owner: canonical local AI helper/runtime orchestration, ASR, translation,
-TTS synthesis, model/provider lifecycle, Realtime/Quality execution,
+TTS synthesis, model/provider lifecycle and evaluation, Realtime/Quality execution,
 CUDA-preferred/CPU-fallback behavior, inference context/tone consumption, and AI
 capability truth.
 
@@ -103,7 +123,12 @@ A skill architecture change requires current project evidence that:
 4. trigger and exclusion boundaries can be stated clearly;
 5. the change reduces rather than creates overlapping ownership.
 
-## Not Project Specialists
+The visual/UI specialist was added because current project work proved a real
+semantic gap: `desktop-runtime-development` intentionally excludes generic visual
+styling/typography/motion while TranslateIT still requires a reusable owner for
+reference-driven desktop visual design and rendered acceptance.
+
+## Conditional Helpers, Not Project Specialists
 
 Do not add repository skills merely for generic availability, including examples
 such as:
@@ -114,6 +139,7 @@ python-expert
 tauri-expert
 typescript-expert
 cuda-expert
+context7
 code-review
 bug-fixer
 researcher
@@ -123,5 +149,11 @@ evidence-gate
 anti-slop
 ```
 
-Review, diagnosis, research, testing, and evidence escalation are conditional
-capabilities/baseline rules, not permanent semantic owners by default.
+Context7 may be used conditionally to retrieve current/version-sensitive external
+documentation. It does not own a TranslateIT semantic boundary, and official
+project documentation/primary source remains authoritative for material external
+contracts.
+
+Review, diagnosis, research, testing, documentation retrieval, and evidence
+escalation are conditional capabilities/baseline rules, not permanent semantic
+owners by default.

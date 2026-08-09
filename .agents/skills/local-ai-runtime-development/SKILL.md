@@ -97,6 +97,45 @@ Output: generated audio artifact/stream
 
 Do not put Windows meeting-device routing into the TTS contract.
 
+## Provider And Model Evaluation
+
+Evaluate a provider/model from the **required capability**, not from popularity or
+its repository name.
+
+Before adopting or replacing an ASR, translation, TTS, or voice-profile provider:
+
+1. identify the exact current product capability and acceptance claim;
+2. inspect the current provider/runtime owner and determine whether replacement is
+   actually necessary;
+3. identify the version/current source being evaluated;
+4. retrieve current documentation; Context7 may help with version-sensitive
+   library/API retrieval when available, but material behavior must be checked
+   against official documentation or primary source;
+5. compare only criteria relevant to the current stage, including as applicable:
+   - required languages/directions and input/output contract;
+   - local/offline operation and licensing/commercial constraints;
+   - Windows support and production installation assumptions;
+   - CPU/CUDA execution, memory/model size, startup/preload behavior;
+   - latency/throughput needs for `Realtime` versus `Quality`;
+   - quality appropriate to ASR/translation/TTS rather than generic benchmark rank;
+   - streaming/batching support when the current runtime actually requires it;
+   - dependency/runtime footprint and release-packaging consequences;
+   - checkpoint/model acquisition and reproducible build inputs;
+   - sample/reference requirements for custom-voice/profile generation;
+   - known failure/degraded behavior and observability;
+6. prefer extending/replacing the provider inside the existing canonical AI
+   runtime owner rather than creating a parallel engine;
+7. keep a named provider a candidate until the required evidence supports adoption.
+
+Do not use one provider's convenience API to collapse approved semantic stages. For
+example, an ASR system capable of speech translation does not automatically replace
+the canonical ASR -> translation boundary when TranslateIT needs separate
+translation context/tone control.
+
+Provider evaluation source evidence can narrow a decision, but model quality,
+actual CUDA/CPU behavior, latency, and generated audio quality remain local/runtime
+claims when those are material acceptance criteria.
+
 ## Boundary Examples
 
 If VAD never finalizes speech, use `windows-audio-runtime-development`. If a valid
@@ -111,17 +150,22 @@ is correct but translation context/tone is wrong, this specialist may own it.
 2. Identify the canonical helper/runtime owner and exact stage: ASR, translation,
    TTS, model lifecycle, or execution device.
 3. Check for competing active execution paths.
-4. Separate known capability condition, approved fallback, and unknown failure.
-5. Preserve one orchestration path and make the smallest complete change.
-6. Run the smallest proof appropriate to the claim.
-7. Return to the development-brief acceptance gate.
+4. If provider/model choice is material, run the bounded provider/model evaluation
+   above rather than adopting a named project by default.
+5. Separate known capability condition, approved fallback, and unknown failure.
+6. Preserve one orchestration path and make the smallest complete change.
+7. Run the smallest proof appropriate to the claim.
+8. Return to the development-brief acceptance gate.
 
 ## Proof
 
 GitHub/static proof can establish request/response wiring, provider selection,
-context/tone handoff, mode mapping, fallback policy, and orchestration ownership.
+context/tone handoff, mode mapping, fallback policy, orchestration ownership, and
+provider capability/documentation evidence.
+
 Model load, CUDA use, CPU usability, ASR output, translation quality, TTS validity,
-and performance require targeted local/runtime proof when those are the claims.
+voice-clone/profile quality, and performance require targeted local/runtime proof
+when those are the claims.
 
 ## Anti-Slop Boundary
 

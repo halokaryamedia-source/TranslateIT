@@ -115,6 +115,13 @@ compatibility, data ownership, or acceptance.
 Samples, screenshots, fixtures, old source, and historical reports are evidence or
 examples by default, not generic product policy.
 
+For version-sensitive external libraries/APIs, identify the current project version
+and retrieve current documentation before implementing against remembered APIs.
+Context7 may be used as a conditional documentation-retrieval helper when it is
+available. For material contracts, verify the relevant behavior against the
+library/project's official documentation or primary source. Context7 is not a
+TranslateIT specialist and not an authority over current source or official docs.
+
 Stop discovery when goal, owner, scope, 2-5 acceptance criteria, and proof path are
 sufficiently grounded.
 
@@ -220,6 +227,7 @@ Canonical project skill baseline:
 ```text
 development-brief
 desktop-runtime-development
+desktop-ui-design-development
 local-ai-runtime-development
 windows-audio-runtime-development
 release-packaging-development

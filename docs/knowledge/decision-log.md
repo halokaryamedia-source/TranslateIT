@@ -57,23 +57,28 @@ expert stacking and duplicate architecture.
 ## D-005 — Frozen Project Specialist Baseline
 
 **Decision**  
-The approved repository specialist baseline is:
+The approved repository skill baseline is:
 
 ```text
 development-brief
 desktop-runtime-development
+desktop-ui-design-development
 local-ai-runtime-development
 windows-audio-runtime-development
 release-packaging-development
 ```
 
-The baseline is frozen until real project work proves a distinct semantic
+The baseline is frozen until real project work again proves a distinct semantic
 capability is missing.
 
 **Reason**  
-These boundaries are supported by current TranslateIT ownership. Additional
-language/framework/general-purpose skills would duplicate baseline rules or split
-one semantic owner without evidence.
+The original runtime-oriented baseline remains valid, but current TranslateIT work
+proved one genuine gap: `desktop-runtime-development` intentionally excludes
+generic visual styling, typography, and motion while the product needs a reusable
+semantic owner for reference-driven desktop visual hierarchy, interaction craft,
+and rendered visual acceptance. That responsibility is now owned by one
+`desktop-ui-design-development` specialist instead of stacking separate design,
+motion, and anti-slop skills.
 
 ## D-006 — Proof Follows The Claim And Execution Channel
 
@@ -86,3 +91,31 @@ visual/release proof.
 TranslateIT has multiple target-sensitive areas (models, CUDA, microphone, VAD,
 virtual audio, TTS, installer) where source existence cannot establish operational
 success.
+
+## D-007 — Source-Side Development Precedes The Local Acceptance Phase
+
+**Decision**  
+Continue the bounded work that can be completed through ChatGPT -> GitHub before
+entering the dedicated Codex/local Windows acceptance phase. Missing local proof is
+recorded honestly but does not automatically block the next independent
+source-side development slice.
+
+**Reason**  
+The project currently has substantial source/ownership alignment work that can be
+completed without Windows execution. Running local acceptance after every source
+slice would interrupt that work without increasing source correctness. This does
+not lower acceptance criteria: runtime, rendered, device, model, audio, and
+clean-machine claims remain `LOCAL PROOF REQUIRED` until the later local phase.
+
+## D-008 — Current External Documentation Retrieval
+
+**Decision**  
+For version-sensitive third-party APIs/libraries, retrieve current documentation
+before implementation. Context7 may be used as a conditional retrieval helper when
+available, while official project documentation or primary source remains the
+external authority for material contracts.
+
+**Reason**  
+This reduces stale/hallucinated API usage without turning a documentation service
+into a project semantic owner or allowing community-indexed material to override
+primary sources.
