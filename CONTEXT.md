@@ -69,6 +69,44 @@ Advanced
 `General`, `Translation`, `Documents`, and top-level `Saved` are not normal current
 product destinations.
 
+## UI Principle And Screen Inventory
+
+The key UI requirement is **simple and familiar** for a nontechnical Windows desktop
+user. Prefer conventional desktop patterns, obvious labels/actions, low control
+density, and progressive disclosure over novelty or technical flexibility.
+
+Do not make a new page for every runtime state. The initial core conceptual surfaces
+are:
+
+```text
+First Setup Wizard
+├─ Welcome
+├─ Microphone
+├─ Meeting Sound
+├─ Meeting Microphone
+└─ Verify / Ready
+
+Normal App
+├─ Meeting
+├─ Text
+├─ History Collection
+├─ History Detail
+├─ Settings
+└─ Diagnostics (nested under Advanced)
+```
+
+Meeting lifecycle variants (`Checking`, `Ready`, `Setup Needed`, `Starting`, `Live`,
+`Degraded`, `Recovering`, `Attention Needed`, `Paused`, `Stopping`, `Ended`) are
+states of one Meeting workspace. Text lifecycle variants are states of one Text
+workspace. `Recent / Saved` are History tabs, not separate top-level products.
+Global Meeting live indicators, critical alerts, and confirmation dialogs are shell
+elements rather than pages.
+
+There is no separate language-setup page while Indonesian/English is the only pair,
+and no Home/Dashboard, Documents, top-level Saved, separate General/Translation
+Settings, lifecycle Error/Ready pages, or top-level Developer page in the initial
+core UI.
+
 ## Initial Product Boundary
 
 - Initial supported platform: **Windows**.
