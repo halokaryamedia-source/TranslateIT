@@ -2,7 +2,7 @@
 
 Updated: 2026-08-09  
 Working branch: `New`  
-Status: Repository data-boundary first pass aligned; source-side development continues before local acceptance
+Status: Repository data boundaries and obsolete design-review ownership aligned; source-side development continues before local acceptance
 
 This file is the single active continuation owner for TranslateIT.
 
@@ -23,7 +23,8 @@ Completed source-side boundaries include:
 context/foundation/source recovery
 development governance and skill architecture
 Product Shell & Readiness source alignment
-Repository Data Boundary Alignment — first bounded pass
+Repository Data Boundary Alignment — root/runtime pass
+EngineData Design/Reference Ownership Alignment — Figma/preview pass
 ```
 
 Current architecture remains:
@@ -34,9 +35,7 @@ Rust/Tauri desktop shell
 Python helper runtime
 ```
 
-## Root Data Boundary Result
-
-Current canonical positioning is now explicit:
+## Canonical Data Boundaries
 
 ```text
 EngineData
@@ -49,53 +48,60 @@ DevelopingData
 -> historical/recovery/reference development evidence only
 ```
 
-Static corrections in the first pass:
+## Completed Root/Runtime Alignment
 
-- root/EngineData/UserData/DevelopingData READMEs now state the current ownership contract;
-- historical `DevelopingData/Documentation/Source` and old `RootFileRules.md` are explicitly superseded rather than current source-of-truth;
-- current `New` source validation no longer depends on the inherited V1-Advance CI-scope validator;
-- inherited V1/V1-Pull sync/task automation and V1-specific GitHub workflows were removed from `New` while remaining available in historical branch history;
-- current developer/source-validation report paths were moved from `UserData/LogData/RuntimeTestReports` to ignored `.tmp/validation/RuntimeTestReports` for the active auto-test, contract-report, and local Tauri compile entrypoints;
-- `ProjectPaths` runtime discovery now uses `EngineData + UserData` only and no longer inspects `DevelopingData` even for informational state;
-- stale per-task local-delete candidate artifacts were removed from current source.
+- root/EngineData/UserData/DevelopingData documentation states the current ownership contract;
+- historical `DevelopingData/Documentation/Source` and old `RootFileRules.md` are explicitly superseded;
+- current source validation no longer depends on inherited V1-Advance CI-scope policy;
+- V1/V1-Pull sync/task automation and branch-specific workflows were removed from `New`;
+- active developer/source-validation report paths use ignored `.tmp/validation/RuntimeTestReports` instead of `UserData`;
+- `ProjectPaths` runtime discovery uses `EngineData + UserData` only and does not inspect `DevelopingData`.
 
-## Scope Deliberately Preserved
+## Completed Design/Reference Alignment
 
-This pass did **not** broad-move or delete ambiguous material such as:
+The obsolete standalone design-review chain is no longer a current EngineData authority:
 
 ```text
-EngineData/Frontend/RustApp/Preview
-EngineData/Frontend/RustApp/DesignPreview
-EngineData/Frontend/RustApp/docs/ui-reference
-Figma/design workflow sources
-historical DevelopingData documents/plans/QA evidence
-review-before-delete diagnostic scripts whose current ownership is not yet proven
+RustApp/Preview
+RustApp/DesignPreview
+RustApp/docs/ui-reference
+RustApp/page-template.md
+RustApp/ui-reference.md
+RustApp/src/design-system   # old v28/Figma registry/export/plugin/workflow
 ```
 
-Those items need their own bounded owner/caller check before any move/delete decision.
+Associated stale design-review scripts that depended on the old locked-reference approval flow were removed as part of the same boundary cleanup.
 
-No product feature behavior, AI provider, audio pipeline, storage schema, or package architecture was redesigned by this structural pass.
+Reasoning/evidence:
+
+- the user explicitly confirmed Figma Design is no longer used;
+- `DesignPreview` identified itself as V1-Pull design-review source only;
+- `Preview` identified itself as separate preview-only HTML/CSS/SVG review;
+- old design-system tokens/registries were tied to Main Page v28 and Figma handoff;
+- old UI approval/reference reports were tied to that baseline and still wrote developer evidence into `UserData`;
+- current `src/main.ts` directly imports production CSS and starts `SimpleLauncherController`.
+
+Active runtime files are preserved based on callers rather than naming. In particular, files such as `referenceLayout.css` and `lockedReferenceShellParts.ts` remain current because production imports/contracts still use them.
 
 ## Proof State
 
 **CURRENT-PROJECT VERIFIED** at static repository level:
 
-- current root documentation distinguishes EngineData/UserData/DevelopingData ownership;
-- current active npm source-contract profile no longer includes `validate:ci-scope`;
-- the active auto-test registry no longer registers `ci-scope` and routes disposable developer output to `.tmp/validation`;
-- active contract-report and local Tauri compile report entrypoints no longer use UserData as developer-report storage;
-- current runtime root discovery does not inspect `DevelopingData`;
-- branch-specific V1 workflow/sync automation removed in this pass is no longer current `New` infrastructure.
+- current production entrypoint does not depend on standalone Preview/DesignPreview/Figma assets;
+- current active source validators bind the product shell directly to production source rather than the retired Figma/reference package;
+- runtime source is explicitly prohibited from importing Preview-only files;
+- the obsolete design-review source carried historical V1-Pull/v28 ownership and is no longer kept as a competing current authority.
 
-**LOCAL PROOF REQUIRED** remains deferred for claims that actually need it, including rendered desktop behavior, Windows runtime readiness, device/audio/model behavior, and clean installed package behavior. The local phase is still intentionally later.
+**LOCAL PROOF REQUIRED** remains deferred for rendered desktop behavior, Windows runtime readiness, device/audio/model behavior, and clean installed package behavior. The local phase is still intentionally later.
 
 ## Hold
 
-- Do not broad-delete/move remaining EngineData design/reference/tooling material without proving its current callers/ownership.
-- Do not revive historical DevelopingData files as current policy or current validation inputs.
+- Do not recreate a Figma/export/standalone preview workflow without a new explicit product decision.
+- Do not delete runtime source merely because filenames contain `reference`, `preview`, or inherited terminology; caller/contract evidence still controls.
+- Do not revive historical DevelopingData files as current policy or validation inputs.
 - Do not write developer/source-validation output into UserData.
-- Do not start the local acceptance phase yet unless the user changes the current phase order.
+- Do not start the local acceptance phase yet unless the user changes the phase order.
 
 ## Next Step
 
-Continue the bounded **EngineData ownership classification** for the remaining design/reference/tooling surfaces (such as `Preview`, `DesignPreview`, `docs/ui-reference`, and adjacent Figma/design workflow sources): determine which are current product/build dependencies versus historical/reference material, then correct only the proven boundary violations without broad reorganization.
+Continue bounded **EngineData tooling ownership classification**: inspect package-level scripts/diagnostics that are not part of current npm/source-contract profiles, determine which are genuine product/build tooling versus obsolete/local development utilities, and move/remove only the proven boundary violations without changing runtime behavior.

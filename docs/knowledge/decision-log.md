@@ -140,3 +140,13 @@ Production build/package/runtime discovery must not depend on `DevelopingData`. 
 
 **Reason**  
 The inherited repository mixed active V1 branch automation, historical DevelopingData policy/report inputs, and developer validation output with current product/runtime data. Separating these responsibilities gives each behavior one canonical owner and prevents historical or developer evidence from becoming a production dependency.
+
+## D-010 — Retire Figma And Standalone Design-Review Workflow
+
+**Decision**  
+Figma export/import, standalone `Preview`/`DesignPreview`, old locked screenshot manifests, and their mandatory design-review workflow are not current TranslateIT development infrastructure on `New`.
+
+Current desktop visual truth is the production UI source that is actually imported/called by the application, interpreted through current product requirements and the `desktop-ui-design-development` specialist. Historical branches retain the retired design-review artifacts as provenance.
+
+**Reason**  
+The user confirmed that Figma Design is no longer used. Source evidence also showed the design-review chain was preview-only or tied to `V1-Pull` and Main Page v28 / settings v22-v37 references, while the current application entrypoint uses the Meeting-first production shell and current CSS modules directly. Keeping both would preserve competing visual authorities and obsolete report paths.
