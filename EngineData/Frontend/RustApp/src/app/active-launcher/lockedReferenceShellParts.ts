@@ -161,7 +161,47 @@ export function lockedHomeWorkspace(): string {
         </section>
 
         <section id="historyWorkspace" class="is-hidden" data-workspace-panel="history" hidden>
-          <section class="simple-translate-grid"><article class="simple-translate-card"><div class="simple-card-heading"><span class="hero-kicker">Unavailable</span><h3>History</h3><p>Local History is a first-class product surface, but its final persistence controls are not connected to this shell yet.</p></div></article><aside class="simple-status-column"><article class="simple-voice-card"><div><strong>Status</strong><p>Unavailable. No history completeness is claimed from this placeholder.</p></div></article></aside></section>
+          <section class="history-layout" aria-labelledby="historyWorkspaceTitle">
+            <header class="history-heading">
+              <div>
+                <span class="hero-kicker">History</span>
+                <h3 id="historyWorkspaceTitle">Recent and saved translations.</h3>
+                <p>Review local Meeting and Text activity without turning previous conversations into translation context.</p>
+              </div>
+              <p id="historyRetentionNote" class="history-retention-note">History is on. New completed translations can be kept in Recent.</p>
+            </header>
+
+            <div class="history-tabs" role="tablist" aria-label="History collection">
+              <button id="historyRecentTab" class="history-tab active" type="button" role="tab" aria-selected="true">Recent</button>
+              <button id="historySavedTab" class="history-tab" type="button" role="tab" aria-selected="false">Saved</button>
+            </div>
+
+            <section id="historyCollectionView" class="history-collection-view">
+              <div class="history-toolbar">
+                <input id="historySearchInput" class="history-search-input" type="search" placeholder="Search history..." aria-label="Search history" autocomplete="off" />
+                <div class="history-filters" aria-label="History type filter">
+                  <button class="history-filter active" data-history-filter="all" type="button">All</button>
+                  <button class="history-filter" data-history-filter="meeting" type="button">Meeting</button>
+                  <button class="history-filter" data-history-filter="text" type="button">Text</button>
+                </div>
+              </div>
+              <div id="historyCollection" class="history-list" aria-live="polite"></div>
+            </section>
+
+            <section id="historyDetailView" class="history-detail-view" hidden>
+              <button id="historyBackButton" class="history-back-button" type="button">${icon("back")}<span>Back to History</span></button>
+              <header class="history-detail-header">
+                <div>
+                  <span id="historyDetailKicker" class="hero-kicker">Text</span>
+                  <h3 id="historyDetailTitle">Text Translation</h3>
+                  <p id="historyDetailMeta"></p>
+                </div>
+                <button id="historyDetailActionButton" class="assistant-action secondary" type="button">Save</button>
+              </header>
+              <div id="historyDetailBody" class="history-detail-body"></div>
+              <p id="historyDetailMessage" class="history-detail-message" aria-live="polite"></p>
+            </section>
+          </section>
         </section>
       </section>`;
 }
