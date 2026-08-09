@@ -1,12 +1,16 @@
 import { languageName } from "../shared/state";
-import type { RuntimeSettings, SettingsTab } from "../shared/types";
+import type { RuntimeSettings } from "../shared/types";
 import type { LanguageSelectorRole } from "./launcherLanguageRules";
 import { LANGUAGE_OPTIONS } from "./launcherLanguageRules";
-import { requireElement, type UiRefs } from "./dom";
+import { requireElement } from "./dom";
 import { audioSettingsView, generalSettingsView, translateSettingsView } from "./settingsViews";
 
+type SettingsRenderRefs = {
+  settingsContent: HTMLElement;
+};
+
 export function renderGeneralSettingsTab(args: {
-  ui: UiRefs;
+  ui: SettingsRenderRefs;
   settings: RuntimeSettings;
   realtimeStatusText: string | null;
   gpuStatusText: string | null;
@@ -25,7 +29,7 @@ export function renderGeneralSettingsTab(args: {
 }
 
 export function renderAudioSettingsTab(args: {
-  ui: UiRefs;
+  ui: SettingsRenderRefs;
   settings: RuntimeSettings;
   onCheckAudioInput: () => void;
   onStartOrStopRecording: () => void;
@@ -39,7 +43,7 @@ export function renderAudioSettingsTab(args: {
 }
 
 export function renderTranslateSettingsTab(args: {
-  ui: UiRefs;
+  ui: SettingsRenderRefs;
   settings: RuntimeSettings;
   activeLanguageSelector: LanguageSelectorRole | null;
   onToggleLanguageSelector: (role: LanguageSelectorRole) => void;

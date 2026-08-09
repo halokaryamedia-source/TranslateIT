@@ -13,7 +13,6 @@ const reports = [
   ["worker-contract", "run_worker_contract_report.mjs"],
   ["rust-linkage-report", "run_rust_module_linkage_report.mjs"],
   ["ui-binding-report", "run_ui_binding_consistency_report.mjs"],
-  ["action-binding-report", "run_action_binding_report.mjs"],
 ];
 
 function runReport(name, script) {

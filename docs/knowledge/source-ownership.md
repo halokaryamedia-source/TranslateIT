@@ -4,7 +4,7 @@
 **Updated:** 2026-08-09  
 **Branch:** `New`
 
-This note maps approved product boundaries to current semantic/source ownership. It is not a backlog, implementation plan, or runtime-readiness report.
+This file maps approved product boundaries to current semantic/source ownership. It is not a backlog, task log, or runtime-readiness report.
 
 Status vocabulary:
 
@@ -15,197 +15,182 @@ MISSING  -> approved capability has no complete current implementation owner
 STALE    -> current source still expresses superseded behavior
 ```
 
-Proof vocabulary follows root `AGENTS.md`.
+Proof vocabulary follows root `AGENTS.md`. Source-side alignment does not promote runtime/device/rendered/package claims beyond the evidence actually obtained.
 
 ## Executive Ownership Map
 
 | Boundary | Current owner(s) | Requirement IDs | Status | Proof | Smallest next change |
 |---|---|---|---|---|---|
-| Product shell/navigation | `src/main.ts`, `SimpleLauncherController.ts`, `lockedReferenceShellParts.ts`, `settingsViews.ts` | PR-001–004, PR-160–169 | **ALIGNED (SOURCE)** | static source; rendered proof required | Run targeted local/rendered shell verification before advancing. |
-| Product readiness/setup | `runtimeProductFacade.ts`, `SimpleLauncherController.refreshReadiness/fixSetup` | PR-163–168 | **ALIGNED (SOURCE)** | static source; local runtime proof required | Verify rendered recovery flow and readiness transitions on Windows. |
-| Text translation | `commands/text_translate.rs`, `engine::manual_translation_accelerated`, Python worker | PR-020–024, PR-040–052 | **PARTIAL** | static source; runtime quality proof required | Preserve current command owner; add approved tone/context through the same request path after settings alignment. |
-| Meeting voice capture/pipeline | `engine/capture_lifecycle.rs`, `engine/audio/*`, `commands/runtime_capture.rs`, pipeline/handoff adapters | PR-030–034, PR-050–054, PR-022 | **PARTIAL / STALE OWNERSHIP** | local proof required | Reconcile one helper/runtime orchestration owner, then implement Session Listening/natural segmentation. |
-| Translation context/tone/settings | `engine/settings.rs`, `engine/runtime_settings.rs`, context/translation adapters, frontend settings | PR-040–047, PR-050–052 | **PARTIAL / MISSING** | static source; quality proof required | Extend canonical settings/request contract; prove context/tone affect real local inference. |
-| Meeting audio route | `commands/virtual_mic_route.rs`, `commands/virtual_audio_route_runtime.rs`, `virtual_audio_route_provider.py` | PR-070–075, PR-145 | **PARTIAL** | **LOCAL PROOF REQUIRED** | Keep existing route owner; connect actual translated TTS and prove Windows meeting delivery. |
-| History / Saved / storage | `engine/session_chat.rs`, `engine/session_store.rs`, `engine/transcript_session.rs`, `UserData/*` | PR-080–091 | **PARTIAL / STALE SEMANTICS** | static source; persistence proof required | Separate automatic History from explicit Saved inside existing roots. |
-| Document translation | attachment rules/contract + Text composer only | PR-100–109 | **MISSING** | current source proves only quick text attachment | Add one first-class document workflow owner reusing the existing translation runtime. |
-| Audio Studio | `commands/audio_studio.rs`, `shared/audioStudioTypes.ts`, Audio Studio contracts | PR-120–129 | **PARTIAL / POST-CORE** | metadata source only; provider proof required | Preserve metadata owner; defer provider/profile work until core paths are aligned. |
-| Installer/package/runtime assets | `tauri.conf.json`, package preflight, `engine/paths.rs`, `bridge_paths.rs`, `RuntimeAssets/*` | PR-140–149 | **PARTIAL / STALE PACKAGING ASSUMPTIONS** | clean-machine proof required | Package helper/runtime/assets explicitly and remove installed-build dependence on repo-root/system Python. |
+| Product shell/navigation | `src/main.ts`, `SimpleLauncherController.ts`, current shell/settings helpers | PR-001–004, PR-160–169 | **ALIGNED (SOURCE)** | static source; rendered proof later | Preserve the single active shell while continuing independent source-side boundaries. |
+| Product readiness/setup | `runtimeProductFacade.ts`, `SimpleLauncherController` | PR-163–168 | **ALIGNED (SOURCE)** | static source; local runtime proof later | Preserve product-level recovery/readiness mapping while underlying capabilities are reconciled. |
+| Text translation | `commands/text_translate.rs`, translation engine, Python worker | PR-020–024, PR-040–052 | **PARTIAL** | static source; runtime quality proof required | Extend approved tone/context through the existing translation path. |
+| Meeting voice capture/pipeline | `engine/capture_lifecycle.rs`, `engine/audio/*`, runtime capture/pipeline commands | PR-030–034, PR-050–054, PR-022 | **PARTIAL / STALE OWNERSHIP** | local proof required | Reconcile one helper/runtime orchestration owner, then implement Session Listening/natural segmentation. |
+| Translation context/tone/settings | runtime settings + context/translation adapters + frontend settings | PR-040–047, PR-050–052 | **PARTIAL / MISSING** | static source; quality proof required | Extend the canonical settings/request contract and make tone/context reach actual inference. |
+| Meeting audio route | virtual route Rust commands + local provider | PR-070–075, PR-145 | **PARTIAL** | **LOCAL PROOF REQUIRED** | Preserve the route owner; connect translated TTS through the canonical runtime and later prove Windows meeting delivery. |
+| History / Saved / storage | session storage owners + `UserData/*` | PR-080–091 | **PARTIAL / STALE SEMANTICS** | static source; persistence proof required | Separate automatic History from explicit Saved inside existing roots. |
+| Document translation | quick attachment path only | PR-100–109 | **MISSING** | current source proves only text attachment ingestion | Add one document workflow owner that reuses the existing translation runtime. |
+| Audio Studio | Audio Studio command/contracts + explicit frontend entry | PR-120–129 | **PARTIAL / POST-CORE** | metadata/source only; provider proof required | Preserve current entry/metadata ownership; defer provider/profile completion until core paths are aligned. |
+| Installer/package/runtime assets | Tauri config/preflight + paths/assets owners | PR-140–149 | **PARTIAL / STALE PACKAGING ASSUMPTIONS** | clean-machine proof required | Package helper/runtime/assets explicitly and remove installed-build dependence on repo-root/system Python. |
 
 ## 1. Product Shell And Navigation
 
-### Current owners
+### Current production entry graph
 
 ```text
-EngineData/Frontend/RustApp/src/main.ts
-EngineData/Frontend/RustApp/src/app/simple-launcher/SimpleLauncherController.ts
-EngineData/Frontend/RustApp/src/app/active-launcher/lockedReferenceShellParts.ts
-EngineData/Frontend/RustApp/src/app/active-launcher/settingsViews.ts
-EngineData/Frontend/RustApp/src/app/active-launcher/launcherSettingsRenderer.ts
+EngineData/Frontend/RustApp/index.html
+├─ src/main.ts
+│  -> SimpleLauncherController
+│  -> shell/settings/result/startup/window helpers
+│
+└─ src/audioStudioEntry.ts
+   -> Audio Studio theme/binding entry
 ```
 
-### Current behavior
+Primary shell owners:
 
-Current static source now:
+```text
+src/main.ts
+src/app/simple-launcher/SimpleLauncherController.ts
+src/app/active-launcher/shell.ts
+src/app/active-launcher/lockedReferenceShellParts.ts
+src/app/active-launcher/settingsViews.ts
+src/app/active-launcher/launcherSettingsRenderer.ts
+```
 
-- keeps `SimpleLauncherController` as the active controller from `main.ts`;
-- presents `Meeting / Text / Documents / History / Saved / Settings`;
-- opens Meeting as the default/primary workspace;
-- keeps Text as a usable standalone translation surface;
-- presents Documents, History, and Saved truthfully as unavailable until their own implementations are connected;
-- exposes Developer Diagnostics under Settings -> Advanced instead of as a normal product workspace;
-- uses canonical `Realtime / Quality` naming in the active Translation settings source;
-- no longer exposes `Start Helper` / `Check Worker` as normal shell controls.
+Current static source:
 
-### Classification
+- keeps `SimpleLauncherController` as the only primary desktop controller started by `main.ts`;
+- presents `Meeting / Text / Documents / History / Saved / Settings` with Meeting primary;
+- keeps Text as the current standalone translation surface;
+- keeps Documents, History, and Saved truthful until their own implementations exist;
+- exposes Developer Diagnostics under Settings -> Advanced;
+- uses `Realtime / Quality` naming;
+- does not expose `Start Helper` / `Check Worker` as normal shell controls;
+- no longer keeps the old parallel `LauncherController` and its binding/watch/route stack as current source.
 
-`ALIGNED (SOURCE)`
+The explicit Audio Studio HTML entry remains separate and currently loads its theme and binding stubs. That proves reachability only; it does not prove Audio Studio product completeness.
 
-### Proof boundary
+Classification: **ALIGNED (SOURCE)**.
 
-**CURRENT-PROJECT VERIFIED** for current source ownership/wiring.  
-**LOCAL PROOF REQUIRED** for rendered composition, responsive behavior, actual click navigation, and Tauri desktop behavior.
-
-### Next change
-
-No additional source change is justified before targeted local/rendered verification.
+Proof: **CURRENT-PROJECT VERIFIED** for repository/source ownership and direct entry wiring. Rendered/Tauri behavior remains **LOCAL PROOF REQUIRED** for the later acceptance phase.
 
 ## 2. Product Readiness And Setup
 
-### Current owners
+Current owners:
 
 ```text
-EngineData/Frontend/RustApp/src/app/bridge/runtimeProductFacade.ts
-EngineData/Frontend/RustApp/src/app/simple-launcher/SimpleLauncherController.ts
+src/app/bridge/runtimeProductFacade.ts
+src/app/simple-launcher/SimpleLauncherController.ts
 ```
 
-### Current behavior
+Current source maps normal Meeting readiness from existing runtime evidence plus meeting-route readiness, keeps engineering details in diagnostics, and exposes normal recovery as `Retry`, `Fix Setup`, and `Open Diagnostics`.
 
-`runtimeProductFacade` remains the product-facing readiness owner. Current source:
+Classification: **ALIGNED (SOURCE)**.
 
-- retains lower-level helper/model/microphone details for diagnostics/internal state;
-- maps normal Meeting readiness from the existing live meeting runtime gate plus virtual-route readiness;
-- does not treat helper/model/microphone presence alone as Meeting-ready;
-- exposes normal recovery as `Retry`, `Fix Setup`, and `Open Diagnostics`;
-- keeps detailed engineering controls in Developer Diagnostics;
-- keeps normal Meeting notices product-level rather than surfacing raw technical blockers.
-
-`Fix Setup` currently orchestrates existing setup capabilities; it does not replace or redesign the underlying runtime owners.
-
-### Classification
-
-`ALIGNED (SOURCE)`
-
-### Proof boundary
-
-**CURRENT-PROJECT VERIFIED** for source mapping and recovery wiring.  
-**LOCAL PROOF REQUIRED** for actual Windows readiness transitions and rendered recovery behavior.
+Actual Windows readiness transitions remain **LOCAL PROOF REQUIRED**. Missing local proof does not block unrelated source-side work during the current project phase.
 
 ## 3. Text Translation Runtime
 
-### Current owners
+Current owners:
 
 ```text
-EngineData/Frontend/RustApp/src-tauri/src/commands/text_translate.rs
-EngineData/Frontend/RustApp/src-tauri/src/engine/manual_translation_accelerated.rs
+src-tauri/src/commands/text_translate.rs
+src-tauri/src/engine/manual_translation_accelerated.rs
 EngineData/Backend/LocalWorker/WorkerRuntime/realtime_local_worker*.py
 ```
 
-The canonical user-facing text command exists and Text remains wired through `runtimeProductFacade -> runtimeApi.translateText -> Rust translate_text`. Approved tone/context fields are still not complete end-to-end.
+The user-facing path remains:
 
-Classification: `PARTIAL`.
+```text
+SimpleLauncherController
+-> runtimeProductFacade
+-> runtimeApi.translateText
+-> Rust translate_text
+-> canonical local translation runtime
+```
 
-Next: extend existing settings/request/runtime contracts; do not create another translator.
+The retired preview-translation stub is no longer a current source/validation dependency.
+
+Classification: **PARTIAL** because approved tone/context semantics are not complete end-to-end.
 
 ## 4. Meeting Voice Capture And Pipeline
 
-### Current owners
+Current owners:
 
 ```text
-EngineData/Frontend/RustApp/src-tauri/src/engine/capture_lifecycle.rs
-EngineData/Frontend/RustApp/src-tauri/src/engine/audio/*
-EngineData/Frontend/RustApp/src-tauri/src/commands/runtime_capture.rs
-EngineData/Frontend/RustApp/src-tauri/src/commands/pipeline*.rs
-EngineData/Frontend/RustApp/src-tauri/src/engine/adapters/*pipeline*logic.rs
-EngineData/Frontend/RustApp/src-tauri/src/engine/adapters/*asr*logic.rs
+src-tauri/src/engine/capture_lifecycle.rs
+src-tauri/src/engine/audio/*
+src-tauri/src/commands/runtime_capture.rs
+src-tauri/src/commands/pipeline*.rs
+src-tauri/src/engine/adapters/*pipeline*logic.rs
+src-tauri/src/engine/adapters/*asr*logic.rs
 ```
 
-Current ownership still contains duplicated orchestration: Text can use the long-running helper bridge while capture-stop processing can launch direct Python worker execution. Current capture semantics also remain closer to explicit start/stop than approved continuous Session Listening with natural segmentation.
+Current ownership still contains duplicated AI orchestration: Text may use the long-running helper bridge while capture-stop processing can launch direct Python worker execution. Capture semantics are also closer to explicit start/stop than approved continuous Session Listening with natural segmentation.
 
-Classification: `PARTIAL / STALE OWNERSHIP`.
+Classification: **PARTIAL / STALE OWNERSHIP**.
 
-Next: establish one runtime/helper orchestration authority, then implement Session Listening/VAD behavior on that owner.
+Next semantic work: establish one runtime/helper orchestration authority, then implement Session Listening/VAD behavior on that owner.
 
 ## 5. Translation Context, Tone And Settings
 
-### Current owners
+Current owners include runtime settings, context/translation adapters, and current frontend Translation settings.
 
-```text
-EngineData/Frontend/RustApp/src-tauri/src/engine/settings.rs
-EngineData/Frontend/RustApp/src-tauri/src/engine/runtime_settings.rs
-EngineData/Frontend/RustApp/src-tauri/src/engine/adapters/context_logic.rs
-EngineData/Frontend/RustApp/src-tauri/src/engine/adapters/translation_logic.rs
-frontend Translation settings
-```
+Current settings/request contracts still lack complete canonical tone, Session Listening/PTT, and History/privacy semantics. A context-window mechanism exists, but current source does not prove approved context/tone meaningfully affects actual inference.
 
-Current `RuntimeSettings` still lacks the full canonical tone, Session Listening/PTT, and History/privacy settings contract. A bounded context window exists, but current source does not prove that approved context/tone semantics shape real inference.
-
-Classification: `PARTIAL / MISSING`.
-
-Next: extend the existing settings schema and canonical translation request; prove actual inference behavior separately.
+Classification: **PARTIAL / MISSING**.
 
 ## 6. Meeting Audio Route
 
-### Current owners
+Current owners:
 
 ```text
-EngineData/Frontend/RustApp/src-tauri/src/commands/virtual_mic_route.rs
-EngineData/Frontend/RustApp/src-tauri/src/commands/virtual_audio_route_runtime.rs
+src-tauri/src/commands/virtual_mic_route.rs
+src-tauri/src/commands/virtual_audio_route_runtime.rs
 EngineData/Backend/LocalWorker/WorkerRuntime/virtual_audio_route_provider.py
 ```
 
-Source-side route discovery/provider handoff exists. Actual translated audio delivery to a Windows meeting input remains unproven.
+The old unmounted frontend virtual-route selection surface and its binding stack are retired. Current frontend product ownership is the readiness mapping in `runtimeProductFacade`; detailed route/device mechanics remain owned by the Rust/provider boundary rather than a parallel UI subsystem.
 
-Classification: `PARTIAL`.  
-Proof: **LOCAL PROOF REQUIRED**.
+Current source validation checks this engine/provider/product-readiness boundary and no longer depends on historical `DevelopingData` notes.
 
-Next: preserve these owners, connect actual TTS through the canonical packaged runtime, and prove delivery on Windows.
+Classification: **PARTIAL**. Actual Windows meeting delivery remains **LOCAL PROOF REQUIRED**.
 
 ## 7. History, Saved And Storage
 
-Current owners remain `session_chat`, `session_store`, `transcript_session`, and the existing `UserData/CacheData`, `UserData/LogData`, `UserData/SavedProject` roots.
+Current owners remain the existing session/storage modules and:
+
+```text
+UserData/CacheData
+UserData/LogData
+UserData/SavedProject
+```
 
 Current semantics do not yet fully separate automatic History from explicit Saved or provide the approved search/delete/clear/disable contract.
 
-Classification: `PARTIAL / STALE SEMANTICS`.
-
-Next: implement the approved semantics without another top-level storage root.
+Classification: **PARTIAL / STALE SEMANTICS**.
 
 ## 8. Document Translation
 
-Current source only provides quick text attachment ingestion. There is no complete first-class DOCX/PDF/SRT/VTT workflow owner for parse/chunk/translate/export.
+Current source provides quick text attachment ingestion only. There is no complete first-class DOCX/PDF/SRT/VTT parse/chunk/translate/export owner.
 
-Classification: `MISSING`.
+Classification: **MISSING**.
 
-Next: add one document workflow owner that reuses the existing translation runtime; format parsing/export must not become a second translation engine.
+A future document workflow must reuse the canonical translation runtime rather than create a second translation engine.
 
 ## 9. Audio Studio
 
-Metadata commands/contracts exist, but guided capture, provider quality evaluation, profile building, and generated custom voice behavior are not complete/proven.
+Current backend metadata/contracts remain, and `index.html -> audioStudioEntry.ts` is an explicit frontend build entry. The current binding pair is retained because it has a real caller, even though the bindings themselves do not prove a complete Audio Studio experience.
 
-Classification: `PARTIAL / POST-CORE`.
+Guided capture, provider evaluation, profile generation, quality/readiness, and custom voice behavior remain incomplete/unproven.
 
-Next: no core blocker; preserve current metadata ownership.
+Classification: **PARTIAL / POST-CORE**.
 
 ## 10. Installer, Package And Runtime Assets
 
-Tauri/NSIS direction exists, but runtime path discovery and helper lookup still include development/repository/system-Python assumptions, and clean installed runtime completeness is not proven.
+Tauri/NSIS direction exists, but helper/runtime resource mapping still includes development/repository/system-Python assumptions and clean installed completeness is not proven.
 
-Classification: `PARTIAL / STALE PACKAGING ASSUMPTIONS`.
-
-Proof: clean supported-Windows proof required.
-
-Next: explicitly package the approved helper/runtime/models/assets and prove them on a clean target.
+Classification: **PARTIAL / STALE PACKAGING ASSUMPTIONS**. Clean supported-Windows proof is required later.
 
 ## Cross-Cutting Ownership State
 
@@ -214,64 +199,53 @@ Next: explicitly package the approved helper/runtime/models/assets and prove the
 ```text
 SimpleLauncherController / current shell
 runtimeProductFacade
+runtimeApi
 translate_text command
 RuntimeSettings
 capture/audio modules
 helper worker runtime
-virtual route commands
+virtual route Rust/provider owners
 UserData roots
-Audio Studio metadata command
+Audio Studio explicit entry + backend metadata contracts
 Tauri NSIS package direction
 ```
 
-### Retired from the active normal shell (static source)
+### Retired from current frontend ownership
 
 ```text
-text-first primary product hierarchy
+parallel LauncherController
+legacy event/readiness/helper/device/watch binding stack
+disabled preview-translation stub
+unmounted virtual-route selection surface/bindings
+legacy action-binding diagnostic report
+text-first primary hierarchy
 normal-user Start Helper / Check Worker controls
 Fast user-facing mode naming
-Developer as a normal product navigation surface
+Developer as normal primary navigation
 ```
 
 ### Still requires later reconciliation
 
 ```text
-capture_lifecycle direct Python orchestration when unified helper path supersedes it
-unsaved chat data written with Saved semantics
-repo-root/system-Python assumptions in installed builds
+capture_lifecycle direct Python orchestration versus unified helper owner
+approved settings/tone/context contract
+History versus Saved semantics
+repo-root/system-Python installed-build assumptions
 ```
 
 ### Missing/incomplete semantic capabilities
 
 ```text
 first-class document workflow
-fully applied translation tone/context contract
+fully applied translation tone/context
 approved automatic History semantics and controls
 self-contained installed runtime resource mapping
 ```
 
-## Development Sequence
+## Source-Side Development Order
 
-### Slice 1 — Product Shell And Readiness Boundary
+The project is currently completing bounded work that can be proved through ChatGPT -> GitHub before the dedicated local Windows acceptance phase.
 
-`SOURCE IMPLEMENTED / LOCAL PROOF REQUIRED`
+Source slices are not blocked merely because a prior independent slice still has rendered/runtime proof pending. Acceptance criteria are not lowered: rendered UI, Windows runtime, microphone/audio/model behavior, CUDA performance, meeting-route delivery, latency, and clean-machine packaging remain `LOCAL PROOF REQUIRED` until the later local phase.
 
-Do not advance solely from static source proof. Targeted local/rendered desktop verification remains the acceptance gate.
-
-### Slice 2 — Canonical Settings Contract
-
-After Slice 1 local/rendered acceptance, extend `RuntimeSettings` for approved tone, voice-input mode, History/privacy, and relevant product preferences.
-
-### Slice 3 — Unified Meeting Runtime Orchestration
-
-Reconcile helper ownership and Session Listening/natural segmentation.
-
-### Slice 4 — Translation Context And Tone
-
-Pass and prove approved tone/context through real local inference.
-
-### Slice 5 — Meeting Audio Route
-
-Connect generated translated TTS to the existing route owner and prove Windows meeting delivery.
-
-Later bounded slices continue with History/Saved, Documents, Audio Studio provider work, and release packaging according to product priority and proof availability.
+Current continuation is owned only by `docs/knowledge/next-action.md`.

@@ -21,7 +21,7 @@ export const AUTO_TEST_SUITES = [
       { id: "settings-surface", title: "Settings surface contract", script: "validate_settings_surface_contract.mjs", purpose: "Protects generated settings tabs, renderers, actions, persistence, and developer diagnostics." },
       { id: "auto-test-matrix-contract", title: "Auto test matrix contract", script: "validate_auto_test_matrix_contract.mjs", purpose: "Ensures the registry, runner, npm profiles, report boundary, and referenced source validators stay aligned." },
       { id: "startup-readiness", title: "Startup readiness", script: "validate_startup_runtime_readiness.mjs", purpose: "Checks startup readiness flow and runtime warmup expectations." },
-      { id: "virtual-route", title: "Virtual route contract", script: "validate_virtual_route_contract.mjs", purpose: "Protects virtual audio route command and UI contract boundaries." },
+      { id: "virtual-route", title: "Virtual route contract", script: "validate_virtual_route_contract.mjs", purpose: "Protects the engine/provider meeting-route contract and its product-readiness mapping without reviving the retired route-selection UI." },
     ],
   },
   {
@@ -79,12 +79,11 @@ export const AUTO_TEST_SUITES = [
     description: "Non-blocking evidence generators that produce deeper maps for debugging and review. Output is disposable under .tmp/validation.",
     blocking: false,
     tests: [
-      { id: "contract-reports-runner", title: "Contract reports runner", script: "run_contract_reports.mjs", purpose: "Runs frontend/backend, worker, Rust linkage, UI binding, and action binding diagnostic reports." },
+      { id: "contract-reports-runner", title: "Contract reports runner", script: "run_contract_reports.mjs", purpose: "Runs frontend/backend, worker, Rust linkage, and UI binding diagnostic reports." },
       { id: "frontend-backend-contract-report", title: "Frontend/backend contract report", script: "run_frontend_backend_contract_report.mjs", purpose: "Produces a report mapping frontend bridge calls to backend command surfaces." },
       { id: "worker-contract-report", title: "Worker contract report", script: "run_worker_contract_report.mjs", purpose: "Produces helper worker contract diagnostics." },
       { id: "rust-linkage-report", title: "Rust linkage report", script: "run_rust_module_linkage_report.mjs", purpose: "Produces Rust command/module linkage diagnostics." },
       { id: "ui-binding-report", title: "UI binding consistency report", script: "run_ui_binding_consistency_report.mjs", purpose: "Produces DOM binding diagnostics for rendered IDs versus controller/renderer selectors." },
-      { id: "action-binding-report", title: "Action binding report", script: "run_action_binding_report.mjs", purpose: "Produces user action to handler binding diagnostics." },
     ],
   },
 ];

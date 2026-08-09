@@ -11,7 +11,6 @@ const files = {
   registry: resolve(appRoot, "src-tauri", "src", "commands", "registry.rs"),
   simpleController: resolve(appRoot, "src", "app", "simple-launcher", "SimpleLauncherController.ts"),
   runtimeProductFacade: resolve(appRoot, "src", "app", "bridge", "runtimeProductFacade.ts"),
-  previewTranslation: resolve(appRoot, "src", "app", "active-launcher", "launcherPreviewTranslation.ts"),
 };
 
 const errors = [];
@@ -28,21 +27,13 @@ function expect(content, marker, label) {
   if (!content.includes(marker)) errors.push(`${label}: missing ${marker}`);
 }
 
-function reject(content, marker, label) {
-  if (content.includes(marker)) errors.push(`${label}: forbidden ${marker}`);
-}
-
 const textTranslate = readText("textTranslateCommand", files.textTranslateCommand);
 const pipeline = readText("pipelineHandoff", files.pipelineHandoff);
 const registry = readText("registry", files.registry);
 const simpleController = readText("simpleController", files.simpleController);
 const runtimeProductFacade = readText("runtimeProductFacade", files.runtimeProductFacade);
-const previewTranslation = readText("previewTranslation", files.previewTranslation);
 
-for (const marker of [
-  "translate_text",
-  "engine::translate_text",
-]) expect(textTranslate, marker, "text translate command");
+for (const marker of ["translate_text", "engine::translate_text"]) expect(textTranslate, marker, "text translate command");
 
 for (const marker of [
   "PipelinePayloadState",
@@ -51,7 +42,7 @@ for (const marker of [
   "translation_handoff",
   "translated_text",
   "tts_text",
-]) expect(pipeline, marker, "V1 pipeline handoff");
+]) expect(pipeline, marker, "pipeline handoff");
 
 for (const marker of [
   "text_translate::translate_text",
@@ -72,19 +63,10 @@ for (const marker of [
   "runProductTranslation",
 ]) expect(runtimeProductFacade, marker, "runtime product facade translation bridge");
 
-for (const marker of [
-  "previewWordTranslation",
-  "case \"halo\"",
-  "case \"dunia\"",
-  "normalizeLanguageCode",
-]) reject(previewTranslation, marker, "disabled preview module");
-
-expect(previewTranslation, "return null;", "disabled preview module");
-
 if (errors.length > 0) {
   console.error("Translation flow integrity failed:");
   errors.forEach((error) => console.error(`- ${error}`));
   process.exit(1);
 }
 
-console.log("Translation flow integrity passed: simple UI -> runtimeProductFacade -> runtimeApi.translateText -> Rust translate_text stays wired; legacy preview implementation stays disabled.");
+console.log("Translation flow integrity passed: simple UI -> runtimeProductFacade -> runtimeApi.translateText -> Rust translate_text remains the current product path.");

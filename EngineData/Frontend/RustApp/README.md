@@ -15,7 +15,7 @@ src/app/bridge/
 -> frontend-to-runtime facade/API boundaries
 
 src/app/active-launcher/
--> reusable views/renderers/bindings used by the active shell where referenced
+-> current shell, settings/result views, and startup/window helpers reached by the active product graph
 
 src-tauri/
 -> Rust/Tauri commands, engine/runtime integration, settings/path/storage owners
