@@ -2,7 +2,7 @@
 
 Updated: 2026-08-09  
 Working branch: `New`  
-Status: UI/product Plan is closed; top-level navigation, normal Settings hierarchy, and Meeting Ready composition are source-aligned through ChatGPT -> GitHub
+Status: UI/product Plan is closed; top-level navigation, normal Settings hierarchy, Meeting Ready, and active Text composition are source-aligned through ChatGPT -> GitHub
 
 This file is the single active continuation owner for TranslateIT.
 
@@ -78,7 +78,7 @@ Advanced
 
 ## Completed Source Slice — Meeting Ready Composition
 
-The active Meeting Ready surface now follows the approved hierarchy:
+The active Meeting Ready surface follows the approved hierarchy:
 
 ```text
 readiness
@@ -91,30 +91,56 @@ readiness
 -> meeting-app microphone reminder
 ```
 
-Source behavior is intentionally truthful:
+Source behavior remains truthful:
 
 - overall Meeting, physical-microphone, and managed-route statuses are driven by the existing product readiness snapshot/current input evidence;
 - Meeting sound displays the existing configured preference;
 - incoming translation is shown as `Not connected yet` because the approved incoming lane is not implemented yet;
 - `Start Translation` is visible as the correct primary boundary but remains disabled because the approved atomic live-session Start lifecycle is not connected yet;
 - Retry / Fix Setup remain secondary recovery actions;
-- Developer Diagnostics is no longer a competing Meeting action and remains under Settings -> Advanced;
-- Meeting Ready uses a single restrained information surface with row reflow rather than the inherited card/dashboard composition.
+- Developer Diagnostics remains under Settings -> Advanced;
+- Meeting Ready uses one restrained information surface with narrow-window row reflow.
 
-Static source proof is in `lockedReferenceShellParts.ts`, `SimpleLauncherController.ts`, `mainPageLayout.css`, and `source-ownership.md`. Actual rendered quality remains local proof later.
+## Completed Source Slice — Text Workspace
+
+The active Text workspace now uses the approved familiar translator composition:
+
+```text
+Source language <-> Target language
+Source textarea | editable Target textarea
+Mode / Tone summary
+Translate
+inline result state
+```
+
+Completed source behavior:
+
+- removed active text-file input, `Attach text` action, attachment-ingestion imports/method/state, and attachment event bindings;
+- kept translation on the existing `runtimeProductFacade -> runtimeApi.translateText -> Rust translate_text` path;
+- ID/EN Swap remains contextual to Text and persists through the existing settings command;
+- when a visible target exists, successful Swap moves that target into the source pane and clears the target for reverse translation;
+- translation is explicit through the `Translate` button, with `Ctrl + Enter` as the keyboard shortcut; Enter itself remains normal text entry;
+- target text is editable;
+- failed translation preserves the user's source and any previous visible target while reporting an inline error;
+- editing source after a completed translation keeps the previous target visible and marks it `Needs update`;
+- if source changes while inference is running, the result is marked as belonging to the previous source rather than silently appearing current;
+- current contextual Mode displays the actual inherited persisted runtime profile instead of falsely claiming independent Text `Quality` ownership is already implemented;
+- Tone is presented as approved `Auto`, while actual tone inference remains a later source/runtime gap.
+
+Static proof is in `lockedReferenceShellParts.ts`, `SimpleLauncherController.ts`, `mainPageLayout.css`, and `source-ownership.md`. Rendered appearance and runtime translation quality remain local proof later.
 
 ## Current Source Reality
 
 Important approved gaps remain independently:
 
 ```text
-Text still uses inherited composer/result layout and stale text-file attachment behavior
-History/Saved nested workflow and persistence semantics are incomplete
+History/Saved nested workspace and persistence semantics are incomplete
 First Setup wizard / intentional defer is not implemented
 global Meeting strip / cross-view live state / single-instance behavior is incomplete
 atomic Start Translation and Meeting Live lifecycle are not implemented
 incoming lane, turn coordination, recovery, and Stop semantics remain incomplete
-legacy unreachable Settings view helpers may still remain and require bounded reachability cleanup later
+Text Quality-default ownership, tone inference, Copy/Save semantics remain incomplete
+legacy unreachable attachment/Settings helpers may remain and require bounded reachability cleanup later
 installer/runtime asset proof remains later
 ```
 
@@ -126,23 +152,25 @@ Do not combine all remaining gaps into one broad refactor.
 
 - active shell is `Meeting / Text / History / Settings` only;
 - normal Settings navigation is `Meeting / History & Privacy / Advanced` only;
-- Meeting Ready composition matches the approved static information hierarchy;
-- Meeting Ready does not claim incoming readiness or atomic Start behavior that source does not yet provide;
+- Meeting Ready composition matches the approved static information hierarchy without claiming missing incoming/Start behavior;
+- Text is source/target-pane based, uses explicit Translate, persists its ID/EN swap, and no longer mounts/binds the file-attachment workflow;
+- Text stale/error states preserve the user's visible work rather than silently clearing or presenting an obsolete result as current;
 - current entry remains `main.ts -> SimpleLauncherController -> shell`.
 
-**LOCAL PROOF REQUIRED** for actual rendered layout/resizing and all Windows/runtime behavior.
+**LOCAL PROOF REQUIRED** for actual rendered layout/resizing, translation runtime quality, and all Windows/runtime behavior.
 
 ## Hold
 
-- do not revive Documents, top-level Saved, or the old Settings hierarchy;
+- do not revive Documents, top-level Saved, file attachment translation, or the old Settings hierarchy;
 - do not enable `Start Translation` by mapping it to capture-only behavior;
 - do not pretend incoming translation is Ready before its actual lane exists;
-- do not create a second shell/launcher or a second Settings control plane;
+- do not fake Text `Quality`/tone runtime semantics that current command ownership does not yet prove;
 - do not expose fake History persistence controls before their storage contract exists;
+- do not create a second shell/launcher or parallel data store;
 - do not start local Windows acceptance yet;
 - do not treat remaining UI/runtime gaps as one broad refactor;
 - do not claim rendered success from source markup.
 
 ## Next Step
 
-Start the next bounded source slice: **reconcile the active Text workspace to the approved familiar source/target translator composition and remove the stale text-file attachment workflow**. Preserve the existing canonical text translation command and persisted ID/EN direction swap; establish source/target panes, explicit Translate, contextual Quality/Tone presentation, and truthful result/error states without adding document parsing or changing Meeting runtime behavior.
+Start the next bounded source slice: **reconcile History as the unified `Recent / Saved` workspace against the existing storage/session owners**. First inspect only the current History/Saved persistence contracts and direct callers; then wire the smallest truthful collection/detail surface that can distinguish automatic Recent History from explicit Saved without inventing entries, deleting Saved through Clear History, or creating a second persistence system. If current storage ownership is insufficient, record the exact gap before adding behavior.
