@@ -291,3 +291,35 @@ same time. A visually dated interface would weaken perceived quality, but an ove
 novel AI-styled interface would increase learning cost. The correct direction is a
 contemporary, polished desktop UI whose interaction model remains conventional and
 predictable.
+
+## D-017 — Restrained Visual System And Transcript-First Meeting UI
+
+**Decision**  
+The approved initial visual system uses a restrained Windows-oriented desktop
+language: system-oriented sans-serif typography, compact-but-comfortable spacing,
+moderate radii, subtle borders/surfaces, one primary accent color, and semantic
+status colors only where they communicate state. Familiar controls remain visibly
+recognizable as controls; icons supplement text rather than replace critical labels.
+
+Meeting Ready uses straightforward information rows and one visually dominant
+`Start Translation` action rather than a dashboard of cards. Meeting Live makes the
+chronological transcript the main content, uses no novelty chat bubbles/avatars,
+gives Indonesian user-relevant text the strongest visual weight, and keeps
+Pause/Stop controls available without overwhelming the transcript. Text follows the
+familiar source/target translator pattern. History uses a chronological list rather
+than tiles. Settings uses conventional section navigation and label/description/
+control rows.
+
+Interaction polish is deliberately quiet: visible hover/focus/disabled states,
+keyboard-accessible focus, no layout-jumping loading states, restrained short
+transitions, and responsive desktop reflow rather than mobile-style redesign. Exact
+minimum window dimensions and final color values remain implementation/rendered-
+proof decisions rather than arbitrary product constants.
+
+**Reason**  
+The product has substantial runtime complexity already; the visual layer should
+reduce that complexity rather than advertise it. A transcript-first Meeting view
+matches the user's actual task, conventional translation/history/settings patterns
+lower learning cost, and restrained polish provides a modern appearance without
+turning TranslateIT into a decorative AI dashboard. Deferring exact pixel/color
+constants until rendered evaluation avoids freezing numbers without visual proof.
