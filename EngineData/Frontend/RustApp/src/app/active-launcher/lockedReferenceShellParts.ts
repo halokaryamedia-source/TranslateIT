@@ -37,9 +37,7 @@ export function lockedMainSidebar(): string {
         <nav class="nav-stack compact-nav" aria-label="Primary navigation">
           <button id="meetingNavButton" class="nav-item active" data-workspace-nav="meeting" type="button" aria-current="page">${icon("mic")}<span>Meeting</span>${icon("chevron")}</button>
           <button id="textNavButton" class="nav-item" data-workspace-nav="text" type="button">${icon("translate")}<span>Text</span>${icon("chevron")}</button>
-          <button id="documentsNavButton" class="nav-item" data-workspace-nav="documents" type="button">${icon("file")}<span>Documents</span>${icon("chevron")}</button>
           <button id="historyNavButton" class="nav-item" data-workspace-nav="history" type="button">${icon("clock")}<span>History</span>${icon("chevron")}</button>
-          <button id="savedNavButton" class="nav-item" data-workspace-nav="saved" type="button">${icon("folder")}<span>Saved</span>${icon("chevron")}</button>
           <button id="settingsButton" class="nav-item" type="button">${icon("settings")}<span>Settings</span>${icon("chevron")}</button>
         </nav>
         <section class="account-card compact-account">
@@ -91,16 +89,8 @@ export function lockedHomeWorkspace(): string {
           <section id="chatList" class="simple-result-area" aria-label="Translation result"></section>
         </section>
 
-        <section id="documentsWorkspace" class="is-hidden" data-workspace-panel="documents" hidden>
-          <section class="simple-translate-grid"><article class="simple-translate-card"><div class="simple-card-heading"><span class="hero-kicker">Unavailable</span><h3>Documents</h3><p>First-class TXT, Markdown, DOCX, PDF, SRT, and VTT translation is not connected to this product shell yet.</p></div></article><aside class="simple-status-column"><article class="simple-voice-card"><div><strong>Status</strong><p>Unavailable. Use Text only for current quick text attachments.</p></div></article></aside></section>
-        </section>
-
         <section id="historyWorkspace" class="is-hidden" data-workspace-panel="history" hidden>
           <section class="simple-translate-grid"><article class="simple-translate-card"><div class="simple-card-heading"><span class="hero-kicker">Unavailable</span><h3>History</h3><p>Local History is a first-class product surface, but its final persistence controls are not connected to this shell yet.</p></div></article><aside class="simple-status-column"><article class="simple-voice-card"><div><strong>Status</strong><p>Unavailable. No history completeness is claimed from this placeholder.</p></div></article></aside></section>
-        </section>
-
-        <section id="savedWorkspace" class="is-hidden" data-workspace-panel="saved" hidden>
-          <section class="simple-translate-grid"><article class="simple-translate-card"><div class="simple-card-heading"><span class="hero-kicker">Unavailable</span><h3>Saved</h3><p>Saved items remain separate from automatic History, but the final Saved workflow is not connected to this shell yet.</p></div></article><aside class="simple-status-column"><article class="simple-voice-card"><div><strong>Status</strong><p>Unavailable. Existing storage behavior is not presented as complete Saved support.</p></div></article></aside></section>
         </section>
       </section>`;
 }
