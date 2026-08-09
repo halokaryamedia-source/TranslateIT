@@ -9,6 +9,14 @@ fn default_history_enabled() -> bool {
     true
 }
 
+fn default_meeting_setup_state() -> String {
+    "new".to_string()
+}
+
+fn default_meeting_setup_checkpoint() -> u8 {
+    1
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct AudioSettings {
     pub input_device_id: Option<String>,
@@ -33,6 +41,10 @@ pub struct RuntimeSettings {
     pub target_language: String,
     #[serde(default = "default_history_enabled")]
     pub history_enabled: bool,
+    #[serde(default = "default_meeting_setup_state")]
+    pub meeting_setup_state: String,
+    #[serde(default = "default_meeting_setup_checkpoint")]
+    pub meeting_setup_checkpoint: u8,
     pub audio: AudioSettings,
     pub voice_actor_profile_id: String,
 }
@@ -40,12 +52,14 @@ pub struct RuntimeSettings {
 impl Default for RuntimeSettings {
     fn default() -> Self {
         Self {
-            schema_version: 4,
+            schema_version: 5,
             language_focus_mode: "id-en-focus".to_string(),
             runtime_profile: "Realtime".to_string(),
             source_language: "id".to_string(),
             target_language: "en".to_string(),
             history_enabled: true,
+            meeting_setup_state: default_meeting_setup_state(),
+            meeting_setup_checkpoint: default_meeting_setup_checkpoint(),
             audio: AudioSettings {
                 input_device_id: None,
                 output_device_id: None,
@@ -84,11 +98,13 @@ impl RuntimeSettings {
     }
 
     pub fn sanitized(mut self) -> Self {
-        self.schema_version = self.schema_version.max(4);
+        self.schema_version = self.schema_version.max(5);
         self.runtime_profile =
             sanitize_runtime_profile(&self.runtime_profile, &self.audio.input_sensitivity);
         self.source_language = sanitize_language(&self.source_language, "id");
         self.target_language = sanitize_language(&self.target_language, "en");
+        self.meeting_setup_state = sanitize_meeting_setup_state(&self.meeting_setup_state);
+        self.meeting_setup_checkpoint = self.meeting_setup_checkpoint.clamp(1, 5);
         self.audio.input_device_id =
             sanitize_optional_runtime_text(self.audio.input_device_id.take());
         self.audio.output_device_id =
@@ -161,6 +177,14 @@ fn sanitize_language(value: &str, fallback: &str) -> String {
     }
 }
 
+fn sanitize_meeting_setup_state(value: &str) -> String {
+    match clean_setting_text(value).to_lowercase().as_str() {
+        "deferred" => "deferred".to_string(),
+        "completed" => "completed".to_string(),
+        _ => "new".to_string(),
+    }
+}
+
 fn sanitize_identifier(value: &str) -> String {
     value
         .trim()
@@ -220,6 +244,8 @@ mod tests {
         assert_eq!(settings.target_language, "en");
         assert_eq!(settings.runtime_profile, "Realtime");
         assert!(settings.history_enabled);
+        assert_eq!(settings.meeting_setup_state, "new");
+        assert_eq!(settings.meeting_setup_checkpoint, 1);
     }
 
     #[test]
@@ -234,6 +260,8 @@ mod tests {
         assert_eq!(loaded.target_language, "en");
         assert_eq!(loaded.runtime_profile, "Realtime");
         assert!(loaded.history_enabled);
+        assert_eq!(loaded.meeting_setup_state, "new");
+        assert_eq!(loaded.meeting_setup_checkpoint, 1);
         assert_eq!(
             loaded.audio.voice_actor_profiles_root,
             "EngineData/VoiceActorProfiles"
