@@ -17,9 +17,9 @@ boundary.
 
 Context Recovery and Plan use no project specialist by default.
 
-Support skills do not own semantic behavior and do not count as additional project
-specialists. Use them only when their review/research/communication function is
-material to the task; do not stack them automatically.
+Communication shaping, anti-slop review, research, profiling, testing, and other
+tooling techniques are conditional procedures. They do **not** add another project
+skill to the stack.
 
 ## Project Specialist Routing
 
@@ -28,17 +28,9 @@ material to the task; do not stack them automatically.
 | Non-trivial approved product behavior create/change | `development-brief` |
 | Desktop shell, navigation/workspaces, product readiness/state mapping, desktop settings integration, desktop/runtime facade, Normal UI vs Developer Diagnostics | `desktop-runtime-development` |
 | Desktop visual hierarchy, layout/composition, spacing/density, typography, color/tokens, component visual states, reference-image analysis, responsive composition, motion/micro-interactions, rendered visual acceptance | `desktop-ui-design-development` |
-| Local ASR/translation/TTS inference, model/provider lifecycle/evaluation, Realtime/Quality execution, CUDA/CPU behavior, inference context/tone, AI helper/worker orchestration | `local-ai-runtime-development` |
+| Local ASR/translation/TTS inference, model/provider lifecycle/evaluation, Realtime/Quality execution, CUDA/CPU behavior, inference context/tone, AI helper/worker orchestration, AI-runtime profiling/tooling decisions | `local-ai-runtime-development` |
 | Physical mic capture, PTT/Session Listening capture mechanics, VAD/segmentation, Windows devices, monitoring, virtual meeting route, TranslateIT Meeting Microphone delivery | `windows-audio-runtime-development` |
 | Windows installer/package, bundled helper/Python runtime, dependencies/models/TTS assets, installed resource layout, audio-provider delivery, clean-machine deployment | `release-packaging-development` |
-
-## Support Skill Routing
-
-| Need | Support skill | Boundary |
-|---|---|---|
-| Action-first output, bounded steps, visible progress, one next action | `i-have-adhd` | Communication/execution shape only; never changes proof or semantic ownership. |
-| Evaluate whether a new Rust crate/tool is genuinely needed and identify a bounded candidate | `awesome-rust-research` | Candidate discovery only; Awesome Rust is an index, final evidence comes from primary sources. Do not invoke for ordinary Rust edits. |
-| Audit/edit AI-like filler, fake confidence, fake readiness, duplicate owners, placeholder success, over-abstraction, or evidence inflation | `no-ai-slop` | Review filter only; it does not decide architecture independently of current owners/evidence. |
 
 ## Selection Test
 
@@ -53,8 +45,40 @@ Before loading a specialist ask:
 
 If no specialist adds material value, use `development-brief` alone.
 
-Before loading a support skill ask whether it changes the quality of the current
-output/research/review without becoming another owner. If not, do not load it.
+## Always-On Quality Procedures
+
+These do not require an extra skill activation.
+
+### Action-first communication
+
+For material development reporting:
+
+- lead with the current result, blocker, or next action;
+- keep active multi-step work bounded and numbered only when that improves tracking;
+- restate current state when continuity would otherwise be ambiguous;
+- finish the current acceptance boundary before surfacing an unrelated issue;
+- never invent a time estimate solely for motivational formatting;
+- final material reports keep exactly one `Next step`.
+
+### Anti-slop review
+
+Root `AGENTS.md` and `development-brief` remain authoritative. Check especially for:
+
+```text
+duplicate owners
+fake/placeholder success
+evidence inflation
+speculative abstractions
+fallback masking
+dead scaffolds or stale gates
+arbitrary readiness/progress scores
+comment/doc claims not executed by source
+marker/mock tests presented as runtime proof
+private/unbounded diagnostic output
+```
+
+Anti-slop is **always on**. Do not create or load a separate reviewer merely to
+apply these rules.
 
 ## Multi-Domain Symptoms
 
@@ -83,16 +107,43 @@ runtime works in development, packaged helper is missing
 If investigation discovers a second independent problem, finish/reframe the
 current boundary and create a separate bounded task. Do not stack specialists.
 
-## External Documentation Helpers
+## External Research / Documentation Helpers
+
+Use external discovery only after the current owner proves a real need.
+
+### Version-sensitive documentation
 
 Context7 or another current-documentation retrieval tool may be used conditionally
 when a version-sensitive third-party API/library is material to the task. It is not
 a project specialist. Official documentation or primary source remains the final
 external authority for material contracts.
 
+### Rust ecosystem discovery
+
+A curated index such as `rust-unofficial/awesome-rust` may be used to find candidate
+crates/tools when a real Rust dependency/tool requirement exists. It is only an
+index. Before adoption, verify the serious candidate from its official repository/
+documentation and check current Windows/platform support, license, maintenance,
+dependency cost, unsafe/native surface where relevant, and whether it reduces net
+complexity.
+
+Do not use Awesome Rust as an excuse to add crates to ordinary Rust edits.
+
+### Python / AI-runtime tooling
+
+When the canonical local AI runtime needs reproducible environments, linting,
+behavior tests, profiling, or benchmarks, route the decision through
+`local-ai-runtime-development`. Candidate tools such as `uv`, Ruff, pytest,
+pytest-benchmark, py-spy, Scalene, a type checker, or PyO3/maturin are **tools**, not
+skills. Their adoption gate lives in that specialist.
+
+Installed/runtime delivery consequences are handed to
+`release-packaging-development`; no development tool silently becomes an end-user
+dependency.
+
 ## Do Not Route By Technology
 
-Do not select/create a **project specialist** merely because a task touches:
+Do not select/create a project skill merely because a task touches:
 
 ```text
 Rust
@@ -105,6 +156,5 @@ Windows API
 a named library/provider/model
 ```
 
-`awesome-rust-research` is an explicitly approved support exception for bounded
-external Rust ecosystem discovery. It still must not activate merely because source
-is written in Rust.
+Do not create `rust-expert`, `python-expert`, `anti-slop`, `researcher`,
+`profiler`, or similar skills to bypass the semantic-owner model.
