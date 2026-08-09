@@ -375,3 +375,55 @@ control screen: the transcript and immediate session safety matter more than set
 configuration. Keeping these compositions simple, text-led, and conventional makes
 the application immediately understandable while preserving the approved runtime
 semantics and avoiding a dashboard-style or decorative AI interface.
+
+## D-019 — Final Text, History, And Settings Composition
+
+**Decision**  
+The remaining core workspaces use familiar desktop/productivity patterns rather than
+new interaction metaphors.
+
+`Text` follows the conventional translator model: explicit Indonesian/English
+source and target selectors with one swap action, source and editable target panes,
+Quality + Tone controls kept secondary, one primary `Translate` action, and quiet
+`Copy` / `Save` actions. Wide windows show source/target side by side; narrow windows
+stack them. A completed result remains visible when the source changes but is marked
+as needing an update. Translation/runtime errors remain inline without clearing the
+user's text. A live Meeting may add the global Meeting strip above Text, and Text may
+wait for capacity without interrupting the Meeting.
+
+`History` is a chronological retrieval workspace, not a dashboard. It uses
+`Recent / Saved` tabs, one normal search field, and compact `All / Meeting / Text`
+filters. Meeting rows show title/time/duration/status; Text rows use a useful source
+snippet and direction. Meeting History detail reuses the same transcript visual
+language as Meeting Live but is read-only and has no live controls. Text History
+detail shows source/translation in a simple read-only artifact view. Saved reuses
+the same collection/detail surfaces; only ownership actions change (for example,
+`Save` versus `Remove from Saved`). Empty states remain text-led and History Off
+must not imply existing History was deleted.
+
+`Settings` uses a conventional desktop preference layout with nested sections
+`Meeting / History & Privacy / Advanced`. Meeting Settings contains speaking mode,
+physical microphone, Meeting Sound, and managed Meeting Microphone rows; scoped
+changes report progress/error in the affected row rather than blocking the whole
+page. History & Privacy contains the History On/Off toggle, local storage summary,
+Saved explanation/access, and Clear History as a clearly separated destructive
+action. Advanced contains only setup health and the entry to Diagnostics.
+Diagnostics is a nested troubleshooting view: it may inspect technical runtime,
+audio, translation, performance, and recent-error information, but it is not the
+normal manual control plane for starting/killing workers or forcing implementation
+internals.
+
+Shared primitives should stay small and reusable: application/sidebar/header and
+global Meeting strip, standard buttons/fields/select/toggle/tabs/search, status and
+inline callout patterns, dialogs, transcript turns, History rows, Settings rows, and
+simple empty states. Do not create screen-specific interaction systems when these
+familiar primitives already satisfy the task.
+
+**Reason**  
+The user wants a modern app that remains immediately familiar. Text translation,
+recent-history retrieval, and settings already have well-understood interaction
+patterns across desktop products. Reusing those patterns lowers learning cost,
+keeps behavior predictable, and lets the visual polish come from hierarchy,
+spacing, responsiveness, and feedback rather than novelty. Reusing the Meeting
+transcript for History detail and the History detail for Saved also reduces both
+user-learning cost and unnecessary frontend duplication.
