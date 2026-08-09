@@ -2,7 +2,7 @@
 
 Updated: 2026-08-10  
 Working branch: `New`  
-Status: core shell, First Setup/device selection, Settings, Meeting Ready, Text, History/Saved, canonical Meeting session authority, and generation-aware finalized outbound stages are source-aligned through ChatGPT -> GitHub
+Status: product/source alignment work is paused before further Meeting runtime expansion because the Translate Engine audit found overlapping execution owners, optimistic readiness, and legacy/dev fallback paths that must be consolidated first.
 
 This file is the single active continuation owner for TranslateIT.
 
@@ -15,7 +15,7 @@ AGENTS.md
 -> CONTEXT.md
 -> docs/knowledge/next-action.md
 -> docs/knowledge/source-ownership.md
--> one affected current source owner + direct contracts only
+-> only the bounded engine owners needed by the consolidation decision
 ```
 
 Do not reconstruct approved product decisions from chat history when canonical
@@ -23,219 +23,169 @@ repository owners already contain them.
 
 ## Current Mode
 
-**Developing**.
+**Plan**.
 
-Execution channel:
+The previous Developing continuation (`finalized outbound utterance producer`) is
+**deferred**, not cancelled. Do not resume that implementation until the engine
+consolidation plan is approved and the canonical runtime path is unambiguous.
+
+Execution channel remains:
 
 ```text
 ChatGPT -> GitHub
 ```
 
-Local/Windows acceptance remains deferred. Static source alignment may continue,
-but build/runtime/device/audio/rendered/filesystem/package claims remain
-`LOCAL PROOF REQUIRED` until the dedicated local phase.
+Local/Windows acceptance is still deferred. Static source can establish ownership,
+conflicts, and wiring; model quality, latency, CUDA/CPU behavior, cancellation,
+audio delivery, and installed behavior remain `LOCAL PROOF REQUIRED`.
 
-## Locked Product / UI Baseline
+## Engine Audit Result
 
-```text
-Primary       -> Meeting
-Secondary     -> Text
-Top-level UI  -> Meeting / Text / History / Settings
-History       -> Recent / Saved
-Settings      -> Meeting / History & Privacy / Advanced
-Documents     -> removed
-Audio Studio  -> advanced/post-core
-```
+The current Translate Engine must **not** be described as optimized or production
+ready yet. The audit found several root problems that predate the stricter project
+governance.
 
-Normal UI remains **Modern + Easy to use + Familiar**. Product surfaces must not
-expose helper/model/audio-engineering internals as the normal workflow.
+### P0 — Multiple active execution owners
 
-## Completed Source-Side Product Slices
+Translation/voice behavior is split across persistent helper execution, accelerated
+one-shot workers, manual/legacy translation fallbacks, legacy capture workers, and
+developer handoff/scaffold paths. Behavior can therefore depend on which path is
+active rather than one canonical engine contract.
 
-### Shell / Settings / First Setup / devices
+### P0 — Fake or inflated success remains reachable
 
-- normal app navigation is `Meeting / Text / History / Settings`;
-- Settings is `Meeting / History & Privacy / Advanced -> Diagnostics`;
-- first launch uses the approved five-step focused Setup shell;
-- `Set up later` persists defer intent without marking Meeting Ready;
-- microphone and Meeting Sound share one candidate-check -> commit path;
-- pinned microphone loss does not silently fall back to another device;
-- Meeting Sound endpoint checking does not claim incoming translation works.
+Inherited rule-based/deterministic/preview translation can report completed output
+without validated model inference. Developer seed/smoke/handoff paths can also
+return contract success without runtime success. These paths must never become
+product readiness or user-facing translation truth.
 
-### Text / History / Saved / Privacy
+### P0 — Readiness has too many authorities
 
-- Text uses familiar source/target panes and explicit Translate;
-- successful Text writes Recent only while History is ON;
-- canonical History store is `UserData/SavedProject/History/{Recent,Saved}`;
-- History UI provides Recent/Saved, local Search, Meeting/Text filter, Text detail,
-  independent Save, Remove from Saved, History On/Off, and Clear Recent without
-  deleting Saved;
-- legacy chat/transcript stores are not canonical product History.
+Model inventory, worker/runtime manifests, helper status, runtime-readiness bundles,
+live/professional gates, product readiness, and the newer Meeting preflight overlap.
+Some use stale/static file presence or previous-machine manifest state. One
+capability needs one current truth owner.
 
-### Canonical application Meeting session authority
+### P0 — Persistent worker scheduling/cancellation is not realtime-safe
 
-Existing runtime state owns:
+The helper runtime serializes blocking inference behind one global state lock.
+Cancellation mainly invalidates state/generation after work boundaries and cannot be
+assumed to stop expensive inference immediately. There is also no proved scheduler
+that enforces Meeting work priority over standalone Text work.
 
-```text
-session_id
-generation
-authority_active
-phase
-```
+### P1 — Declared Realtime/Quality stack differs from active execution
 
-Canonical lifecycle commands:
+The repository contains standard PyTorch translation, an accelerated CTranslate2
+translation worker, legacy one-shot workers, and manifests that describe different
+primary/fallback model roles. Realtime/Quality settings and model claims do not yet
+map cleanly to one execution path. Text also still shares the global runtime profile
+instead of independently defaulting to Quality.
 
-```text
-get_meeting_session_status
-start_meeting_translation
-stop_meeting_translation
-```
+### P1 — Dependency/model/runtime reproducibility is incomplete
 
-Current source guarantees one Meeting resource owner per runtime, monotonically
-advancing generation authority, duplicate-Start protection, rollback with authority
-revoke before cleanup, and Stop that revokes old generation authority before route,
-capture, helper, pipeline, handoff, and session cleanup.
+Python dependencies are not fully locked, worker discovery can fall back to system
+Python, model revisions/checksums are not canonical, model setup is partly report/
+manual tooling, and current paths still assume repository-root `EngineData/UserData`
+layout. Clean installed runtime ownership remains unresolved.
 
-### Generation-aware finalized outbound stages
+### P1 — Existing validation overstates what it proves
 
-`commands/meeting_session.rs` now contains the product pipeline boundary for an audio
-segment that has **already been finalized by the audio owner**:
-
-```text
-finalized Indonesian WAV
--> helper `transcribe`
--> generation check
--> helper `translate`
--> generation check
--> helper `synthesize`
--> generation check
--> guarded TranslateIT Meeting Microphone route
-```
-
-Important source rules:
-
-- product execution uses the worker's real canonical tasks `transcribe`, `translate`,
-  and `synthesize`; developer stub names are not promoted into product runtime;
-- every blocking AI stage is followed by an application Meeting generation check
-  before its result can advance;
-- stale TTS output is deleted rather than routed;
-- empty/unsafe ASR result produces no Meeting voice;
-- translation/TTS failures produce no Meeting voice;
-- route execution checks generation again before provider launch.
-
-### Generation-cancellable Meeting route
-
-`virtual_audio_route_runtime.rs` now provides a Meeting-specific route boundary that:
-
-- requires current authoritative Meeting generation;
-- carries generation in the provider payload;
-- requires explicit real-execution guard rather than accepting provider dry-run as
-  product delivery;
-- runs the provider as a cancellable child process;
-- polls generation/cancel state during provider execution;
-- can terminate the provider after Stop revokes the generation;
-- accepts completion only when the provider reports both actual route execution
-  attempted and route ready.
-
-This is source-contract alignment only. Actual audio delivery through the selected
-Windows virtual route remains `LOCAL PROOF REQUIRED`.
-
-## Current Root Blocker
-
-The current live capture boundary is a **rolling audio window**. Its
-`ready_for_target_asr_frame` state means that enough current audio exists for an ASR
-frame. It does **not** establish that the user's utterance is final/stable.
-
-Therefore source must not do this:
-
-```text
-rolling ASR-ready audio
--> translate
--> TTS
--> meeting output
-```
-
-That would permit partial speech to become audible output while the user is still
-speaking, contradicting the approved product contract.
-
-No current owner yet produces a one-shot finalized outbound utterance with natural
-or adaptive end-of-speech semantics and exactly-once consumption.
-
-For that reason product Start remains intentionally fail-closed on:
-
-```text
-meeting_session:finalized_utterance_source_not_connected
-meeting_session:continuous_outbound_runtime_not_connected
-```
-
-`Start Translation` in the normal frontend must remain disabled until this root
-blocker is resolved.
-
-## Current Source Reality
-
-Independent gaps still remain:
-
-```text
-finalized outbound utterance producer / exactly-once audio consumption is missing
-continuous handoff from that producer into process_authoritative_finalized_outbound_wav is missing
-normal frontend Start/Stop + Meeting Live transcript state are not connected
-global cross-view Meeting strip/state and single-instance behavior are incomplete
-incoming Meeting Sound lane and self-output suppression are incomplete
-turn coordination, bounded recovery, Pause/Resume semantics remain incomplete
-Meeting History write/detail waits for committed Meeting turns
-Text independent Quality default, tone inference, Copy/direct Save remain incomplete
-Windows microphone-permission deep-link remains incomplete
-legacy unreachable helpers may remain for later bounded cleanup
-installer/runtime asset reconciliation remains later
-```
-
-Do not combine all remaining work into one broad refactor.
-
-## Proof State
-
-**CURRENT-PROJECT VERIFIED** at static-source level for this outbound-stage slice:
-
-- Meeting session/generation authority remains the existing `runtime_state` owner;
-- finalized-segment product processing checks authority after each blocking AI stage;
-- product worker tasks map to the canonical `transcribe / translate / synthesize`
-  handlers rather than developer handoff stubs;
-- stale generation cannot legitimately advance from ASR/translation/TTS into a new
-  route execution;
-- Meeting-specific route execution checks generation before launch and is
-  cancellation-signalled while its provider process is running;
-- Stop revokes generation before signalling route cancellation and cleaning capture
-  or helper resources;
-- the current rolling ASR-ready audio boundary is explicitly **not** marked as a
-  finalized utterance source;
-- product Start therefore remains fail-closed and no fake Translation Live state was
-  introduced.
-
-**LOCAL PROOF REQUIRED** for Rust build execution, actual helper responses, process
-cancellation, concurrent Stop during ASR/translation/TTS/route execution, native
-audio delivery, Windows device behavior, and installed-run behavior.
+Several source validators verify marker/string/wiring presence. Worker smoke tooling
+does not necessarily exercise the active persistent helper path and ASR can be
+optional. These checks are useful static evidence but must not be treated as model
+quality, realtime latency, cancellation, Windows audio, or end-to-end runtime proof.
 
 ## Hold
 
-- do not treat rolling `ready_for_target_asr_frame` as final speech;
-- do not enable `Start Translation` until finalized utterances are produced safely;
-- do not let future audio finalization emit the same utterance more than once;
-- do not let any async stage bypass Meeting generation authority;
-- do not accept route dry-run as product delivery;
-- do not claim Windows Meeting Microphone delivery from static source;
-- do not use developer seeded/cache pipeline readiness as product Start proof;
-- do not invent Meeting History before committed Meeting turns exist;
-- do not revive Documents, attachment translation, top-level Saved, or old Settings;
-- do not start local Windows acceptance yet.
+Until the consolidation plan is approved:
+
+- do not implement the finalized utterance producer on top of overlapping engine
+  paths;
+- do not add another worker, fallback, readiness gate, model manifest, or runtime
+  service;
+- do not promote rule-based/preview/dev-seed output into product translation;
+- do not call source presence, marker validation, or stale manifest state `Ready`;
+- do not replace Python with Rust merely for language purity;
+- do not adopt a new model/provider before a bounded evaluation proves why the
+  current candidate is insufficient;
+- do not start the local Windows acceptance phase yet.
+
+## User-Approved Support Skills
+
+Three non-specialist support skills are now available under `.agents/skills/`:
+
+```text
+i-have-adhd
+awesome-rust-research
+no-ai-slop
+```
+
+They do not change the frozen semantic specialist baseline. `awesome-rust-research`
+uses Awesome Rust only for candidate discovery; `no-ai-slop` is a review filter;
+`i-have-adhd` shapes action/progress communication.
+
+## Python / Rust Tooling Candidates — Not Yet Adopted
+
+The audit identified a small set worth evaluating during consolidation rather than
+adding tools blindly:
+
+```text
+uv
+-> Python environment/dependency lock and reproducible execution candidate
+
+Ruff
+-> fast Python lint + format candidate
+
+py-spy
+-> low-overhead profiler for the persistent Python worker, including subprocess use
+
+pytest + pytest-benchmark
+-> correctness + repeatable stage-level performance regression candidate
+
+Scalene
+-> deeper Python/native/GPU/memory profiling when py-spy is insufficient
+
+PyO3 / maturin
+-> DEFER; consider only if profiling later proves the process/FFI boundary itself is
+   a material bottleneck. Do not adopt merely because the application also uses Rust.
+```
+
+These are research candidates, not current dependencies or acceptance proof.
+
+## Proof State
+
+**CURRENT-PROJECT VERIFIED** at static-source audit level:
+
+- multiple translation/voice execution paths exist;
+- rule-based/preview fallback can produce non-model translation output;
+- persistent and accelerated worker ownership is inconsistent;
+- readiness/model truth is distributed across overlapping owners/manifests;
+- helper execution is serialized through its current shared runtime owner;
+- current source validators/smokes are narrower than runtime-quality claims;
+- the three support skills are present and routed as non-specialist helpers.
+
+**LOCAL PROOF REQUIRED** before any claim about actual model quality, realtime
+latency, CPU/CUDA usability, memory/VRAM pressure, cancellation responsiveness,
+Windows audio delivery, or clean installed operation.
 
 ## Next Step
 
-Start a new bounded source slice: **implement the canonical finalized outbound
-utterance producer in the existing live-audio / VAD boundary**. Use
-`development-brief` plus `windows-audio-runtime-development` for that new semantic
-boundary. The producer must distinguish partial versus final speech, use natural /
-adaptive end-of-speech behavior grounded in the existing runtime VAD profile rather
-than fixed inherited chunking as product policy, attach `session_id + generation +
-utterance_id`, consume each finalized utterance exactly once, and pass only finalized
-audio to `process_authoritative_finalized_outbound_wav`. Keep incoming Meeting
-Sound, turn coordination, Meeting History, frontend Live rendering, and local Windows
-testing outside that slice unless strictly required for finalization safety.
+Create the **Engine Consolidation Plan** before further product-runtime coding.
+Classify every active Translate/AI execution path and readiness owner as exactly one
+of:
+
+```text
+KEEP
+REMOVE
+MERGE
+REPLACE
+DEFER
+```
+
+The plan must converge on **one canonical persistent local AI runtime**, one
+capability/readiness truth path, one model/dependency lifecycle, explicit
+Meeting-over-Text scheduling/cancellation semantics, and no fake translation
+fallback. It must also define the smallest benchmark/proof matrix needed to decide
+whether the current ASR/translation/TTS model choices are actually acceptable.
+Only after that plan is approved should Developing resume, beginning with engine
+consolidation rather than the finalized-utterance feature.
