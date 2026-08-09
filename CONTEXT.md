@@ -172,6 +172,36 @@ detected utterance end
 
 Numeric release threshold is benchmark-derived.
 
+## Global Application Behavior
+
+The active Meeting session is **application-level state**, not page-local state.
+Navigating from Meeting to Text, History, or Settings never stops a healthy active
+Meeting. Returning to Meeting reconnects the UI to the same authoritative active
+session rather than creating/reconstructing a new session.
+
+Cross-feature rules:
+
+- one active Meeting session per TranslateIT runtime;
+- initial desktop behavior should prevent parallel independent app instances from
+  owning the same Meeting/audio/storage resources;
+- active Meeting state remains visible outside the Meeting page through a compact
+  global live indicator;
+- materially unsafe outbound failure is surfaced globally; incoming-only degradation
+  remains scoped/subtle;
+- while own TTS is actively speaking, a contextual global `Stop Voice` action may be
+  available as an emergency control; normal Pause/turn controls remain on Meeting;
+- Text, History, and Settings preserve reasonable in-memory view state across
+  navigation but never become lifecycle owners for the Meeting;
+- Text/History work yields compute/resource priority to the live Meeting;
+- PTT remains active across app views only when a Meeting session is already Live;
+  PTT never starts a Meeting by itself;
+- minimize keeps Meeting Live; closing the application while Meeting is Live requires
+  explicit `Stop & Close` behavior;
+- critical Meeting interruption while the app is background/minimized should attract
+  user attention without silently stealing focus;
+- capability health is scoped: a Meeting-route problem does not make Text/History
+  globally unavailable when their own dependencies remain healthy.
+
 ## Stop And History Finalization
 
 `Stop Translation` is a direct safety action. Once accepted, old-session work loses
@@ -282,8 +312,9 @@ normal production/runtime dependency and discovery contracts.
 ## Current Implementation Evidence Boundary
 
 The current `New` frontend/source still predates parts of the newly approved product
-flow, including old Documents/top-level Saved/navigation/settings surfaces. Source
-presence does not prove target-PC readiness.
+flow, including old Documents/top-level Saved/navigation/settings surfaces and the
+new global cross-feature Meeting lifecycle/indicator behavior. Source presence does
+not prove target-PC readiness.
 
 Do not claim live success without appropriate evidence for microphone capture,
 ASR/translation/TTS quality, self-output suppression, turn coordination, CUDA,
