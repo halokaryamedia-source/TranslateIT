@@ -40,20 +40,27 @@ function meetingSettingsView(settings: RuntimeSettings): string {
   );
 }
 
-function historyPrivacySettingsView(): string {
+function historyPrivacySettingsView(settings: RuntimeSettings, statusMessage: string, busy: boolean): string {
+  const enabled = settings.history_enabled !== false;
+  const checked = enabled ? " checked" : "";
+  const disabled = busy ? " disabled" : "";
+  const message = statusMessage.trim()
+    ? `<p id="historyPrivacyMessage" class="history-privacy-message" aria-live="polite">${statusMessage}</p>`
+    : `<p id="historyPrivacyMessage" class="history-privacy-message" aria-live="polite"></p>`;
+
   return settingsPage(
     "History & Privacy",
     "Control what TranslateIT keeps locally and understand Saved data ownership.",
     "settings-view--history-privacy",
     `${settingsSection("History", "History contains Meeting and Text activity when enabled.", true)}${settingsCard(
       "settings-card--history",
-      `${settingsField("History controls", statusValue("Not connected yet", "warning"), "The current source slice establishes the final Settings hierarchy without pretending History persistence controls are already implemented.")}`,
+      `<div class="history-privacy-control-row"><div><h3>Keep History</h3><p>Automatically keep completed Meeting and Text activity in Recent when the connected workflow supports it.</p></div><label class="history-privacy-toggle"><input id="historyEnabledToggle" type="checkbox"${checked}${disabled} /><span class="history-privacy-toggle-track" aria-hidden="true"></span><strong>${enabled ? "On" : "Off"}</strong></label></div><p class="history-privacy-note">Turning History off affects new/current retention only. Existing Recent and Saved items are not deleted.</p>`,
     )}${settingsSection("Saved", "Saved items are explicit durable work and remain separate from automatic History.")}${settingsCard(
       "settings-card--saved",
-      `${settingsField("Saved ownership", statusValue("Separate from History"), "Clearing History must not remove Saved items.")}`,
-    )}${settingsSection("Clear History", "The destructive control stays unavailable until the History storage contract is connected.")}${settingsCard(
-      "settings-card--diagnostic",
-      `<p class="diagnostic-note">No placeholder Clear History button is exposed before the persistent storage behavior is implemented.</p>`,
+      `${settingsField("Saved ownership", statusValue("Separate from History"), "Saved items remain available when History is turned off and are not removed by Clear History.")}`,
+    )}${settingsSection("Clear History", "Delete automatic Recent History without deleting Saved items.")}${settingsCard(
+      "settings-card--history-clear",
+      `<div class="history-clear-row"><div><h3>Clear Recent History</h3><p>Meeting and Text items in Recent will be deleted. Saved items will not be affected.</p></div>${primaryButton("Clear History", { id: "clearHistoryButton", class: "secondary history-clear-button", disabled: busy })}</div>${message}`,
     )}`,
   );
 }
@@ -87,8 +94,16 @@ export function renderMeetingSettingsTab(args: {
 
 export function renderHistoryPrivacySettingsTab(args: {
   ui: SettingsRenderRefs;
+  settings: RuntimeSettings;
+  statusMessage: string;
+  busy: boolean;
+  onHistoryEnabledChange: (enabled: boolean) => void;
+  onClearHistory: () => void;
 }): void {
-  args.ui.settingsContent.innerHTML = historyPrivacySettingsView();
+  args.ui.settingsContent.innerHTML = historyPrivacySettingsView(args.settings, args.statusMessage, args.busy);
+  const toggle = requireElement<HTMLInputElement>("#historyEnabledToggle");
+  toggle.addEventListener("change", () => args.onHistoryEnabledChange(toggle.checked));
+  requireElement<HTMLButtonElement>("#clearHistoryButton").addEventListener("click", () => args.onClearHistory());
 }
 
 export function renderAdvancedSettingsTab(args: {
