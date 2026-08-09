@@ -2,134 +2,279 @@
 
 Updated: 2026-08-09  
 Working branch: `New`  
-Status: Repository root/design/tooling/frontend-shell ownership aligned; source-side development continues before local acceptance
+Status: Product-flow planning through Settings is persisted; source implementation remains paused until the final cross-feature flow is agreed
 
 This file is the single active continuation owner for TranslateIT.
 
 ## Resume
 
+For a new session, use only:
+
 ```text
 AGENTS.md
 -> CONTEXT.md
 -> docs/knowledge/next-action.md
--> one relevant canonical owner/source only
+-> docs/foundation/01-product-overview.md
+-> docs/foundation/02-product-requirements.md
+-> one relevant current owner/source only when implementation resumes
 ```
 
-## Current State
+Do not reconstruct product decisions from old chat history when these canonical
+owners already contain the approved state.
 
-Completed source-side boundaries include:
+## Current Planning Mode
+
+Current mode: **Plan**.
+
+The user intentionally paused source/runtime implementation to complete the product
+user-flow model first. Do not silently resume the previously planned frontend
+bridge/shared reachability cleanup yet.
+
+The dedicated local/Windows acceptance phase is also still deferred until the
+bounded ChatGPT -> GitHub source-development phase is later completed.
+
+## Product Scope Now Locked
+
+Primary product:
 
 ```text
-context/foundation/source recovery
-development governance and skill architecture
-Product Shell & Readiness source alignment
-Repository Data Boundary Alignment — root/runtime pass
-EngineData Design/Reference Ownership Alignment — Figma/preview pass
-EngineData Tooling Ownership Alignment — RustApp scripts pass
-EngineData Frontend Source Reachability Alignment — active shell pass
-GitHub README refresh
+Meeting
 ```
 
-Current architecture remains:
+Secondary product utility:
 
 ```text
-Rust/Tauri desktop shell
-+
-Python helper runtime
+Text
 ```
 
-## Canonical Data Boundaries
+Normal top-level navigation:
 
 ```text
-EngineData
--> product implementation + production runtime assets/contracts
-
-UserData
--> runtime/user-owned data only
-
-DevelopingData
--> historical/recovery/reference development evidence only
+Meeting
+Text
+History
+Settings
 ```
 
-## Frontend Reachability Result
+History presentation:
 
-Current HTML/build entrypoints are:
+```text
+History
+├─ Recent
+└─ Saved
+```
+
+Normal Settings:
+
+```text
+Meeting
+History & Privacy
+Advanced
+```
+
+`Saved` remains distinct durable ownership but is not top-level navigation.
+
+**Document Translation is removed from current product scope.** Do not develop or
+preserve a Documents product workflow/parser/export/job/history subsystem.
+
+Audio Studio remains advanced/post-core and is not a core-release blocker.
+
+## Agreed User-Flow Coverage
+
+The following product flows have been discussed and are now persisted in the
+foundation requirements:
+
+```text
+01 First Launch & Guided Setup
+02 Pre-Meeting & Start Translation
+03 Live Outbound Translation
+04 Live Incoming Translation
+05 Turn-Taking & Realtime Coordination
+06 Failure, Recovery & Long-Session Reliability
+07 Stop Translation, Finalization, History & Saved
+08 Standalone Text Translation
+09 History & Saved Workspace
+10 Settings
+```
+
+### First use / readiness
+
+- first use guides microphone, Meeting Sound, TranslateIT Meeting Microphone, and
+  local translation readiness without engineering/runtime controls;
+- returning users open directly to Meeting and receive a quick preflight;
+- core outbound determines Meeting readiness;
+- incoming English -> Indonesian text is optional/degradable;
+- `Start Translation` commits Live only after final required outbound validation;
+- failed Start does not create a fake History session.
+
+### Live outbound
+
+- Session Listening primary; PTT `Ctrl+Space` secondary;
+- natural/adaptive segmentation; inherited fixed `700 ms`/`12 s` values are not
+  product constants;
+- partial ASR is preview-only; final/stable utterance is outbound commit boundary;
+- capture continues while prior TTS processes/speaks;
+- own TTS output is serialized;
+- session/generation/utterance identity prevents stale work from re-entering;
+- application-side playback is at-most-once; uncertain playback is not blindly
+  replayed;
+- user-visible delivery wording is truthful (`Output complete`, `Not delivered`,
+  interrupted), not `participant heard it`;
+- backlog is bounded and surfaced;
+- Pause stops outbound voice/pending outbound while incoming may continue;
+- current translated voice can be contextually interrupted without ending session.
+
+### Live incoming
+
+- separate Meeting Sound lane from outbound microphone capture;
+- English speech -> Indonesian text only initially;
+- transient partial subtitles allowed;
+- own TranslateIT TTS must not become incoming translation;
+- do not invent participant identity or process-specific Zoom/Meet/Teams source;
+- incoming may be disabled/unavailable without blocking outbound;
+- incoming prioritizes current freshness and degrades before core outbound under
+  resource pressure.
+
+### Turn coordination
+
+- ready outbound TTS may briefly wait while meaningful incoming speech is active;
+- wait is bounded; use explicit `Speak Now` / `Cancel` rather than indefinite hold
+  or automatic meeting-etiquette decisions;
+- committed TTS normally finishes unless user or critical failure interrupts it;
+- adjacent still-undelivered utterances may form one natural delivery turn while
+  retaining individual utterance identity;
+- conversation/context order follows speech/turn order, not callback completion.
+
+### Reliability / long session
+
+- failures classify as recoverable, degradable, or blocking/unsafe;
+- one recovery/session owner; recovery is bounded;
+- explicit newer user action overrides stale automatic recovery;
+- Meeting Microphone loss pauses outbound and old queues are never dumped later;
+- stale generation callbacks are discarded;
+- no silent cloud fallback;
+- minimize/hide does not end a healthy Meeting;
+- loss of user control must not leave uncontrolled invisible output;
+- sleep/hibernate interrupts live translation and does not auto-resume voice;
+- long sessions keep memory, queues, context, handles, and temp artifacts bounded;
+- Meeting runtime has priority; incoming degrades before core outbound.
+
+### Stop / History / Saved
+
+- `Stop Translation` is a direct safety action, no confirmation required;
+- old-session output authority is revoked before normal finalization;
+- current/pending voice and captures stop; late callbacks cannot revive output;
+- History is incremental/local when enabled and contains only committed Meeting/Text
+  artifacts;
+- failed Start and zero-meaningful-turn sessions do not create useless History;
+- History is automatic when enabled; Saved is explicit durable independent work;
+- Clear/delete History never deletes Saved; deleting Saved never deletes History;
+- History Off affects future/current retention but does not delete old History;
+- History/Saved/search never automatically become model context;
+- raw microphone/incoming/TTS audio are temporary by default;
+- logs do not contain conversation bodies by default.
+
+### Text
+
+- explicit Translate action; not every keystroke;
+- Indonesian <-> English only; Quality default; tone Auto/Formal/Casual;
+- older request results cannot overwrite newer intent;
+- source edits mark existing result outdated;
+- target may be user-edited before Copy/Save;
+- very large input is never silently truncated; ask user to shorten/split rather
+  than redirecting to removed Documents;
+- Text is independent of Meeting audio readiness and Meeting context.
+
+### History / Saved workspace
+
+- one History workspace with `Recent / Saved`;
+- Meeting and Text only;
+- newest-first Recent, local straightforward search, Meeting/Text filters;
+- Meeting History is chronological/read-only and preserves truthful delivery
+  status;
+- Text History is read-only translation artifact;
+- Saved commit is durable before UI says Saved;
+- no automatic History expiry/retention scheduler in the initial product;
+- no first-class export subsystem is required for History; simple copying is enough
+  for the initial product.
+
+### Settings
+
+- normal Settings is `Meeting / History & Privacy / Advanced`;
+- no separate General/Translation settings unless a future distinct responsibility
+  appears;
+- contextual language/tone/mode choices stay in Meeting/Text;
+- microphone/Meeting Sound selections are verified before replacing working
+  preferences;
+- Follow Windows Default and explicit pinned-device intent are distinct;
+- TranslateIT Meeting Microphone is a managed product route, not a generic route
+  dropdown;
+- opening Settings during Live does not stop the session;
+- safe explicit device changes may rebind only the affected lane;
+- speaking-mode changes apply next session;
+- History Off during Live affects retention after the session while transient live
+  context may continue as required;
+- normal users do not operate Python/helpers/workers/providers/CUDA/VAD/queue/retry/
+  model-path/raw-log controls;
+- simple preferences auto-save; runtime readiness is revalidated, not persisted as
+  permanent truth.
+
+## Current Source Reality
+
+The source-side structural/reachability cleanup completed before this planning phase
+still stands. Current HTML entrypoints remain:
 
 ```text
 index.html
-├─ src/main.ts
-│  -> SimpleLauncherController
-│  -> current shell/settings/result/startup helpers
-│
-└─ src/audioStudioEntry.ts
-   -> Audio Studio theme entry
-   -> Audio Studio binding stubs retained because they are still explicitly loaded
+├─ src/main.ts -> SimpleLauncherController
+└─ src/audioStudioEntry.ts -> reachable Audio Studio entry
 ```
 
-The primary active-shell `src/app/active-launcher` boundary now retains only helpers with a current production caller:
+However, current source now predates the approved product policy in several areas:
 
 ```text
-audioStudioAdvancedBinding.ts
-audioStudioBinding.ts
-chatViews.ts
-dom.ts
-launcherAttachmentRules.ts
-launcherDeveloperLog.ts
-launcherDeveloperSettings.ts
-launcherLanguageRules.ts
-launcherSettingsActions.ts
-launcherSettingsRenderer.ts
-launcherTextRules.ts
-lockedReferenceShellParts.ts
-settingsViews.ts
-shell.ts
-startupDiagnostics.ts
-uiPageFactory.ts
-windowRescue.ts
+Documents still exists as inherited product/source surface
+Saved is still top-level in current shell
+Settings still reflects older hierarchy
+Meeting lifecycle/readiness does not yet implement the full approved flow
+History/Saved semantics remain incomplete
+incoming/self-output/turn coordination/recovery contracts remain incomplete
 ```
 
-Removed from current product source were the unreachable parallel `LauncherController` path and its legacy binding/watch/route/preview/controller helpers, including the unmounted virtual-route selection surface. Historical Git commits remain provenance; dead source was not moved into `DevelopingData` as a second archive.
-
-`dom.ts` no longer owns the obsolete `bindUi()` selector map. Current settings rendering accepts only the `settingsContent` boundary it actually needs.
-
-Current validation was reconciled with the product graph:
-
-- translation-flow validation no longer requires a disabled preview-translation stub;
-- virtual-route validation now checks current engine/provider/product-readiness ownership and no longer depends on retired frontend route-selection bindings or `DevelopingData` notes;
-- the redundant legacy action-binding diagnostic report was removed from the current auto-test/contract-report graph.
-
-The Audio Studio binding pair was **not** removed because caller inspection found `index.html -> audioStudioEntry.ts` still loads them. Their actual product completeness remains a separate Audio Studio concern; this reachability pass does not promote them to a completed feature.
-
-## Structural Alignment Already Completed
-
-- current root/EngineData/UserData/DevelopingData documentation states the current ownership contract;
-- current runtime discovery uses `EngineData + UserData` and does not inspect `DevelopingData`;
-- developer/source-validation reports use ignored `.tmp/validation/` rather than `UserData`;
-- historical V1/V1-Pull automation, Figma/standalone Preview ownership, and orphan RustApp tooling are no longer current `New` infrastructure;
-- current production UI source remains caller-driven even when retained filenames contain inherited terms such as `reference`.
+`docs/knowledge/source-ownership.md` records these as stale/partial boundaries.
 
 ## Proof State
 
-**CURRENT-PROJECT VERIFIED** at static repository level:
+**CURRENT-PROJECT VERIFIED** at repository-policy level:
 
-- `index.html` identifies the two frontend build entrypoints;
-- `main.ts` starts only `SimpleLauncherController`;
-- retained active-launcher files have a current caller from either the primary shell graph or the explicit Audio Studio entry;
-- the removed legacy frontend path was not imported by the current primary product entrypoint/controller;
-- source validators/reports were reconciled so they no longer keep retired UI source alive as a validation dependency;
-- current virtual-route source validation no longer reads historical `DevelopingData` material.
+- product overview/requirements now contain the approved flows through Settings;
+- Document Translation is removed from active product policy;
+- navigation and Settings target hierarchy are persisted;
+- source ownership map now treats old Documents/top-level Saved/settings behavior as
+  stale rather than approved current behavior;
+- source implementation was not changed by this persistence step.
 
-**LOCAL PROOF REQUIRED** remains deferred for rendered desktop behavior, Windows runtime readiness, device/audio/model behavior, and clean installed package behavior. The local acceptance phase remains intentionally later.
+**LOCAL PROOF REQUIRED** remains deferred for rendered UI, Windows runtime,
+microphone/audio/model behavior, self-output suppression, latency, persistence,
+and packaging.
 
 ## Hold
 
-- Do not recreate a parallel launcher/controller/binding stack without a new explicit architecture decision.
-- Do not keep inactive source merely because a validator can reference it; validators follow canonical product source ownership.
-- Do not delete a source merely because it is outside `main.ts`; HTML/build entrypoints and other current callers must also be checked.
-- Do not use `UserData` for developer/source-validation output.
-- Do not revive historical `DevelopingData` files as current source or policy.
-- Do not start the local acceptance phase yet unless the user changes the phase order.
+- stay in Plan until the next user-flow step is complete;
+- do not revive Document Translation;
+- do not create a top-level Saved workspace;
+- do not start local Windows acceptance yet;
+- do not resume frontend bridge/shared reachability cleanup until the product-flow
+  planning sequence explicitly advances to implementation;
+- do not implement from chat memory when foundation requirements already own the
+  decision.
 
 ## Next Step
 
-Continue bounded **frontend bridge/shared reachability classification** from `SimpleLauncherController -> runtimeProductFacade/runtimeApi -> direct bridge/shared imports`, while also respecting explicit HTML/build entrypoints: identify orphan bridge APIs, legacy compatibility surfaces, and shared contracts that no longer have a current product/runtime consumer, then remove/reconcile only the proven inactive ownership without changing current product behavior.
+Complete **Flow 11 — Global Navigation & Cross-Feature Behavior**: define how a live
+Meeting behaves while the user navigates to Text, History, or Settings and back;
+how active/critical Meeting state remains visible outside the Meeting page; how
+screen state survives navigation; how duplicate Meeting starts are prevented; and
+how minimize/close/global recovery interactions behave. Stay in Plan and persist
+any resulting durable decisions before entering screen inventory / information
+architecture / visual UI design or source implementation.
