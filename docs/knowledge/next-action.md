@@ -2,7 +2,7 @@
 
 Updated: 2026-08-09  
 Working branch: `New`  
-Status: core shell, Settings, Meeting Ready, Text composition, and canonical History/Saved persistence foundation are source-aligned through ChatGPT -> GitHub
+Status: core shell, Settings hierarchy, Meeting Ready, Text workspace, and Text-backed History Recent/Saved collection/detail are source-aligned through ChatGPT -> GitHub
 
 This file is the single active continuation owner for TranslateIT.
 
@@ -20,7 +20,8 @@ AGENTS.md
 -> one relevant current source owner only
 ```
 
-Do not reconstruct approved product decisions from chat history when canonical repository owners already contain them.
+Do not reconstruct approved product decisions from chat history when canonical
+repository owners already contain them.
 
 ## Current Mode
 
@@ -32,7 +33,9 @@ Execution channel:
 ChatGPT -> GitHub
 ```
 
-Local/Windows acceptance remains deferred. Static source alignment may continue, but rendered/device/runtime/audio/model/package claims remain `LOCAL PROOF REQUIRED` until the dedicated local phase.
+Local/Windows acceptance remains deferred. Static source alignment may continue,
+but rendered/device/runtime/audio/model/filesystem/package claims remain
+`LOCAL PROOF REQUIRED` until the dedicated local phase.
 
 ## Locked Product / UI Baseline
 
@@ -46,17 +49,18 @@ Documents     -> removed
 Audio Studio  -> advanced/post-core
 ```
 
-UI target remains **Modern + Easy to use + Familiar**. Normal UI uses product language rather than helper/model/audio-engineering terminology.
+UI target remains **Modern + Easy to use + Familiar**. Normal UI uses product
+language rather than helper/model/audio-engineering terminology.
 
 ## Completed Source Slices
 
-### Top-level shell/navigation
+### 1. Top-level shell / navigation
 
 - active sidebar is `Meeting / Text / History / Settings` only;
-- Documents and top-level Saved were removed from the active shell;
+- Documents and top-level Saved are removed from the active shell;
 - one current shell/controller path remains.
 
-### Normal Settings hierarchy
+### 2. Normal Settings hierarchy
 
 ```text
 Meeting
@@ -65,9 +69,10 @@ Advanced
     -> Diagnostics
 ```
 
-Global General/Translation/Audio destinations are no longer active. Text owns its contextual ID/EN direction. Diagnostics stays nested under Advanced.
+Global General/Translation/Audio destinations are no longer active. Diagnostics
+stays nested under Advanced.
 
-### Meeting Ready
+### 3. Meeting Ready
 
 The active Ready surface follows the approved hierarchy and remains truthful:
 
@@ -80,9 +85,10 @@ readiness
 -> Start Translation boundary
 ```
 
-Incoming remains explicitly not connected and `Start Translation` remains disabled until the approved atomic Meeting lifecycle exists.
+Incoming remains explicitly not connected and `Start Translation` remains disabled
+until the approved atomic Meeting lifecycle exists.
 
-### Text workspace
+### 4. Text workspace
 
 - familiar source/target panes;
 - contextual persisted ID/EN Swap;
@@ -90,25 +96,11 @@ Incoming remains explicitly not connected and `Start Translation` remains disabl
 - editable target;
 - stale/error states preserve visible user work;
 - active file-attachment translation removed;
-- canonical text translation runtime path preserved.
+- canonical translation runtime path preserved.
 
-### Canonical History/Saved persistence foundation
+### 5. Canonical History / Saved persistence
 
-Inspection found the inherited persistence owners insufficient for approved product History:
-
-```text
-session_chat.rs
--> generic role/content chat files in SavedProject/Chat
--> no approved Meeting metadata / detail/delete/clear/save-copy semantics
-
-session_store.rs
--> technical transcript payloads in SavedTranscript
--> not unified Recent/Saved product retrieval
-```
-
-Neither is promoted into a second active History system.
-
-A single canonical product History owner now exists:
+Canonical product History is:
 
 ```text
 src-tauri/src/engine/history_store.rs
@@ -119,36 +111,64 @@ UserData/SavedProject/History/
 └─ Saved/
 ```
 
-Current persistence contract provides:
+It provides Text Recent creation, Recent/Saved listing + type filtering, detail read,
+idempotent Recent -> Saved independent copy, Remove from Saved, and Clear Recent
+without touching Saved. `RuntimeSettings.history_enabled` defaults ON.
 
-- Text Recent-entry creation contract;
-- schema capable of Text detail and future Meeting chronological turns/delivery state;
-- list by Recent/Saved + optional Meeting/Text filter;
-- detail read;
-- idempotent Recent -> Saved independent copy;
-- Remove from Saved without deleting Recent;
-- Clear Recent without touching Saved;
-- bounded file/list/text sizes and atomic writes.
+Legacy `session_chat.rs` and `session_store.rs` remain non-canonical for product
+History and are not wired as a second system.
 
-`RuntimeSettings` schema now persists `history_enabled`, default `true`, with backward-compatible serde default behavior.
+### 6. History frontend + Text Recent integration
 
-Static proof only: registered Tauri commands and storage ownership are source-visible. Filesystem/runtime behavior remains local proof later.
+Canonical History commands are now connected through the existing `runtimeApi`.
+The active Text flow snapshots the completed request metadata and, only when
+`history_enabled` is ON, writes a successful intentional Text translation to Recent.
+A History write failure is surfaced separately and does not convert a successful
+translation into a translation failure.
+
+The active History workspace now provides:
+
+```text
+Recent | Saved
+Search
+All | Meeting | Text
+chronological collection
+-> Text detail
+   -> Save
+   -> Remove from Saved
+```
+
+Current behavior:
+
+- Recent/Saved and Meeting/Text filters call the canonical store only;
+- local search filters retrieved title/snippet data;
+- stale asynchronous collection requests are discarded by scope/filter identity;
+- Text detail reads persisted source/target/language/tone/mode metadata;
+- Recent `Save` uses canonical idempotent independent-copy semantics;
+- Saved `Remove from Saved` removes only Saved and leaves Recent untouched;
+- History OFF does not hide/delete old History; it only prevents new Text Recent
+  writes in the currently connected path;
+- Meeting filters are truthful but no Meeting records are invented because the
+  canonical Meeting lifecycle still does not write History;
+- dedicated History CSS is mounted through the existing `main.ts` entry rather than
+  creating another shell.
+
+Static source proves wiring and ownership only. Actual filesystem persistence,
+rendered layout, and installed-run behavior remain local proof later.
 
 ## Current Source Reality
 
 Important approved gaps remain independently:
 
 ```text
-History frontend runtimeApi bridge is not connected yet
-Text successful translations do not yet call the new Recent write command
-History workspace is still a placeholder instead of Recent / Saved collection/detail
-History & Privacy toggle / Clear History UI is not connected yet
-Meeting History write is blocked by the missing canonical Meeting lifecycle
+History & Privacy On/Off control is not connected yet
+History & Privacy Clear History confirmation/action is not connected yet
+Meeting History write/detail waits for canonical Meeting lifecycle
 First Setup wizard / intentional defer is not implemented
 global Meeting strip / cross-view live state / single-instance behavior is incomplete
 atomic Start Translation and Meeting Live lifecycle are not implemented
 incoming lane, turn coordination, recovery, and Stop semantics remain incomplete
-Text Quality-default ownership, tone inference, Copy/Save semantics remain incomplete
+Text independent Quality-default ownership, tone inference, Copy/direct Save remain incomplete
 legacy unreachable helpers may remain and require bounded reachability cleanup later
 installer/runtime asset proof remains later
 ```
@@ -157,27 +177,44 @@ Do not combine all remaining gaps into one broad refactor.
 
 ## Proof State
 
-**CURRENT-PROJECT VERIFIED** for the History foundation:
+**CURRENT-PROJECT VERIFIED** for this completed History slice:
 
-- canonical `history_store.rs` exists and is registered through `commands/history.rs` and the Tauri registry;
-- persistence remains under the approved existing `UserData/SavedProject` root;
-- Recent and Saved use separate subdirectories and Saved is an independent copied artifact;
-- Clear Recent code does not target Saved;
-- inherited chat/transcript stores remain separate and are not declared canonical product History;
-- `history_enabled` defaults on and has backward-compatible Rust deserialization.
+- canonical History Tauri commands are reachable through the current frontend
+  `runtimeApi`;
+- successful Text translation has one explicit History write gate using
+  `history_enabled`;
+- active History UI reads the canonical Recent/Saved store rather than legacy chat
+  or technical transcript stores;
+- Text detail Save/Remove actions map to the same canonical owner;
+- Saved lifetime remains independent from Recent in the backend contract;
+- search/filter/detail state is owned by the current controller, not a second state
+  manager;
+- the current application entry remains `main.ts -> SimpleLauncherController -> shell`.
 
-**LOCAL PROOF REQUIRED** for actual filesystem writes/reads, rendered History UI, Windows behavior, and persistence across installed runs.
+No GitHub Actions workflow run was available for the current source commit during
+this slice.
+
+**LOCAL PROOF REQUIRED** for TypeScript/build execution, actual Tauri invocation,
+filesystem write/read durability, rendered History behavior/resizing, and Windows
+installed-run persistence.
 
 ## Hold
 
-- do not wire History UI to `session_chat.rs` or `session_store.rs`;
+- do not wire product History to `session_chat.rs` or `session_store.rs`;
 - do not create another persistent storage root;
-- do not make Saved a pointer whose lifetime depends on Recent;
+- do not make Saved depend on Recent lifetime;
 - do not let Clear History delete Saved;
-- do not invent Meeting History records before Meeting lifecycle exists;
+- do not invent Meeting History before Meeting lifecycle exists;
+- do not revive Documents, file attachment translation, top-level Saved, or old
+  Settings hierarchy;
 - do not start local Windows acceptance yet;
-- do not claim filesystem/runtime success from static source.
+- do not claim filesystem/rendered success from static source.
 
 ## Next Step
 
-Start the next bounded source slice: **connect the canonical History commands through the existing frontend runtime bridge, write successful Text translations to Recent only when `history_enabled` is on, and replace the History placeholder with the smallest truthful `Recent / Saved` collection + Text detail surface**. Preserve one current persistence owner; do not implement Meeting History writes until Meeting lifecycle exists. After that, wire History & Privacy On/Off and Clear History against the same owner rather than a separate store.
+Start the next bounded source slice: **connect `Settings -> History & Privacy` to the
+same canonical owners**. Add a real History On/Off control backed by
+`RuntimeSettings.history_enabled`, preserving existing History/Saved when turned
+off, and add the approved `Clear History` confirmation/action backed only by
+`runtimeApi.clearRecentHistory()`. Saved must remain untouched. Do not add Meeting
+History writes or a second privacy/storage service in this slice.
