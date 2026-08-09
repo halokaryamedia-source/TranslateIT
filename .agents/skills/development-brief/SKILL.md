@@ -7,7 +7,7 @@ description: Mandatory front door for non-trivial TranslateIT Developing work. G
 
 Use this skill as the Developing front door. Root `AGENTS.md` owns boot,
 precedence, discovery, independent judgment, edit discipline, anti-slop, evidence,
-and finalization; do not duplicate those rules here.
+and finalization; do not duplicate or weaken those rules here.
 
 ## Required Decisions
 
@@ -92,7 +92,31 @@ Set explicit in/out scope where adjacent systems are easy to confuse. Use only
 Set the proof budget before implementation using the minimum proof level required
 by the claims.
 
-### 6. Select At Most One Specialist
+### 6. Run The Development Quality Guard
+
+Before editing, verify all five:
+
+1. **One owner** — the change extends/reconciles the canonical owner instead of
+   creating a second active service, runtime, store, controller, gate, or config
+   authority for the same responsibility.
+2. **Real success** — no placeholder, seed, deterministic demo, dry-run, source
+   marker, stale manifest, or fallback result can be promoted into product/runtime
+   success unless the current acceptance claim explicitly is only that narrow
+   contract.
+3. **Known fallback only** — every fallback handles a named expected capability
+   condition. Broad fallback/retry must not hide an unknown root cause or make
+   behavior depend on whichever path happens to succeed.
+4. **Every addition earns its place** — each persistent file, abstraction,
+   dependency, config, compatibility layer, cache, or state maps directly to a
+   current criterion, required contract, proved cause, or required proof.
+5. **Proof matches claim** — static/source/build evidence is never described as
+   model quality, latency, device/audio, rendered UI, installed-runtime, or
+   production proof.
+
+If any check fails, shrink the method, merge/remove an owner, or return to Plan /
+Recovery. Do not continue by layering another abstraction over the conflict.
+
+### 7. Select At Most One Specialist
 
 Read `docs/knowledge/skills/activation-matrix.md` only when specialist selection is
 needed.
@@ -108,13 +132,21 @@ zero or one project specialist
 Use a specialist only when the current acceptance boundary is owned by that
 semantic domain and the specialist adds domain-specific execution judgment.
 
-### 7. Implement And Prove
+Communication/review/research/tooling techniques are not extra specialists and do
+not justify new repository skills when root governance or the selected specialist
+can own them cleanly.
+
+### 8. Implement And Prove
 
 Apply the root-cause/edit gate, change the actual owner, preserve valid behavior
 outside scope, and implement the minimum complete solution. Obtain only the proof
 budget required by the brief.
 
-### 8. Return To The Same Brief
+When progress reporting is needed, keep it action-first: state the current result or
+blocker first, keep active multi-step work bounded, and do not introduce unrelated
+issues before the current acceptance boundary is closed.
+
+### 9. Return To The Same Brief
 
 Before completion verify:
 
@@ -123,6 +155,9 @@ Before completion verify:
 - Acceptance POV satisfied?
 - All criteria supported by proof actually obtained?
 - Stayed inside scope?
+- One canonical owner remains for each changed responsibility?
+- Any fake/placeholder success, evidence inflation, arbitrary progress metric,
+  ceremonial test, or fallback masking introduced?
 - Any unsupported or unproved claim introduced?
 
 If implementation exists but required local/runtime/device proof is unavailable,
@@ -148,7 +183,9 @@ Cara memastikan benar:
 ```
 
 Keep the full internal fields private unless a material decision needs explicit
-review.
+review. Lead with the actionable/current result rather than praise or a generic
+preamble. Use numbered steps only when the user must track multiple actions. Do not
+invent time estimates merely to make work sound concrete.
 
 ## Completion
 
