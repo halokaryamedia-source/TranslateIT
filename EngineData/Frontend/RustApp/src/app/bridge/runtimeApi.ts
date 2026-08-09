@@ -2,6 +2,14 @@ import { invoke } from "@tauri-apps/api/core";
 import { defaultSettings, errorMessage } from "../shared/state";
 import { getRuntimeCommandErrors } from "../shared/tauriBridge";
 import type {
+  HistoryClearResult,
+  HistoryEntry,
+  HistoryEntryType,
+  HistoryScope,
+  HistorySummary,
+  HistoryWriteResult,
+} from "../shared/historyTypes";
+import type {
   AsrHandoffRequestStatus,
   AudioDeviceListReport,
   AudioStudioValidationEvidence,
@@ -242,6 +250,15 @@ async function invokeOr<T>(command: string, args: Record<string, unknown> | unde
 
 async function invokeNullable<T>(command: string, args?: Record<string, unknown>): Promise<T | null> {
   return invokeOr<T | null>(command, args, null);
+}
+
+async function invokeRequired<T>(command: string, args?: Record<string, unknown>): Promise<T> {
+  try {
+    return await invoke<T>(command, args);
+  } catch (error) {
+    recordCommandError(command, error);
+    throw error;
+  }
 }
 
 function publishSettings(settings: RuntimeSettings): void {
@@ -583,6 +600,40 @@ export const runtimeApi = {
 
   async appendChatMessage(sessionId: string, role: "user" | "assistant", content: string): Promise<LauncherChatActionResult | null> {
     return invokeNullable<LauncherChatActionResult>("append_chat_message", { sessionId, role, content });
+  },
+
+  async createTextHistoryEntry(input: {
+    source: string;
+    target: string;
+    sourceLanguage: string;
+    targetLanguage: string;
+    tone: string;
+    mode: string;
+  }): Promise<HistoryWriteResult> {
+    return invokeRequired<HistoryWriteResult>("create_text_history_entry", input);
+  },
+
+  async listHistoryEntries(scope: HistoryScope, entryType: HistoryEntryType = "all"): Promise<HistorySummary[]> {
+    return invokeRequired<HistorySummary[]>("list_history_entries", {
+      scope,
+      entryType: entryType === "all" ? null : entryType,
+    });
+  },
+
+  async getHistoryEntry(scope: HistoryScope, entryId: string): Promise<HistoryEntry | null> {
+    return invokeRequired<HistoryEntry | null>("get_history_entry", { scope, entryId });
+  },
+
+  async saveHistoryEntry(entryId: string): Promise<HistoryWriteResult> {
+    return invokeRequired<HistoryWriteResult>("save_history_entry", { entryId });
+  },
+
+  async removeSavedHistoryEntry(entryId: string): Promise<HistoryWriteResult> {
+    return invokeRequired<HistoryWriteResult>("remove_saved_history_entry", { entryId });
+  },
+
+  async clearRecentHistory(): Promise<HistoryClearResult> {
+    return invokeRequired<HistoryClearResult>("clear_recent_history");
   },
 
   async translateText(source: string): Promise<CommandResult> {
