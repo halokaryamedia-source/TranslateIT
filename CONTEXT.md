@@ -37,7 +37,7 @@ Gemini's cloud/model/language architecture.
 
 ## Initial Product Surface
 
-The active frontend follows the initial navigation target:
+The active frontend follows:
 
 ```text
 Meeting
@@ -52,13 +52,12 @@ Meeting
 Advanced -> Diagnostics
 ```
 
-History/Saved is no longer an active navigation/settings workflow. Successful Text
-translation no longer performs an automatic History write. Existing backend
-History/Saved storage and Tauri commands remain deferred/disconnected source only and
-are not a Meeting/Text success dependency.
+History/Saved is not an active navigation/settings workflow. Successful Text translation
+does not perform an automatic History write. Existing backend History/Saved source is
+deferred/disconnected and is not a Meeting/Text success dependency.
 
-Normal Meeting/Text UI also no longer presents Tone or Realtime/Quality Mode controls.
-Normal users choose only the relevant Indonesian/English direction.
+Normal Meeting/Text UI does not present Tone or Realtime/Quality mode controls. Normal
+users choose only the relevant Indonesian/English direction.
 
 Normal Meeting lifecycle:
 
@@ -114,14 +113,9 @@ Text
 Normal Meeting/Text translation requests send content and explicit language direction;
 they do not send a user/runtime mode selector.
 
-The repository does **not** contain runtime proof that `marianmt-en-id` is installed,
-loads successfully, translates well, or meets target-PC latency/memory. Those remain
-local/release proof.
-
 ## Translation Model Inventory
 
-The declarative inventory now matches the worker's selected direction-based translation
-engine:
+Current declarative translation inventory matches the worker:
 
 ```text
 marianmt-id-en
@@ -129,27 +123,23 @@ stage = translation_id_en
 required = true
 path = EngineData/Backend/RuntimeAssets/Translation/ModelData/marianmt-id-en
 source = Helsinki-NLP/opus-mt-id-en
+license = apache-2.0
 
 marianmt-en-id
 stage = translation_en_id
 required = false
 path = EngineData/Backend/RuntimeAssets/Translation/ModelData/marianmt-en-id
 source = Helsinki-NLP/opus-mt-en-id
+license = apache-2.0
 ```
 
-The obsolete NLLB Quality entry is removed from the current manifest. Both Marian model
-cards identify the expected direction and Apache-2.0 license. Manifest presence remains
-installation metadata only; it does not prove model bytes exist, load, or satisfy
-quality/latency.
+`required=false` on EN->ID is scoped to the required Meeting-outbound inventory gate; it
+does not make Text EN->ID optional for product acceptance. The old NLLB Quality inventory
+entry is removed.
 
-`required=false` for the reverse EN -> ID inventory entry is deliberately scoped to the
-**required Meeting outbound inventory gate**. It prevents missing optional incoming from
-false-blocking ID -> EN Meeting Start. It does not claim EN -> ID Text is complete when
-the reverse model is missing; Text readiness still follows worker `translation_en_id`.
-
-`runtime_inventory.rs` reports only missing manifest-required assets as blocking its
-required-assets status and explicitly states that optional assets may still be absent.
-It remains installation evidence, not product/runtime inference proof.
+Inventory/presence is installation evidence only. The repository does **not** prove that
+either model is installed on a target machine, loads successfully, translates well, or
+meets latency/memory requirements.
 
 ## Translation Safety Rules
 
@@ -194,20 +184,18 @@ Start
 ```
 
 Pause/Resume commands, paused/resuming lifecycle states, fresh Resume generation, and
-normal frontend Pause/Resume controls have been removed from the current application
-Meeting path. Navigation between app views and normal minimize do not stop or pause the
-Meeting; it remains application-level until explicit Stop or safe Stop & Close.
+normal frontend Pause/Resume controls are removed from the current application Meeting
+path. Navigation between app views and normal minimize do not stop or pause the Meeting;
+it remains application-level until explicit Stop or safe Stop & Close.
 
-Session/generation/utterance authority continues to reject stale asynchronous output.
-English TTS remains serialized. Stop revokes authority before resource/transient-state
-cleanup and has no History persistence dependency.
+Session/generation/utterance authority rejects stale asynchronous output. English TTS is
+serialized. Stop revokes authority before resource/transient-state cleanup and has no
+History persistence dependency.
 
 ## Optional Incoming
 
 Physical microphone remains the required outbound source. Meeting Sound remains a
 distinct optional output-loopback source.
-
-Incoming target:
 
 ```text
 EN speech -> final EN ASR -> canonical EN -> ID translation -> local text
@@ -259,12 +247,86 @@ Queues remain bounded and stale work is discarded rather than surfaced late. CUD
 accelerate runtime when validated. CPU remains truthful degraded operation when it
 cannot satisfy practical Meeting latency.
 
+## Controlled Windows Release Direction
+
+Initial distribution remains controlled Windows users with **one setup experience**.
+One setup experience does not mean all large runtime/model bytes must live inside one
+installer executable.
+
+Current release direction is:
+
+```text
+TranslateIT release package
+├─ TranslateIT_<version>_x64-setup.exe
+└─ local payload/
+   ├─ required runtime payload(s)
+   ├─ ASR payload
+   ├─ marianmt-id-en payload
+   └─ marianmt-en-id payload
+```
+
+The Setup executable owns payload verification and placement. Normal users must not
+manually install Python, uv, pip, Hugging Face models, or copy model folders.
+
+The initial controlled release does **not** add a first-run internet downloader, generic
+package manager, or cloud fallback. This keeps installation independent from first-run
+network availability and keeps failure handling outside the translation session.
+
+A monolithic standard NSIS payload is not the selected approach because the current
+primary ASR plus both Marian PyTorch checkpoints already exceed a sensible single-NSIS
+size boundary before Python/Torch/TTS runtime files are included.
+
+Release acceptance requires both Marian directions because Text ID<->EN is core. Meeting
+runtime Start remains narrower: EN->ID alone may degrade incoming/reverse Text without
+blocking healthy required ID->EN outbound.
+
+## Installed Path Direction
+
+Current `ProjectPaths::discover()` still assumes repository-style `EngineData + UserData`
+markers and is therefore not installed-product-ready.
+
+Target ownership is:
+
+```text
+immutable packaged runtime root
+-> worker/runtime/model/voice assets
+
+writable Windows application-local root
+-> CacheData
+-> LogData
+-> future approved persistent user data
+
+repository root
+-> explicit development fallback only
+```
+
+`engine/paths.rs` remains the semantic path owner. Existing Tauri `app_bootstrap.rs` is
+the setup boundary for installed path initialization. Do not create another path
+registry/service.
+
+Current helper startup also still accepts `.venv`, environment, or system Python. That
+is a development/runtime gap: installed builds must eventually ship an approved Python
+helper runtime and must not require end users to install Python manually.
+
+## Reproducible Release Inputs
+
+Git keeps metadata, not model bytes. Externally sourced release payloads should be
+identified at minimum by:
+
+```text
+source/repo ID
+immutable source revision/commit
+expected installed target
+release payload/archive SHA-256
+```
+
+This release identity complements `model_manifest.json`; it must not create a second
+model-selection owner.
+
 ## Current Source That Remains Useful
 
 - active desktop shell/controller — Meeting / Text / Settings only, no normal Mode/Tone;
 - direction-based product readiness in `runtimeProductFacade.ts`;
-- direction-based `model_manifest.json` — `marianmt-id-en` required outbound + nonblocking `marianmt-en-id` reverse asset metadata;
-- `runtime_inventory.rs` — installation evidence for required/optional declared assets;
 - `engine/audio/live_capture.rs` — physical microphone capture;
 - `engine/audio/finalized_utterance.rs` — finalized speech/event identity;
 - `engine/audio/meeting_sound_capture.rs` — optional Meeting Sound loopback;
@@ -272,28 +334,29 @@ cannot satisfy practical Meeting latency.
 - bounded transient committed turns — current-session transcript;
 - `helper_bridge.rs` + `helper_bridge_runtime.rs` — one AI scheduler/worker bridge;
 - `realtime_local_worker.py` — ASR / bidirectional translation / TTS worker;
+- `model_manifest.json` — direction-based model identity/inventory metadata;
+- `engine/paths.rs` — canonical runtime/user path owner, to be made install-aware next;
 - virtual Meeting Microphone route owners;
 - global safe Stop/Close boundary;
-- standalone Text translation path without automatic History persistence or mode selection.
+- standalone Text translation without automatic History persistence or mode selection.
 
-## Source To Simplify / Retire
+## Source To Simplify / Complete
 
-Current source still contains behavior outside or incomplete for the initial product:
+Current source still contains behavior outside the initial product or gaps before an
+installed release:
 
-- actual delivery/provisioning of both Marian model assets to a target installation is not yet resolved/proven;
-- backend History/Saved persistence source, now disconnected from the active frontend;
+- repository-only runtime/user path discovery;
+- helper Python discovery through `.venv`/environment/system Python instead of packaged
+  installed runtime;
+- no implemented NSIS local sidecar payload staging yet;
+- backend History/Saved persistence source, disconnected from active frontend;
 - Audio Studio/custom voice initial-product assumptions;
 - any future conversation-context path;
-- worker/Diagnostics compatibility labels only after their consumers are proven unnecessary;
-- complex conversational delivery controls if encountered.
+- worker/Diagnostics compatibility labels only after their consumers are proven
+  unnecessary;
+- stale descriptive README content from superseded scope where encountered.
 
-Meeting Stop no longer writes History, successful Text translation no longer writes
-History, active navigation/settings no longer expose History/Saved, Pause/Resume is no
-longer part of application Meeting, and normal readiness/UI no longer use
-Realtime/Quality or Tone.
-
-Prefer actual removal/disconnection over compatibility layers that keep old complexity
-alive.
+Prefer actual reconciliation over compatibility layers that keep old complexity alive.
 
 ## First Acceptance Gate
 
@@ -310,9 +373,11 @@ optional incoming Meeting Sound behavior
 safe Start / Stop / Close
 acceptable latency / stability
 standalone Text ID <-> EN
+installed launch without repository/manual Python/manual model placement
 ```
 
-Static source does not prove model/audio/device/rendered/installed success.
+Static source, manifests, and package plans do not prove model/audio/device/rendered/
+installed success.
 
 ## Canonical Owners
 
