@@ -6,6 +6,8 @@ import subprocess
 import sys
 from pathlib import Path
 
+import pytest
+
 WORKER_PATH = Path(__file__).resolve().parents[1] / "realtime_local_worker.py"
 
 
@@ -19,8 +21,10 @@ def load_worker_module():
     return module
 
 
-def test_translate_rejects_unknown_mode_before_model_load() -> None:
+def test_mode_label_is_compatibility_only_not_model_selection(monkeypatch) -> None:
     worker = load_worker_module()
+    monkeypatch.setattr(worker, "translation_model_ready", lambda _path: False)
+
     result = worker.handle_translate(
         {
             "text": "halo",
@@ -31,11 +35,15 @@ def test_translate_rejects_unknown_mode_before_model_load() -> None:
     )
 
     assert result["ok"] is False
-    assert result["blocker"] == "translation:unsupported_mode"
+    assert result["mode"] == "Canonical"
+    assert result["direction_pair"] == "id->en"
+    assert result["blocker"] == "model:marianmt_id_en_missing"
 
 
-def test_realtime_unsupported_direction_does_not_switch_mode() -> None:
+def test_reverse_direction_is_supported_independently_from_mode(monkeypatch) -> None:
     worker = load_worker_module()
+    monkeypatch.setattr(worker, "translation_model_ready", lambda _path: False)
+
     result = worker.handle_translate(
         {
             "text": "hello",
@@ -47,8 +55,47 @@ def test_realtime_unsupported_direction_does_not_switch_mode() -> None:
 
     assert result["ok"] is False
     assert result["mode"] == "Realtime"
-    assert result["blocker"] == "translation:direction_not_supported_by_realtime_model"
+    assert result["direction_pair"] == "en->id"
+    assert result["direction_supported"] is True
+    assert result["blocker"] == "model:marianmt_en_id_missing"
     assert "fallback_mode" not in result
+
+
+def test_legacy_userdata_label_maps_to_writable_user_root(tmp_path: Path, monkeypatch) -> None:
+    worker = load_worker_module()
+    user_root = tmp_path / "app-local-data"
+    cache_root = user_root / "CacheData"
+    monkeypatch.setattr(worker, "USER_DATA_ROOT", user_root)
+
+    resolved = worker.resolve_worker_path(
+        "UserData/CacheData/audio_segments/example.wav",
+        cache_root / "default.wav",
+        [cache_root],
+    )
+
+    assert resolved == (cache_root / "audio_segments" / "example.wav").resolve()
+
+
+def test_legacy_userdata_label_cannot_escape_allowed_root(tmp_path: Path, monkeypatch) -> None:
+    worker = load_worker_module()
+    user_root = tmp_path / "app-local-data"
+    cache_root = user_root / "CacheData"
+    monkeypatch.setattr(worker, "USER_DATA_ROOT", user_root)
+
+    with pytest.raises(ValueError, match="worker:path_outside_allowed_roots"):
+        worker.resolve_worker_path(
+            "UserData/CacheData/../LogData/not-allowed.wav",
+            cache_root / "default.wav",
+            [cache_root],
+        )
+
+
+def test_configured_runtime_root_must_be_absolute(tmp_path: Path, monkeypatch) -> None:
+    worker = load_worker_module()
+    monkeypatch.setenv("TRANSLATEIT_TEST_ROOT", "relative/path")
+
+    with pytest.raises(RuntimeError, match="translateit_test_root_must_be_absolute"):
+        worker.configured_absolute_root("TRANSLATEIT_TEST_ROOT", tmp_path)
 
 
 def test_translate_rejects_character_overflow_before_model_load() -> None:
