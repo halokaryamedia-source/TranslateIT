@@ -1,8 +1,8 @@
 # Next Action
 
-Updated: 2026-08-10  
+Updated: 2026-08-11  
 Working branch: `New`  
-Status: **Reliable bidirectional translation, Incoming-Failure-Is-Nonblocking Outbound Delivery, and persistence-free Meeting Stop are source-aligned at their bounded contracts. `stop_meeting_translation` no longer imports/calls History persistence and now ends by cleaning runtime/transient Meeting state only. No Rust/validator/Windows runtime proof has been obtained. The next stale core behavior is Pause/Resume, which is outside the simplified Start -> Live -> Stop lifecycle.**
+Status: **Reliable bidirectional translation, Incoming-Failure-Is-Nonblocking Outbound Delivery, persistence-free Meeting Stop, and the simple Start -> Live -> Stop application Meeting lifecycle are source-aligned at their bounded contracts. Pause/Resume commands, runtime states, Tauri registration, bridge/facade actions, and normal Meeting controls were removed. No Rust/TypeScript/static-validator/Windows runtime proof has been obtained. The next stale initial-product surface is History/Saved plus automatic Text History persistence.**
 
 This file is the single active continuation owner for TranslateIT.
 
@@ -13,9 +13,9 @@ AGENTS.md
 -> CONTEXT.md
 -> docs/knowledge/next-action.md
 -> docs/knowledge/source-ownership.md
--> docs/foundation/02-product-requirements.md PR-031 / PR-056
+-> docs/foundation/02-product-requirements.md PR-004 / PR-090 / PR-100
 -> .agents/skills/development-brief/SKILL.md
--> inspect runtime_state.rs + meeting_session.rs + facade/controller Pause/Resume direct contracts only
+-> inspect active shell/controller/runtimeApi History direct contracts only
 ```
 
 ## Current Mode
@@ -30,29 +30,29 @@ ChatGPT -> GitHub
 
 Rust/TypeScript/Python execution, static-validator execution, model files/load,
 translation quality, CUDA/CPU latency, Windows audio, suppression effectiveness,
-rendered UI, native race behavior, and installed operation remain
+rendered UI, native lifecycle races, and installed operation remain
 `LOCAL PROOF REQUIRED`.
 
 # Closed Source Slice — Reliable Bidirectional Translation Core
 
-One persistent worker routes by language direction:
+The one persistent worker routes translation by language direction:
 
 ```text
 ID -> EN -> marianmt-id-en
 EN -> ID -> marianmt-en-id
 ```
 
-Mode compatibility fields may still remain at old direct callers, but model selection
-is direction-based. Required outbound ID->EN readiness is distinct from optional reverse
-EN->ID readiness.
+Mode compatibility fields may still remain at old direct callers, but they do not select
+the model. Required outbound readiness depends on ID -> EN; optional reverse readiness
+is reported separately.
 
 Translation still rejects silent truncation and known incomplete generation. Tone,
 previous-turn context, History context, second worker, and cloud fallback remain absent.
 
 # Closed Source Slice — Incoming Failure Is Nonblocking
 
-Healthy incoming uses the existing deterministic self-output suppression guard.
-If that protection cannot be established:
+Healthy incoming uses the existing deterministic self-output suppression guard. If that
+protection cannot be established:
 
 ```text
 clear incoming finalized producer
@@ -65,116 +65,160 @@ clear incoming finalized producer
 Optional incoming therefore cannot be the sole reason an otherwise safe outbound TTS
 turn fails.
 
-# Closed Source Slice — Stop Persistence Removed
+# Closed Source Slice — Meeting Stop Is Persistence-Free
 
-## A. Stop owns shutdown only
-
-Current Stop source follows:
+Current Stop owns runtime/transient cleanup only:
 
 ```text
-revoke outbound authority
--> cancel Meeting route
--> stop physical microphone + optional Meeting Sound
--> cancel Meeting helper work
--> join outbound + incoming consumers
--> clear suppression / finalized sequence / transient committed turns
--> clear application Meeting session
+revoke output authority
+-> cancel route
+-> stop physical mic + Meeting Sound
+-> cancel helper Meeting work
+-> join both consumers
+-> clear suppression / finalized sequence / transient turns
+-> clear Meeting session
 -> stopped
 ```
 
-`meeting_session.rs` no longer imports or calls:
+`meeting_session.rs` does not import/call History persistence. Safe Stop & Close still
+delegates to this canonical Stop owner.
+
+# Closed Source Slice — Pause / Resume Removed
+
+## A. Runtime authority is one normal generation path
+
+Application Meeting runtime source now uses:
 
 ```text
-history_store
-HistoryTurn
-create_meeting_recent
-load_settings for History
-finalize_meeting_history
+begin_application_meeting_session
+-> starting
+-> commit_application_meeting_session_live
+-> live
+-> revoke_application_meeting_session_authority
+-> stopping
+-> clear_runtime_session_state
 ```
 
-No final transcript snapshot is read during Stop for persistence.
+Removed:
 
-## B. Live transcript remains transient
+```text
+begin_application_meeting_session_resume
+pause_application_meeting_session_authority
+paused phase
+resuming phase
+fresh Resume generation path
+```
 
-`get_meeting_committed_turns` still reads the bounded in-memory committed-turn owner
-while a Meeting session exists. Full Stop clears that transient store after runtime work
-has been stopped.
+Inherited non-Meeting/Diagnostics session phases are not promoted into the application
+Meeting lifecycle.
 
-History/Saved source files may remain disconnected/deferred; their state cannot affect
-Meeting Stop because the canonical Stop path no longer invokes them.
+## B. Product-facing Pause / Resume is gone
 
-## C. Safe close remains one path
+Removed from current active product path:
 
-`GlobalMeetingShell` and the native `ExitRequested` fail-safe still delegate to the same
-`stop_meeting_translation` owner. They therefore inherit the persistence-free Stop
-contract instead of creating a second shutdown path.
+```text
+pause_meeting_translation
+resume_meeting_translation
+Tauri registration for both commands
+runtimeApi pause/resume methods
+ProductMeetingAction pause/resume variants
+ProductMeetingState paused/canPause/canResume flags
+Pause/Resume controller actions/buttons/copy
+Paused/Resuming live/global presentation states
+```
+
+Normal Meeting control is now only:
+
+```text
+Start Translation
+Stop Translation
+```
+
+Navigation between app views and minimize do not stop or pause a live Meeting. Safe
+native Close still requires the same canonical Stop before window destruction.
+
+## C. Incoming authority follows Live only
+
+Both Meeting orchestration and helper request eligibility now allow incoming promotion
+only while the same application Meeting session is `live`. There is no longer a paused
+session state in which incoming remains independently active.
 
 ## D. Static validation definition
 
-`validate_startup_runtime_readiness.mjs` now defines checks that:
+`validate_startup_runtime_readiness.mjs` now defines checks for:
 
-- `meeting_session.rs` contains no History persistence owner/import/call;
-- canonical Stop revokes authority before transient turn/session clear;
-- Stop still cleans both audio lanes, helper work, consumers, suppression, and session;
-- safe close still delegates to canonical Stop;
-- existing translation/incoming safety contracts remain preserved.
+- Start/Stop-only Tauri registration and frontend bridge;
+- no Pause/Resume product action/state/control mapping;
+- no paused/resuming application Meeting runtime machinery;
+- Live-only incoming Meeting eligibility;
+- persistence-free Stop and safe Stop & Close still intact;
+- previous bidirectional translation and optional-incoming safety contracts preserved.
 
 The validator was **not executed** in this channel.
 
 # Known Proof Limits
 
-No claim is made that current Rust compiles, Stop ordering behaves correctly on target
-Windows, native close races are resolved, audio handles release correctly, models load,
-or translation/audio quality is acceptable. Those remain local proof.
+No claim is made that current Rust or TypeScript compiles, Start/Stop state transitions
+behave correctly on target Windows, rendered controls are correct, native close races
+are resolved, audio handles release correctly, models load, or translation/audio
+quality is acceptable. Those remain local proof.
 
-# Next Developing Slice — Remove Pause / Resume From Initial Core
+# Next Developing Slice — Remove History / Saved From Initial Product Surface
 
 ## Goal
 
-Reconcile source with the approved simple lifecycle:
+Align the active desktop surface with the approved initial product:
 
 ```text
-Ready -> Starting -> Live -> Stopping -> Ended
+Meeting
+Text
+Settings
 ```
 
-There should be no normal Pause/Resume product path in the initial core.
+History/Saved must no longer be a normal navigation/settings/automatic persistence path,
+and successful Text translation must not depend on or automatically write History.
 
 ## In scope
 
-1. remove Pause/Resume normal commands/actions from the product-facing Meeting path;
-2. remove frontend/facade Pause/Resume controls/mapping needed only by that flow;
-3. simplify runtime/session authority so Start -> Live -> Stop remains the only normal
-   lifecycle without preserving a second paused generation path for compatibility;
-4. keep Stop safety, active Meeting navigation independence, and safe close intact;
-5. update static validation/canonical docs.
+1. remove History from active top-level navigation/workspace routing;
+2. remove History & Privacy from normal Settings navigation for the initial product;
+3. remove automatic `createTextHistoryEntry` from successful Text translation;
+4. remove active controller/frontend History list/detail/save/clear calls and state that
+   exist only for the removed product surface;
+5. keep backend persistence files/commands disconnected for now rather than expanding
+   this slice into storage deletion;
+6. update static validation and canonical docs.
 
 ## Out of scope
 
-- History/Saved UI file deletion;
-- broad UI visual redesign;
-- translation model/download/packaging work;
-- local Windows acceptance;
-- unrelated Settings cleanup.
+- deleting every History/Saved backend file/command in the same slice;
+- broad visual redesign;
+- translation mode/tone compatibility cleanup beyond what becomes directly orphaned;
+- model/download/packaging work;
+- local Windows acceptance.
 
 ## Acceptance criteria
 
-1. normal Meeting UI/facade exposes Start and Stop only, with no Pause/Resume action;
-2. canonical initial Meeting lifecycle no longer requires paused/resuming states or fresh
-   Resume generation handling;
-3. Stop still invalidates output authority and clears resources/transient state;
-4. navigation/minimize/safe close do not create a replacement Pause behavior;
-5. no second Meeting lifecycle owner is introduced.
+1. normal active navigation exposes Meeting / Text / Settings, with no History workspace;
+2. normal Settings exposes Meeting / Advanced only, with no History & Privacy section;
+3. successful Text translation performs no automatic History write and remains usable
+   independently of persistence state;
+4. active controller/frontend no longer lists, reads, saves, removes, or clears History;
+5. Meeting translation, transient live transcript, safe Stop/Close, and Text result/Copy
+   behavior keep their existing owners;
+6. existing backend History/Saved source may remain disconnected/deferred without being
+   a core translation dependency.
 
 # Hold
 
-- do not reintroduce Tone/Context or Realtime/Quality product modes;
+- do not reintroduce Pause/Resume, Tone/Context, or user-facing Realtime/Quality modes;
 - do not add another translation worker;
 - do not use cloud fallback;
-- do not broaden this slice into full UI/History deletion;
-- do not begin local acceptance inside source cleanup.
+- do not turn this into full persistence-backend deletion;
+- do not begin local acceptance inside this source cleanup slice.
 
 ## Next Step
 
-Implement **Remove Pause / Resume From Initial Core** across the canonical Meeting
-runtime + direct product-facing callers, then continue pruning stale initial-product
-surface.
+Implement **Remove History / Saved From Initial Product Surface** across the active shell,
+controller, and direct frontend bridge contracts, then continue pruning stale
+initial-product complexity.
