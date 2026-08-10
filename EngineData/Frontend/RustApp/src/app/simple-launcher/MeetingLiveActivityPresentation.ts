@@ -273,12 +273,14 @@ function createTranscriptTurn(turn: MeetingCommittedTurn): HTMLElement {
   return article;
 }
 
-function renderCommittedTurns(snapshot: MeetingCommittedTurnsSnapshot, view: ActivityView): void {
+function renderCommittedTurns(snapshot: MeetingCommittedTurnsSnapshot, status: MeetingSessionStatus, view: ActivityView): void {
   view.transcriptTurns.replaceChildren();
 
-  if (!snapshot.ok) {
+  if (!snapshot.ok || !snapshot.has_session || snapshot.session_id !== status.session_id) {
     view.transcriptNotice.hidden = false;
-    view.transcriptNotice.textContent = "The live transcript is temporarily unavailable. Meeting lifecycle controls remain available.";
+    view.transcriptNotice.textContent = snapshot.ok
+      ? "The transcript snapshot is changing with the current Meeting session. It will refresh automatically."
+      : "The live transcript is temporarily unavailable. Meeting lifecycle controls remain available.";
     view.transcriptEmpty.hidden = true;
     return;
   }
@@ -314,7 +316,7 @@ function renderMeetingStatus(status: MeetingSessionStatus, turns: MeetingCommitt
   view.title.textContent = copy.title;
   view.detail.textContent = copy.detail;
   view.meta.textContent = "Indonesian → English voice · Realtime";
-  renderCommittedTurns(turns, view);
+  renderCommittedTurns(turns, status, view);
 
   if (meeting.paused) {
     view.headingTitle.textContent = "Meeting translation is paused.";
