@@ -1,4 +1,9 @@
-import { runtimeApi, type MeetingSessionStatus } from "../bridge/runtimeApi";
+import {
+  runtimeApi,
+  type MeetingCommittedTurn,
+  type MeetingCommittedTurnsSnapshot,
+  type MeetingSessionStatus,
+} from "../bridge/runtimeApi";
 import { mapProductMeetingState } from "../bridge/runtimeProductFacade";
 
 const MEETING_ACTIVITY_REFRESH_MS = 1_200;
@@ -20,6 +25,9 @@ type ActivityView = {
   title: HTMLElement;
   detail: HTMLElement;
   meta: HTMLElement;
+  transcriptTurns: HTMLElement;
+  transcriptEmpty: HTMLElement;
+  transcriptNotice: HTMLElement;
   headingTitle: HTMLElement;
   headingDescription: HTMLElement;
   setupRows: HTMLElement | null;
@@ -75,7 +83,16 @@ function ensureActivityView(): ActivityView | null {
           <strong id="meetingLiveActivityTitle">Listening for Indonesian speech</strong>
           <p id="meetingLiveActivityDetail">TranslateIT is waiting for the next finalized utterance.</p>
         </div>
-      </div>`;
+      </div>
+      <section class="meeting-live-transcript" aria-label="Meeting transcript">
+        <header class="meeting-live-transcript-header">
+          <strong>Transcript</strong>
+          <span>Finalized outbound turns</span>
+        </header>
+        <p id="meetingLiveTranscriptNotice" class="meeting-live-transcript-notice" hidden></p>
+        <div id="meetingLiveTranscriptTurns" class="meeting-live-transcript-turns"></div>
+        <p id="meetingLiveTranscriptEmpty" class="meeting-live-transcript-empty">No finalized translation yet. Your committed Indonesian and English text will appear here.</p>
+      </section>`;
 
     const actions = panel.querySelector<HTMLElement>(".meeting-ready-actions");
     if (actions) panel.insertBefore(section, actions);
@@ -86,7 +103,10 @@ function ensureActivityView(): ActivityView | null {
   const title = document.getElementById("meetingLiveActivityTitle");
   const detail = document.getElementById("meetingLiveActivityDetail");
   const meta = document.getElementById("meetingLiveActivityMeta");
-  if (!stage || !title || !detail || !meta) return null;
+  const transcriptTurns = document.getElementById("meetingLiveTranscriptTurns");
+  const transcriptEmpty = document.getElementById("meetingLiveTranscriptEmpty");
+  const transcriptNotice = document.getElementById("meetingLiveTranscriptNotice");
+  if (!stage || !title || !detail || !meta || !transcriptTurns || !transcriptEmpty || !transcriptNotice) return null;
 
   return {
     section,
@@ -94,6 +114,9 @@ function ensureActivityView(): ActivityView | null {
     title,
     detail,
     meta,
+    transcriptTurns,
+    transcriptEmpty,
+    transcriptNotice,
     headingTitle,
     headingDescription,
     setupRows: panel.querySelector<HTMLElement>(".meeting-ready-rows"),
@@ -109,12 +132,20 @@ function setSetupVisibility(view: ActivityView, visible: boolean): void {
   if (view.setupReminder) view.setupReminder.hidden = !visible;
 }
 
+function clearTranscriptPresentation(view: ActivityView): void {
+  view.transcriptTurns.replaceChildren();
+  view.transcriptNotice.hidden = true;
+  view.transcriptNotice.textContent = "";
+  view.transcriptEmpty.hidden = false;
+}
+
 function renderReadySurface(): void {
   const view = ensureActivityView();
   if (!view) return;
   view.panel.dataset.meetingView = "ready";
   view.section.hidden = true;
   setSetupVisibility(view, true);
+  clearTranscriptPresentation(view);
   view.headingTitle.textContent = READY_TITLE;
   view.headingDescription.textContent = READY_DESCRIPTION;
 }
@@ -193,7 +224,80 @@ function activityCopy(status: MeetingSessionStatus): ActivityCopy {
   }
 }
 
-function renderMeetingStatus(status: MeetingSessionStatus): void {
+function deliveryLabel(state: string): string {
+  switch (state) {
+    case "preparing_voice":
+      return "Preparing voice";
+    case "speaking":
+      return "Speaking";
+    case "output_complete":
+      return "Output complete";
+    case "output_failed":
+      return "Output failed";
+    case "interrupted":
+      return "Interrupted";
+    default:
+      return "Processing";
+  }
+}
+
+function createTranscriptTurn(turn: MeetingCommittedTurn): HTMLElement {
+  const article = document.createElement("article");
+  article.className = "meeting-live-transcript-turn";
+  article.dataset.deliveryState = turn.delivery_state;
+
+  const header = document.createElement("header");
+  header.className = "meeting-live-transcript-turn-header";
+
+  const lane = document.createElement("span");
+  lane.className = "meeting-live-transcript-lane";
+  lane.textContent = "YOU";
+
+  const delivery = document.createElement("span");
+  delivery.className = "meeting-live-transcript-delivery";
+  delivery.textContent = deliveryLabel(turn.delivery_state);
+
+  header.append(lane, delivery);
+
+  const source = document.createElement("p");
+  source.className = "meeting-live-transcript-source";
+  source.lang = "id";
+  source.textContent = turn.source_text;
+
+  const translation = document.createElement("p");
+  translation.className = "meeting-live-transcript-translation";
+  translation.lang = "en";
+  translation.textContent = turn.translated_text;
+
+  article.append(header, source, translation);
+  return article;
+}
+
+function renderCommittedTurns(snapshot: MeetingCommittedTurnsSnapshot, view: ActivityView): void {
+  view.transcriptTurns.replaceChildren();
+
+  if (!snapshot.ok) {
+    view.transcriptNotice.hidden = false;
+    view.transcriptNotice.textContent = "The live transcript is temporarily unavailable. Meeting lifecycle controls remain available.";
+    view.transcriptEmpty.hidden = true;
+    return;
+  }
+
+  if (snapshot.truncated || snapshot.dropped_turn_count > 0) {
+    view.transcriptNotice.hidden = false;
+    view.transcriptNotice.textContent = `${snapshot.dropped_turn_count} earlier turn${snapshot.dropped_turn_count === 1 ? " is" : "s are"} no longer shown in this bounded live view.`;
+  } else {
+    view.transcriptNotice.hidden = true;
+    view.transcriptNotice.textContent = "";
+  }
+
+  const fragment = document.createDocumentFragment();
+  for (const turn of snapshot.turns) fragment.append(createTranscriptTurn(turn));
+  view.transcriptTurns.append(fragment);
+  view.transcriptEmpty.hidden = snapshot.turns.length > 0;
+}
+
+function renderMeetingStatus(status: MeetingSessionStatus, turns: MeetingCommittedTurnsSnapshot): void {
   const view = ensureActivityView();
   if (!view) return;
 
@@ -210,6 +314,7 @@ function renderMeetingStatus(status: MeetingSessionStatus): void {
   view.title.textContent = copy.title;
   view.detail.textContent = copy.detail;
   view.meta.textContent = "Indonesian → English voice · Realtime";
+  renderCommittedTurns(turns, view);
 
   if (meeting.paused) {
     view.headingTitle.textContent = "Meeting translation is paused.";
@@ -219,7 +324,7 @@ function renderMeetingStatus(status: MeetingSessionStatus): void {
     view.headingDescription.textContent = "TranslateIT is reopening the required outbound resources for this Meeting session.";
   } else {
     view.headingTitle.textContent = "Meeting translation is live.";
-    view.headingDescription.textContent = "Speak Indonesian normally. Current outbound activity appears below while TranslateIT prepares English voice for your meeting.";
+    view.headingDescription.textContent = "Speak Indonesian normally. Finalized Indonesian text and its English translation appear below with truthful output status.";
   }
 }
 
@@ -227,9 +332,12 @@ async function refreshMeetingActivity(): Promise<void> {
   if (requestInFlight || !shouldRefreshMeetingActivity()) return;
   requestInFlight = true;
   try {
-    const status = await runtimeApi.getMeetingSessionStatus();
+    const [status, turns] = await Promise.all([
+      runtimeApi.getMeetingSessionStatus(),
+      runtimeApi.getMeetingCommittedTurns(),
+    ]);
     if (status.runtime_claim === "frontend_bridge_unavailable" || status.lifecycle === "unavailable") return;
-    renderMeetingStatus(status);
+    renderMeetingStatus(status, turns);
   } catch {
     // The primary controller owns product error/recovery presentation. This view does
     // not create a parallel fallback or lifecycle truth when a read fails.
