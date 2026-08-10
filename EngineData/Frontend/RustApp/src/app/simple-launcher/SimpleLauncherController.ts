@@ -43,7 +43,6 @@ type SimpleRefs = {
   textTargetOutput: HTMLTextAreaElement;
   textResultStatus: HTMLElement;
   textResultMessage: HTMLElement;
-  textModeValue: HTMLElement;
   sendButton: HTMLButtonElement;
   assistantMessage: HTMLParagraphElement;
   retryReadinessButton: HTMLButtonElement;
@@ -87,7 +86,6 @@ function bindSimpleRefs(): SimpleRefs {
     textTargetOutput: requireElement<HTMLTextAreaElement>("#textTargetOutput"),
     textResultStatus: requireElement<HTMLElement>("#textResultStatus"),
     textResultMessage: requireElement<HTMLElement>("#textResultMessage"),
-    textModeValue: requireElement<HTMLElement>("#textModeValue"),
     sendButton: requireElement<HTMLButtonElement>("#sendButton"),
     assistantMessage: requireElement<HTMLParagraphElement>("#assistantMessage"),
     retryReadinessButton: requireElement<HTMLButtonElement>("#retryReadinessButton"),
@@ -198,7 +196,6 @@ export class SimpleLauncherController {
   private refreshDirectionPill(): void {
     this.ui.textSourceLanguage.textContent = languageName(this.settings.source_language);
     this.ui.textTargetLanguage.textContent = languageName(this.settings.target_language);
-    this.ui.textModeValue.textContent = this.settings.runtime_profile || "Current";
     if (this.activeWorkspace === "meeting") {
       this.ui.directionPill.textContent = "ID > EN";
       return;
