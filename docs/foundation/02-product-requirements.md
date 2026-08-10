@@ -1,46 +1,77 @@
 # TranslateIT — Product Requirements
 
 **Status:** Active Policy  
-**Updated:** 2026-08-09  
-**Scope:** Initial Windows product + explicitly approved post-core boundary
+**Updated:** 2026-08-10  
+**Scope:** Simplified initial Windows translation core
 
 This document is the durable product-requirement owner for TranslateIT on branch
-`New`. It defines what the product must do without freezing replaceable model,
-provider, driver, prompt, or implementation details unless the requirement depends
-on them.
+`New`.
 
-Source presence is not runtime proof. Evidence requirements remain governed by
-root `AGENTS.md`.
+The current product decision is explicit:
+
+> **A small translator that works reliably is more important than preserving a broad
+> feature set.**
+
+The behavioral reference is the simplicity of current live meeting translation
+products such as Gemini 3.5 Live Translate: translation may stay a few seconds behind
+speech when that improves completeness, while the user experience remains focused on
+speaking and receiving translation rather than operating translation internals.
+TranslateIT does not need to copy another product's implementation, cloud architecture,
+voice-cloning behavior, or supported language count.
+
+Source presence is not runtime proof. Evidence requirements remain governed by root
+`AGENTS.md`.
 
 ## 1. Product Priority
 
 ### PR-001 — Primary use case
 
-**MUST:** TranslateIT's primary product workflow is real-time voice translation for
-online meetings.
+**MUST:** TranslateIT's primary workflow be simple Indonesian <-> English translation
+for online meetings.
 
-### PR-002 — Secondary text workflow
+### PR-002 — Secondary Text workflow
 
-**MUST:** Indonesian <-> English text translation remains independently usable
-without starting or configuring a Meeting voice session.
+**MUST:** Indonesian <-> English Text remain independently usable without Meeting audio
+readiness.
 
-### PR-003 — Document workflow removed
+### PR-003 — Translation success before feature breadth
 
-**MUST NOT:** First-class document translation be part of the current product scope.
+**MUST:** Core translation reliability, completeness, understandable output, and safe
+Meeting delivery take priority over extra controls, modes, persistence, context,
+customization, or stylistic features.
 
-**MUST NOT:** `Documents` remain a normal workspace merely because inherited
-policy/source contains attachment or document concepts.
+**MUST NOT:** An optional/deferred feature make an otherwise healthy required outbound
+translation fail.
 
-**NOT CURRENT SCOPE:** PDF/DOCX/TXT/Markdown document parsing, document jobs,
-structure-preserving export, document preview, document-specific History/Saved, OCR,
-and related document infrastructure.
+### PR-004 — Initial feature boundary
 
-### PR-004 — Audio Studio priority
+The initial product is intentionally narrow:
 
-**SHOULD / POST-CORE:** Audio Studio remains part of TranslateIT but must not block
-initial core Meeting/Text readiness.
+```text
+Meeting
+Text
+Settings
+```
 
-## 2. Platform And Local Runtime
+**NOT INITIAL CORE:**
+
+- Document Translation;
+- History / Saved;
+- Audio Studio / custom voice;
+- additional language pairs;
+- user-facing tone modes;
+- user-facing Realtime / Quality modes;
+- conversation-context prompting;
+- Push to Talk;
+- Pause / Resume;
+- Stop Voice;
+- Speak Now / Cancel conversational coordination;
+- partial/evolving translated subtitles;
+- incoming Indonesian TTS.
+
+Existing source for these capabilities does not keep them in current initial scope.
+
+## 2. Platform And Runtime
 
 ### PR-010 — Initial platform
 
@@ -48,863 +79,618 @@ initial core Meeting/Text readiness.
 
 ### PR-011 — Local-first core
 
-**MUST:** After required runtime/model assets are installed, core ASR, translation,
-and TTS behavior can operate without a required cloud speech/translation API.
+**MUST:** After required runtime/model assets are installed, core ASR, translation, and
+TTS can operate without a required cloud speech/translation API.
 
-### PR-012 — Optional future cloud assistance
+### PR-012 — No silent cloud fallback
 
-**MAY:** Future explicitly approved cloud-assisted features exist.
+**MUST NOT:** Local failure silently route user speech or text to cloud services.
 
-**MUST NOT:** Cloud assistance silently become a required fallback for core
-translation behavior.
+### PR-013 — Single product/runtime architecture
 
-### PR-013 — Single product shell
+**MUST:** One Rust/Tauri desktop application and its existing internal helper/runtime
+path remain authoritative.
 
-**MUST:** One Rust/Tauri desktop application owns the user-facing product.
-
-**MAY:** Python remain an internal helper runtime.
-
-**MUST NOT:** A second product shell or parallel V2/V3/V4 engine be created without
-an explicit architecture decision.
+**MUST NOT:** A second translator engine/product shell be created merely to preserve or
+work around removed complexity.
 
 ## 3. Languages And Directions
 
-### PR-020 — Initial languages
+### PR-020 — Initial language pair
 
-**MUST:** Initial supported languages are Indonesian and English.
+**MUST:** The initial product support only:
+
+```text
+Indonesian <-> English
+```
 
 ### PR-021 — Text directions
 
-**MUST:** Text translation support Indonesian -> English and English -> Indonesian.
+**MUST:** Text support Indonesian -> English and English -> Indonesian.
 
-### PR-022 — Outbound Meeting voice
+### PR-022 — Required outbound Meeting flow
 
-**MUST:** Primary outbound Meeting flow support:
+**MUST:** Required core Meeting translation support:
 
 ```text
 Indonesian speech
--> Indonesian transcript
+-> final Indonesian transcript
 -> English translation
 -> English TTS
 -> TranslateIT Meeting Microphone
 ```
 
-### PR-023 — Inbound Meeting assistance
+### PR-023 — Optional incoming assistance
 
-**MUST:** Primary inbound assistance support:
+**SHOULD:** Incoming assistance support:
 
 ```text
 English meeting speech
--> English transcript
+-> final English transcript
 -> Indonesian translated text
 ```
 
+**MUST:** Incoming remain optional/degradable and never block otherwise healthy
+outbound translation.
+
 ### PR-024 — Initial exclusions
 
-**NOT REQUIRED INITIALLY:**
+**NOT INITIAL CORE:**
 
 - English speech -> Indonesian TTS;
-- language pairs beyond Indonesian/English.
+- languages beyond Indonesian/English;
+- participant-specific identity or process-specific meeting claims.
 
-## 4. First Use, Setup And Daily Readiness
+## 4. First Use And Readiness
 
-### PR-025 — Guided first setup
+### PR-025 — Minimal guided setup
 
-**MUST:** First use guide the user through product concepts rather than engineering
-runtime concepts.
+**MUST:** First use cover only concepts needed by the Meeting core:
 
-**MUST:** Setup cover the selected physical microphone, Meeting Sound,
-TranslateIT Meeting Microphone, and local translation readiness.
+```text
+Your Microphone
+Meeting Sound
+TranslateIT Meeting Microphone
+Local Translation Ready
+```
 
-**MUST NOT:** Normal users manually install/start Python, workers, models, or audio
-plumbing.
+**MUST NOT:** Normal users manually operate Python, worker, model, CUDA, VAD, queue, or
+audio-driver internals.
 
 ### PR-026 — Physical microphone verification
 
-**MUST:** A microphone selection be functionally opened/verified before a new
-explicit selection replaces a previously working preference.
+**MUST:** A selected microphone be functionally checked before replacing a previously
+working explicit preference.
 
-**MUST:** `Follow Windows Default` follow the Windows default device policy.
+**MUST:** `Follow Windows Default` preserve default-device intent at the supported
+boundary.
 
-**MUST NOT:** An explicitly pinned missing microphone silently switch to another
-microphone.
+**MUST NOT:** A pinned missing microphone silently switch to another microphone.
 
 ### PR-027 — Meeting Sound verification
 
-**MUST:** Meeting Sound represent the Windows output source used for incoming
+**MUST:** Meeting Sound represent the Windows output source used by optional incoming
 translation.
 
-**MUST:** `Follow Windows Default` and explicit pinned-device semantics mirror the
-same intent rules as the physical microphone.
+**MUST NOT:** Incoming device failure block required outbound readiness.
 
-### PR-028 — Local translation setup verification
+### PR-028 — Functional local readiness
 
-**MUST:** Setup readiness mean more than asset/file presence. The relevant local
-runtime/provider/model path must be able to initialize and perform bounded
-functional validation at the level appropriate for setup.
+**MUST:** Required outbound readiness include bounded functional validation of the
+actual local ASR/translation/TTS path rather than file presence only.
 
-### PR-029 — Returning launch and interrupted setup
+### PR-029 — Returning use
 
 **MUST:** Returning users go directly to Meeting and receive a quick product-level
-preflight rather than repeating full first-use setup.
+preflight rather than full setup repetition.
 
-**MUST:** Interrupted first-use setup resume from verified progress rather than
-pretending setup is complete or forcing unnecessary restart from the beginning.
+## 5. Meeting Listening And Speech Boundary
 
-## 5. Voice Input, Segmentation And Outbound Output
+### PR-030 — One normal listening mode
 
-### PR-030 — Session Listening
+**MUST:** Initial Meeting use one explicitly user-started continuous Session Listening
+mode.
 
-**MUST:** Normal Meeting voice use an explicitly user-started Session Listening
-mode. TranslateIT must not persistently listen merely because the app is open.
+**NOT INITIAL CORE:** Push to Talk.
 
-### PR-031 — Session lifecycle
+### PR-031 — Simple lifecycle
 
-**MUST:** Once started, Session Listening continuously captures while the session is
-active and stops when the session is stopped/paused according to the approved
-lifecycle.
+Initial normal lifecycle is:
 
-### PR-032 — Push to Talk
+```text
+Ready
+-> Starting
+-> Live
+-> Stopping
+-> Ended
+```
 
-**MUST:** Push to Talk remain an alternative mode.
+**NOT INITIAL CORE:** Pause / Resume.
 
-**DEFAULT:** `Ctrl+Space`.
+### PR-032 — Final speech is product truth
 
-### PR-033 — Natural speech boundaries
+**MUST:** Normal translation/TTS use finalized stable utterances.
 
-**MUST:** Segmentation handle meaningful pauses, hesitation, natural sentence/turn
-boundaries, and long speech without relying on one inherited fixed silence/maximum
-segment constant.
+**MAY:** Rolling/partial ASR exist internally for implementation or diagnostics.
 
-### PR-034 — Numeric segmentation parameters
+**MUST NOT:** Partial/uncommitted text become normal translated voice, committed
+transcript, or persistent content.
 
-**IMPLEMENTATION DETAIL:** Silence duration, VAD threshold, minimum speech,
-pre-roll, chunk size, and maximum segment duration are tuning parameters.
+### PR-033 — Natural bounded speech segmentation
 
-**SUPERSEDED:** Fixed `700 ms` silence and `12 s` maximum segment as product constants.
+**MUST:** Speech segmentation handle normal pauses and sentence/turn boundaries without
+one fixed inherited silence constant becoming product policy.
 
-### PR-035 — Partial versus committed transcript
+**SHOULD:** A small post-speech delay be accepted when it materially improves stable,
+complete translation.
 
-**MAY:** Partial ASR be shown as an evolving preview.
+### PR-034 — Internal segmentation tuning
 
-**MUST NOT:** Partial/uncommitted transcript become outbound translated voice or
-normal History content.
+Silence/VAD/pre-roll/chunk limits are implementation tuning and are hidden from normal
+users.
 
-### PR-036 — Stable utterance identity and generation
+### PR-035 — Stale work rejection
 
-**MUST:** Each outbound utterance be associated with stable session/generation/
-utterance identity so stale asynchronous work cannot enter newer session state.
+**MUST:** Session/generation/utterance identity prevent late old work from creating new
+Meeting output.
 
-### PR-037 — Concurrent capture and output
+### PR-036 — Capture/output coordination
 
-**MUST:** Physical microphone capture remain available while previous translation,
-TTS generation, or translated output is active.
+**SHOULD:** Physical microphone capture continue while a previous finalized utterance
+is being translated or spoken when the runtime can do so safely.
 
-**MUST:** TranslateIT's own TTS outputs be serialized rather than overlapping each
-other.
+**MUST:** English TTS outputs be serialized and not overlap each other.
 
-### PR-038 — Delivery semantics
+### PR-037 — At-most-once delivery
 
-**MUST:** Application-side live meeting playback be at-most-once by default.
+**MUST:** Meeting playback be at-most-once by default.
 
-**MUST NOT:** Uncertain/partially played output be blindly replayed from the start.
+**MUST NOT:** Uncertain/partially played output be blindly replayed from the beginning.
 
-**MUST:** User-visible delivery status describe what TranslateIT can prove, such as
-`Output complete`, `Not delivered`, or interrupted output, rather than claiming the
-remote participant heard the message.
+## 6. Translation Engine
 
-### PR-039 — Pause, current-output stop, and backlog
+### PR-040 — One canonical translation behavior
 
-**MUST:** A Meeting Pause stop/clear new and pending outbound translated voice while
-allowing incoming assistance to continue when available.
+**MUST:** Initial Meeting and Text expose one translation behavior, not user-facing
+translation engine modes.
 
-**MAY:** A contextual `Stop Voice` action immediately interrupt currently speaking
-translated output without ending the whole session.
+```text
+current source utterance/text
+-> canonical local ID <-> EN translation path
+-> complete translated text or explicit failure
+```
 
-**MUST:** Output backlog be bounded and surfaced before stale delayed speech becomes
-misleading or useless.
+**MUST:** The canonical path support both Indonesian -> English and English ->
+Indonesian.
 
-## 6. Translation Quality, Tone And Context
+**MUST NOT:** Required product behavior depend on a one-direction model while the UI or
+runtime claims two-direction support.
 
-### PR-040 — Meaning preservation
+### PR-041 — Meaning and factual fidelity
 
-**MUST:** Translation optimize for intended communication meaning rather than
-literal word order.
-
-Priority:
+Translation priority is:
 
 ```text
 1. intended meaning
-2. factual/entity fidelity
-3. natural target-language grammar
-4. appropriate tone
-5. literal wording when useful
+2. names / numbers / dates / units / URLs / versions / technical facts
+3. understandable natural target-language grammar
+4. literal wording only when useful
 ```
 
-### PR-041 — Entity and technical fidelity
+### PR-042 — Mixed conversational language
 
-**MUST:** Names, numbers, dates, units, URLs, code identifiers, versions, acronyms,
-and technical facts remain accurate.
+**SHOULD:** Normal Indonesian/English code-switching and common technical terms remain
+understandable.
 
-### PR-042 — Mixed language and conversational input
-
-**MUST:** Mixed Indonesian/English and normal conversational/slang input be handled
-naturally rather than mechanically token-by-token.
+**MUST NOT:** A speculative extra glossary/context subsystem be required before core
+translation can operate.
 
 ### PR-043 — Technical terminology
 
-**MUST:** Established technical terms may remain untranslated when translation
-would reduce clarity or distort accepted meaning.
+**SHOULD:** Established technical terms remain unchanged when translating them would
+reduce clarity.
 
-### PR-044 — Tone modes
+### PR-044 — Tone controls removed from initial core
 
-**MUST:** User-facing tone modes be `Auto`, `Formal`, and `Casual`.
+**NOT INITIAL CORE:** `Auto / Formal / Casual` as user-facing translation controls.
 
-**DEFAULT:** `Auto`.
+The engine should produce normal understandable translation without a style-selection
+subsystem.
 
-### PR-045 — Tone semantics
+### PR-045 — No automatic conversation context initially
 
-- **Auto:** preserve/infer source tone naturally.
-- **Formal:** professional, clear, polite, without changing facts.
-- **Casual:** conversational without inventing slang or changing intent.
+**MUST:** Initial translation use the current finalized utterance/text as its model
+input.
 
-### PR-046 — Inbound tone
+**MUST NOT:** Previous Meeting turns, persistent History, Saved data, or standalone Text
+activity automatically become model context.
 
-**SHOULD:** Incoming Meeting assistance preserve source tone through Auto behavior
-rather than stylistically rewriting the participant.
+**DEFERRED:** bounded conversation-context prompting until the base translator is proven
+and a model/provider that safely supports it is selected.
 
-### PR-047 — Bounded session context
+### PR-046 — Complete output or explicit failure
 
-**MAY:** Bounded recent committed session context influence translation for
-pronouns, omitted subjects, terminology, continuity, or tone.
+**MUST NOT:** Source text be silently truncated.
 
-**MUST:** Context remain local/session-scoped by default and never override the
-current utterance or invent new facts.
+**MUST NOT:** A generation known to be incomplete be promoted as a completed
+translation.
 
-### PR-048 — Conversation context ordering
+**MUST:** If the active translation implementation cannot safely accept or complete the
+input, return an explicit bounded failure instead.
 
-**MUST:** Shared Meeting context use committed conversational turn order based on
-speech/event sequence rather than asynchronous callback completion order.
+### PR-047 — Replaceable implementation
 
-**MUST:** Partial, canceled, rejected, or failed turns not become normal strong
-conversation context.
+**MAY:** The exact translation model/provider change when a replacement better satisfies
+bidirectional quality, latency, memory, and packaging requirements.
 
-### PR-049 — History is not model context
+**MUST NOT:** Normal users choose model/provider names.
 
-**MUST NOT:** Persistent History or Saved work automatically feed Meeting/Text model
-context.
+## 7. Runtime Priority And Reliability
 
-## 7. Runtime Modes, Start, Coordination And Reliability
+### PR-050 — No user-facing Realtime / Quality split
 
-### PR-050 — User-facing modes
+**NOT INITIAL CORE:** `Realtime` and `Quality` as user-facing modes.
 
-**MUST:** Canonical modes be `Realtime` and `Quality`.
+Internal implementation profiles may differ only when the product can select them
+automatically without changing the simple user contract.
 
-**SUPERSEDED:** `Fast` as a product term for Realtime.
+### PR-051 — Latency philosophy
 
-### PR-051 — Workflow defaults
+**MUST:** Meeting prioritize useful live conversation.
 
-- Meeting -> **Realtime**.
-- Text -> **Quality**.
+**SHOULD:** A few seconds of bounded delay be acceptable when required for complete
+speech/translation rather than producing unstable partial output.
 
-### PR-052 — Automatic implementation routing
+### PR-052 — Official outbound latency metric
 
-**MAY:** Runtime choose a suitable local implementation profile while preserving
-approved behavior.
+Measure user-relevant outbound latency from detected finalized utterance end to first
+translated audio playback.
 
-**MUST NOT:** Normal users be required to select model/provider names.
+A final release threshold is derived from target-PC evidence, not invented in policy.
 
-### PR-053 — Official outbound latency metric
+### PR-053 — Atomic Start
 
-**MUST:** User-relevant voice latency be measured from detected utterance end to
-first translated audio playback.
+**MUST:** `Start Translation` commit `Live` only when the required outbound path is
+actually ready.
 
-### PR-054 — Numeric latency threshold
+**MUST:** Duplicate Start not create another Meeting session.
 
-**MUST:** Final release threshold be derived from target-PC benchmark evidence.
+**MUST:** Optional incoming failure produce a scoped unavailable/degraded incoming lane,
+not an outbound Start failure.
 
-### PR-055 — Atomic Start
+### PR-054 — Resource priority
 
-**MUST:** `Start Translation` perform final required outbound validation/opening and
-commit `Live` only when the required outbound path is actually ready.
+Under contention:
 
-**MUST:** Duplicate Start actions not create duplicate sessions.
+```text
+Meeting outbound
+> Meeting incoming
+> Text
+> diagnostics / setup work
+```
 
-**MUST:** Optional incoming failure may yield `Live / Degraded`; required outbound
-failure yields a blocked start with rollback rather than half-live state.
+**MUST:** Queues remain bounded and stale work be discarded rather than presented late
+as current realtime output.
 
-### PR-056 — Conversation-aware delivery
+### PR-055 — Bounded recovery
 
-**SHOULD:** If meaningful incoming speech is active when outbound TTS becomes ready,
-briefly hold delivery for a natural gap.
+**MUST:** Required outbound recovery be bounded and owned by the canonical Meeting
+session owner.
 
-**MUST:** Waiting be bounded. When no useful gap appears, surface an explicit choice
-such as `Speak Now` or `Cancel` rather than waiting indefinitely or automatically
-deciding to interrupt.
+**MUST:** Explicit newer user action override stale automatic recovery.
 
-**SHOULD:** Once delivery is committed and TTS is speaking, normally finish that
-output unless user action or a critical failure requires interruption.
+**MUST NOT:** Local failure silently change to cloud operation.
 
-### PR-057 — Freshness and resource priority
+### PR-056 — Stop
 
-**MUST:** Realtime Meeting work be prioritized above non-live work.
+**MUST:** `Stop Translation` revoke current Meeting output authority before normal
+resource cleanup.
 
-**MUST:** Protect core outbound before incoming assistance under severe resource
-pressure.
+**MUST:** Stop both audio lanes, cancel/join Meeting work, clear temporary
+conversation/audio state, and only then report the session ended.
 
-**MUST:** Realtime queues not grow without bound; stale work must not be silently
-presented as current realtime output.
-
-### PR-058 — Recovery
-
-**MUST:** Classify failures as recoverable, degradable, or blocking/unsafe at the
-product level.
-
-**MUST:** Recovery be bounded and owned by one session/recovery authority.
-
-**MUST:** Explicit newer user intent override stale automatic recovery.
-
-**MUST:** Stale-generation callbacks be discarded.
-
-**MUST NOT:** Local failure silently route to cloud.
-
-### PR-059 — Stop and finalization
-
-**MUST:** `Stop Translation` revoke old-session output authority before normal
-finalization work.
-
-**MUST:** Current/pending outbound output and incoming/outbound capture stop according
-to the Stop lifecycle; late old-session callbacks cannot create new meeting output.
-
-**MUST:** `Ended` represent completed safe runtime shutdown/finalization, not merely
-a clicked frontend button.
-
-## 8. Acceleration And Fallback
+## 8. Acceleration And CPU Operation
 
 ### PR-060 — Preferred acceleration
 
-**SHOULD:** Use validated NVIDIA CUDA acceleration when available, especially for
-Realtime Meeting voice.
+**SHOULD:** Use validated CUDA acceleration when available and beneficial.
 
-### PR-061 — GPU requirement
+### PR-061 — GPU not mandatory
 
 **MUST NOT:** NVIDIA GPU be an absolute product requirement.
 
-### PR-062 — CPU fallback
+### PR-062 — CPU operation
 
-**MUST:** CPU fallback exist for local operation.
-
-**MUST:** Standalone Text remain usable on supported CPU-only systems when the local
+**MUST:** Text remain usable on supported CPU-only systems when the local translation
 runtime is otherwise available.
 
-### PR-063 — Realtime truthfulness
+### PR-063 — Meeting performance truthfulness
 
-**MUST:** If CPU performance cannot meet benchmark-derived Realtime expectations,
-report `Degraded` / not-Realtime-ready rather than equivalent performance.
+**MUST:** If CPU performance is not practical for Meeting translation, report that
+truthfully rather than claiming equivalent realtime performance.
 
-### PR-064 — No silent cloud fallback
+## 9. Meeting Audio And Optional Incoming
 
-**MUST NOT:** Local performance failure silently route user speech/text to cloud.
+### PR-070 — Outbound content
 
-### PR-065 — Replaceable providers
+**MUST:** Primary Meeting output contain translated English TTS.
 
-**MAY:** ASR/translation/TTS providers be replaced when replacements preserve the
-approved product requirements.
-
-## 9. Meeting Audio And Incoming Assistance
-
-### PR-070 — Meeting output content
-
-**MUST:** Primary outbound meeting output contain translated English TTS.
-
-**MUST NOT:** Raw Indonesian microphone audio be mixed into meeting output by
-default or used as a silent fallback.
+**MUST NOT:** Raw Indonesian microphone audio be mixed into Meeting output as fallback.
 
 ### PR-071 — Physical microphone
 
-**MUST:** Physical microphone remain available to TranslateIT as the outbound ASR
-capture source.
+**MUST:** Physical microphone remain the outbound ASR capture source.
 
 ### PR-072 — TranslateIT Meeting Microphone
 
-**MUST:** Product expose a TranslateIT-managed meeting microphone/audio route or
-functionally equivalent Windows endpoint selectable by meeting applications.
+**MUST:** Product expose a TranslateIT-managed Meeting Microphone route or functionally
+equivalent supported Windows endpoint selectable by meeting applications.
 
-### PR-073 — Replaceable route provider
+### PR-073 — Missing route
 
-**MAY:** Underlying Windows virtual-audio provider/driver be replaced.
+**MUST:** Missing/unavailable Meeting Microphone block required outbound Start or current
+outbound delivery with simple `Setup Needed` recovery.
 
-**NOT REQUIRED:** a custom TranslateIT kernel driver when another supported provider
-satisfies product behavior.
+**MUST NOT:** Route recovery dump an old queue of translated speech.
 
-### PR-074 — Missing route
+### PR-074 — Incoming separate and optional
 
-**MUST:** Missing/unavailable Meeting Microphone produce `Setup Needed` and pause/
-block outbound as appropriate.
+**MUST:** Incoming use Meeting Sound rather than the physical microphone.
 
-**MUST NOT:** Route recovery dump old queued speech after reconnection.
+**MUST:** Incoming may be unavailable or disabled without blocking healthy outbound.
 
-### PR-075 — Local monitoring
+### PR-075 — Own-TTS suppression is subordinate to outbound
 
-**MAY:** User monitor translated voice locally.
+**MUST:** TranslateIT's own English TTS not become an `INCOMING` translation.
 
-**DEFAULT:** Off.
+**MUST:** If safe incoming suppression/capture cannot be maintained, disable/degrade the
+incoming lane rather than blocking otherwise safe required outbound TTS.
 
-### PR-076 — Incoming is a separate optional lane
+### PR-076 — Incoming source truthfulness
 
-**MUST:** Incoming English -> Indonesian text use a separate Meeting Sound capture/
-processing lane from the user's physical microphone.
+**MUST NOT:** Invent participant identity when only mixed/device-level audio exists.
 
-**MUST:** Incoming may be disabled/unavailable without blocking otherwise healthy
-core outbound.
+### PR-077 — Incoming freshness
 
-### PR-077 — Incoming partial subtitle and self-output suppression
+**MUST:** Incoming prefer current comprehension over an unbounded old subtitle backlog.
 
-**MAY:** Incoming show evolving partial subtitles for responsiveness.
+**DEFERRED:** automatic mid-session Follow-Windows-Default output-device rebind until the
+initial selected/default endpoint path is proven stable.
 
-**MUST:** Partial incoming content remain transient until committed.
+## 10. Text Translation
 
-**MUST:** TranslateIT's own English TTS not appear as a remote/incoming translation.
+### PR-090 — Explicit Text action
 
-### PR-078 — Incoming source truthfulness
+**MUST:** Text translate only after an explicit `Translate` action.
 
-**MUST NOT:** Invent participant identity when only mixed/device-level audio is
-available.
-
-**MUST NOT:** Claim Zoom/Meet/Teams process-specific capture or participant delivery
-without evidence for that boundary.
-
-### PR-079 — Incoming freshness/device behavior
-
-**MUST:** Incoming prioritize current comprehension over an unbounded old subtitle
-backlog.
-
-**MUST:** Follow-default device changes may rebind safely; explicitly pinned missing
-devices require user choice rather than silent substitution.
-
-## 10. History, Saved, Privacy And Retention
-
-### PR-080 — Local History default
-
-**MUST:** Local History be on by default and user-disableable.
-
-### PR-081 — History content
-
-**MAY:** History store useful product data such as timestamps, workflow, final
-transcript/source, translation, direction, tone, and truthful delivery status.
-
-**MUST NOT:** Raw microphone/incoming audio be normal History content.
-
-### PR-082 — History controls
-
-**MUST:** User can search History, delete individual entries/sessions, clear all
-History, and disable future/current retention according to the approved policy.
-
-### PR-083 — Saved semantics
-
-**MUST:** Saved work require explicit user action and remain durable/independent
-from automatic History.
-
-### PR-084 — Deletion isolation
-
-**MUST NOT:** Clearing/deleting History delete Saved.
-
-**MUST NOT:** Removing Saved delete otherwise existing History.
-
-### PR-085 — History and model context
-
-**MUST NOT:** Persistent History/Saved automatically feed translation model context.
-
-### PR-086 — Audio retention
-
-**DEFAULT:** Raw/source/incoming audio and generated TTS audio are temporary.
-
-### PR-087 — Diagnostics privacy
-
-**MUST:** Normal diagnostic logging use minimal operational/redacted information.
-
-**MUST NOT:** Full conversation bodies or raw microphone content be logged by
-default.
-
-### PR-088 — History-off semantics
-
-**MUST:** Turning History off stop automatic retention for new/current activity
-without silently deleting already completed History.
-
-**MUST:** A live Meeting may retain transient state required for live processing,
-then discard its conversation body at end when History is off unless the user
-explicitly saves it.
-
-### PR-089 — History/Saved user model
-
-**MUST:** Normal History contain only Meeting and Text activity.
-
-**SHOULD:** Saved be accessed through `History -> Saved` rather than as a separate
-top-level workspace.
-
-**MUST:** Saved success be shown only after durable commit.
-
-## 11. Storage And Standalone Text
-
-### PR-090 — Existing storage roots
-
-**MUST:** Preserve current responsibility split:
+### PR-091 — Simple Text workflow
 
 ```text
-UserData/CacheData/    -> temporary/disposable data
-UserData/LogData/      -> diagnostics/evidence
-UserData/SavedProject/ -> persistent user-visible/user-approved data
+Type / paste
+-> choose ID <-> EN direction
+-> Translate
+-> review result
+-> Copy
 ```
 
-### PR-091 — No speculative storage root
+**NOT INITIAL CORE:** Tone, translation mode, Meeting-context reuse, automatic Save.
 
-**MUST NOT:** Create another persistent storage root without a distinct ownership
-need.
+### PR-092 — Text result safety
 
-### PR-092 — Explicit Text translation
+**MUST:** Late/older result must not overwrite newer user intent.
 
-**MUST:** Standalone Text translate only on an explicit user action rather than on
-every keystroke.
+**MUST:** If source changes after translation, existing result be visibly outdated or
+clearly associated with the previous source.
 
-**DEFAULT:** Quality mode and Auto tone.
+### PR-093 — Text size truthfulness
 
-### PR-093 — Text request authority
+**MUST NOT:** Large Text input be silently truncated.
 
-**MUST:** Text requests have identity/authority so older/late results cannot
-overwrite newer user intent.
+**MUST:** Report a clear interactive limit when necessary.
 
-**MAY:** User cancel a long Text request; canceled results cannot reappear later.
+## 11. Privacy And Storage
 
-### PR-094 — Text result editing/outdated state
+### PR-100 — Persistence not required for core translation
 
-**MUST:** If source changes after a completed translation, the existing result be
-marked outdated rather than presented as current.
+**MUST NOT:** History/Saved persistence be required for Meeting or Text translation to
+work.
 
-**MAY:** Target translation be user-editable before Copy/Save.
+**NOT INITIAL CORE:** automatic History and Saved UI/workflow.
 
-### PR-095 — Text size truthfulness
+### PR-101 — Temporary audio/transcript
 
-**MUST NOT:** Very large input be silently truncated.
+**DEFAULT:** Raw microphone audio, Meeting Sound audio, generated TTS, and live Meeting
+transcript bodies are temporary session/runtime data.
 
-**MUST:** If input exceeds the supported interactive Text boundary, report that
-clearly and ask the user to shorten/split it; do not redirect to a removed Documents
-workflow.
+### PR-102 — Diagnostics privacy
 
-### PR-096 — Text independence/context isolation
+**MUST:** Normal diagnostics use minimal/redacted operational information.
 
-**MUST:** Text work without Meeting microphone/sound/route readiness when core
-translation runtime is available.
+**MUST NOT:** Full conversation bodies or raw audio be logged by default.
 
-**MUST NOT:** Meeting context automatically leak into standalone Text, or vice versa.
+### PR-103 — Storage roots
 
-### PR-097 — Text History/Saved
-
-**MUST:** Successful intentional Text translations follow the same History on/off
-policy and explicit Saved semantics as the rest of the product.
-
-**MUST:** Copy default to the target text without adding branding/technical metadata.
-
-## 12. Document Translation Boundary
-
-### PR-100 — Removed capability
-
-**REMOVED FROM CURRENT PRODUCT SCOPE:** First-class document translation.
-
-Inherited document requirements PR-101–109 are retired and must not be treated as
-current requirements. Historical Git state remains provenance if the capability is
-reconsidered through a future explicit product decision.
-
-## 13. Audio Studio / Custom Voice
-
-### PR-120 — Scope priority
-
-**POST-CORE:** Audio Studio is part of TranslateIT but does not block initial core
-release readiness.
-
-### PR-121 — Purpose
-
-**MUST:** Minimum purpose is creating/managing a local custom English voice profile
-for outbound translated TTS.
-
-### PR-122 — Inputs
-
-**SHOULD:** Support imported voice samples and guided recording.
-
-### PR-123 — Minimum workflow
+Preserve the existing responsibility split:
 
 ```text
-Create Profile
--> Collect / Import Samples
--> Quality Check
--> Accept / Retry / Remove
--> Build Profile
--> Preview
--> Activate
+UserData/CacheData/ -> temporary runtime/session data
+UserData/LogData/   -> minimal/redacted diagnostics
+UserData/SavedProject/ -> reserved persistent user-owned data for future approved use
 ```
 
-### PR-124 — Voice authorization
+## 12. Normal UI And Settings
 
-**MUST:** User acknowledge the voice is their own or explicitly authorized.
+### PR-160 — Initial navigation
 
-### PR-125 — Readiness
-
-**MUST:** Profile readiness be quality/provider-driven rather than fixed sample
-minute tiers.
-
-### PR-126 — Default voice independence
-
-**MUST:** Default local English TTS remain available independently of Audio Studio.
-
-### PR-127 — Custom-profile failure
-
-**MUST:** Unavailable selected custom voice visibly fall back to Default Voice, never
-silent cloud.
-
-### PR-128 — Audio Studio storage/deletion
-
-**MUST:** Working data remain local; persistent profile/project data be explicitly
-owned under Saved data; samples/profile be user-deletable.
-
-### PR-129 — Advanced exclusions
-
-**NOT INITIAL SCOPE:** broadcast tiers, emotion/style production studio,
-multilingual cloning, dialogue mode, and long-form professional voice production.
-
-## 14. Installer, Packaging And Distribution
-
-### PR-140 — Initial distribution
-
-**MUST:** Initial distribution target Windows internal/controlled users first.
-
-### PR-141 — One setup experience
-
-**MUST:** Normal users receive one user-facing installer/setup experience.
-
-### PR-142 — No manual runtime setup
-
-**MUST NOT:** Installed builds require manual Python, `pip`, environment-variable
-setup, developer scripts, or manual core-model placement.
-
-### PR-143 — Packaged helper
-
-**MUST:** Production package provide a TranslateIT-owned helper runtime and required
-dependencies.
-
-### PR-144 — Core assets
-
-**MUST:** Release package/build inputs provide required core ASR, ID/EN translation,
-and default local English TTS assets.
-
-### PR-145 — Meeting-audio setup
-
-**MUST:** Installer/setup own a supported path to prepare/configure the Meeting
-Microphone route without freezing a third-party provider brand as product identity.
-
-### PR-146 — Clean user state
-
-**MUST NOT:** Package developer `UserData` contents or `DevelopingData` as runtime
-user content.
-
-### PR-147 — Updates/signing
-
-**DEFERRED:** Auto-update for initial internal distribution.
-
-**NOT INTERNAL-RELEASE BLOCKER:** code signing; reconsider before broad/public
-distribution.
-
-### PR-149 — Installer readiness proof
-
-**MUST:** Installer readiness require clean supported-Windows evidence for install,
-launch, clean user state, packaged helper, core model discovery, Text translation,
-TTS, microphone, Meeting route, CPU fallback, applicable CUDA, and reinstall
-independence from repository checkout.
-
-## 15. Normal UI, Navigation And Settings
-
-### PR-160 — Product navigation
-
-**SHOULD:** Normal top-level navigation converge on:
+Normal top-level navigation is:
 
 ```text
 Meeting
 Text
-History
 Settings
 ```
 
-**MUST NOT:** `Documents` or `Saved` be normal top-level destinations in the current
-product. Saved remains available under History.
+**NOT INITIAL CORE:** top-level History or Saved.
 
-### PR-161 — Primary workspace
+### PR-161 — Meeting primary workspace
 
-**MUST:** Meeting be the primary/default product workspace.
+**MUST:** Meeting be the default workspace.
 
-### PR-162 — Normal user information
+### PR-162 — Meeting Ready simplicity
 
-**MUST:** Normal users see only product-relevant actions/results, language/tone/mode
-choices, Meeting devices, History/privacy controls, and simple readiness/recovery.
+Meeting Ready should primarily show:
 
-### PR-163 — Readiness vocabulary
+```text
+Required readiness
+ID -> EN Voice / optional EN -> ID Text
+Your Microphone
+Meeting Sound
+TranslateIT Meeting Microphone
+Start Translation
+```
 
-**MUST:** Prefer product-level readiness states:
+Do not show tone/model/context/runtime-mode controls.
+
+### PR-163 — Meeting Live simplicity
+
+Meeting Live should primarily show:
+
+```text
+Translation Live
+final chronological transcript
+simple activity state
+Stop Translation
+```
+
+**NOT INITIAL CORE:** Pause/Resume, Stop Voice, Speak Now/Cancel, partial subtitle
+controls, complex delivery coordination.
+
+### PR-164 — Settings hierarchy
+
+Normal Settings is reduced to:
+
+```text
+Meeting
+Advanced
+```
+
+Meeting owns device/setup preferences. Advanced owns Diagnostics. Diagnostics may show
+technical details but is not the normal manual runtime control plane.
+
+### PR-165 — Normal user vocabulary
+
+Normal users see product states such as:
 
 ```text
 Ready
-Degraded
+Live
 Setup Needed
 Unavailable
 Checking
 ```
 
-### PR-164 — Recovery actions
+Do not require understanding Python, model IDs, CUDA providers, VAD thresholds,
+scheduler queues, or raw logs.
 
-**SHOULD:** Use product-level actions such as `Retry`, `Fix Setup`, `Choose
-Microphone`, or `Open Diagnostics`.
-
-### PR-165 — Automatic internal setup
-
-**SHOULD:** Starting Meeting automatically perform reasonable internal runtime/model/
-device/route preparation rather than requiring subsystem controls.
-
-### PR-166 — Hidden engineering internals
-
-**MUST NOT:** Normal UX require direct operation/understanding of Python path,
-helper/worker lifecycle, model paths, CUDA/provider internals, VAD thresholds,
-queue sizes, retry counts, pipeline handoffs, or raw logs.
-
-### PR-167 — Developer Diagnostics
-
-**MUST:** Developer Diagnostics remain available under Advanced.
-
-**MAY:** It expose technical runtime/model/audio/performance/evidence details needed
-for troubleshooting.
-
-**SHOULD NOT:** Diagnostics become the normal manual runtime control plane.
-
-### PR-168 — Error presentation
-
-**MUST:** Normal errors be grouped/actionable at product level; raw technical detail
-belongs in Diagnostics.
-
-### PR-169 — Audio Studio placement
-
-**SHOULD:** Audio Studio remain advanced/post-core rather than primary navigation.
-
-### PR-170 — Settings hierarchy
-
-**SHOULD:** Normal Settings converge on:
-
-```text
-Meeting
-History & Privacy
-Advanced
-```
-
-**SHOULD NOT:** `General` or `Translation` exist as separate normal Settings sections
-without a distinct approved user responsibility.
-
-### PR-171 — Device settings semantics
-
-**MUST:** Meeting Settings own physical microphone and Meeting Sound preferences,
-including Follow Windows Default and explicit pinned-device behavior.
-
-**MUST:** A newly chosen device be verified before replacing a previously working
-preference.
-
-### PR-172 — Managed Meeting Microphone settings
-
-**MUST:** TranslateIT Meeting Microphone appear as a managed product route with
-readiness/setup actions, not as a general audio-routing dropdown.
-
-### PR-173 — Settings persistence
-
-**MUST:** Persist user preferences such as speaking mode/device/history policy.
-
-**MUST NOT:** Persist transient `ready=true` facts as permanent truth; runtime
-readiness is revalidated.
-
-### PR-174 — Settings during Live Meeting
-
-**MUST:** Opening Settings not stop a live session.
-
-**MAY:** Explicit device changes perform safe affected-lane rebinds.
-
-**SHOULD:** Speaking-mode changes apply next session rather than changing mid-
-utterance semantics.
-
-**MUST:** Full setup tests not disrupt a live Meeting.
-
-### PR-175 — History presentation
-
-**SHOULD:** `History` expose `Recent / Saved` with Meeting/Text filters and local
-search rather than separate top-level Saved navigation.
-
-## 16. Long-Session And Application Lifecycle
+## 13. Application Lifecycle
 
 ### PR-176 — Long-session bounds
 
-**MUST:** Long sessions keep memory growth, queues, context, temporary artifacts,
-threads/handles, and persistence work bounded.
+**MUST:** Memory growth, queues, temporary artifacts, threads, and handles remain
+bounded.
 
-### PR-177 — Minimize versus control loss
+### PR-177 — Minimize
 
 **MUST:** Normal minimize/hide not end a healthy Meeting session.
 
-**MUST:** Unexpected loss of the user control plane not leave uncontrolled invisible
-Meeting output running indefinitely.
+### PR-178 — Safe close
 
-### PR-178 — Sleep/hibernate
+**MUST:** Closing the application with an active Meeting use the canonical safe Stop
+path before window destruction.
 
-**MUST:** Windows sleep/hibernate interrupt the live session and invalidate old live
-output authority.
+### PR-179 — Sleep/hibernate
 
-**MUST NOT:** Voice output automatically resume after wake without a new explicit
-user continuation/start decision.
+**MUST:** Windows sleep/hibernate invalidate active Meeting output authority.
 
-### PR-179 — Update/runtime pinning during Live
+**MUST NOT:** Voice output automatically resume after wake without new explicit user
+continuation.
 
-**SHOULD:** Active Meeting use stable current runtime/model/config generation;
-updates/model replacements must not unexpectedly disrupt an active session.
+## 14. Packaging And Distribution
 
-## 17. Evidence And Release Claims
+### PR-140 — Initial distribution
 
-### PR-180 — Source versus proof
+**MUST:** Initial distribution target controlled Windows users first.
 
-**MUST:** Static source/config presence never be reported as live runtime success
-when the claim requires target-environment evidence.
+### PR-141 — One setup experience
 
-### PR-181 — Live proof areas
+**MUST:** Normal users receive one installer/setup experience.
 
-Target-environment proof is required before claiming success for microphone
-capture, ASR/translation/TTS quality, self-output suppression, Meeting Microphone
-delivery, turn coordination, latency, CUDA performance, History/Saved persistence,
-Audio Studio generation, and packaged installer/runtime behavior.
+### PR-142 — No manual developer runtime setup
 
-## 18. Deferred / Replaceable Implementation Choices
+**MUST NOT:** Installed builds require manual Python, `pip`, environment-variable,
+repository checkout, or manual core-model placement.
 
-Not frozen without a future explicit decision:
+### PR-143 — Core packaged assets
 
-- exact ASR/translation/TTS models/providers;
-- exact CUDA library/compute type;
-- exact VAD numeric thresholds;
-- exact benchmark-derived latency target;
-- exact prompt/glossary/context-window mechanics;
-- exact Windows virtual-audio provider;
-- exact installer filename/update/signing implementation.
+**MUST:** Release inputs provide the required helper/runtime, ASR, **bidirectional
+Indonesian/English translation**, default English TTS, and Meeting-audio route support.
 
-## 19. Current Implementation Status Boundary
+## 15. Evidence And Initial Release Gate
 
-Current `New` source is an inherited implementation baseline, not proof that these
-requirements are complete. The current shell/source still contains behavior that
-predates this policy, including Documents/Saved top-level surfaces and incomplete
-Meeting/Text/History/Settings semantics. These are later reconciliation inputs, not
-permission to implement before the current product-flow planning sequence is
-finished.
+### PR-180 — Source is not live proof
+
+**MUST:** Static source/config presence never be reported as runtime success when the
+claim requires target-Windows evidence.
+
+### PR-181 — Small-core acceptance first
+
+Before adding deferred features, obtain local evidence for:
+
+```text
+1. microphone capture
+2. stable final ASR
+3. Indonesian -> English translation
+4. English -> Indonesian translation
+5. English TTS
+6. Meeting Microphone delivery
+7. optional incoming Meeting Sound behavior
+8. safe Stop / Close
+9. acceptable latency/stability on target hardware
+10. standalone Text ID <-> EN
+```
+
+A deferred feature must not delay this acceptance gate.
+
+## 16. Explicitly Deferred / Removed Initial Features
+
+The following are intentionally not initial core requirements even if source currently
+exists:
+
+```text
+Pause / Resume
+Push to Talk
+Stop Voice
+Speak Now / Cancel coordination
+partial subtitles
+Auto / Formal / Casual tone controls
+Realtime / Quality user modes
+conversation-context prompting
+History / Saved
+Audio Studio / custom voice
+Document Translation
+additional languages
+incoming TTS
+mid-session automatic Meeting Sound default-device rebind
+```
+
+Reconsider them only after the small core translator has target-Windows proof and a
+new explicit product decision shows the added feature is worth its complexity.
 
 ## Related
 
 - `AGENTS.md`
 - `CONTEXT.md`
 - `docs/foundation/01-product-overview.md`
+- `docs/knowledge/decision-log.md`
 - `docs/knowledge/next-action.md`
 - `docs/knowledge/source-ownership.md`
