@@ -19,12 +19,23 @@ type ActivityCopy = {
   tone: "neutral" | "good" | "warning";
 };
 
+type IncomingRuntimeStatus = {
+  session_id?: string | null;
+  stage?: string;
+  capture_active?: boolean;
+  suppressed?: boolean;
+  degraded?: boolean;
+  blocker?: string;
+  note?: string;
+};
+
 type ActivityView = {
   section: HTMLElement;
   stage: HTMLElement;
   title: HTMLElement;
   detail: HTMLElement;
   meta: HTMLElement;
+  incomingState: HTMLElement;
   transcriptTurns: HTMLElement;
   transcriptEmpty: HTMLElement;
   transcriptNotice: HTMLElement;
@@ -73,7 +84,7 @@ function ensureActivityView(): ActivityView | null {
       <header class="meeting-live-activity-header">
         <div>
           <span class="meeting-live-activity-kicker">Live activity</span>
-          <strong id="meetingLiveActivityMeta">Indonesian → English voice</strong>
+          <strong id="meetingLiveActivityMeta">ID → EN voice · EN → ID text</strong>
         </div>
         <span id="meetingLiveActivityStage" class="meeting-live-activity-stage" data-tone="neutral">Listening</span>
       </header>
@@ -84,14 +95,15 @@ function ensureActivityView(): ActivityView | null {
           <p id="meetingLiveActivityDetail">TranslateIT is waiting for the next finalized utterance.</p>
         </div>
       </div>
+      <p id="meetingLiveIncomingState" class="meeting-live-incoming-state" data-tone="neutral" hidden></p>
       <section class="meeting-live-transcript" aria-label="Meeting transcript">
         <header class="meeting-live-transcript-header">
           <strong>Transcript</strong>
-          <span>Finalized outbound turns</span>
+          <span>Finalized Meeting turns</span>
         </header>
         <p id="meetingLiveTranscriptNotice" class="meeting-live-transcript-notice" hidden></p>
         <div id="meetingLiveTranscriptTurns" class="meeting-live-transcript-turns"></div>
-        <p id="meetingLiveTranscriptEmpty" class="meeting-live-transcript-empty">No finalized translation yet. Your committed Indonesian and English text will appear here.</p>
+        <p id="meetingLiveTranscriptEmpty" class="meeting-live-transcript-empty">No finalized translation yet. Committed Meeting turns will appear here in speech order.</p>
       </section>`;
 
     const actions = panel.querySelector<HTMLElement>(".meeting-ready-actions");
@@ -103,10 +115,11 @@ function ensureActivityView(): ActivityView | null {
   const title = document.getElementById("meetingLiveActivityTitle");
   const detail = document.getElementById("meetingLiveActivityDetail");
   const meta = document.getElementById("meetingLiveActivityMeta");
+  const incomingState = document.getElementById("meetingLiveIncomingState");
   const transcriptTurns = document.getElementById("meetingLiveTranscriptTurns");
   const transcriptEmpty = document.getElementById("meetingLiveTranscriptEmpty");
   const transcriptNotice = document.getElementById("meetingLiveTranscriptNotice");
-  if (!stage || !title || !detail || !meta || !transcriptTurns || !transcriptEmpty || !transcriptNotice) return null;
+  if (!stage || !title || !detail || !meta || !incomingState || !transcriptTurns || !transcriptEmpty || !transcriptNotice) return null;
 
   return {
     section,
@@ -114,6 +127,7 @@ function ensureActivityView(): ActivityView | null {
     title,
     detail,
     meta,
+    incomingState,
     transcriptTurns,
     transcriptEmpty,
     transcriptNotice,
@@ -137,6 +151,8 @@ function clearTranscriptPresentation(view: ActivityView): void {
   view.transcriptNotice.hidden = true;
   view.transcriptNotice.textContent = "";
   view.transcriptEmpty.hidden = false;
+  view.incomingState.hidden = true;
+  view.incomingState.textContent = "";
 }
 
 function renderReadySurface(): void {
@@ -156,7 +172,7 @@ function activityCopy(status: MeetingSessionStatus): ActivityCopy {
     return {
       label: "Paused",
       title: "Outbound translation is paused",
-      detail: "The Meeting session remains open. Resume Translation when you want translated voice to continue.",
+      detail: "The Meeting session remains open. Incoming English → Indonesian text may continue when Meeting Sound is available.",
       tone: "neutral",
     };
   }
@@ -224,7 +240,7 @@ function activityCopy(status: MeetingSessionStatus): ActivityCopy {
   }
 }
 
-function deliveryLabel(state: string): string {
+function deliveryLabel(state: string | null | undefined): string {
   switch (state) {
     case "preparing_voice":
       return "Preparing voice";
@@ -242,35 +258,70 @@ function deliveryLabel(state: string): string {
 }
 
 function createTranscriptTurn(turn: MeetingCommittedTurn): HTMLElement {
+  const incoming = turn.lane === "incoming";
   const article = document.createElement("article");
   article.className = "meeting-live-transcript-turn";
-  article.dataset.deliveryState = turn.delivery_state;
+  article.dataset.lane = incoming ? "incoming" : "you";
+  if (!incoming && turn.delivery_state) article.dataset.deliveryState = turn.delivery_state;
 
   const header = document.createElement("header");
   header.className = "meeting-live-transcript-turn-header";
 
   const lane = document.createElement("span");
   lane.className = "meeting-live-transcript-lane";
-  lane.textContent = "YOU";
+  lane.textContent = incoming ? "INCOMING" : "YOU";
+  header.append(lane);
 
-  const delivery = document.createElement("span");
-  delivery.className = "meeting-live-transcript-delivery";
-  delivery.textContent = deliveryLabel(turn.delivery_state);
+  if (!incoming) {
+    const delivery = document.createElement("span");
+    delivery.className = "meeting-live-transcript-delivery";
+    delivery.textContent = deliveryLabel(turn.delivery_state);
+    header.append(delivery);
+  }
 
-  header.append(lane, delivery);
+  const primary = document.createElement("p");
+  primary.className = "meeting-live-transcript-source";
+  primary.lang = "id";
+  primary.textContent = incoming ? turn.translated_text : turn.source_text;
 
-  const source = document.createElement("p");
-  source.className = "meeting-live-transcript-source";
-  source.lang = "id";
-  source.textContent = turn.source_text;
+  const secondary = document.createElement("p");
+  secondary.className = "meeting-live-transcript-translation";
+  secondary.lang = "en";
+  secondary.textContent = incoming ? turn.source_text : turn.translated_text;
 
-  const translation = document.createElement("p");
-  translation.className = "meeting-live-transcript-translation";
-  translation.lang = "en";
-  translation.textContent = turn.translated_text;
-
-  article.append(header, source, translation);
+  article.append(header, primary, secondary);
   return article;
+}
+
+function renderIncomingStatus(status: MeetingSessionStatus, view: ActivityView): void {
+  const incoming = (status as MeetingSessionStatus & { incoming?: IncomingRuntimeStatus }).incoming;
+  if (!incoming || !status.has_session) {
+    view.incomingState.hidden = true;
+    view.incomingState.textContent = "";
+    return;
+  }
+
+  view.incomingState.hidden = false;
+  if (incoming.degraded) {
+    view.incomingState.dataset.tone = "warning";
+    view.incomingState.textContent = "Incoming translation is unavailable or degraded. Outbound Indonesian → English voice remains independent.";
+    return;
+  }
+  if (incoming.suppressed || incoming.stage === "suppressed") {
+    view.incomingState.dataset.tone = "neutral";
+    view.incomingState.textContent = "Incoming is briefly suppressed while TranslateIT is speaking, so its own English voice is not treated as remote speech.";
+    return;
+  }
+  if (incoming.capture_active) {
+    view.incomingState.dataset.tone = "good";
+    view.incomingState.textContent = incoming.stage === "transcribing" || incoming.stage === "translating"
+      ? "Incoming English speech is being prepared as Indonesian text."
+      : "Incoming English → Indonesian text is listening through Meeting Sound.";
+    return;
+  }
+
+  view.incomingState.dataset.tone = "neutral";
+  view.incomingState.textContent = "Incoming Meeting Sound is not active. Outbound translation can continue independently.";
 }
 
 function renderCommittedTurns(snapshot: MeetingCommittedTurnsSnapshot, status: MeetingSessionStatus, view: ActivityView): void {
@@ -294,9 +345,10 @@ function renderCommittedTurns(snapshot: MeetingCommittedTurnsSnapshot, status: M
   }
 
   const fragment = document.createDocumentFragment();
-  for (const turn of snapshot.turns) fragment.append(createTranscriptTurn(turn));
+  const orderedTurns = [...snapshot.turns].sort((a, b) => a.sequence - b.sequence);
+  for (const turn of orderedTurns) fragment.append(createTranscriptTurn(turn));
   view.transcriptTurns.append(fragment);
-  view.transcriptEmpty.hidden = snapshot.turns.length > 0;
+  view.transcriptEmpty.hidden = orderedTurns.length > 0;
 }
 
 function renderMeetingStatus(status: MeetingSessionStatus, turns: MeetingCommittedTurnsSnapshot): void {
@@ -315,18 +367,19 @@ function renderMeetingStatus(status: MeetingSessionStatus, turns: MeetingCommitt
   view.stage.dataset.tone = copy.tone;
   view.title.textContent = copy.title;
   view.detail.textContent = copy.detail;
-  view.meta.textContent = "Indonesian → English voice · Realtime";
+  view.meta.textContent = "ID → EN voice · EN → ID text · Realtime";
+  renderIncomingStatus(status, view);
   renderCommittedTurns(turns, status, view);
 
   if (meeting.paused) {
-    view.headingTitle.textContent = "Meeting translation is paused.";
-    view.headingDescription.textContent = "The Meeting session is still open. Resume when you want outbound translated voice to continue.";
+    view.headingTitle.textContent = "Outbound translation is paused.";
+    view.headingDescription.textContent = "The Meeting session is still open. Incoming English → Indonesian text may continue when Meeting Sound is available.";
   } else if (meeting.lifecycle === "resuming") {
     view.headingTitle.textContent = "Resuming Meeting translation.";
-    view.headingDescription.textContent = "TranslateIT is reopening the required outbound resources for this Meeting session.";
+    view.headingDescription.textContent = "TranslateIT is reopening the required outbound resources while retaining the same Meeting conversation session.";
   } else {
     view.headingTitle.textContent = "Meeting translation is live.";
-    view.headingDescription.textContent = "Speak Indonesian normally. Finalized Indonesian text and its English translation appear below with truthful output status.";
+    view.headingDescription.textContent = "Speak Indonesian normally. Finalized YOU and INCOMING translations appear below in speech order.";
   }
 }
 
