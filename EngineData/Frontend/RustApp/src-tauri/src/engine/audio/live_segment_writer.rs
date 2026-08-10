@@ -3,6 +3,7 @@ use std::fs;
 use std::io::{self, Write};
 use std::path::PathBuf;
 
+use super::finalized_utterance::FinalizedOutboundUtterance;
 use super::live_audio_buffer::live_target_segment_snapshot;
 use super::TARGET_SAMPLE_RATE_HZ;
 use crate::engine::paths::ProjectPaths;
@@ -11,6 +12,7 @@ const MIN_ASR_SEGMENT_DURATION_MS: u32 = 300;
 const MAX_ASR_SEGMENT_SAMPLES: usize = 120_000;
 const LATEST_LIVE_SEGMENT_LABEL: &str =
     "UserData/CacheData/audio_segments/latest_live_target_segment.wav";
+const FINALIZED_SEGMENT_ROOT_LABEL: &str = "UserData/CacheData/audio_segments/";
 
 #[derive(Debug, Clone, Serialize)]
 pub struct LiveSegmentWavWriteReport {
@@ -24,6 +26,9 @@ pub struct LiveSegmentWavWriteReport {
     pub note: String,
 }
 
+// Diagnostic-only rolling snapshot writer. Product Meeting output must use
+// write_finalized_outbound_utterance_wav so an ASR-ready rolling window cannot be
+// confused with a finalized speech boundary.
 pub fn write_latest_live_target_segment_wav() -> LiveSegmentWavWriteReport {
     let segment = live_target_segment_snapshot();
     if !segment.ready {
@@ -53,56 +58,25 @@ pub fn write_latest_live_target_segment_wav() -> LiveSegmentWavWriteReport {
     };
 
     let frame_duration_ms = duration_ms(frame.samples.len(), frame.sample_rate_hz);
-
-    if !frame.is_target_format() {
-        return LiveSegmentWavWriteReport {
-            ok: false,
-            audio_path: None,
-            sample_rate_hz: frame.sample_rate_hz,
-            channels: frame.channels,
-            sample_count: frame.samples.len(),
-            duration_ms: frame_duration_ms,
-            blocker: "live_segment_writer:frame_not_target_format".to_string(),
-            note: "Live target frame must be 16 kHz mono before worker transcription.".to_string(),
-        };
-    }
-
-    if frame.samples.is_empty() || frame.samples.len() > MAX_ASR_SEGMENT_SAMPLES {
-        return LiveSegmentWavWriteReport {
-            ok: false,
-            audio_path: None,
-            sample_rate_hz: frame.sample_rate_hz,
-            channels: frame.channels,
-            sample_count: frame.samples.len(),
-            duration_ms: frame_duration_ms,
-            blocker: "live_segment_writer:sample_count_out_of_range".to_string(),
-            note: "Captured audio sample count is outside the safe WAV writer range.".to_string(),
-        };
-    }
-
-    if frame_duration_ms < MIN_ASR_SEGMENT_DURATION_MS {
-        return LiveSegmentWavWriteReport {
-            ok: false,
-            audio_path: None,
-            sample_rate_hz: frame.sample_rate_hz,
-            channels: frame.channels,
-            sample_count: frame.samples.len(),
-            duration_ms: frame_duration_ms,
-            blocker: "live_segment_writer:segment_too_short".to_string(),
-            note: format!("Captured audio is too short for reliable ASR. Minimum: {MIN_ASR_SEGMENT_DURATION_MS}ms."),
-        };
+    if let Some(report) = validate_target_frame(
+        frame.sample_rate_hz,
+        frame.channels,
+        &frame.samples,
+        frame_duration_ms,
+        "live_segment_writer",
+    ) {
+        return report;
     }
 
     let project_paths = ProjectPaths::discover();
     let audio_dir = PathBuf::from(project_paths.user_cache_dir).join("audio_segments");
     let audio_path = audio_dir.join("latest_live_target_segment.wav");
-    let write_result = write_pcm16_wav(
+    match write_pcm16_wav(
         &audio_path,
         frame.sample_rate_hz,
         frame.channels,
         &frame.samples,
-    );
-    match write_result {
+    ) {
         Ok(()) => LiveSegmentWavWriteReport {
             ok: true,
             audio_path: Some(LATEST_LIVE_SEGMENT_LABEL.to_string()),
@@ -111,7 +85,8 @@ pub fn write_latest_live_target_segment_wav() -> LiveSegmentWavWriteReport {
             sample_count: frame.samples.len(),
             duration_ms: frame_duration_ms,
             blocker: String::new(),
-            note: "Live target ASR segment was written as PCM16 WAV for the local worker.".to_string(),
+            note: "Diagnostic rolling target segment was written as PCM16 WAV. This file is not a finalized Meeting utterance."
+                .to_string(),
         },
         Err(_error) => LiveSegmentWavWriteReport {
             ok: false,
@@ -121,9 +96,167 @@ pub fn write_latest_live_target_segment_wav() -> LiveSegmentWavWriteReport {
             sample_count: frame.samples.len(),
             duration_ms: frame_duration_ms,
             blocker: "live_segment_writer:wav_write_failed".to_string(),
-            note: "Failed to write live target ASR segment WAV. Open Developer diagnostics for details.".to_string(),
+            note: "Failed to write diagnostic rolling target segment WAV. Open Developer diagnostics for details."
+                .to_string(),
         },
     }
+}
+
+pub fn write_finalized_outbound_utterance_wav(
+    utterance: &FinalizedOutboundUtterance,
+) -> LiveSegmentWavWriteReport {
+    let frame = &utterance.frame;
+    let frame_duration_ms = duration_ms(frame.samples.len(), frame.sample_rate_hz);
+    if let Some(report) = validate_target_frame(
+        frame.sample_rate_hz,
+        frame.channels,
+        &frame.samples,
+        frame_duration_ms,
+        "finalized_utterance_writer",
+    ) {
+        return report;
+    }
+
+    let session_component = safe_file_component(&utterance.session_id);
+    if session_component.is_empty() {
+        return LiveSegmentWavWriteReport {
+            ok: false,
+            audio_path: None,
+            sample_rate_hz: frame.sample_rate_hz,
+            channels: frame.channels,
+            sample_count: frame.samples.len(),
+            duration_ms: frame_duration_ms,
+            blocker: "finalized_utterance_writer:invalid_session_id".to_string(),
+            note: "Finalized utterance WAV was not written because its session identity is invalid."
+                .to_string(),
+        };
+    }
+
+    let filename = format!(
+        "final_{}_g{}_u{}.wav",
+        session_component, utterance.generation, utterance.utterance_id
+    );
+    let project_paths = ProjectPaths::discover();
+    let audio_dir = PathBuf::from(project_paths.user_cache_dir).join("audio_segments");
+    let audio_path = audio_dir.join(&filename);
+    let label = format!("{FINALIZED_SEGMENT_ROOT_LABEL}{filename}");
+
+    match write_pcm16_wav(
+        &audio_path,
+        frame.sample_rate_hz,
+        frame.channels,
+        &frame.samples,
+    ) {
+        Ok(()) => LiveSegmentWavWriteReport {
+            ok: true,
+            audio_path: Some(label),
+            sample_rate_hz: frame.sample_rate_hz,
+            channels: frame.channels,
+            sample_count: frame.samples.len(),
+            duration_ms: frame_duration_ms,
+            blocker: String::new(),
+            note: format!(
+                "Finalized outbound utterance {} for Meeting generation {} was written once as temporary PCM16 WAV.",
+                utterance.utterance_id, utterance.generation
+            ),
+        },
+        Err(_error) => LiveSegmentWavWriteReport {
+            ok: false,
+            audio_path: Some(label),
+            sample_rate_hz: frame.sample_rate_hz,
+            channels: frame.channels,
+            sample_count: frame.samples.len(),
+            duration_ms: frame_duration_ms,
+            blocker: "finalized_utterance_writer:wav_write_failed".to_string(),
+            note: "Failed to write finalized outbound utterance WAV. No AI/output stage should consume this utterance."
+                .to_string(),
+        },
+    }
+}
+
+pub fn remove_finalized_outbound_utterance_wav(audio_path: &str) {
+    let Some(filename) = finalized_audio_filename(audio_path) else {
+        return;
+    };
+    let project_paths = ProjectPaths::discover();
+    let path = PathBuf::from(project_paths.user_cache_dir)
+        .join("audio_segments")
+        .join(filename);
+    let _ = fs::remove_file(path);
+}
+
+fn finalized_audio_filename(audio_path: &str) -> Option<String> {
+    let normalized = audio_path.trim().replace('\\', "/");
+    let filename = normalized.strip_prefix(FINALIZED_SEGMENT_ROOT_LABEL)?;
+    if filename.is_empty()
+        || filename.contains('/')
+        || filename.contains('\\')
+        || !filename.starts_with("final_")
+        || !filename.ends_with(".wav")
+    {
+        return None;
+    }
+    Some(filename.to_string())
+}
+
+fn validate_target_frame(
+    sample_rate_hz: u32,
+    channels: u16,
+    samples: &[f32],
+    frame_duration_ms: u32,
+    blocker_prefix: &str,
+) -> Option<LiveSegmentWavWriteReport> {
+    if sample_rate_hz != TARGET_SAMPLE_RATE_HZ || channels != 1 {
+        return Some(LiveSegmentWavWriteReport {
+            ok: false,
+            audio_path: None,
+            sample_rate_hz,
+            channels,
+            sample_count: samples.len(),
+            duration_ms: frame_duration_ms,
+            blocker: format!("{blocker_prefix}:frame_not_target_format"),
+            note: "Finalized audio must be 16 kHz mono before worker transcription.".to_string(),
+        });
+    }
+
+    if samples.is_empty() || samples.len() > MAX_ASR_SEGMENT_SAMPLES {
+        return Some(LiveSegmentWavWriteReport {
+            ok: false,
+            audio_path: None,
+            sample_rate_hz,
+            channels,
+            sample_count: samples.len(),
+            duration_ms: frame_duration_ms,
+            blocker: format!("{blocker_prefix}:sample_count_out_of_range"),
+            note: "Audio sample count is outside the safe WAV writer range.".to_string(),
+        });
+    }
+
+    if frame_duration_ms < MIN_ASR_SEGMENT_DURATION_MS {
+        return Some(LiveSegmentWavWriteReport {
+            ok: false,
+            audio_path: None,
+            sample_rate_hz,
+            channels,
+            sample_count: samples.len(),
+            duration_ms: frame_duration_ms,
+            blocker: format!("{blocker_prefix}:segment_too_short"),
+            note: format!(
+                "Finalized audio is too short for the current ASR writer contract. Minimum: {MIN_ASR_SEGMENT_DURATION_MS}ms."
+            ),
+        });
+    }
+
+    None
+}
+
+fn safe_file_component(value: &str) -> String {
+    value
+        .trim()
+        .chars()
+        .filter(|character| character.is_ascii_alphanumeric() || matches!(character, '_' | '-'))
+        .take(96)
+        .collect()
 }
 
 fn write_pcm16_wav(
