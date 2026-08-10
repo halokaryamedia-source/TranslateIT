@@ -340,7 +340,7 @@ must not be collapsed into one `Ready` boolean.
 
 ## Finalized Meeting Outbound Source
 
-The outbound capture boundary is now source-separated into rolling and final speech:
+The outbound capture boundary is source-separated into rolling and final speech:
 
 ```text
 application Meeting microphone capture
@@ -368,10 +368,16 @@ ceiling are implementation safety/tuning mechanics, not production-proven timing
 policy. They require later microphone/VAD runtime proof. Safety overflow/backlog is
 fail-closed rather than creating a fake partial "final" utterance.
 
-Backend Meeting Start now has source-connected finalized speech/outbound runtime and
+Backend Meeting Start has source-connected finalized speech/outbound runtime and
 keeps all other required preflight blockers. Stop remains authority-first and clears
-capture/finalized/helper/consumer state in that order. Normal frontend Start/Stop and
-Live-state wiring is still the next product integration boundary.
+capture/finalized/helper/consumer state in that order.
+
+Normal product frontend now reads the canonical backend Meeting session directly
+through `get_meeting_session_status`, and its primary action calls
+`start_meeting_translation` / `stop_meeting_translation`. The product facade maps the
+backend application owner to Ready/Starting/Live/Stopping/conflict states; no second
+frontend Meeting session authority was added. Navigation remains presentation-only,
+and Mic Test is blocked while runtime Meeting resources are owned.
 
 ## Python Project / Development Tooling
 
@@ -456,18 +462,21 @@ Source-side alignment completed on `New` includes:
 - explicit English-capable Piper/SAPI voice selection before outbound synthesis;
 - one WorkerRuntime `pyproject.toml` dependency/tooling owner with Ruff/pytest proof
   baseline and privacy-bounded persistent-worker smoke source;
-- an application-Meeting-only finalized utterance producer with adaptive VAD silence,
-  generation/utterance identity, exactly-once queue ownership, unique temporary WAVs,
-  and one serialized consumer into the canonical outbound AI/output boundary.
+- application-Meeting-only finalized utterance production with adaptive VAD silence,
+  generation/utterance identity, one-shot queue ownership, unique temporary WAVs, and
+  one serialized consumer into the canonical outbound AI/output boundary;
+- normal Meeting frontend Start/Stop/Live-state wiring through the canonical backend
+  application session, without a parallel frontend lifecycle store.
 
 Still incomplete or unproved:
 
-- normal frontend bridge/action wiring for canonical Meeting Start/Stop and approved
-  Live state/global cross-view Meeting behavior;
+- actual canonical Meeting frontend/Tauri invocation and rendered transition behavior;
+- Pause/Resume lifecycle with fresh-generation Resume semantics;
+- global/cross-view Meeting strip, full Live transcript/activity presentation, and
+  close-live handling;
 - actual microphone capture/VAD boundary quality and exactly-once/Stop race behavior;
 - actual MarianMT/NLLB EOS behavior and translation quality on target runtime;
 - actual English Piper/SAPI voice availability, synthesis success, and audio quality;
-- complete Pause/Resume UX/lifecycle semantics;
 - incoming Meeting Sound lane, self-output suppression, turn coordination, and bounded
   recovery;
 - Meeting History after canonical lifecycle is active;
@@ -477,7 +486,7 @@ Still incomplete or unproved:
 - model quality/latency/RAM/VRAM proof;
 - Windows microphone-permission deep-link;
 - clean installer/runtime asset reconciliation;
-- actual Ruff/pytest/build/model/device/Windows acceptance.
+- actual Ruff/pytest/typecheck/build/model/device/Windows acceptance.
 
 Source presence does not prove target-PC readiness. Microphone/output endpoint
 selection and config probes are **not** live Windows/device proof. Do not claim real
