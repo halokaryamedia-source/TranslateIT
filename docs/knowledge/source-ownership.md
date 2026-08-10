@@ -32,16 +32,18 @@ installed-runtime, or release proof.
 | Text AI execution | `text_translate.rs` -> helper scheduler -> `realtime_local_worker.py` | **SOURCE ALIGNED / LOCAL PROOF LATER** | One persistent worker route; Text explicitly requests Quality. |
 | Meeting outbound AI mode | `meeting_session.rs` | **SOURCE ALIGNED / FINALIZED AUDIO MISSING** | Generation-aware outbound translation explicitly requests Realtime. |
 | Helper scheduling / worker I/O | `helper_bridge.rs`, `helper_bridge_runtime.rs` | **SOURCE ALIGNED / CONTENTION PROOF LATER** | One scheduler owns stdin/stdout; waiting Meeting > Text > Diagnostics. |
-| Helper cancellation | helper bridge + Meeting generation authority | **SOURCE ALIGNED / TIMING PROOF LATER** | Stale Meeting work rejected; matching in-flight Meeting task hard-cancels the worker process. |
-| Translation input bounds | `realtime_local_worker.py` | **SOURCE ALIGNED / MODEL PROOF LATER** | No silent tokenizer truncation; unknown/oversized model-token input is rejected. |
+| Helper cancellation | helper bridge + Meeting generation authority | **SOURCE ALIGNED / TIMING PROOF LATER** | Stale Meeting work rejected; matching in-flight Meeting task may hard-cancel the worker process. |
+| Translation source bounds | `realtime_local_worker.py` | **SOURCE ALIGNED / MODEL PROOF LATER** | No silent tokenizer truncation; unknown/oversized model-token input is rejected. |
+| Translation output completeness | `realtime_local_worker.py` | **SOURCE ALIGNED / MODEL EXECUTION PROOF LATER** | Generated translation is promoted only when EOS completion is verifiable; non-EOS ceiling/termination is blocked. |
+| English TTS voice selection | `realtime_local_worker.py` | **SOURCE ALIGNED / WINDOWS + ASSET PROOF LATER** | Piper requires English metadata; SAPI requires English culture and explicit `SelectVoice`. Arbitrary first/default voice is not accepted. |
 | Model installation evidence | `model_manifest.json`, `runtime_inventory.rs` | **ALIGNED STATIC OWNER / METADATA PARTIAL** | Asset presence only, not model-load/inference proof. |
-| Current AI capability availability | persistent worker `status` -> helper bridge | **SOURCE ALIGNED / LOAD-INFERENCE PROOF LATER** | ASR / Realtime translation / Quality translation / TTS capability states are scoped. |
+| Current AI capability availability | persistent worker `status` -> helper bridge | **SOURCE ALIGNED / LOAD-INFERENCE PROOF LATER** | ASR / Realtime translation / Quality translation / explicit-English TTS capability states are scoped. |
 | Product readiness | `runtimeProductFacade.ts` + `MeetingSessionPreflight` | **SOURCE ALIGNED / LOCAL PROOF LATER** | Text uses Quality capability; Meeting uses canonical preflight. |
 | Python dependency/tooling ownership | `WorkerRuntime/pyproject.toml` | **SOURCE ALIGNED / LOCK + EXECUTION PROOF LATER** | One Python project owns runtime deps, optional route extra, Ruff, and pytest. `uv.lock` is intentionally not fabricated. |
-| Python deterministic proof | `WorkerRuntime/tests/test_worker_contract.py` + pytest config in `pyproject.toml` | **SOURCE ALIGNED / NOT EXECUTED** | Deterministic mode/bounds/protocol tests exist; model quality is outside this proof. |
-| Python source quality policy | Ruff config in `pyproject.toml` | **SOURCE ALIGNED / NOT EXECUTED** | Ruff is the single Python lint/format policy; no parallel lint stack added. |
+| Python deterministic proof | `WorkerRuntime/tests/test_worker_contract.py` + pytest config | **SOURCE ALIGNED / NOT EXECUTED** | Deterministic mode/bounds/EOS/voice/protocol test definitions exist; model/device quality is outside this proof. |
+| Python source quality policy | Ruff config in `pyproject.toml` | **SOURCE ALIGNED / NOT EXECUTED** | Ruff is the single Python lint/format policy. |
 | Local Python profiling | `py-spy` procedure in WorkerRuntime README | **DOCUMENTED / LOCAL ONLY** | Profile the actual persistent worker PID; py-spy is not a product dependency. |
-| Persistent worker smoke | `run_realtime_worker_smoke.ps1` | **SOURCE ALIGNED / LOCAL PROOF LATER** | One worker process is reused across commands and evidence excludes conversation bodies/file paths. |
+| Persistent worker smoke | `run_realtime_worker_smoke.ps1` | **SOURCE ALIGNED / LOCAL PROOF LATER** | One worker process is reused; evidence stores bounded stage/completion/voice metadata without conversation bodies/file paths. |
 | Meeting application session | `runtime_state.rs`, `meeting_session.rs` | **ALIGNED AUTHORITY / OUTBOUND PARTIAL** | `session_id + generation + authority_active` is canonical. |
 | History / Saved | `history_store.rs`, `history.rs`, frontend History | **TEXT ALIGNED / MEETING PARTIAL** | Canonical store is `UserData/SavedProject/History/{Recent,Saved}`. |
 | Meeting outbound audio route | virtual-route owners | **PARTIAL / WINDOWS PROOF REQUIRED** | Generation-aware route cancellation exists; delivery unproved. |
@@ -62,10 +64,10 @@ Text UI
 -> commands/text_translate.rs [Quality]
 -> helper scheduler [Text]
 -> persistent realtime_local_worker.py
--> one result
+-> verified-complete Quality result
 ```
 
-Meeting outbound after finalized speech exists:
+Meeting outbound once finalized speech exists:
 
 ```text
 finalized Indonesian audio
@@ -73,9 +75,9 @@ finalized Indonesian audio
 -> helper scheduler [Meeting]
 -> ASR
 -> generation check
--> translation [Realtime]
+-> translation [Realtime + verified completion]
 -> generation check
--> TTS
+-> explicit English TTS voice
 -> generation check
 -> Meeting Microphone route
 ```
@@ -104,8 +106,8 @@ Standalone Text  -> Quality
 `RuntimeSettings.runtime_profile` is compatibility-only and no longer selects
 Meeting mode.
 
-One scheduler exists in the helper bridge. Each admitted request has a helper
-request id; Meeting requests also carry canonical `meeting_generation`.
+One scheduler exists in the helper bridge. Each admitted request has a helper request
+id; Meeting requests additionally carry canonical `meeting_generation`.
 
 Queue order:
 
@@ -127,9 +129,9 @@ Meeting Stop revokes application generation first. Matching in-flight Meeting
 inference may then terminate the persistent worker; unrelated Text is not
 intentionally killed. Actual process interruption timing remains local proof.
 
-## 3. Truthful Translation Bounds
+## 3. Translation Correctness Boundaries
 
-Worker input handling:
+### Source input
 
 ```text
 character limit
@@ -140,11 +142,65 @@ character limit
 -> otherwise infer
 ```
 
-Remaining correctness gap: generated output still uses bounded `max_new_tokens`.
-Source does not yet prove that a non-EOS output hitting that ceiling is rejected as
-incomplete.
+Source text is not silently cut to fit a hardcoded tokenizer window.
 
-## 4. Installation / Capability / Product Readiness
+### Generated output
+
+Translation generation uses structured generation output and inspects the produced
+sequence before decoding/promoting it.
+
+```text
+generate
+-> generation sequences available?
+-> EOS id available?
+-> generated token count verifiable?
+-> final token is EOS?
+   yes -> decode/promote
+   no  -> reject
+          - at token ceiling: output_hit_token_ceiling_without_eos
+          - before ceiling: output_ended_without_eos
+```
+
+A missing/unverifiable generation sequence or EOS contract is also blocked. This is
+source correctness logic; actual Marian/NLLB EOS behavior remains model/runtime proof.
+
+## 4. Explicit English TTS Contract
+
+TTS availability is no longer equivalent to "some Piper ONNX" or "some Windows
+voice".
+
+Piper selection:
+
+```text
+piper.exe
++ <voice>.onnx
++ matching <voice>.onnx.json
++ metadata language code is English
+-> candidate
+```
+
+A filename that merely looks English is insufficient without voice metadata. `en-US`
+is preferred when multiple verified English candidates are available, then another
+English locale deterministically.
+
+Windows SAPI selection:
+
+```text
+installed voice Name + Culture
+-> Culture is en / en-*
+-> deterministic candidate (en-US preferred)
+-> SpeechSynthesizer.SelectVoice(selected name)
+-> synthesize
+```
+
+The implicit Windows default voice is not the outbound TTS contract. If no explicit
+English-capable Piper/SAPI candidate can be identified, TTS is unavailable rather
+than using an arbitrary voice.
+
+Actual voice installation, synthesis success, English intelligibility, audio quality,
+and Windows behavior remain `LOCAL PROOF REQUIRED`.
+
+## 5. Installation / Capability / Product Readiness
 
 Static install owner:
 
@@ -157,7 +213,8 @@ Asset presence is installation evidence only. The stale
 `MODEL_RUNTIME_MANIFEST.json` remains removed.
 
 Current runtime capability availability comes from persistent worker `status`.
-Individual task success/failure does not redefine all-provider health.
+Individual task success/failure does not redefine all-provider health. TTS capability
+now requires the current worker to identify an explicit English voice candidate.
 
 Normal readiness:
 
@@ -169,7 +226,7 @@ Meeting -> MeetingSessionPreflight
 Legacy live/internal/professional/migration gates may remain diagnostic-only while a
 real consumer exists. They do not make the normal product Ready.
 
-## 5. Canonical Python Project / Tooling
+## 6. Canonical Python Project / Executable Proof Baseline
 
 Canonical dependency/tooling owner:
 
@@ -177,20 +234,8 @@ Canonical dependency/tooling owner:
 EngineData/Backend/LocalWorker/WorkerRuntime/pyproject.toml
 ```
 
-It owns:
-
-```text
-base local-AI runtime dependencies
-optional virtual-audio-route extra
-Ruff configuration
-pytest dependency/configuration
-```
-
-The Python source itself requires Python 3.10+ syntax, so the project declares
-`requires-python >=3.10`. Existing dependency constraints were transferred without
-inventing resolved versions.
-
-Retired duplicate/side-channel owners:
+It owns base local-AI dependencies, optional `virtual-audio-route`, Ruff, and pytest.
+Retired duplicate/side-channel owners remain absent:
 
 ```text
 requirements-realtime.txt
@@ -200,49 +245,34 @@ setup_pytorch_cuda.ps1
 setup_ctranslate2_translation_model.py
 ```
 
-`realtime_stack_manifest.json` was removed rather than replaced by another manifest:
-actual mode/model behavior belongs to code/current worker status, and numeric latency
-targets require benchmark evidence.
+`uv.lock` is not present by design yet. It must come from an actual verified local
+resolution, not fabricated pins.
 
-`setup_realtime_worker.ps1` now uses `uv sync --no-dev`. It warns when `uv.lock` is
-absent instead of pretending dependency resolution is reproducible.
-
-`uv.lock` is **not present by design yet**. It must be generated by an actual local
-resolution, reviewed, and then committed before locked dependency reproducibility can
-be claimed.
-
-Ruff and pytest are project development dependencies. No pytest-benchmark, Scalene,
-type checker, PyO3, or maturin was added in this slice.
-
-`py-spy` remains an external/local operator tool documented for profiling the actual
-persistent worker PID; it is not a runtime/project dependency.
-
-## 6. Executable Proof Baseline
-
-Deterministic tests live at:
-
-```text
-WorkerRuntime/tests/test_worker_contract.py
-```
-
-They are intentionally limited to behavior that can be proved without models or
-Windows devices, including:
+Deterministic test definitions now cover:
 
 ```text
 unknown translation mode rejection
-no Realtime -> Quality fallback for unsupported direction
-character overflow rejection before model load
-model/tokenizer input-limit selection helper
-newline-JSON unknown-command protocol response
+no Realtime -> Quality mode fallback
+character overflow rejection
+input-token limit helper
+non-EOS token-ceiling rejection
+verified-EOS completion acceptance
+English SAPI candidate selection
+Piper English metadata requirement
+Piper filename-only rejection
+newline-JSON unknown-command response
 ```
 
-Ruff/pytest are **not executed** in the current ChatGPT -> GitHub channel.
-Their presence is source/tooling alignment, not executable PASS.
+pytest and Ruff remain **configured but not executed** through ChatGPT -> GitHub.
+Their source presence is not an executable PASS.
 
-`run_realtime_worker_smoke.ps1` remains a later local runtime proof. It now uses one
-persistent process for status/translation/TTS/optional ASR instead of spawning a new
-worker per command. Saved evidence contains bounded stage summaries rather than
-source/translated/transcript text or runtime file paths.
+`run_realtime_worker_smoke.ps1` is a later local proof. It reuses one persistent
+process and stores only bounded stage/completion/voice metadata such as
+`complete`, `finished_with_eos`, token counts, `voice_id`, and `language_code`;
+conversation bodies and runtime file paths are excluded from saved evidence.
+
+`py-spy` remains a documented local profiler for the actual persistent worker PID,
+not a runtime dependency.
 
 ## 7. Remaining Engine Work
 
@@ -253,12 +283,13 @@ uv.lock generation + real dependency resolution
 Ruff execution
 pytest execution
 non-preemptive active-Text contention measurement
-translation generated-output completion / EOS ceiling detection
-explicit English TTS voice/provider selection
+actual model EOS/completion behavior
+actual English TTS voice availability + synthesis/audio quality
 model revision/checksum/source reproducibility
 model quality + latency + RAM/VRAM profiling/benchmark
 finalized outbound utterance producer
 incoming Meeting lane
+translation tone/context consumption
 ```
 
 Do not add a second worker, scheduler, readiness service, dependency manifest, lint
@@ -286,8 +317,10 @@ future frontend architecture decision after Engine contracts stabilize.
 Current mode: **Developing**.  
 Execution channel: `ChatGPT -> GitHub`.
 
-Engine Consolidation Slices 1-4 are source-aligned at their bounded claims. No
-compile/typecheck/uv-resolution/Ruff/pytest/model/Windows runtime or performance proof
-has been obtained in this channel.
+Engine Consolidation Slices 1-5 are source-aligned at their bounded claims. No
+compile/typecheck/uv-resolution/Ruff/pytest/model/Windows runtime, audio-quality, or
+performance proof has been obtained in this channel.
 
-The single continuation is `docs/knowledge/next-action.md`.
+The single continuation is `docs/knowledge/next-action.md`, which returns to the
+bounded finalized outbound utterance producer before Meeting Start/Live can be
+enabled.
