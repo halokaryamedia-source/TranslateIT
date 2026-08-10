@@ -1,213 +1,97 @@
-# Next Action
+# TranslateIT — Next Action
 
-Updated: 2026-08-11  
-Working branch: `New`  
-Status: **The Packaged Runtime Layout Foundation is source-aligned. `ProjectPaths` now owns separate packaged runtime and writable user-data roots; Tauri setup supplies resource/app-local paths; repository probing is debug-development fallback only; worker/model consumers use the canonical roots; and the Python worker maps existing `UserData/...` handoff labels into writable app-local data. No Rust/Python/static-validator/installer/installed-Windows proof has been obtained. The next unresolved release boundary is the minimal reproducible payload identity/revision/hash contract that will feed later sidecar staging without becoming a second model registry.**
+## Current Status
 
-This file is the single active continuation owner for TranslateIT.
+The initial product remains Meeting / Text / Settings with required Indonesian -> English Meeting voice, optional incoming English -> Indonesian text, and bidirectional Text translation.
 
-## Resume
+The following simplification slices are source-aligned:
 
-```text
-AGENTS.md
--> CONTEXT.md
--> docs/knowledge/next-action.md
--> docs/knowledge/source-ownership.md
--> docs/knowledge/decision-log.md D-023 / D-024
--> docs/foundation/02-product-requirements.md PR-011..013 / PR-140..143 / PR-180..181
--> inspect model_manifest.json + RuntimeAssets ownership + current release/package preflight only
-```
+- Pause/Resume removed from the normal Meeting lifecycle.
+- Meeting Stop no longer depends on History persistence.
+- optional incoming suppression failure cannot block healthy outbound.
+- release payload SHA-256/checksum/revision identity work is rejected for the initial release.
+- production Tauri registration has been reduced to the current core and explicit setup/diagnostic commands.
+- old development pipeline/capture command surfaces have been removed from active command modules.
+- normal frontend readiness no longer requests full Diagnostics, model inventory, GPU policy, or status bundles.
+- normal Meeting model inventory reads are cached; explicit Verify Models refreshes the inventory.
+- startup diagnostics no longer mirror trace records into Rust IPC.
+- model-manifest `revision` / `checksum` placeholders are removed.
 
-## Current Mode
+No Rust compile, TypeScript typecheck, Python tests, Tauri launch, Windows audio acceptance, or clean-machine release proof was executed through the GitHub channel.
 
-**Plan**.
+## Closed P0 — Core Surface Pruning
 
-Execution channel:
-
-```text
-ChatGPT -> GitHub
-```
-
-Do not load a project specialist while this remains Plan. Transition explicitly to
-Developing only after one release-payload identity owner and its exact responsibility are
-grounded.
-
-Rust/TypeScript/Python execution, static-validator execution, Tauri build, actual model
-files/load, installer execution, app-local write behavior, packaged helper execution,
-Windows audio, installed operation, and clean-machine proof remain `LOCAL PROOF REQUIRED`.
-
-# Closed Source Slice — Packaged Runtime Layout Foundation
-
-## Canonical path owner
-
-`engine/paths.rs` now distinguishes:
+Production Tauri registration is now intentionally limited to:
 
 ```text
-tauri_packaged_context
--> runtime_root = Tauri resource directory
--> user_data_root = Tauri app-local data directory
-
-repository_development_fallback
--> debug builds only
--> requires explicit repository markers
-
-unverified_development_fallback
--> bootstrap/development fallback only
--> never installed-path proof
+explicit runtime diagnostics
+helper status/start/worker status
+Meeting status/committed turns/Start/Stop
+Verify Models
+input status/device list/device probes
+settings load/save
+Mic Test capture Start/Stop
+Text Translate
 ```
 
-`ProjectPaths` supplies:
+Deferred/debug families such as Audio Studio, History/Chat, professional-readiness orchestration, development seed/handoff/smoke commands, generic capture handoffs, manual virtual-route commands, audio evidence, model setup, and native GPU-policy commands are no longer in the production invoke surface.
+
+`runtime_capture.rs` now owns only the two active capture wrappers. `pipeline_handoff.rs` now owns only the reset hook still called by Meeting cleanup. `diagnostics.rs` now exposes only the explicit runtime-diagnostics command required by the current product surface.
+
+Normal `loadProductRuntimeSnapshot()` is reduced from the previous broad diagnostic snapshot to the minimum product reads:
 
 ```text
-runtime_root
-worker_runtime_dir
-user_data_root
-user_cache_dir
-user_log_dir
-user_saved_dir
-asr_model_dir
-translation_model_dir
-voice_runtime_dir
-backend_contract_dir
+settings
++ Meeting session
++ helper status
++ microphone/input status
++ worker capability status when helper is ready
 ```
 
-Packaged context initialization accepts absolute runtime/user roots only and is owned by
-one `OnceLock` inside the existing path owner. No second path registry/service was added.
+Model installation presence remains a Meeting preflight fact but is cached in Rust so 1.2-second Meeting status polling does not repeatedly rescan model directories or rewrite evidence files.
 
-## Tauri bootstrap
+## Release Simplification
 
-`app_bootstrap.rs` uses the existing setup boundary:
+Do not resume the previous payload-identity plan.
 
-```text
-app.path().resource_dir()
-app.path().app_local_data_dir()
--> initialize_tauri_path_context(...)
--> ensure writable user-data directories
-```
+Initial release has no requirement for:
 
-For child processes it publishes:
+- SHA-256 archive identity;
+- checksum registry;
+- pinned source-revision contract as a separate product subsystem;
+- artifact identity controller/service;
+- replacement hash framework.
 
-```text
-TRANSLATEIT_RUNTIME_ROOT
-TRANSLATEIT_USER_DATA_ROOT
-```
+The local sidecar Setup topology remains: approved prepared runtime assets are placed into the existing application-local runtime layout and then validated by real worker/runtime execution during the later local acceptance phase.
 
-These values are overwritten from `ProjectPaths` and are transport to child runtime
-processes, not another normal-user path configuration mechanism.
+## Next Step — P0.1 Dead Source And Validator Pruning
 
-## Direct consumers
+Remove the now-unreachable implementation and validation scaffolding that remains after active-surface pruning, without changing the working Meeting/Text pipeline.
 
-`bridge_paths.rs` resolves the canonical worker directory from `worker_runtime_dir`.
-`runtime_inventory.rs` resolves the manifest/model asset locations from
-`worker_runtime_dir` + `runtime_root` and writes evidence under the writable cache root.
+### In Scope
 
-The Python worker now uses:
+1. prove direct reachability of remaining old command/engine/frontend files;
+2. delete or disconnect unreachable Audio Studio, History/Chat, old pipeline/capture, professional/native-candidate, preview, and related compatibility source that no active owner needs;
+3. remove stale frontend bridge methods/types/styles that only target commands no longer registered;
+4. reduce blanket `allow(dead_code)` only after the relevant module graph is proven clean;
+5. collapse redundant static validation profiles that only protect removed/deferred surfaces, while retaining proportional compile/type/worker/core contract checks;
+6. reconcile the older decision-log release-hash wording with the current no-hash initial-release decision.
 
-```text
-RUNTIME_ROOT
--> ASR / translation / Piper resources
+### Out of Scope
 
-USER_DATA_ROOT
--> CacheData / LogData
-```
+- changing ASR/translation/TTS models;
+- changing Meeting audio routing or suppression behavior;
+- changing Start/Stop safety;
+- removing optional incoming EN -> ID;
+- broad visual redesign;
+- adding packaging/checksum/release-identity architecture;
+- claiming local Windows acceptance.
 
-Existing relative Rust handoff labels such as `UserData/CacheData/...` are mapped into
-`USER_DATA_ROOT` before the worker's allowed-root validation. Generated TTS/temporary
-Meeting audio therefore no longer needs a writable `UserData` directory inside packaged
-resources.
+### Acceptance
 
-## Static package/path validation definition
-
-`validate_tauri_package_preflight.mjs` now defines source checks for:
-
-- one canonical `ProjectPaths` packaged/development split;
-- Tauri resource + app-local initialization;
-- debug-only verified repository fallback;
-- worker/model consumers using explicit canonical roots;
-- worker runtime/user root transport and legacy `UserData/...` remapping;
-- no claim that this source contract is an installer/runtime PASS.
-
-The validator was **not executed** in this channel.
-
-# Existing Release Decision
-
-Initial controlled Windows delivery remains:
-
-```text
-TranslateIT release package
-├─ one user-run NSIS Setup EXE
-└─ local sidecar payloads distributed with Setup
-   ├─ runtime/helper payload(s)
-   ├─ primary ASR payload
-   ├─ marianmt-id-en payload
-   └─ marianmt-en-id payload
-```
-
-No initial first-run internet downloader, manual Python/model setup, cloud fallback, NLLB
-fallback, or generic package manager is approved.
-
-Both Marian directions are required for full release/product acceptance because Text is
-bidirectional. EN->ID remains nonblocking for the narrower required Meeting outbound
-runtime gate.
-
-# Known Remaining Installed-Product Gaps
-
-```text
-release payload revision/hash identity not implemented
-NSIS local sidecar payload verification/copy not implemented
-packaged Python/helper runtime not implemented
-Tauri resource inclusion for final payload not proved
-clean-machine installation/runtime not proved
-```
-
-Current helper discovery through `.venv`, environment override, or system Python remains
-development flexibility only; it is not acceptable as the final installed-user runtime.
-
-# Next Plan Boundary — Release Payload Identity + Reproducible Source Contract
-
-## Goal
-
-Define the smallest release identity contract that lets later staging verify exactly what
-local payload belongs to a TranslateIT release without creating another translation
-model registry or a generic package manager.
-
-## Questions To Resolve
-
-1. Which existing owner should carry immutable external source revisions and which owner
-   should carry the hash of the **prepared release payload/archive**?
-2. Can current `model_manifest.json` fields (`repo_id`, `revision`, `checksum`,
-   `expected_path`) own model source identity cleanly while a release-only contract owns
-   artifact/archive identity?
-3. How are non-model runtime payloads (packaged helper/Python, TTS assets, route support)
-   represented without turning `model_manifest.json` into a generic package registry?
-4. What is the minimum schema needed by future package preflight and NSIS sidecar staging?
-5. Which hashes can be committed as release input metadata now, and which must be created
-   only from locally prepared payload bytes?
-
-## Constraints
-
-- keep `model_manifest.json` the model identity/inventory owner;
-- do not create a second model-selection registry;
-- do not fabricate source revisions or SHA-256 values;
-- do not download or commit large runtime/model bytes in ChatGPT -> GitHub;
-- do not add a network downloader or package manager;
-- do not begin NSIS payload-copy implementation until the input identity contract is
-  resolved;
-- do not claim hash/source metadata proves model load or translation quality.
-
-## Plan Acceptance
-
-The plan is complete only when it identifies:
-
-1. one owner for model source identity and one bounded owner (existing if possible) for
-   prepared release-artifact identity;
-2. the minimum fields for model + non-model payloads;
-3. how immutable source revisions are obtained and reviewed without fabricated values;
-4. how SHA-256 values are generated from real staged bytes later;
-5. one bounded Developing slice for source metadata/preflight before NSIS transport.
-
-## Next Step
-
-Plan **Release Payload Identity + Reproducible Source Contract** from the current model
-inventory and release/package owners; do not implement a new payload registry until that
-ownership is resolved.
+- no remaining active import/module/registry path requires the removed deferred subsystems;
+- normal Meeting/Text behavior keeps one owner per responsibility;
+- production frontend does not expose bridge methods for knowingly removed product commands unless a direct current caller proves compatibility is required;
+- validation commands reflect the current small product surface rather than historical features;
+- removal reduces source/maintenance surface instead of replacing it with new abstraction;
+- local compile/runtime proof remains explicitly separate.
