@@ -28,18 +28,18 @@ MISSING  -> required simplified-core behavior has no valid current implementatio
 | Translation worker | `realtime_local_worker.py` | **SOURCE ALIGNED / MODEL PROOF LATER** | One persistent worker routes ID->EN to `marianmt-id-en` and EN->ID to `marianmt-en-id` by language direction; no NLLB/mode-based model routing remains. |
 | Translation safety | `realtime_local_worker.py` | **SOURCE ALIGNED / MODEL PROOF LATER** | No silent tokenizer truncation; input limit and EOS-completion guards remain before promotion. |
 | Meeting outbound AI | `meeting_session.rs` -> helper -> worker | **SOURCE ALIGNED / RUNTIME PROOF LATER** | Explicit ID->EN request reaches same direction-based worker, then TTS/route. |
-| Meeting incoming AI | `meeting_session.rs` -> helper -> worker | **SOURCE ALIGNED CONTRACT / MODEL PROOF LATER** | Explicit EN->ID request now selects reverse Marian direction instead of being rejected by Realtime mode; actual reverse model asset/load/quality remains unproved. |
-| Self-output suppression | `meeting_session.rs` + `meeting_sound_capture.rs` | **STALE FAILURE POLICY / NEXT** | Own-TTS protection is useful, but guard unavailability can still reject outbound; policy now requires degrading/disabling incoming instead. |
+| Meeting incoming AI | `meeting_session.rs` -> helper -> worker | **SOURCE ALIGNED CONTRACT / MODEL PROOF LATER** | Explicit EN->ID request selects reverse Marian direction; actual reverse model asset/load/quality remains unproved. |
+| Self-output suppression | `meeting_session.rs` + `meeting_sound_capture.rs` | **SOURCE ALIGNED / WINDOWS PROOF LATER** | Healthy incoming is suppressed during TranslateIT playback; if suppression cannot be established, incoming is disabled/ignored and required outbound continues. |
 | Helper scheduler | `helper_bridge.rs`, `helper_bridge_runtime.rs` | **ALIGNED BASE** | One scheduler/worker remains; outbound > incoming > Text > diagnostics. |
 | Live transcript | transient committed-turn store + `MeetingLiveActivityPresentation.ts` | **ALIGNED BASE / SIMPLIFY** | Keep transient finalized current-session transcript; persistence is not core. |
 | History / Saved | `history_store.rs`, History commands/frontend | **STALE / DEFERRED** | Existing source is outside initial core and must not be required by Meeting/Text success. |
-| Meeting History Stop handoff | `meeting_session.rs` -> `history_store.rs` | **STALE / REMOVE FROM CORE** | Stop still performs persistence work that initial core no longer requires. |
+| Meeting History Stop handoff | `meeting_session.rs` -> `history_store.rs` | **STALE / NEXT** | Stop still performs automatic persistence work that the simplified core no longer requires. |
 | Text translation | `text_translate.rs` -> helper -> worker | **SOURCE ALIGNED CONTRACT / CALLER CLEANUP LATER** | Text still carries a temporary Quality compatibility label, but worker routing is language-direction based and Meeting-independent. |
 | Tone | settings/UI assumptions | **STALE / DEFERRED** | Auto/Formal/Casual removed from initial core. |
 | Meeting context | no canonical inference path | **DEFERRED BY POLICY** | Current utterance only; do not add context now. |
-| Global safe close | `GlobalMeetingShell.ts`, native `main.rs` -> canonical Stop | **ALIGNED BASE** | Keep Stop-before-close safety; remove deferred persistence/lifecycle dependencies later. |
+| Global safe close | `GlobalMeetingShell.ts`, native `main.rs` -> canonical Stop | **ALIGNED BASE** | Keep Stop-before-close safety; remove deferred persistence/lifecycle dependencies without creating another close path. |
 | Audio Studio/custom voice | existing advanced/source boundaries | **STALE FOR INITIAL CORE** | Deferred until translator is proven. |
-| Static translation-core validation | `scripts/validate_startup_runtime_readiness.mjs` | **SOURCE ALIGNED DEFINITION / NOT EXECUTED** | Validator now protects direction-based bidirectional routing, no truncation/incomplete promotion, common Meeting/Text worker, and safe core owners; deferred UI/persistence is no longer an acceptance requirement. |
+| Static translation-core validation | `scripts/validate_startup_runtime_readiness.mjs` | **SOURCE ALIGNED DEFINITION / NOT EXECUTED** | Validator protects direction-based bidirectional routing, translation safety, optional-incoming nonblocking outbound semantics, common Meeting/Text worker, and safe core owners. |
 
 ## 1. Simplified Product Flow
 
@@ -70,7 +70,7 @@ or worker internals.
 
 ## 2. Canonical Bidirectional Translation Source
 
-`realtime_local_worker.py` now owns direction selection:
+`realtime_local_worker.py` owns direction selection:
 
 ```text
 ID -> EN -> RuntimeAssets/Translation/ModelData/marianmt-id-en
@@ -81,9 +81,9 @@ EN -> ID -> RuntimeAssets/Translation/ModelData/marianmt-en-id
 label may remain for existing direct caller compatibility, but mode no longer chooses a
 model.
 
-The worker status keeps required outbound ID->EN readiness distinct from optional
-reverse EN->ID readiness. This avoids turning a missing optional incoming model into a
-false required outbound Start blocker.
+Worker status keeps required outbound ID->EN readiness distinct from optional reverse
+EN->ID readiness. This avoids turning a missing optional incoming model into a false
+required outbound Start blocker.
 
 No runtime/model claim follows from this source alignment: the reverse checkpoint is
 not proven installed, loadable, accurate, fast, or package-ready.
@@ -128,25 +128,30 @@ virtual Meeting Microphone owners
 
 Do not create a replacement parallel engine while pruning old features.
 
-## 5. Incoming Must Be Subordinate To Outbound
+## 5. Incoming Is Subordinate To Outbound
 
-Target policy:
+Current source now follows:
 
 ```text
 incoming healthy
--> EN -> ID transcript available
+-> deterministic self-output suppression while TranslateIT speaks
+-> EN -> ID transcript remains available
 
-incoming capture / suppression / ASR / translation fails
--> incoming unavailable/degraded
--> required ID -> EN outbound continues
+suppression unavailable
+-> clear incoming finalized producer first
+-> stop Meeting Sound capture best-effort
+-> mark incoming disabled/degraded
+-> incoming session eligibility rejects late promotion
+-> required outbound Meeting Microphone route still executes
 ```
 
-Current remaining conflict is the suppression guard around outbound TTS: source still
-returns outbound failure if the optional incoming suppression boundary itself is
-unavailable. The next bounded implementation must invert that dependency by disabling
-or degrading incoming before allowing otherwise safe outbound delivery to continue.
+The disabled stage lives inside the existing `meeting_session.rs` incoming orchestration
+status; no second Meeting/audio/suppression authority was added. Clearing the finalized
+incoming producer before route dispatch makes still-open callbacks ignored even if
+capture cleanup itself reports a failure.
 
-Automatic mid-session default-output rebind remains deferred.
+Actual Windows suppression effectiveness, capture-stop behavior, and race timing remain
+local proof. Automatic mid-session default-output rebind remains deferred.
 
 ## 6. Finalized Transcript Remains Transient
 
@@ -154,8 +159,9 @@ One bounded transient committed-turn store may remain for the active Meeting vie
 current-session comprehension and truthful chronological output. It is not permission
 to keep History/Saved as a core dependency.
 
-Initial Stop should ultimately clear transient bodies after runtime cleanup without
-requiring History persistence.
+The next simplification target is the remaining automatic Meeting Stop -> History
+persistence handoff. Initial Stop should clean the runtime/transient conversation
+without requiring persistence work.
 
 ## 7. Deferred Source To Remove Or Disconnect
 
@@ -204,16 +210,17 @@ No normal tone/mode/context/persistence controls.
 
 ChatGPT -> GitHub may prove source ownership/routing only. Local Windows proof remains
 required for final ASR, both translation directions, model quality/load, TTS, Meeting
-Microphone delivery, Meeting Sound loopback, latency/memory/contention, native race
-behavior, and installed operation.
+Microphone delivery, Meeting Sound loopback, suppression effectiveness,
+latency/memory/contention, native race behavior, and installed operation.
 
 ## Current Mode / Continuation
 
 Current mode: **Developing**.  
 Execution channel: `ChatGPT -> GitHub`.
 
-Reliable bidirectional translation routing is source-aligned at the bounded worker/caller
-contract. The next bounded source conflict is optional incoming self-output suppression
-still being able to block required outbound TTS.
+Reliable bidirectional translation routing and optional-incoming nonblocking outbound
+semantics are source-aligned at their bounded contracts. The next stale dependency is
+automatic Meeting Stop -> History persistence, which no longer belongs to the initial
+translation core.
 
 The single continuation is `docs/knowledge/next-action.md`.
