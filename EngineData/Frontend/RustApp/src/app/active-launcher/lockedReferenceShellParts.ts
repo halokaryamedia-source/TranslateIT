@@ -88,11 +88,6 @@ export function lockedHomeWorkspace(): string {
                 </section>
               </div>
 
-              <div class="meeting-ready-preferences" aria-label="Meeting translation preferences">
-                <div><span>Mode</span><strong>Realtime</strong></div>
-                <div><span>Tone</span><strong>Auto</strong></div>
-              </div>
-
               <div class="meeting-ready-actions">
                 <button id="startTranslationButton" class="send-button meeting-start-button" type="button" aria-describedby="startTranslationHint" disabled>Start Translation</button>
                 <div class="meeting-ready-secondary-actions">
@@ -146,10 +141,6 @@ export function lockedHomeWorkspace(): string {
             </div>
 
             <div class="text-translator-footer">
-              <div class="text-context-summary" aria-label="Text translation preferences">
-                <span>Mode <strong id="textModeValue">Checking</strong></span>
-                <span>Tone <strong>Auto</strong></span>
-              </div>
               <button id="sendButton" class="send-button simple-send-button" type="button">Translate</button>
             </div>
 
