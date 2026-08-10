@@ -6,6 +6,7 @@ const currentDir = dirname(fileURLToPath(import.meta.url));
 const appRoot = resolve(currentDir, "..");
 const repoRoot = resolve(appRoot, "..", "..", "..");
 const workerRoot = resolve(repoRoot, "EngineData", "Backend", "LocalWorker", "WorkerRuntime");
+const audioRoot = resolve(appRoot, "src-tauri", "src", "engine", "audio");
 
 const files = {
   textTranslateCommand: resolve(appRoot, "src-tauri", "src", "commands", "text_translate.rs"),
@@ -16,6 +17,10 @@ const files = {
   bridgePaths: resolve(appRoot, "src-tauri", "src", "commands", "bridge_paths.rs"),
   workerManifestLogic: resolve(appRoot, "src-tauri", "src", "engine", "adapters", "local_worker_manifest_logic.rs"),
   engineMod: resolve(appRoot, "src-tauri", "src", "engine", "mod.rs"),
+  audioMod: resolve(audioRoot, "mod.rs"),
+  finalizedUtterance: resolve(audioRoot, "finalized_utterance.rs"),
+  liveCapture: resolve(audioRoot, "live_capture.rs"),
+  liveSegmentWriter: resolve(audioRoot, "live_segment_writer.rs"),
   registry: resolve(appRoot, "src-tauri", "src", "commands", "registry.rs"),
   simpleController: resolve(appRoot, "src", "app", "simple-launcher", "SimpleLauncherController.ts"),
   runtimeProductFacade: resolve(appRoot, "src", "app", "bridge", "runtimeProductFacade.ts"),
@@ -63,6 +68,10 @@ const settingsCommand = readText("settingsCommand", files.settingsCommand);
 const bridgePaths = readText("bridgePaths", files.bridgePaths);
 const workerManifestLogic = readText("workerManifestLogic", files.workerManifestLogic);
 const engineMod = readText("engineMod", files.engineMod);
+const audioMod = readText("audioMod", files.audioMod);
+const finalizedUtterance = readText("finalizedUtterance", files.finalizedUtterance);
+const liveCapture = readText("liveCapture", files.liveCapture);
+const liveSegmentWriter = readText("liveSegmentWriter", files.liveSegmentWriter);
 const registry = readText("registry", files.registry);
 const simpleController = readText("simpleController", files.simpleController);
 const runtimeProductFacade = readText("runtimeProductFacade", files.runtimeProductFacade);
@@ -139,6 +148,57 @@ for (const marker of [
 ]) forbid(worker, marker, "canonical worker contracts");
 
 for (const marker of [
+  "pub mod finalized_utterance;",
+]) expect(audioMod, marker, "audio module ownership");
+
+for (const marker of [
+  "FinalizedOutboundUtterance",
+  "resolve_runtime_vad_profile(\"Realtime\")",
+  "adaptive_end_silence_ms",
+  "runtime_generation_is_authoritative",
+  "Condvar",
+  "VecDeque",
+  "pending.pop_front()",
+  "MAX_PENDING_FINALIZED_UTTERANCES",
+  "reset_finalized_outbound_utterance_producer",
+  "clear_finalized_outbound_utterance_producer",
+]) expect(finalizedUtterance, marker, "finalized utterance producer");
+for (const marker of [
+  "process_authoritative_finalized_outbound_wav",
+  "send_helper_worker_task",
+]) forbid(finalizedUtterance, marker, "audio finalizer must not own AI execution");
+
+for (const marker of [
+  "observe_finalized_outbound_f32_samples",
+  "observe_finalized_outbound_i16_samples",
+  "observe_finalized_outbound_u16_samples",
+  "reset_finalized_outbound_utterance_producer",
+  "clear_finalized_outbound_utterance_producer",
+]) expect(liveCapture, marker, "live capture finalizer feed");
+
+for (const marker of [
+  "write_finalized_outbound_utterance_wav",
+  "remove_finalized_outbound_utterance_wav",
+  "final_{}_g{}_u{}.wav",
+  "Diagnostic-only rolling snapshot writer",
+]) expect(liveSegmentWriter, marker, "finalized utterance WAV writer");
+
+for (const marker of [
+  "wait_take_finalized_outbound_utterance",
+  "start_meeting_outbound_consumer",
+  "stop_meeting_outbound_consumer",
+  "write_finalized_outbound_utterance_wav",
+  "remove_finalized_outbound_utterance_wav",
+  "process_authoritative_finalized_outbound_wav",
+  "fn finalized_utterance_source_connected() -> bool {\n    true\n}",
+]) expect(meetingSession, marker, "Meeting finalized outbound consumer");
+forbid(
+  meetingSession,
+  "write_latest_live_target_segment_wav",
+  "Meeting product runtime must not consume the rolling ASR-ready WAV",
+);
+
+for (const marker of [
   'name = "translateit-worker-runtime"',
   'requires-python = ">=3.10"',
   'virtual-audio-route = [',
@@ -209,5 +269,5 @@ if (errors.length > 0) {
 }
 
 console.log(
-  "Translation source-contract integrity passed: Text owns Quality, Meeting owns Realtime, one helper scheduler owns worker I/O, stale Meeting generations are rejected, translation input is not silently truncated, generated translation requires verified EOS completion, TTS requires an explicit English-capable voice, and pyproject.toml remains the single WorkerRuntime dependency/tooling owner. This is static source proof only, not uv resolution, Ruff/pytest execution, runtime/model/audio, or scheduling performance proof.",
+  "Translation source-contract integrity passed: Text owns Quality, Meeting owns Realtime, one helper scheduler owns worker I/O, translation input/output correctness remains fail-closed, TTS requires an explicit English-capable voice, and Meeting consumes only audio-owned finalized utterances through one serialized exactly-once queue path. This is static source proof only, not uv resolution, build/test execution, VAD behavior, model/audio, or scheduling performance proof.",
 );
