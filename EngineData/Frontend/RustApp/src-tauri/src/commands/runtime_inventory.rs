@@ -179,7 +179,7 @@ fn build_model_inventory(
                 None
             };
             let next_action = if found {
-                "Installed asset detected. Runtime load/inference must be checked separately."
+                "Installed asset path detected. Runtime load/inference must be checked separately."
                     .to_string()
             } else if entry.download_url.is_some() {
                 format!(
@@ -247,10 +247,10 @@ pub fn get_model_inventory() -> ModelInventoryReport {
         items,
         blockers: blockers.clone(),
         note: if blockers.is_empty() {
-            "Required model assets are installed according to the declarative inventory. This is installation evidence only; it does not prove model load, inference, quality, latency, or CUDA use."
+            "All model assets marked required by the manifest are present. Optional direction/fallback assets may still be missing. This is installation evidence only; it does not prove model load, inference, quality, latency, or CUDA use."
                 .to_string()
         } else {
-            "One or more required model assets are missing. Inventory results describe installation state only and must not be promoted into runtime readiness."
+            "One or more manifest-required model assets are missing. Optional assets do not determine this required-assets status. Inventory results describe installation state only and must not be promoted into runtime readiness."
                 .to_string()
         },
     };
@@ -276,7 +276,7 @@ pub fn setup_models() -> ModelSetupReport {
         output_dir,
         items,
         blockers: blockers.clone(),
-        note: "Compatibility command: this operation only inspects the declarative model inventory and writes diagnostic evidence. It does not download, install, load, or verify inference for any model."
+        note: "Compatibility command: this operation only inspects manifest-required versus optional asset presence and writes diagnostic evidence. It does not download, install, load, or verify inference for any model."
             .to_string(),
     };
     write_validation_json(&project_paths, "latest_model_setup.json", &report);
