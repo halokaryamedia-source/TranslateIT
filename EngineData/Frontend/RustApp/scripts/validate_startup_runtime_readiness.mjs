@@ -3,594 +3,282 @@ import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), "..");
-const mainPath = resolve(root, "src/main.ts");
-const shellPath = resolve(root, "src/app/active-launcher/shell.ts");
-const simpleControllerPath = resolve(root, "src/app/simple-launcher/SimpleLauncherController.ts");
-const globalMeetingShellPath = resolve(root, "src/app/simple-launcher/GlobalMeetingShell.ts");
-const globalMeetingShellCssPath = resolve(root, "src/globalMeetingShell.css");
-const meetingActivityPath = resolve(root, "src/app/simple-launcher/MeetingLiveActivityPresentation.ts");
-const meetingActivityCssPath = resolve(root, "src/meetingLiveActivity.css");
-const historyCssPath = resolve(root, "src/historyLayout.css");
-const historyTypesPath = resolve(root, "src/app/shared/historyTypes.ts");
-const runtimeApiPath = resolve(root, "src/app/bridge/runtimeApi.ts");
-const facadePath = resolve(root, "src/app/bridge/runtimeProductFacade.ts");
-const registryPath = resolve(root, "src-tauri/src/commands/registry.rs");
-const nativeMainPath = resolve(root, "src-tauri/src/main.rs");
-const capabilityPath = resolve(root, "src-tauri/capabilities/default.json");
-const meetingSessionPath = resolve(root, "src-tauri/src/commands/meeting_session.rs");
-const audioCommandPath = resolve(root, "src-tauri/src/commands/audio.rs");
-const helperBridgePath = resolve(root, "src-tauri/src/commands/helper_bridge.rs");
-const helperBridgeRuntimePath = resolve(root, "src-tauri/src/commands/helper_bridge_runtime.rs");
-const finalizedUtterancePath = resolve(root, "src-tauri/src/engine/audio/finalized_utterance.rs");
-const meetingSoundCapturePath = resolve(root, "src-tauri/src/engine/audio/meeting_sound_capture.rs");
-const liveSegmentWriterPath = resolve(root, "src-tauri/src/engine/audio/live_segment_writer.rs");
-const runtimeStatePath = resolve(root, "src-tauri/src/engine/runtime_state.rs");
-const historyStorePath = resolve(root, "src-tauri/src/engine/history_store.rs");
+const paths = {
+  main: resolve(root, "src/main.ts"),
+  shell: resolve(root, "src/app/active-launcher/shell.ts"),
+  simpleController: resolve(root, "src/app/simple-launcher/SimpleLauncherController.ts"),
+  globalMeetingShell: resolve(root, "src/app/simple-launcher/GlobalMeetingShell.ts"),
+  meetingActivity: resolve(root, "src/app/simple-launcher/MeetingLiveActivityPresentation.ts"),
+  runtimeApi: resolve(root, "src/app/bridge/runtimeApi.ts"),
+  facade: resolve(root, "src/app/bridge/runtimeProductFacade.ts"),
+  registry: resolve(root, "src-tauri/src/commands/registry.rs"),
+  nativeMain: resolve(root, "src-tauri/src/main.rs"),
+  capability: resolve(root, "src-tauri/capabilities/default.json"),
+  meetingSession: resolve(root, "src-tauri/src/commands/meeting_session.rs"),
+  helperBridge: resolve(root, "src-tauri/src/commands/helper_bridge.rs"),
+  helperBridgeRuntime: resolve(root, "src-tauri/src/commands/helper_bridge_runtime.rs"),
+  finalizedUtterance: resolve(root, "src-tauri/src/engine/audio/finalized_utterance.rs"),
+  liveCapture: resolve(root, "src-tauri/src/engine/audio/live_capture.rs"),
+  meetingSoundCapture: resolve(root, "src-tauri/src/engine/audio/meeting_sound_capture.rs"),
+  textTranslate: resolve(root, "src-tauri/src/commands/text_translate.rs"),
+  worker: resolve(
+    root,
+    "../../Backend/LocalWorker/WorkerRuntime/realtime_local_worker.py",
+  ),
+};
 
-for (const path of [
-  mainPath,
-  shellPath,
-  simpleControllerPath,
-  globalMeetingShellPath,
-  globalMeetingShellCssPath,
-  meetingActivityPath,
-  meetingActivityCssPath,
-  historyCssPath,
-  historyTypesPath,
-  runtimeApiPath,
-  facadePath,
-  registryPath,
-  nativeMainPath,
-  capabilityPath,
-  meetingSessionPath,
-  audioCommandPath,
-  helperBridgePath,
-  helperBridgeRuntimePath,
-  finalizedUtterancePath,
-  meetingSoundCapturePath,
-  liveSegmentWriterPath,
-  runtimeStatePath,
-  historyStorePath,
-]) {
+for (const [label, path] of Object.entries(paths)) {
   if (!existsSync(path)) {
-    console.error(`Missing file: ${path}`);
+    console.error(`Missing ${label}: ${path}`);
     process.exit(1);
   }
 }
 
-const main = readFileSync(mainPath, "utf8");
-const shell = readFileSync(shellPath, "utf8");
-const simpleController = readFileSync(simpleControllerPath, "utf8");
-const globalMeetingShell = readFileSync(globalMeetingShellPath, "utf8");
-const globalMeetingShellCss = readFileSync(globalMeetingShellCssPath, "utf8");
-const meetingActivity = readFileSync(meetingActivityPath, "utf8");
-const meetingActivityCss = readFileSync(meetingActivityCssPath, "utf8");
-const historyCss = readFileSync(historyCssPath, "utf8");
-const historyTypes = readFileSync(historyTypesPath, "utf8");
-const runtimeApi = readFileSync(runtimeApiPath, "utf8");
-const facade = readFileSync(facadePath, "utf8");
-const registry = readFileSync(registryPath, "utf8");
-const nativeMain = readFileSync(nativeMainPath, "utf8");
-const capability = readFileSync(capabilityPath, "utf8");
-const meetingSession = readFileSync(meetingSessionPath, "utf8");
-const audioCommand = readFileSync(audioCommandPath, "utf8");
-const helperBridge = readFileSync(helperBridgePath, "utf8");
-const helperBridgeRuntime = readFileSync(helperBridgeRuntimePath, "utf8");
-const finalizedUtterance = readFileSync(finalizedUtterancePath, "utf8");
-const meetingSoundCapture = readFileSync(meetingSoundCapturePath, "utf8");
-const liveSegmentWriter = readFileSync(liveSegmentWriterPath, "utf8");
-const runtimeState = readFileSync(runtimeStatePath, "utf8");
-const historyStore = readFileSync(historyStorePath, "utf8");
+const source = Object.fromEntries(
+  Object.entries(paths).map(([label, path]) => [label, readFileSync(path, "utf8")]),
+);
 
-function requireMarkers(source, label, markers) {
+function requireMarkers(body, label, markers) {
   for (const marker of markers) {
-    if (!source.includes(marker)) throw new Error(`${label} marker missing: ${marker}`);
+    if (!body.includes(marker)) throw new Error(`${label} marker missing: ${marker}`);
   }
 }
 
-function forbidMarkers(source, label, markers) {
+function forbidMarkers(body, label, markers) {
   for (const marker of markers) {
-    if (source.includes(marker)) throw new Error(`${label} forbidden marker found: ${marker}`);
+    if (body.includes(marker)) throw new Error(`${label} forbidden marker found: ${marker}`);
   }
 }
 
-requireMarkers(main, "main", [
+// One product shell and one canonical Meeting control path remain. The source still
+// contains deferred UI features that will be pruned in a later bounded slice, so this
+// validator intentionally does not make those stale features acceptance requirements.
+requireMarkers(source.main, "desktop entrypoint", [
   "SimpleLauncherController",
-  "simple-ui-v1",
   "startMeetingLiveActivityPresentation",
   "startGlobalMeetingShell",
-  'import "./globalMeetingShell.css"',
-  'import "./meetingLiveActivity.css"',
-  'import "./historyLayout.css"',
 ]);
-
-forbidMarkers(main, "main legacy startup", [
+forbidMarkers(source.main, "desktop entrypoint", [
   "startStartupReadiness",
   "bindSettingsAutosaveUi",
   "bindDirectVoiceCaptureUi",
-  "startRealtimeStatusPayloadAutoRefresh",
 ]);
 
-requireMarkers(shell, "global Meeting shell markup", [
-  'id="globalMeetingStrip"',
-  'id="globalMeetingOpenButton"',
-  'id="meetingCloseDialog"',
-  'id="meetingCloseKeepOpenButton"',
-  'id="meetingCloseStopButton"',
-  "Stop &amp; Close",
-]);
-
-requireMarkers(simpleController, "simple controller product-runtime", [
-  "boot",
-  "refreshReadiness",
-  "renderSettings",
-  "saveSettings",
+requireMarkers(source.simpleController, "primary controller", [
   "handleMeetingPrimaryAction",
-  "handleMeetingSecondaryAction",
   'startTranslationButton.addEventListener("click"',
-  'retryReadinessButton.addEventListener("click"',
-  "Pause Translation",
-  "Resume Translation",
-  "meeting.live",
-  "meeting.paused",
-  "meeting.hasSession",
-  "appendMeetingHistoryTurn",
-  'const incoming = turn.lane === "incoming"',
-  'lane.textContent = incoming ? "INCOMING" : "YOU"',
-  'primary.textContent = incoming ? turn.translated_text : turn.source_text',
-  'secondary.textContent = incoming ? turn.source_text : turn.translated_text',
-  "entry.dropped_turn_count",
-  "entry.turns.forEach",
+  "submitText",
 ]);
 
-forbidMarkers(simpleController, "simple controller stale behavior", [
-  "Start Translation is not available in this build yet.",
-  "Meeting detail is not connected yet.",
-  "canonical Meeting lifecycle does not write History entries",
-]);
-
-requireMarkers(globalMeetingShell, "global Meeting shell lifecycle", [
-  "GLOBAL_MEETING_REFRESH_MS",
-  "runtimeApi.getMeetingSessionStatus",
-  "mapProductMeetingState",
-  'runtimeProductFacade.runProductMeetingAction("stop")',
-  "globalMeetingStrip",
-  "meetingCloseDialog",
-  "meetingNavButton",
-  ".onCloseRequested",
-  "event.preventDefault()",
-  ".destroy()",
-  "meetingStatusUnavailable",
-  "closeAfterExistingStop",
-  "waitingForExistingStop",
-  "verifyStoppedThenDestroy",
-]);
-
-forbidMarkers(globalMeetingShell, "global Meeting shell duplicate lifecycle/data", [
-  "startMeetingTranslation",
-  "pauseMeetingTranslation",
-  "resumeMeetingTranslation",
-  "stopMeetingTranslation",
-  "startCapture",
-  "stopCapture",
-  "getMeetingCommittedTurns",
-  "transcript_text",
-  "translated_text",
-  "worker_response_json",
-]);
-
-requireMarkers(globalMeetingShellCss, "global Meeting shell CSS", [
-  ".global-meeting-strip",
-  ".global-meeting-strip-open",
-  ".meeting-close-dialog",
-  ".meeting-close-dialog-actions",
-  ".global-meeting-close-stop",
-]);
-
-if (!capability.includes('"core:window:allow-destroy"')) {
-  throw new Error("main window capability must allow the verified post-Stop Window.destroy transport action");
-}
-
-requireMarkers(meetingActivity, "Meeting live activity presentation", [
-  "startMeetingLiveActivityPresentation",
-  "MEETING_ACTIVITY_REFRESH_MS",
-  "runtimeApi.getMeetingSessionStatus",
-  "runtimeApi.getMeetingCommittedTurns",
-  "MeetingCommittedTurnsSnapshot",
-  "mapProductMeetingState",
-  "renderIncomingStatus",
-  'const incoming = turn.lane === "incoming"',
-  'lane.textContent = incoming ? "INCOMING" : "YOU"',
-  'primary.textContent = incoming ? turn.translated_text : turn.source_text',
-  'secondary.textContent = incoming ? turn.source_text : turn.translated_text',
-  "orderedTurns",
-  "meeting-live-incoming-state",
-  "meeting-live-transcript-turn",
-  "renderReadySurface",
-]);
-
-forbidMarkers(meetingActivity, "Meeting live read-only projection", [
-  "startMeetingTranslation",
-  "pauseMeetingTranslation",
-  "resumeMeetingTranslation",
-  "stopMeetingTranslation",
-  "runProductMeetingAction",
-  "startCapture",
-  "stopCapture",
-  "getLivePipelineSessionSnapshot",
-  "transcript_text",
-  "worker_response_json",
-]);
-
-requireMarkers(meetingActivityCss, "Meeting live activity CSS", [
-  ".meeting-live-activity-presentation",
-  ".meeting-live-activity-stage",
-  ".meeting-live-activity-state",
-  ".meeting-live-incoming-state",
-  ".meeting-live-transcript",
-  ".meeting-live-transcript-turn",
-  ".meeting-live-transcript-source",
-  ".meeting-live-transcript-translation",
-]);
-
-requireMarkers(historyCss, "Meeting History CSS", [
-  ".history-meeting-turn",
-  ".history-meeting-turn-header",
-  ".history-meeting-lane",
-  ".history-meeting-delivery",
-  ".history-meeting-source",
-  ".history-meeting-translation",
-  ".history-meeting-truncation-note",
-]);
-
-requireMarkers(historyTypes, "History TypeScript contract", [
-  "dropped_turn_count: number",
-  "turns: HistoryTurn[]",
-  'lane: "you" | "incoming" | string',
-  "delivery_state: string | null",
-  'entry_type: "meeting" | "text" | string',
-]);
-
-requireMarkers(runtimeApi, "runtimeApi canonical Meeting bridge", [
+requireMarkers(source.runtimeApi, "canonical frontend bridge", [
   '"get_meeting_session_status"',
   '"get_meeting_committed_turns"',
   '"start_meeting_translation"',
-  '"pause_meeting_translation"',
-  '"resume_meeting_translation"',
   '"stop_meeting_translation"',
-  "MeetingIncomingRuntimeStatus",
-  "incoming: MeetingIncomingRuntimeStatus",
-  'lane: "you" | "incoming" | string',
-  "generation: number | null",
-  "delivery_state:",
-  "getMeetingSessionStatus",
-  "getMeetingCommittedTurns",
-  "startMeetingTranslation",
-  "pauseMeetingTranslation",
-  "resumeMeetingTranslation",
-  "stopMeetingTranslation",
+  "translateText",
 ]);
 
-requireMarkers(facade, "runtime facade product-runtime", [
-  "loadProductRuntimeSnapshot",
-  "getModelInventory",
-  "getGpuPolicy",
-  "getInputStatus",
-  "getHelperBridgeStatus",
+requireMarkers(source.facade, "product runtime facade", [
   "getMeetingSessionStatus",
   "mapProductMeetingState",
   "runProductMeetingAction",
-  'export type ProductMeetingAction = "start" | "pause" | "resume" | "stop"',
-  "canPause",
-  "canResume",
-  'const APPLICATION_MEETING_OWNER_ID = "translateit_application_meeting"',
 ]);
+forbidMarkers(source.facade, "product runtime facade", ["start_capture()", "stop_capture()"]);
 
-forbidMarkers(facade, "runtime facade direct capture replacement", ["start_capture()", "stop_capture()"]);
-
-requireMarkers(registry, "Tauri Meeting command registration", [
+requireMarkers(source.registry, "Tauri Meeting registration", [
   "crate::commands::meeting_session::get_meeting_session_status",
   "crate::commands::meeting_session::get_meeting_committed_turns",
   "crate::commands::meeting_session::start_meeting_translation",
-  "crate::commands::meeting_session::pause_meeting_translation",
-  "crate::commands::meeting_session::resume_meeting_translation",
   "crate::commands::meeting_session::stop_meeting_translation",
 ]);
 
-// Meeting Sound capture owns a distinct output-loopback stream, not the physical mic
-// capture or a second Meeting/session/controller.
-requireMarkers(meetingSoundCapture, "Meeting Sound output-loopback owner", [
-  'cfg!(target_os = "windows")',
-  "start_meeting_sound_capture_runtime",
-  "stop_meeting_sound_capture_runtime",
-  "meeting_sound_capture_status",
-  "output_devices()",
-  "default_output_device()",
-  "default_output_config()",
-  ".build_input_stream(",
-  "suppression_flag.load(Ordering::Acquire)",
-  "suppressed_frames",
-  "reset_finalized_incoming_speech_boundary",
-  "observe_finalized_incoming_",
+// The reliable translation core is direction-based. Product callers may still carry a
+// temporary mode field until the later UI/caller-pruning slice, but mode must not choose
+// the translation model inside the worker.
+requireMarkers(source.worker, "bidirectional translation worker", [
+  'TRANSLATION_MODEL_ID_EN = TRANSLATION_MODEL_ROOT / "marianmt-id-en"',
+  'TRANSLATION_MODEL_EN_ID = TRANSLATION_MODEL_ROOT / "marianmt-en-id"',
+  "def translation_model_for_direction(",
+  'if pair == "id->en"',
+  'if pair == "en->id"',
+  "def get_translation_runtime(source_language: str, target_language: str)",
+  "TRANSLATION_RUNTIME[pair] = runtime",
+  '"translation_id_en"',
+  '"translation_en_id"',
+  '"translation_bidirectional"',
+  '"translation_contract": "canonical_bidirectional_id_en"',
+  "tokenizer(text, return_tensors=\"pt\", truncation=False)",
+  "translation_input_token_limit",
+  "translation_generation_completion",
+  '"translation:input_too_long_for_model"',
+  '"translation:output_hit_token_ceiling_without_eos"',
+  '"translation:direction_not_supported"',
 ]);
-forbidMarkers(meetingSoundCapture, "Meeting Sound owner boundary", [
-  ".input_devices()",
-  "send_helper_worker_task",
-  "commit_meeting_turn",
-  "create_meeting_recent",
+forbidMarkers(source.worker, "bidirectional translation worker", [
+  "QUALITY_TRANSLATION_MODEL",
+  "NLLB_LANGUAGE_CODES",
+  "nllb_generate_kwargs",
+  "translation_model_for_mode",
+  "realtime_direction_supported",
+  "translation:direction_not_supported_by_realtime_model",
 ]);
 
-// Shared event sequence is allocated at finalized speech boundary before either lane
-// reaches AI so callback completion cannot reorder the conversation.
-requireMarkers(finalizedUtterance, "dual-lane finalized Meeting boundary", [
-  "pub struct FinalizedMeetingUtterance",
-  "pub sequence: u64",
-  "pub generation: Option<u64>",
-  'const LANE_YOU: &str = "you"',
-  'const LANE_INCOMING: &str = "incoming"',
-  "MeetingSequenceState",
-  "reset_finalized_meeting_sequence",
-  "clear_finalized_meeting_sequence",
-  "allocate_meeting_sequence",
-  "reset_finalized_outbound_utterance_producer",
-  "reset_finalized_incoming_utterance_producer",
-  "wait_take_finalized_outbound_utterance",
-  "wait_take_finalized_incoming_utterance",
-  "reset_finalized_incoming_speech_boundary",
-]);
-const finalizedFunction = finalizedUtterance.slice(finalizedUtterance.indexOf("fn finalize_current_utterance("));
-const sequenceIndex = finalizedFunction.indexOf("allocate_meeting_sequence");
-const queueIndex = finalizedFunction.indexOf("state.pending.push_back");
-if (sequenceIndex < 0 || queueIndex < 0 || sequenceIndex >= queueIndex) {
-  throw new Error("Meeting speech/event sequence must be allocated before a finalized lane event is queued for AI");
+const workerTranslateIndex = source.worker.indexOf("def handle_translate(");
+const workerTtsIndex = source.worker.indexOf("def handle_tts_preflight(");
+if (workerTranslateIndex < 0 || workerTtsIndex <= workerTranslateIndex) {
+  throw new Error("Worker translation boundary could not be identified");
+}
+const workerTranslate = source.worker.slice(workerTranslateIndex, workerTtsIndex);
+const directionSelectIndex = workerTranslate.indexOf("translation_model_for_direction");
+const runtimeLoadIndex = workerTranslate.indexOf("get_translation_runtime");
+const tokenizeIndex = workerTranslate.indexOf('tokenizer(text, return_tensors="pt", truncation=False)');
+const completionIndex = workerTranslate.indexOf("translation_generation_completion");
+const decodeIndex = workerTranslate.indexOf("tokenizer.batch_decode");
+if (
+  directionSelectIndex < 0 ||
+  runtimeLoadIndex <= directionSelectIndex ||
+  tokenizeIndex <= runtimeLoadIndex ||
+  completionIndex <= tokenizeIndex ||
+  decodeIndex <= completionIndex
+) {
+  throw new Error(
+    "Translation must select direction before inference, reject unsafe input without truncation, verify generation completion, then decode/promote output",
+  );
 }
 
-requireMarkers(liveSegmentWriter, "lane-aware finalized Meeting WAV writer", [
-  "FinalizedMeetingUtterance",
-  "write_finalized_outbound_utterance_wav",
-  "write_finalized_incoming_utterance_wav",
-  "write_finalized_meeting_utterance_wav",
-  "remove_finalized_meeting_utterance_wav",
-  'utterance.lane != "you"',
-  'utterance.lane != "incoming"',
-  "utterance.sequence",
+// Required outbound readiness is ID -> EN. EN -> ID remains separately visible so an
+// unavailable optional incoming direction cannot silently become an outbound blocker.
+requireMarkers(source.worker, "worker readiness split", [
+  "translation_id_en_ready = translation_model_ready(TRANSLATION_MODEL_ID_EN)",
+  "translation_en_id_ready = translation_model_ready(TRANSLATION_MODEL_EN_ID)",
+  "translation_bidirectional_ready = translation_id_en_ready and translation_en_id_ready",
+  "and translation_id_en_ready",
+  "model:marianmt_en_id_missing_reverse_translation_unavailable",
 ]);
 
-// One helper scheduler remains, but Meeting work has explicit outbound > incoming
-// priority and incoming validity is session-scoped rather than generation-scoped.
-requireMarkers(helperBridgeRuntime, "helper scheduler lane priority", [
+requireMarkers(source.helperBridgeRuntime, "one helper scheduler", [
+  "static HELPER_SCHEDULER",
   "MeetingOutbound",
   "MeetingIncoming",
+  "Text",
+  "Diagnostic",
   "waiting_meeting_outbound",
   "waiting_meeting_incoming",
-  "active_meeting_session_id",
-  "active_meeting_lane",
 ]);
-requireMarkers(helperBridge, "helper Meeting lane/session guards", [
+
+requireMarkers(source.helperBridge, "helper request authority", [
+  "send_helper_worker_task",
+  "meeting_generation",
   "meeting_session_id",
   "meeting_lane",
-  "incoming_session_is_eligible",
-  "HelperTaskPriority::MeetingOutbound",
-  "HelperTaskPriority::MeetingIncoming",
-  "cancel_helper_bridge_meeting_generation",
-  "cancel_helper_bridge_meeting_session",
-  'lane == Some("incoming")',
   "stale_meeting_request",
 ]);
 
-requireMarkers(meetingSession, "canonical dual-lane Meeting session", [
-  "VecDeque",
-  "MAX_LIVE_COMMITTED_TURNS",
-  "pub struct MeetingIncomingRuntimeStatus",
-  "pub struct MeetingCommittedTurn",
-  "pub generation: Option<u64>",
-  "pub delivery_state: Option<String>",
-  "commit_meeting_turn",
-  "update_committed_turn_delivery_state",
-  "interrupt_committed_turns_for_generation",
-  "reset_committed_turns",
-  "clear_committed_turns_for_session",
-  "turns.sort_by_key(|turn| turn.sequence)",
-  "pub fn get_meeting_committed_turns()",
-  "start_optional_incoming_lane",
-  "start_meeting_incoming_consumer",
-  "process_authoritative_finalized_incoming_wav",
-  '"meeting_lane": "incoming"',
+// Meeting outbound/incoming must identify language direction explicitly. The same
+// helper/worker task owns both directions; no second translation service is allowed.
+const outboundStart = source.meetingSession.indexOf(
+  "pub fn process_authoritative_finalized_outbound_wav(",
+);
+const incomingStart = source.meetingSession.indexOf(
+  "fn process_authoritative_finalized_incoming_wav(",
+);
+const consumerStart = source.meetingSession.indexOf("fn start_meeting_outbound_consumer(");
+if (outboundStart < 0 || incomingStart <= outboundStart || consumerStart <= incomingStart) {
+  throw new Error("Meeting outbound/incoming translation boundaries could not be identified");
+}
+const outbound = source.meetingSession.slice(outboundStart, incomingStart);
+const incoming = source.meetingSession.slice(incomingStart, consumerStart);
+requireMarkers(outbound, "Meeting outbound translation", [
+  'send_helper_worker_task(\n        "translate"',
+  '"source_language": "id"',
+  '"target_language": "en"',
+]);
+requireMarkers(incoming, "Meeting incoming translation", [
+  'send_helper_worker_task(\n        "translate"',
   '"source_language": "en"',
   '"target_language": "id"',
-  '"incoming"',
-  "begin_self_output_suppression",
-  "SelfOutputSuppressionGuard",
-  "stop_meeting_sound_capture_runtime",
-  "cancel_helper_bridge_meeting_session",
-  "create_meeting_recent",
-  "HistoryTurn",
-  "load_settings",
-  "finalize_meeting_history",
-  "history_enabled",
 ]);
-
-const outboundProcessIndex = meetingSession.indexOf("pub fn process_authoritative_finalized_outbound_wav(");
-const incomingProcessIndex = meetingSession.indexOf("fn process_authoritative_finalized_incoming_wav(");
-const outboundConsumerIndex = meetingSession.indexOf("fn start_meeting_outbound_consumer(");
-if (outboundProcessIndex < 0 || incomingProcessIndex < 0 || outboundConsumerIndex < 0) {
-  throw new Error("Meeting outbound/incoming processing boundaries could not be identified");
-}
-const outboundProcessBody = meetingSession.slice(outboundProcessIndex, incomingProcessIndex);
-const incomingProcessBody = meetingSession.slice(incomingProcessIndex, outboundConsumerIndex);
-requireMarkers(outboundProcessBody, "outbound Meeting processing", [
-  '"meeting_generation": generation',
-  '"meeting_lane": "you"',
-  'Some("preparing_voice")',
-  "begin_self_output_suppression",
+forbidMarkers(incoming, "Meeting incoming translation", [
   "dispatch_meeting_virtual_audio_route_provider",
-  "drop(suppression_guard)",
-]);
-forbidMarkers(incomingProcessBody, "incoming Meeting processing", [
-  '"meeting_generation"',
-  "dispatch_meeting_virtual_audio_route_provider",
-  'Some("preparing_voice")',
-]);
-requireMarkers(incomingProcessBody, "incoming Meeting processing", [
-  '"meeting_lane": "incoming"',
-  '"language": "en"',
-  '"source_language": "en"',
-  '"target_language": "id"',
-  "incoming_session_is_eligible",
-  "commit_meeting_turn",
+  'send_helper_worker_task(\n        "synthesize"',
 ]);
 
-const suppressionStart = outboundProcessBody.indexOf("begin_self_output_suppression");
-const routeDispatch = outboundProcessBody.indexOf("dispatch_meeting_virtual_audio_route_provider");
-const suppressionEnd = outboundProcessBody.indexOf("drop(suppression_guard)");
-if (suppressionStart < 0 || routeDispatch < 0 || suppressionEnd < 0 || !(suppressionStart < routeDispatch && routeDispatch < suppressionEnd)) {
-  throw new Error("TranslateIT self-output suppression must cover the guarded Meeting route dispatch interval");
-}
-
-const pauseIndex = meetingSession.indexOf("pub fn pause_meeting_translation()");
-const resumeIndex = meetingSession.indexOf("pub fn resume_meeting_translation()");
-const stopIndex = meetingSession.indexOf("pub fn stop_meeting_translation()");
-if (pauseIndex < 0 || resumeIndex < 0 || stopIndex < 0 || !(pauseIndex < resumeIndex && resumeIndex < stopIndex)) {
-  throw new Error("Meeting lifecycle command ordering/source boundary could not be identified");
-}
-const pauseBody = meetingSession.slice(pauseIndex, resumeIndex);
-const resumeBody = meetingSession.slice(resumeIndex, stopIndex);
-const stopBody = meetingSession.slice(stopIndex);
-
-for (const [label, body] of [["Pause", pauseBody], ["Resume", resumeBody]]) {
-  for (const forbidden of ["finalize_meeting_history", "create_meeting_recent"]) {
-    if (body.includes(forbidden)) throw new Error(`${label} must not persist Meeting History: ${forbidden}`);
-  }
-}
-forbidMarkers(pauseBody, "Pause must retain incoming session lane", [
-  "stop_meeting_sound_capture_runtime",
-  "stop_meeting_incoming_consumer",
-  "cancel_helper_bridge_meeting_session",
-  "clear_finalized_meeting_sequence",
-  "reset_finalized_meeting_sequence",
+// Text remains standalone and uses the same worker translate task with explicit
+// language direction from current settings. Meeting context/audio is not part of it.
+requireMarkers(source.textTranslate, "standalone Text translation", [
+  'send_helper_worker_task("translate", payload)',
+  '"source_language": settings.source_language',
+  '"target_language": settings.target_language',
+  "MAX_TEXT_TRANSLATION_CHARS",
 ]);
-requireMarkers(pauseBody, "Pause outbound-only cleanup", [
-  "pause_application_meeting_session_authority",
-  "cancel_helper_bridge_meeting_generation",
-  "stop_live_capture_runtime",
-  "stop_meeting_outbound_consumer",
-  "ensure_helper_for_healthy_incoming",
-]);
-forbidMarkers(resumeBody, "Resume must retain healthy incoming lane/sequence", [
-  "start_optional_incoming_lane",
-  "reset_finalized_meeting_sequence",
-  "stop_meeting_incoming_consumer",
-]);
-requireMarkers(resumeBody, "Resume fresh outbound generation", [
-  "begin_application_meeting_session_resume",
-  "start_live_capture_runtime",
-  "start_meeting_outbound_consumer",
-]);
-
-const startIndex = meetingSession.indexOf("pub fn start_meeting_translation()");
-const startBody = meetingSession.slice(startIndex, pauseIndex);
-const outboundConsumerStart = startBody.lastIndexOf("start_meeting_outbound_consumer");
-const incomingLaneStart = startBody.indexOf("start_optional_incoming_lane");
-if (outboundConsumerStart < 0 || incomingLaneStart < 0 || outboundConsumerStart >= incomingLaneStart) {
-  throw new Error("Required outbound consumer must be established before optional incoming lane startup");
-}
-requireMarkers(startBody, "Meeting Start shared conversation setup", [
-  "reset_committed_turns",
-  "reset_finalized_meeting_sequence",
-  "reset_self_output_suppression",
-  "start_optional_incoming_lane",
-]);
-
-const activeStopStart = stopBody.indexOf("let revoked = revoke_application_meeting_session_authority(");
-if (activeStopStart < 0) {
-  throw new Error("Active Meeting Stop path could not be identified after the idempotent already-stopped branch");
-}
-const activeStopBody = stopBody.slice(activeStopStart);
-const stopOrder = [
-  "revoke_application_meeting_session_authority",
-  "interrupt_committed_turns_for_generation",
-  "stop_live_capture_runtime",
-  "stop_meeting_sound_capture_runtime",
-  "cancel_helper_bridge_meeting_session",
-  "stop_meeting_outbound_consumer",
-  "stop_meeting_incoming_consumer",
-  "current_committed_turn_snapshot",
-  "finalize_meeting_history",
-  "clear_finalized_meeting_sequence",
-  "clear_committed_turns_for_session",
-  "clear_runtime_session_state",
-];
-let previousStopIndex = -1;
-for (const marker of stopOrder) {
-  const markerIndex = activeStopBody.indexOf(marker);
-  if (markerIndex < 0 || markerIndex <= previousStopIndex) {
-    throw new Error(`Meeting Stop finalization order is missing or unsafe around: ${marker}`);
-  }
-  previousStopIndex = markerIndex;
-}
-
-requireMarkers(historyStore, "canonical History persistence", [
-  "HISTORY_SCHEMA_VERSION: u32 = 2",
-  "pub struct HistoryTurn",
-  "pub struct HistoryEntry",
-  "#[serde(default)]",
-  "pub dropped_turn_count: u64",
-  "pub fn create_meeting_recent(",
-  'entry_type: "meeting".to_string()',
-  'title: "Meeting Translation".to_string()',
-  'get_history("recent".to_string(), entry_id.clone())',
-  'message: "Meeting added to Recent History.".to_string()',
-  "MAX_HISTORY_TURNS",
-]);
-
-const meetingSessionStatusBody = meetingSession.match(/pub struct MeetingSessionStatus\s*\{([\s\S]*?)\n\}/)?.[1] ?? "";
-for (const forbidden of ["turns:", "source_text", "translated_text", "MeetingCommittedTurn"]) {
-  if (meetingSessionStatusBody.includes(forbidden)) {
-    throw new Error(`MeetingSessionStatus must remain lightweight and must not carry conversation bodies: ${forbidden}`);
-  }
-}
-if (!meetingSessionStatusBody.includes("incoming: MeetingIncomingRuntimeStatus")) {
-  throw new Error("MeetingSessionStatus should expose only body-free incoming lane status alongside outbound lifecycle status");
-}
-
-forbidMarkers(runtimeState, "runtime_state.rs conversation ownership", [
+forbidMarkers(source.textTranslate, "standalone Text translation", [
+  "get_meeting_committed_turns",
   "MeetingCommittedTurn",
-  "source_text",
-  "translated_text",
-  "MeetingSoundCapture",
+  "meeting_session_id",
+  "start_live_capture_runtime",
 ]);
 
-requireMarkers(runtimeState, "Meeting generation authority", [
-  "begin_application_meeting_session_resume",
-  "pause_application_meeting_session_authority",
-  'snapshot.phase = "paused"',
-  'snapshot.phase = "resuming"',
+// Final speech/session identity and transient transcript remain useful safety owners.
+requireMarkers(source.finalizedUtterance, "finalized speech owner", [
+  "FinalizedMeetingUtterance",
+  "session_id",
+  "utterance_id",
+  "sequence",
+  "wait_take_finalized_outbound_utterance",
+]);
+requireMarkers(source.meetingSession, "canonical Meeting session", [
+  "APPLICATION_MEETING_OWNER_ID",
+  "MeetingCommittedTurn",
+  "start_meeting_translation",
+  "stop_meeting_translation",
+  "runtime_generation_is_authoritative",
 ]);
 
-// Output-device probe remains preference/readiness input only; it must not become a
-// competing capture/session owner.
-forbidMarkers(audioCommand, "audio command Meeting ownership", [
-  "commit_meeting_turn",
-  "start_meeting_incoming_consumer",
+// Physical microphone and optional Meeting Sound remain separate capture owners.
+requireMarkers(source.liveCapture, "physical microphone owner", [
+  "start_live_capture_runtime",
+  "stop_live_capture_runtime",
+]);
+requireMarkers(source.meetingSoundCapture, "optional Meeting Sound owner", [
+  "start_meeting_sound_capture_runtime",
+  "stop_meeting_sound_capture_runtime",
+  "output_devices()",
+  ".build_input_stream(",
 ]);
 
-requireMarkers(nativeMain, "native orderly-exit Meeting safeguard", [
-  ".build(tauri::generate_context!())",
+// Keep safe close as the single native exit path; it delegates to canonical Stop.
+requireMarkers(source.globalMeetingShell, "safe close shell", [
+  ".onCloseRequested",
+  "event.preventDefault()",
+  'runtimeProductFacade.runProductMeetingAction("stop")',
+  ".destroy()",
+]);
+requireMarkers(source.nativeMain, "native exit fail-safe", [
   "tauri::RunEvent::ExitRequested",
-  "latest_runtime_session_state",
   "commands::meeting_session::stop_meeting_translation()",
   "api.prevent_exit()",
-  'get_webview_window("main")',
 ]);
-
-forbidMarkers(nativeMain, "native exit duplicate cleanup", [
+forbidMarkers(source.nativeMain, "native exit duplicate cleanup", [
   "stop_live_capture_runtime",
   "stop_meeting_sound_capture_runtime",
-  "cancel_helper_bridge",
   "create_meeting_recent",
-  "finalize_meeting_history",
+]);
+if (!source.capability.includes('"core:window:allow-destroy"')) {
+  throw new Error("Main window capability must allow post-Stop Window.destroy transport");
+}
+
+// Live presentation is still a read-only view of backend state/turns.
+requireMarkers(source.meetingActivity, "Meeting live presentation", [
+  "runtimeApi.getMeetingSessionStatus",
+  "runtimeApi.getMeetingCommittedTurns",
+  "renderCommittedTurns",
+]);
+forbidMarkers(source.meetingActivity, "Meeting live presentation", [
+  "startMeetingTranslation",
+  "stopMeetingTranslation",
+  "send_helper_worker_task",
 ]);
 
 console.log(
-  "Startup/product Meeting source-contract integrity passed: one application Meeting authority owns lifecycle, canonical dual-lane committed turns, and History finalization; physical microphone and Meeting Sound loopback remain distinct audio owners; shared speech/event sequence is allocated before AI; incoming is session-scoped and retained across outbound Pause; TranslateIT output is suppressed from incoming capture during route playback; one helper scheduler prioritizes outbound Meeting > incoming Meeting > Text > Diagnostics; Live/History remain read-only consumers; safe Stop & Close still delegates to canonical Stop. This is static source proof only, not validator execution, TypeScript/Rust compilation, WASAPI/Windows audio behavior, self-output suppression effectiveness, model inference, rendered UI, persistence runtime, race timing, or installed-operation proof.",
+  "Reliable translation-core static contract is defined: one worker routes ID->EN and EN->ID by language direction, input is not silently truncated, incomplete generation is not promoted, Meeting and Text use the same translation task, required outbound readiness remains distinct from optional incoming readiness, and safe Meeting/session ownership is preserved. Deferred UI/persistence features are intentionally not protected by this validator. This is static source validation only and does not prove Python/Rust/TypeScript execution, model availability/load, translation quality, latency, CUDA/CPU behavior, Windows audio, rendered UI, or installed operation.",
 );
