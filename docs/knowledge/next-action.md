@@ -2,7 +2,7 @@
 
 Updated: 2026-08-10  
 Working branch: `New`  
-Status: **Reliable bidirectional translation routing and Incoming-Failure-Is-Nonblocking Outbound Delivery are source-aligned at their bounded contracts. Required outbound ID -> EN no longer returns failure solely because optional incoming self-output suppression is unavailable: incoming is disabled/ignored before the same outbound Meeting Microphone route continues. No Rust/validator/Windows runtime proof has been obtained. The next stale dependency is automatic Meeting Stop -> History persistence, which is outside the simplified initial translation core.**
+Status: **Reliable bidirectional translation, Incoming-Failure-Is-Nonblocking Outbound Delivery, and persistence-free Meeting Stop are source-aligned at their bounded contracts. `stop_meeting_translation` no longer imports/calls History persistence and now ends by cleaning runtime/transient Meeting state only. No Rust/validator/Windows runtime proof has been obtained. The next stale core behavior is Pause/Resume, which is outside the simplified Start -> Live -> Stop lifecycle.**
 
 This file is the single active continuation owner for TranslateIT.
 
@@ -13,10 +13,9 @@ AGENTS.md
 -> CONTEXT.md
 -> docs/knowledge/next-action.md
 -> docs/knowledge/source-ownership.md
--> docs/foundation/01-product-overview.md
--> docs/foundation/02-product-requirements.md
+-> docs/foundation/02-product-requirements.md PR-031 / PR-056
 -> .agents/skills/development-brief/SKILL.md
--> inspect meeting_session.rs Stop + history_store/history direct contracts only
+-> inspect runtime_state.rs + meeting_session.rs + facade/controller Pause/Resume direct contracts only
 ```
 
 ## Current Mode
@@ -31,172 +30,151 @@ ChatGPT -> GitHub
 
 Rust/TypeScript/Python execution, static-validator execution, model files/load,
 translation quality, CUDA/CPU latency, Windows audio, suppression effectiveness,
-rendered UI, persistence behavior, and installed operation remain
+rendered UI, native race behavior, and installed operation remain
 `LOCAL PROOF REQUIRED`.
 
 # Closed Source Slice — Reliable Bidirectional Translation Core
 
-The one persistent worker routes translation by language direction:
+One persistent worker routes by language direction:
 
 ```text
 ID -> EN -> marianmt-id-en
 EN -> ID -> marianmt-en-id
 ```
 
-Realtime/Quality compatibility fields may still exist at old direct callers, but they
-no longer select the model. Required outbound readiness depends on ID -> EN; optional
-reverse readiness is reported separately.
+Mode compatibility fields may still remain at old direct callers, but model selection
+is direction-based. Required outbound ID->EN readiness is distinct from optional reverse
+EN->ID readiness.
 
-Translation safety remains fail-closed for unsafe content:
-
-```text
-no silent character truncation
-truncation=False
-verify model/tokenizer input limit
-reject oversized source
-verify EOS completion
-reject known incomplete output
-```
-
-No Tone, previous-turn context, History context, second worker, or cloud fallback was
-added.
+Translation still rejects silent truncation and known incomplete generation. Tone,
+previous-turn context, History context, second worker, and cloud fallback remain absent.
 
 # Closed Source Slice — Incoming Failure Is Nonblocking
 
-## A. Healthy incoming still protects against self-output
-
-The existing session-scoped suppression guard remains the normal path:
-
-```text
-outbound English TTS ready
--> begin_self_output_suppression
--> reset incoming speech boundary
--> suppression ON
--> guarded Meeting Microphone route
--> suppression guard drops
--> incoming resumes from a fresh boundary
-```
-
-No second suppression/audio owner was created.
-
-## B. Suppression failure no longer rejects required outbound
-
-The stale outbound failure branch was removed. Current source instead does:
+Healthy incoming uses the existing deterministic self-output suppression guard.
+If that protection cannot be established:
 
 ```text
-begin_self_output_suppression unavailable
--> clear finalized incoming producer immediately
--> stop Meeting Sound capture best-effort
--> mark incoming stage = disabled / degraded
--> incoming_session_is_eligible rejects disabled lane promotion
--> execute the same required outbound Meeting Microphone route
+clear incoming finalized producer
+-> stop Meeting Sound best-effort
+-> incoming = disabled/degraded
+-> reject late incoming promotion
+-> required outbound Meeting Microphone delivery continues
 ```
 
-Therefore optional incoming safety cannot be the sole reason a generation-authoritative
-outbound TTS turn returns `output_failed`.
+Optional incoming therefore cannot be the sole reason an otherwise safe outbound TTS
+turn fails.
 
-Clearing the incoming producer before route dispatch ensures still-open Meeting Sound
-callbacks have no finalized speech owner to feed while cleanup completes. An in-flight
-incoming AI result also rechecks lane eligibility before promotion and is rejected once
-the lane is disabled.
+# Closed Source Slice — Stop Persistence Removed
 
-## C. Outbound failure ownership remains narrow
+## A. Stop owns shutdown only
 
-Outbound may still fail for its own required boundaries, including:
+Current Stop source follows:
 
 ```text
-stale generation
-ASR failure
-ID -> EN translation failure
-TTS generation failure
-Meeting Microphone route failure
+revoke outbound authority
+-> cancel Meeting route
+-> stop physical microphone + optional Meeting Sound
+-> cancel Meeting helper work
+-> join outbound + incoming consumers
+-> clear suppression / finalized sequence / transient committed turns
+-> clear application Meeting session
+-> stopped
 ```
 
-Optional incoming suppression failure is not on that list anymore.
+`meeting_session.rs` no longer imports or calls:
+
+```text
+history_store
+HistoryTurn
+create_meeting_recent
+load_settings for History
+finalize_meeting_history
+```
+
+No final transcript snapshot is read during Stop for persistence.
+
+## B. Live transcript remains transient
+
+`get_meeting_committed_turns` still reads the bounded in-memory committed-turn owner
+while a Meeting session exists. Full Stop clears that transient store after runtime work
+has been stopped.
+
+History/Saved source files may remain disconnected/deferred; their state cannot affect
+Meeting Stop because the canonical Stop path no longer invokes them.
+
+## C. Safe close remains one path
+
+`GlobalMeetingShell` and the native `ExitRequested` fail-safe still delegate to the same
+`stop_meeting_translation` owner. They therefore inherit the persistence-free Stop
+contract instead of creating a second shutdown path.
 
 ## D. Static validation definition
 
 `validate_startup_runtime_readiness.mjs` now defines checks that:
 
-- healthy suppression is attempted before outbound route dispatch;
-- suppression failure calls the canonical incoming-disable path;
-- the finalized incoming producer is cleared and Meeting Sound capture is stopped
-  best-effort;
-- disabled incoming is rejected from later promotion;
-- old `suppression_unavailable` outbound result/blocker markers are absent;
-- the required outbound route still executes exactly through the existing route owner.
+- `meeting_session.rs` contains no History persistence owner/import/call;
+- canonical Stop revokes authority before transient turn/session clear;
+- Stop still cleans both audio lanes, helper work, consumers, suppression, and session;
+- safe close still delegates to canonical Stop;
+- existing translation/incoming safety contracts remain preserved.
 
 The validator was **not executed** in this channel.
 
 # Known Proof Limits
 
-No claim is made that:
+No claim is made that current Rust compiles, Stop ordering behaves correctly on target
+Windows, native close races are resolved, audio handles release correctly, models load,
+or translation/audio quality is acceptable. Those remain local proof.
 
-- Windows Meeting Sound actually stops at the intended instant;
-- self-output suppression works against real mixed meeting audio;
-- a disabled in-flight incoming request races correctly on target hardware;
-- Meeting Microphone delivery succeeds;
-- ID -> EN / EN -> ID model assets load or translate correctly;
-- current Rust source compiles.
-
-Those remain local proof.
-
-# Next Developing Slice — Remove Stop Persistence From Core
+# Next Developing Slice — Remove Pause / Resume From Initial Core
 
 ## Goal
 
-Remove automatic Meeting Stop -> History persistence from the initial translation core
-so stopping translation is only responsible for safe runtime shutdown and transient
-conversation cleanup.
-
-Target behavior:
+Reconcile source with the approved simple lifecycle:
 
 ```text
-Stop Translation
--> revoke outbound authority
--> stop required/optional audio resources
--> cancel/join active Meeting work
--> clear transient current-session transcript/state
--> Ended
+Ready -> Starting -> Live -> Stopping -> Ended
 ```
 
-No History write is required for Stop success.
+There should be no normal Pause/Resume product path in the initial core.
 
 ## In scope
 
-1. remove `finalize_meeting_history` from the canonical Stop path;
-2. remove History store/settings imports from `meeting_session.rs` when no longer needed;
-3. keep transient committed turns for Live display, then clear them on Stop;
-4. keep safe Stop & Close delegated to the same canonical Stop owner;
-5. update validator/canonical docs so persistence is not a core success dependency.
+1. remove Pause/Resume normal commands/actions from the product-facing Meeting path;
+2. remove frontend/facade Pause/Resume controls/mapping needed only by that flow;
+3. simplify runtime/session authority so Start -> Live -> Stop remains the only normal
+   lifecycle without preserving a second paused generation path for compatibility;
+4. keep Stop safety, active Meeting navigation independence, and safe close intact;
+5. update static validation/canonical docs.
 
 ## Out of scope
 
-- deleting every History/Saved source file in the same slice;
-- UI/navigation pruning;
-- Pause/Resume removal;
-- model/download/packaging work;
-- local Windows acceptance.
+- History/Saved UI file deletion;
+- broad UI visual redesign;
+- translation model/download/packaging work;
+- local Windows acceptance;
+- unrelated Settings cleanup.
 
 ## Acceptance criteria
 
-1. Meeting Stop has no call to `create_meeting_recent` / `finalize_meeting_history`;
-2. persistence failure/state cannot affect Stop completion because persistence is no
-   longer invoked by Stop;
-3. transient committed turns are still available while Live and cleared after Stop;
-4. safe native/application close continues to call the same canonical Stop;
-5. existing History source may remain disconnected/deferred without becoming a second
-   Meeting transcript owner.
+1. normal Meeting UI/facade exposes Start and Stop only, with no Pause/Resume action;
+2. canonical initial Meeting lifecycle no longer requires paused/resuming states or fresh
+   Resume generation handling;
+3. Stop still invalidates output authority and clears resources/transient state;
+4. navigation/minimize/safe close do not create a replacement Pause behavior;
+5. no second Meeting lifecycle owner is introduced.
 
 # Hold
 
 - do not reintroduce Tone/Context or Realtime/Quality product modes;
 - do not add another translation worker;
 - do not use cloud fallback;
-- do not broaden Stop cleanup into full History UI deletion;
-- do not begin local acceptance inside this source cleanup slice.
+- do not broaden this slice into full UI/History deletion;
+- do not begin local acceptance inside source cleanup.
 
 ## Next Step
 
-Implement **Remove Meeting Stop -> History Persistence From Initial Core** in the
-canonical Meeting Stop path, then continue pruning stale initial-product features.
+Implement **Remove Pause / Resume From Initial Core** across the canonical Meeting
+runtime + direct product-facing callers, then continue pruning stale initial-product
+surface.
