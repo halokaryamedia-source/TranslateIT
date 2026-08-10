@@ -1,6 +1,0 @@
-# TranslateIT guarded virtual audio route provider dependencies
-# Install only on the Windows validation/runtime environment after CI/local compile is clean.
-# This file is documentation/build support, not runtime proof.
-
-numpy>=1.26,<3
-sounddevice>=0.4.6,<1
