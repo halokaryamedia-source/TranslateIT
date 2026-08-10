@@ -62,9 +62,7 @@ function shellSummary(meeting: ProductMeetingState): string {
   if (meeting.live && meeting.outboundStage === "attention_needed") {
     return "ID → EN · The latest outbound turn needs attention.";
   }
-  if (meeting.paused) return "ID → EN · Translation is paused.";
   if (meeting.lifecycle === "starting") return "ID → EN · Starting translation.";
-  if (meeting.lifecycle === "resuming") return "ID → EN · Resuming translation.";
   if (meeting.lifecycle === "stopping") return "ID → EN · Stopping safely.";
   if (meeting.outboundStage === "delivering") return "ID → EN · Speaking through Meeting Microphone.";
   if (["transcribing", "translating", "synthesizing"].includes(meeting.outboundStage)) {
