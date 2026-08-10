@@ -27,37 +27,75 @@ installed-runtime, or release proof.
 
 | Boundary | Current owner(s) | Status | Current truth |
 |---|---|---|---|
-| Product shell/navigation | `src/main.ts`, First Setup, `SimpleLauncherController.ts` | **ALIGNED / VISUAL PARTIAL** | Normal app is Meeting / Text / History / Settings. |
+| Product shell/navigation | `src/main.ts`, `SimpleLauncherController.ts` | **ALIGNED / VISUAL PARTIAL** | Normal app is Meeting / Text / History / Settings; navigation does not own/recreate Meeting runtime. |
 | First Setup | First Setup + `RuntimeSettings` + product/audio facade | **ALIGNED SOURCE / WINDOWS PROOF LATER** | Five-step flow, defer/resume, candidate-check -> commit. |
+| Normal Meeting lifecycle bridge | `runtimeApi.ts` -> `runtimeProductFacade.ts` -> `SimpleLauncherController.ts` -> canonical Meeting commands | **SOURCE ALIGNED / TAURI + RENDER PROOF LATER** | Normal product reads application Meeting session directly; Start/Stop use canonical transactional commands; no frontend Meeting authority/store was added. |
 | Text AI execution | `text_translate.rs` -> helper scheduler -> `realtime_local_worker.py` | **SOURCE ALIGNED / LOCAL PROOF LATER** | One persistent worker route; Text explicitly requests Quality. |
-| Meeting application authority | `runtime_state.rs`, `meeting_session.rs` | **ALIGNED AUTHORITY / PRODUCT UI PARTIAL** | `session_id + generation + authority_active` is canonical. |
-| Meeting capture | `audio/live_capture.rs` | **SOURCE ALIGNED / WINDOWS PROOF LATER** | One CPAL capture owner; application Meeting capture also feeds the finalized producer while rolling audio remains separate. |
+| Meeting application authority | `runtime_state.rs`, `meeting_session.rs` | **ALIGNED AUTHORITY / PAUSE-RESUME MISSING** | `session_id + generation + authority_active` is canonical; backend Start/Stop and normal frontend use it. |
+| Meeting capture | `audio/live_capture.rs` | **SOURCE ALIGNED / WINDOWS PROOF LATER** | One CPAL capture owner; application Meeting capture feeds rolling preview and finalized speech paths separately. |
 | Rolling audio / preview boundary | `audio/live_audio_buffer.rs` | **ALIGNED DIAGNOSTIC/PREVIEW OWNER** | ASR-ready rolling windows are not final speech and are not consumed by product Meeting output. |
-| Finalized outbound utterance | `audio/finalized_utterance.rs` | **SOURCE ALIGNED / VAD PROOF LATER** | Audio-owned Realtime VAD state produces generation-scoped final utterances only after adaptive end silence; partial audio is not emitted. |
-| Finalized WAV handoff | `audio/live_segment_writer.rs` | **SOURCE ALIGNED / FILESYSTEM PROOF LATER** | Each final utterance gets a unique temporary 16 kHz mono WAV; rolling `latest_live_target_segment.wav` is diagnostic-only. |
-| Serialized Meeting outbound consumer | `meeting_session.rs` | **SOURCE ALIGNED / RUNTIME PROOF LATER** | One consumer takes each final utterance once, runs canonical AI/output stages serially, then removes the temporary source WAV. |
+| Finalized outbound utterance | `audio/finalized_utterance.rs` | **SOURCE ALIGNED / VAD PROOF LATER** | Realtime VAD state produces generation-scoped final utterances only after adaptive end silence; partial audio is not emitted. |
+| Finalized WAV handoff | `audio/live_segment_writer.rs` | **SOURCE ALIGNED / FILESYSTEM PROOF LATER** | Each final gets a unique temporary 16 kHz mono WAV; rolling `latest_live_target_segment.wav` is diagnostic-only. |
+| Serialized Meeting outbound consumer | `meeting_session.rs` | **SOURCE ALIGNED / RUNTIME PROOF LATER** | One consumer takes each final utterance once, runs canonical AI/output stages serially, then removes the source WAV. |
 | Meeting outbound AI mode | `meeting_session.rs` | **SOURCE ALIGNED / MODEL PROOF LATER** | Finalized outbound speech explicitly requests Realtime translation. |
 | Helper scheduling / worker I/O | `helper_bridge.rs`, `helper_bridge_runtime.rs` | **SOURCE ALIGNED / CONTENTION PROOF LATER** | One scheduler owns stdin/stdout; waiting Meeting > Text > Diagnostics. |
-| Helper cancellation | helper bridge + Meeting generation authority | **SOURCE ALIGNED / TIMING PROOF LATER** | Stale Meeting work is rejected; matching in-flight Meeting work may hard-cancel the worker process. |
+| Helper cancellation | helper bridge + Meeting generation authority | **SOURCE ALIGNED / TIMING PROOF LATER** | Stale Meeting work rejected; matching in-flight Meeting task may hard-cancel the worker process. |
 | Translation source bounds | `realtime_local_worker.py` | **SOURCE ALIGNED / MODEL PROOF LATER** | No silent tokenizer truncation; unknown/oversized model-token input is rejected. |
-| Translation output completeness | `realtime_local_worker.py` | **SOURCE ALIGNED / MODEL EXECUTION PROOF LATER** | Generated translation is promoted only when EOS completion is verifiable. |
+| Translation output completeness | `realtime_local_worker.py` | **SOURCE ALIGNED / MODEL EXECUTION PROOF LATER** | Output is promoted only when EOS completion is verifiable. |
 | English TTS voice selection | `realtime_local_worker.py` | **SOURCE ALIGNED / WINDOWS + ASSET PROOF LATER** | Piper requires English metadata; SAPI requires English culture and explicit `SelectVoice`. |
-| Meeting outbound audio route | virtual-route owners | **PARTIAL / WINDOWS PROOF REQUIRED** | Generation-aware route cancellation exists; actual meeting-app delivery is unproved. |
 | Model installation evidence | `model_manifest.json`, `runtime_inventory.rs` | **ALIGNED STATIC OWNER / METADATA PARTIAL** | Asset presence only, not model-load/inference proof. |
-| Current AI capability availability | persistent worker `status` -> helper bridge | **SOURCE ALIGNED / LOAD-INFERENCE PROOF LATER** | ASR / Realtime translation / Quality translation / explicit-English TTS are scoped capabilities. |
-| Product readiness | `runtimeProductFacade.ts` + `MeetingSessionPreflight` | **SOURCE ALIGNED / FRONTEND ACTION PARTIAL** | Text uses Quality capability; Meeting uses canonical preflight. Normal frontend still does not own canonical Meeting Start/Stop commands. |
-| Python dependency/tooling ownership | `WorkerRuntime/pyproject.toml` | **SOURCE ALIGNED / LOCK + EXECUTION PROOF LATER** | One project owns runtime deps, optional route extra, Ruff, pytest; `uv.lock` is intentionally not fabricated. |
-| Python deterministic proof | `WorkerRuntime/tests/test_worker_contract.py` + pytest config | **SOURCE ALIGNED / NOT EXECUTED** | Deterministic mode/bounds/EOS/voice/protocol tests exist; model/device quality is outside this proof. |
+| Current AI capability availability | persistent worker `status` -> helper bridge | **SOURCE ALIGNED / LOAD-INFERENCE PROOF LATER** | ASR / Realtime translation / Quality translation / explicit-English TTS capability states are scoped. |
+| Product readiness | direct `MeetingSessionPreflight` + worker capability -> `runtimeProductFacade.ts` | **SOURCE ALIGNED / LOCAL PROOF LATER** | Text uses Quality capability; Meeting uses canonical application preflight/session rather than legacy gates. |
+| Python dependency/tooling ownership | `WorkerRuntime/pyproject.toml` | **SOURCE ALIGNED / LOCK + EXECUTION PROOF LATER** | One Python project owns runtime deps, optional route extra, Ruff, and pytest. `uv.lock` is intentionally not fabricated. |
+| Python deterministic proof | `WorkerRuntime/tests/test_worker_contract.py` + pytest config | **SOURCE ALIGNED / NOT EXECUTED** | Deterministic mode/bounds/EOS/voice/protocol test definitions exist. |
 | Python source quality policy | Ruff config in `pyproject.toml` | **SOURCE ALIGNED / NOT EXECUTED** | Ruff is the single Python lint/format policy. |
-| Persistent worker smoke | `run_realtime_worker_smoke.ps1` | **SOURCE ALIGNED / LOCAL PROOF LATER** | One worker process is reused; evidence excludes conversation bodies/file paths. |
+| Local Python profiling | `py-spy` procedure in WorkerRuntime README | **DOCUMENTED / LOCAL ONLY** | Profile the actual persistent worker PID; py-spy is not a product dependency. |
+| Persistent worker smoke | `run_realtime_worker_smoke.ps1` | **SOURCE ALIGNED / LOCAL PROOF LATER** | One worker process is reused; evidence stores bounded stage/completion/voice metadata without conversation bodies/file paths. |
 | History / Saved | `history_store.rs`, `history.rs`, frontend History | **TEXT ALIGNED / MEETING PARTIAL** | Canonical store is `UserData/SavedProject/History/{Recent,Saved}`. |
+| Meeting outbound audio route | virtual-route owners | **PARTIAL / WINDOWS PROOF REQUIRED** | Generation-aware route cancellation exists; delivery unproved. |
 | Incoming Meeting assistance | audio/capture/runtime candidates | **MISSING / PARTIAL** | Loopback -> EN ASR -> ID text and self-output suppression are not implemented. |
 | Translation tone/context | settings + inherited adapters | **MISSING / PARTIAL** | Approved tone/context do not yet reach canonical inference. |
 | Packaging/runtime assets | Tauri/NSIS + bridge Python discovery | **PARTIAL / STALE ASSUMPTIONS** | End-user packaged Python/runtime acquisition is unresolved; `uv` is not an end-user requirement. |
 | Document Translation | no active workspace | **RETIRED** | Do not revive Documents/file-attachment translation. |
 | Audio Studio | explicit entry + backend contracts | **PARTIAL / POST-CORE** | Preserve post-core; not current core blocker. |
 
-## 1. Canonical Outbound Flow
+## 1. Canonical Product Meeting Lifecycle
+
+Normal product frontend does not keep a second Meeting session truth.
+
+```text
+Meeting workspace
+-> runtimeProductFacade
+-> runtimeApi
+-> get_meeting_session_status / start_meeting_translation / stop_meeting_translation
+-> application Meeting session authority
+```
+
+`runtimeProductFacade.mapProductMeetingState()` maps backend state into product-level
+`Ready / Starting / Live / Stopping / In Use / Setup Needed` behavior and recognizes
+only `translateit_application_meeting` as product Meeting ownership.
+
+Primary Meeting action:
+
+```text
+idle + preflight ready -> Start Translation
+Live                   -> Stop Translation
+starting/stopping      -> disabled transition label
+blocked/conflict       -> disabled Start + setup/recovery path
+```
+
+Navigation to Text, History, or Settings only changes presentation. It does not call
+Meeting Start/Stop or create a new session. A later global Meeting strip may expose
+this same authority across views; it must not introduce another lifecycle store.
+
+Mic Test/direct capture is blocked while a runtime session owns Meeting resources,
+so diagnostic `start_capture/stop_capture` cannot silently replace or tear down an
+application Meeting session.
+
+Actual Tauri invocation, rendered transition behavior, navigation while Live, and
+window lifecycle remain local/rendered proof.
+
+## 2. Canonical Outbound Speech / AI Execution
 
 Standalone Text:
 
@@ -71,185 +109,166 @@ Text UI
 -> verified-complete Quality result
 ```
 
-Meeting outbound source path is now connected as:
+Application Meeting:
 
 ```text
 physical microphone
--> one CPAL live capture owner
-   ├─ rolling buffer (preview/diagnostics only)
-   └─ finalized_utterance.rs
-      -> adaptive speech-end boundary
-      -> FinalizedOutboundUtterance
-         { session_id, generation, utterance_id }
-      -> exactly-once queue take
-      -> unique temporary PCM16 WAV
-      -> process_authoritative_finalized_outbound_wav
-         -> ASR
-         -> generation check
-         -> Realtime translation + verified completion
-         -> generation check
-         -> explicit English TTS
-         -> generation check
-         -> TranslateIT Meeting Microphone route
-      -> temporary finalized source WAV removed
+-> application-owned live capture
+   +-> rolling buffer [preview/diagnostic only]
+   +-> finalized utterance producer
+-> session_id + generation + utterance_id
+-> one-shot finalized queue pop
+-> unique temporary WAV
+-> serialized Meeting consumer
+-> ASR
+-> generation check
+-> Realtime translation + verified completion
+-> generation check
+-> explicit English TTS
+-> generation check
+-> guarded Meeting Microphone route
 ```
 
-The audio finalizer never calls ASR/translation/TTS itself. AI orchestration remains
-owned by Meeting/helper runtime.
+`latest_live_target_segment.wav` remains diagnostic-only. Product Meeting uses unique
+finalized temporary WAVs and removes them after the outbound attempt.
 
-## 2. Finalized Speech Boundary
-
-`audio/finalized_utterance.rs` is the canonical audio-side finalization owner.
-
-Current source contract:
-
-- it activates only for the application Meeting capture owner;
-- it uses the existing `Realtime` runtime VAD profile rather than introducing a
-  second fixed-chunk policy;
-- non-speech immediately before speech is bounded as pre-roll;
-- speech-like callbacks extend one in-progress utterance;
-- trailing non-speech accumulates until adaptive end silence is satisfied;
-- end silence is based on the current VAD profile and current boundary energy rather
-  than a polling timer that treats every rolling window as final;
-- minimum confirmed speech is required before finalization;
-- the speech portion is VAD-checked again before promotion;
-- a generation that loses authority clears producer state rather than emitting;
-- each successfully queued final gets the next utterance id exactly once;
-- consumer ownership is `VecDeque::pop_front()`, so one queued final cannot be read
-  repeatedly like a snapshot;
-- queue/long-utterance limits are internal fail-closed safety bounds, not product
-  speech-boundary promises or forced chunking rules.
-
-Local microphone/VAD behavior is still required before these tuning mechanics can be
-called production-ready.
-
-## 3. Rolling Audio Is Not Product Output
-
-`live_audio_buffer.rs` remains useful for rolling preview/diagnostic state and legacy
-ASR-ready snapshots. Its `ready_for_target_asr_frame` flag is not a final utterance
-signal.
-
-`write_latest_live_target_segment_wav()` remains diagnostic-only. Product Meeting
-code does not call it. Finalized output uses
-`write_finalized_outbound_utterance_wav()` with a unique identity-bearing filename.
-
-Raw finalized WAV files are temporary cache artifacts and are removed by the
-serialized consumer after the AI/output attempt.
-
-## 4. Generation / Exactly-Once / Stop Safety
-
-The finalized producer stores the current Meeting generation and checks canonical
-`runtime_generation_is_authoritative()` while ingesting and while taking queue work.
-
-Meeting outbound has one consumer thread for the active generation. It processes one
-finalized item at a time; there is no second polling/AI loop.
-
-Stop order remains authority-first:
+Retired from product execution:
 
 ```text
-revoke Meeting generation
--> signal Meeting route cancellation
--> stop capture + clear rolling/finalized audio
--> cancel matching in-flight helper work
--> join serialized outbound consumer
--> clear handoff/session state
+manual_translation.rs
+manual_translation_accelerated.rs
+realtime_local_worker_entry.py
+realtime_local_worker_accelerated.py
+rule/dictionary/preview translation success
+legacy capture-owned one-shot AI pipeline
+silent Realtime <-> Quality retry
+rolling-ASR-window polling as Meeting output
 ```
 
-This ordering prevents stale finalized work from being promoted after Stop is
-accepted while allowing a consumer blocked inside helper inference to be released by
-helper cancellation before the lifecycle waits for its thread to join.
+## 3. Scheduler / Cancellation
 
-Pause/Resume product commands are not implemented yet. The finalizer's generation
-invalidation contract is ready for a future Pause/Resume owner, but that future UI/
-lifecycle behavior is not claimed by this source slice.
-
-## 5. Caller-Owned Modes / Scheduler / AI Correctness
-
-Mode authority remains:
+Mode authority:
 
 ```text
 Meeting outbound -> Realtime
 Standalone Text  -> Quality
 ```
 
-One helper scheduler remains canonical. Waiting order is:
+One scheduler exists in the helper bridge. Waiting priority is:
 
 ```text
 Meeting > Text > Diagnostics / preload
 ```
 
-This is queue priority, not preemption: a Text inference already running is not
-interrupted by a later Meeting request. Local contention measurement remains needed.
+This is **queue priority, not preemption**. A Meeting request arriving after active
+Text inference still waits for that current task. Local contention/latency proof is
+required before calling it realtime-optimal.
 
-Translation input rejects unverifiable/oversized token windows instead of silently
-truncating. Translation output is promoted only when EOS completion is verifiable.
-TTS must identify an English-capable Piper/SAPI voice explicitly before synthesis.
-Actual inference/voice quality remains local proof.
+Meeting Stop revokes application generation first. Matching in-flight Meeting
+inference may terminate the persistent worker; finalizer/consumer state is
+cleared/joined after authority revoke. Actual process/race timing remains local proof.
 
-## 6. Python Project / Proof Baseline
+## 4. Finalized Utterance Boundary
 
-Canonical Python dependency/tooling owner remains:
+`audio/finalized_utterance.rs` owns application Meeting speech finalization.
+`audio/live_audio_buffer.rs` remains rolling/preview/diagnostic ownership.
 
 ```text
-EngineData/Backend/LocalWorker/WorkerRuntime/pyproject.toml
+bounded pre-roll
+-> existing Realtime VAD speech evidence
+-> one in-progress utterance
+-> trailing non-speech
+-> adaptive end-silence threshold
+-> revalidate speech portion
+-> FINAL
 ```
 
-Retired duplicate/side-channel owners remain absent:
+Final identity is `session_id + generation + utterance_id`. Pending finals are bounded
+and consumed with one `pop_front()` owner. Overlong/overloaded audio is dropped
+fail-closed; safety bounds do not manufacture fixed chunk boundaries or partial
+output. Generation loss clears/rejects producer state.
+
+Actual microphone/VAD boundary quality and exactly-once race behavior remain local
+proof.
+
+## 5. Translation / TTS Correctness
+
+Translation source input is tokenized with `truncation=False`; unknown or exceeded
+model context limits are rejected before inference.
+
+Generated output must have verifiable EOS completion. Non-EOS ceiling/termination or
+an unverifiable completion contract is not product success.
+
+TTS requires an explicit English-capable voice:
 
 ```text
-requirements-realtime.txt
-requirements-virtual-audio-route.txt
-realtime_stack_manifest.json
-setup_pytorch_cuda.ps1
-setup_ctranslate2_translation_model.py
+Piper -> .onnx + matching metadata with English language code
+SAPI  -> English VoiceInfo Culture + explicit SelectVoice
 ```
 
-`uv.lock` is not present by design yet. Ruff and pytest are configured but not run in
-this channel. `py-spy` is a later local operator profiler, not a runtime dependency.
+The implicit Windows default voice and arbitrary first Piper model are not accepted.
+Actual model/voice execution and audio quality remain `LOCAL PROOF REQUIRED`.
 
-The static `validate_translation_flow_integrity.mjs` now also guards that Meeting
-consumes the finalized producer and does not call the rolling diagnostic WAV writer.
-This is source-contract proof only.
+## 6. Installation / Capability / Readiness
 
-## 7. Remaining Source Work
-
-Source-side gaps still include:
+Static installation owner:
 
 ```text
-normal frontend bridge methods for get/start/stop Meeting session
-normal Start Translation action wiring
-Meeting Live rendering + app-level/global cross-view Meeting state
-Pause/Resume lifecycle and pending-output semantics
+model_manifest.json -> runtime_inventory.rs
+```
+
+Asset presence is installation evidence only. Current AI capability comes from
+persistent worker `status`; one request outcome does not redefine provider health.
+
+Normal product truth:
+
+```text
+Text    -> worker Quality capability
+Meeting -> direct MeetingSessionStatus + MeetingSessionPreflight
+```
+
+`RuntimeStatusBundle` remains useful for Diagnostics but is not the normal Meeting
+lifecycle owner. Legacy live/internal/professional/migration gates do not make normal
+product Ready.
+
+## 7. Canonical Python Project / Proof Baseline
+
+`WorkerRuntime/pyproject.toml` is the sole Python dependency/tooling owner. Retired
+parallel requirements/stack/CUDA setup owners remain absent. `uv.lock` is intentionally
+not fabricated and awaits verified local resolution.
+
+Ruff and pytest are configured but not executed through ChatGPT -> GitHub. The
+persistent-worker smoke remains local proof and stores privacy-bounded metadata only.
+`py-spy` remains an external local profiler for the actual persistent worker PID.
+
+## 8. Remaining Core Work
+
+```text
+Meeting Pause/Resume generation lifecycle
+full Meeting Live transcript/activity presentation
+global/cross-view Meeting strip and close-live handling
+incoming Meeting lane + self-output suppression
+Meeting History after canonical committed lifecycle
 translation tone/context consumption
-incoming Meeting Sound lane + self-output suppression
-Meeting History after committed Meeting turns
 Text Copy/direct Save
-Windows microphone-permission deep-link
-packaging/runtime asset reconciliation
-model source revision/checksum metadata
+uv.lock generation + real dependency resolution
+Ruff / pytest / TypeScript / Rust execution proof
+non-preemptive active-Text contention measurement
+actual model EOS/completion + translation quality
+actual English TTS voice availability + synthesis/audio quality
+model revision/checksum/source reproducibility
+model quality + latency + RAM/VRAM profiling/benchmark
+Windows microphone/VAD/route proof
+packaging/clean-machine reconciliation
 ```
 
-Deferred local proof includes:
+Do not add a second worker, finalizer, scheduler, readiness service, Meeting lifecycle
+store, dependency manifest, lint stack, or test framework to solve these.
 
-```text
-uv.lock + dependency resolution
-Ruff / pytest / Rust / TypeScript execution
-real microphone capture and VAD boundary behavior
-exactly-once runtime behavior under speech/backlog/Stop races
-actual Marian/NLLB EOS behavior and quality
-English Piper/SAPI availability + synthesis/audio quality
-scheduler contention/latency/RAM/VRAM/CUDA/CPU behavior
-Meeting Microphone delivery to a real meeting application
-clean installed operation
-```
+## 9. Other Product Boundaries
 
-Do not solve these by adding another capture pipeline, finalizer, worker, scheduler,
-readiness store, dependency owner, or generic framework.
-
-## 8. Other Product Boundaries
-
-Windows audio remains outside AI ownership. Incoming Meeting Sound is a separate
-future lane and must not be folded into the outbound finalizer.
+Windows audio remains outside AI ownership. Incoming Meeting Sound remains separate
+from core outbound and is not implemented by current source.
 
 Canonical History remains:
 
@@ -260,16 +279,16 @@ UserData/SavedProject/History/
 ```
 
 Documents remains retired. Audio Studio remains post-core. Svelte remains a separate
-frontend architecture decision after the current product runtime contracts stabilize.
+future frontend architecture decision after core runtime contracts stabilize.
 
 ## Current Mode / Continuation
 
 Current mode: **Developing**.  
 Execution channel: `ChatGPT -> GitHub`.
 
-Engine Consolidation Slices 1-5 plus the finalized outbound utterance source slice are
-source-aligned at their bounded claims. No compile/typecheck/uv-resolution/Ruff/
-pytest/model/Windows runtime/VAD/audio-quality/performance proof has been obtained in
-this channel.
+Engine Consolidation Slices 1-5, finalized outbound utterance production, and normal
+product Meeting Start/Stop/Live-state wiring are source-aligned at their bounded
+claims. No compile/typecheck/validator execution/model/Windows runtime/rendered UI,
+audio-quality, or performance proof has been obtained in this channel.
 
 The single continuation is `docs/knowledge/next-action.md`.
