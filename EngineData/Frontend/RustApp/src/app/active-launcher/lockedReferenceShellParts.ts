@@ -1,14 +1,13 @@
 import { icon } from "../shared/icons";
 
 type SettingsNavItem = {
-  tab: "meeting" | "history" | "advanced";
-  icon: "mic" | "clock" | "code";
+  tab: "meeting" | "advanced";
+  icon: "mic" | "code";
   label: string;
 };
 
 const SETTINGS_NAV_ITEMS: SettingsNavItem[] = [
   { tab: "meeting", icon: "mic", label: "Meeting" },
-  { tab: "history", icon: "clock", label: "History & Privacy" },
   { tab: "advanced", icon: "code", label: "Advanced" },
 ];
 
@@ -36,7 +35,6 @@ export function lockedMainSidebar(): string {
         <nav class="nav-stack compact-nav" aria-label="Primary navigation">
           <button id="meetingNavButton" class="nav-item active" data-workspace-nav="meeting" type="button" aria-current="page">${icon("mic")}<span>Meeting</span>${icon("chevron")}</button>
           <button id="textNavButton" class="nav-item" data-workspace-nav="text" type="button">${icon("translate")}<span>Text</span>${icon("chevron")}</button>
-          <button id="historyNavButton" class="nav-item" data-workspace-nav="history" type="button">${icon("clock")}<span>History</span>${icon("chevron")}</button>
           <button id="settingsButton" class="nav-item" type="button">${icon("settings")}<span>Settings</span>${icon("chevron")}</button>
         </nav>
         <section class="account-card compact-account">
@@ -157,50 +155,6 @@ export function lockedHomeWorkspace(): string {
 
             <p id="textResultMessage" class="text-result-message" aria-live="polite">Type or paste text, then select Translate.</p>
             <p class="composer-help">Press Ctrl + Enter to translate. Text files and document attachments are not part of this workflow.</p>
-          </section>
-        </section>
-
-        <section id="historyWorkspace" class="is-hidden" data-workspace-panel="history" hidden>
-          <section class="history-layout" aria-labelledby="historyWorkspaceTitle">
-            <header class="history-heading">
-              <div>
-                <span class="hero-kicker">History</span>
-                <h3 id="historyWorkspaceTitle">Recent and saved translations.</h3>
-                <p>Review local Meeting and Text activity without turning previous conversations into translation context.</p>
-              </div>
-              <p id="historyRetentionNote" class="history-retention-note">History is on. New completed translations can be kept in Recent.</p>
-            </header>
-
-            <div class="history-tabs" role="tablist" aria-label="History collection">
-              <button id="historyRecentTab" class="history-tab active" type="button" role="tab" aria-selected="true">Recent</button>
-              <button id="historySavedTab" class="history-tab" type="button" role="tab" aria-selected="false">Saved</button>
-            </div>
-
-            <section id="historyCollectionView" class="history-collection-view">
-              <div class="history-toolbar">
-                <input id="historySearchInput" class="history-search-input" type="search" placeholder="Search history..." aria-label="Search history" autocomplete="off" />
-                <div class="history-filters" aria-label="History type filter">
-                  <button class="history-filter active" data-history-filter="all" type="button">All</button>
-                  <button class="history-filter" data-history-filter="meeting" type="button">Meeting</button>
-                  <button class="history-filter" data-history-filter="text" type="button">Text</button>
-                </div>
-              </div>
-              <div id="historyCollection" class="history-list" aria-live="polite"></div>
-            </section>
-
-            <section id="historyDetailView" class="history-detail-view" hidden>
-              <button id="historyBackButton" class="history-back-button" type="button">${icon("back")}<span>Back to History</span></button>
-              <header class="history-detail-header">
-                <div>
-                  <span id="historyDetailKicker" class="hero-kicker">Text</span>
-                  <h3 id="historyDetailTitle">Text Translation</h3>
-                  <p id="historyDetailMeta"></p>
-                </div>
-                <button id="historyDetailActionButton" class="assistant-action secondary" type="button">Save</button>
-              </header>
-              <div id="historyDetailBody" class="history-detail-body"></div>
-              <p id="historyDetailMessage" class="history-detail-message" aria-live="polite"></p>
-            </section>
           </section>
         </section>
       </section>`;
