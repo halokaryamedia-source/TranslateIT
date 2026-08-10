@@ -26,11 +26,11 @@
       "checksum": null,
       "install_method": "huggingface_snapshot_download",
       "license": "project-local runtime asset; source URL not defined yet",
-      "notes": "Primary ASR model when available. The backup medium model remains the required local fallback for degraded readiness."
+      "notes": "Primary ASR model candidate for Meeting. Presence is installation evidence only; runtime load/quality are verified separately."
     },
     {
       "model_id": "faster-whisper-medium",
-      "required": true,
+      "required": false,
       "stage": "asr_fallback",
       "preferred": false,
       "priority": 2,
@@ -48,7 +48,7 @@
       "checksum": null,
       "install_method": "huggingface_snapshot_download",
       "license": "project-local runtime asset; source URL not defined yet",
-      "notes": "Required ASR fallback model when the preferred large-v3-turbo asset is unavailable."
+      "notes": "Optional degraded ASR fallback candidate. Whether it remains required will be decided from later CPU fallback benchmarks."
     },
     {
       "model_id": "marianmt-id-en",
@@ -68,11 +68,11 @@
       "checksum": null,
       "install_method": "huggingface_snapshot_download",
       "license": "project-local runtime asset; source URL not defined yet",
-      "notes": "Realtime text translation model."
+      "notes": "Realtime ID-to-EN translation model candidate for Meeting. Presence does not prove inference readiness."
     },
     {
       "model_id": "nllb-200-distilled-600M",
-      "required": true,
+      "required": false,
       "stage": "translation_quality",
       "backend": "nllb",
       "source_type": "huggingface",
@@ -88,7 +88,7 @@
       "checksum": null,
       "install_method": "huggingface_snapshot_download",
       "license": "project-local runtime asset; source URL not defined yet",
-      "notes": "Quality translation model."
+      "notes": "Quality ID/EN translation capability asset. Missing Quality capability must be reported by worker/Text readiness rather than blocking unrelated Meeting readiness."
     },
     {
       "model_id": "piper",
@@ -108,7 +108,7 @@
       "checksum": null,
       "install_method": "manual_or_release_asset",
       "license": "project-local runtime asset; source URL not defined yet",
-      "notes": "Local TTS fallback assets."
+      "notes": "Optional packaged TTS provider assets. Current runtime capability may also come from verified Windows SAPI and is reported by worker status."
     }
   ]
 }
