@@ -114,8 +114,12 @@ fn discover_repository_development_paths() -> ProjectPaths {
     let exe_start = env::current_exe()
         .ok()
         .and_then(|path| path.parent().map(Path::to_path_buf));
-    let verified_root = find_development_project_root(&start)
-        .or_else(|| exe_start.as_deref().and_then(find_development_project_root));
+    let verified_root = if cfg!(debug_assertions) {
+        find_development_project_root(&start)
+            .or_else(|| exe_start.as_deref().and_then(find_development_project_root))
+    } else {
+        None
+    };
 
     if let Some(root) = verified_root {
         let user_data_root = root.join("UserData");
@@ -126,7 +130,7 @@ fn discover_repository_development_paths() -> ProjectPaths {
             PATH_MODE_REPOSITORY_DEVELOPMENT,
             false,
             true,
-            "Explicit repository-development fallback verified from AGENTS.md, EngineData/Frontend/RustApp, EngineData/Backend, and UserData markers. Runtime assets use the repository EngineData tree and writable development data uses repository UserData. This is development fallback evidence, not installed-path proof.",
+            "Explicit debug-build repository-development fallback verified from AGENTS.md, EngineData/Frontend/RustApp, EngineData/Backend, and UserData markers. Runtime assets use the repository EngineData tree and writable development data uses repository UserData. This is development fallback evidence, not installed-path proof.",
         );
     }
 
@@ -138,7 +142,11 @@ fn discover_repository_development_paths() -> ProjectPaths {
         PATH_MODE_UNVERIFIED_DEVELOPMENT,
         false,
         false,
-        "Tauri packaged path context is not initialized and no explicit repository-development root was verified. Paths are derived from the current working directory only as an unverified development fallback and must not be treated as installed-runtime proof.",
+        if cfg!(debug_assertions) {
+            "Tauri packaged path context is not initialized and no explicit repository-development root was verified. Paths are derived from the current working directory only as an unverified development fallback and must not be treated as installed-runtime proof."
+        } else {
+            "Release-build packaged path context has not been initialized yet. Current-working-directory paths are unverified bootstrap fallback only; Tauri setup must initialize resource and app-local data roots before runtime commands execute."
+        },
     )
 }
 
