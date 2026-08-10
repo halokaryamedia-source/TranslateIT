@@ -6,6 +6,7 @@ const root = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const paths = {
   main: resolve(root, "src/main.ts"),
   shell: resolve(root, "src/app/active-launcher/shell.ts"),
+  shellParts: resolve(root, "src/app/active-launcher/lockedReferenceShellParts.ts"),
   simpleController: resolve(root, "src/app/simple-launcher/SimpleLauncherController.ts"),
   globalMeetingShell: resolve(root, "src/app/simple-launcher/GlobalMeetingShell.ts"),
   meetingActivity: resolve(root, "src/app/simple-launcher/MeetingLiveActivityPresentation.ts"),
@@ -51,9 +52,6 @@ function forbidMarkers(body, label, markers) {
   }
 }
 
-// One product shell and one canonical Meeting control path remain. The source still
-// contains deferred UI features that will be pruned in later bounded slices, so this
-// validator intentionally does not make those stale features acceptance requirements.
 requireMarkers(source.main, "desktop entrypoint", [
   "SimpleLauncherController",
   "startMeetingLiveActivityPresentation",
@@ -65,7 +63,31 @@ forbidMarkers(source.main, "desktop entrypoint", [
   "bindDirectVoiceCaptureUi",
 ]);
 
+// Initial normal product surface is intentionally small: Meeting / Text / Settings.
+// Existing backend persistence commands may remain disconnected, but the active shell,
+// controller, and frontend bridge must not expose History/Saved workflow.
+requireMarkers(source.shellParts, "initial desktop navigation", [
+  'id="meetingNavButton"',
+  'data-workspace-nav="meeting"',
+  'id="textNavButton"',
+  'data-workspace-nav="text"',
+  'id="settingsButton"',
+  'tab: "meeting"',
+  'tab: "advanced"',
+]);
+forbidMarkers(source.shellParts, "History-free initial desktop surface", [
+  'id="historyNavButton"',
+  'data-workspace-nav="history"',
+  'id="historyWorkspace"',
+  'data-workspace-panel="history"',
+  'tab: "history"',
+  "History & Privacy",
+  'id="historyRetentionNote"',
+]);
+
 requireMarkers(source.simpleController, "primary controller", [
+  'type ProductWorkspace = "meeting" | "text"',
+  'type ProductSettingsTab = "meeting" | "advanced"',
   "handleMeetingPrimaryAction",
   'startTranslationButton.addEventListener("click"',
   "submitText",
@@ -80,6 +102,19 @@ forbidMarkers(source.simpleController, "simple Meeting lifecycle", [
   ".canResume",
   ".paused",
 ]);
+forbidMarkers(source.simpleController, "History-free active controller", [
+  "historyTypes",
+  "writeTextRecentHistory",
+  "createTextHistoryEntry",
+  "listHistoryEntries",
+  "getHistoryEntry",
+  "saveHistoryEntry",
+  "removeSavedHistoryEntry",
+  "clearRecentHistory",
+  "historyScope",
+  "historyDetailEntry",
+  'renderSettings("history")',
+]);
 
 requireMarkers(source.runtimeApi, "canonical frontend bridge", [
   '"get_meeting_session_status"',
@@ -93,6 +128,21 @@ forbidMarkers(source.runtimeApi, "simple Meeting bridge", [
   "resumeMeetingTranslation",
   '"pause_meeting_translation"',
   '"resume_meeting_translation"',
+]);
+forbidMarkers(source.runtimeApi, "History-free active frontend bridge", [
+  "shared/historyTypes",
+  "createTextHistoryEntry",
+  "listHistoryEntries",
+  "getHistoryEntry",
+  "saveHistoryEntry",
+  "removeSavedHistoryEntry",
+  "clearRecentHistory",
+  '"create_text_history_entry"',
+  '"list_history_entries"',
+  '"get_history_entry"',
+  '"save_history_entry"',
+  '"remove_saved_history_entry"',
+  '"clear_recent_history"',
 ]);
 
 requireMarkers(source.facade, "product runtime facade", [
@@ -327,6 +377,18 @@ forbidMarkers(source.textTranslate, "standalone Text translation", [
   "start_live_capture_runtime",
 ]);
 
+// Text completion is a translation result only. Persistence cannot become a hidden
+// post-success dependency in the active controller or bridge.
+requireMarkers(source.simpleController, "standalone Text success path", [
+  "const result = await runtimeProductFacade.runProductTranslation(requestSource)",
+  'this.notice("Translation completed.")',
+]);
+forbidMarkers(source.simpleController, "Text persistence independence", [
+  "historyWarning",
+  "writeTextRecentHistory",
+  "createTextHistoryEntry",
+]);
+
 requireMarkers(source.finalizedUtterance, "finalized speech owner", [
   "FinalizedMeetingUtterance",
   "session_id",
@@ -422,5 +484,5 @@ forbidMarkers(source.meetingActivity, "Meeting live presentation", [
 ]);
 
 console.log(
-  "Reliable translation-core static contract is defined: one worker routes ID->EN and EN->ID by language direction, input is not silently truncated, incomplete generation is not promoted, Meeting and Text use the same translation task, required outbound readiness remains distinct from optional incoming readiness, optional incoming suppression failure disables/ignores incoming instead of rejecting required outbound TTS, Meeting uses the simple Start -> Live -> Stop product lifecycle, Stop clears runtime/transient state without History persistence, and safe Meeting/session ownership is preserved. Deferred UI/persistence features are intentionally not protected by this validator. This is static source validation only and does not prove Python/Rust/TypeScript execution, model availability/load, translation quality, latency, CUDA/CPU behavior, Windows audio, suppression effectiveness, rendered UI, or installed operation.",
+  "Reliable translation-core static contract is defined: the active desktop surface is Meeting/Text/Settings without History/Saved workflow, successful Text translation has no History persistence dependency, one worker routes ID->EN and EN->ID by language direction, input is not silently truncated, incomplete generation is not promoted, Meeting and Text use the same translation task, required outbound readiness remains distinct from optional incoming readiness, optional incoming suppression failure disables/ignores incoming instead of rejecting required outbound TTS, Meeting uses the simple Start -> Live -> Stop product lifecycle, Stop clears runtime/transient state without History persistence, and safe Meeting/session ownership is preserved. Backend deferred persistence commands are intentionally not treated as active product surface. This is static source validation only and does not prove Python/Rust/TypeScript execution, model availability/load, translation quality, latency, CUDA/CPU behavior, Windows audio, suppression effectiveness, rendered UI, or installed operation.",
 );
