@@ -1,0 +1,122 @@
+body:not(.settings-open) .meeting-ready-panel[data-meeting-view="activity"] {
+  align-content: start;
+}
+
+body:not(.settings-open) .meeting-live-activity-presentation {
+  display: grid;
+  gap: 16px;
+  min-height: 250px;
+  border-top: 1px solid rgba(255, 255, 255, .08);
+  border-bottom: 1px solid rgba(255, 255, 255, .08);
+  padding: 20px 0;
+}
+
+body:not(.settings-open) .meeting-live-activity-presentation[hidden] {
+  display: none !important;
+}
+
+body:not(.settings-open) .meeting-live-activity-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 18px;
+}
+
+body:not(.settings-open) .meeting-live-activity-header > div {
+  display: grid;
+  gap: 5px;
+  min-width: 0;
+}
+
+body:not(.settings-open) .meeting-live-activity-kicker {
+  color: var(--ref-muted);
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: .07em;
+  text-transform: uppercase;
+}
+
+body:not(.settings-open) .meeting-live-activity-header strong {
+  overflow: hidden;
+  color: var(--ref-text);
+  font-size: 13px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+body:not(.settings-open) .meeting-live-activity-stage {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 30px;
+  border: 1px solid rgba(255, 255, 255, .1);
+  border-radius: 999px;
+  padding: 0 11px;
+  color: var(--ref-muted);
+  background: rgba(255, 255, 255, .04);
+  font-size: 11px;
+  font-weight: 800;
+  white-space: nowrap;
+}
+
+body:not(.settings-open) .meeting-live-activity-stage[data-tone="good"] {
+  border-color: rgba(74, 222, 128, .28);
+  color: rgb(187, 247, 208);
+  background: rgba(74, 222, 128, .08);
+}
+
+body:not(.settings-open) .meeting-live-activity-stage[data-tone="warning"] {
+  border-color: rgba(251, 191, 36, .3);
+  color: rgb(253, 230, 138);
+  background: rgba(251, 191, 36, .08);
+}
+
+body:not(.settings-open) .meeting-live-activity-state {
+  display: grid;
+  grid-template-columns: 12px minmax(0, 1fr);
+  gap: 14px;
+  align-items: start;
+  min-height: 142px;
+  border: 1px solid rgba(255, 255, 255, .08);
+  border-radius: 14px;
+  padding: 22px;
+  background: rgba(0, 0, 0, .14);
+}
+
+body:not(.settings-open) .meeting-live-activity-indicator {
+  width: 9px;
+  height: 9px;
+  margin-top: 5px;
+  border-radius: 50%;
+  background: currentColor;
+  opacity: .72;
+}
+
+body:not(.settings-open) .meeting-live-activity-state > div {
+  display: grid;
+  gap: 8px;
+}
+
+body:not(.settings-open) .meeting-live-activity-state strong {
+  font-size: 16px;
+  line-height: 1.35;
+}
+
+body:not(.settings-open) .meeting-live-activity-state p {
+  max-width: 700px;
+  margin: 0;
+  color: var(--ref-muted);
+  font-size: 12px;
+  line-height: 1.6;
+}
+
+@media (max-width: 760px) {
+  body:not(.settings-open) .meeting-live-activity-header {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  body:not(.settings-open) .meeting-live-activity-header strong {
+    white-space: normal;
+  }
+}
