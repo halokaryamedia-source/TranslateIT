@@ -12,7 +12,7 @@ function globalMeetingShell(): string {
       <div class="global-meeting-strip-copy">
         <span class="global-meeting-strip-kicker">Meeting</span>
         <strong id="globalMeetingStripState">Live</strong>
-        <span id="globalMeetingStripSummary">ID → EN · Translation is active.</span>
+        <span id="globalMeetingStripSummary" class="global-meeting-strip-summary">ID → EN · Translation is active.</span>
       </div>
       <button id="globalMeetingOpenButton" class="global-meeting-strip-open" type="button">Open Meeting</button>
     </section>
