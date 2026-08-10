@@ -2,7 +2,7 @@
 
 Updated: 2026-08-11  
 Working branch: `New`  
-Status: **The Local Model Asset Delivery + Acceptance plan is resolved. TranslateIT will keep one normal Windows setup experience, but the initial controlled release must not depend on one monolithic NSIS executable containing all AI assets. The selected topology is a small NSIS setup plus local sidecar runtime payloads distributed together; Setup owns verification/placement so users do not install Python or models manually and the product does not need an initial network downloader. The next source slice is the packaged-runtime path foundation required before installer hooks or payload staging can be implemented safely. No Rust/TypeScript/Python/static-validator/model-load/installer/Windows runtime proof has been obtained.**
+Status: **The Packaged Runtime Layout Foundation is source-aligned. `ProjectPaths` now owns separate packaged runtime and writable user-data roots; Tauri setup supplies resource/app-local paths; repository probing is debug-development fallback only; worker/model consumers use the canonical roots; and the Python worker maps existing `UserData/...` handoff labels into writable app-local data. No Rust/Python/static-validator/installer/installed-Windows proof has been obtained. The next unresolved release boundary is the minimal reproducible payload identity/revision/hash contract that will feed later sidecar staging without becoming a second model registry.**
 
 This file is the single active continuation owner for TranslateIT.
 
@@ -14,15 +14,13 @@ AGENTS.md
 -> docs/knowledge/next-action.md
 -> docs/knowledge/source-ownership.md
 -> docs/knowledge/decision-log.md D-023 / D-024
--> docs/foundation/02-product-requirements.md PR-011..013 / PR-021..023 / PR-025 / PR-028 / PR-140..143 / PR-180..181
--> .agents/skills/development-brief/SKILL.md
--> .agents/skills/release-packaging-development/SKILL.md
--> inspect engine/paths.rs + app_bootstrap.rs + current callers only
+-> docs/foundation/02-product-requirements.md PR-011..013 / PR-140..143 / PR-180..181
+-> inspect model_manifest.json + RuntimeAssets ownership + current release/package preflight only
 ```
 
 ## Current Mode
 
-**Developing** — next bounded slice only.
+**Plan**.
 
 Execution channel:
 
@@ -30,233 +28,186 @@ Execution channel:
 ChatGPT -> GitHub
 ```
 
-Rust/TypeScript/Python execution, static-validator execution, actual model files/load,
-translation quality, CUDA/CPU latency, Windows audio, packaged installer execution,
-installed operation, and clean-machine proof remain `LOCAL PROOF REQUIRED`.
+Do not load a project specialist while this remains Plan. Transition explicitly to
+Developing only after one release-payload identity owner and its exact responsibility are
+grounded.
 
-# Closed Source Boundaries
+Rust/TypeScript/Python execution, static-validator execution, Tauri build, actual model
+files/load, installer execution, app-local write behavior, packaged helper execution,
+Windows audio, installed operation, and clean-machine proof remain `LOCAL PROOF REQUIRED`.
 
-The current core already has these bounded source contracts:
+# Closed Source Slice — Packaged Runtime Layout Foundation
 
-```text
-Translation
-ID -> EN -> marianmt-id-en
-EN -> ID -> marianmt-en-id
+## Canonical path owner
 
-Meeting lifecycle
-Ready -> Starting -> Live -> Stopping -> Ended
-
-Normal navigation
-Meeting / Text / Settings
-
-Normal Settings
-Meeting / Advanced
-```
-
-Normal Meeting/Text requests are mode-free and tone-free. Meeting outbound depends on
-ID->EN; reverse EN->ID remains separately degradable for optional incoming. Text
-readiness follows the selected direction. History/Saved, Pause/Resume, Tone/Context,
-and user-facing Realtime/Quality remain outside the initial core.
-
-# Closed Plan — Local Model Asset Delivery + Acceptance
-
-## Evidence that controls the plan
-
-Current source shows:
+`engine/paths.rs` now distinguishes:
 
 ```text
-tauri.conf.json
--> bundle active
--> Windows target = NSIS
--> no runtime-asset resource mapping yet
+tauri_packaged_context
+-> runtime_root = Tauri resource directory
+-> user_data_root = Tauri app-local data directory
 
-.gitignore
--> ASR/Translation/Piper model bytes stay out of Git
+repository_development_fallback
+-> debug builds only
+-> requires explicit repository markers
 
-ProjectPaths::discover()
--> currently assumes repository-style EngineData + UserData root
-
-helper bridge
--> currently falls back to .venv / environment / system Python
-
-model_manifest.json
--> metadata only; model bytes are not repository content
+unverified_development_fallback
+-> bootstrap/development fallback only
+-> never installed-path proof
 ```
 
-The current core model payload is already too large for a sensible single standard NSIS
-installer: the primary faster-whisper model is roughly 1.62 GB and the two selected
-Marian PyTorch checkpoints add roughly another 0.58 GB before Python/Torch/TTS/runtime
-files. A monolithic NSIS bundle is therefore rejected rather than made into a fragile
-release constraint.
+`ProjectPaths` supplies:
 
-## Selected controlled-release topology
+```text
+runtime_root
+worker_runtime_dir
+user_data_root
+user_cache_dir
+user_log_dir
+user_saved_dir
+asr_model_dir
+translation_model_dir
+voice_runtime_dir
+backend_contract_dir
+```
+
+Packaged context initialization accepts absolute runtime/user roots only and is owned by
+one `OnceLock` inside the existing path owner. No second path registry/service was added.
+
+## Tauri bootstrap
+
+`app_bootstrap.rs` uses the existing setup boundary:
+
+```text
+app.path().resource_dir()
+app.path().app_local_data_dir()
+-> initialize_tauri_path_context(...)
+-> ensure writable user-data directories
+```
+
+For child processes it publishes:
+
+```text
+TRANSLATEIT_RUNTIME_ROOT
+TRANSLATEIT_USER_DATA_ROOT
+```
+
+These values are overwritten from `ProjectPaths` and are transport to child runtime
+processes, not another normal-user path configuration mechanism.
+
+## Direct consumers
+
+`bridge_paths.rs` resolves the canonical worker directory from `worker_runtime_dir`.
+`runtime_inventory.rs` resolves the manifest/model asset locations from
+`worker_runtime_dir` + `runtime_root` and writes evidence under the writable cache root.
+
+The Python worker now uses:
+
+```text
+RUNTIME_ROOT
+-> ASR / translation / Piper resources
+
+USER_DATA_ROOT
+-> CacheData / LogData
+```
+
+Existing relative Rust handoff labels such as `UserData/CacheData/...` are mapped into
+`USER_DATA_ROOT` before the worker's allowed-root validation. Generated TTS/temporary
+Meeting audio therefore no longer needs a writable `UserData` directory inside packaged
+resources.
+
+## Static package/path validation definition
+
+`validate_tauri_package_preflight.mjs` now defines source checks for:
+
+- one canonical `ProjectPaths` packaged/development split;
+- Tauri resource + app-local initialization;
+- debug-only verified repository fallback;
+- worker/model consumers using explicit canonical roots;
+- worker runtime/user root transport and legacy `UserData/...` remapping;
+- no claim that this source contract is an installer/runtime PASS.
+
+The validator was **not executed** in this channel.
+
+# Existing Release Decision
+
+Initial controlled Windows delivery remains:
 
 ```text
 TranslateIT release package
-├─ TranslateIT_<version>_x64-setup.exe
-└─ payload/
-   ├─ required runtime payload(s)
-   ├─ ASR payload
+├─ one user-run NSIS Setup EXE
+└─ local sidecar payloads distributed with Setup
+   ├─ runtime/helper payload(s)
+   ├─ primary ASR payload
    ├─ marianmt-id-en payload
    └─ marianmt-en-id payload
 ```
 
-The user runs Setup only. The payload is release-owned input, not something the user
-places manually.
+No initial first-run internet downloader, manual Python/model setup, cloud fallback, NLLB
+fallback, or generic package manager is approved.
 
-Initial release behavior must be:
+Both Marian directions are required for full release/product acceptance because Text is
+bidirectional. EN->ID remains nonblocking for the narrower required Meeting outbound
+runtime gate.
 
-```text
-local setup + local payload
--> verify expected release payload
--> install/copy to canonical packaged runtime location
--> launch TranslateIT
-```
-
-Do **not** add by default:
+# Known Remaining Installed-Product Gaps
 
 ```text
-first-run internet model downloader
-in-app package manager
-manual Hugging Face/Python setup
-silent cloud fallback
-NLLB fallback
-generic capability-profile framework
+release payload revision/hash identity not implemented
+NSIS local sidecar payload verification/copy not implemented
+packaged Python/helper runtime not implemented
+Tauri resource inclusion for final payload not proved
+clean-machine installation/runtime not proved
 ```
 
-A network downloader can be reconsidered later only if controlled local-payload
-distribution proves operationally worse.
+Current helper discovery through `.venv`, environment override, or system Python remains
+development flexibility only; it is not acceptable as the final installed-user runtime.
 
-## Required versus optional is boundary-specific
-
-Release acceptance requires **both** Marian directions because standalone Text is an
-ID<->EN core capability:
-
-```text
-release payload gate
-marianmt-id-en = required
-marianmt-en-id = required
-```
-
-Meeting runtime readiness remains intentionally different:
-
-```text
-required Meeting outbound Start
-marianmt-id-en = required
-
-optional incoming
-marianmt-en-id missing
--> incoming/reverse capability unavailable/degraded
--> healthy ID->EN outbound is not blocked
-```
-
-Do not collapse these two gates into one global `required` flag.
-
-## Reproducible release identity
-
-The release asset contract should stay small. For each externally sourced model payload,
-release inputs need at minimum:
-
-```text
-repo/source ID
-immutable source revision/commit
-expected installed target
-release payload/archive SHA-256
-```
-
-`model_manifest.json` remains the model identity/inventory owner. Release staging may
-add the release artifact/hash boundary when implemented, but must not become a second
-model-selection registry.
-
-## Installed path architecture
-
-Current repository-style path discovery is not sufficient for an installed product.
-The target split is:
-
-```text
-immutable packaged runtime root
--> worker/runtime/model/voice assets
--> resolved from the installed Tauri resource/runtime location
-
-writable application-local data root
--> CacheData
--> LogData
--> future approved persistent user data
--> resolved from the Windows app-local data location
-
-repository development root
--> bounded development fallback only
-```
-
-`engine/paths.rs` remains the semantic path owner. `app_bootstrap.rs` is the existing
-Tauri setup boundary that can provide installed path information. Do not create a second
-path service.
-
-# Next Developing Slice — Packaged Runtime Layout Foundation
+# Next Plan Boundary — Release Payload Identity + Reproducible Source Contract
 
 ## Goal
 
-Make runtime path ownership valid for both repository development and a future installed
-Tauri build before adding installer payload hooks.
+Define the smallest release identity contract that lets later staging verify exactly what
+local payload belongs to a TranslateIT release without creating another translation
+model registry or a generic package manager.
 
-## In scope
+## Questions To Resolve
 
-1. extend the existing `ProjectPaths` owner to distinguish immutable packaged runtime
-   assets from writable app-local user data;
-2. initialize installed-path context through the existing Tauri `app_bootstrap` setup
-   boundary using current Tauri v2 path APIs;
-3. preserve a bounded repository-development fallback so current source/dev execution
-   does not require an installer;
-4. route current runtime/model/worker path consumers through that one canonical owner;
-5. add/update only the static source/package checks needed to prevent regression;
-6. reconcile canonical docs after the source slice.
+1. Which existing owner should carry immutable external source revisions and which owner
+   should carry the hash of the **prepared release payload/archive**?
+2. Can current `model_manifest.json` fields (`repo_id`, `revision`, `checksum`,
+   `expected_path`) own model source identity cleanly while a release-only contract owns
+   artifact/archive identity?
+3. How are non-model runtime payloads (packaged helper/Python, TTS assets, route support)
+   represented without turning `model_manifest.json` into a generic package registry?
+4. What is the minimum schema needed by future package preflight and NSIS sidecar staging?
+5. Which hashes can be committed as release input metadata now, and which must be created
+   only from locally prepared payload bytes?
 
-## Out of scope
+## Constraints
 
-- NSIS external-payload copy/install hooks;
-- downloading model bytes;
-- committing model binaries;
-- choosing a Python freezing/embedding mechanism;
-- building an installer in ChatGPT -> GitHub;
-- runtime/model quality or clean-machine testing;
-- changing translation models;
-- reopening deferred product features.
+- keep `model_manifest.json` the model identity/inventory owner;
+- do not create a second model-selection registry;
+- do not fabricate source revisions or SHA-256 values;
+- do not download or commit large runtime/model bytes in ChatGPT -> GitHub;
+- do not add a network downloader or package manager;
+- do not begin NSIS payload-copy implementation until the input identity contract is
+  resolved;
+- do not claim hash/source metadata proves model load or translation quality.
 
-## Acceptance criteria
+## Plan Acceptance
 
-1. installed runtime resources and writable user data no longer depend on finding an
-   `EngineData + UserData` repository root beside the executable;
-2. one `ProjectPaths` semantic owner supplies runtime asset, worker, cache, and log roots;
-3. packaged/runtime asset paths are immutable-install paths while user cache/log paths
-   resolve to an app-writable Windows application-data location;
-4. repository/dev fallback is explicit and cannot masquerade as installed-path proof;
-5. no new downloader, path registry, or second runtime owner is introduced.
+The plan is complete only when it identifies:
 
-# Later Release Slices Already Bounded By This Plan
-
-After the path foundation is source-aligned, release work can proceed separately:
-
-```text
-1. release payload contract + pinned revisions/hashes
-2. NSIS local sidecar payload hook/staging
-3. packaged Python/helper dependency delivery
-4. local build/install/clean-machine acceptance
-```
-
-The current helper still relying on `.venv`, environment override, or system Python is
-therefore an explicit release gap, not an acceptable installed-user setup.
-
-## Hold
-
-- do not make the user install Python, uv, pip, or models;
-- do not bundle all large AI payloads into one standard NSIS executable merely to claim
-  a one-file installer;
-- do not add a first-run downloader while controlled local payload delivery is the
-  selected initial strategy;
-- do not make EN->ID reverse availability block healthy Meeting outbound;
-- do not claim package/runtime success from source or manifest presence.
+1. one owner for model source identity and one bounded owner (existing if possible) for
+   prepared release-artifact identity;
+2. the minimum fields for model + non-model payloads;
+3. how immutable source revisions are obtained and reviewed without fabricated values;
+4. how SHA-256 values are generated from real staged bytes later;
+5. one bounded Developing slice for source metadata/preflight before NSIS transport.
 
 ## Next Step
 
-Implement **Packaged Runtime Layout Foundation** through the existing `engine/paths.rs`
-and Tauri `app_bootstrap.rs` owners, then stop before NSIS payload-hook implementation.
+Plan **Release Payload Identity + Reproducible Source Contract** from the current model
+inventory and release/package owners; do not implement a new payload registry until that
+ownership is resolved.
