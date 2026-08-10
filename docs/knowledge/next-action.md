@@ -2,7 +2,7 @@
 
 Updated: 2026-08-10  
 Working branch: `New`  
-Status: **Engine Consolidation Slice 1 and Slice 2 are source-aligned. Text has one persistent-worker execution route, fake/parallel translation paths are retired, and normal product readiness now follows scoped worker capability + canonical Meeting preflight instead of stale/legacy gates.**
+Status: **Engine Consolidation Slices 1-3 are source-aligned. The product now has one persistent AI worker path, scoped capability/readiness truth, caller-owned Meeting/Text modes, and one helper scheduler/cancellation authority.**
 
 This file is the single active continuation owner for TranslateIT.
 
@@ -13,7 +13,7 @@ AGENTS.md
 -> CONTEXT.md
 -> docs/knowledge/next-action.md
 -> docs/knowledge/source-ownership.md
--> bounded Slice 3 helper scheduler/mode owners + direct callers only
+-> bounded Slice 4 WorkerRuntime dependency/tooling owners + direct setup/package consumers only
 ```
 
 ## Current Mode
@@ -27,9 +27,9 @@ ChatGPT -> GitHub
 ```
 
 Local/Windows acceptance remains deferred. Static source establishes ownership and
-wiring only. Rust compilation, helper/model execution, model quality, latency,
-CPU/CUDA behavior, cancellation timing, Windows audio, and installed operation remain
-`LOCAL PROOF REQUIRED`.
+wiring only. Rust compilation, TypeScript typecheck, Python execution, model load/
+quality, scheduler contention, cancellation timing, CPU/CUDA behavior, Windows audio,
+and installed operation remain `LOCAL PROOF REQUIRED`.
 
 ## Locked Engine Target
 
@@ -37,7 +37,7 @@ CPU/CUDA behavior, cancellation timing, Windows audio, and installed operation r
 Rust/Tauri product runtime
         |
         v
-existing helper bridge / scheduler
+ONE existing helper scheduler / process bridge
         |
         v
 ONE persistent Python worker
@@ -50,199 +50,200 @@ ONE persistent Python worker
 product result / Meeting route
 ```
 
-Do not reintroduce alternate workers, fake translation fallback, duplicate readiness
-owners, or silent cross-mode fallback.
+Do not reintroduce alternate workers, manual/rule translation fallback, duplicate
+readiness owners, automatic cross-mode fallback, or another scheduler.
 
-Svelte remains a separate later frontend architecture decision after Engine contracts
-stabilize; it is not part of Engine consolidation.
+Svelte remains a separate later frontend architecture decision after Engine
+contracts stabilize.
 
 # Slice 1 — Closed
 
-Canonical standalone Text execution:
-
-```text
-Text UI
--> runtimeProductFacade
--> runtimeApi.translateText
--> commands/text_translate.rs
--> persistent helper
--> realtime_local_worker.py `translate`
--> one result
-```
-
-Closed source problems:
-
-- manual Rust translation owners removed;
-- standalone entry/accelerated Python workers removed;
+- standalone Text uses one persistent helper/base-worker execution path;
+- manual Rust translation and alternate Python worker owners are retired;
 - deterministic/dictionary/preview translation cannot report model success;
-- legacy capture no longer starts one-shot ASR -> Translate -> TTS or switches
-  Realtime <-> Quality;
-- normal capture no longer dispatches migration helper stubs as product execution.
+- legacy capture no longer launches one-shot ASR -> Translate -> TTS or automatic
+  Realtime <-> Quality fallback.
 
-# Slice 2 — Closed Source Boundary
+# Slice 2 — Closed
 
-## A. Installation evidence
+- model inventory is installation evidence, not runtime `PASS`;
+- stale `MODEL_RUNTIME_MANIFEST.json` is removed;
+- worker capability state is scoped instead of one request redefining whole-provider
+  health;
+- normal Text readiness is based on current worker translation capability;
+- normal Meeting readiness is based on canonical `MeetingSessionPreflight`;
+- legacy live/internal/professional/migration gates do not make normal product Ready.
 
-Canonical static inventory:
+# Slice 3 — Closed Source Boundary
 
-```text
-WorkerRuntime/model_manifest.json
--> commands/runtime_inventory.rs
-```
-
-Inventory now reports installation semantics instead of runtime PASS:
-
-```text
-installed
-missing_required
-missing_optional
-metadata incomplete
-```
-
-File presence is not model load/inference proof.
-
-Model catalog is capability-scoped:
-
-- Faster Whisper Medium is optional/deferred fallback rather than mandatory global
-  readiness;
-- NLLB Quality is capability-specific and does not block unrelated Meeting readiness;
-- Piper is optional because current TTS capability may come from runtime-verified
-  Windows SAPI.
-
-Revision/checksum/reproducible acquisition metadata remains incomplete and belongs to
-the later tooling/reproducibility slice.
-
-## B. Stale runtime snapshot
-
-Removed:
+## A. Caller-owned modes
 
 ```text
-EngineData/Backend/RuntimeContracts/MODEL_RUNTIME_MANIFEST.json
+Meeting outbound -> explicit Realtime
+Standalone Text  -> explicit Quality
 ```
 
-Previous-machine `ready`, SAPI, CUDA, and model-load values are no longer source-tree
-runtime truth.
+`commands/text_translate.rs` sends `Quality` directly and accepts successful output
+only when the worker response reports Quality.
 
-`local_worker_manifest_logic.rs` remains only a Diagnostics/static install report and
-no longer reads that snapshot. SAPI/CUDA/load truth belongs to current persistent
-worker status.
+`commands/meeting_session.rs` already sends `Realtime` directly.
 
-`realtime_stack_manifest.json` is still inherited declared profile/config evidence;
-it is **not normal product readiness proof**. Merge/removal remains later work.
+`RuntimeSettings.runtime_profile` remains only a compatibility field. Product-facing
+settings load/save normalizes it to Quality so inherited Text labels and Text History
+metadata do not claim Realtime. It is no longer engine mode authority for Meeting.
 
-## C. Helper process health vs request result
+No requested translation mode retries the other mode merely to get output.
 
-`helper_bridge_runtime.rs` now separates process lifecycle from task outcome:
+## B. One helper scheduler / stdin-stdout authority
 
-- process/I/O/deadline failure may block/terminate the helper;
-- a successful/failed individual ASR/Translate/TTS request describes that request
-  only;
-- request failure does not demote the persistent process or overwrite cached overall
-  capability status;
-- helper `provider_ready` remains only a compatibility summary of the required
-  outbound AI capability set, not universal readiness.
+The existing helper bridge now contains the only scheduler. No new worker/service was
+created.
 
-Scheduler locking/cancellation remains unchanged until Slice 3.
-
-## D. Current worker capability truth
-
-Normal product capability is derived from persistent worker `status`:
+Queue order:
 
 ```text
-readiness.asr
-readiness.translation_realtime
-readiness.translation_quality
-readiness.tts
-readiness.cuda_degraded
+Meeting
+  > Text
+    > Diagnostics / preload
 ```
 
-Text readiness now uses the translation capability for the mode the current Text
-command will actually request. `canTranslateText` is no longer hardcoded `true`.
+Each admitted request has a unique helper request id. Meeting work additionally
+carries the existing application `meeting_generation`.
 
-Slice 3 will replace the shared `runtime_profile` with explicit caller-owned mode:
+The helper runtime mutex is no longer held for the entire blocking worker inference/
+read. Worker stdin/stdout are loaned to the admitted request, while the child process
+remains cancellable from lifecycle code. A helper generation token prevents a result
+from an old/killed process from restoring stale handles/state.
+
+Important limitation: this is **queue priority, not preemption**. A Meeting request
+that arrives after a Text inference has already started waits for that current Text
+request to finish. This must be measured before Meeting Live is enabled; do not call
+the scheduler realtime-optimal yet.
+
+## C. Stale work + truthful hard cancellation
+
+Meeting work is checked against application generation authority before worker
+execution and again before result promotion.
+
+During Meeting Stop:
 
 ```text
-Meeting -> Realtime
-Text    -> Quality
+revoke application generation first
+-> cancel Meeting route
+-> stop capture
+-> helper cancellation sees revoked Meeting generation
+   -> matching in-flight Meeting task: kill persistent worker process
+   -> unrelated Text task: preserve it
+   -> queued revoked Meeting work: reject before execution
+-> clear session
 ```
 
-## E. Canonical Meeting readiness
+Generic Developer Diagnostics cancellation may still hard-kill an active helper task
+outside the Meeting Stop context.
 
-`runtime_status_bundle_logic.rs` now exposes:
+Actual process-interruption timing remains local proof.
+
+## D. Truthful translation input bounds
+
+Canonical worker now requires explicit `Realtime` or `Quality` and rejects unknown
+mode.
+
+Translation source handling is:
 
 ```text
-meeting_session
--> MeetingSessionPreflight
+character bound
+-> tokenize with truncation=False
+-> read tokenizer/model context limit
+-> count tokens
+-> unknown count/limit: reject
+-> over model limit: reject before inference
+-> otherwise infer
 ```
 
-Normal `runtimeProductFacade` maps Meeting readiness from this canonical preflight,
-including required outbound AI, microphone, Meeting route, route execution guard,
-and finalized/continuous outbound blockers.
+The previous `truncation=True, max_length=256` success path is removed.
 
-Normal product readiness no longer treats these as authority:
+## E. Static guard only
 
-```text
-live_meeting_runtime_gate
-runtime_readiness_bundle
-internal_validation_gate
-professional progress/readiness
-local_worker_manifest runtime assumptions
-native CT2 candidate validation
-stale MODEL_RUNTIME_MANIFEST
-```
+`validate_translation_flow_integrity.mjs` now checks the bounded source contracts for:
 
-Those may remain in Developer Diagnostics while they have a real diagnostic consumer.
-They do not make Text or Meeting Ready.
+- Text Quality ownership;
+- Meeting Realtime ownership;
+- one helper scheduler/request identity;
+- Meeting generation checks;
+- absence of retired alternate translation owners;
+- absence of `truncation=True` / cross-mode fallback markers;
+- explicit oversized-token rejection.
 
-## Proof State
+This validator is **static source-contract proof only**. It is not scheduler timing,
+model correctness, cancellation, or performance proof.
+
+# Proof State
 
 **CURRENT-PROJECT VERIFIED** at static-source level:
 
-1. model inventory language is installation-only, not runtime PASS;
-2. stale `MODEL_RUNTIME_MANIFEST.json` is removed;
-3. static worker-manifest diagnostics no longer depend on previous-machine load/CUDA/SAPI state;
-4. individual helper task outcomes no longer redefine whole-worker/provider readiness;
-5. Text readiness uses current worker translation capability rather than file presence or unconditional `true`;
-6. canonical `MeetingSessionPreflight` is exposed to the existing product facade;
-7. normal product readiness no longer consumes legacy live/internal/professional/migration gates as authority.
+1. Text and Meeting own Quality/Realtime independently.
+2. Worker I/O has one helper scheduler owner.
+3. Waiting Meeting requests outrank waiting Text requests.
+4. Helper general state lock is released during blocking worker inference/read.
+5. Meeting generation is checked before execution and result promotion.
+6. Meeting Stop helper cancellation is generation-scoped and does not intentionally
+   kill unrelated Text work.
+7. Canonical translation input is never silently tokenizer-truncated.
+8. The canonical worker no longer reads the deleted stale runtime manifest.
 
-No build/typecheck/helper/model command was executed in this `ChatGPT -> GitHub`
-channel. All actual runtime claims remain `LOCAL PROOF REQUIRED`.
+No build/typecheck/Python/model/runtime command was executed through this channel.
 
-## Hold
+# Known Gaps Kept Truthful
 
-- do not add a second scheduler, worker, readiness service, or capability store;
-- do not reintroduce `MODEL_RUNTIME_MANIFEST.json` or another source-tree runtime
-  snapshot;
-- do not use model presence as model-load/quality proof;
-- do not use an individual request success/failure as universal provider health;
-- do not adopt PyO3/maturin or a second Python process for cancellation/performance;
-- do not start Finalized Utterance Producer or incoming Meeting work yet;
-- do not start local Windows acceptance yet.
+Do not hide these when continuing:
+
+- queue priority is currently non-preemptive for a Text request already in flight;
+- generation output still uses bounded `max_new_tokens`; source does not yet prove a
+  non-EOS result hitting that ceiling is rejected as incomplete;
+- worker capability `status` is current dependency/asset/process availability plus
+  loaded-cache state, not model-quality proof;
+- Meeting transactional Start remains fail-closed because finalized utterance source
+  and continuous outbound runtime are still disconnected;
+- TTS provider/voice selection is not yet guaranteed to select an explicit English
+  voice;
+- Python dependency/runtime acquisition is not reproducible enough yet;
+- `requirements-realtime.txt` and `realtime_stack_manifest.json` remain inherited
+  sources that need ownership cleanup;
+- model revision/checksum/source metadata is incomplete;
+- local model quality/latency/memory/VRAM proof has not started.
+
+# Hold
+
+- do not add a second worker, scheduler, readiness store, or process farm;
+- do not introduce PyO3/maturin for cancellation/performance without profiling proof;
+- do not replace ASR/translation/TTS models to hide dependency/runtime problems;
+- do not describe queue priority as measured realtime scheduling;
+- do not describe source-token acceptance as proof that generated output is complete;
+- do not start Finalized Utterance Producer, incoming Meeting Sound, Svelte migration,
+  or local Windows acceptance yet.
 
 ## Next Step
 
-Start **Engine Consolidation Slice 3 — caller-owned modes + scheduler/cancellation**.
+Start **Engine Consolidation Slice 4 — canonical Python project + executable proof
+baseline**.
 
 Bounded target:
 
 ```text
-Meeting outbound request -> explicit Realtime
-Text request             -> explicit Quality
-        |
-        v
-ONE helper scheduler / stdin-stdout authority
-        |
-        +-- Meeting priority over Text
-        +-- unique request identity
-        +-- drop queued stale Meeting work
-        +-- Stop revokes generation first
-        +-- hard-cancel worker process when in-flight inference cannot be cancelled truthfully
+WorkerRuntime dependency declarations
+-> ONE canonical Python project owner (`pyproject.toml`)
+-> remove `requirements-realtime.txt` as independent dependency authority
+-> classify/merge `realtime_stack_manifest.json` so it cannot act as execution proof
+-> Ruff as the single Python lint/format policy
+-> pytest for deterministic worker/protocol correctness
+-> py-spy documented as local profiler for the actual persistent worker
 ```
 
-Slice 3 must also remove silent tokenizer/input truncation from the canonical worker
-path: large/unsupported input must be rejected or handled explicitly, never silently
-cut to `max_length=256` while reporting successful translation.
+Before adding versions/dependencies, inspect only current WorkerRuntime requirements,
+setup scripts, actual imports, and packaging consumers. Do not invent dependency pins
+or a lockfile that was not actually resolved. If `uv.lock` cannot be generated and
+verified through the current GitHub channel, record it as a later local/tooling proof
+artifact rather than fabricating one.
 
-Do **not** combine Slice 3 with Python dependency/tooling adoption, model replacement,
-Finalized Utterance Producer, incoming Meeting Sound, or Svelte migration.
+Keep model replacement, model-quality benchmarking, Finalized Utterance Producer,
+incoming Meeting Sound, and Svelte outside Slice 4.
