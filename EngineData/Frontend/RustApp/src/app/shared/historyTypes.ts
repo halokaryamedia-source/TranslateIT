@@ -20,6 +20,7 @@ export type HistoryEntry = {
   saved_unix_ms: number | null;
   duration_ms: number | null;
   interrupted: boolean;
+  dropped_turn_count: number;
   source_language: string;
   target_language: string;
   tone: string;
