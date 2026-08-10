@@ -21,6 +21,8 @@ pub struct HelperBridgeStatus {
     pub active_task: Option<String>,
     pub active_request_id: Option<String>,
     pub active_meeting_generation: Option<u64>,
+    pub active_meeting_session_id: Option<String>,
+    pub active_meeting_lane: Option<String>,
     pub generation_token: u64,
     pub last_error: Option<String>,
     pub stderr_log_path: Option<String>,
@@ -52,6 +54,8 @@ pub struct HelperBridgeRuntime {
     pub active_task: Option<String>,
     pub active_request_id: Option<String>,
     pub active_meeting_generation: Option<u64>,
+    pub active_meeting_session_id: Option<String>,
+    pub active_meeting_lane: Option<String>,
     pub generation_token: u64,
     pub last_error: Option<String>,
     pub stderr_log_path: Option<String>,
@@ -73,6 +77,8 @@ impl Default for HelperBridgeRuntime {
             active_task: None,
             active_request_id: None,
             active_meeting_generation: None,
+            active_meeting_session_id: None,
+            active_meeting_lane: None,
             generation_token: 0,
             last_error: None,
             stderr_log_path: None,
@@ -92,7 +98,8 @@ pub fn runtime() -> &'static Mutex<HelperBridgeRuntime> {
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum HelperTaskPriority {
-    Meeting,
+    MeetingOutbound,
+    MeetingIncoming,
     Text,
     Diagnostic,
 }
@@ -100,7 +107,8 @@ pub enum HelperTaskPriority {
 impl HelperTaskPriority {
     pub fn label(self) -> &'static str {
         match self {
-            Self::Meeting => "meeting",
+            Self::MeetingOutbound => "meeting_outbound",
+            Self::MeetingIncoming => "meeting_incoming",
             Self::Text => "text",
             Self::Diagnostic => "diagnostic",
         }
@@ -110,7 +118,8 @@ impl HelperTaskPriority {
 #[derive(Debug, Default)]
 struct HelperSchedulerState {
     active: bool,
-    waiting_meeting: u32,
+    waiting_meeting_outbound: u32,
+    waiting_meeting_incoming: u32,
     waiting_text: u32,
     waiting_diagnostic: u32,
     next_request_sequence: u64,
@@ -149,8 +158,11 @@ impl Drop for HelperTaskPermit {
 
 fn scheduler_waiting_increment(state: &mut HelperSchedulerState, priority: HelperTaskPriority) {
     match priority {
-        HelperTaskPriority::Meeting => {
-            state.waiting_meeting = state.waiting_meeting.saturating_add(1)
+        HelperTaskPriority::MeetingOutbound => {
+            state.waiting_meeting_outbound = state.waiting_meeting_outbound.saturating_add(1)
+        }
+        HelperTaskPriority::MeetingIncoming => {
+            state.waiting_meeting_incoming = state.waiting_meeting_incoming.saturating_add(1)
         }
         HelperTaskPriority::Text => state.waiting_text = state.waiting_text.saturating_add(1),
         HelperTaskPriority::Diagnostic => {
@@ -161,8 +173,11 @@ fn scheduler_waiting_increment(state: &mut HelperSchedulerState, priority: Helpe
 
 fn scheduler_waiting_decrement(state: &mut HelperSchedulerState, priority: HelperTaskPriority) {
     match priority {
-        HelperTaskPriority::Meeting => {
-            state.waiting_meeting = state.waiting_meeting.saturating_sub(1)
+        HelperTaskPriority::MeetingOutbound => {
+            state.waiting_meeting_outbound = state.waiting_meeting_outbound.saturating_sub(1)
+        }
+        HelperTaskPriority::MeetingIncoming => {
+            state.waiting_meeting_incoming = state.waiting_meeting_incoming.saturating_sub(1)
         }
         HelperTaskPriority::Text => state.waiting_text = state.waiting_text.saturating_sub(1),
         HelperTaskPriority::Diagnostic => {
@@ -176,9 +191,16 @@ fn scheduler_can_enter(state: &HelperSchedulerState, priority: HelperTaskPriorit
         return false;
     }
     match priority {
-        HelperTaskPriority::Meeting => true,
-        HelperTaskPriority::Text => state.waiting_meeting == 0,
-        HelperTaskPriority::Diagnostic => state.waiting_meeting == 0 && state.waiting_text == 0,
+        HelperTaskPriority::MeetingOutbound => true,
+        HelperTaskPriority::MeetingIncoming => state.waiting_meeting_outbound == 0,
+        HelperTaskPriority::Text => {
+            state.waiting_meeting_outbound == 0 && state.waiting_meeting_incoming == 0
+        }
+        HelperTaskPriority::Diagnostic => {
+            state.waiting_meeting_outbound == 0
+                && state.waiting_meeting_incoming == 0
+                && state.waiting_text == 0
+        }
     }
 }
 
@@ -231,6 +253,8 @@ pub fn status_from_runtime(runtime: &HelperBridgeRuntime) -> HelperBridgeStatus 
         active_task: runtime.active_task.clone(),
         active_request_id: runtime.active_request_id.clone(),
         active_meeting_generation: runtime.active_meeting_generation,
+        active_meeting_session_id: runtime.active_meeting_session_id.clone(),
+        active_meeting_lane: runtime.active_meeting_lane.clone(),
         generation_token: runtime.generation_token,
         last_error: runtime.last_error.clone(),
         stderr_log_path: runtime.stderr_log_path.clone(),
@@ -278,6 +302,8 @@ pub fn clear_active_request(runtime: &mut HelperBridgeRuntime, request_id: &str)
         runtime.active_task = None;
         runtime.active_request_id = None;
         runtime.active_meeting_generation = None;
+        runtime.active_meeting_session_id = None;
+        runtime.active_meeting_lane = None;
     }
 }
 
@@ -294,6 +320,8 @@ pub fn set_blocked(
     runtime.active_task = None;
     runtime.active_request_id = None;
     runtime.active_meeting_generation = None;
+    runtime.active_meeting_session_id = None;
+    runtime.active_meeting_lane = None;
     runtime.last_error = Some(error.to_string());
     runtime.updated_unix_ms = unix_ms();
     action_result(false, runtime)
@@ -483,6 +511,8 @@ pub fn read_worker_response_with_deadline(
             runtime.active_task = None;
             runtime.active_request_id = None;
             runtime.active_meeting_generation = None;
+            runtime.active_meeting_session_id = None;
+            runtime.active_meeting_lane = None;
             runtime.updated_unix_ms = unix_ms();
             stop_child(runtime);
             Err(error)
