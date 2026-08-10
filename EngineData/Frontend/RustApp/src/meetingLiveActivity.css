@@ -110,6 +110,29 @@ body:not(.settings-open) .meeting-live-activity-state p {
   line-height: 1.6;
 }
 
+body:not(.settings-open) .meeting-live-incoming-state {
+  margin: -2px 0 0;
+  border-left: 2px solid rgba(255, 255, 255, .14);
+  padding: 6px 0 6px 12px;
+  color: var(--ref-muted);
+  font-size: 11px;
+  line-height: 1.5;
+}
+
+body:not(.settings-open) .meeting-live-incoming-state[data-tone="good"] {
+  border-left-color: rgba(74, 222, 128, .42);
+  color: rgb(187, 247, 208);
+}
+
+body:not(.settings-open) .meeting-live-incoming-state[data-tone="warning"] {
+  border-left-color: rgba(251, 191, 36, .45);
+  color: rgb(253, 230, 138);
+}
+
+body:not(.settings-open) .meeting-live-incoming-state[hidden] {
+  display: none !important;
+}
+
 body:not(.settings-open) .meeting-live-transcript {
   display: grid;
   gap: 12px;
