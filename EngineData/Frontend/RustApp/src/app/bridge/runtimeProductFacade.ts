@@ -204,7 +204,6 @@ export function mapProductReadiness(input: {
   modelInventory: ModelInventoryReport | null;
   inputStatus: InputPreparationStatus | null;
 }): ProductReadiness {
-  const settings = input.settings ?? defaultSettings();
   const { bundle, helper, modelInventory, inputStatus } = input;
   const worker = parseWorkerCapabilities(input.workerStatus ?? null);
   const meeting = meetingPreflight(bundle);
@@ -219,10 +218,9 @@ export function mapProductReadiness(input: {
   const ttsReady = helperReady && worker.ttsReady;
   const providerReady = asrReady && realtimeTranslationReady && ttsReady;
 
-  // Slice 3 will replace the shared runtime_profile with explicit caller-owned mode.
-  // Until then readiness must match the mode the current Text command will actually request.
-  const currentTextMode = settings.runtime_profile?.toLowerCase() === "quality" ? "Quality" : "Realtime";
-  const textReady = currentTextMode === "Quality" ? qualityTranslationReady : realtimeTranslationReady;
+  // Standalone Text owns Quality. Meeting owns Realtime independently.
+  const currentTextMode = "Quality";
+  const textReady = qualityTranslationReady;
   const canTranslateText = textReady;
 
   const voiceReady = microphoneReady && providerReady;
