@@ -6,6 +6,11 @@ use std::sync::{Arc, Mutex, OnceLock};
 use std::thread;
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
+use super::finalized_utterance::{
+    clear_finalized_outbound_utterance_producer, observe_finalized_outbound_f32_samples,
+    observe_finalized_outbound_i16_samples, observe_finalized_outbound_u16_samples,
+    reset_finalized_outbound_utterance_producer,
+};
 use super::live_audio_buffer::{
     append_live_f32_samples, append_live_i16_samples, append_live_u16_samples,
     clear_live_audio_buffer, reset_live_audio_buffer,
@@ -109,8 +114,17 @@ pub fn start_live_capture_runtime(
     let (stop_tx, stop_rx) = mpsc::channel();
     let thread_frames = Arc::clone(&frames_received);
     let thread_errors = Arc::clone(&callback_errors);
+    let capture_session_id = session.session_id.clone();
+    let capture_generation = session.generation;
     let capture_thread = thread::spawn(move || {
-        if let Err(error) = run_capture_thread(thread_frames, thread_errors, stop_rx, &ready_tx) {
+        if let Err(error) = run_capture_thread(
+            thread_frames,
+            thread_errors,
+            stop_rx,
+            &ready_tx,
+            capture_session_id,
+            capture_generation,
+        ) {
             let _ = ready_tx.send(Err(error));
         }
     });
@@ -120,12 +134,14 @@ pub fn start_live_capture_runtime(
         Ok(Err(error)) => {
             let _ = capture_thread.join();
             clear_live_audio_buffer();
+            clear_finalized_outbound_utterance_producer();
             return blocked_start("live_capture:stream_build_failed", &error);
         }
         Err(error) => {
             let _ = stop_tx.send(());
             let _ = capture_thread.join();
             clear_live_audio_buffer();
+            clear_finalized_outbound_utterance_producer();
             return blocked_start(
                 "live_capture:stream_start_timeout",
                 &format!("Timed out while starting live microphone stream: {error}"),
@@ -153,7 +169,8 @@ pub fn start_live_capture_runtime(
     LiveCaptureStartReport {
         ok: true,
         status,
-        message: "Live microphone stream started and is owned by the active Rust runtime session. Audio is now feeding the live rolling buffer. ASR, translation, and TTS are still separate pending stages.".to_string(),
+        message: "Live microphone stream started for the authoritative Meeting session. Audio feeds both the rolling preview buffer and the audio-owned finalized-utterance producer; only finalized utterances may enter outbound AI stages."
+            .to_string(),
     }
 }
 
@@ -173,13 +190,15 @@ pub fn stop_live_capture_runtime() -> LiveCaptureStopReport {
 
     let Some(mut runtime) = guard.take() else {
         clear_live_audio_buffer();
+        clear_finalized_outbound_utterance_producer();
         return LiveCaptureStopReport {
             ok: true,
             status: inactive_status(
                 "live_capture:not_active",
                 "No live microphone stream was active.",
             ),
-            message: "No live microphone stream was active. Stop remains safe.".to_string(),
+            message: "No live microphone stream was active. Rolling/finalized audio state was cleared and Stop remains safe."
+                .to_string(),
         };
     };
 
@@ -191,6 +210,7 @@ pub fn stop_live_capture_runtime() -> LiveCaptureStopReport {
         .map(|handle| handle.join().is_ok())
         .unwrap_or(true);
     clear_live_audio_buffer();
+    clear_finalized_outbound_utterance_producer();
     LiveCaptureStopReport {
         ok: thread_stopped,
         status: inactive_status(
@@ -198,10 +218,11 @@ pub fn stop_live_capture_runtime() -> LiveCaptureStopReport {
             "Live microphone stream ownership was released.",
         ),
         message: if thread_stopped {
-            "Live microphone stream stopped, rolling buffer cleared, and ownership was released."
+            "Live microphone stream stopped; rolling and pending finalized audio were cleared and ownership was released."
                 .to_string()
         } else {
-            "Live microphone stream stopped, but its owner thread exited unexpectedly.".to_string()
+            "Live microphone stream stopped and audio state was cleared, but its owner thread exited unexpectedly."
+                .to_string()
         },
     }
 }
@@ -237,6 +258,7 @@ fn build_stream_for_format(
                     move |data: &[f32], _| {
                         record_frames(data.len(), channels, &frames);
                         append_live_f32_samples(data, sample_rate_hz, channels);
+                        observe_finalized_outbound_f32_samples(data, sample_rate_hz, channels);
                     },
                     move |error| push_callback_error(&errors, error),
                     None,
@@ -252,6 +274,7 @@ fn build_stream_for_format(
                     move |data: &[i16], _| {
                         record_frames(data.len(), channels, &frames);
                         append_live_i16_samples(data, sample_rate_hz, channels);
+                        observe_finalized_outbound_i16_samples(data, sample_rate_hz, channels);
                     },
                     move |error| push_callback_error(&errors, error),
                     None,
@@ -267,6 +290,7 @@ fn build_stream_for_format(
                     move |data: &[u16], _| {
                         record_frames(data.len(), channels, &frames);
                         append_live_u16_samples(data, sample_rate_hz, channels);
+                        observe_finalized_outbound_u16_samples(data, sample_rate_hz, channels);
                     },
                     move |error| push_callback_error(&errors, error),
                     None,
@@ -311,6 +335,8 @@ fn run_capture_thread(
     callback_errors: Arc<Mutex<Vec<String>>>,
     stop_rx: mpsc::Receiver<()>,
     ready_tx: &mpsc::SyncSender<Result<LiveCaptureReady, String>>,
+    session_id: String,
+    generation: u64,
 ) -> Result<(), String> {
     let host = cpal::default_host();
     let device = select_input_device(&host)?;
@@ -324,31 +350,41 @@ fn run_capture_thread(
     let channels = stream_config.channels;
 
     reset_live_audio_buffer(sample_rate_hz, channels);
-    let stream = build_stream_for_format(
+    reset_finalized_outbound_utterance_producer(&session_id, generation, sample_rate_hz);
+    let stream = match build_stream_for_format(
         &device,
         &stream_config,
         sample_format,
         frames_received,
         callback_errors,
-    )
-    .map_err(|error| format!("Failed to build live microphone stream: {error}"))?;
-    stream
-        .play()
-        .map_err(|error| format!("Failed to start live microphone stream: {error}"))?;
+    ) {
+        Ok(stream) => stream,
+        Err(error) => {
+            clear_finalized_outbound_utterance_producer();
+            return Err(format!("Failed to build live microphone stream: {error}"));
+        }
+    };
+    if let Err(error) = stream.play() {
+        clear_finalized_outbound_utterance_producer();
+        return Err(format!("Failed to start live microphone stream: {error}"));
+    }
 
-    ready_tx
-        .send(Ok(LiveCaptureReady {
-            device_name,
-            sample_rate_hz,
-            channels,
-            sample_format: format!("{sample_format:?}"),
-            started_unix_ms: current_unix_ms(),
-        }))
-        .map_err(|error| format!("Failed to report live microphone readiness: {error}"))?;
+    if let Err(error) = ready_tx.send(Ok(LiveCaptureReady {
+        device_name,
+        sample_rate_hz,
+        channels,
+        sample_format: format!("{sample_format:?}"),
+        started_unix_ms: current_unix_ms(),
+    })) {
+        drop(stream);
+        clear_finalized_outbound_utterance_producer();
+        return Err(format!("Failed to report live microphone readiness: {error}"));
+    }
 
     // The stream must stay on its owner thread because cpal streams are not Send on all platforms.
     let _ = stop_rx.recv();
     drop(stream);
+    clear_finalized_outbound_utterance_producer();
     Ok(())
 }
 
@@ -391,7 +427,7 @@ fn build_status_from_guard(runtime: Option<&LiveCaptureRuntime>) -> LiveCaptureS
                 latest_callback_error: errors.last().cloned(),
                 blocker: String::new(),
                 note: format!(
-                    "Live microphone stream is active. age_ms={}, sample_rate_hz={}, channels={}. Audio is feeding the rolling VAD buffer. ASR/translation/TTS remain separate pipeline stages.",
+                    "Live microphone stream is active. age_ms={}, sample_rate_hz={}, channels={}. Rolling audio remains preview-capable while finalized speech is produced separately for outbound Meeting consumption.",
                     active_age_ms, runtime.sample_rate_hz, runtime.channels
                 ),
             }
