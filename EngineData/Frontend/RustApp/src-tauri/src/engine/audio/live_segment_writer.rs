@@ -3,7 +3,7 @@ use std::fs;
 use std::io::{self, Write};
 use std::path::PathBuf;
 
-use super::finalized_utterance::FinalizedOutboundUtterance;
+use super::finalized_utterance::FinalizedMeetingUtterance;
 use super::live_audio_buffer::live_target_segment_snapshot;
 use super::TARGET_SAMPLE_RATE_HZ;
 use crate::engine::paths::ProjectPaths;
@@ -30,9 +30,9 @@ pub struct LiveSegmentWavWriteReport {
     pub note: String,
 }
 
-// Diagnostic-only rolling snapshot writer. Product Meeting output must use
-// write_finalized_outbound_utterance_wav so an ASR-ready rolling window cannot be
-// confused with a finalized speech boundary.
+// Diagnostic-only rolling snapshot writer. Product Meeting output must use a
+// finalized Meeting utterance so an ASR-ready rolling window cannot be confused
+// with a finalized speech boundary.
 pub fn write_latest_live_target_segment_wav() -> LiveSegmentWavWriteReport {
     let segment = live_target_segment_snapshot();
     if !segment.ready {
@@ -108,7 +108,25 @@ pub fn write_latest_live_target_segment_wav() -> LiveSegmentWavWriteReport {
 }
 
 pub fn write_finalized_outbound_utterance_wav(
-    utterance: &FinalizedOutboundUtterance,
+    utterance: &FinalizedMeetingUtterance,
+) -> LiveSegmentWavWriteReport {
+    if utterance.lane != "you" || utterance.generation.is_none() {
+        return invalid_lane_report(utterance, "you", "finalized_outbound_writer");
+    }
+    write_finalized_meeting_utterance_wav(utterance)
+}
+
+pub fn write_finalized_incoming_utterance_wav(
+    utterance: &FinalizedMeetingUtterance,
+) -> LiveSegmentWavWriteReport {
+    if utterance.lane != "incoming" || utterance.generation.is_some() {
+        return invalid_lane_report(utterance, "incoming", "finalized_incoming_writer");
+    }
+    write_finalized_meeting_utterance_wav(utterance)
+}
+
+fn write_finalized_meeting_utterance_wav(
+    utterance: &FinalizedMeetingUtterance,
 ) -> LiveSegmentWavWriteReport {
     let frame = &utterance.frame;
     let frame_duration_ms = duration_ms(frame.samples.len(), frame.sample_rate_hz);
@@ -124,7 +142,8 @@ pub fn write_finalized_outbound_utterance_wav(
     }
 
     let session_component = safe_file_component(&utterance.session_id);
-    if session_component.is_empty() {
+    let lane_component = safe_file_component(&utterance.lane);
+    if session_component.is_empty() || lane_component.is_empty() || utterance.sequence == 0 {
         return LiveSegmentWavWriteReport {
             ok: false,
             audio_path: None,
@@ -132,15 +151,23 @@ pub fn write_finalized_outbound_utterance_wav(
             channels: frame.channels,
             sample_count: frame.samples.len(),
             duration_ms: frame_duration_ms,
-            blocker: "finalized_utterance_writer:invalid_session_id".to_string(),
-            note: "Finalized utterance WAV was not written because its session identity is invalid."
+            blocker: "finalized_utterance_writer:invalid_event_identity".to_string(),
+            note: "Finalized Meeting utterance WAV was not written because its session/lane/event identity is invalid."
                 .to_string(),
         };
     }
 
+    let generation_component = utterance
+        .generation
+        .map(|generation| format!("g{generation}_"))
+        .unwrap_or_default();
     let filename = format!(
-        "final_{}_g{}_u{}.wav",
-        session_component, utterance.generation, utterance.utterance_id
+        "final_{}_s{}_{}_{}u{}.wav",
+        session_component,
+        utterance.sequence,
+        lane_component,
+        generation_component,
+        utterance.utterance_id
     );
     let project_paths = ProjectPaths::discover();
     let audio_dir = PathBuf::from(project_paths.user_cache_dir).join("audio_segments");
@@ -162,8 +189,8 @@ pub fn write_finalized_outbound_utterance_wav(
             duration_ms: frame_duration_ms,
             blocker: String::new(),
             note: format!(
-                "Finalized outbound utterance {} for Meeting generation {} was written once as temporary PCM16 WAV.",
-                utterance.utterance_id, utterance.generation
+                "Finalized {} utterance {} for Meeting event sequence {} was written once as temporary PCM16 WAV.",
+                utterance.lane, utterance.utterance_id, utterance.sequence
             ),
         },
         Err(_error) => LiveSegmentWavWriteReport {
@@ -174,13 +201,30 @@ pub fn write_finalized_outbound_utterance_wav(
             sample_count: frame.samples.len(),
             duration_ms: frame_duration_ms,
             blocker: "finalized_utterance_writer:wav_write_failed".to_string(),
-            note: "Failed to write finalized outbound utterance WAV. No AI/output stage should consume this utterance."
+            note: "Failed to write finalized Meeting utterance WAV. No AI/output stage should consume this utterance."
                 .to_string(),
         },
     }
 }
 
-pub fn remove_finalized_outbound_utterance_wav(audio_path: &str) {
+fn invalid_lane_report(
+    utterance: &FinalizedMeetingUtterance,
+    expected_lane: &str,
+    blocker_prefix: &str,
+) -> LiveSegmentWavWriteReport {
+    LiveSegmentWavWriteReport {
+        ok: false,
+        audio_path: None,
+        sample_rate_hz: utterance.frame.sample_rate_hz,
+        channels: utterance.frame.channels,
+        sample_count: utterance.frame.samples.len(),
+        duration_ms: duration_ms(utterance.frame.samples.len(), utterance.frame.sample_rate_hz),
+        blocker: format!("{blocker_prefix}:lane_mismatch"),
+        note: format!("Finalized utterance did not match the expected {expected_lane} lane contract."),
+    }
+}
+
+pub fn remove_finalized_meeting_utterance_wav(audio_path: &str) {
     let Some(filename) = finalized_audio_filename(audio_path) else {
         return;
     };
@@ -189,6 +233,10 @@ pub fn remove_finalized_outbound_utterance_wav(audio_path: &str) {
         .join("audio_segments")
         .join(filename);
     let _ = fs::remove_file(path);
+}
+
+pub fn remove_finalized_outbound_utterance_wav(audio_path: &str) {
+    remove_finalized_meeting_utterance_wav(audio_path);
 }
 
 fn finalized_audio_filename(audio_path: &str) -> Option<String> {
