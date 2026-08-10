@@ -745,31 +745,37 @@ export class SimpleLauncherController {
   }
 
   private appendMeetingHistoryTurn(turn: HistoryTurn): void {
+    const incoming = turn.lane === "incoming";
     const article = document.createElement("article");
     article.className = "history-meeting-turn";
-    article.dataset.deliveryState = turn.delivery_state ?? "unknown";
+    article.dataset.lane = incoming ? "incoming" : "you";
+    if (!incoming && turn.delivery_state) article.dataset.deliveryState = turn.delivery_state;
 
     const header = document.createElement("header");
     header.className = "history-meeting-turn-header";
     const lane = document.createElement("span");
     lane.className = "history-meeting-lane";
-    lane.textContent = turn.lane === "incoming" ? "INCOMING" : "YOU";
-    const delivery = document.createElement("span");
-    delivery.className = "history-meeting-delivery";
-    delivery.textContent = historyDeliveryLabel(turn.delivery_state);
-    header.append(lane, delivery);
+    lane.textContent = incoming ? "INCOMING" : "YOU";
+    header.append(lane);
 
-    const source = document.createElement("p");
-    source.className = "history-meeting-source";
-    source.lang = turn.lane === "incoming" ? "en" : "id";
-    source.textContent = turn.source_text;
+    if (!incoming) {
+      const delivery = document.createElement("span");
+      delivery.className = "history-meeting-delivery";
+      delivery.textContent = historyDeliveryLabel(turn.delivery_state);
+      header.append(delivery);
+    }
 
-    const translated = document.createElement("p");
-    translated.className = "history-meeting-translation";
-    translated.lang = turn.lane === "incoming" ? "id" : "en";
-    translated.textContent = turn.translated_text;
+    const primary = document.createElement("p");
+    primary.className = "history-meeting-source";
+    primary.lang = "id";
+    primary.textContent = incoming ? turn.translated_text : turn.source_text;
 
-    article.append(header, source, translated);
+    const secondary = document.createElement("p");
+    secondary.className = "history-meeting-translation";
+    secondary.lang = "en";
+    secondary.textContent = incoming ? turn.source_text : turn.translated_text;
+
+    article.append(header, primary, secondary);
     this.ui.historyDetailBody.append(article);
   }
 
