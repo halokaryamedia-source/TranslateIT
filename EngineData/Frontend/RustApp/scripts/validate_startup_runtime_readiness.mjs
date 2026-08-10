@@ -16,6 +16,7 @@ const runtimeApiPath = resolve(root, "src/app/bridge/runtimeApi.ts");
 const facadePath = resolve(root, "src/app/bridge/runtimeProductFacade.ts");
 const registryPath = resolve(root, "src-tauri/src/commands/registry.rs");
 const nativeMainPath = resolve(root, "src-tauri/src/main.rs");
+const capabilityPath = resolve(root, "src-tauri/capabilities/default.json");
 const meetingSessionPath = resolve(root, "src-tauri/src/commands/meeting_session.rs");
 const runtimeStatePath = resolve(root, "src-tauri/src/engine/runtime_state.rs");
 const historyStorePath = resolve(root, "src-tauri/src/engine/history_store.rs");
@@ -34,6 +35,7 @@ for (const path of [
   facadePath,
   registryPath,
   nativeMainPath,
+  capabilityPath,
   meetingSessionPath,
   runtimeStatePath,
   historyStorePath,
@@ -57,6 +59,7 @@ const runtimeApi = readFileSync(runtimeApiPath, "utf8");
 const facade = readFileSync(facadePath, "utf8");
 const registry = readFileSync(registryPath, "utf8");
 const nativeMain = readFileSync(nativeMainPath, "utf8");
+const capability = readFileSync(capabilityPath, "utf8");
 const meetingSession = readFileSync(meetingSessionPath, "utf8");
 const runtimeState = readFileSync(runtimeStatePath, "utf8");
 const historyStore = readFileSync(historyStorePath, "utf8");
@@ -163,6 +166,10 @@ for (const marker of [
   ".global-meeting-close-stop",
 ]) {
   if (!globalMeetingShellCss.includes(marker)) throw new Error(`global Meeting shell CSS marker missing: ${marker}`);
+}
+
+if (!capability.includes('"core:window:allow-destroy"')) {
+  throw new Error("main window capability must allow the verified post-Stop Window.destroy transport action");
 }
 
 for (const marker of [
