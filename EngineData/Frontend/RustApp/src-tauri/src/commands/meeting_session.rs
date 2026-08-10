@@ -800,6 +800,16 @@ fn generation_is_live(generation: u64) -> bool {
 }
 
 fn incoming_session_is_eligible(session_id: &str) -> bool {
+    let lane_enabled = incoming_status_store()
+        .lock()
+        .map(|status| {
+            !(status.session_id.as_deref() == Some(session_id) && status.stage == "disabled")
+        })
+        .unwrap_or(false);
+    if !lane_enabled {
+        return false;
+    }
+
     latest_runtime_session_state()
         .snapshot
         .map(|snapshot| {
@@ -842,6 +852,21 @@ fn begin_self_output_suppression(session_id: &str) -> Option<SelfOutputSuppressi
         "Incoming Meeting Sound is temporarily suppressed while TranslateIT's own English TTS is routed to the Meeting Microphone.",
     );
     Some(SelfOutputSuppressionGuard { active })
+}
+
+fn disable_optional_incoming_for_outbound(session_id: &str) -> String {
+    // Incoming is optional. Clear its finalized producer first so any still-open
+    // Meeting Sound callback is ignored before required outbound playback proceeds.
+    clear_finalized_incoming_utterance_producer();
+    let capture_stop = stop_meeting_sound_capture_runtime();
+    update_incoming_status(
+        session_id,
+        "disabled",
+        true,
+        "meeting_incoming:self_output_suppression_unavailable",
+        "Incoming Meeting Sound was disabled because TranslateIT could not establish self-output suppression. Required outbound translation continues through the Meeting Microphone.",
+    );
+    capture_stop.message
 }
 
 fn clear_self_output_suppression_for_session(session_id: &str) {
@@ -1095,35 +1120,24 @@ pub fn process_authoritative_finalized_outbound_wav(
         };
     }
 
-    let Some(suppression_guard) = begin_self_output_suppression(session_id) else {
-        remove_temporary_tts(&tts_path);
-        let _ = update_committed_turn_delivery_state(
-            session_id,
-            generation,
-            utterance_id,
-            "output_failed",
-        );
-        update_outbound_status(
-            generation,
-            session_id,
-            "attention_needed",
-            event_sequence,
-            false,
-            false,
-            "meeting_outbound:self_output_suppression_unavailable",
-            "Translated voice was not routed because the Meeting self-output suppression boundary was unavailable.",
-        );
-        return MeetingOutboundProcessResult {
-            ok: false,
-            delivered: false,
-            state: "suppression_unavailable".to_string(),
-            blocker: "meeting_outbound:self_output_suppression_unavailable".to_string(),
-            note: "Meeting output was blocked rather than risking TranslateIT TTS becoming an INCOMING turn."
-                .to_string(),
-            generation,
-            utterance_sequence: event_sequence,
-            runtime_claim: "meeting_outbound_suppression_gate_required_before_delivery".to_string(),
-        };
+    let suppression_guard = match begin_self_output_suppression(session_id) {
+        Some(guard) => Some(guard),
+        None => {
+            let incoming_cleanup = disable_optional_incoming_for_outbound(session_id);
+            update_outbound_status(
+                generation,
+                session_id,
+                "delivering",
+                event_sequence,
+                false,
+                true,
+                "",
+                &format!(
+                    "Optional incoming protection became unavailable and incoming was disabled before required outbound delivery. {incoming_cleanup}"
+                ),
+            );
+            None
+        }
     };
 
     let _ = update_committed_turn_delivery_state(
