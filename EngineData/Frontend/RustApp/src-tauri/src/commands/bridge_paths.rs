@@ -14,12 +14,12 @@ pub fn project_root() -> PathBuf {
     PathBuf::from(ProjectPaths::discover().project_root)
 }
 
+pub fn runtime_root() -> PathBuf {
+    PathBuf::from(ProjectPaths::discover().runtime_root)
+}
+
 pub fn worker_root() -> PathBuf {
-    project_root()
-        .join("EngineData")
-        .join("Backend")
-        .join("LocalWorker")
-        .join("WorkerRuntime")
+    PathBuf::from(ProjectPaths::discover().worker_runtime_dir)
 }
 
 pub fn worker_script() -> PathBuf {
