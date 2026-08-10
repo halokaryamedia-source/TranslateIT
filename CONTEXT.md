@@ -65,9 +65,17 @@ meeting_setup_checkpoint -> 1..5
 ```
 
 Readiness is revalidated. Physical audio preferences remain in `RuntimeSettings.audio`:
-`input_device_id` and `output_device_id`; null means follow Windows Default. Candidate
-devices are checked before replacing prior preferences, and explicit missing devices
-must not silently fall back.
+
+```text
+input_device_id  -> physical microphone
+output_device_id -> Meeting Sound output endpoint
+```
+
+`null` means Follow Windows Default. Candidate devices are checked before replacing
+prior preferences, and explicit missing devices must not silently fall back.
+
+Current `probe_output_device_candidate` verifies only endpoint/config availability; it
+does not yet capture Meeting Sound.
 
 ## Meeting Lifecycle / Conversation Policy
 
@@ -77,17 +85,19 @@ product permits one active Meeting session per runtime.
 - Start is transactional and duplicate Start does not create another session.
 - finalized utterances, not rolling/partial audio, are product output truth.
 - Meeting outbound uses Realtime; Text uses Quality.
-- session/generation/utterance authority rejects stale work.
-- Pause retains `session_id` and invalidates current outbound generation.
-- Resume creates fresh generation authority for the same session.
+- outbound session/generation/utterance authority rejects stale work.
+- Pause retains `session_id` and invalidates current **outbound** generation.
+- Resume creates fresh outbound generation authority for the same session.
 - Stop revokes output authority before resource cleanup and finalization.
 - minimize/hide does not end a healthy Meeting.
 - native Close is distinct from minimize: an application Meeting must safely Stop
   before the main window is destroyed.
 - sleep/hibernate must not silently resume voice after interruption.
 
-Incoming remains a separate unimplemented normal-product lane and must eventually
-suppress TranslateIT's own TTS and avoid invented participant identity.
+Incoming is a separate optional lane inside the **same** Meeting session. Its source
+boundary is now planned but not yet implemented. Healthy incoming must be able to
+continue while outbound is Paused; Stop still ends both lanes before History
+finalization.
 
 ## Canonical Local AI Runtime
 
@@ -100,34 +110,43 @@ Rust/Tauri desktop boundary
    └─ TTS
 ```
 
-Waiting priority is `Meeting > Text > Diagnostics / preload`; it does not preempt Text
-inference already running. Translation input is not silently truncated, generated
-translation requires verifiable EOS completion, and outbound TTS requires an explicit
-English-capable Piper/SAPI voice. Actual model/audio/performance remains local proof.
-
-## Finalized Meeting Outbound / Committed Turns
+Current source waiting priority remains `Meeting > Text > Diagnostics / preload` and
+is non-preemptive. The planned incoming slice will refine waiting Meeting work to:
 
 ```text
-application Meeting microphone
-├─ rolling audio -> preview / diagnostics only
-└─ finalized utterance producer
-   -> session_id + generation + utterance_id
-   -> bounded one-shot queue + unique temporary WAV
-   -> serialized Meeting consumer
-      -> final Indonesian ASR
-      -> verified Realtime English translation
-      -> bounded transient committed-turn source
-      -> English TTS
-      -> guarded Meeting Microphone route
+Meeting outbound > Meeting incoming > Text > Diagnostics / preload
 ```
 
-`commands/meeting_session.rs` owns the single memory-only committed-turn store.
-A turn is committed only after final Indonesian ASR and verified-complete English
-translation under the same authoritative generation.
+There will still be one scheduler/worker. Actual contention/performance remains local
+proof.
+
+Translation input is not silently truncated, generated translation requires
+verifiable completion, and outbound TTS requires an explicit English-capable
+Piper/SAPI voice.
+
+## Current Outbound Audio / AI Source
+
+```text
+physical microphone
+-> live_capture.rs
+-> finalized_utterance.rs
+-> finalized temporary WAV
+-> meeting_session.rs serialized outbound consumer
+-> final Indonesian ASR
+-> verified Realtime English translation
+-> committed YOU turn
+-> English TTS
+-> guarded Meeting Microphone route
+```
+
+The current finalized producer is outbound-only in source. `meeting_session.rs` owns
+the single bounded memory-only committed-turn store.
+
+Current outbound committed data:
 
 ```text
 session_id
-sequence                 # monotonic across Resume generations
+sequence
 generation
 utterance_id
 lane = you
@@ -138,16 +157,99 @@ created_unix_ms
 updated_unix_ms
 ```
 
-Dedupe is `(session_id, generation, utterance_id)`. Delivery states are
-`preparing_voice`, `speaking`, `output_complete`, `output_failed`, `interrupted`;
-terminal states reject stale overwrite. Pause retains turns and interrupts non-terminal
-revoked-generation work; Resume continues the same session chronology. The store is
-bounded and explicitly reports dropped earlier turns.
+Current outbound delivery states are `preparing_voice`, `speaking`, `output_complete`,
+`output_failed`, and `interrupted`. The store is bounded and reports dropped earlier
+turns.
+
+## Planned Incoming Meeting Sound Boundary
+
+Incoming implementation will preserve distinct responsibility while sharing the same
+Meeting/session/conversation authority.
+
+```text
+RuntimeSettings.audio.output_device_id
+-> dedicated Rust/Windows Meeting Sound output-loopback capture
+-> shared finalized Meeting-speech boundary
+-> finalized INCOMING event
+-> final English ASR
+-> verified Realtime English -> Indonesian translation
+-> same committed-turn store
+-> Live transcript / final History
+```
+
+Planned capture owner:
+
+```text
+engine/audio/meeting_sound_capture.rs
+```
+
+It owns Windows output-loopback PCM only. It does not own lifecycle, inference,
+conversation state, History, or frontend state. Exact Windows API/binding must be
+verified before source implementation.
+
+### Shared speech/event ordering
+
+Two lanes cannot safely allocate conversation chronology after model completion.
+`audio/finalized_utterance.rs` will therefore become the one Meeting finalized-event
+owner with independent lane VAD state and a **session-wide sequence allocated when
+speech finalizes, before AI**.
+
+Conceptual finalized event:
+
+```text
+session_id
+sequence                 # speech/event order
+lane = you | incoming
+generation = Some(...)   # outbound only; incoming None
+utterance_id
+frame
+```
+
+New Start resets the event sequence. Pause disables outbound finalization while
+retaining incoming and session sequence. Resume attaches the fresh outbound generation
+to that same session chronology.
+
+The committed store remains in `meeting_session.rs` and will accept the preassigned
+sequence, deduplicating by `(session_id, sequence)`. Planned lane-neutral turn data has
+optional `generation` and optional `delivery_state`; incoming has no voice-delivery
+claim.
+
+### Incoming Pause authority
+
+Incoming is session-scoped rather than outbound-generation-scoped. Its AI requests
+must verify the same application Meeting `session_id` remains active and not Stopping/
+ended. This permits incoming during outbound Pause without creating another authority.
+
+### Self-output suppression
+
+Current guarded virtual-audio provider performs blocking TTS WAV playback. The planned
+minimum suppression policy uses one transient atomic gate owned/orchestrated by
+`meeting_session.rs` around that blocking route:
+
+```text
+TranslateIT TTS route starts
+-> suppression ON
+-> Meeting Sound samples discarded
+-> in-progress incoming VAD reset
+-> no incoming event can finalize from this interval
+
+route returns/cancels
+-> suppression OFF
+-> incoming resumes from a fresh boundary
+```
+
+This intentionally may omit participant speech mixed into Meeting Sound while
+TranslateIT itself is speaking. That fail-closed tradeoff is preferred to presenting
+TranslateIT's own English TTS as remote speech. No acoustic-echo framework, content-
+similarity filter, waveform fingerprint store, or second suppression runtime is part
+of the planned slice.
+
+Incoming partial subtitles remain optional and are not part of the first source slice.
+Participant identity is not invented from mixed/device-level audio.
 
 ## Normal Meeting Frontend / Live Transcript
 
-Lifecycle truth remains the canonical Meeting commands. Conversation bodies use a
-separate read-only projection:
+Lifecycle truth remains the canonical Meeting commands. Conversation bodies use:
 
 ```text
 get_meeting_committed_turns
@@ -155,15 +257,28 @@ get_meeting_committed_turns
 -> MeetingLiveActivityPresentation
 ```
 
-`MeetingSessionStatus` contains no conversation body. Meeting Live rebuilds its
-chronological `YOU` list from backend snapshots: Indonesian final text primary,
-English verified translation secondary, truthful delivery state. Snapshot/lifecycle
-`session_id` mismatch is not rendered as current text; bounded truncation is disclosed.
-Frontend does not accumulate conversation authority.
+`MeetingSessionStatus` contains no conversation body. Current source renders outbound
+`YOU` turns only. The incoming slice will keep the same projection and render:
+
+```text
+YOU
+Indonesian primary
+English secondary
+outbound delivery state
+
+INCOMING
+Indonesian translation primary
+English source secondary
+no participant identity / no voice-delivery claim
+```
+
+Frontend must continue rebuilding from backend snapshots rather than accumulating
+conversation authority. A lightweight body-free incoming runtime status may be added
+for listening/processing/degraded/suppressed presentation.
 
 ## Global Meeting Cross-View / Safe Close
 
-The existing desktop shell now owns a bounded global Meeting presentation helper:
+The existing desktop shell owns a bounded global Meeting presentation helper:
 
 ```text
 GlobalMeetingShell
@@ -173,44 +288,15 @@ GlobalMeetingShell
 ```
 
 The strip is read-only lifecycle presentation. It shows application Meeting state on
-Text/History/Settings and exposes only `Open Meeting`, delegated to existing
-navigation. Pause/Resume/Stop remain Meeting-workspace actions; no second frontend
-Meeting store exists.
+Text/History/Settings and exposes only `Open Meeting`. Pause/Resume/Stop remain local
+Meeting actions.
 
-Native close is source-wired fail-closed:
+Native close is source-wired fail-closed. `Stop & Close` reuses canonical
+`stop_meeting_translation`, including History finalization, and requires a fresh status
+read showing no session before `Window.destroy()`. Orderly `ExitRequested` likewise
+delegates to the same Stop owner rather than reproducing cleanup.
 
-```text
-close request
--> prevent close
--> fresh canonical Meeting status
-
-no Meeting session
--> forced main-window destroy
-
-application Meeting session
--> Keep Open / Stop & Close
-
-unknown status / other owner
--> remain open
-```
-
-`Stop & Close` uses `runtimeProductFacade.runProductMeetingAction("stop")`, therefore
-reuses canonical `stop_meeting_translation` including Meeting History finalization.
-The shell requires the action result and a fresh status read to show no remaining
-session before `Window.destroy()`.
-
-If lifecycle is already `Stopping`, a pending-close transport flag waits for canonical
-Stop completion rather than dispatching duplicate cleanup. The main Tauri capability
-explicitly grants the required `core:window:allow-destroy` command.
-
-`src-tauri/src/main.rs` also provides an orderly `ExitRequested` fail-safe. It checks
-canonical application Meeting ownership and delegates to the same backend Stop owner;
-it does not reproduce capture/helper/History cleanup. If cleanup still leaves an
-application Meeting and the user control window exists, exit is prevented and the
-window is restored.
-
-Actual close-request ordering, rendering, Stop races, forced process termination,
-crash/power-loss behavior, and Windows native behavior remain local/platform proof.
+Actual close ordering/races and Windows native behavior remain local proof.
 
 ## History, Saved, Privacy And Storage
 
@@ -219,36 +305,26 @@ Saved is explicit durable ownership with independent lifetime. Clear Recent does
 delete Saved; removing Saved does not delete Recent. Persistent History/Saved is never
 automatic model context.
 
-Storage roots remain:
+Canonical storage:
 
 ```text
-UserData/CacheData/    -> disposable runtime/session data
-UserData/LogData/      -> minimal/redacted diagnostics
-UserData/SavedProject/ -> persistent user-visible/user-approved data
-```
-
-Canonical History:
-
-```text
+UserData/CacheData/               -> disposable runtime/session data
+UserData/LogData/                 -> minimal/redacted diagnostics
 UserData/SavedProject/History/
 ├─ Recent/
 └─ Saved/
 ```
 
-Text and finalized Meeting History are source-connected. Persistent History does
-**not** own the Live transcript.
+Text and finalized outbound Meeting History are source-connected. History does not own
+Live transcript state.
 
-Full Stop keeps safety cleanup first, then persists only the immutable final committed-
-turn snapshot when current `history_enabled` allows it. History persistence failure is
-reported but cannot prevent safety-critical Stop; transient conversation bodies are
-still cleared. Empty Meetings do not create empty Recent entries. Pause/Resume do not
-persist History and no live incremental Meeting History writer exists.
+Full Stop persists only the immutable final committed-turn snapshot when current
+`history_enabled` allows it. Persistence failure cannot prevent safety-critical Stop.
+History schema v2 carries `dropped_turn_count`; `HistoryTurn.lane` already supports
+`incoming`, so planned incoming turns can reuse the same persistence owner without a
+new History schema/store for conversation content.
 
-History schema version 2 carries backward-compatible `dropped_turn_count`. Finalized
-Meeting History stores duration, interrupted status, ID->EN metadata and `HistoryTurn`
-rows with sequence/lane/source/translation/delivery state/time. Raw audio and generated
-TTS are not normal History content. History detail and generic Save / Remove from Saved
-are shared by Meeting and Text.
+Raw audio and generated TTS are not normal History content.
 
 ## Translation / Text / Settings
 
@@ -278,42 +354,44 @@ distribution is first; clean-machine packaging proof remains later.
 
 ## Current Implementation Evidence Boundary
 
-Source-side alignment on `New` now includes:
+Source-side alignment on `New` includes:
 
 - setup/device preference and Meeting/Text/History/Settings hierarchy;
 - one persistent AI worker + one helper scheduler;
 - Meeting Realtime / Text Quality ownership;
-- finalized Meeting utterance production and serialized outbound execution;
+- finalized outbound Meeting utterance production and serialized outbound execution;
 - canonical Start/Stop and Pause/Resume fresh-generation lifecycle;
-- bounded committed Meeting turn owner + read-only Live transcript projection;
-- Meeting Live chronological outbound transcript from backend snapshots;
-- Meeting History Stop finalization through current `history_enabled` into canonical
-  Recent History, followed by transient-body cleanup;
-- backward-compatible History truncation metadata and finalized Meeting History detail;
-- generic Saved actions shared by Text and Meeting;
-- global cross-view Meeting strip from canonical lifecycle status;
-- safe `Stop & Close` source wiring with post-Stop session verification;
-- orderly native-exit delegation to the same backend Stop owner;
-- static source-contract validation definitions for these boundaries.
+- bounded committed outbound Meeting turn owner + read-only Live transcript projection;
+- Meeting History Stop finalization through current `history_enabled`;
+- finalized Meeting History detail + generic Saved reuse;
+- global cross-view Meeting strip;
+- safe `Stop & Close` with post-Stop session verification;
+- orderly native-exit delegation to the same Stop owner;
+- static source-contract validation definitions for these implemented boundaries.
+
+Incoming architecture is now **planned/owner-resolved but not implemented**:
+
+- distinct Meeting Sound output-loopback capture owner;
+- shared finalized speech/event sequence across `YOU` + `INCOMING`;
+- session-scoped incoming authority that may survive outbound Pause;
+- deterministic self-output suppression gate;
+- one committed-turn store and one helper scheduler with planned lane priority.
 
 Still incomplete or unproved:
 
-- incoming Meeting Sound, committed `INCOMING` turns, self-output suppression, turn
-  coordination, and recovery;
-- actual Rust/TypeScript compilation, static-validator execution, native close events,
-  and Tauri/filesystem persistence runtime;
+- actual incoming Meeting Sound source implementation and `INCOMING` Live turns;
+- Rust/TypeScript compilation and static-validator execution;
+- Windows output-loopback, self-output suppression, VAD, device changes, model/audio
+  quality, Meeting Microphone delivery, and lifecycle race timing;
 - rendered Meeting/History/global-strip/dialog behavior;
-- microphone/VAD and Pause/Resume/Stop/close race timing;
-- actual model translation/TTS quality and Meeting Microphone delivery;
 - tone/context inference, Text Copy/direct Save;
 - multi-instance enforcement and sleep/hibernate behavior;
 - scheduler contention suitability;
 - reproducible Python lock/model acquisition metadata;
-- model quality/latency/RAM/VRAM and Windows route proof;
-- clean installer/runtime asset reconciliation.
+- model quality/latency/RAM/VRAM and clean installer/runtime reconciliation.
 
-Source presence does not prove target-PC readiness, native close behavior, or
-persistence behavior. Do not claim model/device/audio/rendered/installed success
+Source presence does not prove target-PC readiness, native close behavior, persistence,
+or Windows audio behavior. Do not claim model/device/audio/rendered/installed success
 without the required local proof.
 
 ## Canonical Owners
