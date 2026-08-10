@@ -501,6 +501,11 @@ requireMarkers(startBody, "Meeting Start shared conversation setup", [
   "start_optional_incoming_lane",
 ]);
 
+const activeStopStart = stopBody.indexOf("let revoked = revoke_application_meeting_session_authority(");
+if (activeStopStart < 0) {
+  throw new Error("Active Meeting Stop path could not be identified after the idempotent already-stopped branch");
+}
+const activeStopBody = stopBody.slice(activeStopStart);
 const stopOrder = [
   "revoke_application_meeting_session_authority",
   "interrupt_committed_turns_for_generation",
@@ -517,7 +522,7 @@ const stopOrder = [
 ];
 let previousStopIndex = -1;
 for (const marker of stopOrder) {
-  const markerIndex = stopBody.indexOf(marker);
+  const markerIndex = activeStopBody.indexOf(marker);
   if (markerIndex < 0 || markerIndex <= previousStopIndex) {
     throw new Error(`Meeting Stop finalization order is missing or unsafe around: ${marker}`);
   }
