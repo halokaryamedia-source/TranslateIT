@@ -5,6 +5,8 @@ import { fileURLToPath } from "node:url";
 const root = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const mainPath = resolve(root, "src/main.ts");
 const simpleControllerPath = resolve(root, "src/app/simple-launcher/SimpleLauncherController.ts");
+const meetingActivityPath = resolve(root, "src/app/simple-launcher/MeetingLiveActivityPresentation.ts");
+const meetingActivityCssPath = resolve(root, "src/meetingLiveActivity.css");
 const runtimeApiPath = resolve(root, "src/app/bridge/runtimeApi.ts");
 const facadePath = resolve(root, "src/app/bridge/runtimeProductFacade.ts");
 const registryPath = resolve(root, "src-tauri/src/commands/registry.rs");
@@ -14,6 +16,8 @@ const runtimeStatePath = resolve(root, "src-tauri/src/engine/runtime_state.rs");
 for (const path of [
   mainPath,
   simpleControllerPath,
+  meetingActivityPath,
+  meetingActivityCssPath,
   runtimeApiPath,
   facadePath,
   registryPath,
@@ -28,13 +32,20 @@ for (const path of [
 
 const main = readFileSync(mainPath, "utf8");
 const simpleController = readFileSync(simpleControllerPath, "utf8");
+const meetingActivity = readFileSync(meetingActivityPath, "utf8");
+const meetingActivityCss = readFileSync(meetingActivityCssPath, "utf8");
 const runtimeApi = readFileSync(runtimeApiPath, "utf8");
 const facade = readFileSync(facadePath, "utf8");
 const registry = readFileSync(registryPath, "utf8");
 const meetingSession = readFileSync(meetingSessionPath, "utf8");
 const runtimeState = readFileSync(runtimeStatePath, "utf8");
 
-for (const marker of ["SimpleLauncherController", "simple-ui-v1"]) {
+for (const marker of [
+  "SimpleLauncherController",
+  "simple-ui-v1",
+  "startMeetingLiveActivityPresentation",
+  'import "./meetingLiveActivity.css"',
+]) {
   if (!main.includes(marker)) throw new Error(`main marker missing: ${marker}`);
 }
 
@@ -62,6 +73,43 @@ for (const marker of [
 
 if (simpleController.includes("Start Translation is not available in this build yet.")) {
   throw new Error("simple controller stale disabled-Start behavior remains");
+}
+
+for (const marker of [
+  "MeetingLiveActivityPresentation",
+  "MEETING_ACTIVITY_REFRESH_MS",
+  "runtimeApi.getMeetingSessionStatus",
+  "mapProductMeetingState",
+  "outbound.stage",
+  "meeting-live-activity-presentation",
+  "renderReadySurface",
+]) {
+  if (!meetingActivity.includes(marker)) throw new Error(`Meeting live activity presentation marker missing: ${marker}`);
+}
+
+for (const forbidden of [
+  "startMeetingTranslation",
+  "pauseMeetingTranslation",
+  "resumeMeetingTranslation",
+  "stopMeetingTranslation",
+  "runProductMeetingAction",
+  "startCapture",
+  "stopCapture",
+  "transcript_text",
+  "translated_text",
+  "worker_response_json",
+]) {
+  if (meetingActivity.includes(forbidden)) {
+    throw new Error(`Meeting live activity presentation must remain read-only and must not invent transcript bodies: ${forbidden}`);
+  }
+}
+
+for (const marker of [
+  ".meeting-live-activity-presentation",
+  ".meeting-live-activity-stage",
+  ".meeting-live-activity-state",
+]) {
+  if (!meetingActivityCss.includes(marker)) throw new Error(`Meeting live activity CSS marker missing: ${marker}`);
 }
 
 for (const marker of [
@@ -130,5 +178,5 @@ for (const marker of [
 }
 
 console.log(
-  "Startup/product Meeting source-contract integrity passed: one application Meeting authority exposes Start/Pause/Resume/Stop, Pause preserves the session while invalidating its generation, Resume creates fresh generation authority, and normal UI consumes that lifecycle without a second store. This is static source proof only, not TypeScript/Rust build, Tauri runtime, rendered UI, microphone, audio-route, or Windows proof.",
+  "Startup/product Meeting source-contract integrity passed: one application Meeting authority exposes Start/Pause/Resume/Stop, and the normal Meeting surface has a read-only live activity presentation derived from canonical Meeting status without a second lifecycle store or invented transcript body. This is static source proof only, not TypeScript/Rust build, validator execution, Tauri runtime, rendered UI, microphone, audio-route, or Windows proof.",
 );
