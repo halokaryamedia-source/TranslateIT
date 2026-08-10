@@ -11,11 +11,15 @@ use crate::engine::runtime_state::runtime_generation_is_authoritative;
 // partial segment merely to satisfy these limits.
 const MAX_IN_PROGRESS_UTTERANCE_MS: u32 = 60_000;
 const MAX_PENDING_FINALIZED_UTTERANCES: usize = 2;
+const LANE_YOU: &str = "you";
+const LANE_INCOMING: &str = "incoming";
 
 #[derive(Debug, Clone)]
-pub struct FinalizedOutboundUtterance {
+pub struct FinalizedMeetingUtterance {
     pub session_id: String,
-    pub generation: u64,
+    pub sequence: u64,
+    pub lane: String,
+    pub generation: Option<u64>,
     pub utterance_id: u64,
     pub frame: AudioFrame,
     pub speech_duration_ms: u32,
@@ -25,7 +29,8 @@ pub struct FinalizedOutboundUtterance {
 #[derive(Debug)]
 struct FinalizedProducerState {
     session_id: String,
-    generation: u64,
+    generation: Option<u64>,
+    lane: &'static str,
     sample_rate_hz: u32,
     profile: RuntimeVadProfile,
     pre_roll: VecDeque<f32>,
@@ -35,7 +40,7 @@ struct FinalizedProducerState {
     trailing_silence_samples: usize,
     overflowed: bool,
     next_utterance_id: u64,
-    pending: VecDeque<FinalizedOutboundUtterance>,
+    pending: VecDeque<FinalizedMeetingUtterance>,
 }
 
 struct FinalizedProducerSync {
@@ -43,13 +48,63 @@ struct FinalizedProducerSync {
     ready: Condvar,
 }
 
-static FINALIZED_PRODUCER: OnceLock<FinalizedProducerSync> = OnceLock::new();
+#[derive(Debug)]
+struct MeetingSequenceState {
+    session_id: String,
+    next_sequence: u64,
+}
 
-fn producer_sync() -> &'static FinalizedProducerSync {
-    FINALIZED_PRODUCER.get_or_init(|| FinalizedProducerSync {
+static FINALIZED_OUTBOUND_PRODUCER: OnceLock<FinalizedProducerSync> = OnceLock::new();
+static FINALIZED_INCOMING_PRODUCER: OnceLock<FinalizedProducerSync> = OnceLock::new();
+static FINALIZED_MEETING_SEQUENCE: OnceLock<Mutex<Option<MeetingSequenceState>>> = OnceLock::new();
+
+fn outbound_sync() -> &'static FinalizedProducerSync {
+    FINALIZED_OUTBOUND_PRODUCER.get_or_init(|| FinalizedProducerSync {
         state: Mutex::new(None),
         ready: Condvar::new(),
     })
+}
+
+fn incoming_sync() -> &'static FinalizedProducerSync {
+    FINALIZED_INCOMING_PRODUCER.get_or_init(|| FinalizedProducerSync {
+        state: Mutex::new(None),
+        ready: Condvar::new(),
+    })
+}
+
+fn sequence_store() -> &'static Mutex<Option<MeetingSequenceState>> {
+    FINALIZED_MEETING_SEQUENCE.get_or_init(|| Mutex::new(None))
+}
+
+pub fn reset_finalized_meeting_sequence(session_id: &str) {
+    let session_id = session_id.trim();
+    if session_id.is_empty() {
+        clear_finalized_meeting_sequence();
+        return;
+    }
+    if let Ok(mut guard) = sequence_store().lock() {
+        *guard = Some(MeetingSequenceState {
+            session_id: session_id.to_string(),
+            next_sequence: 1,
+        });
+    }
+}
+
+pub fn clear_finalized_meeting_sequence() {
+    if let Ok(mut guard) = sequence_store().lock() {
+        *guard = None;
+    }
+}
+
+fn allocate_meeting_sequence(session_id: &str) -> Option<u64> {
+    let mut guard = sequence_store().lock().ok()?;
+    let state = guard.as_mut()?;
+    if state.session_id != session_id {
+        return None;
+    }
+    let sequence = state.next_sequence;
+    state.next_sequence = state.next_sequence.saturating_add(1);
+    Some(sequence)
 }
 
 pub fn reset_finalized_outbound_utterance_producer(
@@ -57,16 +112,60 @@ pub fn reset_finalized_outbound_utterance_producer(
     generation: u64,
     sample_rate_hz: u32,
 ) {
-    if sample_rate_hz == 0 {
-        clear_finalized_outbound_utterance_producer();
+    reset_producer(
+        outbound_sync(),
+        session_id,
+        Some(generation),
+        LANE_YOU,
+        sample_rate_hz,
+    );
+}
+
+pub fn clear_finalized_outbound_utterance_producer() {
+    clear_producer(outbound_sync());
+}
+
+pub fn reset_finalized_incoming_utterance_producer(session_id: &str, sample_rate_hz: u32) {
+    reset_producer(
+        incoming_sync(),
+        session_id,
+        None,
+        LANE_INCOMING,
+        sample_rate_hz,
+    );
+}
+
+pub fn clear_finalized_incoming_utterance_producer() {
+    clear_producer(incoming_sync());
+}
+
+pub fn reset_finalized_incoming_speech_boundary() {
+    let sync = incoming_sync();
+    if let Ok(mut guard) = sync.state.lock() {
+        if let Some(state) = guard.as_mut() {
+            reset_current_utterance(state);
+        }
+    }
+}
+
+fn reset_producer(
+    sync: &FinalizedProducerSync,
+    session_id: &str,
+    generation: Option<u64>,
+    lane: &'static str,
+    sample_rate_hz: u32,
+) {
+    let session_id = session_id.trim();
+    if sample_rate_hz == 0 || session_id.is_empty() {
+        clear_producer(sync);
         return;
     }
 
-    let sync = producer_sync();
     if let Ok(mut guard) = sync.state.lock() {
         *guard = Some(FinalizedProducerState {
-            session_id: session_id.trim().to_string(),
+            session_id: session_id.to_string(),
             generation,
+            lane,
             sample_rate_hz,
             profile: resolve_runtime_vad_profile("Realtime"),
             pre_roll: VecDeque::new(),
@@ -82,8 +181,7 @@ pub fn reset_finalized_outbound_utterance_producer(
     }
 }
 
-pub fn clear_finalized_outbound_utterance_producer() {
-    let sync = producer_sync();
+fn clear_producer(sync: &FinalizedProducerSync) {
     if let Ok(mut guard) = sync.state.lock() {
         *guard = None;
         sync.ready.notify_all();
@@ -95,11 +193,100 @@ pub fn observe_finalized_outbound_f32_samples(
     sample_rate_hz: u32,
     source_channels: u16,
 ) {
-    let mono = downmix_f32(samples, source_channels);
-    observe_finalized_outbound_mono_samples(&mono, sample_rate_hz);
+    observe_f32(outbound_sync(), samples, sample_rate_hz, source_channels);
 }
 
 pub fn observe_finalized_outbound_i16_samples(
+    samples: &[i16],
+    sample_rate_hz: u32,
+    source_channels: u16,
+) {
+    observe_i16(outbound_sync(), samples, sample_rate_hz, source_channels);
+}
+
+pub fn observe_finalized_outbound_u16_samples(
+    samples: &[u16],
+    sample_rate_hz: u32,
+    source_channels: u16,
+) {
+    observe_u16(outbound_sync(), samples, sample_rate_hz, source_channels);
+}
+
+pub fn observe_finalized_incoming_f32_samples(
+    samples: &[f32],
+    sample_rate_hz: u32,
+    source_channels: u16,
+) {
+    observe_f32(incoming_sync(), samples, sample_rate_hz, source_channels);
+}
+
+pub fn observe_finalized_incoming_i16_samples(
+    samples: &[i16],
+    sample_rate_hz: u32,
+    source_channels: u16,
+) {
+    observe_i16(incoming_sync(), samples, sample_rate_hz, source_channels);
+}
+
+pub fn observe_finalized_incoming_i32_samples(
+    samples: &[i32],
+    sample_rate_hz: u32,
+    source_channels: u16,
+) {
+    let converted = samples
+        .iter()
+        .map(|sample| (*sample as f64 / i32::MAX as f64).clamp(-1.0, 1.0) as f32)
+        .collect::<Vec<_>>();
+    observe_finalized_mono_samples(
+        incoming_sync(),
+        &downmix_f32(&converted, source_channels),
+        sample_rate_hz,
+    );
+}
+
+pub fn observe_finalized_incoming_i64_samples(
+    samples: &[i64],
+    sample_rate_hz: u32,
+    source_channels: u16,
+) {
+    let converted = samples
+        .iter()
+        .map(|sample| (*sample as f64 / i64::MAX as f64).clamp(-1.0, 1.0) as f32)
+        .collect::<Vec<_>>();
+    observe_finalized_mono_samples(
+        incoming_sync(),
+        &downmix_f32(&converted, source_channels),
+        sample_rate_hz,
+    );
+}
+
+pub fn observe_finalized_incoming_u8_samples(
+    samples: &[u8],
+    sample_rate_hz: u32,
+    source_channels: u16,
+) {
+    let converted = samples
+        .iter()
+        .map(|sample| ((*sample as f32 / u8::MAX as f32) * 2.0 - 1.0).clamp(-1.0, 1.0))
+        .collect::<Vec<_>>();
+    observe_finalized_mono_samples(
+        incoming_sync(),
+        &downmix_f32(&converted, source_channels),
+        sample_rate_hz,
+    );
+}
+
+fn observe_f32(
+    sync: &FinalizedProducerSync,
+    samples: &[f32],
+    sample_rate_hz: u32,
+    source_channels: u16,
+) {
+    observe_finalized_mono_samples(sync, &downmix_f32(samples, source_channels), sample_rate_hz);
+}
+
+fn observe_i16(
+    sync: &FinalizedProducerSync,
     samples: &[i16],
     sample_rate_hz: u32,
     source_channels: u16,
@@ -108,11 +295,11 @@ pub fn observe_finalized_outbound_i16_samples(
         .iter()
         .map(|sample| (*sample as f32 / i16::MAX as f32).clamp(-1.0, 1.0))
         .collect::<Vec<_>>();
-    let mono = downmix_f32(&converted, source_channels);
-    observe_finalized_outbound_mono_samples(&mono, sample_rate_hz);
+    observe_finalized_mono_samples(sync, &downmix_f32(&converted, source_channels), sample_rate_hz);
 }
 
-pub fn observe_finalized_outbound_u16_samples(
+fn observe_u16(
+    sync: &FinalizedProducerSync,
     samples: &[u16],
     sample_rate_hz: u32,
     source_channels: u16,
@@ -121,16 +308,18 @@ pub fn observe_finalized_outbound_u16_samples(
         .iter()
         .map(|sample| ((*sample as f32 / u16::MAX as f32) * 2.0 - 1.0).clamp(-1.0, 1.0))
         .collect::<Vec<_>>();
-    let mono = downmix_f32(&converted, source_channels);
-    observe_finalized_outbound_mono_samples(&mono, sample_rate_hz);
+    observe_finalized_mono_samples(sync, &downmix_f32(&converted, source_channels), sample_rate_hz);
 }
 
-pub fn observe_finalized_outbound_mono_samples(samples: &[f32], sample_rate_hz: u32) {
+fn observe_finalized_mono_samples(
+    sync: &FinalizedProducerSync,
+    samples: &[f32],
+    sample_rate_hz: u32,
+) {
     if samples.is_empty() || sample_rate_hz == 0 {
         return;
     }
 
-    let sync = producer_sync();
     let Ok(mut guard) = sync.state.lock() else {
         return;
     };
@@ -138,8 +327,11 @@ pub fn observe_finalized_outbound_mono_samples(samples: &[f32], sample_rate_hz: 
     let Some(state) = guard.as_ref() else {
         return;
     };
-    let generation = state.generation;
-    if !runtime_generation_is_authoritative(generation) {
+    if state
+        .generation
+        .map(|generation| !runtime_generation_is_authoritative(generation))
+        .unwrap_or(false)
+    {
         *guard = None;
         sync.ready.notify_all();
         return;
@@ -154,10 +346,7 @@ pub fn observe_finalized_outbound_mono_samples(samples: &[f32], sample_rate_hz: 
         reset_current_utterance(state);
     }
 
-    let safe_samples = samples
-        .iter()
-        .map(|sample| safe_sample(*sample))
-        .collect::<Vec<_>>();
+    let safe_samples = samples.iter().map(|sample| safe_sample(*sample)).collect::<Vec<_>>();
     let evidence = AudioEvidenceReport::from_samples(&safe_samples);
     let gate = evaluate_vad_gate(evidence.clone(), &state.profile.gate);
     let speech_like = gate.accepted;
@@ -170,8 +359,8 @@ pub fn observe_finalized_outbound_mono_samples(samples: &[f32], sample_rate_hz: 
 
 pub fn wait_take_finalized_outbound_utterance(
     generation: u64,
-) -> Option<FinalizedOutboundUtterance> {
-    let sync = producer_sync();
+) -> Option<FinalizedMeetingUtterance> {
+    let sync = outbound_sync();
     let mut guard = sync.state.lock().ok()?;
 
     loop {
@@ -184,13 +373,33 @@ pub fn wait_take_finalized_outbound_utterance(
         let Some(state) = guard.as_mut() else {
             return None;
         };
-        if state.generation != generation {
+        if state.generation != Some(generation) {
             return None;
         }
         if let Some(utterance) = state.pending.pop_front() {
             return Some(utterance);
         }
 
+        guard = sync.ready.wait(guard).ok()?;
+    }
+}
+
+pub fn wait_take_finalized_incoming_utterance(
+    session_id: &str,
+) -> Option<FinalizedMeetingUtterance> {
+    let sync = incoming_sync();
+    let mut guard = sync.state.lock().ok()?;
+
+    loop {
+        let Some(state) = guard.as_mut() else {
+            return None;
+        };
+        if state.session_id != session_id || state.lane != LANE_INCOMING {
+            return None;
+        }
+        if let Some(utterance) = state.pending.pop_front() {
+            return Some(utterance);
+        }
         guard = sync.ready.wait(guard).ok()?;
     }
 }
@@ -258,10 +467,20 @@ fn finalize_current_utterance(
     speech_duration_ms: u32,
 ) -> bool {
     if state.pending.len() >= MAX_PENDING_FINALIZED_UTTERANCES {
-        reset_current_utterance(state);
-        return false;
+        if state.lane == LANE_INCOMING {
+            // Incoming is comprehension assistance. Prefer the newest finalized speech
+            // rather than allowing an old subtitle backlog to grow.
+            let _ = state.pending.pop_front();
+        } else {
+            reset_current_utterance(state);
+            return false;
+        }
     }
-    if !runtime_generation_is_authoritative(state.generation) {
+    if state
+        .generation
+        .map(|generation| !runtime_generation_is_authoritative(generation))
+        .unwrap_or(false)
+    {
         reset_current_utterance(state);
         return false;
     }
@@ -293,11 +512,17 @@ fn finalize_current_utterance(
         return false;
     }
 
+    let Some(sequence) = allocate_meeting_sequence(&state.session_id) else {
+        reset_current_utterance(state);
+        return false;
+    };
     let utterance_id = state.next_utterance_id;
     state.next_utterance_id = state.next_utterance_id.saturating_add(1);
     let total_duration_ms = duration_ms(target_samples.len(), TARGET_SAMPLE_RATE_HZ);
-    state.pending.push_back(FinalizedOutboundUtterance {
+    state.pending.push_back(FinalizedMeetingUtterance {
         session_id: state.session_id.clone(),
+        sequence,
+        lane: state.lane.to_string(),
         generation: state.generation,
         utterance_id,
         frame: AudioFrame {
