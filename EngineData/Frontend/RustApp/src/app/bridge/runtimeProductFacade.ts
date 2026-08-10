@@ -28,8 +28,8 @@ export type ProductReadiness = {
   microphoneReady: boolean;
   modelsReady: boolean;
   asrReady: boolean;
-  realtimeTranslationReady: boolean;
-  qualityTranslationReady: boolean;
+  translationIdEnReady: boolean;
+  translationEnIdReady: boolean;
   ttsReady: boolean;
   voiceReady: boolean;
   meetingRouteReady: boolean;
@@ -119,8 +119,8 @@ export type ProductRecoveryAction = "fix-setup";
 type WorkerCapabilitySnapshot = {
   responseAvailable: boolean;
   asrReady: boolean;
-  realtimeTranslationReady: boolean;
-  qualityTranslationReady: boolean;
+  translationIdEnReady: boolean;
+  translationEnIdReady: boolean;
   ttsReady: boolean;
   cudaDegraded: boolean;
   blocker: string;
@@ -136,6 +136,8 @@ type MeetingPreflightSnapshot = {
   summary: string;
 };
 
+type TranslationDirection = "id->en" | "en->id" | "unsupported";
+
 const APPLICATION_MEETING_OWNER_ID = "translateit_application_meeting";
 
 function compact(value: unknown, fallback = "Unknown"): string {
@@ -148,13 +150,34 @@ function unique(values: Array<string | null | undefined>): string[] {
   return Array.from(new Set(values.map((value) => compact(value, "")).filter(Boolean)));
 }
 
+function normalizeProductLanguage(value: unknown): string {
+  const text = String(value ?? "").trim().toLowerCase().replace("_latn", "");
+  if (text === "id" || text.startsWith("ind")) return "id";
+  if (text === "en" || text.startsWith("eng")) return "en";
+  return text;
+}
+
+function selectedTextDirection(settings: RuntimeSettings): TranslationDirection {
+  const source = normalizeProductLanguage(settings.source_language);
+  const target = normalizeProductLanguage(settings.target_language);
+  if (source === "id" && target === "en") return "id->en";
+  if (source === "en" && target === "id") return "en->id";
+  return "unsupported";
+}
+
+function directionLabel(direction: TranslationDirection): string {
+  if (direction === "id->en") return "Indonesian → English";
+  if (direction === "en->id") return "English → Indonesian";
+  return "Selected";
+}
+
 function parseWorkerCapabilities(workerStatus: HelperBridgeWorkerResponse | null): WorkerCapabilitySnapshot {
   if (!workerStatus?.worker_response_json) {
     return {
       responseAvailable: false,
       asrReady: false,
-      realtimeTranslationReady: false,
-      qualityTranslationReady: false,
+      translationIdEnReady: false,
+      translationEnIdReady: false,
       ttsReady: false,
       cudaDegraded: false,
       blocker: "",
@@ -168,8 +191,8 @@ function parseWorkerCapabilities(workerStatus: HelperBridgeWorkerResponse | null
     return {
       responseAvailable: payload.stage === "local_realtime_worker_preflight",
       asrReady: readiness.asr === true,
-      realtimeTranslationReady: readiness.translation_realtime === true,
-      qualityTranslationReady: readiness.translation_quality === true,
+      translationIdEnReady: readiness.translation_id_en === true,
+      translationEnIdReady: readiness.translation_en_id === true,
       ttsReady: readiness.tts === true,
       cudaDegraded: readiness.cuda_degraded === true,
       blocker: compact(payload.blocker, ""),
@@ -179,8 +202,8 @@ function parseWorkerCapabilities(workerStatus: HelperBridgeWorkerResponse | null
     return {
       responseAvailable: false,
       asrReady: false,
-      realtimeTranslationReady: false,
-      qualityTranslationReady: false,
+      translationIdEnReady: false,
+      translationEnIdReady: false,
       ttsReady: false,
       cudaDegraded: false,
       blocker: "helper_bridge:invalid_worker_status_response",
@@ -292,12 +315,15 @@ function collectBlockers(input: {
   inputStatus: InputPreparationStatus | null;
   meeting: MeetingPreflightSnapshot;
   textReady: boolean;
+  textDirection: TranslationDirection;
   meetingReady: boolean;
 }): string[] {
-  const { helper, worker, modelInventory, inputStatus, meeting, textReady, meetingReady } = input;
+  const { helper, worker, modelInventory, inputStatus, meeting, textReady, textDirection, meetingReady } = input;
   return unique([
     ...(!meetingReady ? meeting.blockers : []),
     ...(!textReady && worker.blocker ? [worker.blocker] : []),
+    ...(!textReady && textDirection !== "unsupported" ? ["text_translation:selected_direction_not_ready"] : []),
+    ...(textDirection === "unsupported" ? ["text_translation:unsupported_direction"] : []),
     ...(Array.isArray(modelInventory?.blockers) ? modelInventory.blockers : []),
     helper?.state !== "ready" ? helper?.last_error ?? null : null,
     inputStatus?.blocker ?? null,
@@ -315,6 +341,7 @@ export function mapProductReadiness(input: {
   meetingSession?: MeetingSessionStatus | null;
 }): ProductReadiness {
   const { bundle, helper, modelInventory, inputStatus } = input;
+  const settings = input.settings ?? defaultSettings();
   const worker = parseWorkerCapabilities(input.workerStatus ?? null);
   const meeting = meetingPreflight(input.meetingSession ?? null);
   const productMeeting = mapProductMeetingState(input.meetingSession ?? null);
@@ -323,13 +350,17 @@ export function mapProductReadiness(input: {
   const microphoneReady = Boolean(inputStatus?.ready || inputStatus?.prepared);
   const modelsReady = Boolean(modelInventory?.ok);
   const asrReady = helperReady && worker.asrReady;
-  const realtimeTranslationReady = helperReady && worker.realtimeTranslationReady;
-  const qualityTranslationReady = helperReady && worker.qualityTranslationReady;
+  const translationIdEnReady = helperReady && worker.translationIdEnReady;
+  const translationEnIdReady = helperReady && worker.translationEnIdReady;
   const ttsReady = helperReady && worker.ttsReady;
-  const providerReady = asrReady && realtimeTranslationReady && ttsReady;
+  const providerReady = asrReady && translationIdEnReady && ttsReady;
 
-  const currentTextMode = "Quality";
-  const textReady = qualityTranslationReady;
+  const textDirection = selectedTextDirection(settings);
+  const textReady = textDirection === "id->en"
+    ? translationIdEnReady
+    : textDirection === "en->id"
+      ? translationEnIdReady
+      : false;
   const canTranslateText = textReady;
 
   const voiceReady = microphoneReady && providerReady;
@@ -344,6 +375,7 @@ export function mapProductReadiness(input: {
     inputStatus,
     meeting,
     textReady,
+    textDirection,
     meetingReady,
   });
 
@@ -357,21 +389,24 @@ export function mapProductReadiness(input: {
       : hasRuntimeEvidence
         ? "blocked"
         : "checking";
+  const textDirectionLabel = directionLabel(textDirection);
   const nextAction = productMeeting.live
     ? "Translation is live. Stop the Meeting session when you are finished."
     : meeting.readyForStart
       ? "Meeting Translation is ready to start."
       : textReady
         ? "Text translation is available. Meeting setup/runtime still needs attention."
-        : "Check the local translation runtime or use Fix Setup; technical detail remains in Diagnostics.";
+        : textDirection === "unsupported"
+          ? "Choose Indonesian → English or English → Indonesian for Text translation."
+          : "The selected Text translation direction is not ready. Use Fix Setup or Diagnostics if needed.";
   const summary = productMeeting.live
     ? "Meeting Translation is live."
     : meeting.readyForStart
       ? "Required outbound Meeting capabilities are ready."
       : textReady
-        ? `Text ${currentTextMode} translation is available. Meeting Translation is not ready yet.`
+        ? `${textDirectionLabel} Text translation is available. Meeting Translation is not ready yet.`
         : hasRuntimeEvidence
-          ? `Text ${currentTextMode} translation is unavailable and Meeting Translation is not ready.`
+          ? `${textDirectionLabel} Text translation is not ready. Meeting Translation is not ready yet.`
           : "Product readiness is still checking.";
 
   return {
@@ -382,8 +417,8 @@ export function mapProductReadiness(input: {
     microphoneReady,
     modelsReady,
     asrReady,
-    realtimeTranslationReady,
-    qualityTranslationReady,
+    translationIdEnReady,
+    translationEnIdReady,
     ttsReady,
     voiceReady,
     meetingRouteReady,
@@ -617,7 +652,7 @@ export async function runProductRecoveryAction(action: ProductRecoveryAction): P
     (helper && !helper.ok) ||
     (Array.isArray(models?.blockers) && models.blockers.length > 0) ||
     input?.blocker ||
-    (worker.responseAvailable && !worker.realtimeTranslationReady),
+    (worker.responseAvailable && !worker.translationIdEnReady),
   );
 
   if (hasProblem) return "Setup still needs attention. Open Developer Diagnostics for technical details.";
