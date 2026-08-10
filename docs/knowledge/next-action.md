@@ -2,7 +2,7 @@
 
 Updated: 2026-08-10  
 Working branch: `New`  
-Status: **Canonical Incoming Meeting Sound + Self-Output Suppression is source-aligned. A distinct Meeting Sound output-loopback owner now feeds finalized `INCOMING` speech into the same application Meeting/session, both lanes share finalized speech/event ordering before AI, incoming may remain active during outbound Pause, TranslateIT TTS is suppressed from incoming capture during guarded playback, and Live/History render both lanes from the same canonical committed-turn source.**
+Status: **Canonical Incoming Meeting Sound + Self-Output Suppression is source-aligned at its bounded initial capture/processing contract. A distinct Meeting Sound output-loopback owner now feeds finalized `INCOMING` speech into the same application Meeting/session, both lanes share finalized speech/event ordering before AI, incoming may remain active during outbound Pause, TranslateIT TTS is suppressed from incoming capture during guarded playback, and Live/History render both lanes from the same canonical committed-turn source. Mid-session Follow Windows Default output-device rebinding remains a separate unresolved audio-recovery gap.**
 
 This file is the single active continuation owner for TranslateIT.
 
@@ -29,9 +29,9 @@ ChatGPT -> GitHub
 
 Rust compilation, TypeScript typecheck, static-validator execution, Windows output-
 loopback capture, VAD behavior, self-output suppression effectiveness, actual model
-inference, rendered mixed-lane transcript behavior, scheduler contention, device
-rebind behavior, filesystem History persistence, race timing, and installed operation
-remain `LOCAL PROOF REQUIRED`.
+inference, rendered mixed-lane transcript behavior, scheduler contention, initial
+selected/default-device runtime behavior, filesystem History persistence, race timing,
+and installed operation remain `LOCAL PROOF REQUIRED`.
 
 # Closed Source Boundary — Incoming Meeting Sound
 
@@ -61,12 +61,14 @@ engine/audio/meeting_sound_capture.rs
 ```
 
 It uses `RuntimeSettings.audio.output_device_id` and the existing CPAL/WASAPI path to
-open the selected Windows render/output endpoint as the loopback source. `None` follows
-Windows Default; an explicitly pinned missing endpoint degrades incoming instead of
-silently substituting another device.
+open the selected Windows render/output endpoint as the loopback source. At lane Start,
+`None` resolves Windows Default; an explicitly pinned missing endpoint degrades incoming
+instead of silently substituting another device.
 
 No extra Windows audio crate/runtime was introduced. Actual Windows loopback behavior
-is not proven in this channel.
+is not proven in this channel. A Windows default-output change that occurs after the
+lane is already running is not yet observed/rebound by current source and must not be
+reported as implemented.
 
 ## C. Shared speech/event chronology before AI
 
@@ -245,7 +247,9 @@ Incoming-only degradation remains scoped to the Meeting view.
 - truthful dual-lane Live/History rendering;
 - preservation of History/global-strip/safe-close boundaries.
 
-The validator was **not executed** in this channel.
+The validator was **not executed** in this channel. Its active Stop-order check is scoped
+past the idempotent already-stopped branch so the definition tests the real cleanup
+sequence rather than matching an earlier harmless cleanup marker.
 
 # Static Proof State
 
@@ -265,6 +269,7 @@ proof has been obtained.
 
 # Known Gaps Kept Truthful
 
+- mid-session Follow Windows Default Meeting Sound endpoint change/rebind handling is not implemented; current source resolves the endpoint when the incoming lane starts;
 - approved tone/context still does not reach canonical Meeting/Text inference;
 - Text Copy/direct Save remains incomplete;
 - multi-instance enforcement and sleep/hibernate lifecycle remain incomplete;
