@@ -2,8 +2,15 @@ use serde::Serialize;
 use serde_json::{json, Value};
 use std::fs;
 use std::sync::{Mutex, OnceLock};
+use std::thread::{self, JoinHandle};
 
+use crate::engine::audio::finalized_utterance::{
+    clear_finalized_outbound_utterance_producer, wait_take_finalized_outbound_utterance,
+};
 use crate::engine::audio::live_capture::{start_live_capture_runtime, stop_live_capture_runtime};
+use crate::engine::audio::live_segment_writer::{
+    remove_finalized_outbound_utterance_wav, write_finalized_outbound_utterance_wav,
+};
 use crate::engine::runtime_state::{
     begin_application_meeting_session, clear_runtime_handoff_state, clear_runtime_session_state,
     commit_application_meeting_session_live, latest_runtime_session_state,
@@ -96,7 +103,15 @@ pub struct MeetingOutboundProcessResult {
     pub runtime_claim: String,
 }
 
+struct MeetingOutboundConsumerRuntime {
+    generation: u64,
+    session_id: String,
+    thread: Option<JoinHandle<()>>,
+}
+
 static MEETING_OUTBOUND_STATUS: OnceLock<Mutex<MeetingOutboundRuntimeStatus>> = OnceLock::new();
+static MEETING_OUTBOUND_CONSUMER: OnceLock<Mutex<Option<MeetingOutboundConsumerRuntime>>> =
+    OnceLock::new();
 
 fn idle_outbound_status() -> MeetingOutboundRuntimeStatus {
     MeetingOutboundRuntimeStatus {
@@ -106,8 +121,8 @@ fn idle_outbound_status() -> MeetingOutboundRuntimeStatus {
         utterance_sequence: 0,
         output_active: false,
         last_stage_ok: true,
-        blocker: "meeting_outbound:finalized_utterance_source_not_connected".to_string(),
-        note: "Generation-aware outbound AI and Meeting route stages exist, but the current rolling capture boundary does not yet produce finalized utterances for product output."
+        blocker: String::new(),
+        note: "The finalized-utterance producer and serialized Meeting outbound consumer are source-connected. No output is active until an authoritative Live session produces finalized speech."
             .to_string(),
         updated_unix_ms: unix_ms(),
         runtime_claim: "meeting_outbound_finalized_segment_contract_source_side_not_windows_runtime_proof"
@@ -117,6 +132,10 @@ fn idle_outbound_status() -> MeetingOutboundRuntimeStatus {
 
 fn outbound_status_store() -> &'static Mutex<MeetingOutboundRuntimeStatus> {
     MEETING_OUTBOUND_STATUS.get_or_init(|| Mutex::new(idle_outbound_status()))
+}
+
+fn outbound_consumer_store() -> &'static Mutex<Option<MeetingOutboundConsumerRuntime>> {
+    MEETING_OUTBOUND_CONSUMER.get_or_init(|| Mutex::new(None))
 }
 
 fn current_outbound_status() -> MeetingOutboundRuntimeStatus {
@@ -157,11 +176,8 @@ fn generation_aware_outbound_stages_ready() -> bool {
     true
 }
 
-// The current capture boundary is a rolling VAD/ASR-ready window. It is not a
-// stable/final utterance boundary and therefore cannot be promoted into Meeting
-// output without violating the approved partial-vs-final speech contract.
 fn finalized_utterance_source_connected() -> bool {
-    false
+    true
 }
 
 fn application_outbound_runtime_connected() -> bool {
@@ -235,10 +251,10 @@ fn build_preflight() -> MeetingSessionPreflightStatus {
         outbound_runtime_connected,
         blockers,
         summary: if ready_for_start {
-            "Required outbound Meeting capabilities are ready for transactional Start."
+            "Required outbound Meeting capabilities are source-connected and current preflight prerequisites are ready for transactional Start."
                 .to_string()
         } else {
-            "Start Translation remains blocked until finalized outbound speech can enter the generation-aware Meeting pipeline safely."
+            "Start Translation remains blocked until all required current outbound Meeting prerequisites are ready."
                 .to_string()
         },
         runtime_claim: "meeting_start_preflight_source_contract_not_windows_runtime_proof"
@@ -343,9 +359,8 @@ fn stale_outbound_result(generation: u64, utterance_sequence: u64) -> MeetingOut
 }
 
 // Canonical generation-aware AI/output boundary for a speech segment that has
-// ALREADY been finalized by the audio/segmentation owner. This function does not
-// decide whether rolling microphone audio is final; that responsibility stays with
-// the audio boundary so partial speech cannot accidentally become Meeting output.
+// ALREADY been finalized by the audio/segmentation owner. This function never reads
+// the rolling ASR-ready snapshot, so partial microphone audio cannot become output.
 pub fn process_authoritative_finalized_outbound_wav(
     generation: u64,
     session_id: &str,
@@ -590,6 +605,124 @@ pub fn process_authoritative_finalized_outbound_wav(
     }
 }
 
+fn start_meeting_outbound_consumer(generation: u64, session_id: &str) -> Result<(), String> {
+    let store = outbound_consumer_store();
+    let mut guard = store
+        .lock()
+        .map_err(|_| "meeting_outbound:consumer_state_lock_failed".to_string())?;
+    if guard.is_some() {
+        return Err("meeting_outbound:consumer_already_active".to_string());
+    }
+
+    let thread_session_id = session_id.to_string();
+    let thread_session_for_runtime = thread_session_id.clone();
+    let handle = thread::Builder::new()
+        .name("translateit-meeting-outbound".to_string())
+        .spawn(move || {
+            while let Some(utterance) = wait_take_finalized_outbound_utterance(generation) {
+                if utterance.generation != generation
+                    || utterance.session_id != thread_session_id
+                    || !generation_is_live(generation)
+                {
+                    continue;
+                }
+
+                let write = write_finalized_outbound_utterance_wav(&utterance);
+                if !write.ok {
+                    update_outbound_status(
+                        generation,
+                        &thread_session_id,
+                        "attention_needed",
+                        utterance.utterance_id,
+                        false,
+                        false,
+                        &write.blocker,
+                        "Finalized speech could not be written to its temporary ASR WAV. No AI/output stage consumed it.",
+                    );
+                    continue;
+                }
+
+                let Some(audio_path) = write.audio_path else {
+                    update_outbound_status(
+                        generation,
+                        &thread_session_id,
+                        "attention_needed",
+                        utterance.utterance_id,
+                        false,
+                        false,
+                        "meeting_outbound:finalized_audio_path_missing",
+                        "Finalized speech writer returned no temporary audio path. No AI/output stage consumed it.",
+                    );
+                    continue;
+                };
+
+                if !generation_is_live(generation) {
+                    remove_finalized_outbound_utterance_wav(&audio_path);
+                    break;
+                }
+
+                let _ = process_authoritative_finalized_outbound_wav(
+                    utterance.generation,
+                    &utterance.session_id,
+                    utterance.utterance_id,
+                    audio_path.clone(),
+                );
+                remove_finalized_outbound_utterance_wav(&audio_path);
+
+                if !runtime_generation_is_authoritative(generation) {
+                    break;
+                }
+            }
+        })
+        .map_err(|error| format!("meeting_outbound:consumer_spawn_failed:{error}"))?;
+
+    *guard = Some(MeetingOutboundConsumerRuntime {
+        generation,
+        session_id: thread_session_for_runtime,
+        thread: Some(handle),
+    });
+    Ok(())
+}
+
+fn stop_meeting_outbound_consumer(generation: u64) -> String {
+    // Capture normally clears the producer first. This extra clear is idempotent and
+    // guarantees a waiting consumer is released even if capture cleanup was partial.
+    clear_finalized_outbound_utterance_producer();
+
+    let store = outbound_consumer_store();
+    let runtime = match store.lock() {
+        Ok(mut guard) => {
+            if guard
+                .as_ref()
+                .map(|value| value.generation == generation)
+                .unwrap_or(false)
+            {
+                guard.take()
+            } else {
+                None
+            }
+        }
+        Err(_) => {
+            return "Meeting outbound consumer state lock failed during cleanup.".to_string();
+        }
+    };
+
+    let Some(mut runtime) = runtime else {
+        return "No matching Meeting outbound consumer required cleanup.".to_string();
+    };
+    let session_id = runtime.session_id.clone();
+    let joined = runtime
+        .thread
+        .take()
+        .map(|handle| handle.join().is_ok())
+        .unwrap_or(true);
+    if joined {
+        format!("Meeting outbound consumer stopped for {session_id} generation {generation}.")
+    } else {
+        format!("Meeting outbound consumer for {session_id} generation {generation} exited unexpectedly during cleanup.")
+    }
+}
+
 #[tauri::command]
 pub fn get_meeting_session_status() -> MeetingSessionStatus {
     current_status()
@@ -628,9 +761,6 @@ pub fn start_meeting_translation() -> MeetingSessionActionResult {
         };
     }
 
-    // This path remains unreachable while finalized_utterance_source_connected() is
-    // false. It is intentionally retained as the transactional resource boundary for
-    // the next audio-finalization slice.
     let starting = begin_application_meeting_session();
     let Some(start_snapshot) = starting.snapshot.as_ref() else {
         return blocked_result(
@@ -648,6 +778,7 @@ pub fn start_meeting_translation() -> MeetingSessionActionResult {
     }
 
     let generation = start_snapshot.generation;
+    let session_id = start_snapshot.session_id.clone();
     let capture = start_live_capture_runtime(starting.clone());
     if !capture.ok {
         let _ = revoke_application_meeting_session_authority(
@@ -672,29 +803,61 @@ pub fn start_meeting_translation() -> MeetingSessionActionResult {
         true,
         "Required Start resources were opened and the authoritative Meeting generation committed Live.",
     );
-    if committed.blocker.is_empty() {
-        return MeetingSessionActionResult {
-            ok: true,
-            state: "live".to_string(),
-            message: "Translation Live session authority committed successfully.".to_string(),
-            status: status_from_report(committed, build_preflight()),
-        };
+    if !committed.blocker.is_empty() {
+        let _ = revoke_application_meeting_session_authority(
+            generation,
+            "Meeting Live commit failed after resource open. Authority was revoked before rollback.",
+        );
+        let _ = cancel_meeting_virtual_audio_route_provider(generation);
+        let _ = stop_live_capture_runtime();
+        let _ = reset_live_pipeline_handoff_status();
+        let _ = clear_runtime_handoff_state();
+        let _ = clear_runtime_session_state();
+        return blocked_result(
+            "rolled_back",
+            "Start Translation could not commit the Meeting generation Live, so all opened Meeting resources were rolled back."
+                .to_string(),
+        );
     }
 
-    let _ = revoke_application_meeting_session_authority(
+    if let Err(error) = start_meeting_outbound_consumer(generation, &session_id) {
+        let _ = revoke_application_meeting_session_authority(
+            generation,
+            "Meeting outbound consumer could not start. Authority was revoked before rollback.",
+        );
+        let _ = cancel_meeting_virtual_audio_route_provider(generation);
+        let _ = stop_live_capture_runtime();
+        let helper_cancel = cancel_helper_bridge_task();
+        let consumer_cleanup = stop_meeting_outbound_consumer(generation);
+        let _ = reset_live_pipeline_handoff_status();
+        let _ = clear_runtime_handoff_state();
+        let _ = clear_runtime_session_state();
+        return blocked_result(
+            "rolled_back",
+            format!(
+                "Start Translation was rolled back because the serialized outbound consumer could not start: {error}. Helper cleanup: {} Consumer cleanup: {}",
+                helper_cancel.message, consumer_cleanup
+            ),
+        );
+    }
+
+    update_outbound_status(
         generation,
-        "Meeting Live commit failed after resource open. Authority was revoked before rollback.",
+        &session_id,
+        "listening",
+        0,
+        false,
+        true,
+        "",
+        "Translation Live is listening. Rolling audio remains preview-only; finalized utterances are consumed once by the serialized outbound runtime.",
     );
-    let _ = cancel_meeting_virtual_audio_route_provider(generation);
-    let _ = stop_live_capture_runtime();
-    let _ = reset_live_pipeline_handoff_status();
-    let _ = clear_runtime_handoff_state();
-    let _ = clear_runtime_session_state();
-    blocked_result(
-        "rolled_back",
-        "Start Translation could not commit the Meeting generation Live, so all opened Meeting resources were rolled back."
+    MeetingSessionActionResult {
+        ok: true,
+        state: "live".to_string(),
+        message: "Translation Live session committed with authoritative capture, finalized-utterance production, and one serialized outbound consumer."
             .to_string(),
-    )
+        status: status_from_report(committed, build_preflight()),
+    }
 }
 
 #[tauri::command]
@@ -712,8 +875,8 @@ pub fn stop_meeting_translation() -> MeetingSessionActionResult {
     let generation = snapshot.generation;
 
     // Safety order: revoke old generation authority first. Route playback is then
-    // cancellation-signalled before capture/helper cleanup, so stale AI results can
-    // no longer be promoted to a new Meeting output after Stop is accepted.
+    // cancellation-signalled. Capture is stopped/cleared, matching in-flight helper
+    // inference is cancelled, and only then is the outbound consumer joined.
     let revoked = revoke_application_meeting_session_authority(
         generation,
         "Stop Translation accepted. Old Meeting generation authority was revoked before cleanup.",
@@ -734,6 +897,7 @@ pub fn stop_meeting_translation() -> MeetingSessionActionResult {
     let _ = cancel_meeting_virtual_audio_route_provider(generation);
     let capture_stop = stop_live_capture_runtime();
     let helper_cancel = cancel_helper_bridge_task();
+    let consumer_cleanup = stop_meeting_outbound_consumer(generation);
     let _ = reset_live_pipeline_handoff_status();
     let _ = clear_runtime_handoff_state();
     let cleared = clear_runtime_session_state();
@@ -742,8 +906,8 @@ pub fn stop_meeting_translation() -> MeetingSessionActionResult {
         ok: true,
         state: "stopped".to_string(),
         message: format!(
-            "Translation stopped. Session authority was revoked before route/capture/helper cleanup. Microphone cleanup: {} Helper task cleanup: {}",
-            capture_stop.message, helper_cancel.message
+            "Translation stopped. Authority was revoked before route/capture/helper/consumer cleanup. Microphone cleanup: {} Helper cleanup: {} Consumer cleanup: {}",
+            capture_stop.message, helper_cancel.message, consumer_cleanup
         ),
         status: status_from_report(cleared, build_preflight()),
     }
