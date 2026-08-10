@@ -1,5 +1,9 @@
 import { runtimeApi } from "../bridge/runtimeApi";
-import { runtimeProductFacade, type ProductRuntimeSnapshot, type ProductSetupAction } from "../bridge/runtimeProductFacade";
+import {
+  runtimeProductFacade,
+  type ProductRuntimeSnapshot,
+  type ProductSetupAction,
+} from "../bridge/runtimeProductFacade";
 import type { HistoryEntry, HistoryEntryType, HistoryScope, HistorySummary } from "../shared/historyTypes";
 import { defaultSettings, errorMessage, languageName } from "../shared/state";
 import type { RuntimeSettings, SettingsTab } from "../shared/types";
@@ -190,6 +194,7 @@ export class SimpleLauncherController {
   private translating = false;
   private setupRunning = false;
   private voiceRunning = false;
+  private meetingActionRunning = false;
   private settingsSaving = false;
   private diagnosticsRunning = false;
   private logsExpanded = false;
@@ -271,10 +276,25 @@ export class SimpleLauncherController {
     this.ui.directionPill.textContent = "ID / EN";
   }
 
-  private updateMeetingReadyView(readiness: ProductRuntimeSnapshot["readiness"]): void {
-    const checking = readiness.level === "checking";
-    const meetingLabel = readiness.meetingReady ? "Ready" : checking ? "Checking" : "Setup Needed";
-    const meetingTone: StatusTone = readiness.meetingReady ? "good" : checking ? "neutral" : "warning";
+  private updateMeetingReadyView(
+    readiness: ProductRuntimeSnapshot["readiness"],
+    meeting: ProductRuntimeSnapshot["meeting"],
+  ): void {
+    const checking = readiness.level === "checking" && !meeting.hasSession;
+    const meetingLabel = meeting.live
+      ? "Live"
+      : meeting.busy
+        ? meeting.label
+        : readiness.meetingReady
+          ? "Ready"
+          : checking
+            ? "Checking"
+            : meeting.label;
+    const meetingTone: StatusTone = meeting.live || readiness.meetingReady
+      ? "good"
+      : checking || meeting.busy
+        ? "neutral"
+        : "warning";
     this.ui.meetingReadinessStatus.textContent = meetingLabel;
     setTone(this.ui.meetingReadinessStatus, meetingTone);
 
@@ -291,10 +311,30 @@ export class SimpleLauncherController {
     this.ui.meetingRouteStatus.textContent = routeLabel;
     setTone(this.ui.meetingRouteStatus, readiness.meetingRouteReady ? "good" : checking ? "neutral" : "warning");
 
-    this.ui.startTranslationButton.disabled = true;
-    this.ui.startTranslationHint.textContent = readiness.meetingReady
-      ? "Start Translation is not available in this build yet."
-      : "Complete Meeting setup before Start Translation can be used.";
+    if (meeting.live) {
+      this.ui.startTranslationButton.disabled = this.meetingActionRunning;
+      this.ui.startTranslationButton.textContent = this.meetingActionRunning ? "Stopping..." : "Stop Translation";
+      this.ui.startTranslationHint.textContent = meeting.message;
+      this.ui.retryReadinessButton.hidden = true;
+      this.ui.fixSetupButton.hidden = true;
+      return;
+    }
+
+    if (meeting.busy) {
+      this.ui.startTranslationButton.disabled = true;
+      this.ui.startTranslationButton.textContent = meeting.label === "Stopping" ? "Stopping..." : "Starting...";
+      this.ui.startTranslationHint.textContent = meeting.message;
+      this.ui.retryReadinessButton.hidden = true;
+      this.ui.fixSetupButton.hidden = true;
+      return;
+    }
+
+    this.ui.startTranslationButton.textContent = "Start Translation";
+    this.ui.startTranslationButton.disabled = this.meetingActionRunning || !meeting.canStart;
+    this.ui.startTranslationHint.textContent = meeting.canStart
+      ? "Start Translation to begin the authoritative Meeting session. You can keep using Text, History, or Settings while it is live."
+      : meeting.message || "Complete Meeting setup before Start Translation can be used.";
+    this.ui.retryReadinessButton.hidden = false;
     this.ui.retryReadinessButton.textContent = readiness.meetingReady ? "Check Setup" : "Retry";
     this.ui.fixSetupButton.hidden = readiness.meetingReady;
   }
@@ -305,13 +345,32 @@ export class SimpleLauncherController {
       this.settings = this.snapshot.settings ?? this.settings;
       this.refreshDirectionPill();
       const readiness = this.snapshot.readiness;
-      this.ui.userPresence.textContent = readiness.meetingReady ? "Ready" : readiness.textReady ? "Degraded" : readiness.level === "blocked" ? "Setup Needed" : "Checking";
-      this.ui.recordStatusText.textContent = readiness.recording ? "Recording" : readiness.meetingReady ? "Ready" : readiness.voiceReady ? "Route needed" : readiness.level === "checking" ? "Checking" : "Setup needed";
+      const meeting = this.snapshot.meeting;
+      this.ui.userPresence.textContent = meeting.live
+        ? "Live"
+        : readiness.meetingReady
+          ? "Ready"
+          : readiness.textReady
+            ? "Degraded"
+            : readiness.level === "blocked"
+              ? "Setup Needed"
+              : "Checking";
+      this.ui.recordStatusText.textContent = meeting.live
+        ? "Live"
+        : meeting.busy
+          ? meeting.label
+          : readiness.meetingReady
+            ? "Ready"
+            : readiness.voiceReady
+              ? "Route needed"
+              : readiness.level === "checking"
+                ? "Checking"
+                : "Setup needed";
       this.ui.realtimeStatus.textContent = readiness.textStatus;
       this.ui.gpuStatus.textContent = this.snapshot.gpuPolicy?.cuda_available ? "CUDA ready" : this.snapshot.gpuPolicy?.cpu_fallback_active ? "CPU fallback" : "Checking";
-      this.ui.developerOutput.textContent = JSON.stringify({ readiness, commandErrors: runtimeApi.getCommandErrors().slice(0, 5) }, null, 2);
-      this.updateMeetingReadyView(readiness);
-      this.notice(preferredNotice ?? readiness.summary);
+      this.ui.developerOutput.textContent = JSON.stringify({ meeting, readiness, commandErrors: runtimeApi.getCommandErrors().slice(0, 5) }, null, 2);
+      this.updateMeetingReadyView(readiness, meeting);
+      this.notice(preferredNotice ?? (meeting.live ? meeting.message : readiness.summary));
     } catch (error) {
       this.notice(`Runtime check failed: ${errorMessage(error)}`);
     }
@@ -803,8 +862,51 @@ export class SimpleLauncherController {
     }
   }
 
+  private async handleMeetingPrimaryAction(): Promise<void> {
+    if (this.meetingActionRunning) return;
+    const meeting = this.snapshot?.meeting;
+    if (!meeting) {
+      this.notice("Meeting state is still checking. Retry readiness before starting Translation.");
+      return;
+    }
+
+    const action = meeting.canStop ? "stop" : "start";
+    if (action === "start" && !meeting.canStart) {
+      this.notice(this.snapshot?.readiness.nextAction ?? meeting.message);
+      return;
+    }
+    if (action === "stop" && !meeting.canStop) {
+      this.notice(meeting.message);
+      return;
+    }
+
+    this.meetingActionRunning = true;
+    this.ui.startTranslationButton.disabled = true;
+    this.ui.startTranslationButton.textContent = action === "start" ? "Starting..." : "Stopping...";
+    this.notice(action === "start" ? "Starting Meeting Translation..." : "Stopping Meeting Translation...");
+    try {
+      const result = await runtimeProductFacade.runProductMeetingAction(action);
+      await this.refreshReadiness(result.message);
+    } catch (error) {
+      this.notice(`Meeting command failed: ${errorMessage(error)}`);
+      await this.refreshReadiness();
+    } finally {
+      this.meetingActionRunning = false;
+      if (this.snapshot) this.updateMeetingReadyView(this.snapshot.readiness, this.snapshot.meeting);
+    }
+  }
+
   private async toggleVoice(): Promise<void> {
     if (this.voiceRunning) return;
+    const meeting = this.snapshot?.meeting;
+    if (meeting?.hasSession) {
+      this.notice(
+        meeting.live
+          ? "Mic Test is unavailable while Translation is live. Stop Translation from the Meeting workspace first."
+          : "Mic Test is unavailable while Meeting resources are in use.",
+      );
+      return;
+    }
     const readiness = this.snapshot?.readiness;
     if (!readiness?.voiceReady && !readiness?.recording) {
       this.notice(readiness?.nextAction ?? "Voice capture setup is not ready. Use Fix Setup or Open Diagnostics.");
@@ -896,6 +998,7 @@ export class SimpleLauncherController {
 
   private bindEvents(): void {
     this.ui.sendButton.addEventListener("click", () => void this.submitText());
+    this.ui.startTranslationButton.addEventListener("click", () => void this.handleMeetingPrimaryAction());
     this.ui.messageInput.addEventListener("input", () => this.handleTextSourceInput());
     this.ui.messageInput.addEventListener("keydown", (event) => {
       if (event.key === "Enter" && (event.ctrlKey || event.metaKey)) {
