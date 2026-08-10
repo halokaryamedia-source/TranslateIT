@@ -4,7 +4,7 @@ import {
   type ProductRuntimeSnapshot,
   type ProductSetupAction,
 } from "../bridge/runtimeProductFacade";
-import type { HistoryEntry, HistoryEntryType, HistoryScope, HistorySummary } from "../shared/historyTypes";
+import type { HistoryEntry, HistoryEntryType, HistoryScope, HistorySummary, HistoryTurn } from "../shared/historyTypes";
 import { defaultSettings, errorMessage, languageName } from "../shared/state";
 import type { RuntimeSettings, SettingsTab } from "../shared/types";
 import { requireElement } from "../active-launcher/dom";
@@ -183,6 +183,23 @@ function historyDurationLabel(durationMs: number | null): string | null {
   const hours = Math.floor(totalMinutes / 60);
   const minutes = totalMinutes % 60;
   return minutes ? `${hours} hr ${minutes} min` : `${hours} hr`;
+}
+
+function historyDeliveryLabel(state: string | null): string {
+  switch (state) {
+    case "preparing_voice":
+      return "Preparing voice";
+    case "speaking":
+      return "Speaking";
+    case "output_complete":
+      return "Output complete";
+    case "output_failed":
+      return "Output failed";
+    case "interrupted":
+      return "Interrupted";
+    default:
+      return "Completed turn";
+  }
 }
 
 export class SimpleLauncherController {
@@ -629,7 +646,7 @@ export class SimpleLauncherController {
           ? "Saved Text and Meeting translations will appear here after an explicit Save."
           : this.settings.history_enabled === false
             ? "History is off. Existing items remain available, but new translations are not added to Recent."
-            : "Completed Text translations will appear here. Meeting History will follow the canonical Meeting lifecycle later.";
+            : "Completed Text translations and finalized Meetings will appear here.";
       empty.append(title, detail);
       this.ui.historyCollection.append(empty);
       return;
@@ -727,6 +744,35 @@ export class SimpleLauncherController {
     this.ui.historyDetailBody.append(block);
   }
 
+  private appendMeetingHistoryTurn(turn: HistoryTurn): void {
+    const article = document.createElement("article");
+    article.className = "history-meeting-turn";
+    article.dataset.deliveryState = turn.delivery_state ?? "unknown";
+
+    const header = document.createElement("header");
+    header.className = "history-meeting-turn-header";
+    const lane = document.createElement("span");
+    lane.className = "history-meeting-lane";
+    lane.textContent = turn.lane === "incoming" ? "INCOMING" : "YOU";
+    const delivery = document.createElement("span");
+    delivery.className = "history-meeting-delivery";
+    delivery.textContent = historyDeliveryLabel(turn.delivery_state);
+    header.append(lane, delivery);
+
+    const source = document.createElement("p");
+    source.className = "history-meeting-source";
+    source.lang = turn.lane === "incoming" ? "en" : "id";
+    source.textContent = turn.source_text;
+
+    const translated = document.createElement("p");
+    translated.className = "history-meeting-translation";
+    translated.lang = turn.lane === "incoming" ? "id" : "en";
+    translated.textContent = turn.translated_text;
+
+    article.append(header, source, translated);
+    this.ui.historyDetailBody.append(article);
+  }
+
   private showHistoryDetail(entry: HistoryEntry): void {
     this.ui.historyCollectionView.hidden = true;
     this.ui.historyDetailView.hidden = false;
@@ -737,6 +783,8 @@ export class SimpleLauncherController {
 
     const meta = [
       historyDateLabel(entry.updated_unix_ms),
+      entry.entry_type === "meeting" ? historyDurationLabel(entry.duration_ms) : null,
+      entry.entry_type === "meeting" && entry.interrupted ? "Interrupted" : null,
       `${languageName(entry.source_language)} → ${languageName(entry.target_language)}`,
       entry.tone ? `Tone: ${entry.tone}` : null,
       entry.mode ? `Mode: ${entry.mode}` : null,
@@ -746,26 +794,36 @@ export class SimpleLauncherController {
     if (entry.entry_type === "text") {
       this.appendHistoryTextBlock(languageName(entry.source_language), entry.text_source ?? "");
       this.appendHistoryTextBlock(languageName(entry.target_language), entry.text_target ?? "");
-      this.ui.historyDetailActionButton.hidden = false;
-      this.ui.historyDetailActionButton.disabled = false;
-      this.ui.historyDetailActionButton.textContent = this.historyScope === "saved" ? "Remove from Saved" : "Save";
-      return;
+    } else {
+      if ((entry.dropped_turn_count ?? 0) > 0) {
+        const notice = document.createElement("p");
+        notice.className = "history-meeting-truncation-note";
+        notice.textContent = `${entry.dropped_turn_count} earlier Meeting turn${entry.dropped_turn_count === 1 ? " is" : "s are"} not retained in this History entry because the live transcript bound had already discarded them.`;
+        this.ui.historyDetailBody.append(notice);
+      }
+
+      if (!entry.turns.length) {
+        const empty = document.createElement("div");
+        empty.className = "history-empty";
+        const title = document.createElement("strong");
+        title.textContent = "No committed translation turns.";
+        const detail = document.createElement("span");
+        detail.textContent = "This finalized Meeting entry contains no retained committed transcript turns.";
+        empty.append(title, detail);
+        this.ui.historyDetailBody.append(empty);
+      } else {
+        entry.turns.forEach((turn) => this.appendMeetingHistoryTurn(turn));
+      }
     }
 
-    const unavailable = document.createElement("div");
-    unavailable.className = "history-empty";
-    const title = document.createElement("strong");
-    title.textContent = "Meeting detail is not connected yet.";
-    const detail = document.createElement("span");
-    detail.textContent = "The canonical Meeting lifecycle does not write History entries in this build, so no Meeting detail is claimed here yet.";
-    unavailable.append(title, detail);
-    this.ui.historyDetailBody.append(unavailable);
-    this.ui.historyDetailActionButton.hidden = true;
+    this.ui.historyDetailActionButton.hidden = false;
+    this.ui.historyDetailActionButton.disabled = false;
+    this.ui.historyDetailActionButton.textContent = this.historyScope === "saved" ? "Remove from Saved" : "Save";
   }
 
   private async handleHistoryDetailAction(): Promise<void> {
     const entry = this.historyDetailEntry;
-    if (!entry || entry.entry_type !== "text") return;
+    if (!entry) return;
     this.ui.historyDetailActionButton.disabled = true;
     this.ui.historyDetailMessage.textContent = this.historyScope === "saved" ? "Removing from Saved..." : "Saving...";
     try {
