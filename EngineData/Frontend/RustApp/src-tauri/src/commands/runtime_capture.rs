@@ -8,9 +8,7 @@ use crate::engine::runtime_settings::RuntimeSettings;
 use crate::engine::state::CommandResult;
 
 use super::helper_bridge::start_helper_bridge;
-use super::helper_bridge::{
-    cancel_helper_bridge_task, get_helper_bridge_status, send_helper_bridge_request,
-};
+use super::helper_bridge::{get_helper_bridge_status, send_helper_bridge_request};
 use super::helper_bridge_runtime::{
     unix_ms, HelperBridgeActionResult, HelperBridgeRequest, HelperBridgeStatus,
 };
@@ -152,7 +150,11 @@ fn record_capture_helper_dispatch(command: &str, result: &HelperBridgeActionResu
     }
 }
 
-fn capture_helper_payload(command: &str, status: &HelperBridgeStatus, settings: &RuntimeSettings) -> Value {
+fn capture_helper_payload(
+    command: &str,
+    status: &HelperBridgeStatus,
+    settings: &RuntimeSettings,
+) -> Value {
     if command == "capture_start" {
         json!({
             "command": "capture_start",
@@ -186,17 +188,23 @@ fn capture_request_preview(command: &str) -> CaptureHelperBridgeRequestPreview {
     let settings = engine::load_settings();
     let payload = capture_helper_payload(command, &status, &settings);
     let requires_provider_ready = capture_requires_provider(command);
-    let migration_ready = status.state == "ready" && (!requires_provider_ready || status.provider_ready);
+    let migration_ready =
+        status.state == "ready" && (!requires_provider_ready || status.provider_ready);
     let status_message = compact_preview_text(&status.message);
     CaptureHelperBridgeRequestPreview {
         ok: migration_ready,
-        state: if migration_ready { "request_ready" } else { "provider_blocked" }.to_string(),
-        message: if migration_ready {
-            format!("Prepared {command} helper bridge request envelope. Dispatch is available from Developer Diagnostics, but main capture is not migrated yet.")
-        } else if requires_provider_ready {
-            format!("Prepared {command} preview. Full ASR/translation/TTS is blocked until helper provider readiness is verified, but microphone-only capture can still start when the input device is usable. Current helper state: {}; message: {}", compact_preview_text(&status.state), status_message)
+        state: if migration_ready {
+            "request_ready"
         } else {
-            format!("Prepared {command} preview. Helper bridge migration is waiting for a running helper bridge. Current helper state: {}; message: {}", compact_preview_text(&status.state), status_message)
+            "provider_blocked"
+        }
+        .to_string(),
+        message: if migration_ready {
+            format!("Prepared {command} helper bridge request envelope for Developer Diagnostics only. Normal capture does not dispatch this migration stub.")
+        } else if requires_provider_ready {
+            format!("Prepared {command} diagnostic preview. Full ASR/translation/TTS is blocked until helper provider readiness is verified, but normal capture stays independent from this migration stub. Current helper state: {}; message: {}", compact_preview_text(&status.state), status_message)
+        } else {
+            format!("Prepared {command} diagnostic preview. Helper bridge migration is waiting for a running helper bridge. Current helper state: {}; message: {}", compact_preview_text(&status.state), status_message)
         },
         command: command.to_string(),
         helper_task: command.to_string(),
@@ -206,7 +214,7 @@ fn capture_request_preview(command: &str) -> CaptureHelperBridgeRequestPreview {
         requires_provider_ready,
         migration_ready,
         preview_only: true,
-        runtime_claim: "preview_only_no_capture_runtime_claim".to_string(),
+        runtime_claim: "developer_diagnostic_preview_no_product_runtime_claim".to_string(),
         payload_json: payload.to_string(),
     }
 }
@@ -224,29 +232,6 @@ fn dispatch_capture_helper_bridge_request(command: &str) -> HelperBridgeActionRe
     let result = send_helper_bridge_request(request);
     record_capture_helper_dispatch(command, &result);
     result
-}
-
-fn helper_capture_dispatch_candidate(status: &HelperBridgeStatus) -> bool {
-    matches!(status.state.as_str(), "ready" | "blocked")
-        && status.runtime_claim != "bridge_lifecycle_visible_process_not_ready"
-}
-
-fn dispatch_capture_before_fallback(command: &str) -> Option<HelperBridgeActionResult> {
-    let status = get_helper_bridge_status();
-    if !helper_capture_dispatch_candidate(&status) {
-        return None;
-    }
-    Some(dispatch_capture_helper_bridge_request(command))
-}
-
-fn append_helper_dispatch_note(result: &mut CommandResult, dispatch: Option<HelperBridgeActionResult>) {
-    if let Some(dispatch) = dispatch {
-        let outcome = if dispatch.ok { "accepted" } else { "blocked" };
-        result.message = format!(
-            "{} Helper capture dispatch {} before fallback path: {}",
-            result.message, outcome, dispatch.message
-        );
-    }
 }
 
 #[tauri::command]
@@ -271,7 +256,8 @@ pub fn get_capture_transcript_boundary_status() -> CaptureTranscriptBoundaryStat
     let dispatch = get_capture_helper_dispatch_status();
     let live_capture = crate::engine::audio::live_capture::live_capture_status();
     let live_buffer = crate::engine::audio::live_audio_buffer::live_audio_buffer_status();
-    let transcript_handoff_ready = live_capture.stream_active && live_buffer.ready_for_target_asr_frame;
+    let transcript_handoff_ready =
+        live_capture.stream_active && live_buffer.ready_for_target_asr_frame;
     let blocker = if transcript_handoff_ready {
         "".to_string()
     } else if !live_capture.stream_active {
@@ -313,7 +299,10 @@ pub fn get_capture_transcript_boundary_status() -> CaptureTranscriptBoundaryStat
     }
 }
 
-fn asr_handoff_payload(boundary: &CaptureTranscriptBoundaryStatus, helper: &HelperBridgeStatus) -> Value {
+fn asr_handoff_payload(
+    boundary: &CaptureTranscriptBoundaryStatus,
+    helper: &HelperBridgeStatus,
+) -> Value {
     json!({
         "command": "asr_handoff",
         "generation_token": helper.generation_token,
@@ -342,15 +331,24 @@ fn asr_handoff_status_from_parts(
     let state = dispatch
         .as_ref()
         .map(|result| result.state.clone())
-        .unwrap_or_else(|| if request_prepared { "request_ready".to_string() } else { "blocked".to_string() });
+        .unwrap_or_else(|| {
+            if request_prepared {
+                "request_ready".to_string()
+            } else {
+                "blocked".to_string()
+            }
+        });
     let message = dispatch
         .as_ref()
         .map(|result| result.message.clone())
         .unwrap_or_else(|| {
             if request_prepared {
-                "ASR handoff request prepared. Dispatch is available, but no audio payload is sent yet.".to_string()
+                "ASR handoff diagnostic request prepared. Dispatch remains a migration diagnostic and sends no audio payload.".to_string()
             } else {
-                format!("ASR handoff request blocked before dispatch: {}", boundary.blocker)
+                format!(
+                    "ASR handoff diagnostic request blocked before dispatch: {}",
+                    boundary.blocker
+                )
             }
         });
     let blocker = if dispatch_ok || request_prepared {
@@ -359,7 +357,7 @@ fn asr_handoff_status_from_parts(
         boundary.blocker.clone()
     };
     let next_action = if dispatch_ok {
-        "implement_worker_asr_decode".to_string()
+        "inspect_diagnostic_handoff_only".to_string()
     } else if request_prepared {
         "dispatch_asr_handoff_request".to_string()
     } else {
@@ -382,7 +380,7 @@ fn asr_handoff_status_from_parts(
             .as_ref()
             .map(|result| result.generation_token)
             .unwrap_or(helper.generation_token),
-        runtime_claim: "asr_handoff_request_stub_no_transcript_runtime_claim".to_string(),
+        runtime_claim: "developer_diagnostic_handoff_no_product_runtime_claim".to_string(),
         payload_json,
         updated_unix_ms: unix_ms(),
     }
@@ -477,18 +475,24 @@ pub fn prepare_voice_capture(auto_start: bool) -> VoiceCapturePreparationReport 
     let (mut missing, mut next_actions, state, message) =
         voice_capture_blockers(&input_status, &helper_status);
     if !input_status.prepared
-        && !next_actions.iter().any(|action| action == "Check microphone device")
+        && !next_actions
+            .iter()
+            .any(|action| action == "Check microphone device")
     {
         next_actions.push("Check microphone device".to_string());
     }
     if !helper_status.provider_ready
-        && !next_actions.iter().any(|action| action == "Open Developer Diagnostics")
+        && !next_actions
+            .iter()
+            .any(|action| action == "Open Developer Diagnostics")
     {
         next_actions.push("Open Developer Diagnostics".to_string());
     }
     if input_status.prepared
         && !helper_status.provider_ready
-        && !next_actions.iter().any(|action| action == "Start microphone-only capture")
+        && !next_actions
+            .iter()
+            .any(|action| action == "Start microphone-only capture")
     {
         next_actions.insert(0, "Start microphone-only capture".to_string());
     }
@@ -528,21 +532,10 @@ pub fn prepare_voice_capture(auto_start: bool) -> VoiceCapturePreparationReport 
 
 #[tauri::command]
 pub fn start_capture() -> CommandResult {
-    let dispatch = dispatch_capture_before_fallback("capture_start");
-    let status = get_helper_bridge_status();
-    if !status.provider_ready {
-        let _ = cancel_helper_bridge_task();
-    }
-    let mut result = engine::start_capture();
-    append_helper_dispatch_note(&mut result, dispatch);
-    result
+    engine::start_capture()
 }
 
 #[tauri::command]
 pub fn stop_capture() -> CommandResult {
-    let dispatch = dispatch_capture_before_fallback("capture_stop");
-    let _ = cancel_helper_bridge_task();
-    let mut result = engine::stop_capture();
-    append_helper_dispatch_note(&mut result, dispatch);
-    result
+    engine::stop_capture()
 }
