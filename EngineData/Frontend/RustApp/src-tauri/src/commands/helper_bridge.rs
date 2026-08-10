@@ -23,6 +23,7 @@ use super::helper_bridge_runtime::{
 };
 
 const MAX_HELPER_TEXT_CHARS: usize = 2_000;
+const APPLICATION_MEETING_OWNER_ID: &str = "translateit_application_meeting";
 
 #[derive(Debug, Clone, Serialize)]
 pub struct HelperBridgeWorkerResponse {
@@ -72,9 +73,40 @@ fn meeting_generation(payload: &Value) -> Option<u64> {
     payload.get("meeting_generation").and_then(Value::as_u64)
 }
 
+fn meeting_session_id(payload: &Value) -> Option<String> {
+    payload
+        .get("meeting_session_id")
+        .and_then(Value::as_str)
+        .map(|value| clean_helper_text(value, 96))
+        .filter(|value| !value.is_empty())
+}
+
+fn meeting_lane(payload: &Value) -> Option<String> {
+    payload
+        .get("meeting_lane")
+        .and_then(Value::as_str)
+        .map(|value| clean_helper_text(value, 32).to_ascii_lowercase())
+        .filter(|value| matches!(value.as_str(), "you" | "incoming"))
+}
+
+fn incoming_session_is_eligible(session_id: &str) -> bool {
+    latest_runtime_session_state()
+        .snapshot
+        .map(|snapshot| {
+            snapshot.owner_id == APPLICATION_MEETING_OWNER_ID
+                && snapshot.session_id == session_id
+                && matches!(snapshot.phase.as_str(), "live" | "paused" | "resuming")
+        })
+        .unwrap_or(false)
+}
+
 fn task_priority(task: &str, payload: &Value) -> HelperTaskPriority {
     if meeting_generation(payload).is_some() {
-        HelperTaskPriority::Meeting
+        HelperTaskPriority::MeetingOutbound
+    } else if meeting_lane(payload).as_deref() == Some("incoming")
+        && meeting_session_id(payload).is_some()
+    {
+        HelperTaskPriority::MeetingIncoming
     } else if task == "translate" {
         HelperTaskPriority::Text
     } else {
@@ -177,8 +209,50 @@ fn blocked_response_from_runtime(
     )
 }
 
+fn stale_meeting_request(
+    task: &str,
+    request_id: &str,
+    priority: HelperTaskPriority,
+    generation: Option<u64>,
+    session_id: Option<&str>,
+    lane: Option<&str>,
+) -> Option<HelperBridgeWorkerResponse> {
+    if generation
+        .map(|value| !runtime_generation_is_authoritative(value))
+        .unwrap_or(false)
+    {
+        return Some(standalone_blocked_response(
+            task,
+            request_id,
+            priority,
+            "stale_generation",
+            "helper_scheduler:meeting_generation_not_authoritative",
+            "Queued outbound Meeting work was discarded because its generation no longer owns output authority.",
+        ));
+    }
+
+    if lane == Some("incoming")
+        && session_id
+            .map(|value| !incoming_session_is_eligible(value))
+            .unwrap_or(true)
+    {
+        return Some(standalone_blocked_response(
+            task,
+            request_id,
+            priority,
+            "stale_session",
+            "helper_scheduler:incoming_meeting_session_not_eligible",
+            "Queued incoming Meeting work was discarded because its application Meeting session is no longer eligible for incoming promotion.",
+        ));
+    }
+    None
+}
+
 fn send_worker_task(task: &str, mut payload: Value) -> HelperBridgeWorkerResponse {
     let priority = task_priority(task, &payload);
+    let meeting_generation = meeting_generation(&payload);
+    let meeting_session_id = meeting_session_id(&payload);
+    let meeting_lane = meeting_lane(&payload);
     let permit = match acquire_helper_task_permit(priority) {
         Ok(permit) => permit,
         Err(error) => {
@@ -193,20 +267,16 @@ fn send_worker_task(task: &str, mut payload: Value) -> HelperBridgeWorkerRespons
         }
     };
     let request_id = permit.request_id().to_string();
-    let meeting_generation = meeting_generation(&payload);
 
-    if meeting_generation
-        .map(|generation| !runtime_generation_is_authoritative(generation))
-        .unwrap_or(false)
-    {
-        return standalone_blocked_response(
-            task,
-            &request_id,
-            priority,
-            "stale_generation",
-            "helper_scheduler:meeting_generation_not_authoritative",
-            "Queued Meeting work was discarded before worker execution because its generation no longer owns output authority.",
-        );
+    if let Some(response) = stale_meeting_request(
+        task,
+        &request_id,
+        priority,
+        meeting_generation,
+        meeting_session_id.as_deref(),
+        meeting_lane.as_deref(),
+    ) {
+        return response;
     }
 
     inject_request_metadata(&mut payload, task, &request_id, priority);
@@ -233,6 +303,8 @@ fn send_worker_task(task: &str, mut payload: Value) -> HelperBridgeWorkerRespons
             runtime.active_task = Some(task.to_string());
             runtime.active_request_id = Some(request_id.clone());
             runtime.active_meeting_generation = meeting_generation;
+            runtime.active_meeting_session_id = meeting_session_id.clone();
+            runtime.active_meeting_lane = meeting_lane.clone();
             runtime.updated_unix_ms = unix_ms();
             (stdin, stdout, bridge_generation)
         }
@@ -341,30 +413,24 @@ fn send_worker_task(task: &str, mut payload: Value) -> HelperBridgeWorkerRespons
             runtime.stdin = Some(stdin);
             runtime.stdout = Some(stdout);
 
-            if meeting_generation
-                .map(|generation| !runtime_generation_is_authoritative(generation))
-                .unwrap_or(false)
-            {
+            if let Some(response) = stale_meeting_request(
+                task,
+                &request_id,
+                priority,
+                meeting_generation,
+                meeting_session_id.as_deref(),
+                meeting_lane.as_deref(),
+            ) {
                 clear_active_request(&mut runtime, &request_id);
-                runtime.message =
-                    "Meeting worker result was discarded because its generation is no longer authoritative."
-                        .to_string();
+                runtime.message = response.message.clone();
                 runtime.updated_unix_ms = unix_ms();
-                let message = runtime.message.clone();
                 return response_with_runtime(
                     false,
                     task,
                     &request_id,
                     priority,
-                    message.clone(),
-                    json!({
-                        "ok": false,
-                        "stage": task,
-                        "request_id": request_id,
-                        "scheduler_priority": priority.label(),
-                        "blocker": "helper_scheduler:meeting_generation_not_authoritative",
-                        "note": message,
-                    }),
+                    response.message,
+                    serde_json::from_str(&response.worker_response_json).unwrap_or_else(|_| json!({})),
                     &runtime,
                 );
             }
@@ -415,6 +481,8 @@ pub fn get_helper_bridge_status() -> HelperBridgeStatus {
                     runtime.active_task = None;
                     runtime.active_request_id = None;
                     runtime.active_meeting_generation = None;
+                    runtime.active_meeting_session_id = None;
+                    runtime.active_meeting_lane = None;
                     runtime.updated_unix_ms = unix_ms();
                 }
             }
@@ -436,6 +504,8 @@ pub fn get_helper_bridge_status() -> HelperBridgeStatus {
                 active_task: None,
                 active_request_id: None,
                 active_meeting_generation: None,
+                active_meeting_session_id: None,
+                active_meeting_lane: None,
                 generation_token: 0,
                 last_error: Some("helper_bridge:lock_poisoned".to_string()),
                 stderr_log_path: None,
@@ -461,6 +531,8 @@ pub fn start_helper_bridge() -> HelperBridgeActionResult {
             runtime.active_task = None;
             runtime.active_request_id = None;
             runtime.active_meeting_generation = None;
+            runtime.active_meeting_session_id = None;
+            runtime.active_meeting_lane = None;
 
             let worker = worker_script();
             if !worker.is_file() {
@@ -593,6 +665,8 @@ pub fn start_helper_bridge() -> HelperBridgeActionResult {
             runtime.active_task = None;
             runtime.active_request_id = None;
             runtime.active_meeting_generation = None;
+            runtime.active_meeting_session_id = None;
+            runtime.active_meeting_lane = None;
             runtime.last_error = None;
             runtime.updated_unix_ms = unix_ms();
             if let Some(status) = status {
@@ -630,6 +704,8 @@ pub fn stop_helper_bridge() -> HelperBridgeActionResult {
             runtime.active_task = None;
             runtime.active_request_id = None;
             runtime.active_meeting_generation = None;
+            runtime.active_meeting_session_id = None;
+            runtime.active_meeting_lane = None;
             runtime.updated_unix_ms = unix_ms();
             action_result(true, &runtime)
         }
@@ -651,7 +727,7 @@ pub fn cancel_helper_bridge_meeting_generation(generation: u64) -> HelperBridgeA
                 stop_child(&mut runtime);
                 runtime.state = "stopped".to_string();
                 runtime.message = format!(
-                    "In-flight Meeting generation {generation} helper inference was hard-cancelled by terminating the persistent worker process."
+                    "In-flight outbound Meeting generation {generation} helper inference was hard-cancelled by terminating the persistent worker process."
                 );
                 runtime.cuda_ready = false;
                 runtime.provider_ready = false;
@@ -659,12 +735,14 @@ pub fn cancel_helper_bridge_meeting_generation(generation: u64) -> HelperBridgeA
                 runtime.active_task = None;
                 runtime.active_request_id = None;
                 runtime.active_meeting_generation = None;
+                runtime.active_meeting_session_id = None;
+                runtime.active_meeting_lane = None;
                 runtime.last_error = Some("helper_bridge:meeting_generation_hard_cancelled".to_string());
                 runtime.updated_unix_ms = unix_ms();
                 action_result(true, &runtime)
             } else {
                 runtime.message = format!(
-                    "No in-flight helper task belongs to Meeting generation {generation}. Queued work for the revoked generation will be rejected before execution."
+                    "No in-flight helper task belongs to outbound Meeting generation {generation}. Queued work for the revoked generation will be rejected before execution."
                 );
                 runtime.updated_unix_ms = unix_ms();
                 action_result(true, &runtime)
@@ -673,7 +751,47 @@ pub fn cancel_helper_bridge_meeting_generation(generation: u64) -> HelperBridgeA
         Err(_) => HelperBridgeActionResult {
             ok: false,
             state: "error".to_string(),
-            message: "Meeting helper cancellation failed because state lock is poisoned.".to_string(),
+            message: "Meeting helper generation cancellation failed because state lock is poisoned.".to_string(),
+            generation_token: 0,
+            runtime_claim: "bridge_state_error".to_string(),
+        },
+    }
+}
+
+pub fn cancel_helper_bridge_meeting_session(session_id: &str) -> HelperBridgeActionResult {
+    let session_id = session_id.trim();
+    match runtime().lock() {
+        Ok(mut runtime) => {
+            if !session_id.is_empty()
+                && runtime.active_meeting_session_id.as_deref() == Some(session_id)
+            {
+                runtime.generation_token = runtime.generation_token.saturating_add(1);
+                stop_child(&mut runtime);
+                runtime.state = "stopped".to_string();
+                runtime.message = format!(
+                    "In-flight helper inference for Meeting session {session_id} was hard-cancelled during full Meeting Stop."
+                );
+                runtime.cuda_ready = false;
+                runtime.provider_ready = false;
+                runtime.degraded_mode = false;
+                runtime.active_task = None;
+                runtime.active_request_id = None;
+                runtime.active_meeting_generation = None;
+                runtime.active_meeting_session_id = None;
+                runtime.active_meeting_lane = None;
+                runtime.last_error = Some("helper_bridge:meeting_session_hard_cancelled".to_string());
+            } else {
+                runtime.message = format!(
+                    "No in-flight helper task belongs to Meeting session {session_id}. Queued incoming/outbound work will be rejected by session/generation guards."
+                );
+            }
+            runtime.updated_unix_ms = unix_ms();
+            action_result(true, &runtime)
+        }
+        Err(_) => HelperBridgeActionResult {
+            ok: false,
+            state: "error".to_string(),
+            message: "Meeting helper session cancellation failed because state lock is poisoned.".to_string(),
             generation_token: 0,
             runtime_claim: "bridge_state_error".to_string(),
         },
@@ -682,17 +800,8 @@ pub fn cancel_helper_bridge_meeting_generation(generation: u64) -> HelperBridgeA
 
 #[tauri::command]
 pub fn cancel_helper_bridge_task() -> HelperBridgeActionResult {
-    // Meeting Stop revokes its application generation before calling this inherited
-    // command. During that stop window, cancellation must be scoped to the revoked
-    // Meeting generation so a standalone Text request is not killed as collateral.
-    let revoked_meeting_generation = latest_runtime_session_state()
-        .snapshot
-        .filter(|snapshot| !snapshot.authority_active)
-        .map(|snapshot| snapshot.generation);
-    if let Some(generation) = revoked_meeting_generation {
-        return cancel_helper_bridge_meeting_generation(generation);
-    }
-
+    // Preserve the inherited general cancellation command for Diagnostics/legacy callers.
+    // Product Meeting Pause/Stop now use their scoped generation/session cancellation APIs.
     match runtime().lock() {
         Ok(mut runtime) => {
             if runtime.active_task.is_some() {
@@ -708,6 +817,8 @@ pub fn cancel_helper_bridge_task() -> HelperBridgeActionResult {
                 runtime.active_task = None;
                 runtime.active_request_id = None;
                 runtime.active_meeting_generation = None;
+                runtime.active_meeting_session_id = None;
+                runtime.active_meeting_lane = None;
                 runtime.last_error = Some("helper_bridge:task_hard_cancelled".to_string());
             } else {
                 runtime.message = "No helper inference is currently active; no process cancellation was required."
