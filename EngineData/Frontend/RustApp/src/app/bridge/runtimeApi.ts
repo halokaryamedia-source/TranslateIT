@@ -84,6 +84,19 @@ export type MeetingOutboundRuntimeStatus = {
   [key: string]: any;
 };
 
+export type MeetingIncomingRuntimeStatus = {
+  session_id: string | null;
+  stage: string;
+  capture_active: boolean;
+  suppressed: boolean;
+  degraded: boolean;
+  blocker: string;
+  note: string;
+  updated_unix_ms: number;
+  runtime_claim: string;
+  [key: string]: any;
+};
+
 export type MeetingSessionStatus = {
   lifecycle: string;
   has_session: boolean;
@@ -98,6 +111,7 @@ export type MeetingSessionStatus = {
   note: string;
   preflight: MeetingSessionPreflightStatus;
   outbound: MeetingOutboundRuntimeStatus;
+  incoming: MeetingIncomingRuntimeStatus;
   runtime_claim: string;
   [key: string]: any;
 };
@@ -113,12 +127,12 @@ export type MeetingSessionActionResult = {
 export type MeetingCommittedTurn = {
   session_id: string;
   sequence: number;
-  generation: number;
+  generation: number | null;
   utterance_id: number;
-  lane: "you" | string;
+  lane: "you" | "incoming" | string;
   source_text: string;
   translated_text: string;
-  delivery_state: "preparing_voice" | "speaking" | "output_complete" | "output_failed" | "interrupted" | string;
+  delivery_state: "preparing_voice" | "speaking" | "output_complete" | "output_failed" | "interrupted" | string | null;
   created_unix_ms: number;
   updated_unix_ms: number;
 };
@@ -200,6 +214,17 @@ function meetingSessionStatusFallback(message: string): MeetingSessionStatus {
       utterance_sequence: 0,
       output_active: false,
       last_stage_ok: false,
+      blocker: "frontend_bridge_unavailable",
+      note: message,
+      updated_unix_ms: Date.now(),
+      runtime_claim: "frontend_bridge_unavailable",
+    },
+    incoming: {
+      session_id: null,
+      stage: "unavailable",
+      capture_active: false,
+      suppressed: false,
+      degraded: false,
       blocker: "frontend_bridge_unavailable",
       note: message,
       updated_unix_ms: Date.now(),
