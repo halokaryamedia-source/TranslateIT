@@ -283,16 +283,18 @@ export class SimpleLauncherController {
     const checking = readiness.level === "checking" && !meeting.hasSession;
     const meetingLabel = meeting.live
       ? "Live"
-      : meeting.busy
-        ? meeting.label
-        : readiness.meetingReady
-          ? "Ready"
-          : checking
-            ? "Checking"
-            : meeting.label;
-    const meetingTone: StatusTone = meeting.live || readiness.meetingReady
+      : meeting.paused
+        ? "Paused"
+        : meeting.busy
+          ? meeting.label
+          : readiness.meetingReady
+            ? "Ready"
+            : checking
+              ? "Checking"
+              : meeting.label;
+    const meetingTone: StatusTone = meeting.live || (readiness.meetingReady && !meeting.paused)
       ? "good"
-      : checking || meeting.busy
+      : checking || meeting.busy || meeting.paused
         ? "neutral"
         : "warning";
     this.ui.meetingReadinessStatus.textContent = meetingLabel;
@@ -312,17 +314,34 @@ export class SimpleLauncherController {
     setTone(this.ui.meetingRouteStatus, readiness.meetingRouteReady ? "good" : checking ? "neutral" : "warning");
 
     if (meeting.live) {
-      this.ui.startTranslationButton.disabled = this.meetingActionRunning;
-      this.ui.startTranslationButton.textContent = this.meetingActionRunning ? "Stopping..." : "Stop Translation";
+      this.ui.startTranslationButton.disabled = this.meetingActionRunning || !meeting.canStop;
+      this.ui.startTranslationButton.textContent = this.meetingActionRunning ? "Working..." : "Stop Translation";
       this.ui.startTranslationHint.textContent = meeting.message;
-      this.ui.retryReadinessButton.hidden = true;
+      this.ui.retryReadinessButton.hidden = false;
+      this.ui.retryReadinessButton.disabled = this.meetingActionRunning || !meeting.canPause;
+      this.ui.retryReadinessButton.textContent = this.meetingActionRunning ? "Working..." : "Pause Translation";
+      this.ui.fixSetupButton.hidden = true;
+      return;
+    }
+
+    if (meeting.paused) {
+      this.ui.startTranslationButton.disabled = this.meetingActionRunning || !meeting.canStop;
+      this.ui.startTranslationButton.textContent = this.meetingActionRunning ? "Working..." : "Stop Translation";
+      this.ui.startTranslationHint.textContent = meeting.message;
+      this.ui.retryReadinessButton.hidden = false;
+      this.ui.retryReadinessButton.disabled = this.meetingActionRunning || !meeting.canResume;
+      this.ui.retryReadinessButton.textContent = this.meetingActionRunning ? "Working..." : "Resume Translation";
       this.ui.fixSetupButton.hidden = true;
       return;
     }
 
     if (meeting.busy) {
       this.ui.startTranslationButton.disabled = true;
-      this.ui.startTranslationButton.textContent = meeting.label === "Stopping" ? "Stopping..." : "Starting...";
+      this.ui.startTranslationButton.textContent = meeting.label === "Stopping"
+        ? "Stopping..."
+        : meeting.label === "Resuming"
+          ? "Resuming..."
+          : "Starting...";
       this.ui.startTranslationHint.textContent = meeting.message;
       this.ui.retryReadinessButton.hidden = true;
       this.ui.fixSetupButton.hidden = true;
@@ -335,6 +354,7 @@ export class SimpleLauncherController {
       ? "Start Translation to begin the authoritative Meeting session. You can keep using Text, History, or Settings while it is live."
       : meeting.message || "Complete Meeting setup before Start Translation can be used.";
     this.ui.retryReadinessButton.hidden = false;
+    this.ui.retryReadinessButton.disabled = false;
     this.ui.retryReadinessButton.textContent = readiness.meetingReady ? "Check Setup" : "Retry";
     this.ui.fixSetupButton.hidden = readiness.meetingReady;
   }
@@ -348,29 +368,33 @@ export class SimpleLauncherController {
       const meeting = this.snapshot.meeting;
       this.ui.userPresence.textContent = meeting.live
         ? "Live"
-        : readiness.meetingReady
-          ? "Ready"
-          : readiness.textReady
-            ? "Degraded"
-            : readiness.level === "blocked"
-              ? "Setup Needed"
-              : "Checking";
-      this.ui.recordStatusText.textContent = meeting.live
-        ? "Live"
-        : meeting.busy
-          ? meeting.label
+        : meeting.paused
+          ? "Paused"
           : readiness.meetingReady
             ? "Ready"
-            : readiness.voiceReady
-              ? "Route needed"
-              : readiness.level === "checking"
-                ? "Checking"
-                : "Setup needed";
+            : readiness.textReady
+              ? "Degraded"
+              : readiness.level === "blocked"
+                ? "Setup Needed"
+                : "Checking";
+      this.ui.recordStatusText.textContent = meeting.live
+        ? "Live"
+        : meeting.paused
+          ? "Paused"
+          : meeting.busy
+            ? meeting.label
+            : readiness.meetingReady
+              ? "Ready"
+              : readiness.voiceReady
+                ? "Route needed"
+                : readiness.level === "checking"
+                  ? "Checking"
+                  : "Setup needed";
       this.ui.realtimeStatus.textContent = readiness.textStatus;
       this.ui.gpuStatus.textContent = this.snapshot.gpuPolicy?.cuda_available ? "CUDA ready" : this.snapshot.gpuPolicy?.cpu_fallback_active ? "CPU fallback" : "Checking";
       this.ui.developerOutput.textContent = JSON.stringify({ meeting, readiness, commandErrors: runtimeApi.getCommandErrors().slice(0, 5) }, null, 2);
       this.updateMeetingReadyView(readiness, meeting);
-      this.notice(preferredNotice ?? (meeting.live ? meeting.message : readiness.summary));
+      this.notice(preferredNotice ?? (meeting.live || meeting.paused ? meeting.message : readiness.summary));
     } catch (error) {
       this.notice(`Runtime check failed: ${errorMessage(error)}`);
     }
@@ -882,8 +906,44 @@ export class SimpleLauncherController {
 
     this.meetingActionRunning = true;
     this.ui.startTranslationButton.disabled = true;
+    this.ui.retryReadinessButton.disabled = true;
     this.ui.startTranslationButton.textContent = action === "start" ? "Starting..." : "Stopping...";
     this.notice(action === "start" ? "Starting Meeting Translation..." : "Stopping Meeting Translation...");
+    try {
+      const result = await runtimeProductFacade.runProductMeetingAction(action);
+      await this.refreshReadiness(result.message);
+    } catch (error) {
+      this.notice(`Meeting command failed: ${errorMessage(error)}`);
+      await this.refreshReadiness();
+    } finally {
+      this.meetingActionRunning = false;
+      if (this.snapshot) this.updateMeetingReadyView(this.snapshot.readiness, this.snapshot.meeting);
+    }
+  }
+
+  private async handleMeetingSecondaryAction(): Promise<void> {
+    if (this.meetingActionRunning) return;
+    const meeting = this.snapshot?.meeting;
+    if (!meeting) {
+      await this.refreshReadiness("Readiness refreshed.");
+      return;
+    }
+
+    const action = meeting.live && meeting.canPause
+      ? "pause"
+      : meeting.paused && meeting.canResume
+        ? "resume"
+        : null;
+    if (!action) {
+      await this.refreshReadiness("Readiness refreshed.");
+      return;
+    }
+
+    this.meetingActionRunning = true;
+    this.ui.startTranslationButton.disabled = true;
+    this.ui.retryReadinessButton.disabled = true;
+    this.ui.retryReadinessButton.textContent = action === "pause" ? "Pausing..." : "Resuming...";
+    this.notice(action === "pause" ? "Pausing Meeting Translation..." : "Resuming Meeting Translation...");
     try {
       const result = await runtimeProductFacade.runProductMeetingAction(action);
       await this.refreshReadiness(result.message);
@@ -1022,7 +1082,7 @@ export class SimpleLauncherController {
     }));
     this.ui.settingsButton.addEventListener("click", () => this.showSettings("meeting"));
     this.ui.backHomeButton.addEventListener("click", () => this.showWorkspace(this.activeWorkspace));
-    this.ui.retryReadinessButton.addEventListener("click", () => void this.refreshReadiness("Readiness refreshed."));
+    this.ui.retryReadinessButton.addEventListener("click", () => void this.handleMeetingSecondaryAction());
     this.ui.fixSetupButton.addEventListener("click", () => void this.fixSetup());
     this.ui.settingsNavItems.forEach((button) => button.addEventListener("click", () => {
       const tab = (button.dataset.settingsTab as SettingsTab) ?? "meeting";

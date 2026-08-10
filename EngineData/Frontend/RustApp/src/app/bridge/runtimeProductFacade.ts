@@ -56,8 +56,11 @@ export type ProductMeetingState = {
   authorityActive: boolean;
   captureActive: boolean;
   live: boolean;
+  paused: boolean;
   busy: boolean;
   canStart: boolean;
+  canPause: boolean;
+  canResume: boolean;
   canStop: boolean;
   sessionId: string | null;
   generation: number | null;
@@ -81,7 +84,7 @@ export type ProductRuntimeSnapshot = {
   inputStatus: InputPreparationStatus | null;
 };
 
-export type ProductMeetingAction = "start" | "stop";
+export type ProductMeetingAction = "start" | "pause" | "resume" | "stop";
 
 export type ProductMeetingActionResult = {
   ok: boolean;
@@ -233,11 +236,15 @@ export function mapProductMeetingState(status: MeetingSessionStatus | null): Pro
   const rawLifecycle = compact(status?.lifecycle, hasSession ? "active" : "idle");
   const lifecycle = applicationOwned ? rawLifecycle : hasSession ? "runtime_conflict" : "idle";
   const live = applicationOwned && authorityActive && lifecycle === "live";
+  const paused = applicationOwned && !authorityActive && lifecycle === "paused";
   const starting = applicationOwned && authorityActive && lifecycle === "starting";
+  const resuming = applicationOwned && authorityActive && lifecycle === "resuming";
   const stopping = applicationOwned && lifecycle === "stopping";
-  const busy = starting || stopping;
+  const busy = starting || resuming || stopping;
   const canStart = !hasSession && preflight.readyForStart;
-  const canStop = applicationOwned && hasSession && !stopping;
+  const canPause = live;
+  const canResume = paused;
+  const canStop = applicationOwned && hasSession && !starting && !resuming && !stopping;
   const outboundStage = compact(status?.outbound?.stage, "idle");
   const blocker = compact(
     status?.blocker || preflight.blockers[0],
@@ -249,9 +256,15 @@ export function mapProductMeetingState(status: MeetingSessionStatus | null): Pro
   if (live) {
     label = "Live";
     message = liveMeetingMessage(outboundStage, status?.outbound?.note ?? status?.note ?? "");
+  } else if (paused) {
+    label = "Paused";
+    message = "Translation is paused. Outbound capture and pending translated voice are stopped; Resume will create a fresh generation for this Meeting session.";
   } else if (starting) {
     label = "Starting";
     message = "Translation is starting and opening the required Meeting resources.";
+  } else if (resuming) {
+    label = "Resuming";
+    message = "Translation is resuming with fresh generation authority and reopening required Meeting resources.";
   } else if (stopping) {
     label = "Stopping";
     message = "Translation is stopping and revoking the current Meeting session safely.";
@@ -270,8 +283,11 @@ export function mapProductMeetingState(status: MeetingSessionStatus | null): Pro
     authorityActive,
     captureActive: applicationOwned && status?.capture_active === true,
     live,
+    paused,
     busy,
     canStart,
+    canPause,
+    canResume,
     canStop,
     sessionId: applicationOwned ? status?.session_id ?? null : null,
     generation: applicationOwned ? status?.generation ?? null : null,
@@ -333,7 +349,7 @@ export function mapProductReadiness(input: {
 
   const voiceReady = microphoneReady && providerReady;
   const meetingRouteReady = meeting.meetingRouteReady && meeting.routeExecutionReady;
-  const meetingReady = meeting.readyForStart || productMeeting.live;
+  const meetingReady = meeting.readyForStart || productMeeting.live || productMeeting.paused;
   const recording = productMeeting.captureActive;
   const canRecordVoice = voiceReady && !recording && !productMeeting.hasSession;
   const blockers = collectBlockers({
@@ -357,21 +373,25 @@ export function mapProductReadiness(input: {
         ? "blocked"
         : "checking";
   const nextAction = productMeeting.live
-    ? "Translation is live. Return to Meeting when you want to stop it."
-    : meeting.readyForStart
-      ? "Meeting Translation is ready to start."
-      : textReady
-        ? "Text translation is available. Meeting setup/runtime still needs attention."
-        : "Check the local translation runtime or use Fix Setup; technical detail remains in Diagnostics.";
+    ? "Translation is live. Pause it temporarily or stop the Meeting session when needed."
+    : productMeeting.paused
+      ? "Translation is paused. Resume when ready or stop the Meeting session."
+      : meeting.readyForStart
+        ? "Meeting Translation is ready to start."
+        : textReady
+          ? "Text translation is available. Meeting setup/runtime still needs attention."
+          : "Check the local translation runtime or use Fix Setup; technical detail remains in Diagnostics.";
   const summary = productMeeting.live
     ? "Meeting Translation is live."
-    : meeting.readyForStart
-      ? "Required outbound Meeting capabilities are ready."
-      : textReady
-        ? `Text ${currentTextMode} translation is available. Meeting Translation is not ready yet.`
-        : hasRuntimeEvidence
-          ? `Text ${currentTextMode} translation is unavailable and Meeting Translation is not ready.`
-          : "Product readiness is still checking.";
+    : productMeeting.paused
+      ? "Meeting Translation is paused."
+      : meeting.readyForStart
+        ? "Required outbound Meeting capabilities are ready."
+        : textReady
+          ? `Text ${currentTextMode} translation is available. Meeting Translation is not ready yet.`
+          : hasRuntimeEvidence
+            ? `Text ${currentTextMode} translation is unavailable and Meeting Translation is not ready.`
+            : "Product readiness is still checking.";
 
   return {
     level,
@@ -408,13 +428,15 @@ export function mapProductReadiness(input: {
     voiceStatus: voiceReady ? "Required local outbound AI capabilities available" : "Local voice runtime needs setup",
     meetingStatus: productMeeting.live
       ? "Live"
-      : productMeeting.busy
-        ? productMeeting.label
-        : meeting.readyForStart
-          ? "Ready"
-          : level === "checking"
-            ? "Checking"
-            : "Setup Needed",
+      : productMeeting.paused
+        ? "Paused"
+        : productMeeting.busy
+          ? productMeeting.label
+          : meeting.readyForStart
+            ? "Ready"
+            : level === "checking"
+              ? "Checking"
+              : "Setup Needed",
     runtimeStatus: productMeeting.lifecycle !== "idle"
       ? productMeeting.lifecycle
       : compact(helper?.state, "Checking"),
@@ -464,17 +486,28 @@ export async function loadProductRuntimeSnapshot(): Promise<ProductRuntimeSnapsh
 }
 
 export async function runProductMeetingAction(action: ProductMeetingAction): Promise<ProductMeetingActionResult> {
-  const result: MeetingSessionActionResult = action === "start"
-    ? await runtimeApi.startMeetingTranslation()
-    : await runtimeApi.stopMeetingTranslation();
+  let result: MeetingSessionActionResult;
+  if (action === "start") {
+    result = await runtimeApi.startMeetingTranslation();
+  } else if (action === "pause") {
+    result = await runtimeApi.pauseMeetingTranslation();
+  } else if (action === "resume") {
+    result = await runtimeApi.resumeMeetingTranslation();
+  } else {
+    result = await runtimeApi.stopMeetingTranslation();
+  }
+  const fallbackMessage = action === "start"
+    ? "Start Translation finished."
+    : action === "pause"
+      ? "Pause Translation finished."
+      : action === "resume"
+        ? "Resume Translation finished."
+        : "Stop Translation finished.";
   return {
     ok: Boolean(result.ok),
     action,
     state: compact(result.state, result.ok ? "completed" : "blocked"),
-    message: compact(
-      result.message,
-      action === "start" ? "Start Translation finished." : "Stop Translation finished.",
-    ),
+    message: compact(result.message, fallbackMessage),
     meeting: mapProductMeetingState(result.status ?? null),
   };
 }

@@ -430,6 +430,22 @@ export const runtimeApi = {
     );
   },
 
+  async pauseMeetingTranslation(): Promise<MeetingSessionActionResult> {
+    return invokeOr<MeetingSessionActionResult>(
+      "pause_meeting_translation",
+      undefined,
+      meetingSessionActionFallback("Pause Translation failed before reaching the Tauri Meeting session command."),
+    );
+  },
+
+  async resumeMeetingTranslation(): Promise<MeetingSessionActionResult> {
+    return invokeOr<MeetingSessionActionResult>(
+      "resume_meeting_translation",
+      undefined,
+      meetingSessionActionFallback("Resume Translation failed before reaching the Tauri Meeting session command."),
+    );
+  },
+
   async stopMeetingTranslation(): Promise<MeetingSessionActionResult> {
     return invokeOr<MeetingSessionActionResult>(
       "stop_meeting_translation",
@@ -541,7 +557,7 @@ export const runtimeApi = {
     return invokeOr<PipelineHandoffRequestStatus>(
       "dispatch_translation_handoff_request",
       undefined,
-      pipelineHandoffFallback("translation_handoff", "Translation handoff dispatch failed before reaching the Tauri command bridge."),
+      pipelineHandoffFallback("Translation handoff dispatch failed before reaching the Tauri command bridge."),
     );
   },
 
