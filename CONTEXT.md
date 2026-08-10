@@ -329,10 +329,13 @@ This priority is non-preemptive for a Text inference already in flight. Do not c
 it realtime-optimal until local contention/latency proof exists.
 
 Meeting work uses application `session_id + generation` authority. A stale generation
-is rejected before worker execution and again before result promotion. Stop revokes
-Meeting authority before cleanup; a matching in-flight Meeting inference may require
-hard-cancelling the persistent worker process. Actual cancellation timing remains
-local proof.
+is rejected before worker execution and again before result promotion. Pause
+invalidates the current outbound generation while retaining the application Meeting
+session identity, then targets matching route/capture/helper/finalized-consumer work.
+Resume establishes a fresh generation for the same session and restores the existing
+helper runtime when matching cancellation previously terminated it before current
+preflight/resource reopen. Stop remains the full-session authority revoke and cleanup.
+Actual cancellation/restart timing remains local proof.
 
 Static model installation evidence, current worker capability availability, request
 inference success, model quality, and Meeting Start safety are distinct facts and
@@ -369,15 +372,22 @@ policy. They require later microphone/VAD runtime proof. Safety overflow/backlog
 fail-closed rather than creating a fake partial "final" utterance.
 
 Backend Meeting Start has source-connected finalized speech/outbound runtime and
-keeps all other required preflight blockers. Stop remains authority-first and clears
-capture/finalized/helper/consumer state in that order.
+keeps all other required preflight blockers. Pause revokes the active generation
+before cancelling matching route/capture/helper/consumer work while retaining the
+application Meeting session as Paused. Resume reuses the same session identity,
+creates fresh generation authority, restores the existing helper when required,
+rechecks current preflight, and transactionally reopens capture/finalized consumption;
+a failed reopen rolls the fresh generation back to Paused. Stop remains the distinct
+full-session cleanup path.
 
-Normal product frontend now reads the canonical backend Meeting session directly
-through `get_meeting_session_status`, and its primary action calls
-`start_meeting_translation` / `stop_meeting_translation`. The product facade maps the
-backend application owner to Ready/Starting/Live/Stopping/conflict states; no second
-frontend Meeting session authority was added. Navigation remains presentation-only,
-and Mic Test is blocked while runtime Meeting resources are owned.
+Normal product frontend reads the canonical backend Meeting session directly through
+`get_meeting_session_status`, and its Meeting actions call
+`start_meeting_translation`, `pause_meeting_translation`,
+`resume_meeting_translation`, and `stop_meeting_translation`. The product facade maps
+the backend application owner to Ready/Starting/Live/Paused/Resuming/Stopping/conflict
+states; no second frontend Meeting session authority was added. Navigation remains
+presentation-only, and Mic Test is blocked while runtime Meeting resources/session
+ownership exist.
 
 ## Python Project / Development Tooling
 
@@ -466,15 +476,20 @@ Source-side alignment completed on `New` includes:
   generation/utterance identity, one-shot queue ownership, unique temporary WAVs, and
   one serialized consumer into the canonical outbound AI/output boundary;
 - normal Meeting frontend Start/Stop/Live-state wiring through the canonical backend
-  application session, without a parallel frontend lifecycle store.
+  application session, without a parallel frontend lifecycle store;
+- Meeting Pause/Resume source lifecycle that preserves the application session on
+  Pause, invalidates old outbound generation authority, and uses fresh generation
+  authority plus transactional capture/finalized-consumer restart on Resume;
+- normal frontend Paused/Resuming actions/status remain derived from the same backend
+  application Meeting authority rather than a second frontend lifecycle owner.
 
 Still incomplete or unproved:
 
-- actual canonical Meeting frontend/Tauri invocation and rendered transition behavior;
-- Pause/Resume lifecycle with fresh-generation Resume semantics;
+- actual canonical Meeting frontend/Tauri invocation and rendered Start/Pause/Resume/
+  Stop transition behavior;
 - global/cross-view Meeting strip, full Live transcript/activity presentation, and
   close-live handling;
-- actual microphone capture/VAD boundary quality and exactly-once/Stop race behavior;
+- actual microphone capture/VAD boundary quality and exactly-once/Stop/Pause race behavior;
 - actual MarianMT/NLLB EOS behavior and translation quality on target runtime;
 - actual English Piper/SAPI voice availability, synthesis success, and audio quality;
 - incoming Meeting Sound lane, self-output suppression, turn coordination, and bounded
