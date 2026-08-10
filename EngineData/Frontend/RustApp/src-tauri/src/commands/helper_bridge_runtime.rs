@@ -5,7 +5,7 @@ use std::io::{BufRead, BufReader, Write};
 use std::path::PathBuf;
 use std::process::{Child, ChildStderr, ChildStdin, ChildStdout};
 use std::sync::mpsc::{self, RecvTimeoutError};
-use std::sync::{Mutex, OnceLock};
+use std::sync::{Condvar, Mutex, OnceLock};
 use std::thread;
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
@@ -19,6 +19,8 @@ pub struct HelperBridgeStatus {
     pub provider_ready: bool,
     pub degraded_mode: bool,
     pub active_task: Option<String>,
+    pub active_request_id: Option<String>,
+    pub active_meeting_generation: Option<u64>,
     pub generation_token: u64,
     pub last_error: Option<String>,
     pub stderr_log_path: Option<String>,
@@ -48,6 +50,8 @@ pub struct HelperBridgeRuntime {
     pub provider_ready: bool,
     pub degraded_mode: bool,
     pub active_task: Option<String>,
+    pub active_request_id: Option<String>,
+    pub active_meeting_generation: Option<u64>,
     pub generation_token: u64,
     pub last_error: Option<String>,
     pub stderr_log_path: Option<String>,
@@ -67,6 +71,8 @@ impl Default for HelperBridgeRuntime {
             provider_ready: false,
             degraded_mode: false,
             active_task: None,
+            active_request_id: None,
+            active_meeting_generation: None,
             generation_token: 0,
             last_error: None,
             stderr_log_path: None,
@@ -82,6 +88,122 @@ static HELPER_BRIDGE_RUNTIME: OnceLock<Mutex<HelperBridgeRuntime>> = OnceLock::n
 
 pub fn runtime() -> &'static Mutex<HelperBridgeRuntime> {
     HELPER_BRIDGE_RUNTIME.get_or_init(|| Mutex::new(HelperBridgeRuntime::default()))
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum HelperTaskPriority {
+    Meeting,
+    Text,
+    Diagnostic,
+}
+
+impl HelperTaskPriority {
+    pub fn label(self) -> &'static str {
+        match self {
+            Self::Meeting => "meeting",
+            Self::Text => "text",
+            Self::Diagnostic => "diagnostic",
+        }
+    }
+}
+
+#[derive(Debug, Default)]
+struct HelperSchedulerState {
+    active: bool,
+    waiting_meeting: u32,
+    waiting_text: u32,
+    waiting_diagnostic: u32,
+    next_request_sequence: u64,
+}
+
+static HELPER_SCHEDULER: OnceLock<(Mutex<HelperSchedulerState>, Condvar)> = OnceLock::new();
+
+fn scheduler() -> &'static (Mutex<HelperSchedulerState>, Condvar) {
+    HELPER_SCHEDULER.get_or_init(|| (Mutex::new(HelperSchedulerState::default()), Condvar::new()))
+}
+
+pub struct HelperTaskPermit {
+    request_id: String,
+    priority: HelperTaskPriority,
+}
+
+impl HelperTaskPermit {
+    pub fn request_id(&self) -> &str {
+        &self.request_id
+    }
+
+    pub fn priority(&self) -> HelperTaskPriority {
+        self.priority
+    }
+}
+
+impl Drop for HelperTaskPermit {
+    fn drop(&mut self) {
+        let (lock, wake) = scheduler();
+        if let Ok(mut state) = lock.lock() {
+            state.active = false;
+            wake.notify_all();
+        }
+    }
+}
+
+fn scheduler_waiting_increment(state: &mut HelperSchedulerState, priority: HelperTaskPriority) {
+    match priority {
+        HelperTaskPriority::Meeting => {
+            state.waiting_meeting = state.waiting_meeting.saturating_add(1)
+        }
+        HelperTaskPriority::Text => state.waiting_text = state.waiting_text.saturating_add(1),
+        HelperTaskPriority::Diagnostic => {
+            state.waiting_diagnostic = state.waiting_diagnostic.saturating_add(1)
+        }
+    }
+}
+
+fn scheduler_waiting_decrement(state: &mut HelperSchedulerState, priority: HelperTaskPriority) {
+    match priority {
+        HelperTaskPriority::Meeting => {
+            state.waiting_meeting = state.waiting_meeting.saturating_sub(1)
+        }
+        HelperTaskPriority::Text => state.waiting_text = state.waiting_text.saturating_sub(1),
+        HelperTaskPriority::Diagnostic => {
+            state.waiting_diagnostic = state.waiting_diagnostic.saturating_sub(1)
+        }
+    }
+}
+
+fn scheduler_can_enter(state: &HelperSchedulerState, priority: HelperTaskPriority) -> bool {
+    if state.active {
+        return false;
+    }
+    match priority {
+        HelperTaskPriority::Meeting => true,
+        HelperTaskPriority::Text => state.waiting_meeting == 0,
+        HelperTaskPriority::Diagnostic => state.waiting_meeting == 0 && state.waiting_text == 0,
+    }
+}
+
+pub fn acquire_helper_task_permit(
+    priority: HelperTaskPriority,
+) -> Result<HelperTaskPermit, String> {
+    let (lock, wake) = scheduler();
+    let mut state = lock
+        .lock()
+        .map_err(|_| "helper_scheduler:lock_poisoned".to_string())?;
+    scheduler_waiting_increment(&mut state, priority);
+
+    while !scheduler_can_enter(&state, priority) {
+        state = wake
+            .wait(state)
+            .map_err(|_| "helper_scheduler:wait_lock_poisoned".to_string())?;
+    }
+
+    scheduler_waiting_decrement(&mut state, priority);
+    state.active = true;
+    state.next_request_sequence = state.next_request_sequence.saturating_add(1);
+    Ok(HelperTaskPermit {
+        request_id: format!("helper-{}", state.next_request_sequence),
+        priority,
+    })
 }
 
 pub fn unix_ms() -> u128 {
@@ -107,6 +229,8 @@ pub fn status_from_runtime(runtime: &HelperBridgeRuntime) -> HelperBridgeStatus 
         provider_ready: runtime.provider_ready,
         degraded_mode: runtime.degraded_mode,
         active_task: runtime.active_task.clone(),
+        active_request_id: runtime.active_request_id.clone(),
+        active_meeting_generation: runtime.active_meeting_generation,
         generation_token: runtime.generation_token,
         last_error: runtime.last_error.clone(),
         stderr_log_path: runtime.stderr_log_path.clone(),
@@ -149,6 +273,14 @@ pub fn spawn_stderr_logger(stderr: ChildStderr, log_path: PathBuf) {
     });
 }
 
+pub fn clear_active_request(runtime: &mut HelperBridgeRuntime, request_id: &str) {
+    if runtime.active_request_id.as_deref() == Some(request_id) {
+        runtime.active_task = None;
+        runtime.active_request_id = None;
+        runtime.active_meeting_generation = None;
+    }
+}
+
 pub fn set_blocked(
     runtime: &mut HelperBridgeRuntime,
     message: &str,
@@ -160,6 +292,8 @@ pub fn set_blocked(
     runtime.provider_ready = false;
     runtime.degraded_mode = false;
     runtime.active_task = None;
+    runtime.active_request_id = None;
+    runtime.active_meeting_generation = None;
     runtime.last_error = Some(error.to_string());
     runtime.updated_unix_ms = unix_ms();
     action_result(false, runtime)
@@ -208,9 +342,6 @@ pub fn apply_worker_status(runtime: &mut HelperBridgeRuntime, status: &Value) {
     let cuda_degraded = worker_nested_bool(status, "readiness", "cuda_degraded");
 
     runtime.cuda_ready = !cuda_degraded;
-    // Compatibility field: this now means the current worker status reports the
-    // complete required outbound AI capability set (ASR + Realtime translation +
-    // TTS). It is not mutated by an individual task result below.
     runtime.provider_ready = worker_ok && asr_ready && realtime_translation_ready && tts_ready;
     runtime.degraded_mode = worker_ok && cuda_degraded;
     runtime.last_error = worker_text(status, "blocker").filter(|value| !value.is_empty());
@@ -239,10 +370,6 @@ pub fn apply_worker_response(runtime: &mut HelperBridgeRuntime, value: &Value) -
             .or_else(|| worker_text(value, "stage"))
             .unwrap_or_else(|| "Helper contract request completed.".to_string());
     } else {
-        // A task result describes that request only. It must not promote or demote
-        // process health or the cached all-capability status. Process-level state is
-        // changed only by lifecycle/I/O failure paths or an explicit worker status
-        // response.
         let request_degraded = value.get("device").and_then(Value::as_str) == Some("cpu")
             || value
                 .get("device_note")
@@ -269,7 +396,7 @@ pub fn apply_worker_response(runtime: &mut HelperBridgeRuntime, value: &Value) -
             });
     }
 
-    if runtime.child.is_some() && runtime.stdin.is_some() && runtime.stdout.is_some() {
+    if runtime.child.is_some() {
         runtime.state = "ready".to_string();
     }
     runtime.updated_unix_ms = unix_ms();
@@ -354,6 +481,8 @@ pub fn read_worker_response_with_deadline(
             runtime.message = format!("Helper worker response failed or exceeded deadline: {error}");
             runtime.last_error = Some(error.clone());
             runtime.active_task = None;
+            runtime.active_request_id = None;
+            runtime.active_meeting_generation = None;
             runtime.updated_unix_ms = unix_ms();
             stop_child(runtime);
             Err(error)
