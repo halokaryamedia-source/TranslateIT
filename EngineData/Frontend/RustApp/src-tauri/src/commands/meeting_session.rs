@@ -12,6 +12,8 @@ use crate::engine::audio::live_capture::{start_live_capture_runtime, stop_live_c
 use crate::engine::audio::live_segment_writer::{
     remove_finalized_outbound_utterance_wav, write_finalized_outbound_utterance_wav,
 };
+use crate::engine::history_store::{create_meeting_recent, HistoryTurn};
+use crate::engine::load_settings;
 use crate::engine::runtime_state::{
     begin_application_meeting_session, begin_application_meeting_session_resume,
     clear_runtime_handoff_state, clear_runtime_session_state,
@@ -434,6 +436,57 @@ fn current_committed_turn_snapshot() -> MeetingCommittedTurnsSnapshot {
         runtime_claim: "meeting_committed_turn_snapshot_source_contract_not_rendered_runtime_proof"
             .to_string(),
     }
+}
+
+fn finalize_meeting_history(
+    snapshot: &MeetingCommittedTurnsSnapshot,
+    started_unix_ms: u128,
+    ended_unix_ms: u128,
+) -> String {
+    let settings = load_settings();
+    if !settings.history_enabled {
+        return "History is off. No Recent Meeting entry was created; transient conversation bodies were discarded at Stop."
+            .to_string();
+    }
+    if !snapshot.ok {
+        return "Recent Meeting History could not be created because the final committed-turn snapshot was unavailable. Transient conversation bodies were still cleared."
+            .to_string();
+    }
+    let Some(session_id) = snapshot.session_id.clone() else {
+        return "No Recent Meeting entry was created because the finalized Meeting session id was unavailable."
+            .to_string();
+    };
+
+    let turns = snapshot
+        .turns
+        .iter()
+        .map(|turn| HistoryTurn {
+            sequence: turn.sequence,
+            lane: turn.lane.clone(),
+            source_text: turn.source_text.clone(),
+            translated_text: turn.translated_text.clone(),
+            delivery_state: Some(turn.delivery_state.clone()),
+            created_unix_ms: turn.created_unix_ms,
+        })
+        .collect::<Vec<_>>();
+    let interrupted = snapshot
+        .turns
+        .iter()
+        .any(|turn| turn.delivery_state == "interrupted");
+
+    create_meeting_recent(
+        session_id,
+        started_unix_ms,
+        ended_unix_ms,
+        "id".to_string(),
+        "en".to_string(),
+        "Auto".to_string(),
+        "Realtime".to_string(),
+        interrupted,
+        snapshot.dropped_turn_count,
+        turns,
+    )
+    .message
 }
 
 fn generation_aware_outbound_stages_ready() -> bool {
@@ -991,8 +1044,6 @@ fn start_meeting_outbound_consumer(generation: u64, session_id: &str) -> Result<
 }
 
 fn stop_meeting_outbound_consumer(generation: u64) -> String {
-    // Capture normally clears the producer first. This extra clear is idempotent and
-    // guarantees a waiting consumer is released even if capture cleanup was partial.
     clear_finalized_outbound_utterance_producer();
 
     let store = outbound_consumer_store();
@@ -1444,10 +1495,8 @@ pub fn stop_meeting_translation() -> MeetingSessionActionResult {
 
     let generation = snapshot.generation;
     let session_id = snapshot.session_id.clone();
+    let started_unix_ms = snapshot.started_unix_ms;
 
-    // Safety order: revoke old generation authority first. Route playback is then
-    // cancellation-signalled. Capture is stopped/cleared, matching in-flight helper
-    // inference is cancelled, and only then is the outbound consumer joined.
     let revoked = revoke_application_meeting_session_authority(
         generation,
         "Stop Translation accepted. Old Meeting generation authority was revoked before cleanup.",
@@ -1470,6 +1519,10 @@ pub fn stop_meeting_translation() -> MeetingSessionActionResult {
     let capture_stop = stop_live_capture_runtime();
     let helper_cancel = cancel_helper_bridge_task();
     let consumer_cleanup = stop_meeting_outbound_consumer(generation);
+
+    let final_turns = current_committed_turn_snapshot();
+    let history_message = finalize_meeting_history(&final_turns, started_unix_ms, unix_ms());
+
     let _ = reset_live_pipeline_handoff_status();
     let _ = clear_runtime_handoff_state();
     clear_committed_turns_for_session(&session_id);
@@ -1479,8 +1532,8 @@ pub fn stop_meeting_translation() -> MeetingSessionActionResult {
         ok: true,
         state: "stopped".to_string(),
         message: format!(
-            "Translation stopped. Authority was revoked before route/capture/helper/consumer cleanup. Microphone cleanup: {} Helper cleanup: {} Consumer cleanup: {}",
-            capture_stop.message, helper_cancel.message, consumer_cleanup
+            "Translation stopped. Authority was revoked before route/capture/helper/consumer cleanup. Microphone cleanup: {} Helper cleanup: {} Consumer cleanup: {} History: {}",
+            capture_stop.message, helper_cancel.message, consumer_cleanup, history_message
         ),
         status: status_from_report(cleared, build_preflight()),
     }
