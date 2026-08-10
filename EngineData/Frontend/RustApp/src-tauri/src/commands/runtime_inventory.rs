@@ -56,15 +56,20 @@ pub struct GpuPolicyReport {
 
 #[derive(Debug, Clone, serde::Deserialize)]
 struct ModelManifest {
+    #[allow(dead_code)]
     schema: Option<String>,
+    #[allow(dead_code)]
     backend_policy: Option<BackendPolicy>,
     models: Vec<ModelManifestEntry>,
 }
 
 #[derive(Debug, Clone, serde::Deserialize)]
 struct BackendPolicy {
+    #[allow(dead_code)]
     gpu_primary: Option<bool>,
+    #[allow(dead_code)]
     cpu_fallback_allowed: Option<bool>,
+    #[allow(dead_code)]
     cpu_fallback_label: Option<String>,
 }
 
@@ -72,14 +77,19 @@ struct BackendPolicy {
 struct ModelManifestEntry {
     model_id: String,
     required: bool,
+    #[allow(dead_code)]
     stage: String,
+    #[allow(dead_code)]
     backend: String,
     expected_path: String,
     gpu_capable: Option<bool>,
     cpu_fallback: Option<bool>,
     download_url: Option<String>,
+    #[allow(dead_code)]
     checksum: Option<String>,
+    #[allow(dead_code)]
     license: Option<String>,
+    #[allow(dead_code)]
     notes: Option<String>,
 }
 
@@ -132,8 +142,9 @@ fn build_model_inventory(
     let manifest = read_model_manifest(&manifest_path);
     let mut blockers = Vec::new();
     if manifest.is_none() {
-        blockers.push("model_manifest_missing_or_invalid".to_string());
+        blockers.push("model_inventory:manifest_missing_or_invalid".to_string());
     }
+
     let mut items = Vec::new();
     if let Some(manifest) = manifest {
         for entry in manifest.models {
@@ -151,40 +162,41 @@ fn build_model_inventory(
                 .map(|value| if value { "true" } else { "false" }.to_string())
                 .unwrap_or_else(|| "unknown".to_string());
             let cpu_fallback = entry.cpu_fallback.unwrap_or(false);
+
+            let metadata_incomplete = entry.download_url.is_none();
             let status = if found {
-                "PASS"
-            } else if entry.download_url.is_none() {
-                if entry.required {
-                    "BLOCKED"
-                } else {
-                    "PARTIAL"
-                }
+                "installed"
+            } else if entry.required {
+                "missing_required"
+            } else if metadata_incomplete {
+                "missing_optional_metadata_incomplete"
             } else {
-                "PARTIAL"
+                "missing_optional"
             };
-            let blocker = if found {
-                None
-            } else if entry.download_url.is_none() {
-                Some(format!("download_source_missing:{}", entry.model_id))
+            let blocker = if !found && entry.required {
+                Some(format!("missing_required_model:{}", entry.model_id))
             } else {
-                Some(format!("missing_model:{}", entry.model_id))
+                None
             };
             let next_action = if found {
-                "Model present".to_string()
+                "Installed asset detected. Runtime load/inference must be checked separately."
+                    .to_string()
             } else if entry.download_url.is_some() {
                 format!(
-                    "Download and place {} in {}",
+                    "Install {} at {} through the approved runtime/release asset flow.",
                     entry.model_id, entry.expected_path
                 )
             } else {
                 format!(
-                    "Define download URL or place {} in {}",
+                    "Define reproducible source metadata and install {} at {} through the approved runtime/release asset flow.",
                     entry.model_id, entry.expected_path
                 )
             };
+
             if entry.required && !found {
                 blockers.push(format!("missing_required_model:{}", entry.model_id));
             }
+
             items.push(ModelInventoryItem {
                 model_id: entry.model_id,
                 required: entry.required,
@@ -201,16 +213,16 @@ fn build_model_inventory(
             });
         }
     }
-    let ok = blockers.is_empty();
-    let status = if ok {
-        "PASS"
+
+    let status = if blockers.is_empty() {
+        "installed_required_assets"
     } else if blockers
         .iter()
-        .any(|blocker| blocker.contains("missing_required_model"))
+        .any(|blocker| blocker.starts_with("missing_required_model:"))
     {
-        "BLOCKED"
+        "missing_required_assets"
     } else {
-        "PARTIAL"
+        "inventory_unavailable"
     };
     (items, blockers, status.to_string())
 }
@@ -235,9 +247,11 @@ pub fn get_model_inventory() -> ModelInventoryReport {
         items,
         blockers: blockers.clone(),
         note: if blockers.is_empty() {
-            "All required model entries are present in the local model manifest and runtime assets are visible.".to_string()
+            "Required model assets are installed according to the declarative inventory. This is installation evidence only; it does not prove model load, inference, quality, latency, or CUDA use."
+                .to_string()
         } else {
-            "One or more required models are missing or have no declared download source.".to_string()
+            "One or more required model assets are missing. Inventory results describe installation state only and must not be promoted into runtime readiness."
+                .to_string()
         },
     };
     write_validation_json(&project_paths, "latest_model_inventory.json", &report);
@@ -257,16 +271,13 @@ pub fn setup_models() -> ModelSetupReport {
         .replace('\\', "/");
     let report = ModelSetupReport {
         ok: blockers.is_empty(),
-        status: status.clone(),
+        status,
         created_at: now_iso(),
         output_dir,
         items,
         blockers: blockers.clone(),
-        note: if blockers.is_empty() {
-            "Model setup is already complete locally.".to_string()
-        } else {
-            "Model setup is blocked because at least one required model has no download source or is missing.".to_string()
-        },
+        note: "Compatibility command: this operation only inspects the declarative model inventory and writes diagnostic evidence. It does not download, install, load, or verify inference for any model."
+            .to_string(),
     };
     write_validation_json(&project_paths, "latest_model_setup.json", &report);
     report
@@ -277,11 +288,11 @@ pub fn get_gpu_policy() -> GpuPolicyReport {
     let gpu_primary = report.ready;
     let cpu_fallback_active = report.cpu_degraded_available;
     let status = if report.ready {
-        "PASS"
+        "native_candidate_available"
     } else if cpu_fallback_active {
-        "PARTIAL"
+        "native_candidate_degraded"
     } else {
-        "BLOCKED"
+        "native_candidate_unavailable"
     };
     GpuPolicyReport {
         ok: report.ready || cpu_fallback_active,
@@ -290,7 +301,11 @@ pub fn get_gpu_policy() -> GpuPolicyReport {
         gpu_primary,
         cpu_fallback_active,
         preferred_backend: report.preferred_device,
-        notes: report.notes,
+        notes: {
+            let mut notes = report.notes;
+            notes.push("Diagnostic native-backend candidate only. Active Python worker capability/device state is the runtime truth for current ASR/translation/TTS execution.".to_string());
+            notes
+        },
         blocker: report.blocker,
     }
 }
