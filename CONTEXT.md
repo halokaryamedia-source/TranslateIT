@@ -235,9 +235,11 @@ UserData/SavedProject/History/
 └─ Saved/
 ```
 
-Text History/Saved is source-connected. Meeting History still waits for a grounded
-committed-turn handoff; persistent History must not become the live transcript owner
-by accident.
+Text History/Saved is source-connected. Meeting History remains a later immutable
+handoff from the canonical transient committed-turn source. Persistent History does
+not own the live transcript. At Meeting finalization, current `history_enabled`
+decides automatic Recent retention; when it is off, transient conversation bodies are
+discarded instead of persisted. Saved remains explicit/independent.
 
 ## Settings Boundary
 
@@ -340,12 +342,22 @@ Paused copy. Ready setup rows are restored when the primary controller returns t
 non-active state. The renderer does not call lifecycle mutation actions and does not
 create a frontend Meeting store.
 
-Current `MeetingSessionStatus` does **not** expose committed Indonesian transcript and
-English translation bodies as bounded product turn state. Those values exist only
-inside active outbound processing. Therefore chronological transcript rows are not yet
-implemented and must not be manufactured from worker response JSON, rolling audio,
-Diagnostics, logs, or frontend accumulation. The next canonical boundary is to plan
-one transient committed-turn owner and its later History handoff.
+Chronological transcript ownership is now decided but not yet implemented. The
+existing canonical `meeting_session.rs` outbound/session boundary will own one bounded
+memory-only committed-turn store. A turn enters only after final Indonesian ASR text
+and verified-complete English translation exist under the same authoritative
+generation. Identity is `(session_id, generation, utterance_id)`, while a monotonic
+session `sequence` preserves chronology across Pause/Resume generations. Current
+outbound turns use lane `you` and carry a small truthful delivery state:
+`preparing_voice`, `speaking`, `output_complete`, `output_failed`, or `interrupted`.
+
+Pause keeps completed transcript turns and marks non-terminal revoked-generation turns
+interrupted; Resume appends fresh-generation turns to the same session transcript.
+Terminal turn states cannot be overwritten by stale callbacks. A separate read-only
+turn projection will feed the Live transcript; conversation bodies will not be added
+to `get_meeting_session_status`, worker/Diagnostics/log output, `runtime_state.rs`, or
+frontend-local persistence. The read snapshot must disclose if bounded retention has
+dropped older Live turns.
 
 ## Python Project / Development Tooling
 
@@ -405,15 +417,23 @@ Source-side alignment completed on `New` includes:
 - Meeting Pause/Resume with retained `session_id`, invalidated old generation, fresh-generation Resume, and rollback-to-Paused;
 - read-only Meeting Live activity presentation derived from canonical outbound status without transcript-body fabrication or a second lifecycle store.
 
+Stable plan/ownership now established but **not yet source-implemented**:
+
+- `meeting_session.rs` owns the future bounded transient committed-turn state;
+- turn commit begins only after final transcript + verified translation under current authority;
+- session chronology uses a monotonic sequence across Resume generations;
+- Live transcript will use a separate read-only projection rather than frontend accumulation;
+- persistent Meeting History remains a later finalization handoff controlled by History retention.
+
 Still incomplete or unproved:
 
-- canonical bounded committed Meeting turn/transcript source and chronological Live transcript;
+- source implementation of the canonical committed-turn store/read projection and chronological Live transcript;
 - actual frontend/Tauri invocation and rendered Start/Pause/Resume/Stop/activity behavior;
 - global/cross-view Meeting strip and close-live handling;
 - microphone/VAD quality and exactly-once/Stop/Pause race behavior;
 - actual model EOS behavior/translation quality and English TTS voice/audio quality;
 - incoming Meeting Sound, self-output suppression, turn coordination, and bounded recovery;
-- Meeting History committed-turn handoff;
+- Meeting History finalization handoff;
 - approved tone/context inference, Text Copy/direct Save;
 - scheduler contention suitability for realtime Meeting;
 - reproducible Python lock/model revision/checksum acquisition;
