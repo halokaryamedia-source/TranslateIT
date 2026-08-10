@@ -128,8 +128,19 @@ but is not normal translated output.
 One application Meeting session owner remains. Session/generation/utterance authority
 continues to reject stale asynchronous output. English TTS remains serialized.
 
-`Stop Translation` remains a direct safety action and safe native close delegates to
-canonical Stop before main-window destruction.
+`Stop Translation` is now runtime/transient cleanup only:
+
+```text
+revoke output authority
+-> stop both audio lanes
+-> cancel/join Meeting work
+-> clear suppression / finalized sequence / transient transcript
+-> clear Meeting session
+-> Ended
+```
+
+Stop no longer writes automatic Meeting History. Safe native close still delegates to
+this same canonical Stop before main-window destruction.
 
 ## Optional Incoming
 
@@ -145,7 +156,7 @@ EN speech -> final EN ASR -> canonical EN -> ID translation -> local text
 TranslateIT's own English TTS must not become incoming speech, but optional incoming is
 subordinate to required outbound.
 
-Current source now handles suppression failure as:
+Current source handles suppression failure as:
 
 ```text
 self-output suppression unavailable
@@ -193,8 +204,8 @@ cannot satisfy practical Meeting latency.
 - `engine/audio/live_capture.rs` — physical microphone capture;
 - `engine/audio/finalized_utterance.rs` — finalized speech/event identity;
 - `engine/audio/meeting_sound_capture.rs` — optional Meeting Sound loopback;
-- `commands/meeting_session.rs` — canonical Meeting session/orchestration;
-- bounded transient committed turns — current-session transcript;
+- `commands/meeting_session.rs` — canonical Meeting session/orchestration and persistence-free Stop;
+- bounded transient committed turns — current-session transcript only;
 - `helper_bridge.rs` + `helper_bridge_runtime.rs` — one AI scheduler/worker bridge;
 - `realtime_local_worker.py` — ASR / bidirectional translation / TTS worker;
 - virtual Meeting Microphone route owners;
@@ -205,16 +216,16 @@ cannot satisfy practical Meeting latency.
 
 Current source still contains behavior outside the initial product:
 
-- Pause / Resume lifecycle and controls;
+- **Pause / Resume lifecycle and controls (next cleanup target);**
 - remaining Realtime/Quality compatibility fields/caller assumptions;
 - tone-related UI/settings assumptions;
-- automatic Meeting/Text History and Saved workflow;
-- **Meeting Stop -> History finalization dependency (next cleanup target);**
+- automatic Meeting/Text History and Saved workflow/navigation;
 - History top-level navigation/settings;
 - Audio Studio/custom voice initial-product assumptions;
 - any future conversation-context path;
 - complex conversational delivery controls if encountered.
 
+Meeting Stop -> History persistence is already disconnected from the core path.
 Prefer actual removal/disconnection over compatibility layers that keep old complexity
 alive.
 
