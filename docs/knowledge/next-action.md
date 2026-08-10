@@ -2,7 +2,7 @@
 
 Updated: 2026-08-10  
 Working branch: `New`  
-Status: **The Reliable Bidirectional Translation Core is source-aligned at the worker/caller routing contract. One persistent worker now selects `marianmt-id-en` for ID -> EN and `marianmt-en-id` for EN -> ID by language direction rather than Realtime/Quality mode. Existing direct callers may still carry temporary mode compatibility fields, but mode no longer selects the model. No model-load/quality/latency proof has been obtained. The next source conflict is optional incoming self-output suppression still being able to reject required outbound TTS.**
+Status: **Reliable bidirectional translation routing and Incoming-Failure-Is-Nonblocking Outbound Delivery are source-aligned at their bounded contracts. Required outbound ID -> EN no longer returns failure solely because optional incoming self-output suppression is unavailable: incoming is disabled/ignored before the same outbound Meeting Microphone route continues. No Rust/validator/Windows runtime proof has been obtained. The next stale dependency is automatic Meeting Stop -> History persistence, which is outside the simplified initial translation core.**
 
 This file is the single active continuation owner for TranslateIT.
 
@@ -16,7 +16,7 @@ AGENTS.md
 -> docs/foundation/01-product-overview.md
 -> docs/foundation/02-product-requirements.md
 -> .agents/skills/development-brief/SKILL.md
--> inspect meeting_session.rs suppression + Meeting Sound direct contracts
+-> inspect meeting_session.rs Stop + history_store/history direct contracts only
 ```
 
 ## Current Mode
@@ -30,162 +30,173 @@ ChatGPT -> GitHub
 ```
 
 Rust/TypeScript/Python execution, static-validator execution, model files/load,
-translation quality, CUDA/CPU latency, Windows audio, rendered UI, and installed
-operation remain `LOCAL PROOF REQUIRED`.
+translation quality, CUDA/CPU latency, Windows audio, suppression effectiveness,
+rendered UI, persistence behavior, and installed operation remain
+`LOCAL PROOF REQUIRED`.
 
 # Closed Source Slice — Reliable Bidirectional Translation Core
 
-## A. One worker, direction-based routing
-
-`realtime_local_worker.py` now uses:
+The one persistent worker routes translation by language direction:
 
 ```text
 ID -> EN -> marianmt-id-en
 EN -> ID -> marianmt-en-id
 ```
 
-The model is selected by normalized source/target language direction. No second worker
-or translation engine was introduced.
+Realtime/Quality compatibility fields may still exist at old direct callers, but they
+no longer select the model. Required outbound readiness depends on ID -> EN; optional
+reverse readiness is reported separately.
 
-`TRANSLATION_RUNTIME` is cached by language direction rather than Realtime/Quality
-mode. Existing direct callers can temporarily send an old `mode` value, but it is only
-a compatibility response label and does not choose the model.
-
-## B. Required outbound vs optional reverse readiness
-
-Worker status distinguishes:
-
-```text
-translation_id_en
-translation_en_id
-translation_bidirectional
-```
-
-Required outbound provider readiness depends on ID -> EN. Missing EN -> ID remains
-visible as reverse/incoming degradation rather than falsely blocking required outbound
-Meeting Start.
-
-## C. Meeting + Text contract
-
-Current Meeting callers already send explicit directions:
-
-```text
-YOU      source=id target=en
-INCOMING source=en target=id
-```
-
-Both now reach the same worker translation command and select the appropriate direction.
-Standalone Text also sends its current source/target language settings into the same
-worker command and has no Meeting context/audio dependency.
-
-## D. Translation safety retained
-
-Worker still requires:
+Translation safety remains fail-closed for unsafe content:
 
 ```text
 no silent character truncation
-truncation=False at tokenizer
-verified input token count + model limit
-reject oversized source before inference
-verified EOS completion
-reject known incomplete output before promotion
+truncation=False
+verify model/tokenizer input limit
+reject oversized source
+verify EOS completion
+reject known incomplete output
 ```
 
-No previous-turn, History, Saved, tone, glossary, or contextual prompt layer was added.
+No Tone, previous-turn context, History context, second worker, or cloud fallback was
+added.
 
-## E. Static validation definition
+# Closed Source Slice — Incoming Failure Is Nonblocking
 
-`validate_startup_runtime_readiness.mjs` was refocused on the simplified core. It now
-defines source checks for:
+## A. Healthy incoming still protects against self-output
 
-- one direction-based bidirectional worker;
-- no NLLB/old mode-based model selection;
-- no silent truncation and no incomplete-generation promotion;
-- explicit ID->EN Meeting outbound direction;
-- explicit EN->ID Meeting incoming direction;
-- standalone Text using the same translate task;
-- required outbound readiness separated from optional reverse readiness;
-- one scheduler/session/audio owner and existing safe Stop/Close boundary.
-
-Deferred History/Pause/Tone/UI features are intentionally no longer protected as
-initial-core acceptance requirements. The validator was **not executed** in this
-channel.
-
-# Known Runtime / Asset Gap
-
-The source contract now expects:
+The existing session-scoped suppression guard remains the normal path:
 
 ```text
-RuntimeAssets/Translation/ModelData/marianmt-id-en
-RuntimeAssets/Translation/ModelData/marianmt-en-id
+outbound English TTS ready
+-> begin_self_output_suppression
+-> reset incoming speech boundary
+-> suppression ON
+-> guarded Meeting Microphone route
+-> suppression guard drops
+-> incoming resumes from a fresh boundary
 ```
 
-Repository/source inspection does not prove that the reverse checkpoint is installed,
-loadable, accurate, fast enough, correctly licensed in the packaged artifact, or
-present in a clean installer. Those are later local/release acceptance claims.
+No second suppression/audio owner was created.
 
-# Next Developing Slice — Incoming Must Never Block Required Outbound
+## B. Suppression failure no longer rejects required outbound
+
+The stale outbound failure branch was removed. Current source instead does:
+
+```text
+begin_self_output_suppression unavailable
+-> clear finalized incoming producer immediately
+-> stop Meeting Sound capture best-effort
+-> mark incoming stage = disabled / degraded
+-> incoming_session_is_eligible rejects disabled lane promotion
+-> execute the same required outbound Meeting Microphone route
+```
+
+Therefore optional incoming safety cannot be the sole reason a generation-authoritative
+outbound TTS turn returns `output_failed`.
+
+Clearing the incoming producer before route dispatch ensures still-open Meeting Sound
+callbacks have no finalized speech owner to feed while cleanup completes. An in-flight
+incoming AI result also rechecks lane eligibility before promotion and is rejected once
+the lane is disabled.
+
+## C. Outbound failure ownership remains narrow
+
+Outbound may still fail for its own required boundaries, including:
+
+```text
+stale generation
+ASR failure
+ID -> EN translation failure
+TTS generation failure
+Meeting Microphone route failure
+```
+
+Optional incoming suppression failure is not on that list anymore.
+
+## D. Static validation definition
+
+`validate_startup_runtime_readiness.mjs` now defines checks that:
+
+- healthy suppression is attempted before outbound route dispatch;
+- suppression failure calls the canonical incoming-disable path;
+- the finalized incoming producer is cleared and Meeting Sound capture is stopped
+  best-effort;
+- disabled incoming is rejected from later promotion;
+- old `suppression_unavailable` outbound result/blocker markers are absent;
+- the required outbound route still executes exactly through the existing route owner.
+
+The validator was **not executed** in this channel.
+
+# Known Proof Limits
+
+No claim is made that:
+
+- Windows Meeting Sound actually stops at the intended instant;
+- self-output suppression works against real mixed meeting audio;
+- a disabled in-flight incoming request races correctly on target hardware;
+- Meeting Microphone delivery succeeds;
+- ID -> EN / EN -> ID model assets load or translate correctly;
+- current Rust source compiles.
+
+Those remain local proof.
+
+# Next Developing Slice — Remove Stop Persistence From Core
 
 ## Goal
 
-Reconcile the remaining stale dependency where optional incoming self-output
-suppression can cause an otherwise safe outbound English TTS turn to fail.
+Remove automatic Meeting Stop -> History persistence from the initial translation core
+so stopping translation is only responsible for safe runtime shutdown and transient
+conversation cleanup.
 
 Target behavior:
 
 ```text
-TranslateIT TTS ready
--> try to protect optional incoming from hearing TranslateIT's own voice
-
-suppression available
--> suppress incoming during route playback
--> route outbound normally
-
-suppression unavailable / incoming lane unhealthy
--> mark incoming unavailable/degraded
--> stop/ignore incoming capture as required
--> route required outbound TTS normally
+Stop Translation
+-> revoke outbound authority
+-> stop required/optional audio resources
+-> cancel/join active Meeting work
+-> clear transient current-session transcript/state
+-> Ended
 ```
+
+No History write is required for Stop success.
 
 ## In scope
 
-1. change only the canonical Meeting/session + direct incoming capture/suppression
-   boundary needed to make incoming subordinate to outbound;
-2. keep own-TTS protection whenever incoming is active and healthy;
-3. when the protection boundary is unavailable, disable/degrade incoming rather than
-   return `output_failed` solely for that reason;
-4. preserve generation authority and at-most-once outbound route semantics;
-5. update static validation and canonical docs for this policy.
+1. remove `finalize_meeting_history` from the canonical Stop path;
+2. remove History store/settings imports from `meeting_session.rs` when no longer needed;
+3. keep transient committed turns for Live display, then clear them on Stop;
+4. keep safe Stop & Close delegated to the same canonical Stop owner;
+5. update validator/canonical docs so persistence is not a core success dependency.
 
 ## Out of scope
 
+- deleting every History/Saved source file in the same slice;
 - UI/navigation pruning;
 - Pause/Resume removal;
-- History/Saved removal;
 - model/download/packaging work;
-- mid-session default-device rebind;
-- AEC/fingerprint/similarity suppression;
 - local Windows acceptance.
 
 ## Acceptance criteria
 
-1. self-output suppression inability cannot be the sole reason a generation-authoritative
-   outbound TTS turn is rejected;
-2. incoming becomes explicitly degraded/stopped/ignored before unsuppressed outbound
-   playback can be mistaken for remote incoming speech;
-3. healthy incoming still uses the current deterministic suppression interval;
-4. no second Meeting/audio/suppression authority is introduced;
-5. actual Windows suppression effectiveness remains honestly unproved until local test.
+1. Meeting Stop has no call to `create_meeting_recent` / `finalize_meeting_history`;
+2. persistence failure/state cannot affect Stop completion because persistence is no
+   longer invoked by Stop;
+3. transient committed turns are still available while Live and cleared after Stop;
+4. safe native/application close continues to call the same canonical Stop;
+5. existing History source may remain disconnected/deferred without becoming a second
+   Meeting transcript owner.
 
 # Hold
 
 - do not reintroduce Tone/Context or Realtime/Quality product modes;
-- do not add a second translation worker;
+- do not add another translation worker;
 - do not use cloud fallback;
-- do not preserve optional incoming at the expense of required outbound;
-- do not broaden this slice into History/UI/packaging cleanup.
+- do not broaden Stop cleanup into full History UI deletion;
+- do not begin local acceptance inside this source cleanup slice.
 
 ## Next Step
 
-Implement **Incoming-Failure-Is-Nonblocking Outbound Delivery** in the canonical Meeting
-session/suppression path, then reconcile the next stale initial-product feature slice.
+Implement **Remove Meeting Stop -> History Persistence From Initial Core** in the
+canonical Meeting Stop path, then continue pruning stale initial-product features.
