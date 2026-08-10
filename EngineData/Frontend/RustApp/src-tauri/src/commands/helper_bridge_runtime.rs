@@ -169,6 +169,14 @@ pub fn worker_bool(value: &Value, key: &str) -> bool {
     value.get(key).and_then(Value::as_bool).unwrap_or(false)
 }
 
+fn worker_nested_bool(value: &Value, section: &str, key: &str) -> bool {
+    value
+        .get(section)
+        .and_then(|section| section.get(key))
+        .and_then(Value::as_bool)
+        .unwrap_or(false)
+}
+
 pub fn worker_text(value: &Value, key: &str) -> Option<String> {
     value
         .get(key)
@@ -193,55 +201,76 @@ fn is_contract_only_response(value: &Value) -> bool {
 
 pub fn apply_worker_status(runtime: &mut HelperBridgeRuntime, status: &Value) {
     let worker_ok = worker_bool(status, "ok");
-    let cuda_ready = worker_bool(status, "torch_cuda_available");
-    let tts_ready = worker_bool(status, "tts_default_ready");
-    let asr_ready =
-        worker_bool(status, "asr_model_ready") || worker_bool(status, "asr_backup_model_ready");
-    let translation_ready = worker_bool(status, "translation_model_ready")
-        || worker_bool(status, "quality_translation_model_ready");
-    runtime.cuda_ready = cuda_ready;
-    runtime.provider_ready = worker_ok && asr_ready && translation_ready && tts_ready;
-    runtime.degraded_mode = worker_ok && !cuda_ready;
-    runtime.last_error = worker_text(status, "blocker");
+    let asr_ready = worker_nested_bool(status, "readiness", "asr");
+    let realtime_translation_ready =
+        worker_nested_bool(status, "readiness", "translation_realtime");
+    let tts_ready = worker_nested_bool(status, "readiness", "tts");
+    let cuda_degraded = worker_nested_bool(status, "readiness", "cuda_degraded");
+
+    runtime.cuda_ready = !cuda_degraded;
+    // Compatibility field: this now means the current worker status reports the
+    // complete required outbound AI capability set (ASR + Realtime translation +
+    // TTS). It is not mutated by an individual task result below.
+    runtime.provider_ready = worker_ok && asr_ready && realtime_translation_ready && tts_ready;
+    runtime.degraded_mode = worker_ok && cuda_degraded;
+    runtime.last_error = worker_text(status, "blocker").filter(|value| !value.is_empty());
     runtime.message = if runtime.provider_ready {
-        "Python helper worker is running. Worker status reports ASR, translation, and TTS provider readiness.".to_string()
+        "Python helper process is running and current worker status reports the required outbound AI capabilities available."
+            .to_string()
     } else if let Some(blocker) = &runtime.last_error {
-        format!("Python helper worker is running, but provider readiness is blocked: {blocker}")
+        format!(
+            "Python helper process is running, but one or more required outbound AI capabilities are unavailable: {blocker}"
+        )
     } else {
-        "Python helper worker is running, but provider readiness is incomplete.".to_string()
+        "Python helper process is running. Capability status is incomplete; inspect the worker capability response instead of inferring readiness from process state."
+            .to_string()
     };
 }
 
 pub fn apply_worker_response(runtime: &mut HelperBridgeRuntime, value: &Value) -> bool {
     let ok = worker_bool(value, "ok");
-    runtime.state = if ok {
-        "ready".to_string()
-    } else {
-        "blocked".to_string()
-    };
-    if value.get("stage").and_then(Value::as_str) == Some("local_realtime_worker_preflight") {
+    let stage = value.get("stage").and_then(Value::as_str).unwrap_or_default();
+
+    if stage == "local_realtime_worker_preflight" {
         apply_worker_status(runtime, value);
     } else if is_contract_only_response(value) {
         runtime.last_error = worker_text(value, "blocker").filter(|blocker| !blocker.is_empty());
         runtime.message = worker_text(value, "note")
             .or_else(|| worker_text(value, "stage"))
             .unwrap_or_else(|| "Helper contract request completed.".to_string());
-        if !ok {
-            runtime.provider_ready = false;
-        }
     } else {
-        runtime.cuda_ready = worker_bool(value, "torch_cuda_available") || runtime.cuda_ready;
-        runtime.provider_ready = ok;
-        runtime.degraded_mode = value.get("device").and_then(Value::as_str) == Some("cpu")
+        // A task result describes that request only. It must not promote or demote
+        // process health or the cached all-capability status. Process-level state is
+        // changed only by lifecycle/I/O failure paths or an explicit worker status
+        // response.
+        let request_degraded = value.get("device").and_then(Value::as_str) == Some("cpu")
             || value
                 .get("device_note")
                 .and_then(Value::as_str)
                 .map(|note| note.contains("fallback") || note.contains("cpu"))
                 .unwrap_or(false);
-        runtime.last_error = worker_text(value, "blocker");
+        if request_degraded {
+            runtime.degraded_mode = true;
+        }
+        runtime.last_error = if ok {
+            None
+        } else {
+            worker_text(value, "blocker").filter(|blocker| !blocker.is_empty())
+        };
         runtime.message = worker_text(value, "note")
             .or_else(|| worker_text(value, "stage"))
-            .unwrap_or_else(|| "Helper request completed.".to_string());
+            .unwrap_or_else(|| {
+                if ok {
+                    "Helper request completed.".to_string()
+                } else {
+                    "Helper request failed; worker process remains available unless the bridge reports an I/O/lifecycle failure."
+                        .to_string()
+                }
+            });
+    }
+
+    if runtime.child.is_some() && runtime.stdin.is_some() && runtime.stdout.is_some() {
+        runtime.state = "ready".to_string();
     }
     runtime.updated_unix_ms = unix_ms();
     ok
@@ -281,7 +310,8 @@ pub fn read_worker_response(stdout: &mut BufReader<ChildStdout>) -> Result<Value
     if size == 0 {
         return Err("worker:stdout_closed".to_string());
     }
-    serde_json::from_str::<Value>(&line).map_err(|error| format!("worker:invalid_json_response:{error}"))
+    serde_json::from_str::<Value>(&line)
+        .map_err(|error| format!("worker:invalid_json_response:{error}"))
 }
 
 pub fn read_worker_response_direct_with_deadline(
@@ -301,11 +331,15 @@ pub fn read_worker_response_direct_with_deadline(
         Err(RecvTimeoutError::Timeout) => {
             Err(format!("worker:response_deadline_exceeded:{deadline_ms}ms"))
         }
-        Err(RecvTimeoutError::Disconnected) => Err("worker:response_reader_disconnected".to_string()),
+        Err(RecvTimeoutError::Disconnected) => {
+            Err("worker:response_reader_disconnected".to_string())
+        }
     }
 }
 
-pub fn read_worker_response_with_deadline(runtime: &mut HelperBridgeRuntime) -> Result<Value, String> {
+pub fn read_worker_response_with_deadline(
+    runtime: &mut HelperBridgeRuntime,
+) -> Result<Value, String> {
     let Some(stdout) = runtime.stdout.take() else {
         return Err("worker:stdout_missing".to_string());
     };
