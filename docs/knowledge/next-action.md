@@ -2,7 +2,7 @@
 
 Updated: 2026-08-10  
 Working branch: `New`  
-Status: **Product scope is now deliberately reduced to a reliable translation core. The current source still contains deferred feature breadth and, more importantly, the current Meeting incoming EN -> ID request is incompatible with the worker's ID->EN-only Realtime model contract. Source simplification starts with the translation engine, then removes product dependencies that can make optional features block core translation.**
+Status: **The Reliable Bidirectional Translation Core is source-aligned at the worker/caller routing contract. One persistent worker now selects `marianmt-id-en` for ID -> EN and `marianmt-en-id` for EN -> ID by language direction rather than Realtime/Quality mode. Existing direct callers may still carry temporary mode compatibility fields, but mode no longer selects the model. No model-load/quality/latency proof has been obtained. The next source conflict is optional incoming self-output suppression still being able to reject required outbound TTS.**
 
 This file is the single active continuation owner for TranslateIT.
 
@@ -16,8 +16,7 @@ AGENTS.md
 -> docs/foundation/01-product-overview.md
 -> docs/foundation/02-product-requirements.md
 -> .agents/skills/development-brief/SKILL.md
--> .agents/skills/local-ai-runtime-development/SKILL.md
--> current translation worker + direct Meeting/Text callers
+-> inspect meeting_session.rs suppression + Meeting Sound direct contracts
 ```
 
 ## Current Mode
@@ -30,153 +29,163 @@ Execution channel:
 ChatGPT -> GitHub
 ```
 
-No local runtime proof is available in this channel. Rust/TypeScript/Python execution,
-model loading/inference, translation quality, CUDA/CPU latency, Windows audio, rendered
-UI, and installed operation remain `LOCAL PROOF REQUIRED`.
+Rust/TypeScript/Python execution, static-validator execution, model files/load,
+translation quality, CUDA/CPU latency, Windows audio, rendered UI, and installed
+operation remain `LOCAL PROOF REQUIRED`.
 
-# Current Product Decision
+# Closed Source Slice — Reliable Bidirectional Translation Core
 
-Initial product is intentionally small:
+## A. One worker, direction-based routing
 
-```text
-Meeting
-├─ Start Translation
-├─ final stable ID -> EN translated voice
-├─ optional final EN -> ID incoming text
-├─ transient current-session transcript
-└─ Stop Translation
-
-Text
-├─ ID <-> EN
-├─ Translate
-└─ Copy
-
-Settings
-├─ Meeting
-└─ Advanced / Diagnostics
-```
-
-Deferred from initial core:
+`realtime_local_worker.py` now uses:
 
 ```text
-Pause / Resume
-Push to Talk
-Stop Voice
-Speak Now / Cancel coordination
-partial/evolving translated subtitles
-Auto / Formal / Casual tone controls
-Realtime / Quality user modes
-conversation-context prompting
-History / Saved
-Audio Studio / custom voice
-Document Translation
-additional languages
-incoming TTS
-mid-session automatic Meeting Sound default-device rebind
+ID -> EN -> marianmt-id-en
+EN -> ID -> marianmt-en-id
 ```
 
-The behavioral reference is Gemini 3.5 Live Translate only at the product level:
-translation may stay a few seconds behind speech for completeness and should feel like
-one simple live translation capability. Do not adopt Gemini cloud/model architecture by
-implication.
+The model is selected by normalized source/target language direction. No second worker
+or translation engine was introduced.
 
-# Primary Source Gap
+`TRANSLATION_RUNTIME` is cached by language direction rather than Realtime/Quality
+mode. Existing direct callers can temporarily send an old `mode` value, but it is only
+a compatibility response label and does not choose the model.
 
-Current worker:
+## B. Required outbound vs optional reverse readiness
+
+Worker status distinguishes:
 
 ```text
-Realtime -> marianmt-id-en -> ID -> EN only
-Quality  -> nllb-200-distilled-600M
+translation_id_en
+translation_en_id
+translation_bidirectional
 ```
 
-Current Meeting incoming requests:
+Required outbound provider readiness depends on ID -> EN. Missing EN -> ID remains
+visible as reverse/incoming degradation rather than falsely blocking required outbound
+Meeting Start.
+
+## C. Meeting + Text contract
+
+Current Meeting callers already send explicit directions:
 
 ```text
-mode = Realtime
-source_language = en
-target_language = id
+YOU      source=id target=en
+INCOMING source=en target=id
 ```
 
-The worker explicitly rejects that direction. Therefore incoming wiring exists but the
-current EN -> ID Meeting translation path is not source-functional end-to-end.
+Both now reach the same worker translation command and select the appropriate direction.
+Standalone Text also sends its current source/target language settings into the same
+worker command and has no Meeting context/audio dependency.
 
-# Developing Slice — Reliable Bidirectional Translation Core
+## D. Translation safety retained
+
+Worker still requires:
+
+```text
+no silent character truncation
+truncation=False at tokenizer
+verified input token count + model limit
+reject oversized source before inference
+verified EOS completion
+reject known incomplete output before promotion
+```
+
+No previous-turn, History, Saved, tone, glossary, or contextual prompt layer was added.
+
+## E. Static validation definition
+
+`validate_startup_runtime_readiness.mjs` was refocused on the simplified core. It now
+defines source checks for:
+
+- one direction-based bidirectional worker;
+- no NLLB/old mode-based model selection;
+- no silent truncation and no incomplete-generation promotion;
+- explicit ID->EN Meeting outbound direction;
+- explicit EN->ID Meeting incoming direction;
+- standalone Text using the same translate task;
+- required outbound readiness separated from optional reverse readiness;
+- one scheduler/session/audio owner and existing safe Stop/Close boundary.
+
+Deferred History/Pause/Tone/UI features are intentionally no longer protected as
+initial-core acceptance requirements. The validator was **not executed** in this
+channel.
+
+# Known Runtime / Asset Gap
+
+The source contract now expects:
+
+```text
+RuntimeAssets/Translation/ModelData/marianmt-id-en
+RuntimeAssets/Translation/ModelData/marianmt-en-id
+```
+
+Repository/source inspection does not prove that the reverse checkpoint is installed,
+loadable, accurate, fast enough, correctly licensed in the packaged artifact, or
+present in a clean installer. Those are later local/release acceptance claims.
+
+# Next Developing Slice — Incoming Must Never Block Required Outbound
 
 ## Goal
 
-Make the translation engine contract smaller and internally consistent before pruning
-secondary UI/runtime source.
+Reconcile the remaining stale dependency where optional incoming self-output
+suppression can cause an otherwise safe outbound English TTS turn to fail.
+
+Target behavior:
+
+```text
+TranslateIT TTS ready
+-> try to protect optional incoming from hearing TranslateIT's own voice
+
+suppression available
+-> suppress incoming during route playback
+-> route outbound normally
+
+suppression unavailable / incoming lane unhealthy
+-> mark incoming unavailable/degraded
+-> stop/ignore incoming capture as required
+-> route required outbound TTS normally
+```
 
 ## In scope
 
-1. establish **one canonical bidirectional ID <-> EN translation behavior** for Meeting
-   and Text using the existing worker/runtime architecture;
-2. remove Meeting/Text caller dependence on user/product `Realtime` vs `Quality` mode;
-3. keep model/provider selection internal and do not add a second worker/engine;
-4. preserve no-silent-truncation and complete-output validation;
-5. make optional incoming failure/suppression inability degrade/disable incoming rather
-   than fail otherwise safe outbound TTS;
-6. update static source-contract checks to reflect one bidirectional translation
-   behavior;
-7. after translation source is aligned, prune/disconnect stale product controls and
-   persistence dependencies in a subsequent bounded slice rather than mixing all UI
-   cleanup into the model patch.
+1. change only the canonical Meeting/session + direct incoming capture/suppression
+   boundary needed to make incoming subordinate to outbound;
+2. keep own-TTS protection whenever incoming is active and healthy;
+3. when the protection boundary is unavailable, disable/degrade incoming rather than
+   return `output_failed` solely for that reason;
+4. preserve generation authority and at-most-once outbound route semantics;
+5. update static validation and canonical docs for this policy.
 
-## Out of scope for this first implementation slice
+## Out of scope
 
-- local benchmark/model-quality acceptance;
-- new downloaded model/provider not already grounded by repository assets;
-- tone/context/glossary systems;
-- History/Saved removal implementation;
-- broad UI/navigation cleanup;
-- Audio Studio cleanup;
-- packaging/installer work.
+- UI/navigation pruning;
+- Pause/Resume removal;
+- History/Saved removal;
+- model/download/packaging work;
+- mid-session default-device rebind;
+- AEC/fingerprint/similarity suppression;
+- local Windows acceptance.
 
 ## Acceptance criteria
 
-1. Meeting outbound ID -> EN and optional incoming EN -> ID call the same canonical
-   bidirectional translation behavior rather than a direction-incompatible mode split.
-2. Standalone Text ID <-> EN uses that same behavior without Meeting context/audio
-   dependencies.
-3. Source is never silently truncated and known incomplete generation is not promoted.
-4. Optional incoming/suppression failure cannot be the sole reason a safe outbound TTS
-   delivery is rejected.
-5. No second worker, translation store, context store, or provider-selection UI is
-   introduced.
-
-# Proof Budget
-
-`ChatGPT -> GitHub` may prove:
-
-- exact worker model-selection/routing source;
-- both language-direction caller wiring;
-- removal of product mode dependency;
-- complete-output and no-truncation guards;
-- optional-incoming failure policy;
-- static regression definitions;
-- canonical documentation consistency.
-
-Still `LOCAL PROOF REQUIRED`:
-
-- actual ID -> EN translation quality;
-- actual EN -> ID translation quality;
-- selected model load/inference success;
-- target-PC latency/RAM/VRAM;
-- ASR/TTS/audio route behavior;
-- Windows Meeting Sound behavior;
-- rendered UX and installed package.
+1. self-output suppression inability cannot be the sole reason a generation-authoritative
+   outbound TTS turn is rejected;
+2. incoming becomes explicitly degraded/stopped/ignored before unsuppressed outbound
+   playback can be mistaken for remote incoming speech;
+3. healthy incoming still uses the current deterministic suppression interval;
+4. no second Meeting/audio/suppression authority is introduced;
+5. actual Windows suppression effectiveness remains honestly unproved until local test.
 
 # Hold
 
-- do not add tone/context before bidirectional translation is proven;
-- do not preserve Realtime/Quality as normal product concepts;
-- do not create another translation worker/engine;
-- do not silently fall back to cloud;
-- do not allow optional incoming protection to block required outbound;
-- do not broaden the first implementation slice into History/UI/packaging cleanup.
+- do not reintroduce Tone/Context or Realtime/Quality product modes;
+- do not add a second translation worker;
+- do not use cloud fallback;
+- do not preserve optional incoming at the expense of required outbound;
+- do not broaden this slice into History/UI/packaging cleanup.
 
 ## Next Step
 
-Implement **Reliable Bidirectional Translation Core** using the current worker and
-direct Meeting/Text callers, then reconcile source-level proof and return to the next
-bounded simplification slice.
+Implement **Incoming-Failure-Is-Nonblocking Outbound Delivery** in the canonical Meeting
+session/suppression path, then reconcile the next stale initial-product feature slice.
