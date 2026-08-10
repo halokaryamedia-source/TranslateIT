@@ -159,51 +159,6 @@ pub fn begin_application_meeting_session() -> RuntimeSessionStateReport {
     build_session_state_report(Some(snapshot))
 }
 
-pub fn begin_application_meeting_session_resume() -> RuntimeSessionStateReport {
-    let store = RUNTIME_SESSION_STATE.get_or_init(|| Mutex::new(None));
-    let Ok(mut guard) = store.lock() else {
-        return blocked_session_report(
-            "runtime_session:state_lock_failed",
-            "Meeting session could not Resume because runtime session state is unavailable.",
-        );
-    };
-    let Some(snapshot) = guard.as_mut() else {
-        return blocked_session_report(
-            "runtime_session:no_active_session",
-            "Meeting session could not Resume because no paused application Meeting session exists.",
-        );
-    };
-    if snapshot.owner_id != APPLICATION_MEETING_OWNER_ID {
-        return RuntimeSessionStateReport {
-            has_active_session: true,
-            snapshot: Some(snapshot.clone()),
-            active_age_ms: Some(current_unix_ms().saturating_sub(snapshot.started_unix_ms)),
-            ready_for_stop: snapshot.safe_to_stop,
-            blocker: "runtime_session:owner_conflict".to_string(),
-            note: "Meeting Resume was rejected because another runtime owner holds the active session.".to_string(),
-        };
-    }
-    if snapshot.phase != "paused" || snapshot.authority_active {
-        return RuntimeSessionStateReport {
-            has_active_session: true,
-            snapshot: Some(snapshot.clone()),
-            active_age_ms: Some(current_unix_ms().saturating_sub(snapshot.started_unix_ms)),
-            ready_for_stop: snapshot.safe_to_stop,
-            blocker: "runtime_session:not_paused".to_string(),
-            note: "Meeting Resume was rejected because the application Meeting session is not paused.".to_string(),
-        };
-    }
-
-    let generation = next_runtime_generation();
-    snapshot.generation = generation;
-    snapshot.authority_active = true;
-    snapshot.phase = "resuming".to_string();
-    snapshot.live_capture_stream_active = false;
-    snapshot.note = "Paused Meeting session retained its session identity and received a fresh generation authority for transactional Resume."
-        .to_string();
-    build_session_state_report(Some(snapshot.clone()))
-}
-
 pub fn commit_application_meeting_session_live(
     generation: u64,
     live_capture_stream_active: bool,
@@ -240,70 +195,6 @@ pub fn commit_application_meeting_session_live(
         note,
         MAX_RUNTIME_NOTE_CHARS,
         "Meeting session committed Live.",
-    );
-    build_session_state_report(Some(snapshot.clone()))
-}
-
-pub fn pause_application_meeting_session_authority(
-    generation: u64,
-    note: &str,
-) -> RuntimeSessionStateReport {
-    let store = RUNTIME_SESSION_STATE.get_or_init(|| Mutex::new(None));
-    let Ok(mut guard) = store.lock() else {
-        return blocked_session_report(
-            "runtime_session:state_lock_failed",
-            "Meeting session could not Pause because runtime session state is unavailable.",
-        );
-    };
-    let Some(snapshot) = guard.as_mut() else {
-        return blocked_session_report(
-            "runtime_session:no_active_session",
-            "Meeting session could not Pause because no application Meeting session exists.",
-        );
-    };
-    if snapshot.owner_id != APPLICATION_MEETING_OWNER_ID {
-        return RuntimeSessionStateReport {
-            has_active_session: true,
-            snapshot: Some(snapshot.clone()),
-            active_age_ms: Some(current_unix_ms().saturating_sub(snapshot.started_unix_ms)),
-            ready_for_stop: snapshot.safe_to_stop,
-            blocker: "runtime_session:owner_conflict".to_string(),
-            note: "Meeting Pause was rejected because another runtime owner holds the active session.".to_string(),
-        };
-    }
-    if snapshot.phase == "paused" && !snapshot.authority_active {
-        return build_session_state_report(Some(snapshot.clone()));
-    }
-    if snapshot.generation != generation {
-        return RuntimeSessionStateReport {
-            has_active_session: true,
-            snapshot: Some(snapshot.clone()),
-            active_age_ms: Some(current_unix_ms().saturating_sub(snapshot.started_unix_ms)),
-            ready_for_stop: snapshot.safe_to_stop,
-            blocker: "runtime_session:generation_mismatch".to_string(),
-            note: "Meeting Pause did not change authority because the requested generation is stale.".to_string(),
-        };
-    }
-    if !matches!(snapshot.phase.as_str(), "live" | "resuming") || !snapshot.authority_active {
-        return RuntimeSessionStateReport {
-            has_active_session: true,
-            snapshot: Some(snapshot.clone()),
-            active_age_ms: Some(current_unix_ms().saturating_sub(snapshot.started_unix_ms)),
-            ready_for_stop: snapshot.safe_to_stop,
-            blocker: "runtime_session:not_live".to_string(),
-            note: "Meeting Pause was rejected because the application Meeting session does not hold Live/Resume generation authority."
-                .to_string(),
-        };
-    }
-
-    invalidate_runtime_generation();
-    snapshot.authority_active = false;
-    snapshot.phase = "paused".to_string();
-    snapshot.live_capture_stream_active = false;
-    snapshot.note = compact_runtime_text(
-        note,
-        MAX_RUNTIME_NOTE_CHARS,
-        "Meeting session paused and old generation authority invalidated.",
     );
     build_session_state_report(Some(snapshot.clone()))
 }
@@ -532,13 +423,12 @@ fn build_session_state_report(
         Some(snapshot) => {
             let active_age_ms = current_unix_ms().saturating_sub(snapshot.started_unix_ms);
             let authority_active = snapshot.authority_active;
-            let intentionally_paused = snapshot.phase == "paused" && !authority_active;
             RuntimeSessionStateReport {
                 has_active_session: true,
                 snapshot: Some(snapshot.clone()),
                 active_age_ms: Some(active_age_ms),
                 ready_for_stop: snapshot.safe_to_stop,
-                blocker: if authority_active || intentionally_paused {
+                blocker: if authority_active {
                     String::new()
                 } else {
                     "runtime_session:authority_revoked".to_string()
