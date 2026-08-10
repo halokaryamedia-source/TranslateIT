@@ -95,7 +95,7 @@ fn incoming_session_is_eligible(session_id: &str) -> bool {
         .map(|snapshot| {
             snapshot.owner_id == APPLICATION_MEETING_OWNER_ID
                 && snapshot.session_id == session_id
-                && matches!(snapshot.phase.as_str(), "live" | "paused" | "resuming")
+                && snapshot.phase == "live"
         })
         .unwrap_or(false)
 }
@@ -384,7 +384,7 @@ fn send_worker_task(task: &str, mut payload: Value) -> HelperBridgeWorkerRespons
                         priority,
                         "error",
                         "helper_bridge:lock_poisoned_after_read_failure",
-                        "Helper response failed and bridge state could not be recovered.",
+                        "Helper response failed and bridge state could not be recovered safely.",
                     ),
                 };
             }
@@ -801,7 +801,7 @@ pub fn cancel_helper_bridge_meeting_session(session_id: &str) -> HelperBridgeAct
 #[tauri::command]
 pub fn cancel_helper_bridge_task() -> HelperBridgeActionResult {
     // Preserve the inherited general cancellation command for Diagnostics/legacy callers.
-    // Product Meeting Pause/Stop now use their scoped generation/session cancellation APIs.
+    // Canonical Meeting Stop uses scoped session cancellation.
     match runtime().lock() {
         Ok(mut runtime) => {
             if runtime.active_task.is_some() {
