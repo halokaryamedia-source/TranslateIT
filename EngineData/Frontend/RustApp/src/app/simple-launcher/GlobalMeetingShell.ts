@@ -103,6 +103,7 @@ function showCloseDialog(
   stopAndCloseEnabled: boolean,
 ): void {
   refs.closeDialogMessage.textContent = message;
+  refs.closeDialog.dataset.stopAndCloseEnabled = stopAndCloseEnabled ? "true" : "false";
   refs.stopAndCloseButton.disabled = !stopAndCloseEnabled || stopAndCloseInFlight;
   refs.stopAndCloseButton.textContent = stopAndCloseInFlight ? "Stopping..." : "Stop & Close";
   if (!refs.closeDialog.open) refs.closeDialog.showModal();
@@ -262,7 +263,8 @@ async function handleStopAndClose(refs: GlobalMeetingShellRefs): Promise<void> {
   } finally {
     stopAndCloseInFlight = false;
     if (refs.closeDialog.open && !closeAfterExistingStop) {
-      refs.stopAndCloseButton.disabled = false;
+      const enabled = refs.closeDialog.dataset.stopAndCloseEnabled === "true";
+      refs.stopAndCloseButton.disabled = !enabled;
       refs.stopAndCloseButton.textContent = "Stop & Close";
     }
   }
