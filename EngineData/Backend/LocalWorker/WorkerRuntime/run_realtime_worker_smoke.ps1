@@ -21,37 +21,36 @@ if (-not (Test-Path $PythonExe)) {
     throw "Canonical WorkerRuntime environment is missing. Run setup_realtime_worker.ps1 first."
 }
 
+$processInfo = New-Object System.Diagnostics.ProcessStartInfo
+$processInfo.FileName = $PythonExe
+$processInfo.Arguments = '"' + ($Worker -replace '"', '\"') + '"'
+$processInfo.RedirectStandardInput = $true
+$processInfo.RedirectStandardOutput = $true
+$processInfo.RedirectStandardError = $true
+$processInfo.UseShellExecute = $false
+$processInfo.CreateNoWindow = $true
+
+$process = New-Object System.Diagnostics.Process
+$process.StartInfo = $processInfo
+[void]$process.Start()
+$process.StandardInput.AutoFlush = $true
+
 function Invoke-WorkerJson {
     param([hashtable]$Payload)
 
+    if ($process.HasExited) {
+        $stderr = $process.StandardError.ReadToEnd().Trim()
+        throw "Persistent worker exited before command $($Payload.command); stderr=$stderr"
+    }
+
     $json = $Payload | ConvertTo-Json -Compress -Depth 12
-    $processInfo = New-Object System.Diagnostics.ProcessStartInfo
-    $processInfo.FileName = $PythonExe
-    $processInfo.Arguments = '"' + ($Worker -replace '"', '\"') + '"'
-    $processInfo.RedirectStandardInput = $true
-    $processInfo.RedirectStandardOutput = $true
-    $processInfo.RedirectStandardError = $true
-    $processInfo.UseShellExecute = $false
-    $processInfo.CreateNoWindow = $true
-
-    $process = New-Object System.Diagnostics.Process
-    $process.StartInfo = $processInfo
-    [void]$process.Start()
     $process.StandardInput.WriteLine($json)
-    $process.StandardInput.Close()
-    if (-not $process.WaitForExit(180000)) {
-        try { $process.Kill() } catch {}
-        throw "Worker command timed out: $($Payload.command)"
+    $line = $process.StandardOutput.ReadLine()
+    if ([string]::IsNullOrWhiteSpace($line)) {
+        $stderr = $process.StandardError.ReadToEnd().Trim()
+        throw "Persistent worker returned no response for command $($Payload.command); stderr=$stderr"
     }
-
-    $stdout = $process.StandardOutput.ReadToEnd().Trim()
-    $stderr = $process.StandardError.ReadToEnd().Trim()
-    if ($process.ExitCode -ne 0 -or $stdout.Length -eq 0) {
-        throw "Worker command failed: $($Payload.command); stderr=$stderr"
-    }
-
-    $firstLine = ($stdout -split "`r?`n" | Select-Object -First 1)
-    return $firstLine | ConvertFrom-Json -ErrorAction Stop
+    return $line | ConvertFrom-Json -ErrorAction Stop
 }
 
 Write-Host "TranslateIT local persistent-worker smoke test"
@@ -59,31 +58,40 @@ Write-Host "Root: $Root"
 Write-Host "Mode: $Mode"
 Write-Host "Audio provided: $([bool]($AudioPath.Trim().Length -gt 0))"
 
-$status = Invoke-WorkerJson @{ command = "status" }
-$translation = Invoke-WorkerJson @{
-    command = "translate"
-    text = $Text
-    source_language = "id"
-    target_language = "en"
-    mode = $Mode
-    max_new_tokens = 48
-}
-$ttsPreflight = Invoke-WorkerJson @{ command = "tts_preflight" }
-$tts = $null
-if ($TtsText.Trim().Length -gt 0) {
-    $tts = Invoke-WorkerJson @{
-        command = "synthesize"
-        text = $TtsText
+try {
+    $status = Invoke-WorkerJson @{ command = "status" }
+    $translation = Invoke-WorkerJson @{
+        command = "translate"
+        text = $Text
+        source_language = "id"
+        target_language = "en"
+        mode = $Mode
+        max_new_tokens = 48
+    }
+    $ttsPreflight = Invoke-WorkerJson @{ command = "tts_preflight" }
+    $tts = $null
+    if ($TtsText.Trim().Length -gt 0) {
+        $tts = Invoke-WorkerJson @{
+            command = "synthesize"
+            text = $TtsText
+        }
+    }
+    $asr = $null
+    if ($AudioPath.Trim().Length -gt 0) {
+        $asr = Invoke-WorkerJson @{
+            command = "transcribe"
+            audio_path = $AudioPath
+            language = "id"
+            beam_size = 1
+            vad_filter = $true
+        }
     }
 }
-$asr = $null
-if ($AudioPath.Trim().Length -gt 0) {
-    $asr = Invoke-WorkerJson @{
-        command = "transcribe"
-        audio_path = $AudioPath
-        language = "id"
-        beam_size = 1
-        vad_filter = $true
+finally {
+    try { $process.StandardInput.Close() } catch {}
+    if (-not $process.WaitForExit(5000)) {
+        try { $process.Kill() } catch {}
+        try { [void]$process.WaitForExit(5000) } catch {}
     }
 }
 
@@ -92,9 +100,10 @@ if ($null -ne $tts) { $ok = $ok -and [bool]$tts.ok }
 if ($null -ne $asr) { $ok = $ok -and [bool]$asr.ok }
 
 $result = [ordered]@{
-    schema = "translateit.local_worker_smoke_result.v3.redacted"
+    schema = "translateit.local_worker_smoke_result.v4.redacted.persistent"
     created_at = (Get-Date).ToUniversalTime().ToString("o")
     privacy = "source_text_and_audio_path_redacted"
+    persistent_worker = $true
     ok = $ok
     mode = $Mode
     text_chars = $Text.Length
@@ -105,7 +114,7 @@ $result = [ordered]@{
     tts_preflight = $ttsPreflight
     tts = $tts
     asr = $asr
-    note = "This smoke result proves only the observed local worker command path on this PC. It is not model-quality, latency, Windows audio-delivery, or release proof."
+    note = "This smoke result proves only the observed persistent worker command path on this PC. It is not model-quality, latency, Windows audio-delivery, or release proof."
 }
 
 New-Item -ItemType Directory -Force -Path $EvidenceRoot | Out-Null
@@ -116,4 +125,4 @@ if (-not $ok) {
     exit 1
 }
 
-Write-Host "Smoke test finished and privacy-bounded evidence saved: $EvidencePath"
+Write-Host "Persistent-worker smoke finished and privacy-bounded evidence saved: $EvidencePath"
