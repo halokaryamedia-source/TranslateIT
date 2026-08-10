@@ -11,7 +11,6 @@ use super::helper_bridge::{
 };
 
 const MAX_TEXT_TRANSLATION_CHARS: usize = 2_000;
-const TEXT_TRANSLATION_MODE: &str = "Quality";
 
 fn clean_source(value: &str) -> String {
     value
@@ -97,7 +96,6 @@ fn translate_with_persistent_helper(source: &str) -> CommandResult {
         "text": source,
         "source_language": settings.source_language,
         "target_language": settings.target_language,
-        "mode": TEXT_TRANSLATION_MODE,
         "max_new_tokens": 96,
         "request_kind": "standalone_text",
     });
@@ -118,17 +116,19 @@ fn translate_with_persistent_helper(source: &str) -> CommandResult {
         .trim();
     let stage_is_translate =
         worker_response.get("stage").and_then(Value::as_str) == Some("translate");
-    let mode_is_quality =
-        worker_response.get("mode").and_then(Value::as_str) == Some(TEXT_TRANSLATION_MODE);
+    let contract_is_canonical = worker_response
+        .get("translation_contract")
+        .and_then(Value::as_str)
+        == Some("canonical_bidirectional_id_en");
 
-    if response.ok && stage_is_translate && mode_is_quality && !translated.is_empty() {
+    if response.ok && stage_is_translate && contract_is_canonical && !translated.is_empty() {
         return CommandResult::ok(LifecycleState::Idle, translated.to_string());
     }
 
     CommandResult::blocked(
         LifecycleState::TranslationAdapterPending,
         format!(
-            "Local Quality translation is unavailable. {}",
+            "Local translation is unavailable for the selected language direction. {}",
             worker_blocker(&worker_response)
         ),
     )
