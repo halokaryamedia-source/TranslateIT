@@ -659,3 +659,93 @@ Pause. The suppression gate is the minimum deterministic mechanism that satisfie
 must-not-self-transcribe requirement using the current blocking TTS-route boundary,
 while preserving outbound priority and avoiding speculative echo-cancellation
 infrastructure.
+
+## D-023 — Reliable Translation Core Supersedes Feature Breadth
+
+**Decision**  
+The initial product is reduced to the smallest useful translation core:
+
+```text
+Meeting
+├─ Start Translation
+├─ continuous listening
+├─ final stable transcript/translation
+├─ required ID -> EN translated voice
+├─ optional EN -> ID incoming text
+└─ Stop Translation
+
+Text
+├─ ID <-> EN direction
+├─ Translate
+└─ Copy
+
+Settings
+├─ Meeting devices/setup
+└─ Advanced diagnostics
+```
+
+The product no longer treats the following as initial-core requirements:
+
+```text
+Pause / Resume
+Push to Talk
+Stop Voice
+Speak Now / Cancel delivery coordination
+partial/evolving translated subtitles
+Auto / Formal / Casual tone controls
+Realtime / Quality user modes
+conversation-context prompting
+History / Saved
+Audio Studio / custom voice
+Document Translation
+additional language pairs
+incoming TTS
+mid-session automatic Meeting Sound default-device rebind
+```
+
+This decision supersedes the earlier portions of D-013 through D-022 only where those
+older decisions describe features now removed/deferred from the initial product. Their
+ownership/reasoning remains useful provenance for any source that still exists during
+cleanup, but they are no longer permission to keep that source in the normal product
+flow.
+
+The translation engine contract also becomes smaller: initial Meeting and Text expose
+one canonical local **bidirectional Indonesian <-> English translation behavior**.
+Model/provider choice is internal and replaceable. A one-direction implementation must
+not be presented as two-direction support. Current utterance/text is the model input;
+previous Meeting turns and persistent storage do not automatically become context.
+A few seconds of bounded delay is acceptable when it improves stable, complete
+translation.
+
+Incoming remains optional. If Meeting Sound capture, self-output suppression, incoming
+ASR, or EN -> ID translation cannot operate safely, incoming degrades/disables while
+required outbound ID -> EN translation continues. In particular, failure of the
+self-output suppression boundary must no longer block an otherwise safe outbound TTS
+attempt.
+
+Persistent History/Saved is removed from the initial core rather than being coupled to
+Meeting Stop. Live transcript remains transient session state. Existing persistence
+source may be retired/disabled during the implementation cleanup but must not remain a
+translation success dependency.
+
+The behavioral inspiration is Gemini 3.5 Live Translate's product direction of fluid
+live translation with a small context/completeness delay rather than forcing instant
+turn-by-turn output. This is a **behavioral reference only**; TranslateIT remains a
+local-first Windows product and does not adopt Gemini's model, cloud architecture,
+70+ language scope, voice-preservation claims, or streaming implementation merely by
+reference.
+
+**Reason**  
+Repository inspection showed that feature breadth had moved ahead of the proven
+translation core. The current Realtime model path is explicitly ID -> EN only while the
+new incoming wiring asks it for EN -> ID, so source complexity can coexist with a
+non-functional core direction. Tone/context also had no compatible inference
+mechanism, and persistence/lifecycle features added more paths to validate without
+improving basic translation success.
+
+The user explicitly prioritized a translator that works smoothly over a feature-rich
+application that is difficult to prove or operate. Reducing the product now creates a
+clear acceptance gate: first prove stable final ASR, both translation directions,
+outbound TTS/Meeting Microphone delivery, optional incoming behavior, safe Stop/Close,
+and standalone Text on the target Windows machine. Only after that evidence should a
+removed/deferred feature be reconsidered.
