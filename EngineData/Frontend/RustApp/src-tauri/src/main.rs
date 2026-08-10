@@ -9,7 +9,9 @@ const APPLICATION_MEETING_OWNER_ID: &str = "translateit_application_meeting";
 fn main() {
     let app = commands::registry::register(
         tauri::Builder::default().setup(|app| app_bootstrap::configure_main_window(app)),
-    );
+    )
+    .build(tauri::generate_context!())
+    .expect("TranslateIT app failed to build");
 
     app.run(|app_handle, event| {
         if let tauri::RunEvent::ExitRequested { api, .. } = event {
