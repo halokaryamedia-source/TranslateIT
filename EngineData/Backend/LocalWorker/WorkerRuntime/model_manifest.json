@@ -53,7 +53,7 @@
     {
       "model_id": "marianmt-id-en",
       "required": true,
-      "stage": "translation_realtime",
+      "stage": "translation_id_en",
       "backend": "marianmt",
       "source_type": "huggingface",
       "repo_id": "Helsinki-NLP/opus-mt-id-en",
@@ -64,31 +64,31 @@
       ],
       "gpu_capable": true,
       "cpu_fallback": true,
-      "download_url": null,
+      "download_url": "https://huggingface.co/Helsinki-NLP/opus-mt-id-en",
       "checksum": null,
       "install_method": "huggingface_snapshot_download",
-      "license": "project-local runtime asset; source URL not defined yet",
-      "notes": "Realtime ID-to-EN translation model candidate for Meeting. Presence does not prove inference readiness."
+      "license": "apache-2.0",
+      "notes": "Required Indonesian-to-English translation asset for Meeting outbound and ID-to-EN Text. Presence is installation evidence only; worker load, inference, quality, and latency are verified separately."
     },
     {
-      "model_id": "nllb-200-distilled-600M",
+      "model_id": "marianmt-en-id",
       "required": false,
-      "stage": "translation_quality",
-      "backend": "nllb",
+      "stage": "translation_en_id",
+      "backend": "marianmt",
       "source_type": "huggingface",
-      "repo_id": "facebook/nllb-200-distilled-600M",
+      "repo_id": "Helsinki-NLP/opus-mt-en-id",
       "revision": null,
-      "expected_path": "EngineData/Backend/RuntimeAssets/Translation/ModelData/nllb-200-distilled-600M",
+      "expected_path": "EngineData/Backend/RuntimeAssets/Translation/ModelData/marianmt-en-id",
       "legacy_paths": [
-        "EngineData/Backend/RuntimeAssets/Translation/ModelData/nllb-200-distilled-600M"
+        "EngineData/Backend/RuntimeAssets/Translation/ModelData/marianmt-en-id"
       ],
       "gpu_capable": true,
       "cpu_fallback": true,
-      "download_url": null,
+      "download_url": "https://huggingface.co/Helsinki-NLP/opus-mt-en-id",
       "checksum": null,
       "install_method": "huggingface_snapshot_download",
-      "license": "project-local runtime asset; source URL not defined yet",
-      "notes": "Quality ID/EN translation capability asset. Missing Quality capability must be reported by worker/Text readiness rather than blocking unrelated Meeting readiness."
+      "license": "apache-2.0",
+      "notes": "English-to-Indonesian translation asset for reverse Text and optional incoming Meeting assistance. It is intentionally nonblocking for required Meeting outbound inventory. Presence is installation evidence only; worker load, inference, quality, and latency are verified separately."
     },
     {
       "model_id": "piper",
