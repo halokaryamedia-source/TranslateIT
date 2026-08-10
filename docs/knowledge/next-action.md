@@ -2,7 +2,7 @@
 
 Updated: 2026-08-10  
 Working branch: `New`  
-Status: **The Canonical Incoming Meeting Sound + Self-Output Suppression boundary is ownership-resolved. Incoming will be a separate optional Windows Meeting Sound lane, but `meeting_session.rs` remains the one application Meeting/session and committed-turn authority. Shared speech/event ordering moves to the finalized-utterance boundary so outbound and incoming turns cannot be reordered by asynchronous ASR/translation completion. Source implementation is next.**
+Status: **Canonical Incoming Meeting Sound + Self-Output Suppression is source-aligned. A distinct Meeting Sound output-loopback owner now feeds finalized `INCOMING` speech into the same application Meeting/session, both lanes share finalized speech/event ordering before AI, incoming may remain active during outbound Pause, TranslateIT TTS is suppressed from incoming capture during guarded playback, and Live/History render both lanes from the same canonical committed-turn source.**
 
 This file is the single active continuation owner for TranslateIT.
 
@@ -13,14 +13,13 @@ AGENTS.md
 -> CONTEXT.md
 -> docs/knowledge/next-action.md
 -> docs/knowledge/source-ownership.md
--> .agents/skills/development-brief/SKILL.md
--> .agents/skills/windows-audio-runtime-development/SKILL.md
--> current Meeting audio/session/helper/frontend direct contracts only
+-> docs/foundation/02-product-requirements.md PR-040..049
+-> inspect only current settings / Meeting+Text translation worker-call contracts for the next Plan boundary
 ```
 
 ## Current Mode
 
-**Developing**.
+**Plan**.
 
 Execution channel:
 
@@ -28,217 +27,170 @@ Execution channel:
 ChatGPT -> GitHub
 ```
 
-Before implementing Windows output-loopback capture, verify the current official
-Microsoft Windows audio-loopback contract and the current documentation for whichever
-Rust binding/API is actually selected. Repository policy remains semantic authority;
-external documentation only resolves platform/API mechanics.
-
 Rust compilation, TypeScript typecheck, static-validator execution, Windows output-
-loopback capture, VAD behavior, self-output suppression, actual model inference,
-rendered incoming transcript behavior, scheduler contention, device rebind behavior,
-and installed operation remain `LOCAL PROOF REQUIRED`.
+loopback capture, VAD behavior, self-output suppression effectiveness, actual model
+inference, rendered mixed-lane transcript behavior, scheduler contention, device
+rebind behavior, filesystem History persistence, race timing, and installed operation
+remain `LOCAL PROOF REQUIRED`.
 
-# Closed Planning Boundary — Canonical Incoming Meeting Sound
+# Closed Source Boundary — Incoming Meeting Sound
 
-## A. One application Meeting authority remains
+## A. One Meeting authority remains
 
-The application Meeting lifecycle is unchanged:
+Canonical lifecycle/conversation ownership is still:
 
 ```text
 runtime_state.rs + meeting_session.rs
--> one session_id
+-> one application session_id
 -> outbound generation authority
 -> one bounded committed-turn source
 -> one Stop / History finalization path
 ```
 
-Incoming does **not** create another Meeting session, lifecycle store, conversation
-store, History writer, or frontend accumulator.
+No second Meeting session, conversation store, History writer, helper worker, or
+frontend transcript accumulator was added.
 
-`meeting_session.rs` remains the orchestration and committed-conversation owner for
-both `YOU` and `INCOMING` turns.
+## B. Separate Meeting Sound capture owner
 
-## B. Meeting Sound capture has a distinct audio owner
+Physical microphone remains `engine/audio/live_capture.rs`.
 
-Current `audio/live_capture.rs` is the physical microphone owner and owns one native
-input stream. It must remain outbound microphone capture rather than being stretched
-into two unrelated device semantics.
-
-Implement one dedicated Windows audio owner under the existing audio subsystem:
+Incoming Meeting Sound is now owned by:
 
 ```text
 engine/audio/meeting_sound_capture.rs
 ```
 
-Responsibility:
+It uses `RuntimeSettings.audio.output_device_id` and the existing CPAL/WASAPI path to
+open the selected Windows render/output endpoint as the loopback source. `None` follows
+Windows Default; an explicitly pinned missing endpoint degrades incoming instead of
+silently substituting another device.
 
-```text
-RuntimeSettings.audio.output_device_id
--> selected Windows Meeting Sound output endpoint
--> native output-loopback PCM capture
--> incoming finalized-speech feed
-```
+No extra Windows audio crate/runtime was introduced. Actual Windows loopback behavior
+is not proven in this channel.
 
-`output_device_id = None` keeps Follow Windows Default semantics. An explicitly pinned
-missing device makes incoming unavailable/degraded; it must not silently fall back to
-another output device.
+## C. Shared speech/event chronology before AI
 
-The exact Windows loopback API/binding is an implementation detail for the Developing
-slice, but capture stays in the Rust/Windows audio boundary rather than becoming a
-second Python audio runtime.
-
-## C. One finalized speech/event ordering owner
-
-`engine/audio/finalized_utterance.rs` remains the finalized-speech owner and is
-reconciled from outbound-only semantics into one Meeting finalized-utterance boundary
-with independent lane VAD state and **one session-wide speech/event sequence**.
-
-Planned conceptual shape:
+`engine/audio/finalized_utterance.rs` now owns:
 
 ```text
 FinalizedMeetingUtterance
 ├─ session_id
-├─ sequence                # allocated when speech finalizes, before AI
+├─ sequence                # one session-wide event order
 ├─ lane                    # you | incoming
-├─ generation              # Some(...) for outbound, None for incoming
-├─ utterance_id            # lane-local provenance
-├─ frame
-├─ speech_duration_ms
-└─ total_duration_ms
+├─ generation              # outbound Some(...), incoming None
+├─ utterance_id
+└─ finalized AudioFrame
 ```
 
-The shared `sequence` is reset only for a new Meeting session. Pause may clear/disable
-the outbound producer but must retain the session sequence and incoming producer.
-Resume enables a fresh outbound generation while incoming continues under the same
-session sequence.
+The shared `sequence` is allocated when VAD finalizes speech, before ASR/translation.
+This prevents callback/model latency from becoming conversation chronology.
 
-This refines the outbound-only committed-turn design: chronology must no longer be
-allocated after translation completion because two concurrent lanes could otherwise be
-ordered by model latency rather than speech/event order.
+New Start resets sequence. Pause keeps incoming + sequence. Resume attaches fresh
+outbound generation to the same sequence. Stop clears both after consumer cleanup.
 
-## D. Committed turn contract becomes lane-neutral
+Incoming pending finalized speech stays bounded and drops older pending incoming work
+before stale subtitles grow without bound.
 
-The one transient store in `meeting_session.rs` accepts the preassigned finalized-event
-`sequence` and deduplicates by `(session_id, sequence)`.
+## D. One dual-lane committed-turn store
 
-Planned minimum committed turn:
+`meeting_session.rs` remains the single conversation-body owner:
 
 ```text
 session_id
 sequence
-generation: optional       # outbound provenance only
+generation: optional     # outbound only
 utterance_id
 lane: you | incoming
 source_text
 translated_text
-delivery_state: optional   # outbound only
+delivery_state: optional # outbound only
 created_unix_ms
 updated_unix_ms
 ```
 
-Outbound keeps its current delivery states:
+Dedupe/order uses `(session_id, sequence)`. Outbound keeps truthful delivery state;
+incoming has `delivery_state = None` because there is no incoming voice output.
+
+## E. Incoming AI path
 
 ```text
-preparing_voice
-speaking
-output_complete
-output_failed
-interrupted
-```
-
-Incoming has no voice-delivery claim, therefore `delivery_state = None`. It commits
-only after final English ASR and verified Realtime English -> Indonesian translation.
-No English -> Indonesian TTS is added.
-
-Live transcript and History continue reading the same committed-turn source. `INCOMING`
-uses English source text and Indonesian translated text. No participant identity is
-invented.
-
-## E. Incoming AI pipeline
-
-The canonical incoming consumer is coordinated by `meeting_session.rs`:
-
-```text
-finalized INCOMING utterance
--> temporary WAV through the existing finalized-audio writer boundary
+Meeting Sound loopback
+-> finalized INCOMING event
+-> bounded temporary WAV
 -> final English ASR
--> verify current application Meeting session still matches session_id
+-> canonical Meeting session check
 -> Realtime English -> Indonesian translation
--> verify session again
--> commit INCOMING turn with the preassigned sequence
+-> canonical Meeting session check
+-> commit INCOMING using preassigned sequence
 ```
 
-Incoming work is session-scoped rather than outbound-generation-authority scoped. This
-is required because approved Pause behavior keeps incoming assistance available while
-outbound generation authority is revoked.
+Incoming requests carry `meeting_session_id + meeting_lane=incoming + sequence +
+utterance_id`, not outbound generation authority.
 
-A lightweight runtime-state helper may answer whether the same application Meeting
-`session_id` still exists in a lane-eligible phase. It must not store conversation
-bodies or become another authority.
+Failed/empty/stale incoming work is not committed. Incoming failure is scoped/degraded
+and does not block otherwise healthy required outbound.
 
-## F. Pause / Resume / Stop semantics
+## F. Pause / Resume / Stop
 
 ```text
 Start
--> required outbound path commits Live
--> attempt optional Meeting Sound lane
-   -> success     -> incoming listening
-   -> unavailable -> Live / incoming degraded; outbound stays Live
+-> required outbound becomes Live
+-> optional incoming capture/consumer attempted
 
 Pause
--> revoke/stop outbound generation resources
--> keep healthy Meeting Sound capture + incoming consumer running
+-> revoke outbound generation
+-> stop physical mic / outbound route / outbound consumer
+-> retain healthy Meeting Sound capture + incoming consumer
 
 Resume
--> fresh outbound generation
--> do not recreate a healthy incoming lane
+-> fresh outbound generation/resources
+-> retain healthy incoming lane + shared sequence
 
 Stop
 -> revoke outbound authority
 -> stop physical mic + Meeting Sound capture
--> cancel/join outbound + incoming AI consumers
+-> cancel helper by Meeting session
+-> join outbound + incoming consumers
 -> final committed-turn snapshot
 -> existing History policy
--> clear transient/session state
+-> clear suppression / sequence / turns / session
 ```
 
-Incoming failure never becomes a required outbound Start blocker.
+If Pause hard-cancels an active outbound helper request, the same helper owner may be
+restarted so a healthy incoming lane can continue. No parallel worker is created.
 
 ## G. Self-output suppression
 
-The initial suppression policy is deliberately deterministic and fail-closed rather
-than adding speculative acoustic-echo-cancellation infrastructure.
-
-`meeting_session.rs` owns one session-scoped **transient atomic suppression gate**. It
-is transport/safety state, not lifecycle truth.
+One session-scoped atomic suppression handle is owned by `meeting_session.rs` and
+consumed by Meeting Sound capture.
 
 ```text
-before guarded outbound TTS route playback
--> self_output_suppression = true
+before guarded TranslateIT TTS route
+-> reset incoming boundary
+-> suppression ON
+-> blocking route dispatch
 
-while true
--> Meeting Sound capture discards incoming samples
--> reset any in-progress incoming VAD utterance
--> no INCOMING turn can be finalized from that interval
+Meeting Sound callback while ON
+-> discard samples
+-> reset incoming VAD
+-> create no INCOMING event
 
-after the blocking route provider returns/cancels
--> self_output_suppression = false
--> incoming starts from a fresh speech boundary
+route returns/cancels
+-> suppression OFF
+-> reset incoming boundary
+-> resume listening
 ```
 
-Current route provider playback is blocking for the WAV duration, so the gate covers
-the source-controlled TranslateIT playback interval without inventing a fixed timeout.
+If suppression cannot be established, outbound route delivery is blocked rather than
+risking TranslateIT's own English TTS becoming a false remote `INCOMING` turn.
 
-Tradeoff is explicit: participant speech mixed into Meeting Sound while TranslateIT is
-speaking may be omitted in this initial boundary. That is preferable to falsely
-presenting TranslateIT's own English TTS as remote speech, and incoming is the
-optional/degradable lane. No text-similarity suppression, acoustic fingerprint store,
-or second echo-cancellation service is added in this slice.
+Initial accepted limitation remains: participant speech mixed into Meeting Sound while
+TranslateIT itself is speaking may be omitted. No AEC/fingerprint/similarity runtime
+was added.
 
-## H. Scheduler priority / stale-work rules
+## H. One helper scheduler
 
-The existing single helper scheduler remains the only AI scheduler, but Waiting
-Meeting work must distinguish lane priority:
+Current waiting priority is now:
 
 ```text
 Meeting outbound
@@ -247,28 +199,19 @@ Meeting outbound
 > Diagnostics / preload
 ```
 
-This remains non-preemptive for an already-running worker request. Actual contention
-and latency suitability remain local benchmark proof.
+Outbound retains generation checks. Incoming is checked by application Meeting session
+before worker execution and result promotion. Full Stop can cancel active worker work
+by Meeting session.
 
-Outbound helper work retains generation validation. Incoming helper work carries the
-application `meeting_session_id` + incoming lane identity and is rejected before worker
-execution/result promotion if the canonical Meeting session no longer exists or is
-Stopping/ended.
+Actual contention/latency remains local proof.
 
-Pause generation cancellation therefore affects outbound work without canceling the
-session-scoped incoming lane. Full Stop still cancels active Meeting helper work and
-prevents queued incoming work from promoting afterward.
+## I. Live + History presentation
 
-## I. Incoming freshness and UI
+`MeetingSessionStatus` remains body-free and adds only lightweight incoming
+capture/stage/degraded/suppressed status.
 
-Incoming pending finalized speech is bounded independently and prefers current
-comprehension: when its bounded pending queue is full, stale older pending incoming
-speech is discarded rather than allowing an old subtitle backlog to grow.
-
-`MeetingSessionStatus` may gain one lightweight `incoming` status projection for
-capture/stage/degraded/suppression truth. It contains no conversation bodies.
-
-Meeting Live will render both committed lanes from `get_meeting_committed_turns`:
+`get_meeting_committed_turns` remains the only Live conversation projection.
+`MeetingLiveActivityPresentation.ts` and Meeting History detail now render:
 
 ```text
 YOU
@@ -279,95 +222,68 @@ outbound delivery state
 INCOMING
 Indonesian translation primary
 English source secondary
-no fabricated delivery state / participant identity
+no participant identity
+no voice-delivery state
 ```
 
-Incoming-only failure/suppression remains a scoped light status/callout and must not
-turn the global Meeting strip into an outbound failure state.
+Both views use canonical event sequence and do not create another conversation store.
+Incoming-only degradation remains scoped to the Meeting view.
 
-Partial incoming subtitles are **not** part of this implementation slice; PR-077 makes
-them optional.
+## J. Static regression definition
 
-# Planned Implementation Slice
+`validate_startup_runtime_readiness.mjs` now defines checks for:
 
-Implement **Canonical Incoming Meeting Sound + Self-Output Suppression**.
+- distinct physical-mic vs Meeting-Sound capture ownership;
+- output/render endpoint loopback source path;
+- shared finalized sequence before AI;
+- lane-aware temporary WAV identity;
+- one ordered dual-lane committed-turn store;
+- incoming session-scoped EN ASR -> ID translation without incoming TTS;
+- suppression around guarded outbound route playback;
+- Pause retaining incoming and Stop ending both lanes;
+- one helper scheduler with outbound > incoming > Text > Diagnostics waiting priority;
+- truthful dual-lane Live/History rendering;
+- preservation of History/global-strip/safe-close boundaries.
 
-In scope:
+The validator was **not executed** in this channel.
 
-1. dedicated native Meeting Sound output-loopback capture owner;
-2. shared finalized-utterance lane/event sequencing;
-3. session-scoped incoming consumer for final EN ASR -> Realtime ID translation;
-4. one canonical committed-turn store for `YOU` + `INCOMING`;
-5. deterministic self-output suppression gate around guarded TTS route playback;
-6. Start/Pause/Resume/Stop optional-lane lifecycle integration;
-7. helper waiting priority `outbound > incoming > Text > Diagnostics` and stale-session guards;
-8. lightweight incoming status + Live transcript lane rendering;
-9. static source-contract validation for ownership, chronology, suppression, and no duplicate runtime.
+# Static Proof State
 
-Out of scope:
+**CURRENT-PROJECT VERIFIED** at source level:
 
-- incoming partial subtitles;
-- acoustic echo cancellation / waveform subtraction;
-- participant/process identity or Zoom/Meet/Teams process-specific capture claims;
-- conversation-aware `Speak Now / Cancel` delivery coordination;
-- global `Stop Voice` or cross-view PTT;
-- multi-instance and sleep/hibernate work;
-- packaging/benchmark/Windows acceptance.
+1. Meeting Sound has one distinct audio capture owner without creating a second Meeting/session authority;
+2. `YOU` and `INCOMING` receive one shared speech/event sequence before AI completion;
+3. the canonical committed-turn store remains the only conversation-body owner;
+4. incoming is session-scoped and retained across outbound Pause, while full Stop prevents late promotion;
+5. TranslateIT TTS route dispatch is wrapped by the shared self-output suppression gate;
+6. incoming failure remains optional/degradable and cannot become a required outbound Start blocker;
+7. one helper scheduler prioritizes outbound Meeting before incoming Meeting before Text/Diagnostics;
+8. Live and History render `INCOMING` with Indonesian translation primary, English source secondary, and no fabricated participant/delivery identity.
 
-## Acceptance criteria
+No compile/typecheck/validator execution or live Windows/model/audio/render/persistence
+proof has been obtained.
 
-1. **Separate capture, one Meeting:** Meeting Sound uses a distinct native output-
-   loopback capture owner, but lifecycle and committed conversation remain owned by the
-   existing application Meeting/session path.
-2. **True chronology:** `YOU` and `INCOMING` share a sequence allocated at finalized
-   speech/event time, not AI completion time; committed/history ordering uses that
-   sequence.
-3. **Pause-safe incoming:** incoming may remain active during outbound Pause and is
-   rejected after Stop without relying on revoked outbound generation authority.
-4. **Self-output safety:** samples observed while TranslateIT's own guarded TTS route is
-   active cannot become committed incoming speech; no second echo/suppression runtime is
-   introduced.
-5. **Optional/degradable:** incoming/device/ASR/translation failure never falsely blocks
-   healthy outbound; bounded incoming queues and scheduler priority protect realtime
-   outbound before incoming.
+# Known Gaps Kept Truthful
 
-# Proof Budget
-
-`ChatGPT -> GitHub` may prove:
-
-- one current capture/finalization/session/conversation owner per responsibility;
-- exact Start/Pause/Resume/Stop wiring;
-- event-sequence assignment and dedupe source logic;
-- suppression-gate wiring around current blocking route dispatch;
-- helper priority/session guards;
-- frontend/history read-only lane mapping;
-- static validator definitions and canonical documentation consistency.
-
-Still `LOCAL PROOF REQUIRED`:
-
-- Windows output-loopback device capture;
-- actual suppression against TranslateIT TTS and mixed participant speech;
-- microphone/Meeting Sound device changes;
-- ASR/translation quality;
-- helper contention/latency;
-- Pause/Resume/Stop races;
-- rendered Meeting Live behavior;
-- History persistence with mixed lanes;
-- Windows installed runtime.
+- approved tone/context still does not reach canonical Meeting/Text inference;
+- Text Copy/direct Save remains incomplete;
+- multi-instance enforcement and sleep/hibernate lifecycle remain incomplete;
+- `uv.lock`, model acquisition metadata, and packaging remain incomplete;
+- all compile/test/model/audio/performance/installed proof remains deferred locally.
 
 # Hold
 
-- do not reuse the physical microphone stream as fake Meeting Sound capture;
-- do not create a second Meeting/session/conversation store;
-- do not allocate shared chronology from ASR/translation callback completion order;
-- do not tag incoming work with outbound authority in a way that disables it on Pause;
-- do not let own TranslateIT TTS become an INCOMING turn;
-- do not invent participant identity or process-specific meeting capture;
-- do not add an acoustic-echo framework, incoming TTS, or partial-subtitle system in this slice.
+- do not create another Meeting/session/conversation store for incoming;
+- do not bind incoming authority to outbound generation in a way that disables Pause-safe incoming;
+- do not let TranslateIT TTS become an INCOMING turn;
+- do not invent participant/process identity;
+- do not add AEC/fingerprint/partial-subtitle/incoming-TTS systems as follow-on cleanup;
+- do not begin local Windows acceptance inside the next planning boundary.
 
 ## Next Step
 
-Implement **Canonical Incoming Meeting Sound + Self-Output Suppression** using
-`development-brief` + `windows-audio-runtime-development`, beginning with current
-official Windows output-loopback/API verification and then modifying only the direct
-audio/session/helper/frontend contracts above.
+Plan the **Translation Tone + Bounded Meeting Context Consumption Boundary**. Resolve
+how `Auto / Formal / Casual` and bounded recent committed Meeting turns reach the
+existing canonical worker requests for Meeting/Text without using persistent History as
+model context, without leaking Meeting context into standalone Text, and without
+creating another prompt/context/store authority.
