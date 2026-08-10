@@ -5,6 +5,7 @@ pub mod capture_gate;
 pub mod capture_plan;
 pub mod device;
 pub mod evidence;
+pub mod finalized_utterance;
 pub mod input;
 pub mod input_config;
 pub mod live_audio_buffer;
