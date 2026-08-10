@@ -203,6 +203,46 @@ forbidMarkers(incoming, "Meeting incoming translation", [
   'send_helper_worker_task(\n        "synthesize"',
 ]);
 
+// Optional incoming safety must never be the sole blocker for a generation-authoritative
+// outbound TTS turn. Healthy incoming still uses the deterministic suppression guard;
+// if that guard is unavailable, incoming is disabled/ignored before the same outbound
+// route proceeds.
+requireMarkers(source.meetingSession, "incoming subordinate failure policy", [
+  "fn disable_optional_incoming_for_outbound(session_id: &str) -> String",
+  "clear_finalized_incoming_utterance_producer();",
+  "stop_meeting_sound_capture_runtime();",
+  '"disabled"',
+  '"meeting_incoming:self_output_suppression_unavailable"',
+  "status.stage == \"disabled\"",
+]);
+requireMarkers(outbound, "nonblocking outbound suppression path", [
+  "let suppression_guard = match begin_self_output_suppression(session_id)",
+  "disable_optional_incoming_for_outbound(session_id)",
+  "dispatch_meeting_virtual_audio_route_provider(tts_path.clone(), generation)",
+  "drop(suppression_guard)",
+]);
+forbidMarkers(outbound, "nonblocking outbound suppression path", [
+  'state: "suppression_unavailable".to_string()',
+  '"meeting_outbound:self_output_suppression_unavailable"',
+  '"meeting_outbound_suppression_gate_required_before_delivery"',
+]);
+const suppressionStart = outbound.indexOf("begin_self_output_suppression(session_id)");
+const disableIncoming = outbound.indexOf("disable_optional_incoming_for_outbound(session_id)");
+const routeDispatch = outbound.indexOf(
+  "dispatch_meeting_virtual_audio_route_provider(tts_path.clone(), generation)",
+);
+const suppressionDrop = outbound.indexOf("drop(suppression_guard)");
+if (
+  suppressionStart < 0 ||
+  disableIncoming <= suppressionStart ||
+  routeDispatch <= disableIncoming ||
+  suppressionDrop <= routeDispatch
+) {
+  throw new Error(
+    "Outbound delivery must attempt healthy incoming suppression, disable optional incoming on suppression failure, then route once and release any active guard",
+  );
+}
+
 // Text remains standalone and uses the same worker translate task with explicit
 // language direction from current settings. Meeting context/audio is not part of it.
 requireMarkers(source.textTranslate, "standalone Text translation", [
@@ -280,5 +320,5 @@ forbidMarkers(source.meetingActivity, "Meeting live presentation", [
 ]);
 
 console.log(
-  "Reliable translation-core static contract is defined: one worker routes ID->EN and EN->ID by language direction, input is not silently truncated, incomplete generation is not promoted, Meeting and Text use the same translation task, required outbound readiness remains distinct from optional incoming readiness, and safe Meeting/session ownership is preserved. Deferred UI/persistence features are intentionally not protected by this validator. This is static source validation only and does not prove Python/Rust/TypeScript execution, model availability/load, translation quality, latency, CUDA/CPU behavior, Windows audio, rendered UI, or installed operation.",
+  "Reliable translation-core static contract is defined: one worker routes ID->EN and EN->ID by language direction, input is not silently truncated, incomplete generation is not promoted, Meeting and Text use the same translation task, required outbound readiness remains distinct from optional incoming readiness, optional incoming suppression failure disables/ignores incoming instead of rejecting required outbound TTS, and safe Meeting/session ownership is preserved. Deferred UI/persistence features are intentionally not protected by this validator. This is static source validation only and does not prove Python/Rust/TypeScript execution, model availability/load, translation quality, latency, CUDA/CPU behavior, Windows audio, suppression effectiveness, rendered UI, or installed operation.",
 );
