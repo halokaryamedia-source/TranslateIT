@@ -8,8 +8,24 @@ import time
 from pathlib import Path
 from typing import Any
 
-ROOT = Path(__file__).resolve().parents[4]
-RUNTIME_ASSETS_ROOT = ROOT / "EngineData" / "Backend" / "RuntimeAssets"
+SCRIPT_ROOT = Path(__file__).resolve().parents[4]
+
+
+def configured_absolute_root(environment_name: str, fallback: Path) -> Path:
+    raw = str(os.environ.get(environment_name, "")).strip()
+    if not raw:
+        return fallback.resolve()
+    candidate = Path(raw)
+    if not candidate.is_absolute():
+        raise RuntimeError(f"worker:{environment_name.lower()}_must_be_absolute")
+    return candidate.resolve()
+
+
+RUNTIME_ROOT = configured_absolute_root("TRANSLATEIT_RUNTIME_ROOT", SCRIPT_ROOT)
+USER_DATA_ROOT = configured_absolute_root(
+    "TRANSLATEIT_USER_DATA_ROOT", SCRIPT_ROOT / "UserData"
+)
+RUNTIME_ASSETS_ROOT = RUNTIME_ROOT / "EngineData" / "Backend" / "RuntimeAssets"
 ASR_MODEL_ROOT = RUNTIME_ASSETS_ROOT / "ASR" / "ModelData"
 TRANSLATION_MODEL_ROOT = RUNTIME_ASSETS_ROOT / "Translation" / "ModelData"
 ASR_MODEL = ASR_MODEL_ROOT / "faster-whisper-large-v3-turbo"
@@ -17,9 +33,10 @@ ASR_BACKUP_MODEL = ASR_MODEL_ROOT / "faster-whisper-medium"
 TRANSLATION_MODEL_ID_EN = TRANSLATION_MODEL_ROOT / "marianmt-id-en"
 TRANSLATION_MODEL_EN_ID = TRANSLATION_MODEL_ROOT / "marianmt-en-id"
 PIPER_ROOT = RUNTIME_ASSETS_ROOT / "Voice" / "Piper"
-CACHE_ROOT = ROOT / "UserData" / "CacheData"
-ALLOWED_INPUT_ROOTS = [ROOT / "UserData" / "CacheData", ROOT / "UserData" / "LogData"]
-ALLOWED_OUTPUT_ROOTS = [ROOT / "UserData" / "CacheData"]
+CACHE_ROOT = USER_DATA_ROOT / "CacheData"
+LOG_ROOT = USER_DATA_ROOT / "LogData"
+ALLOWED_INPUT_ROOTS = [CACHE_ROOT, LOG_ROOT]
+ALLOWED_OUTPUT_ROOTS = [CACHE_ROOT]
 
 MAX_WORKER_REQUEST_BYTES = 1_000_000
 MAX_TRANSLATION_TEXT_CHARS = 2_000
@@ -186,7 +203,12 @@ def resolve_worker_path(value: Any, default_path: Path, allowed_roots: list[Path
     raw = str(value).strip() if value not in (None, "") else str(default_path)
     path = Path(raw)
     if not path.is_absolute():
-        path = ROOT / path
+        normalized = raw.replace("\\", "/")
+        if normalized == "UserData" or normalized.startswith("UserData/"):
+            relative = normalized.removeprefix("UserData").lstrip("/")
+            path = USER_DATA_ROOT / relative
+        else:
+            path = RUNTIME_ROOT / path
     resolved = path.resolve()
     allowed = [root.resolve() for root in allowed_roots]
     if not any(resolved == root or root in resolved.parents for root in allowed):
