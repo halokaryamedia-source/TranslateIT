@@ -2,7 +2,7 @@
 
 Updated: 2026-08-10  
 Working branch: `New`  
-Status: **The Global Meeting Cross-View State + Safe Close Lifecycle boundary is ownership-resolved. The existing desktop shell/controller will present a read-only global Meeting strip from the canonical application Meeting session, and native close will use the existing canonical Stop lifecycle before application exit rather than creating a second Meeting control plane. Source implementation is next.**
+Status: **Global Meeting Strip + Safe Stop & Close is source-aligned. The existing desktop shell now presents canonical application Meeting state outside the Meeting workspace, normal native close fails closed until Meeting state is verified, `Stop & Close` reuses canonical Stop and verifies session clear before forced window destroy, and orderly native exit delegates to the same backend Stop/finalization owner.**
 
 This file is the single active continuation owner for TranslateIT.
 
@@ -13,15 +13,13 @@ AGENTS.md
 -> CONTEXT.md
 -> docs/knowledge/next-action.md
 -> docs/knowledge/source-ownership.md
--> SimpleLauncherController.ts + lockedReferenceShellParts.ts
--> runtimeProductFacade.ts / runtimeApi.ts only as existing canonical bridge
--> main.ts + windowRescue.ts + src-tauri main.rs/app_bootstrap.rs only for native window lifecycle
--> meeting_session.rs only as the existing Stop/finalization owner
+-> docs/foundation/02-product-requirements.md PR-023 / PR-076..079
+-> inspect current Meeting Sound / output-capture candidates only for the next Plan boundary
 ```
 
 ## Current Mode
 
-**Developing**.
+**Plan**.
 
 Execution channel:
 
@@ -29,21 +27,16 @@ Execution channel:
 ChatGPT -> GitHub
 ```
 
-Before implementation of version-sensitive native-window behavior, retrieve the current
-official Tauri v2 documentation for close-request/application-exit events. Repository
-policy remains semantic authority; external documentation only resolves the concrete
-Tauri API contract.
-
 Rust compilation, TypeScript typecheck, static-validator execution, native close-event
 invocation, rendered strip/dialog behavior, Stop/close race timing, filesystem History
-persistence, Windows runtime behavior, and installed operation remain
+persistence, Windows audio/device behavior, and installed operation remain
 `LOCAL PROOF REQUIRED`.
 
-# Closed Planning Boundary
+# Closed Source Boundary — Global Meeting Strip + Safe Stop & Close
 
-## A. One Meeting lifecycle authority remains
+## A. One lifecycle authority remains
 
-The canonical lifecycle remains:
+Canonical Meeting lifecycle is unchanged:
 
 ```text
 runtimeProductFacade / runtimeApi
@@ -52,217 +45,149 @@ runtimeProductFacade / runtimeApi
 -> runtime_state.rs + meeting_session.rs
 ```
 
-Cross-view presentation and native window handling must not create another Meeting
-session store, generation owner, Stop implementation, recovery controller, or
-persistence path.
+The global shell does not own Meeting session/generation state and does not implement a
+second Stop sequence.
 
-## B. Cross-view presentation owner
+## B. Cross-view Meeting strip
 
-The active desktop shell is already owned by `SimpleLauncherController.ts` together
-with the current shell markup in `lockedReferenceShellParts.ts` / `shell.ts`.
-
-That existing shell will own a **compact global Meeting strip**. It is presentation
-only and reads the canonical `MeetingSessionStatus` through the existing bridge and
-`mapProductMeetingState()`.
-
-The strip is shown outside the Meeting workspace when the application Meeting session
-exists. It covers the current application-owned lifecycle states:
+The existing shell is extended through:
 
 ```text
-Starting
-Live
-Paused
-Resuming
-Stopping
-Needs attention        # existing unsafe outbound attention only
+main.ts
+-> shell.ts markup
+-> GlobalMeetingShell.ts presentation/orchestration helper
+-> runtimeApi.getMeetingSessionStatus
+-> mapProductMeetingState
 ```
 
-Normal content is intentionally small:
+The strip:
+
+- is visible only outside the Meeting workspace while the canonical application
+  Meeting session exists;
+- presents a compact product state + ID -> EN status;
+- exposes only `Open Meeting`, delegated through the existing Meeting navigation
+  button/controller;
+- has no global Pause/Resume/Stop lifecycle controls;
+- uses a bounded lightweight Meeting-status refresh rather than the full readiness /
+  Diagnostics bundle;
+- does not read transcript bodies or accumulate Meeting state in the browser.
+
+Current product states surfaced include Starting, Live, Paused, Resuming, Stopping,
+and existing outbound `Needs attention`.
+
+## C. Native close guard
+
+Current Tauri v2 window behavior was verified against official documentation before
+implementation. The frontend uses the native close-request event as a guard and uses a
+forced window destroy only after the safe-close contract has been satisfied.
+
+Normal close behavior is now source-wired as:
 
 ```text
-Meeting state
-ID -> EN / short plain-language status
-Open Meeting
+native close request
+-> prevent requested close
+-> fresh canonical Meeting status read
+
+verified no Meeting session
+-> destroy window
+
+canonical application Meeting exists
+-> Keep Open / Stop & Close dialog
+
+status unavailable / unknown owner
+-> remain open (fail closed)
 ```
 
-`Open Meeting` reuses the existing navigation owner. The strip does not gain its own
-Pause/Resume/Stop controls. The optional contextual `Stop Voice` requirement remains a
-later capability because no current canonical Stop Voice source exists.
+The main-window capability explicitly permits only the required forced-destroy command
+in addition to the existing core defaults.
 
-The strip is hidden on the Meeting workspace to avoid duplicating the local Meeting
-controls/transcript and hidden when no application Meeting session exists.
+## D. Stop & Close completion gate
 
-Background refresh must be bounded and read-only. It must not repeatedly run the full
-product readiness/Diagnostics bundle merely to keep the strip current, and it must not
-persist a frontend Meeting state store.
-
-## C. Current source gap
-
-Current source already proves navigation independence, but it does **not** yet satisfy
-the global presentation contract:
-
-- `userPresence` / `recordStatusText` are updated only through controller readiness
-  refresh and are not a dedicated cross-view Meeting strip;
-- `MeetingLiveActivityPresentation.ts` refreshes detailed Meeting activity only while
-  the Meeting workspace is visible;
-- Settings has no dedicated global active-Meeting surface;
-- `main.ts`, `main.rs`, and `app_bootstrap.rs` currently install no safe-close guard.
-
-## D. Normal native close contract
-
-Approved product behavior remains: minimize/hide does not end a healthy Meeting, but
-closing TranslateIT while an application Meeting session exists requires explicit
-**Stop & Close**.
-
-Normal native close request:
+`Stop & Close` reuses the same product/backend action as the Meeting workspace:
 
 ```text
-read canonical Meeting status
-
-verified no application Meeting session
--> allow normal close
-
-application Meeting session exists
--> prevent native close
--> show shell-level confirmation dialog
-   -> Keep Open
-   -> Stop & Close
-
-Meeting status cannot be verified safely
--> prevent close
--> keep user control plane visible
--> show retryable close-state message
-```
-
-There is no `Close anyway` path while an application Meeting session may still own
-output authority.
-
-The confirmation dialog is a shell element, not a page and not a new lifecycle owner.
-
-## E. Stop & Close contract
-
-`Stop & Close` must reuse exactly the same canonical Stop action as the Meeting
-workspace:
-
-```text
-Stop & Close
--> runtimeProductFacade.runProductMeetingAction("stop")
+runtimeProductFacade.runProductMeetingAction("stop")
 -> stop_meeting_translation
--> revoke generation authority
--> resource cleanup
+-> authority revoke + resource cleanup
 -> Meeting History finalization policy
--> clear transient/session state
--> only then permit native window close
+-> transient/session clear
+-> fresh get_meeting_session_status verification
+-> destroy window only when has_session == false
 ```
 
-The window must not close merely because the Stop button/request was sent. The returned
-canonical state must confirm that the application Meeting session no longer exists.
+A sent Stop request is not treated as completion. Failure, unknown status, or a
+remaining session leaves TranslateIT open.
 
-If Stop/finalization reports failure or the post-Stop state still has a Meeting
-session, TranslateIT remains open and the user receives a normal product-level error.
+If canonical lifecycle is already `Stopping`, the shell does not launch another Stop.
+It waits through bounded status reads until the existing Stop clears the session, then
+completes the pending close request.
 
-For a session already in `Stopping`, close handling waits for the existing canonical
-Stop to finish rather than launching a second cleanup path. For `Starting` or
-`Resuming`, explicit `Stop & Close` is newer user intent and may invoke the existing
-backend Stop authority; generation guards must prevent the older transition from
-re-establishing output afterward.
+## E. Orderly native-exit fail-safe
 
-A one-shot frontend "close permitted" flag after verified Stop is transport/presentation
-state only; it must never represent Meeting lifecycle truth.
+`src-tauri/src/main.rs` now builds the Tauri App and listens to orderly
+`RunEvent::ExitRequested`. If the application Meeting owner still exists, it delegates
+to `commands::meeting_session::stop_meeting_translation()` rather than reproducing
+capture/helper/History cleanup.
 
-## F. Orderly native-exit fail-safe
+If cleanup still reports an application-owned Meeting and the main control window is
+available, exit is prevented and the window is restored. If no user control window
+remains, the fail-safe does not deliberately keep an invisible process alive.
 
-A frontend close guard cannot be the only safety layer because the product requirement
-also covers loss of the normal user control plane.
+This is an orderly-exit source safeguard only. Forced process termination, OS crash,
+power loss, and actual Windows event ordering are not statically proven.
 
-The Tauri application/window lifecycle owner in `main.rs` / `app_bootstrap.rs` should
-install one orderly-exit fail-safe that delegates to the **same** backend Meeting Stop/
-finalization owner if an application exit proceeds while a Meeting session still
-exists.
+## F. Static regression definition
 
-This fail-safe:
+`validate_startup_runtime_readiness.mjs` now defines checks for:
 
-- does not show a second prompt;
-- does not implement another Stop sequence;
-- does not own Meeting state;
-- only delegates to the existing canonical backend cleanup/finalization;
-- is for orderly native exit paths that still execute application lifecycle hooks.
+- global shell markup/startup wiring;
+- read-only canonical Meeting-status consumption;
+- no direct parallel Start/Pause/Resume/Stop/capture/transcript path in the global shell;
+- close-request prevention and post-Stop forced-destroy gate;
+- required `core:window:allow-destroy` capability;
+- native orderly-exit delegation to canonical Stop;
+- absence of duplicate capture/helper/History cleanup in native main;
+- preservation of previous transcript and Meeting History ownership contracts.
 
-Forced process termination, OS crash, or power loss cannot be claimed safe from static
-source and remain local/platform proof boundaries.
+The validator was **not executed** in this channel.
 
-# Planned Implementation Slice
+# Static Proof State
 
-Implement **Global Meeting Strip + Safe Stop & Close**.
+**CURRENT-PROJECT VERIFIED** at source level:
 
-In scope:
+1. one canonical backend Meeting lifecycle remains;
+2. Text/History/Settings can receive a lightweight projection of that same Meeting state without a second store;
+3. `Open Meeting` reuses current navigation rather than creating another route owner;
+4. native close does not treat an unknown Meeting status as safe-to-close;
+5. `Stop & Close` reuses canonical Stop and requires fresh proof that the session is gone before window destroy;
+6. already-Stopping state is observed rather than duplicated;
+7. orderly native exit delegates to canonical Stop/History finalization rather than reproducing cleanup;
+8. the required Tauri window-destroy capability is explicitly scoped to the main window.
 
-1. shell-level global Meeting strip in the existing shell markup/style system;
-2. bounded read-only canonical Meeting-status refresh outside the Meeting workspace;
-3. `Open Meeting` navigation through the existing controller;
-4. shell-level native close interception and `Keep Open / Stop & Close` confirmation;
-5. canonical Stop completion gate before native close is permitted;
-6. orderly native-exit fallback delegating to the same backend Stop owner;
-7. static source-contract validation for no duplicate lifecycle authority.
+No compile/typecheck/validator execution, native event invocation, rendered UI,
+Stop-close race proof, History filesystem proof, or Windows behavior was obtained.
 
-Out of scope:
+# Known Gaps Kept Truthful
 
-- contextual global `Stop Voice`;
-- cross-view Push-to-Talk implementation;
-- incoming Meeting Sound / `INCOMING` turns;
-- tray/background application mode;
-- multi-instance enforcement;
-- sleep/hibernate implementation;
-- Svelte, packaging, benchmark, or local Windows acceptance.
-
-## Acceptance criteria
-
-1. **One authority:** global strip/dialog/native-exit paths read or delegate to the
-   existing application Meeting lifecycle; no frontend/backend duplicate Meeting store
-   or cleanup sequence is introduced.
-2. **Cross-view truth:** Text, History, and Settings can show the current application
-   Meeting state and return to Meeting without stopping/recreating it; Meeting/idle do
-   not show a duplicate strip.
-3. **Safe close:** verified active/paused/transitional Meeting state prevents normal
-   window close and requires explicit `Stop & Close`; unknown status also fails closed.
-4. **Stop completion gate:** native close occurs only after canonical Stop reports no
-   remaining application Meeting session; failure leaves the app open, and existing
-   `Stopping` is not duplicated.
-5. **Orderly-exit fallback:** native app-exit handling reuses the same backend Stop/
-   History-finalization owner and does not become a second lifecycle control plane.
-
-# Proof Budget
-
-`ChatGPT -> GitHub` may prove:
-
-- current shell/window owner wiring;
-- canonical status/action caller paths;
-- absence of duplicate Meeting state/Stop implementations;
-- close-order source guards;
-- static validator definitions;
-- canonical documentation consistency.
-
-Still `LOCAL PROOF REQUIRED`:
-
-- TypeScript/Rust compilation;
-- validator execution;
-- actual Tauri close-request/event behavior;
-- confirmation dialog and cross-view rendered behavior;
-- close/Start/Resume/Stop race timing;
-- History persistence during Stop & Close;
-- Windows native lifecycle behavior.
+- incoming Meeting Sound / `INCOMING` transcript turns and self-output suppression are not implemented;
+- approved tone/context does not yet reach canonical inference;
+- Text Copy/direct Save remains incomplete;
+- multi-instance enforcement and sleep/hibernate handling remain incomplete;
+- `uv.lock`, model acquisition metadata, and packaging remain incomplete;
+- all compile/test/model/audio/performance/installed proof remains deferred locally.
 
 # Hold
 
-- do not convert native Close into minimize-to-tray/background mode;
-- do not add global Pause/Resume/Stop controls to the strip;
-- do not bypass `stop_meeting_translation` or duplicate History finalization;
-- do not treat a bridge/status failure as proof that no Meeting exists;
-- do not mix incoming Meeting, PTT, multi-instance, sleep/hibernate, packaging, or
-  Windows acceptance into this slice.
+- do not turn Close into minimize-to-tray/background behavior;
+- do not add global Pause/Resume/Stop controls or simulate `Stop Voice`;
+- do not bypass canonical `stop_meeting_translation` or duplicate History finalization;
+- do not treat status/bridge failure as proof that no Meeting exists;
+- do not mix incoming Meeting implementation into the completed close lifecycle slice.
 
 ## Next Step
 
-Implement **Global Meeting Strip + Safe Stop & Close** as the bounded Developing slice
-above, after verifying the exact current Tauri v2 close-request/application-exit API
-from official documentation.
+Plan the **Canonical Incoming Meeting Sound + Self-Output Suppression Boundary**. Resolve
+one owner/path for Meeting Sound capture -> final English ASR -> Indonesian committed
+`INCOMING` turn, including how TranslateIT's own English TTS is excluded, how incoming
+remains optional/degradable, and how it shares chronological Meeting turn ordering
+without creating a second Meeting/session/conversation authority.
