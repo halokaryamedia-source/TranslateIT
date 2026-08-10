@@ -47,8 +47,6 @@ pub fn register<R: tauri::Runtime>(builder: tauri::Builder<R>) -> tauri::Builder
         crate::commands::meeting_session::get_meeting_session_status,
         crate::commands::meeting_session::get_meeting_committed_turns,
         crate::commands::meeting_session::start_meeting_translation,
-        crate::commands::meeting_session::pause_meeting_translation,
-        crate::commands::meeting_session::resume_meeting_translation,
         crate::commands::meeting_session::stop_meeting_translation,
         crate::commands::runtime_capture::prepare_capture_start_request,
         crate::commands::runtime_capture::prepare_capture_stop_request,
