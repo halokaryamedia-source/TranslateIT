@@ -21,8 +21,6 @@ use crate::engine::audio::meeting_sound_capture::{
     meeting_sound_capture_status, start_meeting_sound_capture_runtime,
     stop_meeting_sound_capture_runtime,
 };
-use crate::engine::history_store::{create_meeting_recent, HistoryTurn};
-use crate::engine::load_settings;
 use crate::engine::runtime_state::{
     begin_application_meeting_session, begin_application_meeting_session_resume,
     clear_runtime_handoff_state, clear_runtime_session_state,
@@ -586,57 +584,6 @@ fn current_committed_turn_snapshot() -> MeetingCommittedTurnsSnapshot {
         runtime_claim: "meeting_committed_turn_snapshot_source_contract_not_rendered_runtime_proof"
             .to_string(),
     }
-}
-
-fn finalize_meeting_history(
-    snapshot: &MeetingCommittedTurnsSnapshot,
-    started_unix_ms: u128,
-    ended_unix_ms: u128,
-) -> String {
-    let settings = load_settings();
-    if !settings.history_enabled {
-        return "History is off. No Recent Meeting entry was created; transient conversation bodies were discarded at Stop."
-            .to_string();
-    }
-    if !snapshot.ok {
-        return "Recent Meeting History could not be created because the final committed-turn snapshot was unavailable. Transient conversation bodies were still cleared."
-            .to_string();
-    }
-    let Some(session_id) = snapshot.session_id.clone() else {
-        return "No Recent Meeting entry was created because the finalized Meeting session id was unavailable."
-            .to_string();
-    };
-
-    let turns = snapshot
-        .turns
-        .iter()
-        .map(|turn| HistoryTurn {
-            sequence: turn.sequence,
-            lane: turn.lane.clone(),
-            source_text: turn.source_text.clone(),
-            translated_text: turn.translated_text.clone(),
-            delivery_state: turn.delivery_state.clone(),
-            created_unix_ms: turn.created_unix_ms,
-        })
-        .collect::<Vec<_>>();
-    let interrupted = snapshot
-        .turns
-        .iter()
-        .any(|turn| turn.delivery_state.as_deref() == Some("interrupted"));
-
-    create_meeting_recent(
-        session_id,
-        started_unix_ms,
-        ended_unix_ms,
-        "id".to_string(),
-        "en".to_string(),
-        "Auto".to_string(),
-        "Realtime".to_string(),
-        interrupted,
-        snapshot.dropped_turn_count,
-        turns,
-    )
-    .message
 }
 
 fn generation_aware_outbound_stages_ready() -> bool {
@@ -2083,7 +2030,6 @@ pub fn stop_meeting_translation() -> MeetingSessionActionResult {
 
     let generation = snapshot.generation;
     let session_id = snapshot.session_id.clone();
-    let started_unix_ms = snapshot.started_unix_ms;
 
     let revoked = revoke_application_meeting_session_authority(
         generation,
@@ -2110,9 +2056,6 @@ pub fn stop_meeting_translation() -> MeetingSessionActionResult {
     let outbound_cleanup = stop_meeting_outbound_consumer(generation);
     let incoming_cleanup = stop_meeting_incoming_consumer(&session_id);
 
-    let final_turns = current_committed_turn_snapshot();
-    let history_message = finalize_meeting_history(&final_turns, started_unix_ms, unix_ms());
-
     let _ = reset_live_pipeline_handoff_status();
     let _ = clear_runtime_handoff_state();
     clear_self_output_suppression_for_session(&session_id);
@@ -2125,13 +2068,12 @@ pub fn stop_meeting_translation() -> MeetingSessionActionResult {
         ok: true,
         state: "stopped".to_string(),
         message: format!(
-            "Translation stopped. Authority was revoked before both audio lanes/helper/consumers were cleaned. Microphone: {} Meeting Sound: {} Helper: {} Outbound: {} Incoming: {} History: {}",
+            "Translation stopped. Authority was revoked before both audio lanes/helper/consumers and transient transcript/session state were cleaned. Microphone: {} Meeting Sound: {} Helper: {} Outbound: {} Incoming: {}",
             capture_stop.message,
             incoming_capture_stop.message,
             helper_cancel.message,
             outbound_cleanup,
-            incoming_cleanup,
-            history_message
+            incoming_cleanup
         ),
         status: status_from_report(cleared, build_preflight()),
     }
