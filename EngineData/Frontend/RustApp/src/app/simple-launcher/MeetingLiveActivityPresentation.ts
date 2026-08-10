@@ -7,7 +7,7 @@ import {
 import { mapProductMeetingState } from "../bridge/runtimeProductFacade";
 
 const MEETING_ACTIVITY_REFRESH_MS = 1_200;
-const ACTIVE_MEETING_LABELS = new Set(["Live", "Paused", "Starting", "Resuming", "Stopping"]);
+const ACTIVE_MEETING_LABELS = new Set(["Live", "Starting", "Stopping"]);
 
 const READY_TITLE = "Speak Indonesian. Your meeting hears English.";
 const READY_DESCRIPTION = "Indonesian speech becomes English voice. Incoming English can appear as Indonesian text when available.";
@@ -168,15 +168,6 @@ function renderReadySurface(): void {
 
 function activityCopy(status: MeetingSessionStatus): ActivityCopy {
   const meeting = mapProductMeetingState(status);
-  if (meeting.paused) {
-    return {
-      label: "Paused",
-      title: "Outbound translation is paused",
-      detail: "The Meeting session remains open. Incoming English → Indonesian text may continue when Meeting Sound is available.",
-      tone: "neutral",
-    };
-  }
-
   const outbound = status.outbound;
   switch (outbound.stage) {
     case "transcribing":
@@ -213,13 +204,6 @@ function activityCopy(status: MeetingSessionStatus): ActivityCopy {
         title: "The latest outbound turn did not finish",
         detail: "Translation remains under your control. Technical detail is available in Diagnostics if needed.",
         tone: "warning",
-      };
-    case "paused":
-      return {
-        label: "Paused",
-        title: "Outbound translation is paused",
-        detail: "New and pending translated voice is paused for this Meeting session.",
-        tone: "neutral",
       };
     case "listening":
       return {
@@ -356,7 +340,7 @@ function renderMeetingStatus(status: MeetingSessionStatus, turns: MeetingCommitt
   if (!view) return;
 
   const meeting = mapProductMeetingState(status);
-  const showActivity = meeting.applicationOwned && meeting.hasSession && (meeting.live || meeting.paused || meeting.busy);
+  const showActivity = meeting.applicationOwned && meeting.hasSession && (meeting.live || meeting.busy);
   if (!showActivity) return;
 
   const copy = activityCopy(status);
@@ -367,16 +351,16 @@ function renderMeetingStatus(status: MeetingSessionStatus, turns: MeetingCommitt
   view.stage.dataset.tone = copy.tone;
   view.title.textContent = copy.title;
   view.detail.textContent = copy.detail;
-  view.meta.textContent = "ID → EN voice · EN → ID text · Realtime";
+  view.meta.textContent = "ID → EN voice · EN → ID text";
   renderIncomingStatus(status, view);
   renderCommittedTurns(turns, status, view);
 
-  if (meeting.paused) {
-    view.headingTitle.textContent = "Outbound translation is paused.";
-    view.headingDescription.textContent = "The Meeting session is still open. Incoming English → Indonesian text may continue when Meeting Sound is available.";
-  } else if (meeting.lifecycle === "resuming") {
-    view.headingTitle.textContent = "Resuming Meeting translation.";
-    view.headingDescription.textContent = "TranslateIT is reopening the required outbound resources while retaining the same Meeting conversation session.";
+  if (meeting.lifecycle === "starting") {
+    view.headingTitle.textContent = "Starting Meeting translation.";
+    view.headingDescription.textContent = "TranslateIT is opening the required outbound resources before translation becomes Live.";
+  } else if (meeting.lifecycle === "stopping") {
+    view.headingTitle.textContent = "Stopping Meeting translation.";
+    view.headingDescription.textContent = "TranslateIT is revoking output authority and cleaning the active Meeting resources safely.";
   } else {
     view.headingTitle.textContent = "Meeting translation is live.";
     view.headingDescription.textContent = "Speak Indonesian normally. Finalized YOU and INCOMING translations appear below in speech order.";
