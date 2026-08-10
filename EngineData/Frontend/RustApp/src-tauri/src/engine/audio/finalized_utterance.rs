@@ -90,6 +90,41 @@ pub fn clear_finalized_outbound_utterance_producer() {
     }
 }
 
+pub fn observe_finalized_outbound_f32_samples(
+    samples: &[f32],
+    sample_rate_hz: u32,
+    source_channels: u16,
+) {
+    let mono = downmix_f32(samples, source_channels);
+    observe_finalized_outbound_mono_samples(&mono, sample_rate_hz);
+}
+
+pub fn observe_finalized_outbound_i16_samples(
+    samples: &[i16],
+    sample_rate_hz: u32,
+    source_channels: u16,
+) {
+    let converted = samples
+        .iter()
+        .map(|sample| (*sample as f32 / i16::MAX as f32).clamp(-1.0, 1.0))
+        .collect::<Vec<_>>();
+    let mono = downmix_f32(&converted, source_channels);
+    observe_finalized_outbound_mono_samples(&mono, sample_rate_hz);
+}
+
+pub fn observe_finalized_outbound_u16_samples(
+    samples: &[u16],
+    sample_rate_hz: u32,
+    source_channels: u16,
+) {
+    let converted = samples
+        .iter()
+        .map(|sample| ((*sample as f32 / u16::MAX as f32) * 2.0 - 1.0).clamp(-1.0, 1.0))
+        .collect::<Vec<_>>();
+    let mono = downmix_f32(&converted, source_channels);
+    observe_finalized_outbound_mono_samples(&mono, sample_rate_hz);
+}
+
 pub fn observe_finalized_outbound_mono_samples(samples: &[f32], sample_rate_hz: u32) {
     if samples.is_empty() || sample_rate_hz == 0 {
         return;
@@ -203,10 +238,7 @@ fn ingest_observation(
         .trailing_silence_samples
         .saturating_add(samples.len());
     let speech_duration_ms = duration_ms(state.speech_samples, state.sample_rate_hz);
-    let silence_duration_ms = duration_ms(
-        state.trailing_silence_samples,
-        state.sample_rate_hz,
-    );
+    let silence_duration_ms = duration_ms(state.trailing_silence_samples, state.sample_rate_hz);
     let required_silence_ms = adaptive_end_silence_ms(&state.profile, evidence);
 
     if silence_duration_ms < required_silence_ms {
@@ -281,10 +313,7 @@ fn finalize_current_utterance(
     true
 }
 
-fn adaptive_end_silence_ms(
-    profile: &RuntimeVadProfile,
-    evidence: &AudioEvidenceReport,
-) -> u32 {
+fn adaptive_end_silence_ms(profile: &RuntimeVadProfile, evidence: &AudioEvidenceReport) -> u32 {
     let base = profile.minimum_silence_duration_ms.max(1);
     let rms_ratio = if profile.gate.min_rms > 0.0 {
         evidence.rms / profile.gate.min_rms
@@ -317,6 +346,21 @@ fn reset_current_utterance(state: &mut FinalizedProducerState) {
     state.trailing_silence_samples = 0;
     state.overflowed = false;
     state.pre_roll.clear();
+}
+
+fn downmix_f32(samples: &[f32], source_channels: u16) -> Vec<f32> {
+    let channel_count = usize::from(source_channels.max(1));
+    if channel_count == 1 {
+        return samples.iter().map(|sample| safe_sample(*sample)).collect();
+    }
+
+    samples
+        .chunks(channel_count)
+        .map(|frame| {
+            let sum = frame.iter().map(|sample| safe_sample(*sample)).sum::<f32>();
+            sum / frame.len().max(1) as f32
+        })
+        .collect()
 }
 
 fn resample_linear(samples: &[f32], source_rate: u32, target_rate: u32) -> Vec<f32> {
