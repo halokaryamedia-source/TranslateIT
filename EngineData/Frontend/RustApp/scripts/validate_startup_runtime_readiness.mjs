@@ -8,14 +8,13 @@ const paths = {
   main: resolve(root, "src/main.ts"),
   shell: resolve(root, "src/app/active-launcher/lockedReferenceShellParts.ts"),
   controller: resolve(root, "src/app/simple-launcher/SimpleLauncherController.ts"),
+  tauriBridge: resolve(root, "src/app/shared/tauriBridge.ts"),
   runtimeApi: resolve(root, "src/app/bridge/runtimeApi.ts"),
   facade: resolve(root, "src/app/bridge/runtimeProductFacade.ts"),
   registry: resolve(root, "src-tauri/src/commands/registry.rs"),
   commandsMod: resolve(root, "src-tauri/src/commands/mod.rs"),
   meetingSession: resolve(root, "src-tauri/src/commands/meeting_session.rs"),
   runtimeState: resolve(root, "src-tauri/src/engine/runtime_state.rs"),
-  helperBridge: resolve(root, "src-tauri/src/commands/helper_bridge.rs"),
-  textTranslate: resolve(root, "src-tauri/src/commands/text_translate.rs"),
   worker: resolve(root, "../../Backend/LocalWorker/WorkerRuntime/realtime_local_worker.py"),
   modelManifest: resolve(root, "../../Backend/LocalWorker/WorkerRuntime/model_manifest.json"),
 };
@@ -32,8 +31,7 @@ function forbidMarkers(body, label, markers) {
   for (const marker of markers) if (body.includes(marker)) throw new Error(`${label} forbidden marker found: ${marker}`);
 }
 
-// One product entry. Retired feature modules must not be loaded in parallel.
-requireMarkers(source.index, "frontend entry", ['/src/main.ts']);
+requireMarkers(source.index, "frontend entry", ["/src/main.ts"]);
 forbidMarkers(source.index, "frontend entry", ["audioStudioEntry", "audioStudioThemeEntry"]);
 const moduleEntries = [...source.index.matchAll(/<script\s+type=["']module["'][^>]*src=["']([^"']+)["']/g)].map((match) => match[1]);
 if (moduleEntries.length !== 1 || moduleEntries[0] !== "/src/main.ts") throw new Error(`Expected one frontend module entry, found ${moduleEntries.join(", ")}`);
@@ -44,7 +42,14 @@ requireMarkers(source.main, "desktop entrypoint", [
   "startGlobalMeetingShell",
   "startMeetingLiveActivityPresentation",
 ]);
-forbidMarkers(source.main, "desktop entrypoint", ["audioStudio", "bindDirectVoiceCaptureUi", "mountVirtualRouteSelectionSurface"]);
+forbidMarkers(source.main, "desktop entrypoint", [
+  "audioStudio",
+  "restoreNativeWindow",
+  "installStartupDiagnostics",
+  "startupTrace",
+  "bindDirectVoiceCaptureUi",
+  "mountVirtualRouteSelectionSurface",
+]);
 
 requireMarkers(source.shell, "initial desktop surface", [
   'data-workspace-nav="meeting"',
@@ -76,6 +81,17 @@ forbidMarkers(source.controller, "active controller", [
   "runtime_profile",
   "latestGpuPolicy",
   "latestModelInventory",
+]);
+
+// The shared bridge records only bounded redacted command failures. It must never log
+// request arguments because Text source and settings payloads may contain user content.
+requireMarkers(source.tauriBridge, "bounded command bridge", ["runCommand", "getRuntimeCommandErrors", "redactLocalPaths"]);
+forbidMarkers(source.tauriBridge, "bounded command bridge", [
+  "summarizeArgs",
+  "JSON.stringify(args)",
+  "console.info",
+  "performance.now",
+  "describeBridgeEnvironment",
 ]);
 
 const requiredApiCommands = [
@@ -184,9 +200,9 @@ forbidMarkers(source.worker, "direction-based worker", ["QUALITY_TRANSLATION_MOD
 
 const manifest = JSON.parse(source.modelManifest);
 const models = Array.isArray(manifest.models) ? manifest.models : [];
-const idEn = models.find((model) => model.model_id === "marianmt-id-en");
-const enId = models.find((model) => model.model_id === "marianmt-en-id");
-if (!idEn || !enId) throw new Error("Model manifest must contain both Marian translation directions");
+if (!models.some((model) => model.model_id === "marianmt-id-en") || !models.some((model) => model.model_id === "marianmt-en-id")) {
+  throw new Error("Model manifest must contain both Marian translation directions");
+}
 if (models.some((model) => model.model_id === "nllb-200-distilled-600M")) throw new Error("NLLB must not return to current translation inventory");
 if (models.some((model) => Object.hasOwn(model, "revision") || Object.hasOwn(model, "checksum"))) {
   throw new Error("Initial model inventory must not grow revision/checksum release-identity placeholders");
