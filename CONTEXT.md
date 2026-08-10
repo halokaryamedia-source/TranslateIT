@@ -81,7 +81,9 @@ product permits one active Meeting session per runtime.
 - Pause retains `session_id` and invalidates current outbound generation.
 - Resume creates fresh generation authority for the same session.
 - Stop revokes output authority before resource cleanup and finalization.
-- minimize does not end a healthy Meeting.
+- minimize/hide does not end a healthy Meeting.
+- native Close is distinct from minimize: an application Meeting must safely Stop
+  before the main window is destroyed.
 - sleep/hibernate must not silently resume voice after interruption.
 
 Incoming remains a separate unimplemented normal-product lane and must eventually
@@ -139,9 +141,8 @@ updated_unix_ms
 Dedupe is `(session_id, generation, utterance_id)`. Delivery states are
 `preparing_voice`, `speaking`, `output_complete`, `output_failed`, `interrupted`;
 terminal states reject stale overwrite. Pause retains turns and interrupts non-terminal
-revoked-generation work; Resume continues the same session chronology.
-
-The store is bounded and explicitly reports dropped earlier turns.
+revoked-generation work; Resume continues the same session chronology. The store is
+bounded and explicitly reports dropped earlier turns.
 
 ## Normal Meeting Frontend / Live Transcript
 
@@ -159,6 +160,57 @@ chronological `YOU` list from backend snapshots: Indonesian final text primary,
 English verified translation secondary, truthful delivery state. Snapshot/lifecycle
 `session_id` mismatch is not rendered as current text; bounded truncation is disclosed.
 Frontend does not accumulate conversation authority.
+
+## Global Meeting Cross-View / Safe Close
+
+The existing desktop shell now owns a bounded global Meeting presentation helper:
+
+```text
+GlobalMeetingShell
+-> get_meeting_session_status
+-> mapProductMeetingState
+-> compact strip outside Meeting
+```
+
+The strip is read-only lifecycle presentation. It shows application Meeting state on
+Text/History/Settings and exposes only `Open Meeting`, delegated to existing
+navigation. Pause/Resume/Stop remain Meeting-workspace actions; no second frontend
+Meeting store exists.
+
+Native close is source-wired fail-closed:
+
+```text
+close request
+-> prevent close
+-> fresh canonical Meeting status
+
+no Meeting session
+-> forced main-window destroy
+
+application Meeting session
+-> Keep Open / Stop & Close
+
+unknown status / other owner
+-> remain open
+```
+
+`Stop & Close` uses `runtimeProductFacade.runProductMeetingAction("stop")`, therefore
+reuses canonical `stop_meeting_translation` including Meeting History finalization.
+The shell requires the action result and a fresh status read to show no remaining
+session before `Window.destroy()`.
+
+If lifecycle is already `Stopping`, a pending-close transport flag waits for canonical
+Stop completion rather than dispatching duplicate cleanup. The main Tauri capability
+explicitly grants the required `core:window:allow-destroy` command.
+
+`src-tauri/src/main.rs` also provides an orderly `ExitRequested` fail-safe. It checks
+canonical application Meeting ownership and delegates to the same backend Stop owner;
+it does not reproduce capture/helper/History cleanup. If cleanup still leaves an
+application Meeting and the user control window exists, exit is prevented and the
+window is restored.
+
+Actual close-request ordering, rendering, Stop races, forced process termination,
+crash/power-loss behavior, and Windows native behavior remain local/platform proof.
 
 ## History, Saved, Privacy And Storage
 
@@ -183,41 +235,20 @@ UserData/SavedProject/History/
 └─ Saved/
 ```
 
-Text and finalized Meeting History are now source-connected. Persistent History does
+Text and finalized Meeting History are source-connected. Persistent History does
 **not** own the Live transcript.
 
-### Meeting finalization handoff
-
 Full Stop keeps safety cleanup first, then persists only the immutable final committed-
-turn snapshot:
+turn snapshot when current `history_enabled` allows it. History persistence failure is
+reported but cannot prevent safety-critical Stop; transient conversation bodies are
+still cleared. Empty Meetings do not create empty Recent entries. Pause/Resume do not
+persist History and no live incremental Meeting History writer exists.
 
-```text
-revoke generation
--> interrupt non-terminal current-generation turns
--> cancel route / stop capture / cancel helper / join outbound consumer
--> final committed-turn snapshot
--> current persisted history_enabled
-   -> ON  -> create at most one Recent Meeting entry through history_store.rs
-   -> OFF -> no Recent write
--> clear transient conversation bodies
--> clear Meeting session
-```
-
-History persistence failure is reported but cannot prevent safety-critical Stop; the
-transient body is still cleared. Empty Meetings do not create empty Recent entries.
-Pause/Resume do not persist History and no live incremental Meeting History writer
-exists.
-
-History schema version 2 adds backward-compatible `dropped_turn_count` so finalized
-History can truthfully disclose earlier turns already removed by the bounded Live
-store. Existing schema-v1 data remains readable via serde default behavior.
-
-Finalized Meeting History stores duration, interrupted status, ID->EN metadata and
-`HistoryTurn` rows with sequence/lane/source/translation/delivery state/time. Raw audio
-and generated TTS are not normal History content.
-
-The History workspace now renders finalized Meeting turn detail and reuses the same
-generic Save / Remove from Saved actions for Meeting and Text.
+History schema version 2 carries backward-compatible `dropped_turn_count`. Finalized
+Meeting History stores duration, interrupted status, ID->EN metadata and `HistoryTurn`
+rows with sequence/lane/source/translation/delivery state/time. Raw audio and generated
+TTS are not normal History content. History detail and generic Save / Remove from Saved
+are shared by Meeting and Text.
 
 ## Translation / Text / Settings
 
@@ -260,25 +291,30 @@ Source-side alignment on `New` now includes:
   Recent History, followed by transient-body cleanup;
 - backward-compatible History truncation metadata and finalized Meeting History detail;
 - generic Saved actions shared by Text and Meeting;
+- global cross-view Meeting strip from canonical lifecycle status;
+- safe `Stop & Close` source wiring with post-Stop session verification;
+- orderly native-exit delegation to the same backend Stop owner;
 - static source-contract validation definitions for these boundaries.
 
 Still incomplete or unproved:
 
-- global/cross-view Meeting indicator and safe close handling;
-- actual Rust/TypeScript compilation, static-validator execution, and Tauri/filesystem
-  persistence runtime;
-- rendered Meeting/History UI behavior;
-- microphone/VAD and Pause/Resume/Stop race timing;
+- incoming Meeting Sound, committed `INCOMING` turns, self-output suppression, turn
+  coordination, and recovery;
+- actual Rust/TypeScript compilation, static-validator execution, native close events,
+  and Tauri/filesystem persistence runtime;
+- rendered Meeting/History/global-strip/dialog behavior;
+- microphone/VAD and Pause/Resume/Stop/close race timing;
 - actual model translation/TTS quality and Meeting Microphone delivery;
-- incoming Meeting Sound, self-output suppression, turn coordination, recovery;
 - tone/context inference, Text Copy/direct Save;
+- multi-instance enforcement and sleep/hibernate behavior;
 - scheduler contention suitability;
 - reproducible Python lock/model acquisition metadata;
 - model quality/latency/RAM/VRAM and Windows route proof;
 - clean installer/runtime asset reconciliation.
 
-Source presence does not prove target-PC readiness or persistence behavior. Do not
-claim model/device/audio/rendered/installed success without the required local proof.
+Source presence does not prove target-PC readiness, native close behavior, or
+persistence behavior. Do not claim model/device/audio/rendered/installed success
+without the required local proof.
 
 ## Canonical Owners
 
