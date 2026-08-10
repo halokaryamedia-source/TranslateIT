@@ -37,7 +37,7 @@ Gemini's cloud/model/language architecture.
 
 ## Initial Product Surface
 
-Normal navigation target:
+The active frontend now follows the initial navigation target:
 
 ```text
 Meeting
@@ -45,12 +45,17 @@ Text
 Settings
 ```
 
-Settings target:
+Normal Settings now follows:
 
 ```text
 Meeting
 Advanced -> Diagnostics
 ```
+
+History/Saved is no longer an active navigation/settings workflow. Successful Text
+translation no longer performs an automatic History write. Existing backend
+History/Saved storage and Tauri commands remain deferred/disconnected source only and
+are not a Meeting/Text success dependency.
 
 Normal Meeting lifecycle:
 
@@ -84,8 +89,9 @@ EN -> ID -> marianmt-en-id
 ```
 
 `TRANSLATION_RUNTIME` is keyed by direction (`id->en`, `en->id`), not Realtime/Quality.
-Current direct callers may temporarily still send/expect a `mode` field during staged
-cleanup, but that compatibility label no longer chooses the translation model.
+Inherited product readiness/presentation still carries stale Realtime/Quality and
+Mode/Tone assumptions; those are the next cleanup target and must not become a second
+translation-model authority.
 
 Required outbound worker readiness depends on ID -> EN. EN -> ID is separately visible
 because incoming is optional and must not block otherwise healthy outbound Start.
@@ -125,7 +131,7 @@ Only finalized stable speech is normal translation/TTS/transcript truth. A small
 speech delay is acceptable for completeness. Partial/rolling ASR may exist internally
 but is not normal translated output.
 
-The application Meeting now has one normal authority path:
+The application Meeting has one normal authority path:
 
 ```text
 Start
@@ -204,6 +210,7 @@ cannot satisfy practical Meeting latency.
 
 ## Current Source That Remains Useful
 
+- active desktop shell/controller — Meeting / Text / Settings only;
 - `engine/audio/live_capture.rs` — physical microphone capture;
 - `engine/audio/finalized_utterance.rs` — finalized speech/event identity;
 - `engine/audio/meeting_sound_capture.rs` — optional Meeting Sound loopback;
@@ -213,22 +220,22 @@ cannot satisfy practical Meeting latency.
 - `realtime_local_worker.py` — ASR / bidirectional translation / TTS worker;
 - virtual Meeting Microphone route owners;
 - global safe Stop/Close boundary;
-- standalone Text translation path.
+- standalone Text translation path without automatic History persistence.
 
 ## Source To Simplify / Retire
 
 Current source still contains behavior outside the initial product:
 
-- remaining Realtime/Quality compatibility fields/caller assumptions;
-- tone-related UI/settings assumptions;
-- automatic Text History and Saved workflow;
-- History top-level navigation/settings;
+- inherited Realtime/Quality readiness and compatibility assumptions;
+- Mode/Tone presentation and related active caller fields;
+- backend History/Saved persistence source, now disconnected from the active frontend;
 - Audio Studio/custom voice initial-product assumptions;
 - any future conversation-context path;
 - complex conversational delivery controls if encountered.
 
-Meeting Stop no longer writes History, and Pause/Resume is no longer part of the
-application Meeting runtime/product path.
+Meeting Stop no longer writes History, successful Text translation no longer writes
+History, active navigation/settings no longer expose History/Saved, and Pause/Resume is
+no longer part of the application Meeting runtime/product path.
 
 Prefer actual removal/disconnection over compatibility layers that keep old complexity
 alive.
