@@ -575,3 +575,87 @@ finalization. Extending those existing boundaries preserves one lifecycle author
 prevents the shell/window layer from becoming a second Meeting control plane, and
 ensures application close uses the same safety/finalization semantics as an explicit
 Stop from the Meeting workspace.
+
+## D-022 — Canonical Incoming Meeting Lane, Shared Event Order, And Self-Output Suppression
+
+**Decision**  
+Incoming English -> Indonesian assistance is a separate optional **audio lane** inside
+the same application Meeting session, not a second Meeting/session/conversation
+runtime. The physical microphone remains owned by `audio/live_capture.rs`. Meeting
+Sound output-loopback capture receives one distinct Windows-audio owner under the
+existing audio subsystem, while `meeting_session.rs` remains the orchestration and
+committed-conversation owner for both `YOU` and `INCOMING` turns.
+
+The existing `audio/finalized_utterance.rs` boundary is reconciled from outbound-only
+semantics into one finalized Meeting-speech owner with independent lane VAD state and
+one session-wide event sequence. That sequence is allocated when a speech event is
+finalized, **before** ASR/translation. The committed-turn store accepts the preassigned
+sequence and deduplicates by `(session_id, sequence)`. This refines D-020's outbound-
+only sequencing/idempotency rule: once two lanes can process asynchronously, assigning
+chronology after translation completion could reorder conversation turns by model
+latency instead of speech/event order.
+
+The lane-neutral committed shape becomes conceptually:
+
+```text
+session_id
+sequence                  # finalized speech/event order
+generation: optional      # outbound provenance only
+utterance_id
+lane: you | incoming
+source_text
+translated_text
+delivery_state: optional  # outbound only
+created_unix_ms
+updated_unix_ms
+```
+
+Outbound retains current generation authority and delivery states. Incoming carries no
+voice-delivery claim and commits only after final English ASR plus verified Realtime
+English -> Indonesian translation. No incoming TTS or participant identity is created.
+History and Live transcript continue consuming the same committed-turn source.
+
+Incoming is session-scoped rather than outbound-generation-scoped. A healthy incoming
+capture/consumer may continue while outbound is Paused; Stop invalidates the session
+for incoming promotion and stops both audio lanes before the final History snapshot.
+The one helper scheduler remains, with waiting priority refined to:
+
+```text
+Meeting outbound
+> Meeting incoming
+> Text
+> Diagnostics / preload
+```
+
+The scheduler remains non-preemptive for work already executing. Outbound requests keep
+generation validation; incoming requests are admitted/promoted only while the same
+application Meeting `session_id` remains lane-eligible and not Stopping/ended.
+
+Self-output suppression uses one session-scoped transient atomic gate controlled by
+`meeting_session.rs` around the existing guarded outbound TTS route. While the gate is
+active, Meeting Sound capture discards samples and resets any in-progress incoming VAD
+utterance. The gate clears when the current blocking route playback returns/cancels.
+No incoming event is finalized from that interval. This is deliberate fail-closed
+suppression: participant speech mixed into Meeting Sound while TranslateIT itself is
+speaking may be omitted in the initial implementation rather than risking TranslateIT's
+own English TTS being presented as remote speech. Do not add a text-similarity filter,
+waveform fingerprint store, acoustic-echo framework, or second suppression service in
+this slice.
+
+Incoming failure remains optional/degradable. A missing pinned Meeting Sound endpoint
+must not silently fall back; Follow Windows Default keeps default-device semantics.
+Incoming pending speech is bounded and favors current comprehension rather than an old
+subtitle backlog. Partial incoming subtitles remain optional and are not part of the
+initial implementation slice.
+
+**Reason**  
+Current source already proves that Meeting Sound selection is an output-endpoint
+preference only, while the existing live capture owner is a single physical-microphone
+input stream. A separate capture owner is therefore a distinct Windows-audio
+responsibility, not duplicate Meeting ownership. Shared event sequencing is required by
+PR-048 once both lanes can finish ASR/translation at different speeds. Session-scoped
+incoming authority is required by PR-039 because incoming may continue during outbound
+Pause. The suppression gate is the minimum deterministic mechanism that satisfies the
+must-not-self-transcribe requirement using the current blocking TTS-route boundary,
+while preserving outbound priority and avoiding speculative echo-cancellation
+infrastructure.
