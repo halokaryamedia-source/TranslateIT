@@ -1,6 +1,6 @@
 # TranslateIT Workspace Context
 
-Updated: 2026-08-10  
+Updated: 2026-08-11  
 Working branch: `New`  
 Recovery baseline: `V1-Advance` at `6fd3485d6b22b9e3f44abc640241532aea61c3c7`
 
@@ -52,7 +52,7 @@ Meeting
 Advanced -> Diagnostics
 ```
 
-Normal Meeting lifecycle target:
+Normal Meeting lifecycle:
 
 ```text
 Ready -> Starting -> Live -> Stopping -> Ended
@@ -125,22 +125,25 @@ Only finalized stable speech is normal translation/TTS/transcript truth. A small
 speech delay is acceptable for completeness. Partial/rolling ASR may exist internally
 but is not normal translated output.
 
-One application Meeting session owner remains. Session/generation/utterance authority
-continues to reject stale asynchronous output. English TTS remains serialized.
-
-`Stop Translation` is now runtime/transient cleanup only:
+The application Meeting now has one normal authority path:
 
 ```text
-revoke output authority
--> stop both audio lanes
--> cancel/join Meeting work
--> clear suppression / finalized sequence / transient transcript
--> clear Meeting session
--> Ended
+Start
+-> starting
+-> Live
+-> Stop
+-> stopping
+-> Ended / no active session
 ```
 
-Stop no longer writes automatic Meeting History. Safe native close still delegates to
-this same canonical Stop before main-window destruction.
+Pause/Resume commands, paused/resuming lifecycle states, fresh Resume generation, and
+normal frontend Pause/Resume controls have been removed from the current application
+Meeting path. Navigation between app views and normal minimize do not stop or pause the
+Meeting; it remains application-level until explicit Stop or safe Stop & Close.
+
+Session/generation/utterance authority continues to reject stale asynchronous output.
+English TTS remains serialized. Stop revokes authority before resource/transient-state
+cleanup and has no History persistence dependency.
 
 ## Optional Incoming
 
@@ -167,9 +170,9 @@ self-output suppression unavailable
 -> continue required outbound Meeting Microphone delivery
 ```
 
-Healthy incoming still uses the deterministic suppression guard around TranslateIT TTS
-playback. Clearing the incoming producer before route dispatch makes still-open capture
-callbacks ignored while cleanup completes.
+Healthy incoming uses the deterministic suppression guard around TranslateIT TTS
+playback. Incoming helper/session promotion is valid only while the application Meeting
+is Live.
 
 Actual Windows suppression effectiveness, capture-stop timing, and mixed-audio behavior
 remain local proof. Automatic mid-session Follow-Windows-Default Meeting Sound rebind is
@@ -204,8 +207,8 @@ cannot satisfy practical Meeting latency.
 - `engine/audio/live_capture.rs` — physical microphone capture;
 - `engine/audio/finalized_utterance.rs` — finalized speech/event identity;
 - `engine/audio/meeting_sound_capture.rs` — optional Meeting Sound loopback;
-- `commands/meeting_session.rs` — canonical Meeting session/orchestration and persistence-free Stop;
-- bounded transient committed turns — current-session transcript only;
+- `commands/meeting_session.rs` — canonical Start/Live/Stop Meeting orchestration;
+- bounded transient committed turns — current-session transcript;
 - `helper_bridge.rs` + `helper_bridge_runtime.rs` — one AI scheduler/worker bridge;
 - `realtime_local_worker.py` — ASR / bidirectional translation / TTS worker;
 - virtual Meeting Microphone route owners;
@@ -216,16 +219,17 @@ cannot satisfy practical Meeting latency.
 
 Current source still contains behavior outside the initial product:
 
-- **Pause / Resume lifecycle and controls (next cleanup target);**
 - remaining Realtime/Quality compatibility fields/caller assumptions;
 - tone-related UI/settings assumptions;
-- automatic Meeting/Text History and Saved workflow/navigation;
+- automatic Text History and Saved workflow;
 - History top-level navigation/settings;
 - Audio Studio/custom voice initial-product assumptions;
 - any future conversation-context path;
 - complex conversational delivery controls if encountered.
 
-Meeting Stop -> History persistence is already disconnected from the core path.
+Meeting Stop no longer writes History, and Pause/Resume is no longer part of the
+application Meeting runtime/product path.
+
 Prefer actual removal/disconnection over compatibility layers that keep old complexity
 alive.
 
@@ -241,7 +245,7 @@ EN -> ID translation
 English TTS
 Meeting Microphone delivery
 optional incoming Meeting Sound behavior
-safe Stop / Close
+safe Start / Stop / Close
 acceptable latency / stability
 standalone Text ID <-> EN
 ```
