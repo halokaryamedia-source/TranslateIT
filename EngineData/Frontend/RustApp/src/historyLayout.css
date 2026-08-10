@@ -303,6 +303,73 @@ body:not(.settings-open) .history-text-block p {
   overflow-wrap: anywhere;
 }
 
+body:not(.settings-open) .history-meeting-truncation-note {
+  margin: 0;
+  border: 1px solid rgba(251, 191, 36, .24);
+  border-radius: 9px;
+  padding: 10px 12px;
+  color: rgb(253, 230, 138);
+  background: rgba(251, 191, 36, .05);
+  font-size: 11px;
+  line-height: 1.5;
+}
+
+body:not(.settings-open) .history-meeting-turn {
+  display: grid;
+  gap: 9px;
+  border-bottom: 1px solid rgba(255, 255, 255, .07);
+  padding: 4px 0 18px;
+}
+
+body:not(.settings-open) .history-meeting-turn:last-child {
+  border-bottom: 0;
+}
+
+body:not(.settings-open) .history-meeting-turn-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+}
+
+body:not(.settings-open) .history-meeting-lane {
+  color: var(--ref-muted);
+  font-size: 10px;
+  font-weight: 900;
+  letter-spacing: .07em;
+}
+
+body:not(.settings-open) .history-meeting-delivery {
+  color: var(--ref-muted);
+  font-size: 10px;
+  font-weight: 700;
+}
+
+body:not(.settings-open) .history-meeting-turn[data-delivery-state="output_failed"] .history-meeting-delivery,
+body:not(.settings-open) .history-meeting-turn[data-delivery-state="interrupted"] .history-meeting-delivery {
+  color: rgb(253, 230, 138);
+}
+
+body:not(.settings-open) .history-meeting-source,
+body:not(.settings-open) .history-meeting-translation {
+  margin: 0;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+body:not(.settings-open) .history-meeting-source {
+  color: var(--ref-text);
+  font-size: 15px;
+  font-weight: 650;
+  line-height: 1.6;
+}
+
+body:not(.settings-open) .history-meeting-translation {
+  color: var(--ref-muted);
+  font-size: 12px;
+  line-height: 1.55;
+}
+
 body:not(.settings-open) .history-detail-message:empty {
   display: none;
 }
@@ -454,6 +521,12 @@ body.settings-open .history-privacy-message:empty {
 
   body:not(.settings-open) .history-row time {
     justify-self: start;
+  }
+
+  body:not(.settings-open) .history-meeting-turn-header {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 4px;
   }
 
   body.settings-open .history-privacy-control-row,
