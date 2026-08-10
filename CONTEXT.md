@@ -272,41 +272,63 @@ The initial controlled release does **not** add a first-run internet downloader,
 package manager, or cloud fallback. This keeps installation independent from first-run
 network availability and keeps failure handling outside the translation session.
 
-A monolithic standard NSIS payload is not the selected approach because the current
-primary ASR plus both Marian PyTorch checkpoints already exceed a sensible single-NSIS
-size boundary before Python/Torch/TTS runtime files are included.
-
 Release acceptance requires both Marian directions because Text ID<->EN is core. Meeting
 runtime Start remains narrower: EN->ID alone may degrade incoming/reverse Text without
 blocking healthy required ID->EN outbound.
 
-## Installed Path Direction
+## Installed Runtime And Writable Data Paths
 
-Current `ProjectPaths::discover()` still assumes repository-style `EngineData + UserData`
-markers and is therefore not installed-product-ready.
+The path foundation is now source-aligned through one `ProjectPaths` owner.
 
-Target ownership is:
+Packaged/Tauri mode:
 
 ```text
-immutable packaged runtime root
--> worker/runtime/model/voice assets
+Tauri resource directory
+-> runtime_root
+-> worker/runtime/model/voice resources
 
-writable Windows application-local root
+Tauri app-local data directory
+-> user_data_root
 -> CacheData
 -> LogData
--> future approved persistent user data
-
-repository root
--> explicit development fallback only
+-> SavedProject reservation
 ```
 
-`engine/paths.rs` remains the semantic path owner. Existing Tauri `app_bootstrap.rs` is
-the setup boundary for installed path initialization. Do not create another path
-registry/service.
+`app_bootstrap.rs` initializes the packaged context before normal runtime commands. The
+resource and app-local roots must be absolute, and the canonical owner is initialized
+once rather than rediscovered independently by each caller.
 
-Current helper startup also still accepts `.venv`, environment, or system Python. That
-is a development/runtime gap: installed builds must eventually ship an approved Python
-helper runtime and must not require end users to install Python manually.
+Repository development remains a distinct fallback:
+
+```text
+debug build only
++ verified repository markers
+-> repository_development_fallback
+```
+
+Release builds do not promote repository probing into installed path truth. A release
+process that reaches `ProjectPaths` before Tauri initialization sees only an explicitly
+unverified bootstrap fallback.
+
+Worker/model consumers now use the explicit canonical roots. Bootstrap passes
+`TRANSLATEIT_RUNTIME_ROOT` and `TRANSLATEIT_USER_DATA_ROOT` to child processes from
+`ProjectPaths`. The Python worker uses those roots for models and writable data and maps
+existing relative `UserData/...` handoff labels into the app-local data root while still
+enforcing allowed-root checks.
+
+This is **not** installed proof. Tauri resource inclusion, app-local write behavior,
+packaged model presence, child-process startup, and clean-machine launch remain local/
+release acceptance work.
+
+## Remaining Packaged Helper Gap
+
+Current helper startup still accepts `.venv`, environment override, or system Python.
+That remains useful development flexibility but is not an installed-user solution.
+Installed builds must eventually ship an approved helper/Python runtime and must not ask
+users to install Python manually.
+
+The exact helper packaging/freezing method is intentionally deferred until the release
+payload contract and staging boundaries are grounded.
 
 ## Reproducible Release Inputs
 
@@ -317,11 +339,12 @@ identified at minimum by:
 source/repo ID
 immutable source revision/commit
 expected installed target
-release payload/archive SHA-256
+prepared release payload/archive SHA-256
 ```
 
 This release identity complements `model_manifest.json`; it must not create a second
-model-selection owner.
+model-selection owner. The exact release-artifact identity owner is the next planning
+boundary.
 
 ## Current Source That Remains Useful
 
@@ -333,9 +356,12 @@ model-selection owner.
 - `commands/meeting_session.rs` — canonical Start/Live/Stop Meeting orchestration;
 - bounded transient committed turns — current-session transcript;
 - `helper_bridge.rs` + `helper_bridge_runtime.rs` — one AI scheduler/worker bridge;
-- `realtime_local_worker.py` — ASR / bidirectional translation / TTS worker;
+- `realtime_local_worker.py` — ASR / bidirectional translation / TTS plus packaged/user
+  root consumption;
 - `model_manifest.json` — direction-based model identity/inventory metadata;
-- `engine/paths.rs` — canonical runtime/user path owner, to be made install-aware next;
+- `engine/paths.rs` — canonical packaged/development runtime and writable-data owner;
+- `app_bootstrap.rs` — Tauri resource/app-local initialization boundary;
+- `bridge_paths.rs` / `runtime_inventory.rs` — direct consumers of canonical roots;
 - virtual Meeting Microphone route owners;
 - global safe Stop/Close boundary;
 - standalone Text translation without automatic History persistence or mode selection.
@@ -345,10 +371,10 @@ model-selection owner.
 Current source still contains behavior outside the initial product or gaps before an
 installed release:
 
-- repository-only runtime/user path discovery;
-- helper Python discovery through `.venv`/environment/system Python instead of packaged
-  installed runtime;
+- no implemented release payload revision/hash contract yet;
 - no implemented NSIS local sidecar payload staging yet;
+- helper Python discovery still permits `.venv`/environment/system Python instead of a
+  packaged installed runtime;
 - backend History/Saved persistence source, disconnected from active frontend;
 - Audio Studio/custom voice initial-product assumptions;
 - any future conversation-context path;
