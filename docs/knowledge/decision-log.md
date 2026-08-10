@@ -194,7 +194,7 @@ Advanced
 `General` and `Translation` are not separate normal Settings sections unless a future approved requirement gives them a distinct user responsibility. Contextual translation choices remain in Meeting/Text; engineering/runtime controls remain in Diagnostics.
 
 **Reason**  
-The previously broader navigation duplicated related user intents and promoted secondary/internal concepts into primary hierarchy. A nontechnical user mainly needs to run meeting translation, translate text, retrieve prior/saved work, and adjust meeting/privacy setup. Keeping Saved ownership independent while grouping its access under History preserves deletion/privacy semantics without adding another primary workspace, and the reduced Settings hierarchy avoids empty or engineering-oriented control panels.
+The previously broader navigation duplicated related user intents and promoted secondary/internal concepts into primary hierarchy. A nontechnical user mainly needs to run meeting translation, translate text, retrieve prior/saved work, and adjust a setting. Keeping Saved ownership independent while grouping its access under History preserves deletion/privacy semantics without adding another primary workspace, and the reduced Settings hierarchy avoids empty or engineering-oriented control panels.
 
 ## D-014 — Meeting Session Is Application-Level And Navigation-Independent
 
@@ -427,3 +427,95 @@ keeps behavior predictable, and lets the visual polish come from hierarchy,
 spacing, responsiveness, and feedback rather than novelty. Reusing the Meeting
 transcript for History detail and the History detail for Saved also reduces both
 user-learning cost and unnecessary frontend duplication.
+
+## D-020 — Canonical Committed Meeting Turn Ownership
+
+**Decision**  
+The canonical **transient committed Meeting turn** owner is the existing application
+Meeting outbound/session boundary in `commands/meeting_session.rs`. Do not create a
+frontend transcript accumulator, worker-owned conversation store, Diagnostics/log
+source, `runtime_state.rs` conversation body store, or live writes into persistent
+History to satisfy the transcript UI.
+
+A turn becomes committed only after all of the following are true:
+
+```text
+finalized utterance identity exists
+-> final Indonesian ASR transcript exists
+-> Realtime English translation is verified complete
+-> the same Meeting generation is still authoritative
+```
+
+The minimum transient identity/state contract is:
+
+```text
+session_id
+sequence                 # monotonic within the Meeting session across Resume generations
+generation
+utterance_id              # generation-local finalized utterance identity
+lane = you                # current outbound-only scope
+source_text               # final Indonesian transcript
+translated_text           # verified-complete English translation
+delivery_state
+created_unix_ms
+updated_unix_ms
+```
+
+`(session_id, generation, utterance_id)` is the idempotency key. `sequence` is the
+stable chronological order used by the Live transcript and maps directly to the
+existing History turn sequence without requiring generation-local utterance IDs to
+remain globally unique after Resume.
+
+The initial product-level delivery states are deliberately small:
+
+```text
+preparing_voice
+speaking
+output_complete
+output_failed
+interrupted
+```
+
+A committed turn starts at `preparing_voice`. It may progress to `speaking` and then
+`output_complete`, or terminate as `output_failed`. Pause/Stop generation loss marks
+any non-terminal turn from the revoked generation `interrupted`. Terminal states are
+monotonic: a late/stale callback cannot replace `interrupted`, `output_failed`, or
+`output_complete`. `output_complete` means TranslateIT completed the guarded Meeting
+Microphone output attempt it can prove; it does not claim a remote participant heard
+the audio.
+
+The store is memory-only, bounded, and scoped to the application Meeting `session_id`.
+Pause retains already committed turns. Resume keeps the same transient session store
+and appends fresh-generation turns. Full Stop/finalization clears the transient body
+after any allowed History handoff. If the live bound discards older turns, the read
+snapshot must expose that fact rather than pretending the returned list is the full
+session transcript.
+
+The product read path is a separate **read-only projection** from the same owner (for
+example `get_meeting_committed_turns`) rather than embedding conversation bodies into
+`get_meeting_session_status`. Lifecycle status remains lightweight and authoritative;
+the frontend renders snapshots and does not persist/merge conversation state as a
+second owner.
+
+Persistent History remains owned by `engine/history_store.rs`. Its existing
+`HistoryEntry` / `HistoryTurn` schema already matches the required source text,
+translation, chronological sequence, lane, delivery state, and timestamp shape.
+Meeting History is a later finalization handoff, not the live source. At full Meeting
+finalization, current `RuntimeSettings.history_enabled` decides automatic Recent
+retention: when enabled, an immutable transient snapshot may be converted into one
+Meeting History entry; when disabled, conversation bodies are discarded rather than
+persisted. Existing Recent/Saved items are unaffected, and Saved remains an explicit
+independent action. Raw audio and generated TTS never become part of this turn store
+or normal History.
+
+**Reason**  
+`meeting_session.rs` is already the first and only current boundary where finalized
+utterance identity, generation authority, final ASR text, verified translation, TTS,
+and guarded delivery outcome coexist. Extending that owner gives the Live transcript
+a truthful source without adding another lifecycle or conversation authority.
+Keeping the store transient preserves navigation-independent Meeting state while
+respecting History-off privacy; keeping History as a later immutable handoff preserves
+its existing persistence/deletion semantics. Separating the transcript read projection
+from lifecycle status avoids repeatedly attaching potentially large conversation
+bodies to normal readiness/status polling and keeps the minimum complete solution
+bounded.
