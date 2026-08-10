@@ -21,15 +21,15 @@ RETIRED   -> inherited concept is no longer approved product scope
 
 Static source/tooling alignment never becomes model-quality, latency,
 scheduling-performance, VAD behavior, CUDA/CPU, Windows-device/audio, rendered-UI,
-installed-runtime, persistence-runtime, or release proof.
+installed-runtime, persistence-runtime, native-event-runtime, or release proof.
 
 ## Executive Ownership Map
 
 | Boundary | Current owner(s) | Status | Current truth |
 |---|---|---|---|
-| Product shell/navigation | `src/main.ts`, `lockedReferenceShellParts.ts`, `SimpleLauncherController.ts` | **ALIGNED / VISUAL PARTIAL** | Meeting / Text / History / Settings; navigation does not own/recreate Meeting runtime. |
-| Global Meeting cross-view presentation | existing shell markup + `SimpleLauncherController.ts` reading canonical Meeting status | **PLANNED / IMPLEMENTATION NEXT** | Compact active-Meeting strip belongs to the existing shell; it is read-only presentation and must not create a lifecycle store. |
-| Native safe-close lifecycle | existing desktop controller/window boundary + Tauri app lifecycle -> canonical `stop_meeting_translation` | **PLANNED / IMPLEMENTATION NEXT** | Active/unknown Meeting state must prevent normal close; `Stop & Close` reuses canonical Stop, and orderly native exit delegates to the same backend cleanup owner. |
+| Product shell/navigation | `src/main.ts`, `shell.ts`, `lockedReferenceShellParts.ts`, `SimpleLauncherController.ts` | **ALIGNED / VISUAL PARTIAL** | Meeting / Text / History / Settings; navigation does not own/recreate Meeting runtime. |
+| Global Meeting cross-view presentation | existing shell + `GlobalMeetingShell.ts` -> canonical Meeting status/facade | **SOURCE ALIGNED / RENDER PROOF LATER** | One compact strip reads canonical Meeting state outside Meeting; no frontend Meeting store or global lifecycle control plane. |
+| Native safe-close lifecycle | `GlobalMeetingShell.ts` close guard + `src-tauri/src/main.rs` orderly-exit fail-safe -> canonical `stop_meeting_translation` | **SOURCE ALIGNED / NATIVE RUNTIME PROOF LATER** | Active/unknown Meeting state fails closed; Stop & Close reuses canonical Stop and forced window destroy occurs only after verified session clear. |
 | First Setup | First Setup + `RuntimeSettings` + product/audio facade | **ALIGNED SOURCE / WINDOWS PROOF LATER** | Five-step flow, defer/resume, candidate-check -> commit. |
 | Normal Meeting lifecycle bridge | `runtimeApi.ts` -> `runtimeProductFacade.ts` -> `SimpleLauncherController.ts` -> Meeting commands | **SOURCE ALIGNED / TAURI + RENDER PROOF LATER** | Start/Pause/Resume/Stop use the canonical application Meeting authority. |
 | Meeting application authority | `runtime_state.rs`, `meeting_session.rs` | **SOURCE ALIGNED / RUNTIME PROOF LATER** | `session_id + generation + authority_active`; Pause retains session, Resume creates fresh generation. |
@@ -46,7 +46,7 @@ installed-runtime, persistence-runtime, or release proof.
 | Product readiness | Meeting preflight/session + worker capability -> product facade | **SOURCE ALIGNED / LOCAL PROOF LATER** | Meeting/Text readiness remain capability-scoped. |
 | Python dependency/tooling | `WorkerRuntime/pyproject.toml` | **SOURCE ALIGNED / LOCK + EXECUTION PROOF LATER** | One Python dependency/Ruff/pytest owner; `uv.lock` is not fabricated. |
 | Meeting outbound audio route | virtual-route owners | **PARTIAL / WINDOWS PROOF REQUIRED** | Generation-aware route cancellation exists; actual delivery unproved. |
-| Incoming Meeting assistance | audio/capture/runtime candidates | **MISSING / PARTIAL** | EN Meeting Sound -> ID text and self-output suppression are not implemented. |
+| Incoming Meeting assistance | current Meeting Sound/audio/runtime candidates | **MISSING / PLAN NEXT** | EN Meeting Sound -> ID committed incoming turns and self-output suppression do not yet have one approved source boundary. |
 | Translation tone/context | settings + inherited adapters | **MISSING / PARTIAL** | Approved tone/context do not yet reach canonical inference. |
 | Packaging/runtime assets | Tauri/NSIS + helper discovery | **PARTIAL / STALE ASSUMPTIONS** | End-user packaged runtime/model acquisition remains unresolved. |
 | Document Translation | no active workspace | **RETIRED** | Do not revive Documents/file-attachment translation. |
@@ -71,7 +71,7 @@ Meeting workspace
 `session_id` while invalidating old generation authority. Resume assigns a fresh
 generation before required resources return Live. Navigation remains presentation-only.
 
-No shell/global/window source may create another lifecycle store or cleanup sequence.
+No shell/global/window source owns a second lifecycle store or cleanup sequence.
 
 ## 2. Canonical Outbound And Committed Turns
 
@@ -139,111 +139,113 @@ is idempotent on canonical session id. History schema v2 carries backward-compat
 `dropped_turn_count`. The existing History collection/detail and generic Save/Remove
 path support Meeting and Text.
 
-## 5. Existing Desktop Shell / Window Source
+## 5. Desktop Shell And Cross-View Meeting Presentation
 
-Current shell source is:
+Current shell ownership is:
 
 ```text
 src/main.ts
--> SimpleLauncherController
--> shell.ts
--> lockedReferenceShellParts.ts
+-> SimpleLauncherController        [navigation / normal Meeting actions]
+-> shell.ts                         [shell-level markup composition]
+-> GlobalMeetingShell.ts            [global read-only presentation + close orchestration]
 ```
 
-`SimpleLauncherController` already owns workspace navigation and the normal Meeting
-product actions. It holds no independent backend Meeting authority; its lifecycle
-state is mapped from `runtimeProductFacade`.
+`GlobalMeetingShell.ts` is an implementation helper under the existing desktop shell
+boundary. It is **not** a Meeting lifecycle controller or state store.
 
-Current native-window source is minimal:
-
-```text
-frontend windowRescue.ts
--> getCurrentWindow() for show/size/focus recovery
-
-src-tauri main.rs
--> Builder setup
--> app_bootstrap::configure_main_window
--> app.run(...)
-```
-
-There is currently no native close-request guard, no Stop-before-close orchestration,
-and no orderly-exit Meeting cleanup hook.
-
-`MeetingLiveActivityPresentation.ts` is deliberately local to the visible Meeting
-workspace. It is not the planned global strip owner.
-
-## 6. Planned Global Meeting Cross-View Presentation
-
-The existing application shell/controller owns the global presentation boundary.
-Implementation should add one compact strip as a shell element rather than a new page
-or controller.
-
-Read path:
+Its cross-view read path is deliberately small:
 
 ```text
-bounded shell refresh
+bounded refresh
 -> runtimeApi.getMeetingSessionStatus
 -> mapProductMeetingState
 -> global Meeting strip
 ```
 
-The read must remain lightweight; it must not repeatedly load the full readiness/
-Diagnostics/model bundle merely to update a strip.
+It does not run the full product readiness/Diagnostics bundle to maintain the strip and
+does not read committed transcript bodies.
 
-The strip is visible outside Meeting when the application Meeting session exists and
-may present `Starting / Live / Paused / Resuming / Stopping / Needs attention`. It is
-hidden while viewing Meeting and when no application Meeting session exists.
+The strip is shown only outside Meeting while an application-owned Meeting session
+exists. It can present current Starting / Live / Paused / Resuming / Stopping states
+and existing outbound `Needs attention`. The only action is `Open Meeting`, delegated
+through the existing Meeting navigation button/controller. Local Meeting Pause/Resume/
+Stop controls remain on Meeting.
 
-Initial global action surface is only `Open Meeting`, delegated to existing navigation.
-Normal Pause/Resume/Stop stay on Meeting. `Stop Voice` remains later because its
-canonical runtime action is not implemented.
+## 6. Safe Native Close Lifecycle
 
-## 7. Planned Safe Close Lifecycle
-
-Approved close behavior is distinct from minimize:
+The frontend native-window guard uses the current Tauri v2 close-request boundary:
 
 ```text
-minimize/hide
--> keep healthy Meeting running
+close requested
+-> prevent requested close
+-> fresh get_meeting_session_status
 
-native close + verified no application Meeting session
--> close normally
+no session
+-> Window.destroy()
 
-native close + application Meeting session
--> prevent close
--> shell confirmation: Keep Open / Stop & Close
+application Meeting session
+-> shell dialog: Keep Open / Stop & Close
 
-native close + Meeting status unavailable/unknown
--> prevent close
--> keep control plane visible
+status unknown / other runtime owner
+-> keep window open
 ```
 
-`Stop & Close` must call the same existing product/backend Stop path as Meeting:
+`Window.destroy()` is used only as the final transport operation after safety has been
+verified. `src-tauri/capabilities/default.json` grants the main window the required
+`core:window:allow-destroy` permission in addition to existing `core:default`.
+
+The dialog is shell presentation only. It does not carry lifecycle truth.
+
+### Stop & Close
 
 ```text
-runtimeProductFacade.runProductMeetingAction("stop")
+Stop & Close
+-> runtimeProductFacade.runProductMeetingAction("stop")
 -> stop_meeting_translation
--> canonical cleanup + History finalization
--> returned Meeting state confirms no session
--> native close permitted once
+-> canonical authority/resource/History finalization
+-> returned product state must show no session
+-> fresh get_meeting_session_status must still show no session
+-> Window.destroy()
 ```
 
-A sent Stop request is not sufficient evidence to close. Failure or remaining session
-keeps the window open. A local one-shot close-permission flag is transport state only,
-not Meeting state.
+A sent Stop command is not considered completion. Unknown state, failed Stop, or a
+remaining session keeps the application open.
 
-If lifecycle is already `Stopping`, the close guard waits for the existing canonical
-Stop instead of starting another cleanup. If close is explicitly requested during
-`Starting`/`Resuming`, Stop & Close is newer user intent and uses the same backend Stop
-authority; generation guards must prevent the older transition from reviving output.
+If lifecycle is already `Stopping`, the shell does not dispatch another Stop. A local
+`closeAfterExistingStop` flag represents only the pending close request; bounded status
+reads wait for the canonical existing Stop to clear the session before destroy.
 
-For orderly application exits that bypass the normal frontend prompt, `main.rs` /
-`app_bootstrap.rs` should delegate once to the same backend Stop/finalization owner.
-This native hook is a fail-safe, not a second lifecycle implementation. Exact current
-Tauri v2 event APIs must be verified from official documentation before coding.
+### Orderly native-exit fail-safe
 
-Forced process termination, OS crash, and power loss remain platform/runtime proof
-boundaries and cannot be claimed safe from static source.
+`src-tauri/src/main.rs` now uses the Tauri App run-event callback. On orderly
+`RunEvent::ExitRequested`, it checks lightweight canonical runtime ownership and, if
+the application Meeting still exists, calls the same
+`commands::meeting_session::stop_meeting_translation()` owner.
+
+The native exit layer does not call capture/helper/History internals directly. If the
+canonical Meeting still exists and the main control window is available, it prevents
+exit and restores the window. It does not intentionally keep a windowless invisible
+process running after failed cleanup.
+
+This remains source alignment only. Actual event order, close races, forced process
+termination, OS crash, and Windows lifecycle behavior require local/platform proof.
+
+## 7. Static Regression Contract
+
+`validate_startup_runtime_readiness.mjs` defines source checks for:
+
+- shell/global Meeting startup and markup wiring;
+- lightweight canonical status reads and facade mapping;
+- absence of direct duplicate Meeting actions/capture/transcript ownership in the
+  global shell;
+- close-request prevention + post-Stop verified destroy;
+- `core:window:allow-destroy` capability;
+- orderly native-exit delegation to canonical Stop;
+- absence of duplicate capture/helper/History cleanup in native main;
+- preservation of committed-turn and Meeting History ownership.
+
+The validator is defined but has **not** been executed in the current
+`ChatGPT -> GitHub` channel.
 
 ## 8. Other Runtime Boundaries
 
@@ -258,15 +260,15 @@ pytest execution and `uv.lock` resolution remain later.
 ## 9. Remaining Core Work
 
 ```text
-implement global Meeting strip + safe Stop & Close
-incoming Meeting lane + self-output suppression
+plan incoming Meeting Sound + self-output suppression boundary
 translation tone/context consumption
 Text Copy/direct Save
+multi-instance enforcement + sleep/hibernate lifecycle
 uv.lock + real dependency resolution
 Ruff / pytest / TypeScript / Rust execution proof
 scheduler contention measurement
 actual model translation/TTS quality + performance
-Windows microphone/VAD/Meeting route proof
+Windows microphone/VAD/Meeting route/native-close proof
 packaging/clean-machine reconciliation
 ```
 
@@ -276,21 +278,25 @@ dependency manifest, lint stack, or test framework to solve these.
 
 ## 10. Other Product Boundaries
 
-Incoming Meeting Sound remains a separate unimplemented lane. Documents remains
-retired. Audio Studio remains post-core. Svelte remains a separate future frontend
-architecture decision after core runtime contracts stabilize.
+Incoming Meeting Sound remains the next unresolved core semantic boundary. Product
+policy requires a separate optional/degradable incoming lane and self-output
+suppression, but current source ownership for capture/finalization/turn integration is
+not yet resolved and must be planned before implementation.
+
+Documents remains retired. Audio Studio remains post-core. Svelte remains a separate
+future frontend architecture decision after core runtime contracts stabilize.
 
 ## Current Mode / Continuation
 
-Current mode: **Developing**.  
+Current mode: **Plan**.  
 Execution channel: `ChatGPT -> GitHub`.
 
 Engine consolidation, finalized outbound production, canonical Start/Stop,
 Pause/Resume fresh-generation lifecycle, bounded committed-turn source, Live transcript
-read path, and Meeting History finalization are source-aligned at their bounded claims.
-Global cross-view presentation and safe close ownership are now planned but not source-
-implemented. No compile/typecheck/validator execution, native close runtime,
-filesystem persistence runtime, model/Windows runtime/rendered UI, audio-quality,
-race-timing, or performance proof has been obtained in this channel.
+read path, Meeting History finalization, global cross-view Meeting presentation, and
+safe Stop & Close are source-aligned at their bounded claims. No compile/typecheck/
+validator execution, native close runtime, filesystem persistence runtime,
+model/Windows runtime/rendered UI, audio-quality, race-timing, or performance proof has
+been obtained in this channel.
 
 The single continuation is `docs/knowledge/next-action.md`.
