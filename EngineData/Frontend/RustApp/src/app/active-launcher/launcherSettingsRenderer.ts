@@ -49,10 +49,10 @@ function meetingSettingsView(settings: RuntimeSettings): string {
     "Meeting",
     "Configure the audio and setup TranslateIT uses for meetings.",
     "settings-view--meeting",
-    `${settingsSection("Meeting preferences", "Keep normal meeting controls simple and product-level.", true)}${settingsCard(
+    `${settingsSection("Meeting setup", "Only the audio choices needed for translation are shown here.", true)}${settingsCard(
       "settings-card--meeting",
       `${settingsGrid(
-        `${settingsField("Speaking mode", statusValue("Session Listening"), "Default meeting mode. Push-to-Talk remains the secondary interaction mode.")}${settingsField("Your microphone", deviceSelect("meetingMicrophoneSelect", microphone, "Your microphone"), "Choose Windows Default or pin one microphone. A candidate is checked before the preference is replaced.")}${settingsField("Meeting sound", deviceSelect("meetingSoundSelect", meetingSound, "Meeting sound"), "Choose where you listen to meetings. The output endpoint is checked before it is saved; incoming translation remains a separate capability.")}${settingsField("Meeting microphone", statusValue("TranslateIT Meeting Microphone"), "Managed by TranslateIT and selected as the microphone inside the meeting application.")}`,
+        `${settingsField("Your microphone", deviceSelect("meetingMicrophoneSelect", microphone, "Your microphone"), "Choose Windows Default or pin one microphone. A candidate is checked before the preference is replaced.")}${settingsField("Meeting sound", deviceSelect("meetingSoundSelect", meetingSound, "Meeting sound"), "Choose where you listen to meetings. The output endpoint is checked before it is saved; incoming translation remains optional.")}${settingsField("Meeting microphone", statusValue("TranslateIT Meeting Microphone"), "Managed by TranslateIT and selected as the microphone inside the meeting application.")}`,
       )}<p id="meetingDeviceSelectionMessage" class="diagnostic-note" aria-live="polite"></p>${settingsActions(`${primaryButton("Check Microphone", { id: "checkAudioInputButton", class: "secondary" })}${primaryButton("Mic Test", { id: "micTestButton", class: "secondary" })}${primaryButton("Check Setup", { id: "meetingSetupButton", class: "secondary" })}`, true)}`,
     )}`,
   );
