@@ -24,6 +24,11 @@ const paths = {
   liveCapture: resolve(root, "src-tauri/src/engine/audio/live_capture.rs"),
   meetingSoundCapture: resolve(root, "src-tauri/src/engine/audio/meeting_sound_capture.rs"),
   textTranslate: resolve(root, "src-tauri/src/commands/text_translate.rs"),
+  runtimeInventory: resolve(root, "src-tauri/src/commands/runtime_inventory.rs"),
+  modelManifest: resolve(
+    root,
+    "../../Backend/LocalWorker/WorkerRuntime/model_manifest.json",
+  ),
   worker: resolve(
     root,
     "../../Backend/LocalWorker/WorkerRuntime/realtime_local_worker.py",
@@ -327,6 +332,59 @@ requireMarkers(source.worker, "worker readiness split", [
   "model:marianmt_en_id_missing_reverse_translation_unavailable",
 ]);
 
+// The declarative model inventory must describe the same direction-based translation
+// implementation as the worker. Reverse EN->ID is managed but intentionally optional at
+// the required-outbound inventory boundary so a missing reverse asset cannot false-block
+// otherwise healthy ID->EN Meeting Start.
+let parsedModelManifest;
+try {
+  parsedModelManifest = JSON.parse(source.modelManifest);
+} catch (error) {
+  throw new Error(`Model manifest is not valid JSON: ${error}`);
+}
+const manifestModels = Array.isArray(parsedModelManifest?.models) ? parsedModelManifest.models : [];
+const manifestById = new Map(manifestModels.map((item) => [item?.model_id, item]));
+const manifestIdEn = manifestById.get("marianmt-id-en");
+const manifestEnId = manifestById.get("marianmt-en-id");
+if (!manifestIdEn || !manifestEnId) {
+  throw new Error("Model manifest must contain both marianmt-id-en and marianmt-en-id translation assets");
+}
+if (
+  manifestIdEn.required !== true ||
+  manifestIdEn.stage !== "translation_id_en" ||
+  manifestIdEn.expected_path !== "EngineData/Backend/RuntimeAssets/Translation/ModelData/marianmt-id-en" ||
+  manifestIdEn.repo_id !== "Helsinki-NLP/opus-mt-id-en" ||
+  manifestIdEn.license !== "apache-2.0"
+) {
+  throw new Error("ID->EN manifest entry does not match the canonical worker/source contract");
+}
+if (
+  manifestEnId.required !== false ||
+  manifestEnId.stage !== "translation_en_id" ||
+  manifestEnId.expected_path !== "EngineData/Backend/RuntimeAssets/Translation/ModelData/marianmt-en-id" ||
+  manifestEnId.repo_id !== "Helsinki-NLP/opus-mt-en-id" ||
+  manifestEnId.license !== "apache-2.0"
+) {
+  throw new Error("EN->ID manifest entry must match the canonical reverse worker path without becoming required-outbound inventory");
+}
+if (
+  manifestModels.some((item) =>
+    item?.model_id === "nllb-200-distilled-600M" ||
+    item?.stage === "translation_quality" ||
+    item?.stage === "translation_realtime"
+  )
+) {
+  throw new Error("Current model manifest must not retain obsolete mode-based/NLLB translation inventory");
+}
+
+requireMarkers(source.runtimeInventory, "truthful model inventory semantics", [
+  "if entry.required && !found",
+  'blockers.push(format!("missing_required_model:{}", entry.model_id))',
+  "Optional direction/fallback assets may still be missing.",
+  "Optional assets do not determine this required-assets status.",
+  "installation evidence only",
+]);
+
 requireMarkers(source.helperBridgeRuntime, "one helper scheduler", [
   "static HELPER_SCHEDULER",
   "MeetingOutbound",
@@ -535,5 +593,5 @@ forbidMarkers(source.meetingActivity, "Meeting live presentation", [
 ]);
 
 console.log(
-  "Reliable translation-core static contract is defined: the normal desktop surface is Meeting/Text/Settings without History/Saved, Mode, or Tone workflow; product readiness consumes worker ID->EN / EN->ID direction fields instead of Realtime/Quality aliases; required Meeting outbound depends on ID->EN while reverse remains optional; Text readiness follows its selected ID<->EN direction; normal Meeting/Text translation requests do not send mode; successful Text translation has no persistence dependency; one worker owns both directions and rejects silent truncation/incomplete generation; optional incoming cannot block required outbound; Meeting uses Start -> Live -> Stop; Stop clears runtime/transient state without History persistence; safe close remains canonical. This is static source validation only and does not prove Python/Rust/TypeScript execution, model availability/load, translation quality, latency, CUDA/CPU behavior, Windows audio, suppression effectiveness, rendered UI, or installed operation.",
+  "Reliable translation-core static contract is defined: the normal desktop surface is Meeting/Text/Settings without History/Saved, Mode, or Tone workflow; product readiness consumes worker ID->EN / EN->ID direction fields instead of Realtime/Quality aliases; the declarative inventory contains the same marianmt-id-en / marianmt-en-id paths as the worker with reverse EN->ID optional at the required-outbound inventory boundary and no obsolete NLLB/mode-based translation entry; required Meeting outbound depends on ID->EN while reverse remains optional; Text readiness follows its selected ID<->EN direction; normal Meeting/Text translation requests do not send mode; successful Text translation has no persistence dependency; one worker owns both directions and rejects silent truncation/incomplete generation; optional incoming cannot block required outbound; Meeting uses Start -> Live -> Stop; Stop clears runtime/transient state without History persistence; safe close remains canonical. This is static source validation only and does not prove Python/Rust/TypeScript execution, model availability/load, translation quality, latency, CUDA/CPU behavior, Windows audio, suppression effectiveness, rendered UI, or installed operation.",
 );
