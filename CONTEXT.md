@@ -37,7 +37,7 @@ Gemini's cloud/model/language architecture.
 
 ## Initial Product Surface
 
-The active frontend now follows the initial navigation target:
+The active frontend follows the initial navigation target:
 
 ```text
 Meeting
@@ -45,7 +45,7 @@ Text
 Settings
 ```
 
-Normal Settings now follows:
+Normal Settings follows:
 
 ```text
 Meeting
@@ -56,6 +56,9 @@ History/Saved is no longer an active navigation/settings workflow. Successful Te
 translation no longer performs an automatic History write. Existing backend
 History/Saved storage and Tauri commands remain deferred/disconnected source only and
 are not a Meeting/Text success dependency.
+
+Normal Meeting/Text UI also no longer presents Tone or Realtime/Quality Mode controls.
+Normal users choose only the relevant Indonesian/English direction.
 
 Normal Meeting lifecycle:
 
@@ -89,16 +92,50 @@ EN -> ID -> marianmt-en-id
 ```
 
 `TRANSLATION_RUNTIME` is keyed by direction (`id->en`, `en->id`), not Realtime/Quality.
-Inherited product readiness/presentation still carries stale Realtime/Quality and
-Mode/Tone assumptions; those are the next cleanup target and must not become a second
-translation-model authority.
+Worker compatibility aliases may remain for inherited Diagnostics/preload boundaries,
+but normal product readiness and normal Meeting/Text requests do not use them to choose
+translation behavior.
 
-Required outbound worker readiness depends on ID -> EN. EN -> ID is separately visible
-because incoming is optional and must not block otherwise healthy outbound Start.
+Product readiness now consumes the worker direction fields directly:
+
+```text
+Meeting required outbound
+-> translation_id_en
+
+Optional incoming
+-> translation_en_id
+-> unavailable reverse direction must not block healthy outbound
+
+Text
+-> current source/target direction
+-> matching translation_id_en or translation_en_id
+```
+
+Normal Meeting/Text translation requests send content and explicit language direction;
+they do not send a user/runtime mode selector.
 
 The repository does **not** contain runtime proof that `marianmt-en-id` is installed,
 loads successfully, translates well, or meets target-PC latency/memory. Those remain
 local/release proof.
+
+## Translation Model Inventory Gap
+
+The runtime worker and active product now agree on direction-based translation, but
+`model_manifest.json` still describes the older asset plan:
+
+```text
+Current worker expects
+marianmt-id-en
+marianmt-en-id
+
+Current manifest declares
+marianmt-id-en
+nllb-200-distilled-600M / translation_quality
+```
+
+The reverse Marian checkpoint is therefore not yet represented by the canonical model
+inventory/setup owner. This is a source/setup mismatch, not proof that the checkpoint is
+installed or usable.
 
 ## Translation Safety Rules
 
@@ -210,7 +247,8 @@ cannot satisfy practical Meeting latency.
 
 ## Current Source That Remains Useful
 
-- active desktop shell/controller — Meeting / Text / Settings only;
+- active desktop shell/controller — Meeting / Text / Settings only, no normal Mode/Tone;
+- direction-based product readiness in `runtimeProductFacade.ts`;
 - `engine/audio/live_capture.rs` — physical microphone capture;
 - `engine/audio/finalized_utterance.rs` — finalized speech/event identity;
 - `engine/audio/meeting_sound_capture.rs` — optional Meeting Sound loopback;
@@ -220,22 +258,23 @@ cannot satisfy practical Meeting latency.
 - `realtime_local_worker.py` — ASR / bidirectional translation / TTS worker;
 - virtual Meeting Microphone route owners;
 - global safe Stop/Close boundary;
-- standalone Text translation path without automatic History persistence.
+- standalone Text translation path without automatic History persistence or mode selection.
 
 ## Source To Simplify / Retire
 
-Current source still contains behavior outside the initial product:
+Current source still contains behavior outside or inconsistent with the initial product:
 
-- inherited Realtime/Quality readiness and compatibility assumptions;
-- Mode/Tone presentation and related active caller fields;
+- stale model inventory/manifest entry for optional NLLB Quality instead of the selected reverse Marian direction;
 - backend History/Saved persistence source, now disconnected from the active frontend;
 - Audio Studio/custom voice initial-product assumptions;
 - any future conversation-context path;
+- worker/Diagnostics compatibility labels only after their consumers are proven unnecessary;
 - complex conversational delivery controls if encountered.
 
 Meeting Stop no longer writes History, successful Text translation no longer writes
-History, active navigation/settings no longer expose History/Saved, and Pause/Resume is
-no longer part of the application Meeting runtime/product path.
+History, active navigation/settings no longer expose History/Saved, Pause/Resume is no
+longer part of application Meeting, and normal readiness/UI no longer use
+Realtime/Quality or Tone.
 
 Prefer actual removal/disconnection over compatibility layers that keep old complexity
 alive.
