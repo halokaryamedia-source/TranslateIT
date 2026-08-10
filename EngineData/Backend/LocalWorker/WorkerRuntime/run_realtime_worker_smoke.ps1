@@ -53,6 +53,28 @@ function Invoke-WorkerJson {
     return $line | ConvertFrom-Json -ErrorAction Stop
 }
 
+function Get-StageSummary {
+    param($Response)
+
+    if ($null -eq $Response) {
+        return $null
+    }
+
+    return [ordered]@{
+        ok = [bool]$Response.ok
+        stage = $Response.stage
+        mode = $Response.mode
+        model_id = $Response.model_id
+        device = $Response.device
+        compute_type = $Response.compute_type
+        provider = $Response.provider
+        blocker = $Response.blocker
+        elapsed_ms = $Response.elapsed_ms
+        readiness = $Response.readiness
+        loaded = $Response.loaded
+    }
+}
+
 Write-Host "TranslateIT local persistent-worker smoke test"
 Write-Host "Root: $Root"
 Write-Host "Mode: $Mode"
@@ -100,21 +122,21 @@ if ($null -ne $tts) { $ok = $ok -and [bool]$tts.ok }
 if ($null -ne $asr) { $ok = $ok -and [bool]$asr.ok }
 
 $result = [ordered]@{
-    schema = "translateit.local_worker_smoke_result.v4.redacted.persistent"
+    schema = "translateit.local_worker_smoke_result.v5.redacted.persistent"
     created_at = (Get-Date).ToUniversalTime().ToString("o")
-    privacy = "source_text_and_audio_path_redacted"
+    privacy = "conversation_bodies_and_runtime_paths_redacted"
     persistent_worker = $true
     ok = $ok
     mode = $Mode
     text_chars = $Text.Length
     audio_supplied = [bool]($AudioPath.Trim().Length -gt 0)
     tts_text_chars = $TtsText.Length
-    status = $status
-    translation = $translation
-    tts_preflight = $ttsPreflight
-    tts = $tts
-    asr = $asr
-    note = "This smoke result proves only the observed persistent worker command path on this PC. It is not model-quality, latency, Windows audio-delivery, or release proof."
+    status = Get-StageSummary $status
+    translation = Get-StageSummary $translation
+    tts_preflight = Get-StageSummary $ttsPreflight
+    tts = Get-StageSummary $tts
+    asr = Get-StageSummary $asr
+    note = "This smoke result proves only the observed persistent worker command path on this PC. It intentionally excludes source/translated/transcript text and file paths, and is not model-quality, latency, Windows audio-delivery, or release proof."
 }
 
 New-Item -ItemType Directory -Force -Path $EvidenceRoot | Out-Null
