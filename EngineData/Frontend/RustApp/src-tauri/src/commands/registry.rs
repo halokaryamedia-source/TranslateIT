@@ -45,6 +45,7 @@ pub fn register<R: tauri::Runtime>(builder: tauri::Builder<R>) -> tauri::Builder
         crate::commands::virtual_mic_route::prepare_virtual_mic_output_route_runtime_stub,
         crate::commands::virtual_mic_route::set_preferred_virtual_mic_route_devices,
         crate::commands::meeting_session::get_meeting_session_status,
+        crate::commands::meeting_session::get_meeting_committed_turns,
         crate::commands::meeting_session::start_meeting_translation,
         crate::commands::meeting_session::pause_meeting_translation,
         crate::commands::meeting_session::resume_meeting_translation,
