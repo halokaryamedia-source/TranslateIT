@@ -21,7 +21,7 @@ MISSING  -> required simplified-core behavior has no valid current implementatio
 | Boundary | Current owner(s) | Status | Current truth |
 |---|---|---|---|
 | Product shell/navigation | `main.ts`, `shell.ts`, `SimpleLauncherController.ts` | **STALE / PRUNE** | Source still exposes History and old Meeting controls; initial product target is Meeting / Text / Settings. |
-| Meeting application authority | `runtime_state.rs`, `meeting_session.rs` | **PARTIAL / SIMPLIFY** | One canonical session owner is valid; Pause/Resume is no longer initial product scope. |
+| Meeting application authority | `runtime_state.rs`, `meeting_session.rs` | **PARTIAL / SIMPLIFY** | One canonical session owner is valid; Pause/Resume is still present but no longer initial product scope. |
 | Physical microphone capture | `engine/audio/live_capture.rs` | **ALIGNED / WINDOWS PROOF LATER** | Required outbound capture owner. |
 | Finalized speech boundary | `engine/audio/finalized_utterance.rs` | **ALIGNED BASE / SIMPLIFY** | Finalized stable speech/event identity remains useful. |
 | Meeting Sound capture | `engine/audio/meeting_sound_capture.rs` | **PARTIAL / OPTIONAL** | Distinct incoming loopback owner exists; actual Windows behavior is local proof. |
@@ -31,15 +31,15 @@ MISSING  -> required simplified-core behavior has no valid current implementatio
 | Meeting incoming AI | `meeting_session.rs` -> helper -> worker | **SOURCE ALIGNED CONTRACT / MODEL PROOF LATER** | Explicit EN->ID request selects reverse Marian direction; actual reverse model asset/load/quality remains unproved. |
 | Self-output suppression | `meeting_session.rs` + `meeting_sound_capture.rs` | **SOURCE ALIGNED / WINDOWS PROOF LATER** | Healthy incoming is suppressed during TranslateIT playback; if suppression cannot be established, incoming is disabled/ignored and required outbound continues. |
 | Helper scheduler | `helper_bridge.rs`, `helper_bridge_runtime.rs` | **ALIGNED BASE** | One scheduler/worker remains; outbound > incoming > Text > diagnostics. |
-| Live transcript | transient committed-turn store + `MeetingLiveActivityPresentation.ts` | **ALIGNED BASE / SIMPLIFY** | Keep transient finalized current-session transcript; persistence is not core. |
-| History / Saved | `history_store.rs`, History commands/frontend | **STALE / DEFERRED** | Existing source is outside initial core and must not be required by Meeting/Text success. |
-| Meeting History Stop handoff | `meeting_session.rs` -> `history_store.rs` | **STALE / NEXT** | Stop still performs automatic persistence work that the simplified core no longer requires. |
+| Live transcript | transient committed-turn store + `MeetingLiveActivityPresentation.ts` | **ALIGNED BASE / SIMPLIFY** | Keep transient finalized current-session transcript; it is cleared at Stop and has no required persistence handoff. |
+| Meeting Stop lifecycle | `meeting_session.rs` | **SOURCE ALIGNED / RUNTIME PROOF LATER** | Stop revokes authority, cleans both lanes/helper/consumers/transient state, and no longer imports or writes History. |
+| History / Saved | `history_store.rs`, History commands/frontend | **STALE / DEFERRED** | Existing persistence/UI source remains outside initial core and is disconnected from Meeting Stop success. |
 | Text translation | `text_translate.rs` -> helper -> worker | **SOURCE ALIGNED CONTRACT / CALLER CLEANUP LATER** | Text still carries a temporary Quality compatibility label, but worker routing is language-direction based and Meeting-independent. |
 | Tone | settings/UI assumptions | **STALE / DEFERRED** | Auto/Formal/Casual removed from initial core. |
 | Meeting context | no canonical inference path | **DEFERRED BY POLICY** | Current utterance only; do not add context now. |
-| Global safe close | `GlobalMeetingShell.ts`, native `main.rs` -> canonical Stop | **ALIGNED BASE** | Keep Stop-before-close safety; remove deferred persistence/lifecycle dependencies without creating another close path. |
+| Global safe close | `GlobalMeetingShell.ts`, native `main.rs` -> canonical Stop | **ALIGNED BASE** | Stop-before-close remains; safe close now inherits the persistence-free Stop path. |
 | Audio Studio/custom voice | existing advanced/source boundaries | **STALE FOR INITIAL CORE** | Deferred until translator is proven. |
-| Static translation-core validation | `scripts/validate_startup_runtime_readiness.mjs` | **SOURCE ALIGNED DEFINITION / NOT EXECUTED** | Validator protects direction-based bidirectional routing, translation safety, optional-incoming nonblocking outbound semantics, common Meeting/Text worker, and safe core owners. |
+| Static translation-core validation | `scripts/validate_startup_runtime_readiness.mjs` | **SOURCE ALIGNED DEFINITION / NOT EXECUTED** | Validator protects bidirectional routing, translation safety, nonblocking incoming, persistence-free Stop, common Meeting/Text worker, and safe core owners. |
 
 ## 1. Simplified Product Flow
 
@@ -130,7 +130,7 @@ Do not create a replacement parallel engine while pruning old features.
 
 ## 5. Incoming Is Subordinate To Outbound
 
-Current source now follows:
+Current source follows:
 
 ```text
 incoming healthy
@@ -146,22 +146,32 @@ suppression unavailable
 ```
 
 The disabled stage lives inside the existing `meeting_session.rs` incoming orchestration
-status; no second Meeting/audio/suppression authority was added. Clearing the finalized
-incoming producer before route dispatch makes still-open callbacks ignored even if
-capture cleanup itself reports a failure.
+status; no second Meeting/audio/suppression authority was added. Actual Windows
+suppression effectiveness, capture-stop behavior, and race timing remain local proof.
 
-Actual Windows suppression effectiveness, capture-stop behavior, and race timing remain
-local proof. Automatic mid-session default-output rebind remains deferred.
+## 6. Stop Is Runtime Cleanup, Not Persistence
 
-## 6. Finalized Transcript Remains Transient
+The canonical Stop path is now:
 
-One bounded transient committed-turn store may remain for the active Meeting view for
-current-session comprehension and truthful chronological output. It is not permission
-to keep History/Saved as a core dependency.
+```text
+revoke Meeting output authority
+-> cancel Meeting route
+-> stop physical microphone
+-> stop optional Meeting Sound
+-> cancel helper work by Meeting session
+-> join outbound/incoming consumers
+-> clear suppression/finalized sequence/transient committed turns
+-> clear application Meeting session
+-> Ended
+```
 
-The next simplification target is the remaining automatic Meeting Stop -> History
-persistence handoff. Initial Stop should clean the runtime/transient conversation
-without requiring persistence work.
+`meeting_session.rs` no longer imports `history_store`, `HistoryTurn`, or settings for
+History finalization, and Stop no longer reads the final transcript snapshot to create a
+Recent entry. Existing History/Saved source may remain for later removal/reconsideration,
+but persistence state/failure is not part of Meeting Stop success.
+
+The transient committed-turn store remains the active Meeting transcript source while a
+session exists and is cleared during Stop.
 
 ## 7. Deferred Source To Remove Or Disconnect
 
@@ -175,7 +185,6 @@ Auto / Formal / Casual tone controls
 remaining Realtime / Quality caller/UI assumptions
 conversation-context prompting
 History / Saved navigation and automatic persistence
-Meeting Stop -> History finalization dependency
 Audio Studio/custom voice initial-product flow
 Document Translation
 ```
@@ -211,16 +220,16 @@ No normal tone/mode/context/persistence controls.
 ChatGPT -> GitHub may prove source ownership/routing only. Local Windows proof remains
 required for final ASR, both translation directions, model quality/load, TTS, Meeting
 Microphone delivery, Meeting Sound loopback, suppression effectiveness,
-latency/memory/contention, native race behavior, and installed operation.
+latency/memory/contention, Stop/close race behavior, and installed operation.
 
 ## Current Mode / Continuation
 
 Current mode: **Developing**.  
 Execution channel: `ChatGPT -> GitHub`.
 
-Reliable bidirectional translation routing and optional-incoming nonblocking outbound
-semantics are source-aligned at their bounded contracts. The next stale dependency is
-automatic Meeting Stop -> History persistence, which no longer belongs to the initial
-translation core.
+Reliable bidirectional translation, optional-incoming nonblocking outbound semantics,
+and persistence-free Meeting Stop are source-aligned at their bounded contracts. The
+next core simplification target is stale Pause/Resume lifecycle behavior, because the
+approved initial lifecycle is Start -> Live -> Stop only.
 
 The single continuation is `docs/knowledge/next-action.md`.
