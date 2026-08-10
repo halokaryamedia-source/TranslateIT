@@ -259,7 +259,8 @@ pub fn probe_output_device_candidate(device_id: Option<String>) -> AudioDevicePr
         sample_rate_hz: Some(config.sample_rate().0),
         channels: Some(config.channels()),
         blocker: String::new(),
-        note: "The selected Meeting sound device has a usable native output configuration. Incoming Meeting Sound capture is still a separate unimplemented capability.".to_string(),
+        note: "The selected Meeting Sound output endpoint has a usable native output mix configuration for the current Windows loopback capture boundary. Actual loopback audio remains Windows runtime proof."
+            .to_string(),
     }
 }
 
