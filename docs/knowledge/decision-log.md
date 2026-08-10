@@ -749,3 +749,87 @@ clear acceptance gate: first prove stable final ASR, both translation directions
 outbound TTS/Meeting Microphone delivery, optional incoming behavior, safe Stop/Close,
 and standalone Text on the target Windows machine. Only after that evidence should a
 removed/deferred feature be reconsidered.
+
+## D-024 — Controlled Windows Setup Uses Local Sidecar Runtime Payloads
+
+**Decision**  
+The initial controlled Windows release keeps **one normal Setup interaction** while
+allowing the large local runtime/model bytes to be distributed as local sidecar payloads
+beside that Setup executable.
+
+The selected release topology is:
+
+```text
+TranslateIT release package
+├─ TranslateIT_<version>_x64-setup.exe
+└─ payload/
+   ├─ required runtime payload(s)
+   ├─ primary ASR payload
+   ├─ marianmt-id-en payload
+   └─ marianmt-en-id payload
+```
+
+The user runs Setup only. Setup/release packaging owns payload verification and placement
+into the installed runtime location. The user must not install Python/uv/pip, download
+Hugging Face assets manually, set runtime environment variables, or copy model folders.
+
+The initial controlled release does **not** use a first-run internet model downloader,
+in-app package manager, silent cloud fallback, or NLLB fallback. A network acquisition
+flow may be reconsidered only after controlled local-payload distribution has real
+operational evidence showing it is the worse solution.
+
+A single monolithic standard NSIS executable is explicitly not the selected model. The
+current primary faster-whisper asset plus the two selected Marian PyTorch checkpoints
+already exceed the practical standard NSIS single-installer size boundary before
+Python/Torch/TTS/runtime files are included. Forcing those bytes into one installer file
+would optimize for file count at the expense of release reliability.
+
+Release acceptance and Meeting runtime readiness remain different gates:
+
+```text
+release/product payload gate
+marianmt-id-en = required
+marianmt-en-id = required
+
+Meeting outbound runtime gate
+marianmt-id-en = required
+marianmt-en-id missing = reverse/incoming degradation only
+```
+
+Both Marian directions are release requirements because standalone Text ID<->EN is an
+initial-core product capability. EN->ID alone must still not false-block otherwise
+healthy required Meeting outbound Start.
+
+Release source identity for external model payloads should minimally record:
+
+```text
+source/repo ID
+immutable source revision/commit
+expected installed target
+release payload/archive SHA-256
+```
+
+`model_manifest.json` remains the model identity/inventory owner. Release staging and
+hash metadata may extend release evidence but must not become another model-selection
+registry.
+
+Installed path ownership must also separate immutable runtime resources from writable
+user data. `engine/paths.rs` remains the semantic path owner and the existing Tauri
+`app_bootstrap.rs` setup boundary supplies installed path context. Repository root
+probing remains a bounded development fallback only.
+
+**Reason**  
+The product requirements demand a local-first core, one setup experience, no manual
+developer-runtime setup, bidirectional translation assets in release inputs, and no
+silent cloud fallback. Current source does not yet satisfy installed delivery:
+`RuntimeAssets` model bytes and `.venv` are intentionally ignored by Git, Tauri currently
+builds an NSIS target without runtime resource mapping, `ProjectPaths` assumes a
+repository-style `EngineData + UserData` root, and helper startup may fall back to a
+local `.venv` or system Python.
+
+Primary-source packaging investigation also shows that embedding all current core model
+bytes into one standard NSIS executable is not a proportional solution. A local sidecar
+payload keeps first installation independent from network availability, avoids a new
+runtime downloader/service, allows release-time revision/hash verification, and still
+preserves the user's actual experience: run one Setup and then use TranslateIT without
+manual model/runtime work.
