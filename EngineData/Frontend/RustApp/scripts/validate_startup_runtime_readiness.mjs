@@ -76,7 +76,7 @@ if (simpleController.includes("Start Translation is not available in this build 
 }
 
 for (const marker of [
-  "MeetingLiveActivityPresentation",
+  "startMeetingLiveActivityPresentation",
   "MEETING_ACTIVITY_REFRESH_MS",
   "runtimeApi.getMeetingSessionStatus",
   "runtimeApi.getMeetingCommittedTurns",
@@ -84,6 +84,7 @@ for (const marker of [
   "mapProductMeetingState",
   "outbound.stage",
   "renderCommittedTurns",
+  "snapshot.session_id !== status.session_id",
   "meeting-live-activity-presentation",
   "meeting-live-transcript-turn",
   "renderReadySurface",
