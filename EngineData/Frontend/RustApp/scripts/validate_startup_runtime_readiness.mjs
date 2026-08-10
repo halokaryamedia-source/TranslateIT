@@ -274,6 +274,45 @@ requireMarkers(source.meetingSession, "canonical Meeting session", [
   "runtime_generation_is_authoritative",
 ]);
 
+// Stop is runtime/transient cleanup only. Persistence is explicitly outside the
+// simplified core and must not be invoked from meeting_session.rs.
+forbidMarkers(source.meetingSession, "Meeting Stop persistence independence", [
+  "create_meeting_recent",
+  "HistoryTurn",
+  "finalize_meeting_history",
+  "history_enabled",
+  "use crate::engine::load_settings",
+]);
+const stopStart = source.meetingSession.indexOf("pub fn stop_meeting_translation()");
+if (stopStart < 0) throw new Error("Canonical Meeting Stop boundary could not be identified");
+const stopBody = source.meetingSession.slice(stopStart);
+requireMarkers(stopBody, "Meeting Stop transient cleanup", [
+  "revoke_application_meeting_session_authority",
+  "stop_live_capture_runtime",
+  "stop_meeting_sound_capture_runtime",
+  "cancel_helper_bridge_meeting_session",
+  "stop_meeting_outbound_consumer",
+  "stop_meeting_incoming_consumer",
+  "clear_self_output_suppression_for_session",
+  "clear_finalized_meeting_sequence",
+  "clear_committed_turns_for_session",
+  "clear_runtime_session_state",
+]);
+forbidMarkers(stopBody, "Meeting Stop persistence independence", [
+  "current_committed_turn_snapshot",
+  "create_meeting_recent",
+  "finalize_meeting_history",
+  "History:",
+]);
+const revokeIndex = stopBody.indexOf("revoke_application_meeting_session_authority");
+const clearTurnsIndex = stopBody.indexOf("clear_committed_turns_for_session");
+const clearSessionIndex = stopBody.indexOf("clear_runtime_session_state");
+if (revokeIndex < 0 || clearTurnsIndex <= revokeIndex || clearSessionIndex <= clearTurnsIndex) {
+  throw new Error(
+    "Meeting Stop must revoke output authority before clearing transient turns and final session state",
+  );
+}
+
 // Physical microphone and optional Meeting Sound remain separate capture owners.
 requireMarkers(source.liveCapture, "physical microphone owner", [
   "start_live_capture_runtime",
@@ -320,5 +359,5 @@ forbidMarkers(source.meetingActivity, "Meeting live presentation", [
 ]);
 
 console.log(
-  "Reliable translation-core static contract is defined: one worker routes ID->EN and EN->ID by language direction, input is not silently truncated, incomplete generation is not promoted, Meeting and Text use the same translation task, required outbound readiness remains distinct from optional incoming readiness, optional incoming suppression failure disables/ignores incoming instead of rejecting required outbound TTS, and safe Meeting/session ownership is preserved. Deferred UI/persistence features are intentionally not protected by this validator. This is static source validation only and does not prove Python/Rust/TypeScript execution, model availability/load, translation quality, latency, CUDA/CPU behavior, Windows audio, suppression effectiveness, rendered UI, or installed operation.",
+  "Reliable translation-core static contract is defined: one worker routes ID->EN and EN->ID by language direction, input is not silently truncated, incomplete generation is not promoted, Meeting and Text use the same translation task, required outbound readiness remains distinct from optional incoming readiness, optional incoming suppression failure disables/ignores incoming instead of rejecting required outbound TTS, Meeting Stop clears runtime/transient state without History persistence, and safe Meeting/session ownership is preserved. Deferred UI/persistence features are intentionally not protected by this validator. This is static source validation only and does not prove Python/Rust/TypeScript execution, model availability/load, translation quality, latency, CUDA/CPU behavior, Windows audio, suppression effectiveness, rendered UI, or installed operation.",
 );
