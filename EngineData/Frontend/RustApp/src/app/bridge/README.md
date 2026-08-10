@@ -1,13 +1,13 @@
 # App Bridge
 
-Backend command wiring is grouped here.
+The active frontend-to-runtime bridge is intentionally small:
 
-## Subgroups
+```text
+runtimeApi.ts
+-> thin Tauri command calls used by current product/setup callers
 
-- `runtime/` for runtime state, settings, and helper-bridge commands
-- `audio/` for audio pipeline and Audio Studio commands
-- `translate/` for translation stream helpers and scoring
+runtimeProductFacade.ts
+-> product-level Meeting/Text readiness and actions
+```
 
-## Rule
-
-Keep bridge wrappers thin and grouped by command family.
+Do not recreate command-family subfolders, direct virtual-route APIs, Audio Studio bridges, realtime scoring/reducer layers, or duplicate runtime APIs unless a current approved product requirement proves a distinct responsibility is needed.

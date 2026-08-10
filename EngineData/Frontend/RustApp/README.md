@@ -5,47 +5,43 @@ This directory is the current desktop application package on branch `New`.
 ## Ownership
 
 ```text
-src/main.ts
--> desktop entrypoint and production style imports
+index.html -> src/main.ts
+-> one normal frontend module entry
 
-src/app/simple-launcher/SimpleLauncherController.ts
--> current active desktop controller/product shell owner
+src/app/simple-launcher/
+-> current desktop controller, global Meeting state, and Live transcript presentation
 
 src/app/bridge/
--> frontend-to-runtime facade/API boundaries
+-> one thin runtime API + one product facade
 
 src/app/active-launcher/
--> current shell, settings/result views, and startup/window helpers reached by the active product graph
+-> current Meeting/Text/Settings shell and bounded settings/diagnostics renderers
 
-src-tauri/
--> Rust/Tauri commands, engine/runtime integration, settings/path/storage owners
+src/app/first-setup/
+-> first-use Meeting setup
+
+src-tauri/src/commands/
+-> bounded Tauri command surface
+
+src-tauri/src/engine/
+-> runtime/audio/session implementation; deeper inherited dead graph is the next cleanup boundary
 
 scripts/
--> current source/build/contract validation utilities
+-> proportional core source/preflight checks plus explicit local compile entrypoint
 ```
 
-The canonical application architecture remains the existing Rust/Tauri desktop shell plus Python helper runtime. Do not create a parallel launcher/engine merely because inherited source names remain.
+The canonical architecture is one Rust/Tauri desktop application plus one Python local worker. Do not add parallel launchers, worker services, route controllers, readiness systems, or feature bridges to preserve retired behavior.
 
-## UI design boundary
+## Current Product Surface
 
-Current UI truth comes from the production source actually imported or called by the desktop application. Visual work follows the root `AGENTS.md` workflow and the `desktop-ui-design-development` specialist when that semantic boundary is active.
+Normal product UI is Meeting / Text / Settings. Audio Studio, History/Saved, Documents, tone/mode controls, and dev pipeline control surfaces are not initial core and are not separate frontend entries.
 
-The old standalone Figma/design-review workflow is retired on `New`. Do not recreate `Preview`, `DesignPreview`, Figma export/plugin payloads, old locked screenshot manifests, or a parallel mandatory UI workflow unless a new explicit product decision requires them.
+## UI Boundary
 
-Names such as `referenceLayout.css` or `lockedReferenceShellParts.ts` do **not** make a file historical by themselves. They remain production source while current runtime imports/callers and acceptance contracts use them.
+Visual truth comes from source actually imported by `src/main.ts` and its current callers. Names such as `referenceLayout.css` or `lockedReferenceShellParts.ts` do not make a file historical while the current UI still imports/calls it. Visual/CSS pruning should use rendered proof where removing a reachable stylesheet could change the current interface.
 
-## Generated/local output
+## Proof Boundary
 
-Generated frontend/build output, Rust targets, local source-validation reports, and temporary development evidence are derived artifacts. They are ignored and must not become source authority.
+Static source checks do not prove TypeScript/Rust compilation, Tauri launch, Windows audio, model execution, latency, rendered UI, installer behavior, or clean-machine operation. Local/generated proof remains derived output and must not become source authority.
 
-Current developer/source-validation reports belong under:
-
-```text
-.tmp/validation/
-```
-
-not `UserData`.
-
-## Current project state
-
-Do not use this README as a backlog or current-task owner. Resume work through root `AGENTS.md`, `CONTEXT.md`, and `docs/knowledge/next-action.md`.
+Resume work through root `AGENTS.md`, `CONTEXT.md`, and `docs/knowledge/next-action.md`.
