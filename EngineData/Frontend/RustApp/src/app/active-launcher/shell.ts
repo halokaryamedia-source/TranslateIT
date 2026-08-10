@@ -1,7 +1,6 @@
 import {
   lockedHomeWorkspace,
   lockedMainSidebar,
-  lockedRuntimeSinks,
   lockedSettingsPage,
   lockedWarmupScreen,
 } from "./lockedReferenceShellParts";
@@ -38,10 +37,5 @@ export function mountAppShell(app: HTMLElement): void {
       ${lockedHomeWorkspace()}
       ${lockedSettingsPage()}
       ${globalMeetingShell()}
-      ${lockedRuntimeSinks()}
     </main>`;
-}
-
-export function homeDefaultCards(): string {
-  return "";
 }

@@ -1,4 +1,4 @@
-import type { HardwareMetric, RuntimeSettings } from "./types";
+import type { RuntimeSettings } from "./types";
 
 const MAX_ERROR_MESSAGE_CHARS = 240;
 const UNSAFE_DISPLAY_CHARS = /[\u0000-\u001f\u007f\u202a-\u202e\u2066-\u2069]/g;
@@ -45,10 +45,4 @@ export function languageName(code: string): string {
   if (normalized.startsWith("id")) return "Indonesian";
   if (normalized.startsWith("en")) return "English";
   return normalized ? normalized.toUpperCase() : "Unknown";
-}
-
-export function percentText(metric?: HardwareMetric): string {
-  if (typeof metric?.percent !== "number" || !Number.isFinite(metric.percent)) return "N/A";
-  const rounded = Math.round(metric.percent);
-  return `${Math.max(0, Math.min(999, rounded))}%`;
 }

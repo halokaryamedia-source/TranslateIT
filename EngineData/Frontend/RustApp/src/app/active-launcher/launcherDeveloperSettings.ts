@@ -1,59 +1,44 @@
-import { percentText } from "../shared/state";
-import type { CaptureHelperDispatchStatus, CaptureTranscriptBoundaryStatus, GpuPolicyReport, HardwareUsageReport, HelperBridgeStatus, ModelInventoryReport, PipelineHandoffRequestStatus, RuntimeDiagnostics, RuntimeStatusBundleReport } from "../shared/types";
-import { buildDeveloperLogRows } from "./launcherDeveloperLog";
+import type { HelperBridgeStatus } from "../shared/types";
 import { developerSettingsView } from "./settingsViews";
 
-type CaptureBoundaryGlobal = typeof globalThis & {
-  __translateitCaptureHelperDispatchStatus?: CaptureHelperDispatchStatus;
-  __translateitCaptureTranscriptBoundaryStatus?: CaptureTranscriptBoundaryStatus;
-  __translateitLivePipelineHandoffStatus?: PipelineHandoffRequestStatus[];
+type CommandErrorLike = {
+  command: string;
+  message: string;
 };
 
+const MAX_RECENT_ERRORS = 6;
+
+function escapeHtml(value: unknown): string {
+  return String(value ?? "")
+    .replaceAll("&", "&amp;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;")
+    .replaceAll('"', "&quot;")
+    .replaceAll("'", "&#39;");
+}
+
+function errorRows(errors: CommandErrorLike[], expanded: boolean): string {
+  const limit = expanded ? errors.length : MAX_RECENT_ERRORS;
+  const rows = errors.slice(0, limit).map((error) =>
+    `<p class="developer-log-row"><strong>${escapeHtml(error.command)}</strong><span>${escapeHtml(error.message)}</span></p>`,
+  );
+  if (!rows.length) {
+    rows.push('<p class="developer-log-row"><strong>OK</strong><span>No recent frontend/Tauri command errors.</span></p>');
+  }
+  if (!expanded && errors.length > limit) {
+    rows.push(`<p class="developer-log-row"><strong>More</strong><span>${errors.length - limit} older error(s) hidden.</span></p>`);
+  }
+  return rows.join("");
+}
+
 export function renderDeveloperSettingsView(args: {
-  latestBundle: RuntimeStatusBundleReport | null;
-  latestDiagnostics: RuntimeDiagnostics | null;
-  latestHardware: HardwareUsageReport | null;
-  latestGpuPolicy: GpuPolicyReport | null;
   latestHelperBridgeStatus: HelperBridgeStatus | null;
-  latestCaptureHelperDispatchStatus?: CaptureHelperDispatchStatus | null;
-  latestCaptureTranscriptBoundaryStatus?: CaptureTranscriptBoundaryStatus | null;
-  latestLivePipelineHandoffStatus?: PipelineHandoffRequestStatus[] | null;
   logsExpanded: boolean;
-  latestModelInventory: ModelInventoryReport | null;
-  commandErrors: { command: string; message: string }[];
+  commandErrors: CommandErrorLike[];
 }): string {
-  const globalCache = globalThis as CaptureBoundaryGlobal;
-  const worker = args.latestBundle?.local_worker_manifest ?? args.latestBundle?.internal_validation_gate?.local_worker_manifest ?? null;
-  const progress = args.latestBundle?.live_pipeline_gate?.progress_percent ?? args.latestBundle?.internal_validation_gate?.progress_percent ?? 0;
-  const cpu = percentText(args.latestHardware?.cpu);
-  const ram = percentText(args.latestHardware?.ram);
-  const gpu = percentText(args.latestHardware?.gpu);
-  const gpuStatus = args.latestGpuPolicy
-    ? `GPU=${args.latestGpuPolicy.gpu_primary}; CUDA=${args.latestGpuPolicy.cuda_available}; status=${args.latestGpuPolicy.status}`
-    : args.latestDiagnostics?.cuda_probe.gpu_summary ?? "GPU status unavailable";
-  const logRows = buildDeveloperLogRows({
-    runtimeLoaded: Boolean(args.latestBundle),
-    worker,
-    cpu,
-    ram,
-    gpu,
-    gpuStatus,
-    nextAction: args.latestBundle?.next_action ?? "Waiting for next diagnostic result.",
-    commandErrors: args.commandErrors,
-  });
   return developerSettingsView({
-    progress,
-    cpu,
-    ram,
-    gpu,
-    gpuStatus,
-    logRows,
-    note: args.latestHardware?.note ?? "Run diagnostic to refresh hardware usage.",
-    logsExpanded: args.logsExpanded,
-    engineGood: Boolean(args.latestBundle),
     helperStatus: args.latestHelperBridgeStatus,
-    captureHelperDispatchStatus: args.latestCaptureHelperDispatchStatus ?? globalCache.__translateitCaptureHelperDispatchStatus ?? null,
-    captureTranscriptBoundaryStatus: args.latestCaptureTranscriptBoundaryStatus ?? globalCache.__translateitCaptureTranscriptBoundaryStatus ?? null,
-    livePipelineHandoffStatus: args.latestLivePipelineHandoffStatus ?? globalCache.__translateitLivePipelineHandoffStatus ?? null,
+    logRows: errorRows(args.commandErrors, args.logsExpanded),
+    logsExpanded: args.logsExpanded,
   });
 }

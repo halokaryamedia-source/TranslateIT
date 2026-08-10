@@ -48,8 +48,6 @@ type SimpleRefs = {
   retryReadinessButton: HTMLButtonElement;
   fixSetupButton: HTMLButtonElement;
   realtimeStatus: HTMLParagraphElement;
-  gpuStatus: HTMLSpanElement;
-  developerOutput: HTMLPreElement;
   userPresence: HTMLSpanElement;
   directionPill: HTMLElement;
   recordStatusText: HTMLElement;
@@ -91,8 +89,6 @@ function bindSimpleRefs(): SimpleRefs {
     retryReadinessButton: requireElement<HTMLButtonElement>("#retryReadinessButton"),
     fixSetupButton: requireElement<HTMLButtonElement>("#fixSetupButton"),
     realtimeStatus: requireElement<HTMLParagraphElement>("#realtimeStatus"),
-    gpuStatus: requireElement<HTMLSpanElement>("#gpuStatus"),
-    developerOutput: requireElement<HTMLPreElement>("#developerOutput"),
     userPresence: requireElement<HTMLSpanElement>("#userPresence"),
     directionPill: requireElement<HTMLElement>("#directionPill"),
     recordStatusText: requireElement<HTMLElement>("#recordStatusText"),
@@ -295,8 +291,6 @@ export class SimpleLauncherController {
                 ? "Checking"
                 : "Setup needed";
       this.ui.realtimeStatus.textContent = readiness.textStatus;
-      this.ui.gpuStatus.textContent = this.snapshot.gpuPolicy?.cuda_available ? "CUDA ready" : this.snapshot.gpuPolicy?.cpu_fallback_active ? "CPU fallback" : "Checking";
-      this.ui.developerOutput.textContent = JSON.stringify({ meeting, readiness, commandErrors: runtimeApi.getCommandErrors().slice(0, 5) }, null, 2);
       this.updateMeetingReadyView(readiness, meeting);
       this.notice(preferredNotice ?? (meeting.hasSession ? meeting.message : readiness.summary));
     } catch (error) {
@@ -568,21 +562,16 @@ export class SimpleLauncherController {
       return;
     }
     this.ui.settingsContent.innerHTML = renderDeveloperSettingsView({
-      latestBundle: this.snapshot?.bundle ?? null,
-      latestDiagnostics: this.snapshot?.diagnostics ?? null,
-      latestHardware: null,
-      latestGpuPolicy: this.snapshot?.gpuPolicy ?? null,
       latestHelperBridgeStatus: this.snapshot?.helper ?? null,
       logsExpanded: this.logsExpanded,
-      latestModelInventory: this.snapshot?.modelInventory ?? null,
       commandErrors: runtimeApi.getCommandErrors(),
     });
-    const diagnosticButton = document.getElementById("runDiagnosticButton") as HTMLButtonElement | null;
-    diagnosticButton?.addEventListener("click", () => void this.runDiagnostics());
-    const logsButton = document.getElementById("seeAllLogsButton") as HTMLButtonElement | null;
-    logsButton?.addEventListener("click", () => { this.logsExpanded = !this.logsExpanded; this.renderSettings("advanced"); });
-    const modelButton = document.getElementById("refreshModelInventoryButton") as HTMLButtonElement | null;
-    modelButton?.addEventListener("click", () => void this.runSetup("verify-models"));
+    document.getElementById("runDiagnosticButton")?.addEventListener("click", () => void this.runDiagnostics());
+    document.getElementById("seeAllLogsButton")?.addEventListener("click", () => {
+      this.logsExpanded = !this.logsExpanded;
+      this.renderSettings("advanced");
+    });
+    document.getElementById("refreshModelInventoryButton")?.addEventListener("click", () => void this.runSetup("verify-models"));
   }
 
   private async runDiagnostics(): Promise<void> {

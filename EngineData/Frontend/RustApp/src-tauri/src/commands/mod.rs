@@ -1,7 +1,6 @@
 pub mod audio;
 pub mod bridge_paths;
 pub mod diagnostic_trace;
-pub mod diagnostics;
 pub mod helper_bridge;
 pub mod helper_bridge_runtime;
 pub mod meeting_session;

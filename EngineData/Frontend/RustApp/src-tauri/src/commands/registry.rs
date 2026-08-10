@@ -1,6 +1,5 @@
 pub fn register<R: tauri::Runtime>(builder: tauri::Builder<R>) -> tauri::Builder<R> {
     builder.invoke_handler(tauri::generate_handler![
-        crate::commands::diagnostics::get_runtime_diagnostics,
         crate::commands::helper_bridge::get_helper_bridge_status,
         crate::commands::helper_bridge::start_helper_bridge,
         crate::commands::helper_bridge::helper_bridge_worker_status,

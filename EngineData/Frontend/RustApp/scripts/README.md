@@ -1,54 +1,28 @@
 # RustApp Scripts
 
-This directory contains current source/build/contract validation utilities for the TranslateIT Tauri application.
+This directory contains only the validation entrypoints needed by the current small TranslateIT product.
 
-## Ownership Rule
-
-A persistent script in this directory is current only when it is reachable from one of these owners:
-
-```text
-package.json
--> canonical developer/source-validation entrypoints
-
-auto_test_registry.mjs
--> canonical registered source/preflight/diagnostic test graph
-
-reachable script/helper
--> direct dependency required by one of the above
-```
-
-A local proof script that needs Windows/runtime/device execution must also have an explicit current owner/entrypoint. Do not keep orphan scripts in `EngineData` merely because they may be useful later; Git history preserves retired tooling.
-
-## Rules
-
-- Scripts protect current source/runtime/package contracts; they do not define product requirements.
-- Do not keep branch-specific V1/V1-Advance/V1-Pull automation as current `New` tooling.
-- Do not make current validation depend on historical `DevelopingData` reports/policies.
-- Developer/source-validation output belongs under ignored `.tmp/validation/`, never `UserData`.
-- Runtime/user diagnostics written by the application itself remain a separate `UserData/LogData` concern.
-- Do not keep retired validator stubs, one-off repair scripts, duplicated aggregate gates, model-download experiments, or per-task cleanup tooling merely for history.
-- Local runtime/device/build proof remains a separate proof level; source validators must not manufacture live proof.
-
-## Current Entrypoints
-
-See `../package.json` for the canonical npm profiles.
-
-Primary source-side paths:
+## Current Source Checks
 
 ```text
 validate:source-contracts
+├─ startup/core runtime contract
+├─ internal Meeting route contract
+├─ Rust manifest preflight
+└─ frontend build preflight
+
 validate:quick
-test:auto-map
-test:auto-strict
-test:contract-reports
+└─ source contracts + TypeScript typecheck
 ```
 
-The explicitly owned local compile proof is:
+Package/path preflight remains separate because installer/path claims are a different boundary. `check:tauri-rust-local` remains an explicit local compile command and is not part of source-only proof.
 
-```text
-check:tauri-rust-local
-```
+## Rules
 
-`auto_test_registry.mjs` owns the scripts/fixtures used by the auto-test matrix. `run_contract_reports.mjs` owns its bounded diagnostic report helpers.
+- Validators protect current Meeting / Text / Settings behavior; they do not preserve retired features.
+- Do not reintroduce Audio Studio, History/Chat, dev seed/handoff/smoke matrices, professional-readiness gates, or branch-era report generators merely for coverage.
+- Prefer compile/typecheck and a few direct core contract guards over large deterministic test museums.
+- Generated proof belongs under ignored `.tmp/` paths.
+- Source checks must not claim Windows audio, model execution, rendered UI, installer, latency, or clean-machine success.
 
-Generated validation reports are disposable and must not be committed.
+Git history preserves removed validation/report tooling if it is needed for forensic recovery later.

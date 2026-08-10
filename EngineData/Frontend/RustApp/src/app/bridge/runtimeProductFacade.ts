@@ -7,15 +7,11 @@ import {
 import { defaultSettings, errorMessage } from "../shared/state";
 import type {
   AudioDeviceListReport,
-  GpuPolicyReport,
   HelperBridgeActionResult,
   HelperBridgeStatus,
   HelperBridgeWorkerResponse,
   InputPreparationStatus,
-  ModelInventoryReport,
-  RuntimeDiagnostics,
   RuntimeSettings,
-  RuntimeStatusBundleReport,
 } from "../shared/types";
 
 export type ProductReadinessLevel = "ready" | "partial" | "blocked" | "checking";
@@ -72,12 +68,8 @@ export type ProductRuntimeSnapshot = {
   readiness: ProductReadiness;
   meeting: ProductMeetingState;
   meetingSession: MeetingSessionStatus | null;
-  bundle: RuntimeStatusBundleReport | null;
-  diagnostics: RuntimeDiagnostics | null;
   helper: HelperBridgeStatus | null;
   workerStatus: HelperBridgeWorkerResponse | null;
-  modelInventory: ModelInventoryReport | null;
-  gpuPolicy: GpuPolicyReport | null;
   inputStatus: InputPreparationStatus | null;
 };
 
@@ -122,7 +114,6 @@ type WorkerCapabilitySnapshot = {
   translationIdEnReady: boolean;
   translationEnIdReady: boolean;
   ttsReady: boolean;
-  cudaDegraded: boolean;
   blocker: string;
   note: string;
 };
@@ -131,7 +122,6 @@ type MeetingPreflightSnapshot = {
   readyForStart: boolean;
   meetingRouteReady: boolean;
   routeExecutionReady: boolean;
-  outboundRuntimeConnected: boolean;
   blockers: string[];
   summary: string;
 };
@@ -179,7 +169,6 @@ function parseWorkerCapabilities(workerStatus: HelperBridgeWorkerResponse | null
       translationIdEnReady: false,
       translationEnIdReady: false,
       ttsReady: false,
-      cudaDegraded: false,
       blocker: "",
       note: "",
     };
@@ -194,7 +183,6 @@ function parseWorkerCapabilities(workerStatus: HelperBridgeWorkerResponse | null
       translationIdEnReady: readiness.translation_id_en === true,
       translationEnIdReady: readiness.translation_en_id === true,
       ttsReady: readiness.tts === true,
-      cudaDegraded: readiness.cuda_degraded === true,
       blocker: compact(payload.blocker, ""),
       note: compact(payload.note, ""),
     };
@@ -205,7 +193,6 @@ function parseWorkerCapabilities(workerStatus: HelperBridgeWorkerResponse | null
       translationIdEnReady: false,
       translationEnIdReady: false,
       ttsReady: false,
-      cudaDegraded: false,
       blocker: "helper_bridge:invalid_worker_status_response",
       note: "Worker capability response could not be parsed.",
     };
@@ -219,7 +206,6 @@ function meetingPreflight(meetingSession: MeetingSessionStatus | null): MeetingP
       readyForStart: false,
       meetingRouteReady: false,
       routeExecutionReady: false,
-      outboundRuntimeConnected: false,
       blockers: [],
       summary: "Meeting preflight has not been checked yet.",
     };
@@ -229,7 +215,6 @@ function meetingPreflight(meetingSession: MeetingSessionStatus | null): MeetingP
     readyForStart: preflight.ready_for_start === true,
     meetingRouteReady: preflight.meeting_route_ready === true,
     routeExecutionReady: preflight.route_execution_guard_ready === true,
-    outboundRuntimeConnected: preflight.outbound_runtime_connected === true,
     blockers: Array.isArray(preflight.blockers) ? preflight.blockers.map(String) : [],
     summary: compact(preflight.summary, "Meeting preflight checked."),
   };
@@ -330,11 +315,8 @@ function collectBlockers(input: {
 
 export function mapProductReadiness(input: {
   settings?: RuntimeSettings | null;
-  bundle: RuntimeStatusBundleReport | null;
-  diagnostics?: RuntimeDiagnostics | null;
   helper: HelperBridgeStatus | null;
   workerStatus?: HelperBridgeWorkerResponse | null;
-  modelInventory: ModelInventoryReport | null;
   inputStatus: InputPreparationStatus | null;
   meetingSession?: MeetingSessionStatus | null;
 }): ProductReadiness {
@@ -377,9 +359,7 @@ export function mapProductReadiness(input: {
     meetingReady,
   });
 
-  const hasRuntimeEvidence = Boolean(
-    helper || worker.responseAvailable || inputStatus || input.meetingSession,
-  );
+  const hasRuntimeEvidence = Boolean(helper || worker.responseAvailable || inputStatus || input.meetingSession);
   const level: ProductReadinessLevel = meetingReady
     ? "ready"
     : textReady
@@ -451,9 +431,7 @@ export function mapProductReadiness(input: {
           : level === "checking"
             ? "Checking"
             : "Setup Needed",
-    runtimeStatus: productMeeting.lifecycle !== "idle"
-      ? productMeeting.lifecycle
-      : compact(helper?.state, "Checking"),
+    runtimeStatus: productMeeting.lifecycle !== "idle" ? productMeeting.lifecycle : compact(helper?.state, "Checking"),
   };
 }
 
@@ -468,38 +446,15 @@ export async function loadProductRuntimeSnapshot(): Promise<ProductRuntimeSnapsh
     ? await runtimeApi.helperBridgeWorkerStatus().catch(() => null)
     : null;
   const meeting = mapProductMeetingState(meetingSession);
-  const readiness = mapProductReadiness({
-    settings,
-    bundle: null,
-    diagnostics: null,
-    helper,
-    workerStatus,
-    modelInventory: null,
-    inputStatus,
-    meetingSession,
-  });
-  return {
-    settings,
-    readiness,
-    meeting,
-    meetingSession,
-    bundle: null,
-    diagnostics: null,
-    helper,
-    workerStatus,
-    modelInventory: null,
-    gpuPolicy: null,
-    inputStatus,
-  };
+  const readiness = mapProductReadiness({ settings, helper, workerStatus, inputStatus, meetingSession });
+  return { settings, readiness, meeting, meetingSession, helper, workerStatus, inputStatus };
 }
 
 export async function runProductMeetingAction(action: ProductMeetingAction): Promise<ProductMeetingActionResult> {
   const result: MeetingSessionActionResult = action === "start"
     ? await runtimeApi.startMeetingTranslation()
     : await runtimeApi.stopMeetingTranslation();
-  const fallbackMessage = action === "start"
-    ? "Start Translation finished."
-    : "Stop Translation finished.";
+  const fallbackMessage = action === "start" ? "Start Translation finished." : "Stop Translation finished.";
   return {
     ok: Boolean(result.ok),
     action,
@@ -547,22 +502,12 @@ export async function selectProductAudioDevice(
   const currentSettings = await runtimeApi.loadSettings().catch(() => defaultSettings());
   const probe = await probeProductAudioDevice(kind, deviceId);
   if (!probe.ok) {
-    return {
-      ...probe,
-      settings: currentSettings,
-      message: `${probe.message} The previous device preference was kept.`,
-    };
+    return { ...probe, settings: currentSettings, message: `${probe.message} The previous device preference was kept.` };
   }
 
-  const candidateSettings: RuntimeSettings = {
-    ...currentSettings,
-    audio: { ...currentSettings.audio },
-  };
-  if (kind === "microphone") {
-    candidateSettings.audio.input_device_id = probe.deviceId;
-  } else {
-    candidateSettings.audio.output_device_id = probe.deviceId;
-  }
+  const candidateSettings: RuntimeSettings = { ...currentSettings, audio: { ...currentSettings.audio } };
+  if (kind === "microphone") candidateSettings.audio.input_device_id = probe.deviceId;
+  else candidateSettings.audio.output_device_id = probe.deviceId;
 
   const saveResult = await runtimeApi.saveSettings(candidateSettings);
   if (!saveResult.ok) {
@@ -576,12 +521,7 @@ export async function selectProductAudioDevice(
 
   const savedSettings = await runtimeApi.loadSettings().catch(() => candidateSettings);
   const label = kind === "microphone" ? "Microphone" : "Meeting sound";
-  return {
-    ...probe,
-    ok: true,
-    settings: savedSettings,
-    message: `${label} set to ${probe.deviceId ? probe.deviceName : "Windows Default"}.`,
-  };
+  return { ...probe, ok: true, settings: savedSettings, message: `${label} set to ${probe.deviceId ? probe.deviceName : "Windows Default"}.` };
 }
 
 export async function runProductTranslation(source: string): Promise<ProductTranslationResult> {
@@ -599,13 +539,7 @@ export async function runProductTranslation(source: string): Promise<ProductTran
       message: result?.message ?? "Translation command returned no message.",
     };
   } catch (error) {
-    return {
-      ok: false,
-      source: cleaned,
-      translated: "",
-      status: "frontend_bridge_error",
-      message: errorMessage(error),
-    };
+    return { ok: false, source: cleaned, translated: "", status: "frontend_bridge_error", message: errorMessage(error) };
   }
 }
 
@@ -616,13 +550,10 @@ export async function runProductSetupAction(action: ProductSetupAction): Promise
   }
   if (action === "check-worker") {
     const status = await runtimeApi.helperBridgeWorkerStatus().catch(() => null);
-    if (status?.worker_response_json) {
-      const capability = parseWorkerCapabilities(status);
-      return capability.responseAvailable
-        ? compact(capability.note || capability.blocker, "Worker capability status checked.")
-        : compact(status.message ?? status.state, "Worker status checked.");
-    }
-    return compact(status?.message ?? status?.state, "Worker status checked.");
+    const capability = parseWorkerCapabilities(status);
+    return capability.responseAvailable
+      ? compact(capability.note || capability.blocker, "Worker capability status checked.")
+      : compact(status?.message ?? status?.state, "Worker status checked.");
   }
   if (action === "verify-models") {
     const result = await runtimeApi.verifyModels().catch(() => null);
@@ -651,7 +582,7 @@ export async function runProductRecoveryAction(action: ProductRecoveryAction): P
     (worker.responseAvailable && !worker.translationIdEnReady),
   );
 
-  if (hasProblem) return "Setup still needs attention. Open Developer Diagnostics for technical details.";
+  if (hasProblem) return "Setup still needs attention. Open Diagnostics for technical details.";
   return "Local setup checks completed. Retry readiness; Meeting may still require Meeting Microphone or outbound-runtime setup.";
 }
 

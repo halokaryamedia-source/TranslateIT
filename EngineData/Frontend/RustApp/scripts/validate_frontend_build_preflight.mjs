@@ -5,64 +5,43 @@ import { fileURLToPath } from "node:url";
 const scriptDir = dirname(fileURLToPath(import.meta.url));
 const appRoot = resolve(scriptDir, "..");
 
-const fail = (message) => {
+function fail(message) {
   console.error(`[frontend-build-preflight] ${message}`);
   process.exit(1);
-};
+}
 
 const requiredFiles = [
   "package.json",
   "index.html",
   "tsconfig.json",
   "src/main.ts",
-  "src/audioStudioEntry.ts",
-  "src/styles.css",
   "src/app/simple-launcher/SimpleLauncherController.ts",
+  "src/app/bridge/runtimeApi.ts",
   "src/app/bridge/runtimeProductFacade.ts",
 ];
-
 for (const relativePath of requiredFiles) {
-  const absolutePath = join(appRoot, relativePath);
-  if (!existsSync(absolutePath)) {
-    fail(`Missing required frontend build input: ${relativePath}`);
-  }
+  if (!existsSync(join(appRoot, relativePath))) fail(`Missing required frontend build input: ${relativePath}`);
 }
 
 const packageJson = JSON.parse(readFileSync(join(appRoot, "package.json"), "utf8"));
-const scripts = packageJson.scripts ?? {};
-if (scripts["build:frontend"] !== "vite build") {
-  fail("build:frontend must remain a frontend-only Vite build command.");
-}
-
-const devDeps = packageJson.devDependencies ?? {};
-if (!devDeps.vite) {
-  fail("vite must be declared in devDependencies for frontend build.");
-}
-if (!devDeps.typescript) {
-  fail("typescript must be declared in devDependencies for frontend type/build pipeline.");
-}
+if (packageJson.scripts?.["build:frontend"] !== "vite build") fail("build:frontend must remain vite build.");
+if (!packageJson.devDependencies?.vite) fail("vite must remain a devDependency.");
+if (!packageJson.devDependencies?.typescript) fail("typescript must remain a devDependency.");
 
 const indexHtml = readFileSync(join(appRoot, "index.html"), "utf8");
-for (const marker of ["/src/main.ts", "/src/audioStudioEntry.ts", "id=\"app\""]) {
-  if (!indexHtml.includes(marker)) {
-    fail(`index.html missing required marker: ${marker}`);
-  }
+if (!indexHtml.includes("/src/main.ts")) fail("index.html must load /src/main.ts.");
+for (const stale of ["audioStudioEntry", "audioStudioThemeEntry", "data-audio-studio-tab"]) {
+  if (indexHtml.includes(stale)) fail(`index.html must not load retired feature entry: ${stale}`);
 }
+const entries = [...indexHtml.matchAll(/<script\s+type=["']module["'][^>]*src=["']([^"']+)["']/g)].map((match) => match[1]);
+if (entries.length !== 1 || entries[0] !== "/src/main.ts") fail(`Expected one frontend module entry; found ${entries.join(", ") || "none"}`);
 
 const mainTs = readFileSync(join(appRoot, "src", "main.ts"), "utf8");
-if (!mainTs.includes("SimpleLauncherController")) {
-  fail("src/main.ts must wire SimpleLauncherController.");
+for (const marker of ["SimpleLauncherController", "startDesktopWithFirstSetup", "startGlobalMeetingShell", "startMeetingLiveActivityPresentation", 'querySelector<HTMLDivElement>("#app")']) {
+  if (!mainTs.includes(marker)) fail(`src/main.ts missing current app marker: ${marker}`);
 }
-if (!mainTs.includes("#app")) {
-  fail("src/main.ts must bind to #app root.");
-}
-for (const forbidden of ["new LauncherController", "bindDirectVoiceCaptureUi", "mountVirtualRouteSelectionSurface"]) {
-  if (mainTs.includes(forbidden)) fail(`src/main.ts must not re-enable complex legacy UI binding: ${forbidden}`);
+for (const stale of ["audioStudio", "restoreNativeWindow", "installStartupDiagnostics", "startupTrace", "bindDirectVoiceCaptureUi", "mountVirtualRouteSelectionSurface", "new LauncherController"]) {
+  if (mainTs.includes(stale)) fail(`src/main.ts reintroduces retired/duplicate startup path: ${stale}`);
 }
 
-const audioStudioEntry = readFileSync(join(appRoot, "src", "audioStudioEntry.ts"), "utf8");
-if (!audioStudioEntry.includes("bindAudioStudioUi")) {
-  fail("src/audioStudioEntry.ts must bind Audio Studio UI.");
-}
-
-console.log("[frontend-build-preflight] Frontend build preflight passed for the simple launcher entry.");
+console.log("[frontend-build-preflight] One current frontend entry is wired to the Meeting/Text desktop shell. Build execution remains separate proof.");
