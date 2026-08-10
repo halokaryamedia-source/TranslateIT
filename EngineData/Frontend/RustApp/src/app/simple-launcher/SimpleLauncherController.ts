@@ -4,25 +4,24 @@ import {
   type ProductRuntimeSnapshot,
   type ProductSetupAction,
 } from "../bridge/runtimeProductFacade";
-import type { HistoryEntry, HistoryEntryType, HistoryScope, HistorySummary, HistoryTurn } from "../shared/historyTypes";
 import { defaultSettings, errorMessage, languageName } from "../shared/state";
-import type { RuntimeSettings, SettingsTab } from "../shared/types";
+import type { RuntimeSettings } from "../shared/types";
 import { requireElement } from "../active-launcher/dom";
 import { mountAppShell } from "../active-launcher/shell";
 import { renderDeveloperSettingsView } from "../active-launcher/launcherDeveloperSettings";
-import { renderAdvancedSettingsTab, renderHistoryPrivacySettingsTab, renderMeetingSettingsTab } from "../active-launcher/launcherSettingsRenderer";
+import { renderAdvancedSettingsTab, renderMeetingSettingsTab } from "../active-launcher/launcherSettingsRenderer";
 import { exceedsManualTranslationLimit, MAX_MANUAL_TRANSLATION_CHARS } from "../active-launcher/launcherTextRules";
 import { swapLanguages as applyLanguageSwap } from "../active-launcher/launcherSettingsActions";
 
 const STARTUP_STEP_MS = 80;
-type ProductWorkspace = "meeting" | "text" | "history";
+type ProductWorkspace = "meeting" | "text";
+type ProductSettingsTab = "meeting" | "advanced";
 type StatusTone = "neutral" | "good" | "warning";
 type TextResultState = "idle" | "translating" | "success" | "stale" | "error";
 
 const WORKSPACE_TITLES: Record<ProductWorkspace, string> = {
   meeting: "Meeting",
   text: "Text",
-  history: "History",
 };
 
 type SimpleRefs = {
@@ -65,21 +64,6 @@ type SimpleRefs = {
   meetingRouteStatus: HTMLElement;
   startTranslationButton: HTMLButtonElement;
   startTranslationHint: HTMLElement;
-  historyRetentionNote: HTMLElement;
-  historyRecentTab: HTMLButtonElement;
-  historySavedTab: HTMLButtonElement;
-  historySearchInput: HTMLInputElement;
-  historyFilterButtons: HTMLButtonElement[];
-  historyCollectionView: HTMLElement;
-  historyCollection: HTMLElement;
-  historyDetailView: HTMLElement;
-  historyBackButton: HTMLButtonElement;
-  historyDetailKicker: HTMLElement;
-  historyDetailTitle: HTMLHeadingElement;
-  historyDetailMeta: HTMLParagraphElement;
-  historyDetailBody: HTMLElement;
-  historyDetailActionButton: HTMLButtonElement;
-  historyDetailMessage: HTMLParagraphElement;
   settingsNavItems: HTMLButtonElement[];
 };
 
@@ -124,21 +108,6 @@ function bindSimpleRefs(): SimpleRefs {
     meetingRouteStatus: requireElement<HTMLElement>("#meetingRouteStatus"),
     startTranslationButton: requireElement<HTMLButtonElement>("#startTranslationButton"),
     startTranslationHint: requireElement<HTMLElement>("#startTranslationHint"),
-    historyRetentionNote: requireElement<HTMLElement>("#historyRetentionNote"),
-    historyRecentTab: requireElement<HTMLButtonElement>("#historyRecentTab"),
-    historySavedTab: requireElement<HTMLButtonElement>("#historySavedTab"),
-    historySearchInput: requireElement<HTMLInputElement>("#historySearchInput"),
-    historyFilterButtons: Array.from(document.querySelectorAll<HTMLButtonElement>("[data-history-filter]")),
-    historyCollectionView: requireElement<HTMLElement>("#historyCollectionView"),
-    historyCollection: requireElement<HTMLElement>("#historyCollection"),
-    historyDetailView: requireElement<HTMLElement>("#historyDetailView"),
-    historyBackButton: requireElement<HTMLButtonElement>("#historyBackButton"),
-    historyDetailKicker: requireElement<HTMLElement>("#historyDetailKicker"),
-    historyDetailTitle: requireElement<HTMLHeadingElement>("#historyDetailTitle"),
-    historyDetailMeta: requireElement<HTMLParagraphElement>("#historyDetailMeta"),
-    historyDetailBody: requireElement<HTMLElement>("#historyDetailBody"),
-    historyDetailActionButton: requireElement<HTMLButtonElement>("#historyDetailActionButton"),
-    historyDetailMessage: requireElement<HTMLParagraphElement>("#historyDetailMessage"),
     settingsNavItems: Array.from(document.querySelectorAll<HTMLButtonElement>("[data-settings-tab]")),
   };
 }
@@ -154,52 +123,15 @@ function sleep(ms: number): Promise<void> {
 }
 
 function isWorkspace(value: string | undefined): value is ProductWorkspace {
-  return value === "meeting" || value === "text" || value === "history";
+  return value === "meeting" || value === "text";
 }
 
-function isHistoryEntryType(value: string): value is HistoryEntryType {
-  return value === "all" || value === "meeting" || value === "text";
+function isSettingsTab(value: string | undefined): value is ProductSettingsTab {
+  return value === "meeting" || value === "advanced";
 }
 
 function setTone(element: HTMLElement, tone: StatusTone): void {
   element.dataset.tone = tone;
-}
-
-function historyDateLabel(value: number): string {
-  const date = new Date(Number(value));
-  if (!Number.isFinite(date.getTime())) return "Unknown time";
-  return date.toLocaleString([], {
-    month: "short",
-    day: "numeric",
-    hour: "2-digit",
-    minute: "2-digit",
-  });
-}
-
-function historyDurationLabel(durationMs: number | null): string | null {
-  if (durationMs === null || !Number.isFinite(durationMs) || durationMs < 0) return null;
-  const totalMinutes = Math.max(1, Math.round(durationMs / 60_000));
-  if (totalMinutes < 60) return `${totalMinutes} min`;
-  const hours = Math.floor(totalMinutes / 60);
-  const minutes = totalMinutes % 60;
-  return minutes ? `${hours} hr ${minutes} min` : `${hours} hr`;
-}
-
-function historyDeliveryLabel(state: string | null): string {
-  switch (state) {
-    case "preparing_voice":
-      return "Preparing voice";
-    case "speaking":
-      return "Speaking";
-    case "output_complete":
-      return "Output complete";
-    case "output_failed":
-      return "Output failed";
-    case "interrupted":
-      return "Interrupted";
-    default:
-      return "Completed turn";
-  }
 }
 
 export class SimpleLauncherController {
@@ -207,7 +139,6 @@ export class SimpleLauncherController {
   private settings: RuntimeSettings = defaultSettings();
   private snapshot: ProductRuntimeSnapshot | null = null;
   private activeWorkspace: ProductWorkspace = "meeting";
-  private activeSettingsTab: SettingsTab = "meeting";
   private translating = false;
   private setupRunning = false;
   private voiceRunning = false;
@@ -217,11 +148,6 @@ export class SimpleLauncherController {
   private logsExpanded = false;
   private advancedDiagnosticsOpen = false;
   private lastTranslatedSource: string | null = null;
-  private historyScope: HistoryScope = "recent";
-  private historyTypeFilter: HistoryEntryType = "all";
-  private historySummaries: HistorySummary[] = [];
-  private historyDetailEntry: HistoryEntry | null = null;
-  private historySettingsMessage = "";
 
   constructor(root: HTMLElement) {
     mountAppShell(root);
@@ -269,28 +195,15 @@ export class SimpleLauncherController {
     this.ui.textResultMessage.textContent = message;
   }
 
-  private updateHistoryRetentionNote(): void {
-    const historyEnabled = this.settings.history_enabled !== false;
-    this.ui.historyRetentionNote.dataset.state = historyEnabled ? "on" : "off";
-    this.ui.historyRetentionNote.textContent = historyEnabled
-      ? "History is on. New completed translations can be kept in Recent."
-      : "History is off. Existing Recent and Saved items stay available, but new translations are not added to Recent.";
-  }
-
   private refreshDirectionPill(): void {
     this.ui.textSourceLanguage.textContent = languageName(this.settings.source_language);
     this.ui.textTargetLanguage.textContent = languageName(this.settings.target_language);
     this.ui.textModeValue.textContent = this.settings.runtime_profile || "Current";
-    this.updateHistoryRetentionNote();
     if (this.activeWorkspace === "meeting") {
       this.ui.directionPill.textContent = "ID > EN";
       return;
     }
-    if (this.activeWorkspace === "text") {
-      this.ui.directionPill.textContent = `${this.settings.source_language.toUpperCase()} > ${this.settings.target_language.toUpperCase()}`;
-      return;
-    }
-    this.ui.directionPill.textContent = "ID / EN";
+    this.ui.directionPill.textContent = `${this.settings.source_language.toUpperCase()} > ${this.settings.target_language.toUpperCase()}`;
   }
 
   private updateMeetingReadyView(
@@ -418,15 +331,10 @@ export class SimpleLauncherController {
     });
     this.refreshDirectionPill();
     if (workspace === "text") this.ui.messageInput.focus();
-    if (workspace === "history") {
-      if (this.historyDetailEntry) this.showHistoryDetail(this.historyDetailEntry);
-      else void this.refreshHistoryCollection();
-    }
   }
 
-  private showSettings(tab: SettingsTab = "meeting", openDiagnostics = false): void {
+  private showSettings(tab: ProductSettingsTab = "meeting", openDiagnostics = false): void {
     document.body.classList.add("settings-open");
-    this.activeSettingsTab = tab;
     this.advancedDiagnosticsOpen = tab === "advanced" && openDiagnostics;
     this.ui.mainApp.dataset.route = "settings";
     this.ui.homePage.classList.add("is-hidden");
@@ -453,29 +361,6 @@ export class SimpleLauncherController {
     this.setTextResultState("stale", "Needs update", "Source text changed after the last translation. Translate again to update the result.");
   }
 
-  private async writeTextRecentHistory(input: {
-    source: string;
-    target: string;
-    sourceLanguage: string;
-    targetLanguage: string;
-    mode: string;
-  }): Promise<string | null> {
-    if (this.settings.history_enabled === false) return null;
-    try {
-      const result = await runtimeApi.createTextHistoryEntry({
-        ...input,
-        tone: "Auto",
-      });
-      if (!result.ok) return result.message;
-      if (this.activeWorkspace === "history" && this.historyScope === "recent" && !this.historyDetailEntry) {
-        await this.refreshHistoryCollection();
-      }
-      return null;
-    } catch (_error) {
-      return "Recent History could not be saved.";
-    }
-  }
-
   private async submitText(): Promise<void> {
     const source = this.ui.messageInput.value.trim();
     if (!source) {
@@ -493,9 +378,6 @@ export class SimpleLauncherController {
     if (this.translating) return;
 
     const requestSource = source;
-    const requestSourceLanguage = this.settings.source_language;
-    const requestTargetLanguage = this.settings.target_language;
-    const requestMode = this.settings.runtime_profile || "Current";
     const previousTarget = this.ui.textTargetOutput.value;
     this.translating = true;
     this.ui.sendButton.disabled = true;
@@ -515,20 +397,13 @@ export class SimpleLauncherController {
 
       this.ui.textTargetOutput.value = result.translated;
       this.lastTranslatedSource = requestSource;
-      const historyWarning = await this.writeTextRecentHistory({
-        source: requestSource,
-        target: result.translated,
-        sourceLanguage: requestSourceLanguage,
-        targetLanguage: requestTargetLanguage,
-        mode: requestMode,
-      });
       const sourceStillCurrent = this.ui.messageInput.value.trim() === requestSource;
       if (sourceStillCurrent) {
         this.setTextResultState("success", "Translated", "Translation completed. You can review or edit the result.");
-        this.notice(historyWarning ? `Translation completed. ${historyWarning}` : "Translation completed.");
+        this.notice("Translation completed.");
       } else {
         this.setTextResultState("stale", "Needs update", "The source changed while translating. The result is for the previous source text.");
-        this.notice(historyWarning ? `Translation completed for the previous source text. ${historyWarning}` : "Translation completed for the previous source text.");
+        this.notice("Translation completed for the previous source text.");
       }
     } catch (error) {
       this.ui.textTargetOutput.value = previousTarget;
@@ -573,325 +448,6 @@ export class SimpleLauncherController {
     } finally {
       this.settingsSaving = false;
       this.ui.textSwapLanguageButton.disabled = this.translating;
-    }
-  }
-
-  private setHistoryScope(scope: HistoryScope): void {
-    if (this.historyScope === scope && !this.historyDetailEntry) return;
-    this.historyScope = scope;
-    this.historyDetailEntry = null;
-    this.ui.historyRecentTab.classList.toggle("active", scope === "recent");
-    this.ui.historyRecentTab.setAttribute("aria-selected", scope === "recent" ? "true" : "false");
-    this.ui.historySavedTab.classList.toggle("active", scope === "saved");
-    this.ui.historySavedTab.setAttribute("aria-selected", scope === "saved" ? "true" : "false");
-    this.showHistoryCollection();
-    void this.refreshHistoryCollection();
-  }
-
-  private setHistoryTypeFilter(filter: HistoryEntryType): void {
-    if (this.historyTypeFilter === filter) return;
-    this.historyTypeFilter = filter;
-    this.ui.historyFilterButtons.forEach((button) => button.classList.toggle("active", button.dataset.historyFilter === filter));
-    this.historyDetailEntry = null;
-    this.showHistoryCollection();
-    void this.refreshHistoryCollection();
-  }
-
-  private showHistoryCollection(): void {
-    this.historyDetailEntry = null;
-    this.ui.historyCollectionView.hidden = false;
-    this.ui.historyDetailView.hidden = true;
-    this.ui.historyDetailMessage.textContent = "";
-  }
-
-  private renderHistoryCollection(): void {
-    this.ui.historyCollection.replaceChildren();
-    const query = this.ui.historySearchInput.value.trim().toLocaleLowerCase();
-    const rows = query
-      ? this.historySummaries.filter((summary) => `${summary.title} ${summary.snippet}`.toLocaleLowerCase().includes(query))
-      : this.historySummaries;
-
-    if (!rows.length) {
-      const empty = document.createElement("div");
-      empty.className = "history-empty";
-      const title = document.createElement("strong");
-      title.textContent = query ? "No matching history." : this.historyScope === "saved" ? "Nothing saved yet." : "No history yet.";
-      const detail = document.createElement("span");
-      detail.textContent = query
-        ? "Try another search term or history type."
-        : this.historyScope === "saved"
-          ? "Saved Text and Meeting translations will appear here after an explicit Save."
-          : this.settings.history_enabled === false
-            ? "History is off. Existing items remain available, but new translations are not added to Recent."
-            : "Completed Text translations and finalized Meetings will appear here.";
-      empty.append(title, detail);
-      this.ui.historyCollection.append(empty);
-      return;
-    }
-
-    rows.forEach((summary) => {
-      const row = document.createElement("button");
-      row.type = "button";
-      row.className = "history-row";
-      row.dataset.historyEntryId = summary.entry_id;
-
-      const copy = document.createElement("span");
-      copy.className = "history-row-copy";
-      const title = document.createElement("strong");
-      title.textContent = summary.entry_type === "text" ? (summary.snippet || "Text Translation") : (summary.title || "Meeting");
-      const meta = document.createElement("span");
-      if (summary.entry_type === "meeting") {
-        const details = ["Meeting", historyDurationLabel(summary.duration_ms), summary.interrupted ? "Interrupted" : null].filter(Boolean);
-        meta.textContent = details.join(" · ");
-      } else {
-        meta.textContent = `Text · ${languageName(summary.source_language)} → ${languageName(summary.target_language)}`;
-      }
-      copy.append(title, meta);
-
-      const time = document.createElement("time");
-      time.textContent = historyDateLabel(summary.updated_unix_ms);
-      row.append(copy, time);
-      row.addEventListener("click", () => void this.openHistoryDetail(summary.entry_id));
-      this.ui.historyCollection.append(row);
-    });
-  }
-
-  private renderHistoryLoadError(message: string): void {
-    this.ui.historyCollection.replaceChildren();
-    const error = document.createElement("div");
-    error.className = "history-error";
-    const title = document.createElement("strong");
-    title.textContent = "History is unavailable.";
-    const detail = document.createElement("span");
-    detail.textContent = message;
-    const retry = document.createElement("button");
-    retry.type = "button";
-    retry.className = "assistant-action secondary";
-    retry.textContent = "Retry";
-    retry.addEventListener("click", () => void this.refreshHistoryCollection());
-    error.append(title, detail, retry);
-    this.ui.historyCollection.append(error);
-  }
-
-  private async refreshHistoryCollection(): Promise<void> {
-    const requestScope = this.historyScope;
-    const requestFilter = this.historyTypeFilter;
-    this.ui.historyCollection.textContent = "Loading history...";
-    try {
-      const rows = await runtimeApi.listHistoryEntries(requestScope, requestFilter);
-      if (requestScope !== this.historyScope || requestFilter !== this.historyTypeFilter) return;
-      this.historySummaries = rows;
-      this.renderHistoryCollection();
-    } catch (error) {
-      if (requestScope !== this.historyScope || requestFilter !== this.historyTypeFilter) return;
-      const message = errorMessage(error);
-      this.renderHistoryLoadError(message);
-      this.notice(`History could not be loaded: ${message}`);
-    }
-  }
-
-  private async openHistoryDetail(entryId: string): Promise<void> {
-    const requestScope = this.historyScope;
-    this.ui.historyDetailMessage.textContent = "Loading...";
-    try {
-      const entry = await runtimeApi.getHistoryEntry(requestScope, entryId);
-      if (requestScope !== this.historyScope) return;
-      if (!entry) {
-        this.ui.historyDetailMessage.textContent = "This History item could not be found.";
-        return;
-      }
-      this.historyDetailEntry = entry;
-      this.showHistoryDetail(entry);
-    } catch (error) {
-      if (requestScope !== this.historyScope) return;
-      const message = errorMessage(error);
-      this.ui.historyDetailMessage.textContent = `History detail could not be loaded: ${message}`;
-      this.notice(`History detail could not be loaded: ${message}`);
-    }
-  }
-
-  private appendHistoryTextBlock(label: string, text: string): void {
-    const block = document.createElement("section");
-    block.className = "history-text-block";
-    const heading = document.createElement("span");
-    heading.textContent = label;
-    const body = document.createElement("p");
-    body.textContent = text || "No text available.";
-    block.append(heading, body);
-    this.ui.historyDetailBody.append(block);
-  }
-
-  private appendMeetingHistoryTurn(turn: HistoryTurn): void {
-    const incoming = turn.lane === "incoming";
-    const article = document.createElement("article");
-    article.className = "history-meeting-turn";
-    article.dataset.lane = incoming ? "incoming" : "you";
-    if (!incoming && turn.delivery_state) article.dataset.deliveryState = turn.delivery_state;
-
-    const header = document.createElement("header");
-    header.className = "history-meeting-turn-header";
-    const lane = document.createElement("span");
-    lane.className = "history-meeting-lane";
-    lane.textContent = incoming ? "INCOMING" : "YOU";
-    header.append(lane);
-
-    if (!incoming) {
-      const delivery = document.createElement("span");
-      delivery.className = "history-meeting-delivery";
-      delivery.textContent = historyDeliveryLabel(turn.delivery_state);
-      header.append(delivery);
-    }
-
-    const primary = document.createElement("p");
-    primary.className = "history-meeting-source";
-    primary.lang = "id";
-    primary.textContent = incoming ? turn.translated_text : turn.source_text;
-
-    const secondary = document.createElement("p");
-    secondary.className = "history-meeting-translation";
-    secondary.lang = "en";
-    secondary.textContent = incoming ? turn.source_text : turn.translated_text;
-
-    article.append(header, primary, secondary);
-    this.ui.historyDetailBody.append(article);
-  }
-
-  private showHistoryDetail(entry: HistoryEntry): void {
-    this.ui.historyCollectionView.hidden = true;
-    this.ui.historyDetailView.hidden = false;
-    this.ui.historyDetailMessage.textContent = "";
-    this.ui.historyDetailBody.replaceChildren();
-    this.ui.historyDetailKicker.textContent = entry.entry_type === "meeting" ? "Meeting" : "Text";
-    this.ui.historyDetailTitle.textContent = entry.entry_type === "meeting" ? (entry.title || "Meeting") : "Text Translation";
-
-    const meta = [
-      historyDateLabel(entry.updated_unix_ms),
-      entry.entry_type === "meeting" ? historyDurationLabel(entry.duration_ms) : null,
-      entry.entry_type === "meeting" && entry.interrupted ? "Interrupted" : null,
-      `${languageName(entry.source_language)} → ${languageName(entry.target_language)}`,
-      entry.tone ? `Tone: ${entry.tone}` : null,
-      entry.mode ? `Mode: ${entry.mode}` : null,
-    ].filter(Boolean);
-    this.ui.historyDetailMeta.textContent = meta.join(" · ");
-
-    if (entry.entry_type === "text") {
-      this.appendHistoryTextBlock(languageName(entry.source_language), entry.text_source ?? "");
-      this.appendHistoryTextBlock(languageName(entry.target_language), entry.text_target ?? "");
-    } else {
-      if ((entry.dropped_turn_count ?? 0) > 0) {
-        const notice = document.createElement("p");
-        notice.className = "history-meeting-truncation-note";
-        notice.textContent = `${entry.dropped_turn_count} earlier Meeting turn${entry.dropped_turn_count === 1 ? " is" : "s are"} not retained in this History entry because the live transcript bound had already discarded them.`;
-        this.ui.historyDetailBody.append(notice);
-      }
-
-      if (!entry.turns.length) {
-        const empty = document.createElement("div");
-        empty.className = "history-empty";
-        const title = document.createElement("strong");
-        title.textContent = "No committed translation turns.";
-        const detail = document.createElement("span");
-        detail.textContent = "This finalized Meeting entry contains no retained committed transcript turns.";
-        empty.append(title, detail);
-        this.ui.historyDetailBody.append(empty);
-      } else {
-        entry.turns.forEach((turn) => this.appendMeetingHistoryTurn(turn));
-      }
-    }
-
-    this.ui.historyDetailActionButton.hidden = false;
-    this.ui.historyDetailActionButton.disabled = false;
-    this.ui.historyDetailActionButton.textContent = this.historyScope === "saved" ? "Remove from Saved" : "Save";
-  }
-
-  private async handleHistoryDetailAction(): Promise<void> {
-    const entry = this.historyDetailEntry;
-    if (!entry) return;
-    this.ui.historyDetailActionButton.disabled = true;
-    this.ui.historyDetailMessage.textContent = this.historyScope === "saved" ? "Removing from Saved..." : "Saving...";
-    try {
-      if (this.historyScope === "saved") {
-        const result = await runtimeApi.removeSavedHistoryEntry(entry.entry_id);
-        this.ui.historyDetailMessage.textContent = result.message;
-        if (result.ok) {
-          this.showHistoryCollection();
-          await this.refreshHistoryCollection();
-        }
-        return;
-      }
-      const result = await runtimeApi.saveHistoryEntry(entry.entry_id);
-      this.ui.historyDetailMessage.textContent = result.message;
-      if (result.ok) {
-        this.ui.historyDetailActionButton.textContent = "Saved";
-        this.ui.historyDetailActionButton.disabled = true;
-      }
-    } catch (error) {
-      const message = errorMessage(error);
-      this.ui.historyDetailMessage.textContent = `History action failed: ${message}`;
-      this.notice(`History action failed: ${message}`);
-    } finally {
-      if (this.historyDetailEntry && this.ui.historyDetailActionButton.textContent !== "Saved") {
-        this.ui.historyDetailActionButton.disabled = false;
-      }
-    }
-  }
-
-  private async setHistoryEnabled(enabled: boolean): Promise<void> {
-    if (this.settingsSaving) return;
-    const previous = this.settings.history_enabled !== false;
-    if (previous === enabled) return;
-
-    this.settingsSaving = true;
-    this.settings.history_enabled = enabled;
-    this.updateHistoryRetentionNote();
-    this.historySettingsMessage = enabled ? "Turning History on..." : "Turning History off...";
-    this.renderSettings("history");
-
-    try {
-      const result = await runtimeApi.saveSettings(this.settings);
-      if (!result.ok) throw Error(result.message || "History preference could not be saved.");
-      this.settings = await runtimeApi.loadSettings().catch(() => this.settings);
-      this.updateHistoryRetentionNote();
-      this.historySettingsMessage = this.settings.history_enabled !== false
-        ? "History is on. New completed translations can be added to Recent."
-        : "History is off. Existing Recent and Saved items were not deleted.";
-      if (this.historyScope === "recent" && !this.historyDetailEntry) this.renderHistoryCollection();
-      this.notice(this.historySettingsMessage);
-    } catch (error) {
-      this.settings.history_enabled = previous;
-      this.updateHistoryRetentionNote();
-      this.historySettingsMessage = `History setting was not changed: ${errorMessage(error)}`;
-      this.notice(this.historySettingsMessage);
-    } finally {
-      this.settingsSaving = false;
-      this.renderSettings("history");
-    }
-  }
-
-  private async clearHistoryFromSettings(): Promise<void> {
-    if (this.settingsSaving) return;
-    const confirmed = window.confirm("Clear all history?\n\nMeeting and Text History in Recent will be deleted. Saved items will not be affected.");
-    if (!confirmed) return;
-
-    this.settingsSaving = true;
-    this.historySettingsMessage = "Clearing Recent History...";
-    this.renderSettings("history");
-    try {
-      const result = await runtimeApi.clearRecentHistory();
-      this.historySettingsMessage = result.message;
-      if (result.ok && this.historyScope === "recent") {
-        this.historySummaries = [];
-        this.historyDetailEntry = null;
-        this.showHistoryCollection();
-        this.renderHistoryCollection();
-      }
-      this.notice(result.message);
-    } catch (error) {
-      this.historySettingsMessage = `History could not be cleared: ${errorMessage(error)}`;
-      this.notice(this.historySettingsMessage);
-    } finally {
-      this.settingsSaving = false;
-      this.renderSettings("history");
     }
   }
 
@@ -989,8 +545,7 @@ export class SimpleLauncherController {
     }
   }
 
-  private renderSettings(tab: SettingsTab): void {
-    this.activeSettingsTab = tab;
+  private renderSettings(tab: ProductSettingsTab): void {
     this.ui.settingsNavItems.forEach((button) => button.classList.toggle("active", button.dataset.settingsTab === tab));
     if (tab === "meeting") {
       this.advancedDiagnosticsOpen = false;
@@ -1003,50 +558,34 @@ export class SimpleLauncherController {
       });
       return;
     }
-    if (tab === "history") {
-      this.advancedDiagnosticsOpen = false;
-      renderHistoryPrivacySettingsTab({
+    if (!this.advancedDiagnosticsOpen) {
+      renderAdvancedSettingsTab({
         ui: this.ui,
-        settings: this.settings,
-        statusMessage: this.historySettingsMessage,
-        busy: this.settingsSaving,
-        onHistoryEnabledChange: (enabled) => void this.setHistoryEnabled(enabled),
-        onClearHistory: () => void this.clearHistoryFromSettings(),
+        translationStatus: this.ui.realtimeStatus.textContent ?? "Checking",
+        meetingStatus: this.ui.meetingReadinessStatus.textContent ?? "Checking",
+        onOpenDiagnostics: () => {
+          this.advancedDiagnosticsOpen = true;
+          this.renderSettings("advanced");
+        },
       });
       return;
     }
-    if (tab === "advanced") {
-      if (!this.advancedDiagnosticsOpen) {
-        renderAdvancedSettingsTab({
-          ui: this.ui,
-          translationStatus: this.ui.realtimeStatus.textContent ?? "Checking",
-          meetingStatus: this.ui.meetingReadinessStatus.textContent ?? "Checking",
-          onOpenDiagnostics: () => {
-            this.advancedDiagnosticsOpen = true;
-            this.renderSettings("advanced");
-          },
-        });
-        return;
-      }
-      this.ui.settingsContent.innerHTML = renderDeveloperSettingsView({
-        latestBundle: this.snapshot?.bundle ?? null,
-        latestDiagnostics: this.snapshot?.diagnostics ?? null,
-        latestHardware: null,
-        latestGpuPolicy: this.snapshot?.gpuPolicy ?? null,
-        latestHelperBridgeStatus: this.snapshot?.helper ?? null,
-        logsExpanded: this.logsExpanded,
-        latestModelInventory: this.snapshot?.modelInventory ?? null,
-        commandErrors: runtimeApi.getCommandErrors(),
-      });
-      const diagnosticButton = document.getElementById("runDiagnosticButton") as HTMLButtonElement | null;
-      diagnosticButton?.addEventListener("click", () => void this.runDiagnostics());
-      const logsButton = document.getElementById("seeAllLogsButton") as HTMLButtonElement | null;
-      logsButton?.addEventListener("click", () => { this.logsExpanded = !this.logsExpanded; this.renderSettings("advanced"); });
-      const modelButton = document.getElementById("refreshModelInventoryButton") as HTMLButtonElement | null;
-      modelButton?.addEventListener("click", () => void this.runSetup("verify-models"));
-      return;
-    }
-    this.renderSettings("meeting");
+    this.ui.settingsContent.innerHTML = renderDeveloperSettingsView({
+      latestBundle: this.snapshot?.bundle ?? null,
+      latestDiagnostics: this.snapshot?.diagnostics ?? null,
+      latestHardware: null,
+      latestGpuPolicy: this.snapshot?.gpuPolicy ?? null,
+      latestHelperBridgeStatus: this.snapshot?.helper ?? null,
+      logsExpanded: this.logsExpanded,
+      latestModelInventory: this.snapshot?.modelInventory ?? null,
+      commandErrors: runtimeApi.getCommandErrors(),
+    });
+    const diagnosticButton = document.getElementById("runDiagnosticButton") as HTMLButtonElement | null;
+    diagnosticButton?.addEventListener("click", () => void this.runDiagnostics());
+    const logsButton = document.getElementById("seeAllLogsButton") as HTMLButtonElement | null;
+    logsButton?.addEventListener("click", () => { this.logsExpanded = !this.logsExpanded; this.renderSettings("advanced"); });
+    const modelButton = document.getElementById("refreshModelInventoryButton") as HTMLButtonElement | null;
+    modelButton?.addEventListener("click", () => void this.runSetup("verify-models"));
   }
 
   private async runDiagnostics(): Promise<void> {
@@ -1073,15 +612,6 @@ export class SimpleLauncherController {
       }
     });
     this.ui.textSwapLanguageButton.addEventListener("click", () => void this.swapTextLanguages());
-    this.ui.historyRecentTab.addEventListener("click", () => this.setHistoryScope("recent"));
-    this.ui.historySavedTab.addEventListener("click", () => this.setHistoryScope("saved"));
-    this.ui.historySearchInput.addEventListener("input", () => this.renderHistoryCollection());
-    this.ui.historyFilterButtons.forEach((button) => button.addEventListener("click", () => {
-      const filter = button.dataset.historyFilter ?? "all";
-      if (isHistoryEntryType(filter)) this.setHistoryTypeFilter(filter);
-    }));
-    this.ui.historyBackButton.addEventListener("click", () => this.showHistoryCollection());
-    this.ui.historyDetailActionButton.addEventListener("click", () => void this.handleHistoryDetailAction());
     this.ui.workspaceNavItems.forEach((button) => button.addEventListener("click", () => {
       const workspace = button.dataset.workspaceNav;
       if (isWorkspace(workspace)) this.showWorkspace(workspace);
@@ -1091,7 +621,8 @@ export class SimpleLauncherController {
     this.ui.retryReadinessButton.addEventListener("click", () => void this.refreshReadiness("Readiness refreshed."));
     this.ui.fixSetupButton.addEventListener("click", () => void this.fixSetup());
     this.ui.settingsNavItems.forEach((button) => button.addEventListener("click", () => {
-      const tab = (button.dataset.settingsTab as SettingsTab) ?? "meeting";
+      const tab = button.dataset.settingsTab;
+      if (!isSettingsTab(tab)) return;
       this.advancedDiagnosticsOpen = false;
       this.renderSettings(tab);
     }));
