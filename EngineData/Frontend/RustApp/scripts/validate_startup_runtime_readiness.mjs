@@ -15,6 +15,7 @@ const paths = {
   nativeMain: resolve(root, "src-tauri/src/main.rs"),
   capability: resolve(root, "src-tauri/capabilities/default.json"),
   meetingSession: resolve(root, "src-tauri/src/commands/meeting_session.rs"),
+  runtimeState: resolve(root, "src-tauri/src/engine/runtime_state.rs"),
   helperBridge: resolve(root, "src-tauri/src/commands/helper_bridge.rs"),
   helperBridgeRuntime: resolve(root, "src-tauri/src/commands/helper_bridge_runtime.rs"),
   finalizedUtterance: resolve(root, "src-tauri/src/engine/audio/finalized_utterance.rs"),
@@ -51,7 +52,7 @@ function forbidMarkers(body, label, markers) {
 }
 
 // One product shell and one canonical Meeting control path remain. The source still
-// contains deferred UI features that will be pruned in a later bounded slice, so this
+// contains deferred UI features that will be pruned in later bounded slices, so this
 // validator intentionally does not make those stale features acceptance requirements.
 requireMarkers(source.main, "desktop entrypoint", [
   "SimpleLauncherController",
@@ -68,6 +69,16 @@ requireMarkers(source.simpleController, "primary controller", [
   "handleMeetingPrimaryAction",
   'startTranslationButton.addEventListener("click"',
   "submitText",
+  '"Stop Translation"',
+  '"Start Translation"',
+]);
+forbidMarkers(source.simpleController, "simple Meeting lifecycle", [
+  "handleMeetingSecondaryAction",
+  '"Pause Translation"',
+  '"Resume Translation"',
+  ".canPause",
+  ".canResume",
+  ".paused",
 ]);
 
 requireMarkers(source.runtimeApi, "canonical frontend bridge", [
@@ -77,13 +88,31 @@ requireMarkers(source.runtimeApi, "canonical frontend bridge", [
   '"stop_meeting_translation"',
   "translateText",
 ]);
+forbidMarkers(source.runtimeApi, "simple Meeting bridge", [
+  "pauseMeetingTranslation",
+  "resumeMeetingTranslation",
+  '"pause_meeting_translation"',
+  '"resume_meeting_translation"',
+]);
 
 requireMarkers(source.facade, "product runtime facade", [
   "getMeetingSessionStatus",
   "mapProductMeetingState",
   "runProductMeetingAction",
+  'export type ProductMeetingAction = "start" | "stop"',
 ]);
-forbidMarkers(source.facade, "product runtime facade", ["start_capture()", "stop_capture()"]);
+forbidMarkers(source.facade, "simple Meeting facade", [
+  "canPause",
+  "canResume",
+  "paused:",
+  "meeting.paused",
+  'action === "pause"',
+  'action === "resume"',
+  'lifecycle === "paused"',
+  'lifecycle === "resuming"',
+  "start_capture()",
+  "stop_capture()",
+]);
 
 requireMarkers(source.registry, "Tauri Meeting registration", [
   "crate::commands::meeting_session::get_meeting_session_status",
@@ -91,9 +120,59 @@ requireMarkers(source.registry, "Tauri Meeting registration", [
   "crate::commands::meeting_session::start_meeting_translation",
   "crate::commands::meeting_session::stop_meeting_translation",
 ]);
+forbidMarkers(source.registry, "simple Meeting registration", [
+  "meeting_session::pause_meeting_translation",
+  "meeting_session::resume_meeting_translation",
+]);
+
+// Canonical application Meeting lifecycle is Start -> Live -> Stop. Runtime state may
+// still contain inherited non-Meeting session phases for legacy/Diagnostics owners, but
+// it must not retain paused/resuming generation machinery for the application Meeting.
+requireMarkers(source.runtimeState, "application Meeting runtime lifecycle", [
+  "begin_application_meeting_session",
+  'phase: "starting".to_string()',
+  "commit_application_meeting_session_live",
+  'snapshot.phase = "live".to_string()',
+  "revoke_application_meeting_session_authority",
+  'snapshot.phase = "stopping".to_string()',
+  "runtime_generation_is_authoritative",
+]);
+forbidMarkers(source.runtimeState, "application Meeting runtime lifecycle", [
+  "begin_application_meeting_session_resume",
+  "pause_application_meeting_session_authority",
+  'phase: "paused"',
+  'phase: "resuming"',
+  'snapshot.phase = "paused"',
+]);
+
+forbidMarkers(source.meetingSession, "simple Meeting command lifecycle", [
+  "pause_meeting_translation",
+  "resume_meeting_translation",
+  "rollback_resume_to_paused",
+  "ensure_helper_for_healthy_incoming",
+  "begin_application_meeting_session_resume",
+  "pause_application_meeting_session_authority",
+  'snapshot.phase.as_str(), "live" | "paused" | "resuming"',
+]);
+requireMarkers(source.meetingSession, "simple Meeting lane eligibility", [
+  'snapshot.phase == "live"',
+]);
+
+forbidMarkers(source.meetingActivity, "simple Meeting activity presentation", [
+  '"Paused"',
+  '"Resuming"',
+  "meeting.paused",
+  'meeting.lifecycle === "resuming"',
+]);
+forbidMarkers(source.globalMeetingShell, "simple global Meeting presentation", [
+  "meeting.paused",
+  'meeting.lifecycle === "resuming"',
+  "Translation is paused",
+  "Resuming translation",
+]);
 
 // The reliable translation core is direction-based. Product callers may still carry a
-// temporary mode field until the later UI/caller-pruning slice, but mode must not choose
+// temporary mode field until the later caller-pruning slice, but mode must not choose
 // the translation model inside the worker.
 requireMarkers(source.worker, "bidirectional translation worker", [
   'TRANSLATION_MODEL_ID_EN = TRANSLATION_MODEL_ROOT / "marianmt-id-en"',
@@ -146,8 +225,6 @@ if (
   );
 }
 
-// Required outbound readiness is ID -> EN. EN -> ID remains separately visible so an
-// unavailable optional incoming direction cannot silently become an outbound blocker.
 requireMarkers(source.worker, "worker readiness split", [
   "translation_id_en_ready = translation_model_ready(TRANSLATION_MODEL_ID_EN)",
   "translation_en_id_ready = translation_model_ready(TRANSLATION_MODEL_EN_ID)",
@@ -174,8 +251,6 @@ requireMarkers(source.helperBridge, "helper request authority", [
   "stale_meeting_request",
 ]);
 
-// Meeting outbound/incoming must identify language direction explicitly. The same
-// helper/worker task owns both directions; no second translation service is allowed.
 const outboundStart = source.meetingSession.indexOf(
   "pub fn process_authoritative_finalized_outbound_wav(",
 );
@@ -203,10 +278,6 @@ forbidMarkers(incoming, "Meeting incoming translation", [
   'send_helper_worker_task(\n        "synthesize"',
 ]);
 
-// Optional incoming safety must never be the sole blocker for a generation-authoritative
-// outbound TTS turn. Healthy incoming still uses the deterministic suppression guard;
-// if that guard is unavailable, incoming is disabled/ignored before the same outbound
-// route proceeds.
 requireMarkers(source.meetingSession, "incoming subordinate failure policy", [
   "fn disable_optional_incoming_for_outbound(session_id: &str) -> String",
   "clear_finalized_incoming_utterance_producer();",
@@ -243,8 +314,6 @@ if (
   );
 }
 
-// Text remains standalone and uses the same worker translate task with explicit
-// language direction from current settings. Meeting context/audio is not part of it.
 requireMarkers(source.textTranslate, "standalone Text translation", [
   'send_helper_worker_task("translate", payload)',
   '"source_language": settings.source_language',
@@ -258,7 +327,6 @@ forbidMarkers(source.textTranslate, "standalone Text translation", [
   "start_live_capture_runtime",
 ]);
 
-// Final speech/session identity and transient transcript remain useful safety owners.
 requireMarkers(source.finalizedUtterance, "finalized speech owner", [
   "FinalizedMeetingUtterance",
   "session_id",
@@ -274,8 +342,6 @@ requireMarkers(source.meetingSession, "canonical Meeting session", [
   "runtime_generation_is_authoritative",
 ]);
 
-// Stop is runtime/transient cleanup only. Persistence is explicitly outside the
-// simplified core and must not be invoked from meeting_session.rs.
 forbidMarkers(source.meetingSession, "Meeting Stop persistence independence", [
   "create_meeting_recent",
   "HistoryTurn",
@@ -313,7 +379,6 @@ if (revokeIndex < 0 || clearTurnsIndex <= revokeIndex || clearSessionIndex <= cl
   );
 }
 
-// Physical microphone and optional Meeting Sound remain separate capture owners.
 requireMarkers(source.liveCapture, "physical microphone owner", [
   "start_live_capture_runtime",
   "stop_live_capture_runtime",
@@ -325,7 +390,6 @@ requireMarkers(source.meetingSoundCapture, "optional Meeting Sound owner", [
   ".build_input_stream(",
 ]);
 
-// Keep safe close as the single native exit path; it delegates to canonical Stop.
 requireMarkers(source.globalMeetingShell, "safe close shell", [
   ".onCloseRequested",
   "event.preventDefault()",
@@ -346,7 +410,6 @@ if (!source.capability.includes('"core:window:allow-destroy"')) {
   throw new Error("Main window capability must allow post-Stop Window.destroy transport");
 }
 
-// Live presentation is still a read-only view of backend state/turns.
 requireMarkers(source.meetingActivity, "Meeting live presentation", [
   "runtimeApi.getMeetingSessionStatus",
   "runtimeApi.getMeetingCommittedTurns",
@@ -359,5 +422,5 @@ forbidMarkers(source.meetingActivity, "Meeting live presentation", [
 ]);
 
 console.log(
-  "Reliable translation-core static contract is defined: one worker routes ID->EN and EN->ID by language direction, input is not silently truncated, incomplete generation is not promoted, Meeting and Text use the same translation task, required outbound readiness remains distinct from optional incoming readiness, optional incoming suppression failure disables/ignores incoming instead of rejecting required outbound TTS, Meeting Stop clears runtime/transient state without History persistence, and safe Meeting/session ownership is preserved. Deferred UI/persistence features are intentionally not protected by this validator. This is static source validation only and does not prove Python/Rust/TypeScript execution, model availability/load, translation quality, latency, CUDA/CPU behavior, Windows audio, suppression effectiveness, rendered UI, or installed operation.",
+  "Reliable translation-core static contract is defined: one worker routes ID->EN and EN->ID by language direction, input is not silently truncated, incomplete generation is not promoted, Meeting and Text use the same translation task, required outbound readiness remains distinct from optional incoming readiness, optional incoming suppression failure disables/ignores incoming instead of rejecting required outbound TTS, Meeting uses the simple Start -> Live -> Stop product lifecycle, Stop clears runtime/transient state without History persistence, and safe Meeting/session ownership is preserved. Deferred UI/persistence features are intentionally not protected by this validator. This is static source validation only and does not prove Python/Rust/TypeScript execution, model availability/load, translation quality, latency, CUDA/CPU behavior, Windows audio, suppression effectiveness, rendered UI, or installed operation.",
 );
