@@ -199,12 +199,16 @@ briefly for a natural gap, then expose user intent such as `Speak Now` / `Cancel
 - recent committed Meeting context is bounded/local/session-scoped;
 - persistent History/Saved never automatically becomes model context.
 
-User-facing modes:
+User-facing execution modes:
 
 ```text
-Meeting -> Realtime default
-Text    -> Quality default
+Meeting outbound -> Realtime
+Standalone Text  -> Quality
 ```
+
+Current source owns these modes at the caller boundary. `RuntimeSettings.runtime_profile`
+remains compatibility-only and must not become a shared engine-mode authority again.
+A requested mode must not silently retry the other mode merely to obtain output.
 
 CUDA is preferred when validated but not mandatory. CPU fallback is required; an
 insufficient fallback reports Degraded. No silent cloud fallback.
@@ -216,7 +220,7 @@ detected utterance end
 -> first translated audio begins playing
 ```
 
-Numeric release thresholds are benchmark-derived.
+Numeric release thresholds are benchmark-derived, not declarative readiness proof.
 
 ## Standalone Text
 
@@ -235,9 +239,15 @@ Older results cannot overwrite newer intent. Editing source after a result marks
 result outdated. Large input is never silently truncated or redirected to Documents.
 Text remains independent of Meeting audio readiness/context.
 
-Current active source already uses familiar source/target panes, explicit Translate,
-contextual persisted ID/EN Swap, editable target, and stale/error states. Active
-file-attachment translation is removed.
+Current active source uses familiar source/target panes, explicit Translate,
+contextual persisted ID/EN Swap, editable target, stale/error states, and explicitly
+requests the Quality translation capability. Active file-attachment translation is
+removed.
+
+The canonical worker tokenizes translation input without truncation and rejects input
+whose actual model/tokenizer limit cannot be safely established or is exceeded.
+Generated-output completeness at the `max_new_tokens` ceiling is still an unresolved
+correctness item and must not be assumed complete.
 
 ## History, Saved, Privacy And Storage
 
@@ -289,6 +299,69 @@ queue sizes, model paths, or raw logs.
 Persist preferences; revalidate readiness instead of persisting permanent
 `ready=true` truth.
 
+## Canonical Local AI Runtime
+
+Current source has been consolidated toward one AI execution architecture:
+
+```text
+Rust/Tauri product boundary
+-> ONE helper scheduler / process bridge
+-> ONE persistent realtime_local_worker.py
+   ├─ ASR
+   ├─ Translation
+   └─ TTS
+```
+
+Standalone Text and Meeting outbound share this process but own their semantic modes
+separately. Waiting scheduler priority is:
+
+```text
+Meeting > Text > Diagnostics / preload
+```
+
+This priority is non-preemptive for a Text inference already in flight. Do not call
+it realtime-optimal until local contention/latency proof exists.
+
+Meeting work uses application `session_id + generation` authority. A stale generation
+is rejected before worker execution and again before result promotion. Stop revokes
+Meeting authority before cleanup; a matching in-flight Meeting inference may require
+hard-cancelling the persistent worker process. Actual cancellation timing remains
+local proof.
+
+Static model installation evidence, current worker capability availability, request
+inference success, model quality, and Meeting Start safety are distinct facts and
+must not be collapsed into one `Ready` boolean.
+
+## Python Project / Development Tooling
+
+Canonical WorkerRuntime Python dependency/tooling owner:
+
+```text
+EngineData/Backend/LocalWorker/WorkerRuntime/pyproject.toml
+```
+
+It owns the current runtime dependencies, optional guarded virtual-audio-route extra,
+Ruff policy, and pytest development dependency/configuration.
+
+Retired duplicate/side-channel owners include:
+
+```text
+requirements-realtime.txt
+requirements-virtual-audio-route.txt
+realtime_stack_manifest.json
+setup_pytorch_cuda.ps1
+setup_ctranslate2_translation_model.py
+```
+
+`uv` is the preferred developer dependency-resolution/environment tool, not an
+end-user product requirement. `uv.lock` is not yet committed because no verified
+local resolution has been performed; never fabricate a lockfile or resolved pins.
+
+Ruff is the single Python lint/format policy. pytest is the deterministic Python
+correctness baseline. Their configuration exists, but execution remains local proof.
+`py-spy` is a local operator profiler for the actual persistent worker process and is
+not a project/runtime dependency.
+
 ## Architecture / Distribution
 
 Canonical architecture:
@@ -314,9 +387,9 @@ Historical evidence  -> DevelopingData
 `DevelopingData` is historical/reference evidence, not normal production dependency.
 
 Windows internal/controlled distribution is first. Installed builds must eventually
-provide one user-facing setup and must not require manual Python/pip/model placement.
-Clean supported-Windows proof is required later. Auto-update is deferred; code
-signing is reconsidered before broad/public release.
+provide one user-facing setup and must not require manual Python/pip/model/uv
+operation. Clean supported-Windows proof is required later. Auto-update is deferred;
+code signing is reconsidered before broad/public release.
 
 Audio Studio remains advanced/post-core and is not an initial core blocker.
 
@@ -330,30 +403,41 @@ Source-side alignment completed on `New` includes:
   Meeting Sound in First Setup and Meeting Settings;
 - configured microphone readiness checks and no silent default-microphone fallback
   for an unavailable explicit microphone;
-- top-level Meeting / Text / History / Settings shell;
-- Meeting / History & Privacy / Advanced Settings hierarchy;
-- truthful Meeting Ready composition;
-- familiar Text translator composition with attachment workflow removed;
-- canonical History/Saved persistence and Text-backed History UI/privacy controls.
+- top-level Meeting / Text / History / Settings shell and approved Settings hierarchy;
+- familiar standalone Text workspace and canonical History/Saved persistence;
+- one persistent local AI worker execution path with fake/manual/alternate translation
+  paths retired;
+- scoped capability/readiness truth rather than stale previous-machine manifests;
+- caller-owned Meeting Realtime / Text Quality mode behavior;
+- one helper scheduler/generation-aware cancellation source contract;
+- translation input rejection instead of silent tokenizer truncation;
+- one WorkerRuntime `pyproject.toml` dependency/tooling owner with Ruff/pytest proof
+  baseline and privacy-bounded persistent-worker smoke source.
 
-Still incomplete:
+Still incomplete or unproved:
 
-- atomic application-level Start Translation / Stop Translation lifecycle;
-- Meeting Live transcript and global cross-view Meeting state/single-instance behavior;
-- incoming Meeting Sound lane, self-output suppression, turn coordination, bounded
-  recovery, Pause/Resume/Stop finalization;
-- Meeting History after canonical lifecycle exists;
-- approved tone/context inference, independent Text Quality ownership, Text
-  Copy/direct Save;
+- generated translation output-completion detection when generation reaches its token
+  ceiling without verified normal completion;
+- explicit English TTS provider/voice selection;
+- finalized outbound utterance producer and full continuous Meeting runtime;
+- Meeting Live transcript/global cross-view state and complete Pause/Resume/Stop UX;
+- incoming Meeting Sound lane, self-output suppression, turn coordination, and bounded
+  recovery;
+- Meeting History after canonical lifecycle is active;
+- approved tone/context inference, Text Copy/direct Save;
+- scheduler contention/preemption suitability for realtime Meeting;
+- reproducible Python lock/model revision/checksum acquisition;
+- model quality/latency/RAM/VRAM proof;
 - Windows microphone-permission deep-link;
-- clean installer/runtime asset reconciliation.
+- clean installer/runtime asset reconciliation;
+- actual Ruff/pytest/build/model/device/Windows acceptance.
 
 Source presence does not prove target-PC readiness. Microphone/output endpoint
 selection and config probes are **not** live Windows/device proof. Do not claim real
-capture, incoming audio, ASR/translation/TTS quality, Meeting Microphone delivery,
-self-output suppression, latency, rendered UI quality, persistence across installed
-runs, CUDA behavior, Audio Studio completeness, or installer success without the
-required local evidence.
+capture, ASR/translation/TTS quality, Meeting Microphone delivery, incoming audio,
+self-output suppression, latency, scheduler timing, CUDA behavior, rendered UI
+quality, locked dependency reproducibility, installed persistence, or installer
+success without the required local evidence.
 
 ## Canonical Owners
 
