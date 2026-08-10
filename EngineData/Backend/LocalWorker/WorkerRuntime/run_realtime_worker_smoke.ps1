@@ -68,6 +68,12 @@ function Get-StageSummary {
         device = $Response.device
         compute_type = $Response.compute_type
         provider = $Response.provider
+        voice_id = $Response.voice_id
+        language_code = $Response.language_code
+        complete = $Response.complete
+        finished_with_eos = $Response.finished_with_eos
+        generated_tokens = $Response.generated_tokens
+        hit_token_ceiling = $Response.hit_token_ceiling
         blocker = $Response.blocker
         elapsed_ms = $Response.elapsed_ms
         readiness = $Response.readiness
@@ -122,7 +128,7 @@ if ($null -ne $tts) { $ok = $ok -and [bool]$tts.ok }
 if ($null -ne $asr) { $ok = $ok -and [bool]$asr.ok }
 
 $result = [ordered]@{
-    schema = "translateit.local_worker_smoke_result.v5.redacted.persistent"
+    schema = "translateit.local_worker_smoke_result.v6.redacted.persistent"
     created_at = (Get-Date).ToUniversalTime().ToString("o")
     privacy = "conversation_bodies_and_runtime_paths_redacted"
     persistent_worker = $true
@@ -136,7 +142,7 @@ $result = [ordered]@{
     tts_preflight = Get-StageSummary $ttsPreflight
     tts = Get-StageSummary $tts
     asr = Get-StageSummary $asr
-    note = "This smoke result proves only the observed persistent worker command path on this PC. It intentionally excludes source/translated/transcript text and file paths, and is not model-quality, latency, Windows audio-delivery, or release proof."
+    note = "This smoke result records only stage/completion/voice metadata for the observed persistent worker run. It excludes source/translated/transcript text and file paths, and is not model-quality, latency, Windows audio-delivery, or release proof."
 }
 
 New-Item -ItemType Directory -Force -Path $EvidenceRoot | Out-Null
