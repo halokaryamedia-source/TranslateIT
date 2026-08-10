@@ -76,7 +76,9 @@ replaced.
 
 `probe_output_device_candidate` verifies that the selected Meeting Sound endpoint has a
 usable output mix configuration. The actual loopback stream is owned separately by
-`engine/audio/meeting_sound_capture.rs` and remains Windows runtime proof.
+`engine/audio/meeting_sound_capture.rs` and remains Windows runtime proof. Current
+incoming source resolves the selected/default endpoint when its lane starts; automatic
+mid-session rebind after a Windows Default output change is not implemented yet.
 
 ## Meeting Lifecycle / Conversation Policy
 
@@ -145,7 +147,7 @@ RuntimeSettings.audio.output_device_id
 
 The Meeting Sound owner uses the existing CPAL/WASAPI dependency path rather than a
 second Windows audio runtime. Actual Windows loopback/device behavior remains local
-proof.
+proof; mid-session Follow Windows Default rebind is a separate source gap.
 
 `engine/audio/finalized_utterance.rs` now owns one dual-lane finalization boundary:
 
@@ -365,7 +367,7 @@ Source-side alignment on `New` now includes:
 - setup/device preference and Meeting/Text/History/Settings hierarchy;
 - one persistent AI worker + one lane-aware helper scheduler;
 - Meeting Realtime / Text Quality ownership;
-- physical-mic outbound capture + Meeting Sound output-loopback source owner;
+- physical-mic outbound capture + initial Meeting Sound output-loopback source owner;
 - shared finalized `YOU` / `INCOMING` event sequence before AI;
 - canonical Start/Stop and Pause/Resume generation/session lifecycle;
 - serialized outbound and incoming Meeting consumers;
@@ -380,9 +382,10 @@ Source-side alignment on `New` now includes:
 
 Still incomplete or unproved:
 
+- mid-session Follow Windows Default Meeting Sound output-device change/rebind handling is not implemented;
 - TypeScript/Rust compilation and static-validator execution;
 - actual Windows Meeting Sound loopback, suppression effectiveness, physical mic/VAD,
-  pinned/default-device change behavior, and audio route delivery;
+  initial pinned/default-device behavior, and audio route delivery;
 - actual ASR/translation/TTS model quality/latency and lane contention suitability;
 - rendered Meeting/History/global-strip/dialog behavior;
 - lifecycle/audio race timing and filesystem History persistence;
