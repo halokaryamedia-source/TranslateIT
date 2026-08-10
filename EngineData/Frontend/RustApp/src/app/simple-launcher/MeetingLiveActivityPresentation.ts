@@ -187,7 +187,7 @@ function activityCopy(status: MeetingSessionStatus): ActivityCopy {
       return {
         label: meeting.busy ? meeting.label : "Live",
         title: meeting.busy ? meeting.message : "Meeting translation is active",
-        detail: "TranslateIT is following the current authoritative Meeting session.",
+        detail: "TranslateIT is following the current Meeting session.",
         tone: meeting.busy ? "neutral" : "good",
       };
   }
@@ -199,10 +199,7 @@ function renderMeetingStatus(status: MeetingSessionStatus): void {
 
   const meeting = mapProductMeetingState(status);
   const showActivity = meeting.applicationOwned && meeting.hasSession && (meeting.live || meeting.paused || meeting.busy);
-  if (!showActivity) {
-    renderReadySurface();
-    return;
-  }
+  if (!showActivity) return;
 
   const copy = activityCopy(status);
   view.panel.dataset.meetingView = "activity";
@@ -231,6 +228,7 @@ async function refreshMeetingActivity(): Promise<void> {
   requestInFlight = true;
   try {
     const status = await runtimeApi.getMeetingSessionStatus();
+    if (status.runtime_claim === "frontend_bridge_unavailable" || status.lifecycle === "unavailable") return;
     renderMeetingStatus(status);
   } catch {
     // The primary controller owns product error/recovery presentation. This view does
