@@ -22,17 +22,15 @@ use crate::engine::audio::meeting_sound_capture::{
     stop_meeting_sound_capture_runtime,
 };
 use crate::engine::runtime_state::{
-    begin_application_meeting_session, begin_application_meeting_session_resume,
-    clear_runtime_handoff_state, clear_runtime_session_state,
+    begin_application_meeting_session, clear_runtime_handoff_state, clear_runtime_session_state,
     commit_application_meeting_session_live, latest_runtime_session_state,
-    pause_application_meeting_session_authority, revoke_application_meeting_session_authority,
-    runtime_generation_is_authoritative, RuntimeSessionStateReport,
+    revoke_application_meeting_session_authority, runtime_generation_is_authoritative,
+    RuntimeSessionStateReport,
 };
 
 use super::audio::get_input_status;
 use super::helper_bridge::{
-    cancel_helper_bridge_meeting_generation, cancel_helper_bridge_meeting_session,
-    get_helper_bridge_status, send_helper_worker_task, start_helper_bridge,
+    cancel_helper_bridge_meeting_session, get_helper_bridge_status, send_helper_worker_task,
     HelperBridgeWorkerResponse,
 };
 use super::helper_bridge_runtime::unix_ms;
@@ -762,7 +760,7 @@ fn incoming_session_is_eligible(session_id: &str) -> bool {
         .map(|snapshot| {
             snapshot.owner_id == APPLICATION_MEETING_OWNER_ID
                 && snapshot.session_id == session_id
-                && matches!(snapshot.phase.as_str(), "live" | "paused" | "resuming")
+                && snapshot.phase == "live"
         })
         .unwrap_or(false)
 }
@@ -802,8 +800,6 @@ fn begin_self_output_suppression(session_id: &str) -> Option<SelfOutputSuppressi
 }
 
 fn disable_optional_incoming_for_outbound(session_id: &str) -> String {
-    // Incoming is optional. Clear its finalized producer first so any still-open
-    // Meeting Sound callback is ignored before required outbound playback proceeds.
     clear_finalized_incoming_utterance_producer();
     let capture_stop = stop_meeting_sound_capture_runtime();
     update_incoming_status(
@@ -1559,63 +1555,9 @@ fn start_optional_incoming_lane(session_id: &str) -> String {
         "listening",
         false,
         "",
-        "Incoming Meeting Sound is listening for finalized English speech. This optional lane may remain available while outbound is Paused.",
+        "Incoming Meeting Sound is listening for finalized English speech while this Meeting is Live.",
     );
     "Incoming Meeting Sound lane started.".to_string()
-}
-
-fn ensure_helper_for_healthy_incoming(session_id: &str) -> String {
-    if !meeting_sound_capture_status().stream_active || !incoming_session_is_eligible(session_id) {
-        return "Incoming helper restart was not required.".to_string();
-    }
-    if get_helper_bridge_status().state == "ready" {
-        return "Incoming helper remained ready.".to_string();
-    }
-    let result = start_helper_bridge();
-    if result.ok {
-        update_incoming_status(
-            session_id,
-            "listening",
-            false,
-            "",
-            "Incoming Meeting Sound remained active while the local helper was restored after outbound Pause cleanup.",
-        );
-        "Incoming helper was restored after outbound generation cancellation.".to_string()
-    } else {
-        update_incoming_status(
-            session_id,
-            "degraded",
-            true,
-            "meeting_incoming:helper_restart_failed",
-            "Incoming Meeting Sound capture remains open, but local incoming AI is degraded because the helper could not be restored. Outbound is Paused.",
-        );
-        format!("Incoming helper restore failed: {}", result.message)
-    }
-}
-
-fn rollback_resume_to_paused(
-    generation: u64,
-    session_id: &str,
-    reason: &str,
-) -> RuntimeSessionStateReport {
-    let paused = pause_application_meeting_session_authority(generation, reason);
-    interrupt_committed_turns_for_generation(session_id, generation);
-    let _ = cancel_meeting_virtual_audio_route_provider(generation);
-    let _ = stop_live_capture_runtime();
-    let _ = cancel_helper_bridge_meeting_generation(generation);
-    let _ = stop_meeting_outbound_consumer(generation);
-    let _ = ensure_helper_for_healthy_incoming(session_id);
-    update_outbound_status(
-        generation,
-        session_id,
-        "paused",
-        0,
-        false,
-        false,
-        "",
-        "Translation remains paused because Resume could not safely reopen all required outbound resources.",
-    );
-    paused
 }
 
 #[tauri::command]
@@ -1775,237 +1717,6 @@ pub fn start_meeting_translation() -> MeetingSessionActionResult {
         message: format!(
             "Translation Live committed with authoritative outbound capture/consumer. {incoming_message}"
         ),
-        status: status_from_report(committed, build_preflight()),
-    }
-}
-
-#[tauri::command]
-pub fn pause_meeting_translation() -> MeetingSessionActionResult {
-    let current = latest_runtime_session_state();
-    let Some(snapshot) = current.snapshot.as_ref() else {
-        return blocked_result(
-            "pause_not_live",
-            "Pause Translation requires an active Live Meeting session.".to_string(),
-        );
-    };
-    if snapshot.owner_id != APPLICATION_MEETING_OWNER_ID {
-        return blocked_result(
-            "active_session_conflict",
-            "Another runtime session owns Meeting resources. Application Translation cannot Pause it."
-                .to_string(),
-        );
-    }
-    if snapshot.phase == "paused" && !snapshot.authority_active {
-        return MeetingSessionActionResult {
-            ok: true,
-            state: "already_paused".to_string(),
-            message: "Translation is already paused. Duplicate Pause did not change the Meeting session or incoming lane."
-                .to_string(),
-            status: status_from_report(current, build_preflight()),
-        };
-    }
-    if snapshot.phase != "live" || !snapshot.authority_active {
-        return blocked_result(
-            "pause_not_live",
-            "Pause Translation is available only while the application Meeting session is Live."
-                .to_string(),
-        );
-    }
-
-    let generation = snapshot.generation;
-    let session_id = snapshot.session_id.clone();
-    let paused = pause_application_meeting_session_authority(
-        generation,
-        "Pause Translation accepted. Old outbound generation authority was invalidated while the application Meeting session identity remains active as Paused.",
-    );
-    if !paused.blocker.is_empty() {
-        return blocked_result(
-            "pause_authority_failed",
-            "Pause Translation could not invalidate the current Meeting generation authority, so resource cleanup was not started under ambiguous ownership."
-                .to_string(),
-        );
-    }
-
-    interrupt_committed_turns_for_generation(&session_id, generation);
-    let _ = cancel_meeting_virtual_audio_route_provider(generation);
-    let capture_stop = stop_live_capture_runtime();
-    let helper_cancel = cancel_helper_bridge_meeting_generation(generation);
-    let consumer_cleanup = stop_meeting_outbound_consumer(generation);
-    let incoming_helper = ensure_helper_for_healthy_incoming(&session_id);
-    update_outbound_status(
-        generation,
-        &session_id,
-        "paused",
-        0,
-        false,
-        true,
-        "",
-        "Outbound Translation is paused. Incoming Meeting Sound remains session-scoped and may continue.",
-    );
-
-    MeetingSessionActionResult {
-        ok: true,
-        state: "paused".to_string(),
-        message: format!(
-            "Outbound Translation paused without ending the Meeting session. Microphone cleanup: {} Helper cleanup: {} Consumer cleanup: {} {}",
-            capture_stop.message, helper_cancel.message, consumer_cleanup, incoming_helper
-        ),
-        status: status_from_report(paused, build_preflight()),
-    }
-}
-
-#[tauri::command]
-pub fn resume_meeting_translation() -> MeetingSessionActionResult {
-    let current = latest_runtime_session_state();
-    let Some(snapshot) = current.snapshot.as_ref() else {
-        return blocked_result(
-            "resume_not_paused",
-            "Resume Translation requires a paused application Meeting session.".to_string(),
-        );
-    };
-    if snapshot.owner_id != APPLICATION_MEETING_OWNER_ID {
-        return blocked_result(
-            "active_session_conflict",
-            "Another runtime session owns Meeting resources. Application Translation cannot Resume it."
-                .to_string(),
-        );
-    }
-    if snapshot.phase == "live" && snapshot.authority_active {
-        return MeetingSessionActionResult {
-            ok: true,
-            state: "already_live".to_string(),
-            message: "Translation is already live. Duplicate Resume did not create another generation or resource set."
-                .to_string(),
-            status: status_from_report(current, build_preflight()),
-        };
-    }
-    if snapshot.phase != "paused" || snapshot.authority_active {
-        return blocked_result(
-            "resume_not_paused",
-            "Resume Translation is available only while the application Meeting session is Paused."
-                .to_string(),
-        );
-    }
-    let original_session_id = snapshot.session_id.clone();
-
-    if get_helper_bridge_status().state != "ready" {
-        let helper_start = start_helper_bridge();
-        if !helper_start.ok {
-            return MeetingSessionActionResult {
-                ok: false,
-                state: "resume_blocked".to_string(),
-                message: format!(
-                    "Translation remains paused because the local helper runtime could not be restored for Resume: {}",
-                    helper_start.message
-                ),
-                status: status_from_report(latest_runtime_session_state(), build_preflight()),
-            };
-        }
-    }
-
-    let preflight = build_preflight();
-    if !preflight.ready_for_start {
-        return MeetingSessionActionResult {
-            ok: false,
-            state: "resume_blocked".to_string(),
-            message: "Translation remains paused because current outbound prerequisites are not ready for transactional Resume."
-                .to_string(),
-            status: status_from_report(latest_runtime_session_state(), preflight),
-        };
-    }
-
-    let resuming = begin_application_meeting_session_resume();
-    let Some(resume_snapshot) = resuming.snapshot.as_ref() else {
-        return blocked_result(
-            "resume_authority_failed",
-            "Resume Translation could not establish fresh Meeting generation authority. The session was not reopened."
-                .to_string(),
-        );
-    };
-    if !resuming.blocker.is_empty()
-        || resume_snapshot.owner_id != APPLICATION_MEETING_OWNER_ID
-        || resume_snapshot.session_id != original_session_id
-        || !resume_snapshot.authority_active
-        || resume_snapshot.phase != "resuming"
-    {
-        return blocked_result(
-            "resume_authority_conflict",
-            "Resume Translation did not receive a fresh authoritative generation for the existing Meeting session. No additional resources were opened."
-                .to_string(),
-        );
-    }
-
-    let generation = resume_snapshot.generation;
-    let session_id = resume_snapshot.session_id.clone();
-    let capture = start_live_capture_runtime(resuming.clone());
-    if !capture.ok {
-        let paused = rollback_resume_to_paused(
-            generation,
-            &session_id,
-            "Resume Translation failed while reopening the required microphone resource. Fresh generation authority was invalidated before rollback to Paused.",
-        );
-        return MeetingSessionActionResult {
-            ok: false,
-            state: "resume_rolled_back".to_string(),
-            message: format!(
-                "Translation remains paused because Resume could not reopen the microphone resource: {}",
-                capture.message
-            ),
-            status: status_from_report(paused, build_preflight()),
-        };
-    }
-
-    let committed = commit_application_meeting_session_live(
-        generation,
-        true,
-        "Resume resources were reopened and the fresh Meeting generation committed Live for the existing session identity.",
-    );
-    if !committed.blocker.is_empty() {
-        let paused = rollback_resume_to_paused(
-            generation,
-            &session_id,
-            "Resume Live commit failed after resource open. Fresh generation authority was invalidated before rollback to Paused.",
-        );
-        return MeetingSessionActionResult {
-            ok: false,
-            state: "resume_rolled_back".to_string(),
-            message: "Translation remains paused because the fresh Resume generation could not commit Live safely."
-                .to_string(),
-            status: status_from_report(paused, build_preflight()),
-        };
-    }
-
-    if let Err(error) = start_meeting_outbound_consumer(generation, &session_id) {
-        let paused = rollback_resume_to_paused(
-            generation,
-            &session_id,
-            "Resume outbound consumer could not start. Fresh generation authority was invalidated before rollback to Paused.",
-        );
-        return MeetingSessionActionResult {
-            ok: false,
-            state: "resume_rolled_back".to_string(),
-            message: format!(
-                "Translation remains paused because the serialized outbound consumer could not restart: {error}"
-            ),
-            status: status_from_report(paused, build_preflight()),
-        };
-    }
-
-    update_outbound_status(
-        generation,
-        &session_id,
-        "listening",
-        0,
-        false,
-        true,
-        "",
-        "Translation resumed with a fresh outbound generation. Shared Meeting event sequence and healthy incoming capture were retained.",
-    );
-    MeetingSessionActionResult {
-        ok: true,
-        state: "resumed".to_string(),
-        message: "Outbound Translation resumed for the same Meeting session with fresh generation authority. Healthy incoming Meeting Sound was not recreated."
-            .to_string(),
         status: status_from_report(committed, build_preflight()),
     }
 }
