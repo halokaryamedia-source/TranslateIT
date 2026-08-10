@@ -79,9 +79,13 @@ for (const marker of [
   "MeetingLiveActivityPresentation",
   "MEETING_ACTIVITY_REFRESH_MS",
   "runtimeApi.getMeetingSessionStatus",
+  "runtimeApi.getMeetingCommittedTurns",
+  "MeetingCommittedTurnsSnapshot",
   "mapProductMeetingState",
   "outbound.stage",
+  "renderCommittedTurns",
   "meeting-live-activity-presentation",
+  "meeting-live-transcript-turn",
   "renderReadySurface",
 ]) {
   if (!meetingActivity.includes(marker)) throw new Error(`Meeting live activity presentation marker missing: ${marker}`);
@@ -95,12 +99,12 @@ for (const forbidden of [
   "runProductMeetingAction",
   "startCapture",
   "stopCapture",
+  "getLivePipelineSessionSnapshot",
   "transcript_text",
-  "translated_text",
   "worker_response_json",
 ]) {
   if (meetingActivity.includes(forbidden)) {
-    throw new Error(`Meeting live activity presentation must remain read-only and must not invent transcript bodies: ${forbidden}`);
+    throw new Error(`Meeting live transcript presentation must remain a read-only projection of canonical committed turns: ${forbidden}`);
   }
 }
 
@@ -108,17 +112,25 @@ for (const marker of [
   ".meeting-live-activity-presentation",
   ".meeting-live-activity-stage",
   ".meeting-live-activity-state",
+  ".meeting-live-transcript",
+  ".meeting-live-transcript-turn",
+  ".meeting-live-transcript-source",
+  ".meeting-live-transcript-translation",
 ]) {
   if (!meetingActivityCss.includes(marker)) throw new Error(`Meeting live activity CSS marker missing: ${marker}`);
 }
 
 for (const marker of [
   '"get_meeting_session_status"',
+  '"get_meeting_committed_turns"',
   '"start_meeting_translation"',
   '"pause_meeting_translation"',
   '"resume_meeting_translation"',
   '"stop_meeting_translation"',
+  "MeetingCommittedTurn",
+  "MeetingCommittedTurnsSnapshot",
   "getMeetingSessionStatus",
+  "getMeetingCommittedTurns",
   "startMeetingTranslation",
   "pauseMeetingTranslation",
   "resumeMeetingTranslation",
@@ -150,12 +162,53 @@ for (const forbidden of ["start_capture()", "stop_capture()"]) {
 
 for (const marker of [
   "crate::commands::meeting_session::get_meeting_session_status",
+  "crate::commands::meeting_session::get_meeting_committed_turns",
   "crate::commands::meeting_session::start_meeting_translation",
   "crate::commands::meeting_session::pause_meeting_translation",
   "crate::commands::meeting_session::resume_meeting_translation",
   "crate::commands::meeting_session::stop_meeting_translation",
 ]) {
   if (!registry.includes(marker)) throw new Error(`Tauri Meeting command registration marker missing: ${marker}`);
+}
+
+for (const marker of [
+  "VecDeque",
+  "MAX_LIVE_COMMITTED_TURNS",
+  "pub struct MeetingCommittedTurn",
+  "pub struct MeetingCommittedTurnsSnapshot",
+  "commit_meeting_turn",
+  "update_committed_turn_delivery_state",
+  "interrupt_committed_turns_for_generation",
+  "reset_committed_turns",
+  "clear_committed_turns_for_session",
+  "pub fn get_meeting_committed_turns()",
+  'delivery_state: "preparing_voice"',
+  '"speaking"',
+  '"output_complete"',
+  '"output_failed"',
+  '"interrupted"',
+  "dropped_turn_count",
+]) {
+  if (!meetingSession.includes(marker)) throw new Error(`Canonical committed Meeting turn marker missing: ${marker}`);
+}
+
+for (const forbidden of ["history_store", "HistoryEntry", "create_text_recent", "history_enabled"]) {
+  if (meetingSession.includes(forbidden)) {
+    throw new Error(`Live committed Meeting turn owner must not persist directly to History in this slice: ${forbidden}`);
+  }
+}
+
+const meetingSessionStatusBody = meetingSession.match(/pub struct MeetingSessionStatus\s*\{([\s\S]*?)\n\}/)?.[1] ?? "";
+for (const forbidden of ["turns:", "source_text", "translated_text", "MeetingCommittedTurn"]) {
+  if (meetingSessionStatusBody.includes(forbidden)) {
+    throw new Error(`MeetingSessionStatus must remain lightweight and must not carry conversation bodies: ${forbidden}`);
+  }
+}
+
+for (const forbidden of ["MeetingCommittedTurn", "source_text", "translated_text"]) {
+  if (runtimeState.includes(forbidden)) {
+    throw new Error(`runtime_state.rs must remain lifecycle/generation authority only: ${forbidden}`);
+  }
 }
 
 for (const marker of [
@@ -178,5 +231,5 @@ for (const marker of [
 }
 
 console.log(
-  "Startup/product Meeting source-contract integrity passed: one application Meeting authority exposes Start/Pause/Resume/Stop, and the normal Meeting surface has a read-only live activity presentation derived from canonical Meeting status without a second lifecycle store or invented transcript body. This is static source proof only, not TypeScript/Rust build, validator execution, Tauri runtime, rendered UI, microphone, audio-route, or Windows proof.",
+  "Startup/product Meeting source-contract integrity passed: one application Meeting authority owns Start/Pause/Resume/Stop and one bounded backend committed-turn source, while the normal Meeting transcript reads that source without frontend accumulation, History persistence, worker/Diagnostics scraping, or conversation bodies in lifecycle status. This is static source proof only, not TypeScript/Rust build, validator execution, Tauri runtime, rendered UI, microphone, audio-route, or Windows proof.",
 );
