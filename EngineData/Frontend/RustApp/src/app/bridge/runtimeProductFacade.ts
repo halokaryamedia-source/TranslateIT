@@ -1,4 +1,9 @@
-import { runtimeApi, type AudioDeviceProbeReport } from "./runtimeApi";
+import {
+  runtimeApi,
+  type AudioDeviceProbeReport,
+  type MeetingSessionActionResult,
+  type MeetingSessionStatus,
+} from "./runtimeApi";
 import { defaultSettings, errorMessage } from "../shared/state";
 import type {
   AudioDeviceListReport,
@@ -44,9 +49,29 @@ export type ProductReadiness = {
   runtimeStatus: string;
 };
 
+export type ProductMeetingState = {
+  lifecycle: string;
+  hasSession: boolean;
+  applicationOwned: boolean;
+  authorityActive: boolean;
+  captureActive: boolean;
+  live: boolean;
+  busy: boolean;
+  canStart: boolean;
+  canStop: boolean;
+  sessionId: string | null;
+  generation: number | null;
+  outboundStage: string;
+  label: string;
+  message: string;
+  blocker: string;
+};
+
 export type ProductRuntimeSnapshot = {
   settings: RuntimeSettings;
   readiness: ProductReadiness;
+  meeting: ProductMeetingState;
+  meetingSession: MeetingSessionStatus | null;
   bundle: RuntimeStatusBundleReport | null;
   diagnostics: RuntimeDiagnostics | null;
   helper: HelperBridgeStatus | null;
@@ -54,6 +79,16 @@ export type ProductRuntimeSnapshot = {
   modelInventory: ModelInventoryReport | null;
   gpuPolicy: GpuPolicyReport | null;
   inputStatus: InputPreparationStatus | null;
+};
+
+export type ProductMeetingAction = "start" | "stop";
+
+export type ProductMeetingActionResult = {
+  ok: boolean;
+  action: ProductMeetingAction;
+  state: string;
+  message: string;
+  meeting: ProductMeetingState;
 };
 
 export type ProductTranslationResult = {
@@ -100,6 +135,8 @@ type MeetingPreflightSnapshot = {
   blockers: string[];
   summary: string;
 };
+
+const APPLICATION_MEETING_OWNER_ID = "translateit_application_meeting";
 
 function compact(value: unknown, fallback = "Unknown"): string {
   const text = String(value ?? "").replace(/\s+/g, " ").trim();
@@ -152,9 +189,8 @@ function parseWorkerCapabilities(workerStatus: HelperBridgeWorkerResponse | null
   }
 }
 
-function meetingPreflight(bundle: RuntimeStatusBundleReport | null): MeetingPreflightSnapshot {
-  const meeting = (bundle as Record<string, any> | null)?.meeting_session ?? null;
-  const preflight = meeting?.preflight ?? null;
+function meetingPreflight(meetingSession: MeetingSessionStatus | null): MeetingPreflightSnapshot {
+  const preflight = meetingSession?.preflight ?? null;
   if (!preflight) {
     return {
       readyForStart: false,
@@ -173,6 +209,76 @@ function meetingPreflight(bundle: RuntimeStatusBundleReport | null): MeetingPref
     outboundRuntimeConnected: preflight.outbound_runtime_connected === true,
     blockers: Array.isArray(preflight.blockers) ? preflight.blockers.map(String) : [],
     summary: compact(preflight.summary, "Meeting preflight checked."),
+  };
+}
+
+function liveMeetingMessage(stage: string, fallback: string): string {
+  if (stage === "transcribing" || stage === "translating" || stage === "synthesizing") {
+    return "Translation is live and processing finalized speech locally.";
+  }
+  if (stage === "delivering") {
+    return "Translation is live and sending translated voice to the Meeting microphone.";
+  }
+  if (stage === "attention_needed") {
+    return compact(fallback, "Translation is live, but the latest outbound turn needs attention.");
+  }
+  return "Translation is live and listening for finalized Indonesian speech.";
+}
+
+export function mapProductMeetingState(status: MeetingSessionStatus | null): ProductMeetingState {
+  const preflight = meetingPreflight(status);
+  const hasSession = status?.has_session === true;
+  const applicationOwned = hasSession && status?.owner_id === APPLICATION_MEETING_OWNER_ID;
+  const authorityActive = applicationOwned && status?.authority_active === true;
+  const rawLifecycle = compact(status?.lifecycle, hasSession ? "active" : "idle");
+  const lifecycle = applicationOwned ? rawLifecycle : hasSession ? "runtime_conflict" : "idle";
+  const live = applicationOwned && authorityActive && lifecycle === "live";
+  const starting = applicationOwned && authorityActive && lifecycle === "starting";
+  const stopping = applicationOwned && lifecycle === "stopping";
+  const busy = starting || stopping;
+  const canStart = !hasSession && preflight.readyForStart;
+  const canStop = applicationOwned && hasSession && !stopping;
+  const outboundStage = compact(status?.outbound?.stage, "idle");
+  const blocker = compact(
+    status?.blocker || preflight.blockers[0],
+    hasSession && !applicationOwned ? "meeting_session:active_runtime_conflict" : "",
+  );
+
+  let label = "Setup Needed";
+  let message = preflight.summary;
+  if (live) {
+    label = "Live";
+    message = liveMeetingMessage(outboundStage, status?.outbound?.note ?? status?.note ?? "");
+  } else if (starting) {
+    label = "Starting";
+    message = "Translation is starting and opening the required Meeting resources.";
+  } else if (stopping) {
+    label = "Stopping";
+    message = "Translation is stopping and revoking the current Meeting session safely.";
+  } else if (hasSession && !applicationOwned) {
+    label = "In Use";
+    message = "Another runtime session is using Meeting resources. Finish that operation before starting Translation.";
+  } else if (canStart) {
+    label = "Ready";
+    message = "Required outbound Meeting capabilities are ready. Start Translation when you are ready.";
+  }
+
+  return {
+    lifecycle,
+    hasSession,
+    applicationOwned,
+    authorityActive,
+    captureActive: applicationOwned && status?.capture_active === true,
+    live,
+    busy,
+    canStart,
+    canStop,
+    sessionId: applicationOwned ? status?.session_id ?? null : null,
+    generation: applicationOwned ? status?.generation ?? null : null,
+    outboundStage,
+    label,
+    message,
+    blocker,
   };
 }
 
@@ -203,10 +309,12 @@ export function mapProductReadiness(input: {
   workerStatus?: HelperBridgeWorkerResponse | null;
   modelInventory: ModelInventoryReport | null;
   inputStatus: InputPreparationStatus | null;
+  meetingSession?: MeetingSessionStatus | null;
 }): ProductReadiness {
   const { bundle, helper, modelInventory, inputStatus } = input;
   const worker = parseWorkerCapabilities(input.workerStatus ?? null);
-  const meeting = meetingPreflight(bundle);
+  const meeting = meetingPreflight(input.meetingSession ?? null);
+  const productMeeting = mapProductMeetingState(input.meetingSession ?? null);
 
   const helperReady = helper?.state === "ready";
   const microphoneReady = Boolean(inputStatus?.ready || inputStatus?.prepared);
@@ -225,9 +333,9 @@ export function mapProductReadiness(input: {
 
   const voiceReady = microphoneReady && providerReady;
   const meetingRouteReady = meeting.meetingRouteReady && meeting.routeExecutionReady;
-  const meetingReady = meeting.readyForStart;
-  const recording = Boolean((bundle as Record<string, any> | null)?.meeting_session?.capture_active);
-  const canRecordVoice = voiceReady && !recording;
+  const meetingReady = meeting.readyForStart || productMeeting.live;
+  const recording = productMeeting.captureActive;
+  const canRecordVoice = voiceReady && !recording && !productMeeting.hasSession;
   const blockers = collectBlockers({
     helper,
     worker,
@@ -238,7 +346,9 @@ export function mapProductReadiness(input: {
     meetingReady,
   });
 
-  const hasRuntimeEvidence = Boolean(helper || worker.responseAvailable || modelInventory || inputStatus || bundle);
+  const hasRuntimeEvidence = Boolean(
+    helper || worker.responseAvailable || modelInventory || inputStatus || bundle || input.meetingSession,
+  );
   const level: ProductReadinessLevel = meetingReady
     ? "ready"
     : textReady
@@ -246,18 +356,22 @@ export function mapProductReadiness(input: {
       : hasRuntimeEvidence
         ? "blocked"
         : "checking";
-  const nextAction = meetingReady
-    ? "Meeting Translation is ready to start."
-    : textReady
-      ? "Text translation is available. Meeting setup/runtime still needs attention."
-      : "Check the local translation runtime or use Fix Setup; technical detail remains in Diagnostics.";
-  const summary = meetingReady
-    ? "Required outbound Meeting capabilities are ready."
-    : textReady
-      ? `Text ${currentTextMode} translation is available. Meeting Translation is not ready yet.`
-      : hasRuntimeEvidence
-        ? `Text ${currentTextMode} translation is unavailable and Meeting Translation is not ready.`
-        : "Product readiness is still checking.";
+  const nextAction = productMeeting.live
+    ? "Translation is live. Return to Meeting when you want to stop it."
+    : meeting.readyForStart
+      ? "Meeting Translation is ready to start."
+      : textReady
+        ? "Text translation is available. Meeting setup/runtime still needs attention."
+        : "Check the local translation runtime or use Fix Setup; technical detail remains in Diagnostics.";
+  const summary = productMeeting.live
+    ? "Meeting Translation is live."
+    : meeting.readyForStart
+      ? "Required outbound Meeting capabilities are ready."
+      : textReady
+        ? `Text ${currentTextMode} translation is available. Meeting Translation is not ready yet.`
+        : hasRuntimeEvidence
+          ? `Text ${currentTextMode} translation is unavailable and Meeting Translation is not ready.`
+          : "Product readiness is still checking.";
 
   return {
     level,
@@ -292,20 +406,28 @@ export function mapProductReadiness(input: {
       ? compact(inputStatus?.selected_device_name, "Microphone ready")
       : compact(inputStatus?.blocker ?? inputStatus?.note, "Microphone not checked"),
     voiceStatus: voiceReady ? "Required local outbound AI capabilities available" : "Local voice runtime needs setup",
-    meetingStatus: meetingReady ? "Ready" : level === "checking" ? "Checking" : "Setup Needed",
-    runtimeStatus: compact(
-      (bundle as Record<string, any> | null)?.meeting_session?.lifecycle ?? helper?.state,
-      "Checking",
-    ),
+    meetingStatus: productMeeting.live
+      ? "Live"
+      : productMeeting.busy
+        ? productMeeting.label
+        : meeting.readyForStart
+          ? "Ready"
+          : level === "checking"
+            ? "Checking"
+            : "Setup Needed",
+    runtimeStatus: productMeeting.lifecycle !== "idle"
+      ? productMeeting.lifecycle
+      : compact(helper?.state, "Checking"),
   };
 }
 
 export async function loadProductRuntimeSnapshot(): Promise<ProductRuntimeSnapshot> {
   const settings = await runtimeApi.loadSettings().catch(() => defaultSettings());
-  // RuntimeStatusBundle remains available for Diagnostics, but normal product readiness
-  // no longer consumes its migration/live/internal/professional readiness gates.
-  const [bundle, diagnostics, helper, modelInventory, gpuPolicy, inputStatus] = await Promise.all([
+  // RuntimeStatusBundle remains available for Diagnostics. Normal Meeting lifecycle
+  // uses the canonical Meeting session command directly instead of a duplicate frontend state.
+  const [bundle, meetingSession, diagnostics, helper, modelInventory, gpuPolicy, inputStatus] = await Promise.all([
     runtimeApi.getStatusBundle().catch(() => null),
+    runtimeApi.getMeetingSessionStatus().catch(() => null),
     runtimeApi.getDiagnostics().catch(() => null),
     runtimeApi.getHelperBridgeStatus().catch(() => null),
     runtimeApi.getModelInventory().catch(() => null),
@@ -315,6 +437,7 @@ export async function loadProductRuntimeSnapshot(): Promise<ProductRuntimeSnapsh
   const workerStatus = helper?.state === "ready"
     ? await runtimeApi.helperBridgeWorkerStatus().catch(() => null)
     : null;
+  const meeting = mapProductMeetingState(meetingSession);
   const readiness = mapProductReadiness({
     settings,
     bundle,
@@ -323,10 +446,13 @@ export async function loadProductRuntimeSnapshot(): Promise<ProductRuntimeSnapsh
     workerStatus,
     modelInventory,
     inputStatus,
+    meetingSession,
   });
   return {
     settings,
     readiness,
+    meeting,
+    meetingSession,
     bundle,
     diagnostics,
     helper,
@@ -334,6 +460,22 @@ export async function loadProductRuntimeSnapshot(): Promise<ProductRuntimeSnapsh
     modelInventory,
     gpuPolicy,
     inputStatus,
+  };
+}
+
+export async function runProductMeetingAction(action: ProductMeetingAction): Promise<ProductMeetingActionResult> {
+  const result: MeetingSessionActionResult = action === "start"
+    ? await runtimeApi.startMeetingTranslation()
+    : await runtimeApi.stopMeetingTranslation();
+  return {
+    ok: Boolean(result.ok),
+    action,
+    state: compact(result.state, result.ok ? "completed" : "blocked"),
+    message: compact(
+      result.message,
+      action === "start" ? "Start Translation finished." : "Stop Translation finished.",
+    ),
+    meeting: mapProductMeetingState(result.status ?? null),
   };
 }
 
@@ -488,7 +630,9 @@ export const runtimeProductFacade = {
   loadProductAudioDevices,
   probeProductAudioDevice,
   selectProductAudioDevice,
+  mapProductMeetingState,
   mapProductReadiness,
+  runProductMeetingAction,
   runProductTranslation,
   runProductSetupAction,
   runProductRecoveryAction,
