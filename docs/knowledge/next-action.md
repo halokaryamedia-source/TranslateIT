@@ -2,7 +2,7 @@
 
 Updated: 2026-08-11  
 Working branch: `New`  
-Status: **Reliable bidirectional translation, Incoming-Failure-Is-Nonblocking Outbound Delivery, persistence-free Meeting Stop, the simple Start -> Live -> Stop lifecycle, and a History-free initial desktop surface are source-aligned at their bounded contracts. Active navigation is Meeting / Text / Settings, normal Settings is Meeting / Advanced, successful Text translation no longer writes History, and active `runtimeApi` no longer exposes History methods. No Rust/TypeScript/static-validator/rendered/Windows runtime proof has been obtained. The next material stale risk is that product readiness still reads inherited Realtime/Quality fields while the worker now reports direction-based ID->EN / EN->ID readiness, and active UI still presents Mode/Tone.**
+Status: **Reliable bidirectional translation, direction-based product readiness, mode/tone-free normal Meeting/Text flow, Incoming-Failure-Is-Nonblocking Outbound Delivery, persistence-free Meeting Stop, simple Start -> Live -> Stop lifecycle, and a History-free initial desktop surface are source-aligned at their bounded contracts. Normal product readiness now consumes `translation_id_en` / `translation_en_id`; normal Meeting/Text translation calls no longer send a mode selector. No Rust/TypeScript/Python/static-validator/rendered/Windows runtime proof has been obtained. The next material source mismatch is model inventory: the worker expects `marianmt-en-id`, while `model_manifest.json` still declares the old optional NLLB Quality asset and does not represent the reverse Marian checkpoint.**
 
 This file is the single active continuation owner for TranslateIT.
 
@@ -13,9 +13,9 @@ AGENTS.md
 -> CONTEXT.md
 -> docs/knowledge/next-action.md
 -> docs/knowledge/source-ownership.md
--> docs/foundation/02-product-requirements.md PR-040 / PR-044 / PR-047 / PR-050 / PR-053 / PR-090..093
+-> docs/foundation/02-product-requirements.md PR-020..023 / PR-047 / PR-050 / PR-053 / PR-090..093
 -> .agents/skills/development-brief/SKILL.md
--> inspect worker readiness response + runtimeProductFacade + normal Meeting/Text caller/UI mode fields only
+-> inspect model_manifest.json + runtime_inventory.rs + worker direction paths/status only
 ```
 
 ## Current Mode
@@ -48,56 +48,32 @@ from model input.
 
 # Closed Source Slice — Incoming Failure Is Nonblocking
 
-Healthy incoming uses the deterministic self-output suppression guard. If that
-protection cannot be established:
-
-```text
-clear incoming finalized producer
--> stop Meeting Sound best-effort
--> incoming = disabled/degraded
--> reject late incoming promotion
--> required outbound Meeting Microphone delivery continues
-```
-
-Optional incoming therefore cannot be the sole reason an otherwise safe outbound TTS
+Healthy incoming uses deterministic self-output suppression. If that protection cannot
+be established, incoming is disabled/degraded before required outbound delivery
+continues. Optional incoming cannot be the sole reason an otherwise safe outbound TTS
 turn fails.
 
 # Closed Source Slice — Meeting Stop Is Persistence-Free
 
-Current Stop owns runtime/transient cleanup only:
-
-```text
-revoke output authority
--> cancel route
--> stop physical mic + Meeting Sound
--> cancel helper Meeting work
--> join both consumers
--> clear suppression / finalized sequence / transient turns
--> clear Meeting session
--> stopped
-```
-
-`meeting_session.rs` does not import/call History persistence. Safe Stop & Close still
-delegates to this canonical Stop owner.
+Stop revokes output authority, cleans both audio lanes/helper/consumers/transient state,
+and clears the Meeting session. It does not write History. Safe Stop & Close delegates
+to the same canonical Stop.
 
 # Closed Source Slice — Pause / Resume Removed
 
-Application Meeting runtime uses one normal lifecycle:
+Application Meeting uses:
 
 ```text
 Ready -> Starting -> Live -> Stopping -> Ended
 ```
 
-Pause/Resume commands, paused/resuming runtime states, fresh Resume generation,
-Tauri registration, frontend bridge/facade actions, normal controls, and presentation
-copy were removed. Incoming promotion is eligible only while the same application
-Meeting session is Live.
+Pause/Resume commands, runtime states, fresh Resume generation, Tauri registration,
+bridge/facade actions, and normal controls are removed. Incoming promotion is valid only
+while the application Meeting is Live.
 
 # Closed Source Slice — History / Saved Removed From Initial Surface
 
-## A. Active navigation is now initial-core only
-
-Current active shell exposes:
+Active product navigation is:
 
 ```text
 Meeting
@@ -105,157 +81,168 @@ Text
 Settings
 ```
 
-Normal Settings exposes:
+Normal Settings is:
 
 ```text
 Meeting
 Advanced
 ```
 
-Removed from the active shell:
+Successful Text translation performs no automatic History write. Active `runtimeApi`
+contains no History frontend methods. Backend persistence remains disconnected/deferred.
+
+# Closed Source Slice — Direction-Based Product Readiness + Mode/Tone Removal
+
+## A. Product readiness now follows translation direction
+
+`runtimeProductFacade.ts` consumes worker source truth:
 
 ```text
-History top-level navigation
-History workspace
-Recent / Saved tabs
-History search/filter/detail controls
-History & Privacy settings navigation
+readiness.translation_id_en
+readiness.translation_en_id
 ```
 
-## B. Active controller no longer owns persistence UI
-
-`SimpleLauncherController.ts` now has only `meeting | text` workspace state and
-`meeting | advanced` Settings routing.
-
-Removed from the active controller:
+Normal readiness mapping is:
 
 ```text
-History types/state
-list/detail/search rendering
-Save / Remove Saved / Clear History actions
-History enabled preference flow
-History event binding
-automatic Text -> Recent History write
+Required Meeting outbound
+ASR + ID->EN + TTS + Meeting route
+
+Optional incoming
+EN->ID may be unavailable/degraded without blocking outbound
+
+Text
+selected ID->EN -> translation_id_en
+selected EN->ID -> translation_en_id
 ```
 
-Successful Text translation now ends with the translated result/staleness check only.
-No persistence warning or History call is part of Text success.
+The active facade no longer uses `translation_realtime`, `translation_quality`,
+`realtimeTranslationReady`, or `qualityTranslationReady` to decide normal product
+availability.
 
-## C. Frontend History bridge is disconnected
+## B. Normal translation requests are mode-free
 
-`runtimeApi.ts` no longer imports History frontend types or exposes:
+Current normal requests send language direction explicitly:
 
 ```text
-createTextHistoryEntry
-listHistoryEntries
-getHistoryEntry
-saveHistoryEntry
-removeSavedHistoryEntry
-clearRecentHistory
+Meeting YOU       source=id target=en
+Meeting INCOMING  source=en target=id
+Text              source=current setting target=current setting
 ```
 
-Backend History/Saved files and Tauri commands may remain for later reconsideration;
-they are outside this slice and are not reachable through the active initial frontend.
+The normal Meeting/Text translation payload no longer sends `mode`. Standalone Text
+validates the worker's canonical bidirectional translation contract rather than a
+`Quality` response label.
+
+Worker-side compatibility aliases may remain for inherited Diagnostics/preload
+contracts; they do not select the model or normal product readiness.
+
+## C. Normal UI has no Mode/Tone presentation
+
+Removed from active Meeting/Text surface:
+
+```text
+Mode: Realtime
+Mode: Quality/current profile
+Tone: Auto
+Speaking mode / Push-to-Talk copy in normal Meeting Settings
+```
+
+The active controller no longer has a `textModeValue`/`runtime_profile` presentation
+path. Normal user-facing choice is language direction only.
 
 ## D. Static validation definition
 
-`validate_startup_runtime_readiness.mjs` now defines checks that:
+`validate_startup_runtime_readiness.mjs` now defines checks for:
 
-- active shell navigation is Meeting / Text / Settings;
-- normal Settings contains Meeting / Advanced and no History tab/workspace;
-- active controller has no History state/actions or Text persistence handoff;
-- active `runtimeApi` exposes no History methods/command calls;
-- successful Text translation is independent from persistence;
-- existing Meeting translation, nonblocking incoming, Start/Stop lifecycle, transient
-  transcript, and safe close contracts remain preserved.
+- worker direction readiness fields consumed by the active facade;
+- ID->EN required outbound readiness independent from reverse EN->ID;
+- Text readiness matching current ID<->EN direction;
+- no active Realtime/Quality readiness mapping;
+- no Mode/Tone presentation in normal Meeting/Text;
+- no normal Meeting/Text `mode` translation payload;
+- existing History-free, Start/Stop, nonblocking incoming, translation-safety, transient
+  transcript, and safe-close contracts.
 
 The validator was **not executed** in this channel.
 
 # Known Proof Limits
 
-No claim is made that current TypeScript compiles, the shell renders without layout
-regression, normal navigation behaves correctly in Tauri, Text translation executes,
-or any Windows/model/audio path works on target hardware. Those remain local proof.
+No claim is made that current Rust/TypeScript/Python compiles or executes, the validator
+passes, the shell renders correctly, models are installed/loadable, translation quality
+or latency is acceptable, or Windows audio/TTS/Meeting routing works on target hardware.
+Those remain local proof.
 
-# Next Developing Slice — Direction-Based Product Readiness + Remove Mode/Tone Surface
+# Next Developing Slice — Direction-Based Model Inventory Reconciliation
 
 ## Root cause
 
-The translation worker is now direction-based, but inherited product mapping still
-expects the old mode split:
+The active worker/product contract is direction-based, but the declarative model
+inventory still describes the previous mode-based plan:
 
 ```text
-worker source truth
-translation_id_en
-translation_en_id
-translation_bidirectional
+Worker source truth
+marianmt-id-en
+marianmt-en-id
 
-stale product mapping
-translation_realtime
-translation_quality
+Current model_manifest.json
+marianmt-id-en              stage=translation_realtime
+nllb-200-distilled-600M     stage=translation_quality
+(no marianmt-en-id entry)
 ```
 
-The active shell/controller also still shows `Mode: Realtime/Quality` and `Tone: Auto`
-even though both are outside the initial product. This mismatch can incorrectly report
-Text/Meeting translation unavailable even when the required direction model is ready.
+This means reverse EN->ID has a worker path but no truthful inventory/setup entry, while
+an unused NLLB Quality asset still appears as current translation capability.
 
 ## Goal
 
-Make product readiness and normal Meeting/Text calls follow the same simple translation
-contract as the worker:
-
-```text
-source language + target language
--> direction readiness
--> translate
-```
-
-No normal Mode/Tone concept should remain.
+Make model inventory describe the translation engine that the product actually uses,
+without allowing reverse-direction availability to block required Meeting outbound.
 
 ## In scope
 
-1. replace Realtime/Quality product readiness parsing with explicit ID->EN / EN->ID
-   readiness from the current worker status response;
-2. required Meeting outbound readiness depends on ID->EN only; optional incoming reverse
-   readiness remains separate/degradable;
-3. Text readiness follows the currently selected ID<->EN direction without a user-facing
-   mode selector;
-4. remove Mode/Tone presentation and related active controller refs/copy from Meeting/Text;
-5. remove stale normal Meeting/Text `mode` request fields when the worker contract does
-   not require them;
-6. update static validation and canonical docs.
+1. remove the obsolete NLLB Quality translation entry from the current model manifest;
+2. rename the ID->EN manifest stage to direction-based terminology;
+3. add `marianmt-en-id` at the exact worker-expected RuntimeAssets path with its source
+   metadata;
+4. keep reverse EN->ID capability nonblocking for Meeting outbound at the current
+   inventory boundary; Text EN->ID readiness remains separately reported by worker;
+5. reconcile `runtime_inventory.rs` wording only where it incorrectly implies a global
+   translation capability instead of installation evidence;
+6. extend static validation and canonical docs.
 
 ## Out of scope
 
-- changing translation models again;
-- adding tone/context prompting;
-- deleting every legacy Diagnostics/preload compatibility field in the same slice;
-- backend History deletion;
-- Audio Studio/custom voice cleanup;
-- model packaging or local acceptance.
+- downloading or installing model bytes in ChatGPT -> GitHub;
+- claiming the reverse checkpoint exists or loads;
+- changing translation model family again;
+- adding fallback to NLLB/cloud;
+- adding a capability-profile framework or generic package manager;
+- runtime quality/latency benchmarking;
+- Audio Studio/History backend deletion.
 
 ## Acceptance criteria
 
-1. normal product readiness consumes direction-based worker readiness, not
-   `translation_realtime` / `translation_quality`;
-2. missing EN->ID reverse model cannot block healthy ID->EN Meeting outbound Start;
-3. Text reports readiness for its current language direction and performs translation
-   without Mode/Tone product selection;
-4. active Meeting/Text UI contains no Mode/Tone presentation;
-5. normal Meeting/Text translation calls carry language direction and content only,
-   without an inherited mode selecting behavior;
-6. no second translation readiness/model owner is introduced.
+1. current manifest contains `marianmt-id-en` and `marianmt-en-id` as the translation
+   assets used by the worker and contains no NLLB Quality translation entry;
+2. manifest paths exactly match worker `TRANSLATION_MODEL_ID_EN` / `TRANSLATION_MODEL_EN_ID`;
+3. missing reverse EN->ID does not become a required Meeting outbound Start blocker;
+4. inventory/setup remains installation evidence only and does not claim model load or
+   translation success;
+5. no fallback translator/model owner is introduced.
 
 # Hold
 
 - do not reintroduce Pause/Resume, History/Saved, Tone/Context, or user-facing
   Realtime/Quality modes;
 - do not add another translation worker;
-- do not use cloud fallback;
-- do not change model family in this cleanup slice;
-- do not begin local acceptance inside source cleanup.
+- do not use cloud or NLLB fallback;
+- do not create a generic capability-profile/package framework;
+- do not begin local acceptance inside this source reconciliation slice.
 
 ## Next Step
 
-Implement **Direction-Based Product Readiness + Remove Mode/Tone Surface** across the
-worker-status mapping, active Meeting/Text callers, and active shell/controller.
+Implement **Direction-Based Model Inventory Reconciliation** so the declarative model
+inventory/setup matches the already-selected `marianmt-id-en` / `marianmt-en-id` worker
+contract without turning optional incoming/reverse availability into a required Meeting
+outbound blocker.
