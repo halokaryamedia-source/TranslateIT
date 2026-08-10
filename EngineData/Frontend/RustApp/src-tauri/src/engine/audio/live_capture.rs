@@ -18,6 +18,8 @@ use super::live_audio_buffer::{
 use crate::engine::runtime_settings::load_settings;
 use crate::engine::runtime_state::RuntimeSessionStateReport;
 
+const APPLICATION_MEETING_CAPTURE_OWNER_ID: &str = "translateit_application_meeting";
+
 #[derive(Debug, Clone, Serialize)]
 pub struct LiveCaptureStatusReport {
     pub stream_active: bool,
@@ -116,6 +118,7 @@ pub fn start_live_capture_runtime(
     let thread_errors = Arc::clone(&callback_errors);
     let capture_session_id = session.session_id.clone();
     let capture_generation = session.generation;
+    let finalized_outbound_enabled = session.owner_id == APPLICATION_MEETING_CAPTURE_OWNER_ID;
     let capture_thread = thread::spawn(move || {
         if let Err(error) = run_capture_thread(
             thread_frames,
@@ -124,6 +127,7 @@ pub fn start_live_capture_runtime(
             &ready_tx,
             capture_session_id,
             capture_generation,
+            finalized_outbound_enabled,
         ) {
             let _ = ready_tx.send(Err(error));
         }
@@ -169,8 +173,13 @@ pub fn start_live_capture_runtime(
     LiveCaptureStartReport {
         ok: true,
         status,
-        message: "Live microphone stream started for the authoritative Meeting session. Audio feeds both the rolling preview buffer and the audio-owned finalized-utterance producer; only finalized utterances may enter outbound AI stages."
-            .to_string(),
+        message: if finalized_outbound_enabled {
+            "Live microphone stream started for the authoritative Meeting session. Audio feeds both the rolling preview buffer and the audio-owned finalized-utterance producer; only finalized utterances may enter outbound AI stages."
+                .to_string()
+        } else {
+            "Live microphone stream started for a capture-only runtime owner. Audio feeds the rolling diagnostic buffer; Meeting finalized-output production is not active for this owner."
+                .to_string()
+        },
     }
 }
 
@@ -337,6 +346,7 @@ fn run_capture_thread(
     ready_tx: &mpsc::SyncSender<Result<LiveCaptureReady, String>>,
     session_id: String,
     generation: u64,
+    finalized_outbound_enabled: bool,
 ) -> Result<(), String> {
     let host = cpal::default_host();
     let device = select_input_device(&host)?;
@@ -350,7 +360,11 @@ fn run_capture_thread(
     let channels = stream_config.channels;
 
     reset_live_audio_buffer(sample_rate_hz, channels);
-    reset_finalized_outbound_utterance_producer(&session_id, generation, sample_rate_hz);
+    if finalized_outbound_enabled {
+        reset_finalized_outbound_utterance_producer(&session_id, generation, sample_rate_hz);
+    } else {
+        clear_finalized_outbound_utterance_producer();
+    }
     let stream = match build_stream_for_format(
         &device,
         &stream_config,
@@ -427,7 +441,7 @@ fn build_status_from_guard(runtime: Option<&LiveCaptureRuntime>) -> LiveCaptureS
                 latest_callback_error: errors.last().cloned(),
                 blocker: String::new(),
                 note: format!(
-                    "Live microphone stream is active. age_ms={}, sample_rate_hz={}, channels={}. Rolling audio remains preview-capable while finalized speech is produced separately for outbound Meeting consumption.",
+                    "Live microphone stream is active. age_ms={}, sample_rate_hz={}, channels={}. Rolling audio remains preview-capable; finalized output production is scoped to the application Meeting owner.",
                     active_age_ms, runtime.sample_rate_hz, runtime.channels
                 ),
             }
