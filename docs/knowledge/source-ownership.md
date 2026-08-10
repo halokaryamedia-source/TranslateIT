@@ -33,7 +33,7 @@ installed-runtime, persistence-runtime, native-event-runtime, or release proof.
 | First Setup / device preference | First Setup + `RuntimeSettings.audio` + product/audio facade | **ALIGNED SOURCE / WINDOWS PROOF LATER** | Physical mic and Meeting Sound preferences preserve Follow Windows Default vs pinned-device intent. |
 | Meeting application authority | `runtime_state.rs`, `meeting_session.rs` | **SOURCE ALIGNED / RUNTIME PROOF LATER** | One application `session_id`; outbound Pause invalidates generation, Resume creates fresh generation. |
 | Physical microphone capture | `engine/audio/live_capture.rs` | **SOURCE ALIGNED / WINDOWS PROOF LATER** | One native input stream feeds rolling preview + outbound finalized speech. |
-| Meeting Sound capture | `engine/audio/meeting_sound_capture.rs` | **SOURCE ALIGNED / WINDOWS LOOPBACK PROOF LATER** | One selected render/output endpoint is opened as the optional Meeting Sound loopback stream; it is not a second Meeting runtime. |
+| Meeting Sound capture | `engine/audio/meeting_sound_capture.rs` | **SOURCE ALIGNED / LIVE DEFAULT-REBIND GAP / WINDOWS PROOF LATER** | Incoming lane resolves selected/default render endpoint at Start and opens one loopback stream; mid-session Windows Default endpoint rebinding is not yet implemented. |
 | Finalized Meeting speech/event ordering | `engine/audio/finalized_utterance.rs` | **SOURCE ALIGNED / AUDIO PROOF LATER** | Independent lane VAD feeds one session-wide event `sequence` allocated at finalization before AI. |
 | Finalized temporary WAV handoff | `engine/audio/live_segment_writer.rs` | **SOURCE ALIGNED / FILE I/O PROOF LATER** | Both `YOU` and `INCOMING` finalized events use the same bounded temporary WAV owner with lane/event identity. |
 | Serialized Meeting outbound | `meeting_session.rs` | **SOURCE ALIGNED / RUNTIME PROOF LATER** | Final ID ASR -> verified Realtime EN translation -> TTS -> guarded Meeting route. |
@@ -92,16 +92,18 @@ RuntimeSettings.audio.output_device_id
 -> incoming finalized speech
 ```
 
-`None` continues to mean Follow Windows Default. A pinned missing Meeting Sound
-endpoint fails the optional incoming lane rather than silently substituting another
-output device.
+At lane Start, `None` resolves Windows Default. A pinned missing Meeting Sound endpoint
+fails the optional incoming lane rather than silently substituting another output
+device.
 
 The current dependency path uses the existing CPAL/WASAPI backend; no second audio
 crate/runtime was introduced. `commands/audio.rs::probe_output_device_candidate()`
 remains preference/readiness probing only and does not become a capture/session owner.
 
-Actual Windows output-loopback audio, endpoint rebinding, callback behavior, and device
-compatibility remain local proof.
+Actual Windows output-loopback audio, callback behavior, and device compatibility
+remain local proof. **Mid-session Follow Windows Default output-endpoint change/rebind
+is not source-implemented yet**; the current capture owner resolves the endpoint when
+the incoming lane starts.
 
 ## 3. Shared Finalized Speech / Event Ordering
 
@@ -327,12 +329,15 @@ Incoming work did not add another global lifecycle/control plane.
 - lane-aware Live and History rendering;
 - preservation of prior History/global-strip/safe-close ownership boundaries.
 
-The validator definition has **not** been executed in this channel.
+The validator definition has **not** been executed in this channel. Its Stop-order
+check is scoped to the active Stop branch rather than accidentally matching cleanup in
+the idempotent already-stopped branch.
 
 ## 12. Remaining Core Work
 
 ```text
 plan translation tone + bounded Meeting context consumption
+Meeting Sound Follow Windows Default mid-session rebind/recovery
 Text Copy/direct Save
 multi-instance enforcement + sleep/hibernate lifecycle
 uv.lock + real dependency resolution
@@ -351,8 +356,9 @@ future frontend architecture decision after core runtime contracts stabilize.
 Current mode: **Plan**.  
 Execution channel: `ChatGPT -> GitHub`.
 
-Canonical Incoming Meeting Sound + Self-Output Suppression is now source-aligned at
-the bounded ownership/wiring claims above. No TypeScript/Rust compilation, validator
+Canonical Incoming Meeting Sound + Self-Output Suppression is source-aligned at the
+bounded initial capture/processing ownership claims above. Mid-session default-endpoint
+rebinding remains a named source gap. No TypeScript/Rust compilation, validator
 execution, Windows loopback/device behavior, self-output suppression effectiveness,
 model/audio quality, rendered UI, persistence runtime, race timing, or performance
 proof has been obtained in this channel.
