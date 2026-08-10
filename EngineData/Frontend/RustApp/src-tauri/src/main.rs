@@ -31,8 +31,8 @@ fn main() {
                 && result.status.owner_id.as_deref() == Some(APPLICATION_MEETING_OWNER_ID);
 
             if meeting_still_owned {
-                api.prevent_exit();
                 if let Some(window) = app_handle.get_webview_window("main") {
+                    api.prevent_exit();
                     let _ = window.unminimize();
                     let _ = window.show();
                     let _ = window.set_focus();
