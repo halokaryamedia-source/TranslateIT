@@ -11,6 +11,7 @@ pub mod input_config;
 pub mod live_audio_buffer;
 pub mod live_capture;
 pub mod live_segment_writer;
+pub mod meeting_sound_capture;
 pub mod noise_filter;
 pub mod preprocess;
 pub mod stream_build;
