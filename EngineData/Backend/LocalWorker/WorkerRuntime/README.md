@@ -31,6 +31,8 @@ Standalone Text  -> Quality
 
 The worker must not silently switch translation mode merely to obtain output.
 
+Translation output is also fail-closed: a generated result is not promoted as successful unless normal end-of-sequence completion can be verified. A result that ends without EOS, including one that reaches the requested token ceiling, remains blocked instead of becoming Text/TTS output.
+
 ## Canonical Python Project
 
 `pyproject.toml` is the single WorkerRuntime dependency and Python tooling owner.
@@ -92,9 +94,19 @@ Profile the canonical persistent process under the workload being investigated. 
 | --- | --- | --- |
 | ASR | Faster Whisper Large V3 Turbo | Faster Whisper Large V3 Turbo |
 | Translation | MarianMT ID-EN | NLLB 200 distilled 600M |
-| TTS | Piper or current Windows SAPI fallback | Piper or current Windows SAPI fallback |
+| TTS | Explicit English Piper voice or explicit English Windows SAPI voice | Explicit English Piper voice or explicit English Windows SAPI voice |
 
 Named providers/models are current implementation evidence, not permanent product identity. Provider/model changes remain owned by the local-AI runtime boundary.
+
+### TTS voice-selection contract
+
+TTS availability requires a voice that can be identified as English before synthesis starts.
+
+For Piper, a model is not trusted from filename or `.onnx` presence alone. The current worker requires the paired `<voice>.onnx.json` metadata and an English language code before that voice is selectable.
+
+For Windows SAPI, the worker reads installed voice name + culture, selects an English culture explicitly (preferring `en-US` when present), and calls `SelectVoice` before synthesis. The implicit Windows default voice is not the Meeting output contract.
+
+If no explicit English-capable voice can be identified, TTS remains unavailable instead of synthesizing with an arbitrary voice.
 
 ## Runtime Assets
 
@@ -108,7 +120,7 @@ EngineData/Backend/RuntimeAssets/Translation/ModelData/
 EngineData/Backend/RuntimeAssets/Voice/Piper/
 ```
 
-Asset presence does not prove imports, model load, CUDA use, inference quality, latency, or product readiness.
+A packaged Piper voice intended for outbound English TTS needs both its `.onnx` model and matching `.onnx.json` voice metadata. Asset presence still does not prove imports, model load, CUDA use, inference quality, audio quality, latency, or product readiness.
 
 ## Executable Proof Layers
 
@@ -128,7 +140,7 @@ py-spy
 -> observed performance profile of one persistent-worker run
 ```
 
-The smoke script now requires the canonical `.venv` created from this project and stores privacy-bounded evidence; it does not record source text or raw audio path in its summary.
+The smoke script requires the canonical `.venv` created from this project. Its stored evidence is privacy-bounded to stage/completion/voice metadata and excludes source text, translated text, transcript text, and runtime file paths.
 
 ## Retired Development Scaffolding
 
@@ -159,6 +171,8 @@ That is distinct from temporary developer validation output, which should stay u
 - One persistent Python AI worker remains canonical.
 - One `pyproject.toml` owns WorkerRuntime Python dependencies/tooling.
 - `uv.lock` is required before dependency resolution can be called reproducible, but it must be generated from a real verified resolution rather than fabricated.
+- Translation output without verifiable normal completion is not successful output.
+- TTS requires an explicitly identified English-capable voice before synthesis.
 - CUDA availability is separate from successful CUDA inference.
 - CPU fallback remains a product capability requirement; usability/performance needs local proof.
 - Worker/model presence does not equal inference readiness or model quality.
