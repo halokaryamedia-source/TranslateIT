@@ -2,7 +2,7 @@
 
 Updated: 2026-08-11  
 Working branch: `New`  
-Status: **Reliable bidirectional translation, direction-based product readiness, mode/tone-free normal Meeting/Text flow, Incoming-Failure-Is-Nonblocking Outbound Delivery, persistence-free Meeting Stop, simple Start -> Live -> Stop lifecycle, and a History-free initial desktop surface are source-aligned at their bounded contracts. Normal product readiness now consumes `translation_id_en` / `translation_en_id`; normal Meeting/Text translation calls no longer send a mode selector. No Rust/TypeScript/Python/static-validator/rendered/Windows runtime proof has been obtained. The next material source mismatch is model inventory: the worker expects `marianmt-en-id`, while `model_manifest.json` still declares the old optional NLLB Quality asset and does not represent the reverse Marian checkpoint.**
+Status: **Reliable bidirectional translation, direction-based product readiness, direction-based model inventory, mode/tone-free normal Meeting/Text flow, Incoming-Failure-Is-Nonblocking Outbound Delivery, persistence-free Meeting Stop, simple Start -> Live -> Stop lifecycle, and a History-free initial desktop surface are source-aligned at their bounded contracts. `model_manifest.json` now declares `marianmt-id-en` and nonblocking `marianmt-en-id` at the exact worker paths, with obsolete NLLB/mode-based translation inventory removed. Inventory/setup remains installation evidence only. No Rust/TypeScript/Python/static-validator/model-load/rendered/Windows runtime proof has been obtained. The next unresolved core boundary is how both Marian assets reach a target installation without adding user-facing runtime complexity.**
 
 This file is the single active continuation owner for TranslateIT.
 
@@ -13,14 +13,13 @@ AGENTS.md
 -> CONTEXT.md
 -> docs/knowledge/next-action.md
 -> docs/knowledge/source-ownership.md
--> docs/foundation/02-product-requirements.md PR-020..023 / PR-047 / PR-050 / PR-053 / PR-090..093
--> .agents/skills/development-brief/SKILL.md
--> inspect model_manifest.json + runtime_inventory.rs + worker direction paths/status only
+-> docs/foundation/02-product-requirements.md PR-011..013 / PR-020..023 / PR-025 / PR-028 / PR-040 / PR-047 / PR-053
+-> inspect only current release/runtime asset-delivery owners that can answer the model-delivery question
 ```
 
 ## Current Mode
 
-**Developing**.
+**Plan**.
 
 Execution channel:
 
@@ -28,221 +27,161 @@ Execution channel:
 ChatGPT -> GitHub
 ```
 
-Rust/TypeScript/Python execution, static-validator execution, model files/load,
+Do not load a project specialist while this remains Plan. If the delivery architecture
+becomes sufficiently grounded and implementation is approved by the canonical owners,
+transition explicitly to Developing before editing behavior.
+
+Rust/TypeScript/Python execution, static-validator execution, actual model files/load,
 translation quality, CUDA/CPU latency, Windows audio, suppression effectiveness,
-rendered UI, native lifecycle races, and installed operation remain
-`LOCAL PROOF REQUIRED`.
+rendered UI, native lifecycle races, packaged/installed operation, and clean-machine
+proof remain `LOCAL PROOF REQUIRED`.
 
-# Closed Source Slice — Reliable Bidirectional Translation Core
+# Closed Source Boundaries
 
-The one persistent worker routes translation by language direction:
+## Reliable Translation Core
+
+One persistent worker routes by language direction:
 
 ```text
 ID -> EN -> marianmt-id-en
 EN -> ID -> marianmt-en-id
 ```
 
-Translation rejects silent truncation and known incomplete generation. Tone,
-previous-turn context, History context, second worker, and cloud fallback remain absent
-from model input.
+Normal Meeting/Text requests carry content and language direction only. Translation
+rejects silent tokenizer truncation and known incomplete generation. Tone, previous-turn
+context, History context, another worker, and cloud fallback are absent from the initial
+translation contract.
 
-# Closed Source Slice — Incoming Failure Is Nonblocking
-
-Healthy incoming uses deterministic self-output suppression. If that protection cannot
-be established, incoming is disabled/degraded before required outbound delivery
-continues. Optional incoming cannot be the sole reason an otherwise safe outbound TTS
-turn fails.
-
-# Closed Source Slice — Meeting Stop Is Persistence-Free
-
-Stop revokes output authority, cleans both audio lanes/helper/consumers/transient state,
-and clears the Meeting session. It does not write History. Safe Stop & Close delegates
-to the same canonical Stop.
-
-# Closed Source Slice — Pause / Resume Removed
-
-Application Meeting uses:
+## Direction-Based Product Readiness
 
 ```text
-Ready -> Starting -> Live -> Stopping -> Ended
-```
-
-Pause/Resume commands, runtime states, fresh Resume generation, Tauri registration,
-bridge/facade actions, and normal controls are removed. Incoming promotion is valid only
-while the application Meeting is Live.
-
-# Closed Source Slice — History / Saved Removed From Initial Surface
-
-Active product navigation is:
-
-```text
-Meeting
-Text
-Settings
-```
-
-Normal Settings is:
-
-```text
-Meeting
-Advanced
-```
-
-Successful Text translation performs no automatic History write. Active `runtimeApi`
-contains no History frontend methods. Backend persistence remains disconnected/deferred.
-
-# Closed Source Slice — Direction-Based Product Readiness + Mode/Tone Removal
-
-## A. Product readiness now follows translation direction
-
-`runtimeProductFacade.ts` consumes worker source truth:
-
-```text
-readiness.translation_id_en
-readiness.translation_en_id
-```
-
-Normal readiness mapping is:
-
-```text
-Required Meeting outbound
-ASR + ID->EN + TTS + Meeting route
+Meeting required outbound
+ASR + translation_id_en + TTS + Meeting route
 
 Optional incoming
-EN->ID may be unavailable/degraded without blocking outbound
+translation_en_id may be unavailable without blocking outbound
 
 Text
 selected ID->EN -> translation_id_en
 selected EN->ID -> translation_en_id
 ```
 
-The active facade no longer uses `translation_realtime`, `translation_quality`,
-`realtimeTranslationReady`, or `qualityTranslationReady` to decide normal product
-availability.
+Normal product readiness does not use Realtime/Quality aliases.
 
-## B. Normal translation requests are mode-free
+## Direction-Based Model Inventory
 
-Current normal requests send language direction explicitly:
+Current translation entries are:
 
 ```text
-Meeting YOU       source=id target=en
-Meeting INCOMING  source=en target=id
-Text              source=current setting target=current setting
+marianmt-id-en
+required = true
+stage = translation_id_en
+path = EngineData/Backend/RuntimeAssets/Translation/ModelData/marianmt-id-en
+source = Helsinki-NLP/opus-mt-id-en
+license = apache-2.0
+
+marianmt-en-id
+required = false
+stage = translation_en_id
+path = EngineData/Backend/RuntimeAssets/Translation/ModelData/marianmt-en-id
+source = Helsinki-NLP/opus-mt-en-id
+license = apache-2.0
 ```
 
-The normal Meeting/Text translation payload no longer sends `mode`. Standalone Text
-validates the worker's canonical bidirectional translation contract rather than a
-`Quality` response label.
+The obsolete NLLB Quality entry is removed. `required=false` for EN->ID is scoped to
+the required Meeting-outbound inventory gate so missing optional incoming cannot
+false-block ID->EN Start; it does not make reverse Text product acceptance optional.
+Worker `translation_en_id` remains the actual Text reverse readiness truth.
 
-Worker-side compatibility aliases may remain for inherited Diagnostics/preload
-contracts; they do not select the model or normal product readiness.
+`runtime_inventory.rs` only blocks its required-assets status for missing entries marked
+`required` and explicitly states that optional assets may still be missing. Inventory and
+`setup_models` do not claim download, install, load, inference, quality, or latency.
 
-## C. Normal UI has no Mode/Tone presentation
+## Other Closed Simplifications
 
-Removed from active Meeting/Text surface:
+- optional incoming suppression failure disables/degrades incoming and required outbound continues;
+- Meeting Stop clears runtime/transient state and does not write History;
+- Pause/Resume is removed from the application Meeting lifecycle;
+- active navigation is Meeting / Text / Settings;
+- normal Settings is Meeting / Advanced;
+- active History/Saved workflow and automatic Text History write are removed;
+- normal Meeting/Text Mode/Tone presentation is removed;
+- safe Stop & Close still delegates to canonical Meeting Stop.
 
-```text
-Mode: Realtime
-Mode: Quality/current profile
-Tone: Auto
-Speaking mode / Push-to-Talk copy in normal Meeting Settings
-```
-
-The active controller no longer has a `textModeValue`/`runtime_profile` presentation
-path. Normal user-facing choice is language direction only.
-
-## D. Static validation definition
+# Static Validation Definition
 
 `validate_startup_runtime_readiness.mjs` now defines checks for:
 
-- worker direction readiness fields consumed by the active facade;
-- ID->EN required outbound readiness independent from reverse EN->ID;
-- Text readiness matching current ID<->EN direction;
-- no active Realtime/Quality readiness mapping;
-- no Mode/Tone presentation in normal Meeting/Text;
-- no normal Meeting/Text `mode` translation payload;
-- existing History-free, Start/Stop, nonblocking incoming, translation-safety, transient
-  transcript, and safe-close contracts.
+- worker/manifest path agreement for both Marian directions;
+- `marianmt-id-en` required and `marianmt-en-id` nonblocking at the required-outbound inventory boundary;
+- no NLLB / `translation_quality` / `translation_realtime` translation entry in current manifest;
+- inventory blockers only for entries marked `required`;
+- direction-based product readiness and mode-free normal requests;
+- previous translation-safety, incoming, lifecycle, persistence, and safe-close contracts.
 
 The validator was **not executed** in this channel.
 
 # Known Proof Limits
 
-No claim is made that current Rust/TypeScript/Python compiles or executes, the validator
-passes, the shell renders correctly, models are installed/loadable, translation quality
-or latency is acceptable, or Windows audio/TTS/Meeting routing works on target hardware.
-Those remain local proof.
+Current source proves only repository contracts and declarative source metadata. It does
+not prove either Marian checkpoint is physically present in a target install, can be
+loaded by the pinned Python/Transformers runtime, gives acceptable translation, fits
+RAM/VRAM, meets Meeting latency, or is included correctly in an installed release.
 
-# Next Developing Slice — Direction-Based Model Inventory Reconciliation
-
-## Root cause
-
-The active worker/product contract is direction-based, but the declarative model
-inventory still describes the previous mode-based plan:
-
-```text
-Worker source truth
-marianmt-id-en
-marianmt-en-id
-
-Current model_manifest.json
-marianmt-id-en              stage=translation_realtime
-nllb-200-distilled-600M     stage=translation_quality
-(no marianmt-en-id entry)
-```
-
-This means reverse EN->ID has a worker path but no truthful inventory/setup entry, while
-an unused NLLB Quality asset still appears as current translation capability.
+# Next Plan Boundary — Local Model Asset Delivery + Acceptance
 
 ## Goal
 
-Make model inventory describe the translation engine that the product actually uses,
-without allowing reverse-direction availability to block required Meeting outbound.
+Choose the smallest reliable way to deliver the two already-selected Marian checkpoints
+to users so the translator can work without exposing model/runtime internals.
 
-## In scope
+The plan must preserve:
 
-1. remove the obsolete NLLB Quality translation entry from the current model manifest;
-2. rename the ID->EN manifest stage to direction-based terminology;
-3. add `marianmt-en-id` at the exact worker-expected RuntimeAssets path with its source
-   metadata;
-4. keep reverse EN->ID capability nonblocking for Meeting outbound at the current
-   inventory boundary; Text EN->ID readiness remains separately reported by worker;
-5. reconcile `runtime_inventory.rs` wording only where it incorrectly implies a global
-   translation capability instead of installation evidence;
-6. extend static validation and canonical docs.
+```text
+normal user
+-> install/open TranslateIT
+-> required local assets available through an approved product/release flow
+-> no manual Python/model operation
+-> no silent cloud fallback
+```
 
-## Out of scope
+## Questions To Resolve From Current Source/Evidence
 
-- downloading or installing model bytes in ChatGPT -> GitHub;
-- claiming the reverse checkpoint exists or loads;
-- changing translation model family again;
-- adding fallback to NLLB/cloud;
-- adding a capability-profile framework or generic package manager;
-- runtime quality/latency benchmarking;
-- Audio Studio/History backend deletion.
+1. What current release/package/runtime-asset owner already exists for shipping large
+   local model directories?
+2. Is the simplest supported initial delivery to bundle both Marian checkpoints with the
+   application/release, or does the existing product have an approved first-run asset
+   acquisition mechanism that is already simpler and reliable?
+3. How should `marianmt-en-id` be delivered for required Text EN->ID product capability
+   while remaining nonblocking for an otherwise healthy outbound Meeting Start?
+4. What exact source/revision/checksum metadata is required for reproducible release
+   inputs without building a generic package manager?
+5. Which checks are source/package evidence, and which must remain target-machine model
+   load/inference acceptance?
 
-## Acceptance criteria
+## Constraints
 
-1. current manifest contains `marianmt-id-en` and `marianmt-en-id` as the translation
-   assets used by the worker and contains no NLLB Quality translation entry;
-2. manifest paths exactly match worker `TRANSLATION_MODEL_ID_EN` / `TRANSLATION_MODEL_EN_ID`;
-3. missing reverse EN->ID does not become a required Meeting outbound Start blocker;
-4. inventory/setup remains installation evidence only and does not claim model load or
-   translation success;
-5. no fallback translator/model owner is introduced.
+- do not change translation model family again in this Plan unless current evidence
+  proves the selected model cannot satisfy the product;
+- do not add NLLB/cloud fallback;
+- do not create an in-app package manager or generic capability-profile framework by
+  default;
+- do not require users to operate Python/Hugging Face manually;
+- do not call manifest presence runtime success;
+- do not reopen Tone/Context/History/Pause or other deferred product features;
+- prefer the smallest existing release/runtime asset owner over a new downloader/service.
 
-# Hold
+## Plan Acceptance
 
-- do not reintroduce Pause/Resume, History/Saved, Tone/Context, or user-facing
-  Realtime/Quality modes;
-- do not add another translation worker;
-- do not use cloud or NLLB fallback;
-- do not create a generic capability-profile/package framework;
-- do not begin local acceptance inside this source reconciliation slice.
+The Plan is complete only when it identifies:
+
+1. one canonical asset-delivery owner/path;
+2. exact responsibility for both Marian directions;
+3. how required outbound remains available when reverse capability alone is unavailable;
+4. reproducible source metadata requirements;
+5. a bounded Developing slice plus separate local/installed proof requirements.
 
 ## Next Step
 
-Implement **Direction-Based Model Inventory Reconciliation** so the declarative model
-inventory/setup matches the already-selected `marianmt-id-en` / `marianmt-en-id` worker
-contract without turning optional incoming/reverse availability into a required Meeting
-outbound blocker.
+Plan **Local Model Asset Delivery + Acceptance Boundary** from the current release/runtime
+asset owners, without implementing until the delivery method and ownership are resolved.
