@@ -519,3 +519,59 @@ its existing persistence/deletion semantics. Separating the transcript read proj
 from lifecycle status avoids repeatedly attaching potentially large conversation
 bodies to normal readiness/status polling and keeps the minimum complete solution
 bounded.
+
+## D-021 — Global Meeting Cross-View Presentation And Safe Close Ownership
+
+**Decision**  
+Global active-Meeting presentation belongs to the existing desktop shell/controller,
+not to a new Meeting state manager. The compact cross-view strip reads the canonical
+application Meeting session through the existing `runtimeApi` /
+`mapProductMeetingState()` path. It is a shell element visible outside the Meeting
+workspace while an application Meeting session exists. Initially it presents only the
+current product-level Meeting state, a short ID -> EN status, and `Open Meeting`.
+Normal Pause/Resume/Stop controls remain on Meeting; contextual `Stop Voice` waits for
+a canonical runtime action rather than being simulated in the shell.
+
+Native application close is distinct from minimize/hide. A verified absence of an
+application Meeting session permits normal close. If a Meeting session exists, the
+close request is prevented and the shell presents `Keep Open` / `Stop & Close`. If
+Meeting status cannot be verified, close fails closed so the user control plane
+remains available; there is no `Close anyway` path while Meeting output authority may
+still exist.
+
+`Stop & Close` reuses the existing canonical Stop path:
+
+```text
+runtimeProductFacade.runProductMeetingAction("stop")
+-> stop_meeting_translation
+-> generation revoke + resource cleanup
+-> Meeting History finalization policy
+-> transient/session clear
+-> returned canonical state confirms no Meeting session
+-> native close permitted once
+```
+
+Sending a Stop request alone is not sufficient to close. A failed Stop or returned
+state that still owns a Meeting session leaves the application open. If the lifecycle
+is already `Stopping`, close handling waits for that existing Stop rather than
+launching another cleanup path. A one-shot frontend close-permission flag may be used
+only as native-window transport state; it is never Meeting lifecycle truth.
+
+For orderly native application-exit paths that still execute Tauri lifecycle hooks,
+the native app/window owner may provide one fail-safe that delegates to the same
+backend Meeting Stop/finalization owner. It must not show a second prompt, reproduce
+the Stop sequence, or become another Meeting state authority. The exact Tauri v2
+close-request/application-exit API is an implementation detail that must be verified
+from current official Tauri documentation before the Developing patch. Forced process
+termination, OS crash, and power loss are not statically guaranteed by this decision.
+
+**Reason**  
+Current policy already requires an application-level Meeting that survives normal
+navigation/minimize, exposes compact global state outside Meeting, and requires
+explicit `Stop & Close` when the application is closed during a live Meeting. The
+current shell/controller already owns navigation and normal Meeting action
+orchestration, while `meeting_session.rs` already owns safe Stop plus History
+finalization. Extending those existing boundaries preserves one lifecycle authority,
+prevents the shell/window layer from becoming a second Meeting control plane, and
+ensures application close uses the same safety/finalization semantics as an explicit
+Stop from the Meeting workspace.
