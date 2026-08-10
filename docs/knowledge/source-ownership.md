@@ -21,46 +21,36 @@ RETIRED   -> inherited concept is no longer approved product scope
 
 Static source/tooling alignment never becomes model-quality, latency,
 scheduling-performance, VAD behavior, CUDA/CPU, Windows-device/audio, rendered-UI,
-installed-runtime, or release proof.
+installed-runtime, persistence-runtime, or release proof.
 
 ## Executive Ownership Map
 
 | Boundary | Current owner(s) | Status | Current truth |
 |---|---|---|---|
-| Product shell/navigation | `src/main.ts`, `SimpleLauncherController.ts` | **ALIGNED / VISUAL PARTIAL** | Normal app is Meeting / Text / History / Settings; navigation does not own/recreate Meeting runtime. |
+| Product shell/navigation | `src/main.ts`, `SimpleLauncherController.ts` | **ALIGNED / VISUAL PARTIAL** | Meeting / Text / History / Settings; navigation does not own/recreate Meeting runtime. |
 | First Setup | First Setup + `RuntimeSettings` + product/audio facade | **ALIGNED SOURCE / WINDOWS PROOF LATER** | Five-step flow, defer/resume, candidate-check -> commit. |
-| Normal Meeting lifecycle bridge | `runtimeApi.ts` -> `runtimeProductFacade.ts` -> `SimpleLauncherController.ts` -> canonical Meeting commands | **SOURCE ALIGNED / TAURI + RENDER PROOF LATER** | Normal product reads application Meeting session directly; Start/Pause/Resume/Stop use the canonical lifecycle; no frontend Meeting authority/store was added. |
-| Meeting Live activity presentation | `MeetingLiveActivityPresentation.ts` -> `get_meeting_session_status` | **SOURCE ALIGNED / RENDER PROOF LATER** | Read-only activity uses canonical lifecycle/outbound stage only. |
-| Committed Meeting turn source | `meeting_session.rs` bounded transient store | **SOURCE ALIGNED / RUNTIME PROOF LATER** | Final transcript + verified translation commit into one memory-only session store; dedupe, chronology, delivery state, Pause/Resume/Stop handling are backend-owned. |
-| Meeting Live transcript read path | `get_meeting_committed_turns` -> `runtimeApi.ts` -> `MeetingLiveActivityPresentation.ts` | **SOURCE ALIGNED / TAURI + RENDER PROOF LATER** | Frontend renders backend snapshots only; no browser transcript accumulator or worker/Diagnostics scraping. |
+| Normal Meeting lifecycle bridge | `runtimeApi.ts` -> `runtimeProductFacade.ts` -> `SimpleLauncherController.ts` -> Meeting commands | **SOURCE ALIGNED / TAURI + RENDER PROOF LATER** | Start/Pause/Resume/Stop use the canonical application Meeting authority. |
+| Meeting application authority | `runtime_state.rs`, `meeting_session.rs` | **SOURCE ALIGNED / RUNTIME PROOF LATER** | `session_id + generation + authority_active`; Pause retains session, Resume creates fresh generation. |
+| Meeting capture/finalization | `audio/live_capture.rs`, `audio/finalized_utterance.rs`, `audio/live_segment_writer.rs` | **SOURCE ALIGNED / AUDIO PROOF LATER** | Rolling preview stays separate from finalized speech; product output uses bounded generation-scoped finals and unique temporary WAVs. |
+| Serialized Meeting outbound | `meeting_session.rs` | **SOURCE ALIGNED / RUNTIME PROOF LATER** | One consumer performs final ASR -> Realtime translation -> TTS -> guarded Meeting route. |
+| Committed Meeting turn source | `meeting_session.rs` bounded transient store | **SOURCE ALIGNED / RUNTIME PROOF LATER** | Final transcript + verified translation become one memory-only session-scoped canonical turn source. |
+| Meeting Live transcript read path | `get_meeting_committed_turns` -> `runtimeApi.ts` -> `MeetingLiveActivityPresentation.ts` | **SOURCE ALIGNED / TAURI + RENDER PROOF LATER** | Frontend renders backend snapshots; no browser accumulator or worker/Diagnostics scraping. |
+| Meeting History finalization | `meeting_session.rs` Stop handoff -> `history_store.rs` | **SOURCE ALIGNED / FILESYSTEM + RENDER PROOF LATER** | Full Stop snapshots final committed turns, checks current `history_enabled`, optionally creates one Recent Meeting entry, then clears transient bodies. |
+| History / Saved | `history_store.rs`, `history.rs`, `SimpleLauncherController.ts` History surface | **SOURCE ALIGNED / FILESYSTEM + RENDER PROOF LATER** | Text and finalized Meeting entries share canonical `Recent/Saved`; Saved remains explicit and independent. |
 | Text AI execution | `text_translate.rs` -> helper scheduler -> `realtime_local_worker.py` | **SOURCE ALIGNED / LOCAL PROOF LATER** | One persistent worker route; Text explicitly requests Quality. |
-| Meeting application authority | `runtime_state.rs`, `meeting_session.rs` | **SOURCE ALIGNED / RUNTIME PROOF LATER** | `session_id + generation + authority_active` is canonical; Pause retains session, Resume creates fresh generation. |
-| Meeting capture | `audio/live_capture.rs` | **SOURCE ALIGNED / WINDOWS PROOF LATER** | One CPAL capture owner; rolling preview and finalized speech paths remain separate. |
-| Rolling audio / preview boundary | `audio/live_audio_buffer.rs` | **ALIGNED DIAGNOSTIC/PREVIEW OWNER** | Rolling ASR-ready windows are not final speech and are not transcript/product output truth. |
-| Finalized outbound utterance | `audio/finalized_utterance.rs` | **SOURCE ALIGNED / VAD PROOF LATER** | Realtime VAD produces generation-scoped finalized utterances with bounded queue ownership. |
-| Finalized WAV handoff | `audio/live_segment_writer.rs` | **SOURCE ALIGNED / FILESYSTEM PROOF LATER** | Product Meeting uses unique temporary finalized WAVs; rolling file remains diagnostic-only. |
-| Serialized Meeting outbound consumer | `meeting_session.rs` | **SOURCE ALIGNED / RUNTIME PROOF LATER** | One consumer processes each final once and now commits verified text into the same Meeting owner. |
-| Meeting outbound AI mode | `meeting_session.rs` | **SOURCE ALIGNED / MODEL PROOF LATER** | Finalized outbound speech explicitly requests Realtime. |
-| Helper scheduling / worker I/O | `helper_bridge.rs`, `helper_bridge_runtime.rs` | **SOURCE ALIGNED / CONTENTION PROOF LATER** | One scheduler owns worker stdin/stdout; waiting Meeting > Text > Diagnostics. |
-| Helper cancellation | helper bridge + Meeting generation authority | **SOURCE ALIGNED / TIMING PROOF LATER** | Stale Meeting work is rejected; matching in-flight work may hard-cancel the worker. |
-| Translation source bounds | `realtime_local_worker.py` | **SOURCE ALIGNED / MODEL PROOF LATER** | No silent tokenizer truncation; unsafe oversized input is rejected. |
-| Translation output completeness | `realtime_local_worker.py` | **SOURCE ALIGNED / MODEL EXECUTION PROOF LATER** | Output is promoted only when EOS completion is verifiable. |
-| English TTS voice selection | `realtime_local_worker.py` | **SOURCE ALIGNED / WINDOWS + ASSET PROOF LATER** | TTS requires an explicitly English-capable Piper/SAPI voice. |
-| Model installation evidence | `model_manifest.json`, `runtime_inventory.rs` | **ALIGNED STATIC OWNER / METADATA PARTIAL** | Asset presence is installation evidence only. |
-| Current AI capability availability | persistent worker `status` -> helper bridge | **SOURCE ALIGNED / LOAD-INFERENCE PROOF LATER** | Current ASR/translation/TTS capability is worker-scoped. |
-| Product readiness | Meeting preflight/session + worker capability -> product facade | **SOURCE ALIGNED / LOCAL PROOF LATER** | Meeting and Text readiness remain capability-scoped; Paused is lifecycle state, not fake Ready. |
-| Python dependency/tooling ownership | `WorkerRuntime/pyproject.toml` | **SOURCE ALIGNED / LOCK + EXECUTION PROOF LATER** | One Python project owns dependencies, Ruff, and pytest; `uv.lock` is not fabricated. |
-| History / Saved | `history_store.rs`, `history.rs`, frontend History | **TEXT ALIGNED / MEETING FINALIZATION MISSING** | Canonical persistence is `UserData/SavedProject/History/{Recent,Saved}`; live Meeting transcript is not History-owned. |
-| Meeting outbound audio route | virtual-route owners | **PARTIAL / WINDOWS PROOF REQUIRED** | Generation-aware route cancellation exists; delivery unproved. |
-| Incoming Meeting assistance | audio/capture/runtime candidates | **MISSING / PARTIAL** | Loopback -> EN ASR -> ID text and self-output suppression are not implemented. |
+| Helper scheduling / cancellation | `helper_bridge.rs`, `helper_bridge_runtime.rs` + Meeting generation authority | **SOURCE ALIGNED / CONTENTION PROOF LATER** | One scheduler; waiting Meeting > Text > Diagnostics; stale/matching Meeting work is cancelled generation-aware. |
+| Translation bounds/completeness | `realtime_local_worker.py` | **SOURCE ALIGNED / MODEL PROOF LATER** | No silent input truncation; output requires verifiable EOS completion. |
+| English TTS voice selection | `realtime_local_worker.py` | **SOURCE ALIGNED / WINDOWS + ASSET PROOF LATER** | Explicit English-capable Piper/SAPI voice required. |
+| Product readiness | Meeting preflight/session + worker capability -> product facade | **SOURCE ALIGNED / LOCAL PROOF LATER** | Meeting/Text readiness remain capability-scoped. |
+| Python dependency/tooling | `WorkerRuntime/pyproject.toml` | **SOURCE ALIGNED / LOCK + EXECUTION PROOF LATER** | One Python dependency/Ruff/pytest owner; `uv.lock` is not fabricated. |
+| Meeting outbound audio route | virtual-route owners | **PARTIAL / WINDOWS PROOF REQUIRED** | Generation-aware route cancellation exists; actual delivery unproved. |
+| Incoming Meeting assistance | audio/capture/runtime candidates | **MISSING / PARTIAL** | EN Meeting Sound -> ID text and self-output suppression are not implemented. |
 | Translation tone/context | settings + inherited adapters | **MISSING / PARTIAL** | Approved tone/context do not yet reach canonical inference. |
-| Packaging/runtime assets | Tauri/NSIS + bridge Python discovery | **PARTIAL / STALE ASSUMPTIONS** | End-user packaged Python/runtime acquisition remains unresolved. |
+| Packaging/runtime assets | Tauri/NSIS + helper discovery | **PARTIAL / STALE ASSUMPTIONS** | End-user packaged runtime/model acquisition remains unresolved. |
 | Document Translation | no active workspace | **RETIRED** | Do not revive Documents/file-attachment translation. |
 | Audio Studio | explicit entry + backend contracts | **PARTIAL / POST-CORE** | Preserve post-core; not current core blocker. |
 
 ## 1. Canonical Product Meeting Lifecycle
-
-Normal product frontend does not keep a second Meeting session truth.
 
 ```text
 Meeting workspace
@@ -75,24 +65,18 @@ Meeting workspace
 ```
 
 `runtimeProductFacade.mapProductMeetingState()` recognizes only
-`translateit_application_meeting` as product Meeting ownership and maps Ready /
-Starting / Live / Paused / Resuming / Stopping / conflict states.
+`translateit_application_meeting` as product Meeting ownership. Pause retains
+`session_id` while invalidating old generation authority. Resume assigns a fresh
+generation before required resources return Live. Navigation remains presentation-only.
 
-Pause is not Stop. Pause retains `session_id` while invalidating old generation
-authority. Resume assigns a fresh generation before capture/finalized-consumer
-resources return Live. Navigation remains presentation-only and Mic Test cannot take
-over an active/paused runtime session.
-
-## 2. Canonical Outbound Speech / AI Execution
+## 2. Canonical Outbound And Committed Turns
 
 ```text
 physical microphone
--> application-owned capture
-   +-> rolling buffer [preview/diagnostic only]
+-> application capture
+   +-> rolling preview [diagnostic only]
    +-> finalized utterance producer
 -> session_id + generation + utterance_id
--> one-shot finalized queue
--> unique temporary WAV
 -> serialized Meeting consumer
 -> final Indonesian ASR
 -> generation check
@@ -104,29 +88,14 @@ physical microphone
 -> guarded Meeting Microphone route
 ```
 
-The rolling `latest_live_target_segment.wav` remains diagnostic-only. Product output
-and committed transcript truth begin only from finalized utterances.
-
-Meeting Pause revokes generation authority before matching route/capture/helper/
-consumer cleanup. Resume uses fresh generation authority for the same session. Stop is
-the distinct full-session cleanup.
-
-## 3. Canonical Committed Meeting Turn Source
-
-The existing application Meeting outbound/session boundary in `meeting_session.rs` is
-the one transient conversation-body owner. This is the first current boundary where
-finalized utterance identity, current generation authority, final ASR text,
-verified-complete translation, TTS progress, and output result coexist.
-
-### Commitment
-
-A turn is created only after final Indonesian transcript and verified English
-translation both exist while the same generation is still authoritative.
+`meeting_session.rs` is the one transient conversation-body owner because it is the
+first boundary where final utterance identity, generation authority, final ASR,
+verified translation, TTS progress, and output outcome coexist.
 
 ```text
 MeetingCommittedTurn
 ├─ session_id
-├─ sequence
+├─ sequence                 # monotonic across Resume generations
 ├─ generation
 ├─ utterance_id
 ├─ lane = you
@@ -137,136 +106,136 @@ MeetingCommittedTurn
 └─ updated_unix_ms
 ```
 
-Dedupe identity is `(session_id, generation, utterance_id)`. `sequence` is separate and
-monotonic for the full Meeting session, preserving chronology across Resume where
-utterance IDs may repeat under a new generation.
+Dedupe identity is `(session_id, generation, utterance_id)`. Delivery states are
+`preparing_voice`, `speaking`, `output_complete`, `output_failed`, and `interrupted`.
+Terminal states cannot be overwritten by stale callbacks. ASR/translation failure
+before verified translation does not create a committed turn.
 
-The store is memory-only, session-scoped, and bounded using `VecDeque`. If the bound
-drops old turns, `MeetingCommittedTurnsSnapshot` exposes `dropped_turn_count` and
-`truncated` so the UI cannot claim a complete transcript.
+The transient store is bounded and exposes `dropped_turn_count`/`truncated`. Pause
+retains turns and interrupts revoked-generation non-terminal work; Resume appends turns
+for the same session with fresh generation identity.
 
-### Delivery state
+## 3. Read-Only Meeting Live Transcript
 
-```text
-preparing_voice
-speaking
-output_complete
-output_failed
-interrupted
-```
-
-A new committed turn starts `preparing_voice`; usable TTS entering route delivery may
-become `speaking`; successful guarded output becomes `output_complete`; TTS/route
-failure becomes `output_failed`; generation loss becomes `interrupted` for non-terminal
-turns. Terminal states cannot be overwritten by late callbacks.
-
-`output_complete` means TranslateIT completed the output action it can prove. It does
-not claim the remote meeting participant heard the audio.
-
-ASR/translation failure before verified translation does not create a committed turn.
-
-### Lifecycle
-
-- new Start resets the transient store for the new `session_id`;
-- Start rollback clears it;
-- Pause keeps existing turns and interrupts non-terminal turns from the revoked generation;
-- Resume appends fresh-generation turns while keeping session-wide sequence order;
-- Resume rollback interrupts fresh-generation non-terminal work;
-- full Stop interrupts current non-terminal work then clears transient bodies;
-- persistent History handoff is not yet implemented, so Stop currently performs no Meeting Recent write.
-
-## 4. Read-Only Transcript Projection
-
-Conversation bodies are deliberately not included in `MeetingSessionStatus`.
-Lifecycle/readiness polling stays lightweight.
-
-The dedicated registered read command is:
+Conversation bodies are deliberately absent from `MeetingSessionStatus`.
 
 ```text
 get_meeting_committed_turns
+-> MeetingCommittedTurnsSnapshot
+-> runtimeApi
+-> MeetingLiveActivityPresentation
 ```
 
-`runtimeApi.ts` exposes `MeetingCommittedTurn` and
-`MeetingCommittedTurnsSnapshot`. A bridge failure returns an explicit unavailable
-snapshot rather than fabricated transcript content.
+The frontend reconstructs its rendered list from each backend snapshot rather than
+accumulating a second transcript store. It renders current outbound turns as `YOU`,
+with Indonesian final text primary, English verified translation secondary, and a
+truthful delivery state. A lifecycle/snapshot `session_id` mismatch is not rendered as
+current content. Bounded truncation is disclosed.
 
-`MeetingLiveActivityPresentation.ts` requests lifecycle status and committed-turn
-snapshot in parallel, then renders transcript bodies only when the snapshot belongs to
-the same current `session_id`. A mismatch during transition is shown as a temporary
-refresh state, not as another session's transcript.
+User content is written with DOM `textContent`. Rolling audio, legacy pipeline state,
+worker response JSON, Diagnostics, and logs are not Live transcript sources.
 
-The frontend reconstructs the rendered list from each backend snapshot. It does not
-append/merge conversation turns into durable browser state.
+## 4. Meeting History Finalization
 
-Current outbound transcript presentation is:
+Persistent History remains solely owned by `engine/history_store.rs` under:
+
+```text
+UserData/SavedProject/History/
+├─ Recent/
+└─ Saved/
+```
+
+There are no live incremental Meeting History writes. Full Stop performs the only
+current automatic Meeting persistence handoff:
+
+```text
+revoke generation authority
+-> interrupt revoked-generation non-terminal turns
+-> cancel route / stop capture / cancel helper / join outbound consumer
+-> immutable committed-turn snapshot
+-> load current RuntimeSettings.history_enabled
+   -> ON  -> create_meeting_recent(...)
+   -> OFF -> no Recent write
+-> clear transient committed turns
+-> clear runtime Meeting session
+```
+
+History persistence failure cannot prevent safety-critical Stop. The failure is
+reported in the Stop result; transient conversation bodies are still cleared.
+
+`create_meeting_recent(...)` is idempotent on the canonical Meeting `session_id` and
+creates at most one Recent entry. Empty Meetings create no empty History entry.
+
+### Persistent contract
+
+History schema version 2 adds backward-compatible:
+
+```text
+dropped_turn_count
+```
+
+with a serde default so existing entries remain readable. If History's own turn bound
+removes old entries, the count increases rather than hiding truncation.
+
+Finalized Meeting entries reuse `HistoryEntry` / `HistoryTurn`:
+
+```text
+entry_type = meeting
+created/updated time + duration
+interrupted
+dropped_turn_count
+source_language = id
+target_language = en
+tone = Auto
+mode = Realtime
+turns[] -> sequence / lane / source / translation / delivery state / time
+```
+
+Raw microphone/Meeting audio and generated TTS are not normal History content.
+
+History OFF affects only new/current retention. It does not delete existing Recent or
+Saved entries. Saved remains an explicit copy/ownership action using the existing
+generic Save/Remove path.
+
+## 5. History Product Surface
+
+The existing History collection supports `All / Meeting / Text` filters and Meeting
+rows with time/duration/status. Finalized Meeting detail now reuses the transcript
+visual language as a read-only artifact:
 
 ```text
 YOU
-Indonesian final transcript      [primary]
-English verified translation     [secondary]
-truthful delivery state
+Indonesian final transcript
+English verified translation
+delivery state
 ```
 
-Incoming transcript is not fabricated because the incoming Meeting lane is not yet
-implemented. User text is assigned through DOM `textContent`; worker response JSON,
-legacy pipeline transcript snapshots, Diagnostics, logs, and rolling audio are not
-used as Live transcript sources.
+If a finalized entry inherited bounded live truncation, History detail explicitly
+reports the missing earlier-turn count. The same Save/Remove from Saved actions apply
+to Meeting and Text entries; no separate Meeting History controller/store exists.
 
-## 5. History / Privacy Boundary
+## 6. Other Runtime Boundaries
 
-Persistent History remains independently owned by `engine/history_store.rs` and the
-History command/frontend path. The existing `HistoryEntry` / `HistoryTurn` schema is
-already structurally suitable for Meeting turns, but it is not used as the Live store.
-
-Planned finalization contract:
-
-```text
-full Meeting finalization
--> immutable committed-turn snapshot
--> current RuntimeSettings.history_enabled
-   -> ON  -> one Recent Meeting entry
-   -> OFF -> discard transient conversation bodies
--> clear transient turn store
-```
-
-No live incremental History write is needed for the transcript. Existing Recent/Saved
-items remain unaffected; Saved remains explicit and independent. Raw audio and generated
-TTS are never normal History bodies.
-
-## 6. Finalized Utterance / Scheduler / Correctness Boundaries
-
-`audio/finalized_utterance.rs` remains the finalized speech owner;
-`audio/live_audio_buffer.rs` remains rolling preview/diagnostics. Finalized work is
-bounded/fail-closed and generation-scoped.
-
-One helper scheduler remains in the helper bridge with waiting priority:
+One helper scheduler remains with waiting priority:
 
 ```text
 Meeting > Text > Diagnostics / preload
 ```
 
-This is queue priority, not preemption of already-running Text inference. Actual
-contention/latency remains local proof.
+This does not preempt Text inference already running. Actual contention/latency remains
+local proof.
 
-Translation input is not silently truncated, generated translation requires
-verifiable EOS completion, and outbound TTS requires an explicit English-capable
-voice. Actual model/voice quality remains local proof.
+Translation input bounds, EOS completion requirements, and explicit English-capable TTS
+selection remain source-aligned; actual quality/performance is local proof.
 
-## 7. Installation / Capability / Tooling
+Static model installation, current worker capability, request success, and product
+readiness remain distinct facts. `WorkerRuntime/pyproject.toml` is the single Python
+dependency/tooling owner; Ruff/pytest execution and `uv.lock` resolution remain later.
 
-Static model installation evidence remains separate from current worker capability and
-request success. Normal Meeting truth uses direct Meeting preflight/session state;
-Diagnostics bundles do not become product lifecycle authority.
-
-`WorkerRuntime/pyproject.toml` remains the sole Python dependency/tooling owner. Ruff
-and pytest configuration exists but execution has not been proven in this channel.
-`uv.lock` remains intentionally absent until verified dependency resolution.
-
-## 8. Remaining Core Work
+## 7. Remaining Core Work
 
 ```text
-Meeting History finalization handoff from committed turns
-global/cross-view Meeting strip and close-live handling
+plan global/cross-view Meeting state + safe close lifecycle boundary
 incoming Meeting lane + self-output suppression
 translation tone/context consumption
 Text Copy/direct Save
@@ -279,18 +248,10 @@ packaging/clean-machine reconciliation
 ```
 
 Do not add a second worker, finalizer, scheduler, readiness service, Meeting lifecycle
-store, transcript accumulator, dependency manifest, lint stack, or test framework to
-solve these.
+store, transcript accumulator, History root/database, dependency manifest, lint stack,
+or test framework to solve these.
 
-## 9. Other Product Boundaries
-
-Canonical History remains:
-
-```text
-UserData/SavedProject/History/
-├─ Recent/
-└─ Saved/
-```
+## 8. Other Product Boundaries
 
 Incoming Meeting Sound remains a separate unimplemented lane. Documents remains
 retired. Audio Studio remains post-core. Svelte remains a separate future frontend
@@ -298,13 +259,14 @@ architecture decision after core runtime contracts stabilize.
 
 ## Current Mode / Continuation
 
-Current mode: **Developing**.  
+Current mode: **Plan**.  
 Execution channel: `ChatGPT -> GitHub`.
 
 Engine consolidation, finalized outbound production, canonical Start/Stop,
-Pause/Resume fresh-generation lifecycle, Live activity presentation, and the bounded
-committed-turn source + Live transcript read path are source-aligned at their bounded
-claims. No compile/typecheck/validator execution/model/Windows runtime/rendered UI,
-audio-quality, race-timing, or performance proof has been obtained in this channel.
+Pause/Resume fresh-generation lifecycle, bounded committed-turn source, Live transcript
+read path, and Meeting History finalization handoff are source-aligned at their bounded
+claims. No compile/typecheck/validator execution, filesystem persistence runtime,
+model/Windows runtime/rendered UI, audio-quality, race-timing, or performance proof has
+been obtained in this channel.
 
 The single continuation is `docs/knowledge/next-action.md`.
