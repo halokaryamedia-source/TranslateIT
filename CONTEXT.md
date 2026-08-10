@@ -30,15 +30,14 @@ Secondary utility
 Indonesian <-> English Text
 ```
 
-Current product priority is translation success before feature breadth. The user cited
-Gemini 3.5 Live Translate as a behavioral reference: fluid live translation, simple
-interaction, and willingness to stay a few seconds behind speech for completeness.
-TranslateIT remains local-first and does not inherit Gemini's cloud/model/language
-architecture.
+Translation success takes priority over feature breadth. Gemini 3.5 Live Translate is a
+behavioral reference only: simple live use and a small completeness delay are preferable
+to unstable instant output. TranslateIT remains local-first and does not inherit
+Gemini's cloud/model/language architecture.
 
 ## Initial Product Surface
 
-Normal navigation is reduced to:
+Normal navigation target:
 
 ```text
 Meeting
@@ -46,29 +45,30 @@ Text
 Settings
 ```
 
-Settings is reduced to:
+Settings target:
 
 ```text
 Meeting
 Advanced -> Diagnostics
 ```
 
-Meeting uses one normal lifecycle:
+Normal Meeting lifecycle target:
 
 ```text
 Ready -> Starting -> Live -> Stopping -> Ended
 ```
 
-Initial core does **not** include Pause/Resume, Push to Talk, Stop Voice,
-Speak Now/Cancel coordination, tone controls, user-facing Realtime/Quality modes,
+Initial core excludes Pause/Resume, Push to Talk, Stop Voice, Speak Now/Cancel,
+partial translated subtitles, tone controls, user-facing Realtime/Quality modes,
 conversation-context prompting, History/Saved, Audio Studio/custom voice, Documents,
-additional languages, incoming TTS, or partial translated subtitles.
+additional languages, incoming TTS, and automatic mid-session Meeting Sound default-
+device rebind.
 
 Existing source for deferred features is cleanup input, not current product permission.
 
 ## Translation Engine Contract
 
-The initial product should expose **one canonical bidirectional translation behavior**:
+The product exposes one canonical bidirectional behavior:
 
 ```text
 current utterance/text
@@ -76,24 +76,26 @@ current utterance/text
 -> complete translated text or explicit failure
 ```
 
-Normal users do not choose model/provider names or translation modes.
-
-Current worker source is not yet aligned with this decision:
+Current worker source has now been reconciled from mode-based routing into direction-
+based routing inside the **same persistent worker**:
 
 ```text
-Realtime -> MarianMT marianmt-id-en -> ID -> EN only
-Quality  -> NLLB-200-distilled-600M -> multilingual/bidirectional-capable path
+ID -> EN -> marianmt-id-en
+EN -> ID -> marianmt-en-id
 ```
 
-Current Meeting incoming asks the Realtime worker for EN -> ID, while the worker
-explicitly rejects non-ID->EN Realtime directions. Therefore incoming wiring exists,
-but the current EN -> ID Meeting path is **not source-functional end-to-end**.
+`TRANSLATION_RUNTIME` is keyed by direction (`id->en`, `en->id`), not Realtime/Quality.
+Current direct callers may temporarily still send/expect a `mode` field during staged
+cleanup, but that compatibility label no longer chooses the translation model.
 
-The next implementation must remove the user/product dependency on the one-direction
-Realtime/Quality split and establish one bidirectional ID <-> EN translation path.
-Exact model/provider remains replaceable until local target-PC validation.
+Required outbound worker readiness depends on ID -> EN. EN -> ID is separately visible
+because incoming is optional and must not block otherwise healthy outbound Start.
 
-## Translation Quality Rules
+The repository does **not** contain runtime proof that `marianmt-en-id` is actually
+installed, loads successfully, translates well, or meets target-PC latency/memory.
+Those remain local/release proof.
+
+## Translation Safety Rules
 
 Keep the quality contract small:
 
@@ -107,43 +109,52 @@ Keep the quality contract small:
 Current utterance/text is the initial model input. Previous Meeting turns, History,
 Saved data, and standalone Text are not automatic model context.
 
-Source text is not silently truncated. Known incomplete generation is rejected instead
-of being presented as a completed translation.
+Worker safeguards remain:
 
-## Speech / Meeting Boundary
+- max interactive translation text bound;
+- tokenizer uses `truncation=False`;
+- model/tokenizer input limit is checked;
+- oversized input is rejected before inference;
+- generated output must have verifiable normal EOS completion;
+- known incomplete output is rejected instead of promoted to Text/TTS.
+
+## Meeting Boundary
 
 Normal Meeting use is one explicitly started continuous listening mode.
 
-Only finalized stable speech is normal translation/TTS/transcript truth. A small
-post-speech delay is acceptable when it improves completeness. Partial/rolling ASR may
-exist internally but is not normal translated output.
+Only finalized stable speech is normal translation/TTS/transcript truth. A small post-
+speech delay is acceptable for completeness. Partial/rolling ASR may exist internally
+but is not normal translated output.
 
 One application Meeting session owner remains. Session/generation/utterance authority
 continues to reject stale asynchronous output. English TTS remains serialized.
 
-`Stop Translation` remains a direct safety action and safe native close still delegates
-to canonical Stop before the main window is destroyed.
+`Stop Translation` remains a direct safety action and safe native close delegates to
+canonical Stop before main-window destruction.
 
 ## Optional Incoming
 
-Physical microphone remains the required outbound capture source.
-Meeting Sound remains a distinct optional output-loopback capture source.
+Physical microphone remains the required outbound source. Meeting Sound remains a
+distinct optional output-loopback source.
 
-Incoming may provide:
+Incoming target:
 
 ```text
-EN speech -> EN ASR -> ID text
+EN speech -> final EN ASR -> canonical EN -> ID translation -> local text
 ```
 
-but must never block otherwise healthy outbound translation.
+TranslateIT's own English TTS must not become incoming speech. However, incoming safety
+is subordinate to the required outbound path. Current `meeting_session.rs` still has a
+stale behavior where failure to establish the self-output suppression guard can reject
+outbound TTS. New policy requires instead:
 
-TranslateIT's own English TTS must not become incoming speech. If safe incoming
-suppression/capture cannot be maintained, **incoming degrades/disables; required
-outbound TTS continues**. This supersedes the current source behavior that may block
-outbound when the suppression gate is unavailable.
+```text
+incoming suppression unavailable
+-> degrade/disable incoming
+-> required safe outbound TTS may continue
+```
 
-Automatic mid-session Follow-Windows-Default Meeting Sound rebind is deferred until the
-initial selected/default endpoint path is proven stable.
+That source reconciliation is the immediate next bounded task.
 
 ## Canonical Local Runtime
 
@@ -152,11 +163,11 @@ Rust/Tauri desktop application
 -> ONE helper scheduler / process bridge
 -> ONE persistent realtime_local_worker.py
    ├─ ASR
-   ├─ Translation
+   ├─ direction-based ID <-> EN Translation
    └─ TTS
 ```
 
-Resource priority stays:
+Resource priority remains:
 
 ```text
 Meeting outbound
@@ -165,43 +176,39 @@ Meeting outbound
 > Diagnostics / setup
 ```
 
-Queues remain bounded and stale work is discarded rather than surfaced late.
-
-CUDA may accelerate runtime when validated. CPU remains supported truthfully; if it is
-too slow for practical Meeting use, the product must report that rather than pretend
-equivalent realtime performance.
+Queues remain bounded and stale work is discarded rather than surfaced late. CUDA may
+accelerate runtime when validated. CPU remains truthful degraded operation when it
+cannot satisfy practical Meeting latency.
 
 ## Current Source That Remains Useful
-
-The following current owners remain useful to the simplified core:
 
 - `engine/audio/live_capture.rs` — physical microphone capture;
 - `engine/audio/finalized_utterance.rs` — finalized speech/event identity;
 - `engine/audio/meeting_sound_capture.rs` — optional Meeting Sound loopback;
 - `commands/meeting_session.rs` — canonical Meeting session/orchestration;
-- one transient committed-turn store for current live transcript;
+- bounded transient committed turns — current-session transcript;
 - `helper_bridge.rs` + `helper_bridge_runtime.rs` — one AI scheduler/worker bridge;
-- `realtime_local_worker.py` — current ASR/translation/TTS worker;
+- `realtime_local_worker.py` — ASR / bidirectional translation / TTS worker;
 - virtual Meeting Microphone route owners;
 - global safe Stop/Close boundary;
 - standalone Text translation path.
 
-## Source To Simplify / Retire From Initial Flow
+## Source To Simplify / Retire
 
-Current source still contains behavior now outside the initial product:
+Current source still contains behavior outside the initial product:
 
 - Pause / Resume lifecycle and controls;
-- Realtime vs Quality product/model split;
+- remaining Realtime/Quality compatibility fields/caller assumptions;
 - tone-related UI/settings assumptions;
 - automatic Meeting/Text History and Saved workflow;
-- History Stop finalization dependency;
+- Meeting Stop -> History finalization dependency;
 - History top-level navigation/settings;
 - Audio Studio/custom voice initial-product assumptions;
 - any future conversation-context path;
 - complex conversational delivery controls if encountered.
 
-Cleanup must prefer disabling/removing stale product paths over maintaining compatibility
-layers that keep the old complexity alive.
+Prefer actual removal/disconnection over compatibility layers that keep old complexity
+alive.
 
 ## First Acceptance Gate
 
