@@ -1,5 +1,6 @@
 use serde::Serialize;
 
+use crate::commands::meeting_session::{get_meeting_session_status, MeetingSessionStatus};
 use crate::commands::pipeline_handoff::{
     get_live_meeting_runtime_gate_status, LiveMeetingRuntimeGateStatus,
 };
@@ -54,6 +55,9 @@ pub struct RuntimeStatusBundleReport {
     pub live_meeting_runtime_gate: LiveMeetingRuntimeGateStatus,
     pub local_worker_manifest: LocalWorkerManifestReport,
     pub internal_validation_gate: InternalValidationGateReport,
+    // Canonical product Meeting lifecycle/preflight. Normal product readiness should
+    // consume this field rather than the migration/live/professional gates above.
+    pub meeting_session: MeetingSessionStatus,
     pub next_action: String,
     pub summary: String,
 }
@@ -76,14 +80,21 @@ pub fn build_runtime_status_bundle() -> RuntimeStatusBundleReport {
     let live_meeting_runtime_gate = get_live_meeting_runtime_gate_status();
     let local_worker_manifest = analyze_local_worker_manifest();
     let internal_validation_gate = analyze_internal_validation_gate();
+    let meeting_session = get_meeting_session_status();
+
+    // This next_action/summary remains a Developer Diagnostics aggregate. It is not
+    // the normal product readiness authority; runtimeProductFacade maps normal UI
+    // readiness from meeting_session + current worker/input/inventory evidence.
     let next_action = if internal_validation_gate.ready_for_release_candidate {
         "release_candidate_gate_complete".to_string()
     } else if internal_validation_gate.ready_for_owner_validation {
         "run_release_candidate_packaging_review".to_string()
     } else if !local_worker_manifest.ok {
-        "install_or_validate_local_worker_models".to_string()
+        "install_or_validate_local_worker_assets".to_string()
+    } else if meeting_session.preflight.ready_for_start {
+        "meeting_start_preflight_ready".to_string()
     } else if live_meeting_runtime_gate.ready {
-        "run_internal_validation_evidence_script".to_string()
+        "inspect_legacy_meeting_gate_in_diagnostics".to_string()
     } else if live_pipeline_gate.ready_for_user_runtime {
         live_meeting_runtime_gate.next_action.clone()
     } else if live_tts_boundary.ok {
@@ -111,51 +122,21 @@ pub fn build_runtime_status_bundle() -> RuntimeStatusBundleReport {
     } else if readiness.ready_for_start_command {
         "start_capture".to_string()
     } else if readiness.handoff_state.has_snapshot {
-        "rerun_realtime_handoff_for_full_pipeline_or_start_microphone_only".to_string()
+        "rerun_realtime_handoff_for_diagnostics".to_string()
     } else {
-        "start_microphone_only_capture".to_string()
+        "inspect_runtime_diagnostics".to_string()
     };
     let summary = format!(
-        "start={}, stop={}, active_session={}, capture_gate={}, live_capture={}, frames_received={}, buffer_ms={}, vad={}, target_frame={}, local_worker={}, asr_input={}, asr_model={}, asr_backend={}, decoder_connected={}, transcript={}, translation={}, tts={}, playback={}, pipeline_progress={}%, meeting_gate_progress={}%, meeting_gate_ready={}, virtual_route={}, internal_validation={}%, owner_ready={}, rc_ready={}, user_runtime={}, blockers={}",
-        readiness.ready_for_start_command,
-        readiness.ready_for_stop_command,
-        readiness.session_state.has_active_session,
-        capture_gate.ready_for_capture_start,
+        "diagnostics_bundle: meeting_preflight_ready={}, meeting_blockers={}, worker_install={}, legacy_pipeline_progress={}%, legacy_meeting_gate_ready={}, internal_validation={}%, live_capture={}, frames_received={}, buffer_ms={}",
+        meeting_session.preflight.ready_for_start,
+        meeting_session.preflight.blockers.len(),
+        local_worker_manifest.ok,
+        live_pipeline_gate.progress_percent,
+        live_meeting_runtime_gate.ready,
+        internal_validation_gate.progress_percent,
         live_capture.stream_active,
         live_capture.frames_received,
         live_audio_buffer.buffered_duration_ms,
-        live_audio_buffer.ready_for_vad,
-        live_target_segment.ready,
-        local_worker_manifest.ok,
-        live_asr_boundary.input_ready,
-        live_asr_boundary.model_ready,
-        live_asr_boundary.backend_ready,
-        native_asr_decoder.decoder_connected,
-        native_asr_decoder.transcript_text.is_some(),
-        live_translation_boundary.translated_text.is_some(),
-        live_tts_boundary.output_audio_ready,
-        live_tts_boundary.playback_ready,
-        live_pipeline_gate.progress_percent,
-        live_meeting_runtime_gate.progress_percent,
-        live_meeting_runtime_gate.ready,
-        live_meeting_runtime_gate.virtual_mic_route_ready,
-        internal_validation_gate.progress_percent,
-        internal_validation_gate.ready_for_owner_validation,
-        internal_validation_gate.ready_for_release_candidate,
-        readiness.ready_for_user_facing_runtime,
-        readiness.blockers.len()
-            + capture_gate.blockers.len()
-            + local_worker_manifest.blockers.len()
-            + usize::from(!live_capture.blocker.is_empty())
-            + usize::from(!live_audio_buffer.blocker.is_empty())
-            + usize::from(!live_target_segment.blocker.is_empty())
-            + usize::from(!live_asr_boundary.blocker.is_empty())
-            + usize::from(!native_asr_decoder.blocker.is_empty())
-            + usize::from(!live_translation_boundary.blocker.is_empty())
-            + usize::from(!live_tts_boundary.blocker.is_empty())
-            + usize::from(!live_pipeline_gate.blocker.is_empty())
-            + live_meeting_runtime_gate.blockers.len()
-            + internal_validation_gate.blockers.len()
     );
 
     RuntimeStatusBundleReport {
@@ -173,6 +154,7 @@ pub fn build_runtime_status_bundle() -> RuntimeStatusBundleReport {
         live_meeting_runtime_gate,
         local_worker_manifest,
         internal_validation_gate,
+        meeting_session,
         next_action,
         summary,
     }
