@@ -955,7 +955,6 @@ pub fn process_authoritative_finalized_outbound_wav(
             "text": transcript.clone(),
             "source_language": "id",
             "target_language": "en",
-            "mode": "Realtime",
             "max_new_tokens": 96,
             "meeting_session_id": session_id,
             "meeting_lane": "you",
@@ -1233,6 +1232,7 @@ fn process_authoritative_finalized_incoming_wav(
         session_id,
         "translating",
         false,
+        true,
         "",
         "Final English Meeting Sound transcript is being translated to Indonesian.",
     );
@@ -1242,7 +1242,6 @@ fn process_authoritative_finalized_incoming_wav(
             "text": transcript.clone(),
             "source_language": "en",
             "target_language": "id",
-            "mode": "Realtime",
             "max_new_tokens": 96,
             "meeting_session_id": session_id,
             "meeting_lane": "incoming",
