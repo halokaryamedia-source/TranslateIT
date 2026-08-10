@@ -5,7 +5,6 @@ import "./referenceLayout.css";
 import "./mainPageLayout.css";
 import "./globalMeetingShell.css";
 import "./meetingLiveActivity.css";
-import "./historyLayout.css";
 import "./firstSetupLayout.css";
 import "./audioSettingsLayout.css";
 import "./translateSettingsLayout.css";

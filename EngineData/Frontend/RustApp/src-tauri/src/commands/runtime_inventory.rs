@@ -1,8 +1,8 @@
 use serde::Serialize;
 use std::fs;
 use std::path::{Path, PathBuf};
+use std::sync::{Mutex, OnceLock};
 
-use crate::engine::inference::backend_validation::NativeCudaBackendValidationReport;
 use crate::engine::paths::ProjectPaths;
 
 #[derive(Debug, Clone, Serialize)]
@@ -31,66 +31,25 @@ pub struct ModelInventoryReport {
     pub note: String,
 }
 
-#[derive(Debug, Clone, Serialize)]
-pub struct ModelSetupReport {
-    pub ok: bool,
-    pub status: String,
-    pub created_at: String,
-    pub output_dir: String,
-    pub items: Vec<ModelInventoryItem>,
-    pub blockers: Vec<String>,
-    pub note: String,
-}
-
-#[derive(Debug, Clone, Serialize)]
-pub struct GpuPolicyReport {
-    pub ok: bool,
-    pub status: String,
-    pub cuda_available: bool,
-    pub gpu_primary: bool,
-    pub cpu_fallback_active: bool,
-    pub preferred_backend: String,
-    pub notes: Vec<String>,
-    pub blocker: String,
-}
-
 #[derive(Debug, Clone, serde::Deserialize)]
 struct ModelManifest {
-    #[allow(dead_code)]
-    schema: Option<String>,
-    #[allow(dead_code)]
-    backend_policy: Option<BackendPolicy>,
     models: Vec<ModelManifestEntry>,
-}
-
-#[derive(Debug, Clone, serde::Deserialize)]
-struct BackendPolicy {
-    #[allow(dead_code)]
-    gpu_primary: Option<bool>,
-    #[allow(dead_code)]
-    cpu_fallback_allowed: Option<bool>,
-    #[allow(dead_code)]
-    cpu_fallback_label: Option<String>,
 }
 
 #[derive(Debug, Clone, serde::Deserialize)]
 struct ModelManifestEntry {
     model_id: String,
     required: bool,
-    #[allow(dead_code)]
-    stage: String,
-    #[allow(dead_code)]
-    backend: String,
     expected_path: String,
     gpu_capable: Option<bool>,
     cpu_fallback: Option<bool>,
     download_url: Option<String>,
-    #[allow(dead_code)]
-    checksum: Option<String>,
-    #[allow(dead_code)]
-    license: Option<String>,
-    #[allow(dead_code)]
-    notes: Option<String>,
+}
+
+static MODEL_INVENTORY_CACHE: OnceLock<Mutex<Option<ModelInventoryReport>>> = OnceLock::new();
+
+fn inventory_cache() -> &'static Mutex<Option<ModelInventoryReport>> {
+    MODEL_INVENTORY_CACHE.get_or_init(|| Mutex::new(None))
 }
 
 fn now_iso() -> String {
@@ -157,7 +116,6 @@ fn build_model_inventory(
                 .map(|value| if value { "true" } else { "false" }.to_string())
                 .unwrap_or_else(|| "unknown".to_string());
             let cpu_fallback = entry.cpu_fallback.unwrap_or(false);
-
             let metadata_incomplete = entry.download_url.is_none();
             let status = if found {
                 "installed"
@@ -183,7 +141,7 @@ fn build_model_inventory(
                 )
             } else {
                 format!(
-                    "Define reproducible source metadata and install {} at {} through the approved runtime/release asset flow.",
+                    "Install {} at {} through the approved runtime/release asset flow.",
                     entry.model_id, entry.expected_path
                 )
             };
@@ -222,6 +180,25 @@ fn build_model_inventory(
     (items, blockers, status.to_string())
 }
 
+fn build_model_inventory_report() -> ModelInventoryReport {
+    let project_paths = ProjectPaths::discover();
+    let (items, blockers, status) = build_model_inventory(&project_paths);
+    ModelInventoryReport {
+        ok: blockers.is_empty(),
+        status,
+        created_at: now_iso(),
+        items,
+        blockers: blockers.clone(),
+        note: if blockers.is_empty() {
+            "All model assets required by the manifest are present. Runtime load, inference, quality, latency, and device use are verified separately."
+                .to_string()
+        } else {
+            "One or more required model assets are missing. Optional assets do not block the required outbound inventory."
+                .to_string()
+        },
+    }
+}
+
 fn write_validation_json(project_paths: &ProjectPaths, file_name: &str, value: &impl Serialize) {
     let path = validation_write_path(project_paths, file_name);
     if let Some(parent) = path.parent() {
@@ -233,74 +210,25 @@ fn write_validation_json(project_paths: &ProjectPaths, file_name: &str, value: &
 }
 
 pub fn get_model_inventory() -> ModelInventoryReport {
-    let project_paths = ProjectPaths::discover();
-    let (items, blockers, status) = build_model_inventory(&project_paths);
-    let report = ModelInventoryReport {
-        ok: blockers.is_empty(),
-        status,
-        created_at: now_iso(),
-        items,
-        blockers: blockers.clone(),
-        note: if blockers.is_empty() {
-            "All model assets marked required by the manifest are present. Optional direction/fallback assets may still be missing. This is installation evidence only; it does not prove model load, inference, quality, latency, or CUDA use."
-                .to_string()
-        } else {
-            "One or more manifest-required model assets are missing. Optional assets do not determine this required-assets status. Inventory results describe installation state only and must not be promoted into runtime readiness."
-                .to_string()
-        },
-    };
-    write_validation_json(&project_paths, "latest_model_inventory.json", &report);
+    if let Ok(cache) = inventory_cache().lock() {
+        if let Some(report) = cache.as_ref() {
+            return report.clone();
+        }
+    }
+
+    let report = build_model_inventory_report();
+    if let Ok(mut cache) = inventory_cache().lock() {
+        *cache = Some(report.clone());
+    }
     report
 }
 
 pub fn verify_models() -> ModelInventoryReport {
-    get_model_inventory()
-}
-
-pub fn setup_models() -> ModelSetupReport {
-    let project_paths = ProjectPaths::discover();
-    let (items, blockers, status) = build_model_inventory(&project_paths);
-    let output_dir = PathBuf::from(&project_paths.user_cache_dir)
-        .join("validation")
-        .to_string_lossy()
-        .replace('\\', "/");
-    let report = ModelSetupReport {
-        ok: blockers.is_empty(),
-        status,
-        created_at: now_iso(),
-        output_dir,
-        items,
-        blockers: blockers.clone(),
-        note: "Compatibility command: this operation only inspects manifest-required versus optional asset presence and writes diagnostic evidence. It does not download, install, load, or verify inference for any model."
-            .to_string(),
-    };
-    write_validation_json(&project_paths, "latest_model_setup.json", &report);
-    report
-}
-
-pub fn get_gpu_policy() -> GpuPolicyReport {
-    let report = NativeCudaBackendValidationReport::validate_ctranslate2_cuda_candidate();
-    let gpu_primary = report.ready;
-    let cpu_fallback_active = report.cpu_degraded_available;
-    let status = if report.ready {
-        "native_candidate_available"
-    } else if cpu_fallback_active {
-        "native_candidate_degraded"
-    } else {
-        "native_candidate_unavailable"
-    };
-    GpuPolicyReport {
-        ok: report.ready || cpu_fallback_active,
-        status: status.to_string(),
-        cuda_available: report.nvidia_smi_available,
-        gpu_primary,
-        cpu_fallback_active,
-        preferred_backend: report.preferred_device,
-        notes: {
-            let mut notes = report.notes;
-            notes.push("Diagnostic native-backend candidate only. Active Python worker capability/device state is the runtime truth for current ASR/translation/TTS execution.".to_string());
-            notes
-        },
-        blocker: report.blocker,
+    let report = build_model_inventory_report();
+    if let Ok(mut cache) = inventory_cache().lock() {
+        *cache = Some(report.clone());
     }
+    let project_paths = ProjectPaths::discover();
+    write_validation_json(&project_paths, "latest_model_inventory.json", &report);
+    report
 }

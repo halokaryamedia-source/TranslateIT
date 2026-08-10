@@ -15,7 +15,6 @@
       "backend": "whisper",
       "source_type": "huggingface",
       "repo_id": "dropbox-dash/faster-whisper-large-v3-turbo",
-      "revision": null,
       "expected_path": "EngineData/Backend/RuntimeAssets/ASR/ModelData/faster-whisper-large-v3-turbo",
       "legacy_paths": [
         "EngineData/Backend/RuntimeAssets/ASR/ModelData/faster-whisper-large-v3-turbo"
@@ -23,7 +22,6 @@
       "gpu_capable": true,
       "cpu_fallback": true,
       "download_url": null,
-      "checksum": null,
       "install_method": "huggingface_snapshot_download",
       "license": "project-local runtime asset; source URL not defined yet",
       "notes": "Primary ASR model candidate for Meeting. Presence is installation evidence only; runtime load/quality are verified separately."
@@ -37,7 +35,6 @@
       "backend": "whisper",
       "source_type": "huggingface",
       "repo_id": "Systran/faster-whisper-medium",
-      "revision": null,
       "expected_path": "EngineData/Backend/RuntimeAssets/ASR/ModelData/faster-whisper-medium",
       "legacy_paths": [
         "EngineData/Backend/RuntimeAssets/ASR/ModelData/faster-whisper-medium"
@@ -45,7 +42,6 @@
       "gpu_capable": true,
       "cpu_fallback": true,
       "download_url": null,
-      "checksum": null,
       "install_method": "huggingface_snapshot_download",
       "license": "project-local runtime asset; source URL not defined yet",
       "notes": "Optional degraded ASR fallback candidate. Whether it remains required will be decided from later CPU fallback benchmarks."
@@ -57,7 +53,6 @@
       "backend": "marianmt",
       "source_type": "huggingface",
       "repo_id": "Helsinki-NLP/opus-mt-id-en",
-      "revision": null,
       "expected_path": "EngineData/Backend/RuntimeAssets/Translation/ModelData/marianmt-id-en",
       "legacy_paths": [
         "EngineData/Backend/RuntimeAssets/Translation/ModelData/marianmt-id-en"
@@ -65,7 +60,6 @@
       "gpu_capable": true,
       "cpu_fallback": true,
       "download_url": "https://huggingface.co/Helsinki-NLP/opus-mt-id-en",
-      "checksum": null,
       "install_method": "huggingface_snapshot_download",
       "license": "apache-2.0",
       "notes": "Required Indonesian-to-English translation asset for Meeting outbound and ID-to-EN Text. Presence is installation evidence only; worker load, inference, quality, and latency are verified separately."
@@ -77,7 +71,6 @@
       "backend": "marianmt",
       "source_type": "huggingface",
       "repo_id": "Helsinki-NLP/opus-mt-en-id",
-      "revision": null,
       "expected_path": "EngineData/Backend/RuntimeAssets/Translation/ModelData/marianmt-en-id",
       "legacy_paths": [
         "EngineData/Backend/RuntimeAssets/Translation/ModelData/marianmt-en-id"
@@ -85,7 +78,6 @@
       "gpu_capable": true,
       "cpu_fallback": true,
       "download_url": "https://huggingface.co/Helsinki-NLP/opus-mt-en-id",
-      "checksum": null,
       "install_method": "huggingface_snapshot_download",
       "license": "apache-2.0",
       "notes": "English-to-Indonesian translation asset for reverse Text and optional incoming Meeting assistance. It is intentionally nonblocking for required Meeting outbound inventory. Presence is installation evidence only; worker load, inference, quality, and latency are verified separately."
@@ -97,7 +89,6 @@
       "backend": "piper-or-sapi",
       "source_type": "manual",
       "repo_id": null,
-      "revision": null,
       "expected_path": "EngineData/Backend/RuntimeAssets/Voice/Piper",
       "legacy_paths": [
         "EngineData/Backend/RuntimeAssets/Translation/ModelData/piper"
@@ -105,7 +96,6 @@
       "gpu_capable": false,
       "cpu_fallback": true,
       "download_url": null,
-      "checksum": null,
       "install_method": "manual_or_release_asset",
       "license": "project-local runtime asset; source URL not defined yet",
       "notes": "Optional packaged TTS provider assets. Current runtime capability may also come from verified Windows SAPI and is reported by worker status."

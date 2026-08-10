@@ -311,20 +311,18 @@ export function mapProductMeetingState(status: MeetingSessionStatus | null): Pro
 function collectBlockers(input: {
   helper: HelperBridgeStatus | null;
   worker: WorkerCapabilitySnapshot;
-  modelInventory: ModelInventoryReport | null;
   inputStatus: InputPreparationStatus | null;
   meeting: MeetingPreflightSnapshot;
   textReady: boolean;
   textDirection: TranslationDirection;
   meetingReady: boolean;
 }): string[] {
-  const { helper, worker, modelInventory, inputStatus, meeting, textReady, textDirection, meetingReady } = input;
+  const { helper, worker, inputStatus, meeting, textReady, textDirection, meetingReady } = input;
   return unique([
     ...(!meetingReady ? meeting.blockers : []),
     ...(!textReady && worker.blocker ? [worker.blocker] : []),
     ...(!textReady && textDirection !== "unsupported" ? ["text_translation:selected_direction_not_ready"] : []),
     ...(textDirection === "unsupported" ? ["text_translation:unsupported_direction"] : []),
-    ...(Array.isArray(modelInventory?.blockers) ? modelInventory.blockers : []),
     helper?.state !== "ready" ? helper?.last_error ?? null : null,
     inputStatus?.blocker ?? null,
   ]).slice(0, 8);
@@ -340,7 +338,8 @@ export function mapProductReadiness(input: {
   inputStatus: InputPreparationStatus | null;
   meetingSession?: MeetingSessionStatus | null;
 }): ProductReadiness {
-  const { bundle, helper, modelInventory, inputStatus } = input;
+  const helper = input.helper;
+  const inputStatus = input.inputStatus;
   const settings = input.settings ?? defaultSettings();
   const worker = parseWorkerCapabilities(input.workerStatus ?? null);
   const meeting = meetingPreflight(input.meetingSession ?? null);
@@ -348,12 +347,12 @@ export function mapProductReadiness(input: {
 
   const helperReady = helper?.state === "ready";
   const microphoneReady = Boolean(inputStatus?.ready || inputStatus?.prepared);
-  const modelsReady = Boolean(modelInventory?.ok);
   const asrReady = helperReady && worker.asrReady;
   const translationIdEnReady = helperReady && worker.translationIdEnReady;
   const translationEnIdReady = helperReady && worker.translationEnIdReady;
   const ttsReady = helperReady && worker.ttsReady;
   const providerReady = asrReady && translationIdEnReady && ttsReady;
+  const modelsReady = providerReady;
 
   const textDirection = selectedTextDirection(settings);
   const textReady = textDirection === "id->en"
@@ -371,7 +370,6 @@ export function mapProductReadiness(input: {
   const blockers = collectBlockers({
     helper,
     worker,
-    modelInventory,
     inputStatus,
     meeting,
     textReady,
@@ -380,7 +378,7 @@ export function mapProductReadiness(input: {
   });
 
   const hasRuntimeEvidence = Boolean(
-    helper || worker.responseAvailable || modelInventory || inputStatus || bundle || input.meetingSession,
+    helper || worker.responseAvailable || inputStatus || input.meetingSession,
   );
   const level: ProductReadinessLevel = meetingReady
     ? "ready"
@@ -435,9 +433,11 @@ export function mapProductReadiness(input: {
         ? "Local worker running"
         : "Worker running; capability check unavailable"
       : compact(helper?.state ?? helper?.message, "Local worker not running"),
-    modelStatus: modelsReady
-      ? "Required model assets installed"
-      : compact(modelInventory?.note ?? modelInventory?.status, "Required model assets need setup"),
+    modelStatus: providerReady
+      ? "Required outbound model runtime ready"
+      : worker.responseAvailable
+        ? "Required outbound model runtime needs setup"
+        : "Worker capability not checked",
     microphoneStatus: microphoneReady
       ? compact(inputStatus?.selected_device_name, "Microphone ready")
       : compact(inputStatus?.blocker ?? inputStatus?.note, "Microphone not checked"),
@@ -459,13 +459,9 @@ export function mapProductReadiness(input: {
 
 export async function loadProductRuntimeSnapshot(): Promise<ProductRuntimeSnapshot> {
   const settings = await runtimeApi.loadSettings().catch(() => defaultSettings());
-  const [bundle, meetingSession, diagnostics, helper, modelInventory, gpuPolicy, inputStatus] = await Promise.all([
-    runtimeApi.getStatusBundle().catch(() => null),
+  const [meetingSession, helper, inputStatus] = await Promise.all([
     runtimeApi.getMeetingSessionStatus().catch(() => null),
-    runtimeApi.getDiagnostics().catch(() => null),
     runtimeApi.getHelperBridgeStatus().catch(() => null),
-    runtimeApi.getModelInventory().catch(() => null),
-    runtimeApi.getGpuPolicy().catch(() => null),
     runtimeApi.getInputStatus().catch(() => null),
   ]);
   const workerStatus = helper?.state === "ready"
@@ -474,11 +470,11 @@ export async function loadProductRuntimeSnapshot(): Promise<ProductRuntimeSnapsh
   const meeting = mapProductMeetingState(meetingSession);
   const readiness = mapProductReadiness({
     settings,
-    bundle,
-    diagnostics,
+    bundle: null,
+    diagnostics: null,
     helper,
     workerStatus,
-    modelInventory,
+    modelInventory: null,
     inputStatus,
     meetingSession,
   });
@@ -487,12 +483,12 @@ export async function loadProductRuntimeSnapshot(): Promise<ProductRuntimeSnapsh
     readiness,
     meeting,
     meetingSession,
-    bundle,
-    diagnostics,
+    bundle: null,
+    diagnostics: null,
     helper,
     workerStatus,
-    modelInventory,
-    gpuPolicy,
+    modelInventory: null,
+    gpuPolicy: null,
     inputStatus,
   };
 }

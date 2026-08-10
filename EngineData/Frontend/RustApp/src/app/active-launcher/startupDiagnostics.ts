@@ -5,21 +5,8 @@ type StartupTraceRecord = {
 };
 
 const STARTUP_TRACE_KEY = "__translateitStartupTrace";
-const STARTUP_TRACE_MIRROR_KEY = "__translateitStartupTraceMirrorToRust";
 const STARTUP_BUILD_MARKER = "translateit-tauri-desktop-runtime@0.1.0/startup-diagnostic-v2";
 const MAX_TRACE_RECORDS = 48;
-const MIRRORED_STARTUP_TRACE_LABELS = new Set([
-  "controller:start",
-  "runWarmup:start",
-  "runWarmup:loadSettings:before",
-  "runWarmup:ui:before-hide",
-  "runWarmup:complete",
-  "startupGate:forced-reveal",
-  "ui.transition:forced-after-visibility-check",
-  "runWarmup:catch",
-  "window.error",
-  "window.unhandledrejection",
-]);
 
 function safeStringify(detail: unknown): string {
   try {
@@ -53,21 +40,6 @@ export function startupTrace(label: string, detail: unknown = null): void {
   pushTraceRecord(record);
   updateVisibleTrace(label, detail);
   console.info(`[TranslateIT Startup] ${label}`, detail);
-  const globalScope = globalThis as typeof globalThis & {
-    [STARTUP_TRACE_MIRROR_KEY]?: boolean;
-  };
-  if (globalScope[STARTUP_TRACE_MIRROR_KEY] && MIRRORED_STARTUP_TRACE_LABELS.has(label)) {
-    void import("../shared/tauriBridge").then(({ runCommand }) => {
-      void runCommand("record_frontend_startup_trace", {
-        record: {
-          label,
-          detail,
-          at: record.at,
-          build_marker: STARTUP_BUILD_MARKER,
-        },
-      });
-    });
-  }
 }
 
 export function getStartupTraceSummary(): string {
@@ -86,10 +58,8 @@ export function installStartupDiagnostics(): void {
   const globalScope = globalThis as typeof globalThis & {
     [STARTUP_TRACE_KEY]?: StartupTraceRecord[];
     __translateitStartupBuildMarker?: string;
-    [STARTUP_TRACE_MIRROR_KEY]?: boolean;
   };
   globalScope.__translateitStartupBuildMarker = STARTUP_BUILD_MARKER;
-  globalScope[STARTUP_TRACE_MIRROR_KEY] = true;
   if (!globalScope[STARTUP_TRACE_KEY]) {
     globalScope[STARTUP_TRACE_KEY] = [];
   }
