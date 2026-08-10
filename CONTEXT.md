@@ -338,6 +338,41 @@ Static model installation evidence, current worker capability availability, requ
 inference success, model quality, and Meeting Start safety are distinct facts and
 must not be collapsed into one `Ready` boolean.
 
+## Finalized Meeting Outbound Source
+
+The outbound capture boundary is now source-separated into rolling and final speech:
+
+```text
+application Meeting microphone capture
+├─ rolling audio buffer -> preview / diagnostics only
+└─ finalized utterance producer
+   -> Realtime VAD profile + adaptive end silence
+   -> session_id + generation + utterance_id
+   -> one-shot queue consumption
+   -> unique temporary 16 kHz mono WAV
+   -> canonical Meeting ASR -> Realtime translation -> English TTS -> route
+```
+
+`ready_for_target_asr_frame` on the rolling buffer is **not** a final utterance signal
+and must not be promoted into Meeting output.
+
+Only the application Meeting capture owner activates finalized-output production.
+Capture-only/developer runtime owners keep only their rolling diagnostic behavior.
+
+The finalizer does not run AI. One serialized Meeting consumer takes each queued
+final once and calls the existing generation-aware AI/output boundary. Temporary
+finalized source WAVs are removed after the output attempt.
+
+Current VAD/profile values, the bounded final queue, and the long-utterance safety
+ceiling are implementation safety/tuning mechanics, not production-proven timing
+policy. They require later microphone/VAD runtime proof. Safety overflow/backlog is
+fail-closed rather than creating a fake partial "final" utterance.
+
+Backend Meeting Start now has source-connected finalized speech/outbound runtime and
+keeps all other required preflight blockers. Stop remains authority-first and clears
+capture/finalized/helper/consumer state in that order. Normal frontend Start/Stop and
+Live-state wiring is still the next product integration boundary.
+
 ## Python Project / Development Tooling
 
 Canonical WorkerRuntime Python dependency/tooling owner:
@@ -420,14 +455,19 @@ Source-side alignment completed on `New` includes:
 - translation output rejection when normal EOS completion cannot be verified;
 - explicit English-capable Piper/SAPI voice selection before outbound synthesis;
 - one WorkerRuntime `pyproject.toml` dependency/tooling owner with Ruff/pytest proof
-  baseline and privacy-bounded persistent-worker smoke source.
+  baseline and privacy-bounded persistent-worker smoke source;
+- an application-Meeting-only finalized utterance producer with adaptive VAD silence,
+  generation/utterance identity, exactly-once queue ownership, unique temporary WAVs,
+  and one serialized consumer into the canonical outbound AI/output boundary.
 
 Still incomplete or unproved:
 
+- normal frontend bridge/action wiring for canonical Meeting Start/Stop and approved
+  Live state/global cross-view Meeting behavior;
+- actual microphone capture/VAD boundary quality and exactly-once/Stop race behavior;
 - actual MarianMT/NLLB EOS behavior and translation quality on target runtime;
 - actual English Piper/SAPI voice availability, synthesis success, and audio quality;
-- finalized outbound utterance producer and full continuous Meeting runtime;
-- Meeting Live transcript/global cross-view state and complete Pause/Resume/Stop UX;
+- complete Pause/Resume UX/lifecycle semantics;
 - incoming Meeting Sound lane, self-output suppression, turn coordination, and bounded
   recovery;
 - Meeting History after canonical lifecycle is active;
@@ -441,10 +481,10 @@ Still incomplete or unproved:
 
 Source presence does not prove target-PC readiness. Microphone/output endpoint
 selection and config probes are **not** live Windows/device proof. Do not claim real
-capture, ASR/translation/TTS quality, Meeting Microphone delivery, incoming audio,
-self-output suppression, latency, scheduler timing, CUDA behavior, rendered UI
-quality, locked dependency reproducibility, installed persistence, or installer
-success without the required local evidence.
+capture/VAD quality, ASR/translation/TTS quality, Meeting Microphone delivery,
+incoming audio, self-output suppression, latency, scheduler timing, CUDA behavior,
+rendered UI quality, locked dependency reproducibility, installed persistence, or
+installer success without the required local evidence.
 
 ## Canonical Owners
 
