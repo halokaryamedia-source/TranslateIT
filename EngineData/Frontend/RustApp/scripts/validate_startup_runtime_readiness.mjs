@@ -7,6 +7,7 @@ const paths = {
   main: resolve(root, "src/main.ts"),
   shell: resolve(root, "src/app/active-launcher/shell.ts"),
   shellParts: resolve(root, "src/app/active-launcher/lockedReferenceShellParts.ts"),
+  settingsRenderer: resolve(root, "src/app/active-launcher/launcherSettingsRenderer.ts"),
   simpleController: resolve(root, "src/app/simple-launcher/SimpleLauncherController.ts"),
   globalMeetingShell: resolve(root, "src/app/simple-launcher/GlobalMeetingShell.ts"),
   meetingActivity: resolve(root, "src/app/simple-launcher/MeetingLiveActivityPresentation.ts"),
@@ -85,6 +86,22 @@ forbidMarkers(source.shellParts, "History-free initial desktop surface", [
   'id="historyRetentionNote"',
 ]);
 
+// Normal users choose direction only. Mode/Tone are not part of the initial Meeting or
+// Text contract and must not remain as active presentation controls/labels.
+forbidMarkers(source.shellParts, "mode/tone-free normal translator surface", [
+  "meeting-ready-preferences",
+  "text-context-summary",
+  'id="textModeValue"',
+  '<span>Mode</span>',
+  '<span>Tone</span>',
+  'Mode <strong',
+  'Tone <strong',
+]);
+forbidMarkers(source.settingsRenderer, "simple normal Meeting settings", [
+  'settingsField("Speaking mode"',
+  "Push-to-Talk remains",
+]);
+
 requireMarkers(source.simpleController, "primary controller", [
   'type ProductWorkspace = "meeting" | "text"',
   'type ProductSettingsTab = "meeting" | "advanced"',
@@ -114,6 +131,12 @@ forbidMarkers(source.simpleController, "History-free active controller", [
   "historyScope",
   "historyDetailEntry",
   'renderSettings("history")',
+]);
+forbidMarkers(source.simpleController, "mode/tone-free active controller", [
+  "textModeValue",
+  "settings.runtime_profile",
+  "requestMode",
+  "tone: \"Auto\"",
 ]);
 
 requireMarkers(source.runtimeApi, "canonical frontend bridge", [
@@ -162,6 +185,27 @@ forbidMarkers(source.facade, "simple Meeting facade", [
   'lifecycle === "resuming"',
   "start_capture()",
   "stop_capture()",
+]);
+
+// Product readiness consumes the worker's canonical direction fields. The old
+// Realtime/Quality aliases may remain inside Diagnostics/worker compatibility, but they
+// must not decide normal Meeting/Text readiness.
+requireMarkers(source.facade, "direction-based product readiness", [
+  "translationIdEnReady",
+  "translationEnIdReady",
+  "readiness.translation_id_en === true",
+  "readiness.translation_en_id === true",
+  "selectedTextDirection(settings)",
+  'textDirection === "id->en"',
+  'textDirection === "en->id"',
+  "providerReady = asrReady && translationIdEnReady && ttsReady",
+]);
+forbidMarkers(source.facade, "stale mode-based product readiness", [
+  "translation_realtime",
+  "translation_quality",
+  "realtimeTranslationReady",
+  "qualityTranslationReady",
+  "currentTextMode",
 ]);
 
 requireMarkers(source.registry, "Tauri Meeting registration", [
@@ -221,9 +265,9 @@ forbidMarkers(source.globalMeetingShell, "simple global Meeting presentation", [
   "Resuming translation",
 ]);
 
-// The reliable translation core is direction-based. Product callers may still carry a
-// temporary mode field until the later caller-pruning slice, but mode must not choose
-// the translation model inside the worker.
+// The reliable translation core is direction-based. Worker compatibility aliases may
+// remain for inherited diagnostics/preload consumers, but model selection itself is
+// always language-direction based.
 requireMarkers(source.worker, "bidirectional translation worker", [
   'TRANSLATION_MODEL_ID_EN = TRANSLATION_MODEL_ROOT / "marianmt-id-en"',
   'TRANSLATION_MODEL_EN_ID = TRANSLATION_MODEL_ROOT / "marianmt-en-id"',
@@ -323,9 +367,11 @@ requireMarkers(incoming, "Meeting incoming translation", [
   '"source_language": "en"',
   '"target_language": "id"',
 ]);
+forbidMarkers(outbound, "mode-free Meeting outbound translation", ['"mode":']);
 forbidMarkers(incoming, "Meeting incoming translation", [
   "dispatch_meeting_virtual_audio_route_provider",
   'send_helper_worker_task(\n        "synthesize"',
+  '"mode":',
 ]);
 
 requireMarkers(source.meetingSession, "incoming subordinate failure policy", [
@@ -368,6 +414,8 @@ requireMarkers(source.textTranslate, "standalone Text translation", [
   'send_helper_worker_task("translate", payload)',
   '"source_language": settings.source_language',
   '"target_language": settings.target_language',
+  '"translation_contract"',
+  'Some("canonical_bidirectional_id_en")',
   "MAX_TEXT_TRANSLATION_CHARS",
 ]);
 forbidMarkers(source.textTranslate, "standalone Text translation", [
@@ -375,6 +423,9 @@ forbidMarkers(source.textTranslate, "standalone Text translation", [
   "MeetingCommittedTurn",
   "meeting_session_id",
   "start_live_capture_runtime",
+  "TEXT_TRANSLATION_MODE",
+  '"mode":',
+  "Local Quality translation",
 ]);
 
 // Text completion is a translation result only. Persistence cannot become a hidden
@@ -484,5 +535,5 @@ forbidMarkers(source.meetingActivity, "Meeting live presentation", [
 ]);
 
 console.log(
-  "Reliable translation-core static contract is defined: the active desktop surface is Meeting/Text/Settings without History/Saved workflow, successful Text translation has no History persistence dependency, one worker routes ID->EN and EN->ID by language direction, input is not silently truncated, incomplete generation is not promoted, Meeting and Text use the same translation task, required outbound readiness remains distinct from optional incoming readiness, optional incoming suppression failure disables/ignores incoming instead of rejecting required outbound TTS, Meeting uses the simple Start -> Live -> Stop product lifecycle, Stop clears runtime/transient state without History persistence, and safe Meeting/session ownership is preserved. Backend deferred persistence commands are intentionally not treated as active product surface. This is static source validation only and does not prove Python/Rust/TypeScript execution, model availability/load, translation quality, latency, CUDA/CPU behavior, Windows audio, suppression effectiveness, rendered UI, or installed operation.",
+  "Reliable translation-core static contract is defined: the normal desktop surface is Meeting/Text/Settings without History/Saved, Mode, or Tone workflow; product readiness consumes worker ID->EN / EN->ID direction fields instead of Realtime/Quality aliases; required Meeting outbound depends on ID->EN while reverse remains optional; Text readiness follows its selected ID<->EN direction; normal Meeting/Text translation requests do not send mode; successful Text translation has no persistence dependency; one worker owns both directions and rejects silent truncation/incomplete generation; optional incoming cannot block required outbound; Meeting uses Start -> Live -> Stop; Stop clears runtime/transient state without History persistence; safe close remains canonical. This is static source validation only and does not prove Python/Rust/TypeScript execution, model availability/load, translation quality, latency, CUDA/CPU behavior, Windows audio, suppression effectiveness, rendered UI, or installed operation.",
 );
