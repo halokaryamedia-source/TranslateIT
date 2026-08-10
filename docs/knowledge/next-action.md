@@ -2,7 +2,7 @@
 
 Updated: 2026-08-10  
 Working branch: `New`  
-Status: **Canonical Committed Meeting Turn Source + Live Transcript Read Path is source-aligned. `meeting_session.rs` now owns one bounded transient committed-turn store, `get_meeting_committed_turns` exposes a read-only snapshot, and the existing Meeting Live surface renders chronological outbound `YOU` turns without frontend accumulation or persistent History writes.**
+Status: **Meeting History Finalization Handoff is source-aligned. Full Meeting Stop now snapshots canonical committed turns after output cleanup, applies the current `history_enabled` retention policy through the existing History persistence owner, then clears transient conversation bodies. Finalized Meeting entries are readable/saveable through the existing History workspace.**
 
 This file is the single active continuation owner for TranslateIT.
 
@@ -13,14 +13,12 @@ AGENTS.md
 -> CONTEXT.md
 -> docs/knowledge/next-action.md
 -> docs/knowledge/source-ownership.md
--> commands/meeting_session.rs
--> engine/history_store.rs + commands/history.rs
--> current History frontend direct consumer only
+-> current app-shell/window lifecycle owners only for the next Plan boundary
 ```
 
 ## Current Mode
 
-**Developing**.
+**Plan**.
 
 Execution channel:
 
@@ -29,211 +27,188 @@ ChatGPT -> GitHub
 ```
 
 Rust compilation, TypeScript typecheck, static-validator execution, Tauri invocation,
-rendered transcript behavior, microphone/model/TTS/route execution, Pause/Resume race
-timing, Windows behavior, and installed operation remain `LOCAL PROOF REQUIRED`.
+filesystem persistence, rendered History/Meeting UI, microphone/model/TTS/route
+execution, Pause/Resume/Stop race timing, Windows behavior, and installed operation
+remain `LOCAL PROOF REQUIRED`.
 
-## Locked Runtime Shape
+## Locked Runtime / Data Shape
 
 ```text
-Normal Meeting UI
--> runtimeProductFacade / runtimeApi
--> canonical application Meeting session
-   -> session_id + generation authority
-   -> finalized utterance producer
-   -> serialized outbound consumer
-      -> final Indonesian ASR transcript
-      -> verified Realtime English translation
-      -> bounded committed-turn transient state
-      -> TTS / Meeting Microphone delivery
-   -> get_meeting_committed_turns [read-only projection]
-      -> Meeting Live transcript presentation
+application Meeting session
+-> finalized outbound consumer
+-> bounded transient committed turns in meeting_session.rs
+-> Live transcript [read-only projection]
+
+full Stop
+-> revoke generation authority
+-> cancel/stop route + capture + helper + outbound consumer
+-> immutable final committed-turn snapshot
+-> current RuntimeSettings.history_enabled
+   -> ON  -> history_store.rs creates at most one Recent Meeting entry
+   -> OFF -> no Recent write
+-> clear transient committed turns
+-> clear runtime Meeting session
 ```
 
-Do not add another Meeting lifecycle store, conversation store, frontend transcript
-accumulator, worker/Diagnostics transcript source, or persistent live-conversation
-database.
+Do not add another Meeting lifecycle store, conversation store, History database,
+frontend transcript accumulator, or live incremental persistence path.
 
 # Closed Source Boundaries
 
-## Engine / lifecycle baseline
+## Canonical Meeting lifecycle and transcript
 
-Already source-aligned at their bounded claims:
+Already source-aligned at bounded source claims:
 
-- one persistent Python AI worker and one helper scheduler;
-- Meeting outbound owns Realtime; Text owns Quality;
-- finalized utterances, not rolling preview audio, enter product Meeting output;
-- application Meeting Start/Stop is canonical and navigation-independent;
-- Pause retains `session_id`, invalidates old-generation authority, and clears matching
-  pending output work;
-- Resume creates fresh generation authority for the same session;
-- normal frontend consumes canonical Meeting lifecycle without a second store;
-- Meeting Live activity presentation reads canonical outbound stage only.
+- one application Meeting lifecycle owner;
+- Start/Stop plus Pause/Resume generation lifecycle;
+- finalized utterances rather than rolling audio enter product output;
+- one bounded memory-only committed-turn store in `meeting_session.rs`;
+- turn identity `(session_id, generation, utterance_id)` plus session-wide monotonic
+  `sequence`;
+- truthful turn states `preparing_voice / speaking / output_complete / output_failed /
+  interrupted` with terminal-state protection;
+- separate `get_meeting_committed_turns` projection;
+- Meeting Live renders backend snapshots instead of owning conversation state.
 
-## Canonical committed Meeting turns — source aligned
+## Meeting History Finalization Handoff
 
-### A. One transient owner
+### A. Persistence owner remains canonical History
 
-`commands/meeting_session.rs` owns the live committed-turn body state. It now contains a
-bounded memory-only `VecDeque` scoped to the current application Meeting `session_id`.
+`engine/history_store.rs` remains the one persistent History owner. It now exposes
+`create_meeting_recent(...)` using the existing `Recent / Saved` storage root and
+existing generic History read/save/remove operations.
 
-Explicit non-owners remain:
+No Meeting-specific persistence root, database, or live History writer was added.
 
-```text
-runtime_state.rs             -> lifecycle/generation authority only
-Python worker                -> inference execution only
-rolling audio / Diagnostics  -> preview/evidence only
-frontend                     -> read-only presentation only
-history_store.rs             -> persistent finalized History only
-```
-
-### B. Commitment boundary
-
-A turn is inserted only after:
+The History schema advances to version 2 only to preserve explicit bounded-transcript
+truth through:
 
 ```text
-finalized utterance
--> final Indonesian transcript
--> verified-complete Realtime English translation
--> generation still authoritative
+dropped_turn_count
 ```
 
-Canonical transient fields:
+The field has a serde default, so existing schema-v1 entries remain readable. Existing
+Text entries set it to zero. History's own turn bound also increments the count if it
+ever removes older turns during sanitization.
+
+### B. Finalization order
+
+`stop_meeting_translation()` keeps safety ownership first:
 
 ```text
-session_id
-sequence
-generation
-utterance_id
-lane = you
-source_text
-translated_text
-delivery_state
-created_unix_ms
-updated_unix_ms
+revoke current generation authority
+-> interrupt non-terminal current-generation turns
+-> cancel Meeting route
+-> stop capture
+-> cancel helper work
+-> join serialized outbound consumer
+-> take immutable committed-turn snapshot
+-> apply History retention handoff
+-> clear transient turn state
+-> clear Meeting runtime session
 ```
 
-Identity/dedupe is `(session_id, generation, utterance_id)`. `sequence` is monotonic for
-the whole Meeting session, so chronology continues across Resume generations.
+The snapshot occurs after the matching outbound consumer has stopped, so the History
+handoff does not race an intentionally still-running canonical producer.
 
-The live store is bounded to an implementation safety limit. If old turns are dropped,
-its snapshot exposes `dropped_turn_count` and `truncated`; the UI does not claim a
-complete session transcript.
+Pause and Resume do not persist History.
 
-### C. Truthful delivery state
+### C. Retention semantics
 
-Committed outbound turns use:
+At Stop, the backend reads current persisted `RuntimeSettings.history_enabled`.
 
 ```text
-preparing_voice
-speaking
-output_complete
-output_failed
-interrupted
+History ON
+-> convert retained committed turns to HistoryTurn
+-> create at most one Recent Meeting entry keyed by canonical session id
+
+History OFF
+-> do not call the History persistence owner
+-> discard transient conversation bodies during Stop cleanup
 ```
 
-TTS/route failure after text commitment updates the turn to `output_failed`.
-Successful guarded output becomes `output_complete`. `output_complete` means the
-TranslateIT-side guarded output attempt completed; it does not claim a remote
-participant heard it.
+An empty finalized Meeting creates no empty Recent entry. Existing Recent/Saved data is
+not deleted. Saved remains an explicit action.
 
-`output_complete`, `output_failed`, and `interrupted` are terminal. Late/stale callbacks
-cannot overwrite them. Pause/Stop authority loss interrupts non-terminal turns from
-the revoked generation; Pause retains the transcript and Resume appends new-generation
-turns into the same session chronology.
+A History write failure does not block safety-critical Stop or keep an orphan live
+Meeting session; the Stop result reports the persistence failure and transient bodies
+are still cleared.
 
-ASR/translation failure before verified translated text exists does not manufacture a
-transcript turn.
+### D. Persistent Meeting entry
 
-### D. Separate product read projection
-
-Conversation bodies are not attached to `get_meeting_session_status`.
-
-A separate registered command now owns the read boundary:
+The existing `HistoryEntry` contract now stores finalized Meeting metadata with:
 
 ```text
-get_meeting_committed_turns
+entry_type = meeting
+title = Meeting Translation
+created/updated time
+session duration
+interrupted flag
+source_language = id
+target_language = en
+tone = Auto
+mode = Realtime
+dropped_turn_count
+turns[]
 ```
 
-`runtimeApi.ts` exposes a typed `MeetingCommittedTurnsSnapshot`. The frontend receives
-snapshots only; it does not append/merge them into another authoritative store.
+Each persisted turn carries chronological sequence, lane, source text, translated
+text, truthful delivery state, and creation timestamp. Raw microphone/Meeting audio
+and generated TTS are never persisted as normal History content.
 
-The Meeting Live presentation checks that the transcript snapshot belongs to the same
-`session_id` as the lifecycle snapshot before rendering it, preventing a transition
-race from presenting a different session's turns.
+### E. History product surface
 
-### E. Meeting Live transcript
-
-The existing `MeetingLiveActivityPresentation.ts` now keeps the activity region and
-adds a chronological transcript region beneath it.
-
-Current outbound turns render as:
+The existing History collection already understands Meeting rows. Meeting detail is
+now connected to the same persisted `HistoryEntry.turns` data:
 
 ```text
 YOU
 Indonesian final transcript      [primary]
 English verified translation     [secondary]
-truthful delivery state
+delivery state
 ```
 
-The transcript is reconstructed from the backend snapshot on refresh rather than
-accumulated as browser-owned conversation state. Empty, unavailable, and bounded-
-truncation states are explicit. User text is inserted with DOM `textContent`, not
-worker-response HTML.
-
-Incoming `INCOMING` turns remain out of scope because the incoming Meeting lane is not
-implemented.
-
-### F. Lifecycle cleanup
-
-A new Meeting Start resets the transient turn store. Start rollback clears it. Pause
-retains it. Resume reuses it. Full Stop interrupts current non-terminal turns and
-clears transient conversation bodies because persistent Meeting History finalization
-has not yet been implemented.
-
-The next History slice must insert its allowed immutable handoff before this final
-transient clear; it must not turn History into the live source.
+Duration/interrupted metadata and bounded-turn truncation are shown when applicable.
+The existing generic Save / Remove from Saved actions now apply to both Text and
+Meeting entries. No second Meeting History UI/store was introduced.
 
 ## Static regression definition
 
-`validate_startup_runtime_readiness.mjs` now defines source checks that:
+`validate_startup_runtime_readiness.mjs` now defines checks for:
 
-- `get_meeting_committed_turns` is registered and exposed through `runtimeApi`;
-- committed bodies and bounded turn state exist in `meeting_session.rs`;
-- `MeetingSessionStatus` remains body-free/lightweight;
-- `runtime_state.rs` remains conversation-body-free;
-- Meeting Live reads committed-turn snapshots and checks session identity;
-- frontend does not call Meeting lifecycle mutations or scrape worker/legacy pipeline
-  transcript state;
-- `meeting_session.rs` does not write directly to History in this slice;
-- transcript presentation styles exist.
+- canonical committed-turn ownership and read-only Live transcript behavior;
+- Stop-only Meeting History finalization;
+- safety/resource cleanup before snapshot/persistence and transient clear afterward;
+- current `history_enabled` retention gate;
+- `create_meeting_recent` under the canonical History store;
+- schema-v2 backward-compatible `dropped_turn_count` contract;
+- Meeting History detail rendering and Saved reuse;
+- absence of conversation bodies from `MeetingSessionStatus` and `runtime_state.rs`.
 
-This validator was **not executed** in this channel. It remains a static source-contract
-definition, not executable PASS evidence.
+The validator was **not executed** in this channel. It is source-contract definition,
+not executable PASS evidence.
 
 # Static Proof State
 
 **CURRENT-PROJECT VERIFIED** at source level:
 
-1. one backend Meeting outbound/session owner now holds committed conversation bodies;
-2. turn commitment occurs after final transcript + verified translation and current-generation checks;
-3. dedupe identity uses session/generation/utterance while chronology uses a session-wide monotonic sequence;
-4. delivery states are bounded and terminal states reject stale overwrites;
-5. Pause retains prior turns and interrupts non-terminal revoked-generation turns; Resume keeps chronology with a fresh generation;
-6. `get_meeting_committed_turns` is a separate read-only Tauri/API projection;
-7. Meeting Live renders backend snapshots as `YOU` turns with Indonesian primary, English secondary, and delivery state;
-8. snapshot/session identity mismatch is not rendered as current transcript;
-9. bounded transcript truncation is disclosed;
-10. persistent History, worker/Diagnostics, lifecycle status, and frontend accumulation are not competing body owners.
+1. Live conversation bodies remain owned by the bounded `meeting_session.rs` transient store;
+2. Meeting History persistence is performed only during full Stop/finalization, not Pause/Resume or Live processing;
+3. Stop snapshots turns after matching outbound cleanup and before transient/session clear;
+4. current persisted `history_enabled` controls whether a Recent Meeting entry is created;
+5. History OFF performs no Meeting Recent write and transient bodies are cleared;
+6. the canonical History store creates at most one Recent entry for a finalized session and reuses the existing Recent/Saved root;
+7. persisted Meeting turns preserve delivery state and disclose prior live-bound truncation;
+8. existing History collection/detail and generic Saved actions now support Meeting entries;
+9. raw audio/TTS and conversation bodies are not added to normal logs/Diagnostics/lifecycle status.
 
-No Rust/TypeScript build, validator execution, Tauri invocation, rendered UI,
-microphone/model/audio, race timing, or Windows runtime proof was executed.
+No build/typecheck/validator execution, Tauri persistence invocation, rendered UI,
+model/audio/device, race timing, or Windows proof was obtained.
 
 # Known Gaps Kept Truthful
 
-- Meeting History finalization/persistence from committed turns is not implemented;
-- current Stop therefore clears transient turns without creating Recent Meeting History;
-- incoming Meeting Sound / `INCOMING` transcript turns remain unimplemented;
-- global/cross-view Meeting strip and close-live handling remain incomplete;
+- global/cross-view Meeting indicator and close-live safety handling remain incomplete;
+- incoming Meeting Sound / `INCOMING` turns and self-output suppression remain unimplemented;
 - approved tone/context does not yet reach canonical inference;
 - Text Copy/direct Save remains incomplete;
 - `uv.lock`, model acquisition metadata, and packaging remain incomplete;
@@ -242,16 +217,14 @@ microphone/model/audio, race timing, or Windows runtime proof was executed.
 # Hold
 
 - do not make History the live transcript store;
-- do not add incremental persistent writes merely to keep Live transcript current;
-- do not add conversation bodies to Diagnostics/logs/status payloads;
-- do not build incoming turns, global strip/close handling, Svelte, packaging,
-  benchmark, or Windows acceptance into the next persistence slice;
-- Saved remains an explicit independent ownership action.
+- do not add incremental Meeting History writes while Live/Paused;
+- do not create a separate Meeting persistence root or Saved semantics;
+- do not add incoming Meeting Sound, Svelte, packaging, benchmark, or Windows acceptance
+  into the next lifecycle-shell planning boundary.
 
 ## Next Step
 
-Implement **Meeting History Finalization Handoff** as one bounded source slice:
-convert an immutable final committed-turn snapshot into one canonical Recent Meeting
-History entry only when current `RuntimeSettings.history_enabled` permits retention,
-then clear transient conversation bodies. History-off must discard the transient body;
-Saved remains unchanged and no live incremental History writes are introduced.
+Plan the **Global Meeting Cross-View State + Safe Close Lifecycle Boundary**. Resolve
+which existing shell/window owners should present the already-canonical application
+Meeting state outside the Meeting workspace and enforce the approved `Stop & Close`
+behavior without creating a second Meeting lifecycle store or control plane.
