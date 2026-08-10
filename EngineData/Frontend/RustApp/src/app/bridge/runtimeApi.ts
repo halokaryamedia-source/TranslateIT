@@ -110,6 +110,31 @@ export type MeetingSessionActionResult = {
   [key: string]: any;
 };
 
+export type MeetingCommittedTurn = {
+  session_id: string;
+  sequence: number;
+  generation: number;
+  utterance_id: number;
+  lane: "you" | string;
+  source_text: string;
+  translated_text: string;
+  delivery_state: "preparing_voice" | "speaking" | "output_complete" | "output_failed" | "interrupted" | string;
+  created_unix_ms: number;
+  updated_unix_ms: number;
+};
+
+export type MeetingCommittedTurnsSnapshot = {
+  ok: boolean;
+  has_session: boolean;
+  session_id: string | null;
+  turns: MeetingCommittedTurn[];
+  dropped_turn_count: number;
+  truncated: boolean;
+  blocker: string;
+  note: string;
+  runtime_claim: string;
+};
+
 const MAX_COMMAND_ERRORS = 25;
 const commandErrors: RuntimeCommandError[] = [];
 
@@ -190,6 +215,20 @@ function meetingSessionActionFallback(message: string): MeetingSessionActionResu
     state: "frontend_bridge_error",
     message,
     status: meetingSessionStatusFallback(message),
+  };
+}
+
+function meetingCommittedTurnsFallback(message: string): MeetingCommittedTurnsSnapshot {
+  return {
+    ok: false,
+    has_session: false,
+    session_id: null,
+    turns: [],
+    dropped_turn_count: 0,
+    truncated: false,
+    blocker: "frontend_bridge_unavailable",
+    note: message,
+    runtime_claim: "frontend_bridge_unavailable",
   };
 }
 
@@ -419,6 +458,14 @@ export const runtimeApi = {
       "get_meeting_session_status",
       undefined,
       meetingSessionStatusFallback("Meeting session status is unavailable because the frontend bridge could not call Tauri."),
+    );
+  },
+
+  async getMeetingCommittedTurns(): Promise<MeetingCommittedTurnsSnapshot> {
+    return invokeOr<MeetingCommittedTurnsSnapshot>(
+      "get_meeting_committed_turns",
+      undefined,
+      meetingCommittedTurnsFallback("Meeting transcript is temporarily unavailable because the frontend bridge could not call Tauri."),
     );
   },
 
