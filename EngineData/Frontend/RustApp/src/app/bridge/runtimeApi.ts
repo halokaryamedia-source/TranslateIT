@@ -53,6 +53,63 @@ export type AudioDeviceProbeReport = {
   note: string;
 };
 
+export type MeetingSessionPreflightStatus = {
+  ready_for_start: boolean;
+  microphone_ready: boolean;
+  models_ready: boolean;
+  helper_ready: boolean;
+  provider_ready: boolean;
+  meeting_route_ready: boolean;
+  route_execution_guard_ready: boolean;
+  generation_aware_outbound_stages_ready: boolean;
+  finalized_utterance_source_connected: boolean;
+  outbound_runtime_connected: boolean;
+  blockers: string[];
+  summary: string;
+  runtime_claim: string;
+  [key: string]: any;
+};
+
+export type MeetingOutboundRuntimeStatus = {
+  generation: number | null;
+  session_id: string | null;
+  stage: string;
+  utterance_sequence: number;
+  output_active: boolean;
+  last_stage_ok: boolean;
+  blocker: string;
+  note: string;
+  updated_unix_ms: number;
+  runtime_claim: string;
+  [key: string]: any;
+};
+
+export type MeetingSessionStatus = {
+  lifecycle: string;
+  has_session: boolean;
+  authority_active: boolean;
+  session_id: string | null;
+  generation: number | null;
+  started_unix_ms: number | null;
+  active_age_ms: number | null;
+  capture_active: boolean;
+  owner_id: string | null;
+  blocker: string;
+  note: string;
+  preflight: MeetingSessionPreflightStatus;
+  outbound: MeetingOutboundRuntimeStatus;
+  runtime_claim: string;
+  [key: string]: any;
+};
+
+export type MeetingSessionActionResult = {
+  ok: boolean;
+  state: string;
+  message: string;
+  status: MeetingSessionStatus;
+  [key: string]: any;
+};
+
 const MAX_COMMAND_ERRORS = 25;
 const commandErrors: RuntimeCommandError[] = [];
 
@@ -80,6 +137,59 @@ function helperActionFallback(message: string): HelperBridgeActionResult {
     message,
     generation_token: 0,
     runtime_claim: "frontend_bridge_unavailable",
+  };
+}
+
+function meetingSessionStatusFallback(message: string): MeetingSessionStatus {
+  return {
+    lifecycle: "unavailable",
+    has_session: false,
+    authority_active: false,
+    session_id: null,
+    generation: null,
+    started_unix_ms: null,
+    active_age_ms: null,
+    capture_active: false,
+    owner_id: null,
+    blocker: "frontend_bridge_unavailable",
+    note: message,
+    preflight: {
+      ready_for_start: false,
+      microphone_ready: false,
+      models_ready: false,
+      helper_ready: false,
+      provider_ready: false,
+      meeting_route_ready: false,
+      route_execution_guard_ready: false,
+      generation_aware_outbound_stages_ready: false,
+      finalized_utterance_source_connected: false,
+      outbound_runtime_connected: false,
+      blockers: ["frontend_bridge_unavailable"],
+      summary: message,
+      runtime_claim: "frontend_bridge_unavailable",
+    },
+    outbound: {
+      generation: null,
+      session_id: null,
+      stage: "unavailable",
+      utterance_sequence: 0,
+      output_active: false,
+      last_stage_ok: false,
+      blocker: "frontend_bridge_unavailable",
+      note: message,
+      updated_unix_ms: Date.now(),
+      runtime_claim: "frontend_bridge_unavailable",
+    },
+    runtime_claim: "frontend_bridge_unavailable",
+  };
+}
+
+function meetingSessionActionFallback(message: string): MeetingSessionActionResult {
+  return {
+    ok: false,
+    state: "frontend_bridge_error",
+    message,
+    status: meetingSessionStatusFallback(message),
   };
 }
 
@@ -302,6 +412,30 @@ export const runtimeApi = {
 
   async getStatusBundle(): Promise<RuntimeStatusBundleReport | null> {
     return invokeNullable<RuntimeStatusBundleReport>("get_runtime_status_bundle");
+  },
+
+  async getMeetingSessionStatus(): Promise<MeetingSessionStatus> {
+    return invokeOr<MeetingSessionStatus>(
+      "get_meeting_session_status",
+      undefined,
+      meetingSessionStatusFallback("Meeting session status is unavailable because the frontend bridge could not call Tauri."),
+    );
+  },
+
+  async startMeetingTranslation(): Promise<MeetingSessionActionResult> {
+    return invokeOr<MeetingSessionActionResult>(
+      "start_meeting_translation",
+      undefined,
+      meetingSessionActionFallback("Start Translation failed before reaching the Tauri Meeting session command."),
+    );
+  },
+
+  async stopMeetingTranslation(): Promise<MeetingSessionActionResult> {
+    return invokeOr<MeetingSessionActionResult>(
+      "stop_meeting_translation",
+      undefined,
+      meetingSessionActionFallback("Stop Translation failed before reaching the Tauri Meeting session command."),
+    );
   },
 
   async getRealtimeStatusPayload(): Promise<RealtimeStatusPayload | null> {
