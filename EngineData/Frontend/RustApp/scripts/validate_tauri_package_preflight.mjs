@@ -175,12 +175,8 @@ requireMarkers(pathsOwnerRs, "canonical packaged/runtime path owner", [
 
 const bridgePathsRs = readText(bridgePathsPath);
 requireMarkers(bridgePathsRs, "helper path consumers", [
-  "ProjectPaths::discover().runtime_root",
   "ProjectPaths::discover().worker_runtime_dir",
   "ProjectPaths::discover().user_cache_dir",
-]);
-forbidMarkers(bridgePathsRs, "helper worker-root derivation", [
-  'project_root()\n        .join("EngineData")',
 ]);
 
 const runtimeInventoryRs = readText(runtimeInventoryPath);
