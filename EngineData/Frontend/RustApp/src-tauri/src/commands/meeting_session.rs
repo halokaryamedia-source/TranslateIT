@@ -1232,7 +1232,6 @@ fn process_authoritative_finalized_incoming_wav(
         session_id,
         "translating",
         false,
-        true,
         "",
         "Final English Meeting Sound transcript is being translated to Indonesian.",
     );
