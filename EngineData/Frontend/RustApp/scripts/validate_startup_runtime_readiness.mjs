@@ -4,7 +4,10 @@ import { fileURLToPath } from "node:url";
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const mainPath = resolve(root, "src/main.ts");
+const shellPath = resolve(root, "src/app/active-launcher/shell.ts");
 const simpleControllerPath = resolve(root, "src/app/simple-launcher/SimpleLauncherController.ts");
+const globalMeetingShellPath = resolve(root, "src/app/simple-launcher/GlobalMeetingShell.ts");
+const globalMeetingShellCssPath = resolve(root, "src/globalMeetingShell.css");
 const meetingActivityPath = resolve(root, "src/app/simple-launcher/MeetingLiveActivityPresentation.ts");
 const meetingActivityCssPath = resolve(root, "src/meetingLiveActivity.css");
 const historyCssPath = resolve(root, "src/historyLayout.css");
@@ -12,13 +15,17 @@ const historyTypesPath = resolve(root, "src/app/shared/historyTypes.ts");
 const runtimeApiPath = resolve(root, "src/app/bridge/runtimeApi.ts");
 const facadePath = resolve(root, "src/app/bridge/runtimeProductFacade.ts");
 const registryPath = resolve(root, "src-tauri/src/commands/registry.rs");
+const nativeMainPath = resolve(root, "src-tauri/src/main.rs");
 const meetingSessionPath = resolve(root, "src-tauri/src/commands/meeting_session.rs");
 const runtimeStatePath = resolve(root, "src-tauri/src/engine/runtime_state.rs");
 const historyStorePath = resolve(root, "src-tauri/src/engine/history_store.rs");
 
 for (const path of [
   mainPath,
+  shellPath,
   simpleControllerPath,
+  globalMeetingShellPath,
+  globalMeetingShellCssPath,
   meetingActivityPath,
   meetingActivityCssPath,
   historyCssPath,
@@ -26,6 +33,7 @@ for (const path of [
   runtimeApiPath,
   facadePath,
   registryPath,
+  nativeMainPath,
   meetingSessionPath,
   runtimeStatePath,
   historyStorePath,
@@ -37,7 +45,10 @@ for (const path of [
 }
 
 const main = readFileSync(mainPath, "utf8");
+const shell = readFileSync(shellPath, "utf8");
 const simpleController = readFileSync(simpleControllerPath, "utf8");
+const globalMeetingShell = readFileSync(globalMeetingShellPath, "utf8");
+const globalMeetingShellCss = readFileSync(globalMeetingShellCssPath, "utf8");
 const meetingActivity = readFileSync(meetingActivityPath, "utf8");
 const meetingActivityCss = readFileSync(meetingActivityCssPath, "utf8");
 const historyCss = readFileSync(historyCssPath, "utf8");
@@ -45,6 +56,7 @@ const historyTypes = readFileSync(historyTypesPath, "utf8");
 const runtimeApi = readFileSync(runtimeApiPath, "utf8");
 const facade = readFileSync(facadePath, "utf8");
 const registry = readFileSync(registryPath, "utf8");
+const nativeMain = readFileSync(nativeMainPath, "utf8");
 const meetingSession = readFileSync(meetingSessionPath, "utf8");
 const runtimeState = readFileSync(runtimeStatePath, "utf8");
 const historyStore = readFileSync(historyStorePath, "utf8");
@@ -53,6 +65,8 @@ for (const marker of [
   "SimpleLauncherController",
   "simple-ui-v1",
   "startMeetingLiveActivityPresentation",
+  "startGlobalMeetingShell",
+  'import "./globalMeetingShell.css"',
   'import "./meetingLiveActivity.css"',
   'import "./historyLayout.css"',
 ]) {
@@ -61,6 +75,17 @@ for (const marker of [
 
 for (const forbidden of ["startStartupReadiness", "bindSettingsAutosaveUi", "bindDirectVoiceCaptureUi", "startRealtimeStatusPayloadAutoRefresh"]) {
   if (main.includes(forbidden)) throw new Error(`main must not re-enable legacy startup binding: ${forbidden}`);
+}
+
+for (const marker of [
+  'id="globalMeetingStrip"',
+  'id="globalMeetingOpenButton"',
+  'id="meetingCloseDialog"',
+  'id="meetingCloseKeepOpenButton"',
+  'id="meetingCloseStopButton"',
+  "Stop &amp; Close",
+]) {
+  if (!shell.includes(marker)) throw new Error(`global Meeting shell markup missing: ${marker}`);
 }
 
 for (const marker of [
@@ -92,6 +117,52 @@ for (const forbidden of [
   "canonical Meeting lifecycle does not write History entries",
 ]) {
   if (simpleController.includes(forbidden)) throw new Error(`simple controller stale behavior remains: ${forbidden}`);
+}
+
+for (const marker of [
+  "GLOBAL_MEETING_REFRESH_MS",
+  "runtimeApi.getMeetingSessionStatus",
+  "mapProductMeetingState",
+  'runtimeProductFacade.runProductMeetingAction("stop")',
+  "globalMeetingStrip",
+  "meetingCloseDialog",
+  "meetingNavButton",
+  ".onCloseRequested",
+  "event.preventDefault()",
+  ".destroy()",
+  "meetingStatusUnavailable",
+  "closeAfterExistingStop",
+  "waitingForExistingStop",
+  "verifyStoppedThenDestroy",
+]) {
+  if (!globalMeetingShell.includes(marker)) throw new Error(`global Meeting shell lifecycle marker missing: ${marker}`);
+}
+
+for (const forbidden of [
+  "startMeetingTranslation",
+  "pauseMeetingTranslation",
+  "resumeMeetingTranslation",
+  "stopMeetingTranslation",
+  "startCapture",
+  "stopCapture",
+  "getMeetingCommittedTurns",
+  "transcript_text",
+  "translated_text",
+  "worker_response_json",
+]) {
+  if (globalMeetingShell.includes(forbidden)) {
+    throw new Error(`global Meeting shell must not create a parallel Meeting control/data path: ${forbidden}`);
+  }
+}
+
+for (const marker of [
+  ".global-meeting-strip",
+  ".global-meeting-strip-open",
+  ".meeting-close-dialog",
+  ".meeting-close-dialog-actions",
+  ".global-meeting-close-stop",
+]) {
+  if (!globalMeetingShellCss.includes(marker)) throw new Error(`global Meeting shell CSS marker missing: ${marker}`);
 }
 
 for (const marker of [
@@ -318,6 +389,28 @@ for (const marker of [
   if (!runtimeState.includes(marker)) throw new Error(`Meeting generation authority marker missing: ${marker}`);
 }
 
+for (const marker of [
+  ".build(tauri::generate_context!())",
+  "tauri::RunEvent::ExitRequested",
+  "latest_runtime_session_state",
+  "commands::meeting_session::stop_meeting_translation()",
+  "api.prevent_exit()",
+  'get_webview_window("main")',
+]) {
+  if (!nativeMain.includes(marker)) throw new Error(`native orderly-exit Meeting safeguard missing: ${marker}`);
+}
+
+for (const forbidden of [
+  "stop_live_capture_runtime",
+  "cancel_helper_bridge",
+  "create_meeting_recent",
+  "finalize_meeting_history",
+]) {
+  if (nativeMain.includes(forbidden)) {
+    throw new Error(`native exit fail-safe must delegate to canonical Meeting Stop instead of duplicating cleanup: ${forbidden}`);
+  }
+}
+
 console.log(
-  "Startup/product Meeting source-contract integrity passed: one application Meeting authority owns lifecycle and transient committed turns; Stop snapshots those turns after authority/resource cleanup, applies the current History retention gate through the canonical History store, then clears transient bodies. Meeting Live and History detail remain read-only presentation consumers, Saved remains explicit, and lifecycle status stays body-free. This is static source proof only, not TypeScript/Rust build, validator execution, Tauri/runtime persistence, rendered UI, microphone, audio-route, or Windows proof.",
+  "Startup/product Meeting source-contract integrity passed: one application Meeting authority owns lifecycle, transcript, and History finalization; the global shell reads canonical status only, Stop & Close delegates to the existing Stop action and destroys the window only after verified session clear, and orderly native exit delegates to that same backend Stop owner. This is static source proof only, not TypeScript/Rust build, validator execution, native close-event behavior, rendered UI, persistence runtime, microphone, audio-route, or Windows proof.",
 );
