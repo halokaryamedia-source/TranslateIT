@@ -2,15 +2,24 @@ use serde::Serialize;
 use serde_json::{json, Value};
 use std::collections::VecDeque;
 use std::fs;
-use std::sync::{Mutex, OnceLock};
+use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::{Arc, Mutex, OnceLock};
 use std::thread::{self, JoinHandle};
 
 use crate::engine::audio::finalized_utterance::{
-    clear_finalized_outbound_utterance_producer, wait_take_finalized_outbound_utterance,
+    clear_finalized_incoming_utterance_producer, clear_finalized_meeting_sequence,
+    clear_finalized_outbound_utterance_producer, reset_finalized_incoming_speech_boundary,
+    reset_finalized_meeting_sequence, wait_take_finalized_incoming_utterance,
+    wait_take_finalized_outbound_utterance,
 };
 use crate::engine::audio::live_capture::{start_live_capture_runtime, stop_live_capture_runtime};
 use crate::engine::audio::live_segment_writer::{
-    remove_finalized_outbound_utterance_wav, write_finalized_outbound_utterance_wav,
+    remove_finalized_meeting_utterance_wav, write_finalized_incoming_utterance_wav,
+    write_finalized_outbound_utterance_wav,
+};
+use crate::engine::audio::meeting_sound_capture::{
+    meeting_sound_capture_status, start_meeting_sound_capture_runtime,
+    stop_meeting_sound_capture_runtime,
 };
 use crate::engine::history_store::{create_meeting_recent, HistoryTurn};
 use crate::engine::load_settings;
@@ -24,8 +33,9 @@ use crate::engine::runtime_state::{
 
 use super::audio::get_input_status;
 use super::helper_bridge::{
-    cancel_helper_bridge_meeting_generation, cancel_helper_bridge_task, get_helper_bridge_status,
-    send_helper_worker_task, start_helper_bridge, HelperBridgeWorkerResponse,
+    cancel_helper_bridge_meeting_generation, cancel_helper_bridge_meeting_session,
+    get_helper_bridge_status, send_helper_worker_task, start_helper_bridge,
+    HelperBridgeWorkerResponse,
 };
 use super::helper_bridge_runtime::unix_ms;
 use super::pipeline_handoff::reset_live_pipeline_handoff_status;
@@ -71,6 +81,19 @@ pub struct MeetingOutboundRuntimeStatus {
 }
 
 #[derive(Debug, Clone, Serialize)]
+pub struct MeetingIncomingRuntimeStatus {
+    pub session_id: Option<String>,
+    pub stage: String,
+    pub capture_active: bool,
+    pub suppressed: bool,
+    pub degraded: bool,
+    pub blocker: String,
+    pub note: String,
+    pub updated_unix_ms: u128,
+    pub runtime_claim: String,
+}
+
+#[derive(Debug, Clone, Serialize)]
 pub struct MeetingSessionStatus {
     pub lifecycle: String,
     pub has_session: bool,
@@ -85,6 +108,7 @@ pub struct MeetingSessionStatus {
     pub note: String,
     pub preflight: MeetingSessionPreflightStatus,
     pub outbound: MeetingOutboundRuntimeStatus,
+    pub incoming: MeetingIncomingRuntimeStatus,
     pub runtime_claim: String,
 }
 
@@ -112,12 +136,12 @@ pub struct MeetingOutboundProcessResult {
 pub struct MeetingCommittedTurn {
     pub session_id: String,
     pub sequence: u64,
-    pub generation: u64,
+    pub generation: Option<u64>,
     pub utterance_id: u64,
     pub lane: String,
     pub source_text: String,
     pub translated_text: String,
-    pub delivery_state: String,
+    pub delivery_state: Option<String>,
     pub created_unix_ms: u128,
     pub updated_unix_ms: u128,
 }
@@ -141,17 +165,42 @@ struct MeetingOutboundConsumerRuntime {
     thread: Option<JoinHandle<()>>,
 }
 
+struct MeetingIncomingConsumerRuntime {
+    session_id: String,
+    thread: Option<JoinHandle<()>>,
+}
+
 struct MeetingCommittedTurnStore {
     session_id: String,
-    next_sequence: u64,
     dropped_turn_count: u64,
     turns: VecDeque<MeetingCommittedTurn>,
 }
 
+struct MeetingSelfOutputSuppression {
+    session_id: String,
+    active: Arc<AtomicBool>,
+}
+
+struct SelfOutputSuppressionGuard {
+    active: Arc<AtomicBool>,
+}
+
+impl Drop for SelfOutputSuppressionGuard {
+    fn drop(&mut self) {
+        self.active.store(false, Ordering::Release);
+        reset_finalized_incoming_speech_boundary();
+    }
+}
+
 static MEETING_OUTBOUND_STATUS: OnceLock<Mutex<MeetingOutboundRuntimeStatus>> = OnceLock::new();
+static MEETING_INCOMING_STATUS: OnceLock<Mutex<MeetingIncomingRuntimeStatus>> = OnceLock::new();
 static MEETING_OUTBOUND_CONSUMER: OnceLock<Mutex<Option<MeetingOutboundConsumerRuntime>>> =
     OnceLock::new();
+static MEETING_INCOMING_CONSUMER: OnceLock<Mutex<Option<MeetingIncomingConsumerRuntime>>> =
+    OnceLock::new();
 static MEETING_COMMITTED_TURNS: OnceLock<Mutex<Option<MeetingCommittedTurnStore>>> =
+    OnceLock::new();
+static MEETING_SELF_OUTPUT_SUPPRESSION: OnceLock<Mutex<Option<MeetingSelfOutputSuppression>>> =
     OnceLock::new();
 
 fn idle_outbound_status() -> MeetingOutboundRuntimeStatus {
@@ -171,16 +220,44 @@ fn idle_outbound_status() -> MeetingOutboundRuntimeStatus {
     }
 }
 
+fn idle_incoming_status() -> MeetingIncomingRuntimeStatus {
+    MeetingIncomingRuntimeStatus {
+        session_id: None,
+        stage: "unavailable".to_string(),
+        capture_active: false,
+        suppressed: false,
+        degraded: false,
+        blocker: String::new(),
+        note: "Incoming Meeting Sound is an optional lane and is not active without an application Meeting session."
+            .to_string(),
+        updated_unix_ms: unix_ms(),
+        runtime_claim: "meeting_incoming_optional_lane_source_contract_not_windows_runtime_proof"
+            .to_string(),
+    }
+}
+
 fn outbound_status_store() -> &'static Mutex<MeetingOutboundRuntimeStatus> {
     MEETING_OUTBOUND_STATUS.get_or_init(|| Mutex::new(idle_outbound_status()))
+}
+
+fn incoming_status_store() -> &'static Mutex<MeetingIncomingRuntimeStatus> {
+    MEETING_INCOMING_STATUS.get_or_init(|| Mutex::new(idle_incoming_status()))
 }
 
 fn outbound_consumer_store() -> &'static Mutex<Option<MeetingOutboundConsumerRuntime>> {
     MEETING_OUTBOUND_CONSUMER.get_or_init(|| Mutex::new(None))
 }
 
+fn incoming_consumer_store() -> &'static Mutex<Option<MeetingIncomingConsumerRuntime>> {
+    MEETING_INCOMING_CONSUMER.get_or_init(|| Mutex::new(None))
+}
+
 fn committed_turn_store() -> &'static Mutex<Option<MeetingCommittedTurnStore>> {
     MEETING_COMMITTED_TURNS.get_or_init(|| Mutex::new(None))
+}
+
+fn suppression_store() -> &'static Mutex<Option<MeetingSelfOutputSuppression>> {
+    MEETING_SELF_OUTPUT_SUPPRESSION.get_or_init(|| Mutex::new(None))
 }
 
 fn current_outbound_status() -> MeetingOutboundRuntimeStatus {
@@ -188,6 +265,25 @@ fn current_outbound_status() -> MeetingOutboundRuntimeStatus {
         .lock()
         .map(|status| status.clone())
         .unwrap_or_else(|_| idle_outbound_status())
+}
+
+fn current_incoming_status() -> MeetingIncomingRuntimeStatus {
+    let mut status = incoming_status_store()
+        .lock()
+        .map(|status| status.clone())
+        .unwrap_or_else(|_| idle_incoming_status());
+    let capture = meeting_sound_capture_status();
+    if status.session_id.is_some() {
+        status.capture_active = capture.stream_active;
+        status.suppressed = capture.suppression_active;
+        if capture.stream_active && capture.callback_error_count > 0 {
+            status.degraded = true;
+            if status.blocker.is_empty() {
+                status.blocker = "meeting_incoming:capture_callback_error".to_string();
+            }
+        }
+    }
+    status
 }
 
 fn update_outbound_status(
@@ -217,11 +313,40 @@ fn update_outbound_status(
     }
 }
 
+fn update_incoming_status(
+    session_id: &str,
+    stage: &str,
+    degraded: bool,
+    blocker: &str,
+    note: &str,
+) {
+    if let Ok(mut status) = incoming_status_store().lock() {
+        let capture = meeting_sound_capture_status();
+        *status = MeetingIncomingRuntimeStatus {
+            session_id: Some(session_id.to_string()),
+            stage: stage.to_string(),
+            capture_active: capture.stream_active,
+            suppressed: capture.suppression_active,
+            degraded,
+            blocker: blocker.to_string(),
+            note: note.to_string(),
+            updated_unix_ms: unix_ms(),
+            runtime_claim: "meeting_incoming_optional_lane_source_contract_not_windows_runtime_proof"
+                .to_string(),
+        };
+    }
+}
+
+fn clear_incoming_status() {
+    if let Ok(mut status) = incoming_status_store().lock() {
+        *status = idle_incoming_status();
+    }
+}
+
 fn reset_committed_turns(session_id: &str) {
     if let Ok(mut guard) = committed_turn_store().lock() {
         *guard = Some(MeetingCommittedTurnStore {
             session_id: session_id.to_string(),
-            next_sequence: 1,
             dropped_turn_count: 0,
             turns: VecDeque::new(),
         });
@@ -246,52 +371,72 @@ fn clear_all_committed_turns() {
     }
 }
 
-fn terminal_delivery_state(state: &str) -> bool {
-    matches!(state, "output_complete" | "output_failed" | "interrupted")
+fn terminal_delivery_state(state: Option<&str>) -> bool {
+    matches!(state, Some("output_complete" | "output_failed" | "interrupted"))
 }
 
 fn commit_meeting_turn(
     session_id: &str,
-    generation: u64,
+    sequence: u64,
+    generation: Option<u64>,
     utterance_id: u64,
+    lane: &str,
     source_text: &str,
     translated_text: &str,
-) -> Option<u64> {
-    let mut guard = committed_turn_store().lock().ok()?;
-    let store = guard.as_mut()?;
-    if store.session_id != session_id {
-        return None;
+    delivery_state: Option<&str>,
+) -> bool {
+    if sequence == 0 || !matches!(lane, "you" | "incoming") {
+        return false;
+    }
+    if lane == "you" && (generation.is_none() || delivery_state.is_none()) {
+        return false;
+    }
+    if lane == "incoming" && (generation.is_some() || delivery_state.is_some()) {
+        return false;
     }
 
-    if let Some(existing) = store.turns.iter().find(|turn| {
-        turn.session_id == session_id
-            && turn.generation == generation
-            && turn.utterance_id == utterance_id
-    }) {
-        return Some(existing.sequence);
+    let Ok(mut guard) = committed_turn_store().lock() else {
+        return false;
+    };
+    let Some(store) = guard.as_mut() else {
+        return false;
+    };
+    if store.session_id != session_id {
+        return false;
+    }
+    if store
+        .turns
+        .iter()
+        .any(|turn| turn.session_id == session_id && turn.sequence == sequence)
+    {
+        return true;
     }
 
     let now = unix_ms();
-    let sequence = store.next_sequence;
-    store.next_sequence = store.next_sequence.saturating_add(1);
-    store.turns.push_back(MeetingCommittedTurn {
+    let turn = MeetingCommittedTurn {
         session_id: session_id.to_string(),
         sequence,
         generation,
         utterance_id,
-        lane: "you".to_string(),
+        lane: lane.to_string(),
         source_text: source_text.to_string(),
         translated_text: translated_text.to_string(),
-        delivery_state: "preparing_voice".to_string(),
+        delivery_state: delivery_state.map(str::to_string),
         created_unix_ms: now,
         updated_unix_ms: now,
-    });
+    };
+    let insert_at = store
+        .turns
+        .iter()
+        .position(|existing| existing.sequence > sequence)
+        .unwrap_or(store.turns.len());
+    store.turns.insert(insert_at, turn);
 
     while store.turns.len() > MAX_LIVE_COMMITTED_TURNS {
-        store.turns.pop_front();
+        let _ = store.turns.pop_front();
         store.dropped_turn_count = store.dropped_turn_count.saturating_add(1);
     }
-    Some(sequence)
+    true
 }
 
 fn update_committed_turn_delivery_state(
@@ -318,16 +463,17 @@ fn update_committed_turn_delivery_state(
     }
     let Some(turn) = store.turns.iter_mut().find(|turn| {
         turn.session_id == session_id
-            && turn.generation == generation
+            && turn.generation == Some(generation)
             && turn.utterance_id == utterance_id
+            && turn.lane == "you"
     }) else {
         return false;
     };
 
-    if terminal_delivery_state(&turn.delivery_state) {
-        return turn.delivery_state == delivery_state;
+    if terminal_delivery_state(turn.delivery_state.as_deref()) {
+        return turn.delivery_state.as_deref() == Some(delivery_state);
     }
-    turn.delivery_state = delivery_state.to_string();
+    turn.delivery_state = Some(delivery_state.to_string());
     turn.updated_unix_ms = unix_ms();
     true
 }
@@ -344,8 +490,10 @@ fn interrupt_committed_turns_for_generation(session_id: &str, generation: u64) {
     }
     let now = unix_ms();
     for turn in &mut store.turns {
-        if turn.generation == generation && !terminal_delivery_state(&turn.delivery_state) {
-            turn.delivery_state = "interrupted".to_string();
+        if turn.generation == Some(generation)
+            && !terminal_delivery_state(turn.delivery_state.as_deref())
+        {
+            turn.delivery_state = Some("interrupted".to_string());
             turn.updated_unix_ms = now;
         }
     }
@@ -416,11 +564,13 @@ fn current_committed_turn_snapshot() -> MeetingCommittedTurnsSnapshot {
         );
     }
 
+    let mut turns = store.turns.iter().cloned().collect::<Vec<_>>();
+    turns.sort_by_key(|turn| turn.sequence);
     MeetingCommittedTurnsSnapshot {
         ok: true,
         has_session: true,
         session_id: Some(store.session_id.clone()),
-        turns: store.turns.iter().cloned().collect(),
+        turns,
         dropped_turn_count: store.dropped_turn_count,
         truncated: store.dropped_turn_count > 0,
         blocker: String::new(),
@@ -430,7 +580,7 @@ fn current_committed_turn_snapshot() -> MeetingCommittedTurnsSnapshot {
                 store.dropped_turn_count
             )
         } else {
-            "Live transcript snapshot contains the currently retained committed turns for this Meeting session."
+            "Live transcript snapshot contains the currently retained committed turns for this Meeting session in finalized speech/event order."
                 .to_string()
         },
         runtime_claim: "meeting_committed_turn_snapshot_source_contract_not_rendered_runtime_proof"
@@ -465,14 +615,14 @@ fn finalize_meeting_history(
             lane: turn.lane.clone(),
             source_text: turn.source_text.clone(),
             translated_text: turn.translated_text.clone(),
-            delivery_state: Some(turn.delivery_state.clone()),
+            delivery_state: turn.delivery_state.clone(),
             created_unix_ms: turn.created_unix_ms,
         })
         .collect::<Vec<_>>();
     let interrupted = snapshot
         .turns
         .iter()
-        .any(|turn| turn.delivery_state == "interrupted");
+        .any(|turn| turn.delivery_state.as_deref() == Some("interrupted"));
 
     create_meeting_recent(
         session_id,
@@ -568,7 +718,7 @@ fn build_preflight() -> MeetingSessionPreflightStatus {
         outbound_runtime_connected,
         blockers,
         summary: if ready_for_start {
-            "Required outbound Meeting capabilities are source-connected and current preflight prerequisites are ready for transactional Start."
+            "Required outbound Meeting capabilities are source-connected and current preflight prerequisites are ready for transactional Start. Incoming Meeting Sound remains optional/degradable."
                 .to_string()
         } else {
             "Start Translation remains blocked until all required current outbound Meeting prerequisites are ready."
@@ -602,6 +752,7 @@ fn status_from_report(
         note: report.note,
         preflight,
         outbound: current_outbound_status(),
+        incoming: current_incoming_status(),
         runtime_claim: "application_meeting_session_source_contract_not_windows_runtime_proof"
             .to_string(),
     }
@@ -648,10 +799,67 @@ fn generation_is_live(generation: u64) -> bool {
         .unwrap_or(false)
 }
 
-fn tts_output_path(session_id: &str, generation: u64, utterance_sequence: u64) -> String {
+fn incoming_session_is_eligible(session_id: &str) -> bool {
+    latest_runtime_session_state()
+        .snapshot
+        .map(|snapshot| {
+            snapshot.owner_id == APPLICATION_MEETING_OWNER_ID
+                && snapshot.session_id == session_id
+                && matches!(snapshot.phase.as_str(), "live" | "paused" | "resuming")
+        })
+        .unwrap_or(false)
+}
+
+fn reset_self_output_suppression(session_id: &str) -> Arc<AtomicBool> {
+    let active = Arc::new(AtomicBool::new(false));
+    if let Ok(mut guard) = suppression_store().lock() {
+        *guard = Some(MeetingSelfOutputSuppression {
+            session_id: session_id.to_string(),
+            active: Arc::clone(&active),
+        });
+    }
+    active
+}
+
+fn suppression_handle_for_session(session_id: &str) -> Option<Arc<AtomicBool>> {
+    suppression_store()
+        .lock()
+        .ok()
+        .and_then(|guard| guard.as_ref().map(|value| (value.session_id.clone(), Arc::clone(&value.active))))
+        .filter(|(stored_session, _)| stored_session == session_id)
+        .map(|(_, active)| active)
+}
+
+fn begin_self_output_suppression(session_id: &str) -> Option<SelfOutputSuppressionGuard> {
+    let active = suppression_handle_for_session(session_id)?;
+    reset_finalized_incoming_speech_boundary();
+    active.store(true, Ordering::Release);
+    update_incoming_status(
+        session_id,
+        "suppressed",
+        false,
+        "",
+        "Incoming Meeting Sound is temporarily suppressed while TranslateIT's own English TTS is routed to the Meeting Microphone.",
+    );
+    Some(SelfOutputSuppressionGuard { active })
+}
+
+fn clear_self_output_suppression_for_session(session_id: &str) {
+    if let Ok(mut guard) = suppression_store().lock() {
+        if let Some(value) = guard.as_ref() {
+            if value.session_id == session_id {
+                value.active.store(false, Ordering::Release);
+                *guard = None;
+            }
+        }
+    }
+    reset_finalized_incoming_speech_boundary();
+}
+
+fn tts_output_path(session_id: &str, generation: u64, event_sequence: u64) -> String {
     format!(
-        "UserData/CacheData/meeting_tts/{}_g{}_u{}.wav",
-        session_id, generation, utterance_sequence
+        "UserData/CacheData/meeting_tts/{}_g{}_s{}.wav",
+        session_id, generation, event_sequence
     )
 }
 
@@ -664,12 +872,13 @@ fn remove_temporary_tts(path: &str) {
 fn stale_outbound_result(
     generation: u64,
     session_id: &str,
-    utterance_sequence: u64,
+    event_sequence: u64,
+    utterance_id: u64,
 ) -> MeetingOutboundProcessResult {
     let _ = update_committed_turn_delivery_state(
         session_id,
         generation,
-        utterance_sequence,
+        utterance_id,
         "interrupted",
     );
     MeetingOutboundProcessResult {
@@ -680,29 +889,27 @@ fn stale_outbound_result(
         note: "Outbound work was discarded because its Meeting generation no longer owns output authority."
             .to_string(),
         generation,
-        utterance_sequence,
+        utterance_sequence: event_sequence,
         runtime_claim: "meeting_outbound_generation_rejected_before_promotion".to_string(),
     }
 }
 
-// Canonical generation-aware AI/output boundary for a speech segment that has
-// ALREADY been finalized by the audio/segmentation owner. This function never reads
-// the rolling ASR-ready snapshot, so partial microphone audio cannot become output.
 pub fn process_authoritative_finalized_outbound_wav(
     generation: u64,
     session_id: &str,
-    utterance_sequence: u64,
+    event_sequence: u64,
+    utterance_id: u64,
     audio_path: String,
 ) -> MeetingOutboundProcessResult {
     if !generation_is_live(generation) {
-        return stale_outbound_result(generation, session_id, utterance_sequence);
+        return stale_outbound_result(generation, session_id, event_sequence, utterance_id);
     }
 
     update_outbound_status(
         generation,
         session_id,
         "transcribing",
-        utterance_sequence,
+        event_sequence,
         false,
         true,
         "",
@@ -716,12 +923,14 @@ pub fn process_authoritative_finalized_outbound_wav(
             "beam_size": 1,
             "vad_filter": true,
             "meeting_session_id": session_id,
+            "meeting_lane": "you",
             "meeting_generation": generation,
-            "utterance_id": utterance_sequence,
+            "meeting_sequence": event_sequence,
+            "utterance_id": utterance_id,
         }),
     );
     if !generation_is_live(generation) {
-        return stale_outbound_result(generation, session_id, utterance_sequence);
+        return stale_outbound_result(generation, session_id, event_sequence, utterance_id);
     }
     let transcript = worker_text(&asr, "transcript_text");
     if !asr.ok || transcript.is_none() {
@@ -730,7 +939,7 @@ pub fn process_authoritative_finalized_outbound_wav(
             generation,
             session_id,
             "listening",
-            utterance_sequence,
+            event_sequence,
             false,
             blocker.contains("empty_transcript"),
             if blocker.contains("empty_transcript") { "" } else { &blocker },
@@ -756,7 +965,7 @@ pub fn process_authoritative_finalized_outbound_wav(
             },
             note: "No Meeting output was generated from this finalized segment.".to_string(),
             generation,
-            utterance_sequence,
+            utterance_sequence: event_sequence,
             runtime_claim: "meeting_outbound_finalized_segment_not_delivered".to_string(),
         };
     }
@@ -766,7 +975,7 @@ pub fn process_authoritative_finalized_outbound_wav(
         generation,
         session_id,
         "translating",
-        utterance_sequence,
+        event_sequence,
         false,
         true,
         "",
@@ -781,12 +990,14 @@ pub fn process_authoritative_finalized_outbound_wav(
             "mode": "Realtime",
             "max_new_tokens": 96,
             "meeting_session_id": session_id,
+            "meeting_lane": "you",
             "meeting_generation": generation,
-            "utterance_id": utterance_sequence,
+            "meeting_sequence": event_sequence,
+            "utterance_id": utterance_id,
         }),
     );
     if !generation_is_live(generation) {
-        return stale_outbound_result(generation, session_id, utterance_sequence);
+        return stale_outbound_result(generation, session_id, event_sequence, utterance_id);
     }
     let translated_text = worker_text(&translation, "translated_text");
     if !translation.ok || translated_text.is_none() {
@@ -795,7 +1006,7 @@ pub fn process_authoritative_finalized_outbound_wav(
             generation,
             session_id,
             "attention_needed",
-            utterance_sequence,
+            event_sequence,
             false,
             false,
             &blocker,
@@ -808,7 +1019,7 @@ pub fn process_authoritative_finalized_outbound_wav(
             blocker,
             note: "No Meeting output was generated from this finalized segment.".to_string(),
             generation,
-            utterance_sequence,
+            utterance_sequence: event_sequence,
             runtime_claim: "meeting_outbound_translation_failed_before_output".to_string(),
         };
     }
@@ -816,37 +1027,42 @@ pub fn process_authoritative_finalized_outbound_wav(
 
     let _ = commit_meeting_turn(
         session_id,
-        generation,
-        utterance_sequence,
+        event_sequence,
+        Some(generation),
+        utterance_id,
+        "you",
         &transcript,
         &translated_text,
+        Some("preparing_voice"),
     );
 
     update_outbound_status(
         generation,
         session_id,
         "synthesizing",
-        utterance_sequence,
+        event_sequence,
         false,
         true,
         "",
         "Translated English text is being synthesized locally.",
     );
-    let requested_tts_path = tts_output_path(session_id, generation, utterance_sequence);
+    let requested_tts_path = tts_output_path(session_id, generation, event_sequence);
     let tts = send_helper_worker_task(
         "synthesize",
         json!({
             "text": translated_text.clone(),
             "output_path": requested_tts_path,
             "meeting_session_id": session_id,
+            "meeting_lane": "you",
             "meeting_generation": generation,
-            "utterance_id": utterance_sequence,
+            "meeting_sequence": event_sequence,
+            "utterance_id": utterance_id,
         }),
     );
     let tts_path = worker_text(&tts, "output_path").unwrap_or_default();
     if !generation_is_live(generation) {
         remove_temporary_tts(&tts_path);
-        return stale_outbound_result(generation, session_id, utterance_sequence);
+        return stale_outbound_result(generation, session_id, event_sequence, utterance_id);
     }
     if !tts.ok || tts_path.is_empty() {
         let blocker = worker_blocker(&tts, "tts:missing_output");
@@ -854,14 +1070,14 @@ pub fn process_authoritative_finalized_outbound_wav(
         let _ = update_committed_turn_delivery_state(
             session_id,
             generation,
-            utterance_sequence,
+            utterance_id,
             "output_failed",
         );
         update_outbound_status(
             generation,
             session_id,
             "attention_needed",
-            utterance_sequence,
+            event_sequence,
             false,
             false,
             &blocker,
@@ -874,31 +1090,72 @@ pub fn process_authoritative_finalized_outbound_wav(
             blocker,
             note: "No Meeting output was generated from this finalized segment.".to_string(),
             generation,
-            utterance_sequence,
+            utterance_sequence: event_sequence,
             runtime_claim: "meeting_outbound_tts_failed_before_output".to_string(),
         };
     }
 
+    let Some(suppression_guard) = begin_self_output_suppression(session_id) else {
+        remove_temporary_tts(&tts_path);
+        let _ = update_committed_turn_delivery_state(
+            session_id,
+            generation,
+            utterance_id,
+            "output_failed",
+        );
+        update_outbound_status(
+            generation,
+            session_id,
+            "attention_needed",
+            event_sequence,
+            false,
+            false,
+            "meeting_outbound:self_output_suppression_unavailable",
+            "Translated voice was not routed because the Meeting self-output suppression boundary was unavailable.",
+        );
+        return MeetingOutboundProcessResult {
+            ok: false,
+            delivered: false,
+            state: "suppression_unavailable".to_string(),
+            blocker: "meeting_outbound:self_output_suppression_unavailable".to_string(),
+            note: "Meeting output was blocked rather than risking TranslateIT TTS becoming an INCOMING turn."
+                .to_string(),
+            generation,
+            utterance_sequence: event_sequence,
+            runtime_claim: "meeting_outbound_suppression_gate_required_before_delivery".to_string(),
+        };
+    };
+
     let _ = update_committed_turn_delivery_state(
         session_id,
         generation,
-        utterance_sequence,
+        utterance_id,
         "speaking",
     );
     update_outbound_status(
         generation,
         session_id,
         "delivering",
-        utterance_sequence,
+        event_sequence,
         true,
         true,
         "",
         "Translated voice is being delivered through TranslateIT Meeting Microphone.",
     );
     let route = dispatch_meeting_virtual_audio_route_provider(tts_path.clone(), generation);
+    drop(suppression_guard);
+    if incoming_session_is_eligible(session_id) && meeting_sound_capture_status().stream_active {
+        update_incoming_status(
+            session_id,
+            "listening",
+            false,
+            "",
+            "Incoming Meeting Sound resumed from a fresh speech boundary after TranslateIT TTS playback ended.",
+        );
+    }
     remove_temporary_tts(&tts_path);
     if !generation_is_live(generation) {
-        return stale_outbound_result(generation, session_id, utterance_sequence);
+        return stale_outbound_result(generation, session_id, event_sequence, utterance_id);
     }
     if !route.ok || !route.route_execution_attempted {
         let blocker = if route.blocker.is_empty() {
@@ -909,14 +1166,14 @@ pub fn process_authoritative_finalized_outbound_wav(
         let _ = update_committed_turn_delivery_state(
             session_id,
             generation,
-            utterance_sequence,
+            utterance_id,
             "output_failed",
         );
         update_outbound_status(
             generation,
             session_id,
             "attention_needed",
-            utterance_sequence,
+            event_sequence,
             false,
             false,
             &blocker,
@@ -929,7 +1186,7 @@ pub fn process_authoritative_finalized_outbound_wav(
             blocker,
             note: "Meeting output was not accepted as complete.".to_string(),
             generation,
-            utterance_sequence,
+            utterance_sequence: event_sequence,
             runtime_claim: "meeting_outbound_delivery_failed_or_unproved".to_string(),
         };
     }
@@ -937,14 +1194,14 @@ pub fn process_authoritative_finalized_outbound_wav(
     let _ = update_committed_turn_delivery_state(
         session_id,
         generation,
-        utterance_sequence,
+        utterance_id,
         "output_complete",
     );
     update_outbound_status(
         generation,
         session_id,
         "listening",
-        utterance_sequence,
+        event_sequence,
         false,
         true,
         "",
@@ -958,10 +1215,122 @@ pub fn process_authoritative_finalized_outbound_wav(
         note: "Generation-aware outbound stages completed. Windows delivery remains local proof."
             .to_string(),
         generation,
-        utterance_sequence,
+        utterance_sequence: event_sequence,
         runtime_claim: "meeting_outbound_output_execution_attempted_needs_windows_runtime_validation"
             .to_string(),
     }
+}
+
+fn process_authoritative_finalized_incoming_wav(
+    session_id: &str,
+    event_sequence: u64,
+    utterance_id: u64,
+    audio_path: String,
+) {
+    if !incoming_session_is_eligible(session_id) {
+        return;
+    }
+    update_incoming_status(
+        session_id,
+        "transcribing",
+        false,
+        "",
+        "Finalized English Meeting Sound is being transcribed locally.",
+    );
+    let asr = send_helper_worker_task(
+        "transcribe",
+        json!({
+            "audio_path": audio_path,
+            "language": "en",
+            "beam_size": 1,
+            "vad_filter": true,
+            "meeting_session_id": session_id,
+            "meeting_lane": "incoming",
+            "meeting_sequence": event_sequence,
+            "utterance_id": utterance_id,
+        }),
+    );
+    if !incoming_session_is_eligible(session_id) {
+        return;
+    }
+    let transcript = worker_text(&asr, "transcript_text");
+    if !asr.ok || transcript.is_none() {
+        let blocker = worker_blocker(&asr, "asr:empty_transcript");
+        let empty = blocker.contains("empty_transcript");
+        update_incoming_status(
+            session_id,
+            "listening",
+            !empty,
+            if empty { "" } else { &blocker },
+            if empty {
+                "Finalized Meeting Sound did not produce stable English speech. Incoming remains listening."
+            } else {
+                "Incoming English ASR failed for the latest finalized Meeting Sound event. Outbound remains available."
+            },
+        );
+        return;
+    }
+    let transcript = transcript.unwrap_or_default();
+
+    update_incoming_status(
+        session_id,
+        "translating",
+        false,
+        "",
+        "Final English Meeting Sound transcript is being translated to Indonesian.",
+    );
+    let translation = send_helper_worker_task(
+        "translate",
+        json!({
+            "text": transcript.clone(),
+            "source_language": "en",
+            "target_language": "id",
+            "mode": "Realtime",
+            "max_new_tokens": 96,
+            "meeting_session_id": session_id,
+            "meeting_lane": "incoming",
+            "meeting_sequence": event_sequence,
+            "utterance_id": utterance_id,
+        }),
+    );
+    if !incoming_session_is_eligible(session_id) {
+        return;
+    }
+    let translated_text = worker_text(&translation, "translated_text");
+    if !translation.ok || translated_text.is_none() {
+        let blocker = worker_blocker(&translation, "translation:empty_output");
+        update_incoming_status(
+            session_id,
+            "degraded",
+            true,
+            &blocker,
+            "Incoming English -> Indonesian translation failed for the latest event. Outbound Meeting translation remains unaffected.",
+        );
+        return;
+    }
+
+    let translated_text = translated_text.unwrap_or_default();
+    let committed = commit_meeting_turn(
+        session_id,
+        event_sequence,
+        None,
+        utterance_id,
+        "incoming",
+        &transcript,
+        &translated_text,
+        None,
+    );
+    update_incoming_status(
+        session_id,
+        if committed { "listening" } else { "degraded" },
+        !committed,
+        if committed { "" } else { "meeting_incoming:commit_rejected" },
+        if committed {
+            "Incoming Indonesian translation was committed in finalized speech/event order. Listening for current Meeting Sound."
+        } else {
+            "Incoming translation finished but could not be committed to the canonical Meeting conversation store."
+        },
+    );
 }
 
 fn start_meeting_outbound_consumer(generation: u64, session_id: &str) -> Result<(), String> {
@@ -979,7 +1348,8 @@ fn start_meeting_outbound_consumer(generation: u64, session_id: &str) -> Result<
         .name("translateit-meeting-outbound".to_string())
         .spawn(move || {
             while let Some(utterance) = wait_take_finalized_outbound_utterance(generation) {
-                if utterance.generation != generation
+                if utterance.generation != Some(generation)
+                    || utterance.lane != "you"
                     || utterance.session_id != thread_session_id
                     || !generation_is_live(generation)
                 {
@@ -992,7 +1362,7 @@ fn start_meeting_outbound_consumer(generation: u64, session_id: &str) -> Result<
                         generation,
                         &thread_session_id,
                         "attention_needed",
-                        utterance.utterance_id,
+                        utterance.sequence,
                         false,
                         false,
                         &write.blocker,
@@ -1006,7 +1376,7 @@ fn start_meeting_outbound_consumer(generation: u64, session_id: &str) -> Result<
                         generation,
                         &thread_session_id,
                         "attention_needed",
-                        utterance.utterance_id,
+                        utterance.sequence,
                         false,
                         false,
                         "meeting_outbound:finalized_audio_path_missing",
@@ -1016,17 +1386,18 @@ fn start_meeting_outbound_consumer(generation: u64, session_id: &str) -> Result<
                 };
 
                 if !generation_is_live(generation) {
-                    remove_finalized_outbound_utterance_wav(&audio_path);
+                    remove_finalized_meeting_utterance_wav(&audio_path);
                     break;
                 }
 
                 let _ = process_authoritative_finalized_outbound_wav(
-                    utterance.generation,
+                    generation,
                     &utterance.session_id,
+                    utterance.sequence,
                     utterance.utterance_id,
                     audio_path.clone(),
                 );
-                remove_finalized_outbound_utterance_wav(&audio_path);
+                remove_finalized_meeting_utterance_wav(&audio_path);
 
                 if !runtime_generation_is_authoritative(generation) {
                     break;
@@ -1080,6 +1451,187 @@ fn stop_meeting_outbound_consumer(generation: u64) -> String {
     }
 }
 
+fn start_meeting_incoming_consumer(session_id: &str) -> Result<(), String> {
+    let store = incoming_consumer_store();
+    let mut guard = store
+        .lock()
+        .map_err(|_| "meeting_incoming:consumer_state_lock_failed".to_string())?;
+    if guard.is_some() {
+        return Err("meeting_incoming:consumer_already_active".to_string());
+    }
+
+    let thread_session_id = session_id.to_string();
+    let runtime_session_id = thread_session_id.clone();
+    let handle = thread::Builder::new()
+        .name("translateit-meeting-incoming".to_string())
+        .spawn(move || {
+            while let Some(utterance) = wait_take_finalized_incoming_utterance(&thread_session_id) {
+                if utterance.session_id != thread_session_id
+                    || utterance.lane != "incoming"
+                    || utterance.generation.is_some()
+                    || !incoming_session_is_eligible(&thread_session_id)
+                {
+                    continue;
+                }
+
+                let write = write_finalized_incoming_utterance_wav(&utterance);
+                if !write.ok {
+                    update_incoming_status(
+                        &thread_session_id,
+                        "degraded",
+                        true,
+                        &write.blocker,
+                        "Finalized incoming speech could not be written to its temporary ASR WAV. Outbound remains available.",
+                    );
+                    continue;
+                }
+                let Some(audio_path) = write.audio_path else {
+                    update_incoming_status(
+                        &thread_session_id,
+                        "degraded",
+                        true,
+                        "meeting_incoming:finalized_audio_path_missing",
+                        "Finalized incoming speech writer returned no temporary audio path.",
+                    );
+                    continue;
+                };
+
+                if !incoming_session_is_eligible(&thread_session_id) {
+                    remove_finalized_meeting_utterance_wav(&audio_path);
+                    break;
+                }
+                process_authoritative_finalized_incoming_wav(
+                    &thread_session_id,
+                    utterance.sequence,
+                    utterance.utterance_id,
+                    audio_path.clone(),
+                );
+                remove_finalized_meeting_utterance_wav(&audio_path);
+            }
+        })
+        .map_err(|error| format!("meeting_incoming:consumer_spawn_failed:{error}"))?;
+
+    *guard = Some(MeetingIncomingConsumerRuntime {
+        session_id: runtime_session_id,
+        thread: Some(handle),
+    });
+    Ok(())
+}
+
+fn stop_meeting_incoming_consumer(session_id: &str) -> String {
+    clear_finalized_incoming_utterance_producer();
+    let store = incoming_consumer_store();
+    let runtime = match store.lock() {
+        Ok(mut guard) => {
+            if guard
+                .as_ref()
+                .map(|value| value.session_id == session_id)
+                .unwrap_or(false)
+            {
+                guard.take()
+            } else {
+                None
+            }
+        }
+        Err(_) => {
+            return "Meeting incoming consumer state lock failed during cleanup.".to_string();
+        }
+    };
+
+    let Some(mut runtime) = runtime else {
+        return "No matching Meeting incoming consumer required cleanup.".to_string();
+    };
+    let joined = runtime
+        .thread
+        .take()
+        .map(|handle| handle.join().is_ok())
+        .unwrap_or(true);
+    if joined {
+        format!("Meeting incoming consumer stopped for session {session_id}.")
+    } else {
+        format!("Meeting incoming consumer for session {session_id} exited unexpectedly during cleanup.")
+    }
+}
+
+fn start_optional_incoming_lane(session_id: &str) -> String {
+    let Some(suppression) = suppression_handle_for_session(session_id) else {
+        update_incoming_status(
+            session_id,
+            "degraded",
+            true,
+            "meeting_incoming:suppression_state_unavailable",
+            "Incoming Meeting Sound was not started because self-output suppression state was unavailable. Outbound remains Live.",
+        );
+        return "Incoming unavailable: suppression state could not be established.".to_string();
+    };
+
+    let capture = start_meeting_sound_capture_runtime(session_id, suppression);
+    if !capture.ok {
+        update_incoming_status(
+            session_id,
+            "degraded",
+            true,
+            if capture.status.blocker.is_empty() {
+                "meeting_incoming:capture_unavailable"
+            } else {
+                &capture.status.blocker
+            },
+            &capture.message,
+        );
+        return format!("Incoming degraded: {}", capture.message);
+    }
+
+    if let Err(error) = start_meeting_incoming_consumer(session_id) {
+        let _ = stop_meeting_sound_capture_runtime();
+        update_incoming_status(
+            session_id,
+            "degraded",
+            true,
+            &error,
+            "Meeting Sound capture opened, but the incoming consumer could not start. Outbound remains Live.",
+        );
+        return format!("Incoming degraded: {error}");
+    }
+
+    update_incoming_status(
+        session_id,
+        "listening",
+        false,
+        "",
+        "Incoming Meeting Sound is listening for finalized English speech. This optional lane may remain available while outbound is Paused.",
+    );
+    "Incoming Meeting Sound lane started.".to_string()
+}
+
+fn ensure_helper_for_healthy_incoming(session_id: &str) -> String {
+    if !meeting_sound_capture_status().stream_active || !incoming_session_is_eligible(session_id) {
+        return "Incoming helper restart was not required.".to_string();
+    }
+    if get_helper_bridge_status().state == "ready" {
+        return "Incoming helper remained ready.".to_string();
+    }
+    let result = start_helper_bridge();
+    if result.ok {
+        update_incoming_status(
+            session_id,
+            "listening",
+            false,
+            "",
+            "Incoming Meeting Sound remained active while the local helper was restored after outbound Pause cleanup.",
+        );
+        "Incoming helper was restored after outbound generation cancellation.".to_string()
+    } else {
+        update_incoming_status(
+            session_id,
+            "degraded",
+            true,
+            "meeting_incoming:helper_restart_failed",
+            "Incoming Meeting Sound capture remains open, but local incoming AI is degraded because the helper could not be restored. Outbound is Paused.",
+        );
+        format!("Incoming helper restore failed: {}", result.message)
+    }
+}
+
 fn rollback_resume_to_paused(
     generation: u64,
     session_id: &str,
@@ -1091,6 +1643,7 @@ fn rollback_resume_to_paused(
     let _ = stop_live_capture_runtime();
     let _ = cancel_helper_bridge_meeting_generation(generation);
     let _ = stop_meeting_outbound_consumer(generation);
+    let _ = ensure_helper_for_healthy_incoming(session_id);
     update_outbound_status(
         generation,
         session_id,
@@ -1166,6 +1719,10 @@ pub fn start_meeting_translation() -> MeetingSessionActionResult {
     let generation = start_snapshot.generation;
     let session_id = start_snapshot.session_id.clone();
     reset_committed_turns(&session_id);
+    reset_finalized_meeting_sequence(&session_id);
+    let _ = reset_self_output_suppression(&session_id);
+    clear_incoming_status();
+
     let capture = start_live_capture_runtime(starting.clone());
     if !capture.ok {
         let _ = revoke_application_meeting_session_authority(
@@ -1173,8 +1730,11 @@ pub fn start_meeting_translation() -> MeetingSessionActionResult {
             "Start Translation failed while opening the required microphone resource. Authority was revoked before rollback.",
         );
         let _ = stop_live_capture_runtime();
+        let _ = stop_meeting_sound_capture_runtime();
         let _ = reset_live_pipeline_handoff_status();
         let _ = clear_runtime_handoff_state();
+        clear_finalized_meeting_sequence();
+        clear_self_output_suppression_for_session(&session_id);
         clear_committed_turns_for_session(&session_id);
         let _ = clear_runtime_session_state();
         return blocked_result(
@@ -1198,8 +1758,11 @@ pub fn start_meeting_translation() -> MeetingSessionActionResult {
         );
         let _ = cancel_meeting_virtual_audio_route_provider(generation);
         let _ = stop_live_capture_runtime();
+        let _ = stop_meeting_sound_capture_runtime();
         let _ = reset_live_pipeline_handoff_status();
         let _ = clear_runtime_handoff_state();
+        clear_finalized_meeting_sequence();
+        clear_self_output_suppression_for_session(&session_id);
         clear_committed_turns_for_session(&session_id);
         let _ = clear_runtime_session_state();
         return blocked_result(
@@ -1216,10 +1779,13 @@ pub fn start_meeting_translation() -> MeetingSessionActionResult {
         );
         let _ = cancel_meeting_virtual_audio_route_provider(generation);
         let _ = stop_live_capture_runtime();
-        let helper_cancel = cancel_helper_bridge_task();
+        let _ = stop_meeting_sound_capture_runtime();
+        let helper_cancel = cancel_helper_bridge_meeting_session(&session_id);
         let consumer_cleanup = stop_meeting_outbound_consumer(generation);
         let _ = reset_live_pipeline_handoff_status();
         let _ = clear_runtime_handoff_state();
+        clear_finalized_meeting_sequence();
+        clear_self_output_suppression_for_session(&session_id);
         clear_committed_turns_for_session(&session_id);
         let _ = clear_runtime_session_state();
         return blocked_result(
@@ -1239,13 +1805,15 @@ pub fn start_meeting_translation() -> MeetingSessionActionResult {
         false,
         true,
         "",
-        "Translation Live is listening. Rolling audio remains preview-only; finalized utterances are consumed once by the serialized outbound runtime.",
+        "Translation Live is listening. Rolling audio remains preview-only; finalized utterances receive shared Meeting event sequence before AI.",
     );
+    let incoming_message = start_optional_incoming_lane(&session_id);
     MeetingSessionActionResult {
         ok: true,
         state: "live".to_string(),
-        message: "Translation Live session committed with authoritative capture, finalized-utterance production, and one serialized outbound consumer."
-            .to_string(),
+        message: format!(
+            "Translation Live committed with authoritative outbound capture/consumer. {incoming_message}"
+        ),
         status: status_from_report(committed, build_preflight()),
     }
 }
@@ -1270,7 +1838,7 @@ pub fn pause_meeting_translation() -> MeetingSessionActionResult {
         return MeetingSessionActionResult {
             ok: true,
             state: "already_paused".to_string(),
-            message: "Translation is already paused. Duplicate Pause did not change the Meeting session."
+            message: "Translation is already paused. Duplicate Pause did not change the Meeting session or incoming lane."
                 .to_string(),
             status: status_from_report(current, build_preflight()),
         };
@@ -1302,6 +1870,7 @@ pub fn pause_meeting_translation() -> MeetingSessionActionResult {
     let capture_stop = stop_live_capture_runtime();
     let helper_cancel = cancel_helper_bridge_meeting_generation(generation);
     let consumer_cleanup = stop_meeting_outbound_consumer(generation);
+    let incoming_helper = ensure_helper_for_healthy_incoming(&session_id);
     update_outbound_status(
         generation,
         &session_id,
@@ -1310,15 +1879,15 @@ pub fn pause_meeting_translation() -> MeetingSessionActionResult {
         false,
         true,
         "",
-        "Translation is paused. New/pending finalized outbound work is cleared and the old generation cannot promote output.",
+        "Outbound Translation is paused. Incoming Meeting Sound remains session-scoped and may continue.",
     );
 
     MeetingSessionActionResult {
         ok: true,
         state: "paused".to_string(),
         message: format!(
-            "Translation paused without ending the Meeting session. Old generation output authority was invalidated before route/capture/helper/consumer cleanup. Microphone cleanup: {} Helper cleanup: {} Consumer cleanup: {}",
-            capture_stop.message, helper_cancel.message, consumer_cleanup
+            "Outbound Translation paused without ending the Meeting session. Microphone cleanup: {} Helper cleanup: {} Consumer cleanup: {} {}",
+            capture_stop.message, helper_cancel.message, consumer_cleanup, incoming_helper
         ),
         status: status_from_report(paused, build_preflight()),
     }
@@ -1469,12 +2038,12 @@ pub fn resume_meeting_translation() -> MeetingSessionActionResult {
         false,
         true,
         "",
-        "Translation resumed with a fresh generation. Pre-Pause work cannot promote into this generation.",
+        "Translation resumed with a fresh outbound generation. Shared Meeting event sequence and healthy incoming capture were retained.",
     );
     MeetingSessionActionResult {
         ok: true,
         state: "resumed".to_string(),
-        message: "Translation resumed for the same Meeting session with fresh generation authority and a new capture/finalized-consumer resource set."
+        message: "Outbound Translation resumed for the same Meeting session with fresh generation authority. Healthy incoming Meeting Sound was not recreated."
             .to_string(),
         status: status_from_report(committed, build_preflight()),
     }
@@ -1484,11 +2053,16 @@ pub fn resume_meeting_translation() -> MeetingSessionActionResult {
 pub fn stop_meeting_translation() -> MeetingSessionActionResult {
     let current = latest_runtime_session_state();
     let Some(snapshot) = current.snapshot.as_ref() else {
+        let _ = stop_meeting_sound_capture_runtime();
+        clear_finalized_incoming_utterance_producer();
+        clear_finalized_meeting_sequence();
         clear_all_committed_turns();
+        clear_incoming_status();
         return MeetingSessionActionResult {
             ok: true,
             state: "already_stopped".to_string(),
-            message: "Translation is already stopped. Stop remains idempotent.".to_string(),
+            message: "Translation is already stopped. Stop remains idempotent and optional incoming audio state was cleared."
+                .to_string(),
             status: status_from_report(current, build_preflight()),
         };
     };
@@ -1499,7 +2073,7 @@ pub fn stop_meeting_translation() -> MeetingSessionActionResult {
 
     let revoked = revoke_application_meeting_session_authority(
         generation,
-        "Stop Translation accepted. Old Meeting generation authority was revoked before cleanup.",
+        "Stop Translation accepted. Old outbound Meeting generation authority was revoked before full-session cleanup.",
     );
     if revoked
         .snapshot
@@ -1517,23 +2091,33 @@ pub fn stop_meeting_translation() -> MeetingSessionActionResult {
     interrupt_committed_turns_for_generation(&session_id, generation);
     let _ = cancel_meeting_virtual_audio_route_provider(generation);
     let capture_stop = stop_live_capture_runtime();
-    let helper_cancel = cancel_helper_bridge_task();
-    let consumer_cleanup = stop_meeting_outbound_consumer(generation);
+    let incoming_capture_stop = stop_meeting_sound_capture_runtime();
+    let helper_cancel = cancel_helper_bridge_meeting_session(&session_id);
+    let outbound_cleanup = stop_meeting_outbound_consumer(generation);
+    let incoming_cleanup = stop_meeting_incoming_consumer(&session_id);
 
     let final_turns = current_committed_turn_snapshot();
     let history_message = finalize_meeting_history(&final_turns, started_unix_ms, unix_ms());
 
     let _ = reset_live_pipeline_handoff_status();
     let _ = clear_runtime_handoff_state();
+    clear_self_output_suppression_for_session(&session_id);
+    clear_finalized_meeting_sequence();
     clear_committed_turns_for_session(&session_id);
+    clear_incoming_status();
     let cleared = clear_runtime_session_state();
 
     MeetingSessionActionResult {
         ok: true,
         state: "stopped".to_string(),
         message: format!(
-            "Translation stopped. Authority was revoked before route/capture/helper/consumer cleanup. Microphone cleanup: {} Helper cleanup: {} Consumer cleanup: {} History: {}",
-            capture_stop.message, helper_cancel.message, consumer_cleanup, history_message
+            "Translation stopped. Authority was revoked before both audio lanes/helper/consumers were cleaned. Microphone: {} Meeting Sound: {} Helper: {} Outbound: {} Incoming: {} History: {}",
+            capture_stop.message,
+            incoming_capture_stop.message,
+            helper_cancel.message,
+            outbound_cleanup,
+            incoming_cleanup,
+            history_message
         ),
         status: status_from_report(cleared, build_preflight()),
     }
