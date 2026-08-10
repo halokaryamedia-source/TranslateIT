@@ -6,7 +6,7 @@ use std::time::{SystemTime, UNIX_EPOCH};
 
 use crate::engine::paths::ProjectPaths;
 
-const HISTORY_SCHEMA_VERSION: u32 = 1;
+const HISTORY_SCHEMA_VERSION: u32 = 2;
 const MAX_HISTORY_ENTRY_FILE_BYTES: u64 = 2_000_000;
 const MAX_HISTORY_LIST_SCAN_FILES: usize = 2_000;
 const MAX_HISTORY_LIST_ROWS: usize = 500;
@@ -36,6 +36,8 @@ pub struct HistoryEntry {
     pub saved_unix_ms: Option<u128>,
     pub duration_ms: Option<u64>,
     pub interrupted: bool,
+    #[serde(default)]
+    pub dropped_turn_count: u64,
     pub source_language: String,
     pub target_language: String,
     pub tone: String,
@@ -105,6 +107,7 @@ pub fn create_text_recent(
         saved_unix_ms: None,
         duration_ms: None,
         interrupted: false,
+        dropped_turn_count: 0,
         source_language,
         target_language,
         tone,
@@ -125,6 +128,96 @@ pub fn create_text_recent(
             entry_id,
             message: "Translation completed, but Recent History could not be saved."
                 .to_string(),
+        },
+    }
+}
+
+pub fn create_meeting_recent(
+    session_id: String,
+    started_unix_ms: u128,
+    ended_unix_ms: u128,
+    source_language: String,
+    target_language: String,
+    tone: String,
+    mode: String,
+    interrupted: bool,
+    dropped_turn_count: u64,
+    turns: Vec<HistoryTurn>,
+) -> HistoryWriteResult {
+    let entry_id = sanitize_entry_id(&session_id);
+    if entry_id.is_empty() {
+        return HistoryWriteResult {
+            ok: false,
+            entry_id,
+            message: "Meeting History was not saved because the finalized session id was invalid."
+                .to_string(),
+        };
+    }
+
+    if let Some(existing) = get_history("recent".to_string(), entry_id.clone()) {
+        return HistoryWriteResult {
+            ok: true,
+            entry_id: existing.entry_id,
+            message: "Meeting is already present in Recent History.".to_string(),
+        };
+    }
+
+    let ended_unix_ms = if ended_unix_ms == 0 {
+        current_unix_ms()
+    } else {
+        ended_unix_ms
+    };
+    let created_unix_ms = if started_unix_ms == 0 {
+        ended_unix_ms
+    } else {
+        started_unix_ms.min(ended_unix_ms)
+    };
+    let duration_ms = u64::try_from(ended_unix_ms.saturating_sub(created_unix_ms))
+        .unwrap_or(u64::MAX);
+    let interrupted = interrupted
+        || turns
+            .iter()
+            .any(|turn| turn.delivery_state.as_deref() == Some("interrupted"));
+
+    let entry = sanitize_entry(HistoryEntry {
+        schema_version: HISTORY_SCHEMA_VERSION,
+        entry_id: entry_id.clone(),
+        entry_type: "meeting".to_string(),
+        title: "Meeting Translation".to_string(),
+        created_unix_ms,
+        updated_unix_ms: ended_unix_ms,
+        saved_unix_ms: None,
+        duration_ms: Some(duration_ms),
+        interrupted,
+        dropped_turn_count,
+        source_language,
+        target_language,
+        tone,
+        mode,
+        text_source: None,
+        text_target: None,
+        turns,
+    });
+
+    if entry.turns.is_empty() {
+        return HistoryWriteResult {
+            ok: true,
+            entry_id: String::new(),
+            message: "Meeting ended with no committed translated turns, so no Recent History entry was created."
+                .to_string(),
+        };
+    }
+
+    match write_entry(&scope_dir("recent"), &entry) {
+        Ok(()) => HistoryWriteResult {
+            ok: true,
+            entry_id,
+            message: "Meeting added to Recent History.".to_string(),
+        },
+        Err(_) => HistoryWriteResult {
+            ok: false,
+            entry_id,
+            message: "Meeting ended, but Recent History could not be saved.".to_string(),
         },
     }
 }
@@ -361,6 +454,9 @@ fn sanitize_entry(mut entry: HistoryEntry) -> HistoryEntry {
     if entry.turns.len() > MAX_HISTORY_TURNS {
         let remove_count = entry.turns.len() - MAX_HISTORY_TURNS;
         entry.turns.drain(0..remove_count);
+        entry.dropped_turn_count = entry
+            .dropped_turn_count
+            .saturating_add(u64::try_from(remove_count).unwrap_or(u64::MAX));
     }
     for turn in &mut entry.turns {
         turn.lane = match turn.lane.trim().to_lowercase().as_str() {
