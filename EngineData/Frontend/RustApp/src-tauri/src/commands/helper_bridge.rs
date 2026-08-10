@@ -6,7 +6,9 @@ use std::process::{Command, Stdio};
 use crate::commands::diagnostic_trace::{
     trace_command_end, trace_command_error, trace_command_start,
 };
-use crate::engine::runtime_state::runtime_generation_is_authoritative;
+use crate::engine::runtime_state::{
+    latest_runtime_session_state, runtime_generation_is_authoritative,
+};
 
 use super::bridge_paths::{
     helper_stderr_log_path, slash_path, worker_python_candidates,
@@ -260,7 +262,8 @@ fn send_worker_task(task: &str, mut payload: Value) -> HelperBridgeWorkerRespons
                     runtime.cuda_ready = false;
                     runtime.updated_unix_ms = unix_ms();
                 }
-                blocked_response_from_runtime(task, &request_id, priority, &runtime.message.clone(), &runtime)
+                let message = runtime.message.clone();
+                blocked_response_from_runtime(task, &request_id, priority, &message, &runtime)
             }
             Err(_) => standalone_blocked_response(
                 task,
@@ -294,11 +297,12 @@ fn send_worker_task(task: &str, mut payload: Value) -> HelperBridgeWorkerRespons
                             runtime.cuda_ready = false;
                             runtime.updated_unix_ms = unix_ms();
                         }
+                        let message = runtime.message.clone();
                         blocked_response_from_runtime(
                             task,
                             &request_id,
                             priority,
-                            &runtime.message.clone(),
+                            &message,
                             &runtime,
                         )
                     }
@@ -346,19 +350,20 @@ fn send_worker_task(task: &str, mut payload: Value) -> HelperBridgeWorkerRespons
                     "Meeting worker result was discarded because its generation is no longer authoritative."
                         .to_string();
                 runtime.updated_unix_ms = unix_ms();
+                let message = runtime.message.clone();
                 return response_with_runtime(
                     false,
                     task,
                     &request_id,
                     priority,
-                    runtime.message.clone(),
+                    message.clone(),
                     json!({
                         "ok": false,
                         "stage": task,
                         "request_id": request_id,
                         "scheduler_priority": priority.label(),
                         "blocker": "helper_scheduler:meeting_generation_not_authoritative",
-                        "note": runtime.message,
+                        "note": message,
                     }),
                     &runtime,
                 );
@@ -677,6 +682,17 @@ pub fn cancel_helper_bridge_meeting_generation(generation: u64) -> HelperBridgeA
 
 #[tauri::command]
 pub fn cancel_helper_bridge_task() -> HelperBridgeActionResult {
+    // Meeting Stop revokes its application generation before calling this inherited
+    // command. During that stop window, cancellation must be scoped to the revoked
+    // Meeting generation so a standalone Text request is not killed as collateral.
+    let revoked_meeting_generation = latest_runtime_session_state()
+        .snapshot
+        .filter(|snapshot| !snapshot.authority_active)
+        .map(|snapshot| snapshot.generation);
+    if let Some(generation) = revoked_meeting_generation {
+        return cancel_helper_bridge_meeting_generation(generation);
+    }
+
     match runtime().lock() {
         Ok(mut runtime) => {
             if runtime.active_task.is_some() {
