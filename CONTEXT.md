@@ -246,8 +246,14 @@ removed.
 
 The canonical worker tokenizes translation input without truncation and rejects input
 whose actual model/tokenizer limit cannot be safely established or is exceeded.
-Generated-output completeness at the `max_new_tokens` ceiling is still an unresolved
-correctness item and must not be assumed complete.
+Generated translation is promoted only when end-of-sequence completion can be
+verified; missing/unverifiable completion or non-EOS termination is rejected instead
+of being exposed as successful Text/TTS output.
+
+Outbound English TTS also requires an explicitly identified English-capable voice.
+Piper selection requires matching voice metadata with an English language code;
+Windows SAPI selection requires an English culture and explicitly selects the chosen
+voice rather than relying on the Windows default.
 
 ## History, Saved, Privacy And Storage
 
@@ -411,14 +417,15 @@ Source-side alignment completed on `New` includes:
 - caller-owned Meeting Realtime / Text Quality mode behavior;
 - one helper scheduler/generation-aware cancellation source contract;
 - translation input rejection instead of silent tokenizer truncation;
+- translation output rejection when normal EOS completion cannot be verified;
+- explicit English-capable Piper/SAPI voice selection before outbound synthesis;
 - one WorkerRuntime `pyproject.toml` dependency/tooling owner with Ruff/pytest proof
   baseline and privacy-bounded persistent-worker smoke source.
 
 Still incomplete or unproved:
 
-- generated translation output-completion detection when generation reaches its token
-  ceiling without verified normal completion;
-- explicit English TTS provider/voice selection;
+- actual MarianMT/NLLB EOS behavior and translation quality on target runtime;
+- actual English Piper/SAPI voice availability, synthesis success, and audio quality;
 - finalized outbound utterance producer and full continuous Meeting runtime;
 - Meeting Live transcript/global cross-view state and complete Pause/Resume/Stop UX;
 - incoming Meeting Sound lane, self-output suppression, turn coordination, and bounded
