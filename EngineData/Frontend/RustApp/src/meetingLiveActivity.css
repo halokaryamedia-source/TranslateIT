@@ -110,8 +110,116 @@ body:not(.settings-open) .meeting-live-activity-state p {
   line-height: 1.6;
 }
 
+body:not(.settings-open) .meeting-live-transcript {
+  display: grid;
+  gap: 12px;
+  min-height: 180px;
+}
+
+body:not(.settings-open) .meeting-live-transcript-header {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 16px;
+  padding-top: 4px;
+}
+
+body:not(.settings-open) .meeting-live-transcript-header strong {
+  font-size: 14px;
+}
+
+body:not(.settings-open) .meeting-live-transcript-header span {
+  color: var(--ref-muted);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: .04em;
+  text-transform: uppercase;
+}
+
+body:not(.settings-open) .meeting-live-transcript-notice,
+body:not(.settings-open) .meeting-live-transcript-empty {
+  margin: 0;
+  border: 1px solid rgba(255, 255, 255, .07);
+  border-radius: 12px;
+  padding: 13px 15px;
+  color: var(--ref-muted);
+  background: rgba(255, 255, 255, .025);
+  font-size: 11px;
+  line-height: 1.5;
+}
+
+body:not(.settings-open) .meeting-live-transcript-notice[hidden],
+body:not(.settings-open) .meeting-live-transcript-empty[hidden] {
+  display: none !important;
+}
+
+body:not(.settings-open) .meeting-live-transcript-turns {
+  display: grid;
+  gap: 0;
+}
+
+body:not(.settings-open) .meeting-live-transcript-turn {
+  display: grid;
+  gap: 9px;
+  border-top: 1px solid rgba(255, 255, 255, .07);
+  padding: 17px 2px;
+}
+
+body:not(.settings-open) .meeting-live-transcript-turn:last-child {
+  border-bottom: 1px solid rgba(255, 255, 255, .07);
+}
+
+body:not(.settings-open) .meeting-live-transcript-turn-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+body:not(.settings-open) .meeting-live-transcript-lane {
+  color: var(--ref-muted);
+  font-size: 10px;
+  font-weight: 900;
+  letter-spacing: .08em;
+}
+
+body:not(.settings-open) .meeting-live-transcript-delivery {
+  color: var(--ref-muted);
+  font-size: 10px;
+  font-weight: 700;
+}
+
+body:not(.settings-open) .meeting-live-transcript-turn[data-delivery-state="output_complete"] .meeting-live-transcript-delivery {
+  color: rgb(187, 247, 208);
+}
+
+body:not(.settings-open) .meeting-live-transcript-turn[data-delivery-state="output_failed"] .meeting-live-transcript-delivery,
+body:not(.settings-open) .meeting-live-transcript-turn[data-delivery-state="interrupted"] .meeting-live-transcript-delivery {
+  color: rgb(253, 230, 138);
+}
+
+body:not(.settings-open) .meeting-live-transcript-source,
+body:not(.settings-open) .meeting-live-transcript-translation {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
+body:not(.settings-open) .meeting-live-transcript-source {
+  color: var(--ref-text);
+  font-size: 15px;
+  font-weight: 700;
+  line-height: 1.55;
+}
+
+body:not(.settings-open) .meeting-live-transcript-translation {
+  color: var(--ref-muted);
+  font-size: 12px;
+  line-height: 1.55;
+}
+
 @media (max-width: 760px) {
-  body:not(.settings-open) .meeting-live-activity-header {
+  body:not(.settings-open) .meeting-live-activity-header,
+  body:not(.settings-open) .meeting-live-transcript-header {
     align-items: flex-start;
     flex-direction: column;
   }
