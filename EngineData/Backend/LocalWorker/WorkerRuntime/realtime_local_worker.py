@@ -43,7 +43,7 @@ ASR_RUNTIME_DEVICE = "not_loaded"
 ASR_RUNTIME_COMPUTE = "not_loaded"
 ASR_RUNTIME_MODEL_ID = "not_loaded"
 TRANSLATION_RUNTIME: dict[str, dict[str, Any]] = {}
-SAPI_STATUS: tuple[bool, list[str], str] | None = None
+SAPI_STATUS: tuple[bool, list[dict[str, str]], str] | None = None
 
 
 def now_ms() -> int:
@@ -163,13 +163,25 @@ def normalize_language(value: Any, fallback: str) -> str:
     return text[:2] if text else fallback
 
 
+def normalize_tts_language_code(value: Any) -> str:
+    return str(value or "").strip().replace("_", "-").lower()
+
+
+def is_english_language_code(value: Any) -> bool:
+    code = normalize_tts_language_code(value)
+    return code == "en" or code.startswith("en-")
+
+
 def nllb_language_code(value: Any, fallback: str) -> str:
     normalized = normalize_language(value, fallback)
     return NLLB_LANGUAGE_CODES.get(normalized, NLLB_LANGUAGE_CODES[fallback])
 
 
 def direction_pair(source_language: str, target_language: str) -> str:
-    return f"{normalize_language(source_language, 'id')}->{normalize_language(target_language, 'en')}"
+    return (
+        f"{normalize_language(source_language, 'id')}"
+        f"->{normalize_language(target_language, 'en')}"
+    )
 
 
 def resolve_worker_path(value: Any, default_path: Path, allowed_roots: list[Path]) -> Path:
@@ -212,18 +224,94 @@ def translation_model_ready(path: Path, nllb: bool = False) -> bool:
     )
 
 
+def piper_voice_config_path(voice_path: Path) -> Path:
+    return Path(f"{voice_path}.json")
+
+
+def piper_voice_language_code(voice_path: Path) -> str | None:
+    config_path = piper_voice_config_path(voice_path)
+    if not config_path.is_file():
+        return None
+    try:
+        payload = json.loads(config_path.read_text(encoding="utf-8"))
+    except Exception:
+        return None
+
+    language = payload.get("language")
+    if isinstance(language, dict):
+        for key in ("code", "family"):
+            code = normalize_tts_language_code(language.get(key))
+            if code:
+                return code
+    elif isinstance(language, str):
+        code = normalize_tts_language_code(language)
+        if code:
+            return code
+
+    espeak = payload.get("espeak")
+    if isinstance(espeak, dict):
+        code = normalize_tts_language_code(espeak.get("voice"))
+        if code:
+            return code
+    return None
+
+
+def select_english_piper_voice(root: Path | None = None) -> dict[str, Any] | None:
+    root = root or PIPER_ROOT
+    if not root.exists():
+        return None
+
+    candidates: list[dict[str, Any]] = []
+    for voice_path in sorted(root.glob("**/*.onnx")):
+        language_code = piper_voice_language_code(voice_path)
+        if not is_english_language_code(language_code):
+            continue
+        candidates.append(
+            {
+                "voice_id": voice_path.stem,
+                "language_code": normalize_tts_language_code(language_code),
+                "voice_path": voice_path,
+                "config_path": piper_voice_config_path(voice_path),
+            }
+        )
+
+    if not candidates:
+        return None
+    candidates.sort(
+        key=lambda item: (
+            0 if item["language_code"] == "en-us" else 1,
+            item["language_code"],
+            item["voice_id"].lower(),
+            str(item["voice_path"]).lower(),
+        )
+    )
+    return candidates[0]
+
+
 def piper_ready() -> bool:
-    executable = PIPER_ROOT / "piper.exe"
-    voices = list(PIPER_ROOT.glob("**/*.onnx")) if PIPER_ROOT.exists() else []
-    return executable.exists() and bool(voices)
+    return (PIPER_ROOT / "piper.exe").is_file() and select_english_piper_voice() is not None
 
 
-def first_piper_voice() -> Path | None:
-    voices = sorted(PIPER_ROOT.glob("**/*.onnx")) if PIPER_ROOT.exists() else []
-    return voices[0] if voices else None
+def normalize_sapi_voices(raw: Any) -> list[dict[str, str]]:
+    if isinstance(raw, dict):
+        raw_items = [raw]
+    elif isinstance(raw, list):
+        raw_items = raw
+    else:
+        raw_items = []
+
+    voices: list[dict[str, str]] = []
+    for item in raw_items:
+        if not isinstance(item, dict):
+            continue
+        name = compact_runtime_text(item.get("name"), 200)
+        culture = normalize_tts_language_code(item.get("culture"))
+        if name:
+            voices.append({"name": name, "culture": culture})
+    return voices
 
 
-def sapi_status() -> tuple[bool, list[str], str]:
+def sapi_status() -> tuple[bool, list[dict[str, str]], str]:
     global SAPI_STATUS
     if SAPI_STATUS is not None:
         return SAPI_STATUS
@@ -234,9 +322,10 @@ def sapi_status() -> tuple[bool, list[str], str]:
     command = (
         "Add-Type -AssemblyName System.Speech; "
         "$s = New-Object System.Speech.Synthesis.SpeechSynthesizer; "
-        "$voices = @($s.GetInstalledVoices() | ForEach-Object { $_.VoiceInfo.Name }); "
+        "$voices = @($s.GetInstalledVoices() | ForEach-Object { "
+        "@{name=$_.VoiceInfo.Name; culture=$_.VoiceInfo.Culture.Name} }); "
         "$s.Dispose(); "
-        "@{ready=($voices.Count -gt 0); voices=$voices} | ConvertTo-Json -Compress"
+        "@{voices=$voices} | ConvertTo-Json -Compress -Depth 4"
     )
     try:
         completed = subprocess.run(
@@ -250,16 +339,84 @@ def sapi_status() -> tuple[bool, list[str], str]:
             SAPI_STATUS = (False, [], completed.stderr.strip() or "tts:sapi_probe_failed")
         else:
             payload = json.loads(completed.stdout.strip())
-            raw_voices = payload.get("voices", [])
-            voices = (
-                [raw_voices]
-                if isinstance(raw_voices, str)
-                else [str(value) for value in raw_voices]
-            )
-            SAPI_STATUS = (bool(payload.get("ready")), voices, "")
+            voices = normalize_sapi_voices(payload.get("voices", []))
+            SAPI_STATUS = (bool(voices), voices, "")
     except Exception as exc:
         SAPI_STATUS = (False, [], f"{type(exc).__name__}:{exc}")
     return SAPI_STATUS
+
+
+def select_english_sapi_voice(
+    voices: list[dict[str, str]] | None = None,
+) -> dict[str, str] | None:
+    if voices is None:
+        _ready, voices, _error = sapi_status()
+    candidates = [
+        voice
+        for voice in (voices or [])
+        if voice.get("name") and is_english_language_code(voice.get("culture"))
+    ]
+    if not candidates:
+        return None
+    candidates.sort(
+        key=lambda item: (
+            0 if normalize_tts_language_code(item.get("culture")) == "en-us" else 1,
+            normalize_tts_language_code(item.get("culture")),
+            item.get("name", "").lower(),
+        )
+    )
+    selected = candidates[0]
+    return {
+        "name": selected["name"],
+        "culture": normalize_tts_language_code(selected.get("culture")),
+    }
+
+
+def select_english_tts_voice() -> dict[str, Any]:
+    executable = PIPER_ROOT / "piper.exe"
+    piper_voice = select_english_piper_voice()
+    if executable.is_file() and piper_voice is not None:
+        return {
+            "ok": True,
+            "provider": "piper",
+            "voice_id": piper_voice["voice_id"],
+            "language_code": piper_voice["language_code"],
+            "voice_path": piper_voice["voice_path"],
+            "config_path": piper_voice["config_path"],
+            "sapi_voices": [],
+            "blocker": "",
+        }
+
+    sapi_probe_ready, sapi_voices, sapi_error = sapi_status()
+    sapi_voice = select_english_sapi_voice(sapi_voices)
+    if sapi_probe_ready and sapi_voice is not None:
+        return {
+            "ok": True,
+            "provider": "windows-sapi",
+            "voice_id": sapi_voice["name"],
+            "language_code": sapi_voice["culture"],
+            "voice_path": None,
+            "config_path": None,
+            "sapi_voices": sapi_voices,
+            "blocker": "",
+        }
+
+    if sapi_probe_ready and sapi_voice is None:
+        blocker = "tts:no_english_sapi_voice"
+    elif executable.is_file() and piper_voice is None:
+        blocker = "tts:no_verified_english_piper_voice"
+    else:
+        blocker = sapi_error or "tts:no_verified_english_voice_available"
+    return {
+        "ok": False,
+        "provider": None,
+        "voice_id": None,
+        "language_code": None,
+        "voice_path": None,
+        "config_path": None,
+        "sapi_voices": sapi_voices,
+        "blocker": blocker,
+    }
 
 
 def choose_asr_model() -> tuple[str, Path]:
@@ -302,7 +459,9 @@ def status_action_items(blockers: list[str], warnings: list[str]) -> list[str]:
             "Provide the NLLB Quality model before standalone Text Quality translation can be Ready."
         )
     if "tts:" in joined:
-        actions.append("Provide a supported local English TTS provider.")
+        actions.append(
+            "Provide a Piper English voice with its .onnx.json metadata or an installed Windows SAPI English voice."
+        )
     if "cuda" in joined:
         actions.append("CUDA is optional; CPU fallback remains explicit degraded operation.")
     return list(dict.fromkeys(actions))
@@ -332,9 +491,8 @@ def build_status_payload() -> dict[str, Any]:
     quality_translation_ready = translation_model_ready(
         QUALITY_TRANSLATION_MODEL, nllb=True
     )
-    piper_is_ready = piper_ready()
-    sapi_is_ready, sapi_voices, sapi_error = sapi_status()
-    tts_ready = piper_is_ready or sapi_is_ready
+    tts_selection = select_english_tts_voice()
+    tts_ready = bool(tts_selection["ok"])
 
     blockers: list[str] = []
     warnings: list[str] = []
@@ -355,7 +513,7 @@ def build_status_payload() -> dict[str, Any]:
     if not quality_translation_ready:
         warnings.append("model:nllb_quality_model_missing")
     if not tts_ready:
-        blockers.append(sapi_error or "tts:no_local_provider_available")
+        blockers.append(tts_selection["blocker"])
     if not cuda_available or not ctranslate2_cuda_available:
         warnings.append("cuda_unavailable_cpu_fallback_active")
 
@@ -424,16 +582,13 @@ def build_status_payload() -> dict[str, Any]:
             },
         },
         "tts": {
-            "piper_ready": piper_is_ready,
-            "sapi_ready": sapi_is_ready,
-            "sapi_voices": sapi_voices,
+            "ready": tts_ready,
+            "provider": tts_selection["provider"],
+            "voice_id": tts_selection["voice_id"],
+            "language_code": tts_selection["language_code"],
+            "blocker": tts_selection["blocker"],
+            "sapi_voices": tts_selection["sapi_voices"],
             "voice_actor_marcel_ready": False,
-            "provider": "piper"
-            if piper_is_ready
-            else "windows-sapi"
-            if sapi_is_ready
-            else None,
-            "blocker": "" if tts_ready else sapi_error or "tts:no_local_provider_available",
         },
         "gpu": gpu_runtime,
         "asr_primary_model_ready": asr_primary_ready,
@@ -444,8 +599,8 @@ def build_status_payload() -> dict[str, Any]:
         "asr_readiness_grade": asr_readiness_grade,
         "translation_model_ready": realtime_translation_ready,
         "quality_translation_model_ready": quality_translation_ready,
-        "piper_ready": piper_is_ready,
-        "sapi_ready": sapi_is_ready,
+        "piper_ready": tts_selection["provider"] == "piper",
+        "sapi_ready": tts_selection["provider"] == "windows-sapi",
         "tts_default_ready": tts_ready,
         "voice_actor_marcel_ready": False,
         "faster_whisper_import_ready": faster_whisper_ready,
@@ -812,6 +967,125 @@ def input_token_count(inputs: Any) -> int | None:
         return None
 
 
+def normalized_token_id_set(value: Any) -> set[int]:
+    if value is None:
+        return set()
+    if isinstance(value, (list, tuple, set)):
+        values = value
+    else:
+        values = [value]
+    result: set[int] = set()
+    for item in values:
+        try:
+            token_id = int(item)
+        except Exception:
+            continue
+        if token_id >= 0:
+            result.add(token_id)
+    return result
+
+
+def generation_eos_token_ids(tokenizer: Any, model: Any) -> set[int]:
+    token_ids = normalized_token_id_set(getattr(tokenizer, "eos_token_id", None))
+    generation_config = getattr(model, "generation_config", None)
+    token_ids.update(
+        normalized_token_id_set(getattr(generation_config, "eos_token_id", None))
+    )
+    config = getattr(model, "config", None)
+    token_ids.update(normalized_token_id_set(getattr(config, "eos_token_id", None)))
+    return token_ids
+
+
+def first_sequence_token_ids(sequences: Any) -> list[int] | None:
+    try:
+        first = sequences[0]
+    except Exception:
+        return None
+    try:
+        raw = first.tolist()
+    except Exception:
+        raw = first
+    if not isinstance(raw, (list, tuple)):
+        return None
+    result: list[int] = []
+    for item in raw:
+        try:
+            result.append(int(item))
+        except Exception:
+            return None
+    return result
+
+
+def generated_token_count(sequence_ids: list[int], model: Any) -> int | None:
+    if not sequence_ids:
+        return None
+    config = getattr(model, "config", None)
+    is_encoder_decoder = bool(getattr(config, "is_encoder_decoder", False))
+    if is_encoder_decoder:
+        return max(0, len(sequence_ids) - 1)
+    return len(sequence_ids)
+
+
+def translation_generation_completion(
+    sequences: Any,
+    tokenizer: Any,
+    model: Any,
+    max_new_tokens: int,
+) -> dict[str, Any]:
+    sequence_ids = first_sequence_token_ids(sequences)
+    if sequence_ids is None or not sequence_ids:
+        return {
+            "complete": False,
+            "blocker": "translation:output_completion_unverifiable",
+            "finished_with_eos": False,
+            "generated_tokens": None,
+            "hit_token_ceiling": None,
+        }
+
+    eos_ids = generation_eos_token_ids(tokenizer, model)
+    if not eos_ids:
+        return {
+            "complete": False,
+            "blocker": "translation:eos_token_unavailable",
+            "finished_with_eos": False,
+            "generated_tokens": generated_token_count(sequence_ids, model),
+            "hit_token_ceiling": None,
+        }
+
+    count = generated_token_count(sequence_ids, model)
+    if count is None:
+        return {
+            "complete": False,
+            "blocker": "translation:output_completion_unverifiable",
+            "finished_with_eos": False,
+            "generated_tokens": None,
+            "hit_token_ceiling": None,
+        }
+
+    finished_with_eos = sequence_ids[-1] in eos_ids
+    hit_token_ceiling = count >= max_new_tokens
+    if not finished_with_eos:
+        return {
+            "complete": False,
+            "blocker": (
+                "translation:output_hit_token_ceiling_without_eos"
+                if hit_token_ceiling
+                else "translation:output_ended_without_eos"
+            ),
+            "finished_with_eos": False,
+            "generated_tokens": count,
+            "hit_token_ceiling": hit_token_ceiling,
+        }
+
+    return {
+        "complete": True,
+        "blocker": "",
+        "finished_with_eos": True,
+        "generated_tokens": count,
+        "hit_token_ceiling": hit_token_ceiling,
+    }
+
+
 def handle_translate(payload: dict[str, Any]) -> dict[str, Any]:
     started = now_ms()
     if runtime_text_too_large(payload.get("text", ""), MAX_TRANSLATION_TEXT_CHARS):
@@ -872,8 +1146,6 @@ def handle_translate(payload: dict[str, Any]) -> dict[str, Any]:
             tokenizer, runtime["mode"], source_language, target_language
         )
 
-        # Tokenize without truncation. An input beyond the real tokenizer/model
-        # context limit is rejected explicitly instead of silently cutting source text.
         inputs = tokenizer(text, return_tensors="pt", truncation=False)
         token_count = input_token_count(inputs)
         max_input_tokens = translation_input_token_limit(tokenizer, model)
@@ -920,14 +1192,48 @@ def handle_translate(payload: dict[str, Any]) -> dict[str, Any]:
         import torch
 
         with torch.inference_mode():
-            output_tokens = model.generate(
+            generation = model.generate(
                 **inputs,
                 max_new_tokens=max_new_tokens,
                 num_beams=1,
+                return_dict_in_generate=True,
                 **generate_kwargs,
             )
+        sequences = getattr(generation, "sequences", None)
+        if sequences is None:
+            return {
+                "ok": False,
+                "stage": "translate",
+                "mode": runtime["mode"],
+                "model_id": runtime["model_id"],
+                "direction_pair": pair,
+                "blocker": "translation:missing_generation_sequences",
+                "note": "Translation output was not promoted because generation sequences were unavailable.",
+                "elapsed_ms": now_ms() - started,
+            }
+
+        completion = translation_generation_completion(
+            sequences, tokenizer, model, max_new_tokens
+        )
+        if not completion["complete"]:
+            return {
+                "ok": False,
+                "stage": "translate",
+                "mode": runtime["mode"],
+                "model_id": runtime["model_id"],
+                "device": device,
+                "source_language": source_language,
+                "target_language": target_language,
+                "direction_pair": pair,
+                "input_tokens": token_count,
+                "max_input_tokens": max_input_tokens,
+                **completion,
+                "note": "Generated translation was rejected because normal EOS completion could not be verified. No partial translation should be promoted to Text or TTS.",
+                "elapsed_ms": now_ms() - started,
+            }
+
         translated = compact_runtime_text(
-            tokenizer.batch_decode(output_tokens, skip_special_tokens=True)[0],
+            tokenizer.batch_decode(sequences, skip_special_tokens=True)[0],
             MAX_TRANSLATION_TEXT_CHARS,
         )
         return {
@@ -949,6 +1255,7 @@ def handle_translate(payload: dict[str, Any]) -> dict[str, Any]:
             "direction_supported": True,
             "input_tokens": token_count,
             "max_input_tokens": max_input_tokens,
+            **completion,
             "translated_text": translated,
             "elapsed_ms": now_ms() - started,
             "blocker": "" if translated else "translation:empty_output",
@@ -966,28 +1273,26 @@ def handle_translate(payload: dict[str, Any]) -> dict[str, Any]:
 
 
 def handle_tts_preflight(_: dict[str, Any]) -> dict[str, Any]:
-    executable = PIPER_ROOT / "piper.exe"
-    voice = first_piper_voice()
-    piper_is_ready = executable.exists() and voice is not None
-    sapi_is_ready, sapi_voices, sapi_error = sapi_status()
-    ok = piper_is_ready or sapi_is_ready
+    selection = select_english_tts_voice()
+    ok = bool(selection["ok"])
     return {
         "ok": ok,
         "stage": "tts_preflight",
-        "provider": "piper"
-        if piper_is_ready
-        else "windows-sapi"
-        if sapi_is_ready
-        else None,
-        "piper_executable": str(executable),
-        "voice_path": str(voice) if voice else None,
-        "sapi_voices": sapi_voices,
-        "blocker": "" if ok else sapi_error or "tts:no_local_provider_available",
+        "provider": selection["provider"],
+        "voice_id": selection["voice_id"],
+        "language_code": selection["language_code"],
+        "voice_path": str(selection["voice_path"]) if selection["voice_path"] else None,
+        "sapi_voices": selection["sapi_voices"],
+        "blocker": selection["blocker"],
         "warnings": [],
         "next_actions": status_action_items(
-            [] if ok else [sapi_error or "tts:no_local_provider_available"], []
+            [] if ok else [selection["blocker"]], []
         ),
-        "note": "Current local TTS capability is reported from the provider available in this worker process.",
+        "note": (
+            "An explicit English TTS voice is selected for local synthesis."
+            if ok
+            else "TTS remains unavailable until an English-capable voice can be identified explicitly."
+        ),
     }
 
 
@@ -1003,8 +1308,17 @@ def handle_synthesize(payload: dict[str, Any]) -> dict[str, Any]:
     text = compact_runtime_text(payload.get("text", ""), MAX_TTS_TEXT_CHARS)
     if not text:
         return {"ok": False, "stage": "synthesize", "blocker": "tts:empty_text"}
-    executable = PIPER_ROOT / "piper.exe"
-    voice = first_piper_voice()
+
+    selection = select_english_tts_voice()
+    if not selection["ok"]:
+        return {
+            "ok": False,
+            "stage": "synthesize",
+            "blocker": selection["blocker"],
+            "note": "Synthesis was not attempted because no explicit English-capable TTS voice is available.",
+            "next_actions": status_action_items([selection["blocker"]], []),
+        }
+
     try:
         output_path = resolve_worker_path(
             payload.get("output_path", ""),
@@ -1021,21 +1335,35 @@ def handle_synthesize(payload: dict[str, Any]) -> dict[str, Any]:
         }
     output_path.parent.mkdir(parents=True, exist_ok=True)
 
-    if executable.exists() and voice is not None:
+    if selection["provider"] == "piper":
+        executable = PIPER_ROOT / "piper.exe"
+        voice_path = selection["voice_path"]
         try:
             completed = subprocess.run(
-                [str(executable), "--model", str(voice), "--output_file", str(output_path)],
+                [
+                    str(executable),
+                    "--model",
+                    str(voice_path),
+                    "--output_file",
+                    str(output_path),
+                ],
                 input=text,
                 text=True,
                 capture_output=True,
                 timeout=10,
                 check=False,
             )
-            ok = completed.returncode == 0 and output_path.is_file()
+            ok = (
+                completed.returncode == 0
+                and output_path.is_file()
+                and output_path.stat().st_size > 44
+            )
             return {
                 "ok": ok,
                 "stage": "synthesize",
                 "provider": "piper",
+                "voice_id": selection["voice_id"],
+                "language_code": selection["language_code"],
                 "output_path": str(output_path),
                 "elapsed_ms": now_ms() - started,
                 "blocker": "" if ok else "tts:piper_failed",
@@ -1045,25 +1373,18 @@ def handle_synthesize(payload: dict[str, Any]) -> dict[str, Any]:
             return {
                 "ok": False,
                 "stage": "synthesize",
+                "provider": "piper",
+                "voice_id": selection["voice_id"],
+                "language_code": selection["language_code"],
                 "blocker": type(exc).__name__,
                 "note": str(exc),
                 "elapsed_ms": now_ms() - started,
             }
 
-    sapi_is_ready, sapi_voices, sapi_error = sapi_status()
-    if not sapi_is_ready:
-        return {
-            "ok": False,
-            "stage": "synthesize",
-            "blocker": sapi_error or "tts:no_local_provider_available",
-            "next_actions": status_action_items(
-                [sapi_error or "tts:no_local_provider_available"], []
-            ),
-        }
-
     command = (
         "Add-Type -AssemblyName System.Speech; "
         "$s = New-Object System.Speech.Synthesis.SpeechSynthesizer; "
+        "$s.SelectVoice($env:TRANSLATEIT_TTS_VOICE); "
         "$s.SetOutputToWaveFile($env:TRANSLATEIT_TTS_OUTPUT); "
         "$s.Speak($env:TRANSLATEIT_TTS_TEXT); "
         "$s.Dispose()"
@@ -1072,6 +1393,7 @@ def handle_synthesize(payload: dict[str, Any]) -> dict[str, Any]:
         environment = os.environ.copy()
         environment["TRANSLATEIT_TTS_TEXT"] = text
         environment["TRANSLATEIT_TTS_OUTPUT"] = str(output_path)
+        environment["TRANSLATEIT_TTS_VOICE"] = str(selection["voice_id"])
         completed = subprocess.run(
             ["powershell", "-NoProfile", "-NonInteractive", "-Command", command],
             text=True,
@@ -1089,7 +1411,8 @@ def handle_synthesize(payload: dict[str, Any]) -> dict[str, Any]:
             "ok": ok,
             "stage": "synthesize",
             "provider": "windows-sapi",
-            "sapi_voices": sapi_voices,
+            "voice_id": selection["voice_id"],
+            "language_code": selection["language_code"],
             "output_path": str(output_path),
             "elapsed_ms": now_ms() - started,
             "blocker": "" if ok else "tts:sapi_synthesis_failed",
@@ -1099,6 +1422,9 @@ def handle_synthesize(payload: dict[str, Any]) -> dict[str, Any]:
         return {
             "ok": False,
             "stage": "synthesize",
+            "provider": "windows-sapi",
+            "voice_id": selection["voice_id"],
+            "language_code": selection["language_code"],
             "blocker": type(exc).__name__,
             "note": str(exc),
             "elapsed_ms": now_ms() - started,
