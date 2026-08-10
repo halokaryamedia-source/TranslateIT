@@ -120,12 +120,22 @@ for (const marker of [
   "translation:input_too_long_for_model",
   "translation:model_input_limit_unknown",
   "No alternate mode was attempted.",
+  "return_dict_in_generate=True",
+  "translation_generation_completion",
+  "translation:output_hit_token_ceiling_without_eos",
+  "translation:output_ended_without_eos",
+  "select_english_tts_voice",
+  "select_english_piper_voice",
+  "select_english_sapi_voice",
+  "piper_voice_language_code",
+  "$s.SelectVoice($env:TRANSLATEIT_TTS_VOICE)",
 ]) expect(worker, marker, "canonical worker contracts");
 for (const marker of [
   "truncation=True",
   "fallback_mode",
   "MODEL_RUNTIME_MANIFEST",
   "RUNTIME_MANIFEST",
+  "first_piper_voice",
 ]) forbid(worker, marker, "canonical worker contracts");
 
 for (const marker of [
@@ -144,6 +154,11 @@ for (const marker of [
   "test_translate_rejects_unknown_mode_before_model_load",
   "test_realtime_unsupported_direction_does_not_switch_mode",
   "test_translate_rejects_character_overflow_before_model_load",
+  "test_translation_completion_rejects_token_ceiling_without_eos",
+  "test_translation_completion_accepts_verified_eos",
+  "test_english_sapi_selection_prefers_en_us",
+  "test_piper_selection_requires_english_voice_metadata",
+  "test_piper_selection_does_not_trust_filename_without_metadata",
   "test_newline_json_protocol_rejects_unknown_command",
 ]) expect(workerTests, marker, "deterministic worker tests");
 
@@ -194,5 +209,5 @@ if (errors.length > 0) {
 }
 
 console.log(
-  "Translation source-contract integrity passed: Text owns Quality, Meeting owns Realtime, one helper scheduler owns worker I/O, stale Meeting generations are rejected, translation input is not silently truncated, and pyproject.toml is the single WorkerRuntime dependency/tooling owner. This is static source proof only, not uv resolution, Ruff/pytest execution, runtime/model, or scheduling performance proof.",
+  "Translation source-contract integrity passed: Text owns Quality, Meeting owns Realtime, one helper scheduler owns worker I/O, stale Meeting generations are rejected, translation input is not silently truncated, generated translation requires verified EOS completion, TTS requires an explicit English-capable voice, and pyproject.toml remains the single WorkerRuntime dependency/tooling owner. This is static source proof only, not uv resolution, Ruff/pytest execution, runtime/model/audio, or scheduling performance proof.",
 );
