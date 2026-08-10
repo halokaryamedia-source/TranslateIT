@@ -17,6 +17,13 @@ fn configure_runtime_paths<R: Runtime>(
     };
 
     paths.ensure_user_data_dirs()?;
+
+    // Child runtime processes consume these as transport values only. The values are
+    // always overwritten from ProjectPaths so user environment state cannot become a
+    // second installed-path authority.
+    std::env::set_var("TRANSLATEIT_RUNTIME_ROOT", &paths.runtime_root);
+    std::env::set_var("TRANSLATEIT_USER_DATA_ROOT", &paths.user_data_root);
+
     Ok(paths)
 }
 
