@@ -14,8 +14,8 @@ ASR_MODEL_ROOT = RUNTIME_ASSETS_ROOT / "ASR" / "ModelData"
 TRANSLATION_MODEL_ROOT = RUNTIME_ASSETS_ROOT / "Translation" / "ModelData"
 ASR_MODEL = ASR_MODEL_ROOT / "faster-whisper-large-v3-turbo"
 ASR_BACKUP_MODEL = ASR_MODEL_ROOT / "faster-whisper-medium"
-TRANSLATION_MODEL = TRANSLATION_MODEL_ROOT / "marianmt-id-en"
-QUALITY_TRANSLATION_MODEL = TRANSLATION_MODEL_ROOT / "nllb-200-distilled-600M"
+TRANSLATION_MODEL_ID_EN = TRANSLATION_MODEL_ROOT / "marianmt-id-en"
+TRANSLATION_MODEL_EN_ID = TRANSLATION_MODEL_ROOT / "marianmt-en-id"
 PIPER_ROOT = RUNTIME_ASSETS_ROOT / "Voice" / "Piper"
 CACHE_ROOT = ROOT / "UserData" / "CacheData"
 ALLOWED_INPUT_ROOTS = [ROOT / "UserData" / "CacheData", ROOT / "UserData" / "LogData"]
@@ -28,15 +28,6 @@ MAX_TRANSCRIPT_TEXT_CHARS = 4_000
 MAX_AUDIO_INPUT_BYTES = 25 * 1024 * 1024
 MAX_GENERATION_TOKENS = 128
 MAX_REASONABLE_MODEL_TOKEN_LIMIT = 1_000_000
-
-NLLB_LANGUAGE_CODES = {
-    "id": "ind_Latn",
-    "ind": "ind_Latn",
-    "indonesian": "ind_Latn",
-    "en": "eng_Latn",
-    "eng": "eng_Latn",
-    "english": "eng_Latn",
-}
 
 ASR_RUNTIME: Any | None = None
 ASR_RUNTIME_DEVICE = "not_loaded"
@@ -93,13 +84,14 @@ def safe_command_name(value: Any) -> str:
     )[:64]
 
 
-def normalize_mode(value: Any) -> str | None:
+def compatibility_mode_label(value: Any) -> str:
+    """Keep old caller response shape while model routing no longer depends on mode."""
     text = str(value or "").strip().lower()
-    if text == "realtime":
-        return "Realtime"
     if text == "quality":
         return "Quality"
-    return None
+    if text == "realtime":
+        return "Realtime"
+    return "Canonical"
 
 
 def torch_status() -> tuple[bool, bool]:
@@ -163,6 +155,24 @@ def normalize_language(value: Any, fallback: str) -> str:
     return text[:2] if text else fallback
 
 
+def direction_pair(source_language: str, target_language: str) -> str:
+    return (
+        f"{normalize_language(source_language, 'id')}"
+        f"->{normalize_language(target_language, 'en')}"
+    )
+
+
+def translation_model_for_direction(
+    source_language: str, target_language: str
+) -> tuple[str, Path] | None:
+    pair = direction_pair(source_language, target_language)
+    if pair == "id->en":
+        return "marianmt-id-en", TRANSLATION_MODEL_ID_EN
+    if pair == "en->id":
+        return "marianmt-en-id", TRANSLATION_MODEL_EN_ID
+    return None
+
+
 def normalize_tts_language_code(value: Any) -> str:
     return str(value or "").strip().replace("_", "-").lower()
 
@@ -170,18 +180,6 @@ def normalize_tts_language_code(value: Any) -> str:
 def is_english_language_code(value: Any) -> bool:
     code = normalize_tts_language_code(value)
     return code == "en" or code.startswith("en-")
-
-
-def nllb_language_code(value: Any, fallback: str) -> str:
-    normalized = normalize_language(value, fallback)
-    return NLLB_LANGUAGE_CODES.get(normalized, NLLB_LANGUAGE_CODES[fallback])
-
-
-def direction_pair(source_language: str, target_language: str) -> str:
-    return (
-        f"{normalize_language(source_language, 'id')}"
-        f"->{normalize_language(target_language, 'en')}"
-    )
 
 
 def resolve_worker_path(value: Any, default_path: Path, allowed_roots: list[Path]) -> Path:
@@ -210,15 +208,11 @@ def asr_model_ready(path: Path) -> bool:
     )
 
 
-def translation_model_ready(path: Path, nllb: bool = False) -> bool:
+def translation_model_ready(path: Path) -> bool:
     if not (path / "config.json").is_file():
         return False
     if not has_any(path, ("*.safetensors", "pytorch_model*.bin")):
         return False
-    if nllb:
-        return (path / "tokenizer_config.json").is_file() and has_any(
-            path, ("sentencepiece.bpe.model", "tokenizer.json", "spiece.model")
-        )
     return has_any(path, ("source.spm", "tokenizer.json", "spiece.model")) and has_any(
         path, ("target.spm", "tokenizer.json", "spiece.model")
     )
@@ -286,10 +280,6 @@ def select_english_piper_voice(root: Path | None = None) -> dict[str, Any] | Non
         )
     )
     return candidates[0]
-
-
-def piper_ready() -> bool:
-    return (PIPER_ROOT / "piper.exe").is_file() and select_english_piper_voice() is not None
 
 
 def normalize_sapi_voices(raw: Any) -> list[dict[str, str]]:
@@ -427,40 +417,26 @@ def choose_asr_model() -> tuple[str, Path]:
     return "faster-whisper-large-v3-turbo", ASR_MODEL
 
 
-def translation_model_for_mode(mode: str) -> tuple[str, Path]:
-    if mode == "Quality":
-        return "nllb-200-distilled-600M", QUALITY_TRANSLATION_MODEL
-    return "marianmt-id-en", TRANSLATION_MODEL
-
-
-def realtime_direction_supported(source_language: str, target_language: str) -> bool:
-    return normalize_language(source_language, "id") == "id" and normalize_language(
-        target_language, "en"
-    ) == "en"
-
-
 def status_action_items(blockers: list[str], warnings: list[str]) -> list[str]:
     actions: list[str] = []
     joined = ";".join(blockers + warnings)
     if "dependency:" in joined:
         actions.append("Install WorkerRuntime Python dependencies inside the worker environment.")
     if "faster_whisper" in joined:
-        actions.append(
-            "Install faster-whisper and provide the approved local ASR model assets."
-        )
+        actions.append("Provide the approved local faster-whisper ASR runtime/model assets.")
     if "transformers" in joined or "torch" in joined:
         actions.append("Install torch and transformers for local translation.")
     if "marianmt_id_en" in joined:
         actions.append(
-            "Provide the realtime marianmt-id-en model under RuntimeAssets/Translation/ModelData."
+            "Provide marianmt-id-en under RuntimeAssets/Translation/ModelData."
         )
-    if "nllb_quality_model_missing" in joined:
+    if "marianmt_en_id" in joined:
         actions.append(
-            "Provide the NLLB Quality model before standalone Text Quality translation can be Ready."
+            "Provide marianmt-en-id under RuntimeAssets/Translation/ModelData for EN -> ID translation."
         )
     if "tts:" in joined:
         actions.append(
-            "Provide a Piper English voice with its .onnx.json metadata or an installed Windows SAPI English voice."
+            "Provide a Piper English voice with metadata or an installed Windows SAPI English voice."
         )
     if "cuda" in joined:
         actions.append("CUDA is optional; CPU fallback remains explicit degraded operation.")
@@ -487,10 +463,9 @@ def build_status_payload() -> dict[str, Any]:
         else "blocked"
     )
 
-    realtime_translation_ready = translation_model_ready(TRANSLATION_MODEL)
-    quality_translation_ready = translation_model_ready(
-        QUALITY_TRANSLATION_MODEL, nllb=True
-    )
+    translation_id_en_ready = translation_model_ready(TRANSLATION_MODEL_ID_EN)
+    translation_en_id_ready = translation_model_ready(TRANSLATION_MODEL_EN_ID)
+    translation_bidirectional_ready = translation_id_en_ready and translation_en_id_ready
     tts_selection = select_english_tts_voice()
     tts_ready = bool(tts_selection["ok"])
 
@@ -508,21 +483,24 @@ def build_status_payload() -> dict[str, Any]:
         warnings.append("asr_primary_large_v3_turbo_missing_using_medium_fallback")
     if not asr_backup_ready:
         warnings.append("asr_backup_faster_whisper_medium_missing")
-    if not realtime_translation_ready:
+    if not translation_id_en_ready:
         blockers.append("model:marianmt_id_en_missing")
-    if not quality_translation_ready:
-        warnings.append("model:nllb_quality_model_missing")
+    if not translation_en_id_ready:
+        warnings.append("model:marianmt_en_id_missing_reverse_translation_unavailable")
     if not tts_ready:
         blockers.append(tts_selection["blocker"])
     if not cuda_available or not ctranslate2_cuda_available:
         warnings.append("cuda_unavailable_cpu_fallback_active")
 
+    # `ok/provider_ready` intentionally represent the required outbound Meeting path.
+    # Reverse EN -> ID is separately visible because incoming is optional and must not
+    # block an otherwise healthy outbound Meeting start.
     provider_ready = (
         faster_whisper_ready
         and torch_ready
         and transformers_ready
         and asr_active_ready
-        and realtime_translation_ready
+        and translation_id_en_ready
         and tts_ready
     )
     note = (
@@ -530,6 +508,8 @@ def build_status_payload() -> dict[str, Any]:
         if provider_ready
         else "Worker is running, but one or more required outbound AI capabilities are unavailable."
     )
+    if provider_ready and not translation_en_id_ready:
+        note += " EN -> ID translation is unavailable, so optional incoming/Text reverse translation is degraded."
     if not cuda_available or not ctranslate2_cuda_available:
         note += " CUDA is not fully available; CPU fallback is explicit degraded operation."
 
@@ -544,10 +524,21 @@ def build_status_payload() -> dict[str, Any]:
         "provider_ready": provider_ready,
         "readiness": {
             "asr": asr_active_ready and faster_whisper_ready,
-            "translation_realtime": realtime_translation_ready
+            # Compatibility aliases for current Rust bridge. Routing no longer uses
+            # Realtime/Quality mode; both directions are selected by language pair.
+            "translation_realtime": translation_id_en_ready
             and transformers_ready
             and torch_ready,
-            "translation_quality": quality_translation_ready
+            "translation_quality": translation_bidirectional_ready
+            and transformers_ready
+            and torch_ready,
+            "translation_id_en": translation_id_en_ready
+            and transformers_ready
+            and torch_ready,
+            "translation_en_id": translation_en_id_ready
+            and transformers_ready
+            and torch_ready,
+            "translation_bidirectional": translation_bidirectional_ready
             and transformers_ready
             and torch_ready,
             "tts": tts_ready,
@@ -570,15 +561,26 @@ def build_status_payload() -> dict[str, Any]:
                 "ready": asr_backup_ready,
                 "path": str(ASR_BACKUP_MODEL),
             },
+            "translation_id_en": {
+                "id": "marianmt-id-en",
+                "ready": translation_id_en_ready,
+                "path": str(TRANSLATION_MODEL_ID_EN),
+            },
+            "translation_en_id": {
+                "id": "marianmt-en-id",
+                "ready": translation_en_id_ready,
+                "path": str(TRANSLATION_MODEL_EN_ID),
+            },
+            # Compatibility names only; there is no longer mode-based model routing.
             "translation_realtime": {
                 "id": "marianmt-id-en",
-                "ready": realtime_translation_ready,
-                "path": str(TRANSLATION_MODEL),
+                "ready": translation_id_en_ready,
+                "path": str(TRANSLATION_MODEL_ID_EN),
             },
             "translation_quality": {
-                "id": "nllb-200-distilled-600M",
-                "ready": quality_translation_ready,
-                "path": str(QUALITY_TRANSLATION_MODEL),
+                "id": "marianmt-en-id",
+                "ready": translation_en_id_ready,
+                "path": str(TRANSLATION_MODEL_EN_ID),
             },
         },
         "tts": {
@@ -597,8 +599,11 @@ def build_status_payload() -> dict[str, Any]:
         "asr_active_model_id": asr_active_model_id,
         "asr_active_model_path": str(asr_active_model_path),
         "asr_readiness_grade": asr_readiness_grade,
-        "translation_model_ready": realtime_translation_ready,
-        "quality_translation_model_ready": quality_translation_ready,
+        "translation_model_ready": translation_id_en_ready,
+        "quality_translation_model_ready": translation_en_id_ready,
+        "translation_id_en_ready": translation_id_en_ready,
+        "translation_en_id_ready": translation_en_id_ready,
+        "translation_bidirectional_ready": translation_bidirectional_ready,
         "piper_ready": tts_selection["provider"] == "piper",
         "sapi_ready": tts_selection["provider"] == "windows-sapi",
         "tts_default_ready": tts_ready,
@@ -619,7 +624,7 @@ def build_status_payload() -> dict[str, Any]:
             "asr_device": ASR_RUNTIME_DEVICE,
             "asr_compute_type": ASR_RUNTIME_COMPUTE,
             "asr_model_id": ASR_RUNTIME_MODEL_ID,
-            "translation_modes": sorted(TRANSLATION_RUNTIME.keys()),
+            "translation_directions": sorted(TRANSLATION_RUNTIME.keys()),
         },
     }
 
@@ -805,15 +810,17 @@ def translation_cuda_available() -> bool:
         return False
 
 
-def get_translation_runtime(mode: str) -> dict[str, Any]:
-    if mode not in ("Realtime", "Quality"):
-        raise ValueError("translation:unsupported_mode")
-    if mode in TRANSLATION_RUNTIME:
-        return TRANSLATION_RUNTIME[mode]
+def get_translation_runtime(source_language: str, target_language: str) -> dict[str, Any]:
+    pair = direction_pair(source_language, target_language)
+    selected = translation_model_for_direction(source_language, target_language)
+    if selected is None:
+        raise ValueError("translation:direction_not_supported")
+    if pair in TRANSLATION_RUNTIME:
+        return TRANSLATION_RUNTIME[pair]
 
     from transformers import AutoModelForSeq2SeqLM, AutoTokenizer
 
-    model_id, model_path = translation_model_for_mode(mode)
+    model_id, model_path = selected
     device = translation_device()
     device_note = "cuda_available" if device == "cuda" else "cpu_runtime"
     degraded = device != "cuda"
@@ -831,7 +838,7 @@ def get_translation_runtime(mode: str) -> dict[str, Any]:
             fallback_reason = f"cuda_fallback:{type(exc).__name__}"
     model.eval()
     runtime = {
-        "mode": mode,
+        "direction_pair": pair,
         "model_id": model_id,
         "model_path": str(model_path),
         "tokenizer": tokenizer,
@@ -843,22 +850,28 @@ def get_translation_runtime(mode: str) -> dict[str, Any]:
         "translation_degraded": degraded,
         "translation_fallback_reason": fallback_reason,
     }
-    TRANSLATION_RUNTIME[mode] = runtime
+    TRANSLATION_RUNTIME[pair] = runtime
     return runtime
 
 
 def handle_translation_preload(payload: dict[str, Any]) -> dict[str, Any]:
     started = now_ms()
-    mode = normalize_mode(payload.get("mode", ""))
-    if mode is None:
+    source_language = normalize_language(payload.get("source_language", "id"), "id")
+    target_language = normalize_language(payload.get("target_language", "en"), "en")
+    pair = direction_pair(source_language, target_language)
+    selected = translation_model_for_direction(source_language, target_language)
+    compatibility_mode = compatibility_mode_label(payload.get("mode"))
+    if selected is None:
         return {
             "ok": False,
             "stage": "translation_preload",
-            "blocker": "translation:unsupported_mode",
-            "note": "Mode must be explicitly Realtime or Quality.",
+            "mode": compatibility_mode,
+            "direction_pair": pair,
+            "blocker": "translation:direction_not_supported",
+            "note": "Initial translation core supports only Indonesian <-> English.",
         }
-    model_id, model_path = translation_model_for_mode(mode)
-    model_ready = translation_model_ready(model_path, nllb=(mode == "Quality"))
+    model_id, model_path = selected
+    model_ready = translation_model_ready(model_path)
     status = build_status_payload()
     if (
         not status["transformers_import_ready"]
@@ -867,20 +880,26 @@ def handle_translation_preload(payload: dict[str, Any]) -> dict[str, Any]:
     ):
         blockers = list(status.get("blockers", []))
         if not model_ready:
-            blockers.append(f"model:{model_id}_missing")
+            blockers.append(f"model:{model_id.replace('-', '_')}_missing")
         return failed_from_status(
             "translation_preload",
             {**status, "blocker": ";".join(blockers), "blockers": blockers},
-            {"model_id": model_id, "model_path": str(model_path), "mode": mode},
+            {
+                "model_id": model_id,
+                "model_path": str(model_path),
+                "mode": compatibility_mode,
+                "direction_pair": pair,
+            },
         )
     try:
-        runtime = get_translation_runtime(mode)
+        runtime = get_translation_runtime(source_language, target_language)
         return {
             "ok": True,
             "stage": "translation_preload",
             "model_path": str(model_path),
             "model_id": model_id,
-            "mode": runtime["mode"],
+            "mode": compatibility_mode,
+            "direction_pair": pair,
             "device": runtime["device"],
             "device_note": runtime["device_note"],
             "translation_gpu_requested": runtime["translation_gpu_requested"],
@@ -891,14 +910,15 @@ def handle_translation_preload(payload: dict[str, Any]) -> dict[str, Any]:
             "translation_fallback_reason": runtime["translation_fallback_reason"],
             "elapsed_ms": now_ms() - started,
             "warnings": status.get("warnings", []),
-            "note": "Requested translation model loaded for local execution.",
+            "note": "Canonical translation model loaded for the requested language direction.",
         }
     except Exception as exc:
         return {
             "ok": False,
             "stage": "translation_preload",
             "model_id": model_id,
-            "mode": mode,
+            "mode": compatibility_mode,
+            "direction_pair": pair,
             "blocker": type(exc).__name__,
             "note": str(exc),
             "elapsed_ms": now_ms() - started,
@@ -909,25 +929,6 @@ def move_inputs_to_device(inputs: Any, device: str) -> Any:
     if device != "cuda":
         return inputs
     return {key: value.to("cuda") for key, value in inputs.items()}
-
-
-def nllb_generate_kwargs(
-    tokenizer: Any, mode: str, source_language: str, target_language: str
-) -> dict[str, Any]:
-    if mode != "Quality":
-        return {}
-    source_code = nllb_language_code(source_language, "id")
-    target_code = nllb_language_code(target_language, "en")
-    if hasattr(tokenizer, "src_lang"):
-        tokenizer.src_lang = source_code
-    lang_map = getattr(tokenizer, "lang_code_to_id", {}) or {}
-    if target_code in lang_map:
-        return {"forced_bos_token_id": lang_map[target_code]}
-    if hasattr(tokenizer, "convert_tokens_to_ids"):
-        token_id = tokenizer.convert_tokens_to_ids(target_code)
-        if isinstance(token_id, int) and token_id >= 0:
-            return {"forced_bos_token_id": token_id}
-    return {}
 
 
 def finite_positive_token_limit(value: Any) -> int | None:
@@ -1097,10 +1098,11 @@ def handle_translate(payload: dict[str, Any]) -> dict[str, Any]:
         }
 
     text = compact_runtime_text(payload.get("text", ""), MAX_TRANSLATION_TEXT_CHARS)
-    mode = normalize_mode(payload.get("mode", ""))
     source_language = normalize_language(payload.get("source_language", "id"), "id")
     target_language = normalize_language(payload.get("target_language", "en"), "en")
     pair = direction_pair(source_language, target_language)
+    compatibility_mode = compatibility_mode_label(payload.get("mode"))
+    selected = translation_model_for_direction(source_language, target_language)
 
     if not text:
         return {
@@ -1109,43 +1111,47 @@ def handle_translate(payload: dict[str, Any]) -> dict[str, Any]:
             "blocker": "translation:empty_text",
             "direction_pair": pair,
         }
-    if mode is None:
+    if selected is None:
         return {
             "ok": False,
             "stage": "translate",
-            "blocker": "translation:unsupported_mode",
-            "direction_pair": pair,
-            "note": "Caller must explicitly request Realtime or Quality.",
-        }
-    if mode == "Realtime" and not realtime_direction_supported(
-        source_language, target_language
-    ):
-        return {
-            "ok": False,
-            "stage": "translate",
-            "mode": "Realtime",
-            "model_id": "marianmt-id-en",
+            "mode": compatibility_mode,
             "source_language": source_language,
             "target_language": target_language,
             "direction_pair": pair,
             "direction_supported": False,
-            "blocker": "translation:direction_not_supported_by_realtime_model",
-            "note": "No alternate mode was attempted.",
+            "blocker": "translation:direction_not_supported",
+            "note": "Initial translation core supports only Indonesian <-> English.",
+            "elapsed_ms": now_ms() - started,
+        }
+
+    model_id, model_path = selected
+    if not translation_model_ready(model_path):
+        return {
+            "ok": False,
+            "stage": "translate",
+            "mode": compatibility_mode,
+            "model_id": model_id,
+            "model_path": str(model_path),
+            "source_language": source_language,
+            "target_language": target_language,
+            "direction_pair": pair,
+            "direction_supported": True,
+            "blocker": f"model:{model_id.replace('-', '_')}_missing",
+            "note": "The local model for this language direction is not installed or incomplete.",
             "elapsed_ms": now_ms() - started,
         }
 
     try:
-        runtime = get_translation_runtime(mode)
+        runtime = get_translation_runtime(source_language, target_language)
         tokenizer = runtime["tokenizer"]
         model = runtime["model"]
         device = runtime["device"]
         max_new_tokens = bounded_int(
             payload.get("max_new_tokens", 32), 32, 1, MAX_GENERATION_TOKENS
         )
-        generate_kwargs = nllb_generate_kwargs(
-            tokenizer, runtime["mode"], source_language, target_language
-        )
 
+        # Deliberately no silent truncation and no automatic previous-turn context.
         inputs = tokenizer(text, return_tensors="pt", truncation=False)
         token_count = input_token_count(inputs)
         max_input_tokens = translation_input_token_limit(tokenizer, model)
@@ -1153,7 +1159,7 @@ def handle_translate(payload: dict[str, Any]) -> dict[str, Any]:
             return {
                 "ok": False,
                 "stage": "translate",
-                "mode": mode,
+                "mode": compatibility_mode,
                 "model_id": runtime["model_id"],
                 "direction_pair": pair,
                 "blocker": "translation:input_token_count_unavailable",
@@ -1164,7 +1170,7 @@ def handle_translate(payload: dict[str, Any]) -> dict[str, Any]:
             return {
                 "ok": False,
                 "stage": "translate",
-                "mode": mode,
+                "mode": compatibility_mode,
                 "model_id": runtime["model_id"],
                 "direction_pair": pair,
                 "input_tokens": token_count,
@@ -1176,7 +1182,7 @@ def handle_translate(payload: dict[str, Any]) -> dict[str, Any]:
             return {
                 "ok": False,
                 "stage": "translate",
-                "mode": mode,
+                "mode": compatibility_mode,
                 "model_id": runtime["model_id"],
                 "source_language": source_language,
                 "target_language": target_language,
@@ -1197,14 +1203,13 @@ def handle_translate(payload: dict[str, Any]) -> dict[str, Any]:
                 max_new_tokens=max_new_tokens,
                 num_beams=1,
                 return_dict_in_generate=True,
-                **generate_kwargs,
             )
         sequences = getattr(generation, "sequences", None)
         if sequences is None:
             return {
                 "ok": False,
                 "stage": "translate",
-                "mode": runtime["mode"],
+                "mode": compatibility_mode,
                 "model_id": runtime["model_id"],
                 "direction_pair": pair,
                 "blocker": "translation:missing_generation_sequences",
@@ -1219,7 +1224,7 @@ def handle_translate(payload: dict[str, Any]) -> dict[str, Any]:
             return {
                 "ok": False,
                 "stage": "translate",
-                "mode": runtime["mode"],
+                "mode": compatibility_mode,
                 "model_id": runtime["model_id"],
                 "device": device,
                 "source_language": source_language,
@@ -1239,7 +1244,8 @@ def handle_translate(payload: dict[str, Any]) -> dict[str, Any]:
         return {
             "ok": bool(translated),
             "stage": "translate",
-            "mode": runtime["mode"],
+            "mode": compatibility_mode,
+            "translation_contract": "canonical_bidirectional_id_en",
             "model_id": runtime["model_id"],
             "device": device,
             "device_note": runtime["device_note"],
@@ -1264,7 +1270,8 @@ def handle_translate(payload: dict[str, Any]) -> dict[str, Any]:
         return {
             "ok": False,
             "stage": "translate",
-            "mode": mode,
+            "mode": compatibility_mode,
+            "model_id": model_id,
             "blocker": type(exc).__name__,
             "note": str(exc),
             "direction_pair": pair,
