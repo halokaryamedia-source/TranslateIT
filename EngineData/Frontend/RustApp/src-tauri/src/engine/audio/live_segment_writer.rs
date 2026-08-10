@@ -9,7 +9,11 @@ use super::TARGET_SAMPLE_RATE_HZ;
 use crate::engine::paths::ProjectPaths;
 
 const MIN_ASR_SEGMENT_DURATION_MS: u32 = 300;
-const MAX_ASR_SEGMENT_SAMPLES: usize = 120_000;
+const MAX_DIAGNOSTIC_ASR_SEGMENT_SAMPLES: usize = 120_000;
+// Safety/storage ceiling for the finalized producer only; this must not be used to
+// force a speech boundary. Overlong speech is dropped by the producer rather than
+// cut into a fake final utterance.
+const MAX_FINALIZED_ASR_SEGMENT_SAMPLES: usize = TARGET_SAMPLE_RATE_HZ as usize * 60;
 const LATEST_LIVE_SEGMENT_LABEL: &str =
     "UserData/CacheData/audio_segments/latest_live_target_segment.wav";
 const FINALIZED_SEGMENT_ROOT_LABEL: &str = "UserData/CacheData/audio_segments/";
@@ -63,6 +67,7 @@ pub fn write_latest_live_target_segment_wav() -> LiveSegmentWavWriteReport {
         frame.channels,
         &frame.samples,
         frame_duration_ms,
+        MAX_DIAGNOSTIC_ASR_SEGMENT_SAMPLES,
         "live_segment_writer",
     ) {
         return report;
@@ -112,6 +117,7 @@ pub fn write_finalized_outbound_utterance_wav(
         frame.channels,
         &frame.samples,
         frame_duration_ms,
+        MAX_FINALIZED_ASR_SEGMENT_SAMPLES,
         "finalized_utterance_writer",
     ) {
         return report;
@@ -204,6 +210,7 @@ fn validate_target_frame(
     channels: u16,
     samples: &[f32],
     frame_duration_ms: u32,
+    max_samples: usize,
     blocker_prefix: &str,
 ) -> Option<LiveSegmentWavWriteReport> {
     if sample_rate_hz != TARGET_SAMPLE_RATE_HZ || channels != 1 {
@@ -219,7 +226,7 @@ fn validate_target_frame(
         });
     }
 
-    if samples.is_empty() || samples.len() > MAX_ASR_SEGMENT_SAMPLES {
+    if samples.is_empty() || samples.len() > max_samples {
         return Some(LiveSegmentWavWriteReport {
             ok: false,
             audio_path: None,
