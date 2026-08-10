@@ -1,12 +1,12 @@
 # TranslateIT — Current Context
 
-This file stores stable current project facts. Task continuation belongs in `docs/knowledge/next-action.md`; durable reasoning belongs in `docs/knowledge/decision-log.md`.
+This file stores stable current project facts. Active continuation belongs in `docs/knowledge/next-action.md`; durable reasoning belongs in `docs/knowledge/decision-log.md`.
 
 ## Authority
 
 - Development authority: branch `New`.
-- `V1-Advance` and `DevelopingData` are historical/recovery evidence only.
-- Current product policy is defined by `docs/foundation/01-product-overview.md` and `docs/foundation/02-product-requirements.md`.
+- `V1-Advance`, older branches, and `DevelopingData` are historical/recovery evidence only.
+- Current product policy is `docs/foundation/01-product-overview.md` + `02-product-requirements.md`.
 
 ## Product Target
 
@@ -27,59 +27,68 @@ Text
 
 Settings
 ├─ Meeting devices/setup
-└─ Advanced diagnostics
+└─ Advanced / Diagnostics
 ```
 
-The normal Meeting lifecycle is:
+Normal Meeting lifecycle:
 
 ```text
 Ready -> Starting -> Live -> Stopping -> Ended
 ```
 
-Pause/Resume, History/Saved, Audio Studio, Documents, Tone/Context, partial translated subtitles, and user-facing Realtime/Quality modes are not part of the initial core.
+Pause/Resume, History/Saved, Audio Studio, Documents, Tone/Context, partial translated subtitles, custom voice, additional languages, and user-facing Realtime/Quality modes are not initial core.
 
 ## Runtime Architecture
-
-The canonical runtime remains:
 
 ```text
 Rust/Tauri desktop application
 +
-Python local worker
+ONE Python local worker
 ```
 
-The local worker owns ASR, translation, and TTS execution. Rust owns desktop lifecycle, audio/session authority, device routing, and product integration. Do not create a second engine or product shell.
+The worker owns ASR, direction-based ID <-> EN translation, and TTS execution. Rust owns Meeting/session authority, Windows audio integration, routing, settings, and desktop integration. Do not create a parallel engine, shell, readiness service, or model selector.
 
-## Translation Runtime
+## Translation Contract
 
-- Required Meeting outbound direction is Indonesian -> English.
-- Text supports Indonesian -> English and English -> Indonesian.
-- Translation model selection is direction-based; old Realtime/Quality labels do not choose a different model.
-- Required outbound uses finalized speech only.
-- Optional incoming EN -> ID may degrade or disable without blocking safe outbound.
-- Previous Meeting turns are not fed back as translation context.
+- Meeting required outbound: Indonesian -> English.
+- Text: Indonesian -> English and English -> Indonesian.
+- Current worker routes `id->en` to `marianmt-id-en` and `en->id` to `marianmt-en-id`.
+- Finalized stable speech is normal Meeting translation truth.
+- Source text is not silently truncated and known incomplete generation is not promoted.
+- Previous turns, History, and standalone Text are not automatic model context.
+- Optional incoming EN -> ID may degrade/disable without blocking safe outbound.
 
 ## Meeting Ownership
 
-`commands/meeting_session.rs` remains the canonical application Meeting/session owner.
+`commands/meeting_session.rs` + `engine/runtime_state.rs` remain the application Meeting owner.
 
-- Start establishes one application Meeting session and outbound authority.
-- Navigation does not stop or recreate an active Meeting.
-- Stop revokes output authority before cleanup, stops audio lanes, cancels/joins Meeting work, clears transient committed turns, and clears the runtime session.
-- Meeting Stop does not persist to History.
-- Safe application close uses the same canonical Stop lifecycle.
+Start establishes one session/authority. Navigation does not stop/recreate it. Stop revokes output authority before resource cleanup, stops both audio lanes, cancels/joins Meeting work, clears transient conversation/audio state, and ends the session. Safe application close delegates to the same Stop path.
 
-## Current Runtime Surface
+The bounded committed-turn store is transient Live transcript state only; Meeting Stop has no History persistence dependency.
 
-The production Tauri registration surface has been reduced to the commands required by the current product path: explicit Diagnostics, helper status/start/worker status, Meeting status/turns/Start/Stop, explicit model verification, audio device/status operations, settings load/save, Mic Test capture Start/Stop, and Text translation.
+## Current Product Runtime Surface
 
-Deferred/debug command families such as Audio Studio, History/Chat, dev seed/pipeline smoke/handoff commands, professional readiness gates, manual virtual-route commands, model setup/GPU policy commands, audio evidence commands, and generic capture-handoff commands are no longer registered in the production invoke surface.
+The frontend has **one normal module entry: `src/main.ts`**. The old parallel Audio Studio entry and its 200ms/10s retry polling are removed.
 
-`commands/runtime_capture.rs` is now only the two Mic Test capture wrappers required by the active UI. `commands/pipeline_handoff.rs` remains only as the small reset hook still called by Meeting cleanup; the old development handoff state is removed from that module.
+The frontend bridge exposes only current product/setup calls:
+
+```text
+Meeting status / committed turns / Start / Stop
+helper status / Start / worker capability status
+Mic Test Start / Stop
+input status / device list / input-output candidate probes
+settings load / save
+Text Translate
+explicit Verify Models
+```
+
+The production Tauri registry mirrors that bounded surface. Audio Studio, History/Chat, professional-readiness, dev seed/handoff/smoke, generic capture-handoff, manual route-control, hardware-status, full runtime-diagnostics, model-setup, and GPU-policy commands are not registered.
+
+Meeting Microphone route modules remain internal dependencies of `meeting_session.rs`; they are not a manual frontend command surface.
 
 ## Normal Readiness Cost
 
-Normal product readiness now reads only:
+Normal `loadProductRuntimeSnapshot()` reads only:
 
 ```text
 settings
@@ -89,33 +98,37 @@ settings
 + worker capability status when helper is ready
 ```
 
-Full Diagnostics, model inventory, GPU/native-backend probing, and status bundles are not part of the normal frontend readiness snapshot.
+It does not fetch status bundles, full Diagnostics, model inventory, or native GPU policy on every refresh. Meeting preflight still checks required model presence through the cached Rust inventory; explicit Verify Models refreshes that cache.
 
-Meeting preflight still needs model-installation presence. That inventory is cached after its first read; repeated Meeting status polling does not rescan model directories or rewrite validation evidence. Explicit `Verify Models` refreshes the cache and may write diagnostic evidence.
+The duplicate frontend window-rescue routine and startup trace subsystem are removed. Native window setup remains owned by Tauri `app_bootstrap.rs`.
 
-Startup diagnostics remain local frontend traces only; normal startup no longer mirrors selected trace records back into Rust through Tauri IPC.
+## Validation Boundary
+
+The previous matrix/report-heavy validation system is removed. Current persistent source validation is intentionally small:
+
+```text
+startup/core source contract
+internal Meeting route contract
+Rust manifest preflight
+frontend build preflight
+```
+
+Package/path preflight remains a separate release/path boundary. `check:tauri-rust-local` remains explicit local compile proof.
+
+Static validators do not prove compile, Tauri launch, models, Windows audio, rendered UI, latency, installer behavior, or clean-machine operation.
 
 ## Release Boundary
 
-Initial release does **not** use a SHA-256/checksum/revision identity framework for the prepared runtime payload.
+Initial controlled release keeps the local sidecar Setup direction but **does not use a SHA-256/checksum/revision identity framework**. Do not create an artifact registry, checksum service, payload identity controller, downloader, or package manager as a replacement.
 
-Do not introduce a replacement checksum service, artifact registry, payload identity controller, or similar framework merely to compensate for removing hashes. For the controlled initial release, the approved prepared payload and deterministic placement into the existing runtime layout are sufficient.
+The useful initial acceptance mechanism is approved prepared payload + deterministic placement + real installed worker/runtime execution.
 
-The local sidecar Setup topology remains valid: one user-facing Setup path should place the required worker/runtime/model assets under the application-local runtime root and then verify that the real worker can load and execute them. The hash/revision sub-plan previously associated with that topology is superseded by the current simplification decision.
+## Remaining Overdevelopment Boundary
+
+The active frontend/command/validator surfaces are now pruned, but the deeper Rust `engine/` module graph still contains inherited simulation/planning/persistence modules and a blanket `allow(dead_code)`. Some persisted settings fields also describe removed product features.
+
+Those deeper owners must be pruned only after direct internal reachability is established; do not mass-delete audio/session primitives that the current Meeting path still uses.
 
 ## Proof Boundary
 
-ChatGPT -> GitHub source work can establish source structure, ownership, and static contract alignment. It does not establish:
-
-- Rust or TypeScript compilation;
-- Python test execution;
-- Tauri launch success;
-- Windows audio/device behavior;
-- packaged model presence/load/quality/latency;
-- clean-machine Setup/install success.
-
-Those remain local proof requirements and must not be inferred from source alone.
-
-## Deferred Source
-
-Some historical/deferred files still exist in the repository even though they are no longer registered or imported by the normal product path. Git history already preserves deleted behavior; remaining unreachable source should be removed only after direct reachability is checked, not by filename alone.
+ChatGPT -> GitHub can establish source structure, direct wiring, and static ownership. This repository state does **not** prove Rust/TypeScript compilation, Python execution, Tauri launch, Windows audio/device behavior, model presence/load/quality/latency, or clean-machine installation.
