@@ -29,23 +29,23 @@ installed-runtime, or release proof.
 |---|---|---|---|
 | Product shell/navigation | `src/main.ts`, `SimpleLauncherController.ts` | **ALIGNED / VISUAL PARTIAL** | Normal app is Meeting / Text / History / Settings; navigation does not own/recreate Meeting runtime. |
 | First Setup | First Setup + `RuntimeSettings` + product/audio facade | **ALIGNED SOURCE / WINDOWS PROOF LATER** | Five-step flow, defer/resume, candidate-check -> commit. |
-| Normal Meeting lifecycle bridge | `runtimeApi.ts` -> `runtimeProductFacade.ts` -> `SimpleLauncherController.ts` -> canonical Meeting commands | **SOURCE ALIGNED / TAURI + RENDER PROOF LATER** | Normal product reads application Meeting session directly; Start/Stop use canonical transactional commands; no frontend Meeting authority/store was added. |
+| Normal Meeting lifecycle bridge | `runtimeApi.ts` -> `runtimeProductFacade.ts` -> `SimpleLauncherController.ts` -> canonical Meeting commands | **SOURCE ALIGNED / TAURI + RENDER PROOF LATER** | Normal product reads application Meeting session directly; Start/Pause/Resume/Stop use the canonical lifecycle; no frontend Meeting authority/store was added. |
 | Text AI execution | `text_translate.rs` -> helper scheduler -> `realtime_local_worker.py` | **SOURCE ALIGNED / LOCAL PROOF LATER** | One persistent worker route; Text explicitly requests Quality. |
-| Meeting application authority | `runtime_state.rs`, `meeting_session.rs` | **ALIGNED AUTHORITY / PAUSE-RESUME MISSING** | `session_id + generation + authority_active` is canonical; backend Start/Stop and normal frontend use it. |
-| Meeting capture | `audio/live_capture.rs` | **SOURCE ALIGNED / WINDOWS PROOF LATER** | One CPAL capture owner; application Meeting capture feeds rolling preview and finalized speech paths separately. |
+| Meeting application authority | `runtime_state.rs`, `meeting_session.rs` | **SOURCE ALIGNED / RUNTIME PROOF LATER** | `session_id + generation + authority_active` is canonical; Pause retains the session while revoking its generation, and Resume creates fresh generation authority before Live. |
+| Meeting capture | `audio/live_capture.rs` | **SOURCE ALIGNED / WINDOWS PROOF LATER** | One CPAL capture owner; application Meeting capture feeds rolling preview and finalized speech paths separately and is reopened for fresh Resume generation. |
 | Rolling audio / preview boundary | `audio/live_audio_buffer.rs` | **ALIGNED DIAGNOSTIC/PREVIEW OWNER** | ASR-ready rolling windows are not final speech and are not consumed by product Meeting output. |
-| Finalized outbound utterance | `audio/finalized_utterance.rs` | **SOURCE ALIGNED / VAD PROOF LATER** | Realtime VAD state produces generation-scoped final utterances only after adaptive end silence; partial audio is not emitted. |
+| Finalized outbound utterance | `audio/finalized_utterance.rs` | **SOURCE ALIGNED / VAD PROOF LATER** | Realtime VAD state produces generation-scoped final utterances only after adaptive end silence; generation loss clears/rejects pending work. |
 | Finalized WAV handoff | `audio/live_segment_writer.rs` | **SOURCE ALIGNED / FILESYSTEM PROOF LATER** | Each final gets a unique temporary 16 kHz mono WAV; rolling `latest_live_target_segment.wav` is diagnostic-only. |
-| Serialized Meeting outbound consumer | `meeting_session.rs` | **SOURCE ALIGNED / RUNTIME PROOF LATER** | One consumer takes each final utterance once, runs canonical AI/output stages serially, then removes the source WAV. |
+| Serialized Meeting outbound consumer | `meeting_session.rs` | **SOURCE ALIGNED / RUNTIME PROOF LATER** | One consumer takes each final utterance once; Pause clears/joins the old-generation consumer and Resume starts one for the fresh generation. |
 | Meeting outbound AI mode | `meeting_session.rs` | **SOURCE ALIGNED / MODEL PROOF LATER** | Finalized outbound speech explicitly requests Realtime translation. |
 | Helper scheduling / worker I/O | `helper_bridge.rs`, `helper_bridge_runtime.rs` | **SOURCE ALIGNED / CONTENTION PROOF LATER** | One scheduler owns stdin/stdout; waiting Meeting > Text > Diagnostics. |
-| Helper cancellation | helper bridge + Meeting generation authority | **SOURCE ALIGNED / TIMING PROOF LATER** | Stale Meeting work rejected; matching in-flight Meeting task may hard-cancel the worker process. |
+| Helper cancellation | helper bridge + Meeting generation authority | **SOURCE ALIGNED / TIMING PROOF LATER** | Stale Meeting work is rejected; Pause/Stop can target matching in-flight Meeting generation work, which may hard-cancel the worker process. |
 | Translation source bounds | `realtime_local_worker.py` | **SOURCE ALIGNED / MODEL PROOF LATER** | No silent tokenizer truncation; unknown/oversized model-token input is rejected. |
 | Translation output completeness | `realtime_local_worker.py` | **SOURCE ALIGNED / MODEL EXECUTION PROOF LATER** | Output is promoted only when EOS completion is verifiable. |
 | English TTS voice selection | `realtime_local_worker.py` | **SOURCE ALIGNED / WINDOWS + ASSET PROOF LATER** | Piper requires English metadata; SAPI requires English culture and explicit `SelectVoice`. |
 | Model installation evidence | `model_manifest.json`, `runtime_inventory.rs` | **ALIGNED STATIC OWNER / METADATA PARTIAL** | Asset presence only, not model-load/inference proof. |
 | Current AI capability availability | persistent worker `status` -> helper bridge | **SOURCE ALIGNED / LOAD-INFERENCE PROOF LATER** | ASR / Realtime translation / Quality translation / explicit-English TTS capability states are scoped. |
-| Product readiness | direct `MeetingSessionPreflight` + worker capability -> `runtimeProductFacade.ts` | **SOURCE ALIGNED / LOCAL PROOF LATER** | Text uses Quality capability; Meeting uses canonical application preflight/session rather than legacy gates. |
+| Product readiness | direct `MeetingSessionPreflight` + worker capability -> `runtimeProductFacade.ts` | **SOURCE ALIGNED / LOCAL PROOF LATER** | Text uses Quality capability; Meeting uses canonical application preflight/session, including intentional Paused state, rather than legacy gates. |
 | Python dependency/tooling ownership | `WorkerRuntime/pyproject.toml` | **SOURCE ALIGNED / LOCK + EXECUTION PROOF LATER** | One Python project owns runtime deps, optional route extra, Ruff, and pytest. `uv.lock` is intentionally not fabricated. |
 | Python deterministic proof | `WorkerRuntime/tests/test_worker_contract.py` + pytest config | **SOURCE ALIGNED / NOT EXECUTED** | Deterministic mode/bounds/EOS/voice/protocol test definitions exist. |
 | Python source quality policy | Ruff config in `pyproject.toml` | **SOURCE ALIGNED / NOT EXECUTED** | Ruff is the single Python lint/format policy. |
@@ -67,33 +67,45 @@ Normal product frontend does not keep a second Meeting session truth.
 Meeting workspace
 -> runtimeProductFacade
 -> runtimeApi
--> get_meeting_session_status / start_meeting_translation / stop_meeting_translation
+-> get_meeting_session_status
+   / start_meeting_translation
+   / pause_meeting_translation
+   / resume_meeting_translation
+   / stop_meeting_translation
 -> application Meeting session authority
 ```
 
 `runtimeProductFacade.mapProductMeetingState()` maps backend state into product-level
-`Ready / Starting / Live / Stopping / In Use / Setup Needed` behavior and recognizes
-only `translateit_application_meeting` as product Meeting ownership.
+`Ready / Starting / Live / Paused / Resuming / Stopping / In Use / Setup Needed`
+behavior and recognizes only `translateit_application_meeting` as product Meeting
+ownership.
 
-Primary Meeting action:
+Normal Meeting actions:
 
 ```text
 idle + preflight ready -> Start Translation
-Live                   -> Stop Translation
-starting/stopping      -> disabled transition label
+Live                   -> Pause Translation or Stop Translation
+Paused                 -> Resume Translation or Stop Translation
+starting/resuming/stopping -> disabled transition state
 blocked/conflict       -> disabled Start + setup/recovery path
 ```
 
+Pause is not Stop. The application `session_id` remains while old generation authority
+is invalidated. Resume keeps that same session identity but assigns a fresh generation
+before capture/finalized-consumer resources are reopened and Live is committed.
+Duplicate Pause/Resume do not intentionally duplicate session/resource ownership.
+
 Navigation to Text, History, or Settings only changes presentation. It does not call
-Meeting Start/Stop or create a new session. A later global Meeting strip may expose
-this same authority across views; it must not introduce another lifecycle store.
+Meeting lifecycle actions or create a new session. A later global Meeting strip may
+expose this same authority across views; it must not introduce another lifecycle store.
 
 Mic Test/direct capture is blocked while a runtime session owns Meeting resources,
-so diagnostic `start_capture/stop_capture` cannot silently replace or tear down an
-application Meeting session.
+including while the application Meeting session is Paused, so diagnostic
+`start_capture/stop_capture` cannot silently replace or tear down the canonical
+session.
 
-Actual Tauri invocation, rendered transition behavior, navigation while Live, and
-window lifecycle remain local/rendered proof.
+Actual Tauri invocation, rendered transition behavior, navigation while Live/Paused,
+and window lifecycle remain local/rendered proof.
 
 ## 2. Canonical Outbound Speech / AI Execution
 
@@ -132,6 +144,10 @@ physical microphone
 `latest_live_target_segment.wav` remains diagnostic-only. Product Meeting uses unique
 finalized temporary WAVs and removes them after the outbound attempt.
 
+Pause invalidates the current generation before route/capture/helper/consumer cleanup.
+Resume establishes a fresh generation and reopens the same canonical capture/finalized
+path; pre-Pause generation work cannot be promoted by the resumed generation.
+
 Retired from product execution:
 
 ```text
@@ -164,9 +180,16 @@ This is **queue priority, not preemption**. A Meeting request arriving after act
 Text inference still waits for that current task. Local contention/latency proof is
 required before calling it realtime-optimal.
 
-Meeting Stop revokes application generation first. Matching in-flight Meeting
-inference may terminate the persistent worker; finalizer/consumer state is
-cleared/joined after authority revoke. Actual process/race timing remains local proof.
+Meeting Pause revokes the current application generation first while retaining the
+session identity. Matching route/helper work is then cancellation-signalled and the
+old capture/finalized consumer is stopped/cleared. If targeted helper cancellation
+terminates the persistent worker for matching in-flight Meeting work, Resume may
+restore the existing helper runtime before rechecking preflight and allocating a fresh
+generation. Unrelated helper work is not cancelled merely because Meeting is paused.
+
+Meeting Stop remains the full-session action: it revokes generation authority, clears
+resources, and removes the session. Actual process/race/cancellation timing remains
+local proof.
 
 ## 4. Finalized Utterance Boundary
 
@@ -227,6 +250,10 @@ Text    -> worker Quality capability
 Meeting -> direct MeetingSessionStatus + MeetingSessionPreflight
 ```
 
+Intentional `Paused` is a lifecycle state of the existing Meeting session, not a fake
+Ready state and not a new readiness authority. Resume rechecks current outbound
+preflight before reopening required resources.
+
 `RuntimeStatusBundle` remains useful for Diagnostics but is not the normal Meeting
 lifecycle owner. Legacy live/internal/professional/migration gates do not make normal
 product Ready.
@@ -244,7 +271,6 @@ persistent-worker smoke remains local proof and stores privacy-bounded metadata 
 ## 8. Remaining Core Work
 
 ```text
-Meeting Pause/Resume generation lifecycle
 full Meeting Live transcript/activity presentation
 global/cross-view Meeting strip and close-live handling
 incoming Meeting lane + self-output suppression
@@ -286,9 +312,10 @@ future frontend architecture decision after core runtime contracts stabilize.
 Current mode: **Developing**.  
 Execution channel: `ChatGPT -> GitHub`.
 
-Engine Consolidation Slices 1-5, finalized outbound utterance production, and normal
-product Meeting Start/Stop/Live-state wiring are source-aligned at their bounded
-claims. No compile/typecheck/validator execution/model/Windows runtime/rendered UI,
-audio-quality, or performance proof has been obtained in this channel.
+Engine Consolidation Slices 1-5, finalized outbound utterance production, normal
+product Meeting Start/Stop/Live-state wiring, and Meeting Pause/Resume fresh-generation
+lifecycle are source-aligned at their bounded claims. No compile/typecheck/validator
+execution/model/Windows runtime/rendered UI, audio-quality, race-timing, or performance
+proof has been obtained in this channel.
 
 The single continuation is `docs/knowledge/next-action.md`.
