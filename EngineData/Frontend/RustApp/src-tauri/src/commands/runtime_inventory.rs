@@ -132,13 +132,8 @@ fn count_files(root: &Path) -> (usize, u64) {
 fn build_model_inventory(
     project_paths: &ProjectPaths,
 ) -> (Vec<ModelInventoryItem>, Vec<String>, String) {
-    let root = PathBuf::from(&project_paths.project_root);
-    let manifest_path = root
-        .join("EngineData")
-        .join("Backend")
-        .join("LocalWorker")
-        .join("WorkerRuntime")
-        .join("model_manifest.json");
+    let runtime_root = PathBuf::from(&project_paths.runtime_root);
+    let manifest_path = PathBuf::from(&project_paths.worker_runtime_dir).join("model_manifest.json");
     let manifest = read_model_manifest(&manifest_path);
     let mut blockers = Vec::new();
     if manifest.is_none() {
@@ -148,7 +143,7 @@ fn build_model_inventory(
     let mut items = Vec::new();
     if let Some(manifest) = manifest {
         for entry in manifest.models {
-            let expected_path = root.join(&entry.expected_path);
+            let expected_path = runtime_root.join(&entry.expected_path);
             let found = expected_path.is_dir() || expected_path.is_file();
             let (file_count, size_bytes) = if expected_path.is_dir() {
                 count_files(&expected_path)
