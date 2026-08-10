@@ -2,7 +2,7 @@
 
 Updated: 2026-08-10  
 Working branch: `New`  
-Status: **Engine Consolidation Slices 1-5 are source-aligned. The canonical local AI runtime now has one persistent worker/project/scheduler path, caller-owned modes, scoped readiness, truthful translation input/output boundaries, and explicit English TTS voice selection.**
+Status: **Engine Consolidation Slices 1-5 and the Finalized Outbound Utterance Producer are source-aligned. The canonical outbound source path now runs from application Meeting capture through audio-owned finalization into one serialized generation-aware AI/output consumer.**
 
 This file is the single active continuation owner for TranslateIT.
 
@@ -13,7 +13,7 @@ AGENTS.md
 -> CONTEXT.md
 -> docs/knowledge/next-action.md
 -> docs/knowledge/source-ownership.md
--> bounded live-audio/VAD finalization owner + direct Meeting consumer only
+-> normal Meeting frontend/runtime bridge + direct Start/Stop/Live consumers only
 ```
 
 ## Current Mode
@@ -27,252 +27,281 @@ ChatGPT -> GitHub
 ```
 
 Local/Windows acceptance remains deferred. Rust compilation, TypeScript typecheck,
-Python dependency resolution, Ruff/pytest execution, model inference/quality,
-scheduler timing, CPU/CUDA behavior, Windows TTS/audio, and installed operation remain
-`LOCAL PROOF REQUIRED`.
+Python dependency resolution, Ruff/pytest execution, real microphone/VAD behavior,
+model inference/quality, scheduler timing, CPU/CUDA behavior, Windows TTS/audio,
+Meeting Microphone delivery, and installed operation remain `LOCAL PROOF REQUIRED`.
 
-## Locked Engine Target
+## Locked Runtime Target
 
 ```text
-Rust/Tauri product runtime
+Application Meeting capture
+        |
+        +-> rolling audio / preview only
         |
         v
-ONE helper scheduler / process bridge
+Audio-owned finalized utterance producer
         |
         v
-ONE persistent Python worker
-        |
-        +-- ASR
-        +-- Translation
-        +-- TTS
+session_id + generation + utterance_id
         |
         v
-product result / Meeting route
+ONE serialized Meeting outbound consumer
+        |
+        v
+ONE helper scheduler / persistent Python worker
+        |
+        +-> ASR
+        +-> Realtime translation
+        +-> explicit English TTS
+        |
+        v
+TranslateIT Meeting Microphone route
 ```
 
-Do not reintroduce alternate workers, manual/rule translation fallback, duplicate
-readiness/dependency owners, automatic cross-mode fallback, arbitrary TTS voice
-selection, or another scheduler.
+Do not reintroduce alternate workers, AI loops, rolling-audio polling output,
+manual/rule translation fallback, duplicate readiness/dependency owners, automatic
+cross-mode fallback, arbitrary TTS voice selection, or another scheduler/finalizer.
 
-Svelte remains a later independent frontend architecture decision after Engine
-contracts stabilize.
+Svelte remains a later independent frontend architecture decision; do not combine it
+with the next Meeting runtime-wiring slice.
 
-# Slices 1-4 — Closed
+# Engine Consolidation Slices 1-5 — Closed Source Boundaries
 
-Current bounded source truth already established:
+Already established:
 
-- standalone Text has one persistent-helper/base-worker path;
-- manual/alternate/fake translation paths are retired;
-- static installation evidence is distinct from worker runtime capability;
-- normal Text readiness uses current Quality capability;
-- Meeting readiness uses canonical `MeetingSessionPreflight`;
-- Text explicitly requests `Quality`; Meeting outbound explicitly requests `Realtime`;
-- one helper scheduler owns stdin/stdout and waiting priority is Meeting > Text >
-  Diagnostics;
-- Meeting generation is checked before execution and before result promotion;
-- matching in-flight revoked Meeting inference may hard-cancel the worker process;
-- translation source input uses `truncation=False` and rejects unverifiable/oversized
-  model-token input instead of silently truncating;
-- `pyproject.toml` is the one WorkerRuntime Python dependency/tooling owner;
-- duplicate requirements/stack/CUDA-setup authorities are retired;
-- Ruff + pytest are configured as the bounded Python source/deterministic proof layer;
-- local smoke source uses one persistent process and privacy-bounded evidence.
+- one persistent Python AI worker path;
+- fake/manual/alternate translation paths retired;
+- static installation evidence separated from current worker capability;
+- Text owns Quality and Meeting outbound owns Realtime;
+- one helper scheduler owns worker stdin/stdout;
+- waiting scheduler order is Meeting > Text > Diagnostics;
+- stale Meeting generations are rejected before execution/result promotion;
+- matching in-flight Meeting helper work can be hard-cancelled after authority revoke;
+- translation input is never silently tokenizer-truncated;
+- generated translation requires verifiable EOS completion;
+- TTS requires an explicit English-capable Piper/SAPI voice;
+- one WorkerRuntime `pyproject.toml` owns Python dependencies/tooling;
+- Ruff/pytest source proof baseline exists without fake execution claims.
 
-Queue priority remains **non-preemptive** for a Text inference already in flight.
-`uv.lock`, Ruff/pytest execution, runtime smoke, and performance remain later local
-proof.
+Queue priority remains **non-preemptive** for Text inference already in flight.
+`uv.lock`, dependency resolution, Ruff/pytest execution, model/runtime quality, and
+performance remain later local proof.
 
-# Slice 5 — Closed Source Boundary
+# Finalized Outbound Utterance Producer — Closed Source Boundary
 
-## A. Translation output completeness
+## A. Separate rolling and final ownership
 
-Canonical worker translation no longer assumes that a non-empty decoded string is a
-complete result.
+`audio/live_audio_buffer.rs` remains rolling/preview/diagnostic ownership.
+`ready_for_target_asr_frame` is not treated as a final speech signal.
 
-Generation now requests structured output:
+Application Meeting capture additionally feeds:
 
 ```text
-model.generate(..., return_dict_in_generate=True)
--> sequences
--> EOS contract
--> generated token count
--> completion decision
+audio/finalized_utterance.rs
 ```
 
-Fail-closed behavior:
+Capture-only/developer session owners do not activate product finalized-output
+production.
+
+## B. Natural/adaptive finalization
+
+The finalizer uses the existing Realtime VAD profile instead of introducing a second
+fixed chunk policy.
+
+Source flow:
 
 ```text
-missing/unreadable sequences
--> reject
-
-EOS token unavailable
--> reject
-
-sequence ends without EOS at max_new_tokens
--> translation:output_hit_token_ceiling_without_eos
--> reject
-
-sequence ends without EOS before ceiling
--> translation:output_ended_without_eos
--> reject
-
-verified terminal EOS
--> decode/promote result
+non-speech
+-> bounded pre-roll
+-> speech gate accepted
+-> one in-progress utterance
+-> speech continues
+-> trailing non-speech accumulates
+-> adaptive end-silence threshold satisfied
+-> full speech portion revalidated
+-> FINAL
 ```
 
-Rejected/incomplete translation never becomes standalone Text success and cannot be
-promoted into Meeting TTS by the existing outbound stage contract.
+End-silence adaptation is derived from the existing VAD profile plus the current
+boundary energy. `target_chunk_min_ms` is only an upper bound for that adaptive
+silence calculation, not a command to emit fixed chunks.
 
-This is source correctness only. Real MarianMT/NLLB generation behavior, quality, and
-completion rates remain local/model proof.
+Internal queue/maximum-buffer bounds are fail-closed safety mechanics only. They do
+not force a partial utterance to be called final; overlong/overloaded work is dropped
+instead of fabricated into output.
 
-## B. Explicit English TTS selection
+Actual conversational boundary quality requires microphone/VAD proof later.
 
-TTS readiness/synthesis now require an identified English-capable voice.
+## C. Identity and exactly-once consumption
 
-Piper:
+Each successfully finalized utterance receives:
 
 ```text
-piper.exe
-+ voice.onnx
-+ matching voice.onnx.json
-+ metadata language code is English
--> selectable
+session_id
+generation
+utterance_id
 ```
 
-Filename alone is not accepted as language proof. `en-US` is preferred when
-available; otherwise another verified English locale is chosen deterministically.
+The queue is consumed with one `pop_front()` owner. It is not a repeatedly readable
+rolling snapshot.
 
-Windows SAPI:
+A generation that is no longer authoritative clears producer state and cannot emit
+new finalized output.
+
+## D. Temporary finalized WAV
+
+`live_segment_writer.rs` now has a separate finalized writer:
 
 ```text
-installed VoiceInfo Name + Culture
--> Culture = en / en-*
--> deterministic selection (en-US preferred)
--> SelectVoice(selected name)
--> synthesize
+FinalizedOutboundUtterance
+-> unique final_<session>_g<generation>_u<utterance>.wav
+-> 16 kHz mono PCM16
+-> UserData/CacheData/audio_segments/
 ```
 
-The implicit Windows default voice is not accepted as the outbound TTS selection
-contract.
+The inherited `latest_live_target_segment.wav` path remains diagnostic-only and is
+not called by product Meeting output.
 
-If neither provider exposes an explicit English candidate, TTS reports unavailable
-rather than synthesizing with an arbitrary voice.
+The serialized consumer removes the finalized source WAV after the AI/output attempt,
+preserving temporary-audio privacy semantics.
 
-Actual installed voices, Piper assets, SAPI behavior, English intelligibility, audio
-quality, and synthesis success remain `LOCAL PROOF REQUIRED`.
+## E. One serialized Meeting outbound consumer
 
-## C. Deterministic proof definitions / static regression guard
-
-`WorkerRuntime/tests/test_worker_contract.py` now additionally defines tests for:
+`meeting_session.rs` owns one consumer thread for the authoritative generation:
 
 ```text
-non-EOS token-ceiling rejection
-verified-EOS acceptance
-English SAPI selection with en-US preference
-Piper selection requiring English metadata
-Piper filename-only language claim rejection
+wait for finalized queue item
+-> verify session/generation Live
+-> write unique temporary WAV
+-> process_authoritative_finalized_outbound_wav
+-> remove temporary finalized WAV
+-> wait for next final
 ```
 
-pytest is still **not executed** through this channel.
+No AI inference runs in CPAL callbacks or inside the audio finalizer.
 
-`validate_translation_flow_integrity.mjs` now statically guards:
+`process_authoritative_finalized_outbound_wav` remains the canonical AI/output
+boundary:
 
 ```text
-return_dict_in_generate
-EOS completion check
-non-EOS blocker paths
-explicit English Piper/SAPI selection
-SAPI SelectVoice
-absence of first_piper_voice
+final WAV
+-> ID ASR
+-> generation check
+-> Realtime ID -> EN translation with completion check
+-> generation check
+-> explicit English TTS
+-> generation check
+-> guarded Meeting route
 ```
 
-This remains source-contract proof only.
+## F. Start / Stop source lifecycle
 
-## D. Persistent smoke evidence
-
-`run_realtime_worker_smoke.ps1` keeps one worker process and its saved summary may now
-record only safe completion/voice metadata such as:
+Backend Meeting preflight no longer has the inherited source blockers:
 
 ```text
-complete
-finished_with_eos
-generated_tokens
-hit_token_ceiling
-voice_id
-language_code
+meeting_session:finalized_utterance_source_not_connected
+meeting_session:continuous_outbound_runtime_not_connected
 ```
 
-Conversation bodies and runtime file paths remain excluded.
+because those source connections now exist.
 
-# Proof State
+Other real blockers still apply: microphone, required models/current helper
+capability, Meeting Microphone route, and guarded route execution.
 
-**CURRENT-PROJECT VERIFIED** at static source/tooling level:
+Transactional backend Start now opens capture, commits the generation Live, then
+starts the serialized outbound consumer. Consumer-start failure revokes authority and
+rolls resources back.
 
-1. incomplete/unverifiable translation generation cannot be promoted merely because
-   decoded text is non-empty;
-2. a non-EOS result reaching `max_new_tokens` has an explicit blocked state;
-3. Piper voice selection requires English-capable metadata rather than arbitrary
-   first-model selection;
-4. SAPI selection requires English culture and synthesis explicitly selects the
-   chosen voice;
-5. worker capability TTS readiness follows the explicit-English selection contract;
-6. deterministic test definitions and static regression markers cover the new
-   boundaries;
-7. local smoke evidence remains privacy-bounded.
+Stop remains authority-first:
 
-No uv resolution, Ruff, pytest, worker smoke, model inference, TTS synthesis, build,
-or Windows audio command was executed through this channel.
+```text
+revoke generation
+-> cancel route
+-> stop capture + clear finalized state
+-> cancel matching in-flight helper work
+-> join serialized consumer
+-> clear session/handoff
+```
+
+Pause/Resume is not implemented by this slice. Future Pause/Resume may use fresh
+generation authority, but do not claim it exists yet.
+
+# Static Proof State
+
+**CURRENT-PROJECT VERIFIED** at source level:
+
+1. application Meeting capture has a distinct audio-owned finalized producer;
+2. rolling ASR-ready snapshots are not the product finalization source;
+3. finalizer identity is `session_id + generation + utterance_id`;
+4. queue consumption is one-shot rather than snapshot polling;
+5. non-authoritative generations clear/reject pending finalization;
+6. product Meeting uses unique finalized temporary WAVs, not the rolling diagnostic WAV;
+7. one serialized consumer invokes the existing generation-aware AI/output boundary;
+8. capture-only owners do not activate product finalization;
+9. Stop source ordering releases waiting/in-flight outbound work after authority revoke;
+10. static translation-flow validator guards the finalizer/consumer separation.
+
+No Rust compile, static-validator execution, microphone/VAD run, filesystem WAV run,
+model inference, route delivery, or race/Stop timing test was executed in this
+channel.
 
 # Known Gaps Kept Truthful
 
-- `uv.lock` and actual dependency resolution are not verified;
-- Python/Rust/frontend compile/test execution is deferred to the later local phase;
-- active Text inference remains non-preemptive when Meeting work arrives;
-- actual translation model EOS behavior/completion rates are unmeasured;
-- actual English Piper/SAPI voice availability and audio quality are unproved;
-- model revision/checksum/source acquisition metadata remains incomplete;
-- model quality, latency, RAM, and VRAM evidence has not been measured;
-- Meeting Start remains fail-closed because finalized utterance production is not
-  connected;
-- incoming Meeting Sound remains unimplemented;
-- approved tone/context still does not reach canonical inference.
+- actual CPAL callback cadence and VAD speech/end-boundary quality are unmeasured;
+- adaptive silence thresholds and internal queue/safety limits are source mechanics,
+  not production-tuned values yet;
+- exactly-once and Stop-race behavior still require executable/runtime proof;
+- backend Meeting Start/Stop commands exist, but normal frontend `runtimeApi` does not
+  yet expose/use canonical `get/start/stop_meeting_session` commands;
+- normal Meeting Ready screen still lacks the approved product Start -> Live wiring;
+- global/cross-view Meeting session strip/state and Live transcript rendering remain
+  incomplete;
+- Pause/Resume remains unimplemented;
+- incoming Meeting Sound and self-output suppression remain unimplemented;
+- approved translation tone/context does not yet reach canonical inference;
+- Meeting History after committed turns remains incomplete;
+- Text Copy/direct Save remains incomplete;
+- `uv.lock`/dependency resolution and model revision/checksum metadata remain incomplete;
+- all compile/test/model/audio/performance/installed proof remains deferred locally.
 
 # Hold
 
-- do not create another AI worker, TTS service, scheduler, readiness store,
-  dependency manifest, lint stack, or test framework;
-- do not weaken EOS/voice checks to get a successful local result;
-- do not fabricate `uv.lock` or resolved dependency versions;
-- do not replace models before evaluation evidence requires it;
-- do not redesign scheduler preemption, incoming Meeting, Svelte, or packaging in the
-  next slice;
-- do not start local Windows acceptance yet.
+- do not tune VAD constants from source intuition alone;
+- do not poll `live_target_segment_snapshot()` for product output;
+- do not add another speech segmenter, capture pipeline, outbound loop, worker, or
+  scheduler;
+- do not add retries that can deliver one utterance twice;
+- do not begin incoming Meeting Sound in the next slice;
+- do not combine the next slice with Svelte migration, packaging, benchmark work, or
+  local Windows acceptance.
 
 ## Next Step
 
-Return to the previously deferred **Finalized Outbound Utterance Producer** as the
-next bounded implementation slice.
+Implement **Normal Product Meeting Start/Stop + Live State Wiring** using the existing
+canonical backend lifecycle.
 
-Target existing live-audio/VAD ownership only:
+Bounded target:
 
 ```text
-rolling microphone audio
--> natural/adaptive speech boundary
--> partial speech remains preview/non-output
--> finalized utterance created once
--> assign session_id + generation + utterance_id
--> exactly-once final consumption
--> process_authoritative_finalized_outbound_wav
--> canonical ASR -> Realtime Translation -> English TTS -> Meeting route
+runtimeApi
+-> expose get_meeting_session_status
+-> expose start_meeting_translation
+-> expose stop_meeting_translation
+
+runtimeProductFacade
+-> map canonical Meeting session action/status
+
+Meeting Ready
+-> Start Translation invokes transactional backend Start
+-> success switches to existing/approved Live composition
+-> failure preserves Ready/source state and surfaces product-level recovery
+
+Meeting Live
+-> status follows application-level session authority
+-> Stop invokes canonical backend Stop
+-> navigation does not create/stop a second session
 ```
 
-Required safety:
-
-- finalized utterance must belong to the currently authoritative Meeting generation;
-- a finalized utterance must not be emitted twice;
-- partial/rolling audio must never enter Translation/TTS;
-- Stop/Pause/generation change must invalidate pending finalization cleanly;
-- do not combine this slice with incoming Meeting Sound, full Meeting Live UI,
-  scheduler preemption redesign, model benchmarking, Svelte, packaging, or local
-  acceptance.
+Do **not** implement incoming Meeting Sound, full transcript/history completion,
+Pause/Resume, Svelte migration, model benchmarking, packaging, or local acceptance in
+that same slice. Those remain separate bounded tasks.
