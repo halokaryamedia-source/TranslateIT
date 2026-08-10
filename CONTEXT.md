@@ -96,7 +96,7 @@ Worker compatibility aliases may remain for inherited Diagnostics/preload bounda
 but normal product readiness and normal Meeting/Text requests do not use them to choose
 translation behavior.
 
-Product readiness now consumes the worker direction fields directly:
+Product readiness consumes the worker direction fields directly:
 
 ```text
 Meeting required outbound
@@ -118,24 +118,38 @@ The repository does **not** contain runtime proof that `marianmt-en-id` is insta
 loads successfully, translates well, or meets target-PC latency/memory. Those remain
 local/release proof.
 
-## Translation Model Inventory Gap
+## Translation Model Inventory
 
-The runtime worker and active product now agree on direction-based translation, but
-`model_manifest.json` still describes the older asset plan:
+The declarative inventory now matches the worker's selected direction-based translation
+engine:
 
 ```text
-Current worker expects
 marianmt-id-en
-marianmt-en-id
+stage = translation_id_en
+required = true
+path = EngineData/Backend/RuntimeAssets/Translation/ModelData/marianmt-id-en
+source = Helsinki-NLP/opus-mt-id-en
 
-Current manifest declares
-marianmt-id-en
-nllb-200-distilled-600M / translation_quality
+marianmt-en-id
+stage = translation_en_id
+required = false
+path = EngineData/Backend/RuntimeAssets/Translation/ModelData/marianmt-en-id
+source = Helsinki-NLP/opus-mt-en-id
 ```
 
-The reverse Marian checkpoint is therefore not yet represented by the canonical model
-inventory/setup owner. This is a source/setup mismatch, not proof that the checkpoint is
-installed or usable.
+The obsolete NLLB Quality entry is removed from the current manifest. Both Marian model
+cards identify the expected direction and Apache-2.0 license. Manifest presence remains
+installation metadata only; it does not prove model bytes exist, load, or satisfy
+quality/latency.
+
+`required=false` for the reverse EN -> ID inventory entry is deliberately scoped to the
+**required Meeting outbound inventory gate**. It prevents missing optional incoming from
+false-blocking ID -> EN Meeting Start. It does not claim EN -> ID Text is complete when
+the reverse model is missing; Text readiness still follows worker `translation_en_id`.
+
+`runtime_inventory.rs` reports only missing manifest-required assets as blocking its
+required-assets status and explicitly states that optional assets may still be absent.
+It remains installation evidence, not product/runtime inference proof.
 
 ## Translation Safety Rules
 
@@ -249,6 +263,8 @@ cannot satisfy practical Meeting latency.
 
 - active desktop shell/controller — Meeting / Text / Settings only, no normal Mode/Tone;
 - direction-based product readiness in `runtimeProductFacade.ts`;
+- direction-based `model_manifest.json` — `marianmt-id-en` required outbound + nonblocking `marianmt-en-id` reverse asset metadata;
+- `runtime_inventory.rs` — installation evidence for required/optional declared assets;
 - `engine/audio/live_capture.rs` — physical microphone capture;
 - `engine/audio/finalized_utterance.rs` — finalized speech/event identity;
 - `engine/audio/meeting_sound_capture.rs` — optional Meeting Sound loopback;
@@ -262,9 +278,9 @@ cannot satisfy practical Meeting latency.
 
 ## Source To Simplify / Retire
 
-Current source still contains behavior outside or inconsistent with the initial product:
+Current source still contains behavior outside or incomplete for the initial product:
 
-- stale model inventory/manifest entry for optional NLLB Quality instead of the selected reverse Marian direction;
+- actual delivery/provisioning of both Marian model assets to a target installation is not yet resolved/proven;
 - backend History/Saved persistence source, now disconnected from the active frontend;
 - Audio Studio/custom voice initial-product assumptions;
 - any future conversation-context path;
