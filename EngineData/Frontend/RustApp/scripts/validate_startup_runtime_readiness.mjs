@@ -7,22 +7,28 @@ const mainPath = resolve(root, "src/main.ts");
 const simpleControllerPath = resolve(root, "src/app/simple-launcher/SimpleLauncherController.ts");
 const meetingActivityPath = resolve(root, "src/app/simple-launcher/MeetingLiveActivityPresentation.ts");
 const meetingActivityCssPath = resolve(root, "src/meetingLiveActivity.css");
+const historyCssPath = resolve(root, "src/historyLayout.css");
+const historyTypesPath = resolve(root, "src/app/shared/historyTypes.ts");
 const runtimeApiPath = resolve(root, "src/app/bridge/runtimeApi.ts");
 const facadePath = resolve(root, "src/app/bridge/runtimeProductFacade.ts");
 const registryPath = resolve(root, "src-tauri/src/commands/registry.rs");
 const meetingSessionPath = resolve(root, "src-tauri/src/commands/meeting_session.rs");
 const runtimeStatePath = resolve(root, "src-tauri/src/engine/runtime_state.rs");
+const historyStorePath = resolve(root, "src-tauri/src/engine/history_store.rs");
 
 for (const path of [
   mainPath,
   simpleControllerPath,
   meetingActivityPath,
   meetingActivityCssPath,
+  historyCssPath,
+  historyTypesPath,
   runtimeApiPath,
   facadePath,
   registryPath,
   meetingSessionPath,
   runtimeStatePath,
+  historyStorePath,
 ]) {
   if (!existsSync(path)) {
     console.error(`Missing file: ${path}`);
@@ -34,17 +40,21 @@ const main = readFileSync(mainPath, "utf8");
 const simpleController = readFileSync(simpleControllerPath, "utf8");
 const meetingActivity = readFileSync(meetingActivityPath, "utf8");
 const meetingActivityCss = readFileSync(meetingActivityCssPath, "utf8");
+const historyCss = readFileSync(historyCssPath, "utf8");
+const historyTypes = readFileSync(historyTypesPath, "utf8");
 const runtimeApi = readFileSync(runtimeApiPath, "utf8");
 const facade = readFileSync(facadePath, "utf8");
 const registry = readFileSync(registryPath, "utf8");
 const meetingSession = readFileSync(meetingSessionPath, "utf8");
 const runtimeState = readFileSync(runtimeStatePath, "utf8");
+const historyStore = readFileSync(historyStorePath, "utf8");
 
 for (const marker of [
   "SimpleLauncherController",
   "simple-ui-v1",
   "startMeetingLiveActivityPresentation",
   'import "./meetingLiveActivity.css"',
+  'import "./historyLayout.css"',
 ]) {
   if (!main.includes(marker)) throw new Error(`main marker missing: ${marker}`);
 }
@@ -67,12 +77,21 @@ for (const marker of [
   "meeting.live",
   "meeting.paused",
   "meeting.hasSession",
+  "appendMeetingHistoryTurn",
+  "historyDeliveryLabel",
+  "history-meeting-turn",
+  "entry.dropped_turn_count",
+  "entry.turns.forEach",
 ]) {
   if (!simpleController.includes(marker)) throw new Error(`simple controller product-runtime marker missing: ${marker}`);
 }
 
-if (simpleController.includes("Start Translation is not available in this build yet.")) {
-  throw new Error("simple controller stale disabled-Start behavior remains");
+for (const forbidden of [
+  "Start Translation is not available in this build yet.",
+  "Meeting detail is not connected yet.",
+  "canonical Meeting lifecycle does not write History entries",
+]) {
+  if (simpleController.includes(forbidden)) throw new Error(`simple controller stale behavior remains: ${forbidden}`);
 }
 
 for (const marker of [
@@ -119,6 +138,26 @@ for (const marker of [
   ".meeting-live-transcript-translation",
 ]) {
   if (!meetingActivityCss.includes(marker)) throw new Error(`Meeting live activity CSS marker missing: ${marker}`);
+}
+
+for (const marker of [
+  ".history-meeting-turn",
+  ".history-meeting-turn-header",
+  ".history-meeting-lane",
+  ".history-meeting-delivery",
+  ".history-meeting-source",
+  ".history-meeting-translation",
+  ".history-meeting-truncation-note",
+]) {
+  if (!historyCss.includes(marker)) throw new Error(`Meeting History CSS marker missing: ${marker}`);
+}
+
+for (const marker of [
+  "dropped_turn_count: number",
+  "turns: HistoryTurn[]",
+  'entry_type: "meeting" | "text" | string',
+]) {
+  if (!historyTypes.includes(marker)) throw new Error(`History TypeScript contract marker missing: ${marker}`);
 }
 
 for (const marker of [
@@ -189,14 +228,62 @@ for (const marker of [
   '"output_failed"',
   '"interrupted"',
   "dropped_turn_count",
+  "create_meeting_recent",
+  "HistoryTurn",
+  "load_settings",
+  "finalize_meeting_history",
+  "history_enabled",
 ]) {
-  if (!meetingSession.includes(marker)) throw new Error(`Canonical committed Meeting turn marker missing: ${marker}`);
+  if (!meetingSession.includes(marker)) throw new Error(`Canonical Meeting transcript/finalization marker missing: ${marker}`);
 }
 
-for (const forbidden of ["history_store", "HistoryEntry", "create_text_recent", "history_enabled"]) {
-  if (meetingSession.includes(forbidden)) {
-    throw new Error(`Live committed Meeting turn owner must not persist directly to History in this slice: ${forbidden}`);
+const pauseIndex = meetingSession.indexOf("pub fn pause_meeting_translation()");
+const resumeIndex = meetingSession.indexOf("pub fn resume_meeting_translation()");
+const stopIndex = meetingSession.indexOf("pub fn stop_meeting_translation()");
+if (pauseIndex < 0 || resumeIndex < 0 || stopIndex < 0 || !(pauseIndex < resumeIndex && resumeIndex < stopIndex)) {
+  throw new Error("Meeting lifecycle command ordering/source boundary could not be identified");
+}
+const pauseBody = meetingSession.slice(pauseIndex, resumeIndex);
+const resumeBody = meetingSession.slice(resumeIndex, stopIndex);
+const stopBody = meetingSession.slice(stopIndex);
+for (const [label, body] of [["Pause", pauseBody], ["Resume", resumeBody]]) {
+  for (const forbidden of ["finalize_meeting_history", "create_meeting_recent"]) {
+    if (body.includes(forbidden)) throw new Error(`${label} must not persist Meeting History: ${forbidden}`);
   }
+}
+
+const stopOrder = [
+  "revoke_application_meeting_session_authority",
+  "interrupt_committed_turns_for_generation",
+  "stop_meeting_outbound_consumer",
+  "current_committed_turn_snapshot",
+  "finalize_meeting_history",
+  "clear_committed_turns_for_session",
+  "clear_runtime_session_state",
+];
+let previousStopIndex = -1;
+for (const marker of stopOrder) {
+  const markerIndex = stopBody.indexOf(marker);
+  if (markerIndex < 0 || markerIndex <= previousStopIndex) {
+    throw new Error(`Meeting Stop finalization order is missing or unsafe around: ${marker}`);
+  }
+  previousStopIndex = markerIndex;
+}
+
+for (const marker of [
+  "HISTORY_SCHEMA_VERSION: u32 = 2",
+  "pub struct HistoryTurn",
+  "pub struct HistoryEntry",
+  "#[serde(default)]",
+  "pub dropped_turn_count: u64",
+  "pub fn create_meeting_recent(",
+  'entry_type: "meeting".to_string()',
+  'title: "Meeting Translation".to_string()',
+  'get_history("recent".to_string(), entry_id.clone())',
+  'message: "Meeting added to Recent History.".to_string()',
+  "MAX_HISTORY_TURNS",
+]) {
+  if (!historyStore.includes(marker)) throw new Error(`Canonical History persistence marker missing: ${marker}`);
 }
 
 const meetingSessionStatusBody = meetingSession.match(/pub struct MeetingSessionStatus\s*\{([\s\S]*?)\n\}/)?.[1] ?? "";
@@ -232,5 +319,5 @@ for (const marker of [
 }
 
 console.log(
-  "Startup/product Meeting source-contract integrity passed: one application Meeting authority owns Start/Pause/Resume/Stop and one bounded backend committed-turn source, while the normal Meeting transcript reads that source without frontend accumulation, History persistence, worker/Diagnostics scraping, or conversation bodies in lifecycle status. This is static source proof only, not TypeScript/Rust build, validator execution, Tauri runtime, rendered UI, microphone, audio-route, or Windows proof.",
+  "Startup/product Meeting source-contract integrity passed: one application Meeting authority owns lifecycle and transient committed turns; Stop snapshots those turns after authority/resource cleanup, applies the current History retention gate through the canonical History store, then clears transient bodies. Meeting Live and History detail remain read-only presentation consumers, Saved remains explicit, and lifecycle status stays body-free. This is static source proof only, not TypeScript/Rust build, validator execution, Tauri/runtime persistence, rendered UI, microphone, audio-route, or Windows proof.",
 );
