@@ -28,7 +28,8 @@ MISSING  -> required simplified-core behavior has no valid current implementatio
 | Translation worker | `realtime_local_worker.py` | **SOURCE ALIGNED / MODEL PROOF LATER** | One persistent worker routes ID->EN to `marianmt-id-en` and EN->ID to `marianmt-en-id` by language direction; no NLLB/mode-based model routing remains. |
 | Translation product readiness | worker status -> `runtimeProductFacade.ts` | **SOURCE ALIGNED / EXECUTION PROOF LATER** | Product reads `translation_id_en` / `translation_en_id`. Meeting required outbound uses ID->EN; Text readiness follows selected direction; old Realtime/Quality aliases do not decide normal product readiness. |
 | Translation safety | `realtime_local_worker.py` | **SOURCE ALIGNED / MODEL PROOF LATER** | No silent tokenizer truncation; input limit and EOS-completion guards remain before promotion. |
-| Translation model inventory/setup | `model_manifest.json`, `runtime_inventory.rs` | **STALE / NEXT** | Worker expects `marianmt-en-id`, but manifest still declares obsolete optional NLLB `translation_quality` and does not manage the reverse Marian asset. |
+| Translation model inventory/setup | `model_manifest.json`, `runtime_inventory.rs` | **SOURCE ALIGNED / INSTALLATION PROOF ONLY** | Manifest now declares `marianmt-id-en` at the worker ID->EN path and nonblocking `marianmt-en-id` at the worker EN->ID path; obsolete NLLB/mode-based translation inventory is removed. Inventory only blocks on manifest-required missing assets and remains installation evidence. |
+| Model asset delivery | release/runtime asset flow | **UNRESOLVED / PLAN NEXT** | Source metadata now exists for both Marian directions, but this repository state does not prove the model bytes are delivered to a target installation or define the final simplest delivery strategy. |
 | Meeting outbound AI | `meeting_session.rs` -> helper -> worker | **SOURCE ALIGNED / RUNTIME PROOF LATER** | Explicit ID->EN request reaches the same direction-based worker without a normal `mode` field, then TTS/route. |
 | Meeting incoming AI | `meeting_session.rs` -> helper -> worker | **SOURCE ALIGNED CONTRACT / MODEL PROOF LATER** | Explicit EN->ID request reaches the reverse Marian direction without a normal `mode` field; incoming/helper promotion is eligible only while the application Meeting is Live. |
 | Self-output suppression | `meeting_session.rs` + `meeting_sound_capture.rs` | **SOURCE ALIGNED / WINDOWS PROOF LATER** | Healthy incoming is suppressed during TranslateIT playback; if suppression cannot be established, incoming is disabled/ignored and required outbound continues. |
@@ -43,7 +44,7 @@ MISSING  -> required simplified-core behavior has no valid current implementatio
 | Meeting context | no canonical inference path | **DEFERRED BY POLICY** | Current utterance only; do not add context now. |
 | Global safe close | `GlobalMeetingShell.ts`, native `main.rs` -> canonical Stop | **ALIGNED BASE** | Stop-before-close remains and does not create Pause or persistence behavior. |
 | Audio Studio/custom voice | existing advanced/source boundaries | **STALE FOR INITIAL CORE** | Deferred until translator is proven. |
-| Static translation-core validation | `scripts/validate_startup_runtime_readiness.mjs` | **SOURCE ALIGNED DEFINITION / NOT EXECUTED** | Validator protects direction-based readiness, mode/tone-free normal flow, History-free active surface, Text persistence independence, bidirectional routing, nonblocking incoming, Start/Live/Stop lifecycle, persistence-free Stop, and safe close ownership. |
+| Static translation-core validation | `scripts/validate_startup_runtime_readiness.mjs` | **SOURCE ALIGNED DEFINITION / NOT EXECUTED** | Validator protects direction-based readiness, the direction-based Marian inventory, reverse nonblocking required-outbound semantics, mode/tone-free normal flow, History-free active surface, Text persistence independence, bidirectional routing, nonblocking incoming, Start/Live/Stop lifecycle, persistence-free Stop, and safe close ownership. |
 
 ## 1. Simplified Product Flow
 
@@ -85,7 +86,7 @@ EN -> ID -> RuntimeAssets/Translation/ModelData/marianmt-en-id
 Realtime/Quality compatibility aliases for inherited Diagnostics/preload contracts, but
 they do not select a model and are not consumed by normal product readiness.
 
-Normal product readiness now follows:
+Normal product readiness follows:
 
 ```text
 Meeting required outbound
@@ -102,7 +103,42 @@ current source/target direction
 No runtime/model claim follows from source alignment: the reverse checkpoint is not
 proven installed, loadable, accurate, fast, or package-ready.
 
-## 3. Translation Safety
+## 3. Direction-Based Translation Model Inventory
+
+`model_manifest.json` now describes the same translation directions and paths as the
+worker:
+
+```text
+marianmt-id-en
+stage = translation_id_en
+required = true
+expected_path = EngineData/Backend/RuntimeAssets/Translation/ModelData/marianmt-id-en
+source = Helsinki-NLP/opus-mt-id-en
+license = apache-2.0
+
+marianmt-en-id
+stage = translation_en_id
+required = false
+expected_path = EngineData/Backend/RuntimeAssets/Translation/ModelData/marianmt-en-id
+source = Helsinki-NLP/opus-mt-en-id
+license = apache-2.0
+```
+
+The obsolete `nllb-200-distilled-600M` / `translation_quality` entry and old
+`translation_realtime` manifest stage are removed from the current translation inventory.
+
+`required=false` on `marianmt-en-id` is an inventory rule for the **required Meeting
+outbound gate**, not a claim that reverse Text is optional for full product acceptance.
+A missing reverse model therefore does not make the required-assets inventory fail or
+false-block healthy ID->EN Meeting Start. Text EN->ID remains not ready unless the worker
+reports `translation_en_id` available.
+
+`runtime_inventory.rs` only creates blockers for missing entries marked `required` and
+now states explicitly that optional direction/fallback assets may still be absent. Both
+inventory and setup reports remain installation evidence only; neither proves load,
+inference, translation quality, latency, or CUDA behavior.
+
+## 4. Translation Safety
 
 The worker preserves:
 
@@ -118,10 +154,10 @@ truncation=False
 Known incomplete translation is not normal Text/TTS output. No automatic previous-turn
 or History context is added.
 
-Normal Meeting/Text translation requests now carry content and language direction rather
+Normal Meeting/Text translation requests carry content and language direction rather
 than a user/runtime mode selector.
 
-## 4. Simple Meeting Lifecycle
+## 5. Simple Meeting Lifecycle
 
 The application Meeting owner follows:
 
@@ -151,7 +187,7 @@ Pause/Resume frontend bridge/facade/control mapping
 Navigation and minimize do not become substitute Pause operations. The active Meeting
 remains application-level until explicit Stop or safe Stop & Close.
 
-## 5. Incoming Is Subordinate To Outbound
+## 6. Incoming Is Subordinate To Outbound
 
 Current source follows:
 
@@ -172,7 +208,7 @@ Incoming/helper promotion is valid only while the same application Meeting sessi
 `live`. Actual Windows suppression effectiveness, capture-stop behavior, and race timing
 remain local proof.
 
-## 6. Stop Is Runtime Cleanup, Not Persistence
+## 7. Stop Is Runtime Cleanup, Not Persistence
 
 The canonical Stop path is:
 
@@ -191,7 +227,7 @@ revoke Meeting output authority
 `meeting_session.rs` does not import History persistence or read a final snapshot for a
 History write. Persistence state/failure therefore cannot determine Stop success.
 
-## 7. History / Saved Is Disconnected From Initial Product
+## 8. History / Saved Is Disconnected From Initial Product
 
 Active desktop source exposes:
 
@@ -214,28 +250,10 @@ Backend History/Saved storage and Tauri commands may remain in source for later
 reconsideration. Their continued source presence is not product permission and must not
 become a hidden Meeting/Text dependency.
 
-## 8. Current Model Inventory Mismatch
-
-The translation worker and active product now agree on direction-based behavior, but the
-model inventory does not yet describe the same implementation:
+## 9. Deferred / Unresolved Boundaries
 
 ```text
-Worker expects
-marianmt-id-en
-marianmt-en-id
-
-Current model manifest still declares
-marianmt-id-en
-nllb-200-distilled-600M / translation_quality
-```
-
-This does not justify changing model family. The next bounded source task is to make
-inventory/setup describe the already-selected direction-based engine so reverse Text and
-optional incoming have a truthful managed asset boundary.
-
-## 9. Deferred Source To Remove Or Disconnect
-
-```text
+local/release delivery of both Marian model assets to target installations
 Push to Talk / old voice controls if still reachable elsewhere
 partial translated subtitles
 conversation-context prompting
@@ -244,6 +262,9 @@ Audio Studio/custom voice initial-product flow
 Document Translation
 worker/diagnostic compatibility labels that no longer have a proved consumer
 ```
+
+The model inventory mismatch is closed. The remaining model question is delivery and
+actual runtime proof, not another translation-model architecture change.
 
 Prefer actual removal/disconnection over compatibility layers that preserve competing
 behavior.
@@ -273,24 +294,25 @@ History/Saved, Mode, and Tone are not part of the active initial desktop surface
 
 ## 11. Static Vs Runtime Proof
 
-ChatGPT -> GitHub may prove source ownership/routing only. Local Windows proof remains
-required for compilation, final ASR, both translation directions, model quality/load,
-TTS, Meeting Microphone delivery, Meeting Sound loopback, suppression effectiveness,
+ChatGPT -> GitHub may prove source ownership/routing and declarative asset metadata only.
+Local Windows/release proof remains required for compilation, actual model installation,
+model load, final ASR, both translation directions, model quality, TTS, Meeting
+Microphone delivery, Meeting Sound loopback, suppression effectiveness,
 latency/memory/contention, Start/Stop/close race behavior, rendered UI, and installed
 operation.
 
 ## Current Mode / Continuation
 
-Current mode: **Developing**.  
+Current mode: **Plan**.  
 Execution channel: `ChatGPT -> GitHub`.
 
-Reliable bidirectional translation, direction-based product readiness, mode/tone-free
-normal translation, optional-incoming nonblocking outbound semantics, persistence-free
-Stop, the simple Start -> Live -> Stop lifecycle, and History-free active product surface
-are source-aligned at their bounded contracts.
+Reliable bidirectional translation, direction-based product readiness, direction-based
+model inventory, mode/tone-free normal translation, optional-incoming nonblocking
+outbound semantics, persistence-free Stop, the simple Start -> Live -> Stop lifecycle,
+and History-free active product surface are source-aligned at their bounded contracts.
 
-The next source mismatch is `model_manifest.json`: it still describes an old optional
-NLLB Quality asset and does not manage the worker's selected reverse `marianmt-en-id`
-checkpoint.
+The next unresolved core boundary is how the two declared Marian assets reach a target
+installation and how that delivery is accepted without adding user-facing model/runtime
+complexity.
 
 The single continuation is `docs/knowledge/next-action.md`.
