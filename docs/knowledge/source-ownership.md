@@ -19,32 +19,37 @@ STALE     -> source still expresses superseded behavior
 RETIRED   -> inherited concept is no longer approved product scope
 ```
 
-Static source alignment never becomes model-quality, latency, scheduling-performance,
-CUDA/CPU, Windows-device/audio, rendered-UI, installed-runtime, or release proof.
+Static source/tooling alignment never becomes model-quality, latency,
+scheduling-performance, CUDA/CPU, Windows-device/audio, rendered-UI,
+installed-runtime, or release proof.
 
 ## Executive Ownership Map
 
 | Boundary | Current owner(s) | Status | Current truth |
 |---|---|---|---|
-| Product shell/navigation | `src/main.ts`, `FirstSetupBootstrap.ts`, `SimpleLauncherController.ts`, active shell | **ALIGNED / VISUAL PARTIAL** | Normal app is Meeting / Text / History / Settings. |
-| First Setup | `FirstSetupBootstrap.ts`, `RuntimeSettings`, `runtimeProductFacade.ts`, audio commands | **ALIGNED SOURCE / WINDOWS PROOF LATER** | Five-step flow, defer/resume, and candidate-check -> commit device selection exist. |
-| Text AI execution | `commands/text_translate.rs` -> helper bridge -> `realtime_local_worker.py` | **SOURCE ALIGNED / LOCAL PROOF LATER** | One persistent worker route; Text explicitly requests Quality. No manual/rule/alternate-worker fallback. |
-| Meeting outbound AI mode | `commands/meeting_session.rs` | **SOURCE ALIGNED / FINALIZED AUDIO MISSING** | Generation-aware outbound translation explicitly requests Realtime. |
-| Helper scheduling / worker I/O | `commands/helper_bridge.rs`, `helper_bridge_runtime.rs` | **SOURCE ALIGNED / RUNTIME CONTENTION PROOF LATER** | One scheduler owns worker stdin/stdout. Waiting Meeting work outranks Text; Text outranks Diagnostics. Blocking inference no longer holds the general helper-state mutex. |
-| Helper cancellation | helper bridge + Meeting generation authority | **SOURCE ALIGNED / RUNTIME TIMING PROOF LATER** | Revoked/stale Meeting work is rejected; matching in-flight Meeting work hard-cancels the worker process. Meeting Stop does not kill an unrelated standalone Text task. |
-| Translation input bounds | `realtime_local_worker.py` | **SOURCE ALIGNED / MODEL-RUNTIME PROOF LATER** | No `truncation=True`; tokenizer/model token limit must be known and oversized input is rejected before inference. |
-| Model installation evidence | `model_manifest.json`, `runtime_inventory.rs` | **ALIGNED STATIC OWNER / METADATA PARTIAL** | Installation/presence only; not model-load/inference proof. |
-| Current AI capability availability | persistent worker `status` -> helper bridge | **SOURCE ALIGNED / LOAD-INFERENCE PROOF LATER** | Process/current dependency+asset capability states are scoped by ASR / Realtime translation / Quality translation / TTS. Individual task results do not redefine all-provider health. |
-| Product readiness mapping | `runtimeProductFacade.ts` + `MeetingSessionPreflight` | **SOURCE ALIGNED / LOCAL PROOF LATER** | Text readiness uses Quality capability. Meeting readiness uses canonical Meeting preflight. Legacy readiness gates do not make normal product Ready. |
-| Meeting application session | `engine/runtime_state.rs`, `commands/meeting_session.rs` | **ALIGNED AUTHORITY / OUTBOUND RUNTIME PARTIAL** | `session_id + generation + authority_active` is canonical. Start remains fail-closed while finalized speech source is disconnected. |
-| History / Saved | `history_store.rs`, `commands/history.rs`, frontend History owners | **TEXT ALIGNED / MEETING PARTIAL** | Canonical store is `UserData/SavedProject/History/{Recent,Saved}`. |
-| Meeting outbound audio route | `virtual_audio_route_runtime.rs`, virtual-route owners | **PARTIAL / WINDOWS PROOF REQUIRED** | Generation-aware route cancellation exists; real meeting-app delivery is unproved. |
+| Product shell/navigation | `src/main.ts`, First Setup, `SimpleLauncherController.ts` | **ALIGNED / VISUAL PARTIAL** | Normal app is Meeting / Text / History / Settings. |
+| First Setup | First Setup + `RuntimeSettings` + product/audio facade | **ALIGNED SOURCE / WINDOWS PROOF LATER** | Five-step flow, defer/resume, candidate-check -> commit. |
+| Text AI execution | `text_translate.rs` -> helper scheduler -> `realtime_local_worker.py` | **SOURCE ALIGNED / LOCAL PROOF LATER** | One persistent worker route; Text explicitly requests Quality. |
+| Meeting outbound AI mode | `meeting_session.rs` | **SOURCE ALIGNED / FINALIZED AUDIO MISSING** | Generation-aware outbound translation explicitly requests Realtime. |
+| Helper scheduling / worker I/O | `helper_bridge.rs`, `helper_bridge_runtime.rs` | **SOURCE ALIGNED / CONTENTION PROOF LATER** | One scheduler owns stdin/stdout; waiting Meeting > Text > Diagnostics. |
+| Helper cancellation | helper bridge + Meeting generation authority | **SOURCE ALIGNED / TIMING PROOF LATER** | Stale Meeting work rejected; matching in-flight Meeting task hard-cancels the worker process. |
+| Translation input bounds | `realtime_local_worker.py` | **SOURCE ALIGNED / MODEL PROOF LATER** | No silent tokenizer truncation; unknown/oversized model-token input is rejected. |
+| Model installation evidence | `model_manifest.json`, `runtime_inventory.rs` | **ALIGNED STATIC OWNER / METADATA PARTIAL** | Asset presence only, not model-load/inference proof. |
+| Current AI capability availability | persistent worker `status` -> helper bridge | **SOURCE ALIGNED / LOAD-INFERENCE PROOF LATER** | ASR / Realtime translation / Quality translation / TTS capability states are scoped. |
+| Product readiness | `runtimeProductFacade.ts` + `MeetingSessionPreflight` | **SOURCE ALIGNED / LOCAL PROOF LATER** | Text uses Quality capability; Meeting uses canonical preflight. |
+| Python dependency/tooling ownership | `WorkerRuntime/pyproject.toml` | **SOURCE ALIGNED / LOCK + EXECUTION PROOF LATER** | One Python project owns runtime deps, optional route extra, Ruff, and pytest. `uv.lock` is intentionally not fabricated. |
+| Python deterministic proof | `WorkerRuntime/tests/test_worker_contract.py` + pytest config in `pyproject.toml` | **SOURCE ALIGNED / NOT EXECUTED** | Deterministic mode/bounds/protocol tests exist; model quality is outside this proof. |
+| Python source quality policy | Ruff config in `pyproject.toml` | **SOURCE ALIGNED / NOT EXECUTED** | Ruff is the single Python lint/format policy; no parallel lint stack added. |
+| Local Python profiling | `py-spy` procedure in WorkerRuntime README | **DOCUMENTED / LOCAL ONLY** | Profile the actual persistent worker PID; py-spy is not a product dependency. |
+| Persistent worker smoke | `run_realtime_worker_smoke.ps1` | **SOURCE ALIGNED / LOCAL PROOF LATER** | One worker process is reused across commands and evidence excludes conversation bodies/file paths. |
+| Meeting application session | `runtime_state.rs`, `meeting_session.rs` | **ALIGNED AUTHORITY / OUTBOUND PARTIAL** | `session_id + generation + authority_active` is canonical. |
+| History / Saved | `history_store.rs`, `history.rs`, frontend History | **TEXT ALIGNED / MEETING PARTIAL** | Canonical store is `UserData/SavedProject/History/{Recent,Saved}`. |
+| Meeting outbound audio route | virtual-route owners | **PARTIAL / WINDOWS PROOF REQUIRED** | Generation-aware route cancellation exists; delivery unproved. |
 | Incoming Meeting assistance | audio/capture/runtime candidates | **MISSING / PARTIAL** | Loopback -> EN ASR -> ID text and self-output suppression are not implemented. |
 | Translation tone/context | settings + inherited adapters | **MISSING / PARTIAL** | Approved tone/context do not yet reach canonical inference. |
-| Python dependency/runtime reproducibility | WorkerRuntime requirements/setup + bridge Python discovery | **PARTIAL / NEXT CONSOLIDATION BOUNDARY** | No canonical `pyproject.toml`/lock owner yet; repo/system Python fallback remains. |
+| Packaging/runtime assets | Tauri/NSIS + bridge Python discovery | **PARTIAL / STALE ASSUMPTIONS** | End-user packaged Python/runtime acquisition is unresolved; `uv` is not an end-user requirement. |
 | Document Translation | no active workspace | **RETIRED** | Do not revive Documents/file-attachment translation. |
 | Audio Studio | explicit entry + backend contracts | **PARTIAL / POST-CORE** | Preserve post-core; not current core blocker. |
-| Packaging/runtime assets | Tauri/NSIS direction + path/assets owners | **PARTIAL / STALE ASSUMPTIONS** | Repo/system-Python assumptions remain; clean install proof later. |
 
 ## 1. Canonical AI Execution
 
@@ -54,23 +59,23 @@ Standalone Text:
 Text UI
 -> runtimeProductFacade
 -> runtimeApi.translateText
--> commands/text_translate.rs
--> one helper scheduler
--> persistent realtime_local_worker.py `translate`
--> Quality result
+-> commands/text_translate.rs [Quality]
+-> helper scheduler [Text]
+-> persistent realtime_local_worker.py
+-> one result
 ```
 
-Meeting outbound after a finalized utterance eventually exists:
+Meeting outbound after finalized speech exists:
 
 ```text
 finalized Indonesian audio
--> Meeting `session_id + generation + utterance_id`
+-> session_id + generation + utterance_id
 -> helper scheduler [Meeting]
--> transcribe
+-> ASR
 -> generation check
--> translate [Realtime]
+-> translation [Realtime]
 -> generation check
--> synthesize
+-> TTS
 -> generation check
 -> Meeting Microphone route
 ```
@@ -83,39 +88,26 @@ manual_translation_accelerated.rs
 realtime_local_worker_entry.py
 realtime_local_worker_accelerated.py
 rule/dictionary/preview translation success
-legacy capture-owned ASR -> Translate -> TTS one-shot execution
+legacy capture-owned one-shot AI pipeline
 silent Realtime <-> Quality retry
 ```
 
-## 2. Caller-Owned Modes
+## 2. Caller-Owned Modes / Scheduler / Cancellation
 
-Product mode authority is now caller-owned:
+Mode authority:
 
 ```text
 Meeting outbound -> Realtime
 Standalone Text  -> Quality
 ```
 
-`commands/text_translate.rs` sends `Quality` directly and accepts successful product
-output only when the worker response reports `mode=Quality`.
+`RuntimeSettings.runtime_profile` is compatibility-only and no longer selects
+Meeting mode.
 
-`commands/meeting_session.rs` already sends `Realtime` directly for outbound Meeting
-translation.
+One scheduler exists in the helper bridge. Each admitted request has a helper
+request id; Meeting requests also carry canonical `meeting_generation`.
 
-`RuntimeSettings.runtime_profile` is now a compatibility field, not engine mode
-authority. The settings command exposes/persists it as `Quality` so inherited Text UI
-labels and Text History metadata remain truthful. Meeting code must not read it to
-choose Meeting mode.
-
-No requested mode may silently retry the other mode merely to obtain output. CPU
-fallback remains a device fallback inside the requested mode.
-
-## 3. One Helper Scheduler / I/O Authority
-
-Canonical scheduler lives in the existing helper bridge/runtime owners; no scheduler
-service or second worker was added.
-
-Initial queue policy:
+Queue order:
 
 ```text
 Meeting
@@ -123,75 +115,36 @@ Meeting
     > Diagnostics / preload
 ```
 
-Source contract:
+The helper state mutex is released during blocking inference/read. A helper process
+generation prevents killed/replaced worker handles from being restored by an old
+response.
 
-- one task at a time owns persistent-worker stdin/stdout;
-- each admitted task receives a unique helper request id;
-- Meeting tasks carry the existing `meeting_generation` identity;
-- waiting Meeting work is selected before waiting Text work;
-- waiting Text work is selected before diagnostics work;
-- the general helper runtime mutex is released before blocking model inference/read;
-- worker process identity is protected by the helper generation token when handles
-  are restored after inference;
-- a cancelled/replaced worker cannot have an older response reattached as current
-  runtime state.
+This is **queue priority, not preemption**. A Meeting request that arrives after Text
+inference starts still waits for that active Text task. Local contention/latency proof
+is required before calling the scheduler realtime-optimal.
 
-Important bounded limitation: this scheduler is **queue-priority, not preemptive**.
-If a standalone Text inference has already started, a newly queued Meeting request
-waits for that current request to end. Local contention/latency proof is required
-before enabling Meeting Live; do not call this realtime-optimal yet.
+Meeting Stop revokes application generation first. Matching in-flight Meeting
+inference may then terminate the persistent worker; unrelated Text is not
+intentionally killed. Actual process interruption timing remains local proof.
 
-## 4. Generation-Safe Cancellation
+## 3. Truthful Translation Bounds
 
-Meeting work is checked against canonical application generation authority:
-
-1. after scheduler admission and before writing to the worker;
-2. again before a worker result is promoted.
-
-A revoked queued generation returns stale without executing.
-
-During Meeting Stop, application generation authority is revoked first. The inherited
-helper-cancel command detects that revoked Meeting generation and scopes cancellation
-to it:
-
-- matching in-flight Meeting task -> terminate persistent worker process and advance
-  helper generation;
-- unrelated standalone Text/diagnostic task -> do not kill it as collateral;
-- no matching in-flight task -> queued revoked Meeting work will be rejected before
-  execution.
-
-Outside a Meeting Stop context, Developer Diagnostics may still hard-cancel an active
-helper task by terminating the persistent worker.
-
-Actual Windows/process timing and blocked-read interruption remain `LOCAL PROOF
-REQUIRED`.
-
-## 5. Truthful Translation Input Bounds
-
-Canonical worker translation now requires explicit `Realtime` or `Quality`.
-Unknown/missing mode is rejected.
-
-For source input:
+Worker input handling:
 
 ```text
-character limit check
+character limit
 -> tokenize with truncation=False
--> determine actual tokenizer/model input-token limit
--> count input tokens
--> unknown limit/count => reject
--> over limit => reject before inference
+-> determine tokenizer/model input-token limit
+-> verify token count
+-> unknown/over limit => reject before inference
 -> otherwise infer
 ```
 
-The previous `truncation=True, max_length=256` path is removed. Oversized source text
-cannot be silently cut while reporting success.
+Remaining correctness gap: generated output still uses bounded `max_new_tokens`.
+Source does not yet prove that a non-EOS output hitting that ceiling is rejected as
+incomplete.
 
-Remaining correctness gap: generation still uses a bounded `max_new_tokens`. The
-source does not yet prove that a non-EOS result reaching that generation ceiling is
-reported as incomplete rather than accepted as a complete translation. Keep this as
-a bounded worker-correctness item; do not claim long-output completeness yet.
-
-## 6. Installation, Capability, And Product Readiness
+## 4. Installation / Capability / Product Readiness
 
 Static install owner:
 
@@ -200,46 +153,116 @@ model_manifest.json
 -> runtime_inventory.rs
 ```
 
-Vocabulary describes `installed / missing_required / missing_optional / metadata
-incomplete`; file presence is not runtime `PASS`.
+Asset presence is installation evidence only. The stale
+`MODEL_RUNTIME_MANIFEST.json` remains removed.
 
-The stale source-tree `MODEL_RUNTIME_MANIFEST.json` remains removed.
+Current runtime capability availability comes from persistent worker `status`.
+Individual task success/failure does not redefine all-provider health.
 
-Current worker status reports scoped capability **availability** and loaded-cache
-state separately. It must not be described as model-quality or inference verification.
-The normal product facade uses:
+Normal readiness:
 
 ```text
-Text -> worker Quality capability availability
+Text    -> worker Quality capability
 Meeting -> MeetingSessionPreflight
 ```
 
-A real translation request remains the truth for that request's inference success.
-Before Meeting Start is eventually enabled, transactional Start still needs required
-runtime/preload behavior consistent with the approved lifecycle.
+Legacy live/internal/professional/migration gates may remain diagnostic-only while a
+real consumer exists. They do not make the normal product Ready.
 
-Legacy live/internal/professional/migration gates may remain in Diagnostics while a
-real diagnostic consumer exists; they do not make normal Text/Meeting Ready.
+## 5. Canonical Python Project / Tooling
+
+Canonical dependency/tooling owner:
+
+```text
+EngineData/Backend/LocalWorker/WorkerRuntime/pyproject.toml
+```
+
+It owns:
+
+```text
+base local-AI runtime dependencies
+optional virtual-audio-route extra
+Ruff configuration
+pytest dependency/configuration
+```
+
+The Python source itself requires Python 3.10+ syntax, so the project declares
+`requires-python >=3.10`. Existing dependency constraints were transferred without
+inventing resolved versions.
+
+Retired duplicate/side-channel owners:
+
+```text
+requirements-realtime.txt
+requirements-virtual-audio-route.txt
+realtime_stack_manifest.json
+setup_pytorch_cuda.ps1
+setup_ctranslate2_translation_model.py
+```
+
+`realtime_stack_manifest.json` was removed rather than replaced by another manifest:
+actual mode/model behavior belongs to code/current worker status, and numeric latency
+targets require benchmark evidence.
+
+`setup_realtime_worker.ps1` now uses `uv sync --no-dev`. It warns when `uv.lock` is
+absent instead of pretending dependency resolution is reproducible.
+
+`uv.lock` is **not present by design yet**. It must be generated by an actual local
+resolution, reviewed, and then committed before locked dependency reproducibility can
+be claimed.
+
+Ruff and pytest are project development dependencies. No pytest-benchmark, Scalene,
+type checker, PyO3, or maturin was added in this slice.
+
+`py-spy` remains an external/local operator tool documented for profiling the actual
+persistent worker PID; it is not a runtime/project dependency.
+
+## 6. Executable Proof Baseline
+
+Deterministic tests live at:
+
+```text
+WorkerRuntime/tests/test_worker_contract.py
+```
+
+They are intentionally limited to behavior that can be proved without models or
+Windows devices, including:
+
+```text
+unknown translation mode rejection
+no Realtime -> Quality fallback for unsupported direction
+character overflow rejection before model load
+model/tokenizer input-limit selection helper
+newline-JSON unknown-command protocol response
+```
+
+Ruff/pytest are **not executed** in the current ChatGPT -> GitHub channel.
+Their presence is source/tooling alignment, not executable PASS.
+
+`run_realtime_worker_smoke.ps1` remains a later local runtime proof. It now uses one
+persistent process for status/translation/TTS/optional ASR instead of spawning a new
+worker per command. Saved evidence contains bounded stage summaries rather than
+source/translated/transcript text or runtime file paths.
 
 ## 7. Remaining Engine Work
 
 Still unresolved or intentionally deferred:
 
 ```text
-non-preemptive current-request contention under Meeting load
-translation output-completion / max_new_tokens ceiling detection
-canonical Python project/dependency lock
-Ruff / pytest executable worker proof baseline
-py-spy local profiling of the actual persistent worker
-realtime_stack_manifest / requirements authority cleanup
-model source revision/checksum reproducibility
+uv.lock generation + real dependency resolution
+Ruff execution
+pytest execution
+non-preemptive active-Text contention measurement
+translation generated-output completion / EOS ceiling detection
 explicit English TTS voice/provider selection
-model quality + latency + memory/VRAM benchmark
+model revision/checksum/source reproducibility
+model quality + latency + RAM/VRAM profiling/benchmark
 finalized outbound utterance producer
 incoming Meeting lane
 ```
 
-Do not add a second worker/scheduler/readiness service to solve these.
+Do not add a second worker, scheduler, readiness service, dependency manifest, lint
+stack, or test framework to solve these.
 
 ## 8. Other Product Boundaries
 
@@ -263,8 +286,8 @@ future frontend architecture decision after Engine contracts stabilize.
 Current mode: **Developing**.  
 Execution channel: `ChatGPT -> GitHub`.
 
-Engine Consolidation Slices 1-3 are source-aligned at their bounded claims. No
-compile/model/Windows runtime or scheduling-performance proof has been obtained in
-this channel.
+Engine Consolidation Slices 1-4 are source-aligned at their bounded claims. No
+compile/typecheck/uv-resolution/Ruff/pytest/model/Windows runtime or performance proof
+has been obtained in this channel.
 
 The single continuation is `docs/knowledge/next-action.md`.
