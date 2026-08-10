@@ -76,8 +76,7 @@ current utterance/text
 -> complete translated text or explicit failure
 ```
 
-Current worker source has now been reconciled from mode-based routing into direction-
-based routing inside the **same persistent worker**:
+Current worker source is direction-based inside the same persistent worker:
 
 ```text
 ID -> EN -> marianmt-id-en
@@ -91,9 +90,9 @@ cleanup, but that compatibility label no longer chooses the translation model.
 Required outbound worker readiness depends on ID -> EN. EN -> ID is separately visible
 because incoming is optional and must not block otherwise healthy outbound Start.
 
-The repository does **not** contain runtime proof that `marianmt-en-id` is actually
-installed, loads successfully, translates well, or meets target-PC latency/memory.
-Those remain local/release proof.
+The repository does **not** contain runtime proof that `marianmt-en-id` is installed,
+loads successfully, translates well, or meets target-PC latency/memory. Those remain
+local/release proof.
 
 ## Translation Safety Rules
 
@@ -143,18 +142,27 @@ Incoming target:
 EN speech -> final EN ASR -> canonical EN -> ID translation -> local text
 ```
 
-TranslateIT's own English TTS must not become incoming speech. However, incoming safety
-is subordinate to the required outbound path. Current `meeting_session.rs` still has a
-stale behavior where failure to establish the self-output suppression guard can reject
-outbound TTS. New policy requires instead:
+TranslateIT's own English TTS must not become incoming speech, but optional incoming is
+subordinate to required outbound.
+
+Current source now handles suppression failure as:
 
 ```text
-incoming suppression unavailable
--> degrade/disable incoming
--> required safe outbound TTS may continue
+self-output suppression unavailable
+-> clear incoming finalized producer
+-> stop Meeting Sound capture best-effort
+-> mark incoming disabled/degraded
+-> reject disabled incoming promotion
+-> continue required outbound Meeting Microphone delivery
 ```
 
-That source reconciliation is the immediate next bounded task.
+Healthy incoming still uses the deterministic suppression guard around TranslateIT TTS
+playback. Clearing the incoming producer before route dispatch makes still-open capture
+callbacks ignored while cleanup completes.
+
+Actual Windows suppression effectiveness, capture-stop timing, and mixed-audio behavior
+remain local proof. Automatic mid-session Follow-Windows-Default Meeting Sound rebind is
+deferred.
 
 ## Canonical Local Runtime
 
@@ -201,7 +209,7 @@ Current source still contains behavior outside the initial product:
 - remaining Realtime/Quality compatibility fields/caller assumptions;
 - tone-related UI/settings assumptions;
 - automatic Meeting/Text History and Saved workflow;
-- Meeting Stop -> History finalization dependency;
+- **Meeting Stop -> History finalization dependency (next cleanup target);**
 - History top-level navigation/settings;
 - Audio Studio/custom voice initial-product assumptions;
 - any future conversation-context path;
