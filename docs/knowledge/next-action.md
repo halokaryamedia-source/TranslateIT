@@ -2,7 +2,7 @@
 
 Updated: 2026-08-10  
 Working branch: `New`  
-Status: **Engine Consolidation Slices 1-5, Finalized Outbound Utterance Production, Normal Product Meeting Start/Stop + Live State Wiring, and Meeting Pause/Resume Generation Lifecycle are source-aligned. Pause preserves the application Meeting session while revoking old generation authority; Resume establishes a fresh generation before returning Live.**
+Status: **Engine Consolidation Slices 1-5, Finalized Outbound Utterance Production, Normal Product Meeting Start/Stop + Live State Wiring, Meeting Pause/Resume Generation Lifecycle, and the bounded Meeting Live Activity Presentation are source-aligned. The normal Meeting surface now reflects canonical outbound activity states without inventing transcript bodies or a second lifecycle store.**
 
 This file is the single active continuation owner for TranslateIT.
 
@@ -13,12 +13,12 @@ AGENTS.md
 -> CONTEXT.md
 -> docs/knowledge/next-action.md
 -> docs/knowledge/source-ownership.md
--> meeting_session.rs + current Meeting presentation consumer only
+-> meeting_session.rs + Meeting History/transient-data owners only after the next Plan boundary is grounded
 ```
 
 ## Current Mode
 
-**Developing**.
+**Plan**.
 
 Execution channel:
 
@@ -90,92 +90,87 @@ exists. No frontend Meeting lifecycle store was added.
 
 ## Meeting Pause/Resume Generation Lifecycle
 
-### A. Canonical authority behavior
+Pause invalidates old outbound generation authority before matching route/capture/
+helper/finalized-consumer cleanup while retaining the application Meeting session as
+Paused. Resume keeps the same `session_id`, creates fresh generation authority,
+rechecks required outbound prerequisites, and transactionally reopens capture and the
+serialized consumer. Failed reopen rolls the fresh generation back to Paused. Stop
+remains the distinct full-session cleanup action.
 
-`runtime_state.rs` keeps one application Meeting session authority.
+## Meeting Live Activity Presentation
 
-Pause:
+### A. Grounded source only
 
-```text
-Live generation G
--> invalidate G authority
--> phase Paused
--> keep the same session_id / session lifetime
-```
-
-Resume:
-
-```text
-Paused session
--> allocate fresh generation G+N
--> phase Resuming
--> reopen required resources transactionally
--> commit fresh generation Live
-```
-
-The old generation is never reactivated.
-
-### B. Pause cleanup
-
-`pause_meeting_translation` revokes old outbound authority before cleanup, then:
+The current canonical `MeetingSessionStatus` already exposes bounded product-relevant
+outbound activity evidence:
 
 ```text
-cancel matching Meeting route
--> stop capture / clear finalized producer
--> cancel matching helper work for the old generation
--> clear/join the matching serialized outbound consumer
--> remain Paused
+lifecycle
+outbound.stage
+outbound.utterance_sequence
+outbound.output_active
+outbound.last_stage_ok
 ```
 
-Pause does **not** clear the application Meeting session, so it is not an alias for
-Stop. The targeted helper cancellation path does not cancel unrelated work merely
-because a Meeting is paused.
+It does **not** expose committed Indonesian transcript text or translated English
+text as Meeting product state. `meeting_session.rs` currently holds those values only
+inside the active outbound processing call; they are not a canonical bounded
+conversation/turn store.
 
-### C. Transactional Resume
+Therefore this slice does not manufacture transcript rows from worker responses,
+rolling audio, diagnostics, logs, or frontend-local accumulation.
 
-`resume_meeting_translation` accepts only the existing paused application Meeting
-session. It restores the existing helper runtime when required, rechecks current
-outbound preflight, establishes a fresh generation for the same `session_id`, then
-reopens capture and the serialized finalized consumer.
+### B. Normal Meeting presentation
 
-If a required Resume step fails after fresh authority is established, the new
-generation is invalidated and the same Meeting session rolls back to Paused rather
-than being silently converted into Stop.
+`MeetingLiveActivityPresentation.ts` is a read-only presentation helper for the
+existing Simple Launcher surface. It does not own lifecycle state and does not expose
+Start/Pause/Resume/Stop actions.
 
-### D. Duplicate/stale behavior
-
-- duplicate Pause while already Paused returns the existing paused state;
-- duplicate Resume while already Live does not create a new generation/resource set;
-- stale pre-Pause helper/output work is rejected by generation authority;
-- Stop remains available from both Live and Paused and still clears the full session.
-
-### E. Normal frontend action state
-
-`runtimeApi` exposes the canonical backend lifecycle:
+While the primary Meeting controller says the application Meeting is in an active
+lifecycle state and the Meeting workspace is visible, the presentation performs a
+bounded status refresh from:
 
 ```text
-get_meeting_session_status
-start_meeting_translation
-pause_meeting_translation
-resume_meeting_translation
-stop_meeting_translation
+runtimeApi.getMeetingSessionStatus
+-> mapProductMeetingState
+-> existing Meeting panel
 ```
 
-`runtimeProductFacade` maps `Ready / Starting / Live / Paused / Resuming / Stopping /
-In Use / Setup Needed` from the same backend session. The existing Meeting controls
-are reused so Live exposes Pause + Stop and Paused exposes Resume + Stop; no parallel
-frontend lifecycle authority or full transcript/global strip was introduced.
+Current backend stages are mapped to normal user-facing activity copy such as:
 
-## Static Regression Definition
+```text
+Listening
+Transcribing
+Translating
+Preparing voice
+Speaking
+Needs attention
+Paused
+```
 
-`validate_startup_runtime_readiness.mjs` now defines static checks for:
+The Ready device/setup rows are hidden only while the current application Meeting
+session is being presented as Live/Paused/transitioning; the same Meeting workspace
+and existing Pause/Resume/Stop controls remain in place.
 
-- registration and frontend exposure of Start/Pause/Resume/Stop;
-- one canonical application Meeting owner;
-- Pause/Resume generation-authority source markers;
-- normal product facade/action wiring;
-- absence of the old disabled-Start copy;
-- no direct-capture replacement for normal Meeting lifecycle.
+Bridge read failures do not fabricate Ready, Stopped, or another fallback lifecycle;
+the primary controller remains the lifecycle presentation authority.
+
+### C. Visual boundary
+
+`meetingLiveActivity.css` adds only the restrained current-activity region required by
+this source slice. It does not add chat bubbles, decorative waveforms, a new page,
+global Meeting strip, or transcript/history layout that current source cannot yet
+populate truthfully.
+
+### D. Static regression definition
+
+`validate_startup_runtime_readiness.mjs` now also guards that:
+
+- the activity presentation is wired from the current product entrypoint;
+- it reads canonical Meeting status and uses the existing product state mapper;
+- it contains no Meeting lifecycle mutation calls;
+- it does not read/invent `transcript_text`, `translated_text`, or worker response bodies;
+- the bounded activity CSS is present.
 
 This validator was **not executed** in the current channel. It is source-contract
 definition only.
@@ -184,24 +179,25 @@ definition only.
 
 **CURRENT-PROJECT VERIFIED** at source level:
 
-1. Pause/Resume commands are source-connected to the existing Meeting lifecycle;
-2. Pause preserves `session_id` while invalidating the old generation authority;
-3. matching route/capture/helper/finalized-consumer cleanup occurs after authority loss;
-4. Resume assigns a fresh generation for the same Meeting session;
-5. Resume reopens capture and serialized outbound consumption transactionally and has a rollback-to-Paused path;
-6. generation-aware outbound checks prevent pre-Pause work from being promoted by the resumed generation;
-7. duplicate Pause/Resume do not intentionally create duplicate session/resource ownership;
-8. normal frontend derives Paused/Resuming from backend state and uses the same product facade rather than a second lifecycle store;
-9. Stop remains a distinct full-session lifecycle action available from Live or Paused;
-10. source-contract validator definitions cover the bounded lifecycle wiring.
+1. the existing Meeting application authority remains the only lifecycle owner;
+2. the new Live activity renderer is presentation-only and read-only;
+3. its activity truth comes from canonical `MeetingSessionStatus.outbound`, not a new frontend store;
+4. lifecycle mutation remains in the existing Simple Launcher/product facade action path;
+5. Ready setup content is replaced by current activity only while the primary Meeting UI reports an active lifecycle state;
+6. user-facing stage copy hides helper/model/pipeline implementation detail;
+7. no committed transcript/translation body is fabricated from worker/diagnostic state;
+8. navigation/global strip/close-live behavior is not mixed into this slice;
+9. static validator definitions cover the new boundary.
 
-No TypeScript/Rust build, validator execution, Tauri invocation, rendered UI,
-microphone/model/audio, race timing, or Windows runtime proof was executed.
+No TypeScript build/typecheck, validator execution, Tauri invocation, rendered UI,
+status-refresh behavior, microphone/model/audio, or Windows runtime proof was
+executed.
 
 # Known Gaps Kept Truthful
 
-- normal Live surface is still minimal; complete transcript/activity presentation is
-  not connected yet;
+- chronological Meeting transcript bodies are still unavailable because no canonical
+  bounded committed-turn product source currently exposes transcript + translation +
+  truthful delivery state;
 - global/cross-view Meeting strip and close-live handling remain incomplete;
 - incoming Meeting Sound and self-output suppression remain unimplemented;
 - Meeting History after committed turns remains incomplete;
@@ -212,19 +208,19 @@ microphone/model/audio, race timing, or Windows runtime proof was executed.
 
 # Hold
 
-- do not add a frontend Meeting state manager or duplicate lifecycle store;
-- do not change Pause into Stop or reuse an old generation on Resume;
-- do not use direct `start_capture/stop_capture` for normal Meeting lifecycle;
-- do not implement incoming Meeting Sound in the next slice;
-- do not mix the next slice with global strip/close handling, Svelte, packaging,
-  benchmark, or local Windows acceptance;
-- do not invent a new transcript/event owner if current source does not provide the
-  required canonical committed-turn data; recover/plan that boundary first.
+- do not create a frontend transcript accumulator or second Meeting conversation store;
+- do not scrape worker responses, Diagnostics, rolling audio, or logs to manufacture transcript rows;
+- do not persist conversation bodies merely to satisfy the Live UI;
+- do not combine the committed-turn ownership decision with incoming Meeting Sound,
+  global strip/close handling, Svelte, packaging, benchmark, or Windows acceptance;
+- keep History retention/Saved ownership distinct from transient live conversation
+  state until the next boundary explicitly reconciles them.
 
 ## Next Step
 
-Implement **Meeting Live Transcript / Activity Presentation** as one bounded source
-slice, using the existing canonical Meeting session/outbound authority. Connect only
-the Live workspace presentation needed to show trustworthy current translation
-activity/committed-turn information that already has a grounded source owner; keep the
-global/cross-view Meeting strip and close-live behavior for a later slice.
+Plan the **Canonical Committed Meeting Turn Source Boundary** before implementing the
+chronological transcript required by the approved Meeting Live composition. The Plan
+must choose one semantic owner and define the minimum bounded transient turn contract
+for finalized Indonesian transcript, English translation, generation/utterance
+identity, truthful delivery state, privacy/History-off behavior, and later Meeting
+History handoff without creating a second lifecycle or persistence authority.
