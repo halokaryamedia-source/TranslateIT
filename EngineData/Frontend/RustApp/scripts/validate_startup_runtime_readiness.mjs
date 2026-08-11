@@ -230,6 +230,16 @@ requireMarkers(source.meetingSession, "Meeting outbound Start hardening", [
   '"blocked_after_runtime_prepare"',
   'if empty { "listening" } else { "attention_needed" }',
 ]);
+requireMarkers(source.meetingSession, "Meeting helper Stop recovery", [
+  "recover_helper_after_meeting_stop_if_needed",
+  'Some("helper_bridge:meeting_session_hard_cancelled")',
+  "let recovery = start_helper_bridge();",
+  '"helper_recovery_failed"',
+]);
+forbidMarkers(source.meetingSession, "bounded Meeting helper Stop recovery", [
+  'Some("helper_bridge:task_hard_cancelled")',
+  'Some("helper_bridge:meeting_generation_hard_cancelled")',
+]);
 requireMarkers(source.finalizedUtterance, "Meeting finalized speech freshness", [
   "MAX_PENDING_FINALIZED_UTTERANCES",
   "while state.pending.len() >= MAX_PENDING_FINALIZED_UTTERANCES",
@@ -267,4 +277,4 @@ if (!models.some((model) => model.model_id === "marianmt-en-id")) throw new Erro
 if (models.some((model) => model.model_id === "nllb-200-distilled-600M")) throw new Error("NLLB must not return to current translation inventory");
 if (models.some((model) => Object.hasOwn(model, "revision") || Object.hasOwn(model, "checksum"))) throw new Error("Initial model inventory must not grow revision/checksum release-identity placeholders");
 
-console.log("[startup-readiness] Svelte Meeting/Text/Settings/First Setup ownership, coherent Meeting projection, gated transcript polling, atomic audio-device selection, user-safe Text result separation, required outbound AI preparation before Meeting Live, outbound helper priority continuity across ASR/translation/TTS, truthful ASR attention state, bounded newest-preferred finalized speech backlog, familiar translation interaction hierarchy, runtime bridge, settings schema, Meeting lifecycle, and direction-based worker contracts are source-aligned. Dependency install, Svelte compile/render, model execution, Windows audio, and installed-runtime proof remain separate.");
+console.log("[startup-readiness] Svelte Meeting/Text/Settings/First Setup ownership, coherent Meeting projection, gated transcript polling, atomic audio-device selection, user-safe Text result separation, required outbound AI preparation before Meeting Live, outbound helper priority continuity across ASR/translation/TTS, bounded Stop-time helper recovery, truthful ASR attention state, bounded newest-preferred finalized speech backlog, familiar translation interaction hierarchy, runtime bridge, settings schema, Meeting lifecycle, and direction-based worker contracts are source-aligned. Dependency install, Svelte compile/render, model execution, Windows audio, and installed-runtime proof remain separate.");
