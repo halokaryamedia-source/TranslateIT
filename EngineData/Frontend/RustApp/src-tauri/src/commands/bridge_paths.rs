@@ -10,16 +10,8 @@ pub struct WorkerPythonCommand {
     pub source: String,
 }
 
-pub fn project_root() -> PathBuf {
-    PathBuf::from(ProjectPaths::discover().project_root)
-}
-
 pub fn worker_root() -> PathBuf {
     PathBuf::from(ProjectPaths::discover().worker_runtime_dir)
-}
-
-pub fn python_runtime_root() -> PathBuf {
-    PathBuf::from(ProjectPaths::discover().python_runtime_dir)
 }
 
 pub fn worker_script() -> PathBuf {
