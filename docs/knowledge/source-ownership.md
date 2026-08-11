@@ -8,12 +8,15 @@ This map points to current semantic owners. File existence alone does not make a
 | Stable context | `CONTEXT.md` | ACTIVE |
 | Continuation | `docs/knowledge/next-action.md` | ACTIVE |
 | Durable decisions | `docs/knowledge/decision-log.md` | ACTIVE / COMPACT |
-| Frontend entry | `EngineData/Frontend/RustApp/src/main.ts` | ACTIVE / SINGLE ENTRY |
-| Product shell/controller | `src/app/simple-launcher/SimpleLauncherController.ts` | ACTIVE |
+| Current frontend entry | `EngineData/Frontend/RustApp/src/main.ts` | ACTIVE / VANILLA TYPESCRIPT UNTIL MIGRATION |
+| Current product shell/controller | `src/app/simple-launcher/SimpleLauncherController.ts` | ACTIVE / TO BE DIRECTLY REPLACED BY SVELTE MIGRATION, NOT PARALLELIZED |
 | Cross-view Meeting + safe close | `src/app/simple-launcher/GlobalMeetingShell.ts` | ACTIVE |
 | Live transcript presentation | `src/app/simple-launcher/MeetingLiveActivityPresentation.ts` | ACTIVE |
-| Product readiness/action projection | `src/app/bridge/runtimeProductFacade.ts` | ACTIVE / LIGHTWEIGHT |
-| Frontend Tauri bridge | `src/app/bridge/runtimeApi.ts` | ACTIVE / PRUNED |
+| Approved frontend application target | Svelte 5 + Vite + TypeScript inside existing Tauri 2 app | DECIDED / NOT YET IMPLEMENTED |
+| Frontend migration semantic owner | `.agents/skills/desktop-runtime-development/SKILL.md` + current shell/bridge source | APPROVED ROUTE |
+| Frontend visual-system semantic owner | `.agents/skills/desktop-ui-design-development/SKILL.md` + future Svelte component/style source | APPROVED ROUTE |
+| Product readiness/action projection | `src/app/bridge/runtimeProductFacade.ts` | ACTIVE / LIGHTWEIGHT / PRESERVE THROUGH MIGRATION BY DEFAULT |
+| Frontend Tauri bridge | `src/app/bridge/runtimeApi.ts` | ACTIVE / PRUNED / PRESERVE THROUGH MIGRATION BY DEFAULT |
 | Tauri invoke registration | `src-tauri/src/commands/registry.rs` | ACTIVE / PRUNED |
 | Meeting authority | `commands/meeting_session.rs`, `engine/runtime_state.rs` | ACTIVE / HANDOFF TOMBSTONES REMOVED |
 | Rust engine root | `engine/mod.rs` | ACTIVE / PRUNED TO CURRENT OWNERS |
@@ -29,13 +32,46 @@ This map points to current semantic owners. File existence alone does not make a
 | Explicit model refresh | `runtime.rs::verify_models` | ACTIVE SETUP ACTION |
 | Text translation | `text_translate.rs` -> helper -> worker | ACTIVE |
 | Persisted settings | `engine/settings.rs`, `engine/runtime_settings.rs`, `commands/settings.rs` | ACTIVE / SCHEMA V6 SMALL |
-| Frontend settings type/defaults | `src/app/shared/types.ts`, `src/app/shared/state.ts` | ACTIVE / SCHEMA V6 SMALL |
+| Frontend settings type/defaults | `src/app/shared/types.ts`, `src/app/shared/state.ts` | ACTIVE CURRENT CONTRACT; MIGRATION MUST NOT DUPLICATE PRODUCT TRUTH |
 | Installed/runtime roots | `engine/paths.rs`, `app_bootstrap.rs` | ACTIVE PATH FOUNDATION |
 | Runtime logging used by settings/runtime | `engine/logging.rs` | ACTIVE |
 | Shared command result/state | `engine/state.rs` | ACTIVE |
 | Source validation | small validators under `scripts/` | ACTIVE / PRUNED |
 | Package/path source preflight | `scripts/validate_tauri_package_preflight.mjs` | ACTIVE / PACKAGED INTERPRETER OWNERSHIP GUARDED |
 | Local Rust compile proof | `scripts/run_local_tauri_compile_check.mjs` | LOCAL-ONLY |
+
+## Frontend Ownership
+
+Current source truth is still the existing Vite + vanilla TypeScript/manual-DOM frontend. The approved target is a plain Svelte 5 SPA inside Tauri 2:
+
+```text
+Tauri 2
++ Svelte 5
++ Vite
++ TypeScript
++ Tailwind CSS 4
++ CSS custom-property tokens
++ selective Bits UI
++ Lucide Svelte
+```
+
+Migration is behavior-preserving architecture work. `desktop-runtime-development` owns the migration boundary because it must preserve shell/navigation semantics, Meeting/Text state/action mapping, First Setup, Settings integration, and the existing `runtimeApi.ts` / `runtimeProductFacade.ts` contracts.
+
+`desktop-ui-design-development` owns the separate visual acceptance boundary: hierarchy, spacing, typography, tokens, component visual states, responsive composition, accessible visible interaction, and rendered proof.
+
+Official Svelte `svelte-code-writer`, `svelte-core-bestpractices`, and `@sveltejs/mcp` tooling are conditional framework helpers. They do not become TranslateIT project skills or semantic owners.
+
+Migration rules:
+
+- one Svelte application root; no permanent vanilla/Svelte dual shell;
+- no SvelteKit/router/global state library by default;
+- no duplicate runtime/settings/readiness truth in Svelte stores;
+- Tailwind owns ordinary layout/style utilities while semantic CSS custom properties own durable visual tokens;
+- Bits UI is selective for complex accessible primitives only;
+- Lucide Svelte is the default icon family;
+- old template/controller ownership is removed after each migrated surface has behavior parity and required proof.
+
+Until migration source and proof exist, do not describe Svelte as the current implementation.
 
 ## Removed Rust Engine Graph
 
