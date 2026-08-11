@@ -9,14 +9,10 @@ dependencies = [
     "numpy",
     "sacremoses",
     "sentencepiece",
+    "sounddevice>=0.4.6,<1",
     "soundfile",
     "torch",
     "transformers>=4.44.0",
-]
-
-[project.optional-dependencies]
-virtual-audio-route = [
-    "sounddevice>=0.4.6,<1",
 ]
 
 [dependency-groups]
