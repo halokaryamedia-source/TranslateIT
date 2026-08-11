@@ -1,6 +1,7 @@
 use crate::engine::runtime_state::latest_runtime_session_state;
 
-use super::helper_bridge::{self, HelperBridgeActionResult};
+use super::helper_bridge;
+use super::helper_bridge_runtime::HelperBridgeActionResult;
 use super::meeting_session::{self, MeetingSessionActionResult};
 use super::runtime_inventory::{self, ModelInventoryReport};
 use super::virtual_mic_route::{
