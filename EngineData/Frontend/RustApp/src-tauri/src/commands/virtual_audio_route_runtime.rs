@@ -13,6 +13,9 @@ use std::time::Duration;
 use crate::engine::paths::ProjectPaths;
 use crate::engine::runtime_state::runtime_generation_is_authoritative;
 
+use super::bridge_paths::{
+    resolve_worker_python_command, worker_python_unavailable_message, worker_root,
+};
 use super::helper_bridge_runtime::unix_ms;
 use super::virtual_mic_route::get_virtual_mic_route_selection;
 
@@ -86,13 +89,7 @@ fn provider_payload_path() -> PathBuf {
 }
 
 fn provider_script_path() -> PathBuf {
-    let project_paths = project_paths();
-    PathBuf::from(project_paths.project_root)
-        .join("EngineData")
-        .join("Backend")
-        .join("LocalWorker")
-        .join("WorkerRuntime")
-        .join("virtual_audio_route_provider.py")
+    worker_root().join("virtual_audio_route_provider.py")
 }
 
 fn clean_audio_path(value: Option<String>) -> Option<String> {
@@ -257,8 +254,15 @@ fn write_provider_payload(
     Some(payload_path)
 }
 
-fn python_command() -> String {
-    env::var("TRANSLATEIT_PYTHON").unwrap_or_else(|_| "python".to_string())
+fn mark_python_runtime_missing(status: &mut VirtualAudioRouteRuntimeStatus, runtime_claim: &str) {
+    status.ok = false;
+    status.route_runtime_ready = false;
+    status.state = "provider_dispatch_failed".to_string();
+    status.blocker = "virtual_audio_route:python_runtime_missing".to_string();
+    status.next_action = "restore_translateit_python_runtime".to_string();
+    status.provider_response_json =
+        json!({ "error": worker_python_unavailable_message() }).to_string();
+    status.runtime_claim = runtime_claim.to_string();
 }
 
 fn read_pipe(mut pipe: Option<impl Read>, max_bytes: usize) -> String {
@@ -355,6 +359,14 @@ pub fn dispatch_guarded_virtual_audio_route_provider(
         return with_evidence(status);
     }
 
+    let Some(python) = resolve_worker_python_command() else {
+        mark_python_runtime_missing(
+            &mut status,
+            "virtual_audio_route_provider_python_runtime_missing_no_execution",
+        );
+        return with_evidence(status);
+    };
+
     let Some(payload_path) = write_provider_payload(&status, dry_run, None) else {
         status.ok = false;
         status.route_runtime_ready = false;
@@ -365,7 +377,8 @@ pub fn dispatch_guarded_virtual_audio_route_provider(
     };
     status.provider_payload_path = Some(normalized_path_label(&payload_path));
 
-    let output = Command::new(python_command())
+    let output = Command::new(&python.program)
+        .args(&python.bootstrap_args)
         .arg(&provider_script)
         .arg(&payload_path)
         .output();
@@ -416,7 +429,7 @@ pub fn dispatch_guarded_virtual_audio_route_provider(
             status.route_runtime_ready = false;
             status.state = "provider_dispatch_failed".to_string();
             status.blocker = "virtual_audio_route:provider_process_failed".to_string();
-            status.next_action = "configure_translateit_python_or_runtime_environment".to_string();
+            status.next_action = "restore_translateit_python_runtime".to_string();
             status.provider_response_json = json!({ "error": error.to_string() }).to_string();
             status.runtime_claim = "virtual_audio_route_provider_process_failed_no_audio_execution".to_string();
         }
@@ -456,6 +469,14 @@ pub fn dispatch_meeting_virtual_audio_route_provider(
         return with_evidence(status);
     }
 
+    let Some(python) = resolve_worker_python_command() else {
+        mark_python_runtime_missing(
+            &mut status,
+            "meeting_route_python_runtime_missing_no_audio_execution",
+        );
+        return with_evidence(status);
+    };
+
     let Some(payload_path) = write_provider_payload(&status, false, Some(generation)) else {
         status.ok = false;
         status.route_runtime_ready = false;
@@ -467,7 +488,8 @@ pub fn dispatch_meeting_virtual_audio_route_provider(
     status.provider_payload_path = Some(normalized_path_label(&payload_path));
 
     let cancel_requested = install_meeting_route_cancel_control(generation);
-    let spawn_result = Command::new(python_command())
+    let spawn_result = Command::new(&python.program)
+        .args(&python.bootstrap_args)
         .arg(&provider_script)
         .arg(&payload_path)
         .stdout(Stdio::piped())
@@ -482,7 +504,7 @@ pub fn dispatch_meeting_virtual_audio_route_provider(
             status.route_runtime_ready = false;
             status.state = "provider_dispatch_failed".to_string();
             status.blocker = "virtual_audio_route:provider_process_failed".to_string();
-            status.next_action = "configure_translateit_python_or_runtime_environment".to_string();
+            status.next_action = "restore_translateit_python_runtime".to_string();
             status.provider_response_json = json!({ "error": error.to_string() }).to_string();
             status.runtime_claim = "meeting_route_provider_process_failed_no_audio_execution".to_string();
             return with_evidence(status);
