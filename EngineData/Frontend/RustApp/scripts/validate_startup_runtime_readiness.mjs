@@ -208,6 +208,15 @@ requireMarkers(source.helperBridge, "Meeting outbound AI preparation", [
   '"translation_preload"',
   'send_worker_task("tts_preflight"',
 ]);
+requireMarkers(source.helperBridge, "Meeting outbound helper priority continuity", [
+  "MEETING_OUTBOUND_PIPELINE_GENERATION",
+  "meeting_outbound_pipeline_active",
+  "incoming_deferred_response",
+  "send_worker_task_inner",
+  "incoming-deferred-before-scheduler",
+  'task == "synthesize"',
+  "clear_meeting_outbound_pipeline",
+]);
 requireMarkers(source.helperBridgeRuntime, "required outbound readiness invalidation", [
   "required_outbound_prepare_failed",
   "runtime.provider_ready = false",
@@ -258,4 +267,4 @@ if (!models.some((model) => model.model_id === "marianmt-en-id")) throw new Erro
 if (models.some((model) => model.model_id === "nllb-200-distilled-600M")) throw new Error("NLLB must not return to current translation inventory");
 if (models.some((model) => Object.hasOwn(model, "revision") || Object.hasOwn(model, "checksum"))) throw new Error("Initial model inventory must not grow revision/checksum release-identity placeholders");
 
-console.log("[startup-readiness] Svelte Meeting/Text/Settings/First Setup ownership, coherent Meeting projection, gated transcript polling, atomic audio-device selection, user-safe Text result separation, required outbound AI preparation before Meeting Live, truthful ASR attention state, bounded newest-preferred finalized speech backlog, familiar translation interaction hierarchy, runtime bridge, settings schema, Meeting lifecycle, and direction-based worker contracts are source-aligned. Dependency install, Svelte compile/render, model execution, Windows audio, and installed-runtime proof remain separate.");
+console.log("[startup-readiness] Svelte Meeting/Text/Settings/First Setup ownership, coherent Meeting projection, gated transcript polling, atomic audio-device selection, user-safe Text result separation, required outbound AI preparation before Meeting Live, outbound helper priority continuity across ASR/translation/TTS, truthful ASR attention state, bounded newest-preferred finalized speech backlog, familiar translation interaction hierarchy, runtime bridge, settings schema, Meeting lifecycle, and direction-based worker contracts are source-aligned. Dependency install, Svelte compile/render, model execution, Windows audio, and installed-runtime proof remain separate.");
