@@ -84,7 +84,7 @@ pub fn select_audio_device(kind: String, device_id: Option<String>) -> AudioDevi
     let current = engine::load_settings();
     let requested = normalized_device_id(device_id);
 
-    let (available, device_name, unavailable_message) = match kind.as_str() {
+    let (available, device_name) = match kind.as_str() {
         "microphone" => {
             let probe = probe_input_device_candidate(requested.clone());
             (
@@ -94,7 +94,6 @@ pub fn select_audio_device(kind: String, device_id: Option<String>) -> AudioDevi
                     .clone()
                     .or_else(|| requested.clone())
                     .unwrap_or_else(|| "Windows Default".to_string()),
-                probe.note,
             )
         }
         "meeting-sound" => {
@@ -106,7 +105,6 @@ pub fn select_audio_device(kind: String, device_id: Option<String>) -> AudioDevi
                     .clone()
                     .or_else(|| requested.clone())
                     .unwrap_or_else(|| "Windows Default".to_string()),
-                probe.note,
             )
         }
         _ => {
@@ -124,15 +122,17 @@ pub fn select_audio_device(kind: String, device_id: Option<String>) -> AudioDevi
 
     if !available {
         trace_command_end("select_audio_device", started, "candidate_unavailable");
+        let message = if kind == "microphone" {
+            "This microphone can't be used right now. Choose another microphone or Windows Default. The previous preference was kept."
+        } else {
+            "This meeting sound device can't be used right now. Choose another device or Windows Default. The previous preference was kept."
+        };
         return AudioDeviceSelectionResult {
             ok: false,
             kind,
             device_id: requested,
             device_name,
-            message: format!(
-                "{} The previous device preference was kept.",
-                unavailable_message.trim()
-            ),
+            message: message.to_string(),
             settings: current,
         };
     }
