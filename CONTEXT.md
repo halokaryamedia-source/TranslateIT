@@ -52,7 +52,7 @@ Rust owns Meeting/session authority, Windows audio integration, routing, setting
 
 ## Frontend Architecture
 
-The active frontend source is a plain Svelte 5 SPA inside Tauri:
+The active frontend is a plain Svelte 5 SPA inside Tauri:
 
 ```text
 Tauri 2
@@ -89,28 +89,45 @@ src/app/bridge/runtimeProductFacade.ts
 -> retained Tauri/product runtime boundary
 ```
 
-The former `active-launcher`, `simple-launcher`, vanilla First Setup, manual icon strings, and legacy root CSS owners are removed from the active source graph rather than left as a permanent dual frontend.
+The former `active-launcher`, `simple-launcher`, vanilla First Setup, manual icon strings, and legacy root CSS owners are removed rather than retained as a dual frontend.
 
-Frontend visual ownership is intentionally small. `tokens.css` owns semantic surface/text/action/state/shape/layout values. `app.css` owns Tailwind loading, base focus/reduced-motion behavior, page composition, and a bounded shared visual vocabulary. `StatusRow.svelte` exists because readiness/device rows repeat across current product surfaces.
+Frontend visual ownership stays small. `tokens.css` owns semantic surfaces, text, action/state colors, shape, and desktop dimensions. `app.css` owns Tailwind loading, focus/reduced-motion behavior, page composition, and a bounded shared visual vocabulary. `StatusRow.svelte` and `StatusBadge.svelte` exist only for repeated status responsibilities.
+
+## Familiar Translation UI Contract
+
+`PR-166` makes familiar everyday translator interaction a durable product rule rather than a temporary design preference.
+
+Normal UI now follows these source-level principles:
+
+- source and target direction are immediately visible;
+- Meeting Ready presents `You speak -> Meeting hears` before setup detail;
+- Text uses a familiar two-pane `From / To` composition with `Swap`, `Translate`, editable result, and `Copy` close to the result;
+- one primary Start/Translate action dominates each normal workflow;
+- healthy `Ready` state is visually calm: redundant Ready badges are suppressed where the surrounding state is already clear;
+- warning, unavailable, and recovery states receive stronger emphasis only when user action is needed;
+- Meeting Live collapses internal transcribing/translating/synthesizing stages into user-facing `Listening / Translating / Speaking` states;
+- mixed incoming meeting audio is labeled `MEETING`, not assigned a fabricated participant identity;
+- normal-user copy avoids runtime/worker/model/provider/pipeline/lifecycle-internal language; technical vocabulary remains in Advanced / Diagnostics;
+- Settings uses one page with `Meeting / Advanced` tabs instead of a second nested settings sidebar;
+- First Setup preserves five persisted checkpoints and all functional checks, but its questions and instructions use ordinary meeting-language phrasing;
+- sidebar/navigation is compact and product-facing rather than presenting a dashboard-style capability card.
+
+This is an adaptation of familiar translation-product interaction, not a literal copy of another product's brand or layout.
 
 ## Frontend Product-State Contract
 
-Frontend Phase 3 source audit reconciled the current UI against the initial-core requirements:
+Current source reconciles the UI against the initial-core requirements:
 
 - Meeting Ready / Starting / Live / Stopping remain projected from the canonical Meeting runtime owner;
 - a real frontend/runtime bridge-unavailable condition is presented as **Unavailable**, not mislabeled as Setup Needed;
 - active Meeting continuity across Text/Settings remains explicit and navigation does not stop the session;
-- safe application close distinguishes active Meeting, already-stopping, runtime-owner conflict, and unverifiable runtime state; unavailable close checks offer Retry Check rather than pretending Stop can execute;
+- safe close distinguishes active Meeting, already-stopping, runtime-owner conflict, and unverifiable runtime state; unavailable close checks offer a retry rather than pretending Stop can execute;
 - Text keeps explicit ID <-> EN direction, Translate, stale-source association, editable result, Copy, and Ctrl/Cmd+Enter;
-- a translation result that returns after the user edits the target text does **not** overwrite that newer user edit;
-- First Setup keeps five persisted checkpoints, candidate device probing, Set up later, repair, and real final readiness verification;
+- a translation result returning after the user edits the target text does **not** overwrite the newer edit;
+- First Setup keeps five persisted checkpoints, candidate device probing, Set Up Later, repair, and real final readiness verification;
 - Settings keeps Meeting-device selection, Mic Test, Check Setup, Advanced health, bounded Diagnostics, and explicit Verify Models.
 
-Svelte state remains presentation/application state, not duplicate Rust/runtime truth.
-
-No SvelteKit, frontend router, Redux-like state library, CSS-in-JS, heavy UI framework, full shadcn-svelte dump, or general animation framework is a current owner.
-
-The Svelte source has **not** been dependency-installed, autofixed, typechecked, built, launched, clipboard-tested, or visually rendered in this ChatGPT -> GitHub channel. Source ownership/state mapping is established; executable/rendered proof remains pending by explicit user choice.
+Svelte state remains presentation/application state, not duplicate Rust/runtime truth. No SvelteKit, frontend router, Redux-like state library, CSS-in-JS, heavy UI framework, full shadcn-svelte dump, or general animation framework is a current owner.
 
 ## Translation Contract
 
@@ -185,7 +202,9 @@ Actual PythonRuntime bytes, vendored packages, installer placement, model execut
 
 ## Deferred Proof Boundary
 
-The user has explicitly chosen to postpone local/integration testing while major frontend features are completed. This changes **when** proof is executed, not the acceptance standard.
+The user has explicitly chosen to postpone local/integration testing until the major feature set is ready. This changes **when** proof is executed, not the acceptance standard.
+
+The Svelte source has not been dependency-installed, autofixed, typechecked, built, launched, clipboard-tested, or visually rendered through ChatGPT -> GitHub. Therefore source hierarchy and wording can be established, but rendered attractiveness/usability/accessibility are not yet proven.
 
 Before release, accumulated proof still includes:
 
@@ -195,6 +214,7 @@ Svelte autofixer
 svelte-check
 Vite build/render
 Rust/Tauri compile + launch
+keyboard/focus/rendered accessibility smoke
 clipboard interaction
 private PythonRuntime + worker/model execution
 Windows Meeting audio/device validation
