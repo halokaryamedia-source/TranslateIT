@@ -2,6 +2,7 @@ use serde::Serialize;
 use serde_json::{json, Value};
 use std::io::BufReader;
 use std::process::{Command, Stdio};
+use std::sync::atomic::{AtomicU64, Ordering};
 
 use crate::commands::diagnostic_trace::{
     trace_command_end, trace_command_error, trace_command_start,
@@ -24,6 +25,8 @@ use super::helper_bridge_runtime::{
 
 const MAX_HELPER_TEXT_CHARS: usize = 2_000;
 const APPLICATION_MEETING_OWNER_ID: &str = "translateit_application_meeting";
+
+static MEETING_OUTBOUND_PIPELINE_GENERATION: AtomicU64 = AtomicU64::new(0);
 
 #[derive(Debug, Clone, Serialize)]
 pub struct HelperBridgeWorkerResponse {
@@ -94,6 +97,29 @@ fn meeting_start_prepare(payload: &Value) -> bool {
         .get("meeting_start_prepare")
         .and_then(Value::as_bool)
         .unwrap_or(false)
+}
+
+fn meeting_outbound_pipeline_active() -> bool {
+    MEETING_OUTBOUND_PIPELINE_GENERATION.load(Ordering::Acquire) != 0
+}
+
+fn mark_meeting_outbound_pipeline(generation: u64) {
+    if generation != 0 {
+        MEETING_OUTBOUND_PIPELINE_GENERATION.store(generation, Ordering::Release);
+    }
+}
+
+fn clear_meeting_outbound_pipeline(generation: u64) {
+    let _ = MEETING_OUTBOUND_PIPELINE_GENERATION.compare_exchange(
+        generation,
+        0,
+        Ordering::AcqRel,
+        Ordering::Acquire,
+    );
+}
+
+fn clear_any_meeting_outbound_pipeline() {
+    MEETING_OUTBOUND_PIPELINE_GENERATION.store(0, Ordering::Release);
 }
 
 fn incoming_session_is_eligible(session_id: &str) -> bool {
@@ -188,6 +214,17 @@ fn standalone_blocked_response(
     }
 }
 
+fn incoming_deferred_response(task: &str, request_id: &str) -> HelperBridgeWorkerResponse {
+    standalone_blocked_response(
+        task,
+        request_id,
+        HelperTaskPriority::MeetingIncoming,
+        "deferred",
+        "helper_scheduler:incoming_deferred_for_outbound",
+        "Optional incoming Meeting work yielded before execution because required outbound translation currently owns the helper pipeline.",
+    )
+}
+
 fn blocked_response_from_runtime(
     task: &str,
     request_id: &str,
@@ -255,7 +292,7 @@ fn stale_meeting_request(
     None
 }
 
-fn send_worker_task(task: &str, mut payload: Value) -> HelperBridgeWorkerResponse {
+fn send_worker_task_inner(task: &str, mut payload: Value) -> HelperBridgeWorkerResponse {
     let priority = task_priority(task, &payload);
     let meeting_generation = meeting_generation(&payload);
     let meeting_session_id = meeting_session_id(&payload);
@@ -274,6 +311,13 @@ fn send_worker_task(task: &str, mut payload: Value) -> HelperBridgeWorkerRespons
         }
     };
     let request_id = permit.request_id().to_string();
+
+    // An incoming request may have entered the scheduler before outbound claimed the
+    // pipeline. Re-check after permit acquisition so queued optional work cannot slip
+    // between required outbound ASR -> translation -> TTS stages.
+    if priority == HelperTaskPriority::MeetingIncoming && meeting_outbound_pipeline_active() {
+        return incoming_deferred_response(task, &request_id);
+    }
 
     if let Some(response) = stale_meeting_request(
         task,
@@ -467,6 +511,41 @@ fn send_worker_task(task: &str, mut payload: Value) -> HelperBridgeWorkerRespons
     }
 }
 
+fn send_worker_task(task: &str, payload: Value) -> HelperBridgeWorkerResponse {
+    let priority = task_priority(task, &payload);
+    let outbound_generation = if priority == HelperTaskPriority::MeetingOutbound
+        && meeting_lane(&payload).as_deref() == Some("you")
+    {
+        meeting_generation(&payload)
+    } else {
+        None
+    };
+
+    // Reject new optional incoming stages immediately while a required outbound
+    // utterance owns the helper pipeline. The post-permit check in the inner path
+    // also catches incoming work that was already queued before this claim existed.
+    if priority == HelperTaskPriority::MeetingIncoming && meeting_outbound_pipeline_active() {
+        return incoming_deferred_response(task, "incoming-deferred-before-scheduler");
+    }
+
+    if let Some(generation) = outbound_generation {
+        mark_meeting_outbound_pipeline(generation);
+    }
+
+    let response = send_worker_task_inner(task, payload);
+
+    if let Some(generation) = outbound_generation {
+        if task == "synthesize"
+            || !response.ok
+            || !runtime_generation_is_authoritative(generation)
+        {
+            clear_meeting_outbound_pipeline(generation);
+        }
+    }
+
+    response
+}
+
 pub fn send_helper_worker_task(task: &str, payload: Value) -> HelperBridgeWorkerResponse {
     send_worker_task(task, payload)
 }
@@ -564,6 +643,7 @@ pub fn get_helper_bridge_status() -> HelperBridgeStatus {
 
 #[tauri::command]
 pub fn start_helper_bridge() -> HelperBridgeActionResult {
+    clear_any_meeting_outbound_pipeline();
     match runtime().lock() {
         Ok(mut runtime) => {
             runtime.generation_token = runtime.generation_token.saturating_add(1);
@@ -733,6 +813,7 @@ pub fn start_helper_bridge() -> HelperBridgeActionResult {
 
 #[tauri::command]
 pub fn stop_helper_bridge() -> HelperBridgeActionResult {
+    clear_any_meeting_outbound_pipeline();
     match runtime().lock() {
         Ok(mut runtime) => {
             runtime.generation_token = runtime.generation_token.saturating_add(1);
@@ -762,6 +843,7 @@ pub fn stop_helper_bridge() -> HelperBridgeActionResult {
 }
 
 pub fn cancel_helper_bridge_meeting_generation(generation: u64) -> HelperBridgeActionResult {
+    clear_meeting_outbound_pipeline(generation);
     match runtime().lock() {
         Ok(mut runtime) => {
             if runtime.active_meeting_generation == Some(generation) {
@@ -801,6 +883,7 @@ pub fn cancel_helper_bridge_meeting_generation(generation: u64) -> HelperBridgeA
 }
 
 pub fn cancel_helper_bridge_meeting_session(session_id: &str) -> HelperBridgeActionResult {
+    clear_any_meeting_outbound_pipeline();
     let session_id = session_id.trim();
     match runtime().lock() {
         Ok(mut runtime) => {
@@ -842,6 +925,7 @@ pub fn cancel_helper_bridge_meeting_session(session_id: &str) -> HelperBridgeAct
 
 #[tauri::command]
 pub fn cancel_helper_bridge_task() -> HelperBridgeActionResult {
+    clear_any_meeting_outbound_pipeline();
     // Preserve the inherited general cancellation command for Diagnostics/legacy callers.
     // Canonical Meeting Stop uses scoped session cancellation.
     match runtime().lock() {
