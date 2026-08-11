@@ -210,24 +210,38 @@ Actual PythonRuntime bytes, vendored packages, installer placement, model execut
 
 ## Deferred Proof Boundary
 
-The user has explicitly chosen to postpone local/integration testing until the major feature set is ready. This changes **when** proof is executed, not the acceptance standard.
+The user currently postpones **user-local-PC**, real model/audio/device, installer, and clean-machine testing. This changes **where/when** the remaining proof is executed, not the acceptance standard.
 
-The changed Svelte/Rust source has not been dependency-installed, Svelte-autofixed, typechecked, built, Rust-compiled, launched, clipboard-tested, or visually rendered through ChatGPT -> GitHub. Therefore source ownership/contracts can be established, but rendered usability, compile correctness, Windows runtime behavior, and measured efficiency remain unproven until the deferred local stage.
-
-Before release, accumulated proof still includes:
+Remote GitHub-hosted Windows proof has already established the following executable/frontend boundaries:
 
 ```text
-frontend dependency install + regenerate package-lock
-Svelte autofixer
-svelte-check
-Vite build/render
-Rust/Tauri compile + launch
-keyboard/focus/rendered accessibility smoke
+frontend dependency materialization in proof runners
+official Svelte autofixer analysis
+svelte-check -> 0 errors / 0 warnings
+Vite production build
+Meeting / Text / Settings browser render
+Windows Rust cargo check
+optimized native Tauri release link/build
+fresh-profile translateit.exe launch/bootstrap
+native Tauri/WebView First Setup pixel render
+native startup / medium / near-minimum resize render
+native Step 1 keyboard focus traversal + visible focus indicators
+```
+
+Fresh First Setup remote proofs remain intentionally before capability execution and have shown zero Python child processes. They do **not** prove Python worker/model inference, physical microphone behavior, Meeting virtual-audio routing, real Meeting-app reception, sleep/wake behavior during a live session, latency/stability, installer placement, or clean-machine execution.
+
+Before release, remaining proof/materialization still includes:
+
+```text
+adopt/review canonical frontend dependency lockfile
 clipboard interaction
+real runtime-state projection
 private PythonRuntime + worker/model execution
 Windows Meeting audio/device validation
-installer/installed-runtime proof
+Start / Stop / Safe Close / power lifecycle runtime acceptance
+latency / stability / long-session measurement
+installer / installed-runtime proof
 clean-machine proof
 ```
 
-The removed old `package-lock.json` must not be treated as valid for the Svelte dependency graph until regenerated during that later dependency-materialization stage.
+The removed old `package-lock.json` must not be treated as valid for the current Svelte dependency graph until a canonical lockfile is regenerated, reviewed, and adopted against the proven dependency set.
