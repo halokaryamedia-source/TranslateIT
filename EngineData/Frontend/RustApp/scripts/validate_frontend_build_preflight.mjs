@@ -80,8 +80,8 @@ for (const marker of [
   "getCurrentWindow().onCloseRequested",
   "runtimeProductFacade.runProductMeetingAction",
   'type CloseDialogAction = "stop" | "retry" | null',
-  'closeDialogAction === "retry" ? "Retry Check"',
-  '"Unable to verify Meeting state"',
+  'closeDialogAction === "retry" ? "Try Again"',
+  '"Can\'t check the meeting yet"',
 ]) {
   if (!app.includes(marker)) fail(`App.svelte missing current product marker: ${marker}`);
 }
@@ -100,6 +100,11 @@ for (const marker of [
   if (!facade.includes(marker)) fail(`runtimeProductFacade.ts missing bounded Unavailable-state marker: ${marker}`);
 }
 
+const meetingPage = readFileSync(join(appRoot, "src", "pages", "Meeting.svelte"), "utf8");
+for (const marker of ["You speak", "Meeting hears", "Ready to translate. Start when your meeting is open.", "TranslateIT Meeting Microphone"]) {
+  if (!meetingPage.includes(marker)) fail(`Meeting.svelte missing familiar translation-flow marker: ${marker}`);
+}
+
 const textPage = readFileSync(join(appRoot, "src", "pages", "Text.svelte"), "utf8");
 for (const marker of [
   "runProductTranslation",
@@ -110,8 +115,36 @@ for (const marker of [
   "requestTargetRevision",
   "userEditedTargetWhileRunning",
   '"Edit kept"',
+  "Ctrl + Enter to translate",
 ]) {
   if (!textPage.includes(marker)) fail(`Text.svelte missing explicit Text workflow marker: ${marker}`);
+}
+
+const settingsPage = readFileSync(join(appRoot, "src", "pages", "Settings.svelte"), "utf8");
+for (const marker of ['aria-label="Settings sections"', "Meeting audio", "Open Diagnostics", "setupBusy", "micTestBusy"]) {
+  if (!settingsPage.includes(marker)) fail(`Settings.svelte missing simplified settings marker: ${marker}`);
+}
+
+const firstSetup = readFileSync(join(appRoot, "src", "pages", "FirstSetup.svelte"), "utf8");
+for (const marker of ['role="progressbar"', "Which microphone do you use?", "Where do you hear the meeting?", "Choose TranslateIT in your meeting app"]) {
+  if (!firstSetup.includes(marker)) fail(`FirstSetup.svelte missing familiar setup marker: ${marker}`);
+}
+
+const sidebar = readFileSync(join(appRoot, "src", "components", "layout", "Sidebar.svelte"), "utf8");
+for (const marker of ["Ready to translate", "Translation is live", "Indonesian ↔ English"]) {
+  if (!sidebar.includes(marker)) fail(`Sidebar.svelte missing product-facing navigation/status marker: ${marker}`);
+}
+
+for (const [label, body] of [
+  ["App.svelte", app],
+  ["Meeting.svelte", meetingPage],
+  ["Text.svelte", textPage],
+  ["FirstSetup.svelte", firstSetup],
+  ["Sidebar.svelte", sidebar],
+]) {
+  for (const technical of ["canonical Stop lifecycle", "Current app capability state", "Finalized speech only", "Using the current local translation runtime", "Document attachments are not part of this workflow"]) {
+    if (body.includes(technical)) fail(`${label} exposes retired normal-user technical copy: ${technical}`);
+  }
 }
 
 const statusBadge = readFileSync(join(appRoot, "src", "components", "ui", "StatusBadge.svelte"), "utf8");
@@ -129,4 +162,4 @@ for (const marker of ['@import "tailwindcss";', '@import "./tokens.css";', ".ti-
   if (!appCss.includes(marker)) fail(`styles/app.css missing approved visual-system marker: ${marker}`);
 }
 
-console.log("[frontend-build-preflight] Svelte application ownership, approved visual stack, explicit Unavailable state, safe-close modes, Text Copy and late-result protection, and retained Tauri runtime bridge are source-aligned. Dependency installation, svelte-check, build, Tauri launch, clipboard execution, and rendered UI remain separate proof.");
+console.log("[frontend-build-preflight] Svelte ownership, familiar translation interaction hierarchy, humanized normal-user copy, explicit Unavailable state, Text safety/Copy, simplified Settings, and retained Tauri runtime bridge are source-aligned. Dependency installation, svelte-check, build, Tauri launch, clipboard execution, and rendered UI remain separate proof.");
