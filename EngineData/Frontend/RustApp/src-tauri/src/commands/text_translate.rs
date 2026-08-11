@@ -1,16 +1,47 @@
+use serde::Serialize;
 use serde_json::{json, Value};
 
 use crate::commands::diagnostic_trace::{
     trace_command_end, trace_command_error, trace_command_start,
 };
 use crate::engine::runtime_settings::load_settings;
-use crate::engine::state::{CommandResult, LifecycleState};
 
 use super::helper_bridge::{
     get_helper_bridge_status, send_helper_worker_task, start_helper_bridge,
 };
 
 const MAX_TEXT_TRANSLATION_CHARS: usize = 2_000;
+
+#[derive(Debug, Clone, Serialize)]
+pub struct TextTranslationResult {
+    pub ok: bool,
+    pub state: String,
+    pub translated_text: String,
+    pub user_message: String,
+    pub blocker: String,
+}
+
+impl TextTranslationResult {
+    fn success(translated_text: String) -> Self {
+        Self {
+            ok: true,
+            state: "translated".to_string(),
+            translated_text,
+            user_message: "Translation ready.".to_string(),
+            blocker: String::new(),
+        }
+    }
+
+    fn blocked(state: &str, user_message: &str, blocker: String) -> Self {
+        Self {
+            ok: false,
+            state: state.to_string(),
+            translated_text: String::new(),
+            user_message: user_message.to_string(),
+            blocker,
+        }
+    }
+}
 
 fn clean_source(value: &str) -> String {
     value
@@ -66,7 +97,7 @@ fn worker_blocker(response: &Value) -> String {
     }
 }
 
-fn ensure_persistent_helper_started() -> Result<(), CommandResult> {
+fn ensure_persistent_helper_started() -> Result<(), TextTranslationResult> {
     let status = get_helper_bridge_status();
     if !matches!(status.state.as_str(), "not_started" | "stopped" | "error") {
         return Ok(());
@@ -76,17 +107,15 @@ fn ensure_persistent_helper_started() -> Result<(), CommandResult> {
     if start.ok {
         Ok(())
     } else {
-        Err(CommandResult::blocked(
-            LifecycleState::TranslationAdapterPending,
-            format!(
-                "Local translation is unavailable because the persistent helper could not start. {}",
-                start.message
-            ),
+        Err(TextTranslationResult::blocked(
+            "runtime_unavailable",
+            "Local translation isn't available yet. Check Setup or Diagnostics and try again.",
+            format!("helper_start:{}:{}", start.state, start.message),
         ))
     }
 }
 
-fn translate_with_persistent_helper(source: &str) -> CommandResult {
+fn translate_with_persistent_helper(source: &str) -> TextTranslationResult {
     if let Err(result) = ensure_persistent_helper_started() {
         return result;
     }
@@ -122,33 +151,36 @@ fn translate_with_persistent_helper(source: &str) -> CommandResult {
         == Some("canonical_bidirectional_id_en");
 
     if response.ok && stage_is_translate && contract_is_canonical && !translated.is_empty() {
-        return CommandResult::ok(LifecycleState::Idle, translated.to_string());
+        return TextTranslationResult::success(translated.to_string());
     }
 
-    CommandResult::blocked(
-        LifecycleState::TranslationAdapterPending,
-        format!(
-            "Local translation is unavailable for the selected language direction. {}",
-            worker_blocker(&worker_response)
-        ),
+    TextTranslationResult::blocked(
+        "translation_unavailable",
+        "Translation isn't available for this language direction right now. Check Setup or Diagnostics and try again.",
+        worker_blocker(&worker_response),
     )
 }
 
 #[tauri::command]
-pub fn translate_text(source: String) -> CommandResult {
+pub fn translate_text(source: String) -> TextTranslationResult {
     let started = trace_command_start(
         "translate_text",
         format!("source_chars={}", source.chars().count()),
     );
     let source = clean_source(&source);
     let result = if source.is_empty() {
-        CommandResult::blocked(LifecycleState::EmptyInput, "No source text provided.")
+        TextTranslationResult::blocked(
+            "empty_input",
+            "Type or paste something to translate.",
+            "text_translation:empty_input".to_string(),
+        )
     } else if source.chars().count() > MAX_TEXT_TRANSLATION_CHARS {
-        CommandResult::blocked(
-            LifecycleState::TranslationAdapterPending,
-            format!(
-                "Input is too long. Limit: {MAX_TEXT_TRANSLATION_CHARS} characters. Shorten or split the text and try again."
+        TextTranslationResult::blocked(
+            "input_too_long",
+            &format!(
+                "Text is too long. Limit: {MAX_TEXT_TRANSLATION_CHARS} characters. Shorten or split it and try again."
             ),
+            "text_translation:input_too_long".to_string(),
         )
     } else {
         translate_with_persistent_helper(&source)
