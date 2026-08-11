@@ -6,15 +6,16 @@ The approved Meeting / Text / Settings redesign remains the TranslateIT visual b
 
 The user does **not** want testing on their local PC yet. Proof therefore remains limited to remote GitHub-hosted Windows execution. Python/model execution, real Windows audio/device acceptance, installer/clean-machine proof, and performance measurement remain outside the current proof scope.
 
-P2.2 has now crossed three executable boundaries remotely:
+The current remote executable/presentation chain is now:
 
 ```text
-Windows cargo check              -> PASS
-Windows native release link/build-> PASS
-Windows native launch/bootstrap  -> PASS
+Windows cargo check                 -> PASS
+Windows native release link/build   -> PASS
+Windows native launch/bootstrap     -> PASS
+Native Tauri/WebView pixel render   -> PASS
 ```
 
-No local-PC execution occurred.
+No user-local-PC execution occurred.
 
 ## Approved Frontend Visual Baseline
 
@@ -32,7 +33,7 @@ useful content gets the largest share of space
 no generic AI gradients, glow, glassmorphism, or decorative dashboard grids
 ```
 
-Current Meeting / Text / Settings source has dependency, typecheck, production-build, and actual browser-render evidence. Latest visual proof remains GitHub Actions run `31518906505` with simulated Tauri Ready/device data only.
+Meeting / Text / Settings already have actual dependency, typecheck, production-build, and browser-render evidence. Browser proof run `31518906505` used simulated Tauri Ready/device responses only.
 
 ```text
 startup source contract validator -> PASS
@@ -61,7 +62,7 @@ runtime.rs
 -> HelperBridgeActionResult imported through the wrong module visibility boundary
 ```
 
-The bounded correction preserved the architecture:
+The bounded correction preserved the existing architecture:
 
 - `commands/runtime.rs` remains the public guarded Tauri command owner for `start_helper_bridge` and `start_meeting_translation`;
 - helper and Meeting implementations remain ordinary internal Rust functions called by those wrappers;
@@ -87,7 +88,7 @@ The bounded remote link proof used:
 npx tauri build --no-bundle
 ```
 
-This command exercises the Tauri release/link boundary and configured frontend `beforeBuildCommand` while skipping NSIS/installer generation.
+This exercises the Tauri release/link boundary and configured frontend `beforeBuildCommand` while skipping NSIS/installer generation.
 
 The first attempt stopped before native build because `preflight:tauri-package` falsely matched the approved worker line:
 
@@ -101,9 +102,9 @@ against the old forbidden substring:
 ROOT = Path(__file__).resolve().parents[4]
 ```
 
-The worker path architecture was already correct: `SCRIPT_ROOT` is the development fallback, while packaged runtime and writable user-data roots are provided through the absolute Tauri-owned environment contract. Only the validator marker was narrowed so a standalone legacy `ROOT = ...` assignment remains forbidden without treating `SCRIPT_ROOT` as that legacy variable. No Python worker behavior or packaged-path semantics changed.
+The worker path architecture was already correct: `SCRIPT_ROOT` is the development fallback, while packaged runtime and writable user-data roots are provided through the absolute Tauri-owned environment contract. Only the validator marker was narrowed; no Python worker behavior or packaged-path semantics changed.
 
-After that bounded validator correction, remote Windows proof run `31523183206` passed:
+Remote Windows proof run `31523183206` then passed:
 
 ```text
 Windows Server 2025 / MSVC target
@@ -126,7 +127,7 @@ size: 9,695,232 bytes
 
 ## Windows Native Launch / Bootstrap Baseline
 
-Remote proof run `31524375643` built the same release executable and launched it on a fresh isolated Windows profile root. The harness replaced `LOCALAPPDATA` and `APPDATA` with empty runner-temp directories so TranslateIT could not inherit a previous setup state.
+Remote proof run `31524375643` built the release executable and launched it on a fresh isolated Windows profile. The harness replaced `LOCALAPPDATA` and `APPDATA` with empty runner-temp directories so TranslateIT could not inherit previous setup state.
 
 Fresh settings intentionally resolve to:
 
@@ -136,24 +137,64 @@ meeting_setup_state = new
 
 and the frontend boot path only loads settings before presenting First Setup. `loadProductRuntimeSnapshot()` is not entered while setup remains `new`, so this launch slice does not intentionally start the helper, query worker capability status, begin model inference, or start audio capture.
 
-Observed native result after a 15-second bootstrap window:
+Observed after a 15-second bootstrap window:
 
 ```text
 TranslateIT process alive       -> true
 Windows process Responding      -> true
-MainWindowHandle                -> 196802 (non-zero)
+MainWindowHandle                -> non-zero
 MainWindowTitle                 -> TranslateIT
 Python child process count      -> 0
 translateit.exe size            -> 9,695,232 bytes
 ```
 
-The application therefore crossed Tauri application startup, packaged-path initialization, main-window lookup, Windows power-hook installation, WebView-window creation, and normal event-loop survival far enough to expose a live responding top-level TranslateIT window instead of immediately exiting.
+This established native Tauri startup, packaged-path initialization, main-window creation, Windows power-hook installation, and event-loop survival. Harness `Stop-Process -Force` was cleanup only and is **not** safe-close evidence.
 
-The harness then used `Stop-Process -Force` **only to clean up the proof process**. This is not safe-close evidence and must not be represented as canonical application-close proof.
+## Native Tauri / WebView Presentation Baseline
 
-The hosted runner now provides meaningful native-window evidence, but this slice did not capture or inspect rendered WebView pixels. Native visual composition remains a separate proof boundary.
+Remote native presentation proof used the same fresh-profile startup boundary so First Setup was shown without intentionally entering Python/model/audio capability paths.
 
-The native release build still emits the existing Rust warning set, mainly dead/internal paths plus one unused incoming-recovery binding. Do not mass-delete those paths merely to silence warnings before runtime evidence establishes which code is genuinely obsolete.
+The first capture attempt correctly refused to claim success because a coarse `PrintWindow` sample saw only seven colors, which was insufficient to distinguish a valid minimal dark UI from an incomplete WebView capture.
+
+The second proof run `31526188646` kept the native process/window requirements and uploaded the capture for direct visual inspection. Observed data:
+
+```text
+Windows Server 2025
+TranslateIT process Responding    -> true
+MainWindowHandle                  -> 131416 (non-zero)
+MainWindowTitle                   -> TranslateIT
+native window bounds              -> 1616 x 979
+PrintWindow capture               -> produced PNG
+dense sampled unique RGB values   -> 36
+PNG size                           -> 41,049 bytes
+Python child process count        -> 0
+```
+
+Artifact:
+
+```text
+translateit-native-webview-proof
+artifact id: 9115236210
+file: TranslateIT-FirstSetup-Native-WebView.png
+```
+
+The uploaded PNG was downloaded and visually inspected after the workflow. It contains the actual native Windows title bar plus rendered TranslateIT First Setup WebView content, including:
+
+```text
+TranslateIT / Meeting setup
+Step 1 of 5 / 20%
+Set up meeting translation
+You speak: Indonesian -> English voice
+You read: English -> Indonesian text / Optional
+Set Up Later
+Continue
+```
+
+This is therefore valid **native Tauri/WebView pixel evidence**, not a browser-only harness and not a generated image. The composition is coherent at the canonical startup size and follows the approved clean desktop-utility language.
+
+The hosted runner positioned the centered window partly outside its virtual desktop coordinate origin (`-296,-126`), but `PrintWindow` captured the complete native window at `1616 x 979`; this is a runner-desktop geometry detail, not an application layout failure.
+
+The native release build still emits existing Rust warnings, mainly dead/internal paths plus one unused incoming-recovery binding. Do not mass-delete those paths merely to silence warnings before runtime evidence establishes which code is genuinely obsolete.
 
 Temporary proof workflows are removed after evidence is recorded; no permanent CI owner is introduced by these proof slices.
 
@@ -192,6 +233,7 @@ Vite production build
 actual Meeting / Text / Settings browser render
 basic Text translated-state interaction
 approved clean visual baseline
+native First Setup Tauri/WebView pixel render
 ```
 
 Still required before release:
@@ -199,8 +241,7 @@ Still required before release:
 ```text
 review/fix relevant FirstSetup warnings
 adopt/review canonical dependency lockfile
-native Tauri/WebView pixel presentation
-resize smoke
+native resize smoke
 keyboard/focus smoke
 clipboard proof
 real runtime-state projection
@@ -219,15 +260,15 @@ package source preflight
 optimized native Windows release link/build
 verified translateit.exe output
 fresh-profile native process launch
-15-second bootstrap survival
+bootstrap survival
 responding native TranslateIT top-level window
-no Python child process during fresh First Setup bootstrap
+native First Setup WebView pixel presentation
+no Python child process during fresh First Setup proof
 ```
 
 Still required:
 
 ```text
-native WebView pixel presentation / resize observation
 safe-close lifecycle
 Start / Stop lifecycle
 Windows power lifecycle behavior
@@ -267,7 +308,8 @@ P0 source correctness CLOSED
 -> Windows cargo-check baseline PASS
 -> Windows native release link/build PASS
 -> Windows native launch/bootstrap PASS
--> remote native WebView presentation proof
+-> native Tauri/WebView presentation PASS
+-> remote resize/focus proof
 -> later explicit approval for local/model/audio proof
 -> fix measured failures
 -> finish only still-relevant P1
@@ -276,8 +318,8 @@ P0 source correctness CLOSED
 
 ## Current Mode
 
-**Proof** — remote native Windows launch/bootstrap is now proven on a fresh isolated profile. No user-local-PC, Python/model, or real audio execution occurred.
+**Proof** — native Tauri/WebView First Setup presentation is now visually proven on a fresh GitHub-hosted Windows profile. No user-local-PC, Python/model, or real audio execution occurred.
 
-## Next Step — P2.1/P2.2 Remote Native WebView Presentation Baseline
+## Next Step — P2.1 Remote Native Resize / Keyboard / Focus Smoke
 
-Use the same fresh-profile GitHub-hosted Windows launch and capture the actual native TranslateIT window pixels while First Setup is shown. Confirm that the WebView content renders inside the real Tauri window and remains visually coherent at the canonical startup size. Keep `meeting_setup_state = new` so helper/model/audio capability paths are not intentionally entered. If screen capture is not meaningful on the hosted runner despite the valid native window handle, record that environment limit and stop at that boundary instead of switching to the user's local PC.
+Use the same fresh-profile GitHub-hosted Windows application only. Exercise the real native Tauri window across a small bounded resize set and basic keyboard/focus traversal on First Setup, confirming the WebView stays coherent and the primary setup controls remain reachable. Keep `meeting_setup_state = new` so Python/model/audio paths are not intentionally entered. Do not substitute the user's local PC if the hosted runner cannot provide meaningful input/focus evidence.
