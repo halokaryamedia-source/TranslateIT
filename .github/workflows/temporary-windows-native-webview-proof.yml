@@ -1,0 +1,145 @@
+name: Temporary Windows Native WebView Proof
+
+on:
+  push:
+    branches: [New]
+    paths:
+      - .github/workflows/temporary-windows-native-webview-proof.yml
+
+jobs:
+  capture:
+    runs-on: windows-latest
+    timeout-minutes: 35
+    defaults:
+      run:
+        working-directory: EngineData/Frontend/RustApp
+
+    steps:
+      - name: Checkout New
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22.16.0'
+
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Materialize frontend dependencies
+        run: npm install --no-audit --no-fund
+
+      - name: Native Tauri build without bundle
+        run: npx tauri build --no-bundle
+
+      - name: Launch fresh native app and capture native window pixels
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $exe = Join-Path $PWD 'src-tauri\target\release\translateit.exe'
+          if (-not (Test-Path $exe)) { throw "Expected native executable was not produced: $exe" }
+
+          $isolatedLocal = Join-Path $env:RUNNER_TEMP 'TranslateITLocalAppData'
+          $isolatedRoaming = Join-Path $env:RUNNER_TEMP 'TranslateITRoamingAppData'
+          New-Item -ItemType Directory -Force -Path $isolatedLocal | Out-Null
+          New-Item -ItemType Directory -Force -Path $isolatedRoaming | Out-Null
+          $env:LOCALAPPDATA = $isolatedLocal
+          $env:APPDATA = $isolatedRoaming
+
+          $process = Start-Process -FilePath $exe -PassThru
+          Write-Host "TranslateIT process id: $($process.Id)"
+
+          $deadline = (Get-Date).AddSeconds(20)
+          do {
+            Start-Sleep -Milliseconds 500
+            $process.Refresh()
+            if ($process.HasExited) { throw "TranslateIT exited before native window capture. Exit code: $($process.ExitCode)" }
+            $native = Get-Process -Id $process.Id -ErrorAction Stop
+          } while (($native.MainWindowHandle -eq 0 -or [string]::IsNullOrWhiteSpace($native.MainWindowTitle)) -and (Get-Date) -lt $deadline)
+
+          if ($native.MainWindowHandle -eq 0) { throw 'TranslateIT did not expose a native main window handle.' }
+          if ($native.MainWindowTitle -ne 'TranslateIT') { throw "Unexpected native window title: $($native.MainWindowTitle)" }
+          if (-not $native.Responding) { throw 'TranslateIT native process is not responding before capture.' }
+
+          Write-Host "Responding: $($native.Responding)"
+          Write-Host "MainWindowHandle: $($native.MainWindowHandle)"
+          Write-Host "MainWindowTitle: $($native.MainWindowTitle)"
+
+          Add-Type -AssemblyName System.Drawing
+          Add-Type @'
+          using System;
+          using System.Runtime.InteropServices;
+          public static class NativeWindowCapture {
+            [StructLayout(LayoutKind.Sequential)]
+            public struct RECT { public int Left; public int Top; public int Right; public int Bottom; }
+            [DllImport("user32.dll")]
+            public static extern bool GetWindowRect(IntPtr hWnd, out RECT lpRect);
+            [DllImport("user32.dll")]
+            public static extern bool PrintWindow(IntPtr hwnd, IntPtr hdcBlt, uint nFlags);
+          }
+          '@
+
+          $hwnd = [IntPtr]$native.MainWindowHandle
+          $rect = New-Object NativeWindowCapture+RECT
+          if (-not [NativeWindowCapture]::GetWindowRect($hwnd, [ref]$rect)) { throw 'GetWindowRect failed.' }
+          $width = $rect.Right - $rect.Left
+          $height = $rect.Bottom - $rect.Top
+          if ($width -lt 1200 -or $height -lt 700) { throw "Unexpected native window size: ${width}x${height}" }
+          Write-Host "Native window bounds: ${width}x${height} at $($rect.Left),$($rect.Top)"
+
+          $artifactDir = Join-Path $env:RUNNER_TEMP 'translateit-native-webview-proof'
+          New-Item -ItemType Directory -Force -Path $artifactDir | Out-Null
+          $png = Join-Path $artifactDir 'TranslateIT-FirstSetup-Native-WebView.png'
+
+          $bitmap = New-Object System.Drawing.Bitmap $width, $height
+          $graphics = [System.Drawing.Graphics]::FromImage($bitmap)
+          try {
+            $hdc = $graphics.GetHdc()
+            try {
+              $ok = [NativeWindowCapture]::PrintWindow($hwnd, $hdc, 2)
+            } finally {
+              $graphics.ReleaseHdc($hdc)
+            }
+          } finally {
+            $graphics.Dispose()
+          }
+          if (-not $ok) {
+            $bitmap.Dispose()
+            throw 'PrintWindow failed to capture the native TranslateIT window.'
+          }
+          $bitmap.Save($png, [System.Drawing.Imaging.ImageFormat]::Png)
+          $bitmap.Dispose()
+
+          # Reject obviously blank/solid captures by sampling pixels across the image.
+          $check = [System.Drawing.Bitmap]::FromFile($png)
+          try {
+            $samples = New-Object 'System.Collections.Generic.HashSet[string]'
+            for ($x = 0; $x -lt $check.Width; $x += [Math]::Max(1, [int]($check.Width / 25))) {
+              for ($y = 0; $y -lt $check.Height; $y += [Math]::Max(1, [int]($check.Height / 15))) {
+                $c = $check.GetPixel([Math]::Min($x, $check.Width - 1), [Math]::Min($y, $check.Height - 1))
+                [void]$samples.Add("$($c.R),$($c.G),$($c.B)")
+              }
+            }
+            Write-Host "Sampled unique RGB values: $($samples.Count)"
+            if ($samples.Count -lt 8) { throw "Native screenshot appears blank/solid; only $($samples.Count) sampled colors." }
+          } finally {
+            $check.Dispose()
+          }
+
+          $children = Get-CimInstance Win32_Process | Where-Object { $_.ParentProcessId -eq $process.Id }
+          $pythonChildren = @($children | Where-Object { $_.Name -match '^(python|python3|py)\.exe$' })
+          if ($pythonChildren.Count -gt 0) { throw 'Fresh First Setup capture unexpectedly spawned a Python child process.' }
+          Write-Host 'Python child process count: 0'
+          Write-Host "Screenshot path: $png"
+          Write-Host "Screenshot bytes: $((Get-Item $png).Length)"
+
+          Stop-Process -Id $process.Id -Force
+          Start-Sleep -Seconds 2
+          if (Get-Process -Id $process.Id -ErrorAction SilentlyContinue) { throw 'TranslateIT proof process did not terminate during harness cleanup.' }
+
+      - name: Upload native WebView screenshot
+        uses: actions/upload-artifact@v4
+        with:
+          name: translateit-native-webview-proof
+          path: ${{ runner.temp }}\translateit-native-webview-proof\TranslateIT-FirstSetup-Native-WebView.png
+          if-no-files-found: error
