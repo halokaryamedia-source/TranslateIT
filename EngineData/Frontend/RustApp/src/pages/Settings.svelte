@@ -41,6 +41,7 @@
 
   let tab = $state<SettingsTab>("meeting");
   let diagnosticsOpen = $state(false);
+  let diagnosticsLoading = $state(false);
   let devices = $state<AudioDeviceListReport | null>(null);
   let devicesLoading = $state(false);
   let deviceSaving = $state(false);
@@ -85,11 +86,12 @@
     deviceSaving = true;
     deviceMessage = "Checking device...";
     try {
-      const result = await runtimeProductFacade.selectProductAudioDevice(kind, candidate);
+      const result = await runtimeProductFacade.selectProductAudioDevice(kind, candidate, settings);
       deviceMessage = result.message;
       onNotice(result.message);
       if (!result.ok) return;
       await onSettingsChange(result.settings);
+      await onRefresh(result.message);
       await loadDevices();
     } catch (error) {
       deviceMessage = `Device wasn't changed: ${errorMessage(error)}`;
@@ -104,8 +106,15 @@
   }
 
   async function refreshDiagnostics(): Promise<void> {
-    await onRefresh("Diagnostics refreshed.");
+    if (diagnosticsLoading) return;
     diagnosticsOpen = true;
+    diagnosticsLoading = true;
+    onNotice("Refreshing Diagnostics...");
+    try {
+      await onRefresh("Diagnostics refreshed.");
+    } finally {
+      diagnosticsLoading = false;
+    }
   }
 
   onMount(() => {
@@ -224,7 +233,7 @@
             />
           </div>
           <footer class="border-t border-[var(--ti-border)] bg-[var(--ti-surface-soft)] p-5">
-            <button type="button" class="ti-button ti-button-secondary" onclick={() => { diagnosticsOpen = true; }}>Open Diagnostics</button>
+            <button type="button" class="ti-button ti-button-secondary" disabled={diagnosticsLoading} onclick={() => void refreshDiagnostics()}>{diagnosticsLoading ? "Opening..." : "Open Diagnostics"}</button>
           </footer>
         </article>
       </section>
@@ -249,8 +258,8 @@
           <p class="mb-0 mt-5 text-sm leading-6 text-[var(--ti-text-muted)]">{snapshot.helper?.message ?? "Refresh status to check the local worker."}</p>
 
           <div class="ti-action-row mt-5">
-            <button type="button" class="ti-button ti-button-secondary" disabled={setupBusy} onclick={() => void refreshDiagnostics()}><RefreshCw size={16} /> {setupBusy ? "Refreshing..." : "Refresh Status"}</button>
-            <button type="button" class="ti-button ti-button-secondary" disabled={setupBusy} onclick={() => void onSetupAction("verify-models")}><Bug size={16} /> Verify Models</button>
+            <button type="button" class="ti-button ti-button-secondary" disabled={setupBusy || diagnosticsLoading} onclick={() => void refreshDiagnostics()}><RefreshCw size={16} /> {diagnosticsLoading || setupBusy ? "Refreshing..." : "Refresh Status"}</button>
+            <button type="button" class="ti-button ti-button-secondary" disabled={setupBusy || diagnosticsLoading} onclick={() => void onSetupAction("verify-models")}><Bug size={16} /> Verify Models</button>
           </div>
         </article>
 
