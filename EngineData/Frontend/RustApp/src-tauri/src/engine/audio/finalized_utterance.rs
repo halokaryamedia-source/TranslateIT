@@ -7,8 +7,9 @@ use super::{AudioFrame, TARGET_CHANNELS, TARGET_SAMPLE_RATE_HZ};
 use crate::engine::runtime_state::runtime_generation_is_authoritative;
 
 // Internal safety bounds only. They are not product speech-boundary policy.
-// A long/overloaded utterance is dropped fail-closed rather than being emitted as a
-// partial segment merely to satisfy these limits.
+// An overlong in-progress utterance is dropped fail-closed rather than emitted as a
+// partial segment merely to satisfy a limit. Pending finalized work remains bounded
+// separately and prefers newer waiting speech over an older realtime backlog.
 const MAX_IN_PROGRESS_UTTERANCE_MS: u32 = 60_000;
 const MAX_PENDING_FINALIZED_UTTERANCES: usize = 2;
 const LANE_YOU: &str = "you";
@@ -466,16 +467,6 @@ fn finalize_current_utterance(
     state: &mut FinalizedProducerState,
     speech_duration_ms: u32,
 ) -> bool {
-    if state.pending.len() >= MAX_PENDING_FINALIZED_UTTERANCES {
-        if state.lane == LANE_INCOMING {
-            // Incoming is comprehension assistance. Prefer the newest finalized speech
-            // rather than allowing an old subtitle backlog to grow.
-            let _ = state.pending.pop_front();
-        } else {
-            reset_current_utterance(state);
-            return false;
-        }
-    }
     if state
         .generation
         .map(|generation| !runtime_generation_is_authoritative(generation))
@@ -519,6 +510,15 @@ fn finalize_current_utterance(
     let utterance_id = state.next_utterance_id;
     state.next_utterance_id = state.next_utterance_id.saturating_add(1);
     let total_duration_ms = duration_ms(target_samples.len(), TARGET_SAMPLE_RATE_HZ);
+
+    // The consumer serializes retained work FIFO. If it falls behind, evict only
+    // the oldest still-waiting finalized utterance so the bounded queue does not
+    // preserve an increasingly stale realtime backlog at the expense of current
+    // speech. Already-running output is not preempted here.
+    while state.pending.len() >= MAX_PENDING_FINALIZED_UTTERANCES {
+        let _ = state.pending.pop_front();
+    }
+
     state.pending.push_back(FinalizedMeetingUtterance {
         session_id: state.session_id.clone(),
         sequence,
