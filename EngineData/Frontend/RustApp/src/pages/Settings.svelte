@@ -46,6 +46,9 @@
   let deviceSaving = $state(false);
   let deviceMessage = $state("Loading audio devices...");
 
+  const meetingResourcesLocked = $derived(snapshot.meeting.hasSession);
+  const meetingResourceLockMessage = "Stop Translation or Mic Test before changing meeting audio or running setup repair.";
+
   function deviceId(device: { id?: string; name: string }): string {
     return String(device.id ?? device.name).trim();
   }
@@ -78,6 +81,12 @@
 
   async function changeDevice(kind: ProductAudioDeviceKind, value: string): Promise<void> {
     if (deviceSaving) return;
+    if (meetingResourcesLocked) {
+      deviceMessage = meetingResourceLockMessage;
+      onNotice(meetingResourceLockMessage);
+      return;
+    }
+
     const candidate = value.trim() || null;
     const previous = kind === "microphone" ? settings.audio.input_device_id : settings.audio.output_device_id;
     if ((previous ?? null) === candidate) return;
@@ -98,6 +107,15 @@
     } finally {
       deviceSaving = false;
     }
+  }
+
+  async function runSetupRepair(): Promise<void> {
+    if (meetingResourcesLocked) {
+      deviceMessage = meetingResourceLockMessage;
+      onNotice(meetingResourceLockMessage);
+      return;
+    }
+    await onFixSetup();
   }
 
   function selectValue(event: Event): string {
@@ -151,7 +169,9 @@
             <h3 class="m-0 text-xl font-semibold tracking-[-0.02em]">Meeting audio</h3>
             <p class="mb-0 mt-2 text-sm text-[var(--ti-text-muted)]">Choose what you speak into and where you hear the meeting.</p>
           </div>
-          {#if !snapshot.readiness.meetingReady}
+          {#if meetingResourcesLocked}
+            <StatusBadge label="In Use" tone="neutral" />
+          {:else if !snapshot.readiness.meetingReady}
             <StatusBadge label={snapshot.readiness.level === "unavailable" ? "Unavailable" : "Setup Needed"} tone={snapshot.readiness.level === "unavailable" ? "danger" : "warning"} />
           {/if}
         </header>
@@ -160,7 +180,7 @@
           <div class="grid grid-cols-2 gap-px bg-[var(--ti-border)]">
             <label class="grid gap-3 bg-[var(--ti-surface)] p-6">
               <span class="ti-field-label">Microphone</span>
-              <select class="ti-field min-h-11 px-3" disabled={devicesLoading || deviceSaving} value={currentDevice("microphone")} onchange={(event) => void changeDevice("microphone", selectValue(event))}>
+              <select class="ti-field min-h-11 px-3" disabled={meetingResourcesLocked || devicesLoading || deviceSaving} value={currentDevice("microphone")} onchange={(event) => void changeDevice("microphone", selectValue(event))}>
                 <option value="">Windows Default</option>
                 {#each devices?.input_devices ?? [] as device (deviceId(device))}
                   <option value={deviceId(device)}>{device.name}{device.is_default ? " · Windows default" : ""}</option>
@@ -174,7 +194,7 @@
 
             <label class="grid gap-3 bg-[var(--ti-surface)] p-6">
               <span class="ti-field-label">Meeting sound</span>
-              <select class="ti-field min-h-11 px-3" disabled={devicesLoading || deviceSaving} value={currentDevice("meeting-sound")} onchange={(event) => void changeDevice("meeting-sound", selectValue(event))}>
+              <select class="ti-field min-h-11 px-3" disabled={meetingResourcesLocked || devicesLoading || deviceSaving} value={currentDevice("meeting-sound")} onchange={(event) => void changeDevice("meeting-sound", selectValue(event))}>
                 <option value="">Windows Default</option>
                 {#each devices?.output_devices ?? [] as device (deviceId(device))}
                   <option value={deviceId(device)}>{device.name}{device.is_default ? " · Windows default" : ""}</option>
@@ -198,11 +218,11 @@
           </div>
 
           <footer class="grid gap-4 border-t border-[var(--ti-border)] bg-[var(--ti-surface-soft)] p-6">
-            <p class="m-0 text-sm leading-6 text-[var(--ti-text-muted)]" aria-live="polite">{deviceMessage}</p>
+            <p class="m-0 text-sm leading-6 text-[var(--ti-text-muted)]" aria-live="polite">{meetingResourcesLocked ? meetingResourceLockMessage : deviceMessage}</p>
             <div class="ti-action-row">
               <button type="button" class="ti-button ti-button-secondary" disabled={setupBusy || deviceSaving} onclick={() => void onSetupAction("check-microphone")}>{setupBusy ? "Checking..." : "Check Microphone"}</button>
-              <button type="button" class="ti-button ti-button-secondary" disabled={micTestBusy || setupBusy || deviceSaving} onclick={() => void onMicTest()}>{micTestBusy ? "Working..." : snapshot.readiness.recording ? "Stop Mic Test" : "Mic Test"}</button>
-              <button type="button" class="ti-button ti-button-secondary" disabled={setupBusy || deviceSaving} onclick={() => void onFixSetup()}>{setupBusy ? "Checking..." : "Check Setup"}</button>
+              <button type="button" class="ti-button ti-button-secondary" disabled={meetingResourcesLocked || micTestBusy || setupBusy || deviceSaving} onclick={() => void onMicTest()}>{micTestBusy ? "Working..." : snapshot.readiness.recording ? "Stop Mic Test" : "Mic Test"}</button>
+              <button type="button" class="ti-button ti-button-secondary" disabled={meetingResourcesLocked || setupBusy || deviceSaving} onclick={() => void runSetupRepair()}>{setupBusy ? "Checking..." : "Check Setup"}</button>
             </div>
           </footer>
         </article>
