@@ -158,6 +158,7 @@ fn incoming_session_is_eligible(session_id: &str) -> bool {
         .map(|snapshot| {
             snapshot.owner_id == APPLICATION_MEETING_OWNER_ID
                 && snapshot.session_id == session_id
+                && snapshot.authority_active
                 && snapshot.phase == "live"
         })
         .unwrap_or(false)
@@ -322,6 +323,41 @@ fn stale_meeting_request(
     None
 }
 
+fn recover_incoming_transport_failure_before_permit_release(
+    session_id: Option<&str>,
+    mut response: HelperBridgeWorkerResponse,
+) -> HelperBridgeWorkerResponse {
+    if !helper_transport_failure(&response) {
+        return response;
+    }
+    let Some(session_id) = session_id.filter(|value| incoming_session_is_eligible(value)) else {
+        return response;
+    };
+
+    // This runs while the failed MeetingIncoming request still owns the scheduler
+    // permit. Restoring the one shared worker before that permit is released prevents
+    // a concurrently waiting required outbound request from observing the worker as
+    // stopped. The stale incoming event itself is never retried.
+    let recovery = start_helper_bridge_internal(false);
+    response.state = recovery.state.clone();
+    response.generation_token = recovery.generation_token;
+    if recovery.ok {
+        response.runtime_claim =
+            "meeting_incoming_transport_recovered_same_worker_event_not_retried".to_string();
+        response.message = format!(
+            "{} The same helper worker was restored before releasing incoming scheduler ownership; this stale incoming event was not retried.",
+            response.message
+        );
+    } else {
+        response.runtime_claim = "meeting_incoming_transport_recovery_failed".to_string();
+        response.message = format!(
+            "{} The helper worker could not be restored after the optional incoming transport failure: {}",
+            response.message, recovery.message
+        );
+    }
+    response
+}
+
 fn send_worker_task_inner(task: &str, mut payload: Value) -> HelperBridgeWorkerResponse {
     let priority = task_priority(task, &payload);
     let meeting_generation = meeting_generation(&payload);
@@ -402,7 +438,7 @@ fn send_worker_task_inner(task: &str, mut payload: Value) -> HelperBridgeWorkerR
     };
 
     if let Err(error) = write_worker_request(&mut stdin, &payload) {
-        return match runtime().lock() {
+        let response = match runtime().lock() {
             Ok(mut runtime) => {
                 if runtime.generation_token == bridge_generation {
                     stop_child(&mut runtime);
@@ -427,13 +463,21 @@ fn send_worker_task_inner(task: &str, mut payload: Value) -> HelperBridgeWorkerR
                 "Helper request write failed and bridge state could not be recovered.",
             ),
         };
+        return if priority == HelperTaskPriority::MeetingIncoming {
+            recover_incoming_transport_failure_before_permit_release(
+                meeting_session_id.as_deref(),
+                response,
+            )
+        } else {
+            response
+        };
     }
 
     let (mut worker_response, stdout) =
         match read_worker_response_direct_with_deadline(stdout, DEFAULT_WORKER_RESPONSE_DEADLINE_MS) {
             Ok(value) => value,
             Err(error) => {
-                return match runtime().lock() {
+                let response = match runtime().lock() {
                     Ok(mut runtime) => {
                         if runtime.generation_token == bridge_generation {
                             stop_child(&mut runtime);
@@ -467,6 +511,14 @@ fn send_worker_task_inner(task: &str, mut payload: Value) -> HelperBridgeWorkerR
                         "helper_bridge:lock_poisoned_after_read_failure",
                         "Helper response failed and bridge state could not be recovered safely.",
                     ),
+                };
+                return if priority == HelperTaskPriority::MeetingIncoming {
+                    recover_incoming_transport_failure_before_permit_release(
+                        meeting_session_id.as_deref(),
+                        response,
+                    )
+                } else {
+                    response
                 };
             }
         };
@@ -582,7 +634,7 @@ fn recover_live_meeting_helper_transport(
         };
     }
 
-    let mut recovery = start_helper_bridge();
+    let mut recovery = start_helper_bridge_internal(false);
     if recovery.ok && live_outbound_generation_is_authoritative(generation) {
         if retain_outbound_pipeline {
             mark_meeting_outbound_pipeline(generation);
@@ -765,9 +817,10 @@ pub fn get_helper_bridge_status() -> HelperBridgeStatus {
     }
 }
 
-#[tauri::command]
-pub fn start_helper_bridge() -> HelperBridgeActionResult {
-    clear_any_meeting_outbound_pipeline();
+fn start_helper_bridge_internal(clear_outbound_pipeline: bool) -> HelperBridgeActionResult {
+    if clear_outbound_pipeline {
+        clear_any_meeting_outbound_pipeline();
+    }
     match runtime().lock() {
         Ok(mut runtime) => {
             runtime.generation_token = runtime.generation_token.saturating_add(1);
@@ -933,6 +986,11 @@ pub fn start_helper_bridge() -> HelperBridgeActionResult {
             runtime_claim: "bridge_state_error".to_string(),
         },
     }
+}
+
+#[tauri::command]
+pub fn start_helper_bridge() -> HelperBridgeActionResult {
+    start_helper_bridge_internal(true)
 }
 
 #[tauri::command]
