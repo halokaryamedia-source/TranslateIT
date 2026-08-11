@@ -11,8 +11,8 @@ use crate::engine::runtime_state::{
 };
 
 use super::bridge_paths::{
-    helper_stderr_log_path, slash_path, worker_python_candidates,
-    worker_python_command_available, worker_root, worker_script,
+    helper_stderr_log_path, resolve_worker_python_command, slash_path,
+    worker_python_unavailable_message, worker_root, worker_script,
 };
 use super::helper_bridge_runtime::{
     acquire_helper_task_permit, action_result, apply_worker_response, apply_worker_status,
@@ -539,11 +539,13 @@ pub fn start_helper_bridge() -> HelperBridgeActionResult {
                 return set_blocked(&mut runtime, "Missing realtime worker script. Restore EngineData/Backend/LocalWorker/WorkerRuntime/realtime_local_worker.py before starting the helper bridge.", "helper_bridge:worker_script_missing");
             }
 
-            let python = worker_python_candidates()
-                .into_iter()
-                .find(worker_python_command_available);
-            let Some(python) = python else {
-                return set_blocked(&mut runtime, "No usable Python runtime was found for the helper worker. Set TRANSLATEIT_WORKER_PYTHON, create the WorkerRuntime .venv, or install Python on PATH.", "helper_bridge:python_runtime_missing");
+            let Some(python) = resolve_worker_python_command() else {
+                let message = worker_python_unavailable_message();
+                return set_blocked(
+                    &mut runtime,
+                    &message,
+                    "helper_bridge:python_runtime_missing",
+                );
             };
 
             runtime.state = "starting".to_string();
