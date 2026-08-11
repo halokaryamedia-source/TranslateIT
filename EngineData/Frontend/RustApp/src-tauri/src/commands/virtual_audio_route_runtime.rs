@@ -1,14 +1,14 @@
 use serde::Serialize;
 use serde_json::{json, Value};
 use std::env;
-use std::fs;
-use std::io::Read;
+use std::fs::{self, File};
+use std::io::{ErrorKind, Read, Seek, SeekFrom};
 use std::path::{Path, PathBuf};
 use std::process::{Command, Stdio};
-use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 use std::sync::{Arc, Mutex, OnceLock};
 use std::thread;
-use std::time::Duration;
+use std::time::{Duration, Instant};
 
 use crate::engine::paths::ProjectPaths;
 use crate::engine::runtime_state::runtime_generation_is_authoritative;
@@ -30,6 +30,9 @@ pub struct VirtualAudioRouteRuntimeStatus {
     pub route_execution_enabled: bool,
     pub source_audio_path: Option<String>,
     pub source_audio_ready: bool,
+    pub source_audio_duration_ms: Option<u64>,
+    pub provider_preflight_elapsed_ms: Option<u64>,
+    pub delivery_deadline_ms: Option<u64>,
     pub selected_output_device: Option<String>,
     pub selected_input_device: Option<String>,
     pub route_ready: bool,
@@ -61,6 +64,7 @@ struct MeetingRouteCancelControl {
 }
 
 static MEETING_ROUTE_CANCEL_CONTROL: OnceLock<Mutex<Option<MeetingRouteCancelControl>>> = OnceLock::new();
+static MEETING_ROUTE_PROVIDER_PREFLIGHT_ELAPSED_MS: AtomicU64 = AtomicU64::new(0);
 
 fn meeting_route_cancel_control() -> &'static Mutex<Option<MeetingRouteCancelControl>> {
     MEETING_ROUTE_CANCEL_CONTROL.get_or_init(|| Mutex::new(None))
@@ -134,6 +138,8 @@ pub fn meeting_route_execution_guard_status() -> MeetingRouteExecutionGuardStatu
 }
 
 pub fn prepare_meeting_virtual_audio_route_provider() -> Result<(), String> {
+    MEETING_ROUTE_PROVIDER_PREFLIGHT_ELAPSED_MS.store(0, Ordering::Release);
+
     let route = get_virtual_mic_route_selection();
     if !route.route_ready {
         return Err(if route.blocker.is_empty() {
@@ -166,12 +172,17 @@ pub fn prepare_meeting_virtual_audio_route_provider() -> Result<(), String> {
     });
     let payload_arg = serde_json::to_string(&payload)
         .map_err(|_| "virtual_audio_route:provider_preflight_payload_invalid".to_string())?;
+    let started = Instant::now();
     let output = Command::new(&python.program)
         .args(&python.bootstrap_args)
         .arg(&provider_script)
         .arg(payload_arg)
         .output()
         .map_err(|_| "virtual_audio_route:provider_preflight_process_failed".to_string())?;
+    let elapsed_ms = started
+        .elapsed()
+        .as_millis()
+        .min(u64::MAX as u128) as u64;
     let stdout = String::from_utf8_lossy(&output.stdout).trim().to_string();
     let response = serde_json::from_str::<Value>(&stdout).unwrap_or_else(|_| json!({}));
     let provider_ok = response.get("ok").and_then(Value::as_bool).unwrap_or(false);
@@ -185,6 +196,10 @@ pub fn prepare_meeting_virtual_audio_route_provider() -> Result<(), String> {
         .unwrap_or(false);
 
     if output.status.success() && provider_ok && preflight_verified && audio_route_ready {
+        MEETING_ROUTE_PROVIDER_PREFLIGHT_ELAPSED_MS.store(
+            elapsed_ms.max(ROUTE_PROCESS_POLL_MS),
+            Ordering::Release,
+        );
         return Ok(());
     }
 
@@ -202,6 +217,9 @@ fn contract_json(status: &VirtualAudioRouteRuntimeStatus) -> String {
         "route_execution_enabled": status.route_execution_enabled,
         "route_execution_attempted": status.route_execution_attempted,
         "source_audio_path": &status.source_audio_path,
+        "source_audio_duration_ms": status.source_audio_duration_ms,
+        "provider_preflight_elapsed_ms": status.provider_preflight_elapsed_ms,
+        "delivery_deadline_ms": status.delivery_deadline_ms,
         "selected_output_device": &status.selected_output_device,
         "selected_input_device": &status.selected_input_device,
         "source_audio_ready": status.source_audio_ready,
@@ -273,6 +291,9 @@ fn base_status(source_audio_path: Option<String>, enable_route_runtime: bool) ->
         route_execution_enabled: enable_route_runtime,
         source_audio_path,
         source_audio_ready,
+        source_audio_duration_ms: None,
+        provider_preflight_elapsed_ms: None,
+        delivery_deadline_ms: None,
         selected_output_device: route.selected_output_device,
         selected_input_device: route.selected_input_device,
         route_ready,
@@ -350,6 +371,96 @@ fn provider_response_flags(raw: &str) -> (bool, bool, bool) {
             .and_then(Value::as_bool)
             .unwrap_or(false),
     )
+}
+
+fn skip_wav_chunk(file: &mut File, byte_count: u64) -> Result<(), String> {
+    file.seek(SeekFrom::Current(byte_count as i64))
+        .map(|_| ())
+        .map_err(|_| "virtual_audio_route:wav_seek_failed".to_string())
+}
+
+fn wav_duration_ms(path: &Path) -> Result<u64, String> {
+    let mut file = File::open(path)
+        .map_err(|_| "virtual_audio_route:source_audio_open_failed".to_string())?;
+    let mut riff_header = [0_u8; 12];
+    file.read_exact(&mut riff_header)
+        .map_err(|_| "virtual_audio_route:source_audio_header_unreadable".to_string())?;
+    if &riff_header[0..4] != b"RIFF" || &riff_header[8..12] != b"WAVE" {
+        return Err("virtual_audio_route:source_audio_not_wav".to_string());
+    }
+
+    let mut byte_rate: Option<u64> = None;
+    let mut data_size: Option<u64> = None;
+    loop {
+        let mut chunk_header = [0_u8; 8];
+        match file.read_exact(&mut chunk_header) {
+            Ok(()) => {}
+            Err(error) if error.kind() == ErrorKind::UnexpectedEof => break,
+            Err(_) => return Err("virtual_audio_route:wav_chunk_header_unreadable".to_string()),
+        }
+        let chunk_size = u32::from_le_bytes([
+            chunk_header[4],
+            chunk_header[5],
+            chunk_header[6],
+            chunk_header[7],
+        ]) as u64;
+
+        if &chunk_header[0..4] == b"fmt " {
+            if chunk_size < 16 {
+                return Err("virtual_audio_route:wav_fmt_chunk_invalid".to_string());
+            }
+            let mut format = [0_u8; 16];
+            file.read_exact(&mut format)
+                .map_err(|_| "virtual_audio_route:wav_fmt_chunk_unreadable".to_string())?;
+            let audio_format = u16::from_le_bytes([format[0], format[1]]);
+            if audio_format != 1 {
+                return Err("virtual_audio_route:wav_format_not_pcm".to_string());
+            }
+            let parsed_byte_rate = u32::from_le_bytes([
+                format[8], format[9], format[10], format[11],
+            ]) as u64;
+            if parsed_byte_rate == 0 {
+                return Err("virtual_audio_route:wav_byte_rate_invalid".to_string());
+            }
+            byte_rate = Some(parsed_byte_rate);
+            skip_wav_chunk(&mut file, chunk_size.saturating_sub(16))?;
+        } else if &chunk_header[0..4] == b"data" {
+            data_size = Some(chunk_size);
+            skip_wav_chunk(&mut file, chunk_size)?;
+        } else {
+            skip_wav_chunk(&mut file, chunk_size)?;
+        }
+
+        if chunk_size % 2 == 1 {
+            skip_wav_chunk(&mut file, 1)?;
+        }
+        if byte_rate.is_some() && data_size.is_some() {
+            break;
+        }
+    }
+
+    let byte_rate = byte_rate.ok_or_else(|| "virtual_audio_route:wav_fmt_chunk_missing".to_string())?;
+    let data_size = data_size.ok_or_else(|| "virtual_audio_route:wav_data_chunk_missing".to_string())?;
+    if data_size == 0 {
+        return Err("virtual_audio_route:wav_data_empty".to_string());
+    }
+    let duration_ms = data_size
+        .saturating_mul(1_000)
+        .saturating_add(byte_rate.saturating_sub(1))
+        / byte_rate;
+    if duration_ms == 0 {
+        return Err("virtual_audio_route:wav_duration_invalid".to_string());
+    }
+    Ok(duration_ms)
+}
+
+fn meeting_route_delivery_deadline_ms(
+    audio_duration_ms: u64,
+    provider_preflight_elapsed_ms: u64,
+) -> u64 {
+    provider_preflight_elapsed_ms
+        .saturating_add(audio_duration_ms.saturating_mul(2))
+        .saturating_add(ROUTE_PROCESS_POLL_MS)
 }
 
 fn install_meeting_route_cancel_control(generation: u64) -> Arc<AtomicBool> {
@@ -532,6 +643,46 @@ pub fn dispatch_meeting_virtual_audio_route_provider(
         return with_evidence(status);
     }
 
+    let source_path = match status.source_audio_path.as_deref() {
+        Some(path) => Path::new(path),
+        None => {
+            status.ok = false;
+            status.route_runtime_ready = false;
+            status.blocker = "virtual_audio_route:missing_source_audio_path".to_string();
+            status.next_action = "finish_tts_audio_output_handoff".to_string();
+            status.runtime_claim = "meeting_route_source_audio_missing_before_deadline".to_string();
+            return with_evidence(status);
+        }
+    };
+    let audio_duration_ms = match wav_duration_ms(source_path) {
+        Ok(duration_ms) => duration_ms,
+        Err(blocker) => {
+            status.ok = false;
+            status.route_runtime_ready = false;
+            status.blocker = blocker;
+            status.next_action = "regenerate_tts_audio_output".to_string();
+            status.runtime_claim = "meeting_route_source_audio_duration_unavailable".to_string();
+            return with_evidence(status);
+        }
+    };
+    let provider_preflight_elapsed_ms = MEETING_ROUTE_PROVIDER_PREFLIGHT_ELAPSED_MS.load(Ordering::Acquire);
+    if provider_preflight_elapsed_ms == 0 {
+        status.ok = false;
+        status.route_runtime_ready = false;
+        status.source_audio_duration_ms = Some(audio_duration_ms);
+        status.blocker = "virtual_audio_route:provider_preflight_timing_missing".to_string();
+        status.next_action = "rerun_meeting_route_provider_preflight".to_string();
+        status.runtime_claim = "meeting_route_delivery_deadline_not_grounded".to_string();
+        return with_evidence(status);
+    }
+    let delivery_deadline_ms = meeting_route_delivery_deadline_ms(
+        audio_duration_ms,
+        provider_preflight_elapsed_ms,
+    );
+    status.source_audio_duration_ms = Some(audio_duration_ms);
+    status.provider_preflight_elapsed_ms = Some(provider_preflight_elapsed_ms);
+    status.delivery_deadline_ms = Some(delivery_deadline_ms);
+
     let Some(python) = resolve_worker_python_command() else {
         mark_python_runtime_missing(
             &mut status,
@@ -574,12 +725,19 @@ pub fn dispatch_meeting_virtual_audio_route_provider(
         }
     };
 
+    let delivery_started = Instant::now();
     let mut cancelled = false;
+    let mut deadline_exceeded = false;
     let exit_status = loop {
         if cancel_requested.load(Ordering::Acquire)
             || !runtime_generation_is_authoritative(generation)
         {
             cancelled = true;
+            let _ = child.kill();
+            break child.wait().ok();
+        }
+        if delivery_started.elapsed() >= Duration::from_millis(delivery_deadline_ms) {
+            deadline_exceeded = true;
             let _ = child.kill();
             break child.wait().ok();
         }
@@ -611,6 +769,27 @@ pub fn dispatch_meeting_virtual_audio_route_provider(
         status.blocker = "virtual_audio_route:meeting_generation_revoked".to_string();
         status.next_action = "discard_stale_meeting_output".to_string();
         status.runtime_claim = "meeting_route_provider_cancelled_after_generation_revoke".to_string();
+        return with_evidence(status);
+    }
+
+    if deadline_exceeded {
+        status.ok = false;
+        status.route_runtime_ready = false;
+        // Provider execution may already have begun before the deadline, so fail
+        // closed and never replay this utterance from the beginning.
+        status.route_execution_attempted = true;
+        status.state = "provider_delivery_timed_out".to_string();
+        status.blocker = "virtual_audio_route:provider_delivery_deadline_exceeded".to_string();
+        status.next_action = "inspect_windows_audio_device_and_provider_logs".to_string();
+        status.provider_response_json = json!({
+            "source_audio_duration_ms": audio_duration_ms,
+            "provider_preflight_elapsed_ms": provider_preflight_elapsed_ms,
+            "delivery_deadline_ms": delivery_deadline_ms,
+            "stdout": stdout,
+            "stderr": stderr,
+        })
+        .to_string();
+        status.runtime_claim = "meeting_route_provider_delivery_deadline_exceeded_no_replay".to_string();
         return with_evidence(status);
     }
 
