@@ -72,24 +72,7 @@ fn development_worker_python_candidates() -> Vec<WorkerPythonCommand> {
     candidates
 }
 
-fn worker_python_candidates() -> Vec<WorkerPythonCommand> {
-    let paths = ProjectPaths::discover();
-    if paths.packaged_context_initialized {
-        return vec![WorkerPythonCommand {
-            program: PathBuf::from(paths.python_runtime_dir).join("python.exe"),
-            bootstrap_args: Vec::new(),
-            source: "packaged_python_runtime".to_string(),
-        }];
-    }
-
-    if !paths.is_repository_development() {
-        return Vec::new();
-    }
-
-    development_worker_python_candidates()
-}
-
-fn worker_python_command_available(candidate: &WorkerPythonCommand) -> bool {
+fn development_python_command_available(candidate: &WorkerPythonCommand) -> bool {
     if candidate.program.components().count() > 1 && !candidate.program.is_file() {
         return false;
     }
@@ -105,9 +88,23 @@ fn worker_python_command_available(candidate: &WorkerPythonCommand) -> bool {
 }
 
 pub fn resolve_worker_python_command() -> Option<WorkerPythonCommand> {
-    worker_python_candidates()
+    let paths = ProjectPaths::discover();
+    if paths.packaged_context_initialized {
+        let candidate = WorkerPythonCommand {
+            program: PathBuf::from(paths.python_runtime_dir).join("python.exe"),
+            bootstrap_args: Vec::new(),
+            source: "packaged_python_runtime".to_string(),
+        };
+        return candidate.program.is_file().then_some(candidate);
+    }
+
+    if !paths.is_repository_development() {
+        return None;
+    }
+
+    development_worker_python_candidates()
         .into_iter()
-        .find(worker_python_command_available)
+        .find(development_python_command_available)
 }
 
 pub fn worker_python_unavailable_message() -> String {
