@@ -13,6 +13,7 @@ Windows cargo check                 -> PASS
 Windows native release link/build   -> PASS
 Windows native launch/bootstrap     -> PASS
 Native Tauri/WebView pixel render   -> PASS
+Native resize / keyboard focus      -> PASS
 ```
 
 No user-local-PC execution occurred.
@@ -194,6 +195,46 @@ This is therefore valid **native Tauri/WebView pixel evidence**, not a browser-o
 
 The hosted runner positioned the centered window partly outside its virtual desktop coordinate origin (`-296,-126`), but `PrintWindow` captured the complete native window at `1616 x 979`; this is a runner-desktop geometry detail, not an application layout failure.
 
+## Native Resize / Keyboard / Focus Baseline
+
+Remote proof remained on the fresh Step 1 First Setup boundary. No setup action was activated, because `Continue` would enter Step 2 readiness/device work; keyboard proof therefore tested focus traversal only.
+
+The first run `31527673421` already proved all three resize states render coherently and that both footer buttons are keyboard reachable, but the harness incorrectly assumed the observation must begin before `Set Up Later`. WebView2 UI Automation exposed internal `Pane` boundaries and the initial focused element had not been recorded, so that run was correctly not accepted as the final focus-order proof.
+
+The refined proof run `31528521406` recorded the starting focused element before sending any key and passed:
+
+```text
+native release build                  -> PASS
+resize startup outer window           -> 1616 x 979 / coherent
+resize medium outer window            -> 1456 x 879 / coherent
+resize near configured minimum        -> 1296 x 799 / coherent
+initial UIA focus                      -> TranslateIT / ControlType.Document
+TAB 1                                  -> Set Up Later / ControlType.Button
+TAB 2                                  -> Continue / ControlType.Button
+keyboard button reachability          -> PASS
+Python child process count            -> 0
+```
+
+Capture diagnostics:
+
+```text
+resize-startup   sampled RGB=36 / 41,049 bytes
+resize-medium    sampled RGB=49 / 38,869 bytes
+resize-minimum   sampled RGB=34 / 37,179 bytes
+focus initial    sampled RGB=36 / 41,049 bytes
+focus TAB 1      sampled RGB=36 / 42,134 bytes
+focus TAB 2      sampled RGB=37 / 42,008 bytes
+```
+
+Artifact:
+
+```text
+translateit-native-resize-focus-proof
+artifact id: 9116153136
+```
+
+The PNGs were downloaded and visually inspected. At the near-minimum native window size, the First Setup panel, heading, direction cards, separator, and both footer actions remain visible without overlap or clipping. `focus-tab-1.png` shows a clear focus outline on `Set Up Later`; `focus-tab-2.png` shows the focus outline moving to `Continue`. This establishes meaningful native keyboard/focus presentation at Step 1 rather than relying on UI Automation names alone.
+
 The native release build still emits existing Rust warnings, mainly dead/internal paths plus one unused incoming-recovery binding. Do not mass-delete those paths merely to silence warnings before runtime evidence establishes which code is genuinely obsolete.
 
 Temporary proof workflows are removed after evidence is recorded; no permanent CI owner is introduced by these proof slices.
@@ -234,6 +275,9 @@ actual Meeting / Text / Settings browser render
 basic Text translated-state interaction
 approved clean visual baseline
 native First Setup Tauri/WebView pixel render
+native startup / medium / near-minimum resize render
+native Step 1 keyboard focus reachability
+visible native focus indicators on both Step 1 actions
 ```
 
 Still required before release:
@@ -241,8 +285,6 @@ Still required before release:
 ```text
 review/fix relevant FirstSetup warnings
 adopt/review canonical dependency lockfile
-native resize smoke
-keyboard/focus smoke
 clipboard proof
 real runtime-state projection
 ```
@@ -263,7 +305,8 @@ fresh-profile native process launch
 bootstrap survival
 responding native TranslateIT top-level window
 native First Setup WebView pixel presentation
-no Python child process during fresh First Setup proof
+native resize / focus presentation smoke
+no Python child process during fresh First Setup proofs
 ```
 
 Still required:
@@ -309,7 +352,8 @@ P0 source correctness CLOSED
 -> Windows native release link/build PASS
 -> Windows native launch/bootstrap PASS
 -> native Tauri/WebView presentation PASS
--> remote resize/focus proof
+-> remote resize/focus proof PASS
+-> bounded frontend warning/determinism cleanup
 -> later explicit approval for local/model/audio proof
 -> fix measured failures
 -> finish only still-relevant P1
@@ -318,8 +362,8 @@ P0 source correctness CLOSED
 
 ## Current Mode
 
-**Proof** — native Tauri/WebView First Setup presentation is now visually proven on a fresh GitHub-hosted Windows profile. No user-local-PC, Python/model, or real audio execution occurred.
+**Proof / Maintenance boundary** — native Tauri resize and Step 1 keyboard-focus presentation are now proven remotely on a fresh GitHub-hosted Windows profile. No user-local-PC, Python/model, or real audio execution occurred. The next concrete frontend issue is the four reproducible First Setup Svelte warnings already emitted by every production build.
 
-## Next Step — P2.1 Remote Native Resize / Keyboard / Focus Smoke
+## Next Step — P2.1 FirstSetup Svelte Warning Cleanup
 
-Use the same fresh-profile GitHub-hosted Windows application only. Exercise the real native Tauri window across a small bounded resize set and basic keyboard/focus traversal on First Setup, confirming the WebView stays coherent and the primary setup controls remain reachable. Keep `meeting_setup_state = new` so Python/model/audio paths are not intentionally entered. Do not substitute the user's local PC if the hosted runner cannot provide meaningful input/focus evidence.
+Resolve the four existing `state_referenced_locally` warnings in `src/pages/FirstSetup.svelte` without changing setup semantics or the approved visual baseline. Re-run remote `svelte-check`, production build, and the fresh First Setup render after the bounded correction. Do not combine this with Python/model/audio work or user-local-PC testing; canonical frontend lockfile review remains the subsequent determinism item after the warnings are clean.
