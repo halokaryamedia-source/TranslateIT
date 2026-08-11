@@ -685,12 +685,23 @@ pub fn bind_prepared_virtual_mic_route_to_generation(generation: u64) -> Result<
 
 pub fn get_virtual_mic_route_selection() -> VirtualMicRouteContractStatus {
     if let Some(generation) = active_application_meeting_generation() {
-        if let Some(selection) = current_meeting_route_selection() {
-            if selection.generation == Some(generation) {
-                return build_fixed_status(
-                    &selection,
-                    "virtual_mic_generation_bound_route_pair_source_side_not_audio_routing_proof",
-                );
+        if let Ok(mut selection) = meeting_route_selection_runtime().lock() {
+            if let Some(prepared) = selection.as_mut() {
+                if prepared.generation.is_none() {
+                    // The route pair was prepared and provider-checked before Meeting
+                    // authority existed. Bind that exact pair on the first route read
+                    // after authority creation so capture/status/playback cannot drift
+                    // to a newly discovered virtual endpoint mid-session.
+                    prepared.generation = Some(generation);
+                }
+                if prepared.generation == Some(generation) {
+                    let fixed = prepared.clone();
+                    drop(selection);
+                    return build_fixed_status(
+                        &fixed,
+                        "virtual_mic_generation_bound_route_pair_source_side_not_audio_routing_proof",
+                    );
+                }
             }
         }
         return unbound_active_meeting_status(generation);
