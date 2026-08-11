@@ -4,7 +4,7 @@
 
 The user explicitly keeps local/integration testing on hold until the major feature set is ready. This hold changes proof timing only; it does not reduce release acceptance.
 
-The current frontend source remains aligned through the Humanized Familiar Translation UI pass and the Frontend Runtime Efficiency / Backend Alignment pass. Meeting Core Runtime Reliability now has three bounded source slices aligned:
+The current frontend source remains aligned through the Humanized Familiar Translation UI pass and the Frontend Runtime Efficiency / Backend Alignment pass. Meeting Core Runtime Reliability now has four bounded source slices aligned:
 
 - Rust remains the single application Meeting/session authority and the Python worker remains the one ASR/translation/TTS execution path;
 - `Start Translation` exercises required ASR, Indonesian -> English translation, and English TTS readiness before Meeting authority/capture can commit `Live`;
@@ -12,22 +12,20 @@ The current frontend source remains aligned through the Humanized Familiar Trans
 - a finalized segment with no stable transcript returns to healthy `Listening`, while a real ASR failure projects `attention_needed`;
 - the finalized speech producer remains naturally segmented and bounded at two waiting finalized utterances per lane;
 - when that pending queue is full, the audio owner evicts the oldest still-waiting finalized utterance before accepting newer finalized speech, so realtime backlog does not preferentially preserve stale speech;
-- required outbound helper work now keeps a generation-scoped pipeline claim across its ASR -> ID-to-EN translation -> TTS helper stages;
-- when fresh outbound work begins while optional incoming inference is already running, the already-running incoming worker stage is allowed to finish, but subsequent incoming stages are deferred before worker execution until the outbound helper pipeline releases its claim;
-- the deferral check runs both before scheduler admission and again after permit acquisition, so an incoming request queued before the outbound claim cannot slip between outbound helper stages;
-- the pipeline claim is released after TTS, on outbound helper failure/stale generation, and during helper/Meeting cancellation paths so it cannot intentionally persist across Stop/restart;
-- this priority correction does **not** hard-kill the worker merely because outbound arrived, does not create a second worker, and does not preempt an inference call already executing inside Python;
+- required outbound helper work keeps a generation-scoped pipeline claim across its ASR -> ID-to-EN translation -> TTS helper stages;
+- when fresh outbound work begins while optional incoming inference is already running, the already-running incoming worker stage may finish, but later incoming stages are deferred until the outbound helper pipeline releases its claim;
+- the deferral check runs both before scheduler admission and again after permit acquisition, so queued incoming work cannot slip between required outbound helper stages;
+- full Meeting Stop still revokes authority first and may hard-cancel an in-flight Meeting helper task by terminating the one persistent worker;
+- the next valid `Start Translation` now recognizes only the exact intentional post-Stop state `helper_bridge:meeting_session_hard_cancelled`, restarts the same canonical helper through `start_helper_bridge`, and then runs the ordinary Meeting preflight and required AI preparation;
+- generic helper stops, manual/general task cancellation, missing runtime/model/provider conditions, and other helper failures are **not** auto-retried by this recovery path and remain explicit blockers;
+- the recovery occurs before the initial Start preflight, so a worker intentionally stopped by the previous Meeting Stop no longer blocks Start before the existing AI preparation path can run;
+- no worker is restarted during Stop itself, no second worker/runtime is created, and authority-first Stop semantics are unchanged;
 - VAD, speech-boundary tuning, finalized queue capacity, model choice, Meeting Microphone delivery, and the Python worker implementation remain unchanged;
-- source validation records required outbound AI preparation, bounded newest-preferred finalized speech, and helper-stage priority continuity.
+- source validation records required outbound AI preparation, bounded newest-preferred finalized speech, helper-stage priority continuity, and the exact bounded Stop-time helper recovery condition.
 
-The next proven Meeting-runtime problem is now helper lifecycle continuity after Stop:
+The next source boundary is Meeting Microphone delivery lifecycle/efficiency. Current outbound processing still dispatches the guarded Meeting Microphone provider synchronously for each synthesized utterance. That preserves serialized output and Stop cancellation, but the source boundary should be audited before assuming per-utterance provider process creation and current completion semantics are the smallest reliable delivery design.
 
-- full Meeting Stop intentionally hard-cancels an in-flight helper request by terminating the persistent worker when that request belongs to the Meeting session;
-- after that cancellation the helper is left `stopped`, while the next `Start Translation` currently performs its ordinary preflight before required-AI preparation/restart;
-- therefore a Stop that lands during active inference can leave the following Start blocked on `local_runtime_not_ready` until some separate recovery action restarts the helper;
-- this is a bounded lifecycle/recovery problem and should be corrected without weakening Stop authority-first semantics or creating a second worker.
-
-No `npm install`, package-lock regeneration, Svelte autofixer, `svelte-check`, Vite build, Tauri launch, Rust compile, Python/model execution, Windows audio test, installer test, performance measurement, scheduler-contention runtime observation, or rendered UI inspection was executed through ChatGPT -> GitHub.
+No `npm install`, package-lock regeneration, Svelte autofixer, `svelte-check`, Vite build, Tauri launch, Rust compile, Python/model execution, Windows audio test, installer test, performance measurement, Stop/restart runtime observation, scheduler-contention runtime observation, or rendered UI inspection was executed through ChatGPT -> GitHub.
 
 ## Closed Source Boundaries
 
@@ -41,12 +39,13 @@ Humanized Familiar Translation UI -> PR-166 interaction hierarchy + copy simplif
 Frontend Runtime Efficiency / Backend Alignment -> coherent state + fewer redundant IPC paths + Rust-owned transactions
 Meeting Core Runtime Reliability Phase 1 -> required AI preparation before Live + fail-closed provider readiness + truthful ASR failure state
 Meeting Outbound Freshness / Backpressure -> bounded queue retains newer waiting speech by evicting the oldest waiting backlog
-Meeting Outbound Priority Against In-Flight Incoming -> allow the active incoming stage to finish, then defer further incoming helper stages until required outbound ASR/translation/TTS releases the worker pipeline
+Meeting Outbound Priority Against In-Flight Incoming -> allow the active incoming stage to finish, then defer later incoming helper stages until required outbound ASR/translation/TTS releases the worker pipeline
+Stop / Helper Lifecycle Recovery -> only the intentional Stop-time hard-cancel state restores the same canonical helper before the next Start preflight
 ```
 
 ## Current Mode
 
-**Plan** — the next bounded source issue is Stop/helper lifecycle recovery while the explicit local-test hold remains active.
+**Plan** — audit the Meeting Microphone delivery lifecycle while the explicit local-test hold remains active.
 
 Execution channel for next source work:
 
@@ -54,7 +53,7 @@ Execution channel for next source work:
 ChatGPT -> GitHub
 ```
 
-Do not broaden the next slice into worker replacement, parallel inference services, model changes, retry frameworks, or Meeting Microphone redesign. Preserve authority-first Stop and determine the smallest canonical way for the next valid Start/readiness path to recover the same persistent worker after a Stop-time hard cancellation.
+Do not assume that synchronous per-utterance provider dispatch is inherently wrong. Inspect the existing guarded virtual-audio route owner, provider process contract, cancellation semantics, temporary TTS lifecycle, and direct Meeting caller first. Preserve serialized at-most-once output and do not create a second audio route service merely to reduce process churn.
 
 ## Deferred Integrated Proof Queue
 
@@ -73,14 +72,14 @@ frontend dependency install + regenerate package-lock
 -> repeated finalized-utterance / backlog-overload behavior observation
 -> verify older waiting outbound work is discarded before newer finalized speech under contention
 -> verify outbound waits only for the already-running incoming worker stage and no later incoming stage executes before outbound helper completion
--> Windows Meeting audio/device proof
+-> Stop during active helper inference -> next Start helper recovery proof
+-> Windows Meeting audio/device and Meeting Microphone delivery proof
 -> Meeting polling / transcript update behavior observation
 -> audio-device probe/save transaction proof
--> Stop / helper lifecycle recovery proof
 -> installer/installed-runtime proof
 -> clean-machine proof
 ```
 
-## Next Step — Stop / Helper Lifecycle Recovery
+## Next Step — Meeting Microphone Delivery Lifecycle Audit
 
-Audit and correct the case where Meeting Stop hard-cancels an in-flight Meeting helper task and leaves the one persistent worker stopped, causing the following Start to fail its initial preflight before it can prepare the required AI runtime. Preserve safe Stop cancellation and one-worker ownership; recover only through the canonical helper/runtime path.
+Audit the current synthesized-TTS -> guarded provider -> TranslateIT Meeting Microphone path for per-utterance process churn, blocking/cancellation behavior, output-completion truth, and temporary-file ownership. Keep at-most-once serialized delivery and one canonical Windows audio route owner; change source only where a concrete delivery-lifecycle problem is proved.
