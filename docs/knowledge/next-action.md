@@ -4,7 +4,7 @@
 
 The user explicitly keeps local/integration testing on hold until the major feature set is ready. This hold changes proof timing only; it does not reduce release acceptance.
 
-The current frontend source remains aligned through the Humanized Familiar Translation UI pass and the Frontend Runtime Efficiency / Backend Alignment pass. Meeting Core Runtime Reliability now has six bounded source slices aligned:
+The current frontend source remains aligned through the Humanized Familiar Translation UI pass and the Frontend Runtime Efficiency / Backend Alignment pass. Meeting Core Runtime Reliability now has seven bounded source slices aligned:
 
 - Rust remains the single application Meeting/session authority and the Python worker remains the one ASR/translation/TTS execution path;
 - `Start Translation` exercises required ASR, Indonesian -> English translation, and English TTS readiness before Meeting authority/capture can commit `Live`;
@@ -15,17 +15,19 @@ The current frontend source remains aligned through the Humanized Familiar Trans
 - full Meeting Stop still revokes authority first and may hard-cancel an in-flight Meeting helper task; the next valid Start restores only the exact intentional post-Stop helper state `helper_bridge:meeting_session_hard_cancelled` through the same canonical helper before ordinary preflight/AI preparation;
 - `Start Translation` performs a bounded Meeting Microphone provider preflight before authority: the existing provider imports its actual audio dependencies and resolves the selected output device without playback, while ordinary status polling remains process-free;
 - normal Meeting Microphone delivery remains synchronous, serialized, generation-cancellable, and at-most-once; temporary TTS remains owned by the Meeting caller until route dispatch returns or is cancelled;
-- Meeting Microphone delivery now has a **duration-grounded deadline** rather than an unbounded provider wait: the route owner parses the generated PCM WAV duration, combines that actual playback length with the measured successful provider-preflight process/device time, and records both inputs plus the computed deadline in route status/evidence;
-- the deadline formula is proportional to actual runtime evidence (`provider preflight elapsed + 2 × WAV duration + one poll quantum`) rather than a fixed global playback timeout;
-- Stop/generation revoke still wins over the deadline path; if the deadline is exceeded first, Rust kills and joins the provider child, marks execution as potentially attempted, returns `provider_delivery_timed_out`, and explicitly refuses replay from the beginning because playback state is uncertain;
-- source WAV duration must be readable as the same PCM WAVE boundary the current provider expects; missing/invalid duration or missing successful provider-preflight timing fails closed before route execution instead of falling back to an arbitrary wait;
-- per-utterance provider process creation is still unchanged because no target-PC process-overhead measurement currently justifies a persistent route daemon or second audio-route owner;
-- no playback retry, raw-mic fallback, additional route service, model/provider replacement, VAD change, or dependency was added;
-- source validation records required AI preparation, finalized-speech freshness, helper-stage priority continuity, bounded Stop-time helper recovery, Meeting route provider preflight, duration-grounded route deadline, no-replay timeout semantics, and temporary-TTS ownership.
+- Meeting Microphone provider lifetime is bounded by actual PCM WAV duration plus measured provider-preflight timing; Stop/generation revoke remains higher priority than the delivery deadline and a timeout is never replayed from the beginning;
+- Live required-outbound helper transport failures are now separated from normal inference/content failures: only helper `*_write_failed:*` and `*_read_failed:*` responses for an authoritative `meeting_lane=you` generation are eligible for automatic in-session recovery;
+- transport recovery acquires `MeetingOutbound` scheduler priority, restarts the **same canonical helper worker**, rechecks that the generation is still authoritative and `Live`, and preserves the outbound pipeline claim before optional incoming work can execute;
+- ASR `transcribe` and ID->EN `translate` are the only current stages automatically re-executed, and each failed stage receives at most **one** retry because recovery calls the non-recursive worker execution path directly;
+- `synthesize` is deliberately **not** retried after a helper transport failure: the helper is restored for later utterances, but current synthesis remains failed because child-process/file state can be uncertain and automatic re-synthesis would add unnecessary side-effect ambiguity before Meeting playback;
+- normal ASR empty speech, model/provider/content failures, incoming work, Text work, manual/general cancellation, Meeting Stop cancellation, and stale generations do not enter this transport-recovery path;
+- if the one bounded retry itself fails, the response remains failed and the helper is not placed into an automatic restart loop;
+- no second worker, generic retry framework, playback retry, raw-mic fallback, additional audio-route service, model/provider replacement, VAD change, or new dependency was introduced;
+- source validation records required AI preparation, finalized-speech freshness, helper-stage priority continuity, bounded Stop-time recovery, Meeting Microphone preflight/deadline behavior, and bounded in-session helper transport recovery with ASR/translation-only retry semantics.
 
-The next concrete required-outbound lifecycle gap is inside the one helper runtime while a Meeting is already Live. A helper request write/read/deadline failure terminates the persistent worker and leaves it `stopped`; current automatic helper recovery is intentionally limited to the separate post-Stop hard-cancel condition and only runs when a new Meeting Start is requested. Therefore an otherwise-authoritative Live Meeting can remain alive after a worker transport/deadline failure while later required outbound utterances encounter `helper_bridge:not_running` instead of a bounded in-session recovery path. This needs a separate local-AI/session-owner review because retry safety differs by ASR, translation, and TTS stage and must not replay uncertain Meeting audio output.
+The next concrete runtime-truth issue is the optional incoming lane's handling of an intentional outbound-priority deferral. `helper_scheduler:incoming_deferred_for_outbound` is a normal freshness/priority outcome, but the current incoming caller handles the non-`ok` response through the same branch used for real incoming ASR/translation failure. That can mark incoming as degraded or describe a failure even though the lane merely yielded to required outbound work. The deferred incoming event should be discarded as stale assistance and return to listening without presenting a false runtime fault.
 
-No `npm install`, package-lock regeneration, Svelte autofixer, `svelte-check`, Vite build, Tauri launch, Rust compile, Python/model execution, provider preflight execution, WAV/deadline execution, Windows audio test, installer test, performance measurement, process-churn measurement, Stop/restart runtime observation, helper-failure recovery observation, or rendered UI inspection was executed through ChatGPT -> GitHub.
+No `npm install`, package-lock regeneration, Svelte autofixer, `svelte-check`, Vite build, Tauri launch, Rust compile, Python/model execution, helper transport-failure injection, provider preflight execution, WAV/deadline execution, Windows audio test, installer test, performance measurement, process-churn measurement, Stop/restart runtime observation, or rendered UI inspection was executed through ChatGPT -> GitHub.
 
 ## Closed Source Boundaries
 
@@ -43,11 +45,12 @@ Meeting Outbound Priority Against In-Flight Incoming -> active incoming stage ma
 Stop / Helper Lifecycle Recovery -> only intentional Stop-time hard-cancel restores the same canonical helper before next Start preflight
 Meeting Microphone Provider Preflight -> actual provider Python/dependency/output-device capability checked without playback before Meeting authority
 Meeting Microphone Delivery Hang Containment -> provider lifetime bounded by actual WAV duration + measured provider-preflight timing, with Stop precedence and no replay after uncertain timeout
+In-Session Required Helper Recovery -> transport-only Live outbound failures restart the same worker; ASR/translation retry once, synthesis is not automatically retried
 ```
 
 ## Current Mode
 
-**Plan** — the next bounded source issue is in-session required-helper recovery while the explicit local-test hold remains active.
+**Plan** — the next bounded source issue is intentional incoming-deferral semantics while the explicit local-test hold remains active.
 
 Execution channel for next source work:
 
@@ -55,7 +58,7 @@ Execution channel for next source work:
 ChatGPT -> GitHub
 ```
 
-Do not add a generic retry loop or restart the worker for every failed model result. First distinguish worker transport/lifecycle failure from a normal ASR/translation/TTS content failure, determine which current stage can be safely re-executed before any Meeting output side effect, and keep recovery bounded under the canonical Meeting session owner with one helper worker.
+Do not turn incoming deferral into a retry queue or preserve old incoming speech until outbound finishes. The optional lane should prefer current comprehension: recognize the scheduler's explicit deferral result, discard that old event, restore/listen for fresh Meeting Sound, and reserve degraded/error state for actual ASR/translation/runtime failure.
 
 ## Deferred Integrated Proof Queue
 
@@ -75,16 +78,17 @@ frontend dependency install + regenerate package-lock
 -> repeated finalized-utterance / backlog-overload behavior observation
 -> verify outbound waits only for the already-running incoming worker stage and no later incoming stage executes before outbound helper completion
 -> Stop during active helper inference -> next Start helper recovery proof
+-> force helper write/read/deadline failure during Live ASR and translation -> verify same-worker recovery + exactly one stage retry
+-> force helper transport failure during Live synthesis -> verify helper recovers for later speech while current synthesis is not retried or delivered
 -> Windows Meeting Microphone playback/completion/cancellation proof
 -> force a provider stall and verify duration-grounded timeout kills the child without replay
 -> measure per-utterance provider process overhead before considering persistence
--> force helper transport/deadline failure during Live and verify bounded recovery behavior once implemented
 -> Meeting polling / transcript update behavior observation
 -> audio-device probe/save transaction proof
 -> installer/installed-runtime proof
 -> clean-machine proof
 ```
 
-## Next Step — In-Session Required Helper Recovery
+## Next Step — Incoming Deferral Semantics / Freshness
 
-Audit the Live Meeting path for helper process write/read/deadline failures that stop the one persistent worker after Start. Separate transport/lifecycle failure from normal inference/content failure, establish which ASR/translation/TTS stages are safe to retry before any Meeting output side effect, and implement the smallest bounded recovery that preserves one worker, current generation authority, stale-work rejection, and at-most-once Meeting playback.
+Correct the optional incoming caller so the explicit `helper_scheduler:incoming_deferred_for_outbound` result is treated as intentional freshness/priority yielding rather than a runtime failure. Drop that old incoming event, return the lane to healthy listening when still eligible, and preserve degraded/error status only for genuine incoming ASR/translation/runtime failures.
