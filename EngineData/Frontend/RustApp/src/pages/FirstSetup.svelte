@@ -1,7 +1,7 @@
 <script lang="ts">
   import { ArrowLeft, Check, ChevronRight } from "@lucide/svelte";
   import { onMount } from "svelte";
-  import { runtimeApi } from "../app/bridge/runtimeApi";
+  import { runtimeApi, type VirtualMicRouteContractStatus } from "../app/bridge/runtimeApi";
   import {
     runtimeProductFacade,
     type ProductAudioDeviceKind,
@@ -32,6 +32,7 @@
 
   let settings = $state<RuntimeSettings>(cloneSettings(initialSettings));
   let snapshot = $state<ProductRuntimeSnapshot | null>(null);
+  let routeStatus = $state<VirtualMicRouteContractStatus | null>(null);
   let devices = $state<AudioDeviceListReport | null>(null);
   let meetingSoundReady = $state<boolean | null>(null);
   let step = $state<SetupStep>(checkpoint(settings));
@@ -72,13 +73,23 @@
     return compact(settings.audio.output_device_id, "Windows Default");
   }
 
+  function currentMeetingMicrophone(): string {
+    return compact(routeStatus?.selected_input_device, "Meeting microphone not configured");
+  }
+
   async function refreshSnapshot(): Promise<void> {
     try {
-      snapshot = await runtimeProductFacade.loadProductRuntimeSnapshot();
+      const [nextSnapshot, nextRouteStatus] = await Promise.all([
+        runtimeProductFacade.loadProductRuntimeSnapshot(),
+        runtimeApi.getVirtualMicRouteStatus(),
+      ]);
+      snapshot = nextSnapshot;
+      routeStatus = nextRouteStatus;
       settings = cloneSettings(snapshot.settings);
       selectedMicrophone = String(settings.audio.input_device_id ?? "");
       selectedMeetingSound = String(settings.audio.output_device_id ?? "");
     } catch {
+      routeStatus = null;
       message = "Couldn't check setup. Try again.";
     }
   }
@@ -273,15 +284,15 @@
         </div>
         <div class="ti-subtle-card overflow-hidden"><StatusRow label="Selected meeting sound" value={currentMeetingSound()} detail="Optional incoming translation can listen here." status={meetingSoundReady ? "" : "Check Device"} tone="warning" /></div>
       {:else if step === 4}
-        <div><span class="ti-kicker">Meeting microphone</span><h1 class="ti-page-title">Choose TranslateIT in your meeting app</h1><p class="ti-page-copy">In Zoom, Meet, Teams, or another meeting app, set the microphone to TranslateIT Meeting Microphone.</p></div>
-        <div class="rounded-[var(--ti-radius-md)] border border-[var(--ti-border-strong)] bg-[var(--ti-surface-raised)] p-5"><span class="ti-field-label">In your meeting app</span><strong class="mt-2 block text-base font-semibold">Microphone → TranslateIT Meeting Microphone</strong></div>
-        <div class="ti-subtle-card overflow-hidden"><StatusRow label="TranslateIT Meeting Microphone" value="English voice output" detail="This is what your meeting hears." status={snapshot?.readiness.meetingRouteReady ? "" : snapshot?.readiness.level === "checking" ? "Checking" : "Setup Needed"} tone={snapshot?.readiness.level === "checking" ? "neutral" : "warning"} /></div>
+        <div><span class="ti-kicker">Meeting microphone</span><h1 class="ti-page-title">Choose the configured meeting microphone</h1><p class="ti-page-copy">In Zoom, Meet, Teams, or another meeting app, choose the exact Windows microphone shown below.</p></div>
+        <div class="rounded-[var(--ti-radius-md)] border border-[var(--ti-border-strong)] bg-[var(--ti-surface-raised)] p-5"><span class="ti-field-label">In your meeting app</span><strong class="mt-2 block text-base font-semibold">Microphone → {currentMeetingMicrophone()}</strong></div>
+        <div class="ti-subtle-card overflow-hidden"><StatusRow label="Meeting microphone device" value={currentMeetingMicrophone()} detail="TranslateIT sends the translated English voice through the paired virtual-audio route behind this Windows input device." status={snapshot?.readiness.meetingRouteReady ? "" : snapshot?.readiness.level === "checking" ? "Checking" : "Setup Needed"} tone={snapshot?.readiness.level === "checking" ? "neutral" : "warning"} /></div>
       {:else}
         <div><span class="ti-kicker">Ready</span><h1 class="ti-page-title">{snapshot?.readiness.meetingReady ? "You're ready to translate." : "One more thing needs attention."}</h1><p class="ti-page-copy">TranslateIT checks the essentials before you start a meeting.</p></div>
         <div class="ti-subtle-card divide-y divide-[var(--ti-border)] overflow-hidden">
           <StatusRow label="Microphone" value={currentMicrophone()} status={snapshot?.readiness.microphoneReady ? "Ready" : "Setup Needed"} tone={snapshot?.readiness.microphoneReady ? "good" : "warning"} />
           <StatusRow label="Text translation" value="Indonesian ↔ English" status={snapshot?.readiness.textReady ? "Ready" : "Setup Needed"} tone={snapshot?.readiness.textReady ? "good" : "warning"} />
-          <StatusRow label="Meeting microphone" value="TranslateIT Meeting Microphone" status={snapshot?.readiness.meetingRouteReady ? "Ready" : "Setup Needed"} tone={snapshot?.readiness.meetingRouteReady ? "good" : "warning"} />
+          <StatusRow label="Meeting microphone" value={currentMeetingMicrophone()} status={snapshot?.readiness.meetingRouteReady ? "Ready" : "Setup Needed"} tone={snapshot?.readiness.meetingRouteReady ? "good" : "warning"} />
           <StatusRow label="Incoming translation" value="English → Indonesian text" detail="Optional; it doesn't block your translated voice." status="Optional" tone="neutral" />
         </div>
       {/if}
