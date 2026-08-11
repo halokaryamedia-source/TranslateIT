@@ -1,4 +1,3 @@
-import { defaultSettings } from "../shared/state";
 import { getRuntimeCommandErrors, runCommand } from "../shared/tauriBridge";
 import type {
   AudioDeviceListReport,
@@ -24,6 +23,23 @@ export type AudioDeviceProbeReport = {
   channels: number | null;
   blocker: string;
   note: string;
+};
+
+export type AudioDeviceSelectionCommandResult = {
+  ok: boolean;
+  kind: string;
+  device_id: string | null;
+  device_name: string;
+  message: string;
+  settings: RuntimeSettings;
+};
+
+export type TextTranslationCommandResult = {
+  ok: boolean;
+  state: string;
+  translated_text: string;
+  user_message: string;
+  blocker: string;
 };
 
 export type MeetingSessionPreflightStatus = {
@@ -135,6 +151,16 @@ type NativeInputPreparationStatus = InputPreparationStatus & {
 
 function commandFallback(message: string, state = "frontend_bridge_error"): CommandResult {
   return { ok: false, state, message };
+}
+
+function textTranslationFallback(): TextTranslationCommandResult {
+  return {
+    ok: false,
+    state: "frontend_bridge_error",
+    translated_text: "",
+    user_message: "Translation is unavailable right now. Try again or check Diagnostics.",
+    blocker: "frontend_bridge_unavailable",
+  };
 }
 
 function helperActionFallback(message: string): HelperBridgeActionResult {
@@ -316,8 +342,8 @@ function publishSettings(settings: RuntimeSettings): void {
   window.dispatchEvent(new CustomEvent<RuntimeSettings>(RUNTIME_SETTINGS_SAVED_EVENT, { detail: settings }));
 }
 
-async function loadRuntimeSettings(): Promise<RuntimeSettings> {
-  return invokeOr<RuntimeSettings>("load_runtime_settings", undefined, defaultSettings());
+async function loadRuntimeSettings(): Promise<RuntimeSettings | null> {
+  return invokeNullable<RuntimeSettings>("load_runtime_settings");
 }
 
 export const runtimeApi = {
@@ -431,7 +457,7 @@ export const runtimeApi = {
     );
   },
 
-  async loadSettings(): Promise<RuntimeSettings> {
+  async loadSettings(): Promise<RuntimeSettings | null> {
     return loadRuntimeSettings();
   },
 
@@ -445,11 +471,17 @@ export const runtimeApi = {
     return result;
   },
 
-  async translateText(source: string): Promise<CommandResult> {
-    return invokeOr<CommandResult>(
+  async selectAudioDevice(kind: "microphone" | "meeting-sound", deviceId: string | null): Promise<AudioDeviceSelectionCommandResult | null> {
+    const result = await invokeNullable<AudioDeviceSelectionCommandResult>("select_audio_device", { kind, deviceId });
+    if (result?.ok) publishSettings(result.settings);
+    return result;
+  },
+
+  async translateText(source: string): Promise<TextTranslationCommandResult> {
+    return invokeOr<TextTranslationCommandResult>(
       "translate_text",
       { source },
-      commandFallback("Translation failed before reaching the Tauri command bridge."),
+      textTranslationFallback(),
     );
   },
 
