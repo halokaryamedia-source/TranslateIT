@@ -24,6 +24,7 @@ pub struct ProjectPaths {
     pub project_root: String,
     pub runtime_root: String,
     pub worker_runtime_dir: String,
+    pub python_runtime_dir: String,
     pub user_data_root: String,
     pub user_cache_dir: String,
     pub user_log_dir: String,
@@ -159,11 +160,12 @@ fn paths_from_roots(
     development_root_verified: bool,
     discovery_note: &str,
 ) -> ProjectPaths {
-    let worker_runtime_dir = runtime_root
+    let local_worker_root = runtime_root
         .join("EngineData")
         .join("Backend")
-        .join("LocalWorker")
-        .join("WorkerRuntime");
+        .join("LocalWorker");
+    let worker_runtime_dir = local_worker_root.join("WorkerRuntime");
+    let python_runtime_dir = local_worker_root.join("PythonRuntime");
     let runtime_assets = runtime_root
         .join("EngineData")
         .join("Backend")
@@ -177,6 +179,7 @@ fn paths_from_roots(
         project_root: normalize_path(project_root),
         runtime_root: normalize_path(runtime_root),
         worker_runtime_dir: normalize_path(&worker_runtime_dir),
+        python_runtime_dir: normalize_path(&python_runtime_dir),
         user_data_root: normalize_path(user_data_root),
         user_cache_dir: normalize_path(&user_data_root.join("CacheData")),
         user_log_dir: normalize_path(&user_data_root.join("LogData")),
@@ -227,6 +230,7 @@ mod tests {
         let paths = ProjectPaths::discover();
         assert!(!paths.runtime_root.trim().is_empty());
         assert!(!paths.worker_runtime_dir.trim().is_empty());
+        assert!(!paths.python_runtime_dir.trim().is_empty());
         assert!(!paths.user_data_root.trim().is_empty());
         assert!(!paths.user_cache_dir.trim().is_empty());
         assert!(!paths.user_log_dir.trim().is_empty());
@@ -240,6 +244,7 @@ mod tests {
         let paths = ProjectPaths::discover();
         assert!(!paths.runtime_root.contains('\\'));
         assert!(!paths.worker_runtime_dir.contains('\\'));
+        assert!(!paths.python_runtime_dir.contains('\\'));
         assert!(!paths.user_data_root.contains('\\'));
         assert!(!paths.user_cache_dir.contains('\\'));
         assert!(!paths.user_log_dir.contains('\\'));
