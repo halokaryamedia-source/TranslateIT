@@ -80,7 +80,7 @@ for (const marker of [
   "mapProductReadiness",
   "transcriptStatusKey",
   "lastTranscriptStatusKey",
-  "applyMeetingStatus(result.status, result.message)",
+  "applyMeetingStatus(result.status, resultNotice)",
   "getCurrentWindow().onCloseRequested",
   "runtimeProductFacade.runProductMeetingAction",
   'type CloseDialogAction = "stop" | "retry" | null',
