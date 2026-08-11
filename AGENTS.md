@@ -239,6 +239,29 @@ the baseline.
 
 `.agents/skills/` is the only repository-wide skill root.
 
+### Svelte Technical Helpers
+
+The approved frontend target uses Svelte 5, but Svelte is an implementation
+technology rather than a new semantic owner. Do **not** create a project specialist
+such as `svelte-expert` or copy vendor skills into `.agents/skills/`.
+
+When a task creates, edits, migrates, reviews, or analyzes `.svelte`, `.svelte.ts`,
+or `.svelte.js` files:
+
+- framework migration/state/bridge ownership routes to `desktop-runtime-development`;
+- visual/layout/component-craft acceptance routes to `desktop-ui-design-development`;
+- use the current official Svelte AI helpers when the execution channel supports
+  them: `svelte-code-writer`, `svelte-core-bestpractices`, and the
+  `@sveltejs/mcp` documentation/autofixer workflow;
+- official Svelte helpers are conditional technical tooling and do **not** consume
+  the one project-specialist slot;
+- in Codex/Local, run the Svelte autofixer on changed Svelte components before
+  finalizing them and use `sv check`/targeted build proof when the claim requires
+  compile/type/accessibility evidence;
+- in ChatGPT -> GitHub, current official Svelte documentation may establish the
+  intended source contract, but do not claim local autofixer/build/render proof
+  unless it was actually executed.
+
 ## 8. Execution Channel
 
 Every Developing brief records either:
@@ -414,5 +437,5 @@ Do not end a material task with source, foundation, ownership map, and
 and matters to continuation, persist that limitation in `next-action.md` rather
 than only in chat.
 
-When acceptance is satisfied, proof is complete or honestly bounded, and
-canonical state is consistent: report the result and stop.
+When acceptance is satisfied, proof is complete or honestly bounded, and canonical
+state is consistent: report the result and stop.
