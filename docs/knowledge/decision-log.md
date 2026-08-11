@@ -212,3 +212,22 @@ Persisting a new device while capture still owns the previous endpoint makes pro
 
 **Proof status**  
 The source guard and Settings interaction boundary are established on `New`. Rust/Tauri compile, rendered disabled-state behavior, and live Start -> navigate Settings -> attempted mutation/recovery -> Stop -> mutation-allowed behavior still require deferred local/runtime proof.
+
+## D-015 — Meeting Route Readiness Requires One Matched Pair And Stable Session Identity
+
+**Decision**  
+Meeting route readiness is a **pair contract**, not two independent device-discovery successes. TranslateIT may call the route ready only when the Windows playback endpoint used for translated TTS and the Windows recording endpoint selected by the meeting application form the same recognized virtual-cable pair.
+
+Current source uses conservative directional pair identity: the playback-side virtual endpoint must identify as the pair's `Input`, the recording-side endpoint as its `Output`, and both must reduce to the same normalized provider/pair identity. A persisted explicit output+input preference must satisfy the same match. Without an explicit preference, one canonical base VB-CABLE pair is preferred when uniquely present; otherwise exactly one matched pair may be selected. Missing or ambiguous matched pairs remain blocked instead of combining unrelated virtual-looking endpoints.
+
+Before a new Meeting Start, the current matched pair is prepared and provider-checked. Once application Meeting authority exists, that exact pair is bound to the Meeting generation. During the active session, disappearance or mismatch of either endpoint makes the route unavailable; TranslateIT does **not** silently discover and switch to another virtual route.
+
+`TranslateIT Meeting Microphone` remains the product-level concept required by the foundation. It is not an invented Windows device name. Normal Meeting, Settings, and First Setup surfaces show the actual selected Windows recording/input endpoint that the user must choose in Zoom, Meet, Teams, or another standard meeting application.
+
+This decision does not make VB-Audio, Voicemeeter, or any provider name permanent product identity. It also does not add a custom driver, audio daemon, second route owner, or mid-session rebind mechanism. Release packaging may later provide a different functionally equivalent endpoint if target-Windows proof supports it, while preserving the same pair/readiness/session-stability contract.
+
+**Reason**  
+Independent keyword discovery could report `Ready` for unrelated virtual endpoints and the old UI could claim a custom Windows microphone identity that the product did not actually install. Binding one verified pair to one Meeting generation makes route truth and user instructions agree without expanding the audio architecture.
+
+**Proof status**  
+The matched-pair selection, generation-bound source contract, provider handoff, and truthful endpoint presentation are established on `New`. Actual Windows endpoint names, real cable pairing, meeting-application reception, endpoint-removal behavior, and multi-cable ambiguity still require deferred target-Windows proof.
