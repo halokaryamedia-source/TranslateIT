@@ -5,6 +5,7 @@
   import { runtimeApi, type MeetingCommittedTurnsSnapshot, type MeetingSessionStatus } from "./app/bridge/runtimeApi";
   import {
     mapProductMeetingState,
+    mapProductReadiness,
     runtimeProductFacade,
     type ProductRuntimeSnapshot,
     type ProductSetupAction,
@@ -23,7 +24,7 @@
 
   let booting = $state(true);
   let setupRequired = $state(false);
-  let settings = $state<RuntimeSettings>(defaultSettings());
+  let setupSettings = $state<RuntimeSettings>(defaultSettings());
   let snapshot = $state<ProductRuntimeSnapshot | null>(null);
   let route = $state<AppRoute>("meeting");
   let notice = $state("Getting TranslateIT ready...");
@@ -41,6 +42,7 @@
   let closeAfterExistingStop = $state(false);
   let meetingPollInFlight = false;
   let closeCheckInFlight = false;
+  let lastTranscriptStatusKey = "";
 
   function cloneSettings(value: RuntimeSettings): RuntimeSettings {
     return { ...value, audio: { ...value.audio } };
@@ -51,6 +53,8 @@
     if (!clean) return "Status unavailable.";
     return clean.length > 220 ? `${clean.slice(0, 219).trimEnd()}…` : clean;
   }
+
+  const currentSettings = $derived(snapshot?.settings ?? setupSettings);
 
   const presence = $derived(
     snapshot?.meeting.live
@@ -69,7 +73,7 @@
   const direction = $derived(
     route === "meeting"
       ? "ID → EN voice"
-      : `${settings.source_language.toUpperCase()} → ${settings.target_language.toUpperCase()}`,
+      : `${currentSettings.source_language.toUpperCase()} → ${currentSettings.target_language.toUpperCase()}`,
   );
 
   const closePrimaryLabel = $derived(
@@ -80,17 +84,49 @@
     return status.runtime_claim === "frontend_bridge_unavailable" || status.lifecycle === "unavailable";
   }
 
+  function transcriptStatusKey(status: MeetingSessionStatus): string {
+    return [
+      status.session_id ?? "none",
+      status.outbound.updated_unix_ms,
+      status.incoming.updated_unix_ms,
+      status.outbound.utterance_sequence,
+    ].join(":");
+  }
+
   function setNotice(message: string): void {
     notice = compactNotice(message);
   }
 
+  function applyMeetingStatus(status: MeetingSessionStatus, preferredNotice?: string): void {
+    meetingStatus = status;
+    if (!snapshot) {
+      if (preferredNotice) setNotice(preferredNotice);
+      return;
+    }
+
+    const meeting = mapProductMeetingState(status);
+    const readiness = mapProductReadiness({
+      settings: snapshot.settings,
+      helper: snapshot.helper,
+      workerStatus: snapshot.workerStatus,
+      inputStatus: snapshot.inputStatus,
+      meetingSession: status,
+    });
+    snapshot = { ...snapshot, meetingSession: status, meeting, readiness };
+    if (preferredNotice) setNotice(preferredNotice);
+  }
+
   async function refreshSnapshot(preferredNotice?: string): Promise<void> {
     try {
+      const previousSessionId = snapshot?.meeting.sessionId ?? null;
       const next = await runtimeProductFacade.loadProductRuntimeSnapshot();
       snapshot = next;
-      settings = cloneSettings(next.settings);
+      setupSettings = cloneSettings(next.settings);
       meetingStatus = next.meetingSession;
-      if (!next.meeting.hasSession) meetingTurns = null;
+      if (!next.meeting.hasSession || previousSessionId !== next.meeting.sessionId) {
+        meetingTurns = null;
+        lastTranscriptStatusKey = "";
+      }
       setNotice(preferredNotice ?? (next.meeting.hasSession ? next.meeting.message : next.readiness.summary));
     } catch (error) {
       setNotice(`Couldn't check TranslateIT: ${errorMessage(error)}`);
@@ -98,13 +134,22 @@
   }
 
   async function applySettings(next: RuntimeSettings): Promise<void> {
-    settings = cloneSettings(next);
-    if (snapshot) snapshot = { ...snapshot, settings: cloneSettings(next) };
-    await refreshSnapshot();
+    const nextSettings = cloneSettings(next);
+    setupSettings = nextSettings;
+    if (!snapshot) return;
+
+    const readiness = mapProductReadiness({
+      settings: nextSettings,
+      helper: snapshot.helper,
+      workerStatus: snapshot.workerStatus,
+      inputStatus: snapshot.inputStatus,
+      meetingSession: snapshot.meetingSession,
+    });
+    snapshot = { ...snapshot, settings: nextSettings, readiness };
   }
 
   async function finishFirstSetup(next: RuntimeSettings): Promise<void> {
-    settings = cloneSettings(next);
+    setupSettings = cloneSettings(next);
     setupRequired = false;
     await refreshSnapshot("Setup saved.");
     route = "meeting";
@@ -127,8 +172,14 @@
     setNotice(action === "start" ? "Starting translation..." : "Stopping translation...");
     try {
       const result = await runtimeProductFacade.runProductMeetingAction(action);
-      await refreshSnapshot(result.message);
-      if (action === "stop" && !result.meeting.hasSession) meetingTurns = null;
+      applyMeetingStatus(result.status, result.message);
+      if (!result.status.has_session) {
+        meetingTurns = null;
+        lastTranscriptStatusKey = "";
+      } else if (action === "start") {
+        meetingTurns = null;
+        lastTranscriptStatusKey = "";
+      }
     } catch (error) {
       setNotice(`Meeting action failed: ${errorMessage(error)}`);
       await refreshSnapshot();
@@ -192,20 +243,29 @@
     meetingPollInFlight = true;
     try {
       const status = await runtimeApi.getMeetingSessionStatus();
-      meetingStatus = status;
-      const mapped = mapProductMeetingState(status);
-      if (snapshot) snapshot = { ...snapshot, meetingSession: status, meeting: mapped };
+      applyMeetingStatus(status);
 
       if (meetingStatusUnavailable(status)) {
         meetingTurns = null;
+        lastTranscriptStatusKey = "";
         setNotice("Meeting translation is temporarily unavailable.");
         return;
       }
 
       if (status.has_session) {
-        meetingTurns = await runtimeApi.getMeetingCommittedTurns().catch(() => meetingTurns);
+        const statusKey = transcriptStatusKey(status);
+        if (statusKey !== lastTranscriptStatusKey) {
+          const nextTurns = await runtimeApi.getMeetingCommittedTurns();
+          if (nextTurns.ok && nextTurns.has_session && nextTurns.session_id === status.session_id) {
+            meetingTurns = nextTurns;
+            lastTranscriptStatusKey = statusKey;
+          } else if (!meetingTurns) {
+            meetingTurns = nextTurns;
+          }
+        }
       } else {
         meetingTurns = null;
+        lastTranscriptStatusKey = "";
         if (closeAfterExistingStop) await destroyNativeWindow();
       }
     } catch {
@@ -352,8 +412,13 @@
 
     const boot = async () => {
       try {
-        settings = cloneSettings(await runtimeApi.loadSettings().catch(() => defaultSettings()));
-        setupRequired = settings.meeting_setup_state === "new";
+        const loadedSettings = await runtimeApi.loadSettings();
+        if (!loadedSettings) {
+          setNotice("TranslateIT can't reach the desktop runtime yet. Try again when it is available.");
+          return;
+        }
+        setupSettings = cloneSettings(loadedSettings);
+        setupRequired = setupSettings.meeting_setup_state === "new";
         if (!setupRequired) await refreshSnapshot();
       } finally {
         if (!disposed) booting = false;
@@ -392,7 +457,7 @@
     </section>
   </main>
 {:else if setupRequired}
-  <FirstSetup initialSettings={settings} onComplete={finishFirstSetup} />
+  <FirstSetup initialSettings={setupSettings} onComplete={finishFirstSetup} />
 {:else if snapshot}
   <main class="flex h-screen min-h-0 bg-[var(--ti-bg)]">
     <Sidebar active={route} {presence} onNavigate={(next) => { route = next; }} />
@@ -428,7 +493,7 @@
           />
         {:else if route === "text"}
           <Text
-            {settings}
+            settings={snapshot.settings}
             textStatus={snapshot.readiness.textStatus}
             onSettingsChange={applySettings}
             onNotice={setNotice}
@@ -436,7 +501,7 @@
         {:else}
           <Settings
             {snapshot}
-            {settings}
+            settings={snapshot.settings}
             setupBusy={setupActionBusy}
             {micTestBusy}
             onSettingsChange={applySettings}
