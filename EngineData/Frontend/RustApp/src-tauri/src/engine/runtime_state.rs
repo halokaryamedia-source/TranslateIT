@@ -204,11 +204,6 @@ pub fn clear_runtime_session_state() -> RuntimeSessionStateReport {
     }
 }
 
-// Old pipeline handoff state has been removed. Meeting cleanup still calls this
-// boundary so rollback/Stop can remain behaviorally unchanged while no second
-// runtime-state owner is kept alive.
-pub fn clear_runtime_handoff_state() {}
-
 fn store_runtime_session_snapshot(
     session_snapshot: RuntimeSessionSnapshot,
 ) -> RuntimeSessionStateReport {
