@@ -180,6 +180,7 @@ forbidMarkers(source.registry, "production registry", [
   "get_gpu_policy",
   "get_runtime_diagnostics",
 ]);
+forbidMarkers(source.commandsMod, "retired handoff module", ["pub mod pipeline_handoff;"]);
 
 // Persisted settings stay one small owner. Serde reads the previous larger JSON shape
 // by ignoring unknown legacy keys; save_pretty writes only the current schema.
@@ -352,9 +353,11 @@ forbidMarkers(source.runtimeState, "retired handoff state", [
   "RuntimeHandoffSnapshot",
   "record_realtime_handoff_report",
   "record_runtime_session_start",
+  "clear_runtime_handoff_state",
 ]);
 
 for (const [relativePath, label] of [
+  ["src-tauri/src/commands/pipeline_handoff.rs", "no-state pipeline handoff tombstone"],
   ["src-tauri/src/engine/adapters", "adapter planning tree"],
   ["src-tauri/src/engine/history_store.rs", "History persistence engine"],
   ["src-tauri/src/engine/session_chat.rs", "session chat engine"],
@@ -377,7 +380,12 @@ forbidMarkers(source.runtimeState, "Meeting lifecycle", [
   'phase: "paused"',
   'phase: "resuming"',
 ]);
-forbidMarkers(source.meetingSession, "Meeting commands", ["pause_meeting_translation", "resume_meeting_translation"]);
+forbidMarkers(source.meetingSession, "Meeting commands", [
+  "pause_meeting_translation",
+  "resume_meeting_translation",
+  "reset_live_pipeline_handoff_status",
+  "clear_runtime_handoff_state",
+]);
 requireMarkers(source.meetingSession, "Meeting commands", ['snapshot.phase == "live"']);
 
 requireMarkers(source.worker, "direction-based worker", [
@@ -406,4 +414,4 @@ if (models.some((model) => Object.hasOwn(model, "revision") || Object.hasOwn(mod
   throw new Error("Initial model inventory must not grow revision/checksum release-identity placeholders");
 }
 
-console.log("[startup-readiness] Small Meeting/Text product, persisted settings schema, and Rust engine source graph are aligned. Compile, model execution, Windows audio, and installed-runtime proof remain separate.");
+console.log("[startup-readiness] Small Meeting/Text product, persisted settings schema, Rust engine source graph, and no-state handoff removal are aligned. Compile, model execution, Windows audio, and installed-runtime proof remain separate.");
