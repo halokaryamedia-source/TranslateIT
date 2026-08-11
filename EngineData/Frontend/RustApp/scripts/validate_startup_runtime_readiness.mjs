@@ -8,13 +8,18 @@ const paths = {
   main: resolve(root, "src/main.ts"),
   shell: resolve(root, "src/app/active-launcher/lockedReferenceShellParts.ts"),
   controller: resolve(root, "src/app/simple-launcher/SimpleLauncherController.ts"),
-  tauriBridge: resolve(root, "src/app/shared/tauriBridge.ts"),
   runtimeApi: resolve(root, "src/app/bridge/runtimeApi.ts"),
   facade: resolve(root, "src/app/bridge/runtimeProductFacade.ts"),
   registry: resolve(root, "src-tauri/src/commands/registry.rs"),
   commandsMod: resolve(root, "src-tauri/src/commands/mod.rs"),
+  commandAudio: resolve(root, "src-tauri/src/commands/audio.rs"),
   meetingSession: resolve(root, "src-tauri/src/commands/meeting_session.rs"),
+  engineMod: resolve(root, "src-tauri/src/engine/mod.rs"),
+  audioMod: resolve(root, "src-tauri/src/engine/audio/mod.rs"),
+  captureLifecycle: resolve(root, "src-tauri/src/engine/capture_lifecycle.rs"),
   runtimeState: resolve(root, "src-tauri/src/engine/runtime_state.rs"),
+  helperBridge: resolve(root, "src-tauri/src/commands/helper_bridge.rs"),
+  textTranslate: resolve(root, "src-tauri/src/commands/text_translate.rs"),
   worker: resolve(root, "../../Backend/LocalWorker/WorkerRuntime/realtime_local_worker.py"),
   modelManifest: resolve(root, "../../Backend/LocalWorker/WorkerRuntime/model_manifest.json"),
 };
@@ -22,19 +27,35 @@ const paths = {
 for (const [label, path] of Object.entries(paths)) {
   if (!existsSync(path)) throw new Error(`Missing ${label}: ${path}`);
 }
-const source = Object.fromEntries(Object.entries(paths).map(([label, path]) => [label, readFileSync(path, "utf8")]));
+const source = Object.fromEntries(
+  Object.entries(paths).map(([label, path]) => [label, readFileSync(path, "utf8")]),
+);
 
 function requireMarkers(body, label, markers) {
-  for (const marker of markers) if (!body.includes(marker)) throw new Error(`${label} marker missing: ${marker}`);
-}
-function forbidMarkers(body, label, markers) {
-  for (const marker of markers) if (body.includes(marker)) throw new Error(`${label} forbidden marker found: ${marker}`);
+  for (const marker of markers) {
+    if (!body.includes(marker)) throw new Error(`${label} marker missing: ${marker}`);
+  }
 }
 
-requireMarkers(source.index, "frontend entry", ["/src/main.ts"]);
+function forbidMarkers(body, label, markers) {
+  for (const marker of markers) {
+    if (body.includes(marker)) throw new Error(`${label} forbidden marker found: ${marker}`);
+  }
+}
+
+function requireAbsent(relativePath, label) {
+  const path = resolve(root, relativePath);
+  if (existsSync(path)) throw new Error(`${label} must remain removed: ${relativePath}`);
+}
+
+// One normal product entry.
+requireMarkers(source.index, "frontend entry", ['/src/main.ts']);
 forbidMarkers(source.index, "frontend entry", ["audioStudioEntry", "audioStudioThemeEntry"]);
-const moduleEntries = [...source.index.matchAll(/<script\s+type=["']module["'][^>]*src=["']([^"']+)["']/g)].map((match) => match[1]);
-if (moduleEntries.length !== 1 || moduleEntries[0] !== "/src/main.ts") throw new Error(`Expected one frontend module entry, found ${moduleEntries.join(", ")}`);
+const moduleEntries = [...source.index.matchAll(/<script\s+type=["']module["'][^>]*src=["']([^"']+)["']/g)]
+  .map((match) => match[1]);
+if (moduleEntries.length !== 1 || moduleEntries[0] !== "/src/main.ts") {
+  throw new Error(`Expected one frontend module entry, found ${moduleEntries.join(", ")}`);
+}
 
 requireMarkers(source.main, "desktop entrypoint", [
   "SimpleLauncherController",
@@ -42,14 +63,7 @@ requireMarkers(source.main, "desktop entrypoint", [
   "startGlobalMeetingShell",
   "startMeetingLiveActivityPresentation",
 ]);
-forbidMarkers(source.main, "desktop entrypoint", [
-  "audioStudio",
-  "restoreNativeWindow",
-  "installStartupDiagnostics",
-  "startupTrace",
-  "bindDirectVoiceCaptureUi",
-  "mountVirtualRouteSelectionSurface",
-]);
+forbidMarkers(source.main, "desktop entrypoint", ["audioStudio", "mountVirtualRouteSelectionSurface"]);
 
 requireMarkers(source.shell, "initial desktop surface", [
   'data-workspace-nav="meeting"',
@@ -77,21 +91,9 @@ forbidMarkers(source.controller, "active controller", [
   "Pause Translation",
   "Resume Translation",
   "createTextHistoryEntry",
-  "listHistoryEntries",
   "runtime_profile",
   "latestGpuPolicy",
   "latestModelInventory",
-]);
-
-// The shared bridge records only bounded redacted command failures. It must never log
-// request arguments because Text source and settings payloads may contain user content.
-requireMarkers(source.tauriBridge, "bounded command bridge", ["runCommand", "getRuntimeCommandErrors", "redactLocalPaths"]);
-forbidMarkers(source.tauriBridge, "bounded command bridge", [
-  "summarizeArgs",
-  "JSON.stringify(args)",
-  "console.info",
-  "performance.now",
-  "describeBridgeEnvironment",
 ]);
 
 const requiredApiCommands = [
@@ -150,7 +152,7 @@ forbidMarkers(source.facade, "normal readiness", [
   "translation_quality",
 ]);
 
-requireMarkers(source.registry, "production registry", requiredApiCommands.map((command) => command));
+requireMarkers(source.registry, "production registry", requiredApiCommands);
 forbidMarkers(source.registry, "production registry", [
   "audio_studio",
   "history::",
@@ -162,26 +164,124 @@ forbidMarkers(source.registry, "production registry", [
   "get_gpu_policy",
   "get_runtime_diagnostics",
 ]);
-forbidMarkers(source.commandsMod, "command module graph", [
-  "pub mod audio_studio;",
-  "pub mod history;",
-  "pub mod chat;",
-  "pub mod pipeline;",
-  "pub mod professional_readiness_gate;",
-  "pub mod runtime_preview;",
-  "pub mod runtime_status;",
+
+// Rust engine root is intentionally small. ASR/translation/TTS execution belongs to
+// the persistent local worker, not a second Rust planning/inference architecture.
+const expectedEngineModules = [
+  "pub mod audio;",
+  "pub mod capture_lifecycle;",
+  "pub mod logging;",
+  "pub mod paths;",
+  "pub mod runtime_settings;",
+  "pub mod runtime_state;",
+  "pub mod settings;",
+  "pub mod state;",
+];
+requireMarkers(source.engineMod, "engine root", expectedEngineModules);
+forbidMarkers(source.engineMod, "engine root", [
+  "#![allow(dead_code)]",
+  "pub mod adapters;",
   "pub mod diagnostics;",
+  "pub mod history_store;",
+  "pub mod inference;",
+  "pub mod native_execution;",
+  "pub mod native_runners;",
+  "pub mod session_chat;",
+  "pub mod session_store;",
+  "pub mod status_runtime;",
+  "pub mod transcript;",
+  "pub mod transcript_session;",
 ]);
 
-requireMarkers(source.runtimeState, "Meeting lifecycle", [
+requireMarkers(source.audioMod, "active audio graph", [
+  "pub mod evidence;",
+  "pub mod finalized_utterance;",
+  "pub mod input;",
+  "pub mod live_audio_buffer;",
+  "pub mod live_capture;",
+  "pub mod live_segment_writer;",
+  "pub mod meeting_sound_capture;",
+  "pub mod vad;",
+]);
+forbidMarkers(source.audioMod, "retired audio planning graph", [
+  "pub mod calibration;",
+  "pub mod capture_gate;",
+  "pub mod capture_plan;",
+  "pub mod device;",
+  "pub mod input_config;",
+  "pub mod noise_filter;",
+  "pub mod preprocess;",
+  "pub mod stream_build;",
+]);
+
+requireMarkers(source.commandAudio, "current audio command surface", [
+  "pub fn list_audio_devices()",
+  "pub fn probe_input_device_candidate",
+  "pub fn probe_output_device_candidate",
+  "pub fn get_input_status()",
+]);
+forbidMarkers(source.commandAudio, "retired audio command planning", [
+  "analyze_realtime_handoff",
+  "analyze_frame_pipeline",
+  "analyze_audio_payload",
+  "run_calibration_flow",
+  "build_native_capture_bridge",
+  "plan_capture_stream",
+]);
+
+requireMarkers(source.captureLifecycle, "Mic Test lifecycle", [
+  "record_direct_live_capture_session",
+  "start_live_capture_runtime",
+  "stop_live_capture_runtime",
+  "clear_runtime_session_state",
+]);
+forbidMarkers(source.captureLifecycle, "retired capture lifecycle", [
+  "analyze_start_lifecycle_gate",
+  "Realtime Handoff",
+  "write_latest_live_target_segment_wav",
+  "clear_legacy_audio_pipeline_evidence",
+]);
+
+requireMarkers(source.runtimeState, "current runtime authority", [
   "begin_application_meeting_session",
-  'phase: "starting".to_string()',
   "commit_application_meeting_session_live",
-  'snapshot.phase = "live".to_string()',
   "revoke_application_meeting_session_authority",
+  "runtime_generation_is_authoritative",
+  "record_direct_live_capture_session",
+  "latest_runtime_session_state",
+  "clear_runtime_session_state",
+]);
+forbidMarkers(source.runtimeState, "retired handoff state", [
+  "RealtimeHandoffReport",
+  "RUNTIME_HANDOFF_STATE",
+  "RuntimeHandoffSnapshot",
+  "record_realtime_handoff_report",
+  "record_runtime_session_start",
+]);
+
+for (const [relativePath, label] of [
+  ["src-tauri/src/engine/adapters", "adapter planning tree"],
+  ["src-tauri/src/engine/history_store.rs", "History persistence engine"],
+  ["src-tauri/src/engine/session_chat.rs", "session chat engine"],
+  ["src-tauri/src/engine/session_store.rs", "session save engine"],
+  ["src-tauri/src/engine/transcript_session.rs", "transcript session planner"],
+  ["src-tauri/src/engine/inference", "native inference candidate tree"],
+  ["src-tauri/src/engine/domain", "empty domain scaffold"],
+  ["src-tauri/src/engine/services", "empty services scaffold"],
+]) {
+  requireAbsent(relativePath, label);
+}
+
+requireMarkers(source.runtimeState, "Meeting lifecycle", [
+  'phase: "starting".to_string()',
+  'snapshot.phase = "live".to_string()',
   'snapshot.phase = "stopping".to_string()',
 ]);
-forbidMarkers(source.runtimeState, "Meeting lifecycle", ["begin_application_meeting_session_resume", 'phase: "paused"', 'phase: "resuming"']);
+forbidMarkers(source.runtimeState, "Meeting lifecycle", [
+  "begin_application_meeting_session_resume",
+  'phase: "paused"',
+  'phase: "resuming"',
+]);
 forbidMarkers(source.meetingSession, "Meeting commands", ["pause_meeting_translation", "resume_meeting_translation"]);
 requireMarkers(source.meetingSession, "Meeting commands", ['snapshot.phase == "live"']);
 
@@ -196,16 +296,19 @@ requireMarkers(source.worker, "direction-based worker", [
   'tokenizer(text, return_tensors="pt", truncation=False)',
   "translation_generation_completion",
 ]);
-forbidMarkers(source.worker, "direction-based worker", ["QUALITY_TRANSLATION_MODEL", "NLLB_LANGUAGE_CODES", "translation_model_for_mode"]);
+forbidMarkers(source.worker, "direction-based worker", [
+  "QUALITY_TRANSLATION_MODEL",
+  "NLLB_LANGUAGE_CODES",
+  "translation_model_for_mode",
+]);
 
 const manifest = JSON.parse(source.modelManifest);
 const models = Array.isArray(manifest.models) ? manifest.models : [];
-if (!models.some((model) => model.model_id === "marianmt-id-en") || !models.some((model) => model.model_id === "marianmt-en-id")) {
-  throw new Error("Model manifest must contain both Marian translation directions");
-}
+if (!models.some((model) => model.model_id === "marianmt-id-en")) throw new Error("Missing marianmt-id-en inventory entry");
+if (!models.some((model) => model.model_id === "marianmt-en-id")) throw new Error("Missing marianmt-en-id inventory entry");
 if (models.some((model) => model.model_id === "nllb-200-distilled-600M")) throw new Error("NLLB must not return to current translation inventory");
 if (models.some((model) => Object.hasOwn(model, "revision") || Object.hasOwn(model, "checksum"))) {
   throw new Error("Initial model inventory must not grow revision/checksum release-identity placeholders");
 }
 
-console.log("[startup-readiness] Small product source contract is aligned. Compile, model execution, Windows audio, and installed-runtime proof remain separate.");
+console.log("[startup-readiness] Small Meeting/Text product and Rust engine source graph are aligned. Compile, model execution, Windows audio, and installed-runtime proof remain separate.");

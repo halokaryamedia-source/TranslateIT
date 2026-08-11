@@ -4,6 +4,8 @@ use crate::engine::runtime_state::{
 };
 use crate::engine::state::{CommandResult, LifecycleState};
 
+const MIC_TEST_CAPTURE_OWNER_ID: &str = "translateit_rust_live_capture";
+
 pub fn start_capture() -> CommandResult {
     let current = latest_runtime_session_state();
     if current.has_active_session {
@@ -27,6 +29,16 @@ pub fn start_capture() -> CommandResult {
 }
 
 pub fn stop_capture() -> CommandResult {
+    let current = latest_runtime_session_state();
+    if let Some(snapshot) = current.snapshot.as_ref() {
+        if snapshot.owner_id != MIC_TEST_CAPTURE_OWNER_ID {
+            return CommandResult::blocked(
+                LifecycleState::ConversionPending,
+                "Microphone test Stop cannot control an active Meeting session. Stop Translation from the Meeting workspace instead.",
+            );
+        }
+    }
+
     let capture = stop_live_capture_runtime();
     let _ = clear_runtime_session_state();
     if capture.ok {
