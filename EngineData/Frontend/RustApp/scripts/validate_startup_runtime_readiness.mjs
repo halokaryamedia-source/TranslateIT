@@ -20,6 +20,8 @@ const paths = {
   facade: resolve(root, "src/app/bridge/runtimeProductFacade.ts"),
   registry: resolve(root, "src-tauri/src/commands/registry.rs"),
   meetingSession: resolve(root, "src-tauri/src/commands/meeting_session.rs"),
+  settingsCommands: resolve(root, "src-tauri/src/commands/settings.rs"),
+  textTranslate: resolve(root, "src-tauri/src/commands/text_translate.rs"),
   runtimeState: resolve(root, "src-tauri/src/engine/runtime_state.rs"),
   settingsRust: resolve(root, "src-tauri/src/engine/settings.rs"),
   worker: resolve(root, "../../Backend/LocalWorker/WorkerRuntime/realtime_local_worker.py"),
@@ -57,6 +59,10 @@ requireMarkers(source.app, "Svelte application owner", [
   "runtimeProductFacade.loadProductRuntimeSnapshot",
   "runtimeProductFacade.runProductMeetingAction",
   "runtimeProductFacade.runProductRecoveryAction",
+  "mapProductReadiness",
+  "transcriptStatusKey",
+  "lastTranscriptStatusKey",
+  "applyMeetingStatus(result.status, result.message)",
   "getCurrentWindow().onCloseRequested",
   "<FirstSetup",
   "<Meeting",
@@ -74,6 +80,7 @@ requireMarkers(source.meeting, "Meeting surface", [
   "You speak",
   "Meeting hears",
   "onMeetingAction",
+  "Check Setup",
 ]);
 requireMarkers(source.meetingActivity, "Meeting live activity", [
   "mapProductMeetingState",
@@ -92,12 +99,14 @@ requireMarkers(source.text, "Text surface", [
   "target_language: settings.source_language",
   "copyTranslation",
   "navigator.clipboard.writeText",
+  "targetRevision",
   "Ctrl + Enter to translate",
 ]);
 requireMarkers(source.settings, "Settings surface", [
   'type SettingsTab = "meeting" | "advanced"',
   "selectProductAudioDevice",
   "loadProductAudioDevices",
+  "refreshDiagnostics",
   'aria-label="Settings sections"',
   "Check Microphone",
   "Mic Test",
@@ -113,6 +122,7 @@ requireMarkers(source.firstSetup, "First Setup surface", [
   "settings.audio.output_device_id",
   "selectProductAudioDevice",
   'role="progressbar"',
+  "Check Again",
 ]);
 requireMarkers(source.sidebar, "Primary navigation", ["Meeting", "Text", "Settings", "Ready to translate", "Indonesian ↔ English"]);
 requireMarkers(source.statusRow, "shared status row", ["StatusBadge", "detail", "status = \"\"", "{#if status}"]);
@@ -131,6 +141,7 @@ for (const [label, body] of [
     "Finalized speech only",
     "Using the current local translation runtime",
     "Document attachments are not part of this workflow",
+    "outbound-runtime setup",
   ]);
 }
 
@@ -144,14 +155,46 @@ const requiredCommands = [
   "get_meeting_session_status", "get_meeting_committed_turns", "start_meeting_translation", "stop_meeting_translation",
   "get_helper_bridge_status", "start_helper_bridge", "helper_bridge_worker_status", "start_capture", "stop_capture",
   "get_input_status", "list_audio_devices", "probe_input_device_candidate", "probe_output_device_candidate",
-  "load_runtime_settings", "save_runtime_settings", "translate_text", "verify_models",
+  "load_runtime_settings", "save_runtime_settings", "select_audio_device", "translate_text", "verify_models",
 ];
 requireMarkers(source.runtimeApi, "frontend bridge", requiredCommands.map((command) => `"${command}"`));
 requireMarkers(source.registry, "Tauri registry", requiredCommands);
 forbidMarkers(source.runtimeApi, "frontend bridge", ["audio_studio", "history_entry", "setup_models", "get_gpu_policy", "get_runtime_diagnostics"]);
+requireMarkers(source.runtimeApi, "frontend bridge contracts", [
+  "Promise<RuntimeSettings | null>",
+  "TextTranslationCommandResult",
+  "AudioDeviceSelectionCommandResult",
+]);
 
-requireMarkers(source.facade, "product facade", ["selectedTextDirection(settings)", "loadProductRuntimeSnapshot", "runProductMeetingAction", "runProductTranslation", "translationIdEnReady", "translationEnIdReady"]);
+requireMarkers(source.facade, "product facade", [
+  "selectedTextDirection(settings)",
+  "loadProductRuntimeSnapshot(knownSettings?: RuntimeSettings)",
+  "runProductMeetingAction",
+  "runProductTranslation",
+  "result.translated_text",
+  "result.user_message",
+  "selectAudioDevice",
+  "translationIdEnReady",
+  "translationEnIdReady",
+]);
 forbidMarkers(source.facade, "normal readiness", ["getStatusBundle", "getDiagnostics", "getModelInventory", "getGpuPolicy", "translation_realtime", "translation_quality"]);
+
+requireMarkers(source.settingsCommands, "settings command ownership", [
+  "pub struct AudioDeviceSelectionResult",
+  "fn persist_runtime_settings",
+  "pub fn select_audio_device",
+  "probe_input_device_candidate",
+  "probe_output_device_candidate",
+  "The previous preference was kept",
+]);
+requireMarkers(source.textTranslate, "Text translation command contract", [
+  "pub struct TextTranslationResult",
+  "pub translated_text: String",
+  "pub user_message: String",
+  "pub blocker: String",
+  "TextTranslationResult::success",
+  "TextTranslationResult::blocked",
+]);
 
 requireMarkers(source.settingsRust, "settings schema", ["const CURRENT_SCHEMA_VERSION: u32 = 6;", "pub source_language: String", "pub target_language: String", "pub meeting_setup_state: String", "pub meeting_setup_checkpoint: u8", "pub input_device_id: Option<String>", "pub output_device_id: Option<String>"]);
 requireMarkers(source.frontendState, "frontend settings defaults", ["schema_version: 6", 'source_language: "id"', 'target_language: "en"', 'meeting_setup_state: "new"']);
@@ -179,4 +222,4 @@ if (!models.some((model) => model.model_id === "marianmt-en-id")) throw new Erro
 if (models.some((model) => model.model_id === "nllb-200-distilled-600M")) throw new Error("NLLB must not return to current translation inventory");
 if (models.some((model) => Object.hasOwn(model, "revision") || Object.hasOwn(model, "checksum"))) throw new Error("Initial model inventory must not grow revision/checksum release-identity placeholders");
 
-console.log("[startup-readiness] Svelte Meeting/Text/Settings/First Setup ownership, familiar translation interaction hierarchy, humanized normal-user copy, Text safety/Copy, runtime bridge, settings schema, Meeting lifecycle, and direction-based worker contracts are source-aligned. Dependency install, Svelte compile/render, model execution, Windows audio, and installed-runtime proof remain separate.");
+console.log("[startup-readiness] Svelte Meeting/Text/Settings/First Setup ownership, coherent Meeting projection, gated transcript polling, atomic audio-device selection, user-safe Text result separation, familiar translation interaction hierarchy, runtime bridge, settings schema, Meeting lifecycle, and direction-based worker contracts are source-aligned. Dependency install, Svelte compile/render, model execution, Windows audio, and installed-runtime proof remain separate.");
