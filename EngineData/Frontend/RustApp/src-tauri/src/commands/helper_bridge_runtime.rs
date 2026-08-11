@@ -398,6 +398,18 @@ pub fn apply_worker_response(runtime: &mut HelperBridgeRuntime, value: &Value) -
             .or_else(|| worker_text(value, "stage"))
             .unwrap_or_else(|| "Helper contract request completed.".to_string());
     } else {
+        let required_outbound_prepare_failed = !ok
+            && (stage == "asr_preload"
+                || stage == "tts_preflight"
+                || (stage == "translation_preload"
+                    && value.get("direction_pair").and_then(Value::as_str) == Some("id->en")));
+        if required_outbound_prepare_failed {
+            // A required Start-preparation stage has proved the current outbound
+            // provider unusable. Keep readiness fail-closed until a later status or
+            // successful preparation re-establishes it.
+            runtime.provider_ready = false;
+        }
+
         let request_degraded = value.get("device").and_then(Value::as_str) == Some("cpu")
             || value
                 .get("device_note")
