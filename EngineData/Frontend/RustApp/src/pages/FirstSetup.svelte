@@ -7,7 +7,6 @@
     type ProductAudioDeviceKind,
     type ProductRuntimeSnapshot,
   } from "../app/bridge/runtimeProductFacade";
-  import { errorMessage } from "../app/shared/state";
   import type { AudioDeviceListReport, RuntimeSettings } from "../app/shared/types";
   import StatusRow from "../components/ui/StatusRow.svelte";
 
@@ -79,18 +78,18 @@
       settings = cloneSettings(snapshot.settings);
       selectedMicrophone = String(settings.audio.input_device_id ?? "");
       selectedMeetingSound = String(settings.audio.output_device_id ?? "");
-    } catch (error) {
-      message = `Couldn't check setup: ${errorMessage(error)}`;
+    } catch {
+      message = "Couldn't check setup. Try again.";
     }
   }
 
   async function refreshDevices(): Promise<void> {
     try {
       devices = await runtimeProductFacade.loadProductAudioDevices();
-      if (!devices.ok && !message) message = devices.note ?? "Audio devices are unavailable.";
-    } catch (error) {
+      if (!devices.ok && !message) message = "Audio devices are unavailable right now. Try again.";
+    } catch {
       devices = null;
-      if (!message) message = `Couldn't load audio devices: ${errorMessage(error)}`;
+      if (!message) message = "Audio devices are unavailable right now. Try again.";
     }
   }
 
@@ -99,9 +98,9 @@
       const probe = await runtimeProductFacade.probeProductAudioDevice("meeting-sound", settings.audio.output_device_id);
       meetingSoundReady = probe.ok;
       if (!probe.ok && !message) message = probe.message;
-    } catch (error) {
+    } catch {
       meetingSoundReady = false;
-      if (!message) message = `Couldn't check meeting sound: ${errorMessage(error)}`;
+      if (!message) message = "Couldn't check meeting sound. Try again.";
     }
   }
 
@@ -127,12 +126,12 @@
     candidate.meeting_setup_checkpoint = Math.max(checkpoint(candidate), nextCheckpoint);
     try {
       const result = await runtimeApi.saveSettings(candidate);
-      if (!result.ok) throw new Error(result.message || "Setup progress could not be saved.");
+      if (!result.ok) throw new Error("setup save failed");
       const savedSettings = await runtimeApi.loadSettings();
       settings = cloneSettings(savedSettings ?? candidate);
       return true;
-    } catch (error) {
-      message = `Couldn't save setup progress: ${errorMessage(error)}`;
+    } catch {
+      message = "Couldn't save setup progress. Try again.";
       return false;
     }
   }
@@ -185,8 +184,8 @@
         if (kind === "microphone") await refreshSnapshot();
         else await refreshMeetingSoundProbe();
       }
-    } catch (error) {
-      message = `Device wasn't changed: ${errorMessage(error)}`;
+    } catch {
+      message = "The device wasn't changed. Try again.";
     } finally {
       busy = false;
     }
@@ -200,8 +199,8 @@
       const result = await runtimeProductFacade.runProductRecoveryAction("fix-setup");
       await refreshSnapshot();
       message = compact(result, "Setup check finished.");
-    } catch (error) {
-      message = `Couldn't check setup: ${errorMessage(error)}`;
+    } catch {
+      message = "Couldn't check setup. Try again.";
     } finally {
       busy = false;
     }
