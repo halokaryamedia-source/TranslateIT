@@ -89,6 +89,13 @@ fn meeting_lane(payload: &Value) -> Option<String> {
         .filter(|value| matches!(value.as_str(), "you" | "incoming"))
 }
 
+fn meeting_start_prepare(payload: &Value) -> bool {
+    payload
+        .get("meeting_start_prepare")
+        .and_then(Value::as_bool)
+        .unwrap_or(false)
+}
+
 fn incoming_session_is_eligible(session_id: &str) -> bool {
     latest_runtime_session_state()
         .snapshot
@@ -101,7 +108,7 @@ fn incoming_session_is_eligible(session_id: &str) -> bool {
 }
 
 fn task_priority(task: &str, payload: &Value) -> HelperTaskPriority {
-    if meeting_generation(payload).is_some() {
+    if meeting_generation(payload).is_some() || meeting_start_prepare(payload) {
         HelperTaskPriority::MeetingOutbound
     } else if meeting_lane(payload).as_deref() == Some("incoming")
         && meeting_session_id(payload).is_some()
@@ -462,6 +469,39 @@ fn send_worker_task(task: &str, mut payload: Value) -> HelperBridgeWorkerRespons
 
 pub fn send_helper_worker_task(task: &str, payload: Value) -> HelperBridgeWorkerResponse {
     send_worker_task(task, payload)
+}
+
+pub fn prepare_required_outbound_ai_runtime() -> Result<(), &'static str> {
+    let asr = send_worker_task("asr_preload", json!({ "meeting_start_prepare": true }));
+    if !asr.ok {
+        return Err("speech recognition");
+    }
+
+    let translation = send_worker_task(
+        "translation_preload",
+        json!({
+            "source_language": "id",
+            "target_language": "en",
+            "meeting_start_prepare": true,
+        }),
+    );
+    if !translation.ok {
+        return Err("Indonesian to English translation");
+    }
+
+    let tts = send_worker_task("tts_preflight", json!({ "meeting_start_prepare": true }));
+    if !tts.ok {
+        return Err("English voice output");
+    }
+
+    // Re-read capability status after the actual required runtimes have been
+    // exercised. This re-establishes provider readiness after a previous failed
+    // preparation only when the current worker can truthfully report the core path.
+    let status = send_worker_task("status", json!({ "meeting_start_prepare": true }));
+    if !status.ok {
+        return Err("local translation runtime");
+    }
+    Ok(())
 }
 
 #[tauri::command]
