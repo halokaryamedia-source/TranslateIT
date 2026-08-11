@@ -2,11 +2,31 @@
 
 ## Current Status
 
-The user explicitly keeps local/integration testing on hold until the major feature set is ready. This changes proof timing only; it does not reduce release acceptance.
+The bounded P0 source-correctness set from the comprehensive core/release audit is source-closed. The user has now released the previous proof hold **only for frontend dependency/build/render proof** so the current application UI could be inspected truthfully from built source.
 
-The bounded P0 source-correctness set from the comprehensive core/release audit is now closed at source level. The project should **not** continue accumulating P1 source hardening while compile/runtime/device evidence remains intentionally unavailable.
+That frontend-only proof was executed through a temporary GitHub Actions workflow and the temporary workflow file was removed afterward. No permanent CI owner was added.
 
-Meeting Core Runtime Reliability now has twelve bounded source slices aligned:
+### Frontend proof obtained
+
+Proof run: GitHub Actions run `31516375524` on the `New` source graph plus a temporary render harness.
+
+```text
+npm dependency materialization -> PASS in proof runner
+svelte-check                  -> PASS: 0 errors, 4 warnings
+Vite production build         -> PASS
+actual Svelte browser render  -> PASS
+Meeting screenshot            -> PASS
+Text screenshot + interaction -> PASS
+Settings screenshot           -> PASS
+```
+
+The four Svelte warnings are all `state_referenced_locally` warnings in `src/pages/FirstSetup.svelte`; they are not compile errors and did not block the production frontend build or the requested Meeting/Text/Settings render.
+
+The screenshots are **actual pixels rendered from the current Svelte/Vite source**, not generated artwork. For this frontend-only proof, Tauri command responses were injected with simulated Ready/device data so the normal product surfaces could render without starting Rust, Python, models, or Windows audio. Therefore the screenshots prove frontend composition/build behavior only; they do not prove native Tauri integration, real devices, model readiness, or Meeting audio delivery.
+
+The proof runner generated its own dependency state. No new repository `package-lock.json` was adopted as release authority in this preview task. The Svelte autofixer was not required because no Svelte source was edited as part of the render proof.
+
+Meeting Core Runtime Reliability remains twelve bounded source slices:
 
 ```text
 1. required AI preparation before Meeting Live
@@ -23,24 +43,11 @@ Meeting Core Runtime Reliability now has twelve bounded source slices aligned:
 12. Windows sleep / hibernate authority invalidation through canonical Stop
 ```
 
-The twelfth slice closes P0.5 at source level:
-
-- the existing Tauri main-window bootstrap installs a Windows power-message hook instead of creating another Meeting lifecycle owner;
-- `WM_POWERBROADCAST` suspend and automatic/critical resume boundaries check whether the application Meeting still owns a runtime session;
-- an owned Meeting converges through the existing `stop_meeting_translation()` path, whose first lifecycle action is generation/output-authority revocation before provider/helper/consumer/capture cleanup;
-- resume handling is cleanup convergence only and never calls Start, Resume, playback replay, or a second output path;
-- no-Meeting power transitions are no-ops;
-- normal minimize/navigation behavior is unchanged;
-- the Windows bootstrap fails closed if the native power hook cannot be installed;
-- no Pause/Resume feature, automatic wake restart, second Meeting lifecycle, sleep-specific audio cleanup stack, or new runtime service was added.
-
-These source slices do not constitute target-Windows/runtime/release proof.
-
 ## Priority Map
 
-Priority is based on impact on the approved small core rather than discovery order.
+Priority remains based on impact on the approved small core rather than discovery order.
 
-### P0 — Core source correctness before first integrated proof wave — SOURCE CLOSED
+### P0 — Core source correctness before integrated proof — SOURCE CLOSED
 
 #### P0.1 — Optional Incoming Failure Isolation — CLOSED SOURCE / LOCAL PROOF REQUIRED
 
@@ -98,11 +105,11 @@ Windows power transition
 -> explicit new Start required
 ```
 
-Deferred proof: real Windows sleep and hibernate while Meeting is Live, suspend during inference/playback, wake after interrupted cleanup, no-Meeting suspend, and explicit confirmation that no stale audio/output resumes automatically.
+Deferred proof: real Windows sleep and hibernate while Meeting is Live, suspend during inference/playback, wake after interrupted cleanup, no-Meeting suspend, and confirmation that no stale output resumes automatically.
 
 ### P1 — Core truthfulness, boundedness, and long-session hardening
 
-P1 remains mapped but is **not the next source-work queue** until the first executable proof wave establishes which issues still matter.
+P1 remains mapped but should not be resumed merely because source edits are possible. First use executable/native evidence to determine which hardening still matters.
 
 #### P1.1 — Functional Setup Readiness Alignment
 
@@ -122,21 +129,31 @@ EN->ID Marian correctly does not block required outbound Meeting Start, but bidi
 
 ### P2 — Release-blocking materialization and executable proof
 
-These are now the next meaningful project boundary once the explicit hold is released.
+#### P2.1 — Frontend dependency / compile / rendered proof — PARTIAL PROOF OBTAINED
 
-#### P2.1 — Frontend dependency / compile / rendered proof
+Obtained in the frontend-only proof runner:
 
 ```text
-npm dependency materialization
--> regenerate/review package-lock
--> Svelte autofixer
--> svelte-check
--> Vite build
--> rendered UI / resize / keyboard / focus smoke
--> clipboard proof
+dependency materialization -> PASS
+svelte-check               -> PASS, 0 errors / 4 FirstSetup warnings
+Vite production build      -> PASS
+Meeting/Text/Settings render from built source -> PASS with simulated Tauri data
+Text input/Translate UI interaction -> PASS with simulated translation response
 ```
 
-#### P2.2 — Rust / Tauri executable proof
+Still required before release:
+
+```text
+review/fix relevant Svelte warnings
+adopt/review canonical dependency lockfile
+native Tauri/WebView render
+resize smoke
+keyboard/focus smoke
+clipboard proof
+real runtime-state projection
+```
+
+#### P2.2 — Rust / Tauri executable proof — STILL HELD
 
 ```text
 Rust/Tauri compile
@@ -150,7 +167,7 @@ Rust/Tauri compile
 -> relevant fault paths
 ```
 
-#### P2.3 — Canonical Python environment and model proof
+#### P2.3 — Canonical Python environment and model proof — STILL HELD
 
 ```text
 resolve/review uv.lock
@@ -165,7 +182,7 @@ resolve/review uv.lock
 
 Quality, code-switching, names/numbers/technical fidelity, latency, and CPU practicality require real target evidence.
 
-#### P2.4 — Windows Meeting audio acceptance
+#### P2.4 — Windows Meeting audio acceptance — STILL HELD
 
 ```text
 physical microphone
@@ -181,11 +198,11 @@ physical microphone
 
 Inject hardened failure cases: outbound/incoming helper transport failure, Stop during inference, provider preflight hang, provider playback stall, route disappearance, multiple-route ambiguity, backlog contention, and suspend during active work.
 
-#### P2.5 — Latency / stability / long-session acceptance
+#### P2.5 — Latency / stability / long-session acceptance — STILL HELD
 
 Measure finalized utterance end -> first translated playback on target hardware. Verify memory, temp cleanup, worker restarts, callback errors, logs, power-transition recovery, and long-session stability before considering provider persistence, model replacement, VAD tuning, or broader optimization.
 
-#### P2.6 — Installer / clean-machine materialization
+#### P2.6 — Installer / clean-machine materialization — STILL HELD
 
 Release must deliver one normal-user setup with private PythonRuntime, required models, TTS assets/provider, supported Meeting route, Tauri resource staging, NSIS install, installed-runtime validation, and clean-machine proof. No manual Python/pip/env/repository/model placement.
 
@@ -194,39 +211,49 @@ Release must deliver one normal-user setup with private PythonRuntime, required 
 - reconcile stale root `README.md` references to removed/deferred PTT, Documents, History/Saved, Tone, and Realtime/Quality product behavior;
 - reconcile stale WorkerRuntime README mode/NLLB descriptions;
 - remove stale internal preset terminology only when the current call graph proves it unnecessary;
-- add CI only after current lockfiles/build commands stabilize;
+- add permanent CI only after current lockfiles/build commands stabilize;
 - keep Documents, History/Saved, Audio Studio/custom voice, PTT, tone, context, additional languages, incoming TTS, and automatic mid-session Meeting Sound rebind deferred.
 
 ## Sequencing Rule
 
 ```text
 P0 source correctness CLOSED
--> explicit release of local/integration hold
--> first integrated compile/type baseline
--> first runtime/model/Windows-audio proof wave
+-> frontend-only render proof PARTIAL PASS
+-> review actual UI
+-> explicit approval before widening proof scope
+-> Rust/Tauri + runtime/model/Windows-audio proof
 -> fix measured failures
 -> finish only still-relevant P1
 -> release packaging + clean-machine acceptance
 ```
 
-Do not continue into P1 merely because source edits are possible. Executable evidence is now the higher-priority missing input.
-
 ## Current Mode
 
-**Plan / proof hold** — all mapped P0 source-correctness tasks are source-closed. The next meaningful acceptance step requires the user to explicitly release the local/integration test hold.
+**Plan / frontend proof review** — frontend source now has real dependency/type/build/render evidence, but broader local/runtime/device testing remains held. The immediate question is whether the actual rendered UI is acceptable or needs frontend changes before proof scope expands.
 
-Execution channel until that release:
+Execution channel for the completed preview:
 
 ```text
-ChatGPT -> GitHub
+GitHub Actions proof runner
 ```
 
-No `npm install`, package-lock regeneration, Svelte autofixer, `svelte-check`, Vite build, Tauri launch, Rust compile, Python/model execution, provider/device runtime test, suspend/hibernate runtime test, installer test, performance measurement, or rendered UI inspection has been executed during the hold.
+Not executed in this preview task:
+
+```text
+Rust/Tauri compile or launch
+Python/model execution
+real Windows device/audio test
+Meeting microphone delivery
+sleep/hibernate runtime test
+installer test
+performance measurement
+clipboard/native interaction proof
+```
 
 ## Deferred Integrated Proof Queue
 
-P0.5 adds real Windows sleep/hibernate cases to the proof wave: suspend while Live/listening, suspend during helper inference, suspend during Meeting-route playback, hibernate/wake, and a no-Meeting control case. Every case must verify old Meeting generation authority is invalid and that wake does not auto-start/replay translated voice.
+All P0 runtime cases remain queued. The new frontend proof reduces uncertainty only for Svelte type/build/render composition; it does not discharge any Windows/runtime/model acceptance gate.
 
-## Next Step — First Integrated Proof Wave — HOLD RELEASE REQUIRED
+## Next Step — Review Actual Frontend Render
 
-Once the user explicitly releases the local/integration hold, begin with dependency/lockfile materialization plus the first Svelte/Vite and Rust/Tauri compile/type baseline. Fix compile/contract failures before running Python/model and Windows audio/device fault proof. Do not continue P1 source hardening until executable evidence identifies the remaining real failures.
+Review the actual Meeting, Text, and Settings screenshots produced from the built `New` frontend. Decide whether the current visual hierarchy/layout is acceptable or requires bounded frontend corrections before widening the proof scope beyond frontend rendering.
