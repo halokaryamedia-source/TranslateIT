@@ -38,7 +38,7 @@ use super::helper_bridge_runtime::unix_ms;
 use super::runtime_inventory::get_model_inventory;
 use super::virtual_audio_route_runtime::{
     cancel_meeting_virtual_audio_route_provider, dispatch_meeting_virtual_audio_route_provider,
-    meeting_route_execution_guard_status,
+    meeting_route_execution_guard_status, prepare_meeting_virtual_audio_route_provider,
 };
 use super::virtual_mic_route::get_virtual_mic_route_contract_status;
 
@@ -1629,6 +1629,20 @@ pub fn start_meeting_translation() -> MeetingSessionActionResult {
             message: preflight.summary.clone(),
             status: status_from_report(latest_runtime_session_state(), preflight),
         };
+    }
+
+    // The quick status preflight proves selected route/device/script/guard presence.
+    // Before authority is created, exercise the actual Meeting route provider far
+    // enough to prove its Python runtime/dependencies can resolve the selected output
+    // device. This is still not Windows playback proof; the first real utterance must
+    // execute the guarded provider and satisfy its normal at-most-once completion path.
+    if let Err(blocker) = prepare_meeting_virtual_audio_route_provider() {
+        return blocked_result(
+            "meeting_route_prepare_failed",
+            format!(
+                "Start Translation couldn't prepare TranslateIT Meeting Microphone. Check Setup or Diagnostics and try again. Provider detail: {blocker}"
+            ),
+        );
     }
 
     // Exercise the real required AI runtimes before Meeting authority, capture, or
