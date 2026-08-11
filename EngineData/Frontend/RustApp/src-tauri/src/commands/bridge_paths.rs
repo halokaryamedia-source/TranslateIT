@@ -18,11 +18,15 @@ pub fn worker_root() -> PathBuf {
     PathBuf::from(ProjectPaths::discover().worker_runtime_dir)
 }
 
+pub fn python_runtime_root() -> PathBuf {
+    PathBuf::from(ProjectPaths::discover().python_runtime_dir)
+}
+
 pub fn worker_script() -> PathBuf {
     worker_root().join("realtime_local_worker.py")
 }
 
-pub fn worker_python() -> PathBuf {
+fn development_worker_python() -> PathBuf {
     if cfg!(windows) {
         worker_root()
             .join(".venv")
@@ -33,7 +37,7 @@ pub fn worker_python() -> PathBuf {
     }
 }
 
-pub fn worker_python_candidates() -> Vec<WorkerPythonCommand> {
+fn development_worker_python_candidates() -> Vec<WorkerPythonCommand> {
     let mut candidates = Vec::new();
 
     if let Ok(raw) = std::env::var("TRANSLATEIT_WORKER_PYTHON") {
@@ -42,41 +46,58 @@ pub fn worker_python_candidates() -> Vec<WorkerPythonCommand> {
             candidates.push(WorkerPythonCommand {
                 program: PathBuf::from(trimmed),
                 bootstrap_args: Vec::new(),
-                source: "TRANSLATEIT_WORKER_PYTHON".to_string(),
+                source: "repository_env_override".to_string(),
             });
         }
     }
 
     candidates.push(WorkerPythonCommand {
-        program: worker_python(),
+        program: development_worker_python(),
         bootstrap_args: Vec::new(),
-        source: "worker_venv".to_string(),
+        source: "repository_worker_venv".to_string(),
     });
 
     candidates.push(WorkerPythonCommand {
         program: PathBuf::from("python"),
         bootstrap_args: Vec::new(),
-        source: "system_python_path".to_string(),
+        source: "repository_system_python".to_string(),
     });
 
     candidates.push(WorkerPythonCommand {
         program: PathBuf::from("python3"),
         bootstrap_args: Vec::new(),
-        source: "system_python3_path".to_string(),
+        source: "repository_system_python3".to_string(),
     });
 
     if cfg!(windows) {
         candidates.push(WorkerPythonCommand {
             program: PathBuf::from("py"),
             bootstrap_args: vec!["-3".to_string()],
-            source: "windows_python_launcher".to_string(),
+            source: "repository_windows_python_launcher".to_string(),
         });
     }
 
     candidates
 }
 
-pub fn worker_python_command_available(candidate: &WorkerPythonCommand) -> bool {
+fn worker_python_candidates() -> Vec<WorkerPythonCommand> {
+    let paths = ProjectPaths::discover();
+    if paths.packaged_context_initialized {
+        return vec![WorkerPythonCommand {
+            program: PathBuf::from(paths.python_runtime_dir).join("python.exe"),
+            bootstrap_args: Vec::new(),
+            source: "packaged_python_runtime".to_string(),
+        }];
+    }
+
+    if !paths.is_repository_development() {
+        return Vec::new();
+    }
+
+    development_worker_python_candidates()
+}
+
+fn worker_python_command_available(candidate: &WorkerPythonCommand) -> bool {
     if candidate.program.components().count() > 1 && !candidate.program.is_file() {
         return false;
     }
@@ -89,6 +110,30 @@ pub fn worker_python_command_available(candidate: &WorkerPythonCommand) -> bool 
     command.stderr(Stdio::null());
 
     command.status().map(|status| status.success()).unwrap_or(false)
+}
+
+pub fn resolve_worker_python_command() -> Option<WorkerPythonCommand> {
+    worker_python_candidates()
+        .into_iter()
+        .find(worker_python_command_available)
+}
+
+pub fn worker_python_unavailable_message() -> String {
+    let paths = ProjectPaths::discover();
+    if paths.packaged_context_initialized {
+        return format!(
+            "TranslateIT's packaged Python runtime is missing or unusable at {}/python.exe. Reinstall or repair TranslateIT instead of installing Python manually.",
+            paths.python_runtime_dir
+        );
+    }
+
+    if paths.is_repository_development() {
+        return "No usable development Python runtime was found. Repository development may use TRANSLATEIT_WORKER_PYTHON, WorkerRuntime/.venv, or a system Python installation; these are not installed-product dependencies."
+            .to_string();
+    }
+
+    "Python runtime resolution is unavailable outside packaged mode or verified repository development."
+        .to_string()
 }
 
 pub fn helper_bridge_log_dir() -> PathBuf {
