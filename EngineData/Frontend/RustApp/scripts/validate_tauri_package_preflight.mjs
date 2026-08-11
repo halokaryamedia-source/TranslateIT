@@ -184,13 +184,15 @@ requireMarkers(pathsOwnerRs, "canonical packaged/runtime path owner", [
 const bridgePathsRs = readText(bridgePathsPath);
 requireMarkers(bridgePathsRs, "shared packaged Python resolver", [
   "ProjectPaths::discover().worker_runtime_dir",
-  "ProjectPaths::discover().python_runtime_dir",
+  "paths.python_runtime_dir",
   "ProjectPaths::discover().user_cache_dir",
   "paths.packaged_context_initialized",
   "if !paths.is_repository_development() {",
   '.join("python.exe")',
   'source: "packaged_python_runtime".to_string()',
+  "return candidate.program.is_file().then_some(candidate);",
   'std::env::var("TRANSLATEIT_WORKER_PYTHON")',
+  "development_python_command_available",
   "pub fn resolve_worker_python_command()",
   "pub fn worker_python_unavailable_message()",
 ]);
@@ -267,5 +269,5 @@ forbidMarkers(worker, "worker repository-coupled writable paths", [
 
 if (process.exitCode) process.exit(process.exitCode);
 console.log(
-  "[tauri-package-preflight] Packaged interpreter ownership is source-aligned: packaged mode resolves only EngineData/Backend/LocalWorker/PythonRuntime/python.exe, repository Python fallbacks stay behind verified development mode, and both the persistent worker and Meeting Microphone provider use the same resolver. PythonRuntime payload bytes, Tauri/NSIS staging, installed execution, and clean-machine operation remain intentionally unproved here.",
+  "[tauri-package-preflight] Packaged interpreter ownership is source-aligned: packaged mode resolves only EngineData/Backend/LocalWorker/PythonRuntime/python.exe without a per-call interpreter probe, repository Python fallbacks stay behind verified development mode, and both the persistent worker and Meeting Microphone provider use the same resolver. PythonRuntime payload bytes, Tauri/NSIS staging, installed execution, and clean-machine operation remain intentionally unproved here.",
 );
