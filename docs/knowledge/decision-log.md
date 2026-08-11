@@ -261,3 +261,30 @@ Sleep/hibernate can interrupt capture, provider, helper, and device ownership wh
 
 **Proof status**  
 The source wiring from Windows power notification to canonical Stop is established on `New`. Rust/Tauri compile, real Windows sleep/hibernate notification delivery, authority invalidation timing, interrupted-cleanup convergence, device/resource release, and no-auto-resume behavior still require deferred target-Windows proof.
+
+## D-018 — Clean Desktop Utility Is The Approved Visual Baseline
+
+**Decision**
+The user approved the current rendered Meeting / Text / Settings redesign as the ongoing TranslateIT visual baseline. Future visual work uses the existing `desktop-ui-design-development` owner and normally operates in ALIGN mode unless an explicit new product decision replaces this direction.
+
+Preserve the following visual rules:
+
+```text
+compact dark desktop utility
+clear task/state hierarchy before decoration
+narrow lightweight sidebar
+few nested cards / borders / shadows
+calm healthy / Ready states
+stronger state color only when attention or action is required
+one obvious primary action per normal workflow
+useful task content receives the largest share of space
+no generic AI gradients, glow, glassmorphism, or decorative dashboard grids
+```
+
+Visual work must not redefine Meeting lifecycle, readiness truth, translation behavior, settings ownership, or runtime/audio/model semantics. Material visual acceptance requires rendered evidence rather than source intent alone.
+
+**Reason**
+The first real Svelte render proved the product structure but also exposed excessive empty space, visual weight, nested panels, and weak action hierarchy. The approved redesign corrected those issues without changing product behavior. Recording the accepted direction prevents later work from drifting back toward generic dashboard or AI-styled decoration and gives the project UI specialist a stable alignment target.
+
+**Proof status**
+The approved Meeting / Text / Settings baseline has Svelte typecheck, Vite production build, and actual browser-render evidence from the current source graph. The render harness used simulated Tauri Ready/device data, so native Tauri/WebView, real runtime state, and Windows device behavior remain separate proof boundaries.
