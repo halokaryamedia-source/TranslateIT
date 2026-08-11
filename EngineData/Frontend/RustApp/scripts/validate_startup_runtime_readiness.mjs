@@ -359,6 +359,25 @@ requireMarkers(source.virtualAudioRouteRuntime, "Meeting route provider prefligh
   "resolve_worker_python_command",
   "get_virtual_mic_route_selection",
 ]);
+const meetingRoutePreflightStart = source.virtualAudioRouteRuntime.indexOf("pub fn prepare_meeting_virtual_audio_route_provider()");
+const meetingRoutePreflightEnd = source.virtualAudioRouteRuntime.indexOf("fn contract_json", meetingRoutePreflightStart);
+const meetingRoutePreflightSource = meetingRoutePreflightStart >= 0 && meetingRoutePreflightEnd > meetingRoutePreflightStart
+  ? source.virtualAudioRouteRuntime.slice(meetingRoutePreflightStart, meetingRoutePreflightEnd)
+  : "";
+requireMarkers(meetingRoutePreflightSource, "bounded Meeting route provider preflight", [
+  "MEETING_ROUTE_PROVIDER_PREFLIGHT_DEADLINE_MS",
+  ".stdout(Stdio::piped())",
+  ".stderr(Stdio::piped())",
+  ".spawn()",
+  "child.try_wait()",
+  "child.kill()",
+  "child.wait().ok()",
+  '"virtual_audio_route:provider_preflight_deadline_exceeded"',
+  '"virtual_audio_route:provider_preflight_process_wait_failed"',
+]);
+forbidMarkers(meetingRoutePreflightSource, "unbounded Meeting route provider preflight", [
+  ".output()",
+]);
 requireMarkers(source.routeProvider, "Meeting route provider preflight contract", [
   '"preflight_verified": False',
   "def _import_audio_runtime()",
@@ -432,4 +451,4 @@ if (!models.some((model) => model.model_id === "marianmt-en-id")) throw new Erro
 if (models.some((model) => model.model_id === "nllb-200-distilled-600M")) throw new Error("NLLB must not return to current translation inventory");
 if (models.some((model) => Object.hasOwn(model, "revision") || Object.hasOwn(model, "checksum"))) throw new Error("Initial model inventory must not grow revision/checksum release-identity placeholders");
 
-console.log("[startup-readiness] Svelte Meeting/Text/Settings/First Setup ownership, coherent Meeting projection, gated transcript polling, atomic audio-device selection, active-session settings/helper-restart isolation, truthful matched Meeting-route pair identity with generation-stable endpoint selection, user-safe Text result separation, required outbound AI preparation before Meeting Live, outbound helper priority continuity across ASR/translation/TTS, bounded in-session outbound helper transport recovery, optional incoming freshness/failure isolation with no stale-event retry, bounded Stop-time helper recovery, Meeting route provider preflight before authority, duration-grounded Meeting route delivery deadline, truthful ASR attention state, bounded newest-preferred finalized speech backlog, familiar translation interaction hierarchy, runtime bridge, settings schema, Meeting lifecycle, and direction-based worker contracts are source-aligned. Dependency install, Svelte compile/render, model execution, Windows audio playback, and installed-runtime proof remain separate.");
+console.log("[startup-readiness] Svelte Meeting/Text/Settings/First Setup ownership, coherent Meeting projection, gated transcript polling, atomic audio-device selection, active-session settings/helper-restart isolation, truthful matched Meeting-route pair identity with generation-stable endpoint selection, user-safe Text result separation, required outbound AI preparation before Meeting Live, outbound helper priority continuity across ASR/translation/TTS, bounded in-session outbound helper transport recovery, optional incoming freshness/failure isolation with no stale-event retry, bounded Stop-time helper recovery, bounded Meeting route provider preflight before authority, duration-grounded Meeting route delivery deadline, truthful ASR attention state, bounded newest-preferred finalized speech backlog, familiar translation interaction hierarchy, runtime bridge, settings schema, Meeting lifecycle, and direction-based worker contracts are source-aligned. Dependency install, Svelte compile/render, model execution, Windows audio playback, and installed-runtime proof remain separate.");
