@@ -76,7 +76,7 @@
   async function refreshSnapshot(): Promise<void> {
     try {
       snapshot = await runtimeProductFacade.loadProductRuntimeSnapshot();
-      settings = cloneSettings(snapshot.settings ?? settings);
+      settings = cloneSettings(snapshot.settings);
       selectedMicrophone = String(settings.audio.input_device_id ?? "");
       selectedMeetingSound = String(settings.audio.output_device_id ?? "");
     } catch (error) {
@@ -128,7 +128,8 @@
     try {
       const result = await runtimeApi.saveSettings(candidate);
       if (!result.ok) throw new Error(result.message || "Setup progress could not be saved.");
-      settings = cloneSettings(await runtimeApi.loadSettings().catch(() => candidate));
+      const savedSettings = await runtimeApi.loadSettings();
+      settings = cloneSettings(savedSettings ?? candidate);
       return true;
     } catch (error) {
       message = `Couldn't save setup progress: ${errorMessage(error)}`;
@@ -170,13 +171,11 @@
   async function saveSelectedDevice(kind: ProductAudioDeviceKind): Promise<void> {
     if (busy) return;
     const candidate = (kind === "microphone" ? selectedMicrophone : selectedMeetingSound).trim() || null;
-    const current = kind === "microphone" ? settings.audio.input_device_id : settings.audio.output_device_id;
-    if ((current ?? null) === candidate) return;
 
     busy = true;
     message = kind === "microphone" ? "Checking microphone..." : "Checking meeting sound...";
     try {
-      const result = await runtimeProductFacade.selectProductAudioDevice(kind, candidate);
+      const result = await runtimeProductFacade.selectProductAudioDevice(kind, candidate, settings);
       settings = cloneSettings(result.settings);
       message = result.message;
       if (result.ok) {
@@ -188,21 +187,6 @@
       }
     } catch (error) {
       message = `Device wasn't changed: ${errorMessage(error)}`;
-    } finally {
-      busy = false;
-    }
-  }
-
-  async function checkMicrophone(): Promise<void> {
-    if (busy) return;
-    busy = true;
-    message = "Checking microphone...";
-    try {
-      const result = await runtimeProductFacade.runProductSetupAction("check-microphone");
-      await refreshSnapshot();
-      message = snapshot?.readiness.microphoneReady ? "Microphone is ready." : compact(result, "Microphone still needs attention.");
-    } catch (error) {
-      message = `Couldn't check the microphone: ${errorMessage(error)}`;
     } finally {
       busy = false;
     }
@@ -314,16 +298,15 @@
           {#if step === 1}
             <button type="button" class="ti-button" disabled={busy} onclick={() => void advance(2)}>Continue <ChevronRight size={16} /></button>
           {:else if step === 2}
-            <button type="button" class="ti-button ti-button-secondary" disabled={busy} onclick={() => void checkMicrophone()}>Check Microphone</button>
             <button type="button" class="ti-button" disabled={busy || !snapshot?.readiness.microphoneReady} onclick={() => void advance(3)}>Continue <ChevronRight size={16} /></button>
           {:else if step === 3}
             <button type="button" class="ti-button" disabled={busy} onclick={() => void advance(4)}>Continue <ChevronRight size={16} /></button>
           {:else if step === 4}
-            <button type="button" class="ti-button ti-button-secondary" disabled={busy} onclick={() => void fixSetup()}>Fix Setup</button>
+            <button type="button" class="ti-button ti-button-secondary" disabled={busy} onclick={() => void verifySetup()}>Check Again</button>
             <button type="button" class="ti-button" disabled={busy || !snapshot?.readiness.meetingRouteReady} onclick={() => void advance(5)}>Continue <ChevronRight size={16} /></button>
           {:else}
             <button type="button" class="ti-button ti-button-secondary" disabled={busy} onclick={() => void verifySetup()}>Check Again</button>
-            {#if !snapshot?.readiness.meetingReady}<button type="button" class="ti-button ti-button-secondary" disabled={busy} onclick={() => void fixSetup()}>Fix Setup</button>{/if}
+            {#if !snapshot?.readiness.meetingReady}<button type="button" class="ti-button ti-button-secondary" disabled={busy} onclick={() => void fixSetup()}>Check Setup</button>{/if}
             <button type="button" class="ti-button" disabled={busy || !snapshot?.readiness.meetingReady} onclick={() => void completeSetup()}><Check size={16} /> Open Meeting</button>
           {/if}
         </div>
