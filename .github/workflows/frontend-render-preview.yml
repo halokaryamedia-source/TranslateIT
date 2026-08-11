@@ -43,97 +43,99 @@ jobs:
       - name: Write actual-source render harness
         shell: bash
         run: |
-          cat > /tmp/render-translateit.mjs <<'EOF'
+          cat > render-translateit.mjs <<'EOF'
           import { chromium } from 'playwright';
           import fs from 'node:fs/promises';
 
           const now = Date.now();
-          const settings = {
-            schema_version: 6,
-            source_language: 'id',
-            target_language: 'en',
-            meeting_setup_state: 'completed',
-            meeting_setup_checkpoint: 5,
-            audio: {
-              input_device_id: 'Microphone (Realtek(R) Audio)',
-              output_device_id: 'Speakers (Realtek(R) Audio)'
+          const mock = {
+            settings: {
+              schema_version: 6,
+              source_language: 'id',
+              target_language: 'en',
+              meeting_setup_state: 'completed',
+              meeting_setup_checkpoint: 5,
+              audio: {
+                input_device_id: 'Microphone (Realtek(R) Audio)',
+                output_device_id: 'Speakers (Realtek(R) Audio)'
+              }
+            },
+            meetingStatus: {
+              lifecycle: 'idle', has_session: false, authority_active: false,
+              session_id: null, generation: null, started_unix_ms: null, active_age_ms: null,
+              capture_active: false, owner_id: null, blocker: '', note: 'No active Meeting session.',
+              preflight: {
+                ready_for_start: true, microphone_ready: true, models_ready: true,
+                helper_ready: true, provider_ready: true, meeting_route_ready: true,
+                route_execution_guard_ready: true, generation_aware_outbound_stages_ready: true,
+                finalized_utterance_source_connected: true, outbound_runtime_connected: true,
+                blockers: [], summary: 'Required Meeting translation is ready.', runtime_claim: 'frontend_render_harness'
+              },
+              outbound: {
+                generation: null, session_id: null, stage: 'idle', utterance_sequence: 0,
+                output_active: false, last_stage_ok: true, blocker: '', note: 'Ready for the next phrase.',
+                updated_unix_ms: now, runtime_claim: 'frontend_render_harness'
+              },
+              incoming: {
+                session_id: null, stage: 'idle', capture_active: false, suppressed: false,
+                degraded: false, blocker: '', note: 'Optional incoming translation is available.',
+                updated_unix_ms: now, runtime_claim: 'frontend_render_harness'
+              },
+              runtime_claim: 'frontend_render_harness'
+            },
+            helper: {
+              state: 'ready', message: 'Local translation runtime is ready.', cuda_ready: true,
+              provider_ready: true, degraded_mode: false, active_task: null, active_request_id: null,
+              active_meeting_generation: null, active_meeting_session_id: null, active_meeting_lane: null,
+              generation_token: 1, last_error: null, stderr_log_path: null, updated_unix_ms: now,
+              runtime_claim: 'frontend_render_harness'
+            },
+            workerStatus: {
+              ok: true, state: 'ready', task: 'status', message: 'Local translation capabilities are ready.',
+              generation_token: 1, runtime_claim: 'frontend_render_harness',
+              worker_response_json: JSON.stringify({
+                ok: true, stage: 'local_realtime_worker_preflight',
+                readiness: { asr: true, translation_id_en: true, translation_en_id: true, tts: true },
+                blocker: '', note: 'Required local translation capabilities are ready.'
+              })
+            },
+            inputStatus: {
+              ready: true, prepared: true, selected_device_name: 'Microphone (Realtek(R) Audio)',
+              input_device_name: 'Microphone (Realtek(R) Audio)', device_count: 3, blocker: '', note: 'Microphone is ready.'
+            },
+            routeStatus: {
+              ok: true, route_ready: true, route_pair_id: 'windows_virtual_pair:cable-vb-audio-virtual-cable',
+              selected_output_device: 'CABLE Input (VB-Audio Virtual Cable)',
+              selected_input_device: 'CABLE Output (VB-Audio Virtual Cable)',
+              preferred_output_device: null, preferred_input_device: null,
+              output_device_found: true, input_device_found: true, preference_persisted: false,
+              preference_path: null, evidence_path: null, route_output_contract_json: '{}',
+              available_output_devices: ['Speakers (Realtek(R) Audio)', 'CABLE Input (VB-Audio Virtual Cable)'],
+              available_input_devices: ['Microphone (Realtek(R) Audio)', 'CABLE Output (VB-Audio Virtual Cable)'],
+              blocker: '', next_action: 'prepare_virtual_mic_output_route_runtime_stub',
+              runtime_claim: 'frontend_render_harness', updated_unix_ms: now
+            },
+            audioDevices: {
+              ok: true,
+              input_devices: [
+                { id: 'Microphone (Realtek(R) Audio)', name: 'Microphone (Realtek(R) Audio)', is_default: true },
+                { id: 'CABLE Output (VB-Audio Virtual Cable)', name: 'CABLE Output (VB-Audio Virtual Cable)', is_default: false }
+              ],
+              output_devices: [
+                { id: 'Speakers (Realtek(R) Audio)', name: 'Speakers (Realtek(R) Audio)', is_default: true },
+                { id: 'CABLE Input (VB-Audio Virtual Cable)', name: 'CABLE Input (VB-Audio Virtual Cable)', is_default: false }
+              ],
+              blocker: '', note: 'Audio devices discovered.'
             }
-          };
-          const meetingStatus = {
-            lifecycle: 'idle', has_session: false, authority_active: false,
-            session_id: null, generation: null, started_unix_ms: null, active_age_ms: null,
-            capture_active: false, owner_id: null, blocker: '', note: 'No active Meeting session.',
-            preflight: {
-              ready_for_start: true, microphone_ready: true, models_ready: true,
-              helper_ready: true, provider_ready: true, meeting_route_ready: true,
-              route_execution_guard_ready: true, generation_aware_outbound_stages_ready: true,
-              finalized_utterance_source_connected: true, outbound_runtime_connected: true,
-              blockers: [], summary: 'Required Meeting translation is ready.', runtime_claim: 'frontend_render_harness'
-            },
-            outbound: {
-              generation: null, session_id: null, stage: 'idle', utterance_sequence: 0,
-              output_active: false, last_stage_ok: true, blocker: '', note: 'Ready for the next phrase.',
-              updated_unix_ms: now, runtime_claim: 'frontend_render_harness'
-            },
-            incoming: {
-              session_id: null, stage: 'idle', capture_active: false, suppressed: false,
-              degraded: false, blocker: '', note: 'Optional incoming translation is available.',
-              updated_unix_ms: now, runtime_claim: 'frontend_render_harness'
-            },
-            runtime_claim: 'frontend_render_harness'
-          };
-          const helper = {
-            state: 'ready', message: 'Local translation runtime is ready.', cuda_ready: true,
-            provider_ready: true, degraded_mode: false, active_task: null, active_request_id: null,
-            active_meeting_generation: null, active_meeting_session_id: null, active_meeting_lane: null,
-            generation_token: 1, last_error: null, stderr_log_path: null, updated_unix_ms: now,
-            runtime_claim: 'frontend_render_harness'
-          };
-          const workerStatus = {
-            ok: true, state: 'ready', task: 'status', message: 'Local translation capabilities are ready.',
-            generation_token: 1, runtime_claim: 'frontend_render_harness',
-            worker_response_json: JSON.stringify({
-              ok: true, stage: 'local_realtime_worker_preflight',
-              readiness: { asr: true, translation_id_en: true, translation_en_id: true, tts: true },
-              blocker: '', note: 'Required local translation capabilities are ready.'
-            })
-          };
-          const inputStatus = {
-            ready: true, prepared: true, selected_device_name: 'Microphone (Realtek(R) Audio)',
-            input_device_name: 'Microphone (Realtek(R) Audio)', device_count: 3, blocker: '', note: 'Microphone is ready.'
-          };
-          const routeStatus = {
-            ok: true, route_ready: true, route_pair_id: 'windows_virtual_pair:cable-vb-audio-virtual-cable',
-            selected_output_device: 'CABLE Input (VB-Audio Virtual Cable)',
-            selected_input_device: 'CABLE Output (VB-Audio Virtual Cable)',
-            preferred_output_device: null, preferred_input_device: null,
-            output_device_found: true, input_device_found: true, preference_persisted: false,
-            preference_path: null, evidence_path: null, route_output_contract_json: '{}',
-            available_output_devices: ['Speakers (Realtek(R) Audio)', 'CABLE Input (VB-Audio Virtual Cable)'],
-            available_input_devices: ['Microphone (Realtek(R) Audio)', 'CABLE Output (VB-Audio Virtual Cable)'],
-            blocker: '', next_action: 'prepare_virtual_mic_output_route_runtime_stub',
-            runtime_claim: 'frontend_render_harness', updated_unix_ms: now
-          };
-          const audioDevices = {
-            ok: true,
-            input_devices: [
-              { id: 'Microphone (Realtek(R) Audio)', name: 'Microphone (Realtek(R) Audio)', is_default: true },
-              { id: 'CABLE Output (VB-Audio Virtual Cable)', name: 'CABLE Output (VB-Audio Virtual Cable)', is_default: false }
-            ],
-            output_devices: [
-              { id: 'Speakers (Realtek(R) Audio)', name: 'Speakers (Realtek(R) Audio)', is_default: true },
-              { id: 'CABLE Input (VB-Audio Virtual Cable)', name: 'CABLE Input (VB-Audio Virtual Cable)', is_default: false }
-            ],
-            blocker: '', note: 'Audio devices discovered.'
           };
 
           const browser = await chromium.launch({ headless: true });
           const context = await browser.newContext({ viewport: { width: 1600, height: 940 }, deviceScaleFactor: 1 });
           const page = await context.newPage();
 
-          await page.addInitScript((mock) => {
+          await page.addInitScript((m) => {
             let callbackId = 1;
-            const localSettings = mock.settings;
+            const localSettings = m.settings;
             window.__TAURI_INTERNALS__ = {
               metadata: { currentWindow: { label: 'main' }, currentWebview: { label: 'main' } },
               transformCallback(callback, once = false) {
@@ -152,46 +154,28 @@ jobs:
                   case 'save_runtime_settings':
                     if (args.settings) Object.assign(localSettings, structuredClone(args.settings));
                     return { ok: true, state: 'idle', message: 'Runtime settings saved.' };
-                  case 'get_meeting_session_status': return structuredClone(mock.meetingStatus);
-                  case 'get_meeting_committed_turns': return {
-                    ok: true, has_session: false, session_id: null, turns: [], dropped_turn_count: 0,
-                    truncated: false, blocker: '', note: 'No active transcript.', runtime_claim: 'frontend_render_harness'
-                  };
-                  case 'get_helper_bridge_status': return structuredClone(mock.helper);
-                  case 'helper_bridge_worker_status': return structuredClone(mock.workerStatus);
-                  case 'get_input_status': return structuredClone(mock.inputStatus);
-                  case 'get_virtual_mic_route_contract_status': return structuredClone(mock.routeStatus);
-                  case 'list_audio_devices': return structuredClone(mock.audioDevices);
-                  case 'probe_input_device_candidate': return structuredClone(mock.inputStatus);
-                  case 'probe_output_device_candidate': return {
-                    ok: true, device_kind: 'meeting_sound', requested_device_id: args.deviceId ?? null,
-                    resolved_device_name: args.deviceId || 'Speakers (Realtek(R) Audio)', is_default: !args.deviceId,
-                    sample_rate_hz: 48000, channels: 2, blocker: '', note: 'Meeting sound is available.'
-                  };
+                  case 'get_meeting_session_status': return structuredClone(m.meetingStatus);
+                  case 'get_meeting_committed_turns': return { ok: true, has_session: false, session_id: null, turns: [], dropped_turn_count: 0, truncated: false, blocker: '', note: 'No active transcript.', runtime_claim: 'frontend_render_harness' };
+                  case 'get_helper_bridge_status': return structuredClone(m.helper);
+                  case 'helper_bridge_worker_status': return structuredClone(m.workerStatus);
+                  case 'get_input_status': return structuredClone(m.inputStatus);
+                  case 'get_virtual_mic_route_contract_status': return structuredClone(m.routeStatus);
+                  case 'list_audio_devices': return structuredClone(m.audioDevices);
+                  case 'probe_input_device_candidate': return structuredClone(m.inputStatus);
+                  case 'probe_output_device_candidate': return { ok: true, device_kind: 'meeting_sound', requested_device_id: args.deviceId ?? null, resolved_device_name: args.deviceId || 'Speakers (Realtek(R) Audio)', is_default: !args.deviceId, sample_rate_hz: 48000, channels: 2, blocker: '', note: 'Meeting sound is available.' };
                   case 'verify_models': return { ok: true, blockers: [], note: 'Required model assets are installed.' };
-                  case 'translate_text': return {
-                    ok: true, state: 'translated',
-                    translated_text: 'Good morning everyone. Today I would like to discuss the latest project progress and the next steps for our team.',
-                    user_message: 'Translation ready.', blocker: ''
-                  };
-                  case 'start_helper_bridge': return {
-                    ok: true, state: 'ready', message: 'Local translation runtime is ready.', generation_token: 1,
-                    runtime_claim: 'frontend_render_harness'
-                  };
+                  case 'translate_text': return { ok: true, state: 'translated', translated_text: 'Good morning everyone. Today I would like to discuss the latest project progress and the next steps for our team.', user_message: 'Translation ready.', blocker: '' };
+                  case 'start_helper_bridge': return { ok: true, state: 'ready', message: 'Local translation runtime is ready.', generation_token: 1, runtime_claim: 'frontend_render_harness' };
                   case 'start_capture': return { ok: true, state: 'running', message: 'Mic Test started.' };
                   case 'stop_capture': return { ok: true, state: 'idle', message: 'Mic Test stopped.' };
-                  case 'select_audio_device': return {
-                    ok: true, kind: args.kind, device_id: args.deviceId ?? null,
-                    device_name: args.deviceId || 'Windows Default', message: 'Audio device saved.',
-                    settings: structuredClone(localSettings)
-                  };
+                  case 'select_audio_device': return { ok: true, kind: args.kind, device_id: args.deviceId ?? null, device_name: args.deviceId || 'Windows Default', message: 'Audio device saved.', settings: structuredClone(localSettings) };
                   case 'plugin:event|listen': return 1;
                   case 'plugin:event|unlisten': return null;
                   default: throw new Error(`frontend render harness has no response for ${cmd}`);
                 }
               }
             };
-          }, { settings, meetingStatus, helper, workerStatus, inputStatus, routeStatus, audioDevices });
+          }, mock);
 
           await page.goto('http://127.0.0.1:4173', { waitUntil: 'networkidle' });
           await page.getByRole('heading', { name: 'Speak Indonesian. Your meeting hears English.' }).waitFor({ timeout: 15000 });
@@ -225,7 +209,7 @@ jobs:
           exit 1
 
       - name: Render actual frontend source
-        run: node /tmp/render-translateit.mjs
+        run: node render-translateit.mjs
 
       - name: Upload screenshots and frontend proof
         uses: actions/upload-artifact@v4
