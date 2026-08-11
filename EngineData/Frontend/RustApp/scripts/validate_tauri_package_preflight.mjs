@@ -238,16 +238,6 @@ forbidMarkers(workerPyproject, "runtime dependency hidden behind optional extra"
   "virtual-audio-route = [",
 ]);
 
-const runtimeInventoryRs = readText(runtimeInventoryPath);
-requireMarkers(runtimeInventoryRs, "model inventory path consumers", [
-  "project_paths.runtime_root",
-  "project_paths.worker_runtime_dir",
-  "project_paths.user_cache_dir",
-]);
-forbidMarkers(runtimeInventoryRs, "model inventory project-root derivation", [
-  "project_paths.project_root",
-]);
-
 const worker = readText(workerPath);
 requireMarkers(worker, "worker packaged/runtime path split", [
   'SCRIPT_ROOT = Path(__file__).resolve().parents[4]',
@@ -262,9 +252,19 @@ requireMarkers(worker, "worker packaged/runtime path split", [
   'raise ValueError("worker:path_outside_allowed_roots")',
 ]);
 forbidMarkers(worker, "worker repository-coupled writable paths", [
-  'ROOT = Path(__file__).resolve().parents[4]',
+  '\nROOT = Path(__file__).resolve().parents[4]\n',
   'CACHE_ROOT = ROOT / "UserData"',
   'ALLOWED_INPUT_ROOTS = [ROOT / "UserData"',
+]);
+
+const runtimeInventoryRs = readText(runtimeInventoryPath);
+requireMarkers(runtimeInventoryRs, "model inventory path consumers", [
+  "project_paths.runtime_root",
+  "project_paths.worker_runtime_dir",
+  "project_paths.user_cache_dir",
+]);
+forbidMarkers(runtimeInventoryRs, "model inventory project-root derivation", [
+  "project_paths.project_root",
 ]);
 
 if (process.exitCode) process.exit(process.exitCode);
