@@ -2,46 +2,63 @@
 
 This directory is the current desktop application package on branch `New`.
 
-## Ownership
+## Frontend Ownership
 
 ```text
-index.html -> src/main.ts
--> one normal frontend module entry
-
-src/app/simple-launcher/
--> current desktop controller, global Meeting state, and Live transcript presentation
-
-src/app/bridge/
--> one thin runtime API + one product facade
-
-src/app/active-launcher/
--> current Meeting/Text/Settings shell and bounded settings/diagnostics renderers
-
-src/app/first-setup/
--> first-use Meeting setup
-
-src-tauri/src/commands/
--> bounded Tauri command surface
-
-src-tauri/src/engine/
--> runtime/audio/session implementation; deeper inherited dead graph is the next cleanup boundary
-
-scripts/
--> proportional core source/preflight checks plus explicit local compile entrypoint
+index.html
+-> src/main.ts
+-> one Svelte mount
+-> src/App.svelte
+   ├─ pages/FirstSetup.svelte
+   ├─ pages/Meeting.svelte
+   ├─ pages/Text.svelte
+   └─ pages/Settings.svelte
 ```
 
-The canonical architecture is one Rust/Tauri desktop application plus one Python local worker. Do not add parallel launchers, worker services, route controllers, readiness systems, or feature bridges to preserve retired behavior.
+Runtime boundaries remain separate:
 
-## Current Product Surface
+```text
+src/app/bridge/runtimeProductFacade.ts
+-> product-readable state/actions
 
-Normal product UI is Meeting / Text / Settings. Audio Studio, History/Saved, Documents, tone/mode controls, and dev pipeline control surfaces are not initial core and are not separate frontend entries.
+src/app/bridge/runtimeApi.ts
+-> Tauri command boundary
 
-## UI Boundary
+src-tauri/src/commands/
+-> Rust desktop/runtime commands
+```
 
-Visual truth comes from source actually imported by `src/main.ts` and its current callers. Names such as `referenceLayout.css` or `lockedReferenceShellParts.ts` do not make a file historical while the current UI still imports/calls it. Visual/CSS pruning should use rendered proof where removing a reachable stylesheet could change the current interface.
+The previous manual DOM controller/template-string frontend is removed from the active source graph rather than retained as a parallel compatibility shell.
 
-## Proof Boundary
+## Frontend Stack
 
-Static source checks do not prove TypeScript/Rust compilation, Tauri launch, Windows audio, model execution, latency, rendered UI, installer behavior, or clean-machine operation. Local/generated proof remains derived output and must not become source authority.
+Approved source stack:
+
+```text
+Tauri 2
+Svelte 5
+Vite
+TypeScript
+Tailwind CSS 4
+CSS custom-property design tokens
+selective Bits UI
+Lucide Svelte
+```
+
+No SvelteKit, frontend router, Redux-like state library, heavy UI framework, CSS-in-JS, or general animation framework is required for the current product.
+
+`styles/tokens.css` owns the small semantic token set. `styles/app.css` owns Tailwind loading, base desktop rules, focus behavior, reduced-motion behavior, and a few justified shared component classes.
+
+## Product Surface
+
+Normal UI remains Meeting / Text / Settings, with First Setup shown when required. Audio Studio, History/Saved, Documents, tone/mode controls, and developer pipeline controls are not initial core.
+
+Meeting lifecycle, settings persistence, audio truth, model/provider truth, and translation execution remain owned by the existing Rust/Python runtime. Svelte state is presentation/application state only.
+
+## Dependency / Proof Boundary
+
+The source migration was authored through ChatGPT -> GitHub. The previous `package-lock.json` must not be treated as valid for the new Svelte dependency graph and should be regenerated when dependencies are materialized locally.
+
+The user has chosen to defer local testing while major frontend work is still being assembled. Before release, the project still requires Svelte dependency installation/autofix/typecheck/build/render proof plus the existing Rust/Tauri/Python/audio/installer proof described by the canonical project docs.
 
 Resume work through root `AGENTS.md`, `CONTEXT.md`, and `docs/knowledge/next-action.md`.

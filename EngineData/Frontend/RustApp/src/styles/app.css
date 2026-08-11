@@ -1,0 +1,110 @@
+@import "tailwindcss";
+@import "./tokens.css";
+
+@layer base {
+  * {
+    box-sizing: border-box;
+  }
+
+  html,
+  body,
+  #app {
+    min-height: 100%;
+  }
+
+  body {
+    margin: 0;
+    min-width: 980px;
+    min-height: 100vh;
+    overflow: hidden;
+    background: var(--ti-bg);
+    color: var(--ti-text);
+    font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+  }
+
+  button,
+  input,
+  select,
+  textarea {
+    font: inherit;
+  }
+
+  button {
+    cursor: pointer;
+  }
+
+  button:disabled,
+  select:disabled,
+  textarea:disabled,
+  input:disabled {
+    cursor: not-allowed;
+    opacity: 0.55;
+  }
+
+  :focus-visible {
+    outline: 2px solid var(--ti-accent);
+    outline-offset: 3px;
+  }
+}
+
+@layer components {
+  .ti-panel {
+    border: 1px solid var(--ti-border);
+    border-radius: var(--ti-radius-lg);
+    background: var(--ti-surface);
+    box-shadow: var(--ti-shadow-card);
+  }
+
+  .ti-button {
+    display: inline-flex;
+    min-height: 42px;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    border: 1px solid var(--ti-border-strong);
+    border-radius: var(--ti-radius-md);
+    padding: 0 16px;
+    background: var(--ti-accent);
+    color: var(--ti-accent-contrast);
+    font-weight: 750;
+    transition: background-color 120ms ease, border-color 120ms ease, transform 120ms ease;
+  }
+
+  .ti-button:hover:not(:disabled) {
+    transform: translateY(-1px);
+  }
+
+  .ti-button-secondary {
+    background: var(--ti-surface-raised);
+    color: var(--ti-text);
+  }
+
+  .ti-field {
+    width: 100%;
+    border: 1px solid var(--ti-border);
+    border-radius: var(--ti-radius-md);
+    background: var(--ti-surface-soft);
+    color: var(--ti-text);
+  }
+
+  .ti-kicker {
+    color: var(--ti-text-muted);
+    font-size: 0.72rem;
+    font-weight: 800;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    scroll-behavior: auto !important;
+    transition-duration: 0.01ms !important;
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+  }
+}

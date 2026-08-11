@@ -2,122 +2,120 @@
 
 ## Current Status
 
-The initial product remains Meeting / Text / Settings with required Indonesian -> English Meeting voice, optional incoming English -> Indonesian text, and bidirectional Text translation.
+The user has explicitly prioritized completing major frontend work before local/integration testing. Local PythonRuntime, Svelte build/render, Tauri, model, audio, installer, and clean-machine proof remain required before release but are intentionally deferred for now.
 
-P0 through P0.4 source simplification remain closed. Packaged-worker interpreter source ownership is aligned, and the long-term frontend architecture/skill routing is now decided without changing the current runtime critical path:
+Frontend Phase 1 source migration is now aligned:
 
-- initial release still has no SHA-256/checksum/revision identity framework;
-- canonical packaged Python is `EngineData/Backend/LocalWorker/PythonRuntime/python.exe` and packaged source cannot silently fall through to system Python;
-- the existing worker/provider scripts remain the one Python runtime owner;
-- current frontend source is still Vite + vanilla TypeScript/manual DOM and remains runtime truth until migration is implemented;
-- approved frontend target is Tauri 2 + Svelte 5 + Vite + TypeScript + Tailwind CSS 4 + semantic CSS custom-property tokens + selective Bits UI + Lucide Svelte;
-- SvelteKit, frontend router, Redux-like state library, heavy UI framework, CSS-in-JS, full shadcn-svelte dump, and general animation framework are not default dependencies;
-- framework/application migration routes to `desktop-runtime-development`;
-- visual system/component craft routes to `desktop-ui-design-development`;
-- official Svelte `svelte-code-writer`, `svelte-core-bestpractices`, and `@sveltejs/mcp` tooling are conditional technical helpers, not new TranslateIT project specialists;
-- the frozen TranslateIT project-skill baseline remains unchanged;
-- no Svelte package/source migration was started in this skill-governance slice.
+- one frontend module entry remains: `index.html -> src/main.ts`;
+- `src/main.ts` mounts one Svelte application root: `App.svelte`;
+- Meeting / Text / Settings / First Setup are declarative Svelte owners;
+- Meeting live activity and committed transcript presentation are Svelte-owned;
+- native safe-close still uses the canonical Meeting Stop path and fails closed when state cannot be verified;
+- `runtimeApi.ts`, `runtimeProductFacade.ts`, shared settings types/state, Rust commands, and Python runtime contracts are preserved;
+- old `active-launcher`, `simple-launcher`, vanilla First Setup, manual icon source, and legacy root CSS owners are removed rather than left as a dual shell;
+- approved stack declarations are Svelte 5 + Vite + TypeScript + Tailwind CSS 4 + semantic CSS tokens + selective Bits UI + Lucide Svelte;
+- Bits UI is used selectively for the safe-close dialog; native audio-device selects remain native;
+- no SvelteKit, router, Redux-like state library, heavy UI framework, CSS-in-JS, full shadcn dump, or animation framework was added;
+- package-lock from the old dependency graph is removed rather than presented as valid for the new Svelte graph; regenerate it during the later local dependency-materialization/proof stage.
 
-No Rust compile, TypeScript/Svelte typecheck, Svelte autofixer, validator execution, Python runtime payload build, worker/model execution, Tauri launch, rendered UI proof, Windows audio acceptance, installer execution, or clean-machine proof was obtained through ChatGPT -> GitHub.
+No `npm install`, Svelte autofixer, `svelte-check`, Vite build, Tauri launch, Rust compile, Python/model execution, Windows audio proof, or rendered UI proof was executed through ChatGPT -> GitHub.
 
-## Frontend Skill Architecture — Closed Decision
+## Closed — Frontend Phase 1: Svelte Application Ownership
 
-Professional frontend work now follows this composition:
+Current intended source shape:
 
 ```text
-approved behavior-changing / migration task
--> development-brief
--> one semantic TranslateIT specialist
-
-framework/application migration + state/bridge parity
--> desktop-runtime-development
-
-visual hierarchy/layout/tokens/component states/rendered acceptance
--> desktop-ui-design-development
-
-Svelte syntax/reactivity/framework validation
--> official Svelte technical helper workflow
+src/
+├─ main.ts
+├─ App.svelte
+├─ pages/
+│  ├─ FirstSetup.svelte
+│  ├─ Meeting.svelte
+│  ├─ Text.svelte
+│  └─ Settings.svelte
+├─ components/
+│  ├─ layout/Sidebar.svelte
+│  ├─ meeting/MeetingActivity.svelte
+│  └─ ui/StatusBadge.svelte
+├─ styles/
+│  ├─ app.css
+│  └─ tokens.css
+└─ app/
+   ├─ bridge/
+   │  ├─ runtimeApi.ts
+   │  └─ runtimeProductFacade.ts
+   └─ shared/
+      ├─ state.ts
+      ├─ tauriBridge.ts
+      └─ types.ts
 ```
 
-For future `.svelte`, `.svelte.ts`, or `.svelte.js` work in Codex/Local, the official Svelte helper/autofixer workflow is required before finalization. This tooling does not become a second project specialist or runtime dependency.
-
-The migration itself must remain behavior-preserving: one Svelte application root, existing Tauri/runtime bridge contracts preserved by default, no duplicated product truth in frontend stores, and no permanent vanilla/Svelte dual shell.
+This is an application-architecture migration, not runtime proof or final visual acceptance.
 
 ## Current Mode
 
-**Developing** for real prepared-runtime proof.
+**Developing** — frontend major-feature completion.
 
 Execution channel:
 
 ```text
-Codex / Local
+ChatGPT -> GitHub
 ```
 
-The next boundary still needs an actual Windows/release filesystem and process execution. The frontend architecture decision does not replace that runtime proof.
+Use:
 
-## Next Step — Prepare PythonRuntime Payload + Worker Smoke
+```text
+development-brief
++ desktop-ui-design-development
+```
+
+Official Svelte documentation/AI guidance may be used as conditional technical help. Local autofixer/build proof remains deferred until the user requests the later proof stage.
+
+## Next Step — Frontend Phase 2: Visual System And Component Professionalization
 
 ### Goal
 
-Build one real private `PythonRuntime` payload locally at the selected layout and prove that the existing worker/provider execute from it outside the repository before adding installer staging or beginning the Svelte source migration.
+Turn the Phase 1 Svelte structure into a coherent, maintainable desktop UI system without changing Meeting/Text/runtime behavior.
 
-### Required Payload
+### Scope
 
-Prepare:
-
-```text
-EngineData/Backend/LocalWorker/PythonRuntime/
-├─ python.exe
-├─ required embedded CPython files
-└─ vendored runtime packages required by current pyproject.toml
-```
-
-Runtime dependencies currently include:
-
-```text
-ctranslate2
-faster-whisper
-numpy
-sacremoses
-sentencepiece
-sounddevice
-soundfile
-torch
-transformers
-```
-
-Models remain outside the Python runtime under the existing `RuntimeAssets` layout.
-
-### Proof Sequence
-
-Use the weakest proof that can falsify each next claim:
-
-```text
-1. private PythonRuntime/python.exe starts outside the repository
-2. required worker imports succeed from that private runtime
-3. realtime_local_worker.py ping/status succeeds with explicit runtime/user roots
-4. real ID->EN and EN->ID Text translation succeeds against prepared model paths
-5. virtual_audio_route_provider.py can import packaged numpy + sounddevice
-6. app/helper can start the same private interpreter without system Python, uv, or .venv
-```
-
-Clean-machine Windows execution is still required after the local prepared payload passes. Actual Meeting audio arrival is a separate Windows audio/device proof.
+1. audit the Svelte surfaces against the approved product hierarchy and current visual intent;
+2. establish a small durable token vocabulary for surfaces, text, state colors, spacing/radius/elevation only where repetition proves value;
+3. professionalize Sidebar, top status area, Meeting Ready/Live, Text translator, First Setup, Settings, and Diagnostics composition;
+4. standardize meaningful component states: default, focus, active, checking, ready, setup-needed/degraded, disabled;
+5. improve resizable desktop composition and keyboard/focus visibility;
+6. keep Bits UI selective; introduce another primitive only when its accessibility/interaction complexity earns the dependency use;
+7. keep motion limited to useful state/orientation feedback and reduced-motion safe.
 
 ### Constraints
 
-- do not commit CPython binaries, wheels, models, or generated payload bytes to Git unless release policy explicitly changes;
-- do not add a downloader, package manager, dependency registry, hash/checksum framework, freeze spec, or another worker launcher;
-- do not change model family, worker protocol, Meeting lifecycle, or audio routing semantics to make packaging easier;
-- do not add NSIS/Tauri payload-copy hooks until the prepared private runtime actually starts the worker and provider locally;
-- failed import/load/process proof is evidence to fix the prepared payload, not permission to fall back to system Python in packaged mode;
-- do not begin the Svelte migration inside this runtime-proof slice.
+- do not change Rust/Python/audio/model/Meeting lifecycle behavior;
+- do not add SvelteKit, router, global state manager, heavy component framework, CSS-in-JS, or general animation framework;
+- do not recreate generic wrapper/component layers with no semantic responsibility;
+- do not create a second design-token/theme system beside `styles/tokens.css`;
+- do not restore old vanilla controller/CSS ownership;
+- do not treat source markup as rendered visual proof.
 
 ### Acceptance
 
-1. private `PythonRuntime/python.exe` works from the intended non-repository payload layout;
-2. worker ping/status and both Text directions execute with the private runtime and prepared local models;
-3. Meeting provider imports `numpy` and `sounddevice` from the same private runtime;
-4. no system Python/uv/.venv dependency is needed for the tested runtime path;
-5. exact local limitations are recorded before the subsequent installer-staging slice.
+1. every major frontend surface follows one coherent hierarchy/density/token language;
+2. component boundaries reflect reusable behavior or meaningful visual/state responsibility rather than file-count goals;
+3. Meeting lifecycle/readiness distinctions remain visually explicit without inventing runtime truth;
+4. the Svelte source remains one active frontend path with the existing facade/bridge contract;
+5. local dependency install/autofix/typecheck/build/render proof remains explicitly deferred and accumulated for the later integrated-test stage requested by the user.
 
-After this passes, the next source work can be explicitly prioritized between the smallest Tauri/NSIS placement hook for the proven runtime payload and the approved Svelte migration; do not mix those independent boundaries in one Developing slice.
+## Deferred Proof Queue
+
+When the user decides major features are ready for testing, run the accumulated proof in a controlled sequence rather than piecemeal now:
+
+```text
+frontend dependency install + regenerate package-lock
+-> Svelte autofixer
+-> svelte-check
+-> Vite frontend build
+-> Rust/Tauri compile + launch
+-> private PythonRuntime + worker/model smoke
+-> Windows Meeting audio/device proof
+-> installer/installed-runtime proof
+-> clean-machine proof
+```

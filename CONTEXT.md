@@ -6,11 +6,11 @@ This file stores stable current project facts. Active continuation belongs in `d
 
 - Development authority: branch `New`.
 - `V1-Advance`, older branches, and `DevelopingData` are historical/recovery evidence only.
-- Current product policy is `docs/foundation/01-product-overview.md` + `02-product-requirements.md`.
+- Product policy is owned by `docs/foundation/01-product-overview.md` and `02-product-requirements.md`.
 
 ## Product Target
 
-TranslateIT is a simple local Windows translator focused on Indonesian and English.
+TranslateIT is a local Windows translator focused on Indonesian and English.
 
 ```text
 Meeting
@@ -23,7 +23,7 @@ Meeting
 Text
 ├─ ID <-> EN
 ├─ Translate
-└─ Copy
+└─ Copy/edit result
 
 Settings
 ├─ Meeting devices/setup
@@ -41,17 +41,64 @@ Pause/Resume, History/Saved, Audio Studio, Documents, Tone/Context, partial tran
 ## Runtime Architecture
 
 ```text
-Rust/Tauri desktop application
-+
-ONE Python local worker
+Tauri 2 desktop application
+├─ Svelte frontend
+├─ Rust desktop/runtime backend
+└─ ONE Python local worker
 ```
 
-The worker owns ASR, direction-based ID <-> EN translation, and TTS execution. Rust owns Meeting/session authority, Windows audio integration, routing, settings, and desktop integration. Do not create a parallel engine, shell, readiness service, model selector, or worker launcher architecture.
+Rust owns Meeting/session authority, Windows audio integration, routing, settings, paths, and desktop integration. The Python worker owns ASR, direction-based ID <-> EN translation, and TTS execution. Do not create a parallel engine, shell, readiness service, model selector, worker launcher, or second product-state owner.
+
+## Frontend Architecture
+
+The active frontend source is now a plain Svelte 5 SPA inside the existing Tauri application:
+
+```text
+Tauri 2
++ Svelte 5
++ Vite
++ TypeScript
++ Tailwind CSS 4
++ semantic CSS custom-property tokens
++ selective Bits UI
++ Lucide Svelte
+```
+
+Current source ownership:
+
+```text
+src/main.ts
+-> one Svelte mount
+-> src/App.svelte
+   ├─ FirstSetup.svelte
+   ├─ Meeting.svelte
+   │  └─ MeetingActivity.svelte
+   ├─ Text.svelte
+   └─ Settings.svelte
+
+src/app/bridge/runtimeApi.ts
+src/app/bridge/runtimeProductFacade.ts
+-> retained Tauri/product runtime boundary
+```
+
+The former `active-launcher`, `simple-launcher`, vanilla First Setup, manual icon strings, and root legacy CSS owners are removed from the active source graph rather than left as a permanent dual frontend.
+
+Frontend rules:
+
+- one Svelte application root;
+- Svelte state is presentation/application state, not duplicate Rust/runtime truth;
+- no SvelteKit, frontend router, Redux-like state library, CSS-in-JS, heavy UI framework, full shadcn-svelte dump, or general animation framework by default;
+- Tailwind handles ordinary layout/styling; CSS custom properties own durable semantic visual tokens;
+- Bits UI is selective and currently serves the safe-close dialog boundary;
+- Lucide Svelte is the default icon family;
+- `runtimeApi.ts` and `runtimeProductFacade.ts` remain the product bridge/facade by default.
+
+The migration source has **not** been dependency-installed, Svelte-autofixed, typechecked, built, launched, or visually rendered in this ChatGPT -> GitHub channel. Source ownership is established; executable/rendered proof remains pending.
 
 ## Translation Contract
 
 - Meeting required outbound: Indonesian -> English.
-- Text: Indonesian -> English and English -> Indonesian.
+- Text supports Indonesian -> English and English -> Indonesian.
 - Current worker routes `id->en` to `marianmt-id-en` and `en->id` to `marianmt-en-id`.
 - Finalized stable speech is normal Meeting translation truth.
 - Source text is not silently truncated and known incomplete generation is not promoted.
@@ -62,57 +109,29 @@ The worker owns ASR, direction-based ID <-> EN translation, and TTS execution. R
 
 `commands/meeting_session.rs` + `engine/runtime_state.rs` remain the application Meeting owner.
 
-Start establishes one session/authority. Navigation does not stop/recreate it. Stop revokes output authority before resource cleanup, stops both audio lanes, cancels/joins Meeting work, clears transient conversation/audio state, and ends the session. Safe application close delegates to the same Stop owner.
+Start establishes one session/authority. Navigation does not stop/recreate it. Stop revokes output authority before resource cleanup, stops both audio lanes, cancels/joins Meeting work, clears transient conversation/audio state, and ends the session. Safe application close uses the same Stop owner and fails closed when session state cannot be verified.
 
 The bounded committed-turn store is transient Live transcript state only; Meeting Stop has no History persistence dependency.
 
-The old pipeline/handoff state and its final no-state cleanup tombstones are removed. Meeting rollback/Stop now clean only resources and transient state that still exist.
+## Persisted Settings Contract
 
-## Current Product Runtime Surface
-
-The frontend has one normal module entry: `src/main.ts`. The old parallel Audio Studio entry and retry polling are removed.
-
-The frontend/Tauri product surface is bounded to current Meeting/Text/setup needs: Meeting status/turns/Start/Stop, helper status/start/worker status, Mic Test Start/Stop, audio status/device probes, settings load/save, Text Translate, and explicit Verify Models.
-
-Meeting Microphone route modules remain internal dependencies of `meeting_session.rs`; they are not a manual frontend command surface.
-
-## Frontend Architecture
-
-Current implementation is still the existing Vite + TypeScript + manual DOM/CSS frontend. The approved long-term migration target is:
+Current persisted settings schema is version 6:
 
 ```text
-Tauri 2
-+ Svelte 5
-+ Vite
-+ TypeScript
-+ Tailwind CSS 4
-+ CSS custom-property design tokens
-+ selective Bits UI primitives
-+ Lucide Svelte
+schema_version
+source_language
+target_language
+meeting_setup_state
+meeting_setup_checkpoint
+audio.input_device_id
+audio.output_device_id
 ```
 
-The target is a plain Svelte SPA inside Tauri. SvelteKit, a frontend router, Redux-like state library, heavy component framework, CSS-in-JS, full shadcn-svelte component dump, and general animation framework are not default dependencies.
+`engine/settings.rs` is the single schema/deserialization/sanitization owner. The previous larger JSON shape is tolerated through ignored legacy keys; normal save writes only the small schema. There is no migration registry or second settings store.
 
-Migration responsibilities are intentionally split by semantic boundary:
+## Rust / Backend Surface
 
-```text
-framework/application migration + state/bridge parity
--> desktop-runtime-development
-
-visual hierarchy/layout/tokens/component visual states/rendered acceptance
--> desktop-ui-design-development
-
-Svelte syntax/reactivity/tool validation
--> official Svelte AI/MCP technical helpers
-```
-
-The official Svelte helpers are conditional tooling, not new TranslateIT project specialists. The frozen project skill baseline remains unchanged. Svelte migration must preserve one frontend root, the existing Tauri/runtime bridge contracts, Meeting/Text behavior, and one source of product truth; it must not leave a permanent vanilla/Svelte dual shell.
-
-Until migration source is actually implemented and proved, the current vanilla TypeScript frontend remains runtime truth.
-
-## Rust Engine Surface
-
-The Rust engine graph is reduced to current owners only:
+The Rust engine graph remains reduced to current owners only:
 
 ```text
 engine/
@@ -126,41 +145,9 @@ engine/
 └─ state.rs
 ```
 
-The old adapter/planning tree, History/Chat/session-save persistence, transcript-session planning, native inference/backend candidates, CUDA/status/report modules, domain/services scaffolding, related dry-run/orchestration leaves, and old handoff-state compatibility path are removed from `New`.
+The old adapter/planning tree, History/Chat/session persistence, transcript-session planning, native inference candidates, CUDA/status/report scaffolding, duplicate RuntimeContracts, and handoff compatibility tombstones are removed.
 
-Backend `RuntimeContracts/` JSON scaffolding is removed because the current worker, active Tauri path, and current validators do not consume it; source/docs remain the contract authorities.
-
-## Persisted Settings Contract
-
-Current persisted settings schema is version 6 and contains only current product state:
-
-```text
-schema_version
-source_language
-target_language
-meeting_setup_state
-meeting_setup_checkpoint
-audio.input_device_id
-audio.output_device_id
-```
-
-The previous larger schema is tolerated by the same `engine/settings.rs` owner. Serde ignores retired keys while preserving the current values; the next normal save writes only the small schema. There is no generic migration framework or second settings store.
-
-Removed persisted concepts include `language_focus_mode`, `runtime_profile`, `history_enabled`, old sensitivity/mode flags, CPU/degraded audio flags, autoplay flags, and custom voice/profile state.
-
-## Normal Readiness Cost
-
-Normal `loadProductRuntimeSnapshot()` reads only settings, Meeting session status, helper status, microphone/input status, and worker capability status when helper is ready. It does not fetch full status bundles, model inventory, or native GPU policy on every refresh.
-
-Meeting preflight still checks required model presence through the cached Rust inventory; explicit Verify Models refreshes that cache.
-
-## Validation Boundary
-
-The old matrix/report-heavy validation system is removed. Current persistent source validation is intentionally small: core/startup source contract, internal Meeting route contract, Rust manifest preflight, and frontend build preflight. Package/path preflight remains separate. `check:tauri-rust-local` remains explicit local compile proof.
-
-Static validators do not prove compile, Tauri launch, models, Windows audio, rendered UI, latency, installer behavior, or clean-machine operation.
-
-For future Svelte source work, official Svelte autofix/documentation tooling is a technical helper. Svelte compile/type/accessibility claims require the relevant local `sv check`/build proof; rendered UI claims still require rendered evidence.
+Normal `loadProductRuntimeSnapshot()` reads only settings, Meeting status, helper status, input status, and worker capability when the helper is ready. Heavy diagnostic/model/native probing is not normal polling work.
 
 ## Release Boundary
 
@@ -170,28 +157,19 @@ Installed Python execution is selected as:
 
 ```text
 <runtime root>/EngineData/Backend/LocalWorker/
-├─ WorkerRuntime/   -> existing Python worker/provider scripts
-└─ PythonRuntime/   -> one private embedded CPython runtime + vendored packages
+├─ WorkerRuntime/
+└─ PythonRuntime/
+   └─ python.exe
 ```
 
-Canonical installed interpreter is:
+Packaged source resolves only `PythonRuntime/python.exe`. Repository env/`.venv`/system-Python discovery is development-only. Persistent worker and Meeting Microphone provider share the same interpreter resolver and WorkerRuntime root. Models remain in `RuntimeAssets`.
 
-```text
-EngineData/Backend/LocalWorker/PythonRuntime/python.exe
-```
+Actual PythonRuntime bytes, vendored packages, installer placement, model execution, Meeting provider imports, and clean-machine behavior remain local release proof.
 
-Source ownership is now aligned to that layout. `engine/paths.rs` exposes `python_runtime_dir`; packaged `bridge_paths.rs` resolves only the private `python.exe` and cannot fall through to environment overrides, `.venv`, `python`, `python3`, or Windows `py`. Repository fallback remains behind the existing verified development gate.
+## Validation And Deferred Proof
 
-The persistent worker and Meeting Microphone provider use the same interpreter resolver and `WorkerRuntime` root. The route provider no longer has a separate `TRANSLATEIT_PYTHON`/system-Python path. Packaged resolution only checks the canonical file path; `python --version` probing remains development-only so Meeting delivery does not start an extra probe process per utterance.
+Persistent source validation remains intentionally small: frontend/startup source contract, internal Meeting route contract, Rust manifest preflight, and package/path preflight.
 
-Models remain in `RuntimeAssets`. The worker runtime dependency set includes `ctranslate2`, `faster-whisper`, `numpy`, `sacremoses`, `sentencepiece`, `soundfile`, `torch`, `transformers`, and `sounddevice`; `sounddevice` is no longer hidden behind a development optional extra.
+The user has explicitly chosen to postpone local/integration testing while major frontend work is still being assembled. That changes **when** proof is run, not the acceptance standard. Before release, the project still requires the relevant dependency install/lock regeneration, Svelte autofixer, `svelte-check`, frontend build, Tauri launch, Rust compile, Python/model execution, Windows audio/device validation, installed-runtime proof, and clean-machine proof.
 
-A copied `.venv` and a frozen PyInstaller/Nuitka worker are not selected for the initial release. End users do not install Python, pip, uv, create environments, set worker-Python overrides, or rely on system `python`/`py`.
-
-No dependency lock/hash framework is required for the initial controlled release unless concrete release drift later proves it necessary. The useful acceptance boundary remains approved prepared payload + deterministic placement + real installed and clean-machine execution.
-
-Actual `PythonRuntime` bytes, vendored packages, Tauri/NSIS placement, worker/model execution, Meeting provider imports, and clean-machine behavior remain local release proof.
-
-## Proof Boundary
-
-ChatGPT -> GitHub can establish source structure, direct wiring, static ownership, architecture decisions, and skill routing. This repository state does not prove Rust/TypeScript/Svelte compilation, validator execution, Python payload construction/execution, Tauri launch, rendered UI, Windows audio/device behavior, model presence/load/quality/latency, installer behavior, or clean-machine installation.
+`package-lock.json` must not be treated as valid for the new Svelte dependency graph until it is regenerated by the later local dependency-materialization step.

@@ -1,6 +1,6 @@
 # TranslateIT — Decision Log
 
-This file keeps only durable reasoning needed to continue the current product. Superseded detail remains available in Git history; it is not repeated here because old feature decisions must not consume normal task context or appear to authorize retired behavior.
+This file keeps durable reasoning required to continue the current product. Superseded implementation detail remains in Git history rather than being repeated as active policy.
 
 ## D-001 — `New` Is Development Authority
 
@@ -8,163 +8,116 @@ This file keeps only durable reasoning needed to continue the current product. S
 Branch `New` owns current development. `V1-Advance`, older branches, `DevelopingData`, and old reports are recovery evidence only.
 
 **Reason**  
-Current product policy and source have been reconciled on `New`. Historical implementation must not silently override current owners.
+Historical implementation must not silently override current product/source owners.
 
 ## D-002 — One Desktop Product And One Local Worker
 
 **Decision**  
-Keep one Rust/Tauri desktop application and one existing Python helper/worker path for ASR, translation, and TTS. Do not create a second launcher, translator engine, model-selection service, readiness service, or compatibility runtime to avoid repairing the current owner.
+Keep one Rust/Tauri desktop application and one Python worker path for ASR, translation, and TTS. Do not create a second launcher, translator engine, model-selection service, readiness service, or compatibility runtime.
 
 **Reason**  
-The repository already contains valid semantic owners. Parallel implementations add failure paths without improving the core translator.
+Parallel implementations add failure paths without improving the core translator.
 
 ## D-003 — Reliable Translation Core Supersedes Feature Breadth
 
 **Decision**  
-The initial product is intentionally limited to:
+Initial product scope is Meeting / Text / Settings with required ID -> EN Meeting voice, optional EN -> ID incoming text, and explicit bidirectional Text translation.
 
-```text
-Meeting
-├─ Start Translation
-├─ final ID speech -> EN translation -> EN TTS
-├─ translated voice -> TranslateIT Meeting Microphone
-├─ optional EN Meeting Sound -> ID text
-└─ Stop Translation
-
-Text
-├─ ID <-> EN
-├─ Translate
-└─ Copy
-
-Settings
-├─ Meeting
-└─ Advanced / Diagnostics
-```
-
-Not initial core: Pause/Resume, Push to Talk, Stop Voice, Speak Now/Cancel, partial translated subtitles, Realtime/Quality user modes, tone/context controls, History/Saved, Audio Studio/custom voice, Documents, additional languages, incoming TTS, or automatic mid-session Meeting Sound default-device rebind.
+Not initial core: Pause/Resume, PTT, Stop Voice, partial translated subtitles, Realtime/Quality user modes, tone/context controls, History/Saved, Audio Studio/custom voice, Documents, additional languages, incoming TTS, or automatic mid-session device rebind.
 
 **Reason**  
-Feature breadth had moved ahead of proven translation quality and created multiple stale product/runtime paths. A small translator that works reliably is the acceptance target.
-
-This decision supersedes older product/UI decisions wherever they describe a removed initial feature. Git history preserves their provenance.
+Feature breadth had moved ahead of proven translation quality and created stale parallel paths.
 
 ## D-004 — Meeting Has One Application-Level Authority
 
 **Decision**  
-`commands/meeting_session.rs` and `engine/runtime_state.rs` own the normal Meeting lifecycle:
+`commands/meeting_session.rs` + `engine/runtime_state.rs` own:
 
 ```text
 Ready -> Starting -> Live -> Stopping -> Ended
 ```
 
-Navigation/minimize does not create or stop another Meeting session. Stop revokes output authority before cleanup. Safe application close delegates to the same Stop owner.
+Navigation does not recreate/stop Meeting. Stop revokes output authority before cleanup. Safe application close delegates to the same Stop path. The committed-turn store is transient Live UI state, not History persistence or model context.
 
-Finalized stable speech is product truth. The bounded committed-turn store is transient current-session data used by the Live transcript; it is not History persistence or model context.
-
-Optional incoming English -> Indonesian assistance is a second audio lane inside the same Meeting session, not a second session runtime. If incoming capture/suppression/reverse translation is unsafe or unavailable, incoming degrades/disables while healthy required outbound continues.
+Optional incoming EN -> ID is a subordinate lane inside the same Meeting session and may degrade/disable without blocking healthy outbound.
 
 **Reason**  
-One authority prevents duplicate audio output, stale async promotion, lifecycle races, and persistence coupling. Optional assistance must not make the primary translation path less reliable.
+One authority prevents duplicate output, stale async promotion, and lifecycle races.
 
 ## D-005 — Direction-Based Local Translation
 
 **Decision**  
-Normal Meeting/Text translation selects behavior by language direction, not by user-facing mode:
+Normal translation selects by language direction:
 
 ```text
 ID -> EN -> marianmt-id-en
 EN -> ID -> marianmt-en-id
 ```
 
-Current utterance/text is the model input. Do not silently truncate source text or promote known incomplete generation. Model/provider implementation may change later if target-machine evidence shows a better option, but users do not select models.
+Current utterance/text is model input. Do not silently truncate source text or promote known incomplete generation. Users do not select models.
 
 **Reason**  
-Direction is the real product contract. Realtime/Quality and context/tone layers created complexity without a distinct approved product behavior.
+Direction is the approved product contract; mode/context layers added complexity without distinct approved behavior.
 
 ## D-006 — Controlled Windows Setup Uses Local Sidecar Payloads, Without Hash Framework
 
 **Decision**  
-Initial controlled Windows distribution keeps one user-run Setup experience and may distribute large local runtime/model payloads beside Setup for local placement into the canonical runtime layout.
+Initial controlled distribution may deliver large local runtime/model payloads beside one user-run Setup for deterministic local placement.
 
-The initial release does **not** require a SHA-256/checksum/revision identity framework, artifact registry, payload identity controller, first-run network downloader, in-app package manager, manual Python/model setup, cloud fallback, or NLLB fallback.
-
-For the initial controlled release, the approved prepared payload, deterministic placement, and real post-install worker/runtime execution are the useful acceptance boundary. Source/revision/checksum metadata may be reconsidered only if a concrete release problem later proves it necessary.
+Do not require a SHA-256/checksum/revision identity framework, artifact registry, first-run downloader, in-app package manager, manual Python/model setup, cloud fallback, or NLLB fallback for the initial release.
 
 **Reason**  
-Hash/revision metadata does not prove model load, inference, audio delivery, or translation quality. Building a second release-identity subsystem before those fundamentals are proven is disproportionate maintenance work.
-
-This decision retains the useful local-sidecar topology from the older release decision while superseding its hash/revision sub-plan.
+Hash/revision metadata does not prove load, inference, translation quality, or audio delivery. Approved prepared payload + deterministic placement + real execution is the useful initial acceptance boundary.
 
 ## D-007 — Runtime Resources And Writable User Data Have Separate Owners
 
 **Decision**  
-`engine/paths.rs` is the semantic path owner. Packaged runtime resources come from the Tauri resource root; writable cache/log/user state comes from app-local data. Repository probing is debug-development fallback only.
-
-`EngineData` is product implementation/runtime metadata. `UserData` is runtime/user-owned output. `DevelopingData` is historical/recovery evidence.
+`engine/paths.rs` owns path semantics. Packaged runtime resources come from the Tauri resource root; writable cache/log/user state comes from app-local data. Repository probing is development-only.
 
 **Reason**  
-Installed builds cannot safely treat repository-relative paths or immutable resources as writable application state.
+Installed builds cannot safely treat repository-relative resources as writable application state.
 
 ## D-008 — Validation Must Be Proportional To The Current Product
 
 **Decision**  
-Keep a small validation set that protects the current source boundary plus real compile/type/runtime proof where the claim requires it. Do not maintain deterministic test museums, report generators, branch-era matrices, dead feature validators, or source markers merely to produce more PASS output.
-
-ChatGPT -> GitHub can establish source ownership/wiring. Rust/TypeScript compile, Tauri launch, model execution, Windows audio, rendered UI, latency, installer, and clean-machine claims require the appropriate local environment.
+Keep a small source/preflight set plus real compile/type/runtime/device/package proof when the claim requires it. Do not maintain dead feature matrices, report generators, or source-marker test museums.
 
 **Reason**  
-Large static validation systems were consuming maintenance effort while protecting features already removed from the product. Proof quality comes from matching evidence to the exact claim, not from validator count.
+Proof quality comes from evidence matched to the exact claim, not validator count.
 
 ## D-009 — One Active Frontend Entry And Bounded Diagnostics
 
 **Decision**  
-`src/main.ts` is the only normal frontend module entry. Retired Audio Studio/History/dev-pipeline entrypoints must not poll or bind in parallel.
-
-Normal readiness reads only the current product facts needed to present Meeting/Text state. Heavy or technical checks stay behind explicit setup/Diagnostics actions. Diagnostics is troubleshooting presentation, not a manual control plane for old helper preload/pipeline/professional-readiness experiments.
+`src/main.ts` is the only normal frontend module entry. Normal readiness requests only current product facts; heavy technical checks stay behind setup/Diagnostics actions.
 
 **Reason**  
-Parallel entrypoints, repeated polling, and broad readiness snapshots waste resources and keep removed architecture alive. The desktop should request the smallest current capability projection.
+Parallel entrypoints and broad repeated polling waste resources and keep retired architecture alive.
 
 ## D-010 — Installed Worker Uses One Private Embedded Python Runtime
 
 **Decision**  
-The initial installed Windows build will keep the existing Python worker scripts and run them with one application-local embedded CPython runtime distributed in the approved local payload.
-
-Canonical installed layout:
+The installed Windows build keeps the existing Python scripts and runs them with one application-local embedded CPython runtime:
 
 ```text
 <runtime root>/EngineData/Backend/LocalWorker/
 ├─ WorkerRuntime/
-│  ├─ realtime_local_worker.py
-│  ├─ virtual_audio_route_provider.py
-│  └─ model_manifest.json
 └─ PythonRuntime/
-   ├─ python.exe
-   ├─ embedded CPython runtime files
-   └─ vendored third-party packages
+   └─ python.exe
 ```
 
-Installed execution uses only:
+Persistent worker and Meeting Microphone provider use that same interpreter. Env overrides, worker `.venv`, system `python`/`python3`, Windows `py`, and the old route Python override are development conveniences only.
 
-```text
-EngineData/Backend/LocalWorker/PythonRuntime/python.exe
-```
-
-The same interpreter must be used by the persistent worker and the Meeting Microphone Python provider. `TRANSLATEIT_WORKER_PYTHON`, worker `.venv`, system `python`/`python3`, Windows `py`, and the separate `TRANSLATEIT_PYTHON` route override are development conveniences only and must not become packaged-release success paths.
-
-Do not freeze the worker into a PyInstaller/Nuitka executable for the initial release. Do not copy a `.venv` as the release runtime. Do not install pip/uv or resolve packages on the user's machine. Third-party Python packages are prepared as part of the release payload and kept intact beside the private interpreter; models remain under `RuntimeAssets` rather than inside the Python runtime.
-
-No dependency lock/hash framework is required for this initial slice. The approved prepared runtime payload is accepted through real local and clean-machine execution; tighter dependency pinning may be added only if release drift becomes a concrete problem.
+Do not freeze the initial worker with PyInstaller/Nuitka, copy a `.venv`, or install pip/uv/packages on the user's machine. Models stay under `RuntimeAssets`.
 
 **Reason**  
-Python's embeddable distribution is intended to ship as part of another application, while Python virtual environments are explicitly not intended to be moved/copied. Keeping the existing scripts under a private interpreter preserves the current worker/model/debug behavior and avoids adding a freeze spec, hidden-import/binary collection layer, one-file extraction behavior, or a second worker architecture.
+A private interpreter preserves the existing worker/model behavior while avoiding another freeze/launcher architecture.
 
-## D-011 — Frontend Migrates To A Small Svelte 5 Architecture
+## D-011 — Frontend Uses A Small Svelte 5 Architecture
 
 **Decision**  
-The long-term TranslateIT frontend will migrate from the current vanilla TypeScript/manual-DOM implementation to a plain Svelte 5 SPA inside the existing Tauri 2 desktop application.
+TranslateIT frontend source is migrated from manual DOM/template-string ownership to a plain Svelte 5 SPA inside Tauri 2.
 
-Approved target stack:
+Approved stack:
 
 ```text
 Tauri 2
@@ -173,11 +126,11 @@ Tauri 2
 + TypeScript
 + Tailwind CSS 4
 + CSS custom-property design tokens
-+ selective Bits UI primitives
++ selective Bits UI
 + Lucide Svelte
 ```
 
-The migration must preserve one frontend root and the current Rust/Tauri runtime contracts. `runtimeApi.ts` and `runtimeProductFacade.ts` remain the default bridge/facade boundaries unless a concrete contract defect later proves otherwise.
+Application structure/state/bridge migration is owned by `desktop-runtime-development`; visual system/component craft is owned by `desktop-ui-design-development`. Official Svelte AI/MCP guidance is conditional technical tooling, not a new project specialist.
 
 Default exclusions:
 
@@ -185,21 +138,20 @@ Default exclusions:
 no SvelteKit
 no frontend router
 no Redux-like state library
-no second runtime/product state store
+no second runtime/product truth store
 no heavy UI framework
-no full shadcn-svelte component dump
+no full shadcn-svelte dump
 no CSS-in-JS
 no general animation framework
 no permanent vanilla/Svelte dual shell
 ```
 
-Svelte 5 runes are the default reactivity model for new Svelte code. Product/runtime truth remains owned by the existing Rust/runtime contracts; Svelte state exists for presentation/application composition, not as a competing backend truth.
+`runtimeApi.ts` and `runtimeProductFacade.ts` remain the default runtime boundaries. Svelte owns declarative presentation/application state only. Bits UI is used selectively when accessible interaction complexity earns it; Lucide Svelte is the normal icon family.
 
-Bits UI is permitted selectively for complex accessible interaction primitives such as dialog/select/popover/focus-management boundaries. TranslateIT owns the visual appearance. Lucide Svelte is the default icon family; product-specific icons remain allowed when necessary.
-
-Framework/application migration is routed through `desktop-runtime-development`. Visual hierarchy, tokens, component visual states, responsive composition, and rendered acceptance are routed through `desktop-ui-design-development`. Official Svelte AI skills/MCP tooling are conditional technical helpers and do not create a new TranslateIT `svelte-expert` specialist.
+The old vanilla controller/template/First Setup/icon/CSS ownership is removed from the active source graph after replacement rather than retained as compatibility architecture.
 
 **Reason**  
-The current manual DOM/template-string frontend is small enough to work today but becomes increasingly costly as Meeting lifecycle states, transcript presentation, Text, First Setup, Settings, Diagnostics, and future product surfaces evolve. Svelte provides declarative component/state ownership without requiring a full web meta-framework. Tailwind plus semantic CSS tokens keeps layout iteration fast while preserving one maintainable visual system. Selective headless primitives improve complex interaction/accessibility without surrendering TranslateIT's design language to a large UI kit.
+Meeting lifecycle states, live transcript presentation, Text, First Setup, Settings, Diagnostics, and future UI growth are easier to maintain with declarative components and bounded state than manual DOM mutation. Svelte provides that structure without requiring a web meta-framework. Tailwind + semantic tokens keeps visual iteration fast while preserving one maintainable visual owner.
 
-The migration is intentionally separate from current PythonRuntime local proof. Until the Svelte source is actually implemented and proved, the existing vanilla TypeScript frontend remains runtime truth.
+**Proof status**  
+The source migration is established on `New`, but dependency installation, Svelte autofix/typecheck/build, Tauri launch, and rendered visual acceptance are intentionally deferred while the user completes major frontend work. Those proofs remain required before release.

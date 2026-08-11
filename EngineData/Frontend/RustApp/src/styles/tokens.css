@@ -1,0 +1,26 @@
+:root {
+  color-scheme: dark;
+  --ti-bg: #07090d;
+  --ti-sidebar: #0a0d12;
+  --ti-surface: #11151c;
+  --ti-surface-raised: #171c25;
+  --ti-surface-soft: #0d1117;
+  --ti-border: #272e39;
+  --ti-border-strong: #3a4452;
+  --ti-text: #f4f6f8;
+  --ti-text-muted: #9ca6b4;
+  --ti-text-soft: #7f8997;
+  --ti-accent: #e4e8ee;
+  --ti-accent-contrast: #101319;
+  --ti-success: #63d59b;
+  --ti-success-surface: #10251b;
+  --ti-warning: #f2ba61;
+  --ti-warning-surface: #2a2112;
+  --ti-danger: #ff747d;
+  --ti-danger-surface: #2c1519;
+  --ti-radius-sm: 10px;
+  --ti-radius-md: 14px;
+  --ti-radius-lg: 20px;
+  --ti-shadow-card: 0 16px 48px rgb(0 0 0 / 0.2);
+  --ti-shadow-dialog: 0 28px 96px rgb(0 0 0 / 0.5);
+}

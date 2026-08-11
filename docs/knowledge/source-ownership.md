@@ -8,133 +8,108 @@ This map points to current semantic owners. File existence alone does not make a
 | Stable context | `CONTEXT.md` | ACTIVE |
 | Continuation | `docs/knowledge/next-action.md` | ACTIVE |
 | Durable decisions | `docs/knowledge/decision-log.md` | ACTIVE / COMPACT |
-| Current frontend entry | `EngineData/Frontend/RustApp/src/main.ts` | ACTIVE / VANILLA TYPESCRIPT UNTIL MIGRATION |
-| Current product shell/controller | `src/app/simple-launcher/SimpleLauncherController.ts` | ACTIVE / TO BE DIRECTLY REPLACED BY SVELTE MIGRATION, NOT PARALLELIZED |
-| Cross-view Meeting + safe close | `src/app/simple-launcher/GlobalMeetingShell.ts` | ACTIVE |
-| Live transcript presentation | `src/app/simple-launcher/MeetingLiveActivityPresentation.ts` | ACTIVE |
-| Approved frontend application target | Svelte 5 + Vite + TypeScript inside existing Tauri 2 app | DECIDED / NOT YET IMPLEMENTED |
-| Frontend migration semantic owner | `.agents/skills/desktop-runtime-development/SKILL.md` + current shell/bridge source | APPROVED ROUTE |
-| Frontend visual-system semantic owner | `.agents/skills/desktop-ui-design-development/SKILL.md` + future Svelte component/style source | APPROVED ROUTE |
-| Product readiness/action projection | `src/app/bridge/runtimeProductFacade.ts` | ACTIVE / LIGHTWEIGHT / PRESERVE THROUGH MIGRATION BY DEFAULT |
-| Frontend Tauri bridge | `src/app/bridge/runtimeApi.ts` | ACTIVE / PRUNED / PRESERVE THROUGH MIGRATION BY DEFAULT |
+| Frontend entry | `EngineData/Frontend/RustApp/src/main.ts` | ACTIVE / ONE SVELTE MOUNT |
+| Frontend application owner | `src/App.svelte` | ACTIVE SOURCE / LOCAL PROOF PENDING |
+| First Setup UI | `src/pages/FirstSetup.svelte` | ACTIVE SOURCE |
+| Meeting UI | `src/pages/Meeting.svelte` | ACTIVE SOURCE |
+| Meeting live transcript/activity | `src/components/meeting/MeetingActivity.svelte` | ACTIVE SOURCE |
+| Text UI | `src/pages/Text.svelte` | ACTIVE SOURCE |
+| Settings / Diagnostics UI | `src/pages/Settings.svelte` | ACTIVE SOURCE |
+| Primary navigation | `src/components/layout/Sidebar.svelte` | ACTIVE SOURCE |
+| Shared visible status primitive | `src/components/ui/StatusBadge.svelte` | ACTIVE SOURCE |
+| Frontend semantic tokens | `src/styles/tokens.css` | ACTIVE SOURCE |
+| Frontend base/layout styling | `src/styles/app.css` | ACTIVE SOURCE |
+| Frontend Tauri bridge | `src/app/bridge/runtimeApi.ts` | ACTIVE / RETAINED |
+| Product facade/readiness projection | `src/app/bridge/runtimeProductFacade.ts` | ACTIVE / RETAINED |
+| Shared frontend settings/error helpers | `src/app/shared/state.ts`, `types.ts`, `tauriBridge.ts` | ACTIVE / RETAINED |
 | Tauri invoke registration | `src-tauri/src/commands/registry.rs` | ACTIVE / PRUNED |
-| Meeting authority | `commands/meeting_session.rs`, `engine/runtime_state.rs` | ACTIVE / HANDOFF TOMBSTONES REMOVED |
-| Rust engine root | `engine/mod.rs` | ACTIVE / PRUNED TO CURRENT OWNERS |
+| Meeting authority | `commands/meeting_session.rs`, `engine/runtime_state.rs` | ACTIVE |
 | Physical microphone + Meeting Sound | `engine/audio/*` | ACTIVE |
 | Mic Test lifecycle | `engine/capture_lifecycle.rs`, `commands/runtime_capture.rs` | ACTIVE / BOUNDED |
 | Meeting Microphone route | `commands/virtual_mic_route.rs`, `virtual_audio_route_runtime.rs` | ACTIVE INTERNAL |
 | Local worker/scheduler | `helper_bridge.rs`, `helper_bridge_runtime.rs`, `realtime_local_worker.py` | ACTIVE |
 | Installed worker interpreter path | `engine/paths.rs`, `commands/bridge_paths.rs` | SOURCE ALIGNED: `LocalWorker/PythonRuntime/python.exe` |
-| Development interpreter fallback | `commands/bridge_paths.rs` | VERIFIED REPOSITORY DEVELOPMENT ONLY |
-| Meeting provider Python process | `commands/virtual_audio_route_runtime.rs` | ACTIVE / REUSES WORKER INTERPRETER RESOLVER |
-| Worker Python dependency set | `WorkerRuntime/pyproject.toml` | ACTIVE / `sounddevice` IS RUNTIME DEPENDENCY |
 | Model presence inventory | `runtime_inventory.rs` | ACTIVE / CACHED |
-| Explicit model refresh | `runtime.rs::verify_models` | ACTIVE SETUP ACTION |
 | Text translation | `text_translate.rs` -> helper -> worker | ACTIVE |
-| Persisted settings | `engine/settings.rs`, `engine/runtime_settings.rs`, `commands/settings.rs` | ACTIVE / SCHEMA V6 SMALL |
-| Frontend settings type/defaults | `src/app/shared/types.ts`, `src/app/shared/state.ts` | ACTIVE CURRENT CONTRACT; MIGRATION MUST NOT DUPLICATE PRODUCT TRUTH |
-| Installed/runtime roots | `engine/paths.rs`, `app_bootstrap.rs` | ACTIVE PATH FOUNDATION |
-| Runtime logging used by settings/runtime | `engine/logging.rs` | ACTIVE |
-| Shared command result/state | `engine/state.rs` | ACTIVE |
-| Source validation | small validators under `scripts/` | ACTIVE / PRUNED |
-| Package/path source preflight | `scripts/validate_tauri_package_preflight.mjs` | ACTIVE / PACKAGED INTERPRETER OWNERSHIP GUARDED |
-| Local Rust compile proof | `scripts/run_local_tauri_compile_check.mjs` | LOCAL-ONLY |
+| Persisted settings | `engine/settings.rs`, `engine/runtime_settings.rs`, `commands/settings.rs` | ACTIVE / SCHEMA V6 |
+| Source validation | small validators under `scripts/` | ACTIVE / SVELTE-AWARE |
+| Local frontend proof | Svelte autofixer + `svelte-check` + Vite build | DEFERRED BY USER / REQUIRED BEFORE RELEASE |
+| Local Rust/runtime proof | local compile/runtime/device/model/package checks | DEFERRED BY USER / REQUIRED BEFORE RELEASE |
 
 ## Frontend Ownership
 
-Current source truth is still the existing Vite + vanilla TypeScript/manual-DOM frontend. The approved target is a plain Svelte 5 SPA inside Tauri 2:
+The active source architecture is:
 
 ```text
-Tauri 2
-+ Svelte 5
-+ Vite
-+ TypeScript
-+ Tailwind CSS 4
-+ CSS custom-property tokens
-+ selective Bits UI
-+ Lucide Svelte
+index.html
+-> src/main.ts
+-> mount(App.svelte)
+-> FirstSetup / Meeting / Text / Settings
 ```
 
-Migration is behavior-preserving architecture work. `desktop-runtime-development` owns the migration boundary because it must preserve shell/navigation semantics, Meeting/Text state/action mapping, First Setup, Settings integration, and the existing `runtimeApi.ts` / `runtimeProductFacade.ts` contracts.
-
-`desktop-ui-design-development` owns the separate visual acceptance boundary: hierarchy, spacing, typography, tokens, component visual states, responsive composition, accessible visible interaction, and rendered proof.
-
-Official Svelte `svelte-code-writer`, `svelte-core-bestpractices`, and `@sveltejs/mcp` tooling are conditional framework helpers. They do not become TranslateIT project skills or semantic owners.
-
-Migration rules:
-
-- one Svelte application root; no permanent vanilla/Svelte dual shell;
-- no SvelteKit/router/global state library by default;
-- no duplicate runtime/settings/readiness truth in Svelte stores;
-- Tailwind owns ordinary layout/style utilities while semantic CSS custom properties own durable visual tokens;
-- Bits UI is selective for complex accessible primitives only;
-- Lucide Svelte is the default icon family;
-- old template/controller ownership is removed after each migrated surface has behavior parity and required proof.
-
-Until migration source and proof exist, do not describe Svelte as the current implementation.
-
-## Removed Rust Engine Graph
-
-The inherited adapter/planning/readiness/orchestration tree, History persistence, session chat/save, transcript-session planning, native inference/backend/CUDA candidates, old status/runtime-job/model/playback planners, empty domain/services scaffolding, obsolete audio planning leaves, and final no-state handoff compatibility path are removed from `New`.
-
-ASR, translation, and TTS execution remain in the one persistent Python worker. Removing Rust planning/inference candidates did not create a replacement runtime.
-
-## Persisted Settings Ownership
-
-`engine/settings.rs` is the single schema/deserialization/sanitization owner. Current persisted shape is:
+The previous manual-DOM owners are removed instead of kept in parallel:
 
 ```text
-schema_version = 6
-source_language
-target_language
-meeting_setup_state
-meeting_setup_checkpoint
-audio.input_device_id
-audio.output_device_id
+src/app/active-launcher/
+src/app/simple-launcher/
+src/app/first-setup/
+src/app/shared/icons.ts
+legacy root UI CSS files
 ```
 
-The previous schema's extra fields are accepted only as ignored legacy JSON keys by the same Serde owner. Normal save output does not persist them. There is no migration registry, compatibility settings service, or second store.
+The migration intentionally preserves the runtime boundary:
 
-## Runtime State
+```text
+Svelte UI
+-> runtimeProductFacade.ts
+-> runtimeApi.ts
+-> Tauri commands
+-> Rust / Python runtime owners
+```
 
-`engine/runtime_state.rs` owns current application Meeting/Mic-Test session state and generation authority. The old realtime-handoff snapshot/store and no-state cleanup tombstones are removed. Real cleanup remains owned directly by existing Meeting/audio/helper/consumer/session owners.
+Svelte components may own presentation/application state such as selected page, dialog visibility, transient input, and current rendered snapshot. They must not become a second authority for Meeting lifecycle, persisted settings, model readiness, audio capability, or worker truth.
 
-## Packaged Worker Ownership
+## Frontend Stack Ownership
 
-Canonical installed layout:
+Approved source stack:
+
+```text
+Svelte 5 + TypeScript + Vite
+Tailwind CSS 4 + semantic CSS custom properties
+Bits UI only for justified accessible complex primitives
+Lucide Svelte for normal icons
+```
+
+Current selective Bits UI use is the native-close safety dialog. Native selects remain appropriate for current audio-device selection; no component library is required there.
+
+No SvelteKit/router/global state framework/theme engine is a current owner.
+
+## Meeting / Text / Setup Parity
+
+`App.svelte` owns top-level composition and safe close. The Rust Meeting owner remains authoritative.
+
+`Meeting.svelte` projects current Meeting readiness and action availability. `MeetingActivity.svelte` projects finalized committed turns and optional incoming status. It does not create transcript persistence or lifecycle truth.
+
+`Text.svelte` keeps explicit Text Translate and ID <-> EN direction switching through the existing persisted settings/runtime facade.
+
+`FirstSetup.svelte` keeps the five-step persisted checkpoint flow, candidate device probing, Setup Later, Fix Setup, and final readiness verification through the existing settings/facade owners.
+
+`Settings.svelte` keeps Meeting device selection, Mic Test, setup recovery, bounded Diagnostics, and explicit Verify Models.
+
+## Backend / Runtime Ownership
+
+The Rust engine remains pruned to current audio/session/settings/path owners. The one Python worker remains the AI execution owner. No frontend migration creates a frontend AI/audio implementation or second runtime.
+
+The packaged worker path remains:
 
 ```text
 <runtime root>/EngineData/Backend/LocalWorker/
 ├─ WorkerRuntime/
-│  ├─ realtime_local_worker.py
-│  ├─ virtual_audio_route_provider.py
-│  └─ model_manifest.json
-└─ PythonRuntime/
-   ├─ python.exe
-   ├─ embedded CPython runtime files
-   └─ vendored Python packages
+└─ PythonRuntime/python.exe
 ```
 
-`engine/paths.rs` owns both `worker_runtime_dir` and `python_runtime_dir`. In packaged Tauri context, `bridge_paths.rs` resolves exactly `PythonRuntime/python.exe`. If that file is absent, packaged mode fails closed; it does not try an environment override, `.venv`, system `python`/`python3`, or Windows `py`.
+Packaged execution fails closed when the private interpreter is missing; repository Python fallbacks remain development-only.
 
-Those development alternatives remain available only when the existing repository-development markers were verified. Their `--version` probing is development-only. Packaged route delivery checks only the canonical `python.exe` file and therefore does not add a Python probe process per utterance.
+## Proof Boundary
 
-`helper_bridge.rs` and `virtual_audio_route_runtime.rs` both use `resolve_worker_python_command()`. The provider script itself resolves from the same `WorkerRuntime` root. The old separate `TRANSLATEIT_PYTHON`/system-Python route path is removed.
-
-`pyproject.toml` now declares `sounddevice` with the normal worker dependencies because current Meeting Microphone provider execution imports it. Models remain under `RuntimeAssets`; pip/uv are not installed or run for end users.
-
-A frozen worker executable, copied `.venv`, downloader, package manager, hash/identity framework, dependency registry, or second worker owner is not part of the initial release.
-
-## Backend Contracts
-
-`EngineData/Backend/RuntimeContracts/` is removed. The current worker does not load it, Tauri does not package/map it as a runtime resource, and current source validators do not consume it. Product requirements, current source interfaces, and the worker/model manifest are the relevant authorities.
-
-## Normal Readiness
-
-`runtimeProductFacade.loadProductRuntimeSnapshot()` intentionally reads settings, Meeting status, helper status, input status, and worker capability status when applicable. Heavy diagnostic/model/native probing is not normal polling work.
-
-## Release Ownership
-
-The initial controlled release keeps local sidecar placement under the existing path/setup owners. There is no separate SHA-256/checksum/revision identity owner and no replacement artifact registry.
-
-Packaged interpreter **source ownership is aligned**. The remaining release boundary is now concrete payload proof: create the private `PythonRuntime` bytes locally, verify worker/provider imports and real translation outside the repository, then wire tested payload placement into Tauri/NSIS. Source alignment alone is not installed-runtime proof.
+The Svelte source migration is source-aligned but has not been dependency-installed, autofixed, typechecked, built, launched, or rendered in the current ChatGPT -> GitHub channel. The user has deliberately postponed local testing while major features are being completed. This does not convert source/static checks into compile, rendered UI, Windows audio, model, installer, or clean-machine proof.
