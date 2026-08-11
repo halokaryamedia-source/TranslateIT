@@ -2,69 +2,76 @@
 
 ## Current Status
 
-The bounded P0 source-correctness set from the comprehensive core/release audit remains source-closed. Broader Rust/Tauri, Python/model, Windows-audio, installer, and performance testing remain held.
+The user approved the redesigned Meeting / Text / Settings visual direction as the ongoing TranslateIT frontend baseline. Future visual work must preserve this clean desktop-utility language through the existing `desktop-ui-design-development` owner unless the user explicitly changes direction.
 
-The user released the hold only for frontend dependency/build/render work and then requested a professional visual audit of the actual rendered application. The Meeting / Text / Settings visual layer has now been revised in **ALIGN** mode: existing product behavior and runtime contracts were preserved while hierarchy, density, spacing, component weight, and desktop use of space were improved.
+The previous proof hold has now been widened one bounded step beyond frontend rendering: **Windows Rust/Tauri compile proof** is allowed and has been executed. Python/model execution, real Windows audio/device proof, installer proof, and performance measurement are still not part of the current proof scope.
 
-### Frontend visual redesign
+## Approved Frontend Visual Baseline
 
-Current source changes:
-
-```text
-visual tokens
--> slightly lifted dark surfaces, softer hierarchy, smaller radii/shadow
--> narrower sidebar, wider useful content region
-
-sidebar
--> reduced width and row height
--> simpler active state
--> removed secondary nav descriptions from the visible scan path
--> compact product readiness footer
-
-Meeting
--> simple “Meeting translation” heading
--> compact ID -> EN direction strip
--> three horizontally scannable setup facts
--> fewer nested row/card layers
--> readiness message + recovery + Start/Stop consolidated in one footer
--> primary Start/Stop visually anchored at the action edge
-
-Text
--> familiar From / To workspace retained
--> nested textarea boxes replaced by clean editor panes
--> translation status and character count de-emphasized
--> Copy / Translate grouped at result-action edge
-
-Settings
--> Meeting / Advanced tabs moved into the page header
--> repeated title/section layers removed
--> microphone and Meeting Sound use one compact two-column setup region
--> Meeting microphone and setup actions consolidated into the same panel
--> Advanced / Diagnostics density reduced without changing technical ownership
-```
-
-No navigation semantics, readiness truth, Meeting lifecycle, Text translation behavior, settings persistence, Tauri bridge behavior, model/audio behavior, or backend ownership changed in this visual slice.
-
-### Frontend proof obtained
-
-Latest visual proof: GitHub Actions run `31518906505` on branch `New` plus a temporary browser render harness. The temporary workflow was removed after proof and is not a permanent CI owner.
+Preserve these rules:
 
 ```text
-npm dependency materialization     -> PASS in proof runner
-startup source contract validator  -> PASS
-svelte-check                       -> PASS: 0 errors, 4 existing FirstSetup warnings
-Vite production build              -> PASS
-actual built Svelte Meeting render -> PASS
-actual built Svelte Text render    -> PASS
-Text interaction / translated view -> PASS with simulated translation response
-actual built Svelte Settings render-> PASS
+compact dark desktop utility
+clear task/state hierarchy before decoration
+narrow lightweight sidebar
+few nested cards / borders / shadows
+calm healthy / Ready states
+stronger state color only when attention/action is needed
+one visually obvious primary action per normal workflow
+useful content gets the largest share of space
+no generic AI gradients, glow, glassmorphism, or decorative dashboard grids
 ```
 
-The four warnings remain `state_referenced_locally` warnings in `src/pages/FirstSetup.svelte`; this visual task did not edit First Setup.
+Current Meeting / Text / Settings source has actual dependency, typecheck, production-build, and browser-render evidence. Latest visual proof remains GitHub Actions run `31518906505` with simulated Tauri Ready/device data only.
 
-The screenshots are real pixels from the built Svelte/Vite source, not generated artwork. The browser proof injects simulated Tauri Ready/device responses so the visual surfaces can be evaluated without starting Rust, Python, models, or Windows audio. It proves frontend composition/build behavior only.
+```text
+startup source contract validator -> PASS
+svelte-check                      -> PASS: 0 errors, 4 existing FirstSetup warnings
+Vite production build             -> PASS
+Meeting / Text / Settings render  -> PASS
+Text translated-state interaction -> PASS with simulated response
+```
 
-The proof runner generated temporary dependency state; no repository `package-lock.json` was adopted as release authority.
+The four Svelte warnings are still `state_referenced_locally` warnings in `src/pages/FirstSetup.svelte`; they are not compile errors and were not part of the approved visual redesign.
+
+## Windows Rust/Tauri Compile Baseline
+
+The first Windows compile proof exposed real command-boundary errors instead of being treated as a source-only success:
+
+```text
+runtime::start_helper_bridge
++ helper_bridge::start_helper_bridge
+-> duplicate #[tauri::command] generated symbol
+
+runtime::start_meeting_translation
++ meeting_session::start_meeting_translation
+-> duplicate #[tauri::command] generated symbol
+
+runtime.rs
+-> HelperBridgeActionResult imported through the wrong module visibility boundary
+```
+
+The correction kept the existing architecture:
+
+- `commands/runtime.rs` remains the public guarded Tauri command owner for `start_helper_bridge` and `start_meeting_translation`;
+- the helper and Meeting implementations remain ordinary internal Rust functions called by those wrappers;
+- `HelperBridgeActionResult` is imported from its actual public owner `helper_bridge_runtime`;
+- no command alias, second registry, fallback, or parallel runtime path was added.
+
+After that bounded maintenance correction, Windows proof run `31520306515` passed:
+
+```text
+Windows Server 2025 / MSVC target
+npm dependency materialization -> PASS
+svelte-check                    -> PASS: 0 errors / 4 existing FirstSetup warnings
+Vite production build           -> PASS
+Rust manifest preflight         -> PASS
+cargo check / Tauri Rust source -> PASS
+```
+
+`cargo check` completed successfully with warnings. The warning set includes existing dead-code/internal-helper warnings plus one unused local binding in incoming helper recovery. They are evidence for later cleanup/review, not a reason to claim runtime failure or to perform broad speculative deletion now.
+
+Temporary proof/maintenance GitHub Actions workflows were removed after use; no permanent CI owner was added.
 
 ## Priority Map
 
@@ -76,7 +83,7 @@ The proof runner generated temporary dependency state; no repository `package-lo
 4. Meeting Route Provider Preflight Hang Containment
 5. Sleep / Hibernate Authority Invalidation
 
-All remain queued for target runtime/device proof.
+All still require real target-runtime/device acceptance where applicable.
 
 ### P1 — Core hardening after executable evidence
 
@@ -85,7 +92,7 @@ All remain queued for target runtime/device proof.
 - **P1.3 Helper stderr Privacy / Disk Bounds**
 - **P1.4 Product-Release vs Meeting-Required Asset Semantics**
 
-Do not resume these merely because source edits are possible; first use executable/native evidence to identify which hardening still matters.
+Do not resume P1 merely because source edits are possible. Use measured/native evidence first.
 
 ### P2 — Release-blocking proof/materialization
 
@@ -94,12 +101,13 @@ Do not resume these merely because source edits are possible; first use executab
 Obtained:
 
 ```text
-dependency materialization in proof runner
+dependency materialization in proof runners
 source validator
 svelte-check
 Vite production build
-Meeting / Text / Settings browser render
-basic Text interaction render
+actual Meeting / Text / Settings browser render
+basic Text translated-state interaction
+approved clean visual baseline
 ```
 
 Still required before release:
@@ -114,47 +122,60 @@ clipboard proof
 real runtime-state projection
 ```
 
-#### P2.2 Rust / Tauri executable proof — STILL HELD
+#### P2.2 Rust / Tauri executable proof — PARTIAL PROOF OBTAINED
+
+Obtained:
 
 ```text
-compile
--> launch
--> Start / Stop / safe close
--> Windows power lifecycle
--> active-session settings guards
--> matched route preparation/binding
--> provider-preflight termination
--> resource cleanup / fault paths
+Windows MSVC Rust toolchain
+Rust manifest preflight
+cargo check of the Tauri binary source
+public command-boundary compile correction
 ```
 
-#### P2.3 Python / model proof — STILL HELD
+Still required:
 
-Real ASR, ID->EN, EN->ID, English TTS, CUDA-preferred and CPU fallback behavior remain unproved.
+```text
+native Windows link/build baseline
+application launch / main-window bootstrap
+native WebView frontend presentation
+Start / Stop / safe-close lifecycle
+Windows power lifecycle
+active-session Settings guards
+matched route preparation/binding
+provider-preflight termination
+resource cleanup and relevant fault paths
+```
 
-#### P2.4 Windows Meeting audio acceptance — STILL HELD
+#### P2.3 Python / model proof — NOT YET EXECUTED
 
-Physical mic, actual Meeting route, meeting-app reception, optional incoming, suppression, Stop/Close/sleep/wake, and hardened fault cases remain unproved.
+Real ASR, ID->EN, EN->ID, English TTS, CUDA-preferred behavior, and CPU fallback remain unproved.
 
-#### P2.5 Latency / stability / long-session — STILL HELD
+#### P2.4 Windows Meeting audio acceptance — NOT YET EXECUTED
+
+Physical mic, actual Meeting route, meeting-app reception, optional incoming, own-TTS suppression, Stop/Close/sleep/wake, and hardened audio fault cases remain unproved.
+
+#### P2.5 Latency / stability / long-session — NOT YET EXECUTED
 
 Target-hardware latency and long-session resource behavior remain unmeasured.
 
-#### P2.6 Installer / clean-machine — STILL HELD
+#### P2.6 Installer / clean-machine — NOT YET EXECUTED
 
 Private PythonRuntime, models/assets, supported Meeting route, NSIS staging/install, installed execution, and clean-machine acceptance remain required.
 
 ### P3 — Cleanup after core acceptance
 
-README/runtime documentation drift, stale internal terminology, and permanent CI may be reconciled after core acceptance. Deferred product features remain out of initial scope.
+Compiler dead-code warnings, README/runtime documentation drift, stale internal terminology, and permanent CI may be reconciled after the core acceptance path shows which code is genuinely obsolete. Deferred product features remain outside initial scope.
 
 ## Sequencing Rule
 
 ```text
 P0 source correctness CLOSED
--> frontend actual-render redesign + proof COMPLETE for current visual slice
--> user visual acceptance
--> explicit approval before widening proof scope
--> Rust/Tauri + runtime/model/Windows-audio proof
+-> frontend visual baseline APPROVED + rendered proof
+-> Windows cargo-check baseline PASS
+-> native Windows link/build proof
+-> native launch/lifecycle proof
+-> Python/model + Windows-audio proof
 -> fix measured failures
 -> finish only still-relevant P1
 -> packaging + clean-machine acceptance
@@ -162,8 +183,8 @@ P0 source correctness CLOSED
 
 ## Current Mode
 
-**Plan / visual acceptance** — the requested clean-look redesign has source/type/build/render evidence. Broader native/runtime/device proof remains outside the currently released frontend-only scope.
+**Proof / Maintenance** — the first Windows compile failure was corrected at its command-ownership root cause and `cargo check` now passes. Do not broaden into model/audio testing inside the same slice.
 
-## Next Step — Review Redesigned Actual Render
+## Next Step — P2.2 Windows Native Link / Build Baseline
 
-Review the new actual Meeting, Text, and Settings renders. If the visual direction is approved, keep this frontend design baseline and return to the broader proof sequence only after explicit approval to widen the current hold.
+Build the current Tauri application as a Windows native executable without yet exercising Python/model or real audio. Prove that the current app bootstrap, Tauri context, native Windows power-hook linkage, and frontend resource integration survive the linker/build boundary. If the native build fails, fix only the concrete build/link/config error before attempting application launch.
