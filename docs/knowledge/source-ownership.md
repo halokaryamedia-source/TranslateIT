@@ -8,7 +8,7 @@ This map points to current semantic owners. File existence alone does not make a
 | Stable context | `CONTEXT.md` | ACTIVE |
 | Continuation | `docs/knowledge/next-action.md` | ACTIVE |
 | Durable decisions | `docs/knowledge/decision-log.md` | ACTIVE / COMPACT |
-| Frontend module entry | `EngineData/Frontend/RustApp/src/main.ts` | ACTIVE / SINGLE ENTRY |
+| Frontend entry | `EngineData/Frontend/RustApp/src/main.ts` | ACTIVE / SINGLE ENTRY |
 | Product shell/controller | `src/app/simple-launcher/SimpleLauncherController.ts` | ACTIVE |
 | Cross-view Meeting + safe close | `src/app/simple-launcher/GlobalMeetingShell.ts` | ACTIVE |
 | Live transcript presentation | `src/app/simple-launcher/MeetingLiveActivityPresentation.ts` | ACTIVE |
@@ -16,43 +16,53 @@ This map points to current semantic owners. File existence alone does not make a
 | Frontend Tauri bridge | `src/app/bridge/runtimeApi.ts` | ACTIVE / PRUNED |
 | Tauri invoke registration | `src-tauri/src/commands/registry.rs` | ACTIVE / PRUNED |
 | Meeting authority | `commands/meeting_session.rs`, `engine/runtime_state.rs` | ACTIVE |
+| Rust engine root | `engine/mod.rs` | ACTIVE / PRUNED TO CURRENT OWNERS |
 | Physical microphone + Meeting Sound | `engine/audio/*` | ACTIVE |
+| Mic Test lifecycle | `engine/capture_lifecycle.rs`, `commands/runtime_capture.rs` | ACTIVE / BOUNDED |
 | Meeting Microphone route | `commands/virtual_mic_route.rs`, `virtual_audio_route_runtime.rs` | ACTIVE INTERNAL |
 | Local worker/scheduler | `helper_bridge.rs`, `helper_bridge_runtime.rs`, `realtime_local_worker.py` | ACTIVE |
 | Model presence inventory | `runtime_inventory.rs` | ACTIVE / CACHED |
 | Explicit model refresh | `runtime.rs::verify_models` | ACTIVE SETUP ACTION |
 | Text translation | `text_translate.rs` -> helper -> worker | ACTIVE |
-| Settings | `engine/runtime_settings.rs`, `engine/settings.rs`, `commands/settings.rs` | ACTIVE; schema still contains inherited fields pending later cleanup |
-| Mic Test | `runtime_capture.rs` | ACTIVE / TWO WRAPPERS |
-| Meeting cleanup reset hook | `pipeline_handoff.rs` | ACTIVE / MINIMAL |
+| Settings | `engine/runtime_settings.rs`, `engine/settings.rs`, `commands/settings.rs` | ACTIVE; inherited schema fields are next cleanup boundary |
 | Installed/runtime paths | `engine/paths.rs`, `app_bootstrap.rs`, `bridge_paths.rs` | ACTIVE |
-| Source validation | four small source/preflight validators under `scripts/` | ACTIVE / PRUNED |
+| Runtime logging still used by settings/runtime | `engine/logging.rs` | ACTIVE |
+| Shared command result/state | `engine/state.rs` | ACTIVE |
+| Source validation | small validators under `scripts/` | ACTIVE / PRUNED |
 | Local Rust compile proof | `scripts/run_local_tauri_compile_check.mjs` | LOCAL-ONLY |
 
-## Frontend Surface
+## Removed Rust Engine Graph
 
-`index.html` loads only `src/main.ts`. Audio Studio no longer has a second module entry, retry timer, theme injector, or frontend bridge. History/Chat, attachment/document helpers, old realtime-segment scoring/reducers, direct virtual-route APIs, and duplicate runtime bridge files are removed from the current frontend tree.
+The following inherited responsibilities are no longer current engine owners and their Rust source has been removed from `New` after direct command/core reachability was reconciled:
 
-Normal Settings owns only `Meeting` and `Advanced`. Advanced may open a bounded Diagnostics presentation based on current helper status, explicit model verification, and recent command errors. It is not a manual worker/pipeline laboratory.
+- the entire `engine/adapters/` dry-run/planning/readiness/orchestration graph;
+- History persistence and session chat;
+- transcript/session-save planning;
+- native inference/backend/CUDA candidate graph;
+- old config/hardware/status/runtime-job/playback/model planners;
+- empty `domain/` and `services/` scaffolding;
+- old audio calibration/capture-plan/device-config/noise/preprocess/stream-build planning leaves.
 
-## Production Command Surface
+ASR, translation, and TTS execution remain in the one persistent Python worker. Removing the Rust planning/inference candidates did not create a replacement runtime.
 
-The registry exposes only commands required by current Meeting/Text/setup behavior. Removed command families are not kept as compatibility endpoints.
+## Runtime State
 
-Route detection/delivery remains an internal Meeting dependency. The frontend does not receive direct commands for choosing, preparing, or dispatching old route stubs/professional-readiness flows.
+`engine/runtime_state.rs` now owns only current application Meeting/Mic-Test session state and generation authority. The old realtime-handoff snapshot/store has been removed. One no-state `clear_runtime_handoff_state()` compatibility boundary remains temporarily because current Meeting rollback/Stop calls it; it owns no data and should be removed together with those direct callers rather than replaced by another service.
+
+`engine/capture_lifecycle.rs` is Mic Test only. Start is blocked while another session owns the microphone. Stop refuses to clear a Meeting-owned session.
+
+## Backend Contracts
+
+`EngineData/Backend/RuntimeContracts/` is removed. The current worker does not load it, Tauri does not package/map it as a runtime resource, and the current source validators do not consume it. Product requirements, current source interfaces, and the worker/model manifest remain the relevant authorities instead of duplicate JSON architecture manifests.
 
 ## Normal Readiness
 
-`runtimeProductFacade.loadProductRuntimeSnapshot()` intentionally reads settings, Meeting status, helper status, input status, and worker capability status when applicable. Full status bundles, runtime diagnostics, model-inventory scans, and native GPU probing are not normal polling dependencies.
-
-## Validation Ownership
-
-The old auto-test registry, deterministic fixtures, scenario matrices, report generators, feature-specific UI validators, and branch-era validation profiles are removed. Keep validation proportional to the small product and prefer real type/compile/runtime proof when those are the actual claims.
+`runtimeProductFacade.loadProductRuntimeSnapshot()` intentionally reads settings, Meeting status, helper status, input status, and worker capability status when applicable. Heavy diagnostic/model/native probing is not normal polling work.
 
 ## Release Ownership
 
-The initial controlled release keeps local sidecar placement under the existing path/setup owners. There is no separate SHA-256/checksum/revision identity owner and no replacement artifact registry.
+The initial controlled release keeps local sidecar placement under the existing path/setup owners. There is no SHA-256/checksum/revision identity owner and no replacement artifact registry.
 
-## Remaining Internal Cleanup
+## Remaining Cleanup Rule
 
-The next reachability boundary is deeper Rust `engine/` source. `engine/mod.rs` still declares inherited modules that may be dead after command-surface pruning and still carries blanket dead-code allowance. Prune them only from proven leaf groups toward active audio/session/runtime owners.
+Persisted settings are the next compatibility boundary. Remove obsolete fields only through the existing settings owner with a bounded schema migration/fallback strategy; do not preserve removed product concepts forever merely for old JSON compatibility, and do not create a second settings store.

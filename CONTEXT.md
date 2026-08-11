@@ -68,67 +68,58 @@ The bounded committed-turn store is transient Live transcript state only; Meetin
 
 ## Current Product Runtime Surface
 
-The frontend has **one normal module entry: `src/main.ts`**. The old parallel Audio Studio entry and its 200ms/10s retry polling are removed.
+The frontend has one normal module entry: `src/main.ts`. The old parallel Audio Studio entry and retry polling are removed.
 
-The frontend bridge exposes only current product/setup calls:
-
-```text
-Meeting status / committed turns / Start / Stop
-helper status / Start / worker capability status
-Mic Test Start / Stop
-input status / device list / input-output candidate probes
-settings load / save
-Text Translate
-explicit Verify Models
-```
-
-The production Tauri registry mirrors that bounded surface. Audio Studio, History/Chat, professional-readiness, dev seed/handoff/smoke, generic capture-handoff, manual route-control, hardware-status, full runtime-diagnostics, model-setup, and GPU-policy commands are not registered.
+The frontend/Tauri product surface is bounded to current Meeting/Text/setup needs: Meeting status/turns/Start/Stop, helper status/start/worker status, Mic Test Start/Stop, audio status/device probes, settings load/save, Text Translate, and explicit Verify Models.
 
 Meeting Microphone route modules remain internal dependencies of `meeting_session.rs`; they are not a manual frontend command surface.
 
-## Normal Readiness Cost
+## Rust Engine Surface
 
-Normal `loadProductRuntimeSnapshot()` reads only:
+The Rust engine graph has been reduced to current owners only:
 
 ```text
-settings
-+ Meeting session status
-+ helper status
-+ microphone/input status
-+ worker capability status when helper is ready
+engine/
+├─ audio/
+├─ capture_lifecycle.rs
+├─ logging.rs
+├─ paths.rs
+├─ runtime_settings.rs
+├─ runtime_state.rs
+├─ settings.rs
+└─ state.rs
 ```
 
-It does not fetch status bundles, full Diagnostics, model inventory, or native GPU policy on every refresh. Meeting preflight still checks required model presence through the cached Rust inventory; explicit Verify Models refreshes that cache.
+The old adapter/planning tree, History/Chat/session-save persistence, transcript-session planning, native inference/backend candidates, CUDA/status/report modules, domain/services scaffolding, and related dry-run/orchestration leaves are removed from `New`.
 
-The duplicate frontend window-rescue routine and startup trace subsystem are removed. Native window setup remains owned by Tauri `app_bootstrap.rs`.
+The blanket `#![allow(dead_code)]` at the engine root is removed. Mic Test now owns only capture Start/Stop and refuses to stop a Meeting-owned session. `runtime_state.rs` owns current Meeting/Mic-Test session authority without the old realtime-handoff snapshot architecture.
+
+Backend `RuntimeContracts/` JSON scaffolding is also removed because the current worker, active Tauri path, and current validators do not consume it; source/docs remain the contract authorities.
+
+## Normal Readiness Cost
+
+Normal `loadProductRuntimeSnapshot()` reads only settings, Meeting session status, helper status, microphone/input status, and worker capability status when helper is ready. It does not fetch full status bundles, model inventory, or native GPU policy on every refresh.
+
+Meeting preflight still checks required model presence through the cached Rust inventory; explicit Verify Models refreshes that cache.
 
 ## Validation Boundary
 
-The previous matrix/report-heavy validation system is removed. Current persistent source validation is intentionally small:
-
-```text
-startup/core source contract
-internal Meeting route contract
-Rust manifest preflight
-frontend build preflight
-```
-
-Package/path preflight remains a separate release/path boundary. `check:tauri-rust-local` remains explicit local compile proof.
+The old matrix/report-heavy validation system is removed. Current persistent source validation is intentionally small: core/startup source contract, internal Meeting route contract, Rust manifest preflight, and frontend build preflight. Package/path preflight remains separate. `check:tauri-rust-local` remains explicit local compile proof.
 
 Static validators do not prove compile, Tauri launch, models, Windows audio, rendered UI, latency, installer behavior, or clean-machine operation.
 
 ## Release Boundary
 
-Initial controlled release keeps the local sidecar Setup direction but **does not use a SHA-256/checksum/revision identity framework**. Do not create an artifact registry, checksum service, payload identity controller, downloader, or package manager as a replacement.
+Initial controlled release keeps the local sidecar Setup direction but does not use a SHA-256/checksum/revision identity framework. Do not create an artifact registry, checksum service, payload identity controller, downloader, or package manager as a replacement.
 
 The useful initial acceptance mechanism is approved prepared payload + deterministic placement + real installed worker/runtime execution.
 
-## Remaining Overdevelopment Boundary
+## Remaining Simplification Boundary
 
-The active frontend/command/validator surfaces are now pruned, but the deeper Rust `engine/` module graph still contains inherited simulation/planning/persistence modules and a blanket `allow(dead_code)`. Some persisted settings fields also describe removed product features.
+The largest remaining inherited compatibility surface is persisted settings. Current Rust/frontend settings still carry fields for removed concepts such as `runtime_profile`, `history_enabled`, custom voice/profile paths, and several old audio toggles. Do not delete them blindly: first separate fields with current Meeting/Text/setup callers from obsolete deserialization compatibility, then migrate the schema once through the existing settings owner rather than keeping permanent aliases.
 
-Those deeper owners must be pruned only after direct internal reachability is established; do not mass-delete audio/session primitives that the current Meeting path still uses.
+A small no-state cleanup compatibility function still exists in `runtime_state.rs` because current `meeting_session.rs` rollback/Stop calls the old handoff-clear boundary. It is not a second state owner; remove that tombstone only in a bounded caller cleanup.
 
 ## Proof Boundary
 
-ChatGPT -> GitHub can establish source structure, direct wiring, and static ownership. This repository state does **not** prove Rust/TypeScript compilation, Python execution, Tauri launch, Windows audio/device behavior, model presence/load/quality/latency, or clean-machine installation.
+ChatGPT -> GitHub can establish source structure, direct wiring, and static ownership. This repository state does not prove Rust/TypeScript compilation, validator execution, Python execution, Tauri launch, Windows audio/device behavior, model presence/load/quality/latency, or clean-machine installation.
