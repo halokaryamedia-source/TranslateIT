@@ -219,6 +219,22 @@ requireMarkers(source.helperBridge, "Meeting outbound helper priority continuity
   'task == "synthesize"',
   "clear_meeting_outbound_pipeline",
 ]);
+requireMarkers(source.helperBridge, "Live Meeting helper transport recovery", [
+  "fn helper_transport_failure(",
+  'blocker.contains("_write_failed:")',
+  'blocker.contains("_read_failed:")',
+  "fn live_outbound_generation_is_authoritative(",
+  "fn recover_live_meeting_helper_transport(",
+  'matches!(task, "transcribe" | "translate")',
+  "acquire_helper_task_permit(HelperTaskPriority::MeetingOutbound)",
+  "meeting_live_helper_transport_recovered_same_worker",
+  "response = send_worker_task_inner(task, retry_payload);",
+  "meeting_live_helper_recovered_current_stage_not_retried",
+  "this synthesis stage was not retried",
+]);
+forbidMarkers(source.helperBridge, "Live Meeting helper retry boundary", [
+  'matches!(task, "transcribe" | "translate" | "synthesize")',
+]);
 requireMarkers(source.helperBridgeRuntime, "required outbound readiness invalidation", [
   "required_outbound_prepare_failed",
   "runtime.provider_ready = false",
@@ -323,4 +339,4 @@ if (!models.some((model) => model.model_id === "marianmt-en-id")) throw new Erro
 if (models.some((model) => model.model_id === "nllb-200-distilled-600M")) throw new Error("NLLB must not return to current translation inventory");
 if (models.some((model) => Object.hasOwn(model, "revision") || Object.hasOwn(model, "checksum"))) throw new Error("Initial model inventory must not grow revision/checksum release-identity placeholders");
 
-console.log("[startup-readiness] Svelte Meeting/Text/Settings/First Setup ownership, coherent Meeting projection, gated transcript polling, atomic audio-device selection, user-safe Text result separation, required outbound AI preparation before Meeting Live, outbound helper priority continuity across ASR/translation/TTS, bounded Stop-time helper recovery, Meeting Microphone provider preflight before authority, duration-grounded Meeting Microphone delivery deadline, truthful ASR attention state, bounded newest-preferred finalized speech backlog, familiar translation interaction hierarchy, runtime bridge, settings schema, Meeting lifecycle, and direction-based worker contracts are source-aligned. Dependency install, Svelte compile/render, model execution, Windows audio playback, and installed-runtime proof remain separate.");
+console.log("[startup-readiness] Svelte Meeting/Text/Settings/First Setup ownership, coherent Meeting projection, gated transcript polling, atomic audio-device selection, user-safe Text result separation, required outbound AI preparation before Meeting Live, outbound helper priority continuity across ASR/translation/TTS, bounded in-session helper transport recovery, bounded Stop-time helper recovery, Meeting Microphone provider preflight before authority, duration-grounded Meeting Microphone delivery deadline, truthful ASR attention state, bounded newest-preferred finalized speech backlog, familiar translation interaction hierarchy, runtime bridge, settings schema, Meeting lifecycle, and direction-based worker contracts are source-aligned. Dependency install, Svelte compile/render, model execution, Windows audio playback, and installed-runtime proof remain separate.");
