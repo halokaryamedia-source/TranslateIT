@@ -88,14 +88,14 @@
   .ti-page-title {
     margin: 8px 0 0;
     max-width: 760px;
-    font-size: clamp(1.75rem, 2.5vw, 2.15rem);
-    line-height: 1.12;
-    font-weight: 850;
-    letter-spacing: -0.035em;
+    font-size: clamp(1.7rem, 2.4vw, 2.05rem);
+    line-height: 1.15;
+    font-weight: 700;
+    letter-spacing: -0.03em;
   }
 
   .ti-page-copy {
-    margin: 12px 0 0;
+    margin: 10px 0 0;
     max-width: 720px;
     color: var(--ti-text-muted);
     font-size: 0.9rem;
@@ -129,22 +129,17 @@
     justify-content: center;
     gap: 8px;
     border: 1px solid var(--ti-border-strong);
-    border-radius: var(--ti-radius-md);
+    border-radius: 10px;
     padding: 0 16px;
     background: var(--ti-accent);
     color: var(--ti-accent-contrast);
-    font-weight: 750;
+    font-weight: 650;
     line-height: 1;
-    transition: background-color 120ms ease, border-color 120ms ease, color 120ms ease, transform 120ms ease;
+    transition: background-color 120ms ease, border-color 120ms ease, color 120ms ease;
   }
 
   .ti-button:hover:not(:disabled) {
     background: var(--ti-accent-hover);
-    transform: translateY(-1px);
-  }
-
-  .ti-button:active:not(:disabled) {
-    transform: translateY(0);
   }
 
   .ti-button-secondary {
@@ -188,41 +183,41 @@
   .ti-kicker {
     color: var(--ti-text-muted);
     font-size: 0.7rem;
-    font-weight: 800;
-    letter-spacing: 0.13em;
+    font-weight: 650;
+    letter-spacing: 0.09em;
     text-transform: uppercase;
   }
 
   .ti-pill {
     display: inline-flex;
-    min-height: 32px;
+    min-height: 30px;
     align-items: center;
     border: 1px solid var(--ti-border);
     border-radius: 999px;
     background: var(--ti-surface-soft);
-    padding: 0 12px;
+    padding: 0 11px;
     color: var(--ti-text-muted);
-    font-size: 0.74rem;
-    font-weight: 750;
+    font-size: 0.73rem;
+    font-weight: 650;
   }
 
   .ti-action-row {
     display: flex;
     flex-wrap: wrap;
     align-items: center;
-    gap: 12px;
+    gap: 10px;
   }
 
   .ti-field-label {
     color: var(--ti-text-muted);
     font-size: 0.75rem;
-    font-weight: 750;
+    font-weight: 600;
   }
 }
 
 @media (max-width: 1360px) {
   :root {
-    --ti-sidebar-width: 260px;
+    --ti-sidebar-width: 220px;
     --ti-page-padding-x: 24px;
   }
 }
