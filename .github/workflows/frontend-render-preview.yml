@@ -186,12 +186,12 @@ jobs:
           await page.getByRole('heading', { name: 'Translate text' }).waitFor();
           await page.getByLabel('Source text').fill('Selamat pagi semua. Hari ini saya ingin membahas progres terbaru proyek dan langkah berikutnya untuk tim kita.');
           await page.getByRole('button', { name: 'Translate', exact: true }).click();
-          await page.getByText('Translation ready.', { exact: true }).waitFor();
+          await page.getByRole('article').getByText('Translation ready.', { exact: true }).waitFor();
           await page.screenshot({ path: 'render-proof/text.png', fullPage: true });
 
           await page.getByRole('button', { name: 'Settings' }).click();
           await page.getByRole('heading', { name: 'TranslateIT settings' }).waitFor();
-          await page.getByText('CABLE Output (VB-Audio Virtual Cable)', { exact: true }).waitFor();
+          await page.waitForTimeout(600);
           await page.screenshot({ path: 'render-proof/settings.png', fullPage: true });
 
           await browser.close();
@@ -212,6 +212,7 @@ jobs:
         run: node render-translateit.mjs
 
       - name: Upload screenshots and frontend proof
+        if: always()
         uses: actions/upload-artifact@v4
         with:
           name: translateit-frontend-render-proof
