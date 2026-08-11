@@ -2,7 +2,7 @@
   import { ArrowLeftRight, Check, Copy } from "@lucide/svelte";
   import { runtimeApi } from "../app/bridge/runtimeApi";
   import { runtimeProductFacade } from "../app/bridge/runtimeProductFacade";
-  import { errorMessage, languageName } from "../app/shared/state";
+  import { languageName } from "../app/shared/state";
   import type { RuntimeSettings } from "../app/shared/types";
 
   const MAX_MANUAL_TRANSLATION_CHARS = 2000;
@@ -106,11 +106,11 @@
         setResult("stale", "Needs update", "This result belongs to the previous source text. Translate again to update it.");
         onNotice("Translation finished for the previous text.");
       }
-    } catch (error) {
+    } catch {
       if (targetRevision === requestTargetRevision) targetText = previousTarget;
-      const message = errorMessage(error);
+      const message = "Translation is unavailable right now. Try again or check Diagnostics.";
       setResult("error", "Couldn't translate", message);
-      onNotice(`Couldn't translate: ${message}`);
+      onNotice(message);
     } finally {
       translating = false;
     }
@@ -127,9 +127,9 @@
       await navigator.clipboard.writeText(targetText);
       copyState = "copied";
       onNotice("Translation copied.");
-    } catch (error) {
+    } catch {
       copyState = "error";
-      onNotice(`Couldn't copy the translation: ${errorMessage(error)}`);
+      onNotice("Couldn't copy the translation. Try again.");
     }
   }
 
@@ -158,8 +158,8 @@
         setResult("idle", "Ready", "Previous translation moved to the source side.");
       }
       onNotice(`${languageName(saved.source_language)} → ${languageName(saved.target_language)}`);
-    } catch (error) {
-      onNotice(`Couldn't change language direction: ${errorMessage(error)}`);
+    } catch {
+      onNotice("Couldn't change the language direction. Try again or check Diagnostics.");
     } finally {
       settingsSaving = false;
     }
