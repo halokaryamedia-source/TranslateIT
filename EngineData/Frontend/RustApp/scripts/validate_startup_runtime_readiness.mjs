@@ -24,6 +24,7 @@ const paths = {
   helperBridgeRuntime: resolve(root, "src-tauri/src/commands/helper_bridge_runtime.rs"),
   settingsCommands: resolve(root, "src-tauri/src/commands/settings.rs"),
   textTranslate: resolve(root, "src-tauri/src/commands/text_translate.rs"),
+  finalizedUtterance: resolve(root, "src-tauri/src/engine/audio/finalized_utterance.rs"),
   runtimeState: resolve(root, "src-tauri/src/engine/runtime_state.rs"),
   settingsRust: resolve(root, "src-tauri/src/engine/settings.rs"),
   worker: resolve(root, "../../Backend/LocalWorker/WorkerRuntime/realtime_local_worker.py"),
@@ -220,6 +221,16 @@ requireMarkers(source.meetingSession, "Meeting outbound Start hardening", [
   '"blocked_after_runtime_prepare"',
   'if empty { "listening" } else { "attention_needed" }',
 ]);
+requireMarkers(source.finalizedUtterance, "Meeting finalized speech freshness", [
+  "MAX_PENDING_FINALIZED_UTTERANCES",
+  "while state.pending.len() >= MAX_PENDING_FINALIZED_UTTERANCES",
+  "let _ = state.pending.pop_front();",
+  "Already-running output is not preempted here.",
+  "state.pending.push_back(FinalizedMeetingUtterance",
+]);
+forbidMarkers(source.finalizedUtterance, "retired newest-drop overload policy", [
+  "if state.lane == LANE_INCOMING {\n            // Incoming is comprehension assistance. Prefer the newest finalized speech",
+]);
 
 requireMarkers(source.settingsRust, "settings schema", ["const CURRENT_SCHEMA_VERSION: u32 = 6;", "pub source_language: String", "pub target_language: String", "pub meeting_setup_state: String", "pub meeting_setup_checkpoint: u8", "pub input_device_id: Option<String>", "pub output_device_id: Option<String>"]);
 requireMarkers(source.frontendState, "frontend settings defaults", ["schema_version: 6", 'source_language: "id"', 'target_language: "en"', 'meeting_setup_state: "new"']);
@@ -247,4 +258,4 @@ if (!models.some((model) => model.model_id === "marianmt-en-id")) throw new Erro
 if (models.some((model) => model.model_id === "nllb-200-distilled-600M")) throw new Error("NLLB must not return to current translation inventory");
 if (models.some((model) => Object.hasOwn(model, "revision") || Object.hasOwn(model, "checksum"))) throw new Error("Initial model inventory must not grow revision/checksum release-identity placeholders");
 
-console.log("[startup-readiness] Svelte Meeting/Text/Settings/First Setup ownership, coherent Meeting projection, gated transcript polling, atomic audio-device selection, user-safe Text result separation, required outbound AI preparation before Meeting Live, truthful ASR attention state, familiar translation interaction hierarchy, runtime bridge, settings schema, Meeting lifecycle, and direction-based worker contracts are source-aligned. Dependency install, Svelte compile/render, model execution, Windows audio, and installed-runtime proof remain separate.");
+console.log("[startup-readiness] Svelte Meeting/Text/Settings/First Setup ownership, coherent Meeting projection, gated transcript polling, atomic audio-device selection, user-safe Text result separation, required outbound AI preparation before Meeting Live, truthful ASR attention state, bounded newest-preferred finalized speech backlog, familiar translation interaction hierarchy, runtime bridge, settings schema, Meeting lifecycle, and direction-based worker contracts are source-aligned. Dependency install, Svelte compile/render, model execution, Windows audio, and installed-runtime proof remain separate.");
