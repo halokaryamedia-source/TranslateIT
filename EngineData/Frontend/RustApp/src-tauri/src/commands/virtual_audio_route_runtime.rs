@@ -133,6 +133,69 @@ pub fn meeting_route_execution_guard_status() -> MeetingRouteExecutionGuardStatu
     }
 }
 
+pub fn prepare_meeting_virtual_audio_route_provider() -> Result<(), String> {
+    let route = get_virtual_mic_route_selection();
+    if !route.route_ready {
+        return Err(if route.blocker.is_empty() {
+            "virtual_audio_route:meeting_route_not_ready".to_string()
+        } else {
+            route.blocker
+        });
+    }
+
+    let guard = meeting_route_execution_guard_status();
+    if !guard.ready {
+        return Err(if guard.blocker.is_empty() {
+            "virtual_audio_route:provider_execution_not_ready".to_string()
+        } else {
+            guard.blocker
+        });
+    }
+
+    let Some(python) = resolve_worker_python_command() else {
+        return Err("virtual_audio_route:python_runtime_missing".to_string());
+    };
+    let provider_script = provider_script_path();
+    let payload = json!({
+        "schema": "translateit.virtual_audio_route.provider_preflight.v1",
+        "enable_route_runtime": true,
+        "preflight_only": true,
+        "selected_output_device": route.selected_output_device,
+        "selected_input_device": route.selected_input_device,
+        "runtime_claim": "meeting_route_provider_preflight_source_side"
+    });
+    let payload_arg = serde_json::to_string(&payload)
+        .map_err(|_| "virtual_audio_route:provider_preflight_payload_invalid".to_string())?;
+    let output = Command::new(&python.program)
+        .args(&python.bootstrap_args)
+        .arg(&provider_script)
+        .arg(payload_arg)
+        .output()
+        .map_err(|_| "virtual_audio_route:provider_preflight_process_failed".to_string())?;
+    let stdout = String::from_utf8_lossy(&output.stdout).trim().to_string();
+    let response = serde_json::from_str::<Value>(&stdout).unwrap_or_else(|_| json!({}));
+    let provider_ok = response.get("ok").and_then(Value::as_bool).unwrap_or(false);
+    let preflight_verified = response
+        .get("preflight_verified")
+        .and_then(Value::as_bool)
+        .unwrap_or(false);
+    let audio_route_ready = response
+        .get("audio_route_ready")
+        .and_then(Value::as_bool)
+        .unwrap_or(false);
+
+    if output.status.success() && provider_ok && preflight_verified && audio_route_ready {
+        return Ok(());
+    }
+
+    Err(response
+        .get("blocker")
+        .and_then(Value::as_str)
+        .filter(|value| !value.trim().is_empty())
+        .unwrap_or("virtual_audio_route:provider_preflight_failed")
+        .to_string())
+}
+
 fn contract_json(status: &VirtualAudioRouteRuntimeStatus) -> String {
     serde_json::to_string_pretty(&json!({
         "schema": "translateit.virtual_audio_route.runtime_handoff.v1",
