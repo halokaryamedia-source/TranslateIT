@@ -13,29 +13,14 @@ export type RuntimeCommandError = {
 
 export type RuntimeSettings = {
   schema_version: number;
-  language_focus_mode: string;
-  runtime_profile: string;
   source_language: string;
   target_language: string;
-  history_enabled: boolean;
   meeting_setup_state: "new" | "deferred" | "completed" | string;
   meeting_setup_checkpoint: number;
   audio: {
     input_device_id: string | null;
     output_device_id: string | null;
-    sensitivity: number;
-    input_sensitivity: string;
-    show_advanced_devices: boolean;
-    allow_low_but_usable_input: boolean;
-    allow_cpu_degraded_mode: boolean;
-    auto_play_translation_voice: boolean;
-    auto_play_out_voice: boolean;
-    use_custom_voice_actor: boolean;
-    voice_actor_profiles_root: string;
-    [key: string]: any;
   };
-  voice_actor_profile_id: string;
-  [key: string]: any;
 };
 
 export type HelperBridgeStatus = {

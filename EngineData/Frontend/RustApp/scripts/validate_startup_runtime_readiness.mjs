@@ -8,14 +8,24 @@ const paths = {
   main: resolve(root, "src/main.ts"),
   shell: resolve(root, "src/app/active-launcher/lockedReferenceShellParts.ts"),
   controller: resolve(root, "src/app/simple-launcher/SimpleLauncherController.ts"),
+  settingsRenderer: resolve(root, "src/app/active-launcher/launcherSettingsRenderer.ts"),
+  settingsActions: resolve(root, "src/app/active-launcher/launcherSettingsActions.ts"),
+  firstSetup: resolve(root, "src/app/first-setup/FirstSetupBootstrap.ts"),
+  frontendTypes: resolve(root, "src/app/shared/types.ts"),
+  frontendState: resolve(root, "src/app/shared/state.ts"),
   runtimeApi: resolve(root, "src/app/bridge/runtimeApi.ts"),
   facade: resolve(root, "src/app/bridge/runtimeProductFacade.ts"),
   registry: resolve(root, "src-tauri/src/commands/registry.rs"),
   commandsMod: resolve(root, "src-tauri/src/commands/mod.rs"),
   commandAudio: resolve(root, "src-tauri/src/commands/audio.rs"),
+  commandSettings: resolve(root, "src-tauri/src/commands/settings.rs"),
   meetingSession: resolve(root, "src-tauri/src/commands/meeting_session.rs"),
   engineMod: resolve(root, "src-tauri/src/engine/mod.rs"),
+  settingsRust: resolve(root, "src-tauri/src/engine/settings.rs"),
+  runtimeSettingsRust: resolve(root, "src-tauri/src/engine/runtime_settings.rs"),
   audioMod: resolve(root, "src-tauri/src/engine/audio/mod.rs"),
+  liveCapture: resolve(root, "src-tauri/src/engine/audio/live_capture.rs"),
+  meetingSound: resolve(root, "src-tauri/src/engine/audio/meeting_sound_capture.rs"),
   captureLifecycle: resolve(root, "src-tauri/src/engine/capture_lifecycle.rs"),
   runtimeState: resolve(root, "src-tauri/src/engine/runtime_state.rs"),
   helperBridge: resolve(root, "src-tauri/src/commands/helper_bridge.rs"),
@@ -86,6 +96,10 @@ requireMarkers(source.controller, "active controller", [
   "submitText",
   '"Start Translation"',
   '"Stop Translation"',
+  "this.settings.source_language",
+  "this.settings.target_language",
+  "this.settings.audio.input_device_id",
+  "this.settings.audio.output_device_id",
 ]);
 forbidMarkers(source.controller, "active controller", [
   "Pause Translation",
@@ -138,6 +152,8 @@ requireMarkers(source.facade, "product facade", [
   "readiness.translation_id_en === true",
   "readiness.translation_en_id === true",
   "selectedTextDirection(settings)",
+  "settings.source_language",
+  "settings.target_language",
   "loadProductRuntimeSnapshot",
   "getMeetingSessionStatus",
   "getHelperBridgeStatus",
@@ -163,6 +179,85 @@ forbidMarkers(source.registry, "production registry", [
   "setup_models",
   "get_gpu_policy",
   "get_runtime_diagnostics",
+]);
+
+// Persisted settings stay one small owner. Serde reads the previous larger JSON shape
+// by ignoring unknown legacy keys; save_pretty writes only the current schema.
+requireMarkers(source.settingsRust, "Rust settings owner", [
+  "const CURRENT_SCHEMA_VERSION: u32 = 6;",
+  "#[serde(default)]",
+  "pub source_language: String",
+  "pub target_language: String",
+  "pub meeting_setup_state: String",
+  "pub meeting_setup_checkpoint: u8",
+  "pub input_device_id: Option<String>",
+  "pub output_device_id: Option<String>",
+  "legacy_settings_shape_is_read_without_persisting_retired_fields",
+]);
+requireMarkers(source.frontendTypes, "frontend settings type", [
+  "schema_version: number",
+  "source_language: string",
+  "target_language: string",
+  'meeting_setup_state: "new" | "deferred" | "completed" | string',
+  "meeting_setup_checkpoint: number",
+  "input_device_id: string | null",
+  "output_device_id: string | null",
+]);
+requireMarkers(source.frontendState, "frontend settings defaults", [
+  "schema_version: 6",
+  'source_language: "id"',
+  'target_language: "en"',
+  'meeting_setup_state: "new"',
+  "meeting_setup_checkpoint: 1",
+  "input_device_id: null",
+  "output_device_id: null",
+]);
+
+const retiredSettingsMarkers = [
+  "language_focus_mode",
+  "runtime_profile",
+  "history_enabled",
+  "input_sensitivity",
+  "show_advanced_devices",
+  "allow_low_but_usable_input",
+  "allow_cpu_degraded_mode",
+  "auto_play_translation_voice",
+  "auto_play_out_voice",
+  "use_custom_voice_actor",
+  "voice_actor_profiles_root",
+  "voice_actor_profile_id",
+];
+const settingsImplementation = source.settingsRust.split("#[cfg(test)]")[0];
+forbidMarkers(settingsImplementation, "persisted Rust settings schema", retiredSettingsMarkers);
+forbidMarkers(settingsImplementation, "persisted Rust settings schema", ["pub sensitivity:"]);
+forbidMarkers(source.frontendTypes, "frontend settings type", [...retiredSettingsMarkers, "sensitivity: number"]);
+forbidMarkers(source.frontendState, "frontend settings defaults", retiredSettingsMarkers);
+forbidMarkers(source.commandSettings, "settings command boundary", [
+  "runtime_profile",
+  "save_default_runtime_settings",
+]);
+forbidMarkers(source.runtimeSettingsRust, "runtime settings loader", ["save_default_settings"]);
+forbidMarkers(source.engineMod, "engine settings facade", ["save_default_settings"]);
+
+requireMarkers(source.textTranslate, "Text settings caller", [
+  "settings.source_language",
+  "settings.target_language",
+]);
+requireMarkers(source.liveCapture, "microphone preference caller", ["input_device_id"]);
+requireMarkers(source.meetingSound, "Meeting Sound preference caller", ["output_device_id"]);
+requireMarkers(source.firstSetup, "First Setup settings caller", [
+  "meeting_setup_state",
+  "meeting_setup_checkpoint",
+  "audio.input_device_id",
+  "audio.output_device_id",
+]);
+requireMarkers(source.settingsRenderer, "Meeting settings caller", [
+  "settings.audio.input_device_id",
+  "settings.audio.output_device_id",
+]);
+requireMarkers(source.settingsActions, "Text direction settings caller", [
+  "source_language",
+  "target_language",
 ]);
 
 // Rust engine root is intentionally small. ASR/translation/TTS execution belongs to
@@ -311,4 +406,4 @@ if (models.some((model) => Object.hasOwn(model, "revision") || Object.hasOwn(mod
   throw new Error("Initial model inventory must not grow revision/checksum release-identity placeholders");
 }
 
-console.log("[startup-readiness] Small Meeting/Text product and Rust engine source graph are aligned. Compile, model execution, Windows audio, and installed-runtime proof remain separate.");
+console.log("[startup-readiness] Small Meeting/Text product, persisted settings schema, and Rust engine source graph are aligned. Compile, model execution, Windows audio, and installed-runtime proof remain separate.");

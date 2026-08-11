@@ -13,34 +13,14 @@ pub fn load_runtime_settings() -> RuntimeSettings {
         "load_runtime_settings",
         "loading runtime settings for launcher startup",
     );
-    let mut settings = engine::load_settings();
-    // Compatibility field only: standalone Text now owns Quality explicitly while
-    // Meeting outbound owns Realtime at its request boundary. Exposing Quality here
-    // keeps inherited frontend labels/History metadata truthful without making this
-    // field the engine mode authority again.
-    settings.runtime_profile = "Quality".to_string();
+    let settings = engine::load_settings();
     trace_command_end("load_runtime_settings", started, "ok");
     settings
 }
 
 #[tauri::command]
-pub fn save_default_runtime_settings() -> CommandResult {
-    let started = trace_command_start("save_default_runtime_settings", "restoring defaults");
-    let result = engine::save_default_settings();
-    trace_command_end(
-        "save_default_runtime_settings",
-        started,
-        format!("state={}", result.state),
-    );
-    result
-}
-
-#[tauri::command]
-pub fn save_runtime_settings(mut settings: RuntimeSettings) -> CommandResult {
+pub fn save_runtime_settings(settings: RuntimeSettings) -> CommandResult {
     let started = trace_command_start("save_runtime_settings", "saving runtime settings");
-    // Persist the compatibility field consistently with current standalone Text
-    // ownership. Meeting mode is no longer read from RuntimeSettings.runtime_profile.
-    settings.runtime_profile = "Quality".to_string();
     let project_paths = ProjectPaths::discover();
     let settings_path =
         PathBuf::from(&project_paths.user_cache_dir).join("rust_runtime_settings.json");
@@ -62,7 +42,7 @@ pub fn save_runtime_settings(mut settings: RuntimeSettings) -> CommandResult {
             );
             CommandResult::blocked(
                 LifecycleState::Error,
-                "Failed to save runtime settings. Open Developer diagnostics for details.",
+                "Failed to save runtime settings. Open Diagnostics for details.",
             )
         }
     };
