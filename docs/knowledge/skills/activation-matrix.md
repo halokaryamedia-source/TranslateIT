@@ -17,20 +17,42 @@ boundary.
 
 Context Recovery and Plan use no project specialist by default.
 
-Communication shaping, anti-slop review, research, profiling, testing, and other
-tooling techniques are conditional procedures. They do **not** add another project
-skill to the stack.
+Communication shaping, anti-slop review, research, profiling, testing, framework-
+specific documentation/autofixers, and other tooling techniques are conditional
+procedures. They do **not** add another project skill to the stack.
 
 ## Project Specialist Routing
 
 | Current semantic / acceptance boundary | Route |
 |---|---|
 | Non-trivial approved product behavior create/change | `development-brief` |
-| Desktop shell, navigation/workspaces, product readiness/state mapping, desktop settings integration, desktop/runtime facade, Normal UI vs Developer Diagnostics | `desktop-runtime-development` |
+| Desktop shell, navigation/workspaces, frontend application architecture/framework migration, product readiness/state mapping, desktop settings integration, desktop/runtime facade, Normal UI vs Developer Diagnostics | `desktop-runtime-development` |
 | Desktop visual hierarchy, layout/composition, spacing/density, typography, color/tokens, component visual states, reference-image analysis, responsive composition, motion/micro-interactions, rendered visual acceptance | `desktop-ui-design-development` |
 | Local ASR/translation/TTS inference, model/provider lifecycle/evaluation, Realtime/Quality execution, CUDA/CPU behavior, inference context/tone, AI helper/worker orchestration, AI-runtime profiling/tooling decisions | `local-ai-runtime-development` |
 | Physical mic capture, PTT/Session Listening capture mechanics, VAD/segmentation, Windows devices, monitoring, virtual meeting route, TranslateIT Meeting Microphone delivery | `windows-audio-runtime-development` |
 | Windows installer/package, bundled helper/Python runtime, dependencies/models/TTS assets, installed resource layout, audio-provider delivery, clean-machine deployment | `release-packaging-development` |
+
+### Frontend Routing Examples
+
+```text
+vanilla TypeScript shell -> Svelte 5 while preserving Meeting/Text behavior
+-> desktop-runtime-development
+
+Svelte component/state wiring is showing the wrong product state
+-> desktop-runtime-development
+
+Svelte component shows the correct state but hierarchy/spacing/tokens/responsive
+composition are poor
+-> desktop-ui-design-development
+
+Svelte file has syntax/reactivity/accessibility issues
+-> current semantic project specialist
++ official Svelte technical helper/autofixer
+```
+
+Do not activate both desktop specialists for one Developing slice. Split the work
+by acceptance boundary: architecture/behavior parity first, visual acceptance in a
+separate bounded slice when necessary.
 
 ## Selection Test
 
@@ -53,11 +75,12 @@ These do not require an extra skill activation.
 
 For material development reporting:
 
-- lead with the current result, blocker, or next action;
-- keep active multi-step work bounded and numbered only when that improves tracking;
-- restate current state when continuity would otherwise be ambiguous;
-- finish the current acceptance boundary before surfacing an unrelated issue;
-- never invent a time estimate solely for motivational formatting;
+- lead with the current result/action instead of praise or preamble;
+- number only real multi-step work and keep the active set bounded;
+- restate current state when continuity matters;
+- suppress unrelated tangents until the current acceptance boundary is closed;
+- errors use concrete location/cause/smallest-fix language when evidence supports it;
+- do not invent time estimates merely to sound concrete;
 - final material reports keep exactly one `Next step`.
 
 ### Anti-slop review
@@ -111,6 +134,29 @@ current boundary and create a separate bounded task. Do not stack specialists.
 
 Use external discovery only after the current owner proves a real need.
 
+### Official Svelte AI helpers
+
+When the current frontend task creates, edits, migrates, reviews, or analyzes
+`.svelte`, `.svelte.ts`, or `.svelte.js` files, use the current official Svelte AI
+helper workflow when available:
+
+```text
+svelte-code-writer
+svelte-core-bestpractices
+@sveltejs/mcp list-sections/get-documentation
+@sveltejs/mcp svelte-autofixer
+```
+
+These are framework-specific technical helpers, **not TranslateIT project
+specialists**. They do not consume the one-specialist budget and they do not own
+product behavior or visual direction.
+
+In Codex/Local, changed Svelte components should be run through the official Svelte
+autofixer before finalization. Use `sv check` or the targeted frontend build when
+compile/type/accessibility claims require executable proof. In ChatGPT -> GitHub,
+use current official documentation for source decisions but do not claim local
+Svelte tooling proof that was not executed.
+
 ### Version-sensitive documentation
 
 Context7 or another current-documentation retrieval tool may be used conditionally
@@ -150,11 +196,13 @@ Rust
 TypeScript
 Python
 Tauri
+Svelte
+Tailwind
 CSS
 CUDA
 Windows API
 a named library/provider/model
 ```
 
-Do not create `rust-expert`, `python-expert`, `anti-slop`, `researcher`,
-`profiler`, or similar skills to bypass the semantic-owner model.
+Do not create `rust-expert`, `python-expert`, `svelte-expert`, `anti-slop`,
+`researcher`, `profiler`, or similar skills to bypass the semantic-owner model.
