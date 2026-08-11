@@ -17,6 +17,6 @@
   };
 </script>
 
-<span class={`inline-flex min-h-7 shrink-0 items-center rounded-full border px-3 text-xs font-bold ${toneClass[tone]}`}>
+<span class={`inline-flex min-h-6 shrink-0 items-center rounded-full border px-2.5 text-[11px] font-semibold ${toneClass[tone]}`}>
   {label}
 </span>
