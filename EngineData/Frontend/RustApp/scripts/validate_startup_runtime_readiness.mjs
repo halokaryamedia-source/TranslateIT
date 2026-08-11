@@ -266,6 +266,26 @@ requireMarkers(source.meetingSession, "Meeting route provider preparation before
 if (source.meetingSession.indexOf("prepare_meeting_virtual_audio_route_provider()") > source.meetingSession.indexOf("let starting = begin_application_meeting_session();")) {
   throw new Error("Meeting route provider preflight must run before Meeting authority creation");
 }
+requireMarkers(source.virtualAudioRouteRuntime, "Meeting route delivery hang containment", [
+  "MEETING_ROUTE_PROVIDER_PREFLIGHT_ELAPSED_MS",
+  "fn wav_duration_ms(",
+  "fn meeting_route_delivery_deadline_ms(",
+  "audio_duration_ms.saturating_mul(2)",
+  "provider_preflight_elapsed_ms",
+  "delivery_started.elapsed() >= Duration::from_millis(delivery_deadline_ms)",
+  '"provider_delivery_timed_out"',
+  '"virtual_audio_route:provider_delivery_deadline_exceeded"',
+  '"meeting_route_provider_delivery_deadline_exceeded_no_replay"',
+]);
+requireMarkers(source.meetingSession, "Meeting route temporary TTS ownership", [
+  "let route = dispatch_meeting_virtual_audio_route_provider(tts_path.clone(), generation);",
+  "remove_temporary_tts(&tts_path);",
+]);
+const routeDispatchIndex = source.meetingSession.indexOf("let route = dispatch_meeting_virtual_audio_route_provider(tts_path.clone(), generation);");
+const routeCleanupIndex = source.meetingSession.indexOf("remove_temporary_tts(&tts_path);", routeDispatchIndex);
+if (routeDispatchIndex < 0 || routeCleanupIndex < routeDispatchIndex) {
+  throw new Error("Meeting temporary TTS must remain owned until synchronous route dispatch returns");
+}
 requireMarkers(source.finalizedUtterance, "Meeting finalized speech freshness", [
   "MAX_PENDING_FINALIZED_UTTERANCES",
   "while state.pending.len() >= MAX_PENDING_FINALIZED_UTTERANCES",
@@ -303,4 +323,4 @@ if (!models.some((model) => model.model_id === "marianmt-en-id")) throw new Erro
 if (models.some((model) => model.model_id === "nllb-200-distilled-600M")) throw new Error("NLLB must not return to current translation inventory");
 if (models.some((model) => Object.hasOwn(model, "revision") || Object.hasOwn(model, "checksum"))) throw new Error("Initial model inventory must not grow revision/checksum release-identity placeholders");
 
-console.log("[startup-readiness] Svelte Meeting/Text/Settings/First Setup ownership, coherent Meeting projection, gated transcript polling, atomic audio-device selection, user-safe Text result separation, required outbound AI preparation before Meeting Live, outbound helper priority continuity across ASR/translation/TTS, bounded Stop-time helper recovery, Meeting Microphone provider preflight before authority, truthful ASR attention state, bounded newest-preferred finalized speech backlog, familiar translation interaction hierarchy, runtime bridge, settings schema, Meeting lifecycle, and direction-based worker contracts are source-aligned. Dependency install, Svelte compile/render, model execution, Windows audio playback, and installed-runtime proof remain separate.");
+console.log("[startup-readiness] Svelte Meeting/Text/Settings/First Setup ownership, coherent Meeting projection, gated transcript polling, atomic audio-device selection, user-safe Text result separation, required outbound AI preparation before Meeting Live, outbound helper priority continuity across ASR/translation/TTS, bounded Stop-time helper recovery, Meeting Microphone provider preflight before authority, duration-grounded Meeting Microphone delivery deadline, truthful ASR attention state, bounded newest-preferred finalized speech backlog, familiar translation interaction hierarchy, runtime bridge, settings schema, Meeting lifecycle, and direction-based worker contracts are source-aligned. Dependency install, Svelte compile/render, model execution, Windows audio playback, and installed-runtime proof remain separate.");
