@@ -1,9 +1,9 @@
 """Guarded virtual audio route provider for TranslateIT.
 
-This module is intentionally conservative. It can be called by a future Rust/worker
-handoff to route a generated TTS WAV file into a selected virtual audio output
-device, but it refuses to execute unless both environment and payload guards are
-explicitly enabled.
+This module is intentionally conservative. It can be called by the Rust meeting
+audio owner to validate the selected virtual route or to route a generated TTS WAV
+file into the selected virtual audio output device. Runtime execution remains
+guarded explicitly.
 
 Runtime proof is NOT implied by this source file. The caller must validate this on
 Windows with the selected virtual cable / VB-Audio / Voicemeeter device.
@@ -20,6 +20,7 @@ from typing import Any
 
 RUNTIME_CLAIM_DISABLED = "virtual_audio_route_provider_guarded_disabled_no_audio_execution"
 RUNTIME_CLAIM_READY = "virtual_audio_route_provider_ready_needs_windows_runtime_validation"
+RUNTIME_CLAIM_PREFLIGHT = "virtual_audio_route_provider_preflight_verified_needs_windows_playback_validation"
 RUNTIME_CLAIM_MISSING_DEP = "virtual_audio_route_provider_dependency_missing"
 RUNTIME_CLAIM_EXECUTED = "virtual_audio_route_provider_execution_attempted_needs_windows_runtime_validation"
 
@@ -36,6 +37,7 @@ def _response(**kwargs: Any) -> dict[str, Any]:
     base = {
         "ok": False,
         "stage": "virtual_audio_route_provider",
+        "preflight_verified": False,
         "route_execution_attempted": False,
         "audio_route_ready": False,
         "blocker": "virtual_audio_route_provider:not_started",
@@ -81,11 +83,76 @@ def _find_output_device(sd: Any, requested_name: str) -> dict[str, Any] | None:
     return None
 
 
+def _import_audio_runtime() -> tuple[Any, Any]:
+    import numpy as np  # type: ignore
+    import sounddevice as sd  # type: ignore
+
+    return np, sd
+
+
+def _preflight_virtual_audio(
+    env_enabled: bool,
+    payload_enabled: bool,
+    selected_output_device: str,
+) -> dict[str, Any]:
+    if not selected_output_device:
+        return _response(
+            blocker="virtual_audio_route_provider:missing_selected_output_device",
+            next_action="select_virtual_output_device",
+        )
+
+    if not env_enabled or not payload_enabled:
+        return _response(
+            blocker="virtual_audio_route_provider:execution_guard_disabled",
+            next_action="enable_runtime_guards_after_ci_local_windows_validation",
+            selected_output_device=selected_output_device,
+        )
+
+    try:
+        _np, sd = _import_audio_runtime()
+    except Exception as exc:  # pragma: no cover - dependency-specific runtime path
+        return _response(
+            blocker="virtual_audio_route_provider:dependency_missing_sounddevice_numpy",
+            next_action="install_and_validate_sounddevice_numpy_on_windows",
+            selected_output_device=selected_output_device,
+            error=str(exc),
+            runtime_claim=RUNTIME_CLAIM_MISSING_DEP,
+        )
+
+    output_device = _find_output_device(sd, selected_output_device)
+    if not output_device:
+        return _response(
+            blocker="virtual_audio_route_provider:selected_output_device_not_found",
+            next_action="choose_existing_virtual_output_device",
+            selected_output_device=selected_output_device,
+            runtime_claim=RUNTIME_CLAIM_MISSING_DEP,
+        )
+
+    return _response(
+        ok=True,
+        blocker="",
+        next_action="start_meeting_delivery",
+        selected_output_device=selected_output_device,
+        selected_output_device_info=output_device,
+        preflight_verified=True,
+        audio_route_ready=True,
+        runtime_claim=RUNTIME_CLAIM_PREFLIGHT,
+    )
+
+
 def route_virtual_audio(payload: dict[str, Any]) -> dict[str, Any]:
     env_enabled = _truthy(os.environ.get("TRANSLATEIT_ENABLE_VIRTUAL_AUDIO_ROUTE_PROVIDER"))
     payload_enabled = _truthy(payload.get("enable_route_runtime")) or _truthy(payload.get("route_execution_enabled"))
+    preflight_only = _truthy(payload.get("preflight_only"))
     source_audio_path = str(payload.get("source_audio_path") or "").strip()
     selected_output_device = str(payload.get("selected_output_device") or "").strip()
+
+    if preflight_only:
+        return _preflight_virtual_audio(
+            env_enabled,
+            payload_enabled,
+            selected_output_device,
+        )
 
     if not source_audio_path:
         return _response(
@@ -133,8 +200,7 @@ def route_virtual_audio(payload: dict[str, Any]) -> dict[str, Any]:
         )
 
     try:
-        import numpy as np  # type: ignore
-        import sounddevice as sd  # type: ignore
+        np, sd = _import_audio_runtime()
     except Exception as exc:  # pragma: no cover - dependency-specific runtime path
         return _response(
             blocker="virtual_audio_route_provider:dependency_missing_sounddevice_numpy",
