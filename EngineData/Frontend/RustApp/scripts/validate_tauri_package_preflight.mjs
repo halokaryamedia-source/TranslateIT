@@ -36,8 +36,11 @@ const mainRsPath = join(tauriRoot, "src", "main.rs");
 const appBootstrapPath = join(tauriRoot, "src", "app_bootstrap.rs");
 const pathsOwnerPath = join(tauriRoot, "src", "engine", "paths.rs");
 const bridgePathsPath = join(tauriRoot, "src", "commands", "bridge_paths.rs");
+const helperBridgePath = join(tauriRoot, "src", "commands", "helper_bridge.rs");
+const routeRuntimePath = join(tauriRoot, "src", "commands", "virtual_audio_route_runtime.rs");
 const runtimeInventoryPath = join(tauriRoot, "src", "commands", "runtime_inventory.rs");
 const workerPath = join(backendRoot, "LocalWorker", "WorkerRuntime", "realtime_local_worker.py");
+const workerPyprojectPath = join(backendRoot, "LocalWorker", "WorkerRuntime", "pyproject.toml");
 const defaultCapabilityPath = join(tauriRoot, "capabilities", "default.json");
 
 for (const path of [
@@ -49,8 +52,11 @@ for (const path of [
   appBootstrapPath,
   pathsOwnerPath,
   bridgePathsPath,
+  helperBridgePath,
+  routeRuntimePath,
   runtimeInventoryPath,
   workerPath,
+  workerPyprojectPath,
   defaultCapabilityPath,
 ]) {
   requireFile(path);
@@ -164,6 +170,8 @@ requireMarkers(pathsOwnerRs, "canonical packaged/runtime path owner", [
   'PATH_MODE_REPOSITORY_DEVELOPMENT: &str = "repository_development_fallback"',
   "pub runtime_root: String",
   "pub worker_runtime_dir: String",
+  "pub python_runtime_dir: String",
+  '.join("PythonRuntime")',
   "pub user_data_root: String",
   "pub fn initialize_tauri_path_context(",
   "!runtime_root.is_absolute() || !user_data_root.is_absolute()",
@@ -174,9 +182,58 @@ requireMarkers(pathsOwnerRs, "canonical packaged/runtime path owner", [
 ]);
 
 const bridgePathsRs = readText(bridgePathsPath);
-requireMarkers(bridgePathsRs, "helper path consumers", [
+requireMarkers(bridgePathsRs, "shared packaged Python resolver", [
   "ProjectPaths::discover().worker_runtime_dir",
+  "ProjectPaths::discover().python_runtime_dir",
   "ProjectPaths::discover().user_cache_dir",
+  "paths.packaged_context_initialized",
+  "if !paths.is_repository_development() {",
+  '.join("python.exe")',
+  'source: "packaged_python_runtime".to_string()',
+  'std::env::var("TRANSLATEIT_WORKER_PYTHON")',
+  "pub fn resolve_worker_python_command()",
+  "pub fn worker_python_unavailable_message()",
+]);
+
+const helperBridgeRs = readText(helperBridgePath);
+requireMarkers(helperBridgeRs, "persistent helper interpreter ownership", [
+  "resolve_worker_python_command",
+  "worker_python_unavailable_message",
+  "Command::new(&python.program)",
+  "command.args(&python.bootstrap_args)",
+]);
+forbidMarkers(helperBridgeRs, "persistent helper legacy Python selection", [
+  "worker_python_candidates",
+  "worker_python_command_available",
+  "install Python on PATH",
+]);
+
+const routeRuntimeRs = readText(routeRuntimePath);
+requireMarkers(routeRuntimeRs, "Meeting Microphone provider interpreter ownership", [
+  'worker_root().join("virtual_audio_route_provider.py")',
+  "resolve_worker_python_command",
+  "worker_python_unavailable_message",
+  "Command::new(&python.program)",
+  ".args(&python.bootstrap_args)",
+]);
+forbidMarkers(routeRuntimeRs, "Meeting Microphone provider legacy Python selection", [
+  "TRANSLATEIT_PYTHON",
+  "fn python_command()",
+  "project_paths.project_root",
+]);
+
+const workerPyproject = readText(workerPyprojectPath);
+requireMarkers(workerPyproject, "installed worker dependency set", [
+  '"sounddevice>=0.4.6,<1",',
+  '"numpy",',
+  '"ctranslate2>=4.4.0",',
+  '"faster-whisper>=1.0.0",',
+  '"torch",',
+  '"transformers>=4.44.0",',
+]);
+forbidMarkers(workerPyproject, "runtime dependency hidden behind optional extra", [
+  "[project.optional-dependencies]",
+  "virtual-audio-route = [",
 ]);
 
 const runtimeInventoryRs = readText(runtimeInventoryPath);
@@ -210,5 +267,5 @@ forbidMarkers(worker, "worker repository-coupled writable paths", [
 
 if (process.exitCode) process.exit(process.exitCode);
 console.log(
-  "[tauri-package-preflight] Tauri package/path source contract is defined: packaged runtime resources come from the Tauri resource directory, writable runtime state comes from app-local data, repository probing is debug-development fallback only, helper/model consumers use the canonical ProjectPaths roots, and the worker maps legacy UserData labels into the writable root. Full Tauri build, installer payload staging, packaged Python, installed-runtime behavior, and clean-machine operation remain intentionally unproved here.",
+  "[tauri-package-preflight] Packaged interpreter ownership is source-aligned: packaged mode resolves only EngineData/Backend/LocalWorker/PythonRuntime/python.exe, repository Python fallbacks stay behind verified development mode, and both the persistent worker and Meeting Microphone provider use the same resolver. PythonRuntime payload bytes, Tauri/NSIS staging, installed execution, and clean-machine operation remain intentionally unproved here.",
 );
