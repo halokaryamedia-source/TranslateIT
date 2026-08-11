@@ -22,7 +22,7 @@ use crate::engine::audio::meeting_sound_capture::{
     stop_meeting_sound_capture_runtime,
 };
 use crate::engine::runtime_state::{
-    begin_application_meeting_session, clear_runtime_handoff_state, clear_runtime_session_state,
+    begin_application_meeting_session, clear_runtime_session_state,
     commit_application_meeting_session_live, latest_runtime_session_state,
     revoke_application_meeting_session_authority, runtime_generation_is_authoritative,
     RuntimeSessionStateReport,
@@ -34,7 +34,6 @@ use super::helper_bridge::{
     HelperBridgeWorkerResponse,
 };
 use super::helper_bridge_runtime::unix_ms;
-use super::pipeline_handoff::reset_live_pipeline_handoff_status;
 use super::runtime_inventory::get_model_inventory;
 use super::virtual_audio_route_runtime::{
     cancel_meeting_virtual_audio_route_provider, dispatch_meeting_virtual_audio_route_provider,
@@ -1632,8 +1631,6 @@ pub fn start_meeting_translation() -> MeetingSessionActionResult {
         );
         let _ = stop_live_capture_runtime();
         let _ = stop_meeting_sound_capture_runtime();
-        let _ = reset_live_pipeline_handoff_status();
-        let _ = clear_runtime_handoff_state();
         clear_finalized_meeting_sequence();
         clear_self_output_suppression_for_session(&session_id);
         clear_committed_turns_for_session(&session_id);
@@ -1660,8 +1657,6 @@ pub fn start_meeting_translation() -> MeetingSessionActionResult {
         let _ = cancel_meeting_virtual_audio_route_provider(generation);
         let _ = stop_live_capture_runtime();
         let _ = stop_meeting_sound_capture_runtime();
-        let _ = reset_live_pipeline_handoff_status();
-        let _ = clear_runtime_handoff_state();
         clear_finalized_meeting_sequence();
         clear_self_output_suppression_for_session(&session_id);
         clear_committed_turns_for_session(&session_id);
@@ -1683,8 +1678,6 @@ pub fn start_meeting_translation() -> MeetingSessionActionResult {
         let _ = stop_meeting_sound_capture_runtime();
         let helper_cancel = cancel_helper_bridge_meeting_session(&session_id);
         let consumer_cleanup = stop_meeting_outbound_consumer(generation);
-        let _ = reset_live_pipeline_handoff_status();
-        let _ = clear_runtime_handoff_state();
         clear_finalized_meeting_sequence();
         clear_self_output_suppression_for_session(&session_id);
         clear_committed_turns_for_session(&session_id);
@@ -1765,8 +1758,6 @@ pub fn stop_meeting_translation() -> MeetingSessionActionResult {
     let outbound_cleanup = stop_meeting_outbound_consumer(generation);
     let incoming_cleanup = stop_meeting_incoming_consumer(&session_id);
 
-    let _ = reset_live_pipeline_handoff_status();
-    let _ = clear_runtime_handoff_state();
     clear_self_output_suppression_for_session(&session_id);
     clear_finalized_meeting_sequence();
     clear_committed_turns_for_session(&session_id);
