@@ -21,16 +21,20 @@ This map points to current semantic owners. File existence alone does not make a
 | Mic Test lifecycle | `engine/capture_lifecycle.rs`, `commands/runtime_capture.rs` | ACTIVE / BOUNDED |
 | Meeting Microphone route | `commands/virtual_mic_route.rs`, `virtual_audio_route_runtime.rs` | ACTIVE INTERNAL |
 | Local worker/scheduler | `helper_bridge.rs`, `helper_bridge_runtime.rs`, `realtime_local_worker.py` | ACTIVE |
-| Worker executable discovery | `bridge_paths.rs` | ACTIVE DEV-COMPATIBLE / INSTALLED METHOD UNRESOLVED |
+| Installed worker interpreter path | `engine/paths.rs`, `commands/bridge_paths.rs` | DECIDED: `LocalWorker/PythonRuntime/python.exe`; SOURCE ALIGNMENT NEXT |
+| Development interpreter fallback | `commands/bridge_paths.rs` | DEVELOPMENT ONLY; MUST NOT BE PACKAGED SUCCESS |
+| Meeting provider Python process | `commands/virtual_audio_route_runtime.rs` | ACTIVE; MUST REUSE CANONICAL INTERPRETER NEXT |
+| Worker Python dependency set | `WorkerRuntime/pyproject.toml` | ACTIVE; `sounddevice` MUST BECOME INITIAL RUNTIME DEPENDENCY |
 | Model presence inventory | `runtime_inventory.rs` | ACTIVE / CACHED |
 | Explicit model refresh | `runtime.rs::verify_models` | ACTIVE SETUP ACTION |
 | Text translation | `text_translate.rs` -> helper -> worker | ACTIVE |
 | Persisted settings | `engine/settings.rs`, `engine/runtime_settings.rs`, `commands/settings.rs` | ACTIVE / SCHEMA V6 SMALL |
 | Frontend settings type/defaults | `src/app/shared/types.ts`, `src/app/shared/state.ts` | ACTIVE / SCHEMA V6 SMALL |
-| Installed/runtime paths | `engine/paths.rs`, `app_bootstrap.rs`, `bridge_paths.rs` | ACTIVE PATH FOUNDATION |
+| Installed/runtime roots | `engine/paths.rs`, `app_bootstrap.rs` | ACTIVE PATH FOUNDATION |
 | Runtime logging used by settings/runtime | `engine/logging.rs` | ACTIVE |
 | Shared command result/state | `engine/state.rs` | ACTIVE |
 | Source validation | small validators under `scripts/` | ACTIVE / PRUNED |
+| Package/path source preflight | `scripts/validate_tauri_package_preflight.mjs` | ACTIVE / MUST TRACK PACKAGED INTERPRETER OWNERSHIP NEXT |
 | Local Rust compile proof | `scripts/run_local_tauri_compile_check.mjs` | LOCAL-ONLY |
 
 ## Removed Rust Engine Graph
@@ -53,21 +57,37 @@ audio.input_device_id
 audio.output_device_id
 ```
 
-Current callers are direct and bounded:
-
-- Text direction reads/writes source and target language;
-- First Setup reads/writes setup state/checkpoint and both device preferences;
-- microphone capture reads the input-device preference;
-- Meeting Sound capture reads the output-device preference;
-- Meeting Settings reads/writes the same two device preferences.
-
 The previous schema's extra fields are accepted only as ignored legacy JSON keys by the same Serde owner. Normal save output does not persist them. There is no migration registry, compatibility settings service, or second store.
 
 ## Runtime State
 
-`engine/runtime_state.rs` owns current application Meeting/Mic-Test session state and generation authority. The old realtime-handoff snapshot/store and no-state `clear_runtime_handoff_state()` compatibility function are removed.
+`engine/runtime_state.rs` owns current application Meeting/Mic-Test session state and generation authority. The old realtime-handoff snapshot/store and no-state cleanup tombstones are removed. Real cleanup remains owned directly by existing Meeting/audio/helper/consumer/session owners.
 
-`meeting_session.rs` rollback/Stop no longer call `reset_live_pipeline_handoff_status()` or `clear_runtime_handoff_state()`. `commands/pipeline_handoff.rs` is removed. Real cleanup remains owned directly by the existing Meeting/audio/helper/consumer/session owners.
+## Packaged Worker Ownership
+
+The installed execution method is decided and must extend existing owners rather than create a worker launcher framework.
+
+Canonical layout:
+
+```text
+<runtime root>/EngineData/Backend/LocalWorker/
+├─ WorkerRuntime/
+│  ├─ realtime_local_worker.py
+│  ├─ virtual_audio_route_provider.py
+│  └─ model_manifest.json
+└─ PythonRuntime/
+   ├─ python.exe
+   ├─ embedded CPython runtime files
+   └─ vendored Python packages
+```
+
+`engine/paths.rs` remains the root/path authority. `bridge_paths.rs` owns executable selection at the worker boundary. Packaged mode must resolve only `PythonRuntime/python.exe`; environment override, `.venv`, system `python`/`python3`, and Windows `py` remain verified repository-development fallback only.
+
+`virtual_audio_route_runtime.rs` currently has a separate `TRANSLATEIT_PYTHON`/system-`python` process path. That duplicate interpreter discovery is now stale and the next source slice must replace it by reusing the same `bridge_paths.rs` resolver and `worker_runtime_dir` provider-script root.
+
+The private runtime payload includes the worker dependencies already declared in `pyproject.toml` plus `sounddevice`, which is required by current Meeting Microphone provider execution. Models remain under `RuntimeAssets`; pip/uv are not installed or run for end users.
+
+A frozen worker executable, copied `.venv`, downloader, package manager, hash/identity framework, dependency registry, or second worker owner is not part of the initial release.
 
 ## Backend Contracts
 
@@ -81,4 +101,4 @@ The previous schema's extra fields are accepted only as ignored legacy JSON keys
 
 The initial controlled release keeps local sidecar placement under the existing path/setup owners. There is no separate SHA-256/checksum/revision identity owner and no replacement artifact registry.
 
-The unresolved release/runtime boundary is **packaged worker execution**. `bridge_paths.rs` currently supports development-oriented worker Python candidates (`TRANSLATEIT_WORKER_PYTHON`, worker `.venv`, system `python`/`python3`, and Windows `py`). That is useful for development but is not yet a clean installed-user contract. The next Plan must choose the smallest packaged execution method and then make installed execution canonical without introducing a downloader/package manager or a second worker owner.
+The next Developing slice changes source ownership only. Building the actual private Python payload, NSIS placement, installed execution, model inference, and clean-machine acceptance remain local/package proof boundaries after that source slice.
