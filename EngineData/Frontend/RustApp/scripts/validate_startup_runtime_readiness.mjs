@@ -12,6 +12,7 @@ const paths = {
   settings: resolve(root, "src/pages/Settings.svelte"),
   firstSetup: resolve(root, "src/pages/FirstSetup.svelte"),
   meetingActivity: resolve(root, "src/components/meeting/MeetingActivity.svelte"),
+  sidebar: resolve(root, "src/components/layout/Sidebar.svelte"),
   statusRow: resolve(root, "src/components/ui/StatusRow.svelte"),
   frontendState: resolve(root, "src/app/shared/state.ts"),
   frontendTypes: resolve(root, "src/app/shared/types.ts"),
@@ -61,11 +62,28 @@ requireMarkers(source.app, "Svelte application owner", [
   "<Meeting",
   "<Text",
   "<Settings",
+  "setupBusy={setupActionBusy}",
 ]);
 forbidMarkers(source.app, "Svelte application owner", ["SimpleLauncherController", "MutationObserver", "Pause Translation", "Resume Translation"]);
 
-requireMarkers(source.meeting, "Meeting surface", ["Start Translation", "Stop Translation", "TranslateIT Meeting Microphone", "English → Indonesian text", "onMeetingAction", "StatusRow"]);
-requireMarkers(source.meetingActivity, "Meeting live activity", ["mapProductMeetingState", "Finalized speech only", 'case "transcribing"', 'case "translating"', 'case "synthesizing"', 'case "delivering"', 'turn.lane === "incoming"']);
+requireMarkers(source.meeting, "Meeting surface", [
+  "Start Translation",
+  "Stop Translation",
+  "TranslateIT Meeting Microphone",
+  "English → Indonesian text",
+  "You speak",
+  "Meeting hears",
+  "onMeetingAction",
+]);
+requireMarkers(source.meetingActivity, "Meeting live activity", [
+  "mapProductMeetingState",
+  'case "transcribing"',
+  'case "translating"',
+  'case "synthesizing"',
+  'case "delivering"',
+  'turn.lane === "incoming" ? "MEETING" : "YOU"',
+  "What was said and translated",
+]);
 requireMarkers(source.text, "Text surface", [
   "MAX_MANUAL_TRANSLATION_CHARS = 2000",
   "runtimeProductFacade.runProductTranslation",
@@ -74,10 +92,47 @@ requireMarkers(source.text, "Text surface", [
   "target_language: settings.source_language",
   "copyTranslation",
   "navigator.clipboard.writeText",
+  "Ctrl + Enter to translate",
 ]);
-requireMarkers(source.settings, "Settings surface", ['type SettingsTab = "meeting" | "advanced"', "selectProductAudioDevice", "loadProductAudioDevices", "Check Microphone", "Mic Test", "Verify Models", "runtimeApi.getCommandErrors()"]);
-requireMarkers(source.firstSetup, "First Setup surface", ['type SetupStep = 1 | 2 | 3 | 4 | 5', 'type SetupState = "new" | "deferred" | "completed"', "meeting_setup_state", "meeting_setup_checkpoint", "settings.audio.input_device_id", "settings.audio.output_device_id", "selectProductAudioDevice"]);
-requireMarkers(source.statusRow, "shared status row", ["StatusBadge", "detail", "status", "tone"]);
+requireMarkers(source.settings, "Settings surface", [
+  'type SettingsTab = "meeting" | "advanced"',
+  "selectProductAudioDevice",
+  "loadProductAudioDevices",
+  'aria-label="Settings sections"',
+  "Check Microphone",
+  "Mic Test",
+  "Verify Models",
+  "runtimeApi.getCommandErrors()",
+]);
+requireMarkers(source.firstSetup, "First Setup surface", [
+  'type SetupStep = 1 | 2 | 3 | 4 | 5',
+  'type SetupState = "new" | "deferred" | "completed"',
+  "meeting_setup_state",
+  "meeting_setup_checkpoint",
+  "settings.audio.input_device_id",
+  "settings.audio.output_device_id",
+  "selectProductAudioDevice",
+  'role="progressbar"',
+]);
+requireMarkers(source.sidebar, "Primary navigation", ["Meeting", "Text", "Settings", "Ready to translate", "Indonesian ↔ English"]);
+requireMarkers(source.statusRow, "shared status row", ["StatusBadge", "detail", "status = \"\"", "{#if status}"]);
+
+for (const [label, body] of [
+  ["App", source.app],
+  ["Meeting", source.meeting],
+  ["Text", source.text],
+  ["First Setup", source.firstSetup],
+  ["Sidebar", source.sidebar],
+  ["Meeting activity", source.meetingActivity],
+]) {
+  forbidMarkers(body, `${label} normal-user copy`, [
+    "canonical Stop lifecycle",
+    "Current app capability state",
+    "Finalized speech only",
+    "Using the current local translation runtime",
+    "Document attachments are not part of this workflow",
+  ]);
+}
 
 for (const [relativePath, label] of [
   ["src/app/active-launcher", "retired active-launcher DOM owner"],
@@ -124,4 +179,4 @@ if (!models.some((model) => model.model_id === "marianmt-en-id")) throw new Erro
 if (models.some((model) => model.model_id === "nllb-200-distilled-600M")) throw new Error("NLLB must not return to current translation inventory");
 if (models.some((model) => Object.hasOwn(model, "revision") || Object.hasOwn(model, "checksum"))) throw new Error("Initial model inventory must not grow revision/checksum release-identity placeholders");
 
-console.log("[startup-readiness] Svelte Meeting/Text/Settings/First Setup ownership, Text Copy, shared status composition, runtime bridge, settings schema, Meeting lifecycle, and direction-based worker contracts are source-aligned. Dependency install, Svelte compile/render, model execution, Windows audio, and installed-runtime proof remain separate.");
+console.log("[startup-readiness] Svelte Meeting/Text/Settings/First Setup ownership, familiar translation interaction hierarchy, humanized normal-user copy, Text safety/Copy, runtime bridge, settings schema, Meeting lifecycle, and direction-based worker contracts are source-aligned. Dependency install, Svelte compile/render, model execution, Windows audio, and installed-runtime proof remain separate.");
