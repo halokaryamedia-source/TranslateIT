@@ -6,9 +6,8 @@ use crate::commands::diagnostic_trace::{
 };
 use crate::engine::runtime_settings::load_settings;
 
-use super::helper_bridge::{
-    get_helper_bridge_status, send_helper_worker_task, start_helper_bridge,
-};
+use super::helper_bridge::{get_helper_bridge_status, send_helper_worker_task};
+use super::runtime::start_helper_bridge;
 
 const MAX_TEXT_TRANSLATION_CHARS: usize = 2_000;
 
@@ -103,13 +102,20 @@ fn ensure_persistent_helper_started() -> Result<(), TextTranslationResult> {
         return Ok(());
     }
 
+    // Standalone Text may share an already-running helper with Meeting, but it must
+    // not restart that helper while any runtime session owns resources. The guarded
+    // public start command defers restart until the active Meeting/Mic Test stops.
     let start = start_helper_bridge();
     if start.ok {
         Ok(())
     } else {
         Err(TextTranslationResult::blocked(
             "runtime_unavailable",
-            "Local translation isn't available yet. Check Setup or Diagnostics and try again.",
+            if start.state == "active_runtime_session" {
+                "Text translation can't restart the local translator while Meeting or Mic Test is active. Stop the active session and try again."
+            } else {
+                "Local translation isn't available yet. Check Setup or Diagnostics and try again."
+            },
             format!("helper_start:{}:{}", start.state, start.message),
         ))
     }
