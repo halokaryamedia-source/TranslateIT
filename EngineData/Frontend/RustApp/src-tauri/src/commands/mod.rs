@@ -4,7 +4,6 @@ pub mod diagnostic_trace;
 pub mod helper_bridge;
 pub mod helper_bridge_runtime;
 pub mod meeting_session;
-pub mod pipeline_handoff;
 pub mod registry;
 pub mod runtime_inventory;
 pub mod runtime_capture;
