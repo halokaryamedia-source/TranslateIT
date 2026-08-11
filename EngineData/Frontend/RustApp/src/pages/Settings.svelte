@@ -1,7 +1,7 @@
 <script lang="ts">
   import { ArrowLeft, Bug, RefreshCw } from "@lucide/svelte";
   import { onMount } from "svelte";
-  import { runtimeApi } from "../app/bridge/runtimeApi";
+  import { runtimeApi, type VirtualMicRouteContractStatus } from "../app/bridge/runtimeApi";
   import {
     runtimeProductFacade,
     type ProductAudioDeviceKind,
@@ -42,12 +42,16 @@
   let diagnosticsOpen = $state(false);
   let diagnosticsLoading = $state(false);
   let devices = $state<AudioDeviceListReport | null>(null);
+  let routeStatus = $state<VirtualMicRouteContractStatus | null>(null);
   let devicesLoading = $state(false);
   let deviceSaving = $state(false);
   let deviceMessage = $state("Loading audio devices...");
 
   const meetingResourcesLocked = $derived(snapshot.meeting.hasSession);
   const meetingResourceLockMessage = "Stop Translation or Mic Test before changing meeting audio or running setup repair.";
+  const meetingMicrophoneDevice = $derived(
+    String(routeStatus?.selected_input_device ?? "").trim() || "Meeting microphone not configured",
+  );
 
   function deviceId(device: { id?: string; name: string }): string {
     return String(device.id ?? device.name).trim();
@@ -79,6 +83,14 @@
     }
   }
 
+  async function loadRouteStatus(): Promise<void> {
+    try {
+      routeStatus = await runtimeApi.getVirtualMicRouteStatus();
+    } catch {
+      routeStatus = null;
+    }
+  }
+
   async function changeDevice(kind: ProductAudioDeviceKind, value: string): Promise<void> {
     if (deviceSaving) return;
     if (meetingResourcesLocked) {
@@ -101,6 +113,7 @@
       await onSettingsChange(result.settings);
       await onRefresh(result.message);
       await loadDevices();
+      await loadRouteStatus();
     } catch {
       deviceMessage = "The device wasn't changed. Try again or check Diagnostics.";
       onNotice(deviceMessage);
@@ -116,6 +129,7 @@
       return;
     }
     await onFixSetup();
+    await loadRouteStatus();
   }
 
   function selectValue(event: Event): string {
@@ -129,6 +143,7 @@
     onNotice("Refreshing Diagnostics...");
     try {
       await onRefresh("Diagnostics refreshed.");
+      await loadRouteStatus();
     } finally {
       diagnosticsLoading = false;
     }
@@ -136,6 +151,7 @@
 
   onMount(() => {
     void loadDevices();
+    void loadRouteStatus();
   });
 </script>
 
@@ -210,8 +226,10 @@
           <div class="border-t border-[var(--ti-border)]">
             <StatusRow
               label="Meeting microphone"
-              value="TranslateIT Meeting Microphone"
-              detail="Choose this microphone inside your meeting app."
+              value={meetingMicrophoneDevice}
+              detail={snapshot.readiness.meetingRouteReady
+                ? "Choose this exact microphone inside your meeting app."
+                : "A matched Windows virtual-audio cable pair is required for translated meeting output."}
               status={snapshot.readiness.meetingRouteReady ? "" : snapshot.readiness.level === "unavailable" ? "Unavailable" : "Setup Needed"}
               tone={snapshot.readiness.level === "unavailable" ? "danger" : "warning"}
             />
