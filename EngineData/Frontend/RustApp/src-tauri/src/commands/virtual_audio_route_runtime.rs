@@ -20,6 +20,10 @@ use super::helper_bridge_runtime::unix_ms;
 use super::virtual_mic_route::get_virtual_mic_route_selection;
 
 const ROUTE_PROCESS_POLL_MS: u64 = 20;
+// This is a pre-authority hang-containment ceiling, not a product latency target.
+// Thirty seconds matches the existing local worker response safety envelope while
+// allowing cold Python imports/device enumeration to complete on slower systems.
+const MEETING_ROUTE_PROVIDER_PREFLIGHT_DEADLINE_MS: u64 = 30_000;
 
 #[derive(Debug, Clone, Serialize)]
 pub struct VirtualAudioRouteRuntimeStatus {
@@ -172,18 +176,52 @@ pub fn prepare_meeting_virtual_audio_route_provider() -> Result<(), String> {
     });
     let payload_arg = serde_json::to_string(&payload)
         .map_err(|_| "virtual_audio_route:provider_preflight_payload_invalid".to_string())?;
+
     let started = Instant::now();
-    let output = Command::new(&python.program)
+    let spawn_result = Command::new(&python.program)
         .args(&python.bootstrap_args)
         .arg(&provider_script)
         .arg(payload_arg)
-        .output()
+        .stdout(Stdio::piped())
+        .stderr(Stdio::piped())
+        .spawn();
+    let mut child = spawn_result
         .map_err(|_| "virtual_audio_route:provider_preflight_process_failed".to_string())?;
+
+    let mut deadline_exceeded = false;
+    let exit_status = loop {
+        if started.elapsed()
+            >= Duration::from_millis(MEETING_ROUTE_PROVIDER_PREFLIGHT_DEADLINE_MS)
+        {
+            deadline_exceeded = true;
+            let _ = child.kill();
+            break child.wait().ok();
+        }
+        match child.try_wait() {
+            Ok(Some(exit)) => break Some(exit),
+            Ok(None) => thread::sleep(Duration::from_millis(ROUTE_PROCESS_POLL_MS)),
+            Err(_) => {
+                let _ = child.kill();
+                let _ = child.wait();
+                return Err("virtual_audio_route:provider_preflight_process_wait_failed".to_string());
+            }
+        }
+    };
+
+    let stdout = read_pipe(child.stdout.take(), 8_000);
+    let _stderr = read_pipe(child.stderr.take(), 2_000);
     let elapsed_ms = started
         .elapsed()
         .as_millis()
         .min(u64::MAX as u128) as u64;
-    let stdout = String::from_utf8_lossy(&output.stdout).trim().to_string();
+
+    if deadline_exceeded {
+        return Err("virtual_audio_route:provider_preflight_deadline_exceeded".to_string());
+    }
+    let Some(exit_status) = exit_status else {
+        return Err("virtual_audio_route:provider_preflight_process_wait_failed".to_string());
+    };
+
     let response = serde_json::from_str::<Value>(&stdout).unwrap_or_else(|_| json!({}));
     let provider_ok = response.get("ok").and_then(Value::as_bool).unwrap_or(false);
     let preflight_verified = response
@@ -195,7 +233,7 @@ pub fn prepare_meeting_virtual_audio_route_provider() -> Result<(), String> {
         .and_then(Value::as_bool)
         .unwrap_or(false);
 
-    if output.status.success() && provider_ok && preflight_verified && audio_route_ready {
+    if exit_status.success() && provider_ok && preflight_verified && audio_route_ready {
         MEETING_ROUTE_PROVIDER_PREFLIGHT_ELAPSED_MS.store(
             elapsed_ms.max(ROUTE_PROCESS_POLL_MS),
             Ordering::Release,
