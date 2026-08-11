@@ -4,33 +4,37 @@
 
 The user explicitly keeps local/integration testing on hold until the major feature set is ready. This changes proof timing only; it does not reduce release acceptance.
 
-A comprehensive core/release audit is already established. Work continues one bounded P0 source-correctness slice at a time instead of expanding feature scope or treating every discovered issue as an unrelated roadmap item.
+A comprehensive core/release audit is established. Work continues one bounded P0 source-correctness slice at a time instead of expanding feature scope or treating every newly discovered issue as an unrelated roadmap item.
 
-Meeting Core Runtime Reliability now has nine bounded source slices aligned:
+Meeting Core Runtime Reliability now has ten bounded source slices aligned:
 
 ```text
 1. required AI preparation before Meeting Live
 2. outbound freshness / bounded finalized-speech backpressure
 3. outbound priority against in-flight optional incoming work
 4. Stop-time helper lifecycle recovery
-5. Meeting Microphone provider preflight before authority
-6. duration-grounded Meeting Microphone delivery hang containment
+5. Meeting route provider preflight before authority
+6. duration-grounded Meeting route delivery hang containment
 7. in-session required-helper transport recovery
 8. optional incoming failure isolation / freshness semantics
 9. active runtime settings / public helper restart isolation
+10. matched Meeting route pair / truthful endpoint identity / generation stability
 ```
 
-The ninth slice closes P0.2 at source level:
+The tenth slice closes P0.3 at source level:
 
-- Rust `select_audio_device` rejects microphone/Meeting Sound preference mutation while any runtime session still owns resources, preserving the current saved setting rather than attempting hot rebind;
-- the public Tauri `start_helper_bridge` command is now routed through `commands/runtime.rs`, which defers manual/setup helper restart while a runtime session exists;
-- internal Meeting recovery still calls the direct helper lifecycle path, so bounded Live recovery is not blocked by the public product guard;
-- standalone Text may continue sharing a healthy helper, but if the helper is stopped it uses the guarded public restart path and cannot restart the worker underneath Meeting/Mic Test;
-- Settings derives an active-resource lock from the current runtime snapshot, disables microphone/Meeting Sound mutation, Mic Test start, and `Check Setup`, and also guards handlers against stale invocation;
-- non-mutating device discovery, microphone status checks, Diagnostics refresh, and model inventory inspection remain available;
-- no pending-settings store, mid-session device rebind, second settings owner, or second helper lifecycle path was added.
+- Meeting route readiness now requires one matched Windows virtual-audio output/input pair rather than two independently discovered virtual-looking endpoints;
+- the playback-side `Input` endpoint and recording-side `Output` endpoint must share the same normalized pair identity;
+- explicit persisted route preferences must contain both endpoints and must match the same pair;
+- without an explicit pair, one unique standard VB-CABLE base pair is preferred when present, otherwise exactly one matched pair may be selected; missing or ambiguous pairs block instead of guessing;
+- the matched pair is prepared before public Meeting Start and the same pair is bound to the active Meeting generation;
+- while that generation is active, route checks retain the exact bound endpoint names and fail closed if either endpoint disappears instead of silently switching to a newly discovered pair;
+- provider preflight and actual delivery continue consuming `get_virtual_mic_route_selection()`, so they follow the prepared/generation-bound route owner rather than creating another route selection path;
+- the frontend now exposes the current route contract through `get_virtual_mic_route_contract_status` and Meeting / Settings / First Setup show the actual Windows recording endpoint that the user must select in the meeting application;
+- normal UI no longer claims that a Windows device literally named `TranslateIT Meeting Microphone` already exists; that phrase remains a product concept, not fabricated endpoint identity;
+- no custom driver, audio daemon, second route owner, mid-session rebind, or broad generic device framework was added.
 
-These source slices are not target-Windows/runtime/release proof.
+These source slices do not constitute target-Windows/runtime/release proof.
 
 ## Priority Map
 
@@ -46,38 +50,56 @@ Deferred proof: force incoming write/read failure while outbound waits and verif
 
 #### P0.2 — Active Meeting Settings / Recovery Isolation — CLOSED SOURCE / LOCAL PROOF REQUIRED
 
+Active Meeting/Mic Test resources freeze audio preference mutation and public/manual helper restart until canonical Stop. Internal bounded Meeting recovery remains allowed.
+
+Deferred proof: Start Meeting -> navigate Settings/Text -> attempt device/setup/helper restart paths -> confirm active resources remain unchanged -> Stop -> confirm ordinary mutation/recovery becomes available again.
+
+#### P0.3 — Meeting Route Pair / Identity / Session Truth — CLOSED SOURCE / LOCAL PROOF REQUIRED
+
 Current boundary:
 
 ```text
-active Meeting / Mic Test runtime session
--> existing audio resources remain authoritative
--> audio preference mutation rejected
--> Settings mutation/recovery controls unavailable
--> public/manual helper restart deferred
--> internal Meeting bounded recovery remains allowed
--> Stop releases session
--> normal setting/recovery actions become available again
+Windows audio inventory
+-> identify one matched virtual-cable playback/input pair
+-> block missing / mismatched / ambiguous pair
+-> prepare exact pair before new Meeting Start
+-> provider preflight uses that pair
+-> Meeting generation binds that exact pair
+-> delivery keeps that pair for the generation
+-> endpoint disappears/mismatches -> fail closed, no silent switch
+-> UI shows actual Windows recording endpoint for meeting-app microphone selection
 ```
 
-Deferred proof: Start Meeting -> navigate Settings -> verify device mutation, Mic Test, Check Setup, public helper restart, and Text auto-restart cannot disrupt the session -> Stop -> verify those actions are available again.
+Deferred target-Windows proof:
 
-#### P0.3 — Meeting Route Pair / Identity / Session Truth — ACTIVE NEXT
+```text
+one standard VB-CABLE / supported matched pair
+-> verify detected playback + recording endpoints are the real paired cable
 
-Current route discovery can independently choose a virtual-looking output endpoint and input endpoint from broad name keywords, then call the route ready when both exist. That does not prove they are a matched cable/functionally equivalent route. Normal UI also presents `TranslateIT Meeting Microphone` as a product endpoint even though the current source has not established that exact installed Windows device identity.
+multiple virtual cable endpoints
+-> verify canonical base pair is selected only when unambiguous
+-> otherwise verify ambiguity blocks rather than combining unrelated endpoints
+
+Meeting Live
+-> remove/disable one bound endpoint
+-> verify current generation does not switch to another route
+
+meeting application
+-> select the exact recording/input endpoint shown by TranslateIT
+-> verify translated English audio actually arrives there
+```
+
+#### P0.4 — Meeting Route Provider Preflight Hang Containment — ACTIVE NEXT
+
+Actual Meeting playback already has a duration-grounded deadline, but provider preflight before Meeting authority still uses a synchronous process wait without a bounded process lifetime. A provider import or device-enumeration hang can therefore block Start indefinitely before authority exists.
 
 Required correction:
 
-- establish one truthful canonical route pair/configuration contract;
-- do not infer readiness from two unrelated virtual-looking endpoints;
-- keep the active Meeting generation on a stable selected route rather than silently drifting to another discovered candidate;
-- normal UI must describe the actual supported endpoint without pretending a custom named Windows device exists unless the release path truly provides it;
-- do not build a new driver/audio daemon unless the approved functionally-equivalent Windows endpoint cannot satisfy the requirement.
-
-#### P0.4 — Meeting Route Provider Preflight Hang Containment
-
-Actual playback has a duration-grounded deadline, but provider preflight before Meeting authority still uses a synchronous process wait without a bounded process lifetime.
-
-Required correction: bound preflight process lifetime, terminate/join on timeout, keep failure explicit before authority, and do not confuse this with a product latency threshold.
+- bound the provider-preflight child lifetime;
+- terminate and join it on deadline;
+- keep timeout/failure explicit and before Meeting authority;
+- preserve the matched route pair prepared by P0.3;
+- do not reuse the playback duration formula as a preflight latency threshold and do not add a persistent route daemon.
 
 #### P0.5 — Sleep / Hibernate Authority Invalidation
 
@@ -125,7 +147,8 @@ npm dependency materialization
 Rust/Tauri compile
 -> launch
 -> Start / Stop / safe close
--> Settings active-session guards
+-> active-session Settings guards
+-> matched Meeting route preparation/binding
 -> resource/thread/handle cleanup
 -> relevant fault paths
 ```
@@ -151,7 +174,7 @@ Quality, code-switching, names/numbers/technical fidelity, latency, and CPU prac
 physical microphone
 -> finalized-speech segmentation
 -> outbound ASR / translation / TTS
--> selected Meeting route
+-> matched selected Meeting route
 -> real meeting-app input reception
 -> optional Meeting Sound loopback
 -> own-TTS suppression
@@ -159,7 +182,7 @@ physical microphone
 -> safe Stop / Close / sleep
 ```
 
-Inject the hardened failure cases: outbound/incoming helper transport failure, Stop during inference, provider stall, route disappearance, and backlog contention.
+Inject hardened failure cases: outbound/incoming helper transport failure, Stop during inference, provider stall, route disappearance, multiple-route ambiguity, and backlog contention.
 
 #### P2.5 — Latency / stability / long-session acceptance
 
@@ -167,7 +190,7 @@ Measure finalized utterance end -> first translated playback on target hardware.
 
 #### P2.6 — Installer / clean-machine materialization
 
-Release must deliver one normal-user setup with private PythonRuntime, required models, TTS assets/provider, Meeting route support, Tauri resource staging, NSIS install, installed-runtime validation, and clean-machine proof. No manual Python/pip/env/repository/model placement.
+Release must deliver one normal-user setup with private PythonRuntime, required models, TTS assets/provider, supported Meeting route, Tauri resource staging, NSIS install, installed-runtime validation, and clean-machine proof. No manual Python/pip/env/repository/model placement.
 
 ### P3 — Cleanup / process hardening after core acceptance
 
@@ -192,7 +215,7 @@ Do not keep accumulating speculative source-only hardening after P0 while execut
 
 ## Current Mode
 
-**Plan** — P0.2 is source-closed. Continue one bounded P0 source task at a time while the explicit local-test hold remains active.
+**Plan** — P0.3 is source-closed. Continue one bounded P0 source task at a time while the explicit local-test hold remains active.
 
 Execution channel:
 
@@ -200,12 +223,12 @@ Execution channel:
 ChatGPT -> GitHub
 ```
 
-No `npm install`, package-lock regeneration, Svelte autofixer, `svelte-check`, Vite build, Tauri launch, Rust compile, Python/model execution, helper/provider fault injection, Windows audio/device test, installer test, performance measurement, or rendered UI inspection has been executed during the hold.
+No `npm install`, package-lock regeneration, Svelte autofixer, `svelte-check`, Vite build, Tauri launch, Rust compile, Python/model execution, provider/device runtime test, installer test, performance measurement, or rendered UI inspection has been executed during the hold.
 
 ## Deferred Integrated Proof Queue
 
-When the hold is explicitly released, execute P2 in dependency order. P0.2 adds a specific interaction test: keep Meeting Live while visiting Settings/Text, attempt device/setup/helper restart paths, confirm active resources stay unchanged, then Stop and confirm ordinary mutation/recovery becomes available again.
+When the hold is explicitly released, execute P2 in dependency order. P0.3 adds matched-pair detection, exact meeting-app endpoint selection, multi-route ambiguity, and bound-route disappearance tests to the Windows audio proof wave.
 
-## Next Step — P0.3 Meeting Route Pair / Identity / Session Truth
+## Next Step — P0.4 Meeting Route Provider Preflight Hang Containment
 
-Audit and correct the Meeting Microphone route contract so readiness represents one truthful matched output/input route and the active Meeting generation uses a stable selected pair. Reconcile normal UI naming with the endpoint actually provided by the supported Windows route. Do not create a driver, daemon, second audio-route owner, or broad device abstraction unless the existing functionally-equivalent endpoint path is proved insufficient.
+Bound the Meeting route provider preflight child process before Meeting authority. If dependency import/device enumeration/provider preflight does not complete within a bounded pre-authority deadline, terminate and join that child, return an explicit setup/runtime blocker, and leave Meeting non-Live. Preserve the P0.3 matched-pair snapshot and the existing duration-grounded playback deadline; do not create a persistent route daemon or generic timeout framework.
