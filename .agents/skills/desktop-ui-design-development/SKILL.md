@@ -33,11 +33,109 @@ desktop product.
 - History/Saved persistence, UserData semantics, or document parsing;
 - installer/package/runtime-resource delivery;
 - product requirements merely because they are represented visually;
-- migration to React, Tailwind, shadcn/ui, GSAP, Lottie, or another framework/
-  library merely to improve appearance.
+- migration from the current vanilla frontend to Svelte; that behavior-preserving
+  application-architecture migration belongs to `desktop-runtime-development`.
 
 If runtime/product behavior is wrong and the visual symptom only exposes it, use
 `desktop-runtime-development` or the relevant underlying runtime specialist.
+
+## Approved Frontend Visual Stack
+
+The approved long-term visual implementation target is intentionally small:
+
+```text
+Tauri 2
++ Svelte 5
++ Vite
++ TypeScript
++ Tailwind CSS 4
++ CSS custom-property design tokens
++ selective Bits UI primitives
++ Lucide Svelte icons
+```
+
+This is not permission to add every library feature everywhere.
+
+Ownership rules:
+
+- **Svelte components** own feature/component composition and declarative visible
+  state;
+- **Tailwind CSS** is primarily for layout, spacing, sizing, responsive utilities,
+  and ordinary component styling;
+- **CSS custom properties** own durable product-wide visual tokens such as color
+  roles, typography roles, radius, elevation, and state colors;
+- **component-scoped CSS** is allowed for bounded styling that is clearer than a
+  long utility expression or needs native selectors/animation details;
+- **Bits UI** is used only for interaction primitives where keyboard behavior,
+  focus management, ARIA behavior, popover/dialog/select mechanics, or similar
+  headless accessibility work materially saves complexity;
+- **Lucide Svelte** is the default icon family unless a product-specific icon is
+  genuinely required.
+
+Do not add SvelteKit, a router, Redux-like state management, a heavy UI framework,
+a full shadcn-svelte component dump, CSS-in-JS, or a general animation library by
+default.
+
+## Maintainable UI Structure
+
+Prefer feature ownership over generic abstraction layers. A healthy shape is:
+
+```text
+src/
+├─ App.svelte
+├─ pages/
+│  ├─ Meeting.svelte
+│  ├─ Text.svelte
+│  └─ Settings.svelte
+├─ components/
+│  ├─ layout/
+│  ├─ meeting/
+│  ├─ text/
+│  ├─ settings/
+│  └─ ui/
+├─ state/
+├─ runtime/
+└─ styles/
+   ├─ app.css
+   └─ tokens.css
+```
+
+The exact folders should only be created when they have real contents. Do not
+pre-scaffold empty architecture.
+
+Component boundaries should follow one or more of these reasons:
+
+```text
+reused visible behavior
+independent visual/state responsibility
+complex interaction/accessibility boundary
+feature composition that would otherwise become hard to read
+```
+
+Do not extract a component merely because a block is 10 lines long. Avoid
+component inflation such as separate wrappers for trivial text, icon, and container
+nodes that have no independent responsibility.
+
+## Token Discipline
+
+Keep the initial token system small and semantic. Start with only durable roles
+such as:
+
+```text
+background / surface / elevated surface
+primary / muted text
+accent
+success / warning / danger
+spacing rhythm when globally meaningful
+small / medium / large radius
+elevation roles
+```
+
+Prefer semantic token names over screen-specific names. One visual rule should have
+one canonical token/style owner.
+
+Do not create a design-token registry, JSON design DNA, generated theme framework,
+or hundreds of variables before repeated product needs exist.
 
 ## Core Boundary
 
@@ -52,16 +150,23 @@ silently redefine what the product does.
 
 ## Current Architecture First
 
+Until the Svelte migration is actually implemented, the current vanilla
+TypeScript/CSS frontend remains source truth. Do not claim Svelte component
+ownership merely because the target stack is approved.
+
 Inspect the current TranslateIT UI structure, existing styles/tokens, and affected
 components before proposing a visual system change.
 
-Prefer the current stack and existing component/style owners. A visual improvement
-is not evidence that the application needs a new frontend framework, component
+Prefer the approved stack and existing component/style owners. A visual improvement
+is not evidence that the application needs another frontend framework, component
 library, animation framework, or second shell.
 
-Use existing native/CSS capabilities first when they are sufficient. A new visual
-dependency requires a current acceptance need and must pass the normal dependency
-and proof gates.
+Use existing Svelte/native/CSS capabilities first when they are sufficient. A new
+visual dependency requires a current acceptance need and must pass the normal
+dependency and proof gates.
+
+When editing Svelte files in Codex/Local, use the official Svelte AI helper workflow
+recorded in `AGENTS.md`, including the Svelte autofixer before finalization.
 
 ## Two Working Modes
 
@@ -149,9 +254,9 @@ Prioritize:
 ```
 
 Reuse existing tokens or repeated values when they already represent a coherent
-rule. If a small shared token removes real repeated visual inconsistency, centralize
-it with the current style owner. Do not create a token architecture for one-off
-values that do not need shared ownership.
+rule. If a small shared token removes real repeated visual inconsistency,
+centralize it with the current style owner. Do not create a token architecture for
+one-off values that do not need shared ownership.
 
 One semantic visual rule should not have multiple competing style sources.
 
@@ -170,7 +275,12 @@ or acceptance need, including:
 - motion on every hover/state merely to make the UI look sophisticated;
 - placeholder-looking copy, icons, or empty states when a product-specific state is
   known;
-- copying a reference so literally that TranslateIT loses its own product logic.
+- copying a reference so literally that TranslateIT loses its own product logic;
+- importing a large component kit merely to avoid designing a few product-specific
+  components;
+- utility-class repetition that should clearly be one semantic token/component,
+  or conversely abstracting every repeated utility into a wrapper with no semantic
+  responsibility.
 
 Anti-slop does not mean making every screen sparse or stylistically unusual. A
 conventional pattern is correct when it is the clearest solution for the current
@@ -191,12 +301,11 @@ If it does none of those, omit it.
 
 Rules:
 
+- prefer Svelte transitions and CSS before adding a motion dependency;
 - prefer the minimum visual properties needed for the effect;
 - interactive feedback should feel immediate and should not delay the action;
 - entrances may orient the user, exits should get out of the way;
 - avoid long stagger chains and continuous ambient motion in task-oriented areas;
-- preserve existing animation technology when one is already appropriate;
-- prefer native/CSS motion before adding a dependency for a small interaction;
 - respect reduced-motion behavior for non-essential motion;
 - avoid animation patterns that make layout unstable or obscure readiness/error
   state changes.
@@ -223,6 +332,10 @@ Do not invent states the component cannot enter. The visible distinction must
 match the actual product state contract; this skill does not fabricate readiness or
 runtime truth.
 
+For Bits UI primitives, TranslateIT owns the appearance. Do not allow headless
+library structure to redefine product state, copy, information hierarchy, or
+navigation semantics.
+
 ## Accessibility And Desktop Constraints
 
 - preserve keyboard focus visibility;
@@ -232,7 +345,9 @@ runtime truth.
 - account for window resizing rather than assuming one screenshot dimension;
 - prevent important actions/status from being clipped by fixed-height composition;
 - prefer stable layout over decorative motion that causes jumps;
-- provide reduced-motion behavior when motion is non-essential.
+- provide reduced-motion behavior when motion is non-essential;
+- use accessible headless primitives for genuinely complex widgets instead of
+  rebuilding keyboard/focus behavior casually.
 
 ## Boundary Examples
 
@@ -241,6 +356,14 @@ Navigation order is wrong:
 
 Navigation order is correct but spacing, active-state hierarchy, typography, or
 responsive composition is poor:
+-> this specialist.
+
+The vanilla frontend is being structurally migrated to Svelte without changing
+visual design:
+-> `desktop-runtime-development`.
+
+The Svelte shell exists and Meeting layout/tokens/component visual states need
+professionalization:
 -> this specialist.
 
 Runtime reports `Setup Needed` correctly but the visual state is indistinguishable
@@ -263,14 +386,16 @@ A screenshot is supplied as the desired visual direction:
 4. If references exist, extract `OBSERVED / INFERRED / ADOPTED` rules.
 5. State the smallest coherent visual direction internally: hierarchy, density,
    type, color/shape, interaction/motion only as needed.
-6. Reuse the current stack and visual owner; avoid parallel theme/component
-   systems.
+6. Reuse the approved stack and current visual owner; avoid parallel theme or
+   component systems.
 7. Implement the minimum complete visual change.
 8. Check affected component states, resize behavior, accessibility, and motion
    reduction where relevant.
-9. Use source/static proof for ownership/tokens/wiring and rendered proof for
-   actual visual claims.
-10. Return to the `development-brief` Acceptance POV gate.
+9. For Svelte changes, use the official Svelte helper/autofixer workflow when the
+   execution channel supports it.
+10. Use source/static proof for ownership/tokens/wiring and rendered proof for
+    actual visual claims.
+11. Return to the `development-brief` Acceptance POV gate.
 
 ## Proof
 
@@ -278,22 +403,26 @@ GitHub/static proof can establish style ownership, component/state markup, token
 usage, responsive rules, motion declarations, and absence of duplicate visual
 systems.
 
-Claims such as "looks correct", "matches the reference", "responsive composition
-is correct", or "motion feels right" require rendered evidence at the appropriate
-target size/environment. Do not promote source intent into rendered proof.
+Svelte source correctness requires the appropriate Svelte tooling/type/build proof
+when that claim is made. Claims such as "looks correct", "matches the reference",
+"responsive composition is correct", or "motion feels right" require rendered
+evidence at the appropriate target size/environment. Do not promote source intent
+into rendered proof.
 
 ## Anti-Slop Boundary
 
-Do not create a new frontend framework, theme engine, component library, design
-system file, animation dependency, visual state store, or reference-derived policy
-without current acceptance evidence. Do not use this skill to hide runtime/product
-problems behind polish.
+Do not create a second frontend framework, theme engine, parallel design system,
+visual state store, generic component factory, animation dependency, or reference-
+derived policy without current acceptance evidence. Do not use this skill to hide
+runtime/product problems behind polish.
 
 ## External Influences
 
 This TranslateIT skill is a project-specific rewrite informed by useful principles
-from the following MIT-licensed projects studied during skill design:
+from the following external sources studied during skill design:
 
+- official Svelte 5 AI/best-practice guidance for modern runes, declarative events,
+  scoped styling, and Svelte-specific validation;
 - `zanwei/design-dna` — reference/design-system/style/effects decomposition;
 - `AThevon/genjutsu` — existing-UI polish versus full visual-system establishment,
   interaction thesis, stack discipline, and anti-slop motion practice;
@@ -301,6 +430,6 @@ from the following MIT-licensed projects studied during skill design:
 - `LottieFiles/motion-design-skill` — purposeful motion, timing/easing, and
   choreography principles.
 
-Those external projects are references, not TranslateIT policy or runtime
-dependencies. Current TranslateIT source, foundation, and acceptance criteria remain
-authoritative.
+External projects are references or conditional tooling, not TranslateIT product
+policy or runtime dependencies. Current TranslateIT source, foundation, and
+acceptance criteria remain authoritative.
