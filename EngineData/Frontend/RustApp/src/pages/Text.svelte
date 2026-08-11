@@ -183,9 +183,8 @@
 <section class="ti-page ti-page-wide">
   <header class="ti-page-header">
     <div>
-      <span class="ti-kicker">Text</span>
       <h2 class="ti-page-title">Translate text</h2>
-      <p class="ti-page-copy">Type or paste text, then translate between Indonesian and English.</p>
+      <p class="ti-page-copy">Translate between Indonesian and English, then edit or copy the result.</p>
     </div>
     {#if textStatus !== "Ready"}
       <span class="ti-pill">{textStatus}</span>
@@ -193,28 +192,30 @@
   </header>
 
   <article class="ti-panel overflow-hidden">
-    <div class="grid grid-cols-[1fr_auto_1fr] items-center gap-4 border-b border-[var(--ti-border)] bg-[var(--ti-surface-soft)] px-6 py-4">
-      <div>
+    <div class="grid grid-cols-[1fr_auto_1fr] items-center gap-4 border-b border-[var(--ti-border)] bg-[var(--ti-surface-soft)] px-5 py-3.5">
+      <div class="flex items-baseline gap-2">
         <span class="ti-field-label">From</span>
-        <strong class="mt-1 block text-base font-semibold">{sourceLanguageName}</strong>
+        <strong class="text-[14px] font-semibold">{sourceLanguageName}</strong>
       </div>
-      <button type="button" class="ti-button ti-button-secondary min-h-10 px-3" aria-label="Swap source and target languages" disabled={settingsSaving || translating} onclick={() => void swapLanguages()}>
-        <ArrowLeftRight size={17} /><span>Swap</span>
+
+      <button type="button" class="ti-button ti-button-secondary min-h-9 px-3" aria-label="Swap source and target languages" disabled={settingsSaving || translating} onclick={() => void swapLanguages()}>
+        <ArrowLeftRight size={15} /><span>Swap</span>
       </button>
-      <div class="text-right">
+
+      <div class="flex items-baseline justify-end gap-2 text-right">
         <span class="ti-field-label">To</span>
-        <strong class="mt-1 block text-base font-semibold">{targetLanguageName}</strong>
+        <strong class="text-[14px] font-semibold">{targetLanguageName}</strong>
       </div>
     </div>
 
-    <div class="grid grid-cols-2 gap-px bg-[var(--ti-border)]">
-      <label class="grid min-w-0 gap-3 bg-[var(--ti-surface)] p-6">
+    <div class="grid grid-cols-2">
+      <label class="ti-editor-pane grid gap-3 border-r border-[var(--ti-border)]">
         <div class="flex items-center justify-between gap-3">
           <span class="ti-field-label">Enter text</span>
-          <span class="text-[11px] text-[var(--ti-text-soft)]">{Array.from(sourceText).length}/{MAX_MANUAL_TRANSLATION_CHARS}</span>
+          <span class="text-[10.5px] text-[var(--ti-text-soft)]">{Array.from(sourceText).length}/{MAX_MANUAL_TRANSLATION_CHARS}</span>
         </div>
         <textarea
-          class="ti-field min-h-[320px] resize-none p-4 text-[15px] leading-6 outline-none"
+          class="ti-editor"
           placeholder="Type or paste text"
           maxlength={MAX_MANUAL_TRANSLATION_CHARS}
           bind:value={sourceText}
@@ -224,13 +225,13 @@
         ></textarea>
       </label>
 
-      <label class="grid min-w-0 gap-3 bg-[var(--ti-surface)] p-6">
+      <label class="ti-editor-pane grid gap-3">
         <div class="flex items-center justify-between gap-3">
           <span class="ti-field-label">Translation</span>
-          <strong class={`text-xs font-semibold ${stateClass(resultState)}`}>{resultLabel}</strong>
+          <strong class={`text-[11px] font-semibold ${stateClass(resultState)}`}>{resultLabel}</strong>
         </div>
         <textarea
-          class="ti-field min-h-[320px] resize-none p-4 text-[15px] leading-6 outline-none"
+          class="ti-editor"
           placeholder="Translation appears here"
           bind:value={targetText}
           oninput={handleTargetInput}
@@ -239,17 +240,17 @@
       </label>
     </div>
 
-    <footer class="flex items-center justify-between gap-5 border-t border-[var(--ti-border)] bg-[var(--ti-surface-soft)] px-6 py-5">
+    <footer class="flex flex-wrap items-center justify-between gap-4 border-t border-[var(--ti-border)] bg-[var(--ti-surface-soft)] px-5 py-4">
       <div class="min-w-0">
-        <p class="m-0 text-sm text-[var(--ti-text-muted)]" aria-live="polite">{resultMessage}</p>
-        <p class="mb-0 mt-1 text-xs text-[var(--ti-text-soft)]">Ctrl + Enter to translate</p>
+        <p class="m-0 text-[12.5px] text-[var(--ti-text-muted)]" aria-live="polite">{resultMessage}</p>
+        <p class="mb-0 mt-1 text-[10.5px] text-[var(--ti-text-soft)]">Ctrl + Enter to translate</p>
       </div>
       <div class="ti-action-row shrink-0">
-        <button type="button" class="ti-button ti-button-secondary min-w-28" disabled={!targetText.trim()} onclick={() => void copyTranslation()}>
-          {#if copyState === "copied"}<Check size={16} />{:else}<Copy size={16} />{/if}
+        <button type="button" class="ti-button ti-button-secondary min-w-24" disabled={!targetText.trim()} onclick={() => void copyTranslation()}>
+          {#if copyState === "copied"}<Check size={15} />{:else}<Copy size={15} />{/if}
           {copyState === "copied" ? "Copied" : "Copy"}
         </button>
-        <button type="button" class="ti-button min-w-32" disabled={translating} onclick={() => void submitText()}>{translating ? "Translating..." : "Translate"}</button>
+        <button type="button" class="ti-button min-w-28" disabled={translating} onclick={() => void submitText()}>{translating ? "Translating..." : "Translate"}</button>
       </div>
     </footer>
   </article>
