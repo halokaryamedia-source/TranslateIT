@@ -77,6 +77,10 @@ for (const marker of [
   'from "./pages/Text.svelte"',
   'from "./pages/Settings.svelte"',
   "runtimeProductFacade.loadProductRuntimeSnapshot",
+  "mapProductReadiness",
+  "transcriptStatusKey",
+  "lastTranscriptStatusKey",
+  "applyMeetingStatus(result.status, result.message)",
   "getCurrentWindow().onCloseRequested",
   "runtimeProductFacade.runProductMeetingAction",
   'type CloseDialogAction = "stop" | "retry" | null',
@@ -89,6 +93,16 @@ for (const stale of ["SimpleLauncherController", "document.getElementById", "que
   if (app.includes(stale)) fail(`App.svelte must not reintroduce stale frontend ownership: ${stale}`);
 }
 
+const runtimeApi = readFileSync(join(appRoot, "src", "app", "bridge", "runtimeApi.ts"), "utf8");
+for (const marker of [
+  "Promise<RuntimeSettings | null>",
+  "TextTranslationCommandResult",
+  "AudioDeviceSelectionCommandResult",
+  '"select_audio_device"',
+]) {
+  if (!runtimeApi.includes(marker)) fail(`runtimeApi.ts missing explicit desktop contract marker: ${marker}`);
+}
+
 const facade = readFileSync(join(appRoot, "src", "app", "bridge", "runtimeProductFacade.ts"), "utf8");
 for (const marker of [
   'ProductReadinessLevel = "ready" | "partial" | "blocked" | "checking" | "unavailable"',
@@ -96,12 +110,16 @@ for (const marker of [
   "helperBridgeUnavailable",
   'label = "Unavailable"',
   'textStatus: helperUnavailable',
+  "loadProductRuntimeSnapshot(knownSettings?: RuntimeSettings)",
+  "result.translated_text",
+  "result.user_message",
+  "selectAudioDevice",
 ]) {
-  if (!facade.includes(marker)) fail(`runtimeProductFacade.ts missing bounded Unavailable-state marker: ${marker}`);
+  if (!facade.includes(marker)) fail(`runtimeProductFacade.ts missing current product/runtime marker: ${marker}`);
 }
 
 const meetingPage = readFileSync(join(appRoot, "src", "pages", "Meeting.svelte"), "utf8");
-for (const marker of ["You speak", "Meeting hears", "Ready to translate. Start when your meeting is open.", "TranslateIT Meeting Microphone"]) {
+for (const marker of ["You speak", "Meeting hears", "Ready to translate. Start when your meeting is open.", "TranslateIT Meeting Microphone", "Check Setup"]) {
   if (!meetingPage.includes(marker)) fail(`Meeting.svelte missing familiar translation-flow marker: ${marker}`);
 }
 
@@ -121,12 +139,12 @@ for (const marker of [
 }
 
 const settingsPage = readFileSync(join(appRoot, "src", "pages", "Settings.svelte"), "utf8");
-for (const marker of ['aria-label="Settings sections"', "Meeting audio", "Open Diagnostics", "setupBusy", "micTestBusy"]) {
+for (const marker of ['aria-label="Settings sections"', "Meeting audio", "Open Diagnostics", "refreshDiagnostics", "selectProductAudioDevice", "setupBusy", "micTestBusy"]) {
   if (!settingsPage.includes(marker)) fail(`Settings.svelte missing simplified settings marker: ${marker}`);
 }
 
 const firstSetup = readFileSync(join(appRoot, "src", "pages", "FirstSetup.svelte"), "utf8");
-for (const marker of ['role="progressbar"', "Which microphone do you use?", "Where do you hear the meeting?", "Choose TranslateIT in your meeting app"]) {
+for (const marker of ['role="progressbar"', "Which microphone do you use?", "Where do you hear the meeting?", "Choose TranslateIT in your meeting app", "selectProductAudioDevice", "Check Again"]) {
   if (!firstSetup.includes(marker)) fail(`FirstSetup.svelte missing familiar setup marker: ${marker}`);
 }
 
@@ -142,7 +160,7 @@ for (const [label, body] of [
   ["FirstSetup.svelte", firstSetup],
   ["Sidebar.svelte", sidebar],
 ]) {
-  for (const technical of ["canonical Stop lifecycle", "Current app capability state", "Finalized speech only", "Using the current local translation runtime", "Document attachments are not part of this workflow"]) {
+  for (const technical of ["canonical Stop lifecycle", "Current app capability state", "Finalized speech only", "Using the current local translation runtime", "Document attachments are not part of this workflow", "outbound-runtime setup"]) {
     if (body.includes(technical)) fail(`${label} exposes retired normal-user technical copy: ${technical}`);
   }
 }
@@ -162,4 +180,4 @@ for (const marker of ['@import "tailwindcss";', '@import "./tokens.css";', ".ti-
   if (!appCss.includes(marker)) fail(`styles/app.css missing approved visual-system marker: ${marker}`);
 }
 
-console.log("[frontend-build-preflight] Svelte ownership, familiar translation interaction hierarchy, humanized normal-user copy, explicit Unavailable state, Text safety/Copy, simplified Settings, and retained Tauri runtime bridge are source-aligned. Dependency installation, svelte-check, build, Tauri launch, clipboard execution, and rendered UI remain separate proof.");
+console.log("[frontend-build-preflight] Svelte ownership, coherent Meeting projection, gated transcript polling, explicit settings-unavailable semantics, atomic audio-device command use, user-safe Text result separation, familiar translation interaction hierarchy, simplified Settings, and retained Tauri runtime bridge are source-aligned. Dependency installation, svelte-check, build, Tauri launch, clipboard execution, and rendered UI remain separate proof.");
