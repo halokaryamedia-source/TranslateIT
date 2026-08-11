@@ -5,7 +5,7 @@
   import StatusBadge from "../components/ui/StatusBadge.svelte";
   import StatusRow from "../components/ui/StatusRow.svelte";
 
-  type Tone = "neutral" | "good" | "warning";
+  type Tone = "neutral" | "good" | "warning" | "danger";
 
   let {
     snapshot,
@@ -27,6 +27,7 @@
 
   const readiness = $derived(snapshot.readiness);
   const meeting = $derived(snapshot.meeting);
+  const runtimeUnavailable = $derived(readiness.level === "unavailable" || meeting.label === "Unavailable");
   const checking = $derived(readiness.level === "checking" && !meeting.hasSession);
   const microphone = $derived(
     String(snapshot.inputStatus?.selected_device_name ?? snapshot.settings.audio.input_device_id ?? "").trim() || "Windows Default",
@@ -34,15 +35,17 @@
   const meetingSound = $derived(String(snapshot.settings.audio.output_device_id ?? "").trim() || "Windows Default");
   const activityVisible = $derived(Boolean(meetingStatus && meeting.applicationOwned && meeting.hasSession && (meeting.live || meeting.busy)));
 
-  function statusTone(ready: boolean, pending = false): Tone {
+  function statusTone(ready: boolean, pending = false, unavailable = false): Tone {
+    if (unavailable) return "danger";
     if (ready) return "good";
     if (pending) return "neutral";
     return "warning";
   }
 
-  const meetingTone = $derived(statusTone(meeting.live || readiness.meetingReady, checking || meeting.busy));
-  const microphoneTone = $derived(statusTone(readiness.microphoneReady, checking));
-  const routeTone = $derived(statusTone(readiness.meetingRouteReady, checking));
+  const meetingTone = $derived(statusTone(meeting.live || readiness.meetingReady, checking || meeting.busy, runtimeUnavailable));
+  const microphoneUnavailable = $derived(readiness.microphoneStatus === "Unavailable");
+  const microphoneTone = $derived(statusTone(readiness.microphoneReady, checking, microphoneUnavailable));
+  const routeTone = $derived(statusTone(readiness.meetingRouteReady, checking, runtimeUnavailable));
 
   const primaryLabel = $derived(
     actionBusy
@@ -65,10 +68,7 @@
           : "Indonesian speech becomes English voice. Incoming English can appear as Indonesian text when available."}
       </p>
     </div>
-    <StatusBadge
-      label={meeting.live ? "Live" : meeting.busy ? meeting.label : readiness.meetingReady ? "Ready" : checking ? "Checking" : meeting.label}
-      tone={meetingTone}
-    />
+    <StatusBadge label={meeting.live ? "Live" : meeting.busy ? meeting.label : readiness.meetingReady ? "Ready" : checking ? "Checking" : meeting.label} tone={meetingTone} />
   </header>
 
   <article class="ti-panel overflow-hidden">
@@ -83,21 +83,21 @@
             label="Your microphone"
             value={microphone}
             detail="The microphone you speak into."
-            status={readiness.microphoneReady ? "Ready" : checking ? "Checking" : "Setup Needed"}
+            status={microphoneUnavailable ? "Unavailable" : readiness.microphoneReady ? "Ready" : checking ? "Checking" : "Setup Needed"}
             tone={microphoneTone}
           />
           <StatusRow
             label="Incoming translation"
             value="English → Indonesian text"
             detail={`Meeting sound: ${meetingSound}. This lane is optional.`}
-            status="Optional"
-            tone="neutral"
+            status={runtimeUnavailable ? "Unavailable" : "Optional"}
+            tone={runtimeUnavailable ? "danger" : "neutral"}
           />
           <StatusRow
             label="Meeting microphone"
             value="TranslateIT Meeting Microphone"
             detail="Select this microphone inside Zoom, Meet, Teams, or another meeting app."
-            status={readiness.meetingRouteReady ? "Ready" : checking ? "Checking" : "Setup Needed"}
+            status={runtimeUnavailable ? "Unavailable" : readiness.meetingRouteReady ? "Ready" : checking ? "Checking" : "Setup Needed"}
             tone={routeTone}
           />
         </div>
@@ -109,14 +109,14 @@
         <button type="button" class="ti-button min-w-40" disabled={primaryDisabled} onclick={onMeetingAction}>{primaryLabel}</button>
         {#if !meeting.live && !meeting.busy}
           <button type="button" class="ti-button ti-button-secondary" onclick={onRefresh}>{readiness.meetingReady ? "Check Setup" : "Retry"}</button>
-          {#if !readiness.meetingReady}
+          {#if !readiness.meetingReady && !runtimeUnavailable}
             <button type="button" class="ti-button ti-button-secondary" onclick={onFixSetup}>Fix Setup</button>
           {/if}
         {/if}
       </div>
 
       <div class="flex items-start gap-3 rounded-[var(--ti-radius-sm)] border border-[var(--ti-border)] bg-[var(--ti-surface-soft)] px-4 py-3">
-        <span class={`mt-1 size-2 shrink-0 rounded-full ${meeting.canStart || meeting.live ? "bg-[var(--ti-success)]" : checking || meeting.busy ? "bg-[var(--ti-text-soft)]" : "bg-[var(--ti-warning)]"}`}></span>
+        <span class={`mt-1 size-2 shrink-0 rounded-full ${runtimeUnavailable ? "bg-[var(--ti-danger)]" : meeting.canStart || meeting.live ? "bg-[var(--ti-success)]" : checking || meeting.busy ? "bg-[var(--ti-text-soft)]" : "bg-[var(--ti-warning)]"}`}></span>
         <p class="m-0 text-sm leading-6 text-[var(--ti-text-muted)]">
           {meeting.canStart
             ? "Start Translation to begin the Meeting session. Moving to Text or Settings does not stop a live session."

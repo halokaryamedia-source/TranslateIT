@@ -14,7 +14,7 @@ import type {
   RuntimeSettings,
 } from "../shared/types";
 
-export type ProductReadinessLevel = "ready" | "partial" | "blocked" | "checking";
+export type ProductReadinessLevel = "ready" | "partial" | "blocked" | "checking" | "unavailable";
 
 export type ProductReadiness = {
   level: ProductReadinessLevel;
@@ -129,6 +129,7 @@ type MeetingPreflightSnapshot = {
 type TranslationDirection = "id->en" | "en->id" | "unsupported";
 
 const APPLICATION_MEETING_OWNER_ID = "translateit_application_meeting";
+const FRONTEND_BRIDGE_UNAVAILABLE = "frontend_bridge_unavailable";
 
 function compact(value: unknown, fallback = "Unknown"): string {
   const text = String(value ?? "").replace(/\s+/g, " ").trim();
@@ -159,6 +160,18 @@ function directionLabel(direction: TranslationDirection): string {
   if (direction === "id->en") return "Indonesian → English";
   if (direction === "en->id") return "English → Indonesian";
   return "Selected";
+}
+
+function helperBridgeUnavailable(helper: HelperBridgeStatus | null): boolean {
+  return helper?.runtime_claim === FRONTEND_BRIDGE_UNAVAILABLE || helper?.state === "frontend_bridge_error";
+}
+
+function meetingBridgeUnavailable(status: MeetingSessionStatus | null): boolean {
+  return status?.runtime_claim === FRONTEND_BRIDGE_UNAVAILABLE || status?.lifecycle === "unavailable";
+}
+
+function inputBridgeUnavailable(status: InputPreparationStatus | null): boolean {
+  return status?.blocker === FRONTEND_BRIDGE_UNAVAILABLE;
 }
 
 function parseWorkerCapabilities(workerStatus: HelperBridgeWorkerResponse | null): WorkerCapabilitySnapshot {
@@ -235,26 +248,34 @@ function liveMeetingMessage(stage: string, fallback: string): string {
 
 export function mapProductMeetingState(status: MeetingSessionStatus | null): ProductMeetingState {
   const preflight = meetingPreflight(status);
+  const unavailable = meetingBridgeUnavailable(status);
   const hasSession = status?.has_session === true;
   const applicationOwned = hasSession && status?.owner_id === APPLICATION_MEETING_OWNER_ID;
   const authorityActive = applicationOwned && status?.authority_active === true;
-  const rawLifecycle = compact(status?.lifecycle, hasSession ? "active" : "idle");
-  const lifecycle = applicationOwned ? rawLifecycle : hasSession ? "runtime_conflict" : "idle";
+  const rawLifecycle = unavailable ? "unavailable" : compact(status?.lifecycle, hasSession ? "active" : "idle");
+  const lifecycle = unavailable ? "unavailable" : applicationOwned ? rawLifecycle : hasSession ? "runtime_conflict" : "idle";
   const live = applicationOwned && authorityActive && lifecycle === "live";
   const starting = applicationOwned && authorityActive && lifecycle === "starting";
   const stopping = applicationOwned && lifecycle === "stopping";
   const busy = starting || stopping;
-  const canStart = !hasSession && preflight.readyForStart;
-  const canStop = applicationOwned && hasSession && !starting && !stopping;
-  const outboundStage = compact(status?.outbound?.stage, "idle");
+  const canStart = !unavailable && !hasSession && preflight.readyForStart;
+  const canStop = !unavailable && applicationOwned && hasSession && !starting && !stopping;
+  const outboundStage = compact(status?.outbound?.stage, unavailable ? "unavailable" : "idle");
   const blocker = compact(
     status?.blocker || preflight.blockers[0],
-    hasSession && !applicationOwned ? "meeting_session:active_runtime_conflict" : "",
+    unavailable
+      ? FRONTEND_BRIDGE_UNAVAILABLE
+      : hasSession && !applicationOwned
+        ? "meeting_session:active_runtime_conflict"
+        : "",
   );
 
   let label = "Setup Needed";
   let message = preflight.summary;
-  if (live) {
+  if (unavailable) {
+    label = "Unavailable";
+    message = "Meeting status is unavailable. Retry when the local desktop runtime is available.";
+  } else if (live) {
     label = "Live";
     message = liveMeetingMessage(outboundStage, status?.outbound?.note ?? status?.note ?? "");
   } else if (starting) {
@@ -327,6 +348,11 @@ export function mapProductReadiness(input: {
   const meeting = meetingPreflight(input.meetingSession ?? null);
   const productMeeting = mapProductMeetingState(input.meetingSession ?? null);
 
+  const helperUnavailable = helperBridgeUnavailable(helper);
+  const meetingUnavailable = meetingBridgeUnavailable(input.meetingSession ?? null);
+  const inputUnavailable = inputBridgeUnavailable(inputStatus);
+  const runtimeUnavailable = helperUnavailable && meetingUnavailable && inputUnavailable;
+
   const helperReady = helper?.state === "ready";
   const microphoneReady = Boolean(inputStatus?.ready || inputStatus?.prepared);
   const asrReady = helperReady && worker.asrReady;
@@ -360,32 +386,38 @@ export function mapProductReadiness(input: {
   });
 
   const hasRuntimeEvidence = Boolean(helper || worker.responseAvailable || inputStatus || input.meetingSession);
-  const level: ProductReadinessLevel = meetingReady
-    ? "ready"
-    : textReady
-      ? "partial"
-      : hasRuntimeEvidence
-        ? "blocked"
-        : "checking";
-  const textDirectionLabel = directionLabel(textDirection);
-  const nextAction = productMeeting.live
-    ? "Translation is live. Stop the Meeting session when you are finished."
-    : meeting.readyForStart
-      ? "Meeting Translation is ready to start."
+  const level: ProductReadinessLevel = runtimeUnavailable
+    ? "unavailable"
+    : meetingReady
+      ? "ready"
       : textReady
-        ? "Text translation is available. Meeting setup/runtime still needs attention."
-        : textDirection === "unsupported"
-          ? "Choose Indonesian → English or English → Indonesian for Text translation."
-          : "The selected Text translation direction is not ready. Use Fix Setup or Diagnostics if needed.";
-  const summary = productMeeting.live
-    ? "Meeting Translation is live."
-    : meeting.readyForStart
-      ? "Required outbound Meeting capabilities are ready."
-      : textReady
-        ? `${textDirectionLabel} Text translation is available. Meeting Translation is not ready yet.`
+        ? "partial"
         : hasRuntimeEvidence
-          ? `${textDirectionLabel} Text translation is not ready. Meeting Translation is not ready yet.`
-          : "Product readiness is still checking.";
+          ? "blocked"
+          : "checking";
+  const textDirectionLabel = directionLabel(textDirection);
+  const nextAction = runtimeUnavailable
+    ? "TranslateIT local desktop runtime is unavailable. Retry the status check before using translation."
+    : productMeeting.live
+      ? "Translation is live. Stop the Meeting session when you are finished."
+      : meeting.readyForStart
+        ? "Meeting Translation is ready to start."
+        : textReady
+          ? "Text translation is available. Meeting setup still needs attention."
+          : textDirection === "unsupported"
+            ? "Choose Indonesian → English or English → Indonesian for Text translation."
+            : "The selected Text translation direction is not ready. Use Fix Setup or Diagnostics if needed.";
+  const summary = runtimeUnavailable
+    ? "TranslateIT local desktop runtime is unavailable. Retry the status check."
+    : productMeeting.live
+      ? "Meeting Translation is live."
+      : meeting.readyForStart
+        ? "Required outbound Meeting capabilities are ready."
+        : textReady
+          ? `${textDirectionLabel} Text translation is available. Meeting Translation is not ready yet.`
+          : hasRuntimeEvidence
+            ? `${textDirectionLabel} Text translation is not ready. Meeting Translation is not ready yet.`
+            : "Product readiness is still checking.";
 
   return {
     level,
@@ -407,31 +439,53 @@ export function mapProductReadiness(input: {
     nextAction,
     blockers,
     summary,
-    textStatus: textReady ? "Ready" : level === "checking" ? "Checking" : "Setup Needed",
-    helperStatus: helperReady
-      ? worker.responseAvailable
-        ? "Local worker running"
-        : "Worker running; capability check unavailable"
-      : compact(helper?.state ?? helper?.message, "Local worker not running"),
-    modelStatus: providerReady
-      ? "Required outbound model runtime ready"
-      : worker.responseAvailable
-        ? "Required outbound model runtime needs setup"
-        : "Worker capability not checked",
-    microphoneStatus: microphoneReady
-      ? compact(inputStatus?.selected_device_name, "Microphone ready")
-      : compact(inputStatus?.blocker ?? inputStatus?.note, "Microphone not checked"),
-    voiceStatus: voiceReady ? "Required local outbound AI capabilities available" : "Local voice runtime needs setup",
-    meetingStatus: productMeeting.live
-      ? "Live"
-      : productMeeting.busy
-        ? productMeeting.label
-        : meeting.readyForStart
-          ? "Ready"
-          : level === "checking"
-            ? "Checking"
-            : "Setup Needed",
-    runtimeStatus: productMeeting.lifecycle !== "idle" ? productMeeting.lifecycle : compact(helper?.state, "Checking"),
+    textStatus: helperUnavailable
+      ? "Unavailable"
+      : textReady
+        ? "Ready"
+        : level === "checking"
+          ? "Checking"
+          : "Setup Needed",
+    helperStatus: helperUnavailable
+      ? "Unavailable"
+      : helperReady
+        ? worker.responseAvailable
+          ? "Local worker running"
+          : "Worker running; capability check unavailable"
+        : compact(helper?.state ?? helper?.message, "Local worker not running"),
+    modelStatus: helperUnavailable
+      ? "Unavailable"
+      : providerReady
+        ? "Required outbound model runtime ready"
+        : worker.responseAvailable
+          ? "Required outbound model runtime needs setup"
+          : "Worker capability not checked",
+    microphoneStatus: inputUnavailable
+      ? "Unavailable"
+      : microphoneReady
+        ? compact(inputStatus?.selected_device_name, "Microphone ready")
+        : compact(inputStatus?.blocker ?? inputStatus?.note, "Microphone not checked"),
+    voiceStatus: runtimeUnavailable
+      ? "Unavailable"
+      : voiceReady
+        ? "Required local outbound AI capabilities available"
+        : "Local voice runtime needs setup",
+    meetingStatus: productMeeting.label === "Unavailable"
+      ? "Unavailable"
+      : productMeeting.live
+        ? "Live"
+        : productMeeting.busy
+          ? productMeeting.label
+          : meeting.readyForStart
+            ? "Ready"
+            : level === "checking"
+              ? "Checking"
+              : "Setup Needed",
+    runtimeStatus: runtimeUnavailable
+      ? "Unavailable"
+      : productMeeting.lifecycle !== "idle"
+        ? productMeeting.lifecycle
+        : compact(helper?.state, "Checking"),
   };
 }
 

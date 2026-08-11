@@ -91,13 +91,26 @@ src/app/bridge/runtimeProductFacade.ts
 
 The former `active-launcher`, `simple-launcher`, vanilla First Setup, manual icon strings, and legacy root CSS owners are removed from the active source graph rather than left as a permanent dual frontend.
 
-Frontend visual ownership is intentionally small. `tokens.css` owns semantic surface/text/action/state/shape/layout values. `app.css` owns Tailwind loading, base focus/reduced-motion behavior, page composition, and a bounded shared vocabulary for panels/buttons/fields/pills/state cards. `StatusRow.svelte` exists only because readiness/device rows repeat across current product surfaces.
+Frontend visual ownership is intentionally small. `tokens.css` owns semantic surface/text/action/state/shape/layout values. `app.css` owns Tailwind loading, base focus/reduced-motion behavior, page composition, and a bounded shared visual vocabulary. `StatusRow.svelte` exists because readiness/device rows repeat across current product surfaces.
 
-Text now includes the required Copy action using the frontend clipboard API; its Tauri/WebView execution is still deferred proof.
+## Frontend Product-State Contract
+
+Frontend Phase 3 source audit reconciled the current UI against the initial-core requirements:
+
+- Meeting Ready / Starting / Live / Stopping remain projected from the canonical Meeting runtime owner;
+- a real frontend/runtime bridge-unavailable condition is presented as **Unavailable**, not mislabeled as Setup Needed;
+- active Meeting continuity across Text/Settings remains explicit and navigation does not stop the session;
+- safe application close distinguishes active Meeting, already-stopping, runtime-owner conflict, and unverifiable runtime state; unavailable close checks offer Retry Check rather than pretending Stop can execute;
+- Text keeps explicit ID <-> EN direction, Translate, stale-source association, editable result, Copy, and Ctrl/Cmd+Enter;
+- a translation result that returns after the user edits the target text does **not** overwrite that newer user edit;
+- First Setup keeps five persisted checkpoints, candidate device probing, Set up later, repair, and real final readiness verification;
+- Settings keeps Meeting-device selection, Mic Test, Check Setup, Advanced health, bounded Diagnostics, and explicit Verify Models.
+
+Svelte state remains presentation/application state, not duplicate Rust/runtime truth.
 
 No SvelteKit, frontend router, Redux-like state library, CSS-in-JS, heavy UI framework, full shadcn-svelte dump, or general animation framework is a current owner.
 
-The Svelte source has **not** been dependency-installed, autofixed, typechecked, built, launched, or visually rendered in this ChatGPT -> GitHub channel. Source ownership is established; executable/rendered proof remains pending by explicit user choice.
+The Svelte source has **not** been dependency-installed, autofixed, typechecked, built, launched, clipboard-tested, or visually rendered in this ChatGPT -> GitHub channel. Source ownership/state mapping is established; executable/rendered proof remains pending by explicit user choice.
 
 ## Translation Contract
 

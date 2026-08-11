@@ -19,6 +19,7 @@
 
   const MEETING_REFRESH_MS = 1200;
   type AppRoute = "meeting" | "text" | "settings";
+  type CloseDialogAction = "stop" | "retry" | null;
 
   let booting = $state(true);
   let setupRequired = $state(false);
@@ -33,8 +34,9 @@
   let meetingTurns = $state<MeetingCommittedTurnsSnapshot | null>(null);
 
   let closeDialogOpen = $state(false);
+  let closeDialogTitle = $state("Close TranslateIT?");
   let closeDialogMessage = $state("");
-  let closeDialogCanStop = $state(false);
+  let closeDialogAction = $state<CloseDialogAction>(null);
   let stopAndCloseBusy = $state(false);
   let closeAfterExistingStop = $state(false);
   let meetingPollInFlight = false;
@@ -53,13 +55,15 @@
   const presence = $derived(
     snapshot?.meeting.live
       ? "Live"
-      : snapshot?.readiness.meetingReady
-        ? "Ready"
-        : snapshot?.readiness.textReady
-          ? "Degraded"
-          : snapshot?.readiness.level === "blocked"
-            ? "Setup Needed"
-            : "Checking",
+      : snapshot?.readiness.level === "unavailable"
+        ? "Unavailable"
+        : snapshot?.readiness.meetingReady
+          ? "Ready"
+          : snapshot?.readiness.textReady
+            ? "Degraded"
+            : snapshot?.readiness.level === "blocked"
+              ? "Setup Needed"
+              : "Checking",
   );
 
   const direction = $derived(
@@ -69,6 +73,9 @@
   );
 
   const pageTitle = $derived(route === "meeting" ? "Meeting" : route === "text" ? "Text" : "Settings");
+  const closePrimaryLabel = $derived(
+    closeDialogAction === "retry" ? "Retry Check" : stopAndCloseBusy ? "Stopping..." : "Stop & Close",
+  );
 
   function meetingStatusUnavailable(status: MeetingSessionStatus): boolean {
     return status.runtime_claim === "frontend_bridge_unavailable" || status.lifecycle === "unavailable";
@@ -186,10 +193,15 @@
     meetingPollInFlight = true;
     try {
       const status = await runtimeApi.getMeetingSessionStatus();
-      if (meetingStatusUnavailable(status)) return;
       meetingStatus = status;
       const mapped = mapProductMeetingState(status);
       if (snapshot) snapshot = { ...snapshot, meetingSession: status, meeting: mapped };
+
+      if (meetingStatusUnavailable(status)) {
+        meetingTurns = null;
+        setNotice(mapped.message);
+        return;
+      }
 
       if (status.has_session) {
         meetingTurns = await runtimeApi.getMeetingCommittedTurns().catch(() => meetingTurns);
@@ -198,22 +210,23 @@
         if (closeAfterExistingStop) await destroyNativeWindow();
       }
     } catch {
-      // Product recovery remains explicit. Poll failure does not invent a lifecycle state.
+      // A thrown poll failure provides no authoritative replacement state.
     } finally {
       meetingPollInFlight = false;
     }
   }
 
-  function showCloseDialog(message: string, canStop: boolean): void {
+  function showCloseDialog(title: string, message: string, action: CloseDialogAction): void {
+    closeDialogTitle = title;
     closeDialogMessage = compactNotice(message);
-    closeDialogCanStop = canStop;
+    closeDialogAction = action;
     closeDialogOpen = true;
   }
 
   function keepApplicationOpen(): void {
     closeAfterExistingStop = false;
     stopAndCloseBusy = false;
-    closeDialogCanStop = false;
+    closeDialogAction = null;
     closeDialogOpen = false;
   }
 
@@ -229,7 +242,11 @@
     try {
       const status = await runtimeApi.getMeetingSessionStatus();
       if (meetingStatusUnavailable(status)) {
-        showCloseDialog("TranslateIT could not verify the current Meeting state, so closing was blocked. Retry Stop & Close after the runtime is available, or keep the app open.", true);
+        showCloseDialog(
+          "Unable to verify Meeting state",
+          "TranslateIT could not verify the current Meeting state, so closing was blocked. Keep the app open or retry the state check.",
+          "retry",
+        );
         return;
       }
 
@@ -239,16 +256,28 @@
         return;
       }
       if (!meeting.applicationOwned) {
-        showCloseDialog("Meeting resources are still owned by another TranslateIT runtime operation. Close remains blocked until that operation releases them.", false);
+        showCloseDialog(
+          "Meeting resources are in use",
+          "Meeting resources are owned by another TranslateIT runtime operation. Close remains blocked until that operation releases them.",
+          null,
+        );
         return;
       }
       if (meeting.lifecycle === "stopping") {
         closeAfterExistingStop = true;
-        showCloseDialog("Translation is already stopping. TranslateIT will stay open until the canonical Stop lifecycle finishes.", false);
+        showCloseDialog(
+          "Translation is stopping",
+          "The canonical Stop lifecycle is already running. TranslateIT will stay open until the Meeting session is cleared.",
+          null,
+        );
         return;
       }
 
-      showCloseDialog(`${meeting.label} Meeting Translation is still active. Stop & Close will run the same safe Stop lifecycle used by the Meeting workspace before TranslateIT exits.`, true);
+      showCloseDialog(
+        "Meeting Translation is still active",
+        `${meeting.label} Meeting Translation is still active. Stop & Close will run the same safe Stop lifecycle used by the Meeting workspace before TranslateIT exits.`,
+        "stop",
+      );
     } finally {
       closeCheckInFlight = false;
     }
@@ -260,7 +289,11 @@
     try {
       const status = await runtimeApi.getMeetingSessionStatus();
       if (meetingStatusUnavailable(status)) {
-        showCloseDialog("TranslateIT could not verify the current Meeting state, so closing remains blocked.", true);
+        showCloseDialog(
+          "Unable to verify Meeting state",
+          "TranslateIT could not verify the current Meeting state, so closing remains blocked.",
+          "retry",
+        );
         return;
       }
 
@@ -270,24 +303,40 @@
         return;
       }
       if (!meeting.applicationOwned) {
-        showCloseDialog("Meeting resources are still owned by another TranslateIT runtime operation. Close remains blocked.", false);
+        showCloseDialog(
+          "Meeting resources are in use",
+          "Meeting resources are owned by another TranslateIT runtime operation. Close remains blocked.",
+          null,
+        );
         return;
       }
       if (meeting.lifecycle === "stopping") {
         closeAfterExistingStop = true;
-        showCloseDialog("Translation is already stopping. TranslateIT will stay open until Stop finishes.", false);
+        showCloseDialog(
+          "Translation is stopping",
+          "TranslateIT will stay open until the current Stop lifecycle finishes.",
+          null,
+        );
         return;
       }
 
       const result = await runtimeProductFacade.runProductMeetingAction("stop");
       if (!result.ok) {
-        showCloseDialog(`Translation could not be stopped safely, so TranslateIT remains open. ${result.message}`, true);
+        showCloseDialog(
+          "Translation could not stop safely",
+          `TranslateIT remains open. ${result.message}`,
+          "stop",
+        );
         return;
       }
 
       const verified = await runtimeApi.getMeetingSessionStatus();
       if (meetingStatusUnavailable(verified)) {
-        showCloseDialog("Stop returned, but TranslateIT could not verify that the Meeting session cleared. The app remains open.", true);
+        showCloseDialog(
+          "Stop could not be verified",
+          "Stop returned, but TranslateIT could not verify that the Meeting session cleared. The app remains open.",
+          "retry",
+        );
         return;
       }
       if (!verified.has_session) {
@@ -298,15 +347,36 @@
       const verifiedMeeting = mapProductMeetingState(verified);
       if (verifiedMeeting.applicationOwned && verifiedMeeting.lifecycle === "stopping") {
         closeAfterExistingStop = true;
-        showCloseDialog("Translation is stopping. TranslateIT will close only after the Meeting session is cleared.", false);
+        showCloseDialog(
+          "Translation is stopping",
+          "TranslateIT will close only after the Meeting session is cleared.",
+          null,
+        );
         return;
       }
-      showCloseDialog("Stop finished without proof that the Meeting session was cleared. TranslateIT remains open.", verifiedMeeting.applicationOwned);
+      showCloseDialog(
+        "Meeting session is still active",
+        "Stop finished without proof that the Meeting session was cleared. TranslateIT remains open.",
+        verifiedMeeting.applicationOwned ? "stop" : null,
+      );
     } catch (error) {
-      showCloseDialog(`TranslateIT could not complete the safe close check. ${errorMessage(error)}`, true);
+      showCloseDialog(
+        "Unable to complete safe close",
+        `TranslateIT remains open. ${errorMessage(error)}`,
+        "retry",
+      );
     } finally {
       stopAndCloseBusy = false;
     }
+  }
+
+  async function handleCloseDialogPrimary(): Promise<void> {
+    if (closeDialogAction === "retry") {
+      closeDialogOpen = false;
+      await inspectNativeCloseRequest();
+      return;
+    }
+    if (closeDialogAction === "stop") await handleStopAndClose();
   }
 
   onMount(() => {
@@ -362,7 +432,7 @@
 
     <section class="flex min-w-0 flex-1 flex-col">
       <header class="flex min-h-20 shrink-0 items-center gap-5 border-b border-[var(--ti-border)] bg-[var(--ti-bg)] px-8">
-        <div>
+        <div class="min-w-0">
           <h1 class="m-0 text-lg font-black">{pageTitle}</h1>
           <p class="mb-0 mt-1 max-w-[680px] truncate text-xs text-[var(--ti-text-muted)]" title={notice}>{notice}</p>
         </div>
@@ -370,7 +440,7 @@
         {#if route !== "meeting" && snapshot.meeting.applicationOwned && snapshot.meeting.hasSession}
           <button
             type="button"
-            class="ml-auto flex items-center gap-3 rounded-full border border-[#285942] bg-[var(--ti-success-surface)] px-4 py-2 text-left"
+            class="ml-auto flex items-center gap-3 rounded-full border border-[var(--ti-success-border)] bg-[var(--ti-success-surface)] px-4 py-2 text-left"
             onclick={() => { route = "meeting"; }}
           >
             <span class="size-2 rounded-full bg-[var(--ti-success)]"></span>
@@ -379,7 +449,7 @@
         {/if}
 
         <span class={route !== "meeting" && snapshot.meeting.applicationOwned && snapshot.meeting.hasSession ? "" : "ml-auto"}>
-          <span class="rounded-full border border-[var(--ti-border)] bg-[var(--ti-surface-soft)] px-3 py-2 text-xs font-bold text-[var(--ti-text-muted)]">{direction}</span>
+          <span class="ti-pill">{direction}</span>
         </span>
       </header>
 
@@ -429,15 +499,15 @@
 
 <Dialog.Root bind:open={closeDialogOpen}>
   <Dialog.Portal>
-    <Dialog.Overlay class="fixed inset-0 z-50 bg-black/70 backdrop-blur-[2px]" />
+    <Dialog.Overlay class="fixed inset-0 z-50 bg-[var(--ti-overlay)] backdrop-blur-[2px]" />
     <Dialog.Content class="fixed left-1/2 top-1/2 z-50 w-[min(520px,calc(100vw-48px))] -translate-x-1/2 -translate-y-1/2 rounded-[var(--ti-radius-lg)] border border-[var(--ti-border-strong)] bg-[var(--ti-surface)] p-6 shadow-[var(--ti-shadow-dialog)]">
-      <Dialog.Title class="text-xl font-black">Meeting Translation is still active</Dialog.Title>
+      <Dialog.Title class="text-xl font-black">{closeDialogTitle}</Dialog.Title>
       <Dialog.Description class="mt-3 text-sm leading-6 text-[var(--ti-text-muted)]">{closeDialogMessage}</Dialog.Description>
       <div class="mt-6 flex justify-end gap-3">
         <button type="button" class="ti-button ti-button-secondary" disabled={stopAndCloseBusy} onclick={keepApplicationOpen}>Keep Open</button>
-        <button type="button" class="ti-button" disabled={!closeDialogCanStop || stopAndCloseBusy} onclick={() => void handleStopAndClose()}>
-          {stopAndCloseBusy ? "Stopping..." : "Stop & Close"}
-        </button>
+        {#if closeDialogAction}
+          <button type="button" class="ti-button" disabled={stopAndCloseBusy} onclick={() => void handleCloseDialogPrimary()}>{closePrimaryLabel}</button>
+        {/if}
       </div>
     </Dialog.Content>
   </Dialog.Portal>

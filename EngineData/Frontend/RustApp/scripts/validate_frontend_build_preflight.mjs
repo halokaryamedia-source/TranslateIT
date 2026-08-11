@@ -79,15 +79,38 @@ for (const marker of [
   "runtimeProductFacade.loadProductRuntimeSnapshot",
   "getCurrentWindow().onCloseRequested",
   "runtimeProductFacade.runProductMeetingAction",
+  'type CloseDialogAction = "stop" | "retry" | null',
+  'closeDialogAction === "retry" ? "Retry Check"',
+  '"Unable to verify Meeting state"',
 ]) {
   if (!app.includes(marker)) fail(`App.svelte missing current product marker: ${marker}`);
 }
-for (const stale of ["SimpleLauncherController", "document.getElementById", "querySelector<", "MutationObserver"]) {
-  if (app.includes(stale)) fail(`App.svelte must not hide the old manual DOM owner: ${stale}`);
+for (const stale of ["SimpleLauncherController", "document.getElementById", "querySelector<", "MutationObserver", "closeDialogCanStop"]) {
+  if (app.includes(stale)) fail(`App.svelte must not reintroduce stale frontend ownership: ${stale}`);
+}
+
+const facade = readFileSync(join(appRoot, "src", "app", "bridge", "runtimeProductFacade.ts"), "utf8");
+for (const marker of [
+  'ProductReadinessLevel = "ready" | "partial" | "blocked" | "checking" | "unavailable"',
+  "meetingBridgeUnavailable",
+  "helperBridgeUnavailable",
+  'label = "Unavailable"',
+  'textStatus: helperUnavailable',
+]) {
+  if (!facade.includes(marker)) fail(`runtimeProductFacade.ts missing bounded Unavailable-state marker: ${marker}`);
 }
 
 const textPage = readFileSync(join(appRoot, "src", "pages", "Text.svelte"), "utf8");
-for (const marker of ["runProductTranslation", "swapLanguages", "copyTranslation", "navigator.clipboard.writeText", '"Copy"']) {
+for (const marker of [
+  "runProductTranslation",
+  "swapLanguages",
+  "copyTranslation",
+  "navigator.clipboard.writeText",
+  "targetRevision",
+  "requestTargetRevision",
+  "userEditedTargetWhileRunning",
+  '"Edit kept"',
+]) {
   if (!textPage.includes(marker)) fail(`Text.svelte missing explicit Text workflow marker: ${marker}`);
 }
 
@@ -106,4 +129,4 @@ for (const marker of ['@import "tailwindcss";', '@import "./tokens.css";', ".ti-
   if (!appCss.includes(marker)) fail(`styles/app.css missing approved visual-system marker: ${marker}`);
 }
 
-console.log("[frontend-build-preflight] One Svelte 5 application root, approved Vite/Tailwind stack, semantic visual token owner, Text Copy workflow, current product pages, and retained Tauri runtime bridge are source-aligned. Dependency installation, svelte-check, build, Tauri launch, and rendered UI remain separate proof.");
+console.log("[frontend-build-preflight] Svelte application ownership, approved visual stack, explicit Unavailable state, safe-close modes, Text Copy and late-result protection, and retained Tauri runtime bridge are source-aligned. Dependency installation, svelte-check, build, Tauri launch, clipboard execution, and rendered UI remain separate proof.");

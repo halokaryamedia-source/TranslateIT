@@ -18,6 +18,13 @@
     { route: "text" as const, label: "Text", description: "ID ↔ EN", icon: Languages },
     { route: "settings" as const, label: "Settings", description: "Devices & setup", icon: Settings },
   ];
+
+  function presenceDot(): string {
+    if (presence === "Live" || presence === "Ready") return "bg-[var(--ti-success)]";
+    if (presence === "Unavailable") return "bg-[var(--ti-danger)]";
+    if (presence === "Setup Needed") return "bg-[var(--ti-warning)]";
+    return "bg-[var(--ti-text-soft)]";
+  }
 </script>
 
 <aside class="flex min-h-screen w-[var(--ti-sidebar-width)] shrink-0 flex-col border-r border-[var(--ti-border)] bg-[var(--ti-sidebar)] px-5 py-6">
@@ -50,10 +57,10 @@
 
   <section class="mt-auto rounded-[var(--ti-radius-md)] border border-[var(--ti-border)] bg-[var(--ti-surface)] p-4">
     <div class="flex items-center gap-2">
-      <span class={`size-2 rounded-full ${presence === "Live" || presence === "Ready" ? "bg-[var(--ti-success)]" : presence === "Setup Needed" ? "bg-[var(--ti-warning)]" : "bg-[var(--ti-text-soft)]"}`}></span>
-      <span class="ti-kicker">Local runtime</span>
+      <span class={`size-2 rounded-full ${presenceDot()}`}></span>
+      <span class="ti-kicker">TranslateIT status</span>
     </div>
     <strong class="mt-2 block text-sm">{presence}</strong>
-    <p class="mb-0 mt-1 text-[11px] leading-5 text-[var(--ti-text-soft)]">Runtime truth comes from the local desktop bridge.</p>
+    <p class="mb-0 mt-1 text-[11px] leading-5 text-[var(--ti-text-soft)]">Current app capability state.</p>
   </section>
 </aside>

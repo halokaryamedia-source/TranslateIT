@@ -30,6 +30,7 @@
   let resultMessage = $state("Type or paste text, then select Translate.");
   let lastTranslatedSource = $state<string | null>(null);
   let copyState = $state<CopyState>("idle");
+  let targetRevision = 0;
 
   const sourceLanguageName = $derived(languageName(settings.source_language));
   const targetLanguageName = $derived(languageName(settings.target_language));
@@ -53,6 +54,7 @@
   }
 
   function handleTargetInput(): void {
+    targetRevision += 1;
     if (copyState !== "idle") copyState = "idle";
   }
 
@@ -72,6 +74,7 @@
     if (translating) return;
 
     const requestSource = source;
+    const requestTargetRevision = targetRevision;
     const previousTarget = targetText;
     translating = true;
     copyState = "idle";
@@ -80,10 +83,21 @@
 
     try {
       const result = await runtimeProductFacade.runProductTranslation(requestSource);
+      const userEditedTargetWhileRunning = targetRevision !== requestTargetRevision;
       if (!result.ok) {
-        targetText = previousTarget;
+        if (!userEditedTargetWhileRunning) targetText = previousTarget;
         setResult("error", "Couldn't translate", result.message);
         onNotice(`Translation blocked: ${result.message}`);
+        return;
+      }
+
+      if (userEditedTargetWhileRunning) {
+        setResult(
+          "stale",
+          "Edit kept",
+          "Translation finished after you edited the result. Your newer edit was kept instead of being overwritten.",
+        );
+        onNotice("Translation finished, but your newer result edit was kept.");
         return;
       }
 
@@ -93,11 +107,11 @@
         setResult("success", "Translated", "Translation completed. You can review, edit, or copy the result.");
         onNotice("Translation completed.");
       } else {
-        setResult("stale", "Needs update", "The source changed while translating. The result is for the previous source text.");
+        setResult("stale", "Needs update", "The source changed while translating. The visible result is clearly associated with the previous source text.");
         onNotice("Translation completed for the previous source text.");
       }
     } catch (error) {
-      targetText = previousTarget;
+      if (targetRevision === requestTargetRevision) targetText = previousTarget;
       const message = errorMessage(error);
       setResult("error", "Couldn't translate", message);
       onNotice(`Translation failed: ${message}`);
@@ -143,6 +157,7 @@
       if (visibleTarget.trim()) {
         sourceText = visibleTarget;
         targetText = "";
+        targetRevision += 1;
         lastTranslatedSource = null;
         copyState = "idle";
         setResult("idle", "Ready", "Target text moved to the source pane. Select Translate when ready.");
