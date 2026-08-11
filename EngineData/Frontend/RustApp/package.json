@@ -18,7 +18,7 @@
     "validate:quick": "npm run validate:source-contracts && npm run typecheck"
   },
   "dependencies": {
-    "@lucide/svelte": "^1.27.0",
+    "@lucide/svelte": "^1.26.0",
     "@tauri-apps/api": "^2.0.0",
     "bits-ui": "^2.18.1"
   },
