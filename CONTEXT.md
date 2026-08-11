@@ -109,7 +109,7 @@ Normal UI now follows these source-level principles:
 - mixed incoming meeting audio is labeled `MEETING`, not assigned a fabricated participant identity;
 - normal-user copy avoids runtime/worker/model/provider/pipeline/lifecycle-internal language; technical vocabulary remains in Advanced / Diagnostics;
 - Settings uses one page with `Meeting / Advanced` tabs instead of a second nested settings sidebar;
-- First Setup preserves five persisted checkpoints and all functional checks, but its questions and instructions use ordinary meeting-language phrasing;
+- First Setup preserves five persisted checkpoints and functional readiness checks, but its questions and instructions use ordinary meeting-language phrasing;
 - sidebar/navigation is compact and product-facing rather than presenting a dashboard-style capability card.
 
 This is an adaptation of familiar translation-product interaction, not a literal copy of another product's brand or layout.
@@ -119,15 +119,21 @@ This is an adaptation of familiar translation-product interaction, not a literal
 Current source reconciles the UI against the initial-core requirements:
 
 - Meeting Ready / Starting / Live / Stopping remain projected from the canonical Meeting runtime owner;
+- Meeting-facing readiness uses the current Meeting preflight as the authoritative readiness sample instead of rebuilding Meeting truth from independently sampled frontend calls;
 - a real frontend/runtime bridge-unavailable condition is presented as **Unavailable**, not mislabeled as Setup Needed;
+- settings transport failure remains unavailable and does not fabricate default settings or send the user into First Setup;
 - active Meeting continuity across Text/Settings remains explicit and navigation does not stop the session;
-- safe close distinguishes active Meeting, already-stopping, runtime-owner conflict, and unverifiable runtime state; unavailable close checks offer a retry rather than pretending Stop can execute;
+- Meeting polling recomputes the product Meeting/readiness projection from the current Meeting status, while the committed transcript payload is refetched only when the Meeting status revision signals change;
+- Start/Stop immediately consume the authoritative Meeting status returned by the Rust action instead of performing a full product refetch solely to rediscover that result;
+- safe close still distinguishes active Meeting, already-stopping, runtime-owner conflict, and unverifiable runtime state; close verification remains deliberately fail-closed;
 - Text keeps explicit ID <-> EN direction, Translate, stale-source association, editable result, Copy, and Ctrl/Cmd+Enter;
+- Text translation returns translated text, product-facing failure copy, and technical blocker separately so normal UI does not expose worker/model/device failure detail;
 - a translation result returning after the user edits the target text does **not** overwrite the newer edit;
-- First Setup keeps five persisted checkpoints, candidate device probing, Set Up Later, repair, and real final readiness verification;
-- Settings keeps Meeting-device selection, Mic Test, Check Setup, Advanced health, bounded Diagnostics, and explicit Verify Models.
+- First Setup keeps five persisted checkpoints, candidate device probing, Set Up Later, setup checking, and real final readiness verification; microphone selection itself performs the candidate probe/save transaction so a second redundant microphone check is not required;
+- Settings keeps Meeting-device selection, Mic Test, Check Setup, Advanced health, bounded Diagnostics, and explicit Verify Models; Diagnostics refreshes when explicitly opened;
+- normal application settings are projected through `ProductRuntimeSnapshot.settings`; bootstrap `setupSettings` exists only before the normal product snapshot is available.
 
-Svelte state remains presentation/application state, not duplicate Rust/runtime truth. No SvelteKit, frontend router, Redux-like state library, CSS-in-JS, heavy UI framework, full shadcn-svelte dump, or general animation framework is a current owner.
+Svelte state remains presentation/application state, not duplicate Rust/runtime truth. No SvelteKit, frontend router, Redux-like state library, CSS-in-JS, heavy UI framework, full shadcn-svelte dump, general event bus, or animation framework is a current owner.
 
 ## Translation Contract
 
@@ -163,6 +169,8 @@ audio.output_device_id
 
 `engine/settings.rs` is the single schema/deserialization/sanitization owner. The previous larger JSON shape is tolerated through ignored legacy keys; normal save writes only the small schema. There is no migration registry or second settings store.
 
+`commands/settings.rs` owns the bounded audio-device selection transaction at the desktop boundary: load the current preference, probe the requested microphone/Meeting Sound through the existing audio owner, preserve the old preference on failure, persist on success, and return the canonical resulting settings. The frontend does not duplicate that rollback rule.
+
 ## Rust / Backend Surface
 
 The Rust engine remains reduced to current owners:
@@ -181,7 +189,7 @@ engine/
 
 The old adapter/planning tree, History/Chat/session persistence, transcript-session planning, native inference candidates, CUDA/status/report scaffolding, duplicate RuntimeContracts, and handoff compatibility tombstones are removed.
 
-Normal `loadProductRuntimeSnapshot()` reads only settings, Meeting status, helper status, input status, and worker capability when the helper is ready. Heavy diagnostic/model/native probing is not normal polling work.
+Normal `loadProductRuntimeSnapshot()` reads settings, Meeting status/preflight, helper status, input status, and worker capability when the helper is ready. Heavy diagnostic/model/native probing is not normal polling work. During an active Meeting, the recurring frontend path polls Meeting status; the larger committed-turn snapshot is conditional on a status revision change rather than fetched unconditionally on every interval.
 
 ## Release Boundary
 
@@ -204,7 +212,7 @@ Actual PythonRuntime bytes, vendored packages, installer placement, model execut
 
 The user has explicitly chosen to postpone local/integration testing until the major feature set is ready. This changes **when** proof is executed, not the acceptance standard.
 
-The Svelte source has not been dependency-installed, autofixed, typechecked, built, launched, clipboard-tested, or visually rendered through ChatGPT -> GitHub. Therefore source hierarchy and wording can be established, but rendered attractiveness/usability/accessibility are not yet proven.
+The changed Svelte/Rust source has not been dependency-installed, Svelte-autofixed, typechecked, built, Rust-compiled, launched, clipboard-tested, or visually rendered through ChatGPT -> GitHub. Therefore source ownership/contracts can be established, but rendered usability, compile correctness, Windows runtime behavior, and measured efficiency remain unproven until the deferred local stage.
 
 Before release, accumulated proof still includes:
 
