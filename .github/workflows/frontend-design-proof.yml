@@ -194,7 +194,7 @@ jobs:
 
           await page.getByRole('button', { name: 'Settings' }).click();
           await page.getByRole('heading', { name: 'Settings' }).waitFor();
-          await page.getByText('CABLE Output (VB-Audio Virtual Cable)', { exact: true }).waitFor();
+          await page.locator('strong').filter({ hasText: 'CABLE Output (VB-Audio Virtual Cable)' }).waitFor();
           await page.screenshot({ path: 'render-proof/settings.png', fullPage: true });
 
           await browser.close();
