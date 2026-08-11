@@ -72,6 +72,36 @@ fn worker_message(task: &str, response: &Value) -> String {
         .unwrap_or_else(|| format!("Helper worker task {task} completed."))
 }
 
+fn helper_transport_failure(response: &HelperBridgeWorkerResponse) -> bool {
+    if response.ok {
+        return false;
+    }
+    let value = serde_json::from_str::<Value>(&response.worker_response_json)
+        .unwrap_or_else(|_| json!({}));
+    let blocker = worker_text(&value, "blocker").unwrap_or_default();
+    blocker.starts_with("helper_bridge:")
+        && (blocker.contains("_write_failed:") || blocker.contains("_read_failed:"))
+}
+
+fn live_outbound_generation_is_authoritative(generation: u64) -> bool {
+    if !runtime_generation_is_authoritative(generation) {
+        return false;
+    }
+    latest_runtime_session_state()
+        .snapshot
+        .map(|snapshot| {
+            snapshot.owner_id == APPLICATION_MEETING_OWNER_ID
+                && snapshot.generation == generation
+                && snapshot.authority_active
+                && snapshot.phase == "live"
+        })
+        .unwrap_or(false)
+}
+
+fn live_outbound_stage_retry_safe(task: &str) -> bool {
+    matches!(task, "transcribe" | "translate")
+}
+
 fn meeting_generation(payload: &Value) -> Option<u64> {
     payload.get("meeting_generation").and_then(Value::as_u64)
 }
@@ -511,6 +541,69 @@ fn send_worker_task_inner(task: &str, mut payload: Value) -> HelperBridgeWorkerR
     }
 }
 
+fn recover_live_meeting_helper_transport(
+    generation: u64,
+    retain_outbound_pipeline: bool,
+) -> HelperBridgeActionResult {
+    if !live_outbound_generation_is_authoritative(generation) {
+        return HelperBridgeActionResult {
+            ok: false,
+            state: "stale_generation".to_string(),
+            message: "Live Meeting helper recovery was skipped because the outbound generation no longer owns Live authority."
+                .to_string(),
+            generation_token: get_helper_bridge_status().generation_token,
+            runtime_claim: "meeting_live_helper_recovery_skipped_stale_generation".to_string(),
+        };
+    }
+
+    let _permit = match acquire_helper_task_permit(HelperTaskPriority::MeetingOutbound) {
+        Ok(permit) => permit,
+        Err(error) => {
+            return HelperBridgeActionResult {
+                ok: false,
+                state: "error".to_string(),
+                message: format!(
+                    "Live Meeting helper recovery could not acquire outbound scheduler priority: {error}"
+                ),
+                generation_token: get_helper_bridge_status().generation_token,
+                runtime_claim: "meeting_live_helper_recovery_scheduler_unavailable".to_string(),
+            }
+        }
+    };
+
+    if !live_outbound_generation_is_authoritative(generation) {
+        return HelperBridgeActionResult {
+            ok: false,
+            state: "stale_generation".to_string(),
+            message: "Live Meeting helper recovery stopped before restart because the outbound generation was revoked while waiting for the scheduler."
+                .to_string(),
+            generation_token: get_helper_bridge_status().generation_token,
+            runtime_claim: "meeting_live_helper_recovery_skipped_after_scheduler_wait".to_string(),
+        };
+    }
+
+    let mut recovery = start_helper_bridge();
+    if recovery.ok && live_outbound_generation_is_authoritative(generation) {
+        if retain_outbound_pipeline {
+            mark_meeting_outbound_pipeline(generation);
+        }
+        recovery.message = "The same canonical helper worker was restarted after a Live Meeting transport failure."
+            .to_string();
+        recovery.runtime_claim = "meeting_live_helper_transport_recovered_same_worker".to_string();
+        return recovery;
+    }
+
+    clear_meeting_outbound_pipeline(generation);
+    if recovery.ok {
+        recovery.ok = false;
+        recovery.state = "stale_generation".to_string();
+        recovery.message = "The helper worker restarted, but the Meeting generation was revoked before the failed stage could be retried."
+            .to_string();
+        recovery.runtime_claim = "meeting_live_helper_recovery_completed_after_generation_revoke".to_string();
+    }
+    recovery
+}
+
 fn send_worker_task(task: &str, payload: Value) -> HelperBridgeWorkerResponse {
     let priority = task_priority(task, &payload);
     let outbound_generation = if priority == HelperTaskPriority::MeetingOutbound
@@ -520,6 +613,7 @@ fn send_worker_task(task: &str, payload: Value) -> HelperBridgeWorkerResponse {
     } else {
         None
     };
+    let retry_payload = payload.clone();
 
     // Reject new optional incoming stages immediately while a required outbound
     // utterance owns the helper pipeline. The post-permit check in the inner path
@@ -532,9 +626,39 @@ fn send_worker_task(task: &str, payload: Value) -> HelperBridgeWorkerResponse {
         mark_meeting_outbound_pipeline(generation);
     }
 
-    let response = send_worker_task_inner(task, payload);
+    let mut response = send_worker_task_inner(task, payload);
 
     if let Some(generation) = outbound_generation {
+        if helper_transport_failure(&response)
+            && live_outbound_generation_is_authoritative(generation)
+        {
+            let retry_current_stage = live_outbound_stage_retry_safe(task);
+            let recovery = recover_live_meeting_helper_transport(
+                generation,
+                retry_current_stage,
+            );
+            if recovery.ok && live_outbound_generation_is_authoritative(generation) {
+                if retry_current_stage {
+                    // ASR and translation have no Meeting playback side effect, so the
+                    // same finalized input may be attempted exactly once after a
+                    // transport-only worker restart. The retry itself is not recursive.
+                    response = send_worker_task_inner(task, retry_payload);
+                } else {
+                    // Synthesis can have uncertain child-process/file state after a
+                    // transport failure. Restore the worker for the next utterance but
+                    // do not synthesize the current phrase again automatically.
+                    response.state = recovery.state;
+                    response.generation_token = recovery.generation_token;
+                    response.runtime_claim =
+                        "meeting_live_helper_recovered_current_stage_not_retried".to_string();
+                    response.message = format!(
+                        "{} The helper worker was restored for subsequent Meeting utterances; this synthesis stage was not retried.",
+                        response.message
+                    );
+                }
+            }
+        }
+
         if task == "synthesize"
             || !response.ok
             || !runtime_generation_is_authoritative(generation)
