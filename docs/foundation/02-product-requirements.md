@@ -1,7 +1,7 @@
 # TranslateIT — Product Requirements
 
 **Status:** Active Policy  
-**Updated:** 2026-08-10  
+**Updated:** 2026-08-11  
 **Scope:** Simplified initial Windows translation core
 
 This document is the durable product-requirement owner for TranslateIT on branch
@@ -591,6 +591,23 @@ Checking
 
 Do not require understanding Python, model IDs, CUDA providers, VAD thresholds,
 scheduler queues, or raw logs.
+
+### PR-166 — Familiar translation interaction model
+
+**MUST:** Normal TranslateIT interaction follow familiar everyday translator
+conventions: clear source/target direction, a direct input/output relationship, one
+dominant `Translate` or `Start Translation` action, and result actions such as `Copy`
+close to the result.
+
+**MUST:** Healthy and `Ready` states remain visually calm. Warning, unavailable, and
+recovery states receive stronger emphasis only when the user needs to act.
+
+**MUST NOT:** Normal Meeting, Text, or First Setup UI require users to understand
+runtime, worker, model, pipeline-stage, provider, CUDA, scheduler, or lifecycle-internal
+vocabulary. Technical detail belongs in `Advanced -> Diagnostics`.
+
+**SHOULD:** Familiar translation-product patterns be adapted to TranslateIT's local
+Meeting workflow rather than copied literally from another brand.
 
 ## 13. Application Lifecycle
 
