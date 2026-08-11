@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { ArrowLeftRight } from "@lucide/svelte";
+  import { ArrowLeftRight, Check, Copy } from "@lucide/svelte";
   import { runtimeApi } from "../app/bridge/runtimeApi";
   import { runtimeProductFacade } from "../app/bridge/runtimeProductFacade";
   import { errorMessage, languageName } from "../app/shared/state";
@@ -7,6 +7,7 @@
 
   const MAX_MANUAL_TRANSLATION_CHARS = 2000;
   type TextResultState = "idle" | "translating" | "success" | "stale" | "error";
+  type CopyState = "idle" | "copied" | "error";
 
   let {
     settings,
@@ -28,6 +29,7 @@
   let resultLabel = $state("Ready");
   let resultMessage = $state("Type or paste text, then select Translate.");
   let lastTranslatedSource = $state<string | null>(null);
+  let copyState = $state<CopyState>("idle");
 
   const sourceLanguageName = $derived(languageName(settings.source_language));
   const targetLanguageName = $derived(languageName(settings.target_language));
@@ -50,6 +52,10 @@
     setResult("stale", "Needs update", "Source text changed after the last translation. Translate again to update the result.");
   }
 
+  function handleTargetInput(): void {
+    if (copyState !== "idle") copyState = "idle";
+  }
+
   async function submitText(): Promise<void> {
     const source = sourceText.trim();
     if (!source) {
@@ -68,6 +74,7 @@
     const requestSource = source;
     const previousTarget = targetText;
     translating = true;
+    copyState = "idle";
     setResult("translating", "Translating", "Using the current local translation runtime.");
     onNotice("Translating with local engine...");
 
@@ -83,7 +90,7 @@
       targetText = result.translated;
       lastTranslatedSource = requestSource;
       if (sourceText.trim() === requestSource) {
-        setResult("success", "Translated", "Translation completed. You can review or edit the result.");
+        setResult("success", "Translated", "Translation completed. You can review, edit, or copy the result.");
         onNotice("Translation completed.");
       } else {
         setResult("stale", "Needs update", "The source changed while translating. The result is for the previous source text.");
@@ -96,6 +103,24 @@
       onNotice(`Translation failed: ${message}`);
     } finally {
       translating = false;
+    }
+  }
+
+  async function copyTranslation(): Promise<void> {
+    const value = targetText.trim();
+    if (!value) {
+      copyState = "error";
+      onNotice("There is no translated text to copy.");
+      return;
+    }
+    try {
+      if (!navigator.clipboard?.writeText) throw new Error("Clipboard API is unavailable in this frontend context.");
+      await navigator.clipboard.writeText(targetText);
+      copyState = "copied";
+      onNotice("Translation copied to clipboard.");
+    } catch (error) {
+      copyState = "error";
+      onNotice(`Translation could not be copied: ${errorMessage(error)}`);
     }
   }
 
@@ -119,6 +144,7 @@
         sourceText = visibleTarget;
         targetText = "";
         lastTranslatedSource = null;
+        copyState = "idle";
         setResult("idle", "Ready", "Target text moved to the source pane. Select Translate when ready.");
       }
       onNotice(`Text direction changed to ${languageName(saved.source_language)} → ${languageName(saved.target_language)}.`);
@@ -144,52 +170,75 @@
   }
 </script>
 
-<section class="mx-auto grid w-full max-w-[1120px] gap-5 px-8 py-8">
-  <header class="flex items-start justify-between gap-8">
+<section class="ti-page ti-page-wide">
+  <header class="ti-page-header">
     <div>
       <span class="ti-kicker">Text translation</span>
-      <h2 class="mb-0 mt-2 text-3xl font-black tracking-[-0.035em]">Translate Indonesian and English text.</h2>
-      <p class="mb-0 mt-3 text-sm leading-6 text-[var(--ti-text-muted)]">Type or paste text, translate explicitly, then review or edit the result.</p>
+      <h2 class="ti-page-title">Translate Indonesian and English text.</h2>
+      <p class="ti-page-copy">Type or paste text, translate explicitly, then review, edit, or copy the result.</p>
     </div>
-    <span class="rounded-full border border-[var(--ti-border)] bg-[var(--ti-surface-soft)] px-3 py-2 text-xs font-bold text-[var(--ti-text-muted)]">{textStatus}</span>
+    <span class="ti-pill">{textStatus}</span>
   </header>
 
-  <article class="ti-panel p-6">
-    <div class="grid grid-cols-[1fr_auto_1fr] items-center gap-4 rounded-[var(--ti-radius-md)] border border-[var(--ti-border)] bg-[var(--ti-surface-soft)] px-5 py-4">
+  <article class="ti-panel overflow-hidden">
+    <div class="grid grid-cols-[1fr_auto_1fr] items-center gap-4 border-b border-[var(--ti-border)] bg-[var(--ti-surface-soft)] px-6 py-4">
       <div>
-        <span class="text-xs text-[var(--ti-text-muted)]">Source</span>
+        <span class="ti-field-label">Source</span>
         <strong class="mt-1 block text-sm">{sourceLanguageName}</strong>
       </div>
       <button type="button" class="ti-button ti-button-secondary min-h-10 px-3" aria-label="Swap source and target languages" disabled={settingsSaving || translating} onclick={() => void swapLanguages()}>
         <ArrowLeftRight size={17} /><span>Swap</span>
       </button>
       <div class="text-right">
-        <span class="text-xs text-[var(--ti-text-muted)]">Target</span>
+        <span class="ti-field-label">Target</span>
         <strong class="mt-1 block text-sm">{targetLanguageName}</strong>
       </div>
     </div>
 
-    <div class="mt-5 grid grid-cols-2 gap-4">
-      <label class="grid gap-2">
-        <span class="text-xs font-bold text-[var(--ti-text-muted)]">Source text</span>
-        <textarea class="ti-field min-h-[300px] resize-none p-4 text-[15px] leading-6 outline-none" placeholder="Type or paste text to translate..." maxlength={MAX_MANUAL_TRANSLATION_CHARS} bind:value={sourceText} oninput={handleSourceInput} onkeydown={handleKeydown} aria-label="Source text"></textarea>
+    <div class="grid grid-cols-2 gap-px bg-[var(--ti-border)]">
+      <label class="grid min-w-0 gap-3 bg-[var(--ti-surface)] p-6">
+        <div class="flex items-center justify-between gap-3">
+          <span class="ti-field-label">Source text</span>
+          <span class="text-[11px] text-[var(--ti-text-soft)]">{Array.from(sourceText).length}/{MAX_MANUAL_TRANSLATION_CHARS}</span>
+        </div>
+        <textarea
+          class="ti-field min-h-[320px] resize-none p-4 text-[15px] leading-6 outline-none"
+          placeholder="Type or paste text to translate..."
+          maxlength={MAX_MANUAL_TRANSLATION_CHARS}
+          bind:value={sourceText}
+          oninput={handleSourceInput}
+          onkeydown={handleKeydown}
+          aria-label="Source text"
+        ></textarea>
       </label>
 
-      <label class="grid gap-2">
+      <label class="grid min-w-0 gap-3 bg-[var(--ti-surface)] p-6">
         <div class="flex items-center justify-between gap-3">
-          <span class="text-xs font-bold text-[var(--ti-text-muted)]">Translation</span>
+          <span class="ti-field-label">Translation</span>
           <strong class={`text-xs ${stateClass(resultState)}`}>{resultLabel}</strong>
         </div>
-        <textarea class="ti-field min-h-[300px] resize-none p-4 text-[15px] leading-6 outline-none" placeholder="Translation will appear here." bind:value={targetText} aria-label="Translated text"></textarea>
+        <textarea
+          class="ti-field min-h-[320px] resize-none p-4 text-[15px] leading-6 outline-none"
+          placeholder="Translation will appear here."
+          bind:value={targetText}
+          oninput={handleTargetInput}
+          aria-label="Translated text"
+        ></textarea>
       </label>
     </div>
 
-    <div class="mt-5 flex items-center justify-between gap-5">
-      <div>
+    <footer class="flex items-center justify-between gap-5 border-t border-[var(--ti-border)] bg-[var(--ti-surface-soft)] px-6 py-5">
+      <div class="min-w-0">
         <p class="m-0 text-sm text-[var(--ti-text-muted)]" aria-live="polite">{resultMessage}</p>
         <p class="mb-0 mt-1 text-xs text-[var(--ti-text-soft)]">Press Ctrl + Enter to translate. Document attachments are not part of this workflow.</p>
       </div>
-      <button type="button" class="ti-button min-w-32" disabled={translating} onclick={() => void submitText()}>{translating ? "Translating..." : "Translate"}</button>
-    </div>
+      <div class="ti-action-row shrink-0">
+        <button type="button" class="ti-button ti-button-secondary min-w-28" disabled={!targetText.trim()} onclick={() => void copyTranslation()}>
+          {#if copyState === "copied"}<Check size={16} />{:else}<Copy size={16} />{/if}
+          {copyState === "copied" ? "Copied" : "Copy"}
+        </button>
+        <button type="button" class="ti-button min-w-32" disabled={translating} onclick={() => void submitText()}>{translating ? "Translating..." : "Translate"}</button>
+      </div>
+    </footer>
   </article>
 </section>

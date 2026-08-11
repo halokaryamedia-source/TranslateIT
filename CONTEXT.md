@@ -23,7 +23,8 @@ Meeting
 Text
 ├─ ID <-> EN
 ├─ Translate
-└─ Copy/edit result
+├─ edit result
+└─ Copy
 
 Settings
 ├─ Meeting devices/setup
@@ -51,7 +52,7 @@ Rust owns Meeting/session authority, Windows audio integration, routing, setting
 
 ## Frontend Architecture
 
-The active frontend source is now a plain Svelte 5 SPA inside the existing Tauri application:
+The active frontend source is a plain Svelte 5 SPA inside Tauri:
 
 ```text
 Tauri 2
@@ -61,39 +62,42 @@ Tauri 2
 + Tailwind CSS 4
 + semantic CSS custom-property tokens
 + selective Bits UI
-+ Lucide Svelte
++ @lucide/svelte
 ```
 
-Current source ownership:
+Current owner graph:
 
 ```text
 src/main.ts
 -> one Svelte mount
 -> src/App.svelte
-   ├─ FirstSetup.svelte
-   ├─ Meeting.svelte
-   │  └─ MeetingActivity.svelte
-   ├─ Text.svelte
-   └─ Settings.svelte
+   ├─ pages/FirstSetup.svelte
+   ├─ pages/Meeting.svelte
+   │  └─ components/meeting/MeetingActivity.svelte
+   ├─ pages/Text.svelte
+   └─ pages/Settings.svelte
+
+components/layout/Sidebar.svelte
+components/ui/StatusBadge.svelte
+components/ui/StatusRow.svelte
+
+styles/tokens.css
+styles/app.css
 
 src/app/bridge/runtimeApi.ts
 src/app/bridge/runtimeProductFacade.ts
 -> retained Tauri/product runtime boundary
 ```
 
-The former `active-launcher`, `simple-launcher`, vanilla First Setup, manual icon strings, and root legacy CSS owners are removed from the active source graph rather than left as a permanent dual frontend.
+The former `active-launcher`, `simple-launcher`, vanilla First Setup, manual icon strings, and legacy root CSS owners are removed from the active source graph rather than left as a permanent dual frontend.
 
-Frontend rules:
+Frontend visual ownership is intentionally small. `tokens.css` owns semantic surface/text/action/state/shape/layout values. `app.css` owns Tailwind loading, base focus/reduced-motion behavior, page composition, and a bounded shared vocabulary for panels/buttons/fields/pills/state cards. `StatusRow.svelte` exists only because readiness/device rows repeat across current product surfaces.
 
-- one Svelte application root;
-- Svelte state is presentation/application state, not duplicate Rust/runtime truth;
-- no SvelteKit, frontend router, Redux-like state library, CSS-in-JS, heavy UI framework, full shadcn-svelte dump, or general animation framework by default;
-- Tailwind handles ordinary layout/styling; CSS custom properties own durable semantic visual tokens;
-- Bits UI is selective and currently serves the safe-close dialog boundary;
-- Lucide Svelte is the default icon family;
-- `runtimeApi.ts` and `runtimeProductFacade.ts` remain the product bridge/facade by default.
+Text now includes the required Copy action using the frontend clipboard API; its Tauri/WebView execution is still deferred proof.
 
-The migration source has **not** been dependency-installed, Svelte-autofixed, typechecked, built, launched, or visually rendered in this ChatGPT -> GitHub channel. Source ownership is established; executable/rendered proof remains pending.
+No SvelteKit, frontend router, Redux-like state library, CSS-in-JS, heavy UI framework, full shadcn-svelte dump, or general animation framework is a current owner.
+
+The Svelte source has **not** been dependency-installed, autofixed, typechecked, built, launched, or visually rendered in this ChatGPT -> GitHub channel. Source ownership is established; executable/rendered proof remains pending by explicit user choice.
 
 ## Translation Contract
 
@@ -131,7 +135,7 @@ audio.output_device_id
 
 ## Rust / Backend Surface
 
-The Rust engine graph remains reduced to current owners only:
+The Rust engine remains reduced to current owners:
 
 ```text
 engine/
@@ -166,10 +170,23 @@ Packaged source resolves only `PythonRuntime/python.exe`. Repository env/`.venv`
 
 Actual PythonRuntime bytes, vendored packages, installer placement, model execution, Meeting provider imports, and clean-machine behavior remain local release proof.
 
-## Validation And Deferred Proof
+## Deferred Proof Boundary
 
-Persistent source validation remains intentionally small: frontend/startup source contract, internal Meeting route contract, Rust manifest preflight, and package/path preflight.
+The user has explicitly chosen to postpone local/integration testing while major frontend features are completed. This changes **when** proof is executed, not the acceptance standard.
 
-The user has explicitly chosen to postpone local/integration testing while major frontend work is still being assembled. That changes **when** proof is run, not the acceptance standard. Before release, the project still requires the relevant dependency install/lock regeneration, Svelte autofixer, `svelte-check`, frontend build, Tauri launch, Rust compile, Python/model execution, Windows audio/device validation, installed-runtime proof, and clean-machine proof.
+Before release, accumulated proof still includes:
 
-`package-lock.json` must not be treated as valid for the new Svelte dependency graph until it is regenerated by the later local dependency-materialization step.
+```text
+frontend dependency install + regenerate package-lock
+Svelte autofixer
+svelte-check
+Vite build/render
+Rust/Tauri compile + launch
+clipboard interaction
+private PythonRuntime + worker/model execution
+Windows Meeting audio/device validation
+installer/installed-runtime proof
+clean-machine proof
+```
+
+The removed old `package-lock.json` must not be treated as valid for the Svelte dependency graph until regenerated during that later dependency-materialization stage.

@@ -9,7 +9,7 @@
   } from "../app/bridge/runtimeProductFacade";
   import { errorMessage } from "../app/shared/state";
   import type { AudioDeviceListReport, RuntimeSettings } from "../app/shared/types";
-  import StatusBadge from "../components/ui/StatusBadge.svelte";
+  import StatusRow from "../components/ui/StatusRow.svelte";
 
   type SetupStep = 1 | 2 | 3 | 4 | 5;
   type SetupState = "new" | "deferred" | "completed";
@@ -200,9 +200,7 @@
     try {
       const result = await runtimeProductFacade.runProductSetupAction("check-microphone");
       await refreshSnapshot();
-      message = snapshot?.readiness.microphoneReady
-        ? "Your microphone is ready."
-        : compact(result, "Microphone setup still needs attention.");
+      message = snapshot?.readiness.microphoneReady ? "Your microphone is ready." : compact(result, "Microphone setup still needs attention.");
     } catch (error) {
       message = `Microphone check failed: ${errorMessage(error)}`;
     } finally {
@@ -230,9 +228,7 @@
     busy = true;
     message = "Checking your setup...";
     await refreshSnapshot();
-    message = snapshot?.readiness.meetingReady
-      ? "Required Meeting translation setup is ready."
-      : compact(snapshot?.readiness.summary, "Setup still needs attention.");
+    message = snapshot?.readiness.meetingReady ? "Required Meeting translation setup is ready." : compact(snapshot?.readiness.summary, "Setup still needs attention.");
     busy = false;
   }
 
@@ -255,103 +251,52 @@
 </script>
 
 <main class="grid min-h-screen place-items-center overflow-y-auto bg-[var(--ti-bg)] px-8 py-10" aria-label="TranslateIT First Setup">
-  <section class="ti-panel w-full max-w-[900px] p-7">
-    <header class="flex items-center gap-3 border-b border-[var(--ti-border)] pb-5">
+  <section class="ti-panel w-full max-w-[920px] overflow-hidden">
+    <header class="flex items-center gap-3 border-b border-[var(--ti-border)] bg-[var(--ti-surface-soft)] px-7 py-5">
       <div class="grid size-11 place-items-center rounded-[14px] border border-[var(--ti-border-strong)] bg-[var(--ti-surface-raised)] text-lg font-black">T</div>
       <div>
         <strong class="block text-sm">TranslateIT</strong>
         <span class="mt-1 block text-xs text-[var(--ti-text-muted)]">Meeting translation setup</span>
       </div>
-      <div class="ml-auto min-w-40">
-        <div class="flex items-center justify-between text-[11px] font-bold text-[var(--ti-text-muted)]"><span>Setup progress</span><span>{step}/5</span></div>
-        <div class="mt-2 h-1.5 overflow-hidden rounded-full bg-[var(--ti-surface-soft)]"><div class="h-full rounded-full bg-[var(--ti-accent)]" style={`width:${step * 20}%`}></div></div>
+      <div class="ml-auto min-w-44">
+        <div class="flex items-center justify-between text-[11px] font-bold text-[var(--ti-text-muted)]"><span>Setup progress</span><span>{step} of 5</span></div>
+        <div class="mt-2 h-1.5 overflow-hidden rounded-full bg-[var(--ti-border)]"><div class="h-full rounded-full bg-[var(--ti-accent)]" style={`width:${step * 20}%`}></div></div>
       </div>
     </header>
 
-    <section class="mx-auto grid max-w-[720px] gap-6 py-9">
+    <section class="mx-auto grid max-w-[740px] gap-6 px-8 py-9">
       {#if step === 1}
         <div>
           <span class="ti-kicker">Welcome</span>
-          <h1 class="mb-0 mt-3 text-4xl font-black tracking-[-0.04em]">Speak Indonesian. Your meeting hears English.</h1>
-          <p class="mb-0 mt-4 max-w-2xl text-sm leading-6 text-[var(--ti-text-muted)]">Understand English conversations with Indonesian live translation. TranslateIT runs locally after the required setup is available.</p>
-          <div class="mt-6 flex flex-wrap gap-2 text-xs text-[var(--ti-text-muted)]">
-            <span class="rounded-full border border-[var(--ti-border)] px-3 py-2">Indonesian → English voice</span>
-            <span class="rounded-full border border-[var(--ti-border)] px-3 py-2">English → Indonesian text</span>
-          </div>
+          <h1 class="ti-page-title text-[2.35rem]">Speak Indonesian. Your meeting hears English.</h1>
+          <p class="ti-page-copy">Understand English conversations with Indonesian live translation. TranslateIT runs locally after the required setup is available.</p>
+          <div class="mt-6 flex flex-wrap gap-2"><span class="ti-pill">Indonesian → English voice</span><span class="ti-pill">English → Indonesian text</span></div>
         </div>
       {:else if step === 2}
-        <div>
-          <span class="ti-kicker">Your microphone</span>
-          <h1 class="mb-0 mt-3 text-3xl font-black tracking-[-0.035em]">Set up the microphone you speak into.</h1>
-          <p class="mb-0 mt-3 text-sm leading-6 text-[var(--ti-text-muted)]">Choose Windows Default or pin one microphone. TranslateIT checks the candidate before replacing your saved preference.</p>
-        </div>
+        <div><span class="ti-kicker">Your microphone</span><h1 class="ti-page-title">Set up the microphone you speak into.</h1><p class="ti-page-copy">Choose Windows Default or pin one microphone. TranslateIT checks the candidate before replacing your saved preference.</p></div>
         <div class="grid grid-cols-[1fr_auto] items-end gap-3">
-          <label class="grid gap-2">
-            <span class="text-xs font-bold text-[var(--ti-text-muted)]">Microphone</span>
-            <select class="ti-field min-h-11 px-3" disabled={busy} value={selectedMicrophone} onchange={(event) => { selectedMicrophone = selectValue(event); }}>
-              <option value="">Windows Default</option>
-              {#each devicesFor("microphone") as device (deviceId(device))}
-                <option value={deviceId(device)}>{device.name}{device.is_default ? " · current Windows default" : ""}</option>
-              {/each}
-              {#if savedDeviceMissing("microphone")}
-                <option value={currentDevice("microphone")}>{currentDevice("microphone")} · unavailable</option>
-              {/if}
-            </select>
-          </label>
+          <label class="grid gap-2"><span class="ti-field-label">Microphone</span><select class="ti-field min-h-11 px-3" disabled={busy} value={selectedMicrophone} onchange={(event) => { selectedMicrophone = selectValue(event); }}><option value="">Windows Default</option>{#each devicesFor("microphone") as device (deviceId(device))}<option value={deviceId(device)}>{device.name}{device.is_default ? " · current Windows default" : ""}</option>{/each}{#if savedDeviceMissing("microphone")}<option value={currentDevice("microphone")}>{currentDevice("microphone")} · unavailable</option>{/if}</select></label>
           <button type="button" class="ti-button ti-button-secondary" disabled={busy} onclick={() => void saveSelectedDevice("microphone")}>Use Microphone</button>
         </div>
-        <div class="flex items-center justify-between gap-6 rounded-[var(--ti-radius-md)] border border-[var(--ti-border)] bg-[var(--ti-surface-soft)] p-4">
-          <div><span class="text-xs text-[var(--ti-text-muted)]">Current microphone</span><strong class="mt-1 block text-sm">{currentMicrophone()}</strong></div>
-          <StatusBadge label={snapshot?.readiness.microphoneReady ? "Ready" : snapshot?.readiness.level === "checking" ? "Checking" : "Setup Needed"} tone={snapshot?.readiness.microphoneReady ? "good" : snapshot?.readiness.level === "checking" ? "neutral" : "warning"} />
-        </div>
+        <div class="ti-subtle-card overflow-hidden"><StatusRow label="Current microphone" value={currentMicrophone()} detail="The physical microphone TranslateIT will capture." status={snapshot?.readiness.microphoneReady ? "Ready" : snapshot?.readiness.level === "checking" ? "Checking" : "Setup Needed"} tone={snapshot?.readiness.microphoneReady ? "good" : snapshot?.readiness.level === "checking" ? "neutral" : "warning"} /></div>
       {:else if step === 3}
-        <div>
-          <span class="ti-kicker">Meeting sound</span>
-          <h1 class="mb-0 mt-3 text-3xl font-black tracking-[-0.035em]">Where do you listen to your meetings?</h1>
-          <p class="mb-0 mt-3 text-sm leading-6 text-[var(--ti-text-muted)]">Choose Windows Default or pin one output device. The endpoint is checked before the preference is saved.</p>
-        </div>
+        <div><span class="ti-kicker">Meeting sound</span><h1 class="ti-page-title">Where do you listen to your meetings?</h1><p class="ti-page-copy">Choose Windows Default or pin one output device. The endpoint is checked before the preference is saved.</p></div>
         <div class="grid grid-cols-[1fr_auto] items-end gap-3">
-          <label class="grid gap-2">
-            <span class="text-xs font-bold text-[var(--ti-text-muted)]">Meeting sound</span>
-            <select class="ti-field min-h-11 px-3" disabled={busy} value={selectedMeetingSound} onchange={(event) => { selectedMeetingSound = selectValue(event); }}>
-              <option value="">Windows Default</option>
-              {#each devicesFor("meeting-sound") as device (deviceId(device))}
-                <option value={deviceId(device)}>{device.name}{device.is_default ? " · current Windows default" : ""}</option>
-              {/each}
-              {#if savedDeviceMissing("meeting-sound")}
-                <option value={currentDevice("meeting-sound")}>{currentDevice("meeting-sound")} · unavailable</option>
-              {/if}
-            </select>
-          </label>
+          <label class="grid gap-2"><span class="ti-field-label">Meeting sound</span><select class="ti-field min-h-11 px-3" disabled={busy} value={selectedMeetingSound} onchange={(event) => { selectedMeetingSound = selectValue(event); }}><option value="">Windows Default</option>{#each devicesFor("meeting-sound") as device (deviceId(device))}<option value={deviceId(device)}>{device.name}{device.is_default ? " · current Windows default" : ""}</option>{/each}{#if savedDeviceMissing("meeting-sound")}<option value={currentDevice("meeting-sound")}>{currentDevice("meeting-sound")} · unavailable</option>{/if}</select></label>
           <button type="button" class="ti-button ti-button-secondary" disabled={busy} onclick={() => void saveSelectedDevice("meeting-sound")}>Use Meeting Sound</button>
         </div>
-        <div class="flex items-center justify-between gap-6 rounded-[var(--ti-radius-md)] border border-[var(--ti-border)] bg-[var(--ti-surface-soft)] p-4">
-          <div><span class="text-xs text-[var(--ti-text-muted)]">Current Meeting sound</span><strong class="mt-1 block text-sm">{currentMeetingSound()}</strong></div>
-          <StatusBadge label={meetingSoundReady ? "Device ready" : "Check device"} tone={meetingSoundReady ? "good" : "warning"} />
-        </div>
-        <p class="m-0 text-xs leading-5 text-[var(--ti-text-soft)]">Incoming English → Indonesian is optional. Selecting Meeting Sound does not by itself claim that incoming capture is already working.</p>
+        <div class="ti-subtle-card overflow-hidden"><StatusRow label="Current Meeting sound" value={currentMeetingSound()} detail="Incoming English → Indonesian text is optional and is not treated as ready merely because a device is selected." status={meetingSoundReady ? "Device Ready" : "Check Device"} tone={meetingSoundReady ? "good" : "warning"} /></div>
       {:else if step === 4}
-        <div>
-          <span class="ti-kicker">Meeting microphone</span>
-          <h1 class="mb-0 mt-3 text-3xl font-black tracking-[-0.035em]">Prepare TranslateIT Meeting Microphone.</h1>
-          <p class="mb-0 mt-3 text-sm leading-6 text-[var(--ti-text-muted)]">In Zoom, Meet, Teams, or another meeting app, choose this as your microphone.</p>
-        </div>
-        <div class="flex items-center justify-between gap-6 rounded-[var(--ti-radius-md)] border border-[var(--ti-border)] bg-[var(--ti-surface-soft)] p-5">
-          <div><span class="text-xs text-[var(--ti-text-muted)]">Meeting microphone</span><strong class="mt-1 block text-sm">TranslateIT Meeting Microphone</strong></div>
-          <StatusBadge label={snapshot?.readiness.meetingRouteReady ? "Ready" : snapshot?.readiness.level === "checking" ? "Checking" : "Setup Needed"} tone={snapshot?.readiness.meetingRouteReady ? "good" : snapshot?.readiness.level === "checking" ? "neutral" : "warning"} />
-        </div>
-        <div class="rounded-[var(--ti-radius-md)] border border-[var(--ti-border)] bg-[var(--ti-surface-raised)] p-4 text-sm"><span class="text-[var(--ti-text-muted)]">In your meeting app</span><strong class="mt-1 block">Microphone → TranslateIT Meeting Microphone</strong></div>
+        <div><span class="ti-kicker">Meeting microphone</span><h1 class="ti-page-title">Prepare TranslateIT Meeting Microphone.</h1><p class="ti-page-copy">In Zoom, Meet, Teams, or another meeting app, choose this as your microphone.</p></div>
+        <div class="ti-subtle-card overflow-hidden"><StatusRow label="Meeting microphone" value="TranslateIT Meeting Microphone" detail="This is the translated English voice route exposed to the meeting app." status={snapshot?.readiness.meetingRouteReady ? "Ready" : snapshot?.readiness.level === "checking" ? "Checking" : "Setup Needed"} tone={snapshot?.readiness.meetingRouteReady ? "good" : snapshot?.readiness.level === "checking" ? "neutral" : "warning"} /></div>
+        <div class="rounded-[var(--ti-radius-md)] border border-[var(--ti-border-strong)] bg-[var(--ti-surface-raised)] p-4"><span class="ti-field-label">In your meeting app</span><strong class="mt-1 block text-sm">Microphone → TranslateIT Meeting Microphone</strong></div>
       {:else}
-        <div>
-          <span class="ti-kicker">Verify / Ready</span>
-          <h1 class="mb-0 mt-3 text-3xl font-black tracking-[-0.035em]">{snapshot?.readiness.meetingReady ? "You're ready to translate." : "Setup still needs attention."}</h1>
-          <p class="mb-0 mt-3 text-sm leading-6 text-[var(--ti-text-muted)]">TranslateIT rechecks current capabilities here instead of trusting an old Ready flag.</p>
-        </div>
-        <div class="grid gap-2">
-          <div class="flex items-center justify-between rounded-[var(--ti-radius-sm)] border border-[var(--ti-border)] px-4 py-3"><span class="text-sm">Your microphone</span><StatusBadge label={snapshot?.readiness.microphoneReady ? "Ready" : "Setup Needed"} tone={snapshot?.readiness.microphoneReady ? "good" : "warning"} /></div>
-          <div class="flex items-center justify-between rounded-[var(--ti-radius-sm)] border border-[var(--ti-border)] px-4 py-3"><span class="text-sm">Local translation</span><StatusBadge label={snapshot?.readiness.textReady ? "Ready" : "Setup Needed"} tone={snapshot?.readiness.textReady ? "good" : "warning"} /></div>
-          <div class="flex items-center justify-between rounded-[var(--ti-radius-sm)] border border-[var(--ti-border)] px-4 py-3"><span class="text-sm">Meeting microphone</span><StatusBadge label={snapshot?.readiness.meetingRouteReady ? "Ready" : "Setup Needed"} tone={snapshot?.readiness.meetingRouteReady ? "good" : "warning"} /></div>
-          <div class="flex items-center justify-between rounded-[var(--ti-radius-sm)] border border-[var(--ti-border)] px-4 py-3"><span class="text-sm">Incoming translation</span><StatusBadge label="Optional" tone="neutral" /></div>
+        <div><span class="ti-kicker">Verify / Ready</span><h1 class="ti-page-title">{snapshot?.readiness.meetingReady ? "You're ready to translate." : "Setup still needs attention."}</h1><p class="ti-page-copy">TranslateIT rechecks current capabilities here instead of trusting an old Ready flag.</p></div>
+        <div class="ti-subtle-card divide-y divide-[var(--ti-border)] overflow-hidden">
+          <StatusRow label="Your microphone" value={currentMicrophone()} status={snapshot?.readiness.microphoneReady ? "Ready" : "Setup Needed"} tone={snapshot?.readiness.microphoneReady ? "good" : "warning"} />
+          <StatusRow label="Local translation" value="Indonesian ↔ English" status={snapshot?.readiness.textReady ? "Ready" : "Setup Needed"} tone={snapshot?.readiness.textReady ? "good" : "warning"} />
+          <StatusRow label="Meeting microphone" value="TranslateIT Meeting Microphone" status={snapshot?.readiness.meetingRouteReady ? "Ready" : "Setup Needed"} tone={snapshot?.readiness.meetingRouteReady ? "good" : "warning"} />
+          <StatusRow label="Incoming translation" value="English → Indonesian text" detail="Optional assistance; it does not block healthy outbound." status="Optional" tone="neutral" />
         </div>
       {/if}
 
@@ -360,12 +305,8 @@
       {/if}
 
       <footer class="flex items-center justify-between gap-4 border-t border-[var(--ti-border)] pt-5">
-        <div>
-          {#if step > 1}
-            <button type="button" class="ti-button ti-button-secondary" disabled={busy} onclick={goBack}><ArrowLeft size={16} /> Back</button>
-          {/if}
-        </div>
-        <div class="flex flex-wrap justify-end gap-3">
+        <div>{#if step > 1}<button type="button" class="ti-button ti-button-secondary" disabled={busy} onclick={goBack}><ArrowLeft size={16} /> Back</button>{/if}</div>
+        <div class="ti-action-row justify-end">
           <button type="button" class="ti-button ti-button-secondary" disabled={busy} onclick={() => void deferSetup()}>Set up later</button>
           {#if step === 1}
             <button type="button" class="ti-button" disabled={busy} onclick={() => void advance(2)}>Set Up Meeting <ChevronRight size={16} /></button>
@@ -379,9 +320,7 @@
             <button type="button" class="ti-button" disabled={busy || !snapshot?.readiness.meetingRouteReady} onclick={() => void advance(5)}>Continue <ChevronRight size={16} /></button>
           {:else}
             <button type="button" class="ti-button ti-button-secondary" disabled={busy} onclick={() => void verifySetup()}>Retry</button>
-            {#if !snapshot?.readiness.meetingReady}
-              <button type="button" class="ti-button ti-button-secondary" disabled={busy} onclick={() => void fixSetup()}>Fix Setup</button>
-            {/if}
+            {#if !snapshot?.readiness.meetingReady}<button type="button" class="ti-button ti-button-secondary" disabled={busy} onclick={() => void fixSetup()}>Fix Setup</button>{/if}
             <button type="button" class="ti-button" disabled={busy || !snapshot?.readiness.meetingReady} onclick={() => void completeSetup()}><Check size={16} /> Go to Meeting</button>
           {/if}
         </div>

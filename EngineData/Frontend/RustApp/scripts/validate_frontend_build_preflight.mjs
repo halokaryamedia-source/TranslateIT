@@ -24,6 +24,7 @@ const requiredFiles = [
   "src/components/layout/Sidebar.svelte",
   "src/components/meeting/MeetingActivity.svelte",
   "src/components/ui/StatusBadge.svelte",
+  "src/components/ui/StatusRow.svelte",
   "src/styles/tokens.css",
   "src/styles/app.css",
   "src/app/bridge/runtimeApi.ts",
@@ -35,11 +36,7 @@ for (const relativePath of requiredFiles) {
   if (!existsSync(join(appRoot, relativePath))) fail(`Missing required frontend build input: ${relativePath}`);
 }
 
-for (const retiredPath of [
-  "src/app/active-launcher",
-  "src/app/simple-launcher",
-  "src/app/first-setup",
-]) {
+for (const retiredPath of ["src/app/active-launcher", "src/app/simple-launcher", "src/app/first-setup"]) {
   if (existsSync(join(appRoot, retiredPath))) fail(`Retired vanilla frontend owner must remain removed: ${retiredPath}`);
 }
 
@@ -89,8 +86,24 @@ for (const stale of ["SimpleLauncherController", "document.getElementById", "que
   if (app.includes(stale)) fail(`App.svelte must not hide the old manual DOM owner: ${stale}`);
 }
 
-const appCss = readFileSync(join(appRoot, "src", "styles", "app.css"), "utf8");
-if (!appCss.includes('@import "tailwindcss";')) fail("styles/app.css must load Tailwind CSS 4.");
-if (!appCss.includes('@import "./tokens.css";')) fail("styles/app.css must load the semantic token owner.");
+const textPage = readFileSync(join(appRoot, "src", "pages", "Text.svelte"), "utf8");
+for (const marker of ["runProductTranslation", "swapLanguages", "copyTranslation", "navigator.clipboard.writeText", '"Copy"']) {
+  if (!textPage.includes(marker)) fail(`Text.svelte missing explicit Text workflow marker: ${marker}`);
+}
 
-console.log("[frontend-build-preflight] One Svelte 5 application root, approved Vite/Tailwind stack, current Meeting/Text/Settings pages, and retained Tauri runtime bridge are source-aligned. Dependency installation, svelte-check, build, Tauri launch, and rendered UI remain separate proof.");
+const statusBadge = readFileSync(join(appRoot, "src", "components", "ui", "StatusBadge.svelte"), "utf8");
+for (const marker of ["--ti-success-border", "--ti-warning-border", "--ti-danger-border"]) {
+  if (!statusBadge.includes(marker)) fail(`StatusBadge must use semantic state token: ${marker}`);
+}
+
+const tokensCss = readFileSync(join(appRoot, "src", "styles", "tokens.css"), "utf8");
+for (const marker of ["--ti-sidebar-width", "--ti-content-width", "--ti-success-border", "--ti-warning-border", "--ti-danger-border"]) {
+  if (!tokensCss.includes(marker)) fail(`tokens.css missing durable visual token: ${marker}`);
+}
+
+const appCss = readFileSync(join(appRoot, "src", "styles", "app.css"), "utf8");
+for (const marker of ['@import "tailwindcss";', '@import "./tokens.css";', ".ti-page", ".ti-panel", ".ti-button", ".ti-field", ".ti-pill", "prefers-reduced-motion"]) {
+  if (!appCss.includes(marker)) fail(`styles/app.css missing approved visual-system marker: ${marker}`);
+}
+
+console.log("[frontend-build-preflight] One Svelte 5 application root, approved Vite/Tailwind stack, semantic visual token owner, Text Copy workflow, current product pages, and retained Tauri runtime bridge are source-aligned. Dependency installation, svelte-check, build, Tauri launch, and rendered UI remain separate proof.");

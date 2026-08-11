@@ -1,11 +1,11 @@
 <script lang="ts">
-  import type {
-    MeetingCommittedTurnsSnapshot,
-    MeetingSessionStatus,
-  } from "../app/bridge/runtimeApi";
+  import type { MeetingCommittedTurnsSnapshot, MeetingSessionStatus } from "../app/bridge/runtimeApi";
   import type { ProductRuntimeSnapshot } from "../app/bridge/runtimeProductFacade";
   import MeetingActivity from "../components/meeting/MeetingActivity.svelte";
   import StatusBadge from "../components/ui/StatusBadge.svelte";
+  import StatusRow from "../components/ui/StatusRow.svelte";
+
+  type Tone = "neutral" | "good" | "warning";
 
   let {
     snapshot,
@@ -34,11 +34,15 @@
   const meetingSound = $derived(String(snapshot.settings.audio.output_device_id ?? "").trim() || "Windows Default");
   const activityVisible = $derived(Boolean(meetingStatus && meeting.applicationOwned && meeting.hasSession && (meeting.live || meeting.busy)));
 
-  const meetingTone = $derived<"neutral" | "good" | "warning">(
-    meeting.live || readiness.meetingReady ? "good" : checking || meeting.busy ? "neutral" : "warning",
-  );
-  const microphoneTone = $derived<"neutral" | "good" | "warning">(readiness.microphoneReady ? "good" : checking ? "neutral" : "warning");
-  const routeTone = $derived<"neutral" | "good" | "warning">(readiness.meetingRouteReady ? "good" : checking ? "neutral" : "warning");
+  function statusTone(ready: boolean, pending = false): Tone {
+    if (ready) return "good";
+    if (pending) return "neutral";
+    return "warning";
+  }
+
+  const meetingTone = $derived(statusTone(meeting.live || readiness.meetingReady, checking || meeting.busy));
+  const microphoneTone = $derived(statusTone(readiness.microphoneReady, checking));
+  const routeTone = $derived(statusTone(readiness.meetingRouteReady, checking));
 
   const primaryLabel = $derived(
     actionBusy
@@ -50,70 +54,75 @@
   const primaryDisabled = $derived(actionBusy || meeting.busy || (!meeting.canStart && !meeting.canStop));
 </script>
 
-<section class="mx-auto grid w-full max-w-[1040px] gap-5 px-8 py-8">
-  <header class="flex items-start justify-between gap-8">
+<section class="ti-page">
+  <header class="ti-page-header">
     <div>
       <span class="ti-kicker">Meeting translation</span>
-      <h2 class="mb-0 mt-2 text-3xl font-black tracking-[-0.035em]">
-        {activityVisible ? "Meeting translation is active." : "Speak Indonesian. Your meeting hears English."}
-      </h2>
-      <p class="mb-0 mt-3 max-w-2xl text-sm leading-6 text-[var(--ti-text-muted)]">
+      <h2 class="ti-page-title">{activityVisible ? "Meeting translation is active." : "Speak Indonesian. Your meeting hears English."}</h2>
+      <p class="ti-page-copy">
         {activityVisible
           ? "Finalized speech is translated locally. Incoming English can appear as Indonesian text when its optional lane is available."
           : "Indonesian speech becomes English voice. Incoming English can appear as Indonesian text when available."}
       </p>
     </div>
-    <StatusBadge label={meeting.live ? "Live" : meeting.busy ? meeting.label : readiness.meetingReady ? "Ready" : checking ? "Checking" : meeting.label} tone={meetingTone} />
+    <StatusBadge
+      label={meeting.live ? "Live" : meeting.busy ? meeting.label : readiness.meetingReady ? "Ready" : checking ? "Checking" : meeting.label}
+      tone={meetingTone}
+    />
   </header>
 
-  <article class="ti-panel p-6">
+  <article class="ti-panel overflow-hidden">
     {#if activityVisible && meetingStatus}
-      <MeetingActivity status={meetingStatus} turns={meetingTurns} />
-    {:else}
-      <div class="grid divide-y divide-[var(--ti-border)] rounded-[var(--ti-radius-md)] border border-[var(--ti-border)] bg-[var(--ti-surface-soft)]">
-        <section class="flex items-center justify-between gap-6 p-5">
-          <div>
-            <span class="text-xs text-[var(--ti-text-muted)]">Your microphone</span>
-            <strong class="mt-1 block text-sm">{microphone}</strong>
-            <small class="mt-1 block text-xs text-[var(--ti-text-soft)]">The microphone you speak into.</small>
-          </div>
-          <StatusBadge label={readiness.microphoneReady ? "Ready" : checking ? "Checking" : "Setup Needed"} tone={microphoneTone} />
-        </section>
-
-        <section class="flex items-center justify-between gap-6 p-5">
-          <div>
-            <span class="text-xs text-[var(--ti-text-muted)]">Incoming translation</span>
-            <strong class="mt-1 block text-sm">English → Indonesian text</strong>
-            <small class="mt-1 block text-xs text-[var(--ti-text-soft)]">Meeting sound: {meetingSound}</small>
-          </div>
-          <StatusBadge label="Optional" tone="neutral" />
-        </section>
-
-        <section class="flex items-center justify-between gap-6 p-5">
-          <div>
-            <span class="text-xs text-[var(--ti-text-muted)]">Meeting microphone</span>
-            <strong class="mt-1 block text-sm">TranslateIT Meeting Microphone</strong>
-            <small class="mt-1 block text-xs text-[var(--ti-text-soft)]">Select this microphone inside Zoom, Meet, Teams, or another meeting app.</small>
-          </div>
-          <StatusBadge label={readiness.meetingRouteReady ? "Ready" : checking ? "Checking" : "Setup Needed"} tone={routeTone} />
-        </section>
+      <div class="p-6">
+        <MeetingActivity status={meetingStatus} turns={meetingTurns} />
       </div>
+    {:else}
+      <section class="grid border-b border-[var(--ti-border)] bg-[var(--ti-surface-soft)]">
+        <div class="divide-y divide-[var(--ti-border)]">
+          <StatusRow
+            label="Your microphone"
+            value={microphone}
+            detail="The microphone you speak into."
+            status={readiness.microphoneReady ? "Ready" : checking ? "Checking" : "Setup Needed"}
+            tone={microphoneTone}
+          />
+          <StatusRow
+            label="Incoming translation"
+            value="English → Indonesian text"
+            detail={`Meeting sound: ${meetingSound}. This lane is optional.`}
+            status="Optional"
+            tone="neutral"
+          />
+          <StatusRow
+            label="Meeting microphone"
+            value="TranslateIT Meeting Microphone"
+            detail="Select this microphone inside Zoom, Meet, Teams, or another meeting app."
+            status={readiness.meetingRouteReady ? "Ready" : checking ? "Checking" : "Setup Needed"}
+            tone={routeTone}
+          />
+        </div>
+      </section>
     {/if}
 
-    <div class="mt-6 flex flex-wrap items-center gap-3">
-      <button type="button" class="ti-button" disabled={primaryDisabled} onclick={onMeetingAction}>{primaryLabel}</button>
-      {#if !meeting.live && !meeting.busy}
-        <button type="button" class="ti-button ti-button-secondary" onclick={onRefresh}>{readiness.meetingReady ? "Check Setup" : "Retry"}</button>
-        {#if !readiness.meetingReady}
-          <button type="button" class="ti-button ti-button-secondary" onclick={onFixSetup}>Fix Setup</button>
+    <footer class="grid gap-4 p-6">
+      <div class="ti-action-row">
+        <button type="button" class="ti-button min-w-40" disabled={primaryDisabled} onclick={onMeetingAction}>{primaryLabel}</button>
+        {#if !meeting.live && !meeting.busy}
+          <button type="button" class="ti-button ti-button-secondary" onclick={onRefresh}>{readiness.meetingReady ? "Check Setup" : "Retry"}</button>
+          {#if !readiness.meetingReady}
+            <button type="button" class="ti-button ti-button-secondary" onclick={onFixSetup}>Fix Setup</button>
+          {/if}
         {/if}
-      {/if}
-    </div>
+      </div>
 
-    <p class="mb-0 mt-4 text-sm leading-6 text-[var(--ti-text-muted)]">
-      {meeting.canStart
-        ? "Start Translation to begin the Meeting session. Moving to Text or Settings does not stop a live session."
-        : meeting.message || "Complete Meeting setup before Start Translation can be used."}
-    </p>
+      <div class="flex items-start gap-3 rounded-[var(--ti-radius-sm)] border border-[var(--ti-border)] bg-[var(--ti-surface-soft)] px-4 py-3">
+        <span class={`mt-1 size-2 shrink-0 rounded-full ${meeting.canStart || meeting.live ? "bg-[var(--ti-success)]" : checking || meeting.busy ? "bg-[var(--ti-text-soft)]" : "bg-[var(--ti-warning)]"}`}></span>
+        <p class="m-0 text-sm leading-6 text-[var(--ti-text-muted)]">
+          {meeting.canStart
+            ? "Start Translation to begin the Meeting session. Moving to Text or Settings does not stop a live session."
+            : meeting.message || "Complete Meeting setup before Start Translation can be used."}
+        </p>
+      </div>
+    </footer>
   </article>
 </section>

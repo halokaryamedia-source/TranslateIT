@@ -14,7 +14,7 @@
 
   body {
     margin: 0;
-    min-width: 980px;
+    min-width: 1024px;
     min-height: 100vh;
     overflow: hidden;
     background: var(--ti-bg);
@@ -40,21 +40,86 @@
   textarea:disabled,
   input:disabled {
     cursor: not-allowed;
-    opacity: 0.55;
+    opacity: 0.52;
+  }
+
+  textarea::placeholder,
+  input::placeholder {
+    color: var(--ti-text-soft);
   }
 
   :focus-visible {
     outline: 2px solid var(--ti-accent);
     outline-offset: 3px;
   }
+
+  ::selection {
+    background: var(--ti-border-strong);
+    color: var(--ti-text);
+  }
+
+  * {
+    scrollbar-width: thin;
+    scrollbar-color: var(--ti-border-strong) transparent;
+  }
 }
 
 @layer components {
+  .ti-page {
+    display: grid;
+    width: 100%;
+    max-width: var(--ti-content-width);
+    margin-inline: auto;
+    gap: 24px;
+    padding: var(--ti-page-padding-y) var(--ti-page-padding-x) 40px;
+  }
+
+  .ti-page-wide {
+    max-width: var(--ti-content-wide);
+  }
+
+  .ti-page-header {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 32px;
+  }
+
+  .ti-page-title {
+    margin: 8px 0 0;
+    max-width: 760px;
+    font-size: clamp(1.75rem, 2.5vw, 2.15rem);
+    line-height: 1.12;
+    font-weight: 850;
+    letter-spacing: -0.035em;
+  }
+
+  .ti-page-copy {
+    margin: 12px 0 0;
+    max-width: 720px;
+    color: var(--ti-text-muted);
+    font-size: 0.9rem;
+    line-height: 1.65;
+  }
+
   .ti-panel {
     border: 1px solid var(--ti-border);
     border-radius: var(--ti-radius-lg);
     background: var(--ti-surface);
     box-shadow: var(--ti-shadow-card);
+  }
+
+  .ti-subtle-card {
+    border: 1px solid var(--ti-border);
+    border-radius: var(--ti-radius-md);
+    background: var(--ti-surface-soft);
+  }
+
+  .ti-state-card {
+    border: 1px solid var(--ti-border);
+    border-radius: var(--ti-radius-md);
+    background: var(--ti-surface-soft);
+    padding: 16px;
   }
 
   .ti-button {
@@ -69,16 +134,37 @@
     background: var(--ti-accent);
     color: var(--ti-accent-contrast);
     font-weight: 750;
-    transition: background-color 120ms ease, border-color 120ms ease, transform 120ms ease;
+    line-height: 1;
+    transition: background-color 120ms ease, border-color 120ms ease, color 120ms ease, transform 120ms ease;
   }
 
   .ti-button:hover:not(:disabled) {
+    background: var(--ti-accent-hover);
     transform: translateY(-1px);
+  }
+
+  .ti-button:active:not(:disabled) {
+    transform: translateY(0);
   }
 
   .ti-button-secondary {
     background: var(--ti-surface-raised);
     color: var(--ti-text);
+  }
+
+  .ti-button-secondary:hover:not(:disabled) {
+    border-color: var(--ti-border-strong);
+    background: var(--ti-surface-hover);
+  }
+
+  .ti-button-danger {
+    border-color: var(--ti-danger-border);
+    background: var(--ti-danger-surface);
+    color: var(--ti-danger);
+  }
+
+  .ti-button-danger:hover:not(:disabled) {
+    background: #361a1f;
   }
 
   .ti-field {
@@ -87,14 +173,57 @@
     border-radius: var(--ti-radius-md);
     background: var(--ti-surface-soft);
     color: var(--ti-text);
+    transition: border-color 120ms ease, background-color 120ms ease;
+  }
+
+  .ti-field:hover:not(:disabled) {
+    border-color: var(--ti-border-strong);
+  }
+
+  .ti-field:focus-visible {
+    border-color: var(--ti-border-strong);
+    background: var(--ti-surface);
   }
 
   .ti-kicker {
     color: var(--ti-text-muted);
-    font-size: 0.72rem;
+    font-size: 0.7rem;
     font-weight: 800;
-    letter-spacing: 0.12em;
+    letter-spacing: 0.13em;
     text-transform: uppercase;
+  }
+
+  .ti-pill {
+    display: inline-flex;
+    min-height: 32px;
+    align-items: center;
+    border: 1px solid var(--ti-border);
+    border-radius: 999px;
+    background: var(--ti-surface-soft);
+    padding: 0 12px;
+    color: var(--ti-text-muted);
+    font-size: 0.74rem;
+    font-weight: 750;
+  }
+
+  .ti-action-row {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 12px;
+  }
+
+  .ti-field-label {
+    color: var(--ti-text-muted);
+    font-size: 0.75rem;
+    font-weight: 750;
+  }
+}
+
+@media (max-width: 1360px) {
+  :root {
+    --ti-sidebar-width: 260px;
+    --ti-page-padding-x: 24px;
   }
 }
 

@@ -2,55 +2,60 @@
 
 ## Current Status
 
-The user has explicitly prioritized completing major frontend work before local/integration testing. Local PythonRuntime, Svelte build/render, Tauri, model, audio, installer, and clean-machine proof remain required before release but are intentionally deferred for now.
+The user has explicitly prioritized completing major frontend work before local/integration testing. Local dependency install, Svelte build/render, Tauri, Python/model, Windows audio, installer, and clean-machine proof remain required before release but are intentionally deferred for now.
 
-Frontend Phase 1 source migration is now aligned:
+Frontend Phase 1 and Phase 2 source are now aligned:
 
-- one frontend module entry remains: `index.html -> src/main.ts`;
-- `src/main.ts` mounts one Svelte application root: `App.svelte`;
+- one frontend module entry mounts one `App.svelte` owner;
 - Meeting / Text / Settings / First Setup are declarative Svelte owners;
-- Meeting live activity and committed transcript presentation are Svelte-owned;
-- native safe-close still uses the canonical Meeting Stop path and fails closed when state cannot be verified;
-- `runtimeApi.ts`, `runtimeProductFacade.ts`, shared settings types/state, Rust commands, and Python runtime contracts are preserved;
-- old `active-launcher`, `simple-launcher`, vanilla First Setup, manual icon source, and legacy root CSS owners are removed rather than left as a dual shell;
-- approved stack declarations are Svelte 5 + Vite + TypeScript + Tailwind CSS 4 + semantic CSS tokens + selective Bits UI + Lucide Svelte;
-- Bits UI is used selectively for the safe-close dialog; native audio-device selects remain native;
-- no SvelteKit, router, Redux-like state library, heavy UI framework, CSS-in-JS, full shadcn dump, or animation framework was added;
-- package-lock from the old dependency graph is removed rather than presented as valid for the new Svelte graph; regenerate it during the later local dependency-materialization/proof stage.
+- old active-launcher/simple-launcher/vanilla First Setup/manual icon/legacy root CSS ownership remains removed;
+- `runtimeApi.ts` and `runtimeProductFacade.ts` remain the runtime boundary;
+- approved stack remains Svelte 5 + Vite + TypeScript + Tailwind CSS 4 + semantic CSS tokens + selective Bits UI + `@lucide/svelte`;
+- `tokens.css` is the one semantic token owner for surfaces/text/action/state/shape/layout roles;
+- `app.css` owns base focus/reduced-motion behavior and a bounded shared visual vocabulary (`ti-page`, panel, button, field, pill, state card, action row);
+- Sidebar composition, Meeting ready/live hierarchy, Text panes, First Setup, Settings, and Diagnostics now use the same density/state/token language;
+- shared `StatusRow.svelte` centralizes repeated readiness/device-row presentation without becoming a generic wrapper system;
+- Text now includes the required **Copy** action in addition to Translate, editable result, and ID <-> EN swap;
+- Meeting incoming/outbound states have explicit visual distinctions while still reflecting the existing runtime facts;
+- no SvelteKit, router, Redux-like state library, heavy UI framework, CSS-in-JS, full shadcn dump, or animation framework was added.
 
-No `npm install`, Svelte autofixer, `svelte-check`, Vite build, Tauri launch, Rust compile, Python/model execution, Windows audio proof, or rendered UI proof was executed through ChatGPT -> GitHub.
+No `npm install`, Svelte autofixer, `svelte-check`, Vite build, Tauri launch, Rust compile, clipboard/Tauri execution proof, Python/model execution, Windows audio proof, or rendered UI proof was executed through ChatGPT -> GitHub.
 
 ## Closed — Frontend Phase 1: Svelte Application Ownership
 
-Current intended source shape:
-
 ```text
-src/
-├─ main.ts
-├─ App.svelte
-├─ pages/
-│  ├─ FirstSetup.svelte
-│  ├─ Meeting.svelte
-│  ├─ Text.svelte
-│  └─ Settings.svelte
-├─ components/
-│  ├─ layout/Sidebar.svelte
-│  ├─ meeting/MeetingActivity.svelte
-│  └─ ui/StatusBadge.svelte
-├─ styles/
-│  ├─ app.css
-│  └─ tokens.css
-└─ app/
-   ├─ bridge/
-   │  ├─ runtimeApi.ts
-   │  └─ runtimeProductFacade.ts
-   └─ shared/
-      ├─ state.ts
-      ├─ tauriBridge.ts
-      └─ types.ts
+index.html
+-> src/main.ts
+-> App.svelte
+   ├─ FirstSetup.svelte
+   ├─ Meeting.svelte
+   ├─ Text.svelte
+   └─ Settings.svelte
 ```
 
-This is an application-architecture migration, not runtime proof or final visual acceptance.
+The old manual-DOM/controller path is removed rather than retained in parallel.
+
+## Closed — Frontend Phase 2: Visual System And Component Professionalization
+
+Current visual ownership:
+
+```text
+styles/tokens.css
+-> durable semantic tokens
+
+styles/app.css
+-> Tailwind import + base desktop rules + bounded shared patterns
+
+components/ui/StatusBadge.svelte
+-> visible state badge
+
+components/ui/StatusRow.svelte
+-> reusable readiness/device row
+```
+
+Current major product surfaces use those owners without creating a theme registry, design-system generator, or large component abstraction layer.
+
+The visual result is still **source intent**, not rendered acceptance, because the user has deferred local/rendered proof.
 
 ## Current Mode
 
@@ -62,58 +67,49 @@ Execution channel:
 ChatGPT -> GitHub
 ```
 
-Use:
-
-```text
-development-brief
-+ desktop-ui-design-development
-```
-
-Official Svelte documentation/AI guidance may be used as conditional technical help. Local autofixer/build proof remains deferred until the user requests the later proof stage.
-
-## Next Step — Frontend Phase 2: Visual System And Component Professionalization
+## Next Step — Frontend Phase 3: UX State And Feature-Completeness Audit
 
 ### Goal
 
-Turn the Phase 1 Svelte structure into a coherent, maintainable desktop UI system without changing Meeting/Text/runtime behavior.
+Audit the now-Svelte frontend as a complete product surface and close remaining major frontend gaps before entering the deferred integrated-test stage.
 
 ### Scope
 
-1. audit the Svelte surfaces against the approved product hierarchy and current visual intent;
-2. establish a small durable token vocabulary for surfaces, text, state colors, spacing/radius/elevation only where repetition proves value;
-3. professionalize Sidebar, top status area, Meeting Ready/Live, Text translator, First Setup, Settings, and Diagnostics composition;
-4. standardize meaningful component states: default, focus, active, checking, ready, setup-needed/degraded, disabled;
-5. improve resizable desktop composition and keyboard/focus visibility;
-6. keep Bits UI selective; introduce another primitive only when its accessibility/interaction complexity earns the dependency use;
-7. keep motion limited to useful state/orientation feedback and reduced-motion safe.
+1. compare Meeting / Text / First Setup / Settings / Diagnostics against current product requirements and current runtime/facade contracts;
+2. check all materially reachable UI states: checking, ready, starting, live, stopping, degraded/setup-needed, unavailable/error, disabled;
+3. check navigation continuity while Meeting is active and safe-close messaging/actions;
+4. check Text workflow completeness including Translate, stale-result handling, swap, edit, Copy, keyboard action, and empty/error states;
+5. check First Setup resume/defer/repair/complete paths and device-selection feedback;
+6. check Settings/Diagnostics recovery actions and ensure technical controls do not leak back into normal UI;
+7. remove any remaining dead props, duplicate presentation logic, misleading copy, or source-only UI residue proven by the audit.
 
 ### Constraints
 
-- do not change Rust/Python/audio/model/Meeting lifecycle behavior;
-- do not add SvelteKit, router, global state manager, heavy component framework, CSS-in-JS, or general animation framework;
-- do not recreate generic wrapper/component layers with no semantic responsibility;
-- do not create a second design-token/theme system beside `styles/tokens.css`;
-- do not restore old vanilla controller/CSS ownership;
-- do not treat source markup as rendered visual proof.
+- do not change Rust/Python/audio/model semantics to make frontend states easier;
+- do not add another framework/library unless a concrete current UX requirement proves it necessary;
+- do not start local tests during this phase unless the user changes the current testing decision;
+- do not describe unrendered source as visually accepted;
+- do not create parallel status/plan files.
 
 ### Acceptance
 
-1. every major frontend surface follows one coherent hierarchy/density/token language;
-2. component boundaries reflect reusable behavior or meaningful visual/state responsibility rather than file-count goals;
-3. Meeting lifecycle/readiness distinctions remain visually explicit without inventing runtime truth;
-4. the Svelte source remains one active frontend path with the existing facade/bridge contract;
-5. local dependency install/autofix/typecheck/build/render proof remains explicitly deferred and accumulated for the later integrated-test stage requested by the user.
+1. each current product requirement has one visible frontend owner or an explicit non-UI runtime owner;
+2. all materially reachable frontend states have a clear, non-conflicting presentation/action;
+3. no duplicate frontend product truth/store/controller is introduced;
+4. no major initial-core UI action is missing from Meeting/Text/Settings/First Setup;
+5. the accumulated deferred proof queue is explicit and ready to run later as one controlled integrated-test stage.
 
-## Deferred Proof Queue
+## Deferred Integrated Proof Queue
 
-When the user decides major features are ready for testing, run the accumulated proof in a controlled sequence rather than piecemeal now:
+When the user decides the major feature set is ready:
 
 ```text
 frontend dependency install + regenerate package-lock
--> Svelte autofixer
+-> official Svelte autofixer on changed Svelte files
 -> svelte-check
 -> Vite frontend build
 -> Rust/Tauri compile + launch
+-> clipboard interaction proof
 -> private PythonRuntime + worker/model smoke
 -> Windows Meeting audio/device proof
 -> installer/installed-runtime proof

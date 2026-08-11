@@ -1,26 +1,50 @@
 :root {
   color-scheme: dark;
+
+  /* Core surfaces */
   --ti-bg: #07090d;
   --ti-sidebar: #0a0d12;
   --ti-surface: #11151c;
   --ti-surface-raised: #171c25;
   --ti-surface-soft: #0d1117;
+  --ti-surface-hover: #1b212b;
   --ti-border: #272e39;
   --ti-border-strong: #3a4452;
+
+  /* Typography */
   --ti-text: #f4f6f8;
   --ti-text-muted: #9ca6b4;
   --ti-text-soft: #7f8997;
+
+  /* Primary action */
   --ti-accent: #e4e8ee;
+  --ti-accent-hover: #ffffff;
   --ti-accent-contrast: #101319;
+
+  /* Product states */
   --ti-success: #63d59b;
   --ti-success-surface: #10251b;
+  --ti-success-border: #285942;
   --ti-warning: #f2ba61;
   --ti-warning-surface: #2a2112;
+  --ti-warning-border: #594521;
   --ti-danger: #ff747d;
   --ti-danger-surface: #2c1519;
+  --ti-danger-border: #633139;
+
+  /* Shape / elevation */
   --ti-radius-sm: 10px;
   --ti-radius-md: 14px;
   --ti-radius-lg: 20px;
-  --ti-shadow-card: 0 16px 48px rgb(0 0 0 / 0.2);
+  --ti-shadow-card: 0 16px 48px rgb(0 0 0 / 0.18);
   --ti-shadow-dialog: 0 28px 96px rgb(0 0 0 / 0.5);
+  --ti-overlay: rgb(0 0 0 / 0.72);
+
+  /* Desktop composition */
+  --ti-sidebar-width: 288px;
+  --ti-settings-nav-width: 220px;
+  --ti-content-width: 1040px;
+  --ti-content-wide: 1120px;
+  --ti-page-padding-x: clamp(24px, 3vw, 40px);
+  --ti-page-padding-y: 32px;
 }

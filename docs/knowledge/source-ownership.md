@@ -9,16 +9,17 @@ This map points to current semantic owners. File existence alone does not make a
 | Continuation | `docs/knowledge/next-action.md` | ACTIVE |
 | Durable decisions | `docs/knowledge/decision-log.md` | ACTIVE / COMPACT |
 | Frontend entry | `EngineData/Frontend/RustApp/src/main.ts` | ACTIVE / ONE SVELTE MOUNT |
-| Frontend application owner | `src/App.svelte` | ACTIVE SOURCE / LOCAL PROOF PENDING |
-| First Setup UI | `src/pages/FirstSetup.svelte` | ACTIVE SOURCE |
+| Frontend application owner | `src/App.svelte` | ACTIVE SOURCE / LOCAL PROOF DEFERRED |
+| First Setup UI | `src/pages/FirstSetup.svelte` | ACTIVE SOURCE / FIVE-STEP FLOW |
 | Meeting UI | `src/pages/Meeting.svelte` | ACTIVE SOURCE |
 | Meeting live transcript/activity | `src/components/meeting/MeetingActivity.svelte` | ACTIVE SOURCE |
-| Text UI | `src/pages/Text.svelte` | ACTIVE SOURCE |
+| Text UI | `src/pages/Text.svelte` | ACTIVE SOURCE / TRANSLATE + SWAP + COPY |
 | Settings / Diagnostics UI | `src/pages/Settings.svelte` | ACTIVE SOURCE |
 | Primary navigation | `src/components/layout/Sidebar.svelte` | ACTIVE SOURCE |
-| Shared visible status primitive | `src/components/ui/StatusBadge.svelte` | ACTIVE SOURCE |
-| Frontend semantic tokens | `src/styles/tokens.css` | ACTIVE SOURCE |
-| Frontend base/layout styling | `src/styles/app.css` | ACTIVE SOURCE |
+| Shared status badge | `src/components/ui/StatusBadge.svelte` | ACTIVE SOURCE |
+| Shared readiness/status row | `src/components/ui/StatusRow.svelte` | ACTIVE SOURCE / REUSED |
+| Semantic visual tokens | `src/styles/tokens.css` | ACTIVE / SINGLE TOKEN OWNER |
+| Base/layout/component styling | `src/styles/app.css` | ACTIVE / TAILWIND + BOUNDED SHARED CLASSES |
 | Frontend Tauri bridge | `src/app/bridge/runtimeApi.ts` | ACTIVE / RETAINED |
 | Product facade/readiness projection | `src/app/bridge/runtimeProductFacade.ts` | ACTIVE / RETAINED |
 | Shared frontend settings/error helpers | `src/app/shared/state.ts`, `types.ts`, `tauriBridge.ts` | ACTIVE / RETAINED |
@@ -33,12 +34,12 @@ This map points to current semantic owners. File existence alone does not make a
 | Text translation | `text_translate.rs` -> helper -> worker | ACTIVE |
 | Persisted settings | `engine/settings.rs`, `engine/runtime_settings.rs`, `commands/settings.rs` | ACTIVE / SCHEMA V6 |
 | Source validation | small validators under `scripts/` | ACTIVE / SVELTE-AWARE |
-| Local frontend proof | Svelte autofixer + `svelte-check` + Vite build | DEFERRED BY USER / REQUIRED BEFORE RELEASE |
-| Local Rust/runtime proof | local compile/runtime/device/model/package checks | DEFERRED BY USER / REQUIRED BEFORE RELEASE |
+| Local frontend proof | dependency install + Svelte autofixer + `svelte-check` + Vite build/render | DEFERRED BY USER / REQUIRED BEFORE RELEASE |
+| Local runtime proof | Rust/Tauri/Python/model/audio/package checks | DEFERRED BY USER / REQUIRED BEFORE RELEASE |
 
 ## Frontend Ownership
 
-The active source architecture is:
+The active frontend path is singular:
 
 ```text
 index.html
@@ -47,7 +48,7 @@ index.html
 -> FirstSetup / Meeting / Text / Settings
 ```
 
-The previous manual-DOM owners are removed instead of kept in parallel:
+The retired manual-DOM owners stay removed:
 
 ```text
 src/app/active-launcher/
@@ -57,7 +58,7 @@ src/app/shared/icons.ts
 legacy root UI CSS files
 ```
 
-The migration intentionally preserves the runtime boundary:
+Runtime ownership remains separate:
 
 ```text
 Svelte UI
@@ -67,49 +68,46 @@ Svelte UI
 -> Rust / Python runtime owners
 ```
 
-Svelte components may own presentation/application state such as selected page, dialog visibility, transient input, and current rendered snapshot. They must not become a second authority for Meeting lifecycle, persisted settings, model readiness, audio capability, or worker truth.
+Svelte owns page/dialog/input/rendered-snapshot presentation state. It does not become a second authority for Meeting lifecycle, persisted settings, models, audio capability, or worker truth.
 
-## Frontend Stack Ownership
+## Visual System Ownership
 
-Approved source stack:
+Approved visual implementation remains intentionally small:
 
 ```text
 Svelte 5 + TypeScript + Vite
-Tailwind CSS 4 + semantic CSS custom properties
-Bits UI only for justified accessible complex primitives
-Lucide Svelte for normal icons
+Tailwind CSS 4
+semantic CSS custom properties
+selective Bits UI
+@lucide/svelte icons
 ```
 
-Current selective Bits UI use is the native-close safety dialog. Native selects remain appropriate for current audio-device selection; no component library is required there.
+`tokens.css` owns durable roles only: surfaces, text, primary action, success/warning/danger states, shape/elevation, and desktop composition widths/padding. State-border colors no longer live as repeated component literals.
 
-No SvelteKit/router/global state framework/theme engine is a current owner.
+`app.css` owns Tailwind loading, base focus/reduced-motion rules, desktop page composition, shared panel/button/field/pill patterns, and a small set of repeated semantic visual classes. It is not a second theme engine.
 
-## Meeting / Text / Setup Parity
+`StatusRow.svelte` exists because readiness/device rows repeat across Meeting, First Setup, and Settings with one visible responsibility. Trivial wrappers remain inline instead of being extracted only to increase component count.
 
-`App.svelte` owns top-level composition and safe close. The Rust Meeting owner remains authoritative.
+## Product Surface Parity
 
-`Meeting.svelte` projects current Meeting readiness and action availability. `MeetingActivity.svelte` projects finalized committed turns and optional incoming status. It does not create transcript persistence or lifecycle truth.
+`App.svelte` owns top-level composition and safe close; canonical Meeting Stop remains Rust-owned.
 
-`Text.svelte` keeps explicit Text Translate and ID <-> EN direction switching through the existing persisted settings/runtime facade.
+`Meeting.svelte` projects required outbound readiness plus optional incoming status. `MeetingActivity.svelte` projects finalized committed turns and visible outbound/incoming stages without inventing persistence or lifecycle truth.
 
-`FirstSetup.svelte` keeps the five-step persisted checkpoint flow, candidate device probing, Setup Later, Fix Setup, and final readiness verification through the existing settings/facade owners.
+`Text.svelte` owns explicit ID <-> EN direction switching, Translate, editable result, and Copy. Clipboard execution is frontend behavior and still needs later Tauri/rendered environment proof.
 
-`Settings.svelte` keeps Meeting device selection, Mic Test, setup recovery, bounded Diagnostics, and explicit Verify Models.
+`FirstSetup.svelte` retains five persisted checkpoints, device candidate checks, Setup Later, Fix Setup, and final readiness verification. `Settings.svelte` retains Meeting devices, Mic Test, setup recovery, bounded Diagnostics, and Verify Models.
 
-## Backend / Runtime Ownership
+## Backend / Release Ownership
 
-The Rust engine remains pruned to current audio/session/settings/path owners. The one Python worker remains the AI execution owner. No frontend migration creates a frontend AI/audio implementation or second runtime.
-
-The packaged worker path remains:
+Rust/Python ownership is unchanged by frontend professionalization. The one private packaged interpreter remains:
 
 ```text
-<runtime root>/EngineData/Backend/LocalWorker/
-├─ WorkerRuntime/
-└─ PythonRuntime/python.exe
+<runtime root>/EngineData/Backend/LocalWorker/PythonRuntime/python.exe
 ```
 
-Packaged execution fails closed when the private interpreter is missing; repository Python fallbacks remain development-only.
+Packaged execution fails closed when that interpreter is missing; repository Python alternatives remain development-only.
 
 ## Proof Boundary
 
-The Svelte source migration is source-aligned but has not been dependency-installed, autofixed, typechecked, built, launched, or rendered in the current ChatGPT -> GitHub channel. The user has deliberately postponed local testing while major features are being completed. This does not convert source/static checks into compile, rendered UI, Windows audio, model, installer, or clean-machine proof.
+Frontend Phase 1/2 source is aligned but has not been dependency-installed, Svelte-autofixed, typechecked, built, launched, or rendered in the current ChatGPT -> GitHub channel. The user has deliberately postponed local testing while major features are completed. This postpones proof timing only; it does not reduce release acceptance requirements.
