@@ -1,0 +1,56 @@
+name: Temporary Fix Tauri Command Ownership
+
+on:
+  push:
+    branches: [New]
+    paths:
+      - .github/workflows/temporary-fix-tauri-command-ownership.yml
+
+permissions:
+  contents: write
+
+jobs:
+  fix:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout New
+        uses: actions/checkout@v4
+
+      - name: Remove duplicate Tauri command attributes from internal owners
+        shell: python
+        run: |
+          from pathlib import Path
+
+          replacements = [
+              (
+                  Path("EngineData/Frontend/RustApp/src-tauri/src/commands/helper_bridge.rs"),
+                  "#[tauri::command]\npub fn start_helper_bridge() -> HelperBridgeActionResult {",
+                  "pub fn start_helper_bridge() -> HelperBridgeActionResult {",
+              ),
+              (
+                  Path("EngineData/Frontend/RustApp/src-tauri/src/commands/meeting_session.rs"),
+                  "#[tauri::command]\npub fn start_meeting_translation() -> MeetingSessionActionResult {",
+                  "pub fn start_meeting_translation() -> MeetingSessionActionResult {",
+              ),
+          ]
+
+          for path, old, new in replacements:
+              text = path.read_text(encoding="utf-8")
+              if text.count(old) != 1:
+                  raise SystemExit(f"Expected exactly one bounded command marker in {path}, found {text.count(old)}")
+              path.write_text(text.replace(old, new, 1), encoding="utf-8", newline="\n")
+
+      - name: Verify bounded diff
+        shell: bash
+        run: |
+          git diff --check
+          git diff -- EngineData/Frontend/RustApp/src-tauri/src/commands/helper_bridge.rs EngineData/Frontend/RustApp/src-tauri/src/commands/meeting_session.rs
+
+      - name: Commit maintenance correction
+        shell: bash
+        run: |
+          git config user.name "halokaryamedia-source"
+          git config user.email "halokaryamedia@gmail.com"
+          git add EngineData/Frontend/RustApp/src-tauri/src/commands/helper_bridge.rs EngineData/Frontend/RustApp/src-tauri/src/commands/meeting_session.rs
+          git commit -m "Fix internal Tauri command ownership"
+          git push origin HEAD:New
