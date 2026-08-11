@@ -130,7 +130,7 @@ Static validators do not prove compile, Tauri launch, models, Windows audio, ren
 
 Initial controlled release keeps the local sidecar Setup direction and does not use a SHA-256/checksum/revision identity framework, artifact registry, downloader, or package manager.
 
-Installed Python execution is now decided:
+Installed Python execution is selected as:
 
 ```text
 <runtime root>/EngineData/Backend/LocalWorker/
@@ -144,13 +144,17 @@ Canonical installed interpreter is:
 EngineData/Backend/LocalWorker/PythonRuntime/python.exe
 ```
 
-The persistent worker and Meeting Microphone Python provider must use that same interpreter. A copied `.venv` and a frozen PyInstaller/Nuitka worker are not selected for the initial release. End users do not install Python, pip, uv, create environments, set worker-Python overrides, or rely on system `python`/`py`.
+Source ownership is now aligned to that layout. `engine/paths.rs` exposes `python_runtime_dir`; packaged `bridge_paths.rs` resolves only the private `python.exe` and cannot fall through to environment overrides, `.venv`, `python`, `python3`, or Windows `py`. Repository fallback remains behind the existing verified development gate.
 
-Development may retain repository-scoped Python overrides/`.venv`/system interpreter discovery, but those paths must not silently become packaged-release success paths.
+The persistent worker and Meeting Microphone provider use the same interpreter resolver and `WorkerRuntime` root. The route provider no longer has a separate `TRANSLATEIT_PYTHON`/system-Python path. Packaged resolution only checks the canonical file path; `python --version` probing remains development-only so Meeting delivery does not start an extra probe process per utterance.
 
-Models remain in `RuntimeAssets`; Python packages such as `ctranslate2`, `faster-whisper`, `torch`, `transformers`, `soundfile`, and the Meeting Microphone provider's `sounddevice` are part of the prepared private Python runtime payload.
+Models remain in `RuntimeAssets`. The worker runtime dependency set includes `ctranslate2`, `faster-whisper`, `numpy`, `sacremoses`, `sentencepiece`, `soundfile`, `torch`, `transformers`, and `sounddevice`; `sounddevice` is no longer hidden behind a development optional extra.
+
+A copied `.venv` and a frozen PyInstaller/Nuitka worker are not selected for the initial release. End users do not install Python, pip, uv, create environments, set worker-Python overrides, or rely on system `python`/`py`.
 
 No dependency lock/hash framework is required for the initial controlled release unless concrete release drift later proves it necessary. The useful acceptance boundary remains approved prepared payload + deterministic placement + real installed and clean-machine execution.
+
+Actual `PythonRuntime` bytes, vendored packages, Tauri/NSIS placement, worker/model execution, Meeting provider imports, and clean-machine behavior remain local release proof.
 
 ## Proof Boundary
 
