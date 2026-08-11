@@ -4,24 +4,26 @@
 
 The user explicitly keeps local/integration testing on hold until the major feature set is ready. This hold changes proof timing only; it does not reduce release acceptance.
 
-The current frontend source is now aligned through the Humanized Familiar Translation UI pass:
+The current frontend source is now aligned through the Humanized Familiar Translation UI pass **and** the Frontend Runtime Efficiency / Backend Alignment pass:
 
 - one `src/main.ts -> App.svelte` frontend owner;
 - Meeting / Text / Settings / First Setup remain declarative Svelte owners;
-- `runtimeApi.ts` and `runtimeProductFacade.ts` remain the runtime boundary;
-- old vanilla controller/shell/First Setup/CSS ownership remains removed;
-- approved stack remains Svelte 5 + Vite + TypeScript + Tailwind CSS 4 + semantic CSS tokens + selective Bits UI + `@lucide/svelte`;
-- `PR-166` now owns the durable familiar-translation interaction policy;
-- Meeting Ready presents `You speak -> Meeting hears`, suppresses redundant healthy badges, and keeps one dominant Start/Stop action;
-- Meeting Live presents `Listening / Translating / Speaking`, a chronological `YOU / MEETING` transcript, optional incoming status, and Stop Translation without exposing normal-user pipeline vocabulary;
-- Text uses a familiar `From / To` two-pane flow with Swap, Translate, editable result, Copy, Ctrl/Cmd+Enter, stale-source feedback, and late-result protection;
-- First Setup preserves all five persisted checkpoints/device/recovery facts while using ordinary meeting-language questions and progress semantics;
-- Settings uses `Meeting / Advanced` tabs rather than a nested second sidebar; Diagnostics remains the technical boundary;
-- sidebar and top status hierarchy are lighter and product-facing;
-- normal Ready states are visually calm; attention states carry stronger emphasis;
-- no new router, global store, UI framework, theme engine, animation framework, or backend abstraction was introduced.
+- `runtimeApi.ts` remains the Tauri transport boundary and `runtimeProductFacade.ts` remains the product-facing mapper;
+- settings bridge failure is explicit unavailable state rather than fabricated default settings / First Setup;
+- Meeting-facing readiness is projected from the canonical Meeting preflight and recomputed coherently when current Meeting status changes;
+- active Meeting polling still checks lightweight Meeting status, but the committed transcript snapshot is only requested when current status revision signals a meaningful change;
+- Start/Stop immediately consume the authoritative status returned by the Rust Meeting command rather than doing an immediate full product refetch just to rediscover the result;
+- normal application settings use `ProductRuntimeSnapshot.settings`; bootstrap settings remain separate only before the normal snapshot exists;
+- audio-device change is one Rust-owned probe/preserve/save transaction through `select_audio_device`, so frontend code no longer owns rollback semantics across several IPC calls;
+- Text translation now has a typed backend result separating translated text, product-facing message, and technical blocker; worker/model/device failure detail is not normal Text copy;
+- Text still preserves stale-source feedback, editable result, Copy, Ctrl/Cmd+Enter, and late-result protection;
+- First Setup preserves five persisted checkpoints but removes the redundant second microphone check after candidate selection already verified the microphone;
+- recovery wording is truthful (`Check Setup` / `Check Again`) rather than presenting a route-unrelated action as a guaranteed fix;
+- Settings keeps `Meeting / Advanced`; Diagnostics refreshes when explicitly opened;
+- no new router, global store, event framework, UI framework, theme engine, animation framework, or parallel backend owner was introduced;
+- source validation now records the atomic audio selection, typed Text result, coherent Meeting projection, explicit unavailable settings, and gated transcript-polling contracts.
 
-No `npm install`, package-lock regeneration, Svelte autofixer, `svelte-check`, Vite build, Tauri launch, Rust compile, clipboard execution, Python/model execution, Windows audio test, installer test, or rendered UI inspection was executed through ChatGPT -> GitHub.
+No `npm install`, package-lock regeneration, Svelte autofixer, `svelte-check`, Vite build, Tauri launch, Rust compile, clipboard execution, Python/model execution, Windows audio test, installer test, performance measurement, or rendered UI inspection was executed through ChatGPT -> GitHub.
 
 ## Closed Frontend Source Boundaries
 
@@ -32,9 +34,10 @@ Phase 3 -> UX state / feature completeness
 Phase 4 -> source accessibility / maintainability hardening
 Phase 5 -> framework-contract review
 Humanized Familiar Translation UI -> PR-166 interaction hierarchy + copy simplification
+Frontend Runtime Efficiency / Backend Alignment -> coherent state + fewer redundant IPC paths + Rust-owned transactions
 ```
 
-Source-level accessibility intent now includes native controls, focus-visible rules, reduced-motion handling, bounded `aria-live`, Bits UI safe-close dialog semantics, and First Setup progressbar semantics. These are not assistive-technology or rendered proof.
+Source-level accessibility intent remains native controls, focus-visible rules, reduced-motion handling, bounded `aria-live`, Bits UI safe-close dialog semantics, and First Setup progressbar semantics. These are not assistive-technology or rendered proof.
 
 ## Current Mode
 
@@ -46,7 +49,7 @@ Execution channel for any next source work:
 ChatGPT -> GitHub
 ```
 
-Do not create another frontend polish slice automatically. Without build/render evidence, further visual tuning risks becoming speculative. Continue source work only when the user selects another major feature, identifies a concrete UI issue/reference, or releases the test hold.
+Do not create another frontend polish slice automatically. The remaining frontend uncertainty is now primarily compile/render/runtime evidence rather than another speculative source-design pass. Continue frontend source work only when a concrete issue is discovered, a major feature requires it, or the user releases the test hold.
 
 ## Deferred Integrated Proof Queue
 
@@ -62,10 +65,12 @@ frontend dependency install + regenerate package-lock
 -> clipboard interaction proof
 -> private PythonRuntime + worker/model smoke
 -> Windows Meeting audio/device proof
+-> Meeting polling / transcript update behavior observation
+-> audio-device probe/save transaction proof
 -> installer/installed-runtime proof
 -> clean-machine proof
 ```
 
 ## Next Step — User-Selected Major Feature
 
-Keep the integrated-test queue deferred. The next development boundary is whichever **major feature or concrete source problem the user selects next**. Do not add speculative frontend decoration or return to local testing unless the user explicitly changes the hold.
+Keep the integrated-test queue deferred. The next development boundary is whichever **major feature or concrete source problem the user selects next**. Do not return to speculative frontend decoration or local testing unless the user explicitly changes the hold.
