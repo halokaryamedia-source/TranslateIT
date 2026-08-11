@@ -6,6 +6,7 @@ use crate::commands::diagnostic_trace::{trace_command_end, trace_command_start};
 use crate::engine;
 use crate::engine::logging::{write_jsonl_event, RuntimeLogEvent};
 use crate::engine::paths::ProjectPaths;
+use crate::engine::runtime_state::latest_runtime_session_state;
 use crate::engine::settings::RuntimeSettings;
 use crate::engine::state::{CommandResult, LifecycleState};
 
@@ -55,6 +56,23 @@ fn persist_runtime_settings(settings: RuntimeSettings) -> CommandResult {
     }
 }
 
+fn runtime_session_owns_audio_resources() -> bool {
+    latest_runtime_session_state().snapshot.is_some()
+}
+
+fn current_device_label(settings: &RuntimeSettings, kind: &str) -> String {
+    let selected = if kind == "microphone" {
+        settings.audio.input_device_id.as_deref()
+    } else {
+        settings.audio.output_device_id.as_deref()
+    };
+    selected
+        .map(str::trim)
+        .filter(|value| !value.is_empty())
+        .unwrap_or("Windows Default")
+        .to_string()
+}
+
 #[tauri::command]
 pub fn load_runtime_settings() -> RuntimeSettings {
     let started = trace_command_start(
@@ -84,6 +102,35 @@ pub fn select_audio_device(kind: String, device_id: Option<String>) -> AudioDevi
     let current = engine::load_settings();
     let requested = normalized_device_id(device_id);
 
+    if !matches!(kind.as_str(), "microphone" | "meeting-sound") {
+        trace_command_end("select_audio_device", started, "invalid_kind");
+        return AudioDeviceSelectionResult {
+            ok: false,
+            kind,
+            device_id: requested,
+            device_name: "Unknown device".to_string(),
+            message: "That audio device type is not supported.".to_string(),
+            settings: current,
+        };
+    }
+
+    // A Meeting session and Mic Test own live audio resources until their canonical
+    // Stop path releases the runtime session. Persisting a different device while a
+    // stream still owns the previous endpoint would make Settings disagree with the
+    // active runtime. Defer the change instead of attempting a mid-session hot rebind.
+    if runtime_session_owns_audio_resources() {
+        trace_command_end("select_audio_device", started, "active_runtime_session_locked");
+        return AudioDeviceSelectionResult {
+            ok: false,
+            kind: kind.clone(),
+            device_id: requested,
+            device_name: current_device_label(&current, &kind),
+            message: "Stop Translation or Mic Test before changing audio devices. The current preference was kept."
+                .to_string(),
+            settings: current,
+        };
+    }
+
     let (available, device_name) = match kind.as_str() {
         "microphone" => {
             let probe = probe_input_device_candidate(requested.clone());
@@ -107,17 +154,7 @@ pub fn select_audio_device(kind: String, device_id: Option<String>) -> AudioDevi
                     .unwrap_or_else(|| "Windows Default".to_string()),
             )
         }
-        _ => {
-            trace_command_end("select_audio_device", started, "invalid_kind");
-            return AudioDeviceSelectionResult {
-                ok: false,
-                kind,
-                device_id: requested,
-                device_name: "Unknown device".to_string(),
-                message: "That audio device type is not supported.".to_string(),
-                settings: current,
-            };
-        }
+        _ => unreachable!("audio device kind validated above"),
     };
 
     if !available {
