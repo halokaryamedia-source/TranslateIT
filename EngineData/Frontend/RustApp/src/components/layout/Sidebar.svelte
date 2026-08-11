@@ -28,45 +28,43 @@
 
   function presenceLabel(): string {
     if (presence === "Live") return "Translation is live";
-    if (presence === "Ready") return "Ready to translate";
-    if (presence === "Degraded") return "Text translation ready";
+    if (presence === "Ready") return "Ready";
+    if (presence === "Degraded") return "Text ready";
     if (presence === "Setup Needed") return "Setup needed";
-    if (presence === "Unavailable") return "TranslateIT unavailable";
-    return "Checking setup";
+    if (presence === "Unavailable") return "Unavailable";
+    return "Checking";
   }
 </script>
 
-<aside class="flex min-h-screen w-[var(--ti-sidebar-width)] shrink-0 flex-col border-r border-[var(--ti-border)] bg-[var(--ti-sidebar)] px-4 py-5">
-  <header class="flex items-center gap-3 px-2">
-    <div class="grid size-10 place-items-center rounded-[12px] border border-[var(--ti-border-strong)] bg-[var(--ti-surface-raised)] text-base font-bold">T</div>
+<aside class="flex min-h-screen w-[var(--ti-sidebar-width)] shrink-0 flex-col border-r border-[var(--ti-border)] bg-[var(--ti-sidebar)] px-3 py-4">
+  <header class="flex items-center gap-2.5 px-2 py-1">
+    <div class="grid size-9 place-items-center rounded-[10px] border border-[var(--ti-border-strong)] bg-[var(--ti-surface-raised)] text-sm font-bold">T</div>
     <div class="min-w-0">
-      <h1 class="m-0 truncate text-[15px] font-bold tracking-[-0.02em]">TranslateIT</h1>
-      <p class="mt-0.5 truncate text-[11px] text-[var(--ti-text-soft)]">Indonesian ↔ English</p>
+      <h1 class="m-0 truncate text-[14px] font-bold tracking-[-0.02em]">TranslateIT</h1>
+      <p class="mt-0.5 truncate text-[10.5px] text-[var(--ti-text-soft)]">Indonesian ↔ English</p>
     </div>
   </header>
 
-  <nav class="mt-8 grid gap-1.5" aria-label="Primary navigation">
+  <nav class="mt-7 grid gap-1" aria-label="Primary navigation">
     {#each items as item}
       {@const Icon = item.icon}
       <button
         type="button"
-        class={`group grid min-h-[54px] grid-cols-[22px_1fr] items-center gap-3 rounded-[var(--ti-radius-md)] border px-3.5 text-left transition-colors ${active === item.route ? "border-[var(--ti-border-strong)] bg-[var(--ti-surface-raised)] text-[var(--ti-text)]" : "border-transparent text-[var(--ti-text-muted)] hover:bg-[var(--ti-surface-soft)] hover:text-[var(--ti-text)]"}`}
+        class={`group grid min-h-11 grid-cols-[20px_1fr] items-center gap-2.5 rounded-[10px] border px-3 text-left transition-colors ${active === item.route ? "border-[var(--ti-border)] bg-[var(--ti-surface-raised)] text-[var(--ti-text)]" : "border-transparent text-[var(--ti-text-muted)] hover:bg-[var(--ti-surface-soft)] hover:text-[var(--ti-text)]"}`}
         aria-current={active === item.route ? "page" : undefined}
+        title={item.description}
         onclick={() => onNavigate(item.route)}
       >
-        <Icon size={18} strokeWidth={1.8} />
-        <span class="min-w-0">
-          <strong class="block truncate text-sm font-semibold">{item.label}</strong>
-          <small class="mt-0.5 block truncate text-[11px] text-[var(--ti-text-soft)]">{item.description}</small>
-        </span>
+        <Icon size={17} strokeWidth={1.8} />
+        <strong class="truncate text-[13px] font-semibold">{item.label}</strong>
       </button>
     {/each}
   </nav>
 
-  <div class="mt-auto border-t border-[var(--ti-border)] px-2 pt-4">
-    <div class="flex items-center gap-2.5">
-      <span class={`size-2 rounded-full ${presenceDot()}`} aria-hidden="true"></span>
-      <strong class="text-xs font-semibold text-[var(--ti-text-muted)]">{presenceLabel()}</strong>
+  <div class="mt-auto border-t border-[var(--ti-border)] px-2 pt-3">
+    <div class="flex items-center gap-2">
+      <span class={`size-1.5 rounded-full ${presenceDot()}`} aria-hidden="true"></span>
+      <strong class="truncate text-[11px] font-semibold text-[var(--ti-text-muted)]">{presenceLabel()}</strong>
     </div>
   </div>
 </aside>
