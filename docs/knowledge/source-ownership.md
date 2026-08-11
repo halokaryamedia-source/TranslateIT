@@ -21,10 +21,10 @@ This map points to current semantic owners. File existence alone does not make a
 | Mic Test lifecycle | `engine/capture_lifecycle.rs`, `commands/runtime_capture.rs` | ACTIVE / BOUNDED |
 | Meeting Microphone route | `commands/virtual_mic_route.rs`, `virtual_audio_route_runtime.rs` | ACTIVE INTERNAL |
 | Local worker/scheduler | `helper_bridge.rs`, `helper_bridge_runtime.rs`, `realtime_local_worker.py` | ACTIVE |
-| Installed worker interpreter path | `engine/paths.rs`, `commands/bridge_paths.rs` | DECIDED: `LocalWorker/PythonRuntime/python.exe`; SOURCE ALIGNMENT NEXT |
-| Development interpreter fallback | `commands/bridge_paths.rs` | DEVELOPMENT ONLY; MUST NOT BE PACKAGED SUCCESS |
-| Meeting provider Python process | `commands/virtual_audio_route_runtime.rs` | ACTIVE; MUST REUSE CANONICAL INTERPRETER NEXT |
-| Worker Python dependency set | `WorkerRuntime/pyproject.toml` | ACTIVE; `sounddevice` MUST BECOME INITIAL RUNTIME DEPENDENCY |
+| Installed worker interpreter path | `engine/paths.rs`, `commands/bridge_paths.rs` | SOURCE ALIGNED: `LocalWorker/PythonRuntime/python.exe` |
+| Development interpreter fallback | `commands/bridge_paths.rs` | VERIFIED REPOSITORY DEVELOPMENT ONLY |
+| Meeting provider Python process | `commands/virtual_audio_route_runtime.rs` | ACTIVE / REUSES WORKER INTERPRETER RESOLVER |
+| Worker Python dependency set | `WorkerRuntime/pyproject.toml` | ACTIVE / `sounddevice` IS RUNTIME DEPENDENCY |
 | Model presence inventory | `runtime_inventory.rs` | ACTIVE / CACHED |
 | Explicit model refresh | `runtime.rs::verify_models` | ACTIVE SETUP ACTION |
 | Text translation | `text_translate.rs` -> helper -> worker | ACTIVE |
@@ -34,7 +34,7 @@ This map points to current semantic owners. File existence alone does not make a
 | Runtime logging used by settings/runtime | `engine/logging.rs` | ACTIVE |
 | Shared command result/state | `engine/state.rs` | ACTIVE |
 | Source validation | small validators under `scripts/` | ACTIVE / PRUNED |
-| Package/path source preflight | `scripts/validate_tauri_package_preflight.mjs` | ACTIVE / MUST TRACK PACKAGED INTERPRETER OWNERSHIP NEXT |
+| Package/path source preflight | `scripts/validate_tauri_package_preflight.mjs` | ACTIVE / PACKAGED INTERPRETER OWNERSHIP GUARDED |
 | Local Rust compile proof | `scripts/run_local_tauri_compile_check.mjs` | LOCAL-ONLY |
 
 ## Removed Rust Engine Graph
@@ -65,9 +65,7 @@ The previous schema's extra fields are accepted only as ignored legacy JSON keys
 
 ## Packaged Worker Ownership
 
-The installed execution method is decided and must extend existing owners rather than create a worker launcher framework.
-
-Canonical layout:
+Canonical installed layout:
 
 ```text
 <runtime root>/EngineData/Backend/LocalWorker/
@@ -81,11 +79,13 @@ Canonical layout:
    └─ vendored Python packages
 ```
 
-`engine/paths.rs` remains the root/path authority. `bridge_paths.rs` owns executable selection at the worker boundary. Packaged mode must resolve only `PythonRuntime/python.exe`; environment override, `.venv`, system `python`/`python3`, and Windows `py` remain verified repository-development fallback only.
+`engine/paths.rs` owns both `worker_runtime_dir` and `python_runtime_dir`. In packaged Tauri context, `bridge_paths.rs` resolves exactly `PythonRuntime/python.exe`. If that file is absent, packaged mode fails closed; it does not try an environment override, `.venv`, system `python`/`python3`, or Windows `py`.
 
-`virtual_audio_route_runtime.rs` currently has a separate `TRANSLATEIT_PYTHON`/system-`python` process path. That duplicate interpreter discovery is now stale and the next source slice must replace it by reusing the same `bridge_paths.rs` resolver and `worker_runtime_dir` provider-script root.
+Those development alternatives remain available only when the existing repository-development markers were verified. Their `--version` probing is development-only. Packaged route delivery checks only the canonical `python.exe` file and therefore does not add a Python probe process per utterance.
 
-The private runtime payload includes the worker dependencies already declared in `pyproject.toml` plus `sounddevice`, which is required by current Meeting Microphone provider execution. Models remain under `RuntimeAssets`; pip/uv are not installed or run for end users.
+`helper_bridge.rs` and `virtual_audio_route_runtime.rs` both use `resolve_worker_python_command()`. The provider script itself resolves from the same `WorkerRuntime` root. The old separate `TRANSLATEIT_PYTHON`/system-Python route path is removed.
+
+`pyproject.toml` now declares `sounddevice` with the normal worker dependencies because current Meeting Microphone provider execution imports it. Models remain under `RuntimeAssets`; pip/uv are not installed or run for end users.
 
 A frozen worker executable, copied `.venv`, downloader, package manager, hash/identity framework, dependency registry, or second worker owner is not part of the initial release.
 
@@ -101,4 +101,4 @@ A frozen worker executable, copied `.venv`, downloader, package manager, hash/id
 
 The initial controlled release keeps local sidecar placement under the existing path/setup owners. There is no separate SHA-256/checksum/revision identity owner and no replacement artifact registry.
 
-The next Developing slice changes source ownership only. Building the actual private Python payload, NSIS placement, installed execution, model inference, and clean-machine acceptance remain local/package proof boundaries after that source slice.
+Packaged interpreter **source ownership is aligned**. The remaining release boundary is now concrete payload proof: create the private `PythonRuntime` bytes locally, verify worker/provider imports and real translation outside the repository, then wire tested payload placement into Tauri/NSIS. Source alignment alone is not installed-runtime proof.
