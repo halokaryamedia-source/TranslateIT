@@ -8,7 +8,6 @@
     type ProductRuntimeSnapshot,
     type ProductSetupAction,
   } from "../app/bridge/runtimeProductFacade";
-  import { errorMessage } from "../app/shared/state";
   import type { AudioDeviceListReport, RuntimeSettings } from "../app/shared/types";
   import StatusBadge from "../components/ui/StatusBadge.svelte";
   import StatusRow from "../components/ui/StatusRow.svelte";
@@ -68,10 +67,10 @@
     deviceMessage = "Loading audio devices...";
     try {
       devices = await runtimeProductFacade.loadProductAudioDevices();
-      deviceMessage = devices.ok ? "Choose a device to check it before saving." : devices.note ?? "Audio devices are unavailable.";
-    } catch (error) {
+      deviceMessage = devices.ok ? "Choose a device to check it before saving." : "Audio devices are unavailable right now. Try again.";
+    } catch {
       devices = null;
-      deviceMessage = `Couldn't load audio devices: ${errorMessage(error)}`;
+      deviceMessage = "Audio devices are unavailable right now. Try again.";
     } finally {
       devicesLoading = false;
     }
@@ -93,8 +92,8 @@
       await onSettingsChange(result.settings);
       await onRefresh(result.message);
       await loadDevices();
-    } catch (error) {
-      deviceMessage = `Device wasn't changed: ${errorMessage(error)}`;
+    } catch {
+      deviceMessage = "The device wasn't changed. Try again or check Diagnostics.";
       onNotice(deviceMessage);
     } finally {
       deviceSaving = false;
