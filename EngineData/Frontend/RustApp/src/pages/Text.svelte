@@ -147,7 +147,7 @@
     try {
       const result = await runtimeApi.saveSettings(candidate);
       if (!result.ok) throw new Error(result.message || "Language direction could not be saved.");
-      const saved = await runtimeApi.loadSettings().catch(() => candidate);
+      const saved = (await runtimeApi.loadSettings()) ?? candidate;
       await onSettingsChange(saved);
       if (visibleTarget.trim()) {
         sourceText = visibleTarget;
