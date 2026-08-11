@@ -124,3 +124,37 @@ Normal readiness reads only the current product facts needed to present Meeting/
 
 **Reason**  
 Parallel entrypoints, repeated polling, and broad readiness snapshots waste resources and keep removed architecture alive. The desktop should request the smallest current capability projection.
+
+## D-010 — Installed Worker Uses One Private Embedded Python Runtime
+
+**Decision**  
+The initial installed Windows build will keep the existing Python worker scripts and run them with one application-local embedded CPython runtime distributed in the approved local payload.
+
+Canonical installed layout:
+
+```text
+<runtime root>/EngineData/Backend/LocalWorker/
+├─ WorkerRuntime/
+│  ├─ realtime_local_worker.py
+│  ├─ virtual_audio_route_provider.py
+│  └─ model_manifest.json
+└─ PythonRuntime/
+   ├─ python.exe
+   ├─ embedded CPython runtime files
+   └─ vendored third-party packages
+```
+
+Installed execution uses only:
+
+```text
+EngineData/Backend/LocalWorker/PythonRuntime/python.exe
+```
+
+The same interpreter must be used by the persistent worker and the Meeting Microphone Python provider. `TRANSLATEIT_WORKER_PYTHON`, worker `.venv`, system `python`/`python3`, Windows `py`, and the separate `TRANSLATEIT_PYTHON` route override are development conveniences only and must not become packaged-release success paths.
+
+Do not freeze the worker into a PyInstaller/Nuitka executable for the initial release. Do not copy a `.venv` as the release runtime. Do not install pip/uv or resolve packages on the user's machine. Third-party Python packages are prepared as part of the release payload and kept intact beside the private interpreter; models remain under `RuntimeAssets` rather than inside the Python runtime.
+
+No dependency lock/hash framework is required for this initial slice. The approved prepared runtime payload is accepted through real local and clean-machine execution; tighter dependency pinning may be added only if release drift becomes a concrete problem.
+
+**Reason**  
+Python's embeddable distribution is intended to ship as part of another application, while Python virtual environments are explicitly not intended to be moved/copied. Keeping the existing scripts under a private interpreter preserves the current worker/model/debug behavior and avoids adding a freeze spec, hidden-import/binary collection layer, one-file extraction behavior, or a second worker architecture.
