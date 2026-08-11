@@ -1,4 +1,5 @@
 name: Temporary Windows Tauri Compile Proof
+# rerun after bounded command-ownership maintenance
 
 on:
   push:
