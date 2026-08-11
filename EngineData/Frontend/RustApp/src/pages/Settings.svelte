@@ -157,33 +157,34 @@
 
 <section class="min-h-0 overflow-y-auto">
   <div class="ti-page">
-    <header>
-      <span class="ti-kicker">Settings</span>
-      <h2 class="ti-page-title">TranslateIT settings</h2>
-      <p class="ti-page-copy">Choose your meeting audio and check setup when something needs attention.</p>
+    <header class="ti-page-header">
+      <div>
+        <h2 class="ti-page-title">Settings</h2>
+        <p class="ti-page-copy">Meeting audio, setup checks, and diagnostics.</p>
+      </div>
+
+      <nav class="flex gap-1 rounded-[var(--ti-radius-md)] border border-[var(--ti-border)] bg-[var(--ti-surface-soft)] p-1" aria-label="Settings sections">
+        <button
+          type="button"
+          class={`min-h-8 rounded-[8px] px-3.5 text-[12.5px] font-semibold transition-colors ${tab === "meeting" ? "bg-[var(--ti-surface-raised)] text-[var(--ti-text)]" : "text-[var(--ti-text-muted)] hover:text-[var(--ti-text)]"}`}
+          aria-current={tab === "meeting" ? "page" : undefined}
+          onclick={() => { tab = "meeting"; diagnosticsOpen = false; }}
+        >Meeting</button>
+        <button
+          type="button"
+          class={`min-h-8 rounded-[8px] px-3.5 text-[12.5px] font-semibold transition-colors ${tab === "advanced" ? "bg-[var(--ti-surface-raised)] text-[var(--ti-text)]" : "text-[var(--ti-text-muted)] hover:text-[var(--ti-text)]"}`}
+          aria-current={tab === "advanced" ? "page" : undefined}
+          onclick={() => { tab = "advanced"; diagnosticsOpen = false; }}
+        >Advanced</button>
+      </nav>
     </header>
 
-    <nav class="flex w-fit gap-1 rounded-[var(--ti-radius-md)] border border-[var(--ti-border)] bg-[var(--ti-surface-soft)] p-1" aria-label="Settings sections">
-      <button
-        type="button"
-        class={`min-h-9 rounded-[10px] px-4 text-sm font-semibold transition-colors ${tab === "meeting" ? "bg-[var(--ti-surface-raised)] text-[var(--ti-text)]" : "text-[var(--ti-text-muted)] hover:text-[var(--ti-text)]"}`}
-        aria-current={tab === "meeting" ? "page" : undefined}
-        onclick={() => { tab = "meeting"; diagnosticsOpen = false; }}
-      >Meeting</button>
-      <button
-        type="button"
-        class={`min-h-9 rounded-[10px] px-4 text-sm font-semibold transition-colors ${tab === "advanced" ? "bg-[var(--ti-surface-raised)] text-[var(--ti-text)]" : "text-[var(--ti-text-muted)] hover:text-[var(--ti-text)]"}`}
-        aria-current={tab === "advanced" ? "page" : undefined}
-        onclick={() => { tab = "advanced"; diagnosticsOpen = false; }}
-      >Advanced</button>
-    </nav>
-
     {#if tab === "meeting"}
-      <section class="grid gap-5">
-        <header class="ti-page-header">
+      <article class="ti-panel overflow-hidden">
+        <header class="flex items-start justify-between gap-5 border-b border-[var(--ti-border)] bg-[var(--ti-surface-soft)] px-5 py-4">
           <div>
-            <h3 class="m-0 text-xl font-semibold tracking-[-0.02em]">Meeting audio</h3>
-            <p class="mb-0 mt-2 text-sm text-[var(--ti-text-muted)]">Choose what you speak into and where you hear the meeting.</p>
+            <h3 class="m-0 text-[15px] font-semibold tracking-[-0.015em]">Meeting audio</h3>
+            <p class="mb-0 mt-1 text-[12px] text-[var(--ti-text-muted)]">Choose what you speak into and where you hear the meeting.</p>
           </div>
           {#if meetingResourcesLocked}
             <StatusBadge label="In Use" tone="neutral" />
@@ -192,127 +193,132 @@
           {/if}
         </header>
 
-        <article class="ti-panel overflow-hidden">
-          <div class="grid grid-cols-2 gap-px bg-[var(--ti-border)]">
-            <label class="grid gap-3 bg-[var(--ti-surface)] p-6">
-              <span class="ti-field-label">Microphone</span>
-              <select class="ti-field min-h-11 px-3" disabled={meetingResourcesLocked || devicesLoading || deviceSaving} value={currentDevice("microphone")} onchange={(event) => void changeDevice("microphone", selectValue(event))}>
-                <option value="">Windows Default</option>
-                {#each devices?.input_devices ?? [] as device (deviceId(device))}
-                  <option value={deviceId(device)}>{device.name}{device.is_default ? " · Windows default" : ""}</option>
-                {/each}
-                {#if deviceMissing("microphone")}
-                  <option value={currentDevice("microphone")}>{currentDevice("microphone")} · unavailable</option>
-                {/if}
-              </select>
-              <small class="text-xs leading-5 text-[var(--ti-text-soft)]">The microphone you speak into.</small>
-            </label>
+        <div class="grid grid-cols-2 gap-5 p-5">
+          <label class="grid min-w-0 gap-2">
+            <span class="ti-field-label">Microphone</span>
+            <select class="ti-field min-h-10 px-3" disabled={meetingResourcesLocked || devicesLoading || deviceSaving} value={currentDevice("microphone")} onchange={(event) => void changeDevice("microphone", selectValue(event))}>
+              <option value="">Windows Default</option>
+              {#each devices?.input_devices ?? [] as device (deviceId(device))}
+                <option value={deviceId(device)}>{device.name}{device.is_default ? " · Windows default" : ""}</option>
+              {/each}
+              {#if deviceMissing("microphone")}
+                <option value={currentDevice("microphone")}>{currentDevice("microphone")} · unavailable</option>
+              {/if}
+            </select>
+            <small class="text-[11.5px] leading-5 text-[var(--ti-text-soft)]">The microphone you speak into.</small>
+          </label>
 
-            <label class="grid gap-3 bg-[var(--ti-surface)] p-6">
-              <span class="ti-field-label">Meeting sound</span>
-              <select class="ti-field min-h-11 px-3" disabled={meetingResourcesLocked || devicesLoading || deviceSaving} value={currentDevice("meeting-sound")} onchange={(event) => void changeDevice("meeting-sound", selectValue(event))}>
-                <option value="">Windows Default</option>
-                {#each devices?.output_devices ?? [] as device (deviceId(device))}
-                  <option value={deviceId(device)}>{device.name}{device.is_default ? " · Windows default" : ""}</option>
-                {/each}
-                {#if deviceMissing("meeting-sound")}
-                  <option value={currentDevice("meeting-sound")}>{currentDevice("meeting-sound")} · unavailable</option>
-                {/if}
-              </select>
-              <small class="text-xs leading-5 text-[var(--ti-text-soft)]">Used for optional English → Indonesian meeting text.</small>
-            </label>
-          </div>
+          <label class="grid min-w-0 gap-2">
+            <span class="ti-field-label">Meeting sound</span>
+            <select class="ti-field min-h-10 px-3" disabled={meetingResourcesLocked || devicesLoading || deviceSaving} value={currentDevice("meeting-sound")} onchange={(event) => void changeDevice("meeting-sound", selectValue(event))}>
+              <option value="">Windows Default</option>
+              {#each devices?.output_devices ?? [] as device (deviceId(device))}
+                <option value={deviceId(device)}>{device.name}{device.is_default ? " · Windows default" : ""}</option>
+              {/each}
+              {#if deviceMissing("meeting-sound")}
+                <option value={currentDevice("meeting-sound")}>{currentDevice("meeting-sound")} · unavailable</option>
+              {/if}
+            </select>
+            <small class="text-[11.5px] leading-5 text-[var(--ti-text-soft)]">Optional incoming English → Indonesian text listens here.</small>
+          </label>
+        </div>
 
-          <div class="border-t border-[var(--ti-border)]">
-            <StatusRow
-              label="Meeting microphone"
-              value={meetingMicrophoneDevice}
-              detail={snapshot.readiness.meetingRouteReady
+        <div class="flex items-start justify-between gap-5 border-t border-[var(--ti-border)] px-5 py-4">
+          <div class="min-w-0">
+            <span class="ti-field-label">Meeting microphone</span>
+            <strong class="mt-1.5 block break-words text-[13px] font-semibold leading-5">{meetingMicrophoneDevice}</strong>
+            <p class="mb-0 mt-1 text-[11.5px] leading-5 text-[var(--ti-text-soft)]">
+              {snapshot.readiness.meetingRouteReady
                 ? "Choose this exact microphone inside your meeting app."
                 : "A matched Windows virtual-audio cable pair is required for translated meeting output."}
-              status={snapshot.readiness.meetingRouteReady ? "" : snapshot.readiness.level === "unavailable" ? "Unavailable" : "Setup Needed"}
+            </p>
+          </div>
+          {#if !snapshot.readiness.meetingRouteReady}
+            <StatusBadge
+              label={snapshot.readiness.level === "unavailable" ? "Unavailable" : "Setup Needed"}
               tone={snapshot.readiness.level === "unavailable" ? "danger" : "warning"}
             />
-          </div>
+          {/if}
+        </div>
 
-          <footer class="grid gap-4 border-t border-[var(--ti-border)] bg-[var(--ti-surface-soft)] p-6">
-            <p class="m-0 text-sm leading-6 text-[var(--ti-text-muted)]" aria-live="polite">{meetingResourcesLocked ? meetingResourceLockMessage : deviceMessage}</p>
-            <div class="ti-action-row">
-              <button type="button" class="ti-button ti-button-secondary" disabled={setupBusy || deviceSaving} onclick={() => void onSetupAction("check-microphone")}>{setupBusy ? "Checking..." : "Check Microphone"}</button>
-              <button type="button" class="ti-button ti-button-secondary" disabled={meetingResourcesLocked || micTestBusy || setupBusy || deviceSaving} onclick={() => void onMicTest()}>{micTestBusy ? "Working..." : snapshot.readiness.recording ? "Stop Mic Test" : "Mic Test"}</button>
-              <button type="button" class="ti-button ti-button-secondary" disabled={meetingResourcesLocked || setupBusy || deviceSaving} onclick={() => void runSetupRepair()}>{setupBusy ? "Checking..." : "Check Setup"}</button>
-            </div>
-          </footer>
-        </article>
-      </section>
+        <footer class="flex flex-wrap items-center justify-between gap-4 border-t border-[var(--ti-border)] bg-[var(--ti-surface-soft)] px-5 py-4">
+          <p class="m-0 min-w-0 flex-1 text-[12px] leading-5 text-[var(--ti-text-muted)]" aria-live="polite">{meetingResourcesLocked ? meetingResourceLockMessage : deviceMessage}</p>
+          <div class="ti-action-row shrink-0">
+            <button type="button" class="ti-button ti-button-secondary" disabled={setupBusy || deviceSaving} onclick={() => void onSetupAction("check-microphone")}>{setupBusy ? "Checking..." : "Check Microphone"}</button>
+            <button type="button" class="ti-button ti-button-secondary" disabled={meetingResourcesLocked || micTestBusy || setupBusy || deviceSaving} onclick={() => void onMicTest()}>{micTestBusy ? "Working..." : snapshot.readiness.recording ? "Stop Mic Test" : "Mic Test"}</button>
+            <button type="button" class="ti-button ti-button-secondary" disabled={meetingResourcesLocked || setupBusy || deviceSaving} onclick={() => void runSetupRepair()}>{setupBusy ? "Checking..." : "Check Setup"}</button>
+          </div>
+        </footer>
+      </article>
     {:else if !diagnosticsOpen}
-      <section class="grid gap-5">
-        <header>
-          <h3 class="m-0 text-xl font-semibold tracking-[-0.02em]">Setup health</h3>
-          <p class="mb-0 mt-2 text-sm text-[var(--ti-text-muted)]">Open Diagnostics only when you need technical details.</p>
+      <article class="ti-panel overflow-hidden">
+        <header class="border-b border-[var(--ti-border)] bg-[var(--ti-surface-soft)] px-5 py-4">
+          <h3 class="m-0 text-[15px] font-semibold">Setup health</h3>
+          <p class="mb-0 mt-1 text-[12px] text-[var(--ti-text-muted)]">Use Diagnostics only when you need technical detail.</p>
         </header>
 
-        <article class="ti-panel overflow-hidden">
-          <div class="divide-y divide-[var(--ti-border)]">
-            <StatusRow
-              label="Text translation"
-              value="Indonesian ↔ English"
-              detail="Standalone text translation."
-              status={snapshot.readiness.textReady ? "Ready" : snapshot.readiness.textStatus}
-              tone={snapshot.readiness.textReady ? "good" : snapshot.readiness.level === "unavailable" ? "danger" : "warning"}
-            />
-            <StatusRow
-              label="Meeting translation"
-              value="Indonesian voice → English voice"
-              detail="Required microphone and meeting output."
-              status={snapshot.readiness.meetingReady ? "Ready" : snapshot.readiness.meetingStatus}
-              tone={snapshot.readiness.meetingReady ? "good" : snapshot.readiness.level === "unavailable" ? "danger" : "warning"}
-            />
-          </div>
-          <footer class="border-t border-[var(--ti-border)] bg-[var(--ti-surface-soft)] p-5">
-            <button type="button" class="ti-button ti-button-secondary" disabled={diagnosticsLoading} onclick={() => void refreshDiagnostics()}>{diagnosticsLoading ? "Opening..." : "Open Diagnostics"}</button>
-          </footer>
-        </article>
-      </section>
+        <div class="divide-y divide-[var(--ti-border)]">
+          <StatusRow
+            label="Text translation"
+            value="Indonesian ↔ English"
+            detail="Standalone text translation."
+            status={snapshot.readiness.textReady ? "Ready" : snapshot.readiness.textStatus}
+            tone={snapshot.readiness.textReady ? "good" : snapshot.readiness.level === "unavailable" ? "danger" : "warning"}
+          />
+          <StatusRow
+            label="Meeting translation"
+            value="Indonesian voice → English voice"
+            detail="Required microphone and meeting output."
+            status={snapshot.readiness.meetingReady ? "Ready" : snapshot.readiness.meetingStatus}
+            tone={snapshot.readiness.meetingReady ? "good" : snapshot.readiness.level === "unavailable" ? "danger" : "warning"}
+          />
+        </div>
+
+        <footer class="flex justify-end border-t border-[var(--ti-border)] bg-[var(--ti-surface-soft)] px-5 py-4">
+          <button type="button" class="ti-button ti-button-secondary" disabled={diagnosticsLoading} onclick={() => void refreshDiagnostics()}>{diagnosticsLoading ? "Opening..." : "Open Diagnostics"}</button>
+        </footer>
+      </article>
     {:else}
-      <section class="grid gap-5">
+      <section class="grid gap-4">
         <header class="ti-page-header">
           <div>
-            <span class="ti-kicker">Advanced</span>
-            <h3 class="ti-page-title">Diagnostics</h3>
-            <p class="ti-page-copy">Technical status for troubleshooting.</p>
+            <h3 class="m-0 text-xl font-semibold tracking-[-0.02em]">Diagnostics</h3>
+            <p class="mb-0 mt-1.5 text-[12.5px] text-[var(--ti-text-muted)]">Technical status for troubleshooting.</p>
           </div>
-          <button type="button" class="ti-button ti-button-secondary" onclick={() => { diagnosticsOpen = false; }}><ArrowLeft size={16} /> Back</button>
+          <button type="button" class="ti-button ti-button-secondary" onclick={() => { diagnosticsOpen = false; }}><ArrowLeft size={15} /> Back</button>
         </header>
 
-        <article class="ti-panel p-6">
-          <div class="grid grid-cols-[repeat(3,minmax(0,1fr))] gap-4">
-            <div class="ti-state-card"><span class="ti-field-label">Worker</span><strong class="mt-2 block text-sm">{snapshot.helper?.state ?? "Not checked"}</strong></div>
-            <div class="ti-state-card"><span class="ti-field-label">Outbound provider</span><strong class="mt-2 block text-sm">{snapshot.helper?.provider_ready ? "Available" : "Setup Needed"}</strong></div>
-            <div class="ti-state-card"><span class="ti-field-label">Execution device</span><strong class="mt-2 block text-sm">{snapshot.helper?.cuda_ready ? "CUDA" : snapshot.helper?.degraded_mode ? "CPU / degraded" : "Not verified"}</strong></div>
+        <article class="ti-panel p-5">
+          <div class="grid grid-cols-[repeat(3,minmax(0,1fr))] gap-3">
+            <div class="ti-state-card"><span class="ti-field-label">Worker</span><strong class="mt-2 block text-[13px]">{snapshot.helper?.state ?? "Not checked"}</strong></div>
+            <div class="ti-state-card"><span class="ti-field-label">Outbound provider</span><strong class="mt-2 block text-[13px]">{snapshot.helper?.provider_ready ? "Available" : "Setup Needed"}</strong></div>
+            <div class="ti-state-card"><span class="ti-field-label">Execution device</span><strong class="mt-2 block text-[13px]">{snapshot.helper?.cuda_ready ? "CUDA" : snapshot.helper?.degraded_mode ? "CPU / degraded" : "Not verified"}</strong></div>
           </div>
 
-          <p class="mb-0 mt-5 text-sm leading-6 text-[var(--ti-text-muted)]">{snapshot.helper?.message ?? "Refresh status to check the local worker."}</p>
+          <p class="mb-0 mt-4 text-[12px] leading-5 text-[var(--ti-text-muted)]">{snapshot.helper?.message ?? "Refresh status to check the local worker."}</p>
 
-          <div class="ti-action-row mt-5">
-            <button type="button" class="ti-button ti-button-secondary" disabled={setupBusy || diagnosticsLoading} onclick={() => void refreshDiagnostics()}><RefreshCw size={16} /> {diagnosticsLoading || setupBusy ? "Refreshing..." : "Refresh Status"}</button>
-            <button type="button" class="ti-button ti-button-secondary" disabled={setupBusy || diagnosticsLoading} onclick={() => void onSetupAction("verify-models")}><Bug size={16} /> Verify Models</button>
+          <div class="ti-action-row mt-4">
+            <button type="button" class="ti-button ti-button-secondary" disabled={setupBusy || diagnosticsLoading} onclick={() => void refreshDiagnostics()}><RefreshCw size={15} /> {diagnosticsLoading || setupBusy ? "Refreshing..." : "Refresh Status"}</button>
+            <button type="button" class="ti-button ti-button-secondary" disabled={setupBusy || diagnosticsLoading} onclick={() => void onSetupAction("verify-models")}><Bug size={15} /> Verify Models</button>
           </div>
         </article>
 
-        <article class="ti-panel p-6">
+        <article class="ti-panel p-5">
           <div class="flex items-end justify-between gap-5">
-            <div><span class="ti-kicker">Troubleshooting</span><h4 class="mb-0 mt-2 text-base font-semibold">Recent command errors</h4></div>
+            <div>
+              <span class="ti-field-label">Troubleshooting</span>
+              <h4 class="mb-0 mt-1.5 text-[14px] font-semibold">Recent command errors</h4>
+            </div>
             <span class="ti-pill">{runtimeApi.getCommandErrors().length} recent</span>
           </div>
           <div class="mt-4 grid gap-2">
             {#if runtimeApi.getCommandErrors().length === 0}
-              <p class="m-0 text-sm text-[var(--ti-text-muted)]">No recent frontend/Tauri command failures.</p>
+              <p class="m-0 text-[12px] text-[var(--ti-text-muted)]">No recent frontend/Tauri command failures.</p>
             {:else}
               {#each runtimeApi.getCommandErrors() as error (`${error.occurred_at}-${error.command}`)}
                 <div class="ti-subtle-card px-4 py-3">
-                  <strong class="text-xs">{error.command}</strong>
-                  <p class="mb-0 mt-1 text-xs leading-5 text-[var(--ti-text-muted)]">{error.message}</p>
+                  <strong class="text-[11px]">{error.command}</strong>
+                  <p class="mb-0 mt-1 text-[11px] leading-5 text-[var(--ti-text-muted)]">{error.message}</p>
                 </div>
               {/each}
             {/if}
