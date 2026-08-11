@@ -41,9 +41,13 @@ Path:
 .agents/skills/desktop-runtime-development/SKILL.md
 ```
 
-Semantic owner: desktop product/runtime shell, workspaces/navigation, lifecycle,
+Semantic owner: desktop product/runtime shell, frontend application architecture
+and behavior-preserving framework migration, workspaces/navigation, lifecycle,
 product readiness/state mapping, desktop settings integration, product facade/
 bridge, product recovery actions, and Normal UI versus Developer Diagnostics.
+
+The approved vanilla -> Svelte migration is routed here because its semantic
+responsibility is application structure/state/bridge parity, not visual styling.
 
 ### `desktop-ui-design-development`
 
@@ -57,6 +61,11 @@ Semantic owner: desktop visual hierarchy, layout/composition, spacing/density,
 typography, color/tokens, component visual states, reference-image analysis,
 responsive desktop composition, visual accessibility, motion/micro-interaction
 craft, and rendered visual acceptance.
+
+Its approved visual implementation profile is Svelte 5 + Tailwind CSS 4 + durable
+CSS custom-property tokens, with Bits UI used selectively for complex accessible
+primitives and Lucide Svelte as the default icon family. This does not make the
+skill the owner of framework migration.
 
 ### `local-ai-runtime-development`
 
@@ -130,10 +139,63 @@ A skill architecture change requires current project evidence that:
 4. trigger and exclusion boundaries can be stated clearly;
 5. the change reduces rather than creates overlapping ownership.
 
+## Approved Frontend Skill Composition
+
+Svelte does **not** justify a new TranslateIT `svelte-expert` project skill. The
+professional frontend workflow is deliberately composed from existing semantic
+owners plus current official framework tooling:
+
+```text
+framework/application migration
+-> development-brief + desktop-runtime-development
+
+visual system/component craft
+-> development-brief + desktop-ui-design-development
+
+Svelte syntax/reactivity/tool validation
+-> official Svelte technical helpers
+```
+
+One Developing slice still uses at most one TranslateIT specialist. If a migration
+slice also discovers a separate visual redesign problem, finish/reframe the
+architecture slice first instead of stacking both desktop specialists.
+
+## Official Svelte Helpers — Conditional, Not Project Skills
+
+Svelte currently publishes official AI skills and MCP tooling for Svelte 5. The
+relevant helpers for TranslateIT are:
+
+```text
+svelte-code-writer
+svelte-core-bestpractices
+@sveltejs/mcp list-sections
+@sveltejs/mcp get-documentation
+@sveltejs/mcp svelte-autofixer
+```
+
+Use them whenever current work creates, edits, migrates, reviews, or analyzes
+`.svelte`, `.svelte.ts`, or `.svelte.js` files and the execution channel supports
+the tooling.
+
+Adopted rules:
+
+- modern Svelte 5 runes for new code;
+- `$state` only for genuinely reactive values;
+- `$derived` for computed state instead of effect-driven synchronization;
+- `$effect` as an escape hatch, not the default state mechanism;
+- modern event attributes/props rather than legacy Svelte syntax;
+- run the official Svelte autofixer on changed Svelte components in Codex/Local
+  before finalization;
+- use `sv check`/targeted build when compile/type/accessibility claims need
+  executable proof.
+
+These helpers are intentionally **not copied into `.agents/skills/`**. Keeping the
+vendor-owned guidance external avoids stale duplicated framework instructions and
+preserves the frozen TranslateIT semantic skill baseline.
+
 ## Capabilities Intentionally Merged Into Existing Owners
 
-The three external references evaluated in August 2026 are useful, but **do not
-justify three additional repository skills**.
+External references can improve procedure without becoming new project skills.
 
 ### Action-first / low-friction execution communication
 
@@ -183,8 +245,8 @@ External reference: `rust-unofficial/awesome-rust`.
 Awesome Rust is a **candidate index**, not a semantic specialist or implementation
 authority. When a proved current requirement needs a Rust crate/tool candidate, use
 it only to narrow discovery and then verify serious candidates from their current
-official repository/documentation, license, Windows/platform constraints, maintenance
-state, and net complexity.
+official repository/documentation, license, Windows/platform constraints,
+maintenance state, and net complexity.
 
 There is no separate `awesome-rust-research` project skill. External research is a
 conditional helper procedure owned by the current semantic task and
@@ -200,6 +262,8 @@ rust-expert
 python-expert
 tauri-expert
 typescript-expert
+svelte-expert
+tailwind-expert
 cuda-expert
 context7
 code-review
@@ -213,9 +277,9 @@ profiling
 benchmarking
 ```
 
-Context7 or another current-documentation retrieval helper may be used
-conditionally for version-sensitive external contracts. Official documentation or
-primary source remains authoritative.
+Context7, the official Svelte MCP/AI helpers, or another current-documentation
+helper may be used conditionally for version-sensitive external contracts. Official
+documentation or primary source remains authoritative.
 
 Review, diagnosis, research, testing, profiling, benchmarking, output shaping, and
 evidence escalation are **capabilities/procedures**, not new semantic owners by
