@@ -1,0 +1,205 @@
+name: Temporary Windows Native Resize Focus Proof
+
+on:
+  push:
+    branches: [New]
+    paths:
+      - .github/workflows/temporary-windows-native-resize-focus-proof.yml
+
+jobs:
+  smoke:
+    runs-on: windows-latest
+    timeout-minutes: 35
+    defaults:
+      run:
+        working-directory: EngineData/Frontend/RustApp
+
+    steps:
+      - name: Checkout New
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22.16.0'
+
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Materialize frontend dependencies
+        run: npm install --no-audit --no-fund
+
+      - name: Native Tauri build without bundle
+        run: npx tauri build --no-bundle
+
+      - name: Native resize keyboard focus smoke
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $exe = Join-Path $PWD 'src-tauri\target\release\translateit.exe'
+          if (-not (Test-Path $exe)) { throw "Expected native executable was not produced: $exe" }
+
+          $isolatedLocal = Join-Path $env:RUNNER_TEMP 'TranslateITLocalAppData'
+          $isolatedRoaming = Join-Path $env:RUNNER_TEMP 'TranslateITRoamingAppData'
+          New-Item -ItemType Directory -Force -Path $isolatedLocal | Out-Null
+          New-Item -ItemType Directory -Force -Path $isolatedRoaming | Out-Null
+          $env:LOCALAPPDATA = $isolatedLocal
+          $env:APPDATA = $isolatedRoaming
+
+          $artifactDir = Join-Path $env:RUNNER_TEMP 'translateit-native-resize-focus-proof'
+          New-Item -ItemType Directory -Force -Path $artifactDir | Out-Null
+
+          $process = Start-Process -FilePath $exe -PassThru
+          Write-Host "TranslateIT process id: $($process.Id)"
+
+          $deadline = (Get-Date).AddSeconds(20)
+          do {
+            Start-Sleep -Milliseconds 500
+            $process.Refresh()
+            if ($process.HasExited) { throw "TranslateIT exited before smoke proof. Exit code: $($process.ExitCode)" }
+            $native = Get-Process -Id $process.Id -ErrorAction Stop
+          } while (($native.MainWindowHandle -eq 0 -or [string]::IsNullOrWhiteSpace($native.MainWindowTitle)) -and (Get-Date) -lt $deadline)
+
+          if ($native.MainWindowHandle -eq 0) { throw 'TranslateIT did not expose a native main window handle.' }
+          if ($native.MainWindowTitle -ne 'TranslateIT') { throw "Unexpected native window title: $($native.MainWindowTitle)" }
+          if (-not $native.Responding) { throw 'TranslateIT native process is not responding.' }
+
+          Add-Type -AssemblyName System.Drawing
+          Add-Type -AssemblyName UIAutomationClient
+          Add-Type -AssemblyName UIAutomationTypes
+          Add-Type @'
+          using System;
+          using System.Runtime.InteropServices;
+          public static class TranslateITNativeSmoke {
+            [StructLayout(LayoutKind.Sequential)]
+            public struct RECT { public int Left; public int Top; public int Right; public int Bottom; }
+            [DllImport("user32.dll")]
+            public static extern bool GetWindowRect(IntPtr hWnd, out RECT lpRect);
+            [DllImport("user32.dll")]
+            public static extern bool PrintWindow(IntPtr hwnd, IntPtr hdcBlt, uint nFlags);
+            [DllImport("user32.dll", SetLastError=true)]
+            public static extern bool SetWindowPos(IntPtr hWnd, IntPtr hWndInsertAfter, int X, int Y, int cx, int cy, uint uFlags);
+            [DllImport("user32.dll")]
+            public static extern bool ShowWindow(IntPtr hWnd, int nCmdShow);
+            [DllImport("user32.dll")]
+            public static extern bool SetForegroundWindow(IntPtr hWnd);
+          }
+          '@
+
+          $hwnd = [IntPtr]$native.MainWindowHandle
+          $SWP_NOMOVE = 0x0002
+          $SWP_NOZORDER = 0x0004
+          $SWP_SHOWWINDOW = 0x0040
+
+          function Capture-NativeWindow([string]$name) {
+            $rect = New-Object TranslateITNativeSmoke+RECT
+            if (-not [TranslateITNativeSmoke]::GetWindowRect($hwnd, [ref]$rect)) { throw "GetWindowRect failed for $name" }
+            $width = $rect.Right - $rect.Left
+            $height = $rect.Bottom - $rect.Top
+            if ($width -lt 1200 -or $height -lt 700) { throw "Unexpected native window size for ${name}: ${width}x${height}" }
+
+            $png = Join-Path $artifactDir "$name.png"
+            $bitmap = New-Object System.Drawing.Bitmap $width, $height
+            $graphics = [System.Drawing.Graphics]::FromImage($bitmap)
+            try {
+              $hdc = $graphics.GetHdc()
+              try {
+                $ok = [TranslateITNativeSmoke]::PrintWindow($hwnd, $hdc, 2)
+              } finally {
+                $graphics.ReleaseHdc($hdc)
+              }
+            } finally {
+              $graphics.Dispose()
+            }
+            if (-not $ok) {
+              $bitmap.Dispose()
+              throw "PrintWindow failed for $name"
+            }
+            $bitmap.Save($png, [System.Drawing.Imaging.ImageFormat]::Png)
+            $bitmap.Dispose()
+
+            $check = [System.Drawing.Bitmap]::FromFile($png)
+            try {
+              $samples = New-Object 'System.Collections.Generic.HashSet[string]'
+              $stepX = [Math]::Max(1, [int]($check.Width / 80))
+              $stepY = [Math]::Max(1, [int]($check.Height / 50))
+              for ($x = 0; $x -lt $check.Width; $x += $stepX) {
+                for ($y = 0; $y -lt $check.Height; $y += $stepY) {
+                  $c = $check.GetPixel([Math]::Min($x, $check.Width - 1), [Math]::Min($y, $check.Height - 1))
+                  [void]$samples.Add("$($c.R),$($c.G),$($c.B)")
+                }
+              }
+              if ($samples.Count -lt 20) { throw "Capture $name appears incomplete; only $($samples.Count) densely sampled RGB values." }
+              Write-Host "$name -> ${width}x${height}, sampled RGB=$($samples.Count), bytes=$((Get-Item $png).Length)"
+            } finally {
+              $check.Dispose()
+            }
+          }
+
+          # Use native outer-window sizes corresponding approximately to the configured
+          # 1600x940 client startup, an intermediate desktop size, and the configured
+          # 1280x760 minimum client boundary.
+          $sizes = @(
+            @{ Name='resize-startup'; Width=1616; Height=979 },
+            @{ Name='resize-medium'; Width=1456; Height=879 },
+            @{ Name='resize-minimum'; Width=1296; Height=799 }
+          )
+
+          foreach ($size in $sizes) {
+            $ok = [TranslateITNativeSmoke]::SetWindowPos($hwnd, [IntPtr]::Zero, 0, 0, $size.Width, $size.Height, $SWP_NOMOVE -bor $SWP_NOZORDER -bor $SWP_SHOWWINDOW)
+            if (-not $ok) { throw "SetWindowPos failed for $($size.Name)" }
+            Start-Sleep -Milliseconds 900
+            $native.Refresh()
+            if ($native.HasExited -or -not $native.Responding) { throw "TranslateIT stopped responding after $($size.Name)" }
+            Capture-NativeWindow $size.Name
+          }
+
+          # Restore startup size before keyboard traversal.
+          [void][TranslateITNativeSmoke]::SetWindowPos($hwnd, [IntPtr]::Zero, 0, 0, 1616, 979, $SWP_NOMOVE -bor $SWP_NOZORDER -bor $SWP_SHOWWINDOW)
+          Start-Sleep -Milliseconds 800
+          [void][TranslateITNativeSmoke]::ShowWindow($hwnd, 9)
+          [void][TranslateITNativeSmoke]::SetForegroundWindow($hwnd)
+          Start-Sleep -Milliseconds 500
+
+          $shell = New-Object -ComObject WScript.Shell
+          if (-not $shell.AppActivate($process.Id)) { throw 'Could not activate the native TranslateIT window for keyboard smoke.' }
+          Start-Sleep -Milliseconds 400
+
+          $focusNames = New-Object 'System.Collections.Generic.List[string]'
+          for ($i = 1; $i -le 6; $i++) {
+            $shell.SendKeys('{TAB}')
+            Start-Sleep -Milliseconds 350
+            $focused = [System.Windows.Automation.AutomationElement]::FocusedElement
+            $name = if ($null -ne $focused) { [string]$focused.Current.Name } else { '' }
+            $control = if ($null -ne $focused) { [string]$focused.Current.ControlType.ProgrammaticName } else { '' }
+            $focusNames.Add($name)
+            Write-Host "TAB $i -> name='$name' control='$control'"
+
+            if ($name -eq 'Set Up Later') { Capture-NativeWindow 'focus-set-up-later' }
+            if ($name -eq 'Continue') { Capture-NativeWindow 'focus-continue' }
+            if ($focusNames.Contains('Set Up Later') -and $focusNames.Contains('Continue')) { break }
+          }
+
+          $laterIndex = $focusNames.IndexOf('Set Up Later')
+          $continueIndex = $focusNames.IndexOf('Continue')
+          if ($laterIndex -lt 0) { throw "Keyboard traversal did not reach Set Up Later. Sequence: $($focusNames -join ' | ')" }
+          if ($continueIndex -lt 0) { throw "Keyboard traversal did not reach Continue. Sequence: $($focusNames -join ' | ')" }
+          if ($continueIndex -le $laterIndex) { throw "Unexpected focus order. Sequence: $($focusNames -join ' | ')" }
+          Write-Host "Keyboard focus order PASS: Set Up Later -> Continue"
+
+          $children = Get-CimInstance Win32_Process | Where-Object { $_.ParentProcessId -eq $process.Id }
+          $pythonChildren = @($children | Where-Object { $_.Name -match '^(python|python3|py)\.exe$' })
+          if ($pythonChildren.Count -gt 0) { throw 'Fresh First Setup smoke unexpectedly spawned a Python child process.' }
+          Write-Host 'Python child process count: 0'
+
+          Stop-Process -Id $process.Id -Force
+          Start-Sleep -Seconds 2
+          if (Get-Process -Id $process.Id -ErrorAction SilentlyContinue) { throw 'TranslateIT proof process did not terminate during harness cleanup.' }
+
+      - name: Upload resize and focus screenshots
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: translateit-native-resize-focus-proof
+          path: ${{ runner.temp }}\translateit-native-resize-focus-proof\*.png
+          if-no-files-found: error
