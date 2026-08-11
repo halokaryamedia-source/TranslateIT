@@ -247,17 +247,17 @@ function meetingPreflight(meetingSession: MeetingSessionStatus | null): MeetingP
   };
 }
 
-function liveMeetingMessage(stage: string, fallback: string): string {
+function liveMeetingMessage(stage: string): string {
   if (stage === "transcribing" || stage === "translating" || stage === "synthesizing") {
-    return "Translation is live and processing finalized speech locally.";
+    return "Translation is live and preparing the English voice for your meeting.";
   }
   if (stage === "delivering") {
-    return "Translation is live and sending translated voice to the Meeting microphone.";
+    return "Translation is live and speaking English to your meeting.";
   }
   if (stage === "attention_needed") {
-    return compact(fallback, "Translation is live, but the latest outbound turn needs attention.");
+    return "Translation is live, but the latest phrase needs attention. Check Diagnostics if this continues.";
   }
-  return "Translation is live and listening for finalized Indonesian speech.";
+  return "Translation is live and listening for your next phrase.";
 }
 
 export function mapProductMeetingState(status: MeetingSessionStatus | null): ProductMeetingState {
@@ -285,28 +285,28 @@ export function mapProductMeetingState(status: MeetingSessionStatus | null): Pro
   );
 
   let label = "Setup Needed";
-  let message = preflight.summary;
+  let message = "Meeting setup needs attention.";
   if (unavailable) {
     label = "Unavailable";
-    message = "Meeting status is unavailable. Retry when the local desktop runtime is available.";
+    message = "Meeting status is unavailable. Try the check again when TranslateIT is available.";
   } else if (live) {
     label = "Live";
-    message = liveMeetingMessage(outboundStage, status?.outbound?.note ?? status?.note ?? "");
+    message = liveMeetingMessage(outboundStage);
   } else if (starting) {
     label = "Starting";
-    message = "Translation is starting and opening the required Meeting resources.";
+    message = "Translation is starting.";
   } else if (stopping) {
     label = "Stopping";
-    message = "Translation is stopping and revoking the current Meeting session safely.";
+    message = "Translation is stopping safely.";
   } else if (hasSession && !applicationOwned) {
     label = "In Use";
-    message = "Another runtime session is using Meeting resources. Finish that operation before starting Translation.";
+    message = "Meeting audio is already in use. Finish that operation before starting Translation.";
   } else if (applicationOwned && hasSession) {
     label = "Active";
-    message = "Meeting resources are still active. Stop Translation before starting a new session.";
+    message = "Meeting translation is still active. Stop it before starting a new session.";
   } else if (canStart) {
     label = "Ready";
-    message = "Required outbound Meeting capabilities are ready. Start Translation when you are ready.";
+    message = "Ready to translate. Start when your meeting is open.";
   }
 
   return {
@@ -412,7 +412,7 @@ export function mapProductReadiness(input: {
           : "checking";
   const textDirectionLabel = directionLabel(textDirection);
   const nextAction = runtimeUnavailable
-    ? "TranslateIT local desktop runtime is unavailable. Retry the status check before using translation."
+    ? "TranslateIT is unavailable right now. Try the status check again before using translation."
     : productMeeting.live
       ? "Translation is live. Stop the Meeting session when you are finished."
       : meeting.readyForStart
@@ -423,11 +423,11 @@ export function mapProductReadiness(input: {
             ? "Choose Indonesian → English or English → Indonesian for Text translation."
             : "The selected Text translation direction is not ready. Check Setup or Diagnostics if needed.";
   const summary = runtimeUnavailable
-    ? "TranslateIT local desktop runtime is unavailable. Retry the status check."
+    ? "TranslateIT is unavailable right now. Try the status check again."
     : productMeeting.live
       ? "Meeting Translation is live."
       : meeting.readyForStart
-        ? "Required outbound Meeting capabilities are ready."
+        ? "Meeting Translation is ready."
         : textReady
           ? `${textDirectionLabel} Text translation is available. Meeting Translation is not ready yet.`
           : hasRuntimeEvidence
@@ -479,7 +479,7 @@ export function mapProductReadiness(input: {
       ? "Unavailable"
       : microphoneReady
         ? compact(inputStatus?.selected_device_name, "Microphone ready")
-        : compact(inputStatus?.blocker ?? inputStatus?.note, "Microphone not checked"),
+        : "Setup Needed",
     voiceStatus: runtimeUnavailable
       ? "Unavailable"
       : voiceReady
@@ -504,8 +504,8 @@ export function mapProductReadiness(input: {
   };
 }
 
-export async function loadProductRuntimeSnapshot(): Promise<ProductRuntimeSnapshot> {
-  const settings = await runtimeApi.loadSettings();
+export async function loadProductRuntimeSnapshot(knownSettings?: RuntimeSettings): Promise<ProductRuntimeSnapshot> {
+  const settings = knownSettings ?? await runtimeApi.loadSettings();
   if (!settings) throw new Error("TranslateIT settings are unavailable.");
 
   const [meetingSession, helper, inputStatus] = await Promise.all([
@@ -553,7 +553,7 @@ export async function probeProductAudioDevice(
       kind,
       deviceId: normalizedDeviceId,
       deviceName: compact(status.selected_device_name ?? normalizedDeviceId, normalizedDeviceId ? "Selected microphone" : "Windows Default"),
-      message: compact(status.note ?? status.blocker, ok ? "Microphone is available." : "Microphone is not available."),
+      message: ok ? "Microphone is available." : "This microphone can't be used right now. Choose another microphone or Windows Default.",
     };
   }
 
@@ -563,7 +563,7 @@ export async function probeProductAudioDevice(
     kind,
     deviceId: normalizedDeviceId,
     deviceName: compact(status.resolved_device_name ?? normalizedDeviceId, normalizedDeviceId ? "Selected Meeting sound" : "Windows Default"),
-    message: compact(status.note ?? status.blocker, status.ok ? "Meeting sound device is available." : "Meeting sound device is not available."),
+    message: status.ok ? "Meeting sound is available." : "This meeting sound device can't be used right now. Choose another device or Windows Default.",
   };
 }
 
@@ -649,8 +649,11 @@ export async function runProductSetupAction(action: ProductSetupAction): Promise
       result?.ok ? "Required model assets are installed." : "Model inventory inspection finished with blockers.",
     );
   }
+
   const status = await runtimeApi.getInputStatus().catch(() => null);
-  return compact(status?.note ?? status?.blocker ?? status?.selected_device_name, "Microphone status checked.");
+  if (!status) return "Microphone status is unavailable. Try the check again.";
+  if (status.ready || status.prepared) return "Microphone is ready.";
+  return "Microphone still needs attention. Choose another microphone or Windows Default.";
 }
 
 export async function runProductRecoveryAction(action: ProductRecoveryAction): Promise<string> {
@@ -669,7 +672,7 @@ export async function runProductRecoveryAction(action: ProductRecoveryAction): P
   );
 
   if (hasProblem) return "Setup still needs attention. Open Diagnostics for technical details.";
-  return "Local setup checks completed. Retry readiness; Meeting may still require Meeting Microphone or outbound-runtime setup.";
+  return "Setup checks completed. Check Meeting again; the Meeting microphone may still need attention.";
 }
 
 export const runtimeProductFacade = {
