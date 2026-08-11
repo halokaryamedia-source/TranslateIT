@@ -14,6 +14,7 @@ Windows native release link/build   -> PASS
 Windows native launch/bootstrap     -> PASS
 Native Tauri/WebView pixel render   -> PASS
 Native resize / keyboard focus      -> PASS
+FirstSetup Svelte diagnostics       -> PASS: 0 errors / 0 warnings
 ```
 
 No user-local-PC execution occurred.
@@ -34,17 +35,16 @@ useful content gets the largest share of space
 no generic AI gradients, glow, glassmorphism, or decorative dashboard grids
 ```
 
-Meeting / Text / Settings already have actual dependency, typecheck, production-build, and browser-render evidence. Browser proof run `31518906505` used simulated Tauri Ready/device responses only.
+Meeting / Text / Settings already have actual dependency, typecheck, production-build, and browser-render evidence. Browser proof run `31518906505` used simulated Tauri Ready/device responses only. The later First Setup cleanup proof supersedes the old four-warning diagnostic baseline.
 
 ```text
 startup source contract validator -> PASS
-svelte-check                      -> PASS: 0 errors, 4 existing FirstSetup warnings
+svelte-check                      -> PASS: 0 errors / 0 warnings
 Vite production build             -> PASS
 Meeting / Text / Settings render  -> PASS
 Text translated-state interaction -> PASS with simulated response
+native First Setup render         -> PASS
 ```
-
-The four Svelte warnings remain `state_referenced_locally` warnings in `src/pages/FirstSetup.svelte`; they are not compile errors and were not introduced by the approved redesign.
 
 ## Windows Rust/Tauri Compile Baseline
 
@@ -75,8 +75,7 @@ Remote Windows proof run `31520306515` then passed:
 ```text
 Windows Server 2025 / MSVC target
 npm dependency materialization -> PASS
-svelte-check                    -> PASS: 0 errors / 4 existing FirstSetup warnings
-Vite production build           -> PASS
+Svelte/Vite frontend baseline  -> PASS
 Rust manifest preflight         -> PASS
 cargo check / Tauri Rust source -> PASS
 ```
@@ -112,7 +111,6 @@ Windows Server 2025 / MSVC target
 Node 22.16.0
 Rust 1.97.1
 npm dependency materialization -> PASS
-svelte-check                    -> PASS: 0 errors / 4 existing FirstSetup warnings
 package source preflight        -> PASS
 Tauri beforeBuildCommand/Vite   -> PASS
 native optimized release build -> PASS
@@ -235,6 +233,38 @@ artifact id: 9116153136
 
 The PNGs were downloaded and visually inspected. At the near-minimum native window size, the First Setup panel, heading, direction cards, separator, and both footer actions remain visible without overlap or clipping. `focus-tab-1.png` shows a clear focus outline on `Set Up Later`; `focus-tab-2.png` shows the focus outline moving to `Continue`. This establishes meaningful native keyboard/focus presentation at Step 1 rather than relying on UI Automation names alone.
 
+## FirstSetup Svelte Warning Cleanup
+
+The four reproducible `state_referenced_locally` warnings came from values that were intentionally one-time setup snapshots but were written in a form Svelte treated as potentially accidental initial-value capture.
+
+The bounded correction in `src/pages/FirstSetup.svelte` keeps the same values and lifecycle semantics while making the one-time snapshot intent explicit. It does **not** add `$effect`, `$derived`, a second store, prop synchronization, or new runtime ownership. Existing explicit runtime refresh/save actions remain the only later updates to those local setup values.
+
+Remote proof run `31530370950` passed:
+
+```text
+official @sveltejs/mcp svelte-autofixer
+  issues                              -> []
+  suggestions                         -> []
+  require_another_tool_call_after_fixing -> false
+svelte-check                           -> 0 errors / 0 warnings
+Vite production build                  -> PASS
+native Tauri release build             -> PASS
+fresh native First Setup               -> 1616 x 979 / coherent
+native capture sampled RGB             -> 36
+native capture bytes                   -> 41,049
+Python child process count             -> 0
+```
+
+Artifact:
+
+```text
+translateit-firstsetup-warning-proof
+artifact id: 9116984528
+file: TranslateIT-FirstSetup-Warning-Clean.png
+```
+
+The PNG was downloaded and visually inspected. The approved First Setup composition remains unchanged at the startup presentation boundary: progress header, setup explanation, both translation-direction cards, `Set Up Later`, and `Continue` remain coherent. This closes the four frontend Svelte warnings without expanding product/runtime scope.
+
 The native release build still emits existing Rust warnings, mainly dead/internal paths plus one unused incoming-recovery binding. Do not mass-delete those paths merely to silence warnings before runtime evidence establishes which code is genuinely obsolete.
 
 Temporary proof workflows are removed after evidence is recorded; no permanent CI owner is introduced by these proof slices.
@@ -269,7 +299,8 @@ Obtained:
 ```text
 dependency materialization in proof runners
 source validator
-svelte-check
+official Svelte autofixer on First Setup
+svelte-check -> 0 errors / 0 warnings
 Vite production build
 actual Meeting / Text / Settings browser render
 basic Text translated-state interaction
@@ -278,12 +309,12 @@ native First Setup Tauri/WebView pixel render
 native startup / medium / near-minimum resize render
 native Step 1 keyboard focus reachability
 visible native focus indicators on both Step 1 actions
+clean First Setup native re-render after warning correction
 ```
 
 Still required before release:
 
 ```text
-review/fix relevant FirstSetup warnings
 adopt/review canonical dependency lockfile
 clipboard proof
 real runtime-state projection
@@ -353,7 +384,9 @@ P0 source correctness CLOSED
 -> Windows native launch/bootstrap PASS
 -> native Tauri/WebView presentation PASS
 -> remote resize/focus proof PASS
--> bounded frontend warning/determinism cleanup
+-> FirstSetup Svelte warning cleanup PASS
+-> canonical frontend dependency lockfile
+-> remaining remote-safe frontend/native proof
 -> later explicit approval for local/model/audio proof
 -> fix measured failures
 -> finish only still-relevant P1
@@ -362,8 +395,8 @@ P0 source correctness CLOSED
 
 ## Current Mode
 
-**Proof / Maintenance boundary** — native Tauri resize and Step 1 keyboard-focus presentation are now proven remotely on a fresh GitHub-hosted Windows profile. No user-local-PC, Python/model, or real audio execution occurred. The next concrete frontend issue is the four reproducible First Setup Svelte warnings already emitted by every production build.
+**Maintenance / determinism boundary** — First Setup now passes the official Svelte autofixer, `svelte-check` with 0 errors / 0 warnings, production build, native Tauri build, and fresh native render without changing setup semantics or the approved visual baseline. No user-local-PC, Python/model, or real audio execution occurred.
 
-## Next Step — P2.1 FirstSetup Svelte Warning Cleanup
+## Next Step — P2.1 Canonical Frontend Dependency Lockfile
 
-Resolve the four existing `state_referenced_locally` warnings in `src/pages/FirstSetup.svelte` without changing setup semantics or the approved visual baseline. Re-run remote `svelte-check`, production build, and the fresh First Setup render after the bounded correction. Do not combine this with Python/model/audio work or user-local-PC testing; canonical frontend lockfile review remains the subsequent determinism item after the warnings are clean.
+Regenerate and review a canonical `package-lock.json` for the current Svelte/Vite/Tauri frontend dependency graph using the same proven Node/npm baseline, then verify deterministic clean dependency installation plus `svelte-check` and production build from that lockfile. Adopt the lockfile only if it matches the current dependency owners and does not introduce unnecessary packages or a second frontend toolchain. Keep this remote-only; do not combine it with Python/model/audio work or user-local-PC testing.
