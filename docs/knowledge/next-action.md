@@ -4,56 +4,44 @@
 
 The initial product remains Meeting / Text / Settings with required Indonesian -> English Meeting voice, optional incoming English -> Indonesian text, and bidirectional Text translation.
 
-P0 through P0.4 source simplification remain closed. The packaged-worker interpreter source slice is now aligned as well:
+P0 through P0.4 source simplification remain closed. Packaged-worker interpreter source ownership is aligned, and the long-term frontend architecture/skill routing is now decided without changing the current runtime critical path:
 
 - initial release still has no SHA-256/checksum/revision identity framework;
-- the installed worker remains the existing Python scripts, not a frozen PyInstaller/Nuitka executable and not a copied `.venv`;
-- canonical packaged interpreter path is `EngineData/Backend/LocalWorker/PythonRuntime/python.exe` under the existing immutable runtime root;
-- `engine/paths.rs` now owns `python_runtime_dir` beside `worker_runtime_dir`;
-- packaged `bridge_paths.rs` resolves only that private `python.exe`; missing packaged Python fails closed rather than falling through to env/`.venv`/system Python;
-- `TRANSLATEIT_WORKER_PYTHON`, worker `.venv`, system `python`/`python3`, and Windows `py` remain available only after verified repository-development discovery;
-- packaged resolution checks the canonical file directly; interpreter `--version` probing is development-only and is not added per Meeting utterance;
-- `helper_bridge.rs` and `virtual_audio_route_runtime.rs` use the same interpreter resolver;
-- the Meeting provider script resolves from the same `WorkerRuntime` root and no longer has a separate `TRANSLATEIT_PYTHON`/system-Python selector;
-- `sounddevice` is now a normal worker runtime dependency because the Meeting Microphone provider imports it;
-- package preflight source definition now protects this ownership without claiming payload/runtime success.
+- canonical packaged Python is `EngineData/Backend/LocalWorker/PythonRuntime/python.exe` and packaged source cannot silently fall through to system Python;
+- the existing worker/provider scripts remain the one Python runtime owner;
+- current frontend source is still Vite + vanilla TypeScript/manual DOM and remains runtime truth until migration is implemented;
+- approved frontend target is Tauri 2 + Svelte 5 + Vite + TypeScript + Tailwind CSS 4 + semantic CSS custom-property tokens + selective Bits UI + Lucide Svelte;
+- SvelteKit, frontend router, Redux-like state library, heavy UI framework, CSS-in-JS, full shadcn-svelte dump, and general animation framework are not default dependencies;
+- framework/application migration routes to `desktop-runtime-development`;
+- visual system/component craft routes to `desktop-ui-design-development`;
+- official Svelte `svelte-code-writer`, `svelte-core-bestpractices`, and `@sveltejs/mcp` tooling are conditional technical helpers, not new TranslateIT project specialists;
+- the frozen TranslateIT project-skill baseline remains unchanged;
+- no Svelte package/source migration was started in this skill-governance slice.
 
-No Rust compile, TypeScript typecheck, validator execution, Python runtime payload build, worker/model execution, Tauri launch, Windows audio acceptance, installer execution, or clean-machine proof was obtained through ChatGPT -> GitHub.
+No Rust compile, TypeScript/Svelte typecheck, Svelte autofixer, validator execution, Python runtime payload build, worker/model execution, Tauri launch, rendered UI proof, Windows audio acceptance, installer execution, or clean-machine proof was obtained through ChatGPT -> GitHub.
 
-## Closed Developing — Packaged Worker Interpreter Ownership
+## Frontend Skill Architecture — Closed Decision
 
-Current source contract:
-
-```text
-Tauri packaged runtime root
-└─ EngineData/Backend/LocalWorker/
-   ├─ WorkerRuntime/
-   │  ├─ realtime_local_worker.py
-   │  └─ virtual_audio_route_provider.py
-   └─ PythonRuntime/
-      └─ python.exe
-```
-
-Installed mode:
+Professional frontend work now follows this composition:
 
 ```text
-ProjectPaths.python_runtime_dir
--> PythonRuntime/python.exe
--> shared resolve_worker_python_command()
--> persistent worker + Meeting Microphone provider
+approved behavior-changing / migration task
+-> development-brief
+-> one semantic TranslateIT specialist
+
+framework/application migration + state/bridge parity
+-> desktop-runtime-development
+
+visual hierarchy/layout/tokens/component states/rendered acceptance
+-> desktop-ui-design-development
+
+Svelte syntax/reactivity/framework validation
+-> official Svelte technical helper workflow
 ```
 
-Verified repository development may still use:
+For future `.svelte`, `.svelte.ts`, or `.svelte.js` work in Codex/Local, the official Svelte helper/autofixer workflow is required before finalization. This tooling does not become a second project specialist or runtime dependency.
 
-```text
-TRANSLATEIT_WORKER_PYTHON
-WorkerRuntime/.venv
-system python
-system python3
-Windows py -3
-```
-
-Those options are not reachable as packaged-release fallback. The actual private Python files and third-party packages are not present/proved by this source slice.
+The migration itself must remain behavior-preserving: one Svelte application root, existing Tauri/runtime bridge contracts preserved by default, no duplicated product truth in frontend stores, and no permanent vanilla/Svelte dual shell.
 
 ## Current Mode
 
@@ -65,13 +53,13 @@ Execution channel:
 Codex / Local
 ```
 
-The next boundary needs an actual Windows/release filesystem and process execution. Do not replace it with more static metadata or another validator.
+The next boundary still needs an actual Windows/release filesystem and process execution. The frontend architecture decision does not replace that runtime proof.
 
 ## Next Step — Prepare PythonRuntime Payload + Worker Smoke
 
 ### Goal
 
-Build one real private `PythonRuntime` payload locally at the selected layout and prove that the existing worker/provider execute from it outside the repository before adding installer staging.
+Build one real private `PythonRuntime` payload locally at the selected layout and prove that the existing worker/provider execute from it outside the repository before adding installer staging or beginning the Svelte source migration.
 
 ### Required Payload
 
@@ -121,7 +109,8 @@ Clean-machine Windows execution is still required after the local prepared paylo
 - do not add a downloader, package manager, dependency registry, hash/checksum framework, freeze spec, or another worker launcher;
 - do not change model family, worker protocol, Meeting lifecycle, or audio routing semantics to make packaging easier;
 - do not add NSIS/Tauri payload-copy hooks until the prepared private runtime actually starts the worker and provider locally;
-- failed import/load/process proof is evidence to fix the prepared payload, not permission to fall back to system Python in packaged mode.
+- failed import/load/process proof is evidence to fix the prepared payload, not permission to fall back to system Python in packaged mode;
+- do not begin the Svelte migration inside this runtime-proof slice.
 
 ### Acceptance
 
@@ -131,4 +120,4 @@ Clean-machine Windows execution is still required after the local prepared paylo
 4. no system Python/uv/.venv dependency is needed for the tested runtime path;
 5. exact local limitations are recorded before the subsequent installer-staging slice.
 
-After this passes, the next source change should be the smallest Tauri/NSIS placement hook for the already-proven payload, not a new runtime architecture.
+After this passes, the next source work can be explicitly prioritized between the smallest Tauri/NSIS placement hook for the proven runtime payload and the approved Svelte migration; do not mix those independent boundaries in one Developing slice.
