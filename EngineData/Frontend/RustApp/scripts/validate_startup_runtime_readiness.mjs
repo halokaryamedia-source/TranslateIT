@@ -62,7 +62,7 @@ requireMarkers(source.app, "Svelte application owner", [
   "mapProductReadiness",
   "transcriptStatusKey",
   "lastTranscriptStatusKey",
-  "applyMeetingStatus(result.status, result.message)",
+  "applyMeetingStatus(result.status, resultNotice)",
   "getCurrentWindow().onCloseRequested",
   "<FirstSetup",
   "<Meeting",
