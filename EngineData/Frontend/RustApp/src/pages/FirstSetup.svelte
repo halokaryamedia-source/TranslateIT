@@ -30,16 +30,18 @@
     return Math.max(1, Math.min(5, step)) as SetupStep;
   }
 
-  let settings = $state<RuntimeSettings>(cloneSettings(initialSettings));
+  // These are intentional one-time snapshots. Subsequent setup changes are owned
+  // locally or refreshed explicitly through the existing runtime actions below.
+  let settings = $state<RuntimeSettings>((() => cloneSettings(initialSettings))());
   let snapshot = $state<ProductRuntimeSnapshot | null>(null);
   let routeStatus = $state<VirtualMicRouteContractStatus | null>(null);
   let devices = $state<AudioDeviceListReport | null>(null);
   let meetingSoundReady = $state<boolean | null>(null);
-  let step = $state<SetupStep>(checkpoint(settings));
+  let step = $state<SetupStep>((() => checkpoint(settings))());
   let busy = $state(false);
   let message = $state("");
-  let selectedMicrophone = $state(String(settings.audio.input_device_id ?? ""));
-  let selectedMeetingSound = $state(String(settings.audio.output_device_id ?? ""));
+  let selectedMicrophone = $state((() => String(settings.audio.input_device_id ?? ""))());
+  let selectedMeetingSound = $state((() => String(settings.audio.output_device_id ?? ""))());
 
   function compact(value: unknown, fallback = "Unavailable"): string {
     const clean = String(value ?? "").replace(/\s+/g, " ").trim();
