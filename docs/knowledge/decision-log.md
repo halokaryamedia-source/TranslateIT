@@ -231,3 +231,18 @@ Independent keyword discovery could report `Ready` for unrelated virtual endpoin
 
 **Proof status**  
 The matched-pair selection, generation-bound source contract, provider handoff, and truthful endpoint presentation are established on `New`. Actual Windows endpoint names, real cable pairing, meeting-application reception, endpoint-removal behavior, and multi-cable ambiguity still require deferred target-Windows proof.
+
+## D-016 — Meeting Route Provider Preflight Has A Pre-Authority Safety Ceiling
+
+**Decision**  
+Meeting route provider preflight must never hold Start indefinitely before application Meeting authority exists. The current Rust audio-route owner therefore spawns the existing provider preflight process, polls its lifecycle, and enforces a 30-second pre-authority safety ceiling. If the provider has not exited by that ceiling, Rust terminates and waits for the child before returning `virtual_audio_route:provider_preflight_deadline_exceeded`.
+
+The 30-second value is a hang-containment ceiling, not a product latency target or a playback SLA. It intentionally matches the existing local-worker response safety envelope so cold Python startup/import/device enumeration has substantial room while an actual hang remains bounded. Successful preflight still records its measured elapsed time; that measured value continues to ground the separate duration-based per-utterance playback deadline.
+
+The preflight continues to consume the matched route pair prepared by D-015 and still runs before Meeting authority. No persistent route daemon, generic timeout framework, alternate provider path, or reuse of the playback-duration formula is introduced.
+
+**Reason**  
+A synchronous unbounded provider wait could leave Start stuck forever on dependency import or Windows device enumeration even though no Meeting authority had been committed. Bounding the child lifecycle preserves transactional Start semantics without changing the delivery architecture.
+
+**Proof status**  
+The spawn/poll/kill/wait source contract and explicit timeout blocker are established on `New`. Forced provider-preflight hang, actual child termination, resource cleanup, and acceptable cold-start timing still require deferred local/target-Windows proof.
