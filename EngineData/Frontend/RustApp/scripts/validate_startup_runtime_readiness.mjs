@@ -20,6 +20,8 @@ const paths = {
   facade: resolve(root, "src/app/bridge/runtimeProductFacade.ts"),
   registry: resolve(root, "src-tauri/src/commands/registry.rs"),
   meetingSession: resolve(root, "src-tauri/src/commands/meeting_session.rs"),
+  helperBridge: resolve(root, "src-tauri/src/commands/helper_bridge.rs"),
+  helperBridgeRuntime: resolve(root, "src-tauri/src/commands/helper_bridge_runtime.rs"),
   settingsCommands: resolve(root, "src-tauri/src/commands/settings.rs"),
   textTranslate: resolve(root, "src-tauri/src/commands/text_translate.rs"),
   runtimeState: resolve(root, "src-tauri/src/engine/runtime_state.rs"),
@@ -196,6 +198,29 @@ requireMarkers(source.textTranslate, "Text translation command contract", [
   "TextTranslationResult::blocked",
 ]);
 
+requireMarkers(source.helperBridge, "Meeting outbound AI preparation", [
+  "fn meeting_start_prepare",
+  "prepare_required_outbound_ai_runtime",
+  '"meeting_start_prepare": true',
+  "HelperTaskPriority::MeetingOutbound",
+  'send_worker_task("asr_preload"',
+  '"translation_preload"',
+  'send_worker_task("tts_preflight"',
+]);
+requireMarkers(source.helperBridgeRuntime, "required outbound readiness invalidation", [
+  "required_outbound_prepare_failed",
+  "runtime.provider_ready = false",
+  'stage == "asr_preload"',
+  'stage == "tts_preflight"',
+  'Some("id->en")',
+]);
+requireMarkers(source.meetingSession, "Meeting outbound Start hardening", [
+  "prepare_required_outbound_ai_runtime",
+  '"outbound_runtime_prepare_failed"',
+  '"blocked_after_runtime_prepare"',
+  'if empty { "listening" } else { "attention_needed" }',
+]);
+
 requireMarkers(source.settingsRust, "settings schema", ["const CURRENT_SCHEMA_VERSION: u32 = 6;", "pub source_language: String", "pub target_language: String", "pub meeting_setup_state: String", "pub meeting_setup_checkpoint: u8", "pub input_device_id: Option<String>", "pub output_device_id: Option<String>"]);
 requireMarkers(source.frontendState, "frontend settings defaults", ["schema_version: 6", 'source_language: "id"', 'target_language: "en"', 'meeting_setup_state: "new"']);
 forbidMarkers(source.frontendTypes, "frontend settings type", ["runtime_profile", "history_enabled", "voice_actor_profile_id"]);
@@ -222,4 +247,4 @@ if (!models.some((model) => model.model_id === "marianmt-en-id")) throw new Erro
 if (models.some((model) => model.model_id === "nllb-200-distilled-600M")) throw new Error("NLLB must not return to current translation inventory");
 if (models.some((model) => Object.hasOwn(model, "revision") || Object.hasOwn(model, "checksum"))) throw new Error("Initial model inventory must not grow revision/checksum release-identity placeholders");
 
-console.log("[startup-readiness] Svelte Meeting/Text/Settings/First Setup ownership, coherent Meeting projection, gated transcript polling, atomic audio-device selection, user-safe Text result separation, familiar translation interaction hierarchy, runtime bridge, settings schema, Meeting lifecycle, and direction-based worker contracts are source-aligned. Dependency install, Svelte compile/render, model execution, Windows audio, and installed-runtime proof remain separate.");
+console.log("[startup-readiness] Svelte Meeting/Text/Settings/First Setup ownership, coherent Meeting projection, gated transcript polling, atomic audio-device selection, user-safe Text result separation, required outbound AI preparation before Meeting Live, truthful ASR attention state, familiar translation interaction hierarchy, runtime bridge, settings schema, Meeting lifecycle, and direction-based worker contracts are source-aligned. Dependency install, Svelte compile/render, model execution, Windows audio, and installed-runtime proof remain separate.");
