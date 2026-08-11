@@ -246,3 +246,18 @@ A synchronous unbounded provider wait could leave Start stuck forever on depende
 
 **Proof status**  
 The spawn/poll/kill/wait source contract and explicit timeout blocker are established on `New`. Forced provider-preflight hang, actual child termination, resource cleanup, and acceptable cold-start timing still require deferred local/target-Windows proof.
+
+## D-017 — Windows Power Transitions Converge Through Canonical Meeting Stop
+
+**Decision**  
+Windows sleep/hibernate lifecycle is attached to the existing Tauri main-window owner, not to a second Meeting or audio lifecycle. The Windows main window receives native power-management messages and handles suspend plus the first automatic/critical resume boundary by checking whether the application Meeting still owns a runtime session. If it does, TranslateIT calls the existing `stop_meeting_translation()` path.
+
+The canonical Stop path remains authority-first: it revokes the active Meeting generation before provider/helper/consumer/capture cleanup. A resume-side call is cleanup convergence only for a session that somehow remains after the low-power transition; it never starts, resumes, or replays a Meeting. A normal suspend/resume with no application Meeting is a no-op.
+
+The hook is installed during main-window bootstrap and failure to install it on Windows fails bootstrap rather than silently launching without the required lifecycle safety boundary. The implementation uses the native window message ABI directly and adds no second dependency/runtime owner, Pause/Resume feature, automatic wake restart, or sleep-specific audio cleanup stack.
+
+**Reason**  
+Sleep/hibernate can interrupt capture, provider, helper, and device ownership while old output work is still in flight. Reusing canonical Stop preserves the same generation invalidation and cleanup ordering already used by user Stop and safe close, while a resume convergence check prevents stale authority from surviving a power transition.
+
+**Proof status**  
+The source wiring from Windows power notification to canonical Stop is established on `New`. Rust/Tauri compile, real Windows sleep/hibernate notification delivery, authority invalidation timing, interrupted-cleanup convergence, device/resource release, and no-auto-resume behavior still require deferred target-Windows proof.
