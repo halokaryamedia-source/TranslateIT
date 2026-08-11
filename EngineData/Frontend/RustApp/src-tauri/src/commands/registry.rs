@@ -14,6 +14,7 @@ pub fn register<R: tauri::Runtime>(builder: tauri::Builder<R>) -> tauri::Builder
         crate::commands::audio::probe_output_device_candidate,
         crate::commands::settings::load_runtime_settings,
         crate::commands::settings::save_runtime_settings,
+        crate::commands::settings::select_audio_device,
         crate::commands::runtime_capture::start_capture,
         crate::commands::runtime_capture::stop_capture,
         crate::commands::text_translate::translate_text,
