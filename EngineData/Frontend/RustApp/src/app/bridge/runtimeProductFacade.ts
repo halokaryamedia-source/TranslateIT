@@ -81,6 +81,7 @@ export type ProductMeetingActionResult = {
   state: string;
   message: string;
   meeting: ProductMeetingState;
+  status: MeetingSessionStatus;
 };
 
 export type ProductTranslationResult = {
@@ -89,6 +90,7 @@ export type ProductTranslationResult = {
   translated: string;
   status: string;
   message: string;
+  blocker: string;
 };
 
 export type ProductAudioDeviceKind = "microphone" | "meeting-sound";
@@ -120,6 +122,10 @@ type WorkerCapabilitySnapshot = {
 
 type MeetingPreflightSnapshot = {
   readyForStart: boolean;
+  microphoneReady: boolean;
+  modelsReady: boolean;
+  helperReady: boolean;
+  providerReady: boolean;
   meetingRouteReady: boolean;
   routeExecutionReady: boolean;
   blockers: string[];
@@ -217,6 +223,10 @@ function meetingPreflight(meetingSession: MeetingSessionStatus | null): MeetingP
   if (!preflight) {
     return {
       readyForStart: false,
+      microphoneReady: false,
+      modelsReady: false,
+      helperReady: false,
+      providerReady: false,
       meetingRouteReady: false,
       routeExecutionReady: false,
       blockers: [],
@@ -226,6 +236,10 @@ function meetingPreflight(meetingSession: MeetingSessionStatus | null): MeetingP
 
   return {
     readyForStart: preflight.ready_for_start === true,
+    microphoneReady: preflight.microphone_ready === true,
+    modelsReady: preflight.models_ready === true,
+    helperReady: preflight.helper_ready === true,
+    providerReady: preflight.provider_ready === true,
     meetingRouteReady: preflight.meeting_route_ready === true,
     routeExecutionReady: preflight.route_execution_guard_ready === true,
     blockers: Array.isArray(preflight.blockers) ? preflight.blockers.map(String) : [],
@@ -353,14 +367,15 @@ export function mapProductReadiness(input: {
   const inputUnavailable = inputBridgeUnavailable(inputStatus);
   const runtimeUnavailable = helperUnavailable && meetingUnavailable && inputUnavailable;
 
-  const helperReady = helper?.state === "ready";
-  const microphoneReady = Boolean(inputStatus?.ready || inputStatus?.prepared);
-  const asrReady = helperReady && worker.asrReady;
-  const translationIdEnReady = helperReady && worker.translationIdEnReady;
-  const translationEnIdReady = helperReady && worker.translationEnIdReady;
-  const ttsReady = helperReady && worker.ttsReady;
-  const providerReady = asrReady && translationIdEnReady && ttsReady;
-  const modelsReady = providerReady;
+  const workerHelperReady = helper?.state === "ready";
+  const helperReady = meeting.helperReady;
+  const microphoneReady = meeting.microphoneReady;
+  const asrReady = workerHelperReady && worker.asrReady;
+  const translationIdEnReady = workerHelperReady && worker.translationIdEnReady;
+  const translationEnIdReady = workerHelperReady && worker.translationEnIdReady;
+  const ttsReady = workerHelperReady && worker.ttsReady;
+  const providerReady = meeting.providerReady;
+  const modelsReady = meeting.modelsReady;
 
   const textDirection = selectedTextDirection(settings);
   const textReady = textDirection === "id->en"
@@ -406,7 +421,7 @@ export function mapProductReadiness(input: {
           ? "Text translation is available. Meeting setup still needs attention."
           : textDirection === "unsupported"
             ? "Choose Indonesian → English or English → Indonesian for Text translation."
-            : "The selected Text translation direction is not ready. Use Fix Setup or Diagnostics if needed.";
+            : "The selected Text translation direction is not ready. Check Setup or Diagnostics if needed.";
   const summary = runtimeUnavailable
     ? "TranslateIT local desktop runtime is unavailable. Retry the status check."
     : productMeeting.live
@@ -455,12 +470,12 @@ export function mapProductReadiness(input: {
         : compact(helper?.state ?? helper?.message, "Local worker not running"),
     modelStatus: helperUnavailable
       ? "Unavailable"
-      : providerReady
+      : modelsReady
         ? "Required outbound model runtime ready"
         : worker.responseAvailable
           ? "Required outbound model runtime needs setup"
           : "Worker capability not checked",
-    microphoneStatus: inputUnavailable
+    microphoneStatus: inputUnavailable && meetingUnavailable
       ? "Unavailable"
       : microphoneReady
         ? compact(inputStatus?.selected_device_name, "Microphone ready")
@@ -490,14 +505,16 @@ export function mapProductReadiness(input: {
 }
 
 export async function loadProductRuntimeSnapshot(): Promise<ProductRuntimeSnapshot> {
-  const settings = await runtimeApi.loadSettings().catch(() => defaultSettings());
+  const settings = await runtimeApi.loadSettings();
+  if (!settings) throw new Error("TranslateIT settings are unavailable.");
+
   const [meetingSession, helper, inputStatus] = await Promise.all([
-    runtimeApi.getMeetingSessionStatus().catch(() => null),
-    runtimeApi.getHelperBridgeStatus().catch(() => null),
-    runtimeApi.getInputStatus().catch(() => null),
+    runtimeApi.getMeetingSessionStatus(),
+    runtimeApi.getHelperBridgeStatus(),
+    runtimeApi.getInputStatus(),
   ]);
-  const workerStatus = helper?.state === "ready"
-    ? await runtimeApi.helperBridgeWorkerStatus().catch(() => null)
+  const workerStatus = helper.state === "ready"
+    ? await runtimeApi.helperBridgeWorkerStatus()
     : null;
   const meeting = mapProductMeetingState(meetingSession);
   const readiness = mapProductReadiness({ settings, helper, workerStatus, inputStatus, meetingSession });
@@ -514,7 +531,8 @@ export async function runProductMeetingAction(action: ProductMeetingAction): Pro
     action,
     state: compact(result.state, result.ok ? "completed" : "blocked"),
     message: compact(result.message, fallbackMessage),
-    meeting: mapProductMeetingState(result.status ?? null),
+    meeting: mapProductMeetingState(result.status),
+    status: result.status,
   };
 }
 
@@ -552,48 +570,62 @@ export async function probeProductAudioDevice(
 export async function selectProductAudioDevice(
   kind: ProductAudioDeviceKind,
   deviceId: string | null,
+  currentSettings: RuntimeSettings,
 ): Promise<ProductAudioDeviceSelectionResult> {
-  const currentSettings = await runtimeApi.loadSettings().catch(() => defaultSettings());
-  const probe = await probeProductAudioDevice(kind, deviceId);
-  if (!probe.ok) {
-    return { ...probe, settings: currentSettings, message: `${probe.message} The previous device preference was kept.` };
-  }
-
-  const candidateSettings: RuntimeSettings = { ...currentSettings, audio: { ...currentSettings.audio } };
-  if (kind === "microphone") candidateSettings.audio.input_device_id = probe.deviceId;
-  else candidateSettings.audio.output_device_id = probe.deviceId;
-
-  const saveResult = await runtimeApi.saveSettings(candidateSettings);
-  if (!saveResult.ok) {
+  const normalizedDeviceId = String(deviceId ?? "").trim() || null;
+  const result = await runtimeApi.selectAudioDevice(kind, normalizedDeviceId);
+  if (!result) {
     return {
-      ...probe,
       ok: false,
+      kind,
+      deviceId: normalizedDeviceId,
+      deviceName: normalizedDeviceId ?? "Windows Default",
+      message: "Audio settings are unavailable right now. The previous device preference was kept.",
       settings: currentSettings,
-      message: `${compact(saveResult.message, "The device preference could not be saved.")} The previous device preference was kept.`,
     };
   }
 
-  const savedSettings = await runtimeApi.loadSettings().catch(() => candidateSettings);
-  const label = kind === "microphone" ? "Microphone" : "Meeting sound";
-  return { ...probe, ok: true, settings: savedSettings, message: `${label} set to ${probe.deviceId ? probe.deviceName : "Windows Default"}.` };
+  return {
+    ok: result.ok,
+    kind,
+    deviceId: result.device_id,
+    deviceName: compact(result.device_name, result.device_id ?? "Windows Default"),
+    message: compact(result.message, result.ok ? "Audio device saved." : "Audio device was not changed."),
+    settings: result.settings,
+  };
 }
 
 export async function runProductTranslation(source: string): Promise<ProductTranslationResult> {
   const cleaned = source.trim();
   if (!cleaned) {
-    return { ok: false, source, translated: "", status: "empty", message: "Type text before translating." };
+    return {
+      ok: false,
+      source,
+      translated: "",
+      status: "empty",
+      message: "Type or paste something to translate.",
+      blocker: "text_translation:empty_input",
+    };
   }
   try {
     const result = await runtimeApi.translateText(cleaned);
     return {
-      ok: Boolean(result?.ok),
+      ok: Boolean(result.ok),
       source: cleaned,
-      translated: result?.message ?? "",
-      status: result?.state ?? (result?.ok ? "translated" : "blocked"),
-      message: result?.message ?? "Translation command returned no message.",
+      translated: result.translated_text,
+      status: result.state,
+      message: result.user_message,
+      blocker: result.blocker,
     };
   } catch (error) {
-    return { ok: false, source: cleaned, translated: "", status: "frontend_bridge_error", message: errorMessage(error) };
+    return {
+      ok: false,
+      source: cleaned,
+      translated: "",
+      status: "frontend_bridge_error",
+      message: "Translation is unavailable right now. Try again or check Diagnostics.",
+      blocker: errorMessage(error),
+    };
   }
 }
 
