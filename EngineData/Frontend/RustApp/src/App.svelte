@@ -10,7 +10,7 @@
     type ProductRuntimeSnapshot,
     type ProductSetupAction,
   } from "./app/bridge/runtimeProductFacade";
-  import { defaultSettings, errorMessage } from "./app/shared/state";
+  import { defaultSettings } from "./app/shared/state";
   import type { RuntimeSettings } from "./app/shared/types";
   import Sidebar from "./components/layout/Sidebar.svelte";
   import FirstSetup from "./pages/FirstSetup.svelte";
@@ -116,20 +116,32 @@
     if (preferredNotice) setNotice(preferredNotice);
   }
 
-  async function refreshSnapshot(preferredNotice?: string): Promise<void> {
+  async function refreshSnapshot(preferredNotice?: string, knownSettings?: RuntimeSettings): Promise<void> {
     try {
       const previousSessionId = snapshot?.meeting.sessionId ?? null;
-      const next = await runtimeProductFacade.loadProductRuntimeSnapshot();
-      snapshot = next;
+      const next = await runtimeProductFacade.loadProductRuntimeSnapshot(knownSettings);
       setupSettings = cloneSettings(next.settings);
+
+      if (next.settings.meeting_setup_state === "new") {
+        setupRequired = true;
+        snapshot = null;
+        meetingStatus = null;
+        meetingTurns = null;
+        lastTranscriptStatusKey = "";
+        setNotice(preferredNotice ?? "Continue Meeting setup to use voice translation.");
+        return;
+      }
+
+      setupRequired = false;
+      snapshot = next;
       meetingStatus = next.meetingSession;
       if (!next.meeting.hasSession || previousSessionId !== next.meeting.sessionId) {
         meetingTurns = null;
         lastTranscriptStatusKey = "";
       }
       setNotice(preferredNotice ?? (next.meeting.hasSession ? next.meeting.message : next.readiness.summary));
-    } catch (error) {
-      setNotice(`Couldn't check TranslateIT: ${errorMessage(error)}`);
+    } catch {
+      setNotice("TranslateIT couldn't refresh its status. Try again or open Diagnostics.");
     }
   }
 
@@ -151,7 +163,7 @@
   async function finishFirstSetup(next: RuntimeSettings): Promise<void> {
     setupSettings = cloneSettings(next);
     setupRequired = false;
-    await refreshSnapshot("Setup saved.");
+    await refreshSnapshot("Setup saved.", next);
     route = "meeting";
   }
 
@@ -180,8 +192,8 @@
         meetingTurns = null;
         lastTranscriptStatusKey = "";
       }
-    } catch (error) {
-      setNotice(`Meeting action failed: ${errorMessage(error)}`);
+    } catch {
+      setNotice("The Meeting action couldn't be completed. Try again or check Diagnostics.");
       await refreshSnapshot();
     } finally {
       meetingActionBusy = false;
@@ -229,8 +241,8 @@
     try {
       const result = snapshot.readiness.recording ? await runtimeApi.stopCapture() : await runtimeApi.startCapture();
       await refreshSnapshot(result.message);
-    } catch (error) {
-      setNotice(`Mic Test failed: ${errorMessage(error)}`);
+    } catch {
+      setNotice("Mic Test couldn't be completed. Try again or check Diagnostics.");
     } finally {
       micTestBusy = false;
     }
@@ -369,7 +381,7 @@
 
       const result = await runtimeProductFacade.runProductMeetingAction("stop");
       if (!result.ok) {
-        showCloseDialog("Couldn't stop translation", `TranslateIT will stay open. ${result.message}`, "stop");
+        showCloseDialog("Couldn't stop translation", "TranslateIT will stay open. Try Stop again or check Diagnostics.", "stop");
         return;
       }
 
@@ -390,8 +402,8 @@
         return;
       }
       showCloseDialog("Translation is still active", "TranslateIT hasn't confirmed that Meeting translation ended, so the app will stay open.", verifiedMeeting.applicationOwned ? "stop" : null);
-    } catch (error) {
-      showCloseDialog("Couldn't close TranslateIT", `The app will stay open. ${errorMessage(error)}`, "retry");
+    } catch {
+      showCloseDialog("Couldn't close TranslateIT", "The app will stay open. Try again or check Diagnostics.", "retry");
     } finally {
       stopAndCloseBusy = false;
     }
@@ -419,7 +431,7 @@
         }
         setupSettings = cloneSettings(loadedSettings);
         setupRequired = setupSettings.meeting_setup_state === "new";
-        if (!setupRequired) await refreshSnapshot();
+        if (!setupRequired) await refreshSnapshot(undefined, loadedSettings);
       } finally {
         if (!disposed) booting = false;
       }
@@ -521,7 +533,14 @@
       <span class="ti-kicker">TranslateIT</span>
       <h1 class="mb-0 mt-3 text-2xl font-semibold">TranslateIT isn't ready yet</h1>
       <p class="mb-0 mt-3 text-sm leading-6 text-[var(--ti-text-muted)]">{notice}</p>
-      <button type="button" class="ti-button mt-5" onclick={() => void refreshSnapshot("Checking again...")}>Try Again</button>
+      <button
+        type="button"
+        class="ti-button mt-5"
+        onclick={() => {
+          setNotice("Checking again...");
+          void refreshSnapshot();
+        }}
+      >Try Again</button>
     </section>
   </main>
 {/if}
