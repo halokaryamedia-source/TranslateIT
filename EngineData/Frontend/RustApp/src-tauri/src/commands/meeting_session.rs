@@ -31,7 +31,8 @@ use crate::engine::runtime_state::{
 use super::audio::get_input_status;
 use super::helper_bridge::{
     cancel_helper_bridge_meeting_session, get_helper_bridge_status,
-    prepare_required_outbound_ai_runtime, send_helper_worker_task, HelperBridgeWorkerResponse,
+    prepare_required_outbound_ai_runtime, send_helper_worker_task, start_helper_bridge,
+    HelperBridgeWorkerResponse,
 };
 use super::helper_bridge_runtime::unix_ms;
 use super::runtime_inventory::get_model_inventory;
@@ -712,6 +713,26 @@ fn blocked_result(state: &str, message: String) -> MeetingSessionActionResult {
         state: state.to_string(),
         message,
         status: current_status(),
+    }
+}
+
+fn recover_helper_after_meeting_stop_if_needed() -> Result<(), String> {
+    let helper = get_helper_bridge_status();
+    if helper.state != "stopped"
+        || helper.last_error.as_deref()
+            != Some("helper_bridge:meeting_session_hard_cancelled")
+    {
+        return Ok(());
+    }
+
+    // Only the intentional Meeting Stop hard-cancel state is auto-recovered here.
+    // Missing runtime/model/provider failures and generic helper stops remain explicit
+    // blockers rather than being hidden behind a broad retry loop.
+    let recovery = start_helper_bridge();
+    if recovery.ok {
+        Ok(())
+    } else {
+        Err(recovery.message)
     }
 }
 
@@ -1588,6 +1609,15 @@ pub fn start_meeting_translation() -> MeetingSessionActionResult {
             "active_session_conflict",
             "Another runtime session already owns Meeting resources. Stop it before starting a new Translation session."
                 .to_string(),
+        );
+    }
+
+    if let Err(message) = recover_helper_after_meeting_stop_if_needed() {
+        return blocked_result(
+            "helper_recovery_failed",
+            format!(
+                "Start Translation couldn't restore the local translation runtime after the previous Meeting Stop: {message}"
+            ),
         );
     }
 
