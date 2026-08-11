@@ -137,7 +137,7 @@
         {#if !meeting.live && !meeting.busy && !readiness.meetingReady}
           <button type="button" class="ti-button ti-button-secondary" onclick={onRefresh}>{runtimeUnavailable ? "Retry" : "Check Again"}</button>
           {#if !runtimeUnavailable}
-            <button type="button" class="ti-button ti-button-secondary" onclick={onFixSetup}>Fix Setup</button>
+            <button type="button" class="ti-button ti-button-secondary" onclick={onFixSetup}>Check Setup</button>
           {/if}
         {/if}
       </div>
