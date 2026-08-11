@@ -4,52 +4,52 @@
 
 The user explicitly keeps local/integration testing on hold until the major feature set is ready. This hold changes proof timing only; it does not reduce release acceptance.
 
-The current frontend source is now aligned through the Humanized Familiar Translation UI pass **and** the Frontend Runtime Efficiency / Backend Alignment pass:
+The current frontend source remains aligned through the Humanized Familiar Translation UI pass and the Frontend Runtime Efficiency / Backend Alignment pass. The first bounded Meeting Core Runtime Reliability slice is now also source-aligned:
 
-- one `src/main.ts -> App.svelte` frontend owner;
-- Meeting / Text / Settings / First Setup remain declarative Svelte owners;
-- `runtimeApi.ts` remains the Tauri transport boundary and `runtimeProductFacade.ts` remains the product-facing mapper;
-- settings bridge failure is explicit unavailable state rather than fabricated default settings / First Setup;
-- Meeting-facing readiness is projected from the canonical Meeting preflight and recomputed coherently when current Meeting status changes;
-- active Meeting polling still checks lightweight Meeting status, but the committed transcript snapshot is only requested when current status revision signals a meaningful change;
-- Start/Stop immediately consume the authoritative status returned by the Rust Meeting command rather than doing an immediate full product refetch just to rediscover the result;
-- normal application settings use `ProductRuntimeSnapshot.settings`; bootstrap settings remain separate only before the normal snapshot exists;
-- audio-device change is one Rust-owned probe/preserve/save transaction through `select_audio_device`, so frontend code no longer owns rollback semantics across several IPC calls;
-- Text translation now has a typed backend result separating translated text, product-facing message, and technical blocker; worker/model/device failure detail is not normal Text copy;
-- Text still preserves stale-source feedback, editable result, Copy, Ctrl/Cmd+Enter, and late-result protection;
-- First Setup preserves five persisted checkpoints but removes the redundant second microphone check after candidate selection already verified the microphone;
-- recovery wording is truthful (`Check Setup` / `Check Again`) rather than presenting a route-unrelated action as a guaranteed fix;
-- Settings keeps `Meeting / Advanced`; Diagnostics refreshes when explicitly opened;
-- no new router, global store, event framework, UI framework, theme engine, animation framework, or parallel backend owner was introduced;
-- source validation now records the atomic audio selection, typed Text result, coherent Meeting projection, explicit unavailable settings, and gated transcript-polling contracts.
+- Rust remains the single application Meeting/session authority and the Python worker remains the one ASR/translation/TTS execution path;
+- `Start Translation` still checks the ordinary Meeting preflight first, but now exercises the required local AI runtime **before** creating Meeting authority, opening capture, or committing `Live`;
+- required Start preparation runs ASR preload, Indonesian -> English translation preload, English TTS preflight, then re-reads worker capability status;
+- Start preparation is scheduler-classed as `MeetingOutbound`, so this core readiness work is not treated like ordinary Diagnostics/Text work before the session starts;
+- a failed required ASR / ID->EN translation / TTS preparation invalidates cached outbound `provider_ready` instead of leaving a stale healthy readiness claim behind;
+- after successful AI preparation, Meeting preflight is checked again before application Meeting authority is created;
+- a finalized segment that simply produces no stable transcript returns to healthy `Listening`, while a real ASR failure now projects `attention_needed` rather than appearing as normal listening;
+- existing generation/session stale-result guards, transactional Start rollback, serialized outbound stages, optional/degradable incoming lane, and authority-first Stop semantics remain intact;
+- no second worker, parallel Meeting owner, generic queue framework, additional model, retry framework, or new runtime service was introduced;
+- source validation now records the required outbound preparation and fail-closed readiness contracts.
 
-No `npm install`, package-lock regeneration, Svelte autofixer, `svelte-check`, Vite build, Tauri launch, Rust compile, clipboard execution, Python/model execution, Windows audio test, installer test, performance measurement, or rendered UI inspection was executed through ChatGPT -> GitHub.
+The audit also found additional bounded Meeting-runtime issues that were intentionally not folded into this slice:
 
-## Closed Frontend Source Boundaries
+- the finalized outbound pending queue currently preserves older pending speech when full and discards the newest finalized outbound utterance; freshness/backpressure policy needs its own audio-boundary correction;
+- the single worker scheduler prioritizes queued outbound work but does not preempt an already-running optional incoming request;
+- full Meeting Stop can hard-cancel an in-flight helper request by terminating the persistent worker, so post-Stop helper readiness/restart continuity needs a separate lifecycle review;
+- Meeting Microphone provider dispatch remains synchronous in the outbound consumer and therefore belongs to a separate Windows audio/runtime boundary rather than this local-AI preparation slice.
+
+No `npm install`, package-lock regeneration, Svelte autofixer, `svelte-check`, Vite build, Tauri launch, Rust compile, Python/model execution, Windows audio test, installer test, performance measurement, or rendered UI inspection was executed through ChatGPT -> GitHub.
+
+## Closed Source Boundaries
 
 ```text
-Phase 1 -> Svelte application ownership
-Phase 2 -> bounded semantic visual system
-Phase 3 -> UX state / feature completeness
-Phase 4 -> source accessibility / maintainability hardening
-Phase 5 -> framework-contract review
+Frontend Phase 1 -> Svelte application ownership
+Frontend Phase 2 -> bounded semantic visual system
+Frontend Phase 3 -> UX state / feature completeness
+Frontend Phase 4 -> source accessibility / maintainability hardening
+Frontend Phase 5 -> framework-contract review
 Humanized Familiar Translation UI -> PR-166 interaction hierarchy + copy simplification
 Frontend Runtime Efficiency / Backend Alignment -> coherent state + fewer redundant IPC paths + Rust-owned transactions
+Meeting Core Runtime Reliability Phase 1 -> required AI preparation before Live + fail-closed provider readiness + truthful ASR failure state
 ```
-
-Source-level accessibility intent remains native controls, focus-visible rules, reduced-motion handling, bounded `aria-live`, Bits UI safe-close dialog semantics, and First Setup progressbar semantics. These are not assistive-technology or rendered proof.
 
 ## Current Mode
 
-**Plan** — wait for the next major product/source boundary while the explicit local-test hold remains active.
+**Plan** — the next bounded source issue is Meeting outbound freshness/backpressure while the explicit local-test hold remains active.
 
-Execution channel for any next source work:
+Execution channel for next source work:
 
 ```text
 ChatGPT -> GitHub
 ```
 
-Do not create another frontend polish slice automatically. The remaining frontend uncertainty is now primarily compile/render/runtime evidence rather than another speculative source-design pass. Continue frontend source work only when a concrete issue is discovered, a major feature requires it, or the user releases the test hold.
+Do not broaden the next slice into VAD tuning, new worker architecture, model replacement, or Meeting Microphone redesign. Fix the proven finalized-outbound queue freshness behavior first, preserve current natural speech-boundary policy, then reassess the next bottleneck from current source evidence.
 
 ## Deferred Integrated Proof Queue
 
@@ -64,13 +64,16 @@ frontend dependency install + regenerate package-lock
 -> rendered UI / resize / keyboard / focus accessibility smoke
 -> clipboard interaction proof
 -> private PythonRuntime + worker/model smoke
+-> required Meeting Start AI-preparation proof
+-> repeated finalized-utterance / backlog behavior observation
 -> Windows Meeting audio/device proof
 -> Meeting polling / transcript update behavior observation
 -> audio-device probe/save transaction proof
+-> Stop / helper lifecycle recovery proof
 -> installer/installed-runtime proof
 -> clean-machine proof
 ```
 
-## Next Step — User-Selected Major Feature
+## Next Step — Meeting Outbound Freshness / Backpressure
 
-Keep the integrated-test queue deferred. The next development boundary is whichever **major feature or concrete source problem the user selects next**. Do not return to speculative frontend decoration or local testing unless the user explicitly changes the hold.
+Correct the proven finalized outbound pending-queue policy so current speech is not discarded merely to preserve older unconsumed speech. Keep the queue bounded, preserve generation/session authority and natural finalized-speech boundaries, and do not introduce a second worker or generic queue subsystem.
