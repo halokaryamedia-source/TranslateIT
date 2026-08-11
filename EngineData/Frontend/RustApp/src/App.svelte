@@ -26,7 +26,7 @@
   let settings = $state<RuntimeSettings>(defaultSettings());
   let snapshot = $state<ProductRuntimeSnapshot | null>(null);
   let route = $state<AppRoute>("meeting");
-  let notice = $state("Preparing local translator...");
+  let notice = $state("Getting TranslateIT ready...");
   let meetingActionBusy = $state(false);
   let setupActionBusy = $state(false);
   let micTestBusy = $state(false);
@@ -68,13 +68,12 @@
 
   const direction = $derived(
     route === "meeting"
-      ? "ID → EN"
+      ? "ID → EN voice"
       : `${settings.source_language.toUpperCase()} → ${settings.target_language.toUpperCase()}`,
   );
 
-  const pageTitle = $derived(route === "meeting" ? "Meeting" : route === "text" ? "Text" : "Settings");
   const closePrimaryLabel = $derived(
-    closeDialogAction === "retry" ? "Retry Check" : stopAndCloseBusy ? "Stopping..." : "Stop & Close",
+    closeDialogAction === "retry" ? "Try Again" : stopAndCloseBusy ? "Stopping..." : "Stop & Close",
   );
 
   function meetingStatusUnavailable(status: MeetingSessionStatus): boolean {
@@ -94,7 +93,7 @@
       if (!next.meeting.hasSession) meetingTurns = null;
       setNotice(preferredNotice ?? (next.meeting.hasSession ? next.meeting.message : next.readiness.summary));
     } catch (error) {
-      setNotice(`Runtime check failed: ${errorMessage(error)}`);
+      setNotice(`Couldn't check TranslateIT: ${errorMessage(error)}`);
     }
   }
 
@@ -107,7 +106,7 @@
   async function finishFirstSetup(next: RuntimeSettings): Promise<void> {
     settings = cloneSettings(next);
     setupRequired = false;
-    await refreshSnapshot("Setup choice saved.");
+    await refreshSnapshot("Setup saved.");
     route = "meeting";
   }
 
@@ -125,13 +124,13 @@
     }
 
     meetingActionBusy = true;
-    setNotice(action === "start" ? "Starting Meeting Translation..." : "Stopping Meeting Translation...");
+    setNotice(action === "start" ? "Starting translation..." : "Stopping translation...");
     try {
       const result = await runtimeProductFacade.runProductMeetingAction(action);
       await refreshSnapshot(result.message);
       if (action === "stop" && !result.meeting.hasSession) meetingTurns = null;
     } catch (error) {
-      setNotice(`Meeting command failed: ${errorMessage(error)}`);
+      setNotice(`Meeting action failed: ${errorMessage(error)}`);
       await refreshSnapshot();
     } finally {
       meetingActionBusy = false;
@@ -141,7 +140,7 @@
   async function runSetupAction(action: ProductSetupAction): Promise<void> {
     if (setupActionBusy) return;
     setupActionBusy = true;
-    setNotice(action === "verify-models" ? "Verifying models..." : action === "check-microphone" ? "Checking microphone..." : "Refreshing setup...");
+    setNotice(action === "verify-models" ? "Checking translation files..." : action === "check-microphone" ? "Checking microphone..." : "Checking setup...");
     try {
       const message = await runtimeProductFacade.runProductSetupAction(action);
       await refreshSnapshot(message);
@@ -153,7 +152,7 @@
   async function fixSetup(): Promise<void> {
     if (setupActionBusy) return;
     setupActionBusy = true;
-    setNotice("Running setup checks...");
+    setNotice("Checking setup...");
     try {
       const message = await runtimeProductFacade.runProductRecoveryAction("fix-setup");
       await refreshSnapshot(message);
@@ -166,12 +165,12 @@
     if (micTestBusy || !snapshot) return;
     if (snapshot.meeting.hasSession) {
       setNotice(snapshot.meeting.live
-        ? "Mic Test is unavailable while Translation is live. Stop Translation first."
-        : "Mic Test is unavailable while Meeting resources are in use.");
+        ? "Stop Meeting translation before using Mic Test."
+        : "Mic Test is unavailable while Meeting audio is in use.");
       return;
     }
     if (!snapshot.readiness.voiceReady && !snapshot.readiness.recording) {
-      setNotice(snapshot.readiness.nextAction ?? "Voice capture setup is not ready.");
+      setNotice("Microphone setup isn't ready yet.");
       return;
     }
 
@@ -180,7 +179,7 @@
       const result = snapshot.readiness.recording ? await runtimeApi.stopCapture() : await runtimeApi.startCapture();
       await refreshSnapshot(result.message);
     } catch (error) {
-      setNotice(`Voice command failed: ${errorMessage(error)}`);
+      setNotice(`Mic Test failed: ${errorMessage(error)}`);
     } finally {
       micTestBusy = false;
     }
@@ -199,7 +198,7 @@
 
       if (meetingStatusUnavailable(status)) {
         meetingTurns = null;
-        setNotice(mapped.message);
+        setNotice("Meeting translation is temporarily unavailable.");
         return;
       }
 
@@ -243,8 +242,8 @@
       const status = await runtimeApi.getMeetingSessionStatus();
       if (meetingStatusUnavailable(status)) {
         showCloseDialog(
-          "Unable to verify Meeting state",
-          "TranslateIT could not verify the current Meeting state, so closing was blocked. Keep the app open or retry the state check.",
+          "Can't check the meeting yet",
+          "TranslateIT can't confirm whether Meeting translation is still active. Keep the app open or try the check again.",
           "retry",
         );
         return;
@@ -257,8 +256,8 @@
       }
       if (!meeting.applicationOwned) {
         showCloseDialog(
-          "Meeting resources are in use",
-          "Meeting resources are owned by another TranslateIT runtime operation. Close remains blocked until that operation releases them.",
+          "Meeting audio is still in use",
+          "Another TranslateIT action is still using meeting audio. Wait for it to finish before closing the app.",
           null,
         );
         return;
@@ -267,15 +266,15 @@
         closeAfterExistingStop = true;
         showCloseDialog(
           "Translation is stopping",
-          "The canonical Stop lifecycle is already running. TranslateIT will stay open until the Meeting session is cleared.",
+          "TranslateIT will close after Meeting translation finishes stopping.",
           null,
         );
         return;
       }
 
       showCloseDialog(
-        "Meeting Translation is still active",
-        `${meeting.label} Meeting Translation is still active. Stop & Close will run the same safe Stop lifecycle used by the Meeting workspace before TranslateIT exits.`,
+        "Translation is still running",
+        "Stop & Close ends Meeting translation safely before closing TranslateIT.",
         "stop",
       );
     } finally {
@@ -289,11 +288,7 @@
     try {
       const status = await runtimeApi.getMeetingSessionStatus();
       if (meetingStatusUnavailable(status)) {
-        showCloseDialog(
-          "Unable to verify Meeting state",
-          "TranslateIT could not verify the current Meeting state, so closing remains blocked.",
-          "retry",
-        );
+        showCloseDialog("Can't check the meeting yet", "TranslateIT still can't confirm the Meeting state. Keep the app open or try again.", "retry");
         return;
       }
 
@@ -303,40 +298,24 @@
         return;
       }
       if (!meeting.applicationOwned) {
-        showCloseDialog(
-          "Meeting resources are in use",
-          "Meeting resources are owned by another TranslateIT runtime operation. Close remains blocked.",
-          null,
-        );
+        showCloseDialog("Meeting audio is still in use", "Another TranslateIT action is using meeting audio. Wait for it to finish before closing.", null);
         return;
       }
       if (meeting.lifecycle === "stopping") {
         closeAfterExistingStop = true;
-        showCloseDialog(
-          "Translation is stopping",
-          "TranslateIT will stay open until the current Stop lifecycle finishes.",
-          null,
-        );
+        showCloseDialog("Translation is stopping", "TranslateIT will close after translation finishes stopping.", null);
         return;
       }
 
       const result = await runtimeProductFacade.runProductMeetingAction("stop");
       if (!result.ok) {
-        showCloseDialog(
-          "Translation could not stop safely",
-          `TranslateIT remains open. ${result.message}`,
-          "stop",
-        );
+        showCloseDialog("Couldn't stop translation", `TranslateIT will stay open. ${result.message}`, "stop");
         return;
       }
 
       const verified = await runtimeApi.getMeetingSessionStatus();
       if (meetingStatusUnavailable(verified)) {
-        showCloseDialog(
-          "Stop could not be verified",
-          "Stop returned, but TranslateIT could not verify that the Meeting session cleared. The app remains open.",
-          "retry",
-        );
+        showCloseDialog("Couldn't confirm Stop", "TranslateIT couldn't confirm that Meeting translation ended, so the app will stay open.", "retry");
         return;
       }
       if (!verified.has_session) {
@@ -347,24 +326,12 @@
       const verifiedMeeting = mapProductMeetingState(verified);
       if (verifiedMeeting.applicationOwned && verifiedMeeting.lifecycle === "stopping") {
         closeAfterExistingStop = true;
-        showCloseDialog(
-          "Translation is stopping",
-          "TranslateIT will close only after the Meeting session is cleared.",
-          null,
-        );
+        showCloseDialog("Translation is stopping", "TranslateIT will close after translation finishes stopping.", null);
         return;
       }
-      showCloseDialog(
-        "Meeting session is still active",
-        "Stop finished without proof that the Meeting session was cleared. TranslateIT remains open.",
-        verifiedMeeting.applicationOwned ? "stop" : null,
-      );
+      showCloseDialog("Translation is still active", "TranslateIT hasn't confirmed that Meeting translation ended, so the app will stay open.", verifiedMeeting.applicationOwned ? "stop" : null);
     } catch (error) {
-      showCloseDialog(
-        "Unable to complete safe close",
-        `TranslateIT remains open. ${errorMessage(error)}`,
-        "retry",
-      );
+      showCloseDialog("Couldn't close TranslateIT", `The app will stay open. ${errorMessage(error)}`, "retry");
     } finally {
       stopAndCloseBusy = false;
     }
@@ -418,10 +385,10 @@
 
 {#if booting}
   <main class="grid min-h-screen place-items-center bg-[var(--ti-bg)] p-8">
-    <section class="ti-panel w-full max-w-[620px] p-8">
-      <span class="ti-kicker">TranslateIT</span>
-      <h1 class="mb-0 mt-3 text-3xl font-black tracking-[-0.035em]">Preparing local translator</h1>
-      <p class="mb-0 mt-4 text-sm leading-6 text-[var(--ti-text-muted)]">Loading saved settings and current desktop state. No synthetic progress is shown.</p>
+    <section class="w-full max-w-[560px] text-center">
+      <div class="mx-auto grid size-12 place-items-center rounded-[14px] border border-[var(--ti-border-strong)] bg-[var(--ti-surface-raised)] text-lg font-bold">T</div>
+      <h1 class="mb-0 mt-5 text-2xl font-semibold tracking-[-0.03em]">Getting TranslateIT ready</h1>
+      <p class="mb-0 mt-2 text-sm leading-6 text-[var(--ti-text-muted)]">Checking your saved setup.</p>
     </section>
   </main>
 {:else if setupRequired}
@@ -431,26 +398,21 @@
     <Sidebar active={route} {presence} onNavigate={(next) => { route = next; }} />
 
     <section class="flex min-w-0 flex-1 flex-col">
-      <header class="flex min-h-20 shrink-0 items-center gap-5 border-b border-[var(--ti-border)] bg-[var(--ti-bg)] px-8">
-        <div class="min-w-0">
-          <h1 class="m-0 text-lg font-black">{pageTitle}</h1>
-          <p class="mb-0 mt-1 max-w-[680px] truncate text-xs text-[var(--ti-text-muted)]" title={notice}>{notice}</p>
-        </div>
+      <header class="flex min-h-14 shrink-0 items-center gap-4 border-b border-[var(--ti-border)] bg-[var(--ti-bg)] px-6">
+        <p class="m-0 min-w-0 flex-1 truncate text-xs text-[var(--ti-text-muted)]" aria-live="polite" title={notice}>{notice}</p>
 
         {#if route !== "meeting" && snapshot.meeting.applicationOwned && snapshot.meeting.hasSession}
           <button
             type="button"
-            class="ml-auto flex items-center gap-3 rounded-full border border-[var(--ti-success-border)] bg-[var(--ti-success-surface)] px-4 py-2 text-left"
+            class="flex items-center gap-2 rounded-full border border-[var(--ti-success-border)] bg-[var(--ti-success-surface)] px-3 py-1.5 text-left"
             onclick={() => { route = "meeting"; }}
           >
-            <span class="size-2 rounded-full bg-[var(--ti-success)]"></span>
-            <span><strong class="block text-xs text-[var(--ti-success)]">{snapshot.meeting.label}</strong><small class="text-[11px] text-[var(--ti-text-muted)]">Open active Meeting</small></span>
+            <span class="size-2 rounded-full bg-[var(--ti-success)]" aria-hidden="true"></span>
+            <strong class="text-xs font-semibold text-[var(--ti-success)]">Meeting {snapshot.meeting.label.toLowerCase()}</strong>
           </button>
         {/if}
 
-        <span class={route !== "meeting" && snapshot.meeting.applicationOwned && snapshot.meeting.hasSession ? "" : "ml-auto"}>
-          <span class="ti-pill">{direction}</span>
-        </span>
+        <span class="ti-pill">{direction}</span>
       </header>
 
       <div class="min-h-0 flex-1 overflow-y-auto">
@@ -461,7 +423,7 @@
             {meetingTurns}
             actionBusy={meetingActionBusy}
             onMeetingAction={handleMeetingAction}
-            onRefresh={() => refreshSnapshot("Readiness refreshed.")}
+            onRefresh={() => refreshSnapshot("Setup checked.")}
             onFixSetup={fixSetup}
           />
         {:else if route === "text"}
@@ -475,6 +437,8 @@
           <Settings
             {snapshot}
             {settings}
+            setupBusy={setupActionBusy}
+            {micTestBusy}
             onSettingsChange={applySettings}
             onRefresh={refreshSnapshot}
             onSetupAction={runSetupAction}
@@ -488,11 +452,11 @@
   </main>
 {:else}
   <main class="grid min-h-screen place-items-center bg-[var(--ti-bg)] p-8">
-    <section class="ti-panel w-full max-w-[620px] p-8">
+    <section class="ti-panel w-full max-w-[560px] p-7">
       <span class="ti-kicker">TranslateIT</span>
-      <h1 class="mb-0 mt-3 text-3xl font-black">Desktop state unavailable</h1>
-      <p class="mb-0 mt-4 text-sm text-[var(--ti-text-muted)]">{notice}</p>
-      <button type="button" class="ti-button mt-5" onclick={() => void refreshSnapshot("Readiness refreshed.")}>Retry</button>
+      <h1 class="mb-0 mt-3 text-2xl font-semibold">TranslateIT isn't ready yet</h1>
+      <p class="mb-0 mt-3 text-sm leading-6 text-[var(--ti-text-muted)]">{notice}</p>
+      <button type="button" class="ti-button mt-5" onclick={() => void refreshSnapshot("Checking again...")}>Try Again</button>
     </section>
   </main>
 {/if}
@@ -500,13 +464,13 @@
 <Dialog.Root bind:open={closeDialogOpen}>
   <Dialog.Portal>
     <Dialog.Overlay class="fixed inset-0 z-50 bg-[var(--ti-overlay)] backdrop-blur-[2px]" />
-    <Dialog.Content class="fixed left-1/2 top-1/2 z-50 w-[min(520px,calc(100vw-48px))] -translate-x-1/2 -translate-y-1/2 rounded-[var(--ti-radius-lg)] border border-[var(--ti-border-strong)] bg-[var(--ti-surface)] p-6 shadow-[var(--ti-shadow-dialog)]">
-      <Dialog.Title class="text-xl font-black">{closeDialogTitle}</Dialog.Title>
+    <Dialog.Content class="fixed left-1/2 top-1/2 z-50 w-[min(500px,calc(100vw-48px))] -translate-x-1/2 -translate-y-1/2 rounded-[var(--ti-radius-lg)] border border-[var(--ti-border-strong)] bg-[var(--ti-surface)] p-6 shadow-[var(--ti-shadow-dialog)]">
+      <Dialog.Title class="text-xl font-semibold">{closeDialogTitle}</Dialog.Title>
       <Dialog.Description class="mt-3 text-sm leading-6 text-[var(--ti-text-muted)]">{closeDialogMessage}</Dialog.Description>
       <div class="mt-6 flex justify-end gap-3">
         <button type="button" class="ti-button ti-button-secondary" disabled={stopAndCloseBusy} onclick={keepApplicationOpen}>Keep Open</button>
         {#if closeDialogAction}
-          <button type="button" class="ti-button" disabled={stopAndCloseBusy} onclick={() => void handleCloseDialogPrimary()}>{closePrimaryLabel}</button>
+          <button type="button" class={`ti-button ${closeDialogAction === "stop" ? "ti-button-danger" : ""}`} disabled={stopAndCloseBusy} onclick={() => void handleCloseDialogPrimary()}>{closePrimaryLabel}</button>
         {/if}
       </div>
     </Dialog.Content>
