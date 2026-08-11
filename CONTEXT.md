@@ -46,7 +46,7 @@ Rust/Tauri desktop application
 ONE Python local worker
 ```
 
-The worker owns ASR, direction-based ID <-> EN translation, and TTS execution. Rust owns Meeting/session authority, Windows audio integration, routing, settings, and desktop integration. Do not create a parallel engine, shell, readiness service, or model selector.
+The worker owns ASR, direction-based ID <-> EN translation, and TTS execution. Rust owns Meeting/session authority, Windows audio integration, routing, settings, and desktop integration. Do not create a parallel engine, shell, readiness service, model selector, or worker launcher architecture.
 
 ## Translation Contract
 
@@ -62,7 +62,7 @@ The worker owns ASR, direction-based ID <-> EN translation, and TTS execution. R
 
 `commands/meeting_session.rs` + `engine/runtime_state.rs` remain the application Meeting owner.
 
-Start establishes one session/authority. Navigation does not stop/recreate it. Stop revokes output authority before resource cleanup, stops both audio lanes, cancels/joins Meeting work, clears transient conversation/audio state, and ends the session. Safe application close delegates to the same Stop path.
+Start establishes one session/authority. Navigation does not stop/recreate it. Stop revokes output authority before resource cleanup, stops both audio lanes, cancels/joins Meeting work, clears transient conversation/audio state, and ends the session. Safe application close delegates to the same Stop owner.
 
 The bounded committed-turn store is transient Live transcript state only; Meeting Stop has no History persistence dependency.
 
@@ -128,12 +128,30 @@ Static validators do not prove compile, Tauri launch, models, Windows audio, ren
 
 ## Release Boundary
 
-Initial controlled release keeps the local sidecar Setup direction but does not use a SHA-256/checksum/revision identity framework. Do not create an artifact registry, checksum service, payload identity controller, downloader, or package manager as a replacement.
+Initial controlled release keeps the local sidecar Setup direction and does not use a SHA-256/checksum/revision identity framework, artifact registry, downloader, or package manager.
 
-The useful initial acceptance mechanism is approved prepared payload + deterministic placement + real installed worker/runtime execution.
+Installed Python execution is now decided:
 
-The next unresolved installed-runtime boundary is the Python/helper execution payload. Current source can still discover a worker `.venv`, an explicit development override, or system Python. A normal installed user must not be required to provide or operate those developer dependencies; the smallest packaged-worker method must be decided before implementation.
+```text
+<runtime root>/EngineData/Backend/LocalWorker/
+├─ WorkerRuntime/   -> existing Python worker/provider scripts
+└─ PythonRuntime/   -> one private embedded CPython runtime + vendored packages
+```
+
+Canonical installed interpreter is:
+
+```text
+EngineData/Backend/LocalWorker/PythonRuntime/python.exe
+```
+
+The persistent worker and Meeting Microphone Python provider must use that same interpreter. A copied `.venv` and a frozen PyInstaller/Nuitka worker are not selected for the initial release. End users do not install Python, pip, uv, create environments, set worker-Python overrides, or rely on system `python`/`py`.
+
+Development may retain repository-scoped Python overrides/`.venv`/system interpreter discovery, but those paths must not silently become packaged-release success paths.
+
+Models remain in `RuntimeAssets`; Python packages such as `ctranslate2`, `faster-whisper`, `torch`, `transformers`, `soundfile`, and the Meeting Microphone provider's `sounddevice` are part of the prepared private Python runtime payload.
+
+No dependency lock/hash framework is required for the initial controlled release unless concrete release drift later proves it necessary. The useful acceptance boundary remains approved prepared payload + deterministic placement + real installed and clean-machine execution.
 
 ## Proof Boundary
 
-ChatGPT -> GitHub can establish source structure, direct wiring, and static ownership. This repository state does not prove Rust/TypeScript compilation, validator execution, Python execution, Tauri launch, Windows audio/device behavior, model presence/load/quality/latency, or clean-machine installation.
+ChatGPT -> GitHub can establish source structure, direct wiring, and static ownership. This repository state does not prove Rust/TypeScript compilation, validator execution, Python payload construction/execution, Tauri launch, Windows audio/device behavior, model presence/load/quality/latency, installer behavior, or clean-machine installation.
