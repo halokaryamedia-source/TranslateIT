@@ -24,36 +24,53 @@ This map points to current semantic owners. File existence alone does not make a
 | Model presence inventory | `runtime_inventory.rs` | ACTIVE / CACHED |
 | Explicit model refresh | `runtime.rs::verify_models` | ACTIVE SETUP ACTION |
 | Text translation | `text_translate.rs` -> helper -> worker | ACTIVE |
-| Settings | `engine/runtime_settings.rs`, `engine/settings.rs`, `commands/settings.rs` | ACTIVE; inherited schema fields are next cleanup boundary |
+| Persisted settings | `engine/settings.rs`, `engine/runtime_settings.rs`, `commands/settings.rs` | ACTIVE / SCHEMA V6 SMALL |
+| Frontend settings type/defaults | `src/app/shared/types.ts`, `src/app/shared/state.ts` | ACTIVE / SCHEMA V6 SMALL |
 | Installed/runtime paths | `engine/paths.rs`, `app_bootstrap.rs`, `bridge_paths.rs` | ACTIVE |
-| Runtime logging still used by settings/runtime | `engine/logging.rs` | ACTIVE |
+| Runtime logging used by settings/runtime | `engine/logging.rs` | ACTIVE |
 | Shared command result/state | `engine/state.rs` | ACTIVE |
 | Source validation | small validators under `scripts/` | ACTIVE / PRUNED |
 | Local Rust compile proof | `scripts/run_local_tauri_compile_check.mjs` | LOCAL-ONLY |
 
 ## Removed Rust Engine Graph
 
-The following inherited responsibilities are no longer current engine owners and their Rust source has been removed from `New` after direct command/core reachability was reconciled:
+The inherited adapter/planning/readiness/orchestration tree, History persistence, session chat/save, transcript-session planning, native inference/backend/CUDA candidates, old status/runtime-job/model/playback planners, empty domain/services scaffolding, and obsolete audio planning leaves are removed from `New`.
 
-- the entire `engine/adapters/` dry-run/planning/readiness/orchestration graph;
-- History persistence and session chat;
-- transcript/session-save planning;
-- native inference/backend/CUDA candidate graph;
-- old config/hardware/status/runtime-job/playback/model planners;
-- empty `domain/` and `services/` scaffolding;
-- old audio calibration/capture-plan/device-config/noise/preprocess/stream-build planning leaves.
+ASR, translation, and TTS execution remain in the one persistent Python worker. Removing Rust planning/inference candidates did not create a replacement runtime.
 
-ASR, translation, and TTS execution remain in the one persistent Python worker. Removing the Rust planning/inference candidates did not create a replacement runtime.
+## Persisted Settings Ownership
+
+`engine/settings.rs` is the single schema/deserialization/sanitization owner. Current persisted shape is:
+
+```text
+schema_version = 6
+source_language
+target_language
+meeting_setup_state
+meeting_setup_checkpoint
+audio.input_device_id
+audio.output_device_id
+```
+
+Current callers are direct and bounded:
+
+- Text direction reads/writes source and target language;
+- First Setup reads/writes setup state/checkpoint and both device preferences;
+- microphone capture reads the input-device preference;
+- Meeting Sound capture reads the output-device preference;
+- Meeting Settings reads/writes the same two device preferences.
+
+The previous schema's extra fields are accepted only as ignored legacy JSON keys by the same Serde owner. Normal save output does not persist them. There is no migration registry, compatibility settings service, or second store.
 
 ## Runtime State
 
-`engine/runtime_state.rs` now owns only current application Meeting/Mic-Test session state and generation authority. The old realtime-handoff snapshot/store has been removed. One no-state `clear_runtime_handoff_state()` compatibility boundary remains temporarily because current Meeting rollback/Stop calls it; it owns no data and should be removed together with those direct callers rather than replaced by another service.
+`engine/runtime_state.rs` owns current application Meeting/Mic-Test session state and generation authority. The old realtime-handoff snapshot/store is removed.
 
-`engine/capture_lifecycle.rs` is Mic Test only. Start is blocked while another session owns the microphone. Stop refuses to clear a Meeting-owned session.
+One no-state `clear_runtime_handoff_state()` boundary and the no-state `pipeline_handoff.rs` reset remain only because current Meeting rollback/Stop still call them. They own no data and are the next bounded cleanup target; they must be deleted rather than replaced.
 
 ## Backend Contracts
 
-`EngineData/Backend/RuntimeContracts/` is removed. The current worker does not load it, Tauri does not package/map it as a runtime resource, and the current source validators do not consume it. Product requirements, current source interfaces, and the worker/model manifest remain the relevant authorities instead of duplicate JSON architecture manifests.
+`EngineData/Backend/RuntimeContracts/` is removed. The current worker does not load it, Tauri does not package/map it as a runtime resource, and current source validators do not consume it. Product requirements, current source interfaces, and the worker/model manifest are the relevant authorities.
 
 ## Normal Readiness
 
@@ -61,8 +78,4 @@ ASR, translation, and TTS execution remain in the one persistent Python worker. 
 
 ## Release Ownership
 
-The initial controlled release keeps local sidecar placement under the existing path/setup owners. There is no SHA-256/checksum/revision identity owner and no replacement artifact registry.
-
-## Remaining Cleanup Rule
-
-Persisted settings are the next compatibility boundary. Remove obsolete fields only through the existing settings owner with a bounded schema migration/fallback strategy; do not preserve removed product concepts forever merely for old JSON compatibility, and do not create a second settings store.
+The initial controlled release keeps local sidecar placement under the existing path/setup owners. There is no separate SHA-256/checksum/revision identity owner and no replacement artifact registry.

@@ -76,7 +76,7 @@ Meeting Microphone route modules remain internal dependencies of `meeting_sessio
 
 ## Rust Engine Surface
 
-The Rust engine graph has been reduced to current owners only:
+The Rust engine graph is reduced to current owners only:
 
 ```text
 engine/
@@ -92,9 +92,25 @@ engine/
 
 The old adapter/planning tree, History/Chat/session-save persistence, transcript-session planning, native inference/backend candidates, CUDA/status/report modules, domain/services scaffolding, and related dry-run/orchestration leaves are removed from `New`.
 
-The blanket `#![allow(dead_code)]` at the engine root is removed. Mic Test now owns only capture Start/Stop and refuses to stop a Meeting-owned session. `runtime_state.rs` owns current Meeting/Mic-Test session authority without the old realtime-handoff snapshot architecture.
+Backend `RuntimeContracts/` JSON scaffolding is removed because the current worker, active Tauri path, and current validators do not consume it; source/docs remain the contract authorities.
 
-Backend `RuntimeContracts/` JSON scaffolding is also removed because the current worker, active Tauri path, and current validators do not consume it; source/docs remain the contract authorities.
+## Persisted Settings Contract
+
+Current persisted settings schema is version 6 and contains only current product state:
+
+```text
+schema_version
+source_language
+target_language
+meeting_setup_state
+meeting_setup_checkpoint
+audio.input_device_id
+audio.output_device_id
+```
+
+The previous larger schema is tolerated by the same `engine/settings.rs` owner. Serde ignores retired keys while preserving the current values; the next normal save writes only the small schema. There is no generic migration framework or second settings store.
+
+Removed persisted concepts include `language_focus_mode`, `runtime_profile`, `history_enabled`, old sensitivity/mode flags, CPU/degraded audio flags, autoplay flags, and custom voice/profile state.
 
 ## Normal Readiness Cost
 
@@ -116,9 +132,7 @@ The useful initial acceptance mechanism is approved prepared payload + determini
 
 ## Remaining Simplification Boundary
 
-The largest remaining inherited compatibility surface is persisted settings. Current Rust/frontend settings still carry fields for removed concepts such as `runtime_profile`, `history_enabled`, custom voice/profile paths, and several old audio toggles. Do not delete them blindly: first separate fields with current Meeting/Text/setup callers from obsolete deserialization compatibility, then migrate the schema once through the existing settings owner rather than keeping permanent aliases.
-
-A small no-state cleanup compatibility function still exists in `runtime_state.rs` because current `meeting_session.rs` rollback/Stop calls the old handoff-clear boundary. It is not a second state owner; remove that tombstone only in a bounded caller cleanup.
+The largest remaining compatibility residue is now the old no-state handoff cleanup boundary: `meeting_session.rs` still calls `reset_live_pipeline_handoff_status()` and `clear_runtime_handoff_state()` even though the old pipeline/handoff state owners have already been removed. Those tombstones should be removed by deleting only their direct no-op callers and module declarations; do not alter Meeting Stop ordering or real resource cleanup.
 
 ## Proof Boundary
 
