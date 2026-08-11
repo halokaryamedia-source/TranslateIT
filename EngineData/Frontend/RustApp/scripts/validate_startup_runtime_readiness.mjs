@@ -22,12 +22,14 @@ const paths = {
   meetingSession: resolve(root, "src-tauri/src/commands/meeting_session.rs"),
   helperBridge: resolve(root, "src-tauri/src/commands/helper_bridge.rs"),
   helperBridgeRuntime: resolve(root, "src-tauri/src/commands/helper_bridge_runtime.rs"),
+  virtualAudioRouteRuntime: resolve(root, "src-tauri/src/commands/virtual_audio_route_runtime.rs"),
   settingsCommands: resolve(root, "src-tauri/src/commands/settings.rs"),
   textTranslate: resolve(root, "src-tauri/src/commands/text_translate.rs"),
   finalizedUtterance: resolve(root, "src-tauri/src/engine/audio/finalized_utterance.rs"),
   runtimeState: resolve(root, "src-tauri/src/engine/runtime_state.rs"),
   settingsRust: resolve(root, "src-tauri/src/engine/settings.rs"),
   worker: resolve(root, "../../Backend/LocalWorker/WorkerRuntime/realtime_local_worker.py"),
+  routeProvider: resolve(root, "../../Backend/LocalWorker/WorkerRuntime/virtual_audio_route_provider.py"),
   modelManifest: resolve(root, "../../Backend/LocalWorker/WorkerRuntime/model_manifest.json"),
 };
 
@@ -240,6 +242,30 @@ forbidMarkers(source.meetingSession, "bounded Meeting helper Stop recovery", [
   'Some("helper_bridge:task_hard_cancelled")',
   'Some("helper_bridge:meeting_generation_hard_cancelled")',
 ]);
+requireMarkers(source.virtualAudioRouteRuntime, "Meeting route provider preflight", [
+  "pub fn prepare_meeting_virtual_audio_route_provider()",
+  '"preflight_only": true',
+  '"preflight_verified"',
+  '"audio_route_ready"',
+  "resolve_worker_python_command",
+  "get_virtual_mic_route_selection",
+]);
+requireMarkers(source.routeProvider, "Meeting route provider preflight contract", [
+  '"preflight_verified": False',
+  "def _import_audio_runtime()",
+  "def _preflight_virtual_audio(",
+  "if preflight_only:",
+  "preflight_verified=True",
+  "audio_route_ready=True",
+]);
+requireMarkers(source.meetingSession, "Meeting route provider preparation before authority", [
+  "prepare_meeting_virtual_audio_route_provider",
+  '"meeting_route_prepare_failed"',
+  "let starting = begin_application_meeting_session();",
+]);
+if (source.meetingSession.indexOf("prepare_meeting_virtual_audio_route_provider()") > source.meetingSession.indexOf("let starting = begin_application_meeting_session();")) {
+  throw new Error("Meeting route provider preflight must run before Meeting authority creation");
+}
 requireMarkers(source.finalizedUtterance, "Meeting finalized speech freshness", [
   "MAX_PENDING_FINALIZED_UTTERANCES",
   "while state.pending.len() >= MAX_PENDING_FINALIZED_UTTERANCES",
@@ -277,4 +303,4 @@ if (!models.some((model) => model.model_id === "marianmt-en-id")) throw new Erro
 if (models.some((model) => model.model_id === "nllb-200-distilled-600M")) throw new Error("NLLB must not return to current translation inventory");
 if (models.some((model) => Object.hasOwn(model, "revision") || Object.hasOwn(model, "checksum"))) throw new Error("Initial model inventory must not grow revision/checksum release-identity placeholders");
 
-console.log("[startup-readiness] Svelte Meeting/Text/Settings/First Setup ownership, coherent Meeting projection, gated transcript polling, atomic audio-device selection, user-safe Text result separation, required outbound AI preparation before Meeting Live, outbound helper priority continuity across ASR/translation/TTS, bounded Stop-time helper recovery, truthful ASR attention state, bounded newest-preferred finalized speech backlog, familiar translation interaction hierarchy, runtime bridge, settings schema, Meeting lifecycle, and direction-based worker contracts are source-aligned. Dependency install, Svelte compile/render, model execution, Windows audio, and installed-runtime proof remain separate.");
+console.log("[startup-readiness] Svelte Meeting/Text/Settings/First Setup ownership, coherent Meeting projection, gated transcript polling, atomic audio-device selection, user-safe Text result separation, required outbound AI preparation before Meeting Live, outbound helper priority continuity across ASR/translation/TTS, bounded Stop-time helper recovery, Meeting Microphone provider preflight before authority, truthful ASR attention state, bounded newest-preferred finalized speech backlog, familiar translation interaction hierarchy, runtime bridge, settings schema, Meeting lifecycle, and direction-based worker contracts are source-aligned. Dependency install, Svelte compile/render, model execution, Windows audio playback, and installed-runtime proof remain separate.");
