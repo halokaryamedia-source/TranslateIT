@@ -66,6 +66,8 @@ Start establishes one session/authority. Navigation does not stop/recreate it. S
 
 The bounded committed-turn store is transient Live transcript state only; Meeting Stop has no History persistence dependency.
 
+The old pipeline/handoff state and its final no-state cleanup tombstones are removed. Meeting rollback/Stop now clean only resources and transient state that still exist.
+
 ## Current Product Runtime Surface
 
 The frontend has one normal module entry: `src/main.ts`. The old parallel Audio Studio entry and retry polling are removed.
@@ -90,7 +92,7 @@ engine/
 └─ state.rs
 ```
 
-The old adapter/planning tree, History/Chat/session-save persistence, transcript-session planning, native inference/backend candidates, CUDA/status/report modules, domain/services scaffolding, and related dry-run/orchestration leaves are removed from `New`.
+The old adapter/planning tree, History/Chat/session-save persistence, transcript-session planning, native inference/backend candidates, CUDA/status/report modules, domain/services scaffolding, related dry-run/orchestration leaves, and old handoff-state compatibility path are removed from `New`.
 
 Backend `RuntimeContracts/` JSON scaffolding is removed because the current worker, active Tauri path, and current validators do not consume it; source/docs remain the contract authorities.
 
@@ -130,9 +132,7 @@ Initial controlled release keeps the local sidecar Setup direction but does not 
 
 The useful initial acceptance mechanism is approved prepared payload + deterministic placement + real installed worker/runtime execution.
 
-## Remaining Simplification Boundary
-
-The largest remaining compatibility residue is now the old no-state handoff cleanup boundary: `meeting_session.rs` still calls `reset_live_pipeline_handoff_status()` and `clear_runtime_handoff_state()` even though the old pipeline/handoff state owners have already been removed. Those tombstones should be removed by deleting only their direct no-op callers and module declarations; do not alter Meeting Stop ordering or real resource cleanup.
+The next unresolved installed-runtime boundary is the Python/helper execution payload. Current source can still discover a worker `.venv`, an explicit development override, or system Python. A normal installed user must not be required to provide or operate those developer dependencies; the smallest packaged-worker method must be decided before implementation.
 
 ## Proof Boundary
 
