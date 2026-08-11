@@ -19,9 +19,11 @@ const paths = {
   runtimeApi: resolve(root, "src/app/bridge/runtimeApi.ts"),
   facade: resolve(root, "src/app/bridge/runtimeProductFacade.ts"),
   registry: resolve(root, "src-tauri/src/commands/registry.rs"),
+  runtimeCommands: resolve(root, "src-tauri/src/commands/runtime.rs"),
   meetingSession: resolve(root, "src-tauri/src/commands/meeting_session.rs"),
   helperBridge: resolve(root, "src-tauri/src/commands/helper_bridge.rs"),
   helperBridgeRuntime: resolve(root, "src-tauri/src/commands/helper_bridge_runtime.rs"),
+  virtualMicRoute: resolve(root, "src-tauri/src/commands/virtual_mic_route.rs"),
   virtualAudioRouteRuntime: resolve(root, "src-tauri/src/commands/virtual_audio_route_runtime.rs"),
   settingsCommands: resolve(root, "src-tauri/src/commands/settings.rs"),
   textTranslate: resolve(root, "src-tauri/src/commands/text_translate.rs"),
@@ -80,7 +82,9 @@ forbidMarkers(source.app, "Svelte application owner", ["SimpleLauncherController
 requireMarkers(source.meeting, "Meeting surface", [
   "Start Translation",
   "Stop Translation",
-  "TranslateIT Meeting Microphone",
+  "getVirtualMicRouteStatus",
+  "meetingMicrophoneDevice",
+  "Choose this exact microphone",
   "English → Indonesian text",
   "You speak",
   "Meeting hears",
@@ -111,6 +115,10 @@ requireMarkers(source.settings, "Settings surface", [
   'type SettingsTab = "meeting" | "advanced"',
   "selectProductAudioDevice",
   "loadProductAudioDevices",
+  "getVirtualMicRouteStatus",
+  "meetingResourcesLocked",
+  "meetingMicrophoneDevice",
+  "Choose this exact microphone inside your meeting app",
   "refreshDiagnostics",
   'aria-label="Settings sections"',
   "Check Microphone",
@@ -126,6 +134,9 @@ requireMarkers(source.firstSetup, "First Setup surface", [
   "settings.audio.input_device_id",
   "settings.audio.output_device_id",
   "selectProductAudioDevice",
+  "getVirtualMicRouteStatus",
+  "currentMeetingMicrophone",
+  "Choose the configured meeting microphone",
   'role="progressbar"',
   "Check Again",
 ]);
@@ -149,6 +160,13 @@ for (const [label, body] of [
     "outbound-runtime setup",
   ]);
 }
+for (const [label, body] of [
+  ["Meeting", source.meeting],
+  ["Settings", source.settings],
+  ["First Setup", source.firstSetup],
+]) {
+  forbidMarkers(body, `${label} invented Windows endpoint identity`, ["TranslateIT Meeting Microphone"]);
+}
 
 for (const [relativePath, label] of [
   ["src/app/active-launcher", "retired active-launcher DOM owner"],
@@ -158,17 +176,24 @@ for (const [relativePath, label] of [
 
 const requiredCommands = [
   "get_meeting_session_status", "get_meeting_committed_turns", "start_meeting_translation", "stop_meeting_translation",
-  "get_helper_bridge_status", "start_helper_bridge", "helper_bridge_worker_status", "start_capture", "stop_capture",
+  "get_virtual_mic_route_contract_status", "get_helper_bridge_status", "start_helper_bridge", "helper_bridge_worker_status", "start_capture", "stop_capture",
   "get_input_status", "list_audio_devices", "probe_input_device_candidate", "probe_output_device_candidate",
   "load_runtime_settings", "save_runtime_settings", "select_audio_device", "translate_text", "verify_models",
 ];
 requireMarkers(source.runtimeApi, "frontend bridge", requiredCommands.map((command) => `"${command}"`));
 requireMarkers(source.registry, "Tauri registry", requiredCommands);
+requireMarkers(source.registry, "guarded product command routing", [
+  "crate::commands::runtime::start_helper_bridge",
+  "crate::commands::runtime::start_meeting_translation",
+  "crate::commands::virtual_mic_route::get_virtual_mic_route_contract_status",
+]);
 forbidMarkers(source.runtimeApi, "frontend bridge", ["audio_studio", "history_entry", "setup_models", "get_gpu_policy", "get_runtime_diagnostics"]);
 requireMarkers(source.runtimeApi, "frontend bridge contracts", [
   "Promise<RuntimeSettings | null>",
   "TextTranslationCommandResult",
   "AudioDeviceSelectionCommandResult",
+  "VirtualMicRouteContractStatus",
+  "getVirtualMicRouteStatus",
 ]);
 
 requireMarkers(source.facade, "product facade", [
@@ -187,10 +212,20 @@ forbidMarkers(source.facade, "normal readiness", ["getStatusBundle", "getDiagnos
 requireMarkers(source.settingsCommands, "settings command ownership", [
   "pub struct AudioDeviceSelectionResult",
   "fn persist_runtime_settings",
+  "fn runtime_session_owns_audio_resources()",
+  "latest_runtime_session_state().snapshot.is_some()",
   "pub fn select_audio_device",
+  "active_runtime_session_locked",
+  "Stop Translation or Mic Test before changing audio devices",
   "probe_input_device_candidate",
   "probe_output_device_candidate",
   "The previous preference was kept",
+]);
+requireMarkers(source.runtimeCommands, "active-session public helper restart guard", [
+  "pub fn start_helper_bridge()",
+  "latest_runtime_session_state().snapshot.is_some()",
+  'state: "active_runtime_session".to_string()',
+  "public_helper_restart_deferred_until_runtime_session_stop",
 ]);
 requireMarkers(source.textTranslate, "Text translation command contract", [
   "pub struct TextTranslationResult",
@@ -199,6 +234,8 @@ requireMarkers(source.textTranslate, "Text translation command contract", [
   "pub blocker: String",
   "TextTranslationResult::success",
   "TextTranslationResult::blocked",
+  "use super::runtime::start_helper_bridge",
+  'start.state == "active_runtime_session"',
 ]);
 
 requireMarkers(source.helperBridge, "Meeting outbound AI preparation", [
@@ -272,6 +309,48 @@ forbidMarkers(source.meetingSession, "bounded Meeting helper Stop recovery", [
   'Some("helper_bridge:task_hard_cancelled")',
   'Some("helper_bridge:meeting_generation_hard_cancelled")',
 ]);
+
+requireMarkers(source.virtualMicRoute, "matched Meeting route pair identity", [
+  "pub route_pair_id: Option<String>",
+  "fn endpoint_pair_identity(",
+  "fn matched_pair_identity(",
+  "fn matched_pair_candidates(",
+  "fn primary_vb_cable_pair(",
+  '"input"',
+  '"output"',
+  '"virtual_mic:selected_route_pair_mismatch"',
+  '"virtual_mic:matched_route_pair_missing"',
+  '"virtual_mic:matched_route_pair_ambiguous"',
+  '"meeting_application_microphone_device"',
+]);
+forbidMarkers(source.virtualMicRoute, "retired independent virtual endpoint selection", [
+  "fn has_virtual_device_keyword(",
+  "fn auto_virtual_candidate(",
+  "let route_ready = output_device_found && input_device_found;",
+  '"blackhole"',
+  '"stereo mix"',
+]);
+requireMarkers(source.virtualMicRoute, "Meeting generation route stability", [
+  "struct MeetingVirtualMicRouteSelection",
+  "pub fn prepare_current_virtual_mic_route_for_meeting()",
+  "pub fn bind_prepared_virtual_mic_route_to_generation(generation: u64)",
+  "fn active_application_meeting_generation()",
+  "prepared.generation = Some(generation);",
+  "virtual_mic_generation_bound_route_pair_source_side_not_audio_routing_proof",
+  "virtual_mic_active_meeting_route_not_bound_fail_closed",
+]);
+requireMarkers(source.runtimeCommands, "public Meeting route preparation before canonical Start", [
+  "pub fn start_meeting_translation()",
+  "clear_prepared_virtual_mic_route_selection();",
+  "prepare_current_virtual_mic_route_for_meeting()",
+  'state: "meeting_route_pair_prepare_failed".to_string()',
+  "let result = meeting_session::start_meeting_translation();",
+  "bind_prepared_virtual_mic_route_to_generation(generation)",
+]);
+if (source.runtimeCommands.indexOf("prepare_current_virtual_mic_route_for_meeting()") > source.runtimeCommands.indexOf("let result = meeting_session::start_meeting_translation();")) {
+  throw new Error("Matched Meeting route pair must be prepared before canonical Meeting Start");
+}
+
 requireMarkers(source.virtualAudioRouteRuntime, "Meeting route provider preflight", [
   "pub fn prepare_meeting_virtual_audio_route_provider()",
   '"preflight_only": true',
@@ -353,4 +432,4 @@ if (!models.some((model) => model.model_id === "marianmt-en-id")) throw new Erro
 if (models.some((model) => model.model_id === "nllb-200-distilled-600M")) throw new Error("NLLB must not return to current translation inventory");
 if (models.some((model) => Object.hasOwn(model, "revision") || Object.hasOwn(model, "checksum"))) throw new Error("Initial model inventory must not grow revision/checksum release-identity placeholders");
 
-console.log("[startup-readiness] Svelte Meeting/Text/Settings/First Setup ownership, coherent Meeting projection, gated transcript polling, atomic audio-device selection, user-safe Text result separation, required outbound AI preparation before Meeting Live, outbound helper priority continuity across ASR/translation/TTS, bounded in-session outbound helper transport recovery, optional incoming freshness/failure isolation with no stale-event retry, bounded Stop-time helper recovery, Meeting Microphone provider preflight before authority, duration-grounded Meeting Microphone delivery deadline, truthful ASR attention state, bounded newest-preferred finalized speech backlog, familiar translation interaction hierarchy, runtime bridge, settings schema, Meeting lifecycle, and direction-based worker contracts are source-aligned. Dependency install, Svelte compile/render, model execution, Windows audio playback, and installed-runtime proof remain separate.");
+console.log("[startup-readiness] Svelte Meeting/Text/Settings/First Setup ownership, coherent Meeting projection, gated transcript polling, atomic audio-device selection, active-session settings/helper-restart isolation, truthful matched Meeting-route pair identity with generation-stable endpoint selection, user-safe Text result separation, required outbound AI preparation before Meeting Live, outbound helper priority continuity across ASR/translation/TTS, bounded in-session outbound helper transport recovery, optional incoming freshness/failure isolation with no stale-event retry, bounded Stop-time helper recovery, Meeting route provider preflight before authority, duration-grounded Meeting route delivery deadline, truthful ASR attention state, bounded newest-preferred finalized speech backlog, familiar translation interaction hierarchy, runtime bridge, settings schema, Meeting lifecycle, and direction-based worker contracts are source-aligned. Dependency install, Svelte compile/render, model execution, Windows audio playback, and installed-runtime proof remain separate.");
