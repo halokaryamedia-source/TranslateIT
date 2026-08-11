@@ -30,8 +30,8 @@ use crate::engine::runtime_state::{
 
 use super::audio::get_input_status;
 use super::helper_bridge::{
-    cancel_helper_bridge_meeting_session, get_helper_bridge_status, send_helper_worker_task,
-    HelperBridgeWorkerResponse,
+    cancel_helper_bridge_meeting_session, get_helper_bridge_status,
+    prepare_required_outbound_ai_runtime, send_helper_worker_task, HelperBridgeWorkerResponse,
 };
 use super::helper_bridge_runtime::unix_ms;
 use super::runtime_inventory::get_model_inventory;
@@ -902,30 +902,31 @@ pub fn process_authoritative_finalized_outbound_wav(
     let transcript = worker_text(&asr, "transcript_text");
     if !asr.ok || transcript.is_none() {
         let blocker = worker_blocker(&asr, "asr:empty_transcript");
+        let empty = blocker.contains("empty_transcript");
         update_outbound_status(
             generation,
             session_id,
-            "listening",
+            if empty { "listening" } else { "attention_needed" },
             event_sequence,
             false,
-            blocker.contains("empty_transcript"),
-            if blocker.contains("empty_transcript") { "" } else { &blocker },
-            if blocker.contains("empty_transcript") {
+            empty,
+            if empty { "" } else { &blocker },
+            if empty {
                 "Finalized speech did not produce a stable transcript. No Meeting output was generated."
             } else {
                 "Local ASR failed before translation. No Meeting output was generated."
             },
         );
         return MeetingOutboundProcessResult {
-            ok: blocker.contains("empty_transcript"),
+            ok: empty,
             delivered: false,
-            state: if blocker.contains("empty_transcript") {
+            state: if empty {
                 "no_stable_transcript"
             } else {
                 "asr_failed"
             }
             .to_string(),
-            blocker: if blocker.contains("empty_transcript") {
+            blocker: if empty {
                 String::new()
             } else {
                 blocker
@@ -1597,6 +1598,29 @@ pub fn start_meeting_translation() -> MeetingSessionActionResult {
             state: "blocked".to_string(),
             message: preflight.summary.clone(),
             status: status_from_report(latest_runtime_session_state(), preflight),
+        };
+    }
+
+    // Exercise the real required AI runtimes before Meeting authority, capture, or
+    // output resources are opened. A file/import-ready status alone must not commit
+    // the product Live if ASR, ID->EN translation, or English TTS cannot prepare.
+    if let Err(stage) = prepare_required_outbound_ai_runtime() {
+        return blocked_result(
+            "outbound_runtime_prepare_failed",
+            format!(
+                "Start Translation couldn't prepare {stage}. Check Setup or Diagnostics and try again."
+            ),
+        );
+    }
+
+    let prepared_preflight = build_preflight();
+    if !prepared_preflight.ready_for_start {
+        return MeetingSessionActionResult {
+            ok: false,
+            state: "blocked_after_runtime_prepare".to_string(),
+            message: "Start Translation prepared the local AI runtime, but current Meeting prerequisites are no longer ready. Check Setup and try again."
+                .to_string(),
+            status: status_from_report(latest_runtime_session_state(), prepared_preflight),
         };
     }
 
