@@ -76,6 +76,40 @@ The frontend/Tauri product surface is bounded to current Meeting/Text/setup need
 
 Meeting Microphone route modules remain internal dependencies of `meeting_session.rs`; they are not a manual frontend command surface.
 
+## Frontend Architecture
+
+Current implementation is still the existing Vite + TypeScript + manual DOM/CSS frontend. The approved long-term migration target is:
+
+```text
+Tauri 2
++ Svelte 5
++ Vite
++ TypeScript
++ Tailwind CSS 4
++ CSS custom-property design tokens
++ selective Bits UI primitives
++ Lucide Svelte
+```
+
+The target is a plain Svelte SPA inside Tauri. SvelteKit, a frontend router, Redux-like state library, heavy component framework, CSS-in-JS, full shadcn-svelte component dump, and general animation framework are not default dependencies.
+
+Migration responsibilities are intentionally split by semantic boundary:
+
+```text
+framework/application migration + state/bridge parity
+-> desktop-runtime-development
+
+visual hierarchy/layout/tokens/component visual states/rendered acceptance
+-> desktop-ui-design-development
+
+Svelte syntax/reactivity/tool validation
+-> official Svelte AI/MCP technical helpers
+```
+
+The official Svelte helpers are conditional tooling, not new TranslateIT project specialists. The frozen project skill baseline remains unchanged. Svelte migration must preserve one frontend root, the existing Tauri/runtime bridge contracts, Meeting/Text behavior, and one source of product truth; it must not leave a permanent vanilla/Svelte dual shell.
+
+Until migration source is actually implemented and proved, the current vanilla TypeScript frontend remains runtime truth.
+
 ## Rust Engine Surface
 
 The Rust engine graph is reduced to current owners only:
@@ -126,6 +160,8 @@ The old matrix/report-heavy validation system is removed. Current persistent sou
 
 Static validators do not prove compile, Tauri launch, models, Windows audio, rendered UI, latency, installer behavior, or clean-machine operation.
 
+For future Svelte source work, official Svelte autofix/documentation tooling is a technical helper. Svelte compile/type/accessibility claims require the relevant local `sv check`/build proof; rendered UI claims still require rendered evidence.
+
 ## Release Boundary
 
 Initial controlled release keeps the local sidecar Setup direction and does not use a SHA-256/checksum/revision identity framework, artifact registry, downloader, or package manager.
@@ -158,4 +194,4 @@ Actual `PythonRuntime` bytes, vendored packages, Tauri/NSIS placement, worker/mo
 
 ## Proof Boundary
 
-ChatGPT -> GitHub can establish source structure, direct wiring, and static ownership. This repository state does not prove Rust/TypeScript compilation, validator execution, Python payload construction/execution, Tauri launch, Windows audio/device behavior, model presence/load/quality/latency, installer behavior, or clean-machine installation.
+ChatGPT -> GitHub can establish source structure, direct wiring, static ownership, architecture decisions, and skill routing. This repository state does not prove Rust/TypeScript/Svelte compilation, validator execution, Python payload construction/execution, Tauri launch, rendered UI, Windows audio/device behavior, model presence/load/quality/latency, installer behavior, or clean-machine installation.
