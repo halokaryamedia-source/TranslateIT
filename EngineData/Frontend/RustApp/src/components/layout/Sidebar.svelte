@@ -28,8 +28,8 @@
 
   function presenceLabel(): string {
     if (presence === "Live") return "Translation is live";
-    if (presence === "Ready") return "Ready";
-    if (presence === "Degraded") return "Text ready";
+    if (presence === "Ready") return "Ready to translate";
+    if (presence === "Degraded") return "Text translation ready";
     if (presence === "Setup Needed") return "Setup needed";
     if (presence === "Unavailable") return "Unavailable";
     return "Checking";
