@@ -158,3 +158,48 @@ No dependency lock/hash framework is required for this initial slice. The approv
 
 **Reason**  
 Python's embeddable distribution is intended to ship as part of another application, while Python virtual environments are explicitly not intended to be moved/copied. Keeping the existing scripts under a private interpreter preserves the current worker/model/debug behavior and avoids adding a freeze spec, hidden-import/binary collection layer, one-file extraction behavior, or a second worker architecture.
+
+## D-011 — Frontend Migrates To A Small Svelte 5 Architecture
+
+**Decision**  
+The long-term TranslateIT frontend will migrate from the current vanilla TypeScript/manual-DOM implementation to a plain Svelte 5 SPA inside the existing Tauri 2 desktop application.
+
+Approved target stack:
+
+```text
+Tauri 2
++ Svelte 5
++ Vite
++ TypeScript
++ Tailwind CSS 4
++ CSS custom-property design tokens
++ selective Bits UI primitives
++ Lucide Svelte
+```
+
+The migration must preserve one frontend root and the current Rust/Tauri runtime contracts. `runtimeApi.ts` and `runtimeProductFacade.ts` remain the default bridge/facade boundaries unless a concrete contract defect later proves otherwise.
+
+Default exclusions:
+
+```text
+no SvelteKit
+no frontend router
+no Redux-like state library
+no second runtime/product state store
+no heavy UI framework
+no full shadcn-svelte component dump
+no CSS-in-JS
+no general animation framework
+no permanent vanilla/Svelte dual shell
+```
+
+Svelte 5 runes are the default reactivity model for new Svelte code. Product/runtime truth remains owned by the existing Rust/runtime contracts; Svelte state exists for presentation/application composition, not as a competing backend truth.
+
+Bits UI is permitted selectively for complex accessible interaction primitives such as dialog/select/popover/focus-management boundaries. TranslateIT owns the visual appearance. Lucide Svelte is the default icon family; product-specific icons remain allowed when necessary.
+
+Framework/application migration is routed through `desktop-runtime-development`. Visual hierarchy, tokens, component visual states, responsive composition, and rendered acceptance are routed through `desktop-ui-design-development`. Official Svelte AI skills/MCP tooling are conditional technical helpers and do not create a new TranslateIT `svelte-expert` specialist.
+
+**Reason**  
+The current manual DOM/template-string frontend is small enough to work today but becomes increasingly costly as Meeting lifecycle states, transcript presentation, Text, First Setup, Settings, Diagnostics, and future product surfaces evolve. Svelte provides declarative component/state ownership without requiring a full web meta-framework. Tailwind plus semantic CSS tokens keeps layout iteration fast while preserving one maintainable visual system. Selective headless primitives improve complex interaction/accessibility without surrendering TranslateIT's design language to a large UI kit.
+
+The migration is intentionally separate from current PythonRuntime local proof. Until the Svelte source is actually implemented and proved, the existing vanilla TypeScript frontend remains runtime truth.
