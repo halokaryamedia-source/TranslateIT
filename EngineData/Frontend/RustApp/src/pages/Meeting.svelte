@@ -1,5 +1,11 @@
 <script lang="ts">
-  import type { MeetingCommittedTurnsSnapshot, MeetingSessionStatus } from "../app/bridge/runtimeApi";
+  import { onMount } from "svelte";
+  import {
+    runtimeApi,
+    type MeetingCommittedTurnsSnapshot,
+    type MeetingSessionStatus,
+    type VirtualMicRouteContractStatus,
+  } from "../app/bridge/runtimeApi";
   import type { ProductRuntimeSnapshot } from "../app/bridge/runtimeProductFacade";
   import MeetingActivity from "../components/meeting/MeetingActivity.svelte";
   import StatusBadge from "../components/ui/StatusBadge.svelte";
@@ -25,6 +31,8 @@
     onFixSetup: () => void | Promise<void>;
   } = $props();
 
+  let routeStatus = $state<VirtualMicRouteContractStatus | null>(null);
+
   const readiness = $derived(snapshot.readiness);
   const meeting = $derived(snapshot.meeting);
   const runtimeUnavailable = $derived(readiness.level === "unavailable" || meeting.label === "Unavailable");
@@ -33,6 +41,9 @@
     String(snapshot.inputStatus?.selected_device_name ?? snapshot.settings.audio.input_device_id ?? "").trim() || "Windows Default",
   );
   const meetingSound = $derived(String(snapshot.settings.audio.output_device_id ?? "").trim() || "Windows Default");
+  const meetingMicrophoneDevice = $derived(
+    String(routeStatus?.selected_input_device ?? "").trim() || "Meeting microphone not configured",
+  );
   const activityVisible = $derived(Boolean(meetingStatus && meeting.applicationOwned && meeting.hasSession && (meeting.live || meeting.busy)));
 
   function statusTone(ready: boolean, pending = false, unavailable = false): Tone {
@@ -65,6 +76,23 @@
           ? "Ready to translate. Start when your meeting is open."
           : "Finish the setup items below before starting translation.",
   );
+
+  async function refreshRouteStatus(): Promise<void> {
+    try {
+      routeStatus = await runtimeApi.getVirtualMicRouteStatus();
+    } catch {
+      routeStatus = null;
+    }
+  }
+
+  async function refreshMeetingSetup(): Promise<void> {
+    await onRefresh();
+    await refreshRouteStatus();
+  }
+
+  onMount(() => {
+    void refreshRouteStatus();
+  });
 </script>
 
 <section class="ti-page">
@@ -75,7 +103,7 @@
       <p class="ti-page-copy">
         {activityVisible
           ? "Speak normally. TranslateIT turns each finished phrase into English voice for your meeting."
-          : "Use your normal microphone. TranslateIT sends the English translation through TranslateIT Meeting Microphone."}
+          : "Use your normal microphone. TranslateIT sends the English translation through your configured Windows meeting-microphone route."}
       </p>
     </div>
     {#if meeting.live || meeting.busy || runtimeUnavailable || !readiness.meetingReady}
@@ -116,8 +144,10 @@
         />
         <StatusRow
           label="Meeting microphone"
-          value="TranslateIT Meeting Microphone"
-          detail="Choose this microphone in Zoom, Meet, Teams, or your meeting app."
+          value={meetingMicrophoneDevice}
+          detail={readiness.meetingRouteReady
+            ? "Choose this exact microphone in Zoom, Meet, Teams, or your meeting app."
+            : "TranslateIT needs one matched Windows virtual-audio cable pair before Meeting output can start."}
           status={readiness.meetingRouteReady ? "" : runtimeUnavailable ? "Unavailable" : checking ? "Checking" : "Setup Needed"}
           tone={routeTone}
         />
@@ -135,7 +165,7 @@
       <div class="ti-action-row">
         <button type="button" class={`ti-button min-w-44 ${meeting.canStop ? "ti-button-danger" : ""}`} disabled={primaryDisabled} onclick={onMeetingAction}>{primaryLabel}</button>
         {#if !meeting.live && !meeting.busy && !readiness.meetingReady}
-          <button type="button" class="ti-button ti-button-secondary" onclick={onRefresh}>{runtimeUnavailable ? "Retry" : "Check Again"}</button>
+          <button type="button" class="ti-button ti-button-secondary" onclick={() => void refreshMeetingSetup()}>{runtimeUnavailable ? "Retry" : "Check Again"}</button>
           {#if !runtimeUnavailable}
             <button type="button" class="ti-button ti-button-secondary" onclick={onFixSetup}>Check Setup</button>
           {/if}
