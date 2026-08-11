@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { ArrowRight, Languages, Mic, Radio } from "@lucide/svelte";
   import { onMount } from "svelte";
   import {
     runtimeApi,
@@ -9,7 +10,6 @@
   import type { ProductRuntimeSnapshot } from "../app/bridge/runtimeProductFacade";
   import MeetingActivity from "../components/meeting/MeetingActivity.svelte";
   import StatusBadge from "../components/ui/StatusBadge.svelte";
-  import StatusRow from "../components/ui/StatusRow.svelte";
 
   type Tone = "neutral" | "good" | "warning" | "danger";
 
@@ -95,15 +95,14 @@
   });
 </script>
 
-<section class="ti-page">
+<section class="ti-page ti-page-wide">
   <header class="ti-page-header">
     <div>
-      <span class="ti-kicker">Meeting</span>
-      <h2 class="ti-page-title">{activityVisible ? "Meeting translation" : "Speak Indonesian. Your meeting hears English."}</h2>
+      <h2 class="ti-page-title">Meeting translation</h2>
       <p class="ti-page-copy">
         {activityVisible
-          ? "Speak normally. TranslateIT turns each finished phrase into English voice for your meeting."
-          : "Use your normal microphone. TranslateIT sends the English translation through your configured Windows meeting-microphone route."}
+          ? "Speak normally. Finished phrases are translated and spoken into your meeting."
+          : "Speak Indonesian. TranslateIT sends English voice to your meeting."}
       </p>
     </div>
     {#if meeting.live || meeting.busy || runtimeUnavailable || !readiness.meetingReady}
@@ -116,68 +115,106 @@
 
   <article class="ti-panel overflow-hidden">
     {#if activityVisible && meetingStatus}
-      <div class="p-6">
+      <div class="p-5">
         <MeetingActivity status={meetingStatus} turns={meetingTurns} />
       </div>
     {:else}
-      <div class="border-b border-[var(--ti-border)] bg-[var(--ti-surface-soft)] px-6 py-5">
-        <div class="grid grid-cols-[1fr_auto_1fr] items-center gap-5">
-          <div>
+      <div class="flex items-center justify-between gap-6 border-b border-[var(--ti-border)] bg-[var(--ti-surface-soft)] px-5 py-4">
+        <div class="flex min-w-0 items-center gap-4">
+          <div class="min-w-0">
             <span class="ti-field-label">You speak</span>
-            <strong class="mt-1 block text-base font-semibold">Indonesian</strong>
+            <strong class="mt-1 block text-[15px] font-semibold">Indonesian</strong>
           </div>
-          <span class="text-lg text-[var(--ti-text-soft)]" aria-hidden="true">→</span>
-          <div class="text-right">
+          <div class="grid size-8 shrink-0 place-items-center rounded-full border border-[var(--ti-border)] bg-[var(--ti-surface)] text-[var(--ti-text-soft)]" aria-hidden="true">
+            <ArrowRight size={15} />
+          </div>
+          <div class="min-w-0">
             <span class="ti-field-label">Meeting hears</span>
-            <strong class="mt-1 block text-base font-semibold">English voice</strong>
+            <strong class="mt-1 block text-[15px] font-semibold">English voice</strong>
           </div>
         </div>
+        {#if readiness.meetingReady}
+          <div class="flex shrink-0 items-center gap-2 text-xs font-semibold text-[var(--ti-success)]">
+            <span class="size-1.5 rounded-full bg-[var(--ti-success)]" aria-hidden="true"></span>
+            Ready
+          </div>
+        {/if}
       </div>
 
-      <div class="divide-y divide-[var(--ti-border)]">
-        <StatusRow
-          label="Your microphone"
-          value={microphone}
-          detail="The microphone you speak into."
-          status={readiness.microphoneReady ? "" : microphoneUnavailable ? "Unavailable" : checking ? "Checking" : "Setup Needed"}
-          tone={microphoneTone}
-        />
-        <StatusRow
-          label="Meeting microphone"
-          value={meetingMicrophoneDevice}
-          detail={readiness.meetingRouteReady
-            ? "Choose this exact microphone in Zoom, Meet, Teams, or your meeting app."
-            : "TranslateIT needs one matched Windows virtual-audio cable pair before Meeting output can start."}
-          status={readiness.meetingRouteReady ? "" : runtimeUnavailable ? "Unavailable" : checking ? "Checking" : "Setup Needed"}
-          tone={routeTone}
-        />
-        <StatusRow
-          label="Incoming translation"
-          value="English → Indonesian text"
-          detail={`Optional · listens to ${meetingSound}`}
-          status={runtimeUnavailable ? "Unavailable" : ""}
-          tone={runtimeUnavailable ? "danger" : "neutral"}
-        />
+      <div class="grid grid-cols-3 divide-x divide-[var(--ti-border)]">
+        <section class="min-w-0 p-5">
+          <div class="flex items-center gap-2 text-[var(--ti-text-muted)]">
+            <Mic size={15} strokeWidth={1.8} />
+            <span class="ti-field-label">Your microphone</span>
+          </div>
+          <strong class="mt-2 block break-words text-[13px] font-semibold leading-5">{microphone}</strong>
+          <p class="mb-0 mt-1.5 text-[11.5px] leading-[1.55] text-[var(--ti-text-soft)]">The microphone you speak into.</p>
+          {#if !readiness.microphoneReady}
+            <div class="mt-3">
+              <StatusBadge
+                label={microphoneUnavailable ? "Unavailable" : checking ? "Checking" : "Setup Needed"}
+                tone={microphoneTone}
+              />
+            </div>
+          {/if}
+        </section>
+
+        <section class="min-w-0 p-5">
+          <div class="flex items-center gap-2 text-[var(--ti-text-muted)]">
+            <Radio size={15} strokeWidth={1.8} />
+            <span class="ti-field-label">Meeting microphone</span>
+          </div>
+          <strong class="mt-2 block break-words text-[13px] font-semibold leading-5">{meetingMicrophoneDevice}</strong>
+          <p class="mb-0 mt-1.5 text-[11.5px] leading-[1.55] text-[var(--ti-text-soft)]">
+            {readiness.meetingRouteReady
+              ? "Choose this exact microphone in your meeting app."
+              : "A matched Windows virtual-audio route is required."}
+          </p>
+          {#if !readiness.meetingRouteReady}
+            <div class="mt-3">
+              <StatusBadge
+                label={runtimeUnavailable ? "Unavailable" : checking ? "Checking" : "Setup Needed"}
+                tone={routeTone}
+              />
+            </div>
+          {/if}
+        </section>
+
+        <section class="min-w-0 p-5">
+          <div class="flex items-center gap-2 text-[var(--ti-text-muted)]">
+            <Languages size={15} strokeWidth={1.8} />
+            <span class="ti-field-label">Incoming translation</span>
+          </div>
+          <strong class="mt-2 block text-[13px] font-semibold leading-5">English → Indonesian text</strong>
+          <p class="mb-0 mt-1.5 text-[11.5px] leading-[1.55] text-[var(--ti-text-soft)]">Optional · listens to {meetingSound}</p>
+          {#if runtimeUnavailable}
+            <div class="mt-3">
+              <StatusBadge label="Unavailable" tone="danger" />
+            </div>
+          {/if}
+        </section>
       </div>
     {/if}
 
-    <footer class="grid gap-4 border-t border-[var(--ti-border)] p-6">
-      <div class="ti-action-row">
-        <button type="button" class={`ti-button min-w-44 ${meeting.canStop ? "ti-button-danger" : ""}`} disabled={primaryDisabled} onclick={onMeetingAction}>{primaryLabel}</button>
+    <footer class="flex flex-wrap items-center justify-between gap-4 border-t border-[var(--ti-border)] bg-[var(--ti-surface-soft)] px-5 py-4">
+      {#if !activityVisible}
+        <div class="flex min-w-0 items-center gap-2.5 text-[12.5px] text-[var(--ti-text-muted)]" aria-live="polite">
+          <span class={`size-1.5 shrink-0 rounded-full ${runtimeUnavailable ? "bg-[var(--ti-danger)]" : readiness.meetingReady ? "bg-[var(--ti-success)]" : checking ? "bg-[var(--ti-text-soft)]" : "bg-[var(--ti-warning)]"}`} aria-hidden="true"></span>
+          <span>{readyMessage}</span>
+        </div>
+      {:else}
+        <div class="text-[12.5px] text-[var(--ti-text-muted)]">Meeting translation remains active until you stop it.</div>
+      {/if}
+
+      <div class="ti-action-row ml-auto">
         {#if !meeting.live && !meeting.busy && !readiness.meetingReady}
           <button type="button" class="ti-button ti-button-secondary" onclick={() => void refreshMeetingSetup()}>{runtimeUnavailable ? "Retry" : "Check Again"}</button>
           {#if !runtimeUnavailable}
             <button type="button" class="ti-button ti-button-secondary" onclick={onFixSetup}>Check Setup</button>
           {/if}
         {/if}
+        <button type="button" class={`ti-button min-w-40 ${meeting.canStop ? "ti-button-danger" : ""}`} disabled={primaryDisabled} onclick={onMeetingAction}>{primaryLabel}</button>
       </div>
-
-      {#if !activityVisible}
-        <div class="flex items-center gap-2.5 text-sm text-[var(--ti-text-muted)]" aria-live="polite">
-          <span class={`size-2 shrink-0 rounded-full ${runtimeUnavailable ? "bg-[var(--ti-danger)]" : readiness.meetingReady ? "bg-[var(--ti-success)]" : checking ? "bg-[var(--ti-text-soft)]" : "bg-[var(--ti-warning)]"}`} aria-hidden="true"></span>
-          <span>{readyMessage}</span>
-        </div>
-      {/if}
     </footer>
   </article>
 </section>
