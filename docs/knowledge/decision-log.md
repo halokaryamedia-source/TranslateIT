@@ -191,3 +191,24 @@ Required outbound must not be damaged by an optional lane, but replaying old inc
 
 **Proof status**  
 The source contract is established on `New`: exact deferral is distinguished from failure, incoming transport recovery is same-worker and no-retry, and Live internal helper restart preserves outbound pipeline ownership. Forced incoming write/read failure with outbound waiting still requires deferred local/runtime proof.
+
+## D-014 — Active Runtime Sessions Freeze Audio Mutation And Public Helper Restart
+
+**Decision**  
+An active runtime session owns its currently opened resources until the canonical Stop path releases that session. During that window:
+
+```text
+microphone / Meeting Sound preference change -> reject and preserve current settings
+public/manual helper restart               -> defer until session Stop
+Settings Check Setup                       -> unavailable until session Stop
+```
+
+The public Tauri `start_helper_bridge` command is routed through a runtime-session guard. Internal Meeting recovery remains on the existing direct helper lifecycle path so bounded recovery can still restore the same worker while Meeting owns authority. Standalone Text may share a healthy helper during Meeting, but if the helper is stopped it uses the guarded public start path and does not restart the worker underneath an active Meeting/Mic Test.
+
+Settings keeps non-mutating status/device discovery available, but disables microphone/Meeting Sound mutation, Mic Test start, and setup repair while a runtime session exists. No pending next-session setting store or mid-session device rebind is introduced; the user changes settings after Stop.
+
+**Reason**  
+Persisting a new device while capture still owns the previous endpoint makes product settings disagree with the live session. Restarting the shared helper from setup/Text can also invalidate work owned by Meeting. Freezing these mutations until canonical Stop is smaller and safer than hot-rebinding devices or creating another helper lifecycle owner.
+
+**Proof status**  
+The source guard and Settings interaction boundary are established on `New`. Rust/Tauri compile, rendered disabled-state behavior, and live Start -> navigate Settings -> attempted mutation/recovery -> Stop -> mutation-allowed behavior still require deferred local/runtime proof.
