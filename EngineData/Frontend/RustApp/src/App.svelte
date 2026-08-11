@@ -184,7 +184,12 @@
     setNotice(action === "start" ? "Starting translation..." : "Stopping translation...");
     try {
       const result = await runtimeProductFacade.runProductMeetingAction(action);
-      applyMeetingStatus(result.status, result.message);
+      const resultNotice = result.ok
+        ? action === "start" ? "Translation is live." : "Translation stopped."
+        : action === "start"
+          ? "Translation couldn't start. Check Setup or Diagnostics and try again."
+          : "Translation couldn't stop safely. Try again or check Diagnostics.";
+      applyMeetingStatus(result.status, resultNotice);
       if (!result.status.has_session) {
         meetingTurns = null;
         lastTranscriptStatusKey = "";
@@ -238,9 +243,10 @@
     }
 
     micTestBusy = true;
+    const wasRecording = snapshot.readiness.recording;
     try {
-      const result = snapshot.readiness.recording ? await runtimeApi.stopCapture() : await runtimeApi.startCapture();
-      await refreshSnapshot(result.message);
+      const result = wasRecording ? await runtimeApi.stopCapture() : await runtimeApi.startCapture();
+      await refreshSnapshot(result.ok ? (wasRecording ? "Mic Test stopped." : "Mic Test started.") : "Mic Test couldn't be completed. Try again or check Diagnostics.");
     } catch {
       setNotice("Mic Test couldn't be completed. Try again or check Diagnostics.");
     } finally {
