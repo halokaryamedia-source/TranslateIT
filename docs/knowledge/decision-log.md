@@ -176,3 +176,18 @@ ASR and translation can be re-executed before any Meeting playback side effect. 
 
 **Proof status**  
 The source ownership and one-retry/no-synthesis-retry contract are established on `New`. Forced helper write/read/deadline failures and recovery behavior still require deferred local/runtime proof.
+
+## D-013 — Optional Incoming Yields Freshness And Cannot Strand The Shared Helper
+
+**Decision**  
+Optional incoming Meeting Sound is freshness assistance, not work that must survive required-outbound contention. An explicit `helper_scheduler:incoming_deferred_for_outbound` result is therefore a healthy stale-event drop: the old incoming event is discarded and the lane returns to fresh listening without a degraded/error claim.
+
+If an executing incoming helper request instead suffers a proven helper transport failure (`*_write_failed:*` or `*_read_failed:*`), the failed incoming request is **not retried**. While that `MeetingIncoming` scheduler request still owns its permit, TranslateIT may restart the same canonical helper worker so a waiting required outbound request cannot inherit a deliberately stopped shared worker. Internal Live recovery must preserve any current outbound pipeline claim; the public/manual helper-start path keeps its existing full reset semantics.
+
+A failed incoming recovery remains a real degraded runtime condition. Normal incoming ASR/translation/model/content failures also remain ordinary incoming failures and do not gain a retry loop.
+
+**Reason**  
+Required outbound must not be damaged by an optional lane, but replaying old incoming comprehension after contention would also violate incoming freshness. Restoring shared infrastructure before incoming scheduler ownership is released addresses the worker-stranding race without a second worker, an incoming retry queue, or stale subtitle replay.
+
+**Proof status**  
+The source contract is established on `New`: exact deferral is distinguished from failure, incoming transport recovery is same-worker and no-retry, and Live internal helper restart preserves outbound pipeline ownership. Forced incoming write/read failure with outbound waiting still requires deferred local/runtime proof.
