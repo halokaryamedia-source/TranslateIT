@@ -155,3 +155,24 @@ Meeting lifecycle states, live transcript presentation, Text, First Setup, Setti
 
 **Proof status**  
 The source migration is established on `New`, but dependency installation, Svelte autofix/typecheck/build, Tauri launch, and rendered visual acceptance are intentionally deferred while the user completes major frontend work. Those proofs remain required before release.
+
+## D-012 — Live Helper Recovery Is Transport-Only And Stage-Bounded
+
+**Decision**  
+During an authoritative Live Meeting, automatic helper recovery is limited to proven helper transport/lifecycle failures represented by the existing worker bridge `*_write_failed:*` or `*_read_failed:*` blockers.
+
+Recovery keeps one canonical helper worker and must run under `MeetingOutbound` scheduler priority with the current Meeting generation rechecked before retry. The current safe retry boundary is:
+
+```text
+transcribe -> retry at most once
+translate  -> retry at most once
+synthesize -> restart helper for later utterances, do not retry current synthesis
+```
+
+Normal ASR/content/model/translation/TTS failure, incoming work, Text work, explicit helper cancellation, Meeting Stop cancellation, and stale generations do not enter this automatic recovery path. A failed retry does not create another retry/restart loop.
+
+**Reason**  
+ASR and translation can be re-executed before any Meeting playback side effect. Synthesis may have uncertain child-process or temporary-file state after a transport break, so replaying that current stage adds avoidable side-effect ambiguity. This boundary allows the Live Meeting to self-heal from a transient worker transport failure without introducing a second worker, generic retry framework, or duplicate spoken output risk.
+
+**Proof status**  
+The source ownership and one-retry/no-synthesis-retry contract are established on `New`. Forced helper write/read/deadline failures and recovery behavior still require deferred local/runtime proof.
