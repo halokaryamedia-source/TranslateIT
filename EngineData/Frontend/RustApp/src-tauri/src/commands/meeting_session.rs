@@ -754,6 +754,11 @@ fn worker_blocker(response: &HelperBridgeWorkerResponse, fallback: &str) -> Stri
     worker_text(response, "blocker").unwrap_or_else(|| fallback.to_string())
 }
 
+fn incoming_deferred_for_required_outbound(response: &HelperBridgeWorkerResponse) -> bool {
+    worker_text(response, "blocker").as_deref()
+        == Some("helper_scheduler:incoming_deferred_for_outbound")
+}
+
 fn generation_is_live(generation: u64) -> bool {
     if !runtime_generation_is_authoritative(generation) {
         return false;
@@ -1230,6 +1235,16 @@ fn process_authoritative_finalized_incoming_wav(
     if !incoming_session_is_eligible(session_id) {
         return;
     }
+    if incoming_deferred_for_required_outbound(&asr) {
+        update_incoming_status(
+            session_id,
+            "listening",
+            false,
+            "",
+            "Older optional incoming speech yielded before ASR because required outbound translation took priority. The event was discarded and incoming is listening for fresh Meeting Sound.",
+        );
+        return;
+    }
     let transcript = worker_text(&asr, "transcript_text");
     if !asr.ok || transcript.is_none() {
         let blocker = worker_blocker(&asr, "asr:empty_transcript");
@@ -1270,6 +1285,16 @@ fn process_authoritative_finalized_incoming_wav(
         }),
     );
     if !incoming_session_is_eligible(session_id) {
+        return;
+    }
+    if incoming_deferred_for_required_outbound(&translation) {
+        update_incoming_status(
+            session_id,
+            "listening",
+            false,
+            "",
+            "Older optional incoming speech yielded before translation because required outbound work took priority. The transcript was discarded and incoming is listening for fresh Meeting Sound.",
+        );
         return;
     }
     let translated_text = worker_text(&translation, "translated_text");
