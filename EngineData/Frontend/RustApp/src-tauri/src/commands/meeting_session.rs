@@ -1614,7 +1614,6 @@ pub fn get_meeting_committed_turns() -> MeetingCommittedTurnsSnapshot {
     current_committed_turn_snapshot()
 }
 
-#[tauri::command]
 pub fn start_meeting_translation() -> MeetingSessionActionResult {
     let current = latest_runtime_session_state();
     if let Some(snapshot) = current.snapshot.as_ref() {

@@ -988,7 +988,6 @@ fn start_helper_bridge_internal(clear_outbound_pipeline: bool) -> HelperBridgeAc
     }
 }
 
-#[tauri::command]
 pub fn start_helper_bridge() -> HelperBridgeActionResult {
     start_helper_bridge_internal(true)
 }
