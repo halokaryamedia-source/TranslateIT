@@ -42,10 +42,10 @@
     return "warning";
   }
 
-  const meetingTone = $derived(statusTone(meeting.live || readiness.meetingReady, checking || meeting.busy, runtimeUnavailable));
   const microphoneUnavailable = $derived(readiness.microphoneStatus === "Unavailable");
   const microphoneTone = $derived(statusTone(readiness.microphoneReady, checking, microphoneUnavailable));
   const routeTone = $derived(statusTone(readiness.meetingRouteReady, checking, runtimeUnavailable));
+  const meetingTone = $derived(statusTone(meeting.live || readiness.meetingReady, checking || meeting.busy, runtimeUnavailable));
 
   const primaryLabel = $derived(
     actionBusy
@@ -55,20 +55,35 @@
       : "Start Translation",
   );
   const primaryDisabled = $derived(actionBusy || meeting.busy || (!meeting.canStart && !meeting.canStop));
+
+  const readyMessage = $derived(
+    runtimeUnavailable
+      ? "TranslateIT can't reach the local translator right now. Retry the check."
+      : checking
+        ? "Checking your microphone and meeting output..."
+        : readiness.meetingReady
+          ? "Ready to translate. Start when your meeting is open."
+          : "Finish the setup items below before starting translation.",
+  );
 </script>
 
 <section class="ti-page">
   <header class="ti-page-header">
     <div>
-      <span class="ti-kicker">Meeting translation</span>
-      <h2 class="ti-page-title">{activityVisible ? "Meeting translation is active." : "Speak Indonesian. Your meeting hears English."}</h2>
+      <span class="ti-kicker">Meeting</span>
+      <h2 class="ti-page-title">{activityVisible ? "Meeting translation" : "Speak Indonesian. Your meeting hears English."}</h2>
       <p class="ti-page-copy">
         {activityVisible
-          ? "Finalized speech is translated locally. Incoming English can appear as Indonesian text when its optional lane is available."
-          : "Indonesian speech becomes English voice. Incoming English can appear as Indonesian text when available."}
+          ? "Speak normally. TranslateIT turns each finished phrase into English voice for your meeting."
+          : "Use your normal microphone. TranslateIT sends the English translation through TranslateIT Meeting Microphone."}
       </p>
     </div>
-    <StatusBadge label={meeting.live ? "Live" : meeting.busy ? meeting.label : readiness.meetingReady ? "Ready" : checking ? "Checking" : meeting.label} tone={meetingTone} />
+    {#if meeting.live || meeting.busy || runtimeUnavailable || !readiness.meetingReady}
+      <StatusBadge
+        label={meeting.live ? "Live" : meeting.busy ? meeting.label : runtimeUnavailable ? "Unavailable" : checking ? "Checking" : "Setup Needed"}
+        tone={meetingTone}
+      />
+    {/if}
   </header>
 
   <article class="ti-panel overflow-hidden">
@@ -77,52 +92,62 @@
         <MeetingActivity status={meetingStatus} turns={meetingTurns} />
       </div>
     {:else}
-      <section class="grid border-b border-[var(--ti-border)] bg-[var(--ti-surface-soft)]">
-        <div class="divide-y divide-[var(--ti-border)]">
-          <StatusRow
-            label="Your microphone"
-            value={microphone}
-            detail="The microphone you speak into."
-            status={microphoneUnavailable ? "Unavailable" : readiness.microphoneReady ? "Ready" : checking ? "Checking" : "Setup Needed"}
-            tone={microphoneTone}
-          />
-          <StatusRow
-            label="Incoming translation"
-            value="English → Indonesian text"
-            detail={`Meeting sound: ${meetingSound}. This lane is optional.`}
-            status={runtimeUnavailable ? "Unavailable" : "Optional"}
-            tone={runtimeUnavailable ? "danger" : "neutral"}
-          />
-          <StatusRow
-            label="Meeting microphone"
-            value="TranslateIT Meeting Microphone"
-            detail="Select this microphone inside Zoom, Meet, Teams, or another meeting app."
-            status={runtimeUnavailable ? "Unavailable" : readiness.meetingRouteReady ? "Ready" : checking ? "Checking" : "Setup Needed"}
-            tone={routeTone}
-          />
+      <div class="border-b border-[var(--ti-border)] bg-[var(--ti-surface-soft)] px-6 py-5">
+        <div class="grid grid-cols-[1fr_auto_1fr] items-center gap-5">
+          <div>
+            <span class="ti-field-label">You speak</span>
+            <strong class="mt-1 block text-base font-semibold">Indonesian</strong>
+          </div>
+          <span class="text-lg text-[var(--ti-text-soft)]" aria-hidden="true">→</span>
+          <div class="text-right">
+            <span class="ti-field-label">Meeting hears</span>
+            <strong class="mt-1 block text-base font-semibold">English voice</strong>
+          </div>
         </div>
-      </section>
+      </div>
+
+      <div class="divide-y divide-[var(--ti-border)]">
+        <StatusRow
+          label="Your microphone"
+          value={microphone}
+          detail="The microphone you speak into."
+          status={readiness.microphoneReady ? "" : microphoneUnavailable ? "Unavailable" : checking ? "Checking" : "Setup Needed"}
+          tone={microphoneTone}
+        />
+        <StatusRow
+          label="Meeting microphone"
+          value="TranslateIT Meeting Microphone"
+          detail="Choose this microphone in Zoom, Meet, Teams, or your meeting app."
+          status={readiness.meetingRouteReady ? "" : runtimeUnavailable ? "Unavailable" : checking ? "Checking" : "Setup Needed"}
+          tone={routeTone}
+        />
+        <StatusRow
+          label="Incoming translation"
+          value="English → Indonesian text"
+          detail={`Optional · listens to ${meetingSound}`}
+          status={runtimeUnavailable ? "Unavailable" : ""}
+          tone={runtimeUnavailable ? "danger" : "neutral"}
+        />
+      </div>
     {/if}
 
-    <footer class="grid gap-4 p-6">
+    <footer class="grid gap-4 border-t border-[var(--ti-border)] p-6">
       <div class="ti-action-row">
-        <button type="button" class="ti-button min-w-40" disabled={primaryDisabled} onclick={onMeetingAction}>{primaryLabel}</button>
-        {#if !meeting.live && !meeting.busy}
-          <button type="button" class="ti-button ti-button-secondary" onclick={onRefresh}>{readiness.meetingReady ? "Check Setup" : "Retry"}</button>
-          {#if !readiness.meetingReady && !runtimeUnavailable}
+        <button type="button" class={`ti-button min-w-44 ${meeting.canStop ? "ti-button-danger" : ""}`} disabled={primaryDisabled} onclick={onMeetingAction}>{primaryLabel}</button>
+        {#if !meeting.live && !meeting.busy && !readiness.meetingReady}
+          <button type="button" class="ti-button ti-button-secondary" onclick={onRefresh}>{runtimeUnavailable ? "Retry" : "Check Again"}</button>
+          {#if !runtimeUnavailable}
             <button type="button" class="ti-button ti-button-secondary" onclick={onFixSetup}>Fix Setup</button>
           {/if}
         {/if}
       </div>
 
-      <div class="flex items-start gap-3 rounded-[var(--ti-radius-sm)] border border-[var(--ti-border)] bg-[var(--ti-surface-soft)] px-4 py-3">
-        <span class={`mt-1 size-2 shrink-0 rounded-full ${runtimeUnavailable ? "bg-[var(--ti-danger)]" : meeting.canStart || meeting.live ? "bg-[var(--ti-success)]" : checking || meeting.busy ? "bg-[var(--ti-text-soft)]" : "bg-[var(--ti-warning)]"}`}></span>
-        <p class="m-0 text-sm leading-6 text-[var(--ti-text-muted)]">
-          {meeting.canStart
-            ? "Start Translation to begin the Meeting session. Moving to Text or Settings does not stop a live session."
-            : meeting.message || "Complete Meeting setup before Start Translation can be used."}
-        </p>
-      </div>
+      {#if !activityVisible}
+        <div class="flex items-center gap-2.5 text-sm text-[var(--ti-text-muted)]" aria-live="polite">
+          <span class={`size-2 shrink-0 rounded-full ${runtimeUnavailable ? "bg-[var(--ti-danger)]" : readiness.meetingReady ? "bg-[var(--ti-success)]" : checking ? "bg-[var(--ti-text-soft)]" : "bg-[var(--ti-warning)]"}`} aria-hidden="true"></span>
+          <span>{readyMessage}</span>
+        </div>
+      {/if}
     </footer>
   </article>
 </section>
