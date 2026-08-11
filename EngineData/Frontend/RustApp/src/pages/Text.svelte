@@ -27,7 +27,7 @@
   let settingsSaving = $state(false);
   let resultState = $state<TextResultState>("idle");
   let resultLabel = $state("Ready");
-  let resultMessage = $state("Type or paste text, then select Translate.");
+  let resultMessage = $state("Enter text, then choose Translate.");
   let lastTranslatedSource = $state<string | null>(null);
   let copyState = $state<CopyState>("idle");
   let targetRevision = 0;
@@ -43,14 +43,14 @@
 
   function handleSourceInput(): void {
     if (lastTranslatedSource === null) {
-      if (resultState === "error") setResult("idle", "Ready", "Select Translate when the source text is ready.");
+      if (resultState === "error") setResult("idle", "Ready", "Enter text, then choose Translate.");
       return;
     }
     if (sourceText.trim() === lastTranslatedSource) {
-      setResult("success", "Translated", "Translation matches the current source text.");
+      setResult("success", "Translated", "Translation is up to date.");
       return;
     }
-    setResult("stale", "Needs update", "Source text changed after the last translation. Translate again to update the result.");
+    setResult("stale", "Needs update", "Source text changed. Translate again to refresh the result.");
   }
 
   function handleTargetInput(): void {
@@ -61,8 +61,8 @@
   async function submitText(): Promise<void> {
     const source = sourceText.trim();
     if (!source) {
-      setResult("error", "Enter text", "Type or paste source text before translating.");
-      onNotice("Type text before translating.");
+      setResult("error", "Enter text", "Type or paste something to translate.");
+      onNotice("Type or paste something to translate.");
       return;
     }
     if (Array.from(source).length > MAX_MANUAL_TRANSLATION_CHARS) {
@@ -78,8 +78,8 @@
     const previousTarget = targetText;
     translating = true;
     copyState = "idle";
-    setResult("translating", "Translating", "Using the current local translation runtime.");
-    onNotice("Translating with local engine...");
+    setResult("translating", "Translating", "Translating...");
+    onNotice("Translating...");
 
     try {
       const result = await runtimeProductFacade.runProductTranslation(requestSource);
@@ -87,54 +87,49 @@
       if (!result.ok) {
         if (!userEditedTargetWhileRunning) targetText = previousTarget;
         setResult("error", "Couldn't translate", result.message);
-        onNotice(`Translation blocked: ${result.message}`);
+        onNotice(`Couldn't translate: ${result.message}`);
         return;
       }
 
       if (userEditedTargetWhileRunning) {
-        setResult(
-          "stale",
-          "Edit kept",
-          "Translation finished after you edited the result. Your newer edit was kept instead of being overwritten.",
-        );
-        onNotice("Translation finished, but your newer result edit was kept.");
+        setResult("stale", "Edit kept", "Translation finished, but your newer edit was kept.");
+        onNotice("Your newer edit was kept.");
         return;
       }
 
       targetText = result.translated;
       lastTranslatedSource = requestSource;
       if (sourceText.trim() === requestSource) {
-        setResult("success", "Translated", "Translation completed. You can review, edit, or copy the result.");
-        onNotice("Translation completed.");
+        setResult("success", "Translated", "Translation ready.");
+        onNotice("Translation ready.");
       } else {
-        setResult("stale", "Needs update", "The source changed while translating. The visible result is clearly associated with the previous source text.");
-        onNotice("Translation completed for the previous source text.");
+        setResult("stale", "Needs update", "This result belongs to the previous source text. Translate again to update it.");
+        onNotice("Translation finished for the previous text.");
       }
     } catch (error) {
       if (targetRevision === requestTargetRevision) targetText = previousTarget;
       const message = errorMessage(error);
       setResult("error", "Couldn't translate", message);
-      onNotice(`Translation failed: ${message}`);
+      onNotice(`Couldn't translate: ${message}`);
     } finally {
       translating = false;
     }
   }
 
   async function copyTranslation(): Promise<void> {
-    const value = targetText.trim();
-    if (!value) {
+    if (!targetText.trim()) {
       copyState = "error";
       onNotice("There is no translated text to copy.");
       return;
     }
     try {
-      if (!navigator.clipboard?.writeText) throw new Error("Clipboard API is unavailable in this frontend context.");
+      if (!navigator.clipboard?.writeText) throw new Error("Clipboard is unavailable.");
       await navigator.clipboard.writeText(targetText);
       copyState = "copied";
-      onNotice("Translation copied to clipboard.");
+      onNotice("Translation copied.");
     } catch (error) {
       copyState = "error";
-      onNotice(`Translation could not be copied: ${errorMessage(error)}`);
+      onNotice(`Couldn't copy the translation: ${errorMessage(error)}`);
     }
   }
 
@@ -160,11 +155,11 @@
         targetRevision += 1;
         lastTranslatedSource = null;
         copyState = "idle";
-        setResult("idle", "Ready", "Target text moved to the source pane. Select Translate when ready.");
+        setResult("idle", "Ready", "Previous translation moved to the source side.");
       }
-      onNotice(`Text direction changed to ${languageName(saved.source_language)} → ${languageName(saved.target_language)}.`);
+      onNotice(`${languageName(saved.source_language)} → ${languageName(saved.target_language)}`);
     } catch (error) {
-      onNotice(`Language direction was not changed: ${errorMessage(error)}`);
+      onNotice(`Couldn't change language direction: ${errorMessage(error)}`);
     } finally {
       settingsSaving = false;
     }
@@ -188,37 +183,39 @@
 <section class="ti-page ti-page-wide">
   <header class="ti-page-header">
     <div>
-      <span class="ti-kicker">Text translation</span>
-      <h2 class="ti-page-title">Translate Indonesian and English text.</h2>
-      <p class="ti-page-copy">Type or paste text, translate explicitly, then review, edit, or copy the result.</p>
+      <span class="ti-kicker">Text</span>
+      <h2 class="ti-page-title">Translate text</h2>
+      <p class="ti-page-copy">Type or paste text, then translate between Indonesian and English.</p>
     </div>
-    <span class="ti-pill">{textStatus}</span>
+    {#if textStatus !== "Ready"}
+      <span class="ti-pill">{textStatus}</span>
+    {/if}
   </header>
 
   <article class="ti-panel overflow-hidden">
     <div class="grid grid-cols-[1fr_auto_1fr] items-center gap-4 border-b border-[var(--ti-border)] bg-[var(--ti-surface-soft)] px-6 py-4">
       <div>
-        <span class="ti-field-label">Source</span>
-        <strong class="mt-1 block text-sm">{sourceLanguageName}</strong>
+        <span class="ti-field-label">From</span>
+        <strong class="mt-1 block text-base font-semibold">{sourceLanguageName}</strong>
       </div>
       <button type="button" class="ti-button ti-button-secondary min-h-10 px-3" aria-label="Swap source and target languages" disabled={settingsSaving || translating} onclick={() => void swapLanguages()}>
         <ArrowLeftRight size={17} /><span>Swap</span>
       </button>
       <div class="text-right">
-        <span class="ti-field-label">Target</span>
-        <strong class="mt-1 block text-sm">{targetLanguageName}</strong>
+        <span class="ti-field-label">To</span>
+        <strong class="mt-1 block text-base font-semibold">{targetLanguageName}</strong>
       </div>
     </div>
 
     <div class="grid grid-cols-2 gap-px bg-[var(--ti-border)]">
       <label class="grid min-w-0 gap-3 bg-[var(--ti-surface)] p-6">
         <div class="flex items-center justify-between gap-3">
-          <span class="ti-field-label">Source text</span>
+          <span class="ti-field-label">Enter text</span>
           <span class="text-[11px] text-[var(--ti-text-soft)]">{Array.from(sourceText).length}/{MAX_MANUAL_TRANSLATION_CHARS}</span>
         </div>
         <textarea
           class="ti-field min-h-[320px] resize-none p-4 text-[15px] leading-6 outline-none"
-          placeholder="Type or paste text to translate..."
+          placeholder="Type or paste text"
           maxlength={MAX_MANUAL_TRANSLATION_CHARS}
           bind:value={sourceText}
           oninput={handleSourceInput}
@@ -230,11 +227,11 @@
       <label class="grid min-w-0 gap-3 bg-[var(--ti-surface)] p-6">
         <div class="flex items-center justify-between gap-3">
           <span class="ti-field-label">Translation</span>
-          <strong class={`text-xs ${stateClass(resultState)}`}>{resultLabel}</strong>
+          <strong class={`text-xs font-semibold ${stateClass(resultState)}`}>{resultLabel}</strong>
         </div>
         <textarea
           class="ti-field min-h-[320px] resize-none p-4 text-[15px] leading-6 outline-none"
-          placeholder="Translation will appear here."
+          placeholder="Translation appears here"
           bind:value={targetText}
           oninput={handleTargetInput}
           aria-label="Translated text"
@@ -245,7 +242,7 @@
     <footer class="flex items-center justify-between gap-5 border-t border-[var(--ti-border)] bg-[var(--ti-surface-soft)] px-6 py-5">
       <div class="min-w-0">
         <p class="m-0 text-sm text-[var(--ti-text-muted)]" aria-live="polite">{resultMessage}</p>
-        <p class="mb-0 mt-1 text-xs text-[var(--ti-text-soft)]">Press Ctrl + Enter to translate. Document attachments are not part of this workflow.</p>
+        <p class="mb-0 mt-1 text-xs text-[var(--ti-text-soft)]">Ctrl + Enter to translate</p>
       </div>
       <div class="ti-action-row shrink-0">
         <button type="button" class="ti-button ti-button-secondary min-w-28" disabled={!targetText.trim()} onclick={() => void copyTranslation()}>
