@@ -34,6 +34,23 @@ export type AudioDeviceSelectionCommandResult = {
   settings: RuntimeSettings;
 };
 
+export type VirtualMicRouteContractStatus = {
+  ok: boolean;
+  route_ready: boolean;
+  route_pair_id: string | null;
+  selected_output_device: string | null;
+  selected_input_device: string | null;
+  preferred_output_device: string | null;
+  preferred_input_device: string | null;
+  output_device_found: boolean;
+  input_device_found: boolean;
+  blocker: string;
+  next_action: string;
+  runtime_claim: string;
+  updated_unix_ms: number;
+  [key: string]: any;
+};
+
 export type TextTranslationCommandResult = {
   ok: boolean;
   state: string;
@@ -251,6 +268,25 @@ function audioDeviceProbeFallback(message: string): AudioDeviceProbeReport {
   };
 }
 
+function virtualMicRouteFallback(message: string): VirtualMicRouteContractStatus {
+  return {
+    ok: false,
+    route_ready: false,
+    route_pair_id: null,
+    selected_output_device: null,
+    selected_input_device: null,
+    preferred_output_device: null,
+    preferred_input_device: null,
+    output_device_found: false,
+    input_device_found: false,
+    blocker: "frontend_bridge_unavailable",
+    next_action: "retry_route_status",
+    runtime_claim: "frontend_bridge_unavailable",
+    updated_unix_ms: Date.now(),
+    note: message,
+  };
+}
+
 function meetingSessionStatusFallback(message: string): MeetingSessionStatus {
   return {
     lifecycle: "unavailable",
@@ -380,6 +416,14 @@ export const runtimeApi = {
       "stop_meeting_translation",
       undefined,
       meetingSessionActionFallback("Stop Translation failed before reaching the Tauri Meeting session command."),
+    );
+  },
+
+  async getVirtualMicRouteStatus(): Promise<VirtualMicRouteContractStatus> {
+    return invokeOr<VirtualMicRouteContractStatus>(
+      "get_virtual_mic_route_contract_status",
+      undefined,
+      virtualMicRouteFallback("Meeting microphone route status is unavailable because the frontend bridge could not call Tauri."),
     );
   },
 
