@@ -1,5 +1,6 @@
 name: Temporary Backend Wave A2 Ownership Proof
 
+# Final A2 rerun verifies generation-scoped cleanup ownership.
 on:
   push:
     branches:
