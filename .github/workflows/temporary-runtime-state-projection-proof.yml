@@ -56,14 +56,14 @@ jobs:
           $process = Start-Process -FilePath $exe -PassThru
 
           try {
-            $deadline = (Get-Date).AddSeconds(20)
+            $windowDeadline = (Get-Date).AddSeconds(20)
             do {
               Start-Sleep -Milliseconds 500
               $process.Refresh()
               if ($process.HasExited) {
                 throw "TranslateIT exited during fresh runtime-state bootstrap with code $($process.ExitCode)."
               }
-            } while ($process.MainWindowHandle -eq 0 -and (Get-Date) -lt $deadline)
+            } while ($process.MainWindowHandle -eq 0 -and (Get-Date) -lt $windowDeadline)
 
             $process.Refresh()
             if ($process.MainWindowHandle -eq 0) {
@@ -77,31 +77,37 @@ jobs:
             }
 
             Add-Type -AssemblyName UIAutomationClient
-            $window = [System.Windows.Automation.AutomationElement]::FromHandle([IntPtr]$process.MainWindowHandle)
-            if ($null -eq $window) {
-              throw 'UI Automation could not attach to the TranslateIT native window.'
-            }
-
             $buttonCondition = New-Object System.Windows.Automation.PropertyCondition(
               [System.Windows.Automation.AutomationElement]::ControlTypeProperty,
               [System.Windows.Automation.ControlType]::Button
             )
-            $buttons = $window.FindAll([System.Windows.Automation.TreeScope]::Descendants, $buttonCondition)
+
+            $projectionDeadline = (Get-Date).AddSeconds(20)
             $buttonNames = @()
-            foreach ($button in $buttons) {
-              $name = [string]$button.Current.Name
-              if (-not [string]::IsNullOrWhiteSpace($name)) { $buttonNames += $name }
-            }
+            do {
+              Start-Sleep -Milliseconds 500
+              $process.Refresh()
+              if ($process.HasExited) {
+                throw "TranslateIT exited while waiting for First Setup projection with code $($process.ExitCode)."
+              }
+              $window = [System.Windows.Automation.AutomationElement]::FromHandle([IntPtr]$process.MainWindowHandle)
+              if ($null -eq $window) { continue }
+              $buttons = $window.FindAll([System.Windows.Automation.TreeScope]::Descendants, $buttonCondition)
+              $buttonNames = @()
+              foreach ($button in $buttons) {
+                $name = [string]$button.Current.Name
+                if (-not [string]::IsNullOrWhiteSpace($name)) { $buttonNames += $name }
+              }
+              $projected = ($buttonNames -contains 'Set Up Later') -and ($buttonNames -contains 'Continue')
+            } while (-not $projected -and (Get-Date) -lt $projectionDeadline)
 
             Write-Host "Native title=$($process.MainWindowTitle)"
             Write-Host "Native handle=$($process.MainWindowHandle)"
             Write-Host "Native responding=$($process.Responding)"
             Write-Host "UIA buttons=$($buttonNames -join ' | ')"
 
-            foreach ($required in @('Set Up Later', 'Continue')) {
-              if ($buttonNames -notcontains $required) {
-                throw "Fresh real runtime state did not project expected First Setup action: $required"
-              }
+            if (-not $projected) {
+              throw "Fresh real runtime state did not expose the expected First Setup actions before timeout. Observed buttons: $($buttonNames -join ' | ')"
             }
 
             $allProcesses = @(Get-CimInstance Win32_Process)
