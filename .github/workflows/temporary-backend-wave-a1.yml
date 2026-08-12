@@ -25,9 +25,15 @@ jobs:
         shell: pwsh
         run: python .tmp/backend_wave_a1_patch.py source
 
-      - name: Format bounded Rust changes
+      - name: Format only Wave A1 Rust files
         shell: pwsh
-        run: cargo fmt --manifest-path EngineData/Frontend/RustApp/src-tauri/Cargo.toml
+        run: |
+          rustfmt --edition 2021 EngineData/Frontend/RustApp/src-tauri/src/engine/runtime_state.rs
+          rustfmt --edition 2021 EngineData/Frontend/RustApp/src-tauri/src/engine/capture_lifecycle.rs
+          rustfmt --edition 2021 EngineData/Frontend/RustApp/src-tauri/src/commands/runtime.rs
+          rustfmt --edition 2021 EngineData/Frontend/RustApp/src-tauri/src/commands/settings.rs
+          rustfmt --edition 2021 EngineData/Frontend/RustApp/src-tauri/src/commands/meeting_session.rs
+          rustfmt --edition 2021 EngineData/Frontend/RustApp/src-tauri/src/main.rs
 
       - name: Validate changed scope
         shell: pwsh
