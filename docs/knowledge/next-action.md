@@ -891,11 +891,13 @@ Remote Windows proof for the implementation slice establishes source ownership a
 ```text
 canonical source validators              -> PASS
 svelte-check + frontend build            -> PASS
-Rust unit tests                          -> PASS
+Rust test-target compile (`--no-run`)    -> PASS
 cargo check                              -> PASS
 Tauri release build --no-bundle          -> PASS
 functional-probe ownership/source guard  -> PASS
 ```
+
+An earlier broad `cargo test` proof attempt executed 27 of 28 tests successfully and hit the existing timing-sensitive A4 scheduler wait test; C1 does not change scheduler behavior. The accepted C1 proof therefore compiles the complete Rust test target without running unrelated timing behavior, then separately requires `cargo check` and the Tauri release link. This is intentionally narrower and does not convert that unrelated timing failure into a C1 product failure.
 
 A GitHub-hosted Windows runner is not a target microphone environment, so actual physical-device callback success remains target-Windows proof. No local-PC test, VAD retuning, Meeting route change, CUDA/model change, or installer work is part of C1.
 
