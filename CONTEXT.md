@@ -191,6 +191,8 @@ The old adapter/planning tree, History/Chat/session persistence, transcript-sess
 
 Normal post-setup `loadProductRuntimeSnapshot()` lazily starts the one helper only when its lifecycle is known `not_started`/`stopped`, then reads Meeting status/preflight, helper status, input status, and worker capability when the helper is ready. Fresh `meeting_setup_state = new` boot does not enter this normal snapshot path and therefore does not start Python. Heavy diagnostic/model/native probing is not normal polling work. During an active Meeting, the recurring frontend path polls Meeting status; the larger committed-turn snapshot is conditional on a status revision change rather than fetched unconditionally on every interval.
 
+Required outbound AI Start readiness is now generation-bound functional truth rather than preload-only truth. On the first Meeting preparation for a helper generation, TranslateIT loads the ASR runtime, executes a fixed non-user Indonesian -> English translation and requires EOS-complete output, then synthesizes that actual translated fixture through the selected English TTS provider and verifies a real WAV before deleting it. Later Starts reuse only the successful cache for that same helper generation; worker replacement or a hard required-stage execution failure invalidates it. No repository-owned canonical ASR speech fixture currently exists, so C3 does not fabricate ASR inference success from synthetic silence or source markers.
+
 ## Release Boundary
 
 Initial controlled release keeps the local sidecar Setup direction and does not use a SHA-256/checksum/revision identity framework, artifact registry, downloader, or package manager.

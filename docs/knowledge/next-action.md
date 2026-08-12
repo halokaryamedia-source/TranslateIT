@@ -938,10 +938,35 @@ C2 transient/callback ownership guard     -> PASS
 
 This proof validates timing ownership, metric math, serialization/build contracts, and that first-playback instrumentation is wired to the CPAL callback timestamp API. It does not produce a real latency number because no target microphone/model/GPU/virtual-cable/meeting-app session was executed. No VAD tuning or latency threshold was introduced.
 
+## Pre-Local C3 — IMPLEMENTED / TARGET AI-HARDWARE PROOF DEFERRED
+
+Required outbound Meeting preparation now keeps one successful functional-readiness cache keyed to the canonical helper worker generation. A cache miss exercises the actual worker path with a fixed non-user fixture: ASR model load, Indonesian -> English translation inference with canonical EOS-completion verification, then English TTS synthesis using that actual translated fixture. The generated readiness WAV must exist and contain audio data before success and is immediately deleted; fixture/output text and audio are not added to transcript, History, logs, or persistent evidence.
+
+The cache cannot cross worker replacement. Helper process exit/restart/hard cancellation invalidates it, and failed required ASR/translation/TTS execution invalidates it conservatively while normal `asr:empty_transcript` does not. Meeting Start still performs the existing cheap prerequisite checks first, then calls this functional preparation before authority is created; subsequent Starts on the same healthy worker generation reuse the cached capability result rather than rerunning a full smoke.
+
+The repository currently has no canonical ASR speech fixture: `run_realtime_worker_smoke.ps1` accepts ASR audio only through external `-AudioPath`, and WorkerRuntime tests contain no owned WAV fixture. C3 therefore retains real ASR model load in the Start self-test and does not fabricate ASR-inference success. Existing P2.3 separately proves real ASR inference on hosted CPU; target/local ASR behavior remains runtime evidence.
+
+Remote Windows/source proof for this implementation slice:
+
+```text
+canonical source validators                  -> PASS
+WorkerRuntime deterministic tests             -> PASS
+real fixed-fixture ID -> EN inference          -> PASS / CPU fallback on hosted runner
+real English TTS synthesis + WAV validity      -> PASS / Windows SAPI
+real primary ASR model preload                 -> PASS / CPU fallback on hosted runner
+C3 deterministic cache/EOS/invalidation tests  -> PASS
+Rust full test-target compile (`--no-run`)      -> PASS
+cargo check                                    -> PASS
+Tauri release build --no-bundle                -> PASS
+C3 source/ownership guard                       -> PASS
+```
+
+This proves the functional preparation behavior and hosted CPU execution of the required fixed-fixture translation/TTS stages. It does not prove NVIDIA CUDA execution, physical microphone/audio-route behavior, or target-PC performance. No VAD/model-quality tuning, installer work, or local-PC test is part of C3.
+
 ## Current Mode
 
-**Developing / Pre-Local Readiness — C2 IMPLEMENTED, TARGET PERFORMANCE PROOF DEFERRED.** A1-A7, B1-B6, and C1 remain closed at their proven boundaries. C2 now makes target testing capable of measuring PR-052 and stage-level cost without persistent telemetry. The user still does not approve local-PC testing, so actual latency distribution and release threshold remain evidence to collect later.
+**Developing / Pre-Local Readiness — C3 IMPLEMENTED, TARGET RUNTIME PROOF DEFERRED.** A1-A7, B1-B6, C1, and C2 remain closed at their proven boundaries. Required outbound Start now has generation-bound functional translation/TTS readiness rather than preload-only acceptance. The user still does not approve local-PC testing, so target device/CUDA/audio/latency evidence remains intentionally deferred.
 
-## Next Step — Pre-Local C3 Functional AI Readiness Self-Test
+## Next Step — Pre-Local Source Readiness Re-Audit
 
-Upgrade required outbound readiness from model/provider preload checks to one cached functional execution result per worker generation: bounded fixed-fixture ID->EN inference and English TTS synthesis, plus a bounded ASR inference fixture where the canonical test asset is available. Cache only capability truth/operational timing, never fixture/output content; invalidate on worker generation/runtime replacement or a hard execution failure. Do not run a full smoke on every Meeting Start and do not change model quality/tuning policy.
+Perform one bounded source-only review against the current initial-core requirements and the post-C1/C2/C3 owners to confirm whether any non-hardware implementation gap still exists before target testing. Do not start local-PC testing, VAD tuning, installer staging, or speculative feature development during that review.

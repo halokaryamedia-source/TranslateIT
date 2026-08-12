@@ -295,14 +295,23 @@ forbidMarkers(source.meetingSession, "C2 no speculative latency threshold", [
   "latency_threshold",
 ]);
 
-requireMarkers(source.helperBridge, "Meeting outbound AI preparation", [
+requireMarkers(source.helperBridge, "C3 generation-bound functional outbound AI readiness", [
   "fn meeting_start_prepare",
   "prepare_required_outbound_ai_runtime",
   '"meeting_start_prepare": true',
   "HelperTaskPriority::MeetingOutbound",
+  "REQUIRED_OUTBOUND_FUNCTIONAL_ID_FIXTURE",
+  "RequiredOutboundFunctionalReadiness",
+  "required_outbound_functional_readiness_cached",
+  "remember_required_outbound_functional_readiness",
+  "invalidate_required_outbound_ai_readiness",
   'send_worker_task("asr_preload"',
-  '"translation_preload"',
-  'send_worker_task("tts_preflight"',
+  '"translate"',
+  'value.get("complete")',
+  'value.get("finished_with_eos")',
+  '"synthesize"',
+  "consume_functional_tts_output",
+  "fs::metadata",
 ]);
 requireMarkers(source.helperBridge, "Meeting outbound helper priority continuity", [
   "MEETING_OUTBOUND_PIPELINE_GENERATION",
@@ -498,4 +507,4 @@ for (const model of models.filter((entry) => entry.source_type === "huggingface"
 }
 if (models.some((model) => Object.hasOwn(model, "checksum"))) throw new Error("Model inventory must not invent checksum identity without a current packaging requirement");
 
-console.log("[startup-readiness] Svelte Meeting/Text/Settings/First Setup ownership, coherent Meeting projection, gated transcript polling, atomic audio-device selection, active-session settings/helper-restart isolation, truthful matched Meeting-route pair identity with generation-stable endpoint selection, user-safe Text result separation, required outbound AI preparation before Meeting Live, outbound helper priority continuity across ASR/translation/TTS, bounded in-session outbound helper transport recovery, optional incoming freshness/failure isolation with no stale-event retry, bounded Stop-time helper recovery, native Meeting output preflight before authority, duration-grounded Meeting route delivery deadline, truthful ASR attention state, bounded newest-preferred finalized speech backlog, familiar translation interaction hierarchy, runtime bridge, settings schema, Meeting lifecycle, and direction-based worker contracts are source-aligned. Dependency install, Svelte compile/render, model execution, Windows audio playback, and installed-runtime proof remain separate.");
+console.log("[startup-readiness] Svelte Meeting/Text/Settings/First Setup ownership, coherent Meeting projection, gated transcript polling, atomic audio-device selection, active-session settings/helper-restart isolation, truthful matched Meeting-route pair identity with generation-stable endpoint selection, user-safe Text result separation, generation-bound functional outbound AI readiness before Meeting Live, outbound helper priority continuity across ASR/translation/TTS, bounded in-session outbound helper transport recovery, optional incoming freshness/failure isolation with no stale-event retry, bounded Stop-time helper recovery, native Meeting output preflight before authority, duration-grounded Meeting route delivery deadline, truthful ASR attention state, bounded newest-preferred finalized speech backlog, familiar translation interaction hierarchy, runtime bridge, settings schema, Meeting lifecycle, and direction-based worker contracts are source-aligned. Dependency install, Svelte compile/render, model execution, Windows audio playback, and installed-runtime proof remain separate.");
