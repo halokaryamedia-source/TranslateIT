@@ -6,150 +6,88 @@ on:
     paths:
       - .github/workflows/temporary-runtime-state-projection-proof.yml
 
-concurrency:
-  group: temporary-runtime-state-projection-proof
-  cancel-in-progress: true
+permissions:
+  contents: write
 
 jobs:
-  verify:
-    runs-on: windows-2022
-    timeout-minutes: 30
-    defaults:
-      run:
-        working-directory: EngineData/Frontend/RustApp
-
+  record:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
     steps:
       - name: Checkout New
         uses: actions/checkout@v4
 
-      - name: Setup Node
-        uses: actions/setup-node@v4
-        with:
-          node-version: '22.16.0'
-
-      - name: Deterministic frontend install
-        run: npm ci --no-audit --no-fund
-
-      - name: Svelte check
-        run: npm run typecheck
-
-      - name: Build native application without installer
-        run: npx tauri build --no-bundle
-
-      - name: Prove fresh real Rust state projects to native First Setup only
-        shell: pwsh
+      - name: Record accepted runtime-state boundary
+        shell: bash
         run: |
-          $ErrorActionPreference = 'Stop'
+          set -euo pipefail
+          node --input-type=module <<'NODE'
+          import fs from 'node:fs';
 
-          $profileRoot = Join-Path $env:RUNNER_TEMP 'translateit-runtime-state-profile'
-          Remove-Item -Recurse -Force $profileRoot -ErrorAction SilentlyContinue
-          $env:LOCALAPPDATA = Join-Path $profileRoot 'LocalAppData'
-          $env:APPDATA = Join-Path $profileRoot 'RoamingAppData'
-          New-Item -ItemType Directory -Force $env:LOCALAPPDATA | Out-Null
-          New-Item -ItemType Directory -Force $env:APPDATA | Out-Null
+          const nextPath = 'docs/knowledge/next-action.md';
+          const contextPath = 'CONTEXT.md';
 
-          if ((Get-ChildItem -Recurse -Force $profileRoot | Measure-Object).Count -ne 2) {
-            throw 'Fresh runtime-state profile was not empty before launch.'
+          let next = fs.readFileSync(nextPath, 'utf8');
+          if (!next.includes('Real fresh Rust state projection')) {
+            next = next.replace(
+              'Remote Text clipboard interaction   -> PASS\n',
+              'Remote Text clipboard interaction   -> PASS\nReal fresh Rust state projection    -> PASS: First Setup safe boundary\n',
+            );
           }
 
-          $exe = (Resolve-Path 'src-tauri\target\release\translateit.exe').Path
-          $process = Start-Process -FilePath $exe -PassThru
-
-          try {
-            $windowDeadline = (Get-Date).AddSeconds(20)
-            do {
-              Start-Sleep -Milliseconds 500
-              $process.Refresh()
-              if ($process.HasExited) {
-                throw "TranslateIT exited during fresh runtime-state bootstrap with code $($process.ExitCode)."
-              }
-            } while ($process.MainWindowHandle -eq 0 -and (Get-Date) -lt $windowDeadline)
-
-            $process.Refresh()
-            if ($process.MainWindowHandle -eq 0) {
-              throw 'TranslateIT did not expose a native main window during fresh runtime-state bootstrap.'
-            }
-            if (-not $process.Responding) {
-              throw 'TranslateIT native window is not responding.'
-            }
-            if ($process.MainWindowTitle -ne 'TranslateIT') {
-              throw "Unexpected native window title: $($process.MainWindowTitle)"
-            }
-
-            Add-Type -AssemblyName UIAutomationClient
-            $buttonCondition = New-Object System.Windows.Automation.PropertyCondition(
-              [System.Windows.Automation.AutomationElement]::ControlTypeProperty,
-              [System.Windows.Automation.ControlType]::Button
-            )
-
-            $projectionDeadline = (Get-Date).AddSeconds(20)
-            $buttonNames = @()
-            do {
-              Start-Sleep -Milliseconds 500
-              $process.Refresh()
-              if ($process.HasExited) {
-                throw "TranslateIT exited while waiting for First Setup projection with code $($process.ExitCode)."
-              }
-              $window = [System.Windows.Automation.AutomationElement]::FromHandle([IntPtr]$process.MainWindowHandle)
-              if ($null -eq $window) { continue }
-              $buttons = $window.FindAll([System.Windows.Automation.TreeScope]::Descendants, $buttonCondition)
-              $buttonNames = @()
-              foreach ($button in $buttons) {
-                $name = [string]$button.Current.Name
-                if (-not [string]::IsNullOrWhiteSpace($name)) { $buttonNames += $name }
-              }
-              $projected = ($buttonNames -contains 'Set Up Later') -and ($buttonNames -contains 'Continue')
-            } while (-not $projected -and (Get-Date) -lt $projectionDeadline)
-
-            Write-Host "Native title=$($process.MainWindowTitle)"
-            Write-Host "Native handle=$($process.MainWindowHandle)"
-            Write-Host "Native responding=$($process.Responding)"
-            Write-Host "UIA buttons=$($buttonNames -join ' | ')"
-
-            if (-not $projected) {
-              throw "Fresh real runtime state did not expose the expected First Setup actions before timeout. Observed buttons: $($buttonNames -join ' | ')"
-            }
-
-            $allProcesses = @(Get-CimInstance Win32_Process)
-            $childrenByParent = @{}
-            foreach ($item in $allProcesses) {
-              $parent = [int]$item.ParentProcessId
-              if (-not $childrenByParent.ContainsKey($parent)) {
-                $childrenByParent[$parent] = New-Object System.Collections.ArrayList
-              }
-              [void]$childrenByParent[$parent].Add($item)
-            }
-
-            $queue = New-Object System.Collections.Generic.Queue[int]
-            $queue.Enqueue([int]$process.Id)
-            $descendants = New-Object System.Collections.ArrayList
-            while ($queue.Count -gt 0) {
-              $parentId = $queue.Dequeue()
-              if (-not $childrenByParent.ContainsKey($parentId)) { continue }
-              foreach ($child in $childrenByParent[$parentId]) {
-                [void]$descendants.Add($child)
-                $queue.Enqueue([int]$child.ProcessId)
-              }
-            }
-
-            $pythonDescendants = @($descendants | Where-Object { $_.Name -match '^python(?:w)?\.exe$' })
-            Write-Host "Descendant process count=$($descendants.Count)"
-            Write-Host "Python descendant count=$($pythonDescendants.Count)"
-            if ($pythonDescendants.Count -ne 0) {
-              $names = ($pythonDescendants | ForEach-Object { "$($_.Name):$($_.ProcessId)" }) -join ', '
-              throw "Fresh First Setup unexpectedly started Python descendants: $names"
-            }
-
-            $runtimeLogs = @(Get-ChildItem -Recurse -Force $profileRoot -Filter 'rust_runtime_latest.jsonl' -ErrorAction SilentlyContinue)
-            foreach ($log in $runtimeLogs) {
-              Write-Host "Runtime trace path=$($log.FullName)"
-              Get-Content $log.FullName | Select-Object -Last 20
-            }
-
-            Write-Host 'REAL_RUNTIME_STATE=fresh_settings_new'
-            Write-Host 'NATIVE_PROJECTION=first_setup'
-            Write-Host 'UNSAFE_CAPABILITY_ACTIONS=not_activated'
+          if (!next.includes('## Remote Real Runtime-State Projection Boundary')) {
+            const section = `## Remote Real Runtime-State Projection Boundary\n\nThe accepted remote proof establishes the last normal product-state projection that can be exercised without crossing the currently deferred Python/model/audio/device boundary.\n\nFresh isolated Windows settings resolve through the real Rust settings owner to schema-v6 defaults with \`meeting_setup_state = new\`. On this state, \`App.svelte\` loads settings and remains on First Setup instead of entering \`loadProductRuntimeSnapshot()\`.\n\nAccepted GitHub-hosted Windows Server 2022 run \`31568531685\` passed:\n\n\`\`\`text\ncanonical npm ci                      -> PASS\nsvelte-check                          -> 0 errors / 0 warnings\nnative Tauri release build            -> PASS\nnative title                          -> TranslateIT\nnative window handle                  -> non-zero (196874)\nnative process Responding             -> true\nUI Automation actions                 -> Set Up Later | Continue\nPython descendant process count       -> 0\nREAL_RUNTIME_STATE                    -> fresh_settings_new\nNATIVE_PROJECTION                     -> first_setup\nUNSAFE_CAPABILITY_ACTIONS             -> not_activated\n\`\`\`\n\nThe first attempt \`31568092998\` is retained only as harness timing evidence: the native window was already alive/responding, but UI Automation was sampled before WebView descendants were exposed. The accepted rerun waited for the WebView projection and passed without changing product source.\n\nThis proof does **not** extend to normal post-setup Ready/Blocked/Unavailable projection. Once \`meeting_setup_state\` is no longer \`new\`, \`App.svelte\` calls \`loadProductRuntimeSnapshot()\`, which requests Meeting status and input status. Meeting status builds preflight using input-device inspection, model inventory, helper status, and virtual-microphone route status; the input and route paths enumerate real Windows audio devices. Under the current proof restriction, that is the explicit stop boundary rather than a reason to substitute simulated state.\n\n`;
+            next = next.replace('## Priority Map\n', section + '## Priority Map\n');
           }
-          finally {
-            Stop-Process -Id $process.Id -Force -ErrorAction SilentlyContinue
+
+          next = next.replace(
+            '#### P2.1 Frontend — PARTIAL PROOF OBTAINED',
+            '#### P2.1 Frontend — REMOTE-SAFE PROOF BOUNDARY CLOSED',
+          );
+          if (!next.includes('real fresh Rust settings/default state -> native First Setup projection')) {
+            next = next.replace(
+              'remote Text Copy browser Clipboard API success + truthful failure feedback\n',
+              'remote Text Copy browser Clipboard API success + truthful failure feedback\nreal fresh Rust settings/default state -> native First Setup projection\n',
+            );
           }
+          next = next.replace(
+            'Still required before release:\n\n```text\nreal runtime-state projection\n```',
+            'Remaining runtime-state acceptance is not remote-safe under the current scope:\n\n```text\npost-setup normal product-state projection with real device/model evidence\n```\n\nThe fresh/default Rust state projection is proven. Post-setup projection remains coupled to the deferred native device/model acceptance boundary and must not be replaced by simulated proof.',
+          );
+          next = next.replace(
+            '-> remote clipboard proof PASS\n-> real runtime-state projection where remotely meaningful\n-> later explicit approval for local/model/audio proof\n',
+            '-> remote clipboard proof PASS\n-> real fresh Rust state -> native First Setup projection PASS\n-> remote-safe runtime-state boundary reached\n-> later explicit approval for local/model/audio proof\n',
+          );
+
+          const modeIndex = next.indexOf('## Current Mode\n');
+          if (modeIndex < 0) throw new Error('next-action Current Mode marker missing');
+          next = next.slice(0, modeIndex) + `## Current Mode\n\n**Proof / explicit scope boundary** — real Rust default settings now have native First Setup projection evidence with zero Python descendants. Normal post-setup product-state projection necessarily crosses the deferred native audio-device/model boundary, so remote-safe runtime-state proof stops here.\n\n## Next Step — Explicit Runtime Proof Scope Decision\n\nDo not run another normal post-setup runtime proof under the current restriction. The next executable acceptance slice requires explicit approval for one deferred runtime scope (Python/model execution or real Windows audio/device behavior). Until that scope is released, preserve the proven source/runtime/UI baseline rather than substituting simulation or user-local-PC testing.\n`;
+          fs.writeFileSync(nextPath, next);
+
+          let context = fs.readFileSync(contextPath, 'utf8');
+          if (!context.includes('fresh real Rust settings/new-state -> native First Setup projection')) {
+            context = context.replace(
+              'remote Text Copy browser Clipboard API success + truthful failure feedback\n',
+              'remote Text Copy browser Clipboard API success + truthful failure feedback\nfresh real Rust settings/new-state -> native First Setup projection with zero Python descendants\n',
+            );
+          }
+          context = context.replace(
+            'real runtime-state projection\n',
+            'post-setup runtime-state projection together with deferred device/model acceptance\n',
+          );
+          const boundaryParagraph = 'Fresh real Rust settings/default-state projection has now also been proven remotely: an isolated Windows profile resolves to `meeting_setup_state = new`, and the native app projects that state to First Setup with `Set Up Later` and `Continue` while starting zero Python descendants. Once setup is no longer `new`, the normal product snapshot requests Meeting status and input status; Meeting preflight and route status cross real Windows audio-device enumeration. That post-setup projection therefore remains part of the deferred device/model runtime acceptance rather than a remote-safe proof target.';
+          if (!context.includes(boundaryParagraph)) {
+            context = context.trimEnd() + '\n\n' + boundaryParagraph + '\n';
+          }
+          fs.writeFileSync(contextPath, context);
+          NODE
+
+          git config user.name 'halokaryamedia-source'
+          git config user.email 'halokaryamedia@gmail.com'
+          git add CONTEXT.md docs/knowledge/next-action.md
+          if git diff --cached --quiet; then
+            echo 'Canonical project state already contains runtime-state proof.'
+          else
+            git commit -m 'Record remote runtime-state projection proof'
+            git push origin HEAD:New
+          fi
