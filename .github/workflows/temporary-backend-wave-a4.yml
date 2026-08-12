@@ -1,0 +1,79 @@
+name: Temporary Backend Wave A4 Scheduler Proof
+
+# One-shot maintenance proof for bounded single-worker scheduler admission/wait.
+on:
+  push:
+    branches:
+      - New
+    paths:
+      - .github/workflows/temporary-backend-wave-a4.yml
+
+permissions:
+  contents: write
+
+jobs:
+  maintain-and-prove:
+    runs-on: windows-2022
+    timeout-minutes: 40
+    steps:
+      - name: Checkout New
+        uses: actions/checkout@v4
+        with:
+          ref: New
+          fetch-depth: 0
+
+      - name: Apply bounded Wave A4 scheduler correction
+        shell: pwsh
+        run: python .tmp/backend_wave_a4_patch.py source
+
+      - name: Format bounded Rust module
+        shell: pwsh
+        run: rustfmt --edition 2021 EngineData/Frontend/RustApp/src-tauri/src/commands/helper_bridge_runtime.rs
+
+      - name: Validate bounded changed scope
+        shell: pwsh
+        run: |
+          git diff --check
+          $changed = @(git diff --name-only)
+          $allowed = @('EngineData/Frontend/RustApp/src-tauri/src/commands/helper_bridge_runtime.rs')
+          foreach ($path in $changed) {
+            if ($allowed -notcontains $path) { throw "Unexpected changed path: $path" }
+          }
+          foreach ($path in $allowed) {
+            if ($changed -notcontains $path) { throw "Expected changed path missing: $path" }
+          }
+          git diff --stat
+
+      - name: Materialize canonical frontend dependencies
+        shell: pwsh
+        working-directory: EngineData/Frontend/RustApp
+        run: npm ci
+
+      - name: Targeted Rust scheduler policy tests
+        shell: pwsh
+        run: cargo test --manifest-path EngineData/Frontend/RustApp/src-tauri/Cargo.toml scheduler_policy_tests -- --test-threads=1
+
+      - name: Windows Rust compile baseline
+        shell: pwsh
+        run: cargo check --manifest-path EngineData/Frontend/RustApp/src-tauri/Cargo.toml
+
+      - name: Native Tauri release build baseline
+        shell: pwsh
+        working-directory: EngineData/Frontend/RustApp
+        run: npx tauri build --no-bundle
+
+      - name: Record Wave A4 closure state
+        shell: pwsh
+        run: |
+          python .tmp/backend_wave_a4_patch.py closure
+          git diff --check
+
+      - name: Commit proven Wave A4 correction
+        shell: pwsh
+        run: |
+          git config user.name "halokaryamedia-source"
+          git config user.email "halokaryamedia@gmail.com"
+          git add EngineData/Frontend/RustApp/src-tauri/src/commands/helper_bridge_runtime.rs
+          git add docs/knowledge/next-action.md
+          git commit -m "Bound helper scheduler admission and wait"
+          git push origin HEAD:New
