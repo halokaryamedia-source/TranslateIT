@@ -1,0 +1,139 @@
+name: Temporary Pre-Local C1 Functional Microphone Proof
+
+on:
+  push:
+    branches:
+      - New
+
+permissions:
+  contents: write
+
+jobs:
+  prove-c1:
+    runs-on: windows-2022
+    timeout-minutes: 45
+    steps:
+      - name: Checkout New
+        uses: actions/checkout@v4
+        with:
+          ref: New
+          fetch-depth: 0
+
+      - name: Apply C1 functional microphone patch
+        shell: pwsh
+        run: |
+          python .tmp/prelocal_c1_functional_mic_patch.py
+          if ($LASTEXITCODE -ne 0) { throw 'C1 patch helper failed.' }
+          rustfmt EngineData/Frontend/RustApp/src-tauri/src/engine/audio/input.rs EngineData/Frontend/RustApp/src-tauri/src/commands/audio.rs EngineData/Frontend/RustApp/src-tauri/src/commands/settings.rs
+          if ($LASTEXITCODE -ne 0) { throw 'C1 rustfmt failed.' }
+          git diff --check
+          if ($LASTEXITCODE -ne 0) { throw 'C1 patch has whitespace errors.' }
+
+      - name: Prove C1 source and frontend contracts
+        shell: pwsh
+        working-directory: EngineData/Frontend/RustApp
+        run: |
+          npm ci
+          if ($LASTEXITCODE -ne 0) { throw 'npm ci failed.' }
+          npm run validate:source-contracts
+          if ($LASTEXITCODE -ne 0) { throw 'source validators failed.' }
+          npm run typecheck
+          if ($LASTEXITCODE -ne 0) { throw 'svelte-check failed.' }
+          npm run build:frontend
+          if ($LASTEXITCODE -ne 0) { throw 'frontend build failed.' }
+
+      - name: Prove Rust behavior and compile
+        shell: pwsh
+        working-directory: EngineData/Frontend/RustApp
+        run: |
+          cargo test --manifest-path src-tauri/Cargo.toml
+          if ($LASTEXITCODE -ne 0) { throw 'Rust tests failed.' }
+          cargo check --manifest-path src-tauri/Cargo.toml
+          if ($LASTEXITCODE -ne 0) { throw 'cargo check failed.' }
+
+      - name: Prove Tauri release link
+        shell: pwsh
+        working-directory: EngineData/Frontend/RustApp
+        run: |
+          npx tauri build --no-bundle
+          if ($LASTEXITCODE -ne 0) { throw 'Tauri release build failed.' }
+
+      - name: Verify C1 ownership and scope
+        shell: pwsh
+        run: |
+          @'
+          from pathlib import Path
+
+          input_rs = Path('EngineData/Frontend/RustApp/src-tauri/src/engine/audio/input.rs').read_text(encoding='utf-8')
+          audio_rs = Path('EngineData/Frontend/RustApp/src-tauri/src/commands/audio.rs').read_text(encoding='utf-8')
+          settings_rs = Path('EngineData/Frontend/RustApp/src-tauri/src/commands/settings.rs').read_text(encoding='utf-8')
+          facade = Path('EngineData/Frontend/RustApp/src/app/bridge/runtimeProductFacade.ts').read_text(encoding='utf-8')
+
+          required = [
+              'pub fn probe_input_device_functionally(',
+              'FUNCTIONAL_INPUT_PROBE_TIMEOUT_MS',
+              '.build_input_stream(',
+              'stream.play()',
+              '.recv_timeout(',
+              'functional_verified: true',
+              'callback_frames_observed: observed',
+              'No microphone samples were retained by this verification',
+          ]
+          missing = [marker for marker in required if marker not in input_rs]
+          if missing:
+              raise SystemExit('Missing C1 functional probe markers: ' + ', '.join(missing))
+          if 'thread::sleep(' in input_rs:
+              raise SystemExit('C1 functional probe must not use arbitrary sleep.')
+          if 'probe_input_device_functionally(device_id.as_deref())' not in audio_rs:
+              raise SystemExit('Explicit microphone candidate command does not use functional probe.')
+          if 'InputPreparationStatus::inspect_input_device(settings.audio.input_device_id.as_deref())' not in audio_rs:
+              raise SystemExit('Routine input status no longer uses cheap config-only inspection.')
+          if 'probe.prepared && probe.functional_verified' not in settings_rs:
+              raise SystemExit('Microphone preference can still persist without functional verification.')
+          if 'status.functional_verified === true' not in facade:
+              raise SystemExit('Frontend candidate probe does not expose functional verification truth.')
+          print('C1 ownership/source guard passed. Physical callback execution remains target-device proof.')
+          '@ | python -
+          if ($LASTEXITCODE -ne 0) { throw 'C1 ownership guard failed.' }
+
+          git diff --check
+          if ($LASTEXITCODE -ne 0) { throw 'git diff --check failed.' }
+          $expected = @(
+            'CONTEXT.md',
+            'EngineData/Frontend/RustApp/scripts/validate_startup_runtime_readiness.mjs',
+            'EngineData/Frontend/RustApp/src/app/bridge/runtimeProductFacade.ts',
+            'EngineData/Frontend/RustApp/src/app/shared/types.ts',
+            'EngineData/Frontend/RustApp/src-tauri/src/commands/audio.rs',
+            'EngineData/Frontend/RustApp/src-tauri/src/commands/settings.rs',
+            'EngineData/Frontend/RustApp/src-tauri/src/engine/audio/input.rs',
+            'docs/knowledge/next-action.md',
+            'docs/knowledge/source-ownership.md'
+          )
+          $changed = @(git status --porcelain --untracked-files=all | ForEach-Object { $_.Substring(3).Replace('\','/') })
+          $unexpected = @($changed | Where-Object { $expected -notcontains $_ })
+          $missing = @($expected | Where-Object { $changed -notcontains $_ })
+          if ($unexpected.Count -gt 0) {
+            $unexpected | ForEach-Object { Write-Host "Unexpected: $_" }
+            throw 'Unexpected C1 changed path.'
+          }
+          if ($missing.Count -gt 0) {
+            $missing | ForEach-Object { Write-Host "Missing: $_" }
+            throw 'Expected C1 changed path missing.'
+          }
+
+      - name: Commit proven C1 implementation
+        shell: pwsh
+        run: |
+          git config user.name 'halokaryamedia-source'
+          git config user.email 'halokaryamedia@gmail.com'
+          git add CONTEXT.md `
+            EngineData/Frontend/RustApp/scripts/validate_startup_runtime_readiness.mjs `
+            EngineData/Frontend/RustApp/src/app/bridge/runtimeProductFacade.ts `
+            EngineData/Frontend/RustApp/src/app/shared/types.ts `
+            EngineData/Frontend/RustApp/src-tauri/src/commands/audio.rs `
+            EngineData/Frontend/RustApp/src-tauri/src/commands/settings.rs `
+            EngineData/Frontend/RustApp/src-tauri/src/engine/audio/input.rs `
+            docs/knowledge/next-action.md `
+            docs/knowledge/source-ownership.md
+          git commit -m 'Functionally verify microphone selection'
+          git push origin HEAD:New
