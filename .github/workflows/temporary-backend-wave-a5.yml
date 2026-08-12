@@ -1,0 +1,93 @@
+name: Temporary Backend Wave A5 Helper stderr Proof
+
+# One-shot maintenance proof for bounded/redacted helper stderr lifecycle ownership.
+on:
+  push:
+    branches:
+      - New
+    paths:
+      - .github/workflows/temporary-backend-wave-a5.yml
+
+permissions:
+  contents: write
+
+jobs:
+  maintain-and-prove:
+    runs-on: windows-2022
+    timeout-minutes: 40
+    steps:
+      - name: Checkout New
+        uses: actions/checkout@v4
+        with:
+          ref: New
+          fetch-depth: 0
+
+      - name: Apply bounded Wave A5 stderr correction
+        shell: pwsh
+        run: python .tmp/backend_wave_a5_patch.py source
+
+      - name: Format bounded Rust modules
+        shell: pwsh
+        run: |
+          rustfmt --edition 2021 EngineData/Frontend/RustApp/src-tauri/src/commands/helper_bridge_runtime.rs
+          rustfmt --edition 2021 EngineData/Frontend/RustApp/src-tauri/src/commands/helper_bridge.rs
+          rustfmt --edition 2021 EngineData/Frontend/RustApp/src-tauri/src/commands/bridge_paths.rs
+
+      - name: Validate bounded changed scope
+        shell: pwsh
+        run: |
+          git diff --check
+          $changed = @(git diff --name-only)
+          $allowed = @(
+            'EngineData/Frontend/RustApp/src-tauri/src/commands/helper_bridge_runtime.rs',
+            'EngineData/Frontend/RustApp/src-tauri/src/commands/helper_bridge.rs',
+            'EngineData/Frontend/RustApp/src-tauri/src/commands/bridge_paths.rs'
+          )
+          foreach ($path in $changed) {
+            if ($allowed -notcontains $path) { throw "Unexpected changed path: $path" }
+          }
+          foreach ($path in $allowed) {
+            if ($changed -notcontains $path) { throw "Expected changed path missing: $path" }
+          }
+          git diff --stat
+
+      - name: Materialize canonical frontend dependencies
+        shell: pwsh
+        working-directory: EngineData/Frontend/RustApp
+        run: npm ci
+
+      - name: Build frontend prerequisite for Tauri test context
+        shell: pwsh
+        working-directory: EngineData/Frontend/RustApp
+        run: npm run build:frontend
+
+      - name: Targeted Rust helper stderr policy and lifecycle tests
+        shell: pwsh
+        run: cargo test --manifest-path EngineData/Frontend/RustApp/src-tauri/Cargo.toml stderr_lifecycle_tests -- --test-threads=1
+
+      - name: Windows Rust compile baseline
+        shell: pwsh
+        run: cargo check --manifest-path EngineData/Frontend/RustApp/src-tauri/Cargo.toml
+
+      - name: Native Tauri release build baseline
+        shell: pwsh
+        working-directory: EngineData/Frontend/RustApp
+        run: npx tauri build --no-bundle
+
+      - name: Record Wave A5 closure state
+        shell: pwsh
+        run: |
+          python .tmp/backend_wave_a5_patch.py closure
+          git diff --check
+
+      - name: Commit proven Wave A5 correction
+        shell: pwsh
+        run: |
+          git config user.name "halokaryamedia-source"
+          git config user.email "halokaryamedia@gmail.com"
+          git add EngineData/Frontend/RustApp/src-tauri/src/commands/helper_bridge_runtime.rs
+          git add EngineData/Frontend/RustApp/src-tauri/src/commands/helper_bridge.rs
+          git add EngineData/Frontend/RustApp/src-tauri/src/commands/bridge_paths.rs
+          git add docs/knowledge/next-action.md
+          git commit -m "Bound and redact helper stderr lifecycle"
+          git push origin HEAD:New
