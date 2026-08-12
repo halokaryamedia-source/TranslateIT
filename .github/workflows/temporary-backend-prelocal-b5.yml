@@ -47,6 +47,18 @@ jobs:
         run: |
           python .tmp/backend_prelocal_b5_patch.py
           if ($LASTEXITCODE -ne 0) { throw 'B5 patch helper failed.' }
+          @'
+          from pathlib import Path
+
+          path = Path("EngineData/Frontend/RustApp/scripts/validate_startup_runtime_readiness.mjs")
+          body = path.read_text(encoding="utf-8")
+          old = '  \'if empty { "listening" } else { "attention_needed" }\',\n'
+          new = '  "Translation Live is listening. Rolling audio remains preview-only; finalized utterances receive shared Meeting event sequence before AI.",\n'
+          if old not in body:
+              raise SystemExit("stale Meeting Start validator marker was not found")
+          path.write_text(body.replace(old, new, 1), encoding="utf-8", newline="\n")
+          '@ | python -
+          if ($LASTEXITCODE -ne 0) { throw 'B5 validator reconciliation failed.' }
 
       - name: Install uv and refresh canonical lock
         shell: pwsh
