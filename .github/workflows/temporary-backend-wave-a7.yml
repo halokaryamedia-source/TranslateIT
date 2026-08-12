@@ -86,7 +86,9 @@ jobs:
         shell: pwsh
         run: |
           git diff --check
-          $changed = @(git diff --name-only)
+          $trackedChanged = @(git diff --name-only)
+          $untracked = @(git ls-files --others --exclude-standard)
+          $changed = @($trackedChanged + $untracked | Sort-Object -Unique)
           $allowed = @(
             'EngineData/Backend/LocalWorker/WorkerRuntime/README.md',
             'EngineData/Backend/LocalWorker/WorkerRuntime/model_manifest.json',
@@ -104,6 +106,7 @@ jobs:
             if ($changed -notcontains $path) { throw "Expected changed path missing: $path" }
           }
           git diff --stat
+          git status --short
 
       - name: Install proof-only pytest
         shell: pwsh
