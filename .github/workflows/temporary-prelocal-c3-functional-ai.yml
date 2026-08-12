@@ -98,10 +98,6 @@ jobs:
               }
 
           try:
-              # This is diagnostic context only. C3's purpose is to replace preload/status-only
-              # acceptance with actual stage execution, so a cold status sample must not preempt
-              # the functional proof. In particular a transient cold SAPI probe may be retried by
-              # the real synthesis request without creating a broad product fallback.
               initial = call({'command': 'status'}, 60)
               print('INITIAL_STATUS=' + json.dumps(sanitized_status(initial), sort_keys=True))
 
@@ -187,11 +183,13 @@ jobs:
         shell: pwsh
         working-directory: EngineData/Backend/LocalWorker/WorkerRuntime
         run: |
-          uv run --frozen --no-dev ruff check .
+          uv sync --frozen
+          if ($LASTEXITCODE -ne 0) { throw 'Locked WorkerRuntime dev-tool sync failed.' }
+          uv run --frozen ruff check .
           if ($LASTEXITCODE -ne 0) { throw 'Ruff check failed.' }
-          uv run --frozen --no-dev ruff format --check .
+          uv run --frozen ruff format --check .
           if ($LASTEXITCODE -ne 0) { throw 'Ruff format check failed.' }
-          uv run --frozen --no-dev pytest -q
+          uv run --frozen pytest -q
           if ($LASTEXITCODE -ne 0) { throw 'WorkerRuntime tests failed.' }
 
       - name: Prove source and frontend contracts
