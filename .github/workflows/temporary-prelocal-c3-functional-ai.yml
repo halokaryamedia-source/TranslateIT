@@ -1,0 +1,285 @@
+name: Temporary Pre-Local C3 Functional AI Proof
+
+on:
+  push:
+    branches:
+      - New
+
+permissions:
+  contents: write
+
+jobs:
+  prove-c3:
+    runs-on: windows-2022
+    timeout-minutes: 70
+    steps:
+      - name: Checkout New
+        uses: actions/checkout@v4
+        with:
+          ref: New
+          fetch-depth: 0
+
+      - name: Apply C3 functional readiness patch
+        shell: pwsh
+        run: |
+          python .tmp/prelocal_c3_functional_ai_patch.py
+          if ($LASTEXITCODE -ne 0) { throw 'C3 patch helper failed.' }
+          rustfmt EngineData/Frontend/RustApp/src-tauri/src/commands/helper_bridge.rs
+          if ($LASTEXITCODE -ne 0) { throw 'C3 rustfmt failed.' }
+          git diff --check
+          if ($LASTEXITCODE -ne 0) { throw 'C3 patch has whitespace errors.' }
+
+      - name: Prepare canonical Python runtime
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12.10'
+
+      - name: Install uv and locked WorkerRuntime
+        shell: pwsh
+        working-directory: EngineData/Backend/LocalWorker/WorkerRuntime
+        run: |
+          python -m pip install uv==0.12.3
+          if ($LASTEXITCODE -ne 0) { throw 'uv install failed.' }
+          uv sync --frozen --no-dev
+          if ($LASTEXITCODE -ne 0) { throw 'frozen WorkerRuntime sync failed.' }
+          uv run --frozen --no-dev python -c "import platform; assert platform.python_version() == '3.12.10'; print(platform.python_version())"
+          if ($LASTEXITCODE -ne 0) { throw 'Pinned Python verification failed.' }
+
+      - name: Acquire only C3 required Hugging Face assets
+        shell: pwsh
+        working-directory: EngineData/Backend/LocalWorker/WorkerRuntime
+        run: |
+          uv run --frozen --no-dev python prepare_model_assets.py --model-id faster-whisper-large-v3-turbo --model-id marianmt-id-en
+          if ($LASTEXITCODE -ne 0) { throw 'C3 required model acquisition failed.' }
+
+      - name: Prove real persistent worker C3 stages
+        shell: pwsh
+        working-directory: EngineData/Backend/LocalWorker/WorkerRuntime
+        run: |
+          @'
+          import concurrent.futures
+          import json
+          import subprocess
+          import sys
+          from pathlib import Path
+
+          worker = Path('realtime_local_worker.py').resolve()
+          proc = subprocess.Popen(
+              [sys.executable, str(worker)],
+              stdin=subprocess.PIPE,
+              stdout=subprocess.PIPE,
+              stderr=subprocess.DEVNULL,
+              text=True,
+              bufsize=1,
+          )
+          pool = concurrent.futures.ThreadPoolExecutor(max_workers=1)
+
+          def call(payload, timeout=240):
+              assert proc.stdin is not None and proc.stdout is not None
+              proc.stdin.write(json.dumps(payload, ensure_ascii=False) + '\n')
+              proc.stdin.flush()
+              future = pool.submit(proc.stdout.readline)
+              line = future.result(timeout=timeout)
+              if not line:
+                  raise RuntimeError(f'worker closed during {payload.get("command")}')
+              return json.loads(line)
+
+          try:
+              initial = call({'command': 'status'}, 60)
+              if not initial.get('ok'):
+                  raise RuntimeError('initial provider status is not ready')
+
+              asr = call({'command': 'asr_preload'}, 240)
+              if not asr.get('ok'):
+                  raise RuntimeError(f'ASR preload failed: {asr.get("blocker")}')
+
+              translation = call({
+                  'command': 'translate',
+                  'text': 'selamat pagi',
+                  'source_language': 'id',
+                  'target_language': 'en',
+                  'max_new_tokens': 24,
+              }, 240)
+              if not translation.get('ok'):
+                  raise RuntimeError(f'translation inference failed: {translation.get("blocker")}')
+              if translation.get('direction_pair') != 'id->en':
+                  raise RuntimeError('translation direction mismatch')
+              if translation.get('complete') is not True or translation.get('finished_with_eos') is not True:
+                  raise RuntimeError('translation did not prove EOS-complete output')
+              translated = str(translation.get('translated_text') or '').strip()
+              if not translated:
+                  raise RuntimeError('translation output is empty')
+
+              relative_tts = 'UserData/CacheData/c3_remote_proof/required_outbound.wav'
+              tts = call({
+                  'command': 'synthesize',
+                  'text': translated,
+                  'output_path': relative_tts,
+              }, 120)
+              if not tts.get('ok'):
+                  raise RuntimeError(f'TTS synthesis failed: {tts.get("blocker")}')
+              output_path = Path(str(tts.get('output_path') or ''))
+              if not output_path.is_file() or output_path.stat().st_size <= 44:
+                  raise RuntimeError('TTS did not create a valid WAV artifact')
+              output_path.unlink(missing_ok=True)
+
+              final = call({'command': 'status'}, 60)
+              loaded = final.get('loaded') or {}
+              if not loaded.get('asr'):
+                  raise RuntimeError('ASR runtime was not retained by persistent worker')
+              if 'id->en' not in (loaded.get('translation_directions') or []):
+                  raise RuntimeError('ID->EN runtime was not retained by persistent worker')
+
+              summary = {
+                  'asr_preload_ok': True,
+                  'asr_device': asr.get('device'),
+                  'translation_inference_ok': True,
+                  'translation_complete': translation.get('complete'),
+                  'translation_finished_with_eos': translation.get('finished_with_eos'),
+                  'translation_device': translation.get('device'),
+                  'tts_synthesis_ok': True,
+                  'tts_provider': tts.get('provider'),
+                  'tts_wav_valid': True,
+                  'persistent_asr_loaded': bool(loaded.get('asr')),
+                  'persistent_id_en_loaded': 'id->en' in (loaded.get('translation_directions') or []),
+                  'cpu_fallback_active': bool(final.get('cpu_fallback_active')),
+              }
+              print(json.dumps(summary, sort_keys=True))
+          finally:
+              try:
+                  if proc.stdin:
+                      proc.stdin.close()
+              except Exception:
+                  pass
+              try:
+                  proc.wait(timeout=5)
+              except Exception:
+                  proc.kill()
+              pool.shutdown(wait=False, cancel_futures=True)
+          '@ | uv run --frozen --no-dev python -
+          if ($LASTEXITCODE -ne 0) { throw 'C3 real persistent worker proof failed.' }
+
+      - name: Prove WorkerRuntime deterministic tests
+        shell: pwsh
+        working-directory: EngineData/Backend/LocalWorker/WorkerRuntime
+        run: |
+          uv run --frozen --no-dev ruff check .
+          if ($LASTEXITCODE -ne 0) { throw 'Ruff check failed.' }
+          uv run --frozen --no-dev ruff format --check .
+          if ($LASTEXITCODE -ne 0) { throw 'Ruff format check failed.' }
+          uv run --frozen --no-dev pytest -q
+          if ($LASTEXITCODE -ne 0) { throw 'WorkerRuntime tests failed.' }
+
+      - name: Prove source and frontend contracts
+        shell: pwsh
+        working-directory: EngineData/Frontend/RustApp
+        run: |
+          npm ci
+          if ($LASTEXITCODE -ne 0) { throw 'npm ci failed.' }
+          npm run validate:source-contracts
+          if ($LASTEXITCODE -ne 0) { throw 'source validators failed.' }
+          npm run typecheck
+          if ($LASTEXITCODE -ne 0) { throw 'svelte-check failed.' }
+          npm run build:frontend
+          if ($LASTEXITCODE -ne 0) { throw 'frontend build failed.' }
+
+      - name: Prove C3 Rust behavior and compile
+        shell: pwsh
+        working-directory: EngineData/Frontend/RustApp
+        run: |
+          cargo test --manifest-path src-tauri/Cargo.toml c3_functional_readiness_tests -- --nocapture
+          if ($LASTEXITCODE -ne 0) { throw 'C3 deterministic Rust tests failed.' }
+          cargo test --manifest-path src-tauri/Cargo.toml --no-run
+          if ($LASTEXITCODE -ne 0) { throw 'Rust full test target failed to compile.' }
+          cargo check --manifest-path src-tauri/Cargo.toml
+          if ($LASTEXITCODE -ne 0) { throw 'cargo check failed.' }
+
+      - name: Prove Tauri release link
+        shell: pwsh
+        working-directory: EngineData/Frontend/RustApp
+        run: |
+          npx tauri build --no-bundle
+          if ($LASTEXITCODE -ne 0) { throw 'Tauri release build failed.' }
+
+      - name: Verify C3 ownership and scope
+        shell: pwsh
+        run: |
+          @'
+          from pathlib import Path
+
+          helper = Path('EngineData/Frontend/RustApp/src-tauri/src/commands/helper_bridge.rs').read_text(encoding='utf-8')
+          smoke = Path('EngineData/Backend/LocalWorker/WorkerRuntime/run_realtime_worker_smoke.ps1').read_text(encoding='utf-8')
+          tests_dir = Path('EngineData/Backend/LocalWorker/WorkerRuntime/tests')
+
+          required = [
+              'REQUIRED_OUTBOUND_FUNCTIONAL_ID_FIXTURE',
+              'RequiredOutboundFunctionalReadiness',
+              'required_outbound_functional_readiness_cached',
+              'remember_required_outbound_functional_readiness',
+              'invalidate_required_outbound_ai_readiness',
+              'send_worker_task("asr_preload"',
+              '"translate",',
+              'value.get("complete")',
+              'value.get("finished_with_eos")',
+              '"synthesize",',
+              'consume_functional_tts_output',
+              'fs::metadata',
+              'current.generation_token != generation_token',
+          ]
+          missing = [marker for marker in required if marker not in helper]
+          if missing:
+              raise SystemExit('Missing C3 functional readiness markers: ' + ', '.join(missing))
+
+          if 'translation_preload' in helper[helper.index('pub fn prepare_required_outbound_ai_runtime()'):helper.index('#[tauri::command]', helper.index('pub fn prepare_required_outbound_ai_runtime()'))]:
+              raise SystemExit('C3 Start preparation still uses preload-only translation instead of functional inference.')
+          if 'tts_preflight' in helper[helper.index('pub fn prepare_required_outbound_ai_runtime()'):helper.index('#[tauri::command]', helper.index('pub fn prepare_required_outbound_ai_runtime()'))]:
+              raise SystemExit('C3 Start preparation still uses TTS preflight instead of real synthesis.')
+
+          wav_fixtures = list(tests_dir.rglob('*.wav')) if tests_dir.exists() else []
+          if wav_fixtures:
+              raise SystemExit('C3 proof assumption changed: a canonical WorkerRuntime WAV fixture now exists and must be evaluated explicitly.')
+          if '[string]$AudioPath = ""' not in smoke:
+              raise SystemExit('Worker smoke ASR fixture contract changed unexpectedly.')
+
+          forbidden = ['MAX_ACCEPTABLE_LATENCY', 'cloud_fallback', 'SECOND_WORKER', 'functional_readiness.json']
+          found = [marker for marker in forbidden if marker in helper]
+          if found:
+              raise SystemExit('C3 introduced out-of-scope behavior: ' + ', '.join(found))
+
+          print('C3 source ownership guard passed. Functional cache is worker-generation-bound and no ASR fixture success was fabricated.')
+          '@ | python -
+          if ($LASTEXITCODE -ne 0) { throw 'C3 ownership guard failed.' }
+
+          git diff --check
+          if ($LASTEXITCODE -ne 0) { throw 'git diff --check failed.' }
+          $expected = @(
+            'CONTEXT.md',
+            'EngineData/Frontend/RustApp/scripts/validate_startup_runtime_readiness.mjs',
+            'EngineData/Frontend/RustApp/src-tauri/src/commands/helper_bridge.rs',
+            'docs/knowledge/next-action.md',
+            'docs/knowledge/source-ownership.md'
+          )
+          $changed = @(git diff --name-only | ForEach-Object { $_.Replace('\','/') })
+          $unexpected = @($changed | Where-Object { $expected -notcontains $_ })
+          $missing = @($expected | Where-Object { $changed -notcontains $_ })
+          if ($unexpected.Count -gt 0) {
+            $unexpected | ForEach-Object { Write-Host "Unexpected: $_" }
+            throw 'Unexpected C3 changed path.'
+          }
+          if ($missing.Count -gt 0) {
+            $missing | ForEach-Object { Write-Host "Missing: $_" }
+            throw 'Expected C3 changed path missing.'
+          }
+
+      - name: Commit proven C3 implementation
+        shell: pwsh
+        run: |
+          git config user.name 'halokaryamedia-source'
+          git config user.email 'halokaryamedia@gmail.com'
+          git add CONTEXT.md `
+            EngineData/Frontend/RustApp/scripts/validate_startup_runtime_readiness.mjs `
+            EngineData/Frontend/RustApp/src-tauri/src/commands/helper_bridge.rs `
+            docs/knowledge/next-action.md `
+            docs/knowledge/source-ownership.md
+          git commit -m 'Functionally validate outbound AI readiness'
+          git push origin HEAD:New
