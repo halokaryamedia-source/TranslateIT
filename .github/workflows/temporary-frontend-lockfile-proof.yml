@@ -7,6 +7,9 @@ on:
       - .github/workflows/temporary-frontend-lockfile-proof.yml
       - EngineData/Frontend/RustApp/package-lock.json
 
+permissions:
+  contents: write
+
 jobs:
   verify:
     runs-on: windows-latest
@@ -83,6 +86,21 @@ jobs:
 
       - name: Production frontend build
         run: npm run build:frontend
+
+      - name: Adopt verified candidate when lockfile is not tracked
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $tracked = git ls-files -- package-lock.json
+          if ($tracked) {
+            Write-Host 'Canonical package-lock.json is already tracked; no repository write needed.'
+            exit 0
+          }
+          git config user.name 'halokaryamedia-source'
+          git config user.email 'halokaryamedia@gmail.com'
+          git add package-lock.json
+          git commit -m 'Adopt canonical frontend package lock'
+          git push origin HEAD:New
 
       - name: Upload lockfile evidence
         uses: actions/upload-artifact@v4
