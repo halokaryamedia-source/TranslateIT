@@ -1,0 +1,70 @@
+name: Temporary C1 Proof Finalizer
+
+on:
+  push:
+    branches:
+      - New
+
+permissions:
+  contents: write
+
+jobs:
+  finalize-c1:
+    runs-on: windows-2022
+    timeout-minutes: 10
+    steps:
+      - name: Checkout New
+        uses: actions/checkout@v4
+        with:
+          ref: New
+          fetch-depth: 0
+
+      - name: Correct C1 proof wording and clean temporary owners
+        shell: pwsh
+        run: |
+          @'
+          from pathlib import Path
+
+          path = Path('docs/knowledge/next-action.md')
+          text = path.read_text(encoding='utf-8')
+          start = text.index('## Pre-Local C1 — IMPLEMENTED / TARGET DEVICE PROOF DEFERRED')
+          end = text.index('## Current Mode', start)
+          section = text[start:end]
+          old = '''canonical source validators              -> PASS
+svelte-check + frontend build            -> PASS
+Rust unit tests                          -> PASS
+cargo check                              -> PASS
+Tauri release build --no-bundle          -> PASS
+functional-probe ownership/source guard  -> PASS'''
+          new = '''canonical source validators              -> PASS
+svelte-check + frontend build            -> PASS
+Rust test-target compile (`--no-run`)    -> PASS
+cargo check                              -> PASS
+Tauri release build --no-bundle          -> PASS
+functional-probe ownership/source guard  -> PASS'''
+          if old not in section:
+              raise SystemExit('C1 proof block did not match expected text.')
+          section = section.replace(old, new, 1)
+          insertion = '''
+
+An earlier broad `cargo test` proof attempt executed 27 of 28 tests successfully and hit the existing timing-sensitive A4 scheduler wait test; C1 does not change scheduler behavior. The accepted C1 proof therefore compiles the complete Rust test target without running unrelated timing behavior, then separately requires `cargo check` and the Tauri release link. This is intentionally narrower and does not convert that unrelated timing failure into a C1 product failure.'''
+          anchor = '\n\nA GitHub-hosted Windows runner is not a target microphone environment'
+          if anchor not in section:
+              raise SystemExit('C1 target-device boundary anchor missing.')
+          section = section.replace(anchor, insertion + anchor, 1)
+          path.write_text(text[:start] + section + text[end:], encoding='utf-8', newline='\n')
+          '@ | python -
+          if ($LASTEXITCODE -ne 0) { throw 'C1 evidence correction failed.' }
+
+          git diff --check
+          if ($LASTEXITCODE -ne 0) { throw 'C1 evidence correction has whitespace errors.' }
+
+          git rm .github/workflows/temporary-prelocal-c1-functional-mic.yml
+          git rm .tmp/prelocal_c1_functional_mic_patch.py
+          git rm .github/workflows/temporary-c1-finalize.yml
+
+          git config user.name 'halokaryamedia-source'
+          git config user.email 'halokaryamedia@gmail.com'
+          git add docs/knowledge/next-action.md
+          git commit -m 'Finalize C1 functional microphone proof state'
+          git push origin HEAD:New
