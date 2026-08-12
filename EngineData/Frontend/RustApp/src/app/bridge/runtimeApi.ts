@@ -73,6 +73,20 @@ export type MeetingSessionPreflightStatus = {
   [key: string]: any;
 };
 
+export type MeetingOutboundTiming = {
+  finalized_unix_ms: number;
+  first_playback_unix_ms: number | null;
+  speech_boundary_ms: number;
+  finalization_ms: number;
+  queue_ms: number;
+  audio_prepare_ms: number;
+  asr_ms: number | null;
+  translation_ms: number | null;
+  tts_ms: number | null;
+  delivery_ms: number | null;
+  outbound_latency_ms: number | null;
+};
+
 export type MeetingOutboundRuntimeStatus = {
   generation: number | null;
   session_id: string | null;
@@ -80,6 +94,7 @@ export type MeetingOutboundRuntimeStatus = {
   utterance_sequence: number;
   output_active: boolean;
   last_stage_ok: boolean;
+  timing: MeetingOutboundTiming | null;
   blocker: string;
   note: string;
   updated_unix_ms: number;
@@ -136,6 +151,7 @@ export type MeetingCommittedTurn = {
   source_text: string;
   translated_text: string;
   delivery_state: "preparing_voice" | "speaking" | "output_complete" | "output_failed" | "interrupted" | string | null;
+  outbound_timing: MeetingOutboundTiming | null;
   created_unix_ms: number;
   updated_unix_ms: number;
 };
@@ -316,6 +332,7 @@ function meetingSessionStatusFallback(message: string): MeetingSessionStatus {
       utterance_sequence: 0,
       output_active: false,
       last_stage_ok: false,
+      timing: null,
       blocker: "frontend_bridge_unavailable",
       note: message,
       updated_unix_ms: Date.now(),

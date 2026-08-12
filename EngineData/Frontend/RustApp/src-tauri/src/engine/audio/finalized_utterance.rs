@@ -1,5 +1,6 @@
 use std::collections::VecDeque;
 use std::sync::{Condvar, Mutex, OnceLock};
+use std::time::{Instant, SystemTime, UNIX_EPOCH};
 
 use super::evidence::AudioEvidenceReport;
 use super::vad::{evaluate_vad_gate, runtime_vad_profile, RuntimeVadProfile};
@@ -15,6 +16,19 @@ const MAX_PENDING_FINALIZED_UTTERANCES: usize = 2;
 const LANE_YOU: &str = "you";
 const LANE_INCOMING: &str = "incoming";
 
+fn current_unix_ms() -> u128 {
+    SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .unwrap_or_default()
+        .as_millis()
+}
+
+fn elapsed_millis(start: Instant, end: Instant) -> u64 {
+    end.checked_duration_since(start)
+        .map(|duration| duration.as_millis().min(u128::from(u64::MAX)) as u64)
+        .unwrap_or(0)
+}
+
 #[derive(Debug, Clone)]
 pub struct FinalizedMeetingUtterance {
     pub session_id: String,
@@ -22,6 +36,11 @@ pub struct FinalizedMeetingUtterance {
     pub lane: String,
     pub generation: Option<u64>,
     pub utterance_id: u64,
+    pub finalized_at: Instant,
+    pub enqueued_at: Instant,
+    pub finalized_unix_ms: u128,
+    pub speech_boundary_ms: u64,
+    pub finalization_ms: u64,
     pub frame: AudioFrame,
 }
 
@@ -294,7 +313,11 @@ fn observe_i16(
         .iter()
         .map(|sample| (*sample as f32 / i16::MAX as f32).clamp(-1.0, 1.0))
         .collect::<Vec<_>>();
-    observe_finalized_mono_samples(sync, &downmix_f32(&converted, source_channels), sample_rate_hz);
+    observe_finalized_mono_samples(
+        sync,
+        &downmix_f32(&converted, source_channels),
+        sample_rate_hz,
+    );
 }
 
 fn observe_u16(
@@ -307,7 +330,11 @@ fn observe_u16(
         .iter()
         .map(|sample| ((*sample as f32 / u16::MAX as f32) * 2.0 - 1.0).clamp(-1.0, 1.0))
         .collect::<Vec<_>>();
-    observe_finalized_mono_samples(sync, &downmix_f32(&converted, source_channels), sample_rate_hz);
+    observe_finalized_mono_samples(
+        sync,
+        &downmix_f32(&converted, source_channels),
+        sample_rate_hz,
+    );
 }
 
 fn observe_finalized_mono_samples(
@@ -345,7 +372,10 @@ fn observe_finalized_mono_samples(
         reset_current_utterance(state);
     }
 
-    let safe_samples = samples.iter().map(|sample| safe_sample(*sample)).collect::<Vec<_>>();
+    let safe_samples = samples
+        .iter()
+        .map(|sample| safe_sample(*sample))
+        .collect::<Vec<_>>();
     let evidence = AudioEvidenceReport::from_samples(&safe_samples);
     let gate = evaluate_vad_gate(evidence.clone(), &state.profile.gate);
     let speech_like = gate.accepted;
@@ -412,7 +442,9 @@ fn ingest_observation(
     if !state.in_utterance {
         if speech_like {
             state.in_utterance = true;
-            state.current_samples.reserve(state.pre_roll.len() + samples.len());
+            state
+                .current_samples
+                .reserve(state.pre_roll.len() + samples.len());
             state.current_samples.extend(state.pre_roll.drain(..));
             state.current_samples.extend_from_slice(samples);
             state.speech_samples = samples.len();
@@ -442,9 +474,7 @@ fn ingest_observation(
         return false;
     }
 
-    state.trailing_silence_samples = state
-        .trailing_silence_samples
-        .saturating_add(samples.len());
+    state.trailing_silence_samples = state.trailing_silence_samples.saturating_add(samples.len());
     let speech_duration_ms = duration_ms(state.speech_samples, state.sample_rate_hz);
     let silence_duration_ms = duration_ms(state.trailing_silence_samples, state.sample_rate_hz);
     let required_silence_ms = adaptive_end_silence_ms(&state.profile, evidence);
@@ -471,14 +501,26 @@ fn finalize_current_utterance(state: &mut FinalizedProducerState) -> bool {
         return false;
     }
 
-    let speech_end = state
-        .current_samples
-        .len()
-        .saturating_sub(state.trailing_silence_samples.min(state.current_samples.len()));
+    let speech_end = state.current_samples.len().saturating_sub(
+        state
+            .trailing_silence_samples
+            .min(state.current_samples.len()),
+    );
     if speech_end == 0 {
         reset_current_utterance(state);
         return false;
     }
+
+    // PR-052 begins at detected finalized-utterance end. Capture that point before
+    // evidence validation/resampling. The preceding VAD/silence boundary is tracked
+    // separately so target testing can distinguish segmentation delay from outbound
+    // processing latency.
+    let finalized_at = Instant::now();
+    let finalized_unix_ms = current_unix_ms();
+    let speech_boundary_ms = u64::from(duration_ms(
+        state.trailing_silence_samples,
+        state.sample_rate_hz,
+    ));
 
     let speech_evidence = AudioEvidenceReport::from_samples(&state.current_samples[..speech_end]);
     let speech_gate = evaluate_vad_gate(speech_evidence, &state.profile.gate);
@@ -512,12 +554,19 @@ fn finalize_current_utterance(state: &mut FinalizedProducerState) -> bool {
         let _ = state.pending.pop_front();
     }
 
+    let enqueued_at = Instant::now();
+    let finalization_ms = elapsed_millis(finalized_at, enqueued_at);
     state.pending.push_back(FinalizedMeetingUtterance {
         session_id: state.session_id.clone(),
         sequence,
         lane: state.lane.to_string(),
         generation: state.generation,
         utterance_id,
+        finalized_at,
+        enqueued_at,
+        finalized_unix_ms,
+        speech_boundary_ms,
+        finalization_ms,
         frame: AudioFrame {
             sample_rate_hz: TARGET_SAMPLE_RATE_HZ,
             channels: TARGET_CHANNELS,

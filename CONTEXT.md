@@ -151,7 +151,7 @@ Svelte state remains presentation/application state, not duplicate Rust/runtime 
 
 Start establishes one session/authority. Navigation does not stop/recreate it. Stop revokes output authority before resource cleanup, stops both audio lanes, cancels/joins Meeting work, clears transient conversation/audio state, and ends the session. Safe application close uses the same Stop owner and fails closed when session state cannot be verified. Windows suspend/resume window messages only enqueue a bounded nonblocking cleanup signal; a Rust lifecycle worker then converges through the same authority-first Meeting Stop owner.
 
-The bounded committed-turn store is transient Live transcript state only; Meeting Stop has no History persistence dependency.
+The bounded committed-turn store is transient Live transcript state only; Meeting Stop has no History persistence dependency. Outbound timing is attached to the same transient Meeting owner: finalized speech records the detected finalization point and speech-boundary delay, the Meeting consumer records queue/audio-preparation/AI-stage durations, and Rust/CPAL output reports first translated playback from CPAL's predicted device-playback timestamp. No latency threshold is hardcoded before target-PC evidence, and C2 adds no persistent conversation/telemetry log.
 
 ## Persisted Settings Contract
 

@@ -258,6 +258,43 @@ requireMarkers(source.textTranslate, "Text translation command contract", [
   'start.state == "active_runtime_session"',
 ]);
 
+requireMarkers(source.finalizedUtterance, "C2 finalized latency seed", [
+  "pub finalized_at: Instant",
+  "pub enqueued_at: Instant",
+  "pub finalized_unix_ms: u128",
+  "pub speech_boundary_ms: u64",
+  "pub finalization_ms: u64",
+  "PR-052 begins at detected finalized-utterance end",
+]);
+requireMarkers(source.meetingOutput, "C2 first translated playback timestamp", [
+  "first_playback_at: Option<Instant>",
+  "first_playback_unix_ms: Option<u128>",
+  "callback_info.timestamp()",
+  ".playback",
+  ".duration_since(&timestamp.callback)",
+  "signal_first_playback(callback_info)",
+]);
+requireMarkers(source.meetingSession, "C2 transient outbound latency instrumentation", [
+  "pub struct MeetingOutboundTiming",
+  "pub timing: Option<MeetingOutboundTiming>",
+  "pub outbound_timing: Option<MeetingOutboundTiming>",
+  "speech_boundary_ms",
+  "finalization_ms",
+  "queue_ms",
+  "audio_prepare_ms",
+  "asr_ms",
+  "translation_ms",
+  "tts_ms",
+  "delivery_ms",
+  "outbound_latency_ms",
+  "record_first_playback_timing",
+]);
+forbidMarkers(source.meetingSession, "C2 no speculative latency threshold", [
+  "MAX_ACCEPTABLE_LATENCY",
+  "TARGET_LATENCY_MS",
+  "latency_threshold",
+]);
+
 requireMarkers(source.helperBridge, "Meeting outbound AI preparation", [
   "fn meeting_start_prepare",
   "prepare_required_outbound_ai_runtime",

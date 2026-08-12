@@ -5,12 +5,13 @@ use std::fs;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex, OnceLock};
 use std::thread::{self, JoinHandle};
+use std::time::Instant;
 
 use crate::engine::audio::finalized_utterance::{
     clear_finalized_incoming_utterance_producer, clear_finalized_meeting_sequence,
     clear_finalized_outbound_utterance_producer, reset_finalized_incoming_speech_boundary,
     reset_finalized_meeting_sequence, wait_take_finalized_incoming_utterance,
-    wait_take_finalized_outbound_utterance,
+    wait_take_finalized_outbound_utterance, FinalizedMeetingUtterance,
 };
 use crate::engine::audio::live_capture::{start_live_capture_runtime, stop_live_capture_runtime};
 use crate::engine::audio::live_segment_writer::{
@@ -64,6 +65,21 @@ pub struct MeetingSessionPreflightStatus {
 }
 
 #[derive(Debug, Clone, Serialize)]
+pub struct MeetingOutboundTiming {
+    pub finalized_unix_ms: u128,
+    pub first_playback_unix_ms: Option<u128>,
+    pub speech_boundary_ms: u64,
+    pub finalization_ms: u64,
+    pub queue_ms: u64,
+    pub audio_prepare_ms: u64,
+    pub asr_ms: Option<u64>,
+    pub translation_ms: Option<u64>,
+    pub tts_ms: Option<u64>,
+    pub delivery_ms: Option<u64>,
+    pub outbound_latency_ms: Option<u64>,
+}
+
+#[derive(Debug, Clone, Serialize)]
 pub struct MeetingOutboundRuntimeStatus {
     pub generation: Option<u64>,
     pub session_id: Option<String>,
@@ -71,6 +87,7 @@ pub struct MeetingOutboundRuntimeStatus {
     pub utterance_sequence: u64,
     pub output_active: bool,
     pub last_stage_ok: bool,
+    pub timing: Option<MeetingOutboundTiming>,
     pub blocker: String,
     pub note: String,
     pub updated_unix_ms: u128,
@@ -139,6 +156,7 @@ pub struct MeetingCommittedTurn {
     pub source_text: String,
     pub translated_text: String,
     pub delivery_state: Option<String>,
+    pub outbound_timing: Option<MeetingOutboundTiming>,
     pub created_unix_ms: u128,
     pub updated_unix_ms: u128,
 }
@@ -188,6 +206,11 @@ struct MeetingStartPreflightRuntime {
     status: MeetingSessionPreflightStatus,
 }
 
+struct OutboundTimingContext {
+    finalized_at: Instant,
+    metrics: MeetingOutboundTiming,
+}
+
 struct SelfOutputSuppressionGuard {
     active: Arc<AtomicBool>,
 }
@@ -220,6 +243,7 @@ fn idle_outbound_status() -> MeetingOutboundRuntimeStatus {
         utterance_sequence: 0,
         output_active: false,
         last_stage_ok: true,
+        timing: None,
         blocker: String::new(),
         note: "The finalized-utterance producer and serialized Meeting outbound consumer are source-connected. No output is active until an authoritative Live session produces finalized speech."
             .to_string(),
@@ -346,6 +370,14 @@ fn update_outbound_status(
     note: &str,
 ) {
     if let Ok(mut status) = outbound_status_store().lock() {
+        let timing = if status.generation == Some(generation)
+            && status.session_id.as_deref() == Some(session_id)
+            && status.utterance_sequence == utterance_sequence
+        {
+            status.timing.clone()
+        } else {
+            None
+        };
         *status = MeetingOutboundRuntimeStatus {
             generation: Some(generation),
             session_id: Some(session_id.to_string()),
@@ -353,6 +385,7 @@ fn update_outbound_status(
             utterance_sequence,
             output_active,
             last_stage_ok,
+            timing,
             blocker: blocker.to_string(),
             note: note.to_string(),
             updated_unix_ms: unix_ms(),
@@ -361,6 +394,71 @@ fn update_outbound_status(
                     .to_string(),
         };
     }
+}
+
+fn set_outbound_timing(
+    generation: u64,
+    session_id: &str,
+    utterance_sequence: u64,
+    timing: &MeetingOutboundTiming,
+) {
+    if let Ok(mut status) = outbound_status_store().lock() {
+        if status.generation == Some(generation)
+            && status.session_id.as_deref() == Some(session_id)
+            && status.utterance_sequence == utterance_sequence
+        {
+            status.timing = Some(timing.clone());
+            status.updated_unix_ms = unix_ms();
+        }
+    }
+}
+
+fn duration_to_millis(duration: std::time::Duration) -> u64 {
+    duration.as_millis().min(u128::from(u64::MAX)) as u64
+}
+
+fn elapsed_millis(start: Instant, end: Instant) -> u64 {
+    end.checked_duration_since(start)
+        .map(duration_to_millis)
+        .unwrap_or(0)
+}
+
+fn timing_context_from_utterance(
+    utterance: &FinalizedMeetingUtterance,
+    queue_ms: u64,
+    audio_prepare_ms: u64,
+) -> OutboundTimingContext {
+    OutboundTimingContext {
+        finalized_at: utterance.finalized_at,
+        metrics: MeetingOutboundTiming {
+            finalized_unix_ms: utterance.finalized_unix_ms,
+            first_playback_unix_ms: None,
+            speech_boundary_ms: utterance.speech_boundary_ms,
+            finalization_ms: utterance.finalization_ms,
+            queue_ms,
+            audio_prepare_ms,
+            asr_ms: None,
+            translation_ms: None,
+            tts_ms: None,
+            delivery_ms: None,
+            outbound_latency_ms: None,
+        },
+    }
+}
+
+fn record_first_playback_timing(
+    timing: &mut OutboundTimingContext,
+    delivery_started_at: Instant,
+    first_playback_at: Option<Instant>,
+    first_playback_unix_ms: Option<u128>,
+) {
+    let Some(first_playback_at) = first_playback_at else {
+        return;
+    };
+    timing.metrics.delivery_ms = Some(elapsed_millis(delivery_started_at, first_playback_at));
+    timing.metrics.outbound_latency_ms =
+        Some(elapsed_millis(timing.finalized_at, first_playback_at));
+    timing.metrics.first_playback_unix_ms = first_playback_unix_ms;
 }
 
 fn update_incoming_status(
@@ -465,14 +563,19 @@ fn commit_meeting_turn(
     source_text: &str,
     translated_text: &str,
     delivery_state: Option<&str>,
+    outbound_timing: Option<MeetingOutboundTiming>,
 ) -> bool {
     if sequence == 0 || !matches!(lane, "you" | "incoming") {
         return false;
     }
-    if lane == "you" && (generation.is_none() || delivery_state.is_none()) {
+    if lane == "you"
+        && (generation.is_none() || delivery_state.is_none() || outbound_timing.is_none())
+    {
         return false;
     }
-    if lane == "incoming" && (generation.is_some() || delivery_state.is_some()) {
+    if lane == "incoming"
+        && (generation.is_some() || delivery_state.is_some() || outbound_timing.is_some())
+    {
         return false;
     }
 
@@ -503,6 +606,7 @@ fn commit_meeting_turn(
         source_text: source_text.to_string(),
         translated_text: translated_text.to_string(),
         delivery_state: delivery_state.map(str::to_string),
+        outbound_timing,
         created_unix_ms: now,
         updated_unix_ms: now,
     };
@@ -555,6 +659,34 @@ fn update_committed_turn_delivery_state(
         return turn.delivery_state.as_deref() == Some(delivery_state);
     }
     turn.delivery_state = Some(delivery_state.to_string());
+    turn.updated_unix_ms = unix_ms();
+    true
+}
+
+fn update_committed_turn_outbound_timing(
+    session_id: &str,
+    generation: u64,
+    utterance_id: u64,
+    timing: &MeetingOutboundTiming,
+) -> bool {
+    let Ok(mut guard) = committed_turn_store().lock() else {
+        return false;
+    };
+    let Some(store) = guard.as_mut() else {
+        return false;
+    };
+    if store.session_id != session_id {
+        return false;
+    }
+    let Some(turn) = store.turns.iter_mut().find(|turn| {
+        turn.session_id == session_id
+            && turn.generation == Some(generation)
+            && turn.utterance_id == utterance_id
+            && turn.lane == "you"
+    }) else {
+        return false;
+    };
+    turn.outbound_timing = Some(timing.clone());
     turn.updated_unix_ms = unix_ms();
     true
 }
@@ -985,6 +1117,7 @@ pub fn process_authoritative_finalized_outbound_wav(
     event_sequence: u64,
     utterance_id: u64,
     audio_path: String,
+    mut timing: OutboundTimingContext,
 ) -> MeetingOutboundProcessResult {
     if !generation_is_live(generation) {
         return stale_outbound_result(generation, session_id, event_sequence, utterance_id);
@@ -1000,6 +1133,8 @@ pub fn process_authoritative_finalized_outbound_wav(
         "",
         "Finalized Indonesian speech is being transcribed locally.",
     );
+    set_outbound_timing(generation, session_id, event_sequence, &timing.metrics);
+    let asr_started_at = Instant::now();
     let asr = send_helper_worker_task(
         "transcribe",
         json!({
@@ -1014,6 +1149,8 @@ pub fn process_authoritative_finalized_outbound_wav(
             "utterance_id": utterance_id,
         }),
     );
+    timing.metrics.asr_ms = Some(elapsed_millis(asr_started_at, Instant::now()));
+    set_outbound_timing(generation, session_id, event_sequence, &timing.metrics);
     if !generation_is_live(generation) {
         return stale_outbound_result(generation, session_id, event_sequence, utterance_id);
     }
@@ -1067,6 +1204,7 @@ pub fn process_authoritative_finalized_outbound_wav(
         "",
         "Final Indonesian transcript is being translated to English.",
     );
+    let translation_started_at = Instant::now();
     let translation = send_helper_worker_task(
         "translate",
         json!({
@@ -1081,6 +1219,8 @@ pub fn process_authoritative_finalized_outbound_wav(
             "utterance_id": utterance_id,
         }),
     );
+    timing.metrics.translation_ms = Some(elapsed_millis(translation_started_at, Instant::now()));
+    set_outbound_timing(generation, session_id, event_sequence, &timing.metrics);
     if !generation_is_live(generation) {
         return stale_outbound_result(generation, session_id, event_sequence, utterance_id);
     }
@@ -1119,6 +1259,7 @@ pub fn process_authoritative_finalized_outbound_wav(
         &transcript,
         &translated_text,
         Some("preparing_voice"),
+        Some(timing.metrics.clone()),
     );
 
     update_outbound_status(
@@ -1132,6 +1273,7 @@ pub fn process_authoritative_finalized_outbound_wav(
         "Translated English text is being synthesized locally.",
     );
     let requested_tts_path = tts_output_path(session_id, generation, event_sequence);
+    let tts_started_at = Instant::now();
     let tts = send_helper_worker_task(
         "synthesize",
         json!({
@@ -1143,6 +1285,14 @@ pub fn process_authoritative_finalized_outbound_wav(
             "meeting_sequence": event_sequence,
             "utterance_id": utterance_id,
         }),
+    );
+    timing.metrics.tts_ms = Some(elapsed_millis(tts_started_at, Instant::now()));
+    set_outbound_timing(generation, session_id, event_sequence, &timing.metrics);
+    let _ = update_committed_turn_outbound_timing(
+        session_id,
+        generation,
+        utterance_id,
+        &timing.metrics,
     );
     let tts_path = worker_text(&tts, "output_path").unwrap_or_default();
     if !generation_is_live(generation) {
@@ -1180,6 +1330,7 @@ pub fn process_authoritative_finalized_outbound_wav(
         };
     }
 
+    let delivery_started_at = Instant::now();
     let suppression_guard = match begin_self_output_suppression(session_id) {
         Some(guard) => Some(guard),
         None => {
@@ -1215,6 +1366,19 @@ pub fn process_authoritative_finalized_outbound_wav(
     let bound_route_blocker = bound_output_device.as_ref().err().cloned();
     let route =
         deliver_meeting_output_wav(&tts_path, bound_output_device.as_deref().ok(), generation);
+    record_first_playback_timing(
+        &mut timing,
+        delivery_started_at,
+        route.first_playback_at,
+        route.first_playback_unix_ms,
+    );
+    set_outbound_timing(generation, session_id, event_sequence, &timing.metrics);
+    let _ = update_committed_turn_outbound_timing(
+        session_id,
+        generation,
+        utterance_id,
+        &timing.metrics,
+    );
     drop(suppression_guard);
     if incoming_session_is_eligible(session_id) && meeting_sound_capture_status().stream_active {
         update_incoming_status(
@@ -1413,6 +1577,7 @@ fn process_authoritative_finalized_incoming_wav(
         &transcript,
         &translated_text,
         None,
+        None,
     );
     update_incoming_status(
         session_id,
@@ -1446,6 +1611,7 @@ fn start_meeting_outbound_consumer(generation: u64, session_id: &str) -> Result<
         .name("translateit-meeting-outbound".to_string())
         .spawn(move || {
             while let Some(utterance) = wait_take_finalized_outbound_utterance(generation) {
+                let queue_ms = elapsed_millis(utterance.enqueued_at, Instant::now());
                 if utterance.generation != Some(generation)
                     || utterance.lane != "you"
                     || utterance.session_id != thread_session_id
@@ -1454,7 +1620,10 @@ fn start_meeting_outbound_consumer(generation: u64, session_id: &str) -> Result<
                     continue;
                 }
 
+                let audio_prepare_started_at = Instant::now();
                 let write = write_finalized_outbound_utterance_wav(&utterance);
+                let audio_prepare_ms = elapsed_millis(audio_prepare_started_at, Instant::now());
+                let timing = timing_context_from_utterance(&utterance, queue_ms, audio_prepare_ms);
                 if !write.ok {
                     update_outbound_status(
                         generation,
@@ -1465,6 +1634,12 @@ fn start_meeting_outbound_consumer(generation: u64, session_id: &str) -> Result<
                         false,
                         &write.blocker,
                         "Finalized speech could not be written to its temporary ASR WAV. No AI/output stage consumed it.",
+                    );
+                    set_outbound_timing(
+                        generation,
+                        &thread_session_id,
+                        utterance.sequence,
+                        &timing.metrics,
                     );
                     continue;
                 }
@@ -1480,6 +1655,12 @@ fn start_meeting_outbound_consumer(generation: u64, session_id: &str) -> Result<
                         "meeting_outbound:finalized_audio_path_missing",
                         "Finalized speech writer returned no temporary audio path. No AI/output stage consumed it.",
                     );
+                    set_outbound_timing(
+                        generation,
+                        &thread_session_id,
+                        utterance.sequence,
+                        &timing.metrics,
+                    );
                     continue;
                 };
 
@@ -1494,6 +1675,7 @@ fn start_meeting_outbound_consumer(generation: u64, session_id: &str) -> Result<
                     utterance.sequence,
                     utterance.utterance_id,
                     audio_path.clone(),
+                    timing,
                 );
                 remove_finalized_meeting_utterance_wav(&audio_path);
 
@@ -2220,6 +2402,47 @@ mod b3_preflight_snapshot_tests {
         assert!(current_start_preflight(42).is_none());
 
         clear_all_start_preflight();
+    }
+}
+
+#[cfg(test)]
+mod c2_latency_tests {
+    use super::{record_first_playback_timing, MeetingOutboundTiming, OutboundTimingContext};
+    use std::time::{Duration, Instant};
+
+    #[test]
+    fn official_latency_runs_from_finalized_detection_to_first_playback() {
+        let finalized_at = Instant::now();
+        let delivery_started_at = finalized_at + Duration::from_millis(1_200);
+        let first_playback_at = finalized_at + Duration::from_millis(1_275);
+        let mut timing = OutboundTimingContext {
+            finalized_at,
+            metrics: MeetingOutboundTiming {
+                finalized_unix_ms: 50_000,
+                first_playback_unix_ms: None,
+                speech_boundary_ms: 140,
+                finalization_ms: 3,
+                queue_ms: 12,
+                audio_prepare_ms: 5,
+                asr_ms: Some(900),
+                translation_ms: Some(120),
+                tts_ms: Some(160),
+                delivery_ms: None,
+                outbound_latency_ms: None,
+            },
+        };
+
+        record_first_playback_timing(
+            &mut timing,
+            delivery_started_at,
+            Some(first_playback_at),
+            Some(51_275),
+        );
+
+        assert_eq!(timing.metrics.speech_boundary_ms, 140);
+        assert_eq!(timing.metrics.delivery_ms, Some(75));
+        assert_eq!(timing.metrics.outbound_latency_ms, Some(1_275));
+        assert_eq!(timing.metrics.first_playback_unix_ms, Some(51_275));
     }
 }
 

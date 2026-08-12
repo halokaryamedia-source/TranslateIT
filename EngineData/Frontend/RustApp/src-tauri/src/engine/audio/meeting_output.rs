@@ -5,7 +5,7 @@ use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::mpsc;
 use std::sync::{Arc, Mutex, OnceLock};
 use std::thread;
-use std::time::Duration;
+use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 
 use crate::engine::runtime_state::runtime_generation_is_authoritative;
 
@@ -16,11 +16,27 @@ const MIN_OUTPUT_SAMPLE_RATE_HZ: u32 = 8_000;
 const MAX_DELIVERY_DEADLINE_MS: u64 = 120_000;
 const MIN_DELIVERY_DEADLINE_MS: u64 = 10_000;
 
+fn current_unix_ms() -> u128 {
+    SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .unwrap_or_default()
+        .as_millis()
+}
+
+fn projected_unix_ms(anchor: Instant, anchor_unix_ms: u128, target: Instant) -> u128 {
+    target
+        .checked_duration_since(anchor)
+        .map(|delta| anchor_unix_ms.saturating_add(delta.as_millis()))
+        .unwrap_or(anchor_unix_ms)
+}
+
 #[derive(Debug, Clone)]
 pub struct MeetingOutputDeliveryReport {
     pub ok: bool,
     pub execution_attempted: bool,
     pub cancelled: bool,
+    pub first_playback_at: Option<Instant>,
+    pub first_playback_unix_ms: Option<u128>,
     pub blocker: String,
     pub note: String,
 }
@@ -324,7 +340,9 @@ struct PlaybackCursor {
     samples: Arc<Vec<f32>>,
     index: usize,
     completed: bool,
+    first_playback_signalled: bool,
     completion_tx: mpsc::SyncSender<Duration>,
+    first_playback_tx: mpsc::SyncSender<Instant>,
     cancel_requested: Arc<AtomicBool>,
     generation: u64,
     sample_rate_hz: u32,
@@ -332,7 +350,12 @@ struct PlaybackCursor {
 }
 
 impl PlaybackCursor {
-    fn fill<T: Copy>(&mut self, data: &mut [T], convert: impl Fn(f32) -> T) {
+    fn fill<T: Copy>(
+        &mut self,
+        data: &mut [T],
+        callback_info: &cpal::OutputCallbackInfo,
+        convert: impl Fn(f32) -> T,
+    ) {
         let cancelled = self.cancel_requested.load(Ordering::Acquire)
             || !runtime_generation_is_authoritative(self.generation);
         if cancelled {
@@ -343,8 +366,11 @@ impl PlaybackCursor {
         }
 
         for target in data.iter_mut() {
-            if let Some(value) = self.samples.get(self.index) {
-                *target = convert(*value);
+            if let Some(value) = self.samples.get(self.index).copied() {
+                if !self.first_playback_signalled {
+                    self.signal_first_playback(callback_info);
+                }
+                *target = convert(value);
                 self.index += 1;
             } else {
                 *target = convert(0.0);
@@ -360,6 +386,23 @@ impl PlaybackCursor {
             };
             self.signal_complete(tail);
         }
+    }
+
+    fn signal_first_playback(&mut self, callback_info: &cpal::OutputCallbackInfo) {
+        if self.first_playback_signalled {
+            return;
+        }
+        self.first_playback_signalled = true;
+        let timestamp = callback_info.timestamp();
+        let playback_delay = timestamp
+            .playback
+            .duration_since(&timestamp.callback)
+            .unwrap_or(Duration::ZERO);
+        let callback_at = Instant::now();
+        let predicted_playback_at = callback_at
+            .checked_add(playback_delay)
+            .unwrap_or(callback_at);
+        let _ = self.first_playback_tx.try_send(predicted_playback_at);
     }
 
     fn signal_complete(&mut self, tail: Duration) {
@@ -378,13 +421,16 @@ fn build_output_stream(
     cancel_requested: Arc<AtomicBool>,
     generation: u64,
     completion_tx: mpsc::SyncSender<Duration>,
+    first_playback_tx: mpsc::SyncSender<Instant>,
     callback_errors: Arc<Mutex<Vec<String>>>,
 ) -> Result<cpal::Stream, String> {
     let make_cursor = |tx: mpsc::SyncSender<Duration>| PlaybackCursor {
         samples: Arc::clone(&samples),
         index: 0,
         completed: false,
+        first_playback_signalled: false,
         completion_tx: tx,
+        first_playback_tx: first_playback_tx.clone(),
         cancel_requested: Arc::clone(&cancel_requested),
         generation,
         sample_rate_hz: config.sample_rate.0,
@@ -399,7 +445,7 @@ fn build_output_stream(
             device
                 .build_output_stream(
                     config,
-                    move |data: &mut [f32], _| cursor.fill(data, |value| value),
+                    move |data: &mut [f32], info| cursor.fill(data, info, |value| value),
                     move |error| {
                         if let Ok(mut stored) = errors.lock() {
                             stored.push(error.to_string());
@@ -417,8 +463,8 @@ fn build_output_stream(
             device
                 .build_output_stream(
                     config,
-                    move |data: &mut [i16], _| {
-                        cursor.fill(data, |value| {
+                    move |data: &mut [i16], info| {
+                        cursor.fill(data, info, |value| {
                             (value.clamp(-1.0, 1.0) * i16::MAX as f32).round() as i16
                         })
                     },
@@ -439,8 +485,8 @@ fn build_output_stream(
             device
                 .build_output_stream(
                     config,
-                    move |data: &mut [u16], _| {
-                        cursor.fill(data, |value| {
+                    move |data: &mut [u16], info| {
+                        cursor.fill(data, info, |value| {
                             (((value.clamp(-1.0, 1.0) + 1.0) * 0.5) * u16::MAX as f32).round()
                                 as u16
                         })
@@ -508,6 +554,8 @@ fn blocked(
         ok: false,
         execution_attempted,
         cancelled,
+        first_playback_at: None,
+        first_playback_unix_ms: None,
         blocker: blocker.to_string(),
         note: note.to_string(),
     }
@@ -587,6 +635,8 @@ pub fn deliver_meeting_output_wav(
         );
     }
 
+    let delivery_started_at = Instant::now();
+    let delivery_started_unix_ms = current_unix_ms();
     let cancel_requested = match install_cancel_control(generation) {
         Ok(value) => value,
         Err(blocker) => {
@@ -599,6 +649,7 @@ pub fn deliver_meeting_output_wav(
         }
     };
     let (completion_tx, completion_rx) = mpsc::sync_channel(1);
+    let (first_playback_tx, first_playback_rx) = mpsc::sync_channel(1);
     let callback_errors = Arc::new(Mutex::new(Vec::new()));
     let stream = match build_output_stream(
         &device,
@@ -608,6 +659,7 @@ pub fn deliver_meeting_output_wav(
         Arc::clone(&cancel_requested),
         generation,
         completion_tx,
+        first_playback_tx,
         Arc::clone(&callback_errors),
     ) {
         Ok(value) => value,
@@ -641,6 +693,9 @@ pub fn deliver_meeting_output_wav(
         .lock()
         .ok()
         .and_then(|errors| errors.last().cloned());
+    let first_playback_at = first_playback_rx.try_recv().ok();
+    let first_playback_unix_ms = first_playback_at
+        .map(|instant| projected_unix_ms(delivery_started_at, delivery_started_unix_ms, instant));
     let cancelled = cancel_requested.load(Ordering::Acquire)
         || !runtime_generation_is_authoritative(generation);
 
@@ -659,34 +714,45 @@ pub fn deliver_meeting_output_wav(
     clear_cancel_control(generation);
 
     if cancelled || cancel_requested.load(Ordering::Acquire) && completion.is_ok() {
-        return blocked(
+        let mut report = blocked(
             "meeting_output:cancelled",
             "Native Meeting output stopped because the owning generation was cancelled or revoked.",
             true,
             true,
         );
+        report.first_playback_at = first_playback_at;
+        report.first_playback_unix_ms = first_playback_unix_ms;
+        return report;
     }
     if let Some(error) = callback_error {
-        return blocked(
+        let mut report = blocked(
             "meeting_output:stream_callback_failed",
             &format!("Native Meeting output callback failed: {error}"),
             true,
             false,
         );
+        report.first_playback_at = first_playback_at;
+        report.first_playback_unix_ms = first_playback_unix_ms;
+        return report;
     }
     if completion.is_err() {
-        return blocked(
+        let mut report = blocked(
             "meeting_output:delivery_deadline_exceeded",
             "Native Meeting output did not complete inside its audio-duration-derived deadline.",
             true,
             false,
         );
+        report.first_playback_at = first_playback_at;
+        report.first_playback_unix_ms = first_playback_unix_ms;
+        return report;
     }
 
     MeetingOutputDeliveryReport {
         ok: true,
         execution_attempted: true,
         cancelled: false,
+        first_playback_at,
+        first_playback_unix_ms,
         blocker: String::new(),
         note: "Translated WAV samples were submitted through the exact prepared Rust/CPAL Meeting output endpoint. Meeting-app reception remains target-Windows proof."
             .to_string(),
@@ -695,7 +761,10 @@ pub fn deliver_meeting_output_wav(
 
 #[cfg(test)]
 mod tests {
-    use super::{decode_wav_bytes, delivery_deadline_ms, prepare_output_samples};
+    use super::{
+        decode_wav_bytes, delivery_deadline_ms, prepare_output_samples, projected_unix_ms,
+    };
+    use std::time::{Duration, Instant};
 
     fn pcm16_wav(sample_rate: u32, channels: u16, samples: &[i16]) -> Vec<u8> {
         let data_bytes = (samples.len() * 2) as u32;
@@ -742,5 +811,12 @@ mod tests {
     #[test]
     fn rejects_non_wav_bytes() {
         assert!(decode_wav_bytes(b"not a wav").is_err());
+    }
+
+    #[test]
+    fn predicted_playback_unix_time_uses_monotonic_delta() {
+        let anchor = Instant::now();
+        let predicted = anchor + Duration::from_millis(37);
+        assert_eq!(projected_unix_ms(anchor, 10_000, predicted), 10_037);
     }
 }

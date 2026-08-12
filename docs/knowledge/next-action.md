@@ -901,10 +901,47 @@ An earlier broad `cargo test` proof attempt executed 27 of 28 tests successfully
 
 A GitHub-hosted Windows runner is not a target microphone environment, so actual physical-device callback success remains target-Windows proof. No local-PC test, VAD retuning, Meeting route change, CUDA/model change, or installer work is part of C1.
 
+## Pre-Local C2 — IMPLEMENTED / TARGET PERFORMANCE PROOF DEFERRED
+
+C2 makes PR-052 measurable without introducing a second telemetry owner or persisting conversation data. The finalized-utterance producer now records the detected finalization instant/unix timestamp, the VAD-derived speech-boundary delay that occurred before the official metric begins, and the bounded finalization/enqueue cost. The outbound consumer adds finalized-queue wait and temporary WAV preparation cost. The canonical Meeting owner times each blocking ASR, ID->EN translation, and English TTS stage around the existing helper calls.
+
+Native first playback is not inferred from `stream.play()` or function entry. `engine/audio/meeting_output.rs` records the first translated sample from the CPAL output callback and uses `OutputCallbackInfo.timestamp().playback` relative to the callback timestamp to project CPAL's predicted device-playback instant. The Meeting owner then records `delivery_ms` from TTS completion/delivery start to that first playback and the official `outbound_latency_ms` from detected finalized utterance end to that same first playback.
+
+The transient timing shape is:
+
+```text
+speech_boundary_ms       -> last speech-like boundary -> detected finalization (outside PR-052)
+finalization_ms          -> detected finalization -> finalized frame enqueued
+queue_ms                 -> finalized enqueue -> outbound consumer pickup
+audio_prepare_ms         -> temporary finalized WAV preparation
+asr_ms                   -> host-observed ASR helper stage
+translation_ms           -> host-observed ID->EN helper stage
+tts_ms                   -> host-observed English TTS helper stage
+delivery_ms              -> TTS complete/delivery start -> predicted first device playback
+outbound_latency_ms       -> detected finalized utterance end -> predicted first device playback (PR-052)
+```
+
+`asr_ms`, `translation_ms`, and `tts_ms` intentionally include their existing bounded helper scheduling/IPC/inference work because that is the user-visible cost of each canonical stage. Timing stays only in current `MeetingOutboundRuntimeStatus` and the already-bounded transient committed-turn snapshot; C2 creates no telemetry database, history dependency, content log, background service, or release threshold.
+
+Remote Windows/source proof for this implementation slice:
+
+```text
+canonical source validators              -> PASS
+svelte-check + frontend build            -> PASS
+C2 deterministic latency math test       -> PASS
+Meeting-output timing helper tests        -> PASS
+Rust full test-target compile (`--no-run`)-> PASS
+cargo check                              -> PASS
+Tauri release build --no-bundle          -> PASS
+C2 transient/callback ownership guard     -> PASS
+```
+
+This proof validates timing ownership, metric math, serialization/build contracts, and that first-playback instrumentation is wired to the CPAL callback timestamp API. It does not produce a real latency number because no target microphone/model/GPU/virtual-cable/meeting-app session was executed. No VAD tuning or latency threshold was introduced.
+
 ## Current Mode
 
-**Developing / Pre-Local Readiness — C1 IMPLEMENTED, TARGET DEVICE PROOF DEFERRED.** Backend hardening A1-A7 and B1-B6 remain closed. The selected-microphone persistence path now requires bounded functional stream/callback verification, while routine status stays side-effect-light. The user still does not approve local-PC testing, so C1 physical-device execution evidence remains deferred without blocking the next source-level pre-local development slice.
+**Developing / Pre-Local Readiness — C2 IMPLEMENTED, TARGET PERFORMANCE PROOF DEFERRED.** A1-A7, B1-B6, and C1 remain closed at their proven boundaries. C2 now makes target testing capable of measuring PR-052 and stage-level cost without persistent telemetry. The user still does not approve local-PC testing, so actual latency distribution and release threshold remain evidence to collect later.
 
-## Next Step — Pre-Local C2 Runtime Latency Instrumentation
+## Next Step — Pre-Local C3 Functional AI Readiness Self-Test
 
-Add privacy-safe outbound timing at the canonical Meeting owners so target testing can measure the official PR-052 metric from finalized utterance end to first translated audio playback, with stage timing sufficient to distinguish speech-boundary, ASR, translation, TTS, queue, and delivery cost. Do not tune VAD or invent a latency threshold before target-Windows evidence.
+Upgrade required outbound readiness from model/provider preload checks to one cached functional execution result per worker generation: bounded fixed-fixture ID->EN inference and English TTS synthesis, plus a bounded ASR inference fixture where the canonical test asset is available. Cache only capability truth/operational timing, never fixture/output content; invalidate on worker generation/runtime replacement or a hard execution failure. Do not run a full smoke on every Meeting Start and do not change model quality/tuning policy.
