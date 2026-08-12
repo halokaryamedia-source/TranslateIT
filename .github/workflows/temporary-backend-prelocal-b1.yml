@@ -30,7 +30,7 @@ jobs:
       - name: Apply bounded B1 correction
         shell: pwsh
         run: |
-          python .tmp/backend_prelocal_b1_patch.py
+          python .tmp/backend_prelocal_b1_runner.py
           if ($LASTEXITCODE -ne 0) { throw "B1 patch helper failed." }
 
       - name: Reconcile frozen WorkerRuntime lock and tests
