@@ -4,7 +4,7 @@
 
 The approved Meeting / Text / Settings redesign remains the TranslateIT visual baseline. Future visual work must preserve the clean desktop-utility language through the existing `desktop-ui-design-development` owner unless the user explicitly changes direction.
 
-The user does **not** want testing on their local PC yet. Proof therefore remains limited to remote GitHub-hosted Windows execution. Python/model execution, real Windows audio/device acceptance, installer/clean-machine proof, and performance measurement remain outside the current proof scope.
+The user does **not** want testing on their local PC yet. The user has now approved **Python/model execution as the next deferred runtime scope**, but requested a full active-backend audit before P2.3. That audit found bounded hardening issues that should be corrected first. Real Windows audio/device acceptance, installer/clean-machine proof, and performance measurement remain outside the current scope.
 
 The current remote executable/presentation chain is now:
 
@@ -352,6 +352,80 @@ The first attempt `31568092998` is retained only as harness timing evidence: the
 
 This proof does **not** extend to normal post-setup Ready/Blocked/Unavailable projection. Once `meeting_setup_state` is no longer `new`, `App.svelte` calls `loadProductRuntimeSnapshot()`, which requests Meeting status and input status. Meeting status builds preflight using input-device inspection, model inventory, helper status, and virtual-microphone route status; the input and route paths enumerate real Windows audio devices. Under the current proof restriction, that is the explicit stop boundary rather than a reason to substitute simulated state.
 
+## Backend Audit Gate Before P2.3
+
+A deep static audit of the active Rust/Tauri backend, audio ownership, helper bridge/scheduler, virtual route, settings/path owners, and Python WorkerRuntime found a good core architecture but also concrete correctness and slop debt. No product source was changed during the audit.
+
+Strong existing foundations that should be preserved:
+
+```text
+one canonical application Meeting/session authority
+one persistent AI worker
+Meeting generation/output-authority gating
+bounded finalized utterance queue
+bounded rolling audio buffer
+finalized-speech-only outbound promotion
+translation input no-silent-truncation + EOS completion checks
+bounded/redacted normal Rust JSONL logging
+packaged/runtime path ownership separated from writable user data
+CPAL 0.15.3 WASAPI render-endpoint input stream is a valid loopback mechanism
+```
+
+### Hardening findings that gate P2.3
+
+1. **Runtime-state lock failure can fail open.** Lock poisoning may be projected as no active session, and some store/clear paths can report a state that was not actually persisted/cleared. This is unsafe for close/settings/audio ownership.
+2. **Mic Test has a check-then-claim ownership race.** It checks for no session and later records its capture session non-atomically, so concurrent Meeting Start can be overwritten.
+3. **Stop truth can diverge from resource cleanup.** Meeting Stop reports success after revoking/clearing authority even when capture/helper/thread cleanup can fail; Mic Test similarly clears session state even if capture Stop fails.
+4. **Worker deadlines are not task-aware.** One 30-second outer deadline covers ping/status/preload/inference/TTS while worker probes and SAPI/model work can legitimately consume most or all of that budget, creating false transport failure and worker kills.
+5. **Helper scheduler admission is unbounded.** Waiting callers have priority ordering but no queue/admission bound or wait deadline, so load can accumulate blocked callers and starve lower-priority work.
+6. **Helper stderr bypasses the bounded/redacted logger.** It appends raw stderr with no rotation/size/privacy bound and uses a detached logger thread.
+7. **Python dependency materialization is not deterministic yet.** WorkerRuntime has version ranges but no committed `uv.lock`; P2.3 would therefore prove one resolved environment rather than a reproducible canonical environment.
+8. **Required-asset/readiness ownership is duplicated.** Rust manifest inventory and Python worker hardcoded policy already disagree on ASR fallback and product-vs-Meeting requirements. Meeting-required readiness and full-product release readiness need explicit separation.
+
+### Important issues before Windows audio/device acceptance
+
+- Meeting status polling is too expensive: the 1.2-second poll rebuilds preflight, enumerates native audio endpoints, and virtual-route status writes evidence to disk even for ordinary status reads.
+- Outbound capture status is latched at Start rather than projected from current CPAL stream health; callback errors can therefore exist while Meeting still appears capture-active.
+- CPAL callbacks perform duplicate conversion/downmix/allocation and substantial VAD/evidence work on the callback path.
+- audio preferences/routes use display names as IDs; duplicate/renamed/localized Windows endpoints are fragile.
+- Rust route selection uses CPAL names while the Python playback provider resolves exact names through sounddevice/PortAudio, creating a cross-library identity mismatch risk.
+- the virtual route provider creates a separate Python process for each TTS delivery; this is measurable process/latency churn even though it is not a second AI engine.
+- provider WAV decoding treats any non-16-bit sample width as uint8; unsupported 24/32-bit PCM is not rejected safely.
+- failed TTS subprocess execution can leave a partial temporary WAV because some exception responses omit the requested output path.
+- the Windows power window procedure performs the full blocking Meeting Stop path synchronously during `WM_POWERBROADCAST`; authority revocation should remain immediate, but potentially blocking cleanup should not own the window-message callback.
+
+### Confirmed AI-slop / overdevelopment cleanup debt
+
+```text
+compiler-dead helper command wrappers and request types
+compiler-dead virtual-route stub/evidence path
+compiler-dead live-target-segment / older VAD decision system
+stale RuntimeStage / EngineStatus / TranslationAdapterPending shell-era state
+always-true generation/source-connected preflight booleans
+large runtime_claim/source-proof strings carried through live runtime structs
+stale Realtime/Quality compatibility aliases in Python/Rust worker status
+stale voice_actor_marcel compatibility fields
+hidden virtual_mic_route_preference.json compatibility owner with no current UI setter
+migrated_python_helper_map.json historical migration artifact in active WorkerRuntime
+compatibility/nonexistent ProjectPaths fields such as backend RuntimeContracts root
+```
+
+Do not mass-delete all dead code in one cleanup. Fix correctness/ownership first, prove the active path, then remove only code proven obsolete by the current registry/callers.
+
+### Hardening order before P2.3
+
+```text
+Wave A1  runtime session state must fail closed + atomic owner claim
+Wave A2  Stop/Mic Test cleanup truth must match actual resource release
+Wave A3  task-aware helper deadlines + bounded status probing
+Wave A4  bounded scheduler admission/wait
+Wave A5  bounded/redacted helper stderr lifecycle
+Wave A6  canonical worker readiness fields; remove Realtime/Quality compatibility from active bridge
+Wave A7  commit/review canonical Python uv.lock and reconcile Meeting-required vs product-release asset semantics
+```
+
+After Wave A passes remote Rust/frontend/build proof, resume P2.3 Python/model execution. Audio callback/polling/route cleanup remains the next hardening boundary before real Windows audio/device acceptance.
+
 ## Priority Map
 
 ### P0 — Core source correctness — SOURCE CLOSED / RUNTIME PROOF REQUIRED
@@ -371,7 +445,7 @@ All still require target-runtime/device acceptance where applicable.
 - **P1.3 Helper stderr Privacy / Disk Bounds**
 - **P1.4 Product-Release vs Meeting-Required Asset Semantics**
 
-Do not resume P1 merely because source edits are possible. Use measured/native evidence first.
+The backend audit now provides concrete source evidence for bounded P1.2/P1.3/P1.4 hardening. Address only the audit-gated Wave A findings before P2.3; do not expand into generic cleanup.
 
 ### P2 — Release-blocking proof/materialization
 
@@ -476,7 +550,10 @@ P0 source correctness CLOSED
 -> remote clipboard proof PASS
 -> real fresh Rust state -> native First Setup projection PASS
 -> remote-safe runtime-state boundary reached
--> later explicit approval for local/model/audio proof
+-> backend static audit gate completed
+-> Backend Hardening Wave A
+-> P2.3 remote Python/model proof
+-> later explicit approval for Windows audio/device proof
 -> fix measured failures
 -> finish only still-relevant P1
 -> packaging + clean-machine acceptance
@@ -484,8 +561,8 @@ P0 source correctness CLOSED
 
 ## Current Mode
 
-**Proof / explicit scope boundary** — real Rust default settings now have native First Setup projection evidence with zero Python descendants. Normal post-setup product-state projection necessarily crosses the deferred native audio-device/model boundary, so remote-safe runtime-state proof stops here.
+**Maintenance / backend hardening gate before P2.3** — the user selected Python/model runtime proof as the next deferred executable scope, but the active-backend audit found correctness/resource/ownership issues that should be corrected first. No Python/model or user-local-PC execution was performed by this audit.
 
-## Next Step — Explicit Runtime Proof Scope Decision
+## Next Step — Backend Hardening Wave A1: Runtime Authority Fail-Closed + Atomic Claim
 
-Do not run another normal post-setup runtime proof under the current restriction. The next executable acceptance slice requires explicit approval for one deferred runtime scope (Python/model execution or real Windows audio/device behavior). Until that scope is released, preserve the proven source/runtime/UI baseline rather than substituting simulation or user-local-PC testing.
+Correct the canonical Rust runtime-session owner so lock failure can never be represented as an empty/successful session state, and make Mic Test/session acquisition use one atomic claim boundary that cannot overwrite a concurrently created Meeting session. Keep the change limited to runtime authority/state ownership and direct callers; do not mix Stop cleanup, scheduler, Python/model, audio-route, or dead-code cleanup into the same slice. Prove the correction with targeted Rust tests plus the existing remote Windows compile/native-build baseline before moving to Wave A2.
