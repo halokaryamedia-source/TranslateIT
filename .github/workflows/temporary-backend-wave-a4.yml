@@ -49,6 +49,11 @@ jobs:
         working-directory: EngineData/Frontend/RustApp
         run: npm ci
 
+      - name: Build frontend prerequisite for Tauri test context
+        shell: pwsh
+        working-directory: EngineData/Frontend/RustApp
+        run: npm run build:frontend
+
       - name: Targeted Rust scheduler policy tests
         shell: pwsh
         run: cargo test --manifest-path EngineData/Frontend/RustApp/src-tauri/Cargo.toml scheduler_policy_tests -- --test-threads=1
