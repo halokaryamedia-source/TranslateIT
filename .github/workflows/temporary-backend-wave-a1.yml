@@ -1,0 +1,582 @@
+name: Temporary Backend Wave A1 Maintenance Proof
+
+on:
+  push:
+    branches: [New]
+    paths:
+      - .github/workflows/temporary-backend-wave-a1.yml
+
+permissions:
+  contents: write
+
+jobs:
+  maintain-and-prove:
+    runs-on: windows-2022
+    timeout-minutes: 35
+    steps:
+      - name: Checkout New
+        uses: actions/checkout@v4
+        with:
+          ref: New
+          fetch-depth: 0
+
+      - name: Apply bounded Wave A1 source correction
+        shell: pwsh
+        run: |
+          @'
+          from pathlib import Path
+          import re
+
+          ROOT = Path.cwd()
+
+          def read(path: str) -> str:
+              return (ROOT / path).read_text(encoding="utf-8")
+
+          def write(path: str, text: str) -> None:
+              (ROOT / path).write_text(text, encoding="utf-8", newline="\n")
+
+          def replace_once(text: str, old: str, new: str, label: str) -> str:
+              count = text.count(old)
+              if count != 1:
+                  raise SystemExit(f"{label}: expected exactly one match, found {count}")
+              return text.replace(old, new, 1)
+
+          def sub_once(text: str, pattern: str, replacement: str, label: str) -> str:
+              updated, count = re.subn(pattern, replacement, text, count=1, flags=re.S)
+              if count != 1:
+                  raise SystemExit(f"{label}: expected exactly one regex match, found {count}")
+              return updated
+
+          runtime_path = "EngineData/Frontend/RustApp/src-tauri/src/engine/runtime_state.rs"
+          text = read(runtime_path)
+          text = replace_once(
+              text,
+              'const APPLICATION_MEETING_OWNER_ID: &str = "translateit_application_meeting";\n',
+              'const APPLICATION_MEETING_OWNER_ID: &str = "translateit_application_meeting";\nconst DIRECT_LIVE_CAPTURE_OWNER_ID: &str = "translateit_rust_live_capture";\n',
+              "runtime owner constants",
+          )
+          text = sub_once(
+              text,
+              r'pub fn begin_application_meeting_session\(\) -> RuntimeSessionStateReport \{.*?\n\}\n\npub fn commit_application_meeting_session_live',
+              '''pub fn begin_application_meeting_session() -> RuntimeSessionStateReport {
+    begin_runtime_session(
+        APPLICATION_MEETING_OWNER_ID,
+        "meeting",
+        "starting",
+        "Application-level Meeting session authority was created. Required resources may now be opened transactionally.",
+    )
+}
+
+pub fn commit_application_meeting_session_live''',
+              "atomic meeting claim",
+          )
+          text = replace_once(
+              text,
+              '''    let Ok(mut guard) = store.lock() else {
+        return blocked_session_report(
+            "runtime_session:state_lock_failed",
+            "Meeting session could not commit Live because runtime session state is unavailable.",
+        );
+    };''',
+              '''    let Ok(mut guard) = store.lock() else {
+        return state_unavailable_report(
+            "Meeting session could not commit Live because runtime session state is unavailable.",
+        );
+    };''',
+              "commit fail closed",
+          )
+          text = replace_once(
+              text,
+              '''    let Ok(mut guard) = store.lock() else {
+        return blocked_session_report(
+            "runtime_session:state_lock_failed",
+            "Meeting session authority could not be revoked because runtime session state is unavailable.",
+        );
+    };''',
+              '''    let Ok(mut guard) = store.lock() else {
+        invalidate_runtime_generation();
+        return state_unavailable_report(
+            "Meeting session authority could not be verified during revoke. Output generation authority was invalidated fail-closed.",
+        );
+    };''',
+              "revoke fail closed",
+          )
+          text = sub_once(
+              text,
+              r'pub fn record_direct_live_capture_session\(\) -> RuntimeSessionStateReport \{.*?\n\}\n\npub fn latest_runtime_session_state',
+              '''pub fn begin_direct_live_capture_session() -> RuntimeSessionStateReport {
+    begin_runtime_session(
+        DIRECT_LIVE_CAPTURE_OWNER_ID,
+        "live_capture",
+        "live_capture_only",
+        "Direct live-capture session authority was created for microphone test ownership only.",
+    )
+}
+
+pub fn latest_runtime_session_state''',
+              "atomic mic test claim",
+          )
+          text = sub_once(
+              text,
+              r'pub fn latest_runtime_session_state\(\) -> RuntimeSessionStateReport \{.*?\n\}\n\npub fn clear_runtime_session_state',
+              '''pub fn latest_runtime_session_state() -> RuntimeSessionStateReport {
+    let store = RUNTIME_SESSION_STATE.get_or_init(|| Mutex::new(None));
+    match store.lock() {
+        Ok(guard) => build_session_state_report(guard.as_ref().cloned()),
+        Err(_) => state_unavailable_report(
+            "Runtime session ownership could not be read. Treat runtime resources as potentially owned until the state becomes verifiable again.",
+        ),
+    }
+}
+
+pub fn clear_runtime_session_state''',
+              "latest state fail closed",
+          )
+          text = sub_once(
+              text,
+              r'pub fn clear_runtime_session_state\(\) -> RuntimeSessionStateReport \{.*?\n\}\n\nfn store_runtime_session_snapshot\(.*?\n\}\n\nfn build_session_state_report',
+              '''pub fn clear_runtime_session_state() -> RuntimeSessionStateReport {
+    invalidate_runtime_generation();
+    let store = RUNTIME_SESSION_STATE.get_or_init(|| Mutex::new(None));
+    let Ok(mut guard) = store.lock() else {
+        return state_unavailable_report(
+            "Runtime generation authority was invalidated, but session storage could not be verified as cleared.",
+        );
+    };
+    *guard = None;
+    RuntimeSessionStateReport {
+        has_active_session: false,
+        snapshot: None,
+        active_age_ms: None,
+        ready_for_stop: false,
+        blocker: "runtime_session:cleared".to_string(),
+        note: "Runtime session state was cleared and prior generation authority is invalid."
+            .to_string(),
+    }
+}
+
+fn begin_runtime_session(
+    owner_id: &str,
+    session_prefix: &str,
+    phase: &str,
+    note: &str,
+) -> RuntimeSessionStateReport {
+    let store = RUNTIME_SESSION_STATE.get_or_init(|| Mutex::new(None));
+    let Ok(mut guard) = store.lock() else {
+        return state_unavailable_report(
+            "Runtime session ownership could not be claimed because session state is unavailable.",
+        );
+    };
+
+    if let Some(existing) = guard.as_ref() {
+        return existing_session_report(existing);
+    }
+
+    let now = current_unix_ms();
+    let generation = next_runtime_generation();
+    let snapshot = RuntimeSessionSnapshot {
+        started_unix_ms: now,
+        owner_id: owner_id.to_string(),
+        session_id: format!("{session_prefix}_{now}_{generation}"),
+        generation,
+        authority_active: true,
+        phase: phase.to_string(),
+        live_capture_stream_active: false,
+        safe_to_stop: true,
+        note: compact_runtime_text(note, MAX_RUNTIME_NOTE_CHARS, "Runtime session authority created."),
+    };
+    *guard = Some(snapshot.clone());
+    build_session_state_report(Some(snapshot))
+}
+
+fn existing_session_report(existing: &RuntimeSessionSnapshot) -> RuntimeSessionStateReport {
+    RuntimeSessionStateReport {
+        has_active_session: true,
+        snapshot: Some(existing.clone()),
+        active_age_ms: Some(current_unix_ms().saturating_sub(existing.started_unix_ms)),
+        ready_for_stop: existing.safe_to_stop,
+        blocker: "runtime_session:already_active".to_string(),
+        note: "A runtime session already owns resources. The competing claim was rejected without changing the existing owner."
+            .to_string(),
+    }
+}
+
+fn state_unavailable_report(note: &str) -> RuntimeSessionStateReport {
+    RuntimeSessionStateReport {
+        has_active_session: true,
+        snapshot: None,
+        active_age_ms: None,
+        ready_for_stop: false,
+        blocker: "runtime_session:state_lock_failed".to_string(),
+        note: note.to_string(),
+    }
+}
+
+fn build_session_state_report''',
+              "clear/store fail closed and atomic helper",
+          )
+          text += '''
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    static TEST_SERIAL: Mutex<()> = Mutex::new(());
+
+    fn reset_test_state() {
+        let store = RUNTIME_SESSION_STATE.get_or_init(|| Mutex::new(None));
+        if let Ok(mut guard) = store.lock() {
+            *guard = None;
+        }
+        RUNTIME_AUTHORITY_GENERATION.store(0, Ordering::Release);
+    }
+
+    #[test]
+    fn competing_runtime_claims_never_overwrite_the_existing_owner() {
+        let _serial = TEST_SERIAL.lock().expect("runtime-state test lock");
+        reset_test_state();
+
+        let meeting = begin_application_meeting_session();
+        assert!(meeting.blocker.is_empty());
+        let mic_after_meeting = begin_direct_live_capture_session();
+        assert_eq!(mic_after_meeting.blocker, "runtime_session:already_active");
+        assert_eq!(
+            mic_after_meeting.snapshot.as_ref().map(|value| value.owner_id.as_str()),
+            Some(APPLICATION_MEETING_OWNER_ID),
+        );
+
+        reset_test_state();
+        let mic = begin_direct_live_capture_session();
+        assert!(mic.blocker.is_empty());
+        let meeting_after_mic = begin_application_meeting_session();
+        assert_eq!(meeting_after_mic.blocker, "runtime_session:already_active");
+        assert_eq!(
+            meeting_after_mic.snapshot.as_ref().map(|value| value.owner_id.as_str()),
+            Some(DIRECT_LIVE_CAPTURE_OWNER_ID),
+        );
+
+        reset_test_state();
+    }
+
+    #[test]
+    fn unavailable_runtime_state_is_fail_closed_not_idle() {
+        let report = state_unavailable_report("test");
+        assert!(report.has_active_session);
+        assert!(report.snapshot.is_none());
+        assert!(!report.ready_for_stop);
+        assert_eq!(report.blocker, "runtime_session:state_lock_failed");
+    }
+}
+'''
+          write(runtime_path, text)
+
+          capture_path = "EngineData/Frontend/RustApp/src-tauri/src/engine/capture_lifecycle.rs"
+          text = read(capture_path)
+          text = replace_once(
+              text,
+              '''use crate::engine::runtime_state::{
+    clear_runtime_session_state, latest_runtime_session_state, record_direct_live_capture_session,
+};''',
+              '''use crate::engine::runtime_state::{
+    begin_direct_live_capture_session, clear_runtime_session_state, latest_runtime_session_state,
+};''',
+              "capture imports",
+          )
+          text = sub_once(
+              text,
+              r'pub fn start_capture\(\) -> CommandResult \{.*?\n\}\n\npub fn stop_capture',
+              '''pub fn start_capture() -> CommandResult {
+    let session = begin_direct_live_capture_session();
+    let Some(snapshot) = session.snapshot.as_ref() else {
+        return CommandResult::blocked(
+            LifecycleState::Error,
+            "Microphone test cannot verify runtime ownership right now. No capture resource was opened.",
+        );
+    };
+    if !session.blocker.is_empty() || snapshot.owner_id != MIC_TEST_CAPTURE_OWNER_ID {
+        return CommandResult::blocked(
+            LifecycleState::ConversionPending,
+            "Microphone test cannot start while Meeting or another capture session owns runtime resources.",
+        );
+    }
+
+    let capture = start_live_capture_runtime(session);
+    if capture.ok {
+        CommandResult::ok(
+            LifecycleState::Listening,
+            "Microphone test recording started. This capture-only path does not run ASR, translation, or TTS.",
+        )
+    } else {
+        let _ = clear_runtime_session_state();
+        CommandResult::blocked(LifecycleState::Error, capture.message)
+    }
+}
+
+pub fn stop_capture''',
+              "atomic capture claim caller",
+          )
+          text = replace_once(
+              text,
+              '''pub fn stop_capture() -> CommandResult {
+    let current = latest_runtime_session_state();
+    if let Some(snapshot) = current.snapshot.as_ref() {''',
+              '''pub fn stop_capture() -> CommandResult {
+    let current = latest_runtime_session_state();
+    if current.has_active_session && current.snapshot.is_none() {
+        return CommandResult::blocked(
+            LifecycleState::Error,
+            "Microphone test cannot verify runtime ownership right now. Capture state was left unchanged.",
+        );
+    }
+    if let Some(snapshot) = current.snapshot.as_ref() {''',
+              "capture stop fail closed",
+          )
+          write(capture_path, text)
+
+          runtime_command_path = "EngineData/Frontend/RustApp/src-tauri/src/commands/runtime.rs"
+          text = read(runtime_command_path)
+          text = replace_once(
+              text,
+              '''pub fn start_helper_bridge() -> HelperBridgeActionResult {
+    if latest_runtime_session_state().snapshot.is_some() {
+        let helper = helper_bridge::get_helper_bridge_status();''',
+              '''pub fn start_helper_bridge() -> HelperBridgeActionResult {
+    let runtime_state = latest_runtime_session_state();
+    if runtime_state.has_active_session {
+        let helper = helper_bridge::get_helper_bridge_status();''',
+              "helper restart fail closed",
+          )
+          text = replace_once(
+              text,
+              '''pub fn start_meeting_translation() -> MeetingSessionActionResult {
+    // Duplicate Start and runtime-owner conflicts remain owned by the canonical
+    // Meeting command. Only a genuinely new Start prepares a fresh route pair.
+    if latest_runtime_session_state().snapshot.is_some() {
+        return meeting_session::start_meeting_translation();
+    }''',
+              '''pub fn start_meeting_translation() -> MeetingSessionActionResult {
+    // Duplicate Start, runtime-owner conflicts, and unverifiable authority remain
+    // owned by the canonical Meeting command. Only a verified-empty state prepares
+    // a fresh route pair.
+    if latest_runtime_session_state().has_active_session {
+        return meeting_session::start_meeting_translation();
+    }''',
+              "meeting wrapper fail closed",
+          )
+          write(runtime_command_path, text)
+
+          settings_path = "EngineData/Frontend/RustApp/src-tauri/src/commands/settings.rs"
+          text = read(settings_path)
+          text = replace_once(
+              text,
+              '''fn runtime_session_owns_audio_resources() -> bool {
+    latest_runtime_session_state().snapshot.is_some()
+}''',
+              '''fn runtime_session_owns_audio_resources() -> bool {
+    // `has_active_session` is deliberately fail-closed: an unreadable authority
+    // store is treated as potentially owned rather than as safe-to-rebind idle state.
+    latest_runtime_session_state().has_active_session
+}''',
+              "settings guard fail closed",
+          )
+          write(settings_path, text)
+
+          meeting_path = "EngineData/Frontend/RustApp/src-tauri/src/commands/meeting_session.rs"
+          text = read(meeting_path)
+          text = replace_once(
+              text,
+              '''pub fn start_meeting_translation() -> MeetingSessionActionResult {
+    let current = latest_runtime_session_state();
+    if let Some(snapshot) = current.snapshot.as_ref() {''',
+              '''pub fn start_meeting_translation() -> MeetingSessionActionResult {
+    let current = latest_runtime_session_state();
+    if current.has_active_session && current.snapshot.is_none() {
+        return MeetingSessionActionResult {
+            ok: false,
+            state: "runtime_state_unavailable".to_string(),
+            message: "Start Translation cannot verify current runtime ownership. No new Meeting resources were opened."
+                .to_string(),
+            status: status_from_report(current, build_preflight()),
+        };
+    }
+    if let Some(snapshot) = current.snapshot.as_ref() {''',
+              "meeting start state unavailable",
+          )
+          text = replace_once(
+              text,
+              '''    let starting = begin_application_meeting_session();
+    let Some(start_snapshot) = starting.snapshot.as_ref() else {''',
+              '''    let starting = begin_application_meeting_session();
+    if !starting.blocker.is_empty() {
+        return MeetingSessionActionResult {
+            ok: false,
+            state: "start_authority_conflict".to_string(),
+            message: "Start Translation lost the runtime authority claim to another current owner. No Meeting resources were opened by this request."
+                .to_string(),
+            status: status_from_report(starting, build_preflight()),
+        };
+    }
+    let Some(start_snapshot) = starting.snapshot.as_ref() else {''',
+              "meeting start atomic claim result",
+          )
+          text = replace_once(
+              text,
+              '''pub fn stop_meeting_translation() -> MeetingSessionActionResult {
+    let current = latest_runtime_session_state();
+    let Some(snapshot) = current.snapshot.as_ref() else {''',
+              '''pub fn stop_meeting_translation() -> MeetingSessionActionResult {
+    let current = latest_runtime_session_state();
+    if current.has_active_session && current.snapshot.is_none() {
+        return MeetingSessionActionResult {
+            ok: false,
+            state: "runtime_state_unavailable".to_string(),
+            message: "Stop Translation cannot verify current runtime ownership. Output authority is treated as unavailable and cleanup was not guessed."
+                .to_string(),
+            status: status_from_report(current, build_preflight()),
+        };
+    }
+    let Some(snapshot) = current.snapshot.as_ref() else {''',
+              "meeting stop state unavailable",
+          )
+          write(meeting_path, text)
+
+          main_path = "EngineData/Frontend/RustApp/src-tauri/src/main.rs"
+          text = read(main_path)
+          text = replace_once(
+              text,
+              '''            let application_meeting_active = runtime
+                .snapshot
+                .as_ref()
+                .map(|snapshot| snapshot.owner_id == APPLICATION_MEETING_OWNER_ID)
+                .unwrap_or(false);
+
+            if !application_meeting_active {
+                return;
+            }''',
+              '''            let runtime_state_unavailable = runtime.has_active_session && runtime.snapshot.is_none();
+            if runtime_state_unavailable {
+                api.prevent_exit();
+                if let Some(window) = app_handle.get_webview_window("main") {
+                    let _ = window.unminimize();
+                    let _ = window.show();
+                    let _ = window.set_focus();
+                }
+                return;
+            }
+
+            let application_meeting_active = runtime
+                .snapshot
+                .as_ref()
+                .map(|snapshot| snapshot.owner_id == APPLICATION_MEETING_OWNER_ID)
+                .unwrap_or(false);
+
+            if !application_meeting_active {
+                return;
+            }''',
+              "native exit fail closed",
+          )
+          write(main_path, text)
+          '@ | python -
+
+      - name: Format bounded Rust changes
+        shell: pwsh
+        run: cargo fmt --manifest-path EngineData/Frontend/RustApp/src-tauri/Cargo.toml
+
+      - name: Review changed scope
+        shell: pwsh
+        run: |
+          git diff --check
+          $changed = @(git diff --name-only)
+          $allowed = @(
+            'EngineData/Frontend/RustApp/src-tauri/src/engine/runtime_state.rs',
+            'EngineData/Frontend/RustApp/src-tauri/src/engine/capture_lifecycle.rs',
+            'EngineData/Frontend/RustApp/src-tauri/src/commands/runtime.rs',
+            'EngineData/Frontend/RustApp/src-tauri/src/commands/settings.rs',
+            'EngineData/Frontend/RustApp/src-tauri/src/commands/meeting_session.rs',
+            'EngineData/Frontend/RustApp/src-tauri/src/main.rs'
+          )
+          foreach ($path in $changed) {
+            if ($allowed -notcontains $path) { throw "Unexpected changed path: $path" }
+          }
+          foreach ($path in $allowed) {
+            if ($changed -notcontains $path) { throw "Expected changed path missing: $path" }
+          }
+          git diff --stat
+
+      - name: Targeted runtime authority tests
+        shell: pwsh
+        run: cargo test --manifest-path EngineData/Frontend/RustApp/src-tauri/Cargo.toml runtime_state::tests -- --test-threads=1
+
+      - name: Windows Rust compile baseline
+        shell: pwsh
+        run: cargo check --manifest-path EngineData/Frontend/RustApp/src-tauri/Cargo.toml
+
+      - name: Materialize canonical frontend dependencies
+        shell: pwsh
+        working-directory: EngineData/Frontend/RustApp
+        run: npm ci
+
+      - name: Native Tauri release build baseline
+        shell: pwsh
+        working-directory: EngineData/Frontend/RustApp
+        run: npx tauri build --no-bundle
+
+      - name: Record A1 closure and next bounded step
+        shell: pwsh
+        run: |
+          @'
+          from pathlib import Path
+
+          path = Path('docs/knowledge/next-action.md')
+          text = path.read_text(encoding='utf-8')
+          old = '''## Current Mode
+
+**Maintenance / backend hardening gate before P2.3** — the user selected Python/model runtime proof as the next deferred executable scope, but the active-backend audit found correctness/resource/ownership issues that should be corrected first. No Python/model or user-local-PC execution was performed by this audit.
+
+## Next Step — Backend Hardening Wave A1: Runtime Authority Fail-Closed + Atomic Claim
+
+Correct the canonical Rust runtime-session owner so lock failure can never be represented as an empty/successful session state, and make Mic Test/session acquisition use one atomic claim boundary that cannot overwrite a concurrently created Meeting session. Keep the change limited to runtime authority/state ownership and direct callers; do not mix Stop cleanup, scheduler, Python/model, audio-route, or dead-code cleanup into the same slice. Prove the correction with targeted Rust tests plus the existing remote Windows compile/native-build baseline before moving to Wave A2.'''
+          new = '''## Backend Hardening Wave A1 — CLOSED
+
+Runtime/session authority is now fail-closed at the canonical Rust owner. `runtime_state.rs` uses one atomic claim primitive for Meeting and Mic Test; a competing claim returns the existing owner without overwriting it. Session-store lock failure is represented as potentially active/unverifiable (`has_active_session=true`, no snapshot, `runtime_session:state_lock_failed`) instead of being collapsed into idle/empty state. Clear/revoke also invalidate generation authority before returning an unverifiable state when storage cannot be confirmed.
+
+Direct callers were reconciled only where the old snapshot-only interpretation could fail open: Mic Test Start/Stop, guarded helper/Meeting Start, Meeting Start/Stop authority checks, active-session audio-device Settings guard, and native exit verification. Stop cleanup-result truth itself remains Wave A2 and was not changed here.
+
+Remote Windows proof for this slice passed:
+
+```text
+targeted runtime_state unit tests -> PASS
+cargo check                       -> PASS
+canonical npm ci                  -> PASS
+Tauri release build --no-bundle   -> PASS
+```
+
+No Python/model execution, audio-route execution, user-local-PC testing, scheduler change, or dead-code cleanup occurred in Wave A1.
+
+## Current Mode
+
+**Maintenance / Backend Hardening Wave A** — Wave A1 is source/proof closed. Continue one bounded correctness slice at a time before P2.3.
+
+## Next Step — Backend Hardening Wave A2: Cleanup Truth Matches Resource Release
+
+Reconcile Meeting Stop and Mic Test Stop so authority invalidation still happens first, but the returned result and retained runtime state do not claim complete resource release when capture/helper/consumer cleanup actually fails. Keep this slice limited to Stop/resource-cleanup truth and direct status/result callers; do not mix helper timeout/scheduler, Python/model, virtual-route redesign, audio callback optimization, or dead-code cleanup.'''
+          if old not in text:
+              raise SystemExit('next-action A1 tail not found exactly')
+          path.write_text(text.replace(old, new, 1), encoding='utf-8', newline='\n')
+          '@ | python -
+          git diff --check
+
+      - name: Commit proven Wave A1 correction
+        shell: pwsh
+        run: |
+          git config user.name "halokaryamedia-source"
+          git config user.email "halokaryamedia@gmail.com"
+          git add EngineData/Frontend/RustApp/src-tauri/src/engine/runtime_state.rs `
+                  EngineData/Frontend/RustApp/src-tauri/src/engine/capture_lifecycle.rs `
+                  EngineData/Frontend/RustApp/src-tauri/src/commands/runtime.rs `
+                  EngineData/Frontend/RustApp/src-tauri/src/commands/settings.rs `
+                  EngineData/Frontend/RustApp/src-tauri/src/commands/meeting_session.rs `
+                  EngineData/Frontend/RustApp/src-tauri/src/main.rs `
+                  docs/knowledge/next-action.md
+          git commit -m "Harden runtime authority fail-closed claims"
+          git push origin HEAD:New
