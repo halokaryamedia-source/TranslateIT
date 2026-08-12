@@ -129,6 +129,15 @@ jobs:
           }
           git diff --stat
 
+      - name: Materialize frontend prerequisite
+        shell: pwsh
+        working-directory: EngineData/Frontend/RustApp
+        run: |
+          npm ci
+          if ($LASTEXITCODE -ne 0) { throw "npm ci failed." }
+          npm run build:frontend
+          if ($LASTEXITCODE -ne 0) { throw "frontend build failed." }
+
       - name: Prove Rust B3 behavior and compile
         shell: pwsh
         run: |
@@ -141,8 +150,6 @@ jobs:
         shell: pwsh
         working-directory: EngineData/Frontend/RustApp
         run: |
-          npm ci
-          if ($LASTEXITCODE -ne 0) { throw "npm ci failed." }
           npx tauri build --no-bundle
           if ($LASTEXITCODE -ne 0) { throw "Tauri release build failed." }
 
