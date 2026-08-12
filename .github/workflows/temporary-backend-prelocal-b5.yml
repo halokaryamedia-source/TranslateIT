@@ -110,6 +110,14 @@ jobs:
               "native Meeting output preflight before authority",
           )
           path.write_text(body, encoding="utf-8", newline="\n")
+
+          front_path = Path("EngineData/Frontend/RustApp/scripts/validate_frontend_build_preflight.mjs")
+          front = front_path.read_text(encoding="utf-8")
+          old_front = '"Choose TranslateIT in your meeting app"'
+          new_front = '"Choose the configured meeting microphone"'
+          if old_front not in front:
+              raise SystemExit("stale First Setup frontend validator marker was not found")
+          front_path.write_text(front.replace(old_front, new_front, 1), encoding="utf-8", newline="\n")
           '@ | python -
           if ($LASTEXITCODE -ne 0) { throw 'B5 validator reconciliation failed.' }
 
