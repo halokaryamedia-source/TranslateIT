@@ -598,7 +598,7 @@ No Python/model execution, physical audio-device proof, scheduler/deadline chang
 
 ## Backend Hardening Wave A3 — CLOSED
 
-The helper bridge no longer uses one 30-second response deadline for every worker command. The canonical Rust bridge selects a bounded task-cost class and writes that exact deadline into request metadata before waiting with the same host ceiling: ping/control 5s, status/TTS preflight 30s, model preload 120s, inference 90s, and synthesis 45s. Unknown commands fail back to the bounded status ceiling rather than receiving an unbounded wait.
+The helper bridge no longer uses one 30-second response deadline for every worker command. The canonical Rust bridge selects a bounded task-cost class and **overwrites request deadline metadata from the host authority** before waiting with the same ceiling: ping/control 5s, status/TTS preflight 30s, model preload 120s, inference 90s, and synthesis 45s. Caller payload cannot extend or shorten that host-selected deadline. Unknown commands fail back to the bounded status ceiling rather than receiving an unbounded wait.
 
 The Python worker now consumes the host deadline as a real request budget. Already-expired requests are rejected before handler execution. Nested `nvidia-smi`, Windows SAPI capability probing, Piper synthesis, and SAPI synthesis use a timeout capped by the request's remaining budget. GPU probe is capped at 3s and SAPI capability probe at 8s, so ordinary status cannot spend its whole host envelope inside nested subprocesses. A SAPI probe timeout is treated as transient and is not cached process-wide. Model loading/inference still remains under the outer task deadline; no watchdog/thread framework or second worker was added.
 

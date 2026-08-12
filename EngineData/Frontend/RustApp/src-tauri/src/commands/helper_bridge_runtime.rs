@@ -470,15 +470,9 @@ pub fn request_deadline_payload(payload: &Value, deadline_ms: u128) -> Value {
     let deadline = started.saturating_add(deadline_ms);
     let mut payload = payload.clone();
     if let Some(object) = payload.as_object_mut() {
-        object
-            .entry("request_unix_ms".to_string())
-            .or_insert(json!(started));
-        object
-            .entry("deadline_unix_ms".to_string())
-            .or_insert(json!(deadline));
-        object
-            .entry("deadline_ms".to_string())
-            .or_insert(json!(deadline_ms));
+        object.insert("request_unix_ms".to_string(), json!(started));
+        object.insert("deadline_unix_ms".to_string(), json!(deadline));
+        object.insert("deadline_ms".to_string(), json!(deadline_ms));
     }
     payload
 }
@@ -596,7 +590,7 @@ mod deadline_policy_tests {
     }
 
     #[test]
-    fn request_metadata_uses_selected_deadline_without_overwriting_caller_metadata() {
+    fn request_metadata_uses_host_selected_deadline_as_authority() {
         let deadline_ms = worker_response_deadline_ms("synthesize");
         let payload = request_deadline_payload(&json!({"command": "synthesize"}), deadline_ms);
         let started = payload
@@ -613,7 +607,7 @@ mod deadline_policy_tests {
         );
         assert_eq!(deadline.saturating_sub(started), deadline_ms);
 
-        let preserved = request_deadline_payload(
+        let overridden = request_deadline_payload(
             &json!({
                 "command": "ping",
                 "request_unix_ms": 10_u64,
@@ -622,17 +616,22 @@ mod deadline_policy_tests {
             }),
             worker_response_deadline_ms("ping"),
         );
+        let overridden_started = overridden
+            .get("request_unix_ms")
+            .and_then(Value::as_u64)
+            .unwrap() as u128;
+        let overridden_deadline = overridden
+            .get("deadline_unix_ms")
+            .and_then(Value::as_u64)
+            .unwrap() as u128;
+        assert_ne!(overridden_started, 10);
         assert_eq!(
-            preserved.get("request_unix_ms").and_then(Value::as_u64),
-            Some(10)
+            overridden_deadline.saturating_sub(overridden_started),
+            worker_response_deadline_ms("ping")
         );
         assert_eq!(
-            preserved.get("deadline_unix_ms").and_then(Value::as_u64),
-            Some(20)
-        );
-        assert_eq!(
-            preserved.get("deadline_ms").and_then(Value::as_u64),
-            Some(10)
+            overridden.get("deadline_ms").and_then(Value::as_u64),
+            Some(5_000)
         );
     }
 }
