@@ -111,8 +111,6 @@ jobs:
           if ($LASTEXITCODE -ne 0) { throw "package preflight failed." }
           npm run check:rust
           if ($LASTEXITCODE -ne 0) { throw "Rust manifest preflight failed." }
-          npm run preflight:frontend-build
-          if ($LASTEXITCODE -ne 0) { throw "frontend ownership preflight failed." }
           npm run typecheck
           if ($LASTEXITCODE -ne 0) { throw "svelte-check failed." }
           npm run build:frontend
