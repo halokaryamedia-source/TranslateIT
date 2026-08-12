@@ -135,16 +135,6 @@ def safe_command_name(value: Any) -> str:
     )[:64]
 
 
-def compatibility_mode_label(value: Any) -> str:
-    """Keep old caller response shape while model routing no longer depends on mode."""
-    text = str(value or "").strip().lower()
-    if text == "quality":
-        return "Quality"
-    if text == "realtime":
-        return "Realtime"
-    return "Canonical"
-
-
 def torch_status() -> tuple[bool, bool]:
     try:
         import torch
@@ -594,14 +584,6 @@ def build_status_payload(payload: dict[str, Any] | None = None) -> dict[str, Any
         "provider_ready": provider_ready,
         "readiness": {
             "asr": asr_active_ready and faster_whisper_ready,
-            # Compatibility aliases for current Rust bridge. Routing no longer uses
-            # Realtime/Quality mode; both directions are selected by language pair.
-            "translation_realtime": translation_id_en_ready
-            and transformers_ready
-            and torch_ready,
-            "translation_quality": translation_bidirectional_ready
-            and transformers_ready
-            and torch_ready,
             "translation_id_en": translation_id_en_ready
             and transformers_ready
             and torch_ready,
@@ -641,17 +623,6 @@ def build_status_payload(payload: dict[str, Any] | None = None) -> dict[str, Any
                 "ready": translation_en_id_ready,
                 "path": str(TRANSLATION_MODEL_EN_ID),
             },
-            # Compatibility names only; there is no longer mode-based model routing.
-            "translation_realtime": {
-                "id": "marianmt-id-en",
-                "ready": translation_id_en_ready,
-                "path": str(TRANSLATION_MODEL_ID_EN),
-            },
-            "translation_quality": {
-                "id": "marianmt-en-id",
-                "ready": translation_en_id_ready,
-                "path": str(TRANSLATION_MODEL_EN_ID),
-            },
         },
         "tts": {
             "ready": tts_ready,
@@ -669,8 +640,6 @@ def build_status_payload(payload: dict[str, Any] | None = None) -> dict[str, Any
         "asr_active_model_id": asr_active_model_id,
         "asr_active_model_path": str(asr_active_model_path),
         "asr_readiness_grade": asr_readiness_grade,
-        "translation_model_ready": translation_id_en_ready,
-        "quality_translation_model_ready": translation_en_id_ready,
         "translation_id_en_ready": translation_id_en_ready,
         "translation_en_id_ready": translation_en_id_ready,
         "translation_bidirectional_ready": translation_bidirectional_ready,
@@ -930,12 +899,10 @@ def handle_translation_preload(payload: dict[str, Any]) -> dict[str, Any]:
     target_language = normalize_language(payload.get("target_language", "en"), "en")
     pair = direction_pair(source_language, target_language)
     selected = translation_model_for_direction(source_language, target_language)
-    compatibility_mode = compatibility_mode_label(payload.get("mode"))
     if selected is None:
         return {
             "ok": False,
             "stage": "translation_preload",
-            "mode": compatibility_mode,
             "direction_pair": pair,
             "blocker": "translation:direction_not_supported",
             "note": "Initial translation core supports only Indonesian <-> English.",
@@ -957,7 +924,6 @@ def handle_translation_preload(payload: dict[str, Any]) -> dict[str, Any]:
             {
                 "model_id": model_id,
                 "model_path": str(model_path),
-                "mode": compatibility_mode,
                 "direction_pair": pair,
             },
         )
@@ -968,7 +934,6 @@ def handle_translation_preload(payload: dict[str, Any]) -> dict[str, Any]:
             "stage": "translation_preload",
             "model_path": str(model_path),
             "model_id": model_id,
-            "mode": compatibility_mode,
             "direction_pair": pair,
             "device": runtime["device"],
             "device_note": runtime["device_note"],
@@ -987,7 +952,6 @@ def handle_translation_preload(payload: dict[str, Any]) -> dict[str, Any]:
             "ok": False,
             "stage": "translation_preload",
             "model_id": model_id,
-            "mode": compatibility_mode,
             "direction_pair": pair,
             "blocker": type(exc).__name__,
             "note": str(exc),
@@ -1171,7 +1135,6 @@ def handle_translate(payload: dict[str, Any]) -> dict[str, Any]:
     source_language = normalize_language(payload.get("source_language", "id"), "id")
     target_language = normalize_language(payload.get("target_language", "en"), "en")
     pair = direction_pair(source_language, target_language)
-    compatibility_mode = compatibility_mode_label(payload.get("mode"))
     selected = translation_model_for_direction(source_language, target_language)
 
     if not text:
@@ -1185,7 +1148,6 @@ def handle_translate(payload: dict[str, Any]) -> dict[str, Any]:
         return {
             "ok": False,
             "stage": "translate",
-            "mode": compatibility_mode,
             "source_language": source_language,
             "target_language": target_language,
             "direction_pair": pair,
@@ -1200,7 +1162,6 @@ def handle_translate(payload: dict[str, Any]) -> dict[str, Any]:
         return {
             "ok": False,
             "stage": "translate",
-            "mode": compatibility_mode,
             "model_id": model_id,
             "model_path": str(model_path),
             "source_language": source_language,
@@ -1229,7 +1190,6 @@ def handle_translate(payload: dict[str, Any]) -> dict[str, Any]:
             return {
                 "ok": False,
                 "stage": "translate",
-                "mode": compatibility_mode,
                 "model_id": runtime["model_id"],
                 "direction_pair": pair,
                 "blocker": "translation:input_token_count_unavailable",
@@ -1240,7 +1200,6 @@ def handle_translate(payload: dict[str, Any]) -> dict[str, Any]:
             return {
                 "ok": False,
                 "stage": "translate",
-                "mode": compatibility_mode,
                 "model_id": runtime["model_id"],
                 "direction_pair": pair,
                 "input_tokens": token_count,
@@ -1252,7 +1211,6 @@ def handle_translate(payload: dict[str, Any]) -> dict[str, Any]:
             return {
                 "ok": False,
                 "stage": "translate",
-                "mode": compatibility_mode,
                 "model_id": runtime["model_id"],
                 "source_language": source_language,
                 "target_language": target_language,
@@ -1279,7 +1237,6 @@ def handle_translate(payload: dict[str, Any]) -> dict[str, Any]:
             return {
                 "ok": False,
                 "stage": "translate",
-                "mode": compatibility_mode,
                 "model_id": runtime["model_id"],
                 "direction_pair": pair,
                 "blocker": "translation:missing_generation_sequences",
@@ -1294,7 +1251,6 @@ def handle_translate(payload: dict[str, Any]) -> dict[str, Any]:
             return {
                 "ok": False,
                 "stage": "translate",
-                "mode": compatibility_mode,
                 "model_id": runtime["model_id"],
                 "device": device,
                 "source_language": source_language,
@@ -1314,7 +1270,6 @@ def handle_translate(payload: dict[str, Any]) -> dict[str, Any]:
         return {
             "ok": bool(translated),
             "stage": "translate",
-            "mode": compatibility_mode,
             "translation_contract": "canonical_bidirectional_id_en",
             "model_id": runtime["model_id"],
             "device": device,
@@ -1340,7 +1295,6 @@ def handle_translate(payload: dict[str, Any]) -> dict[str, Any]:
         return {
             "ok": False,
             "stage": "translate",
-            "mode": compatibility_mode,
             "model_id": model_id,
             "blocker": type(exc).__name__,
             "note": str(exc),

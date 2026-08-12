@@ -21,7 +21,7 @@ def load_worker_module():
     return module
 
 
-def test_mode_label_is_compatibility_only_not_model_selection(monkeypatch) -> None:
+def test_translate_routes_by_language_pair_without_mode_compatibility_output(monkeypatch) -> None:
     worker = load_worker_module()
     monkeypatch.setattr(worker, "translation_model_ready", lambda _path: False)
 
@@ -30,17 +30,16 @@ def test_mode_label_is_compatibility_only_not_model_selection(monkeypatch) -> No
             "text": "halo",
             "source_language": "id",
             "target_language": "en",
-            "mode": "Fast",
         }
     )
 
     assert result["ok"] is False
-    assert result["mode"] == "Canonical"
+    assert "mode" not in result
     assert result["direction_pair"] == "id->en"
     assert result["blocker"] == "model:marianmt_id_en_missing"
 
 
-def test_reverse_direction_is_supported_independently_from_mode(monkeypatch) -> None:
+def test_reverse_direction_is_supported_by_language_pair(monkeypatch) -> None:
     worker = load_worker_module()
     monkeypatch.setattr(worker, "translation_model_ready", lambda _path: False)
 
@@ -49,16 +48,75 @@ def test_reverse_direction_is_supported_independently_from_mode(monkeypatch) -> 
             "text": "hello",
             "source_language": "en",
             "target_language": "id",
-            "mode": "Realtime",
         }
     )
 
     assert result["ok"] is False
-    assert result["mode"] == "Realtime"
+    assert "mode" not in result
     assert result["direction_pair"] == "en->id"
     assert result["direction_supported"] is True
     assert result["blocker"] == "model:marianmt_en_id_missing"
-    assert "fallback_mode" not in result
+
+
+def test_worker_status_uses_canonical_translation_readiness_fields(monkeypatch) -> None:
+    worker = load_worker_module()
+    monkeypatch.setattr(worker, "import_ready", lambda _name: True)
+    monkeypatch.setattr(worker, "asr_model_ready", lambda _path: True)
+    monkeypatch.setattr(
+        worker,
+        "translation_model_ready",
+        lambda path: path == worker.TRANSLATION_MODEL_ID_EN,
+    )
+    monkeypatch.setattr(
+        worker,
+        "probe_gpu_runtime",
+        lambda _payload=None: {
+            "torch_import_ready": True,
+            "torch_cuda_available": True,
+            "ctranslate2_import_ready": True,
+            "ctranslate2_cuda_available": True,
+            "nvidia_smi_available": True,
+            "cuda_primary_requested": True,
+            "selected_device": "cuda",
+            "selected_translation_device": "cuda",
+            "selected_compute_type": "int8_float16",
+            "fallback_reason": "",
+        },
+    )
+    monkeypatch.setattr(
+        worker,
+        "select_english_tts_voice",
+        lambda _payload=None: {
+            "ok": True,
+            "provider": "windows-sapi",
+            "voice_id": "Test English Voice",
+            "language_code": "en-us",
+            "voice_path": None,
+            "blocker": "",
+            "sapi_voices": [],
+        },
+    )
+
+    status = worker.build_status_payload({})
+    readiness = status["readiness"]
+
+    assert status["ok"] is True
+    assert status["provider_ready"] is True
+    assert set(readiness) == {
+        "asr",
+        "translation_id_en",
+        "translation_en_id",
+        "translation_bidirectional",
+        "tts",
+        "cuda_degraded",
+    }
+    assert readiness["translation_id_en"] is True
+    assert readiness["translation_en_id"] is False
+    assert readiness["translation_bidirectional"] is False
+    assert "translation_realtime" not in status["models"]
+    assert "translation_quality" not in status["models"]
+    assert "translation_model_ready" not in status
+    assert "quality_translation_model_ready" not in status
 
 
 def test_legacy_userdata_label_maps_to_writable_user_root(tmp_path: Path, monkeypatch) -> None:
@@ -106,7 +164,6 @@ def test_translate_rejects_character_overflow_before_model_load() -> None:
             "text": text,
             "source_language": "id",
             "target_language": "en",
-            "mode": "Quality",
         }
     )
 

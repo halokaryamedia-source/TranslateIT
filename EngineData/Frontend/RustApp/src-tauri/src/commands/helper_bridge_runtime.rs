@@ -497,13 +497,12 @@ fn is_contract_only_response(value: &Value) -> bool {
 pub fn apply_worker_status(runtime: &mut HelperBridgeRuntime, status: &Value) {
     let worker_ok = worker_bool(status, "ok");
     let asr_ready = worker_nested_bool(status, "readiness", "asr");
-    let realtime_translation_ready =
-        worker_nested_bool(status, "readiness", "translation_realtime");
+    let outbound_translation_ready = worker_nested_bool(status, "readiness", "translation_id_en");
     let tts_ready = worker_nested_bool(status, "readiness", "tts");
     let cuda_degraded = worker_nested_bool(status, "readiness", "cuda_degraded");
 
     runtime.cuda_ready = !cuda_degraded;
-    runtime.provider_ready = worker_ok && asr_ready && realtime_translation_ready && tts_ready;
+    runtime.provider_ready = worker_ok && asr_ready && outbound_translation_ready && tts_ready;
     runtime.degraded_mode = worker_ok && cuda_degraded;
     runtime.last_error = worker_text(status, "blocker").filter(|value| !value.is_empty());
     runtime.message = if runtime.provider_ready {
@@ -686,6 +685,49 @@ pub fn stop_child(runtime: &mut HelperBridgeRuntime) {
     }
     if let Some(logger) = runtime.stderr_logger.take() {
         let _ = logger.join();
+    }
+}
+
+#[cfg(test)]
+mod readiness_contract_tests {
+    use super::*;
+
+    #[test]
+    fn worker_status_uses_canonical_direction_readiness_and_rejects_legacy_aliases() {
+        let mut runtime = HelperBridgeRuntime::default();
+        apply_worker_status(
+            &mut runtime,
+            &json!({
+                "ok": true,
+                "readiness": {
+                    "asr": true,
+                    "translation_id_en": true,
+                    "translation_en_id": false,
+                    "translation_bidirectional": false,
+                    "tts": true,
+                    "cuda_degraded": false
+                }
+            }),
+        );
+        assert!(runtime.provider_ready);
+        assert!(runtime.cuda_ready);
+        assert!(!runtime.degraded_mode);
+
+        let mut legacy_only = HelperBridgeRuntime::default();
+        apply_worker_status(
+            &mut legacy_only,
+            &json!({
+                "ok": true,
+                "readiness": {
+                    "asr": true,
+                    "translation_realtime": true,
+                    "translation_quality": true,
+                    "tts": true,
+                    "cuda_degraded": false
+                }
+            }),
+        );
+        assert!(!legacy_only.provider_ready);
     }
 }
 

@@ -649,10 +649,29 @@ Tauri release build --no-bundle           -> PASS
 
 No readiness compatibility cleanup, Python dependency locking/assets work, model execution, scheduler redesign, audio-route execution, or user-local-PC testing occurred in Wave A5.
 
+## Backend Hardening Wave A6 — CLOSED
+
+The active Rust/Python worker contract now uses one direction-based translation readiness vocabulary. Python status emits canonical `readiness.translation_id_en`, `readiness.translation_en_id`, and `readiness.translation_bidirectional` fields; stale `translation_realtime` / `translation_quality` readiness and model aliases plus the ambiguous top-level `translation_model_ready` / `quality_translation_model_ready` compatibility fields are removed. The Rust helper now derives required outbound provider readiness from `translation_id_en` directly.
+
+Translation preload and inference responses also no longer echo `Realtime`, `Quality`, or `Canonical` mode labels. Current Text and Meeting callers already select translation by explicit source/target language pair, so no active caller requires mode-based routing or response compatibility. Extra unknown request fields remain harmless JSON input, but they no longer become product/runtime contract.
+
+Remote Windows/source proof for this slice passed:
+
+```text
+Python worker canonical readiness/translation tests -> PASS
+Python compileall                                  -> PASS
+Rust canonical readiness contract tests            -> PASS
+cargo check                                        -> PASS
+canonical npm ci                                   -> PASS
+Tauri release build --no-bundle                    -> PASS
+```
+
+No Python dependency locking/assets work, real model execution, stderr/scheduler redesign, audio-route execution, or user-local-PC testing occurred in Wave A6.
+
 ## Current Mode
 
-**Maintenance / Backend Hardening Wave A** — Waves A1-A5 are source/proof closed. Continue one bounded hardening slice at a time before P2.3.
+**Maintenance / Backend Hardening Wave A** — Waves A1-A6 are source/proof closed. Continue one bounded hardening slice before P2.3.
 
-## Next Step — Backend Hardening Wave A6: Canonical Worker Readiness Fields
+## Next Step — Backend Hardening Wave A7: Canonical Python Lock / Asset Semantics
 
-Reconcile the active Rust/Python worker-status contract around one canonical readiness vocabulary and remove stale Realtime/Quality compatibility fields from the active bridge. Keep A6 limited to readiness/status compatibility cleanup and targeted proof; do not mix Python dependency locking/assets (A7), model execution, stderr/scheduler redesign, or audio-route work.
+Materialize and review the canonical WorkerRuntime Python dependency lock and reconcile Meeting-required readiness versus full product-release asset requirements. Keep A7 limited to dependency determinism and asset/readiness ownership; do not mix P2.3 model execution, audio-route/device work, scheduler/stderr redesign, or broad cleanup.
