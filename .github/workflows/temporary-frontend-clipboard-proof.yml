@@ -108,29 +108,6 @@ jobs:
           (window as any).__clipboardProof = { expectedTranslation, proofCommands };
           '@ | Set-Content -Encoding utf8 src/clipboard-proof.ts
 
-      - name: Start targeted frontend server
-        shell: pwsh
-        run: |
-          $ErrorActionPreference = 'Stop'
-          $stdout = Join-Path $env:RUNNER_TEMP 'translateit-clipboard-vite.out.log'
-          $stderr = Join-Path $env:RUNNER_TEMP 'translateit-clipboard-vite.err.log'
-          $process = Start-Process -FilePath 'npm.cmd' -ArgumentList 'run','dev:frontend' -PassThru -RedirectStandardOutput $stdout -RedirectStandardError $stderr
-          $process.Id | Set-Content -Encoding ascii (Join-Path $env:RUNNER_TEMP 'translateit-clipboard-vite.pid')
-          $deadline = (Get-Date).AddSeconds(30)
-          do {
-            Start-Sleep -Milliseconds 500
-            try {
-              $response = Invoke-WebRequest -UseBasicParsing 'http://127.0.0.1:1420/clipboard-proof.html' -TimeoutSec 2
-              if ($response.StatusCode -eq 200) { break }
-            } catch {}
-            if ($process.HasExited) {
-              Get-Content $stdout -ErrorAction SilentlyContinue
-              Get-Content $stderr -ErrorAction SilentlyContinue
-              throw "Vite proof server exited early with code $($process.ExitCode)."
-            }
-          } while ((Get-Date) -lt $deadline)
-          if ((Get-Date) -ge $deadline) { throw 'Timed out waiting for clipboard proof server.' }
-
       - name: Run real browser clipboard interaction proof
         shell: pwsh
         run: |
@@ -191,17 +168,35 @@ jobs:
           });
           '@ | Set-Content -Encoding utf8 .tmp/clipboard.spec.cjs
 
-          npx playwright test .tmp/clipboard.spec.cjs --reporter=line --workers=1
+          $stdout = Join-Path $env:RUNNER_TEMP 'translateit-clipboard-vite.out.log'
+          $stderr = Join-Path $env:RUNNER_TEMP 'translateit-clipboard-vite.err.log'
+          $process = Start-Process -FilePath 'npm.cmd' -ArgumentList 'run','dev:frontend' -PassThru -RedirectStandardOutput $stdout -RedirectStandardError $stderr
+          try {
+            $deadline = (Get-Date).AddSeconds(30)
+            $ready = $false
+            do {
+              Start-Sleep -Milliseconds 500
+              try {
+                $response = Invoke-WebRequest -UseBasicParsing 'http://127.0.0.1:1420/clipboard-proof.html' -TimeoutSec 2
+                if ($response.StatusCode -eq 200) { $ready = $true; break }
+              } catch {}
+              if ($process.HasExited) {
+                Get-Content $stdout -ErrorAction SilentlyContinue
+                Get-Content $stderr -ErrorAction SilentlyContinue
+                throw "Vite proof server exited early with code $($process.ExitCode)."
+              }
+            } while ((Get-Date) -lt $deadline)
+            if (-not $ready) { throw 'Timed out waiting for clipboard proof server.' }
 
-      - name: Cleanup targeted proof files and server
+            npx playwright test .tmp/clipboard.spec.cjs --reporter=line --workers=1
+          } finally {
+            Stop-Process -Id $process.Id -Force -ErrorAction SilentlyContinue
+          }
+
+      - name: Cleanup targeted proof files
         if: always()
         shell: pwsh
         run: |
           Remove-Item -Force clipboard-proof.html -ErrorAction SilentlyContinue
           Remove-Item -Force src/clipboard-proof.ts -ErrorAction SilentlyContinue
           Remove-Item -Recurse -Force .tmp -ErrorAction SilentlyContinue
-          $pidFile = Join-Path $env:RUNNER_TEMP 'translateit-clipboard-vite.pid'
-          if (Test-Path $pidFile) {
-            $proofPid = [int](Get-Content $pidFile)
-            Stop-Process -Id $proofPid -Force -ErrorAction SilentlyContinue
-          }
