@@ -26,21 +26,27 @@ jobs:
         working-directory: EngineData/Frontend/RustApp
         run: npm ci
 
-      - name: Verify current validator contradiction
+      - name: Reproduce stale validator contracts
         shell: pwsh
         working-directory: EngineData/Frontend/RustApp
         run: |
-          npm run validate:startup-readiness
-          if ($LASTEXITCODE -ne 0) { throw 'Startup readiness validator unexpectedly failed.' }
+          $startupOutput = & npm.cmd run validate:startup-readiness 2>&1 | Out-String
+          $startupExit = $LASTEXITCODE
+          Write-Host $startupOutput
+          if ($startupExit -eq 0) { throw 'Expected stale startup-readiness marker was not reproduced.' }
+          if ($startupOutput -notmatch 'latest_runtime_session_state\(\)\.snapshot\.is_some\(\)') {
+            throw 'Startup-readiness validator failed for an unexpected reason.'
+          }
+          Write-Host 'PRELOCAL_AUDIT::startup_validator_stale_marker_reproduced'
 
-          $output = & npm.cmd run validate:virtual-route 2>&1 | Out-String
-          $exit = $LASTEXITCODE
-          Write-Host $output
-          if ($exit -eq 0) { throw 'Expected current virtual-route validator contradiction was not reproduced.' }
-          if ($output -notmatch 'get_virtual_mic_route_contract_status') {
+          $routeOutput = & npm.cmd run validate:virtual-route 2>&1 | Out-String
+          $routeExit = $LASTEXITCODE
+          Write-Host $routeOutput
+          if ($routeExit -eq 0) { throw 'Expected virtual-route validator contradiction was not reproduced.' }
+          if ($routeOutput -notmatch 'get_virtual_mic_route_contract_status') {
             throw 'Virtual-route validator failed for an unexpected reason.'
           }
-          Write-Host 'PRELOCAL_AUDIT::validator_contradiction_reproduced'
+          Write-Host 'PRELOCAL_AUDIT::virtual_route_validator_contradiction_reproduced'
 
       - name: Frontend build baseline
         shell: pwsh
