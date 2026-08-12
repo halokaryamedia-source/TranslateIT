@@ -1,0 +1,132 @@
+name: Temporary Backend Pre-Local B6 Audit
+
+on:
+  push:
+    branches:
+      - New
+
+permissions:
+  contents: read
+
+jobs:
+  audit-b6:
+    runs-on: windows-2022
+    timeout-minutes: 30
+    steps:
+      - name: Checkout New
+        uses: actions/checkout@v4
+        with:
+          ref: New
+          fetch-depth: 0
+
+      - name: Audit exact backend symbol references
+        shell: pwsh
+        run: |
+          @'
+          from pathlib import Path
+          import json
+
+          root = Path("EngineData/Frontend/RustApp/src-tauri/src")
+          symbols = [
+              "stop_helper_bridge",
+              "cancel_helper_bridge_meeting_generation",
+              "cancel_helper_bridge_task",
+              "send_helper_bridge_request",
+              "helper_bridge_preload_asr",
+              "helper_bridge_preload_translation",
+              "helper_bridge_tts_preflight",
+              "helper_bridge_pipeline_contract_smoke",
+              "helper_bridge_synthesize_text",
+              "HelperBridgeRequest",
+              "write_worker_request(",
+              "read_worker_response_with_deadline(",
+              "get_model_inventory",
+              "is_target_format",
+              "inspect_default_input",
+              "live_target_segment_snapshot",
+              "write_latest_live_target_segment_wav",
+              "remove_finalized_outbound_utterance_wav",
+              "live_capture_status",
+              "RuntimeStage",
+              "EngineStatus",
+              "LifecycleState::Preparing",
+              "LifecycleState::Ready",
+              "LifecycleState::Transcribing",
+              "LifecycleState::Translating",
+              "LifecycleState::Speaking",
+              "LifecycleState::EmptyInput",
+              "LifecycleState::TranslationAdapterPending",
+              "VadPresetConfig",
+              "VadSegmentDecisionRequest",
+              "VadDecisionReport",
+              "evaluate_segment_decision",
+              "resolve_runtime_vad_profile",
+              '"Realtime"',
+              '"Quality"',
+              "nllb",
+              "NLLB",
+          ]
+          files = sorted(root.rglob("*.rs"))
+          results = {}
+          for symbol in symbols:
+              hits = []
+              for path in files:
+                  text = path.read_text(encoding="utf-8")
+                  for line_no, line in enumerate(text.splitlines(), 1):
+                      if symbol in line:
+                          hits.append({"path": path.as_posix(), "line": line_no, "text": line.strip()[:240]})
+              results[symbol] = hits
+          print(json.dumps(results, indent=2))
+          '@ | python -
+          if ($LASTEXITCODE -ne 0) { throw 'B6 exact-symbol audit failed.' }
+
+      - name: Audit current backend documentation terminology
+        shell: pwsh
+        run: |
+          @'
+          from pathlib import Path
+          import json
+
+          paths = [
+              Path("EngineData/Backend/LocalWorker/WorkerRuntime/README.md"),
+              Path("EngineData/Frontend/RustApp/scripts/README.md"),
+              Path("EngineData/Frontend/RustApp/src-tauri/README.md"),
+              Path("docs/knowledge/source-ownership.md"),
+          ]
+          terms = ["Realtime", "Quality", "NLLB", "nllb"]
+          out = {}
+          for path in paths:
+              if not path.exists():
+                  continue
+              hits = []
+              for line_no, line in enumerate(path.read_text(encoding="utf-8").splitlines(), 1):
+                  if any(term in line for term in terms):
+                      hits.append({"line": line_no, "text": line.strip()[:300]})
+              out[path.as_posix()] = hits
+          print(json.dumps(out, indent=2))
+          '@ | python -
+          if ($LASTEXITCODE -ne 0) { throw 'B6 documentation audit failed.' }
+
+      - name: Capture current Rust warnings
+        shell: pwsh
+        working-directory: EngineData/Frontend/RustApp
+        run: |
+          cargo check --manifest-path src-tauri/Cargo.toml 2>&1 | Tee-Object -FilePath $env:RUNNER_TEMP\b6-cargo-check.log
+          if ($LASTEXITCODE -ne 0) { throw 'cargo check failed during B6 audit.' }
+          @'
+          from pathlib import Path
+          import os
+          import re
+
+          path = Path(os.environ["RUNNER_TEMP"]) / "b6-cargo-check.log"
+          text = path.read_text(encoding="utf-8", errors="replace")
+          warnings = [line.strip() for line in text.splitlines() if re.match(r"^warning:", line.strip())]
+          print(f"B6_WARNING_COUNT={len(warnings)}")
+          for warning in warnings:
+              print(warning)
+          '@ | python -
+
+      - name: Confirm active registry surface
+        shell: pwsh
+        run: |
+          Get-Content EngineData/Frontend/RustApp/src-tauri/src/commands/registry.rs
