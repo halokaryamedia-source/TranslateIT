@@ -38,11 +38,23 @@ struct MeetingOutputCancelControl {
     cancel_requested: Arc<AtomicBool>,
 }
 
+#[derive(Clone)]
+struct PreparedMeetingOutputDevice {
+    name: String,
+    device: cpal::Device,
+}
+
 static MEETING_OUTPUT_CANCEL_CONTROL: OnceLock<Mutex<Option<MeetingOutputCancelControl>>> =
+    OnceLock::new();
+static PREPARED_MEETING_OUTPUT_DEVICE: OnceLock<Mutex<Option<PreparedMeetingOutputDevice>>> =
     OnceLock::new();
 
 fn cancel_control() -> &'static Mutex<Option<MeetingOutputCancelControl>> {
     MEETING_OUTPUT_CANCEL_CONTROL.get_or_init(|| Mutex::new(None))
+}
+
+fn prepared_output_device_store() -> &'static Mutex<Option<PreparedMeetingOutputDevice>> {
+    PREPARED_MEETING_OUTPUT_DEVICE.get_or_init(|| Mutex::new(None))
 }
 
 fn find_output_device(requested_name: &str) -> Result<cpal::Device, String> {
@@ -64,6 +76,7 @@ fn find_output_device(requested_name: &str) -> Result<cpal::Device, String> {
 }
 
 pub fn prepare_meeting_output_device(requested_name: &str) -> Result<(), String> {
+    let requested_name = requested_name.trim();
     let device = find_output_device(requested_name)?;
     let config = device
         .default_output_config()
@@ -77,10 +90,41 @@ pub fn prepare_meeting_output_device(requested_name: &str) -> Result<(), String>
         return Err("meeting_output:unsupported_output_sample_rate".to_string());
     }
     match config.sample_format() {
-        cpal::SampleFormat::F32 | cpal::SampleFormat::I16 | cpal::SampleFormat::U16 => Ok(()),
-        other => Err(format!(
-            "meeting_output:unsupported_output_sample_format:{other:?}"
-        )),
+        cpal::SampleFormat::F32 | cpal::SampleFormat::I16 | cpal::SampleFormat::U16 => {}
+        other => {
+            return Err(format!(
+                "meeting_output:unsupported_output_sample_format:{other:?}"
+            ))
+        }
+    }
+
+    let mut prepared = prepared_output_device_store()
+        .lock()
+        .map_err(|_| "meeting_output:prepared_device_state_lock_failed".to_string())?;
+    *prepared = Some(PreparedMeetingOutputDevice {
+        name: requested_name.to_string(),
+        device,
+    });
+    Ok(())
+}
+
+fn prepared_output_device(requested_name: &str) -> Result<cpal::Device, String> {
+    let requested_name = requested_name.trim();
+    let prepared = prepared_output_device_store()
+        .lock()
+        .map_err(|_| "meeting_output:prepared_device_state_lock_failed".to_string())?;
+    let Some(prepared) = prepared.as_ref() else {
+        return Err("meeting_output:prepared_output_device_missing".to_string());
+    };
+    if prepared.name != requested_name {
+        return Err("meeting_output:prepared_output_device_mismatch".to_string());
+    }
+    Ok(prepared.device.clone())
+}
+
+pub fn clear_prepared_meeting_output_device() {
+    if let Ok(mut prepared) = prepared_output_device_store().lock() {
+        *prepared = None;
     }
 }
 
@@ -505,7 +549,7 @@ pub fn deliver_meeting_output_wav(
             )
         }
     };
-    let device = match find_output_device(output_name) {
+    let device = match prepared_output_device(output_name) {
         Ok(value) => value,
         Err(blocker) => {
             return blocked(

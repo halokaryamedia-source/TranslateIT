@@ -281,6 +281,10 @@ fn status_from_selection(
         updated_unix_ms: unix_ms(),
     };
     status.route_output_contract_json = route_output_contract_json(&status);
+    status
+}
+
+fn with_route_evidence(mut status: VirtualMicRouteContractStatus) -> VirtualMicRouteContractStatus {
     status.evidence_path = write_route_evidence(&status);
     status
 }
@@ -404,6 +408,27 @@ pub fn bind_prepared_virtual_mic_route_to_generation(generation: u64) -> Result<
     }
 }
 
+pub fn get_bound_virtual_mic_output_device(generation: u64) -> Result<String, String> {
+    if active_application_meeting_generation() != Some(generation) {
+        return Err("virtual_mic:meeting_route_generation_not_active".to_string());
+    }
+    let mut selection = selection_runtime()
+        .lock()
+        .map_err(|_| "virtual_mic:meeting_route_selection_lock_failed".to_string())?;
+    let Some(prepared) = selection.as_mut() else {
+        return Err("virtual_mic:prepared_route_pair_missing".to_string());
+    };
+    match prepared.generation {
+        Some(existing) if existing != generation => {
+            Err("virtual_mic:prepared_route_pair_bound_to_other_generation".to_string())
+        }
+        _ => {
+            prepared.generation = Some(generation);
+            Ok(prepared.output_device.clone())
+        }
+    }
+}
+
 pub fn get_virtual_mic_route_selection() -> VirtualMicRouteContractStatus {
     if let Some(generation) = active_application_meeting_generation() {
         if let Ok(mut selection) = selection_runtime().lock() {
@@ -437,5 +462,30 @@ pub fn get_virtual_mic_route_selection() -> VirtualMicRouteContractStatus {
 
 #[tauri::command]
 pub fn get_virtual_mic_route_contract_status() -> VirtualMicRouteContractStatus {
-    get_virtual_mic_route_selection()
+    with_route_evidence(get_virtual_mic_route_selection())
+}
+
+#[cfg(test)]
+mod b3_route_hot_path_tests {
+    use super::{status_from_selection, RouteSelection};
+
+    #[test]
+    fn internal_route_status_does_not_write_evidence() {
+        let status = status_from_selection(
+            Vec::new(),
+            Vec::new(),
+            RouteSelection {
+                route_pair_id: None,
+                selected_output_device: None,
+                selected_input_device: None,
+                output_device_found: false,
+                input_device_found: false,
+                blocker: "virtual_mic:matched_route_pair_missing".to_string(),
+            },
+            "b3_internal_route_status",
+        );
+
+        assert!(status.evidence_path.is_none());
+        assert!(!status.route_ready);
+    }
 }

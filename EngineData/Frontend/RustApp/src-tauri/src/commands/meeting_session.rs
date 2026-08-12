@@ -18,7 +18,8 @@ use crate::engine::audio::live_segment_writer::{
     write_finalized_outbound_utterance_wav,
 };
 use crate::engine::audio::meeting_output::{
-    cancel_meeting_output_for_generation, deliver_meeting_output_wav, prepare_meeting_output_device,
+    cancel_meeting_output_for_generation, clear_prepared_meeting_output_device,
+    deliver_meeting_output_wav, prepare_meeting_output_device,
 };
 use crate::engine::audio::meeting_sound_capture::{
     meeting_sound_capture_status, start_meeting_sound_capture_runtime,
@@ -40,7 +41,7 @@ use super::helper_bridge::{
 };
 use super::helper_bridge_runtime::unix_ms;
 use super::virtual_mic_route::{
-    get_virtual_mic_route_contract_status, get_virtual_mic_route_selection,
+    get_bound_virtual_mic_output_device, get_virtual_mic_route_selection,
 };
 
 const APPLICATION_MEETING_OWNER_ID: &str = "translateit_application_meeting";
@@ -182,6 +183,11 @@ struct MeetingSelfOutputSuppression {
     active: Arc<AtomicBool>,
 }
 
+struct MeetingStartPreflightRuntime {
+    generation: u64,
+    status: MeetingSessionPreflightStatus,
+}
+
 struct SelfOutputSuppressionGuard {
     active: Arc<AtomicBool>,
 }
@@ -202,6 +208,8 @@ static MEETING_INCOMING_CONSUMER: OnceLock<Mutex<Option<MeetingIncomingConsumerR
 static MEETING_COMMITTED_TURNS: OnceLock<Mutex<Option<MeetingCommittedTurnStore>>> =
     OnceLock::new();
 static MEETING_SELF_OUTPUT_SUPPRESSION: OnceLock<Mutex<Option<MeetingSelfOutputSuppression>>> =
+    OnceLock::new();
+static MEETING_START_PREFLIGHT: OnceLock<Mutex<Option<MeetingStartPreflightRuntime>>> =
     OnceLock::new();
 
 fn idle_outbound_status() -> MeetingOutboundRuntimeStatus {
@@ -259,6 +267,39 @@ fn committed_turn_store() -> &'static Mutex<Option<MeetingCommittedTurnStore>> {
 
 fn suppression_store() -> &'static Mutex<Option<MeetingSelfOutputSuppression>> {
     MEETING_SELF_OUTPUT_SUPPRESSION.get_or_init(|| Mutex::new(None))
+}
+
+fn start_preflight_store() -> &'static Mutex<Option<MeetingStartPreflightRuntime>> {
+    MEETING_START_PREFLIGHT.get_or_init(|| Mutex::new(None))
+}
+
+fn remember_start_preflight(generation: u64, status: MeetingSessionPreflightStatus) {
+    if let Ok(mut guard) = start_preflight_store().lock() {
+        *guard = Some(MeetingStartPreflightRuntime { generation, status });
+    }
+}
+
+fn current_start_preflight(generation: u64) -> Option<MeetingSessionPreflightStatus> {
+    start_preflight_store().lock().ok().and_then(|guard| {
+        guard
+            .as_ref()
+            .filter(|snapshot| snapshot.generation == generation)
+            .map(|snapshot| snapshot.status.clone())
+    })
+}
+
+fn clear_start_preflight_for_generation(generation: u64) {
+    if let Ok(mut guard) = start_preflight_store().lock() {
+        if guard.as_ref().map(|snapshot| snapshot.generation) == Some(generation) {
+            *guard = None;
+        }
+    }
+}
+
+fn clear_all_start_preflight() {
+    if let Ok(mut guard) = start_preflight_store().lock() {
+        *guard = None;
+    }
 }
 
 fn current_outbound_status() -> MeetingOutboundRuntimeStatus {
@@ -647,7 +688,7 @@ fn meeting_required_ai_ready(helper_ready: bool, provider_ready: bool) -> bool {
 fn build_preflight() -> MeetingSessionPreflightStatus {
     let input = get_input_status();
     let helper = get_helper_bridge_status();
-    let route = get_virtual_mic_route_contract_status();
+    let route = get_virtual_mic_route_selection();
 
     let microphone_ready = input.prepared;
     let helper_ready = helper.state == "ready";
@@ -742,8 +783,21 @@ fn status_from_report(
     }
 }
 
+fn preflight_for_report(report: &RuntimeSessionStateReport) -> MeetingSessionPreflightStatus {
+    if let Some(snapshot) = report.snapshot.as_ref() {
+        if snapshot.owner_id == APPLICATION_MEETING_OWNER_ID {
+            if let Some(cached) = current_start_preflight(snapshot.generation) {
+                return cached;
+            }
+        }
+    }
+    build_preflight()
+}
+
 fn current_status() -> MeetingSessionStatus {
-    status_from_report(latest_runtime_session_state(), build_preflight())
+    let report = latest_runtime_session_state();
+    let preflight = preflight_for_report(&report);
+    status_from_report(report, preflight)
 }
 
 fn blocked_result(state: &str, message: String) -> MeetingSessionActionResult {
@@ -1157,12 +1211,10 @@ pub fn process_authoritative_finalized_outbound_wav(
         "",
         "Translated voice is being delivered through TranslateIT Meeting Microphone.",
     );
-    let route_selection = get_virtual_mic_route_selection();
-    let route = deliver_meeting_output_wav(
-        &tts_path,
-        route_selection.selected_output_device.as_deref(),
-        generation,
-    );
+    let bound_output_device = get_bound_virtual_mic_output_device(generation);
+    let bound_route_blocker = bound_output_device.as_ref().err().cloned();
+    let route =
+        deliver_meeting_output_wav(&tts_path, bound_output_device.as_deref().ok(), generation);
     drop(suppression_guard);
     if incoming_session_is_eligible(session_id) && meeting_sound_capture_status().stream_active {
         update_incoming_status(
@@ -1178,11 +1230,13 @@ pub fn process_authoritative_finalized_outbound_wav(
         return stale_outbound_result(generation, session_id, event_sequence, utterance_id);
     }
     if !route.ok || !route.execution_attempted {
-        let blocker = if route.blocker.is_empty() {
-            "meeting_outbound:meeting_route_delivery_failed".to_string()
-        } else {
-            route.blocker
-        };
+        let blocker = bound_route_blocker.unwrap_or_else(|| {
+            if route.blocker.is_empty() {
+                "meeting_outbound:meeting_route_delivery_failed".to_string()
+            } else {
+                route.blocker
+            }
+        });
         let _ = update_committed_turn_delivery_state(
             session_id,
             generation,
@@ -1616,6 +1670,10 @@ fn stop_meeting_incoming_consumer(session_id: &str) -> MeetingConsumerCleanupRes
 }
 
 fn start_optional_incoming_lane(session_id: &str) -> String {
+    if !incoming_session_is_eligible(session_id) {
+        return "Incoming activation skipped because the Meeting is no longer Live.".to_string();
+    }
+
     let Some(suppression) = suppression_handle_for_session(session_id) else {
         update_incoming_status(
             session_id,
@@ -1628,6 +1686,13 @@ fn start_optional_incoming_lane(session_id: &str) -> String {
     };
 
     let capture = start_meeting_sound_capture_runtime(session_id, suppression);
+    if !incoming_session_is_eligible(session_id) {
+        if capture.ok {
+            let _ = stop_meeting_sound_capture_runtime();
+        }
+        return "Incoming activation ended because the Meeting stopped while optional capture was opening."
+            .to_string();
+    }
     if !capture.ok {
         update_incoming_status(
             session_id,
@@ -1655,6 +1720,13 @@ fn start_optional_incoming_lane(session_id: &str) -> String {
         return format!("Incoming degraded: {error}");
     }
 
+    if !incoming_session_is_eligible(session_id) {
+        let _ = stop_meeting_incoming_consumer(session_id);
+        let _ = stop_meeting_sound_capture_runtime();
+        return "Incoming activation ended because the Meeting stopped before optional capture became active."
+            .to_string();
+    }
+
     update_incoming_status(
         session_id,
         "listening",
@@ -1663,6 +1735,34 @@ fn start_optional_incoming_lane(session_id: &str) -> String {
         "Incoming Meeting Sound is listening for finalized English speech while this Meeting is Live.",
     );
     "Incoming Meeting Sound lane started.".to_string()
+}
+
+fn schedule_optional_incoming_lane(session_id: &str) -> String {
+    update_incoming_status(
+        session_id,
+        "starting",
+        false,
+        "",
+        "Required outbound translation is Live. Optional incoming Meeting Sound is starting independently.",
+    );
+    let thread_session_id = session_id.to_string();
+    match thread::Builder::new()
+        .name("translateit-meeting-incoming-start".to_string())
+        .spawn(move || {
+            let _ = start_optional_incoming_lane(&thread_session_id);
+        }) {
+        Ok(_) => "Optional incoming Meeting Sound is starting independently.".to_string(),
+        Err(error) => {
+            update_incoming_status(
+                session_id,
+                "degraded",
+                true,
+                "meeting_incoming:activation_spawn_failed",
+                "Optional incoming Meeting Sound could not start its activation task. Required outbound remains Live.",
+            );
+            format!("Incoming degraded: activation task could not start: {error}")
+        }
+    }
 }
 
 #[tauri::command]
@@ -1705,6 +1805,9 @@ pub fn start_meeting_translation() -> MeetingSessionActionResult {
                 .to_string(),
         );
     }
+
+    clear_all_start_preflight();
+    clear_prepared_meeting_output_device();
 
     if let Err(message) = recover_helper_after_meeting_stop_if_needed() {
         return blocked_result(
@@ -1795,6 +1898,7 @@ pub fn start_meeting_translation() -> MeetingSessionActionResult {
 
     let generation = start_snapshot.generation;
     let session_id = start_snapshot.session_id.clone();
+    remember_start_preflight(generation, prepared_preflight.clone());
     reset_committed_turns(&session_id);
     reset_finalized_meeting_sequence(&session_id);
     let _ = reset_self_output_suppression(&session_id);
@@ -1811,6 +1915,8 @@ pub fn start_meeting_translation() -> MeetingSessionActionResult {
         clear_finalized_meeting_sequence();
         clear_self_output_suppression_for_session(&session_id);
         clear_committed_turns_for_session(&session_id);
+        clear_start_preflight_for_generation(generation);
+        clear_prepared_meeting_output_device();
         let _ = clear_runtime_session_state();
         return blocked_result(
             "rolled_back",
@@ -1837,6 +1943,8 @@ pub fn start_meeting_translation() -> MeetingSessionActionResult {
         clear_finalized_meeting_sequence();
         clear_self_output_suppression_for_session(&session_id);
         clear_committed_turns_for_session(&session_id);
+        clear_start_preflight_for_generation(generation);
+        clear_prepared_meeting_output_device();
         let _ = clear_runtime_session_state();
         return blocked_result(
             "rolled_back",
@@ -1858,6 +1966,8 @@ pub fn start_meeting_translation() -> MeetingSessionActionResult {
         clear_finalized_meeting_sequence();
         clear_self_output_suppression_for_session(&session_id);
         clear_committed_turns_for_session(&session_id);
+        clear_start_preflight_for_generation(generation);
+        clear_prepared_meeting_output_device();
         let _ = clear_runtime_session_state();
         return blocked_result(
             "rolled_back",
@@ -1878,14 +1988,14 @@ pub fn start_meeting_translation() -> MeetingSessionActionResult {
         "",
         "Translation Live is listening. Rolling audio remains preview-only; finalized utterances receive shared Meeting event sequence before AI.",
     );
-    let incoming_message = start_optional_incoming_lane(&session_id);
+    let incoming_message = schedule_optional_incoming_lane(&session_id);
     MeetingSessionActionResult {
         ok: true,
         state: "live".to_string(),
         message: format!(
             "Translation Live committed with authoritative outbound capture/consumer. {incoming_message}"
         ),
-        status: status_from_report(committed, build_preflight()),
+        status: status_from_report(committed, prepared_preflight),
     }
 }
 
@@ -1915,6 +2025,8 @@ pub fn stop_meeting_translation() -> MeetingSessionActionResult {
     }
 
     let Some(snapshot) = current.snapshot.as_ref() else {
+        clear_all_start_preflight();
+        clear_prepared_meeting_output_device();
         let incoming_capture_stop = stop_meeting_sound_capture_runtime();
         clear_finalized_incoming_utterance_producer();
         clear_finalized_meeting_sequence();
@@ -1964,6 +2076,7 @@ pub fn stop_meeting_translation() -> MeetingSessionActionResult {
 
     interrupt_committed_turns_for_generation(&session_id, generation);
     let _ = cancel_meeting_output_for_generation(generation);
+    clear_prepared_meeting_output_device();
     let capture_stop = stop_live_capture_runtime();
     let incoming_capture_stop = stop_meeting_sound_capture_runtime();
     let helper_cancel = cancel_helper_bridge_meeting_session(&session_id);
@@ -2043,6 +2156,8 @@ pub fn stop_meeting_translation() -> MeetingSessionActionResult {
         };
     }
 
+    clear_start_preflight_for_generation(generation);
+
     MeetingSessionActionResult {
         ok: true,
         state: "stopped".to_string(),
@@ -2070,6 +2185,42 @@ fn meeting_cleanup_complete(
         && helper_cleanup_ok
         && outbound_consumer_ok
         && incoming_consumer_ok
+}
+
+#[cfg(test)]
+mod b3_preflight_snapshot_tests {
+    use super::{
+        clear_all_start_preflight, current_start_preflight, remember_start_preflight,
+        MeetingSessionPreflightStatus,
+    };
+
+    fn ready_preflight() -> MeetingSessionPreflightStatus {
+        MeetingSessionPreflightStatus {
+            ready_for_start: true,
+            microphone_ready: true,
+            models_ready: true,
+            helper_ready: true,
+            provider_ready: true,
+            meeting_route_ready: true,
+            generation_aware_outbound_stages_ready: true,
+            finalized_utterance_source_connected: true,
+            outbound_runtime_connected: true,
+            blockers: Vec::new(),
+            summary: "ready".to_string(),
+            runtime_claim: "b3_test".to_string(),
+        }
+    }
+
+    #[test]
+    fn start_preflight_snapshot_is_generation_bound() {
+        clear_all_start_preflight();
+        remember_start_preflight(41, ready_preflight());
+
+        assert!(current_start_preflight(41).is_some());
+        assert!(current_start_preflight(42).is_none());
+
+        clear_all_start_preflight();
+    }
 }
 
 #[cfg(test)]

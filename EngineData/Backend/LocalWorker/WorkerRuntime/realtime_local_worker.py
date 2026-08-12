@@ -43,7 +43,6 @@ MAX_TRANSCRIPT_TEXT_CHARS = 4_000
 MAX_AUDIO_INPUT_BYTES = 25 * 1024 * 1024
 MAX_GENERATION_TOKENS = 128
 MAX_REASONABLE_MODEL_TOKEN_LIMIT = 1_000_000
-GPU_PROBE_TIMEOUT_SECONDS = 3.0
 SAPI_PROBE_TIMEOUT_SECONDS = 8.0
 PIPER_SYNTHESIS_TIMEOUT_SECONDS = 10.0
 SAPI_SYNTHESIS_TIMEOUT_SECONDS = 30.0
@@ -197,20 +196,6 @@ def ctranslate2_status() -> dict[str, Any]:
     }
 
 
-def nvidia_smi_available(payload: dict[str, Any] | None = None) -> bool:
-    try:
-        completed = subprocess.run(
-            ["nvidia-smi", "-L"],
-            text=True,
-            capture_output=True,
-            timeout=bounded_subprocess_timeout_seconds(payload, GPU_PROBE_TIMEOUT_SECONDS),
-            check=False,
-        )
-        return completed.returncode == 0 and bool(completed.stdout.strip())
-    except Exception:
-        return False
-
-
 def probe_gpu_runtime(payload: dict[str, Any] | None = None) -> dict[str, Any]:
     torch_probe = torch_status()
     ctranslate2_probe = ctranslate2_status()
@@ -256,7 +241,6 @@ def probe_gpu_runtime(payload: dict[str, Any] | None = None) -> dict[str, Any]:
         "cuda_capability_known": cuda_capability_known,
         "cpu_fallback_active": cpu_fallback_active,
         "cuda_probe_blocker": ";".join(probe_blockers),
-        "nvidia_smi_available": nvidia_smi_available(payload),
         "cuda_primary_requested": True,
         "selected_device": selected_device,
         "selected_translation_device": selected_translation_device,
@@ -737,7 +721,6 @@ def build_status_payload(payload: dict[str, Any] | None = None) -> dict[str, Any
         "torch_import_ready": torch_ready,
         "torch_cuda_available": cuda_available,
         "ctranslate2_cuda_available": ctranslate2_cuda_available,
-        "nvidia_smi_available": bool(gpu_runtime["nvidia_smi_available"]),
         "gpu_primary_requested": bool(gpu_runtime["cuda_primary_requested"]),
         "selected_device": str(gpu_runtime["selected_device"]),
         "selected_translation_device": str(gpu_runtime["selected_translation_device"]),

@@ -81,7 +81,6 @@ def test_worker_status_uses_canonical_translation_readiness_fields(monkeypatch) 
             "cuda_capability_known": True,
             "cpu_fallback_active": False,
             "cuda_probe_blocker": "",
-            "nvidia_smi_available": True,
             "cuda_primary_requested": True,
             "selected_device": "cuda",
             "selected_translation_device": "cuda",
@@ -356,6 +355,41 @@ def test_newline_protocol_rejects_already_expired_request() -> None:
     assert payload["blocker"] == "worker:request_deadline_expired"
 
 
+def test_routine_gpu_probe_does_not_spawn_external_nvidia_smi(monkeypatch) -> None:
+    worker = load_worker_module()
+    monkeypatch.setattr(
+        worker,
+        "torch_status",
+        lambda: {
+            "import_ready": True,
+            "cuda_probe_ok": True,
+            "cuda_available": False,
+            "blocker": "",
+        },
+    )
+    monkeypatch.setattr(
+        worker,
+        "ctranslate2_status",
+        lambda: {
+            "import_ready": True,
+            "cuda_probe_ok": True,
+            "cuda_available": False,
+            "blocker": "",
+        },
+    )
+
+    def unexpected_subprocess(*_args, **_kwargs):
+        raise AssertionError("routine GPU capability status must not spawn subprocesses")
+
+    monkeypatch.setattr(worker.subprocess, "run", unexpected_subprocess)
+    gpu = worker.probe_gpu_runtime({})
+
+    assert gpu["cuda_capability_known"] is True
+    assert gpu["cpu_fallback_active"] is True
+    assert gpu["fallback_reason"] == "cuda_unavailable"
+    assert "nvidia_smi_available" not in gpu
+
+
 def test_gpu_probe_uses_cpu_only_for_known_unavailable_capability(monkeypatch) -> None:
     worker = load_worker_module()
     monkeypatch.setattr(
@@ -378,8 +412,6 @@ def test_gpu_probe_uses_cpu_only_for_known_unavailable_capability(monkeypatch) -
             "blocker": "",
         },
     )
-    monkeypatch.setattr(worker, "nvidia_smi_available", lambda _payload=None: False)
-
     gpu = worker.probe_gpu_runtime({})
 
     assert gpu["cuda_capability_known"] is True
@@ -413,8 +445,6 @@ def test_gpu_probe_failure_does_not_activate_cpu_fallback(monkeypatch) -> None:
             "blocker": "cuda:ctranslate2_probe_failed:RuntimeError",
         },
     )
-    monkeypatch.setattr(worker, "nvidia_smi_available", lambda _payload=None: False)
-
     gpu = worker.probe_gpu_runtime({})
 
     assert gpu["cuda_capability_known"] is False
