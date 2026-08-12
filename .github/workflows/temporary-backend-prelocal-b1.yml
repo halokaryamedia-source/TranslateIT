@@ -49,11 +49,20 @@ jobs:
           }
           finally { Pop-Location }
 
-      - name: Format Rust source
+      - name: Format B1 Rust source only
         shell: pwsh
         run: |
-          cargo fmt --manifest-path "EngineData/Frontend/RustApp/src-tauri/Cargo.toml"
-          if ($LASTEXITCODE -ne 0) { throw "cargo fmt failed." }
+          $files = @(
+            "EngineData/Frontend/RustApp/src-tauri/src/commands/meeting_session.rs",
+            "EngineData/Frontend/RustApp/src-tauri/src/commands/mod.rs",
+            "EngineData/Frontend/RustApp/src-tauri/src/commands/virtual_mic_route.rs",
+            "EngineData/Frontend/RustApp/src-tauri/src/engine/audio/meeting_output.rs",
+            "EngineData/Frontend/RustApp/src-tauri/src/engine/audio/mod.rs"
+          )
+          foreach ($file in $files) {
+            rustfmt --edition 2021 $file
+            if ($LASTEXITCODE -ne 0) { throw "rustfmt failed for $file" }
+          }
 
       - name: Verify B1 change scope
         shell: pwsh
