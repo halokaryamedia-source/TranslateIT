@@ -62,6 +62,10 @@ jobs:
                   '  "virtual_mic_generation_bound_route_pair_source_side_not_audio_routing_proof",\n',
                   '  "virtual_mic_generation_bound_route_pair_source_side_not_audio_delivery_proof",\n',
               ),
+              (
+                  'requireMarkers(source.runtimeState, "Meeting lifecycle", [\'phase: "starting".to_string()\',',
+                  'requireMarkers(source.runtimeState, "Meeting lifecycle", [\'"starting",\',',
+              ),
           ]
           for old, new in replacements:
               if old not in body:
