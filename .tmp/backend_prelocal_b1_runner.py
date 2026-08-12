@@ -10,3 +10,20 @@ if source.count(needle) != 1:
     raise RuntimeError(f"temporary B1 helper safety hook changed unexpectedly: {source.count(needle)} matches")
 source = source.replace(needle, replacement, 1)
 exec(compile(source, str(helper), "exec"), {"__name__": "__main__", "__file__": str(helper)})
+
+next_path = helper.parents[1] / "docs" / "knowledge" / "next-action.md"
+next_text = next_path.read_text(encoding="utf-8")
+old = "canonical virtual-route/startup/package validators -> PASS"
+new = "B1 virtual-route/package ownership validators -> PASS"
+if next_text.count(old) != 1:
+    raise RuntimeError(f"B1 proof claim marker changed unexpectedly: {next_text.count(old)} matches")
+next_text = next_text.replace(old, new, 1)
+anchor = "This proves source ownership, native output stream construction, format conversion logic, cancellation/deadline wiring, and Windows compilation."
+qualification = (
+    "The repository-wide `validate:source-contracts` aggregate is not claimed in B1 because the existing startup validator still contains an unrelated stale Settings assertion; canonical validator reconciliation remains mapped to B5. "
+    + anchor
+)
+if next_text.count(anchor) != 1:
+    raise RuntimeError(f"B1 proof qualification anchor changed unexpectedly: {next_text.count(anchor)} matches")
+next_text = next_text.replace(anchor, qualification, 1)
+next_path.write_text(next_text, encoding="utf-8", newline="\n")
