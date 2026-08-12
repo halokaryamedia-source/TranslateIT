@@ -6,17 +6,22 @@ const root = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const files = {
   meeting: resolve(root, "src-tauri/src/commands/meeting_session.rs"),
   route: resolve(root, "src-tauri/src/commands/virtual_mic_route.rs"),
-  routeRuntime: resolve(root, "src-tauri/src/commands/virtual_audio_route_runtime.rs"),
+  meetingOutput: resolve(root, "src-tauri/src/engine/audio/meeting_output.rs"),
+  audioMod: resolve(root, "src-tauri/src/engine/audio/mod.rs"),
   commandsMod: resolve(root, "src-tauri/src/commands/mod.rs"),
   registry: resolve(root, "src-tauri/src/commands/registry.rs"),
-  provider: resolve(root, "../../Backend/LocalWorker/WorkerRuntime/virtual_audio_route_provider.py"),
 };
+const retired = [
+  resolve(root, "src-tauri/src/commands/virtual_audio_route_runtime.rs"),
+  resolve(root, "../../Backend/LocalWorker/WorkerRuntime/virtual_audio_route_provider.py"),
+];
 
 const source = {};
 for (const [name, path] of Object.entries(files)) {
   if (!existsSync(path)) throw new Error(`Missing ${name}: ${path}`);
   source[name] = readFileSync(path, "utf8");
 }
+for (const path of retired) if (existsSync(path)) throw new Error(`Retired Python/command route owner still exists: ${path}`);
 
 function requireMarkers(body, label, markers) {
   for (const marker of markers) if (!body.includes(marker)) throw new Error(`${label} marker missing: ${marker}`);
@@ -25,34 +30,51 @@ function forbidMarkers(body, label, markers) {
   for (const marker of markers) if (body.includes(marker)) throw new Error(`${label} forbidden marker found: ${marker}`);
 }
 
-requireMarkers(source.commandsMod, "internal route modules", [
-  "pub mod virtual_audio_route_runtime;",
-  "pub mod virtual_mic_route;",
+requireMarkers(source.audioMod, "Windows audio ownership", ["pub mod meeting_output;"]);
+forbidMarkers(source.commandsMod, "retired command-layer route owner", ["pub mod virtual_audio_route_runtime;"]);
+requireMarkers(source.meeting, "Meeting native output ownership", [
+  "prepare_meeting_output_device",
+  "deliver_meeting_output_wav",
+  "cancel_meeting_output_for_generation",
+  "get_virtual_mic_route_selection",
 ]);
-requireMarkers(source.meeting, "Meeting route ownership", [
-  "get_virtual_mic_route_contract_status",
-  "meeting_route_execution_guard_status",
+forbidMarkers(source.meeting, "retired Python route ownership", [
+  "TRANSLATEIT_ENABLE_VIRTUAL_AUDIO_ROUTE_PROVIDER",
   "dispatch_meeting_virtual_audio_route_provider",
-  "cancel_meeting_virtual_audio_route_provider",
+  "prepare_meeting_virtual_audio_route_provider",
+  "route_execution_guard_ready",
 ]);
-requireMarkers(source.route, "Meeting microphone contract", ["get_virtual_mic_route_contract_status"]);
-requireMarkers(source.routeRuntime, "guarded Meeting output runtime", [
-  "meeting_route_execution_guard_status",
-  "dispatch_meeting_virtual_audio_route_provider",
-  "cancel_meeting_virtual_audio_route_provider",
+requireMarkers(source.meetingOutput, "native Meeting output runtime", [
+  "pub fn prepare_meeting_output_device(",
+  "pub fn deliver_meeting_output_wav(",
+  "pub fn cancel_meeting_output_for_generation(",
+  ".build_output_stream(",
+  "runtime_generation_is_authoritative",
+  "meeting_output:delivery_deadline_exceeded",
+  "decode_wav_bytes",
+  "prepare_output_samples",
 ]);
-requireMarkers(source.provider, "route provider", ["route_virtual_audio", "sounddevice"]);
-
-// Route internals stay behind the Meeting owner. The frontend registry is not a manual
-// route laboratory and professional-readiness orchestration is retired.
-forbidMarkers(source.registry, "production route surface", [
-  "get_virtual_mic_route_contract_status",
+requireMarkers(source.route, "matched read-only Meeting route", [
+  "pub fn prepare_current_virtual_mic_route_for_meeting()",
+  "pub fn bind_prepared_virtual_mic_route_to_generation",
+  "pub fn get_virtual_mic_route_selection()",
+  "pub fn get_virtual_mic_route_contract_status()",
+  "fn matched_pair_identity(",
+  "fn matched_pair_candidates(",
+]);
+forbidMarkers(source.route, "unowned persisted route preference/stub", [
+  "VirtualMicRoutePreference",
+  "virtual_mic_route_preference.json",
   "set_preferred_virtual_mic_route_devices",
   "prepare_virtual_mic_output_route_runtime_stub",
-  "prepare_guarded_virtual_audio_route_runtime",
-  "dispatch_guarded_virtual_audio_route_provider",
-  "professional_readiness",
 ]);
-forbidMarkers(source.commandsMod, "retired route orchestration", ["pub mod professional_readiness_gate;"]);
+requireMarkers(source.registry, "read-only route diagnostics surface", [
+  "crate::commands::virtual_mic_route::get_virtual_mic_route_contract_status",
+]);
+forbidMarkers(source.registry, "mutating/manual route surface", [
+  "set_preferred_virtual_mic_route_devices",
+  "prepare_virtual_mic_output_route_runtime_stub",
+  "dispatch_guarded_virtual_audio_route_provider",
+]);
 
-console.log("[virtual-route] Meeting Microphone route remains an internal Meeting dependency; retired manual/professional route commands are not exposed.");
+console.log("[virtual-route] Meeting output is Rust/CPAL-owned; one matched generation-bound virtual pair feeds the active read-only route-status command, and retired Python/manual route owners are absent.");

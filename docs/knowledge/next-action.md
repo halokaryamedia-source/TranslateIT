@@ -752,10 +752,29 @@ B6 Bounded dead-code/documentation cleanup
 
 Known release-only work (packaged private `PythonRuntime`, NSIS staging, clean-machine install) remains after local runtime acceptance and must not be pulled into these pre-local waves.
 
+## Backend Pre-Local B1 — CLOSED
+
+Meeting translated-audio delivery now remains inside the existing Rust/Windows-audio boundary. The Python worker ends at the synthesized WAV handoff; `engine/audio/meeting_output.rs` decodes bounded PCM/float WAV, converts speech to the exact selected output configuration, and submits it through CPAL to the generation-bound matched virtual-cable playback endpoint. Delivery stays serialized by the existing Meeting outbound consumer, checks Meeting generation authority during playback, supports generation cancellation, and has an audio-duration-derived bounded completion deadline. No playback retry or second route owner was added.
+
+The previous per-utterance `virtual_audio_route_provider.py` process and command-layer `virtual_audio_route_runtime.rs` owner are removed together with the hidden `TRANSLATEIT_ENABLE_VIRTUAL_AUDIO_ROUTE_PROVIDER` gate, payload/evidence handoff, direct Python `sounddevice` dependency, and unowned persisted virtual-route preference. The production registry keeps only the active read-only virtual-route status command; route selection still locks one matched pair to the Meeting generation.
+
+Remote Windows/source proof for this slice passed:
+
+```text
+Rust native Meeting-output decode/resample tests -> PASS
+B1 virtual-route/package ownership validators -> PASS
+Python WorkerRuntime tests + frozen lock check -> PASS
+svelte-check + frontend build -> PASS
+cargo check -> PASS
+Tauri release build --no-bundle -> PASS
+```
+
+The repository-wide source/preflight validator aggregate is not claimed in B1 because existing startup/frontend validators still contain unrelated stale Settings/UI assertions; canonical validator reconciliation remains mapped to B5. This proves source ownership, native output stream construction, format conversion logic, cancellation/deadline wiring, and Windows compilation. It does not prove that VB-Cable receives audio or that a real meeting application hears it; that remains user-local Windows device proof. No CUDA dependency changes, VAD tuning, installer staging, hot-path caching, lifecycle redesign, or broad dead-code cleanup occurred in B1.
+
 ## Current Mode
 
-**Maintenance / Backend Pre-Local Readiness.** Backend hardening A1-A7 remains closed. P2.3 real CPU model execution remains proven; CUDA execution remains deferred until a GPU-capable Windows executor exists. The active objective is now to remove backend inefficiency, hidden gates, duplicate ownership, and stale local-proof tooling before user-local-PC testing.
+**Maintenance / Backend Pre-Local Readiness — B1 CLOSED.** Backend hardening A1-A7 remains closed. P2.3 CPU model execution remains proven and CUDA execution remains deferred. Continue the mapped pre-local readiness waves in order.
 
-## Next Step — Backend Pre-Local B1: Consolidate Meeting Virtual Output Route
+## Next Step — Backend Pre-Local B2: Windows CUDA Dependency Truth
 
-Replace the per-utterance Python `sounddevice` Meeting-output provider with the existing Rust Windows-audio boundary, preserving the matched virtual-cable pair, Meeting generation authority, cancellation, and at-most-once delivery. Remove the now-redundant hidden route-execution environment gate, stale persisted route preference, payload/evidence handoff, and contradictory route validator contract. Do not mix CUDA dependency work, VAD tuning, installer packaging, or broad dead-code cleanup into B1.
+Choose and lock one supported Windows Python/PyTorch/CTranslate2/CUDA execution matrix for the existing WorkerRuntime, pin the developer Python baseline used by proof/setup, and narrow CUDA-to-CPU fallback so only known CUDA capability conditions degrade to CPU while model/config/runtime failures remain truthful blockers. Do not mix runtime hot-path caching (B3), audio/VAD work, installer staging, or broad cleanup into B2.

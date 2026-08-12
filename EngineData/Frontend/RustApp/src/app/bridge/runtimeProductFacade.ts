@@ -127,7 +127,6 @@ type MeetingPreflightSnapshot = {
   helperReady: boolean;
   providerReady: boolean;
   meetingRouteReady: boolean;
-  routeExecutionReady: boolean;
   blockers: string[];
   summary: string;
 };
@@ -228,7 +227,6 @@ function meetingPreflight(meetingSession: MeetingSessionStatus | null): MeetingP
       helperReady: false,
       providerReady: false,
       meetingRouteReady: false,
-      routeExecutionReady: false,
       blockers: [],
       summary: "Meeting preflight has not been checked yet.",
     };
@@ -241,7 +239,6 @@ function meetingPreflight(meetingSession: MeetingSessionStatus | null): MeetingP
     helperReady: preflight.helper_ready === true,
     providerReady: preflight.provider_ready === true,
     meetingRouteReady: preflight.meeting_route_ready === true,
-    routeExecutionReady: preflight.route_execution_guard_ready === true,
     blockers: Array.isArray(preflight.blockers) ? preflight.blockers.map(String) : [],
     summary: compact(preflight.summary, "Meeting preflight checked."),
   };
@@ -389,7 +386,7 @@ export function mapProductReadiness(input: {
   const canTranslateText = textReady;
 
   const voiceReady = microphoneReady && providerReady;
-  const meetingRouteReady = meeting.meetingRouteReady && meeting.routeExecutionReady;
+  const meetingRouteReady = meeting.meetingRouteReady;
   const meetingReady = meeting.readyForStart || productMeeting.live;
   const recording = productMeeting.captureActive;
   const canRecordVoice = voiceReady && !recording && !productMeeting.hasSession;

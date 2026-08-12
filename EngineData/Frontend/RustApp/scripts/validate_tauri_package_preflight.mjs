@@ -37,7 +37,8 @@ const appBootstrapPath = join(tauriRoot, "src", "app_bootstrap.rs");
 const pathsOwnerPath = join(tauriRoot, "src", "engine", "paths.rs");
 const bridgePathsPath = join(tauriRoot, "src", "commands", "bridge_paths.rs");
 const helperBridgePath = join(tauriRoot, "src", "commands", "helper_bridge.rs");
-const routeRuntimePath = join(tauriRoot, "src", "commands", "virtual_audio_route_runtime.rs");
+const meetingOutputPath = join(tauriRoot, "src", "engine", "audio", "meeting_output.rs");
+const retiredRouteProviderPath = join(backendRoot, "LocalWorker", "WorkerRuntime", "virtual_audio_route_provider.py");
 const runtimeInventoryPath = join(tauriRoot, "src", "commands", "runtime_inventory.rs");
 const workerPath = join(backendRoot, "LocalWorker", "WorkerRuntime", "realtime_local_worker.py");
 const workerPyprojectPath = join(backendRoot, "LocalWorker", "WorkerRuntime", "pyproject.toml");
@@ -53,7 +54,7 @@ for (const path of [
   pathsOwnerPath,
   bridgePathsPath,
   helperBridgePath,
-  routeRuntimePath,
+  meetingOutputPath,
   runtimeInventoryPath,
   workerPath,
   workerPyprojectPath,
@@ -210,28 +211,25 @@ forbidMarkers(helperBridgeRs, "persistent helper legacy Python selection", [
   "install Python on PATH",
 ]);
 
-const routeRuntimeRs = readText(routeRuntimePath);
-requireMarkers(routeRuntimeRs, "Meeting Microphone provider interpreter ownership", [
-  'worker_root().join("virtual_audio_route_provider.py")',
-  "resolve_worker_python_command",
-  "worker_python_unavailable_message",
-  "Command::new(&python.program)",
-  ".args(&python.bootstrap_args)",
+const meetingOutputRs = readText(meetingOutputPath);
+requireMarkers(meetingOutputRs, "Rust Meeting Microphone delivery ownership", [
+  "pub fn prepare_meeting_output_device(",
+  "pub fn deliver_meeting_output_wav(",
+  ".build_output_stream(",
 ]);
-forbidMarkers(routeRuntimeRs, "Meeting Microphone provider legacy Python selection", [
-  "TRANSLATEIT_PYTHON",
-  "fn python_command()",
-  "project_paths.project_root",
-]);
+if (existsSync(retiredRouteProviderPath)) {
+  fail("Retired Python virtual-audio route provider must not be packaged as a second Meeting output owner.");
+}
 
 const workerPyproject = readText(workerPyprojectPath);
 requireMarkers(workerPyproject, "installed worker dependency set", [
-  '"sounddevice>=0.4.6,<1",',
-  '"numpy",',
   '"ctranslate2>=4.4.0",',
   '"faster-whisper>=1.0.0",',
   '"torch",',
   '"transformers>=4.44.0",',
+]);
+forbidMarkers(workerPyproject, "retired Python audio-route dependency", [
+  '"sounddevice>=0.4.6,<1",',
 ]);
 forbidMarkers(workerPyproject, "runtime dependency hidden behind optional extra", [
   "[project.optional-dependencies]",
@@ -269,5 +267,5 @@ forbidMarkers(runtimeInventoryRs, "model inventory project-root derivation", [
 
 if (process.exitCode) process.exit(process.exitCode);
 console.log(
-  "[tauri-package-preflight] Packaged interpreter ownership is source-aligned: packaged mode resolves only EngineData/Backend/LocalWorker/PythonRuntime/python.exe without a per-call interpreter probe, repository Python fallbacks stay behind verified development mode, and both the persistent worker and Meeting Microphone provider use the same resolver. PythonRuntime payload bytes, Tauri/NSIS staging, installed execution, and clean-machine operation remain intentionally unproved here.",
+  "[tauri-package-preflight] Packaged interpreter ownership is source-aligned: packaged mode resolves only EngineData/Backend/LocalWorker/PythonRuntime/python.exe without a per-call interpreter probe, repository Python fallbacks stay behind verified development mode, the persistent worker uses that resolver, and Meeting audio delivery remains inside Rust/CPAL rather than spawning a second Python provider. PythonRuntime payload bytes, Tauri/NSIS staging, installed execution, and clean-machine operation remain intentionally unproved here.",
 );

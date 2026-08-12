@@ -17,6 +17,9 @@ use crate::engine::audio::live_segment_writer::{
     remove_finalized_meeting_utterance_wav, write_finalized_incoming_utterance_wav,
     write_finalized_outbound_utterance_wav,
 };
+use crate::engine::audio::meeting_output::{
+    cancel_meeting_output_for_generation, deliver_meeting_output_wav, prepare_meeting_output_device,
+};
 use crate::engine::audio::meeting_sound_capture::{
     meeting_sound_capture_status, start_meeting_sound_capture_runtime,
     stop_meeting_sound_capture_runtime,
@@ -36,11 +39,9 @@ use super::helper_bridge::{
     HelperBridgeWorkerResponse,
 };
 use super::helper_bridge_runtime::unix_ms;
-use super::virtual_audio_route_runtime::{
-    cancel_meeting_virtual_audio_route_provider, dispatch_meeting_virtual_audio_route_provider,
-    meeting_route_execution_guard_status, prepare_meeting_virtual_audio_route_provider,
+use super::virtual_mic_route::{
+    get_virtual_mic_route_contract_status, get_virtual_mic_route_selection,
 };
-use super::virtual_mic_route::get_virtual_mic_route_contract_status;
 
 const APPLICATION_MEETING_OWNER_ID: &str = "translateit_application_meeting";
 const MAX_LIVE_COMMITTED_TURNS: usize = 240;
@@ -53,7 +54,6 @@ pub struct MeetingSessionPreflightStatus {
     pub helper_ready: bool,
     pub provider_ready: bool,
     pub meeting_route_ready: bool,
-    pub route_execution_guard_ready: bool,
     pub generation_aware_outbound_stages_ready: bool,
     pub finalized_utterance_source_connected: bool,
     pub outbound_runtime_connected: bool,
@@ -648,7 +648,6 @@ fn build_preflight() -> MeetingSessionPreflightStatus {
     let input = get_input_status();
     let helper = get_helper_bridge_status();
     let route = get_virtual_mic_route_contract_status();
-    let route_execution = meeting_route_execution_guard_status();
 
     let microphone_ready = input.prepared;
     let helper_ready = helper.state == "ready";
@@ -658,7 +657,6 @@ fn build_preflight() -> MeetingSessionPreflightStatus {
     // is a separate Diagnostics/release inventory and must not gate Meeting Start.
     let models_ready = meeting_required_ai_ready(helper_ready, provider_ready);
     let meeting_route_ready = route.route_ready;
-    let route_execution_guard_ready = route_execution.ready;
     let generation_aware_outbound_stages_ready = generation_aware_outbound_stages_ready();
     let finalized_utterance_source_connected = finalized_utterance_source_connected();
     let outbound_runtime_connected = application_outbound_runtime_connected();
@@ -675,13 +673,6 @@ fn build_preflight() -> MeetingSessionPreflightStatus {
             "meeting_session:meeting_microphone_route_not_ready".to_string()
         } else {
             route.blocker.clone()
-        });
-    }
-    if !route_execution_guard_ready {
-        blockers.push(if route_execution.blocker.is_empty() {
-            "meeting_session:meeting_route_execution_not_ready".to_string()
-        } else {
-            route_execution.blocker.clone()
         });
     }
     if !generation_aware_outbound_stages_ready {
@@ -704,7 +695,6 @@ fn build_preflight() -> MeetingSessionPreflightStatus {
         helper_ready,
         provider_ready,
         meeting_route_ready,
-        route_execution_guard_ready,
         generation_aware_outbound_stages_ready,
         finalized_utterance_source_connected,
         outbound_runtime_connected,
@@ -1167,7 +1157,12 @@ pub fn process_authoritative_finalized_outbound_wav(
         "",
         "Translated voice is being delivered through TranslateIT Meeting Microphone.",
     );
-    let route = dispatch_meeting_virtual_audio_route_provider(tts_path.clone(), generation);
+    let route_selection = get_virtual_mic_route_selection();
+    let route = deliver_meeting_output_wav(
+        &tts_path,
+        route_selection.selected_output_device.as_deref(),
+        generation,
+    );
     drop(suppression_guard);
     if incoming_session_is_eligible(session_id) && meeting_sound_capture_status().stream_active {
         update_incoming_status(
@@ -1182,7 +1177,7 @@ pub fn process_authoritative_finalized_outbound_wav(
     if !generation_is_live(generation) {
         return stale_outbound_result(generation, session_id, event_sequence, utterance_id);
     }
-    if !route.ok || !route.route_execution_attempted {
+    if !route.ok || !route.execution_attempted {
         let blocker = if route.blocker.is_empty() {
             "meeting_outbound:meeting_route_delivery_failed".to_string()
         } else {
@@ -1730,16 +1725,22 @@ pub fn start_meeting_translation() -> MeetingSessionActionResult {
         };
     }
 
-    // The quick status preflight proves selected route/device/script/guard presence.
-    // Before authority is created, exercise the actual Meeting route provider far
-    // enough to prove its Python runtime/dependencies can resolve the selected output
-    // device. This is still not Windows playback proof; the first real utterance must
-    // execute the guarded provider and satisfy its normal at-most-once completion path.
-    if let Err(blocker) = prepare_meeting_virtual_audio_route_provider() {
+    // Route discovery chooses one exact matched virtual-cable pair. Before Meeting
+    // authority exists, verify the playback-side endpoint exposes a native CPAL output
+    // configuration. Actual samples are submitted only by authoritative Live output.
+    let prepared_route = get_virtual_mic_route_selection();
+    let Some(output_device) = prepared_route.selected_output_device.as_deref() else {
         return blocked_result(
-            "meeting_route_prepare_failed",
+            "meeting_output_prepare_failed",
+            "Start Translation couldn't resolve the prepared Meeting virtual output endpoint."
+                .to_string(),
+        );
+    };
+    if let Err(blocker) = prepare_meeting_output_device(output_device) {
+        return blocked_result(
+            "meeting_output_prepare_failed",
             format!(
-                "Start Translation couldn't prepare TranslateIT Meeting Microphone. Check Setup or Diagnostics and try again. Provider detail: {blocker}"
+                "Start Translation couldn't prepare TranslateIT Meeting Microphone. Check Setup or Diagnostics and try again. Native output detail: {blocker}"
             ),
         );
     }
@@ -1830,7 +1831,7 @@ pub fn start_meeting_translation() -> MeetingSessionActionResult {
             generation,
             "Meeting Live commit failed after resource open. Authority was revoked before rollback.",
         );
-        let _ = cancel_meeting_virtual_audio_route_provider(generation);
+        let _ = cancel_meeting_output_for_generation(generation);
         let _ = stop_live_capture_runtime();
         let _ = stop_meeting_sound_capture_runtime();
         clear_finalized_meeting_sequence();
@@ -1849,7 +1850,7 @@ pub fn start_meeting_translation() -> MeetingSessionActionResult {
             generation,
             "Meeting outbound consumer could not start. Authority was revoked before rollback.",
         );
-        let _ = cancel_meeting_virtual_audio_route_provider(generation);
+        let _ = cancel_meeting_output_for_generation(generation);
         let _ = stop_live_capture_runtime();
         let _ = stop_meeting_sound_capture_runtime();
         let helper_cancel = cancel_helper_bridge_meeting_session(&session_id);
@@ -1962,7 +1963,7 @@ pub fn stop_meeting_translation() -> MeetingSessionActionResult {
     }
 
     interrupt_committed_turns_for_generation(&session_id, generation);
-    let _ = cancel_meeting_virtual_audio_route_provider(generation);
+    let _ = cancel_meeting_output_for_generation(generation);
     let capture_stop = stop_live_capture_runtime();
     let incoming_capture_stop = stop_meeting_sound_capture_runtime();
     let helper_cancel = cancel_helper_bridge_meeting_session(&session_id);

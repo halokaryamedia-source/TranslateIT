@@ -40,8 +40,6 @@ export type VirtualMicRouteContractStatus = {
   route_pair_id: string | null;
   selected_output_device: string | null;
   selected_input_device: string | null;
-  preferred_output_device: string | null;
-  preferred_input_device: string | null;
   output_device_found: boolean;
   input_device_found: boolean;
   blocker: string;
@@ -66,7 +64,6 @@ export type MeetingSessionPreflightStatus = {
   helper_ready: boolean;
   provider_ready: boolean;
   meeting_route_ready: boolean;
-  route_execution_guard_ready: boolean;
   generation_aware_outbound_stages_ready: boolean;
   finalized_utterance_source_connected: boolean;
   outbound_runtime_connected: boolean;
@@ -275,8 +272,6 @@ function virtualMicRouteFallback(message: string): VirtualMicRouteContractStatus
     route_pair_id: null,
     selected_output_device: null,
     selected_input_device: null,
-    preferred_output_device: null,
-    preferred_input_device: null,
     output_device_found: false,
     input_device_found: false,
     blocker: "frontend_bridge_unavailable",
@@ -307,7 +302,6 @@ function meetingSessionStatusFallback(message: string): MeetingSessionStatus {
       helper_ready: false,
       provider_ready: false,
       meeting_route_ready: false,
-      route_execution_guard_ready: false,
       generation_aware_outbound_stages_ready: false,
       finalized_utterance_source_connected: false,
       outbound_runtime_connected: false,

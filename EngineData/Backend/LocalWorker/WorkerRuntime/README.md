@@ -37,7 +37,7 @@ Translation output is also fail-closed: a generated result is not promoted as su
 
 `pyproject.toml` is the WorkerRuntime dependency-intent and Python tooling owner. The committed `uv.lock` is the canonical resolved dependency graph for that project. Normal setup must consume the lock rather than resolving version ranges again.
 
-The base project contains the canonical local-AI runtime dependencies, including `numpy` and `sounddevice` used by the guarded Windows virtual-audio provider. There is no separate virtual-audio dependency authority or extra in the current project.
+The Python project contains only local-AI/TTS runtime dependencies. Meeting audio delivery is not a Python WorkerRuntime responsibility: `synthesize` produces the bounded WAV handoff and the Rust Windows-audio owner renders that WAV to the prepared virtual-cable output endpoint. No `sounddevice` route provider or second Python audio owner remains active.
 
 `requirements-realtime.txt` and `requirements-virtual-audio-route.txt` are retired. Do not recreate requirements files as parallel dependency authorities.
 

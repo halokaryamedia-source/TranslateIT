@@ -24,14 +24,13 @@ const paths = {
   helperBridge: resolve(root, "src-tauri/src/commands/helper_bridge.rs"),
   helperBridgeRuntime: resolve(root, "src-tauri/src/commands/helper_bridge_runtime.rs"),
   virtualMicRoute: resolve(root, "src-tauri/src/commands/virtual_mic_route.rs"),
-  virtualAudioRouteRuntime: resolve(root, "src-tauri/src/commands/virtual_audio_route_runtime.rs"),
+  meetingOutput: resolve(root, "src-tauri/src/engine/audio/meeting_output.rs"),
   settingsCommands: resolve(root, "src-tauri/src/commands/settings.rs"),
   textTranslate: resolve(root, "src-tauri/src/commands/text_translate.rs"),
   finalizedUtterance: resolve(root, "src-tauri/src/engine/audio/finalized_utterance.rs"),
   runtimeState: resolve(root, "src-tauri/src/engine/runtime_state.rs"),
   settingsRust: resolve(root, "src-tauri/src/engine/settings.rs"),
   worker: resolve(root, "../../Backend/LocalWorker/WorkerRuntime/realtime_local_worker.py"),
-  routeProvider: resolve(root, "../../Backend/LocalWorker/WorkerRuntime/virtual_audio_route_provider.py"),
   modelManifest: resolve(root, "../../Backend/LocalWorker/WorkerRuntime/model_manifest.json"),
 };
 
@@ -351,59 +350,28 @@ if (source.runtimeCommands.indexOf("prepare_current_virtual_mic_route_for_meetin
   throw new Error("Matched Meeting route pair must be prepared before canonical Meeting Start");
 }
 
-requireMarkers(source.virtualAudioRouteRuntime, "Meeting route provider preflight", [
-  "pub fn prepare_meeting_virtual_audio_route_provider()",
-  '"preflight_only": true',
-  '"preflight_verified"',
-  '"audio_route_ready"',
-  "resolve_worker_python_command",
-  "get_virtual_mic_route_selection",
+requireMarkers(source.meetingOutput, "Rust Meeting output runtime", [
+  "pub fn prepare_meeting_output_device(",
+  "pub fn deliver_meeting_output_wav(",
+  "pub fn cancel_meeting_output_for_generation(",
+  ".build_output_stream(",
+  "runtime_generation_is_authoritative",
+  '"meeting_output:delivery_deadline_exceeded"',
 ]);
-const meetingRoutePreflightStart = source.virtualAudioRouteRuntime.indexOf("pub fn prepare_meeting_virtual_audio_route_provider()");
-const meetingRoutePreflightEnd = source.virtualAudioRouteRuntime.indexOf("fn contract_json", meetingRoutePreflightStart);
-const meetingRoutePreflightSource = meetingRoutePreflightStart >= 0 && meetingRoutePreflightEnd > meetingRoutePreflightStart
-  ? source.virtualAudioRouteRuntime.slice(meetingRoutePreflightStart, meetingRoutePreflightEnd)
-  : "";
-requireMarkers(meetingRoutePreflightSource, "bounded Meeting route provider preflight", [
-  "MEETING_ROUTE_PROVIDER_PREFLIGHT_DEADLINE_MS",
-  ".stdout(Stdio::piped())",
-  ".stderr(Stdio::piped())",
-  ".spawn()",
-  "child.try_wait()",
-  "child.kill()",
-  "child.wait().ok()",
-  '"virtual_audio_route:provider_preflight_deadline_exceeded"',
-  '"virtual_audio_route:provider_preflight_process_wait_failed"',
-]);
-forbidMarkers(meetingRoutePreflightSource, "unbounded Meeting route provider preflight", [
-  ".output()",
-]);
-requireMarkers(source.routeProvider, "Meeting route provider preflight contract", [
-  '"preflight_verified": False',
-  "def _import_audio_runtime()",
-  "def _preflight_virtual_audio(",
-  "if preflight_only:",
-  "preflight_verified=True",
-  "audio_route_ready=True",
-]);
-requireMarkers(source.meetingSession, "Meeting route provider preparation before authority", [
-  "prepare_meeting_virtual_audio_route_provider",
-  '"meeting_route_prepare_failed"',
+requireMarkers(source.meetingSession, "Rust Meeting output preparation before authority", [
+  "prepare_meeting_output_device",
+  '"meeting_output_prepare_failed"',
   "let starting = begin_application_meeting_session();",
 ]);
-if (source.meetingSession.indexOf("prepare_meeting_virtual_audio_route_provider()") > source.meetingSession.indexOf("let starting = begin_application_meeting_session();")) {
-  throw new Error("Meeting route provider preflight must run before Meeting authority creation");
+if (source.meetingSession.indexOf("prepare_meeting_output_device(") > source.meetingSession.indexOf("let starting = begin_application_meeting_session();")) {
+  throw new Error("Native Meeting output preflight must run before Meeting authority creation");
 }
-requireMarkers(source.virtualAudioRouteRuntime, "Meeting route delivery hang containment", [
-  "MEETING_ROUTE_PROVIDER_PREFLIGHT_ELAPSED_MS",
-  "fn wav_duration_ms(",
-  "fn meeting_route_delivery_deadline_ms(",
-  "audio_duration_ms.saturating_mul(2)",
-  "provider_preflight_elapsed_ms",
-  "delivery_started.elapsed() >= Duration::from_millis(delivery_deadline_ms)",
-  '"provider_delivery_timed_out"',
-  '"virtual_audio_route:provider_delivery_deadline_exceeded"',
-  '"meeting_route_provider_delivery_deadline_exceeded_no_replay"',
+requireMarkers(source.meetingOutput, "Meeting route delivery hang containment", [
+  "fn delivery_deadline_ms(",
+  "saturating_mul(2)",
+  "MAX_DELIVERY_DEADLINE_MS",
+  "recv_timeout(deadline)",
+  '"meeting_output:delivery_deadline_exceeded"',
 ]);
 requireMarkers(source.meetingSession, "Meeting route temporary TTS ownership", [
   "let route = dispatch_meeting_virtual_audio_route_provider(tts_path.clone(), generation);",
