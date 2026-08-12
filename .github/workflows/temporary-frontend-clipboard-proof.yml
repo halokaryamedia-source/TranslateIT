@@ -1,0 +1,200 @@
+name: Temporary Frontend Clipboard Proof
+
+on:
+  push:
+    branches: [New]
+    paths:
+      - .github/workflows/temporary-frontend-clipboard-proof.yml
+
+jobs:
+  verify:
+    runs-on: windows-latest
+    timeout-minutes: 20
+    defaults:
+      run:
+        working-directory: EngineData/Frontend/RustApp
+
+    steps:
+      - name: Checkout New
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22.16.0'
+
+      - name: Deterministic frontend install
+        run: npm ci --no-audit --no-fund
+
+      - name: Svelte check
+        run: npm run typecheck
+
+      - name: Production frontend build
+        run: npm run build:frontend
+
+      - name: Write targeted Text clipboard harness
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          @'
+          <!doctype html>
+          <html lang="en">
+            <head><meta charset="UTF-8" /><meta name="viewport" content="width=device-width, initial-scale=1.0" /><title>TranslateIT Clipboard Proof</title></head>
+            <body>
+              <div id="app"></div>
+              <div id="proof-notice" aria-live="polite"></div>
+              <script type="module" src="/src/clipboard-proof.ts"></script>
+            </body>
+          </html>
+          '@ | Set-Content -Encoding utf8 clipboard-proof.html
+
+          @'
+          import "./styles/app.css";
+          import { mount } from "svelte";
+
+          const expectedTranslation = "Good morning from TranslateIT.";
+          const proofCommands: string[] = [];
+
+          (window as any).__TAURI_INTERNALS__ = {
+            invoke: async (command: string) => {
+              proofCommands.push(command);
+              if (command === "translate_text") {
+                return {
+                  ok: true,
+                  state: "completed",
+                  translated_text: expectedTranslation,
+                  user_message: "Translation ready.",
+                  blocker: "",
+                };
+              }
+              throw new Error(`Unexpected proof command: ${command}`);
+            },
+          };
+
+          const { default: Text } = await import("./pages/Text.svelte");
+          const target = document.querySelector<HTMLDivElement>("#app");
+          const notice = document.querySelector<HTMLDivElement>("#proof-notice");
+          if (!target || !notice) throw new Error("Clipboard proof harness root is missing.");
+
+          const settings = {
+            schema_version: 6,
+            source_language: "id",
+            target_language: "en",
+            meeting_setup_state: "deferred",
+            meeting_setup_checkpoint: 1,
+            audio: {
+              input_device_id: null,
+              output_device_id: null,
+            },
+          };
+
+          mount(Text, {
+            target,
+            props: {
+              settings,
+              textStatus: "Ready",
+              onSettingsChange: () => {},
+              onNotice: (message: string) => { notice.textContent = message; },
+            },
+          });
+
+          (window as any).__clipboardProof = { expectedTranslation, proofCommands };
+          '@ | Set-Content -Encoding utf8 src/clipboard-proof.ts
+
+      - name: Start targeted frontend server
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $stdout = Join-Path $env:RUNNER_TEMP 'translateit-clipboard-vite.out.log'
+          $stderr = Join-Path $env:RUNNER_TEMP 'translateit-clipboard-vite.err.log'
+          $process = Start-Process -FilePath 'npm.cmd' -ArgumentList 'run','dev:frontend' -PassThru -RedirectStandardOutput $stdout -RedirectStandardError $stderr
+          $process.Id | Set-Content -Encoding ascii (Join-Path $env:RUNNER_TEMP 'translateit-clipboard-vite.pid')
+          $deadline = (Get-Date).AddSeconds(30)
+          do {
+            Start-Sleep -Milliseconds 500
+            try {
+              $response = Invoke-WebRequest -UseBasicParsing 'http://127.0.0.1:1420/clipboard-proof.html' -TimeoutSec 2
+              if ($response.StatusCode -eq 200) { break }
+            } catch {}
+            if ($process.HasExited) {
+              Get-Content $stdout -ErrorAction SilentlyContinue
+              Get-Content $stderr -ErrorAction SilentlyContinue
+              throw "Vite proof server exited early with code $($process.ExitCode)."
+            }
+          } while ((Get-Date) -lt $deadline)
+          if ((Get-Date) -ge $deadline) { throw 'Timed out waiting for clipboard proof server.' }
+
+      - name: Run real browser clipboard interaction proof
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          New-Item -ItemType Directory -Force .tmp | Out-Null
+          @'
+          const { test, expect } = require('@playwright/test');
+
+          test.use({
+            browserName: 'chromium',
+            channel: 'chrome',
+            headless: true,
+            baseURL: 'http://127.0.0.1:1420',
+            permissions: ['clipboard-read', 'clipboard-write'],
+          });
+
+          test('Text Copy writes the translated result and reports failures truthfully', async ({ page }) => {
+            await page.goto('/clipboard-proof.html');
+
+            const source = page.getByLabel('Source text');
+            const target = page.getByLabel('Translated text');
+            await source.fill('Selamat pagi');
+            await page.getByRole('button', { name: 'Translate', exact: true }).click();
+
+            const expected = await page.evaluate(() => window.__clipboardProof.expectedTranslation);
+            await expect(target).toHaveValue(expected);
+            await expect(page.getByText('Translated', { exact: true })).toBeVisible();
+
+            await page.getByRole('button', { name: 'Copy', exact: true }).click();
+            await expect(page.getByRole('button', { name: 'Copied', exact: true })).toBeVisible();
+            await expect(page.locator('#proof-notice')).toHaveText('Translation copied.');
+
+            const clipboardValue = await page.evaluate(() => navigator.clipboard.readText());
+            expect(clipboardValue).toBe(expected);
+
+            const commands = await page.evaluate(() => window.__clipboardProof.proofCommands.slice());
+            expect(commands).toEqual(['translate_text']);
+
+            const faultInjected = await page.evaluate(() => {
+              try {
+                Object.defineProperty(navigator.clipboard, 'writeText', {
+                  configurable: true,
+                  value: async () => { throw new DOMException('Injected clipboard denial', 'NotAllowedError'); },
+                });
+                return true;
+              } catch {
+                return false;
+              }
+            });
+            expect(faultInjected).toBe(true);
+
+            await page.getByRole('button', { name: 'Copied', exact: true }).click();
+            await expect(page.getByRole('button', { name: 'Copy', exact: true })).toBeVisible();
+            await expect(page.locator('#proof-notice')).toHaveText("Couldn't copy the translation. Try again.");
+
+            const clipboardAfterFailure = await page.evaluate(() => navigator.clipboard.readText());
+            expect(clipboardAfterFailure).toBe(expected);
+          });
+          '@ | Set-Content -Encoding utf8 .tmp/clipboard.spec.cjs
+
+          npm exec --yes --package=@playwright/test@1.55.0 -- playwright test .tmp/clipboard.spec.cjs --reporter=line --workers=1
+
+      - name: Cleanup targeted proof files and server
+        if: always()
+        shell: pwsh
+        run: |
+          Remove-Item -Force clipboard-proof.html -ErrorAction SilentlyContinue
+          Remove-Item -Force src/clipboard-proof.ts -ErrorAction SilentlyContinue
+          Remove-Item -Recurse -Force .tmp -ErrorAction SilentlyContinue
+          $pidFile = Join-Path $env:RUNNER_TEMP 'translateit-clipboard-vite.pid'
+          if (Test-Path $pidFile) {
+            $proofPid = [int](Get-Content $pidFile)
+            Stop-Process -Id $proofPid -Force -ErrorAction SilentlyContinue
+          }
