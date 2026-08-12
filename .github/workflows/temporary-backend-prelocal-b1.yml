@@ -49,15 +49,13 @@ jobs:
           }
           finally { Pop-Location }
 
-      - name: Format B1 Rust source only
+      - name: Format non-recursive B1 Rust source only
         shell: pwsh
         run: |
           $files = @(
             "EngineData/Frontend/RustApp/src-tauri/src/commands/meeting_session.rs",
-            "EngineData/Frontend/RustApp/src-tauri/src/commands/mod.rs",
             "EngineData/Frontend/RustApp/src-tauri/src/commands/virtual_mic_route.rs",
-            "EngineData/Frontend/RustApp/src-tauri/src/engine/audio/meeting_output.rs",
-            "EngineData/Frontend/RustApp/src-tauri/src/engine/audio/mod.rs"
+            "EngineData/Frontend/RustApp/src-tauri/src/engine/audio/meeting_output.rs"
           )
           foreach ($file in $files) {
             rustfmt --edition 2021 $file
