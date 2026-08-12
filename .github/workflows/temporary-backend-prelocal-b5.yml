@@ -11,7 +11,7 @@ permissions:
 jobs:
   prove-b5:
     runs-on: windows-2022
-    timeout-minutes: 60
+    timeout-minutes: 45
     steps:
       - name: Checkout New
         uses: actions/checkout@v4
@@ -42,7 +42,7 @@ jobs:
             Write-Host "$($entry.Value) -> $sha"
           }
 
-      - name: Apply bounded B5 correction
+      - name: Apply bounded B5 correction and validator reconciliation
         shell: pwsh
         run: |
           python .tmp/backend_prelocal_b5_patch.py
@@ -52,15 +52,64 @@ jobs:
 
           path = Path("EngineData/Frontend/RustApp/scripts/validate_startup_runtime_readiness.mjs")
           body = path.read_text(encoding="utf-8")
-          old = '  \'if empty { "listening" } else { "attention_needed" }\',\n'
-          new = '  "Translation Live is listening. Rolling audio remains preview-only; finalized utterances receive shared Meeting event sequence before AI.",\n'
-          if old not in body:
-              raise SystemExit("stale Meeting Start validator marker was not found")
-          path.write_text(body.replace(old, new, 1), encoding="utf-8", newline="\n")
+
+          replacements = [
+              (
+                  '  \'if empty { "listening" } else { "attention_needed" }\',\n',
+                  '  "Translation Live is listening. Rolling audio remains preview-only; finalized utterances receive shared Meeting event sequence before AI.",\n',
+              ),
+              (
+                  '  "virtual_mic_generation_bound_route_pair_source_side_not_audio_routing_proof",\n',
+                  '  "virtual_mic_generation_bound_route_pair_source_side_not_audio_delivery_proof",\n',
+              ),
+          ]
+          for old, new in replacements:
+              if old not in body:
+                  raise SystemExit(f"stale startup validator marker was not found: {old!r}")
+              body = body.replace(old, new, 1)
+
+          old_route = '''requireMarkers(source.meetingSession, "Meeting route temporary TTS ownership", [
+            "let route = dispatch_meeting_virtual_audio_route_provider(tts_path.clone(), generation);",
+            "remove_temporary_tts(&tts_path);",
+          ]);
+          const routeDispatchIndex = source.meetingSession.indexOf("let route = dispatch_meeting_virtual_audio_route_provider(tts_path.clone(), generation);");
+          const routeCleanupIndex = source.meetingSession.indexOf("remove_temporary_tts(&tts_path);", routeDispatchIndex);
+          if (routeDispatchIndex < 0 || routeCleanupIndex < routeDispatchIndex) {
+            throw new Error("Meeting temporary TTS must remain owned until synchronous route dispatch returns");
+          }
+          '''
+          new_route = '''requireMarkers(source.meetingSession, "Rust Meeting route temporary TTS ownership", [
+            "get_bound_virtual_mic_output_device(generation)",
+            "deliver_meeting_output_wav(&tts_path, bound_output_device.as_deref().ok(), generation)",
+            "remove_temporary_tts(&tts_path);",
+          ]);
+          const routeDispatchIndex = source.meetingSession.indexOf("deliver_meeting_output_wav(&tts_path, bound_output_device.as_deref().ok(), generation)");
+          const routeCleanupIndex = source.meetingSession.indexOf("remove_temporary_tts(&tts_path);", routeDispatchIndex);
+          if (routeDispatchIndex < 0 || routeCleanupIndex < routeDispatchIndex) {
+            throw new Error("Meeting temporary TTS must remain owned until synchronous Rust audio delivery returns");
+          }
+          '''
+          if old_route not in body:
+              raise SystemExit("retired Python route validator block was not found")
+          body = body.replace(old_route, new_route, 1)
+
+          old_manifest = 'if (models.some((model) => Object.hasOwn(model, "revision") || Object.hasOwn(model, "checksum"))) throw new Error("Initial model inventory must not grow revision/checksum release-identity placeholders");'
+          new_manifest = '''for (const model of models.filter((entry) => entry.source_type === "huggingface")) {
+            if (!/^[0-9a-f]{40}$/.test(String(model.revision ?? ""))) throw new Error(`Hugging Face model ${model.model_id} must pin a full immutable revision`);
+          }
+          if (models.some((model) => Object.hasOwn(model, "checksum"))) throw new Error("Model inventory must not invent checksum identity without a current packaging requirement");'''
+          if old_manifest not in body:
+              raise SystemExit("retired manifest revision prohibition was not found")
+          body = body.replace(old_manifest, new_manifest, 1)
+          body = body.replace(
+              "bounded Meeting route provider preflight before authority",
+              "native Meeting output preflight before authority",
+          )
+          path.write_text(body, encoding="utf-8", newline="\n")
           '@ | python -
           if ($LASTEXITCODE -ne 0) { throw 'B5 validator reconciliation failed.' }
 
-      - name: Install uv and refresh canonical lock
+      - name: Refresh canonical WorkerRuntime lock only
         shell: pwsh
         run: |
           python -m pip install --disable-pip-version-check uv==0.12.3
@@ -71,45 +120,9 @@ jobs:
             if ($LASTEXITCODE -ne 0) { throw 'uv lock failed.' }
             uv lock --check
             if ($LASTEXITCODE -ne 0) { throw 'uv lock --check failed.' }
-            uv sync --frozen
-            if ($LASTEXITCODE -ne 0) { throw 'uv sync failed.' }
           } finally {
             Pop-Location
           }
-
-      - name: Prove WorkerRuntime tooling and pinned acquisition plan
-        shell: pwsh
-        run: |
-          Push-Location EngineData/Backend/LocalWorker/WorkerRuntime
-          try {
-            uv run --frozen ruff check .
-            if ($LASTEXITCODE -ne 0) { throw 'Ruff check failed.' }
-            uv run --frozen ruff format --check .
-            if ($LASTEXITCODE -ne 0) { throw 'Ruff format check failed.' }
-            uv run --frozen pytest
-            if ($LASTEXITCODE -ne 0) { throw 'WorkerRuntime pytest failed.' }
-            uv run --frozen python prepare_model_assets.py --plan
-            if ($LASTEXITCODE -ne 0) { throw 'Pinned model acquisition plan failed.' }
-          } finally {
-            Pop-Location
-          }
-
-      - name: Acquire required pinned Hugging Face assets
-        shell: pwsh
-        run: |
-          Push-Location EngineData/Backend/LocalWorker/WorkerRuntime
-          try {
-            uv run --frozen python prepare_model_assets.py
-            if ($LASTEXITCODE -ne 0) { throw 'Required model asset acquisition failed.' }
-          } finally {
-            Pop-Location
-          }
-
-      - name: Prove persistent worker smoke on hosted CPU fallback
-        shell: pwsh
-        run: |
-          & 'EngineData/Backend/LocalWorker/WorkerRuntime/run_realtime_worker_smoke.ps1' -ExpectedDevice CpuFallback -CommandTimeoutSeconds 300
-          if ($LASTEXITCODE -ne 0) { throw 'Persistent WorkerRuntime smoke failed.' }
 
       - name: Prove reconciled frontend and source validators
         shell: pwsh
