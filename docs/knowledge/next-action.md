@@ -576,10 +576,30 @@ Tauri release build --no-bundle   -> PASS
 
 No Python/model execution, audio-route execution, user-local-PC testing, scheduler change, or dead-code cleanup occurred in Wave A1.
 
+## Backend Hardening Wave A2 — CLOSED
+
+Meeting Stop and Mic Test Stop now preserve the authority-first rule while making cleanup truth explicit. A Stop result is successful only after required capture/helper/consumer cleanup reports success and the canonical runtime-session owner confirms the session was cleared. If cleanup fails, output generation authority remains revoked but the owner is retained as `cleanup_incomplete`; new Start/device rebind remains blocked and Stop can be retried. Meeting outbound/incoming presentation is also moved out of Live/listening state while cleanup is incomplete.
+
+Mic Test uses the same rule: its authority is revoked before capture cleanup, failed capture cleanup retains the Mic Test owner instead of claiming release, and the Settings/App caller keeps Stop Mic Test reachable for retry. The product Meeting mapping presents retained application cleanup as `Stop Needed` rather than a healthy or generic active state.
+
+Remote Windows proof for this slice passed:
+
+```text
+official Svelte autofixer (App + Settings) -> PASS
+svelte-check                             -> PASS: 0 errors / 0 warnings
+Vite production build                    -> PASS
+runtime_state targeted tests             -> PASS
+Meeting cleanup-truth targeted test       -> PASS
+cargo check                               -> PASS
+Tauri release build --no-bundle           -> PASS
+```
+
+No Python/model execution, physical audio-device proof, scheduler/deadline change, route redesign, or dead-code cleanup occurred in Wave A2. Real device/resource release still requires the later Windows audio acceptance wave; A2 closes the source/result ownership rule and deterministic cleanup-decision logic.
+
 ## Current Mode
 
-**Maintenance / Backend Hardening Wave A** — Wave A1 is source/proof closed. Continue one bounded correctness slice at a time before P2.3.
+**Maintenance / Backend Hardening Wave A** — Waves A1-A2 are source/proof closed. Continue one bounded hardening slice at a time before P2.3.
 
-## Next Step — Backend Hardening Wave A2: Cleanup Truth Matches Resource Release
+## Next Step — Backend Hardening Wave A3: Task-Aware Helper Deadlines + Bounded Status Probing
 
-Reconcile Meeting Stop and Mic Test Stop so authority invalidation still happens first, but the returned result and retained runtime state do not claim complete resource release when capture/helper/consumer cleanup actually fails. Keep this slice limited to Stop/resource-cleanup truth and direct status/result callers; do not mix helper timeout/scheduler, Python/model, virtual-route redesign, audio callback optimization, or dead-code cleanup.
+Replace the single 30-second helper response deadline with a small task-aware deadline policy grounded in the existing worker operations, and ensure status/preflight probing cannot consume or exceed the host envelope through nested long-running probes. Keep one persistent worker and the current request protocol; do not add retry loops, a second worker, scheduler admission changes (A4), stderr/logging changes (A5), Python dependency locking (A7), or model execution proof yet. Prove timeout-selection logic with targeted tests plus the existing remote Windows compile/native-build baseline.

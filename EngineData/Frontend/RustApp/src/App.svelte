@@ -231,19 +231,20 @@
 
   async function toggleMicTest(): Promise<void> {
     if (micTestBusy || !snapshot) return;
-    if (snapshot.meeting.hasSession) {
+    if (snapshot.meeting.applicationOwned) {
       setNotice(snapshot.meeting.live
         ? "Stop Meeting translation before using Mic Test."
         : "Mic Test is unavailable while Meeting audio is in use.");
       return;
     }
-    if (!snapshot.readiness.voiceReady && !snapshot.readiness.recording) {
+    const micTestOwnsRuntime = snapshot.meeting.hasSession && !snapshot.meeting.applicationOwned;
+    if (!snapshot.readiness.voiceReady && !snapshot.readiness.recording && !micTestOwnsRuntime) {
       setNotice("Microphone setup isn't ready yet.");
       return;
     }
 
     micTestBusy = true;
-    const wasRecording = snapshot.readiness.recording;
+    const wasRecording = snapshot.readiness.recording || micTestOwnsRuntime;
     try {
       const result = wasRecording ? await runtimeApi.stopCapture() : await runtimeApi.startCapture();
       await refreshSnapshot(result.ok ? (wasRecording ? "Mic Test stopped." : "Mic Test started.") : "Mic Test couldn't be completed. Try again or check Diagnostics.");

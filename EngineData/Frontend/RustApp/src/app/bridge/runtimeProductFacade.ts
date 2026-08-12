@@ -298,6 +298,9 @@ export function mapProductMeetingState(status: MeetingSessionStatus | null): Pro
   } else if (stopping) {
     label = "Stopping";
     message = "Translation is stopping safely.";
+  } else if (applicationOwned && lifecycle === "cleanup_incomplete") {
+    label = "Stop Needed";
+    message = "Translation output is stopped, but cleanup still needs attention. Try Stop again.";
   } else if (hasSession && !applicationOwned) {
     label = "In Use";
     message = "Meeting audio is already in use. Finish that operation before starting Translation.";

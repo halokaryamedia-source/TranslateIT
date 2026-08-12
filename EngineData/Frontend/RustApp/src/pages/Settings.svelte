@@ -48,6 +48,8 @@
   let deviceMessage = $state("Loading audio devices...");
 
   const meetingResourcesLocked = $derived(snapshot.meeting.hasSession);
+  const micTestOwnsResources = $derived(snapshot.meeting.hasSession && !snapshot.meeting.applicationOwned);
+  const micTestBlockedByMeeting = $derived(snapshot.meeting.applicationOwned);
   const meetingResourceLockMessage = "Stop Translation or Mic Test before changing meeting audio or running setup repair.";
   const meetingMicrophoneDevice = $derived(
     String(routeStatus?.selected_input_device ?? "").trim() || "Meeting microphone not configured",
@@ -245,7 +247,7 @@
           <p class="m-0 min-w-0 flex-1 text-[12px] leading-5 text-[var(--ti-text-muted)]" aria-live="polite">{meetingResourcesLocked ? meetingResourceLockMessage : deviceMessage}</p>
           <div class="ti-action-row shrink-0">
             <button type="button" class="ti-button ti-button-secondary" disabled={setupBusy || deviceSaving} onclick={() => void onSetupAction("check-microphone")}>{setupBusy ? "Checking..." : "Check Microphone"}</button>
-            <button type="button" class="ti-button ti-button-secondary" disabled={meetingResourcesLocked || micTestBusy || setupBusy || deviceSaving} onclick={() => void onMicTest()}>{micTestBusy ? "Working..." : snapshot.readiness.recording ? "Stop Mic Test" : "Mic Test"}</button>
+            <button type="button" class="ti-button ti-button-secondary" disabled={micTestBlockedByMeeting || micTestBusy || setupBusy || deviceSaving} onclick={() => void onMicTest()}>{micTestBusy ? "Working..." : snapshot.readiness.recording || micTestOwnsResources ? "Stop Mic Test" : "Mic Test"}</button>
             <button type="button" class="ti-button ti-button-secondary" disabled={meetingResourcesLocked || setupBusy || deviceSaving} onclick={() => void runSetupRepair()}>{setupBusy ? "Checking..." : "Check Setup"}</button>
           </div>
         </footer>

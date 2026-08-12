@@ -1,6 +1,7 @@
 use crate::engine::audio::live_capture::{start_live_capture_runtime, stop_live_capture_runtime};
 use crate::engine::runtime_state::{
     begin_direct_live_capture_session, clear_runtime_session_state, latest_runtime_session_state,
+    mark_runtime_session_cleanup_incomplete, revoke_runtime_session_authority,
 };
 use crate::engine::state::{CommandResult, LifecycleState};
 
@@ -50,14 +51,54 @@ pub fn stop_capture() -> CommandResult {
         }
     }
 
-    let capture = stop_live_capture_runtime();
-    let _ = clear_runtime_session_state();
-    if capture.ok {
-        CommandResult::ok(
-            LifecycleState::Stopped,
-            "Microphone test recording stopped and microphone ownership was released.",
-        )
-    } else {
-        CommandResult::blocked(LifecycleState::Error, capture.message)
+    let generation = current
+        .snapshot
+        .as_ref()
+        .map(|snapshot| snapshot.generation);
+    if let Some(generation) = generation {
+        let revoked = revoke_runtime_session_authority(
+            generation,
+            "Mic Test Stop accepted. Runtime generation authority was revoked before microphone cleanup.",
+        );
+        if revoked.snapshot.is_none()
+            || revoked
+                .snapshot
+                .as_ref()
+                .map(|snapshot| snapshot.authority_active)
+                .unwrap_or(true)
+        {
+            return CommandResult::blocked(
+                LifecycleState::Error,
+                "Microphone test could not revoke runtime ownership safely. Capture cleanup was not claimed complete.",
+            );
+        }
     }
+
+    let capture = stop_live_capture_runtime();
+    if !capture.ok {
+        if let Some(generation) = generation {
+            let _ = mark_runtime_session_cleanup_incomplete(
+                generation,
+                true,
+                "Mic Test output authority is revoked, but microphone capture cleanup did not complete. Retry Stop Mic Test.",
+            );
+        }
+        return CommandResult::blocked(LifecycleState::Error, capture.message);
+    }
+
+    let cleared = clear_runtime_session_state();
+    if cleared.has_active_session
+        || cleared.snapshot.is_some()
+        || cleared.blocker != "runtime_session:cleared"
+    {
+        return CommandResult::blocked(
+            LifecycleState::Error,
+            "Microphone capture stopped, but TranslateIT could not confirm that runtime ownership was cleared. Keep the app open and retry.",
+        );
+    }
+
+    CommandResult::ok(
+        LifecycleState::Stopped,
+        "Microphone test recording stopped and microphone ownership was released.",
+    )
 }

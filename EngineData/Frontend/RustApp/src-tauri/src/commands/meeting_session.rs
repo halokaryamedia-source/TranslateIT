@@ -24,8 +24,8 @@ use crate::engine::audio::meeting_sound_capture::{
 use crate::engine::runtime_state::{
     begin_application_meeting_session, clear_runtime_session_state,
     commit_application_meeting_session_live, latest_runtime_session_state,
-    revoke_application_meeting_session_authority, runtime_generation_is_authoritative,
-    RuntimeSessionStateReport,
+    mark_runtime_session_cleanup_incomplete, revoke_runtime_session_authority,
+    runtime_generation_is_authoritative, RuntimeSessionStateReport,
 };
 
 use super::audio::get_input_status;
@@ -166,6 +166,11 @@ struct MeetingIncomingConsumerRuntime {
     thread: Option<JoinHandle<()>>,
 }
 
+struct MeetingConsumerCleanupResult {
+    ok: bool,
+    message: String,
+}
+
 struct MeetingCommittedTurnStore {
     session_id: String,
     dropped_turn_count: u64,
@@ -270,8 +275,15 @@ fn current_incoming_status() -> MeetingIncomingRuntimeStatus {
         .unwrap_or_else(|_| idle_incoming_status());
     let capture = meeting_sound_capture_status();
     if status.session_id.is_some() {
-        status.capture_active = capture.stream_active;
-        status.suppressed = capture.suppression_active;
+        if status.stage == "cleanup_incomplete"
+            && capture.blocker == "meeting_sound:state_lock_failed"
+        {
+            status.capture_active = true;
+            status.suppressed = false;
+        } else {
+            status.capture_active = capture.stream_active;
+            status.suppressed = capture.suppression_active;
+        }
         if capture.stream_active && capture.callback_error_count > 0 {
             status.degraded = true;
             if status.blocker.is_empty() {
@@ -335,9 +347,36 @@ fn update_incoming_status(
     }
 }
 
+fn clear_outbound_status() {
+    if let Ok(mut status) = outbound_status_store().lock() {
+        *status = idle_outbound_status();
+    }
+}
+
 fn clear_incoming_status() {
     if let Ok(mut status) = incoming_status_store().lock() {
         *status = idle_incoming_status();
+    }
+}
+
+fn mark_incoming_cleanup_incomplete_status(
+    session_id: &str,
+    capture_potentially_active: bool,
+    note: &str,
+) {
+    if let Ok(mut status) = incoming_status_store().lock() {
+        *status = MeetingIncomingRuntimeStatus {
+            session_id: Some(session_id.to_string()),
+            stage: "cleanup_incomplete".to_string(),
+            capture_active: capture_potentially_active,
+            suppressed: false,
+            degraded: true,
+            blocker: "meeting_session:cleanup_incomplete".to_string(),
+            note: note.to_string(),
+            updated_unix_ms: unix_ms(),
+            runtime_claim: "meeting_incoming_cleanup_incomplete_resource_release_not_confirmed"
+                .to_string(),
+        };
     }
 }
 
@@ -1421,7 +1460,7 @@ fn start_meeting_outbound_consumer(generation: u64, session_id: &str) -> Result<
     Ok(())
 }
 
-fn stop_meeting_outbound_consumer(generation: u64) -> String {
+fn stop_meeting_outbound_consumer(generation: u64) -> MeetingConsumerCleanupResult {
     clear_finalized_outbound_utterance_producer();
 
     let store = outbound_consumer_store();
@@ -1438,12 +1477,18 @@ fn stop_meeting_outbound_consumer(generation: u64) -> String {
             }
         }
         Err(_) => {
-            return "Meeting outbound consumer state lock failed during cleanup.".to_string();
+            return MeetingConsumerCleanupResult {
+                ok: false,
+                message: "Meeting outbound consumer state lock failed during cleanup.".to_string(),
+            };
         }
     };
 
     let Some(mut runtime) = runtime else {
-        return "No matching Meeting outbound consumer required cleanup.".to_string();
+        return MeetingConsumerCleanupResult {
+            ok: true,
+            message: "No matching Meeting outbound consumer required cleanup.".to_string(),
+        };
     };
     let session_id = runtime.session_id.clone();
     let joined = runtime
@@ -1451,10 +1496,13 @@ fn stop_meeting_outbound_consumer(generation: u64) -> String {
         .take()
         .map(|handle| handle.join().is_ok())
         .unwrap_or(true);
-    if joined {
-        format!("Meeting outbound consumer stopped for {session_id} generation {generation}.")
-    } else {
-        format!("Meeting outbound consumer for {session_id} generation {generation} exited unexpectedly during cleanup.")
+    MeetingConsumerCleanupResult {
+        ok: joined,
+        message: if joined {
+            format!("Meeting outbound consumer stopped for {session_id} generation {generation}.")
+        } else {
+            format!("Meeting outbound consumer for {session_id} generation {generation} exited unexpectedly during cleanup.")
+        },
     }
 }
 
@@ -1525,7 +1573,7 @@ fn start_meeting_incoming_consumer(session_id: &str) -> Result<(), String> {
     Ok(())
 }
 
-fn stop_meeting_incoming_consumer(session_id: &str) -> String {
+fn stop_meeting_incoming_consumer(session_id: &str) -> MeetingConsumerCleanupResult {
     clear_finalized_incoming_utterance_producer();
     let store = incoming_consumer_store();
     let runtime = match store.lock() {
@@ -1541,22 +1589,31 @@ fn stop_meeting_incoming_consumer(session_id: &str) -> String {
             }
         }
         Err(_) => {
-            return "Meeting incoming consumer state lock failed during cleanup.".to_string();
+            return MeetingConsumerCleanupResult {
+                ok: false,
+                message: "Meeting incoming consumer state lock failed during cleanup.".to_string(),
+            };
         }
     };
 
     let Some(mut runtime) = runtime else {
-        return "No matching Meeting incoming consumer required cleanup.".to_string();
+        return MeetingConsumerCleanupResult {
+            ok: true,
+            message: "No matching Meeting incoming consumer required cleanup.".to_string(),
+        };
     };
     let joined = runtime
         .thread
         .take()
         .map(|handle| handle.join().is_ok())
         .unwrap_or(true);
-    if joined {
-        format!("Meeting incoming consumer stopped for session {session_id}.")
-    } else {
-        format!("Meeting incoming consumer for session {session_id} exited unexpectedly during cleanup.")
+    MeetingConsumerCleanupResult {
+        ok: joined,
+        message: if joined {
+            format!("Meeting incoming consumer stopped for session {session_id}.")
+        } else {
+            format!("Meeting incoming consumer for session {session_id} exited unexpectedly during cleanup.")
+        },
     }
 }
 
@@ -1741,7 +1798,7 @@ pub fn start_meeting_translation() -> MeetingSessionActionResult {
 
     let capture = start_live_capture_runtime(starting.clone());
     if !capture.ok {
-        let _ = revoke_application_meeting_session_authority(
+        let _ = revoke_runtime_session_authority(
             generation,
             "Start Translation failed while opening the required microphone resource. Authority was revoked before rollback.",
         );
@@ -1766,7 +1823,7 @@ pub fn start_meeting_translation() -> MeetingSessionActionResult {
         "Required Start resources were opened and the authoritative Meeting generation committed Live.",
     );
     if !committed.blocker.is_empty() {
-        let _ = revoke_application_meeting_session_authority(
+        let _ = revoke_runtime_session_authority(
             generation,
             "Meeting Live commit failed after resource open. Authority was revoked before rollback.",
         );
@@ -1785,7 +1842,7 @@ pub fn start_meeting_translation() -> MeetingSessionActionResult {
     }
 
     if let Err(error) = start_meeting_outbound_consumer(generation, &session_id) {
-        let _ = revoke_application_meeting_session_authority(
+        let _ = revoke_runtime_session_authority(
             generation,
             "Meeting outbound consumer could not start. Authority was revoked before rollback.",
         );
@@ -1802,7 +1859,7 @@ pub fn start_meeting_translation() -> MeetingSessionActionResult {
             "rolled_back",
             format!(
                 "Start Translation was rolled back because the serialized outbound consumer could not start: {error}. Helper cleanup: {} Consumer cleanup: {}",
-                helper_cancel.message, consumer_cleanup
+                helper_cancel.message, consumer_cleanup.message
             ),
         );
     }
@@ -1835,17 +1892,30 @@ pub fn stop_meeting_translation() -> MeetingSessionActionResult {
         return MeetingSessionActionResult {
             ok: false,
             state: "runtime_state_unavailable".to_string(),
-            message: "Stop Translation cannot verify current runtime ownership. Output authority is treated as unavailable and cleanup was not guessed."
+            message: "Stop Translation cannot verify current runtime ownership. The app will remain open and no cleanup success is claimed."
                 .to_string(),
             status: status_from_report(current, build_preflight()),
         };
     }
+
     let Some(snapshot) = current.snapshot.as_ref() else {
-        let _ = stop_meeting_sound_capture_runtime();
+        let incoming_capture_stop = stop_meeting_sound_capture_runtime();
         clear_finalized_incoming_utterance_producer();
         clear_finalized_meeting_sequence();
         clear_all_committed_turns();
+        clear_outbound_status();
         clear_incoming_status();
+        if !incoming_capture_stop.ok {
+            return MeetingSessionActionResult {
+                ok: false,
+                state: "cleanup_incomplete".to_string(),
+                message: format!(
+                    "Translation has no active session, but optional Meeting Sound cleanup could not be confirmed: {}",
+                    incoming_capture_stop.message
+                ),
+                status: status_from_report(current, build_preflight()),
+            };
+        }
         return MeetingSessionActionResult {
             ok: true,
             state: "already_stopped".to_string(),
@@ -1858,15 +1928,16 @@ pub fn stop_meeting_translation() -> MeetingSessionActionResult {
     let generation = snapshot.generation;
     let session_id = snapshot.session_id.clone();
 
-    let revoked = revoke_application_meeting_session_authority(
+    let revoked = revoke_runtime_session_authority(
         generation,
         "Stop Translation accepted. Old outbound Meeting generation authority was revoked before full-session cleanup.",
     );
-    if revoked
-        .snapshot
-        .as_ref()
-        .map(|value| value.authority_active)
-        .unwrap_or(false)
+    if revoked.snapshot.is_none()
+        || revoked
+            .snapshot
+            .as_ref()
+            .map(|value| value.authority_active)
+            .unwrap_or(true)
     {
         return blocked_result(
             "stop_authority_failed",
@@ -1886,8 +1957,75 @@ pub fn stop_meeting_translation() -> MeetingSessionActionResult {
     clear_self_output_suppression_for_session(&session_id);
     clear_finalized_meeting_sequence();
     clear_committed_turns_for_session(&session_id);
+    clear_outbound_status();
+
+    let cleanup_complete = meeting_cleanup_complete(
+        capture_stop.ok,
+        incoming_capture_stop.ok,
+        helper_cancel.ok,
+        outbound_cleanup.ok,
+        incoming_cleanup.ok,
+    );
+
+    if !cleanup_complete {
+        let mut failed = Vec::new();
+        if !capture_stop.ok {
+            failed.push("microphone capture");
+        }
+        if !incoming_capture_stop.ok {
+            failed.push("Meeting Sound capture");
+        }
+        if !helper_cancel.ok {
+            failed.push("local helper work");
+        }
+        if !outbound_cleanup.ok {
+            failed.push("outbound consumer");
+        }
+        if !incoming_cleanup.ok {
+            failed.push("incoming consumer");
+        }
+        let failed_summary = failed.join(", ");
+        mark_incoming_cleanup_incomplete_status(
+            &session_id,
+            !incoming_capture_stop.ok,
+            "Meeting output authority is revoked, but one or more cleanup steps still need attention.",
+        );
+        let retained = mark_runtime_session_cleanup_incomplete(
+            generation,
+            !capture_stop.ok,
+            &format!(
+                "Meeting output authority is revoked, but cleanup is incomplete for: {failed_summary}. Retry Stop Translation."
+            ),
+        );
+        return MeetingSessionActionResult {
+            ok: false,
+            state: "cleanup_incomplete".to_string(),
+            message: format!(
+                "Translation output is stopped, but cleanup is incomplete for {failed_summary}. Retry Stop Translation. Microphone: {} Meeting Sound: {} Helper: {} Outbound: {} Incoming: {}",
+                capture_stop.message,
+                incoming_capture_stop.message,
+                helper_cancel.message,
+                outbound_cleanup.message,
+                incoming_cleanup.message,
+            ),
+            status: status_from_report(retained, build_preflight()),
+        };
+    }
+
     clear_incoming_status();
     let cleared = clear_runtime_session_state();
+    if cleared.has_active_session
+        || cleared.snapshot.is_some()
+        || cleared.blocker != "runtime_session:cleared"
+    {
+        return MeetingSessionActionResult {
+            ok: false,
+            state: "cleanup_incomplete".to_string(),
+            message: "All known Meeting resources stopped, but TranslateIT could not confirm that runtime ownership was cleared. The app will remain open."
+                .to_string(),
+            status: status_from_report(cleared, build_preflight()),
+        };
+    }
 
     MeetingSessionActionResult {
         ok: true,
@@ -1897,9 +2035,38 @@ pub fn stop_meeting_translation() -> MeetingSessionActionResult {
             capture_stop.message,
             incoming_capture_stop.message,
             helper_cancel.message,
-            outbound_cleanup,
-            incoming_cleanup
+            outbound_cleanup.message,
+            incoming_cleanup.message,
         ),
         status: status_from_report(cleared, build_preflight()),
+    }
+}
+
+fn meeting_cleanup_complete(
+    microphone_capture_ok: bool,
+    meeting_sound_capture_ok: bool,
+    helper_cleanup_ok: bool,
+    outbound_consumer_ok: bool,
+    incoming_consumer_ok: bool,
+) -> bool {
+    microphone_capture_ok
+        && meeting_sound_capture_ok
+        && helper_cleanup_ok
+        && outbound_consumer_ok
+        && incoming_consumer_ok
+}
+
+#[cfg(test)]
+mod cleanup_truth_tests {
+    use super::meeting_cleanup_complete;
+
+    #[test]
+    fn cleanup_truth_requires_every_owned_resource_to_release() {
+        assert!(meeting_cleanup_complete(true, true, true, true, true));
+        assert!(!meeting_cleanup_complete(false, true, true, true, true));
+        assert!(!meeting_cleanup_complete(true, false, true, true, true));
+        assert!(!meeting_cleanup_complete(true, true, false, true, true));
+        assert!(!meeting_cleanup_complete(true, true, true, false, true));
+        assert!(!meeting_cleanup_complete(true, true, true, true, false));
     }
 }

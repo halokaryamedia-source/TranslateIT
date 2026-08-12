@@ -85,10 +85,7 @@ pub fn commit_application_meeting_session_live(
     build_session_state_report(Some(snapshot.clone()))
 }
 
-pub fn revoke_application_meeting_session_authority(
-    generation: u64,
-    note: &str,
-) -> RuntimeSessionStateReport {
+pub fn revoke_runtime_session_authority(generation: u64, note: &str) -> RuntimeSessionStateReport {
     let store = RUNTIME_SESSION_STATE.get_or_init(|| Mutex::new(None));
     let Ok(mut guard) = store.lock() else {
         invalidate_runtime_generation();
@@ -118,6 +115,49 @@ pub fn revoke_application_meeting_session_authority(
         note,
         MAX_RUNTIME_NOTE_CHARS,
         "Meeting session authority revoked before cleanup.",
+    );
+    build_session_state_report(Some(snapshot.clone()))
+}
+
+pub fn mark_runtime_session_cleanup_incomplete(
+    generation: u64,
+    live_capture_stream_active: bool,
+    note: &str,
+) -> RuntimeSessionStateReport {
+    let store = RUNTIME_SESSION_STATE.get_or_init(|| Mutex::new(None));
+    let Ok(mut guard) = store.lock() else {
+        invalidate_runtime_generation();
+        return state_unavailable_report(
+            "Runtime cleanup could not be recorded because session state is unavailable. Output generation authority remains invalidated fail-closed.",
+        );
+    };
+    let Some(snapshot) = guard.as_mut() else {
+        return blocked_session_report(
+            "runtime_session:no_active_session",
+            "Runtime cleanup could not be marked incomplete because no active session exists.",
+        );
+    };
+    if snapshot.generation != generation {
+        return RuntimeSessionStateReport {
+            has_active_session: true,
+            snapshot: Some(snapshot.clone()),
+            active_age_ms: Some(current_unix_ms().saturating_sub(snapshot.started_unix_ms)),
+            ready_for_stop: snapshot.safe_to_stop,
+            blocker: "runtime_session:generation_mismatch".to_string(),
+            note: "Cleanup state was not changed because the requested generation is stale."
+                .to_string(),
+        };
+    }
+
+    invalidate_runtime_generation();
+    snapshot.authority_active = false;
+    snapshot.phase = "cleanup_incomplete".to_string();
+    snapshot.live_capture_stream_active = live_capture_stream_active;
+    snapshot.safe_to_stop = true;
+    snapshot.note = compact_runtime_text(
+        note,
+        MAX_RUNTIME_NOTE_CHARS,
+        "Runtime output authority is revoked, but one or more owned resources still need cleanup.",
     );
     build_session_state_report(Some(snapshot.clone()))
 }
@@ -247,7 +287,9 @@ fn build_session_state_report(
                 snapshot: Some(snapshot.clone()),
                 active_age_ms: Some(active_age_ms),
                 ready_for_stop: snapshot.safe_to_stop,
-                blocker: if authority_active {
+                blocker: if snapshot.phase == "cleanup_incomplete" {
+                    "runtime_session:cleanup_incomplete".to_string()
+                } else if authority_active {
                     String::new()
                 } else {
                     "runtime_session:authority_revoked".to_string()
@@ -373,5 +415,53 @@ mod tests {
         assert!(report.snapshot.is_none());
         assert!(!report.ready_for_stop);
         assert_eq!(report.blocker, "runtime_session:state_lock_failed");
+    }
+
+    #[test]
+    fn cleanup_incomplete_retains_owner_until_successful_retry_clear() {
+        let _serial = TEST_SERIAL.lock().expect("runtime-state test lock");
+        reset_test_state();
+
+        let meeting = begin_application_meeting_session();
+        let generation = meeting.snapshot.as_ref().expect("meeting claim").generation;
+        let revoked =
+            revoke_runtime_session_authority(generation, "test revoke before incomplete cleanup");
+        assert!(
+            !revoked
+                .snapshot
+                .as_ref()
+                .expect("revoked snapshot")
+                .authority_active
+        );
+
+        let incomplete = mark_runtime_session_cleanup_incomplete(
+            generation,
+            true,
+            "microphone cleanup still needs attention",
+        );
+        let snapshot = incomplete
+            .snapshot
+            .as_ref()
+            .expect("retained cleanup owner");
+        assert_eq!(snapshot.phase, "cleanup_incomplete");
+        assert!(snapshot.live_capture_stream_active);
+        assert!(!snapshot.authority_active);
+        assert_eq!(incomplete.blocker, "runtime_session:cleanup_incomplete");
+
+        let competing = begin_direct_live_capture_session();
+        assert_eq!(competing.blocker, "runtime_session:already_active");
+        assert_eq!(
+            competing
+                .snapshot
+                .as_ref()
+                .map(|value| value.owner_id.as_str()),
+            Some(APPLICATION_MEETING_OWNER_ID),
+        );
+
+        let cleared = clear_runtime_session_state();
+        assert!(!cleared.has_active_session);
+        assert!(cleared.snapshot.is_none());
+        assert_eq!(cleared.blocker, "runtime_session:cleared");
+        reset_test_state();
     }
 }
