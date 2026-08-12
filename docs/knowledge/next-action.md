@@ -614,10 +614,27 @@ Tauri release build --no-bundle       -> PASS
 
 No real model inference, scheduler admission change, stderr/logging change, readiness compatibility cleanup, Python dependency locking, audio-device execution, or user-local-PC testing occurred in Wave A3.
 
+## Backend Hardening Wave A4 — CLOSED
+
+The existing single-worker scheduler now has bounded admission and bounded waiting instead of allowing callers to accumulate indefinitely. Total scheduler occupancy is capped at 8 active/waiting requests, with reserved headroom so lower-priority diagnostics/Text/incoming work cannot consume the last admission slots needed by higher-priority work. Execution order remains `Meeting outbound > Meeting incoming > Text > diagnostics`.
+
+Scheduler wait is also priority-bounded: Meeting outbound 120s, optional Meeting incoming 30s, Text 15s, and diagnostics 5s. A request rejected at its admission limit returns `helper_scheduler:admission_capacity_exceeded:*`; a caller that cannot obtain the worker before its wait ceiling returns `helper_scheduler:wait_deadline_exceeded:*`. Timeout cleanup removes that caller from the relevant waiting counter and wakes the scheduler so a departed higher-priority waiter cannot continue blocking lower-priority work. No second worker, retry loop, watchdog, or parallel scheduler owner was added.
+
+Remote Windows/source proof for this slice passed:
+
+```text
+Rust scheduler policy/admission/wait tests -> PASS
+cargo check                                -> PASS
+canonical npm ci                           -> PASS
+Tauri release build --no-bundle            -> PASS
+```
+
+No helper stderr lifecycle change, readiness compatibility cleanup, Python dependency locking/assets work, model execution, audio-route execution, or user-local-PC testing occurred in Wave A4.
+
 ## Current Mode
 
-**Maintenance / Backend Hardening Wave A** — Waves A1-A3 are source/proof closed. Continue one bounded hardening slice at a time before P2.3.
+**Maintenance / Backend Hardening Wave A** — Waves A1-A4 are source/proof closed. Continue one bounded hardening slice at a time before P2.3.
 
-## Next Step — Backend Hardening Wave A4: Bounded Scheduler Admission / Wait
+## Next Step — Backend Hardening Wave A5: Bounded / Redacted Helper stderr Lifecycle
 
-Bound the existing single-worker priority scheduler so waiting callers cannot accumulate indefinitely: add a small total admission cap and priority-aware wait deadline while preserving `Meeting outbound > Meeting incoming > Text > diagnostics`. Requests that cannot be admitted in time must return a truthful scheduler blocker without spawning another worker or retry loop. Keep A4 limited to scheduler admission/wait and targeted tests; do not mix stderr lifecycle (A5), readiness compatibility (A6), Python locking/assets (A7), model execution, or audio-route work.
+Reconcile helper stderr with the existing bounded/redacted logging policy: stop treating raw worker stderr as an unbounded append-only side channel, and make its logger lifecycle terminate with the owned helper process. Keep A5 limited to stderr privacy/disk/lifecycle ownership and targeted proof; do not mix readiness compatibility (A6), Python locking/assets (A7), model execution, scheduler redesign, or audio-route work.

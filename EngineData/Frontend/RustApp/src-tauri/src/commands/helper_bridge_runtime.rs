@@ -7,7 +7,7 @@ use std::process::{Child, ChildStderr, ChildStdin, ChildStdout};
 use std::sync::mpsc::{self, RecvTimeoutError};
 use std::sync::{Condvar, Mutex, OnceLock};
 use std::thread;
-use std::time::{Duration, SystemTime, UNIX_EPOCH};
+use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 
 pub const WORKER_CONTROL_RESPONSE_DEADLINE_MS: u128 = 5_000;
 pub const WORKER_STATUS_RESPONSE_DEADLINE_MS: u128 = 30_000;
@@ -15,6 +15,12 @@ pub const WORKER_PRELOAD_RESPONSE_DEADLINE_MS: u128 = 120_000;
 pub const WORKER_INFERENCE_RESPONSE_DEADLINE_MS: u128 = 90_000;
 pub const WORKER_SYNTHESIS_RESPONSE_DEADLINE_MS: u128 = 45_000;
 pub const WORKER_FALLBACK_RESPONSE_DEADLINE_MS: u128 = WORKER_STATUS_RESPONSE_DEADLINE_MS;
+
+pub const HELPER_SCHEDULER_TOTAL_ADMISSION_CAP: u32 = 8;
+pub const HELPER_SCHEDULER_MEETING_OUTBOUND_WAIT_MS: u64 = 120_000;
+pub const HELPER_SCHEDULER_MEETING_INCOMING_WAIT_MS: u64 = 30_000;
+pub const HELPER_SCHEDULER_TEXT_WAIT_MS: u64 = 15_000;
+pub const HELPER_SCHEDULER_DIAGNOSTIC_WAIT_MS: u64 = 5_000;
 
 pub fn worker_response_deadline_ms(task: &str) -> u128 {
     match task {
@@ -129,6 +135,24 @@ impl HelperTaskPriority {
             Self::Diagnostic => "diagnostic",
         }
     }
+
+    fn scheduler_wait_deadline_ms(self) -> u64 {
+        match self {
+            Self::MeetingOutbound => HELPER_SCHEDULER_MEETING_OUTBOUND_WAIT_MS,
+            Self::MeetingIncoming => HELPER_SCHEDULER_MEETING_INCOMING_WAIT_MS,
+            Self::Text => HELPER_SCHEDULER_TEXT_WAIT_MS,
+            Self::Diagnostic => HELPER_SCHEDULER_DIAGNOSTIC_WAIT_MS,
+        }
+    }
+
+    fn scheduler_admission_limit(self) -> u32 {
+        match self {
+            Self::MeetingOutbound => HELPER_SCHEDULER_TOTAL_ADMISSION_CAP,
+            Self::MeetingIncoming => HELPER_SCHEDULER_TOTAL_ADMISSION_CAP.saturating_sub(1),
+            Self::Text => HELPER_SCHEDULER_TOTAL_ADMISSION_CAP.saturating_sub(2),
+            Self::Diagnostic => HELPER_SCHEDULER_TOTAL_ADMISSION_CAP.saturating_sub(3),
+        }
+    }
 }
 
 #[derive(Debug, Default)]
@@ -202,6 +226,27 @@ fn scheduler_waiting_decrement(state: &mut HelperSchedulerState, priority: Helpe
     }
 }
 
+fn scheduler_total_admitted(state: &HelperSchedulerState) -> u32 {
+    let active = if state.active { 1_u32 } else { 0_u32 };
+    active
+        .saturating_add(state.waiting_meeting_outbound)
+        .saturating_add(state.waiting_meeting_incoming)
+        .saturating_add(state.waiting_text)
+        .saturating_add(state.waiting_diagnostic)
+}
+
+fn scheduler_can_admit(state: &HelperSchedulerState, priority: HelperTaskPriority) -> bool {
+    scheduler_total_admitted(state) < priority.scheduler_admission_limit()
+}
+
+fn scheduler_wait_deadline_error(priority: HelperTaskPriority, wait_deadline: Duration) -> String {
+    format!(
+        "helper_scheduler:wait_deadline_exceeded:{}:{}ms",
+        priority.label(),
+        wait_deadline.as_millis()
+    )
+}
+
 fn scheduler_can_enter(state: &HelperSchedulerState, priority: HelperTaskPriority) -> bool {
     if state.active {
         return false;
@@ -220,19 +265,51 @@ fn scheduler_can_enter(state: &HelperSchedulerState, priority: HelperTaskPriorit
     }
 }
 
-pub fn acquire_helper_task_permit(
+fn acquire_helper_task_permit_with_wait_deadline(
     priority: HelperTaskPriority,
+    wait_deadline: Duration,
 ) -> Result<HelperTaskPermit, String> {
     let (lock, wake) = scheduler();
     let mut state = lock
         .lock()
         .map_err(|_| "helper_scheduler:lock_poisoned".to_string())?;
+
+    if !scheduler_can_admit(&state, priority) {
+        return Err(format!(
+            "helper_scheduler:admission_capacity_exceeded:{}:total={}:limit={}",
+            priority.label(),
+            scheduler_total_admitted(&state),
+            priority.scheduler_admission_limit()
+        ));
+    }
+
     scheduler_waiting_increment(&mut state, priority);
+    let wait_started = Instant::now();
 
     while !scheduler_can_enter(&state, priority) {
-        state = wake
-            .wait(state)
-            .map_err(|_| "helper_scheduler:wait_lock_poisoned".to_string())?;
+        let remaining = wait_deadline.saturating_sub(wait_started.elapsed());
+        if remaining.is_zero() {
+            scheduler_waiting_decrement(&mut state, priority);
+            wake.notify_all();
+            return Err(scheduler_wait_deadline_error(priority, wait_deadline));
+        }
+
+        let (next_state, wait_result) = match wake.wait_timeout(state, remaining) {
+            Ok(value) => value,
+            Err(poisoned) => {
+                let (mut poisoned_state, _) = poisoned.into_inner();
+                scheduler_waiting_decrement(&mut poisoned_state, priority);
+                wake.notify_all();
+                return Err("helper_scheduler:wait_lock_poisoned".to_string());
+            }
+        };
+        state = next_state;
+
+        if wait_result.timed_out() && !scheduler_can_enter(&state, priority) {
+            scheduler_waiting_decrement(&mut state, priority);
+            wake.notify_all();
+            return Err(scheduler_wait_deadline_error(priority, wait_deadline));
+        }
     }
 
     scheduler_waiting_decrement(&mut state, priority);
@@ -242,6 +319,15 @@ pub fn acquire_helper_task_permit(
         request_id: format!("helper-{}", state.next_request_sequence),
         priority,
     })
+}
+
+pub fn acquire_helper_task_permit(
+    priority: HelperTaskPriority,
+) -> Result<HelperTaskPermit, String> {
+    acquire_helper_task_permit_with_wait_deadline(
+        priority,
+        Duration::from_millis(priority.scheduler_wait_deadline_ms()),
+    )
 }
 
 pub fn unix_ms() -> u128 {
@@ -569,6 +655,156 @@ pub fn stop_child(runtime: &mut HelperBridgeRuntime) {
     if let Some(mut child) = runtime.child.take() {
         let _ = child.kill();
         let _ = child.wait();
+    }
+}
+
+#[cfg(test)]
+mod scheduler_policy_tests {
+    use super::*;
+
+    fn reset_scheduler() {
+        let (lock, wake) = scheduler();
+        let mut state = lock.lock().expect("scheduler test lock");
+        *state = HelperSchedulerState::default();
+        wake.notify_all();
+    }
+
+    #[test]
+    fn scheduler_policy_preserves_priority_and_reserved_admission_headroom() {
+        assert!(
+            HelperTaskPriority::MeetingOutbound.scheduler_wait_deadline_ms()
+                > HelperTaskPriority::MeetingIncoming.scheduler_wait_deadline_ms()
+        );
+        assert!(
+            HelperTaskPriority::MeetingIncoming.scheduler_wait_deadline_ms()
+                > HelperTaskPriority::Text.scheduler_wait_deadline_ms()
+        );
+        assert!(
+            HelperTaskPriority::Text.scheduler_wait_deadline_ms()
+                > HelperTaskPriority::Diagnostic.scheduler_wait_deadline_ms()
+        );
+
+        let mut state = HelperSchedulerState::default();
+        state.waiting_meeting_outbound = 1;
+        assert!(scheduler_can_enter(
+            &state,
+            HelperTaskPriority::MeetingOutbound
+        ));
+        assert!(!scheduler_can_enter(
+            &state,
+            HelperTaskPriority::MeetingIncoming
+        ));
+        assert!(!scheduler_can_enter(&state, HelperTaskPriority::Text));
+        assert!(!scheduler_can_enter(&state, HelperTaskPriority::Diagnostic));
+
+        state.waiting_meeting_outbound = 0;
+        state.waiting_meeting_incoming = 1;
+        assert!(scheduler_can_enter(
+            &state,
+            HelperTaskPriority::MeetingIncoming
+        ));
+        assert!(!scheduler_can_enter(&state, HelperTaskPriority::Text));
+        assert!(!scheduler_can_enter(&state, HelperTaskPriority::Diagnostic));
+
+        state.waiting_meeting_incoming = 0;
+        state.waiting_text = 1;
+        assert!(scheduler_can_enter(&state, HelperTaskPriority::Text));
+        assert!(!scheduler_can_enter(&state, HelperTaskPriority::Diagnostic));
+
+        state = HelperSchedulerState::default();
+        state.active = true;
+        state.waiting_diagnostic = HelperTaskPriority::Diagnostic
+            .scheduler_admission_limit()
+            .saturating_sub(1);
+        assert_eq!(
+            scheduler_total_admitted(&state),
+            HelperTaskPriority::Diagnostic.scheduler_admission_limit()
+        );
+        assert!(!scheduler_can_admit(&state, HelperTaskPriority::Diagnostic));
+        assert!(scheduler_can_admit(&state, HelperTaskPriority::Text));
+        assert!(scheduler_can_admit(
+            &state,
+            HelperTaskPriority::MeetingIncoming
+        ));
+        assert!(scheduler_can_admit(
+            &state,
+            HelperTaskPriority::MeetingOutbound
+        ));
+        assert_eq!(
+            HelperTaskPriority::MeetingOutbound.scheduler_admission_limit(),
+            HELPER_SCHEDULER_TOTAL_ADMISSION_CAP
+        );
+    }
+
+    #[test]
+    fn scheduler_capacity_rejection_does_not_add_waiting_callers() {
+        reset_scheduler();
+        {
+            let (lock, _) = scheduler();
+            let mut state = lock.lock().expect("scheduler test lock");
+            state.active = true;
+            state.waiting_diagnostic = HelperTaskPriority::Diagnostic
+                .scheduler_admission_limit()
+                .saturating_sub(1);
+        }
+
+        let error = match acquire_helper_task_permit_with_wait_deadline(
+            HelperTaskPriority::Diagnostic,
+            Duration::from_millis(1),
+        ) {
+            Ok(_) => panic!("diagnostic request should be rejected at its admission limit"),
+            Err(error) => error,
+        };
+        assert!(error.starts_with("helper_scheduler:admission_capacity_exceeded:diagnostic:"));
+
+        let (lock, _) = scheduler();
+        let state = lock.lock().expect("scheduler test lock");
+        assert_eq!(
+            scheduler_total_admitted(&state),
+            HelperTaskPriority::Diagnostic.scheduler_admission_limit()
+        );
+        drop(state);
+        reset_scheduler();
+    }
+
+    #[test]
+    fn scheduler_wait_deadline_cleans_counter_and_releases_lower_priority_blocking() {
+        reset_scheduler();
+        let active = acquire_helper_task_permit_with_wait_deadline(
+            HelperTaskPriority::MeetingOutbound,
+            Duration::from_millis(50),
+        )
+        .expect("outbound scheduler permit");
+
+        let waiter = thread::spawn(|| {
+            acquire_helper_task_permit_with_wait_deadline(
+                HelperTaskPriority::Text,
+                Duration::from_millis(25),
+            )
+        });
+        let error = match waiter.join().expect("scheduler waiter thread") {
+            Ok(_) => panic!("text request should time out while worker remains active"),
+            Err(error) => error,
+        };
+        assert_eq!(error, "helper_scheduler:wait_deadline_exceeded:text:25ms");
+
+        {
+            let (lock, _) = scheduler();
+            let state = lock.lock().expect("scheduler test lock");
+            assert!(state.active);
+            assert_eq!(state.waiting_text, 0);
+            assert_eq!(state.waiting_meeting_outbound, 0);
+            assert_eq!(state.waiting_meeting_incoming, 0);
+            assert_eq!(state.waiting_diagnostic, 0);
+        }
+
+        drop(active);
+        {
+            let (lock, _) = scheduler();
+            let state = lock.lock().expect("scheduler test lock");
+            assert!(!state.active);
+        }
+        reset_scheduler();
     }
 }
 
