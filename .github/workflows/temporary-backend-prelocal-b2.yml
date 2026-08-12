@@ -36,7 +36,7 @@ jobs:
       - name: Apply bounded B2 correction
         shell: pwsh
         run: |
-          python .tmp/backend_prelocal_b2_patch.py
+          python .tmp/backend_prelocal_b2_runner.py
           if ($LASTEXITCODE -ne 0) { throw "B2 patch helper failed." }
 
       - name: Resolve and prove locked Windows CUDA matrix
