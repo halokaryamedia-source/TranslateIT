@@ -1,0 +1,92 @@
+name: Temporary Frontend Lockfile Proof
+
+on:
+  push:
+    branches: [New]
+    paths:
+      - .github/workflows/temporary-frontend-lockfile-proof.yml
+      - EngineData/Frontend/RustApp/package-lock.json
+
+jobs:
+  verify:
+    runs-on: windows-latest
+    timeout-minutes: 20
+    defaults:
+      run:
+        working-directory: EngineData/Frontend/RustApp
+
+    steps:
+      - name: Checkout New
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22.16.0'
+
+      - name: Report toolchain
+        shell: pwsh
+        run: |
+          node --version
+          npm --version
+
+      - name: Generate lockfile only when absent
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          if (Test-Path 'package-lock.json') {
+            Write-Host 'Using canonical repository package-lock.json.'
+          } else {
+            Write-Host 'No package-lock.json in repository; generating candidate lockfile.'
+            npm install --package-lock-only --ignore-scripts --no-audit --no-fund
+          }
+
+      - name: Validate lockfile root contract
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          node --input-type=module -e @'
+          import fs from 'node:fs';
+          const pkg = JSON.parse(fs.readFileSync('package.json', 'utf8'));
+          const lock = JSON.parse(fs.readFileSync('package-lock.json', 'utf8'));
+          if (lock.lockfileVersion !== 3) throw new Error(`Expected lockfileVersion 3, got ${lock.lockfileVersion}`);
+          const root = lock.packages?.[''];
+          if (!root) throw new Error('package-lock.json is missing packages[""] root metadata.');
+          const sameKeys = (a = {}, b = {}, label) => {
+            const left = Object.keys(a).sort();
+            const right = Object.keys(b).sort();
+            if (JSON.stringify(left) !== JSON.stringify(right)) {
+              throw new Error(`${label} root dependency keys differ. package.json=${left.join(',')} lock=${right.join(',')}`);
+            }
+          };
+          sameKeys(pkg.dependencies, root.dependencies, 'dependencies');
+          sameKeys(pkg.devDependencies, root.devDependencies, 'devDependencies');
+          if (root.name !== pkg.name || root.version !== pkg.version) {
+            throw new Error(`Lock root identity differs: ${root.name}@${root.version}`);
+          }
+          const packages = Object.keys(lock.packages ?? {});
+          console.log(`lockfileVersion=${lock.lockfileVersion}`);
+          console.log(`locked package entries=${packages.length}`);
+          console.log(`root dependencies=${Object.keys(root.dependencies ?? {}).sort().join(',')}`);
+          console.log(`root devDependencies=${Object.keys(root.devDependencies ?? {}).sort().join(',')}`);
+          '@
+
+      - name: Deterministic clean install from lockfile
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          if (Test-Path 'node_modules') { Remove-Item -Recurse -Force 'node_modules' }
+          npm ci --no-audit --no-fund
+
+      - name: Svelte check
+        run: npm run typecheck
+
+      - name: Production frontend build
+        run: npm run build:frontend
+
+      - name: Upload lockfile evidence
+        uses: actions/upload-artifact@v4
+        with:
+          name: translateit-frontend-lockfile
+          path: EngineData/Frontend/RustApp/package-lock.json
+          if-no-files-found: error
