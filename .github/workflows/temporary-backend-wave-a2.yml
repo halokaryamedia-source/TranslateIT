@@ -1,4 +1,4 @@
-name: Temporary Backend Wave A2 Maintenance Proof
+name: Temporary Backend Wave A2 Ownership Proof
 
 on:
   push:
@@ -21,9 +21,9 @@ jobs:
           ref: New
           fetch-depth: 0
 
-      - name: Apply bounded Wave A2 source correction
+      - name: Apply final bounded Wave A2 ownership correction
         shell: pwsh
-        run: python .tmp/backend_wave_a2_patch.py source
+        run: python .tmp/backend_wave_a2_followup.py source
 
       - name: Format bounded Rust modules
         shell: pwsh
@@ -40,10 +40,7 @@ jobs:
           $allowed = @(
             'EngineData/Frontend/RustApp/src-tauri/src/engine/runtime_state.rs',
             'EngineData/Frontend/RustApp/src-tauri/src/engine/capture_lifecycle.rs',
-            'EngineData/Frontend/RustApp/src-tauri/src/commands/meeting_session.rs',
-            'EngineData/Frontend/RustApp/src/app/bridge/runtimeProductFacade.ts',
-            'EngineData/Frontend/RustApp/src/App.svelte',
-            'EngineData/Frontend/RustApp/src/pages/Settings.svelte'
+            'EngineData/Frontend/RustApp/src-tauri/src/commands/meeting_session.rs'
           )
           foreach ($path in $changed) {
             if ($allowed -notcontains $path) { throw "Unexpected changed path: $path" }
@@ -58,24 +55,12 @@ jobs:
         working-directory: EngineData/Frontend/RustApp
         run: npm ci
 
-      - name: Official Svelte autofixer analysis
-        shell: pwsh
-        working-directory: EngineData/Frontend/RustApp
-        run: |
-          npx -y @sveltejs/mcp svelte-autofixer ./src/App.svelte --svelte-version 5
-          npx -y @sveltejs/mcp svelte-autofixer ./src/pages/Settings.svelte --svelte-version 5
-
-      - name: Svelte typecheck
-        shell: pwsh
-        working-directory: EngineData/Frontend/RustApp
-        run: npm run typecheck
-
-      - name: Vite production build
+      - name: Build frontend prerequisite for Tauri test context
         shell: pwsh
         working-directory: EngineData/Frontend/RustApp
         run: npm run build:frontend
 
-      - name: Targeted runtime cleanup-state tests
+      - name: Targeted runtime ownership and cleanup-state tests
         shell: pwsh
         run: cargo test --manifest-path EngineData/Frontend/RustApp/src-tauri/Cargo.toml runtime_state::tests -- --test-threads=1
 
@@ -92,13 +77,13 @@ jobs:
         working-directory: EngineData/Frontend/RustApp
         run: npx tauri build --no-bundle
 
-      - name: Record Wave A2 closure state
+      - name: Reconcile final Wave A2 closure state
         shell: pwsh
         run: |
-          python .tmp/backend_wave_a2_patch.py closure
+          python .tmp/backend_wave_a2_followup.py closure
           git diff --check
 
-      - name: Commit proven Wave A2 correction
+      - name: Commit proven Wave A2 ownership correction
         shell: pwsh
         run: |
           git config user.name "halokaryamedia-source"
@@ -106,9 +91,6 @@ jobs:
           git add EngineData/Frontend/RustApp/src-tauri/src/engine/runtime_state.rs
           git add EngineData/Frontend/RustApp/src-tauri/src/engine/capture_lifecycle.rs
           git add EngineData/Frontend/RustApp/src-tauri/src/commands/meeting_session.rs
-          git add EngineData/Frontend/RustApp/src/app/bridge/runtimeProductFacade.ts
-          git add EngineData/Frontend/RustApp/src/App.svelte
-          git add EngineData/Frontend/RustApp/src/pages/Settings.svelte
           git add docs/knowledge/next-action.md
-          git commit -m "Make Stop cleanup truth match resource release"
+          git commit -m "Close stale Stop cleanup ownership races"
           git push origin HEAD:New
