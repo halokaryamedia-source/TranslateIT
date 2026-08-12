@@ -303,8 +303,9 @@ fn update_outbound_status(
             blocker: blocker.to_string(),
             note: note.to_string(),
             updated_unix_ms: unix_ms(),
-            runtime_claim: "meeting_outbound_finalized_segment_contract_source_side_not_windows_runtime_proof"
-                .to_string(),
+            runtime_claim:
+                "meeting_outbound_finalized_segment_contract_source_side_not_windows_runtime_proof"
+                    .to_string(),
         };
     }
 }
@@ -327,8 +328,9 @@ fn update_incoming_status(
             blocker: blocker.to_string(),
             note: note.to_string(),
             updated_unix_ms: unix_ms(),
-            runtime_claim: "meeting_incoming_optional_lane_source_contract_not_windows_runtime_proof"
-                .to_string(),
+            runtime_claim:
+                "meeting_incoming_optional_lane_source_contract_not_windows_runtime_proof"
+                    .to_string(),
         };
     }
 }
@@ -368,7 +370,10 @@ fn clear_all_committed_turns() {
 }
 
 fn terminal_delivery_state(state: Option<&str>) -> bool {
-    matches!(state, Some("output_complete" | "output_failed" | "interrupted"))
+    matches!(
+        state,
+        Some("output_complete" | "output_failed" | "interrupted")
+    )
 }
 
 fn commit_meeting_turn(
@@ -684,7 +689,9 @@ fn status_from_report(
             .map(|value| value.phase.clone())
             .unwrap_or_else(|| "idle".to_string()),
         has_session: report.has_active_session,
-        authority_active: snapshot.map(|value| value.authority_active).unwrap_or(false),
+        authority_active: snapshot
+            .map(|value| value.authority_active)
+            .unwrap_or(false),
         session_id: snapshot.map(|value| value.session_id.clone()),
         generation: snapshot.map(|value| value.generation),
         started_unix_ms: snapshot.map(|value| value.started_unix_ms),
@@ -719,8 +726,7 @@ fn blocked_result(state: &str, message: String) -> MeetingSessionActionResult {
 fn recover_helper_after_meeting_stop_if_needed() -> Result<(), String> {
     let helper = get_helper_bridge_status();
     if helper.state != "stopped"
-        || helper.last_error.as_deref()
-            != Some("helper_bridge:meeting_session_hard_cancelled")
+        || helper.last_error.as_deref() != Some("helper_bridge:meeting_session_hard_cancelled")
     {
         return Ok(());
     }
@@ -805,7 +811,11 @@ fn suppression_handle_for_session(session_id: &str) -> Option<Arc<AtomicBool>> {
     suppression_store()
         .lock()
         .ok()
-        .and_then(|guard| guard.as_ref().map(|value| (value.session_id.clone(), Arc::clone(&value.active))))
+        .and_then(|guard| {
+            guard
+                .as_ref()
+                .map(|value| (value.session_id.clone(), Arc::clone(&value.active)))
+        })
         .filter(|(stored_session, _)| stored_session == session_id)
         .map(|(_, active)| active)
 }
@@ -868,12 +878,8 @@ fn stale_outbound_result(
     event_sequence: u64,
     utterance_id: u64,
 ) -> MeetingOutboundProcessResult {
-    let _ = update_committed_turn_delivery_state(
-        session_id,
-        generation,
-        utterance_id,
-        "interrupted",
-    );
+    let _ =
+        update_committed_turn_delivery_state(session_id, generation, utterance_id, "interrupted");
     MeetingOutboundProcessResult {
         ok: false,
         delivered: false,
@@ -932,7 +938,11 @@ pub fn process_authoritative_finalized_outbound_wav(
         update_outbound_status(
             generation,
             session_id,
-            if empty { "listening" } else { "attention_needed" },
+            if empty {
+                "listening"
+            } else {
+                "attention_needed"
+            },
             event_sequence,
             false,
             empty,
@@ -952,11 +962,7 @@ pub fn process_authoritative_finalized_outbound_wav(
                 "asr_failed"
             }
             .to_string(),
-            blocker: if empty {
-                String::new()
-            } else {
-                blocker
-            },
+            blocker: if empty { String::new() } else { blocker },
             note: "No Meeting output was generated from this finalized segment.".to_string(),
             generation,
             utterance_sequence: event_sequence,
@@ -1108,12 +1114,7 @@ pub fn process_authoritative_finalized_outbound_wav(
         }
     };
 
-    let _ = update_committed_turn_delivery_state(
-        session_id,
-        generation,
-        utterance_id,
-        "speaking",
-    );
+    let _ = update_committed_turn_delivery_state(session_id, generation, utterance_id, "speaking");
     update_outbound_status(
         generation,
         session_id,
@@ -1198,8 +1199,9 @@ pub fn process_authoritative_finalized_outbound_wav(
             .to_string(),
         generation,
         utterance_sequence: event_sequence,
-        runtime_claim: "meeting_outbound_output_execution_attempted_needs_windows_runtime_validation"
-            .to_string(),
+        runtime_claim:
+            "meeting_outbound_output_execution_attempted_needs_windows_runtime_validation"
+                .to_string(),
     }
 }
 
@@ -1325,7 +1327,11 @@ fn process_authoritative_finalized_incoming_wav(
         session_id,
         if committed { "listening" } else { "degraded" },
         !committed,
-        if committed { "" } else { "meeting_incoming:commit_rejected" },
+        if committed {
+            ""
+        } else {
+            "meeting_incoming:commit_rejected"
+        },
         if committed {
             "Incoming Indonesian translation was committed in finalized speech/event order. Listening for current Meeting Sound."
         } else {
@@ -1616,6 +1622,15 @@ pub fn get_meeting_committed_turns() -> MeetingCommittedTurnsSnapshot {
 
 pub fn start_meeting_translation() -> MeetingSessionActionResult {
     let current = latest_runtime_session_state();
+    if current.has_active_session && current.snapshot.is_none() {
+        return MeetingSessionActionResult {
+            ok: false,
+            state: "runtime_state_unavailable".to_string(),
+            message: "Start Translation cannot verify current runtime ownership. No new Meeting resources were opened."
+                .to_string(),
+            status: status_from_report(current, build_preflight()),
+        };
+    }
     if let Some(snapshot) = current.snapshot.as_ref() {
         if snapshot.owner_id == APPLICATION_MEETING_OWNER_ID
             && snapshot.authority_active
@@ -1693,6 +1708,15 @@ pub fn start_meeting_translation() -> MeetingSessionActionResult {
     }
 
     let starting = begin_application_meeting_session();
+    if !starting.blocker.is_empty() {
+        return MeetingSessionActionResult {
+            ok: false,
+            state: "start_authority_conflict".to_string(),
+            message: "Start Translation lost the runtime authority claim to another current owner. No Meeting resources were opened by this request."
+                .to_string(),
+            status: status_from_report(starting, build_preflight()),
+        };
+    }
     let Some(start_snapshot) = starting.snapshot.as_ref() else {
         return blocked_result(
             "start_authority_failed",
@@ -1807,6 +1831,15 @@ pub fn start_meeting_translation() -> MeetingSessionActionResult {
 #[tauri::command]
 pub fn stop_meeting_translation() -> MeetingSessionActionResult {
     let current = latest_runtime_session_state();
+    if current.has_active_session && current.snapshot.is_none() {
+        return MeetingSessionActionResult {
+            ok: false,
+            state: "runtime_state_unavailable".to_string(),
+            message: "Stop Translation cannot verify current runtime ownership. Output authority is treated as unavailable and cleanup was not guessed."
+                .to_string(),
+            status: status_from_report(current, build_preflight()),
+        };
+    }
     let Some(snapshot) = current.snapshot.as_ref() else {
         let _ = stop_meeting_sound_capture_runtime();
         clear_finalized_incoming_utterance_producer();

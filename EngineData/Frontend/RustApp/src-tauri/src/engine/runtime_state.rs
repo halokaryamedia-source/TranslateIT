@@ -6,6 +6,7 @@ use std::time::{SystemTime, UNIX_EPOCH};
 const MAX_RUNTIME_NOTE_CHARS: usize = 360;
 const MAX_RUNTIME_STATE_CHARS: usize = 120;
 const APPLICATION_MEETING_OWNER_ID: &str = "translateit_application_meeting";
+const DIRECT_LIVE_CAPTURE_OWNER_ID: &str = "translateit_rust_live_capture";
 
 #[derive(Debug, Clone, Serialize)]
 pub struct RuntimeSessionSnapshot {
@@ -34,40 +35,12 @@ static RUNTIME_SESSION_STATE: OnceLock<Mutex<Option<RuntimeSessionSnapshot>>> = 
 static RUNTIME_AUTHORITY_GENERATION: AtomicU64 = AtomicU64::new(0);
 
 pub fn begin_application_meeting_session() -> RuntimeSessionStateReport {
-    let store = RUNTIME_SESSION_STATE.get_or_init(|| Mutex::new(None));
-    let Ok(mut guard) = store.lock() else {
-        return blocked_session_report(
-            "runtime_session:state_lock_failed",
-            "Meeting session could not start because runtime session state is unavailable.",
-        );
-    };
-
-    if let Some(existing) = guard.as_ref() {
-        return RuntimeSessionStateReport {
-            has_active_session: true,
-            snapshot: Some(existing.clone()),
-            active_age_ms: Some(current_unix_ms().saturating_sub(existing.started_unix_ms)),
-            ready_for_stop: existing.safe_to_stop,
-            blocker: "runtime_session:already_active".to_string(),
-            note: "A runtime session already owns Meeting resources. Duplicate Start did not create another session.".to_string(),
-        };
-    }
-
-    let now = current_unix_ms();
-    let generation = next_runtime_generation();
-    let snapshot = RuntimeSessionSnapshot {
-        started_unix_ms: now,
-        owner_id: APPLICATION_MEETING_OWNER_ID.to_string(),
-        session_id: format!("meeting_{now}_{generation}"),
-        generation,
-        authority_active: true,
-        phase: "starting".to_string(),
-        live_capture_stream_active: false,
-        safe_to_stop: true,
-        note: "Application-level Meeting session authority was created. Required resources may now be opened transactionally.".to_string(),
-    };
-    *guard = Some(snapshot.clone());
-    build_session_state_report(Some(snapshot))
+    begin_runtime_session(
+        APPLICATION_MEETING_OWNER_ID,
+        "meeting",
+        "starting",
+        "Application-level Meeting session authority was created. Required resources may now be opened transactionally.",
+    )
 }
 
 pub fn commit_application_meeting_session_live(
@@ -77,8 +50,7 @@ pub fn commit_application_meeting_session_live(
 ) -> RuntimeSessionStateReport {
     let store = RUNTIME_SESSION_STATE.get_or_init(|| Mutex::new(None));
     let Ok(mut guard) = store.lock() else {
-        return blocked_session_report(
-            "runtime_session:state_lock_failed",
+        return state_unavailable_report(
             "Meeting session could not commit Live because runtime session state is unavailable.",
         );
     };
@@ -119,9 +91,9 @@ pub fn revoke_application_meeting_session_authority(
 ) -> RuntimeSessionStateReport {
     let store = RUNTIME_SESSION_STATE.get_or_init(|| Mutex::new(None));
     let Ok(mut guard) = store.lock() else {
-        return blocked_session_report(
-            "runtime_session:state_lock_failed",
-            "Meeting session authority could not be revoked because runtime session state is unavailable.",
+        invalidate_runtime_generation();
+        return state_unavailable_report(
+            "Meeting session authority could not be verified during revoke. Output generation authority was invalidated fail-closed.",
         );
     };
     let Some(snapshot) = guard.as_mut() else {
@@ -163,36 +135,34 @@ pub fn runtime_generation_is_authoritative(generation: u64) -> bool {
         .unwrap_or(false)
 }
 
-pub fn record_direct_live_capture_session() -> RuntimeSessionStateReport {
-    let now = current_unix_ms();
-    let generation = next_runtime_generation();
-    let session_snapshot = RuntimeSessionSnapshot {
-        started_unix_ms: now,
-        owner_id: "translateit_rust_live_capture".to_string(),
-        session_id: format!("live_capture_{now}_{generation}"),
-        generation,
-        authority_active: true,
-        phase: "live_capture_only".to_string(),
-        live_capture_stream_active: false,
-        safe_to_stop: true,
-        note: "Direct live-capture session was created for microphone test ownership only."
-            .to_string(),
-    };
-    store_runtime_session_snapshot(session_snapshot)
+pub fn begin_direct_live_capture_session() -> RuntimeSessionStateReport {
+    begin_runtime_session(
+        DIRECT_LIVE_CAPTURE_OWNER_ID,
+        "live_capture",
+        "live_capture_only",
+        "Direct live-capture session authority was created for microphone test ownership only.",
+    )
 }
 
 pub fn latest_runtime_session_state() -> RuntimeSessionStateReport {
     let store = RUNTIME_SESSION_STATE.get_or_init(|| Mutex::new(None));
-    let snapshot = store.lock().ok().and_then(|guard| guard.as_ref().cloned());
-    build_session_state_report(snapshot)
+    match store.lock() {
+        Ok(guard) => build_session_state_report(guard.as_ref().cloned()),
+        Err(_) => state_unavailable_report(
+            "Runtime session ownership could not be read. Treat runtime resources as potentially owned until the state becomes verifiable again.",
+        ),
+    }
 }
 
 pub fn clear_runtime_session_state() -> RuntimeSessionStateReport {
     invalidate_runtime_generation();
     let store = RUNTIME_SESSION_STATE.get_or_init(|| Mutex::new(None));
-    if let Ok(mut guard) = store.lock() {
-        *guard = None;
-    }
+    let Ok(mut guard) = store.lock() else {
+        return state_unavailable_report(
+            "Runtime generation authority was invalidated, but session storage could not be verified as cleared.",
+        );
+    };
+    *guard = None;
     RuntimeSessionStateReport {
         has_active_session: false,
         snapshot: None,
@@ -204,14 +174,65 @@ pub fn clear_runtime_session_state() -> RuntimeSessionStateReport {
     }
 }
 
-fn store_runtime_session_snapshot(
-    session_snapshot: RuntimeSessionSnapshot,
+fn begin_runtime_session(
+    owner_id: &str,
+    session_prefix: &str,
+    phase: &str,
+    note: &str,
 ) -> RuntimeSessionStateReport {
     let store = RUNTIME_SESSION_STATE.get_or_init(|| Mutex::new(None));
-    if let Ok(mut guard) = store.lock() {
-        *guard = Some(session_snapshot.clone());
+    let Ok(mut guard) = store.lock() else {
+        return state_unavailable_report(
+            "Runtime session ownership could not be claimed because session state is unavailable.",
+        );
+    };
+
+    if let Some(existing) = guard.as_ref() {
+        return existing_session_report(existing);
     }
-    build_session_state_report(Some(session_snapshot))
+
+    let now = current_unix_ms();
+    let generation = next_runtime_generation();
+    let snapshot = RuntimeSessionSnapshot {
+        started_unix_ms: now,
+        owner_id: owner_id.to_string(),
+        session_id: format!("{session_prefix}_{now}_{generation}"),
+        generation,
+        authority_active: true,
+        phase: phase.to_string(),
+        live_capture_stream_active: false,
+        safe_to_stop: true,
+        note: compact_runtime_text(
+            note,
+            MAX_RUNTIME_NOTE_CHARS,
+            "Runtime session authority created.",
+        ),
+    };
+    *guard = Some(snapshot.clone());
+    build_session_state_report(Some(snapshot))
+}
+
+fn existing_session_report(existing: &RuntimeSessionSnapshot) -> RuntimeSessionStateReport {
+    RuntimeSessionStateReport {
+        has_active_session: true,
+        snapshot: Some(existing.clone()),
+        active_age_ms: Some(current_unix_ms().saturating_sub(existing.started_unix_ms)),
+        ready_for_stop: existing.safe_to_stop,
+        blocker: "runtime_session:already_active".to_string(),
+        note: "A runtime session already owns resources. The competing claim was rejected without changing the existing owner."
+            .to_string(),
+    }
+}
+
+fn state_unavailable_report(note: &str) -> RuntimeSessionStateReport {
+    RuntimeSessionStateReport {
+        has_active_session: true,
+        snapshot: None,
+        active_age_ms: None,
+        ready_for_stop: false,
+        blocker: "runtime_session:state_lock_failed".to_string(),
+        note: note.to_string(),
+    }
 }
 
 fn build_session_state_report(
@@ -296,4 +317,61 @@ fn current_unix_ms() -> u128 {
         .duration_since(UNIX_EPOCH)
         .map(|duration| duration.as_millis())
         .unwrap_or(0)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    static TEST_SERIAL: Mutex<()> = Mutex::new(());
+
+    fn reset_test_state() {
+        let store = RUNTIME_SESSION_STATE.get_or_init(|| Mutex::new(None));
+        if let Ok(mut guard) = store.lock() {
+            *guard = None;
+        }
+        RUNTIME_AUTHORITY_GENERATION.store(0, Ordering::Release);
+    }
+
+    #[test]
+    fn competing_runtime_claims_never_overwrite_the_existing_owner() {
+        let _serial = TEST_SERIAL.lock().expect("runtime-state test lock");
+        reset_test_state();
+
+        let meeting = begin_application_meeting_session();
+        assert!(meeting.blocker.is_empty());
+        let mic_after_meeting = begin_direct_live_capture_session();
+        assert_eq!(mic_after_meeting.blocker, "runtime_session:already_active");
+        assert_eq!(
+            mic_after_meeting
+                .snapshot
+                .as_ref()
+                .map(|value| value.owner_id.as_str()),
+            Some(APPLICATION_MEETING_OWNER_ID),
+        );
+
+        reset_test_state();
+        let mic = begin_direct_live_capture_session();
+        assert!(mic.blocker.is_empty());
+        let meeting_after_mic = begin_application_meeting_session();
+        assert_eq!(meeting_after_mic.blocker, "runtime_session:already_active");
+        assert_eq!(
+            meeting_after_mic
+                .snapshot
+                .as_ref()
+                .map(|value| value.owner_id.as_str()),
+            Some(DIRECT_LIVE_CAPTURE_OWNER_ID),
+        );
+
+        reset_test_state();
+    }
+
+    #[test]
+    fn unavailable_runtime_state_is_fail_closed_not_idle() {
+        let report = state_unavailable_report("test");
+        assert!(report.has_active_session);
+        assert!(report.snapshot.is_none());
+        assert!(!report.ready_for_stop);
+        assert_eq!(report.blocker, "runtime_session:state_lock_failed");
+    }
 }

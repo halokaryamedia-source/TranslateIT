@@ -11,7 +11,8 @@ use super::virtual_mic_route::{
 
 #[tauri::command]
 pub fn start_helper_bridge() -> HelperBridgeActionResult {
-    if latest_runtime_session_state().snapshot.is_some() {
+    let runtime_state = latest_runtime_session_state();
+    if runtime_state.has_active_session {
         let helper = helper_bridge::get_helper_bridge_status();
         return HelperBridgeActionResult {
             ok: false,
@@ -28,9 +29,10 @@ pub fn start_helper_bridge() -> HelperBridgeActionResult {
 
 #[tauri::command]
 pub fn start_meeting_translation() -> MeetingSessionActionResult {
-    // Duplicate Start and runtime-owner conflicts remain owned by the canonical
-    // Meeting command. Only a genuinely new Start prepares a fresh route pair.
-    if latest_runtime_session_state().snapshot.is_some() {
+    // Duplicate Start, runtime-owner conflicts, and unverifiable authority remain
+    // owned by the canonical Meeting command. Only a verified-empty state prepares
+    // a fresh route pair.
+    if latest_runtime_session_state().has_active_session {
         return meeting_session::start_meeting_translation();
     }
 

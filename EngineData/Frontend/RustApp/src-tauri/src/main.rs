@@ -16,6 +16,18 @@ fn main() {
     app.run(|app_handle, event| {
         if let tauri::RunEvent::ExitRequested { api, .. } = event {
             let runtime = engine::runtime_state::latest_runtime_session_state();
+            let runtime_state_unavailable =
+                runtime.has_active_session && runtime.snapshot.is_none();
+            if runtime_state_unavailable {
+                api.prevent_exit();
+                if let Some(window) = app_handle.get_webview_window("main") {
+                    let _ = window.unminimize();
+                    let _ = window.show();
+                    let _ = window.set_focus();
+                }
+                return;
+            }
+
             let application_meeting_active = runtime
                 .snapshot
                 .as_ref()

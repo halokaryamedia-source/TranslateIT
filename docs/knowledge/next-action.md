@@ -559,10 +559,27 @@ P0 source correctness CLOSED
 -> packaging + clean-machine acceptance
 ```
 
+## Backend Hardening Wave A1 — CLOSED
+
+Runtime/session authority is now fail-closed at the canonical Rust owner. `runtime_state.rs` uses one atomic claim primitive for Meeting and Mic Test; a competing claim returns the existing owner without overwriting it. Session-store lock failure is represented as potentially active/unverifiable (`has_active_session=true`, no snapshot, `runtime_session:state_lock_failed`) instead of being collapsed into idle/empty state. Clear/revoke also invalidate generation authority before returning an unverifiable state when storage cannot be confirmed.
+
+Direct callers were reconciled only where the old snapshot-only interpretation could fail open: Mic Test Start/Stop, guarded helper/Meeting Start, Meeting Start/Stop authority checks, active-session audio-device Settings guard, and native exit verification. Stop cleanup-result truth itself remains Wave A2 and was not changed here.
+
+Remote Windows proof for this slice passed:
+
+```text
+targeted runtime_state unit tests -> PASS
+cargo check                       -> PASS
+canonical npm ci                  -> PASS
+Tauri release build --no-bundle   -> PASS
+```
+
+No Python/model execution, audio-route execution, user-local-PC testing, scheduler change, or dead-code cleanup occurred in Wave A1.
+
 ## Current Mode
 
-**Maintenance / backend hardening gate before P2.3** — the user selected Python/model runtime proof as the next deferred executable scope, but the active-backend audit found correctness/resource/ownership issues that should be corrected first. No Python/model or user-local-PC execution was performed by this audit.
+**Maintenance / Backend Hardening Wave A** — Wave A1 is source/proof closed. Continue one bounded correctness slice at a time before P2.3.
 
-## Next Step — Backend Hardening Wave A1: Runtime Authority Fail-Closed + Atomic Claim
+## Next Step — Backend Hardening Wave A2: Cleanup Truth Matches Resource Release
 
-Correct the canonical Rust runtime-session owner so lock failure can never be represented as an empty/successful session state, and make Mic Test/session acquisition use one atomic claim boundary that cannot overwrite a concurrently created Meeting session. Keep the change limited to runtime authority/state ownership and direct callers; do not mix Stop cleanup, scheduler, Python/model, audio-route, or dead-code cleanup into the same slice. Prove the correction with targeted Rust tests plus the existing remote Windows compile/native-build baseline before moving to Wave A2.
+Reconcile Meeting Stop and Mic Test Stop so authority invalidation still happens first, but the returned result and retained runtime state do not claim complete resource release when capture/helper/consumer cleanup actually fails. Keep this slice limited to Stop/resource-cleanup truth and direct status/result callers; do not mix helper timeout/scheduler, Python/model, virtual-route redesign, audio callback optimization, or dead-code cleanup.

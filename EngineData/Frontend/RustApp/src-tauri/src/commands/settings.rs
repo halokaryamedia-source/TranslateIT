@@ -57,7 +57,9 @@ fn persist_runtime_settings(settings: RuntimeSettings) -> CommandResult {
 }
 
 fn runtime_session_owns_audio_resources() -> bool {
-    latest_runtime_session_state().snapshot.is_some()
+    // `has_active_session` is deliberately fail-closed: an unreadable authority
+    // store is treated as potentially owned rather than as safe-to-rebind idle state.
+    latest_runtime_session_state().has_active_session
 }
 
 fn current_device_label(settings: &RuntimeSettings, kind: &str) -> String {
@@ -119,7 +121,11 @@ pub fn select_audio_device(kind: String, device_id: Option<String>) -> AudioDevi
     // stream still owns the previous endpoint would make Settings disagree with the
     // active runtime. Defer the change instead of attempting a mid-session hot rebind.
     if runtime_session_owns_audio_resources() {
-        trace_command_end("select_audio_device", started, "active_runtime_session_locked");
+        trace_command_end(
+            "select_audio_device",
+            started,
+            "active_runtime_session_locked",
+        );
         return AudioDeviceSelectionResult {
             ok: false,
             kind: kind.clone(),
