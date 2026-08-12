@@ -84,14 +84,30 @@ jobs:
                   raise RuntimeError(f'worker closed during {payload.get("command")}')
               return json.loads(line)
 
+          def sanitized_status(value):
+              tts = value.get('tts') or {}
+              return {
+                  'ok': bool(value.get('ok')),
+                  'blocker': str(value.get('blocker') or ''),
+                  'warnings': list(value.get('warnings') or []),
+                  'tts_provider': tts.get('provider'),
+                  'tts_ready': bool(tts.get('ready')),
+                  'selected_device': value.get('selected_device'),
+                  'selected_translation_device': value.get('selected_translation_device'),
+                  'cpu_fallback_active': bool(value.get('cpu_fallback_active')),
+              }
+
           try:
+              # This is diagnostic context only. C3's purpose is to replace preload/status-only
+              # acceptance with actual stage execution, so a cold status sample must not preempt
+              # the functional proof. In particular a transient cold SAPI probe may be retried by
+              # the real synthesis request without creating a broad product fallback.
               initial = call({'command': 'status'}, 60)
-              if not initial.get('ok'):
-                  raise RuntimeError('initial provider status is not ready')
+              print('INITIAL_STATUS=' + json.dumps(sanitized_status(initial), sort_keys=True))
 
               asr = call({'command': 'asr_preload'}, 240)
               if not asr.get('ok'):
-                  raise RuntimeError(f'ASR preload failed: {asr.get("blocker")}')
+                  raise RuntimeError(f'ASR preload failed: {asr.get("blocker") or "unknown"}')
 
               translation = call({
                   'command': 'translate',
@@ -101,7 +117,7 @@ jobs:
                   'max_new_tokens': 24,
               }, 240)
               if not translation.get('ok'):
-                  raise RuntimeError(f'translation inference failed: {translation.get("blocker")}')
+                  raise RuntimeError(f'translation inference failed: {translation.get("blocker") or "unknown"}')
               if translation.get('direction_pair') != 'id->en':
                   raise RuntimeError('translation direction mismatch')
               if translation.get('complete') is not True or translation.get('finished_with_eos') is not True:
@@ -117,13 +133,21 @@ jobs:
                   'output_path': relative_tts,
               }, 120)
               if not tts.get('ok'):
-                  raise RuntimeError(f'TTS synthesis failed: {tts.get("blocker")}')
+                  raise RuntimeError(f'TTS synthesis failed: {tts.get("blocker") or "unknown"}')
               output_path = Path(str(tts.get('output_path') or ''))
               if not output_path.is_file() or output_path.stat().st_size <= 44:
                   raise RuntimeError('TTS did not create a valid WAV artifact')
               output_path.unlink(missing_ok=True)
 
               final = call({'command': 'status'}, 60)
+              final_summary = sanitized_status(final)
+              print('FINAL_STATUS=' + json.dumps(final_summary, sort_keys=True))
+              if not final.get('ok'):
+                  raise RuntimeError(
+                      'final provider status is not ready after successful functional stages: '
+                      + str(final.get('blocker') or 'unknown')
+                  )
+
               loaded = final.get('loaded') or {}
               if not loaded.get('asr'):
                   raise RuntimeError('ASR runtime was not retained by persistent worker')
@@ -144,7 +168,7 @@ jobs:
                   'persistent_id_en_loaded': 'id->en' in (loaded.get('translation_directions') or []),
                   'cpu_fallback_active': bool(final.get('cpu_fallback_active')),
               }
-              print(json.dumps(summary, sort_keys=True))
+              print('C3_PROOF=' + json.dumps(summary, sort_keys=True))
           finally:
               try:
                   if proc.stdin:
@@ -230,9 +254,12 @@ jobs:
           if missing:
               raise SystemExit('Missing C3 functional readiness markers: ' + ', '.join(missing))
 
-          if 'translation_preload' in helper[helper.index('pub fn prepare_required_outbound_ai_runtime()'):helper.index('#[tauri::command]', helper.index('pub fn prepare_required_outbound_ai_runtime()'))]:
+          start = helper.index('pub fn prepare_required_outbound_ai_runtime()')
+          end = helper.index('#[tauri::command]', start)
+          preparation = helper[start:end]
+          if 'translation_preload' in preparation:
               raise SystemExit('C3 Start preparation still uses preload-only translation instead of functional inference.')
-          if 'tts_preflight' in helper[helper.index('pub fn prepare_required_outbound_ai_runtime()'):helper.index('#[tauri::command]', helper.index('pub fn prepare_required_outbound_ai_runtime()'))]:
+          if 'tts_preflight' in preparation:
               raise SystemExit('C3 Start preparation still uses TTS preflight instead of real synthesis.')
 
           wav_fixtures = list(tests_dir.rglob('*.wav')) if tests_dir.exists() else []
