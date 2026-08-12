@@ -97,16 +97,22 @@ jobs:
           }
           git diff --stat
 
-      - name: Prove canonical source contracts
+      - name: Prove B1 source contracts and frontend
         shell: pwsh
         working-directory: EngineData/Frontend/RustApp
         run: |
           npm ci
           if ($LASTEXITCODE -ne 0) { throw "npm ci failed." }
-          npm run validate:source-contracts
-          if ($LASTEXITCODE -ne 0) { throw "source validators failed." }
+          node --check scripts/validate_startup_runtime_readiness.mjs
+          if ($LASTEXITCODE -ne 0) { throw "startup validator syntax failed." }
+          npm run validate:virtual-route
+          if ($LASTEXITCODE -ne 0) { throw "virtual-route validator failed." }
           npm run preflight:tauri-package
           if ($LASTEXITCODE -ne 0) { throw "package preflight failed." }
+          npm run check:rust
+          if ($LASTEXITCODE -ne 0) { throw "Rust manifest preflight failed." }
+          npm run preflight:frontend-build
+          if ($LASTEXITCODE -ne 0) { throw "frontend ownership preflight failed." }
           npm run typecheck
           if ($LASTEXITCODE -ne 0) { throw "svelte-check failed." }
           npm run build:frontend
