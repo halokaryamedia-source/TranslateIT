@@ -1,0 +1,184 @@
+name: Temporary Backend Pre-Local B5 Proof
+
+on:
+  push:
+    branches:
+      - New
+
+permissions:
+  contents: write
+
+jobs:
+  prove-b5:
+    runs-on: windows-2022
+    timeout-minutes: 60
+    steps:
+      - name: Checkout New
+        uses: actions/checkout@v4
+        with:
+          ref: New
+          fetch-depth: 0
+
+      - name: Resolve immutable Hugging Face revisions
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $repos = [ordered]@{
+            HF_ASR_PRIMARY_REVISION = 'dropbox-dash/faster-whisper-large-v3-turbo'
+            HF_ASR_FALLBACK_REVISION = 'Systran/faster-whisper-medium'
+            HF_ID_EN_REVISION = 'Helsinki-NLP/opus-mt-id-en'
+            HF_EN_ID_REVISION = 'Helsinki-NLP/opus-mt-en-id'
+          }
+          foreach ($entry in $repos.GetEnumerator()) {
+            $line = git ls-remote "https://huggingface.co/$($entry.Value)" HEAD
+            if ($LASTEXITCODE -ne 0 -or [string]::IsNullOrWhiteSpace($line)) {
+              throw "Could not resolve Hugging Face HEAD for $($entry.Value)"
+            }
+            $sha = ($line -split '\s+')[0].Trim()
+            if ($sha -notmatch '^[0-9a-f]{40}$') {
+              throw "Unexpected Hugging Face revision for $($entry.Value): $sha"
+            }
+            Add-Content -Path $env:GITHUB_ENV -Value "$($entry.Key)=$sha"
+            Write-Host "$($entry.Value) -> $sha"
+          }
+
+      - name: Apply bounded B5 correction
+        shell: pwsh
+        run: |
+          python .tmp/backend_prelocal_b5_patch.py
+          if ($LASTEXITCODE -ne 0) { throw 'B5 patch helper failed.' }
+
+      - name: Install uv and refresh canonical lock
+        shell: pwsh
+        run: |
+          python -m pip install --disable-pip-version-check uv==0.12.3
+          if ($LASTEXITCODE -ne 0) { throw 'uv install failed.' }
+          Push-Location EngineData/Backend/LocalWorker/WorkerRuntime
+          try {
+            uv lock
+            if ($LASTEXITCODE -ne 0) { throw 'uv lock failed.' }
+            uv lock --check
+            if ($LASTEXITCODE -ne 0) { throw 'uv lock --check failed.' }
+            uv sync --frozen
+            if ($LASTEXITCODE -ne 0) { throw 'uv sync failed.' }
+          } finally {
+            Pop-Location
+          }
+
+      - name: Prove WorkerRuntime tooling and pinned acquisition plan
+        shell: pwsh
+        run: |
+          Push-Location EngineData/Backend/LocalWorker/WorkerRuntime
+          try {
+            uv run --frozen ruff check .
+            if ($LASTEXITCODE -ne 0) { throw 'Ruff check failed.' }
+            uv run --frozen ruff format --check .
+            if ($LASTEXITCODE -ne 0) { throw 'Ruff format check failed.' }
+            uv run --frozen pytest
+            if ($LASTEXITCODE -ne 0) { throw 'WorkerRuntime pytest failed.' }
+            uv run --frozen python prepare_model_assets.py --plan
+            if ($LASTEXITCODE -ne 0) { throw 'Pinned model acquisition plan failed.' }
+          } finally {
+            Pop-Location
+          }
+
+      - name: Acquire required pinned Hugging Face assets
+        shell: pwsh
+        run: |
+          Push-Location EngineData/Backend/LocalWorker/WorkerRuntime
+          try {
+            uv run --frozen python prepare_model_assets.py
+            if ($LASTEXITCODE -ne 0) { throw 'Required model asset acquisition failed.' }
+          } finally {
+            Pop-Location
+          }
+
+      - name: Prove persistent worker smoke on hosted CPU fallback
+        shell: pwsh
+        run: |
+          & 'EngineData/Backend/LocalWorker/WorkerRuntime/run_realtime_worker_smoke.ps1' -ExpectedDevice CpuFallback -CommandTimeoutSeconds 300
+          if ($LASTEXITCODE -ne 0) { throw 'Persistent WorkerRuntime smoke failed.' }
+
+      - name: Prove reconciled frontend and source validators
+        shell: pwsh
+        working-directory: EngineData/Frontend/RustApp
+        run: |
+          npm ci
+          if ($LASTEXITCODE -ne 0) { throw 'npm ci failed.' }
+          npm run validate:source-contracts
+          if ($LASTEXITCODE -ne 0) { throw 'Source-contract validators failed.' }
+          npm run typecheck
+          if ($LASTEXITCODE -ne 0) { throw 'svelte-check failed.' }
+          npm run build:frontend
+          if ($LASTEXITCODE -ne 0) { throw 'frontend build failed.' }
+
+      - name: Prove incremental local Tauri compile helper
+        shell: pwsh
+        working-directory: EngineData/Frontend/RustApp
+        run: |
+          Remove-Item Env:TRANSLATEIT_CLEAN_RUST_TARGET -ErrorAction SilentlyContinue
+          node scripts/run_local_tauri_compile_check.mjs
+          if ($LASTEXITCODE -ne 0) { throw 'Incremental local Tauri compile helper failed.' }
+
+      - name: Prove Tauri release link
+        shell: pwsh
+        working-directory: EngineData/Frontend/RustApp
+        run: |
+          npx tauri build --no-bundle
+          if ($LASTEXITCODE -ne 0) { throw 'Tauri release build failed.' }
+
+      - name: Verify B5 scope and canonical state
+        shell: pwsh
+        run: |
+          git diff --check
+          if ($LASTEXITCODE -ne 0) { throw 'git diff --check failed.' }
+          $expected = @(
+            'EngineData/Backend/LocalWorker/WorkerRuntime/README.md',
+            'EngineData/Backend/LocalWorker/WorkerRuntime/model_manifest.json',
+            'EngineData/Backend/LocalWorker/WorkerRuntime/prepare_model_assets.py',
+            'EngineData/Backend/LocalWorker/WorkerRuntime/pyproject.toml',
+            'EngineData/Backend/LocalWorker/WorkerRuntime/run_realtime_worker_smoke.ps1',
+            'EngineData/Backend/LocalWorker/WorkerRuntime/tests/test_prepare_model_assets.py',
+            'EngineData/Backend/LocalWorker/WorkerRuntime/uv.lock',
+            'EngineData/Frontend/RustApp/scripts/README.md',
+            'EngineData/Frontend/RustApp/scripts/run_local_tauri_compile_check.mjs',
+            'EngineData/Frontend/RustApp/scripts/validate_frontend_build_preflight.mjs',
+            'EngineData/Frontend/RustApp/scripts/validate_startup_runtime_readiness.mjs',
+            'docs/knowledge/next-action.md'
+          )
+          $changed = @(git status --porcelain --untracked-files=all | ForEach-Object { $_.Substring(3).Replace('\','/') })
+          $unexpected = @($changed | Where-Object { $expected -notcontains $_ })
+          $missing = @($expected | Where-Object { $changed -notcontains $_ })
+          if ($unexpected.Count -gt 0) {
+            $unexpected | ForEach-Object { Write-Host "Unexpected: $_" }
+            throw 'Unexpected B5 changed path.'
+          }
+          if ($missing.Count -gt 0) {
+            $missing | ForEach-Object { Write-Host "Missing: $_" }
+            throw 'Expected B5 changed path missing.'
+          }
+          $next = Get-Content docs/knowledge/next-action.md -Raw
+          if (-not $next.Contains('## Backend Pre-Local B5 — CLOSED')) { throw 'B5 closure missing.' }
+          if (-not $next.Contains('## Next Step — Backend Pre-Local B6: Proven Dead / Legacy Cleanup')) { throw 'B6 next step missing.' }
+          git diff --stat
+
+      - name: Commit proven B5 correction
+        shell: pwsh
+        run: |
+          git config user.name 'halokaryamedia-source'
+          git config user.email 'halokaryamedia@gmail.com'
+          git add `
+            EngineData/Backend/LocalWorker/WorkerRuntime/README.md `
+            EngineData/Backend/LocalWorker/WorkerRuntime/model_manifest.json `
+            EngineData/Backend/LocalWorker/WorkerRuntime/prepare_model_assets.py `
+            EngineData/Backend/LocalWorker/WorkerRuntime/pyproject.toml `
+            EngineData/Backend/LocalWorker/WorkerRuntime/run_realtime_worker_smoke.ps1 `
+            EngineData/Backend/LocalWorker/WorkerRuntime/tests/test_prepare_model_assets.py `
+            EngineData/Backend/LocalWorker/WorkerRuntime/uv.lock `
+            EngineData/Frontend/RustApp/scripts/README.md `
+            EngineData/Frontend/RustApp/scripts/run_local_tauri_compile_check.mjs `
+            EngineData/Frontend/RustApp/scripts/validate_frontend_build_preflight.mjs `
+            EngineData/Frontend/RustApp/scripts/validate_startup_runtime_readiness.mjs `
+            docs/knowledge/next-action.md
+          git commit -m 'Make local model proof tooling deterministic'
+          git push origin HEAD:New
