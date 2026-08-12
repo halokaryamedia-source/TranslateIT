@@ -1,0 +1,156 @@
+name: Temporary Backend Pre-Local B3 Proof
+
+on:
+  push:
+    branches:
+      - New
+    paths:
+      - .github/workflows/temporary-backend-prelocal-b3.yml
+
+permissions:
+  contents: write
+
+jobs:
+  prove-b3:
+    runs-on: windows-2022
+    timeout-minutes: 60
+    steps:
+      - name: Checkout New
+        uses: actions/checkout@v4
+        with:
+          ref: New
+          fetch-depth: 0
+
+      - name: Set up pinned CPython
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12.10'
+
+      - name: Install canonical Python resolver
+        shell: pwsh
+        run: |
+          python -m pip install --disable-pip-version-check --no-input "uv==0.12.3"
+          uv --version
+
+      - name: Apply bounded B3 correction
+        shell: pwsh
+        run: |
+          python .tmp/backend_prelocal_b3_patch.py
+          if ($LASTEXITCODE -ne 0) { throw "B3 patch helper failed." }
+
+      - name: Prove WorkerRuntime hot path
+        shell: pwsh
+        working-directory: EngineData/Backend/LocalWorker/WorkerRuntime
+        run: |
+          uv lock --check
+          if ($LASTEXITCODE -ne 0) { throw "uv lock --check failed." }
+          uv sync --frozen
+          if ($LASTEXITCODE -ne 0) { throw "uv sync failed." }
+          uv run --frozen ruff format realtime_local_worker.py tests/test_worker_contract.py
+          if ($LASTEXITCODE -ne 0) { throw "Ruff format failed." }
+          uv run --frozen ruff check .
+          if ($LASTEXITCODE -ne 0) { throw "Ruff check failed." }
+          uv run --frozen ruff format --check .
+          if ($LASTEXITCODE -ne 0) { throw "Ruff format check failed." }
+          uv run --frozen pytest
+          if ($LASTEXITCODE -ne 0) { throw "WorkerRuntime tests failed." }
+          uv run --frozen python -m compileall -q realtime_local_worker.py tests
+          if ($LASTEXITCODE -ne 0) { throw "WorkerRuntime compileall failed." }
+
+      - name: Format bounded B3 Rust source
+        shell: pwsh
+        run: |
+          $files = @(
+            "EngineData/Frontend/RustApp/src-tauri/src/commands/meeting_session.rs",
+            "EngineData/Frontend/RustApp/src-tauri/src/commands/virtual_mic_route.rs",
+            "EngineData/Frontend/RustApp/src-tauri/src/engine/audio/meeting_output.rs"
+          )
+          foreach ($file in $files) {
+            rustfmt --edition 2021 $file
+            if ($LASTEXITCODE -ne 0) { throw "rustfmt failed for $file" }
+          }
+
+      - name: Prove B3 hot-path source contract
+        shell: pwsh
+        run: |
+          @'
+          from pathlib import Path
+
+          root = Path.cwd()
+          worker = (root / 'EngineData/Backend/LocalWorker/WorkerRuntime/realtime_local_worker.py').read_text(encoding='utf-8')
+          meeting = (root / 'EngineData/Frontend/RustApp/src-tauri/src/commands/meeting_session.rs').read_text(encoding='utf-8')
+          route = (root / 'EngineData/Frontend/RustApp/src-tauri/src/commands/virtual_mic_route.rs').read_text(encoding='utf-8')
+          output = (root / 'EngineData/Frontend/RustApp/src-tauri/src/engine/audio/meeting_output.rs').read_text(encoding='utf-8')
+
+          assert 'nvidia-smi' not in worker
+          assert 'nvidia_smi_available' not in worker
+          assert 'fn preflight_for_report' in meeting
+          assert 'let preflight = preflight_for_report(&report);' in meeting
+          assert 'get_bound_virtual_mic_output_device(generation)' in meeting
+          assert 'let route_selection = get_virtual_mic_route_selection();' not in meeting
+          assert 'schedule_optional_incoming_lane(&session_id)' in meeting
+          assert 'start_optional_incoming_lane(&session_id);' not in meeting
+          assert 'with_route_evidence(get_virtual_mic_route_selection())' in route
+          internal_status = route.split('fn status_from_selection', 1)[1].split('fn with_route_evidence', 1)[0]
+          assert 'write_route_evidence' not in internal_status
+          assert 'pub fn get_bound_virtual_mic_output_device' in route
+          deliver = output.split('pub fn deliver_meeting_output_wav', 1)[1]
+          assert 'prepared_output_device(output_name)' in deliver
+          assert 'find_output_device(output_name)' not in deliver
+          prepare = output.split('pub fn prepare_meeting_output_device', 1)[1].split('fn prepared_output_device', 1)[0]
+          assert 'find_output_device(requested_name)' in prepare
+          print('B3_HOT_PATH_SOURCE_CONTRACT=PASS')
+          '@ | python -
+          if ($LASTEXITCODE -ne 0) { throw "B3 source contract failed." }
+
+      - name: Verify B3 change scope
+        shell: pwsh
+        run: |
+          git diff --check
+          if ($LASTEXITCODE -ne 0) { throw "git diff --check failed." }
+          $expected = @(
+            'EngineData/Backend/LocalWorker/WorkerRuntime/realtime_local_worker.py',
+            'EngineData/Backend/LocalWorker/WorkerRuntime/tests/test_worker_contract.py',
+            'EngineData/Frontend/RustApp/src-tauri/src/commands/meeting_session.rs',
+            'EngineData/Frontend/RustApp/src-tauri/src/commands/virtual_mic_route.rs',
+            'EngineData/Frontend/RustApp/src-tauri/src/engine/audio/meeting_output.rs',
+            'docs/knowledge/next-action.md'
+          )
+          $changed = @(git status --porcelain --untracked-files=all | ForEach-Object { $_.Substring(3).Replace('\','/') })
+          $unexpected = @($changed | Where-Object { $expected -notcontains $_ })
+          $missing = @($expected | Where-Object { $changed -notcontains $_ })
+          if ($unexpected.Count -gt 0) {
+            $unexpected | ForEach-Object { Write-Host "Unexpected: $_" }
+            throw "Unexpected B3 changed path."
+          }
+          if ($missing.Count -gt 0) {
+            $missing | ForEach-Object { Write-Host "Missing: $_" }
+            throw "Expected B3 changed path missing."
+          }
+          git diff --stat
+
+      - name: Prove Rust B3 behavior and compile
+        shell: pwsh
+        run: |
+          cargo test --manifest-path "EngineData/Frontend/RustApp/src-tauri/Cargo.toml" b3_ -- --nocapture
+          if ($LASTEXITCODE -ne 0) { throw "Rust B3 tests failed." }
+          cargo check --manifest-path "EngineData/Frontend/RustApp/src-tauri/Cargo.toml"
+          if ($LASTEXITCODE -ne 0) { throw "cargo check failed." }
+
+      - name: Prove Tauri release link
+        shell: pwsh
+        working-directory: EngineData/Frontend/RustApp
+        run: |
+          npm ci
+          if ($LASTEXITCODE -ne 0) { throw "npm ci failed." }
+          npx tauri build --no-bundle
+          if ($LASTEXITCODE -ne 0) { throw "Tauri release build failed." }
+
+      - name: Commit proven B3 correction
+        shell: pwsh
+        run: |
+          git config user.name "halokaryamedia-source"
+          git config user.email "halokaryamedia@gmail.com"
+          git add -A
+          git commit -m "Make Meeting runtime hot paths side-effect light"
+          git push origin HEAD:New
