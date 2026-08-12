@@ -26,7 +26,7 @@ This map points to current semantic owners. File existence alone does not make a
 | Tauri invoke registration | `src-tauri/src/commands/registry.rs` | ACTIVE / PRUNED |
 | Meeting authority | `commands/meeting_session.rs`, `engine/runtime_state.rs` | ACTIVE |
 | Physical microphone + Meeting Sound | `engine/audio/*` | ACTIVE |
-| Audio-device selection transaction | `commands/settings.rs` + `commands/audio.rs` | ACTIVE / RUST PROBE + PRESERVE + SAVE OWNER |
+| Audio-device selection transaction | `commands/settings.rs` + `commands/audio.rs` + `engine/audio/input.rs` | ACTIVE / FUNCTIONAL MIC PROBE + PRESERVE + SAVE OWNER |
 | Mic Test lifecycle | `engine/capture_lifecycle.rs`, `commands/runtime_capture.rs` | ACTIVE / BOUNDED |
 | Meeting Microphone route | `commands/virtual_mic_route.rs`, `engine/audio/meeting_output.rs` | ACTIVE / MATCHED ROUTE + RUST/CPAL DELIVERY |
 | Local worker/scheduler | `helper_bridge.rs`, `helper_bridge_runtime.rs`, `realtime_local_worker.py` | ACTIVE |

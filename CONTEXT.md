@@ -169,7 +169,7 @@ audio.output_device_id
 
 `engine/settings.rs` is the single schema/deserialization/sanitization owner. The previous larger JSON shape is tolerated through ignored legacy keys; normal save writes only the small schema. There is no migration registry or second settings store.
 
-`commands/settings.rs` owns the bounded audio-device selection transaction at the desktop boundary: load the current preference, probe the requested microphone/Meeting Sound through the existing audio owner, preserve the old preference on failure, persist on success, and return the canonical resulting settings. The frontend does not duplicate that rollback rule.
+`commands/settings.rs` owns the bounded audio-device selection transaction at the desktop boundary: load the current preference, functionally verify a requested microphone through a short CPAL stream/callback check (while routine status remains configuration-only), probe Meeting Sound through the existing output-device owner, preserve the old preference on failure, persist on success, and return the canonical resulting settings. The microphone verification retains no PCM/audio body. The frontend does not duplicate that rollback rule.
 
 ## Rust / Backend Surface
 

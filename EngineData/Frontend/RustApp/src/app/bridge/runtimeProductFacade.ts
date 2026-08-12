@@ -571,7 +571,7 @@ export async function probeProductAudioDevice(
   const normalizedDeviceId = String(deviceId ?? "").trim() || null;
   if (kind === "microphone") {
     const status = await runtimeApi.probeInputDeviceCandidate(normalizedDeviceId);
-    const ok = Boolean(status.ready || status.prepared);
+    const ok = status.functional_verified === true;
     return {
       ok,
       kind,

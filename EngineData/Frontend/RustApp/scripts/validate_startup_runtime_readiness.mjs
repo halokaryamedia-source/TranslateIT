@@ -26,6 +26,8 @@ const paths = {
   virtualMicRoute: resolve(root, "src-tauri/src/commands/virtual_mic_route.rs"),
   meetingOutput: resolve(root, "src-tauri/src/engine/audio/meeting_output.rs"),
   settingsCommands: resolve(root, "src-tauri/src/commands/settings.rs"),
+  audioCommands: resolve(root, "src-tauri/src/commands/audio.rs"),
+  audioInput: resolve(root, "src-tauri/src/engine/audio/input.rs"),
   textTranslate: resolve(root, "src-tauri/src/commands/text_translate.rs"),
   finalizedUtterance: resolve(root, "src-tauri/src/engine/audio/finalized_utterance.rs"),
   runtimeState: resolve(root, "src-tauri/src/engine/runtime_state.rs"),
@@ -218,7 +220,26 @@ requireMarkers(source.settingsCommands, "settings command ownership", [
   "Stop Translation or Mic Test before changing audio devices",
   "probe_input_device_candidate",
   "probe_output_device_candidate",
+  "probe.prepared && probe.functional_verified",
   "The previous preference was kept",
+]);
+requireMarkers(source.audioInput, "C1 functional microphone candidate verification", [
+  "FUNCTIONAL_INPUT_PROBE_TIMEOUT_MS",
+  "pub fn probe_input_device_functionally(",
+  ".build_input_stream(",
+  "stream.play()",
+  "recv_timeout(Duration::from_millis(FUNCTIONAL_INPUT_PROBE_TIMEOUT_MS))",
+  "functional_verified: true",
+  "callback_frames_observed: observed",
+  "No microphone samples were retained by this verification",
+]);
+forbidMarkers(source.audioInput, "C1 bounded functional microphone verification", ["thread::sleep("]);
+requireMarkers(source.audioCommands, "C1 explicit-vs-routine microphone verification split", [
+  "probe_input_device_functionally(device_id.as_deref())",
+  "InputPreparationStatus::inspect_input_device(settings.audio.input_device_id.as_deref())",
+]);
+requireMarkers(source.facade, "C1 frontend functional microphone truth", [
+  "status.functional_verified === true",
 ]);
 requireMarkers(source.runtimeCommands, "active-session public helper restart guard", [
   "pub fn start_helper_bridge()",

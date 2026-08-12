@@ -141,7 +141,7 @@ pub fn select_audio_device(kind: String, device_id: Option<String>) -> AudioDevi
         "microphone" => {
             let probe = probe_input_device_candidate(requested.clone());
             (
-                probe.prepared,
+                probe.prepared && probe.functional_verified,
                 probe
                     .input_device_name
                     .clone()

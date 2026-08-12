@@ -880,10 +880,29 @@ Rust warning baseline after bounded cleanup   -> PASS / recorded by proof run
 
 No Python worker inference behavior, CUDA fallback policy, Meeting/audio authority, VAD threshold/timing value, installer packaging, or user-local-PC hardware behavior changed in B6.
 
+## Pre-Local C1 — IMPLEMENTED / TARGET DEVICE PROOF DEFERRED
+
+C1 closes the source-level gap behind PR-026 without turning routine readiness polling back into hardware work. `get_input_status` remains a configuration-only inspection path. Explicit microphone candidate verification now opens one temporary CPAL input stream using the same sample-format boundary as active live capture, starts the stream, waits up to a bounded 2-second callback budget for at least one native frame, then releases the stream. Silence is acceptable because the proof target is callback/device flow rather than speech content; no PCM samples or WAV are retained.
+
+The audio-device selection transaction preserves the previous microphone preference unless that functional probe succeeds. A present/config-readable microphone that cannot build/start a stream, reports a callback error, or produces no callback frames before the bound is therefore rejected before persistence. Meeting/Mic Test resource ownership remains unchanged, and routine Meeting status polling does not call the functional probe.
+
+Remote Windows proof for the implementation slice establishes source ownership and build correctness only:
+
+```text
+canonical source validators              -> PASS
+svelte-check + frontend build            -> PASS
+Rust unit tests                          -> PASS
+cargo check                              -> PASS
+Tauri release build --no-bundle          -> PASS
+functional-probe ownership/source guard  -> PASS
+```
+
+A GitHub-hosted Windows runner is not a target microphone environment, so actual physical-device callback success remains target-Windows proof. No local-PC test, VAD retuning, Meeting route change, CUDA/model change, or installer work is part of C1.
+
 ## Current Mode
 
-**Maintenance / Pre-Local Readiness — B6 CLOSED / TARGET-PC BOUNDARY REACHED.** Backend hardening A1-A7 and pre-local B1-B6 are source/remote-proof closed. P2.3 CPU model execution remains proven. Actual NVIDIA CUDA execution and physical Windows audio/device behavior still require the target Windows machine; release installer/clean-machine acceptance remains after runtime acceptance.
+**Developing / Pre-Local Readiness — C1 IMPLEMENTED, TARGET DEVICE PROOF DEFERRED.** Backend hardening A1-A7 and B1-B6 remain closed. The selected-microphone persistence path now requires bounded functional stream/callback verification, while routine status stays side-effect-light. The user still does not approve local-PC testing, so C1 physical-device execution evidence remains deferred without blocking the next source-level pre-local development slice.
 
-## Next Step — Target-Windows Acceptance Authorization
+## Next Step — Pre-Local C2 Runtime Latency Instrumentation
 
-Do not add another speculative repository hardening or cleanup wave. When the user explicitly approves target-PC testing, run the existing canonical local proof path on a Windows NVIDIA machine: first the `Cuda` persistent-worker smoke for real ASR and both MarianMT directions, then physical Meeting microphone/VB-Cable/meeting-app audio acceptance. Until that target environment is approved and available, do not simulate hardware proof and do not pull installer staging forward.
+Add privacy-safe outbound timing at the canonical Meeting owners so target testing can measure the official PR-052 metric from finalized utterance end to first translated audio playback, with stage timing sufficient to distinguish speech-boundary, ASR, translation, TTS, queue, and delivery cost. Do not tune VAD or invent a latency threshold before target-Windows evidence.

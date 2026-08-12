@@ -2,7 +2,7 @@ use cpal::traits::{DeviceTrait, HostTrait};
 use serde::Serialize;
 
 use crate::engine;
-use crate::engine::audio::input::InputPreparationStatus;
+use crate::engine::audio::input::{probe_input_device_functionally, InputPreparationStatus};
 
 const MAX_AUDIO_DEVICE_NAME_CHARS: usize = 160;
 const MAX_AUDIO_DEVICES_PER_KIND: usize = 64;
@@ -90,7 +90,10 @@ fn collect_devices(is_input: bool) -> Result<Vec<AudioDeviceSummary>, String> {
             break;
         }
         if let Some(name) = device_name(&device) {
-            if result.iter().any(|item: &AudioDeviceSummary| item.name == name) {
+            if result
+                .iter()
+                .any(|item: &AudioDeviceSummary| item.name == name)
+            {
                 continue;
             }
             result.push(AudioDeviceSummary {
@@ -149,7 +152,7 @@ pub fn list_audio_devices() -> AudioDeviceListReport {
 
 #[tauri::command]
 pub fn probe_input_device_candidate(device_id: Option<String>) -> InputPreparationStatus {
-    InputPreparationStatus::inspect_input_device(device_id.as_deref())
+    probe_input_device_functionally(device_id.as_deref())
 }
 
 #[tauri::command]

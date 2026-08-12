@@ -81,6 +81,8 @@ export type AudioDeviceListReport = {
 export type InputPreparationStatus = {
   ready: boolean;
   prepared?: boolean;
+  functional_verified?: boolean;
+  callback_frames_observed?: number;
   selected_device_name: string | null;
   input_device_name?: string | null;
   device_count: number;
