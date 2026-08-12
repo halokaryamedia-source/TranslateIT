@@ -813,10 +813,33 @@ Tauri release build --no-bundle            -> PASS
 
 This proves the hot-path ownership and compile/runtime-independent behavior above. It does not prove physical-device hotplug timing, real Meeting Sound activation latency, VB-Cable playback, or NVIDIA CUDA execution; those remain target-Windows proof. No lifecycle redesign, VAD tuning, installer staging, proof-tool reconciliation, or broad dead-code cleanup occurred in B3.
 
+## Backend Pre-Local B4 — CLOSED
+
+Normal post-setup product snapshot now lazily restores the one persistent helper when its lifecycle is known `not_started` or `stopped`, before Meeting preflight and worker capability are sampled. This removes the normal requirement to run Check Setup after each app restart while reusing the guarded existing helper owner. Arbitrary helper `error`/blocked states are not converted into a blind restart loop. Text retains its existing on-demand helper start path.
+
+Fresh First Setup remains Python-free by contract: `App.svelte` does not enter the normal product snapshot while `meeting_setup_state = new`, and the product facade additionally refuses lazy helper start for `new` settings if called directly. No second helper launcher, background readiness service, or frontend runtime truth was introduced.
+
+Windows suspend/resume handling now keeps the window procedure bounded. `WM_POWERBROADCAST` only performs a nonblocking `try_send` into one process-lifetime Rust lifecycle worker. That worker performs session inspection and converges an app-owned Meeting through the existing canonical `stop_meeting_translation()` path, preserving authority-first output revocation and idempotent Stop semantics without doing cancellation/join/audio cleanup inside the Windows callback.
+
+Remote Windows/source proof for this slice passed:
+
+```text
+post-setup helper lifecycle source contract -> PASS
+fresh First Setup Python-start gate          -> PASS
+Windows power callback handoff contract      -> PASS
+Rust B4 power-event classification test      -> PASS
+canonical npm ci + svelte-check              -> PASS
+Vite production build                        -> PASS
+cargo check                                  -> PASS
+Tauri release build --no-bundle              -> PASS
+```
+
+This proves the lifecycle ownership, fresh-setup gate, nonblocking callback structure, Windows compilation, and release linking. It does not prove real sleep/wake during an active Meeting, physical-device recovery after resume, packaged PythonRuntime placement, or user-local-PC behavior; those remain target-Windows/release acceptance. No B5 proof-tool reconciliation, VAD tuning, installer staging, or broad dead-code cleanup occurred in B4.
+
 ## Current Mode
 
-**Maintenance / Backend Pre-Local Readiness — B3 CLOSED.** Backend hardening A1-A7 and pre-local B1-B3 are source/proof closed. P2.3 CPU model execution remains proven; real CUDA execution remains deferred to a GPU-capable Windows target. Continue the mapped pre-local readiness waves in order.
+**Maintenance / Backend Pre-Local Readiness — B4 CLOSED.** Backend hardening A1-A7 and pre-local B1-B4 are source/proof closed. P2.3 CPU model execution remains proven; real CUDA execution remains deferred to a GPU-capable Windows target. Continue the mapped pre-local readiness waves in order.
 
-## Next Step — Backend Pre-Local B4: Lifecycle Readiness
+## Next Step — Backend Pre-Local B5: Local Proof Tooling
 
-Make the normal post-setup helper lifecycle self-starting/lazy when Text or Meeting capability is actually needed, without starting Python during fresh First Setup, and move Windows suspend/resume Meeting cleanup out of the window-procedure callback into a nonblocking handoff that still converges through canonical authority-first Stop. Keep B4 limited to lifecycle readiness; do not mix B5 proof-tool reconciliation, VAD tuning, installer staging, or broad cleanup.
+Provide one deterministic developer model-asset acquisition path using the canonical model/runtime ownership, and reconcile the worker smoke/proof tooling to the current direction-based ID <-> EN translation contract, English TTS, optional ASR, and explicit device/fallback truth. Keep B5 limited to proof/developer tooling; do not mix VAD tuning, installer staging, lifecycle redesign, or broad cleanup.

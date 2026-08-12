@@ -504,13 +504,37 @@ export function mapProductReadiness(input: {
   };
 }
 
+function helperNeedsLazyStart(helper: HelperBridgeStatus): boolean {
+  return helper.state === "not_started" || helper.state === "stopped";
+}
+
+async function ensurePostSetupHelperLifecycle(settings: RuntimeSettings): Promise<HelperBridgeStatus> {
+  const helper = await runtimeApi.getHelperBridgeStatus();
+  if (
+    settings.meeting_setup_state === "new" ||
+    helperBridgeUnavailable(helper) ||
+    !helperNeedsLazyStart(helper)
+  ) {
+    return helper;
+  }
+
+  // Normal post-setup product use should not require a manual Check Setup after
+  // every app restart. Reuse the guarded public helper owner, but only for known
+  // inactive lifecycle states; do not turn arbitrary helper errors into blind retry.
+  await runtimeApi.startHelperBridge();
+  return runtimeApi.getHelperBridgeStatus();
+}
+
 export async function loadProductRuntimeSnapshot(knownSettings?: RuntimeSettings): Promise<ProductRuntimeSnapshot> {
   const settings = knownSettings ?? await runtimeApi.loadSettings();
   if (!settings) throw new Error("TranslateIT settings are unavailable.");
 
-  const [meetingSession, helper, inputStatus] = await Promise.all([
+  // App.svelte intentionally does not enter this normal snapshot while fresh setup
+  // remains `new`. The explicit guard above preserves that Python-free First Setup
+  // boundary even if this facade is called directly with fresh settings later.
+  const helper = await ensurePostSetupHelperLifecycle(settings);
+  const [meetingSession, inputStatus] = await Promise.all([
     runtimeApi.getMeetingSessionStatus(),
-    runtimeApi.getHelperBridgeStatus(),
     runtimeApi.getInputStatus(),
   ]);
   const workerStatus = helper.state === "ready"

@@ -4,6 +4,9 @@ use tauri::{LogicalSize, Manager, Runtime};
 #[cfg(target_os = "windows")]
 mod windows_power_lifecycle {
     use std::ffi::c_void;
+    use std::sync::mpsc::{sync_channel, SyncSender, TrySendError};
+    use std::sync::OnceLock;
+    use std::thread;
 
     use tauri::{Runtime, WebviewWindow};
 
@@ -18,9 +21,8 @@ mod windows_power_lifecycle {
     type Lparam = isize;
     type Lresult = isize;
     type Wparam = usize;
-    type SubclassProc = Option<
-        unsafe extern "system" fn(Hwnd, u32, Wparam, Lparam, usize, usize) -> Lresult,
-    >;
+    type SubclassProc =
+        Option<unsafe extern "system" fn(Hwnd, u32, Wparam, Lparam, usize, usize) -> Lresult>;
 
     #[link(name = "Comctl32")]
     extern "system" {
@@ -33,6 +35,8 @@ mod windows_power_lifecycle {
         fn DefSubclassProc(hwnd: Hwnd, message: u32, wparam: Wparam, lparam: Lparam) -> Lresult;
     }
 
+    static POWER_CLEANUP_SENDER: OnceLock<SyncSender<()>> = OnceLock::new();
+
     fn application_meeting_owned() -> bool {
         crate::engine::runtime_state::latest_runtime_session_state()
             .snapshot
@@ -44,11 +48,57 @@ mod windows_power_lifecycle {
     fn converge_application_meeting_to_stopped() {
         if application_meeting_owned() {
             // Canonical Meeting Stop revokes generation/output authority before it
-            // cancels provider/helper/consumers and releases audio resources. Calling
-            // the same path on resume is intentionally idempotent convergence in case
-            // Windows suspended before cleanup could finish; it never starts/resumes a
-            // Meeting.
+            // cancels provider/helper/consumers and releases audio resources. Power
+            // lifecycle convergence must keep using this owner rather than inventing
+            // a second cleanup path.
             let _ = crate::commands::meeting_session::stop_meeting_translation();
+        }
+    }
+
+    fn power_event_requires_cleanup(wparam: Wparam) -> bool {
+        matches!(
+            wparam,
+            PBT_APMSUSPEND | PBT_APMRESUMECRITICAL | PBT_APMRESUMEAUTOMATIC
+        )
+    }
+
+    fn ensure_cleanup_handoff() -> Result<(), Box<dyn std::error::Error>> {
+        if POWER_CLEANUP_SENDER.get().is_some() {
+            return Ok(());
+        }
+
+        // One bounded signal may wait while the cleanup worker is already converging
+        // a previous power event. This lets a resume notification request one
+        // idempotent follow-up Stop without making the Windows callback wait.
+        let (sender, receiver) = sync_channel::<()>(1);
+        let cleanup_thread = thread::Builder::new()
+            .name("translateit-power-cleanup".to_string())
+            .spawn(move || {
+                while receiver.recv().is_ok() {
+                    converge_application_meeting_to_stopped();
+                }
+            })?;
+
+        if POWER_CLEANUP_SENDER.set(sender).is_err() {
+            // Another installer won the once-only sender race. Dropping this detached
+            // worker's only sender lets it exit without creating a second active owner.
+            drop(cleanup_thread);
+            return Ok(());
+        }
+
+        // Dropping a JoinHandle detaches the one process-lifetime lifecycle worker;
+        // the static sender owns its useful lifetime until process exit.
+        drop(cleanup_thread);
+        Ok(())
+    }
+
+    fn request_meeting_cleanup() {
+        let Some(sender) = POWER_CLEANUP_SENDER.get() else {
+            return;
+        };
+        match sender.try_send(()) {
+            Ok(()) | Err(TrySendError::Full(())) => {}
+            Err(TrySendError::Disconnected(())) => {}
         }
     }
 
@@ -60,13 +110,11 @@ mod windows_power_lifecycle {
         _subclass_id: usize,
         _ref_data: usize,
     ) -> Lresult {
-        if message == WM_POWERBROADCAST
-            && matches!(
-                wparam,
-                PBT_APMSUSPEND | PBT_APMRESUMECRITICAL | PBT_APMRESUMEAUTOMATIC
-            )
-        {
-            converge_application_meeting_to_stopped();
+        if message == WM_POWERBROADCAST && power_event_requires_cleanup(wparam) {
+            // Window-procedure work stays bounded and nonblocking. Session inspection,
+            // authority revocation, joins, helper cancellation, and audio release all
+            // happen on the lifecycle worker through canonical Meeting Stop.
+            request_meeting_cleanup();
         }
 
         unsafe { DefSubclassProc(hwnd, message, wparam, lparam) }
@@ -75,6 +123,7 @@ mod windows_power_lifecycle {
     pub fn install<R: Runtime>(
         window: &WebviewWindow<R>,
     ) -> Result<(), Box<dyn std::error::Error>> {
+        ensure_cleanup_handoff()?;
         let hwnd = window.hwnd()?;
         let installed = unsafe {
             SetWindowSubclass(
@@ -92,6 +141,23 @@ mod windows_power_lifecycle {
             .into());
         }
         Ok(())
+    }
+
+    #[cfg(test)]
+    mod b4_power_lifecycle_tests {
+        use super::{
+            power_event_requires_cleanup, PBT_APMRESUMEAUTOMATIC, PBT_APMRESUMECRITICAL,
+            PBT_APMSUSPEND,
+        };
+
+        #[test]
+        fn b4_suspend_and_resume_events_request_cleanup_convergence() {
+            assert!(power_event_requires_cleanup(PBT_APMSUSPEND));
+            assert!(power_event_requires_cleanup(PBT_APMRESUMECRITICAL));
+            assert!(power_event_requires_cleanup(PBT_APMRESUMEAUTOMATIC));
+            assert!(!power_event_requires_cleanup(0));
+            assert!(!power_event_requires_cleanup(0xffff));
+        }
     }
 }
 
