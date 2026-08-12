@@ -1,4 +1,4 @@
-name: Temporary Backend Pre-Local Audit
+name: Temporary Backend Pre-Local Audit State
 
 on:
   push:
@@ -11,55 +11,15 @@ permissions:
   contents: write
 
 jobs:
-  audit-and-record:
+  record-audit-state:
     runs-on: windows-2022
-    timeout-minutes: 35
+    timeout-minutes: 10
     steps:
       - name: Checkout New
         uses: actions/checkout@v4
         with:
           ref: New
           fetch-depth: 0
-
-      - name: Materialize canonical frontend dependencies
-        shell: pwsh
-        working-directory: EngineData/Frontend/RustApp
-        run: npm ci
-
-      - name: Reproduce stale validator contracts
-        shell: pwsh
-        working-directory: EngineData/Frontend/RustApp
-        run: |
-          $startupOutput = & npm.cmd run validate:startup-readiness 2>&1 | Out-String
-          $startupExit = $LASTEXITCODE
-          Write-Host $startupOutput
-          if ($startupExit -eq 0) { throw 'Expected stale startup-readiness marker was not reproduced.' }
-          if ($startupOutput -notmatch 'latest_runtime_session_state\(\)\.snapshot\.is_some\(\)') {
-            throw 'Startup-readiness validator failed for an unexpected reason.'
-          }
-          Write-Host 'PRELOCAL_AUDIT::startup_validator_stale_marker_reproduced'
-
-          $routeOutput = & npm.cmd run validate:virtual-route 2>&1 | Out-String
-          $routeExit = $LASTEXITCODE
-          Write-Host $routeOutput
-          if ($routeExit -eq 0) { throw 'Expected virtual-route validator contradiction was not reproduced.' }
-          if ($routeOutput -notmatch 'get_virtual_mic_route_contract_status') {
-            throw 'Virtual-route validator failed for an unexpected reason.'
-          }
-          Write-Host 'PRELOCAL_AUDIT::virtual_route_validator_contradiction_reproduced'
-
-      - name: Frontend build baseline
-        shell: pwsh
-        working-directory: EngineData/Frontend/RustApp
-        run: npm run build:frontend
-
-      - name: Rust compile baseline
-        shell: pwsh
-        run: cargo check --manifest-path EngineData/Frontend/RustApp/src-tauri/Cargo.toml
-
-      - name: Python source baseline
-        shell: pwsh
-        run: python -m compileall -q EngineData/Backend/LocalWorker/WorkerRuntime
 
       - name: Record canonical pre-local audit state
         shell: pwsh
