@@ -6,6 +6,10 @@ on:
     paths:
       - .github/workflows/temporary-frontend-clipboard-proof.yml
 
+concurrency:
+  group: temporary-frontend-clipboard-proof
+  cancel-in-progress: true
+
 jobs:
   verify:
     runs-on: windows-2022
@@ -31,6 +35,9 @@ jobs:
 
       - name: Production frontend build
         run: npm run build:frontend
+
+      - name: Install proof-only browser harness dependency
+        run: npm install --no-save --package-lock=false --ignore-scripts --no-audit --no-fund @playwright/test@1.55.0
 
       - name: Write targeted Text clipboard harness
         shell: pwsh
@@ -184,7 +191,7 @@ jobs:
           });
           '@ | Set-Content -Encoding utf8 .tmp/clipboard.spec.cjs
 
-          npm exec --yes --package=@playwright/test@1.55.0 -- playwright test .tmp/clipboard.spec.cjs --reporter=line --workers=1
+          npx playwright test .tmp/clipboard.spec.cjs --reporter=line --workers=1
 
       - name: Cleanup targeted proof files and server
         if: always()
