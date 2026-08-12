@@ -228,6 +228,7 @@ native startup / medium / near-minimum resize render
 native Step 1 keyboard focus traversal + visible focus indicators
 canonical package-lock.json + deterministic clean npm ci proof
 remote Text Copy browser Clipboard API success + truthful failure feedback
+fresh real Rust settings/new-state -> native First Setup projection with zero Python descendants
 ```
 
 Fresh First Setup remote proofs remain intentionally before capability execution and have shown zero Python child processes. They do **not** prove Python worker/model inference, physical microphone behavior, Meeting virtual-audio routing, real Meeting-app reception, sleep/wake behavior during a live session, latency/stability, installer placement, or clean-machine execution.
@@ -235,7 +236,7 @@ Fresh First Setup remote proofs remain intentionally before capability execution
 Before release, remaining proof/materialization still includes:
 
 ```text
-real runtime-state projection
+post-setup runtime-state projection together with deferred device/model acceptance
 private PythonRuntime + worker/model execution
 Windows Meeting audio/device validation
 Start / Stop / Safe Close / power lifecycle runtime acceptance
@@ -247,3 +248,5 @@ clean-machine proof
 `EngineData/Frontend/RustApp/package-lock.json` is now the canonical npm lockfile for the current Svelte/Vite/Tauri frontend dependency graph. It was generated with Node 22.16.0 / npm 10.9.2, its root dependency set matches `package.json`, and a separate fresh GitHub-hosted Windows checkout passed strict `npm ci`, `svelte-check` with 0 errors / 0 warnings, and the Vite production build using the committed lockfile only.
 
 Remote Text clipboard proof exercised the current `Text.svelte` Copy path on GitHub-hosted Windows. The translation response was simulated only at the existing Tauri `translate_text` boundary so no Python/model execution occurred; clipboard success used the real browser Clipboard API and was read back, while an injected `writeText` rejection verified truthful failure feedback without changing the previous clipboard value.
+
+Fresh real Rust settings/default-state projection has now also been proven remotely: an isolated Windows profile resolves to `meeting_setup_state = new`, and the native app projects that state to First Setup with `Set Up Later` and `Continue` while starting zero Python descendants. Once setup is no longer `new`, the normal product snapshot requests Meeting status and input status; Meeting preflight and route status cross real Windows audio-device enumeration. That post-setup projection therefore remains part of the deferred device/model runtime acceptance rather than a remote-safe proof target.

@@ -17,6 +17,7 @@ Native resize / keyboard focus      -> PASS
 FirstSetup Svelte diagnostics       -> PASS: 0 errors / 0 warnings
 Canonical frontend package lock     -> PASS: strict npm ci
 Remote Text clipboard interaction   -> PASS
+Real fresh Rust state projection    -> PASS: First Setup safe boundary
 ```
 
 No user-local-PC execution occurred.
@@ -325,6 +326,32 @@ Two earlier workflow attempts are retained only as harness evidence: one had pro
 
 This closes the current remote frontend clipboard interaction baseline. It does not claim native Tauri/WebView clipboard acceptance, real model translation, or user-local-PC behavior.
 
+## Remote Real Runtime-State Projection Boundary
+
+The accepted remote proof establishes the last normal product-state projection that can be exercised without crossing the currently deferred Python/model/audio/device boundary.
+
+Fresh isolated Windows settings resolve through the real Rust settings owner to schema-v6 defaults with `meeting_setup_state = new`. On this state, `App.svelte` loads settings and remains on First Setup instead of entering `loadProductRuntimeSnapshot()`.
+
+Accepted GitHub-hosted Windows Server 2022 run `31568531685` passed:
+
+```text
+canonical npm ci                      -> PASS
+svelte-check                          -> 0 errors / 0 warnings
+native Tauri release build            -> PASS
+native title                          -> TranslateIT
+native window handle                  -> non-zero (196874)
+native process Responding             -> true
+UI Automation actions                 -> Set Up Later | Continue
+Python descendant process count       -> 0
+REAL_RUNTIME_STATE                    -> fresh_settings_new
+NATIVE_PROJECTION                     -> first_setup
+UNSAFE_CAPABILITY_ACTIONS             -> not_activated
+```
+
+The first attempt `31568092998` is retained only as harness timing evidence: the native window was already alive/responding, but UI Automation was sampled before WebView descendants were exposed. The accepted rerun waited for the WebView projection and passed without changing product source.
+
+This proof does **not** extend to normal post-setup Ready/Blocked/Unavailable projection. Once `meeting_setup_state` is no longer `new`, `App.svelte` calls `loadProductRuntimeSnapshot()`, which requests Meeting status and input status. Meeting status builds preflight using input-device inspection, model inventory, helper status, and virtual-microphone route status; the input and route paths enumerate real Windows audio devices. Under the current proof restriction, that is the explicit stop boundary rather than a reason to substitute simulated state.
+
 ## Priority Map
 
 ### P0 — Core source correctness — SOURCE CLOSED / RUNTIME PROOF REQUIRED
@@ -348,7 +375,7 @@ Do not resume P1 merely because source edits are possible. Use measured/native e
 
 ### P2 — Release-blocking proof/materialization
 
-#### P2.1 Frontend — PARTIAL PROOF OBTAINED
+#### P2.1 Frontend — REMOTE-SAFE PROOF BOUNDARY CLOSED
 
 Obtained:
 
@@ -369,13 +396,16 @@ clean First Setup native re-render after warning correction
 canonical package-lock.json for current frontend dependency graph
 strict clean npm ci from committed lockfile
 remote Text Copy browser Clipboard API success + truthful failure feedback
+real fresh Rust settings/default state -> native First Setup projection
 ```
 
-Still required before release:
+Remaining runtime-state acceptance is not remote-safe under the current scope:
 
 ```text
-real runtime-state projection
+post-setup normal product-state projection with real device/model evidence
 ```
+
+The fresh/default Rust state projection is proven. Post-setup projection remains coupled to the deferred native device/model acceptance boundary and must not be replaced by simulated proof.
 
 #### P2.2 Rust / Tauri executable proof — PARTIAL PROOF OBTAINED
 
@@ -444,7 +474,8 @@ P0 source correctness CLOSED
 -> FirstSetup Svelte warning cleanup PASS
 -> canonical frontend dependency lockfile PASS
 -> remote clipboard proof PASS
--> real runtime-state projection where remotely meaningful
+-> real fresh Rust state -> native First Setup projection PASS
+-> remote-safe runtime-state boundary reached
 -> later explicit approval for local/model/audio proof
 -> fix measured failures
 -> finish only still-relevant P1
@@ -453,8 +484,8 @@ P0 source correctness CLOSED
 
 ## Current Mode
 
-**Proof / runtime-state boundary** — the current Text Copy path now has successful real browser Clipboard API read-back and truthful injected-failure evidence on GitHub-hosted Windows, while Python/model/audio and the user's local PC remain untouched.
+**Proof / explicit scope boundary** — real Rust default settings now have native First Setup projection evidence with zero Python descendants. Normal post-setup product-state projection necessarily crosses the deferred native audio-device/model boundary, so remote-safe runtime-state proof stops here.
 
-## Next Step — P2.1/P2.2 Remote Runtime-State Projection Boundary
+## Next Step — Explicit Runtime Proof Scope Decision
 
-Identify and prove only the real Rust/Tauri product states that can be exercised meaningfully on GitHub-hosted Windows without starting Python/model/audio or requiring physical audio devices. Confirm that the normal Svelte product surfaces project those real states truthfully. If the current snapshot path necessarily crosses worker/model/device execution, stop at that boundary and record it rather than substituting simulated state or user-local-PC testing.
+Do not run another normal post-setup runtime proof under the current restriction. The next executable acceptance slice requires explicit approval for one deferred runtime scope (Python/model execution or real Windows audio/device behavior). Until that scope is released, preserve the proven source/runtime/UI baseline rather than substituting simulation or user-local-PC testing.
