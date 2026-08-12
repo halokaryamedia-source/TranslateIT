@@ -15,6 +15,7 @@ Windows native launch/bootstrap     -> PASS
 Native Tauri/WebView pixel render   -> PASS
 Native resize / keyboard focus      -> PASS
 FirstSetup Svelte diagnostics       -> PASS: 0 errors / 0 warnings
+Canonical frontend package lock     -> PASS: strict npm ci
 ```
 
 No user-local-PC execution occurred.
@@ -269,6 +270,34 @@ The native release build still emits existing Rust warnings, mainly dead/interna
 
 Temporary proof workflows are removed after evidence is recorded; no permanent CI owner is introduced by these proof slices.
 
+## Canonical Frontend Dependency Lockfile Baseline
+
+`EngineData/Frontend/RustApp/package-lock.json` is now the canonical npm lockfile for the current frontend dependency graph. It adds no second package manager or frontend toolchain; its root runtime and development dependency keys match the existing `package.json` owners exactly.
+
+Candidate generation/review run `31561918268` used Windows Server 2025 with Node 22.16.0 / npm 10.9.2 and established:
+
+```text
+lockfileVersion                         -> 3
+locked package entries                  -> 163
+root runtime dependency keys            -> exact package.json match
+root development dependency keys        -> exact package.json match
+clean npm ci                            -> PASS
+svelte-check                            -> 0 errors / 0 warnings
+Vite production build                   -> PASS
+```
+
+The reviewed candidate was adopted in commit `a771ad8ef3c74112b8c838958f528f2e3d5c6b73`. A separate strict repository-checkout proof then deliberately refused to generate a replacement lockfile and required the committed file to exist. Remote run `31562191693` passed:
+
+```text
+canonical repository package-lock.json -> present
+lockfile root contract                  -> PASS
+clean npm ci from committed lockfile    -> PASS
+svelte-check                            -> 0 errors / 0 warnings
+Vite production build                   -> PASS
+```
+
+This closes frontend dependency determinism at the current dependency graph. Future dependency changes must update `package.json` and the canonical lockfile together rather than relying on floating proof-run installs.
+
 ## Priority Map
 
 ### P0 — Core source correctness — SOURCE CLOSED / RUNTIME PROOF REQUIRED
@@ -310,12 +339,13 @@ native startup / medium / near-minimum resize render
 native Step 1 keyboard focus reachability
 visible native focus indicators on both Step 1 actions
 clean First Setup native re-render after warning correction
+canonical package-lock.json for current frontend dependency graph
+strict clean npm ci from committed lockfile
 ```
 
 Still required before release:
 
 ```text
-adopt/review canonical dependency lockfile
 clipboard proof
 real runtime-state projection
 ```
@@ -385,8 +415,9 @@ P0 source correctness CLOSED
 -> native Tauri/WebView presentation PASS
 -> remote resize/focus proof PASS
 -> FirstSetup Svelte warning cleanup PASS
--> canonical frontend dependency lockfile
--> remaining remote-safe frontend/native proof
+-> canonical frontend dependency lockfile PASS
+-> remote clipboard proof
+-> real runtime-state projection where remotely meaningful
 -> later explicit approval for local/model/audio proof
 -> fix measured failures
 -> finish only still-relevant P1
@@ -395,8 +426,8 @@ P0 source correctness CLOSED
 
 ## Current Mode
 
-**Maintenance / determinism boundary** — First Setup now passes the official Svelte autofixer, `svelte-check` with 0 errors / 0 warnings, production build, native Tauri build, and fresh native render without changing setup semantics or the approved visual baseline. No user-local-PC, Python/model, or real audio execution occurred.
+**Proof / frontend interaction boundary** — the canonical frontend lockfile is now adopted and passes strict clean-install/typecheck/build proof from a fresh GitHub-hosted Windows checkout. No user-local-PC, Python/model, or real audio execution occurred.
 
-## Next Step — P2.1 Canonical Frontend Dependency Lockfile
+## Next Step — P2.1 Remote Clipboard Interaction Baseline
 
-Regenerate and review a canonical `package-lock.json` for the current Svelte/Vite/Tauri frontend dependency graph using the same proven Node/npm baseline, then verify deterministic clean dependency installation plus `svelte-check` and production build from that lockfile. Adopt the lockfile only if it matches the current dependency owners and does not introduce unnecessary packages or a second frontend toolchain. Keep this remote-only; do not combine it with Python/model/audio work or user-local-PC testing.
+Use GitHub-hosted Windows only to exercise the current Text Copy path against a current translated result without starting Python/model/audio. Prove a successful clipboard write when the available WebView/browser clipboard API permits it and truthful product feedback when clipboard access fails or is unavailable. Do not substitute user-local-PC testing if the hosted environment cannot provide meaningful clipboard evidence; record the environment boundary instead.

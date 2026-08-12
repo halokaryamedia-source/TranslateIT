@@ -226,6 +226,7 @@ fresh-profile translateit.exe launch/bootstrap
 native Tauri/WebView First Setup pixel render
 native startup / medium / near-minimum resize render
 native Step 1 keyboard focus traversal + visible focus indicators
+canonical package-lock.json + deterministic clean npm ci proof
 ```
 
 Fresh First Setup remote proofs remain intentionally before capability execution and have shown zero Python child processes. They do **not** prove Python worker/model inference, physical microphone behavior, Meeting virtual-audio routing, real Meeting-app reception, sleep/wake behavior during a live session, latency/stability, installer placement, or clean-machine execution.
@@ -233,7 +234,6 @@ Fresh First Setup remote proofs remain intentionally before capability execution
 Before release, remaining proof/materialization still includes:
 
 ```text
-adopt/review canonical frontend dependency lockfile
 clipboard interaction
 real runtime-state projection
 private PythonRuntime + worker/model execution
@@ -244,4 +244,4 @@ installer / installed-runtime proof
 clean-machine proof
 ```
 
-The removed old `package-lock.json` must not be treated as valid for the current Svelte dependency graph until a canonical lockfile is regenerated, reviewed, and adopted against the proven dependency set.
+`EngineData/Frontend/RustApp/package-lock.json` is now the canonical npm lockfile for the current Svelte/Vite/Tauri frontend dependency graph. It was generated with Node 22.16.0 / npm 10.9.2, its root dependency set matches `package.json`, and a separate fresh GitHub-hosted Windows checkout passed strict `npm ci`, `svelte-check` with 0 errors / 0 warnings, and the Vite production build using the committed lockfile only.
