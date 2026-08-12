@@ -1,6 +1,7 @@
 use crate::engine::audio::live_capture::{start_live_capture_runtime, stop_live_capture_runtime};
 use crate::engine::runtime_state::{
-    begin_direct_live_capture_session, clear_runtime_session_state, latest_runtime_session_state,
+    begin_direct_live_capture_session, clear_runtime_session_if_generation,
+    clear_runtime_session_state, latest_runtime_session_state,
     mark_runtime_session_cleanup_incomplete, revoke_runtime_session_authority,
 };
 use crate::engine::state::{CommandResult, LifecycleState};
@@ -86,15 +87,17 @@ pub fn stop_capture() -> CommandResult {
         return CommandResult::blocked(LifecycleState::Error, capture.message);
     }
 
-    let cleared = clear_runtime_session_state();
-    if cleared.has_active_session
-        || cleared.snapshot.is_some()
-        || cleared.blocker != "runtime_session:cleared"
-    {
-        return CommandResult::blocked(
-            LifecycleState::Error,
-            "Microphone capture stopped, but TranslateIT could not confirm that runtime ownership was cleared. Keep the app open and retry.",
-        );
+    if let Some(generation) = generation {
+        let cleared = clear_runtime_session_if_generation(generation);
+        if cleared.has_active_session
+            || cleared.snapshot.is_some()
+            || cleared.blocker != "runtime_session:cleared"
+        {
+            return CommandResult::blocked(
+                LifecycleState::Error,
+                "Microphone capture stopped, but TranslateIT could not confirm that Mic Test ownership was cleared. Keep the app open and retry.",
+            );
+        }
     }
 
     CommandResult::ok(

@@ -578,9 +578,9 @@ No Python/model execution, audio-route execution, user-local-PC testing, schedul
 
 ## Backend Hardening Wave A2 — CLOSED
 
-Meeting Stop and Mic Test Stop now preserve the authority-first rule while making cleanup truth explicit. A Stop result is successful only after required capture/helper/consumer cleanup reports success and the canonical runtime-session owner confirms the session was cleared. If cleanup fails, output generation authority remains revoked but the owner is retained as `cleanup_incomplete`; new Start/device rebind remains blocked and Stop can be retried. Meeting outbound/incoming presentation is also moved out of Live/listening state while cleanup is incomplete.
+Meeting Stop and Mic Test Stop now preserve the authority-first rule while making cleanup truth explicit. A Stop result is successful only after required capture/helper/consumer cleanup reports success and the canonical runtime-session owner confirms the **same generation** was cleared. If cleanup fails, output generation authority remains revoked but the owner is retained as `cleanup_incomplete`; new Start/device rebind remains blocked and Stop can be retried. A stale cleanup generation cannot clear a newer runtime owner, and Meeting Stop explicitly refuses to revoke Mic Test/non-Meeting ownership. Meeting outbound/incoming presentation is also moved out of Live/listening state while cleanup is incomplete.
 
-Mic Test uses the same rule: its authority is revoked before capture cleanup, failed capture cleanup retains the Mic Test owner instead of claiming release, and the Settings/App caller keeps Stop Mic Test reachable for retry. The product Meeting mapping presents retained application cleanup as `Stop Needed` rather than a healthy or generic active state.
+Mic Test uses the same rule: its authority is revoked before capture cleanup, failed capture cleanup retains the Mic Test owner instead of claiming release, and the Settings/App caller keeps Stop Mic Test reachable for retry. An idempotent Mic Test Stop with no owned session no longer performs a global session clear. The product Meeting mapping presents retained application cleanup as `Stop Needed` rather than a healthy or generic active state.
 
 Remote Windows proof for this slice passed:
 

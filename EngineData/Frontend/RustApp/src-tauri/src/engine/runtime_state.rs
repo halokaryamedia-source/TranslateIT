@@ -90,7 +90,7 @@ pub fn revoke_runtime_session_authority(generation: u64, note: &str) -> RuntimeS
     let Ok(mut guard) = store.lock() else {
         invalidate_runtime_generation();
         return state_unavailable_report(
-            "Meeting session authority could not be verified during revoke. Output generation authority was invalidated fail-closed.",
+            "Runtime session authority could not be verified during revoke. Output generation authority was invalidated fail-closed.",
         );
     };
     let Some(snapshot) = guard.as_mut() else {
@@ -103,7 +103,7 @@ pub fn revoke_runtime_session_authority(generation: u64, note: &str) -> RuntimeS
             active_age_ms: Some(current_unix_ms().saturating_sub(snapshot.started_unix_ms)),
             ready_for_stop: snapshot.safe_to_stop,
             blocker: "runtime_session:generation_mismatch".to_string(),
-            note: "Meeting session authority was not changed because the requested generation is stale.".to_string(),
+            note: "Runtime session authority was not changed because the requested generation is stale.".to_string(),
         };
     }
 
@@ -114,7 +114,7 @@ pub fn revoke_runtime_session_authority(generation: u64, note: &str) -> RuntimeS
     snapshot.note = compact_runtime_text(
         note,
         MAX_RUNTIME_NOTE_CHARS,
-        "Meeting session authority revoked before cleanup.",
+        "Runtime session authority revoked before cleanup.",
     );
     build_session_state_report(Some(snapshot.clone()))
 }
@@ -210,6 +210,44 @@ pub fn clear_runtime_session_state() -> RuntimeSessionStateReport {
         ready_for_stop: false,
         blocker: "runtime_session:cleared".to_string(),
         note: "Runtime session state was cleared and prior generation authority is invalid."
+            .to_string(),
+    }
+}
+
+pub fn clear_runtime_session_if_generation(generation: u64) -> RuntimeSessionStateReport {
+    let store = RUNTIME_SESSION_STATE.get_or_init(|| Mutex::new(None));
+    let Ok(mut guard) = store.lock() else {
+        invalidate_runtime_generation();
+        return state_unavailable_report(
+            "Runtime generation authority was invalidated, but matching session cleanup could not be verified because session state is unavailable.",
+        );
+    };
+
+    let Some(snapshot) = guard.as_ref() else {
+        return build_session_state_report(None);
+    };
+    if snapshot.generation != generation {
+        return RuntimeSessionStateReport {
+            has_active_session: true,
+            snapshot: Some(snapshot.clone()),
+            active_age_ms: Some(current_unix_ms().saturating_sub(snapshot.started_unix_ms)),
+            ready_for_stop: snapshot.safe_to_stop,
+            blocker: "runtime_session:generation_mismatch".to_string(),
+            note:
+                "Runtime session was not cleared because the requested cleanup generation is stale."
+                    .to_string(),
+        };
+    }
+
+    invalidate_runtime_generation();
+    *guard = None;
+    RuntimeSessionStateReport {
+        has_active_session: false,
+        snapshot: None,
+        active_age_ms: None,
+        ready_for_stop: false,
+        blocker: "runtime_session:cleared".to_string(),
+        note: "The matching runtime session was cleared and prior generation authority is invalid."
             .to_string(),
     }
 }
@@ -415,6 +453,39 @@ mod tests {
         assert!(report.snapshot.is_none());
         assert!(!report.ready_for_stop);
         assert_eq!(report.blocker, "runtime_session:state_lock_failed");
+    }
+
+    #[test]
+    fn stale_cleanup_generation_cannot_clear_a_newer_owner() {
+        let _serial = TEST_SERIAL.lock().expect("runtime-state test lock");
+        reset_test_state();
+
+        let meeting = begin_application_meeting_session();
+        let meeting_generation = meeting.snapshot.as_ref().expect("meeting claim").generation;
+        let cleared = clear_runtime_session_if_generation(meeting_generation);
+        assert_eq!(cleared.blocker, "runtime_session:cleared");
+
+        let mic_test = begin_direct_live_capture_session();
+        let mic_generation = mic_test.snapshot.as_ref().expect("mic claim").generation;
+        assert_ne!(meeting_generation, mic_generation);
+
+        let stale_clear = clear_runtime_session_if_generation(meeting_generation);
+        assert_eq!(stale_clear.blocker, "runtime_session:generation_mismatch");
+        assert_eq!(
+            stale_clear.snapshot.as_ref().map(|value| value.generation),
+            Some(mic_generation),
+        );
+        assert_eq!(
+            stale_clear
+                .snapshot
+                .as_ref()
+                .map(|value| value.owner_id.as_str()),
+            Some(DIRECT_LIVE_CAPTURE_OWNER_ID),
+        );
+
+        let final_clear = clear_runtime_session_if_generation(mic_generation);
+        assert_eq!(final_clear.blocker, "runtime_session:cleared");
+        reset_test_state();
     }
 
     #[test]

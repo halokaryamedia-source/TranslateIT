@@ -22,10 +22,11 @@ use crate::engine::audio::meeting_sound_capture::{
     stop_meeting_sound_capture_runtime,
 };
 use crate::engine::runtime_state::{
-    begin_application_meeting_session, clear_runtime_session_state,
-    commit_application_meeting_session_live, latest_runtime_session_state,
-    mark_runtime_session_cleanup_incomplete, revoke_runtime_session_authority,
-    runtime_generation_is_authoritative, RuntimeSessionStateReport,
+    begin_application_meeting_session, clear_runtime_session_if_generation,
+    clear_runtime_session_state, commit_application_meeting_session_live,
+    latest_runtime_session_state, mark_runtime_session_cleanup_incomplete,
+    revoke_runtime_session_authority, runtime_generation_is_authoritative,
+    RuntimeSessionStateReport,
 };
 
 use super::audio::get_input_status;
@@ -1898,6 +1899,18 @@ pub fn stop_meeting_translation() -> MeetingSessionActionResult {
         };
     }
 
+    if let Some(snapshot) = current.snapshot.as_ref() {
+        if snapshot.owner_id != APPLICATION_MEETING_OWNER_ID {
+            return MeetingSessionActionResult {
+                ok: false,
+                state: "active_session_conflict".to_string(),
+                message: "Stop Translation cannot control Mic Test or another non-Meeting runtime owner. Stop that operation from its own control first."
+                    .to_string(),
+                status: status_from_report(current, build_preflight()),
+            };
+        }
+    }
+
     let Some(snapshot) = current.snapshot.as_ref() else {
         let incoming_capture_stop = stop_meeting_sound_capture_runtime();
         clear_finalized_incoming_utterance_producer();
@@ -2013,7 +2026,7 @@ pub fn stop_meeting_translation() -> MeetingSessionActionResult {
     }
 
     clear_incoming_status();
-    let cleared = clear_runtime_session_state();
+    let cleared = clear_runtime_session_if_generation(generation);
     if cleared.has_active_session
         || cleared.snapshot.is_some()
         || cleared.blocker != "runtime_session:cleared"
