@@ -1,13 +1,14 @@
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
-use std::fs::{self, OpenOptions};
 use std::io::{BufRead, BufReader, Write};
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::process::{Child, ChildStderr, ChildStdin, ChildStdout};
 use std::sync::mpsc::{self, RecvTimeoutError};
 use std::sync::{Condvar, Mutex, OnceLock};
 use std::thread;
 use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
+
+use crate::engine::logging::{write_jsonl_event, RuntimeLogEvent};
 
 pub const WORKER_CONTROL_RESPONSE_DEADLINE_MS: u128 = 5_000;
 pub const WORKER_STATUS_RESPONSE_DEADLINE_MS: u128 = 30_000;
@@ -81,6 +82,7 @@ pub struct HelperBridgeRuntime {
     pub generation_token: u64,
     pub last_error: Option<String>,
     pub stderr_log_path: Option<String>,
+    pub stderr_logger: Option<thread::JoinHandle<()>>,
     pub updated_unix_ms: u128,
     pub child: Option<Child>,
     pub stdin: Option<ChildStdin>,
@@ -104,6 +106,7 @@ impl Default for HelperBridgeRuntime {
             generation_token: 0,
             last_error: None,
             stderr_log_path: None,
+            stderr_logger: None,
             updated_unix_ms: unix_ms(),
             child: None,
             stdin: None,
@@ -375,14 +378,34 @@ pub fn action_result(ok: bool, runtime: &HelperBridgeRuntime) -> HelperBridgeAct
     }
 }
 
-pub fn spawn_stderr_logger(stderr: ChildStderr, log_path: PathBuf) {
+fn write_helper_stderr_event(log_path: &Path, line: &str) -> std::io::Result<()> {
+    if line.trim().is_empty() {
+        return Ok(());
+    }
+    let log_dir = log_path.parent().ok_or_else(|| {
+        std::io::Error::new(
+            std::io::ErrorKind::InvalidInput,
+            "Helper stderr log path has no parent directory.",
+        )
+    })?;
+    let file_name = log_path
+        .file_name()
+        .and_then(|value| value.to_str())
+        .ok_or_else(|| {
+            std::io::Error::new(
+                std::io::ErrorKind::InvalidInput,
+                "Helper stderr log file name is not valid UTF-8.",
+            )
+        })?;
+    write_jsonl_event(
+        log_dir,
+        file_name,
+        &RuntimeLogEvent::warning("helper_worker_stderr", line),
+    )
+}
+
+pub fn spawn_stderr_logger(stderr: ChildStderr, log_path: PathBuf) -> thread::JoinHandle<()> {
     thread::spawn(move || {
-        if let Some(parent) = log_path.parent() {
-            let _ = fs::create_dir_all(parent);
-        }
-        let Ok(mut file) = OpenOptions::new().create(true).append(true).open(&log_path) else {
-            return;
-        };
         let mut reader = BufReader::new(stderr);
         let mut line = String::new();
         loop {
@@ -390,13 +413,18 @@ pub fn spawn_stderr_logger(stderr: ChildStderr, log_path: PathBuf) {
             match reader.read_line(&mut line) {
                 Ok(0) => break,
                 Ok(_) => {
-                    let _ = file.write_all(line.as_bytes());
-                    let _ = file.flush();
+                    let _ = write_helper_stderr_event(&log_path, &line);
                 }
-                Err(_) => break,
+                Err(error) => {
+                    let _ = write_helper_stderr_event(
+                        &log_path,
+                        &format!("Helper stderr reader failed: {error}"),
+                    );
+                    break;
+                }
             }
         }
-    });
+    })
 }
 
 pub fn clear_active_request(runtime: &mut HelperBridgeRuntime, request_id: &str) {
@@ -655,6 +683,89 @@ pub fn stop_child(runtime: &mut HelperBridgeRuntime) {
     if let Some(mut child) = runtime.child.take() {
         let _ = child.kill();
         let _ = child.wait();
+    }
+    if let Some(logger) = runtime.stderr_logger.take() {
+        let _ = logger.join();
+    }
+}
+
+#[cfg(test)]
+mod stderr_lifecycle_tests {
+    use super::*;
+    use std::fs;
+    use std::sync::atomic::{AtomicBool, Ordering};
+    use std::sync::Arc;
+
+    fn test_log_path(label: &str) -> PathBuf {
+        std::env::temp_dir()
+            .join(format!(
+                "translateit-a5-{}-{}-{label}",
+                std::process::id(),
+                unix_ms()
+            ))
+            .join("helper_bridge_stderr.jsonl")
+    }
+
+    #[test]
+    fn helper_stderr_uses_redacted_rotating_jsonl_policy() {
+        let log_path = test_log_path("redaction");
+        let log_dir = log_path.parent().expect("stderr test log parent");
+        fs::create_dir_all(log_dir).expect("create stderr test log dir");
+
+        write_helper_stderr_event(
+            &log_path,
+            r"worker failed at C:\Users\Alice\private-model.bin alice@example.com token=supersecret",
+        )
+        .expect("write redacted stderr event");
+        let content = fs::read_to_string(&log_path).expect("read redacted stderr log");
+        assert!(!content.contains(r"C:\Users\Alice\private-model.bin"));
+        assert!(!content.contains("alice@example.com"));
+        assert!(!content.contains("supersecret"));
+        assert!(content.contains("[redacted-path]"));
+        assert!(content.contains("[redacted-email]"));
+        assert!(content.contains("[redacted-secret]"));
+        let event: Value = serde_json::from_str(
+            content
+                .lines()
+                .next()
+                .expect("one helper stderr JSONL event"),
+        )
+        .expect("valid helper stderr JSONL");
+        assert_eq!(
+            event.get("area").and_then(Value::as_str),
+            Some("helper_worker_stderr")
+        );
+
+        fs::write(&log_path, vec![b'x'; 1_100_000]).expect("seed oversized stderr log");
+        write_helper_stderr_event(&log_path, "worker stderr after rotation")
+            .expect("rotate helper stderr log");
+        assert!(log_dir
+            .join("helper_bridge_stderr.previous.jsonl")
+            .is_file());
+        assert!(
+            fs::metadata(&log_path)
+                .expect("current stderr metadata")
+                .len()
+                < 10_000
+        );
+
+        let _ = fs::remove_dir_all(log_dir);
+    }
+
+    #[test]
+    fn stop_child_joins_owned_stderr_logger() {
+        let finished = Arc::new(AtomicBool::new(false));
+        let finished_in_thread = Arc::clone(&finished);
+        let mut runtime = HelperBridgeRuntime::default();
+        runtime.stderr_logger = Some(thread::spawn(move || {
+            thread::sleep(Duration::from_millis(20));
+            finished_in_thread.store(true, Ordering::SeqCst);
+        }));
+
+        stop_child(&mut runtime);
+
+        assert!(finished.load(Ordering::SeqCst));
+        assert!(runtime.stderr_logger.is_none());
     }
 }
 

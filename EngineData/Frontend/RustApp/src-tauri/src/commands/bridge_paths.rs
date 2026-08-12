@@ -84,7 +84,10 @@ fn development_python_command_available(candidate: &WorkerPythonCommand) -> bool
     command.stdout(Stdio::null());
     command.stderr(Stdio::null());
 
-    command.status().map(|status| status.success()).unwrap_or(false)
+    command
+        .status()
+        .map(|status| status.success())
+        .unwrap_or(false)
 }
 
 pub fn resolve_worker_python_command() -> Option<WorkerPythonCommand> {
@@ -131,8 +134,8 @@ pub fn helper_bridge_log_dir() -> PathBuf {
         .join("logs")
 }
 
-pub fn helper_stderr_log_path(generation_token: u64) -> PathBuf {
-    helper_bridge_log_dir().join(format!("helper_bridge_stderr_{generation_token}.log"))
+pub fn helper_stderr_log_path() -> PathBuf {
+    helper_bridge_log_dir().join("helper_bridge_stderr.jsonl")
 }
 
 pub fn slash_path(path: &std::path::Path) -> String {

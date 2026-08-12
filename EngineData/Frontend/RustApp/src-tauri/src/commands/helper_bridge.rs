@@ -760,22 +760,23 @@ pub fn get_helper_bridge_status() -> HelperBridgeStatus {
     let started = trace_command_start("get_helper_bridge_status", "reading helper bridge status");
     match runtime().lock() {
         Ok(mut runtime) => {
-            if let Some(child) = runtime.child.as_mut() {
-                if child.try_wait().ok().flatten().is_some() {
-                    runtime.stdin.take();
-                    runtime.stdout.take();
-                    runtime.child.take();
-                    runtime.state = "stopped".to_string();
-                    runtime.message = "Helper worker process exited.".to_string();
-                    runtime.cuda_ready = false;
-                    runtime.provider_ready = false;
-                    runtime.active_task = None;
-                    runtime.active_request_id = None;
-                    runtime.active_meeting_generation = None;
-                    runtime.active_meeting_session_id = None;
-                    runtime.active_meeting_lane = None;
-                    runtime.updated_unix_ms = unix_ms();
-                }
+            let child_exited = runtime
+                .child
+                .as_mut()
+                .and_then(|child| child.try_wait().ok().flatten())
+                .is_some();
+            if child_exited {
+                stop_child(&mut runtime);
+                runtime.state = "stopped".to_string();
+                runtime.message = "Helper worker process exited.".to_string();
+                runtime.cuda_ready = false;
+                runtime.provider_ready = false;
+                runtime.active_task = None;
+                runtime.active_request_id = None;
+                runtime.active_meeting_generation = None;
+                runtime.active_meeting_session_id = None;
+                runtime.active_meeting_lane = None;
+                runtime.updated_unix_ms = unix_ms();
             }
             let result = status_from_runtime(&runtime);
             trace_command_end(
@@ -867,9 +868,9 @@ fn start_helper_bridge_internal(clear_outbound_pipeline: bool) -> HelperBridgeAc
                 }
             };
 
-            let stderr_log_path = helper_stderr_log_path(runtime.generation_token);
+            let stderr_log_path = helper_stderr_log_path();
             if let Some(stderr) = child.stderr.take() {
-                spawn_stderr_logger(stderr, stderr_log_path.clone());
+                runtime.stderr_logger = Some(spawn_stderr_logger(stderr, stderr_log_path.clone()));
                 runtime.stderr_log_path = Some(slash_path(&stderr_log_path));
             }
 
@@ -878,6 +879,7 @@ fn start_helper_bridge_internal(clear_outbound_pipeline: bool) -> HelperBridgeAc
                 None => {
                     let _ = child.kill();
                     let _ = child.wait();
+                    stop_child(&mut runtime);
                     return set_blocked(
                         &mut runtime,
                         "Python helper stdin was not available after spawn.",
@@ -890,6 +892,7 @@ fn start_helper_bridge_internal(clear_outbound_pipeline: bool) -> HelperBridgeAc
                 None => {
                     let _ = child.kill();
                     let _ = child.wait();
+                    stop_child(&mut runtime);
                     return set_blocked(
                         &mut runtime,
                         "Python helper stdout was not available after spawn.",
@@ -898,6 +901,7 @@ fn start_helper_bridge_internal(clear_outbound_pipeline: bool) -> HelperBridgeAc
                 }
             };
             let stdout = BufReader::new(stdout);
+            runtime.child = Some(child);
 
             let ping_deadline_ms = worker_response_deadline_ms("ping");
             if let Err(error) = write_worker_request_with_deadline(
@@ -905,34 +909,29 @@ fn start_helper_bridge_internal(clear_outbound_pipeline: bool) -> HelperBridgeAc
                 &json!({ "command": "ping" }),
                 ping_deadline_ms,
             ) {
-                let _ = child.kill();
-                let _ = child.wait();
+                stop_child(&mut runtime);
                 return set_blocked(
                     &mut runtime,
                     &format!("Failed to send ping to helper worker: {error}"),
                     "helper_bridge:ping_write_failed",
                 );
             }
-            let (ping, mut stdout) = match read_worker_response_direct_with_deadline(
-                stdout,
-                ping_deadline_ms,
-            ) {
-                Ok((value, stdout)) => (value, stdout),
-                Err(error) => {
-                    let _ = child.kill();
-                    let _ = child.wait();
-                    return set_blocked(
-                        &mut runtime,
-                        &format!(
+            let (ping, mut stdout) =
+                match read_worker_response_direct_with_deadline(stdout, ping_deadline_ms) {
+                    Ok((value, stdout)) => (value, stdout),
+                    Err(error) => {
+                        stop_child(&mut runtime);
+                        return set_blocked(
+                            &mut runtime,
+                            &format!(
                             "Failed to read helper worker ping response before deadline: {error}"
                         ),
-                        "helper_bridge:ping_read_failed",
-                    );
-                }
-            };
+                            "helper_bridge:ping_read_failed",
+                        );
+                    }
+                };
             if ping.get("ok").and_then(Value::as_bool) != Some(true) {
-                let _ = child.kill();
-                let _ = child.wait();
+                stop_child(&mut runtime);
                 return set_blocked(
                     &mut runtime,
                     "Helper worker ping returned a non-ready response.",
@@ -954,8 +953,7 @@ fn start_helper_bridge_internal(clear_outbound_pipeline: bool) -> HelperBridgeAc
                         Some(value)
                     }
                     Err(error) => {
-                        let _ = child.kill();
-                        let _ = child.wait();
+                        stop_child(&mut runtime);
                         return set_blocked(
                             &mut runtime,
                             &format!("Failed to read helper worker status response before deadline: {error}"),
@@ -967,7 +965,6 @@ fn start_helper_bridge_internal(clear_outbound_pipeline: bool) -> HelperBridgeAc
                 None
             };
 
-            runtime.child = Some(child);
             runtime.stdin = Some(stdin);
             runtime.stdout = Some(stdout);
             runtime.state = "ready".to_string();
