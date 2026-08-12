@@ -20,19 +20,19 @@ if ($null -eq $Uv) {
 }
 
 if (-not (Test-Path $LockFile)) {
-    Write-Warning "uv.lock is not committed yet. This run will resolve pyproject.toml locally. Treat the resulting lock as LOCAL PROOF REQUIRED and do not claim reproducibility until that lock has been reviewed and committed."
+    throw "Missing canonical WorkerRuntime uv.lock: $LockFile. Restore the repository lock instead of resolving an unreviewed environment locally."
 }
 
 Push-Location $WorkerRoot
 try {
     Write-Host "Synchronizing canonical WorkerRuntime environment"
-    uv sync --no-dev
+    uv sync --frozen --no-dev
     if ($LASTEXITCODE -ne 0) {
         throw "uv sync failed."
     }
 
     Write-Host "Checking worker dependency/model capability status"
-    '{"command":"status"}' | uv run --no-dev python $Worker
+    '{"command":"status"}' | uv run --frozen --no-dev python $Worker
     if ($LASTEXITCODE -ne 0) {
         throw "Worker status command failed."
     }

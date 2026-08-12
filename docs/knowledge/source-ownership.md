@@ -31,7 +31,7 @@ This map points to current semantic owners. File existence alone does not make a
 | Meeting Microphone route | `commands/virtual_mic_route.rs`, `virtual_audio_route_runtime.rs` | ACTIVE INTERNAL |
 | Local worker/scheduler | `helper_bridge.rs`, `helper_bridge_runtime.rs`, `realtime_local_worker.py` | ACTIVE |
 | Installed worker interpreter path | `engine/paths.rs`, `commands/bridge_paths.rs` | SOURCE ALIGNED: `LocalWorker/PythonRuntime/python.exe` |
-| Model presence inventory | `runtime_inventory.rs` | ACTIVE / CACHED |
+| Full-product-release asset presence inventory | `runtime_inventory.rs` + `WorkerRuntime/model_manifest.json` | ACTIVE / CACHED / DOES NOT GATE MEETING START |
 | Text translation | `text_translate.rs` -> helper -> worker | ACTIVE / TYPED RESULT: TRANSLATED TEXT + USER MESSAGE + BLOCKER |
 | Persisted settings | `engine/settings.rs`, `engine/runtime_settings.rs`, `commands/settings.rs` | ACTIVE / SCHEMA V6 |
 | Source validation | small validators under `scripts/` | ACTIVE / SVELTE + PR-166 + RUNTIME-EFFICIENCY CONTRACT AWARE |
@@ -198,6 +198,20 @@ Rust/Python ownership is unchanged. The one private packaged interpreter remains
 ```
 
 Packaged execution fails closed when that interpreter is missing; repository Python alternatives remain development-only.
+
+Dependency and asset ownership is intentionally split:
+
+```text
+WorkerRuntime pyproject.toml + committed uv.lock
+-> canonical resolved Python dependency graph
+
+Worker status / provider preflight
+-> current Meeting-required AI runtime capability
+
+model_manifest.json + runtime_inventory.rs
+-> full-product-release asset presence only
+-> never a Meeting Start gate
+```
 
 ## Proof Boundary
 

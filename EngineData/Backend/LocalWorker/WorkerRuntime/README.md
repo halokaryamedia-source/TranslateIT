@@ -35,13 +35,13 @@ Translation output is also fail-closed: a generated result is not promoted as su
 
 ## Canonical Python Project
 
-`pyproject.toml` is the single WorkerRuntime dependency and Python tooling owner.
+`pyproject.toml` is the WorkerRuntime dependency-intent and Python tooling owner. The committed `uv.lock` is the canonical resolved dependency graph for that project. Normal setup must consume the lock rather than resolving version ranges again.
 
-The base project contains the canonical local-AI runtime dependencies. The `virtual-audio-route` extra contains the additional Python dependency needed by the guarded Windows virtual-audio provider without making that provider a second AI runtime.
+The base project contains the canonical local-AI runtime dependencies, including `numpy` and `sounddevice` used by the guarded Windows virtual-audio provider. There is no separate virtual-audio dependency authority or extra in the current project.
 
 `requirements-realtime.txt` and `requirements-virtual-audio-route.txt` are retired. Do not recreate requirements files as parallel dependency authorities.
 
-`uv.lock` is intentionally not committed yet because dependency resolution has not been executed and verified through the current ChatGPT -> GitHub channel. The first verified local dependency-resolution pass must generate/review the lock before repository state may be called reproducible.
+When dependencies intentionally change, edit `pyproject.toml`, run `uv lock`, review the lock diff, and commit the project + lock together. End-user/runtime setup must not regenerate the lock.
 
 `setup_realtime_worker.ps1` is a developer helper that uses `uv` and the canonical project. `uv` is developer/build tooling only; the installed TranslateIT product must not require the end user to install or operate `uv`.
 
@@ -51,30 +51,22 @@ From this folder, after `uv` is available:
 
 ```powershell
 # Runtime environment only
-uv sync --no-dev
+uv sync --frozen --no-dev
 
 # Runtime + developer proof tools
-uv sync
+uv sync --frozen
 
 # Static Python quality checks
-uv run ruff check .
-uv run ruff format --check .
+uv run --frozen ruff check .
+uv run --frozen ruff format --check .
 
 # Deterministic worker/protocol checks
-uv run pytest
+uv run --frozen pytest
 ```
 
 These commands are development proof only. A successful Ruff/pytest run does not prove model quality, CUDA execution, translation accuracy, audio delivery, or latency.
 
-### Optional virtual-audio provider dependency
-
-For a local Windows route-validation environment that intentionally includes the guarded Python route provider:
-
-```powershell
-uv sync --extra virtual-audio-route
-```
-
-Windows route behavior remains owned by the Windows-audio boundary and still requires real device/runtime proof.
+Windows route behavior remains owned by the Windows-audio boundary and still requires real device/runtime proof; dependency installation alone does not prove a route.
 
 ## Profiling
 
@@ -110,7 +102,7 @@ If no explicit English-capable voice can be identified, TTS remains unavailable 
 
 ## Runtime Assets
 
-The declarative model inventory is owned separately by `model_manifest.json` and the Rust installation inventory. Asset presence is installation evidence only.
+The declarative `model_manifest.json` + Rust inventory is scoped only to **full-product-release asset presence**. It does not decide whether Meeting can start. Current Meeting-required ASR / ID→EN / English-TTS capability is owned by the live worker status and provider preflight, so a valid runtime fallback can satisfy Meeting without pretending the full release package is complete. Asset presence remains installation evidence only.
 
 Typical current asset roots include:
 
@@ -170,7 +162,7 @@ That is distinct from temporary developer validation output, which should stay u
 
 - One persistent Python AI worker remains canonical.
 - One `pyproject.toml` owns WorkerRuntime Python dependencies/tooling.
-- `uv.lock` is required before dependency resolution can be called reproducible, but it must be generated from a real verified resolution rather than fabricated.
+- `uv.lock` is committed canonical resolution state; normal WorkerRuntime setup uses it frozen and must not silently re-resolve dependency ranges.
 - Translation output without verifiable normal completion is not successful output.
 - TTS requires an explicitly identified English-capable voice before synthesis.
 - CUDA availability is separate from successful CUDA inference.

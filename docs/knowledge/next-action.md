@@ -668,10 +668,31 @@ Tauri release build --no-bundle                    -> PASS
 
 No Python dependency locking/assets work, real model execution, stderr/scheduler redesign, audio-route execution, or user-local-PC testing occurred in Wave A6.
 
+## Backend Hardening Wave A7 — CLOSED
+
+WorkerRuntime dependency resolution is now canonical and reviewable: `pyproject.toml` remains the dependency-intent owner, a real resolver-generated `uv.lock` is committed as the resolved graph, and developer setup consumes it with `uv sync --frozen --no-dev` instead of silently resolving version ranges. The lock was generated on the Windows proof runner, checked with `uv lock --check`, and structurally verified to contain every current direct WorkerRuntime runtime dependency. This is dependency-resolution proof, not proof that every heavy AI package/model has executed successfully.
+
+Asset/readiness ownership is also separated. `model_manifest.json` schema v2 and `runtime_inventory.rs` now describe **full-product-release asset presence only**. Full release inventory requires the primary ASR asset, ID→EN translation, EN→ID translation, and packaged Piper assets; the medium ASR fallback remains optional release inventory. Meeting Start no longer consumes `model_inventory.ok`. Current Meeting-required AI capability is owned by the live helper/worker provider status, so a worker-validated ASR fallback or Windows SAPI TTS path may satisfy Meeting runtime capability without falsely marking the full release asset inventory complete. Runtime recovery likewise no longer treats release-inventory blockers as Meeting setup blockers.
+
+Remote Windows/source proof for this slice passed:
+
+```text
+uv lock generation + uv lock --check             -> PASS
+canonical lock direct-dependency verification     -> PASS
+release-vs-Meeting ownership verification         -> PASS
+Python worker contract tests                      -> PASS
+Rust A7 release/Meeting ownership tests           -> PASS
+cargo check                                       -> PASS
+canonical npm ci + frontend build                 -> PASS
+Tauri release build --no-bundle                   -> PASS
+```
+
+No real ASR/translation/TTS model inference, CUDA-vs-CPU execution acceptance, audio-route/device execution, installer staging, scheduler/stderr redesign, or user-local-PC testing occurred in Wave A7.
+
 ## Current Mode
 
-**Maintenance / Backend Hardening Wave A** — Waves A1-A6 are source/proof closed. Continue one bounded hardening slice before P2.3.
+**Backend Hardening Wave A — SOURCE/REMOTE PROOF CLOSED (A1-A7).** Resume release-blocking executable proof without reopening closed hardening slices unless new evidence requires it.
 
-## Next Step — Backend Hardening Wave A7: Canonical Python Lock / Asset Semantics
+## Next Step — P2.3: Real Python / Model Execution Proof
 
-Materialize and review the canonical WorkerRuntime Python dependency lock and reconcile Meeting-required readiness versus full product-release asset requirements. Keep A7 limited to dependency determinism and asset/readiness ownership; do not mix P2.3 model execution, audio-route/device work, scheduler/stderr redesign, or broad cleanup.
+Execute the canonical locked WorkerRuntime against real installed assets and collect truthful evidence for ASR, ID→EN translation, EN→ID translation, English TTS, CUDA-preferred behavior, and explicit CPU fallback. Keep P2.3 focused on real AI runtime execution; do not mix the deferred Windows audio-route/device acceptance cleanup or broad P3 dead-code cleanup into the model proof.

@@ -1,5 +1,8 @@
 {
-  "schema": "translateit.local_model_inventory.v1",
+  "schema": "translateit.local_model_inventory.v2",
+  "inventory_scope": "full_product_release_assets",
+  "required_field_semantics": "required_for_full_product_release",
+  "meeting_readiness_owner": "realtime_local_worker.status",
   "backend_policy": {
     "gpu_primary": true,
     "cpu_fallback_allowed": true,
@@ -24,7 +27,7 @@
       "download_url": null,
       "install_method": "huggingface_snapshot_download",
       "license": "project-local runtime asset; source URL not defined yet",
-      "notes": "Primary ASR model candidate for Meeting. Presence is installation evidence only; runtime load/quality are verified separately."
+      "notes": "Required full-product-release ASR asset. Meeting runtime readiness is owned by worker status, which may use the validated medium fallback when the primary asset is unavailable. Presence is installation evidence only."
     },
     {
       "model_id": "faster-whisper-medium",
@@ -44,7 +47,7 @@
       "download_url": null,
       "install_method": "huggingface_snapshot_download",
       "license": "project-local runtime asset; source URL not defined yet",
-      "notes": "Optional degraded ASR fallback candidate. Whether it remains required will be decided from later CPU fallback benchmarks."
+      "notes": "Optional packaged ASR fallback. It can satisfy Meeting ASR runtime capability when selected by the worker, but it is not independently required for full-product-release inventory while the primary ASR asset is packaged."
     },
     {
       "model_id": "marianmt-id-en",
@@ -62,11 +65,11 @@
       "download_url": "https://huggingface.co/Helsinki-NLP/opus-mt-id-en",
       "install_method": "huggingface_snapshot_download",
       "license": "apache-2.0",
-      "notes": "Required Indonesian-to-English translation asset for Meeting outbound and ID-to-EN Text. Presence is installation evidence only; worker load, inference, quality, and latency are verified separately."
+      "notes": "Required full-product-release Indonesian-to-English translation asset and required runtime capability for Meeting outbound. Meeting readiness is decided by worker status, not this release inventory."
     },
     {
       "model_id": "marianmt-en-id",
-      "required": false,
+      "required": true,
       "stage": "translation_en_id",
       "backend": "marianmt",
       "source_type": "huggingface",
@@ -80,11 +83,11 @@
       "download_url": "https://huggingface.co/Helsinki-NLP/opus-mt-en-id",
       "install_method": "huggingface_snapshot_download",
       "license": "apache-2.0",
-      "notes": "English-to-Indonesian translation asset for reverse Text and optional incoming Meeting assistance. It is intentionally nonblocking for required Meeting outbound inventory. Presence is installation evidence only; worker load, inference, quality, and latency are verified separately."
+      "notes": "Required for full product release because standalone Text supports English-to-Indonesian. It remains optional for Meeting Start and optional incoming Meeting assistance."
     },
     {
       "model_id": "piper",
-      "required": false,
+      "required": true,
       "stage": "tts_default",
       "backend": "piper-or-sapi",
       "source_type": "manual",
@@ -98,7 +101,7 @@
       "download_url": null,
       "install_method": "manual_or_release_asset",
       "license": "project-local runtime asset; source URL not defined yet",
-      "notes": "Optional packaged TTS provider assets. Current runtime capability may also come from verified Windows SAPI and is reported by worker status."
+      "notes": "Required packaged English TTS asset for a self-contained full product release. During development, Meeting runtime may still be capable through an explicitly verified English Windows SAPI voice; that runtime capability does not make the release asset inventory complete."
     }
   ]
 }

@@ -36,7 +36,6 @@ use super::helper_bridge::{
     HelperBridgeWorkerResponse,
 };
 use super::helper_bridge_runtime::unix_ms;
-use super::runtime_inventory::get_model_inventory;
 use super::virtual_audio_route_runtime::{
     cancel_meeting_virtual_audio_route_provider, dispatch_meeting_virtual_audio_route_provider,
     meeting_route_execution_guard_status, prepare_meeting_virtual_audio_route_provider,
@@ -641,17 +640,23 @@ fn application_outbound_runtime_connected() -> bool {
     generation_aware_outbound_stages_ready() && finalized_utterance_source_connected()
 }
 
+fn meeting_required_ai_ready(helper_ready: bool, provider_ready: bool) -> bool {
+    helper_ready && provider_ready
+}
+
 fn build_preflight() -> MeetingSessionPreflightStatus {
     let input = get_input_status();
-    let models = get_model_inventory();
     let helper = get_helper_bridge_status();
     let route = get_virtual_mic_route_contract_status();
     let route_execution = meeting_route_execution_guard_status();
 
     let microphone_ready = input.prepared;
-    let models_ready = models.ok;
     let helper_ready = helper.state == "ready";
     let provider_ready = helper.provider_ready;
+    // `models_ready` remains in the public preflight shape, but its Meeting meaning
+    // is current required outbound AI capability. Full-product-release asset presence
+    // is a separate Diagnostics/release inventory and must not gate Meeting Start.
+    let models_ready = meeting_required_ai_ready(helper_ready, provider_ready);
     let meeting_route_ready = route.route_ready;
     let route_execution_guard_ready = route_execution.ready;
     let generation_aware_outbound_stages_ready = generation_aware_outbound_stages_ready();
@@ -661,9 +666,6 @@ fn build_preflight() -> MeetingSessionPreflightStatus {
     let mut blockers = Vec::new();
     if !microphone_ready {
         blockers.push("meeting_session:microphone_not_ready".to_string());
-    }
-    if !models_ready {
-        blockers.push("meeting_session:required_models_not_ready".to_string());
     }
     if !helper_ready || !provider_ready {
         blockers.push("meeting_session:local_runtime_not_ready".to_string());
@@ -2081,5 +2083,17 @@ mod cleanup_truth_tests {
         assert!(!meeting_cleanup_complete(true, true, false, true, true));
         assert!(!meeting_cleanup_complete(true, true, true, false, true));
         assert!(!meeting_cleanup_complete(true, true, true, true, false));
+    }
+}
+#[cfg(test)]
+mod a7_meeting_readiness_tests {
+    use super::meeting_required_ai_ready;
+
+    #[test]
+    fn meeting_required_ai_readiness_depends_on_live_worker_capability_only() {
+        assert!(meeting_required_ai_ready(true, true));
+        assert!(!meeting_required_ai_ready(false, true));
+        assert!(!meeting_required_ai_ready(true, false));
+        assert!(!meeting_required_ai_ready(false, false));
     }
 }

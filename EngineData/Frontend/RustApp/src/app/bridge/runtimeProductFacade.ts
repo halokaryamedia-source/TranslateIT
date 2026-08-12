@@ -649,7 +649,7 @@ export async function runProductSetupAction(action: ProductSetupAction): Promise
     const blockers = Array.isArray(result?.blockers) ? result.blockers.join("; ") : "";
     return compact(
       result?.note ?? blockers,
-      result?.ok ? "Required model assets are installed." : "Model inventory inspection finished with blockers.",
+      result?.ok ? "Full product release asset inventory is complete." : "Release asset inventory inspection finished with blockers.",
     );
   }
 
@@ -663,13 +663,11 @@ export async function runProductRecoveryAction(action: ProductRecoveryAction): P
   if (action !== "fix-setup") return "No product recovery action was selected.";
 
   const helper = await runtimeApi.startHelperBridge().catch(() => null);
-  const models = await runtimeApi.verifyModels().catch(() => null);
   const input = await runtimeApi.getInputStatus().catch(() => null);
   const workerStatus = helper?.ok ? await runtimeApi.helperBridgeWorkerStatus().catch(() => null) : null;
   const worker = parseWorkerCapabilities(workerStatus);
   const hasProblem = Boolean(
     (helper && !helper.ok) ||
-    (Array.isArray(models?.blockers) && models.blockers.length > 0) ||
     input?.blocker ||
     (worker.responseAvailable && !worker.translationIdEnReady),
   );
