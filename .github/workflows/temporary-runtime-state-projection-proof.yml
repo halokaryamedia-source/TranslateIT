@@ -1,0 +1,149 @@
+name: Temporary Runtime State Projection Proof
+
+on:
+  push:
+    branches: [New]
+    paths:
+      - .github/workflows/temporary-runtime-state-projection-proof.yml
+
+concurrency:
+  group: temporary-runtime-state-projection-proof
+  cancel-in-progress: true
+
+jobs:
+  verify:
+    runs-on: windows-2022
+    timeout-minutes: 30
+    defaults:
+      run:
+        working-directory: EngineData/Frontend/RustApp
+
+    steps:
+      - name: Checkout New
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22.16.0'
+
+      - name: Deterministic frontend install
+        run: npm ci --no-audit --no-fund
+
+      - name: Svelte check
+        run: npm run typecheck
+
+      - name: Build native application without installer
+        run: npx tauri build --no-bundle
+
+      - name: Prove fresh real Rust state projects to native First Setup only
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+
+          $profileRoot = Join-Path $env:RUNNER_TEMP 'translateit-runtime-state-profile'
+          Remove-Item -Recurse -Force $profileRoot -ErrorAction SilentlyContinue
+          $env:LOCALAPPDATA = Join-Path $profileRoot 'LocalAppData'
+          $env:APPDATA = Join-Path $profileRoot 'RoamingAppData'
+          New-Item -ItemType Directory -Force $env:LOCALAPPDATA | Out-Null
+          New-Item -ItemType Directory -Force $env:APPDATA | Out-Null
+
+          if ((Get-ChildItem -Recurse -Force $profileRoot | Measure-Object).Count -ne 2) {
+            throw 'Fresh runtime-state profile was not empty before launch.'
+          }
+
+          $exe = (Resolve-Path 'src-tauri\target\release\translateit.exe').Path
+          $process = Start-Process -FilePath $exe -PassThru
+
+          try {
+            $deadline = (Get-Date).AddSeconds(20)
+            do {
+              Start-Sleep -Milliseconds 500
+              $process.Refresh()
+              if ($process.HasExited) {
+                throw "TranslateIT exited during fresh runtime-state bootstrap with code $($process.ExitCode)."
+              }
+            } while ($process.MainWindowHandle -eq 0 -and (Get-Date) -lt $deadline)
+
+            $process.Refresh()
+            if ($process.MainWindowHandle -eq 0) {
+              throw 'TranslateIT did not expose a native main window during fresh runtime-state bootstrap.'
+            }
+            if (-not $process.Responding) {
+              throw 'TranslateIT native window is not responding.'
+            }
+            if ($process.MainWindowTitle -ne 'TranslateIT') {
+              throw "Unexpected native window title: $($process.MainWindowTitle)"
+            }
+
+            Add-Type -AssemblyName UIAutomationClient
+            $window = [System.Windows.Automation.AutomationElement]::FromHandle([IntPtr]$process.MainWindowHandle)
+            if ($null -eq $window) {
+              throw 'UI Automation could not attach to the TranslateIT native window.'
+            }
+
+            $buttonCondition = New-Object System.Windows.Automation.PropertyCondition(
+              [System.Windows.Automation.AutomationElement]::ControlTypeProperty,
+              [System.Windows.Automation.ControlType]::Button
+            )
+            $buttons = $window.FindAll([System.Windows.Automation.TreeScope]::Descendants, $buttonCondition)
+            $buttonNames = @()
+            foreach ($button in $buttons) {
+              $name = [string]$button.Current.Name
+              if (-not [string]::IsNullOrWhiteSpace($name)) { $buttonNames += $name }
+            }
+
+            Write-Host "Native title=$($process.MainWindowTitle)"
+            Write-Host "Native handle=$($process.MainWindowHandle)"
+            Write-Host "Native responding=$($process.Responding)"
+            Write-Host "UIA buttons=$($buttonNames -join ' | ')"
+
+            foreach ($required in @('Set Up Later', 'Continue')) {
+              if ($buttonNames -notcontains $required) {
+                throw "Fresh real runtime state did not project expected First Setup action: $required"
+              }
+            }
+
+            $allProcesses = @(Get-CimInstance Win32_Process)
+            $childrenByParent = @{}
+            foreach ($item in $allProcesses) {
+              $parent = [int]$item.ParentProcessId
+              if (-not $childrenByParent.ContainsKey($parent)) {
+                $childrenByParent[$parent] = New-Object System.Collections.ArrayList
+              }
+              [void]$childrenByParent[$parent].Add($item)
+            }
+
+            $queue = New-Object System.Collections.Generic.Queue[int]
+            $queue.Enqueue([int]$process.Id)
+            $descendants = New-Object System.Collections.ArrayList
+            while ($queue.Count -gt 0) {
+              $parentId = $queue.Dequeue()
+              if (-not $childrenByParent.ContainsKey($parentId)) { continue }
+              foreach ($child in $childrenByParent[$parentId]) {
+                [void]$descendants.Add($child)
+                $queue.Enqueue([int]$child.ProcessId)
+              }
+            }
+
+            $pythonDescendants = @($descendants | Where-Object { $_.Name -match '^python(?:w)?\.exe$' })
+            Write-Host "Descendant process count=$($descendants.Count)"
+            Write-Host "Python descendant count=$($pythonDescendants.Count)"
+            if ($pythonDescendants.Count -ne 0) {
+              $names = ($pythonDescendants | ForEach-Object { "$($_.Name):$($_.ProcessId)" }) -join ', '
+              throw "Fresh First Setup unexpectedly started Python descendants: $names"
+            }
+
+            $runtimeLogs = @(Get-ChildItem -Recurse -Force $profileRoot -Filter 'rust_runtime_latest.jsonl' -ErrorAction SilentlyContinue)
+            foreach ($log in $runtimeLogs) {
+              Write-Host "Runtime trace path=$($log.FullName)"
+              Get-Content $log.FullName | Select-Object -Last 20
+            }
+
+            Write-Host 'REAL_RUNTIME_STATE=fresh_settings_new'
+            Write-Host 'NATIVE_PROJECTION=first_setup'
+            Write-Host 'UNSAFE_CAPABILITY_ACTIONS=not_activated'
+          }
+          finally {
+            Stop-Process -Id $process.Id -Force -ErrorAction SilentlyContinue
+          }
