@@ -55,6 +55,16 @@ jobs:
           }
           git diff --stat
 
+      - name: Materialize canonical frontend dependencies
+        shell: pwsh
+        working-directory: EngineData/Frontend/RustApp
+        run: npm ci
+
+      - name: Build frontend prerequisite for Tauri test context
+        shell: pwsh
+        working-directory: EngineData/Frontend/RustApp
+        run: npm run build
+
       - name: Targeted runtime authority tests
         shell: pwsh
         run: cargo test --manifest-path EngineData/Frontend/RustApp/src-tauri/Cargo.toml runtime_state::tests -- --test-threads=1
@@ -62,11 +72,6 @@ jobs:
       - name: Windows Rust compile baseline
         shell: pwsh
         run: cargo check --manifest-path EngineData/Frontend/RustApp/src-tauri/Cargo.toml
-
-      - name: Materialize canonical frontend dependencies
-        shell: pwsh
-        working-directory: EngineData/Frontend/RustApp
-        run: npm ci
 
       - name: Native Tauri release build baseline
         shell: pwsh
