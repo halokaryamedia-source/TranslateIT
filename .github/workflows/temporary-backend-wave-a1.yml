@@ -63,7 +63,7 @@ jobs:
       - name: Build frontend prerequisite for Tauri test context
         shell: pwsh
         working-directory: EngineData/Frontend/RustApp
-        run: npm run build
+        run: npm run build:frontend
 
       - name: Targeted runtime authority tests
         shell: pwsh
