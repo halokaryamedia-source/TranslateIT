@@ -1,0 +1,141 @@
+name: Temporary Backend Pre-Local B4 Proof
+
+on:
+  push:
+    branches:
+      - New
+    paths:
+      - .github/workflows/temporary-backend-prelocal-b4.yml
+
+permissions:
+  contents: write
+
+jobs:
+  prove-b4:
+    runs-on: windows-2022
+    timeout-minutes: 60
+    steps:
+      - name: Checkout New
+        uses: actions/checkout@v4
+        with:
+          ref: New
+          fetch-depth: 0
+
+      - name: Apply bounded B4 correction
+        shell: pwsh
+        run: |
+          python .tmp/backend_prelocal_b4_patch.py
+          if ($LASTEXITCODE -ne 0) { throw "B4 patch helper failed." }
+
+      - name: Format bounded B4 Rust source
+        shell: pwsh
+        run: |
+          rustfmt --edition 2021 "EngineData/Frontend/RustApp/src-tauri/src/app_bootstrap.rs"
+          if ($LASTEXITCODE -ne 0) { throw "rustfmt failed." }
+
+      - name: Prove B4 lifecycle source contract
+        shell: pwsh
+        run: |
+          @'
+          from pathlib import Path
+
+          root = Path.cwd()
+          facade = (root / 'EngineData/Frontend/RustApp/src/app/bridge/runtimeProductFacade.ts').read_text(encoding='utf-8')
+          app = (root / 'EngineData/Frontend/RustApp/src/App.svelte').read_text(encoding='utf-8')
+          text_translate = (root / 'EngineData/Frontend/RustApp/src-tauri/src/commands/text_translate.rs').read_text(encoding='utf-8')
+          bootstrap = (root / 'EngineData/Frontend/RustApp/src-tauri/src/app_bootstrap.rs').read_text(encoding='utf-8')
+          context = (root / 'CONTEXT.md').read_text(encoding='utf-8')
+          next_action = (root / 'docs/knowledge/next-action.md').read_text(encoding='utf-8')
+
+          assert 'function helperNeedsLazyStart' in facade
+          assert 'helper.state === "not_started" || helper.state === "stopped"' in facade
+          assert 'settings.meeting_setup_state === "new"' in facade
+          assert 'await runtimeApi.startHelperBridge();' in facade
+          ensure_index = facade.index('const helper = await ensurePostSetupHelperLifecycle(settings);')
+          preflight_index = facade.index('runtimeApi.getMeetingSessionStatus()', ensure_index)
+          assert ensure_index < preflight_index
+
+          assert 'setupRequired = setupSettings.meeting_setup_state === "new";' in app
+          assert 'if (!setupRequired) await refreshSnapshot(undefined, loadedSettings);' in app
+          assert 'ensure_persistent_helper_started' in text_translate
+          assert 'start_helper_bridge()' in text_translate
+
+          assert 'sync_channel::<()>(1)' in bootstrap
+          assert 'sender.try_send(())' in bootstrap
+          assert 'translateit-power-cleanup' in bootstrap
+          assert 'crate::commands::meeting_session::stop_meeting_translation();' in bootstrap
+          proc = bootstrap.split('unsafe extern "system" fn translateit_power_window_proc', 1)[1].split('pub fn install', 1)[0]
+          assert 'request_meeting_cleanup();' in proc
+          assert 'stop_meeting_translation' not in proc
+          assert 'latest_runtime_session_state' not in proc
+          assert 'receiver.recv().is_ok()' in bootstrap
+
+          assert 'does not start Python' in context
+          assert 'Windows suspend/resume window messages only enqueue a bounded nonblocking cleanup signal' in context
+          assert '## Backend Pre-Local B4 — CLOSED' in next_action
+          assert '## Next Step — Backend Pre-Local B5: Local Proof Tooling' in next_action
+          print('B4_LIFECYCLE_SOURCE_CONTRACT=PASS')
+          '@ | python -
+          if ($LASTEXITCODE -ne 0) { throw "B4 lifecycle source contract failed." }
+
+      - name: Verify B4 change scope
+        shell: pwsh
+        run: |
+          git diff --check
+          if ($LASTEXITCODE -ne 0) { throw "git diff --check failed." }
+          $expected = @(
+            'CONTEXT.md',
+            'EngineData/Frontend/RustApp/src/app/bridge/runtimeProductFacade.ts',
+            'EngineData/Frontend/RustApp/src-tauri/src/app_bootstrap.rs',
+            'docs/knowledge/next-action.md'
+          )
+          $changed = @(git status --porcelain --untracked-files=all | ForEach-Object { $_.Substring(3).Replace('\','/') })
+          $unexpected = @($changed | Where-Object { $expected -notcontains $_ })
+          $missing = @($expected | Where-Object { $changed -notcontains $_ })
+          if ($unexpected.Count -gt 0) {
+            $unexpected | ForEach-Object { Write-Host "Unexpected: $_" }
+            throw "Unexpected B4 changed path."
+          }
+          if ($missing.Count -gt 0) {
+            $missing | ForEach-Object { Write-Host "Missing: $_" }
+            throw "Expected B4 changed path missing."
+          }
+          git diff --stat
+
+      - name: Prove canonical frontend
+        shell: pwsh
+        working-directory: EngineData/Frontend/RustApp
+        run: |
+          npm ci
+          if ($LASTEXITCODE -ne 0) { throw "npm ci failed." }
+          npm run typecheck
+          if ($LASTEXITCODE -ne 0) { throw "svelte-check failed." }
+          npm run build:frontend
+          if ($LASTEXITCODE -ne 0) { throw "frontend build failed." }
+
+      - name: Prove Rust B4 behavior and compile
+        shell: pwsh
+        run: |
+          cargo test --manifest-path "EngineData/Frontend/RustApp/src-tauri/Cargo.toml" b4_ -- --nocapture
+          if ($LASTEXITCODE -ne 0) { throw "Rust B4 tests failed." }
+          cargo check --manifest-path "EngineData/Frontend/RustApp/src-tauri/Cargo.toml"
+          if ($LASTEXITCODE -ne 0) { throw "cargo check failed." }
+
+      - name: Prove Tauri release link
+        shell: pwsh
+        working-directory: EngineData/Frontend/RustApp
+        run: |
+          npx tauri build --no-bundle
+          if ($LASTEXITCODE -ne 0) { throw "Tauri release build failed." }
+
+      - name: Commit proven B4 correction
+        shell: pwsh
+        run: |
+          git config user.name "halokaryamedia-source"
+          git config user.email "halokaryamedia@gmail.com"
+          git add CONTEXT.md `
+            "EngineData/Frontend/RustApp/src/app/bridge/runtimeProductFacade.ts" `
+            "EngineData/Frontend/RustApp/src-tauri/src/app_bootstrap.rs" `
+            "docs/knowledge/next-action.md"
+          git commit -m "Make desktop helper and power lifecycle self-starting"
+          git push origin HEAD:New
