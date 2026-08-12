@@ -102,7 +102,7 @@ def source() -> None:
     tests = replace_python_function(
         tests,
         "test_mode_label_is_compatibility_only_not_model_selection",
-        '''def test_translate_routes_by_language_pair_without_mode_compatibility_output(monkeypatch) -> None:\n    worker = load_worker_module()\n    monkeypatch.setattr(worker, "translation_model_ready", lambda _path: False)\n\n    result = worker.handle_translate(\n        {\n            "text": "halo",\n            "source_language": "id",\n            "target_language": "en",\n            # Legacy callers may still send an unknown extra field, but it is no longer\n            # part of routing or the worker response contract.\n            "mode": "Quality",\n        }\n    )\n\n    assert result["ok"] is False\n    assert "mode" not in result\n    assert result["direction_pair"] == "id->en"\n    assert result["blocker"] == "model:marianmt_id_en_missing"''',
+        '''def test_translate_routes_by_language_pair_without_mode_compatibility_output(monkeypatch) -> None:\n    worker = load_worker_module()\n    monkeypatch.setattr(worker, "translation_model_ready", lambda _path: False)\n\n    result = worker.handle_translate(\n        {\n            "text": "halo",\n            "source_language": "id",\n            "target_language": "en",\n        }\n    )\n\n    assert result["ok"] is False\n    assert "mode" not in result\n    assert result["direction_pair"] == "id->en"\n    assert result["blocker"] == "model:marianmt_id_en_missing"''',
     )
     tests = replace_python_function(
         tests,
