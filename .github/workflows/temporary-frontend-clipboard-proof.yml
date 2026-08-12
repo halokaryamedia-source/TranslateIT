@@ -10,6 +10,9 @@ concurrency:
   group: temporary-frontend-clipboard-proof
   cancel-in-progress: true
 
+permissions:
+  contents: write
+
 jobs:
   verify:
     runs-on: windows-2022
@@ -191,6 +194,89 @@ jobs:
             npx playwright test .tmp/clipboard.spec.cjs --reporter=line --workers=1
           } finally {
             Stop-Process -Id $process.Id -Force -ErrorAction SilentlyContinue
+          }
+
+      - name: Record clipboard proof in canonical project state
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          node --input-type=module -e @'
+          import fs from 'node:fs';
+          import path from 'node:path';
+
+          const root = path.resolve(process.cwd(), '../../..');
+          const contextPath = path.join(root, 'CONTEXT.md');
+          const nextPath = path.join(root, 'docs', 'knowledge', 'next-action.md');
+
+          function mustReplace(text, from, to, label) {
+            if (!text.includes(from)) throw new Error(`Canonical state replacement marker missing: ${label}`);
+            return text.replace(from, to);
+          }
+
+          let context = fs.readFileSync(contextPath, 'utf8');
+          context = mustReplace(
+            context,
+            'canonical package-lock.json + deterministic clean npm ci proof\n',
+            'canonical package-lock.json + deterministic clean npm ci proof\nremote Text Copy browser Clipboard API success + truthful failure feedback\n',
+            'CONTEXT obtained clipboard proof',
+          );
+          context = mustReplace(
+            context,
+            'clipboard interaction\n',
+            '',
+            'CONTEXT remove completed clipboard item',
+          );
+          context = mustReplace(
+            context,
+            '`EngineData/Frontend/RustApp/package-lock.json` is now the canonical npm lockfile for the current Svelte/Vite/Tauri frontend dependency graph. It was generated with Node 22.16.0 / npm 10.9.2, its root dependency set matches `package.json`, and a separate fresh GitHub-hosted Windows checkout passed strict `npm ci`, `svelte-check` with 0 errors / 0 warnings, and the Vite production build using the committed lockfile only.',
+            '`EngineData/Frontend/RustApp/package-lock.json` is now the canonical npm lockfile for the current Svelte/Vite/Tauri frontend dependency graph. It was generated with Node 22.16.0 / npm 10.9.2, its root dependency set matches `package.json`, and a separate fresh GitHub-hosted Windows checkout passed strict `npm ci`, `svelte-check` with 0 errors / 0 warnings, and the Vite production build using the committed lockfile only.\n\nRemote Text clipboard proof exercised the current `Text.svelte` Copy path on GitHub-hosted Windows. The translation response was simulated only at the existing Tauri `translate_text` boundary so no Python/model execution occurred; clipboard success used the real browser Clipboard API and was read back, while an injected `writeText` rejection verified truthful failure feedback without changing the previous clipboard value.',
+            'CONTEXT clipboard proof qualification',
+          );
+          fs.writeFileSync(contextPath, context);
+
+          let next = fs.readFileSync(nextPath, 'utf8');
+          next = mustReplace(
+            next,
+            'Canonical frontend package lock     -> PASS: strict npm ci\n',
+            'Canonical frontend package lock     -> PASS: strict npm ci\nRemote Text clipboard interaction   -> PASS\n',
+            'next-action current proof chain',
+          );
+
+          const clipboardSection = `## Remote Text Clipboard Interaction Baseline\n\nThe current \`src/pages/Text.svelte\` Copy path writes the visible translated result through \`navigator.clipboard.writeText\`, promotes the control to \`Copied\` only after the write resolves, and reports \`Couldn't copy the translation. Try again.\` when clipboard writing fails.\n\nRemote accepted proof run \`31567031148\` used GitHub-hosted Windows Server 2022 with Node 22.16.0 / npm 10.9.2. The production dependency/type/build baseline remained clean, and the targeted browser proof mounted the current \`Text.svelte\` component rather than a rewritten copy. The translation response was simulated only at the existing Tauri \`translate_text\` command boundary so this slice did not start Python/model/audio work.\n\n\`\`\`text\ncanonical npm ci                         -> PASS\nsvelte-check                             -> 0 errors / 0 warnings\nVite production build                    -> PASS\nText translated result                   -> current product state reached\nTauri proof commands                     -> translate_text only\nreal navigator.clipboard.writeText       -> PASS\nclipboard read-back equals target text   -> PASS\nCopy button                              -> Copied after successful write\nproduct notice                           -> Translation copied.\ninjected writeText rejection             -> handled\nbutton after rejected write              -> Copy\nfailure notice                           -> Couldn't copy the translation. Try again.\nclipboard after rejected write           -> previous successful value preserved\n\`\`\`\n\nTwo earlier workflow attempts are retained only as harness evidence: one had proof dependency resolution wrong and one let the temporary Vite child process end between Actions steps. Neither reached a contradictory product result; the accepted run kept the proof server and browser interaction in the same step and passed the current Copy behavior.\n\nThis closes the current remote frontend clipboard interaction baseline. It does not claim native Tauri/WebView clipboard acceptance, real model translation, or user-local-PC behavior.\n\n`;
+          next = mustReplace(next, '## Priority Map\n', clipboardSection + '## Priority Map\n', 'next-action clipboard proof section');
+          next = mustReplace(
+            next,
+            'strict clean npm ci from committed lockfile\n',
+            'strict clean npm ci from committed lockfile\nremote Text Copy browser Clipboard API success + truthful failure feedback\n',
+            'next-action P2.1 obtained clipboard proof',
+          );
+          next = mustReplace(
+            next,
+            'clipboard proof\nreal runtime-state projection\n',
+            'real runtime-state projection\n',
+            'next-action remove completed clipboard item',
+          );
+          next = mustReplace(
+            next,
+            '-> remote clipboard proof\n-> real runtime-state projection where remotely meaningful\n',
+            '-> remote clipboard proof PASS\n-> real runtime-state projection where remotely meaningful\n',
+            'next-action sequencing clipboard pass',
+          );
+
+          const modeIndex = next.indexOf('## Current Mode\n');
+          if (modeIndex < 0) throw new Error('Canonical state replacement marker missing: next-action Current Mode');
+          next = next.slice(0, modeIndex) + `## Current Mode\n\n**Proof / runtime-state boundary** — the current Text Copy path now has successful real browser Clipboard API read-back and truthful injected-failure evidence on GitHub-hosted Windows, while Python/model/audio and the user's local PC remain untouched.\n\n## Next Step — P2.1/P2.2 Remote Runtime-State Projection Boundary\n\nIdentify and prove only the real Rust/Tauri product states that can be exercised meaningfully on GitHub-hosted Windows without starting Python/model/audio or requiring physical audio devices. Confirm that the normal Svelte product surfaces project those real states truthfully. If the current snapshot path necessarily crosses worker/model/device execution, stop at that boundary and record it rather than substituting simulated state or user-local-PC testing.\n`;
+          fs.writeFileSync(nextPath, next);
+          '@
+
+          git config user.name 'halokaryamedia-source'
+          git config user.email 'halokaryamedia@gmail.com'
+          git add ../../../CONTEXT.md ../../../docs/knowledge/next-action.md
+          if (git diff --cached --quiet) {
+            Write-Host 'Canonical clipboard proof state already recorded.'
+          } else {
+            git commit -m 'Record remote Text clipboard proof'
+            git push origin HEAD:New
           }
 
       - name: Cleanup targeted proof files
