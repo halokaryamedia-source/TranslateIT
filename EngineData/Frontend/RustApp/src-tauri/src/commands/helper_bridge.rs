@@ -18,9 +18,9 @@ use super::bridge_paths::{
 use super::helper_bridge_runtime::{
     acquire_helper_task_permit, action_result, apply_worker_response, apply_worker_status,
     clear_active_request, read_worker_response_direct_with_deadline, runtime, set_blocked,
-    spawn_stderr_logger, status_from_runtime, stop_child, unix_ms, write_worker_request,
-    HelperBridgeActionResult, HelperBridgeRequest, HelperBridgeStatus, HelperTaskPriority,
-    DEFAULT_WORKER_RESPONSE_DEADLINE_MS,
+    spawn_stderr_logger, status_from_runtime, stop_child, unix_ms, worker_response_deadline_ms,
+    write_worker_request_with_deadline, HelperBridgeActionResult, HelperBridgeRequest,
+    HelperBridgeStatus, HelperTaskPriority,
 };
 
 const MAX_HELPER_TEXT_CHARS: usize = 2_000;
@@ -76,8 +76,8 @@ fn helper_transport_failure(response: &HelperBridgeWorkerResponse) -> bool {
     if response.ok {
         return false;
     }
-    let value = serde_json::from_str::<Value>(&response.worker_response_json)
-        .unwrap_or_else(|_| json!({}));
+    let value =
+        serde_json::from_str::<Value>(&response.worker_response_json).unwrap_or_else(|_| json!({}));
     let blocker = worker_text(&value, "blocker").unwrap_or_default();
     blocker.starts_with("helper_bridge:")
         && (blocker.contains("_write_failed:") || blocker.contains("_read_failed:"))
@@ -377,6 +377,7 @@ fn send_worker_task_inner(task: &str, mut payload: Value) -> HelperBridgeWorkerR
         }
     };
     let request_id = permit.request_id().to_string();
+    let response_deadline_ms = worker_response_deadline_ms(task);
 
     // An incoming request may have entered the scheduler before outbound claimed the
     // pipeline. Re-check after permit acquisition so queued optional work cannot slip
@@ -437,14 +438,17 @@ fn send_worker_task_inner(task: &str, mut payload: Value) -> HelperBridgeWorkerR
         }
     };
 
-    if let Err(error) = write_worker_request(&mut stdin, &payload) {
+    if let Err(error) =
+        write_worker_request_with_deadline(&mut stdin, &payload, response_deadline_ms)
+    {
         let response = match runtime().lock() {
             Ok(mut runtime) => {
                 if runtime.generation_token == bridge_generation {
                     stop_child(&mut runtime);
                     runtime.generation_token = runtime.generation_token.saturating_add(1);
                     runtime.state = "stopped".to_string();
-                    runtime.message = format!("Failed to write {task} request to Python helper worker: {error}");
+                    runtime.message =
+                        format!("Failed to write {task} request to Python helper worker: {error}");
                     runtime.last_error = Some(format!("helper_bridge:{task}_write_failed:{error}"));
                     clear_active_request(&mut runtime, &request_id);
                     runtime.provider_ready = false;
@@ -473,55 +477,50 @@ fn send_worker_task_inner(task: &str, mut payload: Value) -> HelperBridgeWorkerR
         };
     }
 
-    let (mut worker_response, stdout) =
-        match read_worker_response_direct_with_deadline(stdout, DEFAULT_WORKER_RESPONSE_DEADLINE_MS) {
-            Ok(value) => value,
-            Err(error) => {
-                let response = match runtime().lock() {
-                    Ok(mut runtime) => {
-                        if runtime.generation_token == bridge_generation {
-                            stop_child(&mut runtime);
-                            runtime.generation_token = runtime.generation_token.saturating_add(1);
-                            runtime.state = "stopped".to_string();
-                            runtime.message = format!(
+    let (mut worker_response, stdout) = match read_worker_response_direct_with_deadline(
+        stdout,
+        response_deadline_ms,
+    ) {
+        Ok(value) => value,
+        Err(error) => {
+            let response = match runtime().lock() {
+                Ok(mut runtime) => {
+                    if runtime.generation_token == bridge_generation {
+                        stop_child(&mut runtime);
+                        runtime.generation_token = runtime.generation_token.saturating_add(1);
+                        runtime.state = "stopped".to_string();
+                        runtime.message = format!(
                                 "Failed to read {task} response from Python helper worker before deadline: {error}"
                             );
-                            runtime.last_error = Some(format!(
-                                "helper_bridge:{task}_read_failed:{error}"
-                            ));
-                            clear_active_request(&mut runtime, &request_id);
-                            runtime.provider_ready = false;
-                            runtime.cuda_ready = false;
-                            runtime.updated_unix_ms = unix_ms();
-                        }
-                        let message = runtime.message.clone();
-                        blocked_response_from_runtime(
-                            task,
-                            &request_id,
-                            priority,
-                            &message,
-                            &runtime,
-                        )
+                        runtime.last_error =
+                            Some(format!("helper_bridge:{task}_read_failed:{error}"));
+                        clear_active_request(&mut runtime, &request_id);
+                        runtime.provider_ready = false;
+                        runtime.cuda_ready = false;
+                        runtime.updated_unix_ms = unix_ms();
                     }
-                    Err(_) => standalone_blocked_response(
-                        task,
-                        &request_id,
-                        priority,
-                        "error",
-                        "helper_bridge:lock_poisoned_after_read_failure",
-                        "Helper response failed and bridge state could not be recovered safely.",
-                    ),
-                };
-                return if priority == HelperTaskPriority::MeetingIncoming {
-                    recover_incoming_transport_failure_before_permit_release(
-                        meeting_session_id.as_deref(),
-                        response,
-                    )
-                } else {
-                    response
-                };
-            }
-        };
+                    let message = runtime.message.clone();
+                    blocked_response_from_runtime(task, &request_id, priority, &message, &runtime)
+                }
+                Err(_) => standalone_blocked_response(
+                    task,
+                    &request_id,
+                    priority,
+                    "error",
+                    "helper_bridge:lock_poisoned_after_read_failure",
+                    "Helper response failed and bridge state could not be recovered safely.",
+                ),
+            };
+            return if priority == HelperTaskPriority::MeetingIncoming {
+                recover_incoming_transport_failure_before_permit_release(
+                    meeting_session_id.as_deref(),
+                    response,
+                )
+            } else {
+                response
+            };
+        }
+    };
 
     if let Some(object) = worker_response.as_object_mut() {
         object.insert("request_id".to_string(), json!(request_id));
@@ -563,7 +562,8 @@ fn send_worker_task_inner(task: &str, mut payload: Value) -> HelperBridgeWorkerR
                     &request_id,
                     priority,
                     response.message,
-                    serde_json::from_str(&response.worker_response_json).unwrap_or_else(|_| json!({})),
+                    serde_json::from_str(&response.worker_response_json)
+                        .unwrap_or_else(|_| json!({})),
                     &runtime,
                 );
             }
@@ -651,7 +651,8 @@ fn recover_live_meeting_helper_transport(
         recovery.state = "stale_generation".to_string();
         recovery.message = "The helper worker restarted, but the Meeting generation was revoked before the failed stage could be retried."
             .to_string();
-        recovery.runtime_claim = "meeting_live_helper_recovery_completed_after_generation_revoke".to_string();
+        recovery.runtime_claim =
+            "meeting_live_helper_recovery_completed_after_generation_revoke".to_string();
     }
     recovery
 }
@@ -685,10 +686,7 @@ fn send_worker_task(task: &str, payload: Value) -> HelperBridgeWorkerResponse {
             && live_outbound_generation_is_authoritative(generation)
         {
             let retry_current_stage = live_outbound_stage_retry_safe(task);
-            let recovery = recover_live_meeting_helper_transport(
-                generation,
-                retry_current_stage,
-            );
+            let recovery = recover_live_meeting_helper_transport(generation, retry_current_stage);
             if recovery.ok && live_outbound_generation_is_authoritative(generation) {
                 if retry_current_stage {
                     // ASR and translation have no Meeting playback side effect, so the
@@ -711,9 +709,7 @@ fn send_worker_task(task: &str, payload: Value) -> HelperBridgeWorkerResponse {
             }
         }
 
-        if task == "synthesize"
-            || !response.ok
-            || !runtime_generation_is_authoritative(generation)
+        if task == "synthesize" || !response.ok || !runtime_generation_is_authoritative(generation)
         {
             clear_meeting_outbound_pipeline(generation);
         }
@@ -862,7 +858,10 @@ fn start_helper_bridge_internal(clear_outbound_pipeline: bool) -> HelperBridgeAc
                 Err(error) => {
                     return set_blocked(
                         &mut runtime,
-                        &format!("Failed to spawn Python helper worker using {}: {error}", python.source),
+                        &format!(
+                            "Failed to spawn Python helper worker using {}: {error}",
+                            python.source
+                        ),
                         "helper_bridge:spawn_failed",
                     )
                 }
@@ -900,7 +899,12 @@ fn start_helper_bridge_internal(clear_outbound_pipeline: bool) -> HelperBridgeAc
             };
             let stdout = BufReader::new(stdout);
 
-            if let Err(error) = write_worker_request(&mut stdin, &json!({ "command": "ping" })) {
+            let ping_deadline_ms = worker_response_deadline_ms("ping");
+            if let Err(error) = write_worker_request_with_deadline(
+                &mut stdin,
+                &json!({ "command": "ping" }),
+                ping_deadline_ms,
+            ) {
                 let _ = child.kill();
                 let _ = child.wait();
                 return set_blocked(
@@ -911,7 +915,7 @@ fn start_helper_bridge_internal(clear_outbound_pipeline: bool) -> HelperBridgeAc
             }
             let (ping, mut stdout) = match read_worker_response_direct_with_deadline(
                 stdout,
-                DEFAULT_WORKER_RESPONSE_DEADLINE_MS,
+                ping_deadline_ms,
             ) {
                 Ok((value, stdout)) => (value, stdout),
                 Err(error) => {
@@ -919,7 +923,9 @@ fn start_helper_bridge_internal(clear_outbound_pipeline: bool) -> HelperBridgeAc
                     let _ = child.wait();
                     return set_blocked(
                         &mut runtime,
-                        &format!("Failed to read helper worker ping response before deadline: {error}"),
+                        &format!(
+                            "Failed to read helper worker ping response before deadline: {error}"
+                        ),
                         "helper_bridge:ping_read_failed",
                     );
                 }
@@ -934,11 +940,15 @@ fn start_helper_bridge_internal(clear_outbound_pipeline: bool) -> HelperBridgeAc
                 );
             }
 
-            let status = if write_worker_request(&mut stdin, &json!({ "command": "status" })).is_ok() {
-                match read_worker_response_direct_with_deadline(
-                    stdout,
-                    DEFAULT_WORKER_RESPONSE_DEADLINE_MS,
-                ) {
+            let status_deadline_ms = worker_response_deadline_ms("status");
+            let status = if write_worker_request_with_deadline(
+                &mut stdin,
+                &json!({ "command": "status" }),
+                status_deadline_ms,
+            )
+            .is_ok()
+            {
+                match read_worker_response_direct_with_deadline(stdout, status_deadline_ms) {
                     Ok((value, next_stdout)) => {
                         stdout = next_stdout;
                         Some(value)
@@ -1001,7 +1011,8 @@ pub fn stop_helper_bridge() -> HelperBridgeActionResult {
             stop_child(&mut runtime);
             runtime.state = "stopped".to_string();
             runtime.message =
-                "Helper bridge stopped and any in-flight worker process was terminated.".to_string();
+                "Helper bridge stopped and any in-flight worker process was terminated."
+                    .to_string();
             runtime.cuda_ready = false;
             runtime.provider_ready = false;
             runtime.degraded_mode = false;
@@ -1042,7 +1053,8 @@ pub fn cancel_helper_bridge_meeting_generation(generation: u64) -> HelperBridgeA
                 runtime.active_meeting_generation = None;
                 runtime.active_meeting_session_id = None;
                 runtime.active_meeting_lane = None;
-                runtime.last_error = Some("helper_bridge:meeting_generation_hard_cancelled".to_string());
+                runtime.last_error =
+                    Some("helper_bridge:meeting_generation_hard_cancelled".to_string());
                 runtime.updated_unix_ms = unix_ms();
                 action_result(true, &runtime)
             } else {
@@ -1056,7 +1068,9 @@ pub fn cancel_helper_bridge_meeting_generation(generation: u64) -> HelperBridgeA
         Err(_) => HelperBridgeActionResult {
             ok: false,
             state: "error".to_string(),
-            message: "Meeting helper generation cancellation failed because state lock is poisoned.".to_string(),
+            message:
+                "Meeting helper generation cancellation failed because state lock is poisoned."
+                    .to_string(),
             generation_token: 0,
             runtime_claim: "bridge_state_error".to_string(),
         },
@@ -1085,7 +1099,8 @@ pub fn cancel_helper_bridge_meeting_session(session_id: &str) -> HelperBridgeAct
                 runtime.active_meeting_generation = None;
                 runtime.active_meeting_session_id = None;
                 runtime.active_meeting_lane = None;
-                runtime.last_error = Some("helper_bridge:meeting_session_hard_cancelled".to_string());
+                runtime.last_error =
+                    Some("helper_bridge:meeting_session_hard_cancelled".to_string());
             } else {
                 runtime.message = format!(
                     "No in-flight helper task belongs to Meeting session {session_id}. Queued incoming/outbound work will be rejected by session/generation guards."
@@ -1097,7 +1112,8 @@ pub fn cancel_helper_bridge_meeting_session(session_id: &str) -> HelperBridgeAct
         Err(_) => HelperBridgeActionResult {
             ok: false,
             state: "error".to_string(),
-            message: "Meeting helper session cancellation failed because state lock is poisoned.".to_string(),
+            message: "Meeting helper session cancellation failed because state lock is poisoned."
+                .to_string(),
             generation_token: 0,
             runtime_claim: "bridge_state_error".to_string(),
         },

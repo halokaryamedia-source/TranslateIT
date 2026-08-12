@@ -45,6 +45,11 @@ MAX_TRANSCRIPT_TEXT_CHARS = 4_000
 MAX_AUDIO_INPUT_BYTES = 25 * 1024 * 1024
 MAX_GENERATION_TOKENS = 128
 MAX_REASONABLE_MODEL_TOKEN_LIMIT = 1_000_000
+GPU_PROBE_TIMEOUT_SECONDS = 3.0
+SAPI_PROBE_TIMEOUT_SECONDS = 8.0
+PIPER_SYNTHESIS_TIMEOUT_SECONDS = 10.0
+SAPI_SYNTHESIS_TIMEOUT_SECONDS = 30.0
+REQUEST_SUBPROCESS_RESERVE_MS = 500
 
 ASR_RUNTIME: Any | None = None
 ASR_RUNTIME_DEVICE = "not_loaded"
@@ -56,6 +61,35 @@ SAPI_STATUS: tuple[bool, list[dict[str, str]], str] | None = None
 
 def now_ms() -> int:
     return int(time.time() * 1000)
+
+
+def request_deadline_remaining_ms(payload: dict[str, Any] | None) -> int | None:
+    if not isinstance(payload, dict):
+        return None
+    try:
+        deadline = int(payload.get("deadline_unix_ms", 0))
+    except (TypeError, ValueError):
+        return None
+    if deadline <= 0:
+        return None
+    return max(0, deadline - now_ms())
+
+
+def request_deadline_expired(payload: dict[str, Any] | None) -> bool:
+    remaining = request_deadline_remaining_ms(payload)
+    return remaining is not None and remaining <= 0
+
+
+def bounded_subprocess_timeout_seconds(
+    payload: dict[str, Any] | None,
+    ceiling_seconds: float,
+    reserve_ms: int = REQUEST_SUBPROCESS_RESERVE_MS,
+) -> float:
+    remaining = request_deadline_remaining_ms(payload)
+    if remaining is None:
+        return ceiling_seconds
+    usable_ms = max(100, remaining - max(0, reserve_ms))
+    return min(ceiling_seconds, usable_ms / 1000.0)
 
 
 def import_ready(module_name: str) -> bool:
@@ -132,13 +166,15 @@ def ctranslate2_status() -> tuple[bool, bool]:
         return False, False
 
 
-def nvidia_smi_available() -> bool:
+def nvidia_smi_available(payload: dict[str, Any] | None = None) -> bool:
     try:
         completed = subprocess.run(
             ["nvidia-smi", "-L"],
             text=True,
             capture_output=True,
-            timeout=10,
+            timeout=bounded_subprocess_timeout_seconds(
+                payload, GPU_PROBE_TIMEOUT_SECONDS
+            ),
             check=False,
         )
         return completed.returncode == 0 and bool(completed.stdout.strip())
@@ -146,7 +182,7 @@ def nvidia_smi_available() -> bool:
         return False
 
 
-def probe_gpu_runtime() -> dict[str, Any]:
+def probe_gpu_runtime(payload: dict[str, Any] | None = None) -> dict[str, Any]:
     torch_ready, torch_cuda_available = torch_status()
     ctranslate2_ready, ctranslate2_cuda_available = ctranslate2_status()
     return {
@@ -154,7 +190,7 @@ def probe_gpu_runtime() -> dict[str, Any]:
         "torch_cuda_available": torch_cuda_available,
         "ctranslate2_import_ready": ctranslate2_ready,
         "ctranslate2_cuda_available": ctranslate2_cuda_available,
-        "nvidia_smi_available": nvidia_smi_available(),
+        "nvidia_smi_available": nvidia_smi_available(payload),
         "cuda_primary_requested": True,
         "selected_device": "cuda" if ctranslate2_cuda_available else "cpu",
         "selected_translation_device": "cuda" if torch_cuda_available else "cpu",
@@ -323,7 +359,9 @@ def normalize_sapi_voices(raw: Any) -> list[dict[str, str]]:
     return voices
 
 
-def sapi_status() -> tuple[bool, list[dict[str, str]], str]:
+def sapi_status(
+    payload: dict[str, Any] | None = None,
+) -> tuple[bool, list[dict[str, str]], str]:
     global SAPI_STATUS
     if SAPI_STATUS is not None:
         return SAPI_STATUS
@@ -344,15 +382,25 @@ def sapi_status() -> tuple[bool, list[dict[str, str]], str]:
             ["powershell", "-NoProfile", "-NonInteractive", "-Command", command],
             text=True,
             capture_output=True,
-            timeout=20,
+            timeout=bounded_subprocess_timeout_seconds(
+                payload, SAPI_PROBE_TIMEOUT_SECONDS
+            ),
             check=False,
         )
         if completed.returncode != 0:
-            SAPI_STATUS = (False, [], completed.stderr.strip() or "tts:sapi_probe_failed")
+            SAPI_STATUS = (
+                False,
+                [],
+                completed.stderr.strip() or "tts:sapi_probe_failed",
+            )
         else:
-            payload = json.loads(completed.stdout.strip())
-            voices = normalize_sapi_voices(payload.get("voices", []))
+            payload_json = json.loads(completed.stdout.strip())
+            voices = normalize_sapi_voices(payload_json.get("voices", []))
             SAPI_STATUS = (bool(voices), voices, "")
+    except subprocess.TimeoutExpired:
+        # A request-budget timeout is transient. Do not poison the process-wide
+        # capability cache; a later explicit TTS preflight may have more budget.
+        return False, [], "tts:sapi_probe_timeout"
     except Exception as exc:
         SAPI_STATUS = (False, [], f"{type(exc).__name__}:{exc}")
     return SAPI_STATUS
@@ -384,7 +432,7 @@ def select_english_sapi_voice(
     }
 
 
-def select_english_tts_voice() -> dict[str, Any]:
+def select_english_tts_voice(payload: dict[str, Any] | None = None) -> dict[str, Any]:
     executable = PIPER_ROOT / "piper.exe"
     piper_voice = select_english_piper_voice()
     if executable.is_file() and piper_voice is not None:
@@ -399,7 +447,7 @@ def select_english_tts_voice() -> dict[str, Any]:
             "blocker": "",
         }
 
-    sapi_probe_ready, sapi_voices, sapi_error = sapi_status()
+    sapi_probe_ready, sapi_voices, sapi_error = sapi_status(payload)
     sapi_voice = select_english_sapi_voice(sapi_voices)
     if sapi_probe_ready and sapi_voice is not None:
         return {
@@ -465,10 +513,10 @@ def status_action_items(blockers: list[str], warnings: list[str]) -> list[str]:
     return list(dict.fromkeys(actions))
 
 
-def build_status_payload() -> dict[str, Any]:
+def build_status_payload(payload: dict[str, Any] | None = None) -> dict[str, Any]:
     faster_whisper_ready = import_ready("faster_whisper")
     transformers_ready = import_ready("transformers")
-    gpu_runtime = probe_gpu_runtime()
+    gpu_runtime = probe_gpu_runtime(payload)
     torch_ready = bool(gpu_runtime["torch_import_ready"])
     cuda_available = bool(gpu_runtime["torch_cuda_available"])
     ctranslate2_cuda_available = bool(gpu_runtime["ctranslate2_cuda_available"])
@@ -488,7 +536,7 @@ def build_status_payload() -> dict[str, Any]:
     translation_id_en_ready = translation_model_ready(TRANSLATION_MODEL_ID_EN)
     translation_en_id_ready = translation_model_ready(TRANSLATION_MODEL_EN_ID)
     translation_bidirectional_ready = translation_id_en_ready and translation_en_id_ready
-    tts_selection = select_english_tts_voice()
+    tts_selection = select_english_tts_voice(payload)
     tts_ready = bool(tts_selection["ok"])
 
     blockers: list[str] = []
@@ -652,27 +700,27 @@ def build_status_payload() -> dict[str, Any]:
 
 
 def handle_status(_: dict[str, Any]) -> dict[str, Any]:
-    return build_status_payload()
+    return build_status_payload(_)
 
 
 def handle_ping(_: dict[str, Any]) -> dict[str, Any]:
     return {"ok": True, "stage": "ping", "unix_ms": now_ms()}
 
 
-def asr_runtime_config() -> tuple[str, str, str]:
-    gpu_runtime = probe_gpu_runtime()
+def asr_runtime_config(payload: dict[str, Any] | None = None) -> tuple[str, str, str]:
+    gpu_runtime = probe_gpu_runtime(payload)
     if gpu_runtime["selected_device"] == "cuda":
         return "cuda", "int8_float16", ""
     return "cpu", "int8", str(gpu_runtime["fallback_reason"])
 
 
-def get_asr_runtime() -> Any:
+def get_asr_runtime(payload: dict[str, Any] | None = None) -> Any:
     global ASR_RUNTIME, ASR_RUNTIME_DEVICE, ASR_RUNTIME_COMPUTE, ASR_RUNTIME_MODEL_ID
     if ASR_RUNTIME is not None:
         return ASR_RUNTIME
     from faster_whisper import WhisperModel
 
-    device, compute_type, _fallback_reason = asr_runtime_config()
+    device, compute_type, _fallback_reason = asr_runtime_config(payload)
     model_id, model_path = choose_asr_model()
     try:
         ASR_RUNTIME = WhisperModel(str(model_path), device=device, compute_type=compute_type)
@@ -709,9 +757,9 @@ def failed_from_status(
     return payload
 
 
-def handle_asr_preload(_: dict[str, Any]) -> dict[str, Any]:
+def handle_asr_preload(payload: dict[str, Any]) -> dict[str, Any]:
     started = now_ms()
-    status = build_status_payload()
+    status = build_status_payload(payload)
     if not status["faster_whisper_import_ready"] or not status["asr_model_ready"]:
         return failed_from_status(
             "asr_preload",
@@ -722,7 +770,7 @@ def handle_asr_preload(_: dict[str, Any]) -> dict[str, Any]:
             },
         )
     try:
-        get_asr_runtime()
+        get_asr_runtime(payload)
         return {
             "ok": True,
             "stage": "asr_preload",
@@ -777,7 +825,7 @@ def handle_transcribe(payload: dict[str, Any]) -> dict[str, Any]:
             "max_bytes": MAX_AUDIO_INPUT_BYTES,
         }
     try:
-        model = get_asr_runtime()
+        model = get_asr_runtime(payload)
         segments, info = model.transcribe(
             str(audio_path),
             language=normalize_language(payload.get("language", "id"), "id"),
@@ -894,7 +942,7 @@ def handle_translation_preload(payload: dict[str, Any]) -> dict[str, Any]:
         }
     model_id, model_path = selected
     model_ready = translation_model_ready(model_path)
-    status = build_status_payload()
+    status = build_status_payload(payload)
     if (
         not status["transformers_import_ready"]
         or not status["torch_import_ready"]
@@ -1301,8 +1349,8 @@ def handle_translate(payload: dict[str, Any]) -> dict[str, Any]:
         }
 
 
-def handle_tts_preflight(_: dict[str, Any]) -> dict[str, Any]:
-    selection = select_english_tts_voice()
+def handle_tts_preflight(payload: dict[str, Any]) -> dict[str, Any]:
+    selection = select_english_tts_voice(payload)
     ok = bool(selection["ok"])
     return {
         "ok": ok,
@@ -1338,7 +1386,7 @@ def handle_synthesize(payload: dict[str, Any]) -> dict[str, Any]:
     if not text:
         return {"ok": False, "stage": "synthesize", "blocker": "tts:empty_text"}
 
-    selection = select_english_tts_voice()
+    selection = select_english_tts_voice(payload)
     if not selection["ok"]:
         return {
             "ok": False,
@@ -1379,7 +1427,9 @@ def handle_synthesize(payload: dict[str, Any]) -> dict[str, Any]:
                 input=text,
                 text=True,
                 capture_output=True,
-                timeout=10,
+                timeout=bounded_subprocess_timeout_seconds(
+                    payload, PIPER_SYNTHESIS_TIMEOUT_SECONDS
+                ),
                 check=False,
             )
             ok = (
@@ -1427,7 +1477,9 @@ def handle_synthesize(payload: dict[str, Any]) -> dict[str, Any]:
             ["powershell", "-NoProfile", "-NonInteractive", "-Command", command],
             text=True,
             capture_output=True,
-            timeout=30,
+            timeout=bounded_subprocess_timeout_seconds(
+                payload, SAPI_SYNTHESIS_TIMEOUT_SECONDS
+            ),
             check=False,
             env=environment,
         )
@@ -1501,6 +1553,16 @@ def main() -> int:
                 )
                 continue
             command = safe_command_name(request.get("command", "status"))
+            if request_deadline_expired(request):
+                respond(
+                    {
+                        "ok": False,
+                        "stage": command or "worker_request",
+                        "blocker": "worker:request_deadline_expired",
+                        "note": "The request reached the worker after its host deadline and was not executed.",
+                    }
+                )
+                continue
             handler = HANDLERS.get(command)
             if handler is None:
                 respond(

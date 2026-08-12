@@ -245,3 +245,51 @@ def test_newline_json_protocol_rejects_unknown_command() -> None:
     payload = json.loads(lines[0])
     assert payload["ok"] is False
     assert payload["blocker"] == "worker:unknown_command"
+
+
+def test_worker_request_deadline_budget_bounds_nested_subprocess(monkeypatch) -> None:
+    worker = load_worker_module()
+    monkeypatch.setattr(worker, "now_ms", lambda: 10_000)
+    payload = {"deadline_unix_ms": 12_000}
+
+    assert worker.request_deadline_remaining_ms(payload) == 2_000
+    assert worker.request_deadline_expired(payload) is False
+    assert worker.bounded_subprocess_timeout_seconds(payload, 8.0) == 1.5
+
+    expired = {"deadline_unix_ms": 9_999}
+    assert worker.request_deadline_expired(expired) is True
+    assert worker.bounded_subprocess_timeout_seconds(expired, 8.0) == 0.1
+
+
+def test_sapi_probe_timeout_does_not_poison_process_cache(monkeypatch) -> None:
+    worker = load_worker_module()
+    monkeypatch.setattr(worker.sys, "platform", "win32")
+    monkeypatch.setattr(worker, "SAPI_STATUS", None)
+
+    def timed_out(*_args, **_kwargs):
+        raise subprocess.TimeoutExpired(cmd="powershell", timeout=1)
+
+    monkeypatch.setattr(worker.subprocess, "run", timed_out)
+    ready, voices, blocker = worker.sapi_status({"deadline_unix_ms": worker.now_ms() + 2_000})
+
+    assert ready is False
+    assert voices == []
+    assert blocker == "tts:sapi_probe_timeout"
+    assert worker.SAPI_STATUS is None
+
+
+def test_newline_protocol_rejects_already_expired_request() -> None:
+    completed = subprocess.run(
+        [sys.executable, str(WORKER_PATH)],
+        input='{"command":"ping","deadline_unix_ms":1,"deadline_ms":5000}\n',
+        text=True,
+        capture_output=True,
+        timeout=5,
+        check=False,
+    )
+
+    assert completed.returncode == 0
+    payload = json.loads(completed.stdout.strip())
+    assert payload["ok"] is False
+    assert payload["stage"] == "ping"
+    assert payload["blocker"] == "worker:request_deadline_expired"

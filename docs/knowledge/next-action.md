@@ -596,10 +596,28 @@ Tauri release build --no-bundle           -> PASS
 
 No Python/model execution, physical audio-device proof, scheduler/deadline change, route redesign, or dead-code cleanup occurred in Wave A2. Real device/resource release still requires the later Windows audio acceptance wave; A2 closes the source/result ownership rule and deterministic cleanup-decision logic.
 
+## Backend Hardening Wave A3 — CLOSED
+
+The helper bridge no longer uses one 30-second response deadline for every worker command. The canonical Rust bridge selects a bounded task-cost class and writes that exact deadline into request metadata before waiting with the same host ceiling: ping/control 5s, status/TTS preflight 30s, model preload 120s, inference 90s, and synthesis 45s. Unknown commands fail back to the bounded status ceiling rather than receiving an unbounded wait.
+
+The Python worker now consumes the host deadline as a real request budget. Already-expired requests are rejected before handler execution. Nested `nvidia-smi`, Windows SAPI capability probing, Piper synthesis, and SAPI synthesis use a timeout capped by the request's remaining budget. GPU probe is capped at 3s and SAPI capability probe at 8s, so ordinary status cannot spend its whole host envelope inside nested subprocesses. A SAPI probe timeout is treated as transient and is not cached process-wide. Model loading/inference still remains under the outer task deadline; no watchdog/thread framework or second worker was added.
+
+Remote Windows/source proof for this slice passed:
+
+```text
+Rust task-deadline policy tests       -> PASS
+Python worker contract/deadline tests -> PASS
+Python compileall                     -> PASS
+cargo check                           -> PASS
+Tauri release build --no-bundle       -> PASS
+```
+
+No real model inference, scheduler admission change, stderr/logging change, readiness compatibility cleanup, Python dependency locking, audio-device execution, or user-local-PC testing occurred in Wave A3.
+
 ## Current Mode
 
-**Maintenance / Backend Hardening Wave A** — Waves A1-A2 are source/proof closed. Continue one bounded hardening slice at a time before P2.3.
+**Maintenance / Backend Hardening Wave A** — Waves A1-A3 are source/proof closed. Continue one bounded hardening slice at a time before P2.3.
 
-## Next Step — Backend Hardening Wave A3: Task-Aware Helper Deadlines + Bounded Status Probing
+## Next Step — Backend Hardening Wave A4: Bounded Scheduler Admission / Wait
 
-Replace the single 30-second helper response deadline with a small task-aware deadline policy grounded in the existing worker operations, and ensure status/preflight probing cannot consume or exceed the host envelope through nested long-running probes. Keep one persistent worker and the current request protocol; do not add retry loops, a second worker, scheduler admission changes (A4), stderr/logging changes (A5), Python dependency locking (A7), or model execution proof yet. Prove timeout-selection logic with targeted tests plus the existing remote Windows compile/native-build baseline.
+Bound the existing single-worker priority scheduler so waiting callers cannot accumulate indefinitely: add a small total admission cap and priority-aware wait deadline while preserving `Meeting outbound > Meeting incoming > Text > diagnostics`. Requests that cannot be admitted in time must return a truthful scheduler blocker without spawning another worker or retry loop. Keep A4 limited to scheduler admission/wait and targeted tests; do not mix stderr lifecycle (A5), readiness compatibility (A6), Python locking/assets (A7), model execution, or audio-route work.

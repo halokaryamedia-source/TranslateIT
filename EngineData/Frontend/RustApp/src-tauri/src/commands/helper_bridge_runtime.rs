@@ -9,7 +9,23 @@ use std::sync::{Condvar, Mutex, OnceLock};
 use std::thread;
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
-pub const DEFAULT_WORKER_RESPONSE_DEADLINE_MS: u128 = 30_000;
+pub const WORKER_CONTROL_RESPONSE_DEADLINE_MS: u128 = 5_000;
+pub const WORKER_STATUS_RESPONSE_DEADLINE_MS: u128 = 30_000;
+pub const WORKER_PRELOAD_RESPONSE_DEADLINE_MS: u128 = 120_000;
+pub const WORKER_INFERENCE_RESPONSE_DEADLINE_MS: u128 = 90_000;
+pub const WORKER_SYNTHESIS_RESPONSE_DEADLINE_MS: u128 = 45_000;
+pub const WORKER_FALLBACK_RESPONSE_DEADLINE_MS: u128 = WORKER_STATUS_RESPONSE_DEADLINE_MS;
+
+pub fn worker_response_deadline_ms(task: &str) -> u128 {
+    match task {
+        "ping" => WORKER_CONTROL_RESPONSE_DEADLINE_MS,
+        "status" | "tts_preflight" => WORKER_STATUS_RESPONSE_DEADLINE_MS,
+        "asr_preload" | "translation_preload" => WORKER_PRELOAD_RESPONSE_DEADLINE_MS,
+        "transcribe" | "translate" => WORKER_INFERENCE_RESPONSE_DEADLINE_MS,
+        "synthesize" => WORKER_SYNTHESIS_RESPONSE_DEADLINE_MS,
+        _ => WORKER_FALLBACK_RESPONSE_DEADLINE_MS,
+    }
+}
 
 #[derive(Debug, Clone, Serialize)]
 pub struct HelperBridgeStatus {
@@ -348,7 +364,10 @@ pub fn worker_text(value: &Value, key: &str) -> Option<String> {
 }
 
 fn is_contract_only_response(value: &Value) -> bool {
-    let stage = value.get("stage").and_then(Value::as_str).unwrap_or_default();
+    let stage = value
+        .get("stage")
+        .and_then(Value::as_str)
+        .unwrap_or_default();
     let runtime_claim = value
         .get("runtime_claim")
         .and_then(Value::as_str)
@@ -388,7 +407,10 @@ pub fn apply_worker_status(runtime: &mut HelperBridgeRuntime, status: &Value) {
 
 pub fn apply_worker_response(runtime: &mut HelperBridgeRuntime, value: &Value) -> bool {
     let ok = worker_bool(value, "ok");
-    let stage = value.get("stage").and_then(Value::as_str).unwrap_or_default();
+    let stage = value
+        .get("stage")
+        .and_then(Value::as_str)
+        .unwrap_or_default();
 
     if stage == "local_realtime_worker_preflight" {
         apply_worker_status(runtime, value);
@@ -443,30 +465,44 @@ pub fn apply_worker_response(runtime: &mut HelperBridgeRuntime, value: &Value) -
     ok
 }
 
-pub fn request_deadline_payload(payload: &Value) -> Value {
+pub fn request_deadline_payload(payload: &Value, deadline_ms: u128) -> Value {
     let started = unix_ms();
-    let deadline = started.saturating_add(DEFAULT_WORKER_RESPONSE_DEADLINE_MS);
+    let deadline = started.saturating_add(deadline_ms);
     let mut payload = payload.clone();
     if let Some(object) = payload.as_object_mut() {
-        object.entry("request_unix_ms".to_string()).or_insert(json!(started));
+        object
+            .entry("request_unix_ms".to_string())
+            .or_insert(json!(started));
         object
             .entry("deadline_unix_ms".to_string())
             .or_insert(json!(deadline));
         object
             .entry("deadline_ms".to_string())
-            .or_insert(json!(DEFAULT_WORKER_RESPONSE_DEADLINE_MS));
+            .or_insert(json!(deadline_ms));
     }
     payload
 }
 
-pub fn write_worker_request(stdin: &mut ChildStdin, payload: &Value) -> Result<(), String> {
-    let payload = request_deadline_payload(payload);
+pub fn write_worker_request_with_deadline(
+    stdin: &mut ChildStdin,
+    payload: &Value,
+    deadline_ms: u128,
+) -> Result<(), String> {
+    let payload = request_deadline_payload(payload, deadline_ms);
     let body = serde_json::to_string(&payload).map_err(|error| error.to_string())?;
     stdin
         .write_all(body.as_bytes())
         .map_err(|error| error.to_string())?;
     stdin.write_all(b"\n").map_err(|error| error.to_string())?;
     stdin.flush().map_err(|error| error.to_string())
+}
+
+pub fn write_worker_request(stdin: &mut ChildStdin, payload: &Value) -> Result<(), String> {
+    let task = payload
+        .get("command")
+        .and_then(Value::as_str)
+        .unwrap_or_default();
+    write_worker_request_with_deadline(stdin, payload, worker_response_deadline_ms(task))
 }
 
 pub fn read_worker_response(stdout: &mut BufReader<ChildStdout>) -> Result<Value, String> {
@@ -510,7 +546,7 @@ pub fn read_worker_response_with_deadline(
     let Some(stdout) = runtime.stdout.take() else {
         return Err("worker:stdout_missing".to_string());
     };
-    match read_worker_response_direct_with_deadline(stdout, DEFAULT_WORKER_RESPONSE_DEADLINE_MS) {
+    match read_worker_response_direct_with_deadline(stdout, WORKER_FALLBACK_RESPONSE_DEADLINE_MS) {
         Ok((value, stdout)) => {
             runtime.stdout = Some(stdout);
             Ok(value)
@@ -518,7 +554,8 @@ pub fn read_worker_response_with_deadline(
         Err(error) => {
             runtime.stdout = None;
             runtime.state = "blocked".to_string();
-            runtime.message = format!("Helper worker response failed or exceeded deadline: {error}");
+            runtime.message =
+                format!("Helper worker response failed or exceeded deadline: {error}");
             runtime.last_error = Some(error.clone());
             runtime.active_task = None;
             runtime.active_request_id = None;
@@ -538,5 +575,64 @@ pub fn stop_child(runtime: &mut HelperBridgeRuntime) {
     if let Some(mut child) = runtime.child.take() {
         let _ = child.kill();
         let _ = child.wait();
+    }
+}
+
+#[cfg(test)]
+mod deadline_policy_tests {
+    use super::*;
+
+    #[test]
+    fn worker_deadlines_follow_bounded_task_cost_classes() {
+        assert_eq!(worker_response_deadline_ms("ping"), 5_000);
+        assert_eq!(worker_response_deadline_ms("status"), 30_000);
+        assert_eq!(worker_response_deadline_ms("tts_preflight"), 30_000);
+        assert_eq!(worker_response_deadline_ms("asr_preload"), 120_000);
+        assert_eq!(worker_response_deadline_ms("translation_preload"), 120_000);
+        assert_eq!(worker_response_deadline_ms("transcribe"), 90_000);
+        assert_eq!(worker_response_deadline_ms("translate"), 90_000);
+        assert_eq!(worker_response_deadline_ms("synthesize"), 45_000);
+        assert_eq!(worker_response_deadline_ms("unknown"), 30_000);
+    }
+
+    #[test]
+    fn request_metadata_uses_selected_deadline_without_overwriting_caller_metadata() {
+        let deadline_ms = worker_response_deadline_ms("synthesize");
+        let payload = request_deadline_payload(&json!({"command": "synthesize"}), deadline_ms);
+        let started = payload
+            .get("request_unix_ms")
+            .and_then(Value::as_u64)
+            .unwrap() as u128;
+        let deadline = payload
+            .get("deadline_unix_ms")
+            .and_then(Value::as_u64)
+            .unwrap() as u128;
+        assert_eq!(
+            payload.get("deadline_ms").and_then(Value::as_u64),
+            Some(45_000)
+        );
+        assert_eq!(deadline.saturating_sub(started), deadline_ms);
+
+        let preserved = request_deadline_payload(
+            &json!({
+                "command": "ping",
+                "request_unix_ms": 10_u64,
+                "deadline_unix_ms": 20_u64,
+                "deadline_ms": 10_u64
+            }),
+            worker_response_deadline_ms("ping"),
+        );
+        assert_eq!(
+            preserved.get("request_unix_ms").and_then(Value::as_u64),
+            Some(10)
+        );
+        assert_eq!(
+            preserved.get("deadline_unix_ms").and_then(Value::as_u64),
+            Some(20)
+        );
+        assert_eq!(
+            preserved.get("deadline_ms").and_then(Value::as_u64),
+            Some(10)
+        );
     }
 }
