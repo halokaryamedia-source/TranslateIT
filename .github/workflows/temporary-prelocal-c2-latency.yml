@@ -22,8 +22,11 @@ jobs:
       - name: Apply C2 latency instrumentation patch
         shell: pwsh
         run: |
+          python .tmp/fix_c2_helper.py
+          if ($LASTEXITCODE -ne 0) { throw 'C2 helper-fix failed.' }
           python .tmp/prelocal_c2_latency_patch.py
           if ($LASTEXITCODE -ne 0) { throw 'C2 patch helper failed.' }
+          git checkout -- .tmp/prelocal_c2_latency_patch.py
           rustfmt EngineData/Frontend/RustApp/src-tauri/src/engine/audio/finalized_utterance.rs EngineData/Frontend/RustApp/src-tauri/src/engine/audio/meeting_output.rs EngineData/Frontend/RustApp/src-tauri/src/commands/meeting_session.rs
           if ($LASTEXITCODE -ne 0) { throw 'C2 rustfmt failed.' }
           git diff --check
