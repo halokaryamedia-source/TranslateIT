@@ -16,6 +16,7 @@ Native Tauri/WebView pixel render   -> PASS
 Native resize / keyboard focus      -> PASS
 FirstSetup Svelte diagnostics       -> PASS: 0 errors / 0 warnings
 Canonical frontend package lock     -> PASS: strict npm ci
+Remote Text clipboard interaction   -> PASS
 ```
 
 No user-local-PC execution occurred.
@@ -298,6 +299,32 @@ Vite production build                   -> PASS
 
 This closes frontend dependency determinism at the current dependency graph. Future dependency changes must update `package.json` and the canonical lockfile together rather than relying on floating proof-run installs.
 
+## Remote Text Clipboard Interaction Baseline
+
+The current `src/pages/Text.svelte` Copy path writes the visible translated result through `navigator.clipboard.writeText`, promotes the control to `Copied` only after the write resolves, and reports `Couldn't copy the translation. Try again.` when clipboard writing fails.
+
+Remote accepted proof run `31567031148` used GitHub-hosted Windows Server 2022 with Node 22.16.0 / npm 10.9.2. The production dependency/type/build baseline remained clean, and the targeted browser proof mounted the current `Text.svelte` component rather than a rewritten copy. The translation response was simulated only at the existing Tauri `translate_text` command boundary so this slice did not start Python/model/audio work.
+
+```text
+canonical npm ci                         -> PASS
+svelte-check                             -> 0 errors / 0 warnings
+Vite production build                    -> PASS
+Text translated result                   -> current product state reached
+Tauri proof commands                     -> translate_text only
+real navigator.clipboard.writeText       -> PASS
+clipboard read-back equals target text   -> PASS
+Copy button                              -> Copied after successful write
+product notice                           -> Translation copied.
+injected writeText rejection             -> handled
+button after rejected write              -> Copy
+failure notice                           -> Couldn't copy the translation. Try again.
+clipboard after rejected write           -> previous successful value preserved
+```
+
+Two earlier workflow attempts are retained only as harness evidence: one had proof dependency resolution wrong and one let the temporary Vite child process end between Actions steps. Neither reached a contradictory product result; the accepted run kept the proof server and browser interaction in the same step and passed the current Copy behavior.
+
+This closes the current remote frontend clipboard interaction baseline. It does not claim native Tauri/WebView clipboard acceptance, real model translation, or user-local-PC behavior.
+
 ## Priority Map
 
 ### P0 — Core source correctness — SOURCE CLOSED / RUNTIME PROOF REQUIRED
@@ -341,12 +368,12 @@ visible native focus indicators on both Step 1 actions
 clean First Setup native re-render after warning correction
 canonical package-lock.json for current frontend dependency graph
 strict clean npm ci from committed lockfile
+remote Text Copy browser Clipboard API success + truthful failure feedback
 ```
 
 Still required before release:
 
 ```text
-clipboard proof
 real runtime-state projection
 ```
 
@@ -416,7 +443,7 @@ P0 source correctness CLOSED
 -> remote resize/focus proof PASS
 -> FirstSetup Svelte warning cleanup PASS
 -> canonical frontend dependency lockfile PASS
--> remote clipboard proof
+-> remote clipboard proof PASS
 -> real runtime-state projection where remotely meaningful
 -> later explicit approval for local/model/audio proof
 -> fix measured failures
@@ -426,8 +453,8 @@ P0 source correctness CLOSED
 
 ## Current Mode
 
-**Proof / frontend interaction boundary** — the canonical frontend lockfile is now adopted and passes strict clean-install/typecheck/build proof from a fresh GitHub-hosted Windows checkout. No user-local-PC, Python/model, or real audio execution occurred.
+**Proof / runtime-state boundary** — the current Text Copy path now has successful real browser Clipboard API read-back and truthful injected-failure evidence on GitHub-hosted Windows, while Python/model/audio and the user's local PC remain untouched.
 
-## Next Step — P2.1 Remote Clipboard Interaction Baseline
+## Next Step — P2.1/P2.2 Remote Runtime-State Projection Boundary
 
-Use GitHub-hosted Windows only to exercise the current Text Copy path against a current translated result without starting Python/model/audio. Prove a successful clipboard write when the available WebView/browser clipboard API permits it and truthful product feedback when clipboard access fails or is unavailable. Do not substitute user-local-PC testing if the hosted environment cannot provide meaningful clipboard evidence; record the environment boundary instead.
+Identify and prove only the real Rust/Tauri product states that can be exercised meaningfully on GitHub-hosted Windows without starting Python/model/audio or requiring physical audio devices. Confirm that the normal Svelte product surfaces project those real states truthfully. If the current snapshot path necessarily crosses worker/model/device execution, stop at that boundary and record it rather than substituting simulated state or user-local-PC testing.

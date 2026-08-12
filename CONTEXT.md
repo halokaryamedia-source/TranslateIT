@@ -227,6 +227,7 @@ native Tauri/WebView First Setup pixel render
 native startup / medium / near-minimum resize render
 native Step 1 keyboard focus traversal + visible focus indicators
 canonical package-lock.json + deterministic clean npm ci proof
+remote Text Copy browser Clipboard API success + truthful failure feedback
 ```
 
 Fresh First Setup remote proofs remain intentionally before capability execution and have shown zero Python child processes. They do **not** prove Python worker/model inference, physical microphone behavior, Meeting virtual-audio routing, real Meeting-app reception, sleep/wake behavior during a live session, latency/stability, installer placement, or clean-machine execution.
@@ -234,7 +235,6 @@ Fresh First Setup remote proofs remain intentionally before capability execution
 Before release, remaining proof/materialization still includes:
 
 ```text
-clipboard interaction
 real runtime-state projection
 private PythonRuntime + worker/model execution
 Windows Meeting audio/device validation
@@ -245,3 +245,5 @@ clean-machine proof
 ```
 
 `EngineData/Frontend/RustApp/package-lock.json` is now the canonical npm lockfile for the current Svelte/Vite/Tauri frontend dependency graph. It was generated with Node 22.16.0 / npm 10.9.2, its root dependency set matches `package.json`, and a separate fresh GitHub-hosted Windows checkout passed strict `npm ci`, `svelte-check` with 0 errors / 0 warnings, and the Vite production build using the committed lockfile only.
+
+Remote Text clipboard proof exercised the current `Text.svelte` Copy path on GitHub-hosted Windows. The translation response was simulated only at the existing Tauri `translate_text` boundary so no Python/model execution occurred; clipboard success used the real browser Clipboard API and was read back, while an injected `writeText` rejection verified truthful failure feedback without changing the previous clipboard value.
