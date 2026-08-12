@@ -35,7 +35,7 @@ jobs:
       - name: Apply bounded B3 correction
         shell: pwsh
         run: |
-          python .tmp/backend_prelocal_b3_patch.py
+          python .tmp/backend_prelocal_b3_runner.py
           if ($LASTEXITCODE -ne 0) { throw "B3 patch helper failed." }
 
       - name: Prove WorkerRuntime hot path
