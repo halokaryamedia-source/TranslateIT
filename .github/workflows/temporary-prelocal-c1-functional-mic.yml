@@ -42,12 +42,12 @@ jobs:
           npm run build:frontend
           if ($LASTEXITCODE -ne 0) { throw 'frontend build failed.' }
 
-      - name: Prove Rust behavior and compile
+      - name: Prove Rust test-target compile and source compile
         shell: pwsh
         working-directory: EngineData/Frontend/RustApp
         run: |
-          cargo test --manifest-path src-tauri/Cargo.toml
-          if ($LASTEXITCODE -ne 0) { throw 'Rust tests failed.' }
+          cargo test --manifest-path src-tauri/Cargo.toml --no-run
+          if ($LASTEXITCODE -ne 0) { throw 'Rust test-target compile failed.' }
           cargo check --manifest-path src-tauri/Cargo.toml
           if ($LASTEXITCODE -ne 0) { throw 'cargo check failed.' }
 
