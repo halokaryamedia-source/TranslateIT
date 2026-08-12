@@ -26,6 +26,24 @@ jobs:
         shell: pwsh
         run: python .tmp/backend_wave_a7_patch.py source
 
+      - name: Normalize temporary Rust test insertion newlines
+        shell: pwsh
+        run: |
+          $targets = @(
+            @{ Path = 'EngineData/Frontend/RustApp/src-tauri/src/commands/runtime_inventory.rs'; Marker = '\n#[cfg(test)]\nmod a7_release_inventory_tests' },
+            @{ Path = 'EngineData/Frontend/RustApp/src-tauri/src/commands/meeting_session.rs'; Marker = '\n#[cfg(test)]\nmod a7_meeting_readiness_tests' }
+          )
+          $utf8 = [System.Text.UTF8Encoding]::new($false)
+          foreach ($target in $targets) {
+            $path = $target.Path
+            $text = [System.IO.File]::ReadAllText((Resolve-Path $path))
+            $index = $text.IndexOf($target.Marker)
+            if ($index -lt 0) { throw "Temporary A7 test marker missing in $path" }
+            $prefix = $text.Substring(0, $index)
+            $suffix = $text.Substring($index).Replace('\n', "`n")
+            [System.IO.File]::WriteAllText((Resolve-Path $path), $prefix + $suffix, $utf8)
+          }
+
       - name: Install resolver for proof
         shell: pwsh
         run: |
