@@ -1,0 +1,49 @@
+from __future__ import annotations
+
+import importlib.util
+from pathlib import Path
+
+
+def load_module():
+    path = Path(__file__).resolve().parents[1] / "prepare_model_assets.py"
+    spec = importlib.util.spec_from_file_location("translateit_prepare_model_assets", path)
+    assert spec and spec.loader
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
+
+
+def test_required_huggingface_plan_is_revision_pinned_and_runtime_asset_scoped() -> None:
+    module = load_module()
+    manifest = module.load_manifest()
+    selected, manual = module.build_plan(manifest)
+
+    assert {item["model_id"] for item in selected} == {
+        "faster-whisper-large-v3-turbo",
+        "marianmt-id-en",
+        "marianmt-en-id",
+    }
+    assert all(module.FULL_REVISION.fullmatch(item["revision"]) for item in selected)
+    assert all(item["target"].is_relative_to(module.RUNTIME_ASSETS_ROOT) for item in selected)
+    assert {item["model_id"] for item in manual} == {"piper"}
+
+
+def test_optional_plan_adds_only_manifest_optional_huggingface_assets() -> None:
+    module = load_module()
+    selected, _manual = module.build_plan(module.load_manifest(), include_optional=True)
+    assert {item["model_id"] for item in selected} == {
+        "faster-whisper-large-v3-turbo",
+        "faster-whisper-medium",
+        "marianmt-id-en",
+        "marianmt-en-id",
+    }
+
+
+def test_specific_model_selection_rejects_manual_asset() -> None:
+    module = load_module()
+    try:
+        module.build_plan(module.load_manifest(), requested_ids={"piper"})
+    except RuntimeError as exc:
+        assert "not Hugging Face-acquirable" in str(exc)
+    else:
+        raise AssertionError("manual Piper asset must not be promoted to Hugging Face acquisition")

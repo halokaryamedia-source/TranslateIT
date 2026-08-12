@@ -24,10 +24,11 @@
       ],
       "gpu_capable": true,
       "cpu_fallback": true,
-      "download_url": null,
+      "download_url": "https://huggingface.co/dropbox-dash/faster-whisper-large-v3-turbo",
       "install_method": "huggingface_snapshot_download",
-      "license": "project-local runtime asset; source URL not defined yet",
-      "notes": "Required full-product-release ASR asset. Meeting runtime readiness is owned by worker status, which may use the validated medium fallback when the primary asset is unavailable. Presence is installation evidence only."
+      "license": "mit",
+      "notes": "Required full-product-release ASR asset. Meeting runtime readiness is owned by worker status, which may use the validated medium fallback when the primary asset is unavailable. Presence is installation evidence only.",
+      "revision": "0a363e9161cbc7ed1431c9597a8ceaf0c4f78fcf"
     },
     {
       "model_id": "faster-whisper-medium",
@@ -44,10 +45,11 @@
       ],
       "gpu_capable": true,
       "cpu_fallback": true,
-      "download_url": null,
+      "download_url": "https://huggingface.co/Systran/faster-whisper-medium",
       "install_method": "huggingface_snapshot_download",
-      "license": "project-local runtime asset; source URL not defined yet",
-      "notes": "Optional packaged ASR fallback. It can satisfy Meeting ASR runtime capability when selected by the worker, but it is not independently required for full-product-release inventory while the primary ASR asset is packaged."
+      "license": "mit",
+      "notes": "Optional packaged ASR fallback. It can satisfy Meeting ASR runtime capability when selected by the worker, but it is not independently required for full-product-release inventory while the primary ASR asset is packaged.",
+      "revision": "08e178d48790749d25932bbc082711ddcfdfbc4f"
     },
     {
       "model_id": "marianmt-id-en",
@@ -65,7 +67,8 @@
       "download_url": "https://huggingface.co/Helsinki-NLP/opus-mt-id-en",
       "install_method": "huggingface_snapshot_download",
       "license": "apache-2.0",
-      "notes": "Required full-product-release Indonesian-to-English translation asset and required runtime capability for Meeting outbound. Meeting readiness is decided by worker status, not this release inventory."
+      "notes": "Required full-product-release Indonesian-to-English translation asset and required runtime capability for Meeting outbound. Meeting readiness is decided by worker status, not this release inventory.",
+      "revision": "9a7f1b0d0dfe0a92ba691030b01d6f23f966e7ec"
     },
     {
       "model_id": "marianmt-en-id",
@@ -83,7 +86,8 @@
       "download_url": "https://huggingface.co/Helsinki-NLP/opus-mt-en-id",
       "install_method": "huggingface_snapshot_download",
       "license": "apache-2.0",
-      "notes": "Required for full product release because standalone Text supports English-to-Indonesian. It remains optional for Meeting Start and optional incoming Meeting assistance."
+      "notes": "Required for full product release because standalone Text supports English-to-Indonesian. It remains optional for Meeting Start and optional incoming Meeting assistance.",
+      "revision": "6e4c52d61a6b16fe3509b0267cbfec65011b860b"
     },
     {
       "model_id": "piper",

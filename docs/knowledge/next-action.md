@@ -819,27 +819,49 @@ Normal post-setup product snapshot now lazily restores the one persistent helper
 
 Fresh First Setup remains Python-free by contract: `App.svelte` does not enter the normal product snapshot while `meeting_setup_state = new`, and the product facade additionally refuses lazy helper start for `new` settings if called directly. No second helper launcher, background readiness service, or frontend runtime truth was introduced.
 
-Windows suspend/resume handling now keeps the window procedure bounded. `WM_POWERBROADCAST` only performs a nonblocking `try_send` into one process-lifetime Rust lifecycle worker. That worker performs session inspection and converges an app-owned Meeting through the existing canonical `stop_meeting_translation()` path, preserving authority-first output revocation and idempotent Stop semantics without doing cancellation/join/audio cleanup inside the Windows callback.
+Windows suspend/resume window messages only enqueue a bounded nonblocking cleanup signal. A single process-lifetime Rust lifecycle worker consumes that signal and converges through canonical authority-first Meeting Stop; the window procedure itself no longer inspects Meeting authority, joins workers, stops helper tasks, or releases audio resources.
 
 Remote Windows/source proof for this slice passed:
 
 ```text
-post-setup helper lifecycle source contract -> PASS
-fresh First Setup Python-start gate          -> PASS
-Windows power callback handoff contract      -> PASS
-Rust B4 power-event classification test      -> PASS
-canonical npm ci + svelte-check              -> PASS
-Vite production build                        -> PASS
-cargo check                                  -> PASS
-Tauri release build --no-bundle              -> PASS
+B4 lifecycle source contract             -> PASS
+canonical npm ci + svelte-check/build    -> PASS
+Rust B4 power lifecycle test             -> PASS
+cargo check                              -> PASS
+Tauri release build --no-bundle          -> PASS
 ```
 
-This proves the lifecycle ownership, fresh-setup gate, nonblocking callback structure, Windows compilation, and release linking. It does not prove real sleep/wake during an active Meeting, physical-device recovery after resume, packaged PythonRuntime placement, or user-local-PC behavior; those remain target-Windows/release acceptance. No B5 proof-tool reconciliation, VAD tuning, installer staging, or broad dead-code cleanup occurred in B4.
+This proves lifecycle ownership, bounded handoff wiring, frontend type/build correctness, Rust behavior checks, and Windows compilation. It does not prove a real live Meeting across physical sleep/wake, post-resume device recovery, packaged PythonRuntime placement, or user-local-PC behavior.
+
+## Backend Pre-Local B5 — CLOSED
+
+Developer proof tooling now follows the current direction-based worker contract. `model_manifest.json` pins every Hugging Face model entry to a full immutable commit revision, and `prepare_model_assets.py` is the single developer acquisition path for those entries. It validates canonical RuntimeAssets destinations, refuses floating revisions/path escape, stages downloads before replacement, and reports manual required assets such as Piper without pretending they were acquired automatically. `huggingface-hub` is developer tooling in the canonical locked WorkerRuntime environment, not an end-user requirement.
+
+`run_realtime_worker_smoke.ps1` no longer exposes retired Realtime/Quality modes. One persistent worker run now checks primary ASR preload, ID -> EN and EN -> ID MarianMT translation with EOS-completion truth, English TTS synthesis/WAV existence, optional Indonesian ASR transcription when audio is supplied, persistent loaded-direction state, bounded response waits, and an explicit `Any` / `Cuda` / `CpuFallback` device expectation. Stored smoke evidence remains privacy-bounded and excludes source/translated/transcript content and runtime paths.
+
+Local proof infrastructure is also reconciled: startup/frontend validators use current fail-closed runtime ownership and product-facing Meeting-microphone wording, while `check:tauri-rust-local` preserves Cargo incremental output by default and cleans only when `TRANSLATEIT_CLEAN_RUST_TARGET=1` is explicitly requested.
+
+Remote Windows proof for this slice passed:
+
+```text
+pinned Hugging Face revision resolution          -> PASS
+canonical asset acquisition plan                 -> PASS
+required Hugging Face asset acquisition           -> PASS
+WorkerRuntime Ruff/pytest                         -> PASS
+persistent worker real-model smoke                -> PASS: ASR preload + ID<->EN + English TTS + CPU fallback
+validate:source-contracts                         -> PASS
+svelte-check + frontend build                     -> PASS
+incremental local Tauri compile helper            -> PASS
+cargo check                                       -> PASS
+Tauri release build --no-bundle                   -> PASS
+```
+
+The hosted Windows runner has no NVIDIA GPU, so the same smoke tooling proves `CpuFallback` there but not `Cuda`. Piper remains a manual release asset with no approved source, so B5 does not claim self-contained release packaging. No VAD tuning, installer staging, lifecycle redesign, or broad dead-code cleanup occurred.
 
 ## Current Mode
 
-**Maintenance / Backend Pre-Local Readiness — B4 CLOSED.** Backend hardening A1-A7 and pre-local B1-B4 are source/proof closed. P2.3 CPU model execution remains proven; real CUDA execution remains deferred to a GPU-capable Windows target. Continue the mapped pre-local readiness waves in order.
+**Maintenance / Backend Pre-Local Readiness — B5 CLOSED.** Backend hardening A1-A7 and pre-local B1-B5 are source/remote-proof closed. P2.3 CPU model execution remains proven; actual CUDA and physical Windows audio/device behavior remain target-PC acceptance boundaries.
 
-## Next Step — Backend Pre-Local B5: Local Proof Tooling
+## Next Step — Backend Pre-Local B6: Proven Dead / Legacy Cleanup
 
-Provide one deterministic developer model-asset acquisition path using the canonical model/runtime ownership, and reconcile the worker smoke/proof tooling to the current direction-based ID <-> EN translation contract, English TTS, optional ASR, and explicit device/fallback truth. Keep B5 limited to proof/developer tooling; do not mix VAD tuning, installer staging, lifecycle redesign, or broad cleanup.
+Remove only dead or stale backend scaffolding whose lack of current callers/ownership is now evidenced by the B1-B5 compile/runtime path, reconcile stale backend documentation/ownership markers, and reduce warning/debug noise before local acceptance. Keep B6 behavior-preserving: do not tune VAD, redesign runtime behavior, change installer packaging, or delete a path solely because the compiler warns about it.

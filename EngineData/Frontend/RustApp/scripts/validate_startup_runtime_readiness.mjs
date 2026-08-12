@@ -212,7 +212,7 @@ requireMarkers(source.settingsCommands, "settings command ownership", [
   "pub struct AudioDeviceSelectionResult",
   "fn persist_runtime_settings",
   "fn runtime_session_owns_audio_resources()",
-  "latest_runtime_session_state().snapshot.is_some()",
+  "latest_runtime_session_state().has_active_session",
   "pub fn select_audio_device",
   "active_runtime_session_locked",
   "Stop Translation or Mic Test before changing audio devices",
@@ -222,7 +222,7 @@ requireMarkers(source.settingsCommands, "settings command ownership", [
 ]);
 requireMarkers(source.runtimeCommands, "active-session public helper restart guard", [
   "pub fn start_helper_bridge()",
-  "latest_runtime_session_state().snapshot.is_some()",
+  "latest_runtime_session_state().has_active_session",
   'state: "active_runtime_session".to_string()',
   "public_helper_restart_deferred_until_runtime_session_stop",
 ]);
@@ -296,7 +296,7 @@ requireMarkers(source.meetingSession, "Meeting outbound Start hardening", [
   "prepare_required_outbound_ai_runtime",
   '"outbound_runtime_prepare_failed"',
   '"blocked_after_runtime_prepare"',
-  'if empty { "listening" } else { "attention_needed" }',
+  "Translation Live is listening. Rolling audio remains preview-only; finalized utterances receive shared Meeting event sequence before AI.",
 ]);
 requireMarkers(source.meetingSession, "Meeting helper Stop recovery", [
   "recover_helper_after_meeting_stop_if_needed",
@@ -335,7 +335,7 @@ requireMarkers(source.virtualMicRoute, "Meeting generation route stability", [
   "pub fn bind_prepared_virtual_mic_route_to_generation(generation: u64)",
   "fn active_application_meeting_generation()",
   "prepared.generation = Some(generation);",
-  "virtual_mic_generation_bound_route_pair_source_side_not_audio_routing_proof",
+  "virtual_mic_generation_bound_route_pair_source_side_not_audio_delivery_proof",
   "virtual_mic_active_meeting_route_not_bound_fail_closed",
 ]);
 requireMarkers(source.runtimeCommands, "public Meeting route preparation before canonical Start", [
@@ -373,14 +373,15 @@ requireMarkers(source.meetingOutput, "Meeting route delivery hang containment", 
   "recv_timeout(deadline)",
   '"meeting_output:delivery_deadline_exceeded"',
 ]);
-requireMarkers(source.meetingSession, "Meeting route temporary TTS ownership", [
-  "let route = dispatch_meeting_virtual_audio_route_provider(tts_path.clone(), generation);",
+requireMarkers(source.meetingSession, "Rust Meeting route temporary TTS ownership", [
+  "get_bound_virtual_mic_output_device(generation)",
+  "deliver_meeting_output_wav(&tts_path, bound_output_device.as_deref().ok(), generation)",
   "remove_temporary_tts(&tts_path);",
 ]);
-const routeDispatchIndex = source.meetingSession.indexOf("let route = dispatch_meeting_virtual_audio_route_provider(tts_path.clone(), generation);");
+const routeDispatchIndex = source.meetingSession.indexOf("deliver_meeting_output_wav(&tts_path, bound_output_device.as_deref().ok(), generation)");
 const routeCleanupIndex = source.meetingSession.indexOf("remove_temporary_tts(&tts_path);", routeDispatchIndex);
 if (routeDispatchIndex < 0 || routeCleanupIndex < routeDispatchIndex) {
-  throw new Error("Meeting temporary TTS must remain owned until synchronous route dispatch returns");
+  throw new Error("Meeting temporary TTS must remain owned until synchronous Rust audio delivery returns");
 }
 requireMarkers(source.finalizedUtterance, "Meeting finalized speech freshness", [
   "MAX_PENDING_FINALIZED_UTTERANCES",
@@ -397,7 +398,7 @@ requireMarkers(source.settingsRust, "settings schema", ["const CURRENT_SCHEMA_VE
 requireMarkers(source.frontendState, "frontend settings defaults", ["schema_version: 6", 'source_language: "id"', 'target_language: "en"', 'meeting_setup_state: "new"']);
 forbidMarkers(source.frontendTypes, "frontend settings type", ["runtime_profile", "history_enabled", "voice_actor_profile_id"]);
 
-requireMarkers(source.runtimeState, "Meeting lifecycle", ['phase: "starting".to_string()', 'snapshot.phase = "live".to_string()', 'snapshot.phase = "stopping".to_string()', "runtime_generation_is_authoritative"]);
+requireMarkers(source.runtimeState, "Meeting lifecycle", ['"starting",', 'snapshot.phase = "live".to_string()', 'snapshot.phase = "stopping".to_string()', "runtime_generation_is_authoritative"]);
 forbidMarkers(source.runtimeState, "Meeting lifecycle", ['phase: "paused"', 'phase: "resuming"', "clear_runtime_handoff_state"]);
 forbidMarkers(source.meetingSession, "Meeting commands", ["pause_meeting_translation", "resume_meeting_translation", "reset_live_pipeline_handoff_status"]);
 
@@ -417,6 +418,9 @@ const models = Array.isArray(manifest.models) ? manifest.models : [];
 if (!models.some((model) => model.model_id === "marianmt-id-en")) throw new Error("Missing marianmt-id-en inventory entry");
 if (!models.some((model) => model.model_id === "marianmt-en-id")) throw new Error("Missing marianmt-en-id inventory entry");
 if (models.some((model) => model.model_id === "nllb-200-distilled-600M")) throw new Error("NLLB must not return to current translation inventory");
-if (models.some((model) => Object.hasOwn(model, "revision") || Object.hasOwn(model, "checksum"))) throw new Error("Initial model inventory must not grow revision/checksum release-identity placeholders");
+for (const model of models.filter((entry) => entry.source_type === "huggingface")) {
+  if (!/^[0-9a-f]{40}$/.test(String(model.revision ?? ""))) throw new Error(`Hugging Face model ${model.model_id} must pin a full immutable revision`);
+}
+if (models.some((model) => Object.hasOwn(model, "checksum"))) throw new Error("Model inventory must not invent checksum identity without a current packaging requirement");
 
-console.log("[startup-readiness] Svelte Meeting/Text/Settings/First Setup ownership, coherent Meeting projection, gated transcript polling, atomic audio-device selection, active-session settings/helper-restart isolation, truthful matched Meeting-route pair identity with generation-stable endpoint selection, user-safe Text result separation, required outbound AI preparation before Meeting Live, outbound helper priority continuity across ASR/translation/TTS, bounded in-session outbound helper transport recovery, optional incoming freshness/failure isolation with no stale-event retry, bounded Stop-time helper recovery, bounded Meeting route provider preflight before authority, duration-grounded Meeting route delivery deadline, truthful ASR attention state, bounded newest-preferred finalized speech backlog, familiar translation interaction hierarchy, runtime bridge, settings schema, Meeting lifecycle, and direction-based worker contracts are source-aligned. Dependency install, Svelte compile/render, model execution, Windows audio playback, and installed-runtime proof remain separate.");
+console.log("[startup-readiness] Svelte Meeting/Text/Settings/First Setup ownership, coherent Meeting projection, gated transcript polling, atomic audio-device selection, active-session settings/helper-restart isolation, truthful matched Meeting-route pair identity with generation-stable endpoint selection, user-safe Text result separation, required outbound AI preparation before Meeting Live, outbound helper priority continuity across ASR/translation/TTS, bounded in-session outbound helper transport recovery, optional incoming freshness/failure isolation with no stale-event retry, bounded Stop-time helper recovery, native Meeting output preflight before authority, duration-grounded Meeting route delivery deadline, truthful ASR attention state, bounded newest-preferred finalized speech backlog, familiar translation interaction hierarchy, runtime bridge, settings schema, Meeting lifecycle, and direction-based worker contracts are source-aligned. Dependency install, Svelte compile/render, model execution, Windows audio playback, and installed-runtime proof remain separate.");

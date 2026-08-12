@@ -12,6 +12,7 @@ const manifestPath = join(tauriRoot, "Cargo.toml");
 const targetPath = join(tauriRoot, "target");
 const frontendDistPath = join(appRoot, "dist", "index.html");
 const isWindows = process.platform === "win32";
+const cleanTarget = process.env.TRANSLATEIT_CLEAN_RUST_TARGET === "1";
 mkdirSync(reportDir, { recursive: true });
 
 const logPath = resolve(reportDir, "local-tauri-cargo-check.log");
@@ -107,9 +108,11 @@ if (!existsSync(frontendDistPath)) {
   run("frontend build", "npm", ["run", "build:frontend"]);
 }
 
-if (existsSync(targetPath)) {
-  console.log(`${color.yellow}[local-tauri-compile] Removing stale Tauri target cache: ${targetPath}${color.reset}`);
+if (cleanTarget && existsSync(targetPath)) {
+  console.log(`${color.yellow}[local-tauri-compile] Explicit clean requested; removing Tauri target cache: ${targetPath}${color.reset}`);
   rmSync(targetPath, { recursive: true, force: true, maxRetries: 3, retryDelay: 500 });
+} else if (existsSync(targetPath)) {
+  console.log(`${color.cyan}[local-tauri-compile] Reusing incremental Tauri target cache. Set TRANSLATEIT_CLEAN_RUST_TARGET=1 only when a clean compile is intentionally required.${color.reset}`);
 }
 
 console.log(`${color.cyan}[local-tauri-compile] Running cargo check for Tauri Rust source...${color.reset}`);

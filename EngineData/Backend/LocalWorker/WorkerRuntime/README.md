@@ -22,14 +22,14 @@ Supported commands:
 - `tts_preflight`
 - `synthesize`
 
-Product mode ownership is caller-scoped:
+Current translation ownership is direction-based:
 
 ```text
-Meeting outbound -> Realtime
-Standalone Text  -> Quality
+Meeting outbound -> Indonesian -> English
+Standalone Text  -> Indonesian <-> English
 ```
 
-The worker must not silently switch translation mode merely to obtain output.
+The worker must not invent a mode switch or alternate translation engine merely to obtain output.
 
 Translation output is also fail-closed: a generated result is not promoted as successful unless normal end-of-sequence completion can be verified. A result that ends without EOS, including one that reaches the requested token ceiling, remains blocked instead of becoming Text/TTS output.
 
@@ -97,11 +97,13 @@ Profile the canonical persistent process under the workload being investigated. 
 
 ## Current Local Stack
 
-| Stage | Realtime | Quality |
-| --- | --- | --- |
-| ASR | Faster Whisper Large V3 Turbo | Faster Whisper Large V3 Turbo |
-| Translation | MarianMT ID-EN | NLLB 200 distilled 600M |
-| TTS | Explicit English Piper voice or explicit English Windows SAPI voice | Explicit English Piper voice or explicit English Windows SAPI voice |
+| Capability | Current implementation |
+| --- | --- |
+| ASR primary | Faster Whisper Large V3 Turbo |
+| ASR optional fallback | Faster Whisper Medium |
+| Translation ID -> EN | MarianMT `marianmt-id-en` |
+| Translation EN -> ID | MarianMT `marianmt-en-id` |
+| English TTS | Explicit English Piper voice or explicitly verified English Windows SAPI voice |
 
 Named providers/models are current implementation evidence, not permanent product identity. Provider/model changes remain owned by the local-AI runtime boundary.
 
@@ -116,6 +118,25 @@ For Windows SAPI, the worker reads installed voice name + culture, selects an En
 If no explicit English-capable voice can be identified, TTS remains unavailable instead of synthesizing with an arbitrary voice.
 
 ## Runtime Assets
+
+### Deterministic developer acquisition
+
+`model_manifest.json` is also the single source for developer Hugging Face asset acquisition. Every Hugging Face entry carries a full immutable `revision` commit hash. `prepare_model_assets.py` refuses floating revisions and refuses paths outside the canonical `EngineData/Backend/RuntimeAssets` root. It downloads into a sibling staging directory and replaces the target only after the pinned snapshot completes, so a failed download does not destroy the previous local asset.
+
+From WorkerRuntime after `uv sync --frozen`:
+
+```powershell
+# Validate the exact pinned plan without downloading
+uv run --frozen python prepare_model_assets.py --plan
+
+# Acquire required Hugging Face proof/runtime assets
+uv run --frozen python prepare_model_assets.py
+
+# Also acquire the optional Faster Whisper fallback
+uv run --frozen python prepare_model_assets.py --include-optional
+```
+
+The developer downloader intentionally does not fabricate manual release assets. Piper remains a separately sourced release asset until a canonical source is approved; Windows SAPI may still satisfy development/runtime TTS capability when an explicit English voice is verified.
 
 The declarative `model_manifest.json` + Rust inventory is scoped only to **full-product-release asset presence**. It does not decide whether Meeting can start. Current Meeting-required ASR / ID→EN / English-TTS capability is owned by the live worker status and provider preflight, so a valid runtime fallback can satisfy Meeting without pretending the full release package is complete. Asset presence remains installation evidence only.
 
@@ -147,7 +168,14 @@ py-spy
 -> observed performance profile of one persistent-worker run
 ```
 
-The smoke script requires the canonical `.venv` created from this project. Its stored evidence is privacy-bounded to stage/completion/voice metadata and excludes source text, translated text, transcript text, and runtime file paths.
+The smoke script requires the canonical `.venv` created from this project. It exercises ASR preload, both ID -> EN and EN -> ID translation directions, English TTS synthesis, optional ASR transcription when `-AudioPath` is supplied, and explicit device truth. Use `-ExpectedDevice Cuda` on the NVIDIA target to fail unless both ASR and translation actually execute on CUDA; use `-ExpectedDevice CpuFallback` only where CUDA probes truthfully report unavailable. All worker reads are bounded by `-CommandTimeoutSeconds`.
+
+```powershell
+.\run_realtime_worker_smoke.ps1 -ExpectedDevice CpuFallback
+.\run_realtime_worker_smoke.ps1 -ExpectedDevice Cuda -AudioPath C:\path\to\indonesian-proof.wav
+```
+
+Stored evidence is privacy-bounded to stage/completion/provider/device metadata and excludes source text, translated text, transcript text, and runtime file paths.
 
 ## Retired Development Scaffolding
 

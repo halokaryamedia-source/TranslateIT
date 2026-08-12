@@ -15,7 +15,7 @@ validate:quick
 └─ source contracts + TypeScript typecheck
 ```
 
-Package/path preflight remains separate because installer/path claims are a different boundary. `check:tauri-rust-local` remains an explicit local compile command and is not part of source-only proof.
+Package/path preflight remains separate because installer/path claims are a different boundary. `check:tauri-rust-local` remains an explicit local compile command and is not part of source-only proof. It reuses Cargo incremental output by default; set `TRANSLATEIT_CLEAN_RUST_TARGET=1` only when a deliberate clean compile is required.
 
 ## Rules
 

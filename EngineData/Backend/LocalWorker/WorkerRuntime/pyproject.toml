@@ -25,6 +25,7 @@ explicit = true
 
 [dependency-groups]
 dev = [
+    "huggingface-hub",
     "pytest",
     "ruff",
 ]

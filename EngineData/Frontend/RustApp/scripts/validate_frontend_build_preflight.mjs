@@ -119,7 +119,7 @@ for (const marker of [
 }
 
 const meetingPage = readFileSync(join(appRoot, "src", "pages", "Meeting.svelte"), "utf8");
-for (const marker of ["You speak", "Meeting hears", "Ready to translate. Start when your meeting is open.", "TranslateIT Meeting Microphone", "Check Setup"]) {
+for (const marker of ["You speak", "Meeting hears", "Ready to translate. Start when your meeting is open.", "Meeting microphone", "meetingMicrophoneDevice", "Check Setup"]) {
   if (!meetingPage.includes(marker)) fail(`Meeting.svelte missing familiar translation-flow marker: ${marker}`);
 }
 
@@ -144,7 +144,7 @@ for (const marker of ['aria-label="Settings sections"', "Meeting audio", "Open D
 }
 
 const firstSetup = readFileSync(join(appRoot, "src", "pages", "FirstSetup.svelte"), "utf8");
-for (const marker of ['role="progressbar"', "Which microphone do you use?", "Where do you hear the meeting?", "Choose TranslateIT in your meeting app", "selectProductAudioDevice", "Check Again"]) {
+for (const marker of ['role="progressbar"', "Which microphone do you use?", "Where do you hear the meeting?", "Choose the configured meeting microphone", "selectProductAudioDevice", "Check Again"]) {
   if (!firstSetup.includes(marker)) fail(`FirstSetup.svelte missing familiar setup marker: ${marker}`);
 }
 
