@@ -206,11 +206,11 @@ Installed Python execution is selected as:
 
 Packaged source resolves only `PythonRuntime/python.exe`. Repository env/`.venv`/system-Python discovery is development-only. Persistent worker and Meeting Microphone provider share the same interpreter resolver and WorkerRuntime root. Models remain in `RuntimeAssets`.
 
-Actual PythonRuntime bytes, vendored packages, installer placement, model execution, Meeting provider imports, and clean-machine behavior remain local release proof.
+Actual packaged PythonRuntime bytes, vendored-package placement, Meeting provider imports, installer placement, and clean-machine behavior remain local release proof. Separate GitHub-hosted P2.3 evidence now proves the locked persistent worker can execute the primary ASR model, both MarianMT directions, English Windows SAPI TTS, and explicit CPU fallback; real CUDA execution still requires a GPU-capable Windows target.
 
 ## Deferred Proof Boundary
 
-The user currently postpones **user-local-PC**, real model/audio/device, installer, and clean-machine testing. This changes **where/when** the remaining proof is executed, not the acceptance standard.
+The user currently postpones **user-local-PC**, real Windows audio/device, installer, and clean-machine testing. Model execution is no longer wholly deferred: the locked WorkerRuntime has now been executed remotely on a GitHub-hosted Windows CPU environment. This changes **where/when** the remaining proof is executed, not the acceptance standard; actual CUDA execution still requires a GPU-capable Windows target.
 
 Remote GitHub-hosted Windows proof has already established the following executable/frontend boundaries:
 
@@ -229,15 +229,16 @@ native Step 1 keyboard focus traversal + visible focus indicators
 canonical package-lock.json + deterministic clean npm ci proof
 remote Text Copy browser Clipboard API success + truthful failure feedback
 fresh real Rust settings/new-state -> native First Setup projection with zero Python descendants
+real locked Python worker/model execution -> ASR + ID<->EN + English TTS on CPU fallback
 ```
 
-Fresh First Setup remote proofs remain intentionally before capability execution and have shown zero Python child processes. They do **not** prove Python worker/model inference, physical microphone behavior, Meeting virtual-audio routing, real Meeting-app reception, sleep/wake behavior during a live session, latency/stability, installer placement, or clean-machine execution.
+Fresh First Setup remote proofs remain intentionally before capability execution and have shown zero Python child processes. Those startup proofs themselves do **not** prove Python inference, physical microphone behavior, Meeting virtual-audio routing, real Meeting-app reception, sleep/wake behavior during a live session, latency/stability, installer placement, or clean-machine execution. Separate P2.3 run `31595127627` now proves real persistent-worker ASR/translation/TTS execution on the hosted CPU path; it does not prove CUDA execution or any Windows Meeting-audio/device behavior.
 
 Before release, remaining proof/materialization still includes:
 
 ```text
 post-setup runtime-state projection together with deferred device/model acceptance
-private PythonRuntime + worker/model execution
+private PythonRuntime packaging + GPU-capable CUDA execution proof
 Windows Meeting audio/device validation
 Start / Stop / Safe Close / power lifecycle runtime acceptance
 latency / stability / long-session measurement

@@ -689,10 +689,29 @@ Tauri release build --no-bundle                   -> PASS
 
 No real ASR/translation/TTS model inference, CUDA-vs-CPU execution acceptance, audio-route/device execution, installer staging, scheduler/stderr redesign, or user-local-PC testing occurred in Wave A7.
 
+## P2.3 Remote CPU Model Execution — PARTIAL PROOF ACCEPTED
+
+GitHub-hosted Windows run `31595127627` executed the canonical persistent `realtime_local_worker.py` from the committed `uv.lock` environment against real downloaded model assets. The proof used the primary `faster-whisper-large-v3-turbo` asset plus both MarianMT direction assets, and used the worker's explicit English Windows SAPI provider to synthesize the speech fixture that was then fed back through real ASR inference. Generated translation/transcript bodies and runtime paths were omitted from the proof summary.
+
+Observed runtime evidence:
+
+```text
+locked WorkerRuntime environment                 -> PASS
+real primary ASR preload + inference             -> PASS / CPU int8
+real ID -> EN MarianMT preload + inference       -> PASS / CPU / EOS complete
+real EN -> ID MarianMT preload + inference       -> PASS / CPU / EOS complete
+English TTS preflight + synthesis                -> PASS / Windows SAPI / en-US
+persistent worker retained ASR + both directions -> PASS
+explicit CPU fallback                            -> PASS / degraded truth preserved
+tracked repository state after execution         -> clean
+```
+
+The runner exposed no NVIDIA runtime (`nvidia-smi` unavailable, Torch CUDA false, CTranslate2 CUDA false). The worker truthfully reported `cuda_primary_requested=true`, selected CPU for ASR and translation, and returned explicit CUDA-unavailable fallback reasons. This **proves the real CPU fallback path**, but it does **not** prove that ASR or translation can actually load and execute on CUDA hardware. No physical microphone, Meeting virtual-audio route, installer, or user-local-PC execution occurred in this slice.
+
 ## Current Mode
 
-**Backend Hardening Wave A — SOURCE/REMOTE PROOF CLOSED (A1-A7).** Resume release-blocking executable proof without reopening closed hardening slices unless new evidence requires it.
+**P2.3 ACTIVE — REMOTE REAL-MODEL CPU PATH PROVEN.** Backend hardening A1-A7 remains closed. Real ASR, both translation directions, English TTS, persistent model lifecycle, and explicit CPU fallback now have remote execution evidence; actual CUDA execution remains the only unfinished P2.3 device claim.
 
-## Next Step — P2.3: Real Python / Model Execution Proof
+## Next Step — P2.3: GPU-Capable Windows CUDA Execution Proof
 
-Execute the canonical locked WorkerRuntime against real installed assets and collect truthful evidence for ASR, ID→EN translation, EN→ID translation, English TTS, CUDA-preferred behavior, and explicit CPU fallback. Keep P2.3 focused on real AI runtime execution; do not mix the deferred Windows audio-route/device acceptance cleanup or broad P3 dead-code cleanup into the model proof.
+Run the same canonical locked WorkerRuntime with the approved real ASR and MarianMT assets on a Windows environment that exposes a usable NVIDIA CUDA device. Require actual ASR and both translation directions to report and execute on CUDA, while preserving the already-proven CPU fallback contract. Do not mix Windows Meeting audio/device acceptance, installer staging, or P3 cleanup into this proof.
