@@ -288,3 +288,16 @@ The first real Svelte render proved the product structure but also exposed exces
 
 **Proof status**
 The approved Meeting / Text / Settings baseline has Svelte typecheck, Vite production build, and actual browser-render evidence from the current source graph. The render harness used simulated Tauri Ready/device data, so native Tauri/WebView, real runtime state, and Windows device behavior remain separate proof boundaries.
+
+## D-019 — One Windows CUDA Matrix And Capability-Only CPU Fallback
+
+**Decision**
+The current Windows WorkerRuntime development/runtime baseline is CPython 3.12.10 with PyTorch 2.13.0 from the official CUDA 12.6 wheel index and CTranslate2 4.8.1. The WorkerRuntime keeps one locked environment; CPU degraded execution uses that same environment rather than a second CPU dependency project or reinstall script.
+
+CUDA is preferred but optional. CPU fallback is chosen only when the canonical PyTorch/CTranslate2 CUDA probes complete successfully and report CUDA unavailable. If a CUDA probe itself fails, or CUDA was selected and ASR/model loading or translation device transfer then fails, TranslateIT preserves that failure as a blocker instead of retrying the same operation on CPU.
+
+**Reason**
+The previous floating Python/package baseline could resolve materially different Windows stacks over time, and broad exception fallback could convert dependency/model/config/runtime failures into apparently healthy CPU degradation. One reviewed matrix plus pre-load capability selection keeps dependency truth reproducible while preserving the approved CPU fallback only for known capability absence.
+
+**Proof status**
+GitHub-hosted Windows proof may establish exact Python/package resolution, CUDA-enabled PyTorch wheel identity, CTranslate2 import/probe behavior on a no-GPU runner, deterministic CPU fallback selection, and fail-closed CUDA-load error handling. Real CUDA inference still requires a GPU-capable Windows target and is not implied by dependency/import proof.

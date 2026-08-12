@@ -22,9 +22,7 @@ def configured_absolute_root(environment_name: str, fallback: Path) -> Path:
 
 
 RUNTIME_ROOT = configured_absolute_root("TRANSLATEIT_RUNTIME_ROOT", SCRIPT_ROOT)
-USER_DATA_ROOT = configured_absolute_root(
-    "TRANSLATEIT_USER_DATA_ROOT", SCRIPT_ROOT / "UserData"
-)
+USER_DATA_ROOT = configured_absolute_root("TRANSLATEIT_USER_DATA_ROOT", SCRIPT_ROOT / "UserData")
 RUNTIME_ASSETS_ROOT = RUNTIME_ROOT / "EngineData" / "Backend" / "RuntimeAssets"
 ASR_MODEL_ROOT = RUNTIME_ASSETS_ROOT / "ASR" / "ModelData"
 TRANSLATION_MODEL_ROOT = RUNTIME_ASSETS_ROOT / "Translation" / "ModelData"
@@ -135,25 +133,68 @@ def safe_command_name(value: Any) -> str:
     )[:64]
 
 
-def torch_status() -> tuple[bool, bool]:
+def torch_status() -> dict[str, Any]:
     try:
         import torch
+    except Exception as exc:
+        return {
+            "import_ready": False,
+            "cuda_probe_ok": False,
+            "cuda_available": False,
+            "blocker": f"dependency:torch_import_failed:{type(exc).__name__}",
+        }
 
-        return True, bool(torch.cuda.is_available())
-    except Exception:
-        return False, False
+    try:
+        cuda_available = bool(torch.cuda.is_available())
+    except Exception as exc:
+        return {
+            "import_ready": True,
+            "cuda_probe_ok": False,
+            "cuda_available": False,
+            "blocker": f"cuda:torch_probe_failed:{type(exc).__name__}",
+        }
+    return {
+        "import_ready": True,
+        "cuda_probe_ok": True,
+        "cuda_available": cuda_available,
+        "blocker": "",
+    }
 
 
-def ctranslate2_status() -> tuple[bool, bool]:
+def ctranslate2_status() -> dict[str, Any]:
     try:
         import ctranslate2
+    except Exception as exc:
+        return {
+            "import_ready": False,
+            "cuda_probe_ok": False,
+            "cuda_available": False,
+            "blocker": f"dependency:ctranslate2_import_failed:{type(exc).__name__}",
+        }
 
-        probe = getattr(ctranslate2, "get_cuda_device_count", None)
-        if callable(probe):
-            return True, int(probe()) > 0
-        return True, False
-    except Exception:
-        return False, False
+    probe = getattr(ctranslate2, "get_cuda_device_count", None)
+    if not callable(probe):
+        return {
+            "import_ready": True,
+            "cuda_probe_ok": False,
+            "cuda_available": False,
+            "blocker": "cuda:ctranslate2_probe_unavailable",
+        }
+    try:
+        cuda_available = int(probe()) > 0
+    except Exception as exc:
+        return {
+            "import_ready": True,
+            "cuda_probe_ok": False,
+            "cuda_available": False,
+            "blocker": f"cuda:ctranslate2_probe_failed:{type(exc).__name__}",
+        }
+    return {
+        "import_ready": True,
+        "cuda_probe_ok": True,
+        "cuda_available": cuda_available,
+        "blocker": "",
+    }
 
 
 def nvidia_smi_available(payload: dict[str, Any] | None = None) -> bool:
@@ -162,9 +203,7 @@ def nvidia_smi_available(payload: dict[str, Any] | None = None) -> bool:
             ["nvidia-smi", "-L"],
             text=True,
             capture_output=True,
-            timeout=bounded_subprocess_timeout_seconds(
-                payload, GPU_PROBE_TIMEOUT_SECONDS
-            ),
+            timeout=bounded_subprocess_timeout_seconds(payload, GPU_PROBE_TIMEOUT_SECONDS),
             check=False,
         )
         return completed.returncode == 0 and bool(completed.stdout.strip())
@@ -173,19 +212,56 @@ def nvidia_smi_available(payload: dict[str, Any] | None = None) -> bool:
 
 
 def probe_gpu_runtime(payload: dict[str, Any] | None = None) -> dict[str, Any]:
-    torch_ready, torch_cuda_available = torch_status()
-    ctranslate2_ready, ctranslate2_cuda_available = ctranslate2_status()
+    torch_probe = torch_status()
+    ctranslate2_probe = ctranslate2_status()
+    torch_ready = bool(torch_probe["import_ready"])
+    torch_probe_ok = bool(torch_probe["cuda_probe_ok"])
+    torch_cuda_available = bool(torch_probe["cuda_available"])
+    ctranslate2_ready = bool(ctranslate2_probe["import_ready"])
+    ctranslate2_probe_ok = bool(ctranslate2_probe["cuda_probe_ok"])
+    ctranslate2_cuda_available = bool(ctranslate2_probe["cuda_available"])
+
+    cuda_capability_known = (
+        torch_ready and torch_probe_ok and ctranslate2_ready and ctranslate2_probe_ok
+    )
+    cpu_fallback_active = cuda_capability_known and (
+        not torch_cuda_available or not ctranslate2_cuda_available
+    )
+
+    if ctranslate2_ready and ctranslate2_probe_ok:
+        selected_device = "cuda" if ctranslate2_cuda_available else "cpu"
+        selected_compute_type = "int8_float16" if ctranslate2_cuda_available else "int8"
+    else:
+        selected_device = "blocked"
+        selected_compute_type = "blocked"
+
+    if torch_ready and torch_probe_ok:
+        selected_translation_device = "cuda" if torch_cuda_available else "cpu"
+    else:
+        selected_translation_device = "blocked"
+
+    probe_blockers = [
+        blocker for blocker in (torch_probe["blocker"], ctranslate2_probe["blocker"]) if blocker
+    ]
+
     return {
         "torch_import_ready": torch_ready,
+        "torch_cuda_probe_ok": torch_probe_ok,
         "torch_cuda_available": torch_cuda_available,
+        "torch_cuda_probe_blocker": str(torch_probe["blocker"]),
         "ctranslate2_import_ready": ctranslate2_ready,
+        "ctranslate2_cuda_probe_ok": ctranslate2_probe_ok,
         "ctranslate2_cuda_available": ctranslate2_cuda_available,
+        "ctranslate2_cuda_probe_blocker": str(ctranslate2_probe["blocker"]),
+        "cuda_capability_known": cuda_capability_known,
+        "cpu_fallback_active": cpu_fallback_active,
+        "cuda_probe_blocker": ";".join(probe_blockers),
         "nvidia_smi_available": nvidia_smi_available(payload),
         "cuda_primary_requested": True,
-        "selected_device": "cuda" if ctranslate2_cuda_available else "cpu",
-        "selected_translation_device": "cuda" if torch_cuda_available else "cpu",
-        "selected_compute_type": "int8_float16" if ctranslate2_cuda_available else "int8",
-        "fallback_reason": "" if ctranslate2_cuda_available else "cuda_unavailable",
+        "selected_device": selected_device,
+        "selected_translation_device": selected_translation_device,
+        "selected_compute_type": selected_compute_type,
+        "fallback_reason": "cuda_unavailable" if cpu_fallback_active else "",
     }
 
 
@@ -200,8 +276,7 @@ def normalize_language(value: Any, fallback: str) -> str:
 
 def direction_pair(source_language: str, target_language: str) -> str:
     return (
-        f"{normalize_language(source_language, 'id')}"
-        f"->{normalize_language(target_language, 'en')}"
+        f"{normalize_language(source_language, 'id')}->{normalize_language(target_language, 'en')}"
     )
 
 
@@ -372,9 +447,7 @@ def sapi_status(
             ["powershell", "-NoProfile", "-NonInteractive", "-Command", command],
             text=True,
             capture_output=True,
-            timeout=bounded_subprocess_timeout_seconds(
-                payload, SAPI_PROBE_TIMEOUT_SECONDS
-            ),
+            timeout=bounded_subprocess_timeout_seconds(payload, SAPI_PROBE_TIMEOUT_SECONDS),
             check=False,
         )
         if completed.returncode != 0:
@@ -487,9 +560,7 @@ def status_action_items(blockers: list[str], warnings: list[str]) -> list[str]:
     if "transformers" in joined or "torch" in joined:
         actions.append("Install torch and transformers for local translation.")
     if "marianmt_id_en" in joined:
-        actions.append(
-            "Provide marianmt-id-en under RuntimeAssets/Translation/ModelData."
-        )
+        actions.append("Provide marianmt-id-en under RuntimeAssets/Translation/ModelData.")
     if "marianmt_en_id" in joined:
         actions.append(
             "Provide marianmt-en-id under RuntimeAssets/Translation/ModelData for EN -> ID translation."
@@ -498,8 +569,14 @@ def status_action_items(blockers: list[str], warnings: list[str]) -> list[str]:
         actions.append(
             "Provide a Piper English voice with metadata or an installed Windows SAPI English voice."
         )
-    if "cuda" in joined:
-        actions.append("CUDA is optional; CPU fallback remains explicit degraded operation.")
+    if "cuda_unavailable" in joined:
+        actions.append(
+            "CUDA is optional; known unavailability uses explicit CPU degraded operation."
+        )
+    if "cuda:" in joined:
+        actions.append(
+            "Repair the locked CUDA runtime/probe failure; do not mask it with CPU fallback."
+        )
     return list(dict.fromkeys(actions))
 
 
@@ -508,19 +585,20 @@ def build_status_payload(payload: dict[str, Any] | None = None) -> dict[str, Any
     transformers_ready = import_ready("transformers")
     gpu_runtime = probe_gpu_runtime(payload)
     torch_ready = bool(gpu_runtime["torch_import_ready"])
+    torch_cuda_probe_ok = bool(gpu_runtime["torch_cuda_probe_ok"])
     cuda_available = bool(gpu_runtime["torch_cuda_available"])
+    ctranslate2_ready = bool(gpu_runtime["ctranslate2_import_ready"])
+    ctranslate2_cuda_probe_ok = bool(gpu_runtime["ctranslate2_cuda_probe_ok"])
     ctranslate2_cuda_available = bool(gpu_runtime["ctranslate2_cuda_available"])
+    cuda_capability_known = bool(gpu_runtime["cuda_capability_known"])
+    cpu_fallback_active = bool(gpu_runtime["cpu_fallback_active"])
 
     asr_primary_ready = asr_model_ready(ASR_MODEL)
     asr_backup_ready = asr_model_ready(ASR_BACKUP_MODEL)
     asr_active_ready = asr_primary_ready or asr_backup_ready
     asr_active_model_id, asr_active_model_path = choose_asr_model()
     asr_readiness_grade = (
-        "primary"
-        if asr_primary_ready
-        else "fallback_degraded"
-        if asr_backup_ready
-        else "blocked"
+        "primary" if asr_primary_ready else "fallback_degraded" if asr_backup_ready else "blocked"
     )
 
     translation_id_en_ready = translation_model_ready(TRANSLATION_MODEL_ID_EN)
@@ -537,6 +615,12 @@ def build_status_payload(payload: dict[str, Any] | None = None) -> dict[str, Any
         blockers.append("dependency:transformers_missing")
     if not torch_ready:
         blockers.append("dependency:torch_missing")
+    if not ctranslate2_ready:
+        blockers.append("dependency:ctranslate2_missing")
+    if torch_ready and not torch_cuda_probe_ok:
+        blockers.append(str(gpu_runtime["torch_cuda_probe_blocker"]))
+    if ctranslate2_ready and not ctranslate2_cuda_probe_ok:
+        blockers.append(str(gpu_runtime["ctranslate2_cuda_probe_blocker"]))
     if not asr_active_ready:
         blockers.append("model:faster_whisper_large_v3_turbo_and_medium_missing")
     elif not asr_primary_ready:
@@ -549,7 +633,7 @@ def build_status_payload(payload: dict[str, Any] | None = None) -> dict[str, Any
         warnings.append("model:marianmt_en_id_missing_reverse_translation_unavailable")
     if not tts_ready:
         blockers.append(tts_selection["blocker"])
-    if not cuda_available or not ctranslate2_cuda_available:
+    if cpu_fallback_active:
         warnings.append("cuda_unavailable_cpu_fallback_active")
 
     # `ok/provider_ready` intentionally represent the required outbound Meeting path.
@@ -558,6 +642,9 @@ def build_status_payload(payload: dict[str, Any] | None = None) -> dict[str, Any
     provider_ready = (
         faster_whisper_ready
         and torch_ready
+        and ctranslate2_ready
+        and torch_cuda_probe_ok
+        and ctranslate2_cuda_probe_ok
         and transformers_ready
         and asr_active_ready
         and translation_id_en_ready
@@ -570,8 +657,10 @@ def build_status_payload(payload: dict[str, Any] | None = None) -> dict[str, Any
     )
     if provider_ready and not translation_en_id_ready:
         note += " EN -> ID translation is unavailable, so optional incoming/Text reverse translation is degraded."
-    if not cuda_available or not ctranslate2_cuda_available:
-        note += " CUDA is not fully available; CPU fallback is explicit degraded operation."
+    if cpu_fallback_active:
+        note += " CUDA capability is unavailable; CPU fallback is explicit degraded operation."
+    elif not cuda_capability_known and (torch_ready or ctranslate2_ready):
+        note += " CUDA capability probing failed; CPU fallback was not activated."
 
     return {
         "ok": provider_ready,
@@ -584,17 +673,13 @@ def build_status_payload(payload: dict[str, Any] | None = None) -> dict[str, Any
         "provider_ready": provider_ready,
         "readiness": {
             "asr": asr_active_ready and faster_whisper_ready,
-            "translation_id_en": translation_id_en_ready
-            and transformers_ready
-            and torch_ready,
-            "translation_en_id": translation_en_id_ready
-            and transformers_ready
-            and torch_ready,
+            "translation_id_en": translation_id_en_ready and transformers_ready and torch_ready,
+            "translation_en_id": translation_en_id_ready and transformers_ready and torch_ready,
             "translation_bidirectional": translation_bidirectional_ready
             and transformers_ready
             and torch_ready,
             "tts": tts_ready,
-            "cuda_degraded": not cuda_available or not ctranslate2_cuda_available,
+            "cuda_degraded": cpu_fallback_active,
         },
         "dependencies": {
             "faster_whisper": faster_whisper_ready,
@@ -658,6 +743,9 @@ def build_status_payload(payload: dict[str, Any] | None = None) -> dict[str, Any
         "selected_translation_device": str(gpu_runtime["selected_translation_device"]),
         "selected_compute_type": str(gpu_runtime["selected_compute_type"]),
         "fallback_reason": str(gpu_runtime["fallback_reason"]),
+        "cuda_capability_known": cuda_capability_known,
+        "cpu_fallback_active": cpu_fallback_active,
+        "cuda_probe_blocker": str(gpu_runtime["cuda_probe_blocker"]),
         "loaded": {
             "asr": ASR_RUNTIME is not None,
             "asr_device": ASR_RUNTIME_DEVICE,
@@ -678,7 +766,11 @@ def handle_ping(_: dict[str, Any]) -> dict[str, Any]:
 
 def asr_runtime_config(payload: dict[str, Any] | None = None) -> tuple[str, str, str]:
     gpu_runtime = probe_gpu_runtime(payload)
-    if gpu_runtime["selected_device"] == "cuda":
+    selected_device = str(gpu_runtime["selected_device"])
+    if selected_device == "blocked":
+        blocker = str(gpu_runtime["cuda_probe_blocker"] or "cuda:ctranslate2_capability_unknown")
+        raise RuntimeError(blocker)
+    if selected_device == "cuda":
         return "cuda", "int8_float16", ""
     return "cpu", "int8", str(gpu_runtime["fallback_reason"])
 
@@ -691,18 +783,10 @@ def get_asr_runtime(payload: dict[str, Any] | None = None) -> Any:
 
     device, compute_type, _fallback_reason = asr_runtime_config(payload)
     model_id, model_path = choose_asr_model()
-    try:
-        ASR_RUNTIME = WhisperModel(str(model_path), device=device, compute_type=compute_type)
-        ASR_RUNTIME_DEVICE = device
-        ASR_RUNTIME_COMPUTE = compute_type
-        ASR_RUNTIME_MODEL_ID = model_id
-    except Exception:
-        if device != "cuda":
-            raise
-        ASR_RUNTIME = WhisperModel(str(model_path), device="cpu", compute_type="int8")
-        ASR_RUNTIME_DEVICE = "cpu"
-        ASR_RUNTIME_COMPUTE = "int8"
-        ASR_RUNTIME_MODEL_ID = model_id
+    ASR_RUNTIME = WhisperModel(str(model_path), device=device, compute_type=compute_type)
+    ASR_RUNTIME_DEVICE = device
+    ASR_RUNTIME_COMPUTE = compute_type
+    ASR_RUNTIME_MODEL_ID = model_id
     return ASR_RUNTIME
 
 
@@ -831,22 +915,15 @@ def handle_transcribe(payload: dict[str, Any]) -> dict[str, Any]:
         }
 
 
-def translation_device() -> str:
-    try:
-        import torch
-
-        return "cuda" if torch.cuda.is_available() else "cpu"
-    except Exception:
-        return "cpu"
-
-
-def translation_cuda_available() -> bool:
-    try:
-        import torch
-
-        return bool(torch.cuda.is_available())
-    except Exception:
-        return False
+def translation_runtime_config() -> tuple[str, str]:
+    probe = torch_status()
+    if not probe["import_ready"]:
+        raise RuntimeError(str(probe["blocker"] or "dependency:torch_missing"))
+    if not probe["cuda_probe_ok"]:
+        raise RuntimeError(str(probe["blocker"] or "cuda:torch_capability_unknown"))
+    if probe["cuda_available"]:
+        return "cuda", ""
+    return "cpu", "torch_cuda_unavailable"
 
 
 def get_translation_runtime(source_language: str, target_language: str) -> dict[str, Any]:
@@ -860,21 +937,13 @@ def get_translation_runtime(source_language: str, target_language: str) -> dict[
     from transformers import AutoModelForSeq2SeqLM, AutoTokenizer
 
     model_id, model_path = selected
-    device = translation_device()
+    device, fallback_reason = translation_runtime_config()
     device_note = "cuda_available" if device == "cuda" else "cpu_runtime"
     degraded = device != "cuda"
-    fallback_reason = "" if device == "cuda" else "torch_cuda_unavailable"
     tokenizer = AutoTokenizer.from_pretrained(str(model_path), local_files_only=True)
     model = AutoModelForSeq2SeqLM.from_pretrained(str(model_path), local_files_only=True)
     if device == "cuda":
-        try:
-            model = model.to("cuda")
-        except Exception as exc:
-            model = model.to("cpu")
-            device = "cpu"
-            device_note = f"cuda_fallback:{type(exc).__name__}"
-            degraded = True
-            fallback_reason = f"cuda_fallback:{type(exc).__name__}"
+        model = model.to("cuda")
     model.eval()
     runtime = {
         "direction_pair": pair,
@@ -885,7 +954,7 @@ def get_translation_runtime(source_language: str, target_language: str) -> dict[
         "device": device,
         "device_note": device_note,
         "translation_gpu_requested": True,
-        "translation_torch_cuda_available": translation_cuda_available(),
+        "translation_torch_cuda_available": device == "cuda",
         "translation_degraded": degraded,
         "translation_fallback_reason": fallback_reason,
     }
@@ -938,9 +1007,7 @@ def handle_translation_preload(payload: dict[str, Any]) -> dict[str, Any]:
             "device": runtime["device"],
             "device_note": runtime["device_note"],
             "translation_gpu_requested": runtime["translation_gpu_requested"],
-            "translation_torch_cuda_available": runtime[
-                "translation_torch_cuda_available"
-            ],
+            "translation_torch_cuda_available": runtime["translation_torch_cuda_available"],
             "translation_degraded": runtime["translation_degraded"],
             "translation_fallback_reason": runtime["translation_fallback_reason"],
             "elapsed_ms": now_ms() - started,
@@ -977,15 +1044,11 @@ def finite_positive_token_limit(value: Any) -> int | None:
 
 def translation_input_token_limit(tokenizer: Any, model: Any) -> int | None:
     candidates: list[int] = []
-    tokenizer_limit = finite_positive_token_limit(
-        getattr(tokenizer, "model_max_length", None)
-    )
+    tokenizer_limit = finite_positive_token_limit(getattr(tokenizer, "model_max_length", None))
     if tokenizer_limit is not None:
         candidates.append(tokenizer_limit)
     config = getattr(model, "config", None)
-    model_limit = finite_positive_token_limit(
-        getattr(config, "max_position_embeddings", None)
-    )
+    model_limit = finite_positive_token_limit(getattr(config, "max_position_embeddings", None))
     if model_limit is not None:
         candidates.append(model_limit)
     return min(candidates) if candidates else None
@@ -1023,9 +1086,7 @@ def normalized_token_id_set(value: Any) -> set[int]:
 def generation_eos_token_ids(tokenizer: Any, model: Any) -> set[int]:
     token_ids = normalized_token_id_set(getattr(tokenizer, "eos_token_id", None))
     generation_config = getattr(model, "generation_config", None)
-    token_ids.update(
-        normalized_token_id_set(getattr(generation_config, "eos_token_id", None))
-    )
+    token_ids.update(normalized_token_id_set(getattr(generation_config, "eos_token_id", None)))
     config = getattr(model, "config", None)
     token_ids.update(normalized_token_id_set(getattr(config, "eos_token_id", None)))
     return token_ids
@@ -1244,9 +1305,7 @@ def handle_translate(payload: dict[str, Any]) -> dict[str, Any]:
                 "elapsed_ms": now_ms() - started,
             }
 
-        completion = translation_generation_completion(
-            sequences, tokenizer, model, max_new_tokens
-        )
+        completion = translation_generation_completion(sequences, tokenizer, model, max_new_tokens)
         if not completion["complete"]:
             return {
                 "ok": False,
@@ -1275,9 +1334,7 @@ def handle_translate(payload: dict[str, Any]) -> dict[str, Any]:
             "device": device,
             "device_note": runtime["device_note"],
             "translation_gpu_requested": runtime["translation_gpu_requested"],
-            "translation_torch_cuda_available": runtime[
-                "translation_torch_cuda_available"
-            ],
+            "translation_torch_cuda_available": runtime["translation_torch_cuda_available"],
             "translation_degraded": runtime["translation_degraded"],
             "translation_fallback_reason": runtime["translation_fallback_reason"],
             "source_language": source_language,
@@ -1316,9 +1373,7 @@ def handle_tts_preflight(payload: dict[str, Any]) -> dict[str, Any]:
         "sapi_voices": selection["sapi_voices"],
         "blocker": selection["blocker"],
         "warnings": [],
-        "next_actions": status_action_items(
-            [] if ok else [selection["blocker"]], []
-        ),
+        "next_actions": status_action_items([] if ok else [selection["blocker"]], []),
         "note": (
             "An explicit English TTS voice is selected for local synthesis."
             if ok
@@ -1431,17 +1486,11 @@ def handle_synthesize(payload: dict[str, Any]) -> dict[str, Any]:
             ["powershell", "-NoProfile", "-NonInteractive", "-Command", command],
             text=True,
             capture_output=True,
-            timeout=bounded_subprocess_timeout_seconds(
-                payload, SAPI_SYNTHESIS_TIMEOUT_SECONDS
-            ),
+            timeout=bounded_subprocess_timeout_seconds(payload, SAPI_SYNTHESIS_TIMEOUT_SECONDS),
             check=False,
             env=environment,
         )
-        ok = (
-            completed.returncode == 0
-            and output_path.is_file()
-            and output_path.stat().st_size > 44
-        )
+        ok = completed.returncode == 0 and output_path.is_file() and output_path.stat().st_size > 44
         return {
             "ok": ok,
             "stage": "synthesize",

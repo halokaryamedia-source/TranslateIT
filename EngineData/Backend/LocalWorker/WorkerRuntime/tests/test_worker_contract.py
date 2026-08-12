@@ -4,6 +4,7 @@ import importlib.util
 import json
 import subprocess
 import sys
+import types
 from pathlib import Path
 
 import pytest
@@ -12,9 +13,7 @@ WORKER_PATH = Path(__file__).resolve().parents[1] / "realtime_local_worker.py"
 
 
 def load_worker_module():
-    spec = importlib.util.spec_from_file_location(
-        "translateit_realtime_local_worker", WORKER_PATH
-    )
+    spec = importlib.util.spec_from_file_location("translateit_realtime_local_worker", WORKER_PATH)
     assert spec is not None and spec.loader is not None
     module = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(module)
@@ -72,9 +71,16 @@ def test_worker_status_uses_canonical_translation_readiness_fields(monkeypatch) 
         "probe_gpu_runtime",
         lambda _payload=None: {
             "torch_import_ready": True,
+            "torch_cuda_probe_ok": True,
             "torch_cuda_available": True,
+            "torch_cuda_probe_blocker": "",
             "ctranslate2_import_ready": True,
+            "ctranslate2_cuda_probe_ok": True,
             "ctranslate2_cuda_available": True,
+            "ctranslate2_cuda_probe_blocker": "",
+            "cuda_capability_known": True,
+            "cpu_fallback_active": False,
+            "cuda_probe_blocker": "",
             "nvidia_smi_available": True,
             "cuda_primary_requested": True,
             "selected_device": "cuda",
@@ -260,9 +266,7 @@ def test_piper_selection_requires_english_voice_metadata(tmp_path: Path) -> None
 
     german = tmp_path / "de_DE-test-medium.onnx"
     german.write_bytes(b"model")
-    Path(f"{german}.json").write_text(
-        json.dumps({"language": {"code": "de_DE"}}), encoding="utf-8"
-    )
+    Path(f"{german}.json").write_text(json.dumps({"language": {"code": "de_DE"}}), encoding="utf-8")
 
     english = tmp_path / "en_GB-test-medium.onnx"
     english.write_bytes(b"model")
@@ -350,3 +354,140 @@ def test_newline_protocol_rejects_already_expired_request() -> None:
     assert payload["ok"] is False
     assert payload["stage"] == "ping"
     assert payload["blocker"] == "worker:request_deadline_expired"
+
+
+def test_gpu_probe_uses_cpu_only_for_known_unavailable_capability(monkeypatch) -> None:
+    worker = load_worker_module()
+    monkeypatch.setattr(
+        worker,
+        "torch_status",
+        lambda: {
+            "import_ready": True,
+            "cuda_probe_ok": True,
+            "cuda_available": False,
+            "blocker": "",
+        },
+    )
+    monkeypatch.setattr(
+        worker,
+        "ctranslate2_status",
+        lambda: {
+            "import_ready": True,
+            "cuda_probe_ok": True,
+            "cuda_available": False,
+            "blocker": "",
+        },
+    )
+    monkeypatch.setattr(worker, "nvidia_smi_available", lambda _payload=None: False)
+
+    gpu = worker.probe_gpu_runtime({})
+
+    assert gpu["cuda_capability_known"] is True
+    assert gpu["cpu_fallback_active"] is True
+    assert gpu["selected_device"] == "cpu"
+    assert gpu["selected_translation_device"] == "cpu"
+    assert gpu["selected_compute_type"] == "int8"
+    assert gpu["fallback_reason"] == "cuda_unavailable"
+    assert gpu["cuda_probe_blocker"] == ""
+
+
+def test_gpu_probe_failure_does_not_activate_cpu_fallback(monkeypatch) -> None:
+    worker = load_worker_module()
+    monkeypatch.setattr(
+        worker,
+        "torch_status",
+        lambda: {
+            "import_ready": True,
+            "cuda_probe_ok": True,
+            "cuda_available": False,
+            "blocker": "",
+        },
+    )
+    monkeypatch.setattr(
+        worker,
+        "ctranslate2_status",
+        lambda: {
+            "import_ready": True,
+            "cuda_probe_ok": False,
+            "cuda_available": False,
+            "blocker": "cuda:ctranslate2_probe_failed:RuntimeError",
+        },
+    )
+    monkeypatch.setattr(worker, "nvidia_smi_available", lambda _payload=None: False)
+
+    gpu = worker.probe_gpu_runtime({})
+
+    assert gpu["cuda_capability_known"] is False
+    assert gpu["cpu_fallback_active"] is False
+    assert gpu["selected_device"] == "blocked"
+    assert gpu["fallback_reason"] == ""
+    assert gpu["cuda_probe_blocker"] == "cuda:ctranslate2_probe_failed:RuntimeError"
+
+
+def test_asr_cuda_load_failure_is_not_retried_on_cpu(monkeypatch) -> None:
+    worker = load_worker_module()
+    calls: list[tuple[str, str]] = []
+
+    class FakeWhisperModel:
+        def __init__(self, _path: str, *, device: str, compute_type: str) -> None:
+            calls.append((device, compute_type))
+            raise RuntimeError("cuda model load failed")
+
+    monkeypatch.setitem(
+        sys.modules,
+        "faster_whisper",
+        types.SimpleNamespace(WhisperModel=FakeWhisperModel),
+    )
+    monkeypatch.setattr(
+        worker,
+        "asr_runtime_config",
+        lambda _payload=None: ("cuda", "int8_float16", ""),
+    )
+    worker.ASR_RUNTIME = None
+
+    with pytest.raises(RuntimeError, match="cuda model load failed"):
+        worker.get_asr_runtime({})
+
+    assert calls == [("cuda", "int8_float16")]
+    assert worker.ASR_RUNTIME is None
+
+
+def test_translation_cuda_move_failure_is_not_retried_on_cpu(monkeypatch) -> None:
+    worker = load_worker_module()
+    move_calls: list[str] = []
+
+    class FakeTokenizer:
+        @classmethod
+        def from_pretrained(cls, _path: str, *, local_files_only: bool):
+            assert local_files_only is True
+            return cls()
+
+    class FakeModel:
+        @classmethod
+        def from_pretrained(cls, _path: str, *, local_files_only: bool):
+            assert local_files_only is True
+            return cls()
+
+        def to(self, device: str):
+            move_calls.append(device)
+            raise RuntimeError("cuda model move failed")
+
+        def eval(self) -> None:
+            raise AssertionError("eval should not be reached after CUDA move failure")
+
+    monkeypatch.setitem(
+        sys.modules,
+        "transformers",
+        types.SimpleNamespace(
+            AutoModelForSeq2SeqLM=FakeModel,
+            AutoTokenizer=FakeTokenizer,
+        ),
+    )
+    monkeypatch.setattr(worker, "translation_runtime_config", lambda: ("cuda", ""))
+    worker.TRANSLATION_RUNTIME.clear()
+
+    with pytest.raises(RuntimeError, match="cuda model move failed"):
+        worker.get_translation_runtime("id", "en")
+
+    assert move_calls == ["cuda"]
+    assert worker.TRANSLATION_RUNTIME == {}

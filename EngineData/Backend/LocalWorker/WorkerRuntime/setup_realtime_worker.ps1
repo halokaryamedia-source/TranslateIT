@@ -3,6 +3,7 @@ $ErrorActionPreference = "Stop"
 $WorkerRoot = $PSScriptRoot
 $ProjectFile = Join-Path $WorkerRoot "pyproject.toml"
 $LockFile = Join-Path $WorkerRoot "uv.lock"
+$PythonVersionFile = Join-Path $WorkerRoot ".python-version"
 $Worker = Join-Path $WorkerRoot "realtime_local_worker.py"
 $Uv = Get-Command uv -ErrorAction SilentlyContinue
 
@@ -22,6 +23,14 @@ if ($null -eq $Uv) {
 if (-not (Test-Path $LockFile)) {
     throw "Missing canonical WorkerRuntime uv.lock: $LockFile. Restore the repository lock instead of resolving an unreviewed environment locally."
 }
+if (-not (Test-Path $PythonVersionFile)) {
+    throw "Missing canonical WorkerRuntime Python pin: $PythonVersionFile."
+}
+$PinnedPython = (Get-Content $PythonVersionFile -Raw).Trim()
+if ([string]::IsNullOrWhiteSpace($PinnedPython)) {
+    throw "WorkerRuntime Python pin is empty."
+}
+Write-Host "Pinned developer Python: $PinnedPython"
 
 Push-Location $WorkerRoot
 try {
@@ -29,6 +38,11 @@ try {
     uv sync --frozen --no-dev
     if ($LASTEXITCODE -ne 0) {
         throw "uv sync failed."
+    }
+
+    $ResolvedPython = (uv run --frozen --no-dev python -c "import platform; print(platform.python_version())").Trim()
+    if ($LASTEXITCODE -ne 0 -or $ResolvedPython -ne $PinnedPython) {
+        throw "WorkerRuntime Python mismatch. Expected $PinnedPython, got $ResolvedPython."
     }
 
     Write-Host "Checking worker dependency/model capability status"

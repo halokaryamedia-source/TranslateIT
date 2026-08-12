@@ -45,6 +45,21 @@ When dependencies intentionally change, edit `pyproject.toml`, run `uv lock`, re
 
 `setup_realtime_worker.ps1` is a developer helper that uses `uv` and the canonical project. `uv` is developer/build tooling only; the installed TranslateIT product must not require the end user to install or operate `uv`.
 
+### Windows CUDA matrix
+
+The canonical pre-local Windows AI matrix is deliberately one environment, not separate CUDA and CPU projects:
+
+```text
+CPython developer baseline -> 3.12.10
+PyTorch                    -> 2.13.0+cu126 from the official PyTorch cu126 index
+CTranslate2                -> 4.8.1
+CUDA target                -> 12.6 / CUDA 12.x-compatible NVIDIA driver
+```
+
+`.python-version` pins the developer interpreter while `requires-python` keeps the project on Python 3.12. The CUDA-enabled PyTorch wheel is also the CPU degraded-path environment; TranslateIT does not maintain a second CPU dependency lock. CTranslate2 remains on its Windows x86-64 wheel with CUDA 12.x GPU support. Actual GPU execution still requires target-Windows proof.
+
+CPU fallback is selected only after the canonical CUDA probes successfully report that CUDA is unavailable. A CUDA probe failure, CUDA-selected ASR model-load failure, or CUDA-selected translation model-move failure remains a truthful blocker and is not retried on CPU.
+
 ## Developer Commands
 
 From this folder, after `uv` is available:

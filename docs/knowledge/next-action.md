@@ -771,10 +771,30 @@ Tauri release build --no-bundle -> PASS
 
 The repository-wide source/preflight validator aggregate is not claimed in B1 because existing startup/frontend validators still contain unrelated stale Settings/UI assertions; canonical validator reconciliation remains mapped to B5. This proves source ownership, native output stream construction, format conversion logic, cancellation/deadline wiring, and Windows compilation. It does not prove that VB-Cable receives audio or that a real meeting application hears it; that remains user-local Windows device proof. No CUDA dependency changes, VAD tuning, installer staging, hot-path caching, lifecycle redesign, or broad dead-code cleanup occurred in B1.
 
+## Backend Pre-Local B2 — CLOSED
+
+WorkerRuntime now has one reviewed Windows CUDA matrix: CPython 3.12.10, PyTorch 2.13.0 from the official CUDA 12.6 wheel index, and CTranslate2 4.8.1. `.python-version` pins the developer interpreter, `requires-python` is constrained to Python 3.12, the canonical `uv.lock` resolves the selected PyTorch CUDA build, and developer setup verifies the resolved interpreter instead of accepting whichever Python happens to be first. CPU degraded operation uses this same locked environment; there is no parallel CPU lock or reinstall path.
+
+CUDA fallback is now capability-only. Successful PyTorch/CTranslate2 probes that report no CUDA select CPU before model load. A failed CUDA probe is a blocker, and once CUDA is selected an ASR model-load failure or translation `model.to("cuda")` failure is no longer caught and retried on CPU. This preserves model/config/runtime failures instead of disguising them as healthy degradation.
+
+Remote Windows/source proof for this slice passed:
+
+```text
+CPython 3.12.10 pin + frozen uv resolution -> PASS
+PyTorch 2.13.0+cu126 identity              -> PASS
+CTranslate2 4.8.1 identity/import          -> PASS
+hosted no-GPU capability probe             -> PASS: known unavailable -> CPU degraded
+WorkerRuntime deterministic tests           -> PASS
+Ruff check + format check                   -> PASS
+setup_realtime_worker.ps1 pinned env/status -> PASS
+```
+
+This proves dependency resolution and fallback/error semantics on a Windows no-GPU runner. It does not prove CUDA kernels or model inference on a real NVIDIA GPU; that remains GPU-capable target-Windows proof. B3 hot-path work, VAD/audio changes, installer staging, and broad cleanup were not changed in B2.
+
 ## Current Mode
 
-**Maintenance / Backend Pre-Local Readiness — B1 CLOSED.** Backend hardening A1-A7 remains closed. P2.3 CPU model execution remains proven and CUDA execution remains deferred. Continue the mapped pre-local readiness waves in order.
+**Maintenance / Backend Pre-Local Readiness — B2 CLOSED.** Backend hardening A1-A7 and pre-local B1-B2 are source/proof closed. P2.3 CPU model execution remains proven; real CUDA execution remains deferred to a GPU-capable Windows target. Continue the mapped pre-local readiness waves in order.
 
-## Next Step — Backend Pre-Local B2: Windows CUDA Dependency Truth
+## Next Step — Backend Pre-Local B3: Runtime Hot-Path Efficiency
 
-Choose and lock one supported Windows Python/PyTorch/CTranslate2/CUDA execution matrix for the existing WorkerRuntime, pin the developer Python baseline used by proof/setup, and narrow CUDA-to-CPU fallback so only known CUDA capability conditions degrade to CPU while model/config/runtime failures remain truthful blockers. Do not mix runtime hot-path caching (B3), audio/VAD work, installer staging, or broad cleanup into B2.
+Make active Meeting status polling cheap and side-effect-light: stop re-enumerating Windows devices and writing routine trace/evidence on every poll or utterance, keep optional incoming activation from delaying required outbound Start, and remove `nvidia-smi` subprocess work from routine worker status. Keep B3 limited to hot-path efficiency and targeted proof; do not mix lifecycle redesign (B4), proof-tool reconciliation (B5), VAD tuning, installer staging, or broad dead-code cleanup.
