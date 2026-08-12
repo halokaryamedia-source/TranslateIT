@@ -1,0 +1,153 @@
+name: Temporary Pre-Local C2 Latency Proof
+
+on:
+  push:
+    branches:
+      - New
+
+permissions:
+  contents: write
+
+jobs:
+  prove-c2:
+    runs-on: windows-2022
+    timeout-minutes: 50
+    steps:
+      - name: Checkout New
+        uses: actions/checkout@v4
+        with:
+          ref: New
+          fetch-depth: 0
+
+      - name: Apply C2 latency instrumentation patch
+        shell: pwsh
+        run: |
+          python .tmp/prelocal_c2_latency_patch.py
+          if ($LASTEXITCODE -ne 0) { throw 'C2 patch helper failed.' }
+          rustfmt EngineData/Frontend/RustApp/src-tauri/src/engine/audio/finalized_utterance.rs EngineData/Frontend/RustApp/src-tauri/src/engine/audio/meeting_output.rs EngineData/Frontend/RustApp/src-tauri/src/commands/meeting_session.rs
+          if ($LASTEXITCODE -ne 0) { throw 'C2 rustfmt failed.' }
+          git diff --check
+          if ($LASTEXITCODE -ne 0) { throw 'C2 patch has whitespace errors.' }
+
+      - name: Prove C2 source and frontend contracts
+        shell: pwsh
+        working-directory: EngineData/Frontend/RustApp
+        run: |
+          npm ci
+          if ($LASTEXITCODE -ne 0) { throw 'npm ci failed.' }
+          npm run validate:source-contracts
+          if ($LASTEXITCODE -ne 0) { throw 'source validators failed.' }
+          npm run typecheck
+          if ($LASTEXITCODE -ne 0) { throw 'svelte-check failed.' }
+          npm run build:frontend
+          if ($LASTEXITCODE -ne 0) { throw 'frontend build failed.' }
+
+      - name: Prove C2 deterministic Rust timing logic and compile
+        shell: pwsh
+        working-directory: EngineData/Frontend/RustApp
+        run: |
+          cargo test --manifest-path src-tauri/Cargo.toml c2_latency_tests -- --nocapture
+          if ($LASTEXITCODE -ne 0) { throw 'C2 latency math test failed.' }
+          cargo test --manifest-path src-tauri/Cargo.toml predicted_playback_unix_time_uses_monotonic_delta -- --nocapture
+          if ($LASTEXITCODE -ne 0) { throw 'C2 output timestamp helper test failed.' }
+          cargo test --manifest-path src-tauri/Cargo.toml --no-run
+          if ($LASTEXITCODE -ne 0) { throw 'Rust full test target failed to compile.' }
+          cargo check --manifest-path src-tauri/Cargo.toml
+          if ($LASTEXITCODE -ne 0) { throw 'cargo check failed.' }
+
+      - name: Prove Tauri release link
+        shell: pwsh
+        working-directory: EngineData/Frontend/RustApp
+        run: |
+          npx tauri build --no-bundle
+          if ($LASTEXITCODE -ne 0) { throw 'Tauri release build failed.' }
+
+      - name: Verify C2 transient ownership and scope
+        shell: pwsh
+        run: |
+          @'
+          from pathlib import Path
+
+          finalized = Path('EngineData/Frontend/RustApp/src-tauri/src/engine/audio/finalized_utterance.rs').read_text(encoding='utf-8')
+          meeting = Path('EngineData/Frontend/RustApp/src-tauri/src/commands/meeting_session.rs').read_text(encoding='utf-8')
+          output = Path('EngineData/Frontend/RustApp/src-tauri/src/engine/audio/meeting_output.rs').read_text(encoding='utf-8')
+          runtime_api = Path('EngineData/Frontend/RustApp/src/app/bridge/runtimeApi.ts').read_text(encoding='utf-8')
+
+          for marker in [
+              'pub finalized_at: Instant', 'pub enqueued_at: Instant', 'pub finalized_unix_ms: u128',
+              'pub speech_boundary_ms: u64', 'pub finalization_ms: u64',
+          ]:
+              if marker not in finalized:
+                  raise SystemExit('Missing finalized timing seed: ' + marker)
+
+          for marker in [
+              'callback_info.timestamp()', '.playback', '.duration_since(&timestamp.callback)',
+              'signal_first_playback(callback_info)', 'first_playback_at: Option<Instant>',
+              'first_playback_unix_ms: Option<u128>',
+          ]:
+              if marker not in output:
+                  raise SystemExit('Missing callback-grounded first playback marker: ' + marker)
+
+          for marker in [
+              'pub struct MeetingOutboundTiming', 'pub timing: Option<MeetingOutboundTiming>',
+              'pub outbound_timing: Option<MeetingOutboundTiming>', 'speech_boundary_ms',
+              'finalization_ms', 'queue_ms', 'audio_prepare_ms', 'asr_ms', 'translation_ms',
+              'tts_ms', 'delivery_ms', 'outbound_latency_ms', 'record_first_playback_timing',
+          ]:
+              if marker not in meeting:
+                  raise SystemExit('Missing C2 Meeting timing marker: ' + marker)
+
+          for forbidden in ['MAX_ACCEPTABLE_LATENCY', 'TARGET_LATENCY_MS', 'latency_threshold']:
+              if forbidden in meeting:
+                  raise SystemExit('C2 introduced speculative latency policy: ' + forbidden)
+
+          for forbidden in ['write_jsonl_event', 'fs::write(', 'File::create(']:
+              if forbidden in meeting:
+                  raise SystemExit('C2 timing must remain transient in Meeting owner; found: ' + forbidden)
+
+          if 'timing: MeetingOutboundTiming | null' not in runtime_api or 'outbound_timing: MeetingOutboundTiming | null' not in runtime_api:
+              raise SystemExit('Frontend bridge does not expose C2 transient timing shape.')
+
+          print('C2 transient/callback ownership guard passed. No target latency claim was made.')
+          '@ | python -
+          if ($LASTEXITCODE -ne 0) { throw 'C2 ownership guard failed.' }
+
+          git diff --check
+          if ($LASTEXITCODE -ne 0) { throw 'git diff --check failed.' }
+          $expected = @(
+            'CONTEXT.md',
+            'EngineData/Frontend/RustApp/scripts/validate_startup_runtime_readiness.mjs',
+            'EngineData/Frontend/RustApp/src/app/bridge/runtimeApi.ts',
+            'EngineData/Frontend/RustApp/src-tauri/src/commands/meeting_session.rs',
+            'EngineData/Frontend/RustApp/src-tauri/src/engine/audio/finalized_utterance.rs',
+            'EngineData/Frontend/RustApp/src-tauri/src/engine/audio/meeting_output.rs',
+            'docs/knowledge/next-action.md',
+            'docs/knowledge/source-ownership.md'
+          )
+          $changed = @(git status --porcelain --untracked-files=all | ForEach-Object { $_.Substring(3).Replace('\','/') })
+          $unexpected = @($changed | Where-Object { $expected -notcontains $_ })
+          $missing = @($expected | Where-Object { $changed -notcontains $_ })
+          if ($unexpected.Count -gt 0) {
+            $unexpected | ForEach-Object { Write-Host "Unexpected: $_" }
+            throw 'Unexpected C2 changed path.'
+          }
+          if ($missing.Count -gt 0) {
+            $missing | ForEach-Object { Write-Host "Missing: $_" }
+            throw 'Expected C2 changed path missing.'
+          }
+
+      - name: Commit proven C2 implementation
+        shell: pwsh
+        run: |
+          git config user.name 'halokaryamedia-source'
+          git config user.email 'halokaryamedia@gmail.com'
+          git add CONTEXT.md `
+            EngineData/Frontend/RustApp/scripts/validate_startup_runtime_readiness.mjs `
+            EngineData/Frontend/RustApp/src/app/bridge/runtimeApi.ts `
+            EngineData/Frontend/RustApp/src-tauri/src/commands/meeting_session.rs `
+            EngineData/Frontend/RustApp/src-tauri/src/engine/audio/finalized_utterance.rs `
+            EngineData/Frontend/RustApp/src-tauri/src/engine/audio/meeting_output.rs `
+            docs/knowledge/next-action.md `
+            docs/knowledge/source-ownership.md
+          git commit -m 'Instrument outbound Meeting latency'
+          git push origin HEAD:New
