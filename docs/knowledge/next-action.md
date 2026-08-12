@@ -858,10 +858,32 @@ Tauri release build --no-bundle                   -> PASS
 
 The hosted Windows runner has no NVIDIA GPU, so the same smoke tooling proves `CpuFallback` there but not `Cuda`. Piper remains a manual release asset with no approved source, so B5 does not claim self-contained release packaging. No VAD tuning, installer staging, lifecycle redesign, or broad dead-code cleanup occurred.
 
+## Backend Pre-Local B6 — CLOSED
+
+B6 removed only backend compatibility/debug scaffolding proven to have no active caller or Tauri registration after B1-B5. The active Meeting/Text/helper/audio owners remain unchanged. Removed surfaces include the unregistered generic helper stop/cancel/preload/synthesis wrappers, helper request/deadline compatibility wrappers superseded by explicit bounded APIs, the unread release-inventory cache/getter, the isolated rolling target-segment diagnostic writer/extractor, unused capture/input/frame convenience wrappers, unread finalized-utterance metadata, dead engine status/lifecycle variants, and the zero-caller legacy VAD preset/decision framework.
+
+The finalized Meeting speech producer still uses the same active VAD numbers as before B6: 140 ms pre-roll, 140 ms minimum speech, 100 ms minimum silence, 320-700 ms target chunk guidance, 1,500 ms profile ceiling, and the same gate thresholds (`min_rms=0.006`, `min_peak=0.021`, `min_active_frame_ratio=0.050`, `max_clipping_ratio=0.025`, `min_speech_ms=120`). B6 only removed the unused Realtime/Quality selector around those values; it did not retune audio behavior.
+
+Canonical source ownership is reconciled with B1-B6: the Meeting route now names `virtual_mic_route.rs` plus Rust/CPAL `meeting_output.rs`, Verify Models is a fresh explicit release-inventory check rather than an unread cache, and the proof boundary acknowledges the remote Windows/frontend/Rust/model evidence already collected while preserving target-PC hardware/installer limits.
+
+Remote Windows proof for this slice passed:
+
+```text
+retired-symbol/caller guard                   -> PASS
+canonical source validators                   -> PASS
+svelte-check + frontend build                 -> PASS
+Rust unit tests                               -> PASS
+cargo check                                   -> PASS
+Tauri release build --no-bundle               -> PASS
+Rust warning baseline after bounded cleanup   -> PASS / recorded by proof run
+```
+
+No Python worker inference behavior, CUDA fallback policy, Meeting/audio authority, VAD threshold/timing value, installer packaging, or user-local-PC hardware behavior changed in B6.
+
 ## Current Mode
 
-**Maintenance / Backend Pre-Local Readiness — B5 CLOSED.** Backend hardening A1-A7 and pre-local B1-B5 are source/remote-proof closed. P2.3 CPU model execution remains proven; actual CUDA and physical Windows audio/device behavior remain target-PC acceptance boundaries.
+**Maintenance / Pre-Local Readiness — B6 CLOSED / TARGET-PC BOUNDARY REACHED.** Backend hardening A1-A7 and pre-local B1-B6 are source/remote-proof closed. P2.3 CPU model execution remains proven. Actual NVIDIA CUDA execution and physical Windows audio/device behavior still require the target Windows machine; release installer/clean-machine acceptance remains after runtime acceptance.
 
-## Next Step — Backend Pre-Local B6: Proven Dead / Legacy Cleanup
+## Next Step — Target-Windows Acceptance Authorization
 
-Remove only dead or stale backend scaffolding whose lack of current callers/ownership is now evidenced by the B1-B5 compile/runtime path, reconcile stale backend documentation/ownership markers, and reduce warning/debug noise before local acceptance. Keep B6 behavior-preserving: do not tune VAD, redesign runtime behavior, change installer packaging, or delete a path solely because the compiler warns about it.
+Do not add another speculative repository hardening or cleanup wave. When the user explicitly approves target-PC testing, run the existing canonical local proof path on a Windows NVIDIA machine: first the `Cuda` persistent-worker smoke for real ASR and both MarianMT directions, then physical Meeting microphone/VB-Cable/meeting-app audio acceptance. Until that target environment is approved and available, do not simulate hardware proof and do not pull installer staging forward.

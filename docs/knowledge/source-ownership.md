@@ -28,10 +28,10 @@ This map points to current semantic owners. File existence alone does not make a
 | Physical microphone + Meeting Sound | `engine/audio/*` | ACTIVE |
 | Audio-device selection transaction | `commands/settings.rs` + `commands/audio.rs` | ACTIVE / RUST PROBE + PRESERVE + SAVE OWNER |
 | Mic Test lifecycle | `engine/capture_lifecycle.rs`, `commands/runtime_capture.rs` | ACTIVE / BOUNDED |
-| Meeting Microphone route | `commands/virtual_mic_route.rs`, `virtual_audio_route_runtime.rs` | ACTIVE INTERNAL |
+| Meeting Microphone route | `commands/virtual_mic_route.rs`, `engine/audio/meeting_output.rs` | ACTIVE / MATCHED ROUTE + RUST/CPAL DELIVERY |
 | Local worker/scheduler | `helper_bridge.rs`, `helper_bridge_runtime.rs`, `realtime_local_worker.py` | ACTIVE |
 | Installed worker interpreter path | `engine/paths.rs`, `commands/bridge_paths.rs` | SOURCE ALIGNED: `LocalWorker/PythonRuntime/python.exe` |
-| Full-product-release asset presence inventory | `runtime_inventory.rs` + `WorkerRuntime/model_manifest.json` | ACTIVE / CACHED / DOES NOT GATE MEETING START |
+| Full-product-release asset presence inventory | `runtime_inventory.rs` + `WorkerRuntime/model_manifest.json` | ACTIVE / FRESH EXPLICIT VERIFY / DOES NOT GATE MEETING START |
 | Text translation | `text_translate.rs` -> helper -> worker | ACTIVE / TYPED RESULT: TRANSLATED TEXT + USER MESSAGE + BLOCKER |
 | Persisted settings | `engine/settings.rs`, `engine/runtime_settings.rs`, `commands/settings.rs` | ACTIVE / SCHEMA V6 |
 | Source validation | small validators under `scripts/` | ACTIVE / SVELTE + PR-166 + RUNTIME-EFFICIENCY CONTRACT AWARE |
@@ -215,4 +215,4 @@ model_manifest.json + runtime_inventory.rs
 
 ## Proof Boundary
 
-The current Svelte/Rust source is structurally aligned but has not been dependency-installed, Svelte-autofixed, typechecked, built, Rust-compiled, launched, clipboard-tested, or rendered through ChatGPT -> GitHub. The user has explicitly postponed local testing until the major feature set is ready. This postpones proof timing only; it does not reduce release acceptance requirements or prove the visual/runtime result on Windows.
+Remote Windows proof has now covered canonical dependency installation, source validators, Svelte typecheck/build, Rust cargo-check/release-link, native Tauri launch/presentation slices, clipboard behavior, real CPU model execution, and the B1-B5 backend source/tooling path. Those proofs do not substitute for target-PC hardware acceptance. NVIDIA CUDA execution, physical microphone/VB-Cable/meeting-app reception, sleep/wake hardware recovery, installer staging, and clean-machine execution remain explicit Windows target boundaries.

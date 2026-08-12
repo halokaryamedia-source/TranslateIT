@@ -1,7 +1,6 @@
 use serde::Serialize;
 use std::fs;
 use std::path::{Path, PathBuf};
-use std::sync::{Mutex, OnceLock};
 
 use crate::engine::paths::ProjectPaths;
 
@@ -49,12 +48,6 @@ struct ModelManifestEntry {
     gpu_capable: Option<bool>,
     cpu_fallback: Option<bool>,
     download_url: Option<String>,
-}
-
-static MODEL_INVENTORY_CACHE: OnceLock<Mutex<Option<ModelInventoryReport>>> = OnceLock::new();
-
-fn inventory_cache() -> &'static Mutex<Option<ModelInventoryReport>> {
-    MODEL_INVENTORY_CACHE.get_or_init(|| Mutex::new(None))
 }
 
 fn now_iso() -> String {
@@ -224,25 +217,8 @@ fn write_validation_json(project_paths: &ProjectPaths, file_name: &str, value: &
     }
 }
 
-pub fn get_model_inventory() -> ModelInventoryReport {
-    if let Ok(cache) = inventory_cache().lock() {
-        if let Some(report) = cache.as_ref() {
-            return report.clone();
-        }
-    }
-
-    let report = build_model_inventory_report();
-    if let Ok(mut cache) = inventory_cache().lock() {
-        *cache = Some(report.clone());
-    }
-    report
-}
-
 pub fn verify_models() -> ModelInventoryReport {
     let report = build_model_inventory_report();
-    if let Ok(mut cache) = inventory_cache().lock() {
-        *cache = Some(report.clone());
-    }
     let project_paths = ProjectPaths::discover();
     write_validation_json(&project_paths, "latest_model_inventory.json", &report);
     report

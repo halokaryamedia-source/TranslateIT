@@ -17,10 +17,6 @@ pub struct InputPreparationStatus {
 }
 
 impl InputPreparationStatus {
-    pub fn inspect_default_input() -> Self {
-        Self::inspect_input_device(None)
-    }
-
     pub fn inspect_input_device(requested_name: Option<&str>) -> Self {
         let host = cpal::default_host();
         let backend_id = format!("cpal-{}", host.id().name());

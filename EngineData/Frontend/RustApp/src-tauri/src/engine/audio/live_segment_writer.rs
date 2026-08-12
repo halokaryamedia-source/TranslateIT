@@ -4,18 +4,14 @@ use std::io::{self, Write};
 use std::path::PathBuf;
 
 use super::finalized_utterance::FinalizedMeetingUtterance;
-use super::live_audio_buffer::live_target_segment_snapshot;
 use super::TARGET_SAMPLE_RATE_HZ;
 use crate::engine::paths::ProjectPaths;
 
 const MIN_ASR_SEGMENT_DURATION_MS: u32 = 300;
-const MAX_DIAGNOSTIC_ASR_SEGMENT_SAMPLES: usize = 120_000;
 // Safety/storage ceiling for the finalized producer only; this must not be used to
 // force a speech boundary. Overlong speech is dropped by the producer rather than
 // cut into a fake final utterance.
 const MAX_FINALIZED_ASR_SEGMENT_SAMPLES: usize = TARGET_SAMPLE_RATE_HZ as usize * 60;
-const LATEST_LIVE_SEGMENT_LABEL: &str =
-    "UserData/CacheData/audio_segments/latest_live_target_segment.wav";
 const FINALIZED_SEGMENT_ROOT_LABEL: &str = "UserData/CacheData/audio_segments/";
 
 #[derive(Debug, Clone, Serialize)]
@@ -28,83 +24,6 @@ pub struct LiveSegmentWavWriteReport {
     pub duration_ms: u32,
     pub blocker: String,
     pub note: String,
-}
-
-// Diagnostic-only rolling snapshot writer. Product Meeting output must use a
-// finalized Meeting utterance so an ASR-ready rolling window cannot be confused
-// with a finalized speech boundary.
-pub fn write_latest_live_target_segment_wav() -> LiveSegmentWavWriteReport {
-    let segment = live_target_segment_snapshot();
-    if !segment.ready {
-        return LiveSegmentWavWriteReport {
-            ok: false,
-            audio_path: None,
-            sample_rate_hz: TARGET_SAMPLE_RATE_HZ,
-            channels: 1,
-            sample_count: 0,
-            duration_ms: 0,
-            blocker: format!("live_segment_writer:target_not_ready:{}", segment.blocker),
-            note: "Live target ASR segment is not ready to be written as WAV.".to_string(),
-        };
-    }
-
-    let Some(frame) = segment.frame else {
-        return LiveSegmentWavWriteReport {
-            ok: false,
-            audio_path: None,
-            sample_rate_hz: TARGET_SAMPLE_RATE_HZ,
-            channels: 1,
-            sample_count: 0,
-            duration_ms: 0,
-            blocker: "live_segment_writer:missing_frame".to_string(),
-            note: "Live target segment is ready but the frame payload is missing.".to_string(),
-        };
-    };
-
-    let frame_duration_ms = duration_ms(frame.samples.len(), frame.sample_rate_hz);
-    if let Some(report) = validate_target_frame(
-        frame.sample_rate_hz,
-        frame.channels,
-        &frame.samples,
-        frame_duration_ms,
-        MAX_DIAGNOSTIC_ASR_SEGMENT_SAMPLES,
-        "live_segment_writer",
-    ) {
-        return report;
-    }
-
-    let project_paths = ProjectPaths::discover();
-    let audio_dir = PathBuf::from(project_paths.user_cache_dir).join("audio_segments");
-    let audio_path = audio_dir.join("latest_live_target_segment.wav");
-    match write_pcm16_wav(
-        &audio_path,
-        frame.sample_rate_hz,
-        frame.channels,
-        &frame.samples,
-    ) {
-        Ok(()) => LiveSegmentWavWriteReport {
-            ok: true,
-            audio_path: Some(LATEST_LIVE_SEGMENT_LABEL.to_string()),
-            sample_rate_hz: frame.sample_rate_hz,
-            channels: frame.channels,
-            sample_count: frame.samples.len(),
-            duration_ms: frame_duration_ms,
-            blocker: String::new(),
-            note: "Diagnostic rolling target segment was written as PCM16 WAV. This file is not a finalized Meeting utterance."
-                .to_string(),
-        },
-        Err(_error) => LiveSegmentWavWriteReport {
-            ok: false,
-            audio_path: Some(LATEST_LIVE_SEGMENT_LABEL.to_string()),
-            sample_rate_hz: frame.sample_rate_hz,
-            channels: frame.channels,
-            sample_count: frame.samples.len(),
-            duration_ms: frame_duration_ms,
-            blocker: "live_segment_writer:wav_write_failed".to_string(),
-            note: "Failed to write diagnostic rolling target segment WAV. Open Developer diagnostics for details."
-                .to_string(),
-        },
-    }
 }
 
 pub fn write_finalized_outbound_utterance_wav(
@@ -233,10 +152,6 @@ pub fn remove_finalized_meeting_utterance_wav(audio_path: &str) {
         .join("audio_segments")
         .join(filename);
     let _ = fs::remove_file(path);
-}
-
-pub fn remove_finalized_outbound_utterance_wav(audio_path: &str) {
-    remove_finalized_meeting_utterance_wav(audio_path);
 }
 
 fn finalized_audio_filename(audio_path: &str) -> Option<String> {

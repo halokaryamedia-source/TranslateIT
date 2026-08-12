@@ -271,9 +271,26 @@ requireMarkers(source.helperBridge, "Live Meeting helper transport recovery", [
 forbidMarkers(source.helperBridge, "Live Meeting helper retry boundary", [
   'matches!(task, "transcribe" | "translate" | "synthesize")',
 ]);
+forbidMarkers(source.helperBridge, "retired unregistered helper command surface", [
+  "pub fn stop_helper_bridge()",
+  "pub fn cancel_helper_bridge_meeting_generation(",
+  "pub fn cancel_helper_bridge_task()",
+  "pub fn send_helper_bridge_request(",
+  "pub fn helper_bridge_preload_asr()",
+  "pub fn helper_bridge_preload_translation(",
+  "pub fn helper_bridge_tts_preflight()",
+  "pub fn helper_bridge_pipeline_contract_smoke()",
+  "pub fn helper_bridge_synthesize_text(",
+]);
+forbidMarkers(source.helperBridgeRuntime, "retired helper compatibility transport", [
+  "pub struct HelperBridgeRequest",
+  "pub fn write_worker_request(stdin:",
+  "pub fn read_worker_response_with_deadline(",
+]);
 requireMarkers(source.helperBridge, "Optional incoming helper failure isolation", [
   "fn recover_incoming_transport_failure_before_permit_release(",
-  "session_id.filter(|value| incoming_session_is_eligible(value))",
+  ".filter(|value| incoming_session_is_eligible(value))",
+  ".is_none()",
   "start_helper_bridge_internal(false)",
   "meeting_incoming_transport_recovered_same_worker_event_not_retried",
   "meeting_incoming_transport_recovery_failed",

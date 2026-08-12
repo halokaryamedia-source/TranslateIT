@@ -19,9 +19,3 @@ pub struct AudioFrame {
     pub channels: u16,
     pub samples: Vec<f32>,
 }
-
-impl AudioFrame {
-    pub fn is_target_format(&self) -> bool {
-        self.sample_rate_hz == TARGET_SAMPLE_RATE_HZ && self.channels == TARGET_CHANNELS
-    }
-}

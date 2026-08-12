@@ -1,4 +1,4 @@
-use serde::{Deserialize, Serialize};
+use serde::Serialize;
 use serde_json::{json, Value};
 use std::io::{BufRead, BufReader, Write};
 use std::path::{Path, PathBuf};
@@ -60,12 +60,6 @@ pub struct HelperBridgeActionResult {
     pub message: String,
     pub generation_token: u64,
     pub runtime_claim: String,
-}
-
-#[derive(Debug, Clone, Deserialize)]
-pub struct HelperBridgeRequest {
-    pub task: String,
-    pub payload_json: Option<String>,
 }
 
 pub struct HelperBridgeRuntime {
@@ -176,16 +170,11 @@ fn scheduler() -> &'static (Mutex<HelperSchedulerState>, Condvar) {
 
 pub struct HelperTaskPermit {
     request_id: String,
-    priority: HelperTaskPriority,
 }
 
 impl HelperTaskPermit {
     pub fn request_id(&self) -> &str {
         &self.request_id
-    }
-
-    pub fn priority(&self) -> HelperTaskPriority {
-        self.priority
     }
 }
 
@@ -320,7 +309,6 @@ fn acquire_helper_task_permit_with_wait_deadline(
     state.next_request_sequence = state.next_request_sequence.saturating_add(1);
     Ok(HelperTaskPermit {
         request_id: format!("helper-{}", state.next_request_sequence),
-        priority,
     })
 }
 
@@ -604,14 +592,6 @@ pub fn write_worker_request_with_deadline(
     stdin.flush().map_err(|error| error.to_string())
 }
 
-pub fn write_worker_request(stdin: &mut ChildStdin, payload: &Value) -> Result<(), String> {
-    let task = payload
-        .get("command")
-        .and_then(Value::as_str)
-        .unwrap_or_default();
-    write_worker_request_with_deadline(stdin, payload, worker_response_deadline_ms(task))
-}
-
 pub fn read_worker_response(stdout: &mut BufReader<ChildStdout>) -> Result<Value, String> {
     let mut line = String::new();
     let size = stdout
@@ -643,35 +623,6 @@ pub fn read_worker_response_direct_with_deadline(
         }
         Err(RecvTimeoutError::Disconnected) => {
             Err("worker:response_reader_disconnected".to_string())
-        }
-    }
-}
-
-pub fn read_worker_response_with_deadline(
-    runtime: &mut HelperBridgeRuntime,
-) -> Result<Value, String> {
-    let Some(stdout) = runtime.stdout.take() else {
-        return Err("worker:stdout_missing".to_string());
-    };
-    match read_worker_response_direct_with_deadline(stdout, WORKER_FALLBACK_RESPONSE_DEADLINE_MS) {
-        Ok((value, stdout)) => {
-            runtime.stdout = Some(stdout);
-            Ok(value)
-        }
-        Err(error) => {
-            runtime.stdout = None;
-            runtime.state = "blocked".to_string();
-            runtime.message =
-                format!("Helper worker response failed or exceeded deadline: {error}");
-            runtime.last_error = Some(error.clone());
-            runtime.active_task = None;
-            runtime.active_request_id = None;
-            runtime.active_meeting_generation = None;
-            runtime.active_meeting_session_id = None;
-            runtime.active_meeting_lane = None;
-            runtime.updated_unix_ms = unix_ms();
-            stop_child(runtime);
-            Err(error)
         }
     }
 }

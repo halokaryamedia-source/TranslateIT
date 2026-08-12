@@ -236,17 +236,6 @@ pub fn stop_live_capture_runtime() -> LiveCaptureStopReport {
     }
 }
 
-pub fn live_capture_status() -> LiveCaptureStatusReport {
-    let store = LIVE_CAPTURE_RUNTIME.get_or_init(|| Mutex::new(None));
-    match store.lock() {
-        Ok(guard) => build_status_from_guard(guard.as_ref()),
-        Err(_) => inactive_status(
-            "live_capture:state_lock_failed",
-            "Live capture state lock failed while reading status.",
-        ),
-    }
-}
-
 fn build_stream_for_format(
     device: &cpal::Device,
     config: &cpal::StreamConfig,

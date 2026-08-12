@@ -2,7 +2,7 @@ use std::collections::VecDeque;
 use std::sync::{Condvar, Mutex, OnceLock};
 
 use super::evidence::AudioEvidenceReport;
-use super::vad::{evaluate_vad_gate, resolve_runtime_vad_profile, RuntimeVadProfile};
+use super::vad::{evaluate_vad_gate, runtime_vad_profile, RuntimeVadProfile};
 use super::{AudioFrame, TARGET_CHANNELS, TARGET_SAMPLE_RATE_HZ};
 use crate::engine::runtime_state::runtime_generation_is_authoritative;
 
@@ -23,8 +23,6 @@ pub struct FinalizedMeetingUtterance {
     pub generation: Option<u64>,
     pub utterance_id: u64,
     pub frame: AudioFrame,
-    pub speech_duration_ms: u32,
-    pub total_duration_ms: u32,
 }
 
 #[derive(Debug)]
@@ -168,7 +166,7 @@ fn reset_producer(
             generation,
             lane,
             sample_rate_hz,
-            profile: resolve_runtime_vad_profile("Realtime"),
+            profile: runtime_vad_profile(),
             pre_roll: VecDeque::new(),
             in_utterance: false,
             current_samples: Vec::new(),
@@ -460,13 +458,10 @@ fn ingest_observation(
         return false;
     }
 
-    finalize_current_utterance(state, speech_duration_ms)
+    finalize_current_utterance(state)
 }
 
-fn finalize_current_utterance(
-    state: &mut FinalizedProducerState,
-    speech_duration_ms: u32,
-) -> bool {
+fn finalize_current_utterance(state: &mut FinalizedProducerState) -> bool {
     if state
         .generation
         .map(|generation| !runtime_generation_is_authoritative(generation))
@@ -509,8 +504,6 @@ fn finalize_current_utterance(
     };
     let utterance_id = state.next_utterance_id;
     state.next_utterance_id = state.next_utterance_id.saturating_add(1);
-    let total_duration_ms = duration_ms(target_samples.len(), TARGET_SAMPLE_RATE_HZ);
-
     // The consumer serializes retained work FIFO. If it falls behind, evict only
     // the oldest still-waiting finalized utterance so the bounded queue does not
     // preserve an increasingly stale realtime backlog at the expense of current
@@ -530,8 +523,6 @@ fn finalize_current_utterance(
             channels: TARGET_CHANNELS,
             samples: target_samples,
         },
-        speech_duration_ms,
-        total_duration_ms,
     });
 
     reset_current_utterance(state);

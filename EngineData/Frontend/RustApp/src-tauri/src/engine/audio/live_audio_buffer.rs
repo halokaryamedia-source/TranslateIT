@@ -3,12 +3,11 @@ use std::sync::{Mutex, OnceLock};
 
 use super::evidence::AudioEvidenceReport;
 use super::vad::{evaluate_vad_gate, VadGateConfig, VadGateResult};
-use super::{AudioFrame, TARGET_CHANNELS, TARGET_SAMPLE_RATE_HZ};
+use super::{TARGET_CHANNELS, TARGET_SAMPLE_RATE_HZ};
 
 const MAX_BUFFER_MS: u32 = 2_000;
 const MIN_VAD_MS: u32 = 160;
 const MIN_SEGMENT_MS: u32 = 320;
-const MAX_SEGMENT_MS: u32 = 1_500;
 
 #[derive(Debug, Clone, Serialize)]
 pub struct LiveAudioBufferStatusReport {
@@ -29,26 +28,6 @@ pub struct LiveAudioBufferStatusReport {
     pub ready_for_target_asr_frame: bool,
     pub evidence: AudioEvidenceReport,
     pub vad_result: VadGateResult,
-    pub blocker: String,
-    pub note: String,
-}
-
-#[derive(Debug, Clone, Serialize)]
-pub struct LiveTargetSegmentReport {
-    pub ready: bool,
-    pub source_sample_rate_hz: Option<u32>,
-    pub source_channels: Option<u16>,
-    pub target_sample_rate_hz: u32,
-    pub target_channels: u16,
-    pub source_duration_ms: u32,
-    pub target_duration_ms: u32,
-    pub source_sample_count: usize,
-    pub target_sample_count: usize,
-    pub resampled: bool,
-    pub downmixed_to_mono: bool,
-    pub evidence: AudioEvidenceReport,
-    pub vad_result: VadGateResult,
-    pub frame: Option<AudioFrame>,
     pub blocker: String,
     pub note: String,
 }
@@ -135,17 +114,6 @@ pub fn live_audio_buffer_status() -> LiveAudioBufferStatusReport {
         Err(_) => inactive_status(
             "live_audio_buffer:state_lock_failed",
             "Live audio buffer state lock failed while reading status.",
-        ),
-    }
-}
-
-pub fn live_target_segment_snapshot() -> LiveTargetSegmentReport {
-    let store = LIVE_AUDIO_WINDOW.get_or_init(|| Mutex::new(None));
-    match store.lock() {
-        Ok(guard) => build_target_segment(guard.as_ref()),
-        Err(_) => inactive_segment(
-            "live_target_segment:state_lock_failed",
-            "Live target segment state lock failed while reading buffer.",
         ),
     }
 }
@@ -268,105 +236,6 @@ fn build_status(window: Option<&LiveAudioWindow>) -> LiveAudioBufferStatusReport
     }
 }
 
-fn build_target_segment(window: Option<&LiveAudioWindow>) -> LiveTargetSegmentReport {
-    let Some(window) = window else {
-        return inactive_segment(
-            "live_target_segment:no_audio_buffer",
-            "No live audio buffer exists yet.",
-        );
-    };
-
-    let status = build_status(Some(window));
-    if !status.ready_for_target_asr_frame {
-        return blocked_segment(
-            &status.blocker,
-            &status.note,
-            Some(window),
-            &status.evidence,
-            &status.vad_result,
-        );
-    }
-
-    let source_take_samples =
-        samples_for_duration(window.sample_rate_hz, MAX_SEGMENT_MS).min(window.samples_mono.len());
-    let source_start = window
-        .samples_mono
-        .len()
-        .saturating_sub(source_take_samples);
-    let source_samples = window.samples_mono[source_start..].to_vec();
-    let source_duration_ms = duration_ms(source_samples.len(), window.sample_rate_hz);
-    let target_samples = if window.sample_rate_hz == TARGET_SAMPLE_RATE_HZ {
-        source_samples.clone()
-    } else {
-        resample_linear(
-            &source_samples,
-            window.sample_rate_hz,
-            TARGET_SAMPLE_RATE_HZ,
-        )
-    };
-    let target_duration_ms = duration_ms(target_samples.len(), TARGET_SAMPLE_RATE_HZ);
-    let evidence = AudioEvidenceReport::from_samples(&target_samples);
-    let vad_result = evaluate_vad_gate(evidence.clone(), &VadGateConfig::default());
-
-    if target_duration_ms < MIN_SEGMENT_MS || !vad_result.accepted {
-        let reason = if target_duration_ms < MIN_SEGMENT_MS {
-            "live_target_segment:target_segment_too_short"
-        } else {
-            "live_target_segment:target_vad_rejected"
-        };
-        return LiveTargetSegmentReport {
-            ready: false,
-            source_sample_rate_hz: Some(window.sample_rate_hz),
-            source_channels: Some(window.source_channels),
-            target_sample_rate_hz: TARGET_SAMPLE_RATE_HZ,
-            target_channels: TARGET_CHANNELS,
-            source_duration_ms,
-            target_duration_ms,
-            source_sample_count: source_samples.len(),
-            target_sample_count: target_samples.len(),
-            resampled: window.sample_rate_hz != TARGET_SAMPLE_RATE_HZ,
-            downmixed_to_mono: window.source_channels != TARGET_CHANNELS,
-            evidence,
-            vad_result,
-            frame: None,
-            blocker: reason.to_string(),
-            note: "Target ASR frame extraction failed final target-format checks.".to_string(),
-        };
-    }
-
-    let frame = AudioFrame {
-        sample_rate_hz: TARGET_SAMPLE_RATE_HZ,
-        channels: TARGET_CHANNELS,
-        samples: target_samples.clone(),
-    };
-
-    LiveTargetSegmentReport {
-        ready: true,
-        source_sample_rate_hz: Some(window.sample_rate_hz),
-        source_channels: Some(window.source_channels),
-        target_sample_rate_hz: TARGET_SAMPLE_RATE_HZ,
-        target_channels: TARGET_CHANNELS,
-        source_duration_ms,
-        target_duration_ms,
-        source_sample_count: source_samples.len(),
-        target_sample_count: target_samples.len(),
-        resampled: window.sample_rate_hz != TARGET_SAMPLE_RATE_HZ,
-        downmixed_to_mono: window.source_channels != TARGET_CHANNELS,
-        evidence,
-        vad_result,
-        frame: Some(frame),
-        blocker: String::new(),
-        note: format!(
-            "Target ASR frame is ready. source_ms={}, target_ms={}, target_samples={}, resampled={}, downmixed_to_mono={}",
-            source_duration_ms,
-            target_duration_ms,
-            target_samples.len(),
-            window.sample_rate_hz != TARGET_SAMPLE_RATE_HZ,
-            window.source_channels != TARGET_CHANNELS
-        ),
-    }
-}
-
 fn downmix_f32(samples: &[f32], source_channels: u16) -> Vec<f32> {
     let channel_count = usize::from(source_channels.max(1));
     if channel_count == 1 {
@@ -388,41 +257,9 @@ fn downmix_f32(samples: &[f32], source_channels: u16) -> Vec<f32> {
         .collect()
 }
 
-fn resample_linear(samples: &[f32], source_rate: u32, target_rate: u32) -> Vec<f32> {
-    if samples.is_empty() || source_rate == 0 || target_rate == 0 {
-        return Vec::new();
-    }
-    if source_rate == target_rate {
-        return samples.to_vec();
-    }
-
-    let target_len =
-        ((samples.len() as u64 * target_rate as u64) / source_rate as u64).max(1) as usize;
-    if samples.len() == 1 {
-        return vec![samples[0]; target_len];
-    }
-
-    let ratio = source_rate as f64 / target_rate as f64;
-    (0..target_len)
-        .map(|index| {
-            let source_position = index as f64 * ratio;
-            let lower = source_position.floor() as usize;
-            let upper = (lower + 1).min(samples.len() - 1);
-            let fraction = (source_position - lower as f64) as f32;
-            let lower_sample = samples[lower];
-            let upper_sample = samples[upper];
-            (lower_sample + (upper_sample - lower_sample) * fraction).clamp(-1.0, 1.0)
-        })
-        .collect()
-}
-
 fn max_buffer_samples(sample_rate_hz: u32) -> usize {
     let safe_rate = sample_rate_hz.max(1);
     ((safe_rate as u64 * MAX_BUFFER_MS as u64) / 1_000) as usize
-}
-
-fn samples_for_duration(sample_rate_hz: u32, duration_ms: u32) -> usize {
-    ((sample_rate_hz.max(1) as u64 * duration_ms as u64) / 1_000) as usize
 }
 
 fn duration_ms(sample_count: usize, sample_rate_hz: u32) -> u32 {
@@ -458,66 +295,6 @@ fn inactive_status(blocker: &str, note: &str) -> LiveAudioBufferStatusReport {
         ready_for_target_asr_frame: false,
         evidence,
         vad_result,
-        blocker: blocker.to_string(),
-        note: note.to_string(),
-    }
-}
-
-fn inactive_segment(blocker: &str, note: &str) -> LiveTargetSegmentReport {
-    let evidence = AudioEvidenceReport::empty();
-    let vad_result = VadGateResult {
-        accepted: false,
-        reason: blocker.to_string(),
-        evidence: evidence.clone(),
-    };
-    LiveTargetSegmentReport {
-        ready: false,
-        source_sample_rate_hz: None,
-        source_channels: None,
-        target_sample_rate_hz: TARGET_SAMPLE_RATE_HZ,
-        target_channels: TARGET_CHANNELS,
-        source_duration_ms: 0,
-        target_duration_ms: 0,
-        source_sample_count: 0,
-        target_sample_count: 0,
-        resampled: false,
-        downmixed_to_mono: false,
-        evidence,
-        vad_result,
-        frame: None,
-        blocker: blocker.to_string(),
-        note: note.to_string(),
-    }
-}
-
-fn blocked_segment(
-    blocker: &str,
-    note: &str,
-    window: Option<&LiveAudioWindow>,
-    evidence: &AudioEvidenceReport,
-    vad_result: &VadGateResult,
-) -> LiveTargetSegmentReport {
-    LiveTargetSegmentReport {
-        ready: false,
-        source_sample_rate_hz: window.map(|value| value.sample_rate_hz),
-        source_channels: window.map(|value| value.source_channels),
-        target_sample_rate_hz: TARGET_SAMPLE_RATE_HZ,
-        target_channels: TARGET_CHANNELS,
-        source_duration_ms: window
-            .map(|value| duration_ms(value.samples_mono.len(), value.sample_rate_hz))
-            .unwrap_or(0),
-        target_duration_ms: 0,
-        source_sample_count: window.map(|value| value.samples_mono.len()).unwrap_or(0),
-        target_sample_count: 0,
-        resampled: window
-            .map(|value| value.sample_rate_hz != TARGET_SAMPLE_RATE_HZ)
-            .unwrap_or(false),
-        downmixed_to_mono: window
-            .map(|value| value.source_channels != TARGET_CHANNELS)
-            .unwrap_or(false),
-        evidence: evidence.clone(),
-        vad_result: vad_result.clone(),
-        frame: None,
         blocker: blocker.to_string(),
         note: note.to_string(),
     }

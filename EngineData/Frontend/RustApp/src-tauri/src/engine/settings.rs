@@ -184,7 +184,7 @@ mod tests {
         let legacy = r#"{
   "schema_version": 5,
   "language_focus_mode": "id-en-focus",
-  "runtime_profile": "Quality",
+  "runtime_profile": "retired-value",
   "source_language": "en",
   "target_language": "id",
   "history_enabled": true,
@@ -194,7 +194,7 @@ mod tests {
     "input_device_id": "Legacy Microphone",
     "output_device_id": "Legacy Meeting Sound",
     "sensitivity": 1.8,
-    "input_sensitivity": "Quality",
+    "input_sensitivity": "retired-value",
     "show_advanced_devices": true,
     "allow_low_but_usable_input": true,
     "allow_cpu_degraded_mode": true,

@@ -19,11 +19,10 @@ use super::helper_bridge_runtime::{
     acquire_helper_task_permit, action_result, apply_worker_response, apply_worker_status,
     clear_active_request, read_worker_response_direct_with_deadline, runtime, set_blocked,
     spawn_stderr_logger, status_from_runtime, stop_child, unix_ms, worker_response_deadline_ms,
-    write_worker_request_with_deadline, HelperBridgeActionResult, HelperBridgeRequest,
+    write_worker_request_with_deadline, HelperBridgeActionResult,
     HelperBridgeStatus, HelperTaskPriority,
 };
 
-const MAX_HELPER_TEXT_CHARS: usize = 2_000;
 const APPLICATION_MEETING_OWNER_ID: &str = "translateit_application_meeting";
 
 static MEETING_OUTBOUND_PIPELINE_GENERATION: AtomicU64 = AtomicU64::new(0);
@@ -330,9 +329,12 @@ fn recover_incoming_transport_failure_before_permit_release(
     if !helper_transport_failure(&response) {
         return response;
     }
-    let Some(session_id) = session_id.filter(|value| incoming_session_is_eligible(value)) else {
+    if session_id
+        .filter(|value| incoming_session_is_eligible(value))
+        .is_none()
+    {
         return response;
-    };
+    }
 
     // This runs while the failed MeetingIncoming request still owns the scheduler
     // permit. Restoring the one shared worker before that permit is released prevents
@@ -999,81 +1001,6 @@ pub fn start_helper_bridge() -> HelperBridgeActionResult {
     start_helper_bridge_internal(true)
 }
 
-#[tauri::command]
-pub fn stop_helper_bridge() -> HelperBridgeActionResult {
-    clear_any_meeting_outbound_pipeline();
-    match runtime().lock() {
-        Ok(mut runtime) => {
-            runtime.generation_token = runtime.generation_token.saturating_add(1);
-            stop_child(&mut runtime);
-            runtime.state = "stopped".to_string();
-            runtime.message =
-                "Helper bridge stopped and any in-flight worker process was terminated."
-                    .to_string();
-            runtime.cuda_ready = false;
-            runtime.provider_ready = false;
-            runtime.degraded_mode = false;
-            runtime.active_task = None;
-            runtime.active_request_id = None;
-            runtime.active_meeting_generation = None;
-            runtime.active_meeting_session_id = None;
-            runtime.active_meeting_lane = None;
-            runtime.updated_unix_ms = unix_ms();
-            action_result(true, &runtime)
-        }
-        Err(_) => HelperBridgeActionResult {
-            ok: false,
-            state: "error".to_string(),
-            message: "Helper bridge stop failed because state lock is poisoned.".to_string(),
-            generation_token: 0,
-            runtime_claim: "bridge_state_error".to_string(),
-        },
-    }
-}
-
-pub fn cancel_helper_bridge_meeting_generation(generation: u64) -> HelperBridgeActionResult {
-    clear_meeting_outbound_pipeline(generation);
-    match runtime().lock() {
-        Ok(mut runtime) => {
-            if runtime.active_meeting_generation == Some(generation) {
-                runtime.generation_token = runtime.generation_token.saturating_add(1);
-                stop_child(&mut runtime);
-                runtime.state = "stopped".to_string();
-                runtime.message = format!(
-                    "In-flight outbound Meeting generation {generation} helper inference was hard-cancelled by terminating the persistent worker process."
-                );
-                runtime.cuda_ready = false;
-                runtime.provider_ready = false;
-                runtime.degraded_mode = false;
-                runtime.active_task = None;
-                runtime.active_request_id = None;
-                runtime.active_meeting_generation = None;
-                runtime.active_meeting_session_id = None;
-                runtime.active_meeting_lane = None;
-                runtime.last_error =
-                    Some("helper_bridge:meeting_generation_hard_cancelled".to_string());
-                runtime.updated_unix_ms = unix_ms();
-                action_result(true, &runtime)
-            } else {
-                runtime.message = format!(
-                    "No in-flight helper task belongs to outbound Meeting generation {generation}. Queued work for the revoked generation will be rejected before execution."
-                );
-                runtime.updated_unix_ms = unix_ms();
-                action_result(true, &runtime)
-            }
-        }
-        Err(_) => HelperBridgeActionResult {
-            ok: false,
-            state: "error".to_string(),
-            message:
-                "Meeting helper generation cancellation failed because state lock is poisoned."
-                    .to_string(),
-            generation_token: 0,
-            runtime_claim: "bridge_state_error".to_string(),
-        },
-    }
-}
-
 pub fn cancel_helper_bridge_meeting_session(session_id: &str) -> HelperBridgeActionResult {
     clear_any_meeting_outbound_pipeline();
     let session_id = session_id.trim();
@@ -1118,123 +1045,6 @@ pub fn cancel_helper_bridge_meeting_session(session_id: &str) -> HelperBridgeAct
 }
 
 #[tauri::command]
-pub fn cancel_helper_bridge_task() -> HelperBridgeActionResult {
-    clear_any_meeting_outbound_pipeline();
-    // Preserve the inherited general cancellation command for Diagnostics/legacy callers.
-    // Canonical Meeting Stop uses scoped session cancellation.
-    match runtime().lock() {
-        Ok(mut runtime) => {
-            if runtime.active_task.is_some() {
-                runtime.generation_token = runtime.generation_token.saturating_add(1);
-                stop_child(&mut runtime);
-                runtime.state = "stopped".to_string();
-                runtime.message =
-                    "Active helper inference was hard-cancelled by terminating the persistent worker process. The next valid request must restart the worker."
-                        .to_string();
-                runtime.cuda_ready = false;
-                runtime.provider_ready = false;
-                runtime.degraded_mode = false;
-                runtime.active_task = None;
-                runtime.active_request_id = None;
-                runtime.active_meeting_generation = None;
-                runtime.active_meeting_session_id = None;
-                runtime.active_meeting_lane = None;
-                runtime.last_error = Some("helper_bridge:task_hard_cancelled".to_string());
-            } else {
-                runtime.message = "No helper inference is currently active; no process cancellation was required."
-                    .to_string();
-            }
-            runtime.updated_unix_ms = unix_ms();
-            action_result(true, &runtime)
-        }
-        Err(_) => HelperBridgeActionResult {
-            ok: false,
-            state: "error".to_string(),
-            message: "Helper bridge cancel failed because state lock is poisoned.".to_string(),
-            generation_token: 0,
-            runtime_claim: "bridge_state_error".to_string(),
-        },
-    }
-}
-
-#[tauri::command]
-pub fn send_helper_bridge_request(request: HelperBridgeRequest) -> HelperBridgeActionResult {
-    let trimmed_task = request.task.trim();
-    if trimmed_task.is_empty() {
-        return HelperBridgeActionResult {
-            ok: false,
-            state: "blocked".to_string(),
-            message: "Helper bridge request rejected because task is empty.".to_string(),
-            generation_token: get_helper_bridge_status().generation_token,
-            runtime_claim: "helper_scheduler_request_rejected".to_string(),
-        };
-    }
-
-    let payload = request
-        .payload_json
-        .as_deref()
-        .and_then(|raw| serde_json::from_str::<Value>(raw).ok())
-        .unwrap_or_else(|| json!({}));
-    let response = send_worker_task(trimmed_task, payload);
-    HelperBridgeActionResult {
-        ok: response.ok,
-        state: response.state,
-        message: response.message,
-        generation_token: response.generation_token,
-        runtime_claim: response.runtime_claim,
-    }
-}
-
-#[tauri::command]
 pub fn helper_bridge_worker_status() -> HelperBridgeWorkerResponse {
     send_worker_task("status", json!({}))
-}
-
-#[tauri::command]
-pub fn helper_bridge_preload_asr() -> HelperBridgeWorkerResponse {
-    send_worker_task("asr_preload", json!({}))
-}
-
-#[tauri::command]
-pub fn helper_bridge_preload_translation(mode: Option<String>) -> HelperBridgeWorkerResponse {
-    let mode = mode
-        .as_deref()
-        .map(|value| clean_helper_text(value, 64))
-        .filter(|value| !value.is_empty())
-        .unwrap_or_else(|| "Realtime".to_string());
-    send_worker_task("translation_preload", json!({ "mode": mode }))
-}
-
-#[tauri::command]
-pub fn helper_bridge_tts_preflight() -> HelperBridgeWorkerResponse {
-    send_worker_task("tts_preflight", json!({}))
-}
-
-#[tauri::command]
-pub fn helper_bridge_pipeline_contract_smoke() -> HelperBridgeWorkerResponse {
-    send_worker_task(
-        "dev_pipeline_contract_smoke",
-        json!({
-            "transcript_text": "Hello from the Rust helper bridge pipeline smoke.",
-            "translated_text": "Halo dari smoke test pipeline helper Rust.",
-            "tts_text": "Halo dari smoke test pipeline helper Rust.",
-        }),
-    )
-}
-
-#[tauri::command]
-pub fn helper_bridge_synthesize_text(
-    text: String,
-    output_path: Option<String>,
-) -> HelperBridgeWorkerResponse {
-    send_worker_task(
-        "synthesize",
-        json!({
-            "text": clean_helper_text(&text, MAX_HELPER_TEXT_CHARS),
-            "output_path": output_path
-                .as_deref()
-                .map(|value| clean_helper_text(value, 500))
-                .filter(|value| !value.is_empty()),
-        }),
-    )
 }
