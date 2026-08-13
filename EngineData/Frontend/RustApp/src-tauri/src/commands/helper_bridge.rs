@@ -79,7 +79,11 @@ fn remember_required_outbound_functional_readiness(
     meeting_generation: u64,
     actor_token: String,
 ) {
-    if generation_token == 0 || meeting_generation == 0 || actor_token.is_empty() {
+    // meeting_generation == 0 is the explicit diagnostic/setup functional proof.
+    // It may establish helper-generation readiness but can never be returned by
+    // required_outbound_voice_actor_token(), which rejects generation zero and
+    // requires current Meeting authority.
+    if generation_token == 0 || actor_token.is_empty() {
         return;
     }
     if let Ok(mut guard) = required_outbound_functional_readiness_store().lock() {
@@ -1429,17 +1433,23 @@ mod c4_functional_readiness_tests {
     }
 
     #[test]
-    fn functional_cache_identity_is_worker_generation_bound() {
-        let cached = RequiredOutboundFunctionalReadiness {
+    fn functional_cache_identity_keeps_diagnostic_and_meeting_scopes_distinct() {
+        let diagnostic = RequiredOutboundFunctionalReadiness {
             generation_token: 9,
-            meeting_generation: 41,
+            meeting_generation: 0,
             actor_token: "actor-v1".to_string(),
             verified_unix_ms: 1,
         };
-        assert_eq!(cached.generation_token, 9);
-        assert_eq!(cached.meeting_generation, 41);
-        assert_eq!(cached.actor_token, "actor-v1");
-        assert!(cached.verified_unix_ms > 0);
-        assert_ne!(cached.meeting_generation, 42);
+        assert_eq!(diagnostic.generation_token, 9);
+        assert_eq!(diagnostic.meeting_generation, 0);
+        assert_eq!(diagnostic.actor_token, "actor-v1");
+        assert!(diagnostic.verified_unix_ms > 0);
+
+        let meeting = RequiredOutboundFunctionalReadiness {
+            meeting_generation: 41,
+            ..diagnostic
+        };
+        assert_eq!(meeting.meeting_generation, 41);
+        assert_ne!(meeting.meeting_generation, 0);
     }
 }
