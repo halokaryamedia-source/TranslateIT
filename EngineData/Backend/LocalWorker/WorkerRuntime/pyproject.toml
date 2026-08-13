@@ -4,17 +4,45 @@ version = "0.0.0"
 description = "Internal Python runtime for the TranslateIT desktop application."
 requires-python = ">=3.12,<3.13"
 dependencies = [
+    "cn2an",
     "ctranslate2==4.8.1",
+    "fast-langdetect>=0.3.1",
     "faster-whisper>=1.0.0",
+    "ffmpeg-python",
+    "g2p-en",
+    "jieba",
+    "jieba-fast",
+    "librosa==0.10.2",
+    "matplotlib",
+    "numba",
+    "numpy<2.0",
+    "pandas",
+    "peft<0.18.0",
+    "psutil",
+    "pypinyin",
+    "pytorch-lightning>=2.4",
+    "PyYAML",
+    "rotary-embedding-torch",
     "sacremoses",
+    "scipy",
     "sentencepiece",
     "soundfile",
-    "torch==2.13.0",
-    "transformers>=4.44.0",
+    "split-lang",
+    "tensorboard",
+    "torch==2.11.0",
+    "torchaudio==2.11.0",
+    "torchmetrics<=1.5",
+    "tqdm",
+    "transformers>=4.44.0,<=4.50.0",
+    "wordsegment",
+    "x-transformers",
 ]
 
 [tool.uv.sources]
 torch = [
+    { index = "pytorch-cu126", marker = "sys_platform == 'win32' or sys_platform == 'linux'" },
+]
+torchaudio = [
     { index = "pytorch-cu126", marker = "sys_platform == 'win32' or sys_platform == 'linux'" },
 ]
 
