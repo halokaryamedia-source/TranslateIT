@@ -24,6 +24,8 @@ jobs:
           $ErrorActionPreference = 'Stop'
           $lock = 'EngineData/Frontend/RustApp/src-tauri/Cargo.lock'
           $baseline = Join-Path $env:RUNNER_TEMP 'a2-Cargo.lock'
+          git fetch --depth 1 origin f3206f34d50bf956bfb74ea545e62e4c9e4a8cac
+          if ($LASTEXITCODE -ne 0) { throw 'Could not fetch the accepted A2 baseline commit' }
           git show f3206f34d50bf956bfb74ea545e62e4c9e4a8cac:$lock | Set-Content -Path $baseline -Encoding utf8
           if ($LASTEXITCODE -ne 0) { throw 'Could not read the accepted A2 Cargo.lock baseline' }
           Copy-Item $baseline $lock -Force
