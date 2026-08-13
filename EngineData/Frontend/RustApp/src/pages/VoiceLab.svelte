@@ -15,7 +15,7 @@
     onRecordingChange: (recording: boolean) => void;
   } = $props();
 
-  let state = $state<GuidedRecordingState>({ recording_line_id: null, pending_review: null, lines: [] });
+  let recordingState = $state<GuidedRecordingState>({ recording_line_id: null, pending_review: null, lines: [] });
   let selectedLineId = $state<number | null>(null);
   let authorized = $state(false);
   let busy = $state(false);
@@ -23,10 +23,10 @@
   let audio: HTMLAudioElement | null = null;
   let audioUrl: string | null = null;
 
-  const acceptedCount = $derived(state.lines.filter((line) => line.accepted).length);
-  const currentLine = $derived(state.lines.find((line) => line.line_id === selectedLineId) ?? null);
-  const isRecording = $derived(state.recording_line_id !== null);
-  const pendingLineId = $derived(state.pending_review?.line_id ?? null);
+  const acceptedCount = $derived(recordingState.lines.filter((line) => line.accepted).length);
+  const currentLine = $derived(recordingState.lines.find((line) => line.line_id === selectedLineId) ?? null);
+  const isRecording = $derived(recordingState.recording_line_id !== null);
+  const pendingLineId = $derived(recordingState.pending_review?.line_id ?? null);
 
   function chooseDefaultLine(next: GuidedRecordingState): void {
     if (next.recording_line_id !== null) {
@@ -42,7 +42,7 @@
   }
 
   function applyState(next: GuidedRecordingState): void {
-    state = next;
+    recordingState = next;
     chooseDefaultLine(next);
     onRecordingChange(next.recording_line_id !== null);
   }
@@ -72,10 +72,10 @@
   }
 
   async function stopRecording(): Promise<void> {
-    if (busy || state.recording_line_id === null) return;
+    if (busy || recordingState.recording_line_id === null) return;
     busy = true;
     try {
-      applyResult(await voiceLabApi.stopTake(state.recording_line_id));
+      applyResult(await voiceLabApi.stopTake(recordingState.recording_line_id));
     } finally {
       busy = false;
     }
@@ -93,7 +93,7 @@
   }
 
   async function acceptTake(): Promise<void> {
-    if (busy || pendingLineId === null || state.pending_review?.quality_blocker) return;
+    if (busy || pendingLineId === null || recordingState.pending_review?.quality_blocker) return;
     stopReplay();
     busy = true;
     try {
@@ -156,7 +156,7 @@
       <h2 class="ti-page-title">VoiceLab</h2>
       <p class="ti-page-copy">Record clear English lines to build your reusable meeting voice.</p>
     </div>
-    <span class="ti-pill">{acceptedCount}/{state.lines.length || "—"} accepted</span>
+    <span class="ti-pill">{acceptedCount}/{recordingState.lines.length || "—"} accepted</span>
   </header>
 
   <div class="grid grid-cols-[minmax(0,1fr)_300px] gap-5">
@@ -185,11 +185,11 @@
           <p class="mb-0 mt-5 text-[20px] font-medium leading-8 tracking-[-0.015em]">{currentLine.text}</p>
         </div>
 
-        {#if state.pending_review && pendingLineId === currentLine.line_id}
+        {#if recordingState.pending_review && pendingLineId === currentLine.line_id}
           <div class="mt-5 border-l-2 border-[var(--ti-border-strong)] pl-4">
             <strong class="text-sm font-semibold">Review this take</strong>
-            <p class={`mb-0 mt-1 text-sm leading-5 ${state.pending_review.quality_blocker ? "text-[var(--ti-danger)]" : "text-[var(--ti-text-muted)]"}`}>
-              {state.pending_review.quality_blocker
+            <p class={`mb-0 mt-1 text-sm leading-5 ${recordingState.pending_review.quality_blocker ? "text-[var(--ti-danger)]" : "text-[var(--ti-text-muted)]"}`}>
+              {recordingState.pending_review.quality_blocker
                 ? "This recording has a basic signal-quality problem. Replay it if useful, then record the line again."
                 : "Listen once before accepting it for your Voice Actor dataset."}
             </p>
@@ -197,19 +197,19 @@
         {/if}
 
         <div class="mt-6 flex flex-wrap items-center gap-3">
-          {#if isRecording && state.recording_line_id === currentLine.line_id}
+          {#if isRecording && recordingState.recording_line_id === currentLine.line_id}
             <button type="button" class="ti-button ti-button-danger" disabled={busy} onclick={() => void stopRecording()}>
               <Square size={15} fill="currentColor" /><span>{busy ? "Stopping..." : "Stop"}</span>
             </button>
             <span class="flex items-center gap-2 text-sm text-[var(--ti-danger)]"><span class="size-2 animate-pulse rounded-full bg-current"></span>Recording</span>
-          {:else if state.pending_review && pendingLineId === currentLine.line_id}
+          {:else if recordingState.pending_review && pendingLineId === currentLine.line_id}
             <button type="button" class="ti-button ti-button-secondary" disabled={busy || replaying} onclick={() => void replayTake()}>
               <Play size={15} /><span>{replaying ? "Playing..." : "Replay"}</span>
             </button>
             <button type="button" class="ti-button ti-button-secondary" disabled={busy} onclick={() => void retryTake()}>
               <RotateCcw size={15} /><span>Retry</span>
             </button>
-            {#if !state.pending_review.quality_blocker}
+            {#if !recordingState.pending_review.quality_blocker}
               <button type="button" class="ti-button" disabled={busy} onclick={() => void acceptTake()}>
                 <Check size={15} /><span>{busy ? "Saving..." : "Accept"}</span>
               </button>
@@ -237,11 +237,11 @@
         <strong class="text-sm font-semibold">Recording lines</strong>
       </div>
       <div class="max-h-[590px] overflow-y-auto p-2">
-        {#each state.lines as line}
+        {#each recordingState.lines as line}
           <button
             type="button"
             class={`flex w-full items-center gap-3 rounded-[9px] px-3 py-2.5 text-left text-sm transition-colors ${selectedLineId === line.line_id ? "bg-[var(--ti-surface-raised)] text-[var(--ti-text)]" : "text-[var(--ti-text-muted)] hover:bg-[var(--ti-surface-soft)]"}`}
-            disabled={isRecording || state.pending_review !== null}
+            disabled={isRecording || recordingState.pending_review !== null}
             onclick={() => { selectedLineId = line.line_id; }}
           >
             {#if line.accepted}
