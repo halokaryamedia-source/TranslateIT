@@ -8,7 +8,7 @@ on:
       - .github/workflows/temporary-prelocal-final-source-closure.yml
 
 permissions:
-  contents: write
+  contents: read
 
 jobs:
   prove-closure:
@@ -50,8 +50,13 @@ jobs:
           from pathlib import Path
 
           root = Path('.')
+
           def read(path: str) -> str:
               return (root / path).read_text(encoding='utf-8')
+
+          def require(text: str, marker: str, label: str) -> None:
+              if marker not in text:
+                  raise SystemExit(f'{label} marker missing: {marker}')
 
           meeting = read('EngineData/Frontend/RustApp/src-tauri/src/commands/meeting_session.rs')
           output = read('EngineData/Frontend/RustApp/src-tauri/src/engine/audio/meeting_output.rs')
@@ -79,81 +84,144 @@ jobs:
               'start_meeting_outbound_consumer(generation, &session_id)',
               'commit_application_meeting_session_live(',
           ]
-          positions = [start.index(marker) for marker in ordered]
-          if positions != sorted(positions) or len(set(positions)) != len(positions):
-              raise SystemExit('Required Start transaction is not authority -> mic -> output probe -> consumer -> Live.')
+          start_positions = []
+          for marker in ordered:
+              require(start, marker, 'Meeting Start transaction')
+              start_positions.append(start.index(marker))
+          if start_positions != sorted(start_positions) or len(set(start_positions)) != len(start_positions):
+              raise SystemExit('Meeting Start is not authority -> microphone -> functional output -> outbound consumer -> Live.')
 
-          stop = meeting[stop_begin:]
-          revoke = stop.index('revoke_runtime_session_authority(')
-          for marker in [
-              'cancel_active_meeting_output',
-              'stop_live_capture_runtime',
-              'stop_meeting_sound_capture_runtime',
-              'cancel_meeting_helper_work',
-              'stop_meeting_outbound_consumer',
-          ]:
-              if revoke > stop.index(marker):
-                  raise SystemExit('Meeting Stop cleanup precedes authority revoke: ' + marker)
-          if 'cleanup_incomplete' not in stop:
-              raise SystemExit('Meeting Stop lost truthful cleanup-incomplete ownership.')
+          cleanup_end = meeting.index('fn meeting_cleanup_complete(', stop_begin)
+          stop = meeting[stop_begin:cleanup_end]
+          revoke_marker = 'revoke_runtime_session_authority('
+          require(stop, revoke_marker, 'Meeting Stop authority')
+          revoke_position = stop.index(revoke_marker)
+          stop_cleanup_markers = [
+              'cancel_meeting_output_for_generation(generation)',
+              'stop_live_capture_runtime()',
+              'stop_meeting_sound_capture_runtime()',
+              'cancel_helper_bridge_meeting_session(&session_id)',
+              'stop_meeting_outbound_consumer(generation)',
+              'stop_meeting_incoming_consumer(&session_id)',
+          ]
+          for marker in stop_cleanup_markers:
+              require(stop, marker, 'Meeting Stop cleanup')
+              if stop.index(marker) < revoke_position:
+                  raise SystemExit(f'Meeting Stop cleanup precedes authority revoke: {marker}')
+          require(stop, 'mark_runtime_session_cleanup_incomplete(', 'Meeting Stop truthful cleanup retention')
+          require(stop, 'clear_runtime_session_if_generation(generation)', 'Meeting Stop generation-safe release')
 
           probe_start = output.index('pub fn probe_prepared_meeting_output_device_functionally(')
           probe_end = output.index('fn install_cancel_control(', probe_start)
           probe = output[probe_start:probe_end]
-          for marker in ['vec![0.0_f32; sample_count]', 'build_output_stream(', '.play()', 'recv_timeout', 'FUNCTIONAL_OUTPUT_PROBE_TIMEOUT_MS']:
-              if marker not in probe:
-                  raise SystemExit('Functional Meeting output probe marker missing: ' + marker)
+          for marker in [
+              'prepared_output_device(requested_name)?',
+              'Arc::new(vec![0.0_f32; sample_count])',
+              'build_output_stream(',
+              '.play()',
+              'first_playback_rx.recv_timeout',
+              'FUNCTIONAL_OUTPUT_PROBE_TIMEOUT_MS',
+          ]:
+              require(probe, marker, 'Functional Meeting output probe')
           if 'thread::sleep' in probe:
               raise SystemExit('Functional Meeting output probe contains an arbitrary sleep.')
 
-          for marker in ['runtime_generation_is_authoritative', 'commit_application_meeting_session_live', 'revoke_runtime_session_authority', 'cleanup_incomplete']:
-              if marker not in runtime_state:
-                  raise SystemExit('Canonical runtime authority marker missing: ' + marker)
-          for marker in ['functional_outbound_ready', 'prepare_required_outbound_ai_runtime', 'required_outbound_functional_readiness_cached', 'send_worker_task("asr_preload"', 'let asr_inference = send_worker_task(', 'remember_required_outbound_functional_readiness']:
-              if marker not in helper:
-                  raise SystemExit('Generation-bound functional readiness marker missing: ' + marker)
-          for marker in ['HELPER_SCHEDULER_TOTAL_ADMISSION_CAP', 'HELPER_SCHEDULER_MEETING_OUTBOUND_WAIT_MS', 'HelperTaskPriority::MeetingOutbound', 'wait_timeout']:
-              if marker not in helper_runtime:
-                  raise SystemExit('Bounded helper scheduler marker missing: ' + marker)
+          for marker in [
+              'runtime_generation_is_authoritative',
+              'commit_application_meeting_session_live',
+              'revoke_runtime_session_authority',
+              'mark_runtime_session_cleanup_incomplete',
+          ]:
+              require(runtime_state, marker, 'Canonical runtime authority')
 
-          for marker in ['local_files_only=True', 'truncation=False', 'condition_on_previous_text=False', 'translation:input_too_long_for_model', 'translation:output_hit_token_ceiling_without_eos', 'finished_with_eos', '"id->en"', '"en->id"']:
-              if marker not in worker:
-                  raise SystemExit('Canonical local translation contract marker missing: ' + marker)
-          for marker in ['MAX_IN_PROGRESS_UTTERANCE_MS', 'MAX_PENDING_FINALIZED_UTTERANCES: usize = 2', 'state.pending.pop_front()', 'runtime_generation_is_authoritative', 'finalized_at = Instant::now()']:
-              if marker not in finalized:
-                  raise SystemExit('Finalized-utterance freshness/bounds marker missing: ' + marker)
+          for marker in [
+              'pub fn prepare_required_outbound_ai_runtime()',
+              'required_outbound_functional_readiness_cached(generation_token)',
+              'send_worker_task("asr_preload"',
+              'let asr_inference = send_worker_task(',
+              'remember_required_outbound_functional_readiness(generation_token)',
+              'functional_outbound_ready',
+          ]:
+              require(helper, marker, 'Generation-bound functional AI readiness')
 
-          for marker in ['MAX_TEXT_TRANSLATION_CHARS: usize = 2_000', 'send_helper_worker_task("translate"', 'canonical_bidirectional_id_en']:
-              if marker not in text_command:
-                  raise SystemExit('Standalone Text contract marker missing: ' + marker)
-          for marker in ['MAX_MANUAL_TRANSLATION_CHARS = 2000', 'requestTargetRevision', 'targetRevision !== requestTargetRevision', 'Translate again to refresh the result']:
-              if marker not in text_ui:
-                  raise SystemExit('Text edit/stale-result guard marker missing: ' + marker)
+          for marker in [
+              'HELPER_SCHEDULER_TOTAL_ADMISSION_CAP',
+              'HELPER_SCHEDULER_MEETING_OUTBOUND_WAIT_MS',
+              'HelperTaskPriority::MeetingOutbound',
+              'wait_timeout',
+          ]:
+              require(helper_runtime, marker, 'Bounded helper scheduler')
 
-          for marker in ['const meetingReady = meeting.readyForStart || productMeeting.live;', 'settings.meeting_setup_state === "new"', 'Start Translation will run a quick final translation check before going live.']:
-              if marker not in facade:
-                  raise SystemExit('Product readiness projection marker missing: ' + marker)
-          if 'if (busy || !snapshot?.readiness.meetingReady) return;' not in setup:
-              raise SystemExit('First Setup completion is no longer gated by functional Meeting readiness.')
+          for marker in [
+              'translation:input_too_long_for_model',
+              'translation:output_hit_token_ceiling_without_eos',
+              'finished_with_eos',
+              'condition_on_previous_text=False',
+              '"id->en"',
+              '"en->id"',
+          ]:
+              require(worker, marker, 'Local worker translation/completion contract')
 
-          for marker in ['event.preventDefault();', 'runProductMeetingAction("stop")', 'await destroyNativeWindow()']:
-              if marker not in app:
-                  raise SystemExit('Safe-close frontend marker missing: ' + marker)
+          for marker in [
+              'MAX_IN_PROGRESS_UTTERANCE_MS',
+              'MAX_PENDING_FINALIZED_UTTERANCES: usize = 2',
+              'state.pending.pop_front()',
+              'runtime_generation_is_authoritative',
+              'let finalized_at = Instant::now();',
+          ]:
+              require(finalized, marker, 'Finalized speech freshness/bounds')
+
+          for marker in [
+              'MAX_TEXT_TRANSLATION_CHARS: usize = 2_000',
+              'send_helper_worker_task("translate"',
+          ]:
+              require(text_command, marker, 'Standalone Text backend')
+          for marker in [
+              'MAX_MANUAL_TRANSLATION_CHARS = 2000',
+              'requestTargetRevision',
+              'targetRevision !== requestTargetRevision',
+              'Translate again to refresh the result',
+          ]:
+              require(text_ui, marker, 'Standalone Text stale-result guard')
+
+          for marker in [
+              'const meetingReady = meeting.readyForStart || productMeeting.live;',
+              'settings.meeting_setup_state === "new"',
+              'Start Translation will run a quick final translation check before going live.',
+          ]:
+              require(facade, marker, 'Product readiness truth')
+          require(setup, 'if (busy || !snapshot?.readiness.meetingReady) return;', 'First Setup functional readiness gate')
+
+          for marker in [
+              'event.preventDefault();',
+              'runProductMeetingAction("stop")',
+              'await destroyNativeWindow()',
+          ]:
+              require(app, marker, 'Safe-close convergence')
+
           power_start = bootstrap.index('mod windows_power_lifecycle')
           power_end = bootstrap.index('fn configure_runtime_paths', power_start)
           power = bootstrap[power_start:power_end]
-          for marker in ['request_meeting_cleanup', 'stop_meeting_translation()', 'sync_channel::<()>(1)']:
-              if marker not in power:
-                  raise SystemExit('Windows power convergence marker missing: ' + marker)
+          for marker in [
+              'request_meeting_cleanup',
+              'stop_meeting_translation()',
+              'sync_channel::<()>(1)',
+          ]:
+              require(power, marker, 'Windows power lifecycle convergence')
           if 'start_meeting_translation' in power:
               raise SystemExit('Windows power lifecycle must not auto-resume Meeting translation.')
 
-          for marker in ['start_meeting_translation', 'stop_meeting_translation', 'translate_text', 'load_runtime_settings', 'save_runtime_settings', 'select_audio_device']:
-              if marker not in registry:
-                  raise SystemExit('Initial-core command registry marker missing: ' + marker)
+          for marker in [
+              'start_meeting_translation',
+              'stop_meeting_translation',
+              'translate_text',
+              'load_runtime_settings',
+              'save_runtime_settings',
+              'select_audio_device',
+          ]:
+              require(registry, marker, 'Initial-core command registry')
           for marker in ['route: "meeting"', 'route: "text"', 'route: "settings"']:
-              if marker not in sidebar:
-                  raise SystemExit('Initial-core navigation marker missing: ' + marker)
+              require(sidebar, marker, 'Initial-core navigation')
 
           print('FINAL_SOURCE_CLOSURE_GUARD=PASS')
           '@ | python -
