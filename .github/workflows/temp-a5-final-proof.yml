@@ -1,0 +1,33 @@
+name: Temporary A5 Final Source Proof
+
+on:
+  push:
+    branches: [New]
+    paths:
+      - .github/workflows/temp-a5-final-proof.yml
+
+permissions:
+  contents: read
+
+jobs:
+  worker-proof:
+    runs-on: windows-2022
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Prove frozen A5 worker source
+        shell: pwsh
+        working-directory: EngineData/Backend/LocalWorker/WorkerRuntime
+        run: |
+          $ErrorActionPreference = 'Stop'
+          python -m pip install --disable-pip-version-check uv
+          uv lock --check
+          uv sync --frozen --no-install-project
+          git diff --exit-code -- pyproject.toml uv.lock
+          .venv\Scripts\python.exe -m py_compile realtime_local_worker.py voice_lab_gpt_sovits.py voice_lab_upstream_stage.py
+          .venv\Scripts\python.exe -m pytest
+          if ($LASTEXITCODE -ne 0) { throw 'A5 worker proof failed' }
+          Write-Host 'A5_FINAL_SOURCE_PROOF=PASS'
