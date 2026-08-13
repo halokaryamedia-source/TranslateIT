@@ -14,7 +14,12 @@ import tempfile
 from pathlib import Path
 from typing import Any
 
-from voice_lab_gpt_sovits import ENGINE, ENGINE_REVISION, build_candidate
+from voice_lab_gpt_sovits import (
+    ENGINE,
+    ENGINE_REVISION,
+    VoiceLabProviderError,
+    build_candidate,
+)
 
 SCHEMA_VERSION = 1
 
@@ -103,7 +108,7 @@ def main() -> int:
         )
         write_status(status_path, "ready_for_review", "Voice Actor samples are ready for review.")
         return 0
-    except BuildError as exc:
+    except (BuildError, VoiceLabProviderError) as exc:
         write_status(status_path, "failed", str(exc))
         print(f"voice_lab_build_failed:{exc}", file=os.sys.stderr)
         return 2
