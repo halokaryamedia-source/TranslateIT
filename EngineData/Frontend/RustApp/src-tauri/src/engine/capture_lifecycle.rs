@@ -1,3 +1,4 @@
+use crate::engine::audio::guided_take::active_guided_take_line_id;
 use crate::engine::audio::live_capture::{start_live_capture_runtime, stop_live_capture_runtime};
 use crate::engine::runtime_state::{
     begin_direct_live_capture_session, clear_runtime_session_if_generation,
@@ -9,6 +10,13 @@ use crate::engine::state::{CommandResult, LifecycleState};
 const MIC_TEST_CAPTURE_OWNER_ID: &str = "translateit_rust_live_capture";
 
 pub fn start_capture() -> CommandResult {
+    if active_guided_take_line_id().is_some() {
+        return CommandResult::blocked(
+            LifecycleState::ConversionPending,
+            "Mic Test cannot start while VoiceLab is recording a guided line.",
+        );
+    }
+
     let session = begin_direct_live_capture_session();
     let Some(snapshot) = session.snapshot.as_ref() else {
         return CommandResult::blocked(
@@ -36,6 +44,13 @@ pub fn start_capture() -> CommandResult {
 }
 
 pub fn stop_capture() -> CommandResult {
+    if active_guided_take_line_id().is_some() {
+        return CommandResult::blocked(
+            LifecycleState::ConversionPending,
+            "Mic Test Stop cannot control a VoiceLab guided recording. Stop the take from VoiceLab instead.",
+        );
+    }
+
     let current = latest_runtime_session_state();
     if current.has_active_session && current.snapshot.is_none() {
         return CommandResult::blocked(
