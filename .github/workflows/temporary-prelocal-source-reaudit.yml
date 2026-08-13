@@ -1,0 +1,93 @@
+name: Temporary Pre-Local Source Readiness Re-Audit
+
+on:
+  push:
+    branches:
+      - New
+
+permissions:
+  contents: write
+
+jobs:
+  audit-source-readiness:
+    runs-on: windows-2022
+    timeout-minutes: 15
+    steps:
+      - name: Checkout New
+        uses: actions/checkout@v4
+        with:
+          ref: New
+          fetch-depth: 0
+
+      - name: Verify bounded source findings
+        shell: pwsh
+        run: |
+          @'
+          from pathlib import Path
+
+          root = Path('.')
+          requirements = (root / 'docs/foundation/02-product-requirements.md').read_text(encoding='utf-8')
+          helper = (root / 'EngineData/Frontend/RustApp/src-tauri/src/commands/helper_bridge.rs').read_text(encoding='utf-8')
+          meeting = (root / 'EngineData/Frontend/RustApp/src-tauri/src/commands/meeting_session.rs').read_text(encoding='utf-8')
+          output = (root / 'EngineData/Frontend/RustApp/src-tauri/src/engine/audio/meeting_output.rs').read_text(encoding='utf-8')
+          facade = (root / 'EngineData/Frontend/RustApp/src/app/bridge/runtimeProductFacade.ts').read_text(encoding='utf-8')
+          first_setup = (root / 'EngineData/Frontend/RustApp/src/pages/FirstSetup.svelte').read_text(encoding='utf-8')
+          audio = (root / 'EngineData/Frontend/RustApp/src-tauri/src/commands/audio.rs').read_text(encoding='utf-8')
+
+          if 'PR-028 — Functional local readiness' not in requirements or 'actual local ASR/translation/TTS path' not in requirements:
+              raise SystemExit('PR-028 source requirement changed; re-audit assumptions invalid.')
+          if 'PR-053 — Atomic Start' not in requirements or 'commit `Live` only when the required outbound path is' not in requirements:
+              raise SystemExit('PR-053 source requirement changed; re-audit assumptions invalid.')
+
+          start = helper.index('pub fn prepare_required_outbound_ai_runtime()')
+          end = helper.index('#[tauri::command]', start)
+          prep = helper[start:end]
+          if 'send_worker_task("asr_preload"' not in prep:
+              raise SystemExit('C3 ASR readiness path is no longer preload-only; re-audit finding must be revisited.')
+          if 'send_worker_task("transcribe"' in prep:
+              raise SystemExit('C3 already performs ASR inference; re-audit finding is stale.')
+          if 'required_outbound_functional_readiness_cached' not in helper:
+              raise SystemExit('C3 generation-bound cache missing unexpectedly.')
+          if 'functional' in facade.lower() and 'readiness' in facade.lower() and 'required_outbound_functional' in facade:
+              raise SystemExit('Frontend already consumes functional cache directly; re-audit finding is stale.')
+          if 'snapshot?.readiness.meetingReady ? "You\'re ready to translate."' not in first_setup:
+              raise SystemExit('First Setup readiness projection changed; re-audit finding must be revisited.')
+
+          prepare_start = output.index('pub fn prepare_meeting_output_device(')
+          prepare_end = output.index('\nfn prepared_output_device(', prepare_start)
+          prepare = output[prepare_start:prepare_end]
+          if '.build_output_stream(' in prepare or 'stream.play()' in prepare:
+              raise SystemExit('Meeting output preparation already performs functional stream proof; re-audit finding is stale.')
+
+          live_index = meeting.index('let committed = commit_application_meeting_session_live(')
+          consumer_index = meeting.index('start_meeting_outbound_consumer(generation, &session_id)')
+          if live_index >= consumer_index:
+              raise SystemExit('Outbound consumer is already created before Live; re-audit finding is stale.')
+
+          if 'start_live_capture_runtime(starting.clone())' not in meeting[:live_index]:
+              raise SystemExit('Required microphone capture is not opened before Live; unexpected additional blocker.')
+          if 'id: name.clone()' not in audio:
+              raise SystemExit('Audio identity implementation changed; duplicate-name observation must be revisited.')
+
+          print('SOURCE_REAUDIT=PASS')
+          print('C4=PR028_ASR_INFERENCE_AND_FUNCTIONAL_READINESS_TRUTH')
+          print('C5=PR053_FUNCTIONAL_OUTPUT_AND_CONSUMER_BEFORE_LIVE')
+          '@ | python -
+          if ($LASTEXITCODE -ne 0) { throw 'Source readiness re-audit guard failed.' }
+
+      - name: Update canonical continuation
+        shell: pwsh
+        run: |
+          python .tmp/prelocal_source_reaudit_patch.py
+          if ($LASTEXITCODE -ne 0) { throw 'Source re-audit canonical patch failed.' }
+          git diff --check
+          if ($LASTEXITCODE -ne 0) { throw 'Canonical re-audit patch has whitespace errors.' }
+
+      - name: Commit re-audit state
+        shell: pwsh
+        run: |
+          git config user.name 'halokaryamedia-source'
+          git config user.email 'halokaryamedia@gmail.com'
+          git add docs/knowledge/next-action.md
+          git commit -m 'Map remaining pre-local source gaps'
+          git push origin HEAD:New
