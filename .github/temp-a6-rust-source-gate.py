@@ -4,12 +4,15 @@ import subprocess
 from pathlib import Path
 
 ROOT = Path.cwd()
-TAURI = ROOT / "EngineData/Frontend/RustApp/src-tauri"
+APP = ROOT / "EngineData/Frontend/RustApp"
+TAURI = APP / "src-tauri"
 HELPER_PATCH = ROOT / ".github/temp-a6-helper-patch.py"
 EXPECTED = sorted([
     "EngineData/Frontend/RustApp/src-tauri/src/commands/helper_bridge.rs",
     "EngineData/Frontend/RustApp/src-tauri/src/commands/helper_bridge_runtime.rs",
     "EngineData/Frontend/RustApp/src-tauri/src/commands/meeting_session.rs",
+    "EngineData/Frontend/RustApp/src-tauri/src/commands/runtime.rs",
+    "EngineData/Frontend/RustApp/src/app/bridge/runtimeProductFacade.ts",
 ])
 
 
@@ -36,7 +39,10 @@ def normalize_helper_test_anchors() -> None:
 normalize_helper_test_anchors()
 run("python", ".github/temp-a6-helper-patch.py")
 run("python", ".github/temp-a6-meeting-patch.py")
+run("python", ".github/temp-a6-callers-patch.py")
 run("git", "diff", "--check")
+run("npm", "ci", cwd=APP)
+run("npm", "run", "build", cwd=APP)
 run("cargo", "check", "--locked", cwd=TAURI)
 run("git", "add", "--", *EXPECTED)
 staged = sorted(subprocess.check_output(["git", "diff", "--cached", "--name-only"], cwd=ROOT, text=True).splitlines())
