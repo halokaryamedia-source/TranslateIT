@@ -1018,10 +1018,28 @@ Tauri release build --no-bundle                    -> PASS
 
 A GitHub-hosted Windows runner is not the target virtual-audio environment, so the actual silent callback probe cannot be claimed against the user's VB-Cable/meeting-app route until target-Windows testing is authorized. No VAD/model/CUDA tuning, endpoint-GUID migration, installer work, or local-PC test is part of C5.
 
+## Pre-Local Final Source Closure Audit — CLOSED / SOURCE BOUNDARY REACHED
+
+The final bounded source-only audit rechecked the initial-core requirements against the current A/B/C owners after C5. No remaining non-hardware implementation blocker was found. Required outbound authority, physical-microphone capture ownership, generation-bound functional AI readiness, exact prepared virtual-output callback probing, serialized outbound consumption, canonical bidirectional Text translation, bounded speech/freshness behavior, optional incoming isolation, safe Stop/power convergence, and frontend readiness truth remain aligned with the canonical requirements.
+
+No product/backend implementation change was required by this audit. The accepted hosted proof was GitHub Actions run `31682700188` and passed:
+
+```text
+final source closure ownership guard         -> PASS
+canonical source validators                  -> PASS
+svelte-check                                 -> PASS / 0 errors, 0 warnings
+frontend production build                    -> PASS
+Rust full test-target compile (`--no-run`)    -> PASS
+cargo check                                  -> PASS
+Tauri release build --no-bundle              -> PASS
+```
+
+This audit does not reinterpret source or hosted evidence as target-runtime proof. Remaining uncertainty belongs to target/release evidence: actual physical-microphone behavior; VB-Cable/meeting-app reception; optional Meeting Sound loopback and self-output suppression; real NVIDIA CUDA execution and performance; ASR/translation quality; CPU practicality; end-to-end latency distribution; long-session stability; physical sleep/wake behavior; packaged private PythonRuntime/installer staging; clean-machine acceptance; and endpoint-name collision only if target hardware exposes one. No local-PC test, VAD/model tuning, endpoint-GUID migration, installer work, or speculative backend change was performed.
+
 ## Current Mode
 
-**Maintenance / Pre-Local Source Readiness — C5 IMPLEMENTED, MAPPED SOURCE WAVES COMPLETE.** A1-A7, B1-B6, C1-C5, and the bounded source re-audit are closed at their proven source/hosted boundaries. User-local testing remains deferred by explicit user decision. No additional feature/hardening wave should be invented without a new source-level gap.
+**Maintenance / Pre-Local Source Closed — WAITING FOR TARGET-WINDOWS AUTHORIZATION.** Initial-core source ownership A1-A7, B1-B6, C1-C5, and the final source-closure audit are complete at the source/hosted-proof boundary. Do not add further backend hardening without a newly evidenced source-level gap or target-runtime evidence.
 
-## Next Step — Pre-Local Final Source Closure Audit
+## Next Step — Target Windows Validation (Requires Explicit Authorization)
 
-Perform one bounded source-only closure audit against the initial-core requirements and current A/B/C owners to confirm C5 leaves no remaining non-hardware implementation blocker. Do not start local-PC testing, VAD/model tuning, installer staging, endpoint-GUID migration, or speculative development. If no source-level blocker remains, record the stop boundary and wait for explicit target-Windows authorization.
+Stop source development and wait for explicit user authorization before performing target-Windows/local-PC validation of the physical microphone, virtual cable/meeting-app reception, optional incoming loopback, CUDA/model performance, latency, long-session/sleep-wake behavior, and release-packaging evidence. Until authorization is given, do not run local tests, tune VAD/models, migrate endpoint identity, stage the installer, or add speculative backend work.
