@@ -295,6 +295,36 @@ forbidMarkers(source.meetingSession, "C2 no speculative latency threshold", [
   "latency_threshold",
 ]);
 
+requireMarkers(source.meetingOutput, "C5 bounded functional native Meeting output probe", [
+  "FUNCTIONAL_OUTPUT_PROBE_TIMEOUT_MS",
+  "FUNCTIONAL_OUTPUT_PROBE_FRAMES",
+  "pub fn probe_prepared_meeting_output_device_functionally(",
+  "prepared_output_device(requested_name)?",
+  "Arc::new(vec![0.0_f32; sample_count])",
+  "first_playback_rx.recv_timeout(Duration::from_millis(",
+  '"meeting_output:functional_probe_callback_timeout"',
+]);
+requireMarkers(source.meetingSession, "C5 atomic required outbound activation", [
+  "probe_prepared_meeting_output_device_functionally",
+  "start_meeting_outbound_consumer(generation, &session_id)",
+  "commit_application_meeting_session_live(",
+  "functional native Meeting output callback",
+]);
+const c5Start = source.meetingSession.slice(
+  source.meetingSession.indexOf("pub fn start_meeting_translation()"),
+  source.meetingSession.indexOf("#[tauri::command]\npub fn stop_meeting_translation()"),
+);
+const c5Order = [
+  "begin_application_meeting_session()",
+  "start_live_capture_runtime(starting.clone())",
+  "probe_prepared_meeting_output_device_functionally(output_device, generation)",
+  "start_meeting_outbound_consumer(generation, &session_id)",
+  "commit_application_meeting_session_live(",
+].map((marker) => c5Start.indexOf(marker));
+if (c5Order.some((index) => index < 0) || c5Order.some((index, i) => i > 0 && index <= c5Order[i - 1])) {
+  throw new Error(`C5 Start ordering is not authority -> microphone -> output probe -> outbound consumer -> Live: ${c5Order.join(",")}`);
+}
+
 requireMarkers(source.helperBridgeRuntime, "C4 helper functional readiness projection", [
   "pub functional_outbound_ready: bool",
   "pub functional_outbound_verified_unix_ms: Option<u128>",

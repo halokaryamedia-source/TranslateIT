@@ -21,6 +21,7 @@ use crate::engine::audio::live_segment_writer::{
 use crate::engine::audio::meeting_output::{
     cancel_meeting_output_for_generation, clear_prepared_meeting_output_device,
     deliver_meeting_output_wav, prepare_meeting_output_device,
+    probe_prepared_meeting_output_device_functionally,
 };
 use crate::engine::audio::meeting_sound_capture::{
     meeting_sound_capture_status, start_meeting_sound_capture_runtime,
@@ -2034,8 +2035,9 @@ pub fn start_meeting_translation() -> MeetingSessionActionResult {
     }
 
     // Route discovery chooses one exact matched virtual-cable pair. Before Meeting
-    // authority exists, verify the playback-side endpoint exposes a native CPAL output
-    // configuration. Actual samples are submitted only by authoritative Live output.
+    // authority exists, retain the exact playback-side CPAL endpoint and verify its
+    // native configuration. C5 performs the real silent callback probe transactionally
+    // after the Starting authority and microphone resource exist, but before Live.
     let prepared_route = get_virtual_mic_route_selection();
     let Some(output_device) = prepared_route.selected_output_device.as_deref() else {
         return blocked_result(
@@ -2132,15 +2134,16 @@ pub fn start_meeting_translation() -> MeetingSessionActionResult {
         );
     }
 
-    let committed = commit_application_meeting_session_live(
-        generation,
-        true,
-        "Required Start resources were opened and the authoritative Meeting generation committed Live.",
-    );
-    if !committed.blocker.is_empty() {
+    // Required native output execution must be proven while this generation owns
+    // Starting authority. This writes silence only and requires the exact prepared
+    // endpoint to build/start a CPAL stream and invoke its callback inside a bounded
+    // wait. Meeting-app reception remains target-Windows evidence.
+    if let Err(blocker) =
+        probe_prepared_meeting_output_device_functionally(output_device, generation)
+    {
         let _ = revoke_runtime_session_authority(
             generation,
-            "Meeting Live commit failed after resource open. Authority was revoked before rollback.",
+            "Meeting output functional verification failed during Starting. Authority was revoked before rollback.",
         );
         let _ = cancel_meeting_output_for_generation(generation);
         let _ = stop_live_capture_runtime();
@@ -2153,15 +2156,19 @@ pub fn start_meeting_translation() -> MeetingSessionActionResult {
         let _ = clear_runtime_session_state();
         return blocked_result(
             "rolled_back",
-            "Start Translation could not commit the Meeting generation Live, so all opened Meeting resources were rolled back."
-                .to_string(),
+            format!(
+                "Start Translation was rolled back because TranslateIT Meeting Microphone could not open a functional native output callback before Live: {blocker}"
+            ),
         );
     }
 
+    // The serialized required outbound consumer is a Live dependency, not a post-Live
+    // best effort. Create it while the session is still Starting so a thread-spawn
+    // failure can roll back without ever exposing a transient Live state.
     if let Err(error) = start_meeting_outbound_consumer(generation, &session_id) {
         let _ = revoke_runtime_session_authority(
             generation,
-            "Meeting outbound consumer could not start. Authority was revoked before rollback.",
+            "Meeting outbound consumer could not start during Starting. Authority was revoked before rollback.",
         );
         let _ = cancel_meeting_output_for_generation(generation);
         let _ = stop_live_capture_runtime();
@@ -2177,8 +2184,37 @@ pub fn start_meeting_translation() -> MeetingSessionActionResult {
         return blocked_result(
             "rolled_back",
             format!(
-                "Start Translation was rolled back because the serialized outbound consumer could not start: {error}. Helper cleanup: {} Consumer cleanup: {}",
+                "Start Translation was rolled back before Live because the serialized outbound consumer could not start: {error}. Helper cleanup: {} Consumer cleanup: {}",
                 helper_cancel.message, consumer_cleanup.message
+            ),
+        );
+    }
+
+    let committed = commit_application_meeting_session_live(
+        generation,
+        true,
+        "Required microphone, functional native Meeting output callback, and serialized outbound consumer were ready before the authoritative generation committed Live.",
+    );
+    if !committed.blocker.is_empty() {
+        let _ = revoke_runtime_session_authority(
+            generation,
+            "Meeting Live commit failed after all required pre-Live resources opened. Authority was revoked before rollback.",
+        );
+        let _ = cancel_meeting_output_for_generation(generation);
+        let _ = stop_live_capture_runtime();
+        let _ = stop_meeting_sound_capture_runtime();
+        let consumer_cleanup = stop_meeting_outbound_consumer(generation);
+        clear_finalized_meeting_sequence();
+        clear_self_output_suppression_for_session(&session_id);
+        clear_committed_turns_for_session(&session_id);
+        clear_start_preflight_for_generation(generation);
+        clear_prepared_meeting_output_device();
+        let _ = clear_runtime_session_state();
+        return blocked_result(
+            "rolled_back",
+            format!(
+                "Start Translation could not commit the Meeting generation Live, so all opened Meeting resources were rolled back. Outbound consumer cleanup: {}",
+                consumer_cleanup.message
             ),
         );
     }

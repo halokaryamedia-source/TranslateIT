@@ -24,11 +24,11 @@ This map points to current semantic owners. File existence alone does not make a
 | Product facade/readiness projection | `src/app/bridge/runtimeProductFacade.ts` | ACTIVE / MEETING-PREFLIGHT PROJECTION + USER-SAFE RESULT MAPPING |
 | Shared frontend settings/error helpers | `src/app/shared/state.ts`, `types.ts`, `tauriBridge.ts` | ACTIVE / RETAINED |
 | Tauri invoke registration | `src-tauri/src/commands/registry.rs` | ACTIVE / PRUNED |
-| Meeting authority | `commands/meeting_session.rs`, `engine/runtime_state.rs` | ACTIVE |
+| Meeting authority | `commands/meeting_session.rs`, `engine/runtime_state.rs` | ACTIVE / ATOMIC START: MIC + OUTPUT CALLBACK PROBE + OUTBOUND CONSUMER BEFORE LIVE |
 | Physical microphone + Meeting Sound | `engine/audio/*` | ACTIVE |
 | Audio-device selection transaction | `commands/settings.rs` + `commands/audio.rs` + `engine/audio/input.rs` | ACTIVE / FUNCTIONAL MIC PROBE + PRESERVE + SAVE OWNER |
 | Mic Test lifecycle | `engine/capture_lifecycle.rs`, `commands/runtime_capture.rs` | ACTIVE / BOUNDED |
-| Meeting Microphone route | `commands/virtual_mic_route.rs`, `engine/audio/meeting_output.rs` | ACTIVE / MATCHED ROUTE + RUST/CPAL DELIVERY |
+| Meeting Microphone route | `commands/virtual_mic_route.rs`, `engine/audio/meeting_output.rs` | ACTIVE / MATCHED ROUTE + PRE-LIVE SILENT CALLBACK PROBE + RUST/CPAL DELIVERY |
 | Outbound latency instrumentation | `engine/audio/finalized_utterance.rs`, `commands/meeting_session.rs`, `engine/audio/meeting_output.rs` | ACTIVE / PR-052 TRANSIENT STAGE TIMING + CPAL PREDICTED FIRST PLAYBACK |
 | Local worker/scheduler | `helper_bridge.rs`, `helper_bridge_runtime.rs`, `realtime_local_worker.py` | ACTIVE / GENERATION-BOUND FUNCTIONAL ASR + ID->EN + TTS READINESS / PUBLIC READY TRUTH |
 | Installed worker interpreter path | `engine/paths.rs`, `commands/bridge_paths.rs` | SOURCE ALIGNED: `LocalWorker/PythonRuntime/python.exe` |

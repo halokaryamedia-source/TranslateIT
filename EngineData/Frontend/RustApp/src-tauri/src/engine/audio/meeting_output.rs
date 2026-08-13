@@ -13,6 +13,8 @@ const MAX_MEETING_OUTPUT_WAV_BYTES: u64 = 32 * 1024 * 1024;
 const MAX_OUTPUT_CHANNELS: u16 = 8;
 const MAX_OUTPUT_SAMPLE_RATE_HZ: u32 = 192_000;
 const MIN_OUTPUT_SAMPLE_RATE_HZ: u32 = 8_000;
+const FUNCTIONAL_OUTPUT_PROBE_TIMEOUT_MS: u64 = 2_000;
+const FUNCTIONAL_OUTPUT_PROBE_FRAMES: usize = 128;
 const MAX_DELIVERY_DEADLINE_MS: u64 = 120_000;
 const MIN_DELIVERY_DEADLINE_MS: u64 = 10_000;
 
@@ -502,6 +504,77 @@ fn build_output_stream(
                 .map_err(|_| "meeting_output:stream_build_failed".to_string())
         }
         _ => Err("meeting_output:unsupported_output_sample_format".to_string()),
+    }
+}
+
+pub fn probe_prepared_meeting_output_device_functionally(
+    requested_name: &str,
+    generation: u64,
+) -> Result<(), String> {
+    if !runtime_generation_is_authoritative(generation) {
+        return Err("meeting_output:functional_probe_generation_not_authoritative".to_string());
+    }
+
+    let device = prepared_output_device(requested_name)?;
+    let supported = device
+        .default_output_config()
+        .map_err(|_| "meeting_output:functional_probe_default_config_unavailable".to_string())?;
+    let sample_format = supported.sample_format();
+    let config: cpal::StreamConfig = supported.into();
+    if config.channels == 0 || config.channels > MAX_OUTPUT_CHANNELS {
+        return Err("meeting_output:functional_probe_unsupported_channel_count".to_string());
+    }
+    if !(MIN_OUTPUT_SAMPLE_RATE_HZ..=MAX_OUTPUT_SAMPLE_RATE_HZ).contains(&config.sample_rate.0) {
+        return Err("meeting_output:functional_probe_unsupported_sample_rate".to_string());
+    }
+
+    // The probe must prove the native endpoint can actually build, start, and invoke
+    // its callback without emitting speech. Zero-valued frames are sufficient: C5
+    // verifies endpoint execution, not meeting-app reception or audible content.
+    let sample_count = usize::from(config.channels).saturating_mul(FUNCTIONAL_OUTPUT_PROBE_FRAMES);
+    let samples = Arc::new(vec![0.0_f32; sample_count]);
+    let cancel_requested = Arc::new(AtomicBool::new(false));
+    let (completion_tx, _completion_rx) = mpsc::sync_channel(1);
+    let (first_playback_tx, first_playback_rx) = mpsc::sync_channel(1);
+    let callback_errors = Arc::new(Mutex::new(Vec::new()));
+    let stream = build_output_stream(
+        &device,
+        &config,
+        sample_format,
+        samples,
+        cancel_requested,
+        generation,
+        completion_tx,
+        first_playback_tx,
+        Arc::clone(&callback_errors),
+    )?;
+    stream
+        .play()
+        .map_err(|_| "meeting_output:functional_probe_stream_start_failed".to_string())?;
+
+    let callback =
+        first_playback_rx.recv_timeout(Duration::from_millis(FUNCTIONAL_OUTPUT_PROBE_TIMEOUT_MS));
+    let callback_error = callback_errors
+        .lock()
+        .ok()
+        .and_then(|errors| errors.last().cloned());
+    let still_authoritative = runtime_generation_is_authoritative(generation);
+    drop(stream);
+
+    if !still_authoritative {
+        return Err("meeting_output:functional_probe_generation_revoked".to_string());
+    }
+    if callback_error.is_some() {
+        return Err("meeting_output:functional_probe_callback_failed".to_string());
+    }
+    match callback {
+        Ok(_) => Ok(()),
+        Err(mpsc::RecvTimeoutError::Timeout) => {
+            Err("meeting_output:functional_probe_callback_timeout".to_string())
+        }
+        Err(mpsc::RecvTimeoutError::Disconnected) => {
+            Err("meeting_output:functional_probe_callback_disconnected".to_string())
+        }
     }
 }
 

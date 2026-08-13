@@ -999,10 +999,29 @@ C4 ownership/polling guard                        -> PASS
 
 This proves the functional execution and source truth on the hosted CPU path. It does not prove Indonesian ASR quality, NVIDIA CUDA execution, physical microphone/virtual-cable behavior, or target-PC performance. No VAD tuning, model-quality tuning, installer work, or local-PC test is part of C4.
 
+## Pre-Local C5 — IMPLEMENTED / TARGET AUDIO PROOF DEFERRED
+
+C5 closes the mapped PR-053 source gap without adding another audio or lifecycle owner. `prepare_meeting_output_device` still retains the exact matched Rust/CPAL output endpoint cheaply before authority. Once the application generation owns `Starting` authority and required microphone capture is open, `meeting_output.rs` now builds and starts a bounded silent output stream on that prepared endpoint and requires a native callback within the C1-aligned 2-second functional-probe budget. The probe emits only zero-valued frames and does not claim VB-Cable or meeting-app reception.
+
+The serialized required outbound consumer is now created while the same generation is still `Starting`. Only after microphone capture, the functional native output callback, and outbound consumer creation succeed does `commit_application_meeting_session_live` run. Output-probe failure, consumer spawn failure, or Live-commit failure all revoke generation authority first and roll back the resources opened so far; commit failure additionally joins the already-created outbound consumer. Optional incoming Meeting Sound remains post-Live and independent.
+
+Remote Windows/source proof for this slice establishes source/build correctness only:
+
+```text
+canonical source validators                        -> PASS
+svelte-check + frontend build                      -> PASS
+C5 Start ordering/rollback ownership guard         -> PASS
+Rust full test-target compile (`--no-run`)          -> PASS
+cargo check                                        -> PASS
+Tauri release build --no-bundle                    -> PASS
+```
+
+A GitHub-hosted Windows runner is not the target virtual-audio environment, so the actual silent callback probe cannot be claimed against the user's VB-Cable/meeting-app route until target-Windows testing is authorized. No VAD/model/CUDA tuning, endpoint-GUID migration, installer work, or local-PC test is part of C5.
+
 ## Current Mode
 
-**Developing / Pre-Local Source Readiness — C4 IMPLEMENTED, ONE SOURCE CLOSURE REMAINS.** A1-A7, B1-B6, C1-C3, and the source re-audit remain closed at their proven boundaries. Local-PC testing is still deferred by user decision. C5 is the final mapped non-hardware source-correctness wave.
+**Maintenance / Pre-Local Source Readiness — C5 IMPLEMENTED, MAPPED SOURCE WAVES COMPLETE.** A1-A7, B1-B6, C1-C5, and the bounded source re-audit are closed at their proven source/hosted boundaries. User-local testing remains deferred by explicit user decision. No additional feature/hardening wave should be invented without a new source-level gap.
 
-## Next Step — Pre-Local C5 Atomic Outbound Activation Closure
+## Next Step — Pre-Local Final Source Closure Audit
 
-Complete PR-053 at the existing Meeting/audio owners: functionally probe the prepared virtual output endpoint with a bounded silent/callback-only native output stream before Live, and create the serialized outbound consumer before `commit_application_meeting_session_live`. Preserve authority-first rollback, prepared-device reuse, at-most-once delivery, B3 hot-path efficiency, and optional-incoming independence. Do not mix VAD tuning, installer staging, endpoint-GUID migration, or local-PC proof.
+Perform one bounded source-only closure audit against the initial-core requirements and current A/B/C owners to confirm C5 leaves no remaining non-hardware implementation blocker. Do not start local-PC testing, VAD/model tuning, installer staging, endpoint-GUID migration, or speculative development. If no source-level blocker remains, record the stop boundary and wait for explicit target-Windows authorization.
