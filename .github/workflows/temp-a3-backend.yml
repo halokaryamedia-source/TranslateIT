@@ -1,4 +1,4 @@
-name: Temporary A3 Backend Proof
+name: Temporary A3 Source Proof
 
 on:
   push:
@@ -8,20 +8,29 @@ on:
   workflow_dispatch:
 
 jobs:
-  backend-proof:
+  source-proof:
     runs-on: windows-2022
-    timeout-minutes: 25
+    timeout-minutes: 30
     steps:
       - uses: actions/checkout@v4
-      - name: Build frontend prerequisite
+      - name: Frontend proof
         shell: pwsh
         working-directory: EngineData/Frontend/RustApp
         run: |
           npm ci
+          npm run typecheck
           npm run build:frontend
-      - name: Check Rust
+      - name: Rust proof
         shell: pwsh
-        run: cargo check --manifest-path EngineData/Frontend/RustApp/src-tauri/Cargo.toml
-      - name: Compile Rust tests
+        run: |
+          cargo check --manifest-path EngineData/Frontend/RustApp/src-tauri/Cargo.toml
+          cargo test --manifest-path EngineData/Frontend/RustApp/src-tauri/Cargo.toml --no-run
+          cargo test --manifest-path EngineData/Frontend/RustApp/src-tauri/Cargo.toml guided_take::tests:: -- --nocapture
+      - name: Ownership proof
         shell: pwsh
-        run: cargo test --manifest-path EngineData/Frontend/RustApp/src-tauri/Cargo.toml --no-run
+        run: |
+          $capture = Get-Content EngineData/Frontend/RustApp/src-tauri/src/engine/audio/live_capture.rs -Raw
+          if ($capture -notmatch 'append_guided_f32' -or $capture -notmatch 'append_guided_i16' -or $capture -notmatch 'append_guided_u16') { throw 'guided sink not wired to canonical capture' }
+          $page = Get-Content EngineData/Frontend/RustApp/src/pages/VoiceLab.svelte -Raw
+          if ($page -match 'MediaRecorder|navigator\.mediaDevices|getUserMedia') { throw 'browser capture path introduced' }
+          Write-Host 'A3_SOURCE_PROOF=PASS'
