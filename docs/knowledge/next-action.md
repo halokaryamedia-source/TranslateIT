@@ -2,112 +2,141 @@
 
 ## Current Mode
 
-**Developing / VoiceLab A3 — Guided Recording + Accepted Take Persistence: CLOSED**
+**Developing / VoiceLab A4 — GPT-SoVITS Voice Actor Build + Held-Out Evaluation: CLOSED SOURCE-SIDE**
 
-A1 single-runtime compatibility and A2 Voice Actor/build contracts remain closed. A3 now implements the first real VoiceLab user path without adding a second audio engine or starting GPT-SoVITS training work.
+A1 single-runtime compatibility, A2 Voice Actor/build contracts, and A3 guided recording remain closed. A4 now adds the bounded source path that can turn accepted guided recordings into one reviewable GPT-SoVITS V2ProPlus Voice Actor candidate without creating a second daily AI worker, second microphone engine, provider registry, or WebUI runtime.
 
-## A3 Result
+## A4 Result
 
-The active source now provides one guided recording flow:
-
-```text
-backend-owned exact English line
--> voice-ownership confirmation
--> Record
--> existing Rust/CPAL microphone capture
--> mono capture sink
--> quality resampling to 32 kHz
--> PCM16 WAV review draft
--> Replay
--> Retry or Accept
--> CacheData/VoiceLab/Takes/take_<line-id>.wav
--> A2 dataset contract
-```
-
-VoiceLab is now present in the existing Svelte app/sidebar. Recording does not use browser `MediaRecorder`, `getUserMedia`, another CPAL stream, ASR labeling, imported-audio conversion, or another state framework. The optional guided sink is fed from the existing canonical microphone callbacks and is inert when no VoiceLab take is armed.
-
-The first guided script currently contains 16 backend-owned English lines. This is an A3 capture/review corpus, **not** a claim that 16 lines are sufficient for high-fidelity Voice Actor training. A4 must decide/expand recording coverage from the real quality requirement instead of treating `16/16 accepted` as Voice Actor readiness.
-
-Accepted take format remains the A2 contract:
+The active source now owns this VoiceLab creation flow:
 
 ```text
-mono
-PCM16
-32,000 Hz
+accepted 32 kHz mono PCM16 guided takes
+-> voice authorization confirmation
+-> freeze exact training dataset
+-> one cancellable VoiceLab build child
+-> pinned GPT-SoVITS V2ProPlus source
+-> native gpt.ckpt + sovits.pth + reference.wav candidate
+-> held-out English evaluation samples
+-> user listens and explicitly approves
+-> atomic promotion
+-> UserData/SavedProject/VoiceLab/MyVoice
 ```
 
-A hand-written linear resampler was rejected during A3 review because it was disproportionally weak for fidelity-first training data. A3 instead exact-pins `rubato = 0.16.2` and uses `FftFixedInOut` after capture. Rubato 0.16.2 was chosen because its MSRV remains compatible with the current Rust 1.77 project; newer Rubato generations would force unrelated Rust-version churn.
-
-The Cargo lock was also reviewed critically. An initial broad `cargo generate-lockfile` result changed hundreds of unrelated dependency lines and was explicitly rejected. The final lock was restored to the accepted A2 baseline and resolved only the bounded Rubato dependency delta: 79 added lock lines / 0 removals relative to A2.
-
-Recording lifecycle stays under the existing capture authority. Mic Test cannot start/stop a VoiceLab take, Meeting cannot claim the same microphone while capture ownership is active, navigation cannot leave VoiceLab while recording, and native process exit is fail-closed while a guided take is active.
-
-Review semantics are intentionally small:
+The GPT-SoVITS integration remains pinned to upstream revision:
 
 ```text
-Stop -> draft
-Replay -> raw local WAV bytes through Tauri IPC
-Retry -> delete draft only; previous accepted take survives
-Accept -> replace the same line's accepted take with normal rollback on replacement failure
+d523079fc05d9a8028d6085bffe4a2757c32abb6
 ```
 
-A3 only automatically blocks unmistakably silent/empty take evidence. It does not promote Mic Test heuristics, a clipping score, noise score, recording minutes, or an arbitrary quality number into Voice Actor policy. More nuanced training-data and speaker-quality acceptance belongs to A4 evaluation with real model/audio evidence.
+A4 uses a TranslateIT-owned headless stage boundary instead of importing the upstream Gradio/WebUI surface. The bounded provider path keeps the existing canonical Python runtime as the dependency owner. Gradio, FunASR, ModelScope, `onnxruntime-gpu`, alternate custom-voice engines, and a second packaged Python environment were not adopted.
 
-A deadlock found during source review was fixed before closure: the pending-draft mutex is now released before a response rebuilds the VoiceLab state.
+Permanent worker dependencies are now owned by:
+
+```text
+EngineData/Backend/LocalWorker/WorkerRuntime/pyproject.toml
+EngineData/Backend/LocalWorker/WorkerRuntime/uv.lock
+```
+
+The accepted lock is a clean `uv lock` resolution from the canonical `pyproject.toml`, not a manually reconstructed lock. The tracked lock blob is:
+
+```text
+93c34e63a4e2dc793606f84ed498a10b09ea40a3
+```
+
+The active Windows path resolves Torch/TorchAudio `2.11.0+cu126`, Transformers `4.50.0`, NumPy `1.26.4`, and the other bounded dependencies consumed by the approved A4 English build/evaluation path. English G2P/NLTK resources are explicit local runtime assets; runtime code is not allowed to silently download them.
+
+A4 also closes the long-running build lifecycle gap. Build start is rejected while a guided recording or Meeting owns conflicting runtime resources. Rust keeps generation-bound lifecycle authority, the child publishes real `preparing / training / evaluating / ready_for_review / failed` state, cancellation terminates the build process tree, and an old approved actor is not replaced by an invalid or incomplete rebuild.
+
+The user-facing VoiceLab UI remains intentionally small:
+
+```text
+record / replay / retry / accept
+-> enough accepted speech
+-> Create My Voice
+-> Stop Creating when active
+-> listen to held-out preview sentences
+-> Approve My Voice
+```
+
+Internal checkpoints, epochs, provider names, CUDA details, and similarity numbers are not presented as normal product controls. Training completion or an internal similarity value alone is not treated as proof that the voice is good; held-out user listening approval remains required.
+
+The full-product release inventory now includes the GPT-SoVITS VoiceLab source/pretrained asset root as a required manual/release asset. The developer Hugging Face downloader remains limited to revision-pinned Hugging Face assets and does not fabricate GPT-SoVITS or Piper release assets.
 
 ## Proof
 
-Final hosted Windows source proof run `31711094448` completed successfully. The accepted log explicitly shows:
+Two hosted Windows proofs are accepted for A4.
+
+### Pinned provider compatibility
+
+Run `31724026882` proved the exact headless English V2ProPlus dependency boundary against the existing TranslateIT worker:
 
 ```text
-npm ci -> PASS
-svelte-check -> 0 errors / 0 warnings
-Vite production build -> PASS
-cargo check -> PASS
-cargo test --no-run -> PASS
-guided take deterministic tests -> 2 PASS / 0 FAIL
-A3 ownership proof -> PASS
+current TranslateIT worker imports -> PASS
+offline English G2P resources -> PASS
+pinned GPT-SoVITS headless imports -> PASS
+trainer/preprocess source syntax -> PASS
+Gradio/FunASR/ModelScope/onnxruntime-gpu exclusion -> PASS
 ```
 
-The guided tests prove a 48 kHz stereo fixture is downmixed and FFT-resampled to exactly 32,000 mono frames for one second, and that a silent fixture is marked unusable.
+### Final current-source closure
 
-A prior run `31708868923` is **not** accepted as proof even though GitHub marked the job successful: its log contained Svelte type errors and the temporary workflow did not fail-fast between npm commands. A3 source was fixed and rerun; only `31711094448` is the accepted final A3 source proof.
+Run `31733950503` completed successfully and its log was inspected directly. It proves:
 
-Cargo-lock correction was separately established by run `31710755948`, which reported `A3_LOCK_DELTA_LINES=79` and produced the bounded corrected lock.
+```text
+uv lock --check -> PASS
+uv sync --frozen --no-install-project -> PASS
+Python source compile -> PASS
+Python tests -> 25 PASS / 0 FAIL
+permanent Torch/TorchAudio/Transformers worker imports -> PASS
+unrelated provider dependency exclusion -> PASS
+svelte-check -> 0 errors / 0 warnings
+Vite production build -> PASS
+cargo check --locked -> PASS
+cargo test --no-run --locked -> PASS
+VoiceLab Rust contract tests -> 5 PASS / 0 FAIL
+```
 
-The temporary A3 lock workflow was deleted after use. Deleting the source-proof workflow was blocked by connector policy, so it was retired to a manual-only no-op instead of being bypassed with low-level Git mutation.
+The five VoiceLab Rust tests cover authorization/held-out dataset integrity, generation-bound build/cancel semantics, required native actor artifacts, canonical guided-WAV dataset freezing, and preservation of the currently approved actor when a rebuild candidate is invalid.
+
+The earlier failed lock/source-proof runs are not closure evidence. They exposed and corrected lock transfer/inventory-test issues before this accepted proof.
 
 ## Not Proven Yet
 
-A3 source closure does **not** prove:
+A4 source closure does **not** prove:
 
 ```text
-physical microphone capture on the user's target PC
-room / microphone recording quality
-subjective replay quality
-how much guided recording is actually required for high speaker fidelity
-GPT-SoVITS pretrained asset loading
-real fine-tuning / training cancellation
-held-out generated speech
-speaker similarity / voice fidelity
-best-checkpoint selection
-CUDA / VRAM practicality
-trained-actor daily inference
-Meeting custom-TTS latency / readiness
-physical meeting-app audio delivery
-installer / clean-machine behavior
+physical microphone quality on the user's target PC
+real GPT-SoVITS pretrained asset placement on the target installation
+actual training duration on target hardware
+CUDA / GPU / VRAM practicality on the target PC
+real cancellation behavior under a long target training workload
+subjective speaker identity / fidelity of a trained My Voice
+held-out preview quality on the user's own recordings
+clean-machine / installer packaging
+trained-actor daily inference through the canonical worker
+Meeting custom-TTS readiness or latency
+physical VB-Cable / meeting-app audio delivery
 ```
 
-No user-local-PC testing occurred.
-
-One narrow bridge limitation remains: if the frontend cannot read VoiceLab state at all, the current lightweight bridge returns an empty display state. Active recording is still protected at native process-exit level. Do not build a generic frontend-state recovery framework solely for this edge; reconcile it when A4 adds the real long-running build/close lifecycle.
+No user-local-PC testing occurred. Hosted Windows source proof is not target-hardware acceptance.
 
 ## Next Step
 
-**VoiceLab A4 — GPT-SoVITS Voice Actor Build + Held-Out Evaluation**
+**VoiceLab A5 — Canonical Worker Trained Voice Actor Inference**
 
-Implement the smallest real build path that turns accepted guided recordings into a candidate Voice Actor using the pinned GPT-SoVITS V2ProPlus direction. Start by defining/expanding the guided English corpus needed for fidelity-first training; do not assume the current 16 A3 lines are sufficient.
+Extend the existing canonical Python worker so an already approved `UserData/SavedProject/VoiceLab/MyVoice` actor can synthesize English speech through the GPT-SoVITS V2ProPlus path. Keep the current one-worker architecture and keep provider/checkpoint details private from the product-facing contract.
 
-A4 should then own only the responsibilities required to produce and judge a real candidate: exact English dataset preparation, earned GPT-SoVITS dependencies/assets, real cancellable build child lifecycle, native `gpt.ckpt + sovits.pth + reference.wav`, held-out generated samples, bounded speaker-similarity evidence when useful, user preview/approval, and A2 atomic promotion to `MyVoice`.
+A5 should prove only the daily inference boundary needed before Meeting integration:
 
-Do not integrate Meeting daily TTS in A4 unless real build/evaluation acceptance requires a tiny internal synthesis proof. Meeting inference/readiness remains the later canonical-worker integration step.
+```text
+approved MyVoice actor
+-> load/validate native actor artifacts
+-> prepare/cache canonical reference state
+-> synthesize English text
+-> return bounded local WAV/audio result
+```
+
+Do not add a second inference worker, provider registry, automatic retraining, background training scheduler, voice-profile selector, alternate custom-voice engine, or Meeting lifecycle changes in A5.
+
+**Meeting atomic custom-TTS readiness remains the step after A5.** A5 should not weaken the existing C4/C5 generation-bound Meeting activation contract or silently fall back to the pre-VoiceLab voice when the trained My Voice path is the required authority.
