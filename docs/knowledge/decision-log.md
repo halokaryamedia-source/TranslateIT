@@ -301,3 +301,67 @@ The previous floating Python/package baseline could resolve materially different
 
 **Proof status**
 GitHub-hosted Windows proof may establish exact Python/package resolution, CUDA-enabled PyTorch wheel identity, CTranslate2 import/probe behavior on a no-GPU runner, deterministic CPU fallback selection, and fail-closed CUDA-load error handling. Real CUDA inference still requires a GPU-capable Windows target and is not implied by dependency/import proof.
+
+## D-020 — VoiceLab Uses One Trained GPT-SoVITS V2ProPlus Voice Actor
+
+**Decision**  
+The user explicitly reopened custom voice as a required capability **before** target-Windows validation. This supersedes only the `Audio Studio/custom voice` deferred portion of D-003; the other feature-breadth exclusions remain in force.
+
+The product-facing capability is renamed **VoiceLab** and has one normal purpose: create one high-fidelity English Voice Actor from the user's own authorized voice, train it once, approve it, and reuse it during daily Meeting inference without retraining.
+
+The adopted engine direction is:
+
+```text
+GPT-SoVITS V2ProPlus
+```
+
+VoiceLab deliberately does not create provider/engine branches. The first implementation excludes OpenVoice, Qwen zero-shot cloning, Piper, Windows SAPI, MeloTTS, RVC postprocessing, cloud TTS, quick-clone mode, imported-audio mode, professional/broadcast tiers, and user-visible engine/model selection from the final custom-TTS path.
+
+The first creation workflow is:
+
+```text
+voice ownership confirmation
+-> guided English recording
+-> replay / accept / retry
+-> quality-controlled exact-text dataset
+-> GPT-SoVITS V2ProPlus fine-tuning
+-> held-out generated evaluation
+-> speaker-similarity ranking when useful
+-> user listening approval
+-> atomic promotion to My Voice
+```
+
+Recording duration, wall-clock training duration, epoch count, and similarity score are not product-quality constants. More data/training is not automatically better; the build should preserve useful checkpoints and choose from actual unseen generated output. Final Voice Actor approval remains user-listening evidence rather than a metric-only promotion.
+
+The initial Voice Actor runtime format remains the engine-native trained GPT/SoVITS weights plus one canonical 3-10 second English reference recording and exact text. ONNX/TorchScript/quantization/export optimization is deferred until native inference establishes the quality baseline and an optimized representation proves useful speed/resource improvement without unacceptable speaker-fidelity regression.
+
+Daily Meeting inference remains owned by the existing canonical Python local worker. VoiceLab training is a long-running build operation, not a second daily inference engine. Training and an active Meeting are mutually exclusive in the first implementation; do not add background training, GPU arbitration, automatic training pause/resume, or a second worker merely to run both simultaneously.
+
+The existing one-private-PythonRuntime architecture remains preferred. Full upstream GPT-SoVITS requirements must **not** be installed wholesale: WebUI, Gradio, FunASR, FastAPI, ModelScope, broadcast/audio-separation tools, and other upstream conveniences are not automatically product dependencies. First prove the smallest training + English inference dependency set can coexist with the current WorkerRuntime matrix. A second packaged Python environment is not pre-authorized; if exact compatibility evidence later proves the one-runtime approach impossible, that becomes a new architecture decision rather than an automatic workaround.
+
+For reproducible evaluation, do not float against upstream `main`. The initial compatibility investigation is pinned to audited upstream commit:
+
+```text
+RVC-Boss/GPT-SoVITS
+d523079fc05d9a8028d6085bffe4a2757c32abb6
+```
+
+This commit pin is the current engineering baseline, not a permanent user-facing product version and not proof of local quality/performance.
+
+Persistent ownership is:
+
+```text
+UserData/CacheData/VoiceLab
+-> recordings / prepared dataset / candidate checkpoints / evaluation artifacts
+
+UserData/SavedProject/VoiceLab
+-> explicitly approved Voice Actor only
+```
+
+A rebuild cannot destroy the currently approved Voice Actor before the new candidate has successfully trained, been evaluated, and been explicitly approved.
+
+**Reason**  
+The required product outcome is speaker fidelity with practical daily Meeting latency, not instant cloning or provider breadth. Doing expensive speaker adaptation once and keeping daily inference warm avoids repeated cloning/training work while preserving the one-engine product contract. Keeping the initial dependency and UI boundary narrow prevents historical Audio Studio scope, upstream WebUI tooling, and speculative optimization formats from turning VoiceLab into a second product.
+
+**Proof status**  
+The product decision and source ownership direction are approved. GPT-SoVITS V2ProPlus source supports few-shot fine-tuning, English inference, native V2ProPlus configuration, speaker-verification support, and reusable trained weight paths at the audited upstream revision. TranslateIT dependency compatibility, actual model training, speaker similarity, native inference latency, CUDA memory behavior, Meeting integration, and target audio delivery are not yet proven and must not be claimed from this decision alone.
