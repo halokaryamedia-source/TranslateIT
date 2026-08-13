@@ -177,3 +177,40 @@ fn resample_mono(samples: &[f32], source_rate: u32, target_rate: u32) -> Vec<f32
 fn safe_sample(value: f32) -> f32 {
     if value.is_finite() { value.clamp(-1.0, 1.0) } else { 0.0 }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::f32::consts::TAU;
+
+    static TEST_SERIAL: Mutex<()> = Mutex::new(());
+
+    #[test]
+    fn stereo_48khz_take_is_downmixed_and_resampled_to_32khz() {
+        let _serial = TEST_SERIAL.lock().expect("guided take test lock");
+        cancel_guided_take();
+        arm_guided_take(1).expect("arm guided take");
+        let mut stereo = Vec::with_capacity(48_000 * 2);
+        for index in 0..48_000 {
+            let sample = (TAU * 440.0 * index as f32 / 48_000.0).sin() * 0.2;
+            stereo.push(sample);
+            stereo.push(sample * 0.9);
+        }
+        append_guided_f32(&stereo, 48_000, 2);
+        let (captured, review) = take_guided_audio().expect("finalized guided take");
+        assert_eq!(captured.line_id, 1);
+        assert_eq!(captured.samples_mono.len(), 32_000);
+        assert!(review.duration_ms >= 999 && review.duration_ms <= 1_001);
+        assert!(review.quality_blocker.is_empty());
+    }
+
+    #[test]
+    fn silent_take_is_reviewable_but_not_quality_acceptable() {
+        let _serial = TEST_SERIAL.lock().expect("guided take test lock");
+        cancel_guided_take();
+        arm_guided_take(2).expect("arm guided take");
+        append_guided_f32(&vec![0.0; 32_000], 32_000, 1);
+        let (_, review) = take_guided_audio().expect("finalized silence");
+        assert!(review.quality_blocker.starts_with("voice_lab:take_signal_unusable:"));
+    }
+}
