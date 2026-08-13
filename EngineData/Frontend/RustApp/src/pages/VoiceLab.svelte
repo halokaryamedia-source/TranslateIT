@@ -6,6 +6,7 @@
     type GuidedRecordingActionResult,
     type GuidedRecordingState,
   } from "../app/bridge/voiceLabApi";
+  import VoiceLabBuild from "../components/voice-lab/VoiceLabBuild.svelte";
 
   let {
     onNotice,
@@ -255,4 +256,6 @@
       </div>
     </aside>
   </div>
+
+  <VoiceLabBuild {onNotice} />
 </section>
