@@ -26,5 +26,17 @@ if problem_start < 0 or problem_end < 0:
 replacement = '''asr_test_anchor = """    #[test]\n    fn normal_empty_asr_does_not_invalidate_functional_capability() {\n"""\nasr_test = ''' + "'''" + '''    #[test]\n    fn functional_asr_requires_real_nonempty_transcribe_output() {\n        let complete = response(\n            true,\n            r#"{\\"ok\\":true,\\"stage\\":\\"transcribe\\",\\"transcript_text\\":\\"good morning\\"}"#,\n        );\n        assert!(functional_asr_output(&complete));\n\n        let empty = response(\n            false,\n            r#"{\\"ok\\":false,\\"stage\\":\\"transcribe\\",\\"blocker\\":\\"asr:empty_transcript\\"}"#,\n        );\n        assert!(!functional_asr_output(&empty));\n    }\n\n''' + "'''" + '''\nif asr_test_anchor not in text:\n    raise RuntimeError("C4 ASR test insertion anchor missing")\ntext = text.replace(asr_test_anchor, asr_test + asr_test_anchor, 1)\n'''
 text = text[:problem_start] + replacement + text[problem_end:]
 
+old_validator_marker = '''insert_marker = ''' + "'''" + '''requireMarkers(source.helperBridge, "Meeting outbound AI preparation", [\\n''' + "'''"
+new_validator_marker = '''insert_marker = ''' + "'''" + '''requireMarkers(source.helperBridge, "C3 generation-bound functional outbound AI readiness", [\\n''' + "'''"
+if old_validator_marker not in text:
+    raise SystemExit('old C4 validator insertion marker missing')
+text = text.replace(old_validator_marker, new_validator_marker, 1)
+
+validator_read = 'text = read(VALIDATOR)\n'
+validator_patch = '''text = read(VALIDATOR)\ntext = text.replace(\n    '"consume_functional_tts_output"',\n    '"functional_tts_output_path"',\n    1,\n)\n'''
+if validator_read not in text:
+    raise SystemExit('validator read anchor missing')
+text = text.replace(validator_read, validator_patch, 1)
+
 path.write_text(text, encoding='utf-8')
 print('C4 patch helper targeting fixed')
