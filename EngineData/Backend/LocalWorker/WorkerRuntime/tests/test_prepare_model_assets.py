@@ -25,7 +25,10 @@ def test_required_huggingface_plan_is_revision_pinned_and_runtime_asset_scoped()
     }
     assert all(module.FULL_REVISION.fullmatch(item["revision"]) for item in selected)
     assert all(item["target"].is_relative_to(module.RUNTIME_ASSETS_ROOT) for item in selected)
-    assert {item["model_id"] for item in manual} == {"piper"}
+    assert {item["model_id"] for item in manual} == {
+        "gpt-sovits-v2proplus-voicelab",
+        "piper",
+    }
 
 
 def test_optional_plan_adds_only_manifest_optional_huggingface_assets() -> None:
