@@ -93,6 +93,9 @@ jobs:
           $synth = ($synth -split 'class SynthesizerTrnV3\(nn\.Module\):', 2)[0]
           if ($synth -match '\bDiT\(') { throw 'V2/V2Pro SynthesizerTrn uses DiT; pruning is unsafe' }
 
+          $coreVq = Get-Content .tmp-gpt-sovits/GPT_SoVITS/module/core_vq.py -Raw
+          if ($coreVq -notmatch 'from einops import rearrange, repeat') { throw 'Expected direct V2ProPlus vector-quantizer einops use not found' }
+
           $dataset = Get-Content .tmp-gpt-sovits/GPT_SoVITS/AR/data/dataset.py -Raw
           if ($dataset -notmatch 'import pandas as pd') { throw 'Expected raw dataset pandas dependency not found' }
           if ($dataset -notmatch 'pd\.read_csv') { throw 'Expected raw semantic TSV pandas read not found' }
@@ -114,6 +117,7 @@ jobs:
           Write-Host 'RAW_UPSTREAM_ADAPTER_IS_TOO_BROAD=true'
           Write-Host 'DEFER_TO_A2=pandas-dataset-loader,gradio-tools-wrapper,torchaudio-audio-wrapper,multilingual-preprocessor'
           Write-Host 'PRUNE_NOW=matplotlib-demo-import,V3-only-DiT-eager-import'
+          Write-Host 'DIRECT_CORE_DEPENDENCY=einops'
 
       - name: Apply proof-only non-V2ProPlus eager import pruning
         shell: pwsh
@@ -146,7 +150,8 @@ jobs:
             tensorboard `
             'librosa==0.10.2' `
             g2p_en `
-            wordsegment
+            wordsegment `
+            einops
           if ($LASTEXITCODE -ne 0) { throw 'Minimal VoiceLab candidate dependency install failed' }
           uv pip check --python $python
           if ($LASTEXITCODE -ne 0) { throw 'Minimal VoiceLab candidate dependency check failed' }
@@ -213,6 +218,7 @@ jobs:
           Write-Host 'CANONICAL_CORE_VERSION_CHANGES=NONE'
           Write-Host 'UPSTREAM_FULL_REQUIREMENTS_ADOPTED=NO'
           Write-Host 'REJECTED_WRAPPER_DEPENDENCIES_ADOPTED=NO'
+          Write-Host 'DIRECT_ADDITIONAL_CORE_DEPENDENCY=einops'
           Write-Host 'REQUIRED_A2_ADAPTER=English-only text preprocessing + exact TSV/data loading + bounded audio load/resample + V2ProPlus-only inference wrapper'
           Write-Host 'CLAIM_BOUNDARY=dependency-resolution-model-core-import-v2proplus-graph-English-frontend-only'
           Write-Host 'NOT_PROVEN=pretrained-weight-load-training-generated-audio-speaker-fidelity-cuda-vram-latency-meeting-audio'
