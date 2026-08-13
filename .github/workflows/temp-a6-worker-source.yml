@@ -1,0 +1,25 @@
+name: Temporary A6 Worker Source
+
+on:
+  push:
+    branches: [New]
+    paths:
+      - .github/workflows/temp-a6-worker-source.yml
+
+permissions:
+  contents: write
+
+jobs:
+  source:
+    runs-on: windows-2022
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: New
+          fetch-depth: 1
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Apply and commit bounded A6 worker source
+        run: python .github/temp-a6-worker-source-gate.py
