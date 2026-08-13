@@ -1,4 +1,4 @@
-name: Temporary Pre-Local Final Source Closure Proof
+name: Temporary Pre-Local Final Source Closure State Record
 
 on:
   push:
@@ -8,11 +8,11 @@ on:
       - .github/workflows/temporary-prelocal-final-source-closure.yml
 
 permissions:
-  contents: read
+  contents: write
 
 jobs:
-  source-closure-guard:
-    runs-on: windows-2022
+  record-source-closure:
+    runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
       - name: Checkout New
@@ -21,227 +21,61 @@ jobs:
           ref: New
           fetch-depth: 0
 
-      - name: Prove final source closure ownership
-        shell: pwsh
+      - name: Record canonical final source closure boundary
+        shell: bash
         run: |
-          @'
+          python - <<'PY'
           from pathlib import Path
 
-          root = Path('.')
+          path = Path('docs/knowledge/next-action.md')
+          text = path.read_text(encoding='utf-8')
+          marker = '\n## Current Mode\n'
+          index = text.rfind(marker)
+          if index < 0:
+              raise SystemExit('Canonical Current Mode marker was not found.')
 
-          def read(path: str) -> str:
-              return (root / path).read_text(encoding='utf-8')
-
-          def require(text: str, marker: str, label: str) -> None:
-              if marker not in text:
-                  raise SystemExit(f'{label} marker missing: {marker}')
-
-          meeting = read('EngineData/Frontend/RustApp/src-tauri/src/commands/meeting_session.rs')
-          output = read('EngineData/Frontend/RustApp/src-tauri/src/engine/audio/meeting_output.rs')
-          runtime_state = read('EngineData/Frontend/RustApp/src-tauri/src/engine/runtime_state.rs')
-          helper = read('EngineData/Frontend/RustApp/src-tauri/src/commands/helper_bridge.rs')
-          helper_runtime = read('EngineData/Frontend/RustApp/src-tauri/src/commands/helper_bridge_runtime.rs')
-          worker = read('EngineData/Backend/LocalWorker/WorkerRuntime/realtime_local_worker.py')
-          finalized = read('EngineData/Frontend/RustApp/src-tauri/src/engine/audio/finalized_utterance.rs')
-          text_command = read('EngineData/Frontend/RustApp/src-tauri/src/commands/text_translate.rs')
-          text_ui = read('EngineData/Frontend/RustApp/src/pages/Text.svelte')
-          facade = read('EngineData/Frontend/RustApp/src/app/bridge/runtimeProductFacade.ts')
-          setup = read('EngineData/Frontend/RustApp/src/pages/FirstSetup.svelte')
-          app = read('EngineData/Frontend/RustApp/src/App.svelte')
-          bootstrap = read('EngineData/Frontend/RustApp/src-tauri/src/app_bootstrap.rs')
-          registry = read('EngineData/Frontend/RustApp/src-tauri/src/commands/registry.rs')
-          sidebar = read('EngineData/Frontend/RustApp/src/components/layout/Sidebar.svelte')
-
-          start_begin = meeting.index('pub fn start_meeting_translation()')
-          stop_begin = meeting.index('pub fn stop_meeting_translation()', start_begin)
-          start = meeting[start_begin:stop_begin]
-          ordered = [
-              'begin_application_meeting_session()',
-              'start_live_capture_runtime(starting.clone())',
-              'probe_prepared_meeting_output_device_functionally(output_device, generation)',
-              'start_meeting_outbound_consumer(generation, &session_id)',
-              'commit_application_meeting_session_live(',
+          lines = [
+              '',
+              '## Pre-Local Final Source Closure Audit — CLOSED / SOURCE BOUNDARY REACHED',
+              '',
+              'The final bounded source-only audit rechecked the initial-core requirements against the current A/B/C owners after C5. No remaining non-hardware implementation blocker was found. Required outbound authority, physical-microphone capture ownership, generation-bound functional AI readiness, exact prepared virtual-output callback probing, serialized outbound consumption, canonical bidirectional Text translation, bounded speech/freshness behavior, optional incoming isolation, safe Stop/power convergence, and frontend readiness truth remain aligned with the canonical requirements.',
+              '',
+              'No product/backend implementation change was required by this audit. The accepted hosted proof was GitHub Actions run `31682700188` and passed:',
+              '',
+              '```text',
+              'final source closure ownership guard         -> PASS',
+              'canonical source validators                  -> PASS',
+              'svelte-check                                 -> PASS / 0 errors, 0 warnings',
+              'frontend production build                    -> PASS',
+              'Rust full test-target compile (`--no-run`)    -> PASS',
+              'cargo check                                  -> PASS',
+              'Tauri release build --no-bundle              -> PASS',
+              '```',
+              '',
+              'This audit does not reinterpret source or hosted evidence as target-runtime proof. Remaining uncertainty belongs to target/release evidence: actual physical-microphone behavior; VB-Cable/meeting-app reception; optional Meeting Sound loopback and self-output suppression; real NVIDIA CUDA execution and performance; ASR/translation quality; CPU practicality; end-to-end latency distribution; long-session stability; physical sleep/wake behavior; packaged private PythonRuntime/installer staging; clean-machine acceptance; and endpoint-name collision only if target hardware exposes one. No local-PC test, VAD/model tuning, endpoint-GUID migration, installer work, or speculative backend change was performed.',
+              '',
+              '## Current Mode',
+              '',
+              '**Maintenance / Pre-Local Source Closed — WAITING FOR TARGET-WINDOWS AUTHORIZATION.** Initial-core source ownership A1-A7, B1-B6, C1-C5, and the final source-closure audit are complete at the source/hosted-proof boundary. Do not add further backend hardening without a newly evidenced source-level gap or target-runtime evidence.',
+              '',
+              '## Next Step — Target Windows Validation (Requires Explicit Authorization)',
+              '',
+              'Stop source development and wait for explicit user authorization before performing target-Windows/local-PC validation of the physical microphone, virtual cable/meeting-app reception, optional incoming loopback, CUDA/model performance, latency, long-session/sleep-wake behavior, and release-packaging evidence. Until authorization is given, do not run local tests, tune VAD/models, migrate endpoint identity, stage the installer, or add speculative backend work.',
+              '',
           ]
-          positions = []
-          for marker in ordered:
-              require(start, marker, 'Meeting Start transaction')
-              positions.append(start.index(marker))
-          if positions != sorted(positions) or len(set(positions)) != len(positions):
-              raise SystemExit('Meeting Start is not authority -> microphone -> functional output -> outbound consumer -> Live.')
+          replacement = '\n'.join(lines)
+          path.write_text(text[:index] + replacement, encoding='utf-8')
+          PY
 
-          cleanup_end = meeting.index('fn meeting_cleanup_complete(', stop_begin)
-          stop = meeting[stop_begin:cleanup_end]
-          revoke_marker = 'revoke_runtime_session_authority('
-          require(stop, revoke_marker, 'Meeting Stop authority')
-          revoke_position = stop.index(revoke_marker)
-          for marker in [
-              'cancel_meeting_output_for_generation(generation)',
-              'stop_live_capture_runtime()',
-              'stop_meeting_sound_capture_runtime()',
-              'cancel_helper_bridge_meeting_session(&session_id)',
-              'stop_meeting_outbound_consumer(generation)',
-              'stop_meeting_incoming_consumer(&session_id)',
-          ]:
-              cleanup_position = stop.find(marker, revoke_position)
-              if cleanup_position < 0:
-                  raise SystemExit(f'Meeting Stop active-session cleanup marker missing after authority revoke: {marker}')
-          require(stop, 'mark_runtime_session_cleanup_incomplete(', 'Meeting Stop truthful cleanup retention')
-          require(stop, 'clear_runtime_session_if_generation(generation)', 'Meeting Stop generation-safe release')
-
-          probe_start = output.index('pub fn probe_prepared_meeting_output_device_functionally(')
-          probe_end = output.index('fn install_cancel_control(', probe_start)
-          probe = output[probe_start:probe_end]
-          for marker in [
-              'prepared_output_device(requested_name)?',
-              'Arc::new(vec![0.0_f32; sample_count])',
-              'build_output_stream(',
-              '.play()',
-              'first_playback_rx.recv_timeout',
-              'FUNCTIONAL_OUTPUT_PROBE_TIMEOUT_MS',
-          ]:
-              require(probe, marker, 'Functional Meeting output probe')
-          if 'thread::sleep' in probe:
-              raise SystemExit('Functional Meeting output probe contains an arbitrary sleep.')
-
-          for marker in [
-              'runtime_generation_is_authoritative',
-              'commit_application_meeting_session_live',
-              'revoke_runtime_session_authority',
-              'mark_runtime_session_cleanup_incomplete',
-          ]:
-              require(runtime_state, marker, 'Canonical runtime authority')
-
-          for marker in [
-              'pub fn prepare_required_outbound_ai_runtime()',
-              'required_outbound_functional_readiness_cached(generation_token)',
-              'send_worker_task("asr_preload"',
-              'let asr_inference = send_worker_task(',
-              'remember_required_outbound_functional_readiness(generation_token)',
-              'functional_outbound_ready',
-          ]:
-              require(helper, marker, 'Generation-bound functional AI readiness')
-
-          for marker in [
-              'HELPER_SCHEDULER_TOTAL_ADMISSION_CAP',
-              'HELPER_SCHEDULER_MEETING_OUTBOUND_WAIT_MS',
-              'HelperTaskPriority::MeetingOutbound',
-              'wait_timeout',
-          ]:
-              require(helper_runtime, marker, 'Bounded helper scheduler')
-
-          for marker in [
-              'translation:input_too_long_for_model',
-              'translation:output_hit_token_ceiling_without_eos',
-              'finished_with_eos',
-              'condition_on_previous_text=False',
-              '"id->en"',
-              '"en->id"',
-          ]:
-              require(worker, marker, 'Local worker translation/completion contract')
-
-          for marker in [
-              'MAX_IN_PROGRESS_UTTERANCE_MS',
-              'MAX_PENDING_FINALIZED_UTTERANCES: usize = 2',
-              'state.pending.pop_front()',
-              'runtime_generation_is_authoritative',
-              'let finalized_at = Instant::now();',
-          ]:
-              require(finalized, marker, 'Finalized speech freshness/bounds')
-
-          for marker in [
-              'MAX_TEXT_TRANSLATION_CHARS: usize = 2_000',
-              'send_helper_worker_task("translate"',
-          ]:
-              require(text_command, marker, 'Standalone Text backend')
-          for marker in [
-              'MAX_MANUAL_TRANSLATION_CHARS = 2000',
-              'requestTargetRevision',
-              'targetRevision !== requestTargetRevision',
-              'Translate again to refresh the result',
-          ]:
-              require(text_ui, marker, 'Standalone Text stale-result guard')
-
-          for marker in [
-              'const meetingReady = meeting.readyForStart || productMeeting.live;',
-              'settings.meeting_setup_state === "new"',
-              'Start Translation will run a quick final translation check before going live.',
-          ]:
-              require(facade, marker, 'Product readiness truth')
-          require(setup, 'if (busy || !snapshot?.readiness.meetingReady) return;', 'First Setup functional readiness gate')
-
-          for marker in [
-              'event.preventDefault();',
-              'runProductMeetingAction("stop")',
-              'await destroyNativeWindow()',
-          ]:
-              require(app, marker, 'Safe-close convergence')
-
-          power_start = bootstrap.index('mod windows_power_lifecycle')
-          power_end = bootstrap.index('fn configure_runtime_paths', power_start)
-          power = bootstrap[power_start:power_end]
-          for marker in [
-              'request_meeting_cleanup',
-              'stop_meeting_translation()',
-              'sync_channel::<()>(1)',
-          ]:
-              require(power, marker, 'Windows power lifecycle convergence')
-          if 'start_meeting_translation' in power:
-              raise SystemExit('Windows power lifecycle must not auto-resume Meeting translation.')
-
-          for marker in [
-              'start_meeting_translation',
-              'stop_meeting_translation',
-              'translate_text',
-              'load_runtime_settings',
-              'save_runtime_settings',
-              'select_audio_device',
-          ]:
-              require(registry, marker, 'Initial-core command registry')
-          for marker in ['route: "meeting"', 'route: "text"', 'route: "settings"']:
-              require(sidebar, marker, 'Initial-core navigation')
-
-          print('FINAL_SOURCE_CLOSURE_GUARD=PASS')
-          '@ | python -
-          if ($LASTEXITCODE -ne 0) { throw 'Final source closure guard failed.' }
           git diff --check
-          if ($LASTEXITCODE -ne 0) { throw 'git diff --check failed.' }
+          mapfile -t changed < <(git diff --name-only)
+          if [ "${#changed[@]}" -ne 1 ] || [ "${changed[0]}" != "docs/knowledge/next-action.md" ]; then
+            printf 'Unexpected changed path: %s\n' "${changed[@]}"
+            exit 1
+          fi
 
-  hosted-build-proof:
-    needs: source-closure-guard
-    runs-on: windows-2022
-    timeout-minutes: 45
-    steps:
-      - name: Checkout New
-        uses: actions/checkout@v4
-        with:
-          ref: New
-          fetch-depth: 0
-
-      - name: Prove canonical source and frontend contracts
-        shell: pwsh
-        working-directory: EngineData/Frontend/RustApp
-        run: |
-          npm ci
-          if ($LASTEXITCODE -ne 0) { throw 'npm ci failed.' }
-          npm run validate:source-contracts
-          if ($LASTEXITCODE -ne 0) { throw 'source validators failed.' }
-          npm run typecheck
-          if ($LASTEXITCODE -ne 0) { throw 'svelte-check failed.' }
-          npm run build:frontend
-          if ($LASTEXITCODE -ne 0) { throw 'frontend build failed.' }
-
-      - name: Prove full Rust compile surface
-        shell: pwsh
-        working-directory: EngineData/Frontend/RustApp
-        run: |
-          cargo test --manifest-path src-tauri/Cargo.toml --no-run
-          if ($LASTEXITCODE -ne 0) { throw 'Rust full test target failed to compile.' }
-          cargo check --manifest-path src-tauri/Cargo.toml
-          if ($LASTEXITCODE -ne 0) { throw 'cargo check failed.' }
-
-      - name: Prove Tauri release link
-        shell: pwsh
-        working-directory: EngineData/Frontend/RustApp
-        run: |
-          npx tauri build --no-bundle
-          if ($LASTEXITCODE -ne 0) { throw 'Tauri release build failed.' }
+          git config user.name 'halokaryamedia-source'
+          git config user.email 'halokaryamedia@gmail.com'
+          git add docs/knowledge/next-action.md
+          git commit -m 'Record final source closure boundary'
+          git push origin HEAD:New
