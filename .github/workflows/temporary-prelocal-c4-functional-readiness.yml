@@ -1,0 +1,335 @@
+name: Temporary Pre-Local C4 Functional Readiness Proof
+
+on:
+  push:
+    branches:
+      - New
+
+permissions:
+  contents: write
+
+jobs:
+  prove-c4:
+    runs-on: windows-2022
+    timeout-minutes: 75
+    steps:
+      - name: Checkout New
+        uses: actions/checkout@v4
+        with:
+          ref: New
+          fetch-depth: 0
+
+      - name: Apply C4 functional readiness patch
+        shell: pwsh
+        run: |
+          python .tmp/fix_c4_patch_helper.py
+          if ($LASTEXITCODE -ne 0) { throw 'C4 patch helper fix failed.' }
+          python .tmp/prelocal_c4_functional_readiness_patch.py
+          if ($LASTEXITCODE -ne 0) { throw 'C4 patch helper failed.' }
+          rustfmt EngineData/Frontend/RustApp/src-tauri/src/commands/helper_bridge_runtime.rs `
+            EngineData/Frontend/RustApp/src-tauri/src/commands/helper_bridge.rs `
+            EngineData/Frontend/RustApp/src-tauri/src/commands/meeting_session.rs `
+            EngineData/Frontend/RustApp/src-tauri/src/commands/runtime.rs `
+            EngineData/Frontend/RustApp/src-tauri/src/commands/registry.rs
+          if ($LASTEXITCODE -ne 0) { throw 'C4 rustfmt failed.' }
+          git diff --check
+          if ($LASTEXITCODE -ne 0) { throw 'C4 patch has whitespace errors.' }
+
+      - name: Prepare canonical Python runtime
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12.10'
+
+      - name: Install uv and locked WorkerRuntime
+        shell: pwsh
+        working-directory: EngineData/Backend/LocalWorker/WorkerRuntime
+        run: |
+          python -m pip install uv==0.12.3
+          if ($LASTEXITCODE -ne 0) { throw 'uv install failed.' }
+          uv sync --frozen --no-dev
+          if ($LASTEXITCODE -ne 0) { throw 'frozen WorkerRuntime sync failed.' }
+          uv run --frozen --no-dev python -c "import platform; assert platform.python_version() == '3.12.10'; print(platform.python_version())"
+          if ($LASTEXITCODE -ne 0) { throw 'Pinned Python verification failed.' }
+
+      - name: Acquire C4 required model assets
+        shell: pwsh
+        working-directory: EngineData/Backend/LocalWorker/WorkerRuntime
+        run: |
+          uv run --frozen --no-dev python prepare_model_assets.py --model-id faster-whisper-large-v3-turbo --model-id marianmt-id-en
+          if ($LASTEXITCODE -ne 0) { throw 'C4 model acquisition failed.' }
+
+      - name: Prove real TTS fixture to ASR functional chain
+        shell: pwsh
+        working-directory: EngineData/Backend/LocalWorker/WorkerRuntime
+        run: |
+          @'
+          import concurrent.futures
+          import json
+          import subprocess
+          import sys
+          from pathlib import Path
+
+          worker = Path('realtime_local_worker.py').resolve()
+          proc = subprocess.Popen(
+              [sys.executable, str(worker)],
+              stdin=subprocess.PIPE,
+              stdout=subprocess.PIPE,
+              stderr=subprocess.DEVNULL,
+              text=True,
+              bufsize=1,
+          )
+          pool = concurrent.futures.ThreadPoolExecutor(max_workers=1)
+
+          def call(payload, timeout=240):
+              assert proc.stdin is not None and proc.stdout is not None
+              proc.stdin.write(json.dumps(payload, ensure_ascii=False) + '\n')
+              proc.stdin.flush()
+              future = pool.submit(proc.stdout.readline)
+              line = future.result(timeout=timeout)
+              if not line:
+                  raise RuntimeError(f'worker closed during {payload.get("command")}')
+              return json.loads(line)
+
+          try:
+              asr_preload = call({'command': 'asr_preload'}, 240)
+              if not asr_preload.get('ok'):
+                  raise RuntimeError('ASR preload failed: ' + str(asr_preload.get('blocker') or 'unknown'))
+
+              translation = call({
+                  'command': 'translate',
+                  'text': 'selamat pagi',
+                  'source_language': 'id',
+                  'target_language': 'en',
+                  'max_new_tokens': 24,
+              }, 240)
+              if not translation.get('ok'):
+                  raise RuntimeError('translation inference failed: ' + str(translation.get('blocker') or 'unknown'))
+              if translation.get('direction_pair') != 'id->en':
+                  raise RuntimeError('translation direction mismatch')
+              if translation.get('complete') is not True or translation.get('finished_with_eos') is not True:
+                  raise RuntimeError('translation did not prove EOS-complete output')
+              translated = str(translation.get('translated_text') or '').strip()
+              if not translated:
+                  raise RuntimeError('translation output is empty')
+
+              relative_tts = 'UserData/CacheData/c4_remote_proof/functional_readiness.wav'
+              tts = call({
+                  'command': 'synthesize',
+                  'text': translated,
+                  'output_path': relative_tts,
+              }, 120)
+              if not tts.get('ok'):
+                  raise RuntimeError('TTS synthesis failed: ' + str(tts.get('blocker') or 'unknown'))
+              output_path = Path(str(tts.get('output_path') or ''))
+              if not output_path.is_file() or output_path.stat().st_size <= 44:
+                  raise RuntimeError('TTS did not create a valid WAV artifact')
+
+              asr_inference = call({
+                  'command': 'transcribe',
+                  'audio_path': str(output_path),
+                  'language': 'en',
+                  'beam_size': 1,
+                  'vad_filter': False,
+              }, 240)
+              try:
+                  output_path.unlink(missing_ok=True)
+              except Exception:
+                  pass
+              if not asr_inference.get('ok'):
+                  raise RuntimeError('ASR inference failed: ' + str(asr_inference.get('blocker') or 'unknown'))
+              transcript = str(asr_inference.get('transcript_text') or '').strip()
+              if not transcript:
+                  raise RuntimeError('ASR inference returned empty transcript')
+
+              final = call({'command': 'status'}, 60)
+              if not final.get('ok'):
+                  raise RuntimeError('final worker status is not ready: ' + str(final.get('blocker') or 'unknown'))
+              loaded = final.get('loaded') or {}
+              if not loaded.get('asr'):
+                  raise RuntimeError('ASR runtime was not retained')
+              if 'id->en' not in (loaded.get('translation_directions') or []):
+                  raise RuntimeError('ID->EN runtime was not retained')
+
+              summary = {
+                  'asr_preload_ok': True,
+                  'translation_inference_ok': True,
+                  'translation_eos_complete': True,
+                  'tts_synthesis_ok': True,
+                  'tts_wav_valid': True,
+                  'asr_inference_ok': True,
+                  'asr_transcript_nonempty': True,
+                  'asr_device': asr_inference.get('device'),
+                  'translation_device': translation.get('device'),
+                  'tts_provider': tts.get('provider'),
+                  'cpu_fallback_active': bool(final.get('cpu_fallback_active')),
+              }
+              print('C4_REAL_FUNCTIONAL_CHAIN=' + json.dumps(summary, sort_keys=True))
+          finally:
+              try:
+                  if proc.stdin:
+                      proc.stdin.close()
+              except Exception:
+                  pass
+              try:
+                  proc.wait(timeout=5)
+              except Exception:
+                  proc.kill()
+              pool.shutdown(wait=False, cancel_futures=True)
+          '@ | uv run --frozen --no-dev python -
+          if ($LASTEXITCODE -ne 0) { throw 'C4 real functional worker proof failed.' }
+
+      - name: Prove WorkerRuntime deterministic baseline
+        shell: pwsh
+        working-directory: EngineData/Backend/LocalWorker/WorkerRuntime
+        run: |
+          uv sync --frozen
+          if ($LASTEXITCODE -ne 0) { throw 'Locked WorkerRuntime dev sync failed.' }
+          uv run --frozen ruff check .
+          if ($LASTEXITCODE -ne 0) { throw 'Ruff check failed.' }
+          uv run --frozen ruff format --check .
+          if ($LASTEXITCODE -ne 0) { throw 'Ruff format check failed.' }
+          uv run --frozen pytest -q
+          if ($LASTEXITCODE -ne 0) { throw 'WorkerRuntime tests failed.' }
+
+      - name: Prove source and frontend contracts
+        shell: pwsh
+        working-directory: EngineData/Frontend/RustApp
+        run: |
+          npm ci
+          if ($LASTEXITCODE -ne 0) { throw 'npm ci failed.' }
+          npm run validate:source-contracts
+          if ($LASTEXITCODE -ne 0) { throw 'source validators failed.' }
+          npm run typecheck
+          if ($LASTEXITCODE -ne 0) { throw 'svelte-check failed.' }
+          npm run build:frontend
+          if ($LASTEXITCODE -ne 0) { throw 'frontend build failed.' }
+
+      - name: Prove C4 Rust behavior and compile
+        shell: pwsh
+        working-directory: EngineData/Frontend/RustApp
+        run: |
+          cargo test --manifest-path src-tauri/Cargo.toml c4_ -- --nocapture
+          if ($LASTEXITCODE -ne 0) { throw 'C4 deterministic Rust tests failed.' }
+          cargo test --manifest-path src-tauri/Cargo.toml --no-run
+          if ($LASTEXITCODE -ne 0) { throw 'Rust full test target failed to compile.' }
+          cargo check --manifest-path src-tauri/Cargo.toml
+          if ($LASTEXITCODE -ne 0) { throw 'cargo check failed.' }
+
+      - name: Prove Tauri release link
+        shell: pwsh
+        working-directory: EngineData/Frontend/RustApp
+        run: |
+          npx tauri build --no-bundle
+          if ($LASTEXITCODE -ne 0) { throw 'Tauri release build failed.' }
+
+      - name: Verify C4 ownership and polling boundary
+        shell: pwsh
+        run: |
+          @'
+          from pathlib import Path
+
+          helper = Path('EngineData/Frontend/RustApp/src-tauri/src/commands/helper_bridge.rs').read_text(encoding='utf-8')
+          meeting = Path('EngineData/Frontend/RustApp/src-tauri/src/commands/meeting_session.rs').read_text(encoding='utf-8')
+          runtime = Path('EngineData/Frontend/RustApp/src-tauri/src/commands/runtime.rs').read_text(encoding='utf-8')
+          facade = Path('EngineData/Frontend/RustApp/src/app/bridge/runtimeProductFacade.ts').read_text(encoding='utf-8')
+          first_setup = Path('EngineData/Frontend/RustApp/src/pages/FirstSetup.svelte').read_text(encoding='utf-8')
+
+          prep_start = helper.index('pub fn prepare_required_outbound_ai_runtime()')
+          prep_end = helper.index('#[tauri::command]', prep_start)
+          prep = helper[prep_start:prep_end]
+          for marker in [
+              'send_worker_task("asr_preload"',
+              '"translate",',
+              '"synthesize",',
+              '"transcribe",',
+              '"language": "en"',
+              '"vad_filter": false',
+              'functional_asr_output',
+              'remember_required_outbound_functional_readiness',
+          ]:
+              if marker not in prep:
+                  raise SystemExit('C4 preparation marker missing: ' + marker)
+
+          tts_index = prep.index('"synthesize",')
+          asr_index = prep.index('"transcribe",')
+          cleanup_index = prep.index('fs::remove_file', asr_index)
+          if not (tts_index < asr_index < cleanup_index):
+              raise SystemExit('C4 TTS fixture must survive until the real ASR inference call returns.')
+
+          for marker in [
+              'pub start_eligible: bool',
+              'pub functional_outbound_ready: bool',
+              'let start_eligible = start_blockers.is_empty();',
+              'let ready_for_start = start_eligible && functional_outbound_ready;',
+              'if !preflight.start_eligible',
+              'if !prepared_preflight.ready_for_start',
+          ]:
+              if marker not in meeting:
+                  raise SystemExit('C4 Meeting truth marker missing: ' + marker)
+
+          if 'prepare_required_outbound_ai_runtime()' in meeting[meeting.index('pub fn get_meeting_session_status()'):meeting.index('pub fn start_meeting_translation()')]:
+              raise SystemExit('Routine Meeting status must not execute the heavy functional self-test.')
+          load_start = facade.index('export async function loadProductRuntimeSnapshot')
+          load_end = facade.index('export async function runProductMeetingAction', load_start)
+          if 'verifyRequiredOutboundAiReadiness' in facade[load_start:load_end]:
+              raise SystemExit('Normal product snapshot must not run the heavy functional self-test.')
+          if 'verify_required_outbound_ai_readiness' not in runtime:
+              raise SystemExit('Explicit C4 verification command is missing.')
+          if 'runProductSetupAction("check-readiness")' not in first_setup:
+              raise SystemExit('First Setup does not expose explicit final functional verification.')
+
+          print('C4_OWNERSHIP_GUARD=PASS')
+          '@ | python -
+          if ($LASTEXITCODE -ne 0) { throw 'C4 ownership guard failed.' }
+
+          git diff --check
+          if ($LASTEXITCODE -ne 0) { throw 'git diff --check failed.' }
+          $expected = @(
+            'CONTEXT.md',
+            'EngineData/Frontend/RustApp/scripts/validate_startup_runtime_readiness.mjs',
+            'EngineData/Frontend/RustApp/src-tauri/src/commands/helper_bridge.rs',
+            'EngineData/Frontend/RustApp/src-tauri/src/commands/helper_bridge_runtime.rs',
+            'EngineData/Frontend/RustApp/src-tauri/src/commands/meeting_session.rs',
+            'EngineData/Frontend/RustApp/src-tauri/src/commands/registry.rs',
+            'EngineData/Frontend/RustApp/src-tauri/src/commands/runtime.rs',
+            'EngineData/Frontend/RustApp/src/app/bridge/runtimeApi.ts',
+            'EngineData/Frontend/RustApp/src/app/bridge/runtimeProductFacade.ts',
+            'EngineData/Frontend/RustApp/src/app/shared/types.ts',
+            'EngineData/Frontend/RustApp/src/pages/FirstSetup.svelte',
+            'EngineData/Frontend/RustApp/src/pages/Meeting.svelte',
+            'docs/knowledge/next-action.md',
+            'docs/knowledge/source-ownership.md'
+          )
+          $changed = @(git diff --name-only | ForEach-Object { $_.Replace('\','/') })
+          $unexpected = @($changed | Where-Object { $expected -notcontains $_ })
+          $missing = @($expected | Where-Object { $changed -notcontains $_ })
+          if ($unexpected.Count -gt 0) {
+            $unexpected | ForEach-Object { Write-Host "Unexpected: $_" }
+            throw 'Unexpected C4 changed path.'
+          }
+          if ($missing.Count -gt 0) {
+            $missing | ForEach-Object { Write-Host "Missing: $_" }
+            throw 'Expected C4 changed path missing.'
+          }
+
+      - name: Commit proven C4 implementation
+        shell: pwsh
+        run: |
+          git config user.name 'halokaryamedia-source'
+          git config user.email 'halokaryamedia@gmail.com'
+          git add CONTEXT.md `
+            EngineData/Frontend/RustApp/scripts/validate_startup_runtime_readiness.mjs `
+            EngineData/Frontend/RustApp/src-tauri/src/commands/helper_bridge.rs `
+            EngineData/Frontend/RustApp/src-tauri/src/commands/helper_bridge_runtime.rs `
+            EngineData/Frontend/RustApp/src-tauri/src/commands/meeting_session.rs `
+            EngineData/Frontend/RustApp/src-tauri/src/commands/registry.rs `
+            EngineData/Frontend/RustApp/src-tauri/src/commands/runtime.rs `
+            EngineData/Frontend/RustApp/src/app/bridge/runtimeApi.ts `
+            EngineData/Frontend/RustApp/src/app/bridge/runtimeProductFacade.ts `
+            EngineData/Frontend/RustApp/src/app/shared/types.ts `
+            EngineData/Frontend/RustApp/src/pages/FirstSetup.svelte `
+            EngineData/Frontend/RustApp/src/pages/Meeting.svelte `
+            docs/knowledge/next-action.md `
+            docs/knowledge/source-ownership.md
+          git commit -m 'Close functional readiness truth'
+          git push origin HEAD:New
