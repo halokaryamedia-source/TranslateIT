@@ -26,5 +26,10 @@ pub fn register<R: tauri::Runtime>(builder: tauri::Builder<R>) -> tauri::Builder
         crate::commands::voice_lab_recording::retry_voice_lab_guided_take,
         crate::commands::voice_lab_recording::accept_voice_lab_guided_take,
         crate::commands::voice_lab_recording::get_voice_lab_guided_take_audio,
+        crate::commands::voice_lab_build::get_voice_lab_build_status,
+        crate::commands::voice_lab_build::start_voice_lab_build,
+        crate::commands::voice_lab_build::cancel_voice_lab_build,
+        crate::commands::voice_lab_build::approve_voice_lab_candidate,
+        crate::commands::voice_lab_build::get_voice_lab_evaluation_audio,
     ])
 }
