@@ -5,6 +5,7 @@ from pathlib import Path
 
 ROOT = Path.cwd()
 TAURI = ROOT / "EngineData/Frontend/RustApp/src-tauri"
+HELPER_PATCH = ROOT / ".github/temp-a6-helper-patch.py"
 EXPECTED = sorted([
     "EngineData/Frontend/RustApp/src-tauri/src/commands/helper_bridge.rs",
     "EngineData/Frontend/RustApp/src-tauri/src/commands/helper_bridge_runtime.rs",
@@ -16,6 +17,23 @@ def run(*args: str, cwd: Path = ROOT) -> None:
     subprocess.run(args, cwd=cwd, check=True)
 
 
+def normalize_helper_test_anchors() -> None:
+    lines = HELPER_PATCH.read_text(encoding="utf-8").splitlines()
+    old_line = None
+    new_line = None
+    for index, line in enumerate(lines):
+        if "tts:sapi_synthesis_failed" in line:
+            old_line = index
+        if "voice_actor:actor_changed_since_meeting_start" in line and "r#" in line:
+            new_line = index
+    if old_line is None or new_line is None:
+        raise RuntimeError("temporary helper raw-string anchors are unavailable")
+    lines[old_line] = "    '            r#\"{\"ok\":false,\"stage\":\"synthesize\",\"blocker\":\"tts:sapi_synthesis_failed\"}\"#,\\n',"
+    lines[new_line] = "    '            r#\"{\"ok\":false,\"stage\":\"voice_actor_synthesize\",\"blocker\":\"voice_actor:actor_changed_since_meeting_start\"}\"#,\\n',"
+    HELPER_PATCH.write_text("\n".join(lines) + "\n", encoding="utf-8", newline="\n")
+
+
+normalize_helper_test_anchors()
 run("python", ".github/temp-a6-helper-patch.py")
 run("python", ".github/temp-a6-meeting-patch.py")
 run("git", "diff", "--check")
