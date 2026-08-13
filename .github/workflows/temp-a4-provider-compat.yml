@@ -88,8 +88,10 @@ jobs:
           $env:version = 'v2ProPlus'
           Push-Location $root
           try {
-            & $python -c "import nltk; nltk.download=lambda *a, **k: (_ for _ in ()).throw(RuntimeError('network_download_forbidden')); import torch, torchaudio; assert torch.__version__.split('+')[0]=='2.11.0'; assert torchaudio.__version__.split('+')[0]=='2.11.0'; import text.english; import feature_extractor.cnhubert; import sv; import AR.models.t2s_lightning_module; import s1_train; import s2_train; import TTS_infer_pack.TTS; print('A4_PROVIDER_IMPORTS=PASS')"
+            & $python -c "import nltk; nltk.download=lambda *a, **k: (_ for _ in ()).throw(RuntimeError('network_download_forbidden')); import torch, torchaudio; assert torch.__version__.split('+')[0]=='2.11.0'; assert torchaudio.__version__.split('+')[0]=='2.11.0'; import text.english; assert text.english.g2p('VoiceLab keeps English speech local.'); import feature_extractor.cnhubert; import sv; import AR.data.data_module; import AR.models.t2s_lightning_module; import module.commons; import module.data_utils; import module.losses; import module.mel_processing; import module.models; import process_ckpt; import s1_train; import TTS_infer_pack.TTS; print('A4_PROVIDER_IMPORTS=PASS')"
             if ($LASTEXITCODE -ne 0) { throw 'pinned GPT-SoVITS import probe failed' }
+            & $python -m py_compile GPT_SoVITS\s1_train.py GPT_SoVITS\s2_train.py GPT_SoVITS\prepare_datasets\1-get-text.py GPT_SoVITS\prepare_datasets\2-get-hubert-wav32k.py GPT_SoVITS\prepare_datasets\2-get-sv.py GPT_SoVITS\prepare_datasets\3-get-semantic.py
+            if ($LASTEXITCODE -ne 0) { throw 'pinned GPT-SoVITS trainer/preprocess syntax probe failed' }
           } finally {
             Pop-Location
           }
