@@ -34,6 +34,13 @@ fn store() -> &'static Mutex<Option<ActiveGuidedTake>> {
     ACTIVE_GUIDED_TAKE.get_or_init(|| Mutex::new(None))
 }
 
+pub fn active_guided_take_line_id() -> Option<u32> {
+    store()
+        .lock()
+        .ok()
+        .and_then(|guard| guard.as_ref().map(|take| take.line_id))
+}
+
 pub fn arm_guided_take(line_id: u32) -> Result<(), String> {
     if line_id == 0 {
         return Err("voice_lab:invalid_guided_line".to_string());
