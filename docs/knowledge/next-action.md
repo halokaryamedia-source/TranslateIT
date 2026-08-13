@@ -2,141 +2,161 @@
 
 ## Current Mode
 
-**Developing / VoiceLab A4 — GPT-SoVITS Voice Actor Build + Held-Out Evaluation: CLOSED SOURCE-SIDE**
+**Developing / VoiceLab A5 — Canonical Worker Trained Voice Actor Inference: CLOSED SOURCE-SIDE**
 
-A1 single-runtime compatibility, A2 Voice Actor/build contracts, and A3 guided recording remain closed. A4 now adds the bounded source path that can turn accepted guided recordings into one reviewable GPT-SoVITS V2ProPlus Voice Actor candidate without creating a second daily AI worker, second microphone engine, provider registry, or WebUI runtime.
+A1 single-runtime compatibility, A2 actor/build contracts, A3 guided recording, and A4 GPT-SoVITS build/evaluation remain closed. A5 now gives the **existing canonical Python worker** a bounded daily-inference path for the one explicitly approved `MyVoice` actor. It does not change Meeting lifecycle or create a second inference runtime.
 
-## A4 Result
+## A5 Result
 
-The active source now owns this VoiceLab creation flow:
-
-```text
-accepted 32 kHz mono PCM16 guided takes
--> voice authorization confirmation
--> freeze exact training dataset
--> one cancellable VoiceLab build child
--> pinned GPT-SoVITS V2ProPlus source
--> native gpt.ckpt + sovits.pth + reference.wav candidate
--> held-out English evaluation samples
--> user listens and explicitly approves
--> atomic promotion
--> UserData/SavedProject/VoiceLab/MyVoice
-```
-
-The GPT-SoVITS integration remains pinned to upstream revision:
+The active worker now owns this internal path:
 
 ```text
-d523079fc05d9a8028d6085bffe4a2757c32abb6
+UserData/SavedProject/VoiceLab/MyVoice
+-> validate actor.json + gpt.ckpt + sovits.pth + reference.wav
+-> validate exact GPT-SoVITS engine/revision contract
+-> load one GPT-SoVITS V2ProPlus runtime
+-> prepare/cache canonical English reference state
+-> reuse runtime while actor package identity is unchanged
+-> synthesize bounded English text
+-> write local WAV under allowed CacheData output roots
 ```
 
-A4 uses a TranslateIT-owned headless stage boundary instead of importing the upstream Gradio/WebUI surface. The bounded provider path keeps the existing canonical Python runtime as the dependency owner. Gradio, FunASR, ModelScope, `onnxruntime-gpu`, alternate custom-voice engines, and a second packaged Python environment were not adopted.
-
-Permanent worker dependencies are now owned by:
+The new worker protocol is intentionally separate from the existing Meeting TTS commands:
 
 ```text
-EngineData/Backend/LocalWorker/WorkerRuntime/pyproject.toml
-EngineData/Backend/LocalWorker/WorkerRuntime/uv.lock
+voice_actor_preflight
+voice_actor_synthesize
 ```
 
-The accepted lock is a clean `uv lock` resolution from the canonical `pyproject.toml`, not a manually reconstructed lock. The tracked lock blob is:
+Existing `tts_preflight` and `synthesize` remain unchanged for now. This preserves the pre-existing Meeting C4/C5 activation contract until A6 rewires Meeting atomically.
+
+### Actor authority
+
+A5 accepts only the canonical approved actor location:
 
 ```text
-93c34e63a4e2dc793606f84ed498a10b09ea40a3
+UserData/SavedProject/VoiceLab/MyVoice
 ```
 
-The active Windows path resolves Torch/TorchAudio `2.11.0+cu126`, Transformers `4.50.0`, NumPy `1.26.4`, and the other bounded dependencies consumed by the approved A4 English build/evaluation path. English G2P/NLTK resources are explicit local runtime assets; runtime code is not allowed to silently download them.
-
-A4 also closes the long-running build lifecycle gap. Build start is rejected while a guided recording or Meeting owns conflicting runtime resources. Rust keeps generation-bound lifecycle authority, the child publishes real `preparing / training / evaluating / ready_for_review / failed` state, cancellation terminates the build process tree, and an old approved actor is not replaced by an invalid or incomplete rebuild.
-
-The user-facing VoiceLab UI remains intentionally small:
+The Python inference owner revalidates the same essential actor contract already enforced by Rust promotion:
 
 ```text
-record / replay / retry / accept
--> enough accepted speech
--> Create My Voice
--> Stop Creating when active
--> listen to held-out preview sentences
--> Approve My Voice
+schema_version = 1
+engine = gpt-sovits-v2proplus
+engine_revision = d523079fc05d9a8028d6085bffe4a2757c32abb6
+gpt_weight_file = gpt.ckpt
+sovits_weight_file = sovits.pth
+reference_wav_file = reference.wav
+held_out_evaluation_complete = true
+reference = mono PCM16 / 32 kHz / 3–10 seconds
 ```
 
-Internal checkpoints, epochs, provider names, CUDA details, and similarity numbers are not presented as normal product controls. Training completion or an internal similarity value alone is not treated as proof that the voice is good; held-out user listening approval remains required.
+Symlinked/missing/empty actor assets are rejected. The actor package is revalidated after a runtime load before the runtime is cached, so an externally changed actor is not silently accepted during the load boundary.
 
-The full-product release inventory now includes the GPT-SoVITS VoiceLab source/pretrained asset root as a required manual/release asset. The developer Hugging Face downloader remains limited to revision-pinned Hugging Face assets and does not fabricate GPT-SoVITS or Piper release assets.
+A bounded file identity tuple `(name, size, mtime_ns)` is used only to invalidate the in-process actor cache when the approved package changes. It is not a release checksum, package registry, or new identity framework.
+
+### Runtime reuse
+
+A5 extends the existing A4 `voice_lab_gpt_sovits.py` provider instead of adding another provider owner. Real GPT-SoVITS model construction occurs under the pinned GPT-SoVITS source root because upstream V2ProPlus contains cwd-relative runtime asset paths. The prior working directory is restored immediately after construction.
+
+The provider now shares one TTS-construction boundary between A4 held-out evaluation and A5 daily actor inference. The canonical reference is prepared once with upstream `set_ref_audio()` and the loaded runtime is reused for later utterances while the actor package remains unchanged.
+
+Pinned upstream V2ProPlus also loads the speaker-verification model when Pro/ProPlus SoVITS weights are initialized, so that asset remains a real runtime requirement rather than an evaluation-only dependency.
+
+### Fail-closed behavior
+
+`voice_actor_synthesize` does **not** call the legacy Piper/SAPI selection path. If `MyVoice`, GPT-SoVITS source assets, model loading, reference preparation, or synthesis fails:
+
+```text
+request fails as My Voice unavailable/failed
+stale output WAV is removed
+no alternate voice is selected
+```
+
+A5 therefore does not create an accidental voice substitution policy before Meeting integration.
 
 ## Proof
 
-Two hosted Windows proofs are accepted for A4.
-
-### Pinned provider compatibility
-
-Run `31724026882` proved the exact headless English V2ProPlus dependency boundary against the existing TranslateIT worker:
+Product source commit:
 
 ```text
-current TranslateIT worker imports -> PASS
-offline English G2P resources -> PASS
-pinned GPT-SoVITS headless imports -> PASS
-trainer/preprocess source syntax -> PASS
-Gradio/FunASR/ModelScope/onnxruntime-gpu exclusion -> PASS
+d8a73bf684cfbca8e6b10ed5a47d3de92b4deb53
+Implement VoiceLab A5 trained actor inference
 ```
 
-### Final current-source closure
-
-Run `31733950503` completed successfully and its log was inspected directly. It proves:
+Before commit, the hosted exact-patch builder produced these Git blob identities; the committed branch was then verified to contain the same blobs:
 
 ```text
+realtime_local_worker.py      bfd69011dff492a543896184d437f822a48dc00b
+voice_lab_gpt_sovits.py       6230b3d09588f92c775f827d8eb7d74669cefb20
+test_voice_actor_inference.py c06fdcd0c2df954404415d8fa8630bd53f85ced0
+```
+
+Final accepted hosted Windows worker proof:
+
+```text
+run 31739723535
+Windows Server 2022 / Python 3.12
 uv lock --check -> PASS
 uv sync --frozen --no-install-project -> PASS
-Python source compile -> PASS
-Python tests -> 25 PASS / 0 FAIL
-permanent Torch/TorchAudio/Transformers worker imports -> PASS
-unrelated provider dependency exclusion -> PASS
-svelte-check -> 0 errors / 0 warnings
-Vite production build -> PASS
-cargo check --locked -> PASS
-cargo test --no-run --locked -> PASS
-VoiceLab Rust contract tests -> 5 PASS / 0 FAIL
+pyproject.toml + uv.lock remain unchanged -> PASS
+A5 Python syntax gate -> PASS
+Python tests -> 31 PASS / 0 FAIL
+A5_FINAL_SOURCE_PROOF -> PASS
 ```
 
-The five VoiceLab Rust tests cover authorization/held-out dataset integrity, generation-bound build/cancel semantics, required native actor artifacts, canonical guided-WAV dataset freezing, and preservation of the currently approved actor when a rebuild candidate is invalid.
+The six new A5 tests cover:
 
-The earlier failed lock/source-proof runs are not closure evidence. They exposed and corrected lock transfer/inventory-test issues before this accepted proof.
+```text
+approved actor-package contract validation
+wrong engine revision rejection
+GPT-SoVITS source cwd restoration
+actor runtime reuse + reload after package identity change
+MyVoice-only synthesis path
+failure removes stale output and never invokes legacy voice fallback
+worker protocol registration
+```
+
+The canonical Python dependency lock remains the A4 lock; A5 did not add another dependency graph or provider surface.
 
 ## Not Proven Yet
 
-A4 source closure does **not** prove:
+A5 source closure does **not** prove:
 
 ```text
-physical microphone quality on the user's target PC
-real GPT-SoVITS pretrained asset placement on the target installation
-actual training duration on target hardware
-CUDA / GPU / VRAM practicality on the target PC
-real cancellation behavior under a long target training workload
-subjective speaker identity / fidelity of a trained My Voice
-held-out preview quality on the user's own recordings
-clean-machine / installer packaging
-trained-actor daily inference through the canonical worker
-Meeting custom-TTS readiness or latency
-physical VB-Cable / meeting-app audio delivery
+real approved MyVoice weights generated from the user's recordings
+actual GPT-SoVITS source/pretrained asset placement on the target installation
+real model load or synthesis on the user's target PC
+speaker similarity or subjective voice fidelity
+GPU/CUDA/VRAM practicality
+actual daily-inference latency
+long-session inference stability
+Meeting Start readiness with MyVoice
+Meeting translated-audio routing through MyVoice
+physical VB-Cable / meeting-app reception
+installer / clean-machine packaging
 ```
 
-No user-local-PC testing occurred. Hosted Windows source proof is not target-hardware acceptance.
+No user-local-PC testing occurred. Hosted Windows source tests use deterministic contract/mocked inference boundaries where real user model assets are unavailable; they do not constitute target voice-quality or hardware proof.
 
 ## Next Step
 
-**VoiceLab A5 — Canonical Worker Trained Voice Actor Inference**
+**VoiceLab A6 — Meeting Atomic Custom-TTS Readiness**
 
-Extend the existing canonical Python worker so an already approved `UserData/SavedProject/VoiceLab/MyVoice` actor can synthesize English speech through the GPT-SoVITS V2ProPlus path. Keep the current one-worker architecture and keep provider/checkpoint details private from the product-facing contract.
-
-A5 should prove only the daily inference boundary needed before Meeting integration:
+Integrate the A5 trained-actor commands into the existing Meeting authority without creating another lifecycle. Replace only the required outbound TTS portion of the C4/C5 Start transaction:
 
 ```text
-approved MyVoice actor
--> load/validate native actor artifacts
--> prepare/cache canonical reference state
--> synthesize English text
--> return bounded local WAV/audio result
+Meeting generation owns Starting
+-> existing microphone readiness
+-> existing ASR preload / real ASR fixture
+-> existing ID -> EN translation fixture
+-> voice_actor_preflight loads/warm-caches approved MyVoice
+-> bounded real English voice_actor_synthesize fixture succeeds
+-> existing native Meeting output callback is ready
+-> existing outbound consumer is ready
+-> same generation may commit Live
 ```
 
-Do not add a second inference worker, provider registry, automatic retraining, background training scheduler, voice-profile selector, alternate custom-voice engine, or Meeting lifecycle changes in A5.
+A6 must keep generation-bound cache invalidation and fail closed if the approved actor becomes unavailable or changes. When MyVoice is the required outbound authority, do not silently fall back to Piper/SAPI. Keep VoiceLab training mutually exclusive with an active Meeting.
 
-**Meeting atomic custom-TTS readiness remains the step after A5.** A5 should not weaken the existing C4/C5 generation-bound Meeting activation contract or silently fall back to the pre-VoiceLab voice when the trained My Voice path is the required authority.
+Do not add profile selection, another TTS engine, second worker, background actor loading service, generic readiness framework, or target-PC tuning in A6.
