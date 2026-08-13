@@ -4,364 +4,193 @@ This map points to current semantic owners. File existence alone does not make a
 
 | Responsibility | Canonical owner | Current status |
 |---|---|---|
-| Product scope + familiar UI policy | `docs/foundation/01-product-overview.md`, `02-product-requirements.md` including PR-110..119 and PR-166 | ACTIVE / VOICELAB APPROVED |
+| Product scope + familiar UI policy | `docs/foundation/01-product-overview.md`, `02-product-requirements.md` including PR-110..119 and PR-166 | ACTIVE / VOICELAB REQUIRED |
 | Stable context | `CONTEXT.md` | ACTIVE |
 | Continuation | `docs/knowledge/next-action.md` | ACTIVE |
 | Durable decisions | `docs/knowledge/decision-log.md` | ACTIVE / D-020 VOICELAB |
 | Frontend entry | `EngineData/Frontend/RustApp/src/main.ts` | ACTIVE / ONE SVELTE MOUNT |
-| Frontend application owner | `src/App.svelte` | ACTIVE SOURCE / COHERENT SNAPSHOT + GATED LIVE TRANSCRIPT |
-| First Setup UI | `src/pages/FirstSetup.svelte` | ACTIVE SOURCE / FIVE PERSISTED CHECKPOINTS / ATOMIC DEVICE SELECTION |
-| Meeting Ready UI | `src/pages/Meeting.svelte` | ACTIVE SOURCE / FAMILIAR SPEAK -> HEAR FLOW / PRE-VOICELAB TTS |
-| Meeting live transcript/activity | `src/components/meeting/MeetingActivity.svelte` | ACTIVE SOURCE / LISTENING-TRANSLATING-SPEAKING |
-| Text UI | `src/pages/Text.svelte` | ACTIVE SOURCE / FROM-TO + SWAP + TRANSLATE + EDIT + COPY / USER-SAFE FAILURES |
-| VoiceLab UI | future `src/pages/VoiceLab.svelte` under existing Svelte app | APPROVED / NOT IMPLEMENTED / A2 BACKEND CONTRACT GROUNDED |
-| Settings / Diagnostics UI | `src/pages/Settings.svelte` | ACTIVE SOURCE / MEETING-ADVANCED TABS / DIAGNOSTICS REFRESH ON OPEN |
-| Primary navigation | `src/components/layout/Sidebar.svelte` | ACTIVE SOURCE / CURRENTLY MEETING-TEXT-SETTINGS / VOICELAB TARGET PENDING |
-| Shared status badge | `src/components/ui/StatusBadge.svelte` | ACTIVE SOURCE / ATTENTION STATES |
-| Shared readiness/status row | `src/components/ui/StatusRow.svelte` | ACTIVE SOURCE / OPTIONAL HEALTHY BADGE |
-| Semantic visual tokens | `src/styles/tokens.css` | ACTIVE / SINGLE TOKEN OWNER |
-| Base/layout/component styling | `src/styles/app.css` | ACTIVE / TAILWIND + BOUNDED SHARED CLASSES |
-| Frontend Tauri bridge | `src/app/bridge/runtimeApi.ts` | ACTIVE / TRANSPORT BOUNDARY / VOICELAB COMMANDS NOT YET PRESENT |
-| Product facade/readiness projection | `src/app/bridge/runtimeProductFacade.ts` | ACTIVE / CURRENT MEETING-PREFLIGHT PROJECTION / VOICELAB READINESS NOT YET PRESENT |
-| Shared frontend settings/error helpers | `src/app/shared/state.ts`, `types.ts`, `tauriBridge.ts` | ACTIVE / RETAINED |
-| Tauri invoke registration | `src-tauri/src/commands/registry.rs` | ACTIVE / PRUNED / VOICELAB NOT YET REGISTERED |
-| VoiceLab build lifecycle + actor contract | `src-tauri/src/commands/voice_lab.rs` | ACTIVE A2 SOURCE CONTRACT / INTERNAL ONLY / NOT A GENERIC SERVICE FRAMEWORK |
-| VoiceLab recording capture | existing Rust/CPAL audio ownership extended only where guided recording requires it | APPROVED RESPONSIBILITY / NEXT A3 / NOT IMPLEMENTED / NO SECOND AUDIO ENGINE |
-| Voice Actor temporary build data | `UserData/CacheData/VoiceLab` through existing path semantics | ACTIVE A2 CONTRACT / TAKES + FROZEN DATASET + CANDIDATE OWNERSHIP |
-| Approved persistent Voice Actor | `UserData/SavedProject/VoiceLab/MyVoice` through existing path semantics | ACTIVE A2 CONTRACT / VALIDATED PROMOTION + PREVIOUS-ACTOR PRESERVATION |
-| Meeting authority | `commands/meeting_session.rs`, `commands/runtime.rs`, `engine/runtime_state.rs` | ACTIVE / ATOMIC START + PUBLIC START BLOCKS WHILE VOICELAB BUILD IS ACTIVE |
-| Physical microphone + Meeting Sound | `engine/audio/*` | ACTIVE |
-| Audio-device selection transaction | `commands/settings.rs` + `commands/audio.rs` + `engine/audio/input.rs` | ACTIVE / FUNCTIONAL MIC PROBE + PRESERVE + SAVE OWNER |
-| Mic Test lifecycle | `engine/capture_lifecycle.rs`, `commands/runtime_capture.rs` | ACTIVE / BOUNDED |
-| Meeting Microphone route | `commands/virtual_mic_route.rs`, `engine/audio/meeting_output.rs` | ACTIVE / MATCHED ROUTE + PRE-LIVE SILENT CALLBACK PROBE + RUST/CPAL DELIVERY |
-| Outbound latency instrumentation | `engine/audio/finalized_utterance.rs`, `commands/meeting_session.rs`, `engine/audio/meeting_output.rs` | ACTIVE / PR-052 TRANSIENT STAGE TIMING + CPAL PREDICTED FIRST PLAYBACK |
-| Local worker/scheduler | `helper_bridge.rs`, `helper_bridge_runtime.rs`, `realtime_local_worker.py` | ACTIVE / ONE DAILY AI INFERENCE OWNER / CURRENT PRE-VOICELAB TTS |
-| Trained Voice Actor daily TTS inference | existing canonical Python local worker; GPT-SoVITS V2ProPlus must replace current TTS stage in this owner | APPROVED TARGET / NOT IMPLEMENTED / NO SECOND DAILY WORKER |
-| VoiceLab training execution | GPT-SoVITS V2ProPlus build operation invoked by VoiceLab outside active Meeting | APPROVED TARGET / NOT IMPLEMENTED / A2 LIFECYCLE CONTRACT ONLY |
-| Installed worker interpreter path | `engine/paths.rs`, `commands/bridge_paths.rs` | SOURCE ALIGNED: `LocalWorker/PythonRuntime/python.exe` / ONE-RUNTIME COMPATIBILITY PREFERRED |
-| Worker dependency graph | `EngineData/Backend/LocalWorker/WorkerRuntime/pyproject.toml` + `uv.lock` | ACTIVE / A1 SINGLE-RUNTIME CORE COMPATIBILITY PASSED / GPT-SOVITS DEPS NOT YET COMMITTED |
-| Voice runtime assets | `EngineData/Backend/RuntimeAssets/Voice/` | ACTIVE CURRENT PIPER SLOT / TARGET GPT-SOVITS ASSET OWNERSHIP NOT YET IMPLEMENTED |
-| Full-product-release asset presence inventory | `runtime_inventory.rs` + `WorkerRuntime/model_manifest.json` | ACTIVE / FRESH EXPLICIT VERIFY / DOES NOT GATE MEETING START |
-| Text translation | `text_translate.rs` -> helper -> worker | ACTIVE / TYPED RESULT: TRANSLATED TEXT + USER MESSAGE + BLOCKER |
-| Persisted settings | `engine/settings.rs`, `engine/runtime_settings.rs`, `commands/settings.rs` | ACTIVE / SCHEMA V6 / DO NOT REVIVE OLD VOICE PROFILE SETTINGS WITHOUT NEED |
-| Source validation | small validators under `scripts/` | ACTIVE / SVELTE + PR-166 + RUNTIME-EFFICIENCY CONTRACT AWARE |
-| Local frontend proof | dependency install + Svelte autofixer + `svelte-check` + Vite build/render | DEFERRED BY USER / REQUIRED BEFORE RELEASE |
-| Target runtime proof | real GPT-SoVITS training/inference + Windows model/audio/device/package checks | DEFERRED UNTIL VOICELAB SOURCE CLOSES / REQUIRED BEFORE RELEASE |
+| Frontend application owner | `src/App.svelte` | ACTIVE / MEETING + TEXT + VOICELAB + SETTINGS |
+| First Setup UI | `src/pages/FirstSetup.svelte` | ACTIVE / FIVE PERSISTED CHECKPOINTS |
+| Meeting UI | `src/pages/Meeting.svelte`, `src/components/meeting/MeetingActivity.svelte` | ACTIVE / PRE-VOICELAB TTS |
+| Text UI | `src/pages/Text.svelte` | ACTIVE |
+| VoiceLab guided-recording UI | `src/pages/VoiceLab.svelte` | ACTIVE A3 / RECORD-REPLAY-RETRY-ACCEPT ONLY / NO TRAINING UI YET |
+| Primary navigation | `src/components/layout/Sidebar.svelte` | ACTIVE / MEETING-TEXT-VOICELAB-SETTINGS |
+| Frontend VoiceLab bridge | `src/app/bridge/voiceLabApi.ts` | ACTIVE A3 / FOCUSED COMMAND BRIDGE |
+| Product facade/readiness projection | `src/app/bridge/runtimeProductFacade.ts` | ACTIVE / MEETING READINESS STILL PRE-VOICELAB TTS |
+| Tauri invoke registration | `src-tauri/src/commands/registry.rs` | ACTIVE / A3 GUIDED COMMANDS REGISTERED |
+| VoiceLab actor/build contract | `src-tauri/src/commands/voice_lab.rs` | ACTIVE A2 INTERNAL CONTRACT / REAL TRAINING EXECUTOR NOT IMPLEMENTED |
+| VoiceLab guided-recording commands | `src-tauri/src/commands/voice_lab_recording.rs` | ACTIVE A3 / EXACT SCRIPT + DRAFT + REPLAY + RETRY + ACCEPT |
+| Canonical microphone capture | `engine/audio/live_capture.rs` | ACTIVE / ONE CPAL STREAM / FEEDS OPTIONAL GUIDED SINK |
+| VoiceLab guided audio sink | `engine/audio/guided_take.rs` | ACTIVE A3 / MONO BUFFER + RUBATO FFT RESAMPLE TO 32 KHZ |
+| PCM16 WAV writer | `engine/audio/live_segment_writer.rs::write_pcm16_wav` | ACTIVE / REUSED BY MEETING + VOICELAB / NO DUPLICATE WRITER |
+| Mic Test lifecycle | `engine/capture_lifecycle.rs`, `commands/runtime_capture.rs` | ACTIVE / CANNOT CONTROL ACTIVE VOICELAB TAKE |
+| Voice Actor temporary data | `UserData/CacheData/VoiceLab` through `VoiceLabStoragePaths` | ACTIVE / DRAFT + ACCEPTED TAKES + A2 BUILD/CANDIDATE CONTRACT |
+| Approved persistent Voice Actor | `UserData/SavedProject/VoiceLab/MyVoice` | ACTIVE A2 CONTRACT / NO REAL TRAINED ACTOR YET |
+| Meeting authority | `commands/meeting_session.rs`, `commands/runtime.rs`, `engine/runtime_state.rs` | ACTIVE / ATOMIC START / VOICELAB BUILD EXCLUSION |
+| Meeting Microphone route | `commands/virtual_mic_route.rs`, `engine/audio/meeting_output.rs` | ACTIVE |
+| Local worker/scheduler | `helper_bridge.rs`, `helper_bridge_runtime.rs`, `realtime_local_worker.py` | ACTIVE / ONE DAILY AI OWNER / CURRENT PRE-VOICELAB TTS |
+| VoiceLab training execution | future bounded GPT-SoVITS V2ProPlus child execution through A2 lifecycle | NEXT A4 / NOT IMPLEMENTED |
+| Trained Voice Actor daily TTS inference | existing canonical Python worker | APPROVED TARGET / NOT IMPLEMENTED |
+| Rust dependency graph | `src-tauri/Cargo.toml` + `Cargo.lock` | ACTIVE / RUBATO `=0.16.2` EXACT-PINNED FOR A3 RESAMPLING |
+| Worker Python dependency graph | `WorkerRuntime/pyproject.toml` + `uv.lock` | ACTIVE / A1 CORE COMPATIBILITY PROVED / GPT-SOVITS PERMANENT DEPS NOT YET ADOPTED |
+| Voice runtime assets | `EngineData/Backend/RuntimeAssets/Voice/` | CURRENT PRE-VOICELAB ASSETS / GPT-SOVITS ASSET OWNERSHIP NEXT A4 |
+| Persisted settings | `engine/settings.rs`, `engine/runtime_settings.rs`, `commands/settings.rs` | ACTIVE / SCHEMA V6 / NO VOICE PROFILE SELECTOR |
+| Target runtime proof | target Windows model/audio/device/package checks | DEFERRED UNTIL VOICELAB SOURCE CLOSES |
 
 ## VoiceLab Ownership Boundary
 
-VoiceLab now has an **active bounded A2 backend contract**, but it is not yet an end-user feature. `commands/voice_lab.rs` owns only the Voice Actor data/lifecycle boundary needed by the approved guided-flow direction. It is deliberately not registered as a Tauri command surface yet because there is no recording/training executor for the UI to truthfully invoke.
-
-The ownership graph is:
+VoiceLab now has a real end-user **guided recording** path, but not a training or daily custom-TTS path yet.
 
 ```text
-future VoiceLab.svelte
--> existing runtimeApi.ts
--> bounded Rust VoiceLab lifecycle/data owner
--> future approved GPT-SoVITS V2ProPlus build operation
--> UserData/CacheData/VoiceLab build workspace
--> user review / approval
--> validated promotion to UserData/SavedProject/VoiceLab/MyVoice
+VoiceLab.svelte
+-> voiceLabApi.ts
+-> commands/voice_lab_recording.rs
+-> existing live_capture.rs CPAL stream
+-> optional guided_take.rs sink
+-> local review WAV
+-> Retry or Accept
+-> UserData/CacheData/VoiceLab/Takes
+-> A2 dataset/build contract
 
-Meeting
+A4 build
+-> commands/voice_lab.rs lifecycle
+-> future bounded GPT-SoVITS V2ProPlus build child
+-> Candidate
+-> held-out evaluation + user approval
+-> A2 promotion
+-> SavedProject/VoiceLab/MyVoice
+
+Meeting later
 -> existing Meeting authority
 -> existing helper/scheduler
 -> existing canonical Python worker
--> future trained GPT-SoVITS V2ProPlus My Voice inference
+-> trained MyVoice inference
 -> existing Rust/CPAL Meeting output
 ```
 
-This graph explicitly excludes:
+The graph still explicitly excludes:
 
 ```text
-no second daily TTS worker
-no OpenVoice sidecar
-no Piper/SAPI fallback after migration
-no Qwen quick-clone path
-no provider registry
-no generic model manager
+no browser microphone capture path
+no second CPAL audio engine
+no imported-audio VoiceLab mode
+no ASR-based guided-line labeling
+no OpenVoice/Qwen/Piper alternate custom-voice path
+no provider/model registry
 no VoiceLab database
 no second settings store
 no background training scheduler
 no simultaneous VoiceLab training + Meeting
-no generic imported-audio branch
 no generic audio-conversion framework
+no training dashboard/progress theater
 ```
 
-A1 proved that the V2ProPlus model core can coexist with the current one-private-`PythonRuntime` package identities on hosted Windows with only a bounded candidate dependency set. That proof did not authorize copying the whole upstream dependency graph, and A2 intentionally adds no Python dependency or model package.
+## Guided Recording Ownership
 
-## Voice Actor Data Ownership
+The first recording script is backend-owned in `commands/voice_lab_recording.rs`; each line has an exact English text and stable line ID. The current script has 16 lines only to make the recording/review workflow real. **Sixteen accepted lines are not Voice Actor quality proof and are not a permanent recording-volume requirement.** A4 owns deciding/expanding corpus coverage from fidelity-first training needs.
 
-VoiceLab persistent semantics are intentionally narrower than general Saved/History:
+Recording uses the same configured microphone and the same `live_capture.rs` CPAL stream already used by TranslateIT. `guided_take.rs` is only an optional capture sink: when no VoiceLab take is armed, the callbacks continue normal behavior without a second device/thread owner.
+
+Input is downmixed to mono in the guided sink and converted to the A2 training format after Stop:
+
+```text
+source microphone format
+-> mono float buffer
+-> Rubato 0.16.2 FftFixedInOut
+-> 32,000 Hz mono samples
+-> shared PCM16 WAV writer
+-> review draft
+```
+
+Rubato is exact-pinned because fidelity-first accepted audio did not justify the earlier hand-written linear resampler. Version `0.16.2` preserves compatibility with the current Rust 1.77 project; adopting newer Rubato only to obtain a newer version would force unrelated MSRV churn.
+
+A3 deliberately does not reuse all Mic Test heuristics as VoiceLab quality policy. It automatically blocks only unmistakably silent/empty capture. Noise, clipping, corpus sufficiency, speaker similarity, and generated-voice quality belong to A4 model/evaluation evidence rather than arbitrary A3 thresholds.
+
+## Take Persistence
+
+A3 adds the active portion of the existing A2 storage contract:
 
 ```text
 UserData/CacheData/VoiceLab/
-├─ Takes/
+├─ Draft/
 │  └─ take_<line-id>.wav
-├─ Build/
-│  └─ Dataset/
-│     ├─ exact accepted WAV copies
-│     └─ dataset.json
-└─ Candidate/
-   ├─ actor.json
-   ├─ gpt.ckpt
-   ├─ sovits.pth
-   └─ reference.wav
-
-UserData/SavedProject/VoiceLab/
-└─ MyVoice/
-   ├─ actor.json
-   ├─ gpt.ckpt
-   ├─ sovits.pth
-   └─ reference.wav
+└─ Takes/
+   └─ take_<line-id>.wav
 ```
 
-A2 deliberately does **not** create a user-configurable profile root, profile database, model registry, or multiple-actor selector. The first product still has one approved `MyVoice` actor.
+`Stop` creates the review draft. `Replay` returns local WAV bytes through Tauri IPC. `Retry` removes the draft and keeps any previous accepted take. `Accept` replaces the same line's accepted take while preserving/rolling back the previous file on normal replacement failure.
 
-The first guided-capture build input contract is deliberately narrow:
+A deadlock found during A3 review was fixed before closure: command responses no longer rebuild VoiceLab state while still holding the pending-draft mutex.
+
+A2 continues to own later build/promotion storage:
 
 ```text
-RIFF/WAVE
-PCM integer format
-mono
-32,000 Hz
-16-bit
-non-empty
+CacheData/VoiceLab/Build/Dataset
+CacheData/VoiceLab/Candidate
+SavedProject/VoiceLab/MyVoice
 ```
 
-A2 validates that format and freezes only explicitly listed accepted take filenames. It does not add `torchaudio`, `librosa`, FFmpeg wrappers, a generic resampler, or imported-audio transcoding. A3 recording/audio ownership must produce this canonical guided WAV format from the app's own capture flow. This is an internal build contract, not a claim that arbitrary external audio is supported.
+There is still one `MyVoice`; A3 does not add profile roots, multiple actors, or selection settings.
 
-The dataset manifest owns:
+## Resource And Close Ownership
+
+VoiceLab recording uses the existing direct live-capture runtime claim. `capture_lifecycle.rs` prevents Mic Test Start/Stop from controlling an armed guided take, and existing runtime-session exclusion prevents Meeting from claiming the microphone concurrently.
+
+`App.svelte` prevents normal navigation away from VoiceLab while recording. Native `main.rs` also prevents process exit while a guided take is active, so browser/UI close state is not the only safety boundary.
+
+Pending-review state is transient in-process state. A current bridge-read failure can still project an empty VoiceLab display state; active recording remains protected natively. Do not introduce a generic state-recovery framework solely for that narrow edge. A4 should reconcile close/recovery semantics when a real long-running build process exists.
+
+## Build Lifecycle
+
+`commands/voice_lab.rs` still owns the A2 generation-bound lifecycle:
 
 ```text
-schema version
-authorized-voice confirmation
-exact known English text per accepted take
-canonical take filename
-held-out evaluation lines kept separate from training IDs/text
+idle -> preparing -> training -> evaluating -> terminal
+active -> cancelling -> terminal
 ```
 
-No ASR model is added for dataset labeling. No arbitrary recording-count, training-duration, epoch-count, similarity-score, silence-ratio, or clipping threshold is promoted as product truth by A2. Signal-quality checks that require actual captured audio remain a later guided-capture/training concern and must be evidence-driven.
+A3 does not fake child-process training or expose training commands. Real process start/cancel/join, pretrained assets, candidate checkpoints, held-out synthesis, and approval are A4 responsibilities.
 
-The native first Voice Actor package contract is intentionally only:
+## Dependency Ownership
 
-```text
-actor.json
-+ gpt.ckpt
-+ sovits.pth
-+ canonical English reference.wav
-+ exact reference text
-```
+The first attempt to add Rubato used broad `cargo generate-lockfile` output and was rejected because it rewrote hundreds of unrelated dependency lines. The accepted lock was restored to the A2 baseline and resolved only the bounded Rubato delta: 79 added lock lines and no removals relative to A2.
 
-The reference WAV must satisfy the approved 3–10 second product contract. Candidate promotion requires the native weights/reference contract plus a completed held-out-evaluation marker. **Calling promotion is the explicit approval boundary**; training completion alone never promotes the actor.
+This establishes a durable rule for the remaining VoiceLab work: dependency adoption must be **bounded to what the active path consumes**. Do not accept upstream/tool-generated lock churn merely because it compiles.
 
-Promotion stages the exact four actor files, validates the staged package, preserves the previous `MyVoice` until replacement is ready, and has rollback/recovery handling for interrupted replacement. A rejected/invalid rebuild candidate must not replace the current approved actor.
-
-The old historical `AudioStudio` take concepts may be reused only where they map directly to the approved guided flow (`guided_reading`, `accepted`, `needs_retry`). Do not restore its provider parity, professional/broadcast tiers, import branch, performance-control surface, or broad project metadata framework.
-
-## VoiceLab Build Lifecycle
-
-`commands/voice_lab.rs` owns one in-process generation-bound A2 lifecycle:
-
-```text
-idle
--> preparing
--> training
--> evaluating
--> terminal finish
-
-active phase
--> cancelling
--> terminal finish
-
-stage failure
--> terminal fail
-```
-
-Only one build may be active. A stale generation cannot mutate a newer build. A cancellation request changes the lifecycle to `cancelling`; it does **not** claim that a real Python training process has been terminated because the training executor does not exist yet. Actual child-process cancellation/join semantics belong to the later training implementation.
-
-The A2 lifecycle is intentionally transient rather than persisted. Persisting speculative half-built job state before there is a real training child/resume contract would add complexity without a current recovery requirement.
-
-Mutual exclusion is already wired at the public Meeting Start boundary: `commands/runtime.rs::start_meeting_translation()` returns `voice_lab_build_active` before virtual-route preparation when an A2 build is active. Starting a VoiceLab build also fails closed when the canonical application Meeting owner is active. This prevents a future caller from silently running the two authorities concurrently without inventing a GPU-arbitration framework.
-
-## Frontend Ownership
-
-The active frontend path is currently singular:
-
-```text
-index.html
--> src/main.ts
--> mount(App.svelte)
--> FirstSetup / Meeting / Text / Settings
-```
-
-The target adds `VoiceLab` to that same path after its backend recording/build actions are truthfully invokable. A2 intentionally does not create the page, router, placeholder status, or empty command bridge just because the backend data contract now exists.
-
-Runtime ownership stays separate:
-
-```text
-Svelte UI
--> runtimeProductFacade.ts / runtimeApi.ts as appropriate
--> Tauri commands
--> Rust / Python runtime owners
-```
-
-Svelte owns page/dialog/input/presentation state. It does not become a second authority for Meeting lifecycle, VoiceLab build process truth, persisted settings, models, audio capability, or worker truth.
-
-Normal application settings have one active frontend projection through `ProductRuntimeSnapshot.settings`. `setupSettings` is only the bootstrap/First Setup holder before the normal snapshot exists.
-
-## Runtime-Efficiency And Consistency Boundary
-
-The frontend/backend boundary keeps these source-level rules:
-
-```text
-settings transport failure
--> explicit unavailable
--> never fabricate default settings / First Setup
-
-Meeting status
--> canonical Meeting preflight owns Meeting readiness
--> App recomputes Meeting-facing product readiness with each current status
-
-Live Meeting poll
--> lightweight Meeting status polling remains bounded
--> committed transcript snapshot is fetched only when Meeting status revision signals change
-
-Start / Stop
--> consume authoritative status already returned by the Rust Meeting command
--> no immediate full product refetch solely to rediscover that result
-
-audio-device change
--> one Rust transaction: load current -> probe candidate -> preserve or save -> return canonical settings
--> frontend does not own probe/save rollback semantics
-
-Text translation
--> Rust returns translated text, normal-user message, and diagnostic blocker separately
--> normal Text UI does not display worker/model/device blocker detail
-
-VoiceLab build
--> future long-running explicit job outside Meeting
--> one canonical generation-bound build state already exists in A2
--> UI may observe it only after real build commands exist
--> no polling that reruns training/model preparation
--> training success alone is not actor approval
-```
-
-This is deliberately not a new frontend state framework, event bus, global store, model registry, or parallel readiness owner.
-
-## Familiar Translation Interaction Ownership
-
-PR-166 owns the product-level rule. Current source implements it through Meeting/Text/Settings/First Setup. VoiceLab must align with the same visual/product principles when added:
-
-```text
-VoiceLab
--> My Voice
--> one Create/Rebuild flow
--> guided line
--> Record / Replay / Retry / Accept
--> Training
--> Preview
--> Approve
-```
-
-Healthy/Ready rows may omit a redundant badge. Technical GPT-SoVITS names, submodels, checkpoints, epochs, sampling internals, and dependency information belong only in bounded diagnostics when useful, not normal VoiceLab UI.
-
-## Product-State Mapping
-
-`runtimeProductFacade.ts` remains the single frontend product-state mapper for normal product snapshots. VoiceLab may add a focused build-state contract rather than forcing hour-long training state through the recurring Meeting snapshot.
-
-Current visible vocabulary includes:
-
-```text
-Checking
-Ready
-Live
-Starting
-Stopping
-Setup Needed
-Unavailable
-In Use
-```
-
-Approved VoiceLab user-facing states may add bounded concepts such as `Recording`, `Training`, `Needs Review`, and `Ready`; do not expose engine/process internals as product states.
-
-`App.svelte` safe close remains Meeting-safe-close owned. VoiceLab real training close/cancel behavior must extend the bounded build lifecycle rather than reusing Meeting Stop blindly.
-
-## Visual System Ownership
-
-Approved implementation remains intentionally small:
-
-```text
-Svelte 5 + TypeScript + Vite
-Tailwind CSS 4
-semantic CSS custom properties
-selective Bits UI
-@lucide/svelte icons
-```
-
-`tokens.css` owns durable surfaces, text, actions, state colors, shape/elevation, and desktop composition. `app.css` owns Tailwind loading, focus/reduced-motion rules, page composition, and the bounded shared panel/button/field/pill vocabulary.
-
-The UI deliberately favors whitespace, typography, and alignment over nested cards and repeated badges. VoiceLab must not become an AI-styled dashboard with gradients, glow, model cards, progress theater, arbitrary percentages, or decorative training graphs.
-
-## Backend / Release Ownership
-
-Rust/Python ownership stays singular for normal inference. The one private packaged interpreter remains:
-
-```text
-<runtime root>/EngineData/Backend/LocalWorker/PythonRuntime/python.exe
-```
-
-Packaged execution fails closed when that interpreter is missing; repository Python alternatives remain development-only.
-
-Dependency and asset ownership is intentionally split:
-
-```text
-WorkerRuntime pyproject.toml + committed uv.lock
--> canonical resolved Python dependency graph
--> A1 proved a bounded V2ProPlus core compatibility direction
--> A2 does not mutate this lock
--> permanent VoiceLab dependencies enter only when the actual training/inference adapter consumes them
-
-Worker status / functional preflight
--> current Meeting-required AI runtime capability
--> later includes trained Voice Actor TTS readiness
-
-model_manifest.json + runtime_inventory.rs
--> full-product-release asset presence only
--> never substitutes for functional Meeting Start readiness
-```
+The Python worker lock remains unchanged by A3. A1 proved only that the V2ProPlus model core can coexist with the current worker stack; A4 must earn each permanent Python dependency from real training/evaluation code.
 
 ## Proof Boundary
 
-Remote Windows proof run `31699857917` covers the A2 Rust contract only after materializing the canonical frontend dist needed by Tauri compile-time context.
-
-It proved:
+Accepted A3 source proof is hosted Windows run `31711094448`:
 
 ```text
-frontend production dist prerequisite -> PASS
+npm ci -> PASS
+svelte-check -> 0 errors / 0 warnings
+Vite production build -> PASS
 cargo check -> PASS
 cargo test --no-run -> PASS
-five bounded commands::voice_lab::tests -> PASS
-public Meeting Start VoiceLab exclusion source guard -> PASS
-VoiceLab Tauri command registration absent -> PASS
+guided take tests -> 2 PASS / 0 FAIL
+ownership guard -> PASS
 ```
 
-The five bounded A2 tests cover authorization/held-out dataset separation, generation-bound cancellation semantics, canonical guided-WAV dataset freeze, native actor-package/evaluation validation, and preservation of the current actor when a rebuild candidate is rejected.
+The guided tests cover 48 kHz stereo -> exact one-second 32 kHz mono FFT-resampled output and silent-take rejection.
 
-A2 intentionally leaves its future caller-facing functions unregistered until A3/A4 consume them. Rust therefore reports staged `dead_code` warnings for those not-yet-reachable internal APIs. Do not silence those warnings with fake Tauri commands, placeholder callers, or blanket lint suppression merely to make the warning count look clean; A3/A4 should consume or delete each staged API as the real workflow is wired.
+Run `31708868923` is explicitly **not** accepted as evidence even though GitHub marked it successful; its log contained Svelte errors and the temporary workflow failed to propagate that command failure. A3 was corrected and rerun before closure.
 
-Current VoiceLab proof order is now:
+The bounded lock correction was separately proved by run `31710755948` with `A3_LOCK_DELTA_LINES=79`.
+
+Current VoiceLab proof order:
 
 ```text
 1. canonical scope/ownership alignment -> CLOSED
-2. exact single-runtime dependency compatibility proof -> CLOSED (A1)
-3. Voice Actor/build lifecycle source contract -> CLOSED (A2)
-4. guided recording + accepted-take persistence implementation -> NEXT (A3)
-5. GPT-SoVITS training/evaluation implementation
-6. canonical-worker daily inference integration
-7. Meeting atomic-readiness integration
+2. single-runtime GPT-SoVITS core compatibility -> CLOSED A1
+3. Voice Actor/build lifecycle contract -> CLOSED A2
+4. guided recording + accepted-take persistence -> CLOSED A3 SOURCE-SIDE
+5. GPT-SoVITS real build + held-out evaluation -> NEXT A4
+6. canonical-worker daily trained-actor inference
+7. Meeting atomic custom-TTS readiness
 8. source closure audit
-9. target-Windows quality/latency/device acceptance
+9. target-Windows speaker-quality/latency/device acceptance
 ```
 
-Speaker fidelity, actual training duration, cancellation of a real training process, CUDA/VRAM behavior, native custom-TTS latency, and meeting-app reception remain live/model/device claims and must not be inferred from the A2 source proof.
+A3 hosted proof does not prove physical microphone behavior, recording-room quality, replay fidelity, sufficient corpus size, trained-voice similarity, CUDA/VRAM practicality, real training cancellation, Meeting TTS latency, or meeting-app audio reception.
