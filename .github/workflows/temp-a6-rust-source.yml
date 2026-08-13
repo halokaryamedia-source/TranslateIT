@@ -22,4 +22,4 @@ jobs:
         with:
           python-version: '3.12'
       - name: Apply, compile, and commit bounded A6 Rust source
-        run: python .github/temp-a6-rust-source-gate.py
+        run: python .github/temp-a6-rust-source-gate-v2.py
