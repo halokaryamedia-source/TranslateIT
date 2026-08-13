@@ -7,7 +7,7 @@ on:
       - .github/workflows/temp-a5-blob-builder.yml
 
 permissions:
-  contents: write
+  contents: read
 
 jobs:
   build-blobs:
@@ -22,33 +22,14 @@ jobs:
         shell: pwsh
         run: |
           $ErrorActionPreference = 'Stop'
-          python .github/temp-a5-patch.py
+          python .github/temp-a5-patch-runner.py
           if ($LASTEXITCODE -ne 0) { throw 'A5 exact patch failed' }
-      - name: Materialize verified Git blobs
-        shell: pwsh
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: |
-          $ErrorActionPreference = 'Stop'
-          $paths = @(
-            'EngineData/Backend/LocalWorker/WorkerRuntime/realtime_local_worker.py',
-            'EngineData/Backend/LocalWorker/WorkerRuntime/voice_lab_gpt_sovits.py',
-            'EngineData/Backend/LocalWorker/WorkerRuntime/tests/test_voice_actor_inference.py'
-          )
-          $headers = @{
-            Authorization = "Bearer $env:GH_TOKEN"
-            Accept = 'application/vnd.github+json'
-            'X-GitHub-Api-Version' = '2022-11-28'
-          }
-          foreach ($path in $paths) {
-            $localSha = (git hash-object $path).Trim()
-            $bytes = [System.IO.File]::ReadAllBytes((Resolve-Path $path))
-            $payload = @{
-              content = [Convert]::ToBase64String($bytes)
-              encoding = 'base64'
-            } | ConvertTo-Json -Compress
-            $uri = "https://api.github.com/repos/$env:GITHUB_REPOSITORY/git/blobs"
-            $response = Invoke-RestMethod -Method Post -Uri $uri -Headers $headers -ContentType 'application/json' -Body $payload
-            if ($response.sha -ne $localSha) { throw "A5 blob mismatch for $path" }
-            Write-Host "A5_BLOB $path $localSha"
-          }
+      - uses: actions/upload-artifact@v4
+        with:
+          name: a5-source-files
+          retention-days: 1
+          if-no-files-found: error
+          path: |
+            EngineData/Backend/LocalWorker/WorkerRuntime/realtime_local_worker.py
+            EngineData/Backend/LocalWorker/WorkerRuntime/voice_lab_gpt_sovits.py
+            EngineData/Backend/LocalWorker/WorkerRuntime/tests/test_voice_actor_inference.py
