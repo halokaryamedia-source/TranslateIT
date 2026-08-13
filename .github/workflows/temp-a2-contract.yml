@@ -1,53 +1,12 @@
-name: Temporary A2 Contract Proof
+name: Retired Temporary Contract Proof
 
 on:
-  push:
-    branches:
-      - New
-    paths:
-      - .github/workflows/temp-a2-contract.yml
   workflow_dispatch:
 
 jobs:
-  contract-proof:
+  retired:
     runs-on: windows-2022
-    timeout-minutes: 25
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Materialize canonical frontend dist
+      - name: Retired
         shell: pwsh
-        working-directory: EngineData/Frontend/RustApp
-        run: |
-          npm ci
-          if ($LASTEXITCODE -ne 0) { throw 'npm ci failed' }
-          npm run build:frontend
-          if ($LASTEXITCODE -ne 0) { throw 'frontend build failed' }
-
-      - name: Rust compile
-        shell: pwsh
-        run: |
-          cargo check --manifest-path EngineData/Frontend/RustApp/src-tauri/Cargo.toml
-          if ($LASTEXITCODE -ne 0) { throw 'cargo check failed' }
-
-      - name: Compile tests
-        shell: pwsh
-        run: |
-          cargo test --manifest-path EngineData/Frontend/RustApp/src-tauri/Cargo.toml --no-run
-          if ($LASTEXITCODE -ne 0) { throw 'cargo test --no-run failed' }
-
-      - name: Run bounded contract tests
-        shell: pwsh
-        run: |
-          cargo test --manifest-path EngineData/Frontend/RustApp/src-tauri/Cargo.toml voice_lab::tests:: -- --nocapture
-          if ($LASTEXITCODE -ne 0) { throw 'bounded A2 tests failed' }
-
-      - name: Verify source guard
-        shell: pwsh
-        run: |
-          $runtime = Get-Content EngineData/Frontend/RustApp/src-tauri/src/commands/runtime.rs -Raw
-          if ($runtime -notmatch 'voice_lab_build_blocks_meeting') { throw 'build exclusion guard missing' }
-          $registry = Get-Content EngineData/Frontend/RustApp/src-tauri/src/commands/registry.rs -Raw
-          if ($registry -match 'voice_lab') { throw 'premature command registration found' }
-          Write-Host 'A2_CONTRACT_PROOF=PASS'
+        run: Write-Host 'This temporary proof workflow is retired.'
