@@ -33,7 +33,13 @@ jobs:
           $ErrorActionPreference = 'Stop'
           git config user.name "TranslateIT Source Proof"
           git config user.email "actions@users.noreply.github.com"
-          git add -- `EngineData/Backend/LocalWorker/WorkerRuntime/realtime_local_worker.py` `EngineData/Backend/LocalWorker/WorkerRuntime/voice_lab_gpt_sovits.py` `EngineData/Backend/LocalWorker/WorkerRuntime/tests/test_voice_actor_inference.py`
+          $paths = @(
+            'EngineData/Backend/LocalWorker/WorkerRuntime/realtime_local_worker.py',
+            'EngineData/Backend/LocalWorker/WorkerRuntime/voice_lab_gpt_sovits.py',
+            'EngineData/Backend/LocalWorker/WorkerRuntime/tests/test_voice_actor_inference.py'
+          )
+          git add -- $paths
+          if ($LASTEXITCODE -ne 0) { throw 'A5 source staging failed' }
           $staged = @(git diff --cached --name-only | Sort-Object)
           $expected = @(
             'EngineData/Backend/LocalWorker/WorkerRuntime/realtime_local_worker.py',
