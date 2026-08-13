@@ -45,7 +45,7 @@ jobs:
           $ErrorActionPreference = 'Stop'
           $python = '.venv\Scripts\python.exe'
           uv pip install --python $python `
-            'transformers>=4.44.0,<=4.50.0' 'numpy<2.0' scipy tensorboard 'librosa==0.10.2' numba `
+            'transformers>=4.44.0,<=4.50.0' 'numpy<2.0' scipy pandas tensorboard 'librosa==0.10.2' numba `
             'pytorch-lightning>=2.4' ffmpeg-python tqdm cn2an pypinyin g2p_en 'peft<0.18.0' `
             PyYAML psutil jieba_fast jieba split-lang 'fast_langdetect>=0.3.1' wordsegment `
             rotary_embedding_torch x_transformers 'torchmetrics<=1.5' matplotlib
