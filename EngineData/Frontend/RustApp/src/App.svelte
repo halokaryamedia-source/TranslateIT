@@ -10,6 +10,7 @@
     type ProductRuntimeSnapshot,
     type ProductSetupAction,
   } from "./app/bridge/runtimeProductFacade";
+  import { voiceLabApi } from "./app/bridge/voiceLabApi";
   import { defaultSettings } from "./app/shared/state";
   import type { RuntimeSettings } from "./app/shared/types";
   import Sidebar from "./components/layout/Sidebar.svelte";
@@ -17,9 +18,10 @@
   import Meeting from "./pages/Meeting.svelte";
   import Settings from "./pages/Settings.svelte";
   import Text from "./pages/Text.svelte";
+  import VoiceLab from "./pages/VoiceLab.svelte";
 
   const MEETING_REFRESH_MS = 1200;
-  type AppRoute = "meeting" | "text" | "settings";
+  type AppRoute = "meeting" | "text" | "voicelab" | "settings";
   type CloseDialogAction = "stop" | "retry" | null;
 
   let booting = $state(true);
@@ -31,6 +33,7 @@
   let meetingActionBusy = $state(false);
   let setupActionBusy = $state(false);
   let micTestBusy = $state(false);
+  let voiceLabRecording = $state(false);
   let meetingStatus = $state<MeetingSessionStatus | null>(null);
   let meetingTurns = $state<MeetingCommittedTurnsSnapshot | null>(null);
 
@@ -73,7 +76,9 @@
   const direction = $derived(
     route === "meeting"
       ? "ID → EN voice"
-      : `${currentSettings.source_language.toUpperCase()} → ${currentSettings.target_language.toUpperCase()}`,
+      : route === "voicelab"
+        ? "My Voice"
+        : `${currentSettings.source_language.toUpperCase()} → ${currentSettings.target_language.toUpperCase()}`,
   );
 
   const closePrimaryLabel = $derived(
@@ -95,6 +100,14 @@
 
   function setNotice(message: string): void {
     notice = compactNotice(message);
+  }
+
+  function navigate(next: AppRoute): void {
+    if (voiceLabRecording && next !== "voicelab") {
+      setNotice("Stop the current VoiceLab recording before leaving VoiceLab.");
+      return;
+    }
+    route = next;
   }
 
   function applyMeetingStatus(status: MeetingSessionStatus, preferredNotice?: string): void {
@@ -231,6 +244,10 @@
 
   async function toggleMicTest(): Promise<void> {
     if (micTestBusy || !snapshot) return;
+    if (voiceLabRecording) {
+      setNotice("Stop the VoiceLab recording before using Mic Test.");
+      return;
+    }
     if (snapshot.meeting.applicationOwned) {
       setNotice(snapshot.meeting.live
         ? "Stop Meeting translation before using Mic Test."
@@ -314,10 +331,33 @@
     await getCurrentWindow().destroy();
   }
 
+  async function voiceLabBlocksClose(): Promise<boolean> {
+    const voiceLab = await voiceLabApi.getState();
+    if (voiceLab.recording_line_id !== null) {
+      showCloseDialog(
+        "Voice recording is still running",
+        "Stop the current VoiceLab recording before closing TranslateIT so the take can be reviewed safely.",
+        null,
+      );
+      return true;
+    }
+    if (voiceLab.pending_review) {
+      showCloseDialog(
+        "Review the current voice take",
+        "Accept or retry the current VoiceLab take before closing TranslateIT.",
+        null,
+      );
+      return true;
+    }
+    return false;
+  }
+
   async function inspectNativeCloseRequest(): Promise<void> {
     if (closeCheckInFlight || stopAndCloseBusy) return;
     closeCheckInFlight = true;
     try {
+      if (await voiceLabBlocksClose()) return;
+
       const status = await runtimeApi.getMeetingSessionStatus();
       if (meetingStatusUnavailable(status)) {
         showCloseDialog(
@@ -335,8 +375,8 @@
       }
       if (!meeting.applicationOwned) {
         showCloseDialog(
-          "Meeting audio is still in use",
-          "Another TranslateIT action is still using meeting audio. Wait for it to finish before closing the app.",
+          "Audio is still in use",
+          "Another TranslateIT action is still using the microphone. Finish that action before closing the app.",
           null,
         );
         return;
@@ -365,6 +405,8 @@
     if (stopAndCloseBusy) return;
     stopAndCloseBusy = true;
     try {
+      if (await voiceLabBlocksClose()) return;
+
       const status = await runtimeApi.getMeetingSessionStatus();
       if (meetingStatusUnavailable(status)) {
         showCloseDialog("Can't check the meeting yet", "TranslateIT still can't confirm the Meeting state. Keep the app open or try again.", "retry");
@@ -377,7 +419,7 @@
         return;
       }
       if (!meeting.applicationOwned) {
-        showCloseDialog("Meeting audio is still in use", "Another TranslateIT action is using meeting audio. Wait for it to finish before closing.", null);
+        showCloseDialog("Audio is still in use", "Another TranslateIT action is using the microphone. Finish that action before closing.", null);
         return;
       }
       if (meeting.lifecycle === "stopping") {
@@ -479,7 +521,7 @@
   <FirstSetup initialSettings={setupSettings} onComplete={finishFirstSetup} />
 {:else if snapshot}
   <main class="flex h-screen min-h-0 bg-[var(--ti-bg)]">
-    <Sidebar active={route} {presence} onNavigate={(next) => { route = next; }} />
+    <Sidebar active={route} {presence} onNavigate={navigate} />
 
     <section class="flex min-w-0 flex-1 flex-col">
       <header class="flex min-h-14 shrink-0 items-center gap-4 border-b border-[var(--ti-border)] bg-[var(--ti-bg)] px-6">
@@ -489,7 +531,7 @@
           <button
             type="button"
             class="flex items-center gap-2 rounded-full border border-[var(--ti-success-border)] bg-[var(--ti-success-surface)] px-3 py-1.5 text-left"
-            onclick={() => { route = "meeting"; }}
+            onclick={() => { navigate("meeting"); }}
           >
             <span class="size-2 rounded-full bg-[var(--ti-success)]" aria-hidden="true"></span>
             <strong class="text-xs font-semibold text-[var(--ti-success)]">Meeting {snapshot.meeting.label.toLowerCase()}</strong>
@@ -516,6 +558,11 @@
             textStatus={snapshot.readiness.textStatus}
             onSettingsChange={applySettings}
             onNotice={setNotice}
+          />
+        {:else if route === "voicelab"}
+          <VoiceLab
+            onNotice={setNotice}
+            onRecordingChange={(recording) => { voiceLabRecording = recording; }}
           />
         {:else}
           <Settings
