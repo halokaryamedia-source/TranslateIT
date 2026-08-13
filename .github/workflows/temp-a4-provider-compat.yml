@@ -48,8 +48,19 @@ jobs:
             'transformers>=4.44.0,<=4.50.0' 'numpy<2.0' scipy tensorboard 'librosa==0.10.2' numba `
             'pytorch-lightning>=2.4' ffmpeg-python tqdm cn2an pypinyin g2p_en 'peft<0.18.0' `
             PyYAML psutil jieba_fast jieba split-lang 'fast_langdetect>=0.3.1' wordsegment `
-            rotary_embedding_torch x_transformers 'torchmetrics<=1.5'
+            rotary_embedding_torch x_transformers 'torchmetrics<=1.5' matplotlib
           if ($LASTEXITCODE -ne 0) { throw 'bounded A4 dependency install failed' }
+      - name: Prepare explicit English NLTK assets
+        shell: pwsh
+        working-directory: EngineData/Backend/LocalWorker/WorkerRuntime
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $python = '.venv\Scripts\python.exe'
+          $nltkRoot = Join-Path $env:RUNNER_TEMP 'voice-lab-nltk'
+          New-Item -ItemType Directory -Force -Path $nltkRoot | Out-Null
+          & $python -m nltk.downloader -d $nltkRoot averaged_perceptron_tagger cmudict
+          if ($LASTEXITCODE -ne 0) { throw 'VoiceLab NLTK asset preparation failed' }
+          "NLTK_DATA=$nltkRoot" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
       - name: Preserve current TranslateIT worker imports
         shell: pwsh
         working-directory: EngineData/Backend/LocalWorker/WorkerRuntime
@@ -58,6 +69,14 @@ jobs:
           $python = '.venv\Scripts\python.exe'
           & $python -c "import torch, transformers, realtime_local_worker; assert torch.__version__.split('+')[0]=='2.11.0'; assert tuple(map(int, transformers.__version__.split('.')[:2])) >= (4,44); assert tuple(map(int, transformers.__version__.split('.')[:2])) <= (4,50); assert realtime_local_worker.torch_status()['import_ready']; print('A4_CURRENT_WORKER_IMPORTS=PASS')"
           if ($LASTEXITCODE -ne 0) { throw 'current TranslateIT worker compatibility failed' }
+      - name: Prove English resources are offline-owned
+        shell: pwsh
+        working-directory: EngineData/Backend/LocalWorker/WorkerRuntime
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $python = '.venv\Scripts\python.exe'
+          & $python -c "import nltk; nltk.download=lambda *a, **k: (_ for _ in ()).throw(RuntimeError('network_download_forbidden')); from g2p_en import G2p; phones=G2p()('VoiceLab keeps English speech local.'); assert phones; print('A4_NLTK_OFFLINE=PASS')"
+          if ($LASTEXITCODE -ne 0) { throw 'VoiceLab offline English resource probe failed' }
       - name: Import exact English V2ProPlus path
         shell: pwsh
         run: |
@@ -69,7 +88,7 @@ jobs:
           $env:version = 'v2ProPlus'
           Push-Location $root
           try {
-            & $python -c "import torch, torchaudio; assert torch.__version__.split('+')[0]=='2.11.0'; assert torchaudio.__version__.split('+')[0]=='2.11.0'; import text.english; import feature_extractor.cnhubert; import sv; import AR.models.t2s_lightning_module; import s1_train; import s2_train; import TTS_infer_pack.TTS; print('A4_PROVIDER_IMPORTS=PASS')"
+            & $python -c "import nltk; nltk.download=lambda *a, **k: (_ for _ in ()).throw(RuntimeError('network_download_forbidden')); import torch, torchaudio; assert torch.__version__.split('+')[0]=='2.11.0'; assert torchaudio.__version__.split('+')[0]=='2.11.0'; import text.english; import feature_extractor.cnhubert; import sv; import AR.models.t2s_lightning_module; import s1_train; import s2_train; import TTS_infer_pack.TTS; print('A4_PROVIDER_IMPORTS=PASS')"
             if ($LASTEXITCODE -ne 0) { throw 'pinned GPT-SoVITS import probe failed' }
           } finally {
             Pop-Location
