@@ -1,10 +1,14 @@
 use serde::Serialize;
 use std::sync::{Mutex, OnceLock};
 
+use super::evidence::AudioEvidenceReport;
+
 pub const GUIDED_TAKE_SAMPLE_RATE_HZ: u32 = 32_000;
 pub const GUIDED_TAKE_CHANNELS: u16 = 1;
 pub const GUIDED_TAKE_BITS_PER_SAMPLE: u16 = 16;
 const MAX_GUIDED_CAPTURE_MS: u64 = 60_000;
+// Gross-signal safety check only; this is not a final Voice Actor quality threshold.
+const SEVERE_CLIPPING_RATIO: f32 = 0.10;
 
 #[derive(Debug, Clone, Serialize)]
 pub struct GuidedTakeReview {
@@ -15,7 +19,6 @@ pub struct GuidedTakeReview {
 
 pub struct CapturedGuidedTake {
     pub line_id: u32,
-    pub sample_rate_hz: u32,
     pub samples_mono: Vec<f32>,
 }
 
@@ -116,7 +119,7 @@ fn append_mono(rate: u32, channels: u16, samples: impl Iterator<Item = f32>) {
     }
 }
 
-pub fn take_guided_audio() -> Result<CapturedGuidedTake, String> {
+pub fn take_guided_audio() -> Result<(CapturedGuidedTake, GuidedTakeReview), String> {
     let take = store()
         .lock()
         .map_err(|_| "voice_lab:guided_capture_state_unavailable".to_string())?
@@ -128,15 +131,47 @@ pub fn take_guided_audio() -> Result<CapturedGuidedTake, String> {
     if take.safety_limit_reached {
         return Err("voice_lab:recording_safety_limit_reached".to_string());
     }
-    let sample_rate_hz = take.sample_rate_hz.ok_or_else(|| "voice_lab:take_has_no_audio".to_string())?;
+    let source_rate = take.sample_rate_hz.ok_or_else(|| "voice_lab:take_has_no_audio".to_string())?;
     if take.samples_mono.is_empty() {
         return Err("voice_lab:take_has_no_audio".to_string());
     }
-    Ok(CapturedGuidedTake {
+    let samples_mono = resample_mono(&take.samples_mono, source_rate, GUIDED_TAKE_SAMPLE_RATE_HZ);
+    let evidence = AudioEvidenceReport::from_samples(&samples_mono);
+    let quality_blocker = if !evidence.reason.is_empty() {
+        format!("voice_lab:take_signal_unusable:{}", evidence.reason)
+    } else if evidence.clipping_ratio >= SEVERE_CLIPPING_RATIO {
+        "voice_lab:take_severe_clipping".to_string()
+    } else {
+        String::new()
+    };
+    let review = GuidedTakeReview {
         line_id: take.line_id,
-        sample_rate_hz,
-        samples_mono: take.samples_mono,
-    })
+        duration_ms: samples_mono.len() as u64 * 1_000 / u64::from(GUIDED_TAKE_SAMPLE_RATE_HZ),
+        quality_blocker,
+    };
+    Ok((CapturedGuidedTake { line_id: take.line_id, samples_mono }, review))
+}
+
+fn resample_mono(samples: &[f32], source_rate: u32, target_rate: u32) -> Vec<f32> {
+    if samples.is_empty() || source_rate == 0 || target_rate == 0 {
+        return Vec::new();
+    }
+    if source_rate == target_rate {
+        return samples.iter().copied().map(safe_sample).collect();
+    }
+    let target_len = ((samples.len() as u128 * u128::from(target_rate)
+        + u128::from(source_rate)
+        - 1)
+        / u128::from(source_rate)) as usize;
+    (0..target_len)
+        .map(|index| {
+            let position = index as f64 * source_rate as f64 / target_rate as f64;
+            let lower = (position.floor() as usize).min(samples.len() - 1);
+            let upper = (lower + 1).min(samples.len() - 1);
+            let fraction = (position - lower as f64) as f32;
+            safe_sample(samples[lower] + (samples[upper] - samples[lower]) * fraction)
+        })
+        .collect()
 }
 
 fn safe_sample(value: f32) -> f32 {
