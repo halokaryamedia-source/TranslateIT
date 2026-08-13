@@ -15,6 +15,16 @@ fn main() {
 
     app.run(|app_handle, event| {
         if let tauri::RunEvent::ExitRequested { api, .. } = event {
+            if engine::audio::guided_take::active_guided_take_line_id().is_some() {
+                api.prevent_exit();
+                if let Some(window) = app_handle.get_webview_window("main") {
+                    let _ = window.unminimize();
+                    let _ = window.show();
+                    let _ = window.set_focus();
+                }
+                return;
+            }
+
             let runtime = engine::runtime_state::latest_runtime_session_state();
             let runtime_state_unavailable =
                 runtime.has_active_session && runtime.snapshot.is_none();
