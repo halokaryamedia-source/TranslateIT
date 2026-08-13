@@ -77,19 +77,48 @@ jobs:
           $python = '.venv\Scripts\python.exe'
           & $python -c "import nltk; nltk.download=lambda *a, **k: (_ for _ in ()).throw(RuntimeError('network_download_forbidden')); from g2p_en import G2p; phones=G2p()('VoiceLab keeps English speech local.'); assert phones; print('A4_NLTK_OFFLINE=PASS')"
           if ($LASTEXITCODE -ne 0) { throw 'VoiceLab offline English resource probe failed' }
-      - name: Import exact English V2ProPlus path
+      - name: Import exact headless English V2ProPlus path
         shell: pwsh
         run: |
           $ErrorActionPreference = 'Stop'
+          $worker = (Resolve-Path 'EngineData\Backend\LocalWorker\WorkerRuntime').Path
           $python = (Resolve-Path 'EngineData\Backend\LocalWorker\WorkerRuntime\.venv\Scripts\python.exe').Path
           $root = (Resolve-Path 'upstream-gptsovits').Path
           $gsv = Join-Path $root 'GPT_SoVITS'
-          $env:PYTHONPATH = "$root;$gsv"
+          $env:PYTHONPATH = "$worker;$root;$gsv"
           $env:version = 'v2ProPlus'
           Push-Location $root
           try {
-            & $python -c "import nltk; nltk.download=lambda *a, **k: (_ for _ in ()).throw(RuntimeError('network_download_forbidden')); import torch, torchaudio; assert torch.__version__.split('+')[0]=='2.11.0'; assert torchaudio.__version__.split('+')[0]=='2.11.0'; import text.english; assert text.english.g2p('VoiceLab keeps English speech local.'); import feature_extractor.cnhubert; import sv; import AR.data.data_module; import AR.models.t2s_lightning_module; import module.commons; import module.data_utils; import module.losses; import module.mel_processing; import module.models; import process_ckpt; import s1_train; import TTS_infer_pack.TTS; print('A4_PROVIDER_IMPORTS=PASS')"
-            if ($LASTEXITCODE -ne 0) { throw 'pinned GPT-SoVITS import probe failed' }
+            $probe = @'
+import sys
+from pathlib import Path
+import nltk
+nltk.download = lambda *a, **k: (_ for _ in ()).throw(RuntimeError('network_download_forbidden'))
+from voice_lab_upstream_stage import install_headless_my_utils
+source = Path.cwd()
+install_headless_my_utils(source)
+import torch, torchaudio
+assert torch.__version__.split('+')[0] == '2.11.0'
+assert torchaudio.__version__.split('+')[0] == '2.11.0'
+import text.english
+assert text.english.g2p('VoiceLab keeps English speech local.')
+import feature_extractor.cnhubert
+import sv
+import AR.data.data_module
+import AR.models.t2s_lightning_module
+import module.commons
+import module.data_utils
+import module.losses
+import module.mel_processing
+import module.models
+import process_ckpt
+import s1_train
+import TTS_infer_pack.TTS
+assert 'gradio' not in sys.modules
+print('A4_PROVIDER_IMPORTS=PASS')
+'@
+            & $python -c $probe
+            if ($LASTEXITCODE -ne 0) { throw 'pinned GPT-SoVITS headless import probe failed' }
             & $python -m py_compile GPT_SoVITS\s1_train.py GPT_SoVITS\s2_train.py GPT_SoVITS\prepare_datasets\1-get-text.py GPT_SoVITS\prepare_datasets\2-get-hubert-wav32k.py GPT_SoVITS\prepare_datasets\2-get-sv.py GPT_SoVITS\prepare_datasets\3-get-semantic.py
             if ($LASTEXITCODE -ne 0) { throw 'pinned GPT-SoVITS trainer/preprocess syntax probe failed' }
           } finally {
@@ -105,4 +134,6 @@ jobs:
           foreach ($name in @('gradio','funasr','modelscope','onnxruntime-gpu')) {
             if ($freeze -match "(?im)^$([regex]::Escape($name))==") { throw "unrelated provider dependency installed: $name" }
           }
+          & $python -m py_compile voice_lab_build.py voice_lab_gpt_sovits.py voice_lab_upstream_stage.py
+          if ($LASTEXITCODE -ne 0) { throw 'VoiceLab Python source syntax failed' }
           Write-Host 'A4_PROVIDER_SCOPE=PASS'
