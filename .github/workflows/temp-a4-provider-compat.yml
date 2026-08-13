@@ -1,0 +1,73 @@
+name: Temporary A4 Provider Compatibility
+
+on:
+  push:
+    branches: [New]
+    paths:
+      - .github/workflows/temp-a4-provider-compat.yml
+  workflow_dispatch:
+
+jobs:
+  provider-compat:
+    runs-on: windows-2022
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - uses: actions/checkout@v4
+        with:
+          repository: RVC-Boss/GPT-SoVITS
+          ref: d523079fc05d9a8028d6085bffe4a2757c32abb6
+          path: upstream-gptsovits
+      - name: Materialize current worker runtime
+        shell: pwsh
+        working-directory: EngineData/Backend/LocalWorker/WorkerRuntime
+        run: |
+          $ErrorActionPreference = 'Stop'
+          python -m pip install --disable-pip-version-check uv
+          if ($LASTEXITCODE -ne 0) { throw 'uv bootstrap failed' }
+          uv sync --frozen --no-install-project
+          if ($LASTEXITCODE -ne 0) { throw 'current worker lock failed' }
+      - name: Install bounded A4 candidate dependencies
+        shell: pwsh
+        working-directory: EngineData/Backend/LocalWorker/WorkerRuntime
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $python = '.venv\Scripts\python.exe'
+          uv pip install --python $python --no-deps --index-url https://download.pytorch.org/whl/cu126 'torchaudio==2.13.0'
+          if ($LASTEXITCODE -ne 0) { throw 'torchaudio compatibility install failed' }
+          uv pip install --python $python `
+            'numpy<2.0' scipy tensorboard 'librosa==0.10.2' numba 'pytorch-lightning>=2.4' `
+            ffmpeg-python tqdm cn2an pypinyin g2p_en 'peft<0.18.0' PyYAML psutil `
+            jieba_fast jieba split-lang 'fast_langdetect>=0.3.1' wordsegment `
+            rotary_embedding_torch x_transformers 'torchmetrics<=1.5'
+          if ($LASTEXITCODE -ne 0) { throw 'bounded A4 dependency install failed' }
+      - name: Import exact English V2ProPlus path
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $python = 'EngineData\Backend\LocalWorker\WorkerRuntime\.venv\Scripts\python.exe'
+          $root = (Resolve-Path 'upstream-gptsovits').Path
+          $gsv = Join-Path $root 'GPT_SoVITS'
+          $env:PYTHONPATH = "$root;$gsv"
+          $env:version = 'v2ProPlus'
+          Push-Location $root
+          try {
+            & $python -c "import torch, torchaudio; assert torch.__version__.split('+')[0]=='2.13.0'; assert torchaudio.__version__.split('+')[0]=='2.13.0'; import text.english; import feature_extractor.cnhubert; import sv; import AR.models.t2s_lightning_module; import s1_train; import s2_train; import TTS_infer_pack.TTS; print('A4_PROVIDER_IMPORTS=PASS')"
+            if ($LASTEXITCODE -ne 0) { throw 'pinned GPT-SoVITS import probe failed' }
+          } finally {
+            Pop-Location
+          }
+      - name: Reject unrelated provider surface
+        shell: pwsh
+        working-directory: EngineData/Backend/LocalWorker/WorkerRuntime
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $python = '.venv\Scripts\python.exe'
+          $freeze = & $python -m pip list --format freeze
+          foreach ($name in @('gradio','funasr','modelscope','onnxruntime-gpu')) {
+            if ($freeze -match "(?im)^$([regex]::Escape($name))==") { throw "unrelated provider dependency installed: $name" }
+          }
+          Write-Host 'A4_PROVIDER_SCOPE=PASS'
