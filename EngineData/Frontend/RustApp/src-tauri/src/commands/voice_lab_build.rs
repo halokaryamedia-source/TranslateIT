@@ -260,12 +260,22 @@ fn reconcile_phase(paths: &VoiceLabStoragePaths) {
     if !snapshot.active || snapshot.phase == "cancelling" {
         return;
     }
-    if child_status(paths)
-        .map(|status| status.phase == "evaluating")
-        .unwrap_or(false)
-        && snapshot.phase == "training"
-    {
-        let _ = mark_voice_lab_build_evaluating(generation);
+    let Some(status) = child_status(paths) else {
+        return;
+    };
+    match (snapshot.phase.as_str(), status.phase.as_str()) {
+        ("preparing", "training") => {
+            let _ = mark_voice_lab_build_training(generation);
+        }
+        ("preparing", "evaluating") | ("preparing", "ready_for_review") => {
+            if mark_voice_lab_build_training(generation).is_ok() {
+                let _ = mark_voice_lab_build_evaluating(generation);
+            }
+        }
+        ("training", "evaluating") | ("training", "ready_for_review") => {
+            let _ = mark_voice_lab_build_evaluating(generation);
+        }
+        _ => {}
     }
 }
 
@@ -273,9 +283,11 @@ fn current_status() -> VoiceLabBuildStatus {
     let paths = storage();
     reconcile_phase(&paths);
     let snapshot = current_voice_lab_build_snapshot();
+    let recording_active = get_voice_lab_guided_recording_state().recording_line_id.is_some();
     let (takes, duration_ms) = accepted_contract();
     let evaluation = evaluation_manifest(&paths);
     let child = child_status(&paths);
+    let approved_ready = approved_actor_ready(&paths);
     let terminal_message = process_store()
         .0
         .lock()
@@ -292,10 +304,10 @@ fn current_status() -> VoiceLabBuildStatus {
                 _ => "VoiceLab creation is running.".to_string(),
             }
         })
+    } else if approved_ready {
+        "My Voice is approved and stored on this device.".to_string()
     } else if evaluation.is_some() {
         "Voice Actor samples are ready. Listen before approving My Voice.".to_string()
-    } else if approved_actor_ready(&paths) {
-        "My Voice is approved and stored on this device.".to_string()
     } else if !terminal_message.is_empty() {
         terminal_message
     } else if duration_ms < MIN_TRAINING_SPEECH_MS {
@@ -312,10 +324,13 @@ fn current_status() -> VoiceLabBuildStatus {
         accepted_take_count: takes.len(),
         accepted_duration_ms: duration_ms,
         minimum_duration_ms: MIN_TRAINING_SPEECH_MS,
-        can_build: !snapshot.active && duration_ms >= MIN_TRAINING_SPEECH_MS && takes.len() >= 2,
+        can_build: !snapshot.active
+            && !recording_active
+            && duration_ms >= MIN_TRAINING_SPEECH_MS
+            && takes.len() >= 2,
         evaluation_ready: evaluation.is_some(),
         evaluation_samples: evaluation.map(|value| value.samples).unwrap_or_default(),
-        approved_voice_ready: approved_actor_ready(&paths),
+        approved_voice_ready: approved_ready,
     }
 }
 
@@ -379,6 +394,9 @@ pub fn get_voice_lab_build_status() -> VoiceLabBuildStatus {
 pub fn start_voice_lab_build(authorized_voice_confirmed: bool) -> VoiceLabBuildActionResult {
     if !authorized_voice_confirmed {
         return result(false, "authorization_required", "Confirm that this is your voice, or that you have permission to create it.");
+    }
+    if get_voice_lab_guided_recording_state().recording_line_id.is_some() {
+        return result(false, "recording_active", "Stop the current VoiceLab recording before creating My Voice.");
     }
     let current = current_status();
     if current.active {
@@ -477,11 +495,11 @@ pub fn start_voice_lab_build(authorized_voice_confirmed: bool) -> VoiceLabBuildA
         process.pid = Some(pid);
         process.terminal_message.clear();
     }
-    let _ = mark_voice_lab_build_training(generation);
 
     std::thread::spawn(move || {
         let exit = child.wait();
         let paths = storage();
+        reconcile_phase(&paths);
         let ready = exit.as_ref().map(|status| status.success()).unwrap_or(false)
             && child_status(&paths)
                 .map(|status| status.phase == "ready_for_review")
@@ -555,7 +573,11 @@ pub fn approve_voice_lab_candidate() -> VoiceLabBuildActionResult {
     }
     let project_paths = ProjectPaths::discover();
     match promote_voice_actor_candidate(&project_paths) {
-        Ok(()) => result(true, "approved", "My Voice was approved and saved on this device."),
+        Ok(()) => {
+            let paths = VoiceLabStoragePaths::from_project_paths(&project_paths);
+            let _ = fs::remove_dir_all(evaluation_dir(&paths));
+            result(true, "approved", "My Voice was approved and saved on this device.")
+        }
         Err(error) => result(false, "approval_failed", error),
     }
 }
