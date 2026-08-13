@@ -36,3 +36,5 @@ jobs:
           $guided = Get-Content EngineData/Frontend/RustApp/src-tauri/src/engine/audio/guided_take.rs -Raw
           if ($guided -notmatch 'FftFixedInOut') { throw 'quality FFT resampling boundary missing' }
           Write-Host 'A3_SOURCE_PROOF=PASS'
+
+# Final rerun after VoiceLab typecheck, draft-lock, and bounded Cargo.lock corrections.
