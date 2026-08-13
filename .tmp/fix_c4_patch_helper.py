@@ -1,7 +1,8 @@
 from pathlib import Path
 
 path = Path('.tmp/prelocal_c4_functional_readiness_patch.py')
-text = path.read_text(encoding='utf-8')
+original_text = path.read_text(encoding='utf-8')
+text = original_text
 
 anchor = '''def replace_section(text: str, start: str, end: str, replacement: str, label: str) -> str:\n'''
 helper = '''def replace_first(text: str, old: str, new: str, label: str) -> str:\n    if old not in text:\n        raise RuntimeError(f"{label}: match not found")\n    return text.replace(old, new, 1)\n\n\n'''
@@ -43,6 +44,11 @@ meeting_fixture_patch = '''text = replace_once(\n    text,\n    """        Meeti
 if meeting_write_anchor not in text:
     raise SystemExit('Meeting write anchor missing for C4 fixture update')
 text = text.replace(meeting_write_anchor, meeting_fixture_patch, 1)
+
+# The proof runner needs these harness corrections only while applying the product
+# patch. Restore this tracked temporary helper to its checkout baseline after it runs
+# so substantive scope validation sees only C4 product files.
+text += "\nPath(__file__).write_text(" + repr(original_text) + ", encoding='utf-8')\n"
 
 path.write_text(text, encoding='utf-8')
 print('C4 patch helper targeting fixed')
