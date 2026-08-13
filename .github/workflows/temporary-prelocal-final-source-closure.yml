@@ -11,37 +11,15 @@ permissions:
   contents: read
 
 jobs:
-  prove-closure:
+  source-closure-guard:
     runs-on: windows-2022
-    timeout-minutes: 45
+    timeout-minutes: 10
     steps:
       - name: Checkout New
         uses: actions/checkout@v4
         with:
           ref: New
           fetch-depth: 0
-
-      - name: Prove canonical source and frontend contracts
-        shell: pwsh
-        working-directory: EngineData/Frontend/RustApp
-        run: |
-          npm ci
-          if ($LASTEXITCODE -ne 0) { throw 'npm ci failed.' }
-          npm run validate:source-contracts
-          if ($LASTEXITCODE -ne 0) { throw 'source validators failed.' }
-          npm run typecheck
-          if ($LASTEXITCODE -ne 0) { throw 'svelte-check failed.' }
-          npm run build:frontend
-          if ($LASTEXITCODE -ne 0) { throw 'frontend build failed.' }
-
-      - name: Prove full Rust compile surface
-        shell: pwsh
-        working-directory: EngineData/Frontend/RustApp
-        run: |
-          cargo test --manifest-path src-tauri/Cargo.toml --no-run
-          if ($LASTEXITCODE -ne 0) { throw 'Rust full test target failed to compile.' }
-          cargo check --manifest-path src-tauri/Cargo.toml
-          if ($LASTEXITCODE -ne 0) { throw 'cargo check failed.' }
 
       - name: Prove final source closure ownership
         shell: pwsh
@@ -84,11 +62,11 @@ jobs:
               'start_meeting_outbound_consumer(generation, &session_id)',
               'commit_application_meeting_session_live(',
           ]
-          start_positions = []
+          positions = []
           for marker in ordered:
               require(start, marker, 'Meeting Start transaction')
-              start_positions.append(start.index(marker))
-          if start_positions != sorted(start_positions) or len(set(start_positions)) != len(start_positions):
+              positions.append(start.index(marker))
+          if positions != sorted(positions) or len(set(positions)) != len(positions):
               raise SystemExit('Meeting Start is not authority -> microphone -> functional output -> outbound consumer -> Live.')
 
           cleanup_end = meeting.index('fn meeting_cleanup_complete(', stop_begin)
@@ -96,18 +74,17 @@ jobs:
           revoke_marker = 'revoke_runtime_session_authority('
           require(stop, revoke_marker, 'Meeting Stop authority')
           revoke_position = stop.index(revoke_marker)
-          stop_cleanup_markers = [
+          for marker in [
               'cancel_meeting_output_for_generation(generation)',
               'stop_live_capture_runtime()',
               'stop_meeting_sound_capture_runtime()',
               'cancel_helper_bridge_meeting_session(&session_id)',
               'stop_meeting_outbound_consumer(generation)',
               'stop_meeting_incoming_consumer(&session_id)',
-          ]
-          for marker in stop_cleanup_markers:
-              require(stop, marker, 'Meeting Stop cleanup')
-              if stop.index(marker) < revoke_position:
-                  raise SystemExit(f'Meeting Stop cleanup precedes authority revoke: {marker}')
+          ]:
+              cleanup_position = stop.find(marker, revoke_position)
+              if cleanup_position < 0:
+                  raise SystemExit(f'Meeting Stop active-session cleanup marker missing after authority revoke: {marker}')
           require(stop, 'mark_runtime_session_cleanup_incomplete(', 'Meeting Stop truthful cleanup retention')
           require(stop, 'clear_runtime_session_if_generation(generation)', 'Meeting Stop generation-safe release')
 
@@ -228,6 +205,39 @@ jobs:
           if ($LASTEXITCODE -ne 0) { throw 'Final source closure guard failed.' }
           git diff --check
           if ($LASTEXITCODE -ne 0) { throw 'git diff --check failed.' }
+
+  hosted-build-proof:
+    needs: source-closure-guard
+    runs-on: windows-2022
+    timeout-minutes: 45
+    steps:
+      - name: Checkout New
+        uses: actions/checkout@v4
+        with:
+          ref: New
+          fetch-depth: 0
+
+      - name: Prove canonical source and frontend contracts
+        shell: pwsh
+        working-directory: EngineData/Frontend/RustApp
+        run: |
+          npm ci
+          if ($LASTEXITCODE -ne 0) { throw 'npm ci failed.' }
+          npm run validate:source-contracts
+          if ($LASTEXITCODE -ne 0) { throw 'source validators failed.' }
+          npm run typecheck
+          if ($LASTEXITCODE -ne 0) { throw 'svelte-check failed.' }
+          npm run build:frontend
+          if ($LASTEXITCODE -ne 0) { throw 'frontend build failed.' }
+
+      - name: Prove full Rust compile surface
+        shell: pwsh
+        working-directory: EngineData/Frontend/RustApp
+        run: |
+          cargo test --manifest-path src-tauri/Cargo.toml --no-run
+          if ($LASTEXITCODE -ne 0) { throw 'Rust full test target failed to compile.' }
+          cargo check --manifest-path src-tauri/Cargo.toml
+          if ($LASTEXITCODE -ne 0) { throw 'cargo check failed.' }
 
       - name: Prove Tauri release link
         shell: pwsh
