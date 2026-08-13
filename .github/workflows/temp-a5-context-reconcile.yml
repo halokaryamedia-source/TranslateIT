@@ -1,0 +1,44 @@
+name: Temporary A5 Context Reconcile
+
+on:
+  push:
+    branches: [New]
+    paths:
+      - .github/workflows/temp-a5-context-reconcile.yml
+
+permissions:
+  contents: write
+
+jobs:
+  reconcile:
+    runs-on: windows-2022
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: New
+          fetch-depth: 1
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Apply bounded context replacements
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          python .github/temp-a5-context-patch.py
+          if ($LASTEXITCODE -ne 0) { throw 'context replacement failed' }
+          git diff --check
+          if ($LASTEXITCODE -ne 0) { throw 'context diff check failed' }
+          $changed = @(git diff --name-only)
+          if ($changed.Count -ne 1 -or $changed[0] -ne 'CONTEXT.md') { throw "Unexpected context changes: $($changed -join ', ')" }
+      - name: Commit context reconciliation
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          git config user.name "TranslateIT Source Proof"
+          git config user.email "actions@users.noreply.github.com"
+          git add -- CONTEXT.md
+          git commit -m "Reconcile stable context through VoiceLab A5"
+          if ($LASTEXITCODE -ne 0) { throw 'context commit failed' }
+          git push origin HEAD:New
+          if ($LASTEXITCODE -ne 0) { throw 'context push failed' }
