@@ -13,31 +13,38 @@ permissions:
 jobs:
   lock:
     runs-on: windows-2022
-    timeout-minutes: 20
+    timeout-minutes: 10
     steps:
       - uses: actions/checkout@v4
         with:
           ref: New
-      - name: Materialize only the VoiceLab resampler lock delta
+      - name: Restore A2 lock and resolve only Rubato delta
         shell: pwsh
         run: |
           $ErrorActionPreference = 'Stop'
           $lock = 'EngineData/Frontend/RustApp/src-tauri/Cargo.lock'
-          git show d5b551f9a2c6d9efb5775e5ddbda550d299f7f4c:$lock | Set-Content -Path $lock -Encoding utf8
-          cargo check --manifest-path EngineData/Frontend/RustApp/src-tauri/Cargo.toml
-          if ($LASTEXITCODE -ne 0) { throw 'cargo check failed while minimally updating Cargo.lock' }
+          $baseline = Join-Path $env:RUNNER_TEMP 'a2-Cargo.lock'
+          git show f3206f34d50bf956bfb74ea545e62e4c9e4a8cac:$lock | Set-Content -Path $baseline -Encoding utf8
+          if ($LASTEXITCODE -ne 0) { throw 'Could not read the accepted A2 Cargo.lock baseline' }
+          Copy-Item $baseline $lock -Force
 
-          $numstat = git diff --numstat -- $lock
-          if (-not $numstat) { throw 'Expected a bounded Cargo.lock update for rubato, but no lock delta was produced' }
+          cargo metadata --manifest-path EngineData/Frontend/RustApp/src-tauri/Cargo.toml --format-version 1 | Out-Null
+          if ($LASTEXITCODE -ne 0) { throw 'cargo metadata failed while resolving the bounded A3 dependency delta' }
+
+          $numstat = git diff --no-index --numstat -- $baseline $lock
+          if ($LASTEXITCODE -gt 1) { throw 'Could not compare the resolved lock with the A2 baseline' }
           $parts = $numstat -split '\s+'
           $changed = [int]$parts[0] + [int]$parts[1]
-          if ($changed -gt 200) { throw "Cargo.lock delta is too broad for one VoiceLab dependency: $changed changed lines" }
+          if ($changed -gt 200) { throw "Resolved Cargo.lock differs too broadly from A2 baseline: $changed changed lines" }
 
-          git diff -- $lock
+          $text = Get-Content $lock -Raw
+          if ($text -notmatch 'name = "rubato"' -or $text -notmatch 'version = "0\.16\.2"') { throw 'Rubato 0.16.2 is missing from the bounded Cargo.lock result' }
+          Write-Host "A3_LOCK_DELTA_LINES=$changed"
+
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
           git add $lock
-          git commit -m 'Narrow VoiceLab resampler lock delta'
-          if ($LASTEXITCODE -ne 0) { throw 'Cargo.lock commit failed' }
+          git commit -m 'Restore bounded A3 Cargo lock'
+          if ($LASTEXITCODE -ne 0) { throw 'Cargo.lock correction commit failed' }
           git push origin HEAD:New
-          if ($LASTEXITCODE -ne 0) { throw 'Cargo.lock push failed' }
+          if ($LASTEXITCODE -ne 0) { throw 'Cargo.lock correction push failed' }
