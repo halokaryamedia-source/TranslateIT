@@ -33,4 +33,6 @@ jobs:
           if ($capture -notmatch 'append_guided_f32' -or $capture -notmatch 'append_guided_i16' -or $capture -notmatch 'append_guided_u16') { throw 'guided sink not wired to canonical capture' }
           $page = Get-Content EngineData/Frontend/RustApp/src/pages/VoiceLab.svelte -Raw
           if ($page -match 'MediaRecorder|navigator\.mediaDevices|getUserMedia') { throw 'browser capture path introduced' }
+          $guided = Get-Content EngineData/Frontend/RustApp/src-tauri/src/engine/audio/guided_take.rs -Raw
+          if ($guided -notmatch 'FftFixedInOut') { throw 'quality FFT resampling boundary missing' }
           Write-Host 'A3_SOURCE_PROOF=PASS'
