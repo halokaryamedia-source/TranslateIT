@@ -1,0 +1,71 @@
+name: Temporary A4 Final Source Proof Retry
+
+on:
+  push:
+    branches: [New]
+    paths:
+      - .github/workflows/temp-a4-provider-compat.yml
+  workflow_dispatch:
+
+jobs:
+  source-proof:
+    runs-on: windows-2022
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Worker frozen runtime proof
+        shell: pwsh
+        working-directory: EngineData/Backend/LocalWorker/WorkerRuntime
+        run: |
+          $ErrorActionPreference = 'Stop'
+          python -m pip install --disable-pip-version-check uv
+          if ($LASTEXITCODE -ne 0) { throw 'uv bootstrap failed' }
+          uv lock --check
+          if ($LASTEXITCODE -ne 0) { throw 'tracked uv.lock is inconsistent' }
+          uv sync --frozen --no-install-project
+          if ($LASTEXITCODE -ne 0) { throw 'frozen worker sync failed' }
+          git diff --exit-code -- pyproject.toml uv.lock
+          if ($LASTEXITCODE -ne 0) { throw 'frozen sync changed dependency owners' }
+
+          $python = '.venv\Scripts\python.exe'
+          & $python -m py_compile voice_lab_build.py voice_lab_gpt_sovits.py voice_lab_upstream_stage.py realtime_local_worker.py
+          if ($LASTEXITCODE -ne 0) { throw 'Python syntax gate failed' }
+          & $python -m pytest
+          if ($LASTEXITCODE -ne 0) { throw 'worker tests failed' }
+          & $python -c "import torch,torchaudio,transformers,realtime_local_worker; assert torch.__version__.split('+')[0]=='2.11.0'; assert torchaudio.__version__.split('+')[0]=='2.11.0'; assert transformers.__version__=='4.50.0'; assert realtime_local_worker.torch_status()['import_ready']; print('A4_PERMANENT_WORKER_IMPORTS=PASS')"
+          if ($LASTEXITCODE -ne 0) { throw 'permanent worker import gate failed' }
+
+          $freeze = uv pip list --python $python --format freeze
+          foreach ($name in @('gradio','funasr','modelscope','onnxruntime-gpu')) {
+            if ($freeze -match "(?im)^$([regex]::Escape($name))==") { throw "unrelated dependency installed: $name" }
+          }
+          Write-Host 'A4_FROZEN_RUNTIME=PASS'
+
+      - name: Frontend proof
+        shell: pwsh
+        working-directory: EngineData/Frontend/RustApp
+        run: |
+          $ErrorActionPreference = 'Stop'
+          npm ci
+          if ($LASTEXITCODE -ne 0) { throw 'npm ci failed' }
+          npm run typecheck
+          if ($LASTEXITCODE -ne 0) { throw 'frontend typecheck failed' }
+          npm run build:frontend
+          if ($LASTEXITCODE -ne 0) { throw 'frontend build failed' }
+          Write-Host 'A4_FRONTEND_PROOF=PASS'
+
+      - name: Rust and VoiceLab contract proof
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          cargo check --locked --manifest-path EngineData/Frontend/RustApp/src-tauri/Cargo.toml
+          if ($LASTEXITCODE -ne 0) { throw 'cargo check failed' }
+          cargo test --no-run --locked --manifest-path EngineData/Frontend/RustApp/src-tauri/Cargo.toml
+          if ($LASTEXITCODE -ne 0) { throw 'Rust test-target compile failed' }
+          cargo test --locked --manifest-path EngineData/Frontend/RustApp/src-tauri/Cargo.toml voice_lab -- --nocapture
+          if ($LASTEXITCODE -ne 0) { throw 'VoiceLab Rust tests failed' }
+          Write-Host 'A4_FINAL_SOURCE_PROOF=PASS'
