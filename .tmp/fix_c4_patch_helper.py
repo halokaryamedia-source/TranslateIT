@@ -38,5 +38,11 @@ if validator_read not in text:
     raise SystemExit('validator read anchor missing')
 text = text.replace(validator_read, validator_patch, 1)
 
+meeting_write_anchor = 'write(MEETING, text)\n\n# 4) Explicit setup verification'
+meeting_fixture_patch = '''text = replace_once(\n    text,\n    """        MeetingSessionPreflightStatus {\\n            ready_for_start: true,\\n            microphone_ready: true,""",\n    """        MeetingSessionPreflightStatus {\\n            ready_for_start: true,\\n            start_eligible: true,\\n            functional_outbound_ready: true,\\n            functional_outbound_verified_unix_ms: Some(1),\\n            microphone_ready: true,""",\n    "B3 preflight snapshot fixture C4 fields",\n)\nwrite(MEETING, text)\n\n# 4) Explicit setup verification'''
+if meeting_write_anchor not in text:
+    raise SystemExit('Meeting write anchor missing for C4 fixture update')
+text = text.replace(meeting_write_anchor, meeting_fixture_patch, 1)
+
 path.write_text(text, encoding='utf-8')
 print('C4 patch helper targeting fixed')
