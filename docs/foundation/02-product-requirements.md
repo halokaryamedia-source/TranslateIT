@@ -1,8 +1,8 @@
 # TranslateIT — Product Requirements
 
 **Status:** Active Policy  
-**Updated:** 2026-08-11  
-**Scope:** Simplified initial Windows translation core
+**Updated:** 2026-08-13  
+**Scope:** Simplified Windows translation core + required VoiceLab custom voice
 
 This document is the durable product-requirement owner for TranslateIT on branch
 `New`.
@@ -10,17 +10,13 @@ This document is the durable product-requirement owner for TranslateIT on branch
 The current product decision is explicit:
 
 > **A small translator that works reliably is more important than preserving a broad
-> feature set.**
+> feature set. The required English Meeting voice should be a trained high-fidelity
+> representation of the user's own authorized voice, created once in VoiceLab and
+> reused without retraining during normal Meeting use.**
 
-The behavioral reference is the simplicity of current live meeting translation
-products such as Gemini 3.5 Live Translate: translation may stay a few seconds behind
-speech when that improves completeness, while the user experience remains focused on
-speaking and receiving translation rather than operating translation internals.
-TranslateIT does not need to copy another product's implementation, cloud architecture,
-voice-cloning behavior, or supported language count.
-
-Source presence is not runtime proof. Evidence requirements remain governed by root
-`AGENTS.md`.
+TranslateIT does not need multiple voice engines, instant-clone modes, provider
+selection, a broadcast-production studio, or cloud voice fallback. Source presence is
+not runtime proof. Evidence requirements remain governed by root `AGENTS.md`.
 
 ## 1. Product Priority
 
@@ -32,32 +28,36 @@ for online meetings.
 ### PR-002 — Secondary Text workflow
 
 **MUST:** Indonesian <-> English Text remain independently usable without Meeting audio
-readiness.
+or VoiceLab readiness.
 
 ### PR-003 — Translation success before feature breadth
 
-**MUST:** Core translation reliability, completeness, understandable output, and safe
-Meeting delivery take priority over extra controls, modes, persistence, context,
-customization, or stylistic features.
+**MUST:** Core translation reliability, completeness, understandable output, safe
+Meeting delivery, and the approved trained Voice Actor path take priority over extra
+controls, modes, general persistence, context, or stylistic features.
 
 **MUST NOT:** An optional/deferred feature make an otherwise healthy required outbound
 translation fail.
 
 ### PR-004 — Initial feature boundary
 
-The initial product is intentionally narrow:
+The approved product boundary before target-Windows validation is intentionally narrow:
 
 ```text
 Meeting
 Text
+VoiceLab
 Settings
 ```
 
 **NOT INITIAL CORE:**
 
 - Document Translation;
-- History / Saved;
-- Audio Studio / custom voice;
+- general History / Saved UI;
+- Audio Studio / broadcast-production workflows;
+- multiple custom-voice engines/providers;
+- quick-clone / zero-shot alternate VoiceLab modes;
+- imported-audio branching in the first VoiceLab workflow;
 - additional language pairs;
 - user-facing tone modes;
 - user-facing Realtime / Quality modes;
@@ -79,20 +79,30 @@ Existing source for these capabilities does not keep them in current initial sco
 
 ### PR-011 — Local-first core
 
-**MUST:** After required runtime/model assets are installed, core ASR, translation, and
-TTS can operate without a required cloud speech/translation API.
+**MUST:** After required runtime/model assets are installed, ASR, translation, trained
+Voice Actor TTS, and Text translation can operate without a required cloud
+speech/translation/voice API.
 
 ### PR-012 — No silent cloud fallback
 
-**MUST NOT:** Local failure silently route user speech or text to cloud services.
+**MUST NOT:** Local failure silently route user speech, text, recordings, training data,
+or generated voice to cloud services.
 
 ### PR-013 — Single product/runtime architecture
 
 **MUST:** One Rust/Tauri desktop application and its existing internal helper/runtime
-path remain authoritative.
+path remain authoritative for normal inference.
 
-**MUST NOT:** A second translator engine/product shell be created merely to preserve or
-work around removed complexity.
+**MUST:** GPT-SoVITS V2ProPlus is the single approved custom-TTS engine direction for
+VoiceLab and Meeting until a future explicit product decision replaces it.
+
+**MUST NOT:** A second daily TTS engine, translator engine, product shell, compatibility
+runtime, provider selector, or fallback voice path be created merely to avoid resolving
+an integration problem.
+
+**MAY:** VoiceLab invoke bounded long-running training work distinct from daily
+inference, provided it is not a second normal Meeting inference authority and does not
+run concurrently with an active Meeting.
 
 ## 3. Languages And Directions
 
@@ -116,7 +126,7 @@ Indonesian <-> English
 Indonesian speech
 -> final Indonesian transcript
 -> English translation
--> English TTS
+-> trained English Voice Actor TTS
 -> TranslateIT Meeting Microphone
 ```
 
@@ -151,11 +161,12 @@ outbound translation.
 Your Microphone
 Meeting Sound
 TranslateIT Meeting Microphone
+My Voice / VoiceLab readiness
 Local Translation Ready
 ```
 
-**MUST NOT:** Normal users manually operate Python, worker, model, CUDA, VAD, queue, or
-audio-driver internals.
+**MUST NOT:** Normal users manually operate Python, worker, model, CUDA, VAD, queue,
+checkpoint, epoch, or audio-driver internals.
 
 ### PR-026 — Physical microphone verification
 
@@ -177,12 +188,17 @@ translation.
 ### PR-028 — Functional local readiness
 
 **MUST:** Required outbound readiness include bounded functional validation of the
-actual local ASR/translation/TTS path rather than file presence only.
+actual local ASR -> translation -> trained Voice Actor TTS path rather than file
+presence only.
+
+**MUST NOT:** Missing/failed Voice Actor synthesis silently substitute Piper, SAPI,
+OpenVoice, Qwen, MeloTTS, RVC postprocessing, cloud TTS, or another voice.
 
 ### PR-029 — Returning use
 
 **MUST:** Returning users go directly to Meeting and receive a quick product-level
-preflight rather than full setup repetition.
+preflight rather than full setup repetition when an approved Voice Actor and Meeting
+setup already exist.
 
 ## 5. Meeting Listening And Speech Boundary
 
@@ -318,14 +334,124 @@ translation.
 **MUST:** If the active translation implementation cannot safely accept or complete the
 input, return an explicit bounded failure instead.
 
-### PR-047 — Replaceable implementation
+### PR-047 — Replaceable translation implementation
 
 **MAY:** The exact translation model/provider change when a replacement better satisfies
 bidirectional quality, latency, memory, and packaging requirements.
 
-**MUST NOT:** Normal users choose model/provider names.
+**MUST NOT:** Normal users choose translation model/provider names.
 
-## 7. Runtime Priority And Reliability
+## 7. VoiceLab And Custom TTS
+
+### PR-110 — One VoiceLab workflow
+
+**MUST:** The first VoiceLab implementation expose one normal custom-voice creation
+workflow:
+
+```text
+confirm ownership
+-> guided English recording
+-> replay / accept / retry
+-> prepare dataset
+-> fine-tune Voice Actor
+-> evaluate held-out speech
+-> user preview / approve
+-> save My Voice
+```
+
+**MUST NOT:** Add quick-clone, zero-shot, imported-audio, provider-selection,
+professional/broadcast tiers, or multiple creation modes to the first workflow.
+
+### PR-111 — Authorized voice only
+
+**MUST:** VoiceLab require explicit confirmation that the user owns the recorded voice
+or has authorization to create and use the Voice Actor.
+
+### PR-112 — Guided English source truth
+
+**MUST:** The first VoiceLab dataset be collected from application-provided English
+reading lines so each accepted take has an exact known transcript.
+
+**MUST NOT:** Add a second ASR/transcription dependency merely to label guided
+recordings whose text is already known.
+
+### PR-113 — Quality-controlled takes
+
+**MUST:** User can replay each take and mark it accepted or retry it before the take can
+enter the training dataset.
+
+**MUST:** Build-time checks reject unusable audio such as invalid/empty files, excessive
+silence, or clipping severe enough to make the take unsuitable.
+
+**MUST NOT:** Treat recording duration alone as proof of dataset quality.
+
+### PR-114 — Quality-first training
+
+**MUST:** VoiceLab fine-tune GPT-SoVITS V2ProPlus for the approved speaker rather than
+performing only zero-shot/reference cloning at normal Meeting inference time.
+
+**MUST:** Training is an explicit occasional build operation. A completed approved Voice
+Actor can be reused indefinitely for normal daily operation until the user explicitly
+rebuilds/replaces it or an incompatible engine migration requires a new build.
+
+**MUST NOT:** Retrain on application start, Meeting start, or individual utterances.
+
+### PR-115 — No arbitrary training constants as product truth
+
+**MUST NOT:** Recording minutes, training wall-clock minutes, epoch count, or a
+speaker-similarity score be hardcoded as proof that the Voice Actor is good.
+
+**MAY:** Implementation use bounded defaults and checkpoint cadence, but the chosen
+actor must be evaluated from actual generated output and build evidence.
+
+### PR-116 — Held-out evaluation and best actor selection
+
+**MUST:** VoiceLab evaluate candidate trained checkpoints using English sentences not
+used as training takes.
+
+**SHOULD:** Build-time ranking use speaker-similarity evidence from the same approved
+engine family when practical.
+
+**MUST:** Final acceptance include user listening/approval; an automatic metric alone
+must not publish the Voice Actor as approved.
+
+### PR-117 — Native quality baseline before export optimization
+
+**MUST:** The first accepted Voice Actor use the engine's native trained weight format
+and one canonical 3-10 second reference recording/text required by the V2ProPlus
+inference path.
+
+**MUST NOT:** Make ONNX, TorchScript, quantization, or another export format the initial
+product requirement merely for theoretical speed/portability.
+
+**MAY:** Adopt an optimized format later only after measured evidence shows materially
+useful runtime improvement without unacceptable speaker-fidelity or speech-quality
+regression.
+
+### PR-118 — Persistent actor and atomic rebuild promotion
+
+**MUST:** Temporary recordings, datasets, checkpoints, and evaluation artifacts belong
+to `UserData/CacheData/VoiceLab` while a build is in progress.
+
+**MUST:** The explicitly approved Voice Actor belongs to
+`UserData/SavedProject/VoiceLab`.
+
+**MUST:** Rebuilding My Voice leave the previous approved actor intact until a new actor
+has completed training/evaluation and the user approves its promotion.
+
+### PR-119 — Meeting uses only approved trained inference
+
+**MUST:** Meeting use the approved trained Voice Actor through the canonical local AI
+runtime owner.
+
+**MUST:** Meeting Start load/warm the trained actor, prepare/cache its canonical
+reference, and obtain bounded functional custom-TTS readiness before `Live` can commit.
+
+**MUST NOT:** A VoiceLab training job run concurrently with an active Meeting or become
+background live-scheduler work. Initial behavior is mutual exclusion, not automatic
+resource arbitration or pause/resume complexity.
+
+## 8. Runtime Priority And Reliability
 
 ### PR-050 — No user-facing Realtime / Quality split
 
@@ -350,8 +476,8 @@ A final release threshold is derived from target-PC evidence, not invented in po
 
 ### PR-053 — Atomic Start
 
-**MUST:** `Start Translation` commit `Live` only when the required outbound path is
-actually ready.
+**MUST:** `Start Translation` commit `Live` only when the required outbound path,
+including the trained Voice Actor TTS stage, is actually ready.
 
 **MUST:** Duplicate Start not create another Meeting session.
 
@@ -360,7 +486,7 @@ not an outbound Start failure.
 
 ### PR-054 — Resource priority
 
-Under contention:
+Under normal inference contention:
 
 ```text
 Meeting outbound
@@ -368,6 +494,9 @@ Meeting outbound
 > Text
 > diagnostics / setup work
 ```
+
+VoiceLab training does not enter this live priority queue; it is mutually exclusive
+with Meeting.
 
 **MUST:** Queues remain bounded and stale work be discarded rather than presented late
 as current realtime output.
@@ -379,7 +508,7 @@ session owner.
 
 **MUST:** Explicit newer user action override stale automatic recovery.
 
-**MUST NOT:** Local failure silently change to cloud operation.
+**MUST NOT:** Local failure silently change to cloud operation or another voice engine.
 
 ### PR-056 — Stop
 
@@ -389,15 +518,19 @@ resource cleanup.
 **MUST:** Stop both audio lanes, cancel/join Meeting work, clear temporary
 conversation/audio state, and only then report the session ended.
 
-## 8. Acceleration And CPU Operation
+## 9. Acceleration And CPU Operation
 
 ### PR-060 — Preferred acceleration
 
 **SHOULD:** Use validated CUDA acceleration when available and beneficial.
 
-### PR-061 — GPU not mandatory
+### PR-061 — GPU not mandatory for the entire product
 
-**MUST NOT:** NVIDIA GPU be an absolute product requirement.
+**MUST NOT:** NVIDIA GPU be an absolute requirement for Text translation or application
+startup.
+
+**MAY:** VoiceLab training and practical realtime Voice Actor Meeting inference require
+stronger hardware than standalone Text, when target evidence proves that constraint.
 
 ### PR-062 — CPU operation
 
@@ -406,16 +539,19 @@ runtime is otherwise available.
 
 ### PR-063 — Meeting performance truthfulness
 
-**MUST:** If CPU performance is not practical for Meeting translation, report that
-truthfully rather than claiming equivalent realtime performance.
+**MUST:** If CPU or available GPU performance is not practical for trained Voice Actor
+Meeting translation, report that truthfully rather than claiming equivalent realtime
+performance.
 
-## 9. Meeting Audio And Optional Incoming
+## 10. Meeting Audio And Optional Incoming
 
 ### PR-070 — Outbound content
 
-**MUST:** Primary Meeting output contain translated English TTS.
+**MUST:** Primary Meeting output contain translated English speech synthesized by the
+approved trained Voice Actor.
 
-**MUST NOT:** Raw Indonesian microphone audio be mixed into Meeting output as fallback.
+**MUST NOT:** Raw Indonesian microphone audio or a different fallback TTS voice be mixed
+into Meeting output.
 
 ### PR-071 — Physical microphone
 
@@ -441,7 +577,8 @@ outbound delivery with simple `Setup Needed` recovery.
 
 ### PR-075 — Own-TTS suppression is subordinate to outbound
 
-**MUST:** TranslateIT's own English TTS not become an `INCOMING` translation.
+**MUST:** TranslateIT's own English trained Voice Actor TTS not become an `INCOMING`
+translation.
 
 **MUST:** If safe incoming suppression/capture cannot be maintained, disable/degrade the
 incoming lane rather than blocking otherwise safe required outbound TTS.
@@ -457,7 +594,7 @@ incoming lane rather than blocking otherwise safe required outbound TTS.
 **DEFERRED:** automatic mid-session Follow-Windows-Default output-device rebind until the
 initial selected/default endpoint path is proven stable.
 
-## 10. Text Translation
+## 11. Text Translation
 
 ### PR-090 — Explicit Text action
 
@@ -488,19 +625,25 @@ clearly associated with the previous source.
 
 **MUST:** Report a clear interactive limit when necessary.
 
-## 11. Privacy And Storage
+## 12. Privacy And Storage
 
-### PR-100 — Persistence not required for core translation
+### PR-100 — General persistence not required for translation
 
-**MUST NOT:** History/Saved persistence be required for Meeting or Text translation to
-work.
+**MUST NOT:** History/Saved conversation persistence be required for Meeting or Text
+translation to work.
 
-**NOT INITIAL CORE:** automatic History and Saved UI/workflow.
+**NOT INITIAL CORE:** automatic History and general Saved UI/workflow.
+
+VoiceLab's explicitly approved Voice Actor is a narrow user-owned persistent asset and
+does not create general History/Saved semantics.
 
 ### PR-101 — Temporary audio/transcript
 
-**DEFAULT:** Raw microphone audio, Meeting Sound audio, generated TTS, and live Meeting
-transcript bodies are temporary session/runtime data.
+**DEFAULT:** Raw microphone audio, Meeting Sound audio, generated Meeting TTS, and live
+Meeting transcript bodies are temporary session/runtime data.
+
+**DEFAULT:** VoiceLab recording/build artifacts remain temporary until a resulting Voice
+Actor is explicitly approved.
 
 ### PR-102 — Diagnostics privacy
 
@@ -510,15 +653,15 @@ transcript bodies are temporary session/runtime data.
 
 ### PR-103 — Storage roots
 
-Preserve the existing responsibility split:
+Preserve the responsibility split:
 
 ```text
-UserData/CacheData/ -> temporary runtime/session data
-UserData/LogData/   -> minimal/redacted diagnostics
-UserData/SavedProject/ -> reserved persistent user-owned data for future approved use
+UserData/CacheData/              -> temporary runtime/session + VoiceLab build data
+UserData/LogData/                -> minimal/redacted diagnostics
+UserData/SavedProject/VoiceLab/  -> explicitly approved persistent Voice Actor
 ```
 
-## 12. Normal UI And Settings
+## 13. Normal UI And Settings
 
 ### PR-160 — Initial navigation
 
@@ -527,6 +670,7 @@ Normal top-level navigation is:
 ```text
 Meeting
 Text
+VoiceLab
 Settings
 ```
 
@@ -542,14 +686,15 @@ Meeting Ready should primarily show:
 
 ```text
 Required readiness
-ID -> EN Voice / optional EN -> ID Text
+ID -> EN My Voice / optional EN -> ID Text
 Your Microphone
+My Voice
 Meeting Sound
 TranslateIT Meeting Microphone
 Start Translation
 ```
 
-Do not show tone/model/context/runtime-mode controls.
+Do not show tone/model/context/runtime-mode/checkpoint controls.
 
 ### PR-163 — Meeting Live simplicity
 
@@ -567,15 +712,16 @@ controls, complex delivery coordination.
 
 ### PR-164 — Settings hierarchy
 
-Normal Settings is reduced to:
+Normal Settings remains:
 
 ```text
 Meeting
 Advanced
 ```
 
-Meeting owns device/setup preferences. Advanced owns Diagnostics. Diagnostics may show
-technical details but is not the normal manual runtime control plane.
+Meeting owns device/setup preferences. Voice creation belongs to VoiceLab, not another
+Settings subsystem. Advanced owns Diagnostics. Diagnostics may show technical details
+but is not the normal manual runtime control plane.
 
 ### PR-165 — Normal user vocabulary
 
@@ -587,10 +733,12 @@ Live
 Setup Needed
 Unavailable
 Checking
+Training
+Needs Review
 ```
 
 Do not require understanding Python, model IDs, CUDA providers, VAD thresholds,
-scheduler queues, or raw logs.
+scheduler queues, GPT/SoVITS submodels, checkpoints, or raw logs.
 
 ### PR-166 — Familiar translation interaction model
 
@@ -602,14 +750,14 @@ close to the result.
 **MUST:** Healthy and `Ready` states remain visually calm. Warning, unavailable, and
 recovery states receive stronger emphasis only when the user needs to act.
 
-**MUST NOT:** Normal Meeting, Text, or First Setup UI require users to understand
-runtime, worker, model, pipeline-stage, provider, CUDA, scheduler, or lifecycle-internal
-vocabulary. Technical detail belongs in `Advanced -> Diagnostics`.
+**MUST NOT:** Normal Meeting, Text, VoiceLab, or First Setup UI require users to
+understand runtime, worker, model, pipeline-stage, provider, CUDA, scheduler, or
+lifecycle-internal vocabulary. Technical detail belongs in `Advanced -> Diagnostics`.
 
-**SHOULD:** Familiar translation-product patterns be adapted to TranslateIT's local
-Meeting workflow rather than copied literally from another brand.
+**SHOULD:** Familiar product patterns be adapted to TranslateIT's local Meeting and
+guided VoiceLab workflows rather than copied literally from another brand.
 
-## 13. Application Lifecycle
+## 14. Application Lifecycle
 
 ### PR-176 — Long-session bounds
 
@@ -632,7 +780,7 @@ path before window destruction.
 **MUST NOT:** Voice output automatically resume after wake without new explicit user
 continuation.
 
-## 14. Packaging And Distribution
+## 15. Packaging And Distribution
 
 ### PR-140 — Initial distribution
 
@@ -645,43 +793,60 @@ continuation.
 ### PR-142 — No manual developer runtime setup
 
 **MUST NOT:** Installed builds require manual Python, `pip`, environment-variable,
-repository checkout, or manual core-model placement.
+repository checkout, manual core-model placement, or manual GPT-SoVITS WebUI use for
+normal Meeting operation.
 
 ### PR-143 — Core packaged assets
 
 **MUST:** Release inputs provide the required helper/runtime, ASR, **bidirectional
-Indonesian/English translation**, default English TTS, and Meeting-audio route support.
+Indonesian/English translation**, trained Voice Actor inference assets, VoiceLab build
+assets required by the approved creation workflow, and Meeting-audio route support.
 
-## 15. Evidence And Initial Release Gate
+**MUST NOT:** Bundle unrelated GPT-SoVITS WebUI/server/ASR/provider tooling merely because
+it exists in upstream requirements.
+
+## 16. Evidence And Initial Release Gate
 
 ### PR-180 — Source is not live proof
 
 **MUST:** Static source/config presence never be reported as runtime success when the
-claim requires target-Windows evidence.
+claim requires target-Windows/model/audio evidence.
 
-### PR-181 — Small-core acceptance first
+### PR-181 — Source closure before target validation
 
-Before adding deferred features, obtain local evidence for:
+Before target-Windows validation begins, current source must include the approved
+VoiceLab workflow and one canonical trained Voice Actor TTS integration without a
+parallel daily engine.
+
+Source/build proof may establish ownership, dependency compatibility, persistence,
+state transitions, request/response wiring, and Meeting readiness ordering. It does
+**not** establish speaker fidelity, training success, GPU practicality, generated audio
+quality, or realtime latency.
+
+Target-capable acceptance still requires evidence for:
 
 ```text
 1. microphone capture
 2. stable final ASR
 3. Indonesian -> English translation
 4. English -> Indonesian translation
-5. English TTS
-6. Meeting Microphone delivery
-7. optional incoming Meeting Sound behavior
-8. safe Stop / Close
-9. acceptable latency/stability on target hardware
-10. standalone Text ID <-> EN
+5. VoiceLab training completes for a real authorized speaker dataset
+6. held-out generated speech is acceptably similar and approved by the user
+7. approved Voice Actor can be reused after restart without retraining
+8. trained Voice Actor TTS is practical for live Meeting latency on target hardware
+9. Meeting Microphone delivery
+10. optional incoming Meeting Sound behavior
+11. safe Stop / Close
+12. acceptable end-to-end latency/stability on target hardware
+13. standalone Text ID <-> EN
 ```
 
-A deferred feature must not delay this acceptance gate.
+No arbitrary fidelity or latency threshold is invented before relevant evidence exists.
 
-## 16. Explicitly Deferred / Removed Initial Features
+## 17. Explicitly Deferred / Removed Initial Features
 
-The following are intentionally not initial core requirements even if source currently
-exists:
+The following remain intentionally outside current requirements even if historical
+source/plans exist:
 
 ```text
 Pause / Resume
@@ -692,16 +857,19 @@ partial subtitles
 Auto / Formal / Casual tone controls
 Realtime / Quality user modes
 conversation-context prompting
-History / Saved
-Audio Studio / custom voice
+general History / Saved
+Audio Studio / broadcast voice-production features
+alternate custom-voice engines/providers
+quick-clone / zero-shot VoiceLab modes
+import-audio VoiceLab branch
 Document Translation
 additional languages
 incoming TTS
 mid-session automatic Meeting Sound default-device rebind
 ```
 
-Reconsider them only after the small core translator has target-Windows proof and a
-new explicit product decision shows the added feature is worth its complexity.
+Reconsider them only after the approved translator + VoiceLab product has target proof
+and a new explicit product decision shows the added feature is worth its complexity.
 
 ## Related
 
