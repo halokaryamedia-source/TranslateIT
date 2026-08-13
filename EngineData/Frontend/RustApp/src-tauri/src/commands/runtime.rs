@@ -64,7 +64,7 @@ pub fn verify_required_outbound_ai_readiness() -> HelperBridgeActionResult {
         };
     }
 
-    if let Err(stage) = helper_bridge::prepare_required_outbound_ai_runtime() {
+    if let Err(stage) = helper_bridge::verify_required_outbound_ai_runtime() {
         let current = helper_bridge::get_helper_bridge_status();
         return HelperBridgeActionResult {
             ok: false,

@@ -38,8 +38,8 @@ use crate::engine::runtime_state::{
 use super::audio::get_input_status;
 use super::helper_bridge::{
     cancel_helper_bridge_meeting_session, get_helper_bridge_status,
-    prepare_required_outbound_ai_runtime, send_helper_worker_task, start_helper_bridge,
-    HelperBridgeWorkerResponse,
+    prepare_required_outbound_ai_runtime, required_outbound_voice_actor_token,
+    send_helper_worker_task, start_helper_bridge, HelperBridgeWorkerResponse,
 };
 use super::helper_bridge_runtime::unix_ms;
 use super::virtual_mic_route::{
@@ -1017,6 +1017,16 @@ fn generation_is_live(generation: u64) -> bool {
         .unwrap_or(false)
 }
 
+fn generation_is_starting(generation: u64) -> bool {
+    if !runtime_generation_is_authoritative(generation) {
+        return false;
+    }
+    latest_runtime_session_state()
+        .snapshot
+        .map(|snapshot| snapshot.generation == generation && snapshot.phase == "starting")
+        .unwrap_or(false)
+}
+
 fn incoming_session_is_eligible(session_id: &str) -> bool {
     let lane_enabled = incoming_status_store()
         .lock()
@@ -1296,13 +1306,43 @@ pub fn process_authoritative_finalized_outbound_wav(
         "",
         "Translated English text is being synthesized locally.",
     );
+    let Some(actor_token) = required_outbound_voice_actor_token(generation) else {
+        let blocker = "voice_actor:meeting_actor_authority_missing".to_string();
+        let _ = update_committed_turn_delivery_state(
+            session_id,
+            generation,
+            utterance_id,
+            "output_failed",
+        );
+        update_outbound_status(
+            generation,
+            session_id,
+            "attention_needed",
+            event_sequence,
+            false,
+            false,
+            &blocker,
+            "My Voice authority is no longer bound to this Meeting generation. Stop and start Translation again before producing more voice output.",
+        );
+        return MeetingOutboundProcessResult {
+            ok: false,
+            delivered: false,
+            state: "tts_failed".to_string(),
+            blocker,
+            note: "No Meeting output was generated from this finalized segment.".to_string(),
+            generation,
+            utterance_sequence: event_sequence,
+            runtime_claim: "meeting_outbound_voice_actor_authority_missing".to_string(),
+        };
+    };
     let requested_tts_path = tts_output_path(session_id, generation, event_sequence);
     let tts_started_at = Instant::now();
     let tts = send_helper_worker_task(
-        "synthesize",
+        "voice_actor_synthesize",
         json!({
             "text": translated_text.clone(),
             "output_path": requested_tts_path,
+            "expected_actor_token": actor_token,
             "meeting_session_id": session_id,
             "meeting_lane": "you",
             "meeting_generation": generation,
@@ -1324,7 +1364,7 @@ pub fn process_authoritative_finalized_outbound_wav(
         return stale_outbound_result(generation, session_id, event_sequence, utterance_id);
     }
     if !tts.ok || tts_path.is_empty() {
-        let blocker = worker_blocker(&tts, "tts:missing_output");
+        let blocker = worker_blocker(&tts, "voice_actor:missing_output");
         remove_temporary_tts(&tts_path);
         let _ = update_committed_turn_delivery_state(
             session_id,
@@ -1340,7 +1380,7 @@ pub fn process_authoritative_finalized_outbound_wav(
             false,
             false,
             &blocker,
-            "Local TTS failed before Meeting delivery. No Meeting output was generated.",
+            "My Voice synthesis failed before Meeting delivery. No Meeting output was generated.",
         );
         return MeetingOutboundProcessResult {
             ok: false,
@@ -2024,6 +2064,11 @@ pub fn start_meeting_translation() -> MeetingSessionActionResult {
         );
     }
 
+    // Refresh cheap worker capability truth once for this explicit Start. This
+    // catches a newly approved/rebuilt My Voice without turning routine UI polling
+    // into worker I/O or model loading. Functional MyVoice proof still occurs only
+    // after the Meeting generation owns Starting authority.
+    let _ = send_helper_worker_task("status", json!({ "meeting_start_prepare": true }));
     let preflight = build_preflight();
     if !preflight.start_eligible {
         return MeetingSessionActionResult {
@@ -2055,29 +2100,6 @@ pub fn start_meeting_translation() -> MeetingSessionActionResult {
         );
     }
 
-    // Exercise the real required AI runtimes before Meeting authority, capture, or
-    // output resources are opened. A file/import-ready status alone must not commit
-    // the product Live if ASR, ID->EN translation, or English TTS cannot prepare.
-    if let Err(stage) = prepare_required_outbound_ai_runtime() {
-        return blocked_result(
-            "outbound_runtime_prepare_failed",
-            format!(
-                "Start Translation couldn't prepare {stage}. Check Setup or Diagnostics and try again."
-            ),
-        );
-    }
-
-    let prepared_preflight = build_preflight();
-    if !prepared_preflight.ready_for_start {
-        return MeetingSessionActionResult {
-            ok: false,
-            state: "blocked_after_runtime_prepare".to_string(),
-            message: "Start Translation prepared the local AI runtime, but current Meeting prerequisites are no longer ready. Check Setup and try again."
-                .to_string(),
-            status: status_from_report(latest_runtime_session_state(), prepared_preflight),
-        };
-    }
-
     let starting = begin_application_meeting_session();
     if !starting.blocker.is_empty() {
         return MeetingSessionActionResult {
@@ -2105,7 +2127,6 @@ pub fn start_meeting_translation() -> MeetingSessionActionResult {
 
     let generation = start_snapshot.generation;
     let session_id = start_snapshot.session_id.clone();
-    remember_start_preflight(generation, prepared_preflight.clone());
     reset_committed_turns(&session_id);
     reset_finalized_meeting_sequence(&session_id);
     let _ = reset_self_output_suppression(&session_id);
@@ -2132,6 +2153,67 @@ pub fn start_meeting_translation() -> MeetingSessionActionResult {
                 capture.message
             ),
         );
+    }
+
+    // A6 proves the real required AI path only after this generation owns Starting
+    // authority and the microphone stream is open. Every worker request is tied to
+    // this Meeting generation; My Voice is warm-loaded and a real English synthesis
+    // fixture must complete before native output or the outbound consumer can activate.
+    if let Err(stage) = prepare_required_outbound_ai_runtime(generation) {
+        let _ = revoke_runtime_session_authority(
+            generation,
+            "Required outbound AI/My Voice verification failed during Starting. Authority was revoked before rollback.",
+        );
+        let _ = stop_live_capture_runtime();
+        let _ = stop_meeting_sound_capture_runtime();
+        clear_finalized_meeting_sequence();
+        clear_self_output_suppression_for_session(&session_id);
+        clear_committed_turns_for_session(&session_id);
+        clear_start_preflight_for_generation(generation);
+        clear_prepared_meeting_output_device();
+        let _ = clear_runtime_session_state();
+        return blocked_result(
+            "rolled_back",
+            format!(
+                "Start Translation was rolled back before Live because {stage} could not be functionally verified for the authoritative Meeting generation."
+            ),
+        );
+    }
+    if !generation_is_starting(generation) {
+        let _ = stop_live_capture_runtime();
+        let _ = stop_meeting_sound_capture_runtime();
+        clear_finalized_meeting_sequence();
+        clear_self_output_suppression_for_session(&session_id);
+        clear_committed_turns_for_session(&session_id);
+        clear_start_preflight_for_generation(generation);
+        clear_prepared_meeting_output_device();
+        let _ = clear_runtime_session_state();
+        return blocked_result(
+            "rolled_back",
+            "Start Translation lost Starting authority while verifying the required local AI/My Voice path. No Meeting output was activated.".to_string(),
+        );
+    }
+
+    let ai_preflight = build_preflight();
+    if !ai_preflight.ready_for_start || required_outbound_voice_actor_token(generation).is_none() {
+        let _ = revoke_runtime_session_authority(
+            generation,
+            "Meeting prerequisites changed after required AI/My Voice verification. Authority was revoked before rollback.",
+        );
+        let _ = stop_live_capture_runtime();
+        let _ = stop_meeting_sound_capture_runtime();
+        clear_finalized_meeting_sequence();
+        clear_self_output_suppression_for_session(&session_id);
+        clear_committed_turns_for_session(&session_id);
+        clear_start_preflight_for_generation(generation);
+        clear_prepared_meeting_output_device();
+        let _ = clear_runtime_session_state();
+        return MeetingSessionActionResult {
+            ok: false,
+            state: "rolled_back".to_string(),
+            message: "Start Translation verified My Voice, but another required Meeting prerequisite changed before native output activation. All opened resources were rolled back.".to_string(),
+            status: status_from_report(latest_runtime_session_state(), ai_preflight),
+        };
     }
 
     // Required native output execution must be proven while this generation owns
@@ -2190,10 +2272,41 @@ pub fn start_meeting_translation() -> MeetingSessionActionResult {
         );
     }
 
+    // Re-check the full required preflight after the native output callback and
+    // serialized consumer both exist. A helper exit, actor invalidation, or other
+    // required prerequisite loss in the activation window must roll back rather than
+    // expose a transient Live state.
+    let prepared_preflight = build_preflight();
+    if !prepared_preflight.ready_for_start || required_outbound_voice_actor_token(generation).is_none() {
+        let _ = revoke_runtime_session_authority(
+            generation,
+            "Final pre-Live My Voice readiness changed after required resources opened. Authority was revoked before rollback.",
+        );
+        let _ = cancel_meeting_output_for_generation(generation);
+        let _ = stop_live_capture_runtime();
+        let _ = stop_meeting_sound_capture_runtime();
+        let helper_cancel = cancel_helper_bridge_meeting_session(&session_id);
+        let consumer_cleanup = stop_meeting_outbound_consumer(generation);
+        clear_finalized_meeting_sequence();
+        clear_self_output_suppression_for_session(&session_id);
+        clear_committed_turns_for_session(&session_id);
+        clear_start_preflight_for_generation(generation);
+        clear_prepared_meeting_output_device();
+        let _ = clear_runtime_session_state();
+        return blocked_result(
+            "rolled_back",
+            format!(
+                "Start Translation rolled back before Live because final My Voice readiness changed after native resources opened. Helper cleanup: {} Consumer cleanup: {}",
+                helper_cancel.message, consumer_cleanup.message
+            ),
+        );
+    }
+    remember_start_preflight(generation, prepared_preflight.clone());
+
     let committed = commit_application_meeting_session_live(
         generation,
         true,
-        "Required microphone, functional native Meeting output callback, and serialized outbound consumer were ready before the authoritative generation committed Live.",
+        "Required microphone, generation-bound ASR/translation/My Voice functional proof, native Meeting output callback, and serialized outbound consumer were ready before the authoritative generation committed Live.",
     );
     if !committed.blocker.is_empty() {
         let _ = revoke_runtime_session_authority(
@@ -2234,7 +2347,7 @@ pub fn start_meeting_translation() -> MeetingSessionActionResult {
         ok: true,
         state: "live".to_string(),
         message: format!(
-            "Translation Live committed with authoritative outbound capture/consumer. {incoming_message}"
+            "Translation Live committed with authoritative My Voice outbound capture/consumer. {incoming_message}"
         ),
         status: status_from_report(committed, prepared_preflight),
     }

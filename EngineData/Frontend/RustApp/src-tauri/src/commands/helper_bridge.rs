@@ -30,12 +30,16 @@ const APPLICATION_MEETING_OWNER_ID: &str = "translateit_application_meeting";
 static MEETING_OUTBOUND_PIPELINE_GENERATION: AtomicU64 = AtomicU64::new(0);
 
 const REQUIRED_OUTBOUND_FUNCTIONAL_ID_FIXTURE: &str = "selamat pagi";
-const REQUIRED_OUTBOUND_FUNCTIONAL_TTS_OUTPUT: &str =
-    "UserData/CacheData/helper_functional_readiness/required_outbound.wav";
+const REQUIRED_OUTBOUND_FUNCTIONAL_VOICE_OUTPUT: &str =
+    "UserData/CacheData/helper_functional_readiness/required_outbound_myvoice.wav";
+const REQUIRED_OUTBOUND_DIAGNOSTIC_VOICE_OUTPUT: &str =
+    "UserData/CacheData/helper_functional_readiness/diagnostic_myvoice.wav";
 
 #[derive(Debug, Clone)]
 struct RequiredOutboundFunctionalReadiness {
     generation_token: u64,
+    meeting_generation: u64,
+    actor_token: String,
     verified_unix_ms: u128,
 }
 
@@ -60,9 +64,6 @@ fn required_outbound_functional_readiness_verified_unix_ms(generation_token: u64
         .map(|cached| cached.verified_unix_ms)
 }
 
-fn required_outbound_functional_readiness_cached(generation_token: u64) -> bool {
-    required_outbound_functional_readiness_verified_unix_ms(generation_token).is_some()
-}
 
 fn decorate_functional_readiness_status(mut status: HelperBridgeStatus) -> HelperBridgeStatus {
     let verified_unix_ms =
@@ -73,16 +74,35 @@ fn decorate_functional_readiness_status(mut status: HelperBridgeStatus) -> Helpe
     status
 }
 
-fn remember_required_outbound_functional_readiness(generation_token: u64) {
-    if generation_token == 0 {
+fn remember_required_outbound_functional_readiness(
+    generation_token: u64,
+    meeting_generation: u64,
+    actor_token: String,
+) {
+    if generation_token == 0 || meeting_generation == 0 || actor_token.is_empty() {
         return;
     }
     if let Ok(mut guard) = required_outbound_functional_readiness_store().lock() {
         *guard = Some(RequiredOutboundFunctionalReadiness {
             generation_token,
+            meeting_generation,
+            actor_token,
             verified_unix_ms: unix_ms(),
         });
     }
+}
+
+pub fn required_outbound_voice_actor_token(meeting_generation: u64) -> Option<String> {
+    if meeting_generation == 0 || !runtime_generation_is_authoritative(meeting_generation) {
+        return None;
+    }
+    required_outbound_functional_readiness_store()
+        .lock()
+        .ok()
+        .and_then(|guard| guard.as_ref().cloned())
+        .filter(|cached| cached.meeting_generation == meeting_generation)
+        .map(|cached| cached.actor_token)
+        .filter(|token| !token.is_empty())
 }
 
 pub fn invalidate_required_outbound_ai_readiness() {
@@ -109,7 +129,7 @@ fn functional_translation_output(response: &HelperBridgeWorkerResponse) -> Optio
     worker_text(&value, "translated_text")
 }
 
-fn functional_tts_output_path(response: &HelperBridgeWorkerResponse) -> Option<String> {
+fn functional_voice_actor_output_path(response: &HelperBridgeWorkerResponse) -> Option<String> {
     let value = worker_response_value(response);
     let output_path = worker_text(&value, "output_path")?;
     let file_ready = fs::metadata(&output_path)
@@ -142,7 +162,7 @@ fn failed_required_outbound_task_invalidates_cache(
     let value = worker_response_value(response);
     let blocker = worker_text(&value, "blocker").unwrap_or_default();
     match task {
-        "status" | "asr_preload" | "translation_preload" | "tts_preflight" => true,
+        "status" | "asr_preload" | "translation_preload" | "voice_actor_preflight" => true,
         // A finalized speech event may legitimately contain no stable transcript.
         // That is not evidence that the loaded ASR runtime is broken.
         "transcribe" => blocker != "asr:empty_transcript",
@@ -155,7 +175,10 @@ fn failed_required_outbound_task_invalidates_cache(
                 | "translation:input_too_long_for_model"
                 | "translation:direction_not_supported"
         ),
-        "synthesize" => !matches!(blocker.as_str(), "tts:empty_text" | "tts:text_too_large"),
+        "voice_actor_synthesize" => !matches!(
+            blocker.as_str(),
+            "voice_actor:empty_text" | "voice_actor:text_too_large"
+        ),
         _ => false,
     }
 }
@@ -844,7 +867,9 @@ fn send_worker_task(task: &str, payload: Value) -> HelperBridgeWorkerResponse {
             }
         }
 
-        if task == "synthesize" || !response.ok || !runtime_generation_is_authoritative(generation)
+        if task == "voice_actor_synthesize"
+            || !response.ok
+            || !runtime_generation_is_authoritative(generation)
         {
             clear_meeting_outbound_pipeline(generation);
         }
@@ -860,29 +885,51 @@ pub fn send_helper_worker_task(task: &str, payload: Value) -> HelperBridgeWorker
     send_worker_task(task, payload)
 }
 
-pub fn prepare_required_outbound_ai_runtime() -> Result<(), &'static str> {
+fn run_required_outbound_ai_probe(
+    meeting_generation: Option<u64>,
+    output_path: &str,
+) -> Result<(u64, String), &'static str> {
+    if meeting_generation
+        .map(|generation| generation == 0 || !runtime_generation_is_authoritative(generation))
+        .unwrap_or(false)
+    {
+        invalidate_required_outbound_ai_readiness();
+        return Err("Meeting authority");
+    }
+    let meeting_start_prepare = meeting_generation.is_some();
+
+    // Refresh cheap capability truth first so a newly approved/rebuilt My Voice is
+    // visible to explicit setup checks and to the generation-bound Meeting probe.
+    let refreshed = send_worker_task(
+        "status",
+        json!({
+            "meeting_start_prepare": meeting_start_prepare,
+            "meeting_generation": meeting_generation,
+        }),
+    );
+    if !refreshed.ok {
+        invalidate_required_outbound_ai_readiness();
+        return Err("local translation runtime");
+    }
     let helper = get_helper_bridge_status();
     if helper.state != "ready" || !helper.provider_ready || helper.generation_token == 0 {
         invalidate_required_outbound_ai_readiness();
         return Err("local translation runtime");
     }
     let generation_token = helper.generation_token;
-    if required_outbound_functional_readiness_cached(generation_token) {
-        return Ok(());
-    }
 
-    // Load the canonical ASR runtime first so a model/device failure stops the bounded
-    // self-test before translation/TTS work. C4 still requires a real transcribe call
-    // below before this worker generation may be marked functionally ready.
-    let asr = send_worker_task("asr_preload", json!({ "meeting_start_prepare": true }));
+    let asr = send_worker_task(
+        "asr_preload",
+        json!({
+            "meeting_start_prepare": meeting_start_prepare,
+            "meeting_generation": meeting_generation,
+        }),
+    );
     if !asr.ok {
         invalidate_required_outbound_ai_readiness();
         return Err("speech recognition");
     }
 
-    // Exercise the real ID -> EN model with a fixed non-user fixture. Do not compare
-    // exact wording; readiness requires non-empty output plus the worker's canonical
-    // EOS-completion truth.
     let translation = send_worker_task(
         "translate",
         json!({
@@ -890,7 +937,8 @@ pub fn prepare_required_outbound_ai_runtime() -> Result<(), &'static str> {
             "source_language": "id",
             "target_language": "en",
             "max_new_tokens": 24,
-            "meeting_start_prepare": true,
+            "meeting_start_prepare": meeting_start_prepare,
+            "meeting_generation": meeting_generation,
         }),
     );
     let Some(translated_fixture) = functional_translation_output(&translation) else {
@@ -898,39 +946,53 @@ pub fn prepare_required_outbound_ai_runtime() -> Result<(), &'static str> {
         return Err("Indonesian to English translation");
     };
 
-    // Synthesize the actual functional translation result, then reuse that temporary
-    // English speech WAV as the bounded ASR inference fixture. This proves the ASR
-    // execution path without introducing a repository binary fixture. C4 checks only
-    // non-empty inference capability here; ASR language/quality accuracy remains
-    // target-runtime evidence.
-    let tts = send_worker_task(
-        "synthesize",
+    let actor_preflight = send_worker_task(
+        "voice_actor_preflight",
         json!({
-            "text": translated_fixture,
-            "output_path": REQUIRED_OUTBOUND_FUNCTIONAL_TTS_OUTPUT,
-            "meeting_start_prepare": true,
+            "meeting_start_prepare": meeting_start_prepare,
+            "meeting_generation": meeting_generation,
         }),
     );
-    let Some(functional_tts_path) = functional_tts_output_path(&tts) else {
+    if !actor_preflight.ok {
         invalidate_required_outbound_ai_readiness();
-        return Err("English voice output");
+        return Err("My Voice");
+    }
+    let Some(actor_token) = worker_text(&worker_response_value(&actor_preflight), "actor_token") else {
+        invalidate_required_outbound_ai_readiness();
+        return Err("My Voice");
+    };
+
+    let voice = send_worker_task(
+        "voice_actor_synthesize",
+        json!({
+            "text": translated_fixture,
+            "output_path": output_path,
+            "expected_actor_token": actor_token.clone(),
+            "meeting_start_prepare": meeting_start_prepare,
+            "meeting_generation": meeting_generation,
+        }),
+    );
+    let Some(functional_voice_path) = functional_voice_actor_output_path(&voice) else {
+        invalidate_required_outbound_ai_readiness();
+        return Err("My Voice");
     };
 
     let asr_inference = send_worker_task(
         "transcribe",
         json!({
-            "audio_path": functional_tts_path,
+            "audio_path": functional_voice_path,
             "language": "en",
             "beam_size": 1,
             "vad_filter": false,
-            "meeting_start_prepare": true,
+            "meeting_start_prepare": meeting_start_prepare,
+            "meeting_generation": meeting_generation,
         }),
     );
-    let functional_tts_path = worker_response_value(&tts)
+    let functional_voice_path = worker_response_value(&voice)
         .get("output_path")
         .and_then(Value::as_str)
         .map(str::to_string);
-    if let Some(path) = functional_tts_path.as_deref() {
+    if let Some(path) = functional_voice_path.as_deref() {
         let _ = fs::remove_file(path);
     }
     if !functional_asr_output(&asr_inference) {
@@ -938,24 +1000,58 @@ pub fn prepare_required_outbound_ai_runtime() -> Result<(), &'static str> {
         return Err("speech recognition");
     }
 
-    // Re-read capability truth only after all three required execution stages. A
-    // worker replaced during the self-test cannot donate readiness to the new
-    // generation.
-    let status = send_worker_task("status", json!({ "meeting_start_prepare": true }));
-    if !status.ok {
+    let status = send_worker_task(
+        "status",
+        json!({
+            "meeting_start_prepare": meeting_start_prepare,
+            "meeting_generation": meeting_generation,
+        }),
+    );
+    if !status.ok
+        || worker_text(&worker_response_value(&status), "voice_actor_token").as_deref()
+            != Some(actor_token.as_str())
+    {
         invalidate_required_outbound_ai_readiness();
-        return Err("local translation runtime");
+        return Err("My Voice");
     }
     let current = get_helper_bridge_status();
     if current.state != "ready"
         || !current.provider_ready
         || current.generation_token != generation_token
+        || meeting_generation
+            .map(|generation| !runtime_generation_is_authoritative(generation))
+            .unwrap_or(false)
     {
         invalidate_required_outbound_ai_readiness();
         return Err("local translation runtime");
     }
 
-    remember_required_outbound_functional_readiness(generation_token);
+    Ok((generation_token, actor_token))
+}
+
+pub fn verify_required_outbound_ai_runtime() -> Result<(), &'static str> {
+    let (generation_token, actor_token) = run_required_outbound_ai_probe(
+        None,
+        REQUIRED_OUTBOUND_DIAGNOSTIC_VOICE_OUTPUT,
+    )?;
+    remember_required_outbound_functional_readiness(generation_token, 0, actor_token);
+    Ok(())
+}
+
+pub fn prepare_required_outbound_ai_runtime(meeting_generation: u64) -> Result<(), &'static str> {
+    let (generation_token, actor_token) = run_required_outbound_ai_probe(
+        Some(meeting_generation),
+        REQUIRED_OUTBOUND_FUNCTIONAL_VOICE_OUTPUT,
+    )?;
+    if !runtime_generation_is_authoritative(meeting_generation) {
+        invalidate_required_outbound_ai_readiness();
+        return Err("Meeting authority");
+    }
+    remember_required_outbound_functional_readiness(
+        generation_token,
+        meeting_generation,
+        actor_token,
+    );
     Ok(())
 }
 
@@ -1324,10 +1420,10 @@ mod c4_functional_readiness_tests {
 
         let hard_tts = response(
             false,
-            r#"{"ok":false,"stage":"synthesize","blocker":"tts:sapi_synthesis_failed"}"#,
+            r#"{"ok":false,"stage":"voice_actor_synthesize","blocker":"voice_actor:actor_changed_since_meeting_start"}"#,
         );
         assert!(failed_required_outbound_task_invalidates_cache(
-            "synthesize",
+            "voice_actor_synthesize",
             &hard_tts
         ));
     }
@@ -1336,10 +1432,14 @@ mod c4_functional_readiness_tests {
     fn functional_cache_identity_is_worker_generation_bound() {
         let cached = RequiredOutboundFunctionalReadiness {
             generation_token: 9,
+            meeting_generation: 41,
+            actor_token: "actor-v1".to_string(),
             verified_unix_ms: 1,
         };
         assert_eq!(cached.generation_token, 9);
+        assert_eq!(cached.meeting_generation, 41);
+        assert_eq!(cached.actor_token, "actor-v1");
         assert!(cached.verified_unix_ms > 0);
-        assert_ne!(cached.generation_token, 10);
+        assert_ne!(cached.meeting_generation, 42);
     }
 }

@@ -26,10 +26,12 @@ pub const HELPER_SCHEDULER_DIAGNOSTIC_WAIT_MS: u64 = 5_000;
 pub fn worker_response_deadline_ms(task: &str) -> u128 {
     match task {
         "ping" => WORKER_CONTROL_RESPONSE_DEADLINE_MS,
-        "status" | "tts_preflight" => WORKER_STATUS_RESPONSE_DEADLINE_MS,
-        "asr_preload" | "translation_preload" => WORKER_PRELOAD_RESPONSE_DEADLINE_MS,
+        "status" => WORKER_STATUS_RESPONSE_DEADLINE_MS,
+        "asr_preload" | "translation_preload" | "voice_actor_preflight" => {
+            WORKER_PRELOAD_RESPONSE_DEADLINE_MS
+        }
         "transcribe" | "translate" => WORKER_INFERENCE_RESPONSE_DEADLINE_MS,
-        "synthesize" => WORKER_SYNTHESIS_RESPONSE_DEADLINE_MS,
+        "voice_actor_synthesize" => WORKER_SYNTHESIS_RESPONSE_DEADLINE_MS,
         _ => WORKER_FALLBACK_RESPONSE_DEADLINE_MS,
     }
 }
@@ -490,7 +492,7 @@ pub fn apply_worker_status(runtime: &mut HelperBridgeRuntime, status: &Value) {
     let worker_ok = worker_bool(status, "ok");
     let asr_ready = worker_nested_bool(status, "readiness", "asr");
     let outbound_translation_ready = worker_nested_bool(status, "readiness", "translation_id_en");
-    let tts_ready = worker_nested_bool(status, "readiness", "tts");
+    let tts_ready = worker_nested_bool(status, "readiness", "voice_actor_tts");
     let cuda_degraded = worker_nested_bool(status, "readiness", "cuda_degraded");
 
     runtime.cuda_ready = !cuda_degraded;
@@ -525,9 +527,16 @@ pub fn apply_worker_response(runtime: &mut HelperBridgeRuntime, value: &Value) -
             .or_else(|| worker_text(value, "stage"))
             .unwrap_or_else(|| "Helper contract request completed.".to_string());
     } else {
+        let blocker = worker_text(value, "blocker").unwrap_or_default();
+        let hard_voice_actor_failure = stage == "voice_actor_synthesize"
+            && !matches!(
+                blocker.as_str(),
+                "voice_actor:empty_text" | "voice_actor:text_too_large"
+            );
         let required_outbound_prepare_failed = !ok
             && (stage == "asr_preload"
-                || stage == "tts_preflight"
+                || stage == "voice_actor_preflight"
+                || hard_voice_actor_failure
                 || (stage == "translation_preload"
                     && value.get("direction_pair").and_then(Value::as_str) == Some("id->en")));
         if required_outbound_prepare_failed {
@@ -659,7 +668,7 @@ mod readiness_contract_tests {
                     "translation_id_en": true,
                     "translation_en_id": false,
                     "translation_bidirectional": false,
-                    "tts": true,
+                    "voice_actor_tts": true,
                     "cuda_degraded": false
                 }
             }),
@@ -677,7 +686,7 @@ mod readiness_contract_tests {
                     "asr": true,
                     "translation_realtime": true,
                     "translation_quality": true,
-                    "tts": true,
+                    "voice_actor_tts": true,
                     "cuda_degraded": false
                 }
             }),

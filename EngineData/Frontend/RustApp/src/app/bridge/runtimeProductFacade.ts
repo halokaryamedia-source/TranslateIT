@@ -203,7 +203,7 @@ function parseWorkerCapabilities(workerStatus: HelperBridgeWorkerResponse | null
       asrReady: readiness.asr === true,
       translationIdEnReady: readiness.translation_id_en === true,
       translationEnIdReady: readiness.translation_en_id === true,
-      ttsReady: readiness.tts === true,
+      ttsReady: readiness.voice_actor_tts === true,
       blocker: compact(payload.blocker, ""),
       note: compact(payload.note, ""),
     };
