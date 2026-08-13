@@ -1,0 +1,38 @@
+name: Temporary A3 Cargo Lock
+
+on:
+  push:
+    branches: [New]
+    paths:
+      - .github/workflows/temp-a3-lock.yml
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  lock:
+    runs-on: windows-2022
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: New
+      - name: Materialize locked dependency graph
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          cargo generate-lockfile --manifest-path EngineData/Frontend/RustApp/src-tauri/Cargo.toml
+          if ($LASTEXITCODE -ne 0) { throw 'cargo generate-lockfile failed' }
+          git diff -- EngineData/Frontend/RustApp/src-tauri/Cargo.lock
+          if (-not (git status --porcelain -- EngineData/Frontend/RustApp/src-tauri/Cargo.lock)) {
+            Write-Host 'CARGO_LOCK_ALREADY_CURRENT=true'
+            exit 0
+          }
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add EngineData/Frontend/RustApp/src-tauri/Cargo.lock
+          git commit -m 'Lock VoiceLab resampler dependency'
+          if ($LASTEXITCODE -ne 0) { throw 'Cargo.lock commit failed' }
+          git push origin HEAD:New
+          if ($LASTEXITCODE -ne 0) { throw 'Cargo.lock push failed' }
