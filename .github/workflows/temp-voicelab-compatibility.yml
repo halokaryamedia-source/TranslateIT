@@ -1,0 +1,141 @@
+name: Temporary VoiceLab Compatibility Proof
+
+on:
+  push:
+    branches:
+      - New
+    paths:
+      - .github/workflows/temp-voicelab-compatibility.yml
+  workflow_dispatch:
+
+jobs:
+  single-runtime-compatibility:
+    runs-on: windows-2022
+    timeout-minutes: 45
+
+    steps:
+      - name: Checkout TranslateIT
+        uses: actions/checkout@v4
+
+      - name: Set up Python 3.12
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12.10'
+
+      - name: Install uv
+        shell: pwsh
+        run: python -m pip install --disable-pip-version-check uv
+
+      - name: Materialize canonical WorkerRuntime
+        shell: pwsh
+        working-directory: EngineData/Backend/LocalWorker/WorkerRuntime
+        run: |
+          uv sync --locked --dev
+          uv run python -c "import sys, torch, ctranslate2, faster_whisper, transformers; print('PYTHON', sys.version); print('TORCH', torch.__version__); print('CTRANSLATE2', ctranslate2.__version__); print('FASTER_WHISPER', faster_whisper.__version__); print('TRANSFORMERS', transformers.__version__)"
+          uv run pytest
+
+      - name: Fetch pinned GPT-SoVITS source
+        shell: pwsh
+        run: |
+          $sha = 'd523079fc05d9a8028d6085bffe4a2757c32abb6'
+          git init .tmp-gpt-sovits
+          git -C .tmp-gpt-sovits remote add origin https://github.com/RVC-Boss/GPT-SoVITS.git
+          git -C .tmp-gpt-sovits fetch --depth 1 origin $sha
+          git -C .tmp-gpt-sovits checkout --detach FETCH_HEAD
+          $actual = (git -C .tmp-gpt-sovits rev-parse HEAD).Trim()
+          if ($actual -ne $sha) { throw "Pinned GPT-SoVITS revision mismatch: $actual" }
+          Write-Host "GPT_SOVITS_REVISION=$actual"
+
+      - name: Prove upstream full requirements contain out-of-scope tooling
+        shell: pwsh
+        run: |
+          $requirements = Get-Content .tmp-gpt-sovits/requirements.txt -Raw
+          $outOfScope = @(
+            'gradio',
+            'funasr',
+            'modelscope',
+            'fastapi',
+            'onnxruntime'
+          )
+          foreach ($name in $outOfScope) {
+            if ($requirements.ToLowerInvariant() -notmatch [regex]::Escape($name)) {
+              throw "Expected upstream tooling marker missing: $name"
+            }
+          }
+          Write-Host 'UPSTREAM_FULL_REQUIREMENTS_NOT_ADOPTED=true'
+
+      - name: Install bounded VoiceLab candidate dependencies into the same worker environment
+        shell: pwsh
+        working-directory: EngineData/Backend/LocalWorker/WorkerRuntime
+        run: |
+          $python = (Resolve-Path '.venv/Scripts/python.exe').Path
+          uv pip install --python $python `
+            'numpy<2.0' `
+            scipy `
+            'pytorch-lightning>=2.4' `
+            tensorboard `
+            'librosa==0.10.2' `
+            numba `
+            ffmpeg-python `
+            tqdm `
+            cn2an `
+            pypinyin `
+            g2p_en `
+            'torchaudio==2.13.0' `
+            sentencepiece `
+            'transformers>=4.43,<=4.50' `
+            'peft<0.18.0' `
+            chardet `
+            PyYAML `
+            psutil `
+            jieba_fast `
+            jieba `
+            split-lang `
+            'fast_langdetect>=0.3.1' `
+            wordsegment `
+            rotary-embedding-torch `
+            x-transformers `
+            'torchmetrics<=1.5' `
+            'av>=11'
+          uv pip check --python $python
+
+      - name: Verify canonical core identities survived candidate installation
+        shell: pwsh
+        working-directory: EngineData/Backend/LocalWorker/WorkerRuntime
+        run: |
+          $python = (Resolve-Path '.venv/Scripts/python.exe').Path
+          & $python -c "import torch, ctranslate2, faster_whisper, transformers; assert torch.__version__.split('+')[0] == '2.13.0', torch.__version__; assert ctranslate2.__version__ == '4.8.1', ctranslate2.__version__; from packaging.version import Version; assert Version(faster_whisper.__version__) >= Version('1.0.0'); tv=Version(transformers.__version__); assert Version('4.44.0') <= tv <= Version('4.50.999'), tv; print('CORE_IDENTITIES_OK', torch.__version__, ctranslate2.__version__, faster_whisper.__version__, transformers.__version__)"
+
+      - name: Verify bounded GPT-SoVITS English inference and training imports
+        shell: pwsh
+        run: |
+          $python = (Resolve-Path 'EngineData/Backend/LocalWorker/WorkerRuntime/.venv/Scripts/python.exe').Path
+          $root = (Resolve-Path '.tmp-gpt-sovits/GPT_SoVITS').Path
+          $env:PYTHONPATH = $root
+          Push-Location $root
+          try {
+            & $python -c "import pytorch_lightning; import AR.models.t2s_lightning_module; import module.models; import module.data_utils; import process_ckpt; print('TRAINING_CORE_IMPORT_OK')"
+            if ($LASTEXITCODE -ne 0) { throw 'GPT-SoVITS training core import failed' }
+            & $python -c "from TTS_infer_pack.TTS import TTS, TTS_Config; cfg=TTS_Config.default_configs['v2ProPlus']; assert cfg['version']=='v2ProPlus'; print('V2PROPLUS_INFERENCE_IMPORT_OK')"
+            if ($LASTEXITCODE -ne 0) { throw 'GPT-SoVITS V2ProPlus inference import failed' }
+            & $python -c "from text.cleaner import clean_text; phones, _, norm = clean_text('Tomorrow we will review the project timeline.', 'en', 'v2'); assert phones and norm; print('ENGLISH_FRONTEND_OK', len(phones), norm)"
+            if ($LASTEXITCODE -ne 0) { throw 'GPT-SoVITS English frontend failed' }
+          }
+          finally {
+            Pop-Location
+          }
+
+      - name: Re-run TranslateIT worker deterministic tests after compatibility mutation
+        shell: pwsh
+        working-directory: EngineData/Backend/LocalWorker/WorkerRuntime
+        run: |
+          $python = (Resolve-Path '.venv/Scripts/python.exe').Path
+          & $python -m pytest
+          if ($LASTEXITCODE -ne 0) { throw 'TranslateIT worker tests regressed after VoiceLab candidate install' }
+
+      - name: Report bounded proof result
+        shell: pwsh
+        run: |
+          Write-Host 'VOICELAB_SINGLE_RUNTIME_COMPATIBILITY=PASS'
+          Write-Host 'CLAIM_BOUNDARY=dependency-resolution-and-import-only'
+          Write-Host 'NOT_PROVEN=model-load-training-quality-cuda-latency-audio'
