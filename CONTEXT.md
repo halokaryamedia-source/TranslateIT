@@ -12,10 +12,12 @@ This file stores stable current project facts. Active continuation belongs in `d
 
 TranslateIT is a local Windows translator focused on Indonesian and English.
 
+Approved target navigation is:
+
 ```text
 Meeting
 ├─ Start Translation
-├─ ID speech -> final ID transcript -> EN translation -> EN TTS
+├─ ID speech -> final ID transcript -> EN translation -> trained EN Voice Actor
 ├─ translated voice -> TranslateIT Meeting Microphone
 ├─ optional EN Meeting Sound -> ID text
 └─ Stop Translation
@@ -26,18 +28,60 @@ Text
 ├─ edit result
 └─ Copy
 
+VoiceLab
+├─ confirm voice ownership
+├─ guided English recording
+├─ replay / accept / retry
+├─ train one GPT-SoVITS V2ProPlus Voice Actor
+├─ held-out evaluation + user approval
+└─ save reusable My Voice
+
 Settings
 ├─ Meeting devices/setup
 └─ Advanced / Diagnostics
 ```
 
-Normal Meeting lifecycle:
+Normal Meeting lifecycle remains:
 
 ```text
 Ready -> Starting -> Live -> Stopping -> Ended
 ```
 
-Pause/Resume, History/Saved, Audio Studio, Documents, Tone/Context, partial translated subtitles, custom voice, additional languages, and user-facing Realtime/Quality modes are not initial core.
+Pause/Resume, general History/Saved, Audio Studio/broadcast-production features, Documents, Tone/Context, partial translated subtitles, additional languages, user-facing Realtime/Quality modes, alternate custom-voice engines, quick-clone modes, and imported-audio VoiceLab branching remain outside the current approved boundary.
+
+## VoiceLab Scope Reopened
+
+On 2026-08-13 the user explicitly approved VoiceLab as required work **before** target-Windows validation. This supersedes only the former custom-voice deferral. The rest of the small-core simplification remains active.
+
+Canonical VoiceLab direction:
+
+```text
+one product feature: VoiceLab
+one custom-TTS engine: GPT-SoVITS V2ProPlus
+one normal creation flow: guided English recording -> fine-tune -> evaluate -> approve
+one daily inference owner: existing canonical Python local worker
+one approved persistent actor: My Voice
+```
+
+Voice quality is prioritized over instant creation. Speaker adaptation/training happens as an explicit occasional build operation. Normal application startup, Meeting startup, and each translated utterance must **not** retrain the actor.
+
+Training and an active Meeting are mutually exclusive in the first implementation. Do not add background training, automatic GPU arbitration, pause/resume training, or a second daily inference worker to make them concurrent.
+
+The initial engineering baseline is pinned to upstream GPT-SoVITS commit:
+
+```text
+d523079fc05d9a8028d6085bffe4a2757c32abb6
+```
+
+The pin is for reproducible integration investigation only. It does not prove model quality, target hardware performance, or release readiness.
+
+The first Voice Actor representation remains native trained GPT/SoVITS weights plus one canonical English reference recording/text. ONNX/TorchScript/quantization are deferred optimization candidates until native inference establishes a quality baseline and an optimized format proves useful without unacceptable fidelity loss.
+
+### Current implementation gap
+
+The active `New` source **does not yet implement VoiceLab**. Current frontend source still contains only First Setup / Meeting / Text / Settings, and current worker TTS still uses the pre-VoiceLab English TTS route. Policy now requires that route to be replaced by the trained Voice Actor path before source closure is restored.
+
+Do not report VoiceLab as implemented until source/runtime proof establishes it.
 
 ## Runtime Architecture
 
@@ -45,10 +89,12 @@ Pause/Resume, History/Saved, Audio Studio, Documents, Tone/Context, partial tran
 Tauri 2 desktop application
 ├─ Svelte frontend
 ├─ Rust desktop/runtime backend
-└─ ONE Python local worker
+└─ ONE Python local worker for normal ASR / translation / TTS inference
 ```
 
-Rust owns Meeting/session authority, Windows audio integration, routing, settings, paths, and desktop integration. The Python worker owns ASR, direction-based ID <-> EN translation, and TTS execution. Do not create a parallel engine, shell, readiness service, model selector, worker launcher, or second product-state owner.
+Rust owns Meeting/session authority, Windows audio integration, routing, settings, paths, and desktop integration. The Python worker owns ASR, direction-based ID <-> EN translation, and normal TTS inference. Do not create a parallel daily inference engine, shell, readiness service, model selector, worker launcher, or second product-state owner.
+
+VoiceLab may require long-running training work, but this is a build operation producing an actor for the same GPT-SoVITS engine family. The current architecture preference remains one application-local Python runtime/dependency graph. A second packaged Python environment is not pre-authorized and may be reconsidered only if exact compatibility proof shows the one-runtime approach is infeasible.
 
 ## Frontend Architecture
 
@@ -65,7 +111,7 @@ Tauri 2
 + @lucide/svelte
 ```
 
-Current owner graph:
+Current implemented owner graph remains:
 
 ```text
 src/main.ts
@@ -89,6 +135,8 @@ src/app/bridge/runtimeProductFacade.ts
 -> retained Tauri/product runtime boundary
 ```
 
+VoiceLab is approved but **not yet present in this active source graph**. When implemented it must extend the same Svelte application/bridge architecture rather than create a second frontend shell.
+
 The former `active-launcher`, `simple-launcher`, vanilla First Setup, manual icon strings, and legacy root CSS owners are removed rather than retained as a dual frontend.
 
 Frontend visual ownership stays small. `tokens.css` owns semantic surfaces, text, action/state colors, shape, and desktop dimensions. `app.css` owns Tailwind loading, focus/reduced-motion behavior, page composition, and a bounded shared visual vocabulary. `StatusRow.svelte` and `StatusBadge.svelte` exist only for repeated status responsibilities.
@@ -97,7 +145,7 @@ Frontend visual ownership stays small. `tokens.css` owns semantic surfaces, text
 
 `PR-166` makes familiar everyday translator interaction a durable product rule rather than a temporary design preference.
 
-Normal UI now follows these source-level principles:
+Normal UI follows these source-level principles:
 
 - source and target direction are immediately visible;
 - Meeting Ready presents `You speak -> Meeting hears` before setup detail;
@@ -112,11 +160,11 @@ Normal UI now follows these source-level principles:
 - First Setup preserves five persisted checkpoints and functional readiness checks, but its questions and instructions use ordinary meeting-language phrasing;
 - sidebar/navigation is compact and product-facing rather than presenting a dashboard-style capability card.
 
-This is an adaptation of familiar translation-product interaction, not a literal copy of another product's brand or layout.
+VoiceLab must follow the same human-facing rule: users see recording, review, training, preview, approval, and My Voice—not GPT/SoVITS submodels, checkpoints, epochs, dependency graphs, or provider internals.
 
 ## Frontend Product-State Contract
 
-Current source reconciles the UI against the initial-core requirements:
+Current source reconciles the UI against the pre-VoiceLab implementation requirements:
 
 - Meeting Ready / Starting / Live / Stopping remain projected from the canonical Meeting runtime owner;
 - Meeting-facing readiness uses the current Meeting preflight as the authoritative readiness sample instead of rebuilding Meeting truth from independently sampled frontend calls;
@@ -144,6 +192,26 @@ Svelte state remains presentation/application state, not duplicate Rust/runtime 
 - Source text is not silently truncated and known incomplete generation is not promoted.
 - Previous turns, History, and standalone Text are not automatic model context.
 - Optional incoming EN -> ID may degrade/disable without blocking safe outbound.
+- Approved final outbound TTS target is the trained GPT-SoVITS V2ProPlus My Voice actor.
+- Current source has not yet migrated from the pre-VoiceLab TTS implementation; this is an implementation gap, not an approved fallback policy.
+
+## Voice Actor Storage Contract
+
+Approved ownership is:
+
+```text
+UserData/CacheData/VoiceLab/
+-> guided takes
+-> prepared training data
+-> candidate checkpoints
+-> held-out generated evaluations
+-> temporary build evidence
+
+UserData/SavedProject/VoiceLab/
+-> explicitly approved My Voice actor only
+```
+
+A rebuild must not remove or replace the currently approved actor until the new build has completed, been evaluated, and been explicitly approved. General History/Saved conversation persistence remains separate and deferred.
 
 ## Meeting Ownership
 
@@ -152,6 +220,8 @@ Svelte state remains presentation/application state, not duplicate Rust/runtime 
 Start establishes one session/authority. Navigation does not stop/recreate it. Stop revokes output authority before resource cleanup, stops both audio lanes, cancels/joins Meeting work, clears transient conversation/audio state, and ends the session. Safe application close uses the same Stop owner and fails closed when session state cannot be verified. Windows suspend/resume window messages only enqueue a bounded nonblocking cleanup signal; a Rust lifecycle worker then converges through the same authority-first Meeting Stop owner.
 
 Required outbound activation is transactional before `Live`: after the application Meeting generation owns `Starting` authority, the required microphone capture opens, the exact prepared virtual output endpoint must build/start a bounded silent CPAL stream and produce a native callback, and the serialized outbound consumer must be created. Only then may the same generation commit `Live`. Optional incoming Meeting Sound remains independent and starts after required outbound is Live. The silent callback probe proves native endpoint execution only; actual VB-Cable/meeting-app reception remains target-Windows evidence.
+
+VoiceLab integration must extend this same Start authority rather than add another lifecycle. Final target behavior requires the trained actor to be loaded/warm, its canonical reference prepared/cached, and a bounded functional custom-TTS probe to succeed before `Live` can commit.
 
 The bounded committed-turn store is transient Live transcript state only; Meeting Stop has no History persistence dependency. Outbound timing is attached to the same transient Meeting owner: finalized speech records the detected finalization point and speech-boundary delay, the Meeting consumer records queue/audio-preparation/AI-stage durations, and Rust/CPAL output reports first translated playback from CPAL's predicted device-playback timestamp. No latency threshold is hardcoded before target-PC evidence, and C2 adds no persistent conversation/telemetry log.
 
@@ -170,6 +240,8 @@ audio.output_device_id
 ```
 
 `engine/settings.rs` is the single schema/deserialization/sanitization owner. The previous larger JSON shape is tolerated through ignored legacy keys; normal save writes only the small schema. There is no migration registry or second settings store.
+
+VoiceLab does not automatically reintroduce the retired `voice_actor_profile_id`, `use_custom_voice_actor`, or configurable profile-root settings. The first approved product has one My Voice actor in a canonical user-data location. Add persisted selection/schema fields only if a real current requirement later needs them.
 
 `commands/settings.rs` owns the bounded audio-device selection transaction at the desktop boundary: load the current preference, functionally verify a requested microphone through a short CPAL stream/callback check (while routine status remains configuration-only), probe Meeting Sound through the existing output-device owner, preserve the old preference on failure, persist on success, and return the canonical resulting settings. The microphone verification retains no PCM/audio body. The frontend does not duplicate that rollback rule.
 
@@ -191,9 +263,11 @@ engine/
 
 The old adapter/planning tree, History/Chat/session persistence, transcript-session planning, native inference candidates, CUDA/status/report scaffolding, duplicate RuntimeContracts, and handoff compatibility tombstones are removed.
 
+VoiceLab may justify one bounded command/module owner for its long-running build lifecycle after the compatibility gate closes. It must not create a generic service framework, model registry, second settings store, second worker launcher, or alternate readiness owner.
+
 Normal post-setup `loadProductRuntimeSnapshot()` lazily starts the one helper only when its lifecycle is known `not_started`/`stopped`, then reads Meeting status/preflight, helper status, input status, and worker capability when the helper is ready. Fresh `meeting_setup_state = new` boot does not enter this normal snapshot path and therefore does not start Python. Heavy diagnostic/model/native probing is not normal polling work. During an active Meeting, the recurring frontend path polls Meeting status; the larger committed-turn snapshot is conditional on a status revision change rather than fetched unconditionally on every interval.
 
-Required outbound AI Start readiness is generation-bound functional truth rather than preload-only truth. On the first explicit final-readiness check or Meeting Start for a helper generation, TranslateIT loads the ASR runtime, executes a fixed non-user Indonesian -> English translation and requires EOS-complete output, synthesizes that actual translated fixture through the selected English TTS provider into a real WAV, then reuses that temporary speech WAV for a real ASR transcription call before deleting it. The self-test requires non-empty ASR output but does not claim language/quality accuracy from the fixture. Later checks/Starts reuse only the successful cache for that same helper generation; worker replacement or a hard required-stage execution failure invalidates it. Product `Ready` consumes this functional cache, while static prerequisites remain separately `start_eligible` so pressing Start can run the bounded self-test without heavy work in routine polling.
+Required outbound AI Start readiness is generation-bound functional truth rather than preload-only truth. Current source still validates the pre-VoiceLab ASR/translation/TTS path. VoiceLab implementation must replace only the TTS part of that readiness contract while preserving generation-bound cache/invalidation semantics and the real ASR/translation checks.
 
 ## Release Boundary
 
@@ -210,13 +284,15 @@ Installed Python execution is selected as:
 
 Packaged source resolves only `PythonRuntime/python.exe`. Repository env/`.venv`/system-Python discovery is development-only. Persistent worker and Meeting Microphone provider share the same interpreter resolver and WorkerRuntime root. Models remain in `RuntimeAssets`.
 
-Actual packaged PythonRuntime bytes, vendored-package placement, Meeting provider imports, installer placement, and clean-machine behavior remain local release proof. Separate GitHub-hosted P2.3 evidence now proves the locked persistent worker can execute the primary ASR model, both MarianMT directions, English Windows SAPI TTS, and explicit CPU fallback; real CUDA execution still requires a GPU-capable Windows target.
+The one-private-runtime architecture remains the preferred VoiceLab integration target. Full GPT-SoVITS upstream requirements are not accepted as product dependencies by default; only dependencies earned by the approved English training/inference path may enter the canonical lock. WebUI, Gradio, FastAPI server, FunASR, ModelScope, UVR/audio-separation features, and unrelated language tooling must not be bundled solely because upstream ships them.
+
+Actual packaged PythonRuntime bytes, GPT-SoVITS source/model asset placement, training asset delivery, vendored-package placement, Meeting provider imports, installer placement, and clean-machine behavior remain release proof. Current hosted P2.3 evidence predates VoiceLab and proves only the existing worker's ASR/translation/pre-VoiceLab TTS path on CPU fallback.
 
 ## Deferred Proof Boundary
 
-The user currently postpones **user-local-PC**, real Windows audio/device, installer, and clean-machine testing. Model execution is no longer wholly deferred: the locked WorkerRuntime has now been executed remotely on a GitHub-hosted Windows CPU environment. This changes **where/when** the remaining proof is executed, not the acceptance standard; actual CUDA execution still requires a GPU-capable Windows target.
+The user continues to postpone **user-local-PC**, real Windows audio/device, installer, and clean-machine testing until VoiceLab source work is complete. This changes where/when proof is executed, not the acceptance standard.
 
-Remote GitHub-hosted Windows proof has already established the following executable/frontend boundaries:
+Remote GitHub-hosted Windows proof already established the pre-VoiceLab executable/frontend boundaries:
 
 ```text
 frontend dependency materialization in proof runners
@@ -233,25 +309,23 @@ native Step 1 keyboard focus traversal + visible focus indicators
 canonical package-lock.json + deterministic clean npm ci proof
 remote Text Copy browser Clipboard API success + truthful failure feedback
 fresh real Rust settings/new-state -> native First Setup projection with zero Python descendants
-real locked Python worker/model execution -> ASR + ID<->EN + English TTS on CPU fallback
+real locked Python worker/model execution -> ASR + ID<->EN + pre-VoiceLab English TTS on CPU fallback
 ```
 
-Fresh First Setup remote proofs remain intentionally before capability execution and have shown zero Python child processes. Those startup proofs themselves do **not** prove Python inference, physical microphone behavior, Meeting virtual-audio routing, real Meeting-app reception, sleep/wake behavior during a live session, latency/stability, installer placement, or clean-machine execution. Separate P2.3 run `31595127627` now proves real persistent-worker ASR/translation/TTS execution on the hosted CPU path; it does not prove CUDA execution or any Windows Meeting-audio/device behavior.
+Those proofs do **not** prove VoiceLab training, GPT-SoVITS dependency compatibility, speaker fidelity, trained actor reuse, native custom-TTS latency, CUDA behavior, physical microphone behavior, Meeting virtual-audio routing, real Meeting-app reception, sleep/wake behavior during a live session, installer placement, or clean-machine execution.
 
-Before release, remaining proof/materialization still includes:
+Before release, remaining proof/materialization now includes:
 
 ```text
+VoiceLab source + dependency/build/inference integration
+real trained Voice Actor quality and rebuild acceptance
 post-setup runtime-state projection together with deferred device/model acceptance
 private PythonRuntime packaging + GPU-capable CUDA execution proof
 Windows Meeting audio/device validation
 Start / Stop / Safe Close / power lifecycle runtime acceptance
-latency / stability / long-session measurement
+trained Voice Actor latency / stability / long-session measurement
 installer / installed-runtime proof
 clean-machine proof
 ```
 
-`EngineData/Frontend/RustApp/package-lock.json` is now the canonical npm lockfile for the current Svelte/Vite/Tauri frontend dependency graph. It was generated with Node 22.16.0 / npm 10.9.2, its root dependency set matches `package.json`, and a separate fresh GitHub-hosted Windows checkout passed strict `npm ci`, `svelte-check` with 0 errors / 0 warnings, and the Vite production build using the committed lockfile only.
-
-Remote Text clipboard proof exercised the current `Text.svelte` Copy path on GitHub-hosted Windows. The translation response was simulated only at the existing Tauri `translate_text` boundary so no Python/model execution occurred; clipboard success used the real browser Clipboard API and was read back, while an injected `writeText` rejection verified truthful failure feedback without changing the previous clipboard value.
-
-Fresh real Rust settings/default-state projection has now also been proven remotely: an isolated Windows profile resolves to `meeting_setup_state = new`, and the native app projects that state to First Setup with `Set Up Later` and `Continue` while starting zero Python descendants. Once setup is no longer `new`, the normal product snapshot requests Meeting status and input status; Meeting preflight and route status cross real Windows audio-device enumeration. That post-setup projection therefore remains part of the deferred device/model runtime acceptance rather than a remote-safe proof target.
+`EngineData/Frontend/RustApp/package-lock.json` remains the canonical npm lockfile for the current Svelte/Vite/Tauri frontend dependency graph.
