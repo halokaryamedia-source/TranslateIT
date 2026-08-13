@@ -1,4 +1,4 @@
-"""Pinned GPT-SoVITS V2ProPlus provider adapter for VoiceLab build only."""
+"""Pinned GPT-SoVITS V2ProPlus provider for VoiceLab build and trained-actor inference."""
 
 from __future__ import annotations
 
@@ -9,8 +9,9 @@ import shutil
 import subprocess
 import sys
 import wave
+from contextlib import contextmanager
 from pathlib import Path
-from typing import Any, Callable
+from typing import Any, Callable, Iterator
 
 from voice_lab_upstream_stage import install_headless_my_utils
 
@@ -22,6 +23,12 @@ REFERENCE_MAX_MS = 10_000
 REFERENCE_TARGET_MS = 5_000
 SOVITS_EPOCHS = 8
 GPT_EPOCHS = 15
+ACTOR_SCHEMA_VERSION = 1
+ACTOR_MANIFEST_FILE = "actor.json"
+ACTOR_GPT_WEIGHT_FILE = "gpt.ckpt"
+ACTOR_SOVITS_WEIGHT_FILE = "sovits.pth"
+ACTOR_REFERENCE_WAV_FILE = "reference.wav"
+MAX_ACTOR_MANIFEST_BYTES = 64 * 1024
 
 
 class VoiceLabProviderError(RuntimeError):
@@ -38,15 +45,38 @@ def require_dir(path: Path, label: str) -> None:
         raise VoiceLabProviderError(f"missing_asset:{label}")
 
 
-def source_assets(source_root: Path) -> dict[str, Path]:
+def validate_source_revision(source_root: Path) -> Path:
     marker = source_root / "TRANSLATEIT_GPTSOVITS_REVISION.txt"
     require_file(marker, "revision_marker")
     if marker.read_text(encoding="utf-8").strip() != ENGINE_REVISION:
         raise VoiceLabProviderError("source_revision_mismatch")
-
     gsv = source_root / "GPT_SoVITS"
+    require_dir(gsv, "GPT_SoVITS")
+    return gsv
+
+
+def inference_source_assets(source_root: Path) -> dict[str, Path]:
+    gsv = validate_source_revision(source_root)
     assets = {
         "gsv": gsv,
+        "hubert_model": gsv / "pretrained_models" / "chinese-hubert-base",
+        "bert_model": gsv / "pretrained_models" / "chinese-roberta-wwm-ext-large",
+        "sv_model": gsv / "pretrained_models" / "sv" / "pretrained_eres2netv2w24s4ep4.ckpt",
+    }
+    require_dir(assets["hubert_model"], "chinese_hubert_base")
+    require_dir(assets["bert_model"], "chinese_bert_base")
+    require_file(assets["sv_model"], "sv_model")
+    nltk_root = source_root / "nltk_data"
+    require_dir(nltk_root / "corpora" / "cmudict", "nltk_cmudict")
+    require_dir(nltk_root / "taggers" / "averaged_perceptron_tagger", "nltk_averaged_perceptron_tagger")
+    require_dir(nltk_root / "taggers" / "averaged_perceptron_tagger_eng", "nltk_averaged_perceptron_tagger_eng")
+    return assets
+
+
+def source_assets(source_root: Path) -> dict[str, Path]:
+    assets = inference_source_assets(source_root)
+    gsv = assets["gsv"]
+    assets.update({
         "text": gsv / "prepare_datasets" / "1-get-text.py",
         "hubert": gsv / "prepare_datasets" / "2-get-hubert-wav32k.py",
         "sv": gsv / "prepare_datasets" / "2-get-sv.py",
@@ -58,22 +88,10 @@ def source_assets(source_root: Path) -> dict[str, Path]:
         "pretrained_gpt": gsv / "pretrained_models" / "s1v3.ckpt",
         "pretrained_sovits_g": gsv / "pretrained_models" / "v2Pro" / "s2Gv2ProPlus.pth",
         "pretrained_sovits_d": gsv / "pretrained_models" / "v2Pro" / "s2Dv2ProPlus.pth",
-        "hubert_model": gsv / "pretrained_models" / "chinese-hubert-base",
-        "bert_model": gsv / "pretrained_models" / "chinese-roberta-wwm-ext-large",
-        "sv_model": gsv / "pretrained_models" / "sv" / "pretrained_eres2netv2w24s4ep4.ckpt",
-    }
-    require_dir(gsv, "GPT_SoVITS")
-    require_dir(assets["hubert_model"], "chinese_hubert_base")
-    require_dir(assets["bert_model"], "chinese_bert_base")
-    for key, path in assets.items():
-        if key not in {"gsv", "hubert_model", "bert_model"}:
-            require_file(path, key)
-
+    })
+    for key in ("text", "hubert", "sv", "semantic", "sovits_train", "gpt_train", "s2_config", "s1_config", "pretrained_gpt", "pretrained_sovits_g", "pretrained_sovits_d"):
+        require_file(assets[key], key)
     require_file(source_root / "ffmpeg.exe", "ffmpeg")
-    nltk_root = source_root / "nltk_data"
-    require_dir(nltk_root / "corpora" / "cmudict", "nltk_cmudict")
-    require_dir(nltk_root / "taggers" / "averaged_perceptron_tagger", "nltk_averaged_perceptron_tagger")
-    require_dir(nltk_root / "taggers" / "averaged_perceptron_tagger_eng", "nltk_averaged_perceptron_tagger_eng")
     return assets
 
 
@@ -90,6 +108,55 @@ def wav_duration_ms(path: Path) -> int:
     if frames <= 0:
         raise VoiceLabProviderError(f"empty_take:{path.name}")
     return frames * 1_000 // 32_000
+
+
+def require_regular_file(path: Path, label: str) -> tuple[int, int]:
+    if path.is_symlink() or not path.is_file():
+        raise VoiceLabProviderError(f"invalid_actor_asset:{label}")
+    stat = path.stat()
+    if stat.st_size <= 0:
+        raise VoiceLabProviderError(f"invalid_actor_asset:{label}")
+    return int(stat.st_size), int(stat.st_mtime_ns)
+
+
+def validate_actor_package(actor_dir: Path) -> dict[str, Any]:
+    if actor_dir.is_symlink() or not actor_dir.is_dir():
+        raise VoiceLabProviderError("approved_actor_missing")
+    manifest_path = actor_dir / ACTOR_MANIFEST_FILE
+    manifest_size, manifest_mtime = require_regular_file(manifest_path, "actor_manifest")
+    if manifest_size > MAX_ACTOR_MANIFEST_BYTES:
+        raise VoiceLabProviderError("actor_manifest_size_invalid")
+    try:
+        manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+    except Exception as exc:
+        raise VoiceLabProviderError("actor_manifest_invalid_json") from exc
+    if not isinstance(manifest, dict):
+        raise VoiceLabProviderError("actor_manifest_invalid_json")
+    if type(manifest.get("schema_version")) is not int or manifest["schema_version"] != ACTOR_SCHEMA_VERSION:
+        raise VoiceLabProviderError("actor_schema_mismatch")
+    if manifest.get("engine") != ENGINE or manifest.get("engine_revision") != ENGINE_REVISION:
+        raise VoiceLabProviderError("actor_engine_contract_mismatch")
+    if manifest.get("gpt_weight_file") != ACTOR_GPT_WEIGHT_FILE or manifest.get("sovits_weight_file") != ACTOR_SOVITS_WEIGHT_FILE or manifest.get("reference_wav_file") != ACTOR_REFERENCE_WAV_FILE:
+        raise VoiceLabProviderError("actor_package_filename_mismatch")
+    reference_text = str(manifest.get("reference_text", "")).strip()
+    if not reference_text:
+        raise VoiceLabProviderError("actor_reference_text_missing")
+    if manifest.get("held_out_evaluation_complete") is not True:
+        raise VoiceLabProviderError("actor_evaluation_incomplete")
+    reference_duration = manifest.get("reference_duration_ms")
+    if type(reference_duration) is not int:
+        raise VoiceLabProviderError("actor_reference_duration_invalid")
+    gpt_path = actor_dir / ACTOR_GPT_WEIGHT_FILE
+    sovits_path = actor_dir / ACTOR_SOVITS_WEIGHT_FILE
+    reference_wav = actor_dir / ACTOR_REFERENCE_WAV_FILE
+    gpt_identity = require_regular_file(gpt_path, "gpt_weight")
+    sovits_identity = require_regular_file(sovits_path, "sovits_weight")
+    reference_identity = require_regular_file(reference_wav, "reference_wav")
+    duration_ms = wav_duration_ms(reference_wav)
+    if duration_ms < REFERENCE_MIN_MS or duration_ms > REFERENCE_MAX_MS or reference_duration != duration_ms:
+        raise VoiceLabProviderError("actor_reference_duration_invalid")
+    fingerprint = ((ACTOR_MANIFEST_FILE, manifest_size, manifest_mtime), (ACTOR_GPT_WEIGHT_FILE, *gpt_identity), (ACTOR_SOVITS_WEIGHT_FILE, *sovits_identity), (ACTOR_REFERENCE_WAV_FILE, *reference_identity))
+    return {"actor_dir": actor_dir, "manifest": manifest, "gpt_path": gpt_path, "sovits_path": sovits_path, "reference_wav": reference_wav, "reference_text": reference_text, "reference_duration_ms": duration_ms, "fingerprint": fingerprint}
 
 
 def training_takes(dataset_dir: Path, manifest: dict[str, Any]) -> list[dict[str, Any]]:
@@ -238,6 +305,42 @@ def write_wav(path: Path, sample_rate: int, audio: Any) -> None:
         writer.writeframes(values.tobytes())
 
 
+@contextmanager
+def source_working_directory(source_root: Path) -> Iterator[None]:
+    previous = Path.cwd()
+    os.chdir(source_root)
+    try:
+        yield
+    finally:
+        os.chdir(previous)
+
+
+def create_tts_runtime(source_root: Path, assets: dict[str, Path], gpt_weight: Path, sovits_weight: Path, reference_wav: Path) -> dict[str, Any]:
+    require_regular_file(gpt_weight, "gpt_weight")
+    require_regular_file(sovits_weight, "sovits_weight")
+    require_regular_file(reference_wav, "reference_wav")
+    try:
+        import torch
+        cuda_available = bool(torch.cuda.is_available())
+    except Exception as exc:
+        raise VoiceLabProviderError(f"cuda_probe_failed:{type(exc).__name__}") from exc
+    device = "cuda:0" if cuda_available else "cpu"
+    with source_working_directory(source_root):
+        install_headless_my_utils(source_root)
+        os.environ["NLTK_DATA"] = str(source_root / "nltk_data")
+        os.environ["version"] = VERSION
+        from TTS_infer_pack.TTS import TTS, TTS_Config
+        config = TTS_Config({"custom": {"device": device, "is_half": cuda_available, "version": VERSION, "t2s_weights_path": str(gpt_weight), "vits_weights_path": str(sovits_weight), "cnhuhbert_base_path": str(assets["hubert_model"]), "bert_base_path": str(assets["bert_model"])}})
+        config.configs_path = str(source_root / "GPT_SoVITS" / "configs" / "translateit_tts_runtime.yaml")
+        tts = TTS(config)
+        tts.set_ref_audio(str(reference_wav))
+    return {"tts": tts, "device": device, "reference_wav": reference_wav, "reference_cached": True}
+
+
+def english_tts_inputs(text: str, reference_wav: Path, reference_text: str) -> dict[str, Any]:
+    return {"text": text, "text_lang": "en", "ref_audio_path": str(reference_wav), "prompt_text": reference_text, "prompt_lang": "en", "batch_size": 1, "parallel_infer": False, "return_fragment": False, "streaming_mode": False, "seed": 233333}
+
+
 def embedding(tts: Any, wav_path: Path) -> Any:
     import torchaudio
     wav, sr = torchaudio.load(str(wav_path))
@@ -248,23 +351,16 @@ def embedding(tts: Any, wav_path: Path) -> Any:
 
 
 def evaluate(source_root: Path, assets: dict[str, Path], candidate: Path, evaluation: Path, manifest: dict[str, Any], reference: dict[str, Any]) -> list[dict[str, Any]]:
-    import torch
     import torch.nn.functional as functional
-    install_headless_my_utils(source_root)
-    os.environ["NLTK_DATA"] = str(source_root / "nltk_data")
-    os.environ["version"] = VERSION
-    from TTS_infer_pack.TTS import TTS, TTS_Config
-
-    config = TTS_Config({"custom": {"device": "cuda:0" if torch.cuda.is_available() else "cpu", "is_half": torch.cuda.is_available(), "version": VERSION, "t2s_weights_path": str(candidate / "gpt.ckpt"), "vits_weights_path": str(candidate / "sovits.pth"), "cnhuhbert_base_path": str(assets["hubert_model"]), "bert_base_path": str(assets["bert_model"])}})
-    config.configs_path = str(evaluation / "tts_runtime.yaml")
-    tts = TTS(config)
     reference_wav = candidate / "reference.wav"
+    runtime = create_tts_runtime(source_root, assets, candidate / "gpt.ckpt", candidate / "sovits.pth", reference_wav)
+    tts = runtime["tts"]
     ref_embedding = embedding(tts, reference_wav)
     samples: list[dict[str, Any]] = []
     for held in manifest["held_out_lines"]:
         line_id = int(held["line_id"])
-        text = str(held["exact_text"]).strip()
-        outputs = list(tts.run({"text": text, "text_lang": "en", "ref_audio_path": str(reference_wav), "prompt_text": str(reference["exact_text"]), "prompt_lang": "en", "batch_size": 1, "parallel_infer": False, "return_fragment": False, "seed": 233333}))
+        held_text = str(held["exact_text"]).strip()
+        outputs = list(tts.run(english_tts_inputs(held_text, reference_wav, str(reference["exact_text"]))))
         if len(outputs) != 1:
             raise VoiceLabProviderError(f"evaluation_output_count:{line_id}:{len(outputs)}")
         sr, audio = outputs[0]
@@ -274,8 +370,32 @@ def evaluate(source_root: Path, assets: dict[str, Path], candidate: Path, evalua
         score = float(functional.cosine_similarity(ref_embedding, embedding(tts, wav_path), dim=-1).mean().item())
         if not math.isfinite(score):
             raise VoiceLabProviderError(f"evaluation_similarity_invalid:{line_id}")
-        samples.append({"line_id": line_id, "exact_text": text, "wav_file": wav_file, "speaker_similarity": round(score, 6)})
+        samples.append({"line_id": line_id, "exact_text": held_text, "wav_file": wav_file, "speaker_similarity": round(score, 6)})
     return samples
+
+
+def load_voice_actor_runtime(source_root: Path, actor_dir: Path) -> dict[str, Any]:
+    package = validate_actor_package(actor_dir)
+    assets = inference_source_assets(source_root)
+    runtime = create_tts_runtime(source_root, assets, package["gpt_path"], package["sovits_path"], package["reference_wav"])
+    runtime.update({"actor_dir": actor_dir, "reference_text": package["reference_text"], "reference_duration_ms": package["reference_duration_ms"], "fingerprint": package["fingerprint"]})
+    return runtime
+
+
+def synthesize_voice_actor(runtime: dict[str, Any], text: str, output_path: Path) -> dict[str, Any]:
+    tts = runtime.get("tts")
+    reference_wav = runtime.get("reference_wav")
+    reference_text = str(runtime.get("reference_text", "")).strip()
+    if tts is None or not isinstance(reference_wav, Path) or not reference_text:
+        raise VoiceLabProviderError("voice_actor_runtime_invalid")
+    outputs = list(tts.run(english_tts_inputs(text, reference_wav, reference_text)))
+    if len(outputs) != 1:
+        raise VoiceLabProviderError(f"inference_output_count:{len(outputs)}")
+    sample_rate, audio = outputs[0]
+    write_wav(output_path, int(sample_rate), audio)
+    if not output_path.is_file() or output_path.stat().st_size <= 44:
+        raise VoiceLabProviderError("inference_audio_invalid")
+    return {"sample_rate": int(sample_rate), "device": str(runtime.get("device", "unknown")), "reference_cached": bool(runtime.get("reference_cached"))}
 
 
 def build_candidate(*, source_root: Path, dataset_dir: Path, candidate_dir: Path, evaluation_dir: Path, work_dir: Path, manifest: dict[str, Any], status_writer: Callable[[str, str], None]) -> None:

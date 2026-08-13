@@ -8,6 +8,8 @@ import time
 from pathlib import Path
 from typing import Any
 
+import voice_lab_gpt_sovits as voice_actor_provider
+
 SCRIPT_ROOT = Path(__file__).resolve().parents[4]
 
 
@@ -31,6 +33,8 @@ ASR_BACKUP_MODEL = ASR_MODEL_ROOT / "faster-whisper-medium"
 TRANSLATION_MODEL_ID_EN = TRANSLATION_MODEL_ROOT / "marianmt-id-en"
 TRANSLATION_MODEL_EN_ID = TRANSLATION_MODEL_ROOT / "marianmt-en-id"
 PIPER_ROOT = RUNTIME_ASSETS_ROOT / "Voice" / "Piper"
+GPT_SOVITS_SOURCE_ROOT = RUNTIME_ASSETS_ROOT / "Voice" / "GPTSoVITS" / "Source"
+VOICE_ACTOR_ROOT = USER_DATA_ROOT / "SavedProject" / "VoiceLab" / "MyVoice"
 CACHE_ROOT = USER_DATA_ROOT / "CacheData"
 LOG_ROOT = USER_DATA_ROOT / "LogData"
 ALLOWED_INPUT_ROOTS = [CACHE_ROOT, LOG_ROOT]
@@ -54,6 +58,8 @@ ASR_RUNTIME_COMPUTE = "not_loaded"
 ASR_RUNTIME_MODEL_ID = "not_loaded"
 TRANSLATION_RUNTIME: dict[str, dict[str, Any]] = {}
 SAPI_STATUS: tuple[bool, list[dict[str, str]], str] | None = None
+VOICE_ACTOR_RUNTIME: dict[str, Any] | None = None
+VOICE_ACTOR_RUNTIME_FINGERPRINT: Any | None = None
 
 
 def now_ms() -> int:
@@ -282,6 +288,45 @@ def normalize_tts_language_code(value: Any) -> str:
 def is_english_language_code(value: Any) -> bool:
     code = normalize_tts_language_code(value)
     return code == "en" or code.startswith("en-")
+
+
+def clear_voice_actor_runtime() -> None:
+    global VOICE_ACTOR_RUNTIME, VOICE_ACTOR_RUNTIME_FINGERPRINT
+    VOICE_ACTOR_RUNTIME = None
+    VOICE_ACTOR_RUNTIME_FINGERPRINT = None
+
+
+def voice_actor_blocker(exc: Exception) -> str:
+    detail = str(exc).strip()
+    if isinstance(exc, voice_actor_provider.VoiceLabProviderError) and detail:
+        safe = "".join(character for character in detail if character.isascii() and (character.isalnum() or character in "_:-"))
+        if safe:
+            return f"voice_actor:{safe[:160]}"
+    return f"voice_actor:runtime_failed:{type(exc).__name__}"
+
+
+def get_voice_actor_runtime() -> dict[str, Any]:
+    global VOICE_ACTOR_RUNTIME, VOICE_ACTOR_RUNTIME_FINGERPRINT
+    try:
+        package = voice_actor_provider.validate_actor_package(VOICE_ACTOR_ROOT)
+    except Exception:
+        clear_voice_actor_runtime()
+        raise
+    fingerprint = package["fingerprint"]
+    if VOICE_ACTOR_RUNTIME is not None and VOICE_ACTOR_RUNTIME_FINGERPRINT == fingerprint:
+        return VOICE_ACTOR_RUNTIME
+    clear_voice_actor_runtime()
+    runtime = voice_actor_provider.load_voice_actor_runtime(GPT_SOVITS_SOURCE_ROOT, VOICE_ACTOR_ROOT)
+    if runtime.get("fingerprint") != fingerprint:
+        clear_voice_actor_runtime()
+        raise voice_actor_provider.VoiceLabProviderError("actor_changed_during_load")
+    latest = voice_actor_provider.validate_actor_package(VOICE_ACTOR_ROOT)
+    if latest["fingerprint"] != fingerprint:
+        clear_voice_actor_runtime()
+        raise voice_actor_provider.VoiceLabProviderError("actor_changed_during_load")
+    VOICE_ACTOR_RUNTIME = runtime
+    VOICE_ACTOR_RUNTIME_FINGERPRINT = fingerprint
+    return runtime
 
 
 def resolve_worker_path(value: Any, default_path: Path, allowed_roots: list[Path]) -> Path:
@@ -1343,6 +1388,39 @@ def handle_translate(payload: dict[str, Any]) -> dict[str, Any]:
         }
 
 
+def handle_voice_actor_preflight(_payload: dict[str, Any]) -> dict[str, Any]:
+    started = now_ms()
+    try:
+        runtime = get_voice_actor_runtime()
+        return {"ok": True, "stage": "voice_actor_preflight", "voice_id": "MyVoice", "language_code": "en", "device": str(runtime.get("device", "unknown")), "reference_cached": bool(runtime.get("reference_cached")), "elapsed_ms": now_ms() - started, "blocker": "", "note": "The approved My Voice actor is loaded for local English synthesis."}
+    except Exception as exc:
+        return {"ok": False, "stage": "voice_actor_preflight", "voice_id": "MyVoice", "language_code": "en", "blocker": voice_actor_blocker(exc), "elapsed_ms": now_ms() - started, "note": "The approved My Voice actor could not be loaded."}
+
+
+def handle_voice_actor_synthesize(payload: dict[str, Any]) -> dict[str, Any]:
+    started = now_ms()
+    if runtime_text_too_large(payload.get("text", ""), MAX_TTS_TEXT_CHARS):
+        return {"ok": False, "stage": "voice_actor_synthesize", "blocker": "voice_actor:text_too_large", "max_chars": MAX_TTS_TEXT_CHARS}
+    actor_text = compact_runtime_text(payload.get("text", ""), MAX_TTS_TEXT_CHARS)
+    if not actor_text:
+        return {"ok": False, "stage": "voice_actor_synthesize", "blocker": "voice_actor:empty_text"}
+    try:
+        output_path = resolve_worker_path(payload.get("output_path", ""), CACHE_ROOT / "voice_actor_output.wav", ALLOWED_OUTPUT_ROOTS)
+    except Exception as exc:
+        return {"ok": False, "stage": "voice_actor_synthesize", "blocker": type(exc).__name__, "note": str(exc), "elapsed_ms": now_ms() - started}
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+    output_path.unlink(missing_ok=True)
+    try:
+        runtime = get_voice_actor_runtime()
+        synthesis = voice_actor_provider.synthesize_voice_actor(runtime, actor_text, output_path)
+        if not output_path.is_file() or output_path.stat().st_size <= 44:
+            raise voice_actor_provider.VoiceLabProviderError("inference_audio_invalid")
+        return {"ok": True, "stage": "voice_actor_synthesize", "voice_id": "MyVoice", "language_code": "en", "device": synthesis["device"], "reference_cached": synthesis["reference_cached"], "sample_rate": synthesis["sample_rate"], "output_path": str(output_path), "elapsed_ms": now_ms() - started, "blocker": ""}
+    except Exception as exc:
+        output_path.unlink(missing_ok=True)
+        return {"ok": False, "stage": "voice_actor_synthesize", "voice_id": "MyVoice", "language_code": "en", "blocker": voice_actor_blocker(exc), "elapsed_ms": now_ms() - started, "note": "My Voice synthesis failed without switching to another voice."}
+
+
 def handle_tts_preflight(payload: dict[str, Any]) -> dict[str, Any]:
     selection = select_english_tts_voice(payload)
     ok = bool(selection["ok"])
@@ -1507,6 +1585,8 @@ HANDLERS = {
     "translate": handle_translate,
     "tts_preflight": handle_tts_preflight,
     "synthesize": handle_synthesize,
+    "voice_actor_preflight": handle_voice_actor_preflight,
+    "voice_actor_synthesize": handle_voice_actor_synthesize,
 }
 
 
