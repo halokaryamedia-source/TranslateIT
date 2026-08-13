@@ -58,18 +58,8 @@ jobs:
         run: |
           $ErrorActionPreference = 'Stop'
           $requirements = Get-Content .tmp-gpt-sovits/requirements.txt -Raw
-          $outOfScope = @(
-            'gradio',
-            'funasr',
-            'modelscope',
-            'fastapi',
-            'x_transformers',
-            'rotary_embedding_torch'
-          )
-          foreach ($name in $outOfScope) {
-            if ($requirements.ToLowerInvariant() -notmatch [regex]::Escape($name)) {
-              throw "Expected upstream tooling marker missing: $name"
-            }
+          foreach ($name in @('gradio','funasr','modelscope','fastapi','x_transformers','rotary_embedding_torch')) {
+            if ($requirements.ToLowerInvariant() -notmatch [regex]::Escape($name)) { throw "Expected upstream tooling marker missing: $name" }
           }
           Write-Host 'UPSTREAM_FULL_REQUIREMENTS_NOT_ADOPTED=true'
 
@@ -77,14 +67,11 @@ jobs:
         shell: pwsh
         run: |
           $ErrorActionPreference = 'Stop'
-
           $lrPath = '.tmp-gpt-sovits/GPT_SoVITS/AR/modules/lr_schedulers.py'
           $lr = Get-Content $lrPath -Raw
           if ($lr -notmatch 'from matplotlib import pyplot as plt') { throw 'Expected demo-only matplotlib import not found' }
           $lrRuntime = ($lr -split 'if __name__ == "__main__":')[0]
-          if (($lrRuntime -replace 'from matplotlib import pyplot as plt', '') -match '\bplt\.') {
-            throw 'Matplotlib participates in scheduler behavior; pruning is unsafe'
-          }
+          if (($lrRuntime -replace 'from matplotlib import pyplot as plt', '') -match '\bplt\.') { throw 'Matplotlib participates in scheduler behavior; pruning is unsafe' }
 
           $modelsPath = '.tmp-gpt-sovits/GPT_SoVITS/module/models.py'
           $models = Get-Content $modelsPath -Raw
@@ -97,22 +84,17 @@ jobs:
           if ($coreVq -notmatch 'from einops import rearrange, repeat') { throw 'Expected direct V2ProPlus vector-quantizer einops use not found' }
 
           $dataset = Get-Content .tmp-gpt-sovits/GPT_SoVITS/AR/data/dataset.py -Raw
-          if ($dataset -notmatch 'import pandas as pd') { throw 'Expected raw dataset pandas dependency not found' }
-          if ($dataset -notmatch 'pd\.read_csv') { throw 'Expected raw semantic TSV pandas read not found' }
+          if ($dataset -notmatch 'import pandas as pd' -or $dataset -notmatch 'pd\.read_csv') { throw 'Expected raw dataset pandas dependency not found' }
 
           $utils = Get-Content .tmp-gpt-sovits/tools/my_utils.py -Raw
-          if ($utils -notmatch 'import gradio as gr') { throw 'Expected raw upstream UI dependency not found' }
-          if ($utils -notmatch 'def load_audio') { throw 'Expected raw upstream audio loader not found' }
+          if ($utils -notmatch 'import gradio as gr' -or $utils -notmatch 'def load_audio') { throw 'Expected raw upstream UI/audio coupling not found' }
 
           $tts = Get-Content .tmp-gpt-sovits/GPT_SoVITS/TTS_infer_pack/TTS.py -Raw
-          if ($tts -notmatch 'torchaudio\.transforms\.Resample') { throw 'Expected TTS torchaudio resample call not found' }
-          if ($tts -notmatch 'torchaudio\.load') { throw 'Expected TTS torchaudio load call not found' }
-          if ($tts -notmatch 'from tools\.audio_sr import AP_BWE') { throw 'Expected optional AP_BWE eager import not found' }
-          if ($tts -notmatch 'from peft import') { throw 'Expected optional PEFT eager import not found' }
+          if ($tts -notmatch 'torchaudio\.transforms\.Resample' -or $tts -notmatch 'torchaudio\.load') { throw 'Expected TTS torchaudio wrapper not found' }
+          if ($tts -notmatch 'from tools\.audio_sr import AP_BWE' -or $tts -notmatch 'from peft import') { throw 'Expected optional non-V2ProPlus eager imports not found' }
 
           $pre = Get-Content .tmp-gpt-sovits/GPT_SoVITS/TTS_infer_pack/TextPreprocessor.py -Raw
-          if ($pre -notmatch 'from text import chinese') { throw 'Expected eager multilingual text import not found' }
-          if ($pre -notmatch 'elif language == "en"') { throw 'Expected English branch not found' }
+          if ($pre -notmatch 'from text import chinese' -or $pre -notmatch 'elif language == "en"') { throw 'Expected broad multilingual preprocessor shape not found' }
 
           Write-Host 'RAW_UPSTREAM_ADAPTER_IS_TOO_BROAD=true'
           Write-Host 'DEFER_TO_A2=pandas-dataset-loader,gradio-tools-wrapper,torchaudio-audio-wrapper,multilingual-preprocessor'
@@ -123,15 +105,12 @@ jobs:
         shell: pwsh
         run: |
           $ErrorActionPreference = 'Stop'
-
           $lrPath = '.tmp-gpt-sovits/GPT_SoVITS/AR/modules/lr_schedulers.py'
-          $lr = Get-Content $lrPath -Raw
-          $lr = $lr -replace '(?m)^from matplotlib import pyplot as plt\r?\n', ''
+          $lr = (Get-Content $lrPath -Raw) -replace '(?m)^from matplotlib import pyplot as plt\r?\n', ''
           Set-Content -Path $lrPath -Value $lr -Encoding UTF8
 
           $modelsPath = '.tmp-gpt-sovits/GPT_SoVITS/module/models.py'
-          $models = Get-Content $modelsPath -Raw
-          $models = $models -replace '(?m)^from f5_tts\.model import DiT\r?\n', ''
+          $models = (Get-Content $modelsPath -Raw) -replace '(?m)^from f5_tts\.model import DiT\r?\n', ''
           Set-Content -Path $modelsPath -Value $models -Encoding UTF8
 
           if ((Get-Content $lrPath -Raw) -match 'from matplotlib import pyplot as plt') { throw 'Failed to prune demo-only matplotlib import' }
@@ -145,13 +124,7 @@ jobs:
         run: |
           $ErrorActionPreference = 'Stop'
           $python = (Resolve-Path '.venv/Scripts/python.exe').Path
-          uv pip install --python $python `
-            'pytorch-lightning>=2.4' `
-            tensorboard `
-            'librosa==0.10.2' `
-            g2p_en `
-            wordsegment `
-            einops
+          uv pip install --python $python 'pytorch-lightning>=2.4' tensorboard g2p_en wordsegment einops
           if ($LASTEXITCODE -ne 0) { throw 'Minimal VoiceLab candidate dependency install failed' }
           uv pip check --python $python
           if ($LASTEXITCODE -ne 0) { throw 'Minimal VoiceLab candidate dependency check failed' }
@@ -162,7 +135,7 @@ jobs:
         run: |
           $ErrorActionPreference = 'Stop'
           $python = (Resolve-Path '.venv/Scripts/python.exe').Path
-          & $python -c "import torch, ctranslate2, faster_whisper, transformers, numpy; assert torch.__version__.split('+')[0] == '2.13.0', torch.__version__; assert ctranslate2.__version__ == '4.8.1', ctranslate2.__version__; assert faster_whisper.__version__ == '1.2.1', faster_whisper.__version__; assert transformers.__version__ == '5.15.0', transformers.__version__; assert numpy.__version__ == '2.5.2', numpy.__version__; print('CANONICAL_CORE_IDENTITIES_PRESERVED', torch.__version__, ctranslate2.__version__, faster_whisper.__version__, transformers.__version__, numpy.__version__)"
+          & $python -c "import torch, ctranslate2, faster_whisper, transformers, numpy; assert torch.__version__.split('+')[0] == '2.13.0'; assert ctranslate2.__version__ == '4.8.1'; assert faster_whisper.__version__ == '1.2.1'; assert transformers.__version__ == '5.15.0'; assert numpy.__version__ == '2.5.2'; print('CANONICAL_CORE_IDENTITIES_PRESERVED', torch.__version__, ctranslate2.__version__, faster_whisper.__version__, transformers.__version__, numpy.__version__)"
           if ($LASTEXITCODE -ne 0) { throw 'Canonical core identity changed during VoiceLab compatibility probe' }
 
       - name: Verify GPT-SoVITS V2ProPlus core on current canonical versions
@@ -170,28 +143,27 @@ jobs:
         run: |
           $ErrorActionPreference = 'Stop'
           $python = (Resolve-Path 'EngineData/Backend/LocalWorker/WorkerRuntime/.venv/Scripts/python.exe').Path
-          $root = (Resolve-Path '.tmp-gpt-sovits/GPT_SoVITS').Path
-          $env:PYTHONPATH = $root
-          Push-Location $root
+          $repoRoot = (Resolve-Path '.tmp-gpt-sovits').Path
+          $engineRoot = (Resolve-Path '.tmp-gpt-sovits/GPT_SoVITS').Path
+          $env:PYTHONPATH = "$repoRoot;$engineRoot"
+          Push-Location $repoRoot
           try {
-            & $python -c "import pytorch_lightning; from AR.models.t2s_lightning_module import Text2SemanticLightningModule; from AR.models.t2s_model import Text2SemanticDecoder; from module.models import SynthesizerTrn; import process_ckpt; print('TRAINING_MODEL_CORE_IMPORT_OK')"
+            & $python -c "import pytorch_lightning; from GPT_SoVITS.AR.models.t2s_lightning_module import Text2SemanticLightningModule; from GPT_SoVITS.AR.models.t2s_model import Text2SemanticDecoder; from GPT_SoVITS.module.models import SynthesizerTrn; from GPT_SoVITS import process_ckpt; print('TRAINING_MODEL_CORE_IMPORT_OK')"
             if ($LASTEXITCODE -ne 0) { throw 'GPT-SoVITS training/model core import failed' }
 
-            & $python -c "import json; from module.models import SynthesizerTrn; cfg=json.load(open('configs/s2v2ProPlus.json', encoding='utf-8')); m=SynthesizerTrn(cfg['data']['filter_length']//2+1, cfg['train']['segment_size']//cfg['data']['hop_length'], n_speakers=cfg['data']['n_speakers'], version='v2ProPlus', **cfg['model']); assert m.is_v2pro; print('V2PROPLUS_SOVITS_GRAPH_INSTANTIATED', sum(p.numel() for p in m.parameters())); del m"
+            & $python -c "import json; from GPT_SoVITS.module.models import SynthesizerTrn; cfg=json.load(open('GPT_SoVITS/configs/s2v2ProPlus.json', encoding='utf-8')); m=SynthesizerTrn(cfg['data']['filter_length']//2+1, cfg['train']['segment_size']//cfg['data']['hop_length'], n_speakers=cfg['data']['n_speakers'], version='v2ProPlus', **cfg['model']); assert m.is_v2pro; print('V2PROPLUS_SOVITS_GRAPH_INSTANTIATED', sum(p.numel() for p in m.parameters())); del m"
             if ($LASTEXITCODE -ne 0) { throw 'GPT-SoVITS V2ProPlus SoVITS graph instantiation failed' }
 
-            & $python -c "from transformers import HubertModel, Wav2Vec2FeatureExtractor; from feature_extractor.cnhubert import CNHubert; from sv import SV; print('V2PROPLUS_ACOUSTIC_CORE_IMPORT_OK')"
+            & $python -c "from transformers import HubertModel, Wav2Vec2FeatureExtractor; from GPT_SoVITS.feature_extractor.cnhubert import CNHubert; from GPT_SoVITS.sv import SV; print('V2PROPLUS_ACOUSTIC_CORE_IMPORT_OK')"
             if ($LASTEXITCODE -ne 0) { throw 'GPT-SoVITS V2ProPlus acoustic core import failed' }
 
-            & $python -c "from text.cleaner import clean_text; phones, _, norm = clean_text('Tomorrow we will review the project timeline.', 'en', 'v2'); assert phones and norm; print('ENGLISH_FRONTEND_OK', len(phones), norm)"
+            & $python -c "from GPT_SoVITS.text.cleaner import clean_text; phones, _, norm = clean_text('Tomorrow we will review the project timeline.', 'en', 'v2'); assert phones and norm; print('ENGLISH_FRONTEND_OK', len(phones), norm)"
             if ($LASTEXITCODE -ne 0) { throw 'GPT-SoVITS English frontend failed' }
 
-            & $python -c "import yaml; cfg=yaml.safe_load(open('configs/tts_infer.yaml', encoding='utf-8')); assert cfg['v2ProPlus']['version']=='v2ProPlus'; print('V2PROPLUS_CONFIG_CONTRACT_OK')"
+            & $python -c "import yaml; cfg=yaml.safe_load(open('GPT_SoVITS/configs/tts_infer.yaml', encoding='utf-8')); assert cfg['v2ProPlus']['version']=='v2ProPlus'; print('V2PROPLUS_CONFIG_CONTRACT_OK')"
             if ($LASTEXITCODE -ne 0) { throw 'GPT-SoVITS V2ProPlus config contract failed' }
           }
-          finally {
-            Pop-Location
-          }
+          finally { Pop-Location }
 
       - name: Verify rejected dependencies stayed out of the candidate environment
         shell: pwsh
@@ -199,7 +171,7 @@ jobs:
         run: |
           $ErrorActionPreference = 'Stop'
           $python = (Resolve-Path '.venv/Scripts/python.exe').Path
-          & $python -c "import importlib.util; rejected=['torchaudio','matplotlib','pandas','gradio','funasr','modelscope','fastapi','peft','x_transformers']; present=[name for name in rejected if importlib.util.find_spec(name) is not None]; assert not present, present; print('REJECTED_DEPENDENCIES_ABSENT', rejected)"
+          & $python -c "import importlib.util; rejected=['torchaudio','librosa','matplotlib','pandas','gradio','funasr','modelscope','fastapi','peft','x_transformers']; present=[name for name in rejected if importlib.util.find_spec(name) is not None]; assert not present, present; print('REJECTED_DEPENDENCIES_ABSENT', rejected)"
           if ($LASTEXITCODE -ne 0) { throw 'Out-of-scope dependency entered the candidate environment' }
 
       - name: Re-run TranslateIT worker deterministic tests after compatibility mutation
@@ -219,6 +191,8 @@ jobs:
           Write-Host 'UPSTREAM_FULL_REQUIREMENTS_ADOPTED=NO'
           Write-Host 'REJECTED_WRAPPER_DEPENDENCIES_ADOPTED=NO'
           Write-Host 'DIRECT_ADDITIONAL_CORE_DEPENDENCY=einops'
-          Write-Host 'REQUIRED_A2_ADAPTER=English-only text preprocessing + exact TSV/data loading + bounded audio load/resample + V2ProPlus-only inference wrapper'
+          Write-Host 'TRAINING_SUPPORT_DEPENDENCIES=pytorch-lightning,tensorboard'
+          Write-Host 'ENGLISH_FRONTEND_CANDIDATES=g2p_en,wordsegment'
+          Write-Host 'REQUIRED_A2_ADAPTER=English-only text preprocessing + exact dataset loading + bounded audio load/resample + V2ProPlus-only inference wrapper'
           Write-Host 'CLAIM_BOUNDARY=dependency-resolution-model-core-import-v2proplus-graph-English-frontend-only'
           Write-Host 'NOT_PROVEN=pretrained-weight-load-training-generated-audio-speaker-fidelity-cuda-vram-latency-meeting-audio'
