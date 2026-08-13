@@ -9,10 +9,6 @@ This folder owns local voice-runtime assets used by TranslateIT. Product orchest
 ```text
 Voice/
 ├─ README.md
-├─ Piper/
-│  ├─ piper.exe
-│  ├─ *.onnx
-│  └─ *.json
 └─ GPTSoVITS/
    └─ Source/
       ├─ TRANSLATEIT_GPTSOVITS_REVISION.txt
@@ -56,10 +52,12 @@ The three NLTK directories are packaged English G2P resources. They are runtime 
 
 ## Active Orchestration Routes
 
-Daily pre-VoiceLab TTS currently remains owned by:
+Daily trained My Voice inference is owned by:
 
 ```text
-EngineData/Backend/LocalWorker/WorkerRuntime/realtime_local_worker.py
+existing realtime_local_worker.py
+-> approved UserData/SavedProject/VoiceLab/MyVoice
+-> Voice/GPTSoVITS/Source
 ```
 
 VoiceLab build/evaluation is owned by:
@@ -82,5 +80,5 @@ The GPT-SoVITS source is never launched as a WebUI or server by TranslateIT.
 - Do not add Gradio/WebUI, FunASR, UVR5, ModelScope download flows, or provider dashboards merely because upstream includes them.
 - Do not download models or English G2P resources on the user's machine during normal VoiceLab creation.
 - Do not silently fall back from a selected trained Voice Actor to Piper/SAPI.
-- Keep Piper binaries, GPT-SoVITS source payload, pretrained models, trained weights, generated audio, FFmpeg binary, and NLTK payload out of Git.
+- Keep GPT-SoVITS source payload, pretrained models, trained weights, generated audio, FFmpeg binary, and NLTK payload out of Git.
 - Runtime asset presence is not proof of model load, training quality, CUDA behavior, speaker similarity, or Meeting latency.

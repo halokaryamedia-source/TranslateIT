@@ -90,16 +90,8 @@ def test_worker_status_uses_canonical_translation_readiness_fields(monkeypatch) 
     )
     monkeypatch.setattr(
         worker,
-        "select_english_tts_voice",
-        lambda _payload=None: {
-            "ok": True,
-            "provider": "windows-sapi",
-            "voice_id": "Test English Voice",
-            "language_code": "en-us",
-            "voice_path": None,
-            "blocker": "",
-            "sapi_voices": [],
-        },
+        "voice_actor_static_status",
+        lambda: {"ready": True, "actor_token": "actor-v1", "blocker": ""},
     )
 
     status = worker.build_status_payload({})
@@ -112,7 +104,7 @@ def test_worker_status_uses_canonical_translation_readiness_fields(monkeypatch) 
         "translation_id_en",
         "translation_en_id",
         "translation_bidirectional",
-        "tts",
+        "voice_actor_tts",
         "cuda_degraded",
     }
     assert readiness["translation_id_en"] is True
@@ -247,46 +239,7 @@ def test_translation_completion_accepts_verified_eos() -> None:
     assert result["blocker"] == ""
 
 
-def test_english_sapi_selection_prefers_en_us() -> None:
-    worker = load_worker_module()
-    selected = worker.select_english_sapi_voice(
-        [
-            {"name": "Voix française", "culture": "fr-FR"},
-            {"name": "English UK", "culture": "en-GB"},
-            {"name": "English US", "culture": "en-US"},
-        ]
-    )
 
-    assert selected == {"name": "English US", "culture": "en-us"}
-
-
-def test_piper_selection_requires_english_voice_metadata(tmp_path: Path) -> None:
-    worker = load_worker_module()
-
-    german = tmp_path / "de_DE-test-medium.onnx"
-    german.write_bytes(b"model")
-    Path(f"{german}.json").write_text(json.dumps({"language": {"code": "de_DE"}}), encoding="utf-8")
-
-    english = tmp_path / "en_GB-test-medium.onnx"
-    english.write_bytes(b"model")
-    Path(f"{english}.json").write_text(
-        json.dumps({"language": {"code": "en_GB"}}), encoding="utf-8"
-    )
-
-    selected = worker.select_english_piper_voice(tmp_path)
-
-    assert selected is not None
-    assert selected["voice_id"] == "en_GB-test-medium"
-    assert selected["language_code"] == "en-gb"
-    assert selected["voice_path"] == english
-
-
-def test_piper_selection_does_not_trust_filename_without_metadata(tmp_path: Path) -> None:
-    worker = load_worker_module()
-    voice = tmp_path / "en_US-unverified-medium.onnx"
-    voice.write_bytes(b"model")
-
-    assert worker.select_english_piper_voice(tmp_path) is None
 
 
 def test_newline_json_protocol_rejects_unknown_command() -> None:
@@ -307,35 +260,6 @@ def test_newline_json_protocol_rejects_unknown_command() -> None:
     assert payload["blocker"] == "worker:unknown_command"
 
 
-def test_worker_request_deadline_budget_bounds_nested_subprocess(monkeypatch) -> None:
-    worker = load_worker_module()
-    monkeypatch.setattr(worker, "now_ms", lambda: 10_000)
-    payload = {"deadline_unix_ms": 12_000}
-
-    assert worker.request_deadline_remaining_ms(payload) == 2_000
-    assert worker.request_deadline_expired(payload) is False
-    assert worker.bounded_subprocess_timeout_seconds(payload, 8.0) == 1.5
-
-    expired = {"deadline_unix_ms": 9_999}
-    assert worker.request_deadline_expired(expired) is True
-    assert worker.bounded_subprocess_timeout_seconds(expired, 8.0) == 0.1
-
-
-def test_sapi_probe_timeout_does_not_poison_process_cache(monkeypatch) -> None:
-    worker = load_worker_module()
-    monkeypatch.setattr(worker.sys, "platform", "win32")
-    monkeypatch.setattr(worker, "SAPI_STATUS", None)
-
-    def timed_out(*_args, **_kwargs):
-        raise subprocess.TimeoutExpired(cmd="powershell", timeout=1)
-
-    monkeypatch.setattr(worker.subprocess, "run", timed_out)
-    ready, voices, blocker = worker.sapi_status({"deadline_unix_ms": worker.now_ms() + 2_000})
-
-    assert ready is False
-    assert voices == []
-    assert blocker == "tts:sapi_probe_timeout"
-    assert worker.SAPI_STATUS is None
 
 
 def test_newline_protocol_rejects_already_expired_request() -> None:

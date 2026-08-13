@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import json
 import os
-import subprocess
 import sys
 import time
 from pathlib import Path
@@ -32,7 +31,6 @@ ASR_MODEL = ASR_MODEL_ROOT / "faster-whisper-large-v3-turbo"
 ASR_BACKUP_MODEL = ASR_MODEL_ROOT / "faster-whisper-medium"
 TRANSLATION_MODEL_ID_EN = TRANSLATION_MODEL_ROOT / "marianmt-id-en"
 TRANSLATION_MODEL_EN_ID = TRANSLATION_MODEL_ROOT / "marianmt-en-id"
-PIPER_ROOT = RUNTIME_ASSETS_ROOT / "Voice" / "Piper"
 GPT_SOVITS_SOURCE_ROOT = RUNTIME_ASSETS_ROOT / "Voice" / "GPTSoVITS" / "Source"
 VOICE_ACTOR_ROOT = USER_DATA_ROOT / "SavedProject" / "VoiceLab" / "MyVoice"
 CACHE_ROOT = USER_DATA_ROOT / "CacheData"
@@ -47,17 +45,12 @@ MAX_TRANSCRIPT_TEXT_CHARS = 4_000
 MAX_AUDIO_INPUT_BYTES = 25 * 1024 * 1024
 MAX_GENERATION_TOKENS = 128
 MAX_REASONABLE_MODEL_TOKEN_LIMIT = 1_000_000
-SAPI_PROBE_TIMEOUT_SECONDS = 8.0
-PIPER_SYNTHESIS_TIMEOUT_SECONDS = 10.0
-SAPI_SYNTHESIS_TIMEOUT_SECONDS = 30.0
-REQUEST_SUBPROCESS_RESERVE_MS = 500
 
 ASR_RUNTIME: Any | None = None
 ASR_RUNTIME_DEVICE = "not_loaded"
 ASR_RUNTIME_COMPUTE = "not_loaded"
 ASR_RUNTIME_MODEL_ID = "not_loaded"
 TRANSLATION_RUNTIME: dict[str, dict[str, Any]] = {}
-SAPI_STATUS: tuple[bool, list[dict[str, str]], str] | None = None
 VOICE_ACTOR_RUNTIME: dict[str, Any] | None = None
 VOICE_ACTOR_RUNTIME_FINGERPRINT: Any | None = None
 
@@ -82,17 +75,6 @@ def request_deadline_expired(payload: dict[str, Any] | None) -> bool:
     remaining = request_deadline_remaining_ms(payload)
     return remaining is not None and remaining <= 0
 
-
-def bounded_subprocess_timeout_seconds(
-    payload: dict[str, Any] | None,
-    ceiling_seconds: float,
-    reserve_ms: int = REQUEST_SUBPROCESS_RESERVE_MS,
-) -> float:
-    remaining = request_deadline_remaining_ms(payload)
-    if remaining is None:
-        return ceiling_seconds
-    usable_ms = max(100, remaining - max(0, reserve_ms))
-    return min(ceiling_seconds, usable_ms / 1000.0)
 
 
 def import_ready(module_name: str) -> bool:
@@ -281,14 +263,6 @@ def translation_model_for_direction(
     return None
 
 
-def normalize_tts_language_code(value: Any) -> str:
-    return str(value or "").strip().replace("_", "-").lower()
-
-
-def is_english_language_code(value: Any) -> bool:
-    code = normalize_tts_language_code(value)
-    return code == "en" or code.startswith("en-")
-
 
 def clear_voice_actor_runtime() -> None:
     global VOICE_ACTOR_RUNTIME, VOICE_ACTOR_RUNTIME_FINGERPRINT
@@ -303,6 +277,34 @@ def voice_actor_blocker(exc: Exception) -> str:
         if safe:
             return f"voice_actor:{safe[:160]}"
     return f"voice_actor:runtime_failed:{type(exc).__name__}"
+
+
+def voice_actor_package_token(package: dict[str, Any]) -> str:
+    fingerprint = package.get("fingerprint")
+    if not isinstance(fingerprint, tuple) or not fingerprint:
+        raise voice_actor_provider.VoiceLabProviderError("actor_identity_missing")
+    token = json.dumps(fingerprint, ensure_ascii=True, separators=(",", ":"))
+    if not token or len(token) > 512:
+        raise voice_actor_provider.VoiceLabProviderError("actor_identity_invalid")
+    return token
+
+
+def voice_actor_static_status() -> dict[str, Any]:
+    try:
+        package = voice_actor_provider.validate_actor_package(VOICE_ACTOR_ROOT)
+        voice_actor_provider.inference_source_assets(GPT_SOVITS_SOURCE_ROOT)
+        return {
+            "ready": True,
+            "actor_token": voice_actor_package_token(package),
+            "blocker": "",
+        }
+    except Exception as exc:
+        clear_voice_actor_runtime()
+        return {
+            "ready": False,
+            "actor_token": "",
+            "blocker": voice_actor_blocker(exc),
+        }
 
 
 def get_voice_actor_runtime() -> dict[str, Any]:
@@ -370,206 +372,6 @@ def translation_model_ready(path: Path) -> bool:
     )
 
 
-def piper_voice_config_path(voice_path: Path) -> Path:
-    return Path(f"{voice_path}.json")
-
-
-def piper_voice_language_code(voice_path: Path) -> str | None:
-    config_path = piper_voice_config_path(voice_path)
-    if not config_path.is_file():
-        return None
-    try:
-        payload = json.loads(config_path.read_text(encoding="utf-8"))
-    except Exception:
-        return None
-
-    language = payload.get("language")
-    if isinstance(language, dict):
-        for key in ("code", "family"):
-            code = normalize_tts_language_code(language.get(key))
-            if code:
-                return code
-    elif isinstance(language, str):
-        code = normalize_tts_language_code(language)
-        if code:
-            return code
-
-    espeak = payload.get("espeak")
-    if isinstance(espeak, dict):
-        code = normalize_tts_language_code(espeak.get("voice"))
-        if code:
-            return code
-    return None
-
-
-def select_english_piper_voice(root: Path | None = None) -> dict[str, Any] | None:
-    root = root or PIPER_ROOT
-    if not root.exists():
-        return None
-
-    candidates: list[dict[str, Any]] = []
-    for voice_path in sorted(root.glob("**/*.onnx")):
-        language_code = piper_voice_language_code(voice_path)
-        if not is_english_language_code(language_code):
-            continue
-        candidates.append(
-            {
-                "voice_id": voice_path.stem,
-                "language_code": normalize_tts_language_code(language_code),
-                "voice_path": voice_path,
-                "config_path": piper_voice_config_path(voice_path),
-            }
-        )
-
-    if not candidates:
-        return None
-    candidates.sort(
-        key=lambda item: (
-            0 if item["language_code"] == "en-us" else 1,
-            item["language_code"],
-            item["voice_id"].lower(),
-            str(item["voice_path"]).lower(),
-        )
-    )
-    return candidates[0]
-
-
-def normalize_sapi_voices(raw: Any) -> list[dict[str, str]]:
-    if isinstance(raw, dict):
-        raw_items = [raw]
-    elif isinstance(raw, list):
-        raw_items = raw
-    else:
-        raw_items = []
-
-    voices: list[dict[str, str]] = []
-    for item in raw_items:
-        if not isinstance(item, dict):
-            continue
-        name = compact_runtime_text(item.get("name"), 200)
-        culture = normalize_tts_language_code(item.get("culture"))
-        if name:
-            voices.append({"name": name, "culture": culture})
-    return voices
-
-
-def sapi_status(
-    payload: dict[str, Any] | None = None,
-) -> tuple[bool, list[dict[str, str]], str]:
-    global SAPI_STATUS
-    if SAPI_STATUS is not None:
-        return SAPI_STATUS
-    if sys.platform != "win32":
-        SAPI_STATUS = (False, [], "tts:windows_sapi_unavailable")
-        return SAPI_STATUS
-
-    command = (
-        "Add-Type -AssemblyName System.Speech; "
-        "$s = New-Object System.Speech.Synthesis.SpeechSynthesizer; "
-        "$voices = @($s.GetInstalledVoices() | ForEach-Object { "
-        "@{name=$_.VoiceInfo.Name; culture=$_.VoiceInfo.Culture.Name} }); "
-        "$s.Dispose(); "
-        "@{voices=$voices} | ConvertTo-Json -Compress -Depth 4"
-    )
-    try:
-        completed = subprocess.run(
-            ["powershell", "-NoProfile", "-NonInteractive", "-Command", command],
-            text=True,
-            capture_output=True,
-            timeout=bounded_subprocess_timeout_seconds(payload, SAPI_PROBE_TIMEOUT_SECONDS),
-            check=False,
-        )
-        if completed.returncode != 0:
-            SAPI_STATUS = (
-                False,
-                [],
-                completed.stderr.strip() or "tts:sapi_probe_failed",
-            )
-        else:
-            payload_json = json.loads(completed.stdout.strip())
-            voices = normalize_sapi_voices(payload_json.get("voices", []))
-            SAPI_STATUS = (bool(voices), voices, "")
-    except subprocess.TimeoutExpired:
-        # A request-budget timeout is transient. Do not poison the process-wide
-        # capability cache; a later explicit TTS preflight may have more budget.
-        return False, [], "tts:sapi_probe_timeout"
-    except Exception as exc:
-        SAPI_STATUS = (False, [], f"{type(exc).__name__}:{exc}")
-    return SAPI_STATUS
-
-
-def select_english_sapi_voice(
-    voices: list[dict[str, str]] | None = None,
-) -> dict[str, str] | None:
-    if voices is None:
-        _ready, voices, _error = sapi_status()
-    candidates = [
-        voice
-        for voice in (voices or [])
-        if voice.get("name") and is_english_language_code(voice.get("culture"))
-    ]
-    if not candidates:
-        return None
-    candidates.sort(
-        key=lambda item: (
-            0 if normalize_tts_language_code(item.get("culture")) == "en-us" else 1,
-            normalize_tts_language_code(item.get("culture")),
-            item.get("name", "").lower(),
-        )
-    )
-    selected = candidates[0]
-    return {
-        "name": selected["name"],
-        "culture": normalize_tts_language_code(selected.get("culture")),
-    }
-
-
-def select_english_tts_voice(payload: dict[str, Any] | None = None) -> dict[str, Any]:
-    executable = PIPER_ROOT / "piper.exe"
-    piper_voice = select_english_piper_voice()
-    if executable.is_file() and piper_voice is not None:
-        return {
-            "ok": True,
-            "provider": "piper",
-            "voice_id": piper_voice["voice_id"],
-            "language_code": piper_voice["language_code"],
-            "voice_path": piper_voice["voice_path"],
-            "config_path": piper_voice["config_path"],
-            "sapi_voices": [],
-            "blocker": "",
-        }
-
-    sapi_probe_ready, sapi_voices, sapi_error = sapi_status(payload)
-    sapi_voice = select_english_sapi_voice(sapi_voices)
-    if sapi_probe_ready and sapi_voice is not None:
-        return {
-            "ok": True,
-            "provider": "windows-sapi",
-            "voice_id": sapi_voice["name"],
-            "language_code": sapi_voice["culture"],
-            "voice_path": None,
-            "config_path": None,
-            "sapi_voices": sapi_voices,
-            "blocker": "",
-        }
-
-    if sapi_probe_ready and sapi_voice is None:
-        blocker = "tts:no_english_sapi_voice"
-    elif executable.is_file() and piper_voice is None:
-        blocker = "tts:no_verified_english_piper_voice"
-    else:
-        blocker = sapi_error or "tts:no_verified_english_voice_available"
-    return {
-        "ok": False,
-        "provider": None,
-        "voice_id": None,
-        "language_code": None,
-        "voice_path": None,
-        "config_path": None,
-        "sapi_voices": sapi_voices,
-        "blocker": blocker,
-    }
-
 
 def choose_asr_model() -> tuple[str, Path]:
     if asr_model_ready(ASR_MODEL):
@@ -594,9 +396,9 @@ def status_action_items(blockers: list[str], warnings: list[str]) -> list[str]:
         actions.append(
             "Provide marianmt-en-id under RuntimeAssets/Translation/ModelData for EN -> ID translation."
         )
-    if "tts:" in joined:
+    if "voice_actor:" in joined:
         actions.append(
-            "Provide a Piper English voice with metadata or an installed Windows SAPI English voice."
+            "Create and approve My Voice in VoiceLab, or repair the installed VoiceLab runtime assets."
         )
     if "cuda_unavailable" in joined:
         actions.append(
@@ -633,8 +435,8 @@ def build_status_payload(payload: dict[str, Any] | None = None) -> dict[str, Any
     translation_id_en_ready = translation_model_ready(TRANSLATION_MODEL_ID_EN)
     translation_en_id_ready = translation_model_ready(TRANSLATION_MODEL_EN_ID)
     translation_bidirectional_ready = translation_id_en_ready and translation_en_id_ready
-    tts_selection = select_english_tts_voice(payload)
-    tts_ready = bool(tts_selection["ok"])
+    actor_status = voice_actor_static_status()
+    voice_actor_ready = bool(actor_status["ready"])
 
     blockers: list[str] = []
     warnings: list[str] = []
@@ -660,8 +462,8 @@ def build_status_payload(payload: dict[str, Any] | None = None) -> dict[str, Any
         blockers.append("model:marianmt_id_en_missing")
     if not translation_en_id_ready:
         warnings.append("model:marianmt_en_id_missing_reverse_translation_unavailable")
-    if not tts_ready:
-        blockers.append(tts_selection["blocker"])
+    if not voice_actor_ready:
+        blockers.append(str(actor_status["blocker"]))
     if cpu_fallback_active:
         warnings.append("cuda_unavailable_cpu_fallback_active")
 
@@ -677,7 +479,7 @@ def build_status_payload(payload: dict[str, Any] | None = None) -> dict[str, Any
         and transformers_ready
         and asr_active_ready
         and translation_id_en_ready
-        and tts_ready
+        and voice_actor_ready
     )
     note = (
         "Worker reports the required outbound AI capabilities available."
@@ -707,7 +509,7 @@ def build_status_payload(payload: dict[str, Any] | None = None) -> dict[str, Any
             "translation_bidirectional": translation_bidirectional_ready
             and transformers_ready
             and torch_ready,
-            "tts": tts_ready,
+            "voice_actor_tts": voice_actor_ready,
             "cuda_degraded": cpu_fallback_active,
         },
         "dependencies": {
@@ -739,13 +541,12 @@ def build_status_payload(payload: dict[str, Any] | None = None) -> dict[str, Any
             },
         },
         "tts": {
-            "ready": tts_ready,
-            "provider": tts_selection["provider"],
-            "voice_id": tts_selection["voice_id"],
-            "language_code": tts_selection["language_code"],
-            "blocker": tts_selection["blocker"],
-            "sapi_voices": tts_selection["sapi_voices"],
-            "voice_actor_marcel_ready": False,
+            "ready": voice_actor_ready,
+            "provider": "gpt-sovits-v2proplus" if voice_actor_ready else None,
+            "voice_id": "MyVoice" if voice_actor_ready else None,
+            "language_code": "en",
+            "blocker": str(actor_status["blocker"]),
+            "actor_token": str(actor_status["actor_token"]),
         },
         "gpu": gpu_runtime,
         "asr_primary_model_ready": asr_primary_ready,
@@ -757,10 +558,8 @@ def build_status_payload(payload: dict[str, Any] | None = None) -> dict[str, Any
         "translation_id_en_ready": translation_id_en_ready,
         "translation_en_id_ready": translation_en_id_ready,
         "translation_bidirectional_ready": translation_bidirectional_ready,
-        "piper_ready": tts_selection["provider"] == "piper",
-        "sapi_ready": tts_selection["provider"] == "windows-sapi",
-        "tts_default_ready": tts_ready,
-        "voice_actor_marcel_ready": False,
+        "voice_actor_ready": voice_actor_ready,
+        "voice_actor_token": str(actor_status["actor_token"]),
         "faster_whisper_import_ready": faster_whisper_ready,
         "transformers_import_ready": transformers_ready,
         "torch_import_ready": torch_ready,
@@ -780,6 +579,8 @@ def build_status_payload(payload: dict[str, Any] | None = None) -> dict[str, Any
             "asr_compute_type": ASR_RUNTIME_COMPUTE,
             "asr_model_id": ASR_RUNTIME_MODEL_ID,
             "translation_directions": sorted(TRANSLATION_RUNTIME.keys()),
+            "voice_actor": VOICE_ACTOR_RUNTIME is not None,
+            "voice_actor_device": str(VOICE_ACTOR_RUNTIME.get("device", "not_loaded")) if VOICE_ACTOR_RUNTIME else "not_loaded",
         },
     }
 
@@ -1392,9 +1193,10 @@ def handle_voice_actor_preflight(_payload: dict[str, Any]) -> dict[str, Any]:
     started = now_ms()
     try:
         runtime = get_voice_actor_runtime()
-        return {"ok": True, "stage": "voice_actor_preflight", "voice_id": "MyVoice", "language_code": "en", "device": str(runtime.get("device", "unknown")), "reference_cached": bool(runtime.get("reference_cached")), "elapsed_ms": now_ms() - started, "blocker": "", "note": "The approved My Voice actor is loaded for local English synthesis."}
+        actor_token = voice_actor_package_token({"fingerprint": runtime.get("fingerprint")})
+        return {"ok": True, "stage": "voice_actor_preflight", "voice_id": "MyVoice", "language_code": "en", "device": str(runtime.get("device", "unknown")), "reference_cached": bool(runtime.get("reference_cached")), "actor_token": actor_token, "elapsed_ms": now_ms() - started, "blocker": "", "note": "The approved My Voice actor is loaded for local English synthesis."}
     except Exception as exc:
-        return {"ok": False, "stage": "voice_actor_preflight", "voice_id": "MyVoice", "language_code": "en", "blocker": voice_actor_blocker(exc), "elapsed_ms": now_ms() - started, "note": "The approved My Voice actor could not be loaded."}
+        return {"ok": False, "stage": "voice_actor_preflight", "voice_id": "MyVoice", "language_code": "en", "actor_token": "", "blocker": voice_actor_blocker(exc), "elapsed_ms": now_ms() - started, "note": "The approved My Voice actor could not be loaded."}
 
 
 def handle_voice_actor_synthesize(payload: dict[str, Any]) -> dict[str, Any]:
@@ -1411,169 +1213,25 @@ def handle_voice_actor_synthesize(payload: dict[str, Any]) -> dict[str, Any]:
     output_path.parent.mkdir(parents=True, exist_ok=True)
     output_path.unlink(missing_ok=True)
     try:
+        expected_actor_token = compact_runtime_text(payload.get("expected_actor_token", ""), 512)
+        package = voice_actor_provider.validate_actor_package(VOICE_ACTOR_ROOT)
+        actor_token = voice_actor_package_token(package)
+        if expected_actor_token and actor_token != expected_actor_token:
+            clear_voice_actor_runtime()
+            raise voice_actor_provider.VoiceLabProviderError("actor_changed_since_meeting_start")
         runtime = get_voice_actor_runtime()
+        runtime_token = voice_actor_package_token({"fingerprint": runtime.get("fingerprint")})
+        if expected_actor_token and runtime_token != expected_actor_token:
+            clear_voice_actor_runtime()
+            raise voice_actor_provider.VoiceLabProviderError("actor_changed_since_meeting_start")
         synthesis = voice_actor_provider.synthesize_voice_actor(runtime, actor_text, output_path)
         if not output_path.is_file() or output_path.stat().st_size <= 44:
             raise voice_actor_provider.VoiceLabProviderError("inference_audio_invalid")
-        return {"ok": True, "stage": "voice_actor_synthesize", "voice_id": "MyVoice", "language_code": "en", "device": synthesis["device"], "reference_cached": synthesis["reference_cached"], "sample_rate": synthesis["sample_rate"], "output_path": str(output_path), "elapsed_ms": now_ms() - started, "blocker": ""}
+        return {"ok": True, "stage": "voice_actor_synthesize", "voice_id": "MyVoice", "language_code": "en", "device": synthesis["device"], "reference_cached": synthesis["reference_cached"], "sample_rate": synthesis["sample_rate"], "actor_token": runtime_token, "output_path": str(output_path), "elapsed_ms": now_ms() - started, "blocker": ""}
     except Exception as exc:
         output_path.unlink(missing_ok=True)
         return {"ok": False, "stage": "voice_actor_synthesize", "voice_id": "MyVoice", "language_code": "en", "blocker": voice_actor_blocker(exc), "elapsed_ms": now_ms() - started, "note": "My Voice synthesis failed without switching to another voice."}
 
-
-def handle_tts_preflight(payload: dict[str, Any]) -> dict[str, Any]:
-    selection = select_english_tts_voice(payload)
-    ok = bool(selection["ok"])
-    return {
-        "ok": ok,
-        "stage": "tts_preflight",
-        "provider": selection["provider"],
-        "voice_id": selection["voice_id"],
-        "language_code": selection["language_code"],
-        "voice_path": str(selection["voice_path"]) if selection["voice_path"] else None,
-        "sapi_voices": selection["sapi_voices"],
-        "blocker": selection["blocker"],
-        "warnings": [],
-        "next_actions": status_action_items([] if ok else [selection["blocker"]], []),
-        "note": (
-            "An explicit English TTS voice is selected for local synthesis."
-            if ok
-            else "TTS remains unavailable until an English-capable voice can be identified explicitly."
-        ),
-    }
-
-
-def handle_synthesize(payload: dict[str, Any]) -> dict[str, Any]:
-    started = now_ms()
-    if runtime_text_too_large(payload.get("text", ""), MAX_TTS_TEXT_CHARS):
-        return {
-            "ok": False,
-            "stage": "synthesize",
-            "blocker": "tts:text_too_large",
-            "max_chars": MAX_TTS_TEXT_CHARS,
-        }
-    text = compact_runtime_text(payload.get("text", ""), MAX_TTS_TEXT_CHARS)
-    if not text:
-        return {"ok": False, "stage": "synthesize", "blocker": "tts:empty_text"}
-
-    selection = select_english_tts_voice(payload)
-    if not selection["ok"]:
-        return {
-            "ok": False,
-            "stage": "synthesize",
-            "blocker": selection["blocker"],
-            "note": "Synthesis was not attempted because no explicit English-capable TTS voice is available.",
-            "next_actions": status_action_items([selection["blocker"]], []),
-        }
-
-    try:
-        output_path = resolve_worker_path(
-            payload.get("output_path", ""),
-            CACHE_ROOT / "tts_output.wav",
-            ALLOWED_OUTPUT_ROOTS,
-        )
-    except Exception as exc:
-        return {
-            "ok": False,
-            "stage": "synthesize",
-            "blocker": type(exc).__name__,
-            "note": str(exc),
-            "elapsed_ms": now_ms() - started,
-        }
-    output_path.parent.mkdir(parents=True, exist_ok=True)
-
-    if selection["provider"] == "piper":
-        executable = PIPER_ROOT / "piper.exe"
-        voice_path = selection["voice_path"]
-        try:
-            completed = subprocess.run(
-                [
-                    str(executable),
-                    "--model",
-                    str(voice_path),
-                    "--output_file",
-                    str(output_path),
-                ],
-                input=text,
-                text=True,
-                capture_output=True,
-                timeout=bounded_subprocess_timeout_seconds(
-                    payload, PIPER_SYNTHESIS_TIMEOUT_SECONDS
-                ),
-                check=False,
-            )
-            ok = (
-                completed.returncode == 0
-                and output_path.is_file()
-                and output_path.stat().st_size > 44
-            )
-            return {
-                "ok": ok,
-                "stage": "synthesize",
-                "provider": "piper",
-                "voice_id": selection["voice_id"],
-                "language_code": selection["language_code"],
-                "output_path": str(output_path),
-                "elapsed_ms": now_ms() - started,
-                "blocker": "" if ok else "tts:piper_failed",
-                "stderr": completed.stderr[-500:],
-            }
-        except Exception as exc:
-            return {
-                "ok": False,
-                "stage": "synthesize",
-                "provider": "piper",
-                "voice_id": selection["voice_id"],
-                "language_code": selection["language_code"],
-                "blocker": type(exc).__name__,
-                "note": str(exc),
-                "elapsed_ms": now_ms() - started,
-            }
-
-    command = (
-        "Add-Type -AssemblyName System.Speech; "
-        "$s = New-Object System.Speech.Synthesis.SpeechSynthesizer; "
-        "$s.SelectVoice($env:TRANSLATEIT_TTS_VOICE); "
-        "$s.SetOutputToWaveFile($env:TRANSLATEIT_TTS_OUTPUT); "
-        "$s.Speak($env:TRANSLATEIT_TTS_TEXT); "
-        "$s.Dispose()"
-    )
-    try:
-        environment = os.environ.copy()
-        environment["TRANSLATEIT_TTS_TEXT"] = text
-        environment["TRANSLATEIT_TTS_OUTPUT"] = str(output_path)
-        environment["TRANSLATEIT_TTS_VOICE"] = str(selection["voice_id"])
-        completed = subprocess.run(
-            ["powershell", "-NoProfile", "-NonInteractive", "-Command", command],
-            text=True,
-            capture_output=True,
-            timeout=bounded_subprocess_timeout_seconds(payload, SAPI_SYNTHESIS_TIMEOUT_SECONDS),
-            check=False,
-            env=environment,
-        )
-        ok = completed.returncode == 0 and output_path.is_file() and output_path.stat().st_size > 44
-        return {
-            "ok": ok,
-            "stage": "synthesize",
-            "provider": "windows-sapi",
-            "voice_id": selection["voice_id"],
-            "language_code": selection["language_code"],
-            "output_path": str(output_path),
-            "elapsed_ms": now_ms() - started,
-            "blocker": "" if ok else "tts:sapi_synthesis_failed",
-            "stderr": completed.stderr[-500:],
-        }
-    except Exception as exc:
-        return {
-            "ok": False,
-            "stage": "synthesize",
-            "provider": "windows-sapi",
-            "voice_id": selection["voice_id"],
-            "language_code": selection["language_code"],
-            "blocker": type(exc).__name__,
-            "note": str(exc),
-            "elapsed_ms": now_ms() - started,
-        }
 
 
 HANDLERS = {
@@ -1583,8 +1241,6 @@ HANDLERS = {
     "transcribe": handle_transcribe,
     "translation_preload": handle_translation_preload,
     "translate": handle_translate,
-    "tts_preflight": handle_tts_preflight,
-    "synthesize": handle_synthesize,
     "voice_actor_preflight": handle_voice_actor_preflight,
     "voice_actor_synthesize": handle_voice_actor_synthesize,
 }

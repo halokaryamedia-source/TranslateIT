@@ -81,7 +81,6 @@ def test_voice_actor_synthesis_uses_only_myvoice_path(tmp_path: Path, monkeypatc
     cache.mkdir()
     monkeypatch.setattr(worker, "CACHE_ROOT", cache)
     monkeypatch.setattr(worker, "ALLOWED_OUTPUT_ROOTS", [cache])
-    monkeypatch.setattr(worker, "select_english_tts_voice", lambda *_args, **_kwargs: (_ for _ in ()).throw(AssertionError("legacy TTS must not run")))
     monkeypatch.setattr(worker, "get_voice_actor_runtime", lambda: {"device": "cpu", "reference_cached": True})
     def synthesize(_runtime, _text, output_path):
         output_path.write_bytes(b"R" * 80)
@@ -103,7 +102,6 @@ def test_voice_actor_failure_removes_stale_output_and_never_falls_back(tmp_path:
     output.write_bytes(b"old" * 40)
     monkeypatch.setattr(worker, "CACHE_ROOT", cache)
     monkeypatch.setattr(worker, "ALLOWED_OUTPUT_ROOTS", [cache])
-    monkeypatch.setattr(worker, "select_english_tts_voice", lambda *_args, **_kwargs: (_ for _ in ()).throw(AssertionError("legacy TTS must not run")))
     def unavailable():
         raise worker.voice_actor_provider.VoiceLabProviderError("approved_actor_missing")
     monkeypatch.setattr(worker, "get_voice_actor_runtime", unavailable)
@@ -113,7 +111,50 @@ def test_voice_actor_failure_removes_stale_output_and_never_falls_back(tmp_path:
     assert not output.exists()
 
 
-def test_worker_protocol_registers_a5_actor_commands() -> None:
+def test_static_worker_readiness_requires_approved_actor_and_inference_assets(monkeypatch) -> None:
+    worker = load_worker_module()
+    monkeypatch.setattr(
+        worker.voice_actor_provider,
+        "validate_actor_package",
+        lambda _root: {"fingerprint": (("actor.json", 1, 1),)},
+    )
+    monkeypatch.setattr(
+        worker.voice_actor_provider,
+        "inference_source_assets",
+        lambda _root: {"gsv": Path("gsv")},
+    )
+    status = worker.voice_actor_static_status()
+    assert status["ready"] is True
+    assert status["actor_token"] == '[["actor.json",1,1]]'
+
+
+def test_meeting_actor_token_rejects_mid_session_actor_change(tmp_path: Path, monkeypatch) -> None:
+    worker = load_worker_module()
+    cache = tmp_path / "CacheData"
+    cache.mkdir()
+    monkeypatch.setattr(worker, "CACHE_ROOT", cache)
+    monkeypatch.setattr(worker, "ALLOWED_OUTPUT_ROOTS", [cache])
+    monkeypatch.setattr(
+        worker.voice_actor_provider,
+        "validate_actor_package",
+        lambda _root: {"fingerprint": (("actor.json", 2, 2),)},
+    )
+    output = cache / "voice.wav"
+    result = worker.handle_voice_actor_synthesize(
+        {
+            "text": "Hello.",
+            "output_path": str(output),
+            "expected_actor_token": '[["actor.json",1,1]]',
+        }
+    )
+    assert result["ok"] is False
+    assert result["blocker"] == "voice_actor:actor_changed_since_meeting_start"
+    assert not output.exists()
+
+
+def test_worker_protocol_exposes_only_trained_actor_tts_commands() -> None:
     worker = load_worker_module()
     assert worker.HANDLERS["voice_actor_preflight"] is worker.handle_voice_actor_preflight
     assert worker.HANDLERS["voice_actor_synthesize"] is worker.handle_voice_actor_synthesize
+    assert "tts_preflight" not in worker.HANDLERS
+    assert "synthesize" not in worker.HANDLERS

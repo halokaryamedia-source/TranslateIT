@@ -27,7 +27,6 @@ def test_required_huggingface_plan_is_revision_pinned_and_runtime_asset_scoped()
     assert all(item["target"].is_relative_to(module.RUNTIME_ASSETS_ROOT) for item in selected)
     assert {item["model_id"] for item in manual} == {
         "gpt-sovits-v2proplus-voicelab",
-        "piper",
     }
 
 
@@ -45,8 +44,11 @@ def test_optional_plan_adds_only_manifest_optional_huggingface_assets() -> None:
 def test_specific_model_selection_rejects_manual_asset() -> None:
     module = load_module()
     try:
-        module.build_plan(module.load_manifest(), requested_ids={"piper"})
+        module.build_plan(
+            module.load_manifest(),
+            requested_ids={"gpt-sovits-v2proplus-voicelab"},
+        )
     except RuntimeError as exc:
         assert "not Hugging Face-acquirable" in str(exc)
     else:
-        raise AssertionError("manual Piper asset must not be promoted to Hugging Face acquisition")
+        raise AssertionError("manual GPT-SoVITS asset must not be promoted to Hugging Face acquisition")
