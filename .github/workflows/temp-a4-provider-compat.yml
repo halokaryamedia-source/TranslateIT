@@ -19,7 +19,7 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: '3.12'
-      - name: Generate and validate canonical lock
+      - name: Generate and validate canonical lock from clean state
         shell: pwsh
         working-directory: EngineData/Backend/LocalWorker/WorkerRuntime
         env:
@@ -28,12 +28,15 @@ jobs:
           $ErrorActionPreference = 'Stop'
           python -m pip install --disable-pip-version-check uv
           if ($LASTEXITCODE -ne 0) { throw 'uv bootstrap failed' }
+
+          Remove-Item -Force uv.lock
           uv lock
-          if ($LASTEXITCODE -ne 0) { throw 'uv lock generation failed' }
+          if ($LASTEXITCODE -ne 0) { throw 'clean uv lock generation failed' }
           uv lock --check
-          if ($LASTEXITCODE -ne 0) { throw 'generated uv.lock is inconsistent' }
+          if ($LASTEXITCODE -ne 0) { throw 'clean generated uv.lock is inconsistent' }
 
           $localSha = (git hash-object uv.lock).Trim()
+          $sha256 = (Get-FileHash uv.lock -Algorithm SHA256).Hash.ToLowerInvariant()
           $bytes = [System.IO.File]::ReadAllBytes((Resolve-Path 'uv.lock'))
           $payload = @{
             content = [Convert]::ToBase64String($bytes)
@@ -48,3 +51,4 @@ jobs:
           $response = Invoke-RestMethod -Method Post -Uri $uri -Headers $headers -ContentType 'application/json' -Body $payload
           if ($response.sha -ne $localSha) { throw "GitHub blob SHA mismatch: local=$localSha remote=$($response.sha)" }
           Write-Host "A4_EXACT_LOCK_BLOB_SHA=$localSha"
+          Write-Host "A4_EXACT_LOCK_SHA256=$sha256"
