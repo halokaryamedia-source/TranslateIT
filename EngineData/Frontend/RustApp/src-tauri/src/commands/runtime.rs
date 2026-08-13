@@ -8,6 +8,7 @@ use super::virtual_mic_route::{
     bind_prepared_virtual_mic_route_to_generation, clear_prepared_virtual_mic_route_selection,
     prepare_current_virtual_mic_route_for_meeting,
 };
+use super::voice_lab::voice_lab_build_blocks_meeting;
 
 #[tauri::command]
 pub fn start_helper_bridge() -> HelperBridgeActionResult {
@@ -100,6 +101,16 @@ pub fn verify_required_outbound_ai_readiness() -> HelperBridgeActionResult {
 
 #[tauri::command]
 pub fn start_meeting_translation() -> MeetingSessionActionResult {
+    if voice_lab_build_blocks_meeting() {
+        return MeetingSessionActionResult {
+            ok: false,
+            state: "voice_lab_build_active".to_string(),
+            message: "Finish or cancel the VoiceLab build before starting Translation. The current Voice Actor build was left unchanged."
+                .to_string(),
+            status: meeting_session::get_meeting_session_status(),
+        };
+    }
+
     // Duplicate Start, runtime-owner conflicts, and unverifiable authority remain
     // owned by the canonical Meeting command. Only a verified-empty state prepares
     // a fresh route pair.
