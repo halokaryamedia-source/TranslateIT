@@ -229,7 +229,7 @@ fn safe_file_component(value: &str) -> String {
         .collect()
 }
 
-fn write_pcm16_wav(
+pub(crate) fn write_pcm16_wav(
     path: &PathBuf,
     sample_rate_hz: u32,
     channels: u16,
