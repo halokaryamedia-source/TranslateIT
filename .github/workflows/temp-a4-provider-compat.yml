@@ -58,7 +58,7 @@ jobs:
           $python = '.venv\Scripts\python.exe'
           $nltkRoot = Join-Path $env:RUNNER_TEMP 'voice-lab-nltk'
           New-Item -ItemType Directory -Force -Path $nltkRoot | Out-Null
-          & $python -m nltk.downloader -d $nltkRoot averaged_perceptron_tagger cmudict
+          & $python -m nltk.downloader -d $nltkRoot averaged_perceptron_tagger averaged_perceptron_tagger_eng cmudict
           if ($LASTEXITCODE -ne 0) { throw 'VoiceLab NLTK asset preparation failed' }
           "NLTK_DATA=$nltkRoot" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
       - name: Preserve current TranslateIT worker imports
