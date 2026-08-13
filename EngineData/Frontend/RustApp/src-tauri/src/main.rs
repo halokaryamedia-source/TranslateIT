@@ -15,7 +15,9 @@ fn main() {
 
     app.run(|app_handle, event| {
         if let tauri::RunEvent::ExitRequested { api, .. } = event {
-            if engine::audio::guided_take::active_guided_take_line_id().is_some() {
+            if engine::audio::guided_take::active_guided_take_line_id().is_some()
+                || commands::voice_lab::current_voice_lab_build_snapshot().active
+            {
                 api.prevent_exit();
                 if let Some(window) = app_handle.get_webview_window("main") {
                     let _ = window.unminimize();
