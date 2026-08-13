@@ -1,5 +1,6 @@
 pub mod evidence;
 pub mod finalized_utterance;
+pub mod guided_take;
 pub mod input;
 pub mod live_audio_buffer;
 pub mod live_capture;
