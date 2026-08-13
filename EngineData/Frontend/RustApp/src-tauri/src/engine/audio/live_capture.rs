@@ -11,6 +11,9 @@ use super::finalized_utterance::{
     observe_finalized_outbound_i16_samples, observe_finalized_outbound_u16_samples,
     reset_finalized_outbound_utterance_producer,
 };
+use super::guided_take::{
+    append_guided_f32, append_guided_i16, append_guided_u16,
+};
 use super::live_audio_buffer::{
     append_live_f32_samples, append_live_i16_samples, append_live_u16_samples,
     clear_live_audio_buffer, reset_live_audio_buffer,
@@ -256,6 +259,7 @@ fn build_stream_for_format(
                     move |data: &[f32], _| {
                         record_frames(data.len(), channels, &frames);
                         append_live_f32_samples(data, sample_rate_hz, channels);
+                        append_guided_f32(data, sample_rate_hz, channels);
                         observe_finalized_outbound_f32_samples(data, sample_rate_hz, channels);
                     },
                     move |error| push_callback_error(&errors, error),
@@ -272,6 +276,7 @@ fn build_stream_for_format(
                     move |data: &[i16], _| {
                         record_frames(data.len(), channels, &frames);
                         append_live_i16_samples(data, sample_rate_hz, channels);
+                        append_guided_i16(data, sample_rate_hz, channels);
                         observe_finalized_outbound_i16_samples(data, sample_rate_hz, channels);
                     },
                     move |error| push_callback_error(&errors, error),
@@ -288,6 +293,7 @@ fn build_stream_for_format(
                     move |data: &[u16], _| {
                         record_frames(data.len(), channels, &frames);
                         append_live_u16_samples(data, sample_rate_hz, channels);
+                        append_guided_u16(data, sample_rate_hz, channels);
                         observe_finalized_outbound_u16_samples(data, sample_rate_hz, channels);
                     },
                     move |error| push_callback_error(&errors, error),
