@@ -1,0 +1,36 @@
+name: Temporary A4 Source Proof
+
+on:
+  push:
+    branches: [New]
+    paths:
+      - .github/workflows/temp-a4-source.yml
+  workflow_dispatch:
+
+jobs:
+  source-proof:
+    runs-on: windows-2022
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - name: Frontend prerequisite
+        shell: pwsh
+        working-directory: EngineData/Frontend/RustApp
+        run: |
+          $ErrorActionPreference = 'Stop'
+          npm ci
+          if ($LASTEXITCODE -ne 0) { throw 'npm ci failed' }
+          npm run build:frontend
+          if ($LASTEXITCODE -ne 0) { throw 'frontend build failed' }
+      - name: Rust A4 compile gate
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          cargo check --locked --manifest-path EngineData/Frontend/RustApp/src-tauri/Cargo.toml
+          if ($LASTEXITCODE -ne 0) { throw 'cargo check failed' }
+      - name: Python syntax gate
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          python -m py_compile EngineData/Backend/LocalWorker/WorkerRuntime/voice_lab_build.py EngineData/Backend/LocalWorker/WorkerRuntime/voice_lab_gpt_sovits.py
+          if ($LASTEXITCODE -ne 0) { throw 'VoiceLab Python syntax gate failed' }
