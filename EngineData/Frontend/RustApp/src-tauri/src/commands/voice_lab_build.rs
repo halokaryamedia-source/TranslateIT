@@ -245,9 +245,11 @@ fn approved_actor_ready(paths: &VoiceLabStoragePaths) -> bool {
     }
     ["gpt.ckpt", "sovits.pth", "reference.wav"]
         .iter()
-        .all(|name| fs::symlink_metadata(root.join(name))
-            .map(|meta| meta.is_file() && !meta.file_type().is_symlink() && meta.len() > 0)
-            .unwrap_or(false))
+        .all(|name| {
+            fs::symlink_metadata(root.join(name))
+                .map(|meta| meta.is_file() && !meta.file_type().is_symlink() && meta.len() > 0)
+                .unwrap_or(false)
+        })
 }
 
 fn reconcile_phase(paths: &VoiceLabStoragePaths) {
@@ -258,7 +260,9 @@ fn reconcile_phase(paths: &VoiceLabStoragePaths) {
     if !snapshot.active || snapshot.phase == "cancelling" {
         return;
     }
-    if child_status(paths).map(|status| status.phase == "evaluating").unwrap_or(false)
+    if child_status(paths)
+        .map(|status| status.phase == "evaluating")
+        .unwrap_or(false)
         && snapshot.phase == "training"
     {
         let _ = mark_voice_lab_build_evaluating(generation);
@@ -398,11 +402,11 @@ pub fn start_voice_lab_build(authorized_voice_confirmed: bool) -> VoiceLabBuildA
         Err(error) => return result(false, "build_blocked", error),
     };
     let Some(generation) = started.generation else {
-        let _ = fail_voice_lab_build(0);
         return result(false, "build_state_invalid", "VoiceLab could not establish build ownership.");
     };
 
-    let paths = storage();
+    let project_paths = ProjectPaths::discover();
+    let paths = VoiceLabStoragePaths::from_project_paths(&project_paths);
     let (takes, _) = accepted_contract();
     let manifest = GuidedDatasetManifest {
         schema_version: SCHEMA_VERSION,
@@ -410,7 +414,7 @@ pub fn start_voice_lab_build(authorized_voice_confirmed: bool) -> VoiceLabBuildA
         takes,
         held_out_lines: held_out_contract(),
     };
-    if let Err(error) = prepare_guided_dataset(generation, &manifest) {
+    if let Err(error) = prepare_guided_dataset(&project_paths, generation, &manifest) {
         let _ = fail_voice_lab_build(generation);
         return result(false, "dataset_prepare_failed", error);
     }
@@ -444,12 +448,18 @@ pub fn start_voice_lab_build(authorized_voice_confirmed: bool) -> VoiceLabBuildA
     command.args(&python.bootstrap_args);
     command
         .arg(script)
-        .arg("--source-root").arg(source)
-        .arg("--dataset-dir").arg(&paths.build_dataset_dir)
-        .arg("--candidate-dir").arg(&paths.candidate_actor_dir)
-        .arg("--evaluation-dir").arg(evaluation_dir(&paths))
-        .arg("--work-dir").arg(work_dir(&paths))
-        .arg("--status-path").arg(status_path(&paths))
+        .arg("--source-root")
+        .arg(source)
+        .arg("--dataset-dir")
+        .arg(&paths.build_dataset_dir)
+        .arg("--candidate-dir")
+        .arg(&paths.candidate_actor_dir)
+        .arg("--evaluation-dir")
+        .arg(evaluation_dir(&paths))
+        .arg("--work-dir")
+        .arg(work_dir(&paths))
+        .arg("--status-path")
+        .arg(status_path(&paths))
         .current_dir(worker_root())
         .stdin(Stdio::null())
         .stdout(Stdio::from(log))
@@ -473,18 +483,19 @@ pub fn start_voice_lab_build(authorized_voice_confirmed: bool) -> VoiceLabBuildA
         let exit = child.wait();
         let paths = storage();
         let ready = exit.as_ref().map(|status| status.success()).unwrap_or(false)
-            && child_status(&paths).map(|status| status.phase == "ready_for_review").unwrap_or(false)
+            && child_status(&paths)
+                .map(|status| status.phase == "ready_for_review")
+                .unwrap_or(false)
             && evaluation_manifest(&paths).is_some();
-        if ready {
-            let _ = finish_voice_lab_build(generation);
-        } else if current_voice_lab_build_snapshot().phase == "cancelling" {
+        let cancelling = current_voice_lab_build_snapshot().phase == "cancelling";
+        if ready || cancelling {
             let _ = finish_voice_lab_build(generation);
         } else {
             let _ = fail_voice_lab_build(generation);
         }
         let message = if ready {
             "Voice Actor samples are ready. Listen before approving My Voice.".to_string()
-        } else if current_voice_lab_build_snapshot().phase == "idle" && !evaluation_dir(&paths).join("evaluation.json").is_file() {
+        } else if cancelling {
             "VoiceLab creation stopped before a candidate was approved.".to_string()
         } else {
             "VoiceLab could not create a reviewable Voice Actor. Check Diagnostics and try again.".to_string()
@@ -542,7 +553,8 @@ pub fn approve_voice_lab_candidate() -> VoiceLabBuildActionResult {
     if evaluation_manifest(&storage()).is_none() {
         return result(false, "evaluation_required", "Listen to a completed VoiceLab evaluation before approving My Voice.");
     }
-    match promote_voice_actor_candidate() {
+    let project_paths = ProjectPaths::discover();
+    match promote_voice_actor_candidate(&project_paths) {
         Ok(()) => result(true, "approved", "My Voice was approved and saved on this device."),
         Err(error) => result(false, "approval_failed", error),
     }
@@ -551,8 +563,12 @@ pub fn approve_voice_lab_candidate() -> VoiceLabBuildActionResult {
 #[tauri::command]
 pub fn get_voice_lab_evaluation_audio(line_id: u32) -> Result<tauri::ipc::Response, String> {
     let paths = storage();
-    let manifest = evaluation_manifest(&paths).ok_or_else(|| "voice_lab:evaluation_unavailable".to_string())?;
-    let sample = manifest.samples.into_iter().find(|sample| sample.line_id == line_id)
+    let manifest = evaluation_manifest(&paths)
+        .ok_or_else(|| "voice_lab:evaluation_unavailable".to_string())?;
+    let sample = manifest
+        .samples
+        .into_iter()
+        .find(|sample| sample.line_id == line_id)
         .ok_or_else(|| "voice_lab:evaluation_line_missing".to_string())?;
     let path = evaluation_dir(&paths).join(sample.wav_file);
     let bytes = fs::read(path).map_err(|_| "voice_lab:evaluation_audio_read_failed".to_string())?;
