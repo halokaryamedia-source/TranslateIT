@@ -18,21 +18,26 @@ jobs:
       - uses: actions/checkout@v4
         with:
           ref: New
-      - name: Materialize locked dependency graph
+      - name: Materialize only the VoiceLab resampler lock delta
         shell: pwsh
         run: |
           $ErrorActionPreference = 'Stop'
-          cargo generate-lockfile --manifest-path EngineData/Frontend/RustApp/src-tauri/Cargo.toml
-          if ($LASTEXITCODE -ne 0) { throw 'cargo generate-lockfile failed' }
-          git diff -- EngineData/Frontend/RustApp/src-tauri/Cargo.lock
-          if (-not (git status --porcelain -- EngineData/Frontend/RustApp/src-tauri/Cargo.lock)) {
-            Write-Host 'CARGO_LOCK_ALREADY_CURRENT=true'
-            exit 0
-          }
+          $lock = 'EngineData/Frontend/RustApp/src-tauri/Cargo.lock'
+          git show d5b551f9a2c6d9efb5775e5ddbda550d299f7f4c:$lock | Set-Content -Path $lock -Encoding utf8
+          cargo check --manifest-path EngineData/Frontend/RustApp/src-tauri/Cargo.toml
+          if ($LASTEXITCODE -ne 0) { throw 'cargo check failed while minimally updating Cargo.lock' }
+
+          $numstat = git diff --numstat -- $lock
+          if (-not $numstat) { throw 'Expected a bounded Cargo.lock update for rubato, but no lock delta was produced' }
+          $parts = $numstat -split '\s+'
+          $changed = [int]$parts[0] + [int]$parts[1]
+          if ($changed -gt 200) { throw "Cargo.lock delta is too broad for one VoiceLab dependency: $changed changed lines" }
+
+          git diff -- $lock
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
-          git add EngineData/Frontend/RustApp/src-tauri/Cargo.lock
-          git commit -m 'Lock VoiceLab resampler dependency'
+          git add $lock
+          git commit -m 'Narrow VoiceLab resampler lock delta'
           if ($LASTEXITCODE -ne 0) { throw 'Cargo.lock commit failed' }
           git push origin HEAD:New
           if ($LASTEXITCODE -ne 0) { throw 'Cargo.lock push failed' }
