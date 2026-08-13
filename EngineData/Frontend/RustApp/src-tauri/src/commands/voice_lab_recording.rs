@@ -228,6 +228,7 @@ pub fn stop_voice_lab_guided_take(line_id: u32) -> GuidedRecordingActionResult {
         Err(_) => return result(false, "draft_state_unavailable", "VoiceLab could not retain the review take state."),
     };
     *guard = Some(PendingDraft { line_id, path: draft, review });
+    drop(guard);
     result(true, "needs_review", "Recording stopped. Replay the take, then accept it or retry the line.")
 }
 
@@ -238,9 +239,11 @@ pub fn retry_voice_lab_guided_take(line_id: u32) -> GuidedRecordingActionResult 
         Err(_) => return result(false, "draft_state_unavailable", "VoiceLab cannot access the pending review take."),
     };
     let Some(draft) = guard.as_ref() else {
+        drop(guard);
         return result(true, "ready", "There is no pending review take to discard.");
     };
     if draft.line_id != line_id {
+        drop(guard);
         return result(false, "line_mismatch", "The pending review take belongs to another guided line.");
     }
     let path = draft.path.clone();
@@ -259,17 +262,21 @@ pub fn accept_voice_lab_guided_take(line_id: u32) -> GuidedRecordingActionResult
         Err(_) => return result(false, "draft_state_unavailable", "VoiceLab cannot access the pending review take."),
     };
     let Some(draft) = guard.as_ref() else {
+        drop(guard);
         return result(false, "no_review", "Record and review this line before accepting it.");
     };
     if draft.line_id != line_id {
+        drop(guard);
         return result(false, "line_mismatch", "The pending review take belongs to another guided line.");
     }
     if !draft.review.quality_blocker.is_empty() {
-        return result(false, "take_unusable", "This take has a basic signal-quality problem. Retry the line before accepting it.");
+        drop(guard);
+        return result(false, "take_unusable", "This take is silent or empty. Retry the line before accepting it.");
     }
     let target = accepted_path(line_id);
     if let Some(parent) = target.parent() {
         if let Err(error) = fs::create_dir_all(parent) {
+            drop(guard);
             return result(false, "save_failed", format!("VoiceLab could not prepare take storage: {error}"));
         }
     }
@@ -277,11 +284,13 @@ pub fn accept_voice_lab_guided_take(line_id: u32) -> GuidedRecordingActionResult
     if previous.exists() { let _ = fs::remove_file(&previous); }
     if target.exists() {
         if let Err(error) = fs::rename(&target, &previous) {
+            drop(guard);
             return result(false, "save_failed", format!("VoiceLab could not preserve the previous accepted take: {error}"));
         }
     }
     if let Err(error) = fs::rename(&draft.path, &target) {
         if previous.exists() && !target.exists() { let _ = fs::rename(&previous, &target); }
+        drop(guard);
         return result(false, "save_failed", format!("VoiceLab could not accept this take: {error}"));
     }
     if previous.exists() { let _ = fs::remove_file(previous); }
@@ -297,8 +306,10 @@ pub fn get_voice_lab_guided_take_audio(line_id: u32) -> Result<tauri::ipc::Respo
     }
     let pending_path = draft_store()
         .lock()
-        .ok()
-        .and_then(|guard| guard.as_ref().filter(|draft| draft.line_id == line_id).map(|draft| draft.path.clone()));
+        .map_err(|_| "voice_lab:guided_draft_state_unavailable".to_string())?
+        .as_ref()
+        .filter(|draft| draft.line_id == line_id)
+        .map(|draft| draft.path.clone());
     let path = pending_path.unwrap_or_else(|| accepted_path(line_id));
     let metadata = fs::metadata(&path).map_err(|_| "voice_lab:take_audio_missing".to_string())?;
     if !metadata.is_file() || metadata.len() < 44 || metadata.len() > MAX_REPLAY_WAV_BYTES {
