@@ -11,3 +11,4 @@ pub mod runtime;
 pub mod settings;
 pub mod text_translate;
 pub mod virtual_mic_route;
+pub mod voice_lab;
