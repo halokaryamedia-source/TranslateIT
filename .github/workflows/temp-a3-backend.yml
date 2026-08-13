@@ -1,0 +1,27 @@
+name: Temporary A3 Backend Proof
+
+on:
+  push:
+    branches: [New]
+    paths:
+      - .github/workflows/temp-a3-backend.yml
+  workflow_dispatch:
+
+jobs:
+  backend-proof:
+    runs-on: windows-2022
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build frontend prerequisite
+        shell: pwsh
+        working-directory: EngineData/Frontend/RustApp
+        run: |
+          npm ci
+          npm run build:frontend
+      - name: Check Rust
+        shell: pwsh
+        run: cargo check --manifest-path EngineData/Frontend/RustApp/src-tauri/Cargo.toml
+      - name: Compile Rust tests
+        shell: pwsh
+        run: cargo test --manifest-path EngineData/Frontend/RustApp/src-tauri/Cargo.toml --no-run
