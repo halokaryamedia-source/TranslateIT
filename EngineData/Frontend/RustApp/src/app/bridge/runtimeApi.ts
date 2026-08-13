@@ -59,6 +59,9 @@ export type TextTranslationCommandResult = {
 
 export type MeetingSessionPreflightStatus = {
   ready_for_start: boolean;
+  start_eligible: boolean;
+  functional_outbound_ready: boolean;
+  functional_outbound_verified_unix_ms: number | null;
   microphone_ready: boolean;
   models_ready: boolean;
   helper_ready: boolean;
@@ -226,6 +229,8 @@ function bridgeStatusFallback(message: string): HelperBridgeStatus {
     message,
     cuda_ready: false,
     provider_ready: false,
+    functional_outbound_ready: false,
+    functional_outbound_verified_unix_ms: null,
     degraded_mode: false,
     active_task: null,
     generation_token: 0,
@@ -313,6 +318,9 @@ function meetingSessionStatusFallback(message: string): MeetingSessionStatus {
     note: message,
     preflight: {
       ready_for_start: false,
+      start_eligible: false,
+      functional_outbound_ready: false,
+      functional_outbound_verified_unix_ms: null,
       microphone_ready: false,
       models_ready: false,
       helper_ready: false,
@@ -451,6 +459,14 @@ export const runtimeApi = {
       "start_helper_bridge",
       undefined,
       helperActionFallback("Start Helper failed before reaching the Tauri command bridge."),
+    );
+  },
+
+  async verifyRequiredOutboundAiReadiness(): Promise<HelperBridgeActionResult> {
+    return invokeOr<HelperBridgeActionResult>(
+      "verify_required_outbound_ai_readiness",
+      undefined,
+      helperActionFallback("The final local translation check failed before reaching the Tauri runtime."),
     );
   },
 

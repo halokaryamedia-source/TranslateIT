@@ -74,7 +74,9 @@
         ? "Checking your microphone and meeting output..."
         : readiness.meetingReady
           ? "Ready to translate. Start when your meeting is open."
-          : "Finish the setup items below before starting translation.",
+          : meeting.canStart
+            ? "Start Translation will run a quick final translation check before going live."
+            : "Finish the setup items below before starting translation.",
   );
 
   async function refreshRouteStatus(): Promise<void> {

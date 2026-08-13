@@ -975,10 +975,34 @@ The review did **not** promote device-name identity into another mandatory wave.
 
 Everything else identified by the current requirements is either already implemented at source level or explicitly belongs to target/release evidence: physical microphone behavior, VB-Cable/meeting-app reception, optional incoming loopback/suppression, real NVIDIA CUDA execution, translation quality, CPU practicality, latency distribution, long-session stability, sleep/wake hardware behavior, private PythonRuntime/installer staging, and clean-machine acceptance. No VAD tuning or packaging work belongs in C4/C5.
 
+## Pre-Local C4 — IMPLEMENTED / TARGET AI-HARDWARE PROOF DEFERRED
+
+C4 closes the remaining PR-028 source gap. The generation-bound self-test still preloads the canonical ASR runtime early, then performs real ID -> EN inference with EOS-completion truth, real English TTS synthesis to a bounded temporary WAV, and now a real ASR `transcribe` call on that generated speech WAV before deleting it. The ASR fixture check requires a non-empty inference result only; it deliberately does not promote fixture wording or language accuracy into a quality claim. No repository binary speech fixture or second readiness service was added.
+
+Functional capability truth is now projected from the existing helper-generation cache. `HelperBridgeStatus` exposes whether the current generation has passed the full self-test, Meeting preflight separates cheap `start_eligible` prerequisites from `ready_for_start`, and product/First Setup `Ready` requires the functional flag. Routine status/polling never runs the heavy self-test. Explicit final setup checking and Start can execute it on cache miss, while an unverified generation may remain Start-eligible so Start can perform the bounded check before any Live commit. Worker replacement or hard required-stage failure still invalidates the cache.
+
+Remote Windows/source proof for this slice passed:
+
+```text
+real fixed-fixture ID -> EN inference            -> PASS / hosted CPU fallback
+real English TTS synthesis + WAV validity        -> PASS / Windows SAPI
+real ASR inference on generated readiness WAV    -> PASS / hosted CPU fallback
+WorkerRuntime deterministic tests                -> PASS
+C4 helper/preflight deterministic Rust tests     -> PASS
+canonical source validators                      -> PASS
+svelte-check + frontend build                    -> PASS
+Rust full test-target compile (`--no-run`)        -> PASS
+cargo check                                      -> PASS
+Tauri release build --no-bundle                  -> PASS
+C4 ownership/polling guard                        -> PASS
+```
+
+This proves the functional execution and source truth on the hosted CPU path. It does not prove Indonesian ASR quality, NVIDIA CUDA execution, physical microphone/virtual-cable behavior, or target-PC performance. No VAD tuning, model-quality tuning, installer work, or local-PC test is part of C4.
+
 ## Current Mode
 
-**Maintenance / Pre-Local Source Readiness — RE-AUDIT CLOSED, TWO IMPLEMENTATION WAVES REMAIN.** A1-A7, B1-B6, and C1-C3 remain closed at their proven boundaries. Local-PC testing is still deferred by user decision. C4 and C5 are source-level correctness closures, not target-hardware acceptance.
+**Developing / Pre-Local Source Readiness — C4 IMPLEMENTED, ONE SOURCE CLOSURE REMAINS.** A1-A7, B1-B6, C1-C3, and the source re-audit remain closed at their proven boundaries. Local-PC testing is still deferred by user decision. C5 is the final mapped non-hardware source-correctness wave.
 
-## Next Step — Pre-Local C4 Functional Readiness Truth Closure
+## Next Step — Pre-Local C5 Atomic Outbound Activation Closure
 
-Complete PR-028 at the existing helper/Meeting owners: make the generation-bound self-test execute real ASR inference as well as real ID -> EN inference and English TTS, and make product/Meeting readiness consume the functional cache truth so First Setup/returning Meeting cannot report functional Ready after an unverified or hard-failed generation. Keep Start eligibility usable without running the full self-test on routine polling, and do not change model quality/tuning, CUDA fallback policy, audio routing, installer staging, or local-PC proof.
+Complete PR-053 at the existing Meeting/audio owners: functionally probe the prepared virtual output endpoint with a bounded silent/callback-only native output stream before Live, and create the serialized outbound consumer before `commit_application_meeting_session_live`. Preserve authority-first rollback, prepared-device reuse, at-most-once delivery, B3 hot-path efficiency, and optional-incoming independence. Do not mix VAD tuning, installer staging, endpoint-GUID migration, or local-PC proof.

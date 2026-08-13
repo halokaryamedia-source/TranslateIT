@@ -48,16 +48,29 @@ fn required_outbound_functional_readiness_store(
     REQUIRED_OUTBOUND_FUNCTIONAL_READINESS.get_or_init(|| Mutex::new(None))
 }
 
-fn required_outbound_functional_readiness_cached(generation_token: u64) -> bool {
+fn required_outbound_functional_readiness_verified_unix_ms(generation_token: u64) -> Option<u128> {
     if generation_token == 0 {
-        return false;
+        return None;
     }
     required_outbound_functional_readiness_store()
         .lock()
         .ok()
         .and_then(|guard| guard.as_ref().cloned())
-        .map(|cached| cached.generation_token == generation_token && cached.verified_unix_ms > 0)
-        .unwrap_or(false)
+        .filter(|cached| cached.generation_token == generation_token && cached.verified_unix_ms > 0)
+        .map(|cached| cached.verified_unix_ms)
+}
+
+fn required_outbound_functional_readiness_cached(generation_token: u64) -> bool {
+    required_outbound_functional_readiness_verified_unix_ms(generation_token).is_some()
+}
+
+fn decorate_functional_readiness_status(mut status: HelperBridgeStatus) -> HelperBridgeStatus {
+    let verified_unix_ms =
+        required_outbound_functional_readiness_verified_unix_ms(status.generation_token);
+    status.functional_outbound_ready =
+        status.state == "ready" && status.provider_ready && verified_unix_ms.is_some();
+    status.functional_outbound_verified_unix_ms = verified_unix_ms;
+    status
 }
 
 fn remember_required_outbound_functional_readiness(generation_token: u64) {
@@ -96,18 +109,27 @@ fn functional_translation_output(response: &HelperBridgeWorkerResponse) -> Optio
     worker_text(&value, "translated_text")
 }
 
-fn consume_functional_tts_output(response: &HelperBridgeWorkerResponse) -> bool {
+fn functional_tts_output_path(response: &HelperBridgeWorkerResponse) -> Option<String> {
     let value = worker_response_value(response);
-    let output_path = worker_text(&value, "output_path");
-    let file_ready = output_path
-        .as_deref()
-        .and_then(|path| fs::metadata(path).ok())
+    let output_path = worker_text(&value, "output_path")?;
+    let file_ready = fs::metadata(&output_path)
         .map(|metadata| metadata.is_file() && metadata.len() > 44)
         .unwrap_or(false);
-    if let Some(path) = output_path {
-        let _ = fs::remove_file(path);
+    if response.ok && file_ready {
+        Some(output_path)
+    } else {
+        let _ = fs::remove_file(&output_path);
+        None
     }
-    response.ok && file_ready
+}
+
+fn functional_asr_output(response: &HelperBridgeWorkerResponse) -> bool {
+    if !response.ok {
+        return false;
+    }
+    let value = worker_response_value(response);
+    value.get("stage").and_then(Value::as_str) == Some("transcribe")
+        && worker_text(&value, "transcript_text").is_some()
 }
 
 fn failed_required_outbound_task_invalidates_cache(
@@ -849,11 +871,9 @@ pub fn prepare_required_outbound_ai_runtime() -> Result<(), &'static str> {
         return Ok(());
     }
 
-    // No repository-owned canonical speech fixture exists today: the current worker
-    // smoke accepts ASR audio only through its external -AudioPath input. C3 therefore
-    // performs a real ASR model load here rather than fabricating an audio-success
-    // fixture. Actual ASR inference remains covered by its existing remote P2.3 proof
-    // and by target/runtime tests once a canonical fixture is adopted.
+    // Load the canonical ASR runtime first so a model/device failure stops the bounded
+    // self-test before translation/TTS work. C4 still requires a real transcribe call
+    // below before this worker generation may be marked functionally ready.
     let asr = send_worker_task("asr_preload", json!({ "meeting_start_prepare": true }));
     if !asr.ok {
         invalidate_required_outbound_ai_readiness();
@@ -878,9 +898,11 @@ pub fn prepare_required_outbound_ai_runtime() -> Result<(), &'static str> {
         return Err("Indonesian to English translation");
     };
 
-    // Feed the actual functional translation result into the current English TTS
-    // provider and require a real WAV artifact. The fixed-fixture WAV is deleted
-    // immediately and its text/audio never enters transcript/history/evidence state.
+    // Synthesize the actual functional translation result, then reuse that temporary
+    // English speech WAV as the bounded ASR inference fixture. This proves the ASR
+    // execution path without introducing a repository binary fixture. C4 checks only
+    // non-empty inference capability here; ASR language/quality accuracy remains
+    // target-runtime evidence.
     let tts = send_worker_task(
         "synthesize",
         json!({
@@ -889,13 +911,36 @@ pub fn prepare_required_outbound_ai_runtime() -> Result<(), &'static str> {
             "meeting_start_prepare": true,
         }),
     );
-    if !consume_functional_tts_output(&tts) {
+    let Some(functional_tts_path) = functional_tts_output_path(&tts) else {
         invalidate_required_outbound_ai_readiness();
         return Err("English voice output");
+    };
+
+    let asr_inference = send_worker_task(
+        "transcribe",
+        json!({
+            "audio_path": functional_tts_path,
+            "language": "en",
+            "beam_size": 1,
+            "vad_filter": false,
+            "meeting_start_prepare": true,
+        }),
+    );
+    let functional_tts_path = worker_response_value(&tts)
+        .get("output_path")
+        .and_then(Value::as_str)
+        .map(str::to_string);
+    if let Some(path) = functional_tts_path.as_deref() {
+        let _ = fs::remove_file(path);
+    }
+    if !functional_asr_output(&asr_inference) {
+        invalidate_required_outbound_ai_readiness();
+        return Err("speech recognition");
     }
 
-    // Re-read capability truth only after real required execution. A worker replaced
-    // during the self-test cannot donate readiness to the new generation.
+    // Re-read capability truth only after all three required execution stages. A
+    // worker replaced during the self-test cannot donate readiness to the new
+    // generation.
     let status = send_worker_task("status", json!({ "meeting_start_prepare": true }));
     if !status.ok {
         invalidate_required_outbound_ai_readiness();
@@ -938,7 +983,7 @@ pub fn get_helper_bridge_status() -> HelperBridgeStatus {
                 runtime.active_meeting_lane = None;
                 runtime.updated_unix_ms = unix_ms();
             }
-            let result = status_from_runtime(&runtime);
+            let result = decorate_functional_readiness_status(status_from_runtime(&runtime));
             trace_command_end(
                 "get_helper_bridge_status",
                 started,
@@ -952,6 +997,8 @@ pub fn get_helper_bridge_status() -> HelperBridgeStatus {
                 message: "Helper bridge status lock is poisoned.".to_string(),
                 cuda_ready: false,
                 provider_ready: false,
+                functional_outbound_ready: false,
+                functional_outbound_verified_unix_ms: None,
                 degraded_mode: false,
                 active_task: None,
                 active_request_id: None,
@@ -1210,10 +1257,11 @@ pub fn helper_bridge_worker_status() -> HelperBridgeWorkerResponse {
 }
 
 #[cfg(test)]
-mod c3_functional_readiness_tests {
+mod c4_functional_readiness_tests {
     use super::{
-        failed_required_outbound_task_invalidates_cache, functional_translation_output,
-        HelperBridgeWorkerResponse, RequiredOutboundFunctionalReadiness,
+        failed_required_outbound_task_invalidates_cache, functional_asr_output,
+        functional_translation_output, HelperBridgeWorkerResponse,
+        RequiredOutboundFunctionalReadiness,
     };
 
     fn response(ok: bool, body: &str) -> HelperBridgeWorkerResponse {
@@ -1246,6 +1294,21 @@ mod c3_functional_readiness_tests {
             r#"{"ok":true,"direction_pair":"id->en","complete":false,"finished_with_eos":false,"translated_text":"partial"}"#,
         );
         assert!(functional_translation_output(&incomplete).is_none());
+    }
+
+    #[test]
+    fn functional_asr_requires_real_nonempty_transcribe_output() {
+        let complete = response(
+            true,
+            r#"{"ok":true,"stage":"transcribe","transcript_text":"good morning"}"#,
+        );
+        assert!(functional_asr_output(&complete));
+
+        let empty = response(
+            false,
+            r#"{"ok":false,"stage":"transcribe","blocker":"asr:empty_transcript"}"#,
+        );
+        assert!(!functional_asr_output(&empty));
     }
 
     #[test]

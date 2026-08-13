@@ -51,6 +51,9 @@ const MAX_LIVE_COMMITTED_TURNS: usize = 240;
 #[derive(Debug, Clone, Serialize)]
 pub struct MeetingSessionPreflightStatus {
     pub ready_for_start: bool,
+    pub start_eligible: bool,
+    pub functional_outbound_ready: bool,
+    pub functional_outbound_verified_unix_ms: Option<u128>,
     pub microphone_ready: bool,
     pub models_ready: bool,
     pub helper_ready: bool,
@@ -817,6 +820,10 @@ fn meeting_required_ai_ready(helper_ready: bool, provider_ready: bool) -> bool {
     helper_ready && provider_ready
 }
 
+fn meeting_start_ai_eligible(helper_ready: bool, provider_ready: bool) -> bool {
+    helper_ready && provider_ready
+}
+
 fn build_preflight() -> MeetingSessionPreflightStatus {
     let input = get_input_status();
     let helper = get_helper_bridge_status();
@@ -825,44 +832,57 @@ fn build_preflight() -> MeetingSessionPreflightStatus {
     let microphone_ready = input.prepared;
     let helper_ready = helper.state == "ready";
     let provider_ready = helper.provider_ready;
-    // `models_ready` remains in the public preflight shape, but its Meeting meaning
-    // is current required outbound AI capability. Full-product-release asset presence
-    // is a separate Diagnostics/release inventory and must not gate Meeting Start.
+    let functional_outbound_ready = helper.functional_outbound_ready;
+    let functional_outbound_verified_unix_ms = helper.functional_outbound_verified_unix_ms;
+    // `models_ready` remains the inexpensive required outbound capability view. C4
+    // keeps functional truth separate so routine status stays cheap and Start can run
+    // the bounded self-test only when needed.
     let models_ready = meeting_required_ai_ready(helper_ready, provider_ready);
     let meeting_route_ready = route.route_ready;
     let generation_aware_outbound_stages_ready = generation_aware_outbound_stages_ready();
     let finalized_utterance_source_connected = finalized_utterance_source_connected();
     let outbound_runtime_connected = application_outbound_runtime_connected();
 
-    let mut blockers = Vec::new();
+    let mut start_blockers = Vec::new();
     if !microphone_ready {
-        blockers.push("meeting_session:microphone_not_ready".to_string());
+        start_blockers.push("meeting_session:microphone_not_ready".to_string());
     }
-    if !helper_ready || !provider_ready {
-        blockers.push("meeting_session:local_runtime_not_ready".to_string());
+    if !meeting_start_ai_eligible(helper_ready, provider_ready) {
+        start_blockers.push("meeting_session:local_runtime_not_ready".to_string());
     }
     if !meeting_route_ready {
-        blockers.push(if route.blocker.is_empty() {
+        start_blockers.push(if route.blocker.is_empty() {
             "meeting_session:meeting_microphone_route_not_ready".to_string()
         } else {
             route.blocker.clone()
         });
     }
     if !generation_aware_outbound_stages_ready {
-        blockers.push("meeting_session:generation_aware_outbound_stages_not_ready".to_string());
+        start_blockers
+            .push("meeting_session:generation_aware_outbound_stages_not_ready".to_string());
     }
     if !finalized_utterance_source_connected {
-        blockers.push("meeting_session:finalized_utterance_source_not_connected".to_string());
+        start_blockers.push("meeting_session:finalized_utterance_source_not_connected".to_string());
     }
     if !outbound_runtime_connected {
-        blockers.push("meeting_session:continuous_outbound_runtime_not_connected".to_string());
+        start_blockers
+            .push("meeting_session:continuous_outbound_runtime_not_connected".to_string());
     }
-    blockers.sort();
-    blockers.dedup();
+    start_blockers.sort();
+    start_blockers.dedup();
 
-    let ready_for_start = blockers.is_empty();
+    let start_eligible = start_blockers.is_empty();
+    let ready_for_start = start_eligible && functional_outbound_ready;
+    let mut blockers = start_blockers;
+    if start_eligible && !functional_outbound_ready {
+        blockers.push("meeting_session:functional_outbound_not_verified".to_string());
+    }
+
     MeetingSessionPreflightStatus {
         ready_for_start,
+        start_eligible,
+        functional_outbound_ready,
+        functional_outbound_verified_unix_ms,
         microphone_ready,
         models_ready,
         helper_ready,
@@ -873,10 +893,13 @@ fn build_preflight() -> MeetingSessionPreflightStatus {
         outbound_runtime_connected,
         blockers,
         summary: if ready_for_start {
-            "Required outbound Meeting capabilities are source-connected and current preflight prerequisites are ready for transactional Start. Incoming Meeting Sound remains optional/degradable."
+            "Required outbound Meeting capabilities are functionally verified for the current local worker and current preflight prerequisites are ready. Incoming Meeting Sound remains optional/degradable."
+                .to_string()
+        } else if start_eligible {
+            "Required Meeting setup is available. A bounded local translation check must complete before Translation can become Live."
                 .to_string()
         } else {
-            "Start Translation remains blocked until all required current outbound Meeting prerequisites are ready."
+            "Start Translation remains blocked until all required current outbound Meeting prerequisites are available."
                 .to_string()
         },
         runtime_claim: "meeting_start_preflight_source_contract_not_windows_runtime_proof"
@@ -2001,7 +2024,7 @@ pub fn start_meeting_translation() -> MeetingSessionActionResult {
     }
 
     let preflight = build_preflight();
-    if !preflight.ready_for_start {
+    if !preflight.start_eligible {
         return MeetingSessionActionResult {
             ok: false,
             state: "blocked".to_string(),
@@ -2379,6 +2402,9 @@ mod b3_preflight_snapshot_tests {
     fn ready_preflight() -> MeetingSessionPreflightStatus {
         MeetingSessionPreflightStatus {
             ready_for_start: true,
+            start_eligible: true,
+            functional_outbound_ready: true,
+            functional_outbound_verified_unix_ms: Some(1),
             microphone_ready: true,
             models_ready: true,
             helper_ready: true,
@@ -2470,5 +2496,18 @@ mod a7_meeting_readiness_tests {
         assert!(!meeting_required_ai_ready(false, true));
         assert!(!meeting_required_ai_ready(true, false));
         assert!(!meeting_required_ai_ready(false, false));
+    }
+}
+
+#[cfg(test)]
+mod c4_functional_preflight_tests {
+    use super::{meeting_required_ai_ready, meeting_start_ai_eligible};
+
+    #[test]
+    fn static_prerequisites_can_be_start_eligible_before_functional_ready() {
+        assert!(meeting_start_ai_eligible(true, true));
+        assert!(meeting_required_ai_ready(true, true));
+        assert!(!meeting_start_ai_eligible(true, false));
+        assert!(!meeting_required_ai_ready(false, true));
     }
 }

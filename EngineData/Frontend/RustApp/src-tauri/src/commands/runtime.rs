@@ -28,6 +28,77 @@ pub fn start_helper_bridge() -> HelperBridgeActionResult {
 }
 
 #[tauri::command]
+pub fn verify_required_outbound_ai_readiness() -> HelperBridgeActionResult {
+    let runtime_state = latest_runtime_session_state();
+    if runtime_state.has_active_session {
+        let helper = helper_bridge::get_helper_bridge_status();
+        return HelperBridgeActionResult {
+            ok: false,
+            state: "active_runtime_session".to_string(),
+            message:
+                "Finish the current Meeting or Mic Test before running the local translation check."
+                    .to_string(),
+            generation_token: helper.generation_token,
+            runtime_claim: "functional_readiness_check_deferred_until_runtime_session_stop"
+                .to_string(),
+        };
+    }
+
+    let mut helper = helper_bridge::get_helper_bridge_status();
+    if matches!(helper.state.as_str(), "not_started" | "stopped") {
+        let started = helper_bridge::start_helper_bridge();
+        if !started.ok {
+            return started;
+        }
+        helper = helper_bridge::get_helper_bridge_status();
+    }
+    if helper.state != "ready" {
+        return HelperBridgeActionResult {
+            ok: false,
+            state: helper.state,
+            message: "The local translator is not available for the final readiness check."
+                .to_string(),
+            generation_token: helper.generation_token,
+            runtime_claim: "functional_readiness_check_helper_not_ready".to_string(),
+        };
+    }
+
+    if let Err(stage) = helper_bridge::prepare_required_outbound_ai_runtime() {
+        let current = helper_bridge::get_helper_bridge_status();
+        return HelperBridgeActionResult {
+            ok: false,
+            state: "blocked".to_string(),
+            message: format!(
+                "The final local translation check could not complete at {stage}. Check Diagnostics and try again."
+            ),
+            generation_token: current.generation_token,
+            runtime_claim: "functional_readiness_check_failed".to_string(),
+        };
+    }
+
+    let current = helper_bridge::get_helper_bridge_status();
+    HelperBridgeActionResult {
+        ok: current.functional_outbound_ready,
+        state: if current.functional_outbound_ready {
+            "ready".to_string()
+        } else {
+            "blocked".to_string()
+        },
+        message: if current.functional_outbound_ready {
+            "The final local translation check passed.".to_string()
+        } else {
+            "The final local translation check did not produce verified readiness.".to_string()
+        },
+        generation_token: current.generation_token,
+        runtime_claim: if current.functional_outbound_ready {
+            "functional_outbound_ready_current_helper_generation".to_string()
+        } else {
+            "functional_outbound_readiness_unverified".to_string()
+        },
+    }
+}
+
+#[tauri::command]
 pub fn start_meeting_translation() -> MeetingSessionActionResult {
     // Duplicate Start, runtime-owner conflicts, and unverifiable authority remain
     // owned by the canonical Meeting command. Only a verified-empty state prepares

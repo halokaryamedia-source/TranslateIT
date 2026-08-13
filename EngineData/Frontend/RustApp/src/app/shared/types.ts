@@ -28,6 +28,8 @@ export type HelperBridgeStatus = {
   message: string;
   cuda_ready: boolean;
   provider_ready: boolean;
+  functional_outbound_ready: boolean;
+  functional_outbound_verified_unix_ms: number | null;
   degraded_mode: boolean;
   active_task: string | null;
   active_request_id?: string | null;

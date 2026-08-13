@@ -23,6 +23,7 @@ export type ProductReadiness = {
   providerReady: boolean;
   microphoneReady: boolean;
   modelsReady: boolean;
+  functionalOutboundReady: boolean;
   asrReady: boolean;
   translationIdEnReady: boolean;
   translationEnIdReady: boolean;
@@ -107,7 +108,7 @@ export type ProductAudioDeviceSelectionResult = ProductAudioDeviceProbe & {
   settings: RuntimeSettings;
 };
 
-export type ProductSetupAction = "start-helper" | "check-worker" | "verify-models" | "check-microphone";
+export type ProductSetupAction = "start-helper" | "check-worker" | "check-readiness" | "verify-models" | "check-microphone";
 export type ProductRecoveryAction = "fix-setup";
 
 type WorkerCapabilitySnapshot = {
@@ -122,6 +123,8 @@ type WorkerCapabilitySnapshot = {
 
 type MeetingPreflightSnapshot = {
   readyForStart: boolean;
+  startEligible: boolean;
+  functionalOutboundReady: boolean;
   microphoneReady: boolean;
   modelsReady: boolean;
   helperReady: boolean;
@@ -222,6 +225,8 @@ function meetingPreflight(meetingSession: MeetingSessionStatus | null): MeetingP
   if (!preflight) {
     return {
       readyForStart: false,
+      startEligible: false,
+      functionalOutboundReady: false,
       microphoneReady: false,
       modelsReady: false,
       helperReady: false,
@@ -234,6 +239,8 @@ function meetingPreflight(meetingSession: MeetingSessionStatus | null): MeetingP
 
   return {
     readyForStart: preflight.ready_for_start === true,
+    startEligible: preflight.start_eligible === true,
+    functionalOutboundReady: preflight.functional_outbound_ready === true,
     microphoneReady: preflight.microphone_ready === true,
     modelsReady: preflight.models_ready === true,
     helperReady: preflight.helper_ready === true,
@@ -269,7 +276,7 @@ export function mapProductMeetingState(status: MeetingSessionStatus | null): Pro
   const starting = applicationOwned && authorityActive && lifecycle === "starting";
   const stopping = applicationOwned && lifecycle === "stopping";
   const busy = starting || stopping;
-  const canStart = !unavailable && !hasSession && preflight.readyForStart;
+  const canStart = !unavailable && !hasSession && preflight.startEligible;
   const canStop = !unavailable && applicationOwned && hasSession && !starting && !stopping;
   const outboundStage = compact(status?.outbound?.stage, unavailable ? "unavailable" : "idle");
   const blocker = compact(
@@ -376,6 +383,7 @@ export function mapProductReadiness(input: {
   const ttsReady = workerHelperReady && worker.ttsReady;
   const providerReady = meeting.providerReady;
   const modelsReady = meeting.modelsReady;
+  const functionalOutboundReady = meeting.functionalOutboundReady;
 
   const textDirection = selectedTextDirection(settings);
   const textReady = textDirection === "id->en"
@@ -417,7 +425,9 @@ export function mapProductReadiness(input: {
       ? "Translation is live. Stop the Meeting session when you are finished."
       : meeting.readyForStart
         ? "Meeting Translation is ready to start."
-        : textReady
+        : productMeeting.canStart
+          ? "Start Translation will run a quick final translation check before going live."
+          : textReady
           ? "Text translation is available. Meeting setup still needs attention."
           : textDirection === "unsupported"
             ? "Choose Indonesian → English or English → Indonesian for Text translation."
@@ -428,7 +438,9 @@ export function mapProductReadiness(input: {
       ? "Meeting Translation is live."
       : meeting.readyForStart
         ? "Meeting Translation is ready."
-        : textReady
+        : productMeeting.canStart
+          ? "Meeting setup is available; the final local translation check has not passed for this helper session yet."
+          : textReady
           ? `${textDirectionLabel} Text translation is available. Meeting Translation is not ready yet.`
           : hasRuntimeEvidence
             ? `${textDirectionLabel} Text translation is not ready. Meeting Translation is not ready yet.`
@@ -441,6 +453,7 @@ export function mapProductReadiness(input: {
     providerReady,
     microphoneReady,
     modelsReady,
+    functionalOutboundReady,
     asrReady,
     translationIdEnReady,
     translationEnIdReady,
@@ -470,9 +483,11 @@ export function mapProductReadiness(input: {
         : compact(helper?.state ?? helper?.message, "Local worker not running"),
     modelStatus: helperUnavailable
       ? "Unavailable"
-      : modelsReady
-        ? "Required outbound model runtime ready"
-        : worker.responseAvailable
+      : modelsReady && functionalOutboundReady
+        ? "Required outbound translation check passed"
+        : modelsReady
+          ? "Final local translation check pending"
+          : worker.responseAvailable
           ? "Required outbound model runtime needs setup"
           : "Worker capability not checked",
     microphoneStatus: inputUnavailable && meetingUnavailable
@@ -665,6 +680,12 @@ export async function runProductSetupAction(action: ProductSetupAction): Promise
       ? compact(capability.note || capability.blocker, "Worker capability status checked.")
       : compact(status?.message ?? status?.state, "Worker status checked.");
   }
+  if (action === "check-readiness") {
+    const result = await runtimeApi.verifyRequiredOutboundAiReadiness().catch(() => null);
+    return result?.ok
+      ? "The final local translation check passed."
+      : "The final local translation check still needs attention. Open Diagnostics if this continues.";
+  }
   if (action === "verify-models") {
     const result = await runtimeApi.verifyModels().catch(() => null);
     const blockers = Array.isArray(result?.blockers) ? result.blockers.join("; ") : "";
@@ -683,18 +704,30 @@ export async function runProductSetupAction(action: ProductSetupAction): Promise
 export async function runProductRecoveryAction(action: ProductRecoveryAction): Promise<string> {
   if (action !== "fix-setup") return "No product recovery action was selected.";
 
-  const helper = await runtimeApi.startHelperBridge().catch(() => null);
+  let helper = await runtimeApi.getHelperBridgeStatus().catch(() => null);
+  if (helper && helperNeedsLazyStart(helper)) {
+    const started = await runtimeApi.startHelperBridge().catch(() => null);
+    if (!started?.ok) return "Setup still needs attention. Open Diagnostics for technical details.";
+    helper = await runtimeApi.getHelperBridgeStatus().catch(() => null);
+  }
+  const readiness = helper?.state === "ready"
+    ? await runtimeApi.verifyRequiredOutboundAiReadiness().catch(() => null)
+    : null;
   const input = await runtimeApi.getInputStatus().catch(() => null);
-  const workerStatus = helper?.ok ? await runtimeApi.helperBridgeWorkerStatus().catch(() => null) : null;
+  const workerStatus = helper?.state === "ready"
+    ? await runtimeApi.helperBridgeWorkerStatus().catch(() => null)
+    : null;
   const worker = parseWorkerCapabilities(workerStatus);
   const hasProblem = Boolean(
-    (helper && !helper.ok) ||
+    !helper ||
+    helper.state !== "ready" ||
+    !readiness?.ok ||
     input?.blocker ||
     (worker.responseAvailable && !worker.translationIdEnReady),
   );
 
   if (hasProblem) return "Setup still needs attention. Open Diagnostics for technical details.";
-  return "Setup checks completed. Check Meeting again; the Meeting microphone may still need attention.";
+  return "The local translation check passed. Check Meeting again; the Meeting microphone may still need attention.";
 }
 
 export const runtimeProductFacade = {

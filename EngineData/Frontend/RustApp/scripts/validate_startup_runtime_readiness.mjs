@@ -177,7 +177,7 @@ for (const [relativePath, label] of [
 
 const requiredCommands = [
   "get_meeting_session_status", "get_meeting_committed_turns", "start_meeting_translation", "stop_meeting_translation",
-  "get_virtual_mic_route_contract_status", "get_helper_bridge_status", "start_helper_bridge", "helper_bridge_worker_status", "start_capture", "stop_capture",
+  "get_virtual_mic_route_contract_status", "get_helper_bridge_status", "start_helper_bridge", "verify_required_outbound_ai_readiness", "helper_bridge_worker_status", "start_capture", "stop_capture",
   "get_input_status", "list_audio_devices", "probe_input_device_candidate", "probe_output_device_candidate",
   "load_runtime_settings", "save_runtime_settings", "select_audio_device", "translate_text", "verify_models",
 ];
@@ -295,6 +295,52 @@ forbidMarkers(source.meetingSession, "C2 no speculative latency threshold", [
   "latency_threshold",
 ]);
 
+requireMarkers(source.helperBridgeRuntime, "C4 helper functional readiness projection", [
+  "pub functional_outbound_ready: bool",
+  "pub functional_outbound_verified_unix_ms: Option<u128>",
+]);
+requireMarkers(source.helperBridge, "C4 generation-bound functional ASR/translation/TTS readiness", [
+  "required_outbound_functional_readiness_verified_unix_ms",
+  "decorate_functional_readiness_status",
+  "functional_tts_output_path",
+  "functional_asr_output",
+  'send_worker_task("asr_preload"',
+  '"synthesize",',
+  '"transcribe",',
+  '"language": "en"',
+  '"vad_filter": false',
+  "remember_required_outbound_functional_readiness",
+]);
+requireMarkers(source.meetingSession, "C4 Start eligibility vs functional Ready", [
+  "pub start_eligible: bool",
+  "pub functional_outbound_ready: bool",
+  "pub functional_outbound_verified_unix_ms: Option<u128>",
+  "let start_eligible = start_blockers.is_empty();",
+  "let ready_for_start = start_eligible && functional_outbound_ready;",
+  '"meeting_session:functional_outbound_not_verified"',
+  "if !preflight.start_eligible",
+  "if !prepared_preflight.ready_for_start",
+]);
+requireMarkers(source.runtimeCommands, "C4 explicit bounded functional readiness command", [
+  "pub fn verify_required_outbound_ai_readiness()",
+  "helper_bridge::prepare_required_outbound_ai_runtime()",
+  "functional_outbound_ready_current_helper_generation",
+]);
+requireMarkers(source.facade, "C4 product readiness consumes functional truth", [
+  "functionalOutboundReady",
+  "preflight.start_eligible === true",
+  "preflight.functional_outbound_ready === true",
+  "preflight.startEligible",
+  "verifyRequiredOutboundAiReadiness",
+]);
+requireMarkers(source.firstSetup, "C4 explicit final setup verification", [
+  'if (step === 5)',
+  'runProductSetupAction("check-readiness")',
+]);
+forbidMarkers(source.helperBridge, "C4 no fabricated ASR readiness", [
+  "C3 therefore performs a real ASR model load here rather than fabricating",
+]);
+
 requireMarkers(source.helperBridge, "C3 generation-bound functional outbound AI readiness", [
   "fn meeting_start_prepare",
   "prepare_required_outbound_ai_runtime",
@@ -310,7 +356,7 @@ requireMarkers(source.helperBridge, "C3 generation-bound functional outbound AI 
   'value.get("complete")',
   'value.get("finished_with_eos")',
   '"synthesize"',
-  "consume_functional_tts_output",
+  "functional_tts_output_path",
   "fs::metadata",
 ]);
 requireMarkers(source.helperBridge, "Meeting outbound helper priority continuity", [

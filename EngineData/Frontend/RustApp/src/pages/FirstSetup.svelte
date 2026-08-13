@@ -223,6 +223,9 @@
     if (busy) return;
     busy = true;
     message = "Checking setup...";
+    if (step === 5) {
+      await runtimeProductFacade.runProductSetupAction("check-readiness");
+    }
     await refreshSnapshot();
     message = snapshot?.readiness.meetingReady ? "Everything needed for Meeting translation is ready." : "Setup still needs attention.";
     busy = false;
