@@ -86,8 +86,27 @@ jobs:
           $pre = Get-Content .tmp-gpt-sovits/GPT_SoVITS/TTS_infer_pack/TextPreprocessor.py -Raw
           if ($pre -notmatch 'from text import chinese') { throw 'Expected eager multilingual text import not found' }
           if ($pre -notmatch 'elif language == "en"') { throw 'Expected English branch not found' }
+          $lr = Get-Content .tmp-gpt-sovits/GPT_SoVITS/AR/modules/lr_schedulers.py -Raw
+          if ($lr -notmatch 'from matplotlib import pyplot as plt') { throw 'Expected demo-only matplotlib import not found' }
+          $beforeMain = ($lr -split 'if __name__ == "__main__":')[0]
+          if (($beforeMain -replace 'from matplotlib import pyplot as plt', '') -match '\bplt\.') {
+            throw 'Matplotlib is used by training scheduler behavior, cannot prune safely'
+          }
           Write-Host 'UPSTREAM_WRAPPER_REQUIRES_TRANSLATEIT_PRUNING=true'
-          Write-Host 'PRUNE=torchaudio-wrapper,AP_BWE,PEFT,multilingual-segmentation-for-English-only-path'
+          Write-Host 'PRUNE=torchaudio-wrapper,AP_BWE,PEFT,multilingual-segmentation-for-English-only-path,matplotlib-demo-import'
+
+      - name: Apply proof-only demo import pruning
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $path = '.tmp-gpt-sovits/GPT_SoVITS/AR/modules/lr_schedulers.py'
+          $content = Get-Content $path -Raw
+          $content = $content -replace '(?m)^from matplotlib import pyplot as plt\r?\n', ''
+          Set-Content -Path $path -Value $content -Encoding UTF8
+          if ((Get-Content $path -Raw) -match 'from matplotlib import pyplot as plt') {
+            throw 'Failed to prune demo-only matplotlib import'
+          }
+          Write-Host 'MATPLOTLIB_PRODUCT_DEPENDENCY=NO'
 
       - name: Install minimal candidate dependencies without changing canonical core constraints
         shell: pwsh
@@ -111,7 +130,7 @@ jobs:
         run: |
           $ErrorActionPreference = 'Stop'
           $python = (Resolve-Path '.venv/Scripts/python.exe').Path
-          & $python -c "import torch, ctranslate2, faster_whisper, transformers; assert torch.__version__.split('+')[0] == '2.13.0', torch.__version__; assert ctranslate2.__version__ == '4.8.1', ctranslate2.__version__; assert faster_whisper.__version__ == '1.2.1', faster_whisper.__version__; assert transformers.__version__ == '5.15.0', transformers.__version__; print('CANONICAL_CORE_IDENTITIES_PRESERVED', torch.__version__, ctranslate2.__version__, faster_whisper.__version__, transformers.__version__)"
+          & $python -c "import torch, ctranslate2, faster_whisper, transformers, numpy; assert torch.__version__.split('+')[0] == '2.13.0', torch.__version__; assert ctranslate2.__version__ == '4.8.1', ctranslate2.__version__; assert faster_whisper.__version__ == '1.2.1', faster_whisper.__version__; assert transformers.__version__ == '5.15.0', transformers.__version__; assert numpy.__version__ == '2.5.2', numpy.__version__; print('CANONICAL_CORE_IDENTITIES_PRESERVED', torch.__version__, ctranslate2.__version__, faster_whisper.__version__, transformers.__version__, numpy.__version__)"
           if ($LASTEXITCODE -ne 0) { throw 'Canonical core identity changed during VoiceLab compatibility probe' }
 
       - name: Verify GPT-SoVITS V2ProPlus core imports on current canonical versions
@@ -136,14 +155,14 @@ jobs:
             Pop-Location
           }
 
-      - name: Verify torchaudio is not required by the bounded core proof
+      - name: Verify rejected dependencies stayed out of the candidate environment
         shell: pwsh
         working-directory: EngineData/Backend/LocalWorker/WorkerRuntime
         run: |
           $ErrorActionPreference = 'Stop'
           $python = (Resolve-Path '.venv/Scripts/python.exe').Path
-          & $python -c "import importlib.util; assert importlib.util.find_spec('torchaudio') is None; print('TORCHAUDIO_NOT_ADOPTED=true')"
-          if ($LASTEXITCODE -ne 0) { throw 'Torchaudio unexpectedly entered the canonical environment' }
+          & $python -c "import importlib.util; rejected=['torchaudio','matplotlib','gradio','funasr','modelscope','fastapi','peft']; present=[name for name in rejected if importlib.util.find_spec(name) is not None]; assert not present, present; print('REJECTED_DEPENDENCIES_ABSENT', rejected)"
+          if ($LASTEXITCODE -ne 0) { throw 'Out-of-scope dependency entered the candidate environment' }
 
       - name: Re-run TranslateIT worker deterministic tests after compatibility mutation
         shell: pwsh
@@ -161,6 +180,7 @@ jobs:
           Write-Host 'CANONICAL_CORE_VERSION_CHANGES=NONE'
           Write-Host 'UPSTREAM_FULL_REQUIREMENTS_ADOPTED=NO'
           Write-Host 'TORCHAUDIO_ADOPTED=NO'
-          Write-Host 'REQUIRED_ADAPTATION=English-only runtime wrapper + bounded audio load/resample owner'
+          Write-Host 'MATPLOTLIB_ADOPTED=NO'
+          Write-Host 'REQUIRED_ADAPTATION=English-only V2ProPlus runtime wrapper + bounded audio load/resample owner + demo-import pruning'
           Write-Host 'CLAIM_BOUNDARY=dependency-resolution-core-import-English-frontend-only'
           Write-Host 'NOT_PROVEN=model-load-training-generated-audio-speaker-fidelity-cuda-vram-latency-meeting-audio'
