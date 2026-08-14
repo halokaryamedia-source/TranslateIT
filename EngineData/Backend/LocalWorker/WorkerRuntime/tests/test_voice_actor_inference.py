@@ -81,7 +81,21 @@ def test_voice_actor_synthesis_uses_only_myvoice_path(tmp_path: Path, monkeypatc
     cache.mkdir()
     monkeypatch.setattr(worker, "CACHE_ROOT", cache)
     monkeypatch.setattr(worker, "ALLOWED_OUTPUT_ROOTS", [cache])
-    monkeypatch.setattr(worker, "get_voice_actor_runtime", lambda: {"device": "cpu", "reference_cached": True})
+    fingerprint = (("actor.json", 1, 1),)
+    monkeypatch.setattr(
+        worker.voice_actor_provider,
+        "validate_actor_package",
+        lambda _root: {"fingerprint": fingerprint},
+    )
+    monkeypatch.setattr(
+        worker,
+        "get_voice_actor_runtime",
+        lambda: {
+            "device": "cpu",
+            "reference_cached": True,
+            "fingerprint": fingerprint,
+        },
+    )
     def synthesize(_runtime, _text, output_path):
         output_path.write_bytes(b"R" * 80)
         return {"sample_rate": 32_000, "device": "cpu", "reference_cached": True}

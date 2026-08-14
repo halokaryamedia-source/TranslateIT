@@ -305,7 +305,7 @@ def test_routine_gpu_probe_does_not_spawn_external_nvidia_smi(monkeypatch) -> No
     def unexpected_subprocess(*_args, **_kwargs):
         raise AssertionError("routine GPU capability status must not spawn subprocesses")
 
-    monkeypatch.setattr(worker.subprocess, "run", unexpected_subprocess)
+    monkeypatch.setattr(subprocess, "run", unexpected_subprocess)
     gpu = worker.probe_gpu_runtime({})
 
     assert gpu["cuda_capability_known"] is True
