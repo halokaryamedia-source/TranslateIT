@@ -1,0 +1,75 @@
+name: Temporary P4 Canonical Owner Sync
+
+on:
+  push:
+    branches: [New]
+    paths:
+      - .github/workflows/temp-p4-canonical-sync.yml
+
+permissions:
+  contents: write
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: New
+          fetch-depth: 1
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Reconcile P4 canonical owners
+        shell: bash
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+
+          decision = Path('docs/knowledge/decision-log.md')
+          body = decision.read_text(encoding='utf-8')
+          if '## D-021 — Initial Meeting Audio Provider Uses Standard VB-CABLE' not in body:
+              body += '''\n\n## D-021 — Initial Meeting Audio Provider Uses Standard VB-CABLE\n\n**Decision**  \nFor the initial controlled Windows release, the one bundled Meeting virtual-audio provider direction is the **standard VB-Audio VB-CABLE** package. This is a release/distribution dependency only; the existing Rust/CPAL matched-pair owner remains responsible for runtime detection, generation binding, and translated-audio delivery.\n\nDo not expand the initial provider surface to VB-CABLE A+B/C+D, Voicemeeter, another provider selector, or a custom TranslateIT driver. The provider keeps its VB-Audio identity and donationware notice; TranslateIT must not present the Windows driver as its own implementation.\n\nA concrete release may stage the official provider package only after the applicable redistribution/licensing conditions for that release are satisfied. Source files and source proof do not self-certify those rights. Professional/organizational distribution may require the appropriate vendor licensing rather than assuming end users can satisfy donationware terms individually.\n\nWindows driver elevation/security consent and restart behavior are legitimate installation boundaries. Do not add autoclick, unsigned-driver bypass, certificate workarounds, or another driver layer merely to hide those operating-system requirements. Actual installer invocation, rollback, restart recovery, endpoint appearance, matched-pair behavior, and meeting-application reception require installed/target-Windows evidence.\n\n**Reason**  \nThe standard VB-CABLE pair matches the product's existing one-pair Meeting route without adding a mixer, provider registry, or custom driver. Keeping provider distribution separate from runtime audio ownership preserves the current architecture while giving the one-installer release a bounded provider payload contract.\n\n**Proof status**  \nP4 source policy and packaging ownership are accepted from hosted Windows run `31780383064` at exact checkout SHA `b549ce109f3dc08ac0b8bbb7b5b99b52d64da804`: provider package/resource contract PASS, normal source validation PASS, frontend build PASS, `cargo check --locked` PASS, missing controlled provider payload correctly fail-closed, and read-only closure guard PASS. This does not prove redistribution rights for a concrete release, driver installation, restart handling, endpoint behavior, or physical Meeting audio delivery.\n'''
+              decision.write_text(body, encoding='utf-8')
+
+          ownership = Path('docs/knowledge/source-ownership.md')
+          body = ownership.read_text(encoding='utf-8')
+          replacements = {
+              '| Continuation | `docs/knowledge/next-action.md` | PRE-LOCAL QUALITY AUDIT / LOCAL VALIDATION USER-DEFERRED |': '| Continuation | `docs/knowledge/next-action.md` | P4 PROVIDER POLICY SOURCE-CLOSED / LOCAL VALIDATION USER-DEFERRED |',
+              '| Meeting Microphone route | `commands/virtual_mic_route.rs`, `engine/audio/meeting_output.rs` | ACTIVE |': '| Meeting Microphone route | `commands/virtual_mic_route.rs`, `engine/audio/meeting_output.rs` | ACTIVE / STANDARD VB-CABLE INITIAL RELEASE PROVIDER POLICY |',
+              '| Release model inventory | `WorkerRuntime/model_manifest.json` | ACTIVE / PINNED GPT-SOVITS VOICELAB RELEASE ASSET / NO PIPER AUTHORITY |': '| Release model inventory | `WorkerRuntime/model_manifest.json` | ACTIVE / PINNED GPT-SOVITS VOICELAB RELEASE ASSET / NO PIPER AUTHORITY |\n| Meeting audio provider release payload | `RuntimeAssets/AudioProvider/VBCABLE`, `src-tauri/tauri.release.conf.json`, release payload validators | STANDARD VB-CABLE POLICY SOURCE-CLOSED / BYTES+LICENSE+INSTALL UNPROVEN |',
+          }
+          for old, new in replacements.items():
+              if old not in body:
+                  raise SystemExit(f'source-ownership marker missing: {old}')
+              body = body.replace(old, new, 1)
+          ownership.write_text(body, encoding='utf-8')
+
+          context = Path('CONTEXT.md')
+          body = context.read_text(encoding='utf-8')
+          old = 'Actual packaged PythonRuntime bytes, GPT-SoVITS source/model asset placement, training asset delivery, vendored-package placement, Meeting provider imports, installer placement, and clean-machine behavior remain release proof. Current hosted P2.3 evidence predates VoiceLab and proves only the existing worker\'s ASR/translation/pre-VoiceLab TTS path on CPU fallback.'
+          new = 'P3/P4 now source-close the deterministic Tauri/NSIS resource map for the private Python runtime, required ASR/translation/GPT-SoVITS payloads, and the standard VB-Audio VB-CABLE provider staging boundary. Controlled payload bytes remain outside Git and release preflight fails closed when required runtime/model/provider inputs are absent. Actual payload staging, applicable provider redistribution/licensing for a concrete release, driver installation/restart behavior, installed execution, and clean-machine behavior remain release/target proof.'
+          if old not in body:
+              raise SystemExit('CONTEXT release-boundary marker missing')
+          body = body.replace(old, new, 1)
+          old2 = '''Before release, remaining proof/materialization now includes:\n\n```text\nA6 Meeting atomic custom-TTS readiness/integration\nfinal source closure audit\nreal trained Voice Actor quality and rebuild acceptance on target Windows\npost-setup runtime-state projection together with deferred device/model acceptance\nprivate PythonRuntime + GPT-SoVITS asset packaging and GPU-capable CUDA execution proof\nWindows Meeting audio/device validation\nStart / Stop / Safe Close / power lifecycle runtime acceptance\ntrained Voice Actor latency / stability / long-session measurement\ninstaller / installed-runtime proof\nclean-machine proof\n```'''
+          new2 = '''Before release, remaining proof/materialization now includes:\n\n```text\napplicable VB-CABLE redistribution/licensing for the concrete release\nactual private PythonRuntime + model + GPT-SoVITS + provider payload staging\nreal trained Voice Actor quality and rebuild acceptance on target Windows\npost-setup runtime-state projection together with deferred device/model acceptance\nGPU-capable CUDA execution proof\nVB-CABLE driver install / restart / endpoint validation\nWindows Meeting audio/device + meeting-application reception\nStart / Stop / Safe Close / power lifecycle runtime acceptance\ntrained Voice Actor latency / stability / long-session measurement\ninstaller / installed-runtime proof\nclean-machine proof\n```'''
+          if old2 not in body:
+              raise SystemExit('CONTEXT remaining-proof marker missing')
+          body = body.replace(old2, new2, 1)
+          context.write_text(body, encoding='utf-8')
+          PY
+          git diff --check
+          git diff --exit-code -- docs/knowledge/next-action.md || true
+          git diff -- docs/knowledge/decision-log.md docs/knowledge/source-ownership.md CONTEXT.md
+      - name: Commit canonical sync
+        shell: bash
+        run: |
+          if git diff --quiet; then
+            exit 0
+          fi
+          git config user.name 'halokaryamedia-source'
+          git config user.email 'halokaryamedia@gmail.com'
+          git add docs/knowledge/decision-log.md docs/knowledge/source-ownership.md CONTEXT.md
+          git commit -m 'Record P4 audio provider policy'
+          git push origin HEAD:New
