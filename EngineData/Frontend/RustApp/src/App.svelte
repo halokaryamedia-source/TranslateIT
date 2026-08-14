@@ -58,8 +58,6 @@
     return clean.length > 220 ? `${clean.slice(0, 219).trimEnd()}…` : clean;
   }
 
-  const currentSettings = $derived(snapshot?.settings ?? setupSettings);
-
   const presence = $derived(
     snapshot?.meeting.live
       ? "Live"
@@ -72,14 +70,6 @@
             : snapshot?.readiness.level === "blocked"
               ? "Setup Needed"
               : "Checking",
-  );
-
-  const direction = $derived(
-    route === "meeting"
-      ? "ID → EN voice"
-      : route === "voicelab"
-        ? "My Voice"
-        : `${currentSettings.source_language.toUpperCase()} → ${currentSettings.target_language.toUpperCase()}`,
   );
 
   const closePrimaryLabel = $derived(
@@ -564,7 +554,6 @@
           </button>
         {/if}
 
-        <span class="ti-pill">{direction}</span>
       </header>
 
       <div class="min-h-0 flex-1 overflow-y-auto">

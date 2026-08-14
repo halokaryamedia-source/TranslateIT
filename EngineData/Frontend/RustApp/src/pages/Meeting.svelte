@@ -122,9 +122,9 @@
           : "Speak Indonesian. TranslateIT sends English voice to your meeting."}
       </p>
     </div>
-    {#if meeting.live || meeting.busy || runtimeUnavailable || !readiness.meetingReady}
+    {#if meeting.busy || runtimeUnavailable || !readiness.meetingReady}
       <StatusBadge
-        label={meeting.live ? "Live" : meeting.busy ? meeting.label : runtimeUnavailable ? "Unavailable" : checking ? "Checking" : "Setup Needed"}
+        label={meeting.busy ? meeting.label : runtimeUnavailable ? "Unavailable" : checking ? "Checking" : "Setup Needed"}
         tone={meetingTone}
       />
     {/if}
