@@ -2,9 +2,9 @@
 
 ## Current Mode
 
-**Maintenance / VoiceLab Source Closed — WAITING FOR TARGET-WINDOWS AUTHORIZATION**
+**Maintenance / Target Windows Validation — AUTHORIZED, TARGET EXECUTION REQUIRED**
 
-VoiceLab A1 through A6 are closed source-side. A6 completes the required Meeting custom-TTS integration without adding another Meeting lifecycle, worker, TTS authority, provider registry, or fallback voice path.
+VoiceLab A1 through A6 are closed source-side. The user explicitly authorized the next Target Windows Validation stage on 2026-08-14. This stage must produce evidence from the actual target Windows environment; hosted GitHub proof must not be substituted for local device/model/audio evidence.
 
 ## A6 Result
 
@@ -64,7 +64,7 @@ A6_FINAL_SOURCE_PROOF -> PASS
 
 The proof is source/hosted evidence only. It does not claim execution with the user's real trained actor, target GPU, installed virtual-audio endpoint, or meeting application.
 
-## Remaining Uncertainty — Target Windows Only
+## Target Windows Validation Boundary
 
 The remaining unresolved claims require the actual target Windows environment:
 
@@ -81,10 +81,33 @@ longer Meeting stability and Stop/resource cleanup on target
 installer / clean-machine placement and startup behavior
 ```
 
-No user-local-PC or target-Windows validation was performed while closing A6.
+Do not add speculative backend, provider, readiness, packaging, compatibility, or tuning work before target evidence identifies a concrete blocker.
+
+## First Authorized Validation Run
+
+Start with the existing application/runtime owners; do not create a parallel validation application or worker.
+
+From `EngineData/Frontend/RustApp` on the target Windows machine:
+
+```text
+npm ci
+npm run validate:quick
+npm run dev:app
+```
+
+The first target run is intentionally bounded to establishing real local prerequisites and one end-to-end MyVoice Meeting Start path. Capture only evidence needed to answer these questions:
+
+```text
+1. Does the canonical local worker start on the target machine with the frozen environment?
+2. Does the approved MyVoice package load and synthesize real English audio?
+3. Does Meeting Start reach Live only after the generation-bound MyVoice proof succeeds?
+4. Does the prepared virtual microphone endpoint receive translated output through Rust/CPAL?
+5. Does one real meeting application receive that endpoint as microphone audio?
+6. Does Stop release owned Meeting/audio resources cleanly?
+```
+
+If any item fails, record the exact blocker/stage and reopen only the semantic owner responsible for that evidence. Do not generalize one target failure into a new framework.
 
 ## Next Step
 
-**Target Windows Validation (Requires Explicit Authorization)**
-
-Do not start this step until the user explicitly authorizes target/local Windows testing. Until then, do not add speculative backend, provider, readiness, packaging, or tuning waves. If target evidence later exposes a concrete blocker, reopen only the owner required by that evidence.
+**Run the first authorized Target Windows validation on the actual target PC and return the concrete pass/fail evidence for the six bounded checks above.**
