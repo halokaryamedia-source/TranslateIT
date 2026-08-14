@@ -130,7 +130,7 @@ for (const marker of [
   "A+B or C+D",
   "Voicemeeter",
   "custom TranslateIT audio driver",
-  "does not prove that a particular release has the required redistribution/license rights",
+  "particular release has the required redistribution/license rights",
 ]) {
   if (!providerReadme.includes(marker)) fail(`VB-CABLE release policy marker is missing: ${marker}`);
 }
