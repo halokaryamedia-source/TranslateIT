@@ -79,9 +79,9 @@ The first Voice Actor representation remains native trained GPT/SoVITS weights p
 
 ### Current implementation state
 
-The active `New` source implements VoiceLab creation through A4 and canonical-worker trained-actor inference through A5. Guided recording, build/evaluation, explicit `MyVoice` approval/promotion, actor-package revalidation, cached GPT-SoVITS V2ProPlus runtime reuse, and bounded English `voice_actor_synthesize` are source-closed.
+The active `New` source implements VoiceLab creation, canonical-worker trained-actor inference, and Meeting atomic MyVoice authority through A6. Guided recording, build/evaluation, explicit `MyVoice` approval/promotion, actor-package revalidation, cached GPT-SoVITS V2ProPlus runtime reuse, bounded English `voice_actor_synthesize`, generation-bound Start proof, and Live actor-token enforcement are source-closed.
 
-Meeting is intentionally **not migrated yet**. Existing Meeting `tts_preflight` / `synthesize` remain pre-VoiceLab until A6 replaces only that TTS portion inside the existing atomic Start transaction. Hosted source proof does not establish target speaker fidelity, CUDA/VRAM practicality, real inference latency, packaged asset placement, or physical meeting-audio delivery.
+Meeting is now migrated to MyVoice inside the existing atomic Start transaction. Hosted source proof still does not establish target speaker fidelity, CUDA/VRAM practicality, real inference latency, packaged asset placement, or physical meeting-audio delivery.
 
 ## Runtime Architecture
 
@@ -196,8 +196,8 @@ Svelte state remains presentation/application state, not duplicate Rust/runtime 
 - Source text is not silently truncated and known incomplete generation is not promoted.
 - Previous turns, History, and standalone Text are not automatic model context.
 - Optional incoming EN -> ID may degrade/disable without blocking safe outbound.
-- Approved final outbound TTS target is the trained GPT-SoVITS V2ProPlus My Voice actor.
-- A5 now implements approved `MyVoice` inference inside the canonical worker, but Meeting still invokes the pre-VoiceLab TTS tasks until A6 atomically replaces that TTS portion; this is an implementation gap, not an approved fallback policy.
+- Approved and active required outbound TTS authority is the trained GPT-SoVITS V2ProPlus My Voice actor.
+- A6 now binds the Start-proven MyVoice actor identity to the authoritative Meeting generation; Live synthesis requires that exact identity and fails closed if it changes or becomes unavailable. Piper/SAPI are not fallback authorities for required outbound Meeting voice.
 
 ## Voice Actor Storage Contract
 
@@ -223,9 +223,9 @@ A rebuild must not remove or replace the currently approved actor until the new 
 
 Start establishes one session/authority. Navigation does not stop/recreate it. Stop revokes output authority before resource cleanup, stops both audio lanes, cancels/joins Meeting work, clears transient conversation/audio state, and ends the session. Safe application close uses the same Stop owner and fails closed when session state cannot be verified. Windows suspend/resume window messages only enqueue a bounded nonblocking cleanup signal; a Rust lifecycle worker then converges through the same authority-first Meeting Stop owner.
 
-Required outbound activation is transactional before `Live`: after the application Meeting generation owns `Starting` authority, the required microphone capture opens, the exact prepared virtual output endpoint must build/start a bounded silent CPAL stream and produce a native callback, and the serialized outbound consumer must be created. Only then may the same generation commit `Live`. Optional incoming Meeting Sound remains independent and starts after required outbound is Live. The silent callback probe proves native endpoint execution only; actual VB-Cable/meeting-app reception remains target-Windows evidence.
+Required outbound activation is transactional before `Live`: after the application Meeting generation owns `Starting` authority, the required microphone capture opens, A6 performs generation-bound ASR/ID->EN/MyVoice functional proof and binds the approved actor identity, the exact prepared virtual output endpoint must build/start a bounded silent CPAL stream and produce a native callback, and the serialized outbound consumer must be created. A final readiness recheck must still pass before the same generation may commit `Live`. Optional incoming Meeting Sound remains independent and starts after required outbound is Live. The silent callback probe proves native endpoint execution only; actual VB-Cable/meeting-app reception remains target-Windows evidence.
 
-VoiceLab integration must extend this same Start authority rather than add another lifecycle. Final target behavior requires the trained actor to be loaded/warm, its canonical reference prepared/cached, and a bounded functional custom-TTS probe to succeed before `Live` can commit.
+VoiceLab extends this same Start authority without another lifecycle. Live synthesis uses the Start-proven MyVoice actor identity; actor disappearance/change/load/synthesis failure is fail-closed and requires a later Start rather than a silent fallback voice.
 
 The bounded committed-turn store is transient Live transcript state only; Meeting Stop has no History persistence dependency. Outbound timing is attached to the same transient Meeting owner: finalized speech records the detected finalization point and speech-boundary delay, the Meeting consumer records queue/audio-preparation/AI-stage durations, and Rust/CPAL output reports first translated playback from CPAL's predicted device-playback timestamp. No latency threshold is hardcoded before target-PC evidence, and C2 adds no persistent conversation/telemetry log.
 
@@ -271,7 +271,7 @@ VoiceLab now has the bounded `voice_lab_build.rs` build-process owner plus A5 in
 
 Normal post-setup `loadProductRuntimeSnapshot()` lazily starts the one helper only when its lifecycle is known `not_started`/`stopped`, then reads Meeting status/preflight, helper status, input status, and worker capability when the helper is ready. Fresh `meeting_setup_state = new` boot does not enter this normal snapshot path and therefore does not start Python. Heavy diagnostic/model/native probing is not normal polling work. During an active Meeting, the recurring frontend path polls Meeting status; the larger committed-turn snapshot is conditional on a status revision change rather than fetched unconditionally on every interval.
 
-Required outbound AI Start readiness is generation-bound functional truth rather than preload-only truth. A5 provides `voice_actor_preflight` and `voice_actor_synthesize`, but Meeting still validates the pre-VoiceLab TTS task. A6 must replace only that TTS portion with approved `MyVoice` warm/cache + bounded functional synthesis while preserving generation-bound cache/invalidation semantics and the existing real ASR/translation checks.
+Required outbound AI Start readiness is generation-bound functional truth rather than preload-only truth. A6 uses `voice_actor_preflight` and `voice_actor_synthesize` for approved `MyVoice` warm/cache + bounded functional synthesis while preserving generation-bound cache/invalidation semantics and the existing real ASR/translation checks. Diagnostic generation `0` may prove functional setup readiness but cannot yield Live actor authority.
 
 ## Release Boundary
 

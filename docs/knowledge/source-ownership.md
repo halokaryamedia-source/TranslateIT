@@ -6,19 +6,19 @@ This map points to current semantic owners. File existence or hosted source proo
 |---|---|---|
 | Product scope + familiar UI policy | `docs/foundation/01-product-overview.md`, `02-product-requirements.md` including PR-110..119 and PR-166 | ACTIVE / VOICELAB REQUIRED |
 | Stable context | `CONTEXT.md` | ACTIVE |
-| Continuation | `docs/knowledge/next-action.md` | ACTIVE / A6 NEXT |
+| Continuation | `docs/knowledge/next-action.md` | SOURCE CLOSED / TARGET VALIDATION NEXT |
 | Durable decisions | `docs/knowledge/decision-log.md` | ACTIVE / D-020 VOICELAB |
 | Frontend entry | `EngineData/Frontend/RustApp/src/main.ts` | ACTIVE / ONE SVELTE MOUNT |
 | Frontend application owner | `src/App.svelte` | ACTIVE / MEETING + TEXT + VOICELAB + SETTINGS |
 | First Setup UI | `src/pages/FirstSetup.svelte` | ACTIVE / FIVE PERSISTED CHECKPOINTS |
-| Meeting UI | `src/pages/Meeting.svelte`, `src/components/meeting/MeetingActivity.svelte` | ACTIVE / PRE-A6 TTS ROUTE |
+| Meeting UI | `src/pages/Meeting.svelte`, `src/components/meeting/MeetingActivity.svelte` | ACTIVE / A6 MYVOICE ROUTE SOURCE-CLOSED |
 | Text UI | `src/pages/Text.svelte` | ACTIVE |
 | VoiceLab page | `src/pages/VoiceLab.svelte` | ACTIVE / GUIDED RECORDING + BUILD/EVALUATION ENTRY |
 | VoiceLab build/evaluation UI | `src/components/voice-lab/VoiceLabBuild.svelte` | ACTIVE A4 / CREATE-STOP-PREVIEW-APPROVE |
 | Primary navigation | `src/components/layout/Sidebar.svelte` | ACTIVE / MEETING-TEXT-VOICELAB-SETTINGS |
 | VoiceLab recording bridge | `src/app/bridge/voiceLabApi.ts` | ACTIVE A3 |
 | VoiceLab build bridge | `src/app/bridge/voiceLabBuildApi.ts` | ACTIVE A4 |
-| Product facade/readiness projection | `src/app/bridge/runtimeProductFacade.ts` | ACTIVE / MEETING READINESS STILL PRE-A6 TTS |
+| Product facade/readiness projection | `src/app/bridge/runtimeProductFacade.ts` | ACTIVE / A6 MYVOICE READINESS |
 | Tauri invoke registration | `src-tauri/src/commands/registry.rs` | ACTIVE / A3 + A4 VOICELAB DESKTOP COMMANDS |
 | VoiceLab actor/build contract | `src-tauri/src/commands/voice_lab.rs` | ACTIVE A2/A4 / DATASET-LIFECYCLE-PROMOTION CONTRACT |
 | VoiceLab guided-recording commands | `src-tauri/src/commands/voice_lab_recording.rs` | ACTIVE A3 |
@@ -35,19 +35,19 @@ This map points to current semantic owners. File existence or hosted source proo
 | Meeting authority | `commands/meeting_session.rs`, `commands/runtime.rs`, `engine/runtime_state.rs` | ACTIVE / ATOMIC START / VOICELAB BUILD EXCLUSION |
 | Meeting Microphone route | `commands/virtual_mic_route.rs`, `engine/audio/meeting_output.rs` | ACTIVE |
 | Local worker/scheduler | `helper_bridge.rs`, `helper_bridge_runtime.rs`, `realtime_local_worker.py` | ACTIVE / ONE DAILY AI OWNER |
-| Trained Voice Actor worker commands | `realtime_local_worker.py::handle_voice_actor_preflight`, `handle_voice_actor_synthesize` | CLOSED A5 SOURCE-SIDE / NOT YET MEETING-AUTHORITATIVE |
+| Trained Voice Actor worker commands | `realtime_local_worker.py::handle_voice_actor_preflight`, `handle_voice_actor_synthesize` | CLOSED A6 SOURCE-SIDE / MEETING-AUTHORITATIVE |
 | Trained Voice Actor runtime cache | `realtime_local_worker.py::get_voice_actor_runtime` + `voice_lab_gpt_sovits.py::load_voice_actor_runtime` | CLOSED A5 SOURCE-SIDE / INVALIDATES WHEN APPROVED PACKAGE CHANGES |
-| Meeting custom-TTS readiness | existing helper + Meeting Start transaction | NEXT A6 / NOT IMPLEMENTED |
+| Meeting custom-TTS readiness | existing helper + Meeting Start transaction | CLOSED A6 SOURCE-SIDE / GENERATION-BOUND MYVOICE |
 | Rust dependency graph | `src-tauri/Cargo.toml` + `Cargo.lock` | ACTIVE / RUBATO `=0.16.2` FOR GUIDED RESAMPLING |
-| Worker Python dependency graph | `WorkerRuntime/pyproject.toml` + `uv.lock` | ACTIVE A4+A5 / ONE FROZEN RUNTIME GRAPH |
+| Worker Python dependency graph | `WorkerRuntime/pyproject.toml` + `uv.lock` | ACTIVE A4-A6 / ONE FROZEN RUNTIME GRAPH |
 | Voice runtime assets | `EngineData/Backend/RuntimeAssets/Voice/` | GPT-SOVITS OWNERSHIP DEFINED / TARGET PACKAGED BYTES UNPROVEN |
 | Release model inventory | `WorkerRuntime/model_manifest.json` | ACTIVE / GPT-SOVITS + PIPER MANUAL/RELEASE ASSET INVENTORY |
 | Persisted settings | `engine/settings.rs`, `engine/runtime_settings.rs`, `commands/settings.rs` | ACTIVE / SCHEMA V6 / NO VOICE PROFILE SELECTOR |
-| Target runtime proof | target Windows model/audio/device/package checks | DEFERRED UNTIL VOICELAB SOURCE CHAIN CLOSES |
+| Target runtime proof | target Windows model/audio/device/package checks | NEXT / REQUIRES EXPLICIT AUTHORIZATION |
 
 ## VoiceLab Ownership Boundary
 
-VoiceLab creation through A4 and daily trained-actor inference through A5 are now source-closed. Meeting authority remains deliberately separate until A6.
+VoiceLab creation, daily trained-actor inference, and Meeting atomic MyVoice authority through A6 are now source-closed. Remaining acceptance is target-Windows evidence only.
 
 ```text
 A3 recording
@@ -78,13 +78,15 @@ A5 daily inference
 -> voice_actor_preflight / voice_actor_synthesize
 -> bounded CacheData WAV
 
-A6 next
+A6 Meeting authority
 -> existing helper/scheduler
 -> generation-bound Meeting Start readiness
--> functional MyVoice synthesis fixture
+-> approved MyVoice preload + functional synthesis fixture
+-> actor identity bound to the authoritative generation
 -> existing native output callback
 -> existing outbound consumer
 -> same generation commits Live
+-> Live synthesis requires the Start-proven actor identity
 ```
 
 The graph explicitly excludes:
@@ -141,7 +143,7 @@ voice_actor_preflight
 voice_actor_synthesize
 ```
 
-Existing Meeting tasks `tts_preflight` and `synthesize` are not redirected in A5. That change belongs to A6 so Meeting activation remains atomic rather than partially migrated.
+A6 has now retired the pre-VoiceLab Meeting TTS authority from the required outbound path. Meeting Start and Live synthesis use `voice_actor_preflight` / `voice_actor_synthesize` through the same canonical worker while preserving the existing atomic Meeting lifecycle.
 
 The actor authority is fixed:
 
@@ -160,6 +162,12 @@ The pinned upstream V2ProPlus TTS implementation contains cwd-relative source/mo
 The canonical reference is prepared once through upstream `set_ref_audio()` and reused through the loaded TTS prompt cache. A later utterance does not retrain or reconstruct the actor when the approved package is unchanged.
 
 A5 fails closed for MyVoice synthesis. Missing/invalid actor files, source assets, model load, reference preparation, or synthesis do not invoke Piper/SAPI. Any stale destination WAV is removed on failure.
+
+## A6 Meeting MyVoice Authority
+
+A6 extends the same canonical worker into the existing Meeting Start transaction. After the Meeting generation owns `Starting` authority and required microphone capture is open, the helper performs ASR preload, a real ID -> EN fixture, `voice_actor_preflight`, a real bounded MyVoice synthesis fixture, ASR over that generated voice, and a final actor-identity recheck. Only then can native output probing and the serialized outbound consumer complete before `Live`.
+
+The readiness cache is bound to worker generation + Meeting generation + approved actor identity. Live `voice_actor_synthesize` must present the exact actor identity proven during Start. If the approved actor changes during the Meeting, synthesis fails closed and a new Start is required. Diagnostic readiness may use generation `0`, but generation `0` can never yield Live actor authority.
 
 ## Storage Ownership
 
@@ -212,6 +220,7 @@ A2 lifecycle/storage contract -> CLOSED
 A3 guided recording/persistence -> CLOSED SOURCE-SIDE
 A4 GPT-SoVITS build + held-out evaluation -> CLOSED SOURCE-SIDE
 A5 canonical-worker trained-actor inference -> CLOSED SOURCE-SIDE
+A6 Meeting atomic MyVoice readiness -> CLOSED SOURCE-SIDE
 ```
 
 A4 provider compatibility: hosted Windows run `31724026882`.
@@ -252,9 +261,11 @@ Current proof order:
 4. guided recording + accepted-take persistence -> CLOSED A3 SOURCE-SIDE
 5. GPT-SoVITS build + held-out evaluation -> CLOSED A4 SOURCE-SIDE
 6. canonical-worker daily trained-actor inference -> CLOSED A5 SOURCE-SIDE
-7. Meeting atomic custom-TTS readiness -> NEXT A6
-8. final source closure audit
-9. target-Windows speaker-quality/latency/device/package acceptance
+7. Meeting atomic custom-TTS readiness -> CLOSED A6 SOURCE-SIDE
+8. final source closure proof -> CLOSED / run 31773954105
+9. target-Windows speaker-quality/latency/device/package acceptance -> NEXT / EXPLICIT AUTHORIZATION
 ```
 
-Hosted A5 proof does not prove real user actor weights, target GPT-SoVITS asset placement, target model load, speaker fidelity, CUDA/VRAM practicality, real inference latency, long-session stability, Meeting custom-TTS readiness, meeting-app audio reception, installer placement, or clean-machine execution. No user-local-PC testing occurred.
+Accepted A6 final hosted Windows proof is run `31773954105` at exact checkout SHA `d682f44d02ddd74a731b55bc1d0da6f738bf27f6`: static MyVoice authority guard PASS, frozen worker proof with 28 Python tests PASS, frontend validators/typecheck/build PASS, `cargo check --locked` PASS, 42 Rust tests PASS, and read-only closure guard PASS.
+
+Hosted A6 proof does not prove real user actor weights, target GPT-SoVITS asset placement, real target model load, speaker fidelity, CUDA/VRAM practicality, real inference latency, physical meeting-app audio reception, installer placement, or clean-machine execution. No user-local-PC testing occurred.
