@@ -2,7 +2,7 @@
 
 ## Current Mode
 
-**Developing / Frontend P1 VoiceLab Humanization CLOSED — P2 SETTINGS CLEANUP NEXT**
+**Developing / Frontend P2 Settings Cleanup CLOSED — P3 SHELL STATUS CLEANUP NEXT**
 
 VoiceLab A1 through A6, the pre-local VoiceLab quality audit, the final 128-line guided-script curation, the explicit Guided Recording Skip action, P3 runtime/model packaging source closure, P4 Meeting audio provider distribution policy, and the bounded P5 Rust source-hygiene cleanup are source-closed. Target/local Windows validation remains explicitly deferred by the user.
 
@@ -157,6 +157,27 @@ source commit -> 2913c8030298e373745182cdff702f7fe43f4e1b
 
 The temporary P1 patch/proof files were removed after the successful proof.
 
+## Frontend P2 Settings Cleanup Closure
+
+The bounded Settings cleanup wave is source-closed at the existing `Settings.svelte` owner. Normal `Settings -> Meeting` keeps the same device selection, Mic Test, setup repair, route status, and Advanced/Diagnostics behavior while removing redundant and overly technical normal-user presentation.
+
+The redundant `Check Microphone` action was removed because microphone selection already performs the functional candidate check before saving. `Mic Test` and `Check Setup` remain as distinct actions. Meeting-microphone recovery copy no longer requires the user to understand a matched virtual-audio cable pair; it now directs the user to `Check Setup` in ordinary product language.
+
+Technical troubleshooting detail remains intentionally contained in `Advanced -> Diagnostics`: Worker state, outbound provider status, CUDA/CPU execution information, `Verify Models`, and recent frontend/Tauri command errors were preserved. No device transaction, audio route, setup-repair behavior, backend readiness rule, persisted schema, or new frontend state owner was changed.
+
+Accepted hosted source proof:
+
+```text
+run 31797784828
+Settings P2 normal-UI contract -> PASS
+bounded single-owner frontend change -> PASS
+frontend typecheck -> PASS
+frontend production build -> PASS
+source commit -> fa5162c2a2aa02f912d1f2ae6219041d989be296
+```
+
+The temporary P2 patch/proof files were removed after the successful proof.
+
 ## Existing Source-Closed Boundaries
 
 The following remain closed source-side:
@@ -168,6 +189,7 @@ VoiceLab 128-line guided script final curation
 VoiceLab Guided Recording Skip action
 Frontend P0 First Setup / Meeting My Voice alignment
 Frontend P1 VoiceLab humanization and hierarchy alignment
+Frontend P2 Settings normal-UI cleanup and Diagnostics containment
 P3 private Python/runtime/model packaging contract
 P4 standard VB-CABLE initial provider policy and controlled staging contract
 P5 Rust warning/dead-data cleanup
@@ -200,4 +222,4 @@ Hosted source/build proof must not be presented as evidence for those claims.
 
 ## Next Step
 
-**P2 — Settings cleanup and normal-user technical-leakage containment. Keep the existing `Meeting / Advanced` settings structure and all runtime behavior, but remove the redundant normal `Check Microphone` action because microphone selection already performs the functional check, simplify normal Meeting settings copy so users do not need to understand matched virtual-audio cable/provider internals, and keep Worker/CUDA/provider/command-error detail inside `Advanced -> Diagnostics`. Do not change device-selection transactions, Mic Test behavior, setup repair, audio routing, backend readiness, or add new settings/state/component systems.**
+**P3 — Shell/status redundancy cleanup. Keep the existing sidebar, routes, product-state mapping, Meeting polling, and page-level direction UI, but remove the global direction pill from the app header because it duplicates Meeting/Text direction and is irrelevant in Settings, preserve the transient notice plus the active-Meeting return control, and suppress the redundant Meeting page-header `Live` badge when the live activity surface already communicates `Listening / Translating / Speaking`. Keep setup/unavailable/starting/stopping attention states visible. Do not change runtime state semantics, navigation behavior, Meeting lifecycle, or add new shell/state/component systems.**
