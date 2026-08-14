@@ -57,6 +57,67 @@ new_c4 = '''requireMarkers(source.helperBridge, "C4/A6 generation-bound function
 ]);
 '''
 text = replace_once(text, old_c4, new_c4, "c4-a6-readiness-block")
+text = replace_once(
+    text,
+    '  "helper_bridge::prepare_required_outbound_ai_runtime()",\n',
+    '  "helper_bridge::verify_required_outbound_ai_runtime()",\n',
+    "diagnostic-readiness-owner",
+)
+old_c3 = '''requireMarkers(source.helperBridge, "C3 generation-bound functional outbound AI readiness", [
+  "fn meeting_start_prepare",
+  "prepare_required_outbound_ai_runtime",
+  '"meeting_start_prepare": true',
+  "HelperTaskPriority::MeetingOutbound",
+  "REQUIRED_OUTBOUND_FUNCTIONAL_ID_FIXTURE",
+  "RequiredOutboundFunctionalReadiness",
+  "required_outbound_functional_readiness_cached",
+  "remember_required_outbound_functional_readiness",
+  "invalidate_required_outbound_ai_readiness",
+  'send_worker_task("asr_preload"',
+  '"translate"',
+  'value.get("complete")',
+  'value.get("finished_with_eos")',
+  '"synthesize"',
+  "functional_tts_output_path",
+  "fs::metadata",
+]);
+'''
+new_c3 = '''requireMarkers(source.helperBridge, "C3/A6 generation-bound functional outbound AI readiness", [
+  "fn meeting_start_prepare",
+  "run_required_outbound_ai_probe(",
+  "prepare_required_outbound_ai_runtime(meeting_generation: u64)",
+  "verify_required_outbound_ai_runtime()",
+  "HelperTaskPriority::MeetingOutbound",
+  "REQUIRED_OUTBOUND_FUNCTIONAL_ID_FIXTURE",
+  "RequiredOutboundFunctionalReadiness",
+  "meeting_generation: u64",
+  "actor_token: String",
+  "required_outbound_voice_actor_token",
+  "remember_required_outbound_functional_readiness",
+  "invalidate_required_outbound_ai_readiness",
+  '"asr_preload",',
+  '"translate",',
+  'value.get("complete")',
+  'value.get("finished_with_eos")',
+  '"voice_actor_preflight",',
+  '"voice_actor_synthesize",',
+  "functional_voice_actor_output_path",
+  "fs::metadata",
+]);
+'''
+text = replace_once(text, old_c3, new_c3, "c3-a6-readiness-block")
+text = replace_once(
+    text,
+    '  \'task == "synthesize"\',\n',
+    '  \'task == "voice_actor_synthesize"\',\n',
+    "outbound-pipeline-release-owner",
+)
+text = replace_once(
+    text,
+    '  \'matches!(task, "transcribe" | "translate" | "synthesize")\',\n',
+    '  \'matches!(task, "transcribe" | "translate" | "voice_actor_synthesize")\',\n',
+    "retry-boundary-forbidden-marker",
+)
 VALIDATOR.write_text(text, encoding="utf-8", newline="\n")
 
 run("git", "diff", "--check", "--", EXPECTED[0])
@@ -69,6 +130,6 @@ if staged != EXPECTED:
 
 run("git", "config", "user.name", "TranslateIT Source Proof")
 run("git", "config", "user.email", "actions@users.noreply.github.com")
-run("git", "commit", "-m", "Reconcile startup validator with A6 MyVoice readiness")
+run("git", "commit", "-m", "Reconcile remaining startup validators with A6 MyVoice")
 run("git", "push", "origin", "HEAD:New")
-print("A6_VALIDATOR_RECONCILIATION=PASS")
+print("A6_READINESS_VALIDATOR_RECONCILIATION=PASS")
