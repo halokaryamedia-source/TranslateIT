@@ -9,6 +9,8 @@ const workerRoot = join(backendRoot, "LocalWorker", "WorkerRuntime");
 const pythonRoot = join(backendRoot, "LocalWorker", "PythonRuntime");
 const runtimeAssetsRoot = join(backendRoot, "RuntimeAssets");
 const voiceSourceRoot = join(runtimeAssetsRoot, "Voice", "GPTSoVITS", "Source");
+const vbCableRoot = join(runtimeAssetsRoot, "AudioProvider", "VBCABLE");
+const vbCablePackageRoot = join(vbCableRoot, "Package");
 const expectedRevision = "d523079fc05d9a8028d6085bffe4a2757c32abb6";
 
 const errors = [];
@@ -106,10 +108,32 @@ for (const relative of forbiddenVoicePayload) {
   if (existsSync(target)) fail(`Unapproved GPT-SoVITS WebUI/server/auxiliary payload must not be bundled: ${relative}`);
 }
 
+requireFile(join(vbCableRoot, "NOTICE.txt"), "AudioProvider/VBCABLE/NOTICE.txt");
+if (existsSync(join(vbCableRoot, "NOTICE.txt"))) {
+  const notice = readFileSync(join(vbCableRoot, "NOTICE.txt"), "utf8").toLowerCase();
+  if (!notice.includes("vb-audio") || !notice.includes("donationware") || !notice.includes("vb-cable")) {
+    fail("VB-CABLE distribution notice must identify VB-Audio, VB-CABLE, and its donationware model.");
+  }
+}
+requireDir(vbCablePackageRoot, "AudioProvider/VBCABLE/Package");
+requireFile(join(vbCablePackageRoot, "VBCABLE_Setup_x64.exe"), "AudioProvider/VBCABLE/Package/VBCABLE_Setup_x64.exe");
+requireFile(join(vbCablePackageRoot, "VBCABLE_Setup.exe"), "AudioProvider/VBCABLE/Package/VBCABLE_Setup.exe");
+for (const forbiddenProviderName of [
+  "VBCable_AB_PackSetup.exe",
+  "VBCable_CD_PackSetup.exe",
+  "VoicemeeterSetup.exe",
+  "VoicemeeterProSetup.exe",
+  "VoicemeeterPotatoSetup.exe",
+]) {
+  if (existsSync(join(vbCablePackageRoot, forbiddenProviderName))) {
+    fail(`Unapproved alternate audio-provider payload must not be bundled: ${forbiddenProviderName}`);
+  }
+}
+
 if (errors.length) {
   for (const error of errors) console.error(`[release-payload] ${error}`);
   console.error("[release-payload] Release payload is incomplete or contains unapproved baggage. Prepare the controlled runtime assets before building the installer.");
   process.exit(1);
 }
 
-console.log("[release-payload] Required private Python runtime, release model inventory, and pruned GPT-SoVITS VoiceLab payload are present for Tauri/NSIS staging. This is payload-input proof only, not installed-runtime or clean-machine proof.");
+console.log("[release-payload] Required private Python runtime, release model inventory, pruned GPT-SoVITS VoiceLab payload, and standard VB-CABLE provider package are present for Tauri/NSIS staging. This is payload-input proof only, not driver-install, installed-runtime, licensing, or clean-machine proof.");
