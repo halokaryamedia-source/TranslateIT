@@ -27,10 +27,12 @@ jobs:
           if ($LASTEXITCODE -ne 0) { throw 'uv lock check failed' }
           uv sync --frozen --no-install-project
           if ($LASTEXITCODE -ne 0) { throw 'frozen worker sync failed' }
-          uv run python -m py_compile voice_lab_build.py voice_lab_gpt_sovits.py test_voice_lab_build_contract.py
+          uv run python -m py_compile voice_lab_build.py voice_lab_gpt_sovits.py prepare_model_assets.py test_voice_lab_build_contract.py
           if ($LASTEXITCODE -ne 0) { throw 'VoiceLab Python syntax gate failed' }
           uv run python -m unittest test_voice_lab_build_contract.py
           if ($LASTEXITCODE -ne 0) { throw 'VoiceLab build contract tests failed' }
+          uv run python -m pytest tests/test_prepare_model_assets.py -q
+          if ($LASTEXITCODE -ne 0) { throw 'VoiceLab model inventory tests failed' }
       - name: Frontend proof
         shell: pwsh
         working-directory: EngineData/Frontend/RustApp
