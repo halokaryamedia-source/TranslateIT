@@ -9,6 +9,7 @@ const paths = {
   app: resolve(root, "src/App.svelte"),
   meeting: resolve(root, "src/pages/Meeting.svelte"),
   text: resolve(root, "src/pages/Text.svelte"),
+  voiceLab: resolve(root, "src/pages/VoiceLab.svelte"),
   settings: resolve(root, "src/pages/Settings.svelte"),
   firstSetup: resolve(root, "src/pages/FirstSetup.svelte"),
   meetingActivity: resolve(root, "src/components/meeting/MeetingActivity.svelte"),
@@ -62,7 +63,7 @@ if (entries.length !== 1 || entries[0] !== "/src/main.ts") throw new Error(`Expe
 requireMarkers(source.main, "Svelte entrypoint", ['import { mount } from "svelte"', 'import App from "./App.svelte"', "mount(App, { target })"]);
 
 requireMarkers(source.app, "Svelte application owner", [
-  'type AppRoute = "meeting" | "text" | "settings"',
+  'type AppRoute = "meeting" | "text" | "voicelab" | "settings"',
   'route = $state<AppRoute>("meeting")',
   "runtimeProductFacade.loadProductRuntimeSnapshot",
   "runtimeProductFacade.runProductMeetingAction",
@@ -75,6 +76,7 @@ requireMarkers(source.app, "Svelte application owner", [
   "<FirstSetup",
   "<Meeting",
   "<Text",
+  "<VoiceLab",
   "<Settings",
   "setupBusy={setupActionBusy}",
 ]);
@@ -141,7 +143,7 @@ requireMarkers(source.firstSetup, "First Setup surface", [
   'role="progressbar"',
   "Check Again",
 ]);
-requireMarkers(source.sidebar, "Primary navigation", ["Meeting", "Text", "Settings", "Ready to translate", "Indonesian ↔ English"]);
+requireMarkers(source.sidebar, "Primary navigation", ["Meeting", "Text", "VoiceLab", "Settings", "Ready to translate", "Indonesian ↔ English"]);
 requireMarkers(source.statusRow, "shared status row", ["StatusBadge", "detail", "status = \"\"", "{#if status}"]);
 
 for (const [label, body] of [
