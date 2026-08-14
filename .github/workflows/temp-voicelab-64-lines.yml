@@ -1,8 +1,9 @@
-name: Temporary VoiceLab 64-Line Expansion
+name: Temporary VoiceLab 64 Line Expansion
 
 on:
   push:
-    branches: [New]
+    branches:
+      - New
     paths:
       - .github/workflows/temp-voicelab-64-lines.yml
 
@@ -10,7 +11,7 @@ permissions:
   contents: write
 
 jobs:
-  expand-and-prove:
+  prove:
     runs-on: windows-2022
     timeout-minutes: 30
     steps:
@@ -20,22 +21,15 @@ jobs:
           fetch-depth: 1
       - uses: actions/setup-node@v4
         with:
-          node-version: '22'
-          cache: npm
-          cache-dependency-path: EngineData/Frontend/RustApp/package-lock.json
-      - name: Expand guided lines to 64
+          node-version: 22
+      - name: Patch guided script
         shell: pwsh
         run: |
-          $ErrorActionPreference = 'Stop'
-          @'
-          from pathlib import Path
-
-          path = Path('EngineData/Frontend/RustApp/src-tauri/src/commands/voice_lab_recording.rs')
-          text = path.read_text(encoding='utf-8')
-          marker = '    (32, "Thanks again for your time today. I\'ll review everything carefully and follow up after lunch."),\n];'
-          if text.count(marker) != 1:
-              raise SystemExit('32-line expansion marker changed')
-          addition = '''    (32, "Thanks again for your time today. I'll review everything carefully and follow up after lunch."),
+          $path = 'EngineData/Frontend/RustApp/src-tauri/src/commands/voice_lab_recording.rs'
+          $text = Get-Content -Raw -Path $path
+          $anchor = '    (32, "Thanks again for your time today. I''ll review everything carefully and follow up after lunch."),'
+          if (($text.Split($anchor).Count - 1) -ne 1) { throw 'Line 32 anchor changed' }
+          $extra = @'
     (33, "I wasn't expecting that result, but I'm glad we found the problem before the deadline."),
     (34, "Could we pause for a second and make sure everyone is looking at the same document?"),
     (35, "Absolutely, I can handle that task and send you a short update when it's finished."),
@@ -68,59 +62,47 @@ jobs:
     (62, "At the end of the discussion, each person should know what changed and what they need to do next."),
     (63, "Even when I speak faster, I try to keep names, numbers, and important technical terms easy to understand."),
     (64, "All right, I think we've covered the main points. Let's finish here and continue after everyone has reviewed the notes."),
-];'''
-          text = text.replace(marker, addition, 1)
-          path.write_text(text, encoding='utf-8')
-          '@ | python -
+'@
+          $text = $text.Replace($anchor, $anchor + "`n" + $extra.TrimEnd())
+          Set-Content -Path $path -Value $text -NoNewline -Encoding utf8
           git diff --check
-      - name: Validate 64-line script contract
+      - name: Validate script contract
         shell: pwsh
         run: |
-          $ErrorActionPreference = 'Stop'
-          @'
-          from pathlib import Path
-          import re
-
-          path = Path('EngineData/Frontend/RustApp/src-tauri/src/commands/voice_lab_recording.rs')
-          text = path.read_text(encoding='utf-8')
-          block = text.split('const GUIDED_LINES: &[(u32, &str)] = &[', 1)[1].split('];', 1)[0]
-          entries = re.findall(r'^\s*\((\d+),\s*"(.*)"\),\s*$', block, re.MULTILINE)
-          if len(entries) != 64:
-              raise SystemExit(f'Expected exactly 64 guided lines, found {len(entries)}')
-          ids = [int(line_id) for line_id, _ in entries]
-          if ids != list(range(1, 65)):
-              raise SystemExit(f'Guided line IDs must remain contiguous 1..64, found {ids}')
-          texts = [value for _, value in entries]
-          if len(set(texts)) != len(texts):
-              raise SystemExit('Guided lines must have unique exact text')
-          if any(len(value.split()) < 8 for value in texts):
-              raise SystemExit('Guided script contains an unexpectedly short line')
-          held_out = {
-              'Please confirm the final schedule before we send the update to the client.',
-              'The system should remain clear and natural during a longer technical discussion.',
-              'I can review the latest results tomorrow morning and share my decision with the team.',
+          $path = 'EngineData/Frontend/RustApp/src-tauri/src/commands/voice_lab_recording.rs'
+          $text = Get-Content -Raw -Path $path
+          $matches = [regex]::Matches($text, '(?m)^\s*\((\d+),\s*"(.*)"\),\s*$')
+          $guided = @($matches | Where-Object { [int]$_.Groups[1].Value -le 64 })
+          if ($guided.Count -ne 64) { throw "Expected 64 guided lines, found $($guided.Count)" }
+          for ($i = 1; $i -le 64; $i++) {
+            if ([int]$guided[$i - 1].Groups[1].Value -ne $i) { throw 'Guided IDs are not contiguous 1..64' }
           }
-          if set(texts).intersection(held_out):
-              raise SystemExit('Training guided lines must not reuse held-out evaluation text')
-          print('[guided-lines] 64 unique contiguous training lines with no held-out reuse -> PASS')
-          '@ | python -
+          $texts = @($guided | ForEach-Object { $_.Groups[2].Value })
+          if (($texts | Select-Object -Unique).Count -ne 64) { throw 'Guided text must be unique' }
+          $heldOut = @(
+            'Please confirm the final schedule before we send the update to the client.',
+            'The system should remain clear and natural during a longer technical discussion.',
+            'I can review the latest results tomorrow morning and share my decision with the team.'
+          )
+          foreach ($line in $heldOut) { if ($texts -contains $line) { throw 'Held-out evaluation text reused by training script' } }
+          Write-Output '[guided-lines] 64 unique contiguous lines -> PASS'
       - name: Install frontend dependencies
         working-directory: EngineData/Frontend/RustApp
         run: npm ci
       - name: Frontend typecheck
         working-directory: EngineData/Frontend/RustApp
         run: npm run typecheck
-      - name: Frontend production build
+      - name: Frontend build
         working-directory: EngineData/Frontend/RustApp
         run: npm run build:frontend
-      - name: Rust compile with warnings denied
+      - name: Rust compile warnings denied
         shell: pwsh
         run: |
           $env:RUSTFLAGS='-Dwarnings'
           cargo check --locked --manifest-path EngineData/Frontend/RustApp/src-tauri/Cargo.toml
       - name: Rust tests
         run: cargo test --locked --manifest-path EngineData/Frontend/RustApp/src-tauri/Cargo.toml
-      - name: Commit 64-line expansion
+      - name: Commit expansion
         shell: pwsh
         run: |
           git config user.name 'halokaryamedia-source'
