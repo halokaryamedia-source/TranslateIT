@@ -281,7 +281,7 @@
         <span class="mt-0.5 block text-xs text-[var(--ti-text-muted)]">Meeting setup</span>
       </div>
       <div class="ml-auto min-w-44" role="progressbar" aria-label="Setup progress" aria-valuemin="1" aria-valuemax="5" aria-valuenow={step}>
-        <div class="flex items-center justify-between text-[11px] font-semibold text-[var(--ti-text-muted)]"><span>Step {step} of 5</span><span>{step * 20}%</span></div>
+        <div class="text-[11px] font-semibold text-[var(--ti-text-muted)]">Step {step} of 5</div>
         <div class="mt-2 h-1.5 overflow-hidden rounded-full bg-[var(--ti-border)]"><div class="h-full rounded-full bg-[var(--ti-accent)]" style={`width:${step * 20}%`}></div></div>
       </div>
     </header>
@@ -312,9 +312,9 @@
         </div>
         <div class="ti-subtle-card overflow-hidden"><StatusRow label="Selected meeting sound" value={currentMeetingSound()} detail="Optional incoming translation can listen here." status={meetingSoundReady ? "" : "Check Device"} tone="warning" /></div>
       {:else if step === 4}
-        <div><span class="ti-kicker">Meeting microphone</span><h1 class="ti-page-title">Choose the configured meeting microphone</h1><p class="ti-page-copy">In Zoom, Meet, Teams, or another meeting app, choose the exact Windows microphone shown below.</p></div>
+        <div><span class="ti-kicker">Meeting microphone</span><h1 class="ti-page-title">Set your meeting microphone</h1><p class="ti-page-copy">In your meeting app, choose the exact microphone shown below.</p></div>
         <div class="rounded-[var(--ti-radius-md)] border border-[var(--ti-border-strong)] bg-[var(--ti-surface-raised)] p-5"><span class="ti-field-label">In your meeting app</span><strong class="mt-2 block text-base font-semibold">Microphone → {currentMeetingMicrophone()}</strong></div>
-        <div class="ti-subtle-card overflow-hidden"><StatusRow label="Meeting microphone device" value={currentMeetingMicrophone()} detail="TranslateIT sends the translated English voice through the paired virtual-audio route behind this Windows input device." status={snapshot?.readiness.meetingRouteReady ? "" : snapshot?.readiness.level === "checking" ? "Checking" : "Setup Needed"} tone={snapshot?.readiness.level === "checking" ? "neutral" : "warning"} /></div>
+        <div class="ti-subtle-card overflow-hidden"><StatusRow label="Meeting microphone" value={currentMeetingMicrophone()} detail="TranslateIT uses this microphone to send your English voice into the meeting." status={snapshot?.readiness.meetingRouteReady ? "" : snapshot?.readiness.level === "checking" ? "Checking" : "Setup Needed"} tone={snapshot?.readiness.level === "checking" ? "neutral" : "warning"} /></div>
       {:else}
         <div><span class="ti-kicker">Ready</span><h1 class="ti-page-title">{myVoiceReady && snapshot?.readiness.meetingReady ? "You're ready to translate." : "One more thing needs attention."}</h1><p class="ti-page-copy">TranslateIT checks the essentials before you start a meeting.</p></div>
         <div class="ti-subtle-card divide-y divide-[var(--ti-border)] overflow-hidden">
