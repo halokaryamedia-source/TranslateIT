@@ -14,6 +14,7 @@ const modelManifest = JSON.parse(
 );
 const bridgePaths = readFileSync(join(tauriRoot, "src", "commands", "bridge_paths.rs"), "utf8");
 const pathsOwner = readFileSync(join(tauriRoot, "src", "engine", "paths.rs"), "utf8");
+const buildRelease = readFileSync(join(scriptDir, "build_release.ps1"), "utf8");
 const gitignore = readFileSync(join(repoRoot, ".gitignore"), "utf8");
 
 const errors = [];
@@ -54,11 +55,17 @@ const scripts = packageJson.scripts ?? {};
 if (scripts["preflight:release-payload"] !== "node scripts/validate_release_payload.mjs") {
   fail("package.json must expose the exact release-payload preflight.");
 }
-if (scripts["build:release"] !== "npm run preflight:release-payload && tauri build --config src-tauri/tauri.release.conf.json") {
-  fail("package.json must expose one controlled Tauri/NSIS release build entry using the release overlay.");
-}
 if (!String(scripts["preflight:tauri-package"] ?? "").includes("validate_release_package_contract.mjs")) {
   fail("Normal packaging preflight must include the release package contract validator.");
+}
+if (!String(scripts["validate:source-contracts"] ?? "").includes("preflight:tauri-package")) {
+  fail("Normal source validation must include packaging preflight.");
+}
+for (const marker of [
+  "npm run preflight:release-payload",
+  "npm exec -- tauri build --config src-tauri/tauri.release.conf.json",
+]) {
+  if (!buildRelease.includes(marker)) fail(`Controlled Windows release build marker is missing: ${marker}`);
 }
 
 for (const marker of [
@@ -114,4 +121,4 @@ if (errors.length) {
   process.exit(1);
 }
 
-console.log("[release-package-contract] P3 source contract is aligned: one NSIS release entry uses a Tauri resource-map overlay, only production WorkerRuntime files are declared, private PythonRuntime and required runtime assets map to ProjectPaths' installed layout, packaged mode has no system-Python fallback, and staged runtime/model bytes remain controlled release inputs outside Git. Installed/clean-machine execution remains separate proof.");
+console.log("[release-package-contract] P3 source contract is aligned: one controlled Windows release entry uses a Tauri resource-map overlay, only production WorkerRuntime files are declared, private PythonRuntime and required runtime assets map to ProjectPaths' installed layout, packaged mode has no system-Python fallback, staged runtime/model bytes remain controlled release inputs outside Git, and normal source validation exercises this contract. Installed/clean-machine execution remains separate proof.");
