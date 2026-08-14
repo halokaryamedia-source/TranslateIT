@@ -21,6 +21,7 @@
   let authorized = $state(false);
   let busy = $state(false);
   let replaying = $state(false);
+  let buildRefreshRevision = $state(0);
   let audio: HTMLAudioElement | null = null;
   let audioUrl: string | null = null;
 
@@ -48,9 +49,24 @@
     onRecordingChange(next.recording_line_id !== null);
   }
 
+  function productMessage(result: GuidedRecordingActionResult): string {
+    const message = result.message.trim();
+    if (!message.includes("voice_lab:")) return message;
+
+    switch (result.state) {
+      case "take_unusable":
+        return "This recording is unusable. Record the line again.";
+      case "capture_unavailable":
+      case "capture_failed":
+        return "VoiceLab couldn't use the microphone. Stop Meeting translation or Mic Test, then try again.";
+      default:
+        return "VoiceLab couldn't complete this recording action. Check Diagnostics and try again.";
+    }
+  }
+
   function applyResult(result: GuidedRecordingActionResult): void {
     applyState(result.recording);
-    onNotice(result.message);
+    onNotice(productMessage(result));
   }
 
   async function refresh(): Promise<void> {
@@ -101,6 +117,7 @@
       const result = await voiceLabApi.acceptTake(pendingLineId);
       applyResult(result);
       if (result.ok) {
+        buildRefreshRevision += 1;
         selectedLineId = result.recording.lines.find((line) => !line.accepted)?.line_id ?? pendingLineId;
       }
     } finally {
@@ -257,5 +274,5 @@
     </aside>
   </div>
 
-  <VoiceLabBuild {onNotice} />
+  <VoiceLabBuild {onNotice} refreshRevision={buildRefreshRevision} />
 </section>
