@@ -1,0 +1,59 @@
+name: Temporary R1 Release Licensing Audit
+
+on:
+  push:
+    branches: [New]
+    paths:
+      - .github/workflows/temp-r1-release-license-audit.yml
+
+permissions:
+  contents: write
+
+jobs:
+  audit-and-prove:
+    runs-on: windows-2022
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: New
+          fetch-depth: 1
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Apply bounded R1 provenance and licensing audit
+        shell: pwsh
+        run: |
+          python .github/scripts/temp-r1-release-license-audit.py
+          git diff --check
+      - name: Verify bounded ownership
+        shell: pwsh
+        run: |
+          $changed = git diff --name-only
+          $allowed = @(
+            'EngineData/Backend/LocalWorker/README.md',
+            'EngineData/Backend/LocalWorker/WorkerRuntime/model_manifest.json',
+            'EngineData/Backend/RuntimeAssets/README.md',
+            'EngineData/Backend/RuntimeAssets/Voice/README.md',
+            'EngineData/Frontend/RustApp/scripts/validate_release_package_contract.mjs'
+          )
+          foreach ($path in $changed) {
+            if ($allowed -notcontains $path) { throw "Unexpected R1 source change: $path" }
+          }
+      - name: Validate model inventory JSON
+        shell: pwsh
+        run: python -m json.tool EngineData/Backend/LocalWorker/WorkerRuntime/model_manifest.json > $null
+      - name: Validate release package source contract
+        working-directory: EngineData/Frontend/RustApp
+        run: node scripts/validate_release_package_contract.mjs
+      - name: Commit R1 source contract
+        shell: pwsh
+        run: |
+          git config user.name 'halokaryamedia-source'
+          git config user.email 'halokaryamedia@gmail.com'
+          git add EngineData/Backend/LocalWorker/README.md EngineData/Backend/LocalWorker/WorkerRuntime/model_manifest.json EngineData/Backend/RuntimeAssets/README.md EngineData/Backend/RuntimeAssets/Voice/README.md EngineData/Frontend/RustApp/scripts/validate_release_package_contract.mjs
+          git commit -m 'Audit release asset provenance and licensing gates'
+          git push origin HEAD:New
