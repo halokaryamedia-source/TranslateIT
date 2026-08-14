@@ -9,7 +9,11 @@ try {
     npm run preflight:release-payload
     if ($LASTEXITCODE -ne 0) { throw 'TranslateIT release payload preflight failed.' }
 
-    npm exec -- tauri build --config src-tauri/tauri.release.conf.json
+    $TauriCli = Join-Path $AppRoot 'node_modules\.bin\tauri.cmd'
+    if (-not (Test-Path -LiteralPath $TauriCli -PathType Leaf)) {
+        throw 'TranslateIT release requires the local @tauri-apps/cli installed from package-lock.json. Run npm ci; dynamic CLI download is not allowed.'
+    }
+    & $TauriCli build --config src-tauri/tauri.release.conf.json
     if ($LASTEXITCODE -ne 0) { throw 'TranslateIT Tauri/NSIS release build failed.' }
 }
 finally {

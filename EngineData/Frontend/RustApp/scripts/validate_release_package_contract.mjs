@@ -76,9 +76,14 @@ if (!String(scripts["validate:source-contracts"] ?? "").includes("preflight:taur
 for (const marker of [
   "node scripts/generate_third_party_notices.mjs --write",
   "npm run preflight:release-payload",
-  "npm exec -- tauri build --config src-tauri/tauri.release.conf.json",
+  "node_modules\\.bin\\tauri.cmd",
+  "dynamic CLI download is not allowed",
+  "& $TauriCli build --config src-tauri/tauri.release.conf.json",
 ]) {
   if (!buildRelease.includes(marker)) fail(`Controlled Windows release build marker is missing: ${marker}`);
+}
+if (buildRelease.includes("npm exec") || buildRelease.includes("npx ")) {
+  fail("Controlled Windows release build must use only the locally installed Tauri CLI; npm exec/npx download-capable execution is forbidden.");
 }
 
 for (const marker of [
