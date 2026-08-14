@@ -1,0 +1,86 @@
+name: Temporary R3 Controlled Installer Rehearsal
+
+on:
+  push:
+    branches: [New]
+    paths:
+      - .github/workflows/temp-r3-controlled-installer-rehearsal.yml
+
+permissions:
+  contents: read
+
+jobs:
+  rehearse:
+    runs-on: windows-2022
+    timeout-minutes: 120
+    env:
+      CARGO_TERM_COLOR: always
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: New
+          fetch-depth: 1
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12.10'
+
+      - name: Show hosted capacity and toolchain
+        shell: pwsh
+        run: |
+          Get-PSDrive -PSProvider FileSystem | Format-Table -AutoSize
+          node --version
+          npm --version
+          python --version
+          rustc --version
+          cargo --version
+
+      - name: Stage exact controlled release inputs
+        shell: pwsh
+        run: .github/scripts/temp-r3-stage-release.ps1
+
+      - name: Install frozen frontend release tooling
+        shell: pwsh
+        working-directory: EngineData/Frontend/RustApp
+        run: |
+          npm ci
+          npm run typecheck
+          node scripts/validate_release_package_contract.mjs
+
+      - name: Generate notices and prove full staged payload
+        shell: pwsh
+        working-directory: EngineData/Frontend/RustApp
+        run: |
+          node scripts/generate_third_party_notices.mjs --write
+          npm run preflight:release-payload
+
+      - name: Rehearse controlled Tauri NSIS build
+        shell: pwsh
+        working-directory: EngineData/Frontend/RustApp
+        run: |
+          ./scripts/build_release.ps1
+
+      - name: Verify generated NSIS installer evidence
+        shell: pwsh
+        working-directory: EngineData/Frontend/RustApp
+        run: |
+          $bundle=Join-Path (Get-Location) 'src-tauri\target\release\bundle\nsis'
+          if (-not (Test-Path -LiteralPath $bundle -PathType Container)) { throw 'NSIS output directory missing.' }
+          $installers=@(Get-ChildItem -LiteralPath $bundle -File -Filter '*.exe')
+          if ($installers.Count -ne 1) { throw "Expected exactly one NSIS installer, found $($installers.Count)." }
+          $installer=$installers[0]
+          $hash=(Get-FileHash -Algorithm SHA256 -LiteralPath $installer.FullName).Hash.ToLowerInvariant()
+          Write-Host "[r3][installer] name=$($installer.Name)"
+          Write-Host "[r3][installer] bytes=$($installer.Length)"
+          Write-Host "[r3][installer] sha256=$hash"
+          if ($installer.Length -le 0) { throw 'Generated installer is empty.' }
+          Write-Host '[r3][installer] controlled NSIS generation -> PASS'
+
+      - name: Final disk report
+        if: always()
+        shell: pwsh
+        run: Get-PSDrive -PSProvider FileSystem | Format-Table -AutoSize
