@@ -174,7 +174,7 @@
       <h2 class="ti-page-title">VoiceLab</h2>
       <p class="ti-page-copy">Record clear English lines to build your reusable meeting voice.</p>
     </div>
-    <span class="ti-pill">{acceptedCount}/{recordingState.lines.length || "—"} accepted</span>
+    <span class="ti-pill">{acceptedCount} accepted · {recordingState.lines.length || "—"} available</span>
   </header>
 
   <div class="grid grid-cols-[minmax(0,1fr)_300px] gap-5">
@@ -183,7 +183,7 @@
         <div>
           <span class="ti-kicker">My Voice</span>
           <h3 class="mb-0 mt-2 text-xl font-semibold tracking-[-0.02em]">Guided recording</h3>
-          <p class="mb-0 mt-2 max-w-[680px] text-sm leading-6 text-[var(--ti-text-muted)]">Use the same microphone and a quiet room. Read each line in your normal speaking voice.</p>
+          <p class="mb-0 mt-2 max-w-[680px] text-sm leading-6 text-[var(--ti-text-muted)]">Use the same microphone and a quiet room. Read naturally rather than performing the lines. You do not need to finish every available line before Create My Voice becomes ready.</p>
         </div>
       </div>
 
