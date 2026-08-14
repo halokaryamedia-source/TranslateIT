@@ -38,6 +38,22 @@ const GUIDED_LINES: &[(u32, &str)] = &[
     (14, "My email address, phone number, and account information should remain private."),
     (15, "The system should recover safely instead of silently switching to another option."),
     (16, "If everything looks correct, we can continue with the next step tomorrow morning."),
+    (17, "Yes, that sounds good to me. Let's keep moving while the details are still fresh."),
+    (18, "No, I don't think we should rush this change before everyone understands the risk."),
+    (19, "That's a fair question. Give me a moment to check the numbers before I answer."),
+    (20, "Would you mind repeating the last point a little more slowly, please?"),
+    (21, "The quick brown fox jumps over the lazy dog while the bright morning sun rises."),
+    (22, "She chose a fresh blue shirt, a warm gray jacket, and comfortable walking shoes."),
+    (23, "Three thoughtful reviewers checked the draft and shared their feedback with the group."),
+    (24, "We shipped twelve devices on Thursday, and the remaining eight will arrive next week."),
+    (25, "The meeting starts at nine thirty in the morning and should finish before eleven."),
+    (26, "Please check the A P I response, the server status, and the latest software version."),
+    (27, "The wireless connection was weak for a moment, but the audio remained clear enough to continue."),
+    (28, "I really appreciate your help. The result feels much better than it did yesterday."),
+    (29, "Are we confident this solution will still work when the conversation becomes faster?"),
+    (30, "Sometimes I speak softly, and sometimes my voice becomes stronger when a point is important."),
+    (31, "Before we finish, let's summarize what changed, what still needs work, and who owns each action."),
+    (32, "Thanks again for your time today. I'll review everything carefully and follow up after lunch."),
 ];
 
 #[derive(Debug, Clone, Serialize)]
