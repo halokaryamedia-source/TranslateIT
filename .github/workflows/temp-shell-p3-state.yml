@@ -1,0 +1,85 @@
+name: Temporary Shell P3 State Sync
+
+on:
+  push:
+    branches: [New]
+    paths:
+      - .github/workflows/temp-shell-p3-state.yml
+
+permissions:
+  contents: write
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: New
+          fetch-depth: 1
+      - name: Update canonical next action
+        shell: bash
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          path = Path('docs/knowledge/next-action.md')
+          text = path.read_text(encoding='utf-8')
+
+          old_mode = '**Developing / Frontend P2 Settings Cleanup CLOSED — P3 SHELL STATUS CLEANUP NEXT**'
+          new_mode = '**Developing / Frontend P3 Shell Status Cleanup CLOSED — P4 FIRST SETUP POLISH NEXT**'
+          if old_mode not in text:
+              raise SystemExit('current mode anchor not found')
+          text = text.replace(old_mode, new_mode, 1)
+
+          marker = '## Existing Source-Closed Boundaries\n'
+          section_lines = [
+              '## Frontend P3 Shell / Status Cleanup Closure',
+              '',
+              'The bounded shell/status redundancy cleanup is source-closed at the existing `App.svelte` and `Meeting.svelte` owners. The app keeps the same routes, sidebar, transient notice, active-Meeting return control, product-state projection, Meeting polling, and lifecycle behavior while removing duplicated normal-user status presentation.',
+              '',
+              'The global direction pill was removed from the app header because Meeting and Text already communicate direction in their own primary surfaces and the pill was irrelevant in Settings. Its derived `direction` and `currentSettings` presentation-only projections were removed with it; no settings or navigation behavior changed.',
+              '',
+              'Meeting no longer shows a redundant page-header `Live` badge when the live activity surface already communicates `Listening`, `Translating`, or `Speaking`. Header badges remain for Starting/Stopping and attention states such as Unavailable, Checking, and Setup Needed. `MeetingActivity`, transcript behavior, Start/Stop ownership, and Meeting state semantics are unchanged.',
+              '',
+              'Accepted hosted source proof:',
+              '',
+              '```text',
+              'run 31799253711',
+              'shell/status P3 source contract -> PASS',
+              'bounded App + Meeting frontend change -> PASS',
+              'frontend typecheck -> PASS',
+              'frontend production build -> PASS',
+              'source commit -> 762178e4132826ffbfdff5f878a8b85e101d9caa',
+              '```',
+              '',
+              'The temporary P3 patch/proof files were removed after the successful proof.',
+              '',
+          ]
+          section = '\n'.join(section_lines) + '\n'
+          if '## Frontend P3 Shell / Status Cleanup Closure' not in text:
+              if marker not in text:
+                  raise SystemExit('source-closed marker not found')
+              text = text.replace(marker, section + marker, 1)
+
+          old_list = 'Frontend P2 Settings normal-UI cleanup and Diagnostics containment\nP3 private Python/runtime/model packaging contract'
+          new_list = 'Frontend P2 Settings normal-UI cleanup and Diagnostics containment\nFrontend P3 shell / Meeting status redundancy cleanup\nP3 private Python/runtime/model packaging contract'
+          if old_list in text:
+              text = text.replace(old_list, new_list, 1)
+
+          old_next = '**P3 — Shell/status redundancy cleanup. Keep the existing sidebar, routes, product-state mapping, Meeting polling, and page-level direction UI, but remove the global direction pill from the app header because it duplicates Meeting/Text direction and is irrelevant in Settings, preserve the transient notice plus the active-Meeting return control, and suppress the redundant Meeting page-header `Live` badge when the live activity surface already communicates `Listening / Translating / Speaking`. Keep setup/unavailable/starting/stopping attention states visible. Do not change runtime state semantics, navigation behavior, Meeting lifecycle, or add new shell/state/component systems.**'
+          new_next = '**P4 — First Setup normal-user polish. Keep the existing five persisted setup checkpoints, device transactions, readiness checks, Set Up Later behavior, My Voice handoff, and completion rules, but remove the redundant percentage beside `Step X of 5`, simplify the remaining normal-user copy that mentions a paired virtual-audio route, and make the Meeting microphone instruction read like the rest of the product. Do not change setup state semantics, audio routing, readiness logic, or add new wizard/state/component systems.**'
+          if old_next not in text:
+              raise SystemExit('current Next Step anchor not found')
+          text = text.replace(old_next, new_next, 1)
+
+          path.write_text(text, encoding='utf-8')
+          PY
+      - name: Commit canonical state
+        shell: bash
+        run: |
+          git diff --check
+          git config user.name 'halokaryamedia-source'
+          git config user.email 'halokaryamedia@gmail.com'
+          git add docs/knowledge/next-action.md
+          git commit -m 'Close shell P3 frontend cleanup'
+          git push origin HEAD:New
