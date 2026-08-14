@@ -310,7 +310,7 @@ requireMarkers(source.meetingSession, "C5 atomic required outbound activation", 
   "probe_prepared_meeting_output_device_functionally",
   "start_meeting_outbound_consumer(generation, &session_id)",
   "commit_application_meeting_session_live(",
-  "functional native Meeting output callback",
+  "generation-bound ASR/translation/My Voice functional proof",
 ]);
 const c5Start = source.meetingSession.slice(
   source.meetingSession.indexOf("pub fn start_meeting_translation()"),
@@ -319,29 +319,36 @@ const c5Start = source.meetingSession.slice(
 const c5Order = [
   "begin_application_meeting_session()",
   "start_live_capture_runtime(starting.clone())",
+  "prepare_required_outbound_ai_runtime(generation)",
   "probe_prepared_meeting_output_device_functionally(output_device, generation)",
   "start_meeting_outbound_consumer(generation, &session_id)",
   "commit_application_meeting_session_live(",
 ].map((marker) => c5Start.indexOf(marker));
 if (c5Order.some((index) => index < 0) || c5Order.some((index, i) => i > 0 && index <= c5Order[i - 1])) {
-  throw new Error(`C5 Start ordering is not authority -> microphone -> output probe -> outbound consumer -> Live: ${c5Order.join(",")}`);
+  throw new Error(`A6 Start ordering is not authority -> microphone -> MyVoice proof -> output probe -> outbound consumer -> Live: ${c5Order.join(",")}`);
 }
 
 requireMarkers(source.helperBridgeRuntime, "C4 helper functional readiness projection", [
   "pub functional_outbound_ready: bool",
   "pub functional_outbound_verified_unix_ms: Option<u128>",
 ]);
-requireMarkers(source.helperBridge, "C4 generation-bound functional ASR/translation/TTS readiness", [
+requireMarkers(source.helperBridge, "A6 generation-bound functional ASR/translation/MyVoice readiness", [
+  "RequiredOutboundFunctionalReadiness",
+  "meeting_generation: u64",
+  "actor_token: String",
   "required_outbound_functional_readiness_verified_unix_ms",
   "decorate_functional_readiness_status",
-  "functional_tts_output_path",
+  "functional_voice_actor_output_path",
   "functional_asr_output",
-  'send_worker_task("asr_preload"',
-  '"synthesize",',
-  '"transcribe",',
+  "run_required_outbound_ai_probe(",
+  '"voice_actor_preflight"',
+  '"voice_actor_synthesize"',
+  '"expected_actor_token"',
+  '"transcribe"',
   '"language": "en"',
   '"vad_filter": false',
   "remember_required_outbound_functional_readiness",
+  "required_outbound_voice_actor_token",
 ]);
 requireMarkers(source.meetingSession, "C4 Start eligibility vs functional Ready", [
   "pub start_eligible: bool",
@@ -355,7 +362,7 @@ requireMarkers(source.meetingSession, "C4 Start eligibility vs functional Ready"
 ]);
 requireMarkers(source.runtimeCommands, "C4 explicit bounded functional readiness command", [
   "pub fn verify_required_outbound_ai_readiness()",
-  "helper_bridge::prepare_required_outbound_ai_runtime()",
+  "helper_bridge::verify_required_outbound_ai_runtime()",
   "functional_outbound_ready_current_helper_generation",
 ]);
 requireMarkers(source.facade, "C4 product readiness consumes functional truth", [
@@ -373,22 +380,24 @@ forbidMarkers(source.helperBridge, "C4 no fabricated ASR readiness", [
   "C3 therefore performs a real ASR model load here rather than fabricating",
 ]);
 
-requireMarkers(source.helperBridge, "C3 generation-bound functional outbound AI readiness", [
+requireMarkers(source.helperBridge, "A6 diagnostic and Meeting functional outbound identity", [
   "fn meeting_start_prepare",
-  "prepare_required_outbound_ai_runtime",
-  '"meeting_start_prepare": true',
+  "run_required_outbound_ai_probe(",
+  "verify_required_outbound_ai_runtime()",
+  "prepare_required_outbound_ai_runtime(meeting_generation: u64)",
   "HelperTaskPriority::MeetingOutbound",
   "REQUIRED_OUTBOUND_FUNCTIONAL_ID_FIXTURE",
+  "REQUIRED_OUTBOUND_FUNCTIONAL_VOICE_OUTPUT",
+  "REQUIRED_OUTBOUND_DIAGNOSTIC_VOICE_OUTPUT",
   "RequiredOutboundFunctionalReadiness",
-  "required_outbound_functional_readiness_cached",
-  "remember_required_outbound_functional_readiness",
+  "meeting_generation: u64",
+  "actor_token: String",
+  "remember_required_outbound_functional_readiness(generation_token, 0, actor_token);",
   "invalidate_required_outbound_ai_readiness",
-  'send_worker_task("asr_preload"',
-  '"translate"',
-  'value.get("complete")',
-  'value.get("finished_with_eos")',
-  '"synthesize"',
-  "functional_tts_output_path",
+  '"voice_actor_preflight"',
+  '"voice_actor_synthesize"',
+  '"expected_actor_token"',
+  "functional_voice_actor_output_path",
   "fs::metadata",
 ]);
 requireMarkers(source.helperBridge, "Meeting outbound helper priority continuity", [
@@ -397,7 +406,7 @@ requireMarkers(source.helperBridge, "Meeting outbound helper priority continuity
   "incoming_deferred_response",
   "send_worker_task_inner",
   "incoming-deferred-before-scheduler",
-  'task == "synthesize"',
+  'task == "voice_actor_synthesize"',
   "clear_meeting_outbound_pipeline",
 ]);
 requireMarkers(source.helperBridge, "Live Meeting helper transport recovery", [
@@ -447,17 +456,20 @@ requireMarkers(source.meetingSession, "Optional incoming freshness semantics", [
   "event was discarded and incoming is listening for fresh Meeting Sound",
   "transcript was discarded and incoming is listening for fresh Meeting Sound",
 ]);
-requireMarkers(source.helperBridgeRuntime, "required outbound readiness invalidation", [
+requireMarkers(source.helperBridgeRuntime, "required outbound MyVoice readiness invalidation", [
   "required_outbound_prepare_failed",
   "runtime.provider_ready = false",
   'stage == "asr_preload"',
-  'stage == "tts_preflight"',
+  'stage == "voice_actor_preflight"',
+  "hard_voice_actor_failure",
+  'stage == "voice_actor_synthesize"',
   'Some("id->en")',
 ]);
-requireMarkers(source.meetingSession, "Meeting outbound Start hardening", [
-  "prepare_required_outbound_ai_runtime",
-  '"outbound_runtime_prepare_failed"',
-  '"blocked_after_runtime_prepare"',
+requireMarkers(source.meetingSession, "A6 Meeting outbound Start hardening", [
+  "prepare_required_outbound_ai_runtime(generation)",
+  "Required outbound AI/My Voice verification failed during Starting",
+  "required_outbound_voice_actor_token(generation)",
+  "Final pre-Live My Voice readiness changed",
   "Translation Live is listening. Rolling audio remains preview-only; finalized utterances receive shared Meeting event sequence before AI.",
 ]);
 requireMarkers(source.meetingSession, "Meeting helper Stop recovery", [
