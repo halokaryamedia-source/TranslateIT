@@ -1,0 +1,55 @@
+name: Temporary R3 License Material Pin
+
+on:
+  push:
+    branches: [New]
+    paths:
+      - .github/workflows/temp-r3-license-material-pin.yml
+
+permissions:
+  contents: read
+
+jobs:
+  pin:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Hash exact upstream license materials
+        shell: bash
+        run: |
+          python - <<'PY'
+          import hashlib, io, tarfile, urllib.request
+          raw={
+            'ctranslate2/LICENSE': 'https://raw.githubusercontent.com/OpenNMT/CTranslate2/0d8bcd362ac75ef860ef161d6f0efad0ae439ff0/LICENSE',
+            'flatbuffers/LICENSE': 'https://raw.githubusercontent.com/google/flatbuffers/7e163021e59cca4f8e1e35a7c828b5c6b7915953/LICENSE',
+            'jieba/LICENSE': 'https://raw.githubusercontent.com/fxsjy/jieba/1e20c89b66f56c9301b0feed211733ffaa1bd72a/LICENSE',
+            'jieba_fast/LICENSE': 'https://raw.githubusercontent.com/deepcs233/jieba_fast/5e6b21dece184e1004a35bfd802c8772059de3ab/LICENSE',
+            'loguru/LICENSE': 'https://raw.githubusercontent.com/Delgan/loguru/ae3bfd1b85b6b4a3db535f69b975687c79498be4/LICENSE',
+            'onnxruntime/LICENSE': 'https://raw.githubusercontent.com/microsoft/onnxruntime/da9b5e364c465de65c49d91e696cd6485270757f/LICENSE',
+            'onnxruntime/ThirdPartyNotices.txt': 'https://raw.githubusercontent.com/microsoft/onnxruntime/da9b5e364c465de65c49d91e696cd6485270757f/ThirdPartyNotices.txt',
+            'tensorboard_data_server/LICENSE': 'https://raw.githubusercontent.com/tensorflow/tensorboard/81150b898a306b89cde90e949358c2eefe018eaa/LICENSE',
+          }
+          for label,url in raw.items():
+              data=urllib.request.urlopen(url,timeout=60).read()
+              print(f'[r3][license-pin] {label} bytes={len(data)} sha256={hashlib.sha256(data).hexdigest()} url={url}')
+
+          sdists={
+            'sentencepiece': ('https://files.pythonhosted.org/packages/cc/33/ea3cb3839607eb175da835244a798f797f478c5ddf0e8ecdf57ea85a4c70/sentencepiece-0.2.2.tar.gz','3d2b5e824b5622038dc7b490897efe05ebbbb9e7350fc142f3ecc8789ef9bdf6',[
+              'sentencepiece-0.2.2/sentencepiece/LICENSE',
+              'sentencepiece-0.2.2/sentencepiece/third_party/abseil-cpp/LICENSE',
+              'sentencepiece-0.2.2/sentencepiece/third_party/darts_clone/LICENSE',
+              'sentencepiece-0.2.2/sentencepiece/third_party/esaxx/LICENSE',
+              'sentencepiece-0.2.2/sentencepiece/third_party/protobuf-lite/LICENSE',
+            ]),
+            'tokenizers': ('https://files.pythonhosted.org/packages/c2/2f/402986d0823f8d7ca139d969af2917fefaa9b947d1fb32f6168c509f2492/tokenizers-0.21.4.tar.gz','fa23f85fbc9a02ec5c6978da172cdcbac23498c3ca9f3645c5c68740ac007880',['tokenizers-0.21.4/tokenizers/LICENSE']),
+            'wordsegment': ('https://files.pythonhosted.org/packages/64/68/08112f4c2888f41520e54e2d0b22dcec5adb28cddf4eeca344eb9da04177/wordsegment-1.3.1.tar.gz','3dcc7cd1e9bba3f3ffe6a0e54d98377bc502fc34e9e9d8c8199ac5636924f023',['wordsegment-1.3.1/LICENSE']),
+          }
+          for package,(url,archive_hash,paths) in sdists.items():
+              data=urllib.request.urlopen(url,timeout=60).read()
+              actual=hashlib.sha256(data).hexdigest()
+              if actual!=archive_hash: raise SystemExit(f'{package} archive drift {actual}')
+              with tarfile.open(fileobj=io.BytesIO(data), mode='r:gz') as tf:
+                  for path in paths:
+                      content=tf.extractfile(path).read()
+                      print(f'[r3][license-pin] {package}/{path.split("/")[-1]} source_path={path} bytes={len(content)} sha256={hashlib.sha256(content).hexdigest()} archive_sha256={archive_hash}')
+          PY
