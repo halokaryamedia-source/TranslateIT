@@ -21,10 +21,5 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: '3.12'
-      - name: Build frontend for Tauri test context
-        working-directory: EngineData/Frontend/RustApp
-        run: |
-          npm ci
-          npm run build:frontend
-      - name: Align deadline tests with MyVoice synthesis task
-        run: python .github/temp-a6-validator-contract-sync.py
+      - name: Serialize shared scheduler policy tests
+        run: python .github/temp-a6-scheduler-test-sync.py
