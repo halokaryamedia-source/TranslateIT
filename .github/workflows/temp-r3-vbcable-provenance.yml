@@ -19,11 +19,12 @@ jobs:
           ref: New
           fetch-depth: 1
 
-      - name: Download exact official standard VB-CABLE package
+      - name: Download and inspect exact official standard VB-CABLE package
         shell: pwsh
         run: |
           $ErrorActionPreference='Stop'
           $url='https://download.vb-audio.com/Download_CABLE/VBCABLE_Driver_Pack45.zip'
+          $expectedArchive='b950e39f01af1d04ea623c8f6d8eb9b6ea5c477c637295fabf20631c85116bfb'
           $zip=Join-Path $env:RUNNER_TEMP 'VBCABLE_Driver_Pack45.zip'
           Invoke-WebRequest -Uri $url -OutFile $zip
           $item=Get-Item $zip
@@ -32,23 +33,47 @@ jobs:
           Write-Host "[r3][vbcable] archive_name=$($item.Name)"
           Write-Host "[r3][vbcable] archive_bytes=$($item.Length)"
           Write-Host "[r3][vbcable] archive_sha256=$hash"
+          if ($hash -ne $expectedArchive) { throw "Official package bytes drifted: $hash" }
 
           $extract=Join-Path $env:RUNNER_TEMP 'vbcable45'
           Expand-Archive -LiteralPath $zip -DestinationPath $extract -Force
           $files=Get-ChildItem -LiteralPath $extract -File -Recurse | Sort-Object FullName
           Write-Host "[r3][vbcable] extracted_file_count=$($files.Count)"
+          if ($files.Count -ne 31) { throw "Unexpected Pack45 file count: $($files.Count)" }
+
           foreach ($f in $files) {
             $rel=$f.FullName.Substring($extract.Length).TrimStart('\')
             $fh=(Get-FileHash -Algorithm SHA256 $f.FullName).Hash.ToLowerInvariant()
             Write-Host "[r3][vbcable][file] $rel bytes=$($f.Length) sha256=$fh"
           }
 
-          foreach ($exeName in @('VBCABLE_Setup.exe','VBCABLE_Setup_x64.exe','VBCABLE_Setup_ARM64.exe')) {
+          $expectedExe=@{
+            'VBCABLE_Setup.exe'='01ffc86b623ff3c75a883aa900c0215a89482988e1c8e55988fc0a9fb513dbed'
+            'VBCABLE_Setup_x64.exe'='734c35dfa6d98f48782a451633ceb471166ec70d60482fd89a1123d0ee3c4f41'
+          }
+          foreach ($exeName in $expectedExe.Keys) {
             $exe=Get-ChildItem -LiteralPath $extract -File -Recurse -Filter $exeName | Select-Object -First 1
             if (-not $exe) { throw "Expected official installer missing: $exeName" }
+            $eh=(Get-FileHash -Algorithm SHA256 $exe.FullName).Hash.ToLowerInvariant()
+            if ($eh -ne $expectedExe[$exeName]) { throw "Installer hash drift: $exeName $eh" }
             $sig=Get-AuthenticodeSignature -LiteralPath $exe.FullName
             Write-Host "[r3][vbcable][signature] $exeName status=$($sig.Status) subject=$($sig.SignerCertificate.Subject) thumbprint=$($sig.SignerCertificate.Thumbprint)"
             if ($sig.Status -ne 'Valid') { throw "Invalid Authenticode signature: $exeName" }
+            if ($sig.SignerCertificate.Subject -notmatch 'BUREL VINCENT') { throw "Unexpected signer: $exeName" }
+          }
+
+          if (Get-ChildItem -LiteralPath $extract -File -Recurse -Filter 'VBCABLE_Setup_ARM64.exe') {
+            throw 'Pack45 unexpectedly gained a separate ARM64 setup executable; review package contract.'
+          }
+          $arm64=Get-ChildItem -LiteralPath $extract -File -Recurse -Filter 'vbaudio_cable64arm_win10.sys' | Select-Object -First 1
+          if (-not $arm64) { throw 'Expected Pack45 ARM64 driver payload missing.' }
+          Write-Host "[r3][vbcable] separate_arm64_setup=false arm64_driver_payload=true"
+
+          $catalogs=Get-ChildItem -LiteralPath $extract -File -Recurse -Filter '*.cat' | Sort-Object Name
+          foreach ($cat in $catalogs) {
+            $sig=Get-AuthenticodeSignature -LiteralPath $cat.FullName
+            Write-Host "[r3][vbcable][catalog] $($cat.Name) status=$($sig.Status) subject=$($sig.SignerCertificate.Subject)"
+            if ($sig.Status -ne 'Valid') { throw "Invalid catalog signature: $($cat.Name)" }
           }
 
           $inf=Get-ChildItem -LiteralPath $extract -File -Recurse -Filter '*.inf' | Sort-Object Name
@@ -58,3 +83,7 @@ jobs:
             $driverVer=([regex]::Match($content,'(?im)^DriverVer\s*=\s*(.+)$')).Groups[1].Value.Trim()
             Write-Host "[r3][vbcable][inf] name=$($f.Name) provider=$provider driverver=$driverVer"
           }
+
+          $readme=Get-Content -LiteralPath (Join-Path $extract 'readme.txt') -Raw
+          if ($readme -notmatch 'VB-Audio' -or $readme -notmatch 'VBCABLE') { throw 'Official readme identity markers missing.' }
+          Write-Host '[r3][vbcable] exact official Pack45 provenance -> PASS'
