@@ -59,7 +59,7 @@ jobs:
           }
           Write-Host 'A6_FROZEN_WORKER=PASS'
 
-      - name: Frontend source proof after A6 validator contract sync
+      - name: Frontend source proof after A6 deadline sync
         shell: pwsh
         working-directory: EngineData/Frontend/RustApp
         run: |
