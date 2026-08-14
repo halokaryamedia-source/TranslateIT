@@ -82,7 +82,7 @@ target/
 /EngineData/Backend/RuntimeAssets/ASR/ModelData/**
 /EngineData/Backend/RuntimeAssets/Translation/ModelData/**
 /EngineData/Backend/RuntimeAssets/Voice/GPTSoVITS/**
-/EngineData/Backend/RuntimeAssets/Voice/Piper/**
+/EngineData/Backend/RuntimeAssets/AudioProvider/VBCABLE/Package/**
 /EngineData/RuntimeAssets/**
 
 # DesignIT local generated launcher/runtime outputs.
