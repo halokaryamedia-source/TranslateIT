@@ -6,7 +6,6 @@ use super::evidence::AudioEvidenceReport;
 
 pub const GUIDED_TAKE_SAMPLE_RATE_HZ: u32 = 32_000;
 pub const GUIDED_TAKE_CHANNELS: u16 = 1;
-pub const GUIDED_TAKE_BITS_PER_SAMPLE: u16 = 16;
 const MAX_GUIDED_CAPTURE_MS: u64 = 60_000;
 const RESAMPLE_CHUNK_FRAMES: usize = 1024;
 

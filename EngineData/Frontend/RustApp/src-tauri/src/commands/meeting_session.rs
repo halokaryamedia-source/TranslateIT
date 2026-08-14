@@ -210,7 +210,7 @@ struct MeetingStartPreflightRuntime {
     status: MeetingSessionPreflightStatus,
 }
 
-struct OutboundTimingContext {
+pub(crate) struct OutboundTimingContext {
     finalized_at: Instant,
     metrics: MeetingOutboundTiming,
 }

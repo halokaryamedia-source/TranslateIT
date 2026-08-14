@@ -36,11 +36,9 @@ fn projected_unix_ms(anchor: Instant, anchor_unix_ms: u128, target: Instant) -> 
 pub struct MeetingOutputDeliveryReport {
     pub ok: bool,
     pub execution_attempted: bool,
-    pub cancelled: bool,
     pub first_playback_at: Option<Instant>,
     pub first_playback_unix_ms: Option<u128>,
     pub blocker: String,
-    pub note: String,
 }
 
 #[derive(Debug, Clone)]
@@ -617,20 +615,13 @@ pub fn cancel_meeting_output_for_generation(generation: u64) -> bool {
     true
 }
 
-fn blocked(
-    blocker: &str,
-    note: &str,
-    execution_attempted: bool,
-    cancelled: bool,
-) -> MeetingOutputDeliveryReport {
+fn blocked(blocker: &str, execution_attempted: bool) -> MeetingOutputDeliveryReport {
     MeetingOutputDeliveryReport {
         ok: false,
         execution_attempted,
-        cancelled,
         first_playback_at: None,
         first_playback_unix_ms: None,
         blocker: blocker.to_string(),
-        note: note.to_string(),
     }
 }
 
@@ -640,56 +631,31 @@ pub fn deliver_meeting_output_wav(
     generation: u64,
 ) -> MeetingOutputDeliveryReport {
     if !runtime_generation_is_authoritative(generation) {
-        return blocked(
-            "meeting_output:generation_not_authoritative",
-            "Meeting output was rejected before playback because its generation no longer owns output authority.",
-            false,
-            true,
-        );
+        return blocked("meeting_output:generation_not_authoritative", false);
     }
     let Some(output_name) = selected_output_device
         .map(str::trim)
         .filter(|value| !value.is_empty())
     else {
-        return blocked(
-            "meeting_output:selected_output_device_missing",
-            "No prepared Meeting virtual output endpoint is available for this generation.",
-            false,
-            false,
-        );
+        return blocked("meeting_output:selected_output_device_missing", false);
     };
 
     let wav = match decode_wav_file(Path::new(source_audio_path)) {
         Ok(value) => value,
         Err(blocker) => {
-            return blocked(
-                &blocker,
-                "The synthesized Meeting WAV could not be prepared for native playback.",
-                false,
-                false,
-            )
+            return blocked(&blocker, false)
         }
     };
     let device = match prepared_output_device(output_name) {
         Ok(value) => value,
         Err(blocker) => {
-            return blocked(
-                &blocker,
-                "The prepared Meeting virtual output endpoint is no longer available.",
-                false,
-                false,
-            )
+            return blocked(&blocker, false)
         }
     };
     let supported = match device.default_output_config() {
         Ok(value) => value,
         Err(_) => {
-            return blocked(
-                "meeting_output:default_output_config_unavailable",
-                "The prepared Meeting virtual output endpoint has no usable native output configuration.",
-                false,
-                false,
-            )
+            return blocked("meeting_output:default_output_config_unavailable", false)
         }
     };
     let sample_format = supported.sample_format();
@@ -700,12 +666,7 @@ pub fn deliver_meeting_output_wav(
         config.channels,
     ));
     if samples.is_empty() {
-        return blocked(
-            "meeting_output:prepared_audio_empty",
-            "The synthesized Meeting WAV produced no playable native samples.",
-            false,
-            false,
-        );
+        return blocked("meeting_output:prepared_audio_empty", false);
     }
 
     let delivery_started_at = Instant::now();
@@ -713,12 +674,7 @@ pub fn deliver_meeting_output_wav(
     let cancel_requested = match install_cancel_control(generation) {
         Ok(value) => value,
         Err(blocker) => {
-            return blocked(
-                &blocker,
-                "Another Meeting output delivery still owns the native route.",
-                false,
-                false,
-            )
+            return blocked(&blocker, false)
         }
     };
     let (completion_tx, completion_rx) = mpsc::sync_channel(1);
@@ -738,22 +694,12 @@ pub fn deliver_meeting_output_wav(
         Ok(value) => value,
         Err(blocker) => {
             clear_cancel_control(generation);
-            return blocked(
-                &blocker,
-                "TranslateIT could not build the native Meeting output stream.",
-                false,
-                false,
-            );
+            return blocked(&blocker, false);
         }
     };
     if stream.play().is_err() {
         clear_cancel_control(generation);
-        return blocked(
-            "meeting_output:stream_start_failed",
-            "TranslateIT could not start the native Meeting output stream.",
-            true,
-            false,
-        );
+        return blocked("meeting_output:stream_start_failed", true);
     }
 
     let deadline = Duration::from_millis(delivery_deadline_ms(
@@ -787,34 +733,19 @@ pub fn deliver_meeting_output_wav(
     clear_cancel_control(generation);
 
     if cancelled || cancel_requested.load(Ordering::Acquire) && completion.is_ok() {
-        let mut report = blocked(
-            "meeting_output:cancelled",
-            "Native Meeting output stopped because the owning generation was cancelled or revoked.",
-            true,
-            true,
-        );
+        let mut report = blocked("meeting_output:cancelled", true);
         report.first_playback_at = first_playback_at;
         report.first_playback_unix_ms = first_playback_unix_ms;
         return report;
     }
-    if let Some(error) = callback_error {
-        let mut report = blocked(
-            "meeting_output:stream_callback_failed",
-            &format!("Native Meeting output callback failed: {error}"),
-            true,
-            false,
-        );
+    if callback_error.is_some() {
+        let mut report = blocked("meeting_output:stream_callback_failed", true);
         report.first_playback_at = first_playback_at;
         report.first_playback_unix_ms = first_playback_unix_ms;
         return report;
     }
     if completion.is_err() {
-        let mut report = blocked(
-            "meeting_output:delivery_deadline_exceeded",
-            "Native Meeting output did not complete inside its audio-duration-derived deadline.",
-            true,
-            false,
-        );
+        let mut report = blocked("meeting_output:delivery_deadline_exceeded", true);
         report.first_playback_at = first_playback_at;
         report.first_playback_unix_ms = first_playback_unix_ms;
         return report;
@@ -823,12 +754,9 @@ pub fn deliver_meeting_output_wav(
     MeetingOutputDeliveryReport {
         ok: true,
         execution_attempted: true,
-        cancelled: false,
         first_playback_at,
         first_playback_unix_ms,
         blocker: String::new(),
-        note: "Translated WAV samples were submitted through the exact prepared Rust/CPAL Meeting output endpoint. Meeting-app reception remains target-Windows proof."
-            .to_string(),
     }
 }
 
