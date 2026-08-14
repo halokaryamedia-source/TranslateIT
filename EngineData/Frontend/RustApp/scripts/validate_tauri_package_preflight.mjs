@@ -223,10 +223,10 @@ if (existsSync(retiredRouteProviderPath)) {
 
 const workerPyproject = readText(workerPyprojectPath);
 requireMarkers(workerPyproject, "installed worker dependency set", [
-  '"ctranslate2>=4.4.0",',
+  '"ctranslate2==4.8.1",',
   '"faster-whisper>=1.0.0",',
-  '"torch",',
-  '"transformers>=4.44.0",',
+  '"torch==2.11.0",',
+  '"transformers>=4.44.0,<=4.50.0",',
 ]);
 forbidMarkers(workerPyproject, "retired Python audio-route dependency", [
   '"sounddevice>=0.4.6,<1",',
@@ -267,5 +267,5 @@ forbidMarkers(runtimeInventoryRs, "model inventory project-root derivation", [
 
 if (process.exitCode) process.exit(process.exitCode);
 console.log(
-  "[tauri-package-preflight] Packaged interpreter ownership is source-aligned: packaged mode resolves only EngineData/Backend/LocalWorker/PythonRuntime/python.exe without a per-call interpreter probe, repository Python fallbacks stay behind verified development mode, the persistent worker uses that resolver, and Meeting audio delivery remains inside Rust/CPAL rather than spawning a second Python provider. PythonRuntime payload bytes, Tauri/NSIS staging, installed execution, and clean-machine operation remain intentionally unproved here.",
+  "[tauri-package-preflight] Packaged interpreter ownership remains source-aligned: packaged mode resolves only EngineData/Backend/LocalWorker/PythonRuntime/python.exe, repository Python fallbacks stay behind verified development mode, the persistent worker uses the frozen canonical dependency graph, and Meeting audio delivery remains inside Rust/CPAL. The P3 release overlay/resource map is validated separately; actual staged payload bytes, installed execution, and clean-machine operation remain separate proof.",
 );
