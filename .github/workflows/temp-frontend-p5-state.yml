@@ -1,0 +1,100 @@
+name: Temporary Frontend P5 State Sync
+
+on:
+  push:
+    branches: [New]
+    paths:
+      - .github/workflows/temp-frontend-p5-state.yml
+
+permissions:
+  contents: write
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: New
+          fetch-depth: 1
+      - name: Update canonical next action
+        shell: bash
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          path = Path('docs/knowledge/next-action.md')
+          text = path.read_text(encoding='utf-8')
+
+          old_mode = '**Developing / Frontend P4 First Setup Polish CLOSED — P5 FRONTEND SOURCE CLOSURE AUDIT NEXT**'
+          new_mode = '**Maintenance / Frontend P5 Source Closure CLOSED — NO FURTHER GROUNDED FRONTEND SOURCE CHANGE**'
+          if old_mode not in text:
+              raise SystemExit('current mode anchor not found')
+          text = text.replace(old_mode, new_mode, 1)
+
+          marker = '## Existing Source-Closed Boundaries\n'
+          section_lines = [
+              '## Frontend P5 Source Closure Audit',
+              '',
+              'The final bounded frontend source-closure audit is complete. It re-checked the current App shell, Sidebar, Meeting and live activity, Text, VoiceLab recording/build surfaces, Settings, First Setup, shared status components, semantic tokens, and the direct product-facing runtime contracts. The audit did not establish a need for a new design system, component framework, state owner, or broad visual rewrite.',
+              '',
+              'Three concrete residues were found and corrected at their existing frontend owners:',
+              '',
+              '1. `VoiceLab.svelte` no longer passes arbitrary Guided Recording `result.message` values directly into normal UI. Recording action states are projected to bounded product-facing messages, preventing backend storage/cleanup wording and the stale `Voice Actor dataset` success text from leaking into the normal experience.',
+              '2. `Text.svelte` now uses the shared semantic `StatusBadge` for non-ready Text states. `Checking` remains neutral, `Setup Needed` is warning, and `Unavailable` is danger instead of all three appearing as the same neutral metadata pill.',
+              '3. `Meeting.svelte` removes the second healthy `Ready` indicator from the direction strip because the footer already owns readiness guidance and the sidebar owns global presence. Starting/Stopping badges are also kept neutral instead of inheriting a success tone from a still-ready preflight.',
+              '',
+              'No runtime readiness semantics, translation logic, Meeting lifecycle, VoiceLab recording/build behavior, device routing, Settings behavior, First Setup checkpoints, persisted schema, or backend source changed.',
+              '',
+              'Accepted hosted source proof:',
+              '',
+              '```text',
+              'run 31800338557',
+              'cross-surface frontend closure contract -> PASS',
+              'bounded Meeting + Text + VoiceLab change -> PASS',
+              'frontend typecheck -> PASS',
+              'frontend production build -> PASS',
+              'source commit -> c5a17e4900d400df115b9827381583c2566d8cc7',
+              '```',
+              '',
+              'The temporary P5 audit/proof files were removed after the successful proof.',
+              '',
+              'At source level, the current frontend now has no independently grounded additional cleanup wave. This is deliberately not a rendered-UI or target-Windows claim.',
+              '',
+          ]
+          section = '\n'.join(section_lines) + '\n'
+          if '## Frontend P5 Source Closure Audit' not in text:
+              if marker not in text:
+                  raise SystemExit('source-closed marker not found')
+              text = text.replace(marker, section + marker, 1)
+
+          old_list = 'Frontend P4 First Setup normal-user polish\nP3 private Python/runtime/model packaging contract'
+          new_list = 'Frontend P4 First Setup normal-user polish\nFrontend P5 cross-surface source closure audit\nP3 private Python/runtime/model packaging contract'
+          if old_list in text:
+              text = text.replace(old_list, new_list, 1)
+
+          old_next = '**P5 — frontend source-closure audit**. Audit ulang current frontend setelah P0–P4 untuk mencari sisa inconsistency, technical leakage, redundant action/status, atau AI-slop yang konkret. Tidak melakukan cosmetic churn; kalau tidak ditemukan masalah yang benar-benar perlu diperbaiki, hasil yang benar adalah **`No change required`** dan frontend source dianggap cukup tertutup sebelum local testing.'
+          if old_next not in text:
+              # current file may use the canonical English wording instead of the chat summary
+              old_next = '**P5 — frontend source-closure audit. Audit the current frontend after P0-P4 for remaining concrete inconsistency, technical leakage, redundant actions/status, or AI-slop. Do not perform cosmetic churn; if no material issue remains, `No change required` is valid and frontend source should be considered closed before local testing.**'
+          new_next = '**No further frontend source change is independently grounded while target/rendered Windows validation remains deferred by the user. Keep the current frontend source closed. Reopen frontend source work only for a concrete new requirement or reproducible defect; target/local Windows visual/runtime validation remains deferred until the user explicitly opens it.**'
+          if old_next not in text:
+              # Replace the entire final Next Step payload by locating the heading.
+              heading = '## Next Step\n\n'
+              pos = text.rfind(heading)
+              if pos < 0:
+                  raise SystemExit('Next Step heading not found')
+              text = text[:pos] + heading + new_next + '\n'
+          else:
+              text = text.replace(old_next, new_next, 1)
+
+          path.write_text(text, encoding='utf-8')
+          PY
+      - name: Commit canonical state
+        shell: bash
+        run: |
+          git diff --check
+          git config user.name 'halokaryamedia-source'
+          git config user.email 'halokaryamedia@gmail.com'
+          git add docs/knowledge/next-action.md
+          git commit -m 'Close frontend P5 source audit'
+          git push origin HEAD:New
