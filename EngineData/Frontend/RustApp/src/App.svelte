@@ -11,6 +11,7 @@
     type ProductSetupAction,
   } from "./app/bridge/runtimeProductFacade";
   import { voiceLabApi } from "./app/bridge/voiceLabApi";
+  import { voiceLabBuildApi } from "./app/bridge/voiceLabBuildApi";
   import { defaultSettings } from "./app/shared/state";
   import type { RuntimeSettings } from "./app/shared/types";
   import Sidebar from "./components/layout/Sidebar.svelte";
@@ -345,6 +346,24 @@
       showCloseDialog(
         "Review the current voice take",
         "Accept or retry the current VoiceLab take before closing TranslateIT.",
+        null,
+      );
+      return true;
+    }
+
+    const build = await voiceLabBuildApi.getStatus();
+    if (build.phase === "unavailable") {
+      showCloseDialog(
+        "Can't check VoiceLab yet",
+        "TranslateIT can't confirm whether My Voice is still being created. Keep the app open and try again.",
+        "retry",
+      );
+      return true;
+    }
+    if (build.active) {
+      showCloseDialog(
+        "My Voice is still being created",
+        "Stop VoiceLab creation before closing TranslateIT so the training process can end safely.",
         null,
       );
       return true;
