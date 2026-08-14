@@ -6,7 +6,7 @@ This map points to current semantic owners. File existence or hosted source proo
 |---|---|---|
 | Product scope + familiar UI policy | `docs/foundation/01-product-overview.md`, `02-product-requirements.md` including PR-110..119 and PR-166 | ACTIVE / VOICELAB REQUIRED |
 | Stable context | `CONTEXT.md` | ACTIVE |
-| Continuation | `docs/knowledge/next-action.md` | PRE-LOCAL QUALITY AUDIT / LOCAL VALIDATION USER-DEFERRED |
+| Continuation | `docs/knowledge/next-action.md` | P3 RUNTIME PACKAGING SOURCE CLOSED / AUDIO PROVIDER DELIVERY DECISION REQUIRED |
 | Durable decisions | `docs/knowledge/decision-log.md` | ACTIVE / D-020 VOICELAB |
 | Frontend entry | `EngineData/Frontend/RustApp/src/main.ts` | ACTIVE / ONE SVELTE MOUNT |
 | Frontend application owner | `src/App.svelte` | ACTIVE / MEETING + TEXT + VOICELAB + SETTINGS |
@@ -33,7 +33,7 @@ This map points to current semantic owners. File existence or hosted source proo
 | Voice Actor temporary data | `UserData/CacheData/VoiceLab` through `VoiceLabStoragePaths` | ACTIVE / DRAFT + TAKES + BUILD + CANDIDATE + EVALUATION |
 | Approved persistent Voice Actor | `UserData/SavedProject/VoiceLab/MyVoice` | ACTIVE / ONE APPROVED ACTOR AUTHORITY |
 | Meeting authority | `commands/meeting_session.rs`, `commands/runtime.rs`, `engine/runtime_state.rs` | ACTIVE / ATOMIC START / VOICELAB BUILD EXCLUSION |
-| Meeting Microphone route | `commands/virtual_mic_route.rs`, `engine/audio/meeting_output.rs` | ACTIVE |
+| Meeting Microphone route | `commands/virtual_mic_route.rs`, `engine/audio/meeting_output.rs` | ACTIVE / USES ALREADY-INSTALLED MATCHED VIRTUAL PAIR / PROVIDER DELIVERY UNRESOLVED |
 | Local worker/scheduler | `helper_bridge.rs`, `helper_bridge_runtime.rs`, `realtime_local_worker.py` | ACTIVE / ONE DAILY AI OWNER |
 | Trained Voice Actor worker commands | `realtime_local_worker.py::handle_voice_actor_preflight`, `handle_voice_actor_synthesize` | CLOSED A6 SOURCE-SIDE / MEETING-AUTHORITATIVE |
 | Trained Voice Actor runtime cache | `realtime_local_worker.py::get_voice_actor_runtime` + `voice_lab_gpt_sovits.py::load_voice_actor_runtime` | CLOSED A5 SOURCE-SIDE / INVALIDATES WHEN APPROVED PACKAGE CHANGES |
@@ -42,6 +42,10 @@ This map points to current semantic owners. File existence or hosted source proo
 | Worker Python dependency graph | `WorkerRuntime/pyproject.toml` + `uv.lock` | ACTIVE A4-A6 / ONE FROZEN RUNTIME GRAPH |
 | Voice runtime assets | `EngineData/Backend/RuntimeAssets/Voice/` | GPT-SOVITS OWNERSHIP DEFINED / TARGET PACKAGED BYTES UNPROVEN |
 | Release model inventory | `WorkerRuntime/model_manifest.json` | ACTIVE / PINNED GPT-SOVITS VOICELAB RELEASE ASSET / NO PIPER AUTHORITY |
+| Release resource map | `src-tauri/tauri.release.conf.json` | CLOSED P3 SOURCE-SIDE / DETERMINISTIC `EngineData/Backend` LAYOUT |
+| Release payload gate | `scripts/validate_release_payload.mjs` | CLOSED P3 SOURCE-SIDE / FAIL-CLOSED BEFORE INSTALLER BUILD |
+| Controlled Windows release entry | `scripts/build_release.ps1` | CLOSED P3 SOURCE-SIDE / ONE TAURI-NSIS BUILD ENTRY |
+| Private Python packaged resolver | `commands/bridge_paths.rs`, `engine/paths.rs` | CLOSED P3 SOURCE-SIDE / NO PACKAGED SYSTEM-PYTHON FALLBACK |
 | Persisted settings | `engine/settings.rs`, `engine/runtime_settings.rs`, `commands/settings.rs` | ACTIVE / SCHEMA V6 / NO VOICE PROFILE SELECTOR |
 | Target runtime proof | target Windows model/audio/device/package checks | DEFERRED BY USER / REQUIRES NEW EXPLICIT AUTHORIZATION |
 
@@ -170,6 +174,24 @@ A6 extends the same canonical worker into the existing Meeting Start transaction
 
 The readiness cache is bound to worker generation + Meeting generation + approved actor identity. Live `voice_actor_synthesize` must present the exact actor identity proven during Start. If the approved actor changes during the Meeting, synthesis fails closed and a new Start is required. Diagnostic readiness may use generation `0`, but generation `0` can never yield Live actor authority.
 
+## P3 Release Packaging Ownership
+
+P3 adds no second installer, package manager, downloader, provider registry, or release state owner. The controlled source path is:
+
+```text
+controlled release payload staging
+-> scripts/validate_release_payload.mjs
+-> scripts/build_release.ps1
+-> Tauri build with src-tauri/tauri.release.conf.json
+-> NSIS bundle input
+```
+
+The release overlay maps only the production WorkerRuntime files plus the private Python runtime and required model/VoiceLab asset roots into the installed `EngineData/Backend` layout already consumed by `ProjectPaths`. Repository `.venv`, system Python, environment Python overrides, tests, setup/smoke scripts, `DevelopingData`, `UserData`, and unrelated GPT-SoVITS WebUI/server/UVR/ASR tooling are not approved packaged runtime inputs.
+
+The payload validator intentionally fails when controlled private/model bytes have not been staged. This is a release-input safety gate, not a downloader. Actual payload bytes, NSIS generation, installation, installed execution, and clean-machine behavior remain separate proof.
+
+Meeting audio provider delivery is not source-closed by P3. The current Rust/CPAL route consumes an already-installed matched virtual-audio pair. The repository has not approved a redistributable third-party provider, its license/install contract, or a different TranslateIT-provisioned endpoint. Do not silently bundle VB-Cable/Voicemeeter or invent a custom driver to make installer acceptance appear complete.
+
 ## Storage Ownership
 
 ```text
@@ -222,6 +244,7 @@ A3 guided recording/persistence -> CLOSED SOURCE-SIDE
 A4 GPT-SoVITS build + held-out evaluation -> CLOSED SOURCE-SIDE
 A5 canonical-worker trained-actor inference -> CLOSED SOURCE-SIDE
 A6 Meeting atomic MyVoice readiness -> CLOSED SOURCE-SIDE
+P3 deterministic runtime/model packaging source contract -> CLOSED SOURCE-SIDE
 ```
 
 A4 provider compatibility: hosted Windows run `31724026882`.
@@ -263,10 +286,14 @@ Current proof order:
 5. GPT-SoVITS build + held-out evaluation -> CLOSED A4 SOURCE-SIDE
 6. canonical-worker daily trained-actor inference -> CLOSED A5 SOURCE-SIDE
 7. Meeting atomic custom-TTS readiness -> CLOSED A6 SOURCE-SIDE
-8. final source closure proof -> CLOSED / run 31773954105
-9. target-Windows speaker-quality/latency/device/package acceptance -> DEFERRED BY USER / REQUIRES NEW EXPLICIT AUTHORIZATION
+8. final VoiceLab source closure proof -> CLOSED / run 31773954105
+9. runtime/model/private-Python release packaging source contract -> CLOSED P3 / run 31779152717
+10. Meeting audio provider distribution policy -> DECISION REQUIRED
+11. target-Windows speaker-quality/latency/device/package acceptance -> DEFERRED BY USER / REQUIRES NEW EXPLICIT AUTHORIZATION
 ```
 
 Accepted A6 final hosted Windows proof is run `31773954105` at exact checkout SHA `d682f44d02ddd74a731b55bc1d0da6f738bf27f6`: static MyVoice authority guard PASS, frozen worker proof with 28 Python tests PASS, frontend validators/typecheck/build PASS, `cargo check --locked` PASS, 42 Rust tests PASS, and read-only closure guard PASS.
 
-Hosted A6 proof does not prove real user actor weights, target GPT-SoVITS asset placement, real target model load, speaker fidelity, CUDA/VRAM practicality, real inference latency, physical meeting-app audio reception, installer placement, or clean-machine execution. No user-local-PC testing occurred.
+Accepted P3 hosted Windows source proof is run `31779152717` at exact checkout SHA `027412c88f602be5ade4a7ebac6f2bb99e4307ab`: release package/resource-map contract PASS, normal source validation PASS, Svelte typecheck PASS, frontend production build PASS, `cargo check --locked` PASS, missing controlled runtime/model payload correctly failed closed, and read-only closure guard PASS.
+
+Hosted source proof does not prove real user actor weights, staged private Python/model bytes, successful NSIS generation, installed execution, target GPT-SoVITS model load, speaker fidelity, CUDA/VRAM practicality, real inference latency, physical meeting-app audio reception, provider installation, or clean-machine execution. No user-local-PC testing occurred.
