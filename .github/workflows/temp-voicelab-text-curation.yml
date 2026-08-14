@@ -1,0 +1,54 @@
+name: Temporary VoiceLab Text Curation
+
+on:
+  push:
+    branches: [New]
+    paths:
+      - .github/workflows/temp-voicelab-text-curation.yml
+
+permissions:
+  contents: write
+
+jobs:
+  curate-and-prove:
+    runs-on: windows-2022
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: New
+          fetch-depth: 1
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: EngineData/Frontend/RustApp/package-lock.json
+      - name: Curate and validate guided text
+        shell: pwsh
+        run: |
+          python .github/scripts/temp-voicelab-text-curation.py
+          git diff --check
+      - name: Install frontend dependencies
+        working-directory: EngineData/Frontend/RustApp
+        run: npm ci
+      - name: Frontend typecheck
+        working-directory: EngineData/Frontend/RustApp
+        run: npm run typecheck
+      - name: Frontend production build
+        working-directory: EngineData/Frontend/RustApp
+        run: npm run build:frontend
+      - name: Rust compile with warnings denied
+        shell: pwsh
+        run: |
+          $env:RUSTFLAGS='-Dwarnings'
+          cargo check --locked --manifest-path EngineData/Frontend/RustApp/src-tauri/Cargo.toml
+      - name: Rust tests
+        run: cargo test --locked --manifest-path EngineData/Frontend/RustApp/src-tauri/Cargo.toml
+      - name: Commit curated script
+        shell: pwsh
+        run: |
+          git config user.name 'halokaryamedia-source'
+          git config user.email 'halokaryamedia@gmail.com'
+          git add EngineData/Frontend/RustApp/src-tauri/src/commands/voice_lab_recording.rs
+          git commit -m 'Curate VoiceLab guided text for natural reading'
+          git push origin HEAD:New
