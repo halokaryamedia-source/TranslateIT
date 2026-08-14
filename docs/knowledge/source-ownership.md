@@ -6,7 +6,7 @@ This map points to current semantic owners. File existence or hosted source proo
 |---|---|---|
 | Product scope + familiar UI policy | `docs/foundation/01-product-overview.md`, `02-product-requirements.md` including PR-110..119 and PR-166 | ACTIVE / VOICELAB REQUIRED |
 | Stable context | `CONTEXT.md` | ACTIVE |
-| Continuation | `docs/knowledge/next-action.md` | SOURCE CLOSED / TARGET VALIDATION NEXT |
+| Continuation | `docs/knowledge/next-action.md` | PRE-LOCAL QUALITY AUDIT / LOCAL VALIDATION USER-DEFERRED |
 | Durable decisions | `docs/knowledge/decision-log.md` | ACTIVE / D-020 VOICELAB |
 | Frontend entry | `EngineData/Frontend/RustApp/src/main.ts` | ACTIVE / ONE SVELTE MOUNT |
 | Frontend application owner | `src/App.svelte` | ACTIVE / MEETING + TEXT + VOICELAB + SETTINGS |
@@ -27,7 +27,7 @@ This map points to current semantic owners. File existence or hosted source proo
 | VoiceLab guided audio sink | `engine/audio/guided_take.rs` | ACTIVE A3 / MONO + RUBATO FFT RESAMPLE TO 32 KHZ |
 | PCM16 WAV writer | `engine/audio/live_segment_writer.rs::write_pcm16_wav` | ACTIVE / SHARED BY MEETING + VOICELAB |
 | Mic Test lifecycle | `engine/capture_lifecycle.rs`, `commands/runtime_capture.rs` | ACTIVE / CANNOT CONTROL ACTIVE VOICELAB TAKE |
-| VoiceLab one-shot build child | `WorkerRuntime/voice_lab_build.py` | CLOSED A4 SOURCE-SIDE / NOT DAILY WORKER |
+| VoiceLab one-shot build child | `WorkerRuntime/voice_lab_build.py` | CLOSED A4 SOURCE-SIDE / PR-113 PRE-TRAINING SIGNAL GATE / NOT DAILY WORKER |
 | GPT-SoVITS provider adapter | `WorkerRuntime/voice_lab_gpt_sovits.py` | ACTIVE A4+A5 / BUILD, HELD-OUT EVAL, TRAINED-ACTOR INFERENCE |
 | Headless upstream stage boundary | `WorkerRuntime/voice_lab_upstream_stage.py` | ACTIVE / EXCLUDES GRADIO WEBUI SURFACE |
 | Voice Actor temporary data | `UserData/CacheData/VoiceLab` through `VoiceLabStoragePaths` | ACTIVE / DRAFT + TAKES + BUILD + CANDIDATE + EVALUATION |
@@ -41,13 +41,13 @@ This map points to current semantic owners. File existence or hosted source proo
 | Rust dependency graph | `src-tauri/Cargo.toml` + `Cargo.lock` | ACTIVE / RUBATO `=0.16.2` FOR GUIDED RESAMPLING |
 | Worker Python dependency graph | `WorkerRuntime/pyproject.toml` + `uv.lock` | ACTIVE A4-A6 / ONE FROZEN RUNTIME GRAPH |
 | Voice runtime assets | `EngineData/Backend/RuntimeAssets/Voice/` | GPT-SOVITS OWNERSHIP DEFINED / TARGET PACKAGED BYTES UNPROVEN |
-| Release model inventory | `WorkerRuntime/model_manifest.json` | ACTIVE / GPT-SOVITS + PIPER MANUAL/RELEASE ASSET INVENTORY |
+| Release model inventory | `WorkerRuntime/model_manifest.json` | ACTIVE / PINNED GPT-SOVITS VOICELAB RELEASE ASSET / NO PIPER AUTHORITY |
 | Persisted settings | `engine/settings.rs`, `engine/runtime_settings.rs`, `commands/settings.rs` | ACTIVE / SCHEMA V6 / NO VOICE PROFILE SELECTOR |
-| Target runtime proof | target Windows model/audio/device/package checks | NEXT / REQUIRES EXPLICIT AUTHORIZATION |
+| Target runtime proof | target Windows model/audio/device/package checks | DEFERRED BY USER / REQUIRES NEW EXPLICIT AUTHORIZATION |
 
 ## VoiceLab Ownership Boundary
 
-VoiceLab creation, daily trained-actor inference, and Meeting atomic MyVoice authority through A6 are now source-closed. Remaining acceptance is target-Windows evidence only.
+VoiceLab creation, daily trained-actor inference, and Meeting atomic MyVoice authority through A6 are now source-closed. Remaining device/model/audio acceptance is target-Windows evidence only and is currently deferred by the user.
 
 ```text
 A3 recording
@@ -63,6 +63,7 @@ A4 creation
 -> voiceLabBuildApi.ts
 -> voice_lab_build.rs
 -> voice_lab_build.py one-shot child
+-> conservative PR-113 unusable-signal rejection
 -> voice_lab_gpt_sovits.py
 -> pinned GPT-SoVITS V2ProPlus
 -> held-out evaluation
@@ -263,7 +264,7 @@ Current proof order:
 6. canonical-worker daily trained-actor inference -> CLOSED A5 SOURCE-SIDE
 7. Meeting atomic custom-TTS readiness -> CLOSED A6 SOURCE-SIDE
 8. final source closure proof -> CLOSED / run 31773954105
-9. target-Windows speaker-quality/latency/device/package acceptance -> NEXT / EXPLICIT AUTHORIZATION
+9. target-Windows speaker-quality/latency/device/package acceptance -> DEFERRED BY USER / REQUIRES NEW EXPLICIT AUTHORIZATION
 ```
 
 Accepted A6 final hosted Windows proof is run `31773954105` at exact checkout SHA `d682f44d02ddd74a731b55bc1d0da6f738bf27f6`: static MyVoice authority guard PASS, frozen worker proof with 28 Python tests PASS, frontend validators/typecheck/build PASS, `cargo check --locked` PASS, 42 Rust tests PASS, and read-only closure guard PASS.
