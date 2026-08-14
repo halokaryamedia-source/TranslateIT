@@ -21,5 +21,5 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: '3.12'
-      - name: Fix diagnostic MyVoice readiness boundary
-        run: python .github/temp-a6-diagnostic-fix-gate.py
+      - name: Sync A6 worker tests with actor authority
+        run: python .github/temp-a6-test-sync.py
