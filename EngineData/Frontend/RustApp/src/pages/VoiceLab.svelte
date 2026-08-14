@@ -25,7 +25,6 @@
   let audio: HTMLAudioElement | null = null;
   let audioUrl: string | null = null;
 
-  const acceptedCount = $derived(recordingState.lines.filter((line) => line.accepted).length);
   const currentLine = $derived(recordingState.lines.find((line) => line.line_id === selectedLineId) ?? null);
   const isRecording = $derived(recordingState.recording_line_id !== null);
   const pendingLineId = $derived(recordingState.pending_review?.line_id ?? null);
@@ -189,9 +188,8 @@
   <header class="ti-page-header">
     <div>
       <h2 class="ti-page-title">VoiceLab</h2>
-      <p class="ti-page-copy">Record clear English lines to build your reusable meeting voice.</p>
+      <p class="ti-page-copy">Record and review clear English lines for My Voice.</p>
     </div>
-    <span class="ti-pill">{acceptedCount} accepted · {recordingState.lines.length || "—"} available</span>
   </header>
 
   <div class="grid grid-cols-[minmax(0,1fr)_300px] gap-5">
@@ -199,14 +197,14 @@
       <div class="flex items-start justify-between gap-4">
         <div>
           <span class="ti-kicker">My Voice</span>
-          <h3 class="mb-0 mt-2 text-xl font-semibold tracking-[-0.02em]">Guided recording</h3>
-          <p class="mb-0 mt-2 max-w-[680px] text-sm leading-6 text-[var(--ti-text-muted)]">Use the same microphone and a quiet room. Read naturally rather than performing the lines. If a line feels difficult, Skip it and continue. You do not need to finish every available line before Create My Voice becomes ready.</p>
+          <h3 class="mb-0 mt-2 text-xl font-semibold tracking-[-0.02em]">Record your voice</h3>
+          <p class="mb-0 mt-2 max-w-[680px] text-sm leading-6 text-[var(--ti-text-muted)]">Use the same microphone in a quiet room and read each line naturally. If a line feels difficult, skip it and continue with one that feels comfortable.</p>
         </div>
       </div>
 
       <label class="mt-6 flex items-start gap-3 rounded-[var(--ti-radius-md)] border border-[var(--ti-border)] bg-[var(--ti-surface-soft)] p-4">
-        <input class="mt-0.5 size-4 accent-[var(--ti-action)]" type="checkbox" bind:checked={authorized} disabled={isRecording} />
-        <span class="text-sm leading-5 text-[var(--ti-text-muted)]">I own this voice or have permission to create and use this Voice Actor.</span>
+        <input class="mt-0.5 size-4 accent-[var(--ti-accent)]" type="checkbox" bind:checked={authorized} disabled={isRecording} />
+        <span class="text-sm leading-5 text-[var(--ti-text-muted)]">I confirm this is my voice, or I have permission to use it.</span>
       </label>
 
       {#if currentLine}
@@ -225,8 +223,8 @@
             <strong class="text-sm font-semibold">Review this take</strong>
             <p class={`mb-0 mt-1 text-sm leading-5 ${recordingState.pending_review.quality_blocker ? "text-[var(--ti-danger)]" : "text-[var(--ti-text-muted)]"}`}>
               {recordingState.pending_review.quality_blocker
-                ? "This recording has a basic signal-quality problem. Replay it if useful, then record the line again."
-                : "Listen once before accepting it for your Voice Actor dataset."}
+                ? "This recording isn't clear enough yet. Replay it if useful, then try this line again."
+                : "Listen once. Accept it if the recording sounds clear and natural."}
             </p>
           </div>
         {/if}
@@ -267,7 +265,7 @@
         <div class="mt-6 rounded-[var(--ti-radius-md)] border border-[var(--ti-border)] p-5 text-sm text-[var(--ti-text-muted)]">VoiceLab recording lines are unavailable right now.</div>
       {/if}
 
-      <p class="mb-0 mt-7 text-xs leading-5 text-[var(--ti-text-soft)]">Accepted takes stay on this device and are prepared for the later Voice Actor build. Recording count alone is not treated as proof of voice quality.</p>
+      <p class="mb-0 mt-7 text-xs leading-5 text-[var(--ti-text-soft)]">Accepted recordings stay on this device and are used when you create My Voice.</p>
     </article>
 
     <aside class="ti-panel overflow-hidden">
