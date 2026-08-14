@@ -1,0 +1,54 @@
+name: Temporary P4 Audio Provider Policy Source Proof
+
+on:
+  push:
+    branches: [New]
+    paths:
+      - .github/workflows/temp-p4-audio-provider-policy.yml
+  workflow_dispatch:
+
+jobs:
+  source-proof:
+    runs-on: windows-2022
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+          fetch-depth: 1
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: EngineData/Frontend/RustApp/package-lock.json
+      - name: Install frontend build dependencies
+        working-directory: EngineData/Frontend/RustApp
+        run: npm ci
+      - name: P4 provider packaging source contract
+        working-directory: EngineData/Frontend/RustApp
+        run: npm run preflight:tauri-package
+      - name: Normal source validation
+        working-directory: EngineData/Frontend/RustApp
+        run: npm run validate:quick
+      - name: Frontend production build
+        working-directory: EngineData/Frontend/RustApp
+        run: npm run build:frontend
+      - name: Rust compile gate
+        run: cargo check --locked --manifest-path EngineData/Frontend/RustApp/src-tauri/Cargo.toml
+      - name: Missing controlled provider payload fails closed
+        shell: pwsh
+        working-directory: EngineData/Frontend/RustApp
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $PSNativeCommandUseErrorActionPreference = $false
+          $output = & node scripts/validate_release_payload.mjs 2>&1
+          $exitCode = $LASTEXITCODE
+          $text = ($output | Out-String)
+          Write-Output $text
+          if ($exitCode -eq 0) { throw 'Release payload preflight unexpectedly passed without controlled runtime/provider payload.' }
+          if ($text -notmatch 'AudioProvider/VBCABLE/Package') { throw 'Release payload failure did not identify the missing VB-CABLE provider package.' }
+          if ($text -notmatch 'VBCABLE_Setup_x64.exe') { throw 'Release payload failure did not identify the expected standard VB-CABLE setup executable.' }
+          if ($text -notmatch 'Release payload is incomplete or contains unapproved baggage') { throw 'Release payload failure was not the canonical fail-closed gate.' }
+          exit 0
+      - name: Read-only closure guard
+        run: git diff --exit-code
