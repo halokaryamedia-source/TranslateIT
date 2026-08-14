@@ -1,0 +1,60 @@
+name: Temporary R3 VB-CABLE Provenance
+
+on:
+  push:
+    branches: [New]
+    paths:
+      - .github/workflows/temp-r3-vbcable-provenance.yml
+
+permissions:
+  contents: read
+
+jobs:
+  inspect:
+    runs-on: windows-2022
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: New
+          fetch-depth: 1
+
+      - name: Download exact official standard VB-CABLE package
+        shell: pwsh
+        run: |
+          $ErrorActionPreference='Stop'
+          $url='https://download.vb-audio.com/Download_CABLE/VBCABLE_Driver_Pack45.zip'
+          $zip=Join-Path $env:RUNNER_TEMP 'VBCABLE_Driver_Pack45.zip'
+          Invoke-WebRequest -Uri $url -OutFile $zip
+          $item=Get-Item $zip
+          $hash=(Get-FileHash -Algorithm SHA256 $zip).Hash.ToLowerInvariant()
+          Write-Host "[r3][vbcable] source_url=$url"
+          Write-Host "[r3][vbcable] archive_name=$($item.Name)"
+          Write-Host "[r3][vbcable] archive_bytes=$($item.Length)"
+          Write-Host "[r3][vbcable] archive_sha256=$hash"
+
+          $extract=Join-Path $env:RUNNER_TEMP 'vbcable45'
+          Expand-Archive -LiteralPath $zip -DestinationPath $extract -Force
+          $files=Get-ChildItem -LiteralPath $extract -File -Recurse | Sort-Object FullName
+          Write-Host "[r3][vbcable] extracted_file_count=$($files.Count)"
+          foreach ($f in $files) {
+            $rel=$f.FullName.Substring($extract.Length).TrimStart('\')
+            $fh=(Get-FileHash -Algorithm SHA256 $f.FullName).Hash.ToLowerInvariant()
+            Write-Host "[r3][vbcable][file] $rel bytes=$($f.Length) sha256=$fh"
+          }
+
+          foreach ($exeName in @('VBCABLE_Setup.exe','VBCABLE_Setup_x64.exe','VBCABLE_Setup_ARM64.exe')) {
+            $exe=Get-ChildItem -LiteralPath $extract -File -Recurse -Filter $exeName | Select-Object -First 1
+            if (-not $exe) { throw "Expected official installer missing: $exeName" }
+            $sig=Get-AuthenticodeSignature -LiteralPath $exe.FullName
+            Write-Host "[r3][vbcable][signature] $exeName status=$($sig.Status) subject=$($sig.SignerCertificate.Subject) thumbprint=$($sig.SignerCertificate.Thumbprint)"
+            if ($sig.Status -ne 'Valid') { throw "Invalid Authenticode signature: $exeName" }
+          }
+
+          $inf=Get-ChildItem -LiteralPath $extract -File -Recurse -Filter '*.inf' | Sort-Object Name
+          foreach ($f in $inf) {
+            $content=Get-Content -LiteralPath $f.FullName -Raw
+            $provider=([regex]::Match($content,'(?im)^Provider\s*=\s*(.+)$')).Groups[1].Value.Trim()
+            $driverVer=([regex]::Match($content,'(?im)^DriverVer\s*=\s*(.+)$')).Groups[1].Value.Trim()
+            Write-Host "[r3][vbcable][inf] name=$($f.Name) provider=$provider driverver=$driverVer"
+          }
