@@ -10,7 +10,9 @@ from __future__ import annotations
 import argparse
 import json
 import os
+import struct
 import tempfile
+import wave
 from pathlib import Path
 from typing import Any
 
@@ -22,6 +24,10 @@ from voice_lab_gpt_sovits import (
 )
 
 SCHEMA_VERSION = 1
+SILENCE_ABS_PCM16 = 128
+MAX_SILENCE_FRACTION = 0.90
+CLIPPING_ABS_PCM16 = 32_760
+MAX_CLIPPING_FRACTION = 0.05
 
 
 class BuildError(RuntimeError):
@@ -82,6 +88,47 @@ def validate_manifest(dataset_dir: Path) -> dict[str, Any]:
     return manifest
 
 
+def validate_take_signal(path: Path) -> None:
+    try:
+        with wave.open(str(path), "rb") as reader:
+            if reader.getnchannels() != 1 or reader.getsampwidth() != 2 or reader.getframerate() != 32_000:
+                raise BuildError(f"noncanonical_take:{path.name}")
+            frame_count = reader.getnframes()
+            payload = reader.readframes(frame_count)
+    except BuildError:
+        raise
+    except Exception as exc:
+        raise BuildError(f"invalid_take:{path.name}") from exc
+
+    if frame_count <= 0 or len(payload) != frame_count * 2:
+        raise BuildError(f"empty_take:{path.name}")
+
+    samples = struct.unpack(f"<{frame_count}h", payload)
+    silent = sum(1 for sample in samples if abs(sample) <= SILENCE_ABS_PCM16)
+    clipped = sum(1 for sample in samples if abs(sample) >= CLIPPING_ABS_PCM16)
+
+    # These are deliberately conservative structural gates. They reject only
+    # obviously unusable datasets before expensive training; target-user audio
+    # remains the authority for any future tuning of these bounds.
+    if silent / frame_count >= MAX_SILENCE_FRACTION:
+        raise BuildError(f"take_excessive_silence:{path.name}")
+    if clipped / frame_count >= MAX_CLIPPING_FRACTION:
+        raise BuildError(f"take_severe_clipping:{path.name}")
+
+
+def validate_dataset_signal(dataset_dir: Path, manifest: dict[str, Any]) -> None:
+    takes = manifest.get("takes")
+    if not isinstance(takes, list):
+        raise BuildError("insufficient_training_takes")
+    for item in takes:
+        if not isinstance(item, dict):
+            raise BuildError("invalid_training_take")
+        wav_file = str(item.get("wav_file", "")).strip()
+        if not wav_file or Path(wav_file).name != wav_file:
+            raise BuildError("invalid_training_take")
+        validate_take_signal(dataset_dir / wav_file)
+
+
 def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("--source-root", required=True)
@@ -96,6 +143,7 @@ def main() -> int:
     try:
         dataset_dir = Path(args.dataset_dir).resolve()
         manifest = validate_manifest(dataset_dir)
+        validate_dataset_signal(dataset_dir, manifest)
         write_status(status_path, "preparing", "Preparing VoiceLab training data.")
         build_candidate(
             source_root=Path(args.source_root).resolve(),
