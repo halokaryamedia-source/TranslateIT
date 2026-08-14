@@ -2,7 +2,7 @@
 
 ## Current Mode
 
-**Maintenance / Frontend P5 Source Closure CLOSED — NO FURTHER GROUNDED FRONTEND SOURCE CHANGE**
+**Plan / R1 Release Licensing & Controlled Asset Audit CLOSED — R1.1 PYTHON GPL DEPENDENCY CONTAINMENT NEXT**
 
 VoiceLab A1 through A6, the pre-local VoiceLab quality audit, the final 128-line guided-script curation, the explicit Guided Recording Skip action, P3 runtime/model packaging source closure, P4 Meeting audio provider distribution policy, and the bounded P5 Rust source-hygiene cleanup are source-closed. Target/local Windows validation remains explicitly deferred by the user.
 
@@ -247,6 +247,43 @@ The temporary P5 audit/proof files were removed after the successful proof.
 
 At source level, the current frontend now has no independently grounded additional cleanup wave. This is deliberately not a rendered-UI or target-Windows claim.
 
+## R1 Release Licensing / Controlled Asset Audit
+
+The non-local release licensing and provenance audit is complete at the existing release owners. It does not declare a particular distribution legally cleared; it records exact source provenance where source evidence is sufficient and makes unresolved licensing gates explicit before installer rehearsal.
+
+Verified source-side inventory:
+
+```text
+CPython runtime -> 3.12.10 Windows embeddable distribution / PSF License 2 + incorporated-software notices
+faster-whisper-large-v3-turbo -> pinned HF revision / MIT
+Marian ID->EN -> pinned HF revision / Apache-2.0
+Marian EN->ID -> pinned HF revision / Apache-2.0
+GPT-SoVITS application source -> d523079fc05d9a8028d6085bffe4a2757c32abb6 / MIT
+GPT-SoVITS pretrained snapshot -> lj1995/GPT-SoVITS @ 336b2ec4e8d4ac74740798dd40af44e74659ecaf
+standard VB-CABLE -> conditional donationware distribution policy; concrete release rights still external evidence
+```
+
+The canonical model inventory now carries the reviewed GPT-SoVITS pretrained snapshot and SHA-256 values for `s1v3.ckpt`, the speaker-verification checkpoint, and the V2ProPlus generator/discriminator weights. `RuntimeAssets` and `Voice` now distinguish payload presence from license clearance and preserve CMUdict attribution requirements.
+
+Two material non-local release blockers remain:
+
+1. The frozen Python dependency graph resolves `g2p-en==2.1.0 -> distance==0.1.3`. Upstream g2p-en is permissively licensed, while Distance declares GPL. No legal conclusion about the full application is fabricated, but the current private PythonRuntime is not treated as cleared for a closed/commercial release until the dependency/obligations are resolved.
+2. The current `ffmpeg.exe` payload contract has no proved Windows build configuration/license profile. FFmpeg is LGPL by default and can become GPL depending on enabled components, so the fact that a binary exists or is hosted beside MIT-labelled model assets is insufficient release-license evidence.
+
+VB-CABLE remains a separate conditional distribution gate: the source contains the required origin/donationware notice, but applicable rights for the concrete release must still be established outside source. Python PSF and third-party license/acknowledgement texts must also accompany the final staged runtime.
+
+Accepted hosted source proof:
+
+```text
+run 31801724764
+bounded release-owner change -> PASS
+model inventory JSON validation -> PASS
+release package source contract -> PASS
+source commit -> 51e12dc6ed2e35d842f7daabc9baa2b1a21f7202
+```
+
+This remains source/provenance evidence only. It does not prove legal advice, actual staged-byte compliance, installer generation, driver installation, installed runtime, or clean-machine operation.
+
 ## Existing Source-Closed Boundaries
 
 The following remain closed source-side:
@@ -262,6 +299,7 @@ Frontend P2 Settings normal-UI cleanup and Diagnostics containment
 Frontend P3 shell / Meeting status redundancy cleanup
 Frontend P4 First Setup normal-user polish
 Frontend P5 cross-surface source closure audit
+R1 release licensing / controlled asset provenance audit
 P3 private Python/runtime/model packaging contract
 P4 standard VB-CABLE initial provider policy and controlled staging contract
 P5 Rust warning/dead-data cleanup
@@ -294,4 +332,4 @@ Hosted source/build proof must not be presented as evidence for those claims.
 
 ## Next Step
 
-**No further frontend source change is independently grounded while target/rendered Windows validation remains deferred by the user. Keep the current frontend source closed. Reopen frontend source work only for a concrete new requirement or reproducible defect; target/local Windows visual/runtime validation remains deferred until the user explicitly opens it.**
+**R1.1 — contain the `g2p-en -> distance` GPL dependency at the canonical Python dependency boundary without changing VoiceLab/GPT-SoVITS behavior. First prove from the pinned g2p-en runtime source that TranslateIT does not execute `distance`; then remove the unnecessary transitive package through the smallest maintainable dependency method, regenerate `uv.lock`, and use hosted Python/VoiceLab/G2P contract tests to prove English G2P still works. Do not replace the TTS engine, introduce a second G2P system, claim legal clearance, or start local Windows testing.**
