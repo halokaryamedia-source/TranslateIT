@@ -84,6 +84,10 @@ jobs:
         shell: pwsh
         run: .github/scripts/temp-r3-stage-release.ps1
 
+      - name: Complete reviewed Python wheel license material
+        shell: pwsh
+        run: python .github/scripts/temp-r3-stage-python-license-material.py
+
       - name: Install frozen frontend release tooling
         shell: pwsh
         working-directory: EngineData/Frontend/RustApp
