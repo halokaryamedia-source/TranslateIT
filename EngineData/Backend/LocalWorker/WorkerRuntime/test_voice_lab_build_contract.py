@@ -1,10 +1,12 @@
 from __future__ import annotations
 
+import struct
 import tempfile
 import unittest
 import wave
 from pathlib import Path
 
+from voice_lab_build import BuildError, validate_take_signal
 from voice_lab_gpt_sovits import VoiceLabProviderError, select_reference, training_takes
 
 
@@ -17,6 +19,14 @@ class VoiceLabBuildContractTests(unittest.TestCase):
             writer.setsampwidth(2)
             writer.setframerate(32_000)
             writer.writeframes(b"\x00\x00" * frames)
+
+    @staticmethod
+    def write_signal_wav(path: Path, samples: list[int]) -> None:
+        with wave.open(str(path), "wb") as writer:
+            writer.setnchannels(1)
+            writer.setsampwidth(2)
+            writer.setframerate(32_000)
+            writer.writeframes(struct.pack(f"<{len(samples)}h", *samples))
 
     def test_reference_selection_prefers_take_closest_to_five_seconds(self) -> None:
         with tempfile.TemporaryDirectory() as raw:
@@ -62,6 +72,29 @@ class VoiceLabBuildContractTests(unittest.TestCase):
             }
             with self.assertRaisesRegex(VoiceLabProviderError, "noncanonical_take"):
                 training_takes(root, manifest)
+
+    def test_build_gate_rejects_excessive_silence(self) -> None:
+        with tempfile.TemporaryDirectory() as raw:
+            path = Path(raw) / "take_0001.wav"
+            samples = [0] * 30_000 + [4_000] * 2_000
+            self.write_signal_wav(path, samples)
+            with self.assertRaisesRegex(BuildError, "take_excessive_silence"):
+                validate_take_signal(path)
+
+    def test_build_gate_rejects_severe_clipping(self) -> None:
+        with tempfile.TemporaryDirectory() as raw:
+            path = Path(raw) / "take_0001.wav"
+            samples = [8_000] * 30_000 + [32_767] * 2_000
+            self.write_signal_wav(path, samples)
+            with self.assertRaisesRegex(BuildError, "take_severe_clipping"):
+                validate_take_signal(path)
+
+    def test_build_gate_accepts_normal_signal(self) -> None:
+        with tempfile.TemporaryDirectory() as raw:
+            path = Path(raw) / "take_0001.wav"
+            samples = [3_000 if index % 2 == 0 else -3_000 for index in range(32_000)]
+            self.write_signal_wav(path, samples)
+            validate_take_signal(path)
 
 
 if __name__ == "__main__":
