@@ -22,4 +22,4 @@ jobs:
         with:
           python-version: '3.12'
       - name: Close VoiceLab A6 canonical source boundary
-        run: python .github/temp-a6-canonical-close.py
+        run: python .github/temp-a6-canonical-close-fix.py
