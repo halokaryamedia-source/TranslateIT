@@ -2,7 +2,7 @@
 
 ## Current Mode
 
-**Plan / R1 Release Licensing & Controlled Asset Audit CLOSED — R1.1 PYTHON GPL DEPENDENCY CONTAINMENT NEXT**
+**Plan / R1.1 Python GPL Dependency Containment CLOSED — R1.2 FFMPEG PROVENANCE NEXT**
 
 VoiceLab A1 through A6, the pre-local VoiceLab quality audit, the final 128-line guided-script curation, the explicit Guided Recording Skip action, P3 runtime/model packaging source closure, P4 Meeting audio provider distribution policy, and the bounded P5 Rust source-hygiene cleanup are source-closed. Target/local Windows validation remains explicitly deferred by the user.
 
@@ -284,6 +284,33 @@ source commit -> 51e12dc6ed2e35d842f7daabc9baa2b1a21f7202
 
 This remains source/provenance evidence only. It does not prove legal advice, actual staged-byte compliance, installer generation, driver installation, installed runtime, or clean-machine operation.
 
+## R1.1 Python GPL Dependency Containment Closure
+
+The bounded non-local Python dependency containment is source-closed at the existing WorkerRuntime/release owners. The approved GPT-SoVITS/VoiceLab behavior and Python runtime architecture are unchanged.
+
+`g2p-en` is now pinned to `2.1.0`. The canonical `[tool.uv]` policy requires `uv>=0.12.0` and uses the version-scoped `exclude-dependencies` mechanism to omit only `distance` as declared by that exact `g2p-en` release. Regenerating `uv.lock` removed only `distance==0.1.3`; no other package was added, removed, upgraded, or downgraded, and the lock retains `g2p-en==2.1.0` without a Distance dependency edge.
+
+Hosted runtime proof used an isolated Python 3.12.10 environment where `g2p-en==2.1.0` was installed without its declared dependencies, the actually required G2P dependencies/resources were then supplied, and `distance` remained absent. Inspection of every installed `g2p_en/**/*.py` file found no `distance` reference. English G2P successfully processed ordinary speech, a homograph sentence, and an out-of-vocabulary word. The existing VoiceLab provider contract test then passed in the same Distance-free environment.
+
+The release package source validator now fails if the scoped exception drifts, if Distance reappears in the lock, or if the reviewed g2p-en version changes without reconciliation. This containment removes the identified GPL package from the private Python dependency graph; it is not a legal opinion or overall release-clearance claim. FFmpeg and VB-CABLE retain their separate release gates.
+
+Accepted hosted proof:
+
+```text
+run 31802727204
+Windows Server 2022
+uv 0.12.0 scoped exclusion recognized -> PASS
+bounded uv.lock delta: only distance 0.1.3 removed -> PASS
+g2p-en 2.1.0 retained -> PASS
+installed g2p-en runtime source contains no Distance reference -> PASS
+English G2P smoke with Distance absent -> PASS
+VoiceLab provider contract with Distance absent -> PASS
+release package source contract -> PASS
+source commit -> 163954baa1bcd023711df4eeeb8c2127a720455e
+```
+
+Two earlier hosted attempts did not produce a product commit: the first exposed only a PowerShell quoting error in the proof command; the second proved the isolated G2P path but invoked the VoiceLab regression with a bare Python missing `ffmpeg-python`. The final run corrected the proof harness rather than weakening product or acceptance requirements.
+
 ## Existing Source-Closed Boundaries
 
 The following remain closed source-side:
@@ -300,6 +327,7 @@ Frontend P3 shell / Meeting status redundancy cleanup
 Frontend P4 First Setup normal-user polish
 Frontend P5 cross-surface source closure audit
 R1 release licensing / controlled asset provenance audit
+R1.1 g2p-en / Distance dependency containment
 P3 private Python/runtime/model packaging contract
 P4 standard VB-CABLE initial provider policy and controlled staging contract
 P5 Rust warning/dead-data cleanup
@@ -332,4 +360,4 @@ Hosted source/build proof must not be presented as evidence for those claims.
 
 ## Next Step
 
-**R1.1 — contain the `g2p-en -> distance` GPL dependency at the canonical Python dependency boundary without changing VoiceLab/GPT-SoVITS behavior. First prove from the pinned g2p-en runtime source that TranslateIT does not execute `distance`; then remove the unnecessary transitive package through the smallest maintainable dependency method, regenerate `uv.lock`, and use hosted Python/VoiceLab/G2P contract tests to prove English G2P still works. Do not replace the TTS engine, introduce a second G2P system, claim legal clearance, or start local Windows testing.**
+**R1.2 — resolve the controlled `ffmpeg.exe` release provenance/license-profile gate without changing VoiceLab audio behavior. Identify an exact Windows FFmpeg build origin and build configuration whose redistribution obligations are reviewable, pin the selected artifact/version and SHA-256 in the existing voice/release owners, and update the release contract so a floating or provenance-unknown FFmpeg binary cannot be promoted. If no acceptable distributable build/profile can be established from authoritative evidence, STOP and record that blocker instead of substituting another decoder or claiming release clearance. Do not start local Windows testing.**
