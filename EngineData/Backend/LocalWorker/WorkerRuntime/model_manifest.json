@@ -102,9 +102,17 @@
       "cpu_fallback": true,
       "download_url": null,
       "install_method": "approved_release_asset",
-      "license": "review pinned upstream source and bundled model asset licenses before release packaging",
-      "notes": "Required full-product-release VoiceLab creation and trained My Voice inference asset at the pinned V2ProPlus source boundary. Presence is installation evidence only; training quality, CUDA behavior, speaker fidelity, and target-PC inference latency require separate proof.",
-      "revision": "d523079fc05d9a8028d6085bffe4a2757c32abb6"
+      "license": "mit (RVC-Boss/GPT-SoVITS source); bundled pretrained and third-party runtime assets retain their own license/attribution requirements",
+      "notes": "Required full-product-release VoiceLab creation and trained My Voice inference asset at the pinned V2ProPlus source boundary. The reviewed pretrained snapshot and key hashes above are release provenance, not model-quality proof. Preserve upstream and third-party notices; FFmpeg and the frozen Python dependency graph have separate release-license gates documented by the controlled payload owners.",
+      "revision": "d523079fc05d9a8028d6085bffe4a2757c32abb6",
+      "asset_repo_id": "lj1995/GPT-SoVITS",
+      "asset_revision": "336b2ec4e8d4ac74740798dd40af44e74659ecaf",
+      "asset_hashes": {
+        "s1v3.ckpt": "87133414860ea14ff6620c483a3db5ed07b44be42e2c3fcdad65523a729a745a",
+        "sv/pretrained_eres2netv2w24s4ep4.ckpt": "4f5a0bf73c61eb41b174e1bb54e7ee3c83233892be8e0af1f187024e8e581a35",
+        "v2Pro/s2Dv2ProPlus.pth": "635cd84bf6f7f9b8d41c88c7106f81d782c794c61f931845214ea037b0c5bef2",
+        "v2Pro/s2Gv2ProPlus.pth": "d42a22bbbf65fb2bbdd45ad6a66841156977db45c7aabe0a6992ff378d9c7d3b"
+      }
     }
   ]
 }

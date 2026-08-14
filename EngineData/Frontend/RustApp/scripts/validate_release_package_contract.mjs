@@ -16,6 +16,9 @@ const bridgePaths = readFileSync(join(tauriRoot, "src", "commands", "bridge_path
 const pathsOwner = readFileSync(join(tauriRoot, "src", "engine", "paths.rs"), "utf8");
 const buildRelease = readFileSync(join(scriptDir, "build_release.ps1"), "utf8");
 const providerReadme = readFileSync(resolve(appRoot, "../../Backend/RuntimeAssets/AudioProvider/VBCABLE/README.md"), "utf8");
+const localWorkerReadme = readFileSync(resolve(appRoot, "../../Backend/LocalWorker/README.md"), "utf8");
+const runtimeAssetsReadme = readFileSync(resolve(appRoot, "../../Backend/RuntimeAssets/README.md"), "utf8");
+const voiceAssetsReadme = readFileSync(resolve(appRoot, "../../Backend/RuntimeAssets/Voice/README.md"), "utf8");
 const providerNotice = readFileSync(resolve(appRoot, "../../Backend/RuntimeAssets/AudioProvider/VBCABLE/NOTICE.txt"), "utf8");
 const gitignore = readFileSync(join(repoRoot, ".gitignore"), "utf8");
 
@@ -111,6 +114,45 @@ for (const id of [
   if (!requiredIds.has(id)) fail(`Required release model is missing from model_manifest.json: ${id}`);
 }
 
+const gptSoVitsInventory = (modelManifest.models ?? []).find((item) => item.model_id === "gpt-sovits-v2proplus-voicelab");
+if (gptSoVitsInventory?.asset_repo_id !== "lj1995/GPT-SoVITS" || gptSoVitsInventory?.asset_revision !== "336b2ec4e8d4ac74740798dd40af44e74659ecaf") {
+  fail("GPT-SoVITS pretrained release provenance must stay pinned to the reviewed lj1995/GPT-SoVITS snapshot.");
+}
+const expectedVoiceHashes = {
+  "s1v3.ckpt": "87133414860ea14ff6620c483a3db5ed07b44be42e2c3fcdad65523a729a745a",
+  "sv/pretrained_eres2netv2w24s4ep4.ckpt": "4f5a0bf73c61eb41b174e1bb54e7ee3c83233892be8e0af1f187024e8e581a35",
+  "v2Pro/s2Dv2ProPlus.pth": "635cd84bf6f7f9b8d41c88c7106f81d782c794c61f931845214ea037b0c5bef2",
+  "v2Pro/s2Gv2ProPlus.pth": "d42a22bbbf65fb2bbdd45ad6a66841156977db45c7aabe0a6992ff378d9c7d3b",
+};
+for (const [path, hash] of Object.entries(expectedVoiceHashes)) {
+  if (gptSoVitsInventory?.asset_hashes?.[path] !== hash) fail(`GPT-SoVITS pretrained hash contract drifted: ${path}`);
+}
+
+for (const marker of [
+  "CPython 3.12.10 Windows embeddable package",
+  "g2p-en==2.1.0",
+  "distance==0.1.3",
+  "license-review blocker",
+]) {
+  if (!localWorkerReadme.includes(marker)) fail(`Python release provenance/license gate marker is missing: ${marker}`);
+}
+for (const marker of [
+  "Release Provenance / License Gate",
+  "not license clearance",
+  "Concrete release redistribution rights are **not** proven by source",
+]) {
+  if (!runtimeAssetsReadme.includes(marker)) fail(`Runtime asset release gate marker is missing: ${marker}`);
+}
+for (const marker of [
+  "336b2ec4e8d4ac74740798dd40af44e74659ecaf",
+  "87133414860ea14ff6620c483a3db5ed07b44be42e2c3fcdad65523a729a745a",
+  "d42a22bbbf65fb2bbdd45ad6a66841156977db45c7aabe0a6992ff378d9c7d3b",
+  "not license-cleared by the current source contract",
+  "CMU states research/commercial use is unrestricted",
+]) {
+  if (!voiceAssetsReadme.includes(marker)) fail(`Voice release provenance/license gate marker is missing: ${marker}`);
+}
+
 for (const marker of [
   "/EngineData/Backend/LocalWorker/PythonRuntime/**",
   "/EngineData/Backend/RuntimeAssets/ASR/ModelData/**",
@@ -144,4 +186,4 @@ if (errors.length) {
   process.exit(1);
 }
 
-console.log("[release-package-contract] P4 provider policy is source-aligned: the controlled Windows release remains one Tauri/NSIS path, standard VB-CABLE is the only staged Meeting audio provider candidate, the donationware/origin notice is bundled, alternate VB-CABLE/Voicemeeter/custom-driver expansion is excluded, private runtime/model/provider bytes remain controlled release inputs outside Git, and packaged mode has no system-Python fallback. Redistribution rights, driver installation, restart behavior, installed endpoint use, and clean-machine execution remain separate release evidence.");
+console.log("[release-package-contract] Release source policy is aligned: private Python/model/provider inputs remain controlled and pinned where currently reviewable, GPT-SoVITS source/pretrained provenance is recorded, Python/FFmpeg/VB-CABLE licensing gates remain explicit rather than fabricated as cleared, and packaged mode has no system-Python fallback. Actual redistribution clearance, staged-byte verification, driver installation, installed runtime, and clean-machine execution remain separate evidence.");

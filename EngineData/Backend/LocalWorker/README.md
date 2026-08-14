@@ -28,6 +28,13 @@ The Windows release overlay bundles only the production WorkerRuntime files cons
 
 Large/private runtime bytes are staged as controlled release inputs and remain out of Git. `scripts/validate_release_payload.mjs` verifies their required presence before the installer build; actual installed execution remains target/installed proof.
 
+## Python Runtime Provenance / License Gate
+
+- The release Python authority is **CPython 3.12.10 Windows embeddable package** from Python.org, not a copied developer installation. Keep the Python Software Foundation License Version 2 and the applicable incorporated-software acknowledgements with the distributed runtime.
+- `WorkerRuntime/uv.lock` is the exact third-party Python dependency graph that must be reviewed for the staged private runtime. Python itself being redistributable does not clear every vendored Python package.
+- The current lock resolves `g2p-en==2.1.0` to the transitive dependency `distance==0.1.3`. Upstream `g2p-en` is Apache-2.0, while the `Distance` package declares GPL. This is a **license-review blocker** for a closed/commercial release until the applicable distribution obligations are deliberately accepted or the dependency boundary is corrected and re-proved.
+- This source audit records a release gate; it is not a legal opinion and must not be used as proof that a particular commercial distribution is cleared.
+
 ## Rules
 
 - Keep one canonical Python runtime and one daily worker.
