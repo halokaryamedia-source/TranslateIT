@@ -779,6 +779,15 @@ mod stderr_lifecycle_tests {
 mod scheduler_policy_tests {
     use super::*;
 
+    static SCHEDULER_TEST_SERIAL: OnceLock<Mutex<()>> = OnceLock::new();
+
+    fn scheduler_test_guard() -> std::sync::MutexGuard<'static, ()> {
+        SCHEDULER_TEST_SERIAL
+            .get_or_init(|| Mutex::new(()))
+            .lock()
+            .unwrap_or_else(|poisoned| poisoned.into_inner())
+    }
+
     fn reset_scheduler() {
         let (lock, wake) = scheduler();
         let mut state = lock.lock().expect("scheduler test lock");
@@ -788,6 +797,7 @@ mod scheduler_policy_tests {
 
     #[test]
     fn scheduler_policy_preserves_priority_and_reserved_admission_headroom() {
+        let _serial = scheduler_test_guard();
         assert!(
             HelperTaskPriority::MeetingOutbound.scheduler_wait_deadline_ms()
                 > HelperTaskPriority::MeetingIncoming.scheduler_wait_deadline_ms()
@@ -855,6 +865,7 @@ mod scheduler_policy_tests {
 
     #[test]
     fn scheduler_capacity_rejection_does_not_add_waiting_callers() {
+        let _serial = scheduler_test_guard();
         reset_scheduler();
         {
             let (lock, _) = scheduler();
@@ -886,6 +897,7 @@ mod scheduler_policy_tests {
 
     #[test]
     fn scheduler_wait_deadline_cleans_counter_and_releases_lower_priority_blocking() {
+        let _serial = scheduler_test_guard();
         reset_scheduler();
         let active = acquire_helper_task_permit_with_wait_deadline(
             HelperTaskPriority::MeetingOutbound,
