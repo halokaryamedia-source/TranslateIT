@@ -120,4 +120,4 @@ Hosted source/build proof must not be presented as evidence for those claims.
 
 ## Next Step
 
-**No new source wave is currently justified from this maintenance boundary. Keep local/target validation deferred as requested. Only reopen source work when another concrete independent source gap is found or when the user explicitly authorizes release/target-Windows evidence.**
+**Implement the explicitly requested Guided Recording `Skip` action. Skip must only move past the current line while no recording/review action is active; it must not mark the line accepted or failed, must not change the existing build-duration gate, and must not create persistent skip history or a new workflow/state owner. The 128-line script remains an optional recording pool.**
