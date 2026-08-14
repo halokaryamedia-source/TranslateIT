@@ -1,0 +1,83 @@
+name: Temporary R3 Private Python Path Contract Proof
+
+on:
+  push:
+    branches: [New]
+    paths:
+      - .github/workflows/temp-r3-runtime-path-contract-proof.yml
+
+permissions:
+  contents: write
+
+jobs:
+  prove-and-commit:
+    runs-on: windows-2022
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: New
+          fetch-depth: 1
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Apply bounded runtime-input contract patch
+        shell: pwsh
+        run: |
+          python .github/scripts/temp-r3-runtime-path-contract.py
+          git diff --check
+
+      - name: Verify exact four-owner source diff
+        shell: pwsh
+        run: |
+          $changed=@(git diff --name-only)
+          $allowed=@(
+            'EngineData/Backend/LocalWorker/README.md',
+            'EngineData/Backend/RuntimeAssets/Voice/README.md',
+            'EngineData/Frontend/RustApp/scripts/validate_release_payload.mjs',
+            'EngineData/Frontend/RustApp/scripts/validate_release_package_contract.mjs'
+          )
+          foreach ($path in $changed) { if ($allowed -notcontains $path) { throw "Unexpected R3 source change: $path" } }
+          foreach ($path in $allowed) { if ($changed -notcontains $path) { throw "Expected R3 source change missing: $path" } }
+          Write-Host '[r3] exact four-owner runtime-input contract diff -> PASS'
+
+      - name: Prove embeddable Python sibling-worker path in isolation
+        shell: pwsh
+        run: |
+          $root=Join-Path $env:RUNNER_TEMP 'pth-proof\LocalWorker'
+          $pythonRoot=Join-Path $root 'PythonRuntime'
+          $workerRoot=Join-Path $root 'WorkerRuntime'
+          New-Item -ItemType Directory -Force -Path $pythonRoot,$workerRoot | Out-Null
+          $zip=Join-Path $env:RUNNER_TEMP 'python-3.12.10-embed-amd64.zip'
+          Invoke-WebRequest -Uri 'https://www.python.org/ftp/python/3.12.10/python-3.12.10-embed-amd64.zip' -OutFile $zip
+          $md5=(Get-FileHash -Algorithm MD5 $zip).Hash.ToLowerInvariant()
+          $sha=(Get-FileHash -Algorithm SHA256 $zip).Hash.ToLowerInvariant()
+          if ($md5 -ne 'fe8ef205f2e9c3ba44d0cf9954e1abd3' -or $sha -ne '4acbed6dd1c744b0376e3b1cf57ce906f9dc9e95e68824584c8099a63025a3c3') { throw 'CPython archive identity mismatch.' }
+          Expand-Archive -LiteralPath $zip -DestinationPath $pythonRoot -Force
+          @('python312.zip','.','..\WorkerRuntime') | Set-Content -LiteralPath (Join-Path $pythonRoot 'python312._pth') -Encoding ascii
+          'VALUE = "canonical-worker-visible"' | Set-Content -LiteralPath (Join-Path $workerRoot 'proof_module.py') -Encoding ascii
+          $bogus=Join-Path $env:RUNNER_TEMP 'bogus-pythonpath'
+          New-Item -ItemType Directory -Force -Path $bogus | Out-Null
+          'raise RuntimeError("PYTHONPATH should have been ignored")' | Set-Content -LiteralPath (Join-Path $bogus 'sitecustomize.py') -Encoding ascii
+          $env:PYTHONPATH=$bogus
+          & (Join-Path $pythonRoot 'python.exe') -s -c "import sys, proof_module; assert proof_module.VALUE == 'canonical-worker-visible'; assert all('bogus-pythonpath' not in p for p in sys.path); print('[r3] isolated sys.path=', sys.path)"
+          if ($LASTEXITCODE -ne 0) { throw 'Embeddable sibling WorkerRuntime path proof failed.' }
+          Write-Host '[r3] isolated private Python WorkerRuntime import -> PASS'
+
+      - name: Verify release source contracts
+        shell: pwsh
+        working-directory: EngineData/Frontend/RustApp
+        run: |
+          node --check scripts/validate_release_payload.mjs
+          node scripts/validate_release_package_contract.mjs
+
+      - name: Commit runtime-input contract
+        shell: pwsh
+        run: |
+          git config user.name 'halokaryamedia-source'
+          git config user.email 'halokaryamedia@gmail.com'
+          git add EngineData/Backend/LocalWorker/README.md EngineData/Backend/RuntimeAssets/Voice/README.md EngineData/Frontend/RustApp/scripts/validate_release_payload.mjs EngineData/Frontend/RustApp/scripts/validate_release_package_contract.mjs
+          git commit -m 'Pin private Python and NLTK release inputs'
+          git push origin HEAD:New
