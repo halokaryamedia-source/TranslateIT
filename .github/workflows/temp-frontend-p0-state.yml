@@ -1,0 +1,45 @@
+name: Temporary Frontend P0 State Sync
+
+on:
+  push:
+    branches: [New]
+    paths:
+      - .github/workflows/temp-frontend-p0-state.yml
+
+permissions:
+  contents: write
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: New
+          fetch-depth: 1
+      - name: Update canonical next action
+        shell: bash
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          path = Path('docs/knowledge/next-action.md')
+          text = path.read_text(encoding='utf-8')
+          marker = '## Existing Source-Closed Boundaries\n'
+          if marker not in text:
+              raise SystemExit('existing-boundary marker missing')
+          section = '''## Frontend P0 Alignment Closure\n\nThe first frontend alignment wave is source-closed. First Setup and Meeting now treat `My Voice` as a required product concept instead of leaving it implicit behind Meeting readiness.\n\nFirst Setup now includes `My Voice` in its final readiness summary. When My Voice is missing, the dominant final action is `Create My Voice`; leaving the wizard for VoiceLab persists setup as `deferred`, not `completed`, so the product does not claim setup success early. After an approved voice exists and Meeting readiness is healthy, `Open Meeting` becomes the final action.\n\nMeeting Ready now gives equal required hierarchy to `Your microphone`, `My Voice`, and `Meeting microphone`. Incoming English -> Indonesian text is moved out of the required three-column readiness area into an explicitly `Optional` row. When My Voice is missing, `Create My Voice` replaces the unavailable Start action as the dominant recovery path.\n\nNo Rust/backend readiness rule, build-duration rule, audio route, model runtime, or persisted schema was changed. The UI reads the existing canonical VoiceLab build status for approved-voice readiness.\n\nAccepted hosted source proof:\n\n```text\nrun 31793579827\nbounded P0 source contract -> PASS\nno backend product-source changes -> PASS\nfrontend typecheck -> PASS\nfrontend production build -> PASS\nsource commit -> f2d3fa7ad58073964d82beb8693cf20184682484\n```\n\nThe temporary patch/proof files were removed after the successful proof.\n\n'''
+          if '## Frontend P0 Alignment Closure' not in text:
+              text = text.replace(marker, section + marker, 1)
+          start = text.index('## Next Step\n')
+          text = text[:start] + '''## Next Step\n\n**P1 — VoiceLab humanization and hierarchy alignment. Keep the existing VoiceLab behavior and 128-line pool, but make the normal UI follow the same product grammar as Meeting/Text: remove engineering/process copy from normal-user surfaces, stop presenting `128 available` and the one-minute backend minimum as completion/quality targets, standardize normal vocabulary around `My Voice`, prevent raw build/runtime wording from leaking into the main VoiceLab experience, and fix the existing `--ti-action` token drift by reusing the canonical accent token. Do not redesign the application shell, change training/runtime behavior, or add new state/framework/component systems.**\n'''
+          path.write_text(text, encoding='utf-8')
+          PY
+          git diff --check
+      - name: Commit canonical state
+        shell: bash
+        run: |
+          git config user.name 'halokaryamedia-source'
+          git config user.email 'halokaryamedia@gmail.com'
+          git add docs/knowledge/next-action.md
+          git commit -m 'Close frontend P0 alignment state'
+          git push origin HEAD:New
