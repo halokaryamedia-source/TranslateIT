@@ -938,14 +938,17 @@ mod deadline_policy_tests {
         assert_eq!(worker_response_deadline_ms("translation_preload"), 120_000);
         assert_eq!(worker_response_deadline_ms("transcribe"), 90_000);
         assert_eq!(worker_response_deadline_ms("translate"), 90_000);
-        assert_eq!(worker_response_deadline_ms("synthesize"), 45_000);
+        assert_eq!(worker_response_deadline_ms("voice_actor_synthesize"), 45_000);
         assert_eq!(worker_response_deadline_ms("unknown"), 30_000);
     }
 
     #[test]
     fn request_metadata_uses_host_selected_deadline_as_authority() {
-        let deadline_ms = worker_response_deadline_ms("synthesize");
-        let payload = request_deadline_payload(&json!({"command": "synthesize"}), deadline_ms);
+        let deadline_ms = worker_response_deadline_ms("voice_actor_synthesize");
+        let payload = request_deadline_payload(
+            &json!({"command": "voice_actor_synthesize"}),
+            deadline_ms,
+        );
         let started = payload
             .get("request_unix_ms")
             .and_then(Value::as_u64)
