@@ -76,7 +76,7 @@
     deviceMessage = "Loading audio devices...";
     try {
       devices = await runtimeProductFacade.loadProductAudioDevices();
-      deviceMessage = devices.ok ? "Choose a device to check it before saving." : "Audio devices are unavailable right now. Try again.";
+      deviceMessage = devices.ok ? "Choose a device. TranslateIT checks it before saving." : "Audio devices are unavailable right now. Try again.";
     } catch {
       devices = null;
       deviceMessage = "Audio devices are unavailable right now. Try again.";
@@ -232,7 +232,7 @@
             <p class="mb-0 mt-1 text-[11.5px] leading-5 text-[var(--ti-text-soft)]">
               {snapshot.readiness.meetingRouteReady
                 ? "Choose this exact microphone inside your meeting app."
-                : "A matched Windows virtual-audio cable pair is required for translated meeting output."}
+                : "Meeting microphone isn't ready yet. Run Check Setup before starting Meeting translation."}
             </p>
           </div>
           {#if !snapshot.readiness.meetingRouteReady}
@@ -246,7 +246,6 @@
         <footer class="flex flex-wrap items-center justify-between gap-4 border-t border-[var(--ti-border)] bg-[var(--ti-surface-soft)] px-5 py-4">
           <p class="m-0 min-w-0 flex-1 text-[12px] leading-5 text-[var(--ti-text-muted)]" aria-live="polite">{meetingResourcesLocked ? meetingResourceLockMessage : deviceMessage}</p>
           <div class="ti-action-row shrink-0">
-            <button type="button" class="ti-button ti-button-secondary" disabled={setupBusy || deviceSaving} onclick={() => void onSetupAction("check-microphone")}>{setupBusy ? "Checking..." : "Check Microphone"}</button>
             <button type="button" class="ti-button ti-button-secondary" disabled={micTestBlockedByMeeting || micTestBusy || setupBusy || deviceSaving} onclick={() => void onMicTest()}>{micTestBusy ? "Working..." : snapshot.readiness.recording || micTestOwnsResources ? "Stop Mic Test" : "Mic Test"}</button>
             <button type="button" class="ti-button ti-button-secondary" disabled={meetingResourcesLocked || setupBusy || deviceSaving} onclick={() => void runSetupRepair()}>{setupBusy ? "Checking..." : "Check Setup"}</button>
           </div>
