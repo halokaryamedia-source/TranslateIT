@@ -21,5 +21,5 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: '3.12'
-      - name: Close VoiceLab A6 canonical source boundary
-        run: python .github/temp-a6-canonical-close-fix.py
+      - name: Remove temporary VoiceLab A6 tooling
+        run: python .github/temp-a6-cleanup.py
