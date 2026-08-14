@@ -54,27 +54,31 @@ The temporary P5 workflow was removed after the successful proof.
 
 ## VoiceLab Guided Script Maintenance
 
-A later user-requested maintenance pass audited all 128 guided English recording lines for human readability and training usefulness. The script remains one canonical `GUIDED_LINES` owner with IDs 1 through 128; no recording, storage, training, evaluation, or inference architecture was added.
+The user-requested VoiceLab content pass is now source-closed as the final pre-recording baseline. The canonical `GUIDED_LINES` owner still contains exactly 128 English recording lines and no recording, storage, training, evaluation, or inference architecture was added.
 
-The audit retained 84 lines and refined 44 lines that were overly artificial, meta/internal, difficult to scan, or unnecessarily dense. The revised pool keeps meaningful short, medium, and long utterances; questions, confirmations, disagreement, numbers, dates, names, technical vocabulary, and everyday speech remain represented. Pangram-like and VoiceLab/process-internal sentences were removed from training speech.
+The final curation rewrote the pool around human reading comfort rather than completion count. It intentionally contains exactly 24 short, 72 medium, and 32 long utterances, with no line longer than 27 words. The set keeps natural questions, confirmations, disagreement, everyday speech, meeting language, names, dates, times, prices, counts, percentages, version numbers, one spelled-out A P I example, and bounded technical vocabulary. Artificial pangrams, process instructions, VoiceLab/model meta-sentences, digit-heavy text, semicolon/colon scan friction, and paragraph-like lines were removed.
+
+The official GPT-SoVITS training boundary consumes labeled audio/text pairs, so once real accepted takes are recorded against this baseline, exact guided text must not be changed casually. A later wording change requires the affected take to be recorded again rather than pairing old audio with new transcript text.
 
 Accepted hosted source proof:
 
 ```text
-run 31788709110
+run 31791279320
 128 unique contiguous guided lines -> PASS
-short / medium / long distribution gate -> PASS
+24 short / 72 medium / 32 long -> PASS
+maximum 27 words per line -> PASS
+spelled-out numeric text / no digit literals -> PASS
+no semicolon or colon scan-friction -> PASS
+no VoiceLab/model/process meta phrases -> PASS
 held-out evaluation text separation -> PASS
-artificial/meta phrase guard -> PASS
 frontend typecheck -> PASS
 frontend production build -> PASS
 cargo check --locked with RUSTFLAGS=-Dwarnings -> PASS
 cargo test --locked -> PASS
-read-only closure guard -> PASS
-source commit -> 895d59c2e72705532e3e243b06110ecddabd9180
+source commit -> 7b717e325f514d673ee282e4f10619525cfaade2
 ```
 
-The temporary audit workflow was removed after the successful proof.
+The temporary curation workflow and script were removed after the successful proof.
 
 ## Existing Source-Closed Boundaries
 
@@ -83,7 +87,7 @@ The following remain closed source-side:
 ```text
 VoiceLab A1-A6
 VoiceLab pre-local quality audit
-VoiceLab 128-line guided script quality audit
+VoiceLab 128-line guided script final curation
 P3 private Python/runtime/model packaging contract
 P4 standard VB-CABLE initial provider policy and controlled staging contract
 P5 Rust warning/dead-data cleanup
