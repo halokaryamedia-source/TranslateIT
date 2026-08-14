@@ -21,5 +21,5 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: '3.12'
-      - name: Sync A6 worker tests with actor authority
-        run: python .github/temp-a6-test-sync.py
+      - name: Sync startup validator with VoiceLab route
+        run: python .github/temp-a6-validator-sync.py
