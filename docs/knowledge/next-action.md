@@ -52,6 +52,30 @@ The first attempt `31783548020` did not modify product source. It exposed two pr
 
 The temporary P5 workflow was removed after the successful proof.
 
+## VoiceLab Guided Script Maintenance
+
+A later user-requested maintenance pass audited all 128 guided English recording lines for human readability and training usefulness. The script remains one canonical `GUIDED_LINES` owner with IDs 1 through 128; no recording, storage, training, evaluation, or inference architecture was added.
+
+The audit retained 84 lines and refined 44 lines that were overly artificial, meta/internal, difficult to scan, or unnecessarily dense. The revised pool keeps meaningful short, medium, and long utterances; questions, confirmations, disagreement, numbers, dates, names, technical vocabulary, and everyday speech remain represented. Pangram-like and VoiceLab/process-internal sentences were removed from training speech.
+
+Accepted hosted source proof:
+
+```text
+run 31788709110
+128 unique contiguous guided lines -> PASS
+short / medium / long distribution gate -> PASS
+held-out evaluation text separation -> PASS
+artificial/meta phrase guard -> PASS
+frontend typecheck -> PASS
+frontend production build -> PASS
+cargo check --locked with RUSTFLAGS=-Dwarnings -> PASS
+cargo test --locked -> PASS
+read-only closure guard -> PASS
+source commit -> 895d59c2e72705532e3e243b06110ecddabd9180
+```
+
+The temporary audit workflow was removed after the successful proof.
+
 ## Existing Source-Closed Boundaries
 
 The following remain closed source-side:
@@ -59,6 +83,7 @@ The following remain closed source-side:
 ```text
 VoiceLab A1-A6
 VoiceLab pre-local quality audit
+VoiceLab 128-line guided script quality audit
 P3 private Python/runtime/model packaging contract
 P4 standard VB-CABLE initial provider policy and controlled staging contract
 P5 Rust warning/dead-data cleanup
