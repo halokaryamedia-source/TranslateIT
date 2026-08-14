@@ -2,7 +2,7 @@
 
 ## Current Mode
 
-**Developing / Frontend P3 Shell Status Cleanup CLOSED — P4 FIRST SETUP POLISH NEXT**
+**Developing / Frontend P4 First Setup Polish CLOSED — P5 FRONTEND SOURCE CLOSURE AUDIT NEXT**
 
 VoiceLab A1 through A6, the pre-local VoiceLab quality audit, the final 128-line guided-script curation, the explicit Guided Recording Skip action, P3 runtime/model packaging source closure, P4 Meeting audio provider distribution policy, and the bounded P5 Rust source-hygiene cleanup are source-closed. Target/local Windows validation remains explicitly deferred by the user.
 
@@ -199,6 +199,27 @@ source commit -> 762178e4132826ffbfdff5f878a8b85e101d9caa
 
 The temporary P3 patch/proof files were removed after the successful proof.
 
+## Frontend P4 First Setup Polish Closure
+
+The bounded First Setup normal-user polish wave is source-closed at the existing `FirstSetup.svelte` owner. The wizard keeps the same five persisted checkpoints, setup state transitions, candidate device transactions, readiness checks, Set Up Later behavior, My Voice handoff, setup repair, and completion rules.
+
+The progress header now presents `Step X of 5` without a redundant percentage; the existing progress bar still derives from the same five-step checkpoint value. Step 4 now uses ordinary `Meeting microphone` language: the instruction asks the user to choose the exact microphone shown in their meeting app, and the status detail explains that TranslateIT uses that microphone to send the English voice into the meeting. The previous `paired virtual-audio route` implementation wording and the `Meeting microphone device` label were removed from the normal setup surface.
+
+No readiness logic, audio route, device selection transaction, persisted schema, setup checkpoint semantics, My Voice behavior, or new wizard/state/component owner was changed.
+
+Accepted hosted source proof:
+
+```text
+run 31799647424
+First Setup P4 normal-user contract -> PASS
+bounded single-owner frontend change -> PASS
+frontend typecheck -> PASS
+frontend production build -> PASS
+source commit -> df8c54b588bfb3d27dca299660547e4cd2bc9ebb
+```
+
+The temporary P4 patch/proof files were removed after the successful proof.
+
 ## Existing Source-Closed Boundaries
 
 The following remain closed source-side:
@@ -212,6 +233,7 @@ Frontend P0 First Setup / Meeting My Voice alignment
 Frontend P1 VoiceLab humanization and hierarchy alignment
 Frontend P2 Settings normal-UI cleanup and Diagnostics containment
 Frontend P3 shell / Meeting status redundancy cleanup
+Frontend P4 First Setup normal-user polish
 P3 private Python/runtime/model packaging contract
 P4 standard VB-CABLE initial provider policy and controlled staging contract
 P5 Rust warning/dead-data cleanup
@@ -244,4 +266,4 @@ Hosted source/build proof must not be presented as evidence for those claims.
 
 ## Next Step
 
-**P4 — First Setup normal-user polish. Keep the existing five persisted setup checkpoints, device transactions, readiness checks, Set Up Later behavior, My Voice handoff, and completion rules, but remove the redundant percentage beside `Step X of 5`, simplify the remaining normal-user copy that mentions a paired virtual-audio route, and make the Meeting microphone instruction read like the rest of the product. Do not change setup state semantics, audio routing, readiness logic, or add new wizard/state/component systems.**
+**P5 — Frontend source-closure audit. Review the current normal-user frontend owners and shared UI primitives against PR-166 and the completed P0-P4 alignment waves for any remaining concrete inconsistency, technical leakage, redundant status/action, or AI-slop. Do not create cosmetic churn, a new design system, or another abstraction wave; patch only issues with a clear current source owner and current acceptance value. If no concrete source issue remains, record `No change required` and keep rendered/local Windows validation deferred by the user.**
