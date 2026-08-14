@@ -76,9 +76,12 @@ target/
 /EngineData/Frontend/RustApp/MODEL_PREPARATION_REPORT.json
 /EngineData/Frontend/RustApp/MODEL_VALIDATION_REPORT.json
 
-# TranslateIT local model/runtime assets.
+# TranslateIT controlled release payload. These bytes are staged locally/release-side
+# and bundled by tauri.release.conf.json; they are not Git application source.
+/EngineData/Backend/LocalWorker/PythonRuntime/**
 /EngineData/Backend/RuntimeAssets/ASR/ModelData/**
 /EngineData/Backend/RuntimeAssets/Translation/ModelData/**
+/EngineData/Backend/RuntimeAssets/Voice/GPTSoVITS/**
 /EngineData/Backend/RuntimeAssets/Voice/Piper/**
 /EngineData/RuntimeAssets/**
 
