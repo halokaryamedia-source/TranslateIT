@@ -1,0 +1,116 @@
+name: Temporary R2 Bounded Fix Proof V3
+
+on:
+  push:
+    branches: [New]
+    paths:
+      - .github/workflows/temp-r2-fix-proof-v3.yml
+
+permissions:
+  contents: write
+
+jobs:
+  prove-and-commit:
+    runs-on: windows-2022
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: New
+          fetch-depth: 1
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12.10'
+
+      - name: Apply identical bounded R2 patch
+        shell: pwsh
+        run: |
+          python .github/scripts/temp-r2-fix.py
+          Copy-Item EngineData/Frontend/RustApp/src-tauri/Cargo.lock "$env:RUNNER_TEMP\Cargo.lock.before"
+          Push-Location EngineData/Frontend/RustApp/src-tauri
+          cargo update -p crossbeam-epoch --precise 0.9.20
+          cargo update -p anyhow --precise 1.0.103
+          Pop-Location
+          git diff --check
+          $env:BEFORE_LOCK="$env:RUNNER_TEMP\Cargo.lock.before"
+          $env:AFTER_LOCK=(Resolve-Path 'EngineData/Frontend/RustApp/src-tauri/Cargo.lock').Path
+          @'
+          import os, tomllib
+          from collections import Counter
+          from pathlib import Path
+          def packages(path):
+              data=tomllib.loads(Path(path).read_text(encoding='utf-8'))
+              return Counter((str(p.get('name')),str(p.get('version')),str(p.get('source','')),str(p.get('checksum',''))) for p in data.get('package',[]))
+          before=packages(os.environ['BEFORE_LOCK']); after=packages(os.environ['AFTER_LOCK'])
+          removed=list((before-after).elements()); added=list((after-before).elements())
+          if {x[:2] for x in removed}!={('crossbeam-epoch','0.9.18'),('anyhow','1.0.102')} or len(removed)!=2:
+              raise SystemExit(f'unexpected removed Cargo.lock entries: {removed}')
+          if {x[:2] for x in added}!={('crossbeam-epoch','0.9.20'),('anyhow','1.0.103')} or len(added)!=2:
+              raise SystemExit(f'unexpected added Cargo.lock entries: {added}')
+          print('[r2] exact two-package Cargo.lock delta -> PASS')
+          '@ | Set-Content "$env:RUNNER_TEMP\compare_lock.py" -Encoding utf8
+          python "$env:RUNNER_TEMP\compare_lock.py"
+
+      - name: Verify exact three-owner diff and release contract
+        shell: pwsh
+        run: |
+          $changed=@(git diff --name-only)
+          $allowed=@(
+            'EngineData/Frontend/RustApp/scripts/build_release.ps1',
+            'EngineData/Frontend/RustApp/scripts/validate_release_package_contract.mjs',
+            'EngineData/Frontend/RustApp/src-tauri/Cargo.lock'
+          )
+          foreach ($path in $changed) { if ($allowed -notcontains $path) { throw "Unexpected R2 product change: $path" } }
+          foreach ($path in $allowed) { if ($changed -notcontains $path) { throw "Expected R2 product change missing: $path" } }
+          $release=Get-Content 'EngineData/Frontend/RustApp/scripts/build_release.ps1' -Raw
+          if ($release -match 'npm exec|\bnpx\s') { throw 'Dynamic npm execution remains in release build.' }
+          if ($release -notmatch 'node_modules\\\.bin\\tauri\.cmd') { throw 'Release build does not own exact local Tauri CLI path.' }
+          Push-Location EngineData/Frontend/RustApp
+          node scripts/validate_release_package_contract.mjs
+          Pop-Location
+          Write-Host '[r2] exact three-owner diff + local-only release CLI contract -> PASS'
+
+      - name: Correctly prove residual source boundaries
+        shell: pwsh
+        run: |
+          $env:WORKER=(Resolve-Path 'EngineData/Backend/LocalWorker/WorkerRuntime/realtime_local_worker.py').Path
+          $env:PYPROJECT=(Resolve-Path 'EngineData/Backend/LocalWorker/WorkerRuntime/pyproject.toml').Path
+          @'
+          import os, re
+          from pathlib import Path
+          worker=Path(os.environ['WORKER']).read_text(encoding='utf-8')
+          pyproject=Path(os.environ['PYPROJECT']).read_text(encoding='utf-8')
+          match=re.search(r'(?ms)^def handle_translate\(.*?\n(?=def |if __name__|$)', worker)
+          if not match:
+              raise SystemExit('handle_translate body not found')
+          body=match.group(0)
+          if 'MAX_TRANSLATION_TEXT_CHARS = 2_000' not in worker:
+              raise SystemExit('translation input bound drifted')
+          bound='runtime_text_too_large(payload.get("text", ""), MAX_TRANSLATION_TEXT_CHARS)'
+          runtime='runtime = get_translation_runtime(source_language, target_language)'
+          if bound not in body or runtime not in body or body.index(bound) >= body.index(runtime):
+              raise SystemExit('translation size gate is not before tokenizer/model runtime inside handle_translate')
+          if 'transformers>=4.44.0,<=4.50.0' not in pyproject:
+              raise SystemExit('GPT-SoVITS Transformers compatibility boundary drifted')
+          print('[r2] Marian input bound precedes tokenizer runtime inside handle_translate -> PASS')
+          '@ | Set-Content "$env:RUNNER_TEMP\prove_worker_boundary.py" -Encoding utf8
+          python "$env:RUNNER_TEMP\prove_worker_boundary.py"
+
+          $xmlHits=git grep -n -E 'quick[_-]xml|quick_xml|plist::|NsReader' -- 'EngineData/Frontend/RustApp/src-tauri/src/**' 2>$null
+          if ($LASTEXITCODE -eq 0 -and $xmlHits) { throw "Unexpected direct XML/plist parser path:`n$xmlHits" }
+          $jitHits=git grep -n -F 'torch.jit.script' -- 'EngineData/**' 2>$null
+          if ($LASTEXITCODE -eq 0 -and $jitHits) { throw "torch.jit.script is reachable in tracked TranslateIT source:`n$jitHits" }
+          Write-Host '[r2] no direct quick-xml/plist or torch.jit.script product path -> PASS'
+
+      - name: Commit R2 bounded fixes
+        shell: pwsh
+        run: |
+          git diff --check
+          git config user.name 'halokaryamedia-source'
+          git config user.email 'halokaryamedia@gmail.com'
+          git add EngineData/Frontend/RustApp/scripts/build_release.ps1 EngineData/Frontend/RustApp/scripts/validate_release_package_contract.mjs EngineData/Frontend/RustApp/src-tauri/Cargo.lock
+          git commit -m 'Contain actionable supply-chain findings'
+          git push origin HEAD:New
