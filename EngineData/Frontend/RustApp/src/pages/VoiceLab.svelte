@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { Check, Circle, Mic, Play, RotateCcw, Square } from "@lucide/svelte";
+  import { Check, Circle, Mic, Play, RotateCcw, SkipForward, Square } from "@lucide/svelte";
   import { onMount } from "svelte";
   import {
     voiceLabApi,
@@ -125,6 +125,23 @@
     }
   }
 
+  function skipLine(): void {
+    if (busy || replaying || isRecording || recordingState.pending_review !== null || selectedLineId === null) return;
+
+    const currentIndex = recordingState.lines.findIndex((line) => line.line_id === selectedLineId);
+    if (currentIndex < 0) return;
+
+    const laterLines = recordingState.lines.slice(currentIndex + 1);
+    const nextLine = laterLines.find((line) => !line.accepted) ?? laterLines[0] ?? null;
+    if (!nextLine) {
+      onNotice("This is the last recording line. Choose another line from the list if you want to continue.");
+      return;
+    }
+
+    selectedLineId = nextLine.line_id;
+    onNotice("Skipped this line. You can come back to it anytime.");
+  }
+
   function stopReplay(): void {
     audio?.pause();
     audio = null;
@@ -183,7 +200,7 @@
         <div>
           <span class="ti-kicker">My Voice</span>
           <h3 class="mb-0 mt-2 text-xl font-semibold tracking-[-0.02em]">Guided recording</h3>
-          <p class="mb-0 mt-2 max-w-[680px] text-sm leading-6 text-[var(--ti-text-muted)]">Use the same microphone and a quiet room. Read naturally rather than performing the lines. You do not need to finish every available line before Create My Voice becomes ready.</p>
+          <p class="mb-0 mt-2 max-w-[680px] text-sm leading-6 text-[var(--ti-text-muted)]">Use the same microphone and a quiet room. Read naturally rather than performing the lines. If a line feels difficult, Skip it and continue. You do not need to finish every available line before Create My Voice becomes ready.</p>
         </div>
       </div>
 
@@ -235,6 +252,9 @@
           {:else}
             <button type="button" class="ti-button" disabled={busy || !authorized} onclick={() => void startRecording()}>
               <Mic size={15} /><span>{currentLine.accepted ? "Record Again" : "Record"}</span>
+            </button>
+            <button type="button" class="ti-button ti-button-secondary" disabled={busy || replaying} onclick={skipLine}>
+              <SkipForward size={15} /><span>Skip</span>
             </button>
             {#if currentLine.accepted}
               <button type="button" class="ti-button ti-button-secondary" disabled={busy || replaying} onclick={() => void replayTake()}>
