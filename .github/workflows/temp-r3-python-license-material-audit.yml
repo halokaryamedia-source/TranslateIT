@@ -1,0 +1,68 @@
+name: Temporary R3 Python License Material Audit
+
+on:
+  push:
+    branches: [New]
+    paths:
+      - .github/workflows/temp-r3-python-license-material-audit.yml
+
+permissions:
+  contents: read
+
+jobs:
+  audit:
+    runs-on: windows-2022
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: New
+          fetch-depth: 1
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12.10'
+
+      - name: Build exact Windows no-dev frozen environment
+        shell: pwsh
+        run: |
+          python -m pip install --disable-pip-version-check uv==0.12.0
+          Push-Location EngineData/Backend/LocalWorker/WorkerRuntime
+          try {
+            uv sync --frozen --no-dev --python 3.12.10
+            if ($LASTEXITCODE -ne 0) { throw 'uv sync failed.' }
+          } finally { Pop-Location }
+
+      - name: Audit every installed dist-info for license/notice material
+        shell: pwsh
+        run: |
+          $env:SITE=(Resolve-Path 'EngineData/Backend/LocalWorker/WorkerRuntime/.venv/Lib/site-packages').Path
+          @'
+          import email, os, re
+          from pathlib import Path
+          site=Path(os.environ['SITE'])
+          missing=[]; present=[]
+          for d in sorted(site.glob('*.dist-info'), key=lambda p:p.name.lower()):
+              meta=d/'METADATA'
+              if not meta.is_file():
+                  continue
+              msg=email.message_from_string(meta.read_text(encoding='utf-8', errors='replace'))
+              name=msg.get('Name','').strip(); version=msg.get('Version','').strip()
+              files=[]
+              for p in d.rglob('*'):
+                  if not p.is_file(): continue
+                  rel=p.relative_to(d).as_posix()
+                  base=p.name.lower()
+                  if '/licenses/' in ('/'+rel.lower()) or re.match(r'^(license|licence|copying|notice|copyright)([._-]|$)', base):
+                      files.append(rel)
+              row=(name,version,files,msg.get('License-Expression','').strip(),msg.get('License','').strip())
+              (present if files else missing).append(row)
+          print(f'[r3][python-license] distributions={len(present)+len(missing)} with_material={len(present)} missing_material={len(missing)}')
+          for name,version,files,expr,decl in missing:
+              print(f'[r3][python-license][missing] {name}=={version} expression={expr!r} declared={decl[:160]!r}')
+          if len(present)+len(missing) != 116:
+              raise SystemExit('unexpected frozen Windows distribution count')
+          if not missing:
+              print('[r3][python-license] all installed wheels carry material')
+          '@ | Set-Content "$env:RUNNER_TEMP\audit_license.py" -Encoding utf8
+          python "$env:RUNNER_TEMP\audit_license.py"
