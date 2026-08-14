@@ -2,6 +2,7 @@ import { createHash } from "node:crypto";
 import { existsSync, readFileSync, readdirSync, statSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
+import { buildThirdPartyNoticeBundle, thirdPartyNoticeOutputPath } from "./generate_third_party_notices.mjs";
 
 const scriptDir = dirname(fileURLToPath(import.meta.url));
 const appRoot = resolve(scriptDir, "..");
@@ -54,6 +55,18 @@ for (const file of [
 }
 
 requireFile(join(pythonRoot, "python.exe"), "LocalWorker/PythonRuntime/python.exe");
+
+const noticeBundlePath = thirdPartyNoticeOutputPath(backendRoot);
+requireFile(noticeBundlePath, "RuntimeAssets/ThirdPartyNotices/THIRD_PARTY_NOTICES.txt");
+if (existsSync(noticeBundlePath)) {
+  try {
+    const expectedNotices = buildThirdPartyNoticeBundle({ backendRoot }).content;
+    const actualNotices = readFileSync(noticeBundlePath, "utf8").replace(/\r\n/g, "\n").replace(/\r/g, "\n").trimEnd() + "\n";
+    if (actualNotices !== expectedNotices) fail("Third-party notice bundle is stale or does not match the staged release payload.");
+  } catch (error) {
+    fail(`Third-party notice bundle cannot be validated: ${error instanceof Error ? error.message : String(error)}`);
+  }
+}
 
 const manifestPath = join(workerRoot, "model_manifest.json");
 if (existsSync(manifestPath)) {
@@ -177,4 +190,4 @@ if (errors.length) {
   process.exit(1);
 }
 
-console.log("[release-payload] Required private Python runtime, release model inventory, pruned GPT-SoVITS VoiceLab payload, pinned FFmpeg LGPL executable/license/source record, and standard VB-CABLE provider package are present for Tauri/NSIS staging. This is controlled payload-input proof only, not whole-release legal, driver-install, installed-runtime, or clean-machine proof.");
+console.log("[release-payload] Required private Python runtime, release model inventory, deterministic third-party notice bundle, pruned GPT-SoVITS VoiceLab payload, pinned FFmpeg LGPL executable/license/source record, and standard VB-CABLE provider package are present for Tauri/NSIS staging. This is controlled payload-input proof only, not whole-release legal, driver-install, installed-runtime, or clean-machine proof.");

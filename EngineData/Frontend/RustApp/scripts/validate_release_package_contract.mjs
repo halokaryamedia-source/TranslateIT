@@ -15,6 +15,7 @@ const modelManifest = JSON.parse(
 const bridgePaths = readFileSync(join(tauriRoot, "src", "commands", "bridge_paths.rs"), "utf8");
 const pathsOwner = readFileSync(join(tauriRoot, "src", "engine", "paths.rs"), "utf8");
 const buildRelease = readFileSync(join(scriptDir, "build_release.ps1"), "utf8");
+const noticeGenerator = readFileSync(join(scriptDir, "generate_third_party_notices.mjs"), "utf8");
 const releasePayloadValidator = readFileSync(join(scriptDir, "validate_release_payload.mjs"), "utf8");
 const providerReadme = readFileSync(resolve(appRoot, "../../Backend/RuntimeAssets/AudioProvider/VBCABLE/README.md"), "utf8");
 const localWorkerReadme = readFileSync(resolve(appRoot, "../../Backend/LocalWorker/README.md"), "utf8");
@@ -37,6 +38,7 @@ const expectedResources = {
   "../../../Backend/LocalWorker/PythonRuntime/": "EngineData/Backend/LocalWorker/PythonRuntime/",
   "../../../Backend/RuntimeAssets/ASR/ModelData/": "EngineData/Backend/RuntimeAssets/ASR/ModelData/",
   "../../../Backend/RuntimeAssets/Translation/ModelData/": "EngineData/Backend/RuntimeAssets/Translation/ModelData/",
+  "../../../Backend/RuntimeAssets/ThirdPartyNotices/THIRD_PARTY_NOTICES.txt": "EngineData/Backend/RuntimeAssets/ThirdPartyNotices/THIRD_PARTY_NOTICES.txt",
   "../../../Backend/RuntimeAssets/Voice/GPTSoVITS/": "EngineData/Backend/RuntimeAssets/Voice/GPTSoVITS/",
   "../../../Backend/RuntimeAssets/AudioProvider/VBCABLE/NOTICE.txt": "EngineData/Backend/RuntimeAssets/AudioProvider/VBCABLE/NOTICE.txt",
   "../../../Backend/RuntimeAssets/AudioProvider/VBCABLE/Package/": "EngineData/Backend/RuntimeAssets/AudioProvider/VBCABLE/Package/",
@@ -72,10 +74,27 @@ if (!String(scripts["validate:source-contracts"] ?? "").includes("preflight:taur
   fail("Normal source validation must include packaging preflight.");
 }
 for (const marker of [
+  "node scripts/generate_third_party_notices.mjs --write",
   "npm run preflight:release-payload",
   "npm exec -- tauri build --config src-tauri/tauri.release.conf.json",
 ]) {
   if (!buildRelease.includes(marker)) fail(`Controlled Windows release build marker is missing: ${marker}`);
+}
+
+for (const marker of [
+  "collectPythonDistributions",
+  "python_distribution_missing_license_material",
+  "frozendict_lgpl_material_missing",
+  "soxr_lgpl_material_missing",
+  "excluded_distance_distribution_present",
+  "buildThirdPartyNoticeBundle",
+  "CMUDICT ATTRIBUTION",
+  "VB-CABLE redistribution rights remain a separate external release gate",
+]) {
+  if (!noticeGenerator.includes(marker)) fail(`Third-party notice generator contract marker is missing: ${marker}`);
+}
+if (noticeGenerator.includes("fetch(") || noticeGenerator.includes("https.get(") || noticeGenerator.includes("Invoke-WebRequest")) {
+  fail("Third-party notice generation must be offline and derive only from staged release inputs/source records.");
 }
 
 for (const marker of [
@@ -195,6 +214,7 @@ for (const marker of [
   "/EngineData/Backend/LocalWorker/PythonRuntime/**",
   "/EngineData/Backend/RuntimeAssets/ASR/ModelData/**",
   "/EngineData/Backend/RuntimeAssets/Translation/ModelData/**",
+  "/EngineData/Backend/RuntimeAssets/ThirdPartyNotices/THIRD_PARTY_NOTICES.txt",
   "/EngineData/Backend/RuntimeAssets/Voice/GPTSoVITS/**",
   "/EngineData/Backend/RuntimeAssets/AudioProvider/VBCABLE/Package/**",
 ]) {

@@ -16,6 +16,8 @@ RuntimeAssets/
 │  └─ ModelData/
 │     ├─ marianmt-id-en/                   # required Meeting/Text ID -> EN
 │     └─ marianmt-en-id/                   # required Text/incoming EN -> ID
+├─ ThirdPartyNotices/
+│  └─ THIRD_PARTY_NOTICES.txt              # generated from the exact staged payload before release preflight
 └─ Voice/
    └─ GPTSoVITS/
       └─ Source/                           # pinned V2ProPlus source + pretrained assets
@@ -42,6 +44,14 @@ The controlled release inventory must preserve both **exact provenance** and the
 | Standard VB-CABLE | official VB-Audio standard VB-CABLE package | Donationware / conditional distribution | Concrete release redistribution rights are **not** proven by source. The existing VB-CABLE owner remains the authority for the distribution gate. |
 
 `validate_release_payload.mjs` proving that files exist is **not license clearance**. A release operator must not promote a staged payload to a distributable release while an applicable license/provenance gate remains unresolved. The private Python-runtime dependency gate is documented at `LocalWorker/README.md`; the voice-asset detail is documented at `Voice/README.md`.
+
+## Deterministic Third-Party Notice Bundle
+
+`ThirdPartyNotices/THIRD_PARTY_NOTICES.txt` is a derived release artifact, not a manually maintained legal inventory. `scripts/generate_third_party_notices.mjs` builds it offline from the exact staged payload before release preflight: CPython's bundled license, every installed Python distribution's embedded license/notice material and metadata/source references, the canonical model manifest, GPT-SoVITS/FFmpeg materials, CMUdict/NLTK attribution records, and the existing VB-CABLE notice.
+
+The generator fails closed when an installed Python distribution has no embedded license/notice material, when the reviewed `g2p-en`/`frozendict`/`soxr`/`fsspec` versions drift, when the excluded Distance package reappears, or when the two LGPL Python dependencies no longer carry LGPL material. Release preflight rebuilds the expected content in memory and requires an exact match, so a stale notice file cannot be promoted.
+
+The bundle is notice/source-material evidence only. It does not make a legal determination about the combined application, does not replace package-specific source/conveyance obligations, and does not establish the external VB-CABLE redistribution rights required for a concrete release.
 
 ## Rules
 

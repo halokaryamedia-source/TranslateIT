@@ -81,6 +81,7 @@ target/
 /EngineData/Backend/LocalWorker/PythonRuntime/**
 /EngineData/Backend/RuntimeAssets/ASR/ModelData/**
 /EngineData/Backend/RuntimeAssets/Translation/ModelData/**
+/EngineData/Backend/RuntimeAssets/ThirdPartyNotices/THIRD_PARTY_NOTICES.txt
 /EngineData/Backend/RuntimeAssets/Voice/GPTSoVITS/**
 /EngineData/Backend/RuntimeAssets/AudioProvider/VBCABLE/Package/**
 /EngineData/RuntimeAssets/**
