@@ -1,5 +1,7 @@
-VB-CABLE is provided by VB-Audio Software. Official origin: vb-cable.com.
+VB-CABLE is provided by VB-Audio Software. Official origin: https://vb-cable.com/
 
-VB-CABLE is donationware. All participation is welcome. TranslateIT does not claim ownership of the VB-CABLE driver or brand.
+VB-CABLE is donationware. All participation is welcome. End users can donate/license the standard Windows VB-CABLE directly from VB-Audio: https://shop.vb-audio.com/en/win-apps/11-vb-cable.html
+
+TranslateIT does not claim ownership of the VB-CABLE driver or brand. This package is bundled only under the general end-user donationware distribution profile described by VB-Audio. Managed professional/company/institution deployment where users cannot license VB-CABLE themselves requires separate applicable volume/distributor licensing evidence.
 
 This bundled provider is used only to provide the virtual playback/recording pair required for TranslateIT Meeting audio routing.

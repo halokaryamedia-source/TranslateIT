@@ -235,12 +235,24 @@ for (const marker of [
   "A+B or C+D",
   "Voicemeeter",
   "custom TranslateIT audio driver",
-  "particular release has the required redistribution/license rights",
+  "general end-user distribution only",
+  "managed professional/company/institution deployment",
+  "VBCABLE_Driver_Pack45.zip",
+  "b950e39f01af1d04ea623c8f6d8eb9b6ea5c477c637295fabf20631c85116bfb",
+  "734c35dfa6d98f48782a451633ceb471166ec70d60482fd89a1123d0ee3c4f41",
+  "01ffc86b623ff3c75a883aa900c0215a89482988e1c8e55988fc0a9fb513dbed",
 ]) {
   if (!providerReadme.includes(marker)) fail(`VB-CABLE release policy marker is missing: ${marker}`);
 }
 const normalizedNotice = providerNotice.toLowerCase();
-for (const marker of ["vb-audio", "vb-cable", "donationware"]) {
+for (const marker of [
+  "vb-audio",
+  "vb-cable",
+  "donationware",
+  "https://vb-cable.com/",
+  "https://shop.vb-audio.com/en/win-apps/11-vb-cable.html",
+  "managed professional/company/institution",
+]) {
   if (!normalizedNotice.includes(marker)) fail(`VB-CABLE user notice marker is missing: ${marker}`);
 }
 
