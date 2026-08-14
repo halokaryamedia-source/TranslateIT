@@ -81,7 +81,7 @@ The first Voice Actor representation remains native trained GPT/SoVITS weights p
 
 The active `New` source implements VoiceLab creation, canonical-worker trained-actor inference, and Meeting atomic MyVoice authority through A6. Guided recording, build/evaluation, explicit `MyVoice` approval/promotion, actor-package revalidation, cached GPT-SoVITS V2ProPlus runtime reuse, bounded English `voice_actor_synthesize`, generation-bound Start proof, and Live actor-token enforcement are source-closed.
 
-Meeting is now migrated to MyVoice inside the existing atomic Start transaction. Hosted source proof still does not establish target speaker fidelity, CUDA/VRAM practicality, real inference latency, packaged asset placement, or physical meeting-audio delivery.
+Meeting is now migrated to MyVoice inside the existing atomic Start transaction. Hosted source proof still does not establish target speaker fidelity, CUDA/VRAM practicality, real inference latency, staged/installed asset execution, or physical meeting-audio delivery.
 
 ## Runtime Architecture
 
@@ -223,7 +223,9 @@ A rebuild must not remove or replace the currently approved actor until the new 
 
 Start establishes one session/authority. Navigation does not stop/recreate it. Stop revokes output authority before resource cleanup, stops both audio lanes, cancels/joins Meeting work, clears transient conversation/audio state, and ends the session. Safe application close uses the same Stop owner and fails closed when session state cannot be verified. Windows suspend/resume window messages only enqueue a bounded nonblocking cleanup signal; a Rust lifecycle worker then converges through the same authority-first Meeting Stop owner.
 
-Required outbound activation is transactional before `Live`: after the application Meeting generation owns `Starting` authority, the required microphone capture opens, A6 performs generation-bound ASR/ID->EN/MyVoice functional proof and binds the approved actor identity, the exact prepared virtual output endpoint must build/start a bounded silent CPAL stream and produce a native callback, and the serialized outbound consumer must be created. A final readiness recheck must still pass before the same generation may commit `Live`. Optional incoming Meeting Sound remains independent and starts after required outbound is Live. The silent callback probe proves native endpoint execution only; actual VB-Cable/meeting-app reception remains target-Windows evidence.
+Required outbound activation is transactional before `Live`: after the application Meeting generation owns `Starting` authority, the required microphone capture opens, A6 performs generation-bound ASR/ID->EN/MyVoice functional proof and binds the approved actor identity, the exact prepared virtual output endpoint must build/start a bounded silent CPAL stream and produce a native callback, and the serialized outbound consumer must be created. A final readiness recheck must still pass before the same generation may commit `Live`. Optional incoming Meeting Sound remains independent and starts after required outbound is Live. The silent callback probe proves native endpoint execution only; actual virtual-cable/meeting-app reception remains target-Windows evidence.
+
+The current Meeting Microphone route consumes an already-installed matched virtual-audio pair. Provider installation/distribution is not owned by the route source. The repository has not approved bundling VB-Cable, Voicemeeter, another third-party driver, or a custom TranslateIT driver; release distribution for that provider is a separate product/licensing decision.
 
 VoiceLab extends this same Start authority without another lifecycle. Live synthesis uses the Start-proven MyVoice actor identity; actor disappearance/change/load/synthesis failure is fail-closed and requires a later Start rather than a silent fallback voice.
 
@@ -275,9 +277,9 @@ Required outbound AI Start readiness is generation-bound functional truth rather
 
 ## Release Boundary
 
-Initial controlled release keeps the local sidecar Setup direction and does not use a SHA-256/checksum/revision identity framework, artifact registry, downloader, or package manager.
+Initial controlled release keeps one local Windows application/runtime architecture and does not add a SHA-256 identity framework, artifact registry, downloader, package manager, second installer, or first-use model download flow.
 
-Installed Python execution is selected as:
+Installed Python execution remains:
 
 ```text
 <runtime root>/EngineData/Backend/LocalWorker/
@@ -286,15 +288,29 @@ Installed Python execution is selected as:
    └─ python.exe
 ```
 
-Packaged source resolves only `PythonRuntime/python.exe`. Repository env/`.venv`/system-Python discovery is development-only. Persistent worker and Meeting Microphone provider share the same interpreter resolver and WorkerRuntime root. Models remain in `RuntimeAssets`.
+Packaged source resolves only `PythonRuntime/python.exe`. Repository env/`.venv`/system-Python discovery is development-only. Models remain under `EngineData/Backend/RuntimeAssets`.
 
-The one-private-runtime architecture remains the preferred VoiceLab integration target. Full GPT-SoVITS upstream requirements are not accepted as product dependencies by default; only dependencies earned by the approved English training/inference path may enter the canonical lock. WebUI, Gradio, FastAPI server, FunASR, ModelScope, UVR/audio-separation features, and unrelated language tooling must not be bundled solely because upstream ships them.
+P3 now source-closes the deterministic runtime/model packaging contract:
 
-Actual packaged PythonRuntime bytes, GPT-SoVITS source/model asset placement, training asset delivery, vendored-package placement, Meeting provider imports, installer placement, and clean-machine behavior remain release proof. Current hosted P2.3 evidence predates VoiceLab and proves only the existing worker's ASR/translation/pre-VoiceLab TTS path on CPU fallback.
+```text
+controlled release payload staging
+-> scripts/validate_release_payload.mjs
+-> scripts/build_release.ps1
+-> Tauri build with src-tauri/tauri.release.conf.json
+-> NSIS bundle input
+```
+
+`tauri.release.conf.json` maps only the production WorkerRuntime files, private `PythonRuntime`, required ASR/translation model roots, and GPT-SoVITS VoiceLab root into the same `EngineData/Backend` installed layout consumed by `ProjectPaths`. It does not bundle the whole repository or whole WorkerRuntime.
+
+The private/model payload bytes are controlled release inputs and remain outside Git. Release payload validation fails closed when required Python/model/GPT-SoVITS/FFmpeg/NLTK inputs are missing, when the GPT-SoVITS revision marker does not match the approved pin, or when known unapproved GPT-SoVITS WebUI/server/UVR/ASR baggage is staged.
+
+The one-private-runtime architecture remains the approved VoiceLab integration target. Full GPT-SoVITS upstream requirements are not accepted as product dependencies by default; only dependencies earned by the approved English training/inference path may enter the canonical lock. WebUI, Gradio, FastAPI server, FunASR, ModelScope, UVR/audio-separation features, and unrelated language tooling must not be bundled solely because upstream ships them.
+
+P3 source proof establishes resource-map ownership and fail-closed release-input contracts only. Actual private Python/model bytes, successful NSIS generation, installed runtime execution, clean-machine behavior, and Meeting audio provider provisioning remain release/target proof or unresolved distribution policy.
 
 ## Deferred Proof Boundary
 
-The user continues to postpone **user-local-PC**, real Windows audio/device, installer, and clean-machine testing until VoiceLab source work is complete. This changes where/when proof is executed, not the acceptance standard.
+The user currently postpones **user-local-PC**, real Windows audio/device, installer, and clean-machine testing. This changes where/when proof is executed, not the acceptance standard.
 
 Remote GitHub-hosted Windows proof already established the pre-VoiceLab executable/frontend boundaries:
 
@@ -316,16 +332,16 @@ fresh real Rust settings/new-state -> native First Setup projection with zero Py
 real locked Python worker/model execution -> ASR + ID<->EN + pre-VoiceLab English TTS on CPU fallback
 ```
 
-Separate hosted Windows proofs now establish the VoiceLab A4 build/evaluation source boundary and A5 canonical-worker trained-actor inference source boundary. They still do **not** prove real target `MyVoice` quality, target GPT-SoVITS asset placement, CUDA/VRAM practicality, actual custom-TTS latency, physical microphone behavior, Meeting virtual-audio routing, real Meeting-app reception, sleep/wake behavior during a live custom-voice session, installer placement, or clean-machine execution.
+Hosted Windows proofs now also establish VoiceLab A4 build/evaluation source closure, A5 canonical-worker trained-actor inference, A6 generation-bound MyVoice Meeting integration, the final VoiceLab source closure, and P3 deterministic runtime/model/private-Python packaging source ownership. They still do **not** prove real target MyVoice quality, staged GPT-SoVITS/private-Python payload execution, CUDA/VRAM practicality, actual custom-TTS latency, physical microphone behavior, provider provisioning, Meeting virtual-audio delivery, real Meeting-app reception, sleep/wake behavior during a live custom-voice session, installed execution, or clean-machine behavior.
 
-Before release, remaining proof/materialization now includes:
+Before release, remaining proof/materialization or product decisions include:
 
 ```text
-A6 Meeting atomic custom-TTS readiness/integration
-final source closure audit
+Meeting audio provider distribution/provisioning policy
+actual controlled PythonRuntime + ASR/translation/GPT-SoVITS payload staging
+successful NSIS installer generation with those controlled inputs
 real trained Voice Actor quality and rebuild acceptance on target Windows
-post-setup runtime-state projection together with deferred device/model acceptance
-private PythonRuntime + GPT-SoVITS asset packaging and GPU-capable CUDA execution proof
+installed private PythonRuntime + model execution and GPU-capable CUDA proof
 Windows Meeting audio/device validation
 Start / Stop / Safe Close / power lifecycle runtime acceptance
 trained Voice Actor latency / stability / long-session measurement
