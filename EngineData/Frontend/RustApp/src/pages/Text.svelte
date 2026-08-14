@@ -4,6 +4,7 @@
   import { runtimeProductFacade } from "../app/bridge/runtimeProductFacade";
   import { languageName } from "../app/shared/state";
   import type { RuntimeSettings } from "../app/shared/types";
+  import StatusBadge from "../components/ui/StatusBadge.svelte";
 
   const MAX_MANUAL_TRANSLATION_CHARS = 2000;
   type TextResultState = "idle" | "translating" | "success" | "stale" | "error";
@@ -187,7 +188,10 @@
       <p class="ti-page-copy">Translate between Indonesian and English, then edit or copy the result.</p>
     </div>
     {#if textStatus !== "Ready"}
-      <span class="ti-pill">{textStatus}</span>
+      <StatusBadge
+        label={textStatus}
+        tone={textStatus === "Unavailable" ? "danger" : textStatus === "Setup Needed" ? "warning" : "neutral"}
+      />
     {/if}
   </header>
 

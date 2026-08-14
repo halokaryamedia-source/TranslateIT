@@ -60,7 +60,7 @@
   const microphoneUnavailable = $derived(readiness.microphoneStatus === "Unavailable");
   const microphoneTone = $derived(statusTone(readiness.microphoneReady, checking, microphoneUnavailable));
   const routeTone = $derived(statusTone(readiness.meetingRouteReady, checking, runtimeUnavailable));
-  const meetingTone = $derived(statusTone(meeting.live || readiness.meetingReady, checking || meeting.busy, runtimeUnavailable));
+  const meetingTone = $derived(runtimeUnavailable ? "danger" : meeting.busy || checking ? "neutral" : meeting.live || readiness.meetingReady ? "good" : "warning");
 
   const primaryLabel = $derived(
     actionBusy
@@ -150,12 +150,6 @@
             <strong class="mt-1 block text-[15px] font-semibold">English voice</strong>
           </div>
         </div>
-        {#if readiness.meetingReady}
-          <div class="flex shrink-0 items-center gap-2 text-xs font-semibold text-[var(--ti-success)]">
-            <span class="size-1.5 rounded-full bg-[var(--ti-success)]" aria-hidden="true"></span>
-            Ready
-          </div>
-        {/if}
       </div>
 
       <div class="grid grid-cols-3 divide-x divide-[var(--ti-border)]">

@@ -49,17 +49,46 @@
   }
 
   function productMessage(result: GuidedRecordingActionResult): string {
-    const message = result.message.trim();
-    if (!message.includes("voice_lab:")) return message;
-
     switch (result.state) {
-      case "take_unusable":
-        return "This recording is unusable. Record the line again.";
+      case "recording":
+        return "Recording started. Read the line naturally, then press Stop.";
+      case "needs_review":
+        return "Recording stopped. Replay it, then accept it or try the line again.";
+      case "accepted":
+        return "Recording accepted.";
+      case "ready":
+        return "Ready for another recording.";
+      case "authorization_required":
+        return "Confirm that this is your voice, or that you have permission to use it.";
+      case "build_active":
+        return "Finish or stop My Voice creation before recording more lines.";
+      case "review_pending":
+        return "Review the current recording before starting another line.";
+      case "microphone_in_use":
+      case "owner_conflict":
+        return "Another TranslateIT action is using the microphone. Finish it, then try again.";
+      case "runtime_unavailable":
+        return "VoiceLab can't check the microphone right now. Try again or check Diagnostics.";
       case "capture_unavailable":
       case "capture_failed":
-        return "VoiceLab couldn't use the microphone. Stop Meeting translation or Mic Test, then try again.";
+        return "VoiceLab couldn't use the microphone. Check the microphone and try again.";
+      case "stop_failed":
+      case "cleanup_unverified":
+        return "VoiceLab couldn't finish stopping the microphone safely. Try again or check Diagnostics.";
+      case "take_unusable":
+        return "This recording isn't usable yet. Record the line again.";
+      case "draft_write_failed":
+      case "draft_state_unavailable":
+      case "save_failed":
+        return "VoiceLab couldn't save this recording. Check Diagnostics and try again.";
+      case "invalid_line":
+      case "line_mismatch":
+      case "no_review":
+        return "This recording action is no longer current. Choose the line again and try again.";
+      case "frontend_bridge_error":
+        return "VoiceLab is unavailable right now. Try again or check Diagnostics.";
       default:
-        return "VoiceLab couldn't complete this recording action. Check Diagnostics and try again.";
+        return result.ok ? "VoiceLab action completed." : "VoiceLab couldn't complete this recording action. Check Diagnostics and try again.";
     }
   }
 
