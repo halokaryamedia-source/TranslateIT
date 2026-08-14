@@ -48,5 +48,6 @@ jobs:
           if ($exitCode -eq 0) { throw 'Release payload preflight unexpectedly passed without controlled Python/model payload.' }
           if ($text -notmatch 'PythonRuntime/python.exe') { throw 'Release payload failure did not identify the missing private Python runtime.' }
           if ($text -notmatch 'Release payload is incomplete or contains unapproved baggage') { throw 'Release payload failure was not the canonical fail-closed gate.' }
+          exit 0
       - name: Read-only closure guard
         run: git diff --exit-code
