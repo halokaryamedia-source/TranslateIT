@@ -365,3 +365,21 @@ The required product outcome is speaker fidelity with practical daily Meeting la
 
 **Proof status**  
 VoiceLab source integration through A6 is now closed on `New`: one frozen WorkerRuntime graph owns GPT-SoVITS V2ProPlus build/inference, one approved `MyVoice` actor is promoted atomically, and Meeting Start/Live bind required outbound synthesis to the generation-proven actor identity without Piper/SAPI fallback. Final hosted Windows source proof is run `31773954105` at exact checkout SHA `d682f44d02ddd74a731b55bc1d0da6f738bf27f6`, with 28 Python tests, frontend validators/typecheck/build, `cargo check --locked`, 42 Rust tests, and read-only closure guard passing. Real model training from the user's recordings, speaker similarity/listening acceptance, target CUDA/VRAM behavior, real inference latency, packaged asset placement, and physical meeting-audio delivery remain target-Windows proof and must not be inferred from hosted source closure.
+
+
+## D-021 — Initial Meeting Audio Provider Uses Standard VB-CABLE
+
+**Decision**
+For the initial controlled Windows release, the one bundled Meeting virtual-audio provider direction is the **standard VB-Audio VB-CABLE** package. This is a release/distribution dependency only; the existing Rust/CPAL matched-pair owner remains responsible for runtime detection, generation binding, and translated-audio delivery.
+
+Do not expand the initial provider surface to VB-CABLE A+B/C+D, Voicemeeter, another provider selector, or a custom TranslateIT driver. The provider keeps its VB-Audio identity and donationware notice; TranslateIT must not present the Windows driver as its own implementation.
+
+A concrete release may stage the official provider package only after the applicable redistribution/licensing conditions for that release are satisfied. Source files and source proof do not self-certify those rights. Professional/organizational distribution may require the appropriate vendor licensing rather than assuming end users can satisfy donationware terms individually.
+
+Windows driver elevation/security consent and restart behavior are legitimate installation boundaries. Do not add autoclick, unsigned-driver bypass, certificate workarounds, or another driver layer merely to hide those operating-system requirements. Actual installer invocation, rollback, restart recovery, endpoint appearance, matched-pair behavior, and meeting-application reception require installed/target-Windows evidence.
+
+**Reason**
+The standard VB-CABLE pair matches the product's existing one-pair Meeting route without adding a mixer, provider registry, or custom driver. Keeping provider distribution separate from runtime audio ownership preserves the current architecture while giving the one-installer release a bounded provider payload contract.
+
+**Proof status**
+P4 source policy and packaging ownership are accepted from hosted Windows run `31780383064` at exact checkout SHA `b549ce109f3dc08ac0b8bbb7b5b99b52d64da804`: provider package/resource contract PASS, normal source validation PASS, frontend build PASS, `cargo check --locked` PASS, missing controlled provider payload correctly fail-closed, and read-only closure guard PASS. This does not prove redistribution rights for a concrete release, driver installation, restart handling, endpoint behavior, or physical Meeting audio delivery.

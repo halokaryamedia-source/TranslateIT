@@ -6,8 +6,8 @@ This map points to current semantic owners. File existence or hosted source proo
 |---|---|---|
 | Product scope + familiar UI policy | `docs/foundation/01-product-overview.md`, `02-product-requirements.md` including PR-110..119 and PR-166 | ACTIVE / VOICELAB REQUIRED |
 | Stable context | `CONTEXT.md` | ACTIVE |
-| Continuation | `docs/knowledge/next-action.md` | P3 RUNTIME PACKAGING SOURCE CLOSED / AUDIO PROVIDER DELIVERY DECISION REQUIRED |
-| Durable decisions | `docs/knowledge/decision-log.md` | ACTIVE / D-020 VOICELAB |
+| Continuation | `docs/knowledge/next-action.md` | P4 PROVIDER POLICY SOURCE-CLOSED / LOCAL VALIDATION USER-DEFERRED |
+| Durable decisions | `docs/knowledge/decision-log.md` | ACTIVE / D-021 STANDARD VB-CABLE RELEASE PROVIDER |
 | Frontend entry | `EngineData/Frontend/RustApp/src/main.ts` | ACTIVE / ONE SVELTE MOUNT |
 | Frontend application owner | `src/App.svelte` | ACTIVE / MEETING + TEXT + VOICELAB + SETTINGS |
 | First Setup UI | `src/pages/FirstSetup.svelte` | ACTIVE / FIVE PERSISTED CHECKPOINTS |
@@ -33,7 +33,7 @@ This map points to current semantic owners. File existence or hosted source proo
 | Voice Actor temporary data | `UserData/CacheData/VoiceLab` through `VoiceLabStoragePaths` | ACTIVE / DRAFT + TAKES + BUILD + CANDIDATE + EVALUATION |
 | Approved persistent Voice Actor | `UserData/SavedProject/VoiceLab/MyVoice` | ACTIVE / ONE APPROVED ACTOR AUTHORITY |
 | Meeting authority | `commands/meeting_session.rs`, `commands/runtime.rs`, `engine/runtime_state.rs` | ACTIVE / ATOMIC START / VOICELAB BUILD EXCLUSION |
-| Meeting Microphone route | `commands/virtual_mic_route.rs`, `engine/audio/meeting_output.rs` | ACTIVE / USES ALREADY-INSTALLED MATCHED VIRTUAL PAIR / PROVIDER DELIVERY UNRESOLVED |
+| Meeting Microphone route | `commands/virtual_mic_route.rs`, `engine/audio/meeting_output.rs` | ACTIVE / STANDARD VB-CABLE INITIAL RELEASE PROVIDER / RUST-CPAL RUNTIME OWNER |
 | Local worker/scheduler | `helper_bridge.rs`, `helper_bridge_runtime.rs`, `realtime_local_worker.py` | ACTIVE / ONE DAILY AI OWNER |
 | Trained Voice Actor worker commands | `realtime_local_worker.py::handle_voice_actor_preflight`, `handle_voice_actor_synthesize` | CLOSED A6 SOURCE-SIDE / MEETING-AUTHORITATIVE |
 | Trained Voice Actor runtime cache | `realtime_local_worker.py::get_voice_actor_runtime` + `voice_lab_gpt_sovits.py::load_voice_actor_runtime` | CLOSED A5 SOURCE-SIDE / INVALIDATES WHEN APPROVED PACKAGE CHANGES |
@@ -42,8 +42,9 @@ This map points to current semantic owners. File existence or hosted source proo
 | Worker Python dependency graph | `WorkerRuntime/pyproject.toml` + `uv.lock` | ACTIVE A4-A6 / ONE FROZEN RUNTIME GRAPH |
 | Voice runtime assets | `EngineData/Backend/RuntimeAssets/Voice/` | GPT-SOVITS OWNERSHIP DEFINED / TARGET PACKAGED BYTES UNPROVEN |
 | Release model inventory | `WorkerRuntime/model_manifest.json` | ACTIVE / PINNED GPT-SOVITS VOICELAB RELEASE ASSET / NO PIPER AUTHORITY |
-| Release resource map | `src-tauri/tauri.release.conf.json` | CLOSED P3 SOURCE-SIDE / DETERMINISTIC `EngineData/Backend` LAYOUT |
-| Release payload gate | `scripts/validate_release_payload.mjs` | CLOSED P3 SOURCE-SIDE / FAIL-CLOSED BEFORE INSTALLER BUILD |
+| Release resource map | `src-tauri/tauri.release.conf.json` | CLOSED P4 SOURCE-SIDE / RUNTIME+MODEL+STANDARD VBCABLE PAYLOAD MAP |
+| Release payload gate | `scripts/validate_release_payload.mjs` | CLOSED P4 SOURCE-SIDE / FAIL-CLOSED FOR RUNTIME+MODEL+STANDARD VBCABLE INPUTS |
+| Meeting audio provider release payload | `RuntimeAssets/AudioProvider/VBCABLE`, `src-tauri/tauri.release.conf.json`, release payload validators | STANDARD VB-CABLE POLICY SOURCE-CLOSED / BYTES+LICENSE+INSTALL UNPROVEN |
 | Controlled Windows release entry | `scripts/build_release.ps1` | CLOSED P3 SOURCE-SIDE / ONE TAURI-NSIS BUILD ENTRY |
 | Private Python packaged resolver | `commands/bridge_paths.rs`, `engine/paths.rs` | CLOSED P3 SOURCE-SIDE / NO PACKAGED SYSTEM-PYTHON FALLBACK |
 | Persisted settings | `engine/settings.rs`, `engine/runtime_settings.rs`, `commands/settings.rs` | ACTIVE / SCHEMA V6 / NO VOICE PROFILE SELECTOR |

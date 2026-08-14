@@ -300,13 +300,13 @@ controlled release payload staging
 -> NSIS bundle input
 ```
 
-`tauri.release.conf.json` maps only the production WorkerRuntime files, private `PythonRuntime`, required ASR/translation model roots, and GPT-SoVITS VoiceLab root into the same `EngineData/Backend` installed layout consumed by `ProjectPaths`. It does not bundle the whole repository or whole WorkerRuntime.
+`tauri.release.conf.json` maps only the production WorkerRuntime files, private `PythonRuntime`, required ASR/translation model roots, GPT-SoVITS VoiceLab root, and the controlled standard VB-Audio VB-CABLE provider payload into the same `EngineData/Backend` installed layout consumed by `ProjectPaths`. It does not bundle the whole repository or whole WorkerRuntime.
 
-The private/model payload bytes are controlled release inputs and remain outside Git. Release payload validation fails closed when required Python/model/GPT-SoVITS/FFmpeg/NLTK inputs are missing, when the GPT-SoVITS revision marker does not match the approved pin, or when known unapproved GPT-SoVITS WebUI/server/UVR/ASR baggage is staged.
+The private/model/provider payload bytes are controlled release inputs and remain outside Git. Release payload validation fails closed when required Python/model/GPT-SoVITS/FFmpeg/NLTK/standard-VB-CABLE inputs are missing, when the GPT-SoVITS revision marker does not match the approved pin, when known unapproved GPT-SoVITS WebUI/server/UVR/ASR baggage is staged, or when known alternate VB-CABLE/Voicemeeter provider payloads are introduced.
 
 The one-private-runtime architecture remains the approved VoiceLab integration target. Full GPT-SoVITS upstream requirements are not accepted as product dependencies by default; only dependencies earned by the approved English training/inference path may enter the canonical lock. WebUI, Gradio, FastAPI server, FunASR, ModelScope, UVR/audio-separation features, and unrelated language tooling must not be bundled solely because upstream ships them.
 
-P3 source proof establishes resource-map ownership and fail-closed release-input contracts only. Actual private Python/model bytes, successful NSIS generation, installed runtime execution, clean-machine behavior, and Meeting audio provider provisioning remain release/target proof or unresolved distribution policy.
+P3/P4 source proof establishes resource-map ownership, the standard VB-CABLE initial provider policy, and fail-closed release-input contracts only. Actual private Python/model/provider bytes, applicable redistribution/licensing for a concrete release, successful NSIS generation, driver installation/restart behavior, installed runtime execution, endpoint behavior, and clean-machine operation remain release/target proof.
 
 ## Deferred Proof Boundary
 
@@ -332,17 +332,18 @@ fresh real Rust settings/new-state -> native First Setup projection with zero Py
 real locked Python worker/model execution -> ASR + ID<->EN + pre-VoiceLab English TTS on CPU fallback
 ```
 
-Hosted Windows proofs now also establish VoiceLab A4 build/evaluation source closure, A5 canonical-worker trained-actor inference, A6 generation-bound MyVoice Meeting integration, the final VoiceLab source closure, and P3 deterministic runtime/model/private-Python packaging source ownership. They still do **not** prove real target MyVoice quality, staged GPT-SoVITS/private-Python payload execution, CUDA/VRAM practicality, actual custom-TTS latency, physical microphone behavior, provider provisioning, Meeting virtual-audio delivery, real Meeting-app reception, sleep/wake behavior during a live custom-voice session, installed execution, or clean-machine behavior.
+Hosted Windows proofs now also establish VoiceLab A4 build/evaluation source closure, A5 canonical-worker trained-actor inference, A6 generation-bound MyVoice Meeting integration, the final VoiceLab source closure, P3 deterministic runtime/model/private-Python packaging ownership, and P4 standard VB-CABLE provider staging policy. They still do **not** prove real target MyVoice quality, staged GPT-SoVITS/private-Python/provider payload execution, applicable provider licensing for a concrete release, CUDA/VRAM practicality, actual custom-TTS latency, physical microphone behavior, driver installation/restart, Meeting virtual-audio delivery, real Meeting-app reception, sleep/wake behavior during a live custom-voice session, installed execution, or clean-machine behavior.
 
-Before release, remaining proof/materialization or product decisions include:
+Before release, remaining proof/materialization includes:
 
 ```text
-Meeting audio provider distribution/provisioning policy
-actual controlled PythonRuntime + ASR/translation/GPT-SoVITS payload staging
+applicable standard VB-CABLE redistribution/licensing for the concrete release
+actual controlled PythonRuntime + ASR/translation/GPT-SoVITS + provider payload staging
 successful NSIS installer generation with those controlled inputs
+VB-CABLE driver install / elevation / restart / endpoint validation
 real trained Voice Actor quality and rebuild acceptance on target Windows
 installed private PythonRuntime + model execution and GPU-capable CUDA proof
-Windows Meeting audio/device validation
+Windows Meeting audio/device + meeting-application reception
 Start / Stop / Safe Close / power lifecycle runtime acceptance
 trained Voice Actor latency / stability / long-session measurement
 installer / installed-runtime proof
