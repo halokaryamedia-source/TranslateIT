@@ -73,8 +73,7 @@ jobs:
           uv pip install --python $proofPython --no-deps g2p-en==2.1.0
           uv pip install --python $proofPython 'numpy<2' 'nltk>=3.9,<4' 'inflect>=7,<8'
           $env:NLTK_DATA = Join-Path $env:RUNNER_TEMP 'translateit-nltk-data'
-          & $proofPython -c "import nltk; [nltk.download(name, download_dir=r'$env:NLTK_DATA', quiet=True) for name in ('averaged_perceptron_tagger','averaged_perceptron_tagger_eng','cmudict')]"
-          & $proofPython -c "import importlib.util, pathlib, g2p_en; root=pathlib.Path(g2p_en.__file__).parent; refs=[str(p) for p in root.rglob('*.py') if 'distance' in p.read_text(encoding='utf-8', errors='ignore').lower()]; assert not refs, refs; assert importlib.util.find_spec('distance') is None; from g2p_en import G2p; g=G2p(); samples=['Good morning, everyone.', 'I refuse to collect the refuse around here.', \"I'm an activationist.\"]; outputs=[g(sample) for sample in samples]; assert all(isinstance(output, list) and len(output) > 3 for output in outputs); assert all('<unk>' not in output for output in outputs); print('[r1.1-g2p] g2p-en 2.1.0 source has no Distance reference and English G2P smoke -> PASS')"
+          & $proofPython .github/scripts/temp-r1-1-g2p-smoke.py
 
       - name: VoiceLab provider contract regression
         working-directory: EngineData/Backend/LocalWorker/WorkerRuntime
