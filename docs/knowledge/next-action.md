@@ -2,7 +2,7 @@
 
 ## Current Mode
 
-**Developing / Frontend P4 First Setup Polish CLOSED — P5 FRONTEND SOURCE CLOSURE AUDIT NEXT**
+**Maintenance / Frontend P5 Source Closure CLOSED — NO FURTHER GROUNDED FRONTEND SOURCE CHANGE**
 
 VoiceLab A1 through A6, the pre-local VoiceLab quality audit, the final 128-line guided-script curation, the explicit Guided Recording Skip action, P3 runtime/model packaging source closure, P4 Meeting audio provider distribution policy, and the bounded P5 Rust source-hygiene cleanup are source-closed. Target/local Windows validation remains explicitly deferred by the user.
 
@@ -220,6 +220,33 @@ source commit -> df8c54b588bfb3d27dca299660547e4cd2bc9ebb
 
 The temporary P4 patch/proof files were removed after the successful proof.
 
+## Frontend P5 Source Closure Audit
+
+The final bounded frontend source-closure audit is complete. It re-checked the current App shell, Sidebar, Meeting and live activity, Text, VoiceLab recording/build surfaces, Settings, First Setup, shared status components, semantic tokens, and the direct product-facing runtime contracts. The audit did not establish a need for a new design system, component framework, state owner, or broad visual rewrite.
+
+Three concrete residues were found and corrected at their existing frontend owners:
+
+1. `VoiceLab.svelte` no longer passes arbitrary Guided Recording `result.message` values directly into normal UI. Recording action states are projected to bounded product-facing messages, preventing backend storage/cleanup wording and the stale `Voice Actor dataset` success text from leaking into the normal experience.
+2. `Text.svelte` now uses the shared semantic `StatusBadge` for non-ready Text states. `Checking` remains neutral, `Setup Needed` is warning, and `Unavailable` is danger instead of all three appearing as the same neutral metadata pill.
+3. `Meeting.svelte` removes the second healthy `Ready` indicator from the direction strip because the footer already owns readiness guidance and the sidebar owns global presence. Starting/Stopping badges are also kept neutral instead of inheriting a success tone from a still-ready preflight.
+
+No runtime readiness semantics, translation logic, Meeting lifecycle, VoiceLab recording/build behavior, device routing, Settings behavior, First Setup checkpoints, persisted schema, or backend source changed.
+
+Accepted hosted source proof:
+
+```text
+run 31800338557
+cross-surface frontend closure contract -> PASS
+bounded Meeting + Text + VoiceLab change -> PASS
+frontend typecheck -> PASS
+frontend production build -> PASS
+source commit -> c5a17e4900d400df115b9827381583c2566d8cc7
+```
+
+The temporary P5 audit/proof files were removed after the successful proof.
+
+At source level, the current frontend now has no independently grounded additional cleanup wave. This is deliberately not a rendered-UI or target-Windows claim.
+
 ## Existing Source-Closed Boundaries
 
 The following remain closed source-side:
@@ -234,6 +261,7 @@ Frontend P1 VoiceLab humanization and hierarchy alignment
 Frontend P2 Settings normal-UI cleanup and Diagnostics containment
 Frontend P3 shell / Meeting status redundancy cleanup
 Frontend P4 First Setup normal-user polish
+Frontend P5 cross-surface source closure audit
 P3 private Python/runtime/model packaging contract
 P4 standard VB-CABLE initial provider policy and controlled staging contract
 P5 Rust warning/dead-data cleanup
@@ -266,4 +294,4 @@ Hosted source/build proof must not be presented as evidence for those claims.
 
 ## Next Step
 
-**P5 — Frontend source-closure audit. Review the current normal-user frontend owners and shared UI primitives against PR-166 and the completed P0-P4 alignment waves for any remaining concrete inconsistency, technical leakage, redundant status/action, or AI-slop. Do not create cosmetic churn, a new design system, or another abstraction wave; patch only issues with a clear current source owner and current acceptance value. If no concrete source issue remains, record `No change required` and keep rendered/local Windows validation deferred by the user.**
+**No further frontend source change is independently grounded while target/rendered Windows validation remains deferred by the user. Keep the current frontend source closed. Reopen frontend source work only for a concrete new requirement or reproducible defect; target/local Windows visual/runtime validation remains deferred until the user explicitly opens it.**
