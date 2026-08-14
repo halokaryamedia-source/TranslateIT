@@ -15,6 +15,8 @@ const modelManifest = JSON.parse(
 const bridgePaths = readFileSync(join(tauriRoot, "src", "commands", "bridge_paths.rs"), "utf8");
 const pathsOwner = readFileSync(join(tauriRoot, "src", "engine", "paths.rs"), "utf8");
 const buildRelease = readFileSync(join(scriptDir, "build_release.ps1"), "utf8");
+const providerReadme = readFileSync(resolve(appRoot, "../../Backend/RuntimeAssets/AudioProvider/VBCABLE/README.md"), "utf8");
+const providerNotice = readFileSync(resolve(appRoot, "../../Backend/RuntimeAssets/AudioProvider/VBCABLE/NOTICE.txt"), "utf8");
 const gitignore = readFileSync(join(repoRoot, ".gitignore"), "utf8");
 
 const errors = [];
@@ -30,6 +32,8 @@ const expectedResources = {
   "../../../Backend/RuntimeAssets/ASR/ModelData/": "EngineData/Backend/RuntimeAssets/ASR/ModelData/",
   "../../../Backend/RuntimeAssets/Translation/ModelData/": "EngineData/Backend/RuntimeAssets/Translation/ModelData/",
   "../../../Backend/RuntimeAssets/Voice/GPTSoVITS/": "EngineData/Backend/RuntimeAssets/Voice/GPTSoVITS/",
+  "../../../Backend/RuntimeAssets/AudioProvider/VBCABLE/NOTICE.txt": "EngineData/Backend/RuntimeAssets/AudioProvider/VBCABLE/NOTICE.txt",
+  "../../../Backend/RuntimeAssets/AudioProvider/VBCABLE/Package/": "EngineData/Backend/RuntimeAssets/AudioProvider/VBCABLE/Package/",
 };
 
 const resources = releaseConfig.bundle?.resources;
@@ -39,7 +43,7 @@ if (!resources || Array.isArray(resources) || typeof resources !== "object") {
   const actual = Object.entries(resources).sort(([a], [b]) => a.localeCompare(b));
   const expected = Object.entries(expectedResources).sort(([a], [b]) => a.localeCompare(b));
   if (JSON.stringify(actual) !== JSON.stringify(expected)) {
-    fail("Release resource map must contain only the approved WorkerRuntime files, private PythonRuntime, ASR/translation models, and GPT-SoVITS VoiceLab payload.");
+    fail("Release resource map must contain only the approved WorkerRuntime files, private PythonRuntime, ASR/translation models, GPT-SoVITS VoiceLab payload, and standard VB-CABLE provider payload.");
   }
   for (const [source, target] of actual) {
     if (source.includes("UserData") || source.includes("DevelopingData") || source.includes(".venv") || source.includes("tests")) {
@@ -112,8 +116,27 @@ for (const marker of [
   "/EngineData/Backend/RuntimeAssets/ASR/ModelData/**",
   "/EngineData/Backend/RuntimeAssets/Translation/ModelData/**",
   "/EngineData/Backend/RuntimeAssets/Voice/GPTSoVITS/**",
+  "/EngineData/Backend/RuntimeAssets/AudioProvider/VBCABLE/Package/**",
 ]) {
   if (!gitignore.includes(marker)) fail(`Controlled release payload must stay out of Git: ${marker}`);
+}
+if (gitignore.includes("/EngineData/Backend/RuntimeAssets/Voice/Piper/**")) {
+  fail("Retired Piper release payload ignore must not remain as active packaging policy.");
+}
+
+for (const marker of [
+  "standard VB-Audio VB-CABLE",
+  "Do not substitute or additionally bundle",
+  "A+B or C+D",
+  "Voicemeeter",
+  "custom TranslateIT audio driver",
+  "does not prove that a particular release has the required redistribution/license rights",
+]) {
+  if (!providerReadme.includes(marker)) fail(`VB-CABLE release policy marker is missing: ${marker}`);
+}
+const normalizedNotice = providerNotice.toLowerCase();
+for (const marker of ["vb-audio", "vb-cable", "donationware"]) {
+  if (!normalizedNotice.includes(marker)) fail(`VB-CABLE user notice marker is missing: ${marker}`);
 }
 
 if (errors.length) {
@@ -121,4 +144,4 @@ if (errors.length) {
   process.exit(1);
 }
 
-console.log("[release-package-contract] P3 source contract is aligned: one controlled Windows release entry uses a Tauri resource-map overlay, only production WorkerRuntime files are declared, private PythonRuntime and required runtime assets map to ProjectPaths' installed layout, packaged mode has no system-Python fallback, staged runtime/model bytes remain controlled release inputs outside Git, and normal source validation exercises this contract. Installed/clean-machine execution remains separate proof.");
+console.log("[release-package-contract] P4 provider policy is source-aligned: the controlled Windows release remains one Tauri/NSIS path, standard VB-CABLE is the only staged Meeting audio provider candidate, the donationware/origin notice is bundled, alternate VB-CABLE/Voicemeeter/custom-driver expansion is excluded, private runtime/model/provider bytes remain controlled release inputs outside Git, and packaged mode has no system-Python fallback. Redistribution rights, driver installation, restart behavior, installed endpoint use, and clean-machine execution remain separate release evidence.");
