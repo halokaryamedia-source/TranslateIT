@@ -6,6 +6,9 @@ resolution-markers = [
     "sys_platform != 'linux' and sys_platform != 'win32'",
 ]
 
+[manifest]
+excludes = [{ package = { name = "g2p-en", version = "2.1.0" }, dependencies = ["distance"] }]
+
 [[package]]
 name = "absl-py"
 version = "2.5.0"
@@ -393,12 +396,6 @@ wheels = [
 ]
 
 [[package]]
-name = "distance"
-version = "0.1.3"
-source = { registry = "https://pypi.org/simple" }
-sdist = { url = "https://files.pythonhosted.org/packages/5c/1a/883e47df323437aefa0d0a92ccfb38895d9416bd0b56262c2e46a47767b8/Distance-0.1.3.tar.gz", hash = "sha256:60807584f5b6003f5c521aa73f39f51f631de3be5cccc5a1d67166fcbf0d4551", size = 180271, upload-time = "2013-11-21T00:14:34.152Z" }
-
-[[package]]
 name = "einops"
 version = "0.8.2"
 source = { registry = "https://pypi.org/simple" }
@@ -579,7 +576,6 @@ name = "g2p-en"
 version = "2.1.0"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
-    { name = "distance" },
     { name = "inflect" },
     { name = "nltk" },
     { name = "numpy" },
@@ -2014,7 +2010,7 @@ requires-dist = [
     { name = "fast-langdetect", specifier = ">=0.3.1" },
     { name = "faster-whisper", specifier = ">=1.0.0" },
     { name = "ffmpeg-python" },
-    { name = "g2p-en" },
+    { name = "g2p-en", specifier = "==2.1.0" },
     { name = "jieba" },
     { name = "jieba-fast" },
     { name = "librosa", specifier = "==0.10.2" },

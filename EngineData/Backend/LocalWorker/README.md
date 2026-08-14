@@ -32,7 +32,10 @@ Large/private runtime bytes are staged as controlled release inputs and remain o
 
 - The release Python authority is **CPython 3.12.10 Windows embeddable package** from Python.org, not a copied developer installation. Keep the Python Software Foundation License Version 2 and the applicable incorporated-software acknowledgements with the distributed runtime.
 - `WorkerRuntime/uv.lock` is the exact third-party Python dependency graph that must be reviewed for the staged private runtime. Python itself being redistributable does not clear every vendored Python package.
-- The current lock resolves `g2p-en==2.1.0` to the transitive dependency `distance==0.1.3`. Upstream `g2p-en` is Apache-2.0, while the `Distance` package declares GPL. This is a **license-review blocker** for a closed/commercial release until the applicable distribution obligations are deliberately accepted or the dependency boundary is corrected and re-proved.
+- `g2p-en` is pinned to **2.1.0** because the dependency exception below is source-reviewed against that exact release. Its published metadata declares `distance`, but hosted inspection of the installed `g2p_en` 2.1.0 Python package confirms that the runtime source contains no `distance` reference, and an English G2P smoke test succeeds while `distance` is absent.
+- The canonical `[tool.uv]` policy therefore uses a **version-scoped `exclude-dependencies`** entry that removes only `distance` as declared by `g2p-en==2.1.0`. `uv.lock` must not contain the `Distance` package. Any `g2p-en` version change must remove or re-justify this exception and repeat the source/runtime proof before release staging.
+- WorkerRuntime dependency resolution requires `uv>=0.12.0` so the scoped exclusion is understood consistently. This is developer/build tooling only; `uv` is not an installed-product dependency.
+- This containment removes the identified `Distance` package from the private Python dependency graph. It is not a legal opinion or overall release-clearance claim; FFmpeg, VB-CABLE, and remaining third-party notices retain their separate gates.
 - This source audit records a release gate; it is not a legal opinion and must not be used as proof that a particular commercial distribution is cleared.
 
 ## Rules

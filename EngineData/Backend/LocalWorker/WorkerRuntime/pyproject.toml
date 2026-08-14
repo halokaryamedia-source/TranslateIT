@@ -9,7 +9,7 @@ dependencies = [
     "fast-langdetect>=0.3.1",
     "faster-whisper>=1.0.0",
     "ffmpeg-python",
-    "g2p-en",
+    "g2p-en==2.1.0",
     "jieba",
     "jieba-fast",
     "librosa==0.10.2",
@@ -60,6 +60,10 @@ dev = [
 
 [tool.uv]
 package = false
+required-version = ">=0.12.0"
+exclude-dependencies = [
+    { package = { name = "g2p-en", version = "2.1.0" }, dependencies = ["distance"] },
+]
 
 [tool.ruff]
 target-version = "py310"

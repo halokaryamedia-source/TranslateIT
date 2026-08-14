@@ -17,6 +17,8 @@ const pathsOwner = readFileSync(join(tauriRoot, "src", "engine", "paths.rs"), "u
 const buildRelease = readFileSync(join(scriptDir, "build_release.ps1"), "utf8");
 const providerReadme = readFileSync(resolve(appRoot, "../../Backend/RuntimeAssets/AudioProvider/VBCABLE/README.md"), "utf8");
 const localWorkerReadme = readFileSync(resolve(appRoot, "../../Backend/LocalWorker/README.md"), "utf8");
+const workerPyproject = readFileSync(resolve(appRoot, "../../Backend/LocalWorker/WorkerRuntime/pyproject.toml"), "utf8");
+const workerLock = readFileSync(resolve(appRoot, "../../Backend/LocalWorker/WorkerRuntime/uv.lock"), "utf8");
 const runtimeAssetsReadme = readFileSync(resolve(appRoot, "../../Backend/RuntimeAssets/README.md"), "utf8");
 const voiceAssetsReadme = readFileSync(resolve(appRoot, "../../Backend/RuntimeAssets/Voice/README.md"), "utf8");
 const providerNotice = readFileSync(resolve(appRoot, "../../Backend/RuntimeAssets/AudioProvider/VBCABLE/NOTICE.txt"), "utf8");
@@ -129,10 +131,24 @@ for (const [path, hash] of Object.entries(expectedVoiceHashes)) {
 }
 
 for (const marker of [
+  '"g2p-en==2.1.0"',
+  'required-version = ">=0.12.0"',
+  '{ package = { name = "g2p-en", version = "2.1.0" }, dependencies = ["distance"] }',
+]) {
+  if (!workerPyproject.includes(marker)) fail(`WorkerRuntime g2p dependency-containment marker is missing: ${marker}`);
+}
+if (/\[\[package\]\]\s+name = "distance"(?:\s|$)/m.test(workerLock)) {
+  fail("WorkerRuntime uv.lock must not contain the excluded Distance package.");
+}
+if (!/\[\[package\]\]\s+name = "g2p-en"\s+version = "2\.1\.0"/m.test(workerLock)) {
+  fail("WorkerRuntime uv.lock must retain the source-reviewed g2p-en 2.1.0 release.");
+}
+for (const marker of [
   "CPython 3.12.10 Windows embeddable package",
-  "g2p-en==2.1.0",
-  "distance==0.1.3",
-  "license-review blocker",
+  "version-scoped `exclude-dependencies`",
+  "uv.lock` must not contain the `Distance` package",
+  "uv>=0.12.0",
+  "FFmpeg, VB-CABLE",
 ]) {
   if (!localWorkerReadme.includes(marker)) fail(`Python release provenance/license gate marker is missing: ${marker}`);
 }
@@ -186,4 +202,4 @@ if (errors.length) {
   process.exit(1);
 }
 
-console.log("[release-package-contract] Release source policy is aligned: private Python/model/provider inputs remain controlled and pinned where currently reviewable, GPT-SoVITS source/pretrained provenance is recorded, Python/FFmpeg/VB-CABLE licensing gates remain explicit rather than fabricated as cleared, and packaged mode has no system-Python fallback. Actual redistribution clearance, staged-byte verification, driver installation, installed runtime, and clean-machine execution remain separate evidence.");
+console.log("[release-package-contract] Release source policy is aligned: private Python/model/provider inputs remain controlled, g2p-en 2.1.0 excludes its source-reviewed unused Distance dependency from the frozen Python graph, GPT-SoVITS provenance remains pinned, FFmpeg/VB-CABLE licensing gates remain explicit, and packaged mode has no system-Python fallback. This is dependency/source-contract evidence, not overall legal or installed-runtime clearance.");
