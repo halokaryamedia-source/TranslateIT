@@ -15,6 +15,7 @@ const modelManifest = JSON.parse(
 const bridgePaths = readFileSync(join(tauriRoot, "src", "commands", "bridge_paths.rs"), "utf8");
 const pathsOwner = readFileSync(join(tauriRoot, "src", "engine", "paths.rs"), "utf8");
 const buildRelease = readFileSync(join(scriptDir, "build_release.ps1"), "utf8");
+const releasePayloadValidator = readFileSync(join(scriptDir, "validate_release_payload.mjs"), "utf8");
 const providerReadme = readFileSync(resolve(appRoot, "../../Backend/RuntimeAssets/AudioProvider/VBCABLE/README.md"), "utf8");
 const localWorkerReadme = readFileSync(resolve(appRoot, "../../Backend/LocalWorker/README.md"), "utf8");
 const workerPyproject = readFileSync(resolve(appRoot, "../../Backend/LocalWorker/WorkerRuntime/pyproject.toml"), "utf8");
@@ -163,10 +164,31 @@ for (const marker of [
   "336b2ec4e8d4ac74740798dd40af44e74659ecaf",
   "87133414860ea14ff6620c483a3db5ed07b44be42e2c3fcdad65523a729a745a",
   "d42a22bbbf65fb2bbdd45ad6a66841156977db45c7aabe0a6992ff378d9c7d3b",
-  "not license-cleared by the current source contract",
+  "autobuild-2026-08-10-13-17",
+  "ffmpeg-n8.1.2-34-g9b6c8969e0-win64-lgpl-8.1.zip",
+  "b0531e470d73bf2e0d3e22a3a35f6e890781e0791c496950664da9be9ea8c0ab",
+  "ad62137371b2111d52d29c9bc82d5aecf7065c8f937e95dfed087b2bc63ea88d",
+  "da7eabb7bafdf7d3ae5e9f223aa5bdc1eece45ac569dc21b3b037520b4464768",
+  "9b6c8969e05b4f0b29f0f85cd501be6b3e582e6b",
+  "LGPL-3.0-or-later",
+  "FFMPEG_LICENSE.txt",
+  "FFMPEG_SOURCE.txt",
   "CMU states research/commercial use is unrestricted",
 ]) {
   if (!voiceAssetsReadme.includes(marker)) fail(`Voice release provenance/license gate marker is missing: ${marker}`);
+}
+for (const marker of [
+  'expectedFfmpegExeSha256 = "ad62137371b2111d52d29c9bc82d5aecf7065c8f937e95dfed087b2bc63ea88d"',
+  'expectedFfmpegLicenseSha256 = "da7eabb7bafdf7d3ae5e9f223aa5bdc1eece45ac569dc21b3b037520b4464768"',
+  '"FFMPEG_LICENSE.txt"',
+  '"FFMPEG_SOURCE.txt"',
+  '"builder_release_tag=autobuild-2026-08-10-13-17"',
+  '"ffmpeg_source_commit=9b6c8969e05b4f0b29f0f85cd501be6b3e582e6b"',
+  '"license_profile=LGPL-3.0-or-later"',
+  '"ffplay.exe"',
+  '"ffprobe.exe"',
+]) {
+  if (!releasePayloadValidator.includes(marker)) fail(`FFmpeg release-payload pin marker is missing: ${marker}`);
 }
 
 for (const marker of [
@@ -202,4 +224,4 @@ if (errors.length) {
   process.exit(1);
 }
 
-console.log("[release-package-contract] Release source policy is aligned: private Python/model/provider inputs remain controlled, g2p-en 2.1.0 excludes its source-reviewed unused Distance dependency from the frozen Python graph, GPT-SoVITS provenance remains pinned, FFmpeg/VB-CABLE licensing gates remain explicit, and packaged mode has no system-Python fallback. This is dependency/source-contract evidence, not overall legal or installed-runtime clearance.");
+console.log("[release-package-contract] Release source policy is aligned: private Python/model/provider inputs remain controlled, the Distance containment stays bounded, GPT-SoVITS provenance remains pinned, FFmpeg is pinned to the reviewed BtbN win64 LGPL static executable with exact license/source companions, VB-CABLE retains its separate distribution gate, and packaged mode has no system-Python fallback. This is dependency/provenance source-contract evidence, not whole-release legal or installed-runtime clearance.");

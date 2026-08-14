@@ -13,6 +13,8 @@ Voice/
    └─ Source/
       ├─ TRANSLATEIT_GPTSOVITS_REVISION.txt
       ├─ ffmpeg.exe
+      ├─ FFMPEG_LICENSE.txt
+      ├─ FFMPEG_SOURCE.txt
       ├─ nltk_data/
       │  ├─ corpora/
       │  │  └─ cmudict/
@@ -46,7 +48,7 @@ d523079fc05d9a8028d6085bffe4a2757c32abb6
 
 That revision is the reviewed GPT-SoVITS V2ProPlus source baseline. The source tree and model binaries are release/runtime payload, not Git-tracked application source.
 
-`ffmpeg.exe` is the local decoder used by the approved headless English training path. VoiceLab does not rely on a system-PATH FFmpeg installation. `ffprobe.exe` is not part of the current required asset contract because the approved A4 path does not consume it.
+`ffmpeg.exe` is the local decoder used by the approved headless English training path. VoiceLab does not rely on a system-PATH FFmpeg installation. `FFMPEG_LICENSE.txt` and `FFMPEG_SOURCE.txt` are required release companions for that exact binary. `ffplay.exe`, `ffprobe.exe`, and libav DLLs are not part of the current runtime contract because the approved path does not consume them.
 
 The three NLTK directories are packaged English G2P resources. They are runtime assets rather than first-use downloads; VoiceLab must not fetch them while creating a voice.
 
@@ -97,9 +99,49 @@ The two packaged NLTK averaged-perceptron tagger resources are recorded by NLTK 
 
 ### FFmpeg
 
-`ffmpeg.exe` is **not license-cleared by the current source contract**. FFmpeg is LGPL 2.1-or-later by default, but a build that enables GPL-covered components is governed by GPL terms. The historical GPT-SoVITS-linked Windows binary having a known file hash or being hosted inside an MIT-labelled model repository does not establish its FFmpeg build configuration or license profile.
+The VoiceLab decoder provenance/profile is pinned to one reviewed **static LGPL Windows build** rather than the historical provenance-unknown binary:
 
-Before a distributable release, record the exact Windows FFmpeg build origin/configuration and satisfy the corresponding FFmpeg license/source obligations. Do not treat `ffmpeg.exe` presence alone as release clearance.
+```text
+builder                 BtbN/FFmpeg-Builds
+builder release tag     autobuild-2026-08-10-13-17
+builder commit          2437e7b868da3c11872367b15f3c613b87c24819
+archive                 ffmpeg-n8.1.2-34-g9b6c8969e0-win64-lgpl-8.1.zip
+archive SHA-256         b0531e470d73bf2e0d3e22a3a35f6e890781e0791c496950664da9be9ea8c0ab
+FFmpeg version          n8.1.2-34-g9b6c8969e0-20260810
+FFmpeg source commit    9b6c8969e05b4f0b29f0f85cd501be6b3e582e6b
+ffmpeg.exe SHA-256      ad62137371b2111d52d29c9bc82d5aecf7065c8f937e95dfed087b2bc63ea88d
+LICENSE.txt SHA-256     da7eabb7bafdf7d3ae5e9f223aa5bdc1eece45ac569dc21b3b037520b4464768
+license profile         LGPL-3.0-or-later
+build profile           win64-lgpl static executable
+```
+
+Hosted inspection of this exact archive confirmed `--pkg-config-flags=--static` and `--enable-version3`, no `--enable-gpl`, no `--enable-nonfree`, and zero DLL files in the archive. `ffmpeg -L` reports GNU Lesser General Public License version 3 or later. A decode smoke using the same VoiceLab shape (`WAV -> f32le / mono / 32 kHz`) also passed. The static executable therefore preserves the existing single-`ffmpeg.exe` runtime behavior; TranslateIT does not add libav DLL loading, `ffprobe`, `ffplay`, or another decoder owner.
+
+The staged runtime must contain exactly these FFmpeg companions beside the GPT-SoVITS source:
+
+```text
+ffmpeg.exe
+FFMPEG_LICENSE.txt   # exact copy of LICENSE.txt from the pinned BtbN archive
+FFMPEG_SOURCE.txt    # bounded provenance/source record below
+```
+
+`FFMPEG_SOURCE.txt` must retain at least these exact records:
+
+```text
+source_kind=ffmpeg
+binary_builder=BtbN/FFmpeg-Builds
+builder_release_tag=autobuild-2026-08-10-13-17
+builder_commit=2437e7b868da3c11872367b15f3c613b87c24819
+archive=ffmpeg-n8.1.2-34-g9b6c8969e0-win64-lgpl-8.1.zip
+archive_sha256=b0531e470d73bf2e0d3e22a3a35f6e890781e0791c496950664da9be9ea8c0ab
+ffmpeg_version=n8.1.2-34-g9b6c8969e0-20260810
+ffmpeg_source_commit=9b6c8969e05b4f0b29f0f85cd501be6b3e582e6b
+ffmpeg_exe_sha256=ad62137371b2111d52d29c9bc82d5aecf7065c8f937e95dfed087b2bc63ea88d
+license_profile=LGPL-3.0-or-later
+build_profile=win64-lgpl-static
+```
+
+This resolves the **binary provenance and observed license profile** source-side; it is not a legal-opinion or whole-release clearance claim. A distributable release must preserve the LGPL license text and make the exact corresponding FFmpeg source/build provenance available in the manner required for that distribution. The release operator remains responsible for satisfying the applicable LGPL and third-party obligations. Do not replace this pin with BtbN `latest`, another build variant, or an arbitrary `ffmpeg.exe` without repeating the provenance/profile and VoiceLab decode proof.
 
 ## Rules
 
