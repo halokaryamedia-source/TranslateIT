@@ -181,6 +181,13 @@
     route = "meeting";
   }
 
+  async function openVoiceLabFromSetup(next: RuntimeSettings): Promise<void> {
+    setupSettings = cloneSettings(next);
+    setupRequired = false;
+    await refreshSnapshot("Create My Voice before starting Meeting translation.", next);
+    route = "voicelab";
+  }
+
   async function handleMeetingAction(): Promise<void> {
     if (meetingActionBusy || !snapshot) return;
     const meeting = snapshot.meeting;
@@ -537,7 +544,7 @@
     </section>
   </main>
 {:else if setupRequired}
-  <FirstSetup initialSettings={setupSettings} onComplete={finishFirstSetup} />
+  <FirstSetup initialSettings={setupSettings} onComplete={finishFirstSetup} onOpenVoiceLab={openVoiceLabFromSetup} />
 {:else if snapshot}
   <main class="flex h-screen min-h-0 bg-[var(--ti-bg)]">
     <Sidebar active={route} {presence} onNavigate={navigate} />
@@ -570,6 +577,7 @@
             onMeetingAction={handleMeetingAction}
             onRefresh={() => refreshSnapshot("Setup checked.")}
             onFixSetup={fixSetup}
+            onOpenVoiceLab={() => navigate("voicelab")}
           />
         {:else if route === "text"}
           <Text

@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { ArrowRight, Languages, Mic, Radio } from "@lucide/svelte";
+  import { ArrowRight, AudioLines, Languages, Mic, Radio } from "@lucide/svelte";
   import { onMount } from "svelte";
   import {
     runtimeApi,
@@ -8,6 +8,7 @@
     type VirtualMicRouteContractStatus,
   } from "../app/bridge/runtimeApi";
   import type { ProductRuntimeSnapshot } from "../app/bridge/runtimeProductFacade";
+  import { voiceLabBuildApi } from "../app/bridge/voiceLabBuildApi";
   import MeetingActivity from "../components/meeting/MeetingActivity.svelte";
   import StatusBadge from "../components/ui/StatusBadge.svelte";
 
@@ -21,6 +22,7 @@
     onMeetingAction,
     onRefresh,
     onFixSetup,
+    onOpenVoiceLab,
   }: {
     snapshot: ProductRuntimeSnapshot;
     meetingStatus: MeetingSessionStatus | null;
@@ -29,9 +31,11 @@
     onMeetingAction: () => void | Promise<void>;
     onRefresh: () => void | Promise<void>;
     onFixSetup: () => void | Promise<void>;
+    onOpenVoiceLab: () => void;
   } = $props();
 
   let routeStatus = $state<VirtualMicRouteContractStatus | null>(null);
+  let myVoiceReady = $state<boolean | null>(null);
 
   const readiness = $derived(snapshot.readiness);
   const meeting = $derived(snapshot.meeting);
@@ -70,13 +74,15 @@
   const readyMessage = $derived(
     runtimeUnavailable
       ? "TranslateIT can't reach the local translator right now. Retry the check."
-      : checking
-        ? "Checking your microphone and meeting output..."
-        : readiness.meetingReady
-          ? "Ready to translate. Start when your meeting is open."
-          : meeting.canStart
-            ? "Start Translation will run a quick final translation check before going live."
-            : "Finish the setup items below before starting translation.",
+      : checking || myVoiceReady === null
+        ? "Checking your microphone, My Voice, and meeting output..."
+        : myVoiceReady === false
+          ? "Create My Voice before starting Meeting translation."
+          : readiness.meetingReady
+            ? "Ready to translate. Start when your meeting is open."
+            : meeting.canStart
+              ? "Start Translation will run a quick final translation check before going live."
+              : "Finish the setup items below before starting translation.",
   );
 
   async function refreshRouteStatus(): Promise<void> {
@@ -87,13 +93,22 @@
     }
   }
 
+  async function refreshMyVoiceStatus(): Promise<void> {
+    try {
+      myVoiceReady = (await voiceLabBuildApi.getStatus()).approved_voice_ready;
+    } catch {
+      myVoiceReady = null;
+    }
+  }
+
   async function refreshMeetingSetup(): Promise<void> {
     await onRefresh();
-    await refreshRouteStatus();
+    await Promise.all([refreshRouteStatus(), refreshMyVoiceStatus()]);
   }
 
   onMount(() => {
     void refreshRouteStatus();
+    void refreshMyVoiceStatus();
   });
 </script>
 
@@ -163,6 +178,20 @@
 
         <section class="min-w-0 p-5">
           <div class="flex items-center gap-2 text-[var(--ti-text-muted)]">
+            <AudioLines size={15} strokeWidth={1.8} />
+            <span class="ti-field-label">My Voice</span>
+          </div>
+          <strong class="mt-2 block text-[13px] font-semibold leading-5">{myVoiceReady ? "Ready" : myVoiceReady === null ? "Checking..." : "Not created"}</strong>
+          <p class="mb-0 mt-1.5 text-[11.5px] leading-[1.55] text-[var(--ti-text-soft)]">{myVoiceReady ? "Your approved English meeting voice." : "Create My Voice in VoiceLab before starting."}</p>
+          {#if !myVoiceReady}
+            <div class="mt-3">
+              <StatusBadge label={myVoiceReady === null ? "Checking" : "Setup Needed"} tone={myVoiceReady === null ? "neutral" : "warning"} />
+            </div>
+          {/if}
+        </section>
+
+        <section class="min-w-0 p-5">
+          <div class="flex items-center gap-2 text-[var(--ti-text-muted)]">
             <Radio size={15} strokeWidth={1.8} />
             <span class="ti-field-label">Meeting microphone</span>
           </div>
@@ -170,7 +199,7 @@
           <p class="mb-0 mt-1.5 text-[11.5px] leading-[1.55] text-[var(--ti-text-soft)]">
             {readiness.meetingRouteReady
               ? "Choose this exact microphone in your meeting app."
-              : "A matched Windows virtual-audio route is required."}
+              : "Meeting microphone setup is required before you start."}
           </p>
           {#if !readiness.meetingRouteReady}
             <div class="mt-3">
@@ -181,21 +210,19 @@
             </div>
           {/if}
         </section>
+      </div>
 
-        <section class="min-w-0 p-5">
+      <section class="flex items-start justify-between gap-5 border-t border-[var(--ti-border)] px-5 py-4">
+        <div class="min-w-0">
           <div class="flex items-center gap-2 text-[var(--ti-text-muted)]">
             <Languages size={15} strokeWidth={1.8} />
             <span class="ti-field-label">Incoming translation</span>
           </div>
           <strong class="mt-2 block text-[13px] font-semibold leading-5">English → Indonesian text</strong>
           <p class="mb-0 mt-1.5 text-[11.5px] leading-[1.55] text-[var(--ti-text-soft)]">Optional · listens to {meetingSound}</p>
-          {#if runtimeUnavailable}
-            <div class="mt-3">
-              <StatusBadge label="Unavailable" tone="danger" />
-            </div>
-          {/if}
-        </section>
-      </div>
+        </div>
+        <StatusBadge label="Optional" tone="neutral" />
+      </section>
     {/if}
 
     <footer class="flex flex-wrap items-center justify-between gap-4 border-t border-[var(--ti-border)] bg-[var(--ti-surface-soft)] px-5 py-4">
@@ -215,7 +242,11 @@
             <button type="button" class="ti-button ti-button-secondary" onclick={onFixSetup}>Check Setup</button>
           {/if}
         {/if}
-        <button type="button" class={`ti-button min-w-40 ${meeting.canStop ? "ti-button-danger" : ""}`} disabled={primaryDisabled} onclick={onMeetingAction}>{primaryLabel}</button>
+        {#if myVoiceReady === false && !meeting.live && !meeting.busy}
+          <button type="button" class="ti-button min-w-40" onclick={onOpenVoiceLab}>Create My Voice</button>
+        {:else}
+          <button type="button" class={`ti-button min-w-40 ${meeting.canStop ? "ti-button-danger" : ""}`} disabled={primaryDisabled || myVoiceReady === null} onclick={onMeetingAction}>{primaryLabel}</button>
+        {/if}
       </div>
     </footer>
   </article>

@@ -2,6 +2,7 @@
   import { ArrowLeft, Check, ChevronRight } from "@lucide/svelte";
   import { onMount } from "svelte";
   import { runtimeApi, type VirtualMicRouteContractStatus } from "../app/bridge/runtimeApi";
+  import { voiceLabBuildApi } from "../app/bridge/voiceLabBuildApi";
   import {
     runtimeProductFacade,
     type ProductAudioDeviceKind,
@@ -16,9 +17,11 @@
   let {
     initialSettings,
     onComplete,
+    onOpenVoiceLab,
   }: {
     initialSettings: RuntimeSettings;
     onComplete: (settings: RuntimeSettings) => void | Promise<void>;
+    onOpenVoiceLab: (settings: RuntimeSettings) => void | Promise<void>;
   } = $props();
 
   function cloneSettings(value: RuntimeSettings): RuntimeSettings {
@@ -37,6 +40,7 @@
   let routeStatus = $state<VirtualMicRouteContractStatus | null>(null);
   let devices = $state<AudioDeviceListReport | null>(null);
   let meetingSoundReady = $state<boolean | null>(null);
+  let myVoiceReady = $state<boolean | null>(null);
   let step = $state<SetupStep>((() => checkpoint(settings))());
   let busy = $state(false);
   let message = $state("");
@@ -77,6 +81,14 @@
 
   function currentMeetingMicrophone(): string {
     return compact(routeStatus?.selected_input_device, "Meeting microphone not configured");
+  }
+
+  async function refreshMyVoice(): Promise<void> {
+    try {
+      myVoiceReady = (await voiceLabBuildApi.getStatus()).approved_voice_ready;
+    } catch {
+      myVoiceReady = null;
+    }
   }
 
   async function refreshSnapshot(): Promise<void> {
@@ -125,6 +137,7 @@
   }
 
   async function initialize(): Promise<void> {
+    await refreshMyVoice();
     if (step > 1) {
       await refreshSnapshot();
       step = safeResumeStep(step);
@@ -227,12 +240,22 @@
       await runtimeProductFacade.runProductSetupAction("check-readiness");
     }
     await refreshSnapshot();
-    message = snapshot?.readiness.meetingReady ? "Everything needed for Meeting translation is ready." : "Setup still needs attention.";
+    await refreshMyVoice();
+    message = myVoiceReady && snapshot?.readiness.meetingReady ? "Everything needed for Meeting translation is ready." : "Setup still needs attention.";
     busy = false;
   }
 
+  async function openVoiceLab(): Promise<void> {
+    if (busy) return;
+    busy = true;
+    message = "Saving setup before opening VoiceLab...";
+    const saved = await persistSetupFact("deferred", 5);
+    busy = false;
+    if (saved) await onOpenVoiceLab(settings);
+  }
+
   async function completeSetup(): Promise<void> {
-    if (busy || !snapshot?.readiness.meetingReady) return;
+    if (busy || !myVoiceReady || !snapshot?.readiness.meetingReady) return;
     busy = true;
     message = "Saving...";
     const saved = await persistSetupFact("completed", 5);
@@ -268,7 +291,7 @@
         <div>
           <span class="ti-kicker">Welcome</span>
           <h1 class="ti-page-title text-[2.2rem]">Set up meeting translation</h1>
-          <p class="ti-page-copy">We'll check the microphone you speak into, where you hear the meeting, and the microphone your meeting app should use.</p>
+          <p class="ti-page-copy">We'll check your meeting audio, then help you create My Voice before you start translating.</p>
           <div class="mt-6 grid grid-cols-2 gap-3">
             <div class="ti-subtle-card p-4"><span class="ti-field-label">You speak</span><strong class="mt-1 block text-sm font-semibold">Indonesian → English voice</strong></div>
             <div class="ti-subtle-card p-4"><span class="ti-field-label">You read</span><strong class="mt-1 block text-sm font-semibold">English → Indonesian text</strong><small class="mt-1 block text-xs text-[var(--ti-text-soft)]">Optional</small></div>
@@ -293,10 +316,10 @@
         <div class="rounded-[var(--ti-radius-md)] border border-[var(--ti-border-strong)] bg-[var(--ti-surface-raised)] p-5"><span class="ti-field-label">In your meeting app</span><strong class="mt-2 block text-base font-semibold">Microphone → {currentMeetingMicrophone()}</strong></div>
         <div class="ti-subtle-card overflow-hidden"><StatusRow label="Meeting microphone device" value={currentMeetingMicrophone()} detail="TranslateIT sends the translated English voice through the paired virtual-audio route behind this Windows input device." status={snapshot?.readiness.meetingRouteReady ? "" : snapshot?.readiness.level === "checking" ? "Checking" : "Setup Needed"} tone={snapshot?.readiness.level === "checking" ? "neutral" : "warning"} /></div>
       {:else}
-        <div><span class="ti-kicker">Ready</span><h1 class="ti-page-title">{snapshot?.readiness.meetingReady ? "You're ready to translate." : "One more thing needs attention."}</h1><p class="ti-page-copy">TranslateIT checks the essentials before you start a meeting.</p></div>
+        <div><span class="ti-kicker">Ready</span><h1 class="ti-page-title">{myVoiceReady && snapshot?.readiness.meetingReady ? "You're ready to translate." : "One more thing needs attention."}</h1><p class="ti-page-copy">TranslateIT checks the essentials before you start a meeting.</p></div>
         <div class="ti-subtle-card divide-y divide-[var(--ti-border)] overflow-hidden">
           <StatusRow label="Microphone" value={currentMicrophone()} status={snapshot?.readiness.microphoneReady ? "Ready" : "Setup Needed"} tone={snapshot?.readiness.microphoneReady ? "good" : "warning"} />
-          <StatusRow label="Text translation" value="Indonesian ↔ English" status={snapshot?.readiness.textReady ? "Ready" : "Setup Needed"} tone={snapshot?.readiness.textReady ? "good" : "warning"} />
+          <StatusRow label="My Voice" value={myVoiceReady ? "Approved voice ready" : myVoiceReady === null ? "Checking My Voice" : "Create My Voice in VoiceLab"} status={myVoiceReady ? "Ready" : myVoiceReady === null ? "Checking" : "Setup Needed"} tone={myVoiceReady ? "good" : myVoiceReady === null ? "neutral" : "warning"} />
           <StatusRow label="Meeting microphone" value={currentMeetingMicrophone()} status={snapshot?.readiness.meetingRouteReady ? "Ready" : "Setup Needed"} tone={snapshot?.readiness.meetingRouteReady ? "good" : "warning"} />
           <StatusRow label="Incoming translation" value="English → Indonesian text" detail="Optional; it doesn't block your translated voice." status="Optional" tone="neutral" />
         </div>
@@ -321,8 +344,12 @@
             <button type="button" class="ti-button" disabled={busy || !snapshot?.readiness.meetingRouteReady} onclick={() => void advance(5)}>Continue <ChevronRight size={16} /></button>
           {:else}
             <button type="button" class="ti-button ti-button-secondary" disabled={busy} onclick={() => void verifySetup()}>Check Again</button>
-            {#if !snapshot?.readiness.meetingReady}<button type="button" class="ti-button ti-button-secondary" disabled={busy} onclick={() => void fixSetup()}>Check Setup</button>{/if}
-            <button type="button" class="ti-button" disabled={busy || !snapshot?.readiness.meetingReady} onclick={() => void completeSetup()}><Check size={16} /> Open Meeting</button>
+            {#if !snapshot?.readiness.meetingReady && myVoiceReady}<button type="button" class="ti-button ti-button-secondary" disabled={busy} onclick={() => void fixSetup()}>Check Setup</button>{/if}
+            {#if myVoiceReady}
+              <button type="button" class="ti-button" disabled={busy || !snapshot?.readiness.meetingReady} onclick={() => void completeSetup()}><Check size={16} /> Open Meeting</button>
+            {:else}
+              <button type="button" class="ti-button" disabled={busy} onclick={() => void openVoiceLab()}>Create My Voice <ChevronRight size={16} /></button>
+            {/if}
           {/if}
         </div>
       </footer>
