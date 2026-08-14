@@ -23,6 +23,58 @@ const expectedNltkPackages = {
 };
 const expectedFfmpegExeSha256 = "ad62137371b2111d52d29c9bc82d5aecf7065c8f937e95dfed087b2bc63ea88d";
 const expectedFfmpegLicenseSha256 = "da7eabb7bafdf7d3ae5e9f223aa5bdc1eece45ac569dc21b3b037520b4464768";
+const exceptionalPythonLicenseMaterials = {
+  "ctranslate2-4.8.1.dist-info": {
+    source: ["package=ctranslate2==4.8.1", "source_repo=OpenNMT/CTranslate2", "source_ref=v4.8.1", "source_commit=0d8bcd362ac75ef860ef161d6f0efad0ae439ff0"],
+    files: { "LICENSE": "54aa79d9fe3c09e67a16dcd95b9e88676405a6ec174efda31036983cf7672ecb" },
+  },
+  "flatbuffers-25.12.19.dist-info": {
+    source: ["package=flatbuffers==25.12.19", "source_repo=google/flatbuffers", "source_ref=v25.12.19", "source_commit=7e163021e59cca4f8e1e35a7c828b5c6b7915953"],
+    files: { "LICENSE": "cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30" },
+  },
+  "jieba-0.42.1.dist-info": {
+    source: ["package=jieba==0.42.1", "sdist_sha256=055ca12f62674fafed09427f176506079bc135638a14e23e25be909131928db2", "source_repo=fxsjy/jieba", "source_ref=v0.42.1", "source_commit=1e20c89b66f56c9301b0feed211733ffaa1bd72a"],
+    files: { "LICENSE": "18ba0984839f85853b29fadaf992f7dba8fd0ca0fbeae34de2b8735222dc7a37" },
+  },
+  "jieba_fast-0.53.dist-info": {
+    source: ["package=jieba-fast==0.53", "sdist_sha256=e92089d52faa91d51b6a7c1e6e4c4c85064a0e36f6a29257af2254b9e558ddd0", "source_repo=deepcs233/jieba_fast", "source_commit=5e6b21dece184e1004a35bfd802c8772059de3ab", "upstream_release_tag=none"],
+    files: { "LICENSE": "18ba0984839f85853b29fadaf992f7dba8fd0ca0fbeae34de2b8735222dc7a37" },
+  },
+  "loguru-0.7.3.dist-info": {
+    source: ["package=loguru==0.7.3", "sdist_sha256=19480589e77d47b8d85b2c827ad95d49bf31b0dcde16593892eb51dd18706eb6", "source_repo=Delgan/loguru", "source_ref=0.7.3", "source_commit=ae3bfd1b85b6b4a3db535f69b975687c79498be4"],
+    files: { "LICENSE": "b35d026cc7aca9d5859a02eb87ddf7a386a24c986838651bd1f283f94e003327" },
+  },
+  "onnxruntime-1.28.0.dist-info": {
+    source: ["package=onnxruntime==1.28.0", "source_repo=microsoft/onnxruntime", "source_ref=v1.28.0", "source_commit=da9b5e364c465de65c49d91e696cd6485270757f"],
+    files: {
+      "LICENSE": "2f07c72751aed99790b8a4869cf2311df85a860b22ded05fa22803587a48922c",
+      "ThirdPartyNotices.txt": "0e07b95f3a8d6230037707c5c4a2b554d12c4cb67369669ac255635528ffcee2",
+    },
+  },
+  "sentencepiece-0.2.2.dist-info": {
+    source: ["package=sentencepiece==0.2.2", "sdist_sha256=3d2b5e824b5622038dc7b490897efe05ebbbb9e7350fc142f3ecc8789ef9bdf6"],
+    files: {
+      "LICENSE": "cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30",
+      "ABSEIL_LICENSE": "c79a7fea0e3cac04cd43f20e7b648e5a0ff8fa5344e644b0ee09ca1162b62747",
+      "DARTS_CLONE_LICENSE": "155f59997298ee336602c49f9c1110f268ac394ca2197eb02647a3555935ad52",
+      "ESAXX_LICENSE": "7c28553d1d3312d65fe309f76a22ebaf33a3d76c8c1e3b98a88ee4654ecb53db",
+      "PROTOBUF_LITE_LICENSE": "6e5e117324afd944dcf67f36cf329843bc1a92229a8cd9bb573d7a83130fea7d",
+    },
+  },
+  "tensorboard_data_server-0.7.2.dist-info": {
+    source: ["package=tensorboard-data-server==0.7.2", "source_repo=tensorflow/tensorboard", "source_commit=81150b898a306b89cde90e949358c2eefe018eaa", "source_commit_message=tensorboard-data-server 0.7.2"],
+    files: { "LICENSE": "d7c9068d896188264b60827b8cd1e25fdb9f5b5cad0b1589e90b96c87729c404" },
+  },
+  "tokenizers-0.21.4.dist-info": {
+    source: ["package=tokenizers==0.21.4", "sdist_sha256=fa23f85fbc9a02ec5c6978da172cdcbac23498c3ca9f3645c5c68740ac007880"],
+    files: { "LICENSE": "c71d239df91726fc519c6eb72d318ec65820627232b2f796219e87dcf35d0ab4" },
+  },
+  "wordsegment-1.3.1.dist-info": {
+    source: ["package=wordsegment==1.3.1", "sdist_sha256=3dcc7cd1e9bba3f3ffe6a0e54d98377bc502fc34e9e9d8c8199ac5636924f023"],
+    files: { "LICENSE": "8fe4d37c518608a57c6b0f24e26915144f8daf460eb4e1572146596ec3673294" },
+  },
+};
+
 const expectedVbCableFiles = {
   "pin_in.ico": "934865449455103c1c5997d8220acd160c3891f8a870f8e745b743d12681ac42",
   "pin_out.ico": "e8728a811e1f1af7d2ba31f77e47d449d5bba091e3e89a0df325ac7a3e67652c",
@@ -123,6 +175,28 @@ if (existsSync(join(pythonRoot, "python312._pth"))) {
   }
   if (activePaths.some((line) => line.toLowerCase() === "import site")) {
     fail("PythonRuntime/python312._pth must keep import site disabled; system/user site-packages are not release dependencies.");
+  }
+}
+
+for (const [distInfoName, requirement] of Object.entries(exceptionalPythonLicenseMaterials)) {
+  const distInfoRoot = join(pythonRoot, distInfoName);
+  const licensesRoot = join(distInfoRoot, "licenses");
+  requireDir(distInfoRoot, `LocalWorker/PythonRuntime/${distInfoName}`);
+  requireDir(licensesRoot, `LocalWorker/PythonRuntime/${distInfoName}/licenses`);
+  const sourcePath = join(licensesRoot, "TRANSLATEIT_SOURCE.txt");
+  requireFile(sourcePath, `${distInfoName}/licenses/TRANSLATEIT_SOURCE.txt`);
+  if (existsSync(sourcePath)) {
+    const sourceRecord = readFileSync(sourcePath, "utf8");
+    for (const marker of requirement.source) {
+      if (!sourceRecord.includes(marker)) fail(`${distInfoName} exceptional license source marker is missing: ${marker}`);
+    }
+  }
+  for (const [file, expectedHash] of Object.entries(requirement.files)) {
+    const path = join(licensesRoot, file);
+    requireFile(path, `${distInfoName}/licenses/${file}`);
+    if (existsSync(path) && sha256File(path) !== expectedHash) {
+      fail(`${distInfoName} exceptional license material hash mismatch: ${file}`);
+    }
   }
 }
 

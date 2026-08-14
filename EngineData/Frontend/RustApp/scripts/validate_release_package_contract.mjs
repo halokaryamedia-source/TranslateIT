@@ -169,6 +169,28 @@ if (!/\[\[package\]\]\s+name = "g2p-en"\s+version = "2\.1\.0"/m.test(workerLock)
   fail("WorkerRuntime uv.lock must retain the source-reviewed g2p-en 2.1.0 release.");
 }
 for (const marker of [
+  "Exceptional Frozen-Wheel License Material",
+  "106 of the 116 frozen production distributions",
+  "ctranslate2==4.8.1",
+  "onnxruntime==1.28.0",
+  "sentencepiece==0.2.2",
+  "tensorboard-data-server==0.7.2",
+  "TRANSLATEIT_SOURCE.txt",
+]) {
+  if (!localWorkerReadme.includes(marker)) fail(`Exceptional Python license-material policy marker is missing: ${marker}`);
+}
+for (const marker of [
+  "const exceptionalPythonLicenseMaterials",
+  "54aa79d9fe3c09e67a16dcd95b9e88676405a6ec174efda31036983cf7672ecb",
+  "0e07b95f3a8d6230037707c5c4a2b554d12c4cb67369669ac255635528ffcee2",
+  "c79a7fea0e3cac04cd43f20e7b648e5a0ff8fa5344e644b0ee09ca1162b62747",
+  "81150b898a306b89cde90e949358c2eefe018eaa",
+  "exceptional license source marker is missing",
+]) {
+  if (!releasePayloadValidator.includes(marker)) fail(`Exceptional Python release validator marker is missing: ${marker}`);
+}
+
+for (const marker of [
   "CPython 3.12.10 Windows embeddable package",
   "4acbed6dd1c744b0376e3b1cf57ce906f9dc9e95e68824584c8099a63025a3c3",
   "PythonRuntime/PYTHON_SOURCE.txt",
