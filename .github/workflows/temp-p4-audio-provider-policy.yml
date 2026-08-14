@@ -24,7 +24,7 @@ jobs:
       - name: Install frontend build dependencies
         working-directory: EngineData/Frontend/RustApp
         run: npm ci
-      - name: P4 provider packaging source contract
+      - name: P4 provider packaging source contract after policy sync
         working-directory: EngineData/Frontend/RustApp
         run: npm run preflight:tauri-package
       - name: Normal source validation
