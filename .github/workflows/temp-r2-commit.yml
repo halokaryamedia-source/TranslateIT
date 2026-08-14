@@ -1,0 +1,74 @@
+name: Temporary R2 Commit
+
+on:
+  push:
+    branches: [New]
+    paths:
+      - .github/workflows/temp-r2-commit.yml
+
+permissions:
+  contents: write
+
+jobs:
+  commit:
+    runs-on: windows-2022
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: New
+          fetch-depth: 1
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12.10'
+
+      - name: Apply already-proven R2 patch
+        shell: pwsh
+        run: |
+          python .github/scripts/temp-r2-fix.py
+          Copy-Item EngineData/Frontend/RustApp/src-tauri/Cargo.lock "$env:RUNNER_TEMP\Cargo.lock.before"
+          Push-Location EngineData/Frontend/RustApp/src-tauri
+          cargo update -p crossbeam-epoch --precise 0.9.20
+          cargo update -p anyhow --precise 1.0.103
+          Pop-Location
+          git diff --check
+          $env:BEFORE_LOCK="$env:RUNNER_TEMP\Cargo.lock.before"
+          $env:AFTER_LOCK=(Resolve-Path 'EngineData/Frontend/RustApp/src-tauri/Cargo.lock').Path
+          @'
+          import os, tomllib
+          from collections import Counter
+          from pathlib import Path
+          def pkgs(path):
+              d=tomllib.loads(Path(path).read_text(encoding='utf-8'))
+              return Counter((str(p.get('name')),str(p.get('version')),str(p.get('source','')),str(p.get('checksum',''))) for p in d.get('package',[]))
+          before=pkgs(os.environ['BEFORE_LOCK']); after=pkgs(os.environ['AFTER_LOCK'])
+          removed=list((before-after).elements()); added=list((after-before).elements())
+          if len(removed)!=2 or {x[:2] for x in removed}!={('crossbeam-epoch','0.9.18'),('anyhow','1.0.102')}:
+              raise SystemExit(f'unexpected removed entries: {removed}')
+          if len(added)!=2 or {x[:2] for x in added}!={('crossbeam-epoch','0.9.20'),('anyhow','1.0.103')}:
+              raise SystemExit(f'unexpected added entries: {added}')
+          print('[r2] exact proven Cargo.lock delta -> PASS')
+          '@ | Set-Content "$env:RUNNER_TEMP\lock.py" -Encoding utf8
+          python "$env:RUNNER_TEMP\lock.py"
+
+      - name: Verify exact source boundary and commit
+        shell: pwsh
+        run: |
+          $changed=@(git diff --name-only)
+          $allowed=@(
+            'EngineData/Frontend/RustApp/scripts/build_release.ps1',
+            'EngineData/Frontend/RustApp/scripts/validate_release_package_contract.mjs',
+            'EngineData/Frontend/RustApp/src-tauri/Cargo.lock'
+          )
+          foreach ($path in $changed) { if ($allowed -notcontains $path) { throw "Unexpected R2 product change: $path" } }
+          foreach ($path in $allowed) { if ($changed -notcontains $path) { throw "Expected R2 product change missing: $path" } }
+          $release=Get-Content 'EngineData/Frontend/RustApp/scripts/build_release.ps1' -Raw
+          if ($release -match 'npm exec|\bnpx\s') { throw 'Dynamic npm execution remains in release build.' }
+          Push-Location EngineData/Frontend/RustApp
+          node scripts/validate_release_package_contract.mjs
+          Pop-Location
+          git config user.name 'halokaryamedia-source'
+          git config user.email 'halokaryamedia@gmail.com'
+          git add EngineData/Frontend/RustApp/scripts/build_release.ps1 EngineData/Frontend/RustApp/scripts/validate_release_package_contract.mjs EngineData/Frontend/RustApp/src-tauri/Cargo.lock
+          git commit -m 'Contain actionable supply-chain findings'
+          git push origin HEAD:New
