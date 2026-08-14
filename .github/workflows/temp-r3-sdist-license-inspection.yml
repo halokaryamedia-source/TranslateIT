@@ -1,0 +1,46 @@
+name: Temporary R3 Sdist License Inspection
+
+on:
+  push:
+    branches: [New]
+    paths:
+      - .github/workflows/temp-r3-sdist-license-inspection.yml
+
+permissions:
+  contents: read
+
+jobs:
+  inspect:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Inspect exact locked/PyPI sdists
+        shell: bash
+        run: |
+          python - <<'PY'
+          import hashlib, io, re, tarfile, urllib.request
+          items={
+            'jieba==0.42.1':('https://files.pythonhosted.org/packages/c6/cb/18eeb235f833b726522d7ebed54f2278ce28ba9438e3135ab0278d9792a2/jieba-0.42.1.tar.gz','055ca12f62674fafed09427f176506079bc135638a14e23e25be909131928db2'),
+            'jieba-fast==0.53':('https://files.pythonhosted.org/packages/87/6f/9c22f7b0ecc043f8e7d324e30767fdc9ce8d3cf5fd66e60823dd2b84432e/jieba_fast-0.53.tar.gz','e92089d52faa91d51b6a7c1e6e4c4c85064a0e36f6a29257af2254b9e558ddd0'),
+            'loguru==0.7.3':('https://files.pythonhosted.org/packages/3a/05/a1dae3dffd1116099471c643b8924f5aa6524411dc6c63fdae648c4f1aca/loguru-0.7.3.tar.gz','19480589e77d47b8d85b2c827ad95d49bf31b0dcde16593892eb51dd18706eb6'),
+            'sentencepiece==0.2.2':('https://files.pythonhosted.org/packages/cc/33/ea3cb3839607eb175da835244a798f797f478c5ddf0e8ecdf57ea85a4c70/sentencepiece-0.2.2.tar.gz','3d2b5e824b5622038dc7b490897efe05ebbbb9e7350fc142f3ecc8789ef9bdf6'),
+            'tokenizers==0.21.4':('https://files.pythonhosted.org/packages/c2/2f/402986d0823f8d7ca139d969af2917fefaa9b947d1fb32f6168c509f2492/tokenizers-0.21.4.tar.gz','fa23f85fbc9a02ec5c6978da172cdcbac23498c3ca9f3645c5c68740ac007880'),
+            'wordsegment==1.3.1':('https://files.pythonhosted.org/packages/64/68/08112f4c2888f41520e54e2d0b22dcec5adb28cddf4eeca344eb9da04177/wordsegment-1.3.1.tar.gz','3dcc7cd1e9bba3f3ffe6a0e54d98377bc502fc34e9e9d8c8199ac5636924f023'),
+          }
+          for package,(url,expected) in items.items():
+              data=urllib.request.urlopen(url,timeout=60).read()
+              actual=hashlib.sha256(data).hexdigest()
+              if actual!=expected: raise SystemExit(f'{package} sdist hash mismatch {actual}')
+              print(f'[r3][sdist] {package} archive_sha256={actual}')
+              with tarfile.open(fileobj=io.BytesIO(data),mode='r:gz') as tf:
+                  candidates=[]
+                  for m in tf.getmembers():
+                      if not m.isfile(): continue
+                      base=m.name.rsplit('/',1)[-1]
+                      if re.match(r'(?i)^(license|licence|copying|notice|copyright)([._-]|$)',base):
+                          content=tf.extractfile(m).read()
+                          candidates.append((m.name,hashlib.sha256(content).hexdigest(),len(content)))
+                  for row in candidates:
+                      print(f'[r3][sdist][license] {package} path={row[0]} sha256={row[1]} bytes={row[2]}')
+                  if not candidates: print(f'[r3][sdist][license] {package} NONE')
+          PY
