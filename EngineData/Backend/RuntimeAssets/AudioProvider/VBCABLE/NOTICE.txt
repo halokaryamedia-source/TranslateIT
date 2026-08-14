@@ -1,0 +1,5 @@
+VB-CABLE is provided by VB-Audio Software. Official origin: vb-cable.com.
+
+VB-CABLE is donationware. All participation is welcome. TranslateIT does not claim ownership of the VB-CABLE driver or brand.
+
+This bundled provider is used only to provide the virtual playback/recording pair required for TranslateIT Meeting audio routing.
