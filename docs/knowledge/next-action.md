@@ -111,6 +111,29 @@ source commit -> a56aaacdb1395ab6bfd3b35ca32323a651b24c04
 
 The temporary Skip proof workflow was removed after the successful proof.
 
+## Frontend P0 Alignment Closure
+
+The first frontend alignment wave is source-closed. First Setup and Meeting now treat `My Voice` as a required product concept instead of leaving it implicit behind Meeting readiness.
+
+First Setup now includes `My Voice` in its final readiness summary. When My Voice is missing, the dominant final action is `Create My Voice`; leaving the wizard for VoiceLab persists setup as `deferred`, not `completed`, so the product does not claim setup success early. After an approved voice exists and Meeting readiness is healthy, `Open Meeting` becomes the final action.
+
+Meeting Ready now gives equal required hierarchy to `Your microphone`, `My Voice`, and `Meeting microphone`. Incoming English -> Indonesian text is moved out of the required three-column readiness area into an explicitly `Optional` row. When My Voice is missing, `Create My Voice` replaces the unavailable Start action as the dominant recovery path.
+
+No Rust/backend readiness rule, build-duration rule, audio route, model runtime, or persisted schema was changed. The UI reads the existing canonical VoiceLab build status for approved-voice readiness.
+
+Accepted hosted source proof:
+
+```text
+run 31793579827
+bounded P0 source contract -> PASS
+no backend product-source changes -> PASS
+frontend typecheck -> PASS
+frontend production build -> PASS
+source commit -> f2d3fa7ad58073964d82beb8693cf20184682484
+```
+
+The temporary patch/proof files were removed after the successful proof.
+
 ## Existing Source-Closed Boundaries
 
 The following remain closed source-side:
@@ -152,4 +175,4 @@ Hosted source/build proof must not be presented as evidence for those claims.
 
 ## Next Step
 
-**No additional independent source change is currently grounded after the Guided Recording Skip closure. Keep target/local Windows validation deferred as requested; reopen source work only when a new concrete source gap is found or when the user authorizes the deferred release/target-Windows evidence.**
+**P1 — VoiceLab humanization and hierarchy alignment. Keep the existing VoiceLab behavior and 128-line pool, but make the normal UI follow the same product grammar as Meeting/Text: remove engineering/process copy from normal-user surfaces, stop presenting `128 available` and the one-minute backend minimum as completion/quality targets, standardize normal vocabulary around `My Voice`, prevent raw build/runtime wording from leaking into the main VoiceLab experience, and fix the existing `--ti-action` token drift by reusing the canonical accent token. Do not redesign the application shell, change training/runtime behavior, or add new state/framework/component systems.**
