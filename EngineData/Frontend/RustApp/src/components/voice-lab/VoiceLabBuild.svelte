@@ -7,7 +7,13 @@
     type VoiceLabBuildStatus,
   } from "../../app/bridge/voiceLabBuildApi";
 
-  let { onNotice }: { onNotice: (message: string) => void } = $props();
+  let {
+    onNotice,
+    refreshRevision = 0,
+  }: {
+    onNotice: (message: string) => void;
+    refreshRevision?: number;
+  } = $props();
 
   let build = $state<VoiceLabBuildStatus>({
     active: false,
@@ -55,9 +61,25 @@
     schedulePoll();
   }
 
+  function productMessage(result: VoiceLabBuildActionResult): string {
+    const message = result.message.trim();
+    if (!message.includes("voice_lab:")) return message;
+
+    switch (result.state) {
+      case "build_blocked":
+        return "Stop Meeting translation before creating My Voice, then try again.";
+      case "dataset_prepare_failed":
+        return "VoiceLab couldn't prepare the accepted recordings. Check Diagnostics and try again.";
+      case "approval_failed":
+        return "My Voice couldn't be approved. Stop Meeting translation if it is active, then try again or check Diagnostics.";
+      default:
+        return "VoiceLab couldn't complete this action. Check Diagnostics and try again.";
+    }
+  }
+
   function applyResult(result: VoiceLabBuildActionResult): void {
     applyStatus(result.build);
-    onNotice(result.message);
+    onNotice(productMessage(result));
   }
 
   async function refresh(): Promise<void> {
@@ -120,8 +142,12 @@
     }
   }
 
-  onMount(() => {
+  $effect(() => {
+    refreshRevision;
     void refresh();
+  });
+
+  onMount(() => {
     return () => {
       if (timer) clearTimeout(timer);
       stopAudio();
