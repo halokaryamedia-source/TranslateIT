@@ -14,6 +14,13 @@ const voiceSourceRoot = join(runtimeAssetsRoot, "Voice", "GPTSoVITS", "Source");
 const vbCableRoot = join(runtimeAssetsRoot, "AudioProvider", "VBCABLE");
 const vbCablePackageRoot = join(vbCableRoot, "Package");
 const expectedRevision = "d523079fc05d9a8028d6085bffe4a2757c32abb6";
+const expectedPythonArchiveSha256 = "4acbed6dd1c744b0376e3b1cf57ce906f9dc9e95e68824584c8099a63025a3c3";
+const expectedNltkRevision = "550b6625bcef1f2abff2ff770a5a0d272c9c6b2a";
+const expectedNltkPackages = {
+  "corpora/cmudict.zip": "d07cca47fd72ad32ea9d8ad1219f85301eeaf4568f8b6b73747506a71fb5afd6",
+  "taggers/averaged_perceptron_tagger.zip": "e1f13cf2532daadfd6f3bc481a49859f0b8ea6432ccdcd83e6a49a5f19008de9",
+  "taggers/averaged_perceptron_tagger_eng.zip": "6025f530624335c67d6547d44757b357b4e79bae030a0383e9887a92c1718f0b",
+};
 const expectedFfmpegExeSha256 = "ad62137371b2111d52d29c9bc82d5aecf7065c8f937e95dfed087b2bc63ea88d";
 const expectedFfmpegLicenseSha256 = "da7eabb7bafdf7d3ae5e9f223aa5bdc1eece45ac569dc21b3b037520b4464768";
 const expectedVbCableFiles = {
@@ -88,6 +95,36 @@ for (const file of [
 }
 
 requireFile(join(pythonRoot, "python.exe"), "LocalWorker/PythonRuntime/python.exe");
+requireFile(join(pythonRoot, "LICENSE.txt"), "LocalWorker/PythonRuntime/LICENSE.txt");
+requireFile(join(pythonRoot, "PYTHON_SOURCE.txt"), "LocalWorker/PythonRuntime/PYTHON_SOURCE.txt");
+requireFile(join(pythonRoot, "python312._pth"), "LocalWorker/PythonRuntime/python312._pth");
+if (existsSync(join(pythonRoot, "PYTHON_SOURCE.txt"))) {
+  const sourceRecord = readFileSync(join(pythonRoot, "PYTHON_SOURCE.txt"), "utf8");
+  for (const marker of [
+    "source_kind=cpython-embeddable",
+    "release=3.12.10",
+    "source_url=https://www.python.org/ftp/python/3.12.10/python-3.12.10-embed-amd64.zip",
+    "archive_bytes=11133606",
+    "archive_md5=fe8ef205f2e9c3ba44d0cf9954e1abd3",
+    `archive_sha256=${expectedPythonArchiveSha256}`,
+  ]) {
+    if (!sourceRecord.includes(marker)) fail(`PYTHON_SOURCE.txt provenance marker is missing: ${marker}`);
+  }
+}
+if (existsSync(join(pythonRoot, "python312._pth"))) {
+  const activePaths = readFileSync(join(pythonRoot, "python312._pth"), "utf8")
+    .replace(/\r\n/g, "\n")
+    .replace(/\r/g, "\n")
+    .split("\n")
+    .map((line) => line.trim())
+    .filter((line) => line && !line.startsWith("#"));
+  if (JSON.stringify(activePaths) !== JSON.stringify(["python312.zip", ".", "..\\WorkerRuntime"])) {
+    fail("PythonRuntime/python312._pth must expose only python312.zip, vendored PythonRuntime packages, and canonical sibling WorkerRuntime.");
+  }
+  if (activePaths.some((line) => line.toLowerCase() === "import site")) {
+    fail("PythonRuntime/python312._pth must keep import site disabled; system/user site-packages are not release dependencies.");
+  }
+}
 
 const noticeBundlePath = thirdPartyNoticeOutputPath(backendRoot);
 requireFile(noticeBundlePath, "RuntimeAssets/ThirdPartyNotices/THIRD_PARTY_NOTICES.txt");
@@ -133,6 +170,19 @@ requireFile(join(voiceSourceRoot, "TRANSLATEIT_GPTSOVITS_REVISION.txt"), "GPT-So
 if (existsSync(join(voiceSourceRoot, "TRANSLATEIT_GPTSOVITS_REVISION.txt"))) {
   const revision = readFileSync(join(voiceSourceRoot, "TRANSLATEIT_GPTSOVITS_REVISION.txt"), "utf8").trim();
   if (revision !== expectedRevision) fail("GPT-SoVITS release payload revision does not match the approved V2ProPlus pin.");
+}
+const nltkSourcePath = join(voiceSourceRoot, "NLTK_DATA_SOURCE.txt");
+requireFile(nltkSourcePath, "GPT-SoVITS/Source/NLTK_DATA_SOURCE.txt");
+if (existsSync(nltkSourcePath)) {
+  const sourceRecord = readFileSync(nltkSourcePath, "utf8");
+  for (const marker of [
+    "source_kind=nltk_data",
+    "repository=nltk/nltk_data",
+    `revision=${expectedNltkRevision}`,
+    ...Object.entries(expectedNltkPackages).map(([name, hash]) => `${name} sha256=${hash}`),
+  ]) {
+    if (!sourceRecord.includes(marker)) fail(`NLTK_DATA_SOURCE.txt provenance marker is missing: ${marker}`);
+  }
 }
 const ffmpegPath = join(voiceSourceRoot, "ffmpeg.exe");
 const ffmpegLicensePath = join(voiceSourceRoot, "FFMPEG_LICENSE.txt");

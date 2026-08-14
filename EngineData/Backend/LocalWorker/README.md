@@ -31,6 +31,25 @@ Large/private runtime bytes are staged as controlled release inputs and remain o
 ## Python Runtime Provenance / License Gate
 
 - The release Python authority is **CPython 3.12.10 Windows embeddable package** from Python.org, not a copied developer installation. Keep the Python Software Foundation License Version 2 and the applicable incorporated-software acknowledgements with the distributed runtime.
+
+R3 pins the concrete CPython input used for the controlled Windows release profile:
+
+```text
+source URL      https://www.python.org/ftp/python/3.12.10/python-3.12.10-embed-amd64.zip
+archive bytes   11133606
+archive MD5     fe8ef205f2e9c3ba44d0cf9954e1abd3
+archive SHA256  4acbed6dd1c744b0376e3b1cf57ce906f9dc9e95e68824584c8099a63025a3c3
+```
+
+The staged `PythonRuntime/PYTHON_SOURCE.txt` must record that exact provenance. The embeddable distribution's `python312._pth` is also part of the release contract. In `_pth` isolated mode, environment/registry path injection such as `PYTHONPATH` is not an installed-product dependency. The only active path entries must be:
+
+```text
+python312.zip
+.
+..\WorkerRuntime
+```
+
+`import site` must remain disabled. `.` owns the frozen third-party packages vendored into `PythonRuntime`; `..\WorkerRuntime` exposes only TranslateIT's canonical sibling worker modules. Do not solve this by enabling system/user site-packages, copying a second WorkerRuntime into PythonRuntime, or relying on environment-variable path injection.
 - `WorkerRuntime/uv.lock` is the exact third-party Python dependency graph that must be reviewed for the staged private runtime. Python itself being redistributable does not clear every vendored Python package.
 - `g2p-en` is pinned to **2.1.0** because the dependency exception below is source-reviewed against that exact release. Its published metadata declares `distance`, but hosted inspection of the installed `g2p_en` 2.1.0 Python package confirms that the runtime source contains no `distance` reference, and an English G2P smoke test succeeds while `distance` is absent.
 - The canonical `[tool.uv]` policy therefore uses a **version-scoped `exclude-dependencies`** entry that removes only `distance` as declared by `g2p-en==2.1.0`. `uv.lock` must not contain the `Distance` package. Any `g2p-en` version change must remove or re-justify this exception and repeat the source/runtime proof before release staging.

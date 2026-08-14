@@ -97,6 +97,16 @@ The repository-level MIT declaration is not permission to discard third-party at
 
 The two packaged NLTK averaged-perceptron tagger resources are recorded by NLTK as MIT. NLTK's aggregate metadata lists `cmudict` as ambiguous, so TranslateIT follows the original CMUdict source instead: CMU states research/commercial use is unrestricted and requests acknowledgement of Carnegie Mellon origin when the dictionary is used or redistributed. Preserve that acknowledgement in release notices.
 
+R3 pins the packaged English G2P data to `nltk/nltk_data` revision `550b6625bcef1f2abff2ff770a5a0d272c9c6b2a`. The exact source-package SHA-256 values are:
+
+```text
+corpora/cmudict.zip                          d07cca47fd72ad32ea9d8ad1219f85301eeaf4568f8b6b73747506a71fb5afd6
+taggers/averaged_perceptron_tagger.zip      e1f13cf2532daadfd6f3bc481a49859f0b8ea6432ccdcd83e6a49a5f19008de9
+taggers/averaged_perceptron_tagger_eng.zip  6025f530624335c67d6547d44757b357b4e79bae030a0383e9887a92c1718f0b
+```
+
+The staged voice source must include `NLTK_DATA_SOURCE.txt` with that repository revision and all three package hashes. A different NLTK data snapshot must be reviewed and re-pinned before release; first-use NLTK downloads remain forbidden.
+
 ### FFmpeg
 
 The VoiceLab decoder provenance/profile is pinned to one reviewed **static LGPL Windows build** rather than the historical provenance-unknown binary:

@@ -170,6 +170,10 @@ if (!/\[\[package\]\]\s+name = "g2p-en"\s+version = "2\.1\.0"/m.test(workerLock)
 }
 for (const marker of [
   "CPython 3.12.10 Windows embeddable package",
+  "4acbed6dd1c744b0376e3b1cf57ce906f9dc9e95e68824584c8099a63025a3c3",
+  "PythonRuntime/PYTHON_SOURCE.txt",
+  "..\\WorkerRuntime",
+  "`import site` must remain disabled",
   "version-scoped `exclude-dependencies`",
   "uv.lock` must not contain the `Distance` package",
   "uv>=0.12.0",
@@ -198,6 +202,10 @@ for (const marker of [
   "FFMPEG_LICENSE.txt",
   "FFMPEG_SOURCE.txt",
   "CMU states research/commercial use is unrestricted",
+  "550b6625bcef1f2abff2ff770a5a0d272c9c6b2a",
+  "NLTK_DATA_SOURCE.txt",
+  "d07cca47fd72ad32ea9d8ad1219f85301eeaf4568f8b6b73747506a71fb5afd6",
+  "6025f530624335c67d6547d44757b357b4e79bae030a0383e9887a92c1718f0b",
 ]) {
   if (!voiceAssetsReadme.includes(marker)) fail(`Voice release provenance/license gate marker is missing: ${marker}`);
 }
