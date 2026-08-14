@@ -2,7 +2,7 @@
 
 ## Current Mode
 
-**Developing / Frontend P0 Alignment CLOSED — P1 VOICELAB HUMANIZATION NEXT**
+**Developing / Frontend P1 VoiceLab Humanization CLOSED — P2 SETTINGS CLEANUP NEXT**
 
 VoiceLab A1 through A6, the pre-local VoiceLab quality audit, the final 128-line guided-script curation, the explicit Guided Recording Skip action, P3 runtime/model packaging source closure, P4 Meeting audio provider distribution policy, and the bounded P5 Rust source-hygiene cleanup are source-closed. Target/local Windows validation remains explicitly deferred by the user.
 
@@ -134,6 +134,29 @@ source commit -> f2d3fa7ad58073964d82beb8693cf20184682484
 
 The temporary patch/proof files were removed after the successful proof.
 
+## Frontend P1 VoiceLab Humanization Closure
+
+The VoiceLab humanization and hierarchy alignment wave is source-closed. The normal VoiceLab surface keeps the existing recording, Skip, build, evaluation, approval, and 128-line behavior while presenting those capabilities with the same product-facing grammar used by Meeting and Text.
+
+The page header no longer presents `128 available` as a completion target. Guided recording copy now focuses on clear, comfortable recordings and ordinary `My Voice` language. Review copy no longer refers to a Voice Actor dataset or engineering quality policy.
+
+`VoiceLabBuild.svelte` no longer presents the one-minute backend minimum as a user quality target and no longer renders raw `build.message` into the main VoiceLab surface. Build phases are projected into bounded product copy such as `Creating My Voice`, `Preparing voice previews`, and `Review My Voice`; action results are likewise mapped to normal product messages instead of exposing runtime/build detail. The backend minimum, build state machine, training behavior, evaluation contract, and approval authority are unchanged.
+
+Both VoiceLab authorization checkboxes now reuse the canonical `--ti-accent` token instead of the nonexistent `--ti-action` token. No new token, component system, state owner, framework, or backend capability was added.
+
+Accepted hosted source proof:
+
+```text
+run 31796853186
+VoiceLab P1 humanization source contract -> PASS
+bounded two-owner frontend change -> PASS
+frontend typecheck -> PASS
+frontend production build -> PASS
+source commit -> 2913c8030298e373745182cdff702f7fe43f4e1b
+```
+
+The temporary P1 patch/proof files were removed after the successful proof.
+
 ## Existing Source-Closed Boundaries
 
 The following remain closed source-side:
@@ -143,6 +166,8 @@ VoiceLab A1-A6
 VoiceLab pre-local quality audit
 VoiceLab 128-line guided script final curation
 VoiceLab Guided Recording Skip action
+Frontend P0 First Setup / Meeting My Voice alignment
+Frontend P1 VoiceLab humanization and hierarchy alignment
 P3 private Python/runtime/model packaging contract
 P4 standard VB-CABLE initial provider policy and controlled staging contract
 P5 Rust warning/dead-data cleanup
@@ -175,4 +200,4 @@ Hosted source/build proof must not be presented as evidence for those claims.
 
 ## Next Step
 
-**P1 — VoiceLab humanization and hierarchy alignment. Keep the existing VoiceLab behavior and 128-line pool, but make the normal UI follow the same product grammar as Meeting/Text: remove engineering/process copy from normal-user surfaces, stop presenting `128 available` and the one-minute backend minimum as completion/quality targets, standardize normal vocabulary around `My Voice`, prevent raw build/runtime wording from leaking into the main VoiceLab experience, and fix the existing `--ti-action` token drift by reusing the canonical accent token. Do not redesign the application shell, change training/runtime behavior, or add new state/framework/component systems.**
+**P2 — Settings cleanup and normal-user technical-leakage containment. Keep the existing `Meeting / Advanced` settings structure and all runtime behavior, but remove the redundant normal `Check Microphone` action because microphone selection already performs the functional check, simplify normal Meeting settings copy so users do not need to understand matched virtual-audio cable/provider internals, and keep Worker/CUDA/provider/command-error detail inside `Advanced -> Diagnostics`. Do not change device-selection transactions, Mic Test behavior, setup repair, audio routing, backend readiness, or add new settings/state/component systems.**
