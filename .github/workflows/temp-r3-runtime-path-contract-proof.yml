@@ -5,6 +5,7 @@ on:
     branches: [New]
     paths:
       - .github/workflows/temp-r3-runtime-path-contract-proof.yml
+      - .github/scripts/temp-r3-runtime-path-contract.py
 
 permissions:
   contents: write
