@@ -40,8 +40,8 @@ jobs:
           $ErrorActionPreference = 'Stop'
           npm ci
           if ($LASTEXITCODE -ne 0) { throw 'npm ci failed' }
-          npm run typecheck
-          if ($LASTEXITCODE -ne 0) { throw 'frontend typecheck failed' }
+          npm run validate:quick
+          if ($LASTEXITCODE -ne 0) { throw 'frontend source validation failed' }
           npm run build:frontend
           if ($LASTEXITCODE -ne 0) { throw 'frontend build failed' }
       - name: Rust compile gate
