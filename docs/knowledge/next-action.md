@@ -2,9 +2,9 @@
 
 ## Current Mode
 
-**Maintenance / P5 Rust Source Hygiene CLOSED — RELEASE/LOCAL EVIDENCE DEFERRED**
+**Maintenance / VoiceLab Guided Recording UX CLOSED — RELEASE/LOCAL EVIDENCE DEFERRED**
 
-VoiceLab A1 through A6, the pre-local VoiceLab quality audit, P3 runtime/model packaging source closure, P4 Meeting audio provider distribution policy, and the bounded P5 Rust source-hygiene cleanup are source-closed. Target/local Windows validation remains explicitly deferred by the user.
+VoiceLab A1 through A6, the pre-local VoiceLab quality audit, the final 128-line guided-script curation, the explicit Guided Recording Skip action, P3 runtime/model packaging source closure, P4 Meeting audio provider distribution policy, and the bounded P5 Rust source-hygiene cleanup are source-closed. Target/local Windows validation remains explicitly deferred by the user.
 
 ## P5 Result
 
@@ -80,6 +80,37 @@ source commit -> 7b717e325f514d673ee282e4f10619525cfaade2
 
 The temporary curation workflow and script were removed after the successful proof.
 
+## VoiceLab Guided Skip Closure
+
+The explicitly requested Guided Recording `Skip` action is now source-closed at the existing `VoiceLab.svelte` owner. It is deliberately a frontend-only navigation action, not a new VoiceLab runtime/state capability.
+
+Behavior is bounded to:
+
+```text
+idle guided line
+-> Skip
+-> move forward to a later unaccepted line when available
+-> otherwise move to the next later line
+```
+
+Skip is unavailable while recording, while a take is pending review, while another recording action is busy, or while replay is active. It does not mark a line accepted or failed, does not create persistent skipped state/history, does not add a backend/API command, and does not change the existing build-duration gate. The sidebar remains the way to return to any earlier skipped line.
+
+The user-facing guidance now explicitly says that a difficult line may be skipped and that all 128 lines are an optional recording pool rather than a completion requirement.
+
+Accepted hosted source proof:
+
+```text
+run 31792212174
+frontend-only Skip contract guard -> PASS
+no backend Skip API / persistent skip state -> PASS
+frontend typecheck -> PASS
+frontend production build -> PASS
+read-only closure guard -> PASS
+source commit -> a56aaacdb1395ab6bfd3b35ca32323a651b24c04
+```
+
+The temporary Skip proof workflow was removed after the successful proof.
+
 ## Existing Source-Closed Boundaries
 
 The following remain closed source-side:
@@ -88,6 +119,7 @@ The following remain closed source-side:
 VoiceLab A1-A6
 VoiceLab pre-local quality audit
 VoiceLab 128-line guided script final curation
+VoiceLab Guided Recording Skip action
 P3 private Python/runtime/model packaging contract
 P4 standard VB-CABLE initial provider policy and controlled staging contract
 P5 Rust warning/dead-data cleanup
@@ -120,4 +152,4 @@ Hosted source/build proof must not be presented as evidence for those claims.
 
 ## Next Step
 
-**Implement the explicitly requested Guided Recording `Skip` action. Skip must only move past the current line while no recording/review action is active; it must not mark the line accepted or failed, must not change the existing build-duration gate, and must not create persistent skip history or a new workflow/state owner. The 128-line script remains an optional recording pool.**
+**No additional independent source change is currently grounded after the Guided Recording Skip closure. Keep target/local Windows validation deferred as requested; reopen source work only when a new concrete source gap is found or when the user authorizes the deferred release/target-Windows evidence.**
