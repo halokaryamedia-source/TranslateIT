@@ -2,55 +2,68 @@
 
 ## Current Mode
 
-**Maintenance / VoiceLab Pre-Local Quality Audit — SOURCE HARDENING**
+**Maintenance / VoiceLab READY FOR LOCAL VALIDATION — USER DEFERRED**
 
-VoiceLab A1 through A6 remain source-closed. Target/local Windows validation is explicitly deferred by the user for now. Hosted proof must not be presented as target GPU, speaker-quality, virtual-audio, meeting-app, installer, or clean-machine evidence.
+VoiceLab A1 through A6 remain source-closed. The pre-local quality audit is also closed source-side. Target/local Windows validation is explicitly deferred by the user for now. Do not restart local testing, packaging expansion, model tuning, provider work, or another VoiceLab milestone unless the user explicitly chooses to proceed or provides new concrete evidence/requirements.
 
-## Pre-Local Audit Scope
+## Pre-Local Audit Result
 
-The current maintenance pass is intentionally bounded to concrete source-quality gaps that can be proven without the user's PC:
+The maintenance pass found and corrected only concrete gaps; it did not add a new architecture or feature wave.
 
-```text
-VoiceLab recording -> build UI consistency
-normal-user error/message hygiene
-PR-113 unusable-dataset build-time rejection
-current GPT-SoVITS release-asset wording/ownership
-obsolete temporary VoiceLab proof tooling
-canonical documentation consistency
-```
+### 1. Recording -> build state consistency
 
-Do not add another VoiceLab milestone, provider/model selector, fallback TTS, background training, GPU arbitration, generic readiness framework, second lifecycle, second worker, or speculative optimization before target evidence requires it.
+Accepting or replacing a guided take could previously leave the Create My Voice panel stale because recording and build UI state refreshed independently.
 
-## Concrete Findings And Corrections
+The recording owner now advances a bounded refresh revision after a successful accepted take, and the existing build component refreshes from canonical backend status. No duplicate dataset owner was introduced.
 
-### Recording -> build state
+### 2. User-facing VoiceLab error hygiene
 
-The build panel previously refreshed only on mount or while a build was active. Accepting or replacing a guided take could therefore leave accepted count, duration, and `can_build` stale until the page was remounted.
+Normal VoiceLab UI could previously forward internal `voice_lab:*` protocol text directly to the user. Recording/build actions now map those failures to bounded product-facing guidance while Diagnostics/runtime owners retain the underlying internal error contract.
 
-The recording owner now advances a bounded refresh revision after a successful accepted take, and the existing build component refreshes from its canonical backend status. No duplicate dataset state was introduced.
+### 3. PR-113 unusable-dataset rejection
 
-### User-facing VoiceLab errors
-
-Normal VoiceLab UI previously forwarded some backend messages directly, which could expose internal `voice_lab:*` protocol text. Recording/build action notices now convert such failures into bounded product-facing guidance while the underlying command error remains available to Diagnostics.
-
-### PR-113 build-time quality gate
-
-The product requirement already states that build-time checks must reject obviously unusable audio, including excessive silence and severe clipping. The one-shot VoiceLab build child now performs conservative structural PCM16 checks before expensive GPT-SoVITS work:
+The one-shot VoiceLab build child now rejects obviously unusable accepted audio before expensive GPT-SoVITS work:
 
 ```text
 canonical 32 kHz mono PCM16 required
 >= 90% near-silence -> reject
 >= 5% hard-clipped samples -> reject
-otherwise continue to the existing build/evaluation path
+otherwise continue to existing build/evaluation
 ```
 
-These bounds are deliberately conservative rejection gates, not speaker-quality scoring and not target-audio tuning claims. Future tuning requires real user recordings.
+These are conservative structural rejection gates only. They are not speaker-quality scoring, automatic quality approval, or target-audio tuning claims.
 
-### Asset/tooling hygiene
+### 4. Active-build close lifecycle
 
-Developer model acquisition text no longer names Piper as a current release asset. The active required manual release asset is the pinned GPT-SoVITS VoiceLab bundle described by `model_manifest.json`.
+The native layer already prevented process exit while VoiceLab build was active, but the frontend close path could still call `window.destroy()` without checking build state first. That could leave the application process alive without its main window while training continued.
 
-Obsolete temporary A2/A3 proof workflows are removed. The temporary pre-local proof workflow is retained only until this maintenance pass receives its final hosted proof, then it should also be removed.
+The frontend close guard now reads the existing canonical VoiceLab build status before destroying the window. Active build blocks close with user-facing guidance; unavailable build status fails closed. No second lifecycle owner was added.
+
+### 5. Asset and stale tooling cleanup
+
+Developer asset wording no longer names Piper as a current release asset. The release inventory remains the pinned GPT-SoVITS VoiceLab bundle owned by `model_manifest.json`.
+
+Obsolete temporary A2, A3, and pre-local A4 proof workflows were removed after proof completed. No permanent proof framework was added.
+
+## Accepted Pre-Local Hosted Proof
+
+Final pre-local quality proof:
+
+```text
+run 31776560232
+exact checkout SHA bc9491cfaf81d8eb47f3505cb6003efe61877e88
+Windows Server 2022
+frozen WorkerRuntime lock/sync -> PASS
+VoiceLab Python syntax -> PASS
+VoiceLab build contract tests -> PASS
+model inventory tests -> PASS
+frontend source validators -> PASS
+svelte-check/typecheck -> PASS
+frontend production build -> PASS
+cargo check --locked -> PASS
+```
+
+The preceding run `31776321151` independently passed the same Python/frontend/Rust gates after the model-inventory cleanup. The first frozen-dependency audit proof `31776193564` also passed after the initial harness dependency issue was corrected.
 
 ## Existing A6 Accepted Proof
 
@@ -66,8 +79,6 @@ Rust tests -> 42 PASS / 0 FAIL
 read-only closure guard -> PASS
 A6_FINAL_SOURCE_PROOF -> PASS
 ```
-
-This proof remains source/hosted evidence only.
 
 ## Deferred Target Windows Boundary
 
@@ -85,6 +96,8 @@ Zoom/Meet/Teams microphone reception
 installer and clean-machine execution
 ```
 
+Hosted source proof must not be presented as evidence for those claims.
+
 ## Next Step
 
-**Finish the current pre-local hosted proof and cleanup. If it passes, mark VoiceLab `READY FOR LOCAL VALIDATION — USER DEFERRED` and stop source expansion until the user chooses to run local validation or provides a new concrete requirement.**
+**STOP source expansion for VoiceLab. Wait until the user explicitly chooses local/target-Windows validation or provides a new concrete VoiceLab requirement.**
