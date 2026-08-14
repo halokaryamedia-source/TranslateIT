@@ -1,0 +1,62 @@
+name: Temporary VoiceLab 64-Line Proof
+
+on:
+  push:
+    branches: [New]
+    paths:
+      - .github/workflows/temp-voicelab-64-proof.yml
+
+jobs:
+  source-proof:
+    runs-on: windows-2022
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+          fetch-depth: 1
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: EngineData/Frontend/RustApp/package-lock.json
+      - name: Validate guided script contract
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          @'
+          from pathlib import Path
+          import re
+          source = Path('EngineData/Frontend/RustApp/src-tauri/src/commands/voice_lab_recording.rs').read_text(encoding='utf-8')
+          block = source.split('const GUIDED_LINES: &[(u32, &str)] = &[', 1)[1].split('];', 1)[0]
+          entries = re.findall(r'^\s*\((\d+),\s*"(.*)"\),\s*$', block, re.MULTILINE)
+          assert len(entries) == 64, len(entries)
+          assert [int(i) for i, _ in entries] == list(range(1, 65))
+          texts = [t for _, t in entries]
+          assert len(set(texts)) == 64
+          held = {
+              'Please confirm the final schedule before we send the update to the client.',
+              'The system should remain clear and natural during a longer technical discussion.',
+              'I can review the latest results tomorrow morning and share my decision with the team.',
+          }
+          assert not set(texts).intersection(held)
+          print('[guided-lines] 64 unique contiguous lines -> PASS')
+          '@ | python -
+      - name: Install frontend dependencies
+        working-directory: EngineData/Frontend/RustApp
+        run: npm ci
+      - name: Frontend typecheck
+        working-directory: EngineData/Frontend/RustApp
+        run: npm run typecheck
+      - name: Frontend production build
+        working-directory: EngineData/Frontend/RustApp
+        run: npm run build:frontend
+      - name: Rust compile with warnings denied
+        shell: pwsh
+        run: |
+          $env:RUSTFLAGS='-Dwarnings'
+          cargo check --locked --manifest-path EngineData/Frontend/RustApp/src-tauri/Cargo.toml
+      - name: Rust tests
+        run: cargo test --locked --manifest-path EngineData/Frontend/RustApp/src-tauri/Cargo.toml
+      - name: Read-only closure guard
+        run: git diff --exit-code
