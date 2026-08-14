@@ -48,6 +48,14 @@ jobs:
           $exeSha = (Get-FileHash -Algorithm SHA256 $exe.FullName).Hash.ToLowerInvariant()
           Write-Host "[r1.2] ffmpeg_exe=$($exe.FullName)"
           Write-Host "[r1.2] ffmpeg_exe_sha256=$exeSha"
+          $licenseFile = Get-ChildItem -Path $root -Recurse -Filter LICENSE.txt | Select-Object -First 1
+          if (-not $licenseFile) { throw 'LICENSE.txt not found in candidate archive' }
+          $licenseSha = (Get-FileHash -Algorithm SHA256 $licenseFile.FullName).Hash.ToLowerInvariant()
+          $licenseText = Get-Content $licenseFile.FullName -Raw
+          Write-Host "[r1.2] license_sha256=$licenseSha"
+          Write-Host '[r1.2] LICENSE.txt first lines:'
+          Get-Content $licenseFile.FullName -TotalCount 80 | ForEach-Object { Write-Host $_ }
+          if ($licenseText -notmatch 'GNU Lesser General Public License') { throw 'Archive license file does not contain LGPL notice' }
           Write-Host '[r1.2] archive top-level files:'
           Get-ChildItem -Path $root -Recurse -File | ForEach-Object { Write-Host $_.FullName.Substring($root.Length + 1) }
           $dlls = @(Get-ChildItem -Path $root -Recurse -Filter '*.dll' -File)
@@ -59,10 +67,12 @@ jobs:
           if ($version -notmatch 'n8\.1\.2-34-g9b6c8969e0') { throw 'Unexpected FFmpeg source/version identity' }
           if ($version -match '--enable-gpl') { throw 'GPL configure flag present in LGPL candidate' }
           if ($version -match '--enable-nonfree') { throw 'nonfree configure flag present in LGPL candidate' }
+          if ($version -notmatch '--pkg-config-flags=--static') { throw 'Static package configure marker missing' }
           $license = & $exe.FullName -L 2>&1 | Out-String
           Write-Host '[r1.2] ffmpeg -L:'
           Write-Host $license
           if ($license -notmatch 'GNU Lesser General Public License') { throw 'FFmpeg LGPL notice not reported by candidate' }
+          if ($license -notmatch 'version 3 of the License') { throw 'Expected LGPL v3 profile not reported by candidate' }
           "FFMPEG_EXE=$($exe.FullName)" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
 
       - name: Required VoiceLab decode smoke
