@@ -2,7 +2,7 @@
 
 ## Current Mode
 
-**Developing / Frontend P2 Settings Cleanup CLOSED — P3 SHELL STATUS CLEANUP NEXT**
+**Developing / Frontend P3 Shell Status Cleanup CLOSED — P4 FIRST SETUP POLISH NEXT**
 
 VoiceLab A1 through A6, the pre-local VoiceLab quality audit, the final 128-line guided-script curation, the explicit Guided Recording Skip action, P3 runtime/model packaging source closure, P4 Meeting audio provider distribution policy, and the bounded P5 Rust source-hygiene cleanup are source-closed. Target/local Windows validation remains explicitly deferred by the user.
 
@@ -178,6 +178,27 @@ source commit -> fa5162c2a2aa02f912d1f2ae6219041d989be296
 
 The temporary P2 patch/proof files were removed after the successful proof.
 
+## Frontend P3 Shell / Status Cleanup Closure
+
+The bounded shell/status redundancy cleanup is source-closed at the existing `App.svelte` and `Meeting.svelte` owners. The app keeps the same routes, sidebar, transient notice, active-Meeting return control, product-state projection, Meeting polling, and lifecycle behavior while removing duplicated normal-user status presentation.
+
+The global direction pill was removed from the app header because Meeting and Text already communicate direction in their own primary surfaces and the pill was irrelevant in Settings. Its derived `direction` and `currentSettings` presentation-only projections were removed with it; no settings or navigation behavior changed.
+
+Meeting no longer shows a redundant page-header `Live` badge when the live activity surface already communicates `Listening`, `Translating`, or `Speaking`. Header badges remain for Starting/Stopping and attention states such as Unavailable, Checking, and Setup Needed. `MeetingActivity`, transcript behavior, Start/Stop ownership, and Meeting state semantics are unchanged.
+
+Accepted hosted source proof:
+
+```text
+run 31799253711
+shell/status P3 source contract -> PASS
+bounded App + Meeting frontend change -> PASS
+frontend typecheck -> PASS
+frontend production build -> PASS
+source commit -> 762178e4132826ffbfdff5f878a8b85e101d9caa
+```
+
+The temporary P3 patch/proof files were removed after the successful proof.
+
 ## Existing Source-Closed Boundaries
 
 The following remain closed source-side:
@@ -190,6 +211,7 @@ VoiceLab Guided Recording Skip action
 Frontend P0 First Setup / Meeting My Voice alignment
 Frontend P1 VoiceLab humanization and hierarchy alignment
 Frontend P2 Settings normal-UI cleanup and Diagnostics containment
+Frontend P3 shell / Meeting status redundancy cleanup
 P3 private Python/runtime/model packaging contract
 P4 standard VB-CABLE initial provider policy and controlled staging contract
 P5 Rust warning/dead-data cleanup
@@ -222,4 +244,4 @@ Hosted source/build proof must not be presented as evidence for those claims.
 
 ## Next Step
 
-**P3 — Shell/status redundancy cleanup. Keep the existing sidebar, routes, product-state mapping, Meeting polling, and page-level direction UI, but remove the global direction pill from the app header because it duplicates Meeting/Text direction and is irrelevant in Settings, preserve the transient notice plus the active-Meeting return control, and suppress the redundant Meeting page-header `Live` badge when the live activity surface already communicates `Listening / Translating / Speaking`. Keep setup/unavailable/starting/stopping attention states visible. Do not change runtime state semantics, navigation behavior, Meeting lifecycle, or add new shell/state/component systems.**
+**P4 — First Setup normal-user polish. Keep the existing five persisted setup checkpoints, device transactions, readiness checks, Set Up Later behavior, My Voice handoff, and completion rules, but remove the redundant percentage beside `Step X of 5`, simplify the remaining normal-user copy that mentions a paired virtual-audio route, and make the Meeting microphone instruction read like the rest of the product. Do not change setup state semantics, audio routing, readiness logic, or add new wizard/state/component systems.**
