@@ -78,7 +78,12 @@ jobs:
       - name: VoiceLab provider contract regression
         working-directory: EngineData/Backend/LocalWorker/WorkerRuntime
         shell: pwsh
-        run: python test_voice_lab_build_contract.py
+        run: |
+          $proofRoot = Join-Path $env:RUNNER_TEMP 'translateit-g2p-proof'
+          $proofPython = Join-Path $proofRoot 'Scripts/python.exe'
+          uv pip install --python $proofPython ffmpeg-python
+          & $proofPython test_voice_lab_build_contract.py
+          & $proofPython -c "import importlib.util; assert importlib.util.find_spec('distance') is None; print('[r1.1-voicelab] VoiceLab contract passed with Distance absent')"
 
       - name: Validate release package source contract
         working-directory: EngineData/Frontend/RustApp
