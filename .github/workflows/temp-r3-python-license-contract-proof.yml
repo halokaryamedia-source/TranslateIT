@@ -1,0 +1,89 @@
+name: Temporary R3 Python License Contract Proof
+
+on:
+  push:
+    branches: [New]
+    paths:
+      - .github/workflows/temp-r3-python-license-contract-proof.yml
+
+permissions:
+  contents: write
+
+jobs:
+  prove-and-commit:
+    runs-on: windows-2022
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: New
+          fetch-depth: 1
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Apply bounded exceptional-license contract
+        shell: pwsh
+        run: |
+          python .github/scripts/temp-r3-python-license-contract.py
+          git diff --check
+
+      - name: Verify exact three-owner source diff
+        shell: pwsh
+        run: |
+          $changed=@(git diff --name-only)
+          $allowed=@(
+            'EngineData/Backend/LocalWorker/README.md',
+            'EngineData/Frontend/RustApp/scripts/validate_release_payload.mjs',
+            'EngineData/Frontend/RustApp/scripts/validate_release_package_contract.mjs'
+          )
+          foreach ($path in $changed) { if ($allowed -notcontains $path) { throw "Unexpected R3 source change: $path" } }
+          foreach ($path in $allowed) { if ($changed -notcontains $path) { throw "Expected R3 source change missing: $path" } }
+          Write-Host '[r3] exact three-owner exceptional-license contract diff -> PASS'
+
+      - name: Verify exceptional pin table shape
+        shell: pwsh
+        run: |
+          $env:VALIDATOR=(Resolve-Path 'EngineData/Frontend/RustApp/scripts/validate_release_payload.mjs').Path
+          @'
+          import os,re
+          from pathlib import Path
+          text=Path(os.environ['VALIDATOR']).read_text(encoding='utf-8')
+          start=text.index('const exceptionalPythonLicenseMaterials = {')
+          end=text.index('\n};\n\nconst expectedVbCableFiles',start)+4
+          block=text[start:end]
+          expected={
+            'ctranslate2-4.8.1.dist-info','flatbuffers-25.12.19.dist-info','jieba-0.42.1.dist-info','jieba_fast-0.53.dist-info','loguru-0.7.3.dist-info','onnxruntime-1.28.0.dist-info','sentencepiece-0.2.2.dist-info','tensorboard_data_server-0.7.2.dist-info','tokenizers-0.21.4.dist-info','wordsegment-1.3.1.dist-info'
+          }
+          names=set(re.findall(r'^  "([^"]+\.dist-info)": \{',block,re.M))
+          if names!=expected: raise SystemExit(f'exception package set mismatch: {sorted(names)}')
+          required_hashes=[
+            '54aa79d9fe3c09e67a16dcd95b9e88676405a6ec174efda31036983cf7672ecb',
+            '0e07b95f3a8d6230037707c5c4a2b554d12c4cb67369669ac255635528ffcee2',
+            'c79a7fea0e3cac04cd43f20e7b648e5a0ff8fa5344e644b0ee09ca1162b62747',
+            '8fe4d37c518608a57c6b0f24e26915144f8daf460eb4e1572146596ec3673294',
+          ]
+          for value in required_hashes:
+              if value not in block: raise SystemExit(f'missing exceptional license pin {value}')
+          for marker in ['0d8bcd362ac75ef860ef161d6f0efad0ae439ff0','7e163021e59cca4f8e1e35a7c828b5c6b7915953','81150b898a306b89cde90e949358c2eefe018eaa','5e6b21dece184e1004a35bfd802c8772059de3ab']:
+              if marker not in block: raise SystemExit(f'missing source revision {marker}')
+          print('[r3] exact 10-package exceptional license pin table -> PASS')
+          '@ | Set-Content "$env:RUNNER_TEMP\verify_exception_table.py" -Encoding utf8
+          python "$env:RUNNER_TEMP\verify_exception_table.py"
+
+      - name: Verify release source contracts
+        shell: pwsh
+        working-directory: EngineData/Frontend/RustApp
+        run: |
+          node --check scripts/validate_release_payload.mjs
+          node scripts/validate_release_package_contract.mjs
+
+      - name: Commit exceptional license contract
+        shell: pwsh
+        run: |
+          git config user.name 'halokaryamedia-source'
+          git config user.email 'halokaryamedia@gmail.com'
+          git add EngineData/Backend/LocalWorker/README.md EngineData/Frontend/RustApp/scripts/validate_release_payload.mjs EngineData/Frontend/RustApp/scripts/validate_release_package_contract.mjs
+          git commit -m 'Pin missing Python license materials'
+          git push origin HEAD:New
