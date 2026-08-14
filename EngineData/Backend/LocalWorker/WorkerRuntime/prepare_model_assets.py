@@ -215,8 +215,8 @@ def main() -> int:
         "manual_required_assets": manual_required,
         "downloads": [],
         "note": (
-            "Pinned Hugging Face assets are acquired from model_manifest.json. Manual release assets "
-            "such as Piper remain separate and are not fabricated by this developer downloader."
+            "Pinned Hugging Face assets are acquired from model_manifest.json. Required release assets "
+            "such as the pinned GPT-SoVITS VoiceLab bundle remain separate and are not fabricated by this developer downloader."
         ),
     }
 
