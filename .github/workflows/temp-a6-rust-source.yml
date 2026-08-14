@@ -16,10 +16,10 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-          ref: New
+          ref: ${{ github.sha }}
           fetch-depth: 1
       - uses: actions/setup-python@v5
         with:
           python-version: '3.12'
-      - name: Sync startup validator with VoiceLab route
+      - name: Remove stale C5 prose-only validator marker
         run: python .github/temp-a6-validator-sync.py
