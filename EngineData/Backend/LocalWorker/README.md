@@ -2,39 +2,36 @@
 
 ## Purpose
 
-`LocalWorker` owns the backend Python worker route for local ASR, translation, and TTS orchestration.
+`LocalWorker` owns TranslateIT's one local Python runtime boundary for ASR, bidirectional translation, trained My Voice inference, and the bounded one-shot VoiceLab build child.
 
-Current active worker source:
-
-```text
-EngineData/Backend/LocalWorker/WorkerRuntime/realtime_local_worker.py
-```
-
-## Layout
+## Current Layout
 
 ```text
 LocalWorker/
-  README.md
-  WorkerRuntime/
-    README.md
-    realtime_local_worker.py
-    requirements-realtime.txt
-    realtime_stack_manifest.json
-    setup_realtime_worker.ps1
-    run_realtime_worker_smoke.ps1
+├─ WorkerRuntime/                       # Git-tracked application/runtime source
+│  ├─ realtime_local_worker.py         # one daily ASR / translation / TTS worker
+│  ├─ voice_lab_build.py               # one-shot VoiceLab build child
+│  ├─ voice_lab_gpt_sovits.py          # pinned GPT-SoVITS build/inference adapter
+│  ├─ voice_lab_upstream_stage.py      # bounded headless upstream-stage bridge
+│  ├─ model_manifest.json              # canonical full-product release model inventory
+│  ├─ pyproject.toml
+│  └─ uv.lock                          # frozen dependency graph
+└─ PythonRuntime/                       # controlled release payload, ignored by Git
+   └─ python.exe                       # installed-product interpreter authority
 ```
 
-## Owns
+Development may use `WorkerRuntime/.venv`, `TRANSLATEIT_WORKER_PYTHON`, or a system Python only inside verified repository-development mode. Packaged mode resolves only `PythonRuntime/python.exe` and fails closed if it is missing; normal users are not instructed to install Python or pip.
 
-- Local ASR worker orchestration.
-- Local translation worker orchestration.
-- Local TTS worker orchestration.
-- Worker setup and smoke validation scripts.
-- Worker manifest documentation.
+## Release Boundary
+
+The Windows release overlay bundles only the production WorkerRuntime files consumed by the product plus the private `PythonRuntime` and required `RuntimeAssets`. Test files, setup/smoke scripts, `.venv`, `DevelopingData`, and user data are not release runtime inputs.
+
+Large/private runtime bytes are staged as controlled release inputs and remain out of Git. `scripts/validate_release_payload.mjs` verifies their required presence before the installer build; actual installed execution remains target/installed proof.
 
 ## Rules
 
-- Keep the Python worker isolated to the backend worker route.
-- Do not add Python launcher or UI modules.
-- Do not move worker code into `DevelopingData`.
-- Do not store local model binaries in Git.
+- Keep one canonical Python runtime and one daily worker.
+- Do not create a second GPT-SoVITS environment, launcher, server, or provider registry.
+- Do not make system Python, pip, uv, environment variables, or repository checkout installed-product dependencies.
+- Do not store private Python runtime or model/GPT-SoVITS payload bytes in Git.
+- Do not package tests, development setup scripts, local caches, or historical `DevelopingData` into the installer.
