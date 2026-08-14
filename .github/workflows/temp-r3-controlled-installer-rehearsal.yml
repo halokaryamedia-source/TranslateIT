@@ -39,6 +39,47 @@ jobs:
           rustc --version
           cargo --version
 
+      - name: Align temporary staging harness to proven private-Python contract
+        shell: pwsh
+        run: |
+          $env:STAGE_SCRIPT=(Resolve-Path '.github/scripts/temp-r3-stage-release.ps1').Path
+          @'
+          import os
+          from pathlib import Path
+          path=Path(os.environ['STAGE_SCRIPT'])
+          text=path.read_text(encoding='utf-8-sig')
+          old="""Expand-Archive -LiteralPath $pythonZip -DestinationPath $PythonRoot -Force
+          & (Join-Path $PythonRoot 'python.exe') --version
+          """
+          new="""Expand-Archive -LiteralPath $pythonZip -DestinationPath $PythonRoot -Force
+          @('python312.zip','.','..\\WorkerRuntime') | Set-Content -LiteralPath (Join-Path $PythonRoot 'python312._pth') -Encoding ascii
+          & (Join-Path $PythonRoot 'python.exe') --version
+          """
+          if old not in text:
+              raise SystemExit('temporary CPython extraction anchor missing')
+          text=text.replace(old,new,1)
+          old="""source_url=https://www.python.org/ftp/python/3.12.10/python-3.12.10-embed-amd64.zip
+          archive_md5=$pythonMd5
+          archive_sha256=$pythonSha
+          """
+          new="""source_url=https://www.python.org/ftp/python/3.12.10/python-3.12.10-embed-amd64.zip
+          archive_bytes=$((Get-Item $pythonZip).Length)
+          archive_md5=$pythonMd5
+          archive_sha256=$pythonSha
+          """
+          if old not in text:
+              raise SystemExit('temporary CPython provenance anchor missing')
+          text=text.replace(old,new,1)
+          old="$env:PYTHONPATH=$Worker\n$env:SOURCE_ROOT=$VoiceSource"
+          new="$env:SOURCE_ROOT=$VoiceSource"
+          if old not in text:
+              raise SystemExit('temporary PYTHONPATH proof anchor missing')
+          text=text.replace(old,new,1)
+          path.write_text(text, encoding='utf-8')
+          print('[r3] temporary staging harness aligned to isolated sibling WorkerRuntime path')
+          '@ | Set-Content "$env:RUNNER_TEMP\align_stage.py" -Encoding utf8
+          python "$env:RUNNER_TEMP\align_stage.py"
+
       - name: Stage exact controlled release inputs
         shell: pwsh
         run: .github/scripts/temp-r3-stage-release.ps1
