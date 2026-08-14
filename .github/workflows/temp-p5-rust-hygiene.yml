@@ -18,6 +18,17 @@ jobs:
         with:
           ref: New
           fetch-depth: 1
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: EngineData/Frontend/RustApp/package-lock.json
+      - name: Install frontend dependencies
+        working-directory: EngineData/Frontend/RustApp
+        run: npm ci
+      - name: Build frontend for Tauri context
+        working-directory: EngineData/Frontend/RustApp
+        run: npm run build:frontend
       - name: Apply bounded warning cleanup
         shell: pwsh
         run: |
@@ -52,9 +63,6 @@ jobs:
               raise SystemExit('blocked helper marker changed')
           text = text.replace(old_blocked, new_blocked, 1)
 
-          # Every blocked(...) call in this module had exactly four top-level arguments:
-          # blocker, ignored note, execution_attempted, ignored cancelled. Preserve only
-          # the two values consumed by MeetingSession.
           def split_args(src):
               args, start, depth, quote, escape = [], 0, 0, None, False
               for i, ch in enumerate(src):
@@ -129,6 +137,10 @@ jobs:
           if text.count(note_marker) != 1:
               raise SystemExit('success report dead note marker changed')
           text = text.replace(note_marker, '', 1)
+          old_callback = '    if let Some(error) = callback_error {'
+          if text.count(old_callback) != 1:
+              raise SystemExit('callback error branch marker changed')
+          text = text.replace(old_callback, '    if callback_error.is_some() {', 1)
           output.write_text(text, encoding='utf-8')
           '@ | python -
           git diff --check
