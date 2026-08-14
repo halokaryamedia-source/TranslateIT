@@ -1,0 +1,86 @@
+name: Temporary VoiceLab Script Audit Proof
+
+on:
+  push:
+    branches: [New]
+    paths:
+      - .github/workflows/temp-voicelab-script-audit-proof.yml
+
+jobs:
+  source-proof:
+    runs-on: windows-2022
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+          fetch-depth: 1
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: EngineData/Frontend/RustApp/package-lock.json
+      - name: Validate audited guided script
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          @'
+          from pathlib import Path
+          import re
+
+          path = Path('EngineData/Frontend/RustApp/src-tauri/src/commands/voice_lab_recording.rs')
+          text = path.read_text(encoding='utf-8')
+          block = text.split('const GUIDED_LINES: &[(u32, &str)] = &[', 1)[1].split('];', 1)[0]
+          entries = re.findall(r'^\s*\((\d+),\s*"(.*)"\),\s*$', block, re.MULTILINE)
+          if len(entries) != 128:
+              raise SystemExit(f'Expected 128 guided lines, found {len(entries)}')
+          ids = [int(line_id) for line_id, _ in entries]
+          if ids != list(range(1, 129)):
+              raise SystemExit('Guided line IDs must remain contiguous 1..128')
+          texts = [value for _, value in entries]
+          if len(set(texts)) != len(texts):
+              raise SystemExit('Guided lines must remain unique')
+          words = [len(re.findall(r"[A-Za-z]+(?:'[A-Za-z]+)?", value)) for value in texts]
+          short = sum(count <= 7 for count in words)
+          medium = sum(8 <= count <= 17 for count in words)
+          long = sum(count >= 18 for count in words)
+          if short < 20 or medium < 55 or long < 20:
+              raise SystemExit(f'Unbalanced line lengths: short={short}, medium={medium}, long={long}')
+          forbidden = [
+              'quick brown fox',
+              'voice model should',
+              'recording feels complete',
+              'clean Windows machine',
+              'translated voice remains understandable',
+          ]
+          lowered = '\n'.join(texts).lower()
+          for phrase in forbidden:
+              if phrase.lower() in lowered:
+                  raise SystemExit(f'Artificial/meta phrase remains: {phrase}')
+          held_out = {
+              'Please confirm the final schedule before we send the update to the client.',
+              'The system should remain clear and natural during a longer technical discussion.',
+              'I can review the latest results tomorrow morning and share my decision with the team.',
+          }
+          if set(texts).intersection(held_out):
+              raise SystemExit('Training guided lines must not reuse held-out evaluation text')
+          print(f'[guided-lines] 128 unique lines; short={short}, medium={medium}, long={long}; meta-pattern audit -> PASS')
+          '@ | python -
+      - name: Install frontend dependencies
+        working-directory: EngineData/Frontend/RustApp
+        run: npm ci
+      - name: Frontend typecheck
+        working-directory: EngineData/Frontend/RustApp
+        run: npm run typecheck
+      - name: Frontend production build
+        working-directory: EngineData/Frontend/RustApp
+        run: npm run build:frontend
+      - name: Rust compile with warnings denied
+        shell: pwsh
+        run: |
+          $env:RUSTFLAGS='-Dwarnings'
+          cargo check --locked --manifest-path EngineData/Frontend/RustApp/src-tauri/Cargo.toml
+      - name: Rust tests
+        run: cargo test --locked --manifest-path EngineData/Frontend/RustApp/src-tauri/Cargo.toml
+      - name: Read-only closure guard
+        run: git diff --exit-code
