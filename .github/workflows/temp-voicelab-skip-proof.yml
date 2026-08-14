@@ -1,0 +1,66 @@
+name: Temporary VoiceLab Skip Proof
+
+on:
+  push:
+    branches: [New]
+    paths:
+      - .github/workflows/temp-voicelab-skip-proof.yml
+
+jobs:
+  source-proof:
+    runs-on: windows-2022
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+          fetch-depth: 1
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: EngineData/Frontend/RustApp/package-lock.json
+      - name: Validate Skip source contract
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          @'
+          from pathlib import Path
+
+          path = Path('EngineData/Frontend/RustApp/src/pages/VoiceLab.svelte')
+          text = path.read_text(encoding='utf-8')
+          required = [
+              'SkipForward',
+              'function skipLine(): void',
+              'isRecording',
+              'recordingState.pending_review !== null',
+              'selectedLineId = nextLine.line_id',
+              'Skipped this line. You can come back to it anytime.',
+              '<span>Skip</span>',
+              'If a line feels difficult, Skip it and continue.',
+          ]
+          for marker in required:
+              if marker not in text:
+                  raise SystemExit(f'Missing Skip contract marker: {marker}')
+          forbidden = [
+              'voiceLabApi.skip',
+              'skip_history',
+              'skipped:',
+              'accepted = true',
+          ]
+          for marker in forbidden:
+              if marker in text:
+                  raise SystemExit(f'Unexpected persistent/backend Skip behavior: {marker}')
+          print('[voicelab-skip] frontend-only optional navigation contract -> PASS')
+          '@ | python -
+      - name: Install frontend dependencies
+        working-directory: EngineData/Frontend/RustApp
+        run: npm ci
+      - name: Frontend typecheck
+        working-directory: EngineData/Frontend/RustApp
+        run: npm run typecheck
+      - name: Frontend production build
+        working-directory: EngineData/Frontend/RustApp
+        run: npm run build:frontend
+      - name: Read-only closure guard
+        run: git diff --exit-code
