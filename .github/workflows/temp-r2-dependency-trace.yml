@@ -1,0 +1,60 @@
+name: Temporary R2 Dependency Trace
+
+on:
+  push:
+    branches: [New]
+    paths:
+      - .github/workflows/temp-r2-dependency-trace.yml
+
+permissions:
+  contents: read
+
+jobs:
+  trace:
+    runs-on: windows-2022
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: New
+          fetch-depth: 1
+
+      - name: Trace Windows Rust dependencies
+        working-directory: EngineData/Frontend/RustApp/src-tauri
+        shell: pwsh
+        run: |
+          foreach ($package in @('crossbeam-epoch','quick-xml','anyhow','glib','gtk')) {
+            Write-Host "[r2][cargo-tree] BEGIN $package"
+            cargo tree --locked --target x86_64-pc-windows-msvc -i $package
+            if ($LASTEXITCODE -ne 0) { Write-Host "[r2][cargo-tree] $package NOT_IN_WINDOWS_TREE" }
+            Write-Host "[r2][cargo-tree] END $package"
+          }
+
+      - name: Trace all-platform parents for actionable Rust advisories
+        working-directory: EngineData/Frontend/RustApp/src-tauri
+        shell: pwsh
+        run: |
+          foreach ($package in @('crossbeam-epoch','quick-xml','anyhow')) {
+            Write-Host "[r2][cargo-tree-all] BEGIN $package"
+            cargo tree --locked -i $package
+            if ($LASTEXITCODE -ne 0) { Write-Host "[r2][cargo-tree-all] $package NOT_IN_HOST_TREE" }
+            Write-Host "[r2][cargo-tree-all] END $package"
+          }
+
+      - name: Test bounded lock-only Rust updates
+        working-directory: EngineData/Frontend/RustApp/src-tauri
+        shell: pwsh
+        run: |
+          Copy-Item Cargo.lock "$env:RUNNER_TEMP\Cargo.lock.original"
+          cargo update -p crossbeam-epoch --precise 0.9.20
+          Write-Host "[r2][lock-update] crossbeam_epoch_exit=$LASTEXITCODE"
+          git diff -- Cargo.lock
+          Copy-Item "$env:RUNNER_TEMP\Cargo.lock.original" Cargo.lock -Force
+          cargo update -p anyhow --precise 1.0.103
+          Write-Host "[r2][lock-update] anyhow_exit=$LASTEXITCODE"
+          git diff -- Cargo.lock
+          Copy-Item "$env:RUNNER_TEMP\Cargo.lock.original" Cargo.lock -Force
+          cargo update -p quick-xml --precise 0.41.0
+          Write-Host "[r2][lock-update] quick_xml_exit=$LASTEXITCODE"
+          git diff -- Cargo.lock
+          Copy-Item "$env:RUNNER_TEMP\Cargo.lock.original" Cargo.lock -Force
