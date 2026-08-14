@@ -2,7 +2,7 @@
 
 ## Current Mode
 
-**Maintenance / VoiceLab Guided Recording UX CLOSED — RELEASE/LOCAL EVIDENCE DEFERRED**
+**Developing / Frontend P0 Alignment CLOSED — P1 VOICELAB HUMANIZATION NEXT**
 
 VoiceLab A1 through A6, the pre-local VoiceLab quality audit, the final 128-line guided-script curation, the explicit Guided Recording Skip action, P3 runtime/model packaging source closure, P4 Meeting audio provider distribution policy, and the bounded P5 Rust source-hygiene cleanup are source-closed. Target/local Windows validation remains explicitly deferred by the user.
 
