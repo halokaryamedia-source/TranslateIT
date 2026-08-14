@@ -1,0 +1,51 @@
+name: Temporary P3 Release Packaging Source Proof
+
+on:
+  push:
+    branches: [New]
+    paths:
+      - .github/workflows/temp-p3-release-source.yml
+  workflow_dispatch:
+
+jobs:
+  source-proof:
+    runs-on: windows-2022
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+          fetch-depth: 1
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: EngineData/Frontend/RustApp/package-lock.json
+      - name: Install frontend build dependencies
+        working-directory: EngineData/Frontend/RustApp
+        run: npm ci
+      - name: P3 packaging source contract
+        working-directory: EngineData/Frontend/RustApp
+        run: npm run preflight:tauri-package
+      - name: Normal source validation
+        working-directory: EngineData/Frontend/RustApp
+        run: npm run validate:quick
+      - name: Frontend production build
+        working-directory: EngineData/Frontend/RustApp
+        run: npm run build:frontend
+      - name: Rust compile gate
+        run: cargo check --locked --manifest-path EngineData/Frontend/RustApp/src-tauri/Cargo.toml
+      - name: Missing release payload fails closed
+        shell: pwsh
+        working-directory: EngineData/Frontend/RustApp
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $output = & node scripts/validate_release_payload.mjs 2>&1
+          $exitCode = $LASTEXITCODE
+          $text = ($output | Out-String)
+          Write-Output $text
+          if ($exitCode -eq 0) { throw 'Release payload preflight unexpectedly passed without controlled Python/model payload.' }
+          if ($text -notmatch 'PythonRuntime/python.exe') { throw 'Release payload failure did not identify the missing private Python runtime.' }
+          if ($text -notmatch 'Release payload is incomplete or contains unapproved baggage') { throw 'Release payload failure was not the canonical fail-closed gate.' }
+      - name: Read-only closure guard
+        run: git diff --exit-code
