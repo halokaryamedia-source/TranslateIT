@@ -2,7 +2,7 @@
 
 ## Current Mode
 
-**Plan / R2 Dependency / Supply-Chain Static Audit CLOSED — R3 CONTROLLED RELEASE-INPUT EVIDENCE NEXT**
+**Plan / R3 Controlled Release-Input Evidence CLOSED — RELEASE PACKAGING FORMAT DECISION REQUIRED**
 
 VoiceLab A1 through A6, the pre-local VoiceLab quality audit, the final 128-line guided-script curation, the explicit Guided Recording Skip action, P3 runtime/model packaging source closure, P4 Meeting audio provider distribution policy, and the bounded P5 Rust source-hygiene cleanup are source-closed. Target/local Windows validation remains explicitly deferred by the user.
 
@@ -481,6 +481,49 @@ The release-script audit also removed one avoidable supply-chain ambiguity: the 
 
 R2 remains static/source evidence. It does not establish installed-runtime security, prove that transitive residual advisories are impossible in every upstream code path, replace future advisory monitoring, or substitute for target Windows/runtime testing.
 
+## R3 Controlled Release-Input Evidence / NSIS Size Boundary
+
+R3 established the concrete controlled release inputs without opening local Windows validation. The standard VB-Audio VB-CABLE direction is now pinned to the vendor-hosted Pack45 package and the existing release validator owns the exact 31-file extraction/hash contract. The provider owner records the general end-user donationware distribution boundary separately from managed professional/company/institution deployment, which remains subject to VB-Audio's professional/volume licensing terms. This is source-side policy/provenance evidence, not legal advice or installed-driver proof.
+
+The hosted controlled staging path successfully assembled and preflighted the exact current release payload:
+
+```text
+CPython 3.12.10 private runtime -> exact archive provenance verified
+Windows no-dev WorkerRuntime -> 116 production distributions before reviewed license-material completion
+ASR -> pinned faster-whisper large-v3-turbo revision
+Translation -> pinned Marian ID->EN and EN->ID revisions
+GPT-SoVITS -> pinned source + pretrained snapshot/hashes
+NLTK data -> pinned cmudict and tagger snapshot/hashes
+FFmpeg -> pinned reviewed BtbN LGPL build + license/source companions
+VB-CABLE -> exact official Pack45 archive + 31-file hash contract
+third-party notices -> generated from staged payload
+release payload preflight -> PASS
+```
+
+The staged payload size measured on hosted Windows was approximately:
+
+```text
+PythonRuntime  5,028,520,692 bytes
+ASR            1,621,668,947 bytes
+Translation    1,171,204,700 bytes
+Voice          1,595,329,955 bytes
+VB-CABLE           3,467,579 bytes
+--------------------------------
+Total          9,420,191,873 bytes
+```
+
+Installer rehearsal then established a packaging-format blocker, not a payload-input blocker. The normal Tauri NSIS path successfully built `translateit.exe` and reached `makensis`, then failed with:
+
+```text
+Internal compiler error #12345: error mmapping file (1806564345, 33554432) is out of range.
+```
+
+The failure matches the classic NSIS large-installer / 32-bit compressed-data boundary. A second bounded rehearsal, run `31820622912`, temporarily set Tauri NSIS `compression` to `none`. Tauri's current NSIS template maps that setting to `SetCompress off`, so this removed `/SOLID` rather than merely changing compression algorithm. All controlled staging, notice generation, and payload preflight gates passed again; `translateit.exe` built again; `makensis` still failed with the same mmap offset/error. Disk capacity remained healthy (about 121 GB free on the working drive after failure).
+
+Therefore the current approximately 9.4 GB offline payload is not compatible with the standard Tauri/classic-NSIS all-in-one executable path. Trying zlib/bzip2/LZMA variants is not a grounded next step because every Tauri compression mode other than `none` uses `/SOLID`, while `none` has already failed. The project must not call installer generation closed or claim a distributable self-contained setup executable.
+
+No runtime behavior, frontend behavior, model selection, VoiceLab behavior, or local/installed state was changed by the size-boundary probe. The temporary R3 staging/proof files are removed after this state reconciliation; accepted evidence remains in Git history and hosted workflow runs.
+
 ## Existing Source-Closed Boundaries
 
 The following remain closed source-side:
@@ -501,6 +544,7 @@ R1.1 g2p-en / Distance dependency containment
 R1.2 FFmpeg provenance / LGPL profile pinning
 R1.3 deterministic third-party notice/source bundle
 R2 dependency / supply-chain static audit and bounded actionable containment
+R3 controlled release-input provenance / staged-payload preflight
 P3 private Python/runtime/model packaging contract
 P4 standard VB-CABLE initial provider policy and controlled staging contract
 P5 Rust warning/dead-data cleanup
@@ -533,4 +577,4 @@ Hosted source/build proof must not be presented as evidence for those claims.
 
 ## Next Step
 
-**R3 — controlled release-input evidence gate. Before attempting installer generation, establish the concrete standard VB-CABLE redistribution/licensing status for the intended TranslateIT release and obtain the exact official provider package bytes; stage only the already-pinned CPython/model/GPT-SoVITS/FFmpeg/provider inputs whose provenance, hashes, and required notices can be verified. If provider redistribution rights cannot be established for the intended release, STOP and do not bundle provider bytes. Once all concrete release inputs exist, run one hosted Windows controlled-payload preflight and NSIS installer-generation rehearsal. Do not use placeholder assets, first-use downloads, or call installer generation installed-runtime/clean-machine proof; local Windows validation remains deferred.**
+**DECISION REQUIRED — choose the release packaging boundary before more implementation. The recommended minimum-change direction is to preserve one user-facing installer experience and fully offline installation, but allow the distributable release to contain the installer plus colocated external payload file(s) instead of requiring one self-contained setup executable. Do not implement a bootstrapper, external-payload installer, first-use download system, alternate installer framework, or model/runtime reduction until the user explicitly approves the packaging boundary. Local Windows validation remains deferred.**
