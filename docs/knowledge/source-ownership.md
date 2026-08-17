@@ -1,6 +1,6 @@
 # TranslateIT — Source Ownership
 
-Current responsibility → owner map for branch `New`.
+Current responsibility → owner map for branch `Local`.
 
 This file answers **who owns what**. It does not own current milestone/status, proof results, or durable rationale. Active continuation belongs in `next-action.md`; durable reasons belong in `decision-log.md`; actual behavior is current source plus relevant proof.
 

@@ -3,7 +3,7 @@ name: Repository Verify
 on:
   push:
     branches:
-      - New
+      - Local
     paths:
       - "AGENTS.md"
       - "GITHUB_RULES.md"
@@ -16,7 +16,7 @@ on:
       - ".github/workflows/repository-verify.yml"
   pull_request:
     branches:
-      - New
+      - Local
       - Developing
     paths:
       - "AGENTS.md"

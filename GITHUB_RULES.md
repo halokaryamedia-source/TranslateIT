@@ -22,9 +22,9 @@ PIN
 
 Before a material GitHub change, know the repository, intended ref, current HEAD, requested scope, and whether the target is writable.
 
-- `New` is the current development authority.
-- `Developing` is retained historical/recovery evidence and is not a silent fallback write target.
-- Never silently use the repository default branch when the task targets `New`.
+- `Local` is the current development authority.
+- `Developing` remains the GitHub default branch and is retained historical/recovery evidence; it is not a silent fallback write target.
+- Never silently use the repository default branch when the task targets `Local`.
 - Every supported write explicitly targets the intended ref.
 - Direct branch/file fetch is current-state authority. Search is discovery only.
 - Re-check HEAD only when concurrent movement is plausible or before a write that could overwrite newer work.
@@ -116,7 +116,7 @@ pinned HEAD + base tree
 → create required blobs
 → create one tree from the base tree
 → create one commit with pinned HEAD as parent
-→ fast-forward `New` once
+→ fast-forward `Local` once
 ```
 
 Hard stops:
@@ -311,7 +311,7 @@ GitHub Actions is verification/deployment infrastructure, not a background devel
 - A required but skipped check is CI/ruleset routing, not permission to change unrelated code.
 - Prefer fail-fast when downstream checks are meaningless after an upstream failure.
 - Cancel superseded runs when older results are no longer useful.
-- Verification workflows are read-only by default and do not commit/push back to `New`.
+- Verification workflows are read-only by default and do not commit/push back to `Local`.
 - Publishing/release bundling is explicit release work.
 - Do not create temporary/one-use workflows because the active channel lacks another capability.
 - Do not rerun an unchanged failed workflow merely to seek green.

@@ -9,8 +9,8 @@ The repository governance boundary has been reconciled around BuildIT-style GitH
 Current repository authority:
 
 ```text
-New        → current development authority
-Developing → retained historical/recovery branch only
+Local      → current development authority
+Developing → GitHub default branch; retained historical/recovery only
 ```
 
 ## Active Boundary

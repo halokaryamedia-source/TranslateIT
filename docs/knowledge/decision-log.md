@@ -2,13 +2,13 @@
 
 Durable choices and reasons that must survive chat/session boundaries. Exact implementation detail belongs in current source/foundation owners; active status belongs in `next-action.md`; historical run IDs and superseded proof detail remain in Git history.
 
-## D-001 — `New` Is Development Authority
+## D-001 — `Local` Is Development Authority
 
 **Decision**  
-`New` owns current development. `Developing` is the only retained historical/recovery branch and is not a silent fallback source or write target.
+`Local` owns current development. `Developing` remains the GitHub default branch and is the only retained historical/recovery branch; it is not a silent fallback source or write target.
 
 **Reason**  
-Current work must not drift to a default or historical ref.
+Current work must not drift to the default or historical branch when `Local` is the explicit development authority.
 
 ## D-002 — One Desktop Product And One Local Worker
 

@@ -160,9 +160,11 @@ def check_github_rules(errors: list[str]) -> None:
         if code not in text:
             fail(errors, f"GITHUB_RULES.md missing API failure class: {code}")
 
-    if "`New` is the current development authority" not in text:
-        fail(errors, "GITHUB_RULES.md must pin New as current development authority")
-    if "`Developing` is retained historical/recovery evidence" not in text:
+    if "`Local` is the current development authority" not in text:
+        fail(errors, "GITHUB_RULES.md must pin Local as current development authority")
+    if "`Developing` remains the GitHub default branch" not in text:
+        fail(errors, "GITHUB_RULES.md must preserve Developing as GitHub default branch")
+    if "retained historical/recovery evidence" not in text:
         fail(errors, "GITHUB_RULES.md must classify Developing as historical/recovery evidence")
 
 
@@ -180,6 +182,8 @@ def check_agents(errors: list[str]) -> None:
         "→ STOP",
         "development-brief",
         "at most one",
+        "`Local` is the current development authority",
+        "`Developing` remains the GitHub default branch",
     ):
         if marker not in text:
             fail(errors, f"AGENTS.md missing routing marker: {marker}")
@@ -196,6 +200,8 @@ def check_active_owner_branch_language(errors: list[str]) -> None:
         text = path.read_text(encoding="utf-8")
         if "V1-Advance" in text:
             fail(errors, f"active governance owner still references deleted V1-Advance branch: {rel}")
+        if "`New`" in text or re.search(r"(?m)^New\s+→", text):
+            fail(errors, f"active governance owner still references renamed New branch: {rel}")
 
 
 def check_next_action(errors: list[str]) -> None:
@@ -209,6 +215,8 @@ def check_next_action(errors: list[str]) -> None:
     for heading in ("## Current Status", "## Active Boundary", "## Next Step"):
         if heading not in text:
             fail(errors, f"next-action.md missing required heading: {heading}")
+    if "Local" not in text or "Developing" not in text:
+        fail(errors, "next-action.md must preserve current Local/Developing branch authority")
     if "R3" not in text or "packaging" not in text.lower():
         fail(errors, "next-action.md must preserve the active R3 packaging decision boundary")
 
@@ -237,7 +245,7 @@ def check_readme(errors: list[str]) -> None:
         return
     text = path.read_text(encoding="utf-8")
     for marker in (
-        "branch `New`",
+        "branch `Local`",
         "Meeting",
         "Text",
         "VoiceLab",
@@ -306,7 +314,7 @@ def check_workflow(errors: list[str]) -> None:
     text = path.read_text(encoding="utf-8")
 
     for marker in (
-        "branches:\n      - New",
+        "branches:\n      - Local",
         "cancel-in-progress: true",
         "contents: read",
         '"GITHUB_RULES.md"',
@@ -316,6 +324,9 @@ def check_workflow(errors: list[str]) -> None:
     ):
         if marker not in text:
             fail(errors, f"repository-verify.yml missing required marker: {marker}")
+
+    if "      - Developing" not in text:
+        fail(errors, "repository-verify.yml must retain Developing as a PR base verification target")
 
     for forbidden in ("contents: write", "pull-requests: write", "git push", "continue-on-error"):
         if forbidden in text:
@@ -357,8 +368,8 @@ def main() -> int:
 
     print("REPOSITORY VERIFY PASSED")
     print(f"- canonical skills: {', '.join(sorted(CANONICAL_SKILLS))}")
-    print("- working authority: New")
-    print("- retained recovery branch: Developing")
+    print("- working authority: Local")
+    print("- GitHub default/recovery branch: Developing")
     print("- GitHub Core Rules: present")
     print("- active continuation: compact / one Next Step")
     print("- source ownership: responsibility-only")

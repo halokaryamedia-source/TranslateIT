@@ -4,8 +4,8 @@ TranslateIT repository state is authoritative for repository/project truth. Chat
 
 ## Branch authority
 
-- `New` is the current development authority.
-- `Developing` is retained historical/recovery evidence only; never silently fall back to it for current work.
+- `Local` is the current development authority.
+- `Developing` remains the GitHub default branch and is retained historical/recovery evidence only; never silently fall back to it for current work.
 - `DevelopingData`, old reports, generated proof artifacts, and Git history are not current requirements unless a current owner explicitly revalidates bounded content from them.
 - Do not change the repository default branch, merge/delete `Developing`, or perform another high-impact branch/release mutation unless the user explicitly requests that exact action.
 - Material GitHub execution follows root `GITHUB_RULES.md`.

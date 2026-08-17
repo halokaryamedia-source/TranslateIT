@@ -1,11 +1,11 @@
 # TranslateIT — Current Context
 
-Stable orientation for TranslateIT on branch `New`. Active continuation belongs in `docs/knowledge/next-action.md`; durable reasoning belongs in `docs/knowledge/decision-log.md`; detailed ownership belongs in `docs/knowledge/source-ownership.md`.
+Stable orientation for TranslateIT on branch `Local`. Active continuation belongs in `docs/knowledge/next-action.md`; durable reasoning belongs in `docs/knowledge/decision-log.md`; detailed ownership belongs in `docs/knowledge/source-ownership.md`.
 
 ## Authority
 
-- Development authority: `New`.
-- `Developing` is the only retained historical/recovery branch and is not current product authority.
+- Development authority: `Local`.
+- `Developing` remains the GitHub default branch and is the only retained historical/recovery branch; it is not current product authority.
 - `DevelopingData`, old reports, generated proof artifacts, and Git history are bounded recovery evidence only.
 - Product policy is owned by `docs/foundation/01-product-overview.md` and `docs/foundation/02-product-requirements.md`.
 - GitHub execution discipline is owned by root `GITHUB_RULES.md`.
@@ -226,7 +226,7 @@ Those remain target-capable proof. Local Windows validation is currently deferre
 
 ## Repository operating direction
 
-- `New` is pinned explicitly for current work.
+- `Local` is pinned explicitly for current work.
 - Read only the minimum context that can change the decision.
 - Diagnose the first wrong owner before editing.
 - Use `development-brief` for non-trivial Developing.

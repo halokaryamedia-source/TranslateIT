@@ -2,7 +2,7 @@
 
 **Local-first Windows desktop translation for Indonesian ↔ English meetings.**
 
-> **Development authority:** branch `New`. Repository/source presence is not proof of target-Windows runtime, device, model, audio-route, installer, or clean-machine readiness.
+> **Development authority:** branch `Local`. Repository/source presence is not proof of target-Windows runtime, device, model, audio-route, installer, or clean-machine readiness.
 
 ## Product
 
@@ -142,7 +142,7 @@ PIN
 → STOP
 ```
 
-`New` is current development authority. `Developing` and `DevelopingData` are recovery evidence only.
+`Local` is current development authority. `Developing` remains the GitHub default branch; `Developing` and `DevelopingData` are recovery evidence only.
 
 ## Development entrypoints
 
