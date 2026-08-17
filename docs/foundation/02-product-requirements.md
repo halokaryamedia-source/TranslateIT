@@ -5,7 +5,7 @@
 **Scope:** Simplified Windows translation core + required VoiceLab custom voice
 
 This document is the durable product-requirement owner for TranslateIT on branch
-`New`.
+`Local`.
 
 The current product decision is explicit:
 
