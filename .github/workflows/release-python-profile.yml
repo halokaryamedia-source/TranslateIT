@@ -125,6 +125,7 @@ jobs:
           }
           $env:SOURCE_ROOT = $sourceRoot
           $env:NLTK_DATA = $nltkRoot
+          $env:PYTHONPATH = $worker
           $probeScript = Join-Path $env:RUNNER_TEMP 'verify-english-gpt.py'
           @'
           import os, sys, tempfile
