@@ -167,7 +167,7 @@ jobs:
               raise SystemExit("English text stage unexpectedly created BERT features")
           print("English-only GPT-SoVITS import/model-init/text-stage: PASS")
           '@ | Set-Content -LiteralPath $probeScript -Encoding utf8NoBOM
-          Push-Location $worker
+          Push-Location $sourceRoot
           try {
             & $candidatePython $probeScript
             if ($LASTEXITCODE -ne 0) { throw 'English-only GPT-SoVITS proof failed.' }
