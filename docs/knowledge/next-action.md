@@ -2,7 +2,7 @@
 
 ## Current Status
 
-`R3.1 RELEASE PAYLOAD OPTIMIZATION IMPLEMENTED — HOSTED PROFILE REQUIRED ON CURRENT HEAD`
+`R3.1 RELEASE PAYLOAD OPTIMIZATION HOSTED-PROVEN — COMPLETE CONTROLLED STAGING SIZE REQUIRED`
 
 Current repository authority:
 
@@ -28,34 +28,34 @@ The release payload is now optimized at the packaging boundary without changing 
 
 ## Current Proof Boundary
 
-The reusable Windows `Release Python Profile` is the proof surface for this optimization. It must establish on the current source state that:
+The production optimizer is hosted-proven on Windows at commit `f8a45ef3d106785e7240e8160acb39b7a0647d97` by `Release Python Profile` run `32059026994`.
+
+The successful run established:
 
 ```text
 frozen production closure
 → 116 distributions
+→ 4,982,907,539 bytes site-packages
 
 release optimizer
 → 97 distributions
 → all 19 approved exclusions absent
 → required runtime distributions retained
+→ 4,865,592,884 bytes site-packages
+→ Python closure saving 117,314,655 bytes
 
 English-only GPT-SoVITS import/model-init/text stage
 → PASS without Chinese BERT load
 
-pinned Chinese RoBERTa snapshot bytes
-→ measured removable release payload
+pinned Chinese RoBERTa snapshot
+→ 651,495,070 removable bytes
+
+historical full payload        9,420,191,873 bytes
+projected optimized payload    8,651,382,148 bytes
+projected total saving           768,809,725 bytes
 ```
 
-The previous successful profiling wave measured:
-
-```text
-Python closure saving          117,314,655 bytes
-Chinese RoBERTa saving         651,495,070 bytes
-projected optimized payload  8,651,382,148 bytes
-projected total saving         768,809,725 bytes
-```
-
-Those numbers are hosted/profile evidence. The actual final staged payload size must be measured again after the production optimizer is applied to the complete controlled release input.
+This closes the hosted optimizer/profile proof. The **8,651,382,148-byte value remains a projection from the historical complete R3 payload**, not the measured size of a newly assembled complete controlled staging tree. The actual final staged payload size must therefore still be measured after the production optimizer is applied to all current controlled release inputs.
 
 ## Protected Boundaries
 
