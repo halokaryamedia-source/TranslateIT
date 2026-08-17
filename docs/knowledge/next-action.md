@@ -11,7 +11,9 @@ Local      → current development authority
 Developing → GitHub default branch; retained historical/recovery only
 ```
 
-The approved distribution boundary is:
+## Active Boundary
+
+The R3 packaging boundary is approved as:
 
 ```text
 one user-facing automatic fully offline setup experience
@@ -21,7 +23,7 @@ TranslateIT-Setup.exe
 colocated external release payload file(s)
 ```
 
-R3.2 is complete. The release payload was reduced without changing approved ASR, translation, GPT-SoVITS, VoiceLab, CUDA, or offline capability.
+R3.2 is complete. The release payload was reduced without changing approved ASR, translation, GPT-SoVITS, VoiceLab, CUDA, or offline capability. The active work now moves from payload-size optimization to implementing that approved external-payload packaging boundary.
 
 ## Final Measured Release Size
 
