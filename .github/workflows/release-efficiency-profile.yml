@@ -112,15 +112,15 @@ jobs:
               "CppExtension(",
           )
           marker_hits = []
-          for root in (worker, gpt):
-              for path in root.rglob("*.py"):
-                  try:
-                      text = path.read_text(encoding="utf-8", errors="ignore")
-                  except OSError:
-                      continue
-                  for marker in markers:
-                      if marker in text:
-                          marker_hits.append(f"{path}:{marker}")
+          source_paths = list(worker.glob("*.py")) + list(gpt.rglob("*.py"))
+          for path in source_paths:
+              try:
+                  text = path.read_text(encoding="utf-8", errors="ignore")
+              except OSError:
+                  continue
+              for marker in markers:
+                  if marker in text:
+                      marker_hits.append(f"{path}:{marker}")
 
           accepted = False
           reason = ""
@@ -397,7 +397,7 @@ jobs:
               "original_total_bytes": sum(item["original_bytes"] for item in results),
               "minimal_snapshot_total_bytes": sum(item["minimal_snapshot_bytes"] for item in results),
               "minimal_snapshot_total_saving_bytes": sum(item["minimal_snapshot_saving_bytes"] for item in results),
-              "minimal_snapshot_all_exact": all(item["minimal_snapshot_exact_output_parity"] for item in results),
+              "minimal_snapshot_all_exact": all(item["minimal_exact_output_parity"] for item in results),
               "ctranslate2_float32_total_bytes": sum(item["ctranslate2_float32_bytes"] for item in results),
               "ctranslate2_float32_total_saving_bytes": sum(item["ctranslate2_float32_saving_bytes"] for item in results),
               "ctranslate2_float32_all_exact": all(item["ctranslate2_float32_exact_output_parity"] for item in results),
@@ -412,7 +412,7 @@ jobs:
                   "original_bytes": item["original_bytes"],
                   "minimal_snapshot_bytes": item["minimal_snapshot_bytes"],
                   "minimal_snapshot_saving_bytes": item["minimal_snapshot_saving_bytes"],
-                  "minimal_exact_output_parity": item["minimal_snapshot_exact_output_parity"],
+                  "minimal_exact_output_parity": item["minimal_exact_output_parity"],
                   "ctranslate2_float32_bytes": item["ctranslate2_float32_bytes"],
                   "ctranslate2_float32_saving_bytes": item["ctranslate2_float32_saving_bytes"],
                   "ctranslate2_float32_exact_output_parity": item["ctranslate2_float32_exact_output_parity"],
