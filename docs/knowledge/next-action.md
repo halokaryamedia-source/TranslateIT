@@ -15,7 +15,7 @@ R3 remains valid evidence: the controlled approximately 9.42 GB fully offline pa
 
 The user has explicitly approved optimizing the release payload before selecting the final packaging format.
 
-## Active Optimization Boundary
+## Active Boundary
 
 Optimization must preserve the approved product capability:
 
