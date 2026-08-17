@@ -8,6 +8,7 @@ multilingual/LoRA import requirements from the product runtime boundary.
 from __future__ import annotations
 
 import importlib
+import importlib.machinery
 import os
 import runpy
 import sys
@@ -77,6 +78,7 @@ def _load_audio(source_root: Path, file: Any, sample_rate: Any) -> np.ndarray:
 def _module(name: str) -> types.ModuleType:
     module = types.ModuleType(name)
     module.__file__ = str(Path(__file__).resolve())
+    module.__spec__ = importlib.machinery.ModuleSpec(name, loader=None)
     return module
 
 
