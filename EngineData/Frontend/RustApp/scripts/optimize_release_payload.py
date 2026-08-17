@@ -110,6 +110,7 @@ def collect_distributions(python_root: Path) -> dict[str, tuple[Path, set[Path]]
 
 
 def remove_excluded_distributions(python_root: Path) -> tuple[int, list[str]]:
+    python_root = python_root.resolve()
     before = tree_bytes(python_root)
     distributions = collect_distributions(python_root)
     if len(distributions) not in {EXPECTED_BASELINE_DISTRIBUTIONS, EXPECTED_OPTIMIZED_DISTRIBUTIONS}:
