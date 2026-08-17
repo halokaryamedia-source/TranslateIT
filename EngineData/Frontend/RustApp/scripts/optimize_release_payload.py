@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Deterministically remove release-only Python/Voice baggage from a staged backend."""
+"""Deterministically remove release-only Python/model baggage from a staged backend."""
 
 from __future__ import annotations
 
@@ -57,6 +57,12 @@ ENGLISH_ONLY_MARKER_TEXT = (
     "Chinese RoBERTa model bytes are intentionally excluded.\n"
     "voice_lab_upstream_stage.py supplies zero BERT features for approved English text.\n"
 )
+
+TRANSLATION_MODEL_DIRS = (
+    "marianmt-id-en",
+    "marianmt-en-id",
+)
+TRANSLATION_UNUSED_FRAMEWORK_WEIGHT = "tf_model.h5"
 
 
 def normalize_name(value: str) -> str:
@@ -193,6 +199,62 @@ def remove_excluded_distributions(python_root: Path) -> tuple[int, list[str]]:
     return before - after, present_excluded
 
 
+def remove_torch_build_artifacts(python_root: Path) -> int:
+    """Remove PyTorch C/C++ build inputs while preserving every runtime DLL."""
+    python_root = python_root.resolve()
+    torch_root = python_root / "torch"
+    if not torch_root.is_dir():
+        raise RuntimeError("release_optimize:torch_package_missing")
+
+    lib_root = torch_root / "lib"
+    dll_inventory_before = {
+        path.name: path.stat().st_size for path in sorted(lib_root.glob("*.dll"))
+    }
+    if not dll_inventory_before:
+        raise RuntimeError("release_optimize:torch_runtime_dlls_missing")
+
+    targets: list[Path] = []
+    for directory in (torch_root / "include", torch_root / "share"):
+        if directory.exists():
+            targets.append(directory)
+    for pattern in ("*.lib", "*.exp", "*.pdb"):
+        targets.extend(sorted(lib_root.glob(pattern)))
+
+    before = sum(tree_bytes(path) if path.is_dir() else path.stat().st_size for path in targets)
+    for path in targets:
+        if path.is_dir():
+            shutil.rmtree(path)
+        elif path.is_file() or path.is_symlink():
+            path.unlink(missing_ok=True)
+
+    dll_inventory_after = {
+        path.name: path.stat().st_size for path in sorted(lib_root.glob("*.dll"))
+    }
+    if dll_inventory_after != dll_inventory_before:
+        raise RuntimeError("release_optimize:torch_runtime_dll_inventory_changed")
+
+    return before
+
+
+def remove_unused_translation_framework_weights(backend_root: Path) -> int:
+    """Remove duplicate TensorFlow Marian weights; PyTorch model bytes remain authoritative."""
+    model_root = backend_root / "RuntimeAssets" / "Translation" / "ModelData"
+    saving = 0
+    for model_name in TRANSLATION_MODEL_DIRS:
+        directory = model_root / model_name
+        duplicate = directory / TRANSLATION_UNUSED_FRAMEWORK_WEIGHT
+        if not duplicate.is_file():
+            continue
+        pytorch_weights = list(directory.glob("pytorch_model*.bin")) + list(directory.glob("*.safetensors"))
+        if not pytorch_weights:
+            raise RuntimeError(
+                f"release_optimize:translation_pytorch_weights_missing:{model_name}"
+            )
+        saving += duplicate.stat().st_size
+        duplicate.unlink()
+    return saving
+
+
 def optimize_english_voice_asset(backend_root: Path) -> int:
     bert_root = (
         backend_root
@@ -234,11 +296,17 @@ def main() -> int:
     if not (python_root / "python.exe").is_file():
         raise SystemExit("release_optimize:python_runtime_missing")
 
-    python_saving, removed = remove_excluded_distributions(python_root)
+    distribution_saving, removed = remove_excluded_distributions(python_root)
+    torch_build_saving = remove_torch_build_artifacts(python_root)
+    translation_saving = remove_unused_translation_framework_weights(backend_root)
     bert_saving = optimize_english_voice_asset(backend_root)
+    python_saving = distribution_saving + torch_build_saving
     print(
         "[release-optimize] "
         f"python_saving_bytes={python_saving} "
+        f"excluded_distribution_saving_bytes={distribution_saving} "
+        f"torch_build_saving_bytes={torch_build_saving} "
+        f"translation_framework_saving_bytes={translation_saving} "
         f"excluded_distributions={len(removed)} "
         f"voice_bert_saving_bytes={bert_saving}"
     )
