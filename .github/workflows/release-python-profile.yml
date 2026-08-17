@@ -66,8 +66,8 @@ jobs:
           text = path.read_text(encoding="utf-8")
           remove = [
               '    "cn2an",', '    "fast-langdetect>=0.3.1",', '    "jieba",',
-              '    "jieba-fast",', '    "matplotlib",', '    "pandas",',
-              '    "peft<0.18.0",', '    "pypinyin",', '    "split-lang",',
+              '    "jieba-fast",', '    "pandas",', '    "peft<0.18.0",',
+              '    "pypinyin",', '    "split-lang",',
           ]
           lines = text.splitlines()
           missing = [item for item in remove if item not in lines]
@@ -91,11 +91,14 @@ jobs:
           from pathlib import Path
           report = json.loads(Path(os.environ["CANDIDATE_REPORT"]).read_text(encoding="utf-8"))
           present = {item["normalized_name"] for item in report["distributions"]}
-          forbidden = {"cn2an", "fast-langdetect", "jieba", "jieba-fast", "matplotlib", "pandas", "peft", "pypinyin", "split-lang"}
+          forbidden = {"cn2an", "fast-langdetect", "jieba", "jieba-fast", "pandas", "peft", "pypinyin", "split-lang"}
           remaining = sorted(forbidden & present)
           if remaining:
               raise SystemExit(f"candidate still contains excluded direct distributions: {remaining}")
+          if "matplotlib" not in present:
+              raise SystemExit("candidate must retain matplotlib for pytorch-lightning/torchmetrics compatibility")
           print("candidate excluded direct distributions: PASS")
+          print("candidate matplotlib: retained")
           for optional in ("accelerate", "onnxruntime"):
               print(f"candidate {optional}: {'present' if optional in present else 'absent'}")
           '@ | python -
@@ -147,6 +150,8 @@ jobs:
           probe._init_models()
           if calls != [("t2s", "t2s"), ("vits", "vits"), ("hubert", "hubert")]:
               raise SystemExit(f"unexpected TTS model init calls: {calls}")
+          if probe.bert_model is not None or probe.bert_tokenizer is not None:
+              raise SystemExit("English-only TTS must not initialize Chinese BERT")
           if "peft" not in sys.modules or "text.chinese" not in sys.modules or "text.LangSegmenter" not in sys.modules:
               raise SystemExit("English-only eager-import shims are incomplete")
           temp = Path(tempfile.mkdtemp(prefix="translateit-english-stage-"))
@@ -227,10 +232,11 @@ jobs:
           SUMMARY_JSON: ${{ runner.temp }}\optimization-summary.json
 
       - name: Upload candidate proof
+        if: always()
         uses: actions/upload-artifact@v7
         with:
           name: release-python-optimization-profile
-          if-no-files-found: error
+          if-no-files-found: warn
           retention-days: 7
           path: |
             EngineData/Backend/LocalWorker/WorkerRuntime/pyproject.toml

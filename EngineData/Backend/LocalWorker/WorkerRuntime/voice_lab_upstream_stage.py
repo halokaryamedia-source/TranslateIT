@@ -2,7 +2,7 @@
 
 TranslateIT consumes only the approved English VoiceLab / My Voice path. This
 module keeps the pinned upstream source intact while removing WebUI and unrelated
-multilingual/LoRA/debug import requirements from the product runtime boundary.
+multilingual/LoRA import requirements from the product runtime boundary.
 """
 
 from __future__ import annotations
@@ -34,10 +34,6 @@ def _unsupported_chinese_attribute(name: str) -> Any:
 
 def _unsupported_lora(*_args: Any, **_kwargs: Any) -> Any:
     raise RuntimeError("voice_lab:unsupported_lora_tts_path")
-
-
-def _unsupported_plotting(*_args: Any, **_kwargs: Any) -> Any:
-    raise RuntimeError("voice_lab:upstream_debug_plotting_not_supported")
 
 
 def clean_path(path_value: Any) -> str:
@@ -79,12 +75,10 @@ def _load_audio(source_root: Path, file: Any, sample_rate: Any) -> np.ndarray:
     return np.frombuffer(output, np.float32).flatten()
 
 
-def _module(name: str, *, is_package: bool = False) -> types.ModuleType:
+def _module(name: str) -> types.ModuleType:
     module = types.ModuleType(name)
     module.__file__ = str(Path(__file__).resolve())
-    module.__spec__ = importlib.machinery.ModuleSpec(name, loader=None, is_package=is_package)
-    if is_package:
-        module.__path__ = []
+    module.__spec__ = importlib.machinery.ModuleSpec(name, loader=None)
     return module
 
 
@@ -109,15 +103,6 @@ def _install_english_only_import_shims() -> None:
         peft_module.LoraConfig = _unsupported_lora
         peft_module.get_peft_model = _unsupported_lora
         sys.modules["peft"] = peft_module
-
-    if "matplotlib" not in sys.modules:
-        matplotlib_module = _module("matplotlib", is_package=True)
-        pyplot_module = _module("matplotlib.pyplot")
-        pyplot_module.plot = _unsupported_plotting
-        pyplot_module.show = _unsupported_plotting
-        matplotlib_module.pyplot = pyplot_module
-        sys.modules["matplotlib"] = matplotlib_module
-        sys.modules["matplotlib.pyplot"] = pyplot_module
 
 
 def _install_english_only_tts_model_init() -> None:
