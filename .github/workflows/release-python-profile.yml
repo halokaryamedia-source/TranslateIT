@@ -1,0 +1,238 @@
+name: Release Python Profile
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - Local
+    paths:
+      - "EngineData/Backend/LocalWorker/WorkerRuntime/pyproject.toml"
+      - "EngineData/Backend/LocalWorker/WorkerRuntime/uv.lock"
+      - "EngineData/Backend/LocalWorker/WorkerRuntime/voice_lab_upstream_stage.py"
+      - "EngineData/Backend/LocalWorker/WorkerRuntime/voice_lab_gpt_sovits.py"
+      - "EngineData/Frontend/RustApp/scripts/audit_release_python_runtime.py"
+      - ".github/workflows/release-python-profile.yml"
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  profile:
+    name: Windows production closure profile
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.12.10"
+
+      - name: Install pinned profiling tools
+        shell: pwsh
+        run: python -m pip install --disable-pip-version-check uv==0.12.0 huggingface-hub==0.36.2 hf-xet==1.6.0
+
+      - name: Profile current frozen production closure
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $worker = (Resolve-Path 'EngineData/Backend/LocalWorker/WorkerRuntime').Path
+          $python = (Get-Command python).Source
+          Push-Location $worker
+          try {
+            uv sync --frozen --no-dev --python $python
+            if ($LASTEXITCODE -ne 0) { throw 'Baseline uv sync failed.' }
+          } finally { Pop-Location }
+          $site = Join-Path $worker '.venv/Lib/site-packages'
+          python EngineData/Frontend/RustApp/scripts/audit_release_python_runtime.py --site-packages $site --label baseline --json-out (Join-Path $env:RUNNER_TEMP 'baseline-python.json')
+          if ($LASTEXITCODE -ne 0) { throw 'Baseline Python profile failed.' }
+          Remove-Item -LiteralPath (Join-Path $worker '.venv') -Recurse -Force
+
+      - name: Resolve optimized candidate closure
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $worker = (Resolve-Path 'EngineData/Backend/LocalWorker/WorkerRuntime').Path
+          $python = (Get-Command python).Source
+          @'
+          from pathlib import Path
+          path = Path("EngineData/Backend/LocalWorker/WorkerRuntime/pyproject.toml")
+          text = path.read_text(encoding="utf-8")
+          remove = [
+              '    "cn2an",', '    "fast-langdetect>=0.3.1",', '    "jieba",',
+              '    "jieba-fast",', '    "matplotlib",', '    "pandas",',
+              '    "peft<0.18.0",', '    "pypinyin",', '    "split-lang",',
+          ]
+          lines = text.splitlines()
+          missing = [item for item in remove if item not in lines]
+          if missing:
+              raise SystemExit(f"candidate dependency markers missing: {missing}")
+          path.write_text("\n".join(line for line in lines if line not in remove) + "\n", encoding="utf-8", newline="\n")
+          '@ | python -
+          if ($LASTEXITCODE -ne 0) { throw 'Candidate pyproject rewrite failed.' }
+          Push-Location $worker
+          try {
+            uv lock --python $python
+            if ($LASTEXITCODE -ne 0) { throw 'Candidate uv lock failed.' }
+            uv sync --frozen --no-dev --python $python
+            if ($LASTEXITCODE -ne 0) { throw 'Candidate uv sync failed.' }
+          } finally { Pop-Location }
+          $site = Join-Path $worker '.venv/Lib/site-packages'
+          python EngineData/Frontend/RustApp/scripts/audit_release_python_runtime.py --site-packages $site --label candidate --json-out (Join-Path $env:RUNNER_TEMP 'candidate-python.json')
+          if ($LASTEXITCODE -ne 0) { throw 'Candidate Python profile failed.' }
+          @'
+          import json, os
+          from pathlib import Path
+          report = json.loads(Path(os.environ["CANDIDATE_REPORT"]).read_text(encoding="utf-8"))
+          present = {item["normalized_name"] for item in report["distributions"]}
+          forbidden = {"cn2an", "fast-langdetect", "jieba", "jieba-fast", "matplotlib", "pandas", "peft", "pypinyin", "split-lang"}
+          remaining = sorted(forbidden & present)
+          if remaining:
+              raise SystemExit(f"candidate still contains excluded direct distributions: {remaining}")
+          print("candidate excluded direct distributions: PASS")
+          for optional in ("accelerate", "onnxruntime"):
+              print(f"candidate {optional}: {'present' if optional in present else 'absent'}")
+          '@ | python -
+        env:
+          CANDIDATE_REPORT: ${{ runner.temp }}\candidate-python.json
+
+      - name: Verify English-only GPT-SoVITS import and text stage
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $worker = (Resolve-Path 'EngineData/Backend/LocalWorker/WorkerRuntime').Path
+          $candidatePython = Join-Path $worker '.venv/Scripts/python.exe'
+          $archive = Join-Path $env:RUNNER_TEMP 'gpt-sovits-source.zip'
+          $extract = Join-Path $env:RUNNER_TEMP 'gpt-sovits-source'
+          Invoke-WebRequest -Uri 'https://github.com/RVC-Boss/GPT-SoVITS/archive/d523079fc05d9a8028d6085bffe4a2757c32abb6.zip' -OutFile $archive
+          Expand-Archive -LiteralPath $archive -DestinationPath $extract -Force
+          $sourceRoot = (Get-ChildItem -LiteralPath $extract -Directory | Select-Object -First 1).FullName
+          if (-not $sourceRoot) { throw 'Pinned GPT-SoVITS source root missing.' }
+          $nltkRoot = Join-Path $sourceRoot 'nltk_data'
+          New-Item -ItemType Directory -Force -Path (Join-Path $nltkRoot 'corpora'),(Join-Path $nltkRoot 'taggers') | Out-Null
+          $nltkRevision = '550b6625bcef1f2abff2ff770a5a0d272c9c6b2a'
+          foreach ($item in @(@('corpora','cmudict'),@('taggers','averaged_perceptron_tagger'),@('taggers','averaged_perceptron_tagger_eng'))) {
+            $category = $item[0]; $name = $item[1]
+            $zip = Join-Path $env:RUNNER_TEMP "$name.zip"
+            Invoke-WebRequest -Uri "https://raw.githubusercontent.com/nltk/nltk_data/$nltkRevision/packages/$category/$name.zip" -OutFile $zip
+            Expand-Archive -LiteralPath $zip -DestinationPath (Join-Path $nltkRoot $category) -Force
+          }
+          $env:SOURCE_ROOT = $sourceRoot
+          $env:NLTK_DATA = $nltkRoot
+          Push-Location $worker
+          try {
+            @'
+          import os, sys, tempfile
+          from pathlib import Path
+          from types import SimpleNamespace
+          import voice_lab_upstream_stage as stage
+          source = Path(os.environ["SOURCE_ROOT"])
+          stage.install_headless_my_utils(source)
+          from TTS_infer_pack.TTS import TTS
+          if not getattr(TTS, "_translateit_english_only_model_init", False):
+              raise SystemExit("TranslateIT English-only TTS init patch missing")
+          probe = TTS.__new__(TTS)
+          probe.configs = SimpleNamespace(t2s_weights_path="t2s", vits_weights_path="vits", cnhuhbert_base_path="hubert", bert_base_path="bert-must-not-load")
+          calls = []
+          probe.init_t2s_weights = lambda value: calls.append(("t2s", value))
+          probe.init_vits_weights = lambda value: calls.append(("vits", value))
+          probe.init_cnhuhbert_weights = lambda value: calls.append(("hubert", value))
+          probe.init_bert_weights = lambda value: (_ for _ in ()).throw(RuntimeError(f"unexpected BERT load: {value}"))
+          probe._init_models()
+          if calls != [("t2s", "t2s"), ("vits", "vits"), ("hubert", "hubert")]:
+              raise SystemExit(f"unexpected TTS model init calls: {calls}")
+          if "peft" not in sys.modules or "text.chinese" not in sys.modules or "text.LangSegmenter" not in sys.modules:
+              raise SystemExit("English-only eager-import shims are incomplete")
+          temp = Path(tempfile.mkdtemp(prefix="translateit-english-stage-"))
+          source_list = temp / "translateit.list"
+          output = temp / "exp"
+          source_list.write_text("take.wav|MyVoice|en|Hello from TranslateIT.\n", encoding="utf-8")
+          os.environ.update({"inp_text": str(source_list), "inp_wav_dir": str(temp), "exp_name": "translateit_myvoice", "opt_dir": str(output), "i_part": "0", "all_parts": "1", "is_half": "False", "version": "v2ProPlus", "bert_pretrained_dir": str(temp / "bert-must-not-exist")})
+          stage.run_upstream_script(source, source / "GPT_SoVITS" / "prepare_datasets" / "1-get-text.py", [])
+          body = (output / "2-name2text-0.txt").read_text(encoding="utf-8")
+          if "take.wav\t" not in body or "Hello from TranslateIT" not in body:
+              raise SystemExit(f"English text stage output invalid: {body!r}")
+          if (output / "3-bert").exists():
+              raise SystemExit("English text stage unexpectedly created BERT features")
+          print("English-only GPT-SoVITS import/model-init/text-stage: PASS")
+          '@ | $candidatePython -
+            if ($LASTEXITCODE -ne 0) { throw 'English-only GPT-SoVITS proof failed.' }
+          } finally { Pop-Location }
+
+      - name: Measure removable Chinese RoBERTa release asset
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $env:HF_HUB_DISABLE_TELEMETRY = '1'
+          $env:BERT_OUT = Join-Path $env:RUNNER_TEMP 'chinese-roberta-wwm-ext-large'
+          @'
+          import os, shutil
+          from pathlib import Path
+          from huggingface_hub import snapshot_download
+          out = Path(os.environ["BERT_OUT"])
+          snapshot_download(repo_id="lj1995/GPT-SoVITS", revision="336b2ec4e8d4ac74740798dd40af44e74659ecaf", local_dir=out, allow_patterns=["chinese-roberta-wwm-ext-large/**"])
+          cache = out / ".cache"
+          if cache.exists(): shutil.rmtree(cache)
+          total = sum(path.stat().st_size for path in out.rglob("*") if path.is_file())
+          Path(os.environ["BERT_BYTES_OUT"]).write_text(str(total), encoding="ascii")
+          print(f"Chinese RoBERTa removable asset bytes={total}")
+          '@ | python -
+          if ($LASTEXITCODE -ne 0) { throw 'Chinese RoBERTa size probe failed.' }
+        env:
+          BERT_BYTES_OUT: ${{ runner.temp }}\bert-bytes.txt
+
+      - name: Compare current and optimized candidate
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          @'
+          import json, os
+          from pathlib import Path
+          baseline = json.loads(Path(os.environ["BASELINE"]).read_text(encoding="utf-8"))
+          candidate = json.loads(Path(os.environ["CANDIDATE"]).read_text(encoding="utf-8"))
+          bert_bytes = int(Path(os.environ["BERT_BYTES"]).read_text(encoding="ascii").strip())
+          historical_python = 5_028_520_692
+          historical_total = 9_420_191_873
+          python_saving = int(baseline["total_bytes"]) - int(candidate["total_bytes"])
+          if python_saving <= 0: raise SystemExit(f"candidate Python closure did not shrink: {python_saving}")
+          if bert_bytes <= 0: raise SystemExit("Chinese RoBERTa profile returned no removable bytes")
+          projected_python = historical_python - python_saving
+          projected_total = historical_total - python_saving - bert_bytes
+          result = {"historical_python_runtime_bytes": historical_python, "historical_total_payload_bytes": historical_total, "baseline_site_packages_bytes": baseline["total_bytes"], "candidate_site_packages_bytes": candidate["total_bytes"], "python_closure_saving_bytes": python_saving, "chinese_roberta_saving_bytes": bert_bytes, "projected_python_runtime_bytes": projected_python, "projected_total_payload_bytes": projected_total, "projected_total_saving_bytes": historical_total - projected_total}
+          Path(os.environ["SUMMARY_JSON"]).write_text(json.dumps(result, indent=2) + "\n", encoding="utf-8")
+          print(json.dumps(result, indent=2))
+          with Path(os.environ["GITHUB_STEP_SUMMARY"]).open("a", encoding="utf-8") as handle:
+              handle.write("## Release Python optimization profile\n\n")
+              handle.write(f"- Baseline site-packages: {baseline['total_bytes']:,} bytes\n")
+              handle.write(f"- Candidate site-packages: {candidate['total_bytes']:,} bytes\n")
+              handle.write(f"- Python closure saving: {python_saving:,} bytes\n")
+              handle.write(f"- Removable Chinese RoBERTa: {bert_bytes:,} bytes\n")
+              handle.write(f"- Projected full payload: {projected_total:,} bytes\n")
+              handle.write(f"- Projected total saving: {historical_total - projected_total:,} bytes\n")
+          '@ | python -
+          if ($LASTEXITCODE -ne 0) { throw 'Profile comparison failed.' }
+        env:
+          BASELINE: ${{ runner.temp }}\baseline-python.json
+          CANDIDATE: ${{ runner.temp }}\candidate-python.json
+          BERT_BYTES: ${{ runner.temp }}\bert-bytes.txt
+          SUMMARY_JSON: ${{ runner.temp }}\optimization-summary.json
+
+      - name: Upload candidate proof
+        uses: actions/upload-artifact@v7
+        with:
+          name: release-python-optimization-profile
+          if-no-files-found: error
+          retention-days: 7
+          path: |
+            EngineData/Backend/LocalWorker/WorkerRuntime/pyproject.toml
+            EngineData/Backend/LocalWorker/WorkerRuntime/uv.lock
+            ${{ runner.temp }}/baseline-python.json
+            ${{ runner.temp }}/candidate-python.json
+            ${{ runner.temp }}/bert-bytes.txt
+            ${{ runner.temp }}/optimization-summary.json

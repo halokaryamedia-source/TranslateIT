@@ -2,9 +2,7 @@
 
 ## Current Status
 
-`GITHUB_GOVERNANCE_ALIGNMENT_SOURCE_COMPLETE / R3 PACKAGING DECISION ACTIVE`
-
-The repository governance boundary has been reconciled around BuildIT-style GitHub discipline without changing TranslateIT product/runtime behavior.
+`R3.1 RELEASE PAYLOAD OPTIMIZATION ACTIVE`
 
 Current repository authority:
 
@@ -13,88 +11,71 @@ Local      → current development authority
 Developing → GitHub default branch; retained historical/recovery only
 ```
 
-## Active Boundary
+R3 remains valid evidence: the controlled approximately 9.42 GB fully offline payload staged successfully, the Tauri application executable built, and classic NSIS failed at its large-installer mmap/offset boundary with both normal compression and `compression = none`.
 
-VoiceLab A1–A6, the current Svelte product surface, one canonical local AI worker, the matched Meeting audio route, controlled release-input ownership, release provenance/licensing gates, and R3 controlled payload staging remain the current implementation baseline.
+The user has explicitly approved optimizing the release payload before selecting the final packaging format.
 
-R3 established a packaging-format blocker for the current approximately 9.4 GB fully offline release payload:
+## Active Optimization Boundary
 
-```text
-controlled payload staging / preflight
-→ PASS
-
-translateit.exe build
-→ PASS
-
-standard Tauri / classic NSIS single-executable packaging
-→ FAIL at large-installer mmap/offset boundary
-
-NSIS compression = none
-→ same boundary
-```
-
-This is not evidence that the application, Python runtime, ASR, translation, GPT-SoVITS, or VB-CABLE payload is broken. It is evidence that the current all-in-one classic-NSIS executable format is not suitable for the staged payload size.
-
-## Governance Result
-
-Current operating owners are now intended to be:
+Optimization must preserve the approved product capability:
 
 ```text
-GITHUB_RULES.md
-→ GitHub branch/ref, tool fit, atomic delivery, commit/history, CI/API/security,
-  retries, hosted proof, STOP
-
-AGENTS.md
-→ boot, modes, continuity/source routing, skill budget
-
-CONTEXT.md
-→ stable orientation
-
-source-ownership.md
-→ responsibility → owner only
-
-decision-log.md
-→ durable choices/reasons
-
-next-action.md
-→ this active continuation only
+local/offline operation
+ASR with faster-whisper large-v3-turbo
+Indonesian ↔ English Marian translation
+GPT-SoVITS V2ProPlus My Voice inference
+VoiceLab training / rebuild / held-out evaluation
+CUDA-preferred execution with capability-only CPU fallback
+one canonical private Python runtime
+no first-use core-model download
+no manual Python / pip / repository setup
 ```
 
-`Repository Verify` is the retained static proof surface for these repository invariants. Product source/runtime proof remains separate and claim-specific.
+Current R3 size evidence:
+
+```text
+PythonRuntime  5,028,520,692 bytes
+ASR            1,621,668,947 bytes
+Translation    1,171,204,700 bytes
+Voice          1,595,329,955 bytes
+VB-CABLE           3,467,579 bytes
+Total          9,420,191,873 bytes
+```
+
+The first proved optimization target is release baggage created by the generic multilingual GPT-SoVITS environment rather than TranslateIT's approved English VoiceLab/My Voice path. Current TranslateIT TTS requests use English text and English prompt language. Pinned upstream GPT-SoVITS eagerly imports multilingual text helpers and PEFT, and its generic TTS initialization loads Chinese RoBERTa even though English preprocessing returns zero BERT features. The approved English training text stage likewise does not consume BERT features.
+
+A reusable Windows `Release Python Profile` proof surface is therefore used to compare the current frozen production closure with an English-only candidate before any dependency/model removal becomes release authority.
+
+Candidate removals are evidence-gated. They currently include only direct packages attributable to unsupported multilingual/LoRA paths plus direct packages not imported by the selected training path:
+
+```text
+cn2an
+fast-langdetect
+jieba
+jieba-fast
+matplotlib
+pandas
+peft
+pypinyin
+split-lang
+```
+
+Chinese RoBERTa is also a candidate release-asset removal. It is not removed merely because it is large; the hosted proof must first establish that the TranslateIT English TTS model initialization and English training text stage do not consume it.
 
 ## Protected Boundaries
 
-This governance alignment does **not** authorize changes to:
+Do not optimize by:
 
-- Meeting lifecycle or translation behavior;
-- Text behavior;
-- VoiceLab recording/training/inference;
-- GPT-SoVITS or translation/ASR model selection;
-- Windows audio routing/provider runtime behavior;
-- persisted settings schema;
-- release payload contents;
-- installer/package implementation;
-- target-Windows/local acceptance;
-- default branch, merge, release, or destructive Git history.
+- replacing or quantizing the approved ASR/translation/GPT-SoVITS models without a separate quality/runtime decision;
+- removing VoiceLab training or evaluation;
+- changing CUDA to CPU-only;
+- introducing another Python/GPT-SoVITS runtime;
+- adding cloud/first-use model download or manual setup;
+- weakening dependency provenance/license validation merely to reduce size;
+- treating hosted import/staging evidence as target-Windows training quality, latency, installed-runtime, audio-route, or clean-machine proof.
 
 Local Windows validation remains deferred until explicitly reactivated.
 
-## Current Decision Boundary
-
-The release packaging boundary must be selected before more packaging implementation.
-
-The current minimum-change candidate is:
-
-```text
-one user-facing setup experience
-+ fully offline installation
-+ installer with colocated external payload file(s)
-```
-
-This is compatible with the earlier durable permission for sidecar/offline payloads, but the exact final distribution layout and installer mechanism still require an explicit current release decision after R3 evidence.
-
-Do not implement a bootstrap download system, first-use model download, alternate installer framework, model/runtime reduction, or another packaging architecture merely to escape the NSIS boundary.
-
 ## Next Step
 
-**Plan and approve the exact post-R3 release packaging boundary, then enter a separate bounded `release-packaging-development` slice only after that decision.**
+**Run and inspect the reusable Windows release-Python profile; adopt only dependency and Voice-asset removals that measurably reduce the payload and pass the current ASR/translation/English VoiceLab runtime contract.**
