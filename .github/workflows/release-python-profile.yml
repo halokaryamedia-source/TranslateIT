@@ -125,9 +125,8 @@ jobs:
           }
           $env:SOURCE_ROOT = $sourceRoot
           $env:NLTK_DATA = $nltkRoot
-          Push-Location $worker
-          try {
-            @'
+          $probeScript = Join-Path $env:RUNNER_TEMP 'verify-english-gpt.py'
+          @'
           import os, sys, tempfile
           from pathlib import Path
           from types import SimpleNamespace
@@ -161,7 +160,10 @@ jobs:
           if (output / "3-bert").exists():
               raise SystemExit("English text stage unexpectedly created BERT features")
           print("English-only GPT-SoVITS import/model-init/text-stage: PASS")
-          '@ | $candidatePython -
+          '@ | Set-Content -LiteralPath $probeScript -Encoding utf8NoBOM
+          Push-Location $worker
+          try {
+            & $candidatePython $probeScript
             if ($LASTEXITCODE -ne 0) { throw 'English-only GPT-SoVITS proof failed.' }
           } finally { Pop-Location }
 
