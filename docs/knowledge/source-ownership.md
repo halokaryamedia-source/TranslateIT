@@ -1,300 +1,142 @@
 # TranslateIT — Source Ownership
 
-This map points to current semantic owners. File existence or hosted source proof alone does not establish target-PC capability.
+Current responsibility → owner map for branch `New`.
 
-| Responsibility | Canonical owner | Current status |
-|---|---|---|
-| Product scope + familiar UI policy | `docs/foundation/01-product-overview.md`, `02-product-requirements.md` including PR-110..119 and PR-166 | ACTIVE / VOICELAB REQUIRED |
-| Stable context | `CONTEXT.md` | ACTIVE |
-| Continuation | `docs/knowledge/next-action.md` | P4 PROVIDER POLICY SOURCE-CLOSED / LOCAL VALIDATION USER-DEFERRED |
-| Durable decisions | `docs/knowledge/decision-log.md` | ACTIVE / D-021 STANDARD VB-CABLE RELEASE PROVIDER |
-| Frontend entry | `EngineData/Frontend/RustApp/src/main.ts` | ACTIVE / ONE SVELTE MOUNT |
-| Frontend application owner | `src/App.svelte` | ACTIVE / MEETING + TEXT + VOICELAB + SETTINGS |
-| First Setup UI | `src/pages/FirstSetup.svelte` | ACTIVE / FIVE PERSISTED CHECKPOINTS |
-| Meeting UI | `src/pages/Meeting.svelte`, `src/components/meeting/MeetingActivity.svelte` | ACTIVE / A6 MYVOICE ROUTE SOURCE-CLOSED |
-| Text UI | `src/pages/Text.svelte` | ACTIVE |
-| VoiceLab page | `src/pages/VoiceLab.svelte` | ACTIVE / GUIDED RECORDING + BUILD/EVALUATION ENTRY |
-| VoiceLab build/evaluation UI | `src/components/voice-lab/VoiceLabBuild.svelte` | ACTIVE A4 / CREATE-STOP-PREVIEW-APPROVE |
-| Primary navigation | `src/components/layout/Sidebar.svelte` | ACTIVE / MEETING-TEXT-VOICELAB-SETTINGS |
-| VoiceLab recording bridge | `src/app/bridge/voiceLabApi.ts` | ACTIVE A3 |
-| VoiceLab build bridge | `src/app/bridge/voiceLabBuildApi.ts` | ACTIVE A4 |
-| Product facade/readiness projection | `src/app/bridge/runtimeProductFacade.ts` | ACTIVE / A6 MYVOICE READINESS |
-| Tauri invoke registration | `src-tauri/src/commands/registry.rs` | ACTIVE / A3 + A4 VOICELAB DESKTOP COMMANDS |
-| VoiceLab actor/build contract | `src-tauri/src/commands/voice_lab.rs` | ACTIVE A2/A4 / DATASET-LIFECYCLE-PROMOTION CONTRACT |
-| VoiceLab guided-recording commands | `src-tauri/src/commands/voice_lab_recording.rs` | ACTIVE A3 |
-| VoiceLab build/evaluation commands | `src-tauri/src/commands/voice_lab_build.rs` | CLOSED A4 SOURCE-SIDE |
-| Canonical microphone capture | `engine/audio/live_capture.rs` | ACTIVE / ONE CPAL STREAM / FEEDS OPTIONAL GUIDED SINK |
-| VoiceLab guided audio sink | `engine/audio/guided_take.rs` | ACTIVE A3 / MONO + RUBATO FFT RESAMPLE TO 32 KHZ |
-| PCM16 WAV writer | `engine/audio/live_segment_writer.rs::write_pcm16_wav` | ACTIVE / SHARED BY MEETING + VOICELAB |
-| Mic Test lifecycle | `engine/capture_lifecycle.rs`, `commands/runtime_capture.rs` | ACTIVE / CANNOT CONTROL ACTIVE VOICELAB TAKE |
-| VoiceLab one-shot build child | `WorkerRuntime/voice_lab_build.py` | CLOSED A4 SOURCE-SIDE / PR-113 PRE-TRAINING SIGNAL GATE / NOT DAILY WORKER |
-| GPT-SoVITS provider adapter | `WorkerRuntime/voice_lab_gpt_sovits.py` | ACTIVE A4+A5 / BUILD, HELD-OUT EVAL, TRAINED-ACTOR INFERENCE |
-| Headless upstream stage boundary | `WorkerRuntime/voice_lab_upstream_stage.py` | ACTIVE / EXCLUDES GRADIO WEBUI SURFACE |
-| Voice Actor temporary data | `UserData/CacheData/VoiceLab` through `VoiceLabStoragePaths` | ACTIVE / DRAFT + TAKES + BUILD + CANDIDATE + EVALUATION |
-| Approved persistent Voice Actor | `UserData/SavedProject/VoiceLab/MyVoice` | ACTIVE / ONE APPROVED ACTOR AUTHORITY |
-| Meeting authority | `commands/meeting_session.rs`, `commands/runtime.rs`, `engine/runtime_state.rs` | ACTIVE / ATOMIC START / VOICELAB BUILD EXCLUSION |
-| Meeting Microphone route | `commands/virtual_mic_route.rs`, `engine/audio/meeting_output.rs` | ACTIVE / STANDARD VB-CABLE INITIAL RELEASE PROVIDER / RUST-CPAL RUNTIME OWNER |
-| Local worker/scheduler | `helper_bridge.rs`, `helper_bridge_runtime.rs`, `realtime_local_worker.py` | ACTIVE / ONE DAILY AI OWNER |
-| Trained Voice Actor worker commands | `realtime_local_worker.py::handle_voice_actor_preflight`, `handle_voice_actor_synthesize` | CLOSED A6 SOURCE-SIDE / MEETING-AUTHORITATIVE |
-| Trained Voice Actor runtime cache | `realtime_local_worker.py::get_voice_actor_runtime` + `voice_lab_gpt_sovits.py::load_voice_actor_runtime` | CLOSED A5 SOURCE-SIDE / INVALIDATES WHEN APPROVED PACKAGE CHANGES |
-| Meeting custom-TTS readiness | existing helper + Meeting Start transaction | CLOSED A6 SOURCE-SIDE / GENERATION-BOUND MYVOICE |
-| Rust dependency graph | `src-tauri/Cargo.toml` + `Cargo.lock` | ACTIVE / RUBATO `=0.16.2` FOR GUIDED RESAMPLING |
-| Worker Python dependency graph | `WorkerRuntime/pyproject.toml` + `uv.lock` | ACTIVE A4-A6 / ONE FROZEN RUNTIME GRAPH |
-| Voice runtime assets | `EngineData/Backend/RuntimeAssets/Voice/` | GPT-SOVITS OWNERSHIP DEFINED / TARGET PACKAGED BYTES UNPROVEN |
-| Release model inventory | `WorkerRuntime/model_manifest.json` | ACTIVE / PINNED GPT-SOVITS VOICELAB RELEASE ASSET / NO PIPER AUTHORITY |
-| Release resource map | `src-tauri/tauri.release.conf.json` | CLOSED P4 SOURCE-SIDE / RUNTIME+MODEL+STANDARD VBCABLE PAYLOAD MAP |
-| Release payload gate | `scripts/validate_release_payload.mjs` | CLOSED P4 SOURCE-SIDE / FAIL-CLOSED FOR RUNTIME+MODEL+STANDARD VBCABLE INPUTS |
-| Meeting audio provider release payload | `RuntimeAssets/AudioProvider/VBCABLE`, `src-tauri/tauri.release.conf.json`, release payload validators | STANDARD VB-CABLE POLICY SOURCE-CLOSED / BYTES+LICENSE+INSTALL UNPROVEN |
-| Controlled Windows release entry | `scripts/build_release.ps1` | CLOSED P3 SOURCE-SIDE / ONE TAURI-NSIS BUILD ENTRY |
-| Private Python packaged resolver | `commands/bridge_paths.rs`, `engine/paths.rs` | CLOSED P3 SOURCE-SIDE / NO PACKAGED SYSTEM-PYTHON FALLBACK |
-| Persisted settings | `engine/settings.rs`, `engine/runtime_settings.rs`, `commands/settings.rs` | ACTIVE / SCHEMA V6 / NO VOICE PROFILE SELECTOR |
-| Target runtime proof | target Windows model/audio/device/package checks | DEFERRED BY USER / REQUIRES NEW EXPLICIT AUTHORIZATION |
+This file answers **who owns what**. It does not own current milestone/status, proof results, or durable rationale. Active continuation belongs in `next-action.md`; durable reasons belong in `decision-log.md`; actual behavior is current source plus relevant proof.
 
-## VoiceLab Ownership Boundary
+## Repository operating owners
 
-VoiceLab creation, daily trained-actor inference, and Meeting atomic MyVoice authority through A6 are now source-closed. Remaining device/model/audio acceptance is target-Windows evidence only and is currently deferred by the user.
+| Responsibility | Canonical owner |
+|---|---|
+| GitHub branch/ref, tool fit, write/history, CI/API/security, retries, STOP | `GITHUB_RULES.md` |
+| Boot, work modes, source precedence, continuity routing, skill budget | `AGENTS.md` |
+| Stable product/repository orientation | `CONTEXT.md` |
+| Active continuation / one next step | `docs/knowledge/next-action.md` |
+| Durable decisions/reasons | `docs/knowledge/decision-log.md` |
+| Product/system requirements | `docs/foundation/` |
+| Work-mode routing reference | `docs/knowledge/flow.md` |
+| Specialist selection/inventory | `docs/knowledge/skills/` |
+| Non-trivial Developing contract | `.agents/skills/development-brief/SKILL.md` |
+| Static governance verification | `tools/verify_repository.py` + `.github/workflows/repository-verify.yml` |
 
-```text
-A3 recording
--> VoiceLab.svelte
--> voiceLabApi.ts
--> voice_lab_recording.rs
--> existing live_capture.rs
--> guided_take.rs
--> CacheData/VoiceLab/Takes
+## Product and frontend owners
 
-A4 creation
--> VoiceLabBuild.svelte
--> voiceLabBuildApi.ts
--> voice_lab_build.rs
--> voice_lab_build.py one-shot child
--> conservative PR-113 unusable-signal rejection
--> voice_lab_gpt_sovits.py
--> pinned GPT-SoVITS V2ProPlus
--> held-out evaluation
--> explicit user approval
--> SavedProject/VoiceLab/MyVoice
+| Responsibility | Canonical owner |
+|---|---|
+| Product scope / familiar UI contract | `docs/foundation/01-product-overview.md`, `docs/foundation/02-product-requirements.md` |
+| Frontend entry | `EngineData/Frontend/RustApp/src/main.ts` |
+| Frontend application / workspace projection | `EngineData/Frontend/RustApp/src/App.svelte` |
+| First Setup | `EngineData/Frontend/RustApp/src/pages/FirstSetup.svelte` |
+| Meeting UI | `EngineData/Frontend/RustApp/src/pages/Meeting.svelte`, `src/components/meeting/MeetingActivity.svelte` |
+| Text UI | `EngineData/Frontend/RustApp/src/pages/Text.svelte` |
+| VoiceLab page | `EngineData/Frontend/RustApp/src/pages/VoiceLab.svelte` |
+| VoiceLab build/evaluation UI | `EngineData/Frontend/RustApp/src/components/voice-lab/VoiceLabBuild.svelte` |
+| Primary navigation | `EngineData/Frontend/RustApp/src/components/layout/Sidebar.svelte` |
+| Semantic visual tokens | `EngineData/Frontend/RustApp/src/styles/tokens.css` |
+| Shared application composition / normal UI CSS | `EngineData/Frontend/RustApp/src/styles/app.css` |
+| Product runtime facade/readiness projection | `EngineData/Frontend/RustApp/src/app/bridge/runtimeProductFacade.ts` |
+| General runtime bridge | `EngineData/Frontend/RustApp/src/app/bridge/runtimeApi.ts` |
+| VoiceLab recording bridge | `EngineData/Frontend/RustApp/src/app/bridge/voiceLabApi.ts` |
+| VoiceLab build bridge | `EngineData/Frontend/RustApp/src/app/bridge/voiceLabBuildApi.ts` |
 
-A5 daily inference
--> existing realtime_local_worker.py
--> fixed approved MyVoice location
--> actor contract revalidation
--> one loaded GPT-SoVITS runtime
--> cached canonical English reference
--> voice_actor_preflight / voice_actor_synthesize
--> bounded CacheData WAV
+## Desktop / Meeting runtime owners
 
-A6 Meeting authority
--> existing helper/scheduler
--> generation-bound Meeting Start readiness
--> approved MyVoice preload + functional synthesis fixture
--> actor identity bound to the authoritative generation
--> existing native output callback
--> existing outbound consumer
--> same generation commits Live
--> Live synthesis requires the Start-proven actor identity
-```
+| Responsibility | Canonical owner |
+|---|---|
+| Tauri invoke registration | `EngineData/Frontend/RustApp/src-tauri/src/commands/registry.rs` |
+| Meeting application authority | `EngineData/Frontend/RustApp/src-tauri/src/commands/meeting_session.rs` + `EngineData/Frontend/RustApp/src-tauri/src/engine/runtime_state.rs` |
+| Shared runtime command boundary | `EngineData/Frontend/RustApp/src-tauri/src/commands/runtime.rs` |
+| Settings transaction / device preferences | `EngineData/Frontend/RustApp/src-tauri/src/commands/settings.rs` |
+| Persisted settings schema/sanitization | `EngineData/Frontend/RustApp/src-tauri/src/engine/settings.rs` |
+| Runtime settings projection | `EngineData/Frontend/RustApp/src-tauri/src/engine/runtime_settings.rs` |
+| Safe application paths | `EngineData/Frontend/RustApp/src-tauri/src/engine/paths.rs` |
+| Packaged private Python resolver | `EngineData/Frontend/RustApp/src-tauri/src/commands/bridge_paths.rs` + `EngineData/Frontend/RustApp/src-tauri/src/engine/paths.rs` |
+| Canonical microphone capture | `EngineData/Frontend/RustApp/src-tauri/src/engine/audio/live_capture.rs` |
+| Meeting translated output | `EngineData/Frontend/RustApp/src-tauri/src/engine/audio/meeting_output.rs` |
+| Meeting virtual route / matched pair | `EngineData/Frontend/RustApp/src-tauri/src/commands/virtual_mic_route.rs` |
+| Capture lifecycle / Mic Test boundaries | `EngineData/Frontend/RustApp/src-tauri/src/engine/capture_lifecycle.rs` + `EngineData/Frontend/RustApp/src-tauri/src/commands/runtime_capture.rs` |
+| Windows lifecycle convergence | current Tauri main-window / canonical Meeting Stop wiring |
 
-The graph explicitly excludes:
+## VoiceLab owners
 
-```text
-no browser microphone capture path
-no second CPAL audio engine
-no imported-audio VoiceLab mode
-no ASR-based guided-line labeling
-no OpenVoice/Qwen/Piper alternate custom-voice authority
-no provider/model registry
-no VoiceLab database
-no second settings store
-no background training scheduler
-no simultaneous VoiceLab training + Meeting
-no second daily Python inference worker
-no generic audio-conversion framework
-no training dashboard/progress theater
-no Gradio/FunASR/ModelScope dependency surface
-no voice-profile selector
-```
+| Responsibility | Canonical owner |
+|---|---|
+| VoiceLab actor/storage/promotion contract | `EngineData/Frontend/RustApp/src-tauri/src/commands/voice_lab.rs` |
+| Guided recording commands/script | `EngineData/Frontend/RustApp/src-tauri/src/commands/voice_lab_recording.rs` |
+| VoiceLab build/evaluation desktop owner | `EngineData/Frontend/RustApp/src-tauri/src/commands/voice_lab_build.rs` |
+| Guided audio sink/resampling | `EngineData/Frontend/RustApp/src-tauri/src/engine/audio/guided_take.rs` |
+| Shared PCM16 WAV writing | `EngineData/Frontend/RustApp/src-tauri/src/engine/audio/live_segment_writer.rs` |
+| One-shot training/evaluation child | `EngineData/Backend/LocalWorker/WorkerRuntime/voice_lab_build.py` |
+| GPT-SoVITS build/inference adapter | `EngineData/Backend/LocalWorker/WorkerRuntime/voice_lab_gpt_sovits.py` |
+| Headless upstream training stage boundary | `EngineData/Backend/LocalWorker/WorkerRuntime/voice_lab_upstream_stage.py` |
+| Approved persistent actor | `UserData/SavedProject/VoiceLab/MyVoice` through VoiceLab storage owners |
+| Temporary VoiceLab build data | `UserData/CacheData/VoiceLab` through VoiceLab storage owners |
 
-## Guided Recording And Promotion Ownership
+## Local AI runtime owners
 
-The guided script remains backend-owned in `commands/voice_lab_recording.rs`; each line has exact English text and a stable line ID. Recording uses the configured microphone and the existing `live_capture.rs` CPAL stream. `guided_take.rs` is an optional sink, not a second capture engine.
+| Responsibility | Canonical owner |
+|---|---|
+| Canonical helper bridge | `EngineData/Frontend/RustApp/src-tauri/src/commands/helper_bridge.rs` + `EngineData/Frontend/RustApp/src-tauri/src/commands/helper_bridge_runtime.rs` |
+| Normal ASR / translation / trained-voice worker | `EngineData/Backend/LocalWorker/WorkerRuntime/realtime_local_worker.py` |
+| Voice Actor preflight/synthesis worker commands | `realtime_local_worker.py::handle_voice_actor_preflight`, `handle_voice_actor_synthesize` |
+| Loaded trained-actor cache | `realtime_local_worker.py::get_voice_actor_runtime` + `voice_lab_gpt_sovits.py::load_voice_actor_runtime` |
+| Worker Python dependency graph | `EngineData/Backend/LocalWorker/WorkerRuntime/pyproject.toml` + `uv.lock` |
+| Release model inventory | `EngineData/Backend/LocalWorker/WorkerRuntime/model_manifest.json` |
+| ASR / translation / Voice runtime assets | `EngineData/Backend/RuntimeAssets/` according to model manifest / release contract |
 
-```text
-source microphone format
--> mono float buffer
--> Rubato 0.16.2 FftFixedInOut
--> 32,000 Hz mono samples
--> shared PCM16 WAV writer
--> review draft
-```
+## Release and packaging owners
 
-A4 promotion still requires native actor artifacts plus completed held-out evaluation and explicit approval:
+| Responsibility | Canonical owner |
+|---|---|
+| Tauri release resource map | `EngineData/Frontend/RustApp/src-tauri/tauri.release.conf.json` |
+| Release payload validation | `EngineData/Frontend/RustApp/scripts/validate_release_payload.mjs` |
+| Release package/source contract | `EngineData/Frontend/RustApp/scripts/validate_release_package_contract.mjs` |
+| Controlled Windows release entry | `EngineData/Frontend/RustApp/scripts/build_release.ps1` |
+| Meeting audio provider release payload | `EngineData/Backend/RuntimeAssets/AudioProvider/VBCABLE/` + release resource/validator owners |
+| Third-party notice generation | `EngineData/Frontend/RustApp/scripts/generate_third_party_notices.mjs` |
+| Installed private Python runtime | `EngineData/Backend/LocalWorker/PythonRuntime/python.exe` as controlled release input |
+| Installed WorkerRuntime | `EngineData/Backend/LocalWorker/WorkerRuntime/` filtered by release contract |
+| Current packaging-format decision | product/release policy + `docs/knowledge/next-action.md`; implementation only after explicit decision |
+
+## Dependency owners
+
+| Responsibility | Canonical owner |
+|---|---|
+| Frontend dependencies | `EngineData/Frontend/RustApp/package.json` + `package-lock.json` |
+| Rust dependencies | `EngineData/Frontend/RustApp/src-tauri/Cargo.toml` + `Cargo.lock` |
+| Worker Python dependencies | `EngineData/Backend/LocalWorker/WorkerRuntime/pyproject.toml` + `uv.lock` |
+
+## Specialist ownership
+
+| Semantic boundary | Project specialist |
+|---|---|
+| Desktop shell/navigation/state/readiness/settings integration | `desktop-runtime-development` |
+| Visual hierarchy/layout/tokens/rendered UI acceptance | `desktop-ui-design-development` |
+| Local ASR/translation/TTS/model/provider/runtime | `local-ai-runtime-development` |
+| Physical mic/capture/segmentation/Windows devices/Meeting route | `windows-audio-runtime-development` |
+| Installer/package/private runtime/models/provider distribution | `release-packaging-development` |
+
+`development-brief` is the non-trivial Developing front door and does not replace these semantic owners.
+
+## Ownership rules
 
 ```text
-gpt.ckpt
-sovits.pth
-reference.wav
-actor.json
-held_out_evaluation_complete = true
+Who owns this?
+→ this file
+
+What exactly must it do?
+→ open the named current owner / foundation contract
+
+What is active now?
+→ next-action.md
+
+Why was a durable choice made?
+→ decision-log.md
+
+What actually works?
+→ current source + matching proof
 ```
 
-An invalid rebuild candidate cannot replace the currently approved actor.
+Do not put milestone labels such as `A6 CLOSED`, `P4`, `R3`, run IDs, or other active-status fields into this map. Ownership should remain stable when milestones move.
 
-## A5 Daily Inference Ownership
-
-A5 deliberately extends the **existing canonical Python worker** instead of replacing it or adding another worker. It introduces internal worker tasks:
-
-```text
-voice_actor_preflight
-voice_actor_synthesize
-```
-
-A6 has now retired the pre-VoiceLab Meeting TTS authority from the required outbound path. Meeting Start and Live synthesis use `voice_actor_preflight` / `voice_actor_synthesize` through the same canonical worker while preserving the existing atomic Meeting lifecycle.
-
-The actor authority is fixed:
-
-```text
-UserData/SavedProject/VoiceLab/MyVoice
-```
-
-`realtime_local_worker.py` validates this package before reuse. `voice_lab_gpt_sovits.py` validates the same essential package contract used by Rust promotion: exact schema, engine/revision, filenames, held-out approval state, regular nonempty weight/reference files, and canonical 32 kHz mono PCM16 reference duration.
-
-The worker keeps only one in-process actor runtime. A bounded `(name, size, mtime_ns)` package identity is used to invalidate that cache when the approved actor changes. This identity is runtime cache invalidation only; it is not a release checksum or artifact registry.
-
-Runtime load is revalidated after model construction before the cache is published. If the package changes during load, the runtime is discarded and the request fails.
-
-The pinned upstream V2ProPlus TTS implementation contains cwd-relative source/model paths. The shared provider therefore constructs the runtime inside the pinned GPT-SoVITS source directory and restores the previous process directory afterward. This same construction owner is reused by A4 held-out evaluation and A5 daily inference.
-
-The canonical reference is prepared once through upstream `set_ref_audio()` and reused through the loaded TTS prompt cache. A later utterance does not retrain or reconstruct the actor when the approved package is unchanged.
-
-A5 fails closed for MyVoice synthesis. Missing/invalid actor files, source assets, model load, reference preparation, or synthesis do not invoke Piper/SAPI. Any stale destination WAV is removed on failure.
-
-## A6 Meeting MyVoice Authority
-
-A6 extends the same canonical worker into the existing Meeting Start transaction. After the Meeting generation owns `Starting` authority and required microphone capture is open, the helper performs ASR preload, a real ID -> EN fixture, `voice_actor_preflight`, a real bounded MyVoice synthesis fixture, ASR over that generated voice, and a final actor-identity recheck. Only then can native output probing and the serialized outbound consumer complete before `Live`.
-
-The readiness cache is bound to worker generation + Meeting generation + approved actor identity. Live `voice_actor_synthesize` must present the exact actor identity proven during Start. If the approved actor changes during the Meeting, synthesis fails closed and a new Start is required. Diagnostic readiness may use generation `0`, but generation `0` can never yield Live actor authority.
-
-## P3 Release Packaging Ownership
-
-P3 adds no second installer, package manager, downloader, provider registry, or release state owner. The controlled source path is:
-
-```text
-controlled release payload staging
--> scripts/validate_release_payload.mjs
--> scripts/build_release.ps1
--> Tauri build with src-tauri/tauri.release.conf.json
--> NSIS bundle input
-```
-
-The release overlay maps only the production WorkerRuntime files plus the private Python runtime and required model/VoiceLab asset roots into the installed `EngineData/Backend` layout already consumed by `ProjectPaths`. Repository `.venv`, system Python, environment Python overrides, tests, setup/smoke scripts, `DevelopingData`, `UserData`, and unrelated GPT-SoVITS WebUI/server/UVR/ASR tooling are not approved packaged runtime inputs.
-
-The payload validator intentionally fails when controlled private/model bytes have not been staged. This is a release-input safety gate, not a downloader. Actual payload bytes, NSIS generation, installation, installed execution, and clean-machine behavior remain separate proof.
-
-Meeting audio provider delivery is not source-closed by P3. The current Rust/CPAL route consumes an already-installed matched virtual-audio pair. The repository has not approved a redistributable third-party provider, its license/install contract, or a different TranslateIT-provisioned endpoint. Do not silently bundle VB-Cable/Voicemeeter or invent a custom driver to make installer acceptance appear complete.
-
-## Storage Ownership
-
-```text
-UserData/CacheData/VoiceLab/
-├─ Draft/
-├─ Takes/
-├─ Build/
-├─ Candidate/
-└─ Evaluation/
-
-UserData/SavedProject/VoiceLab/
-└─ MyVoice/
-```
-
-`CacheData` is temporary/build/output evidence. `SavedProject/VoiceLab/MyVoice` is the one explicitly approved persistent actor. There is no multiple-actor database or legacy profile-root setting.
-
-## GPT-SoVITS And Dependency Ownership
-
-Pinned source revision:
-
-```text
-d523079fc05d9a8028d6085bffe4a2757c32abb6
-```
-
-Permanent Python dependencies remain owned only by:
-
-```text
-WorkerRuntime/pyproject.toml
-WorkerRuntime/uv.lock
-```
-
-Canonical `uv.lock` remains the A4 clean resolution with Git blob:
-
-```text
-93c34e63a4e2dc793606f84ed498a10b09ea40a3
-```
-
-A5 adds no Python dependency and no alternate provider surface. Upstream V2ProPlus itself initializes the speaker-verification model for Pro/ProPlus SoVITS weights, so the existing `sv` pretrained asset remains a genuine daily inference requirement.
-
-English G2P/NLTK data remains explicit local runtime data; runtime code must not download it on demand.
-
-## Proof Boundary
-
-Accepted VoiceLab source proofs:
-
-```text
-A1 core compatibility -> CLOSED
-A2 lifecycle/storage contract -> CLOSED
-A3 guided recording/persistence -> CLOSED SOURCE-SIDE
-A4 GPT-SoVITS build + held-out evaluation -> CLOSED SOURCE-SIDE
-A5 canonical-worker trained-actor inference -> CLOSED SOURCE-SIDE
-A6 Meeting atomic MyVoice readiness -> CLOSED SOURCE-SIDE
-P3 deterministic runtime/model packaging source contract -> CLOSED SOURCE-SIDE
-```
-
-A4 provider compatibility: hosted Windows run `31724026882`.
-
-A4 final current-source proof: hosted Windows run `31733950503` with 25 Python tests, Svelte build/typecheck, Rust compile, and 5 VoiceLab Rust tests.
-
-A5 product source commit:
-
-```text
-d8a73bf684cfbca8e6b10ed5a47d3de92b4deb53
-```
-
-Verified A5 product blobs:
-
-```text
-realtime_local_worker.py      bfd69011dff492a543896184d437f822a48dc00b
-voice_lab_gpt_sovits.py       6230b3d09588f92c775f827d8eb7d74669cefb20
-test_voice_actor_inference.py c06fdcd0c2df954404415d8fa8630bd53f85ced0
-```
-
-Accepted A5 final hosted Windows proof is run `31739723535`:
-
-```text
-uv lock --check -> PASS
-uv sync --frozen --no-install-project -> PASS
-dependency owners unchanged -> PASS
-Python syntax gate -> PASS
-Python tests -> 31 PASS / 0 FAIL
-A5_FINAL_SOURCE_PROOF -> PASS
-```
-
-Current proof order:
-
-```text
-1. canonical scope/ownership alignment -> CLOSED
-2. single-runtime GPT-SoVITS core compatibility -> CLOSED A1
-3. Voice Actor/build lifecycle contract -> CLOSED A2
-4. guided recording + accepted-take persistence -> CLOSED A3 SOURCE-SIDE
-5. GPT-SoVITS build + held-out evaluation -> CLOSED A4 SOURCE-SIDE
-6. canonical-worker daily trained-actor inference -> CLOSED A5 SOURCE-SIDE
-7. Meeting atomic custom-TTS readiness -> CLOSED A6 SOURCE-SIDE
-8. final VoiceLab source closure proof -> CLOSED / run 31773954105
-9. runtime/model/private-Python release packaging source contract -> CLOSED P3 / run 31779152717
-10. Meeting audio provider distribution policy -> DECISION REQUIRED
-11. target-Windows speaker-quality/latency/device/package acceptance -> DEFERRED BY USER / REQUIRES NEW EXPLICIT AUTHORIZATION
-```
-
-Accepted A6 final hosted Windows proof is run `31773954105` at exact checkout SHA `d682f44d02ddd74a731b55bc1d0da6f738bf27f6`: static MyVoice authority guard PASS, frozen worker proof with 28 Python tests PASS, frontend validators/typecheck/build PASS, `cargo check --locked` PASS, 42 Rust tests PASS, and read-only closure guard PASS.
-
-Accepted P3 hosted Windows source proof is run `31779152717` at exact checkout SHA `027412c88f602be5ade4a7ebac6f2bb99e4307ab`: release package/resource-map contract PASS, normal source validation PASS, Svelte typecheck PASS, frontend production build PASS, `cargo check --locked` PASS, missing controlled runtime/model payload correctly failed closed, and read-only closure guard PASS.
-
-Hosted source proof does not prove real user actor weights, staged private Python/model bytes, successful NSIS generation, installed execution, target GPT-SoVITS model load, speaker fidelity, CUDA/VRAM practicality, real inference latency, physical meeting-app audio reception, provider installation, or clean-machine execution. No user-local-PC testing occurred.
+Create a new owner only when an existing owner cannot represent the responsibility without mixing unrelated jobs. Do not create a new service, state store, config authority, registry, compatibility layer, or workflow solely because the current filename is inconvenient.

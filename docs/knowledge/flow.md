@@ -1,64 +1,92 @@
-# TranslateIT Agent Flow
+# TranslateIT Work Routing
 
-This is a routing reference. Root `AGENTS.md` owns the rules.
+Root `AGENTS.md` is the canonical work-mode/boot owner. `GITHUB_RULES.md` is the canonical GitHub execution owner. This file is only a compact routing reference.
 
 ```text
 User request
-   |
-   v
-Boot repository memory
-AGENTS -> CONTEXT -> next-action
-   |
-   v
+    |
+    v
+Pin TranslateIT / intended ref
+    |
+    v
 Select real mode
-   |
-   +--> Context Recovery
-   |      -> recover bounded current truth
-   |
-   +--> Plan
-   |      -> resolve material method/ownership choice
-   |
-   +--> Developing
-   |      -> development-brief
-   |      -> optional max one semantic specialist
-   |
-   +--> Maintenance
-          -> diagnose root cause
-          -> optional max one semantic specialist
-   |
-   v
-Current semantic owner / direct boundary
-   |
-   v
-Root-cause and edit gate
-   |
-   v
-Minimum complete change (or No change required)
-   |
-   v
-Minimum useful proof
-   |
-   v
+    |
+    +--> Context Recovery
+    |      AGENTS → GitHub Core → CONTEXT → next-action
+    |      → smallest owner → report → STOP / NO EDIT
+    |
+    +--> Plan
+    |      recover authority → resolve material method/ownership decision
+    |      → NO IMPLEMENTATION → STOP
+    |
+    +--> Developing
+    |      continuity boot
+    |      → development-brief
+    |      → zero/one project specialist
+    |      → smallest current owner
+    |
+    +--> Maintenance
+           exact defect
+           → first wrong owner
+           → zero/one specialist only if useful
+    |
+    v
+Root-cause / edit gate
+    |
+    v
+Minimum complete change
+(or No change required)
+    |
+    v
+Minimum proof that can falsify the claim
+    |
+    v
 Acceptance POV
-   |
-   v
-Selesai | Perlu pemeriksaan | Terhenti
-   |
-   v
-Update only changed canonical repository owners
-   |
-   v
+    |
+    +--> proof sufficient       → Selesai
+    +--> target proof missing   → Perlu pemeriksaan
+    +--> material blocker       → Terhenti
+    |
+    v
+Update only canonical state owners that actually changed
+    |
+    v
 Exactly one Next step
-   |
-   v
+    |
+    v
 STOP
 ```
 
-## Guardrails
+## Key routing rules
 
-- Do not broad-scan when one relevant owner/source can resolve the next question.
-- Do not silently transition Recovery/Plan/Maintenance into feature development.
-- Do not stack project specialists.
-- Do not lower acceptance criteria because the current execution channel lacks
-  target proof.
-- Do not continue into adjacent work after current acceptance is complete.
+- `amati` / inspect / understand is read-only unless the user also asks to continue/change something.
+- Plan never silently becomes Developing.
+- Non-trivial Developing always uses `development-brief`.
+- Maintenance starts from a reproduced/concrete defect and fixes the first wrong owner.
+- Do not route by Rust, Python, Svelte, Tauri, CUDA, or file type; route by semantic responsibility.
+- Do not stack TranslateIT project specialists.
+- If `next-action.md` disagrees with current source/state, verify the current owner and reconcile the stale record before continuing.
+- Historical TODOs, audits, deleted branches, `DevelopingData`, and old proof runs are not active work by themselves.
+- Hosted CI proves only what it executes; it does not automatically prove target Windows/device/audio/clean-machine behavior.
+- Stop when the current requested acceptance boundary is satisfied.
+
+## Canonical specialist routes
+
+```text
+desktop shell / navigation / state / readiness / settings integration
+→ desktop-runtime-development
+
+visual hierarchy / layout / tokens / rendered UI acceptance
+→ desktop-ui-design-development
+
+ASR / translation / TTS / model / AI worker runtime
+→ local-ai-runtime-development
+
+physical mic / capture / segmentation / Windows devices / Meeting route
+→ windows-audio-runtime-development
+
+installer / private runtime / models / provider distribution / clean-machine
+→ release-packaging-development
+```
+
+Use `docs/knowledge/skills/activation-matrix.md` only when specialist selection is genuinely ambiguous.
