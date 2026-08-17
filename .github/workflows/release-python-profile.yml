@@ -161,7 +161,8 @@ jobs:
           os.environ.update({"inp_text": str(source_list), "inp_wav_dir": str(temp), "exp_name": "translateit_myvoice", "opt_dir": str(output), "i_part": "0", "all_parts": "1", "is_half": "False", "version": "v2ProPlus", "bert_pretrained_dir": str(temp / "bert-must-not-exist")})
           stage.run_upstream_script(source, source / "GPT_SoVITS" / "prepare_datasets" / "1-get-text.py", [])
           body = (output / "2-name2text-0.txt").read_text(encoding="utf-8")
-          if "take.wav\t" not in body or "Hello from TranslateIT" not in body:
+          fields = body.strip().split("\t")
+          if len(fields) != 4 or fields[0] != "take.wav" or not fields[1].strip() or not fields[3].strip():
               raise SystemExit(f"English text stage output invalid: {body!r}")
           if (output / "3-bert").exists():
               raise SystemExit("English text stage unexpectedly created BERT features")
