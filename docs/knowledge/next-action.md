@@ -2,7 +2,7 @@
 
 ## Current Status
 
-`R3.1 RELEASE PAYLOAD OPTIMIZATION ACTIVE`
+`R3.1 RELEASE PAYLOAD OPTIMIZATION IMPLEMENTED — HOSTED PROFILE REQUIRED ON CURRENT HEAD`
 
 Current repository authority:
 
@@ -11,71 +11,69 @@ Local      → current development authority
 Developing → GitHub default branch; retained historical/recovery only
 ```
 
-R3 remains valid evidence: the controlled approximately 9.42 GB fully offline payload staged successfully, the Tauri application executable built, and classic NSIS failed at its large-installer mmap/offset boundary with both normal compression and `compression = none`.
-
-The user has explicitly approved optimizing the release payload before selecting the final packaging format.
+R3 established that the controlled fully offline payload was approximately **9.42 GB** and that the standard Tauri/classic-NSIS one-executable path fails at the large-installer mmap/offset boundary. That remains a packaging-format limitation, not evidence that TranslateIT runtime/model behavior is broken.
 
 ## Active Boundary
 
-Optimization must preserve the approved product capability:
+The release payload is now optimized at the packaging boundary without changing approved product capability:
+
+- the frozen source/build Python closure remains reproducible from `pyproject.toml` + `uv.lock`;
+- `scripts/optimize_release_payload.py` removes only the 19 distributions proven unnecessary for TranslateIT's approved English-only VoiceLab/My Voice release path;
+- required Torch/CUDA, ASR, Marian translation, GPT-SoVITS training/inference, PyTorch Lightning, TensorBoard, Torchaudio, Transformers, ONNX Runtime, and Matplotlib remain retained;
+- Chinese RoBERTa model bytes are removed from the final release payload because approved VoiceLab/My Voice text is English-only and the pinned headless stage supplies zero BERT features for non-Chinese text;
+- the removed RoBERTa directory is replaced by a tiny `TRANSLATEIT_ENGLISH_ONLY.txt` marker so the upstream path shape remains explicit without shipping the unused model;
+- bytecode/cache generated from Python packages is not retained as release authority.
+
+`build_release.ps1` validates the complete controlled staging input first, applies the deterministic optimizer using the staged private Python runtime, regenerates third-party notices from the optimized Python closure, and only then invokes the local pinned Tauri CLI.
+
+## Current Proof Boundary
+
+The reusable Windows `Release Python Profile` is the proof surface for this optimization. It must establish on the current source state that:
 
 ```text
-local/offline operation
-ASR with faster-whisper large-v3-turbo
-Indonesian ↔ English Marian translation
-GPT-SoVITS V2ProPlus My Voice inference
-VoiceLab training / rebuild / held-out evaluation
-CUDA-preferred execution with capability-only CPU fallback
-one canonical private Python runtime
-no first-use core-model download
-no manual Python / pip / repository setup
+frozen production closure
+→ 116 distributions
+
+release optimizer
+→ 97 distributions
+→ all 19 approved exclusions absent
+→ required runtime distributions retained
+
+English-only GPT-SoVITS import/model-init/text stage
+→ PASS without Chinese BERT load
+
+pinned Chinese RoBERTa snapshot bytes
+→ measured removable release payload
 ```
 
-Current R3 size evidence:
+The previous successful profiling wave measured:
 
 ```text
-PythonRuntime  5,028,520,692 bytes
-ASR            1,621,668,947 bytes
-Translation    1,171,204,700 bytes
-Voice          1,595,329,955 bytes
-VB-CABLE           3,467,579 bytes
-Total          9,420,191,873 bytes
+Python closure saving          117,314,655 bytes
+Chinese RoBERTa saving         651,495,070 bytes
+projected optimized payload  8,651,382,148 bytes
+projected total saving         768,809,725 bytes
 ```
 
-The first proved optimization target is release baggage created by the generic multilingual GPT-SoVITS environment rather than TranslateIT's approved English VoiceLab/My Voice path. Current TranslateIT TTS requests use English text and English prompt language. Pinned upstream GPT-SoVITS eagerly imports multilingual text helpers and PEFT, and its generic TTS initialization loads Chinese RoBERTa even though English preprocessing returns zero BERT features. The approved English training text stage likewise does not consume BERT features.
-
-A reusable Windows `Release Python Profile` proof surface is therefore used to compare the current frozen production closure with an English-only candidate before any dependency/model removal becomes release authority.
-
-Candidate removals are evidence-gated. They currently include only direct packages attributable to unsupported multilingual/LoRA paths plus direct packages not imported by the selected training path:
-
-```text
-cn2an
-fast-langdetect
-jieba
-jieba-fast
-matplotlib
-pandas
-peft
-pypinyin
-split-lang
-```
-
-Chinese RoBERTa is also a candidate release-asset removal. It is not removed merely because it is large; the hosted proof must first establish that the TranslateIT English TTS model initialization and English training text stage do not consume it.
+Those numbers are hosted/profile evidence. The actual final staged payload size must be measured again after the production optimizer is applied to the complete controlled release input.
 
 ## Protected Boundaries
 
-Do not optimize by:
+This optimization does **not** authorize or perform:
 
-- replacing or quantizing the approved ASR/translation/GPT-SoVITS models without a separate quality/runtime decision;
-- removing VoiceLab training or evaluation;
-- changing CUDA to CPU-only;
-- introducing another Python/GPT-SoVITS runtime;
-- adding cloud/first-use model download or manual setup;
-- weakening dependency provenance/license validation merely to reduce size;
-- treating hosted import/staging evidence as target-Windows training quality, latency, installed-runtime, audio-route, or clean-machine proof.
+- smaller/quantized replacement models;
+- CPU-only Torch or removal of CUDA;
+- removal of VoiceLab training/evaluation;
+- replacement of GPT-SoVITS V2ProPlus;
+- replacement of faster-whisper large-v3-turbo or either Marian direction;
+- first-use/core-model download;
+- a second Python/runtime environment;
+- Meeting/Text/VoiceLab/Settings behavior changes;
+- default-branch changes;
+- target-Windows quality/latency/device claims.
 
-Local Windows validation remains deferred until explicitly reactivated.
+Local/target Windows validation remains deferred until explicitly reactivated.
 
 ## Next Step
 
-**Run and inspect the reusable Windows release-Python profile; adopt only dependency and Voice-asset removals that measurably reduce the payload and pass the current ASR/translation/English VoiceLab runtime contract.**
+**Assemble the complete optimized controlled release payload, run the existing release-input/notice preflight on that staging flow, record the actual final payload size, then decide the post-R3 packaging format from that optimized size.**

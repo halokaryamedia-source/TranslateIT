@@ -6,6 +6,8 @@ This folder owns local voice-runtime assets used by TranslateIT. Product orchest
 
 ## Current / Target Layout
 
+Final optimized release layout:
+
 ```text
 Voice/
 ├─ README.md
@@ -32,6 +34,7 @@ Voice/
       │     ├─ s1v3.ckpt
       │     ├─ chinese-hubert-base/
       │     ├─ chinese-roberta-wwm-ext-large/
+      │     │  └─ TRANSLATEIT_ENGLISH_ONLY.txt
       │     ├─ sv/
       │     │  └─ pretrained_eres2netv2w24s4ep4.ckpt
       │     └─ v2Pro/
@@ -47,6 +50,8 @@ d523079fc05d9a8028d6085bffe4a2757c32abb6
 ```
 
 That revision is the reviewed GPT-SoVITS V2ProPlus source baseline. The source tree and model binaries are release/runtime payload, not Git-tracked application source.
+
+The complete controlled staging input may initially contain the pinned Chinese RoBERTa directory from the reviewed GPT-SoVITS asset snapshot so baseline provenance/preflight can be checked. Before packaging, `scripts/optimize_release_payload.py` replaces those model bytes with `TRANSLATEIT_ENGLISH_ONLY.txt`. This is valid only because TranslateIT's approved VoiceLab dataset, held-out evaluation, and Meeting My Voice synthesis are English-only: the pinned `voice_lab_upstream_stage.py` bypasses Chinese BERT model initialization and supplies zero BERT features for non-Chinese text. Chinese/multilingual GPT-SoVITS use is not an approved release capability.
 
 `ffmpeg.exe` is the local decoder used by the approved headless English training path. VoiceLab does not rely on a system-PATH FFmpeg installation. `FFMPEG_LICENSE.txt` and `FFMPEG_SOURCE.txt` are required release companions for that exact binary. `ffplay.exe`, `ffprobe.exe`, and libav DLLs are not part of the current runtime contract because the approved path does not consume them.
 
@@ -72,7 +77,7 @@ Rust VoiceLab build command
 -> Voice/GPTSoVITS/Source
 ```
 
-The headless stage runner only removes the upstream WebUI coupling from `tools.my_utils` for the two functions consumed by the approved path (`clean_path` and `load_audio`). It does not replace GPT-SoVITS model, preprocessing, training, or TTS logic.
+The headless stage runner removes the upstream WebUI coupling from `tools.my_utils` for the two functions consumed by the approved path (`clean_path` and `load_audio`) and provides the bounded English-only import/model-init/text-stage shims proven by the Windows release profile. It does not replace GPT-SoVITS acoustic/semantic models, training, or TTS logic.
 
 The GPT-SoVITS source is never launched as a WebUI or server by TranslateIT.
 
@@ -91,7 +96,7 @@ v2Pro/s2Dv2ProPlus.pth                         635cd84bf6f7f9b8d41c88c7106f81d78
 v2Pro/s2Gv2ProPlus.pth                         d42a22bbbf65fb2bbdd45ad6a66841156977db45c7aabe0a6992ff378d9c7d3b
 ```
 
-The repository-level MIT declaration is not permission to discard third-party attribution or license text for nested assets. Preserve the original notices applicable to the packaged HuBERT/RoBERTa/speaker resources.
+The repository-level MIT declaration is not permission to discard third-party attribution or license text for nested assets. Preserve original notices applicable to the packaged HuBERT and speaker resources. The Chinese RoBERTa binary model is not part of the final optimized English-only release payload; its upstream origin may remain documented as provenance for the reviewed baseline snapshot, but absence of those model bytes must not be described as Chinese/multilingual runtime support.
 
 ### English G2P data
 
@@ -131,8 +136,8 @@ The staged runtime must contain exactly these FFmpeg companions beside the GPT-S
 
 ```text
 ffmpeg.exe
-FFMPEG_LICENSE.txt   # exact copy of LICENSE.txt from the pinned BtbN archive
-FFMPEG_SOURCE.txt    # bounded provenance/source record below
+FFMPEG_LICENSE.txt
+FFMPEG_SOURCE.txt
 ```
 
 `FFMPEG_SOURCE.txt` must retain at least these exact records:
@@ -156,6 +161,7 @@ This resolves the **binary provenance and observed license profile** source-side
 ## Rules
 
 - Keep one canonical Python runtime. Do not add a second GPT-SoVITS environment.
+- The final release may remove only the Python distributions and Chinese RoBERTa bytes owned by the profiled release optimizer; changing that exclusion boundary requires new Windows evidence.
 - Do not add Gradio/WebUI, FunASR, UVR5, ModelScope download flows, or provider dashboards merely because upstream includes them.
 - Do not download models or English G2P resources on the user's machine during normal VoiceLab creation.
 - Do not silently fall back from a selected trained Voice Actor to Piper/SAPI.

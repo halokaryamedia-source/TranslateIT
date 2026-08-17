@@ -15,7 +15,7 @@ LocalWorker/
 │  ├─ voice_lab_upstream_stage.py      # bounded headless upstream-stage bridge
 │  ├─ model_manifest.json              # canonical full-product release model inventory
 │  ├─ pyproject.toml
-│  └─ uv.lock                          # frozen dependency graph
+│  └─ uv.lock                          # frozen source/build dependency graph
 └─ PythonRuntime/                       # controlled release payload, ignored by Git
    └─ python.exe                       # installed-product interpreter authority
 ```
@@ -26,7 +26,9 @@ Development may use `WorkerRuntime/.venv`, `TRANSLATEIT_WORKER_PYTHON`, or a sys
 
 The Windows release overlay bundles only the production WorkerRuntime files consumed by the product plus the private `PythonRuntime` and required `RuntimeAssets`. Test files, setup/smoke scripts, `.venv`, `DevelopingData`, and user data are not release runtime inputs.
 
-Large/private runtime bytes are staged as controlled release inputs and remain out of Git. `scripts/validate_release_payload.mjs` verifies their required presence before the installer build; actual installed execution remains target/installed proof.
+Large/private runtime bytes are staged as controlled release inputs and remain out of Git. `scripts/validate_release_payload.mjs` verifies the complete controlled staging input before release-only trimming. `scripts/optimize_release_payload.py` then removes only the Windows-profiled English-only release exclusions, and `build_release.ps1` regenerates third-party notices from the final optimized Python closure before packaging. Actual installed execution remains target/installed proof.
+
+The frozen `WorkerRuntime/pyproject.toml` + `uv.lock` remains the reproducible source/build closure because the pinned upstream GPT-SoVITS code contains multilingual eager imports. The installed release is intentionally smaller: the release optimizer reduces the current 116-distribution baseline to the proven 97-distribution English-only closure without creating a second environment or changing the approved model/runtime stack.
 
 ## Python Runtime Provenance / License Gate
 
@@ -50,7 +52,8 @@ python312.zip
 ```
 
 `import site` must remain disabled. `.` owns the frozen third-party packages vendored into `PythonRuntime`; `..\WorkerRuntime` exposes only TranslateIT's canonical sibling worker modules. Do not solve this by enabling system/user site-packages, copying a second WorkerRuntime into PythonRuntime, or relying on environment-variable path injection.
-- `WorkerRuntime/uv.lock` is the exact third-party Python dependency graph that must be reviewed for the staged private runtime. Python itself being redistributable does not clear every vendored Python package.
+
+- `WorkerRuntime/uv.lock` is the exact reviewed source/build dependency graph from which the staged private runtime is assembled. The final installed closure is a deterministic subset owned by `scripts/optimize_release_payload.py`; changing its exclusion set, expected 116→97 distribution counts, or required-retained set requires repeating the Windows release profile before adoption.
 - `g2p-en` is pinned to **2.1.0** because the dependency exception below is source-reviewed against that exact release. Its published metadata declares `distance`, but hosted inspection of the installed `g2p_en` 2.1.0 Python package confirms that the runtime source contains no `distance` reference, and an English G2P smoke test succeeds while `distance` is absent.
 - The canonical `[tool.uv]` policy therefore uses a **version-scoped `exclude-dependencies`** entry that removes only `distance` as declared by `g2p-en==2.1.0`. `uv.lock` must not contain the `Distance` package. Any `g2p-en` version change must remove or re-justify this exception and repeat the source/runtime proof before release staging.
 - WorkerRuntime dependency resolution requires `uv>=0.12.0` so the scoped exclusion is understood consistently. This is developer/build tooling only; `uv` is not an installed-product dependency.
@@ -58,7 +61,9 @@ python312.zip
 
 ### Exceptional Frozen-Wheel License Material
 
-The R3 full Windows staging proof established that 106 of the 116 frozen production distributions carry their own license/notice material after installation. Ten exact distributions do not. The release must **not** weaken `generate_third_party_notices.mjs` or allow those packages to pass without material. Instead, staging must add the reviewed upstream material below into that package's own `.dist-info/licenses/` directory, together with `TRANSLATEIT_SOURCE.txt` recording the exact source authority.
+The R3 baseline Windows staging proof established that 106 of the 116 frozen source/build distributions carry their own license/notice material after installation. Ten exact distributions do not. The complete controlled input must therefore receive the reviewed material below before the initial release preflight.
+
+The final release optimizer subsequently removes `jieba` and `jieba-fast` together with the other proven English-only release exclusions. Final notice generation occurs **after** optimization, so those removed packages are not represented as installed runtime distributions. The remaining eight exceptional distributions keep their reviewed material in the optimized release.
 
 ```text
 ctranslate2==4.8.1
@@ -69,12 +74,12 @@ flatbuffers==25.12.19
   source tag v25.12.19 -> commit 7e163021e59cca4f8e1e35a7c828b5c6b7915953
   LICENSE sha256 cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30
 
-jieba==0.42.1
+jieba==0.42.1                         # baseline preflight only; removed from final optimized release
   PyPI sdist sha256 055ca12f62674fafed09427f176506079bc135638a14e23e25be909131928db2
   source tag v0.42.1 -> commit 1e20c89b66f56c9301b0feed211733ffaa1bd72a
   LICENSE sha256 18ba0984839f85853b29fadaf992f7dba8fd0ca0fbeae34de2b8735222dc7a37
 
-jieba-fast==0.53
+jieba-fast==0.53                     # baseline preflight only; removed from final optimized release
   PyPI sdist sha256 e92089d52faa91d51b6a7c1e6e4c4c85064a0e36f6a29257af2254b9e558ddd0
   upstream has no release tag; supplemental LICENSE is pinned to repository commit 5e6b21dece184e1004a35bfd802c8772059de3ab
   LICENSE sha256 18ba0984839f85853b29fadaf992f7dba8fd0ca0fbeae34de2b8735222dc7a37
@@ -110,8 +115,7 @@ wordsegment==1.3.1
   LICENSE sha256 8fe4d37c518608a57c6b0f24e26915144f8daf460eb4e1572146596ec3673294
 ```
 
-These are staging inputs, not network actions performed by the installed application or by `build_release.ps1`. The release payload validator pins the exact added files/hashes and their source records. Any version change, source-revision drift, or replacement wheel must be re-audited instead of silently reusing this exception list.
-- This source audit records a release gate; it is not a legal opinion and must not be used as proof that a particular commercial distribution is cleared.
+These are controlled staging inputs, not network actions performed by the installed application or by `build_release.ps1`. The baseline release payload validator pins the exact added files/hashes and their source records before optimization. Any version change, source-revision drift, replacement wheel, or optimizer exclusion change must be re-audited instead of silently reusing this evidence.
 
 ## Rules
 
@@ -119,4 +123,5 @@ These are staging inputs, not network actions performed by the installed applica
 - Do not create a second GPT-SoVITS environment, launcher, server, or provider registry.
 - Do not make system Python, pip, uv, environment variables, or repository checkout installed-product dependencies.
 - Do not store private Python runtime or model/GPT-SoVITS payload bytes in Git.
-- Do not package tests, development setup scripts, local caches, or historical `DevelopingData` into the installer.
+- Do not package tests, development setup scripts, local caches, historical `DevelopingData`, release-excluded distributions, or derived Python bytecode into the installer.
+- Do not expand the release optimizer beyond its profiled 116→97 closure without new Windows evidence.
