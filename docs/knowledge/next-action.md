@@ -2,7 +2,7 @@
 
 ## Current Status
 
-`R3.1 RELEASE PAYLOAD OPTIMIZATION COMPLETE — PACKAGING FORMAT DECISION REQUIRED`
+`R3.2 FINAL RELEASE EFFICIENCY AUDIT — OFFLINE PACKAGING BOUNDARY APPROVED`
 
 Current repository authority:
 
@@ -11,52 +11,23 @@ Local      → current development authority
 Developing → GitHub default branch; retained historical/recovery only
 ```
 
-R3 established that the controlled fully offline payload was approximately **9.42 GB** and that the standard Tauri/classic-NSIS one-self-contained-executable path fails at the large-installer mmap/offset boundary. That remains a packaging-format limitation, not evidence that TranslateIT runtime/model behavior is broken.
-
-R3.1 is now complete. The release payload has been reduced at the packaging boundary without changing approved product capability.
-
-## Completed Optimization
-
-The production release flow now:
+The user has approved the post-R3 distribution boundary:
 
 ```text
-complete controlled release staging
-→ current release-input / notice preflight
-→ deterministic release optimizer
-→ regenerate notices from optimized runtime
-→ Tauri release packaging
+one user-facing automatic offline setup experience
++
+TranslateIT-Setup.exe
++
+colocated external release payload file(s)
 ```
 
-The optimizer keeps the frozen source/build Python closure reproducible from `pyproject.toml` + `uv.lock`, then removes only release baggage already proved unnecessary for TranslateIT's approved English-only VoiceLab / My Voice path:
+The installer implementation is intentionally held until one final bounded efficiency audit is complete, so the packaging format is built around the smallest capability-preserving payload rather than the first acceptable size.
 
-- 19 unnecessary Python distributions are absent from the final staged runtime;
-- required Torch/CUDA, faster-whisper, Marian translation support, GPT-SoVITS training/inference, PyTorch Lightning, TensorBoard, Torchaudio, Transformers, ONNX Runtime, Matplotlib, and other required dependencies remain;
-- Chinese RoBERTa model bytes are omitted because approved VoiceLab / My Voice text is English-only and the current headless GPT-SoVITS boundary supplies zero BERT features for that path;
-- generated Python bytecode/cache is not retained as release authority;
-- third-party notices are regenerated from the final optimized Python closure.
+## Closed R3.1 Baseline
 
-No model was quantized, replaced, or downgraded. CUDA remains the preferred execution path and VoiceLab training/evaluation remains part of the product.
+R3.1 reduced the complete controlled release input without changing approved product capability.
 
-## Hosted Proof
-
-### Production optimizer profile
-
-Windows `Release Python Profile` run `32059026994` proved the production optimizer on commit `f8a45ef3d106785e7240e8160acb39b7a0647d97`:
-
-```text
-Python site-packages before     4,982,907,539 bytes
-Python site-packages optimized  4,865,592,884 bytes
-profiled Python saving            117,314,655 bytes
-installed distributions                 116 → 97
-Chinese RoBERTa removable         651,495,070 bytes
-English GPT-SoVITS path                    PASS
-```
-
-### Complete controlled staging
-
-Windows complete-staging run `32059827859` then assembled the full controlled release input, added the reviewed exceptional license material, ran the **current** notice generator and `preflight:release-payload`, applied the production optimizer, regenerated final notices, audited the 97-distribution Python closure, and measured the current Tauri resource map.
-
-Measured complete staging:
+Measured Windows complete staging:
 
 ```text
 Before optimization
@@ -75,66 +46,62 @@ Voice            943,835,078 bytes
 VB-CABLE           3,467,579 bytes
 Controlled total 8,628,661,848 bytes
 
-Measured controlled-component saving
-791,923,188 bytes
-```
-
-The **exact current Tauri release resource input** after final notice generation is:
-
-```text
+Exact current Tauri release resources
 8,630,347,667 bytes
 26,699 files
 ```
 
-This is measured Windows hosted staging evidence, not a projection. It is still not target-machine installation, GPU/CUDA execution, model quality, latency, physical Meeting audio, driver installation, or clean-machine proof.
+R3.1 removed 19 proven-unnecessary Python distributions, derived bytecode/cache, and the unused Chinese RoBERTa model bytes. Torch/CUDA, faster-whisper large-v3-turbo, both Marian directions, GPT-SoVITS V2ProPlus, VoiceLab training/evaluation, and the fully offline product boundary remain intact.
 
-## Remaining Size Floor
+## R3.2 Audit Boundary
 
-The remaining payload is dominated by required approved capability rather than obvious release baggage:
+R3.2 may investigate additional efficiency only when the existing product capability remains the acceptance baseline.
 
-```text
-PythonRuntime             4,888,485,544 bytes
-  └─ torch 2.11 + cu126   4,130,874,538 bytes
-ASR                       1,621,668,947 bytes
-Translation               1,171,204,700 bytes
-Voice                       943,835,078 bytes
-```
+### 1. Torch / CUDA package-internal audit
 
-A materially larger reduction from here would require a new product/runtime decision such as changing or quantizing models, changing the CUDA/Torch boundary, or otherwise altering approved capability. R3.1 does not authorize that.
+Current optimized PythonRuntime is dominated by `torch==2.11.0+cu126` at approximately **4.13 GB**.
 
-## Packaging Decision Boundary
+Audit package-internal subtrees for build/development-only material such as headers, CMake metadata, import/static libraries, tests/examples, or other files not consumed by installed inference/training. Do not remove CUDA runtime DLLs or other executable runtime material merely because hosted Windows has no physical GPU. Any pruning must preserve current import, VoiceLab build/training-stage, My Voice inference, and target-GPU proof boundaries.
 
-The optimized resource payload remains approximately **8.63 GB**. Given the previously reproduced classic-NSIS mmap/offset failure with the approximately 9.42 GB payload, there is no grounded reason to repeat compression variants or another all-in-one classic-NSIS attempt merely to rediscover the same structural size boundary.
+### 2. Translation representation audit
 
-Recommended minimum-change direction:
+Current canonical translation still loads `marianmt-id-en` and `marianmt-en-id` through Hugging Face `Transformers + Torch`.
+
+Evaluate a CTranslate2 representation of the exact pinned Marian models because CTranslate2 is already a required TranslateIT runtime dependency. Start with a non-lossy / quality-preserving conversion profile before considering reduced-precision quantization.
+
+Adoption requires measured evidence for:
 
 ```text
-one user-facing offline setup experience
-+
-TranslateIT-Setup.exe
-+
-colocated external release payload file(s)
+same approved ID ↔ EN directions
+→ deterministic local model load
+→ representative translation parity / quality acceptance
+→ no first-use download
+→ no second worker/runtime
+→ materially smaller payload and/or better inference efficiency
 ```
 
-The user should still launch one setup executable. The installer should consume its colocated payload automatically; users should not manually install Python, place models, run pip, or perform a second setup. Multiple distribution files do **not** imply multiple setup experiences.
+Do not adopt INT8/model quantization merely for size unless a separate quality benchmark proves the result acceptable.
 
-Do not implement an external-payload installer, bootstrapper, first-use download system, alternate installer framework, or model/runtime reduction until the user explicitly approves the packaging boundary.
+### 3. Distribution compression audit
+
+After installed-resource optimization closes, measure compression for the colocated offline payload. Compression may reduce shipped/download size but must not be reported as reducing installed runtime size. Setup must still automatically consume the payload without user-managed extraction or additional installers.
 
 ## Protected Boundaries
 
-Do not proceed by:
+R3.2 does **not** authorize:
 
-- replacing or quantizing approved ASR/translation/GPT-SoVITS models without a separate decision;
-- changing CUDA to CPU-only;
+- smaller replacement ASR/translation/GPT-SoVITS models;
+- quality-reducing quantization without benchmark evidence;
+- CPU-only Torch or removal of the approved CUDA capability;
 - removing VoiceLab training/evaluation;
-- adding first-use/core-model downloads;
-- creating a second Python/GPT-SoVITS runtime;
+- first-use/core-model downloads;
+- a second Python/GPT-SoVITS runtime;
 - changing Meeting/Text/VoiceLab/Settings behavior;
 - changing the default branch;
-- treating hosted staging as target-Windows runtime acceptance.
+- treating hosted Windows as target-GPU/device acceptance.
 
-Local/target Windows validation remains deferred until explicitly reactivated.
+Local/target Windows validation remains deferred until explicitly reactivated, except when it becomes the minimum proof required for a proposed GPU-specific pruning claim.
 
 ## Next Step
 
-**DECISION REQUIRED — approve or reject the recommended fully offline distribution boundary: one `TranslateIT-Setup.exe` plus colocated external payload file(s), while preserving one automatic setup experience.**
+**Run the bounded R3.2 efficiency audit in this order: measure Torch/CUDA package-internal build-only candidates, evaluate exact Marian ID↔EN CTranslate2 conversion with quality/size parity, then measure external-payload compression. Adopt only savings that preserve the approved fully offline capability; after R3.2 closes, implement the already-approved `TranslateIT-Setup.exe + colocated payload file(s)` packaging boundary.**
