@@ -2,7 +2,7 @@
 
 ## Current Status
 
-`R3.2 QUALITY-PRESERVING SIZE OPTIMIZATION IMPLEMENTED — FINAL COMPLETE-PAYLOAD PROOF RUNNING`
+`R3.2 QUALITY-PRESERVING RELEASE SIZE OPTIMIZATION CLOSED — EXTERNAL-PAYLOAD INSTALLER IMPLEMENTATION NEXT`
 
 Current repository authority:
 
@@ -11,89 +11,97 @@ Local      → current development authority
 Developing → GitHub default branch; retained historical/recovery only
 ```
 
-The post-R3 distribution boundary is approved:
+The approved distribution boundary is:
 
 ```text
-one user-facing automatic offline setup experience
+one user-facing automatic fully offline setup experience
 +
 TranslateIT-Setup.exe
 +
 colocated external release payload file(s)
 ```
 
-Installer implementation remains held until the current R3.2 full-payload and compression proof closes.
+R3.2 is complete. The release payload was reduced without changing approved ASR, translation, GPT-SoVITS, VoiceLab, CUDA, or offline capability.
 
-## Closed R3.1 Baseline
+## Final Measured Release Size
 
-R3.1 measured the exact current Tauri release resources at **8,630,347,667 bytes** after the first safe optimization pass. That pass removed 19 unnecessary Python distributions, derived bytecode/cache, and the unused Chinese RoBERTa model while preserving Torch/CUDA, faster-whisper large-v3-turbo, both pinned Marian directions, GPT-SoVITS V2ProPlus, VoiceLab training/evaluation, and the fully offline product boundary.
-
-## R3.2 Proven Safe Improvements
-
-Windows `Release Efficiency Profile` established two additional quality-neutral candidates:
-
-1. **PyTorch build/development material**
-   - `torch/include`, `torch/share`, and `.lib/.exp/.pdb` build files are not referenced by TranslateIT or the pinned GPT-SoVITS runtime path;
-   - removing them preserved the complete Torch runtime DLL inventory and passed the runtime import/operation smoke;
-   - measured saving: **88,645,335 bytes**.
-
-2. **Duplicate TensorFlow Marian weights**
-   - each pinned Marian snapshot contains `tf_model.h5` even though TranslateIT loads the models through PyTorch `AutoModelForSeq2SeqLM`;
-   - removing only `tf_model.h5` preserved exact output parity on the representative ID→EN and EN→ID audit corpus;
-   - measured saving: **291,599,120 bytes per direction**, **583,198,240 bytes total**.
-
-Combined new R3.2 safe saving: **671,843,575 bytes** beyond the closed R3.1 baseline.
-
-The production `optimize_release_payload.py` now performs both removals fail-closed. It keeps all Torch runtime DLLs, requires PyTorch Marian weights before deleting `tf_model.h5`, and leaves model architecture/precision unchanged.
-
-`Release Python Profile` run `32065416794` passed on the production optimizer commit and measured:
+Windows `Release Payload Verify` run `32066467378` assembled the exact pinned controlled input, passed the current notice/release-payload preflight, applied the production optimizer, regenerated notices, verified the optimized Python/Marian runtime, measured the current Tauri resource map, and integrity-tested both compressed distribution candidates.
 
 ```text
-Python site-packages baseline   4,982,907,539 bytes
-Python site-packages optimized  4,776,947,549 bytes
-Python saving                     205,959,990 bytes
-installed distributions                 116 → 97
-English GPT-SoVITS path                    PASS
+Complete controlled input before optimization
+9,420,585,051 bytes
+
+Optimized controlled components
+8,034,765,674 bytes
+
+Exact current Tauri release resources
+8,036,451,493 bytes
+20,964 files
+
+Controlled-component saving
+1,385,819,377 bytes
 ```
 
-### CTranslate2 Marian candidate rejected
-
-A non-quantized CTranslate2 float32 representation was investigated but **not adopted**. The current pinned converter path failed before a converted model/parity proof could be established (`MarianMTModel ... unexpected keyword argument 'dtype'`). R3.2 does not retry or substitute another translation engine merely to chase size. Current PyTorch Marian inference remains authoritative.
-
-## Current Proof Boundary
-
-A retained `Release Payload Verify` workflow now owns the complete release-input proof surface. It must:
+Optimized component breakdown:
 
 ```text
-stage exact pinned CPython / Python closure / models / voice / audio provider
-→ add reviewed exceptional license material
-→ current notice + release-payload preflight
-→ production release optimizer
-→ optimized 97-distribution structural/runtime smoke
-→ both optimized Marian models load and translate
-→ exact current Tauri resource measurement
-→ lossless ZIP Deflate and 7z/LZMA2 distribution-size benchmark
+PythonRuntime  4,877,787,600 bytes
+ASR            1,621,668,947 bytes
+Translation      588,006,460 bytes
+Voice            943,835,088 bytes
+VB-CABLE           3,467,579 bytes
 ```
 
-The large payload archives are not persisted; only bounded JSON reports are uploaded.
+## Quality-Preserving Changes
 
-The projected Tauri resource input from the closed R3.1 measurement minus the two new proven savings is approximately **7,958,504,092 bytes**. This remains a projection until the retained full-payload workflow measures the current source state directly.
+The production optimizer now removes only evidence-backed release baggage:
+
+- 19 unnecessary Python distributions plus derived bytecode/cache;
+- unused Chinese RoBERTa bytes from the approved English-only GPT-SoVITS path;
+- PyTorch build/development material (`torch/include`, `torch/share`, `.lib/.exp/.pdb`) while preserving the complete runtime DLL inventory;
+- duplicate Marian `tf_model.h5` files while preserving the PyTorch model weights actually loaded by TranslateIT.
+
+No approved model was replaced, quantized, or downgraded. Both optimized pinned Marian directions loaded and generated successfully through the private packaged Python runtime. The optimized 97-distribution runtime/import smoke passed. ASR and GPT-SoVITS model selections remain unchanged.
+
+The investigated CTranslate2 Marian float32 representation was not adopted because parity could not be established with the current pinned converter path. Current PyTorch Marian inference remains authoritative.
+
+## Lossless Distribution Compression
+
+The same exact **8,036,451,493-byte** Tauri resource set was compressed and integrity-tested losslessly:
+
+```text
+ZIP / Deflate
+5,634,641,083 bytes
+70.11% of raw
+saving vs raw: 2,401,810,410 bytes
+
+7z / LZMA2 solid
+4,429,538,835 bytes
+55.12% of raw
+saving vs raw: 3,606,912,658 bytes
+
+7z advantage over ZIP
+1,205,102,248 bytes smaller
+```
+
+This compression changes **distribution size only**. Installed resources still expand to the same approximately **8.036 GB** capability-preserving payload.
+
+`7z/LZMA2` is therefore the preferred **size-first candidate** for the colocated offline payload. It is not yet permission to add an unrelated 7-Zip runtime or a second user-facing extraction step; the installer implementation must consume the payload automatically with the smallest justified extraction mechanism.
 
 ## Protected Boundaries
 
-R3.2 does **not** authorize:
+Do not reduce size further by:
 
-- smaller replacement ASR/translation/GPT-SoVITS models;
-- INT8 or other quality-reducing quantization without a separate benchmark decision;
-- CPU-only Torch or removal of CUDA runtime DLLs;
+- replacing or quantizing the approved ASR/translation/GPT-SoVITS models without a separate quality decision;
+- removing CUDA runtime capability;
 - removing VoiceLab training/evaluation;
-- first-use/core-model downloads;
-- a second Python/GPT-SoVITS runtime;
+- adding first-use/core-model downloads;
+- adding a second Python/GPT-SoVITS runtime;
 - changing Meeting/Text/VoiceLab/Settings behavior;
-- changing the default branch;
-- treating hosted Windows as target-GPU/device acceptance.
+- treating hosted Windows proof as target-GPU/device or clean-machine acceptance.
 
-Local/target Windows validation remains deferred except when it becomes the minimum proof required for a GPU-specific claim.
+Local/target Windows validation remains deferred until explicitly reactivated or until it becomes the minimum proof required by installer/runtime acceptance.
 
 ## Next Step
 
-**Wait for the retained `Release Payload Verify` Windows run on the current `Local` source. If full staging, optimized runtime/model smoke, exact size measurement, and lossless compression benchmarks pass, close R3.2 with the measured final installed-resource size and preferred colocated payload compression boundary; then implement the already-approved `TranslateIT-Setup.exe + colocated external payload file(s)` distribution.**
+**Implement the already-approved `TranslateIT-Setup.exe + colocated external payload file(s)` distribution. Start from the measured 7z/LZMA2 size-first candidate, inspect the existing Tauri/NSIS customization surface, and choose the smallest automatic extraction mechanism that preserves one fully offline Setup experience without manual extraction, first-use download, or a second installer/runtime owner.**

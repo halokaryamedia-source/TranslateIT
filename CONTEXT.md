@@ -186,9 +186,10 @@ The controlled release source path is:
 ```text
 controlled payload staging
 → release-input validation / notice generation
-→ scripts/build_release.ps1
-→ Tauri release configuration
-→ Windows bundle input
+→ deterministic release optimization
+→ final notice regeneration
+→ Tauri release resource input
+→ Windows distribution packaging
 ```
 
 Release inputs include the private Python runtime, required ASR and bidirectional translation assets, GPT-SoVITS/VoiceLab assets, required local language data, the reviewed FFmpeg payload, the standard VB-CABLE provider payload, and required third-party notice material.
@@ -197,15 +198,27 @@ Repository `.venv`, system-Python discovery, unrelated GPT-SoVITS WebUI/server/U
 
 ## Packaging boundary
 
-The current controlled offline payload is approximately 9.4 GB. Hosted R3 evidence established that the payload can be staged and preflighted and that the Tauri application executable can build, but the standard classic-NSIS single-executable packaging path hits a large-installer mmap/offset boundary. Disabling NSIS compression did not remove that boundary.
+The classic Tauri/NSIS one-self-contained-executable direction is retired for the large offline payload because hosted R3 reproduced its mmap/offset boundary.
 
-This is a packaging-format decision, not evidence that the application/runtime/model source is broken.
+The approved distribution boundary is now:
 
-The active release decision is whether to preserve one user-facing fully offline setup experience while allowing installer + colocated external payload file(s), or approve another explicitly evaluated packaging boundary. Do not silently introduce a bootstrap download system, alternate installer framework, model/runtime reduction, or another release architecture before that decision.
+```text
+one user-facing automatic fully offline Setup
++
+TranslateIT-Setup.exe
++
+colocated external payload file(s)
+```
+
+R3.2 measured the current optimized Tauri release resources at approximately **8.036 GB** without replacing, quantizing, or downgrading the approved ASR, Marian, GPT-SoVITS, CUDA, or VoiceLab capability.
+
+Lossless distribution benchmarking measured the same resource set at approximately **5.635 GB as ZIP/Deflate** and **4.430 GB as solid 7z/LZMA2**. `7z/LZMA2` is the current size-first payload candidate; compression affects distribution size only and does not reduce or alter the installed approximately 8.036 GB resource set.
+
+The Setup implementation must consume its colocated payload automatically. Do not add first-use/core-model downloads, manual extraction, manual Python/model setup, a second installer, or a general package-manager/artifact-registry architecture merely to solve distribution.
 
 ## Evidence boundary
 
-GitHub/static/hosted proof may establish source ownership, compile/test behavior, bounded hosted execution, deterministic staging, and packaging-format behavior actually exercised by the runner.
+GitHub/static/hosted proof may establish source ownership, compile/test behavior, bounded hosted execution, deterministic staging, packaging input structure, model/runtime behavior actually exercised by the runner, and lossless distribution-size measurements.
 
 It does not establish:
 
@@ -218,11 +231,11 @@ driver installation/restart behavior
 Meeting virtual-audio delivery
 Zoom/Meet/Teams reception
 sleep/wake behavior on target hardware
-installed private-runtime execution
+installed private-runtime execution on the target PC
 clean-machine operation
 ```
 
-Those remain target-capable proof. Local Windows validation is currently deferred until explicitly reactivated.
+Those remain target-capable proof. Local Windows validation is currently deferred until explicitly reactivated or until it becomes the minimum proof for installer/runtime acceptance.
 
 ## Repository operating direction
 

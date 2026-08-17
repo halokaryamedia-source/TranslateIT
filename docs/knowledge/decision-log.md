@@ -200,3 +200,16 @@ Previous hosted proof work could produce temporary workflow churn, repeated proo
 
 **Boundary**  
 This governance decision does not change Meeting, Text, VoiceLab, models, Windows audio, installer implementation, or the deferred target-Windows acceptance boundary.
+
+## D-023 — One Fully Offline Setup With Colocated External Payload Is Approved
+
+**Decision**  
+The release boundary is now explicitly approved as one user-facing automatic offline Setup plus colocated external payload file(s). Users launch `TranslateIT-Setup.exe`; Setup owns locating, validating, and extracting/installing its colocated payload automatically. Users are not asked to install Python, run pip, download core models, manually extract archives, or run a second installer.
+
+R3.2 establishes `7z/LZMA2` as the current **size-first compression candidate** because the exact Tauri resource set compressed materially smaller than ZIP while preserving byte-identical extracted content. This is evidence for the payload representation, not permission to introduce an unrelated user-facing 7-Zip product/runtime. The implementation must choose the smallest justified automatic extraction mechanism inside the one Setup experience.
+
+**Reason**  
+The classic single-EXE NSIS boundary is structurally unsuitable for the large offline payload, while the user experience requirement is one automatic offline setup—not one physical file. Lossless external compression reduces distribution size without changing installed AI models, precision, runtime behavior, or quality.
+
+**Boundary**  
+Do not turn this into a bootstrap download system, package manager, general artifact registry, manual extraction workflow, second setup, or model-quality reduction. Target-Windows installation/clean-machine proof remains separate acceptance evidence.
