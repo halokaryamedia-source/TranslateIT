@@ -25,7 +25,9 @@ class _EnglishOnlyLangSegmenter:
         raise RuntimeError("voice_lab:non_english_text_segmentation_not_supported")
 
 
-def _unsupported_chinese_attribute(_name: str) -> Any:
+def _unsupported_chinese_attribute(name: str) -> Any:
+    if name.startswith("__"):
+        raise AttributeError(name)
     raise RuntimeError("voice_lab:non_english_text_processing_not_supported")
 
 
@@ -72,24 +74,30 @@ def _load_audio(source_root: Path, file: Any, sample_rate: Any) -> np.ndarray:
     return np.frombuffer(output, np.float32).flatten()
 
 
+def _module(name: str) -> types.ModuleType:
+    module = types.ModuleType(name)
+    module.__file__ = str(Path(__file__).resolve())
+    return module
+
+
 def _install_english_only_import_shims() -> None:
     text_package = importlib.import_module("text")
 
     chinese_module = sys.modules.get("text.chinese")
     if chinese_module is None:
-        chinese_module = types.ModuleType("text.chinese")
+        chinese_module = _module("text.chinese")
         chinese_module.__getattr__ = _unsupported_chinese_attribute
         sys.modules["text.chinese"] = chinese_module
     setattr(text_package, "chinese", chinese_module)
 
     segmenter_module = sys.modules.get("text.LangSegmenter")
     if segmenter_module is None:
-        segmenter_module = types.ModuleType("text.LangSegmenter")
+        segmenter_module = _module("text.LangSegmenter")
         segmenter_module.LangSegmenter = _EnglishOnlyLangSegmenter
         sys.modules["text.LangSegmenter"] = segmenter_module
 
     if "peft" not in sys.modules:
-        peft_module = types.ModuleType("peft")
+        peft_module = _module("peft")
         peft_module.LoraConfig = _unsupported_lora
         peft_module.get_peft_model = _unsupported_lora
         sys.modules["peft"] = peft_module
@@ -102,6 +110,8 @@ def _install_english_only_tts_model_init() -> None:
         return
 
     def _init_models(self: Any) -> None:
+        self.bert_model = None
+        self.bert_tokenizer = None
         self.init_t2s_weights(self.configs.t2s_weights_path)
         self.init_vits_weights(self.configs.vits_weights_path)
         self.init_cnhuhbert_weights(self.configs.cnhuhbert_base_path)
@@ -152,7 +162,7 @@ def install_headless_my_utils(source_root: Path) -> None:
     _install_english_only_import_shims()
 
     tools_package = importlib.import_module("tools")
-    module = types.ModuleType("tools.my_utils")
+    module = _module("tools.my_utils")
     module.clean_path = clean_path
     module.load_audio = lambda file, sr: _load_audio(source_root, file, sr)
     sys.modules["tools.my_utils"] = module
