@@ -263,3 +263,16 @@ A broad benchmark + holdout gate reduces fixture overfitting and lets quality im
 
 **Boundary**  
 Do not resume microphone, VoiceLab, Meeting, installer, or additional translation development until the Translation Quality Improvement Plan built around this gate is researched, critiqued, and explicitly approved. D-025 does not itself choose the next model, decoder profile, benchmark tool, metric, or quantization method.
+
+## D-026 — LMT-60-1.7B Is The Approved Translation Evaluation Target
+
+**Decision**  
+Use `NiuTrans/LMT-60-1.7B` as the sole preferred challenger and intended canonical target for the next translation-quality round. The current M2M100-418M implementation remains the active production baseline until LMT-60-1.7B passes the frozen D-025 benchmark/holdout and target-Windows quality, latency, VRAM, licensing, offline, and packaging gates.
+
+Round 1 does not evaluate LMT-0.6B, LMT-4B, LMT-8B, MADLAD-400 3B, or another model in parallel. Those may be reopened only if LMT-60-1.7B materially fails the approved gate and new evidence justifies a second bounded round. Do not add LMT as a runtime fallback/router beside M2M100; if adopted, it replaces the canonical translation model.
+
+**Reason**  
+The approved model-family audit prioritizes translation quality and low latency, with model size secondary. Published Indonesian LMT scaling results show a material quality gain from 0.6B to 1.7B, followed by substantially smaller gains from 1.7B to 4B/8B. The 1.7B payload is materially more practical for the target RTX 3070 8 GB than the 4B/8B variants, while avoiding the larger quality sacrifice of the 0.6B model. LMT is translation-specialized, supports Indonesian, and uses an Apache-2.0 license suitable for the current product evaluation direction.
+
+**Boundary**  
+This is approval to evaluate LMT-60-1.7B, not permission to pre-promote it into `model_manifest.json`, RuntimeAssets, or the production worker. D-025 remains controlling: first freeze the general benchmark contract, then compare M2M100 and LMT-60-1.7B under the exact same unseen/holdout, quality, naturalness, latency, and VRAM procedure. Production changes occur only after that evidence passes.
