@@ -7,6 +7,7 @@ import time
 from pathlib import Path
 from typing import Any
 
+import translation_envelope
 import voice_lab_gpt_sovits as voice_actor_provider
 
 SCRIPT_ROOT = Path(__file__).resolve().parents[4]
@@ -43,7 +44,6 @@ MAX_TRANSLATION_TEXT_CHARS = 2_000
 MAX_TTS_TEXT_CHARS = 1_000
 MAX_TRANSCRIPT_TEXT_CHARS = 4_000
 MAX_AUDIO_INPUT_BYTES = 25 * 1024 * 1024
-MAX_GENERATION_TOKENS = 128
 MAX_REASONABLE_MODEL_TOKEN_LIMIT = 1_000_000
 
 ASR_RUNTIME: Any | None = None
@@ -74,7 +74,6 @@ def request_deadline_remaining_ms(payload: dict[str, Any] | None) -> int | None:
 def request_deadline_expired(payload: dict[str, Any] | None) -> bool:
     remaining = request_deadline_remaining_ms(payload)
     return remaining is not None and remaining <= 0
-
 
 
 def import_ready(module_name: str) -> bool:
@@ -263,7 +262,6 @@ def translation_model_for_direction(
     return None
 
 
-
 def clear_voice_actor_runtime() -> None:
     global VOICE_ACTOR_RUNTIME, VOICE_ACTOR_RUNTIME_FINGERPRINT
     VOICE_ACTOR_RUNTIME = None
@@ -372,7 +370,6 @@ def translation_model_ready(path: Path) -> bool:
     )
 
 
-
 def choose_asr_model() -> tuple[str, Path]:
     if asr_model_ready(ASR_MODEL):
         return "faster-whisper-large-v3-turbo", ASR_MODEL
@@ -419,7 +416,7 @@ def build_status_payload(payload: dict[str, Any] | None = None) -> dict[str, Any
     torch_cuda_probe_ok = bool(gpu_runtime["torch_cuda_probe_ok"])
     cuda_available = bool(gpu_runtime["torch_cuda_available"])
     ctranslate2_ready = bool(gpu_runtime["ctranslate2_import_ready"])
-    ctranslate2_cuda_probe_ok = bool(gpu_runtime["ctranslate2_cuda_probe_ok"])
+    ctranslate2_probe_ok = bool(gpu_runtime["ctranslate2_cuda_probe_ok"])
     ctranslate2_cuda_available = bool(gpu_runtime["ctranslate2_cuda_available"])
     cuda_capability_known = bool(gpu_runtime["cuda_capability_known"])
     cpu_fallback_active = bool(gpu_runtime["cpu_fallback_active"])
@@ -450,7 +447,7 @@ def build_status_payload(payload: dict[str, Any] | None = None) -> dict[str, Any
         blockers.append("dependency:ctranslate2_missing")
     if torch_ready and not torch_cuda_probe_ok:
         blockers.append(str(gpu_runtime["torch_cuda_probe_blocker"]))
-    if ctranslate2_ready and not ctranslate2_cuda_probe_ok:
+    if ctranslate2_ready and not ctranslate2_probe_ok:
         blockers.append(str(gpu_runtime["ctranslate2_cuda_probe_blocker"]))
     if not asr_active_ready:
         blockers.append("model:faster_whisper_large_v3_turbo_and_medium_missing")
@@ -467,15 +464,12 @@ def build_status_payload(payload: dict[str, Any] | None = None) -> dict[str, Any
     if cpu_fallback_active:
         warnings.append("cuda_unavailable_cpu_fallback_active")
 
-    # `ok/provider_ready` intentionally represent the required outbound Meeting path.
-    # Reverse EN -> ID is separately visible because incoming is optional and must not
-    # block an otherwise healthy outbound Meeting start.
     provider_ready = (
         faster_whisper_ready
         and torch_ready
         and ctranslate2_ready
         and torch_cuda_probe_ok
-        and ctranslate2_cuda_probe_ok
+        and ctranslate2_probe_ok
         and transformers_ready
         and asr_active_ready
         and translation_id_en_ready
@@ -861,28 +855,6 @@ def move_inputs_to_device(inputs: Any, device: str) -> Any:
     return {key: value.to("cuda") for key, value in inputs.items()}
 
 
-def finite_positive_token_limit(value: Any) -> int | None:
-    try:
-        parsed = int(value)
-    except Exception:
-        return None
-    if parsed <= 0 or parsed >= MAX_REASONABLE_MODEL_TOKEN_LIMIT:
-        return None
-    return parsed
-
-
-def translation_input_token_limit(tokenizer: Any, model: Any) -> int | None:
-    candidates: list[int] = []
-    tokenizer_limit = finite_positive_token_limit(getattr(tokenizer, "model_max_length", None))
-    if tokenizer_limit is not None:
-        candidates.append(tokenizer_limit)
-    config = getattr(model, "config", None)
-    model_limit = finite_positive_token_limit(getattr(config, "max_position_embeddings", None))
-    if model_limit is not None:
-        candidates.append(model_limit)
-    return min(candidates) if candidates else None
-
-
 def input_token_count(inputs: Any) -> int | None:
     try:
         input_ids = inputs["input_ids"]
@@ -1021,7 +993,7 @@ def handle_translate(payload: dict[str, Any]) -> dict[str, Any]:
             "max_chars": MAX_TRANSLATION_TEXT_CHARS,
         }
 
-    text = compact_runtime_text(payload.get("text", ""), MAX_TRANSLATION_TEXT_CHARS)
+    text = translation_envelope.compact_unit(payload.get("text", ""))
     source_language = normalize_language(payload.get("source_language", "id"), "id")
     target_language = normalize_language(payload.get("target_language", "en"), "en")
     pair = direction_pair(source_language, target_language)
@@ -1068,14 +1040,12 @@ def handle_translate(payload: dict[str, Any]) -> dict[str, Any]:
         tokenizer = runtime["tokenizer"]
         model = runtime["model"]
         device = runtime["device"]
-        max_new_tokens = bounded_int(
-            payload.get("max_new_tokens", 32), 32, 1, MAX_GENERATION_TOKENS
-        )
 
-        # Deliberately no silent truncation and no automatic previous-turn context.
         inputs = tokenizer(text, return_tensors="pt", truncation=False)
         token_count = input_token_count(inputs)
-        max_input_tokens = translation_input_token_limit(tokenizer, model)
+        max_input_tokens = translation_envelope.input_token_limit(
+            tokenizer, model, MAX_REASONABLE_MODEL_TOKEN_LIMIT
+        )
         if token_count is None:
             return {
                 "ok": False,
@@ -1112,6 +1082,14 @@ def handle_translate(payload: dict[str, Any]) -> dict[str, Any]:
                 "elapsed_ms": now_ms() - started,
             }
 
+        max_new_tokens = translation_envelope.adaptive_generation_budget(
+            payload.get("max_new_tokens", translation_envelope.MIN_GENERATION_TOKENS),
+            token_count,
+            tokenizer,
+            model,
+            max_input_tokens,
+            MAX_REASONABLE_MODEL_TOKEN_LIMIT,
+        )
         inputs = move_inputs_to_device(inputs, device)
         import torch
 
@@ -1129,6 +1107,7 @@ def handle_translate(payload: dict[str, Any]) -> dict[str, Any]:
                 "stage": "translate",
                 "model_id": runtime["model_id"],
                 "direction_pair": pair,
+                "generation_budget_tokens": max_new_tokens,
                 "blocker": "translation:missing_generation_sequences",
                 "note": "Translation output was not promoted because generation sequences were unavailable.",
                 "elapsed_ms": now_ms() - started,
@@ -1146,15 +1125,14 @@ def handle_translate(payload: dict[str, Any]) -> dict[str, Any]:
                 "direction_pair": pair,
                 "input_tokens": token_count,
                 "max_input_tokens": max_input_tokens,
+                "generation_budget_tokens": max_new_tokens,
                 **completion,
                 "note": "Generated translation was rejected because normal EOS completion could not be verified. No partial translation should be promoted to Text or TTS.",
                 "elapsed_ms": now_ms() - started,
             }
 
-        translated = compact_runtime_text(
-            tokenizer.batch_decode(sequences, skip_special_tokens=True)[0],
-            MAX_TRANSLATION_TEXT_CHARS,
-        )
+        decoded = tokenizer.batch_decode(sequences, skip_special_tokens=True)[0]
+        translated = translation_envelope.compact_unit(decoded)
         return {
             "ok": bool(translated),
             "stage": "translate",
@@ -1172,6 +1150,7 @@ def handle_translate(payload: dict[str, Any]) -> dict[str, Any]:
             "direction_supported": True,
             "input_tokens": token_count,
             "max_input_tokens": max_input_tokens,
+            "generation_budget_tokens": max_new_tokens,
             **completion,
             "translated_text": translated,
             "elapsed_ms": now_ms() - started,
@@ -1187,6 +1166,199 @@ def handle_translate(payload: dict[str, Any]) -> dict[str, Any]:
             "direction_pair": pair,
             "elapsed_ms": now_ms() - started,
         }
+
+
+def handle_standalone_text_translate(payload: dict[str, Any]) -> dict[str, Any]:
+    started = now_ms()
+    raw_source = translation_envelope.clean_source_text(payload.get("text", ""))
+    if not raw_source:
+        return {
+            "ok": False,
+            "stage": "translate",
+            "blocker": "translation:empty_text",
+        }
+    if len(raw_source) > MAX_TRANSLATION_TEXT_CHARS:
+        return {
+            "ok": False,
+            "stage": "translate",
+            "blocker": "translation:text_too_large",
+            "max_chars": MAX_TRANSLATION_TEXT_CHARS,
+        }
+
+    source_language = normalize_language(payload.get("source_language", "id"), "id")
+    target_language = normalize_language(payload.get("target_language", "en"), "en")
+    pair = direction_pair(source_language, target_language)
+    selected = translation_model_for_direction(source_language, target_language)
+    if selected is None:
+        return handle_translate(payload)
+    model_id, model_path = selected
+    if not translation_model_ready(model_path):
+        return handle_translate(payload)
+
+    try:
+        runtime = get_translation_runtime(source_language, target_language)
+        tokenizer = runtime["tokenizer"]
+        model = runtime["model"]
+        max_input_tokens = translation_envelope.input_token_limit(
+            tokenizer, model, MAX_REASONABLE_MODEL_TOKEN_LIMIT
+        )
+        if max_input_tokens is None:
+            return {
+                "ok": False,
+                "stage": "translate",
+                "model_id": model_id,
+                "direction_pair": pair,
+                "blocker": "translation:model_input_limit_unknown",
+                "note": "Standalone Text could not build a safe chunk plan because the model input limit is unknown.",
+                "elapsed_ms": now_ms() - started,
+            }
+        try:
+            plan = translation_envelope.standalone_plan(
+                raw_source, tokenizer, max_input_tokens
+            )
+        except translation_envelope.TranslationEnvelopeError as exc:
+            return {
+                "ok": False,
+                "stage": "translate",
+                "model_id": model_id,
+                "direction_pair": pair,
+                "blocker": str(exc),
+                "note": "Standalone Text could not be split into a complete safe translation plan. No partial result was promoted.",
+                "elapsed_ms": now_ms() - started,
+            }
+        if not plan:
+            return {
+                "ok": False,
+                "stage": "translate",
+                "model_id": model_id,
+                "direction_pair": pair,
+                "blocker": "translation:standalone_chunk_plan_empty",
+                "elapsed_ms": now_ms() - started,
+            }
+
+        chunk_total = sum(len(paragraph) for paragraph in plan)
+        chunk_index = 0
+        paragraph_outputs: list[list[str]] = []
+        total_input_tokens = 0
+        total_generated_tokens = 0
+        max_generation_budget = 0
+        any_token_ceiling = False
+        last_success: dict[str, Any] | None = None
+
+        for paragraph in plan:
+            translated_paragraph: list[str] = []
+            for chunk in paragraph:
+                chunk_index += 1
+                if request_deadline_expired(payload):
+                    return {
+                        "ok": False,
+                        "stage": "translate",
+                        "model_id": model_id,
+                        "direction_pair": pair,
+                        "chunk_index": chunk_index,
+                        "chunk_count": chunk_total,
+                        "paragraph_count": len(plan),
+                        "blocker": "worker:request_deadline_expired",
+                        "note": "Standalone Text stopped before the next chunk because the bounded worker deadline expired. No partial result was promoted.",
+                        "elapsed_ms": now_ms() - started,
+                    }
+
+                chunk_payload = dict(payload)
+                chunk_payload["text"] = chunk
+                chunk_payload["request_kind"] = "standalone_text_chunk"
+                result = handle_translate(chunk_payload)
+                if not result.get("ok"):
+                    failed = dict(result)
+                    failed.update(
+                        {
+                            "ok": False,
+                            "translated_text": "",
+                            "chunk_index": chunk_index,
+                            "chunk_count": chunk_total,
+                            "paragraph_count": len(plan),
+                            "note": "Standalone Text failed before every required chunk completed. No partial translation was promoted.",
+                            "elapsed_ms": now_ms() - started,
+                        }
+                    )
+                    return failed
+
+                translated_chunk = str(result.get("translated_text", "")).strip()
+                if not translated_chunk:
+                    return {
+                        "ok": False,
+                        "stage": "translate",
+                        "model_id": model_id,
+                        "direction_pair": pair,
+                        "chunk_index": chunk_index,
+                        "chunk_count": chunk_total,
+                        "paragraph_count": len(plan),
+                        "blocker": "translation:empty_output",
+                        "note": "Standalone Text produced an empty required chunk. No partial translation was promoted.",
+                        "elapsed_ms": now_ms() - started,
+                    }
+                translated_paragraph.append(translated_chunk)
+                total_input_tokens += int(result.get("input_tokens") or 0)
+                total_generated_tokens += int(result.get("generated_tokens") or 0)
+                max_generation_budget = max(
+                    max_generation_budget,
+                    int(result.get("generation_budget_tokens") or 0),
+                )
+                any_token_ceiling = any_token_ceiling or bool(
+                    result.get("hit_token_ceiling")
+                )
+                last_success = result
+            paragraph_outputs.append(translated_paragraph)
+
+        translated = translation_envelope.reassemble(paragraph_outputs)
+        if not translated or last_success is None:
+            return {
+                "ok": False,
+                "stage": "translate",
+                "model_id": model_id,
+                "direction_pair": pair,
+                "blocker": "translation:empty_output",
+                "note": "Standalone Text completed no promotable translation.",
+                "elapsed_ms": now_ms() - started,
+            }
+
+        combined = dict(last_success)
+        combined.update(
+            {
+                "ok": True,
+                "stage": "translate",
+                "translation_contract": "canonical_bidirectional_id_en",
+                "complete": True,
+                "finished_with_eos": True,
+                "translated_text": translated,
+                "input_tokens": total_input_tokens,
+                "generated_tokens": total_generated_tokens,
+                "generation_budget_tokens": max_generation_budget,
+                "hit_token_ceiling": any_token_ceiling,
+                "chunk_count": chunk_total,
+                "paragraph_count": len(plan),
+                "paragraph_structure_preserved": True,
+                "elapsed_ms": now_ms() - started,
+                "blocker": "",
+            }
+        )
+        return combined
+    except Exception as exc:
+        return {
+            "ok": False,
+            "stage": "translate",
+            "model_id": model_id,
+            "blocker": type(exc).__name__,
+            "note": str(exc),
+            "direction_pair": pair,
+            "elapsed_ms": now_ms() - started,
+        }
+
+
+def handle_translate_request(payload: dict[str, Any]) -> dict[str, Any]:
+    request_kind = str(payload.get("request_kind", "")).strip().lower()
+    if request_kind == "standalone_text":
+        return handle_standalone_text_translate(payload)
+    return handle_translate(payload)
 
 
 def handle_voice_actor_preflight(_payload: dict[str, Any]) -> dict[str, Any]:
@@ -1233,14 +1405,13 @@ def handle_voice_actor_synthesize(payload: dict[str, Any]) -> dict[str, Any]:
         return {"ok": False, "stage": "voice_actor_synthesize", "voice_id": "MyVoice", "language_code": "en", "blocker": voice_actor_blocker(exc), "elapsed_ms": now_ms() - started, "note": "My Voice synthesis failed without switching to another voice."}
 
 
-
 HANDLERS = {
     "ping": handle_ping,
     "status": handle_status,
     "asr_preload": handle_asr_preload,
     "transcribe": handle_transcribe,
     "translation_preload": handle_translation_preload,
-    "translate": handle_translate,
+    "translate": handle_translate_request,
     "voice_actor_preflight": handle_voice_actor_preflight,
     "voice_actor_synthesize": handle_voice_actor_synthesize,
 }
