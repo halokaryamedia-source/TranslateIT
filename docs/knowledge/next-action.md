@@ -2,7 +2,7 @@
 
 ## Current Status
 
-`PRE-TEST HARDENING + OBSERVABILITY SOURCE COMPLETE / USER READY FOR LOCAL WINDOWS TEST / INSTALLER DEFERRED`
+`LOCAL WINDOWS ACCEPTANCE ACTIVE / STEP 2 TRANSLATION RELIABILITY BLOCKED / MODEL VIABILITY EVALUATION ACTIVE / INSTALLER DEFERRED`
 
 Current repository authority:
 
@@ -11,13 +11,15 @@ Local      → current development authority
 Developing → GitHub default branch; retained historical/recovery only
 ```
 
-## Active Boundary
+Current target checkout used for local Windows evidence:
 
-The bounded pre-test source hardening queue is complete. The user is ready to begin local target-Windows acceptance testing in a new chat session.
+```text
+D:\Work\AI Stuff\TranslateIT
+```
 
-Do not add another feature, redesign Meeting/runtime ownership, perform broad architecture cleanup, or resume installer/package implementation before target-Windows evidence identifies a concrete need.
+The pre-test hardening and Diagnostics source work is complete. Target-Windows evidence is now authoritative for runtime/model claims. Do not restart broad architecture audit, resume installer work, or change Meeting/VoiceLab/runtime ownership while the current translation reliability blocker is unresolved.
 
-Approved initial product remains:
+Approved product boundary remains:
 
 ```text
 Meeting
@@ -26,358 +28,292 @@ VoiceLab
 Settings
 ```
 
-Installer/package implementation remains explicitly deferred until product/runtime scope is stable enough to re-freeze release inputs.
+## Local Windows Acceptance — Current Evidence
 
-The previously approved future packaging direction remains deferred context only:
+### Target hardware
 
-```text
-one user-facing automatic fully offline setup experience
-+
-TranslateIT-Setup.exe
-+
-colocated external release payload file(s)
-```
-
-## P0-1 — VoiceLab Evidence-Based Candidate Selection
-
-### Source implementation complete
-
-Commit `8fae16a7e9c1dad114d070bd91359cdf8b428dd6` removes the implicit `final checkpoint = best candidate` assumption from the canonical GPT-SoVITS provider.
-
-Current bounded behavior is:
+Observed target PC:
 
 ```text
-accepted guided dataset
-→ GPT-SoVITS V2ProPlus training
-→ periodic SoVITS/GPT weights
-→ at most 3 representative progress candidates
-→ same held-out sentences for every candidate
-→ speaker-similarity + generated-WAV SHA-256 evidence
-→ deterministic evidence ranking
-→ materialize only the selected pair
-→ user listens to selected previews
-→ explicit approval
-→ atomic promotion to My Voice
+GPU              NVIDIA GeForce RTX 3070
+Driver           610.62
+VRAM             8192 MiB
+Worker Python    3.12.10
+Execution path   CUDA
 ```
 
-With the current 8 SoVITS / 15 GPT epoch configuration, the representative progress pairs resolve to `s2-g5`, `s6-g10`, and `s8-g15`.
-
-Selection uses mean held-out speaker similarity first and minimum held-out similarity as a deterministic tie-break. No absolute quality threshold is treated as product truth; final acceptance remains user listening approval.
-
-Source/syntax and deterministic selection/ranking logic are implemented. Real multi-candidate training time, generated-audio fidelity, similarity behavior, VRAM practicality, and final speaker preference remain target-capable evidence.
-
-## P0-2 — Complete Translation Envelope And Standalone Text Chunking
-
-### Source implementation complete
-
-The canonical worker and Text boundary reconcile the previous `valid input` versus fixed output-budget mismatch without changing Marian models or creating a second translation engine.
-
-Implementation commits:
+Whole-device GPU evidence before the model-candidate evaluation was approximately:
 
 ```text
-d78b6b570a2d2e242eff47bef1d56dfb2a060b98
-→ bounded translation-envelope helper
-
-ebdee42018fb6909f8c15d9efd9e33c45027de5d
-→ canonical worker adaptive generation + standalone paragraph-aware translation
-
-0ca8d24189c352f61f4300a4911b9e01592f1b40
-→ Rust Text boundary requires complete/EOS/structured worker result
-
-2f0cbf578038375872e9f98a834d978c78a78a18
-→ packaged WorkerRuntime/resource validators include translation_envelope.py
+used 1248 MiB
+free 6771 MiB
 ```
 
-Meeting remains one finalized utterance at a time. Existing caller values such as `max_new_tokens: 96` are a bounded floor hint rather than a hard output ceiling. The worker derives the actual generation budget from verified input token count and exposed Marian/tokenizer capacity, keeps `truncation=False`, and rejects generated output whose normal EOS completion cannot be verified.
+### STEP 1 — Application / local worker startup
 
-Standalone Text preserves blank-line paragraph boundaries, splits only when required by the model envelope, translates every chunk through the same canonical ID ↔ EN Marian path, fails the whole request if any required chunk is incomplete, and reassembles one ordered complete result. The plan is bounded to at most 32 translation chunks.
+`PASS`
 
-Rust Text requires the worker result to explicitly prove the canonical translation contract, `complete = true`, `finished_with_eos = true`, and `paragraph_structure_preserved = true` before presenting success.
-
-`translation_envelope.py` is included in the existing Tauri release resource map and release validators so the canonical private worker will not lose that source dependency when packaging work is eventually reactivated.
-
-Real Marian quality, target-PC latency, and GPU/CPU performance remain target/runtime evidence.
-
-## P0-3 — Windows Sleep / Hibernate Authority Invalidation
-
-### Source implementation complete
-
-Commit `8ffc6786ba8395782b968c6e9d9c2e540f0d198e` closes the remaining race in the existing Windows power-lifecycle hook.
-
-Current behavior is:
+Observed evidence:
 
 ```text
-Windows suspend / resume power event
-→ inspect current runtime owner
-→ if application Meeting owns the session:
-     revoke that generation synchronously
-     cancel any active Meeting playback via its atomic cancel control
-→ return to Windows without waiting on heavy cleanup
-→ lifecycle worker invokes canonical Stop Translation
-→ Stop releases capture / Meeting Sound / helper / outbound consumer / incoming consumer
-→ session remains stopped
+Tauri application                 opens normally
+Advanced → Diagnostics            opens normally
+helper worker                     not_started → ready
+selected execution device         CUDA
+recent command errors             0
+repository development worker     WorkerRuntime/.venv
 ```
 
-Handled Windows power transitions are `PBT_APMSUSPEND`, `PBT_APMRESUMECRITICAL`, `PBT_APMRESUMESUSPEND`, and `PBT_APMRESUMEAUTOMATIC`.
+ASR and My Voice were intentionally not loaded at this boundary. Missing approved My Voice is expected because VoiceLab acceptance has not started yet.
 
-The immediate callback establishes only the fail-closed authority/output boundary. Full resource convergence remains owned by the existing idempotent `stop_meeting_translation()` path. Resume repeats Stop convergence only; there is no automatic Start path. Normal minimize/hide is unaffected.
+### STEP 2A — Standalone Text ID → EN
 
-Actual Windows message delivery, CPAL/device behavior through real sleep/wake, cleanup timing around hardware suspension, and successful explicit fresh Start after wake remain target-Windows evidence.
+`PASS correctness / QUALITY FINDING`
 
-## P1-4 — VoiceLab Dataset Coverage Readiness
-
-### Source implementation complete
-
-Commit `64bcf2d4b849f6144dff5eff5741df24a28c22de` prevents duration-only VoiceLab readiness.
-
-The existing 128 guided English lines are used as five curated material blocks:
+Representative source contained names, dates, project terminology, and NVIDIA CUDA. Translation returned a complete result through CUDA, but Marian ID → EN duplicated the date component:
 
 ```text
-Lines   1-24  → short conversational speech
-Lines  25-30  → questions and changing intonation
-Lines  31-64  → natural varied sentences
-Lines  65-96  → names, numbers, dates, or technical details
-Lines 97-128  → longer explanations
+source
+20 Agustus 2026
+
+observed output in the multi-sentence sample
+August 20, 20, 2026
 ```
 
-Current readiness is:
+The first application translation was approximately 9.6 s including the then-current runtime/model path. Later direct warm model measurements were hundreds of milliseconds and must not be conflated with that first product call.
+
+### STEP 2B — Standalone Text EN → ID
+
+`FAIL correctness`
+
+Source:
 
 ```text
-minimum 60 seconds usable accepted speech
-+
-at least 1 accepted usable take from each of the 5 curated blocks
-+
-no active recording/build conflict
-= Create My Voice eligible
+On August 18, 2026, the Mivubi team sent Younes an update about the Clockwork project. The final delivery deadline is August 20, 2026. The system uses NVIDIA CUDA to run the translation model locally, and all user data must remain on the user's computer.
 ```
 
-The 60-second value remains only the existing safety floor; no larger arbitrary recording-minute target was added. Users do not need all 128 lines, and a large number of accepted lines from only one style no longer unlocks training.
+The application output omitted the first sentence entirely. Diagnostics still reported the worker ready, both translation directions loaded on CUDA, and zero recent command errors.
 
-When duration is sufficient but variety is incomplete, the existing build status message gives one product-facing next action. The build command reuses the same readiness result and fails closed with `more_recording_needed` if the dataset changes before Start.
+Direct worker reproduction proved the omission occurs inside the canonical translation worker/model path rather than the Svelte/Rust Text UI boundary.
 
-Final Voice Actor quality remains owned by held-out generated evidence, evidence-based candidate selection, and explicit user listening approval. Five-block coverage is not itself a claim of speaker fidelity.
-
-## Test-Support Observability
-
-### Source audit complete
-
-Commit `8b0b76f0005adfe300a3390774ec0090d785b4df` exposes existing runtime evidence in `Advanced → Diagnostics` without creating a monitoring subsystem.
-
-The canonical worker already reports:
+Direct Marian EN → ID reproduction:
 
 ```text
-ASR loaded state / model / device / compute type
-selected ASR execution device
-loaded translation directions
-selected translation execution device
-My Voice loaded state / device
-CUDA vs CPU/degraded capability truth
+full 62-token input
+→ first sentence omitted
+→ complete=true
+→ finished_with_eos=true
+→ chunk_count=1
+
+first sentence alone
+→ preserved Mivubi / Younes / Clockwork / 18 Agustus 2026
+
+remaining two sentences alone
+→ content retained, but date ordering/wording quality remained weak
 ```
 
-The Meeting session already records the latest outbound timing stages:
+Therefore EOS/generation completion does not establish semantic/source completeness for a whole multi-sentence translation.
+
+**STEP 2C long / multi-paragraph acceptance remains blocked.** Do not advance to microphone, VoiceLab, Meeting, or installer acceptance until Step 2 reliability is resolved.
+
+## Decoder A/B Isolation — Marian
+
+A local A/B test compared the current TranslateIT hard-coded greedy decoding with the generation profile stored by the pinned local Marian models. No repository files were modified by this experiment.
+
+### EN → ID
+
+Local model configuration:
 
 ```text
-finalization
-queue
-audio preparation
-ASR
-translation
-My Voice TTS
-delivery
-total outbound latency
+generation_config beams  4
+model.config beams       4
 ```
 
-Diagnostics now surfaces the test-relevant subset directly:
+Full failing sample:
 
 ```text
-ASR runtime + device / compute type
-Translation loaded directions + selected device
-My Voice loaded state + device
-latest total outbound latency
-latest ASR / translation / My Voice / delivery timing
-recent command failures
+num_beams=1
+latency 181 ms
+→ first sentence omitted
+→ NVIDIA CUDA became NVIDIA CUDDA
+
+num_beams=4
+latency 418 ms
+→ first sentence restored
+→ Mivubi / Younes / Clockwork preserved
+→ date still rendered as "20, 2026 Agustus"
 ```
 
-### VRAM measurement boundary
+Single date sentence remained `20, 2026 Agustus` with both beam profiles. Beam correction therefore fixes a material omission but does not fix the underlying EN → ID quality problem.
 
-Do **not** add a PyTorch-only allocator number and label it as whole-product VRAM.
+### ID → EN
 
-TranslateIT currently uses separate GPU runtime ownership:
+Local model configuration:
 
 ```text
-faster-whisper / ASR → CTranslate2 CUDA allocator
-Marian translation   → PyTorch CUDA allocator
-GPT-SoVITS My Voice  → PyTorch CUDA allocator
+generation_config beams  6
+model.config beams       6
 ```
 
-Therefore target testing should measure GPU memory from the whole Windows/NVIDIA device view while the real Meeting runtime is loaded. That measurement can capture combined TranslateIT usage plus enough system context to diagnose OOM/VRAM pressure without making the Diagnostics status path initialize or perturb CUDA solely to obtain a number.
-
-No telemetry, monitoring service, automatic model eviction, user-facing GPU control, or second scheduler was added.
-
-## Pre-Test Source Scope — CLOSED
-
-Do not redesign without target evidence:
-
-- Meeting transactional Start / rollback;
-- canonical Stop / cleanup ownership;
-- generation/stale-work rejection;
-- bounded finalized-utterance backlog and freshness preference;
-- VoiceLab/Meeting mutual exclusion;
-- optional incoming lane separation;
-- current WASAPI/CPAL output-loopback approach for Meeting Sound;
-- First Setup / Settings feature breadth;
-- general History/Saved;
-- Pause/Resume;
-- Push to Talk;
-- tone modes;
-- conversation-context prompting;
-- Document Translation;
-- additional languages;
-- installer/package implementation.
-
-A new source change before testing requires one of:
+Full representative sample:
 
 ```text
-reproducible current source defect
-or
-target-Windows evidence showing a concrete runtime failure
-or
-new explicit product decision from the user
+num_beams=1
+latency 281 ms
+→ date duplicated as "August 20, 20, 20, 2026"
+
+num_beams=6
+latency 328 ms
+→ duplication reduced but remained "August 20, 20, 2026"
 ```
 
-## R3.2 Release Baseline — Preserved / Deferred
+The single date sentence translated correctly under both profiles. This shows input composition affects Marian quality; simply restoring model-default beams is not sufficient as the long-term fix.
 
-R3.2 remains only the historical release-size baseline. Product/runtime changes and target-test findings may alter the eventual final release input.
+## Canonical Translator Candidate Evaluation — M2M100 418M
+
+A bounded local candidate evaluation was run against `facebook/m2m100_418M` using the existing WorkerRuntime Python environment. The candidate was downloaded only into a separate Windows evaluation cache and **was not added to RuntimeAssets, model_manifest.json, or product source**.
+
+The evaluation script resolved an exact Hugging Face revision before download, but that revision SHA was not included in the pasted evidence retained in this session. **Do not promote or package this candidate until the exact revision is captured and pinned.**
+
+Observed candidate runtime:
 
 ```text
-Exact optimized Tauri release resources
-8,036,451,493 bytes
-
-Measured solid 7z/LZMA2 distribution candidate
-4,429,538,835 bytes
+GPU                     NVIDIA GeForce RTX 3070
+model load              1282 ms
+model generation beams  5
+VRAM while loaded       ~3291 MiB used / 4728 MiB free
+VRAM later in test      ~3631 MiB used / 4388 MiB free
+post-test baseline      ~1289 MiB used / 6730 MiB free
+warm sample latency     ~90–477 ms
 ```
 
-Do not continue installer work now.
+### M2M100 strengths observed
 
-## New Chat Handoff — Local Windows Test
-
-The user intentionally plans to continue in a new chat session to reduce context-loss risk. The new session should recover this file first rather than repeat the completed architecture/pre-test audit.
-
-### Start state
+Compared with current Marian behavior, M2M100 materially improved the original problem cases:
 
 ```text
-Frontend active architecture   → ready to test
-Backend active architecture    → ready to test
-VoiceLab source pipeline       → ready to test
-Pre-test hardening             → source complete
-Test-support Diagnostics       → source complete
-Installer/package              → deferred
-Runtime/hardware acceptance    → not yet proven
+EN → ID original 3-sentence failure
+→ all three source sentences retained
+→ Mivubi / Younes / Clockwork retained
+→ 18 Agustus 2026 and 20 Agustus 2026 retained
+→ NVIDIA CUDA retained
+
+EN → ID date sentence
+→ "20 Agustus 2026"
+
+EN → ID technical facts
+→ TranslateIT v2.4.1 retained
+→ 192.168.1.20 retained
+→ 09:30 retained
+→ 3 September 2026 retained
+→ NVIDIA CUDA 12.6 retained
+
+ID → EN original sample
+→ all source sentences retained
+→ both dates retained without numeric duplication
+→ Mivubi / Younes / Clockwork / NVIDIA CUDA retained
+
+ID → EN technical facts
+→ version / IP / time / date / CUDA version retained
 ```
 
-### New-session boot
+### M2M100 remaining blockers/findings
 
-Before giving test commands or changing source:
+M2M100 is **not approved yet**.
+
+Most important correctness failure:
 
 ```text
-PIN current Local HEAD
-→ read AGENTS.md
-→ read GITHUB_RULES.md Core
-→ read CONTEXT.md
-→ read this next-action.md
-→ do not repeat broad architecture audit
+EN → ID source
+"I did not approve ... 1800 dollars, not 2100 dollars. Can you send the corrected file today?"
+
+M2M100 output
+→ preserved the first sentence and the 1800/2100 contrast
+→ OMITTED the second question entirely
 ```
 
-If `Local` moved after this note, diagnose the actual new HEAD before continuing. `Developing` remains the GitHub default/historical branch; active work remains on `Local`.
+This is another multi-sentence omission and is a correctness failure, not merely style quality.
 
-### Test execution rule
-
-Proceed one boundary at a time. **Stop at the first failing boundary** instead of continuing into dependent features and producing ambiguous results.
-
-For every step record:
+Additional quality findings:
 
 ```text
-PASS / FAIL
-exact action performed
-exact visible error/blocker if any
-relevant Diagnostics state
-screenshot/log excerpt when useful
-hardware/runtime evidence when relevant
+"deadline" → "Tarikh akhir" in EN → ID
+"unexpectedly" → "tidak dijangka" in one EN → ID sample
+some sentence-boundary spacing/capitalization is imperfect
+ID → EN "paling lambat" may become "slowest delivery target"
 ```
 
-Do not change model choice, VAD, queueing, architecture, GPU residency, or feature scope merely because a metric looks imperfect. Reproduce and identify the failing owner first.
+The candidate is therefore promising and substantially better on dates/facts/original failure, but whole-text generation still cannot yet be trusted to preserve every sentence.
 
-## Target-Windows Acceptance Test — ACTIVE NEXT
+## Translation Reliability Diagnosis
 
-Use the actual target Windows PC/hardware. The initial run is from the current `Local` development/runtime environment; installer finalization is not part of this test phase.
+Current evidence supports these conclusions:
 
-Test in this order so failures remain attributable:
+1. The Text UI/Rust boundary is not the first wrong owner for the observed omission; raw worker output reproduces it.
+2. Current `num_beams=1` is materially harmful for Marian EN → ID completeness, but restoring pinned model-default beams does not solve Marian quality overall.
+3. Marian has recurring factual/date/technical-quality problems under representative multi-sentence input.
+4. M2M100 418M is a stronger replacement candidate on the tested dates/facts/original omission, with practical RTX 3070 latency/VRAM in this isolated evaluation.
+5. M2M100 also omitted a complete second sentence in one EN → ID test, so replacing Marian alone does not yet establish Standalone Text completeness.
+6. A generic digit/date post-correction or fact-checker subsystem is not approved. Do not hide model limitations with ad-hoc correction rules.
+7. Do not add M2M100 as a second normal translator/fallback. If a replacement is eventually approved, keep one canonical translation implementation and retire the replaced production model path.
+8. Do not implement unconditional sentence-per-inference splitting until its completeness, context, latency, abbreviation/version/URL boundary behavior, and chunk-count effects are measured on the target runtime.
+
+## Current Design Direction — Not Yet Final Product Decision
+
+The next reliability decision should distinguish model quality from segmentation behavior before production source changes.
+
+Candidate architecture under evaluation:
 
 ```text
-1. Application / local worker startup
-2. Standalone Text ID → EN and EN → ID completeness
-3. Microphone selection + Mic Test
-4. VoiceLab guided recording / coverage readiness
-5. Full VoiceLab training + multi-candidate held-out review
-6. Approve My Voice + restart persistence
-7. Meeting Start transaction / combined runtime load
-8. Outbound ID speech → EN My Voice delivery
-9. Optional incoming Meeting Sound EN → ID text
-10. Stop / restart / minimize / long-session behavior
-11. Sleep / wake + explicit fresh Start
-12. Real meeting-app microphone reception
+Standalone Text
+→ preserve blank-line paragraphs
+→ conservative semantic/sentence units when evidence requires it
+→ oversized-unit token-safe fallback
+→ one canonical approved translation model
+→ every required planned unit must complete successfully
+→ ordered paragraph-preserving reassembly
+→ no partial result promotion
 ```
 
-### First test checkpoint for the new chat
+Meeting remains out of this experiment. Current Meeting translation still operates on one finalized utterance at a time and must receive its own target evidence later.
 
-Do **not** jump directly to VoiceLab or Meeting.
-
-Start with:
+Do not introduce:
 
 ```text
-STEP 1
-Application + local worker startup
-
-then, only if PASS:
-
-STEP 2A
-Standalone Text ID → EN
-
-STEP 2B
-Standalone Text EN → ID
-
-STEP 2C
-Standalone long / multi-paragraph completeness
+translation router
+multi-model fallback
+cloud fallback
+LLM post-correction
+generic date/number fixer
+glossary subsystem
+back-translation verifier
+semantic verification model
+user-facing quality/realtime mode
 ```
 
-For Step 1 capture at minimum:
+unless later evidence and an explicit product decision establish a real need.
+
+## Acceptance Order — Paused At Step 2
 
 ```text
-whether the Tauri app opens normally
-whether Advanced → Diagnostics opens
-worker state
-provider/readiness state
-execution device / CUDA-vs-CPU truth
-actual GPU model + driver on the target PC
-any exact command/runtime error
+1. Application / local worker startup                         PASS
+2A. Standalone Text ID → EN                                  PASS correctness / quality finding
+2B. Standalone Text EN → ID                                  FAIL correctness
+2C. Standalone long / multi-paragraph                        BLOCKED
+3. Microphone selection + Mic Test                            NOT STARTED
+4. VoiceLab guided recording / coverage readiness             NOT STARTED
+5. Full VoiceLab training + multi-candidate held-out review   NOT STARTED
+6. Approve My Voice + restart persistence                     NOT STARTED
+7. Meeting Start transaction / combined runtime load          NOT STARTED
+8. Outbound ID speech → EN My Voice delivery                  NOT STARTED
+9. Optional incoming Meeting Sound EN → ID text                NOT STARTED
+10. Stop / restart / minimize / long-session behavior          NOT STARTED
+11. Sleep / wake + explicit fresh Start                        NOT STARTED
+12. Real meeting-app microphone reception                      NOT STARTED
 ```
 
-For Step 2 capture representative outputs rather than only `works/doesn't work`, especially names, numbers, dates, technical terms, and a multi-paragraph sample. A wrong but complete translation is a quality finding; truncation/incomplete output is a correctness failure.
-
-### Later hardware evidence
-
-When Meeting runtime is eventually loaded, capture:
-
-```text
-whole-device VRAM used/free from Windows/NVIDIA view
-Diagnostics loaded ASR / translation / My Voice devices
-latest ASR / translation / My Voice / delivery timing
-total outbound latency
-exact blocker/error for failed stage
-```
-
-VoiceLab quality evidence later consists of real training success, candidate held-out previews, speaker fidelity/naturalness listening judgement, and approved-actor restart persistence. Static source is not sufficient for those claims.
+Test execution rule remains: stop at the first failing boundary. Wrong-but-complete natural language is a quality finding; missing source content, silent truncation, or incomplete output promoted as success is a correctness failure.
 
 ## Next Step
 
-**In the new chat session, recover current `Local` from this file and begin target-Windows local testing at Step 1: Application / local worker startup. Provide exact run instructions for the user's current Windows checkout, then record PASS/FAIL and evidence. Advance to bidirectional standalone Text only after Step 1 passes. Do not resume installer work or speculative source changes.**
+**Run one bounded target-Windows segmentation viability evaluation before editing production translation source: compare whole-text versus conservative sentence/semantic-unit translation for the current Marian baseline and the M2M100 418M candidate, using the already failing multi-sentence samples plus abbreviation/version/IP/URL boundary cases. Record completeness, context quality, warm latency, chunk count, and VRAM. Capture the exact M2M100 revision SHA. Then choose one canonical model + Standalone Text segmentation contract; only after that decision should production source/model manifest changes be implemented and STEP 2B retested through the Tauri UI.**
