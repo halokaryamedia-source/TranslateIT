@@ -2,7 +2,7 @@
 
 ## Current Status
 
-`LOCAL WINDOWS ACCEPTANCE ACTIVE / D-024 TRANSLATION SOURCE MIGRATION COMPLETE / TARGET STEP 2 RETEST NEXT / INSTALLER DEFERRED`
+`LOCAL WINDOWS ACCEPTANCE ACTIVE / M2M100 STEP 2A + 2B PASS / STEP 2C NEXT / INSTALLER DEFERRED`
 
 Current repository authority:
 
@@ -17,11 +17,9 @@ Target checkout:
 D:\Work\AI Stuff\TranslateIT
 ```
 
-Do not restart broad architecture/model evaluation, resume installer work, or advance to microphone/VoiceLab/Meeting acceptance until the migrated translation path passes STEP 2A → 2B → 2C through the Tauri application.
+Do not restart broad translation-model evaluation, resume installer work, or advance to microphone / VoiceLab / Meeting acceptance before Standalone Text STEP 2C completes.
 
-## Target Windows Evidence Preserved
-
-Target PC used for the current evidence:
+## Target Windows
 
 ```text
 GPU       NVIDIA GeForce RTX 3070
@@ -31,59 +29,7 @@ Python    3.12.10
 AI path   CUDA
 ```
 
-### STEP 1 — Application / local worker startup
-
-`PASS`
-
-```text
-Tauri application              opens normally
-Advanced → Diagnostics         opens normally
-worker                         not_started → ready
-selected execution device      CUDA
-recent command errors          0
-repository dev interpreter     WorkerRuntime/.venv
-```
-
-### STEP 2A — Old Marian ID → EN
-
-`PASS correctness / QUALITY FINDING`
-
-Representative multi-sentence translation completed, but date material duplicated (`20 Agustus 2026` → variants such as `August 20, 20, 2026`).
-
-### STEP 2B — Old Marian EN → ID
-
-`FAIL correctness`
-
-The application omitted a complete first sentence. Direct raw-worker reproduction proved the loss occurred inside the canonical translation worker/model path, not Svelte/Rust presentation.
-
-STEP 2C and all later acceptance were stopped at this failure boundary.
-
-## Root-Cause / Model Viability Evidence
-
-Restoring each Marian model's stored beam profile fixed one EN→ID omission but did not make Marian reliable. Target evaluation reproduced material issues including:
-
-```text
-date duplication / date-order corruption
-2100 → 200
-technical-fact omission
-TranslateIT/version corruption
-IP punctuation corruption
-multi-sentence question omission
-```
-
-The final candidate evaluation used:
-
-```text
-facebook/m2m100_418M
-revision 55c2e61bbf05dfb8d7abccdc3fae6fc8512fd636
-model-default beams 5
-```
-
-Whole-vs-semantic-unit evaluation covered both directions with original omission, negation/numbers, date/time/version/IP/CUDA facts, cross-sentence context, Dr./URL/decimal, and multi-paragraph fixtures.
-
-M2M100 materially outperformed Marian. One whole-text EN→ID fixture still omitted the second question; semantic-unit translation restored it. Segmented M2M100 preserved every monitored literal across the final fixture set in both directions, preserved blank-line paragraph structure, and stayed in the same practical sub-second warm range on the tested RTX 3070. Natural wording findings such as occasional `Tarikh` remain quality observations rather than justification for post-correction rules or a second translator.
-
-## Frozen Translation Direction
+## Translation Direction — Frozen
 
 Durable decision: `docs/knowledge/decision-log.md` D-024.
 
@@ -110,66 +56,111 @@ Meeting
 → no lifecycle/audio redesign in this migration
 ```
 
-Marian is retired from the production path and is not retained as a runtime fallback/router.
+Marian is retired from the production path and is not retained as a fallback/router.
 
-## Source Migration Implemented In Current `Local`
+## Current Source State
 
-The current source delivery changes only the proven translation boundary and its direct contracts:
-
-```text
-realtime_local_worker.py
-→ one shared bidirectional M2M100 model instance
-→ both ID→EN and EN→ID reuse that loaded model
-→ source language set explicitly per request
-→ target language forced BOS
-→ model-default generation profile; no hard-coded num_beams=1
-→ trailing PAD ignored only when verifying final effective EOS
-
-translation_envelope.py
-→ semantic/sentence-first Standalone planning
-→ blank-line paragraph preservation
-→ conservative protection for abbreviation / initial / version / URL / IP / decimal periods
-→ token splitting only when one semantic unit exceeds the model envelope
-→ existing bounded 32-unit ceiling retained
-
-model_manifest.json
-→ Marian entries removed
-→ exact M2M100 revision pinned
-→ one required bidirectional translation asset
-→ developer acquisition allowlist excludes the duplicate unused Rust-framework weight
-
-prepare_model_assets.py
-→ optional manifest-owned Hugging Face allowlist used during atomic staged acquisition
-
-targeted tests
-→ bidirectional one-model routing/readiness
-→ shared loaded model reuse
-→ semantic segmentation contracts
-→ pad-aware EOS
-→ model-default beam contract
-→ pinned acquisition/allowlist
-```
-
-No ASR, Meeting lifecycle/audio, VoiceLab, scheduler, cloud, fallback-router, generic fact-checker, glossary, or installer behavior was added.
-
-## Source Proof Boundary
-
-Before repository delivery, the changed worker/envelope and focused deterministic tests were exercised in a repo-shaped local harness:
+Relevant deliveries already on `Local`:
 
 ```text
-Python syntax compile       PASS
-translation/worker tests    22 PASS
+954e51b9263544ffa53485cdc040986cc0bc0b2e
+fix(translation): migrate canonical runtime to M2M100
+
+f0b2a2d12f30fe6f8f1e7291b420c0d5851f711d
+test(worker): expose WorkerRuntime imports under pytest
 ```
 
-This is source-contract proof only. It does not replace the required target Windows application/model retest.
+The first target regression run after migration exposed only a pytest import-path defect (`ModuleNotFoundError: translation_envelope`) caused by loading `realtime_local_worker.py` through `importlib` without the WorkerRuntime directory on `sys.path`. This was a test-harness failure, not a model/runtime failure. `tests/conftest.py` now establishes WorkerRuntime as the pytest import root.
+
+Target Windows regression rerun passed and the Tauri application opened normally.
+
+## Acceptance Evidence
+
+### STEP 1 — Application / local worker startup
+
+`PASS`
+
+```text
+application                  opens normally
+Advanced → Diagnostics       opens normally
+worker                       ready
+selected execution device    CUDA
+recent command errors        0
+```
+
+Missing approved My Voice remains expected before VoiceLab acceptance and does not invalidate Standalone Text testing.
+
+### STEP 2A — M2M100 Standalone Text ID → EN
+
+`PASS correctness / QUALITY FINDING`
+
+Source covered Mivubi / Clockwork / Younes, 18 Agustus 2026, 20 Agustus 2026, NVIDIA CUDA, local execution, and local user-data retention.
+
+Observed product output retained all three source sentences and all required facts. The previous Marian date duplication did not recur.
+
+Quality findings only:
+
+```text
+"Target pengiriman paling lambat" → "The slowest delivery target"
+"model terjemahan" → "translation models"
+```
+
+These are wording/naturalness findings, not truncation or completeness failures.
+
+### STEP 2B — M2M100 Standalone Text EN → ID
+
+`PASS correctness / QUALITY FINDING`
+
+Previously failing source:
+
+```text
+On August 18, 2026, the Mivubi team sent Younes an update about the Clockwork project.
+The final delivery deadline is August 20, 2026.
+The system uses NVIDIA CUDA to run the translation model locally, and all user data must remain on the user's computer.
+```
+
+Observed application output retained:
+
+```text
+all 3 source sentences
+Mivubi
+Younes
+Clockwork
+18 Agustus 2026
+20 Agustus 2026
+NVIDIA CUDA
+local translation execution
+all user data remaining on the user's computer
+```
+
+The old Marian first-sentence omission did not recur.
+
+Quality finding only:
+
+```text
+"final delivery deadline" → "Tarikh akhir pengiriman"
+```
+
+Diagnostics after STEP 2B:
+
+```text
+Worker                  ready
+Execution device        CUDA
+Translation loaded      en->id, id->en • cuda
+ASR                     not loaded • selected cuda
+My Voice                not loaded
+Recent command errors   0
+```
+
+This confirms both translation directions are loaded through the migrated CUDA runtime. ASR / My Voice remain intentionally unloaded at this Text-only boundary.
 
 ## Acceptance Order
 
 ```text
-1. Application / local worker startup                         PASS on pre-migration source
-2A. Standalone Text ID → EN                                  RETEST REQUIRED on M2M100 source
-2B. Standalone Text EN → ID                                  RETEST REQUIRED on M2M100 source
-2C. Standalone long / multi-paragraph                        BLOCKED until 2A/2B PASS
+1. Application / local worker startup                         PASS
+2A. Standalone Text ID → EN                                  PASS correctness / quality finding
+2B. Standalone Text EN → ID                                  PASS correctness / quality finding
+2C. Standalone long / multi-paragraph                        ACTIVE NEXT
 3. Microphone selection + Mic Test                            NOT STARTED
 4. VoiceLab guided recording / coverage readiness             NOT STARTED
 5. Full VoiceLab training + multi-candidate held-out review   NOT STARTED
@@ -182,6 +173,8 @@ This is source-contract proof only. It does not replace the required target Wind
 12. Real meeting-app microphone reception                      NOT STARTED
 ```
 
+Test rule remains: wrong-but-complete wording is a quality finding; source omission, silent truncation, paragraph loss, or incomplete output promoted as success is a correctness failure. Stop at the first correctness failure.
+
 ## Next Step
 
-**On the target Windows checkout, fast-forward `Local`, acquire only the pinned `m2m100-418m` model through the canonical `prepare_model_assets.py --model-id m2m100-418m` path, start the Tauri application, confirm Diagnostics reports the migrated M2M100 translation runtime on CUDA, and retest STEP 2A then STEP 2B with the previously failing representative samples. Continue to STEP 2C only if both pass correctness. Do not advance to microphone/VoiceLab/Meeting acceptance before STEP 2 completes.**
+**Run STEP 2C on the already-open target Windows Tauri application using a long multi-paragraph Standalone Text fixture that exercises paragraph preservation, multiple sentences, names, dates, numbers, version/IP/URL/decimal/technical terms, and negation. Start with Indonesian → English. Record the full source/output, whether blank-line paragraph boundaries remain, and refreshed Diagnostics. If correctness passes, run the corresponding English → Indonesian long/multi-paragraph fixture before declaring STEP 2 complete. Do not begin Mic Test until both STEP 2C directions pass correctness.**
