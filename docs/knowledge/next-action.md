@@ -2,7 +2,7 @@
 
 ## Current Status
 
-`LOCAL WINDOWS ACCEPTANCE ACTIVE / M2M100 STEP 2C-B CORRECTNESS FAIL / MODAL-NEGATION ISOLATION NEXT / INSTALLER DEFERRED`
+`TRANSLATION QUALITY REVIEW ACTIVE / STEP 2C-B SEMANTIC FAIL / NO FURTHER RUNTIME DEVELOPMENT / QUALITY PLAN NEXT / INSTALLER DEFERRED`
 
 Current repository authority:
 
@@ -17,9 +17,9 @@ Target checkout:
 D:\Work\AI Stuff\TranslateIT
 ```
 
-Do not advance to microphone / VoiceLab / Meeting acceptance. Stop at the current Standalone Text correctness boundary and isolate the EN → ID modal-negation defect first.
+Do **not** advance to microphone / VoiceLab / Meeting acceptance and do **not** make another translation runtime/model/decoding/segmentation change until the quality-improvement plan is researched, critiqued, and explicitly approved.
 
-## Target Windows
+## Target Windows Evidence
 
 ```text
 GPU       NVIDIA GeForce RTX 3070
@@ -29,73 +29,56 @@ Python    3.12.10
 AI path   CUDA
 ```
 
-## Current Translation Direction
+## Current Translation Implementation
 
-Durable decision remains `docs/knowledge/decision-log.md` D-024 while the newly observed semantic defect is isolated. Do not restart broad model evaluation or add a fallback/router before identifying the first wrong owner.
+Current source implements D-024:
 
 ```text
-ONE canonical translator
 facebook/m2m100_418M
 revision 55c2e61bbf05dfb8d7abccdc3fae6fc8512fd636
-
-Standalone Text
-→ blank-line paragraph preservation
-→ conservative semantic/sentence units
-→ same canonical M2M100 runtime for every unit
-→ ordered reassembly
-→ any required-unit runtime/incomplete failure = whole Text request failure
+one shared bidirectional runtime
+Standalone Text semantic/sentence segmentation
+blank-line paragraph preservation
+model-default beam profile
+target-language forced BOS
+padding-aware EOS verification
+no Marian fallback/router
 ```
 
-## Source State
+This remains the **current implementation**, not final translation-quality acceptance.
 
-Relevant deliveries on `Local`:
+## Acceptance Evidence Preserved
 
 ```text
-954e51b9263544ffa53485cdc040986cc0bc0b2e
-fix(translation): migrate canonical runtime to M2M100
-
-f0b2a2d12f30fe6f8f1e7291b420c0d5851f711d
-test(worker): expose WorkerRuntime imports under pytest
+STEP 1   Application / worker startup              PASS
+STEP 2A  ID → EN representative Text               PASS correctness / quality findings
+STEP 2B  EN → ID representative Text               PASS correctness / quality findings
+STEP 2C-A long multi-paragraph ID → EN             PASS correctness / quality findings
+STEP 2C-B long multi-paragraph EN → ID             FAIL semantic correctness
 ```
 
-Target Windows regression passed and the Tauri app opened normally.
+### STEP 2A / 2B
 
-## Acceptance Evidence
+The M2M100 migration removed the prior Marian sentence/date corruption in the representative samples. Both translation directions loaded on CUDA with zero recent command errors.
 
-### STEP 1 — Application / local worker startup
-
-`PASS`
-
-### STEP 2A — M2M100 Standalone Text ID → EN
-
-`PASS correctness / QUALITY FINDING`
-
-All source sentences and required names/dates/CUDA/local-data facts were retained. Minor unnatural wording only.
-
-### STEP 2B — M2M100 Standalone Text EN → ID
-
-`PASS correctness / QUALITY FINDING`
-
-The previous Marian sentence omission did not recur. Diagnostics confirmed:
+Observed wording findings included examples such as:
 
 ```text
-Worker                  ready
-Execution device        CUDA
-Translation loaded      en->id, id->en • cuda
-Recent command errors   0
+"Target pengiriman paling lambat" → "The slowest delivery target"
+"final delivery deadline" → "Tarikh akhir pengiriman"
 ```
 
-### STEP 2C-A — Long / Multi-Paragraph ID → EN
+These were initially treated as naturalness findings because the tested meaning/facts remained recoverable.
 
-`PASS correctness / QUALITY FINDING`
+### STEP 2C-A — ID → EN
 
-All 3 paragraph boundaries and monitored names, dates, version/IP/URL/decimal/CUDA, budget contrast, local-only rule, no-cloud rule, and explicit-failure/no-truncated-result meaning were retained.
+Three paragraphs, names, dates, budget contrast, version/IP/URL/decimal/CUDA facts, local-only rule, no-cloud rule, and failure/no-truncated-result meaning were retained.
 
-### STEP 2C-B — Long / Multi-Paragraph EN → ID
+Quality findings included awkward wording such as `records` for recordings and `cut results` for truncated results.
 
-`FAIL correctness`
+### STEP 2C-B — EN → ID
 
-Paragraph structure and factual literals were retained, but two source prohibitions changed modality:
+Paragraphs and factual literals were retained, but two prohibitions materially changed modality:
 
 ```text
 source
@@ -115,9 +98,66 @@ observed
 "... tidak harus menyajikan hasil yang dipotong sebagai terjemahan selesai."
 ```
 
-In Indonesian, `tidak harus` means approximately `does not have to / is not required to`, not the required prohibition `must not / tidak boleh`. This materially weakens the policy and is therefore a semantic correctness failure, not a wording-only quality finding.
+`must not` means prohibition; `tidak harus` means approximately `does not have to / is not required to`. This is a meaning-changing semantic correctness failure.
 
-Other wording such as `ujian`, `kelulusan resmi`, and `rakaman` is a quality/naturalness finding only and is not the current blocker.
+Other EN → ID wording such as `ujian`, `kelulusan resmi`, `rakaman`, and `Tarikh` also shows that natural Indonesian quality needs broader evaluation even where literal completeness is preserved.
+
+## Critical Audit Of Previous Translation Work
+
+The current quality review explicitly corrects weaknesses in the previous process:
+
+1. **Model adoption was too sample-driven.** Marian was replaced after a bounded hand-picked fixture set showed clear defects, but the replacement was promoted before a general translation-quality benchmark existed.
+2. **Completeness was over-weighted.** Semantic segmentation successfully reduced full-sentence omission, but preserving every source unit does not prove correct grammar, modality, negation, tense, reference, or natural target-language usage.
+3. **Literal preservation was treated as too strong a proxy for quality.** Names, dates, versions, IPs, URLs, and numbers are necessary checks, but they do not detect meaning changes such as `must not` → `tidak harus`.
+4. **The evaluation set was not broad enough to justify general claims.** It covered useful stress cases but did not systematically measure negation, modality, tense/aspect, conditionals, quantifiers, pronoun/reference, voice, questions, commands, coordination, conversational register, and general-domain translation.
+5. **No frozen external benchmark + holdout methodology preceded development.** This creates a risk of repeatedly optimizing against examples already seen during debugging.
+6. **Latency evidence is useful but incomplete.** Warm translation samples were generally sub-second on the RTX 3070, but there is no quality-versus-latency comparison across properly selected candidate models / decoding profiles, nor combined Meeting VRAM proof.
+7. **Phrase-specific grammar patches are rejected.** Do not implement rules such as `must not` → `tidak boleh`, hard-coded date repairs, phrase dictionaries, output rewriting, or tests that only prove known fixtures.
+
+## Quality Review Governance
+
+Durable gate: `docs/knowledge/decision-log.md` D-025.
+
+Until that gate is satisfied:
+
+```text
+NO targeted grammar patch
+NO fixture-specific post-correction
+NO model-router/fallback stack
+NO new canonical model adoption
+NO arbitrary decoder sweep
+NO further acceptance progression
+```
+
+The next plan must first establish a **general, reproducible evaluation boundary** for both Indonesian → English and English → Indonesian.
+
+Required dimensions for the plan:
+
+```text
+external/reference translation benchmark
++
+product-domain semantic stress suite
++
+unseen holdout set
++
+meaning / grammar / naturalness rubric
++
+opaque fact preservation checks
++
+quality metrics appropriate to MT
++
+human severity review for meaning-changing errors
++
+p50 / p90 warm latency
++
+cold model load
++
+whole-device VRAM
++
+license / offline / Windows / packaging constraints
+```
+
+Candidate evaluation must remain bounded: current baseline plus at most two serious challengers in one round. A replacement, if justified, replaces the canonical model rather than creating a normal runtime router/fallback system.
 
 ## Acceptance Order
 
@@ -126,21 +166,19 @@ Other wording such as `ujian`, `kelulusan resmi`, and `rakaman` is a quality/nat
 2A. Standalone Text ID → EN                                  PASS correctness / quality finding
 2B. Standalone Text EN → ID                                  PASS correctness / quality finding
 2C-A. Long / multi-paragraph ID → EN                         PASS correctness / quality finding
-2C-B. Long / multi-paragraph EN → ID                         FAIL correctness — modal negation
+2C-B. Long / multi-paragraph EN → ID                         FAIL semantic correctness
 3. Microphone selection + Mic Test                            BLOCKED
 4. VoiceLab guided recording / coverage readiness             BLOCKED
-5. Full VoiceLab training + multi-candidate held-out review   BLOCKED
+5. Full VoiceLab training + held-out review                   BLOCKED
 6. Approve My Voice + restart persistence                     BLOCKED
 7. Meeting Start transaction / combined runtime load          BLOCKED
 8. Outbound ID speech → EN My Voice delivery                  BLOCKED
-9. Optional incoming Meeting Sound EN → ID text                BLOCKED
-10. Stop / restart / minimize / long-session behavior          BLOCKED
-11. Sleep / wake + explicit fresh Start                        BLOCKED
-12. Real meeting-app microphone reception                      BLOCKED
+9. Optional incoming Meeting Sound EN → ID text               BLOCKED
+10. Stop / restart / minimize / long-session behavior         BLOCKED
+11. Sleep / wake + explicit fresh Start                       BLOCKED
+12. Real meeting-app microphone reception                     BLOCKED
 ```
-
-Test rule remains: wrong-but-complete wording is a quality finding; omission, truncation, paragraph loss, or meaning-changing negation/modality is a correctness failure.
 
 ## Next Step
 
-**Run one bounded EN → ID modal-negation isolation on the already-loaded target Windows runtime using the exact two failing prohibition sentences separately plus simple `must not`, `do not`, and `must` controls. Record the exact output for each. Do not edit production source or evaluate another model until this determines whether the defect is the M2M100 translation behavior itself or surrounding orchestration.**
+**Do not modify production translation source. Research and critically design the complete Translation Quality Improvement Plan first. The plan must review the current M2M100/semantic-segmentation approach, define a general benchmark and holdout methodology, shortlist only license/runtime-appropriate model/decoder candidates, specify quality-versus-latency/VRAM acceptance gates for the RTX 3070 target, and identify what must remain unchanged. Present the plan for explicit approval before any new implementation or benchmark harness is added to the repository.**

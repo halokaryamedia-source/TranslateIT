@@ -191,25 +191,25 @@ PIN
 → STOP
 ```
 
-`GITHUB_RULES.md` is the canonical owner for branch/ref, tool-fit, atomic logical delivery, commit/history, CI/API/security, retry, hosted-proof, and STOP discipline. `AGENTS.md` owns boot/mode/continuity routing. Active continuation stays compact in `next-action.md`; ownership maps do not carry milestone status.
+`GITHUB_RULES.md` is the canonical owner for branch/ref, tool-fit, atomic delivery, history, CI, retry, and STOP discipline. `AGENTS.md` owns boot/mode/continuity routing. Active continuation stays compact in `next-action.md`; ownership maps do not carry milestone status.
 
 The normal repository budget is one logical commit and one ref update per coherent task, relevant CI only, no CI-trigger/proof-only commits, no temporary one-use workflows, maximum two same-cause attempts with new evidence, and no adjacent cleanup unless required.
 
 **Reason**  
-Previous hosted proof work could produce temporary workflow churn, repeated proof commits, and oversized/stale active-state documents. Separating GitHub mechanics from product routing and enforcing a small static repository gate reduces branch mistakes, commit spam, evidence inflation, stale continuity, and CI-as-remote-shell behavior without changing TranslateIT product architecture.
+Separating GitHub mechanics from product routing and enforcing a small static repository gate reduces branch mistakes, commit spam, evidence inflation, stale continuity, and CI-as-remote-shell behavior without changing TranslateIT product architecture.
 
 **Boundary**  
-This governance decision does not change Meeting, Text, VoiceLab, models, Windows audio, installer implementation, or the deferred target-Windows acceptance boundary.
+This governance decision does not change Meeting, Text, VoiceLab, models, Windows audio, installer implementation, or the target-Windows acceptance boundary.
 
 ## D-023 — One Fully Offline Setup With Colocated External Payload Is Approved
 
 **Decision**  
-The release boundary is now explicitly approved as one user-facing automatic offline Setup plus colocated external payload file(s). Users launch `TranslateIT-Setup.exe`; Setup owns locating, validating, and extracting/installing its colocated payload automatically. Users are not asked to install Python, run pip, download core models, manually extract archives, or run a second installer.
+The release boundary is one user-facing automatic offline Setup plus colocated external payload file(s). Users launch `TranslateIT-Setup.exe`; Setup owns locating, validating, and extracting/installing its colocated payload automatically. Users are not asked to install Python, run pip, download core models, manually extract archives, or run a second installer.
 
-R3.2 establishes `7z/LZMA2` as the current **size-first compression candidate** because the exact Tauri resource set compressed materially smaller than ZIP while preserving byte-identical extracted content. This is evidence for the payload representation, not permission to introduce an unrelated user-facing 7-Zip product/runtime. The implementation must choose the smallest justified automatic extraction mechanism inside the one Setup experience.
+R3.2 establishes `7z/LZMA2` as the current size-first compression candidate because the then-current exact resource set compressed materially smaller than ZIP while preserving byte-identical extracted content. This is evidence for payload representation, not permission to introduce an unrelated user-facing 7-Zip product/runtime.
 
 **Reason**  
-The classic single-EXE NSIS boundary is structurally unsuitable for the large offline payload, while the user experience requirement is one automatic offline setup—not one physical file. Lossless external compression reduces distribution size without changing installed AI models, precision, runtime behavior, or quality.
+The classic single-EXE NSIS boundary is structurally unsuitable for the large offline payload, while the user experience requirement is one automatic offline setup—not one physical file.
 
 **Boundary**  
 Do not turn this into a bootstrap download system, package manager, general artifact registry, manual extraction workflow, second setup, or model-quality reduction. Target-Windows installation/clean-machine proof remains separate acceptance evidence.
@@ -226,7 +226,40 @@ The runtime uses the pinned model generation profile rather than overriding it w
 **Reason**  
 Target-Windows RTX 3070 evidence showed recurring Marian correctness/quality failures: multi-sentence omission, duplicated dates, numeric corruption (`2100`→`200`), technical-fact loss, and name/version corruption. Restoring Marian's model-default beams fixed one omission but did not make the model reliable.
 
-The same target evaluation showed M2M100 materially stronger in both directions for dates, names, numbers, versions, IP addresses, URLs, CUDA terminology, and the original omission case. Whole-text M2M100 still omitted a second EN→ID question in one fixture; semantic segmentation restored it. Across the final whole-vs-segmented fixture set, segmented M2M100 preserved all monitored literals in both directions with warm per-request totals roughly in the 0.25–0.52 s range on the tested RTX 3070, while isolated loaded-model VRAM remained practical enough to continue target acceptance. Natural-language wording findings such as `Tarikh` remain quality observations, not correctness blockers or justification for a second translator.
+The same target evaluation showed M2M100 materially stronger in both directions for dates, names, numbers, versions, IP addresses, URLs, CUDA terminology, and the original omission case. Whole-text M2M100 still omitted a second EN→ID question in one fixture; semantic segmentation restored it. Across the final whole-vs-segmented fixture set, segmented M2M100 preserved all monitored literals in both directions with warm per-request totals roughly in the 0.25–0.52 s range on the tested RTX 3070. Natural-language wording findings remained unresolved quality observations.
 
 **Boundary**  
-Do not add generic date/number correction, glossary, back-translation, semantic verifier, cloud fallback, multi-model fallback, or user-facing translation modes. Product/runtime source must still be retested on the target Windows PC after migration; this decision does not claim combined Meeting VRAM/latency or CPU practicality.
+D-024 records the current implementation direction, not permanent quality acceptance. Do not add generic date/number correction, glossary, back-translation, semantic verifier, cloud fallback, multi-model fallback, or user-facing translation modes merely to mask model defects.
+
+## D-025 — Translation Quality Requires A General Benchmark Gate Before Further Runtime Change
+
+**Decision**  
+The current D-024 implementation remains the active translation path, but it is **not accepted as final translation quality** after target STEP 2C-B reproduced a meaning-changing EN → ID modality error (`must not` → `tidak harus`). No further production translation change may be made from one failing phrase, one known fixture, or one hand-written decoder experiment.
+
+Before another model, decoder, segmentation, or output-handling change is implemented, the translation work must define and execute a general, reproducible quality gate containing all of the following:
+
+```text
+1. external/reference benchmark for both ID → EN and EN → ID
+2. product-domain semantic stress suite covering grammar/meaning categories
+3. unseen holdout material not used to choose/tune the implementation
+4. MT quality metrics appropriate to reference translation
+5. deterministic opaque-fact checks for names/numbers/dates/versions/IP/URL-like material where valid
+6. human severity review for meaning-changing errors such as negation/modality/reference
+7. naturalness/fluency review separate from correctness
+8. target RTX 3070 cold-load, warm p50/p90 latency, and whole-device VRAM evidence
+9. local/offline, Windows, licensing, and packaging constraints
+```
+
+The benchmark itself must not encode one exact expected phrasing as the product definition. Exact-output assertions remain limited to deterministic runtime contracts, not natural-language quality.
+
+Candidate evaluation is bounded to the current baseline plus at most **two serious challengers per round**. A better candidate must replace the canonical model if adopted; do not create a normal production model router/fallback stack merely to win individual examples.
+
+Phrase-specific corrections are explicitly rejected, including hard-coded rules such as `must not` → `tidak boleh`, date repair maps, hand-written grammar rewriting, fixture-targeted dictionaries, or post-processors whose success is defined by examples already seen during debugging.
+
+**Reason**  
+The previous migration correctly fixed severe Marian omissions and factual corruption, but target acceptance exposed a process weakness: completeness and literal preservation were used as stronger proxies for overall translation quality than they can support. Semantic segmentation can guarantee that planned source units are attempted; it cannot guarantee correct modality, negation, tense, reference, or natural target-language wording. The `must not` failure proves that a translation may be structurally complete and fact-preserving while still being semantically wrong.
+
+A broad benchmark + holdout gate reduces fixture overfitting and lets quality improvements be evaluated against the required latency/VRAM envelope instead of accumulating targeted patches.
+
+**Boundary**  
+Do not resume microphone, VoiceLab, Meeting, installer, or additional translation development until the Translation Quality Improvement Plan built around this gate is researched, critiqued, and explicitly approved. D-025 does not itself choose the next model, decoder profile, benchmark tool, metric, or quantization method.
