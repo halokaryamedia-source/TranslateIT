@@ -2,7 +2,7 @@
 
 ## Current Status
 
-`PRE-TEST HARDENING — P0-1 SOURCE IMPLEMENTED / P0-2 NEXT / INSTALLER DEFERRED`
+`PRE-TEST HARDENING — P0-1/P0-2 SOURCE IMPLEMENTED / P0-3 NEXT / INSTALLER DEFERRED`
 
 Current repository authority:
 
@@ -26,7 +26,7 @@ Settings
 
 Installer/package implementation remains explicitly deferred until product/runtime scope is stable enough to re-freeze release inputs.
 
-The previously approved future packaging direction is preserved only as deferred context:
+The previously approved future packaging direction remains deferred context only:
 
 ```text
 one user-facing automatic fully offline setup experience
@@ -40,90 +40,107 @@ colocated external release payload file(s)
 
 ### Source implementation complete
 
-Commit `8fae16a7e9c1dad114d070bd91359cdf8b428dd6` replaces the previous implicit `final checkpoint = candidate` assumption inside the canonical GPT-SoVITS provider.
+Commit `8fae16a7e9c1dad114d070bd91359cdf8b428dd6` removes the implicit `final checkpoint = best candidate` assumption from the canonical GPT-SoVITS provider.
 
-Current bounded build behavior is:
+Current bounded behavior is:
 
 ```text
 accepted guided dataset
 → GPT-SoVITS V2ProPlus training
-→ periodic SoVITS/GPT weight outputs
+→ periodic SoVITS/GPT weights
 → at most 3 representative progress candidates
-→ same held-out sentences generated for every candidate
-→ per-sample speaker-similarity + SHA-256 evidence
-→ deterministic candidate ranking
-→ copy only the selected GPT/SoVITS pair into the candidate actor package
-→ user listens to selected held-out previews
-→ explicit user approval
+→ same held-out sentences for every candidate
+→ speaker-similarity + generated-WAV SHA-256 evidence
+→ deterministic evidence ranking
+→ materialize only the selected pair
+→ user listens to selected previews
+→ explicit approval
 → atomic promotion to My Voice
 ```
 
-With the current 8 SoVITS / 15 GPT epoch configuration, the representative progress pairs resolve to:
+With the current 8 SoVITS / 15 GPT epoch configuration, the representative progress pairs resolve to `s2-g5`, `s6-g10`, and `s8-g15`.
+
+Selection uses mean held-out speaker similarity first and minimum held-out similarity as a deterministic tie-break. No absolute quality threshold is treated as product truth; final acceptance remains user listening approval.
+
+Source/syntax and deterministic selection/ranking logic are implemented. Real multi-candidate training time, generated-audio fidelity, similarity behavior, VRAM practicality, and final speaker preference remain target-capable evidence.
+
+## P0-2 — Complete Translation Envelope And Standalone Text Chunking
+
+### Source implementation complete
+
+The canonical worker and Text boundary now reconcile the previous `valid input` versus fixed output-budget mismatch without changing Marian models or creating a second translation engine.
+
+Implementation commits:
 
 ```text
-s2-g5
-s6-g10
-s8-g15
+d78b6b570a2d2e242eff47bef1d56dfb2a060b98
+→ bounded translation-envelope helper
+
+ebdee42018fb6909f8c15d9efd9e33c45027de5d
+→ canonical worker adaptive generation + standalone paragraph-aware translation
+
+0ca8d24189c352f61f4300a4911b9e01592f1b40
+→ Rust Text boundary requires complete/EOS/structured worker result
+
+2f0cbf578038375872e9f98a834d978c78a78a18
+→ packaged WorkerRuntime/resource validators include translation_envelope.py
 ```
 
-Selection is based on actual held-out generated evidence, using mean speaker similarity first and minimum held-out similarity only as a deterministic tie-break. No absolute quality threshold was invented; final subjective acceptance remains the user's listening approval.
+### Meeting behavior
 
-The evaluation manifest now records:
+Meeting remains one finalized utterance at a time. Existing caller values such as `max_new_tokens: 96` are now treated as a bounded floor hint rather than a hard output ceiling.
 
-- selected candidate identity;
-- candidate SoVITS/GPT epochs;
-- mean/minimum speaker-similarity evidence;
-- per-held-out-line similarity and generated-WAV SHA-256 evidence;
-- the selected preview samples used by the existing review UI.
+The worker derives the actual generation budget from verified input token count and exposed Marian/tokenizer capacity, with a bounded maximum. It still uses `truncation=False` and still rejects any generated result whose normal EOS completion cannot be verified.
 
-The actor manifest records which evidence-selected candidate produced the staged My Voice actor. Unknown extra manifest fields remain compatible with the existing Rust validation boundary.
+No Meeting document chunking, previous-turn context, alternate engine, or partial-output promotion was added.
 
-Temporary checkpoint/evaluation candidates remain cache/build artifacts and are removed after the selected pair and selected review samples are materialized. The previous approved My Voice still remains untouched until explicit approval/promotion.
+### Standalone Text behavior
+
+Standalone Text now uses one bounded worker request:
+
+```text
+UI-accepted source
+→ preserve blank-line paragraph boundaries
+→ check model/tokenizer envelope
+→ split an oversized paragraph by sentence, then by words only when required
+→ translate every chunk through the same canonical ID ↔ EN Marian path
+→ require complete EOS result for every chunk
+→ fail the whole request if any required chunk fails/incompletes/deadlines
+→ reassemble chunks in original paragraph order
+→ promote one complete result only
+```
+
+The existing 2,000-character UI/product limit remains truthful. The plan is bounded to at most 32 translation chunks and remains under the existing worker inference deadline. No partial translated body is returned as success.
+
+Rust Text now requires the worker result to explicitly prove:
+
+```text
+canonical translation contract
++
+complete = true
++
+finished_with_eos = true
++
+paragraph_structure_preserved = true
+```
+
+before presenting success.
+
+### Packaged-runtime closure
+
+`translation_envelope.py` is a required sibling module of `realtime_local_worker.py`. The Tauri release resource map, exact release-package contract, and release-payload validator now all include that file, so the future packaged private Python runtime does not lose a source dependency.
+
+This does not reactivate installer implementation; it only preserves the canonical worker dependency in the already-existing release resource contract.
 
 ### Proof boundary
 
-Source/syntax and deterministic selection/ranking logic are implemented. This does **not** claim that one candidate is objectively high quality for a real speaker. Actual multi-candidate GPT-SoVITS training time, generated-audio fidelity, similarity behavior, VRAM practicality, and final user preference remain target-capable VoiceLab evidence for the later acceptance test.
+Source ownership, fail-closed completion behavior, bounded chunk planning, adaptive-budget logic, Text success gating, and packaged source dependency closure are implemented and statically inspected.
 
-Do not add another TTS engine, automatic quality threshold, every-epoch retention, or automatic promotion to compensate for missing target evidence.
+This does **not** yet prove real Marian translation quality, exact target-PC latency for long Text, GPU/CPU performance, or that every natural 2,000-character input is desirable as one translation request. Those remain target/runtime evidence. Any runtime failure must be evaluated from actual model evidence rather than weakening the no-partial-output contract.
 
 ## Remaining Pre-Test Hardening Queue
 
-### P0-2 — Complete translation envelope and standalone Text chunking — NEXT
-
-Current Text accepts up to 2,000 characters while standalone translation uses a fixed generation budget that may be too small for some otherwise valid inputs. The worker correctly rejects incomplete output, but the accepted input envelope and guaranteed output envelope must be reconciled.
-
-Implement two related corrections.
-
-#### A. Meeting utterance translation
-
-- keep one finalized utterance at a time;
-- replace inherited fixed output budget with a bounded adaptive generation budget derived from actual request/model capacity;
-- never silently truncate source text;
-- never promote output that did not complete with the model's valid completion boundary;
-- do not add document-style chunking to Meeting speech.
-
-#### B. Standalone Text
-
-Implement safe paragraph-aware chunking:
-
-```text
-user text
-→ preserve paragraph/order boundaries
-→ split only when required by model envelope
-→ translate every chunk through canonical ID ↔ EN path
-→ explicit failure if any required chunk is incomplete
-→ reassemble in original order with paragraph structure preserved
-```
-
-Acceptance:
-
-- every UI-accepted Text input returns one complete ordered translation or one explicit bounded failure;
-- normal paragraph structure is preserved;
-- no partial-success result is presented as complete;
-- Meeting remains finalized-utterance translation, not document translation;
-- no second translation engine or automatic conversation/history context.
-
-### P0-3 — Windows sleep / hibernate authority invalidation
+### P0-3 — Windows Sleep / Hibernate Authority Invalidation — NEXT
 
 Implement the existing product requirement:
 
@@ -142,9 +159,10 @@ Acceptance:
 - stale pre-suspend work cannot deliver after wake;
 - resume never auto-starts Translation;
 - minimize/hide without suspend continues to preserve a healthy Meeting;
-- no second lifecycle/cleanup owner.
+- no second lifecycle/cleanup owner;
+- cleanup reuses canonical Meeting authority/Stop semantics where possible.
 
-### P1-4 — VoiceLab dataset coverage readiness
+### P1-4 — VoiceLab Dataset Coverage Readiness
 
 Keep minimum usable-speech duration as a safety floor, but do not let duration alone make `Create My Voice` ready.
 
@@ -203,7 +221,7 @@ Do not redesign without evidence:
 
 ## R3.2 Release Baseline — Preserved / Deferred
 
-R3.2 is only the current release-size baseline; pre-test feature/runtime changes may alter it later.
+R3.2 remains only the current historical release-size baseline; pre-test product/runtime changes can alter the eventual final release input.
 
 ```text
 Exact optimized Tauri release resources
@@ -234,8 +252,8 @@ long-session memory/thread/queue stability
 standalone Text completeness
 ```
 
-Installer/package remains deferred until product/runtime results and resulting feature changes are stable enough to freeze release inputs again.
+Installer/package remains deferred until product/runtime results and any resulting product changes are stable enough to freeze release inputs again.
 
 ## Next Step
 
-**Implement P0-2: reconcile the translation completion envelope. Keep Meeting on one finalized utterance with a bounded adaptive generation budget, and add safe paragraph-aware chunking for standalone Text so every UI-accepted input either returns one complete ordered translation or one explicit bounded failure without silent truncation.**
+**Implement P0-3: Windows sleep/hibernate authority invalidation. Reuse the canonical Meeting authority and Stop/cleanup ownership so suspend revokes the active generation, stale pre-suspend work cannot deliver after wake, and resume remains stopped until the user explicitly starts a fresh Translation session.**
