@@ -2,7 +2,7 @@
 
 ## Current Status
 
-`PRE-TEST HARDENING APPROVED — IMPLEMENTATION QUEUE ACTIVE / INSTALLER DEFERRED`
+`PRE-TEST HARDENING — P0-1 SOURCE IMPLEMENTED / P0-2 NEXT / INSTALLER DEFERRED`
 
 Current repository authority:
 
@@ -13,9 +13,9 @@ Developing → GitHub default branch; retained historical/recovery only
 
 ## Active Boundary
 
-Before full target-Windows acceptance testing, implement only the bounded hardening items below. The purpose is to remove known source-level weaknesses that would otherwise make runtime-test results ambiguous.
+Before full target-Windows acceptance testing, complete only the bounded hardening queue below. The goal is to remove known source-level weaknesses that would otherwise make runtime-test results ambiguous.
 
-Do **not** broaden this into general feature expansion. The approved initial product remains:
+Approved initial product remains:
 
 ```text
 Meeting
@@ -24,9 +24,9 @@ VoiceLab
 Settings
 ```
 
-Installer/package implementation remains explicitly deferred until product scope is stable again.
+Installer/package implementation remains explicitly deferred until product/runtime scope is stable enough to re-freeze release inputs.
 
-The previously approved future packaging boundary is preserved only as deferred context:
+The previously approved future packaging direction is preserved only as deferred context:
 
 ```text
 one user-facing automatic fully offline setup experience
@@ -36,149 +36,138 @@ TranslateIT-Setup.exe
 colocated external release payload file(s)
 ```
 
-## Pre-Test Hardening Implementation Queue
+## P0-1 — VoiceLab Evidence-Based Candidate Selection
 
-### P0-1 — VoiceLab evidence-based candidate selection
+### Source implementation complete
 
-Current training effectively promotes the final produced GPT/SoVITS checkpoint pair into held-out evaluation. That is not sufficient for the quality-first product contract because a later checkpoint is not automatically the best speaker/quality result.
+Commit `8fae16a7e9c1dad114d070bd91359cdf8b428dd6` replaces the previous implicit `final checkpoint = candidate` assumption inside the canonical GPT-SoVITS provider.
 
-Implement a **small bounded candidate-selection flow**:
+Current bounded build behavior is:
 
 ```text
-training
-→ retain a small justified candidate set
-→ generate the same held-out evaluation sentences per candidate
-→ collect comparable generated-speech evidence
-→ rank/select the best candidate using actual evidence
-→ present the selected candidate for user listening
+accepted guided dataset
+→ GPT-SoVITS V2ProPlus training
+→ periodic SoVITS/GPT weight outputs
+→ at most 3 representative progress candidates
+→ same held-out sentences generated for every candidate
+→ per-sample speaker-similarity + SHA-256 evidence
+→ deterministic candidate ranking
+→ copy only the selected GPT/SoVITS pair into the candidate actor package
+→ user listens to selected held-out previews
 → explicit user approval
 → atomic promotion to My Voice
 ```
 
-Requirements:
+With the current 8 SoVITS / 15 GPT epoch configuration, the representative progress pairs resolve to:
 
-- do not keep every epoch merely because it exists;
-- do not assume the final epoch is best;
-- keep checkpoint/candidate count bounded;
-- use the same held-out sentences for fair comparison;
-- automatic evidence may rank/select a candidate, but must not replace final user listening approval;
-- the previous approved My Voice remains intact until a new candidate is explicitly approved;
-- no new TTS engine/provider/runtime.
+```text
+s2-g5
+s6-g10
+s8-g15
+```
 
-Acceptance:
+Selection is based on actual held-out generated evidence, using mean speaker similarity first and minimum held-out similarity only as a deterministic tie-break. No absolute quality threshold was invented; final subjective acceptance remains the user's listening approval.
 
-- VoiceLab can produce more than one bounded candidate when training evidence warrants it;
-- held-out generated evidence belongs to the exact candidate being evaluated;
-- the candidate presented for approval is selected from that evidence rather than implicitly from training order;
-- user approval remains mandatory before promotion.
+The evaluation manifest now records:
 
-### P0-2 — Complete translation envelope and standalone Text chunking
+- selected candidate identity;
+- candidate SoVITS/GPT epochs;
+- mean/minimum speaker-similarity evidence;
+- per-held-out-line similarity and generated-WAV SHA-256 evidence;
+- the selected preview samples used by the existing review UI.
 
-Current Text accepts up to 2,000 characters while standalone translation uses a fixed generation budget that may be too small for some otherwise valid inputs. The worker correctly rejects incomplete output, but the accepted input envelope and guaranteed output envelope must be reconciled before testing.
+The actor manifest records which evidence-selected candidate produced the staged My Voice actor. Unknown extra manifest fields remain compatible with the existing Rust validation boundary.
+
+Temporary checkpoint/evaluation candidates remain cache/build artifacts and are removed after the selected pair and selected review samples are materialized. The previous approved My Voice still remains untouched until explicit approval/promotion.
+
+### Proof boundary
+
+Source/syntax and deterministic selection/ranking logic are implemented. This does **not** claim that one candidate is objectively high quality for a real speaker. Actual multi-candidate GPT-SoVITS training time, generated-audio fidelity, similarity behavior, VRAM practicality, and final user preference remain target-capable VoiceLab evidence for the later acceptance test.
+
+Do not add another TTS engine, automatic quality threshold, every-epoch retention, or automatic promotion to compensate for missing target evidence.
+
+## Remaining Pre-Test Hardening Queue
+
+### P0-2 — Complete translation envelope and standalone Text chunking — NEXT
+
+Current Text accepts up to 2,000 characters while standalone translation uses a fixed generation budget that may be too small for some otherwise valid inputs. The worker correctly rejects incomplete output, but the accepted input envelope and guaranteed output envelope must be reconciled.
 
 Implement two related corrections.
 
 #### A. Meeting utterance translation
 
-- keep Meeting translation scoped to one finalized utterance at a time;
-- replace the inherited fixed output budget with a **bounded adaptive generation budget** derived from the actual request/model capacity;
+- keep one finalized utterance at a time;
+- replace inherited fixed output budget with a bounded adaptive generation budget derived from actual request/model capacity;
 - never silently truncate source text;
 - never promote output that did not complete with the model's valid completion boundary;
-- do not introduce document-style chunking into Meeting speech.
+- do not add document-style chunking to Meeting speech.
 
 #### B. Standalone Text
 
-Implement **safe paragraph-aware chunking** for valid longer Text input:
+Implement safe paragraph-aware chunking:
 
 ```text
 user text
 → preserve paragraph/order boundaries
-→ split only when required by the model envelope
-→ translate every chunk through the same canonical ID ↔ EN model path
-→ fail explicitly if any required chunk is incomplete
-→ reassemble in original order while preserving paragraph structure
+→ split only when required by model envelope
+→ translate every chunk through canonical ID ↔ EN path
+→ explicit failure if any required chunk is incomplete
+→ reassemble in original order with paragraph structure preserved
 ```
-
-Requirements:
-
-- no silent source truncation;
-- no partial-success result presented as complete;
-- no automatic conversation/history context;
-- no second translation engine;
-- preserve ordinary paragraph separation instead of flattening all input into one whitespace stream;
-- keep the UI limit truthful and aligned with what the runtime can actually complete.
 
 Acceptance:
 
-- every UI-accepted Text input either returns one complete ordered translation or one explicit bounded failure;
-- paragraph structure is preserved at the supported boundary;
-- Meeting utterances remain low-latency finalized-utterance translation rather than document translation.
+- every UI-accepted Text input returns one complete ordered translation or one explicit bounded failure;
+- normal paragraph structure is preserved;
+- no partial-success result is presented as complete;
+- Meeting remains finalized-utterance translation, not document translation;
+- no second translation engine or automatic conversation/history context.
 
 ### P0-3 — Windows sleep / hibernate authority invalidation
 
-The product requirement already states that Windows sleep/hibernate must invalidate an active Meeting and voice output must not silently resume after wake. Current safe-close handling is present, but suspend/resume ownership must be implemented before lifecycle testing.
-
-Implement a Windows lifecycle boundary such that:
+Implement the existing product requirement:
 
 ```text
 Meeting Live
 → Windows suspend / hibernate
-→ revoke current Meeting output authority
-→ stop/cancel owned audio + helper/output work through canonical cleanup ownership
-→ preserve truthful cleanup state if cleanup cannot be fully confirmed
-→ Windows resume
-→ remain stopped / Setup Needed or Ready as appropriate
-→ require a new explicit Start Translation
+→ revoke Meeting output authority
+→ canonical cleanup of owned audio/helper/output work
+→ preserve truthful cleanup state if incomplete
+→ resume remains stopped
+→ explicit new Start Translation required
 ```
-
-Requirements:
-
-- no automatic voice-output resume after wake;
-- no reuse of a stale Meeting generation;
-- no duplicate lifecycle owner outside the existing Meeting/runtime authority;
-- reuse canonical Stop/cleanup semantics where possible rather than creating a second cleanup implementation;
-- minimize/hide without Windows suspend must continue to preserve a healthy Meeting as currently required.
 
 Acceptance:
 
-- suspend invalidates current Meeting authority;
-- stale pre-suspend work cannot deliver after resume;
-- resume does not auto-start Translation;
-- user can explicitly start a fresh Meeting after the runtime/devices are ready again.
+- stale pre-suspend work cannot deliver after wake;
+- resume never auto-starts Translation;
+- minimize/hide without suspend continues to preserve a healthy Meeting;
+- no second lifecycle/cleanup owner.
 
 ### P1-4 — VoiceLab dataset coverage readiness
 
-VoiceLab already provides a broad guided English line set, but build readiness is currently dominated by accepted speech duration plus a very small take-count floor. Duration alone is not sufficient evidence that the dataset covers the speaking variety needed by a high-fidelity meeting voice.
+Keep minimum usable-speech duration as a safety floor, but do not let duration alone make `Create My Voice` ready.
 
-Add a **small guided-coverage readiness check** using the existing guided material.
-
-The readiness decision should consider representative coverage such as:
+Use the existing guided line set to require small representative coverage across broad categories such as:
 
 - short conversational phrases;
 - longer explanatory speech;
 - questions / changing intonation;
-- names, numbers, dates or technical wording;
+- names, numbers, dates, or technical wording;
 - normal varied sentence structure.
 
-Requirements:
-
-- keep the existing minimum usable-speech duration as a safety floor, not as proof of quality;
-- do not replace it with another arbitrary large recording-minute target;
-- do not require all 128 lines;
-- keep coverage categories simple and product-facing guidance non-technical;
-- actual final quality still comes from trained held-out output + user listening approval.
+Do not require all 128 lines and do not replace the current floor with another arbitrary large recording-minute target.
 
 Acceptance:
 
-- `Create My Voice` is not enabled solely because duration is high;
-- the accepted set must satisfy a small representative coverage contract;
-- UI tells the user which broad kind of recording is still useful without exposing training internals.
+- high duration alone cannot satisfy build readiness;
+- accepted takes satisfy a small representative coverage contract;
+- UI guidance stays product-facing and non-technical;
+- final trained quality remains held-out output + user listening approval.
 
 ## Test-Support Observability
 
-Before target-Windows performance testing, use current Diagnostics first. Add only the smallest missing instrumentation needed to interpret failures.
-
-If current diagnostics cannot expose enough evidence, add **non-persistent diagnostic-only** visibility for:
+Before target-Windows performance testing, use existing Diagnostics first. Add only the smallest missing diagnostic-only visibility needed to interpret failures, potentially including:
 
 ```text
 loaded ASR runtime/device
@@ -186,21 +175,21 @@ loaded translation direction(s)/device
 loaded My Voice runtime/device
 CUDA availability
 GPU/VRAM usage or availability when reliably obtainable
-per-stage outbound timing already owned by Meeting
+existing per-stage Meeting timing
 ```
 
-This instrumentation is not permission to add user-facing model/CUDA controls, telemetry, a new monitoring service, automatic model eviction, or a new scheduler. VRAM residency strategy should only change if target evidence proves an actual memory problem.
+This is not permission to create telemetry, user-facing CUDA/model controls, a monitoring service, automatic model eviction, or another scheduler. VRAM residency strategy changes only if target evidence proves an actual memory problem.
 
 ## Already Sufficient for Pre-Test Source Scope
 
-Do **not** redesign these before evidence shows a failure:
+Do not redesign without evidence:
 
 - Meeting transactional Start / rollback;
 - canonical Stop / cleanup ownership;
 - generation/stale-work rejection;
 - bounded finalized-utterance backlog and freshness preference;
 - VoiceLab/Meeting mutual exclusion;
-- optional incoming lane separation from required outbound;
+- optional incoming lane separation;
 - current WASAPI/CPAL output-loopback approach for Meeting Sound;
 - First Setup / Settings feature breadth;
 - general History/Saved;
@@ -212,11 +201,9 @@ Do **not** redesign these before evidence shows a failure:
 - additional languages;
 - installer/package implementation.
 
-Those runtime-sensitive areas should be tested after the known P0/P1 hardening above rather than redesigned from assumption.
-
 ## R3.2 Release Baseline — Preserved / Deferred
 
-R3.2 remains the current size baseline only; it is not the final release size after future product changes.
+R3.2 is only the current release-size baseline; pre-test feature/runtime changes may alter it later.
 
 ```text
 Exact optimized Tauri release resources
@@ -226,17 +213,17 @@ Measured solid 7z/LZMA2 distribution candidate
 4,429,538,835 bytes
 ```
 
-The optimizer and compression evidence remain valid as historical/current release baseline until product scope is re-frozen. Do not continue installer implementation now.
+Do not continue installer work now.
 
 ## Target Test After Hardening
 
-Once the pre-test hardening queue is complete, target-capable testing should determine real behavior rather than trigger speculative redesign. The important evidence remains:
+After P0/P1 hardening, target-capable testing should determine:
 
 ```text
 microphone capture / VAD segmentation
 ID → EN ASR + translation quality
 EN → ID Text/incoming quality
-VoiceLab training success and speaker fidelity
+VoiceLab multi-candidate training success and speaker fidelity
 My Voice persistence after restart
 ASR + translation + My Voice combined VRAM practicality
 outbound end-to-end latency
@@ -247,8 +234,8 @@ long-session memory/thread/queue stability
 standalone Text completeness
 ```
 
-Installer/package work remains deferred until those product/runtime results and any resulting feature changes are stable enough to freeze release inputs again.
+Installer/package remains deferred until product/runtime results and resulting feature changes are stable enough to freeze release inputs again.
 
 ## Next Step
 
-**Implement P0-1 first: bounded evidence-based VoiceLab candidate/checkpoint selection. Preserve the existing GPT-SoVITS V2ProPlus engine, guided dataset ownership, held-out evaluation, explicit user approval, and atomic My Voice promotion while removing the assumption that the final training checkpoint is automatically the best candidate.**
+**Implement P0-2: reconcile the translation completion envelope. Keep Meeting on one finalized utterance with a bounded adaptive generation budget, and add safe paragraph-aware chunking for standalone Text so every UI-accepted input either returns one complete ordered translation or one explicit bounded failure without silent truncation.**
