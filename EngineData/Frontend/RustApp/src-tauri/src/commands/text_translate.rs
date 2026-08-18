@@ -71,6 +71,8 @@ fn worker_blocker(response: &Value) -> String {
     let model = compact_worker_text(response.get("model_id"));
     let device = compact_worker_text(response.get("device"));
     let fallback = compact_worker_text(response.get("translation_fallback_reason"));
+    let chunk_index = response.get("chunk_index").and_then(Value::as_u64);
+    let chunk_count = response.get("chunk_count").and_then(Value::as_u64);
     let mut parts = Vec::new();
 
     if !blocker.is_empty() {
@@ -88,6 +90,9 @@ fn worker_blocker(response: &Value) -> String {
     if !fallback.is_empty() {
         parts.push(format!("device_fallback={fallback}"));
     }
+    if let (Some(index), Some(count)) = (chunk_index, chunk_count) {
+        parts.push(format!("chunk={index}/{count}"));
+    }
 
     if parts.is_empty() {
         "persistent helper returned no validated translation".to_string()
@@ -96,15 +101,47 @@ fn worker_blocker(response: &Value) -> String {
     }
 }
 
+fn worker_response_is_complete(response: &Value) -> bool {
+    response.get("stage").and_then(Value::as_str) == Some("translate")
+        && response
+            .get("translation_contract")
+            .and_then(Value::as_str)
+            == Some("canonical_bidirectional_id_en")
+        && response.get("complete").and_then(Value::as_bool) == Some(true)
+        && response.get("finished_with_eos").and_then(Value::as_bool) == Some(true)
+        && response
+            .get("paragraph_structure_preserved")
+            .and_then(Value::as_bool)
+            == Some(true)
+}
+
+fn worker_failure_message(response: &Value) -> &'static str {
+    let blocker = response
+        .get("blocker")
+        .and_then(Value::as_str)
+        .unwrap_or_default();
+    if matches!(
+        blocker,
+        "translation:output_hit_token_ceiling_without_eos"
+            | "translation:output_ended_without_eos"
+            | "translation:input_too_long_for_model"
+            | "translation:chunk_count_limit_exceeded"
+            | "translation:standalone_chunk_plan_empty"
+    ) {
+        return "This text couldn't be translated completely. Shorten the longest paragraph and try again.";
+    }
+    if blocker == "worker:request_deadline_expired" {
+        return "Translation took too long to complete. Try shorter text and translate again.";
+    }
+    "Translation isn't available for this language direction right now. Check Setup or Diagnostics and try again."
+}
+
 fn ensure_persistent_helper_started() -> Result<(), TextTranslationResult> {
     let status = get_helper_bridge_status();
     if !matches!(status.state.as_str(), "not_started" | "stopped" | "error") {
         return Ok(());
     }
 
-    // Standalone Text may share an already-running helper with Meeting, but it must
-    // not restart that helper while any runtime session owns resources. The guarded
-    // public start command defers restart until the active Meeting/Mic Test stops.
     let start = start_helper_bridge();
     if start.ok {
         Ok(())
@@ -131,7 +168,6 @@ fn translate_with_persistent_helper(source: &str) -> TextTranslationResult {
         "text": source,
         "source_language": settings.source_language,
         "target_language": settings.target_language,
-        "max_new_tokens": 96,
         "request_kind": "standalone_text",
     });
     let response = send_helper_worker_task("translate", payload);
@@ -149,20 +185,14 @@ fn translate_with_persistent_helper(source: &str) -> TextTranslationResult {
         .and_then(Value::as_str)
         .unwrap_or_default()
         .trim();
-    let stage_is_translate =
-        worker_response.get("stage").and_then(Value::as_str) == Some("translate");
-    let contract_is_canonical = worker_response
-        .get("translation_contract")
-        .and_then(Value::as_str)
-        == Some("canonical_bidirectional_id_en");
 
-    if response.ok && stage_is_translate && contract_is_canonical && !translated.is_empty() {
+    if response.ok && worker_response_is_complete(&worker_response) && !translated.is_empty() {
         return TextTranslationResult::success(translated.to_string());
     }
 
     TextTranslationResult::blocked(
         "translation_unavailable",
-        "Translation isn't available for this language direction right now. Check Setup or Diagnostics and try again.",
+        worker_failure_message(&worker_response),
         worker_blocker(&worker_response),
     )
 }
@@ -198,4 +228,39 @@ pub fn translate_text(source: String) -> TextTranslationResult {
         trace_command_error("translate_text", started, format!("state={}", result.state));
     }
     result
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{worker_failure_message, worker_response_is_complete};
+    use serde_json::json;
+
+    #[test]
+    fn standalone_success_requires_complete_eos_and_preserved_paragraph_structure() {
+        let valid = json!({
+            "stage": "translate",
+            "translation_contract": "canonical_bidirectional_id_en",
+            "complete": true,
+            "finished_with_eos": true,
+            "paragraph_structure_preserved": true,
+        });
+        assert!(worker_response_is_complete(&valid));
+
+        for key in ["complete", "finished_with_eos", "paragraph_structure_preserved"] {
+            let mut invalid = valid.clone();
+            invalid[key] = json!(false);
+            assert!(!worker_response_is_complete(&invalid));
+        }
+    }
+
+    #[test]
+    fn incomplete_generation_has_product_level_recovery_copy() {
+        let response = json!({
+            "blocker": "translation:output_hit_token_ceiling_without_eos"
+        });
+        assert_eq!(
+            worker_failure_message(&response),
+            "This text couldn't be translated completely. Shorten the longest paragraph and try again."
+        );
+    }
 }
