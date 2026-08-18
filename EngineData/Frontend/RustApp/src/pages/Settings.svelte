@@ -13,6 +13,12 @@
   import StatusRow from "../components/ui/StatusRow.svelte";
 
   type SettingsTab = "meeting" | "advanced";
+  type WorkerDiagnostics = {
+    asr: string;
+    translation: string;
+    voice: string;
+    execution: string;
+  };
 
   let {
     snapshot,
@@ -54,6 +60,55 @@
   const meetingMicrophoneDevice = $derived(
     String(routeStatus?.selected_input_device ?? "").trim() || "Meeting microphone not configured",
   );
+
+  function parseWorkerDiagnostics(raw: string | undefined): WorkerDiagnostics {
+    const fallback: WorkerDiagnostics = {
+      asr: "Not checked",
+      translation: "Not checked",
+      voice: "Not checked",
+      execution: "Not verified",
+    };
+    if (!raw?.trim()) return fallback;
+
+    try {
+      const payload = JSON.parse(raw) as Record<string, any>;
+      const loaded = (payload.loaded ?? {}) as Record<string, any>;
+      const gpu = (payload.gpu ?? {}) as Record<string, any>;
+      const asrSelected = String(payload.selected_device ?? gpu.selected_device ?? "not verified");
+      const translationSelected = String(
+        payload.selected_translation_device ?? gpu.selected_translation_device ?? "not verified",
+      );
+      const directions = Array.isArray(loaded.translation_directions)
+        ? loaded.translation_directions.map((value: unknown) => String(value)).filter(Boolean)
+        : [];
+
+      return {
+        asr: loaded.asr === true
+          ? `${String(loaded.asr_model_id ?? "ASR")} · ${String(loaded.asr_device ?? "unknown")} / ${String(loaded.asr_compute_type ?? "unknown")}`
+          : `Not loaded · selected ${asrSelected}`,
+        translation: directions.length > 0
+          ? `${directions.join(", ")} · ${translationSelected}`
+          : `Not loaded · selected ${translationSelected}`,
+        voice: loaded.voice_actor === true
+          ? `Loaded · ${String(loaded.voice_actor_device ?? "unknown")}`
+          : "Not loaded",
+        execution: `ASR ${asrSelected} · Translation ${translationSelected}`,
+      };
+    } catch {
+      return {
+        ...fallback,
+        execution: "Worker status could not be parsed",
+      };
+    }
+  }
+
+  function formatTiming(value: number | null | undefined): string {
+    if (typeof value !== "number" || !Number.isFinite(value) || value < 0) return "Not measured";
+    return `${Math.round(value)} ms`;
+  }
+
+  const workerDiagnostics = $derived(parseWorkerDiagnostics(snapshot.workerStatus?.worker_response_json));
+  const outboundTiming = $derived(snapshot.meetingSession?.outbound?.timing ?? null);
 
   function deviceId(device: { id?: string; name: string }): string {
     return String(device.id ?? device.name).trim();
@@ -302,6 +357,43 @@
             <button type="button" class="ti-button ti-button-secondary" disabled={setupBusy || diagnosticsLoading} onclick={() => void refreshDiagnostics()}><RefreshCw size={15} /> {diagnosticsLoading || setupBusy ? "Refreshing..." : "Refresh Status"}</button>
             <button type="button" class="ti-button ti-button-secondary" disabled={setupBusy || diagnosticsLoading} onclick={() => void onSetupAction("verify-models")}><Bug size={15} /> Verify Models</button>
           </div>
+        </article>
+
+        <article class="ti-panel p-5">
+          <div>
+            <span class="ti-field-label">Loaded local runtimes</span>
+            <h4 class="mb-0 mt-1.5 text-[14px] font-semibold">AI execution truth</h4>
+          </div>
+          <div class="mt-4 grid grid-cols-[repeat(3,minmax(0,1fr))] gap-3">
+            <div class="ti-state-card">
+              <span class="ti-field-label">ASR</span>
+              <strong class="mt-2 block break-words text-[12px] leading-5">{workerDiagnostics.asr}</strong>
+            </div>
+            <div class="ti-state-card">
+              <span class="ti-field-label">Translation</span>
+              <strong class="mt-2 block break-words text-[12px] leading-5">{workerDiagnostics.translation}</strong>
+            </div>
+            <div class="ti-state-card">
+              <span class="ti-field-label">My Voice</span>
+              <strong class="mt-2 block break-words text-[12px] leading-5">{workerDiagnostics.voice}</strong>
+            </div>
+          </div>
+          <p class="mb-0 mt-3 text-[11.5px] leading-5 text-[var(--ti-text-soft)]">Selected execution: {workerDiagnostics.execution}. Refresh after Meeting Start to see the loaded runtime state.</p>
+        </article>
+
+        <article class="ti-panel p-5">
+          <div>
+            <span class="ti-field-label">Latest outbound phrase</span>
+            <h4 class="mb-0 mt-1.5 text-[14px] font-semibold">Meeting stage timing</h4>
+          </div>
+          <div class="mt-4 grid grid-cols-[repeat(5,minmax(0,1fr))] gap-3">
+            <div class="ti-state-card"><span class="ti-field-label">Total</span><strong class="mt-2 block text-[12px]">{formatTiming(outboundTiming?.outbound_latency_ms)}</strong></div>
+            <div class="ti-state-card"><span class="ti-field-label">ASR</span><strong class="mt-2 block text-[12px]">{formatTiming(outboundTiming?.asr_ms)}</strong></div>
+            <div class="ti-state-card"><span class="ti-field-label">Translation</span><strong class="mt-2 block text-[12px]">{formatTiming(outboundTiming?.translation_ms)}</strong></div>
+            <div class="ti-state-card"><span class="ti-field-label">My Voice</span><strong class="mt-2 block text-[12px]">{formatTiming(outboundTiming?.tts_ms)}</strong></div>
+            <div class="ti-state-card"><span class="ti-field-label">Delivery</span><strong class="mt-2 block text-[12px]">{formatTiming(outboundTiming?.delivery_ms)}</strong></div>
+          </div>
+          <p class="mb-0 mt-3 text-[11.5px] leading-5 text-[var(--ti-text-soft)]">VRAM should be measured with the Windows/NVIDIA GPU monitor during target testing. TranslateIT does not report a PyTorch-only allocator number as whole-product VRAM because ASR uses a separate CTranslate2 CUDA runtime.</p>
         </article>
 
         <article class="ti-panel p-5">
