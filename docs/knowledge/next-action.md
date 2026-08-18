@@ -2,7 +2,7 @@
 
 ## Current Status
 
-`PRE-TEST HARDENING + OBSERVABILITY SOURCE COMPLETE / TARGET-WINDOWS ACCEPTANCE TEST NEXT / INSTALLER DEFERRED`
+`PRE-TEST HARDENING + OBSERVABILITY SOURCE COMPLETE / USER READY FOR LOCAL WINDOWS TEST / INSTALLER DEFERRED`
 
 Current repository authority:
 
@@ -13,7 +13,9 @@ Developing → GitHub default branch; retained historical/recovery only
 
 ## Active Boundary
 
-The bounded pre-test source hardening queue is complete. Do not add another feature, redesign Meeting/runtime ownership, or resume installer/package implementation before target-Windows evidence identifies a concrete need.
+The bounded pre-test source hardening queue is complete. The user is ready to begin local target-Windows acceptance testing in a new chat session.
+
+Do not add another feature, redesign Meeting/runtime ownership, perform broad architecture cleanup, or resume installer/package implementation before target-Windows evidence identifies a concrete need.
 
 Approved initial product remains:
 
@@ -257,9 +259,57 @@ Measured solid 7z/LZMA2 distribution candidate
 
 Do not continue installer work now.
 
-## Target-Windows Acceptance Test — NEXT
+## New Chat Handoff — Local Windows Test
 
-The next phase must use the actual target Windows runtime/hardware. Source/static evidence cannot complete these claims.
+The user intentionally plans to continue in a new chat session to reduce context-loss risk. The new session should recover this file first rather than repeat the completed architecture/pre-test audit.
+
+### Start state
+
+```text
+Frontend active architecture   → ready to test
+Backend active architecture    → ready to test
+VoiceLab source pipeline       → ready to test
+Pre-test hardening             → source complete
+Test-support Diagnostics       → source complete
+Installer/package              → deferred
+Runtime/hardware acceptance    → not yet proven
+```
+
+### New-session boot
+
+Before giving test commands or changing source:
+
+```text
+PIN current Local HEAD
+→ read AGENTS.md
+→ read GITHUB_RULES.md Core
+→ read CONTEXT.md
+→ read this next-action.md
+→ do not repeat broad architecture audit
+```
+
+If `Local` moved after this note, diagnose the actual new HEAD before continuing. `Developing` remains the GitHub default/historical branch; active work remains on `Local`.
+
+### Test execution rule
+
+Proceed one boundary at a time. **Stop at the first failing boundary** instead of continuing into dependent features and producing ambiguous results.
+
+For every step record:
+
+```text
+PASS / FAIL
+exact action performed
+exact visible error/blocker if any
+relevant Diagnostics state
+screenshot/log excerpt when useful
+hardware/runtime evidence when relevant
+```
+
+Do not change model choice, VAD, queueing, architecture, GPU residency, or feature scope merely because a metric looks imperfect. Reproduce and identify the failing owner first.
+
+## Target-Windows Acceptance Test — ACTIVE NEXT
+
+Use the actual target Windows PC/hardware. The initial run is from the current `Local` development/runtime environment; installer finalization is not part of this test phase.
 
 Test in this order so failures remain attributable:
 
@@ -278,20 +328,56 @@ Test in this order so failures remain attributable:
 12. Real meeting-app microphone reception
 ```
 
-Collect only test-relevant evidence:
+### First test checkpoint for the new chat
+
+Do **not** jump directly to VoiceLab or Meeting.
+
+Start with:
 
 ```text
-actual GPU model / driver
-whole-device VRAM used/free while Meeting runtime is loaded
-Diagnostics loaded ASR / translation / My Voice devices
-latest stage timing / total outbound latency
-exact blocker/error for failed steps
-translation samples that demonstrate semantic/number/name errors
-VoiceLab held-out previews and user listening decision
+STEP 1
+Application + local worker startup
+
+then, only if PASS:
+
+STEP 2A
+Standalone Text ID → EN
+
+STEP 2B
+Standalone Text EN → ID
+
+STEP 2C
+Standalone long / multi-paragraph completeness
 ```
 
-Do not tune models, add eviction, change VAD, alter queueing, or add feature scope merely because a metric looks imperfect. First reproduce and identify the failing stage.
+For Step 1 capture at minimum:
+
+```text
+whether the Tauri app opens normally
+whether Advanced → Diagnostics opens
+worker state
+provider/readiness state
+execution device / CUDA-vs-CPU truth
+actual GPU model + driver on the target PC
+any exact command/runtime error
+```
+
+For Step 2 capture representative outputs rather than only `works/doesn't work`, especially names, numbers, dates, technical terms, and a multi-paragraph sample. A wrong but complete translation is a quality finding; truncation/incomplete output is a correctness failure.
+
+### Later hardware evidence
+
+When Meeting runtime is eventually loaded, capture:
+
+```text
+whole-device VRAM used/free from Windows/NVIDIA view
+Diagnostics loaded ASR / translation / My Voice devices
+latest ASR / translation / My Voice / delivery timing
+total outbound latency
+exact blocker/error for failed stage
+```
+
+VoiceLab quality evidence later consists of real training success, candidate held-out previews, speaker fidelity/naturalness listening judgement, and approved-actor restart persistence. Static source is not sufficient for those claims.
 
 ## Next Step
 
-**Begin target-Windows acceptance testing from the ordered checklist above. Start with application/worker startup and standalone bidirectional Text, then advance one boundary at a time. Record exact Diagnostics/runtime evidence for failures; do not resume installer work or speculative feature development until target evidence requires a change.**
+**In the new chat session, recover current `Local` from this file and begin target-Windows local testing at Step 1: Application / local worker startup. Provide exact run instructions for the user's current Windows checkout, then record PASS/FAIL and evidence. Advance to bidirectional standalone Text only after Step 1 passes. Do not resume installer work or speculative source changes.**
