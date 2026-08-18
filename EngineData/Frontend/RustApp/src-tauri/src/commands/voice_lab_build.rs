@@ -24,6 +24,41 @@ const MIN_TRAINING_SPEECH_MS: u64 = 60_000;
 const MAX_EVALUATION_WAV_BYTES: u64 = 16 * 1024 * 1024;
 const CANCEL_WAIT: Duration = Duration::from_secs(10);
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+struct TrainingCoverageGroup {
+    start_line_id: u32,
+    end_line_id: u32,
+    label: &'static str,
+}
+
+const TRAINING_COVERAGE_GROUPS: &[TrainingCoverageGroup] = &[
+    TrainingCoverageGroup {
+        start_line_id: 1,
+        end_line_id: 24,
+        label: "short conversational speech",
+    },
+    TrainingCoverageGroup {
+        start_line_id: 25,
+        end_line_id: 30,
+        label: "questions and changing intonation",
+    },
+    TrainingCoverageGroup {
+        start_line_id: 31,
+        end_line_id: 64,
+        label: "natural varied sentences",
+    },
+    TrainingCoverageGroup {
+        start_line_id: 65,
+        end_line_id: 96,
+        label: "names, numbers, dates, or technical details",
+    },
+    TrainingCoverageGroup {
+        start_line_id: 97,
+        end_line_id: 128,
+        label: "longer explanations",
+    },
+];
+
 const HELD_OUT_LINES: &[(u32, &str)] = &[
     (1001, "Please confirm the final schedule before we send the update to the client."),
     (1002, "The system should remain clear and natural during a longer technical discussion."),
@@ -169,6 +204,28 @@ fn accepted_contract() -> (Vec<GuidedTakeContract>, u64) {
     (takes, duration_ms)
 }
 
+fn missing_training_coverage_group(
+    takes: &[GuidedTakeContract],
+) -> Option<TrainingCoverageGroup> {
+    TRAINING_COVERAGE_GROUPS.iter().copied().find(|group| {
+        !takes.iter().any(|take| {
+            (group.start_line_id..=group.end_line_id).contains(&take.line_id)
+        })
+    })
+}
+
+fn training_coverage_guidance(group: TrainingCoverageGroup, approved_voice_ready: bool) -> String {
+    let prefix = if approved_voice_ready {
+        "My Voice is ready. To create it again, add a little more recording variety."
+    } else {
+        "Add a little more recording variety before creating My Voice."
+    };
+    format!(
+        "{prefix} Try one accepted line from Lines {}-{} for {}.",
+        group.start_line_id, group.end_line_id, group.label
+    )
+}
+
 fn held_out_contract() -> Vec<GuidedEvaluationLineContract> {
     HELD_OUT_LINES
         .iter()
@@ -285,6 +342,7 @@ fn current_status() -> VoiceLabBuildStatus {
     let snapshot = current_voice_lab_build_snapshot();
     let recording_active = get_voice_lab_guided_recording_state().recording_line_id.is_some();
     let (takes, duration_ms) = accepted_contract();
+    let missing_coverage = missing_training_coverage_group(&takes);
     let evaluation = evaluation_manifest(&paths);
     let child = child_status(&paths);
     let approved_ready = approved_actor_ready(&paths);
@@ -304,16 +362,25 @@ fn current_status() -> VoiceLabBuildStatus {
                 _ => "VoiceLab creation is running.".to_string(),
             }
         })
-    } else if approved_ready {
-        "My Voice is approved and stored on this device.".to_string()
     } else if evaluation.is_some() {
         "Voice Actor samples are ready. Listen before approving My Voice.".to_string()
     } else if !terminal_message.is_empty() {
         terminal_message
     } else if duration_ms < MIN_TRAINING_SPEECH_MS {
-        "Keep recording accepted lines until there is at least one minute of usable speech.".to_string()
+        if approved_ready {
+            "My Voice is ready. To create it again, keep recording accepted lines until there is at least one minute of usable speech."
+                .to_string()
+        } else {
+            "Keep recording accepted lines until there is at least one minute of usable speech."
+                .to_string()
+        }
+    } else if let Some(group) = missing_coverage {
+        training_coverage_guidance(group, approved_ready)
+    } else if approved_ready {
+        "My Voice is approved and stored on this device. Your accepted recordings are also ready if you want to create it again."
+            .to_string()
     } else {
-        "Accepted recordings are ready to create My Voice.".to_string()
+        "Accepted recordings have enough usable speech and variety to create My Voice.".to_string()
     };
 
     VoiceLabBuildStatus {
@@ -327,7 +394,7 @@ fn current_status() -> VoiceLabBuildStatus {
         can_build: !snapshot.active
             && !recording_active
             && duration_ms >= MIN_TRAINING_SPEECH_MS
-            && takes.len() >= 2,
+            && missing_coverage.is_none(),
         evaluation_ready: evaluation.is_some(),
         evaluation_samples: evaluation.map(|value| value.samples).unwrap_or_default(),
         approved_voice_ready: approved_ready,
@@ -402,8 +469,8 @@ pub fn start_voice_lab_build(authorized_voice_confirmed: bool) -> VoiceLabBuildA
     if current.active {
         return result(false, "build_active", "VoiceLab creation is already running.");
     }
-    if current.accepted_duration_ms < MIN_TRAINING_SPEECH_MS || current.accepted_take_count < 2 {
-        return result(false, "more_recording_needed", "Record at least one minute of accepted speech before creating My Voice.");
+    if !current.can_build {
+        return result(false, "more_recording_needed", current.message);
     }
 
     let (script, source) = match preflight_assets() {
@@ -598,4 +665,36 @@ pub fn get_voice_lab_evaluation_audio(line_id: u32) -> Result<tauri::ipc::Respon
         return Err("voice_lab:evaluation_audio_invalid".to_string());
     }
     Ok(tauri::ipc::Response::new(bytes))
+}
+
+#[cfg(test)]
+mod p1_recording_coverage_tests {
+    use super::{missing_training_coverage_group, GuidedTakeContract};
+
+    fn take(line_id: u32) -> GuidedTakeContract {
+        GuidedTakeContract {
+            line_id,
+            exact_text: format!("line {line_id}"),
+            wav_file: format!("take_{line_id:04}.wav"),
+        }
+    }
+
+    #[test]
+    fn many_accepted_lines_from_one_style_do_not_satisfy_recording_variety() {
+        let takes = (1..=12).map(take).collect::<Vec<_>>();
+        let missing = missing_training_coverage_group(&takes).expect("coverage must remain incomplete");
+
+        assert_eq!(missing.start_line_id, 25);
+        assert_eq!(missing.end_line_id, 30);
+    }
+
+    #[test]
+    fn one_accepted_line_from_each_curated_block_satisfies_recording_variety() {
+        let takes = [1, 25, 31, 65, 97]
+            .into_iter()
+            .map(take)
+            .collect::<Vec<_>>();
+
+        assert!(missing_training_coverage_group(&takes).is_none());
+    }
 }

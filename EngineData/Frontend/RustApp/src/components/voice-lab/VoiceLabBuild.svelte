@@ -76,7 +76,7 @@
       case "build_active":
         return "My Voice is already being created.";
       case "more_recording_needed":
-        return "Record a few more clear lines before creating My Voice.";
+        return result.message || "Record a few more clear and varied lines before creating My Voice.";
       case "build_blocked":
         return "Stop Meeting translation before creating My Voice, then try again.";
       case "cancel_pending":
@@ -115,11 +115,9 @@
   }
 
   function idleGuidance(): string {
-    if (build.approved_voice_ready && !build.can_build) {
-      return "My Voice is ready. Record more clear lines only if you want to create it again.";
-    }
+    if (!build.can_build && build.message.trim()) return build.message;
     if (!build.can_build) {
-      return "Keep recording clear lines. Create My Voice becomes available when there is enough usable speech.";
+      return "Keep recording clear and varied lines before creating My Voice.";
     }
     return "Your accepted recordings are ready.";
   }

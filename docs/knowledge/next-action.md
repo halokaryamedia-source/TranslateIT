@@ -2,7 +2,7 @@
 
 ## Current Status
 
-`PRE-TEST HARDENING — P0-1/P0-2/P0-3 SOURCE IMPLEMENTED / P1-4 NEXT / INSTALLER DEFERRED`
+`PRE-TEST HARDENING — P0-1/P0-2/P0-3/P1-4 SOURCE IMPLEMENTED / OBSERVABILITY CHECK NEXT / INSTALLER DEFERRED`
 
 Current repository authority:
 
@@ -13,7 +13,7 @@ Developing → GitHub default branch; retained historical/recovery only
 
 ## Active Boundary
 
-Before full target-Windows acceptance testing, complete only the bounded hardening queue below. The goal is to remove known source-level weaknesses that would otherwise make runtime-test results ambiguous.
+The bounded pre-test hardening queue is source-complete through P1-4. Before full target-Windows acceptance testing, perform only the minimum Diagnostics/observability check needed to interpret hardware/runtime failures. Do not reopen installer work or add deferred product features.
 
 Approved initial product remains:
 
@@ -88,7 +88,7 @@ ebdee42018fb6909f8c15d9efd9e33c45027de5d
 
 Meeting remains one finalized utterance at a time. Existing caller values such as `max_new_tokens: 96` are a bounded floor hint rather than a hard output ceiling. The worker derives the actual generation budget from verified input token count and exposed Marian/tokenizer capacity, keeps `truncation=False`, and rejects generated output whose normal EOS completion cannot be verified.
 
-Standalone Text now preserves blank-line paragraph boundaries, splits only when required by the model envelope, translates every chunk through the same canonical ID ↔ EN Marian path, fails the whole request if any required chunk is incomplete, and reassembles one ordered complete result. The plan is bounded to at most 32 translation chunks.
+Standalone Text preserves blank-line paragraph boundaries, splits only when required by the model envelope, translates every chunk through the same canonical ID ↔ EN Marian path, fails the whole request if any required chunk is incomplete, and reassembles one ordered complete result. The plan is bounded to at most 32 translation chunks.
 
 Rust Text requires the worker result to explicitly prove the canonical translation contract, `complete = true`, `finished_with_eos = true`, and `paragraph_structure_preserved = true` before presenting success.
 
@@ -102,9 +102,7 @@ Real Marian quality, target-PC latency, and GPU/CPU performance remain target/ru
 
 Commit `8ffc6786ba8395782b968c6e9d9c2e540f0d198e` closes the remaining race in the existing Windows power-lifecycle hook.
 
-The application already used a Windows `WM_POWERBROADCAST` subclass hook and a bounded lifecycle cleanup worker. Previously the power callback only queued canonical `Stop Translation`, so Meeting authority could remain active until that worker ran.
-
-Current behavior is now:
+Current behavior is:
 
 ```text
 Windows suspend / resume power event
@@ -118,53 +116,57 @@ Windows suspend / resume power event
 → session remains stopped
 ```
 
-Handled Windows power transitions are:
+Handled Windows power transitions are `PBT_APMSUSPEND`, `PBT_APMRESUMECRITICAL`, `PBT_APMRESUMESUSPEND`, and `PBT_APMRESUMEAUTOMATIC`.
+
+The immediate callback establishes only the fail-closed authority/output boundary. Full resource convergence remains owned by the existing idempotent `stop_meeting_translation()` path. Resume repeats Stop convergence only; there is no automatic Start path. Normal minimize/hide is unaffected.
+
+Actual Windows message delivery, CPAL/device behavior through real sleep/wake, cleanup timing around hardware suspension, and successful explicit fresh Start after wake remain target-Windows evidence.
+
+## P1-4 — VoiceLab Dataset Coverage Readiness
+
+### Source implementation complete
+
+VoiceLab no longer treats accepted duration plus a small take count as sufficient build readiness.
+
+The existing 128 guided English lines are already curated in five contiguous material blocks. Build readiness now uses those existing line-ID blocks directly rather than inventing word-count or text-regex heuristics:
 
 ```text
-PBT_APMSUSPEND
-PBT_APMRESUMECRITICAL
-PBT_APMRESUMESUSPEND
-PBT_APMRESUMEAUTOMATIC
+Lines   1-24  → short conversational speech
+Lines  25-30  → questions and changing intonation
+Lines  31-64  → natural varied sentences
+Lines  65-96  → names, numbers, dates, or technical details
+Lines 97-128  → longer explanations
 ```
 
-The immediate callback does **not** create another cleanup implementation. It only establishes the fail-closed authority/output boundary. Full resource convergence remains owned by the existing idempotent `stop_meeting_translation()` path.
+Current readiness is:
 
-This means stale AI/TTS work from the pre-suspend generation fails the existing generation-authority guards, and an already-running Meeting playback receives both revoked generation truth and the existing atomic playback cancellation signal.
+```text
+minimum 60 seconds usable accepted speech
++
+at least 1 accepted usable take from each of the 5 curated blocks
++
+no active recording/build conflict
+= Create My Voice eligible
+```
 
-Resume power events repeat the same invalidation/Stop convergence idempotently. There is no automatic Start path, so wake cannot intentionally resume Translation. Normal minimize/hide is unaffected because it does not enter the Windows power-broadcast path.
+The 60-second value remains only the existing safety floor; no larger arbitrary recording-minute target was added. Users do not need all 128 lines, and a large number of accepted lines from only one style no longer unlocks training.
+
+When duration is sufficient but variety is incomplete, the existing build status message gives one product-facing next action such as `Try one accepted line from Lines 25-30 for questions and changing intonation.` The normal UI now surfaces that canonical guidance instead of showing only a generic `record more` message.
+
+The build command reuses the same readiness result and fails closed with `more_recording_needed` if the dataset changes before Start. No new VoiceLab state store, scoring metric, training engine, or quality threshold was added.
+
+Regression coverage protects the two material invariants:
+
+- many accepted lines from a single curated block do not satisfy variety;
+- one accepted line from each curated block satisfies the variety portion of readiness.
+
+Final Voice Actor quality remains owned by the existing held-out generated evidence, evidence-based candidate selection, and explicit user listening approval.
 
 ### Proof boundary
 
-Source wiring now establishes synchronous authority invalidation before the power callback returns, immediate active-playback cancellation, bounded/nonblocking cleanup handoff, canonical Stop ownership, and no auto-Start path.
+The source contract now prevents duration-only readiness and provides bounded product-facing variety guidance. This does **not** prove that five-block coverage is sufficient for every real speaker, nor does it prove trained audio fidelity. Actual speaker quality remains target-capable VoiceLab evidence and should tune this contract only if real test results justify a change.
 
-This remains **source proof**, not physical sleep/hibernate proof. Actual delivery of the Windows power messages, CPAL/device behavior through real sleep/wake, timing of cleanup around hardware suspension, and successful explicit fresh Start after wake remain target-Windows lifecycle evidence.
-
-Do not add polling, a second lifecycle service, automatic restart, or device-rebind architecture before target evidence shows a separate problem.
-
-## Remaining Pre-Test Hardening Queue
-
-### P1-4 — VoiceLab Dataset Coverage Readiness — NEXT
-
-Keep minimum usable-speech duration as a safety floor, but do not let duration alone make `Create My Voice` ready.
-
-Use the existing guided line set to require small representative coverage across broad categories such as:
-
-- short conversational phrases;
-- longer explanatory speech;
-- questions / changing intonation;
-- names, numbers, dates, or technical wording;
-- normal varied sentence structure.
-
-Do not require all 128 lines and do not replace the current floor with another arbitrary large recording-minute target.
-
-Acceptance:
-
-- high duration alone cannot satisfy build readiness;
-- accepted takes satisfy a small representative coverage contract;
-- UI guidance stays product-facing and non-technical;
-- final trained quality remains held-out output + user listening approval.
-
-## Test-Support Observability
+## Test-Support Observability — NEXT
 
 Before target-Windows performance testing, use existing Diagnostics first. Add only the smallest missing diagnostic-only visibility needed to interpret failures, potentially including:
 
@@ -177,11 +179,11 @@ GPU/VRAM usage or availability when reliably obtainable
 existing per-stage Meeting timing
 ```
 
-This is not permission to create telemetry, user-facing CUDA/model controls, a monitoring service, automatic model eviction, or another scheduler. VRAM residency strategy changes only if target evidence proves an actual memory problem.
+This is not permission to create telemetry, user-facing CUDA/model controls, a monitoring service, automatic model eviction, or another scheduler. If existing Diagnostics already exposes enough reliable information, make no source change and proceed to target testing.
 
 ## Already Sufficient for Pre-Test Source Scope
 
-Do not redesign without evidence:
+Do not redesign without target evidence:
 
 - Meeting transactional Start / rollback;
 - canonical Stop / cleanup ownership;
@@ -216,7 +218,7 @@ Do not continue installer work now.
 
 ## Target Test After Hardening
 
-After P0/P1 hardening, target-capable testing should determine:
+After the observability check, target-capable testing should determine:
 
 ```text
 microphone capture / VAD segmentation
@@ -237,4 +239,4 @@ Installer/package remains deferred until product/runtime results and any resulti
 
 ## Next Step
 
-**Implement P1-4: VoiceLab dataset coverage readiness. Keep the current minimum usable-speech duration only as a safety floor, then require a small representative coverage contract across the existing guided English material so `Create My Voice` cannot become ready from duration alone. Keep the guidance simple, do not require all 128 lines, and leave final actor quality to held-out generated evidence plus user listening approval.**
+**Audit the existing Advanced → Diagnostics output against the minimum test-support list above. Add only genuinely missing, reliable diagnostic visibility needed to interpret target-Windows failures—especially combined runtime device/VRAM truth if it is not already available. If current Diagnostics is already sufficient, make no change and proceed to target-Windows acceptance testing.**
