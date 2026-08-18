@@ -35,10 +35,10 @@ def test_translate_routes_by_language_pair_without_mode_compatibility_output(mon
     assert result["ok"] is False
     assert "mode" not in result
     assert result["direction_pair"] == "id->en"
-    assert result["blocker"] == "model:marianmt_id_en_missing"
+    assert result["blocker"] == "model:m2m100_418m_missing"
 
 
-def test_reverse_direction_is_supported_by_language_pair(monkeypatch) -> None:
+def test_reverse_direction_uses_same_canonical_bidirectional_model(monkeypatch) -> None:
     worker = load_worker_module()
     monkeypatch.setattr(worker, "translation_model_ready", lambda _path: False)
 
@@ -54,18 +54,22 @@ def test_reverse_direction_is_supported_by_language_pair(monkeypatch) -> None:
     assert "mode" not in result
     assert result["direction_pair"] == "en->id"
     assert result["direction_supported"] is True
-    assert result["blocker"] == "model:marianmt_en_id_missing"
+    assert result["blocker"] == "model:m2m100_418m_missing"
+    assert worker.translation_model_for_direction("id", "en") == (
+        "m2m100-418m",
+        worker.TRANSLATION_MODEL,
+    )
+    assert worker.translation_model_for_direction("en", "id") == (
+        "m2m100-418m",
+        worker.TRANSLATION_MODEL,
+    )
 
 
-def test_worker_status_uses_canonical_translation_readiness_fields(monkeypatch) -> None:
+def test_worker_status_uses_one_bidirectional_translation_readiness(monkeypatch) -> None:
     worker = load_worker_module()
     monkeypatch.setattr(worker, "import_ready", lambda _name: True)
     monkeypatch.setattr(worker, "asr_model_ready", lambda _path: True)
-    monkeypatch.setattr(
-        worker,
-        "translation_model_ready",
-        lambda path: path == worker.TRANSLATION_MODEL_ID_EN,
-    )
+    monkeypatch.setattr(worker, "translation_model_ready", lambda _path: True)
     monkeypatch.setattr(
         worker,
         "probe_gpu_runtime",
@@ -108,12 +112,14 @@ def test_worker_status_uses_canonical_translation_readiness_fields(monkeypatch) 
         "cuda_degraded",
     }
     assert readiness["translation_id_en"] is True
-    assert readiness["translation_en_id"] is False
-    assert readiness["translation_bidirectional"] is False
+    assert readiness["translation_en_id"] is True
+    assert readiness["translation_bidirectional"] is True
+    assert status["models"]["translation_id_en"]["id"] == "m2m100-418m"
+    assert status["models"]["translation_en_id"]["id"] == "m2m100-418m"
+    assert status["models"]["translation_id_en"]["path"] == str(worker.TRANSLATION_MODEL)
+    assert status["models"]["translation_en_id"]["path"] == str(worker.TRANSLATION_MODEL)
     assert "translation_realtime" not in status["models"]
     assert "translation_quality" not in status["models"]
-    assert "translation_model_ready" not in status
-    assert "quality_translation_model_ready" not in status
 
 
 def test_legacy_userdata_label_maps_to_writable_user_root(tmp_path: Path, monkeypatch) -> None:
@@ -189,13 +195,16 @@ def test_translation_completion_rejects_token_ceiling_without_eos() -> None:
 
     class Tokenizer:
         eos_token_id = 2
+        pad_token_id = 1
 
     class Config:
         is_encoder_decoder = True
         eos_token_id = 2
+        pad_token_id = 1
 
     class GenerationConfig:
         eos_token_id = 2
+        pad_token_id = 1
 
     class Model:
         config = Config()
@@ -211,35 +220,52 @@ def test_translation_completion_rejects_token_ceiling_without_eos() -> None:
     assert result["blocker"] == "translation:output_hit_token_ceiling_without_eos"
 
 
-def test_translation_completion_accepts_verified_eos() -> None:
+def test_translation_completion_accepts_verified_eos_with_trailing_padding() -> None:
     worker = load_worker_module()
 
     class Tokenizer:
         eos_token_id = 2
+        pad_token_id = 1
 
     class Config:
         is_encoder_decoder = True
         eos_token_id = 2
+        pad_token_id = 1
 
     class GenerationConfig:
         eos_token_id = 2
+        pad_token_id = 1
 
     class Model:
         config = Config()
         generation_config = GenerationConfig()
 
     result = worker.translation_generation_completion(
-        [[0, 11, 12, 2]], Tokenizer(), Model(), max_new_tokens=3
+        [[0, 11, 12, 2, 1, 1]], Tokenizer(), Model(), max_new_tokens=8
     )
 
     assert result["complete"] is True
     assert result["finished_with_eos"] is True
     assert result["generated_tokens"] == 3
-    assert result["hit_token_ceiling"] is True
+    assert result["hit_token_ceiling"] is False
     assert result["blocker"] == ""
 
 
+def test_translation_generation_options_use_target_language_without_overriding_beams() -> None:
+    worker = load_worker_module()
 
+    class Tokenizer:
+        def get_lang_id(self, language: str) -> int:
+            return {"id": 7, "en": 8}[language]
+
+    options = worker.translation_generation_options(Tokenizer(), "id", 64)
+
+    assert options == {
+        "max_new_tokens": 64,
+        "forced_bos_token_id": 7,
+        "return_dict_in_generate": True,
+    }
+    assert "num_beams" not in options
 
 
 def test_newline_json_protocol_rejects_unknown_command() -> None:
@@ -258,8 +284,6 @@ def test_newline_json_protocol_rejects_unknown_command() -> None:
     payload = json.loads(lines[0])
     assert payload["ok"] is False
     assert payload["blocker"] == "worker:unknown_command"
-
-
 
 
 def test_newline_protocol_rejects_already_expired_request() -> None:
@@ -415,6 +439,9 @@ def test_translation_cuda_move_failure_is_not_retried_on_cpu(monkeypatch) -> Non
         def from_pretrained(cls, _path: str, *, local_files_only: bool):
             assert local_files_only is True
             return cls()
+
+        def get_lang_id(self, _language: str) -> int:
+            return 1
 
     class FakeModel:
         @classmethod

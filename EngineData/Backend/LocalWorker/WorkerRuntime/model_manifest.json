@@ -52,42 +52,31 @@
       "revision": "08e178d48790749d25932bbc082711ddcfdfbc4f"
     },
     {
-      "model_id": "marianmt-id-en",
+      "model_id": "m2m100-418m",
       "required": true,
-      "stage": "translation_id_en",
-      "backend": "marianmt",
+      "stage": "translation_bidirectional_id_en",
+      "backend": "m2m100",
       "source_type": "huggingface",
-      "repo_id": "Helsinki-NLP/opus-mt-id-en",
-      "expected_path": "EngineData/Backend/RuntimeAssets/Translation/ModelData/marianmt-id-en",
-      "legacy_paths": [
-        "EngineData/Backend/RuntimeAssets/Translation/ModelData/marianmt-id-en"
-      ],
+      "repo_id": "facebook/m2m100_418M",
+      "expected_path": "EngineData/Backend/RuntimeAssets/Translation/ModelData/m2m100-418m",
+      "legacy_paths": [],
       "gpu_capable": true,
       "cpu_fallback": true,
-      "download_url": "https://huggingface.co/Helsinki-NLP/opus-mt-id-en",
+      "download_url": "https://huggingface.co/facebook/m2m100_418M",
       "install_method": "huggingface_snapshot_download",
-      "license": "apache-2.0",
-      "notes": "Required full-product-release Indonesian-to-English translation asset and required runtime capability for Meeting outbound. Meeting readiness is decided by worker status, not this release inventory.",
-      "revision": "9a7f1b0d0dfe0a92ba691030b01d6f23f966e7ec"
-    },
-    {
-      "model_id": "marianmt-en-id",
-      "required": true,
-      "stage": "translation_en_id",
-      "backend": "marianmt",
-      "source_type": "huggingface",
-      "repo_id": "Helsinki-NLP/opus-mt-en-id",
-      "expected_path": "EngineData/Backend/RuntimeAssets/Translation/ModelData/marianmt-en-id",
-      "legacy_paths": [
-        "EngineData/Backend/RuntimeAssets/Translation/ModelData/marianmt-en-id"
+      "download_allow_patterns": [
+        "README.md",
+        "config.json",
+        "generation_config.json",
+        "pytorch_model.bin",
+        "sentencepiece.bpe.model",
+        "special_tokens_map.json",
+        "tokenizer_config.json",
+        "vocab.json"
       ],
-      "gpu_capable": true,
-      "cpu_fallback": true,
-      "download_url": "https://huggingface.co/Helsinki-NLP/opus-mt-en-id",
-      "install_method": "huggingface_snapshot_download",
-      "license": "apache-2.0",
-      "notes": "Required for full product release because standalone Text supports English-to-Indonesian. It remains optional for Meeting Start and optional incoming Meeting assistance.",
-      "revision": "6e4c52d61a6b16fe3509b0267cbfec65011b860b"
+      "license": "mit",
+      "notes": "Single canonical bidirectional Indonesian-English translation model selected from target-Windows quality evidence. The acquisition allowlist intentionally excludes the duplicate Rust framework weight because the canonical WorkerRuntime uses PyTorch Transformers. Presence is installation evidence only; model quality, CUDA/CPU behavior, and combined Meeting practicality remain target-runtime claims.",
+      "revision": "55c2e61bbf05dfb8d7abccdc3fae6fc8512fd636"
     },
     {
       "model_id": "gpt-sovits-v2proplus-voicelab",

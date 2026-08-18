@@ -42,6 +42,24 @@ def resolve_target(expected_path: str) -> Path:
     return target
 
 
+def validate_download_allow_patterns(model_id: str, value: Any) -> list[str] | None:
+    if value in (None, []):
+        return None
+    if not isinstance(value, list) or not value:
+        raise RuntimeError(f"{model_id} download_allow_patterns must be a non-empty list")
+
+    patterns: list[str] = []
+    for raw in value:
+        pattern = str(raw or "").strip().replace("\\", "/")
+        if not pattern or pattern.startswith("/"):
+            raise RuntimeError(f"{model_id} has invalid download allow pattern: {raw!r}")
+        parts = [part for part in pattern.split("/") if part]
+        if any(part == ".." for part in parts):
+            raise RuntimeError(f"{model_id} download allow pattern may not escape its snapshot")
+        patterns.append(pattern)
+    return list(dict.fromkeys(patterns))
+
+
 def validate_huggingface_model(model: dict[str, Any]) -> dict[str, Any]:
     model_id = str(model.get("model_id", "")).strip()
     repo_id = str(model.get("repo_id", "")).strip()
@@ -61,6 +79,9 @@ def validate_huggingface_model(model: dict[str, Any]) -> dict[str, Any]:
         "required": bool(model.get("required")),
         "stage": str(model.get("stage", "")),
         "target": target,
+        "download_allow_patterns": validate_download_allow_patterns(
+            model_id, model.get("download_allow_patterns")
+        ),
     }
 
 
@@ -136,11 +157,14 @@ def replace_target_from_snapshot(item: dict[str, Any]) -> dict[str, Any]:
     shutil.rmtree(backup, ignore_errors=True)
 
     try:
-        snapshot_download(
-            repo_id=item["repo_id"],
-            revision=item["revision"],
-            local_dir=staging,
-        )
+        download_args: dict[str, Any] = {
+            "repo_id": item["repo_id"],
+            "revision": item["revision"],
+            "local_dir": staging,
+        }
+        if item.get("download_allow_patterns"):
+            download_args["allow_patterns"] = item["download_allow_patterns"]
+        snapshot_download(**download_args)
         clean_huggingface_local_cache(staging)
         files = [path for path in staging.rglob("*") if path.is_file()]
         if not files:
@@ -169,8 +193,9 @@ def replace_target_from_snapshot(item: dict[str, Any]) -> dict[str, Any]:
 
 
 def serializable_plan(items: list[dict[str, Any]]) -> list[dict[str, Any]]:
-    return [
-        {
+    output: list[dict[str, Any]] = []
+    for item in items:
+        entry = {
             "model_id": item["model_id"],
             "repo_id": item["repo_id"],
             "revision": item["revision"],
@@ -178,8 +203,10 @@ def serializable_plan(items: list[dict[str, Any]]) -> list[dict[str, Any]]:
             "stage": item["stage"],
             "expected_path": str(item["target"].relative_to(PROJECT_ROOT)).replace("\\", "/"),
         }
-        for item in items
-    ]
+        if item.get("download_allow_patterns"):
+            entry["download_allow_patterns"] = item["download_allow_patterns"]
+        output.append(entry)
+    return output
 
 
 def main() -> int:

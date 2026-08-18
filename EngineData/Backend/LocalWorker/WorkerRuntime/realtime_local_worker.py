@@ -30,8 +30,7 @@ ASR_MODEL_ROOT = RUNTIME_ASSETS_ROOT / "ASR" / "ModelData"
 TRANSLATION_MODEL_ROOT = RUNTIME_ASSETS_ROOT / "Translation" / "ModelData"
 ASR_MODEL = ASR_MODEL_ROOT / "faster-whisper-large-v3-turbo"
 ASR_BACKUP_MODEL = ASR_MODEL_ROOT / "faster-whisper-medium"
-TRANSLATION_MODEL_ID_EN = TRANSLATION_MODEL_ROOT / "marianmt-id-en"
-TRANSLATION_MODEL_EN_ID = TRANSLATION_MODEL_ROOT / "marianmt-en-id"
+TRANSLATION_MODEL = TRANSLATION_MODEL_ROOT / "m2m100-418m"
 GPT_SOVITS_SOURCE_ROOT = RUNTIME_ASSETS_ROOT / "Voice" / "GPTSoVITS" / "Source"
 VOICE_ACTOR_ROOT = USER_DATA_ROOT / "SavedProject" / "VoiceLab" / "MyVoice"
 CACHE_ROOT = USER_DATA_ROOT / "CacheData"
@@ -255,10 +254,8 @@ def translation_model_for_direction(
     source_language: str, target_language: str
 ) -> tuple[str, Path] | None:
     pair = direction_pair(source_language, target_language)
-    if pair == "id->en":
-        return "marianmt-id-en", TRANSLATION_MODEL_ID_EN
-    if pair == "en->id":
-        return "marianmt-en-id", TRANSLATION_MODEL_EN_ID
+    if pair in {"id->en", "en->id"}:
+        return "m2m100-418m", TRANSLATION_MODEL
     return None
 
 
@@ -361,12 +358,12 @@ def asr_model_ready(path: Path) -> bool:
 
 
 def translation_model_ready(path: Path) -> bool:
-    if not (path / "config.json").is_file():
-        return False
-    if not has_any(path, ("*.safetensors", "pytorch_model*.bin")):
-        return False
-    return has_any(path, ("source.spm", "tokenizer.json", "spiece.model")) and has_any(
-        path, ("target.spm", "tokenizer.json", "spiece.model")
+    return (
+        (path / "config.json").is_file()
+        and (path / "generation_config.json").is_file()
+        and (path / "pytorch_model.bin").is_file()
+        and (path / "sentencepiece.bpe.model").is_file()
+        and (path / "vocab.json").is_file()
     )
 
 
@@ -387,12 +384,8 @@ def status_action_items(blockers: list[str], warnings: list[str]) -> list[str]:
         actions.append("Provide the approved local faster-whisper ASR runtime/model assets.")
     if "transformers" in joined or "torch" in joined:
         actions.append("Install torch and transformers for local translation.")
-    if "marianmt_id_en" in joined:
-        actions.append("Provide marianmt-id-en under RuntimeAssets/Translation/ModelData.")
-    if "marianmt_en_id" in joined:
-        actions.append(
-            "Provide marianmt-en-id under RuntimeAssets/Translation/ModelData for EN -> ID translation."
-        )
+    if "m2m100_418m" in joined:
+        actions.append("Provide pinned m2m100-418m under RuntimeAssets/Translation/ModelData.")
     if "voice_actor:" in joined:
         actions.append(
             "Create and approve My Voice in VoiceLab, or repair the installed VoiceLab runtime assets."
@@ -429,9 +422,10 @@ def build_status_payload(payload: dict[str, Any] | None = None) -> dict[str, Any
         "primary" if asr_primary_ready else "fallback_degraded" if asr_backup_ready else "blocked"
     )
 
-    translation_id_en_ready = translation_model_ready(TRANSLATION_MODEL_ID_EN)
-    translation_en_id_ready = translation_model_ready(TRANSLATION_MODEL_EN_ID)
-    translation_bidirectional_ready = translation_id_en_ready and translation_en_id_ready
+    translation_model_available = translation_model_ready(TRANSLATION_MODEL)
+    translation_id_en_ready = translation_model_available
+    translation_en_id_ready = translation_model_available
+    translation_bidirectional_ready = translation_model_available
     actor_status = voice_actor_static_status()
     voice_actor_ready = bool(actor_status["ready"])
 
@@ -455,10 +449,8 @@ def build_status_payload(payload: dict[str, Any] | None = None) -> dict[str, Any
         warnings.append("asr_primary_large_v3_turbo_missing_using_medium_fallback")
     if not asr_backup_ready:
         warnings.append("asr_backup_faster_whisper_medium_missing")
-    if not translation_id_en_ready:
-        blockers.append("model:marianmt_id_en_missing")
-    if not translation_en_id_ready:
-        warnings.append("model:marianmt_en_id_missing_reverse_translation_unavailable")
+    if not translation_model_available:
+        blockers.append("model:m2m100_418m_missing")
     if not voice_actor_ready:
         blockers.append(str(actor_status["blocker"]))
     if cpu_fallback_active:
@@ -480,8 +472,6 @@ def build_status_payload(payload: dict[str, Any] | None = None) -> dict[str, Any
         if provider_ready
         else "Worker is running, but one or more required outbound AI capabilities are unavailable."
     )
-    if provider_ready and not translation_en_id_ready:
-        note += " EN -> ID translation is unavailable, so optional incoming/Text reverse translation is degraded."
     if cpu_fallback_active:
         note += " CUDA capability is unavailable; CPU fallback is explicit degraded operation."
     elif not cuda_capability_known and (torch_ready or ctranslate2_ready):
@@ -524,14 +514,14 @@ def build_status_payload(payload: dict[str, Any] | None = None) -> dict[str, Any
                 "path": str(ASR_BACKUP_MODEL),
             },
             "translation_id_en": {
-                "id": "marianmt-id-en",
+                "id": "m2m100-418m",
                 "ready": translation_id_en_ready,
-                "path": str(TRANSLATION_MODEL_ID_EN),
+                "path": str(TRANSLATION_MODEL),
             },
             "translation_en_id": {
-                "id": "marianmt-en-id",
+                "id": "m2m100-418m",
                 "ready": translation_en_id_ready,
-                "path": str(TRANSLATION_MODEL_EN_ID),
+                "path": str(TRANSLATION_MODEL),
             },
         },
         "tts": {
@@ -757,6 +747,13 @@ def get_translation_runtime(source_language: str, target_language: str) -> dict[
     if pair in TRANSLATION_RUNTIME:
         return TRANSLATION_RUNTIME[pair]
 
+    if TRANSLATION_RUNTIME:
+        shared = next(iter(TRANSLATION_RUNTIME.values()))
+        runtime = dict(shared)
+        runtime["direction_pair"] = pair
+        TRANSLATION_RUNTIME[pair] = runtime
+        return runtime
+
     from transformers import AutoModelForSeq2SeqLM, AutoTokenizer
 
     model_id, model_path = selected
@@ -765,6 +762,8 @@ def get_translation_runtime(source_language: str, target_language: str) -> dict[
     degraded = device != "cuda"
     tokenizer = AutoTokenizer.from_pretrained(str(model_path), local_files_only=True)
     model = AutoModelForSeq2SeqLM.from_pretrained(str(model_path), local_files_only=True)
+    if not callable(getattr(tokenizer, "get_lang_id", None)):
+        raise RuntimeError("translation:m2m100_language_token_api_unavailable")
     if device == "cuda":
         model = model.to("cuda")
     model.eval()
@@ -809,7 +808,7 @@ def handle_translation_preload(payload: dict[str, Any]) -> dict[str, Any]:
     ):
         blockers = list(status.get("blockers", []))
         if not model_ready:
-            blockers.append(f"model:{model_id.replace('-', '_')}_missing")
+            blockers.append("model:m2m100_418m_missing")
         return failed_from_status(
             "translation_preload",
             {**status, "blocker": ";".join(blockers), "blockers": blockers},
@@ -835,7 +834,7 @@ def handle_translation_preload(payload: dict[str, Any]) -> dict[str, Any]:
             "translation_fallback_reason": runtime["translation_fallback_reason"],
             "elapsed_ms": now_ms() - started,
             "warnings": status.get("warnings", []),
-            "note": "Canonical translation model loaded for the requested language direction.",
+            "note": "Canonical bidirectional translation model loaded for the requested language direction.",
         }
     except Exception as exc:
         return {
@@ -866,6 +865,12 @@ def input_token_count(inputs: Any) -> int | None:
         return None
 
 
+def translation_input_token_limit(tokenizer: Any, model: Any) -> int | None:
+    return translation_envelope.input_token_limit(
+        tokenizer, model, MAX_REASONABLE_MODEL_TOKEN_LIMIT
+    )
+
+
 def normalized_token_id_set(value: Any) -> set[int]:
     if value is None:
         return set()
@@ -893,6 +898,15 @@ def generation_eos_token_ids(tokenizer: Any, model: Any) -> set[int]:
     return token_ids
 
 
+def generation_pad_token_ids(tokenizer: Any, model: Any) -> set[int]:
+    token_ids = normalized_token_id_set(getattr(tokenizer, "pad_token_id", None))
+    generation_config = getattr(model, "generation_config", None)
+    token_ids.update(normalized_token_id_set(getattr(generation_config, "pad_token_id", None)))
+    config = getattr(model, "config", None)
+    token_ids.update(normalized_token_id_set(getattr(config, "pad_token_id", None)))
+    return token_ids
+
+
 def first_sequence_token_ids(sequences: Any) -> list[int] | None:
     try:
         first = sequences[0]
@@ -913,6 +927,16 @@ def first_sequence_token_ids(sequences: Any) -> list[int] | None:
     return result
 
 
+def trim_trailing_pad_token_ids(
+    sequence_ids: list[int], tokenizer: Any, model: Any
+) -> list[int]:
+    effective = list(sequence_ids)
+    pad_ids = generation_pad_token_ids(tokenizer, model)
+    while effective and effective[-1] in pad_ids:
+        effective.pop()
+    return effective
+
+
 def generated_token_count(sequence_ids: list[int], model: Any) -> int | None:
     if not sequence_ids:
         return None
@@ -929,8 +953,18 @@ def translation_generation_completion(
     model: Any,
     max_new_tokens: int,
 ) -> dict[str, Any]:
-    sequence_ids = first_sequence_token_ids(sequences)
-    if sequence_ids is None or not sequence_ids:
+    raw_sequence_ids = first_sequence_token_ids(sequences)
+    if raw_sequence_ids is None or not raw_sequence_ids:
+        return {
+            "complete": False,
+            "blocker": "translation:output_completion_unverifiable",
+            "finished_with_eos": False,
+            "generated_tokens": None,
+            "hit_token_ceiling": None,
+        }
+
+    sequence_ids = trim_trailing_pad_token_ids(raw_sequence_ids, tokenizer, model)
+    if not sequence_ids:
         return {
             "complete": False,
             "blocker": "translation:output_completion_unverifiable",
@@ -983,6 +1017,23 @@ def translation_generation_completion(
     }
 
 
+def translation_generation_options(
+    tokenizer: Any, target_language: str, max_new_tokens: int
+) -> dict[str, Any]:
+    get_lang_id = getattr(tokenizer, "get_lang_id", None)
+    if not callable(get_lang_id):
+        raise RuntimeError("translation:m2m100_language_token_api_unavailable")
+    try:
+        target_language_id = int(get_lang_id(target_language))
+    except Exception as exc:
+        raise RuntimeError("translation:target_language_token_unavailable") from exc
+    return {
+        "max_new_tokens": max_new_tokens,
+        "forced_bos_token_id": target_language_id,
+        "return_dict_in_generate": True,
+    }
+
+
 def handle_translate(payload: dict[str, Any]) -> dict[str, Any]:
     started = now_ms()
     if runtime_text_too_large(payload.get("text", ""), MAX_TRANSLATION_TEXT_CHARS):
@@ -1030,8 +1081,8 @@ def handle_translate(payload: dict[str, Any]) -> dict[str, Any]:
             "target_language": target_language,
             "direction_pair": pair,
             "direction_supported": True,
-            "blocker": f"model:{model_id.replace('-', '_')}_missing",
-            "note": "The local model for this language direction is not installed or incomplete.",
+            "blocker": "model:m2m100_418m_missing",
+            "note": "The pinned local bidirectional translation model is not installed or incomplete.",
             "elapsed_ms": now_ms() - started,
         }
 
@@ -1041,11 +1092,10 @@ def handle_translate(payload: dict[str, Any]) -> dict[str, Any]:
         model = runtime["model"]
         device = runtime["device"]
 
+        tokenizer.src_lang = source_language
         inputs = tokenizer(text, return_tensors="pt", truncation=False)
         token_count = input_token_count(inputs)
-        max_input_tokens = translation_envelope.input_token_limit(
-            tokenizer, model, MAX_REASONABLE_MODEL_TOKEN_LIMIT
-        )
+        max_input_tokens = translation_input_token_limit(tokenizer, model)
         if token_count is None:
             return {
                 "ok": False,
@@ -1091,15 +1141,13 @@ def handle_translate(payload: dict[str, Any]) -> dict[str, Any]:
             MAX_REASONABLE_MODEL_TOKEN_LIMIT,
         )
         inputs = move_inputs_to_device(inputs, device)
+        generation_options = translation_generation_options(
+            tokenizer, target_language, max_new_tokens
+        )
         import torch
 
         with torch.inference_mode():
-            generation = model.generate(
-                **inputs,
-                max_new_tokens=max_new_tokens,
-                num_beams=1,
-                return_dict_in_generate=True,
-            )
+            generation = model.generate(**inputs, **generation_options)
         sequences = getattr(generation, "sequences", None)
         if sequences is None:
             return {
@@ -1199,9 +1247,8 @@ def handle_standalone_text_translate(payload: dict[str, Any]) -> dict[str, Any]:
         runtime = get_translation_runtime(source_language, target_language)
         tokenizer = runtime["tokenizer"]
         model = runtime["model"]
-        max_input_tokens = translation_envelope.input_token_limit(
-            tokenizer, model, MAX_REASONABLE_MODEL_TOKEN_LIMIT
-        )
+        tokenizer.src_lang = source_language
+        max_input_tokens = translation_input_token_limit(tokenizer, model)
         if max_input_tokens is None:
             return {
                 "ok": False,
@@ -1366,22 +1413,57 @@ def handle_voice_actor_preflight(_payload: dict[str, Any]) -> dict[str, Any]:
     try:
         runtime = get_voice_actor_runtime()
         actor_token = voice_actor_package_token({"fingerprint": runtime.get("fingerprint")})
-        return {"ok": True, "stage": "voice_actor_preflight", "voice_id": "MyVoice", "language_code": "en", "device": str(runtime.get("device", "unknown")), "reference_cached": bool(runtime.get("reference_cached")), "actor_token": actor_token, "elapsed_ms": now_ms() - started, "blocker": "", "note": "The approved My Voice actor is loaded for local English synthesis."}
+        return {
+            "ok": True,
+            "stage": "voice_actor_preflight",
+            "voice_id": "MyVoice",
+            "language_code": "en",
+            "device": str(runtime.get("device", "unknown")),
+            "reference_cached": bool(runtime.get("reference_cached")),
+            "actor_token": actor_token,
+            "elapsed_ms": now_ms() - started,
+            "blocker": "",
+            "note": "The approved My Voice actor is loaded for local English synthesis.",
+        }
     except Exception as exc:
-        return {"ok": False, "stage": "voice_actor_preflight", "voice_id": "MyVoice", "language_code": "en", "actor_token": "", "blocker": voice_actor_blocker(exc), "elapsed_ms": now_ms() - started, "note": "The approved My Voice actor could not be loaded."}
+        return {
+            "ok": False,
+            "stage": "voice_actor_preflight",
+            "voice_id": "MyVoice",
+            "language_code": "en",
+            "actor_token": "",
+            "blocker": voice_actor_blocker(exc),
+            "elapsed_ms": now_ms() - started,
+            "note": "The approved My Voice actor could not be loaded.",
+        }
 
 
 def handle_voice_actor_synthesize(payload: dict[str, Any]) -> dict[str, Any]:
     started = now_ms()
     if runtime_text_too_large(payload.get("text", ""), MAX_TTS_TEXT_CHARS):
-        return {"ok": False, "stage": "voice_actor_synthesize", "blocker": "voice_actor:text_too_large", "max_chars": MAX_TTS_TEXT_CHARS}
+        return {
+            "ok": False,
+            "stage": "voice_actor_synthesize",
+            "blocker": "voice_actor:text_too_large",
+            "max_chars": MAX_TTS_TEXT_CHARS,
+        }
     actor_text = compact_runtime_text(payload.get("text", ""), MAX_TTS_TEXT_CHARS)
     if not actor_text:
         return {"ok": False, "stage": "voice_actor_synthesize", "blocker": "voice_actor:empty_text"}
     try:
-        output_path = resolve_worker_path(payload.get("output_path", ""), CACHE_ROOT / "voice_actor_output.wav", ALLOWED_OUTPUT_ROOTS)
+        output_path = resolve_worker_path(
+            payload.get("output_path", ""),
+            CACHE_ROOT / "voice_actor_output.wav",
+            ALLOWED_OUTPUT_ROOTS,
+        )
     except Exception as exc:
-        return {"ok": False, "stage": "voice_actor_synthesize", "blocker": type(exc).__name__, "note": str(exc), "elapsed_ms": now_ms() - started}
+        return {
+            "ok": False,
+            "stage": "voice_actor_synthesize",
+            "blocker": type(exc).__name__,
+            "note": str(exc),
+            "elapsed_ms": now_ms() - started,
+        }
     output_path.parent.mkdir(parents=True, exist_ok=True)
     output_path.unlink(missing_ok=True)
     try:
@@ -1399,10 +1481,30 @@ def handle_voice_actor_synthesize(payload: dict[str, Any]) -> dict[str, Any]:
         synthesis = voice_actor_provider.synthesize_voice_actor(runtime, actor_text, output_path)
         if not output_path.is_file() or output_path.stat().st_size <= 44:
             raise voice_actor_provider.VoiceLabProviderError("inference_audio_invalid")
-        return {"ok": True, "stage": "voice_actor_synthesize", "voice_id": "MyVoice", "language_code": "en", "device": synthesis["device"], "reference_cached": synthesis["reference_cached"], "sample_rate": synthesis["sample_rate"], "actor_token": runtime_token, "output_path": str(output_path), "elapsed_ms": now_ms() - started, "blocker": ""}
+        return {
+            "ok": True,
+            "stage": "voice_actor_synthesize",
+            "voice_id": "MyVoice",
+            "language_code": "en",
+            "device": synthesis["device"],
+            "reference_cached": synthesis["reference_cached"],
+            "sample_rate": synthesis["sample_rate"],
+            "actor_token": runtime_token,
+            "output_path": str(output_path),
+            "elapsed_ms": now_ms() - started,
+            "blocker": "",
+        }
     except Exception as exc:
         output_path.unlink(missing_ok=True)
-        return {"ok": False, "stage": "voice_actor_synthesize", "voice_id": "MyVoice", "language_code": "en", "blocker": voice_actor_blocker(exc), "elapsed_ms": now_ms() - started, "note": "My Voice synthesis failed without switching to another voice."}
+        return {
+            "ok": False,
+            "stage": "voice_actor_synthesize",
+            "voice_id": "MyVoice",
+            "language_code": "en",
+            "blocker": voice_actor_blocker(exc),
+            "elapsed_ms": now_ms() - started,
+            "note": "My Voice synthesis failed without switching to another voice.",
+        }
 
 
 HANDLERS = {

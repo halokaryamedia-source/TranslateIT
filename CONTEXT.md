@@ -97,8 +97,10 @@ Svelte owns presentation/application state, not duplicate Rust/runtime truth. No
 
 - Meeting required outbound is Indonesian → English.
 - Text supports Indonesian → English and English → Indonesian.
-- Current worker routes those directions through the canonical Marian model owners.
-- Finalized stable speech is normal Meeting translation truth.
+- One pinned `facebook/m2m100_418M` model at revision `55c2e61bbf05dfb8d7abccdc3fae6fc8512fd636` is the canonical bidirectional translation model; Marian is retired from the production path rather than retained as a fallback.
+- Standalone Text preserves blank-line paragraphs and translates conservative semantic/sentence units before ordered reassembly; one oversized semantic unit may use bounded token-safe splitting.
+- The runtime uses the pinned model generation profile and verifies generation completion with trailing padding ignored only for EOS verification.
+- Finalized stable speech remains normal Meeting translation truth and is translated as one finalized utterance at a time.
 - Source text is not silently truncated and known incomplete generation is not promoted as complete.
 - Previous turns, general History, and standalone Text are not automatic model context.
 - Optional incoming may degrade/disable without blocking safe outbound.
@@ -210,9 +212,7 @@ TranslateIT-Setup.exe
 colocated external payload file(s)
 ```
 
-R3.2 measured the current optimized Tauri release resources at approximately **8.036 GB** without replacing, quantizing, or downgrading the approved ASR, Marian, GPT-SoVITS, CUDA, or VoiceLab capability.
-
-Lossless distribution benchmarking measured the same resource set at approximately **5.635 GB as ZIP/Deflate** and **4.430 GB as solid 7z/LZMA2**. `7z/LZMA2` is the current size-first payload candidate; compression affects distribution size only and does not reduce or alter the installed approximately 8.036 GB resource set.
+R3.2 measured the then-current optimized Tauri release resources at approximately **8.036 GB**, with lossless distribution measurements of approximately **5.635 GB as ZIP/Deflate** and **4.430 GB as solid 7z/LZMA2**. Those figures are preserved as a historical pre-M2M translation baseline. The M2M100 migration changes the translation release input, so the exact eventual release size must be remeasured only after target runtime scope is stable enough to re-freeze packaging inputs.
 
 The Setup implementation must consume its colocated payload automatically. Do not add first-use/core-model downloads, manual extraction, manual Python/model setup, a second installer, or a general package-manager/artifact-registry architecture merely to solve distribution.
 
@@ -235,7 +235,7 @@ installed private-runtime execution on the target PC
 clean-machine operation
 ```
 
-Those remain target-capable proof. Local Windows validation is currently deferred until explicitly reactivated or until it becomes the minimum proof for installer/runtime acceptance.
+Target-Windows validation is active. STEP 1 application/worker startup has passed on the current target PC; translation STEP 2 is the active acceptance boundary after the M2M100 migration. Later audio, VoiceLab, Meeting, power-lifecycle, meeting-app, installed-runtime, and clean-machine claims remain unproven until their matching tests run.
 
 ## Repository operating direction
 
