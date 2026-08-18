@@ -213,3 +213,20 @@ The classic single-EXE NSIS boundary is structurally unsuitable for the large of
 
 **Boundary**  
 Do not turn this into a bootstrap download system, package manager, general artifact registry, manual extraction workflow, second setup, or model-quality reduction. Target-Windows installation/clean-machine proof remains separate acceptance evidence.
+
+## D-024 — Canonical Translation Moves To M2M100 With Standalone Semantic Segmentation
+
+**Decision**  
+Replace the two Marian production translation models with one pinned `facebook/m2m100_418M` bidirectional model at revision `55c2e61bbf05dfb8d7abccdc3fae6fc8512fd636`. Keep one canonical local translation runtime; do not retain Marian as a normal fallback or add a provider router.
+
+Standalone Text preserves blank-line paragraphs and translates conservative semantic/sentence units independently before ordered reassembly. A single oversized semantic unit may use the existing token-safe fallback. Every required unit must complete before any Text result is promoted. Meeting remains one finalized utterance at a time and receives its own later target acceptance.
+
+The runtime uses the pinned model generation profile rather than overriding it with greedy `num_beams=1`. Translation completion must recognize a valid EOS followed only by model padding as complete; padding must not create a false incomplete result, while output with no verifiable EOS remains blocked.
+
+**Reason**  
+Target-Windows RTX 3070 evidence showed recurring Marian correctness/quality failures: multi-sentence omission, duplicated dates, numeric corruption (`2100`→`200`), technical-fact loss, and name/version corruption. Restoring Marian's model-default beams fixed one omission but did not make the model reliable.
+
+The same target evaluation showed M2M100 materially stronger in both directions for dates, names, numbers, versions, IP addresses, URLs, CUDA terminology, and the original omission case. Whole-text M2M100 still omitted a second EN→ID question in one fixture; semantic segmentation restored it. Across the final whole-vs-segmented fixture set, segmented M2M100 preserved all monitored literals in both directions with warm per-request totals roughly in the 0.25–0.52 s range on the tested RTX 3070, while isolated loaded-model VRAM remained practical enough to continue target acceptance. Natural-language wording findings such as `Tarikh` remain quality observations, not correctness blockers or justification for a second translator.
+
+**Boundary**  
+Do not add generic date/number correction, glossary, back-translation, semantic verifier, cloud fallback, multi-model fallback, or user-facing translation modes. Product/runtime source must still be retested on the target Windows PC after migration; this decision does not claim combined Meeting VRAM/latency or CPU practicality.
