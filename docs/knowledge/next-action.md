@@ -2,7 +2,7 @@
 
 ## Current Status
 
-`PRE-TEST HARDENING — P0-1/P0-2 SOURCE IMPLEMENTED / P0-3 NEXT / INSTALLER DEFERRED`
+`PRE-TEST HARDENING — P0-1/P0-2/P0-3 SOURCE IMPLEMENTED / P1-4 NEXT / INSTALLER DEFERRED`
 
 Current repository authority:
 
@@ -68,7 +68,7 @@ Source/syntax and deterministic selection/ranking logic are implemented. Real mu
 
 ### Source implementation complete
 
-The canonical worker and Text boundary now reconcile the previous `valid input` versus fixed output-budget mismatch without changing Marian models or creating a second translation engine.
+The canonical worker and Text boundary reconcile the previous `valid input` versus fixed output-budget mismatch without changing Marian models or creating a second translation engine.
 
 Implementation commits:
 
@@ -86,83 +86,64 @@ ebdee42018fb6909f8c15d9efd9e33c45027de5d
 → packaged WorkerRuntime/resource validators include translation_envelope.py
 ```
 
-### Meeting behavior
+Meeting remains one finalized utterance at a time. Existing caller values such as `max_new_tokens: 96` are a bounded floor hint rather than a hard output ceiling. The worker derives the actual generation budget from verified input token count and exposed Marian/tokenizer capacity, keeps `truncation=False`, and rejects generated output whose normal EOS completion cannot be verified.
 
-Meeting remains one finalized utterance at a time. Existing caller values such as `max_new_tokens: 96` are now treated as a bounded floor hint rather than a hard output ceiling.
+Standalone Text now preserves blank-line paragraph boundaries, splits only when required by the model envelope, translates every chunk through the same canonical ID ↔ EN Marian path, fails the whole request if any required chunk is incomplete, and reassembles one ordered complete result. The plan is bounded to at most 32 translation chunks.
 
-The worker derives the actual generation budget from verified input token count and exposed Marian/tokenizer capacity, with a bounded maximum. It still uses `truncation=False` and still rejects any generated result whose normal EOS completion cannot be verified.
+Rust Text requires the worker result to explicitly prove the canonical translation contract, `complete = true`, `finished_with_eos = true`, and `paragraph_structure_preserved = true` before presenting success.
 
-No Meeting document chunking, previous-turn context, alternate engine, or partial-output promotion was added.
+`translation_envelope.py` is included in the existing Tauri release resource map and release validators so the canonical private worker will not lose that source dependency when packaging work is eventually reactivated.
 
-### Standalone Text behavior
+Real Marian quality, target-PC latency, and GPU/CPU performance remain target/runtime evidence.
 
-Standalone Text now uses one bounded worker request:
+## P0-3 — Windows Sleep / Hibernate Authority Invalidation
 
-```text
-UI-accepted source
-→ preserve blank-line paragraph boundaries
-→ check model/tokenizer envelope
-→ split an oversized paragraph by sentence, then by words only when required
-→ translate every chunk through the same canonical ID ↔ EN Marian path
-→ require complete EOS result for every chunk
-→ fail the whole request if any required chunk fails/incompletes/deadlines
-→ reassemble chunks in original paragraph order
-→ promote one complete result only
-```
+### Source implementation complete
 
-The existing 2,000-character UI/product limit remains truthful. The plan is bounded to at most 32 translation chunks and remains under the existing worker inference deadline. No partial translated body is returned as success.
+Commit `8ffc6786ba8395782b968c6e9d9c2e540f0d198e` closes the remaining race in the existing Windows power-lifecycle hook.
 
-Rust Text now requires the worker result to explicitly prove:
+The application already used a Windows `WM_POWERBROADCAST` subclass hook and a bounded lifecycle cleanup worker. Previously the power callback only queued canonical `Stop Translation`, so Meeting authority could remain active until that worker ran.
+
+Current behavior is now:
 
 ```text
-canonical translation contract
-+
-complete = true
-+
-finished_with_eos = true
-+
-paragraph_structure_preserved = true
+Windows suspend / resume power event
+→ inspect current runtime owner
+→ if application Meeting owns the session:
+     revoke that generation synchronously
+     cancel any active Meeting playback via its atomic cancel control
+→ return to Windows without waiting on heavy cleanup
+→ lifecycle worker invokes canonical Stop Translation
+→ Stop releases capture / Meeting Sound / helper / outbound consumer / incoming consumer
+→ session remains stopped
 ```
 
-before presenting success.
+Handled Windows power transitions are:
 
-### Packaged-runtime closure
+```text
+PBT_APMSUSPEND
+PBT_APMRESUMECRITICAL
+PBT_APMRESUMESUSPEND
+PBT_APMRESUMEAUTOMATIC
+```
 
-`translation_envelope.py` is a required sibling module of `realtime_local_worker.py`. The Tauri release resource map, exact release-package contract, and release-payload validator now all include that file, so the future packaged private Python runtime does not lose a source dependency.
+The immediate callback does **not** create another cleanup implementation. It only establishes the fail-closed authority/output boundary. Full resource convergence remains owned by the existing idempotent `stop_meeting_translation()` path.
 
-This does not reactivate installer implementation; it only preserves the canonical worker dependency in the already-existing release resource contract.
+This means stale AI/TTS work from the pre-suspend generation fails the existing generation-authority guards, and an already-running Meeting playback receives both revoked generation truth and the existing atomic playback cancellation signal.
+
+Resume power events repeat the same invalidation/Stop convergence idempotently. There is no automatic Start path, so wake cannot intentionally resume Translation. Normal minimize/hide is unaffected because it does not enter the Windows power-broadcast path.
 
 ### Proof boundary
 
-Source ownership, fail-closed completion behavior, bounded chunk planning, adaptive-budget logic, Text success gating, and packaged source dependency closure are implemented and statically inspected.
+Source wiring now establishes synchronous authority invalidation before the power callback returns, immediate active-playback cancellation, bounded/nonblocking cleanup handoff, canonical Stop ownership, and no auto-Start path.
 
-This does **not** yet prove real Marian translation quality, exact target-PC latency for long Text, GPU/CPU performance, or that every natural 2,000-character input is desirable as one translation request. Those remain target/runtime evidence. Any runtime failure must be evaluated from actual model evidence rather than weakening the no-partial-output contract.
+This remains **source proof**, not physical sleep/hibernate proof. Actual delivery of the Windows power messages, CPAL/device behavior through real sleep/wake, timing of cleanup around hardware suspension, and successful explicit fresh Start after wake remain target-Windows lifecycle evidence.
+
+Do not add polling, a second lifecycle service, automatic restart, or device-rebind architecture before target evidence shows a separate problem.
 
 ## Remaining Pre-Test Hardening Queue
 
-### P0-3 — Windows Sleep / Hibernate Authority Invalidation — NEXT
-
-Implement the existing product requirement:
-
-```text
-Meeting Live
-→ Windows suspend / hibernate
-→ revoke Meeting output authority
-→ canonical cleanup of owned audio/helper/output work
-→ preserve truthful cleanup state if incomplete
-→ resume remains stopped
-→ explicit new Start Translation required
-```
-
-Acceptance:
-
-- stale pre-suspend work cannot deliver after wake;
-- resume never auto-starts Translation;
-- minimize/hide without suspend continues to preserve a healthy Meeting;
-- no second lifecycle/cleanup owner;
-- cleanup reuses canonical Meeting authority/Stop semantics where possible.
-
-### P1-4 — VoiceLab Dataset Coverage Readiness
+### P1-4 — VoiceLab Dataset Coverage Readiness — NEXT
 
 Keep minimum usable-speech duration as a safety floor, but do not let duration alone make `Create My Voice` ready.
 
@@ -256,4 +237,4 @@ Installer/package remains deferred until product/runtime results and any resulti
 
 ## Next Step
 
-**Implement P0-3: Windows sleep/hibernate authority invalidation. Reuse the canonical Meeting authority and Stop/cleanup ownership so suspend revokes the active generation, stale pre-suspend work cannot deliver after wake, and resume remains stopped until the user explicitly starts a fresh Translation session.**
+**Implement P1-4: VoiceLab dataset coverage readiness. Keep the current minimum usable-speech duration only as a safety floor, then require a small representative coverage contract across the existing guided English material so `Create My Voice` cannot become ready from duration alone. Keep the guidance simple, do not require all 128 lines, and leave final actor quality to held-out generated evidence plus user listening approval.**
