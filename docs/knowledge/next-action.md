@@ -2,7 +2,7 @@
 
 ## Current Status
 
-`R3.2 QUALITY-PRESERVING RELEASE SIZE OPTIMIZATION CLOSED — EXTERNAL-PAYLOAD INSTALLER IMPLEMENTATION NEXT`
+`R3.2 QUALITY-PRESERVING RELEASE SIZE OPTIMIZATION CLOSED — INSTALLER IMPLEMENTATION DEFERRED / PRODUCT FEATURE SCOPE REOPENED`
 
 Current repository authority:
 
@@ -13,7 +13,7 @@ Developing → GitHub default branch; retained historical/recovery only
 
 ## Active Boundary
 
-The R3 packaging boundary is approved as:
+The R3 packaging boundary remains approved as:
 
 ```text
 one user-facing automatic fully offline setup experience
@@ -23,7 +23,9 @@ TranslateIT-Setup.exe
 colocated external release payload file(s)
 ```
 
-R3.2 is complete. The release payload was reduced without changing approved ASR, translation, GPT-SoVITS, VoiceLab, CUDA, or offline capability. The active work now moves from payload-size optimization to implementing that approved external-payload packaging boundary.
+That packaging decision is **preserved but deferred**. Do not continue installer/package implementation while additional product features may still be added, because new features can change runtime assets, dependencies, model payload, installed size, release validation, and the final distribution boundary.
+
+R3.2 is complete. Its measurements and optimizer remain the current release-size baseline, not a signal to finalize the installer now.
 
 ## Final Measured Release Size
 
@@ -88,7 +90,7 @@ saving vs raw: 3,606,912,658 bytes
 
 This compression changes **distribution size only**. Installed resources still expand to the same approximately **8.036 GB** capability-preserving payload.
 
-`7z/LZMA2` is therefore the preferred **size-first candidate** for the colocated offline payload. It is not yet permission to add an unrelated 7-Zip runtime or a second user-facing extraction step; the installer implementation must consume the payload automatically with the smallest justified extraction mechanism.
+`7z/LZMA2` remains the preferred **size-first candidate** for the future colocated offline payload, but no installer/extraction implementation should proceed until product scope is stable enough to re-freeze the release payload.
 
 ## Protected Boundaries
 
@@ -99,11 +101,13 @@ Do not reduce size further by:
 - removing VoiceLab training/evaluation;
 - adding first-use/core-model downloads;
 - adding a second Python/GPT-SoVITS runtime;
-- changing Meeting/Text/VoiceLab/Settings behavior;
+- changing Meeting/Text/VoiceLab/Settings behavior merely for packaging convenience;
 - treating hosted Windows proof as target-GPU/device or clean-machine acceptance.
 
-Local/target Windows validation remains deferred until explicitly reactivated or until it becomes the minimum proof required by installer/runtime acceptance.
+Also do **not** implement or finalize the installer/package boundary until the user explicitly reactivates installer work after the next feature scope is decided.
+
+Local/target Windows validation remains deferred until explicitly reactivated or until it becomes the minimum proof required by the active feature/runtime slice.
 
 ## Next Step
 
-**Implement the already-approved `TranslateIT-Setup.exe + colocated external payload file(s)` distribution. Start from the measured 7z/LZMA2 size-first candidate, inspect the existing Tauri/NSIS customization surface, and choose the smallest automatic extraction mechanism that preserves one fully offline Setup experience without manual extraction, first-use download, or a second installer/runtime owner.**
+**Define and approve the next product feature slice on `Local`. Keep the R3.2 optimizer, payload measurements, compression evidence, and approved external-payload packaging boundary preserved as deferred release context. Re-open installer/package implementation only after product scope is stable enough to freeze the release payload again.**
