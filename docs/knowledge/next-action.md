@@ -2,7 +2,7 @@
 
 ## Current Status
 
-`PRE-TEST HARDENING — P0-1/P0-2/P0-3/P1-4 SOURCE IMPLEMENTED / OBSERVABILITY CHECK NEXT / INSTALLER DEFERRED`
+`PRE-TEST HARDENING + OBSERVABILITY SOURCE COMPLETE / TARGET-WINDOWS ACCEPTANCE TEST NEXT / INSTALLER DEFERRED`
 
 Current repository authority:
 
@@ -13,7 +13,7 @@ Developing → GitHub default branch; retained historical/recovery only
 
 ## Active Boundary
 
-The bounded pre-test hardening queue is source-complete through P1-4. Before full target-Windows acceptance testing, perform only the minimum Diagnostics/observability check needed to interpret hardware/runtime failures. Do not reopen installer work or add deferred product features.
+The bounded pre-test source hardening queue is complete. Do not add another feature, redesign Meeting/runtime ownership, or resume installer/package implementation before target-Windows evidence identifies a concrete need.
 
 Approved initial product remains:
 
@@ -126,9 +126,9 @@ Actual Windows message delivery, CPAL/device behavior through real sleep/wake, c
 
 ### Source implementation complete
 
-VoiceLab no longer treats accepted duration plus a small take count as sufficient build readiness.
+Commit `64bcf2d4b849f6144dff5eff5741df24a28c22de` prevents duration-only VoiceLab readiness.
 
-The existing 128 guided English lines are already curated in five contiguous material blocks. Build readiness now uses those existing line-ID blocks directly rather than inventing word-count or text-regex heuristics:
+The existing 128 guided English lines are used as five curated material blocks:
 
 ```text
 Lines   1-24  → short conversational speech
@@ -151,37 +151,68 @@ no active recording/build conflict
 
 The 60-second value remains only the existing safety floor; no larger arbitrary recording-minute target was added. Users do not need all 128 lines, and a large number of accepted lines from only one style no longer unlocks training.
 
-When duration is sufficient but variety is incomplete, the existing build status message gives one product-facing next action such as `Try one accepted line from Lines 25-30 for questions and changing intonation.` The normal UI now surfaces that canonical guidance instead of showing only a generic `record more` message.
+When duration is sufficient but variety is incomplete, the existing build status message gives one product-facing next action. The build command reuses the same readiness result and fails closed with `more_recording_needed` if the dataset changes before Start.
 
-The build command reuses the same readiness result and fails closed with `more_recording_needed` if the dataset changes before Start. No new VoiceLab state store, scoring metric, training engine, or quality threshold was added.
+Final Voice Actor quality remains owned by held-out generated evidence, evidence-based candidate selection, and explicit user listening approval. Five-block coverage is not itself a claim of speaker fidelity.
 
-Regression coverage protects the two material invariants:
+## Test-Support Observability
 
-- many accepted lines from a single curated block do not satisfy variety;
-- one accepted line from each curated block satisfies the variety portion of readiness.
+### Source audit complete
 
-Final Voice Actor quality remains owned by the existing held-out generated evidence, evidence-based candidate selection, and explicit user listening approval.
+Commit `8b0b76f0005adfe300a3390774ec0090d785b4df` exposes existing runtime evidence in `Advanced → Diagnostics` without creating a monitoring subsystem.
 
-### Proof boundary
-
-The source contract now prevents duration-only readiness and provides bounded product-facing variety guidance. This does **not** prove that five-block coverage is sufficient for every real speaker, nor does it prove trained audio fidelity. Actual speaker quality remains target-capable VoiceLab evidence and should tune this contract only if real test results justify a change.
-
-## Test-Support Observability — NEXT
-
-Before target-Windows performance testing, use existing Diagnostics first. Add only the smallest missing diagnostic-only visibility needed to interpret failures, potentially including:
+The canonical worker already reports:
 
 ```text
-loaded ASR runtime/device
-loaded translation direction(s)/device
-loaded My Voice runtime/device
-CUDA availability
-GPU/VRAM usage or availability when reliably obtainable
-existing per-stage Meeting timing
+ASR loaded state / model / device / compute type
+selected ASR execution device
+loaded translation directions
+selected translation execution device
+My Voice loaded state / device
+CUDA vs CPU/degraded capability truth
 ```
 
-This is not permission to create telemetry, user-facing CUDA/model controls, a monitoring service, automatic model eviction, or another scheduler. If existing Diagnostics already exposes enough reliable information, make no source change and proceed to target testing.
+The Meeting session already records the latest outbound timing stages:
 
-## Already Sufficient for Pre-Test Source Scope
+```text
+finalization
+queue
+audio preparation
+ASR
+translation
+My Voice TTS
+delivery
+total outbound latency
+```
+
+Diagnostics now surfaces the test-relevant subset directly:
+
+```text
+ASR runtime + device / compute type
+Translation loaded directions + selected device
+My Voice loaded state + device
+latest total outbound latency
+latest ASR / translation / My Voice / delivery timing
+recent command failures
+```
+
+### VRAM measurement boundary
+
+Do **not** add a PyTorch-only allocator number and label it as whole-product VRAM.
+
+TranslateIT currently uses separate GPU runtime ownership:
+
+```text
+faster-whisper / ASR → CTranslate2 CUDA allocator
+Marian translation   → PyTorch CUDA allocator
+GPT-SoVITS My Voice  → PyTorch CUDA allocator
+```
+
+Therefore target testing should measure GPU memory from the whole Windows/NVIDIA device view while the real Meeting runtime is loaded. That measurement can capture combined TranslateIT usage plus enough system context to diagnose OOM/VRAM pressure without making the Diagnostics status path initialize or perturb CUDA solely to obtain a number.
+
+No telemetry, monitoring service, automatic model eviction, user-facing GPU control, or second scheduler was added.
+
+## Pre-Test Source Scope — CLOSED
 
 Do not redesign without target evidence:
 
@@ -202,9 +233,19 @@ Do not redesign without target evidence:
 - additional languages;
 - installer/package implementation.
 
+A new source change before testing requires one of:
+
+```text
+reproducible current source defect
+or
+target-Windows evidence showing a concrete runtime failure
+or
+new explicit product decision from the user
+```
+
 ## R3.2 Release Baseline — Preserved / Deferred
 
-R3.2 remains only the current historical release-size baseline; pre-test product/runtime changes can alter the eventual final release input.
+R3.2 remains only the historical release-size baseline. Product/runtime changes and target-test findings may alter the eventual final release input.
 
 ```text
 Exact optimized Tauri release resources
@@ -216,27 +257,41 @@ Measured solid 7z/LZMA2 distribution candidate
 
 Do not continue installer work now.
 
-## Target Test After Hardening
+## Target-Windows Acceptance Test — NEXT
 
-After the observability check, target-capable testing should determine:
+The next phase must use the actual target Windows runtime/hardware. Source/static evidence cannot complete these claims.
+
+Test in this order so failures remain attributable:
 
 ```text
-microphone capture / VAD segmentation
-ID → EN ASR + translation quality
-EN → ID Text/incoming quality
-VoiceLab multi-candidate training success and speaker fidelity
-My Voice persistence after restart
-ASR + translation + My Voice combined VRAM practicality
-outbound end-to-end latency
-Meeting Microphone delivery in real meeting applications
-optional Meeting Sound capture/suppression
-Stop / Close / sleep / wake lifecycle
-long-session memory/thread/queue stability
-standalone Text completeness
+1. Application / local worker startup
+2. Standalone Text ID → EN and EN → ID completeness
+3. Microphone selection + Mic Test
+4. VoiceLab guided recording / coverage readiness
+5. Full VoiceLab training + multi-candidate held-out review
+6. Approve My Voice + restart persistence
+7. Meeting Start transaction / combined runtime load
+8. Outbound ID speech → EN My Voice delivery
+9. Optional incoming Meeting Sound EN → ID text
+10. Stop / restart / minimize / long-session behavior
+11. Sleep / wake + explicit fresh Start
+12. Real meeting-app microphone reception
 ```
 
-Installer/package remains deferred until product/runtime results and any resulting product changes are stable enough to freeze release inputs again.
+Collect only test-relevant evidence:
+
+```text
+actual GPU model / driver
+whole-device VRAM used/free while Meeting runtime is loaded
+Diagnostics loaded ASR / translation / My Voice devices
+latest stage timing / total outbound latency
+exact blocker/error for failed steps
+translation samples that demonstrate semantic/number/name errors
+VoiceLab held-out previews and user listening decision
+```
+
+Do not tune models, add eviction, change VAD, alter queueing, or add feature scope merely because a metric looks imperfect. First reproduce and identify the failing stage.
 
 ## Next Step
 
-**Audit the existing Advanced → Diagnostics output against the minimum test-support list above. Add only genuinely missing, reliable diagnostic visibility needed to interpret target-Windows failures—especially combined runtime device/VRAM truth if it is not already available. If current Diagnostics is already sufficient, make no change and proceed to target-Windows acceptance testing.**
+**Begin target-Windows acceptance testing from the ordered checklist above. Start with application/worker startup and standalone bidirectional Text, then advance one boundary at a time. Record exact Diagnostics/runtime evidence for failures; do not resume installer work or speculative feature development until target evidence requires a change.**
