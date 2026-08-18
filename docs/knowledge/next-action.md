@@ -2,7 +2,7 @@
 
 ## Current Status
 
-`LOCAL WINDOWS ACCEPTANCE ACTIVE / M2M100 STEP 2A + 2B PASS / STEP 2C NEXT / INSTALLER DEFERRED`
+`LOCAL WINDOWS ACCEPTANCE ACTIVE / M2M100 STEP 2A + 2B + 2C-A PASS / STEP 2C-B NEXT / INSTALLER DEFERRED`
 
 Current repository authority:
 
@@ -17,7 +17,7 @@ Target checkout:
 D:\Work\AI Stuff\TranslateIT
 ```
 
-Do not restart broad translation-model evaluation, resume installer work, or advance to microphone / VoiceLab / Meeting acceptance before Standalone Text STEP 2C completes.
+Do not restart broad translation-model evaluation, resume installer work, or advance to microphone / VoiceLab / Meeting acceptance before Standalone Text STEP 2C-B completes.
 
 ## Target Windows
 
@@ -70,9 +70,7 @@ f0b2a2d12f30fe6f8f1e7291b420c0d5851f711d
 test(worker): expose WorkerRuntime imports under pytest
 ```
 
-The first target regression run after migration exposed only a pytest import-path defect (`ModuleNotFoundError: translation_envelope`) caused by loading `realtime_local_worker.py` through `importlib` without the WorkerRuntime directory on `sys.path`. This was a test-harness failure, not a model/runtime failure. `tests/conftest.py` now establishes WorkerRuntime as the pytest import root.
-
-Target Windows regression rerun passed and the Tauri application opened normally.
+The target Windows regression rerun passed after the pytest import-root fix and the Tauri application opened normally.
 
 ## Acceptance Evidence
 
@@ -94,9 +92,7 @@ Missing approved My Voice remains expected before VoiceLab acceptance and does n
 
 `PASS correctness / QUALITY FINDING`
 
-Source covered Mivubi / Clockwork / Younes, 18 Agustus 2026, 20 Agustus 2026, NVIDIA CUDA, local execution, and local user-data retention.
-
-Observed product output retained all three source sentences and all required facts. The previous Marian date duplication did not recur.
+The representative sample retained all three source sentences plus Mivubi / Clockwork / Younes, both dates, NVIDIA CUDA, local execution, and local user-data retention. The previous Marian date duplication did not recur.
 
 Quality findings only:
 
@@ -105,35 +101,11 @@ Quality findings only:
 "model terjemahan" → "translation models"
 ```
 
-These are wording/naturalness findings, not truncation or completeness failures.
-
 ### STEP 2B — M2M100 Standalone Text EN → ID
 
 `PASS correctness / QUALITY FINDING`
 
-Previously failing source:
-
-```text
-On August 18, 2026, the Mivubi team sent Younes an update about the Clockwork project.
-The final delivery deadline is August 20, 2026.
-The system uses NVIDIA CUDA to run the translation model locally, and all user data must remain on the user's computer.
-```
-
-Observed application output retained:
-
-```text
-all 3 source sentences
-Mivubi
-Younes
-Clockwork
-18 Agustus 2026
-20 Agustus 2026
-NVIDIA CUDA
-local translation execution
-all user data remaining on the user's computer
-```
-
-The old Marian first-sentence omission did not recur.
+The old Marian first-sentence omission did not recur. The output retained all three source sentences, Mivubi / Younes / Clockwork, both dates, NVIDIA CUDA, local execution, and the user-data-local requirement.
 
 Quality finding only:
 
@@ -152,7 +124,28 @@ My Voice                not loaded
 Recent command errors   0
 ```
 
-This confirms both translation directions are loaded through the migrated CUDA runtime. ASR / My Voice remain intentionally unloaded at this Text-only boundary.
+### STEP 2C-A — Long / Multi-Paragraph ID → EN
+
+`PASS correctness / QUALITY FINDING`
+
+The 3-paragraph fixture retained all paragraph boundaries and all required factual/technical material:
+
+```text
+Mivubi / Clockwork / Younes
+TranslateIT v2.4.1
+18 August 2026 / 20 August 2026
+1800 vs 2100 dollars
+NVIDIA CUDA 12.6
+192.168.1.20
+https://example.com
+3.14
+09.30 / 3 September 2026
+all user data remains local
+no automatic cloud sending
+explicit failure instead of presenting a truncated result as complete
+```
+
+Observed output remained complete across all 3 paragraphs. Quality wording findings only include phrases such as `records` for recordings and `cut results` for truncated results; these do not change the tested meaning or completeness.
 
 ## Acceptance Order
 
@@ -160,7 +153,8 @@ This confirms both translation directions are loaded through the migrated CUDA r
 1. Application / local worker startup                         PASS
 2A. Standalone Text ID → EN                                  PASS correctness / quality finding
 2B. Standalone Text EN → ID                                  PASS correctness / quality finding
-2C. Standalone long / multi-paragraph                        ACTIVE NEXT
+2C-A. Long / multi-paragraph ID → EN                          PASS correctness / quality finding
+2C-B. Long / multi-paragraph EN → ID                          ACTIVE NEXT
 3. Microphone selection + Mic Test                            NOT STARTED
 4. VoiceLab guided recording / coverage readiness             NOT STARTED
 5. Full VoiceLab training + multi-candidate held-out review   NOT STARTED
@@ -177,4 +171,4 @@ Test rule remains: wrong-but-complete wording is a quality finding; source omiss
 
 ## Next Step
 
-**Run STEP 2C on the already-open target Windows Tauri application using a long multi-paragraph Standalone Text fixture that exercises paragraph preservation, multiple sentences, names, dates, numbers, version/IP/URL/decimal/technical terms, and negation. Start with Indonesian → English. Record the full source/output, whether blank-line paragraph boundaries remain, and refreshed Diagnostics. If correctness passes, run the corresponding English → Indonesian long/multi-paragraph fixture before declaring STEP 2 complete. Do not begin Mic Test until both STEP 2C directions pass correctness.**
+**Run STEP 2C-B on the already-open target Windows Tauri application using the corresponding long multi-paragraph English → Indonesian fixture. Record the full output and confirm that all 3 blank-line paragraphs, names, dates, numbers, version/IP/URL/decimal/CUDA facts, negation, local-only data rule, no-automatic-cloud rule, and explicit-failure/no-truncated-result meaning remain complete. If STEP 2C-B passes correctness, mark Standalone Text STEP 2 complete and advance to STEP 3 Microphone selection + Mic Test.**
