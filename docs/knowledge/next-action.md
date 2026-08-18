@@ -2,64 +2,41 @@
 
 ## Current Status
 
-`TRANSLATION QUALITY PLAN FINALIZED / D-025 QUALITY GATE CONTROLS / D-026 LMT-60-1.7B APPROVED REPLACEMENT TARGET / BENCHMARK CONTRACT FREEZE NEXT / NO PRODUCTION SWITCH YET / INSTALLER DEFERRED`
+`TRANSLATION QUALITY PLAN FINALIZED / LMT-60-1.7B APPROVED REPLACEMENT TARGET / STABLE CUDA ACCELERATION STRATEGY FROZEN / BENCHMARK CONTRACT FREEZE NEXT / NO PRODUCTION SWITCH YET / INSTALLER DEFERRED`
 
-Current repository authority:
+Authority:
 
 ```text
 Local      → current development authority
-Developing → GitHub default branch; retained historical/recovery only
+Developing → historical/recovery only
+Target PC  → Windows / RTX 3070 8 GB / CUDA
 ```
 
-Target checkout:
-
-```text
-D:\Work\AI Stuff\TranslateIT
-```
-
-Do **not** modify the production translator, advance to microphone / VoiceLab / Meeting acceptance, or resume installer work until the translation benchmark contract is frozen and the approved replacement path has passed the required target-Windows gates.
-
-## Non-Negotiable Final Architecture
-
-TranslateIT has exactly **one canonical translation model** in normal product operation.
-
-If the approved replacement passes its gates:
-
-```text
-ASR / final transcript
-        ↓
-ONE canonical LMT-60-1.7B translator
-        ↓
-translated text
-        ↓
-Text UI OR approved My Voice / Meeting output
-```
-
-The same translator must serve:
-
-```text
-Standalone Text          ID ↔ EN
-Meeting outbound         ID → EN
-Optional Meeting incoming EN → ID
-```
-
-ASR and GPT-SoVITS remain separate speech stages; they are not translation engines.
-
-M2M100 may exist only as the **current baseline before migration** and as a sequential evaluation reference. It must not survive the accepted production migration as fallback, router member, secondary provider, alternate mode, or release asset. After the LMT migration is accepted, M2M100 is retired from the product path and stale target model bytes may be cleaned only after LMT acquisition/runtime validation succeeds.
+Do **not** modify the production translator, advance to microphone / VoiceLab / Meeting acceptance, or resume installer work until the benchmark contract is frozen and the approved replacement path passes target-Windows quality, latency, and memory gates.
 
 Durable decisions: D-025 and D-026 in `docs/knowledge/decision-log.md`.
 
-## Target Windows Evidence
+## Non-Negotiable Final Architecture
+
+Normal product operation has exactly **one canonical translation model**.
+
+If the approved migration passes:
 
 ```text
-GPU       NVIDIA GeForce RTX 3070
-Driver    610.62
-VRAM      8192 MiB
-Python    3.12.10
-AI path   CUDA
+Standalone Text           ID ↔ EN
+Meeting outbound          ID → EN
+Optional Meeting incoming EN → ID
+            │
+            └──── ONE LMT-60-1.7B translator
 ```
 
-Current translation acceptance boundary:
+ASR and GPT-SoVITS remain separate speech stages and are not translation engines.
+
+M2M100 may exist only as the current pre-migration baseline and as a sequential evaluation reference. It must not survive the accepted migration as fallback, router member, alternate mode, secondary provider, or release asset.
+
+## Current Evidence / Why Migration Is Still Blocked
+
+Current M2M100 target acceptance:
 
 ```text
 STEP 1    application / worker startup              PASS
@@ -76,7 +53,7 @@ must not
 → tidak harus
 ```
 
-This changes prohibition into approximately `does not have to / is not required to`; therefore it is a semantic correctness failure, not a grammar-only/naturalness finding.
+This reverses prohibition into approximately `does not have to`; it is a semantic correctness failure, not a grammar-only issue.
 
 ## Approved Replacement Target
 
@@ -85,250 +62,203 @@ repo       NiuTrans/LMT-60-1.7B
 revision   2ff175e2a450d2f2458b33234bfb74953468b3a2
 license    Apache-2.0
 family     Qwen3 causal LM, translation-specialized
-languages  Indonesian and English supported
-weights    model.safetensors ≈ 4.06 GB, BF16
-reference  deterministic generation, num_beams=5, do_sample=False
+weights    model.safetensors ≈ 4.06 GB / BF16
+reference  official prompt + chat template
+           deterministic generation
+           num_beams=5
+           do_sample=False
 ```
 
-The pinned revision is the reviewed `grpo version` model-content commit. The later current-main commit is README-only and is not required to make evaluation depend on moving `main`.
+The reviewed model artifacts are Qwen3 and declare Transformers 4.51.3-era generation metadata. Current WorkerRuntime caps Transformers at 4.50.0, so compatibility must first be proven in an isolated evaluation environment. Do not jump to Transformers v5 and do not update production `uv.lock` before that proof.
 
-This target is approved for evaluation and intended canonical replacement, but **must not enter `model_manifest.json`, RuntimeAssets, or the production worker before the D-025 quality/performance gate passes.**
+The candidate must not enter production `model_manifest.json`, RuntimeAssets, or the canonical worker before D-025 passes.
 
-## Pre-Development Audit — Critical Findings
+## Pre-Development Technical Audit
 
-### A. This is not a model-path swap
+### 1. LMT is not an M2M model-path swap
 
-Current M2M100 worker code is encoder-decoder shaped:
+Current M2M100 is encoder-decoder (`AutoModelForSeq2SeqLM`, target language ID / forced BOS). LMT is a causal LM (`AutoModelForCausalLM`) using an explicit translation prompt, chat template, autoregressive continuation, and continuation-only decode.
+
+Migration therefore requires one bounded translation-adapter replacement, not compatibility glue and not a second engine.
+
+### 2. Prompt-aware input accounting is required
+
+LMT context consumption includes the rendered chat/translation prompt. Any safe input limit must account for:
 
 ```text
-AutoModelForSeq2SeqLM
-source-language tokenizer state
-get_lang_id(target)
-forced_bos_token_id
-sequence decoded directly
+prompt tokens + source tokens + bounded generated tokens <= model context
 ```
 
-Official LMT inference is causal-LM shaped:
+No tokenizer truncation and no incomplete output promoted as complete.
 
-```text
-AutoModelForCausalLM
-explicit English-language translation prompt
-apply_chat_template(... add_generation_prompt=True)
-model.generate(... num_beams=5, do_sample=False)
-decode generated continuation only
-```
+### 3. Causal completion accounting must use continuation tokens only
 
-Production migration therefore requires one bounded translation-adapter change; pretending LMT is API-compatible with M2M100 would be incorrect.
+The worker must record prompt length, slice generated continuation before decode, and evaluate EOS / generation budget against the continuation rather than the prompt+continuation sequence.
 
-### B. Prompt-aware context accounting is required
+### 4. Existing Text / Meeting ownership is already correct
 
-Current `translation_envelope.py` measures raw source-text tokens. LMT consumes a rendered translation prompt + chat-template tokens before source content and also needs output-token headroom. The accepted implementation must enforce:
+Current Meeting outbound and optional incoming both call the canonical worker `translate` command. Preserve that owner. Do not create a voice translator, second worker, or model router.
 
-```text
-rendered_prompt_tokens + requested_generation_budget <= model context envelope
-```
+### 5. Segmentation is model evidence, not permanent policy
 
-No silent truncation is allowed. Current 2000-character product boundary remains unchanged unless independent evidence later justifies changing product capacity.
-
-### C. Causal completion accounting must exclude prompt tokens
-
-Current non-encoder-decoder accounting is not sufficient for LMT because a causal generated sequence includes the prompt. The migrated worker must:
-
-```text
-record prompt length
-slice continuation before decode
-count generation ceiling against continuation only
-verify completion/EOS on generated continuation semantics
-```
-
-Do not weaken the existing complete-output-or-explicit-failure contract merely to accommodate the new architecture.
-
-### D. Dependency compatibility is a real gate
-
-Current WorkerRuntime pins:
-
-```text
-transformers >=4.44.0, <=4.50.0
-```
-
-The reviewed LMT revision declares Qwen3 and `transformers_version: 4.57.3`; Qwen3 support exists in Transformers 4.51-series and later. Therefore the production dependency graph cannot be changed blindly.
-
-First prove LMT in an **isolated evaluation environment** with a justified Transformers 4.x version compatible with the pinned revision. Before changing the production `uv.lock`, verify that the same candidate dependency set does not break current Faster-Whisper / ASR imports, GPT-SoVITS / VoiceLab imports, worker startup, or deterministic source tests. Do not jump to Transformers v5 without necessity.
-
-### E. The existing shared Text/Meeting translation owner is correct and must remain
-
-Current Rust Meeting flow already sends both outbound and incoming work through the same worker `translate` command used by the canonical local worker. Preserve that ownership; do not create a voice-specific translator or a second worker.
-
-Current Meeting outbound remains:
-
-```text
-final Indonesian transcript
-→ translate ID→EN
-→ approved My Voice synthesis
-```
-
-Optional incoming remains:
-
-```text
-final English transcript
-→ translate EN→ID
-```
-
-### F. Meeting generation budget must be measured, not guessed
-
-Meeting currently supplies a bounded `max_new_tokens` hint. Do not increase it speculatively. Benchmark finalized-utterance length/completeness with LMT first, then let measured source/output distributions justify any bounded worker-owned adjustment.
-
-### G. Segmentation is not automatically preserved
-
-Current Standalone Text always uses semantic/sentence units because that repaired M2M100 omission behavior. LMT has a much larger context envelope and may benefit from whole-paragraph context.
-
-After LMT reference quality passes, compare only two justified envelope strategies on context-sensitive material:
+Current Standalone sentence segmentation repaired M2M omissions. After LMT quality passes, compare only:
 
 ```text
 A. whole paragraph / natural source unit
 B. current semantic-unit segmentation
 ```
 
-Prefer the simpler whole-paragraph path if completeness and semantic fidelity remain safe. Keep sentence segmentation only if evidence proves it is still necessary. Meeting remains one finalized utterance at a time unless Meeting-specific evidence proves otherwise.
+Prefer the simpler whole-paragraph path if it remains complete and semantically correct. Meeting stays one finalized utterance at a time unless Meeting-specific evidence says otherwise.
 
-### H. Raw BF16 quality comes before optimization
+## Final Stable Latency Strategy
 
-Do not start with quantization, CTranslate2, custom cache toggles, or decoder tuning. First measure the reviewed upstream/reference LMT behavior. The model config currently has `use_cache: false`; do not silently override that during the reference-quality round.
+The previous idea of stacking KV cache + FlashAttention2 + `torch.compile` + CTranslate2 together is **rejected**. It changes too many variables, is harder to diagnose, and is not the most stable Windows path.
 
-If quality passes but target performance requires improvement, allow only one bounded optimization stage at a time and rerun the exact same frozen quality gate.
+### Reference profile — quality truth first
 
-### I. Combined Meeting memory is separate proof
-
-A ~4.06 GB translation weight file fitting on disk or translation-only CUDA success does not prove the complete Meeting stack fits an 8 GB GPU. Before Meeting acceptance, measure the combined loaded state of:
+Run the pinned model exactly through the reviewed Hugging Face/PyTorch inference shape:
 
 ```text
-ASR + LMT + approved My Voice + runtime overhead
+PyTorch CUDA
+BF16
+beam 5
+do_sample=False
+upstream prompt/chat template
+upstream model config (`use_cache=false`)
+model resident after preload
+model.eval()
+torch.inference_mode()
 ```
 
-Reject OOM, unstable memory growth, or a runtime configuration that cannot sustain repeated finalized utterances.
+This establishes reference quality and latency before acceleration.
 
-### J. Production retirement must be atomic
+### Acceleration A — preferred production candidate
 
-When the migration is finally authorized, one logical production delivery must both add LMT and remove M2M100 production ownership. There must be no landed normal-runtime state containing two required translation models.
-
-## Frozen Quality Evaluation Contract To Build
-
-The benchmark contract is frozen **before candidate output is inspected**.
-
-### 1. Known-failure regression set
-
-Contains historical failures only, including omission, date/numeric corruption, technical-name corruption, URL/IP/version preservation, and the current modality failure. It answers “did an old defect return?” and is **not** the decisive model-ranking set.
-
-### 2. External/reference pillar
-
-Use the English/Indonesian FLORES+ `devtest` reference set as the standardized external pillar (1012 sentences per language in the current dataset release). Pin the exact dataset version/revision used for the run.
-
-FLORES is public and LMT has already been reported on FLORES-family evaluation, so this score is supporting comparative evidence only; it is not the sealed product-acceptance holdout.
-
-Report both directions with:
+If reference quality passes, change **one performance behavior first**:
 
 ```text
-chrF++  primary surface/reference metric
-BLEU    secondary comparable metric
-COMET   supplementary semantic metric
+same model / weights / BF16 / prompt / beam 5
++ dynamic KV cache (`use_cache=true`)
++ persistent loaded model
++ native PyTorch attention backend
 ```
 
-Metrics never override a demonstrated critical meaning error.
+Why this is preferred:
 
-### 3. Product semantic stress set
+- KV cache removes repeated key/value recomputation during causal decoding without changing the model weights, prompt, or beam policy.
+- Dynamic cache grows with actual sequence length instead of reserving the model's full 32k context.
+- On LMT-1.7B (28 layers, 8 KV heads, head dim 128, BF16), a rough theoretical KV footprint at beam 5 is about 0.27 GiB for 512 cached tokens and about 0.55 GiB for 1024 cached tokens; this is practical enough to test on 8 GB, but must still be measured with the complete Meeting stack.
+- Quality parity is not assumed: the exact frozen quality gate is rerun after enabling cache.
 
-Freeze 72 examples before candidate evaluation:
+### Attention backend — use native SDPA, not external FlashAttention2
+
+Do **not** add `flash-attn` as a Windows dependency. Upstream FlashAttention states that Windows compilation still needs more testing and official Windows wheel support is not a stable release assumption.
+
+Instead:
+
+1. inspect the actual attention implementation selected by the compatible Transformers/PyTorch build;
+2. if Qwen3 already uses SDPA, keep it — no experiment is needed;
+3. only if it falls back to eager attention, test explicit `attn_implementation="sdpa"` as a separate one-variable change.
+
+PyTorch SDPA can dispatch to optimized CUDA attention kernels automatically when supported. Do not enable reduced-precision SDPA reduction flags merely for speed.
+
+### Static KV cache + torch.compile — deferred, not normal plan
+
+Do not use full-context static cache on the RTX 3070. With beam 5, reserving the complete 32k context would be grossly disproportionate to the 8 GB target and is unnecessary for short/medium translation utterances.
+
+`torch.compile` also introduces compile/warmup and shape-specialization complexity. It is deferred unless optimized eager PyTorch and the bounded CTranslate2 option below both fail a measured latency requirement. It is not part of the initial production migration.
+
+### CTranslate2 BF16 — bounded fallback optimization only
+
+CTranslate2 4.8.1 officially supports Qwen3 through `ctranslate2.Generator`, including beam search and prompt forwarding. TranslateIT already depends on CTranslate2 for ASR infrastructure, so this is a valid fallback execution backend **for the same LMT model**, not a second translation engine.
+
+Evaluate it only if the PyTorch BF16 + dynamic-cache path still needs material improvement:
 
 ```text
-12 semantic/linguistic categories
-× 3 examples
-× 2 directions
-= 72
+convert the same pinned LMT revision
+keep BF16 when target `get_supported_compute_types("cuda")` reports efficient BF16 support
+beam_size=5
+include_prompt_in_result=False
+same tokenizer/chat prompt
+same frozen quality suite
 ```
 
-Required categories:
+RTX 3070-class compute capability 8.6 supports BF16 and FP16 Tensor Core inputs, but runtime support is still checked on the actual target. Never force `CT2_CUDA_ALLOW_BF16`; that flag explicitly permits BF16 even when the device/runtime considers it inefficient.
+
+If CTranslate2 BF16 is both quality-safe and materially faster / lower-memory, it may become the single production execution backend. Otherwise keep the simpler PyTorch path.
+
+### Explicitly rejected initial optimizations
 
 ```text
-negation + modality
-conditionals
-cause / contrast / logical scope
-tense + aspect
-quantifiers
-comparison / ordering
-pronoun + reference
-active / passive voice
-questions + commands
-coordination / multi-clause meaning
-conversational + Indonesian/English code-switch
-cross-sentence / paragraph discourse
+NO external FlashAttention2 Windows dependency
+NO static full-context KV cache
+NO torch.compile in the first optimization round
+NO beam 5 → beam 1 quality tradeoff
+NO INT8 / INT4 before BF16 paths are exhausted
+NO speculative decoding / draft model
+NO second translation model
+NO throughput batching that intentionally delays one Meeting utterance
+NO arbitrary environment-variable tuning
 ```
 
-Names, money, dates, units, versions, acronyms, IPs and URLs are cross-cutting factual stressors rather than substitutes for semantic testing.
+FP16 or int8_float16 may be opened only if BF16 paths cannot meet measured constraints, and each numeric-format change must rerun the full frozen quality gate.
 
-### 4. Sealed unseen holdout
+## Quality Benchmark Contract To Freeze
 
-Freeze a separate 48-example set:
+Freeze all evaluation material **before candidate output is inspected**:
 
 ```text
-12 categories
-× 2 unseen lexical/context variants
-× 2 directions
-= 48
+1. known-failure regression set
+2. pinned EN/ID external reference pillar
+3. 72-example semantic stress set
+   (12 categories × 3 examples × 2 directions)
+4. 48-example sealed unseen holdout
+   (12 categories × 2 unseen variants × 2 directions)
+5. semantic severity rubric
+6. chrF++ / BLEU / COMET supporting metrics
+7. factual diagnostics for names/numbers/dates/versions/IP/URL
+8. blind naturalness review after semantic safety passes
+9. exact target latency / VRAM measurement procedure
 ```
 
-The known `must not` sentence and other debugging fixtures do not belong here. Holdout text/reference/severity expectations are frozen before LMT output is seen and are not rewritten because a candidate fails.
-
-### 5. Severity rubric
-
-```text
-CRITICAL
-- reversed negation / modality / obligation
-- key clause omitted or invented
-- material factual relation reversed
-- unsafe/incompatible meaning change
-
-MAJOR
-- substantial semantic distortion
-- wrong reference / quantifier / tense that changes interpretation
-- important information weakened or materially mistranslated
-
-MINOR
-- awkward but recoverable grammar
-- unnatural lexical/register choice
-- punctuation/style issue without meaning change
-```
+Required semantic categories include negation/modality, conditionals, logical scope, tense/aspect, quantifiers, comparison/ordering, reference/coreference, voice, questions/commands, multi-clause coordination, conversational/code-switching, and cross-sentence discourse.
 
 Promotion gate:
 
 ```text
-sealed holdout CRITICAL errors = 0
-no incomplete/truncated generation promoted as success
-LMT has fewer MAJOR semantic errors than M2M100 in both directions
-no repeated category-level semantic regression versus baseline
-external reference metrics show no material direction-specific regression
-blind naturalness review favors or clearly matches LMT after semantic safety passes
+sealed CRITICAL semantic errors = 0
+no incomplete/truncated result promoted
+fewer MAJOR semantic errors than M2M100 in BOTH directions
+no repeated category-level semantic regression
+no material external-metric regression in either direction
+naturalness favors or clearly matches LMT after semantic safety
 ```
 
-Exact wording equality is never the definition of translation correctness.
+Metrics never override a demonstrated critical semantic error.
 
-## Performance Measurement Contract
+## Latency / VRAM Measurement Contract
 
-Do not invent a release SLA before target evidence; product requirement PR-052 says the final outbound latency threshold must be derived from target-PC evidence.
+For every quality-surviving profile, use a fresh process so allocator/cache state from another implementation cannot contaminate the comparison.
 
-For every quality-surviving implementation record:
+Measure:
 
 ```text
-cold model load time
-translation-only warm latency: p50 / p90 / max
+cold model load
+5 unmeasured warmups per input class
+30 measured warm runs per input class
 short / medium / long finalized-utterance classes
-Standalone long-text latency
-GPU VRAM before load / steady loaded / observed peak
+Standalone long-text case
+p50 / p90 / max wall latency
+prompt tokens / generated tokens
+GPU VRAM steady loaded / peak
 repeated-run memory stability
 ```
 
-Use the same inputs and run counts across implementations. First warm the model, then measure repeat runs; do not compare one cold run with one warm run.
+For PyTorch CUDA timing, synchronize CUDA around the measured inference interval so asynchronous GPU work is not undercounted. Reset peak-memory statistics before each measurement block and also capture whole-device VRAM separately from framework allocator statistics.
 
-After the canonical LMT runtime is selected, separately measure the real Meeting pipeline from finalized utterance end through translation and ultimately to first translated audio playback. That full-pipeline evidence sets the release latency threshold.
+Use identical inputs, beam policy, prompt policy, and run counts across profiles. Do not compare a cold run against a warm run.
+
+After the canonical translation runtime is selected, separately measure the real Meeting pipeline from finalized utterance end to first translated audio playback with ASR + the SAME LMT + approved My Voice loaded together.
 
 ## Approved Execution Sequence
 
@@ -336,186 +266,104 @@ After the canonical LMT runtime is selected, separately measure the real Meeting
 
 `DONE`
 
-No production source changes. D-025/D-026 plus this `next-action.md` own the decision and active sequence.
-
 ### Phase 1 — Freeze benchmark contract
 
 `NEXT — ONLY ACTIVE STEP`
 
-Create/freeze the regression set, pinned external/reference set, 72-example semantic stress set, 48-example sealed holdout, scoring rubric, provenance/license notes, and exact latency/VRAM measurement procedure.
+Freeze regression, external/reference data + revision/provenance, 72 semantic stress cases, 48 sealed holdout cases, scoring rubric, and exact latency/VRAM procedure. Review the frozen contract before running LMT.
 
-Do not download/integrate LMT or tune M2M100 before this freeze is complete.
+### Phase 2 — Isolated LMT reference compatibility proof
 
-### Phase 2 — Isolated LMT compatibility proof
-
-After Phase 1 passes:
+After Phase 1:
 
 ```text
-pin LMT revision 2ff175e2a450d2f2458b33234bfb74953468b3a2
-acquire candidate into evaluation cache, not RuntimeAssets production path
-create isolated evaluation dependency environment
-prove Qwen3 tokenizer/chat template/CausalLM generation on CUDA
-prove continuation slicing + EOS/generation accounting
-record cold load / first warm VRAM
+acquire pinned LMT into evaluation cache only
+use isolated Transformers 4.x environment (start from the model's 4.51.3-era compatibility boundary)
+prove tokenizer/chat template/CausalLM on CUDA BF16
+prove prompt-aware token budget / continuation slicing / EOS accounting
+record actual selected attention backend
+measure reference quality / cold load / first warm VRAM
 ```
 
-No `model_manifest.json` or production `uv.lock` change yet.
+No production manifest or `uv.lock` change.
 
-### Phase 3 — Sequential baseline vs candidate evaluation
-
-Never keep two production engines.
+### Phase 3 — Sequential M2M baseline vs LMT reference
 
 ```text
-run current M2M100 baseline
-save outputs/metrics/timing
-unload/terminate baseline evaluation process
-
-run pinned LMT-60-1.7B reference behavior
-save outputs/metrics/timing
-unload/terminate candidate process
+M2M100 process → benchmark → terminate
+LMT reference process → benchmark → terminate
 ```
 
-Evaluate regression, external/reference, semantic stress, sealed holdout, factual diagnostics, and blind naturalness under the same contract.
+If LMT has any sealed CRITICAL error: **STOP**. No phrase patch.
 
-If LMT has any sealed critical semantic failure: **STOP**. Do not patch the phrase; reopen the model decision only with new evidence.
+### Phase 4 — Stable acceleration decision
 
-### Phase 4 — Envelope + performance decision
-
-Only if LMT passes semantic quality:
-
-1. compare whole-paragraph versus current semantic-unit segmentation on the context-sensitive subset;
-2. choose the simplest envelope that preserves completeness and meaning;
-3. measure target RTX 3070 latency/VRAM;
-4. if raw/reference performance is already suitable, stop optimization;
-5. only if measured need exists, evaluate one CTranslate2 FP16 path and rerun the full frozen quality gate;
-6. only if memory still requires it, evaluate one `int8_float16` path and rerun the full gate.
-
-No arbitrary beam/temperature/length-penalty sweep.
-
-### Phase 5 — Atomic one-engine production migration
-
-Only after Phases 1–4 pass.
-
-One logical migration must cover the smallest complete owner set:
+Only after LMT reference passes quality:
 
 ```text
-model_manifest.json
-- remove M2M100 translation entry
-- add only pinned LMT-60-1.7B translation entry
-- runtime allowlist for safetensors + tokenizer/chat-template/config assets
+A. same PyTorch BF16 + dynamic KV cache
+   → full frozen quality + latency/VRAM rerun
 
-prepare_model_assets.py/tests
-- preserve pinned atomic acquisition
-- validate new LMT asset contract
+B. only if attention was eager:
+   explicit native SDPA
+   → rerun
 
+If A/B meet target evidence:
+   STOP optimization and choose the simplest passing profile.
+
+Only if still materially too slow / memory-heavy:
+   C. same LMT through CTranslate2 BF16
+      → beam 5 / include_prompt_in_result=False
+      → full quality + latency/VRAM rerun
+```
+
+Do not test torch.compile, static cache, FP16, or quantization unless all simpler BF16 paths fail a measured requirement and a new bounded plan is approved.
+
+### Phase 5 — Envelope decision
+
+On the winning LMT execution profile, compare whole-paragraph vs current semantic segmentation on context-sensitive cases. Keep only the simpler safe strategy.
+
+### Phase 6 — Atomic one-engine production migration
+
+One logical migration must replace M2M production ownership with the proven LMT profile across:
+
+```text
+model_manifest.json / acquisition contract
 realtime_local_worker.py
-- one bidirectional loaded LMT runtime
-- AutoModelForCausalLM / approved optimized runtime only
-- official translation prompt + chat template
-- direction names English / Indonesian
-- prompt-aware input/context budgeting
-- continuation-only decode
-- causal EOS/completion accounting
-- no M2M fallback/router
-
-translation_envelope.py
-- implement only the envelope strategy proven in Phase 4
-- preserve paragraphs / complete-output-or-failure contract
-
+translation_envelope.py only as proven necessary
 tests
-- one model reused for both directions
-- prompt construction / continuation slicing
-- prompt-aware context budget
-- completion/EOS behavior
-- no M2M-specific get_lang_id/forced-BOS assumptions
-- no phrase-specific expected translations
-
-pyproject.toml + uv.lock
-- only the minimum justified Transformers 4.x compatibility change
-- prove ASR + GPT-SoVITS/VoiceLab imports/contracts remain healthy
-
-readiness / diagnostics / docs
-- one LMT translation model identity
-- Text + outbound Meeting + incoming Meeting all point to the same canonical worker model
+minimum compatible Transformers 4.x dependency update
+readiness/diagnostics/docs
 ```
 
-M2M100 must not remain in production manifest, worker fallback logic, release inventory, or user-visible modes after this migration.
+M2M100 must not remain in production manifest, fallback logic, release inventory, or modes after migration.
 
-### Phase 6 — Target Windows Standalone acceptance
+### Phase 7 — Target Windows Standalone acceptance
 
-Fast-forward `Local`, acquire only the new canonical LMT asset, run focused source tests, start the Tauri app, confirm CUDA readiness, then repeat:
+Acquire only the new canonical LMT asset, run focused source tests, launch Tauri, confirm CUDA, then repeat Text 2A / 2B / 2C both directions. Stop at first correctness failure.
 
-```text
-2A ID → EN
-2B EN → ID
-2C long / multi-paragraph both directions
-```
+### Phase 8 — Combined Meeting runtime proof
 
-Stop at first correctness failure.
+Preload/warm ASR + the SAME LMT + approved My Voice, then verify combined 8 GB VRAM stability, outbound ID→EN, incoming EN→ID, translation latency, and finalized-utterance-end → first-playback latency.
 
-### Phase 7 — Combined Meeting runtime proof
+### Phase 9 — Resume product acceptance
 
-Before resuming broader Meeting acceptance:
-
-```text
-preload/warm ASR
-preload/warm the SAME LMT translator
-preflight/warm approved My Voice
-measure combined VRAM and stability
-verify outbound ID→EN uses LMT
-verify optional incoming EN→ID uses the SAME LMT
-measure translation stage and real outbound pipeline latency
-```
-
-No second voice-specific translator is permitted.
-
-### Phase 8 — Resume product acceptance
-
-Only after Standalone translation and combined Meeting runtime proof pass:
-
-```text
-Microphone selection + Mic Test
-VoiceLab guided recording / training / approval
-Meeting Start
-outbound translated voice
-optional incoming text
-stop/restart/minimize/long session
-sleep/wake
-real meeting-app microphone reception
-```
-
-Installer/package work remains deferred until the canonical runtime/model stack is stable.
-
-## Explicit Non-Goals
-
-```text
-NO two translation engines in production
-NO M2M100 fallback after accepted LMT migration
-NO provider/model selector
-NO phrase-specific grammar correction
-NO Malay→Indonesian rewrite dictionary
-NO date/number fixer
-NO back-translation correction loop
-NO cloud translation
-NO LLM post-editor
-NO arbitrary decoder sweep
-NO ASR/TTS/audio/scheduler redesign as part of translation migration
-NO release/package redesign before runtime stability
-```
+Only after translation and combined-runtime proof pass: Mic Test → VoiceLab → Meeting → lifecycle → real meeting-app reception. Installer remains deferred until the canonical runtime is stable.
 
 ## Stop Conditions
 
-Stop and return to diagnosis if any of the following occurs:
+Stop and return to diagnosis if:
 
 ```text
 benchmark/holdout provenance is not trustworthy
 LMT produces a sealed CRITICAL semantic error
-LMT dependency requirement breaks canonical ASR/VoiceLab without a bounded compatible pin
-translation-only or combined Meeting runtime OOMs / grows memory unstably
-one bounded performance optimization cannot preserve the frozen quality gate
-a proposed fix requires a phrase-specific patch or a second production translator
+compatible Transformers 4.x breaks canonical ASR/VoiceLab without bounded resolution
+dynamic KV cache causes correctness regression / OOM / unstable memory
+optimized profile does not materially improve latency or memory
+combined Meeting stack OOMs or grows memory unstably
+a proposed fix needs phrase-specific correction or a second translation model
 ```
 
 ## Next Step
 
-**PHASE 1 ONLY: freeze the Translation Quality Benchmark contract and its inputs before any LMT download, dependency change, model integration, decoder change, or production source modification. Once the benchmark artifacts and scoring/provenance procedure are frozen, stop and review them critically before starting the isolated LMT compatibility/evaluation run.**
+**PHASE 1 ONLY: freeze and critically review the Translation Quality Benchmark contract and exact measurement procedure before any LMT download, dependency change, cache/attention experiment, model integration, or production source modification. Preserve this file as the continuation owner if the chat/session ends.**
