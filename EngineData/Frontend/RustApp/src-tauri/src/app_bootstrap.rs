@@ -14,6 +14,7 @@ mod windows_power_lifecycle {
     const WM_POWERBROADCAST: u32 = 0x0218;
     const PBT_APMSUSPEND: usize = 0x0004;
     const PBT_APMRESUMECRITICAL: usize = 0x0006;
+    const PBT_APMRESUMESUSPEND: usize = 0x0007;
     const PBT_APMRESUMEAUTOMATIC: usize = 0x0012;
     const TRANSLATEIT_POWER_SUBCLASS_ID: usize = 0x5452_5057;
 
@@ -45,12 +46,49 @@ mod windows_power_lifecycle {
             .unwrap_or(false)
     }
 
+    fn invalidate_application_meeting_output_authority() {
+        let report = crate::engine::runtime_state::latest_runtime_session_state();
+        let Some(snapshot) = report.snapshot.as_ref() else {
+            return;
+        };
+        if snapshot.owner_id != APPLICATION_MEETING_OWNER_ID {
+            return;
+        }
+
+        let generation = snapshot.generation;
+        if snapshot.authority_active {
+            let revoked = crate::engine::runtime_state::revoke_runtime_session_authority(
+                generation,
+                "Windows power transition invalidated the active Meeting generation before suspend/resume cleanup.",
+            );
+            let authority_revoked = revoked
+                .snapshot
+                .as_ref()
+                .map(|current| {
+                    current.owner_id == APPLICATION_MEETING_OWNER_ID
+                        && current.generation == generation
+                        && !current.authority_active
+                })
+                .unwrap_or(false);
+            if !authority_revoked {
+                return;
+            }
+        }
+
+        // This is intentionally only the immediate fail-closed output boundary.
+        // Full capture/helper/consumer cleanup stays owned by canonical Meeting Stop
+        // on the lifecycle worker below. The playback cancel is an atomic flag and
+        // does not block the Windows power-broadcast callback.
+        let _ = crate::engine::audio::meeting_output::cancel_meeting_output_for_generation(
+            generation,
+        );
+    }
+
     fn converge_application_meeting_to_stopped() {
         if application_meeting_owned() {
-            // Canonical Meeting Stop revokes generation/output authority before it
-            // cancels provider/helper/consumers and releases audio resources. Power
-            // lifecycle convergence must keep using this owner rather than inventing
-            // a second cleanup path.
+            // Canonical Meeting Stop is idempotent after the synchronous power-event
+            // revocation above. It owns provider/helper/consumer cancellation and all
+            // audio-resource release; this lifecycle hook must not duplicate cleanup.
             let _ = crate::commands::meeting_session::stop_meeting_translation();
         }
     }
@@ -58,7 +96,10 @@ mod windows_power_lifecycle {
     fn power_event_requires_cleanup(wparam: Wparam) -> bool {
         matches!(
             wparam,
-            PBT_APMSUSPEND | PBT_APMRESUMECRITICAL | PBT_APMRESUMEAUTOMATIC
+            PBT_APMSUSPEND
+                | PBT_APMRESUMECRITICAL
+                | PBT_APMRESUMESUSPEND
+                | PBT_APMRESUMEAUTOMATIC
         )
     }
 
@@ -111,9 +152,10 @@ mod windows_power_lifecycle {
         _ref_data: usize,
     ) -> Lresult {
         if message == WM_POWERBROADCAST && power_event_requires_cleanup(wparam) {
-            // Window-procedure work stays bounded and nonblocking. Session inspection,
-            // authority revocation, joins, helper cancellation, and audio release all
-            // happen on the lifecycle worker through canonical Meeting Stop.
+            // Authority and any already-running translated playback are invalidated
+            // before returning to Windows. Potentially blocking capture/helper/thread
+            // cleanup is then handed off to canonical Meeting Stop.
+            invalidate_application_meeting_output_authority();
             request_meeting_cleanup();
         }
 
@@ -147,13 +189,14 @@ mod windows_power_lifecycle {
     mod b4_power_lifecycle_tests {
         use super::{
             power_event_requires_cleanup, PBT_APMRESUMEAUTOMATIC, PBT_APMRESUMECRITICAL,
-            PBT_APMSUSPEND,
+            PBT_APMRESUMESUSPEND, PBT_APMSUSPEND,
         };
 
         #[test]
         fn b4_suspend_and_resume_events_request_cleanup_convergence() {
             assert!(power_event_requires_cleanup(PBT_APMSUSPEND));
             assert!(power_event_requires_cleanup(PBT_APMRESUMECRITICAL));
+            assert!(power_event_requires_cleanup(PBT_APMRESUMESUSPEND));
             assert!(power_event_requires_cleanup(PBT_APMRESUMEAUTOMATIC));
             assert!(!power_event_requires_cleanup(0));
             assert!(!power_event_requires_cleanup(0xffff));
