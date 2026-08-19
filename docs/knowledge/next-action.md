@@ -2,7 +2,7 @@
 
 ## Current Status
 
-`PHASE 2 LMT COMPATIBILITY PASS / FROZEN BENCHMARK LOCKED / PHASE 3 SEQUENTIAL M2M100 VS LMT BENCHMARK NEXT / NO PRODUCTION SWITCH / INSTALLER DEFERRED`
+`PHASE 3 TOOLING READY / TARGET-WINDOWS SEQUENTIAL M2M100→LMT RUN NEXT / FROZEN BENCHMARK LOCKED / NO PRODUCTION SWITCH / INSTALLER DEFERRED`
 
 Authority:
 
@@ -220,6 +220,59 @@ Required evidence under the frozen contract:
 
 Promotion rules remain controlled by the frozen benchmark contract; metrics cannot override a demonstrated critical semantic error.
 
+## Phase 3 Dev-Only Tooling
+
+```text
+tools/translation_quality/run_phase3_translation_benchmark.ps1
+tools/translation_quality/phase3_translation_benchmark.py
+tools/translation_quality/phase3_lmt_worker.py
+```
+
+The Phase 3 design deliberately avoids reimplementing the M2M baseline. The baseline process is the current canonical `realtime_local_worker.py` launched through the current WorkerRuntime Python authority, so its M2M tokenizer/generation/completion behavior is the actual product baseline. After that process exits, the approved LMT candidate is launched through the already-proven Phase 2 isolated environment.
+
+One run performs:
+
+```text
+canonical M2M100 worker
+→ frozen product + FLORES outputs
+→ short/medium/long 5 warmups + 30 measured requests
+→ process exit / GPU release
+
+then
+
+isolated LMT worker
+→ the SAME frozen product + FLORES inputs
+→ the SAME performance case IDs / run counts
+→ process exit
+
+then
+
+SacreBLEU 2.6.0 only
+→ chrF++ + BLEU by direction
+→ paired bootstrap, 1000 resamples, seed 12345
+→ protected-literal diagnostics
+→ blind semantic/naturalness review packs
+```
+
+Comparable latency is recorded as complete request-wall time from request send through JSON translation response, so both engines are measured at the same translation-stage boundary. LMT also retains its internal CUDA-synchronized inference timing in the response. This does not claim full Meeting latency.
+
+COMET is **not removed from the frozen contract**. Because it is supplementary/non-blocking, it is deferred until the semantic severity review shows the candidate is safe enough to justify the additional evaluation compute. Blind naturalness is likewise not scored before semantic safety. This avoids spending extra work on a candidate that already fails the primary semantic gate.
+
+Phase 3 outputs are isolated under:
+
+```text
+UserData/CacheData/TranslationQuality/Phase3/
+├─ phase3_m2m100_results.json
+├─ phase3_lmt_results.json
+├─ phase3_automatic_comparison.json
+├─ phase3_semantic_review_pack.jsonl
+├─ phase3_naturalness_review_pack.jsonl
+├─ phase3_blind_review_key.json
+└─ metrics/
+```
+
+`automatic_run_complete = true` means only that the deterministic translation/metric collection completed. It is **not** a model-quality pass and does not authorize production migration.
+
 ## Execution Sequence
 
 ```text
@@ -229,7 +282,9 @@ Phase 1R  critical pre-inference benchmark review            DONE
 Phase 2A  compatibility tooling                              DONE
 Phase 2B  FLORES+ access                                     DONE
 Phase 2C  target-Windows LMT compatibility proof             PASS
-Phase 3   sequential M2M100 vs LMT frozen benchmark          NEXT
+Phase 3A  tooling / deterministic automatic evidence          DONE
+Phase 3B  target-Windows sequential benchmark run                NEXT
+Phase 3C  semantic severity review; COMET/naturalness if safe
 Phase 4   one final Standalone envelope decision
 Phase 5   atomic one-engine M2M100 → LMT production migration
 Phase 6   target Windows Text 2A / 2B / 2C acceptance
@@ -255,4 +310,4 @@ a proposed fix requires phrase-specific rewriting, second translator, or alterna
 
 ## Next Step
 
-**PHASE 3 ONLY: build/run the sequential frozen M2M100-vs-LMT evaluation using the already-locked benchmark artifacts and target-Windows procedure. Do not edit the frozen stress/holdout cases, do not modify production translator/model manifest/lockfile, and do not begin atomic migration until the complete Phase 3 quality + latency + VRAM evidence has been reviewed.**
+**PHASE 3B ONLY: fast-forward `Local`, then run `tools/translation_quality/run_phase3_translation_benchmark.ps1` once on the target RTX 3070. Return `UserData/CacheData/TranslationQuality/Phase3/phase3_automatic_comparison.json` for review. Do not edit the frozen benchmark, do not run production migration, and do not open the blind-review key before semantic review.**
