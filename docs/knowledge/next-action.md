@@ -2,7 +2,7 @@
 
 ## Current Status
 
-`ROUND 1 LMT REJECTED / ROUND 2 ACTIVE CANDIDATE M2M100-1.2B / LMT CACHE CLEANED / RETIRED MARIAN CLEANUP CONFIRMED / PRESCREEN HARNESS QUOTING BUG FIXED / NO M2M100-1.2B INFERENCE YET / PRODUCTION M2M100-418M UNCHANGED / FROZEN D-025 BENCHMARK UNCHANGED / INSTALLER DEFERRED`
+`ROUND 1 LMT REJECTED / ROUND 2 M2M100-1.2B REJECTED BY KILL-FAST SEMANTIC GATE / TRANSLATEGEMMA 4B INT8 SELECTED FOR FINAL ROUND-2 CHALLENGER TRIAGE / PRODUCTION M2M100-418M UNCHANGED / FROZEN D-025 BENCHMARK UNCHANGED / INSTALLER DEFERRED`
 
 Authority:
 
@@ -12,7 +12,7 @@ Developing → historical/recovery only
 Target PC  → Windows / NVIDIA GeForce RTX 3070 8 GB / CUDA
 ```
 
-Do **not** modify the production translator, production `model_manifest.json`, production `uv.lock`, Meeting/VoiceLab behavior, or installer during Round 2 candidate rejection work.
+Do **not** modify the production translator, production `model_manifest.json`, production `uv.lock`, Meeting/VoiceLab behavior, or installer during candidate evaluation.
 
 ## Durable Translation Constraints
 
@@ -23,7 +23,7 @@ D-025–D-027 remain controlling:
 - maximum two serious challengers per round;
 - one accepted translator replaces the canonical model rather than becoming a router/fallback;
 - target-Windows evidence is required before production adoption;
-- the frozen D-025 benchmark remains promotion evidence.
+- the frozen D-025 benchmark remains the only promotion evidence.
 
 Production remains:
 
@@ -32,46 +32,47 @@ facebook/m2m100_418M
 revision 55c2e61bbf05dfb8d7abccdc3fae6fc8512fd636
 ```
 
-## Round 1 Result
+## Round 1 — LMT-60-1.7B — REJECTED
 
-LMT-60-1.7B is rejected for production migration. The target Phase 3 run completed, but semantic review exposed meaning-changing ID→EN modality failures, including sealed-holdout weakening of strong obligation/prohibition. Do not repair LMT from those observed phrases.
+Target Phase 3 completed, but semantic review exposed meaning-changing ID→EN modality failures, including sealed-holdout weakening of strong obligation/prohibition into `should` / `should not`. Do not repair LMT from observed phrases.
 
-## Local Cleanup Evidence
+## Round 2 Candidate 1 — M2M100-1.2B — REJECTED
 
-Target-Windows cleanup already removed:
-
-```text
-UserData/CacheData/TranslationQuality/Phase2/lmt_model
-≈ 3.8 GiB reclaimed in the reported cleanup run
-```
-
-SMaLL-100 was not present locally.
-
-The cleanup run also discovered:
+Target prescreen runtime itself passed:
 
 ```text
-EngineData/Backend/RuntimeAssets/Translation/ModelData/marianmt-en-id
-EngineData/Backend/RuntimeAssets/Translation/ModelData/marianmt-id-en
+CUDA              PASS
+BF16              PASS
+Transformers      4.50.0
+PyTorch           2.11.0+cu126
+num_beams         5
+do_sample         false
+context           1024
+cold load         4670.13 ms
 ```
 
-Current production manifest has no Marian translation entry and the repository contains no active reference to either exact directory. Marian was already retired when M2M100 became canonical. These two exact directories are therefore now approved cleanup targets.
+The reported whole-device VRAM baseline is not used as a candidate decision because the GPU was concurrently occupied during that run.
 
-Cleanup owner:
+The candidate was rejected before external sampling/full benchmark because the generic semantic minimal-pair prescreen found an exact modality collapse in EN→ID:
 
 ```text
-tools/translation_quality/cleanup_rejected_translation_models.ps1
+source contrast:
+  must / wajib       = strong obligation
+  should / sebaiknya = recommendation
+
+M2M100-1.2B output for both:
+  layanan harus menyimpan salinan pemulihan lokal sampai upload dikonfirmasi
 ```
 
-The cleanup owner must preserve:
+This strengthens a recommendation into a mandatory requirement and erases the intended semantic distinction. The prescreen was explicitly defined to reject exact semantic contrast collapse, so no 32-case manual review, FLORES sweep, repeated performance run, COMET, or frozen full benchmark is warranted for M2M100-1.2B.
+
+Preserve the report/review pack as evidence. Remove only the rejected model bytes with:
 
 ```text
-EngineData/Backend/RuntimeAssets/Translation/ModelData/m2m100-418m
-UserData/CacheData/TranslationQuality/Round2/m2m100_1_2b_model
-UserData/CacheData/TranslationQuality/Phase2/.venv
-Phase 2 / Phase 3 JSON reports and review evidence
+tools/translation_quality/cleanup_rejected_m2m12b_model.ps1
 ```
 
-No broad model wildcard deletion is approved.
+Do not delete production `m2m100-418m`.
 
 ## Frozen D-025 Benchmark
 
@@ -85,110 +86,66 @@ tools/translation_quality/benchmark_contract.json
 Git blob 1b49065ad58b041187b6d69aaa575ecd4d941c7b
 ```
 
-The full benchmark is not the first filter for a new challenger.
+The full benchmark is never the first filter for a challenger.
 
-## Round 2 Candidate Policy
+## Round 2 Candidate 2 — Google TranslateGemma 4B — SELECTED FOR PRESCREEN TOOLING
 
-Use a practical floor of approximately **1B parameters or larger** for this round. Parameter count is not proof of quality, but sub-1B candidates are not worth runtime evaluation for the current quality-first target.
+Source-level triage prefers TranslateGemma over MADLAD-400 3B for the final Round-2 challenger because it has newer translation-specific evidence and direct English–Indonesian training coverage.
 
-SMaLL-100 is not an active candidate.
-
-Evaluation sequence:
+Candidate:
 
 ```text
-source/license/platform/size triage
-→ 32-direction semantic kill-fast prescreen
-→ manual semantic review
-→ only if clean: small external + practical latency/VRAM prescreen
-→ only if still clean: frozen full D-025 benchmark
-→ only after full PASS: production migration
+repo          google/translategemma-4b-it
+family        TranslateGemma / Gemma 3
+nominal size  4B family; Hugging Face reports ~5B total parameters
+license       Gemma Terms of Use
+input         text translation with official source/target language chat template
+Indonesian    explicitly present in TranslateGemma SFT and RL English–Indonesian mixture
 ```
 
-The kill-fast prescreen may reject a candidate but cannot promote it.
+Published TranslateGemma evaluation reports consistent gains over Gemma 3 at the 4B size on WMT24++ overall. This is source-level candidate evidence only, not TranslateIT ID↔EN acceptance.
 
-## Candidate 1 — M2M100-1.2B — ACTIVE
+### Why not raw BF16
 
-```text
-repo       facebook/m2m100_1.2B
-revision   7b36184180524c1a1bbfa37f120a608046250b98
-license    MIT
-parameters ~1.2B
-weights    pytorch_model.bin
-size       ~4.96 GB source checkpoint
-SHA256     a58ef8f42362ef12adeddc600b3425f1e2bbd019cfa6aae6b0051e2e3e055cd4
-```
+The official model repository contains two BF16 safetensors shards totaling about 8.6 GB. That is not a practical raw-weight configuration for an RTX 3070 8 GB before runtime/KV/other Meeting-stage memory.
 
-Single prescreen runtime:
+### Single approved evaluation configuration
+
+Use exactly one candidate configuration:
 
 ```text
-PyTorch / canonical Transformers 4.x
-CUDA on target RTX 3070
-BF16
-AutoModelForSeq2SeqLM
-M2M100 language-token contract
-num_beams=5
+Official google/translategemma-4b-it weights
+isolated current compatible Transformers 4.x evaluation environment
+Windows CUDA on RTX 3070
+bitsandbytes LLM.int8()
+official TranslateGemma chat template
+source_lang_code / target_lang_code = id / en as required
 do_sample=False
 model.eval() + torch.inference_mode()
 ```
 
-No alternate numeric profile, quantization, beam reduction, second backend, or output repair is approved during this candidate pass.
+Do not create Q4/GGUF/community-quantized alternatives, 4-bit fallback, BF16 alternate profile, beam matrix, second backend, or output repair. Current bitsandbytes documentation supports LLM.int8 on Windows NVIDIA, including CUDA 12.6-class environments and Turing-or-newer GPUs; RTX 3070 satisfies that hardware boundary.
 
-## Candidate 2 — MADLAD-400 3B — Reserve Only
+Gemma redistribution is permitted only subject to the current Gemma Terms, including downstream use restrictions, copy of the terms, and required notice. Packaging/release compliance remains a later release gate if the model is ever accepted.
 
-```text
-repo       google/madlad400-3b-mt
-license    Apache-2.0
-parameters ~3B
-full safetensors checkpoint ~11.8 GB
-```
+## TranslateGemma Evaluation Order
 
-Do not download/run MADLAD while M2M100-1.2B is under review. It requires a separate memory/runtime feasibility decision if Candidate 1 is rejected.
-
-## M2M100-1.2B Prescreen
-
-Generic rejection fixture:
+Do **not** repeat the expensive LMT sequence. The next tooling must enforce:
 
 ```text
-tools/translation_quality/round2_rejection_prescreen.json
-Git blob eb59c2f1456e75a2d0c61dc1ae4d94c04cb40b07
+1. gated-model access + exact revision/file provenance
+2. isolated Transformers/bitsandbytes Windows compatibility
+3. LLM.int8 load + CUDA + whole-device/framework VRAM
+4. official chat-template ID↔EN smoke translations
+5. only if runtime viable: same 32-direction rejection-only semantic prescreen
+6. STOP for manual review
+7. only after zero-CRITICAL prescreen: small external + latency/VRAM proof
+8. only after that passes: frozen full D-025 benchmark
 ```
 
-Active tooling:
+A compatibility/prescreen pass cannot promote TranslateGemma. Any critical semantic error, incomplete generation, unstable Windows INT8 runtime, or impractical target memory/latency stops the candidate immediately.
 
-```text
-tools/translation_quality/round2_m2m12b_worker.py
-tools/translation_quality/round2_m2m12b_prescreen.py
-tools/translation_quality/run_round2_m2m12b_prescreen.ps1
-```
-
-The first attempt stopped before model acquisition/inference because PowerShell-native argument handling stripped quotes from embedded Python `-c` acquisition code. Evidence:
-
-```text
-SyntaxError: invalid decimal literal
-repo_id=facebook/m2m100_1.2B
-```
-
-Classification:
-
-```text
-M2M100-1.2B downloaded   NO
-M2M100-1.2B inference    NO
-semantic result          NOT TESTED
-CUDA/BF16 preflight      PASS
-production modified      NO
-```
-
-This was a harness defect, not a model/runtime failure.
-
-The fix removes acquisition source code from PowerShell entirely. `round2_m2m12b_prescreen.py` now owns pinned `snapshot_download()`, exact revision acquisition, required-file checks, and SHA256 verification before launching the candidate worker. This removes the PowerShell → `python -c` quoting boundary from model acquisition.
-
-The prescreen still runs only **16 bilingual semantic pairs / 32 directional translations** and then stops for manual review. It does not run FLORES 1012×2, repeated performance, COMET, MADLAD, the full benchmark, or production migration.
-
-Expected report:
-
-```text
-UserData/CacheData/TranslationQuality/Round2/m2m12b_prescreen_report.json
-```
+MADLAD-400 3B is no longer the active reserve for this round. Its official full checkpoint is ~11.8 GB and would also require a new compressed runtime configuration, while TranslateGemma has stronger direct translation-specific evidence for the current quality-first objective.
 
 ## Execution Sequence
 
@@ -197,20 +154,18 @@ Round 1 / Phase 2   LMT compatibility                         PASS
 Round 1 / Phase 3   M2M100-418M vs LMT frozen run            DONE
 Round 1             LMT semantic promotion gate               FAIL / REJECTED
 
-Round 2A            candidate-size policy + source triage      DONE
-Round 2 cleanup     LMT cache removal                          DONE (3.8 GiB reported)
-Round 2 cleanup     retired Marian exact directories           NEXT RERUN
-Round 2 harness     acquisition quoting defect                 FIXED IN SOURCE / TARGET RERUN REQUIRED
-Round 2B            M2M100-1.2B 32-direction prescreen        NEXT
-Round 2C            manual semantic review                     BLOCKED ON 2B
-Round 2D            small external + latency/VRAM prescreen    ONLY AFTER 2C PASS
-Round 2E            frozen full D-025 benchmark                ONLY AFTER 2D PASS
-Round 2 reserve      MADLAD-400 3B feasibility                 ONLY IF M2M100-1.2B REJECTED
+Round 2A            source/license/size triage                 DONE
+Round 2B            M2M100-1.2B kill-fast prescreen           FAIL / REJECTED
+Round 2 cleanup     rejected M2M100-1.2B model bytes          READY
+Round 2C            TranslateGemma INT8 tooling               NEXT
+Round 2D            target Windows compatibility + 32 cases   BLOCKED ON 2C
+Round 2E            small external + latency/VRAM              ONLY AFTER 2D PASS
+Round 2F            frozen full D-025 benchmark                ONLY AFTER 2E PASS
 Production migration                                            BLOCKED
 ```
 
-Installer and combined ASR + translator + MyVoice proof remain deferred until one translation candidate passes the full quality gate.
+Installer and combined ASR + translator + MyVoice proof remain deferred until one translator passes the full quality gate.
 
 ## Next Step
 
-**ROUND 2 ONLY: fast-forward `Local`, rerun `cleanup_rejected_translation_models.ps1` once so the two retired Marian directories are removed, then run `run_round2_m2m12b_prescreen.ps1` once on the RTX 3070. Return `m2m12b_prescreen_report.json`. Do not run MADLAD, external sampling, the full benchmark, or production migration before the 32 outputs are reviewed.**
+**ROUND 2C ONLY: prepare the isolated TranslateGemma 4B LLM.int8 Windows compatibility + kill-fast semantic prescreen tooling. Do not download/run MADLAD, do not run the frozen benchmark, and do not modify the production translator. On the target PC, the rejected M2M100-1.2B model bytes may be removed first with `cleanup_rejected_m2m12b_model.ps1`; preserve its report.**
