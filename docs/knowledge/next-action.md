@@ -2,134 +2,114 @@
 
 ## Current Status
 
-`ROUND 1 LMT REJECTED / ROUND 2 M2M100-1.2B REJECTED + CLEANED / TRANSLATEGEMMA 4B LLM.INT8 REJECTED_AUTOMATIC AFTER 3/32 / EXISTING REPORT IS AUTHORITY / WRAPPER STATE-CAPTURE BUG FIXED / NO REPEAT INFERENCE / PRODUCTION M2M100-418M UNCHANGED`
+`PRODUCTION M2M100-418M UNCHANGED / TRANSLATEGEMMA NO LONGER ACTIVE / MILMMT-46 v1.0 1B + 4B SELECTED FOR ONE REPRESENTATIVE REALTIME A/B / NO SHORT-CIRCUIT / NO SINGLE-ERROR REJECTION / NO AUTOMATIC MODEL 3`
 
 Authority:
 
 ```text
 Local      → current development authority
-Developing → historical/recovery only
 Target PC  → Windows / NVIDIA GeForce RTX 3070 8 GB / CUDA
 ```
 
-Do **not** modify the production translator, production `model_manifest.json`, production `uv.lock`, Meeting/VoiceLab behavior, or installer during candidate evaluation.
+## Decision Boundary
 
-## Durable Translation Constraints
+The earlier rejection-only modality prescreen was useful for surfacing a semantic weakness but was too aggressive as a whole-model selection decision. Do not continue model hopping from one crafted failure.
 
-D-025–D-027 remain controlling:
-
-- meaning/correctness outranks latency and metric cosmetics;
-- no phrase-specific patch, dictionary repair, prompt patch derived from failed fixtures, or output rewriting;
-- an accepted translator replaces the canonical model rather than becoming a router/fallback;
-- target-Windows evidence is required before production adoption;
-- the frozen D-025 benchmark remains promotion evidence;
-- expensive evaluation is never the first filter for a new challenger.
-
-Production remains:
+From this point, translation selection is based on representative product behavior:
 
 ```text
-facebook/m2m100_418M
-revision 55c2e61bbf05dfb8d7abccdc3fae6fc8512fd636
+current production M2M100-418M
+vs
+MiLMMT-46-1B-v1.0 BF16
+vs
+MiLMMT-46-4B-v1.0 INT8
 ```
 
-## Rejected Candidates
+TranslateGemma is no longer an active challenger. Preserve its report as historical evidence; do not use its single `should -> harus` finding as a standalone model-rejection rule.
 
-### LMT-60-1.7B
+## Why MiLMMT v1.0
 
-Rejected after the full target Phase 3 comparison because semantic review found meaning-changing ID→EN modality failures, including sealed-holdout weakening of strong obligation/prohibition.
+Official Xiaomi v1.0 was released in August 2026 and builds on Gemma 3 with multilingual continual pretraining, supervised fine-tuning, reinforcement learning and checkpoint merging. Indonesian and English are supported. Published v1.0 results report improvement over the earlier SFT model and strong recent open translation baselines including TranslateGemma. These are positive candidate signals, not production acceptance.
 
-### M2M100-1.2B
-
-Rejected by the 32-direction rejection-only prescreen before expensive evaluation. EN→ID collapsed strong obligation and recommendation:
+## Practical Candidate Configurations
 
 ```text
-must / wajib        → harus
-should / sebaiknya  → harus
+MiLMMT-46-1B-v1.0
+  official Xiaomi checkpoint
+  BF16
+  AutoModelForCausalLM
+  official Xiaomi translation prompt
+  deterministic generation
+
+MiLMMT-46-4B-v1.0
+  official Xiaomi checkpoint
+  bitsandbytes LLM.int8
+  non-quantized compute BF16
+  AutoModelForCausalLM
+  official Xiaomi translation prompt
+  deterministic generation
 ```
 
-Its local model bytes have been cleaned; preserve its JSON report evidence.
+No Q4/GGUF/community checkpoint, routing, fallback profile or phrase-specific output repair is part of this comparison.
 
-### Google TranslateGemma 4B LLM.int8
+## Representative Realtime A/B
 
-Evaluation configuration:
+Owner files:
 
 ```text
-official google/translategemma-4b-it
-isolated Python 3.12 evaluation environment
-PyTorch 2.11.0+cu126
-Transformers 4.57.6
-Accelerate 1.14.0
-bitsandbytes 0.50.0
-Windows CUDA / RTX 3070
-LLM.int8()
-non-quantized compute dtype BF16
-official TranslateGemma chat template
-source_lang_code / target_lang_code = id / en
-max_new_tokens = 200
-do_sample = false
-model.eval() + torch.inference_mode()
+tools/translation_quality/realtime_use_cases.json
+tools/translation_quality/milmmt_realtime_worker.py
+tools/translation_quality/realtime_translation_ab.py
+tools/translation_quality/run_milmmt_realtime_ab.ps1
 ```
 
-Target environment probe passed CUDA/BF16/LLM.int8 availability. Gated Hugging Face access was subsequently resolved and the model reached semantic inference.
-
-The kill-fast run stopped after:
+The comparison uses 24 representative Meeting/Text utterances:
 
 ```text
-semantic_completed_cases = 3
-semantic_planned_cases   = 32
-prescreen_state          = REJECTED_AUTOMATIC
+12 Indonesian -> English
+12 English -> Indonesian
+
+status updates
+client deadlines
+clarification/corrections
+professional disagreement
+conditional planning
+technical handoff
+numbers/IP/version facts
+schedule
+branch instructions
+code switching
+questions
+scope constraints
+natural recommendation/prohibition context
 ```
 
-This means a hard rejection-only diagnostic fired before the remaining semantic cases. The exact first hard-rejection detail is already stored in:
+Rules:
+
+- every candidate runs all 24 cases unless the runtime itself cannot run;
+- no semantic short-circuit;
+- one minor/major wording issue is never an automatic candidate rejection;
+- references are review anchors, not exact-output assertions;
+- record completion, literal preservation, chrF++/BLEU as supporting signals, request wall-time p50/p90, load/VRAM evidence and all raw translations;
+- final quality decision requires aggregate human semantic/factual/naturalness review;
+- newer release date alone cannot authorize migration.
+
+## Decision Rule After A/B
 
 ```text
-UserData/CacheData/TranslationQuality/Round2/TranslateGemma/translategemma_prescreen_report.json
+MiLMMT candidate clearly improves representative semantic/factual/naturalness quality
+AND latency/VRAM are practical
+→ candidate may proceed to final production migration proof.
+
+Improvement is marginal, mixed, or operationally too expensive
+→ retain M2M100-418M and STOP model search.
+
+Both MiLMMT candidates are materially poor
+→ do not automatically download another model; require a new explicit decision first.
 ```
 
-Do **not** rerun model inference merely to inspect it.
-
-The PowerShell wrapper initially misreported the terminal state because native Python progress stdout was captured together with the returned state string. That was a wrapper presentation/state-handling bug, not a model/runtime result. The wrapper now:
-
-```text
-keeps Python progress on-screen without returning it as state
-uses the existing terminal report as authority
-skips repeated model inference for terminal states
-prints the first hard rejection detail directly from the existing report
-```
-
-## Frozen D-025 Benchmark
-
-Still immutable:
-
-```text
-tools/translation_quality/benchmark_cases.json
-Git blob e33753f2106ea2287bce24052ccd97a08af61236
-
-tools/translation_quality/benchmark_contract.json
-Git blob 1b49065ad58b041187b6d69aaa575ecd4d941c7b
-```
-
-No FLORES 1012×2, COMET, repeated performance benchmark, or frozen full benchmark is warranted for TranslateGemma unless the existing report is shown to contain a harness/diagnostic defect rather than a valid model rejection.
-
-## Execution Sequence
-
-```text
-Round 1 / Phase 2   LMT compatibility                         PASS
-Round 1 / Phase 3   M2M100-418M vs LMT frozen run            DONE
-Round 1             LMT semantic promotion gate               FAIL / REJECTED
-
-Round 2A            source/license/size triage                 DONE
-Round 2B            M2M100-1.2B kill-fast prescreen           FAIL / REJECTED
-Round 2 cleanup     rejected M2M100-1.2B model bytes          DONE
-Round 2C            TranslateGemma INT8 tooling               DONE
-Round 2D            TranslateGemma target kill-fast           FAIL / REJECTED_AUTOMATIC AT 3/32
-Round 2D evidence   extract exact hard-rejection detail       NEXT / NO INFERENCE
-Further model work                                             BLOCKED ON EVIDENCE REVIEW
-Production migration                                           BLOCKED
-```
-
-Installer and combined ASR + translator + MyVoice proof remain deferred until one translator actually passes the translation quality gate.
+Production `model_manifest.json`, production worker behavior, Meeting/VoiceLab behavior and installer remain unchanged during this comparison.
 
 ## Next Step
 
-**EVIDENCE REVIEW ONLY: fast-forward `Local`, run `tools/translation_quality/run_round2_translategemma_prescreen.ps1` once. The wrapper must detect the existing `REJECTED_AUTOMATIC` report, perform no model inference, and print the exact first hard rejection. Return that terminal summary. Do not run external sampling, the frozen benchmark, another model, or production migration before this evidence is classified.**
+**Fast-forward `Local` and run `tools/translation_quality/run_milmmt_realtime_ab.ps1` once. First run downloads and exact-revision-pins the official Xiaomi MiLMMT-46-1B-v1.0 and MiLMMT-46-4B-v1.0 checkpoints. Return/upload `UserData/CacheData/TranslationQuality/MiLMMTRealtimeAB/milmmt_realtime_ab_report.json` or `milmmt_realtime_ab_review.md`. Do not migrate production or download another model before aggregate review.**
