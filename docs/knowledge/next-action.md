@@ -2,7 +2,7 @@
 
 ## Current Status
 
-`MILMMT-46 v1.0 ONLY / SCENARIO A 1B BF16 / SCENARIO B 4B INT8 / SAME 24 REALISTIC CASES / NO M2M100 COMPARISON / NO TRANSLATEGEMMA COMPARISON / NO SHORT-CIRCUIT / NO SINGLE-ERROR REJECTION / PRODUCTION UNCHANGED`
+`MILMMT-46 v1.0 ONLY / 24-CASE 1B-vs-4B QUALITY RUN COMPLETE / BOTH 24/24 COMPLETE / CLEAN PERFORMANCE+VRAM RERUN NEXT BECAUSE ORIGINAL TARGET RUN STARTED WITH ~3.5 GB WHOLE-DEVICE VRAM ALREADY IN USE / NO MODEL DOWNLOAD / PRODUCTION UNCHANGED`
 
 Authority:
 
@@ -11,86 +11,77 @@ Local      → current development authority
 Target PC  → Windows / NVIDIA GeForce RTX 3070 8 GB / CUDA
 ```
 
-## Evaluation Scope
+## Active Scenarios
 
-Only two translation scenarios remain active:
+Only these two remain in scope:
 
 ```text
 Scenario A
 MiLMMT-46-1B-v1.0
-official Xiaomi checkpoint
 BF16
 
 Scenario B
 MiLMMT-46-4B-v1.0
-official Xiaomi checkpoint
 bitsandbytes LLM.int8
 BF16 non-quantized compute
 ```
 
-M2M100 and TranslateGemma are not part of this evaluation. Their old reports may remain as historical evidence, but they must not add runtime, download, or review work to the MiLMMT 1B-vs-4B decision.
+M2M100 and TranslateGemma are not part of this decision.
 
-## Representative Test
+## Completed Quality Evidence
 
-Both scenarios run the exact same 24 Meeting/Text utterances from:
+The representative 24-case run completed all cases for both MiLMMT models with no runtime failures.
 
-```text
-tools/translation_quality/realtime_use_cases.json
-```
+The aggregate quality evidence remains valid because model generation is deterministic and the user's concern is specifically that other open GPU applications contaminated VRAM/performance measurements, not translation content.
 
-Coverage:
+Observed first-run performance evidence must **not** be treated as final hardware proof because whole-device GPU memory before model load was already approximately 3.5 GB for both scenarios. That can materially affect available VRAM and may affect latency under GPU contention.
 
-```text
-12 Indonesian -> English
-12 English -> Indonesian
-status updates
-deadlines
-clarification/correction
-professional disagreement
-conditional planning
-technical handoff
-numbers/IP/version facts
-schedule
-branch instruction
-code switching
-questions
-scope constraints
-recommendation/prohibition in normal context
-```
+Do not rerun the full 24-case quality suite merely to correct this hardware evidence.
 
-Rules:
+## Clean Performance Rerun
 
-- run all 24 cases for both models unless the runtime itself cannot run;
-- no semantic short-circuit;
-- no one-error automatic rejection;
-- references are review anchors, not exact-output assertions;
-- compare semantic correctness, factual fidelity, naturalness, completeness, protected literals, chrF++/BLEU supporting metrics, latency p50/p90, and preload/VRAM evidence;
-- choose between 1B and 4B from aggregate behavior, not release date or one sentence.
-
-## Owners
+Owners:
 
 ```text
-tools/translation_quality/realtime_use_cases.json
-tools/translation_quality/milmmt_realtime_worker.py
-tools/translation_quality/realtime_translation_ab.py
-tools/translation_quality/run_milmmt_realtime_ab.ps1
+tools/translation_quality/milmmt_clean_perf_rerun.py
+tools/translation_quality/run_milmmt_clean_perf_rerun.ps1
 ```
 
-The PowerShell wrapper uses a dedicated MiLMMT `.venv`; it does not reuse TranslateGemma or old model-specific evaluation environments.
+The rerun:
+
+```text
+uses cached MiLMMT 1B + 4B models only
+runs fully offline
+requires GPU baseline <= 2048 MiB whole-device VRAM and <= 10% utilization
+runs models sequentially so VRAM is released between scenarios
+uses 6 representative utterances across both directions
+runs 2 warmups per model
+runs 3 measured repeats per utterance
+records p50/p90/mean/max wall and inference latency
+records framework + whole-device preload VRAM
+checks repeated deterministic outputs remain identical
+```
+
+It does not download models, rerun the full quality suite, modify production, or add another candidate.
 
 Output:
 
 ```text
-UserData/CacheData/TranslationQuality/MiLMMTRealtimeAB/
-├─ models/
-│  ├─ milmmt_1b_model/
-│  └─ milmmt_4b_model/
-├─ milmmt_1b_revision.txt
-├─ milmmt_4b_revision.txt
-├─ milmmt_realtime_ab_report.json
-└─ milmmt_realtime_ab_review.md
+UserData/CacheData/TranslationQuality/MiLMMTRealtimeAB/milmmt_clean_perf_rerun_report.json
 ```
+
+## Decision Boundary
+
+After the clean rerun, combine:
+
+```text
+existing 24-case aggregate quality review
++
+clean performance/VRAM rerun
+```
+
+Then choose MiLMMT 1B or MiLMMT 4B. Do not choose from the contaminated first-run whole-device VRAM/latency evidence alone.
 
 ## Next Step
 
-**Fast-forward `Local` and run `tools/translation_quality/run_milmmt_realtime_ab.ps1` once. The first run downloads only the official Xiaomi MiLMMT-46-1B-v1.0 and MiLMMT-46-4B-v1.0 checkpoints and pins their exact revisions. Return/upload `UserData/CacheData/TranslationQuality/MiLMMTRealtimeAB/milmmt_realtime_ab_review.md`. Do not add another model or migrate production before the aggregate 1B-vs-4B review.**
+**Close avoidable GPU-heavy applications, fast-forward `Local`, then run `tools/translation_quality/run_milmmt_clean_perf_rerun.ps1` once. Return/upload `UserData/CacheData/TranslationQuality/MiLMMTRealtimeAB/milmmt_clean_perf_rerun_report.json`. Do not redownload models or rerun the 24-case quality suite.**
