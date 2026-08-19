@@ -17,6 +17,16 @@ FROZEN_CONTRACT_BLOB = "1b49065ad58b041187b6d69aaa575ecd4d941c7b"
 MODEL_REPO = "facebook/m2m100_1.2B"
 MODEL_REVISION = "7b36184180524c1a1bbfa37f120a608046250b98"
 WEIGHTS_SHA256 = "a58ef8f42362ef12adeddc600b3425f1e2bbd019cfa6aae6b0051e2e3e055cd4"
+MODEL_ALLOW_PATTERNS = [
+    "README.md",
+    "config.json",
+    "generation_config.json",
+    "pytorch_model.bin",
+    "sentencepiece.bpe.model",
+    "special_tokens_map.json",
+    "tokenizer_config.json",
+    "vocab.json",
+]
 
 
 def load_json(path: Path) -> Any:
@@ -40,6 +50,19 @@ def sha256_file(path: Path) -> str:
         for chunk in iter(lambda: handle.read(1024 * 1024), b""):
             digest.update(chunk)
     return digest.hexdigest()
+
+
+def acquire_model(model_dir: Path) -> None:
+    from huggingface_hub import snapshot_download
+
+    model_dir.mkdir(parents=True, exist_ok=True)
+    print("[M2M100-1.2B] acquiring pinned evaluation model...", flush=True)
+    snapshot_download(
+        repo_id=MODEL_REPO,
+        revision=MODEL_REVISION,
+        local_dir=str(model_dir),
+        allow_patterns=MODEL_ALLOW_PATTERNS,
+    )
 
 
 def verify_inputs(repo_root: Path, model_dir: Path) -> dict[str, Any]:
@@ -78,7 +101,13 @@ def verify_inputs(repo_root: Path, model_dir: Path) -> dict[str, Any]:
     missing = [name for name in required if not (model_dir / name).is_file()]
     if missing:
         raise RuntimeError(f"M2M100-1.2B evaluation asset incomplete: {missing}")
-    return {"observed": observed, "expected": expected, "weights_sha256": observed_sha}
+    return {
+        "observed": observed,
+        "expected": expected,
+        "weights_sha256": observed_sha,
+        "model_repo": MODEL_REPO,
+        "model_revision": MODEL_REVISION,
+    }
 
 
 def normalize_meaning_surface(value: str) -> str:
@@ -291,6 +320,7 @@ def main() -> int:
 
     worker: JsonWorker | None = None
     try:
+        acquire_model(model_dir)
         report["integrity"] = verify_inputs(repo_root, model_dir)
         prescreen = load_json(
             repo_root / "tools" / "translation_quality" / "round2_rejection_prescreen.json"

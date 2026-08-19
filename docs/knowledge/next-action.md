@@ -2,7 +2,7 @@
 
 ## Current Status
 
-`ROUND 1 LMT REJECTED / ROUND 2 ACTIVE CANDIDATE M2M100-1.2B / SAFE REJECTED-MODEL CLEANUP READY / M2M100-1.2B KILL-FAST PRESCREEN NEXT / PRODUCTION M2M100-418M UNCHANGED / FROZEN D-025 BENCHMARK UNCHANGED / INSTALLER DEFERRED`
+`ROUND 1 LMT REJECTED / ROUND 2 ACTIVE CANDIDATE M2M100-1.2B / LMT CACHE CLEANED / RETIRED MARIAN CLEANUP CONFIRMED / PRESCREEN HARNESS QUOTING BUG FIXED / NO M2M100-1.2B INFERENCE YET / PRODUCTION M2M100-418M UNCHANGED / FROZEN D-025 BENCHMARK UNCHANGED / INSTALLER DEFERRED`
 
 Authority:
 
@@ -16,20 +16,14 @@ Do **not** modify the production translator, production `model_manifest.json`, p
 
 ## Durable Translation Constraints
 
-D-025–D-027 continue to control the work:
+D-025–D-027 remain controlling:
 
-- meaning/correctness outranks benchmark cosmetics and latency;
-- no phrase-specific correction, dictionary patch, or output rewriting;
+- meaning/correctness outranks latency and metric cosmetics;
+- no phrase-specific patch, dictionary repair, or output rewriting;
 - maximum two serious challengers per round;
 - one accepted translator replaces the canonical model rather than becoming a router/fallback;
 - target-Windows evidence is required before production adoption;
-- full frozen benchmark remains promotion evidence.
-
-## Round 1 — LMT-60-1.7B Rejected
-
-The target-Windows Phase 3 run completed, but LMT produced meaning-changing ID→EN modality failures, including sealed-holdout weakening of strong obligation/prohibition into `should` / `should not`. The frozen contract requires zero sealed-holdout CRITICAL semantic failures, so LMT is not eligible for production migration.
-
-Do not repair LMT from observed failed phrases.
+- the frozen D-025 benchmark remains promotion evidence.
 
 Production remains:
 
@@ -38,9 +32,29 @@ facebook/m2m100_418M
 revision 55c2e61bbf05dfb8d7abccdc3fae6fc8512fd636
 ```
 
-## Local Model Cleanup Boundary
+## Round 1 Result
 
-Before the M2M100-1.2B prescreen, remove only translation model bytes that are confirmed obsolete from the completed/rejected experiments.
+LMT-60-1.7B is rejected for production migration. The target Phase 3 run completed, but semantic review exposed meaning-changing ID→EN modality failures, including sealed-holdout weakening of strong obligation/prohibition. Do not repair LMT from those observed phrases.
+
+## Local Cleanup Evidence
+
+Target-Windows cleanup already removed:
+
+```text
+UserData/CacheData/TranslationQuality/Phase2/lmt_model
+≈ 3.8 GiB reclaimed in the reported cleanup run
+```
+
+SMaLL-100 was not present locally.
+
+The cleanup run also discovered:
+
+```text
+EngineData/Backend/RuntimeAssets/Translation/ModelData/marianmt-en-id
+EngineData/Backend/RuntimeAssets/Translation/ModelData/marianmt-id-en
+```
+
+Current production manifest has no Marian translation entry and the repository contains no active reference to either exact directory. Marian was already retired when M2M100 became canonical. These two exact directories are therefore now approved cleanup targets.
 
 Cleanup owner:
 
@@ -48,34 +62,20 @@ Cleanup owner:
 tools/translation_quality/cleanup_rejected_translation_models.ps1
 ```
 
-Confirmed safe deletion targets:
-
-```text
-UserData/CacheData/TranslationQuality/Phase2/lmt_model
-UserData/CacheData/TranslationQuality/Round2/small100_model
-Hugging Face cache repo NiuTrans/LMT-60-1.7B, if present
-Hugging Face cache repo alirezamsh/small100, if present
-```
-
-Explicitly preserve:
+The cleanup owner must preserve:
 
 ```text
 EngineData/Backend/RuntimeAssets/Translation/ModelData/m2m100-418m
-    current production translator; do not delete before an accepted migration
-
 UserData/CacheData/TranslationQuality/Round2/m2m100_1_2b_model
-    active Round 2 candidate cache
-
 UserData/CacheData/TranslationQuality/Phase2/.venv
-    still used by evaluation/acquisition tooling
-
 Phase 2 / Phase 3 JSON reports and review evidence
-    retain as decision/proof evidence; these are small relative to model weights
 ```
 
-The cleanup script uses exact known paths/repository names rather than broad model wildcards. If it sees an unrecognized directory inside production `RuntimeAssets/Translation/ModelData`, it reports the path but does not delete it automatically.
+No broad model wildcard deletion is approved.
 
-## Frozen D-025 Benchmark — Still Immutable
+## Frozen D-025 Benchmark
+
+Still immutable:
 
 ```text
 tools/translation_quality/benchmark_cases.json
@@ -85,30 +85,28 @@ tools/translation_quality/benchmark_contract.json
 Git blob 1b49065ad58b041187b6d69aaa575ecd4d941c7b
 ```
 
-The expensive full benchmark is not the first filter for new candidates anymore.
+The full benchmark is not the first filter for a new challenger.
 
 ## Round 2 Candidate Policy
 
-Round 2 uses a practical candidate floor of approximately **1B parameters or larger**. Parameter count is not treated as proof of quality, but sub-1B candidates are no longer worth runtime evaluation for this product round.
+Use a practical floor of approximately **1B parameters or larger** for this round. Parameter count is not proof of quality, but sub-1B candidates are not worth runtime evaluation for the current quality-first target.
 
-SMaLL-100 is removed from active Round 2 tooling and must not be run.
+SMaLL-100 is not an active candidate.
 
-Evaluation order:
+Evaluation sequence:
 
 ```text
-source/license/platform/size rejection
+source/license/platform/size triage
 → 32-direction semantic kill-fast prescreen
 → manual semantic review
 → only if clean: small external + practical latency/VRAM prescreen
 → only if still clean: frozen full D-025 benchmark
-→ only after full PASS: production migration work
+→ only after full PASS: production migration
 ```
 
-The kill-fast prescreen can reject early but **cannot promote** a model.
+The kill-fast prescreen may reject a candidate but cannot promote it.
 
 ## Candidate 1 — M2M100-1.2B — ACTIVE
-
-This is the sole active Round 2 challenger until its prescreen is reviewed:
 
 ```text
 repo       facebook/m2m100_1.2B
@@ -120,12 +118,12 @@ size       ~4.96 GB source checkpoint
 SHA256     a58ef8f42362ef12adeddc600b3425f1e2bbd019cfa6aae6b0051e2e3e055cd4
 ```
 
-One evaluation runtime is frozen for the prescreen:
+Single prescreen runtime:
 
 ```text
-PyTorch / current canonical Transformers 4.x
+PyTorch / canonical Transformers 4.x
 CUDA on target RTX 3070
-BF16 model dtype
+BF16
 AutoModelForSeq2SeqLM
 M2M100 language-token contract
 num_beams=5
@@ -133,11 +131,9 @@ do_sample=False
 model.eval() + torch.inference_mode()
 ```
 
-BF16 is used as the single evaluation configuration because the source checkpoint is FP32-sized while the target GPU is 8 GB. This is not a user-facing profile or fallback. If BF16 causes a semantic/runtime problem, stop rather than adding alternate numeric modes during the same candidate pass.
+No alternate numeric profile, quantization, beam reduction, second backend, or output repair is approved during this candidate pass.
 
 ## Candidate 2 — MADLAD-400 3B — Reserve Only
-
-Reserve candidate:
 
 ```text
 repo       google/madlad400-3b-mt
@@ -146,20 +142,18 @@ parameters ~3B
 full safetensors checkpoint ~11.8 GB
 ```
 
-Do **not** download or run MADLAD while M2M100-1.2B is under review. Its full checkpoint is materially larger than target VRAM, so it requires a separate memory/runtime feasibility decision before any inference. Do not automatically solve this with quantization merely to force it into the GPU.
+Do not download/run MADLAD while M2M100-1.2B is under review. It requires a separate memory/runtime feasibility decision if Candidate 1 is rejected.
 
-NLLB-200 1.3B is not an active candidate because its official model card uses a non-commercial CC-BY-NC license.
+## M2M100-1.2B Prescreen
 
-## Kill-Fast Semantic Prescreen
-
-Generic rejection fixture remains:
+Generic rejection fixture:
 
 ```text
 tools/translation_quality/round2_rejection_prescreen.json
 Git blob eb59c2f1456e75a2d0c61dc1ae4d94c04cb40b07
 ```
 
-M2M100-1.2B dev-only tooling:
+Active tooling:
 
 ```text
 tools/translation_quality/round2_m2m12b_worker.py
@@ -167,63 +161,33 @@ tools/translation_quality/round2_m2m12b_prescreen.py
 tools/translation_quality/run_round2_m2m12b_prescreen.ps1
 ```
 
-The first stage runs exactly **16 bilingual semantic pairs / 32 directional translations**, covering:
+The first attempt stopped before model acquisition/inference because PowerShell-native argument handling stripped quotes from embedded Python `-c` acquisition code. Evidence:
 
 ```text
-strong obligation vs recommendation
-prohibition vs no-requirement
-permission
-exact / minimum / maximum quantifiers
-unless / even-if conditions
-neither/nor and only scope
-temporal ordering / already-completed aspect
-opaque date/version/network facts
+SyntaxError: invalid decimal literal
+repo_id=facebook/m2m100_1.2B
 ```
 
-Automatic rejection catches only generation/completion failure, protected opaque-literal loss, and exact semantic minimal-pair collapse. A clean automatic result is **not** a semantic pass. All 32 outputs still require manual severity review; one CRITICAL meaning error rejects the candidate immediately.
-
-This stage does **not** run FLORES 1012×2, repeated latency benchmark, COMET, the full frozen product benchmark, MADLAD, or production migration.
-
-## Target-Windows Commands
-
-From:
+Classification:
 
 ```text
-D:\Work\AI Stuff\TranslateIT
+M2M100-1.2B downloaded   NO
+M2M100-1.2B inference    NO
+semantic result          NOT TESTED
+CUDA/BF16 preflight      PASS
+production modified      NO
 ```
 
-First clean confirmed obsolete model bytes:
+This was a harness defect, not a model/runtime failure.
 
-```powershell
-powershell -NoProfile -ExecutionPolicy Bypass -File .\tools\translation_quality\cleanup_rejected_translation_models.ps1
-```
+The fix removes acquisition source code from PowerShell entirely. `round2_m2m12b_prescreen.py` now owns pinned `snapshot_download()`, exact revision acquisition, required-file checks, and SHA256 verification before launching the candidate worker. This removes the PowerShell → `python -c` quoting boundary from model acquisition.
 
-Then run the active candidate prescreen:
-
-```powershell
-powershell -NoProfile -ExecutionPolicy Bypass -File .\tools\translation_quality\run_round2_m2m12b_prescreen.ps1
-```
-
-The first prescreen run downloads the exact ~4.96 GB M2M100-1.2B checkpoint into evaluation cache only:
-
-```text
-UserData/CacheData/TranslationQuality/Round2/m2m100_1_2b_model/
-```
+The prescreen still runs only **16 bilingual semantic pairs / 32 directional translations** and then stops for manual review. It does not run FLORES 1012×2, repeated performance, COMET, MADLAD, the full benchmark, or production migration.
 
 Expected report:
 
 ```text
 UserData/CacheData/TranslationQuality/Round2/m2m12b_prescreen_report.json
-```
-
-Possible terminal states:
-
-```text
-REJECTED_AUTOMATIC
-→ STOP and review; do not run Candidate 2/full benchmark
-
-AWAITING_MANUAL_SEMANTIC_REVIEW
-→ STOP and return report; review all 32 outputs before further inference
 ```
 
 ## Execution Sequence
@@ -234,7 +198,9 @@ Round 1 / Phase 3   M2M100-418M vs LMT frozen run            DONE
 Round 1             LMT semantic promotion gate               FAIL / REJECTED
 
 Round 2A            candidate-size policy + source triage      DONE
-Round 2 cleanup     remove confirmed rejected model bytes      NEXT / PRE-PRESCREEN
+Round 2 cleanup     LMT cache removal                          DONE (3.8 GiB reported)
+Round 2 cleanup     retired Marian exact directories           NEXT RERUN
+Round 2 harness     acquisition quoting defect                 FIXED IN SOURCE / TARGET RERUN REQUIRED
 Round 2B            M2M100-1.2B 32-direction prescreen        NEXT
 Round 2C            manual semantic review                     BLOCKED ON 2B
 Round 2D            small external + latency/VRAM prescreen    ONLY AFTER 2C PASS
@@ -247,4 +213,4 @@ Installer and combined ASR + translator + MyVoice proof remain deferred until on
 
 ## Next Step
 
-**ROUND 2 ONLY: fast-forward `Local`, run `cleanup_rejected_translation_models.ps1` once, then run `run_round2_m2m12b_prescreen.ps1` once on the target RTX 3070. Return `m2m12b_prescreen_report.json` plus any `REVIEW` paths printed by cleanup. Do not run MADLAD, external sampling, the full benchmark, or production migration before the 32 outputs are reviewed.**
+**ROUND 2 ONLY: fast-forward `Local`, rerun `cleanup_rejected_translation_models.ps1` once so the two retired Marian directories are removed, then run `run_round2_m2m12b_prescreen.ps1` once on the RTX 3070. Return `m2m12b_prescreen_report.json`. Do not run MADLAD, external sampling, the full benchmark, or production migration before the 32 outputs are reviewed.**

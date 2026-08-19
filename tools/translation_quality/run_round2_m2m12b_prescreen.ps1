@@ -43,49 +43,14 @@ if (-not $CandidatePython) {
 $env:PYTHONIOENCODING = "utf-8"
 $env:PYTHONUTF8 = "1"
 
-Write-Host "[1/3] Verifying canonical Python/CUDA/BF16 runtime..."
+Write-Host "[1/2] Verifying canonical Python/CUDA/BF16 runtime..."
 & $CandidatePython -c "import sys, torch, transformers, sentencepiece; assert sys.version_info[:2] == (3,12); assert torch.cuda.is_available(); assert torch.cuda.is_bf16_supported(); assert int(transformers.__version__.split('.')[0]) == 4; print('Python', sys.version.split()[0], '| torch', torch.__version__, '| transformers', transformers.__version__, '| CUDA', torch.version.cuda, '| BF16', torch.cuda.is_bf16_supported())"
 if ($LASTEXITCODE -ne 0) {
     throw "Canonical Python/CUDA/BF16 runtime is not ready for the rejection prescreen."
 }
 
-Write-Host "[2/3] Acquiring exact M2M100-1.2B candidate outside RuntimeAssets..."
-$DownloadCode = @'
-from huggingface_hub import snapshot_download
-import sys
-
-snapshot_download(
-    repo_id="facebook/m2m100_1.2B",
-    revision="7b36184180524c1a1bbfa37f120a608046250b98",
-    local_dir=sys.argv[1],
-    allow_patterns=[
-        "README.md",
-        "config.json",
-        "generation_config.json",
-        "pytorch_model.bin",
-        "sentencepiece.bpe.model",
-        "special_tokens_map.json",
-        "tokenizer_config.json",
-        "vocab.json",
-    ],
-)
-'@
-& $Phase2Python -c $DownloadCode $ModelDir
-if ($LASTEXITCODE -ne 0) {
-    throw "M2M100-1.2B acquisition failed. Production was not modified."
-}
-
-$Weights = Join-Path $ModelDir "pytorch_model.bin"
-if (-not (Test-Path $Weights)) {
-    throw "M2M100-1.2B weights are missing after acquisition."
-}
-$ExpectedSha = "a58ef8f42362ef12adeddc600b3425f1e2bbd019cfa6aae6b0051e2e3e055cd4"
-$ObservedSha = (Get-FileHash -Algorithm SHA256 $Weights).Hash.ToLowerInvariant()
-if ($ObservedSha -ne $ExpectedSha) {
-    throw "M2M100-1.2B weights SHA256 mismatch. Expected $ExpectedSha but got $ObservedSha."
-}
-
-Write-Host "[3/3] Running ONLY the 32-direction kill-fast semantic prescreen..."
+Write-Host "[2/2] Acquiring/verifying M2M100-1.2B, then running ONLY the 32-direction semantic prescreen..."
+Write-Host "      Acquisition is handled inside the Python prescreen owner to avoid PowerShell/native quoting drift."
 Write-Host "      Runtime: CUDA BF16, beam 5, deterministic generation."
 Write-Host "      No FLORES sweep, repeated benchmark, MADLAD download, or production change will run."
 & $Phase2Python $Runner `
@@ -108,7 +73,7 @@ if ($LASTEXITCODE -ne 0) {
             Write-Host "Could not parse the Round 2 report. Report: $ReportPath"
         }
     }
-    throw "Round 2 M2M100-1.2B prescreen harness failed. Production was not modified."
+    throw "Round 2 M2M100-1.2B prescreen did not complete. Production was not modified."
 }
 
 $Report = Get-Content $ReportPath -Raw | ConvertFrom-Json

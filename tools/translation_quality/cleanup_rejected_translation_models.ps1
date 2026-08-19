@@ -37,8 +37,10 @@ function Remove-ExactDirectory([string]$Path, [string]$Label) {
     return $bytes
 }
 
+$TranslationRoot = Join-Path $RepoRoot "EngineData\Backend\RuntimeAssets\Translation\ModelData"
+
 $ProtectedPaths = @(
-    (Join-Path $RepoRoot "EngineData\Backend\RuntimeAssets\Translation\ModelData\m2m100-418m"),
+    (Join-Path $TranslationRoot "m2m100-418m"),
     (Join-Path $RepoRoot "UserData\CacheData\TranslationQuality\Round2\m2m100_1_2b_model"),
     (Join-Path $RepoRoot "UserData\CacheData\TranslationQuality\Phase2\.venv")
 )
@@ -61,6 +63,14 @@ $RepoOwnedTargets = @(
     @{
         Path = (Join-Path $RepoRoot "UserData\CacheData\TranslationQuality\Round2\small100_model")
         Label = "abandoned SMaLL-100 evaluation model"
+    },
+    @{
+        Path = (Join-Path $TranslationRoot "marianmt-en-id")
+        Label = "retired Marian EN-to-ID RuntimeAssets model"
+    },
+    @{
+        Path = (Join-Path $TranslationRoot "marianmt-id-en")
+        Label = "retired Marian ID-to-EN RuntimeAssets model"
     }
 )
 
@@ -99,7 +109,6 @@ Write-Host ""
 $FreedGiB = [math]::Round($FreedBytes / 1GB, 2)
 Write-Host ("Cleanup complete. Approximate model bytes removed: {0} GiB" -f $FreedGiB)
 
-$TranslationRoot = Join-Path $RepoRoot "EngineData\Backend\RuntimeAssets\Translation\ModelData"
 if (Test-Path -LiteralPath $TranslationRoot) {
     $Unknown = Get-ChildItem -LiteralPath $TranslationRoot -Directory -Force |
         Where-Object { $_.Name -ne "m2m100-418m" }
