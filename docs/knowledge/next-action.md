@@ -2,28 +2,28 @@
 
 ## Current Status
 
-`PHASE 2B BLOCKED ONLY BY FLORES+ GATED ACCESS / NO LMT INFERENCE YET / FROZEN BENCHMARK UNCHANGED / PRODUCTION UNCHANGED / INSTALLER DEFERRED`
+`PHASE 2 LMT COMPATIBILITY PASS / FROZEN BENCHMARK LOCKED / PHASE 3 SEQUENTIAL M2M100 VS LMT BENCHMARK NEXT / NO PRODUCTION SWITCH / INSTALLER DEFERRED`
 
 Authority:
 
 ```text
 Local      → current development authority
 Developing → historical/recovery only
-Target PC  → Windows / RTX 3070 8 GB / CUDA
+Target PC  → Windows / NVIDIA GeForce RTX 3070 8 GB / CUDA
 ```
 
-Do **not** modify the production translator, production `model_manifest.json`, production `uv.lock`, Meeting/VoiceLab behavior, or installer during Phase 2.
+Do **not** modify the production translator, production `model_manifest.json`, production `uv.lock`, Meeting/VoiceLab behavior, or installer before the frozen Phase 3 comparison is reviewed.
 
 Durable decisions remain D-025, D-026, and D-027.
 
 ## Canonical Translation Target
 
-If accepted, TranslateIT uses exactly one translator/runtime:
+If accepted, TranslateIT uses exactly one translation model/runtime:
 
 ```text
 NiuTrans/LMT-60-1.7B
 revision 2ff175e2a450d2f2458b33234bfb74953468b3a2
-PyTorch / Transformers 4.x
+PyTorch / compatible Transformers 4.x
 CUDA / BF16
 AutoModelForCausalLM
 official LMT translation prompt + chat template
@@ -35,11 +35,11 @@ resident model
 model.eval() + torch.inference_mode()
 ```
 
-The same canonical translator serves Standalone Text ID↔EN, Meeting outbound ID→EN, and optional incoming EN→ID. No CTranslate2 translation profile, FlashAttention2 dependency, `torch.compile`, static cache, FP16/INT8/INT4 alternate profile, beam-reduced mode, speculative decoding, second translator, or user-facing quality/speed mode is approved.
+The same canonical translator serves Standalone Text ID↔EN, Meeting outbound ID→EN, and optional incoming EN→ID. No second translator, fallback router, quality/speed profile, CTranslate2 translation backend, external FlashAttention2 dependency, `torch.compile`, static full-context cache, FP16/INT8/INT4 alternate mode, beam-reduced mode, or speculative decoding is approved.
 
-M2M100 remains only the pre-migration baseline. If LMT is accepted, M2M100 is retired rather than retained as fallback.
+M2M100 remains only the current pre-migration baseline and Phase 3 sequential comparison reference. If LMT is accepted, M2M100 is retired from the production manifest/runtime/release path rather than retained as fallback.
 
-## Frozen Benchmark — Do Not Edit After First LMT Output
+## Frozen Benchmark — Immutable After First LMT Output
 
 ```text
 tools/translation_quality/benchmark_cases.json
@@ -49,134 +49,176 @@ tools/translation_quality/benchmark_contract.json
 Git blob 1b49065ad58b041187b6d69aaa575ecd4d941c7b
 ```
 
-The 72 stress + 48 sealed-holdout directional cases and promotion rules were critically reviewed and frozen before any LMT output. Any material benchmark change after the first LMT output invalidates the comparison and requires a new contract version plus new unseen holdout material.
+The benchmark was frozen and critically reviewed before any LMT output was generated. LMT output now exists from Phase 2 compatibility probes, therefore the frozen stress/holdout source text, references, semantic requirements, counts, and promotion rules must not be edited for this comparison round. A material later benchmark change requires a new contract version and new unseen holdout material.
 
-## Phase 2 Exact External Pins
-
-FLORES+ is supporting external evidence only, not the sealed holdout.
+Frozen product evaluation:
 
 ```text
-dataset   openlanguagedata/flores_plus
-version   4.6
-revision  5fec6c13f9e5a4db2f745d4ec0d7c9721ddc4f06
-split     devtest
-files     devtest/eng_Latn.jsonl
-          devtest/ind_Latn.jsonl
-rows      1012 each
-license   CC-BY-SA-4.0
-access    gated; user access must be granted before Phase 2 inference
+historical regression         7 directional cases
+semantic stress              72 directional cases
+sealed holdout               48 directional cases
+product semantic total      120 directional cases
+external FLORES+           1012 rows per direction
 ```
 
-The Phase 2 probe verifies the pinned README still declares 4.6, both files contain 1012 records, and alignment IDs match **before model inference begins**.
+## Phase 2 Target-Windows Compatibility Evidence — PASS
 
-## Current Phase 2B Evidence — External Access Blocker
-
-The first target-Windows run stopped with:
-
-```text
-error type  GatedRepoError
-HTTP        403 Forbidden
-repo        openlanguagedata/flores_plus
-reason      authenticated Hugging Face account is not in the authorized list
-```
-
-This is an expected external prerequisite failure, not evidence of an LMT/CUDA/BF16/SDPA/DynamicCache defect.
-
-The report contained no environment/GPU/runtime section because the probe intentionally verifies FLORES+ before model acquisition and before LMT inference. Therefore:
-
-```text
-LMT output generated       NO
-LMT model compatibility    NOT TESTED YET
-CUDA/BF16 compatibility    NOT TESTED YET
-production modified        NO
-benchmark changed          NO
-```
-
-Do not bypass this gate by copying FLORES+ from an unverified mirror or by changing the benchmark after the fact. Access must be requested/accepted from the official gated dataset using the same Hugging Face account represented by the local token. If the dataset uses manual approval, wait until access is accepted before rerunning.
-
-## Phase 2 Dev-Only Tooling
-
-```text
-tools/translation_quality/run_phase2_lmt_compatibility.ps1
-tools/translation_quality/phase2_lmt_compatibility.py
-```
-
-These files are evaluation tooling only. They must not be packaged as the production translation path.
-
-Local evaluation state is isolated under:
-
-```text
-UserData/CacheData/TranslationQuality/Phase2/
-├─ .venv/
-├─ flores_plus/
-├─ lmt_model/
-└─ phase2_lmt_compatibility_report.json
-```
-
-The PowerShell wrapper now parses a failed JSON report and surfaces a concise root cause. In particular, `GatedRepoError` is reported as a gated-dataset access prerequisite rather than a generic compatibility failure.
-
-The probe itself still:
-
-1. requires the `Local` branch;
-2. creates/reuses an isolated Python 3.12 environment;
-3. uses `torch==2.11.0` from CUDA 12.6 and `transformers==4.51.3` only inside that environment;
-4. requires Hugging Face authentication and granted FLORES+ access;
-5. verifies exact FLORES+ revision/version/count/alignment before any LMT inference;
-6. downloads exact LMT revision into evaluation cache, never RuntimeAssets;
-7. loads LMT with CUDA + BF16 + explicit native SDPA;
-8. runs `use_cache=True` with DynamicCache, beam 5, deterministic generation;
-9. verifies official prompt/chat-template rendering, prompt-aware context rejection, continuation-only decoding, and EOS completion;
-10. performs one unmeasured warmup and one measured compatibility translation in each direction;
-11. records cold load, measured warm translation latency, framework/whole-device VRAM, environment versions, and translated probe text;
-12. writes one JSON report and stops before the full benchmark.
-
-This is compatibility proof only. A successful report does **not** authorize production migration or prove general translation quality.
-
-## Target-Windows Command
-
-After official FLORES+ access has been granted to the same Hugging Face account used by the local token, fast-forward `Local` and rerun from:
-
-```text
-D:\Work\AI Stuff\TranslateIT
-```
-
-```powershell
-powershell -NoProfile -ExecutionPolicy Bypass -File .\tools\translation_quality\run_phase2_lmt_compatibility.ps1
-```
-
-Expected evidence:
+Evidence source:
 
 ```text
 UserData/CacheData/TranslationQuality/Phase2/phase2_lmt_compatibility_report.json
-```
-
-Do not run the full 120-case benchmark until this report has been reviewed.
-
-## Phase 2 Acceptance
-
-Compatibility passes only if the report proves all of the following on the target PC:
-
-```text
-exact FLORES+ 4.6 revision verified before inference
-eng_Latn / ind_Latn devtest = 1012 aligned rows
-exact LMT revision acquired outside RuntimeAssets
-Python 3.12
-Transformers 4.51.3
-CUDA available
-BF16 supported
-loaded model dtype = BF16
-loaded attention implementation = SDPA
-DynamicCache generation succeeds with beam 5
-official prompt/chat template renders
-prompt-aware context limit rejects oversized input before generation
-generated continuation is sliced from prompt
-continuation ends with known EOS
-non-empty translation succeeds ID→EN and EN→ID
-cold load / warm latency / VRAM evidence recorded
+schema translateit.phase2_lmt_compatibility.v1
+ok = true
 production_modified = false
 ```
 
-If any item fails: STOP and diagnose. Do not introduce a second runtime profile automatically.
+### Exact external reference proof
+
+```text
+FLORES+ repo       openlanguagedata/flores_plus
+version            4.6
+revision           5fec6c13f9e5a4db2f745d4ec0d7c9721ddc4f06
+eng_Latn devtest   1012 rows
+ind_Latn devtest   1012 rows
+alignment IDs      verified equal/in-order
+```
+
+### Environment / GPU proof
+
+```text
+Python             3.12.10
+PyTorch            2.11.0+cu126
+Transformers       4.51.3
+CUDA runtime       12.6
+CUDA available     true
+BF16 supported     true
+GPU                NVIDIA GeForce RTX 3070
+VRAM total         8191.5 MiB
+compute capability 8.6
+```
+
+### Exact approved runtime proof
+
+```text
+backend             pytorch_transformers
+device              cuda
+dtype               torch.bfloat16
+attention           sdpa
+use_cache           true
+cache implementation dynamic
+num_beams           5
+do_sample           false
+```
+
+### Load / memory evidence
+
+```text
+cold load                         2317.84 ms
+whole-device VRAM before load      818 MiB
+whole-device VRAM after load      4259 MiB
+whole-device VRAM after probes    4361 MiB
+framework allocated after load   3282.25 MiB
+framework peak after load        3282.25 MiB
+framework peak during probes     3329.76 MiB
+framework allocated after probe  3290.38 MiB
+```
+
+Observed whole-device increase from pre-load to post-probe was about 3543 MiB. Translation-only state therefore fits the target 8 GB GPU with material remaining headroom, but this does **not** prove the later combined ASR + LMT + My Voice stack fits; that remains Phase 7 evidence.
+
+### Context / completion proof
+
+```text
+model context                    32768 tokens
+synthetic rendered prompt       120024 tokens
+generation budget                   96 tokens
+oversized input rejected before generation = true
+continuation-only decode verified
+known EOS completion verified in both directions
+```
+
+### Compatibility translation probes
+
+ID → EN:
+
+```text
+source      Selamat pagi. Tolong simpan file ini di komputer lokal.
+output      Good morning. Please save this file on your local computer.
+prompt      39 tokens
+generated   13 tokens including EOS
+warm time   262.39 ms
+EOS         true
+```
+
+EN → ID:
+
+```text
+source      Good morning. Please keep this file on the local computer.
+output      Selamat pagi. Tolong simpan file ini di komputer lokal Anda.
+prompt      35 tokens
+generated   18 tokens including EOS
+warm time   356.49 ms
+EOS         true
+```
+
+The generated wording is semantically plausible and natural for these two smoke probes. These two outputs are **not** general translation-quality acceptance and must not be used to tune the frozen holdout.
+
+The generation message `Setting pad_token_id to eos_token_id:151643 for open-end generation` was informational during these probes and did not prevent deterministic completion/EOS proof. It is not currently a compatibility blocker.
+
+## Phase 2 Interpretation
+
+Phase 2 passes the exact compatibility boundary requested:
+
+```text
+pinned FLORES+ reference verified          PASS
+pinned LMT acquired outside RuntimeAssets  PASS
+Python / Transformers isolated contract    PASS
+CUDA                                       PASS
+BF16                                       PASS
+native SDPA                                PASS
+DynamicCache                               PASS
+beam 5 deterministic generation            PASS
+official prompt/chat-template path         PASS
+prompt-aware context rejection             PASS
+continuation-only decoding                 PASS
+EOS completion                             PASS
+ID→EN non-empty translation                PASS
+EN→ID non-empty translation                PASS
+cold load / warm latency / VRAM recorded   PASS
+production modified                        NO
+```
+
+Early latency is encouraging: the two short LMT smoke probes measured 262.39 ms and 356.49 ms after warmup. Do **not** directly declare LMT faster/slower than M2M100 from these two cases; previous M2M evidence used different representative/segmented requests. Phase 3 owns the apples-to-apples latency comparison using identical frozen inputs and procedure.
+
+## Phase 3 Boundary
+
+Phase 3 must compare only:
+
+```text
+current M2M100 baseline
+vs
+single approved LMT-60-1.7B runtime
+```
+
+Sequential fresh processes only; never two production engines simultaneously.
+
+Required evidence under the frozen contract:
+
+```text
+1. 7 historical regression cases
+2. 72 semantic stress directional cases
+3. 48 sealed holdout directional cases
+4. FLORES+ 1012 rows per direction
+5. chrF++ primary external reference metric
+6. BLEU secondary external metric
+7. COMET supplementary/non-blocking
+8. deterministic protected-literal diagnostics
+9. human semantic severity review
+10. blind naturalness review after semantic safety passes
+11. short / medium / long warm p50 / p90 / max latency
+12. cold load and VRAM/memory stability
+```
+
+Promotion rules remain controlled by the frozen benchmark contract; metrics cannot override a demonstrated critical semantic error.
 
 ## Execution Sequence
 
@@ -185,9 +227,9 @@ Phase 0   architecture/model/runtime audit                    DONE
 Phase 1   benchmark creation                                 DONE
 Phase 1R  critical pre-inference benchmark review            DONE
 Phase 2A  compatibility tooling                              DONE
-Phase 2B  official FLORES+ access prerequisite               BLOCKED
-Phase 2C  target-Windows compatibility run                   NEXT AFTER ACCESS
-Phase 3   sequential M2M100 vs LMT frozen benchmark
+Phase 2B  FLORES+ access                                     DONE
+Phase 2C  target-Windows LMT compatibility proof             PASS
+Phase 3   sequential M2M100 vs LMT frozen benchmark          NEXT
 Phase 4   one final Standalone envelope decision
 Phase 5   atomic one-engine M2M100 → LMT production migration
 Phase 6   target Windows Text 2A / 2B / 2C acceptance
@@ -197,6 +239,20 @@ Phase 8   resume Mic / VoiceLab / Meeting acceptance
 
 Installer remains deferred until the canonical runtime stack is stable.
 
+## Stop Conditions
+
+Stop/review if Phase 3 shows any of the following:
+
+```text
+LMT sealed-holdout CRITICAL semantic error
+incomplete/truncated generation promoted as success
+material direction/category semantic regression
+unstable/OOM translation runtime
+practical target latency failure under identical frozen inputs
+benchmark provenance/integrity problem
+a proposed fix requires phrase-specific rewriting, second translator, or alternate production profile
+```
+
 ## Next Step
 
-**REQUEST/ACCEPT OFFICIAL FLORES+ ACCESS ONLY: while logged into the same Hugging Face account used by the Phase 2 token, request/accept access to `openlanguagedata/flores_plus`. If approval is manual, wait until granted. Then fast-forward `Local` and rerun `tools/translation_quality/run_phase2_lmt_compatibility.ps1` once. Do not change the benchmark, production translator, model manifest, or dependencies while waiting.**
+**PHASE 3 ONLY: build/run the sequential frozen M2M100-vs-LMT evaluation using the already-locked benchmark artifacts and target-Windows procedure. Do not edit the frozen stress/holdout cases, do not modify production translator/model manifest/lockfile, and do not begin atomic migration until the complete Phase 3 quality + latency + VRAM evidence has been reviewed.**
