@@ -13,6 +13,7 @@ $Phase2Root = Join-Path $RepoRoot "UserData\CacheData\TranslationQuality\Phase2"
 $Phase3Root = Join-Path $RepoRoot "UserData\CacheData\TranslationQuality\Phase3"
 $Phase2Report = Join-Path $Phase2Root "phase2_lmt_compatibility_report.json"
 $Runner = Join-Path $RepoRoot "tools\translation_quality\phase3_translation_benchmark.py"
+$Summary = Join-Path $Phase3Root "phase3_automatic_comparison.json"
 New-Item -ItemType Directory -Path $Phase3Root -Force | Out-Null
 
 if (-not (Test-Path $Phase2Report)) {
@@ -79,6 +80,13 @@ if (-not (Test-Path $MetricsStamp)) {
     Write-Host "[1/3] Reusing verified Phase 3 metrics environment."
 }
 
+# Evaluation-only transport contract. The canonical Windows worker can otherwise
+# encode redirected stdout with the active Windows code page while the benchmark
+# correctly expects UTF-8 JSON. This changes only subprocess I/O encoding, not
+# translation/model/runtime behavior.
+$env:PYTHONIOENCODING = "utf-8"
+$env:PYTHONUTF8 = "1"
+
 Write-Host "[2/3] Running current M2M100 baseline, then terminating it before LMT..."
 Write-Host "       This benchmark is intentionally long. Do not start a second TranslateIT AI worker while it runs."
 Write-Host "[3/3] LMT will run only after M2M100 has exited; automatic metrics follow afterward."
@@ -91,18 +99,28 @@ Write-Host "[3/3] LMT will run only after M2M100 has exited; automatic metrics f
     --lmt-python $LmtPython
 
 if ($LASTEXITCODE -ne 0) {
-    $Summary = Join-Path $Phase3Root "phase3_automatic_comparison.json"
+    Write-Host ""
+    Write-Host "Phase 3 stopped."
     if (Test-Path $Summary) {
-        Write-Host ""
-        Write-Host "Phase 3 stopped. Review:"
-        Write-Host $Summary
+        try {
+            $Result = Get-Content $Summary -Raw | ConvertFrom-Json
+            if ($null -ne $Result.error) {
+                Write-Host "=== PHASE 3 ROOT CAUSE ==="
+                Write-Host ("Type: {0}" -f $Result.error.type)
+                Write-Host ("Message: {0}" -f $Result.error.message)
+                Write-Host ""
+            }
+        } catch {
+            Write-Host "Could not parse the Phase 3 summary."
+        }
+        Write-Host ("Review: {0}" -f $Summary)
     }
     throw "Phase 3 automatic benchmark did not complete. Production was not modified."
 }
 
 Write-Host ""
 Write-Host "Phase 3 automatic benchmark completed."
-Write-Host ("Summary: {0}" -f (Join-Path $Phase3Root "phase3_automatic_comparison.json"))
+Write-Host ("Summary: {0}" -f $Summary)
 Write-Host ("M2M results: {0}" -f (Join-Path $Phase3Root "phase3_m2m100_results.json"))
 Write-Host ("LMT results: {0}" -f (Join-Path $Phase3Root "phase3_lmt_results.json"))
 Write-Host ("Semantic review pack: {0}" -f (Join-Path $Phase3Root "phase3_semantic_review_pack.jsonl"))
