@@ -303,3 +303,20 @@ The product needs one understandable, reproducible translation behavior. Dynamic
 
 **Boundary**  
 D-027 does not pre-approve production migration. D-025 still controls quality/holdout evidence and target-Windows latency/VRAM proof. M2M100 remains only the sequential pre-migration benchmark reference until LMT is accepted; after accepted migration it is retired rather than retained as fallback.
+
+## D-028 — MiLMMT-46-1B-v1.0 BF16 Is The Selected Translation Migration Target
+
+**Decision**  
+Select `xiaomi-research/MiLMMT-46-1B-v1.0` at revision `4fc480b6c58dec29c159dcdf9fde0f6d5c354995` as the translation migration target for TranslateIT, using CUDA BF16, the official Xiaomi translation prompt, and deterministic generation. MiLMMT-46-4B-v1.0 is comparison evidence only and is not an active migration candidate.
+
+D-028 supersedes D-026 and D-027 as the active model/runtime-selection direction. D-026/D-027 remain historical records of the earlier LMT evaluation phase; they do not reopen LMT or its runtime profile.
+
+Production remains unchanged until MiLMMT-1B integration and target end-to-end proof pass. If adopted, MiLMMT-1B replaces the canonical production translator rather than becoming a router/fallback beside M2M100.
+
+Before migration, one bounded same-model latency-optimization pass is allowed. It must preserve the same checkpoint, BF16 precision, official prompt, deterministic translation semantics, and no output repair. Execution-only variants may be adopted only when target-Windows evidence shows repeatable useful latency improvement without translation-quality regression. Exact output equality is preferred; any changed output requires semantic/factual/naturalness review before acceptance.
+
+**Reason**  
+The representative 24-case Meeting/Text evaluation completed all cases for MiLMMT-1B and MiLMMT-4B. The 4B model showed stronger aggregate quality, but the clean RTX 3070 rerun measured approximately 4516 ms p50 / 7036 ms p90 and ~4826 MiB framework allocation for 4B INT8, versus approximately 689 ms p50 / 1139 ms p90 and ~1907 MiB framework allocation for 1B BF16. The user explicitly selected MiLMMT-1B for the realtime product boundary after this clean comparison.
+
+**Boundary**  
+Do not introduce another translator automatically, reopen MiLMMT-4B as the active candidate, quantize the selected 1B model merely for speed, add phrase-specific repair, or create multiple permanent translation runtime profiles. If the bounded optimization pass yields no worthwhile safe gain, keep the clean MiLMMT-1B BF16 baseline and proceed to canonical integration and end-to-end ASR → translation → GPT-SoVITS proof.
