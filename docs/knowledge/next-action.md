@@ -2,7 +2,7 @@
 
 ## Current Status
 
-`PHASE 2 TOOLING READY / TARGET-WINDOWS LMT COMPATIBILITY RUN REQUIRED / FROZEN BENCHMARK UNCHANGED / NO LMT OUTPUT GENERATED YET / NO PRODUCTION SWITCH / INSTALLER DEFERRED`
+`PHASE 2B BLOCKED ONLY BY FLORES+ GATED ACCESS / NO LMT INFERENCE YET / FROZEN BENCHMARK UNCHANGED / PRODUCTION UNCHANGED / INSTALLER DEFERRED`
 
 Authority:
 
@@ -64,10 +64,35 @@ files     devtest/eng_Latn.jsonl
           devtest/ind_Latn.jsonl
 rows      1012 each
 license   CC-BY-SA-4.0
-access    gated; terms must be accepted before Phase 2
+access    gated; user access must be granted before Phase 2 inference
 ```
 
-The Phase 2 probe must verify the pinned README still declares 4.6, both files contain 1012 records, and alignment IDs match **before model inference begins**.
+The Phase 2 probe verifies the pinned README still declares 4.6, both files contain 1012 records, and alignment IDs match **before model inference begins**.
+
+## Current Phase 2B Evidence — External Access Blocker
+
+The first target-Windows run stopped with:
+
+```text
+error type  GatedRepoError
+HTTP        403 Forbidden
+repo        openlanguagedata/flores_plus
+reason      authenticated Hugging Face account is not in the authorized list
+```
+
+This is an expected external prerequisite failure, not evidence of an LMT/CUDA/BF16/SDPA/DynamicCache defect.
+
+The report contained no environment/GPU/runtime section because the probe intentionally verifies FLORES+ before model acquisition and before LMT inference. Therefore:
+
+```text
+LMT output generated       NO
+LMT model compatibility    NOT TESTED YET
+CUDA/BF16 compatibility    NOT TESTED YET
+production modified        NO
+benchmark changed          NO
+```
+
+Do not bypass this gate by copying FLORES+ from an unverified mirror or by changing the benchmark after the fact. Access must be requested/accepted from the official gated dataset using the same Hugging Face account represented by the local token. If the dataset uses manual approval, wait until access is accepted before rerunning.
 
 ## Phase 2 Dev-Only Tooling
 
@@ -88,14 +113,16 @@ UserData/CacheData/TranslationQuality/Phase2/
 └─ phase2_lmt_compatibility_report.json
 ```
 
-The PowerShell entrypoint:
+The PowerShell wrapper now parses a failed JSON report and surfaces a concise root cause. In particular, `GatedRepoError` is reported as a gated-dataset access prerequisite rather than a generic compatibility failure.
+
+The probe itself still:
 
 1. requires the `Local` branch;
-2. creates an isolated Python 3.12 environment;
-3. installs `torch==2.11.0` from the CUDA 12.6 index and `transformers==4.51.3` only inside that environment;
-4. requires Hugging Face authentication and accepted FLORES+ terms;
-5. verifies the exact pinned FLORES+ revision/version/count/alignment before any LMT inference;
-6. downloads the exact LMT revision into evaluation cache, never RuntimeAssets;
+2. creates/reuses an isolated Python 3.12 environment;
+3. uses `torch==2.11.0` from CUDA 12.6 and `transformers==4.51.3` only inside that environment;
+4. requires Hugging Face authentication and granted FLORES+ access;
+5. verifies exact FLORES+ revision/version/count/alignment before any LMT inference;
+6. downloads exact LMT revision into evaluation cache, never RuntimeAssets;
 7. loads LMT with CUDA + BF16 + explicit native SDPA;
 8. runs `use_cache=True` with DynamicCache, beam 5, deterministic generation;
 9. verifies official prompt/chat-template rendering, prompt-aware context rejection, continuation-only decoding, and EOS completion;
@@ -107,19 +134,15 @@ This is compatibility proof only. A successful report does **not** authorize pro
 
 ## Target-Windows Command
 
-Run from:
+After official FLORES+ access has been granted to the same Hugging Face account used by the local token, fast-forward `Local` and rerun from:
 
 ```text
 D:\Work\AI Stuff\TranslateIT
 ```
 
-with one PowerShell command:
-
 ```powershell
 powershell -NoProfile -ExecutionPolicy Bypass -File .\tools\translation_quality\run_phase2_lmt_compatibility.ps1
 ```
-
-If Hugging Face authentication or FLORES+ access is missing, the script must stop before model inference and print the exact login prerequisite.
 
 Expected evidence:
 
@@ -162,7 +185,8 @@ Phase 0   architecture/model/runtime audit                    DONE
 Phase 1   benchmark creation                                 DONE
 Phase 1R  critical pre-inference benchmark review            DONE
 Phase 2A  compatibility tooling                              DONE
-Phase 2B  target-Windows compatibility run                   NEXT
+Phase 2B  official FLORES+ access prerequisite               BLOCKED
+Phase 2C  target-Windows compatibility run                   NEXT AFTER ACCESS
 Phase 3   sequential M2M100 vs LMT frozen benchmark
 Phase 4   one final Standalone envelope decision
 Phase 5   atomic one-engine M2M100 → LMT production migration
@@ -175,4 +199,4 @@ Installer remains deferred until the canonical runtime stack is stable.
 
 ## Next Step
 
-**PHASE 2B ONLY: run `tools/translation_quality/run_phase2_lmt_compatibility.ps1` once on the target Windows RTX 3070, then review `phase2_lmt_compatibility_report.json`. Do not run the full benchmark and do not change production source/model/dependencies before this compatibility evidence is reviewed.**
+**REQUEST/ACCEPT OFFICIAL FLORES+ ACCESS ONLY: while logged into the same Hugging Face account used by the Phase 2 token, request/accept access to `openlanguagedata/flores_plus`. If approval is manual, wait until granted. Then fast-forward `Local` and rerun `tools/translation_quality/run_phase2_lmt_compatibility.ps1` once. Do not change the benchmark, production translator, model manifest, or dependencies while waiting.**

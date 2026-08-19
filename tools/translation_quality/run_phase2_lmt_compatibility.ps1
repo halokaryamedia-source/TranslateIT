@@ -12,6 +12,7 @@ if ($LASTEXITCODE -ne 0 -or $Branch -ne "Local") {
 $CacheRoot = Join-Path $RepoRoot "UserData\CacheData\TranslationQuality\Phase2"
 $VenvRoot = Join-Path $CacheRoot ".venv"
 $ProbeScript = Join-Path $RepoRoot "tools\translation_quality\phase2_lmt_compatibility.py"
+$ReportPath = Join-Path $CacheRoot "phase2_lmt_compatibility_report.json"
 New-Item -ItemType Directory -Path $CacheRoot -Force | Out-Null
 
 $UsePyLauncher = $false
@@ -70,20 +71,44 @@ Write-Host "[3/4] Verifying Hugging Face access and pinned FLORES+/LMT revisions
 if ($LASTEXITCODE -ne 0) {
     Write-Host ""
     Write-Host "Hugging Face authentication is required before any LMT inference."
-    Write-Host "1. Open the FLORES+ dataset page and accept its access conditions."
+    Write-Host "1. Open the FLORES+ dataset page and accept/request its access conditions."
     Write-Host "2. Run this command once:"
     Write-Host ('   & "{0}" -c "from huggingface_hub import login; login()"' -f $VenvPython)
-    Write-Host "3. Re-run this PowerShell script."
+    Write-Host "3. Re-run this PowerShell script after access is granted."
     throw "Stopped before model inference because no Hugging Face token is available."
 }
 
 Write-Host "[4/4] Running isolated LMT CUDA/BF16 compatibility proof..."
 & $VenvPython $ProbeScript $CacheRoot
 if ($LASTEXITCODE -ne 0) {
-    throw "Phase 2 compatibility proof failed. Review the JSON report printed above. Production was not modified."
+    if (Test-Path $ReportPath) {
+        try {
+            $Report = Get-Content $ReportPath -Raw | ConvertFrom-Json
+            if ($null -ne $Report.error) {
+                Write-Host ""
+                Write-Host "=== PHASE 2 ROOT CAUSE ==="
+                Write-Host ("Type: {0}" -f $Report.error.type)
+                Write-Host ("Message: {0}" -f $Report.error.message)
+
+                if ($Report.error.type -eq "GatedRepoError" -or $Report.error.message -match "gated repo|authorized list|ask for access") {
+                    Write-Host ""
+                    Write-Host "FLORES+ access has not been granted to the Hugging Face account used by this token."
+                    Write-Host "Request/accept access in a browser while signed in to the SAME Hugging Face account, then wait for approval if required."
+                    Write-Host "After access is granted, re-run this same Phase 2 command."
+                    throw "Phase 2 stopped before LMT inference because FLORES+ gated-dataset access is not granted. Production was not modified."
+                }
+            }
+        } catch {
+            if ($_.Exception.Message -like "Phase 2 stopped before LMT inference because FLORES+*") {
+                throw
+            }
+            Write-Host "Could not parse the Phase 2 report for a concise root cause; the report remains available at $ReportPath."
+        }
+    }
+    throw "Phase 2 compatibility proof failed. Review $ReportPath. Production was not modified."
 }
 
 Write-Host ""
 Write-Host "Phase 2 compatibility proof completed."
-Write-Host ("Report: {0}" -f (Join-Path $CacheRoot "phase2_lmt_compatibility_report.json"))
+Write-Host ("Report: {0}" -f $ReportPath)
 Write-Host "Do not run the full benchmark yet; return the Phase 2 report for review."
