@@ -2,7 +2,7 @@
 
 ## Current Status
 
-`MILMMT-46 v1.0 ONLY / 24-CASE 1B-vs-4B QUALITY RUN COMPLETE / CLEAN RTX 3070 PERFORMANCE+VRAM RERUN COMPLETE / ORIGINAL ~3.5 GB GPU-CONTAMINATED TIMINGS RETIRED / 1B REALTIME FIT LEADS / PRODUCTION UNCHANGED`
+`MILMMT-46-1B-v1.0 BF16 SELECTED / 4B RETIRED TO COMPARISON EVIDENCE / CLEAN RTX 3070 PERFORMANCE AUTHORITY / SAME-MODEL LATENCY OPTIMIZATION MAY PROCEED ONLY WITH QUALITY EQUIVALENCE / PRODUCTION UNCHANGED`
 
 Authority:
 
@@ -11,43 +11,32 @@ Local      → current development authority
 Target PC  → Windows / NVIDIA GeForce RTX 3070 8 GB / CUDA
 ```
 
-## Active Scenarios
+## Selected Translator
 
-Only these two were evaluated:
+The user selected:
 
 ```text
-Scenario A
 MiLMMT-46-1B-v1.0
+revision 4fc480b6c58dec29c159dcdf9fde0f6d5c354995
 BF16
-
-Scenario B
-MiLMMT-46-4B-v1.0
-bitsandbytes LLM.int8
-BF16 non-quantized compute
+CUDA
+original official Xiaomi translation prompt
+fully deterministic generation
 ```
 
-M2M100 and TranslateGemma are not part of this decision.
+MiLMMT-46-4B-v1.0 is no longer an active migration candidate. Preserve its quality/performance report only as comparison evidence. Do not introduce another translator automatically.
 
 ## Quality Evidence
 
-The representative 24-case run completed all cases for both MiLMMT models with no runtime failures. Preserve that run as the aggregate semantic/factual/naturalness review source.
+The 24-case representative Meeting/Text run remains the aggregate semantic/factual/naturalness review source. MiLMMT-1B completed all 24 cases. The selected model is not perfect, but it is the approved model choice for the realtime product boundary.
 
-Observed aggregate automatic metrics favored 4B, and human review found multiple cases where 4B wording/semantic fidelity was better. The quality run also showed that neither model is perfect; model size does not eliminate all semantic errors.
+Any latency optimization must keep the same MiLMMT-1B checkpoint, BF16 weights/compute, official translation prompt, deterministic decoding intent, and translation semantics. Do not use quantization, smaller replacement models, phrase-specific repair, alternate output rewriting, or a model router merely to reduce latency.
 
-Do not rerun the 24-case quality suite unless the model/runtime behavior materially changes.
+## Clean Performance Authority
 
-## Clean Performance / VRAM Evidence
+The clean RTX 3070 rerun started near 848 MiB whole-device VRAM / 6% GPU utilization and returned to idle after unload.
 
-The clean rerun started at an idle GPU baseline of approximately:
-
-```text
-848 MiB whole-device VRAM
-6% GPU utilization
-```
-
-and returned to approximately 813–847 MiB after unload, so this run supersedes the earlier GPU-contaminated performance evidence.
-
-### MiLMMT-46-1B-v1.0 BF16
+Selected MiLMMT-1B BF16 measured:
 
 ```text
 cold load                 2271 ms
@@ -57,48 +46,39 @@ wall p50                  689 ms
 wall p90                  1139 ms
 wall mean                 791 ms
 wall max                  1157 ms
+inference p50             654 ms
+inference p90             1097 ms
 18/18 samples successful
 deterministic outputs     yes
 ```
 
-### MiLMMT-46-4B-v1.0 INT8
+The approximately 35 ms median gap between wall time and measured inference shows that benchmark/runtime instrumentation contributes some avoidable non-model overhead, but most remaining latency is generation compute.
+
+## Same-Quality Latency Optimization Boundary
+
+Before production migration, one bounded execution-only optimization pass may compare the selected baseline against low-risk same-model runtime changes. Order of interest:
 
 ```text
-cold load                 11825 ms
-framework allocated       ~4826 MiB
-whole-device after load   ~5905 MiB
-wall p50                  4516 ms
-wall p90                  7036 ms
-wall mean                 4896 ms
-wall max                  7153 ms
-18/18 samples successful
-deterministic outputs     yes
+1. remove benchmark-only per-request synchronization / nvidia-smi diagnostics from the eventual production hot path
+2. verify the active attention backend; retain/explicitly request PyTorch SDPA if already equivalent
+3. evaluate Static KV Cache + torch.compile(reduce-overhead) on the persistent CUDA runtime
+4. use a stable bounded generation/cache shape only if required to avoid recompilation
 ```
 
-On the same clean GPU, 4B remains approximately 6.2x slower than 1B at p50/p90/mean for the measured translation stage and consumes roughly 2.5x the framework model memory.
-
-## Decision Boundary
-
-For TranslateIT realtime use, the clean result materially strengthens MiLMMT-1B as the practical production candidate:
+Quality protection for every optimization candidate:
 
 ```text
-1B
-→ sub-second median translation stage
-→ ~1.14 s p90
-→ ~1.9 GiB framework model allocation
-→ substantial RTX 3070 headroom for the remaining local AI pipeline
-
-4B
-→ aggregate translation quality is better
-→ but ~4.5 s median / ~7.0 s p90 for translation alone
-→ ~4.8 GiB framework allocation
-→ substantially less RTX 3070 headroom
+same pinned MiLMMT-1B checkpoint
+same BF16 precision
+same official prompt
+same source text and direction
+no output post-processing
+all 24 representative translations must remain semantically equivalent
+prefer exact output equality; any changed output requires full semantic review before acceptance
 ```
 
-Do not call 4B unusable from the contaminated first run; the clean run proves it is much faster than first observed. However, under the tested INT8 runtime it still does not fit the intended realtime latency envelope as well as 1B.
-
-No new translation model should be introduced automatically. Production is still unchanged until the selected MiLMMT candidate receives the next integration/end-to-end proof.
+Do not adopt FlashAttention packages, vLLM, TensorRT, CTranslate2, FP16, INT8/INT4, speculative second models, or a new backend merely because it may benchmark faster. Those are outside the first optimization pass and need separate evidence if ever justified.
 
 ## Next Step
 
-**Use MiLMMT-46-1B-v1.0 BF16 as the production migration candidate and prepare one bounded end-to-end local proof through the existing TranslateIT AI pipeline. Preserve MiLMMT-4B as comparison evidence only; do not download another translator or rerun the 24-case suite.**
+**Prepare one isolated same-model latency optimization benchmark for MiLMMT-46-1B-v1.0 BF16, starting with production-hot-path instrumentation removal and Static KV Cache + `torch.compile(mode="reduce-overhead")`. Compare against the clean 689 ms p50 / 1139 ms p90 baseline and require unchanged translation quality before any runtime change is adopted. Production remains unchanged until that proof passes.**
