@@ -2,7 +2,7 @@
 
 ## Current Status
 
-`TRANSLATION BENCHMARK CRITICAL REVIEW COMPLETE / FINAL PRE-INFERENCE LOCK / PHASE 2 ISOLATED LMT COMPATIBILITY NEXT / NO LMT OUTPUT GENERATED YET / NO PRODUCTION SWITCH / INSTALLER DEFERRED`
+`PHASE 2 TOOLING READY / TARGET-WINDOWS LMT COMPATIBILITY RUN REQUIRED / FROZEN BENCHMARK UNCHANGED / NO LMT OUTPUT GENERATED YET / NO PRODUCTION SWITCH / INSTALLER DEFERRED`
 
 Authority:
 
@@ -12,258 +12,167 @@ Developing → historical/recovery only
 Target PC  → Windows / RTX 3070 8 GB / CUDA
 ```
 
-Do **not** modify the production translator, production `model_manifest.json`, production `uv.lock`, Meeting/VoiceLab behavior, or installer during the next step.
+Do **not** modify the production translator, production `model_manifest.json`, production `uv.lock`, Meeting/VoiceLab behavior, or installer during Phase 2.
 
-Durable decisions remain D-025, D-026, and D-027 in `docs/knowledge/decision-log.md`.
+Durable decisions remain D-025, D-026, and D-027.
 
-## Final Translation Direction
+## Canonical Translation Target
 
-Normal product operation must have exactly one canonical translation model and one runtime configuration:
-
-```text
-Standalone Text           ID ↔ EN
-Meeting outbound          ID → EN
-Optional Meeting incoming EN → ID
-            │
-            └──── ONE NiuTrans/LMT-60-1.7B translator
-```
-
-Approved candidate:
+If accepted, TranslateIT uses exactly one translator/runtime:
 
 ```text
-repo       NiuTrans/LMT-60-1.7B
-revision   2ff175e2a450d2f2458b33234bfb74953468b3a2
-license    Apache-2.0
-family     Qwen3 causal LM, translation-specialized
-weights    ~4.06 GB BF16
-```
-
-Single approved runtime configuration:
-
-```text
-PyTorch / compatible Transformers 4.x
-CUDA on RTX 3070
-BF16
+NiuTrans/LMT-60-1.7B
+revision 2ff175e2a450d2f2458b33234bfb74953468b3a2
+PyTorch / Transformers 4.x
+CUDA / BF16
 AutoModelForCausalLM
-upstream LMT translation prompt + chat template
+official LMT translation prompt + chat template
 num_beams=5
 do_sample=False
 use_cache=True / DynamicCache
 native PyTorch SDPA
-resident model after preload
-model.eval()
-torch.inference_mode()
+resident model
+model.eval() + torch.inference_mode()
 ```
 
-No CTranslate2 translation profile, FlashAttention2 dependency, `torch.compile`, static full-context cache, FP16/INT8/INT4 alternate profile, beam-reduced mode, speculative decoding, second translator, or user-facing translation mode is approved. If the single configuration fails quality, latency, or stable VRAM, STOP and reassess rather than adding profiles.
+The same canonical translator serves Standalone Text ID↔EN, Meeting outbound ID→EN, and optional incoming EN→ID. No CTranslate2 translation profile, FlashAttention2 dependency, `torch.compile`, static cache, FP16/INT8/INT4 alternate profile, beam-reduced mode, speculative decoding, second translator, or user-facing quality/speed mode is approved.
 
-M2M100 remains only the current pre-migration baseline and sequential benchmark reference. If LMT is accepted, M2M100 is retired from the production manifest/runtime/release path rather than retained as fallback.
+M2M100 remains only the pre-migration baseline. If LMT is accepted, M2M100 is retired rather than retained as fallback.
 
-## Current Blocking Evidence
-
-M2M100 target acceptance remains:
-
-```text
-STEP 1    application / worker startup              PASS
-STEP 2A   ID → EN representative Text               PASS correctness / quality findings
-STEP 2B   EN → ID representative Text               PASS correctness / quality findings
-STEP 2C-A long multi-paragraph ID → EN              PASS correctness / quality findings
-STEP 2C-B long multi-paragraph EN → ID              FAIL semantic correctness
-```
-
-Known critical example:
-
-```text
-must not
-→ tidak harus
-```
-
-This weakens prohibition into lack of obligation.
-
-## Final Frozen Benchmark
-
-Canonical artifacts:
+## Frozen Benchmark — Do Not Edit After First LMT Output
 
 ```text
 tools/translation_quality/benchmark_cases.json
-Git blob: e33753f2106ea2287bce24052ccd97a08af61236
+Git blob e33753f2106ea2287bce24052ccd97a08af61236
 
 tools/translation_quality/benchmark_contract.json
-Git blob: 1b49065ad58b041187b6d69aaa575ecd4d941c7b
+Git blob 1b49065ad58b041187b6d69aaa575ecd4d941c7b
 ```
 
-The critical review and all corrections were completed **before any LMT inference/output was generated**. From the first LMT output onward these stress/holdout sources, references, semantic requirements, counts, and promotion rules are immutable. Any later material benchmark change invalidates the comparison and requires a new contract version plus new unseen holdout material.
+The 72 stress + 48 sealed-holdout directional cases and promotion rules were critically reviewed and frozen before any LMT output. Any material benchmark change after the first LMT output invalidates the comparison and requires a new contract version plus new unseen holdout material.
 
-Final product evaluation:
+## Phase 2 Exact External Pins
+
+FLORES+ is supporting external evidence only, not the sealed holdout.
 
 ```text
-historical regression        7 directional cases
-
-semantic stress             36 bilingual pairs
-                            = 72 directional cases
-
-sealed holdout              24 distinct bilingual pairs
-                            = 48 directional cases
-
-product semantic total      = 120 directional cases
+dataset   openlanguagedata/flores_plus
+version   4.6
+revision  5fec6c13f9e5a4db2f745d4ec0d7c9721ddc4f06
+split     devtest
+files     devtest/eng_Latn.jsonl
+          devtest/ind_Latn.jsonl
+rows      1012 each
+license   CC-BY-SA-4.0
+access    gated; terms must be accepted before Phase 2
 ```
 
-Every semantic category has:
+The Phase 2 probe must verify the pinned README still declares 4.6, both files contain 1012 records, and alignment IDs match **before model inference begins**.
+
+## Phase 2 Dev-Only Tooling
 
 ```text
-3 stress pairs
-2 separate holdout pairs
-both directions evaluated
+tools/translation_quality/run_phase2_lmt_compatibility.ps1
+tools/translation_quality/phase2_lmt_compatibility.py
 ```
 
-Categories:
+These files are evaluation tooling only. They must not be packaged as the production translation path.
+
+Local evaluation state is isolated under:
 
 ```text
-negation / modality
-conditionals
-cause / contrast / logical scope
-tense / aspect
-quantifiers
-comparison / ordering
-pronoun / demonstrative / reference
-active / passive roles
-questions / commands
-coordination / multi-clause meaning
-conversational / technical code-switching
-cross-sentence discourse
+UserData/CacheData/TranslationQuality/Phase2/
+├─ .venv/
+├─ flores_plus/
+├─ lmt_model/
+└─ phase2_lmt_compatibility_report.json
 ```
 
-## Critical Review Findings Already Corrected
+The PowerShell entrypoint:
 
-The pre-inference review found and fixed material benchmark defects rather than accepting the first draft:
+1. requires the `Local` branch;
+2. creates an isolated Python 3.12 environment;
+3. installs `torch==2.11.0` from the CUDA 12.6 index and `transformers==4.51.3` only inside that environment;
+4. requires Hugging Face authentication and accepted FLORES+ terms;
+5. verifies the exact pinned FLORES+ revision/version/count/alignment before any LMT inference;
+6. downloads the exact LMT revision into evaluation cache, never RuntimeAssets;
+7. loads LMT with CUDA + BF16 + explicit native SDPA;
+8. runs `use_cache=True` with DynamicCache, beam 5, deterministic generation;
+9. verifies official prompt/chat-template rendering, prompt-aware context rejection, continuation-only decoding, and EOS completion;
+10. performs one unmeasured warmup and one measured compatibility translation in each direction;
+11. records cold load, measured warm translation latency, framework/whole-device VRAM, environment versions, and translated probe text;
+12. writes one JSON report and stops before the full benchmark.
 
-1. **Holdout modality diversity** — a holdout prohibition that still used the already-known `must not` surface form was replaced by `is prohibited from` / `dilarang`, reducing the chance that a phrase-specific correction could masquerade as general quality.
-2. **Ambiguous coreference** — ambiguous `it` holdout cases were replaced with references whose antecedents are semantically explicit enough to score reliably.
-3. **Reference modal strength** — references that strengthened English `should` into Indonesian `harus`, or weakened it into permission, were corrected to preserve modality.
-4. **Reference role leakage** — an Indonesian reference that added a possessive relation between manager/assistant was corrected.
-5. **Natural conversational reference** — one holdout code-switch reference was normalized to natural Indonesian without changing its required meaning.
-6. **Regression severity consistency** — date corruption is classified as critical when it materially changes a protected fact.
-7. **Holdout isolation from performance tuning** — translation latency cases now use stress/dedicated inputs only; sealed holdout is not used to choose/tune runtime behavior.
-8. **Metric authority corrected** — chrF++/BLEU/COMET remain supporting evidence. A statistically supported external-score regression triggers review but does not automatically overrule semantic holdout judgment.
-9. **Reproducible case identity** — directional case-ID format and the exact benchmark case Git blob are now part of the contract.
-10. **Review scope fixed** — semantic review covers all 120 product directional cases; blind naturalness uses all 48 sealed-holdout directional cases after semantic safety passes.
+This is compatibility proof only. A successful report does **not** authorize production migration or prove general translation quality.
 
-Stress↔holdout exact pair overlap was reviewed and is disallowed by contract. The final holdout remains lexical/context material distinct from the 36 stress pairs.
+## Target-Windows Command
 
-## External Reference / Metric Validation
-
-FLORES+ remains a supporting standardized pillar, not the sealed acceptance set:
+Run from:
 
 ```text
-dataset     openlanguagedata/flores_plus
-version     4.6
-configs     eng_Latn / ind_Latn
-split       devtest
-rows        1012 per language
-license     CC-BY-SA-4.0
-access      gated to protect evaluation integrity
+D:\Work\AI Stuff\TranslateIT
 ```
 
-Do not commit FLORES+ sentence text. Before the first model inference, resolve and record the exact accepted Hugging Face dataset commit SHA and verify both configs expose 1012 aligned devtest rows.
+with one PowerShell command:
 
-External metrics are fixed as:
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File .\tools\translation_quality\run_phase2_lmt_compatibility.ps1
+```
+
+If Hugging Face authentication or FLORES+ access is missing, the script must stop before model inference and print the exact login prerequisite.
+
+Expected evidence:
 
 ```text
-SacreBLEU 2.6.0
-- chrF++ / word_order=2 / mixed case / signature required
-- BLEU / 13a / mixed case / signature required
-- paired bootstrap: 1000 resamples, fixed seed 12345
-
-unbabel-comet 2.2.7
-- Unbabel/wmt22-comet-da
-- revision 2760a223ac957f30acfb18c8aa649b01cf1d75f2
-- supplementary/non-blocking
+UserData/CacheData/TranslationQuality/Phase2/phase2_lmt_compatibility_report.json
 ```
 
-Human semantic severity remains the primary product correctness gate:
+Do not run the full 120-case benchmark until this report has been reviewed.
+
+## Phase 2 Acceptance
+
+Compatibility passes only if the report proves all of the following on the target PC:
 
 ```text
-CRITICAL  meaning reversal/weakening, key clause omission/invention,
-          critical fact corruption, incomplete output promoted,
-          instruction-like source followed instead of translated
-
-MAJOR     interpretation-changing reference/quantifier/tense/scope/role error
-
-MINOR     awkward but understandable grammar/register/style
+exact FLORES+ 4.6 revision verified before inference
+eng_Latn / ind_Latn devtest = 1012 aligned rows
+exact LMT revision acquired outside RuntimeAssets
+Python 3.12
+Transformers 4.51.3
+CUDA available
+BF16 supported
+loaded model dtype = BF16
+loaded attention implementation = SDPA
+DynamicCache generation succeeds with beam 5
+official prompt/chat template renders
+prompt-aware context limit rejects oversized input before generation
+generated continuation is sliced from prompt
+continuation ends with known EOS
+non-empty translation succeeds ID→EN and EN→ID
+cold load / warm latency / VRAM evidence recorded
+production_modified = false
 ```
 
-Promotion requires:
-
-```text
-sealed holdout CRITICAL = 0
-no incomplete output promoted
-LMT major-or-worse count <= M2M100 in each direction
-LMT combined major-or-worse strictly lower unless both are zero
-no category with an LMT critical error
-blind holdout naturalness does not lose majority in either direction
-```
-
-## Frozen Performance Procedure
-
-Compare only:
-
-```text
-current M2M100 baseline
-vs
-single approved LMT runtime
-```
-
-Sequential fresh processes only.
-
-For translation-only timing:
-
-```text
-short / medium / long stress cases
-5 warmups per case
-30 measured warm runs per case
-CUDA synchronize immediately before/after measured inference
-report p50 / p90 / max
-report source/prompt/generated tokens
-record whole-device VRAM before load / steady / peak
-reset framework peak-memory stats per block
-repeat cycles to detect unstable growth
-```
-
-A separate dedicated multi-paragraph case measures Standalone Text behavior.
-
-Translation-only latency is **not** Meeting release latency. After canonical migration, combined ASR + SAME LMT + approved My Voice must be measured from finalized utterance end to first translated audio playback.
+If any item fails: STOP and diagnose. Do not introduce a second runtime profile automatically.
 
 ## Execution Sequence
 
 ```text
-Phase 0  architecture/model/runtime audit                    DONE
-Phase 1  benchmark creation                                 DONE
-Phase 1R critical pre-inference benchmark review            DONE
-Phase 2  isolated single-config LMT compatibility proof     NEXT
-Phase 3  sequential M2M100 vs LMT frozen benchmark
-Phase 4  one final Standalone envelope decision
-Phase 5  atomic one-engine M2M100 → LMT production migration
-Phase 6  target Windows Text 2A / 2B / 2C acceptance
-Phase 7  combined ASR + SAME LMT + My Voice proof
-Phase 8  resume Mic / VoiceLab / Meeting acceptance
+Phase 0   architecture/model/runtime audit                    DONE
+Phase 1   benchmark creation                                 DONE
+Phase 1R  critical pre-inference benchmark review            DONE
+Phase 2A  compatibility tooling                              DONE
+Phase 2B  target-Windows compatibility run                   NEXT
+Phase 3   sequential M2M100 vs LMT frozen benchmark
+Phase 4   one final Standalone envelope decision
+Phase 5   atomic one-engine M2M100 → LMT production migration
+Phase 6   target Windows Text 2A / 2B / 2C acceptance
+Phase 7   combined ASR + SAME LMT + My Voice proof
+Phase 8   resume Mic / VoiceLab / Meeting acceptance
 ```
 
 Installer remains deferred until the canonical runtime stack is stable.
 
-## Stop Conditions
-
-Stop and return to diagnosis if:
-
-```text
-FLORES+ exact accepted revision/config/alignment cannot be verified
-pinned LMT cannot load in an isolated compatible Transformers 4.x environment
-single LMT configuration cannot run correctly on target CUDA/BF16
-prompt/context accounting or continuation/EOS completion cannot be proven
-LMT produces a sealed critical semantic error
-single LMT runtime is impractically slow or unstable/OOM on target RTX 3070
-a proposed fix requires phrase-specific rewriting, a second translator, or alternate production profile
-```
-
 ## Next Step
 
-**PHASE 2 ONLY: on the target Windows PC, resolve/pin the exact accepted FLORES+ 4.6 snapshot first, then acquire `NiuTrans/LMT-60-1.7B@2ff175e2a450d2f2458b33234bfb74953468b3a2` into an evaluation cache (not RuntimeAssets), create an isolated compatible Transformers 4.x evaluation environment, and prove the one approved CUDA/BF16/DynamicCache/SDPA inference contract: tokenizer/chat prompt, prompt-aware context accounting, continuation-only decode, EOS/completion handling, cold load, first warm latency, and VRAM. Do not change production manifest, worker, or lockfile. Stop after this compatibility proof and record the evidence before running the full benchmark.**
+**PHASE 2B ONLY: run `tools/translation_quality/run_phase2_lmt_compatibility.ps1` once on the target Windows RTX 3070, then review `phase2_lmt_compatibility_report.json`. Do not run the full benchmark and do not change production source/model/dependencies before this compatibility evidence is reviewed.**
