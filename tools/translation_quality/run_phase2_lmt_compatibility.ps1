@@ -13,6 +13,7 @@ $CacheRoot = Join-Path $RepoRoot "UserData\CacheData\TranslationQuality\Phase2"
 $VenvRoot = Join-Path $CacheRoot ".venv"
 $ProbeScript = Join-Path $RepoRoot "tools\translation_quality\phase2_lmt_compatibility.py"
 $ReportPath = Join-Path $CacheRoot "phase2_lmt_compatibility_report.json"
+$FloresUrl = "https://huggingface.co/datasets/openlanguagedata/flores_plus"
 New-Item -ItemType Directory -Path $CacheRoot -Force | Out-Null
 
 $UsePyLauncher = $false
@@ -66,43 +67,76 @@ if (-not (Test-Path $DependencyStamp)) {
     Write-Host "[2/4] Reusing verified isolated Phase 2 environment."
 }
 
-Write-Host "[3/4] Verifying Hugging Face access and pinned FLORES+/LMT revisions..."
+Write-Host "[3/4] Checking Hugging Face account..."
 & $VenvPython -c "from huggingface_hub import get_token; import sys; sys.exit(0 if get_token() else 3)" | Out-Null
 if ($LASTEXITCODE -ne 0) {
     Write-Host ""
-    Write-Host "Hugging Face authentication is required before any LMT inference."
-    Write-Host "1. Open the FLORES+ dataset page and accept/request its access conditions."
-    Write-Host "2. Run this command once:"
-    Write-Host ('   & "{0}" -c "from huggingface_hub import login; login()"' -f $VenvPython)
-    Write-Host "3. Re-run this PowerShell script after access is granted."
-    throw "Stopped before model inference because no Hugging Face token is available."
+    Write-Host "Hugging Face is not connected on this PC yet."
+    Write-Host "Tell ChatGPT this exact message and it will guide the one-time connection step."
+    throw "Stopped before model inference because no Hugging Face account token is available."
+}
+
+function Read-Phase2Report {
+    if (-not (Test-Path $ReportPath)) { return $null }
+    try {
+        return (Get-Content $ReportPath -Raw | ConvertFrom-Json)
+    } catch {
+        return $null
+    }
+}
+
+function Test-FloresAccessBlocker($Report) {
+    if ($null -eq $Report -or $null -eq $Report.error) { return $false }
+    return (
+        $Report.error.type -eq "GatedRepoError" -or
+        $Report.error.message -match "gated repo|authorized list|ask for access|restricted"
+    )
 }
 
 Write-Host "[4/4] Running isolated LMT CUDA/BF16 compatibility proof..."
 & $VenvPython $ProbeScript $CacheRoot
-if ($LASTEXITCODE -ne 0) {
-    if (Test-Path $ReportPath) {
-        try {
-            $Report = Get-Content $ReportPath -Raw | ConvertFrom-Json
-            if ($null -ne $Report.error) {
-                Write-Host ""
-                Write-Host "=== PHASE 2 ROOT CAUSE ==="
-                Write-Host ("Type: {0}" -f $Report.error.type)
-                Write-Host ("Message: {0}" -f $Report.error.message)
+$ProbeExitCode = $LASTEXITCODE
 
-                if ($Report.error.type -eq "GatedRepoError" -or $Report.error.message -match "gated repo|authorized list|ask for access") {
-                    Write-Host ""
-                    Write-Host "FLORES+ access has not been granted to the Hugging Face account used by this token."
-                    Write-Host "Request/accept access in a browser while signed in to the SAME Hugging Face account, then wait for approval if required."
-                    Write-Host "After access is granted, re-run this same Phase 2 command."
-                    throw "Phase 2 stopped before LMT inference because FLORES+ gated-dataset access is not granted. Production was not modified."
-                }
-            }
-        } catch {
-            if ($_.Exception.Message -like "Phase 2 stopped before LMT inference because FLORES+*") {
-                throw
-            }
-            Write-Host "Could not parse the Phase 2 report for a concise root cause; the report remains available at $ReportPath."
+if ($ProbeExitCode -ne 0) {
+    $Report = Read-Phase2Report
+
+    if (Test-FloresAccessBlocker $Report) {
+        Write-Host ""
+        Write-Host "============================================================"
+        Write-Host "FLORES+ ACCESS IS NOT ENABLED YET"
+        Write-Host "============================================================"
+        Write-Host ""
+        Write-Host "No terminal login is needed right now. Your Hugging Face account token already exists."
+        Write-Host "I will open the official FLORES+ page in your browser."
+        Write-Host ""
+        Write-Host "In the browser:"
+        Write-Host "  1. Sign in to Hugging Face if the browser asks."
+        Write-Host "  2. Click 'Agree and send request to access repo' / 'Request access'."
+        Write-Host "  3. Wait until the page says access is granted."
+        Write-Host ""
+        Start-Process $FloresUrl
+        [void](Read-Host "When the page says access is granted, press ENTER here to retry once")
+
+        Write-Host ""
+        Write-Host "Retrying FLORES+ access and Phase 2..."
+        & $VenvPython $ProbeScript $CacheRoot
+        $ProbeExitCode = $LASTEXITCODE
+    }
+}
+
+if ($ProbeExitCode -ne 0) {
+    $Report = Read-Phase2Report
+    if ($null -ne $Report -and $null -ne $Report.error) {
+        Write-Host ""
+        Write-Host "=== PHASE 2 ROOT CAUSE ==="
+        Write-Host ("Type: {0}" -f $Report.error.type)
+        Write-Host ("Message: {0}" -f $Report.error.message)
+
+        if (Test-FloresAccessBlocker $Report) {
+            Write-Host ""
+            Write-Host "FLORES+ access is still not granted."
+            Write-Host "If the request is pending, wait for approval and later run this same command again."
+            throw "Phase 2 is waiting only for official FLORES+ access. Production was not modified."
         }
     }
     throw "Phase 2 compatibility proof failed. Review $ReportPath. Production was not modified."
