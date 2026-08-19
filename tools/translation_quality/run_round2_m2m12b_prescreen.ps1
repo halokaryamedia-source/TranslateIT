@@ -10,14 +10,14 @@ if ($LASTEXITCODE -ne 0 -or $Branch -ne "Local") {
 }
 
 $Round2Root = Join-Path $RepoRoot "UserData\CacheData\TranslationQuality\Round2"
-$ModelDir = Join-Path $Round2Root "small100_model"
-$ReportPath = Join-Path $Round2Root "small100_prescreen_report.json"
-$Runner = Join-Path $RepoRoot "tools\translation_quality\round2_small100_prescreen.py"
+$ModelDir = Join-Path $Round2Root "m2m100_1_2b_model"
+$ReportPath = Join-Path $Round2Root "m2m12b_prescreen_report.json"
+$Runner = Join-Path $RepoRoot "tools\translation_quality\round2_m2m12b_prescreen.py"
 New-Item -ItemType Directory -Path $Round2Root -Force | Out-Null
 
 $Phase2Python = Join-Path $RepoRoot "UserData\CacheData\TranslationQuality\Phase2\.venv\Scripts\python.exe"
 if (-not (Test-Path $Phase2Python)) {
-    throw "The already-proven Phase 2 evaluation environment is missing. Do not create another runtime automatically."
+    throw "The existing Phase 2 evaluation environment is missing. Do not create another evaluation environment automatically."
 }
 
 $CandidatePython = $null
@@ -43,31 +43,28 @@ if (-not $CandidatePython) {
 $env:PYTHONIOENCODING = "utf-8"
 $env:PYTHONUTF8 = "1"
 
-Write-Host "[1/3] Verifying the existing canonical Python/CUDA runtime..."
-& $CandidatePython -c "import sys, torch, transformers, sentencepiece; assert sys.version_info[:2] == (3,12); assert torch.cuda.is_available(); assert int(transformers.__version__.split('.')[0]) == 4; print('Python', sys.version.split()[0], '| torch', torch.__version__, '| transformers', transformers.__version__, '| CUDA', torch.version.cuda)"
+Write-Host "[1/3] Verifying canonical Python/CUDA/BF16 runtime..."
+& $CandidatePython -c "import sys, torch, transformers, sentencepiece; assert sys.version_info[:2] == (3,12); assert torch.cuda.is_available(); assert torch.cuda.is_bf16_supported(); assert int(transformers.__version__.split('.')[0]) == 4; print('Python', sys.version.split()[0], '| torch', torch.__version__, '| transformers', transformers.__version__, '| CUDA', torch.version.cuda, '| BF16', torch.cuda.is_bf16_supported())"
 if ($LASTEXITCODE -ne 0) {
-    throw "Canonical Python/CUDA runtime is not ready for the rejection prescreen."
+    throw "Canonical Python/CUDA/BF16 runtime is not ready for the rejection prescreen."
 }
 
-Write-Host "[2/3] Acquiring the exact SMaLL-100 evaluation candidate (one-time, outside RuntimeAssets)..."
+Write-Host "[2/3] Acquiring exact M2M100-1.2B candidate outside RuntimeAssets..."
 $DownloadCode = @'
 from huggingface_hub import snapshot_download
 import sys
 
-repo_id = "alirezamsh/small100"
-revision = "8ab680e26a596d2e3d2d2d17ae0f68df1037328c"
-local_dir = sys.argv[1]
 snapshot_download(
-    repo_id=repo_id,
-    revision=revision,
-    local_dir=local_dir,
+    repo_id="facebook/m2m100_1.2B",
+    revision="7b36184180524c1a1bbfa37f120a608046250b98",
+    local_dir=sys.argv[1],
     allow_patterns=[
         "README.md",
         "config.json",
-        "model.safetensors",
+        "generation_config.json",
+        "pytorch_model.bin",
         "sentencepiece.bpe.model",
         "special_tokens_map.json",
-        "tokenization_small100.py",
         "tokenizer_config.json",
         "vocab.json",
     ],
@@ -75,21 +72,22 @@ snapshot_download(
 '@
 & $Phase2Python -c $DownloadCode $ModelDir
 if ($LASTEXITCODE -ne 0) {
-    throw "SMaLL-100 acquisition failed. Production was not modified."
+    throw "M2M100-1.2B acquisition failed. Production was not modified."
 }
 
-$Weights = Join-Path $ModelDir "model.safetensors"
+$Weights = Join-Path $ModelDir "pytorch_model.bin"
 if (-not (Test-Path $Weights)) {
-    throw "SMaLL-100 safetensors weights are missing after acquisition."
+    throw "M2M100-1.2B weights are missing after acquisition."
 }
-$ExpectedSha = "dd3b845a36ea4ed90437fd0b9b477e30c21f144d3658679fd5c945e3c96b0fbc"
+$ExpectedSha = "a58ef8f42362ef12adeddc600b3425f1e2bbd019cfa6aae6b0051e2e3e055cd4"
 $ObservedSha = (Get-FileHash -Algorithm SHA256 $Weights).Hash.ToLowerInvariant()
 if ($ObservedSha -ne $ExpectedSha) {
-    throw "SMaLL-100 weights SHA256 mismatch. Expected $ExpectedSha but got $ObservedSha."
+    throw "M2M100-1.2B weights SHA256 mismatch. Expected $ExpectedSha but got $ObservedSha."
 }
 
-Write-Host "[3/3] Running ONLY the 32-case kill-fast semantic prescreen..."
-Write-Host "      No FLORES sweep, repeated latency benchmark, M2M100-1.2B download, or production change will run."
+Write-Host "[3/3] Running ONLY the 32-direction kill-fast semantic prescreen..."
+Write-Host "      Runtime: CUDA BF16, beam 5, deterministic generation."
+Write-Host "      No FLORES sweep, repeated benchmark, MADLAD download, or production change will run."
 & $Phase2Python $Runner `
     --repo-root $RepoRoot `
     --round2-root $Round2Root `
@@ -110,19 +108,19 @@ if ($LASTEXITCODE -ne 0) {
             Write-Host "Could not parse the Round 2 report. Report: $ReportPath"
         }
     }
-    throw "Round 2 SMaLL-100 prescreen harness failed. Production was not modified."
+    throw "Round 2 M2M100-1.2B prescreen harness failed. Production was not modified."
 }
 
 $Report = Get-Content $ReportPath -Raw | ConvertFrom-Json
 Write-Host ""
 if ($Report.prescreen_state -eq "REJECTED_AUTOMATIC") {
-    Write-Host "SMaLL-100 was rejected by automatic hard prescreen diagnostics."
+    Write-Host "M2M100-1.2B was rejected by automatic hard prescreen diagnostics."
     Write-Host ("Report: {0}" -f $ReportPath)
-    Write-Host "STOP. Do not download M2M100-1.2B or run the full benchmark yet; return this report for review."
+    Write-Host "STOP. Do not run MADLAD or the full benchmark; return this report for review."
     exit 0
 }
 if ($Report.prescreen_state -eq "AWAITING_MANUAL_SEMANTIC_REVIEW") {
-    Write-Host "SMaLL-100 completed the automatic semantic prescreen."
+    Write-Host "M2M100-1.2B completed the automatic semantic prescreen."
     Write-Host ("Report: {0}" -f $ReportPath)
     Write-Host ("Semantic review pack: {0}" -f $Report.semantic_review_pack)
     Write-Host "STOP. Return the report for manual semantic review before any further model work."
