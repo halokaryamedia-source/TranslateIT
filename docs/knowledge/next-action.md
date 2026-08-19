@@ -2,7 +2,7 @@
 
 ## Current Status
 
-`MILMMT-46 v1.0 ONLY / 24-CASE 1B-vs-4B QUALITY RUN COMPLETE / BOTH 24/24 COMPLETE / CLEAN PERFORMANCE+VRAM RERUN NEXT BECAUSE ORIGINAL TARGET RUN STARTED WITH ~3.5 GB WHOLE-DEVICE VRAM ALREADY IN USE / NO MODEL DOWNLOAD / PRODUCTION UNCHANGED`
+`MILMMT-46 v1.0 ONLY / 24-CASE 1B-vs-4B QUALITY RUN COMPLETE / CLEAN RTX 3070 PERFORMANCE+VRAM RERUN COMPLETE / ORIGINAL ~3.5 GB GPU-CONTAMINATED TIMINGS RETIRED / 1B REALTIME FIT LEADS / PRODUCTION UNCHANGED`
 
 Authority:
 
@@ -13,7 +13,7 @@ Target PC  → Windows / NVIDIA GeForce RTX 3070 8 GB / CUDA
 
 ## Active Scenarios
 
-Only these two remain in scope:
+Only these two were evaluated:
 
 ```text
 Scenario A
@@ -28,60 +28,77 @@ BF16 non-quantized compute
 
 M2M100 and TranslateGemma are not part of this decision.
 
-## Completed Quality Evidence
+## Quality Evidence
 
-The representative 24-case run completed all cases for both MiLMMT models with no runtime failures.
+The representative 24-case run completed all cases for both MiLMMT models with no runtime failures. Preserve that run as the aggregate semantic/factual/naturalness review source.
 
-The aggregate quality evidence remains valid because model generation is deterministic and the user's concern is specifically that other open GPU applications contaminated VRAM/performance measurements, not translation content.
+Observed aggregate automatic metrics favored 4B, and human review found multiple cases where 4B wording/semantic fidelity was better. The quality run also showed that neither model is perfect; model size does not eliminate all semantic errors.
 
-Observed first-run performance evidence must **not** be treated as final hardware proof because whole-device GPU memory before model load was already approximately 3.5 GB for both scenarios. That can materially affect available VRAM and may affect latency under GPU contention.
+Do not rerun the 24-case quality suite unless the model/runtime behavior materially changes.
 
-Do not rerun the full 24-case quality suite merely to correct this hardware evidence.
+## Clean Performance / VRAM Evidence
 
-## Clean Performance Rerun
-
-Owners:
+The clean rerun started at an idle GPU baseline of approximately:
 
 ```text
-tools/translation_quality/milmmt_clean_perf_rerun.py
-tools/translation_quality/run_milmmt_clean_perf_rerun.ps1
+848 MiB whole-device VRAM
+6% GPU utilization
 ```
 
-The rerun:
+and returned to approximately 813–847 MiB after unload, so this run supersedes the earlier GPU-contaminated performance evidence.
+
+### MiLMMT-46-1B-v1.0 BF16
 
 ```text
-uses cached MiLMMT 1B + 4B models only
-runs fully offline
-requires GPU baseline <= 2048 MiB whole-device VRAM and <= 10% utilization
-runs models sequentially so VRAM is released between scenarios
-uses 6 representative utterances across both directions
-runs 2 warmups per model
-runs 3 measured repeats per utterance
-records p50/p90/mean/max wall and inference latency
-records framework + whole-device preload VRAM
-checks repeated deterministic outputs remain identical
+cold load                 2271 ms
+framework allocated       ~1907 MiB
+whole-device after load   ~2930 MiB
+wall p50                  689 ms
+wall p90                  1139 ms
+wall mean                 791 ms
+wall max                  1157 ms
+18/18 samples successful
+deterministic outputs     yes
 ```
 
-It does not download models, rerun the full quality suite, modify production, or add another candidate.
-
-Output:
+### MiLMMT-46-4B-v1.0 INT8
 
 ```text
-UserData/CacheData/TranslationQuality/MiLMMTRealtimeAB/milmmt_clean_perf_rerun_report.json
+cold load                 11825 ms
+framework allocated       ~4826 MiB
+whole-device after load   ~5905 MiB
+wall p50                  4516 ms
+wall p90                  7036 ms
+wall mean                 4896 ms
+wall max                  7153 ms
+18/18 samples successful
+deterministic outputs     yes
 ```
+
+On the same clean GPU, 4B remains approximately 6.2x slower than 1B at p50/p90/mean for the measured translation stage and consumes roughly 2.5x the framework model memory.
 
 ## Decision Boundary
 
-After the clean rerun, combine:
+For TranslateIT realtime use, the clean result materially strengthens MiLMMT-1B as the practical production candidate:
 
 ```text
-existing 24-case aggregate quality review
-+
-clean performance/VRAM rerun
+1B
+→ sub-second median translation stage
+→ ~1.14 s p90
+→ ~1.9 GiB framework model allocation
+→ substantial RTX 3070 headroom for the remaining local AI pipeline
+
+4B
+→ aggregate translation quality is better
+→ but ~4.5 s median / ~7.0 s p90 for translation alone
+→ ~4.8 GiB framework allocation
+→ substantially less RTX 3070 headroom
 ```
 
-Then choose MiLMMT 1B or MiLMMT 4B. Do not choose from the contaminated first-run whole-device VRAM/latency evidence alone.
+Do not call 4B unusable from the contaminated first run; the clean run proves it is much faster than first observed. However, under the tested INT8 runtime it still does not fit the intended realtime latency envelope as well as 1B.
+
+No new translation model should be introduced automatically. Production is still unchanged until the selected MiLMMT candidate receives the next integration/end-to-end proof.
 
 ## Next Step
 
-**Close avoidable GPU-heavy applications, fast-forward `Local`, then run `tools/translation_quality/run_milmmt_clean_perf_rerun.ps1` once. Return/upload `UserData/CacheData/TranslationQuality/MiLMMTRealtimeAB/milmmt_clean_perf_rerun_report.json`. Do not redownload models or rerun the 24-case quality suite.**
+**Use MiLMMT-46-1B-v1.0 BF16 as the production migration candidate and prepare one bounded end-to-end local proof through the existing TranslateIT AI pipeline. Preserve MiLMMT-4B as comparison evidence only; do not download another translator or rerun the 24-case suite.**
