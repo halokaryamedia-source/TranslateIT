@@ -179,18 +179,34 @@ Adopt an optimization only when the improvement is repeatable and materially use
 
 There is no requirement to optimize merely because an optimization exists.
 
-## 5. Planned Next Runtime Owners
+## 5. Current Latency-Optimization Owners
 
-The next implementation task should create only the minimum owner needed for the optimization proof. Planned names:
+The bounded optimization proof is now implemented by:
 
 ```text
 tools/translation_quality/milmmt_1b_latency_optimization.py
 tools/translation_quality/run_milmmt_1b_latency_optimization.ps1
 ```
 
-These are planned names, not current runtime authority until the implementation task actually creates and verifies them.
+The Python owner runs only the selected cached MiLMMT-1B revision in BF16. It compares a production-like baseline against low-risk execution variants, verifies the actual attention backend, and evaluates StaticCache with compilation disabled and with Transformers automatic compile configured for `reduce-overhead` only when that runtime path can execute.
 
-The benchmark should reuse the already downloaded selected 1B checkpoint and exact revision. It must not redownload models unless the cache is genuinely missing/incomplete.
+The benchmark is staged to avoid unnecessary work:
+
+```text
+baseline
+→ prove 24/24 exact equality against existing quality authority
+→ measure 6 representative cases x 3 repeats after warmup
+
+candidate variant
+→ measure representative subset first
+→ require exact subset output equality
+→ require >=5% p50 improvement with <=5% p90 regression
+→ only then spend time on full 24-case exact-equality proof
+```
+
+If the default baseline already reports SDPA, the explicit-SDPA duplicate run is skipped. If StaticCache is unsupported or changes output, the dependent compile path is skipped or marked unsupported rather than forcing a fallback.
+
+The benchmark reuses the already downloaded selected checkpoint and existing quality/performance authority. It runs offline, downloads no model, and does not modify production.
 
 ## 6. Target-PC Testing Standard — Windows + One PowerShell Block
 
@@ -265,9 +281,9 @@ tools/translation_quality/run_milmmt_clean_perf_rerun.ps1
 
 Its result is already authoritative. Do **not** rerun it merely for reassurance. Rerun only when the measured runtime/hardware configuration materially changes or the evidence itself is invalidated.
 
-### 6.5 Next target-PC runner
+### 6.5 Current latency-optimization target-PC runner
 
-After the latency-optimization benchmark is implemented, the intended user flow is one block of this exact shape:
+The latency-optimization runner now exists on `Local`. The user flow is one block of this exact shape:
 
 ```powershell
 Set-Location "D:\Work\AI Stuff\TranslateIT"
@@ -278,7 +294,11 @@ git merge --ff-only origin/Local
 powershell -NoProfile -ExecutionPolicy Bypass -File .\tools\translation_quality\run_milmmt_1b_latency_optimization.ps1
 ```
 
-Do not give this block to the user until that runner actually exists on `Local` and has been source-verified.
+This runner validates the existing MiLMMT evaluation environment, selected cached 1B model, prior quality report, and clean performance report. It enforces the clean-GPU gate, forces Hugging Face/Transformers offline mode, runs the optimization proof, and writes:
+
+```text
+UserData/CacheData/TranslationQuality/MiLMMTRealtimeAB/milmmt_1b_latency_optimization_report.json
+```
 
 ### 6.6 What the user returns after a local run
 
@@ -299,7 +319,7 @@ Prefer the report artifact over large terminal transcripts. Ask for terminal out
 Do not skip ahead. The intended sequence is:
 
 ```text
-1. implement isolated MiLMMT-1B latency benchmark
+1. isolated MiLMMT-1B latency benchmark implemented
 2. run clean target-PC benchmark via one PowerShell block
 3. enforce quality-equivalence gate
 4. choose one fastest safe MiLMMT-1B execution configuration
@@ -334,6 +354,6 @@ selected revision   4fc480b6c58dec29c159dcdf9fde0f6d5c354995
 4B role              comparison evidence only
 production           still unchanged until migration proof
 performance baseline clean 689 ms p50 / 1139 ms p90
-next objective       same-model latency optimization with quality equivalence
+next objective       run the implemented same-model latency optimization on target PC
 operator method      one repository-owned PowerShell block on target Windows PC
 ```

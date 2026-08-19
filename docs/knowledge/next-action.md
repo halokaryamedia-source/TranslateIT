@@ -2,7 +2,7 @@
 
 ## Current Status
 
-`MILMMT-46-1B-v1.0 BF16 SELECTED / 4B COMPARISON ONLY / CLEAN RTX 3070 PERFORMANCE AUTHORITY / SAME-MODEL LATENCY OPTIMIZATION NEXT / ONE-COPY POWERSHELL TARGET-PC WORKFLOW RECORDED / PRODUCTION UNCHANGED`
+`MILMMT-46-1B-v1.0 BF16 SELECTED / 4B COMPARISON ONLY / CLEAN RTX 3070 PERFORMANCE AUTHORITY / SAME-MODEL LATENCY OPTIMIZATION HARNESS READY / ONE-COPY POWERSHELL TARGET-PC RUN NEXT / PRODUCTION UNCHANGED`
 
 Authority:
 
@@ -36,9 +36,9 @@ Production is still unchanged. M2M100 remains the current production translator 
 
 ## Valid Evidence
 
-The 24-case Meeting/Text quality review remains the aggregate translation-quality evidence.
+The 24-case Meeting/Text quality review remains the aggregate translation-quality authority.
 
-The **clean** RTX 3070 performance rerun supersedes the earlier GPU-contaminated timing/whole-device VRAM observations.
+The clean RTX 3070 performance rerun supersedes the earlier GPU-contaminated timing/whole-device VRAM observations.
 
 Selected MiLMMT-1B BF16 clean baseline:
 
@@ -56,11 +56,16 @@ inference p90             1097 ms
 deterministic outputs     yes
 ```
 
-Do not rerun the 24-case quality suite or clean baseline merely for reassurance. Re-run only when the runtime behavior/configuration materially changes or evidence is invalidated.
+Do not rerun the original 1B-vs-4B model selection or clean baseline merely for reassurance.
 
-## Same-Quality Latency Optimization Boundary
+## Latency Optimization Harness
 
-Before production migration, run one bounded execution-only optimization pass on the **same selected model**.
+Implemented owners:
+
+```text
+tools/translation_quality/milmmt_1b_latency_optimization.py
+tools/translation_quality/run_milmmt_1b_latency_optimization.ps1
+```
 
 Fixed quality contract:
 
@@ -70,56 +75,56 @@ same BF16 precision
 same official prompt
 same deterministic translation intent
 no quantization
-no smaller/alternate model
+no alternate model
 no output post-processing
 no fallback/router
 ```
 
-Optimization order:
+The harness runs fully offline against the existing cached 1B model and existing quality/performance evidence. It does not download a model or modify production.
+
+Evaluation order:
 
 ```text
-1. production-like hot path without benchmark-only per-request diagnostics
-2. verify/retain native PyTorch SDPA + normal KV cache behavior
-3. evaluate Static KV Cache + torch.compile(mode="reduce-overhead") only if target Windows/CUDA capability is stable
-4. keep one final runtime configuration; benchmark variants are not product profiles
+1. production-like baseline without per-request nvidia-smi / explicit synchronize instrumentation
+2. verify actual attention backend; skip duplicate explicit-SDPA run if baseline already reports SDPA
+3. StaticCache with compile disabled
+4. StaticCache + Transformers automatic compile configured for reduce-overhead when the cache path is valid
 ```
 
-Quality gate:
+Candidate work is staged:
 
 ```text
-prefer 24/24 exact output equality against selected baseline
-any changed output → manual semantic/factual/naturalness review
-speedup with quality regression → reject optimization
+representative performance subset first
+→ exact subset output equality
+→ >=5% p50 gain and <=5% p90 regression
+→ only then full 24-case exact-output equality
 ```
 
-If no optimization gives a repeatable material gain without extra complexity or quality risk, keep the clean baseline configuration and proceed. Do not block the project indefinitely for micro-optimizations.
+Any unsupported Windows/CUDA compile/cache path is recorded and skipped; do not add another backend to rescue it.
+
+If no candidate proves a material same-quality gain, the production-like MiLMMT-1B BF16 baseline remains the selected execution configuration.
 
 ## Target-PC Execution Rule
 
-All target-PC runs requested from the user should be delivered as **one complete pasteable PowerShell block** using a repository-owned `.ps1` wrapper.
+The next proof must run on the actual target Windows PC with avoidable GPU-heavy applications closed.
 
-Normal shape:
-
-```powershell
-Set-Location "D:\Work\AI Stuff\TranslateIT"
-
-git fetch origin Local
-git merge --ff-only origin/Local
-
-powershell -NoProfile -ExecutionPolicy Bypass -File .\tools\translation_quality\<EXACT_RUNNER>.ps1
-```
-
-The wrapper should own environment checks, CUDA/GPU checks, clean-GPU gating where performance is measured, model/cache validation, execution, and report paths. Do not ask the user to run fragmented shell commands or share tokens/secrets.
-
-For performance proof, preserve the clean-GPU gate unless new evidence changes it:
+Clean-GPU gate:
 
 ```text
 whole-device VRAM <= 2048 MiB
 GPU utilization   <= 10%
 ```
 
-Detailed operator rules and session-recovery instructions are in `docs/knowledge/milmmt-1b-runtime-validation.md`.
+The user receives one complete pasteable PowerShell block. The wrapper owns path checks, cache/evidence validation, offline flags, GPU gate, execution, and report path.
+
+Expected report:
+
+```text
+UserData/CacheData/TranslationQuality/MiLMMTRealtimeAB/milmmt_1b_latency_optimization_report.json
+```
+
+After the report is reviewed, choose one execution configuration. Then migrate MiLMMT-1B into the canonical production translation owner, retire M2M100 from the normal path, and run the bounded end-to-end ASR → MiLMMT-1B → GPT-SoVITS target-PC proof.
 
 ## Next Step
 
-**Implement one isolated MiLMMT-46-1B-v1.0 BF16 latency-optimization benchmark with a repository-owned one-copy PowerShell runner. Compare the production-like baseline against only low-risk same-model execution variants, preserve the clean 689 ms p50 / 1139 ms p90 authority, and require unchanged translation quality before adopting any optimization. Do not migrate production, redownload models, or add another translator before this proof.**
+**Fast-forward `Local`, close avoidable GPU-heavy applications, and run `tools/translation_quality/run_milmmt_1b_latency_optimization.ps1` once on the target PC. Return/upload `UserData/CacheData/TranslationQuality/MiLMMTRealtimeAB/milmmt_1b_latency_optimization_report.json`. Do not migrate production, redownload models, or add another translator before this optimization evidence is reviewed.**
