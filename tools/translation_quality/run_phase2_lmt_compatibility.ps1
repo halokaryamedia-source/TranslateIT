@@ -66,14 +66,13 @@ if (-not (Test-Path $DependencyStamp)) {
 }
 
 Write-Host "[3/4] Verifying Hugging Face access and pinned FLORES+/LMT revisions..."
-$TokenCheck = & $VenvPython -c "from huggingface_hub import get_token; import sys; sys.exit(0 if get_token() else 3)"
+& $VenvPython -c "from huggingface_hub import get_token; import sys; sys.exit(0 if get_token() else 3)" | Out-Null
 if ($LASTEXITCODE -ne 0) {
     Write-Host ""
     Write-Host "Hugging Face authentication is required before any LMT inference."
     Write-Host "1. Open the FLORES+ dataset page and accept its access conditions."
     Write-Host "2. Run this command once:"
-    $HfCli = Join-Path $VenvRoot "Scripts\huggingface-cli.exe"
-    Write-Host ('   & "{0}" login' -f $HfCli)
+    Write-Host ('   & "{0}" -c "from huggingface_hub import login; login()"' -f $VenvPython)
     Write-Host "3. Re-run this PowerShell script."
     throw "Stopped before model inference because no Hugging Face token is available."
 }
